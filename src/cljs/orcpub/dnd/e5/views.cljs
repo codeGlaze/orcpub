@@ -573,7 +573,7 @@
            :route "/generator/magicitemgenerator"}
           {:name "Custom City"
            :route "/generator/customcitygenerator"}
-          {:name "So your looking for"
+          {:name "So you're looking for"
            :route "/generator/resourcegenerator"}
           {:name "Wanted Poster"
            :route "/generator/wantedpostergenerator"}
