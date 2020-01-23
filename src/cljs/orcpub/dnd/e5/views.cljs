@@ -1393,7 +1393,7 @@
          (map-indexed
           (fn [i {:keys [name description]}]
             ^{:key i}
-            [:div.m-t-10 (spell-field name description)])
+            [:div.m-t-10.wsp-prw (spell-field name description)])
           traits))])
      (if actions
        [:div.m-t-20
@@ -1403,7 +1403,7 @@
           (map-indexed
            (fn [i {:keys [name description]}]
              ^{:key i}
-             [:div.m-t-10 (spell-field name description)])
+             [:div.m-t-10.wsp-prw (spell-field name description)])
            actions))]])
      (if legendary-actions
        [:div.m-t-20
