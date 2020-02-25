@@ -330,7 +330,7 @@
           :orcpub.user/send-updates? send-updates?
           :orcpub.user/created (java.util.Date.)}))
       (when (= send-updates? true)
-        (httpclient/post "https://mailtrain.dungeonmastersvault.com/api/subscribe/CWdVjDw4?access_token=a26c9912a3c7520a0b71d9d1fee4d38ce6e0f198"
+        (httpclient/post "https://mailtrain.dungeonmastersvault.com/api/subscribe/iyWL_f8u?access_token=2f801fb4fff9daa161501240e0c809c185f44b07"
                    {:form-params {"EMAIL" email "MERGE_NAME" username "FORCE_SUBSCRIBE" "yes" "REQUIRE_CONFIRMATION" "yes" }}))
       (catch Throwable e (do (prn e) (throw e))))))
 
