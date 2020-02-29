@@ -20,9 +20,10 @@ services:
       - datomic
     restart: always
   datomic:
-    build:
-      context: .
-      dockerfile: docker/datomic/Dockerfile
+    image: akiel/datomic-free
+    #build:
+    #  context: .
+    #  dockerfile: docker/datomic/Dockerfile
     volumes:
       - ./data:/data
       - ./deploy/transactor.properties:/datomic/transactor.properties
