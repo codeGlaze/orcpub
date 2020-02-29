@@ -547,11 +547,14 @@
          [header-tab2
           "generators"
           "elven-castle"
-          route-to-my-encounters-page
+          ""
           false
-          (routes/dnd-e5-my-encounters-routes
-            (or (:handler active-route)
-                active-route))
+          false
+          ;route-to-my-encounters-page
+          ;false
+          ;(routes/dnd-e5-my-encounters-routes
+          ;  (or (:handler active-route)
+          ;      active-route))
           device-type
           {:name "NPC Generator"
            :route "/generator/npcgenerator"}
