@@ -1589,7 +1589,9 @@
     (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965789&asins=0786965789&linkId=a2c9018a5e1260f518fa6b0fd0812350&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
 
 (def staff-pick-link
-  [:a.orange {:href "https://brave.com/dun047" :target "_blank"} "Brave browser"])
+  [:a.orange {:href "https://brave.com/dun047" :target "_blank"} "Download Brave browser"])
+(def op2-link
+  [:a.orange {:href "https://faq.dungeonmastersvault.com/" :target "_blank"} " here"])
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   (let [srd-message-closed? @(subscribe [:srd-message-closed?])
@@ -1637,9 +1639,9 @@
             (if (not frame?)
               [:div.content.bg-lighter.p-10.flex
                [:div.flex-grow-1
-                [:div "Help Support this site!"]
-                [:div.m-t-10 "If you use the new Brave browser for 30 days, they’ll fund our site with a bonus! Here’s the link:"]
-                [:div.b.m-t-10 staff-pick-link " "]]
+                [:div.m-t-10 "If you use the new Brave browser for 30 days, they’ll fund our site with a bonus!"]
+                [:div.m-t-10  staff-pick-link " and use it for 30 days to support us"]
+                [:div.m-t-10 "FAQ about what happened to Orcpub2.com " op2-link ]]
                [:i.fa.fa-times.p-10.pointer
                 {:on-click #(dispatch [:close-srd-message])}]])])]
         [:div#app-main.container
