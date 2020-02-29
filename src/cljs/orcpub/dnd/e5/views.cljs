@@ -1509,8 +1509,6 @@
        [search-results]]]]))
 
 
-(def staff-pick-link
-  [:a.orange {:href "https://watabou.itch.io/medieval-fantasy-city-generator" :target "_blank"} "Medieval City Generator"])
 
 (def srd-link
   [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD"])
@@ -1590,6 +1588,8 @@
 #_(def pota-amazon-frame
     (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965789&asins=0786965789&linkId=a2c9018a5e1260f518fa6b0fd0812350&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
 
+(def staff-pick-link
+  [:a.orange {:href "https://brave.com/dun047" :target "_blank"} "Brave browser"])
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   (let [srd-message-closed? @(subscribe [:srd-message-closed?])
@@ -1630,15 +1630,15 @@
            hdr]]]
         [:div.flex.justify-cont-c.main-text-color
          [:div.content hdr]]
-        #_[:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+        [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
          (if (and (not srd-message-closed?)
                   (not hide-header-message?))
            [:div
             (if (not frame?)
               [:div.content.bg-lighter.p-10.flex
                [:div.flex-grow-1
-                [:div "Staff Pick!"]
-                [:div.m-t-10 "Need a random city? This application generates a random medieval city layout of a requested size. The generation method is rather arbitrary, the goal is to produce a nice looking map, not an accurate model of a city. "]
+                [:div "Help Support this site!"]
+                [:div.m-t-10 "If you use the new Brave browser for 30 days, they’ll fund our site with a bonus! Here’s the link:"]
                 [:div.b.m-t-10 staff-pick-link " "]]
                [:i.fa.fa-times.p-10.pointer
                 {:on-click #(dispatch [:close-srd-message])}]])])]
