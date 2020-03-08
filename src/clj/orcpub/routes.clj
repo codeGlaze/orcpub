@@ -202,16 +202,20 @@
                      errors/bad-credentials
                      errors/no-account)))))
 
-(defn create-login-response [db user & [headers]]
+(defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
-                            (-> 336 hours from-now))]
+                            (-> 336 hours from-now))
+        now (java.util.Date.)]
+    (println id " " now)
+    (do (d/transact conn [{:db/id id
+                           :orcpub.user/last-login now}]))
     {:status 200
      :headers headers
      :body {:user-data (user-body db user)
             :token token}}))
 
 (defn login-response
-  [{:keys [json-params db remote-addr] :as request}]
+  [{:keys [json-params db conn remote-addr] :as request}]
   (let [{raw-username :username raw-password :password} json-params]
     (cond
       (s/blank? raw-username) (login-error errors/username-required)
@@ -228,7 +232,8 @@
                 (nil? id) (bad-credentials-response db username remote-addr)
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
-                :else (create-login-response db user))))))
+                :else
+                (create-login-response db conn user id))))))
 
 (defn login [{:keys [json-params db] :as request}]
   (try
@@ -277,7 +282,8 @@
         validation (registration/validate-registration
                     json-params
                     (seq (d/q email-query db email))
-                    (seq (d/q username-query db username)))]
+                    (seq (d/q username-query db username)))
+        now (java.util.Date.)]
     (try
       (if (seq validation)
         {:status 400
@@ -290,7 +296,8 @@
           :orcpub.user/username username
           :orcpub.user/password (hashers/encrypt password)
           :orcpub.user/send-updates? send-updates?
-          :orcpub.user/created (java.util.Date.)}))
+          :orcpub.user/created now
+          :orcpub.user/last-login now}))
       (when (= send-updates? true)
         (httpclient/post "https://mailtrain.dungeonmastersvault.com/api/subscribe/iyWL_f8u?access_token=2f801fb4fff9daa161501240e0c809c185f44b07"
                    {:form-params {"EMAIL" email "MERGE_NAME" username "FORCE_SUBSCRIBE" "yes" "REQUIRE_CONFIRMATION" "yes" }}))
