@@ -2024,7 +2024,6 @@
       nil?
       [(if character-id [views5e/share-link-email character-id])
        (if character-id [views5e/share-link-www character-id])
-       ;;(if character-id [views5e/character-page-fb-button character-id])
        {:title "Random"
         :icon "random"
         :on-click (confirm-handler

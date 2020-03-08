@@ -146,53 +146,6 @@
       :class-name (if light-theme? " opacity-7")
       :src (str (if light-theme? "/image/black/" "/image/") icon-name ".svg")}]))
 
-(defn facebook-share-button-comp [url]
-  [:div.fb-share-button
-   {:data-layout "button"
-    :data-href url}])
-
-#_(defn on-fb-login [logged-in?]
-  (if (not logged-in?)
-    (do (go (<! (timeout 2000))
-            (if (not @(subscribe [:login-message-shown?]))
-              (dispatch [:show-login-message "You must enable popups to allow Facebook login."])))
-        (if js/FB
-          (.login js/FB events/fb-login-callback (clj->js {:scope "email"}))))))
-
-#_(defn fb-login-button-comp []
-  [:div.flex.justify-cont-s-a
-   [:button.form-button.flex.align-items-c
-    (let [logged-in? @(subscribe [:fb-logged-in?])]
-      {:on-click #(if logged-in?
-                    (dispatch [:fb-logout])
-                    (on-fb-login logged-in?))})
-    [:i.fa.fa-facebook.f-s-18]
-    [:span.m-l-10.f-s-14
-     "Login with Facebook"]]])
-
-(defn dispatch-init-fb []
-  (dispatch [:init-fb]))
-
-(defn add-facebook-init [comp]
-  (with-meta
-    comp
-    {:component-did-mount dispatch-init-fb}))
-
-#_(def facebook-login-button
-  (add-facebook-init
-   fb-login-button-comp))
-
-(def facebook-share-button
-  (add-facebook-init
-    facebook-share-button-comp))
-
-(defn character-page-fb-button [id]
-  [facebook-share-button
-   (str
-    "http://"
-    js/window.location.hostname
-    (routes/path-for routes/dnd-e5-char-page-route :id id))])
-
 (def login-style
   {:color "#f0a100"})
 
@@ -3665,7 +3618,6 @@
           nil?
           [[share-link-email id]
            [share-link-www id]
-           ;;[character-page-fb-button id]
            ;;[:div.m-l-5.hover-shadow.pointer
             ;;{:on-click #(swap! expanded? not)}
             ;;[:img.h-32 {:src "/image/world-anvil.jpeg"}]]
@@ -7551,7 +7503,6 @@
    [:div.flex.justify-cont-end.uppercase.align-items-c
     [share-link-email id]
     [share-link-www id]
-    ;;[:div.m-r-5 [character-page-fb-button id]]
     (if (= username owner)
       [:button.form-button
        {:on-click (make-event-handler :edit-character @(subscribe [::char/character id]))}

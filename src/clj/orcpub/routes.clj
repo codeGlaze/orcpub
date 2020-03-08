@@ -247,44 +247,6 @@
                             (s/lower-case email))]
     user))
 
-
-#_(defn get-or-create-oauth-user [conn db oauth-email]
-  (let [{:keys [:orcpub.user/username] :as user} (user-for-email db oauth-email)]
-    (if username
-      user
-      (let [result @(d/transact
-                     conn
-                     [{:orcpub.user/email oauth-email
-                       :orcpub.user/username oauth-email
-                       :orcpub.user/send-updates? false
-                       :orcpub.user/created (java.util.Date.)
-                       :orcpub.user/verified? true}])]
-        (user-for-email (d/db conn) oauth-email)))))
-
-#_(defn oauth-login [email-fn]
-  (fn [{:keys [conn db] :as request}]
-    (let [fb-email (email-fn request)
-          user (get-or-create-oauth-user conn db fb-email)]
-      (create-login-response db user))))
-
-#_(defn fb-login [{:keys [json-params db conn remote-addr] :as request}]
-  (if-let [access-token (-> json-params :authResponse :accessToken)]
-    (let [fb-user (oauth/get-fb-user access-token)]
-      (if-let [email (:email fb-user)]
-        (create-login-response db (get-or-create-oauth-user conn db email))
-        (login-error errors/fb-email-permission)))
-    {:status 400}))
-
-#_(def google-login
-  (oauth-login oauth/get-google-email))
-
-
-#_(defn google-oauth-code [request]
-  (ring-resp/redirect (str oauth/google-oauth-url (oauth/get-google-redirect-uri request))))
-
-#_(defn fb-oauth-code [request]
-  (ring-resp/redirect (str oauth/fb-oauth-url (oauth/get-fb-redirect-uri request))))
-
 (defn base-url [{:keys [scheme headers]}]
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
@@ -1081,14 +1043,6 @@
         {:delete `party/remove-character}]
        [(route-map/path-for route-map/login-route)
         {:post `login}]
-       #_["/code/fb"
-        {:get `fb-oauth-code}]
-       #_["/code/google"
-        {:get `google-oauth-code}]
-       #_[(route-map/path-for route-map/fb-login-route)
-        {:post `fb-login}]
-       #_[(route-map/path-for route-map/google-login-route)
-        {:get `google-login}]
        [(route-map/path-for route-map/character-pdf-route)
         {:post `character-pdf-2}]
        [(route-map/path-for route-map/verify-route)
