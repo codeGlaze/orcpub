@@ -108,12 +108,13 @@
 
 (defn dumpusers []
   (let [userdata
-        (with-db [db] (datomic/q '[:find ?e ?username ?email ?verified ?sendupdates
+        (with-db [db] (datomic/q '[:find ?e ?username ?email ?verified ?sendupdates ?lastlogin
                                    :where
                                    [?e :orcpub.user/username ?username]
                                    [?e :orcpub.user/email ?email]
                                    [?e :orcpub.user/verified? ?verified]
                                    [?e :orcpub.user/send-updates? ?sendupdates]
+                                   [?e :orcpub.user/last-login ?lastlogin]
                                    ] db))]
     (with-open [out-file (io/writer "users.csv")]
       (csv/write-csv out-file userdata))))
@@ -163,7 +164,7 @@
 
   (println "fix :evards-black-tentacles")
   (let [u1
-        (with-db [db] (datomic/q '[:find ?e :where [?e :orcpub.entity.strict/key :drawmijs-instant-summons]] db))]
+        (with-db [db] (datomic/q '[:find ?e :where [?e :orcpub.entity.strict/key :evards-black-tentacles]] db))]
     (with-db [conn]
              (doseq [[k] u1]
                (println k)

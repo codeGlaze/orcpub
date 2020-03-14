@@ -14,8 +14,10 @@
 
   :repositories [["apache" "http://repository.apache.org/snapshots/"]
                  ["my.datomic.com" {:url "https://my.datomic.com/repo"
-                                    :username "john@lissproductions.com" ;[:gpg :env]
-                                    :password "b755193e-ef0a-47c0-b63b-db2780208e1b"}]] ;[:gpg :env]}]]
+                                    [:gpg :env]
+                                    [:gpg :env]}]]
+                                    ;:username "john@lissproductions.com" ;[:gpg :env]
+                                    ;:password "b755193e-ef0a-47c0-b63b-db2780208e1b"}]] ;[:gpg :env]}]]
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
 
   :dependencies [[org.clojure/clojure "1.10.0"]
@@ -62,7 +64,7 @@
 
                  [pdfkit-clj "0.1.7"]
                  [vvvvalvalval/datomock "0.2.0"]
-                 [com.datomic/datomic-pro "0.9.5561"]
+                 [com.datomic/datomic-free "0.9.5697"]
                  [funcool/cuerdas "2.2.0"]
                  [camel-snake-kebab "0.4.0"]
                  ]
@@ -214,7 +216,7 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}
-                            :dependencies [[com.datomic/datomic-pro "0.9.5561"]]}
+                            :dependencies [[com.datomic/datomic-free "0.9.5697"]]}
              :uberjar      {:prep-tasks  ["clean" "compile" ["cljsbuild" "once" "prod"]]
                             :env         {:production true}
                             :aot         :all
