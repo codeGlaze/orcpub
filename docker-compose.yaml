@@ -2,23 +2,30 @@
 version: '3'
 services:
   orcpub:
-    image: orcpub/orcpub:latest
+    build:
+      context: .
+      dockerfile: docker/orcpub/Dockerfile
     environment:
       PORT: 8890
-      EMAIL_SERVER_URL: ''
-      EMAIL_ACCESS_KEY: ''
-      EMAIL_SECRET_KEY: ''
-      EMAIL_SERVER_PORT: 587
+      EMAIL_SERVER_URL: 'smtp.lissproductions.com'
+      EMAIL_ACCESS_KEY: 'thdm'
+      EMAIL_SECRET_KEY: 'uqAf731yIAJlEKetkSV8'
+      EMAIL_SERVER_PORT: 25
       # Email address to send errors to
-      EMAIL_ERRORS_TO: ''
-      EMAIL_SSL: 'FALSE'
-      EMAIL_TLS: 'FALSE'
-      DATOMIC_URL: datomic:free://datomic:4334/orcpub
+      EMAIL_ERRORS_TO: 'thdm@dungeonmastersvault.com'
+      DATOMIC_URL: datomic:dev://datomic:4334/orcpub
     depends_on:
       - datomic
     restart: always
   datomic:
-    image: orcpub/datomic:latest
+    image: akiel/datomic-free
+    #build:
+    #  context: .
+    #  dockerfile: docker/datomic/Dockerfile
+    ports:
+      - "4334:4334"
+      - "4335:4335"
+      - "4336:4336"
     volumes:
       - ./data:/data
       - ./deploy/transactor.properties:/datomic/transactor.properties
