@@ -298,6 +298,8 @@
     {:height "72px"}]
    [:.h-120
     {:height "120px"}]
+   [:.h-170
+    {:height "170px"}]
    [:.h-200
     {:height "200px"}]
    [:.h-800
