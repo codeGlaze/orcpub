@@ -106,7 +106,7 @@
      [:div
       {:style (style {:display :flex
                       :justify-content :space-around})}
-      [:img.h-72
+      [:img.w-50-p
        {:src "/image/dmv-logo.svg"}]]
      #_[:div
       {:style (style {:text-align :center

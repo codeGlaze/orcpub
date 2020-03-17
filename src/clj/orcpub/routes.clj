@@ -1004,7 +1004,7 @@
        ["/css/*" {:get `get-css}]
        ["/font-awesome-4.7.0/*" {:get `get-fa}]
        ["/image/*" {:get `get-image}]
-       ["/favicon.ico" {:get `get-favicon}]
+       ["/favicon/*" {:get `get-favicon}]
        [(route-map/path-for route-map/register-route)
         {:post `register}]
        [(route-map/path-for route-map/user-route) ^:interceptors [check-auth]

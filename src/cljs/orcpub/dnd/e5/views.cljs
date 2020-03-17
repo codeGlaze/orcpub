@@ -386,7 +386,7 @@
 (defn route-to-my-encounters-page []
   (dispatch [:route routes/dnd-e5-my-encounters-route]))
 
-(def logo [:img.orcpub-logo.h-32.w-120.pointer
+(def logo [:img.h-60.pointer
            {:src "/image/dmv-logo.svg"
             :on-click route-to-default-route}])
 
@@ -578,9 +578,6 @@
    :width "350px"
    :min-height "600px"})
 
-(def registration-logo-style
-  {:height "25.3px"})
-
 (def registration-left-column-style
   {:flex-direction :column
    :width "435px"})
@@ -603,9 +600,8 @@
       [:div.flex {:style registration-left-column-style}
        [:div.flex.justify-cont-s-a.align-items-c
         {:style registration-header-style}
-        [:img.pointer
+        [:img.h-60.pointer
          {:src "/image/dmv-logo.svg"
-          :style registration-logo-style
           :on-click route-to-default-page}]]
        [:div.flex-grow-1 content]
        [views-2/legal-footer-sm]]
