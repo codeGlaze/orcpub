@@ -1545,6 +1545,9 @@
 (def op2-link
   [:a.orange {:href "https://faq.dungeonmastersvault.com/" :target "_blank"} " here"])
 
+(def ms-link
+  [:a.orange {:href "https://support.office.com/en-us/article/Block-senders-or-unblock-senders-in-Outlook-on-the-web-9bf812d4-6995-4d19-901a-76d6e26939b0" :target "_blank"} " here"])
+
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   (let [srd-message-closed? @(subscribe [:srd-message-closed?])
         orcacle-open? @(subscribe [:orcacle-open?])
@@ -1590,8 +1593,9 @@
            [:div
             (if (not frame?)
               [:div.content.bg-lighter.p-10.flex
-               [:div.flex-grow-1
-                [:div.m-t-10 "If you use the new Brave browser for 30 days, they’ll fund our site with a bonus!"]
+               [:div.flex-grow.t-a-c
+                [:div.m-t-10 "Emails to Live, MSN, Hotmail, Live, or outlook.com are bouncing  - So if you are trying to reset your password or signup" ]
+                [:div.m-t-10 "Add 'thdm@dungeonmastersvault.com' to your unblock list " ms-link]
                 [:div.m-t-10  staff-pick-link " and use it for 30 days to support us"]
                 [:div.m-t-10 "FAQ about what happened to Orcpub2.com " op2-link ]]
                [:i.fa.fa-times.p-10.pointer
