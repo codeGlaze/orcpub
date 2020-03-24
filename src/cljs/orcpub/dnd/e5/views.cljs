@@ -1594,7 +1594,7 @@
             (if (not frame?)
               [:div.content.bg-lighter.p-10.flex
                [:div.flex-grow.t-a-c
-                [:div.m-t-10 "Emails to Live, MSN, Hotmail, Live, or outlook.com are bouncing  - So if you are trying to reset your password or signup" ]
+                [:div.m-t-10 "Emails to Live, MSN, Hotmail, or outlook.com are bouncing  - So if you are trying to reset your password or signup" ]
                 [:div.m-t-10 "Add 'thdm@dungeonmastersvault.com' to your unblock list " ms-link]
                 [:div.m-t-10  staff-pick-link " and use it for 30 days to support us"]
                 [:div.m-t-10 "FAQ about what happened to Orcpub2.com " op2-link ]]
