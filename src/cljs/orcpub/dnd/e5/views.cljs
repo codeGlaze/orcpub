@@ -1587,7 +1587,8 @@
            hdr]]]
         [:div.flex.justify-cont-c.main-text-color
          [:div.content hdr]]
-        [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+        ;  Banner for announcements
+        #_[:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
          (if (and (not srd-message-closed?)
                   (not hide-header-message?))
            [:div
@@ -5932,7 +5933,15 @@
       ::e5/edit-subrace-trait-name
       ::e5/edit-subrace-trait-type
       ::e5/edit-subrace-trait-description
-      ::e5/delete-subrace-trait]]))
+      ::e5/delete-subrace-trait
+      :types [{:title "Other"
+               :value :other}
+              {:title "Action"
+               :value :action}
+              {:title "Bonus Action"
+               :value :b-action}
+              {:title "Reaction"
+               :value :reaction}]]]))
 
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
@@ -6073,7 +6082,15 @@
       ::e5/edit-race-trait-name
       ::e5/edit-race-trait-type
       ::e5/edit-race-trait-description
-      ::e5/delete-race-trait]]))
+      ::e5/delete-race-trait
+      :types [{:title "Other"
+               :value :other}
+              {:title "Action"
+               :value :action}
+              {:title "Bonus Action"
+               :value :b-action}
+              {:title "Reaction"
+               :value :reaction}]]]))
 
 (defn background-builder []
   (let [background @(subscribe [::bg/builder-item])]

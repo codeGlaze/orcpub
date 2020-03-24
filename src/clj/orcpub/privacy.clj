@@ -1,5 +1,7 @@
 (ns orcpub.privacy
-  (:require [hiccup.page :as page]))
+  (:require [hiccup.page :as page]
+            [clojure.string :as s]
+            [environ.core :as environ]))
 
 (defn section [{:keys [title font-size paragraphs subsections]}]
   [:div
@@ -14,7 +16,7 @@
     subsections)])
 
 (def privacy-policy-section
-  {:title "Privacy Policy"
+  {:title     "Privacy Policy"
    :font-size 48
    :subsections
    [{:title "Thank you for using Dungeon Master's Vault!"

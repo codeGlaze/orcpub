@@ -232,4 +232,4 @@
     {:style (style {:font-size "12px"
                     :color :white
                     :padding "10px"})}
-    (legal-footer-2)]])
+    ]])

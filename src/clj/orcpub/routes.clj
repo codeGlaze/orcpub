@@ -531,7 +531,7 @@
     (merge
      response
      {:status 200
-      :headers {"Content-Type" "text/html"}
+      :headers {"Content-Type" "text/html" }
       :body
       (index-page
        {:url (str "http://" host uri)

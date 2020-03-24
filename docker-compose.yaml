@@ -28,7 +28,7 @@ services:
       - "4336:4336"
     volumes:
       - ./data:/data
-      - ./deploy/transactor.properties:/datomic/transactor.properties
+      - ./logs:/logs
     restart: always
   web:
     image: nginx:alpine
