@@ -1588,17 +1588,15 @@
         [:div.flex.justify-cont-c.main-text-color
          [:div.content hdr]]
         ;  Banner for announcements
-        #_[:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+        [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
          (if (and (not srd-message-closed?)
                   (not hide-header-message?))
            [:div
             (if (not frame?)
               [:div.content.bg-lighter.p-10.flex
                [:div.flex-grow.t-a-c
-                [:div.m-t-10 "Emails to Live, MSN, Hotmail, or outlook.com are bouncing  - So if you are trying to reset your password or signup" ]
-                [:div.m-t-10 "Add 'thdm@dungeonmastersvault.com' to your unblock list " ms-link]
                 [:div.m-t-10  staff-pick-link " and use it for 30 days to support us"]
-                [:div.m-t-10 "FAQ about what happened to Orcpub2.com " op2-link ]]
+                [:div.m-t-10 "FAQ " op2-link ]]
                [:i.fa.fa-times.p-10.pointer
                 {:on-click #(dispatch [:close-srd-message])}]])])]
         [:div#app-main.container
