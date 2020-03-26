@@ -110,17 +110,6 @@ html, body, #app {
     height: 100%;
 }"]
     [:title title]
-    #_[:script
-     (format
-      "
-	  (function(d, s, id){
-	  var js, fjs = d.getElementsByTagName(s)[0];
-	  if (d.getElementById(id)) {return;}
-	  js = d.createElement(s); js.id = id;
-	  js.src = \"//connect.facebook.net/en_US/sdk.js\";
-	  fjs.parentNode.insertBefore(js, fjs);
-	  }(document, 'script', 'facebook-jssdk'));"
-      (oauth/app-id url))]
     [:script
      " var _paq = window._paq || [];
 _paq.push(['trackPageView']);
