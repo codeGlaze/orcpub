@@ -1614,7 +1614,7 @@
             [:a.orange.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]]
            [:div.legal-footer
             [:p "Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © " (f/unparse (f/formatter "yyyy") (time/now)) " Wizards. All Rights Reserved. DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
-            [:p "Version 2.5.0.9 (Build 1/16/2020) \"Lurkwood\" edition"]
+            [:p "Version 2.5.0.10 (Build 3/31/2020) \"The Obelisk Of Okroyorn\" edition"]
             [:p "Contact " [:a {:href "mailto:thDM@dungeonmastersvault.com"} "thDM@dungeonmastersvault.com"]]]
            ]
           [debug-data]]]])]))
