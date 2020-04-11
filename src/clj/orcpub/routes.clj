@@ -297,7 +297,7 @@
           :orcpub.user/send-updates? send-updates?
           :orcpub.user/created now
           :orcpub.user/last-login now}))
-      (when (= send-updates? true)
+      (if (= send-updates? true)
         (httpclient/post "https://mailtrain.dungeonmastersvault.com/api/subscribe/iyWL_f8u?access_token=2f801fb4fff9daa161501240e0c809c185f44b07"
                    {:form-params {"EMAIL" email "MERGE_NAME" username "FORCE_SUBSCRIBE" "yes" "REQUIRE_CONFIRMATION" "yes" }}))
       (catch Throwable e (do (prn e) (throw e))))))
