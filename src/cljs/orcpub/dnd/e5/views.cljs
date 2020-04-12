@@ -806,7 +806,9 @@
    [:div
     [:span "We sent a verification email to "]
     [:span.f-w-b.red.f-s-18 @(subscribe [:temp-email])]
-    [:span ". You must verify to complete registration and the link we sent will only be valid for 24 hours."]]))
+    [:span ". You must verify to complete registration and the link we sent will only be valid for 24 hours."]
+    [:span " "]
+    [:span "Remember to check your spam folder."]]))
 
 (defn password-reset-sent []
   (email-sent
