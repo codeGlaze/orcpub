@@ -46,9 +46,10 @@
             [orcpub.user-agent :as user-agent]
             [cljs.core.async :refer [<! timeout]]
             [bidi.bidi :as bidi]
+            [camel-snake-kebab.core :as csk]
             [cljs-time.core :as time]
             [cljs-time.format :as f]
-            [camel-snake-kebab.core :as csk])
+            [orcpub.dnd.e5.exports :as ex])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 ;; the `amount` of "uses" an action may have before it warrants
@@ -123,6 +124,8 @@
     (let [field (.getElementById js/document "fields-input")]
       (aset field "value" (str (pdf-spec/make-spec built-char id options)))
       (.submit (.getElementById js/document "download-form")))))
+
+
 
 (defn download-form [built-char]
   [:form.download-form
@@ -3474,17 +3477,15 @@
   [:a.m-r-5.f-s-14
    {:href (str "mailto:?subject=My%20OrcPub%20Character%20"
                @(subscribe [::char/character-name id])
-               "&body=https://"
-               js/window.location.hostname
+               "&body=" js/window.location.protocol "//" js/window.location.hostname ":" js/window.location.port
                (routes/path-for routes/dnd-e5-char-page-route :id id))}
    [:i.fa.fa-envelope.m-r-5]
    "share"])
 
 (defn share-link-www [id]
   [:a.m-r-5.f-s-14
-   {:href (str "https://"
-               js/window.location.hostname
-               (routes/path-for routes/dnd-e5-char-page-route :id id)) :target "_blank"}
+   {:href (str js/window.location.protocol "//" js/window.location.hostname ":" js/window.location.port
+               (routes/path-for routes/dnd-e5-char-page-route :id id )"?frame=true") :target "_blank"}
    [:i.fa.fa-link.m-r-5]
    "www"])
 
@@ -3542,6 +3543,7 @@
 
 (def export-pdf-handler (memoize export-pdf-fn))
 
+
 (defn print-options [id built-char]
   (let [print-character-sheet? @(subscribe [::char/print-character-sheet?])
         print-spell-cards? @(subscribe [::char/print-spell-cards?])
@@ -3550,7 +3552,7 @@
         has-spells? (seq (char/spells-known built-char))]
     [:div.flex.justify-cont-end
      [:div.p-20
-      [:div.f-s-24.f-w-b.m-b-10 "Print Options"]
+      [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
       [:div.m-b-2
        [:div.flex
         [:div
@@ -3581,9 +3583,6 @@
            [labeled-checkbox
             "Prepared"
             print-prepared-spells?]]]])
-      [:span.orange.underline.pointer.uppercase.f-s-12
-       {:on-click (make-event-handler ::char/hide-options)}
-       "Cancel"]
       [:button.form-button.p-10.m-l-5
        {:on-click (export-pdf-handler built-char
                                       id
@@ -3591,12 +3590,58 @@
                                       print-spell-cards?
                                       print-prepared-spells?
                                       print-large-abilities?)}
-       "Print"]]]))
+       "Create PDF"]
+      [:div.f-s-20.f-w-b.m-b-10.m-t-10 "JSON Options - beta"]
+      [:span.f-s-14 "To be used for importing into other applications."]
+      [:div.m-t-10.m-b-10
+       [:button.form-button.p-10.m-l-5
+        {:on-click (ex/orcpub-export-json-handler built-char
+                                                  id
+                                                  print-character-sheet?
+                                                  print-spell-cards?
+                                                  print-prepared-spells?
+                                                  print-large-abilities?)}
+        "JSON"]
+       [:span.f-s-12 "  DMV Export format"]]
+      ; D&D 5E by Roll20 - Single class sheet export example
+      [:div.m-t-10.m-b-10
+         [:button.form-button.p-10.m-l-5
+          {:on-click (ex/dd5eroll20-export-json-handler built-char
+                                                        id
+                                                        print-character-sheet?
+                                                        print-spell-cards?
+                                                        print-prepared-spells?
+                                                        print-large-abilities?)}
+          "JSON"]
+         [:span.f-s-12 "  D&D 5E by Roll20 format - " [:a.orange {:href "https://roll20.zendesk.com/hc/en-us/articles/360037773573" :target "_blank"} "Single class"]
+          " load with " [:a.orange {:href "https://ssstormy.github.io/roll20-enhancement-suite/" :target "_blank"} "VTT"]
+          " (no weapons, skills, spells at this time, yes it is a beta)"]]
+      [:span.orange.underline.pointer.uppercase.m-l-10.f-s-12
+       {:on-click (make-event-handler ::char/hide-options)}
+       "Cancel"]]]))
 
 (defn make-print-handler [id built-char]
   #(dispatch
     [::char/show-options
      [print-options id built-char]]))
+
+
+(defn abilities-spec [vals suffix bonus?]
+  (reduce-kv
+   (fn [m k v]
+     (let [new-k (if suffix
+                   (keyword (str (name k) "-mod"))
+                   k)
+           new-v (if bonus? (common/bonus-str v) v)]
+       (assoc m new-k new-v)))
+   {}
+   vals))
+
+
+(defn make-export-handler [id built-char]
+  #(dispatch
+    [::char/show-options
+     [ex/dd5eroll20-export-json-handler id built-char]]))
 
 (defn character-page []
   (let [expanded? (r/atom false)]
@@ -3619,18 +3664,17 @@
           nil?
           [[share-link-email id]
            [share-link-www id]
-           ;;[:div.m-l-5.hover-shadow.pointer
-            ;;{:on-click #(swap! expanded? not)}
-            ;;[:img.h-32 {:src "/image/world-anvil.jpeg"}]]
-
+           #_[:div.m-l-5.hover-shadow.pointer
+              {:on-click #(swap! expanded? not)}
+              [:img.h-32 {:src "/image/world-anvil.jpeg"}]]
            (if (and username
                     owner
                     (= owner username))
              {:title "Edit"
               :icon "pencil"
               :on-click (make-event-handler :edit-character character)})
-           {:title "Print"
-            :icon "print"
+           {:title "Export"
+            :icon "download"
             :on-click (make-print-handler id built-character)}
            (if (and username owner (not= owner username))
              [add-to-party-component id])])
@@ -7538,7 +7582,7 @@
                  {:print-character-sheet? true
                   :print-spell-cards? true
                   :print-prepared-spells? false})}
-     "print"]
+     "Create PDF"]
     (if (= username owner)
       [:button.form-button.m-l-5
        {:on-click (make-event-handler ::char/show-delete-confirmation id)}
