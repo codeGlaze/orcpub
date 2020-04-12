@@ -254,13 +254,13 @@
 (defn base-url [{:keys [scheme headers]}]
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
-(defn send-verification-email [request params verification-key]
-  (email/send-verification-email
+(defn send-verification-email [request params verification-key send-updates?]
+  (email/send-verification-email 
    (base-url request)
    params
-   verification-key))
+   verification-key send-updates?))
 
-(defn do-verification [request params conn & [tx-data]]
+(defn do-verification [request params conn send-updates? & [tx-data]]
   (let [verification-key (str (java.util.UUID/randomUUID))
         now (java.util.Date.)]
     (do @(d/transact
@@ -270,7 +270,7 @@
             {:orcpub.user/verified? false
              :orcpub.user/verification-key verification-key
              :orcpub.user/verification-sent now})])
-        (send-verification-email request params verification-key)
+        (send-verification-email request params verification-key send-updates?)
         {:status 200})))
 
 (defn register [{:keys [json-params db conn] :as request}]
@@ -291,15 +291,13 @@
          request
          json-params
          conn
+         send-updates?
          {:orcpub.user/email email
           :orcpub.user/username username
           :orcpub.user/password (hashers/encrypt password)
           :orcpub.user/send-updates? send-updates?
           :orcpub.user/created now
           :orcpub.user/last-login now}))
-      (if (= send-updates? true)
-        (httpclient/post "https://mailtrain.dungeonmastersvault.com/api/subscribe/iyWL_f8u?access_token=2f801fb4fff9daa161501240e0c809c185f44b07"
-                   {:form-params {"EMAIL" email "MERGE_NAME" username "FORCE_SUBSCRIBE" "yes" "REQUIRE_CONFIRMATION" "yes" }}))
       (catch Throwable e (do (prn e) (throw e))))))
 
 (def user-for-verification-key-query

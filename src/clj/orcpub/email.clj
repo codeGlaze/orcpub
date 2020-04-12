@@ -4,7 +4,8 @@
             [environ.core :as environ]
             [clojure.pprint :as pprint]
             [orcpub.route-map :as routes]
-            [cuerdas.core :as str]))
+            [cuerdas.core :as str]
+            [clj-http.client :as client]))
 
 (defn verification-email-html [first-and-last-name username verification-url]
   [:div
@@ -40,7 +41,7 @@
    :tls (or (str/to-bool (environ/env :email-tls)) nil)
    })
 
-(defn send-verification-email [base-url {:keys [email username first-and-last-name]} verification-key]
+(defn send-verification-email [base-url {:keys [email username first-and-last-name]} verification-key send-updates?]
   (postal/send-message (email-cfg)
                        {:from "Dungeon Master's Vault Team <no-reply@dungeonmastersvault.com>"
                         :to email
@@ -48,7 +49,11 @@
                         :body (verification-email
                                first-and-last-name
                                username
-                               (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))}))
+                               (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))})
+(when (= send-updates? true)
+        (client/post "https://mailtrain.dungeonmastersvault.com/api/subscribe/iyWL_f8u?access_token=2f801fb4fff9daa161501240e0c809c185f44b07"
+                {:form-params {:EMAIL email :MERGE_NAME username :FORCE_SUBSCRIBE "yes" :REQUIRE_CONFIRMATION "yes" }}))
+)
 
 (defn reset-password-email-html [first-and-last-name reset-url]
   [:div

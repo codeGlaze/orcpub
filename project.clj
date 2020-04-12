@@ -66,7 +66,7 @@
                  [com.datomic/datomic-free "0.9.5697"]
                  [funcool/cuerdas "2.2.0"]
                  [camel-snake-kebab "0.4.0"]
-                 ]
+                 [clj-http "3.10.0"]]
 
   :plugins [[lein-figwheel "0.5.19"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
