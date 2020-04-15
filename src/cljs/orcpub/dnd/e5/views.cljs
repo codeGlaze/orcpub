@@ -49,7 +49,8 @@
             [camel-snake-kebab.core :as csk]
             [cljs-time.core :as time]
             [cljs-time.format :as f]
-            [orcpub.dnd.e5.exports :as ex])
+            [orcpub.dnd.e5.exports :as ex]
+            [orcpub.ver :as v])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 ;; the `amount` of "uses" an action may have before it warrants
@@ -1619,7 +1620,7 @@
             [:a.orange.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]]
            [:div.legal-footer
             [:p "Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © " (f/unparse (f/formatter "yyyy") (time/now)) " Wizards. All Rights Reserved. DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
-            [:p "Version 2.5.0.10 (Refresh 4/15/2020) \"The Exotic Beauty\" edition"]
+            [:p "Version " (v/version) " ("(v/date)") "(v/description)" edition"]
             [:p "Contact " [:a {:href "mailto:thDM@dungeonmastersvault.com"} "thDM@dungeonmastersvault.com"]]]
            ]
           [debug-data]]]])]))
