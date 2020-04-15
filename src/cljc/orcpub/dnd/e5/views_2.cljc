@@ -62,7 +62,7 @@
 
 (defn legal-footer-sm []
   [:div.m-l-15.m-b-10.m-t-10.t-a-l
-   ;[:span "© 2019 OrcPub"]
+   ;[:span "© 2020 Dungeon Masters Vault"]
    [:a.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]
    [:a.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]])
 

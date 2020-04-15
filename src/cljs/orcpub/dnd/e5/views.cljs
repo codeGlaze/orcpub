@@ -900,7 +900,7 @@
                   :border-width "1px"
                   :border-bottom-width "3px"}
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
-        [:span.m-l-5 "Yes! Send me updates about OrcPub."]]
+        [:span.m-l-5 "Yes! Send me updates about Dungeon Master's Vault"]]
        [:div.m-t-30
         [:div.p-10
          [:span "Already have an account?"]
