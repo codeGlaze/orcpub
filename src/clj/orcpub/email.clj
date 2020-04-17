@@ -9,7 +9,7 @@
 
 (defn verification-email-html [first-and-last-name username verification-url]
   [:div
-   (str "Welcome to the Dungeon Master's Vault tribe!")
+   (str "Welcome to the Vault!")
    [:br]
    [:br]
    "Your Dungeon Master's Vault account is almost ready, we just need you to verify your email address going the following URL to confirm that you are authorized to use this email address:"
@@ -21,12 +21,12 @@
    "Sincerely,"
    [:br]
    [:br]
-   "The Dungeon Master's Vault Team"[:br]
-   "https://www.patreon.com/DungeonMastersVault  <-- like what we are doing? support us here"[:br]
-   "https://www.reddit.com/r/dungeonmastersvault/"[:br]
-   "https://twitter.com/thdmv"[:br]
-   "https://www.facebook.com/groups/252484128656613/"[:br]
-   ])
+   "The Dungeon Master's Vault Team" [:br]
+   "https://www.patreon.com/DungeonMastersVault  <-- like what we are doing? support us here" [:br]
+   "https://www.reddit.com/r/dungeonmastersvault/" [:br]
+   "https://twitter.com/thdmv" [:br]
+   "https://www.facebook.com/groups/252484128656613/" [:br]
+   "https://github.com/Orcpub/orcpub/blob/develop/CHANGELOG.md" [:br]])
 
 (defn verification-email [first-and-last-name username verification-url]
   [{:type "text/html"
@@ -72,13 +72,12 @@
    "Sincerely,"
    [:br]
    [:br]
-   "The Dungeon Master's Vault Team"[:br]
-   "Want to support us?" [:br]
-   "https://www.patreon.com/DungeonMastersVault  <-- like what we are doing? support us here"[:br]
-   "https://www.reddit.com/r/dungeonmastersvault/"[:br]
-   "https://twitter.com/thdmv"[:br]
-   "https://www.facebook.com/groups/252484128656613/"[:br]
-   ])
+   "The Dungeon Master's Vault Team" [:br]
+   "https://www.patreon.com/DungeonMastersVault  <-- like what we are doing? support us here" [:br]
+   "https://www.reddit.com/r/dungeonmastersvault/" [:br]
+   "https://twitter.com/thdmv" [:br]
+   "https://www.facebook.com/groups/252484128656613/" [:br]
+   "https://github.com/Orcpub/orcpub/blob/develop/CHANGELOG.md" [:br]])
 
 (defn reset-password-email [first-and-last-name reset-url]
   [{:type "text/html"
