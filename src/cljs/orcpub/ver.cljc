@@ -1,8 +1,8 @@
 (ns orcpub.ver)
 
 (defn version []
-  "2.5.0.10")
+  "2.5.0.11")
 (defn date []
-  "4/15/2020")
+  "5/5/2020")
 (defn description []
-  "\"The Exotic Beauty\"")
+  "\"The Screeching Berserker\"")
