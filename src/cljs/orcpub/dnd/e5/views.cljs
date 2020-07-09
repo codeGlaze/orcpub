@@ -270,7 +270,7 @@
           :style (if active active-style)
           :class-name (str (if disabled "disabled" "pointer")
                            " "
-                           (if (not mobile?) " w-110"))}
+                           (if (not mobile?) "w-110"))}
          [:div.p-10
           {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
           (let [size (if mobile? 24 48)] (svg-icon icon size ""))
@@ -305,7 +305,7 @@
           :style (if active active-style)
           :class-name (str (if disabled "disabled" "pointer")
                            " "
-                           (if (not mobile?) " w-110"))}
+                           (if (not mobile?) "w-110"))}
          [:div.p-10
           {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
           (let [size (if mobile? 24 48)] (svg-icon icon size ""))
@@ -425,17 +425,14 @@
        [:div.flex.w-100-p.align-items-end
         {:class-name (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
         [:div
-         [:a {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank}
-          [:img.h-32.m-l-10.m-b-5.pointer.opacity-7.hover-opacity-full
-           {:src (if mobile?
-                   "/image/patron_button_mobile.png"
-                   "/image/patron_button.png")}]]
          (if (not mobile?)
-           [:div.main-text-color.p-10
+           [:a {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank}
+            [:img.h-32.m-l-10.m-b-5.pointer.opacity-7.hover-opacity-full
+             {:src "/image/patron_button.png"}]])
+            [:div.main-text-color.p-10
             (social-icon "reddit-alien" "https://www.reddit.com/r/dungeonmastersvault/")
             (social-icon "twitter" "https://twitter.com/thdmv")
-            (social-icon "facebook" "https://www.facebook.com/groups/252484128656613/")
-            ])]
+            (social-icon "facebook" "https://www.facebook.com/groups/252484128656613/")]]
         [:div.flex.m-b-5.m-r-5
          [header-tab
           "characters"
@@ -491,14 +488,13 @@
           route-to-my-encounters-page
           false
           (routes/dnd-e5-my-encounters-routes
-            (or (:handler active-route)
-                active-route))
+           (or (:handler active-route)
+               active-route))
           device-type
           {:name "Combat Tracker"
            :route routes/dnd-e5-combat-tracker-page-route}
           {:name "Encounter Builder"
-           :route routes/dnd-e5-encounter-builder-page-route}
-          ]
+           :route routes/dnd-e5-encounter-builder-page-route}]
          [header-tab2
           "generators"
           "elven-castle"
