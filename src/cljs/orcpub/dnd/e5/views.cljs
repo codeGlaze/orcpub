@@ -189,7 +189,8 @@
 (def user-menu-style
   {:background-color menu-color
    :z-index 10000
-   :position :fixed
+   :position :absolute
+   :right 0
    :display :none})
 
 (defn handle-user-menu [e]
@@ -201,8 +202,6 @@
         right (.-right bounding-rect)
         style (.-style user-menu)
         window-width js/document.documentElement.clientWidth]
-    (set! (.-right style) (str (- window-width right) "px"))
-    (set! (.-top style) (str bottom "px"))
     (set! (.-display style) "block")))
 
 (defn hide-user-menu [e]
@@ -213,10 +212,9 @@
 (defn user-header-view []
   (let [username @(subscribe [:username])
         mobile? @(subscribe [:mobile?])]
-    [:div#user-header.pointer
+    [:div#user-header.pointer.posn-rel
      (if username
-       {:on-click hide-user-menu
-        :on-mouse-over handle-user-menu
+       {:on-mouse-over handle-user-menu
         :on-mouse-out hide-user-menu})
      [:div.b-rad-5.flex.align-items-c.p-l-10.p-r-10.p-t-5.p-b-5.f-s-16 {:style login-style-menu }
       [:div.user-icon [svg-icon "orc-head" 35 ""]]
@@ -230,7 +228,8 @@
       (if username
         [:i.fa.m-l-5.fa-caret-down])]
      [:div#user-menu.shadow.f-w-b
-      {:style user-menu-style}
+      {:style user-menu-style
+       :on-click hide-user-menu}
       [:div.p-10.opacity-5.hover-opacity-full
        {:on-click dispatch-logout}
        "LOG OUT"]
