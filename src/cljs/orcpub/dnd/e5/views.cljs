@@ -497,6 +497,44 @@
              :route routes/dnd-e5-combat-tracker-page-route}
             {:name "Encounter Builder"
              :route routes/dnd-e5-encounter-builder-page-route}]
+[header-tab2
+          "generators"
+          "elven-castle"
+          ""
+          false
+          false
+          ;route-to-my-encounters-page
+          ;false
+          ;(routes/dnd-e5-my-encounters-routes
+          ;  (or (:handler active-route)
+          ;      active-route))
+          device-type
+          {:name "NPC Generator"
+           :route "/generator/npcgenerator"}
+          {:name "Help Wanted"
+           :route "/generator/postinggenerator"}
+          {:name "City"
+           :route "/generator/citygenerator"}
+          {:name "Name"
+           :route "/generator/namegenerator"}
+          {:name "Legend"
+           :route "/generator/legendgenerator"}
+          {:name "Rumor"
+           :route "/generator/rumorgenerator"}
+          {:name "Bond"
+           :route "/generator/bondgenerator"}
+          {:name "Flag"
+           :route "/generator/flaggenerator"}
+          {:name "Magic Item"
+           :route "/generator/magicitemgenerator"}
+          {:name "Custom City"
+           :route "/generator/customcitygenerator"}
+          {:name "So you're looking for"
+           :route "/generator/resourcegenerator"}
+          {:name "Wanted Poster"
+           :route "/generator/wantedpostergenerator"}
+          {:name "Beware of the Critters"
+           :route "/generator/crittergenerator"}]					 
            [header-tab
             "My Content"
             "beer-stein"
@@ -1834,7 +1872,7 @@
 (defn roll-button [message roll & {:keys [text disable-tooltip]}]
   (let [mobile? @(subscribe [:mobile?])
         button [:button.roll-button
-                {:on-click (button-roll-handler message roll)}
+                {:on-click (fn [e] (.stopPropagation e) ((button-roll-handler message roll) e))}
                 (if text text "Roll")]]
     (if (or mobile? disable-tooltip)
       button
