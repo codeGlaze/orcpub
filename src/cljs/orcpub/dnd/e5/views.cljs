@@ -295,7 +295,7 @@
   (let [hovered? (r/atom false)]
     (fn [title icon on-click disabled active device-type & buttons]
       (let [mobile? (= :mobile device-type)]
-        [:div.f-w-b.f-s-14.t-a-c.header-tab.m-5.posn-rel
+        [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
          {:on-click (fn [e] (if (seq buttons)
                               #(swap! hovered? not)
                               (on-click e)))
@@ -315,15 +315,15 @@
            [:div.uppercase.shadow
             {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
             (doall
-              (map
-                (fn [{:keys [name route]}]
-                  ^{:key name}
-                  [:div.p-10.opacity-5.hover-opacity-full.a-white
-                   (let [current-route @(subscribe [:route])]
-                     {:style (if (or (= route current-route)
-                                     (= route (get current-route :handler))) active-style)})
-                  [:a.no-text-decoration {:href route} name]])
-                buttons))])]))))
+             (map
+              (fn [{:keys [name route]}]
+                ^{:key name}
+                [:div.p-10.opacity-5.hover-opacity-full.a-white
+                 (let [current-route @(subscribe [:route])]
+                   {:style (if (or (= route current-route)
+                                   (= route (get current-route :handler))) active-style)})
+                 [:a.no-text-decoration {:href route} name]])
+              buttons))])]))))
 
 (def social-icon-style
   {:color :white
@@ -497,44 +497,44 @@
              :route routes/dnd-e5-combat-tracker-page-route}
             {:name "Encounter Builder"
              :route routes/dnd-e5-encounter-builder-page-route}]
-[header-tab2
-          "generators"
-          "elven-castle"
-          ""
-          false
-          false
+           [header-tab2
+            "generators"
+            "elven-castle"
+            ""
+            false
+            false
           ;route-to-my-encounters-page
           ;false
           ;(routes/dnd-e5-my-encounters-routes
           ;  (or (:handler active-route)
           ;      active-route))
-          device-type
-          {:name "NPC Generator"
-           :route "/generator/npcgenerator"}
-          {:name "Help Wanted"
-           :route "/generator/postinggenerator"}
-          {:name "City"
-           :route "/generator/citygenerator"}
-          {:name "Name"
-           :route "/generator/namegenerator"}
-          {:name "Legend"
-           :route "/generator/legendgenerator"}
-          {:name "Rumor"
-           :route "/generator/rumorgenerator"}
-          {:name "Bond"
-           :route "/generator/bondgenerator"}
-          {:name "Flag"
-           :route "/generator/flaggenerator"}
-          {:name "Magic Item"
-           :route "/generator/magicitemgenerator"}
-          {:name "Custom City"
-           :route "/generator/customcitygenerator"}
-          {:name "So you're looking for"
-           :route "/generator/resourcegenerator"}
-          {:name "Wanted Poster"
-           :route "/generator/wantedpostergenerator"}
-          {:name "Beware of the Critters"
-           :route "/generator/crittergenerator"}]					 
+            device-type
+            {:name "NPC Generator"
+             :route "/generator/npcgenerator"}
+            {:name "Help Wanted"
+             :route "/generator/postinggenerator"}
+            {:name "City"
+             :route "/generator/citygenerator"}
+            {:name "Name"
+             :route "/generator/namegenerator"}
+            {:name "Legend"
+             :route "/generator/legendgenerator"}
+            {:name "Rumor"
+             :route "/generator/rumorgenerator"}
+            {:name "Bond"
+             :route "/generator/bondgenerator"}
+            {:name "Flag"
+             :route "/generator/flaggenerator"}
+            {:name "Magic Item"
+             :route "/generator/magicitemgenerator"}
+            {:name "Custom City"
+             :route "/generator/customcitygenerator"}
+            {:name "So you're looking for"
+             :route "/generator/resourcegenerator"}
+            {:name "Wanted Poster"
+             :route "/generator/wantedpostergenerator"}
+            {:name "Beware of the Critters"
+             :route "/generator/crittergenerator"}]
            [header-tab
             "My Content"
             "beer-stein"
