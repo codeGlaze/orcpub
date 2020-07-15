@@ -91,7 +91,7 @@
     [:p "Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © Wizards. All Rights Reserved. OrcPub.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]]])
 
 (defn splash-page []
-  [:div.app
+  [:div.app.h-full
    {:style (style {:display :flex
                    :flex-direction :column})}
    [:div
