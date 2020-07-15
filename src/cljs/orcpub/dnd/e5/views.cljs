@@ -1424,93 +1424,14 @@
       [:div.flex-grow-1
        [search-results]]]]))
 
-
-
 (def srd-link
-  [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD"])
+  [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
 
-(defn amazon-link [title url]
-  [:a.orange {:href url :target "_blank"} title])
-
-(def phb-link (amazon-link "PHB" "https://www.amazon.com/gp/product/0786965606/ref=as_li_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=0786965606&linkCode=as2&tag=dungeonmast0f-20&linkId=5bfed95fea5fb4de26e7dfb0b912ab2b"))
-
-(def dmg-link (amazon-link "DMG" "https://www.amazon.com/gp/product/0786965622/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786965622&linkId=8fd21c190661cc03840d76b38a9a267c"))
-
-(def mm-link (amazon-link "MM" "https://www.amazon.com/gp/product/0786965614/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786965614&linkId=e549777dd5a09652e28387a8de16e387"))
-
-(def xge-link (amazon-link "XGE" "https://www.amazon.com/gp/product/0786966114/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786966114&linkId=f10c695f0f2e5d0e5f07ddc84a478701"))
-
-(def scag-link (amazon-link "SCAG" "https://www.amazon.com/gp/product/0786965800/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786965800&linkId=48a1a6749c667a30a2d9219d24e81cd4"))
-
-(def vgm-link (amazon-link "VGM" "https://www.amazon.com/gp/product/0786966017/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786966017&linkId=c80d97ef139c29f9fb3334b2546061fe"))
-
-(def toa-link (amazon-link "TOA" "https://www.amazon.com/gp/product/0786966106/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786966106&linkId=a09688499b3d4e55cffcbdbd565e57ff"))
-
-(def skt-link (amazon-link "SKT" "https://www.amazon.com/gp/product/0786966009/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786966009&linkId=5dbc8c6b617cb67207bd450e9d1b86c3"))
-
-(def oota-link (amazon-link "OOTA" "https://www.amazon.com/gp/product/0786965819/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786965819&linkId=fdedeafd2c2d2c6463c9d7eec6e29e8d"))
-
-(def pota-link (amazon-link "POTA" "https://www.amazon.com/gp/product/0786965789/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786965789&linkId=f2c950b5b2caaec13e1a1ff3dc635c63"))
-
-(def yp-link (amazon-link "YP" "https://www.amazon.com/gp/product/0786966092/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786966092&linkId=1b6a9248917283c2eefa90604623a7bf"))
-
-(def cos-link (amazon-link "COS" "https://www.amazon.com/gp/product/0786965983/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786965983&linkId=e0f4063f762ea8f5562292560ae5316e"))
-
-(def mtof-link (amazon-link "MTOF" "https://www.amazon.com/gp/product/0786966246/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786966246&linkId=57081aaf12b656fd0b95c787d30ea7ec"))
-
-(def gmgtr-link (amazon-link "GMGtR" "https://www.amazon.com/gp/product/0786966599/ref=as_li_tl?ie=UTF8&tag=dungeonmast0f-20&camp=1789&creative=9325&linkCode=as2&creativeASIN=0786966599&linkId=783e3da079c4c6938bc8d202c73f3c6a"))
-
-#_(defn amazon-frame [link]
-    [:iframe {:style {:width "120px" :height "240px"}
-              :margin-width 0
-              :margin-height 0
-              :scrolling :no
-              :frame-border 0
-              :src link}])
-
-#_(def scag-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=tf_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965800&asins=0786965800&linkId=f35402a86dd0851190d952228fab36e9&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def volos-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=tf_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786966017&asins=0786966017&linkId=8c552e7b980d7d944bd12dec57e002e8&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def phb-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965606&asins=0786965606&linkId=3b5b686390559c31dbc3c20d20f37ec4&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def dmg-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=tf_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965622&asins=0786965622&linkId=01922a9aafc4ea52eb90aed12bbeac04&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def mm-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965614&asins=0786965614&linkId=5300756d865067bd552325212c176447&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def xanathars-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=tf_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786966114&asins=0786966114&linkId=b1241c813fda22ff1b5ba56ba52cee50&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def toa-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=tf_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786966106&asins=0786966106&linkId=8ef050066313a6092678df98f18401f7&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def yawning-portal-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786966092&asins=0786966092&linkId=df092b3840d56523be6c3626966a0e47&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def cos-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965983&asins=0786965983&linkId=91dfcae14b0c8ecd3795eaf375104ca5&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def skt-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786966009&asins=0786966009&linkId=b0fe41c5ff03ada5d23ebd4a176abcf6&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def oota-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965819&asins=0786965819&linkId=125c478897a63892c24d0ca46c198848&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-#_(def pota-amazon-frame
-    (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965789&asins=0786965789&linkId=a2c9018a5e1260f518fa6b0fd0812350&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
-
-(def staff-pick-link
+(def banner-link
   [:a.orange {:href "https://brave.com/dun047" :target "_blank"} "Download Brave browser"])
-(def op2-link
-  [:a.orange {:href "https://faq.dungeonmastersvault.com/" :target "_blank"} " here"])
 
-(def ms-link
-  [:a.orange {:href "https://support.office.com/en-us/article/Block-senders-or-unblock-senders-in-Outlook-on-the-web-9bf812d4-6995-4d19-901a-76d6e26939b0" :target "_blank"} " here"])
+(def faq-link
+  [:a.orange {:href "https://faq.dungeonmastersvault.com/" :target "_blank"} " here"])
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   (let [on-scroll (fn [e]
@@ -1558,14 +1479,15 @@
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
         ;  Banner for announcements
-              #_[:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+              [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                  (if (and (not srd-message-closed?)
                           (not hide-header-message?))
                    [:div
                     (if (not frame?)
                       [:div.content.bg-lighter.p-10.flex
                        [:div.flex-grow-1
-                        [:div "Site is based on SRD rules. " srd-link "."]]
+                        [:div banner-link " and use it for 30 days to support this site. "]
+                        [:div "FAQ " faq-link "."]]
                        [:i.fa.fa-times.p-10.pointer
                         {:on-click #(dispatch [:close-srd-message])}]])])]
               [:div#app-main.container
@@ -1574,16 +1496,21 @@
                [:div.content.f-w-n.f-s-12
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
-                  [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]]
+                  [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
+                  [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
-                  [:a.orange {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]
+                  [:div.m-b-5
+                   [:a.orange {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
                  [:div.m-l-10.m-r-10.p-10
-                  [:a.orange {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
-                  [:a.orange.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]]
+                  [:div.m-b-5
+                   [:a.orange {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
+                   [:a.orange.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]]]
                  [:div.legal-footer
-                  [:p "© 2020 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "Orcpub"]]
-                  [:p "Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved. OrcPub.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]]]
-                [debug-data]]]])]))})))
+                  [:p "© 2020 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
+                  [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved."]
+                  [:p "DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
+                  [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]]
+                [debug-data]]])]))})))
 
 (def row-style
   {:border-bottom "1px solid rgba(255,255,255,0.5)"})
