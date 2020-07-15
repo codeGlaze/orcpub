@@ -25,6 +25,13 @@
     (meta-tag "og:title" title)
     (meta-tag "og:description" description)
     (meta-tag "og:image" image)
+    (meta-tag "og:site_name" "Dungeon Master's Vault")
+    (meta-tag "og:type" "website")
+    (meta-tag "twitter:card" "summary_large_image")
+    (meta-tag "twitter:site" "Dungeon Master's Vault")
+    (meta-tag "twitter:title" title)
+    (meta-tag "twitter:description" description)
+    (meta-tag "twitter:image" image)
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport"
             :content "width=device-width, initial-scale=1"}]
@@ -39,7 +46,7 @@
 .splash-button .splash-button-content {height: 120px; width: 120px}
 .splash-button .svg-icon {height: 64px; width: 64px}
 
-@media (max-width: 767px) 
+@media (max-width: 767px)
 {.splash-button .svg-icon {height: 32px; width: 32px}
 .splash-button-title-prefix {display: none}
 .splash-button .splash-button-content {height: 60px; width: 60px; font-size: 10px}
@@ -58,7 +65,7 @@ b, u, i, center,
 dl, dt, dd, ol, ul, li,
 fieldset, form, label, legend,
 table, caption, tbody, tfoot, thead, tr, th, td,
-article, aside, canvas, details, figcaption, figure, 
+article, aside, canvas, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section, summary,
 time, mark, audio, video {
 	margin: 0;
@@ -70,7 +77,7 @@ time, mark, audio, video {
 	vertical-align: baseline;
 }
 /* HTML5 display-role reset for older browsers */
-article, aside, details, figcaption, figure, 
+article, aside, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section {
 	display: block;
 }
@@ -103,7 +110,19 @@ table {
 html, body, #app {
     height: 100%;
 }"]
-    [:title title]]
+    [:title title]
+    [:script
+     " var _paq = window._paq || [];
+_paq.push(['trackPageView']);
+_paq.push(['enableLinkTracking']);
+(function() {
+  var u=\"//t.lissproductions.com/\";
+  _paq.push(['setTrackerUrl', u+'matomo.php']);
+  _paq.push(['setSiteId', '7']);
+  var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+  g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+  })();"]
+   [:noscript "<p><img src=\"//t.lissproductions.com/matomo.php?idsite=7&amp;rec=1\" style=\"border:0;\" alt=\"\" /></p>"]]
    [:body {:style "margin:0;height:100%;line-height:1"}
     [:div#app
      (if splash?
@@ -118,8 +137,8 @@ html, body, #app {
     (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
     [:script " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"]    
     [:script
-     "let plugins = localStorage.getItem ('plugins');
-     if(plugins === null || plugins === '{}')
+     "let plugins = localStorage.getItem('plugins');
+    if(plugins === null || plugins === '{}')
     {
       fetch('https://' + window.location.host + '/homebrew.orcbrew')
         .then(resp => resp.text())
@@ -129,5 +148,4 @@ html, body, #app {
             window.location.reload(false);
           }
       });
-    }
-    "]]))
+    }"]]))

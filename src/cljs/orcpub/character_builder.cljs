@@ -497,7 +497,7 @@
          (if (and content selected?)
            content)
          (if explanation-text
-           [:div.i.f-s-12.f-w-n 
+           [:div.i.f-s-12.f-w-n
             explanation-text])]]])))
 
 (defn skill-help [name key ability icon description]
@@ -850,7 +850,7 @@
                      {:class-name (if (and (not ability-disabled?)
                                            (zero? (ability-increases k 0)))
                                     "opacity-5")}
-                     (ability-value (ability-increases k 0))] 
+                     (ability-value (ability-increases k 0))]
                     [:div.f-s-16
                      [:i.fa.fa-minus-circle.orange
                       {:class-name (if decrease-disabled? "opacity-5 cursor-disabled")
@@ -1073,7 +1073,7 @@
             {:value (if (abilities k)
                       (total-abilities k))
              :type :number
-             :on-change (fn [e] (let [total (total-abilities k)                                     
+             :on-change (fn [e] (let [total (total-abilities k)
                                       value (.-value (.-target e))
                                       diff (- total
                                               (abilities k))
@@ -1385,7 +1385,7 @@
         :hide-homebrew? true
         :min (if (pos? num-selections) num-selections)
         :max (if (pos? num-selections) num-selections)
-        :remaining (if (pos? num-selections) (sum-remaining built-template character selections)) 
+        :remaining (if (pos? num-selections) (sum-remaining built-template character selections))
         :body (hit-points-entry character selections built-template)}])))
 
 (defn info-block [text]
@@ -2031,7 +2031,8 @@
      "Character Builder"
      (remove
       nil?
-      [(if character-id [views5e/share-link character-id])
+      [(if character-id [views5e/share-link-email character-id])
+       (if character-id [views5e/share-link-www character-id])
        {:title "Random"
         :icon "random"
         :on-click (confirm-handler
@@ -2054,19 +2055,20 @@
                    {:confirm-button-text "CREATE CLONE"
                     :question "You have unsaved changes, are you sure you want to discard them and clone this character? The new character will have the unsaved changes, the original will not."
                     :event [::char5e/clone-character]})}
-       {:title "Print"
-        :icon "print"
-        :on-click (views5e/make-print-handler (:db/id character) built-char)}
        {:title (if (:db/id character)
-                 "Update Existing Character"
+                 "Save"
                  "Save New Character")
         :icon "save"
-        :style (if character-changed? unsaved-button-style) 
+        :style (if character-changed? unsaved-button-style)
         :on-click save-character}
+
        (if (:db/id character)
          {:title "View"
           :icon "eye"
-          :on-click (load-character-page (:db/id character))})])
+          :on-click (load-character-page (:db/id character))})
+       {:title "Export"
+        :icon "download"
+        :on-click (views5e/make-print-handler (:db/id character) built-char)}])
      [:div
       [:div.container
        [:div.content

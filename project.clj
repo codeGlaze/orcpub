@@ -14,8 +14,10 @@
 
   :repositories [["apache" "http://repository.apache.org/snapshots/"]
                  ["my.datomic.com" {:url "https://my.datomic.com/repo"
-                                    :username [:gpg :env]
-                                    :password [:gpg :env]}]]
+                                    [:gpg :env]
+                                    [:gpg :env]}]]
+                                    ;:username "john@lissproductions.com" ;[:gpg :env]
+                                    ;:password "b755193e-ef0a-47c0-b63b-db2780208e1b"}]] ;[:gpg :env]}]]
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
 
   :dependencies [[org.clojure/clojure "1.10.0"]
@@ -32,11 +34,11 @@
                  [clj-http "3.9.1"]
                  [com.yetanalytics/ring-etag-middleware "0.1.1"]
                  [org.clojure/test.check "0.9.0"]
-
+                 [org.clojure/data.csv "0.1.4"]
                  [org.clojure/core.match "0.3.0-alpha5"]
                  [re-frame "0.10.9"]
                  [reagent "0.7.0"]
-                 [garden "1.3.2"]
+                 [garden "1.3.9"]
                  [org.apache.pdfbox/pdfbox "2.1.0-20170324.170253-831"]
                  [io.pedestal/pedestal.service "0.5.1"]
                  [io.pedestal/pedestal.route "0.5.1"]
@@ -54,6 +56,7 @@
                  [com.amazonaws/aws-java-sdk-dynamodb "1.11.6"]
                  [com.fasterxml.jackson.core/jackson-databind "2.7.0"]
 
+                 [binaryage/devtools "0.9.4"]
                  [hiccup "1.0.5"]
                  [com.draines/postal "2.0.2"]
                  [environ "1.1.0"]
@@ -63,7 +66,7 @@
                  [com.datomic/datomic-free "0.9.5697"]
                  [funcool/cuerdas "2.2.0"]
                  [camel-snake-kebab "0.4.0"]
-                 ]
+                 [clj-http "3.10.0"]]
 
   :plugins [[lein-figwheel "0.5.19"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
@@ -91,7 +94,7 @@
                      :compiler { ;; Where to save the file:
                                 :output-to "resources/public/css/compiled/styles.css"
                                 ;; Compress the output?
-                                :pretty-print? false}}]}
+                                :pretty-print? true}}]}
 
   :prep-tasks [["garden" "once"]]
 
@@ -154,11 +157,11 @@
              }
 
   :repl-options {
-             ;; If nREPL takes too long to load it may timeout,
-             ;; increase this to wait longer before timing out.
-             ;; Defaults to 30000 (30 seconds)
-             :timeout 300000 ; 5 mins to wait
-			 }
+  ;; If nREPL takes too long to load it may timeout,
+  ;; increase this to wait longer before timing out.
+  ;; Defaults to 30000 (30 seconds)
+  :timeout 300000 ; 5 mins to wait
+  }
 
   ;; setting up nREPL for Figwheel and ClojureScript dev
   ;; Please see:

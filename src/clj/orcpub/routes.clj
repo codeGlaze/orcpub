@@ -41,10 +41,11 @@
             [orcpub.entity :as entity]
             [orcpub.security :as security]
             [orcpub.routes.party :as party]
-            [orcpub.oauth :as oauth]
+            ;[orcpub.oauth :as oauth]
             [hiccup.page :as page]
             [environ.core :as environ]
-            [clojure.set :as sets])
+            [clojure.set :as sets]
+            [clj-http.client :as httpclient])
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDComboBox PDListBox PDRadioButton PDTextField)
 
            (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
@@ -201,16 +202,19 @@
                      errors/bad-credentials
                      errors/no-account)))))
 
-(defn create-login-response [db user & [headers]]
+(defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
-                            (-> 24 hours from-now))]
+                            (-> 336 hours from-now))
+        now (java.util.Date.)]
+    (do (d/transact conn [{:db/id id
+                           :orcpub.user/last-login now}]))
     {:status 200
      :headers headers
      :body {:user-data (user-body db user)
             :token token}}))
 
 (defn login-response
-  [{:keys [json-params db remote-addr] :as request}]
+  [{:keys [json-params db conn remote-addr] :as request}]
   (let [{raw-username :username raw-password :password} json-params]
     (cond
       (s/blank? raw-username) (login-error errors/username-required)
@@ -227,7 +231,8 @@
                 (nil? id) (bad-credentials-response db username remote-addr)
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
-                :else (create-login-response db user))))))
+                :else
+                (create-login-response db conn user id))))))
 
 (defn login [{:keys [json-params db] :as request}]
   (try
@@ -249,13 +254,13 @@
 (defn base-url [{:keys [scheme headers]}]
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
-(defn send-verification-email [request params verification-key]
-  (email/send-verification-email
+(defn send-verification-email [request params verification-key send-updates?]
+  (email/send-verification-email 
    (base-url request)
    params
-   verification-key))
+   verification-key send-updates?))
 
-(defn do-verification [request params conn & [tx-data]]
+(defn do-verification [request params conn send-updates? & [tx-data]]
   (let [verification-key (str (java.util.UUID/randomUUID))
         now (java.util.Date.)]
     (do @(d/transact
@@ -265,7 +270,7 @@
             {:orcpub.user/verified? false
              :orcpub.user/verification-key verification-key
              :orcpub.user/verification-sent now})])
-        (send-verification-email request params verification-key)
+        (send-verification-email request params verification-key send-updates?)
         {:status 200})))
 
 (defn register [{:keys [json-params db conn] :as request}]
@@ -276,7 +281,8 @@
         validation (registration/validate-registration
                     json-params
                     (seq (d/q email-query db email))
-                    (seq (d/q username-query db username)))]
+                    (seq (d/q username-query db username)))
+        now (java.util.Date.)]
     (try
       (if (seq validation)
         {:status 400
@@ -285,11 +291,13 @@
          request
          json-params
          conn
+         send-updates?
          {:orcpub.user/email email
           :orcpub.user/username username
           :orcpub.user/password (hashers/encrypt password)
           :orcpub.user/send-updates? send-updates?
-          :orcpub.user/created (java.util.Date.)}))
+          :orcpub.user/created now
+          :orcpub.user/last-login now}))
       (catch Throwable e (do (prn e) (throw e))))))
 
 (def user-for-verification-key-query
@@ -353,7 +361,7 @@
         :orcpub.user/password-reset-sent (java.util.Date.)}])
     (email/send-reset-email
      (base-url request)
-     {:first-and-last-name "OrcPub Patron"
+     {:first-and-last-name "Dungeon Master's Vault Patron"
       :email email}
      key)
     {:status 200}))
@@ -506,13 +514,13 @@
     :where [?e :orcpub.user/password-reset-key ?key]])
 
 (def default-title
-  "The New OrcPub: D&D 5e Character Builder/Generator")
+  "Dungeon Master's Vault")
 
 (def default-description
   "Dungeons & Dragons 5th Edition (D&D 5e) character builder/generator and digital character sheet far beyond any other in the multiverse.")
 
 (defn default-image-url [host]
-  (str "http://" host "/image/dmv-box-logo.png"))
+  (str "https://" host "/image/dmv-box-logo.png"))
 
 (defn index-page-response [{:keys [headers uri] :as request}
                            {:keys [title description image-url]}

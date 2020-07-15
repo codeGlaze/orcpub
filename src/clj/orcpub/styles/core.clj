@@ -298,13 +298,19 @@
     {:height "72px"}]
    [:.h-120
     {:height "120px"}]
+   [:.h-170
+    {:height "170px"}]
    [:.h-200
     {:height "200px"}]
    [:.h-800
     {:height "800px"}]
 
+   [:.h-10-p
+    {:height "10%"}]
    [:.h-100-p
     {:height "100%"}]
+   [:.h-auto
+    {:height "auto"}]
 
    [:.overflow-auto
     {:overflow :auto}]
@@ -326,9 +332,11 @@
     {:color "#191919"}]
    [:.orange
     {:color button-color}
-
     [:a :a:visited
      {:color button-color}]]
+   [:.a-white
+   [:a :a:visited
+    {:color "white !important" }]]
    [:.green
     {:color green}
 
@@ -419,6 +427,8 @@
     {:border-radius "50%"}]
    [:.b-rad-5
     {:border-radius "5px"}]
+   [:.b-rad-10
+    {:border-radius "10px"}]
 
    [:.b-1
     {:border "1px solid"}]
@@ -913,7 +923,7 @@
     [:.app-header
      {:background-color :black
       :background-image "url(/../../image/header-background.jpg)"
-      :background-position "right center"
+      :background-position "center"
       :background-size "cover"
       :height (px const/header-height)}]
 

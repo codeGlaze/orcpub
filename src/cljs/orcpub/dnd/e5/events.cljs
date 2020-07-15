@@ -1332,7 +1332,7 @@
           (s/split cookie "; "))))
 
 (defn show-generic-error []
-  [:show-error-message [:div "There was an error, please refresh your browser and try again."]])
+  [:show-error-message [:div "There was an error, please refresh your browser and try again. If the problem persists please contact " [:a {:href "mailto:thDM@dungeonmastersvault.com"} "thDM@dungeonmastersvault.com."]]])
 
 (reg-fx
  :http
@@ -1389,7 +1389,7 @@
        (= error-code errors/unverified) {:db (assoc db :temp-email (-> response :body :email))
                                          :dispatch [:route routes/verify-sent-route]}
        (= error-code errors/unverified-expired) {:dispatch [:route routes/verify-failed-route]}
-       :else (dispatch-login-failure [:div "A login error occurred."])))))
+       :else (dispatch-login-failure [:div "An error occurred. If the problem persists please email " [:a {:href "mailto:thDM@dungeonmastersvault.com" :target :blank} "thDM@dungeonmastersvault.com"]])))))
 
 (reg-event-fx
  :logout
@@ -3146,6 +3146,19 @@
      (js/saveAs blob (str "all-content.orcbrew"))
      {})))
 
+(defn clj->json
+  [ds]
+  (.stringify js/JSON (clj->js ds) nil 2))
+
+(reg-event-fx
+  ::e5/save-to-json
+  (fn [_ [_ name plugin]]
+    (let [blob (js/Blob.
+                 (clj->js [(clj->json plugin)])
+                 (clj->js {:type "application/json;charset=utf-8"}))]
+      (js/saveAs blob (str name ".json"))
+      {})))
+
 (reg-event-fx
   ::e5/export-plugin-pretty-print
   (fn [_ [_ name plugin]]
@@ -3154,6 +3167,7 @@
                  (clj->js {:type "text/plain;charset=utf-8"}))]
       (js/saveAs blob (str name ".orcbrew"))
       {})))
+
 (reg-event-fx
   ::e5/export-all-plugins-pretty-print
   (fn [_ _]
