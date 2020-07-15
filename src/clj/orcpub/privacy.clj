@@ -308,7 +308,7 @@
     {:title "What's a cookie?"
      :font-size 32
      :paragraphs
-     ["When you go online, you use a program called a \"browser\" (like Apple's Safari or Google's Chrome). Most websites store a small amount of text in the browser—and that text is called a \"cookie.\""]}
+     ["When you go online, you use a program called a \"browser\" (like Apple's Safari or Google's Chrome). Most websites store a small amount of text in the browser and that text is called a \"cookie.\""]}
     {:title "How we use cookies"
      :font-size 32
      :paragraphs
