@@ -1466,7 +1466,7 @@
   [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
 
 (def banner-link
-  [:a.orange {:href "https://brave.com/dun047" :target "_blank"} "Download Brave browser"])
+  [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target "_blank"} "Become a Patron today"])
 
 (def faq-link
   [:a.orange {:href "https://faq.dungeonmastersvault.com/" :target "_blank"} " here"])
@@ -1523,9 +1523,10 @@
                    [:div
                     (if (not frame?)
                       [:div.content.bg-lighter.p-10.flex
-                       [:div.flex-grow-1
-                        [:div banner-link " and use it for 30 days to support this site. "]
-                        [:div "FAQ " faq-link "."]]
+                       [:div.flex-grow-1.t-a-c
+                        [:div.p-t-10 "Please consider a gift of $1 to support this site."]
+                        [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
+                       [:div.p-t-10.p-b-10 banner-link]]
                        [:i.fa.fa-times.p-10.pointer
                         {:on-click #(dispatch [:close-srd-message])}]])])]
               [:div#app-main.container
@@ -1537,12 +1538,15 @@
                   [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
                   [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
-                  [:div.m-b-5
-                   [:a.orange {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
+                  [:div.m-b-5.justify-cont-c
+                   [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank} "Support this site on Pateron"]
+                   [:a.orange.m-l-5 {:href "https://faq.dungeonmastersvault.com" :target :_blank} "FAQ"]
+                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
                  [:div.m-l-10.m-r-10.p-10
                   [:div.m-b-5
-                   [:a.orange {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
-                   [:a.orange.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]]]
+                   [:a.orange {:href "/terms-of-use" :target :_blank} "Terms of Use"]
+                   [:a.orange.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
+                   [:a.orange.m-l-5 {:href "/cookie-policy" :target :_blank} "Cookie Policy"]]]
                  [:div.legal-footer
                   [:p "© 2020 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved."]
