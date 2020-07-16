@@ -45,13 +45,13 @@
     [:style
      "
 .splash-page-content {}
-.splash-button .splash-button-content {height: 120px; width: 120px}
+.splash-button .splash-button-content {height: 130px; width: 120px}
 .splash-button .svg-icon {height: 64px; width: 64px}
 
 @media (max-width: 767px)
 {.splash-button .svg-icon {height: 32px; width: 32px}
 .splash-button-title-prefix {display: none}
-.splash-button .splash-button-content {height: 60px; width: 60px; font-size: 10px}
+.splash-button .splash-button-content {height: 90px; width: 60px;}
 .legal-footer-parent {display: none}}
 
 body {background-color: #080A0D}
