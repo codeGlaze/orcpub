@@ -16,13 +16,16 @@
   [:img.svg-icon
    {:src (str "/image/" icon-name ".svg")}])
 
-(defn splash-page-button [title icon route & [handler]]
+(defn splash-page-button [title icon route isroute & [handler]]
   [:a.splash-button
    (let [cfg {:style (style {:text-decoration :none
                              :color "#f0a100"})}]
-     (if handler
-       (assoc cfg :on-click handler)
-       (assoc cfg :href (routes/path-for route))))
+     (prn (true? isroute))
+     (if (true? isroute)
+       (do (assoc cfg :on-click handler)
+           (assoc cfg :href (routes/path-for route)))
+       (do (assoc cfg :on-click handler)
+           (assoc cfg :href route))))
    [:div.splash-button-content
     {:style (style {:box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
                     :margin "5px"
@@ -38,57 +41,15 @@
      [:div
       [:span.splash-button-title-prefix "D&D 5e "] [:span title]]]]])
 
-(defn splash-page-button2 [title icon route & [handler]]
-  [:a.splash-button
-   (let [cfg {:style (style {:text-decoration :none
-                             :color "#f0a100"})}]
-     (if handler
-       (assoc cfg :on-click handler)
-       (assoc cfg :href route)))
-   [:div.splash-button-content
-    {:style (style {:box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
-                    :margin "5px"
-                    :text-align "center"
-                    :padding "10px"
-                    :cursor :pointer
-                    :display :flex
-                    :align-items :center
-                    :justify-content :space-around
-                    :font-weight :bold})}
-    [:div
-     (svg-icon-2 icon 64 "dark")
-     [:div
-      [:span.splash-button-title-prefix "D&D 5e "] [:span title]]]]])
+(def orange-style
+  {:color :orange})
 
 (defn legal-footer-sm []
   [:div.m-l-15.m-b-10.m-t-10.t-a-l
    ;[:span "© 2020 Dungeon Masters Vault"]
    [:a.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]
-   [:a.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]])
-
-(def orange-style
-  {:color :orange})
-
-(defn legal-footer-2 []
-  #_[:div
-   {:style (style {:display :flex
-                   :justify-content :space-between
-                   :align-items :center
-                   :flex-wrap :wrap
-                   :padding "10px"})}
-   [:div
-    [:div {:style (style {:margin-bottom "5px"})} "Icons available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]]
-   [:div.m-l-10 {:style (style {:margin-left "10px"})}
-    [:a {:style (style orange-style) :href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]
-   [:div.m-l-10.m-r-10.p-10
-    {:style (style {:margin-left "10px"
-                    :margin-right "10px"
-                    :padding "10px"})}
-    [:a {:style (style orange-style) :href "/privacy-policy" :target :_blank} "Privacy Policy"]
-    [:a.m-l-5 {:style (orange-style {:margin-left "5px"}) :href "/terms-of-use" :target :_blank} "Terms of Use"]]
-   [:div.legal-footer
-    [:p "Site Contact " [:a {:href "mailto:thDM@dungeonmastersvault.com"} "thDM@dungeonmastersvault.com"]]
-    [:p "Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © Wizards. All Rights Reserved. OrcPub.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]]])
+   [:a.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
+   [:a.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Polciy"]])
 
 (defn splash-page []
   [:div.app.h-full
@@ -108,13 +69,6 @@
                       :justify-content :space-around})}
       [:img.w-50-p
        {:src "/image/dmv-logo.svg"}]]
-     #_[:div
-      {:style (style {:text-align :center
-                      :text-shadow "1px 2px 1px black"
-                      :font-weight :bold
-                      :font-size "14px"
-                      :height "48px"})}
-      "orcpub version 2.5.0.1 (08/19/2019) - community edition"]
      [:div
       {:style (style
                {:display :flex
@@ -124,112 +78,124 @@
       (splash-page-button
        "Character Builder / Sheet"
        "anvil-impact"
-       routes/dnd-e5-char-builder-route)
+       routes/dnd-e5-char-builder-route
+       true)
       (splash-page-button
        "Character Builder for Newbs"
        "baby-face"
-       routes/dnd-e5-newb-char-builder-route)
+       routes/dnd-e5-newb-char-builder-route
+       true)
       (splash-page-button
-        "Homebrew Content"
-        "beer-stein"
-        routes/dnd-e5-my-content-route)]
+       "Homebrew Content"
+       "beer-stein"
+       routes/dnd-e5-my-content-route
+       true)]
      [:div
       {:style (style
-                {:display :flex
-                 :flex-wrap :wrap
-                 :justify-content :center
-                 :margin-top "10px"})}
+               {:display :flex
+                :flex-wrap :wrap
+                :justify-content :center
+                :margin-top "10px"})}
       (splash-page-button
        "Spells"
        "spell-book"
-       routes/dnd-e5-spell-list-page-route)
+       routes/dnd-e5-spell-list-page-route
+       true)
       (splash-page-button
        "Monsters"
        "spiked-dragon-head"
-       routes/dnd-e5-monster-list-page-route)
+       routes/dnd-e5-monster-list-page-route
+       true)
       (splash-page-button
        "Items"
        "all-for-one"
-       routes/dnd-e5-item-list-page-route)
+       routes/dnd-e5-item-list-page-route
+       true)
       (splash-page-button
        "Combat Tracker"
        "sword-clash"
-       routes/dnd-e5-combat-tracker-page-route)
-      ]
+       routes/dnd-e5-combat-tracker-page-route
+       true)]
      [:div
       {:style (style
-                {:display :flex
-                 :flex-wrap :wrap
-                 :justify-content :center
-                 :margin-top "10px"})}
+               {:display :flex
+                :flex-wrap :wrap
+                :justify-content :center
+                :margin-top "10px"})}
       (splash-page-button
        "Encounter Builder"
        "minions"
-       routes/dnd-e5-encounter-builder-page-route)
+       routes/dnd-e5-encounter-builder-page-route
+       true)
       (splash-page-button
        "Monster Builder"
        "anatomy"
-       routes/dnd-e5-monster-builder-page-route)
+       routes/dnd-e5-monster-builder-page-route
+       true)
       (splash-page-button
        "Spell Builder"
        "gift-of-knowledge"
-       routes/dnd-e5-spell-builder-page-route)
+       routes/dnd-e5-spell-builder-page-route
+       true)
       (splash-page-button
        "Feat Builder"
        "vitruvian-man"
-       routes/dnd-e5-feat-builder-page-route)
+       routes/dnd-e5-feat-builder-page-route
+       true)
       (splash-page-button
        "Class Builder"
        "mounted-knight"
-       routes/dnd-e5-class-builder-page-route)
+       routes/dnd-e5-class-builder-page-route
+       true)
       (splash-page-button
        "Race Builder"
        "woman-elf-face"
-       routes/dnd-e5-race-builder-page-route)
+       routes/dnd-e5-race-builder-page-route
+       true)
       (splash-page-button
        "Background Builder"
        "ages"
-       routes/dnd-e5-background-builder-page-route)]
+       routes/dnd-e5-background-builder-page-route
+       true)]
      [:div
       {:style (style
-                {:display :flex
-                 :flex-wrap :wrap
-                 :justify-content :center
-                 :margin-top "10px"})}
+               {:display :flex
+                :flex-wrap :wrap
+                :justify-content :center
+                :margin-top "10px"})}
 
-      (splash-page-button2
-        "NPC Generator"
-        "monk-face"
-        "/generator/npcgenerator")
-      (splash-page-button2
-        "City Generator"
-        "elven-castle"
-        "/generator/citygenerator")
-      (splash-page-button2
-        "Name Generator"
-        "stone-tablet"
-        "/generator/namegenerator")
-      (splash-page-button2
-        "Legend Generator"
-        "giant-squid"
-        "/generator/legendgenerator")
-      (splash-page-button2
-        "Rumor Generator"
-        "discussion"
-        "/generator/rumorgenerator")
-      (splash-page-button2
-        "Wanted Poster Generator"
-        "wanted-reward"
-        "/generator/wantedpostergenerator")
-      (splash-page-button2
-        "So you're looking for..."
-        "cash"
-        "/generator/resourcegenerator")]
-
-
-     ]]
-   [:div.legal-footer-parent
-    {:style (style {:font-size "12px"
-                    :color :white
-                    :padding "10px"})}
-    ]])
+      (splash-page-button
+       "NPC Generator"
+       "monk-face"
+       "/generator/npcgenerator"
+       false)
+      (splash-page-button
+       "City Generator"
+       "elven-castle"
+       "/generator/citygenerator"
+       false)
+      (splash-page-button
+       "Name Generator"
+       "stone-tablet"
+       "/generator/namegenerator"
+       false)
+      (splash-page-button
+       "Legend Generator"
+       "giant-squid"
+       "/generator/legendgenerator"
+       false)
+      (splash-page-button
+       "Rumor Generator"
+       "discussion"
+       "/generator/rumorgenerator"
+       false)
+      (splash-page-button
+       "Wanted Poster Generator"
+       "wanted-reward"
+       "/generator/wantedpostergenerator"
+       false)
+      (splash-page-button
+       "So you're looking for..."
+       "cash"
+       "/generator/resourcegenerator"
+       false)]]]])
