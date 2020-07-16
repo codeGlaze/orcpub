@@ -182,13 +182,15 @@
                                            [figwheel-sidecar "0.5.19"]
                                            [cider/piggieback "0.4.0"]
                                            [org.clojure/test.check "0.9.0"]
-                                           [day8.re-frame/re-frame-10x "0.3.7"]]
+                                           ;[day8.re-frame/re-frame-10x "0.3.7"]
+                                           ]
                             ;; need to add dev source path here to get user.clj loaded
                             :source-paths ["web/cljs" "src/clj" "src/cljc" "src/cljs" "dev"]
                             :cljsbuild    {:builds {:dev {:compiler {:closure-defines {"re_frame.trace.trace_enabled_QMARK_" true}
                                                                      ;; To console.log CLJS data-structures make sure you enable devtools in Chrome
                                                                      ;; https://github.com/binaryage/cljs-devtools
-                                                                     :preloads        [devtools.preload day8.re-frame-10x.preload]}}}}
+                                                                     ;:preloads        [devtools.preload day8.re-frame-10x.preload]
+                                                                     }}}}
                             ;; for CIDER
                             ;; :plugins [[cider/cider-nrepl "0.12.0"]]
                             :repl-options {:init-ns          user
