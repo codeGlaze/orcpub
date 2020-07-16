@@ -5,4 +5,4 @@
 (defn date []
   "7/15/2020")
 (defn description []
-  "\"Development build\"")
+  "\"Obsidian Plains Tower\"")
