@@ -20,7 +20,6 @@
   [:a.splash-button
    (let [cfg {:style (style {:text-decoration :none
                              :color "#f0a100"})}]
-     (prn (true? isroute))
      (if (true? isroute)
        (do (assoc cfg :on-click handler)
            (assoc cfg :href (routes/path-for route)))
