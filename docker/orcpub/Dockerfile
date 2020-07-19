@@ -15,5 +15,4 @@ MAINTAINER daemonsthere@gmail.com
 
 COPY --from=builder /orcpub/target/orcpub.jar /orcpub.jar
 
-ENTRYPOINT ["java", "-jar"]
-CMD ["/orcpub.jar"]
+CMD ["java", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-jar", "orcpub.jar"]
