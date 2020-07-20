@@ -426,14 +426,15 @@
           [:div
            {:style {:min-width "53px"}}
            [:a {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank}
-            [:img.h-32.m-l-10.m-b-5.pointer.opacity-7.hover-opacity-full
+            [:img.h-32.m-l-10.m-b-5.pointer
              {:src (if mobile?
                      "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
                      "https://c5.patreon.com/external/logo/become_a_patron_button.png")}]]
            (if (not mobile?)
              [:div.main-text-color.p-10
               (social-icon "facebook-f" "https://www.facebook.com/groups/252484128656613/")
-              (social-icon "twitter" "https://twitter.com/thDMV")])]
+              (social-icon "twitter" "https://twitter.com/thDMV")
+              (social-icon "discord" "https://discord.gg/6FRgMFf")])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
            [header-tab
             "characters"
@@ -1550,8 +1551,8 @@
                   [:p "© 2020 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved."]
                   [:p "DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
-                  [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]]
-                [debug-data]]])]))})))
+                  [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
+                [debug-data]]]])]))})))
 
 (def row-style
   {:border-bottom "1px solid rgba(255,255,255,0.5)"})
