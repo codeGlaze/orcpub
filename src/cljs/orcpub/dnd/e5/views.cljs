@@ -333,7 +333,7 @@
   [:a.p-5.opacity-5.hover-opacity-full.main-text-color
    {:style social-icon-style
     :href link :target :_blank}
-   [:i.fa
+   [:i.fab
     {:class-name (str "fa-" icon)}]])
 
 (def search-input-style
@@ -424,6 +424,7 @@
          [:div.flex.w-100-p.align-items-end
           {:class-name (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
           [:div
+           {:style {:min-width "53px"}}
            [:a {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank}
             [:img.h-32.m-l-10.m-b-5.pointer.opacity-7.hover-opacity-full
              {:src (if mobile?
@@ -431,10 +432,9 @@
                      "https://c5.patreon.com/external/logo/become_a_patron_button.png")}]]
            (if (not mobile?)
              [:div.main-text-color.p-10
-              (social-icon "facebook" "https://www.facebook.com/groups/252484128656613/")
+              (social-icon "facebook-f" "https://www.facebook.com/groups/252484128656613/")
               (social-icon "twitter" "https://twitter.com/thDMV")])]
-          [:div.flex.m-b-5.m-t-5.justify-cont-s-b
-           {:class-name (when mobile? "flex-grow-1")}
+          [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
            [header-tab
             "characters"
             "battle-gear"
@@ -1064,7 +1064,7 @@
        [:div.orange.pointer.underline
         {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
          :title "Development - Download all Orcbrews as Pretty Print, if you click this button it will take a long time to generate the orcbrew.  Click and wait."}
-        [:i.fa.fa-cloud-download]]
+        [:i.fa.fa-cloud-download-alt]]
        [:div.orange.pointer.underline
         {:on-click #(swap! expanded? not)
          :title "Development - Debug Info" }
@@ -1942,7 +1942,11 @@
       [:td.p-l-10.p-b-10.p-t-10 (if ability (s/upper-case (common/safe-name ability)))]
       [:td.p-l-10.p-b-10.p-t-10 (get cls-mods :spell-save-dc)]
       [:td.p-l-10.p-b-10.p-t-10 (common/bonus-str (get cls-mods :spell-attack-modifier))]
-      [:td.p-l-10.p-b-10.p-t-10 (roll-button (str (:name spell) " attack: ") (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier))))]
+      [:td.p-l-10.p-b-10.p-t-10 [:div.tooltip [:button.roll-button
+                                               {:on-click (fn [e]
+                                                (.stopPropagation e)
+                                                ((button-roll-handler (str (:name spell) " attack: ") (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier)))) e))}
+                                               "Roll"] [:span.tooltiptext "ctrl+click for advantage shift+click for disadvantage"]]]
       [:td.p-l-10.p-b-10.p-t-10.pointer.orange
        [:i.fa
         {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]
@@ -2836,8 +2840,16 @@
                         (weapon-details weapon weapon-damage-modifier))]
 
                      [:td.p-10.f-w-b.f-s-18 (common/bonus-str (weapon-attack-modifier weapon))]
-                     [:td (roll-button (str name " attack: ") (str "1d20" (common/mod-str (weapon-attack-modifier weapon))) :text "Attack")]
-                     [:td (roll-button (str name " damage: ") (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon))) :text "Damage" :disable-tooltip true)]
+                     [:td [:div.tooltip [:button.roll-button
+                                         {:on-click (fn [e]
+                                          (.stopPropagation e)
+                                          ((button-roll-handler (str name " attack: ") (str "1d20" (common/mod-str (weapon-attack-modifier weapon)))) e))}
+                                         "Attack"] [:span.tooltiptext "ctrl+click for advantage shift+click for disadvantage"]]]
+                     [:td [:button.roll-button
+                                         {:on-click (fn [e]
+                                          (.stopPropagation e)
+                                          ((button-roll-handler (str name " damage: ") (str damage-die-count "d" damage-die (common/mod-str (weapon-damage-modifier weapon)))) e))}
+                                         "Damage"]]
                      [:td.pointer
                       [:div.orange
                        #_(if (not mobile?)
@@ -7728,7 +7740,7 @@
                          "cancel"]]]
                       [:div.flex.align-items-c
                        [:span.m-l-5 name]
-                       [:i.fa.fa-pencil.m-l-10.opacity-5.hover-opacity-full.pointer
+                       [:i.fa.fa-pencil-alt.m-l-10.opacity-5.hover-opacity-full.pointer
                         {:on-click #(swap! editing-parties assoc id name)}]])]]
                   [:div.item-list
                    (doall
