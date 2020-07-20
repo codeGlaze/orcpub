@@ -1546,7 +1546,7 @@
                   [:div.m-b-5
                    [:a.orange {:href "/terms-of-use" :target :_blank} "Terms of Use"]
                    [:a.orange.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
-                   [:a.orange.m-l-5 {:href "/cookie-policy" :target :_blank} "Cookie Policy"]]]
+                   [:a.orange.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Policy"]]]
                  [:div.legal-footer
                   [:p "© 2020 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved."]
