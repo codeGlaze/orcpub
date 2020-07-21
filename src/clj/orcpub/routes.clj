@@ -45,7 +45,10 @@
             [hiccup.page :as page]
             [environ.core :as environ]
             [clojure.set :as sets]
-            [clj-http.client :as httpclient])
+            [ring.middleware.head :as head]
+            [ring.util.codec :as codec]
+            [ring.util.request :as req]
+            [ring.util.response :as resp])
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDComboBox PDListBox PDRadioButton PDTextField)
 
            (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
@@ -982,11 +985,20 @@
 
 (def get-js get-file)
 
-(def get-fa get-file)
-
 (def get-image get-file)
 
 (def get-favicon get-file)
+
+(def webjars-root "META-INF/resources/webjars/")
+
+(defn get-webjar
+  "Get a resource containd within a webjar.
+   Expects route to be /assets/*"
+  [request]
+  (let [path (subs (codec/url-decode (req/path-info request)) 1)
+        new-path (s/replace-first path #"^assets/" webjars-root)]
+    (-> (resp/resource-response new-path)
+        (head/head-response request))))
 
 (def routes
   (concat
@@ -995,7 +1007,7 @@
        ^:interceptors [(body-params/body-params) service-error-handler]
        ["/js/*" {:get `get-js}]
        ["/css/*" {:get `get-css}]
-       ["/font-awesome-5.14.0/*" {:get `get-fa}]
+       ["/assets/*" {:get `get-webjar}]
        ["/image/*" {:get `get-image}]
        ["/favicon/*" {:get `get-favicon}]
        [(route-map/path-for route-map/register-route)
