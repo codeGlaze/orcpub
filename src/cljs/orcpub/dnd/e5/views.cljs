@@ -1539,7 +1539,7 @@
                   [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
                   [:div.m-b-5.justify-cont-c
-                   [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank} "Support this site on Pateron"]
+                   [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank} "Support this site on Patreon"]
                    [:a.orange.m-l-5 {:href "https://faq.dungeonmastersvault.com" :target :_blank} "FAQ"]
                    [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
                  [:div.m-l-10.m-r-10.p-10
