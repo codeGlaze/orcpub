@@ -15,4 +15,4 @@ MAINTAINER daemonsthere@gmail.com
 
 COPY --from=builder /orcpub/target/orcpub.jar /orcpub.jar
 
-CMD ["java", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-XX:MaxRAMFraction=1", "-jar", "orcpub.jar"]
+CMD ["java", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-XX:MaxRAMFraction=1", "-javaagent:newrelic.jar", "-jar", "orcpub.jar"]

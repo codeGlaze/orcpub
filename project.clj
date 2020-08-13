@@ -9,7 +9,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :main orcpub.server
-
+  
   :min-lein-version "2.7.1"
 
   :repositories [["apache" "http://repository.apache.org/snapshots/"]
@@ -19,6 +19,8 @@
                                     ;:username "john@lissproductions.com" ;[:gpg :env]
                                     ;:password "b755193e-ef0a-47c0-b63b-db2780208e1b"}]] ;[:gpg :env]}]]
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
+
+  :java-agents [[com.newrelic.agent.java/newrelic-agent "5.14.0"]]
 
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [org.clojure/test.check "0.9.0"]
