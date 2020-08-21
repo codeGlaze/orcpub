@@ -16,4 +16,4 @@ MAINTAINER daemonsthere@gmail.com
 COPY --from=builder /orcpub/target/orcpub.jar /orcpub.jar
 COPY --from=builder /orcpub/newrelic*.* /
 
-CMD ["java", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap", "-XX:MaxRAMFraction=1", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=/tmp/dump", "-javaagent:newrelic.jar", "-jar", "orcpub.jar"]
+CMD ["java", "-javaagent:newrelic.jar", "-jar", "orcpub.jar"]
