@@ -4,7 +4,8 @@
             [orcpub.dnd.e5.display :as dis5e]
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.options :as options]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clj-http.client :as client])
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDComboBox PDListBox PDRadioButton PDTextField)
            (org.apache.pdfbox.cos COSName)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
@@ -15,6 +16,37 @@
            (org.eclipse.jetty.server.handler.gzip GzipHandler)
            (javax.imageio ImageIO)
            (java.net URL)))
+
+(defn extract-value [h hname]
+  (if-not (or (nil? h)
+              (nil? hname))
+    (let [x (get h hname)]
+      (if-not (nil? x)
+        x
+        ""))
+    ""))
+
+(defn extract-name [h hname]
+  (if (and (not (nil? h))
+           (not (nil? hname)))
+    (try
+      (let [parts (s/split (extract-value h hname) #";")]
+        (first parts))
+      (catch Exception e ""))))
+
+(defn extract-info [h hname]
+  (if (and (not (nil? h))
+           (not (nil? hname)))
+    (try
+      (let [parts (s/split (extract-value h hname) #";")]
+        (s/join "; " (map s/trim (rest parts))))
+      (catch Exception e ""))))
+
+(defn parse-number
+  "Reads a number from a string. Returns nil if not a number."
+  [s]
+  (if (re-find #"^-?\d+\.?\d*$" s)
+    (read-string s)))
 
 (defn load-fonts
   "Loads the fonts for the document. Will contain
@@ -115,11 +147,23 @@
   (let [lower-case-url (s/lower-case url)
         jpg? (or (s/ends-with? lower-case-url "jpg")
                  (s/ends-with? lower-case-url "jpeg"))
-        draw-fn (if jpg? draw-jpg draw-non-jpg)]
-    (try
-      (draw-fn doc page url x y width height)
-      (catch Exception e
-        (prn "failed loading image" (clojure.stacktrace/print-stack-trace e))))))
+        draw-fn (if jpg? draw-jpg draw-non-jpg)
+        response (client/head url {:throw-exceptions false})
+        size (parse-number (extract-value (:headers response) "Content-Length"))]
+    (prn (str "Check " (:reason-phrase response) " - " url))
+    (if (= (:reason-phrase response) "OK")
+      (if (<= size 128000)
+        (try
+          (prn (str "Image size ok: " size))
+          (draw-fn doc page url x y width height)
+          (catch Exception e
+            (prn "failed loading image" (clojure.stacktrace/print-stack-trace e))))
+        (try
+          (prn (str "Image is to large: " size " - skipping"))
+          (draw-fn doc page (str (io/resource (str "public/image/stop.png"))) x y width height)
+          (catch Exception e
+            (prn "failed loading image" (clojure.stacktrace/print-stack-trace e)))))
+      (draw-fn doc page (str (io/resource (str "public/image/error.png"))) x y width height))))
 
 (defn get-page [doc index]
   (.getPage doc index))

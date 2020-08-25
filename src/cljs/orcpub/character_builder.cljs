@@ -1832,7 +1832,7 @@
                       :on-load (if image-url-failed image-loaded)
                :style image-style}])
       [:div.flex-grow-1
-       [:span.personality-label.f-s-18 "Image URL"]
+       [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
        (if image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
@@ -1847,7 +1847,7 @@
                                  faction-image-loaded)
                :style image-style}])
       [:div.flex-grow-1
-       [:span.personality-label.f-s-18 "Faction Image URL"]
+       [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
        (if faction-image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
