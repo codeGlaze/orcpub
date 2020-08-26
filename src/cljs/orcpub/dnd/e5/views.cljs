@@ -2634,10 +2634,11 @@
         [:div.p-l-20.p-r-20
          [:div.w-100-p
           [comps/input-field
-           :textarea
+           :textarea  
            @(subscribe [::char/notes id])
            (set-notes-handler id)
            {:style notes-style
+            :maxlength 1024
             :class-name "input"}]]]]]]]))
 
 (defn weapon-details-field [nm value]
