@@ -3590,14 +3590,16 @@
    :input
    value
    on-change
-   {:class-name "input"}])
+   {:class-name "input"
+    :maxLength 255}])
 
 (defn textarea-field [{:keys [value on-change]}]
   [comps/input-field
    :textarea
    value
    on-change
-   {:class-name "input"}])
+   {:class-name "input"
+    :maxLength 1024}])
 
 (defn number-field [{:keys [value on-change]}]
   [comps/input-field
@@ -3607,7 +3609,8 @@
      (on-change
       (if (re-matches #"\d+" v) (js/parseInt v))))
    {:class-name "input"
-    :type :number}])
+    :type :number
+    :maxLength 7}])
 
 (defn attunement-value [attunement key name]
   [:div
@@ -3998,7 +4001,8 @@
     (prop item)
     #(dispatch [prop-event prop %])
     {:class-name "input h-40"
-     :type type}]])
+     :type type
+     :maxLength 255}]])
 
 (defn spell-input-field [title prop spell & [class-names]]
   (builder-input-field title prop spell ::spells/set-spell-prop class-names))
