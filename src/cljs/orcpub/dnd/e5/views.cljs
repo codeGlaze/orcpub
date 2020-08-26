@@ -2638,7 +2638,7 @@
            @(subscribe [::char/notes id])
            (set-notes-handler id)
            {:style notes-style
-            :maxlength 1024
+            :maxLength 1024
             :class-name "input"}]]]]]]]))
 
 (defn weapon-details-field [nm value]
