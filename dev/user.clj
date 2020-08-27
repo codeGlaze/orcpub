@@ -106,6 +106,45 @@
                  :conn conn
                  :db db}))))
 
+(defn cleanup-images []
+  (let [image-url
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/image-url ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k u] image-url]
+        (if (re-matches #"^(https?|ftp)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" u)
+          (println k)
+          (d/transact conn [[:db/retract k
+                             :orcpub.dnd.e5.character/image-url u]])))))
+  (let [faction-image-url
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/faction-image-url ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k u] faction-image-url]
+        (if (re-matches #"^(https?|ftp)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" u)
+          (println k)
+          (d/transact conn [[:db/retract k
+                             :orcpub.dnd.e5.character/faction-image-url u]]))))))
+
+(defn cleanup-users []
+  (let [userdata
+        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.user/verified? false]] db))]
+    (with-db [conn]
+      (doseq [[k] userdata]
+        (d/transact conn [[:db/retractEntity k]]))))
+
+  #_(let [userdata2
+        (with-db [db] (d/q '[:find ?e ?doc ?created
+                                   :where
+                                   [?e :orcpub.user/email ?doc]
+                                   [?e :orcpub.user/created ?created]
+                                   [(missing? $ ?e :orcpub.user/last-login)]] db))]
+    (with-db [conn]
+      (doseq [[k] userdata2]
+        (d/transact conn [[:db/retractEntity k]])))))
+
 (defn dumpusers []
   (let [userdata
         (with-db [db] (d/q '[:find ?e ?username ?email ?verified ?sendupdates ?lastlogin
