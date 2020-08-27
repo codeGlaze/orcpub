@@ -134,13 +134,13 @@
     :maxlength "255"
     :class-name (str "input w-100-p " cls-str)}])
 
-(defn character-field-1024 [entity-values prop-name type & [cls-str handler input-type]]
+(defn character-field-50000 [entity-values prop-name type & [cls-str handler input-type]]
   [comps/input-field
    type
    (get entity-values prop-name)
    (update-value-field prop-name)
    {:type input-type
-    :maxlength "1024"
+    :maxlength "50000"
     :class-name (str "input w-100-p " cls-str)}])
 
 (defn character-input [entity-values prop-name & [cls-str handler type]]
@@ -148,7 +148,7 @@
 
 
 (defn character-textarea [entity-values prop-name & [cls-str]]
-  [character-field-1024 entity-values prop-name :textarea cls-str])
+  [character-field-50000 entity-values prop-name :textarea cls-str])
 
 (defn prereq-failures [option]
   (remove
