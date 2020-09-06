@@ -114,9 +114,10 @@
     (with-db [conn]
       (doseq [[k u] image-url]
         (if (re-matches #"^(https?|ftp)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" u)
-          (println k)
-          (d/transact conn [[:db/retract k
-                             :orcpub.dnd.e5.character/image-url u]])))))
+          (println k u)
+          ((println k)
+           (d/transact conn [[:db/retract k
+                              :orcpub.dnd.e5.character/image-url u]]))))))
   (let [faction-image-url
         (with-db [db] (d/q '[:find ?e ?doc
                              :where
@@ -124,9 +125,193 @@
     (with-db [conn]
       (doseq [[k u] faction-image-url]
         (if (re-matches #"^(https?|ftp)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" u)
-          (println k)
+          (println k u)
+          ((println k u)
+            (d/transact conn [[:db/retract k
+                               :orcpub.dnd.e5.character/faction-image-url u]])))))))
+
+(defn cleanup-age []
+  (let [age
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/age ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] age]
+        (if (> (count n) 1000)
+          ((println k (count n))
+           (d/transact conn [[:db/retract k
+                              :orcpub.dnd.e5.character/age n]])))))))
+
+(defn cleanup-bonds []
+  (let [bonds
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/bonds ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] bonds]
+        (if (> (count n) 50000)
+          ((println k (count n))
+           (d/transact conn [[:db/retract k
+                              :orcpub.dnd.e5.character/bonds n]])))))))
+
+(defn cleanup-character-name []
+  (let [name
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/character-name ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] name]
+        (if (> (count n) 255)
+          ((println k (count n))
+           (d/transact conn [[:db/retract k
+                              :orcpub.dnd.e5.character/character-name n]])))))))
+
+(defn cleanup-description []
+  (let [description
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/description ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] description]
+        (if (> (count n) 50000)
+          ((println k (count n))
+           (d/transact conn [[:db/retract k
+                              :orcpub.dnd.e5.character/description n]]))
+          (println k (count n)))))))
+
+(defn cleanup-faction-name []
+  (let [faction-name
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/faction-name ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] faction-name]
+        (if (> (count n) 50000)
+          ((println k (count n))
+           (d/transact conn [[:db/retract k
+                              :orcpub.dnd.e5.character/faction-name n]])))))))
+
+
+(defn cleanup-flaws []
+  (let [flaws
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/flaws ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] flaws]
+        (if (> (count n) 50000)
+          ((println k (count n))
+           (d/transact conn [[:db/retract k
+                              :orcpub.dnd.e5.character/flaws n]])))))))
+(defn cleanup-hair []
+  (let [hair
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/hair ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] hair]
+        (if (> (count n) 255)
+          ((println k (count n))
+           (d/transact conn [[:db/retract k
+                              :orcpub.dnd.e5.character/hair n]])))))))
+
+(defn cleanup-height []
+  (let [height
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/height ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] height]
+        (if (> (count n) 255)
+          ((println k (count n))
+           (d/transact conn [[:db/retract k
+                              :orcpub.dnd.e5.character/height n]])))))))
+
+(defn cleanup-ideals []
+  (let [ideals
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/ideals ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] ideals]
+        (if (> (count n) 50000)
+          ((println k (count n))
+           (d/transact conn [[:db/retract k
+                              :orcpub.dnd.e5.character/ideals n]])))))))
+
+(defn cleanup-notes []
+  (let [notes
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/notes ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] notes]
+        (if (> (count n) 50000)
+          ((println k (count n))
+           #_(d/transact conn [{:db/id k
+                                :orcpub.dnd.e5.character/notes (subs n 0 50000)}]))
+          (println k (count n)))))))
+
+(defn cleanup-personality-trait-1 []
+  (let [personality-trait-1
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/personality-trait-1 ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] personality-trait-1]
+        (if (> (count n) 50000)
           (d/transact conn [[:db/retract k
-                             :orcpub.dnd.e5.character/faction-image-url u]]))))))
+                             :orcpub.dnd.e5.character/personality-trait-1 n]])
+          #_(println k (count n)))))))
+
+(defn cleanup-personality-trait-2 []
+  (let [personality-trait-2
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/personality-trait-2 ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] personality-trait-2]
+        (if (> (count n) 50000)
+          (d/transact conn [[:db/retract k
+                             :orcpub.dnd.e5.character/personality-trait-2 n]])
+          #_(println k (count n)))))))
+
+(defn cleanup-sex []
+  (let [sex
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/sex ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] sex]
+        (if (> (count n) 255)
+          (d/transact conn [[:db/retract k
+                             :orcpub.dnd.e5.character/sex n]])
+          #_(println k (count n)))))))
+
+(defn cleanup-skin []
+  (let [skin
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/skin ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] skin]
+        (if (> (count n) 255)
+          (d/transact conn [[:db/retract k
+                             :orcpub.dnd.e5.character/skin n]])
+          #_(println k (count n)))))))
+
+(defn cleanup-weight []
+  (let [weight
+        (with-db [db] (d/q '[:find ?e ?doc
+                             :where
+                             [?e :orcpub.dnd.e5.character/weight ?doc]] db))]
+    (with-db [conn]
+      (doseq [[k n] weight]
+        (if (> (count n) 255)
+          (d/transact conn [[:db/retract k
+                             :orcpub.dnd.e5.character/weight n]])
+          #_(println k (count n)))))))
+
 
 (defn cleanup-users []
   (let [userdata
