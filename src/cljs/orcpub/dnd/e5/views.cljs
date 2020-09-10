@@ -434,7 +434,7 @@
              [:div.main-text-color.p-10
               (social-icon "facebook-f" "https://www.facebook.com/groups/252484128656613/")
               (social-icon "twitter" "https://twitter.com/thDMV")
-              (social-icon "discord" "https://discord.gg/6FRgMFf")])]
+              (social-icon "discord" "https://discord.gg/uv5vXhk")])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
            [header-tab
             "characters"
