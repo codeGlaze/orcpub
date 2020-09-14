@@ -45,11 +45,13 @@
         "Log data. When you use Dungeon Master's Vault, our servers may automatically record information (\"log data\"), including information that your browser sends whenever you visit a website or your mobile app sends when you're using it. This log data may include your Internet Protocol address, the address of the web pages you visited that had Dungeon Master's Vault features, browser type and settings, the date and time of your request, how you used Dungeon Master's Vault, and cookie data."
         "Cookie data. Depending on how you're accessing our products, we may use \"cookies\" (small text files sent by your computer each time you visit our website, unique to your Dungeon Master's Vault account or your browser) or similar technologies to record log data. When we use cookies, we may use \"session\" cookies (that last until you close your browser) or \"persistent\" cookies (that last until you or your browser delete them). For example, we may use cookies to store your language preferences or other Dungeon Master's Vault settings so you don't have to set them up every time you visit Dungeon Master's Vault. Some of the cookies we use are associated with your Dungeon Master's Vault account (including personal information about you, such as the email address you gave us), and other cookies are not."
         "Device information. In addition to log data, we may also collect information about the device you're using Dungeon Master's Vault on, including what type of device it is, what operating system you're using, device settings, unique device identifiers, and crash data. Whether we collect some or all of this information often depends on what type of device you're using and its settings. For example, different types of information are available depending on whether you're using a Mac or a PC, or an iPhone or an Android phone. To learn more about what information your device makes available to us, please also check the policies of your device manufacturer or software provider."]}
-      {:title "Our partners and advertisers may share information with us"
+      {:title "Our partners and advertisers"
        :font-size 28
        :paragraphs
        ["We may get information about you and your activity off Dungeon Master's Vault from our affiliates, advertisers, partners and other third parties we work with. For example:"
-        "Online advertisers typically share information with the websites or apps where they run ads to measure and/or improve those ads. We also receive this information, which may include information like whether clicks on ads led to purchases or a list of criteria to use in targeting ads."]}]}
+        "Online advertisers typically share information with the websites or apps where they run ads to measure and/or improve those ads. We also receive this information, which may include information like whether clicks on ads led to purchases or a list of criteria to use in targeting ads."
+        "We use third party advertisements to support our site. Some of these advertisers may be served from our third party advertiser. You can view their privacy policy https://www.network-n.com/network-privacy-policy/ and cookie https://www.network-n.com/network-cookie-policy/ policy here. You can manage your cookies via your browser settings."
+        "We use Google Analytics and Comscore to analyse the use of our website. Google Analytics and Comscore gather information about website use by means of cookies. The information gathered relating to our website is used to create reports about the use of our website. Google's privacy policy is available at: https://www.google.com/policies/privacy/ Comscore's privacy policy is available at https://www.comscore.com/About-comScore/Privacy-Policy"]}]}
     {:title "How do we use the information we collect?"
      :font-size 32
      :paragraphs
@@ -345,7 +347,7 @@
     {:title "Where we use cookies"
      :font-size 32
      :paragraphs
-     ["We use cookies on Dungeon Master's Vault.com, in our mobile applications, and in our products and services (like ads, emails and applications). We also use them on the websites of partners who use Dungeon Master's Vault's Save button, Dungeon Master's Vault widgets, or ad tools like conversion tracking."]}
+     ["We use cookies on Dungeon Master's Vault, in our mobile applications, and in our products and services (like ads, emails and applications). We also use them on the websites of partners who use Dungeon Master's Vault's Save button, Dungeon Master's Vault widgets, or ad tools like conversion tracking."]}
     {:title "Your options"
      :font-size 32
      :paragraphs

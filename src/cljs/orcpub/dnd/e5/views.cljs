@@ -1516,15 +1516,14 @@
                  hdr]]]
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
-
+              ;Ad Banner
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                [:div.content.bg-lighter.p-10.flex
                 [:div.flex-grow-1.t-a-c
-                 [:div#nn_lb1]
-                 [:div#nn_lb2]
-                 [:div#nn_1by1]]]]
+                 [:div#nn_lb1.p-t-10.p-b-10]
+                 [:div#nn_mobile_lb1.p-t-10.p-b-10]]]]
 
-        ;  Banner for announcements
+              ;Banner for announcements
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                (if (and (not srd-message-closed?)
                         (not hide-header-message?))
@@ -1541,6 +1540,13 @@
                [:div.content.w-100-p content]]
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
+                ;Ad Banner
+                [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+                 [:div.content.bg-lighter.p-10.flex
+                  [:div.flex-grow-1.t-a-c
+                   [:div#nn_lb2.p-t-10.p-b-10]
+                   [:div#nn_mobile_lb2.p-t-10.p-b-10]]]]
+
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
                   [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
