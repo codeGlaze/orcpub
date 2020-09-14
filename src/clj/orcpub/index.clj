@@ -119,6 +119,7 @@ html {
 	min-height: 100%;
 }"]
     [:title title]
+    [:link {:rel= "preconnect" :href "https://t.lissproductions.com/" :crossorigin ""}]
     [:script
      " var _paq = window._paq || [];
 _paq.push(['trackPageView']);
@@ -130,7 +131,25 @@ _paq.push(['enableLinkTracking']);
   var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
   g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
   })();"]
-   [:noscript "<p><img src=\"//t.lissproductions.com/matomo.php?idsite=7&amp;rec=1\" style=\"border:0;\" alt=\"\" /></p>"]]
+    [:noscript "<p><img src=\"//t.lissproductions.com/matomo.php?idsite=7&amp;rec=1\" style=\"border:0;\" alt=\"\" /></p>"]
+
+
+;<!-- IMPORTANT: Place these lines as high as you can in <head>, ideally just after <title> tag -->
+    [:link {:rel= "preconnect" :href "https://tags.bkrtx.com/"}]
+;<link rel="preconnect" href="https://tags.bkrtx.com/" crossorigin>
+    [:link {:rel= "preconnect" :href "https://securepubads.g.doubleclick.net/" :crossorigin ""}]
+;<link rel="preconnect" href="https://securepubads.g.doubleclick.net/" crossorigin>
+    [:link {:rel= "preconnect" :href "https://cdn.consentmanager.mgr.consensu.org/" :crossorigin ""}]
+;<link rel="preconnect" href="https://cdn.consentmanager.mgr.consensu.org/" crossorigin>
+
+;<!-- Place the below code anywhere you like in the <head> (higher is better) -->
+    [:script "window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};"]
+;<script>window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};</script>
+    [:script {:async "" :src "https://tags.bkrtx.com/js/bk-coretag.js"}]
+;<script async src="https://tags.bkrtx.com/js/bk-coretag.js"></script>
+    [:script {:async "" :src "https://securepubads.g.doubleclick.net/tag/js/gpt.js"}]
+;<script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+    [:script {:async "" :src "/js/dungeonmastersvault.min.js"}]]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?

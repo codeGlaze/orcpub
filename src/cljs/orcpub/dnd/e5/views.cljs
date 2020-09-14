@@ -1516,19 +1516,27 @@
                  hdr]]]
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
+
+              [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+               [:div.content.bg-lighter.p-10.flex
+                [:div.flex-grow-1.t-a-c
+                 [:div#nn_lb1]
+                 [:div#nn_lb2]
+                 [:div#nn_1by1]]]]
+
         ;  Banner for announcements
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-                 (if (and (not srd-message-closed?)
-                          (not hide-header-message?))
-                   [:div
-                    (if (not frame?)
-                      [:div.content.bg-lighter.p-10.flex
-                       [:div.flex-grow-1.t-a-c
-                        [:div.p-t-10 "Please consider a gift of $1 to support this site."]
-                        [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
-                       [:div.p-t-10.p-b-10 banner-link]]
-                       [:i.fa.fa-times.p-10.pointer
-                        {:on-click #(dispatch [:close-srd-message])}]])])]
+               (if (and (not srd-message-closed?)
+                        (not hide-header-message?))
+                 [:div
+                  (if (not frame?)
+                    [:div.content.bg-lighter.p-10.flex
+                     [:div.flex-grow-1.t-a-c
+                      [:div.p-t-10 "Please consider a gift of $1 to support this site."]
+                      [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
+                      [:div.p-t-10.p-b-10 banner-link]]
+                     [:i.fa.fa-times.p-10.pointer
+                      {:on-click #(dispatch [:close-srd-message])}]])])]
               [:div#app-main.container
                [:div.content.w-100-p content]]
               [:div.main-text-color.flex.justify-cont-c
