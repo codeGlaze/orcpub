@@ -1004,7 +1004,7 @@
 
 (def confirm-handler (memoize confirm-fn))
 
-(defn header [title button-cfgs & {:keys [frame?]}]
+(defn header [title button-cfgs & {:keys [frame? noads?]}]
   (let [device-type @(subscribe [:device-type])]
     [:div.w-100-p
      [:div.flex.align-items-c.justify-cont-s-b.flex-wrap
@@ -1516,16 +1516,8 @@
                  hdr]]]
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
-              ;Ad Banner
-              [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-               [:div.content.bg-lighter.p-10.flex
-                [:div.flex-grow-1.t-a-c
-                 (if (not mobile?)
-                   [:div#nn_lb1.p-t-10.p-b-10]
-                   [:div#nn_mobile_lb1.p-t-10.p-b-10])
-                 ]]]
 
-              ;Banner for announcements
+;Banner for announcements
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                (if (and (not srd-message-closed?)
                         (not hide-header-message?))
@@ -1538,6 +1530,17 @@
                       [:div.p-t-10.p-b-10 banner-link]]
                      [:i.fa.fa-times.p-10.pointer
                       {:on-click #(dispatch [:close-srd-message])}]])])]
+
+              ;Ad Banner
+              [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+               [:div.content.p-10.flex
+                [:div.flex-grow-1.t-a-c
+                 (if (not mobile?)
+                   [:div#nn_lb1.p-t-10.p-b-10]
+                   [:div#nn_mobile_lb1.p-t-10.p-b-10])
+                 [:div#nn_1by1]]]]
+
+              
               [:div#app-main.container
                [:div.content.w-100-p content]]
               [:div.main-text-color.flex.justify-cont-c
@@ -1545,11 +1548,11 @@
 
                 ;Ad Banner
                 [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-                 [:div.content.bg-lighter.p-10.flex
+                 [:div.content.p-10.flex
                   [:div.flex-grow-1.t-a-c
                    (if (not mobile?)
-                   [:div#nn_lb1.p-t-10.p-b-10]
-                   [:div#nn_mobile_lb1.p-t-10.p-b-10])]]]
+                   [:div#nn_lb2.p-t-10.p-b-10]
+                   [:div#nn_mobile_lb2.p-t-10.p-b-10])]]]
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
@@ -1564,7 +1567,8 @@
                   [:div.m-b-5
                    [:a.orange {:href "/terms-of-use" :target :_blank} "Terms of Use"]
                    [:a.orange.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
-                   [:a.orange.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Policy"]]]
+                   [:a.orange.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Policy"]
+                   [:a.nn-cmp-show {:href "#"} "Manage your Cookie settings"]]]
                  [:div.legal-footer
                   [:p "© 2020 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved."]
@@ -3656,7 +3660,6 @@
     (fn [{:keys [id] :as arg}]
       (let [id (js/parseInt id)
             frame? (= "true" (get-in arg [:query "frame"]))
-            _ (prn "FRAME?" frame?)
             {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
             built-template (subs/built-template
                             @(subscribe [::char/template])
@@ -3665,6 +3668,7 @@
             built-character (subs/built-character character built-template)
             device-type @(subscribe [:device-type])
             username @(subscribe [:username])]
+        (prn "FRAME?" frame?)
         [content-page
          (if (not frame?)
            "Character Page")
