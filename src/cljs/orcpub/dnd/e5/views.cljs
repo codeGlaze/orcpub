@@ -1517,7 +1517,7 @@
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
 
-;Banner for announcements
+              ;Banner for announcements
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                (if (and (not srd-message-closed?)
                         (not hide-header-message?))
@@ -1568,7 +1568,7 @@
                    [:a.orange {:href "/terms-of-use" :target :_blank} "Terms of Use"]
                    [:a.orange.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
                    [:a.orange.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Policy"]
-                   [:a.nn-cmp-show {:href "#"} "Manage your Cookie settings"]]]
+                   [:a.nn-cmp-show.orange.m-l-5 {:href "#"} "Manage Cookie Settings"]]]
                  [:div.legal-footer
                   [:p "© 2020 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved."]

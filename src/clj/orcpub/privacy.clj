@@ -23,7 +23,7 @@
      :font-size 32
      :paragraphs
      ["We wrote this policy to help you understand what information we collect, how we use it, and what choices you have. Because we're an internet company, some of the concepts below are a little technical, but we've tried our best to explain things in a simple and clear way. We welcome your questions and comments on this policy."
-     "At Dungeon Master's Vault, accessible from https://www.dungeonmastersvault.com, https://faq.dungeonmastersvault.com https://lists.dungeonmastersvault.com or any host under the domain name *.dungeonmastersvault.com"
+     "At Dungeon Master's Vault, accessible from <a href='https://www.dungeonmastersvault.com'>DungeonMastersVault.com</a>, https://faq.dungeonmastersvault.com https://lists.dungeonmastersvault.com or any host under the domain name *.dungeonmastersvault.com"
      "This Privacy Policy document contains types of information that is collected and recorded by Dungeon Master's Vault and how we use it. If you have additional questions or require more information about our Privacy Policy, do not hesitate to contact us."
      "This Privacy Policy applies only to our online activities and is valid for visitors to our website with regards to the information that they shared and/or collect in Dungeon Master's Vault. This policy is not applicable to any information collected offline or via channels other than this website."]}
     {:title "Consent"
@@ -119,7 +119,27 @@
   (page/html5
    [:head
     [:link {:rel :stylesheet :href "/css/style.css" :type "text/css"}]
-    [:link {:rel :stylesheet :href "/css/compiled/styles.css" :type "text/css"}]]
+    [:link {:rel :stylesheet :href "/css/compiled/styles.css" :type "text/css"}]
+
+
+    ;<!-- IMPORTANT: Place these lines as high as you can in <head>, ideally just after <title> tag -->
+    ;<link rel="preconnect" href="https://tags.bkrtx.com/">
+    [:link {:rel "preconnect" :href "https://tags.bkrtx.com/"}]
+    ;<link rel="preconnect" href="https://securepubads.g.doubleclick.net/" crossorigin>
+    [:link {:rel "preconnect" :href "https://securepubads.g.doubleclick.net/" :crossorigin ""}]
+    ;<link rel="preconnect" href="https://cdn.consentmanager.mgr.consensu.org/" crossorigin>
+    [:link {:rel "preconnect" :href "https://cdn.consentmanager.mgr.consensu.org/" :crossorigin ""}]
+
+
+    ;<!-- Place the below code anywhere you like in the <head> (higher is better) -->
+    ;<script>window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};</script>
+    [:script "window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};"]
+    ;<script async src="https://tags.bkrtx.com/js/bk-coretag.js"></script>
+    [:script {:async "" :src "https://tags.bkrtx.com/js/bk-coretag.js"}]
+    ;<script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+    [:script {:async "" :src "https://securepubads.g.doubleclick.net/tag/js/gpt.js"}]
+    ;<script async src="/dist/dungeonmastersvault.min.js"></script>
+    [:script {:async "" :src "/js/dungeonmastersvault.min.js"}]]
    [:body.sans
     [:div
      [:div.app-header-bar.container
@@ -352,7 +372,7 @@
      :font-size 32
      :paragraphs
      ["Your browser probably gives you cookie choices. For example, most browsers let you block \"third party cookies,\" which are cookies from sites other than the one you're visiting. Those options vary from browser to browser, so check your browser settings for more info."
-      "Some browsers also have a privacy setting called \"Do Not Track,\" which we support. This setting is another way for you to decide whether we use info from our partners and other services to customize Dungeon Master's Vault for you."
+      "Some browsers also have a privacy setting called \"Do Not Track,\" which we support. This setting is another way for you to decide whether we use info from our partners and other services to customize Dungeon Master's Vault for you. You can manage your cookie settings <a class='nn-cmp-show' href='#'>here</a>"
       "Effective Aug 1, 2019"]}]})
 
 (defn cookie-policy []
