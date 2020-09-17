@@ -153,6 +153,9 @@
    {:db/ident :orcpub.user/following
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/many}
+   {:db/ident :orcpub.user/patron
+    :db/valueType :db.type/boolean
+    :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/last-login
     :db/valueType :db.type/instant
     :db/cardinality :db.cardinality/one}])

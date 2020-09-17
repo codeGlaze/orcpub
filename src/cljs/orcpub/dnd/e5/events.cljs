@@ -1431,6 +1431,17 @@
 
 (defn validate-registration [])
 
+
+(reg-event-db
+ :patron-success
+ (fn [db [_ response]]
+   (assoc db :patron? (-> response :body (= "true")))))
+
+(reg-event-db
+ :patron-failure
+ (fn [db [_ response]]
+   (assoc db :patron? (-> response :body (= "false")))))
+
 (reg-event-db
  :email-taken
  (fn [db [_ response]]
@@ -1493,6 +1504,15 @@
            :url (backend-url (bidi/path-for routes/routes routes/check-username-route))
            :query-params {:username username}
            :on-success [:username-taken]}}))
+
+(reg-event-fx
+ :check-patron
+ (fn [{:keys [db]} [_ username]]
+   {:http {:method :get
+           :url (backend-url (bidi/path-for routes/routes routes/check-patron-route))
+           :query-params {:username username}
+           :on-failure [:patron-failure]
+           :on-success [:patron-success]}}))
 
 (reg-event-fx
  :register

@@ -95,10 +95,7 @@
   (stop-server)
   (reset! -server (component/start (s/system :dev))))
 
-(defn verify-new-user
-  "Automatically mark a user as `verified`. Useful for local testing
-   since the email never gets sent."
-  [username-or-email]
+(defn verify-new-user [username-or-email]
   (with-db [conn db]
     (let [user (r/find-user-by-username-or-email db username-or-email)
           verification-key (:orcpub.user/verification-key user)]
@@ -106,11 +103,32 @@
                  :conn conn
                  :db db}))))
 
+(defn update-patron-status [username-or-email b]
+  (with-db [conn db]
+    (let [id
+          (d/q
+           '[:find (pull ?e [:db/id :orcpub.user/username :orcpub.user/email]) .
+             :in $ ?user-or-email
+             :where (or [?e :orcpub.user/username ?user-or-email]
+                        [?e :orcpub.user/email ?user-or-email])]
+           db
+           username-or-email)
+          userid (id :db/id)
+          ;email (id :orcpub.user/email)
+          ;username (id :orcpub.user/username)
+          bool (new Boolean  b)
+          txn {:db/id userid :orcpub.user/patron bool}]
+      ;Update Patron Status
+      (println userid)
+      (println bool)
+      @(d/transact conn [txn]))
+      ))
+
+
 (defn cleanup-images []
-  (let [image-url
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/image-url ?doc]] db))]
+  (let [image-url (with-db [db] (d/q '[:find ?e ?doc
+                                       :where
+                                       [?e :orcpub.dnd.e5.character/image-url ?doc]] db))]
     (with-db [conn]
       (doseq [[k u] image-url]
         (if (re-matches #"^(https?|ftp)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" u)

@@ -1004,7 +1004,7 @@
 
 (def confirm-handler (memoize confirm-fn))
 
-(defn header [title button-cfgs & {:keys [frame? noads?]}]
+(defn header [title button-cfgs & {:keys [frame?]}]
   (let [device-type @(subscribe [:device-type])]
     [:div.w-100-p
      [:div.flex.align-items-c.justify-cont-s-b.flex-wrap
@@ -1493,7 +1493,10 @@
         (let [srd-message-closed? @(subscribe [:srd-message-closed?])
               orcacle-open? @(subscribe [:orcacle-open?])
               theme @(subscribe [:theme])
-              mobile? @(subscribe [:mobile?])]
+              mobile? @(subscribe [:mobile?])
+              username? @(subscribe [:username])
+              p? (dispatch [:check-patron username?])
+              patron? @(subscribe [:patron?])]
           [:div.app.min-h-full
            {:class-name theme
             :on-scroll (if (not frame?)
@@ -1517,42 +1520,47 @@
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
 
+              (prn username?)
+              (prn patron?)
+
               ;Banner for announcements
-              [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-               (if (and (not srd-message-closed?)
-                        (not hide-header-message?))
-                 [:div
-                  (if (not frame?)
-                    [:div.content.bg-lighter.p-10.flex
-                     [:div.flex-grow-1.t-a-c
-                      [:div.p-t-10 "Please consider a gift of $1 to support this site."]
-                      [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
-                      [:div.p-t-10.p-b-10 banner-link]]
-                     [:i.fa.fa-times.p-10.pointer
-                      {:on-click #(dispatch [:close-srd-message])}]])])]
-
-              ;Ad Banner
-              [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-               [:div.content.p-10.flex
-                [:div.flex-grow-1.t-a-c
-                 (if (not mobile?)
-                   [:div#nn_lb1.p-t-10.p-b-10]
-                   [:div#nn_mobile_lb1.p-t-10.p-b-10])
-                 [:div#nn_1by1]]]]
-
-              
-              [:div#app-main.container
-               [:div.content.w-100-p content]]
-              [:div.main-text-color.flex.justify-cont-c
-               [:div.content.f-w-n.f-s-12
+              (if-not patron?
+                [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+                 (if (and (not srd-message-closed?)
+                          (not hide-header-message?))
+                   [:div
+                    (if (not frame?)
+                      [:div.content.bg-lighter.p-10.flex
+                       [:div.flex-grow-1.t-a-c
+                        [:div.p-t-10 "Please consider a gift of $1 to support this site."]
+                        [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
+                        [:div.p-t-10.p-b-10 banner-link]]
+                       [:i.fa.fa-times.p-10.pointer
+                        {:on-click #(dispatch [:close-srd-message])}]])])]
 
                 ;Ad Banner
                 [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                  [:div.content.p-10.flex
                   [:div.flex-grow-1.t-a-c
                    (if (not mobile?)
-                   [:div#nn_lb2.p-t-10.p-b-10]
-                   [:div#nn_mobile_lb2.p-t-10.p-b-10])]]]
+                     [:div#nn_lb1.p-t-10.p-b-10]
+                     [:div#nn_mobile_lb1.p-t-10.p-b-10])
+                   [:div#nn_1by1]]]])
+
+
+              [:div#app-main.container
+               [:div.content.w-100-p content]]
+
+              [:div.main-text-color.flex.justify-cont-c
+               [:div.content.f-w-n.f-s-12
+                ;Ad Banner
+                (if-not patron?
+                  [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+                   [:div.content.p-10.flex
+                    [:div.flex-grow-1.t-a-c
+                     (if (not mobile?)
+                       [:div#nn_lb2.p-t-10.p-b-10]
+                       [:div#nn_mobile_lb2.p-t-10.p-b-10])]]])
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
@@ -1574,6 +1582,7 @@
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved."]
                   [:p "DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
+                (js/window.reloadAdSlots ())
                 [debug-data]]]])]))})))
 
 (def row-style

@@ -43,6 +43,11 @@
    (get db :username-taken?)))
 
 (reg-sub
+ :patron?
+ (fn [db [_]]
+   (get db :patron?)))
+
+(reg-sub
  :email-taken?
  (fn [db [_]]
    (get db :email-taken?)))

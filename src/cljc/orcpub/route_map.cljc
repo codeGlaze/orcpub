@@ -97,6 +97,8 @@
 (def character-pdf-route :character-pdf)
 (def check-email-route :check-email)
 (def check-username-route :check-username)
+(def check-patron-route :check-patron)
+(def edit-patron-route :edit-patron)
 (def user-route :user)
 (def reset-password-page-route :reset-password-page)
 (def reset-password-route :reset-password)
@@ -120,10 +122,12 @@
                   "register" register-route
                   "login" login-route
                   "user" user-route
-                  
+
                   "character.pdf" character-pdf-route
                   "check-email" check-email-route
                   "check-username" check-username-route
+                  "check-patron" check-patron-route
+                  "edit-patron" edit-patron-route
 
                   "reset-password" reset-password-route
                   "send-password-reset" send-password-reset-route
@@ -137,7 +141,7 @@
                   "cookies-policy" cookies-policy-route
 
                   "following/users" {["/" :user] follow-user-route}
-                  
+
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route
                                         ["/" :id] dnd-e5-char-route}

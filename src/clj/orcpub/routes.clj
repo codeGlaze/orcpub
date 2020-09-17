@@ -76,6 +76,13 @@
     :in $ ?username
     :where [?e :orcpub.user/username ?username]])
 
+(def patron-query
+  '[:find ?e ?patron
+    :in $ ?username
+    :where
+    [?e :orcpub.user/username ?username]
+    [?e :orcpub.user/patron ?patron]])
+
 (def email-query
   '[:find ?e
     :in $ ?email
@@ -570,6 +577,27 @@
 
 (defn check-username [{:keys [db query-params]}]
   (check-field username-query (:username query-params) db))
+
+(defn check-patron [{:keys [db query-params]}]
+  (check-field patron-query (:username query-params) db))
+
+(defn edit-patron [{:keys [query-params]}]
+(println query-params)
+  (let [uri "datomic:free://localhost:4334/orcpub?password=datomic"
+        conn (d/connect uri)
+        db (d/db conn)
+        ?user-or-email (:username query-params)
+        id
+        (d/q
+         '[:find (pull ?e [:db/id :orcpub.user/username :orcpub.user/email]) .
+           :in $ ?user-or-email
+           :where (or [?e :orcpub.user/username ?user-or-email]
+                      [?e :orcpub.user/email ?user-or-email])]
+         db
+         ?user-or-email)
+        userid (id :db/id)
+        bool (new Boolean (:bool query-params))]
+    (d/transact conn [{:db/id userid :orcpub.user/patron bool}])))
 
 (defn check-email [{:keys [db query-params]}]
   (check-field email-query (:email query-params) db))
@@ -1079,6 +1107,10 @@
         {:get `check-email}]
        [(route-map/path-for route-map/check-username-route)
         {:get `check-username}]
+       [(route-map/path-for route-map/check-patron-route)
+        {:get `check-patron}]
+       [(route-map/path-for route-map/edit-patron-route)
+        {:get `edit-patron}]
        ["/health"
         {:get `health-check}]]]])
    expanded-index-routes))
