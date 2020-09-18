@@ -20,7 +20,7 @@
                                     ;:password "b755193e-ef0a-47c0-b63b-db2780208e1b"}]] ;[:gpg :env]}]]
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
 
-  :java-agents [[com.newrelic.agent.java/newrelic-agent "5.14.0"]]
+  ;:java-agents [[com.newrelic.agent.java/newrelic-agent "5.14.0"]]
 
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [org.clojure/test.check "0.9.0"]
@@ -47,8 +47,9 @@
                  [io.pedestal/pedestal.jetty "0.5.1"]
                  [org.clojure/data.json "0.2.6"]
                  [org.slf4j/slf4j-simple "1.7.21"]
-                 [buddy/buddy-auth "1.4.1"]
-                 [buddy/buddy-hashers "1.2.0"]
+                 ;[buddy/buddy-auth "1.4.1"]
+                 ;[buddy/buddy-hashers "1.2.0"]
+                 [buddy "2.0.0"]
                  [reloaded.repl "0.2.3"]
                  [bidi "2.0.17"]
 
@@ -74,6 +75,8 @@
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
             [lein-garden "0.3.0"]
             [lein-environ "1.1.0"]
+            [lein-cljfmt "0.6.8"]
+            [lein-kibit "0.1.8"]
             #_[lein-resource "16.9.1"]]
 
   :source-paths ["src/clj" "src/cljc" "src/cljs"]
@@ -86,14 +89,14 @@
 
   :uberjar-name "orcpub.jar"
 
-  :garden {:builds [{ ;; Optional name of the build:
+  :garden {:builds [{;; Optional name of the build:
                      :id "screen"
                      ;; Source paths where the stylesheet source code is
                      :source-paths ["src/clj" "src/cljc"]
                      ;; The var containing your stylesheet:
                      :stylesheet orcpub.styles.core/app
                      ;; Compiler flags passed to `garden.core/css`:
-                     :compiler { ;; Where to save the file:
+                     :compiler {;; Where to save the file:
                                 :output-to "resources/public/css/compiled/styles.css"
                                 ;; Compress the output?
                                 :pretty-print? true}}]}
@@ -102,8 +105,7 @@
 
   :cljsbuild {:builds
               {:dev
-               {
-                :source-paths ["web/cljs" "src/cljc" "src/cljs"]
+               {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
 
                 ;; the presence of a :figwheel configuration here
                 ;; will cause figwheel to inject the figwheel client
@@ -119,10 +121,9 @@
                                :asset-path           "/js/compiled/out"
                                :output-to            "resources/public/js/compiled/orcpub.js"
                                :output-dir           "resources/public/js/compiled/out"
-                               :source-map-timestamp true}}}
-              }
+                               :source-map-timestamp true}}}}
 
-  :figwheel { ;; :http-server-root "public" ;; default and assumes "resources"
+  :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
              ;; :server-port 3449 ;; default
              ;; :server-ip "127.0.0.1"
 
@@ -158,12 +159,11 @@
              ;; :server-logfile "tmp/logs/figwheel-logfile.log"
              }
 
-  :repl-options {
-  ;; If nREPL takes too long to load it may timeout,
-  ;; increase this to wait longer before timing out.
-  ;; Defaults to 30000 (30 seconds)
-  :timeout 300000 ; 5 mins to wait
-  }
+  :repl-options {;; If nREPL takes too long to load it may timeout,
+             ;; increase this to wait longer before timing out.
+             ;; Defaults to 30000 (30 seconds)
+                 :timeout 300000 ; 5 mins to wait
+                 }
 
   ;; setting up nREPL for Figwheel and ClojureScript dev
   ;; Please see:
@@ -177,6 +177,7 @@
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
             "rebuild-modules" ["run" "-m" "user" "--rebuild-modules"]
+            "lint" ["with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["with-profile" "prod" "cljsbuild" "once" "main"]]}
@@ -226,14 +227,14 @@
                             :omit-source true
                             :cljsbuild   {:builds
                                           {:prod
-                                           {
-                                            :source-paths ["web/cljs" "src/cljc" "src/cljs"]
+                                           {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
                                             :compiler     {:main          orcpub.core
                                                            :asset-path    "/js/compiled/out"
                                                            :output-to     "resources/public/js/compiled/orcpub.js"
                                                            ;;:output-dir "resources/public/js/compiled/out"
                                                            :optimizations :advanced
                                                            :pretty-print  false}}}}}
+             :lint         {:dependencies [[clj-kondo "RELEASE"]]}
              ;; Use like: lein with-profile +start-server repl
              :start-server {:repl-options {:init-ns user
                                            :init    (start-server)}}})

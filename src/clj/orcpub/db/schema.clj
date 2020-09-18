@@ -25,12 +25,6 @@
   {:db/ident key
    :db/valueType :db.type/string
    :db/cardinality :db.cardinality/one
-   :db/fulltext true})
-
-(defn fulltext-prop [key]
-  {:db/ident key
-   :db/valueType :db.type/string
-   :db/cardinality :db.cardinality/one
    :db/fulltext true
    :db/noHistory true})
 
@@ -155,6 +149,9 @@
     :db/cardinality :db.cardinality/many}
    {:db/ident :orcpub.user/patron
     :db/valueType :db.type/boolean
+    :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.user/patron-tier
+    :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/last-login
     :db/valueType :db.type/instant

@@ -9,7 +9,7 @@
             [clojure.data.csv :as csv]
             ))
 
-(alter-var-root #'*print-length* (constantly 50))
+(alter-var-root #'*print-length* (constantly 100))
 
 ;; user is a namespace that the Clojure runtime looks for and
 ;; loads if its available
@@ -103,27 +103,10 @@
                  :conn conn
                  :db db}))))
 
-(defn update-patron-status [username-or-email b]
+(defn update-patron-status [username b]
   (with-db [conn db]
-    (let [id
-          (d/q
-           '[:find (pull ?e [:db/id :orcpub.user/username :orcpub.user/email]) .
-             :in $ ?user-or-email
-             :where (or [?e :orcpub.user/username ?user-or-email]
-                        [?e :orcpub.user/email ?user-or-email])]
-           db
-           username-or-email)
-          userid (id :db/id)
-          ;email (id :orcpub.user/email)
-          ;username (id :orcpub.user/username)
-          bool (new Boolean  b)
-          txn {:db/id userid :orcpub.user/patron bool}]
-      ;Update Patron Status
-      (println userid)
-      (println bool)
-      @(d/transact conn [txn]))
-      ))
-
+    (d/transact conn [{:db/id 17592186045418
+                              :orcpub.user/patron true}])))
 
 (defn cleanup-images []
   (let [image-url (with-db [db] (d/q '[:find ?e ?doc

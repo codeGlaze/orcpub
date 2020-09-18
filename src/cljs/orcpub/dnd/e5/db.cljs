@@ -49,9 +49,8 @@
 (defn parse-route []
   (let [route (if js/window.location
                 (bidi/match-route route-map/routes js/window.location.pathname))]
-    (if route
-      route
-      default-route)))
+    (or route
+        default-route)))
 
 (def default-character (char5e/set-class t5e/character :barbarian 0 (class5e/barbarian-option nil nil nil nil nil)))
 
@@ -229,9 +228,9 @@
   (if-let [stored-str (if js/window.localStorage
                         (.getItem js/window.localStorage local-storage-key))]
     (try (reader/read-string stored-str)
-         (catch js/Object e (do (prn "E" e)
-                                (js/console.warn "UNREADABLE ITEM FOUND, REMOVING.." local-storage-key stored-str)
-                                (.removeItem js/window.localStorage local-storage-key))))))
+         (catch js/Object e (prn "E" e)
+                (js/console.warn "UNREADABLE ITEM FOUND, REMOVING.." local-storage-key stored-str)
+                (.removeItem js/window.localStorage local-storage-key)))))
 
 (defn reg-local-store-cofx [key local-storage-key item-spec & [item-fn]]
   (re-frame/reg-cofx
@@ -262,8 +261,10 @@
 (spec/def ::email string?)
 (spec/def ::token string?)
 (spec/def ::theme string?)
+(spec/def ::patron string?) ; patron
+(spec/def ::patron-tier string?) ; patron-tier
 (spec/def ::user-data (spec/keys :req-un [::username ::email]))
-(spec/def ::user (spec/keys :opt-un [::user-data ::token ::theme]))
+(spec/def ::user (spec/keys :opt-un [::user-data ::token ::theme ::patron ::patron-tier]))
 
 (reg-local-store-cofx
  :local-store-user

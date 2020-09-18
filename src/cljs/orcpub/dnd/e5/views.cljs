@@ -22,7 +22,6 @@
             [orcpub.dnd.e5.party :as party]
             [orcpub.dnd.e5.character.random :as char-random]
             [orcpub.dnd.e5.character.equipment :as char-equip]
-            [cljs.pprint :refer [pprint]]
             [orcpub.registration :as registration]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.magic-items :as mi]
@@ -44,7 +43,6 @@
             [clojure.string :as s]
             [cljs.reader :as reader]
             [orcpub.user-agent :as user-agent]
-            [cljs.core.async :refer [<! timeout]]
             [bidi.bidi :as bidi]
             [camel-snake-kebab.core :as csk]
             [cljs-time.core :as time]
@@ -426,10 +424,12 @@
           [:div
            {:style {:min-width "53px"}}
            [:a {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank}
-            [:img.h-32.m-l-10.m-b-5.pointer
-             {:src (if mobile?
-                     "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
-                     "https://c5.patreon.com/external/logo/become_a_patron_button.png")}]]
+            (if (boolean @(subscribe [:patron]))
+              [svg-icon @(subscribe [:patron-tier]) (if mobile? 40 60) ""]
+              [:img.h-32.m-l-10.m-b-5.pointer
+               {:src (if mobile?
+                       "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
+                       "https://c5.patreon.com/external/logo/become_a_patron_button.png")}])]
            (if (not mobile?)
              [:div.main-text-color.p-10
               (social-icon "facebook-f" "https://www.facebook.com/groups/252484128656613/")
@@ -1465,7 +1465,7 @@
 (def srd-link
   [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
 
-(def banner-link
+(def patron-banner-link
   [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target "_blank"} "Become a Patron today"])
 
 (def faq-link
@@ -1473,7 +1473,7 @@
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   (let [on-scroll (fn [e]
-                    (when (not @(subscribe [:orcacle-open?]))
+                    (when-not @(subscribe [:orcacle-open?])
                       (let [app-header (js/document.getElementById "app-header")
                             header-height (.-offsetHeight app-header)
                             scroll-top (.-scrollTop (.-documentElement (.-target e)))
@@ -1483,10 +1483,10 @@
                           (set! (.-display (.-style sticky-header)) "none")))))]
     (r/create-class
      {:component-did-mount (fn [comp]
-                             (when (not frame?)
+                             (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll)))
       :component-will-unmount (fn [comp]
-                                (when (not frame?)
+                                (when-not frame?
                                   (js/window.removeEventListener "scroll" on-scroll)))
       :reagent-render
       (fn [title button-cfgs content & {:keys [hide-header-message? frame?]}]
@@ -1494,20 +1494,18 @@
               orcacle-open? @(subscribe [:orcacle-open?])
               theme @(subscribe [:theme])
               mobile? @(subscribe [:mobile?])
-              username? @(subscribe [:username])
-              p? (dispatch [:check-patron username?])
-              patron? @(subscribe [:patron?])]
+              username? @(subscribe [:username])]
           [:div.app.min-h-full
            {:class-name theme
-            :on-scroll (if (not frame?)
+            :on-scroll (when-not frame?
                          (fn [e]))}
-           (when (not frame?)
+           (when-not frame?
              [download-form])
            (when @(subscribe [:loading])
              [:div {:style loading-style}
               [:div.flex.justify-cont-s-a.align-items-c.h-100-p
                [:img.h-200.w-200.m-t-200 {:src "/image/spiral.gif"}]]])
-           (when (not frame?)
+           (when-not frame?
              [app-header])
            (when orcacle-open?
              [orcacle])
@@ -1520,24 +1518,23 @@
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
 
-              (prn username?)
-              (prn patron?)
-
+              (prn (boolean @(subscribe [:patron])))
               ;Banner for announcements
-              (if-not patron?
-                [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-                 (if (and (not srd-message-closed?)
-                          (not hide-header-message?))
-                   [:div
-                    (if (not frame?)
-                      [:div.content.bg-lighter.p-10.flex
-                       [:div.flex-grow-1.t-a-c
-                        [:div.p-t-10 "Please consider a gift of $1 to support this site."]
-                        [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
-                        [:div.p-t-10.p-b-10 banner-link]]
-                       [:i.fa.fa-times.p-10.pointer
-                        {:on-click #(dispatch [:close-srd-message])}]])])]
+              [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+               (if (and (not srd-message-closed?)
+                        (not hide-header-message?)
+                        (not (boolean @(subscribe [:patron]))))
+                 [:div
+                  (if (not frame?)
+                    [:div.content.bg-lighter.p-10.flex
+                     [:div.flex-grow-1.t-a-c
+                      [:div.p-t-10 "Please consider a gift of $1 to support this site."]
+                      [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
+                      [:div.p-t-10.p-b-10 patron-banner-link]]
+                     [:i.fa.fa-times.p-10.pointer
+                      {:on-click #(dispatch [:close-srd-message])}]])])]
 
+              (if-not (boolean @(subscribe [:patron]))
                 ;Ad Banner
                 [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                  [:div.content.p-10.flex
@@ -1554,7 +1551,7 @@
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
                 ;Ad Banner
-                (if-not patron?
+                (if-not (boolean @(subscribe [:patron]))
                   [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                    [:div.content.p-10.flex
                     [:div.flex-grow-1.t-a-c
@@ -1582,7 +1579,7 @@
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved."]
                   [:p "DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
-                (js/window.reloadAdSlots ())
+                #_(js/window.reloadAdSlots ())
                 [debug-data]]]])]))})))
 
 (def row-style
@@ -1646,10 +1643,9 @@
             [:span.m-l-5.m-r-5 "/"]
             (map
              (fn [{:keys [::char/class-name ::char/level ::char/subclass-name]}]
-               (let []
-                 [:span
-                  [:div.class-name (str class-name) ] [:div.level (str "(" level ")")]
-                  [:div.f-s-12.m-t-5.opacity-6.sub-class-name (if subclass-name subclass-name)]]))
+               [:span
+                [:div.class-name (str class-name)] [:div.level (str "(" level ")")]
+                [:div.f-s-12.m-t-5.opacity-6.sub-class-name (if subclass-name subclass-name)]])
              classes)))])]]
      (if (and show-owner?
               (some? owner)
@@ -1908,7 +1904,7 @@
   (let [mobile? @(subscribe [:mobile?])
         button [:button.roll-button
                 {:on-click (fn [e] (.stopPropagation e) ((button-roll-handler message roll) e))}
-                (if text text "Roll")]]
+                (or text "Roll")]]
     (if (or mobile? disable-tooltip)
       button
       [:div.tooltip
@@ -3302,7 +3298,7 @@
                        (traits-by-type :other))
         attacks @(subscribe [::char/attacks id])
         all-traits (concat actions bonus-actions reactions traits attacks)
-        freqs (into #{} (map has-frequency-units? all-traits))]
+        freqs (set (map has-frequency-units? all-traits))]
     [:div.details-columns
      {:class-name (if (= 2 num-columns) "flex")}
 
@@ -3439,11 +3435,10 @@
       (let [device-type @(subscribe [:device-type])
             selected-tab @(subscribe [::char/selected-display-tab])
             two-columns? (= 2 num-columns)
-            tab (if selected-tab
-                  selected-tab
-                  (if two-columns?
-                    "combat"
-                    "summary"))]
+            tab (or selected-tab
+                    (if two-columns?
+                      "combat"
+                      "summary"))]
         [:div.w-100-p
          [:div
           (if show-summary?
@@ -5517,7 +5512,7 @@
      [:div.m-b-30
       [:div.f-s-24.f-w-b.m-b-10 "Ability Increase Levels"]
       [:div.flex.flex-wrap
-       (let [asi-levels-set (into #{} (:ability-increase-levels class))]
+       (let [asi-levels-set (set (:ability-increase-levels class))]
          (doall
           (map
            (fn [level]
@@ -7470,17 +7465,25 @@
    [{:title (str "Delete Account")
      :icon "trash"
      :on-click #(dispatch
-                [:show-confirmation
-                 {:confirm-button-text "DELETE ACCOUNT"
-                  :question "Are you sure you want to delete your account, characters, and associated data?"
-                  :event [:delete-account]}])}]
+                 [:show-confirmation
+                  {:confirm-button-text "DELETE ACCOUNT"
+                   :question "Are you sure you want to delete your account, characters, and associated data?"
+                   :event [:delete-account]}])}]
    [:div.f-s-24.p-10.white
     [:div.p-5
      [:span.f-w-b "Username: "]
      [:span @(subscribe [:username])]]
     [:div.p-5
      [:span.f-w-b "Email: "]
-     [:span @(subscribe [:email])]]]])
+     [:span @(subscribe [:email])]]
+    (if (boolean @(subscribe [:patron]))
+      [:div.p-5
+       [:div.span.f-w-b [svg-icon @(subscribe [:patron-tier]) 90 ""]]
+       [:div.span.f-w-b @(subscribe [:patron-tier])]]
+      [:div.p-5
+       [:div.p-t-10 "Please consider a gift of $1 to support this site."]
+       [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
+       [:div.p-t-10.p-b-10 patron-banner-link]])]])
 
 (defn newb-character-builder-page []
   [content-page
@@ -8094,4 +8097,3 @@
          {:style close-icon-style
           :on-click (make-event-handler ::char/filter-items "")}]]]
       [item-list-items]]]))
-
