@@ -1517,8 +1517,9 @@
                  hdr]]]
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
+    #_(prn "reloadAdSlots()")
+          [:script "window.reloadAdSlots();"]
 
-              (prn (boolean @(subscribe [:patron])))
               ;Banner for announcements
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                (if (and (not srd-message-closed?)
@@ -1579,7 +1580,6 @@
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved."]
                   [:p "DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
-                #_(js/window.reloadAdSlots ())
                 [debug-data]]]])]))})))
 
 (def row-style
