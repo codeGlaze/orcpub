@@ -1517,8 +1517,12 @@
                  hdr]]]
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
-    #_(prn "reloadAdSlots()")
-          [:script "window.reloadAdSlots();"]
+              (prn "reloadAdSlots()")
+              [:script "componentDidUpdate() {
+    setTimeout(() => {
+        window.reloadAdSlots()
+    }, 0) // wait for the DOM to be ready
+ }"]
 
               ;Banner for announcements
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
@@ -1535,8 +1539,8 @@
                      [:i.fa.fa-times.p-10.pointer
                       {:on-click #(dispatch [:close-srd-message])}]])])]
 
-              (if-not (boolean @(subscribe [:patron]))
                 ;Ad Banner
+              (if-not (boolean @(subscribe [:patron]))
                 [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                  [:div.content.p-10.flex
                   [:div.flex-grow-1.t-a-c
