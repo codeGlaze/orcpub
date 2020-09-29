@@ -45,7 +45,7 @@
 (defn emailfrom []
   (if (not (s/blank? (environ/env :email-from-address))) (environ/env :email-from-address) (str "no-reply@orcpub.com")))
 
-(defn send-verification-email [base-url {:keys [email username first-and-last-name]} verification-key]
+(defn send-verification-email [base-url {:keys [email username first-and-last-name send-updates?]} verification-key]
   (postal/send-message (email-cfg)
                        {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
                         :to email
@@ -89,7 +89,7 @@
 
 (defn send-reset-email [base-url {:keys [email username first-and-last-name]} reset-key]
   (postal/send-message (email-cfg)
-                       {:from (str Dungeon Master's Vault Team <" (emailfrom) ">")
+                       {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
                         :to email
                         :subject "Dungeon Master's Vault - Password Reset"
                         :body (reset-password-email
