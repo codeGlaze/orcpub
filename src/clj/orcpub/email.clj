@@ -3,6 +3,7 @@
             [postal.core :as postal]
             [environ.core :as environ]
             [clojure.pprint :as pprint]
+            [clojure.string :as s]
             [orcpub.route-map :as routes]
             [cuerdas.core :as str]
             [clj-http.client :as client]))
@@ -41,9 +42,12 @@
    :tls (or (str/to-bool (environ/env :email-tls)) nil)
    })
 
-(defn send-verification-email [base-url {:keys [email username first-and-last-name]} verification-key send-updates?]
+(defn emailfrom []
+  (if (not (s/blank? (environ/env :email-from-address))) (environ/env :email-from-address) (str "no-reply@orcpub.com")))
+
+(defn send-verification-email [base-url {:keys [email username first-and-last-name]} verification-key]
   (postal/send-message (email-cfg)
-                       {:from "Dungeon Master's Vault Team <no-reply@dungeonmastersvault.com>"
+                       {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
                         :to email
                         :subject "Dungeon Master's Vault - Email Verification"
                         :body (verification-email
@@ -85,7 +89,7 @@
 
 (defn send-reset-email [base-url {:keys [email username first-and-last-name]} reset-key]
   (postal/send-message (email-cfg)
-                       {:from "Dungeon Master's Vault Team <no-reply@dungeonmastersvault.com>"
+                       {:from (str Dungeon Master's Vault Team <" (emailfrom) ">")
                         :to email
                         :subject "Dungeon Master's Vault - Password Reset"
                         :body (reset-password-email
@@ -95,12 +99,12 @@
 (defn send-error-email [context exception]
   (if (not-empty (environ/env :email-errors-to))
     (postal/send-message (email-cfg)
-      {:from (str "Dungeon Master's Vault - Errors <" (environ/env :email-errors-to) ">")
-      :to (str (environ/env :email-errors-to))
-      :subject "Dungeon Master's Vault - Exception"
-      :body [{:type "text/plain"
-              :content (let [writer (java.io.StringWriter.)]
-                         (do (clojure.pprint/pprint (:request context) writer)
-                           (clojure.pprint/pprint (or (ex-data exception) exception) writer)
-                           (str writer)))}]})))
+                         {:from (str "Dungeon Master's Vault  Errors <" (emailfrom) ">")
+                          :to (str (environ/env :email-errors-to))
+                          :subject "Exception"
+                          :body [{:type "text/plain"
+                                  :content (let [writer (java.io.StringWriter.)]
+                                             (clojure.pprint/pprint (:request context) writer)
+                                             (clojure.pprint/pprint (or (ex-data exception) exception) writer)
+                                             (str writer))}]})))
 
