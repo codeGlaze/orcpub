@@ -1307,9 +1307,10 @@
                                       (let [mean
                                             (or mean
                                                 (if (and die die-count)
-                                                  (dice/dice-mean die
-                                                                  die-count
-                                                                  (or modifier 0))))]
+                                                  (dice/dice-mean
+                                                   die-count
+                                                   die
+                                                   (or modifier 0))))]
                                         (if mean (str " (" mean ")"))))))
      (spell-field "Speed" speed)
      [:div.m-t-10.flex.justify-cont-s-a.m-b-10
@@ -3558,17 +3559,31 @@
                      print-character-sheet?
                      print-spell-cards?
                      print-prepared-spells?
-                     print-large-abilities?]
+                     print-large-abilities?
+                     print-character-sheet-style?]
   #(let [export-fn (export-pdf built-char
                                id
                                {:print-character-sheet? print-character-sheet?
                                 :print-spell-cards? print-spell-cards?
                                 :print-prepared-spells? print-prepared-spells?
-                                :print-large-abilities? print-large-abilities?})]
+                                :print-large-abilities? print-large-abilities?
+                                :print-character-sheet-style? print-character-sheet-style?})]
      (export-fn)
      (dispatch [::char/hide-options])))
 
 (def export-pdf-handler (memoize export-pdf-fn))
+
+(def make-arg-event-handler
+  (memoize
+   (fn [event-kw & [arg-fn]]
+     #(dispatch [event-kw (if arg-fn (arg-fn %) %)]))))
+
+(defn print-button-style [print-button-enabled]
+  (if print-button-enabled
+    {}
+    {:opacity 0.5
+     :cursor :not-allowed
+     :pointer-events "none"}))
 
 
 (defn print-options [id built-char]
@@ -3576,11 +3591,24 @@
         print-spell-cards? @(subscribe [::char/print-spell-cards?])
         print-prepared-spells? @(subscribe [::char/print-prepared-spells?])
         print-large-abilities? @(subscribe [::char/print-large-abilities?])
-        has-spells? (seq (char/spells-known built-char))]
+        print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
+        has-spells? (seq (char/spells-known built-char))
+        print-button-enabled (if (or (= print-character-sheet-style? nil)
+                                     (= (str print-character-sheet-style?) "NaN"))
+                               false true)]
     [:div.flex.justify-cont-end
      [:div.p-20
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
       [:div.m-b-2
+       [:div.flex.m-b-10
+        [:div.m-t-10
+         [labeled-dropdown
+          "Select Character sheet"
+          {:items [{:title "Select" :value " "}
+                   {:title "Original 5e Character sheet" :value 1}
+                   {:title "Original 5e Character sheet - optional variant" :value 2}]
+           :value print-character-sheet-style?
+           :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
        [:div.flex
         [:div
          {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
@@ -3611,12 +3639,14 @@
             "Prepared"
             print-prepared-spells?]]]])
       [:button.form-button.p-10.m-l-5
-       {:on-click (export-pdf-handler built-char
+       {:style (print-button-style print-button-enabled)
+        :on-click (export-pdf-handler built-char
                                       id
                                       print-character-sheet?
                                       print-spell-cards?
                                       print-prepared-spells?
-                                      print-large-abilities?)}
+                                      print-large-abilities?
+                                      print-character-sheet-style?)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "JSON Options - beta"]
       [:span.f-s-14 "To be used for importing into other applications."]
@@ -3897,11 +3927,6 @@
                 :key type})
              armor/armor-types)
             armor/armor)))])]]]))
-
-(def make-arg-event-handler
-  (memoize
-   (fn [event-kw & [arg-fn]]
-     #(dispatch [event-kw (if arg-fn (arg-fn %) %)]))))
 
 (defn value-to-item [v]
   {:title v
@@ -7634,7 +7659,8 @@
                  id
                  {:print-character-sheet? true
                   :print-spell-cards? true
-                  :print-prepared-spells? false})}
+                  :print-prepared-spells? false
+                  :print-character-sheet-style? 1})}
      "Create PDF"]
     (if (= username owner)
       [:button.form-button.m-l-5
