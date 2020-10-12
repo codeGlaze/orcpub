@@ -1464,7 +1464,7 @@
        [search-results]]]]))
 
 (def srd-link
-  [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
+  [:a.orange {:href "/dnld/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
 
 (def patron-banner-link
   [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target "_blank"} "Become a Patron today"])
@@ -3595,21 +3595,28 @@
         has-spells? (seq (char/spells-known built-char))
         print-button-enabled (if (or (= print-character-sheet-style? nil)
                                      (= (str print-character-sheet-style?) "NaN"))
-                               false true)]
+                               false true)
+        patron? (boolean @(subscribe [:patron]))
+        items (if patron? [{:title "Select" :value " "}
+                           {:title "Original 5e Character sheet" :value 1}
+                           {:title "Original 5e Character sheet - optional variant" :value 2}
+                           {:title "Icewind Dale 5e Character sheet" :value 3}]
+                  [{:title "Select" :value " "}
+                   {:title "Original 5e Character sheet" :value 1}])
+
+        ]
     [:div.flex.justify-cont-end
      [:div.p-20
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
       [:div.m-b-2
        [:div.flex.m-b-10
-        [:div.m-t-10
+        [:div.m-t-5
          [labeled-dropdown
           "Select Character sheet"
-          {:items [{:title "Select" :value " "}
-                   {:title "Original 5e Character sheet" :value 1}
-                   (if (boolean @(subscribe [:patron])) {:title "Original 5e Character sheet - optional variant" :value 2} "")
-                   (if (boolean @(subscribe [:patron])) {:title "Icewind Dale 5e Character sheet" :value 3} "")]
+          {:items items
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
+[:div.flex "Note Patreons also have access to 2 addtional character sheets"]
        [:div.flex
         [:div
          {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
@@ -3649,6 +3656,8 @@
                                       print-large-abilities?
                                       print-character-sheet-style?)}
        "Create PDF"]
+      [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
+      [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "JSON Options - beta"]
       [:span.f-s-14 "To be used for importing into other applications."]
       [:div.m-t-10.m-b-10
@@ -3684,7 +3693,7 @@
                                                       print-prepared-spells?
                                                       print-large-abilities?)}
         "JSON"]
-       [:span.f-s-12 "  Foundry VTT - " 
+       [:span.f-s-12 "  Foundry VTT - "
         " (no weapons, skills, spells at this time, yes it is a beta)"]]
       [:span.orange.underline.pointer.uppercase.m-l-10.f-s-12
        {:on-click (make-event-handler ::char/hide-options)}
