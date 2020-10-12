@@ -1307,7 +1307,7 @@
                                       (let [mean
                                             (or mean
                                                 (if (and die die-count)
-                                                  (dice/dice-mean
+                                                  (dice/dice-mean-round-down
                                                    die-count
                                                    die
                                                    (or modifier 0))))]
