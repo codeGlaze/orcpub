@@ -1470,7 +1470,7 @@
   [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target "_blank"} "Become a Patron today"])
 
 (def faq-link
-  [:a.orange {:href "https://faq.dungeonmastersvault.com/" :target "_blank"} " here"])
+  [:a.orange {:href "https://www.dungeonmastersvault.com/help/" :target "_blank"} " here"])
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   (let [on-scroll (fn [e]
@@ -1484,6 +1484,8 @@
                           (set! (.-display (.-style sticky-header)) "none")))))]
     (r/create-class
      {:component-did-mount (fn [comp]
+                             (prn "reloadAdSlots()")
+                             #_(js/reloadAdSlots())
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll)))
       :component-will-unmount (fn [comp]
@@ -1518,12 +1520,6 @@
                  hdr]]]
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
-              (prn "reloadAdSlots()")
-              [:script "componentDidUpdate() {
-    setTimeout(() => {
-        window.reloadAdSlots()
-    }, 0) // wait for the DOM to be ready
- }"]
 
               ;Banner for announcements
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
@@ -7733,11 +7729,16 @@
         username @(subscribe [:username])
         selected-ids @(subscribe [::char/selected])
         has-selected? @(subscribe [::char/has-selected?])]
-    [content-page
+(prn (count characters))
+[content-page
      "Characters"
-     [{:title "New"
+     [(if (>= (count characters) 7) {:title "Free accounts are limited to 10 characters"
+                                     :icon "plus"
+                                     :class-name "cursor-disabled"}
+      {:title "New"
        :icon "plus"
-       :on-click #(dispatch [:new-character])}
+       :on-click #(dispatch [:new-character])
+       :tool-tip "blah"})
       {:title "Make Party"
        :icon "users"
        :class-name (if (not has-selected?) "opacity-5 cursor-disabled")
