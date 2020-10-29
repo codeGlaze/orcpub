@@ -151,7 +151,7 @@ _paq.push(['enableLinkTracking']);
 ;<script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
     [:script {:async "" :src "https://securepubads.g.doubleclick.net/tag/js/gpt.js"}]
 ;<script async src="/dist/dungeonmastersvault.min.js"></script>
-    (include-js "/js/dungeonmastersvault.min.js")]
+    [:script {:async "" :src "/js/dungeonmastersvault.min.js"}]]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
