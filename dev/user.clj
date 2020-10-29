@@ -6,8 +6,7 @@
             [orcpub.routes :as r]
             [orcpub.system :as s]
             [orcpub.db.schema :as schema]
-            [clojure.data.csv :as csv]
-            ))
+            [clojure.data.csv :as csv]))
 
 (alter-var-root #'*print-length* (constantly 100))
 
@@ -103,6 +102,15 @@
                  :conn conn
                  :db db}))))
 
+(defn get-character-counts []
+  (let [users (with-db [db] (d/q '[:find ?username (count-distinct ?e)
+                                   :where
+                                   [?e :orcpub.entity.strict/owner ?username]
+                                   [?e :orcpub.entity.strict/type :character]] db))]
+
+    (with-open [out-file (io/writer "users.csv")]
+      (csv/write-csv out-file users))))
+
 (defn update-patron-status [username b]
   (with-db [conn db]
     (d/transact conn [{:db/id 17592186045418
@@ -116,7 +124,7 @@
       (doseq [[k u] image-url]
         (if (re-matches #"^(https?|ftp)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" u)
           (println k u)
-          ((println k)
+          (#_(println k)
            (d/transact conn [[:db/retract k
                               :orcpub.dnd.e5.character/image-url u]]))))))
   (let [faction-image-url

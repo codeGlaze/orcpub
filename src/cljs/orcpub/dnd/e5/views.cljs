@@ -1485,7 +1485,7 @@
     (r/create-class
      {:component-did-mount (fn [comp]
                              (prn "reloadAdSlots()")
-                             #_(js/reloadAdSlots())
+                             (js/reloadAdSlots())
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll)))
       :component-will-unmount (fn [comp]
@@ -1522,7 +1522,7 @@
                [:div.content hdr]]
 
               ;Banner for announcements
-              [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+              #_[:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                (if (and (not srd-message-closed?)
                         (not hide-header-message?)
                         (not (boolean @(subscribe [:patron]))))
@@ -7728,17 +7728,18 @@
         device-type @(subscribe [:device-type])
         username @(subscribe [:username])
         selected-ids @(subscribe [::char/selected])
-        has-selected? @(subscribe [::char/has-selected?])]
-(prn (count characters))
+        has-selected? @(subscribe [::char/has-selected?])
+        patron @(subscribe [:patron])
+        patron-tier @(subscribe [:patron-tier])]
+(prn (count characters) patron-tier)
 [content-page
      "Characters"
-     [(if (>= (count characters) 7) {:title "Free accounts are limited to 10 characters"
+     [(if (>= (count characters) 5) {:title "Free accounts are limited to 5 characters"
                                      :icon "plus"
                                      :class-name "cursor-disabled"}
       {:title "New"
        :icon "plus"
-       :on-click #(dispatch [:new-character])
-       :tool-tip "blah"})
+       :on-click #(dispatch [:new-character])})
       {:title "Make Party"
        :icon "users"
        :class-name (if (not has-selected?) "opacity-5 cursor-disabled")

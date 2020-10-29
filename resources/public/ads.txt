@@ -1,4 +1,4 @@
-# Network N Ads.txt file 07-09-2020
+# Network N Ads.txt file 19-10-2020
 
 google.com, pub-6177961780147591, DIRECT, f08c47fec0942fa0 # AdSense
 google.com, pub-2145138345242651, DIRECT, f08c47fec0942fa0 # Network N AdX
@@ -55,8 +55,13 @@ rhythmone.com,1654642120,RESELLER,a670c89d4a324e47
 yahoo.com,55029,RESELLER,e1a5b5b6e3255540
 indexexchange.com,192410,RESELLER,50b1c356f2c5c8fc
 adtech.com, 4958, DIRECT, e1a5b5b6e3255540 #VMG
+triplelift.com,7194,DIRECT,6c33edb13117fd86 #TAM TripleLift
+EMXDGT.com,1803, DIRECT, 1e1d41537f7cad7f #TAM EMX
+Appnexus.com, 1356, RESELLER, f5ab79cb980f11d1 #TAM EMX
+smaato.com,1100044650,RESELLER,07bcf65f187117b4 #TAM Smaato
 
-#Smaato
+
+# Smaato
 
 smaato.com, 1100046863, DIRECT, 07bcf65f187117b4
 smaato.com, 1100004890, DIRECT, 07bcf65f187117b4
@@ -94,7 +99,7 @@ xad.com, 241, RESELLER, 81cbf0a75a5e0e9a
 
 indexexchange.com, 184665, RESELLER, 50b1c356f2c5c8fc
 
-#Brightcom
+# Brightcom
 
 brightcom.com, 20119, DIRECT
 openx.com, 537153209, RESELLER, 6a698e2ec38604c6
@@ -110,6 +115,7 @@ lijit.com, 270524, RESELLER, fafdf38b16bf6b2b
 rhythmone.com,869591749,RESELLER,a670c89d4a324e47
 
 # Synacor Media
+
 synacor.com, 82321, RESELLER, e108f11b2cdf7d5b
 33across.com, 0014000001aXjnGAAS, RESELLER, bbea06d9c4d2853c # 33 Across
 adtech.com, 12094, RESELLER # 33 Across
@@ -224,7 +230,8 @@ openx.com, 540886248, DIRECT, 6a698e2ec38604c6
 google.com, pub-5760410923284845, DIRECT, f08c47fec0942fa0 # AdEx
 themediagrid.com,EB14XD,DIRECT,35d5010d7789b49d # JW Boost
 
-##### CPMSTAR_START #####
+# CPMSTAR
+
 cpmstar.com, 27468, DIRECT
 appnexus.com, 9624, RESELLER, f5ab79cb980f11d1
 google.com, pub-7020262665364086, reseller, f08c47fec0942fa0
@@ -326,3 +333,35 @@ freewheel.tv, 33601, RESELLER
 google.com, pub-8172268348509349, RESELLER, f08c47fec0942fa0
 indexexchange.com, 189872, RESELLER
 openx.com, 539653634, RESELLER, 6a698e2ec38604c6
+
+#Fluct
+
+adingo.jp, 24292, DIRECT
+pubmatic.com, 156313, RESELLER, 5d62403b186f2ace
+appnexus.com, 7044, RESELLER, f5ab79cb980f11d1
+openx.com, 540679900, RESELLER, 6a698e2ec38604c6
+webeyemob.com, 70080, RESELLER
+admixer.net, 3bc509b2-6568-4bd8-a997-9859ba0c9118, RESELLER
+pubmatic.com, 158060, RESELLER, 5d62403b186f2ace
+adcolony.com, 801e49d1be83b5f9, RESELLER, 1ad675c9de6b5176
+
+#AppMonet
+
+amxrtb.com, 105199357, DIRECT
+indexexchange.com, 191503, RESELLER
+appnexus.com, 11786, RESELLER
+appnexus.com, 9393, RESELLER #Video #Display
+appnexus.com, 3153, RESELLER, f5ab79cb980f11d1
+appnexus.com, 11924, RESELLER, f5ab79cb980f11d1
+smartadserver.com, 3056, RESELLER
+Appnexus.com, 1356, RESELLER, f5ab79cb980f11d1
+appnexus.com, 1908, RESELLER, f5ab79cb980f11d1
+lijit.com, 260380, RESELLER, fafdf38b16bf6b2b
+sovrn.com, 260380, RESELLER, fafdf38b16bf6b2b
+openx.com, 538959099, RESELLER, 6a698e2ec38604c6
+pubmatic.com, 137711, RESELLER, 5d62403b186f2ace
+rubiconproject.com, 17960, RESELLER, 0bfd66d529a55807
+
+#Avocet
+
+avct.cloud, 5f7eef8974c1ab4156b8df8e, DIRECT

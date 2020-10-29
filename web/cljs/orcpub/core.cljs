@@ -16,7 +16,7 @@
 
 (enable-console-print!)
 
-#_(if (and js/window.location
+(if (and js/window.location
          (not (or (s/starts-with? js/window.location.href "https")
                   (s/starts-with? js/window.location.href "http://localhost"))))
   (set! js/window.location.protocol "https"))
