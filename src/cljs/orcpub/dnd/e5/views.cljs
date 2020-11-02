@@ -1487,8 +1487,9 @@
                           (set! (.-display (.-style sticky-header)) "none")))))]
     (r/create-class
      {:component-did-mount (fn [comp]
-                             (prn "reloadAdSlots()")
-                             (js/reloadAdSlots())
+                             (when-not (boolean @(subscribe [:patron]))
+                               (prn "reloadAdSlots()")
+                               (js/reloadAdSlots ()))
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll)))
       :component-will-unmount (fn [comp]
