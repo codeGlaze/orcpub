@@ -1491,7 +1491,7 @@
                              (when-not (boolean @(subscribe [:patron]))
                                (when-not (boolean @(subscribe [:mobile?]))
                                  (prn "reloadAdSlots()")
-                                 (js/window.reloadAdSlots ())))
+                                 (js/reloadAdSlots ())))
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll)))
       :component-will-unmount (fn [comp]
