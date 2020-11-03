@@ -1490,7 +1490,7 @@
      {:component-did-mount (fn [comp]
                              (when-not (boolean @(subscribe [:patron]))
                                (prn "reloadAdSlots()")
-                               (js/window.reloadAdSlots ()))
+                               (js/reloadAdSlots ()))
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll)))
       :component-will-unmount (fn [comp]
