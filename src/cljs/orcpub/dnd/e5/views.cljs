@@ -1489,7 +1489,7 @@
     (r/create-class
      {:component-did-mount (fn [comp]
                              (when-not (boolean @(subscribe [:patron]))
-                               (when-not mobile?
+                               (when-not (boolean @(subscribe [:mobile?]))
                                  (prn "reloadAdSlots()")
                                  (js/window.reloadAdSlots ())))
                              (when-not frame?
