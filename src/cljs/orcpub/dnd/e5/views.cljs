@@ -1488,7 +1488,7 @@
     
     (r/create-class
      {:component-did-mount (fn [comp]
-                             (when-not (boolean @(subscribe [:patron]))
+                             #_(when-not (boolean @(subscribe [:patron]))
                                (prn "reloadAdSlots()")
                                (js/reloadAdSlots()))
                              (when-not frame?
@@ -1542,7 +1542,7 @@
                       {:on-click #(dispatch [:close-srd-message])}]])])]
 
                 ;Ad Banner
-              (if-not (boolean @(subscribe [:patron]))
+              #_(if-not (boolean @(subscribe [:patron]))
                 [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                  [:div.content.p-10.flex
                   [:div.flex-grow-1.t-a-c
@@ -1558,7 +1558,7 @@
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
                 ;Ad Banner
-                (if-not (boolean @(subscribe [:patron]))
+                #_(if-not (boolean @(subscribe [:patron]))
                   [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                    [:div.content.p-10.flex
                     [:div.flex-grow-1.t-a-c
