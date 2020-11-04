@@ -227,7 +227,7 @@
     {:title "10. Governing law and jurisdiction"
      :font-size 32
      :paragraphs
-     ["These Terms shall be governed by the laws of the State of Colorado, without respect to its conflict of laws principles. We each agree to submit to the personal jurisdiction of a state court located in Douglas County, Colorado or the United States District Court for the District of Colorado, for any actions not subject to Section 10 (Arbitration)."]}
+     ["These Terms shall be governed by the laws of the State of Colorado, without respect to its conflict of laws principles. We each agree to submit to the personal jurisdiction of a state court located in Douglas County, Colorado or the United States District Court for the District of Colorado, for any actions not subject to Section 9 (Arbitration)."]}
     {:title "11. General terms"
      :font-size 32
      :subsections
