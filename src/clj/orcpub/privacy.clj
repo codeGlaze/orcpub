@@ -16,16 +16,16 @@
     subsections)])
 
 (def privacy-policy-section
-  {:title     "Privacy Policy"
+  {:title "Privacy Policy"
    :font-size 48
    :subsections
    [{:title "Thank you for using Dungeon Master's Vault!"
      :font-size 32
      :paragraphs
      ["We wrote this policy to help you understand what information we collect, how we use it, and what choices you have. Because we're an internet company, some of the concepts below are a little technical, but we've tried our best to explain things in a simple and clear way. We welcome your questions and comments on this policy."
-     "At Dungeon Master's Vault, accessible from <a href='https://www.dungeonmastersvault.com'>DungeonMastersVault.com</a>, https://faq.dungeonmastersvault.com https://lists.dungeonmastersvault.com or any host under the domain name *.dungeonmastersvault.com"
-     "This Privacy Policy document contains types of information that is collected and recorded by Dungeon Master's Vault and how we use it. If you have additional questions or require more information about our Privacy Policy, do not hesitate to contact us."
-     "This Privacy Policy applies only to our online activities and is valid for visitors to our website with regards to the information that they shared and/or collect in Dungeon Master's Vault. This policy is not applicable to any information collected offline or via channels other than this website."]}
+      "At Dungeon Master's Vault, accessible from <a href='https://www.dungeonmastersvault.com'>DungeonMastersVault.com</a>, https://lists.dungeonmastersvault.com or any host under the domain name *.dungeonmastersvault.com"
+      "This Privacy Policy document contains types of information that is collected and recorded by Dungeon Master's Vault and how we use it. If you have additional questions or require more information about our Privacy Policy, do not hesitate to contact us."
+      "This Privacy Policy applies only to our online activities and is valid for visitors to our website with regards to the information that they shared and/or collect in Dungeon Master's Vault. This policy is not applicable to any information collected offline or via channels other than this website."]}
     {:title "Consent"
      :font-size 32
      :paragraphs
@@ -113,14 +113,14 @@
     {:title "How can you contact us?"
      :font-size 32
      :paragraphs
-     ["You can contact us by emailing thDM@dungeonmastersvault.com"]}]})
+     ["You can contact us by emailing thDM@dungeonmastersvault.com"
+      "Effective Nov 4th 2020"]}]})
 
 (defn terms-page [sections]
   (page/html5
    [:head
     [:link {:rel :stylesheet :href "/css/style.css" :type "text/css"}]
     [:link {:rel :stylesheet :href "/css/compiled/styles.css" :type "text/css"}]
-
 
     ;<!-- IMPORTANT: Place these lines as high as you can in <head>, ideally just after <title> tag -->
     ;<link rel="preconnect" href="https://tags.bkrtx.com/">
@@ -193,46 +193,42 @@
        :font-size 28
        :paragraphs
        ["We value hearing from our users, and are always interested in learning about ways we can make Dungeon Master's Vault more awesome. If you choose to submit comments, ideas or feedback, you agree that we are free to use them without any restriction or compensation to you. By accepting your submission, Dungeon Master's Vault does not waive any rights to use similar or related Feedback previously known to Dungeon Master's Vault, or developed by its employees, or obtained from sources other than you"]}]}
-    {:title "3. Copyright policy"
-     :font-size 32
-     :paragraphs
-     ["Dungeon Master's Vault has adopted and implemented the Dungeon Master's Vault Copyright policy in accordance with the Digital Millennium Copyright Act and other applicable copyright laws. For more information, please read our Copyright policy."]}
-    {:title "4. Security"
+    {:title "3. Security"
      :font-size 32
      :paragraphs
      ["We care about the security of our users. While we work to protect the security of your content and account, Dungeon Master's Vault cannot guarantee that unauthorized third parties will not be able to defeat our security measures. We ask that you keep your password secure. Please notify us immediately of any compromise or unauthorized use of your account."]}
-    {:title "5. Third-party links, sites, and services"
+    {:title "4. Third-party links, sites, and services"
      :font-size 32
      :paragraphs
      ["Our Products may contain links to third-party websites, advertisers, services, special offers, or other events or activities that are not owned or controlled by Dungeon Master's Vault. We do not endorse or assume any responsibility for any such third-party sites, information, materials, products, or services. If you access any third party website, service, or content from Dungeon Master's Vault, you do so at your own risk and you agree that Dungeon Master's Vault will have no liability arising from your use of or access to any third-party website, service, or content."]}
-    {:title "6. Termination"
+    {:title "5. Termination"
      :font-size 32
      :paragraphs
-     ["Dungeon Master's Vault may terminate or suspend this license at any time, with or without cause or notice to you. Upon termination, you continue to be bound by Sections 2 and 6-12 of these Terms."]}
-    {:title "7. Indemnity"
+     ["Dungeon Master's Vault may terminate or suspend this license at any time, with or without cause or notice to you. Upon termination, you continue to be bound by Sections 2 and 6-11 of these Terms."]}
+    {:title "6. Indemnity"
      :font-size 32
      :paragraphs
-     ["If you use our Products for commercial purposes without agreeing to our Business Terms as required by Section 1(c), as determined in our sole and absolute discretion, you agree to indemnify and hold harmless Dungeon Master's Vault and its respective officers, directors, employees and agents, from and against any claims, suits, proceedings, disputes, demands, liabilities, damages, losses, costs and expenses, including, without limitation, reasonable legal and accounting fees (including costs of defense of claims, suits or proceedings brought by third parties), in any way related to (a) your access to or use of our Products, (b) your User Content, or (c) your breach of any of these Terms."]}
-    {:title "8. Disclaimers"
+     ["If you use our Products for commercial purposes without agreeing to our Business Terms as required by Section 1, as determined in our sole and absolute discretion, you agree to indemnify and hold harmless Dungeon Master's Vault and its respective officers, directors, employees and agents, from and against any claims, suits, proceedings, disputes, demands, liabilities, damages, losses, costs and expenses, including, without limitation, reasonable legal and accounting fees (including costs of defense of claims, suits or proceedings brought by third parties), in any way related to (a) your access to or use of our Products, (b) your User Content, or (c) your breach of any of these Terms."]}
+    {:title "7. Disclaimers"
      :font-size 32
      :paragraphs
      ["The Products and all included content are provided on an \"as is\" basis without warranty of any kind, whether express or implied."
       "Dungeon Master's Vault SPECIFICALLY DISCLAIMS ANY AND ALL WARRANTIES AND CONDITIONS OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT, AND ANY WARRANTIES ARISING OUT OF COURSE OF DEALING OR USAGE OF TRADE."
       "Dungeon Master's Vault takes no responsibility and assumes no liability for any User Content that you or any other user or third party posts or transmits using our Products. You understand and agree that you may be exposed to User Content that is inaccurate, objectionable, inappropriate for children, or otherwise unsuited to your purpose."]}
-    {:title "9. Limitation of liability"
+    {:title "8. Limitation of liability"
      :font-size 32
      :paragraphs
      ["TO THE MAXIMUM EXTENT PERMITTED BY LAW, Dungeon Master's Vault SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS OR REVENUES, WHETHER INCURRED DIRECTLY OR INDIRECTLY, OR ANY LOSS OF DATA, USE, GOOD-WILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM (A) YOUR ACCESS TO OR USE OF OR INABILITY TO ACCESS OR USE THE PRODUCTS; (B) ANY CONDUCT OR CONTENT OF ANY THIRD PARTY ON THE PRODUCTS, INCLUDING WITHOUT LIMITATION, ANY DEFAMATORY, OFFENSIVE OR ILLEGAL CONDUCT OF OTHER USERS OR THIRD PARTIES; OR (C) UNAUTHORIZED ACCESS, USE OR ALTERATION OF YOUR TRANSMISSIONS OR CONTENT. IN NO EVENT SHALL Dungeon Master's Vault's AGGREGATE LIABILITY FOR ALL CLAIMS RELATING TO THE PRODUCTS EXCEED ONE HUNDRED U.S. DOLLARS (U.S. $100.00)."]}
-    :title "10. Arbitration"
-    :font-size 32
-    :paragraphs
-    ["For any dispute you have with Dungeon Master's Vault, you agree to first contact us and attempt to resolve the dispute with us informally. If Dungeon Master's Vault has not been able to resolve the dispute with you informally, we each agree to resolve any claim, dispute, or controversy (excluding claims for injunctive or other equitable relief) arising out of or in connection with or relating to these Terms by binding arbitration by the American Arbitration Association (\"AAA\") under the Commercial Arbitration Rules and Supplementary Procedures for Consumer Related Disputes then in effect for the AAA, except as provided herein. Unless you and Dungeon Master's Vault agree otherwise, the arbitration will be conducted in the county where you reside. Each party will be responsible for paying any AAA filing, administrative and arbitrator fees in accordance with AAA rules, except that Dungeon Master's Vault will pay for your reasonable filing, administrative, and arbitrator fees if your claim for damages does not exceed $75,000 and is non-frivolous (as measured by the standards set forth in Federal Rule of Civil Procedure 11(b)). The award rendered by the arbitrator shall include costs of arbitration, reasonable attorneys' fees and reasonable costs for expert and other witnesses, and any judgment on the award rendered by the arbitrator may be entered in any court of competent jurisdiction. Nothing in this Section shall prevent either party from seeking injunctive or other equitable relief from the courts for matters related to data security, intellectual property or unauthorized access to the Service. ALL CLAIMS MUST BE BROUGHT IN THE PARTIES' INDIVIDUAL CAPACITY, AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS OR REPRESENTATIVE PROCEEDING, AND, UNLESS WE AGREE OTHERWISE, THE ARBITRATOR MAY NOT CONSOLIDATE MORE THAN ONE PERSON'S CLAIMS. YOU AGREE THAT, BY ENTERING INTO THESE TERMS, YOU AND Dungeon Master's Vault ARE EACH WAIVING THE RIGHT TO A TRIAL BY JURY OR TO PARTICIPATE IN A CLASS ACTION."
-     "To the extent any claim, dispute or controversy regarding Dungeon Master's Vault or our Products isn't arbitrable under applicable laws or otherwise: you and Dungeon Master's Vault both agree that any claim or dispute regarding Dungeon Master's Vault will be resolved exclusively in accordance with Clause 11 of these Terms."]
-    {:title "11. Governing law and jurisdiction"
+    {:title "9. Arbitration"
      :font-size 32
      :paragraphs
-     ["These Terms shall be governed by the laws of the State of Colorado, without respect to its conflict of laws principles. We each agree to submit to the personal jurisdiction of a state court located in Douglas County, Colorado or the United States District Court for the District of Utah, for any actions not subject to Section 10 (Arbitration)."]}
-    {:title "12. General terms"
+     ["For any dispute you have with Dungeon Master's Vault, you agree to first contact us and attempt to resolve the dispute with us informally. If Dungeon Master's Vault has not been able to resolve the dispute with you informally, we each agree to resolve any claim, dispute, or controversy (excluding claims for injunctive or other equitable relief) arising out of or in connection with or relating to these Terms by binding arbitration by the American Arbitration Association (\"AAA\") under the Commercial Arbitration Rules and Supplementary Procedures for Consumer Related Disputes then in effect for the AAA, except as provided herein. Unless you and Dungeon Master's Vault agree otherwise, the arbitration will be conducted in Douglas County, Colorado or the United States District Court for the District of Colorado with in the United states. Each party will be responsible for paying any AAA filing, administrative and arbitrator fees in accordance with AAA rules, except that Dungeon Master's Vault will pay for your reasonable filing, administrative, and arbitrator fees if your claim for damages does not exceed $75,000 and is non-frivolous (as measured by the standards set forth in Federal Rule of Civil Procedure 11(b)). The award rendered by the arbitrator shall include costs of arbitration, reasonable attorneys' fees and reasonable costs for expert and other witnesses, and any judgment on the award rendered by the arbitrator may be entered in any court of competent jurisdiction. Nothing in this Section shall prevent either party from seeking injunctive or other equitable relief from the courts for matters related to data security, intellectual property or unauthorized access to the Service. ALL CLAIMS MUST BE BROUGHT IN THE PARTIES' INDIVIDUAL CAPACITY, AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS OR REPRESENTATIVE PROCEEDING, AND, UNLESS WE AGREE OTHERWISE, THE ARBITRATOR MAY NOT CONSOLIDATE MORE THAN ONE PERSON'S CLAIMS. YOU AGREE THAT, BY ENTERING INTO THESE TERMS, YOU AND Dungeon Master's Vault ARE EACH WAIVING THE RIGHT TO A TRIAL BY JURY OR TO PARTICIPATE IN A CLASS ACTION."
+      "To the extent any claim, dispute or controversy regarding Dungeon Master's Vault or our Products isn't arbitrable under applicable laws or otherwise: you and Dungeon Master's Vault both agree that any claim or dispute regarding Dungeon Master's Vault will be resolved exclusively in accordance with Clause 10 of these Terms."]}
+    {:title "10. Governing law and jurisdiction"
+     :font-size 32
+     :paragraphs
+     ["These Terms shall be governed by the laws of the State of Colorado, without respect to its conflict of laws principles. We each agree to submit to the personal jurisdiction of a state court located in Douglas County, Colorado or the United States District Court for the District of Colorado, for any actions not subject to Section 10 (Arbitration)."]}
+    {:title "11. General terms"
      :font-size 32
      :subsections
      [{:title "Notification procedures and changes to these Terms"
@@ -242,8 +238,7 @@
       {:title "Assignment"
        :font-size 28
        :paragraphs
-       ["These Terms, and any rights and licenses granted hereunder, may not be transferred or assigned by you, but may be assigned by Dungeon Master's Vault without restriction. Any attempted transfer or assignment in violation hereof shall be null and void.
-"]}
+       ["These Terms, and any rights and licenses granted hereunder, may not be transferred or assigned by you, but may be assigned by Dungeon Master's Vault without restriction. Any attempted transfer or assignment in violation hereof shall be null and void."]}
       {:title "Entire agreement/severability"
        :font-size 28
        :paragraphs
@@ -260,8 +255,7 @@
        :font-size 28
        :paragraphs
        ["These Terms are a contract between you and Dungeon Master's Vault"
-        "Effective Aug 1, 2019"]}
-      ]}]})
+        "Effective Nov 4th, 2020"]}]}]})
 
 (defn terms-of-use []
   (terms-page terms-section))
@@ -293,7 +287,7 @@
      ["To respect the rights of people on and off Dungeon Master's Vault, please:"
       "Don't infringe anyone's intellectual property, privacy or other rights."
       "Don't do anything or post any content that violates laws or regulations."
-      "Don't use Dungeon Master's Vault's name, logo or trademark in a way that confuses people (check out our brand guidelines for more details)."]}
+      "Don't use Dungeon Master's Vault's name, logo or trademark in a way that confuses people."]}
     {:title "Site security and access"
      :font-size 32
      :paragraphs
@@ -314,7 +308,8 @@
       "Attempts to artificially boost views and other metrics."
       "Repetitive or unwanted posts."
       "Off-domain redirects, cloaking or other ways of obscuring where content leads."
-      "Misleading content."]}]})
+      "Misleading content."
+      "Effective Nov 4th, 2020"]}]})
 
 (defn community-guidelines []
   (terms-page community-guidelines-section))
@@ -372,8 +367,8 @@
      :font-size 32
      :paragraphs
      ["Your browser probably gives you cookie choices. For example, most browsers let you block \"third party cookies,\" which are cookies from sites other than the one you're visiting. Those options vary from browser to browser, so check your browser settings for more info."
-      "Some browsers also have a privacy setting called \"Do Not Track,\" which we support. This setting is another way for you to decide whether we use info from our partners and other services to customize Dungeon Master's Vault for you. You can manage your cookie settings <a class='nn-cmp-show' href='#'>here</a>"
-      "Effective Aug 1, 2019"]}]})
+      "Some browsers also have a privacy setting called \"Do Not Track,\" which we support. This setting is another way for you to decide whether we use info from our partners and other services to customize Dungeon Master's Vault for you."
+      "Effective Nov 4th, 2020"]}]})
 
 (defn cookie-policy []
   (terms-page cookie-policy-section))
