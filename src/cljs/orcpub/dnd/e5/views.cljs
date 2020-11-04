@@ -1573,14 +1573,13 @@
                  [:div.m-l-10
                   [:div.m-b-5.justify-cont-c
                    [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank} "Support this site on Patreon"]
-                   [:a.orange.m-l-5 {:href "https://faq.dungeonmastersvault.com" :target :_blank} "FAQ"]
+                   [:a.orange.m-l-5 {:href "https://www.dungeonmastersvault.com/help/" :target :_blank} "Help"]
                    [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
                  [:div.m-l-10.m-r-10.p-10
                   [:div.m-b-5
                    [:a.orange {:href "/terms-of-use" :target :_blank} "Terms of Use"]
                    [:a.orange.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
-                   [:a.orange.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Policy"]
-                   [:a.nn-cmp-show.orange.m-l-5 {:href "#"} "Manage Cookie Settings"]]]
+                   [:a.orange.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Policy"]]]
                  [:div.legal-footer
                   [:p "© 2020 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2020 Wizards. All Rights Reserved."]
