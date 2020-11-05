@@ -45,7 +45,7 @@
 (defn emailfrom []
   (if (not (s/blank? (environ/env :email-from-address))) (environ/env :email-from-address) (str "no-reply@orcpub.com")))
 
-(defn send-verification-email [base-url {:keys [email username first-and-last-name send-updates?]} verification-key]
+(defn send-verification-email [base-url {:keys [email username first-and-last-name]} verification-key send-updates?]
   (postal/send-message (email-cfg)
                        {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
                         :to email
