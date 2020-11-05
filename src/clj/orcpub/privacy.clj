@@ -329,7 +329,7 @@
     {:title "How we use cookies"
      :font-size 32
      :paragraphs
-     ["We use cookies for lots of essential things on Dungeon Master's Vault—like helping you log in and tailoring your Dungeon Master's Vault experience. Here are some specifics on how we use cookies."]}
+     ["We use cookies for lots of essential things on Dungeon Master's Vault like helping you log in and tailoring your Dungeon Master's Vault experience. Here are some specifics on how we use cookies."]}
     {:title "What we use cookies for"
      :font-size 32
      :subsections
