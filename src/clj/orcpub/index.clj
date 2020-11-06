@@ -136,22 +136,22 @@ _paq.push(['enableLinkTracking']);
 
 ;<!-- IMPORTANT: Place these lines as high as you can in <head>, ideally just after <title> tag -->
 ;<link rel="preconnect" href="https://tags.bkrtx.com/">
-    #_[:link {:rel "preconnect" :href "https://tags.bkrtx.com/"}]
+    [:link {:rel "preconnect" :href "https://tags.bkrtx.com/"}]
 ;<link rel="preconnect" href="https://securepubads.g.doubleclick.net/" crossorigin>
-    #_[:link {:rel "preconnect" :href "https://securepubads.g.doubleclick.net/" :crossorigin ""}]
+    [:link {:rel "preconnect" :href "https://securepubads.g.doubleclick.net/" :crossorigin ""}]
 ;<link rel="preconnect" href="https://cdn.consentmanager.mgr.consensu.org/" crossorigin>
-    #_[:link {:rel "preconnect" :href "https://cdn.consentmanager.mgr.consensu.org/" :crossorigin ""}]
+    [:link {:rel "preconnect" :href "https://cdn.consentmanager.mgr.consensu.org/" :crossorigin ""}]
 
 
 ;<!-- Place the below code anywhere you like in the <head> (higher is better) -->
 ;<script>window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};</script>
-    #_[:script "window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};"]
+    [:script "window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};"]
 ;<script async src="https://tags.bkrtx.com/js/bk-coretag.js"></script>
-    #_[:script {:async "" :src "https://tags.bkrtx.com/js/bk-coretag.js"}]
+    [:script {:async "" :src "https://tags.bkrtx.com/js/bk-coretag.js"}]
 ;<script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
-    #_[:script {:async "" :src "https://securepubads.g.doubleclick.net/tag/js/gpt.js"}]
+    [:script {:async "" :src "https://securepubads.g.doubleclick.net/tag/js/gpt.js"}]
 ;<script async src="/dist/dungeonmastersvault.min.js"></script>
-    #_[:script {:async "" :src "/js/dungeonmastersvault.min.js"}]]
+    [:script {:async "" :src "/js/dungeonmastersvault.min.js"}]]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
