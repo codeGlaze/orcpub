@@ -3654,7 +3654,7 @@
           {:items items
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
-[:div.flex "Note Patreons also have access to 2 addtional character sheets"]
+       (when-not patron? [:div [:div.flex.m-b-10 "Patrons get access to 2 addtional character sheets:"][:div.flex.m-b-10 "Original 5e Character sheet - optional variant"] [:div.flex.m-b-10 "Icewind Dale 5e Character sheet"][:div.flex.m-b-10 [:a.orange {:href "/" :target "_blank"} "Become a Patron to unlock these today"]]])
        [:div.flex
         [:div
          {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
