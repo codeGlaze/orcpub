@@ -1489,10 +1489,10 @@
     (r/create-class
      {:component-did-mount (fn [comp]
                              (when-not (boolean @(subscribe [:patron]))
-                               (prn "reloadAdSlots()")
                                #_(js/reloadAdSlots())
-                               (when (js/reloadAdSlots)
-                                    (js/reloadAdSlots ())))
+                               (if (js-in "reloadAdSlots" js/window)
+                                 (js/reloadAdSlots)
+                                 (prn "does not exist")))
                                (when-not frame?
                                  (js/window.addEventListener "scroll" on-scroll)))
       :component-will-unmount (fn [comp]
