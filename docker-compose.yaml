@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: docker/orcpub/Dockerfile
+    image: orcpub_orcpub:latest
     environment:
       PORT: 8890
       EMAIL_SERVER_URL: ''
