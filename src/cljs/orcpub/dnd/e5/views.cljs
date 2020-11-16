@@ -832,7 +832,7 @@
                      :text-transform :uppercase
                      :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
                      :margin-top "20px"}}
-       "join for free"]
+       "join today"]
       [:div.f-s-16.m-t-20 "Join now to save your characters and more!"]
       [:div.m-t-10
        [form-input {:title "Username"
