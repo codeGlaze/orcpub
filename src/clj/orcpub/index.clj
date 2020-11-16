@@ -119,20 +119,23 @@ html {
 	min-height: 100%;
 }"]
     [:title title]
-    [:link {:rel "preconnect" :href "https://t.lissproductions.com/" :crossorigin ""}]
+    [:link {:rel "preconnect" :href "https://t.dungeonmastersvault.com/" :crossorigin ""}]
     [:script
-     " var _paq = window._paq || [];
-_paq.push(['trackPageView']);
-_paq.push(['enableLinkTracking']);
-(function() {
-  var u=\"//t.lissproductions.com/\";
-  _paq.push(['setTrackerUrl', u+'matomo.php']);
-  _paq.push(['setSiteId', '7']);
-  var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
-  g.type='text/javascript'; g.async=true; g.defer=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
-  })();"]
-    [:noscript "<p><img src=\"//t.lissproductions.com/matomo.php?idsite=7&amp;rec=1\" style=\"border:0;\" alt=\"\" /></p>"]
-
+     " var _paq = window._paq = window._paq || [];
+      _paq.push([\"setDocumentTitle\", document.domain + \"/\" + document.title]);
+      _paq.push([\"setCookieDomain\", \"*.www.dungeonmastersvault.com\"]);
+      _paq.push([\"setDomains\", [\"*.www.dungeonmastersvault.com\"]]);
+      _paq.push([\"setDoNotTrack\", true]);
+      _paq.push(['trackPageView']);
+      _paq.push(['enableLinkTracking']);
+      (function() {
+      var u=\"//t.dungeonmastersvault.com/\";
+      _paq.push(['setTrackerUrl', u+'matomo.php']);
+      _paq.push(['setSiteId', '7']);
+      var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+      g.type='text/javascript'; g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+      })();"]
+    [:noscript "<p><img src=\"//t.dungeonmastersvault.com/matomo.php?idsite=7&amp;rec=1\" style=\"border:0;\" alt=\"\" /></p>"]
 
 ;<!-- IMPORTANT: Place these lines as high as you can in <head>, ideally just after <title> tag -->
 ;<link rel="preconnect" href="https://tags.bkrtx.com/">
