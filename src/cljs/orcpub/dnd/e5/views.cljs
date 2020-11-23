@@ -2744,11 +2744,13 @@
                               ::weapon/damage-type
                               ::mi/magical-damage-bonus
                               ::mi/magical-attack-bonus
+                              ::mi/magical-damage-type
                               ::weapon/ranged?
                               ::weapon/melee?
                               ::weapon/range
                               ::weapon/two-handed?
                               ::weapon/finesse?
+                              ::mi/magical-finesse?
                               ::weapon/link
                               ::weapon/versatile
                               ::weapon/thrown]
@@ -2756,7 +2758,9 @@
                       damage-modifier-fn]
   [:div.m-t-10.i
    (weapon-details-field "Type" (common/safe-name type))
-   (weapon-details-field "Damage Type" (common/safe-name damage-type))
+   (if magical-damage-type
+     (weapon-details-field "Damage Type" (common/safe-name magical-damage-type))
+     (weapon-details-field "Damage Type" (common/safe-name damage-type)))
    (if magical-damage-bonus
      (weapon-details-field "Magical Damage Bonus" magical-damage-bonus))
    (if magical-attack-bonus
@@ -2764,7 +2768,9 @@
    (weapon-details-field "Melee/Ranged" (if melee? "melee" "ranged"))
    (if range
      (weapon-details-field "Range" (str (::weapon/min range) "/" (::weapon/max range) " ft.")))
-   (weapon-details-field "Finesse?" (yes-no finesse?))
+   (if magical-finesse?
+     (weapon-details-field "Finesse?" (yes-no magical-finesse?))
+     (weapon-details-field "Finesse?" (yes-no finesse?)))
    (weapon-details-field "Two-handed?" (yes-no two-handed?))
    (weapon-details-field "Versatile" (if versatile
                                        (str (::weapon/damage-die-count versatile)
@@ -2930,6 +2936,7 @@
                       [:div
                        (weapon-attack-description-short weapon)]
                       (when expanded?
+                        (prn weapon)
                         (weapon-details weapon weapon-damage-modifier))]
                      [:td (roll-button
                            (str name " attack: ")
