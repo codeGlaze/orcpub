@@ -1492,9 +1492,10 @@
                              (when-not (boolean @(subscribe [:patron]))
                                (if (js-in "reloadAdSlots" js/window)
                                  (js/reloadAdSlots)
-                                 (prn "reloadAdSlots does not exist")))
-                               (when-not frame?
-                                 (js/window.addEventListener "scroll" on-scroll)))
+                                 #_(prn "reloadAdSlots does not exist")))
+                             (when-not frame?
+                               (js/window.addEventListener "scroll" on-scroll))
+                             (js/window.scrollTo 0,0))
       :component-will-unmount (fn [comp]
                                 (when-not frame?
                                   (js/window.removeEventListener "scroll" on-scroll)))
@@ -3777,7 +3778,7 @@
 
 (defn character-page []
   (let [expanded? (r/atom false)]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     (fn [{:keys [id] :as arg}]
       (let [id (js/parseInt id)
             frame? (= "true" (get-in arg [:query "frame"]))
@@ -5167,7 +5168,7 @@
 
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
       [feat-input-field
@@ -5551,7 +5552,7 @@
         classes @(subscribe [::classes/classes])
         class-map @(subscribe [::classes/class-map])
         mobile? @(subscribe [:mobile?])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.flex-wrap
       [:div.m-b-20.flex-grow-1
@@ -5855,7 +5856,7 @@
         class-key (get subclass :class)
         classes @(subscribe [::classes/classes])
         mobile? @(subscribe [:mobile?])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.flex-wrap
       [:div.m-b-20
@@ -5999,7 +6000,7 @@
         race @(subscribe [::races/race race-key])
         races @(subscribe [::races/races])
         mobile? @(subscribe [:mobile?])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.flex-wrap
       [:div.m-b-20
@@ -6125,7 +6126,7 @@
 
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
       [race-input-field
@@ -6275,7 +6276,7 @@
 
 (defn background-builder []
   (let [background @(subscribe [::bg/builder-item])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
       [background-input-field
@@ -6308,7 +6309,7 @@
 
 (defn selection-builder []
   (let [selection @(subscribe [::selections/builder-item])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [selection-input-field
@@ -6355,7 +6356,7 @@
 
 (defn language-builder []
   (let [language @(subscribe [::langs/builder-item])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [language-input-field
@@ -6377,7 +6378,7 @@
 
 (defn boon-builder []
   (let [boon @(subscribe [::classes/boon-builder-item])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [boon-input-field
@@ -6399,7 +6400,7 @@
 
 (defn invocation-builder []
   (let [invocation @(subscribe [::classes/invocation-builder-item])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [invocation-input-field
@@ -6444,7 +6445,7 @@
                 actions
                 legendary-actions] :as monster}
         @(subscribe [::monsters/builder-item])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [monster-input-field
@@ -7137,7 +7138,7 @@
 
 (defn encounter-builder []
   (let [{:keys [creatures] :as encounter} @(subscribe [::encounters/builder-item])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [encounter-input-field
@@ -7164,7 +7165,7 @@
 
 (defn spell-builder []
   (let [{:keys [:level :school] :as spell} @(subscribe [::spells/builder-item])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [spell-input-field
@@ -7251,7 +7252,7 @@
         @(subscribe [::mi/builder-item])
         item-types @(subscribe [::mi/item-types])
         item-rarities @(subscribe [::mi/rarities])]
-    (js/window.scrollTo 0,0) ;//Force a scroll to top of page.
+    ;(js/window.scrollTo 0,0) ;//Force a scroll to top of page.
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [:div.flex-grow-1.m-b-20
