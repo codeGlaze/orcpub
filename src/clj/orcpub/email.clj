@@ -70,7 +70,7 @@
    [:a {:href reset-url} reset-url]
    [:br]
    [:br]
-   "If you did NOT request a reset, please do no click on the link."
+   "If you did NOT request a reset, please do not click on the link."
    [:br]
    [:br]
    "Sincerely,"
@@ -78,7 +78,6 @@
    [:br]
    "The Dungeon Master's Vault Team" [:br]
    "https://www.patreon.com/DungeonMastersVault  <-- like what we are doing? support us here" [:br]
-   "https://www.reddit.com/r/dungeonmastersvault/" [:br]
    "https://twitter.com/thdmv" [:br]
    "https://www.facebook.com/groups/252484128656613/" [:br]
    "https://github.com/Orcpub/orcpub/blob/develop/CHANGELOG.md" [:br]])
