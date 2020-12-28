@@ -102,42 +102,32 @@
                  :conn conn
                  :db db}))))
 
-(defn get-character-counts []
-  (let [users (with-db [db] (d/q '[:find ?username (count-distinct ?e)
-                                   :where
-                                   [?e :orcpub.entity.strict/owner ?username]
-                                   [?e :orcpub.entity.strict/type :character]] db))]
-
-    (with-open [out-file (io/writer "users.csv")]
-      (csv/write-csv out-file users))))
-
-(defn update-patron-status [username b]
+#_(defn update-patron-status [username b]
   (with-db [conn db]
-    (d/transact conn [{:db/id 17592186045418
-                              :orcpub.user/patron true}])))
+    (d/transact conn [{:db/id 17592187167708
+                              :orcpub.user/email "thdm@dungeonmastersvault.com"}])))
 
-(defn cleanup-images []
+(defn cleanup-image-url []
   (let [image-url (with-db [db] (d/q '[:find ?e ?doc
                                        :where
                                        [?e :orcpub.dnd.e5.character/image-url ?doc]] db))]
     (with-db [conn]
       (doseq [[k u] image-url]
         (if (re-matches #"^(https?|ftp)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" u)
-          (println k u)
-          (#_(println k)
-           (d/transact conn [[:db/retract k
-                              :orcpub.dnd.e5.character/image-url u]]))))))
-  (let [faction-image-url
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/faction-image-url ?doc]] db))]
+          (#_(println k u))
+          ((println (str k u))
+           (deref (d/transact conn [[:db/retract k :orcpub.dnd.e5.character/image-url u]]))))))))
+
+(defn cleanup-faction-image-url []
+  (let [image-url (with-db [db] (d/q '[:find ?e ?doc
+                                       :where
+                                       [?e :orcpub.dnd.e5.character/faction-image-url ?doc]] db))]
     (with-db [conn]
-      (doseq [[k u] faction-image-url]
+      (doseq [[k u] image-url]
         (if (re-matches #"^(https?|ftp)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" u)
-          (println k u)
-          ((println k u)
-            (d/transact conn [[:db/retract k
-                               :orcpub.dnd.e5.character/faction-image-url u]])))))))
+          (#_(println k u))
+          ((println (str k u))
+           (deref (d/transact conn [[:db/retract k :orcpub.dnd.e5.character/faction-image-url u]]))))))))
 
 (defn cleanup-age []
   (let [age
@@ -338,6 +328,12 @@
     (with-db [conn]
       (doseq [[k] userdata2]
         (d/transact conn [[:db/retractEntity k]])))))
+
+
+(defn cleanup []
+  (cleanup-image-url)
+  (cleanup-faction-image-url))
+
 
 (defn dumpusers []
   (let [userdata
