@@ -23,10 +23,9 @@
    [:br]
    [:br]
    "The Dungeon Master's Vault Team" [:br]
-   "https://www.patreon.com/DungeonMastersVault  <-- like what we are doing? support us here" [:br]
+   "https://www.patreon.com/DungeonMastersVault  <-- Like what we are doing? Support us here." [:br]
    "https://twitter.com/thdmv" [:br]
-   "https://www.facebook.com/groups/252484128656613/" [:br]
-   "https://github.com/Orcpub/orcpub/blob/develop/CHANGELOG.md" [:br]])
+   "https://www.facebook.com/groups/252484128656613/" [:br]])
 
 (defn verification-email [first-and-last-name username verification-url]
   [{:type "text/html"
@@ -55,8 +54,7 @@
                                (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))})
 (when (= send-updates? true)
         (client/post "https://mailtrain.dungeonmastersvault.com/api/subscribe/iyWL_f8u?access_token=2f801fb4fff9daa161501240e0c809c185f44b07"
-                {:form-params {:EMAIL email :MERGE_NAME username :FORCE_SUBSCRIBE "yes" :REQUIRE_CONFIRMATION "yes" }}))
-)
+                {:form-params {:EMAIL email :MERGE_NAME username :FORCE_SUBSCRIBE "yes" :REQUIRE_CONFIRMATION "yes" }})))
 
 (defn reset-password-email-html [first-and-last-name reset-url]
   [:div
@@ -76,10 +74,9 @@
    [:br]
    [:br]
    "The Dungeon Master's Vault Team" [:br]
-   "https://www.patreon.com/DungeonMastersVault  <-- like what we are doing? support us here" [:br]
+   "https://www.patreon.com/DungeonMastersVault  <-- Like what we are doing? Support us here." [:br]
    "https://twitter.com/thdmv" [:br]
-   "https://www.facebook.com/groups/252484128656613/" [:br]
-   "https://github.com/Orcpub/orcpub/blob/develop/CHANGELOG.md" [:br]])
+   "https://www.facebook.com/groups/252484128656613/" [:br]])
 
 (defn reset-password-email [first-and-last-name reset-url]
   [{:type "text/html"
