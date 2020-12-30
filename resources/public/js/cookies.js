@@ -9,7 +9,7 @@ function Pop() {
     var conDivObj;
     var fadeInTime = 10;
     var fadeOutTime = 10;
-    let cookie = { name: "cookieconsent_status", path: "/", expiryDays: 365 * 24 * 60 * 60 * 5000 };
+    let cookie = { name: "flatsome_cookie_notice", path: "/", expiryDays: 365 * 24 * 60 * 60 * 5000 };
     let content = { message: "This website uses cookies to ensure you get the best experience on our website.", btnText: "Got it!", mode: "  banner bottom", theme: " theme-classic", palette: " palette1", link: "Learn more", href: "/cookies-policy", target: "_blank" };
     let createPopUp = function() {
         if (typeof conDivObj === "undefined") {
@@ -67,7 +67,7 @@ function Pop() {
         expires.setTime(expires.getTime() + cookie.expiryDays);
         document.cookie = cookie.name +
             "=" +
-            "ok" +
+            "1" +
             ";expires=" +
             expires.toUTCString() +
             "path=" +
