@@ -1471,7 +1471,7 @@
   [:a.orange {:href "/dnld/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
 
 (def patron-banner-link
-  [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target "_blank"} "Become a Patron today"])
+  [:a.orange {:href "https://www.dungeonmastersvault.com/thank-you-for-supporting-us/" :target "_blank"} "Become a Patron today"])
 
 (def faq-link
   [:a.orange {:href "https://www.dungeonmastersvault.com/help/" :target "_blank"} " here"])
