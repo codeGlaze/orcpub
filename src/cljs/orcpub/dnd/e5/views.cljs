@@ -706,7 +706,10 @@
                      :font-weight "600"}
              :class-name (if bad-email? "disabled opacity-5 hover-no-shadow")
              :on-click (if (not bad-email?) (make-event-handler :send-password-reset @params))}
-            "SUBMIT"]]])))))
+            "SUBMIT"]
+           [:div.m-t-20
+            [:span "Didn't receive reset email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "whitelist"] " our domain then try it again."]]
+           ]])))))
 
 (defn password-reset-expired-page []
   [send-password-reset-page "Your reset link has expired, you must complete the reset within 24 hours. Please use the form below to send another reset email."])
@@ -902,10 +905,11 @@
                   :border-bottom-width "3px"}
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
         [:span.m-l-5 "Yes! Send me updates about Dungeon Master's Vault"]]
-       [:div.m-t-30
+       [:div.m-t-10
         [:div.p-10
          [:span "Already have an account?"]
          (login-link)]
+        [:div.m-t-10.m-b-20 [:span "After clicking JOIN A validation email will be sent to the above email address."]]
         [:button.form-button
          {:style {:height "40px"
                   :width "174px"
@@ -965,6 +969,7 @@
                                       login-message
                                       hide-login-message]])
            [:div.m-t-10
+            
             [:button.form-button
              {:style {:height "40px"
                       :width "174px"
@@ -973,15 +978,18 @@
               :on-click #(dispatch [:login @params true])}
              "LOGIN"]
             [:div.m-t-20
-             [:span "Don't have a login? "]
+             [:span "Don't have a login? "][:br][:br]
              [:span.orange.underline.pointer
               {:on-click route-to-register-page}
               "REGISTER NOW"]]
             [:div.m-t-20
-             [:span "Forgot your password? "]
+             [:span "Forgot your password? "][:br][:br]
              [:span.orange.underline.pointer
               {:on-click route-to-reset-password-page}
-              "RESET PASSWORD"]]]]])))))
+              "RESET PASSWORD"]]
+            
+            [:div.m-t-20
+             [:span "Didn't receive validation the email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "Whitelist"] " our domain then reset your password." ]]]]])))))
 
 (def loading-style
   {:position :fixed
