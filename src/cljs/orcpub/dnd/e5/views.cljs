@@ -48,9 +48,8 @@
             [camel-snake-kebab.core :as csk]
             [cljs-time.core :as time]
             [cljs-time.format :as f]
-            [orcpub.dnd.e5.exports :as ex]
-            [orcpub.ver :as v])
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+            [orcpub.dnd.e5.exports :as ex])
+  #_(:require-macros [cljs.core.async.macros :refer [go]]))
 
 ;; the `amount` of "uses" an action may have before it warrants
 ;; using a dropdown instead of a list of checkboxes

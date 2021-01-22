@@ -23,7 +23,7 @@
             [orcpub.dnd.e5.templates.ua-skill-feats :as ua-skill-feats]
             [orcpub.dnd.e5.templates.ua-revised-class-options :as ua-revised-class-options]
             [orcpub.dnd.e5.templates.ua-warlock-and-wizard :as ua-warlock-and-wizard]
-            [re-frame.core :refer [subscribe]]))
+            #_[re-frame.core :refer [subscribe]]))
 
 #_(defn ua-help [name url]
   [:a {:href url :target :_blank} name])

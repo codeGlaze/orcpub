@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.exports
-  (:require [re-frame.core :refer [subscribe dispatch dispatch-sync]]
+  (:require [re-frame.core :refer [subscribe dispatch]]
 
 ;TO-DO remove unused namespaces..
             [reagent.core :as r]
@@ -24,7 +24,7 @@
             [orcpub.dnd.e5.party :as party]
             [orcpub.dnd.e5.character.random :as char-random]
             [orcpub.dnd.e5.character.equipment :as char-equip]
-            [cljs.pprint :refer [pprint]]
+            #_[cljs.pprint :refer [pprint]]
             [orcpub.registration :as registration]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.magic-items :as mi]
@@ -46,10 +46,10 @@
             [clojure.string :as s]
             [cljs.reader :as reader]
             [orcpub.user-agent :as user-agent]
-            [cljs.core.async :refer [<! timeout]]
+            #_[cljs.core.async :refer [<! timeout]]
             [bidi.bidi :as bidi]
             [camel-snake-kebab.core :as csk])
-  (:require-macros [cljs.core.async.macros :refer [go]]))
+  #_(:require-macros [cljs.core.async.macros :refer [go]]))
 
 (defn profs-paragraph-export [profs prof-map title]
   (if (seq profs)

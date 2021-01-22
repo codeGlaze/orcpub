@@ -202,8 +202,8 @@
   (let [token (create-token (:orcpub.user/username user)
                             (-> 336 hours from-now))
         now (java.util.Date.)]
-    (do (d/transact conn [{:db/id id
-                           :orcpub.user/last-login now}]))
+    (d/transact conn [{:db/id id
+                       :orcpub.user/last-login now}])
     {:status 200
      :headers headers
      :body {:user-data (user-body db user)
