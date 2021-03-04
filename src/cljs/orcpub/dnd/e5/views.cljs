@@ -1505,7 +1505,8 @@
                              (js/window.scrollTo 0,0)
 
                              (when (boolean @(subscribe [:username]))
-                               (.push js/_paq (clj->js ["setUserId", (str @(subscribe [:email]))])))
+                               (.push js/_paq (clj->js ["setUserId", (str @(subscribe [:email]))]))
+                               (.push js/_paq (clj->js ["setCustomVariable", 1, "User", (str @(subscribe [:username])), "visit"])))
                              (when (boolean @(subscribe [:patron]))
                                (.push js/_paq (clj->js ["setCustomVariable", 1, "User", (str @(subscribe [:username])), "visit"]))
                                (.push js/_paq (clj->js ["setCustomVariable", 2, "Email", (str @(subscribe [:email])), "visit"]))
