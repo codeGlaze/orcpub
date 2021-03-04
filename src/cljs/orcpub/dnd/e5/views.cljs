@@ -1502,7 +1502,15 @@
                                  #_(prn "reloadAdSlots does not exist")))
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll))
-                             (js/window.scrollTo 0,0))
+                             (js/window.scrollTo 0,0)
+
+                             (when (boolean @(subscribe [:username]))
+                               (.push js/_paq (clj->js ["setUserId", (str @(subscribe [:email]))])))
+                             (when (boolean @(subscribe [:patron]))
+                               (.push js/_paq (clj->js ["setCustomVariable", 1, "User", (str @(subscribe [:username])), "visit"]))
+                               (.push js/_paq (clj->js ["setCustomVariable", 2, "Email", (str @(subscribe [:email])), "visit"]))
+                               (.push js/_paq (clj->js ["setCustomVariable", 3, "Patron", (str @(subscribe [:patron-tier])), "visit"])))
+                             )
       :component-will-unmount (fn [comp]
                                 (when-not frame?
                                   (js/window.removeEventListener "scroll" on-scroll)))
@@ -1513,6 +1521,7 @@
               theme @(subscribe [:theme])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
+          (set! (.. js/document -title) (str "Dungeon Master's Vault - " title))
           [:div.app.min-h-full
            {:class-name theme
             :on-scroll (when-not frame?
@@ -1595,6 +1604,17 @@
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2021 Wizards. All Rights Reserved."]
                   [:p "DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
+                (.push js/_paq (clj->js ["setReferrerUrl", js/location.href]))
+                (.push js/_paq (clj->js ["setCustomUrl", js/window.location]))
+                (.push js/_paq (clj->js ["setDocumentTitle", js/document.title]))
+
+                (.push js/_paq (clj->js ["deleteCustomVariables", "page"]))
+                (.push js/_paq (clj->js ["trackPageView"]))
+
+                (.push js/_paq (clj->js ["MediaAnalytics::scanForMedia", js/document.getElementById "app"]))
+                (.push js/_paq (clj->js ["FormAnalytics::scanForForms", js/document.getElementById "app"]))
+                (.push js/_paq (clj->js ["trackContentImpressionsWithinNode", js/document.getElementById "app"]))
+                (.push js/_paq (clj->js ["enableLinkTracking"]))
                 [debug-data]]]])]))})))
 
 (def row-style

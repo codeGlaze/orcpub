@@ -122,12 +122,12 @@ html {
     [:link {:rel "preconnect" :href "https://t.dungeonmastersvault.com/" :crossorigin ""}]
     [:script
      " var _paq = window._paq = window._paq || [];
-      _paq.push([\"setDocumentTitle\", document.domain + \"/\" + document.title]);
+      //_paq.push([\"setDocumentTitle\", document.domain + \"/\" + document.title]);
       _paq.push([\"setCookieDomain\", \"*.www.dungeonmastersvault.com\"]);
       _paq.push([\"setDomains\", [\"*.www.dungeonmastersvault.com\"]]);
       _paq.push([\"setDoNotTrack\", true]);
-      _paq.push(['trackPageView']);
-      _paq.push(['enableLinkTracking']);
+      //_paq.push(['trackPageView']);
+      //_paq.push(['enableLinkTracking']);
       (function() {
       var u=\"//t.dungeonmastersvault.com/\";
       _paq.push(['setTrackerUrl', u+'matomo.php']);
