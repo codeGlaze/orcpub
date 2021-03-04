@@ -7832,6 +7832,7 @@
         has-selected? @(subscribe [::char/has-selected?])
         patron @(subscribe [:patron])
         patron-tier @(subscribe [:patron-tier])]
+    (.push js/_paq (clj->js ["setCustomVariable", 4, "Characters", (str (count characters)), "visit"]))
 (prn (str (count characters) " characters - " patron-tier))
 [content-page
      "Characters"
