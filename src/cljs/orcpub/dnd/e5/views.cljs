@@ -1510,8 +1510,8 @@
                              (when (boolean @(subscribe [:patron]))
                                (.push js/_paq (clj->js ["setCustomVariable", 1, "User", (str @(subscribe [:username])), "visit"]))
                                (.push js/_paq (clj->js ["setCustomVariable", 2, "Email", (str @(subscribe [:email])), "visit"]))
-                               (.push js/_paq (clj->js ["setCustomVariable", 3, "Patron", (str @(subscribe [:patron-tier])), "visit"])))
-                             )
+                               (.push js/_paq (clj->js ["setCustomVariable", 3, "Patron", (str @(subscribe [:patron-tier])), "visit"]))))
+
       :component-will-unmount (fn [comp]
                                 (when-not frame?
                                   (js/window.removeEventListener "scroll" on-scroll)))
@@ -1522,7 +1522,7 @@
               theme @(subscribe [:theme])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
-          (set! (.. js/document -title) (str "Dungeon Master's Vault - " title))
+          (.push js/_paq (clj->js ["setDocumentTitle", title]))
           [:div.app.min-h-full
            {:class-name theme
             :on-scroll (when-not frame?
@@ -3585,10 +3585,10 @@
 
 (defn share-link-email [id]
   [:a.m-r-5.f-s-14
-   {:href (str "mailto:?subject=My%20OrcPub%20Character%20"
+   {:href (str "mailto:?subject=My%20D%26D%20Character%20-%20"
                @(subscribe [::char/character-name id])
                "&body=" js/window.location.protocol "//" js/window.location.hostname ":" js/window.location.port
-               (routes/path-for routes/dnd-e5-char-page-route :id id))}
+               (routes/path-for routes/dnd-e5-char-page-route :id id "?frame=true"))}
    [:i.fa.fa-envelope.m-r-5]
    "share"])
 
