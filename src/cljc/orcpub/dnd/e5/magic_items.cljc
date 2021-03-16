@@ -215,7 +215,8 @@
                     ::subtypes
                     ::rarity
                     ::description
-                    ::attunementb
+                    ;::attunementb ;typo?
+                    ::attunement
                     ::magical-damage-bonus
                     ::magical-attack-bonus
                     ::magical-ac-bonus
@@ -340,6 +341,25 @@ Additionally, you can focus your senses as an action to magically discern the di
 direction to the closest dragon within 30 miles of you that is of the same type as the armor. This special action can’t be used again until the next dawn."
                      )})
 
+(defn
+  ^{:doc "Generic function for creating magic items with + bonuses.
+   Use :sp-atk-mod for spell-attack-modifier bonuses.
+   Use :sp-dc-mod for spell DC bonuses"
+   ; :test (fn [] ())
+   ; :arglists ([name ])
+    :user/comment "This 'cleans' up item definitions... but could make them harder to read if it was applied all the way around."}
+
+  caster-bonus-item [name bonus type rarity attunement modv description]
+  (let  [full-name (str name " +" bonus)]
+    {name-key full-name
+     ::type type
+     ::rarity rarity
+     ::attunement (if (vector? attunement) attunement [attunement]) ;array should be passed not just one keyword
+     ::modifiers [(for [i modv]
+                    (cond (= i :sp-atk-mod) (mod5e/spell-attack-modifier-bonus bonus)
+                          (= i :sp-dc-mod) (mod5e/spell-save-dc-bonus bonus)))]
+     ::decription description}))
+
 (defn rod-of-the-pact-keeper [bonus]
   {name-key (str "Rod of the Pact Keeper +" bonus)
    ::type :rod
@@ -354,7 +374,8 @@ direction to the closest dragon within 30 miles of you that is of the same type 
                  :frequency units5e/long-rests-1
                  :summary "Regain a warlock spell slot"})]
    ::summary (str (common/bonus-str bonus)
-                     " to spell attack rolls and saving throw DCs for your warlock spells")})
+                   " to spell attack rolls and saving throw DCs for your warlock spells")
+   })
 
 (defn ioun-stone [name rarity description & modifiers]
   (let [full-name (str "Ioun Stone (" name ")")]
@@ -2506,14 +2527,14 @@ Retributive Strike. You can use an action to break the staff over your knee or a
 You have a 50 percent chance to instantly travel to a random plane of existence, avoiding the explosion. If you fail to avoid the effect, you take force damage equal to 16 × the number of charges in the staff. Every other creature in the area must make a DC 17 Dexterity saving throw. On a failed save, a creature takes an amount of damage based on how far away it is from the point of origin, as shown in the following table. On a successful save, a creature takes half as much damage."
      }{
      name-key "Staff of Striking"
-     ::type :weapon
-     ::item-subtype :staff
-     ::rarity :very-rare
+       ::type :weapon
+       ::item-subtype :staff
+       ::rarity :very-rare
 
-     ::attunement [:any]
-     ::magical-attack-bonus 3
-     ::magical-damage-bonus 3
-     ::description "This staff can be wielded as a magic quarterstaff that grants a +3 bonus to attack and damage rolls made with it.
+       ::attunement [:any]
+       ::magical-attack-bonus 3
+       ::magical-damage-bonus 3
+       ::description "This staff can be wielded as a magic quarterstaff that grants a +3 bonus to attack and damage rolls made with it.
 The staff has 10 charges. When you hit with a melee attack using it, you can expend up to 3 of its charges. For each charge you expend, the target takes an extra 1d6 force damage. The staff regains 1d6 + 4 expended charges daily at dawn. If you expend the last charge, roll a d20. On a 1, the staff becomes a nonmagical quarterstaff."
      }{
      name-key "Staff of Swarming Insects"
@@ -2534,7 +2555,14 @@ Insect Cloud. While holding the staff, you can use an action and expend 1 charge
      ::attunement [:sorcerer, :warlock, :wizard]
      ::magical-attack-bonus 2
      ::magical-damage-bonus 2
-     ::modifiers [(mod5e/spell-attack-modifier-bonus 2)]
+     ::modifiers [(mod5e/spell-attack-modifier-bonus 2)
+                  (mod5e/saving-throw-advantage ["spells"])
+                  (mod5e/reaction
+                   {:name "Staff of the Magi"
+                    :page 203
+                    :source :dmg
+                    :frequency units5e/long-rests-1
+                    :summary "Absorb spell cast by another creature, targetting only you. Cancel its effect and gain charges equal to absorbed spell's level. Staff explodes, as per Retributive Strike, if brought over 50 charges."})]
      ::description "This staff can be wielded as a magic quarterstaff that grants a +2 bonus to attack and damage rolls made with it. While you hold it, you gain a +2 bonus to spell attack rolls.
 The staff has 50 charges for the following properties. It regains 4d6 + 2 expended charges daily at dawn. If you expend the last charge, roll a d20. On a 20, the staff regains 1d12 + 1 charges.
 Spell Absorption. While holding the staff, you have advantage on saving throws against spells. In addition, you can use your reaction when another creature casts a spell that targets only you. If you do, the staff absorbs the magic of the spell, canceling its effect and gaining a number of charges equal to the absorbed spell’s level. However, if doing so brings the staff’s total number of charges above 50, the staff explodes as if you activated its retributive strike (see below).
@@ -2655,12 +2683,12 @@ foot radius and dim light for an additional 10 feet. Speaking the command word a
 Once per turn, when you hit a creature with an attack using this magic weapon, you can wound the target. At the start of each of the wounded creature’s turns, it takes 1d4 necrotic damage for each time you’ve wounded it, and it can then make a DC 15 Constitution saving throw, ending the effect of all such wounds on itself on a success. Alternatively, the wounded creature, or a creature within 5 feet of it, can use an action to make a DC 15 Wisdom (Medicine) check, ending the effect of such wounds on it on a success."
      }{
      name-key "Talisman of Pure Good"
-     ::type :wondrous-item
+       ::type :wondrous-item
 
-     ::rarity :legendary
+       ::rarity :legendary
 
-     ::attunement [:good]
-     ::description "This talisman is a mighty symbol of goodness. A creature that is neither good nor evil in alignment takes 6d6 radiant damage upon touching the talisman. An evil creature takes 8d6 radiant damage upon touching the talisman. Either sort of creature takes the damage again each time it ends its turn holding or carrying the talisman.
+       ::attunement [:good]
+       ::description "This talisman is a mighty symbol of goodness. A creature that is neither good nor evil in alignment takes 6d6 radiant damage upon touching the talisman. An evil creature takes 8d6 radiant damage upon touching the talisman. Either sort of creature takes the damage again each time it ends its turn holding or carrying the talisman.
 If you are a good cleric or paladin, you can use the talisman as a holy symbol, and you gain a +2 bonus to spell attack rolls while you wear or hold it.
 The talisman has 7 charges. If you are wearing or holding it, you can use an action to expend 1 charge from it and choose one creature you can see on the ground within 120 feet of you. If the target is of evil alignment, a flaming fissure opens under it. The target must succeed on a DC 20 Dexterity saving throw or fall into the fissure and be destroyed, leaving no remains. The fissure then closes, leaving no trace of its existence. When you expend the last charge, the talisman disperses into motes of golden light and is destroyed."
      }{
@@ -2825,25 +2853,17 @@ The wand regains 1d6 + 1 expended charges daily at dawn. If you expend the wand�
      ::type :wand
      ::rarity :uncommon
      ::description "The wand has 3 charges. While holding it, you can use an action to expend 1 of its charges, and if a secret door or trap is within 30 feet of you, the wand pulses and points at the one nearest to you. The wand regains 1d3 expended charges daily at dawn."
-     }{
-     name-key "Wand of the War Mage, +1"
-     ::type :wand
-     ::rarity :uncommon
-     ::attunement [:spellcaster]
-     ::description "While holding this wand, you gain a +1 bonus to spell attack rolls. In addition, you ignore half cover when making a spell attack."
-     }{
-     name-key "Wand of the War Mage, +2"
-     ::type :wand
-     ::rarity :rare
-     ::attunement [:spellcaster]
-     ::description "While holding this wand, you gain a +2 bonus to spell attack rolls. In addition, you ignore half cover when making a spell attack."
-     }{
-     name-key "Wand of the War Mage, +3"
-     ::type :wand
-     ::rarity :very-rare
-     ::attunement [:spellcaster]
-     ::description "While holding this wand, you gain a +3 bonus to spell attack rolls. In addition, you ignore half cover when making a spell attack."
-     }{
+     }
+     (caster-bonus-item "Wand of the War Mage" 1 :wand :rare [:spellcaster]
+                        [:sp-atk-mod]
+                        "While holding this wand, you gain a +1 bonus to spell attack rolls. In addition, you ignore half cover when making a spell attack.")
+     (caster-bonus-item "Wand of the War Mage" 2 :wand :rare [:spellcaster]
+                        [:sp-atk-mod]
+                        "While holding this wand, you gain a +2 bonus to spell attack rolls. In addition, you ignore half cover when making a spell attack.")
+     (caster-bonus-item "Wand of the War Mage" 3 :wand :rare [:spellcaster]
+                        [:sp-atk-mod]
+                        "While holding this wand, you gain a +3 bonus to spell attack rolls. In addition, you ignore half cover when making a spell attack.")
+     {
      name-key "Wand of Web"
      ::type :wand
      ::rarity :uncommon
