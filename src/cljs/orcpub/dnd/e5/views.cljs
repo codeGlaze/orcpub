@@ -3642,14 +3642,16 @@
                      print-spell-cards?
                      print-prepared-spells?
                      print-large-abilities?
-                     print-character-sheet-style?]
+                     print-character-sheet-style?
+                     print-spell-card-dc-mod?]
   #(let [export-fn (export-pdf built-char
                                id
                                {:print-character-sheet? print-character-sheet?
                                 :print-spell-cards? print-spell-cards?
                                 :print-prepared-spells? print-prepared-spells?
                                 :print-large-abilities? print-large-abilities?
-                                :print-character-sheet-style? print-character-sheet-style?})]
+                                :print-character-sheet-style? print-character-sheet-style?
+                                :print-spell-card-dc-mod? print-spell-card-dc-mod?})]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -3674,6 +3676,7 @@
         print-prepared-spells? @(subscribe [::char/print-prepared-spells?])
         print-large-abilities? @(subscribe [::char/print-large-abilities?])
         print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
+        print-spell-card-dc-mod? @(subscribe [::char/print-spell-card-dc-mod?])
         has-spells? (seq (char/spells-known built-char))
         print-button-enabled (if (or (= print-character-sheet-style? nil)
                                      (= (str print-character-sheet-style?) "NaN"))
@@ -3713,6 +3716,14 @@
            [labeled-checkbox
             "Print Spell Cards"
             print-spell-cards?]]]])
+      (if print-spell-cards?
+        [:div.m-b-2
+         [:div.flex
+          [:div
+           {:on-click (make-event-handler ::char/toggle-spell-cards-by-dc-mod)}
+           [labeled-checkbox
+            "Print Spell DC and MOD"
+            print-spell-card-dc-mod?]]]])
       (if has-spells?
         [:div.m-b-10
          [:div.m-b-10
@@ -3736,7 +3747,8 @@
                                       print-spell-cards?
                                       print-prepared-spells?
                                       print-large-abilities?
-                                      print-character-sheet-style?)}
+                                      print-character-sheet-style?
+                                      print-spell-card-dc-mod?)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]
@@ -7767,7 +7779,8 @@
                  {:print-character-sheet? true
                   :print-spell-cards? true
                   :print-prepared-spells? false
-                  :print-character-sheet-style? 1})}
+                  :print-character-sheet-style? 1
+                  :print-spell-card-dc-mod? true})}
      "Create PDF"]
     (if (= username owner)
       [:button.form-button.m-l-5

@@ -263,9 +263,10 @@
                       (+ margin-x total-width)
                       y)))
     (.setStrokingColor cs 0 0 0)))
+
 (defn spell-school-level [{:keys [level school]} class-nm]
   (if (zero? level)
-    (str class-nm " - "(s/capitalize school) " cantrip")
+    (str class-nm " Cantrip " (s/capitalize school))
     (str class-nm " Level " level " " (str (s/capitalize school)))))
 
 (defn draw-spell-field [cs document title value x y]
@@ -326,7 +327,7 @@
         remaining-height (- 11.0 total-height)
         margin-y (/ remaining-height 2)
         fonts (load-fonts document)]
-    (with-open [img-stream (io/input-stream (io/resource "public/image/orcpub-card-logo.png"))
+    (with-open [img-stream (io/input-stream (io/resource "public/image/card-logo.png"))
                 over-img-stream (io/input-stream (io/resource "public/image/clockwise-rotation.png"))]
       (let [img (LosslessFactory/createFromImage document (ImageIO/read img-stream))
             over-img (LosslessFactory/createFromImage document (ImageIO/read over-img-stream))]
@@ -370,7 +371,7 @@
                                (- box-width 0.3)
                                (- box-height 0.2))))))))))
 
-(defn print-spells [cs document box-width box-height spells page-number]
+(defn print-spells [cs document box-width box-height spells page-number print-spell-card-dc-mod?]
   (let [num-boxes-x (int (/ 8.5 box-width))
         num-boxes-y (int (/ 11.0 box-height))
         total-width (* num-boxes-x box-width)
@@ -380,7 +381,7 @@
         remaining-height (- 11.0 total-height)
         margin-y (/ remaining-height 2)
         fonts (load-fonts document)]
-    (with-open [card-logo-img-stream (io/input-stream (io/resource "public/image/orcpub-card-logo.png"))
+    (with-open [card-logo-img-stream (io/input-stream (io/resource "public/image/card-logo.png"))
                 over-img-stream (io/input-stream (io/resource "public/image/clockwise-rotation.png"))]
       (let [card-logo-img (LosslessFactory/createFromImage document (ImageIO/read card-logo-img-stream))
             over-img (LosslessFactory/createFromImage document (ImageIO/read over-img-stream))]
@@ -461,7 +462,7 @@
                                  0.2)
                (draw-text-to-box cs
                                  (if (not= class-nm "Homebrew")
-                                   (str (spell-school-level spell class-nm) " " dc-str (str " Spell Mod " (common/bonus-str attack-bonus)))
+                                   (str (spell-school-level spell class-nm) (when print-spell-card-dc-mod? (str " " dc-str (str " Spell Mod " (common/bonus-str attack-bonus)))))
                                    (spell-school-level spell class-nm))
                                  (:italic fonts)
                                  8
