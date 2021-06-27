@@ -3587,14 +3587,14 @@
   [:a.m-r-5.f-s-14
    {:href (str "mailto:?subject=My%20D%26D%20Character%20-%20"
                @(subscribe [::char/character-name id])
-               "&body=" js/window.location.protocol "//" js/window.location.hostname ":" js/window.location.port
+               "&body=" js/window.location.protocol "//" js/window.location.hostname "" js/window.location.port
                (routes/path-for routes/dnd-e5-char-page-route :id id "?frame=true"))}
    [:i.fa.fa-envelope.m-r-5]
    "share"])
 
 (defn share-link-www [id]
   [:a.m-r-5.f-s-14
-   {:href (str js/window.location.protocol "//" js/window.location.hostname ":" js/window.location.port
+   {:href (str js/window.location.protocol "//" js/window.location.hostname "" js/window.location.port
                (routes/path-for routes/dnd-e5-char-page-route :id id )"?frame=true") :target "_blank"}
    [:i.fa.fa-link.m-r-5]
    "www"])
