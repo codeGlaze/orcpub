@@ -1367,9 +1367,9 @@
         [:div
          (doall
           (map-indexed
-           (fn [i {:keys [name description]}]
+           (fn [i {:keys [name description notes]}]
              ^{:key i}
-             [:div.m-t-10.wsp-prw (spell-field name description)])
+             [:div.m-t-10.wsp-prw (spell-field (str name notes) description)])
            actions))]])
      (if legendary-actions
        [:div.m-t-20
@@ -1380,9 +1380,9 @@
           [:div
            (doall
             (map-indexed
-             (fn [i {:keys [name description]}]
+             (fn [i {:keys [name description notes]}]
                ^{:key i}
-               [:div.m-t-10 (spell-field name description)])
+               [:div.m-t-10 (spell-field (str name notes) description)])
              (:actions legendary-actions)))])])]))
 
 (defn monster-result [monster]
