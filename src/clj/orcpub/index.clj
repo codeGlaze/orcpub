@@ -154,7 +154,7 @@ html {
 ;<script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
     [:script {:async "" :src "https://securepubads.g.doubleclick.net/tag/js/gpt.js"}]
 ;<script async src="/dist/dungeonmastersvault.min.js"></script>
-    [:script {:async "" :src "/js/dungeonmastersvault.min.js"}]]
+    [:script {:async "" :src "https://kumo.network-n.com/dist/app.js" :site "dungeon-masters-vault"}]]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
@@ -168,7 +168,7 @@ html {
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
     (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
     [:script " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"]    
-    [:script
+    #_[:script
      "let plugins = localStorage.getItem('plugins');
     if(plugins === null || plugins === '{}')
      {
