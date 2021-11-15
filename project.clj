@@ -15,7 +15,8 @@
   :repositories [["apache" "http://repository.apache.org/snapshots/"]
                  ["my.datomic.com" {:url "https://my.datomic.com/repo"
                                     [:gpg :env]
-                                    [:gpg :env]}]]
+                                    [:gpg :env]}]
+                 ]
                                     ;:username "john@lissproductions.com" ;[:gpg :env]
                                     ;:password "b755193e-ef0a-47c0-b63b-db2780208e1b"}]] ;[:gpg :env]}]]
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
@@ -41,7 +42,7 @@
                  [re-frame "0.10.9"]
                  [reagent "0.7.0"]
                  [garden "1.3.9"]
-                 [org.apache.pdfbox/pdfbox "2.0.24"]
+                 [org.apache.pdfbox/pdfbox "2.1.0-SNAPSHOT"]
                  [io.pedestal/pedestal.service "0.5.1"]
                  [io.pedestal/pedestal.route "0.5.1"]
                  [io.pedestal/pedestal.jetty "0.5.1"]
@@ -79,7 +80,7 @@
             [lein-kibit "0.1.8"]
             #_[lein-resource "16.9.1"]]
 
-  :source-paths ["src/clj" "src/cljc" "src/cljs"]
+  :source-paths ["src/clj" "src/cljc" "src/cljs" "lib"]
 
   :test-paths ["test/clj" "test/cljc" "test/cljs"]
 
