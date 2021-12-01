@@ -1297,7 +1297,7 @@
   {:max-width "300px"})
 
 
-(defn monster-component [{:keys [name size type subtypes hit-points alignment armor-class armor-notes speed saving-throws skills damage-vulnerabilities damage-resistances damage-immunities condition-immunities senses languages challenge traits actions legendary-actions source page] :as monster}]
+(defn monster-component [{:keys [name description size type subtypes hit-points alignment armor-class armor-notes speed saving-throws skills damage-vulnerabilities damage-resistances damage-immunities condition-immunities senses languages challenge traits actions legendary-actions source page] :as monster}]
   (let [traits-by-type (group-by :type traits)
         traits (traits-by-type nil)
         actions (concat actions (traits-by-type :action))
@@ -1307,7 +1307,7 @@
                             legendary-actions)]
     [:div.m-l-10.l-h-19
      (if (not @(subscribe [:mobile?])) {:style two-columns-style})
-     [:span.f-s-24.f-w-b name]
+     [:span.f-s-24.f-w-b.m-b-20 name]
      [:div.f-s-18.i.f-w-b (monsters/monster-subheader size type subtypes alignment)]
      (spell-field "Armor Class" (str armor-class (if armor-notes (str " (" armor-notes ")"))))
      (let [{:keys [mean die-count die modifier]} hit-points]
@@ -1324,6 +1324,8 @@
                                                    (or modifier 0))))]
                                         (if mean (str " (" mean ")"))))))
      (spell-field "Speed" speed)
+     (if description
+        (str description))
      [:div.m-t-10.flex.justify-cont-s-a.m-b-10
       {:style max-width-300}
       (doall
@@ -1369,7 +1371,7 @@
           (map-indexed
            (fn [i {:keys [name description notes]}]
              ^{:key i}
-             [:div.m-t-10.wsp-prw (spell-field (str name notes) description)])
+             [:div.m-t-10.wsp-prw (spell-field (str name " " notes) description)])
            actions))]])
      (if legendary-actions
        [:div.m-t-20
@@ -1382,7 +1384,7 @@
             (map-indexed
              (fn [i {:keys [name description notes]}]
                ^{:key i}
-               [:div.m-t-10 (spell-field (str name notes) description)])
+               [:div.m-t-10 (spell-field (str name " " notes) description)])
              (:actions legendary-actions)))])])]))
 
 (defn monster-result [monster]
