@@ -114,7 +114,7 @@
      :font-size 32
      :paragraphs
      ["You can contact us by emailing thDM@dungeonmastersvault.com"
-      "Effective Nov 4th 2020"]}]})
+      "Effective Dec 28th 2021"]}]})
 
 (defn terms-page [sections]
   (page/html5
@@ -222,12 +222,12 @@
     {:title "9. Arbitration"
      :font-size 32
      :paragraphs
-     ["For any dispute you have with Dungeon Master's Vault, you agree to first contact us and attempt to resolve the dispute with us informally. If Dungeon Master's Vault has not been able to resolve the dispute with you informally, we each agree to resolve any claim, dispute, or controversy (excluding claims for injunctive or other equitable relief) arising out of or in connection with or relating to these Terms by binding arbitration by the American Arbitration Association (\"AAA\") under the Commercial Arbitration Rules and Supplementary Procedures for Consumer Related Disputes then in effect for the AAA, except as provided herein. Unless you and Dungeon Master's Vault agree otherwise, the arbitration will be conducted in Douglas County, Colorado or the United States District Court for the District of Colorado with in the United states. Each party will be responsible for paying any AAA filing, administrative and arbitrator fees in accordance with AAA rules, except that Dungeon Master's Vault will pay for your reasonable filing, administrative, and arbitrator fees if your claim for damages does not exceed $75,000 and is non-frivolous (as measured by the standards set forth in Federal Rule of Civil Procedure 11(b)). The award rendered by the arbitrator shall include costs of arbitration, reasonable attorneys' fees and reasonable costs for expert and other witnesses, and any judgment on the award rendered by the arbitrator may be entered in any court of competent jurisdiction. Nothing in this Section shall prevent either party from seeking injunctive or other equitable relief from the courts for matters related to data security, intellectual property or unauthorized access to the Service. ALL CLAIMS MUST BE BROUGHT IN THE PARTIES' INDIVIDUAL CAPACITY, AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS OR REPRESENTATIVE PROCEEDING, AND, UNLESS WE AGREE OTHERWISE, THE ARBITRATOR MAY NOT CONSOLIDATE MORE THAN ONE PERSON'S CLAIMS. YOU AGREE THAT, BY ENTERING INTO THESE TERMS, YOU AND Dungeon Master's Vault ARE EACH WAIVING THE RIGHT TO A TRIAL BY JURY OR TO PARTICIPATE IN A CLASS ACTION."
+     ["For any dispute you have with Dungeon Master's Vault, you agree to first contact us and attempt to resolve the dispute with us informally. If Dungeon Master's Vault has not been able to resolve the dispute with you informally, we each agree to resolve any claim, dispute, or controversy (excluding claims for injunctive or other equitable relief) arising out of or in connection with or relating to these Terms by binding arbitration by the American Arbitration Association (\"AAA\") under the Commercial Arbitration Rules and Supplementary Procedures for Consumer Related Disputes then in effect for the AAA, except as provided herein. Unless you and Dungeon Master's Vault agree otherwise, the arbitration will be conducted in Tulsa County, Oklahoma or the United States District Court for the District of Oklahoma with in the United states. Each party will be responsible for paying any AAA filing, administrative and arbitrator fees in accordance with AAA rules, except that Dungeon Master's Vault will pay for your reasonable filing, administrative, and arbitrator fees if your claim for damages does not exceed $75,000 and is non-frivolous (as measured by the standards set forth in Federal Rule of Civil Procedure 11(b)). The award rendered by the arbitrator shall include costs of arbitration, reasonable attorneys' fees and reasonable costs for expert and other witnesses, and any judgment on the award rendered by the arbitrator may be entered in any court of competent jurisdiction. Nothing in this Section shall prevent either party from seeking injunctive or other equitable relief from the courts for matters related to data security, intellectual property or unauthorized access to the Service. ALL CLAIMS MUST BE BROUGHT IN THE PARTIES' INDIVIDUAL CAPACITY, AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS OR REPRESENTATIVE PROCEEDING, AND, UNLESS WE AGREE OTHERWISE, THE ARBITRATOR MAY NOT CONSOLIDATE MORE THAN ONE PERSON'S CLAIMS. YOU AGREE THAT, BY ENTERING INTO THESE TERMS, YOU AND Dungeon Master's Vault ARE EACH WAIVING THE RIGHT TO A TRIAL BY JURY OR TO PARTICIPATE IN A CLASS ACTION."
       "To the extent any claim, dispute or controversy regarding Dungeon Master's Vault or our Products isn't arbitrable under applicable laws or otherwise: you and Dungeon Master's Vault both agree that any claim or dispute regarding Dungeon Master's Vault will be resolved exclusively in accordance with Clause 10 of these Terms."]}
     {:title "10. Governing law and jurisdiction"
      :font-size 32
      :paragraphs
-     ["These Terms shall be governed by the laws of the State of Colorado, without respect to its conflict of laws principles. We each agree to submit to the personal jurisdiction of a state court located in Douglas County, Colorado or the United States District Court for the District of Colorado, for any actions not subject to Section 9 (Arbitration)."]}
+     ["These Terms shall be governed by the laws of the State of Oklahoma, without respect to its conflict of laws principles. We each agree to submit to the personal jurisdiction of a state court located in Tulsa County, Oklahoma or the United States District Court for the District of Oklahoma, for any actions not subject to Section 9 (Arbitration)."]}
     {:title "11. General terms"
      :font-size 32
      :subsections
@@ -255,7 +255,7 @@
        :font-size 28
        :paragraphs
        ["These Terms are a contract between you and Dungeon Master's Vault"
-        "Effective Nov 4th, 2020"]}]}]})
+        "Effective Dec 28th, 2021"]}]}]})
 
 (defn terms-of-use []
   (terms-page terms-section))
