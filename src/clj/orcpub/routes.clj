@@ -297,6 +297,8 @@
           :orcpub.user/password (hashers/encrypt password)
           :orcpub.user/send-updates? send-updates?
           :orcpub.user/created now
+          :orcpub.user/patron false
+          :orcpub.user/patron-tier " "
           :orcpub.user/last-login now}))
       (catch Throwable e (prn e) (throw e)))))
 
