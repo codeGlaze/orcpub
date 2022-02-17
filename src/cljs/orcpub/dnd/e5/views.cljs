@@ -1367,7 +1367,7 @@
         [:div
          (doall
           (map-indexed
-           (fn [i {:keys [name description notes]}]
+           (fn [i {:keys [name notes description]}]
              ^{:key i}
              [:div.m-t-10.wsp-prw (spell-field (str name " " notes) description)])
            actions))]])
@@ -1380,12 +1380,12 @@
           [:div
            (doall
             (map-indexed
-             (fn [i {:keys [name description notes]}]
+             (fn [i {:keys [name notes description]}]
                ^{:key i}
                [:div.m-t-10 (spell-field (str name " " notes) description)])
              (:actions legendary-actions)))])])
-         (if description
-           [:div.m-t-10 (str description)])]))
+     (if description
+       [:div.m-t-10 (str description)])]))
 
 (defn monster-result [monster]
   [:div.white
