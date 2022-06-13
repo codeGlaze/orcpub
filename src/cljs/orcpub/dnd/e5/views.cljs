@@ -5262,7 +5262,7 @@
          "Amount to Select"
          {:items (map
                   value-to-item
-                  (range 1 11))
+                  (range 1 31))
           :value (get selection-cfg :choose)
           :on-change #(dispatch [value-change-event index (assoc selection-cfg :choose (js/parseInt %))])}]])]))
 
