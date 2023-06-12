@@ -92,16 +92,16 @@
    [:.list-style-disc
     {:list-style-type :disc
      :list-style-position :inside}]
-   
+
    [:.f-w-bold
     {:font-weight :bold}]
-   
+
    [:.flex-grow-1
     {:flex-grow 1}]
 
    [:.flex-basis-50-p
     {:flex-basis "50%"}]
-   
+
    [:.i
     {:font-style :italic}]
 
@@ -137,7 +137,7 @@
     {:margin-right "20px"}]
    [:.m-r-30
     {:margin-right "30px"}]
-   
+
    [:.m-r-80
     {:margin-right "80px"}]
 
@@ -228,7 +228,7 @@
 
    [:.orange-shadow
     {:box-shadow "0 1px 0 0 #f0a100"}]
-   
+
    [:.t-a-c
     {:text-align :center}]
    [:.t-a-l
@@ -315,7 +315,7 @@
 
    [:.overflow-auto
     {:overflow :auto}]
-   
+
    [:.posn-rel
     {:position :relative}]
    [:.posn-abs
@@ -336,8 +336,8 @@
     [:a :a:visited
      {:color button-color}]]
    [:.a-white
-   [:a :a:visited
-    {:color "white !important" }]]
+    [:a :a:visited
+     {:color "white !important"}]]
    [:.green
     {:color green}
 
@@ -438,7 +438,7 @@
 
    [:.b-b-2
     {:border-bottom "2px solid"}]
-   
+
    [:.b-w-3
     {:border-width "3px"}]
    [:.b-w-5
@@ -458,7 +458,7 @@
    [:.tooltip
     {:position "relative"
      :display "inline-block"
-     :border-bottom "1px dotted black" }]
+     :border-bottom "1px dotted black"}]
 
    [:.tooltip [:.tooltiptext
                {:visibility "hidden"
@@ -475,9 +475,8 @@
                 :padding "10px 10px"
                 :border-radius "6px"
                 :position "absolute"
-                :z-index "1"}
-               ]] 
-   
+                :z-index "1"}]]
+
    [:.image-thumbnail
     {:max-height "100px"
      :max-width "200px"
@@ -485,6 +484,16 @@
 
    [:.tooltip:hover [:.tooltiptext
                      {:visibility "visible"}]]
+
+   [:.image-character-thumbnail
+    {:max-height "100px"
+     :max-width "200px"
+     :border-radius "5px"}]
+
+   [:.image-faction-thumbnail
+    {:max-height "100px"
+     :max-width "200px"
+     :border-radius "5px"}]
 
    (at-keyframes
     :fade-out
@@ -525,7 +534,7 @@
 
    [:.hover-opacity-full:hover
     {:opacity 1.0}]
-   
+
    [:.bg-light
     {:background-color "rgba(72,72,72,0.2)"}]
    [:.bg-lighter
