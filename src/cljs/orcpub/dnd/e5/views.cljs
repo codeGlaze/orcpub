@@ -1631,7 +1631,8 @@
 
 (def thumbnail-style
   {:height "100px"
-   :max-width "200px"})
+   :max-width "200px"
+   :border-radius "5px"})
 
 (defn other-user-component [owner & [text-classes show-follow?]]
   (let [following-users @(subscribe [:following-users])
