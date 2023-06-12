@@ -1,5 +1,5 @@
 (ns orcpub.ver)
 ; To be updated by build server
-(defn version [] "2.5.0.23")
-(defn date [] "11/6/2021")
-(defn description [] "\"Zakaria\"")
+(defn version [] "2.5.0.24")
+(defn date [] "06/12/2023")
+(defn description [] "\"Boblin the Goblin\"")
