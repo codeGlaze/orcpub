@@ -476,7 +476,12 @@
                 :border-radius "6px"
                 :position "absolute"
                 :z-index "1"}
-               ]]
+               ]] 
+   
+   [:.image-thumbnail
+    {:max-height "100px"
+     :max-width "200px"
+     :border-radius "5px"}]
 
    [:.tooltip:hover [:.tooltiptext
                      {:visibility "visible"}]]
@@ -932,8 +937,9 @@
 
     [:.header-tab
      {:background-color "rgba(0, 0, 0, 0.5)"
-      ;;:-webkit-backdrop-filter "blur(5px)"
-      ;;:backdrop-filter "blur(5px)"
+      :-webkit-backdrop-filter "blur(5px)"
+      :backdrop-filter "blur(5px)"
+      :border-radius "5px"
       }]
 
     [:.header-tab.mobile
@@ -1264,7 +1270,7 @@
 
      [:.text-shadow
       {:text-shadow :none}]
-
+     
      [:.bg-light
       {:background-color "rgba(0,0,0,0.4)"}]
      [:.bg-lighter

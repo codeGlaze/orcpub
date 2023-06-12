@@ -1749,10 +1749,6 @@
                              remaining)])))
                 sorted-selections)))])])]]))
 
-(def image-style
-  {:max-height "100px"
-   :max-width "200px"
-   :border-radius "5px"})
 
 (defn set-random-name []
   (dispatch [::char5e/set-random-name]))
@@ -1835,10 +1831,9 @@
       [character-textarea entity-values ::char5e/flaws]]
      [:div.flex.align-items-c.w-100-p.m-t-30
       (if image-url
-        [:img.m-r-10 {:src image-url
+        [:img.m-r-10.image-thumbnail {:src image-url
                       :on-error (image-error :failed-loading-image image-url)
-                      :on-load (if image-url-failed image-loaded)
-               :style image-style}])
+                      :on-load (if image-url-failed image-loaded)}])
       [:div.flex-grow-1
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
@@ -1849,11 +1844,10 @@
       [character-input entity-values ::char5e/faction-name]]
      [:div.flex.align-items-c.w-100-p.m-t-30
       (if faction-image-url
-        [:img.m-r-10 {:src faction-image-url
+        [:img.m-r-10.image-thumbnail {:src faction-image-url
                       :on-error (image-error :failed-loading-faction-image faction-image-url)
                       :on-load (if faction-image-url-failed
-                                 faction-image-loaded)
-               :style image-style}])
+                                 faction-image-loaded)}])
       [:div.flex-grow-1
        [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
