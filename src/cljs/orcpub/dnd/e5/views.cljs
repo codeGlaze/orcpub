@@ -3687,7 +3687,8 @@
         items (if patron? [{:title "Select" :value " "}
                            {:title "Original 5e Character sheet" :value 1}
                            {:title "Original 5e Character sheet - optional variant" :value 2}
-                           {:title "Icewind Dale 5e Character sheet" :value 3}]
+                           {:title "Icewind Dale 5e Character sheet" :value 3}
+                           {:title "Petersen Games - Cthulhu Mythos Sagas sheet" :value 4}]
                   [{:title "Select" :value " "}
                    {:title "Original 5e Character sheet" :value 1}])
 
@@ -3703,7 +3704,7 @@
           {:items items
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
-       (when-not patron? [:div [:div.flex.m-b-10 "Patrons get access to 2 addtional character sheets:"][:div.flex.m-b-10 "Original 5e Character sheet - optional variant"] [:div.flex.m-b-10 "Icewind Dale 5e Character sheet"][:div.flex.m-b-10 [:a.orange {:href "/" :target "_blank"} "Become a Patron to unlock these today"]]])
+       (when-not patron? [:div [:div.flex.m-b-10 "Patrons get access to 3 addtional character sheets:"][:div.flex.m-b-10 "Original 5e Character sheet - optional variant"] [:div.flex.m-b-10 "Icewind Dale 5e Character sheet"][:div.flex.m-b-10 "Cthulhu Mythos Sagas sheet"][:div.flex.m-b-10 [:a.orange {:href "/" :target "_blank"} "Become a Patron to unlock these today"]]])
        [:div.flex
         [:div
          {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
