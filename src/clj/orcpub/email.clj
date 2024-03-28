@@ -51,10 +51,7 @@
                         :body (verification-email
                                first-and-last-name
                                username
-                               (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))})
-(when (= send-updates? true)
-        (client/post "https://mailtrain.dungeonmastersvault.com/api/subscribe/iyWL_f8u?access_token=2f801fb4fff9daa161501240e0c809c185f44b07"
-                {:form-params {:EMAIL email :MERGE_NAME username :FORCE_SUBSCRIBE "yes" :REQUIRE_CONFIRMATION "yes" }})))
+                               (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))}))
 
 (defn reset-password-email-html [first-and-last-name reset-url]
   [:div
