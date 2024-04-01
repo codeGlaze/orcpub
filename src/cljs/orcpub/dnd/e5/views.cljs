@@ -3704,7 +3704,7 @@
           {:items items
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
-       (when-not patron? [:div [:div.flex.m-b-10 "Patrons get access to 3 addtional character sheets:"][:div.flex.m-b-10 "Original 5e Character sheet - optional variant"] [:div.flex.m-b-10 "Icewind Dale 5e Character sheet"][:div.flex.m-b-10 "Cthulhu Mythos Sagas sheet"][:div.flex.m-b-10 [:a.orange {:href "/" :target "_blank"} "Become a Patron to unlock these today"]]])
+       (when-not patron? [:div [:div.flex.m-b-10 "Patrons get access to 3 addtional character sheets:"][:div.flex.m-b-10 "Original 5e Character sheet - optional variant"] [:div.flex.m-b-10 "Icewind Dale 5e Character sheet"][:div.flex.m-b-10 "Cthulhu Mythos Sagas sheet"][:div.flex.m-b-10 [:a.orange {:href "https://www.dungeonmastersvault.com/thank-you-for-supporting-us/" :target "_blank"} "Become a Patron to unlock these today"]]])
        [:div.flex
         [:div
          {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
