@@ -3197,7 +3197,7 @@
  (fn [{:keys [db]} [_ plugin-name type-key key]]
    {:dispatch [::e5/set-plugins (-> db :plugins (update-in [plugin-name type-key key :disabled?] not))]}))
 
-(defn clean-common-errors [plugin-text]
+(defn clean-plugin-errors [plugin-text]
   (-> plugin-text
       (clojure.string/replace #"disabled\?\s+nil" "disabled? false") ; disabled? nil - replace w/disabled? false
       (clojure.string/replace #"(?m)nil nil, " "") ; nil nil,  - find+remove
@@ -3209,7 +3209,7 @@
 (reg-event-fx
  ::e5/import-plugin
  (fn [{:keys [db]} [_ plugin-name plugin-text]]
-   (let [cleaned-plugin-text (clean-common-errors plugin-text)
+   (let [cleaned-plugin-text (clean-plugin-errors plugin-text)
          plugin (try
                   (reader/read-string cleaned-plugin-text)
                   (catch js/Error e nil))]
