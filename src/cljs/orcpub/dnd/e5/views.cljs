@@ -4972,8 +4972,6 @@
         false
         #(dispatch [::feats/toggle-feat-prop kw])])]]])
 
-(def default-option-pack {:option-pack "Default Option Source"})
-
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])]
     [:div.p-20.main-text-color
@@ -4985,7 +4983,7 @@
       [feat-input-field
        option-source-name-label
        :option-pack
-       (merge feat default-option-pack)
+       feat
        "m-l-5 m-b-20"]
       [:div.w-100-p
        [:div.f-w-b
@@ -5370,7 +5368,7 @@
        [class-input-field
         option-source-name-label
         :option-pack
-        (merge class default-option-pack)
+        class
         "m-l-5 m-b-20"]]]
      [:div.m-b-20
       [:div.f-w-b
@@ -5682,7 +5680,7 @@
       [subclass-input-field
        option-source-name-label
        :option-pack
-       (merge subclass default-option-pack)
+       subclass
        "m-l-5 m-b-20"]]
      (if (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
@@ -5825,7 +5823,7 @@
       [subrace-input-field
        option-source-name-label
        :option-pack
-       (merge subrace default-option-pack)
+       subrace
        "m-l-5 m-b-20"]]
      [:div.m-b-20.flex.flex-wrap
       [:div.m-r-5
@@ -5939,7 +5937,7 @@
       [race-input-field
        option-source-name-label
        :option-pack
-       (merge race default-option-pack)
+       race
        "m-l-5 m-b-20"]]
      [:div.m-b-20
        [:div.f-w-b
@@ -6088,7 +6086,7 @@
       [background-input-field
        option-source-name-label
        :option-pack
-       (merge background default-option-pack)
+       background
        "m-l-5 m-b-20"]]
      [:div.m-b-20
        [:div.f-w-b
@@ -6121,7 +6119,7 @@
       [selection-input-field
        option-source-name-label
        :option-pack
-       (merge selection default-option-pack)
+       selection
        "m-l-5 m-b-20"]]
      [:div
       [:div.flex.justify-cont-s-b
@@ -6167,7 +6165,7 @@
       [language-input-field
        option-source-name-label
        :option-pack
-       (merge language default-option-pack)
+       language
        "m-l-5 m-b-20"]]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
@@ -6188,7 +6186,7 @@
       [boon-input-field
        option-source-name-label
        :option-pack
-       (merge boon default-option-pack)
+       boon
        "m-l-5 m-b-20"]]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
@@ -6209,7 +6207,7 @@
       [invocation-input-field
        option-source-name-label
        :option-pack
-       (merge invocation default-option-pack)
+       invocation
        "m-l-5 m-b-20"]]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
@@ -6253,7 +6251,7 @@
       [monster-input-field
        option-source-name-label
        :option-pack
-       (merge monster default-option-pack)
+       monster
        "m-l-5 m-b-20 flex-grow-1"]]
      [:div.flex.w-100-p.flex-wrap
 
@@ -6945,7 +6943,7 @@
       [encounter-input-field
        option-source-name-label
        :option-pack
-       (merge encounter default-option-pack)
+       encounter
        "m-l-5 m-b-20"]]
      [:div.m-t-20
       [:div.f-s-24.f-w-b "Creatures"]
@@ -6971,7 +6969,7 @@
       [spell-input-field
        option-source-name-label
        :option-pack
-       (merge spell default-option-pack)
+       spell
        "m-l-5 m-b-20"]]
 
      [:div.flex.w-100-p.flex-wrap
