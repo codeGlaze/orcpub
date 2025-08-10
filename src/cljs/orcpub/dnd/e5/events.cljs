@@ -3827,6 +3827,16 @@
    (assoc-in db [::char5e/delete-confirmation-shown? id] false)))
 
 (reg-event-db
+ ::mi/show-delete-confirmation
+ (fn [db [_ id]]
+   (assoc-in db [::mi/delete-confirmation-shown? id] true)))
+
+(reg-event-db
+ ::mi/hide-delete-confirmation
+ (fn [db [_ id]]
+   (assoc-in db [::mi/delete-confirmation-shown? id] false)))
+
+(reg-event-db
  ::char5e/show-delete-plugin-confirmation
  (fn [db _]
    (assoc-in db [::char5e/delete-plugin-confirmation-shown?] true)))

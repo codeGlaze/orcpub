@@ -1233,6 +1233,16 @@
    (get-in db [::char5e/delete-plugin-confirmation-shown?])))
 
 (reg-sub
+ ::mi5e/delete-confirmation-shown?
+ (fn [db [_ id]]
+   (get-in db [::mi5e/delete-confirmation-shown? id])))
+
+(reg-sub
+ ::mi5e/delete-plugin-confirmation-shown?
+ (fn [db _]
+   (get-in db [::mi5e/delete-plugin-confirmation-shown?])))
+
+(reg-sub
  ::char5e/newb-char-data
  (fn [db _]
    (get db ::char5e/newb-char-data)))

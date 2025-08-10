@@ -7453,12 +7453,25 @@
         "Next"]]])
    :hide-header-message? true])
 
+;; events are set and passed by the individual pages defined below this
 (defn builder-page [item-title reset-event save-event builder & [title]]
   [content-page
    (or title (str item-title " Builder"))
    [{:title (str "New " item-title)
      :icon "plus"
      :on-click #(dispatch [reset-event])}
+    #_(if (= item-title "Item")  
+      {:title "Delete Item"
+       :icon "trash"
+       :on-click #(if  dispatch [::mi/delete-item])       
+      })
+    ;;; delete-event would need to be declared or declared as optional, but title is already optional
+    #_(if (= item-title "Item")  
+      {:title "Delete Item"
+       :icon "trash"
+       :on-click #(dispatch [delete-event])       
+      })
+    ;(println "builder" builder "title" title "item-title" item-title "str-item-title" (str item-title))
     {:title "Save to Browser Storage"
      :icon "save"
      :on-click #(dispatch [save-event])}]
@@ -7472,8 +7485,84 @@
      :on-click #(dispatch [::combat/reset-combat])}]
    [combat-tracker]])
 
-(defn item-builder-page []
+;ensure names don't start with numbers
+#_(defn item-builder-page []
   (builder-page "Item" ::mi/reset-item ::mi/save-item item-builder))
+
+#_(defn item-page [{:keys [key] :as arg}]
+  (let [item-key (if (re-matches #"\d+" key)
+                   (js/parseInt key)
+                   (keyword key))
+        item @(subscribe [::mi/item item-key])
+        username @(subscribe [:username])
+        owner? (= username (::mi/owner item))]
+    [content-page
+     "Item Page"
+     (remove
+      nil?
+      [(if owner?
+         {:title "Delete"
+          :icon "trash"
+          :on-click (make-event-handler ::mi/delete-custom-item item-key)})
+       (if owner?
+         {:title "Edit"
+          :icon "pencil"
+          :on-click (make-event-handler [::mi/edit-custom-item item])})])
+     [:div.p-10.main-text-color
+      [item-component item]]]))
+
+;(if (= username owner)
+;   [:button.form-button.m-l-5
+;    {:on-click (make-event-handler ::mi/show-delete-confirmation id)}
+;    "delete"])]
+#_(if @(subscribe [::mi/delete-confirmation-shown? id])
+  [:div.p-20.flex.justify-cont-end
+   [:div
+    [:div.m-b-10 "Are you sure you want to delete this item?"]
+    [:div.flex
+     [:button.form-button
+      {:on-click (make-event-handler ::mi/hide-delete-confirmation id)}
+      "cancel"]
+     [:span.link-button
+      {:on-click (make-event-handler ::mi/delete-custom-item id)}
+      "delete"]]]])
+
+
+(defn item-builder-page []
+  (js/console.log (str "Item:" @(subscribe [::mi/builder-item])))
+  ;(js/console.log (str "Item ID:" (:id (:db/id @(subscribe [::mi/builder-item])))))
+  (let [item (subscribe [::mi/builder-item])
+        item-key (:db/id @item)
+        ;username @(subscribe [:username])]
+        ;saved? (not (nil? (:id item)))
+        ]
+    (js/console.log "item-key?" item-key)
+    [content-page
+     "Item Builder"
+     [{:title "New Item"
+       :icon "plus"
+       :on-click #(dispatch [::mi/reset-item])}
+      {:title "Save to Browser Storage"
+       :icon "save"
+       :on-click #(dispatch [::mi/save-item])}
+      (when (and item item-key)
+      ;(when saved?
+        {:title "Delete"
+         :icon "trash"
+         :on-click (make-event-handler ::mi/show-delete-confirmation item-key)}) ;end when
+      ]
+     (when @(subscribe [::mi/delete-confirmation-shown?])
+       [:div.p-20.flex.justify-cont-end
+        [:div
+         [:div.m-b-10 "Are you sure you want to delete this item?"]
+         [:div.flex
+          [:button.form-button
+           {:on-click #(dispatch [::mi/hide-delete-confirmation item-key])}
+           "cancel"]
+          [:span.link-button
+           {:on-click #(dispatch [::mi/delete-custom-item item-key])}
+           "delete"]]]])
+     [item-builder]]))
 
 (defn spell-builder-page []
   (builder-page "Spell" ::spells/reset-spell ::spells/save-spell spell-builder))
@@ -7935,7 +8024,8 @@
           (if homebrew?
             [:button.form-button.m-l-5
              {:on-click (make-event-handler ::spells/delete-spell spell)}
-             "delete"])]
+             "delete"])
+          ]
          [spell-component spell true]])]]))
 
 (defn spell-list-items [device-type]
@@ -7993,8 +8083,26 @@
           (if (= username owner)
             [:button.form-button.m-l-5
              {:on-click (make-event-handler ::mi/edit-custom-item @(subscribe [::mi/custom-item id]))}
-             "edit"])]
-         [item-component item]])]]))
+             "edit"])
+          (if (= username owner)
+            [:button.form-button.m-l-5
+             {:on-click (make-event-handler ::mi/show-delete-confirmation id)}
+             "delete"])]
+            (if @(subscribe [::mi/delete-confirmation-shown? id])
+              [:div.p-20.flex.justify-cont-end
+               [:div
+                [:div.m-b-10 "Are you sure you want to delete this item?"]
+                [:div.flex
+                 [:button.form-button
+                  {:on-click (make-event-handler ::mi/hide-delete-confirmation id)}
+                  "cancel"]
+                 [:span.link-button
+                  {:on-click (make-event-handler ::mi/delete-custom-item id)}
+                  "delete"]]]])
+              ;;;]
+            [item-component item]
+        ])
+      ]]))
 
 (defn item-list-items []
   [:div.item-list
