@@ -1238,6 +1238,17 @@
    (get-in db [::mi5e/delete-confirmation-shown? id])))
 
 (reg-sub
+ ::mi5e/show-modal?
+ (fn [db [_ id]]
+   (js/console.log "Show modal subscription value:" id (get-in db [::mi5e/show-modal? id]))
+   (get-in db [::mi5e/show-modal? id])))
+
+(reg-sub
+ ::mi5e/delete-plugin-confirmation-shown?
+ (fn [db _]
+   (get-in db [::mi5e/delete-plugin-confirmation-shown?])))
+
+(reg-sub
  ::mi5e/delete-plugin-confirmation-shown?
  (fn [db _]
    (get-in db [::mi5e/delete-plugin-confirmation-shown?])))

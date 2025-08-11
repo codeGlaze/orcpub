@@ -933,8 +933,7 @@
      {:background-color "rgba(0, 0, 0, 0.5)"
       :-webkit-backdrop-filter "blur(3px)"
       :backdrop-filter "blur(3px)"
-      :border-radius "5px"
-      }]
+      :border-radius "5px"}]
 
     [:.header-tab.mobile
      [:.title
@@ -1297,4 +1296,94 @@
    widths
    font-sizes
    props
-   media-queries))
+   media-queries
+
+   ;; modal styles
+   [:.modal-container
+    :width "100vw"
+    :height "100vh"
+    :background-size :cover
+    :background-repeat :no-repeat
+    :background-image "url(http://picsum.photos/2000)"
+   ]
+
+   [:.modal
+      {:--gutter (px 14)
+       :--modal-color "#800000"
+       :--soft-color "#fafafa"
+       :top 0
+       :left 0
+       :width "100vw"
+       :height "100vh"
+       :z-index 2000
+       :position :fixed
+       :background-color "rgba(0,0,0,0.7)"
+       :padding-top "2%"}
+   
+      [:.modal.content
+       {:width "95vw"
+        ;:height "90vh"
+        :max-height (px 700)
+        :max-width (px 600)
+        :position :relative
+        :overflow :hidden
+        :border-radius (px 4)
+        :margin "0 auto"
+        :background-color "#ffffff"
+        :display :flex
+        :flex-direction :column
+        :padding "1rem"}
+   
+       [:header
+        {:min-height (px 60)
+         :height (px 60)
+         :color "#ffffff"
+         :background-color "var(--modal-color)"
+         :display :grid
+         :padding-left "var(--gutter)"
+         :align-items :center
+         :grid-template-columns "auto 60px"}
+   
+        [:h4 {:margin 0
+              :text-align :left}]
+   
+        [:span
+         {:display :flex
+          :align-items :center
+          :justify-content :center
+          :height "100%"
+          :width "100%"
+          :font-size (px 20)
+          :opacity 0.8
+          :cursor :pointer}
+   
+         [:&:hover {:opacity 1}]]]
+   
+       [:.modal-main
+        {:flex 1
+         :text-align :left
+         :overflow :auto
+         :padding "var(--gutter)"}]
+   
+       [:footer
+        {:height :auto
+         :text-align :right
+         :border-top "solid 1px #cccccc"
+         :padding "var(--gutter)"
+         :background-color "var(--soft-color)"}
+   
+        ;[:button {:margin 0}
+        ; [:&:not (:last-child)
+        ;  {:margin-right "var(--gutter)"}]]
+   
+        ;[:input {:margin 0}
+        ; [:&:not (:last-child)
+        ;  {:margin-right "var(--gutter)"}]]
+        ]]
+          ]
+
+   [:.modal-container {:display :none}]
+
+   [:.modal-container.show-modal {:display :block}]
+   
+   ));concat;app

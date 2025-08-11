@@ -3497,6 +3497,12 @@
    (fn [event-kw & [arg-fn]]
      #(dispatch [event-kw (if arg-fn (arg-fn %) %)]))))
 
+(defn delete-item-handler [item-key]
+  (fn []
+    (dispatch [::mi/delete-custom-item item-key])
+    (dispatch [::mi/hide-delete-confirmation item-key])
+    (dispatch [::mi/reset-item])))
+
 (defn print-button-style [print-button-enabled]
   (if print-button-enabled
     {}
@@ -3666,7 +3672,7 @@
       [(if owner?
          {:title "Delete"
           :icon "trash"
-          :on-click (make-event-handler ::mi/delete-custom-item item-key)})
+          :on-click (delete-item-handler item-key)})
        (if owner?
          {:title "Edit"
           :icon "pencil"
@@ -7489,48 +7495,26 @@
 #_(defn item-builder-page []
   (builder-page "Item" ::mi/reset-item ::mi/save-item item-builder))
 
-#_(defn item-page [{:keys [key] :as arg}]
-  (let [item-key (if (re-matches #"\d+" key)
-                   (js/parseInt key)
-                   (keyword key))
-        item @(subscribe [::mi/item item-key])
-        username @(subscribe [:username])
-        owner? (= username (::mi/owner item))]
-    [content-page
-     "Item Page"
-     (remove
-      nil?
-      [(if owner?
-         {:title "Delete"
-          :icon "trash"
-          :on-click (make-event-handler ::mi/delete-custom-item item-key)})
-       (if owner?
-         {:title "Edit"
-          :icon "pencil"
-          :on-click (make-event-handler [::mi/edit-custom-item item])})])
-     [:div.p-10.main-text-color
-      [item-component item]]]))
-
-;(if (= username owner)
-;   [:button.form-button.m-l-5
-;    {:on-click (make-event-handler ::mi/show-delete-confirmation id)}
-;    "delete"])]
-#_(if @(subscribe [::mi/delete-confirmation-shown? id])
-  [:div.p-20.flex.justify-cont-end
-   [:div
-    [:div.m-b-10 "Are you sure you want to delete this item?"]
-    [:div.flex
-     [:button.form-button
-      {:on-click (make-event-handler ::mi/hide-delete-confirmation id)}
-      "cancel"]
-     [:span.link-button
-      {:on-click (make-event-handler ::mi/delete-custom-item id)}
-      "delete"]]]])
-
+(defn deletion-modal-with [builder-page item-key]
+  (let [show? @(subscribe [::mi/delete-confirmation-shown? item-key])]
+    [:span
+     [:div {:class (if show? "modal-container" "modal-container hidden")}
+      [:div.modal
+       [:div.modal.content
+        [:div.m-b-10 "Are you sure you want to delete this item?"]
+        [:div
+         [:button.form-button
+          {:on-click (make-event-handler ::mi/hide-delete-confirmation item-key)}
+          "cancel"]
+         [:span.link-button
+          {:on-click (delete-item-handler item-key)}
+          "delete"]
+         ]]]]
+     [builder-page]]
+   )
+  )
 
 (defn item-builder-page []
-  (js/console.log (str "Item:" @(subscribe [::mi/builder-item])))
-  ;(js/console.log (str "Item ID:" (:id (:db/id @(subscribe [::mi/builder-item])))))
   (let [item (subscribe [::mi/builder-item])
         item-key (:db/id @item)
         ;username @(subscribe [:username])]
@@ -7546,23 +7530,14 @@
        :icon "save"
        :on-click #(dispatch [::mi/save-item])}
       (when (and item item-key)
-      ;(when saved?
         {:title "Delete"
          :icon "trash"
-         :on-click (make-event-handler ::mi/show-delete-confirmation item-key)}) ;end when
-      ]
-     (when @(subscribe [::mi/delete-confirmation-shown?])
-       [:div.p-20.flex.justify-cont-end
-        [:div
-         [:div.m-b-10 "Are you sure you want to delete this item?"]
-         [:div.flex
-          [:button.form-button
-           {:on-click #(dispatch [::mi/hide-delete-confirmation item-key])}
-           "cancel"]
-          [:span.link-button
-           {:on-click #(dispatch [::mi/delete-custom-item item-key])}
-           "delete"]]]])
-     [item-builder]]))
+         :on-click (make-event-handler ::mi/show-delete-confirmation item-key)}
+        )]
+     [deletion-modal-with
+      item-builder
+      item-key]
+     ]))
 
 (defn spell-builder-page []
   (builder-page "Spell" ::spells/reset-spell ::spells/save-spell spell-builder))
@@ -8097,7 +8072,7 @@
                   {:on-click (make-event-handler ::mi/hide-delete-confirmation id)}
                   "cancel"]
                  [:span.link-button
-                  {:on-click (make-event-handler ::mi/delete-custom-item id)}
+                  {:on-click  (delete-item-handler id)}
                   "delete"]]]])
               ;;;]
             [item-component item]
