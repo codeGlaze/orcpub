@@ -1371,16 +1371,9 @@
          :border-top "solid 1px #cccccc"
          :padding "var(--gutter)"
          :background-color "var(--soft-color)"}
-   
-        ;[:button {:margin 0}
-        ; [:&:not (:last-child)
-        ;  {:margin-right "var(--gutter)"}]]
-   
-        ;[:input {:margin 0}
-        ; [:&:not (:last-child)
-        ;  {:margin-right "var(--gutter)"}]]
-        ]]
-          ]
+        ]
+       ]
+     ]
 
    [:.modal-container {:display :none}]
 

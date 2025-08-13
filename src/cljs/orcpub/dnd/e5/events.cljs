@@ -3827,19 +3827,6 @@
    (assoc-in db [::char5e/delete-confirmation-shown? id] false)))
 
 (reg-event-db
- ::mi/show-modal
- (fn [db [_ id]]
-   (js/console.log "Show modal event handled" id)
-   ;(assoc-in db [::mi/delete-confirmation-shown? id] true)
-   (assoc-in db [::mi/show-modal? id] true)))
-
-(reg-event-db
- ::mi/hide-modal
- (fn [db [_ id]]
-  ;(assoc-in db [::mi/delete-confirmation-shown? id] false)
-   (assoc-in db [::mi/show-modal? id] false)))
-
-(reg-event-db
  ::mi/show-delete-confirmation
  (fn [db [_ id]]
    (assoc-in db [::mi/delete-confirmation-shown? id] true)))

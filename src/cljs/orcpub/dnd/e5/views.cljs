@@ -947,7 +947,8 @@
              [:span
               [:i.fa.f-s-18
                (if icon {:class-name (str "fa-" icon)})]]
-             [:span.m-l-5.header-button-text title]]))
+             [:span.m-l-5.header-button-text title]]
+              ))
         button-cfgs)]]
      (if @(subscribe [:confirmation-shown?])
        [:div.flex.justify-cont-end.m-r-10.m-b-20.m-l-10
@@ -1429,7 +1430,7 @@
               [:div#sticky-header.sticky-header.w-100-p.posn-fixed
                [:div.flex.justify-cont-c
                 [:div#header-container.f-s-14.main-text-color.content
-                 hdr]]]
+                 hdr]]]              
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
         ;  Banner for announcements
@@ -7466,18 +7467,6 @@
    [{:title (str "New " item-title)
      :icon "plus"
      :on-click #(dispatch [reset-event])}
-    #_(if (= item-title "Item")  
-      {:title "Delete Item"
-       :icon "trash"
-       :on-click #(if  dispatch [::mi/delete-item])       
-      })
-    ;;; delete-event would need to be declared or declared as optional, but title is already optional
-    #_(if (= item-title "Item")  
-      {:title "Delete Item"
-       :icon "trash"
-       :on-click #(dispatch [delete-event])       
-      })
-    ;(println "builder" builder "title" title "item-title" item-title "str-item-title" (str item-title))
     {:title "Save to Browser Storage"
      :icon "save"
      :on-click #(dispatch [save-event])}]
@@ -7514,26 +7503,31 @@
    )
   )
 
+(defn item-builder-buttons [item-key]
+  (let [base-buttons [{:title "New Item"
+                       :icon "plus"
+                       :on-click #(dispatch [::mi/reset-item])}
+                      {:title "Save to Browser Storage"
+                       :icon "save"
+                       :on-click #(dispatch [::mi/save-item])}]
+        ]
+    (if item-key
+      (conj base-buttons {:title "Delete"
+                          :icon "trash"
+                          :on-click (make-event-handler ::mi/show-delete-confirmation item-key)})
+      base-buttons)
+    ))
+
 (defn item-builder-page []
   (let [item (subscribe [::mi/builder-item])
         item-key (:db/id @item)
+        buttons (item-builder-buttons item-key)
         ;username @(subscribe [:username])]
         ;saved? (not (nil? (:id item)))
         ]
-    (js/console.log "item-key?" item-key)
     [content-page
      "Item Builder"
-     [{:title "New Item"
-       :icon "plus"
-       :on-click #(dispatch [::mi/reset-item])}
-      {:title "Save to Browser Storage"
-       :icon "save"
-       :on-click #(dispatch [::mi/save-item])}
-      (when (and item item-key)
-        {:title "Delete"
-         :icon "trash"
-         :on-click (make-event-handler ::mi/show-delete-confirmation item-key)}
-        )]
+     buttons
      [deletion-modal-with
       item-builder
       item-key]
@@ -8074,7 +8068,6 @@
                  [:span.link-button
                   {:on-click  (delete-item-handler id)}
                   "delete"]]]])
-              ;;;]
             [item-component item]
         ])
       ]]))
