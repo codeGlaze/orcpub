@@ -7047,6 +7047,12 @@
            [:span.m-l-5 name]])
         @(subscribe [::spells/spellcasting-classes]))]]]))
 
+(defn validate-item-name [name]
+  ;;;(println "val item name" name)
+  (if (re-matches #"[a-zA-Z]" (str (first name)))
+    []
+    ["Name must start with a letter"]))
+
 (defn item-builder []
   (let [{:keys [::mi/name ::mi/type ::mi/rarity ::mi/description ::mi/attunement] :as item}
         @(subscribe [::mi/builder-item])
@@ -7059,7 +7065,11 @@
         "Item Name"
         name
         #(dispatch [::mi/set-item-name %])
-        {:class-name "input h-40"}]]
+        {:class-name "input h-40"}
+        ]
+       (when-let [messages (validate-item-name name)]
+         (validation-messages messages))
+       ]
       [:div.flex-grow-1.m-l-5
        (base-builder-field
         "Type"
