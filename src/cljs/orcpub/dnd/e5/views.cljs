@@ -4986,6 +4986,10 @@
     (doseq [plugin-name (keys plugins)]
       (js/console.log plugin-name))))
 
+(def option-pack-styles
+  {:class-name "flex-grow-1 m-l-5 m-b-20"
+   :name "option-pack"})
+
 (defn get-plugin-names []
   (let [plugins @(subscribe [::e5/plugins])]
     (map (fn [plugin-name]
@@ -4993,12 +4997,14 @@
             :title plugin-name})
          (sort-by s/lower-case  (keys plugins)))))
 
-(defn plugin-datalist [label feat]
-  (let [selected-value (atom (or (:option-pack feat) ""))
+(defn plugin-datalist [label plugin-val dispatch-event] 
+  (let [selected-value (atom (or (:option-pack plugin-val) ""))
        ;; temp-value (atom "")
         ]
     (fn []
-      [:div.flex-grow-1.m-l-5.m-b-20
+      [:div.flex-grow-1
+       {:class-name "m-l-5 m-b-20"
+        :name "option-pack"}
        [:div.f-w-b.m-b-5 label]
        [:input {:type "text"
                 :list "plugins-list"
@@ -5009,8 +5015,7 @@
                 :value @selected-value
                 :onChange #(do
                              (reset! selected-value (-> % .-target .-value))
-                             (dispatch [::feats/set-feat-prop :option-pack @selected-value])
-                             )
+                             (dispatch [dispatch-event :option-pack @selected-value]))
                 ;;;; TODO - decide if clear-on click should be implemented
                 ;;;; experimental - leaving commented so it doesn't have to be reinvented
                 ;;:onMouseDown #(do
@@ -5022,7 +5027,9 @@
                 }]
        [:datalist {:id "plugins-list" :class "width-100-p"}
         (for [{:keys [title value]} (get-plugin-names)]
-          [:option {:key title :value value}])]])))
+          [:option {:key title :value value}])]
+      ]
+       )))
 
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])
@@ -5035,8 +5042,10 @@
        feat]
       ;(print-plugin-names)
       [plugin-datalist 
-       option-source-name-label 
-       feat]
+         option-source-name-label 
+         feat
+         ::feats/set-feat-prop
+       ]
        ;"m-l-5 m-b-20"]
       [:div.w-100-p
        [:div.f-w-b
@@ -5417,12 +5426,11 @@
         "Name"
         :name
         class]]
-      [:div.m-b-20.flex-grow-1
-       [class-input-field
-        option-source-name-label
-        :option-pack
-        class
-        "m-l-5 m-b-20"]]]
+      [plugin-datalist
+       option-source-name-label
+       class
+       ::classes/set-class-prop]
+      ]
      [:div.m-b-20
       [:div.f-w-b
        "Description"]
@@ -5730,11 +5738,12 @@
                  classes)
          :value (get subclass :class)
          :on-change #(dispatch [::classes/set-subclass-prop :class (keyword %)])}]]
-      [subclass-input-field
-       option-source-name-label
-       :option-pack
-       subclass
-       "m-l-5 m-b-20"]]
+      [plugin-datalist 
+         option-source-name-label 
+         subclass
+         ::classes/set-subclass-prop
+       ]
+      ]
      (if (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
@@ -5873,11 +5882,11 @@
                  races)
          :value (get subrace :race)
          :on-change #(dispatch [::races/set-subrace-prop :race (keyword %)])}]]
-      [subrace-input-field
-       option-source-name-label
-       :option-pack
-       subrace
-       "m-l-5 m-b-20"]]
+       [plugin-datalist
+        option-source-name-label
+        subrace
+        ::races/set-subrace-prop]
+      ]
      [:div.m-b-20.flex.flex-wrap
       [:div.m-r-5
        [labeled-dropdown
@@ -5987,11 +5996,11 @@
        "Name"
        :name
        race]
-      [race-input-field
-       option-source-name-label
-       :option-pack
-       race
-       "m-l-5 m-b-20"]]
+      [plugin-datalist
+        option-source-name-label
+        race
+        ::races/set-race-prop]
+      ]
      [:div.m-b-20
        [:div.f-w-b
         "Description"]
@@ -6136,11 +6145,11 @@
        "Name"
        :name
        background]
-      [background-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        background
-       "m-l-5 m-b-20"]]
+       ::bg/set-background-prop]
+      ]
      [:div.m-b-20
        [:div.f-w-b
         "Description"]
@@ -6169,11 +6178,11 @@
        :name
        selection
        "m-b-20"]
-      [selection-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        selection
-       "m-l-5 m-b-20"]]
+       ::selections/set-selection-prop]
+      ]
      [:div
       [:div.flex.justify-cont-s-b
        [:div.f-s-24.f-w-b "Options"]
