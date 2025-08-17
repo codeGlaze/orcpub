@@ -3663,7 +3663,7 @@
   (let [item-key (if (re-matches #"\d+" key)
                    (js/parseInt key)
                    (keyword key))
-        item @(subscribe [::mi/item item-key])
+        item @(subscribe [::mi/custom-item item-key])
         username @(subscribe [:username])
         owner? (= username (::mi/owner item))]
     [content-page
@@ -3677,9 +3677,10 @@
        (if owner?
          {:title "Edit"
           :icon "pencil"
-          :on-click (make-event-handler [::mi/edit-custom-item item])})])
+          :on-click (make-event-handler ::mi/edit-custom-item item)})])
      [:div.p-10.main-text-color
-      [item-component item]]]))
+      [item-component item]
+      ]]))
 
 (defn base-builder-field [name comp]
   [:div.field.main-text-color.m-t-0
@@ -4979,19 +4980,64 @@
         false
         #(dispatch [::feats/toggle-feat-prop kw])])]]])
 
+;;;; TODO remove when no longer useful for debugging
+#_(defn print-plugin-names []
+  (let [plugins @(subscribe [::e5/plugins])]
+    (doseq [plugin-name (keys plugins)]
+      (js/console.log plugin-name))))
+
+(defn get-plugin-names []
+  (let [plugins @(subscribe [::e5/plugins])]
+    (map (fn [plugin-name]
+           {:value plugin-name
+            :title plugin-name})
+         (sort-by s/lower-case  (keys plugins)))))
+
+(defn plugin-datalist [label feat]
+  (let [selected-value (atom (or (:option-pack feat) ""))
+       ;; temp-value (atom "")
+        ]
+    (fn []
+      [:div.flex-grow-1.m-l-5.m-b-20
+       [:div.f-w-b.m-b-5 label]
+       [:input {:type "text"
+                :list "plugins-list"
+                :name "plugins-choice"
+                :id "plugins-choice"
+                :class "input h-40"
+                :placeholder "Default Option Source"
+                :value @selected-value
+                :onChange #(do
+                             (reset! selected-value (-> % .-target .-value))
+                             (dispatch [::feats/set-feat-prop :option-pack @selected-value])
+                             )
+                ;;;; TODO - decide if clear-on click should be implemented
+                ;;;; experimental - leaving commented so it doesn't have to be reinvented
+                ;;:onMouseDown #(do
+                                ;(reset! selected-value "")
+                                ;(set! (.-value (js/document.getElementById "plugins-choice")) "")
+                                ;(reset! selected-value (-> % .-target .-value))
+                ;;                (println "mousedown")
+                ;;                )
+                }]
+       [:datalist {:id "plugins-list" :class "width-100-p"}
+        (for [{:keys [title value]} (get-plugin-names)]
+          [:option {:key title :value value}])]])))
+
 (defn feat-builder []
-  (let [feat @(subscribe [::feats/builder-item])]
+  (let [feat @(subscribe [::feats/builder-item])
+        plugins @(subscribe [::e5/plugins])]
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
       [feat-input-field
        "Name"
        :name
        feat]
-      [feat-input-field
-       option-source-name-label
-       :option-pack
-       feat
-       "m-l-5 m-b-20"]
+      ;(print-plugin-names)
+      [plugin-datalist 
+       option-source-name-label 
+       feat]
+       ;"m-l-5 m-b-20"]
       [:div.w-100-p
        [:div.f-w-b
         "Description"]
@@ -7048,8 +7094,7 @@
         @(subscribe [::spells/spellcasting-classes]))]]]))
 
 (defn validate-item-name [name]
-  ;;;(println "val item name" name)
-  (if (re-matches #"[a-zA-Z]" (str (first name)))
+  (if (common/starts-with-letter? (str (first name)))
     []
     ["Name must start with a letter"]))
 
@@ -7490,12 +7535,42 @@
      :on-click #(dispatch [::combat/reset-combat])}]
    [combat-tracker]])
 
-;ensure names don't start with numbers
 #_(defn item-builder-page []
   (builder-page "Item" ::mi/reset-item ::mi/save-item item-builder))
 
+#_(defn item-page [{:keys [key] :as arg}]
+  (let [item-key (if (re-matches #"\d+" key)
+                   (js/parseInt key)
+                   (keyword key))
+        item @(subscribe [::mi/item item-key])
+        username @(subscribe [:username])
+        owner? (= username (::mi/owner item))]
+    [content-page
+     "Item Page"
+     (remove
+      nil?
+      [(if owner?
+         {:title "Delete"
+          :icon "trash"
+          :on-click (delete-item-handler item-key)})
+       (if owner?
+         {:title "Edit"
+          :icon "pencil"
+          :on-click (make-event-handler [::mi/edit-custom-item item])})])
+     [:div.p-10.main-text-color
+      [item-component item]]]))
+
+(defn get-owner? [item-key] ;item-key could be other things that need ownership with a refactor
+  (let [username @(subscribe [:username])
+        item @(subscribe [::mi/custom-item item-key])
+        builder-item @(subscribe [::mi/builder-item item-key])]
+    (println "username" username "item" item "item-key" item-key "ownitem" (::mi/owner item) "ownbuild" (::mi/owner builder-item) "time" common/ptime)
+    (= username (or (::mi/owner item) (::mi/owner builder-item)))
+    ))
+
 (defn deletion-modal-with [builder-page item-key]
-  (let [show? @(subscribe [::mi/delete-confirmation-shown? item-key])]
+  (let [show? @(subscribe [::mi/delete-confirmation-shown? item-key])
+        ]
     [:span
      [:div {:class (if show? "modal-container" "modal-container hidden")}
       [:div.modal
@@ -7513,15 +7588,16 @@
    )
   )
 
-(defn item-builder-buttons [item-key]
-  (let [base-buttons [{:title "New Item"
+(defn item-builder-buttons [item-key item]
+  (let [owner? (get-owner? item-key)
+        base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
                       {:title "Save to Browser Storage"
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]
         ]
-    (if item-key
+    (if owner?
       (conj base-buttons {:title "Delete"
                           :icon "trash"
                           :on-click (make-event-handler ::mi/show-delete-confirmation item-key)})
@@ -7531,9 +7607,7 @@
 (defn item-builder-page []
   (let [item (subscribe [::mi/builder-item])
         item-key (:db/id @item)
-        buttons (item-builder-buttons item-key)
-        ;username @(subscribe [:username])]
-        ;saved? (not (nil? (:id item)))
+        buttons (item-builder-buttons item-key item)
         ]
     [content-page
      "Item Builder"
