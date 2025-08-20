@@ -1290,93 +1290,52 @@
      [:table.striped
       [:tr
        [(s/& (s/nth-child :even))
-        {:background-color "rgba(0, 0, 0, 0.1)"}]]]]]
+        {:background-color "rgba(0, 0, 0, 0.1)"}]]]]
+
+    ;;;; "Modal" styles
+    [:.modal-container
+     {:background-image "linear-gradient(to right, #d35730, #eda41e)"
+      :padding ".5em 2em"}]
+
+    [:.modal-container :.m-b-10,
+     :.modal-container :.link-button
+     {:font-weight "bold"}]
+    
+    [:.modal-container :.link-button
+     {:color "#f7c257"
+      ;:font-weight "bold"
+      }]
+
+    ;;;; WARNING TOOLTIP "warntip"
+    [:.warntiptext
+     {:width "20%"
+      :margin-top "10px"
+      :background-color "#d94b20"
+      :color "#fff"
+      :text-align "center"
+      :padding "5px 0"
+      :border-radius "0 0 6px 6px"
+      :position "absolute"
+      :border "solid 1px #e96868"
+      :z-index 1}]
+
+    [:.warntip :.warntiptext
+     [:&:after
+      {:content "\" \""
+       :position "absolute"
+       :bottom "100%"           ;; At the bottom of the tooltip
+       :left "50%"
+       :margin-left "-5px"
+       :border-width "10px"
+       :border-style "solid"
+       :border-color "transparent transparent #e96868 transparent"}]]];concat-bracket
    margin-lefts
    margin-tops
    widths
    font-sizes
    props
-   media-queries
+   media-queries) ;concat
+);def app
 
-   ;; modal styles
-   [:.modal-container
-    :width "100vw"
-    :height "100vh"
-    :background-size :cover
-    :background-repeat :no-repeat
-    :background-image "url(http://picsum.photos/2000)"
-   ]
 
-   [:.modal
-      {:--gutter (px 14)
-       :--modal-color "#800000"
-       :--soft-color "#fafafa"
-       :top 0
-       :left 0
-       :width "100vw"
-       :height "100vh"
-       :z-index 2000
-       :position :fixed
-       :background-color "rgba(0,0,0,0.7)"
-       :padding-top "2%"}
-   
-      [:.modal.content
-       {:width "95vw"
-        ;:height "90vh"
-        :max-height (px 700)
-        :max-width (px 600)
-        :position :relative
-        :overflow :hidden
-        :border-radius (px 4)
-        :margin "0 auto"
-        :background-color "#ffffff"
-        :display :flex
-        :flex-direction :column
-        :padding "1rem"}
-   
-       [:header
-        {:min-height (px 60)
-         :height (px 60)
-         :color "#ffffff"
-         :background-color "var(--modal-color)"
-         :display :grid
-         :padding-left "var(--gutter)"
-         :align-items :center
-         :grid-template-columns "auto 60px"}
-   
-        [:h4 {:margin 0
-              :text-align :left}]
-   
-        [:span
-         {:display :flex
-          :align-items :center
-          :justify-content :center
-          :height "100%"
-          :width "100%"
-          :font-size (px 20)
-          :opacity 0.8
-          :cursor :pointer}
-   
-         [:&:hover {:opacity 1}]]]
-   
-       [:.modal-main
-        {:flex 1
-         :text-align :left
-         :overflow :auto
-         :padding "var(--gutter)"}]
-   
-       [:footer
-        {:height :auto
-         :text-align :right
-         :border-top "solid 1px #cccccc"
-         :padding "var(--gutter)"
-         :background-color "var(--soft-color)"}
-        ]
-       ]
-     ]
-
-   [:.modal-container {:display :none}]
-
-   [:.modal-container.show-modal {:display :block}]
-   
-   ));concat;app
+   ;;);concat;app

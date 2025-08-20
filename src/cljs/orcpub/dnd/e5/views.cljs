@@ -4117,6 +4117,9 @@
     {:class-name "input h-40"
      :type type}]])
 
+#_(defn item-input-field [title prop item & [class-names]]
+  (builder-input-field title prop item ::mi/set-item-name class-names))
+
 (defn spell-input-field [title prop spell & [class-names]]
   (builder-input-field title prop spell ::spells/set-spell-prop class-names))
 
@@ -6224,11 +6227,11 @@
        :name
        language
        "m-b-20"]
-      [language-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        language
-       "m-l-5 m-b-20"]]
+       ::langs/set-language-prop]
+      ]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
        "Description"]
@@ -6245,11 +6248,11 @@
        :name
        boon
        "m-b-20"]
-      [boon-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        boon
-       "m-l-5 m-b-20"]]
+       ::classes/set-boon-prop]
+      ]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
        "Description"]
@@ -6266,11 +6269,11 @@
        :name
        invocation
        "m-b-20"]
-      [invocation-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        invocation
-       "m-l-5 m-b-20"]]
+       ::classes/set-invocation-prop]
+      ]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
        "Description"]
@@ -6310,11 +6313,11 @@
        :name
        monster
        "m-b-20 flex-grow-1"]
-      [monster-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        monster
-       "m-l-5 m-b-20 flex-grow-1"]]
+       ::monsters/set-monster-prop]
+      ]
      [:div.flex.w-100-p.flex-wrap
 
       [:div.flex-grow-1.m-b-20.m-l-5
@@ -7002,11 +7005,10 @@
        :name
        encounter
        "m-b-20"]
-      [encounter-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        encounter
-       "m-l-5 m-b-20"]]
+       ::encounters/set-encounter-prop]]
      [:div.m-t-20
       [:div.f-s-24.f-w-b "Creatures"]
       [:div
@@ -7028,11 +7030,11 @@
        :name
        spell
        "m-b-20"]
-      [spell-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        spell
-       "m-l-5 m-b-20"]]
+       ::spells/set-spell-prop]
+      ]
 
      [:div.flex.w-100-p.flex-wrap
       [:div.flex-grow-1.m-b-20
@@ -7102,10 +7104,71 @@
            [:span.m-l-5 name]])
         @(subscribe [::spells/spellcasting-classes]))]]]))
 
-(defn validate-item-name [name]
-  (if (common/starts-with-letter? (str (first name)))
-    []
-    ["Name must start with a letter"]))
+#_(def tooltip-styles
+  [#_[:.tooltip
+      {:position "relative"
+       :display "inline-block"
+       :border-bottom "1px dotted black"}]
+
+   [:.tooltiptext
+    {;:visibility "hidden"
+     :width "120px"
+     :background-color "black"
+     :color "#fff"
+     :text-align "center"
+     :padding "5px 0"
+     :border-radius "6px"
+     :position "absolute"
+     :z-index 1}]
+   
+  [:.tooltip :.tooltiptext
+   [:&:after {
+     :content " "
+     :position "absolute"
+     :top "100%"           ;; At the bottom of the tooltip
+     :left "50%"
+     :margin-left "-5px"
+     :border-width "5px"
+     :border-style "solid"
+     :border-color "black transparent transparent transparent"
+   }]]
+  
+   #_[:.tooltip:hover :.tooltiptext
+      {:visibility "visible"}]
+  ])
+
+(defn validate-name [name]
+  ;;(println "validate-name: " name)
+  (if (nil? name)
+    [] ;if nil, no error
+    (if (common/starts-with-letter? (str name))
+      ;;[]
+      ;;["Name must start with a letter"]
+      nil
+      "Name must start with a letter"
+      )
+    ))
+
+(def invalid-styling
+  {:color "red"
+   :font-size "12px"
+   :display "block"}
+  )
+
+(defn valid-wel [name]
+  (when-let [messages (validate-name name)]
+  [:span {:required true
+          :id "verify-name"
+          :class "warntiptext"
+          :data-tip messages
+          :aria-live "polite"
+          ;:style (if (nil? name) "display:none;" invalid-styling)
+          } 
+   ;(when-let [messages (validate-name name)]
+   ; (validation-messages messages))
+  messages]
+  )
+  )
 
 (defn item-builder []
   (let [{:keys [::mi/name ::mi/type ::mi/rarity ::mi/description ::mi/attunement] :as item}
@@ -7114,15 +7177,16 @@
         item-rarities @(subscribe [::mi/rarities])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [:div.flex-grow-1.m-b-20
+      [:div.flex-grow-1.m-b-20.warntip
        [input-builder-field
-        "Item Name"
-        name
-        #(dispatch [::mi/set-item-name %])
-        {:class-name "input h-40"}
-        ]
-       (when-let [messages (validate-item-name name)]
-         (validation-messages messages))
+          "Item Name" ;:name
+          name
+          #(dispatch [::mi/set-item-name %])
+          {:class-name "input h-40"}]
+       (when (seq name) 
+         (valid-wel name))
+       #_(when-let [messages (validate-name name)]
+           (validation-messages messages))
        ]
       [:div.flex-grow-1.m-l-5
        (base-builder-field
@@ -7583,7 +7647,7 @@
     [:span
      [:div {:class (if show? "modal-container" "modal-container hidden")}
       [:div.modal
-       [:div.modal.content
+       [:div.modal_content
         [:div.m-b-10 "Are you sure you want to delete this item?"]
         [:div
          [:button.form-button
@@ -7606,7 +7670,7 @@
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]
         ]
-    (if owner?
+    (if (and item-key owner?)
       (conj base-buttons {:title "Delete"
                           :icon "trash"
                           :on-click (make-event-handler ::mi/show-delete-confirmation item-key)})
