@@ -19,12 +19,15 @@
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.events :refer [url-for-route] :as events]
             [reagent.ratom :as ra]
+            [clojure.string :as s]
             [cljs-http.client :as http]
             [cljs.core.async :refer [<!]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
+
 (def sorted-items
-  (delay (sort-by mi5e/name-key mi5e/magic-items)))
+  (delay (sort-by mi5e/name-key mi5e/magic-items))
+  )
 
 (defn auth-headers [db]
   (let [token (-> db :user-data :token)]
@@ -193,7 +196,7 @@
 
 (reg-sub
  ::mi5e/other-magic-items
- :<- [::char5e/sorted-items]
+ :<- [::char5e/sorted-items] ;function relies on state of this sub
  (fn [sorted-items _]
    (sequence
     mi5e/other-magic-items-xform
