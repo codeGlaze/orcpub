@@ -177,3 +177,7 @@
            (fn [[k v]] (str (safe-capitalize-kw k) " " (bonus-str v)))
            m)))
 
+;; Case Insensitive `sort-by`
+(defn aloof-sort-by [sorter coll]
+  (sort-by (comp s/lower-case sorter) coll)
+  )

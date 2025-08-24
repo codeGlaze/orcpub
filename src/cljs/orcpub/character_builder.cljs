@@ -342,8 +342,8 @@
 ;;; selection creator for character builder
 (defn inventory-adder [key options selected-keys]
   [comps/selection-adder
-   (sort-by
-    (comp s/lower-case :name) ;
+   (common/aloof-sort-by
+    :name
     (sequence
      (comp
       (remove

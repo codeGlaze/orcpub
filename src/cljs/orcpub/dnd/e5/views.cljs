@@ -2205,7 +2205,7 @@
               [:span.f-w-n.m-l-10.wsp-prw (common/sentensize (disp/action-description action))]
               (when (and amount units)
                 (actions-indicators id nm units amount))])
-           (sort-by :name actions)))])))
+           (common/aloof-sort-by :name actions)))])))
 
 (defn prof-name [prof-map prof-kw]
   (or (-> prof-kw prof-map :name) (common/kw-to-name prof-kw)))
@@ -4998,7 +4998,7 @@
     (map (fn [plugin-name]
            {:value plugin-name
             :title plugin-name})
-         (sort-by s/lower-case  (keys plugins)))))
+         (sort-by s/lower-case (keys plugins)))))
 
 (defn plugin-datalist [label plugin-val dispatch-event] 
   (let [selected-value (atom (or (:option-pack plugin-val) ""))

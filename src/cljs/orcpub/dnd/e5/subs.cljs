@@ -845,7 +845,7 @@
  ::char5e/sorted-spells
  :<- [::spells5e/spells]
  (fn [spells _]
-   (sort-by :name spells)))
+   (common/aloof-sort-by :name spells)))
 
 (reg-sub
  ::char5e/filtered-spells
