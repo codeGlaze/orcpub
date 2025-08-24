@@ -3840,7 +3840,10 @@
              {:name "All" :key :all}
              {:name "All Swords" :key :sword}
              {:name "All Axes" :key :axe}]
-            @(subscribe [::mi/custom-and-standard-weapons]))))])]]
+            (common/aloof-sort-by :name 
+              @(subscribe [::mi/custom-and-standard-weapons])
+            )
+            )))])]]
      (if other?
        [:div.main-text-color.m-b-10.m-t-10
         [:span.f-s-18.f-w-b "Base Weapon Details"]
@@ -5152,7 +5155,7 @@
    <
    :weapon-prof {:name "Weapon Proficiency"
                  :value-fn keyword
-                 :values (concat
+                 :values (common/aloof-sort-by :title (concat
                           (map
                            (fn [type]
                              {:title (str "All " (name type))
@@ -5160,7 +5163,8 @@
                            [:simple :martial])
                           (map
                            obj-to-item
-                           @(subscribe [::mi/custom-and-standard-weapons])))}
+                           @(subscribe [::mi/custom-and-standard-weapons]))
+                          ))}
    :num-attacks {:name "Number of Attacks"
                  :value-fn js/parseInt
                  :values (map
