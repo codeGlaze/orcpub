@@ -1116,6 +1116,12 @@
    (get item ::weapon5e/heavy?)))
 
 (reg-sub
+ ::mi5e/item-light?
+ :<- [::mi5e/builder-item]
+ (fn [item _]
+   (get item ::weapon5e/light?)))
+
+(reg-sub
  ::mi5e/item-two-handed?
  :<- [::mi5e/builder-item]
  (fn [item _]

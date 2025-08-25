@@ -3844,7 +3844,21 @@
               @(subscribe [::mi/custom-and-standard-weapons])
             )
             )))])]]
-     (if other?
+     (when other?
+       ;;;batch-set multiple default values
+       (doseq [evt [[::mi/set-item-damage-die-count 1]
+                    [::mi/set-item-damage-die       4]
+                    [::mi/set-item-weapon-type      :simple]
+                    [::mi/set-item-melee-ranged     :melee]]
+               ]
+         (dispatch evt))
+       #_(dispatch [::initialize-other-weapon])
+       #_{:dispatch-n [
+                      [::mi/set-item-damage-die-count 1]
+                      [::mi/set-item-damage-die 4]
+                      [::mi/set-item-weapon-type :simple]
+                      [::mi/set-item-melee-ranged :melee]
+                      ]}
        [:div.main-text-color.m-b-10.m-t-10
         [:span.f-s-18.f-w-b "Base Weapon Details"]
         [:div.flex.flex-wrap.m-t-10
@@ -3866,6 +3880,9 @@
          [:div.m-l-10
           {:on-click (make-event-handler ::mi/toggle-item-heavy?)}
           [labeled-checkbox "Heavy?" @(subscribe [::mi/item-heavy?])]]
+         [:div.m-l-10
+          {:on-click (make-event-handler ::mi/toggle-item-light?)}
+          [labeled-checkbox "Light?" @(subscribe [::mi/item-light?])]]
          [:div.m-l-10
           {:on-click (make-event-handler ::mi/toggle-item-ammunition?)}
           [labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?])]]]
@@ -3947,7 +3964,9 @@
                        :title (name type)})
                     damage-types/damage-types)
             :value @(subscribe [::mi/item-damage-type])
-            :on-change (make-arg-event-handler ::mi/set-item-damage-type)}]]]])]))
+            :on-change (make-arg-event-handler ::mi/set-item-damage-type)
+            }]]]]
+            )]))
 
 
 (defn item-ability-bonuses []

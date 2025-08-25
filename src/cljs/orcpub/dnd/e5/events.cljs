@@ -2957,6 +2957,20 @@
  (fn [spell [_ material-component]]
    (assoc-in spell [:components :material-component] material-component)))
 
+;;;; Item Builder
+
+#_(reg-event-db
+ ::initialize-other-weapon
+ (fn [db _]
+   (-> db
+       (assoc ::mi/item-type :other)
+       (update ::mi/current-item
+               merge
+               {:damage-die-count 1
+                :damage-die       4
+                :weapon-type      :simple
+                :melee-ranged     :melee}))))
+
 (reg-event-db
  ::mi/set-item-description
  item-interceptors
@@ -3051,6 +3065,12 @@
  item-interceptors
  (fn [item _]
    (update item ::weapons/heavy? not)))
+
+(reg-event-db
+ ::mi/toggle-item-light?
+ item-interceptors
+ (fn [item _]
+   (update item ::weapons/light? not)))
 
 (reg-event-db
  ::mi/toggle-item-thrown?
@@ -3737,6 +3757,7 @@
           ::weapons/two-handed?
           ::weapons/thrown?
           ::weapons/heavy?
+          ::weapons/light?
           ::weapons/ammunition?
           ::weapons/damage-die-count
           ::weapons/damage-die
