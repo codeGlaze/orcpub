@@ -3852,13 +3852,6 @@
                     [::mi/set-item-melee-ranged     :melee]]
                ]
          (dispatch evt))
-       #_(dispatch [::initialize-other-weapon])
-       #_{:dispatch-n [
-                      [::mi/set-item-damage-die-count 1]
-                      [::mi/set-item-damage-die 4]
-                      [::mi/set-item-weapon-type :simple]
-                      [::mi/set-item-melee-ranged :melee]
-                      ]}
        [:div.main-text-color.m-b-10.m-t-10
         [:span.f-s-18.f-w-b "Base Weapon Details"]
         [:div.flex.flex-wrap.m-t-10
@@ -7660,7 +7653,7 @@
   (let [username @(subscribe [:username])
         item @(subscribe [::mi/custom-item item-key])
         builder-item @(subscribe [::mi/builder-item item-key])]
-    (println "username" username "item" item "item-key" item-key "ownitem" (::mi/owner item) "ownbuild" (::mi/owner builder-item) "time" common/ptime)
+    #_(println "username" username "item" item "item-key" item-key "ownitem" (::mi/owner item) "ownbuild" (::mi/owner builder-item) "time" common/ptime)
     (= username (or (::mi/owner item) (::mi/owner builder-item)))
     ))
 

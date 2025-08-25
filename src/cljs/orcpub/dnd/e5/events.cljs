@@ -2959,18 +2959,6 @@
 
 ;;;; Item Builder
 
-#_(reg-event-db
- ::initialize-other-weapon
- (fn [db _]
-   (-> db
-       (assoc ::mi/item-type :other)
-       (update ::mi/current-item
-               merge
-               {:damage-die-count 1
-                :damage-die       4
-                :weapon-type      :simple
-                :melee-ranged     :melee}))))
-
 (reg-event-db
  ::mi/set-item-description
  item-interceptors
