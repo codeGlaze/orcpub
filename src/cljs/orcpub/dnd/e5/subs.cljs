@@ -358,7 +358,8 @@
 (reg-sub-raw
   :user
   (fn [app-db [_ required?]]
-    (go (let [hdrs (auth-headers @app-db)
+    (if (and (:user @app-db) (:token (:user @app-db))) ;;check if logged in, prevent unncessary calls
+     (go (let [hdrs (auth-headers @app-db)
               response (<! (http/get (url-for-route routes/user-route) {:headers hdrs}))]
           (case (:status response)
             200 nil
@@ -366,7 +367,8 @@
                   (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
                   (if required?
                     (dispatch [:route-to-login])))
-            500 (if required? (dispatch (events/show-generic-error))))))
+            500 (if required? (dispatch (events/show-generic-error)))))
+        ))
     (ra/make-reaction
      (fn [] (get @app-db :user [])))))
 

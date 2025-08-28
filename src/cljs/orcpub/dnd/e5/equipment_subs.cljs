@@ -39,7 +39,8 @@
   (reg-sub-raw
    ::mi5e/custom-items
    (fn [app-db [_ user-data]]
-     (go (dispatch [:set-loading true])
+     (if (and (:user @app-db) (:token (:user @app-db)))
+      (go (dispatch [:set-loading true])
          (let [response (<! (http/get (url-for-route routes/dnd-e5-items-route)
                                       {:headers (auth-headers @app-db)}))]
            (dispatch [:set-loading false])
@@ -48,7 +49,7 @@
              401 nil ;;(dispatch [:route routes/login-page-route {:secure? true}])
              500 (dispatch (events/show-generic-error)))))
      (ra/make-reaction
-      (fn [] (get @app-db ::mi5e/custom-items [])))))
+      (fn [] (get @app-db ::mi5e/custom-items []))))))
   (reg-sub
    ::mi5e/custom-items
    (fn [_ _] [])))
@@ -247,7 +248,8 @@
 (reg-sub-raw
  ::mi5e/remote-item
  (fn [app-db [_ id]]
-   (go (dispatch [:set-loading true])
+   (if (and (:user @app-db) (:token (:user @app-db)))
+    (go (dispatch [:set-loading true])
        (let [response (<! (http/get (url-for-route
                                       routes/dnd-e5-item-route
                                       :id id)
@@ -255,7 +257,7 @@
          (dispatch [:set-loading false])
          (case (:status response)
            200 (dispatch [::mi5e/add-remote-item (:body response)])
-           500 (dispatch (events/show-generic-error)))))
+           500 (dispatch (events/show-generic-error))))))
    (ra/make-reaction
     (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
 
