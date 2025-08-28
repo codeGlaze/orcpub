@@ -5017,7 +5017,6 @@
 
 (defn plugin-datalist [label plugin-val dispatch-event] 
   (let [selected-value (atom (or (:option-pack plugin-val) ""))
-       ;; temp-value (atom "")
         ]
     (fn []
       [:div.flex-grow-1
@@ -5033,15 +5032,8 @@
                 :value @selected-value
                 :onChange #(do
                              (reset! selected-value (-> % .-target .-value))
-                             (dispatch [dispatch-event :option-pack @selected-value]))
-                ;;;; TODO - decide if clear-on click should be implemented
-                ;;;; experimental - leaving commented so it doesn't have to be reinvented
-                ;;:onMouseDown #(do
-                                ;(reset! selected-value "")
-                                ;(set! (.-value (js/document.getElementById "plugins-choice")) "")
-                                ;(reset! selected-value (-> % .-target .-value))
-                ;;                (println "mousedown")
-                ;;                )
+                             (dispatch [dispatch-event :option-pack @selected-value])
+                             )
                 }]
        [:datalist {:id "plugins-list" :class "width-100-p"}
         (for [{:keys [title value]} (get-plugin-names)]
@@ -5058,7 +5050,6 @@
        "Name"
        :name
        feat]
-      ;(print-plugin-names)
       [plugin-datalist 
          option-source-name-label 
          feat
@@ -6408,7 +6399,7 @@
          (get hit-points :modifier 0)
          #(let [v (js/parseInt %)]
             (dispatch [::monsters/set-monster-path-prop [:hit-points :modifier] (if (not (js/isNaN v)) v)]))
-         {:class-name "input h-40"}]];]
+         {:class-name "input h-40"}]]
       [monster-input-field
        "Speed"
        :speed
@@ -7073,7 +7064,7 @@
                  (sort spells/schools))
          :value school
          :on-change #(dispatch [::spells/set-spell-prop :school %])}]]
-      [;:div.flex.flex-wrap
+      [
        :div.flex-grow-1.m-l-5
        [:div.m-t-20.m-r-20.m-b-10
         [comps/labeled-checkbox
@@ -7120,46 +7111,10 @@
            [:span.m-l-5 name]])
         @(subscribe [::spells/spellcasting-classes]))]]]))
 
-#_(def tooltip-styles
-  [#_[:.tooltip
-      {:position "relative"
-       :display "inline-block"
-       :border-bottom "1px dotted black"}]
-
-   [:.tooltiptext
-    {;:visibility "hidden"
-     :width "120px"
-     :background-color "black"
-     :color "#fff"
-     :text-align "center"
-     :padding "5px 0"
-     :border-radius "6px"
-     :position "absolute"
-     :z-index 1}]
-   
-  [:.tooltip :.tooltiptext
-   [:&:after {
-     :content " "
-     :position "absolute"
-     :top "100%"           ;; At the bottom of the tooltip
-     :left "50%"
-     :margin-left "-5px"
-     :border-width "5px"
-     :border-style "solid"
-     :border-color "black transparent transparent transparent"
-   }]]
-  
-   #_[:.tooltip:hover :.tooltiptext
-      {:visibility "visible"}]
-  ])
-
 (defn validate-name [name]
-  ;;(println "validate-name: " name)
   (if (nil? name)
     [] ;if nil, no error
     (if (common/starts-with-letter? (str name))
-      ;;[]
-      ;;["Name must start with a letter"]
       nil
       "Name must start with a letter"
       )
@@ -7178,10 +7133,7 @@
           :class "warntiptext"
           :data-tip messages
           :aria-live "polite"
-          ;:style (if (nil? name) "display:none;" invalid-styling)
-          } 
-   ;(when-let [messages (validate-name name)]
-   ; (validation-messages messages))
+          }
   messages]
   )
   )
