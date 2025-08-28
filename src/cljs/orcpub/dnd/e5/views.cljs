@@ -5015,8 +5015,9 @@
             :title plugin-name})
          (sort-by s/lower-case (keys plugins)))))
 
+;;; Create a datalist element and load the plugin names
 (defn plugin-datalist [label plugin-val dispatch-event] 
-  (let [selected-value (atom (or (:option-pack plugin-val) ""))
+  (let [selected-value (atom (or (:option-pack plugin-val) "")) ;TODO: reframe functions may or may not help handle this more efficiently
         ]
     (fn []
       [:div.flex-grow-1
@@ -5031,6 +5032,10 @@
                 :placeholder "Default Option Source"
                 :value @selected-value
                 :onChange #(do
+                             ; When user types in input field:
+                             ; 1. Update the local state of the component with the new value
+                             ; 2. Dispatch event to update the state of the entire app
+                             ;    w/ new value to save to app db (can be used elsewhere in app)
                              (reset! selected-value (-> % .-target .-value))
                              (dispatch [dispatch-event :option-pack @selected-value])
                              )
@@ -7638,7 +7643,7 @@
                        :icon "save"
                        :on-click #(dispatch [::mi/save-item])}]
         ]
-    (if (and item-key owner?)
+    (if (and item-key owner?) ;Show if we have an item key and the user owns it
       (conj base-buttons {:title "Delete"
                           :icon "trash"
                           :on-click (make-event-handler ::mi/show-delete-confirmation item-key)})
