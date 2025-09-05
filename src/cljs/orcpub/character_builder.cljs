@@ -339,9 +339,10 @@
   {:name name
    :key (or key id)})
 
+;;; selection creator for character builder
 (defn inventory-adder [key options selected-keys]
   [comps/selection-adder
-   (sort-by
+   (common/aloof-sort-by
     :name
     (sequence
      (comp

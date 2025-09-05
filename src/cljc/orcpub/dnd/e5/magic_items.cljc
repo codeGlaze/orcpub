@@ -15,8 +15,10 @@
             [clojure.set :refer [intersection difference]])
   #?(:cljs (:require-macros [orcpub.dnd.e5.modifiers :as mod5e])))
 
-(spec/def ::name string?)
-(spec/def ::type keyword?)
+;(spec/def ::name string?)
+(spec/def ::name (spec/and string? common/starts-with-letter?))
+;(spec/def ::type keyword?)
+(spec/def ::type (spec/and keyword? common/keyword-starts-with-letter?))
 (spec/def ::rarity keyword?)
 (spec/def ::description string?)
 (spec/def ::magical-attack-bonus int?)
@@ -231,6 +233,7 @@
                     ::weapons5e/melee?
                     ::weapons5e/ranged?
                     ::weapons5e/heavy?
+                    ::weapons5e/light?
                     ::weapons5e/thrown?
                     ::weapons5e/two-handed?
                     ::weapons5e/finesse?

@@ -358,7 +358,8 @@
 (reg-sub-raw
   :user
   (fn [app-db [_ required?]]
-    (go (let [hdrs (auth-headers @app-db)
+    (if (and (:user @app-db) (:token (:user @app-db))) ;;check if logged in, prevent unncessary calls
+     (go (let [hdrs (auth-headers @app-db)
               response (<! (http/get (url-for-route routes/user-route) {:headers hdrs}))]
           (case (:status response)
             200 nil
@@ -366,7 +367,8 @@
                   (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
                   (if required?
                     (dispatch [:route-to-login])))
-            500 (if required? (dispatch (events/show-generic-error))))))
+            500 (if required? (dispatch (events/show-generic-error)))))
+        ))
     (ra/make-reaction
      (fn [] (get @app-db :user [])))))
 
@@ -845,7 +847,7 @@
  ::char5e/sorted-spells
  :<- [::spells5e/spells]
  (fn [spells _]
-   (sort-by :name spells)))
+   (common/aloof-sort-by :name spells)))
 
 (reg-sub
  ::char5e/filtered-spells
@@ -1116,6 +1118,12 @@
    (get item ::weapon5e/heavy?)))
 
 (reg-sub
+ ::mi5e/item-light?
+ :<- [::mi5e/builder-item]
+ (fn [item _]
+   (get item ::weapon5e/light?)))
+
+(reg-sub
  ::mi5e/item-two-handed?
  :<- [::mi5e/builder-item]
  (fn [item _]
@@ -1231,6 +1239,12 @@
  ::char5e/delete-plugin-confirmation-shown?
  (fn [db _]
    (get-in db [::char5e/delete-plugin-confirmation-shown?])))
+
+;item delete confirmation
+(reg-sub
+ ::mi5e/delete-confirmation-shown?
+ (fn [db [_ id]]
+   (get-in db [::mi5e/delete-confirmation-shown? id])))
 
 (reg-sub
  ::char5e/newb-char-data
