@@ -2755,7 +2755,7 @@
         [:div.p-l-20.p-r-20
          [:div.w-100-p
           [comps/input-field
-           :textarea  
+           :textarea
            @(subscribe [::char/notes id])
            (set-notes-handler id)
            {:style notes-style
@@ -3701,7 +3701,11 @@
         [:div.m-t-5
          [labeled-dropdown
           "Select Character sheet"
-          {:items items
+          {:items [{:title "Select" :value " "}
+                   {:title "Original 5e Character sheet" :value 1}
+                   {:title "Original 5e Character sheet - optional variant" :value 2}
+                   {:title "Icewind Dale 5e Character sheet" :value 3}
+                   {:title "Petersen Games - Cthulhu Mythos Sagas sheet" :value 4}]
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
        (when-not patron? [:div [:div.flex.m-b-10 "Patrons get access to 3 addtional character sheets:"][:div.flex.m-b-10 "Original 5e Character sheet - optional variant"] [:div.flex.m-b-10 "Icewind Dale 5e Character sheet"][:div.flex.m-b-10 "Cthulhu Mythos Sagas sheet"][:div.flex.m-b-10 [:a.orange {:href "https://www.dungeonmastersvault.com/thank-you-for-supporting-us/" :target "_blank"} "Become a Patron to unlock these today"]]])
