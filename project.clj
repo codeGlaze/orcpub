@@ -240,7 +240,7 @@
                                                            ;;:output-dir "resources/public/js/compiled/out"
                                                            :optimizations :advanced
                                                            :pretty-print  false}}}}}
-             :lint         {:dependencies [[clj-kondo "RELEASE"]]}
+             :lint         {:dependencies [[clj-kondo "2024.05.22"]]}
              ;; Use like: lein with-profile +start-server repl
              :start-server {:repl-options {:init-ns user
                                            :init    (start-server)}}})
