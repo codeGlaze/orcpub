@@ -3197,11 +3197,21 @@
  (fn [{:keys [db]} [_ plugin-name type-key key]]
    {:dispatch [::e5/set-plugins (-> db :plugins (update-in [plugin-name type-key key :disabled?] not))]}))
 
+(defn clean-plugin-errors [plugin-text]
+  (-> plugin-text
+      (clojure.string/replace #"disabled\?\s+nil" "disabled? false") ; disabled? nil - replace w/disabled? false
+      (clojure.string/replace #"(?m)nil nil, " "") ; nil nil,  - find+remove
+      (clojure.string/replace #":\w+\snil" "") ; :[a-0] nil - find+remove
+      (clojure.string/replace #"\{\"\"\s*\{:orcpub\.dnd\.e5" "{\"Default Option Source\" {:orcpub.dnd.e5")
+      (clojure.string/replace #":option-pack\s*\"\s*\"\s*," ":option-pack \"Default Option Source\",") ;:option-pack "",
+      ))
+
 (reg-event-fx
  ::e5/import-plugin
  (fn [{:keys [db]} [_ plugin-name plugin-text]]
-   (let [plugin (try
-                  (reader/read-string plugin-text)
+   (let [cleaned-plugin-text (clean-plugin-errors plugin-text)
+         plugin (try
+                  (reader/read-string cleaned-plugin-text)
                   (catch js/Error e nil))]
      (cond 
        (spec/valid? ::e5/plugin plugin)
