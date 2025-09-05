@@ -2,7 +2,11 @@
   (:require [hiccup.page :refer [html5 include-css include-js]]
             [orcpub.oauth :as oauth]
             [orcpub.dnd.e5.views-2 :as views-2]
-            [orcpub.favicon :as fi]))
+            [orcpub.favicon :as fi]
+            [environ.core :refer [env]]
+            ))
+
+(def devmode? (env :dev-mode))
 
 (defn meta-tag [property content]
   (if content
@@ -167,18 +171,36 @@ html {
     (include-js "/js/cookies.js")
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
     (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
-    [:script " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"]    
-    #_[:script
-     "let plugins = localStorage.getItem('plugins');
-    if(plugins === null || plugins === '{}')
-     {
-       fetch('https://' + window.location.host + '/homebrew.orcbrew')
-         .then(resp => resp.text())
-         .then(text => {
-           if(!text.toUpperCase().includes('NOT FOUND')){
-             localStorage.setItem('plugins',text);
-             window.location.reload(false);
-           }
-       });
-     }
-    "]]))
+    [:script " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"]
+    (if devmode?
+      (println "dev mode - no script")
+
+      [:script
+       "const protocol = window.location.protocol;
+        const apiUrl = `${protocol}://${window.location.host}`;
+        const pluginUrl = `${apiUrl}/homebrew.orcbrew`;
+        
+        let plugins = localStorage.getItem('plugins');
+        if (plugins === null || plugins === '{}') {
+          fetch(pluginUrl)
+            .then(resp => {
+              if (!resp.ok) {
+                throw new Error(`Failed to fetch plugins: ${resp.status} ${resp.statusText}`);
+              }
+              return resp.text();
+            })
+            .then(text => {
+              if (!text.toUpperCase().includes('NOT FOUND')) {
+                localStorage.setItem('plugins', text);
+                window.location.reload(false);
+              }
+            })
+            .catch(error => {
+              console.error('Error fetching plugins:', error);
+              // You can also add a fallback or default behavior here
+            });
+        }
+      "]
+    )
+   ]))
+  

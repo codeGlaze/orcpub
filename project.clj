@@ -9,7 +9,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :main orcpub.server
-  
+
   :min-lein-version "2.7.1"
 
   :repositories [["apache" "http://repository.apache.org/snapshots/"]
@@ -122,7 +122,11 @@
                                :asset-path           "/js/compiled/out"
                                :output-to            "resources/public/js/compiled/orcpub.js"
                                :output-dir           "resources/public/js/compiled/out"
-                               :source-map-timestamp true}}}}
+                               :source-map-timestamp true
+                               :pretty-print         true
+                               :closure-defines      {goog.DEBUG true}
+                               :optimizations        :none
+                               }}}}
 
   :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
              ;; :server-port 3449 ;; default
@@ -188,9 +192,14 @@
                                            [org.clojure/test.check "0.9.0"]
                                            ;[day8.re-frame/re-frame-10x "0.3.7"]
                                            ]
+                            :env       {:dev-mode "true"}
                             ;; need to add dev source path here to get user.clj loaded
                             :source-paths ["web/cljs" "src/clj" "src/cljc" "src/cljs" "dev"]
-                            :cljsbuild    {:builds {:dev {:compiler {:closure-defines {"re_frame.trace.trace_enabled_QMARK_" true}
+                            :cljsbuild    {:builds {:dev {:compiler {:closure-defines {"re_frame.trace.trace_enabled_QMARK_" true
+                                                                                       goog.DEBUG                            true
+                                                                                       }
+                                                                     :optimizations    :none
+                                                                     :pretty-print     true
                                                                      ;; To console.log CLJS data-structures make sure you enable devtools in Chrome
                                                                      ;; https://github.com/binaryage/cljs-devtools
                                                                      ;:preloads        [devtools.preload day8.re-frame-10x.preload]
@@ -235,7 +244,7 @@
                                                            ;;:output-dir "resources/public/js/compiled/out"
                                                            :optimizations :advanced
                                                            :pretty-print  false}}}}}
-             :lint         {:dependencies [[clj-kondo "RELEASE"]]}
+             :lint         {:dependencies [[clj-kondo "2024.05.22"]]}
              ;; Use like: lein with-profile +start-server repl
              :start-server {:repl-options {:init-ns user
                                            :init    (start-server)}}})

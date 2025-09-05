@@ -1040,7 +1040,8 @@
              [:span
               [:i.fa.f-s-18
                (if icon {:class-name (str "fa-" icon)})]]
-             [:span.m-l-5.header-button-text title]]))
+             [:span.m-l-5.header-button-text title]]
+              ))
         button-cfgs)]]
      (if @(subscribe [:confirmation-shown?])
        [:div.flex.justify-cont-end.m-r-10.m-b-20.m-l-10
@@ -1544,7 +1545,7 @@
               [:div#sticky-header.sticky-header.w-100-p.posn-fixed
                [:div.flex.justify-cont-c
                 [:div#header-container.f-s-14.main-text-color.content
-                 hdr]]]
+                 hdr]]]              
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
 
@@ -2364,7 +2365,7 @@
               [:span.f-w-n.m-l-10.wsp-prw (common/sentensize (disp/action-description action))]
               (when (and amount units)
                 (actions-indicators id nm units amount))])
-           (sort-by :name actions)))])))
+           (common/aloof-sort-by :name actions)))])))
 
 (defn prof-name [prof-map prof-kw]
   (or (-> prof-kw prof-map :name) (common/kw-to-name prof-kw)))
@@ -3664,6 +3665,12 @@
    (fn [event-kw & [arg-fn]]
      #(dispatch [event-kw (if arg-fn (arg-fn %) %)]))))
 
+(defn delete-item-handler [item-key]
+  (fn []
+    (dispatch [::mi/delete-custom-item item-key])
+    (dispatch [::mi/hide-delete-confirmation item-key])
+    (dispatch [::mi/reset-item])))
+
 (defn print-button-style [print-button-enabled]
   (if print-button-enabled
     {}
@@ -3892,7 +3899,7 @@
   (let [item-key (if (re-matches #"\d+" key)
                    (js/parseInt key)
                    (keyword key))
-        item @(subscribe [::mi/item item-key])
+        item @(subscribe [::mi/custom-item item-key])
         username @(subscribe [:username])
         owner? (= username (::mi/owner item))]
     [content-page
@@ -3902,13 +3909,14 @@
       [(if owner?
          {:title "Delete"
           :icon "trash"
-          :on-click (make-event-handler ::mi/delete-custom-item item-key)})
+          :on-click (delete-item-handler item-key)})
        (if owner?
          {:title "Edit"
           :icon "pencil"
-          :on-click (make-event-handler [::mi/edit-custom-item item])})])
+          :on-click (make-event-handler ::mi/edit-custom-item item)})])
      [:div.p-10.main-text-color
-      [item-component item]]]))
+      [item-component item]
+      ]]))
 
 (defn base-builder-field [name comp]
   [:div.field.main-text-color.m-t-0
@@ -4071,8 +4079,18 @@
              {:name "All" :key :all}
              {:name "All Swords" :key :sword}
              {:name "All Axes" :key :axe}]
-            @(subscribe [::mi/custom-and-standard-weapons]))))])]]
-     (if other?
+            (common/aloof-sort-by :name 
+              @(subscribe [::mi/custom-and-standard-weapons])
+            )
+            )))])]]
+     (when other?
+       ;;;batch-set multiple default values
+       (doseq [evt [[::mi/set-item-damage-die-count 1]
+                    [::mi/set-item-damage-die       4]
+                    [::mi/set-item-weapon-type      :simple]
+                    [::mi/set-item-melee-ranged     :melee]]
+               ]
+         (dispatch evt))
        [:div.main-text-color.m-b-10.m-t-10
         [:span.f-s-18.f-w-b "Base Weapon Details"]
         [:div.flex.flex-wrap.m-t-10
@@ -4094,6 +4112,9 @@
          [:div.m-l-10
           {:on-click (make-event-handler ::mi/toggle-item-heavy?)}
           [labeled-checkbox "Heavy?" @(subscribe [::mi/item-heavy?])]]
+         [:div.m-l-10
+          {:on-click (make-event-handler ::mi/toggle-item-light?)}
+          [labeled-checkbox "Light?" @(subscribe [::mi/item-light?])]]
          [:div.m-l-10
           {:on-click (make-event-handler ::mi/toggle-item-ammunition?)}
           [labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?])]]]
@@ -4175,7 +4196,9 @@
                        :title (name type)})
                     damage-types/damage-types)
             :value @(subscribe [::mi/item-damage-type])
-            :on-change (make-arg-event-handler ::mi/set-item-damage-type)}]]]])]))
+            :on-change (make-arg-event-handler ::mi/set-item-damage-type)
+            }]]]]
+            )]))
 
 
 (defn item-ability-bonuses []
@@ -4348,6 +4371,9 @@
     {:class-name "input h-40"
      :type type
      :maxLength 255}]])
+
+#_(defn item-input-field [title prop item & [class-names]]
+  (builder-input-field title prop item ::mi/set-item-name class-names))
 
 (defn spell-input-field [title prop spell & [class-names]]
   (builder-input-field title prop spell ::spells/set-spell-prop class-names))
@@ -5212,19 +5238,69 @@
         false
         #(dispatch [::feats/toggle-feat-prop kw])])]]])
 
+;;;; TODO remove when no longer useful for debugging
+#_(defn print-plugin-names []
+  (let [plugins @(subscribe [::e5/plugins])]
+    (doseq [plugin-name (keys plugins)]
+      (js/console.log plugin-name))))
+
+(def option-pack-styles
+  {:class-name "flex-grow-1 m-l-5 m-b-20"
+   :name "option-pack"})
+
+(defn get-plugin-names []
+  (let [plugins @(subscribe [::e5/plugins])]
+    (map (fn [plugin-name]
+           {:value plugin-name
+            :title plugin-name})
+         (sort-by s/lower-case (keys plugins)))))
+
+;;; Create a datalist element and load the plugin names
+(defn plugin-datalist [label plugin-val dispatch-event] 
+  (let [selected-value (atom (or (:option-pack plugin-val) "")) ;TODO: reframe functions may or may not help handle this more efficiently
+        ]
+    (fn []
+      [:div.flex-grow-1
+       {:class-name "m-l-5 m-b-20"
+        :name "option-pack"}
+       [:div.f-w-b.m-b-5 label]
+       [:input {:type "text"
+                :list "plugins-list"
+                :name "plugins-choice"
+                :id "plugins-choice"
+                :class "input h-40"
+                :placeholder "Default Option Source"
+                :value @selected-value
+                :onChange #(do
+                             ; When user types in input field:
+                             ; 1. Update the local state of the component with the new value
+                             ; 2. Dispatch event to update the state of the entire app
+                             ;    w/ new value to save to app db (can be used elsewhere in app)
+                             (reset! selected-value (-> % .-target .-value))
+                             (dispatch [dispatch-event :option-pack @selected-value])
+                             )
+                }]
+       [:datalist {:id "plugins-list" :class "width-100-p"}
+        (for [{:keys [title value]} (get-plugin-names)]
+          [:option {:key title :value value}])]
+      ]
+       )))
+
 (defn feat-builder []
-  (let [feat @(subscribe [::feats/builder-item])]
+  (let [feat @(subscribe [::feats/builder-item])
+        plugins @(subscribe [::e5/plugins])]
     [:div.p-20.main-text-color
      [:div.m-b-20.flex.flex-wrap
       [feat-input-field
        "Name"
        :name
        feat]
-      [feat-input-field
-       option-source-name-label
-       :option-pack
-       feat
-       "m-l-5 m-b-20"]
+      [plugin-datalist 
+         option-source-name-label 
+         feat
+         ::feats/set-feat-prop
+       ]
+       ;"m-l-5 m-b-20"]
       [:div.w-100-p
        [:div.f-w-b
         "Description"]
@@ -5327,7 +5403,7 @@
    <
    :weapon-prof {:name "Weapon Proficiency"
                  :value-fn keyword
-                 :values (concat
+                 :values (common/aloof-sort-by :title (concat
                           (map
                            (fn [type]
                              {:title (str "All " (name type))
@@ -5335,7 +5411,8 @@
                            [:simple :martial])
                           (map
                            obj-to-item
-                           @(subscribe [::mi/custom-and-standard-weapons])))}
+                           @(subscribe [::mi/custom-and-standard-weapons]))
+                          ))}
    :num-attacks {:name "Number of Attacks"
                  :value-fn js/parseInt
                  :values (map
@@ -5604,12 +5681,11 @@
         "Name"
         :name
         class]]
-      [:div.m-b-20.flex-grow-1
-       [class-input-field
-        option-source-name-label
-        :option-pack
-        class
-        "m-l-5 m-b-20"]]]
+      [plugin-datalist
+       option-source-name-label
+       class
+       ::classes/set-class-prop]
+      ]
      [:div.m-b-20
       [:div.f-w-b
        "Description"]
@@ -5917,11 +5993,12 @@
                  classes)
          :value (get subclass :class)
          :on-change #(dispatch [::classes/set-subclass-prop :class (keyword %)])}]]
-      [subclass-input-field
-       option-source-name-label
-       :option-pack
-       subclass
-       "m-l-5 m-b-20"]]
+      [plugin-datalist 
+         option-source-name-label 
+         subclass
+         ::classes/set-subclass-prop
+       ]
+      ]
      (if (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
@@ -6060,11 +6137,11 @@
                  races)
          :value (get subrace :race)
          :on-change #(dispatch [::races/set-subrace-prop :race (keyword %)])}]]
-      [subrace-input-field
-       option-source-name-label
-       :option-pack
-       subrace
-       "m-l-5 m-b-20"]]
+       [plugin-datalist
+        option-source-name-label
+        subrace
+        ::races/set-subrace-prop]
+      ]
      [:div.m-b-20.flex.flex-wrap
       [:div.m-r-5
        [labeled-dropdown
@@ -6174,11 +6251,11 @@
        "Name"
        :name
        race]
-      [race-input-field
-       option-source-name-label
-       :option-pack
-       race
-       "m-l-5 m-b-20"]]
+      [plugin-datalist
+        option-source-name-label
+        race
+        ::races/set-race-prop]
+      ]
      [:div.m-b-20
        [:div.f-w-b
         "Description"]
@@ -6323,11 +6400,11 @@
        "Name"
        :name
        background]
-      [background-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        background
-       "m-l-5 m-b-20"]]
+       ::bg/set-background-prop]
+      ]
      [:div.m-b-20
        [:div.f-w-b
         "Description"]
@@ -6356,11 +6433,11 @@
        :name
        selection
        "m-b-20"]
-      [selection-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        selection
-       "m-l-5 m-b-20"]]
+       ::selections/set-selection-prop]
+      ]
      [:div
       [:div.flex.justify-cont-s-b
        [:div.f-s-24.f-w-b "Options"]
@@ -6402,11 +6479,11 @@
        :name
        language
        "m-b-20"]
-      [language-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        language
-       "m-l-5 m-b-20"]]
+       ::langs/set-language-prop]
+      ]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
        "Description"]
@@ -6423,11 +6500,11 @@
        :name
        boon
        "m-b-20"]
-      [boon-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        boon
-       "m-l-5 m-b-20"]]
+       ::classes/set-boon-prop]
+      ]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
        "Description"]
@@ -6444,11 +6521,11 @@
        :name
        invocation
        "m-b-20"]
-      [invocation-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        invocation
-       "m-l-5 m-b-20"]]
+       ::classes/set-invocation-prop]
+      ]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
        "Description"]
@@ -6488,11 +6565,11 @@
        :name
        monster
        "m-b-20 flex-grow-1"]
-      [monster-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        monster
-       "m-l-5 m-b-20 flex-grow-1"]]
+       ::monsters/set-monster-prop]
+      ]
      [:div.flex.w-100-p.flex-wrap
 
       [:div.flex-grow-1.m-b-20.m-l-5
@@ -6567,7 +6644,7 @@
          (get hit-points :modifier 0)
          #(let [v (js/parseInt %)]
             (dispatch [::monsters/set-monster-path-prop [:hit-points :modifier] (if (not (js/isNaN v)) v)]))
-         {:class-name "input h-40"}]];]
+         {:class-name "input h-40"}]]
       [monster-input-field
        "Speed"
        :speed
@@ -7180,11 +7257,10 @@
        :name
        encounter
        "m-b-20"]
-      [encounter-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        encounter
-       "m-l-5 m-b-20"]]
+       ::encounters/set-encounter-prop]]
      [:div.m-t-20
       [:div.f-s-24.f-w-b "Creatures"]
       [:div
@@ -7206,11 +7282,11 @@
        :name
        spell
        "m-b-20"]
-      [spell-input-field
+      [plugin-datalist
        option-source-name-label
-       :option-pack
        spell
-       "m-l-5 m-b-20"]]
+       ::spells/set-spell-prop]
+      ]
 
      [:div.flex.w-100-p.flex-wrap
       [:div.flex-grow-1.m-b-20
@@ -7233,7 +7309,7 @@
                  (sort spells/schools))
          :value school
          :on-change #(dispatch [::spells/set-spell-prop :school %])}]]
-      [;:div.flex.flex-wrap
+      [
        :div.flex-grow-1.m-l-5
        [:div.m-t-20.m-r-20.m-b-10
         [comps/labeled-checkbox
@@ -7280,6 +7356,33 @@
            [:span.m-l-5 name]])
         @(subscribe [::spells/spellcasting-classes]))]]]))
 
+(defn validate-name [name]
+  (if (nil? name)
+    [] ;if nil, no error
+    (if (common/starts-with-letter? (str name))
+      nil
+      "Name must start with a letter"
+      )
+    ))
+
+(def invalid-styling
+  {:color "red"
+   :font-size "12px"
+   :display "block"}
+  )
+
+(defn valid-wel [name]
+  (when-let [messages (validate-name name)]
+  [:span {:required true
+          :id "verify-name"
+          :class "warntiptext"
+          :data-tip messages
+          :aria-live "polite"
+          }
+  messages]
+  )
+  )
+
 (defn item-builder []
   (let [{:keys [::mi/name ::mi/type ::mi/rarity ::mi/description ::mi/attunement] :as item}
         @(subscribe [::mi/builder-item])
@@ -7287,12 +7390,17 @@
         item-rarities @(subscribe [::mi/rarities])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [:div.flex-grow-1.m-b-20
+      [:div.flex-grow-1.m-b-20.warntip
        [input-builder-field
-        "Item Name"
-        name
-        #(dispatch [::mi/set-item-name %])
-        {:class-name "input h-40"}]]
+          "Item Name" ;:name
+          name
+          #(dispatch [::mi/set-item-name %])
+          {:class-name "input h-40"}]
+       (when (seq name) 
+         (valid-wel name))
+       #_(when-let [messages (validate-name name)]
+           (validation-messages messages))
+       ]
       [:div.flex-grow-1.m-l-5
        (base-builder-field
         "Type"
@@ -7701,6 +7809,7 @@
         "Next"]]])
    :hide-header-message? true])
 
+;; events are set and passed by the individual pages defined below this
 (defn builder-page [item-title reset-event save-event builder & [title]]
   [content-page
    (or title (str item-title " Builder"))
@@ -7720,8 +7829,87 @@
      :on-click #(dispatch [::combat/reset-combat])}]
    [combat-tracker]])
 
-(defn item-builder-page []
+#_(defn item-builder-page []
   (builder-page "Item" ::mi/reset-item ::mi/save-item item-builder))
+
+#_(defn item-page [{:keys [key] :as arg}]
+  (let [item-key (if (re-matches #"\d+" key)
+                   (js/parseInt key)
+                   (keyword key))
+        item @(subscribe [::mi/item item-key])
+        username @(subscribe [:username])
+        owner? (= username (::mi/owner item))]
+    [content-page
+     "Item Page"
+     (remove
+      nil?
+      [(if owner?
+         {:title "Delete"
+          :icon "trash"
+          :on-click (delete-item-handler item-key)})
+       (if owner?
+         {:title "Edit"
+          :icon "pencil"
+          :on-click (make-event-handler [::mi/edit-custom-item item])})])
+     [:div.p-10.main-text-color
+      [item-component item]]]))
+
+(defn get-owner? [item-key] ;item-key could be other things that need ownership with a refactor
+  (let [username @(subscribe [:username])
+        item @(subscribe [::mi/custom-item item-key])
+        builder-item @(subscribe [::mi/builder-item item-key])]
+    #_(println "username" username "item" item "item-key" item-key "ownitem" (::mi/owner item) "ownbuild" (::mi/owner builder-item) "time" common/ptime)
+    (= username (or (::mi/owner item) (::mi/owner builder-item)))
+    ))
+
+(defn deletion-modal-with [builder-page item-key]
+  (let [show? @(subscribe [::mi/delete-confirmation-shown? item-key])
+        ]
+    [:span
+     [:div {:class (if show? "modal-container" "modal-container hidden")}
+      [:div.modal
+       [:div.modal_content
+        [:div.m-b-10 "Are you sure you want to delete this item?"]
+        [:div
+         [:button.form-button
+          {:on-click (make-event-handler ::mi/hide-delete-confirmation item-key)}
+          "cancel"]
+         [:span.link-button
+          {:on-click (delete-item-handler item-key)}
+          "delete"]
+         ]]]]
+     [builder-page]]
+   )
+  )
+
+(defn item-builder-buttons [item-key item]
+  (let [owner? (get-owner? item-key)
+        base-buttons [{:title "New Item"
+                       :icon "plus"
+                       :on-click #(dispatch [::mi/reset-item])}
+                      {:title "Save to Browser Storage"
+                       :icon "save"
+                       :on-click #(dispatch [::mi/save-item])}]
+        ]
+    (if (and item-key owner?) ;Show if we have an item key and the user owns it
+      (conj base-buttons {:title "Delete"
+                          :icon "trash"
+                          :on-click (make-event-handler ::mi/show-delete-confirmation item-key)})
+      base-buttons)
+    ))
+
+(defn item-builder-page []
+  (let [item (subscribe [::mi/builder-item])
+        item-key (:db/id @item)
+        buttons (item-builder-buttons item-key item)
+        ]
+    [content-page
+     "Item Builder"
+     buttons
+     [deletion-modal-with
+      item-builder
+      item-key]
+     ]))
 
 (defn spell-builder-page []
   (builder-page "Spell" ::spells/reset-spell ::spells/save-spell spell-builder))
@@ -8194,7 +8382,8 @@
           (if homebrew?
             [:button.form-button.m-l-5
              {:on-click (make-event-handler ::spells/delete-spell spell)}
-             "delete"])]
+             "delete"])
+          ]
          [spell-component spell true]])]]))
 
 (defn spell-list-items [device-type]
@@ -8252,8 +8441,25 @@
           (if (= username owner)
             [:button.form-button.m-l-5
              {:on-click (make-event-handler ::mi/edit-custom-item @(subscribe [::mi/custom-item id]))}
-             "edit"])]
-         [item-component item]])]]))
+             "edit"])
+          (if (= username owner)
+            [:button.form-button.m-l-5
+             {:on-click (make-event-handler ::mi/show-delete-confirmation id)}
+             "delete"])]
+            (if @(subscribe [::mi/delete-confirmation-shown? id])
+              [:div.p-20.flex.justify-cont-end
+               [:div
+                [:div.m-b-10 "Are you sure you want to delete this item?"]
+                [:div.flex
+                 [:button.form-button
+                  {:on-click (make-event-handler ::mi/hide-delete-confirmation id)}
+                  "cancel"]
+                 [:span.link-button
+                  {:on-click  (delete-item-handler id)}
+                  "delete"]]]])
+            [item-component item]
+        ])
+      ]]))
 
 (defn item-list-items []
   [:div.item-list

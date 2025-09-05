@@ -475,9 +475,12 @@
                                      item-with-key)]
            {:dispatch-n [[::e5/set-plugins new-plugins]
                          [:show-warning-message
-                          [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "] [:span.text-shadow (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")] [:span.pointer.underline.black
-                                                                                                                                                                                                                                                                    {:on-click #(dispatch [::e5/export-plugin option-pack (str (plugins option-pack))])}
-                                                                                                                                                                                                                                                                    "here"]]
+                          [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
+                           [:span.text-shadow
+                            (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
+                           [:span.pointer.underline.black
+                            {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
+                            "here"]]
                           60000]]})
          {:dispatch [:show-error-message error-message]})))))
 
@@ -2955,6 +2958,8 @@
  (fn [spell [_ material-component]]
    (assoc-in spell [:components :material-component] material-component)))
 
+;;;; Item Builder
+
 (reg-event-db
  ::mi/set-item-description
  item-interceptors
@@ -3049,6 +3054,12 @@
  item-interceptors
  (fn [item _]
    (update item ::weapons/heavy? not)))
+
+(reg-event-db
+ ::mi/toggle-item-light?
+ item-interceptors
+ (fn [item _]
+   (update item ::weapons/light? not)))
 
 (reg-event-db
  ::mi/toggle-item-thrown?
@@ -3759,6 +3770,7 @@
           ::weapons/two-handed?
           ::weapons/thrown?
           ::weapons/heavy?
+          ::weapons/light?
           ::weapons/ammunition?
           ::weapons/damage-die-count
           ::weapons/damage-die
@@ -3850,6 +3862,16 @@
  ::char5e/hide-delete-confirmation
  (fn [db [_ id]]
    (assoc-in db [::char5e/delete-confirmation-shown? id] false)))
+
+(reg-event-db
+ ::mi/show-delete-confirmation
+ (fn [db [_ id]]
+   (assoc-in db [::mi/delete-confirmation-shown? id] true)))
+
+(reg-event-db
+ ::mi/hide-delete-confirmation
+ (fn [db [_ id]]
+   (assoc-in db [::mi/delete-confirmation-shown? id] false)))
 
 (reg-event-db
  ::char5e/show-delete-plugin-confirmation

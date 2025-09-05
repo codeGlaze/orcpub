@@ -948,8 +948,7 @@
      {:background-color "rgba(0, 0, 0, 0.5)"
       :-webkit-backdrop-filter "blur(5px)"
       :backdrop-filter "blur(5px)"
-      :border-radius "5px"
-      }]
+      :border-radius "5px"}]
 
     [:.header-tab.mobile
      [:.title
@@ -1306,10 +1305,52 @@
      [:table.striped
       [:tr
        [(s/& (s/nth-child :even))
-        {:background-color "rgba(0, 0, 0, 0.1)"}]]]]]
+        {:background-color "rgba(0, 0, 0, 0.1)"}]]]]
+
+    ;;;; "Modal" styles
+    [:.modal-container
+     {:background-image "linear-gradient(to right, #d35730, #eda41e)"
+      :padding ".5em 2em"}]
+
+    [:.modal-container :.m-b-10,
+     :.modal-container :.link-button
+     {:font-weight "bold"}]
+    
+    [:.modal-container :.link-button
+     {:color "#f7c257"
+      ;:font-weight "bold"
+      }]
+
+    ;;;; WARNING TOOLTIP "warntip"
+    [:.warntiptext
+     {:width "20%"
+      :margin-top "10px"
+      :background-color "#d94b20"
+      :color "#fff"
+      :text-align "center"
+      :padding "5px 0"
+      :border-radius "0 0 6px 6px"
+      :position "absolute"
+      :border "solid 1px #e96868"
+      :z-index 1}]
+
+    [:.warntip :.warntiptext
+     [:&:after
+      {:content "\" \""
+       :position "absolute"
+       :bottom "100%"           ;; At the bottom of the tooltip
+       :left "50%"
+       :margin-left "-5px"
+       :border-width "10px"
+       :border-style "solid"
+       :border-color "transparent transparent #e96868 transparent"}]]];concat-bracket
    margin-lefts
    margin-tops
    widths
    font-sizes
    props
-   media-queries))
+   media-queries) ;concat
+);def app
+
+
+   ;;);concat;app

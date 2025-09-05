@@ -381,6 +381,7 @@
      ::weapon5e/melee?
      ::weapon5e/ranged?
      ::weapon5e/heavy?
+     ::weapon5e/light?
      ::weapon5e/thrown?
      ::weapon5e/two-handed?
      ::weapon5e/finesse?
