@@ -370,13 +370,47 @@
     ::thrown true,
     ::range {::min 5, ::max 15},
     :key :net
-    ::special? true}])
+    ::special? true}
+    ;;;;
+   ;; Community Designed Weapons
+    ;;;;
+   {:name "Firearm, Hand (DMV)",
+    ::damage-type :piercing,
+    ::damage-die 10,
+    ::type :martial,
+    ::damage-die-count 1,
+    ::ranged? true,
+    ::heavy? true,
+    ::range {::min 30, ::max 90},
+    :key :firearm-hand
+    ::two-handed? false}
+   {:name "Firearm, Burst (DMV)",
+    ::damage-type :piercing,
+    ::damage-die 6,
+    ::type :martial,
+    ::damage-die-count 2,
+    ::ranged? true,
+    ::heavy? true,
+    ::range {::min 10, ::max 30},
+    :key :firearm-burst
+    ::two-handed? true}
+   {:name "Firearm, Long (DMV)",
+    ::damage-type :piercing,
+    ::damage-die 12,
+    ::type :martial,
+    ::damage-die-count 1,
+    ::ranged? true,
+    ::heavy? true,
+    ::range {::min 60, ::max 120},
+    :key :firearm-long
+    ::two-handed? true}])
 
 (def ammunition
   (common/add-keys
    [{:name "Arrow" ::type :ammunition :sell-qty 20 :cost {:num 1 :type :gp} :weight "1 lb."}
     {:name "Blowgun needle" ::type :ammunition :sell-qty 50 :cost {:num 1 :type :gp} :weight "1 lb."}
     {:name "Crossbow bolt" ::type :ammunition :sell-qty 20 :cost {:num 1 :type :gp} :weight "1½ lb."}
+    {:name "Firearm bullet" ::type :ammunition :sell-qty 20 :cost {:num 2 :type :gp} :weight "1½ lb."}
     {:name "Sling bullet" ::type :ammunition :sell-qty 20 :cost {:num 4 :type :cp} :weight "1½ lb."}]))
 
 (def weapons-map

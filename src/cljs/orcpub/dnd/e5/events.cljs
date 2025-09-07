@@ -475,9 +475,12 @@
                                      item-with-key)]
            {:dispatch-n [[::e5/set-plugins new-plugins]
                          [:show-warning-message
-                          [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "] [:span.text-shadow (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")] [:span.pointer.underline.black
-                                                                                                                                                                                                                                                                    {:on-click #(dispatch [::e5/export-plugin option-pack (str (plugins option-pack))])}
-                                                                                                                                                                                                                                                                    "here"]]
+                          [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
+                           [:span.text-shadow
+                            (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
+                           [:span.pointer.underline.black
+                            {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
+                            "here"]]
                           60000]]})
          {:dispatch [:show-error-message error-message]})))))
 
@@ -2954,6 +2957,8 @@
  (fn [spell [_ material-component]]
    (assoc-in spell [:components :material-component] material-component)))
 
+;;;; Item Builder
+
 (reg-event-db
  ::mi/set-item-description
  item-interceptors
@@ -3048,6 +3053,12 @@
  item-interceptors
  (fn [item _]
    (update item ::weapons/heavy? not)))
+
+(reg-event-db
+ ::mi/toggle-item-light?
+ item-interceptors
+ (fn [item _]
+   (update item ::weapons/light? not)))
 
 (reg-event-db
  ::mi/toggle-item-thrown?
@@ -3197,11 +3208,21 @@
  (fn [{:keys [db]} [_ plugin-name type-key key]]
    {:dispatch [::e5/set-plugins (-> db :plugins (update-in [plugin-name type-key key :disabled?] not))]}))
 
+(defn clean-plugin-errors [plugin-text]
+  (-> plugin-text
+      (clojure.string/replace #"disabled\?\s+nil" "disabled? false") ; disabled? nil - replace w/disabled? false
+      (clojure.string/replace #"(?m)nil nil, " "") ; nil nil,  - find+remove
+      (clojure.string/replace #":\w+\snil" "") ; :[a-0] nil - find+remove
+      (clojure.string/replace #"\{\"\"\s*\{:orcpub\.dnd\.e5" "{\"Default Option Source\" {:orcpub.dnd.e5")
+      (clojure.string/replace #":option-pack\s*\"\s*\"\s*," ":option-pack \"Default Option Source\",") ;:option-pack "",
+      ))
+
 (reg-event-fx
  ::e5/import-plugin
  (fn [{:keys [db]} [_ plugin-name plugin-text]]
-   (let [plugin (try
-                  (reader/read-string plugin-text)
+   (let [cleaned-plugin-text (clean-plugin-errors plugin-text)
+         plugin (try
+                  (reader/read-string cleaned-plugin-text)
                   (catch js/Error e nil))]
      (cond 
        (spec/valid? ::e5/plugin plugin)
@@ -3734,6 +3755,7 @@
           ::weapons/two-handed?
           ::weapons/thrown?
           ::weapons/heavy?
+          ::weapons/light?
           ::weapons/ammunition?
           ::weapons/damage-die-count
           ::weapons/damage-die
@@ -3825,6 +3847,16 @@
  ::char5e/hide-delete-confirmation
  (fn [db [_ id]]
    (assoc-in db [::char5e/delete-confirmation-shown? id] false)))
+
+(reg-event-db
+ ::mi/show-delete-confirmation
+ (fn [db [_ id]]
+   (assoc-in db [::mi/delete-confirmation-shown? id] true)))
+
+(reg-event-db
+ ::mi/hide-delete-confirmation
+ (fn [db [_ id]]
+   (assoc-in db [::mi/delete-confirmation-shown? id] false)))
 
 (reg-event-db
  ::char5e/show-delete-plugin-confirmation

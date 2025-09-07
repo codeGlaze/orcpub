@@ -19,12 +19,15 @@
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.events :refer [url-for-route] :as events]
             [reagent.ratom :as ra]
+            [clojure.string :as s]
             [cljs-http.client :as http]
             [cljs.core.async :refer [<!]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
+
 (def sorted-items
-  (delay (sort-by mi5e/name-key mi5e/magic-items)))
+  (delay (sort-by mi5e/name-key mi5e/magic-items))
+  )
 
 (defn auth-headers [db]
   (let [token (-> db :user-data :token)]
@@ -36,7 +39,8 @@
   (reg-sub-raw
    ::mi5e/custom-items
    (fn [app-db [_ user-data]]
-     (go (dispatch [:set-loading true])
+     (if (and (:user @app-db) (:token (:user @app-db)))
+      (go (dispatch [:set-loading true])
          (let [response (<! (http/get (url-for-route routes/dnd-e5-items-route)
                                       {:headers (auth-headers @app-db)}))]
            (dispatch [:set-loading false])
@@ -45,7 +49,7 @@
              401 nil ;;(dispatch [:route routes/login-page-route {:secure? true}])
              500 (dispatch (events/show-generic-error)))))
      (ra/make-reaction
-      (fn [] (get @app-db ::mi5e/custom-items [])))))
+      (fn [] (get @app-db ::mi5e/custom-items []))))))
   (reg-sub
    ::mi5e/custom-items
    (fn [_ _] [])))
@@ -193,7 +197,7 @@
 
 (reg-sub
  ::mi5e/other-magic-items
- :<- [::char5e/sorted-items]
+ :<- [::char5e/sorted-items] ;function relies on state of this sub
  (fn [sorted-items _]
    (sequence
     mi5e/other-magic-items-xform
@@ -244,7 +248,8 @@
 (reg-sub-raw
  ::mi5e/remote-item
  (fn [app-db [_ id]]
-   (go (dispatch [:set-loading true])
+   (if (and (:user @app-db) (:token (:user @app-db)))
+    (go (dispatch [:set-loading true])
        (let [response (<! (http/get (url-for-route
                                       routes/dnd-e5-item-route
                                       :id id)
@@ -252,7 +257,7 @@
          (dispatch [:set-loading false])
          (case (:status response)
            200 (dispatch [::mi5e/add-remote-item (:body response)])
-           500 (dispatch (events/show-generic-error)))))
+           500 (dispatch (events/show-generic-error))))))
    (ra/make-reaction
     (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
 

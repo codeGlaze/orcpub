@@ -53,7 +53,7 @@ You will need a few tools:
 
  `git clone https://github.com/Orcpub/orcpub.git` if you don't have a github account
 
- `git clone git@github.com:Orcpub/orcpub.git` if you do
+ `git clone git@github.com:Orcpub/orcpub.git` if you do want to make changes to the code and make pull requests.
  
 ### Edit docker-compose.yaml
 
@@ -70,12 +70,12 @@ EMAIL_SERVER_URL: '' # DNS name of your smtp server
 EMAIL_ACCESS_KEY: '' # User for the mail server
 EMAIL_SECRET_KEY: '' # Password for the user
 EMAIL_SERVER_PORT: 587 # Mail server port
-EMAIL_FROM_ADDRESS: '' # Email address to send from, will default to 'no-reply@orcpub.com'
+EMAIL_FROM_ADDRESS: '' # Email address to send from, will default to 'no-reply@orcpub.com' if not set
 EMAIL_ERRORS_TO: '' # Email address that errors will be sent to
 EMAIL_SSL: 'false' # Should SSL be used? Gmail requires this.
 EMAIL_TLS: 'false' # Should TLS be used? 
 DATOMIC_URL: datomic:free://datomic:4334/orcpub?password=yourpassword # Url for the database
-ADMIN_PASSWORD: supersecretpassword #The datomic admin password (should be diffrent than the DATOMIC_PASSWORD)
+ADMIN_PASSWORD: supersecretpassword #The datomic admin password (should be different than the DATOMIC_PASSWORD)
 DATOMIC_PASSWORD: yourpassword #The datomic application password
 SIGNATURE: '<change me to something unique>' # The Secret used to hash your password in the browser, 20+ characters recommended
 ```
@@ -132,7 +132,7 @@ All orcbrew files have to be combined into a single file named "homebrew.orcbrew
 
 **Data directory**
 
-Character data is held in a database provided by Datomic.  Datomic stores the character and magic item information in the `./data` directory.
+Character item data is held in a database provided by Datomic.  Datomic stores the character and magic item information in the `./data` directory.
 
 If you want to backup the database you only need to copy the `./data` directory after Datomic is shutdown.
 
@@ -142,7 +142,7 @@ If you want a new database, delete the `./data` directory to start over.
 
 The `./logs` directory contains error logs for Datomic itself and any files here can be safely removed with out affecting character data.  
 
-Watch this directory and clean up old files, it can grow quite large quickly.
+Watch this directory and clean up old files, it can grow quite large quickly.  It is recommended to setup log rotate or some other mechanism to clean these up.
 
 ## Development
 
@@ -201,7 +201,7 @@ EMAIL_ERRORS_TO: '' # Email address that errors will be sent to
 EMAIL_SSL: 'false' # Should SSL be used? Gmail requires this.
 DATOMIC_URL: datomic:free://datomic:4334/orcpub?password=yourpassword # Url for the database
 ADMIN_PASSWORD: supersecretpassword
-DATOMIC_PASSWORD: yourpassword
+DATOMIC_PASSWORD: yourpassword  #(Same as above)
 SIGNATURE: '<change me to something unique>' # The Secret used to hash your password in the browser, 20+ characters recommended
 ```
 
@@ -220,7 +220,9 @@ We work on forks, and branches.  Fork our repo, then create a new branch for any
 
 - Install Java: http://openjdk.java.net/ 
 - or http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
-- Download [Datomic](https://www.datomic.com/get-datomic.html), and unzip it into a directory.
+- For MacOS/Linux Download [Datomic](https://www.datomic.com/get-datomic.html), and unzip it into a directory.
+
+* For Windows [DMV Datomic](https://github.com/Orcpub/orcpub/raw/refs/heads/develop/lib/datomic-free-0.9.5703.tar.gz) - newer versions do not work on Windows. it's a known issue that the Datomic team hasn't bothered to solve.  It has to do with the max characters that windows can hold for a path.
 
   Launch Datomic by going to shell/cmd prompt in the unzipped directory and run:
 
@@ -251,15 +253,17 @@ We work on forks, and branches.  Fork our repo, then create a new branch for any
 
 You should have all three processes running: the Datomic transactor, lein repl, and lein figwheel. 
 
-When you save changes, it will auto compile and send all changes to the browser without the
-need to reload. After the compilation process is complete, you will
-get a Browser Connected REPL. An easy way to try it is:
+On the front end, When you save changes, it will auto compile and send all changes to the browser without the
+need to reload. After the compilation process is complete, you will get a Browser Connected REPL. 
+
+An easy way to try it is:
 
 ```clojure
 (js/alert "Am I connected?")
 ```
 
 and you should see an alert in the browser window.
+On the backend (PDF generation) you will have to restart lein repl to get your changes.
 
 Code away! and make your commits.
 
@@ -284,7 +288,10 @@ You can use the community edition of [IntelliJ IDEA](https://www.jetbrains.com/i
 ### VS Code
 You can use the open source edition of [Visual Studio Code](https://code.visualstudio.com/Download) with the Calva: Clojure & ClojureScript Interactive Programming, Clojure Code, and Bookmarks Extensions.
 
-To start REPL with VS Code, first launch datomic in a cmd window, then jack-in using the Leiningen + Legacy Figwheel, figwheel-native, and select the :dev and optionally :start-server.
+To start REPL with VS Code:
+* first launch datomic in a cmd window with the transactor snippet from above: `bin\transactor config/samples/free-transactor-template.properties`
+  * you can also just add that to a `.ps1` file inside your project for easier reference eg. `run-datomic ps1`
+* THEN jack-in using the `Leiningen + Legacy Figwheel`, `figwheel-native`, and select the `:dev` and optionally `:start-server`
 
 ### REPL
 
@@ -453,7 +460,7 @@ For this reason we have to build a dependency graph of derived attributes and th
 ## FAQs
 **Q: I'm a newb Clojure developer looking to get my feet wet, where to start?**
 
-**A:** *First I would start by getting the fundamentals down at http://www.4clojure.com/ From there you might add some unit tests or pick up an open issue on the "Issues" tab (and add unit tests with it).*
+**A:** *First I would start by getting the fundamentals down at https://4clojure.oxal.org/ From there you might add some unit tests or pick up an open issue on the "Issues" tab (and add unit tests with it).*
 
 
 **Q: Your DSL for defining character options is pretty cool, I can build any type of character option out there. How about I add a bunch on content from the Player's Handbook?**
