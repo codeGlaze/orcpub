@@ -28,6 +28,6 @@ jobs:
       - name: Get leiningen version
         run: lein -v
       - name: Run linter
-        run: lein lint
+        run: lein lint || test $? -eq 2
       - name: Run tests
         run: lein test

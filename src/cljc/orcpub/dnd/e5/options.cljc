@@ -1949,7 +1949,7 @@
                       spell-lists
                       spells-map
                       languages
-                      source
+                      option-source
                       {:keys [name
                               abilities
                               profs
@@ -2188,7 +2188,6 @@
                            armor-proficiencies
                            weapon-proficiencies
                            profs
-                           source
                            plugin?
                            edit-event]
                     :as race}]

@@ -1163,10 +1163,10 @@
  character-interceptors
  set-hit-points-to-average)
 
-(defn set-level-hit-points [character [_ built-template character level-value value]]
+(defn set-level-hit-points [character [_ built-template char level-value value]]
   (assoc-in
    character
-   (entity/get-entity-path built-template character (:path level-value))
+   (entity/get-entity-path built-template char (:path level-value))
    {::entity/key :manual-entry
     ::entity/value (if (not (js/isNaN value)) value)}))
 
