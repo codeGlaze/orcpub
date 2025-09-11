@@ -29,10 +29,9 @@ jobs:
         run: lein -v
       - name: Lint
         run: |
-          echo "Running clj-kondo directly to diagnose the issue..."
-          clj-kondo --lint src
+          lein lint
           EXIT_CODE=$?
-          echo "clj-kondo exited with code: $EXIT_CODE"
+          echo "Linter exited with code: $EXIT_CODE"
           if [ $EXIT_CODE -eq 0 ] || [ $EXIT_CODE -eq 2 ]; then
             echo "Success or warnings only, passing build."
             exit 0
