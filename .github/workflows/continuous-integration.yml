@@ -29,9 +29,18 @@ jobs:
         run: lein -v
       - name: Lint
         run: |
-          lein lint
+          # Force lein to download the clj-kondo dependency
+          lein with-profile lint deps :tree
+
+          # Find the exact path to the clj-kondo uberjar
+          CLJ_KONDO_PATH=$(find ~/.m2/repository/clj-kondo -name "*standalone.jar")
+          echo "Found clj-kondo at: $CLJ_KONDO_PATH"
+
+          # Run clj-kondo directly using the uberjar
+          java -jar $CLJ_KONDO_PATH --lint src
           EXIT_CODE=$?
           echo "Linter exited with code: $EXIT_CODE"
+
           if [ $EXIT_CODE -eq 0 ] || [ $EXIT_CODE -eq 2 ]; then
             echo "Success or warnings only, passing build."
             exit 0
