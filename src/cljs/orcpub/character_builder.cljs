@@ -1543,7 +1543,7 @@
                 :hide-homebrew? true
                 :ui-fn (fn [v] [inventory-selector [::equip5e/treasure-map] 100 (select-selection v) ::char5e/custom-treasure])}])}])
 
-(defn section-tabs [available-selections built-template character page-index]
+(defn section-tabs [available-selections built-template character page-index selected-page-atom]
   (let [device-type @(subscribe [:device-type])]
     [:div.flex.justify-cont-s-a
      (doall
@@ -1556,7 +1556,10 @@
            ^{:key name}
            [:div.p-5.hover-opacity-full.pointer.flex.flex-column.align-items-c.t-a-c
             {:class-name (if (= i page-index) "b-b-2 b-orange" "")
-             :on-click (fn [_] (dispatch [:set-page i]))}
+             :on-click (fn [_] 
+                        (if selected-page-atom
+                          (reset! selected-page-atom i)
+                          (dispatch [:set-page i])))}
             [:div
              {:class-name class-name}
              (if (= :desktop device-type)
@@ -1636,40 +1639,43 @@
   (into (sorted-set-by compare-paths) selections))
 
 (defn new-options-column [num-columns]
-  (let [character @(subscribe [:character])
-        built-template @(subscribe [:built-template])
-        available-selections @(subscribe [:available-selections])
-        _ (if print-enabled? (js/console.log "AVAILABLE SELECTIONS" available-selections))
-        page @(subscribe [:page])
-        page-index (or page 0)
-        option-paths @(subscribe [:option-paths])
-        {:keys [tags ui-fns components] :as page} (pages page-index)
-        selections (entity/tagged-selections available-selections tags)
-        combined-selections (entity/combine-selections selections)
-        final-selections combined-selections]
-    (if print-enabled? (js/console.log "FINAL SELECTIONS" final-selections))
-    [:div.w-100-p
-     [:div#options-column.b-1.b-rad-5
-      [section-tabs available-selections built-template character page-index]
-      [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
-       [:button.form-button.p-5-10.m-r-5
-        {:on-click
-         (fn [_]
-           (dispatch [:set-page (let [prev (dec page-index)]
-                                  (if (neg? prev)
-                                    (dec (count pages))
-                                    prev))]))}
-        "Back"]
-       [:div.flex-grow-1
-        [:h3.f-w-b.f-s-20.t-a-c (:name page)]]
-       [:button.form-button.p-5-10.m-l-5
-        {:on-click
-         (fn [_]
-           (dispatch [:set-page (let [next (inc page-index)]
-                                  (if (>= next (count pages))
-                                    0
-                                    next))]))}
-        "Next"]]
+  (let [selected-page-index (r/atom 0)]
+    (fn [num-columns]
+      (let [character @(subscribe [:character])
+            built-template @(subscribe [:built-template])
+            available-selections @(subscribe [:available-selections])
+            _ (if print-enabled? (js/console.log "AVAILABLE SELECTIONS" available-selections))
+            page-index @selected-page-index
+            option-paths @(subscribe [:option-paths])
+            {:keys [tags ui-fns components] :as page} (pages page-index)
+            selections (entity/tagged-selections available-selections tags)
+            combined-selections (entity/combine-selections selections)
+            final-selections combined-selections]
+        (if print-enabled? (js/console.log "FINAL SELECTIONS" final-selections))
+        [:div.w-100-p
+         [:div#options-column.b-1.b-rad-5
+          [section-tabs available-selections built-template character page-index selected-page-index]
+          [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
+           [:button.form-button.p-5-10.m-r-5
+            {:on-click
+             (fn [_]
+               (swap! selected-page-index (fn [current-idx] 
+                                           (let [prev (dec current-idx)]
+                                             (if (neg? prev)
+                                               (dec (count pages))
+                                               prev)))))}
+            "Back"]
+           [:div.flex-grow-1
+            [:h3.f-w-b.f-s-20.t-a-c (:name page)]]
+           [:button.form-button.p-5-10.m-l-5
+            {:on-click
+             (fn [_]
+               (swap! selected-page-index (fn [current-idx]
+                                           (let [next (inc current-idx)]
+                                             (if (>= next (count pages))
+                                               0
+                                               next)))))}
+            "Next"]]
       (let [ui-fn-selections (mapcat
                               (fn [{:keys [key group? ui-fn]}]
                                 (if group?
@@ -1738,7 +1744,7 @@
                              selection
                              num-columns
                              remaining)])))
-                sorted-selections)))])])]]))
+                sorted-selections)))])])]])))
 
 (def image-style
   {:max-height "100px"
