@@ -1962,7 +1962,7 @@
                               modifiers
                               selections
                               traits
-                              source
+                              subrace-source
                               edit-event]}]
   (let [{:keys [skill-options tool]} profs
         {skill-num :choose options :options} skill-options
@@ -2188,7 +2188,7 @@
                            armor-proficiencies
                            weapon-proficiencies
                            profs
-                           source
+                           race-source
                            plugin?
                            edit-event]
                     :as race}]

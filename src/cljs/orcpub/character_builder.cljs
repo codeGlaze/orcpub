@@ -1676,7 +1676,7 @@
                                                0
                                                next)))))}
             "Next"]]
-      (let [ui-fn-selections (mapcat
+          (let [ui-fn-selections (mapcat
                               (fn [{:keys [key group? ui-fn]}]
                                 (if group?
                                   (filter
@@ -1744,7 +1744,7 @@
                              selection
                              num-columns
                              remaining)])))
-                sorted-selections)))])])]])))
+                sorted-selections)))])])]]))))
 
 (def image-style
   {:max-height "100px"
