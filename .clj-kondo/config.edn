@@ -1,6 +1,7 @@
 {:linters {:if {:level :off}
            :unused-namespace {:level :off}
            :unused-binding {:level :off}
+           :shadowed-var {:level :off}
            :unresolved-symbol
            {:exclude
             [(clojure.core.match/match)
