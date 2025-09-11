@@ -27,7 +27,17 @@ jobs:
           boot: 2.8.3     # or use 'latest' to always provision latest version of boot
       - name: Get leiningen version
         run: lein -v
-      - name: Run linter
-        run: lein lint || test $? -eq 2
+      - name: Lint
+        run: |
+          lein lint
+          EXIT_CODE=$?
+          echo "Linter exited with code: $EXIT_CODE"
+          if [ $EXIT_CODE -eq 0 ] || [ $EXIT_CODE -eq 2 ]; then
+            echo "Success or warnings only, passing build."
+            exit 0
+          else
+            echo "Error detected (exit code $EXIT_CODE), failing build."
+            exit 1
+          fi
       - name: Run tests
         run: lein test
