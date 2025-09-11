@@ -22,12 +22,14 @@ This is the code forked from OrcPub2, from the [original](https://github.com/lar
 ![Docker Cloud Automated build](https://img.shields.io/docker/cloud/automated/orcpub/orcpub)
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/orcpub/orcpub)
 
-[About](#about) • [Getting Started](#getting-started) • [Development](#development) • [Contributing](#how-do-i-contribute?) • [Fundamentals](#Fundamentals)
+[About](#about) • [Getting Started](#getting-started) • [Development](#development) • [Contributing](#how-do-i-contribute?) • [📚 Documentation](docs/index.md)
 
 </div>
 
 ## About
 Dungeon Master's Vault is a web server that allows you to host your own Character Generator website for D&D 5th Edition.
+
+> 📚 **New to the Project?** Check out our comprehensive [Developer Documentation](docs/index.md) with beginner-friendly guides, technology overviews, and contribution instructions.
 
 
 ## Getting Started
@@ -213,6 +215,8 @@ More on these passwords here.
 
 ## How do I contribute?
 Thank you for rolling for initiative!
+
+> 📖 **Start Here**: Our new [Contributing Guide](docs/contributing.md) provides comprehensive information for contributors of all skill levels, including Clojure newcomers.
 
 We work on forks, and branches.  Fork our repo, then create a new branch for any bug or new feature that you want to work on.
 
@@ -460,7 +464,11 @@ For this reason we have to build a dependency graph of derived attributes and th
 ## FAQs
 **Q: I'm a newb Clojure developer looking to get my feet wet, where to start?**
 
-**A:** *First I would start by getting the fundamentals down at https://4clojure.oxal.org/ From there you might add some unit tests or pick up an open issue on the "Issues" tab (and add unit tests with it).*
+**A:** *Great question! We have comprehensive resources for Clojure newcomers:*
+- *Start with our [Technology Overview](docs/technology-overview.md) to understand Clojure, ClojureScript, and the web stack*
+- *Follow our detailed [Getting Started](docs/getting-started.md) guide for step-by-step setup instructions*
+- *Try the interactive exercises at https://4clojure.oxal.org/ to practice Clojure fundamentals*
+- *Check our [Contributing Guide](docs/contributing.md) for beginner-friendly issues and development tips*
 
 
 **Q: Your DSL for defining character options is pretty cool, I can build any type of character option out there. How about I add a bunch on content from the Player's Handbook?**
