@@ -454,7 +454,8 @@
 
 (defn character-pdf-2 [req]
   (let [fields (-> req :form-params :body edn/read-string)
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod?]} fields
+        
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? character-name class-level player-name]} fields
 
         sheet6 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-6-spells.pdf")
         sheet5 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-5-spells.pdf")
@@ -473,7 +474,9 @@
                                           :else sheet0)))
         output (ByteArrayOutputStream.)
         user-agent (get-in req [:headers "user-agent"])
-        chrome? (re-matches #".*Chrome.*" user-agent)]
+        chrome? (re-matches #".*Chrome.*" user-agent)
+        filename (str player-name " - " character-name " - " class-level ".pdf")]
+        
     (with-open [doc (PDDocument/load input)]
       (pdf/write-fields! doc fields (not chrome?) font-sizes)
       (if (and print-spell-cards? (seq spells-known))
@@ -497,7 +500,9 @@
           4 ()))
       (.save doc output))
     (let [a (.toByteArray output)]
-      {:status 200 :body (ByteArrayInputStream. a)})))
+      {:status 200
+       :headers {"Content-Disposition" (str "inline; filename=\"" filename "\"")}
+       :body (ByteArrayInputStream. a)})))
 
 (defn html-response
   [html & [response]]
