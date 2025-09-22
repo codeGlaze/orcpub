@@ -7,10 +7,102 @@
             [orcpub.data.names.damaran :as damaran]
             [orcpub.data.names.shou :as shou]
             [orcpub.data.names.illuskan :as illuskan]
-            [orcpub.data.names.elf :as elf]))
+            [orcpub.data.names.elf :as elf]
+            [orcpub.data.names.dwarf :as dwarf]
+            [orcpub.data.names.halfling :as halfling]))
             ; [orcpub.data.names.mulan :as mulan]))
 
-;; elf-names original block: start-line=102 end-line=188
+;; calishite-names original block: start-line=5 end-line=236
+;; TODO (move-first-verify): `calishite-names` moved to `src/cljc/orcpub/data/names/calishite.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
+ (def calishite-names
+   (let [m calishite/calishite-names
+         cur-ns (str (ns-name *ns*))]
+     (reduce-kv (fn [acc k v]
+                  (assoc acc (keyword cur-ns (name k)) v))
+                {}
+                m)))
+
+;; chondathan-names original block: start-line=18 end-line=58
+;; TODO (move-first-verify): `chondathan-names` moved to `src/cljc/orcpub/data/names/chondathan.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
+(def chondathan-names
+  (let [m chondathan/chondathan-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; damaran-names original block: start-line=30 end-line=156
+;; TODO (move-first-verify): `damaran-names` moved to `src/cljc/orcpub/data/names/damaran.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
+(def damaran-names
+  (let [m damaran/damaran-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; turami data shim
+(def turami-names
+  ;; turami data lives in a separate namespace to keep this file small.
+  ;; remap the keys from that namespace into this namespace so existing
+  ;; callers that use unqualified auto-resolved keywords (e.g. ::male)
+  ;; continue to work without changes.
+  (let [m turami/turami-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; shou-names original block: start-line=38 end-line=90
+;; TODO (move-first-verify): `shou-names` moved to `src/cljc/orcpub/data/names/shou.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
+(def shou-names
+  (let [m shou/shou-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; illuskan-names original block: start-line=67 end-line=156
+;; TODO (move-first-verify): `illuskan-names` moved to `src/cljc/orcpub/data/names/illuskan.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
+(def illuskan-names
+  (let [m illuskan/illuskan-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; rashemi-names original block: start-line=79 end-line=156
+;; TODO (move-first-verify): `rashemi-names` moved to `src/cljc/orcpub/data/names/rashemi.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
+(def rashemi-names
+  (let [m rashemi/rashemi-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; mulan-names original block: start-line=90 end-line=182
+;; TODO (move-first-verify): `mulan-names` moved to `src/cljc/orcpub/data/names/mulan.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
+(def mulan-names
+  (let [m mulan/mulan-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; elf-names original block: start-line=102 end-line=299
 ;; TODO (move-first-verify): `elf-names` moved to `src/cljc/orcpub/data/names/elf.cljc`.
 ;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
 (def elf-names
@@ -20,573 +112,28 @@
                  (assoc acc (keyword cur-ns (name k)) v))
                {}
                m)))
-                "rtis"
-                "cian"
-                "llios"
-                "lios"
-                "ric"
-                "nis"
-                "nnis"]
-   ::female ["Adrie"
-             "Althaea"
-             "Anastrianna"
-             "Andraste"
-             "Antinua"
-             "Bethrynna"
-             "Birel"
-             "Caelynn"
-             "Drusilia"
-             "Enna"
-             "Felosial"
-             "Ielenia"
-             "Jelenneth"
-             "Keyleth"
-             "Leshanna"
-             "Lia"
-             "Meriele"
-             "Mialee"
-             "Naivara"
-             "Quelanna"
-             "Quillathe"
-             "Sariel"
-             "Shanairra"
-             "Shava"
-             "Silaqui"
-             "Theirsatra"
-             "Thia"
-             "Vadania"
-             "Valanthe"
-             "Xanaphia"]
-   ::female-pre ["A"
-                 "Ana"
-                 "Dru"
-                 "Cae"
-                 "Felo"
-                 "Ie"
-                 "Le"
-                 "Key"
-                 "Me"
-                 "Mia"
-                 "Nai"
-                 "Sil"
-                 "Xana"
-                 "Thie"
-                 "Va"
-                 "Qui"
-                 "Sa"
-                 "Thia"]
-   ::female-post ["thaea"
-                  "strianna"
-                  "lenneth"
-                  "rianna"
-                  "raste"
-                  "draste"
-                  "rynna"
-                  "lynn"
-                  "silia"
-                  "sial"
-                  "lenia"
-                  "leth"
-                  "shanna"
-                  "riele"
-                  "vara"
-                  "riel"
-                  "nairra"
-                  "va"
-                  "rsatra"
-                  "phia"
-                  "laqui"
-                  "dania"
-                  "lanthe"
-                  "llath"
-                  "lee"]
-   ::surname ["Amakiir"
-              "Amastacia"
-              "Galanodel"
-              "Holimion"
-              "Ilphelkiir"
-              "Liadon"
-              "Meliamne"
-              "Nailo"
-              "Siannodel"
-              "Xiloscient"]
-   ::surname-pre ["Mith"
-                  "Ald"
-                  "Tor"
-                  "Eal"
-                  "Kev"
-                  "Lan"
-                  "Nor"
-                  "Mithr"
-                  "Mithd"
-                  "Mithy"
-                  "Cel"
-                  "Amast"
-                  "Am"
-                  "Ilph"
-                  "Xil"
-                  "Tal"
-                  "Und"
-                  "Tath"
-                  "El"
-                  "Ond"]
-   ::surname-post ["aviel"
-                   "amirta"
-                   "osum"
-                   "adhrinian"
-                   "ethryl"
-                   "oval"
-                   "aiseer"
-                   "etaryl"
-                   "acia"
-                   "elkiir"
-                   "akiir"
-                   "oscient"
-                   "aiil"
-                   "oeme"
-                   "elon"
-                   "enval"
-                   "irmae"
-                   "athir"
-                   "olithe"]})
 
+;; dwarf-names original block: start-line=114 end-line=220
+;; TODO (move-first-verify): `dwarf-names` moved to `src/cljc/orcpub/data/names/dwarf.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
 (def dwarf-names
-  {::male ["Adrik"
-           "Alberich"
-           "Baern"
-           "Barenedd"
-           "Brottor"
-           "Bruenor"
-           "Dain"
-           "Darrak"
-           "Delg"
-           "Eberk"
-           "Einkil"
-           "Fargrim"
-           "Flint"
-           "Gardain"
-           "Harbek"
-           "Kildrak"
-           "Morgran"
-           "Orsik"
-           "Oskar"
-           "Rangrim"
-           "Rurik"
-           "Taklinn"
-           "Thoradin"
-           "Thorin"
-           "Tordek"
-           "Traubon"
-           "Travok"
-           "Ulfgar"
-           "Veit"
-           "Vondal"]
-   ::male-pre ["Tra"
-               "Trau"
-               "Tor"
-               "Tak"
-               "Ru"
-               "Ran"
-               "Os"
-               "Or"
-               "Mor"
-               "Thor"
-               "Kil"
-               "Har"
-               "Gar"
-               "Far"
-               "Ein"
-               "E"
-               "Brue"
-               "Dar"
-               "Bro"
-               "Brog"
-               "Delg"
-               "Dalg"
-               "Drag"]
-   ::male-post ["dan"
-                "den"
-                "din"
-                "nor"
-                "ner"
-                "nir"
-                "dal"
-                "del"
-                "bon"
-                "ben"
-                "rak"
-                "rek"
-                "rik"
-                "grim"
-                "gram"
-                "kil"
-                "kel"
-                "kal"
-                "dain"
-                "drak"
-                "drek"
-                "drik"
-                "bek"
-                "bik"
-                "sik"
-                "sek"
-                "sok"
-                "dek"
-                "dik"
-                "vok"
-                "vik"
-                "vek"
-                "vak"
-                "kar"
-                "ker"
-                "kir"
-                "berk"
-                "birk"
-                "ttor"]
-   ::female ["Amber"
-             "Artin"
-             "Audhild"
-             "Bardryn"
-             "Dagnal"
-             "Diesa"
-             "Eldeth"
-             "Falkrunn"
-             "Finellen"
-             "Gunnloda"
-             "Gurdis"
-             "Helja"
-             "Hlin"
-             "Kathra"
-             "Kristryd"
-             "Ilde"
-             "Liftrasa"
-             "Mardred"
-             "Riswynn"
-             "Sannl"
-             "Torbera"
-             "Torgga"
-             "Vistra"]
-   ::female-pre ["Fine"
-                 "Aud"
-                 "Bar"
-                 "Gunn"
-                 "Gur"
-                 "Hel"
-                 "Ka"
-                 "Kri"
-                 "Lift"
-                 "Mar"
-                 "Ris"
-                 "Tor"
-                 "Vis"]
-   ::female-post ["stryd"
-                  "dred"
-                  "wynn"
-                  "rgga"
-                  "ja"
-                  "ga"
-                  "hild"
-                  "dryn"
-                  "tin"
-                  "llen"
-                  "deth"
-                  "loda"
-                  "lis"
-                  "dis"
-                  "thra"
-                  "rasa"
-                  "berra"]
-   ::surname ["Balderk"
-              "Battlehammer"
-              "Brawnanvil"
-              "Dankil"
-              "Fireforge"
-              "Frostbeard"
-              "Gorunn"
-              "Holderhek"
-              "Ironfist"
-              "Loderr"
-              "Lutgehr"
-              "Rumnaheim"
-              "Strakeln"
-              "Torunn"
-              "Ungart"]
-   ::surname-pre-1 ["Battle"
-                    "Iron"
-                    "Fire"
-                    "Brawn"
-                    "Oaken"
-                    "Stout"
-                    "Fast"
-                    "Swift"
-                    "Hard"
-                    "War"
-                    "Broad"]
-   ::surname-post-1 ["axe"
-                     "hammer"
-                     "fist"
-                     "beard"
-                     "forge"
-                     "anvil"
-                     "shield"
-                     "helm"]
-   ::surname-pre-2 ["Bal"
-                    "Bel"
-                    "Rumna"
-                    "Stra"
-                    "Un"
-                    "On"
-                    "An"
-                    "Ald"
-                    "Eld"
-                    "Aud"
-                    "Lut"
-                    "Lat"
-                    "Go"
-                    "God"
-                    "To"
-                    "Tod"]
-   ::surname-post-2 ["derk"
-                     "berk"
-                     "heim"
-                     "keln"
-                     "gart"
-                     "gert"
-                     "gehr"
-                     "gahr"
-                     "gar"
-                     "gorr"
-                     "runn"]})
+  (let [m dwarf/dwarf-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
 
+;; halfling-names original block: start-line=126 end-line=360
+;; TODO (move-first-verify): `halfling-names` moved to `src/cljc/orcpub/data/names/halfling.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
 (def halfling-names
-  {::male ["Alton"
-           "Ander"
-           "Cade"
-           "Corrin"
-           "Eldon"
-           "Errich"
-           "Finnan"
-           "Garret"
-           "Lindal"
-           "Lyre"
-           "Merric"
-           "Milo"
-           "Osborn"
-           "Perrin"
-           "Reed"
-           "Roscoe"
-           "Wellby"
-           "Aidan"
-           "Andreas"
-           "Angus"
-           "Ardal"
-           "Bevin"
-           "Clancy"
-           "Colin"
-           "Conley"
-           "Connor"
-           "Cowal"
-           "Daley"
-           "Declan"
-           "Domnall"
-           "Fergus"
-           "Fillin"
-           "Finbar"
-           "Finnegan"
-           "Finnen"
-           "Flann"
-           "Garvin"
-           "Gilroy"
-           "Keegan"
-           "Keelan"
-           "Killian"
-           "Leary"
-           "Lorcan"
-           "Mahon"
-           "Murrow"
-           "Nevan"
-           "Odran"
-           "Osheen"
-           "Paddy"
-           "Quinn"
-           "Redmund"
-           "Rowan"
-           "Seanan"
-           "Sweeney"
-           "Tierney"
-           "Roderic"
-           "Beren"
-           "Ladderic"
-           "Garreth"
-           "Finnegan"
-           "Gage"
-           "Carrow"
-           "Alderic"
-           "Darrow"
-           "Onderic"
-           "Wilrich"
-           "Wenton"
-           "Pimsire"
-           "Flyngin"
-           "Errin"
-           "Olo"
-           "Fosco"
-           "Hob"
-           "Osborn"
-           "Theadric"
-           "Sam"
-           "Willaby"]
-   ::female ["Andry"
-             "Bree"
-             "Callie"
-             "Cora"
-             "Euphemia"
-             "Jillian"
-             "Kithri"
-             "Lavinia"
-             "Lidda"
-             "Merla"
-             "Nedda"
-             "Paela"
-             "Portia"
-             "Seraphina"
-             "Shaena"
-             "Trym"
-             "Vani"
-             "Verna"
-             "Brianne"
-             "Dora"
-             "Jilly"
-             "Marla"
-             "Shanna"
-             "Shauna"
-             "Marta"
-             "Dina"
-             "Dana"
-             "Lidia"
-             "Cilia"
-             "Biddy"
-             "Bridget"
-             "Bridie"
-             "Caitlin"
-             "Darina"
-             "Delma"
-             "Devnet"
-             "Eadan"
-             "Edna"
-             "Eilis"
-             "Emer"
-             "Fidelma"
-             "Fiona"
-             "Flann"
-             "Gobnet"
-             "Keeva"
-             "Kiera"
-             "Maura"
-             "Mave"
-             "Meave"
-             "Mona"
-             "Moyna"
-             "Moyra"
-             "Nola"
-             "Nora"
-             "Orla"
-             "Patsy"
-             "Quinn"
-             "Roisin"
-             "Rowan"
-             "Shavonne"
-             "Sheila"
-             "Sile"
-             "Sinead"
-             "Tierney"
-             "Treasa"
-             "Una"
-             "Poppy"
-             "Polly"
-             "Ruby"
-             "Rose"
-             "Peony"
-             "Amaryllis"
-             "Crystal"
-             "Cora"
-             "Gilly"
-             "Lily"
-             "Iris"]
-   ::surname ["Hilltopple"
-              "Dudley"
-              "Dale"
-              "Hamson"
-              "Gardner"
-              "Gamwich"
-              "Burrows"
-              "Talbot"]
-   ::surname-pre ["Brush"
-                  "Bush"
-                  "Good"
-                  "Green"
-                  "High"
-                  "Ivy"
-                  "Sunny"
-                  "Tea"
-                  "Toss"
-                  "Over"
-                  "Under"
-                  "Thorn"
-                  "Tigh"
-                  "Heather"
-                  "Old"
-                  "Linden"
-                  "Mill"
-                  "Proud"
-                  "Stout"
-                  "Swift"
-                  "Teal"
-                  "Tressle"
-                  "Long"]
-   ::surname-post ["gather"
-                   "hill"
-                   "barrel"
-                   "bottle"
-                   "breeze"
-                   "topple"
-                   "leaf"
-                   "grass"
-                   "bough"
-                   "cobble"
-                   "darrow"
-                   "gallow"
-                   "dimple"
-                   "grove"
-                   "pot"
-                   "fern"
-                   "spoon"
-                   "gage"
-                   "field"
-                   "toe"
-                   "jay"
-                   "fur"
-                   "brook"
-                   "span"
-                   "bridge"
-                   "lark"
-                   "meadow"
-                   "wheel"
-                   "haven"
-                   "garden"
-                   "stream"
-                   "wood"
-                   "apple"
-                   "foot"
-                   "body"
-                   "finch"
-                   "swallow"
-                   "moss"
-                   "bell"
-                   "path"
-                   "seed"
-                   "heron"
-                   "morn"]})
+  (let [m halfling/halfling-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
 
 (defn name-search-match [text]
   (re-matches #".*\bname\b.*" text))
