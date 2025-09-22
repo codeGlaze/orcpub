@@ -1,9 +1,12 @@
+;; Update ns requires to include the extracted calishite data namespace.
 (ns orcpub.dnd.e5.character.random
   (:require [clojure.string :as s]
             [orcpub.data.names.turami :as turami]
             [orcpub.data.names.calishite :as calishite]
-            [orcpub.data.names.chondathan :as chondathan]))
+            [orcpub.data.names.chondathan :as chondathan]
+            [orcpub.data.names.damaran :as damaran]))
 
+;; calishite-names original block: start-line=5 end-line=236
 ;; TODO (move-first-verify): `calishite-names` moved to `src/cljc/orcpub/data/names/calishite.cljc`.
 ;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
 (def calishite-names
@@ -13,6 +16,123 @@
                  (assoc acc (keyword cur-ns (name k)) v))
                {}
                m)))
+
+;; chondathan-names original block: start-line=18 end-line=58
+;; TODO (move-first-verify): `chondathan-names` moved to `src/cljc/orcpub/data/names/chondathan.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
+(def chondathan-names
+  (let [m chondathan/chondathan-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; damaran-names original block: start-line=30 end-line=156
+;; TODO (move-first-verify): `damaran-names` moved to `src/cljc/orcpub/data/names/damaran.cljc`.
+;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
+(def damaran-names
+  (let [m damaran/damaran-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+(def turami-names
+  ;; turami data lives in a separate namespace to keep this file small.
+  ;; remap the keys from that namespace into this namespace so existing
+  ;; callers that use unqualified auto-resolved keywords (e.g. ::male)
+  ;; continue to work without changes.
+  (let [m turami/turami-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+(def shou-names
+  {::male ["An"
+          "Chen"
+          "Chi"
+          "Fai"
+          "Jiang"
+          "Jun"
+          "Lian"
+          "Long"
+          "Meng"
+          "On"
+          "Shan"
+          "Shui"
+          "Wen"
+          "Li"
+          "Ling"
+          "Sheng"
+          "Si"
+          "Song"
+          "Zhao"]
+   :pre ["Ji"
+         "Xi"
+         "J"
+         "M"
+         "Ch"
+         "Chi"
+         "Sh"
+         "Shi"
+         "L"
+         "Li"
+         "F"
+         "Fi"]
+   :post ["ang"
+          "an"
+          "eng"
+          "ong"
+          "en"
+          "on"]
+   ::surname ["Chien"
+             "Huang"
+             "Kao"
+             "Kung"
+             "Lao"
+             "Ling"
+             "Mei"
+             "Pin"
+             "Shin"
+             "Sum"
+             "Tan"
+             "Wan"
+             "Wu"
+             "Kong"
+             "Ma"
+             "Cheng"
+             "Tan"
+             "He"
+             "Hu"
+             "Mao"]
+   ::female ["Bai"
+            "Chao"
+            "Jia"
+            "Lie"
+            "Mei"
+            "Qiao"
+            "Shui"
+            "Tai"
+            "Fen"
+            "Fan"
+            "Hui"
+            "Ju"
+            "Jun"
+            "Lan"
+            "Lei"
+            "Liling"
+            "Min"
+            "Liu"
+            "Nuo"
+            "Shu"
+            "Qiu"
+            "Ting"
+            "Wei"
+             "Wen"]})
 
 (def illuskan-names
   {::male ["Ander"
@@ -1058,9 +1178,34 @@
 (defn random-sex []
   (rand-nth sexes))
 
-;; core name helpers (moved out of the big data blocks)
+(derive ::tethyrian ::chondathan)
+
 (defmulti random-name (fn [{:keys [race subrace sex]}]
                         [race subrace sex]))
+
+(defmethod random-name [::human ::calishite ::male] [_]
+  (first-last calishite-names ::male))
+
+(defmethod random-name [::human ::calishite ::female] [_]
+  (first-last calishite-names ::female))
+
+(defn chondathan-surname []
+  (str (random-item chondathan-names ::surname-pre)
+       (random-item chondathan-names ::surname-post)))
+
+(defn chondathan-male-name []
+  (str (random-item chondathan-names ::male-pre)
+       (random-item chondathan-names ::male-post)))
+
+(defmethod random-name [::human ::chondathan ::male] [_]
+  (join-names
+   (random-item chondathan-names ::male)
+   (chondathan-surname)))
+
+(defmethod random-name [::human ::chondathan ::female] [_]
+  (join-names
+   (random-item chondathan-names ::female)
+   (chondathan-surname)))
 
 (defn set-name [list type]
   (random-item list type))
@@ -1075,25 +1220,37 @@
       (set-name list type)
       (combined-name list pre-type post-type))))
 
-;; TODO (move-first-verify): `turami-names` moved to `src/cljc/orcpub/data/names/turami.cljc`.
-;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
-(def turami-names
-  (let [m turami/turami-names
-        cur-ns (str (ns-name *ns*))]
-    (reduce-kv (fn [acc k v]
-                 (assoc acc (keyword cur-ns (name k)) v))
-               {}
-               m)))
+(defmethod random-name [::human ::turami ::male] [_]
+  (join-names
+   (random-set-or-combined turami-names ::male ::male-pre ::male-post)
+   (random-set-or-combined turami-names ::surname ::surname-pre ::surname-post)))
 
-;; TODO (move-first-verify): `chondathan-names` moved to `src/cljc/orcpub/data/names/chondathan.cljc`.
-;; Keep the shim below until tests and Figwheel verification pass. After verification, remove this shim and update callers to use the new namespace directly.
-(def chondathan-names
-  (let [m chondathan/chondathan-names
-        cur-ns (str (ns-name *ns*))]
-    (reduce-kv (fn [acc k v]
-                 (assoc acc (keyword cur-ns (name k)) v))
-               {}
-               m)))
+(defmethod random-name [::human ::turami ::female] [_]
+  (join-names
+   (random-set-or-combined turami-names ::female ::female-pre ::female-post)
+   (random-set-or-combined turami-names ::surname ::surname-pre ::surname-post)))
+
+(defn shou-name [first]
+  (join-names
+   first
+   (random-set-or-combined shou-names ::surname :pre :post)))
+
+(defmethod random-name [::human ::shou ::male] [_]
+  (shou-name
+   (random-set-or-combined shou-names ::male :pre :post)))
+
+(defmethod random-name [::human ::shou ::female] [_]
+  (shou-name
+   (random-set-or-combined shou-names ::female :pre :post)))
+
+(defn damaran-name [first]
+  (join-names
+   first
+   (random-set-or-combined damaran-names ::surname ::surname-pre ::surname-post)))
+
+(defmethod random-name [::human ::damaran ::male] [_]
+  (damaran-name
+   (random-set-or-combined damaran-names ::male ::male-pre ::male-post)))
 
 (defmethod random-name [::human ::damaran ::female] [_]
   (damaran-name
