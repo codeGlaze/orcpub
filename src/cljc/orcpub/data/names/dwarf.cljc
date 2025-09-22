@@ -1,5 +1,6 @@
 ;; Extracted dwarf names from src/cljc/orcpub/dnd/e5/character/random.cljc
-(ns orcpub.data.names.dwarf)
+(ns orcpub.data.names.dwarf
+  (:require [orcpub.data.names.parts :as parts]))
 
 (def dwarf-names
   {::male ["Adrik"
@@ -162,7 +163,7 @@
               "Strakeln"
               "Torunn"
               "Ungart"]
-   ::surname-pre-1 ["Battle"
+  ::surname-pre-1 ["Battle"
                     "Iron"
                     "Fire"
                     "Brawn"
@@ -173,14 +174,25 @@
                     "Hard"
                     "War"
                     "Broad"]
-   ::surname-post-1 ["axe"
+  ::surname-post-1 ["axe"
                      "hammer"
                      "fist"
                      "beard"
                      "forge"
                      "anvil"
                      "shield"
-                     "helm"]
+           "helm"]
+  ;; Merge in shared parts: keep local items first, then add neutral pre
+  ;; parts and occupational posts. Honor per-species opt-out via ::use-parts
+  ;; (default true). Use distinct to dedupe.
+  (let [use? (get dwarf-names ::use-parts true)
+        pre1 (if use?
+               (vec (distinct (concat ::surname-pre-1 parts/neutral-pre)))
+               (vec ::surname-pre-1))
+        post1 (if use?
+                (vec (distinct (concat ::surname-post-1 parts/occupational-post)))
+                (vec ::surname-post-1))]
+    (assoc dwarf-names ::use-parts use? ::surname-pre-1 pre1 ::surname-post-1 post1)))
    ::surname-pre-2 ["Bal"
                     "Bel"
                     "Rumna"

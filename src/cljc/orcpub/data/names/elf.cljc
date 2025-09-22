@@ -1,5 +1,6 @@
 ;; Extracted elf names from src/cljc/orcpub/dnd/e5/character/random.cljc
-(ns orcpub.data.names.elf)
+(ns orcpub.data.names.elf
+  (:require [orcpub.data.names.parts :as parts]))
 
 (def elf-names
   {::male ["Adran"
@@ -160,7 +161,7 @@
               "Nailo"
               "Siannodel"
               "Xiloscient"]
-   ::surname-pre ["Mith"
+  ::surname-pre ["Mith"
                   "Ald"
                   "Tor"
                   "Eal"
@@ -180,7 +181,7 @@
                   "Tath"
                   "El"
                   "Ond"]
-   ::surname-post ["aviel"
+  ::surname-post ["aviel"
                    "amirta"
                    "osum"
                    "adhrinian"
@@ -198,4 +199,15 @@
                    "enval"
                    "irmae"
                    "athir"
-                   "olithe"]})
+           "olithe"]
+  ;; Merge in shared parts to expand surname-building pools while preserving
+  ;; local tone. Honor per-species opt-out via ::use-parts (default true).
+  ;; Local items are kept first; use distinct to avoid duplicates.
+  (let [use? (get elf-names ::use-parts true)
+        pre (if use?
+              (vec (distinct (concat ::surname-pre parts/neutral-pre parts/nature-pre parts/elemental-pre)))
+              (vec ::surname-pre))
+        post (if use?
+               (vec (distinct (concat ::surname-post parts/neutral-post parts/nature-post parts/elemental-post)))
+               (vec ::surname-post))]
+    (assoc elf-names ::use-parts use? ::surname-pre pre ::surname-post post)))

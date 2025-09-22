@@ -1,5 +1,6 @@
 ;; Extracted halfling names from src/cljc/orcpub/dnd/e5/character/random.cljc
-(ns orcpub.data.names.halfling)
+(ns orcpub.data.names.halfling
+  (:require [orcpub.data.names.parts :as parts]))
 
 (def halfling-names
   {::male ["Alton"
@@ -187,7 +188,7 @@
                   "Teal"
                   "Tressle"
                   "Long"]
-   ::surname-post ["gather"
+  ::surname-post ["gather"
                    "hill"
                    "barrel"
                    "bottle"
@@ -229,4 +230,15 @@
                    "path"
                    "seed"
                    "heron"
-                   "morn"]})
+           "morn"]
+  ;; Merge shared parts pools (neutral + nature) into local surname pre/post
+  ;; while preserving local tone. Honor per-species opt-out via ::use-parts
+  ;; (default true). Local items stay first; distinct removes duplicates.
+  (let [use? (get halfling-names ::use-parts true)
+        pre (if use?
+              (vec (distinct (concat ::surname-pre parts/neutral-pre parts/nature-pre)))
+              (vec ::surname-pre))
+        post (if use?
+               (vec (distinct (concat ::surname-post parts/neutral-post parts/nature-post)))
+               (vec ::surname-post))]
+  (assoc halfling-names ::use-parts use? ::surname-pre pre ::surname-post post)))

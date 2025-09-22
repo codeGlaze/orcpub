@@ -9,7 +9,12 @@
             [orcpub.data.names.illuskan :as illuskan]
             [orcpub.data.names.elf :as elf]
             [orcpub.data.names.dwarf :as dwarf]
-            [orcpub.data.names.halfling :as halfling]))
+            [orcpub.data.names.halfling :as halfling]
+            [orcpub.data.names.dragonborn :as dragonborn]
+            [orcpub.data.names.tiefling :as tiefling]
+            [orcpub.data.names.aasimar :as aasimar]
+            [orcpub.data.names.tabaxi :as tabaxi]
+            [orcpub.data.names.orc :as orc]))
             ; [orcpub.data.names.mulan :as mulan]))
 
 ;; calishite-names original block: start-line=5 end-line=236
@@ -141,7 +146,35 @@
 (defn first-last [list sex]
   (str (-> list sex rand-nth)
        " "
-       (-> list ::surname rand-nth)))
+       (surname-of list)))
+
+(defn surname-of [m]
+  "Return a surname for the given name-map `m`.
+  Preference order:
+  1. If `::surname-pre` and `::surname-post` exist, use `random-set-or-combined` to possibly
+     pick a full surname or assemble from parts.
+  2. If numeric pre/post pairs exist (e.g. `::surname-pre-1` / `::surname-post-1`), use those.
+  3. If `::surnames` or `::surname` exist, pick randomly from them.
+  Returns nil if no surname data is present.
+  "
+  (cond
+    (and (contains? m ::surname-pre) (contains? m ::surname-post))
+    (random-set-or-combined m ::surname ::surname-pre ::surname-post)
+
+    (and (contains? m ::surname-pre-1) (contains? m ::surname-post-1))
+    (combined-name m ::surname-pre-1 ::surname-post-1)
+
+    (and (contains? m ::surname-pre-2) (contains? m ::surname-post-2))
+    (combined-name m ::surname-pre-2 ::surname-post-2)
+
+    (contains? m ::surnames)
+    (random-item m ::surnames)
+
+    (contains? m ::surname)
+    (random-item m ::surname)
+
+    :else
+    nil))
 
 (defn join-names [first last]
   (str first " " last))
@@ -969,3 +1002,49 @@
               random-tavern-name-3
               random-tavern-name-4
               random-tavern-name-5])))
+
+;; Additional extracted name shims (move-first-verify)
+;; TODO (move-first-verify): `dragonborn-names` moved to `src/cljc/orcpub/data/names/dragonborn.cljc`.
+(def dragonborn-names
+  (let [m dragonborn/dragonborn-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; TODO (move-first-verify): `tiefling-names` moved to `src/cljc/orcpub/data/names/tiefling.cljc`.
+(def tiefling-names
+  (let [m tiefling/tiefling-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; TODO (move-first-verify): `aasimar-names` moved to `src/cljc/orcpub/data/names/aasimar.cljc`.
+(def aasimar-names
+  (let [m aasimar/aasimar-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; TODO (move-first-verify): `tabaxi-names` moved to `src/cljc/orcpub/data/names/tabaxi.cljc`.
+(def tabaxi-names
+  (let [m tabaxi/tabaxi-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
+
+;; TODO (move-first-verify): `orc-names` moved to `src/cljc/orcpub/data/names/orc.cljc`.
+(def orc-names
+  (let [m orc/orc-names
+        cur-ns (str (ns-name *ns*))]
+    (reduce-kv (fn [acc k v]
+                 (assoc acc (keyword cur-ns (name k)) v))
+               {}
+               m)))
