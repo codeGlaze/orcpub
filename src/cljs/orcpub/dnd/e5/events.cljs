@@ -2970,26 +2970,26 @@
  item-interceptors
  (fn [item [_ item-type-str]]
    (-> item
-       (assoc ::mi/type (keyword item-type-str))
+       (assoc ::mi/type (reader/read-string item-type-str))
        (dissoc ::mi/subtypes))))
 
 (reg-event-db
  ::mi/set-item-weapon-type
  item-interceptors
  (fn [item [_ item-type-str]]
-   (assoc item ::weapons/type (keyword item-type-str))))
+   (assoc item ::weapons/type (reader/read-string item-type-str))))
 
 (reg-event-db
  ::mi/set-item-damage-type
  item-interceptors
  (fn [item [_ item-type-str]]
-   (assoc item ::weapons/damage-type (keyword item-type-str))))
+   (assoc item ::weapons/damage-type (reader/read-string item-type-str))))
 
 (reg-event-db
  ::mi/set-item-melee-ranged
  item-interceptors
  (fn [item [_ item-type-str]]
-   (let [kw (keyword item-type-str)]
+   (let [kw (reader/read-string item-type-str)]
      (assoc item
             ::weapons/melee? (= kw :melee)
             ::weapons/ranged? (= kw :ranged)))))
@@ -3089,7 +3089,7 @@
  ::mi/set-item-rarity
  item-interceptors
  (fn [item [_ item-type-str]]
-   (assoc item ::mi/rarity (keyword item-type-str))))
+   (assoc item ::mi/rarity (reader/read-string item-type-str))))
 
 (reg-event-db
  ::mi/set-item-damage-bonus
@@ -3694,7 +3694,7 @@
               :ability
               ability-kw
               :type]
-             (keyword type))))
+             (reader/read-string type))))
 
 (defn set-mod-value [item mods-path mod-key value]
   (if value
@@ -3726,7 +3726,7 @@
              [::mi/internal-modifiers
               speed-type-kw
               :type]
-             (keyword mod-type))))
+             (reader/read-string mod-type))))
 
 (reg-event-db
  ::mi/set-speed-mod-value
