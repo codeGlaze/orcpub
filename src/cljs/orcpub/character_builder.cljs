@@ -148,8 +148,17 @@
         (js/console.warn "NO PREREQ_FN" (::t/name option) prereq)))
     (::t/prereqs option))))
 
+(defn ->keyword
+  "Converts a value to a keyword, handling both string and keyword inputs.
+   Strings like \":weapon\" are parsed correctly to :weapon.
+   Keywords like :weapon are returned as-is."
+  [v]
+  (if (keyword? v)
+    v
+    (reader/read-string v)))
+
 (defn set-class-fn [i options-map]
-  (fn [e] (let [new-key (reader/read-string (.. e -target -value))]
+  (fn [e] (let [new-key (->keyword (.. e -target -value))]
             (dispatch [:set-class new-key i options-map]))))
 
 (def set-class (memoize set-class-fn))
