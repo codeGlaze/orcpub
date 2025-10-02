@@ -1,0 +1,21 @@
+{
+  "name": "ClojureScript Dev",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "forwardPorts": [9630, 3000, 3449],
+  "postCreateCommand": "clojure -P && npm install || true",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "betterthantomorrow.calva",
+        "github.copilot",
+        "github.copilot-chat"
+      ]
+    }
+  },
+  "features": {},
+  "settings": {
+    "terminal.integrated.defaultProfile.linux": "bash"
+  }
+}
