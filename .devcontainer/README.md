@@ -1,26 +1,20 @@
-# Codespace Devcontainer for Orcpub (ClojureScript)
+# Orcpub Codespace Devcontainer
 
-## Quick Start in Codespaces
+This Codespace is designed for Clojure/ClojureScript development using Leiningen and Figwheel.
+
+## How to Use
 
 1. Open this repo in GitHub Codespaces.
-2. Wait for setup to finish (Java, Clojure, Node, shadow-cljs, Calva, Copilot preinstalled).
-3. Run your dev server (e.g.):
+2. Wait for the container to build and dependencies to download.
+3. **To start the hot-reloading dev server:**
    ```
-   npx shadow-cljs watch app
+   lein figwheel
    ```
-   or (if using Figwheel):
-   ```
-   clojure -A:fig:build
-   ```
-4. Open forwarded port (likely 9630, 3449, or 3000) in the Codespaces browser tab.
+   - The site will be available at https://`<your-codespace>`-8890.githubpreview.dev
+   - Figwheel websocket port 3449 and nREPL 7888 are forwarded for REPL tooling.
+4. Use Calva (VS Code extension) to jack-in to nREPL if you want interactive REPL or in-browser eval.
 
-## Features
+## Notes
 
-- Clojure, ClojureScript, Java, Node.js
-- Calva, Copilot, and Copilot Chat VS Code extensions
-- Hot reloading and live REPLs for ClojureScript web apps
-
-## Troubleshooting
-
-- If you use a different build tool (Leiningen, Figwheel), adjust the Dockerfile and postCreateCommand.
-- Add more ports to forward as needed in `devcontainer.json`.
+- Ports 8890, 3449, and 7888 are pre-forwarded for Figwheel and nREPL.
+- If you use another Leiningen alias for dev, adjust `lein figwheel` accordingly.- Add more ports to forward as needed in `devcontainer.json`.
