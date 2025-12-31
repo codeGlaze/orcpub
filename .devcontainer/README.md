@@ -30,3 +30,21 @@ This Codespace is designed for Clojure/ClojureScript development using Leiningen
   - Examples:
     - `bash ./scripts/dev-setup.sh --no-start` (recommended for `postCreateCommand`)
     - `bash ./scripts/dev-setup.sh --start` (also starts the backend & figwheel in the background)
+
+- Monitoring options (tmux vs VS Code Tasks):
+  - **tmux (recommended for terminal users / remote shells)**
+    - Run `bash ./scripts/dev-monitor.sh` to open a tmux session with windows for the server, Figwheel, REPL, and combined logs.
+    - Pros: single place to see everything, works in plain terminals, detachable (`Ctrl-b d`).
+    - Cons: requires `tmux` (installed in the devcontainer Dockerfile) and some familiarity with tmux navigation.
+  - **VS Code Tasks (recommended for GUI/editor users)**
+    - Use Command Palette → Tasks: Run Task → choose tasks like **Dev: Start Figwheel**, **Dev: Tail Figwheel Log**, etc. The tasks open dedicated terminals in the editor.
+    - Pros: editor-native, easy to run/stop, good for less terminal-savvy contributors.
+    - Cons: requires VS Code / Codespaces UI and task configuration.
+
+  **When to pick which:**
+  - Use **tmux** if you prefer full-screen terminal monitoring, detaching/re-attaching sessions, or when working over SSH/Codespaces terminals.
+  - Use **VS Code Tasks** if you want editor-integrated terminals with buttons and easy task execution.
+
+  Additions:
+  - `Makefile` target `dev-monitor` runs the tmux monitor script.
+  - `tmux` is installed in the devcontainer so `dev-monitor` works inside Codespaces after rebuilding the container.

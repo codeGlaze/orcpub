@@ -1,0 +1,40 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev: Start Server",
+      "type": "shell",
+      "command": "lein with-profile +start-server repl",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Start Figwheel",
+      "type": "shell",
+      "command": "lein figwheel",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Start REPL",
+      "type": "shell",
+      "command": "lein repl",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Tail Server Log",
+      "type": "shell",
+      "command": "bash -lc 'tail -F /tmp/orcpub-server.log'",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Tail Figwheel Log",
+      "type": "shell",
+      "command": "bash -lc 'tail -F /tmp/figwheel.log'",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    }
+  ]
+}

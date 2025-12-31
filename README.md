@@ -293,6 +293,13 @@ To start REPL with VS Code:
   * you can also just add that to a `.ps1` file inside your project for easier reference eg. `run-datomic ps1`
 * THEN jack-in using the `Leiningen + Legacy Figwheel`, `figwheel-native`, and select the `:dev` and optionally `:start-server`
 
+Monitoring: You can monitor the dev processes in two ways:
+
+- tmux (terminal): `bash ./scripts/dev-monitor.sh` opens a tmux session with windows for the server, Figwheel, REPL and combined logs. Use `make dev-monitor` as a shortcut. This is recommended for terminal-first workflows or remote sessions.
+- VS Code Tasks (editor): Open Command Palette → Tasks: Run Task and choose "Dev: Start Figwheel" or "Dev: Tail Figwheel Log". Tasks open dedicated terminals inside the editor and are more approachable for GUI users.
+
+See `.devcontainer/README.md` for more details on when to pick which option and how to use them.
+
 ### REPL
 
 Once you have a REPL, you can run this from within it to create the database, transact the database schema, and start the server:

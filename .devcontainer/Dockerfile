@@ -2,7 +2,7 @@ FROM clojure:openjdk-11-lein
 
 # Install useful dev tools
 RUN apt-get update \
- && apt-get install -y --no-install-recommends rlwrap git curl \
+ && apt-get install -y --no-install-recommends rlwrap git curl tmux \
  && rm -rf /var/lib/apt/lists/*
 
 # Install Leiningen so `lein` is available for LSP and project tasks
