@@ -1,7 +1,8 @@
 {
   "name": "ClojureScript Lein-Figwheel Dev",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "context": ".."
   },
   "forwardPorts": [8890, 3449, 7888],
   "postCreateCommand": "lein deps",
