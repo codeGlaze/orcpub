@@ -17,4 +17,16 @@ This Codespace is designed for Clojure/ClojureScript development using Leiningen
 ## Notes
 
 - Ports 8890, 3449, and 7888 are pre-forwarded for Figwheel and nREPL.
-- If you use another Leiningen alias for dev, adjust `lein figwheel` accordingly.- Add more ports to forward as needed in `devcontainer.json`.
+- If you use another Leiningen alias for dev, adjust `lein figwheel` accordingly.
+- Add more ports to forward as needed in `devcontainer.json`.
+
+### Devcontainer build details
+
+- Build context: `devcontainer.json` sets `"build": { "context": ".." }` so the Docker build runs from the repository root; this is required so the Dockerfile can `COPY project.clj` and other repo files during the image build.
+- Leiningen: The Dockerfile now installs Leiningen and runs it once so `lein` is available for editor/LSP tasks (e.g., `lein with-profile +test,+dev classpath`). After changes to the devcontainer, rebuild the container (`Dev Containers: Rebuild Container`) to pick up the change.
+- Apt install uses `--no-install-recommends` and clears `apt` lists to avoid pulling unnecessary recommended packages (e.g., `python3`) and to keep the image small.
+- Vendored snapshot: This project vendors `org.apache.pdfbox:pdfbox:2.1.0-SNAPSHOT` in `lib/` because the vendor no longer publishes that snapshot. The Dockerfile copies `lib/` into the image before running `lein deps`, and CI copies `lib/` into `~/.m2/repository` to make the artifact available during builds and tests.
+- Dev setup helper: Use `./scripts/dev-setup.sh` to perform idempotent setup (start datomic, wait for it, run `lein deps`, and run the idempotent DB init).
+  - Examples:
+    - `bash ./scripts/dev-setup.sh --no-start` (recommended for `postCreateCommand`)
+    - `bash ./scripts/dev-setup.sh --start` (also starts the backend & figwheel in the background)
