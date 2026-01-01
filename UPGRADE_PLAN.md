@@ -93,10 +93,43 @@ This document describes a proposed, incremental plan to modernize the project's 
 
 ---
 
-## Next steps (my plan)
-1. Run the dependency audit and collect `lein deps :tree`, `lein test`, and `npm outdated` outputs and add the findings to this document.
-2. Create the upgrade branch and begin with high-priority security upgrades.
+## Audit results (static)
+
+**Note:** I attempted to run `lein deps :tree`, `lein test`, and other live commands, but the environment here prevented running those commands. Below are *static audit* findings derived from `project.clj` and `package.json` (direct dependencies) and actionable recommendations. If you'd like me to run the live commands in CI or your dev container, say “allow live audit” and I will run them and append the actual outputs.
+
+| Dependency | Current version | Recommendation | Risk / Notes |
+|---|---:|---|---|
+| org.clojure/clojure | 1.10.0 | Upgrade to Clojure **1.11.x** (or latest 1.10/1.11 stable) | Minor-to-moderate; run tests and fix any deprecations.
+| org.clojure/clojurescript | 1.10.439 | Upgrade to **1.10.x (latest)** or **1.11.x**; test CLJS build | CLJS compiler changes may require small code tweaks.
+| reagent | 0.7.0 | Move to **Reagent 1.x** (modern React interop) | Breaking: Reagent 1 uses modern React APIs; replace `cljsjs` React with npm React.
+| re-frame | 0.10.9 | Upgrade to latest 1.x line incrementally | Review breaking API changes in re-frame change logs.
+| cljsjs/react, cljsjs/react-dom | 16.6.0 | Replace with npm-managed **react/react-dom (React 18)** and use Shadow-CLJS or cljsdeps integration | Will simplify dependency management and enable upgrades.
+| io.pedestal/pedestal.* | 0.5.1 | Upgrade to latest 0.5.x (or newer) | API changes possible; run integration tests.
+| com.fasterxml.jackson.core/jackson-databind | 2.11.1 | Upgrade to **2.14+ / 2.15+** to address CVEs | Security priority — do early.
+| com.google.guava/guava | 21.0 | Upgrade to **30.x / 31.x+** | Security and bug fixes; ensure binary compatibility.
+| buddy/buddy-auth, buddy-hashers | 1.x | Upgrade to **2.x** if available; check auth API changes | Test authentication behavior after upgrade.
+| clj-time | 0.15.0 | Migrate to `java-time` / `clojure.java-time` or `tick` | Joda Time is legacy; migration will touch date/time code.
+| com.datomic/datomic-free | 0.9.5697 | Consider Datomic compatibility with JDK 17/21; plan migration if needed | Datomic Free is old; evaluate maintaining vs migrating to other DBs.
+| lein-figwheel, lein-cljsbuild | older versions | Consider moving to **Figwheel Main** or **Shadow-CLJS** for modern workflows | Shadow-CLJS enables easy npm interop and faster dev UX.
+| package.json deps (expo, react 16 alpha) | react 16.0.0-alpha.6, expo ^17 | Update RN / React/Expo to current, or remove if not used by CLJS workflow | Verify if package.json is actually used; fix outdated React version.
+
+**Immediate priorities**
+1. Upgrade Jackson and Guava (security) — small PRs that prioritize CI runs.
+2. Upgrade core Clojure and Pedestal in separate PRs, run full test suite.
+3. Plan frontend migration: replace `cljsjs` React with npm React, evaluate Shadow-CLJS migration.
+4. Plan `clj-time` migration to `java-time` in a follow-up PR.
 
 ---
 
-If you want, I can proceed to run the audit now and append concrete version suggestions to this file. Reply with “start audit” to continue. ✅
+## Next steps (my plan)
+1. Run the live dependency audit and tests (if you say “allow live audit”) and append concrete outputs to this document.
+2. Create the upgrade branch and begin with high-priority security upgrades.
+3. CI workflow added: `.github/workflows/dependency-audit.yml` was created to run audits on PRs and manually (workflow_dispatch). Artifacts (deps tree, tests, lint, npm outdated) are uploaded for review.
+
+---
+
+If you want to proceed now, reply with:
+- **"allow live audit"** — I will run `lein deps :tree`, `lein test`, `lein lint`, and `npm outdated` and append outputs and suggested version pins; or
+- **"start upgrades"** — I will open branch `upgrade/deps-$(date +%F)` and prepare the first PR to bump Jackson/Guava.
+
+
