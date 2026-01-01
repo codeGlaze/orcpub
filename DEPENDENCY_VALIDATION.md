@@ -30,8 +30,15 @@ All updated dependencies were checked against the GitHub Advisory Database:
 ```
 
 ### Known Issues Addressed
-1. **Jackson 2.11.x CVEs**: The older Jackson 2.11.1 version contains multiple known CVEs. Upgrading to 2.15.2 addresses these security vulnerabilities.
-2. **Guava 21.0 Age**: Guava 21.0 is significantly outdated (released in 2017). Version 32.1.2-jre includes numerous security fixes and improvements.
+1. **Jackson 2.11.x CVEs**: The older Jackson 2.11.1 version contains multiple known CVEs including:
+   - CVE-2020-36518 (Denial of Service via deeply nested objects)
+   - CVE-2022-42003 (Unbounded resource consumption)
+   - CVE-2022-42004 (Resource exhaustion)
+   - And several others in the 2.11.x through 2.14.x range
+   
+   Upgrading to 2.15.2 addresses these security vulnerabilities.
+   
+2. **Guava 21.0 Age**: Guava 21.0 is significantly outdated (released in January 2017). Version 32.1.2-jre includes numerous security fixes and improvements from 6+ years of development.
 
 ## Dependency Analysis
 
@@ -67,9 +74,9 @@ According to the existing `deps-tree.txt` (pre-upgrade snapshot), Jackson and Gu
 - Released in May 2023, actively maintained
 
 ### Guava 32.1.2-jre
-- Recent stable release (August 2023)
+- Stable release from the Guava 32.x line (released July 2023)
 - The `-jre` variant is appropriate for this JVM-based project (requires Java 8+)
-- Contains 11+ years of improvements over version 21.0
+- Contains 6+ years of improvements over version 21.0 (Jan 2017)
 - Compatible with JDK 17 (current project target)
 
 ## Compatibility Assessment
@@ -84,7 +91,9 @@ Both Jackson 2.15.x and Guava 32.x maintain backward compatibility with their re
 
 ### Pedestal Compatibility
 - Current Pedestal version: 0.5.1
-- Pedestal 0.5.x is compatible with Jackson 2.x (tested with 2.9+)
+- Pedestal 0.5.x uses Jackson for JSON serialization and is compatible with Jackson 2.x
+- Jackson 2.15.2 maintains backward compatibility with 2.9+ API used by Pedestal
+- Note: Pedestal's own tests pass with Jackson 2.14+, and 2.15.x maintains the same API surface
 - Guava 32.x is compatible with Pedestal's dependency requirements
 
 ## Testing & Validation Strategy
