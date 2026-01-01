@@ -67,8 +67,17 @@ jobs:
 
       - name: Create summary
         run: |
-          echo "Dependency audit finished. Artifacts: deps-tree.txt, test-results.txt, lint-results.txt, npm-outdated.json, ncu.json" > summary.txt
+          echo "Dependency audit finished. Artifacts: deps-tree.txt, test-results.txt, lint-results.txt, npm-outdated.json, ncu.json, tooling-check.txt" > summary.txt
           cat summary.txt >> audit-summary.txt
+
+      - name: Tooling check artifact
+        run: |
+          mkdir -p audit || true
+          echo "Tooling check - $(date)" > audit/tooling-check.txt
+          java -version 2>&1 | sed -n '1,5p' >> audit/tooling-check.txt || true
+          lein -v 2>&1 | sed -n '1,5p' >> audit/tooling-check.txt || true
+          node -v >> audit/tooling-check.txt || true
+          npm -v >> audit/tooling-check.txt || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -81,6 +90,7 @@ jobs:
             lint-results.txt
             npm-outdated.json
             ncu.json
+            audit/tooling-check.txt
 
       - name: Post short summary to PR
         if: github.event_name == 'pull_request'
@@ -96,6 +106,6 @@ jobs:
       - name: Write job summary
         run: |
           echo "## Dependency Audit Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Artifacts: deps-tree.txt, test-results.txt, lint-results.txt, npm-outdated.json, ncu.json" >> $GITHUB_STEP_SUMMARY
+          echo "Artifacts: deps-tree.txt, test-results.txt, lint-results.txt, npm-outdated.json, ncu.json, tooling-check.txt" >> $GITHUB_STEP_SUMMARY
 
     timeout-minutes: 30
