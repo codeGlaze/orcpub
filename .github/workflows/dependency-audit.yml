@@ -5,10 +5,6 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
-permissions:
-  contents: read
-  pull-requests: write
-
 jobs:
   audit:
     name: Run dependency & test audit
@@ -36,40 +32,38 @@ jobs:
 
       - name: Environment info
         run: |
-          echo "=== Java Version ===" | tee audit-summary.txt
-          java -version 2>&1 | tee -a audit-summary.txt
-          echo "" | tee -a audit-summary.txt
-          echo "=== Leiningen Version ===" | tee -a audit-summary.txt
-          lein -v | tee -a audit-summary.txt
-          echo "" | tee -a audit-summary.txt
-          echo "=== Node Version ===" | tee -a audit-summary.txt
-          node -v | tee -a audit-summary.txt
-          echo "" | tee -a audit-summary.txt
-          echo "=== NPM Version ===" | tee -a audit-summary.txt
-          npm -v | tee -a audit-summary.txt
+          echo "## Environment" > audit-summary.txt
+          java -version 2>&1 | sed -n '1,3p' >> audit-summary.txt || true
+          lein -v 2>&1 | sed -n '1,3p' >> audit-summary.txt || true
+          node -v >> audit-summary.txt || true
+          npm -v >> audit-summary.txt || true
 
       - name: Capture dependency tree
         run: |
-          lein deps :tree | tee deps-tree.txt
+          echo "## Lein deps :tree" > deps-tree.txt
+          lein deps :tree 2>&1 | sed -n '1,4000p' >> deps-tree.txt || true
 
       - name: Run tests
         run: |
-          lein test | tee test-results.txt
+          echo "## Lein test" > test-results.txt
+          lein test 2>&1 | sed -n '1,4000p' >> test-results.txt || true
 
       - name: Run lint
         run: |
-          lein lint | tee lint-results.txt
+          echo "## Lein lint" > lint-results.txt
+          lein lint 2>&1 | sed -n '1,4000p' >> lint-results.txt || true
 
-      - name: NPM outdated (informational)
-        continue-on-error: true
+      - name: NPM outdated
         run: |
-          npm outdated --json | tee npm-outdated.json || true
+          npm --version || true
+          echo "## npm outdated" > npm-outdated.json
+          npm outdated --json > npm-outdated.json || true
+          echo "" >> npm-outdated.json || true
 
-      - name: NPM-check-updates (informational)
-        continue-on-error: true
+      - name: NPM-check-updates (ncu)
         run: |
-          npm i -g npm-check-updates --silent
-          npx npm-check-updates --packageFile package.json --jsonUpgraded | tee ncu.json || true
+          npm i -g npm-check-updates --silent || true
+          npx npm-check-updates --packageFile package.json --jsonUpgraded > ncu.json || true
 
       - name: Create summary
         run: |
