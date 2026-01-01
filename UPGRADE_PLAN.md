@@ -152,7 +152,7 @@ I inspected the `deps-tree.txt` output you provided and prioritized likely secur
 
 ---
 
-Would you like me to open the PR `upgrade/security-jackson-guava` now and push the change, or would you rather review recommended target versions first? (Reply with **"open PR"** or **"show versions first"**.)
+Would you like me to open the PR `upgrade/security-jackson-guava` now (pins: `jackson-databind` **2.15.2**, `jackson-core` **2.15.2**, `jackson-annotations` **2.15.2**, `guava` **32.1.2-jre**) and push the change, or would you rather review different target versions first? (Reply with **"open PR"** or **"show versions first"**.)
 
 ## Next steps (my plan)
 1. Run the live dependency audit and tests (if you say “allow live audit”) and append concrete outputs to this document.
