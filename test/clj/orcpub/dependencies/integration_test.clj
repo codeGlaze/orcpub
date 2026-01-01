@@ -1,4 +1,4 @@
-(ns orcpub.dependency-integration-test
+(ns orcpub.dependencies.integration-test
   "Integration tests to validate Jackson 2.15.2 and Guava 32.1.2-jre upgrades.
    Tests actual runtime behavior of upgraded dependencies."
   (:require [clojure.test :refer :all]
