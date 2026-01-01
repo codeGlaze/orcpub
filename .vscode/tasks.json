@@ -23,6 +23,20 @@
       "problemMatcher": []
     },
     {
+      "label": "Dev: Start Local Datomic",
+      "type": "shell",
+      "command": "bash -lc './scripts/start-datomic-local.sh'",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Init DB",
+      "type": "shell",
+      "command": "bash -lc 'lein run -m orcpub.dev-init'",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
       "label": "Dev: Tail Server Log",
       "type": "shell",
       "command": "bash -lc 'tail -F /tmp/orcpub-server.log'",

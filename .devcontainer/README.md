@@ -47,4 +47,15 @@ This Codespace is designed for Clojure/ClojureScript development using Leiningen
 
   Additions:
   - `Makefile` target `dev-monitor` runs the tmux monitor script.
-  - `tmux` is installed in the devcontainer so `dev-monitor` works inside Codespaces after rebuilding the container.
+  - `tmux`, `make`, and `git-lfs` are installed in the devcontainer so `dev-monitor` and `make` targets work inside Codespaces after rebuilding the container. The image also runs `git lfs install --system` during build so LFS files are available to the workspace.
+- On container creation, the `postCreateCommand` runs `bash ./scripts/dev-verify.sh` which executes the idempotent setup (`scripts/dev-setup.sh --no-start`) and verifies presence of `make`, `git-lfs`, `tmux`, and `lein` (prints diagnostics but does not fail the build).
+
+- Starting Datomic without Docker (optional):
+  - The repository includes the Datomic Free tarball under `lib/datomic-free-0.9.5703.tar.gz`.
+  - To start a local transactor inside your Codespace/devcontainer without Docker run:
+    - `bash ./scripts/start-datomic-local.sh` (creates `.datomic/`, prepares transactor.properties, starts transactor, waits for port 4334)
+  - To stop the local transactor run:
+    - `bash ./scripts/stop-datomic-local.sh` or `make datomic-stop`
+  - To prefer local Datomic when using `dev-setup`, run:
+    - `bash ./scripts/dev-setup.sh --no-start --local-datomic`
+  - Use `make datomic-start` / `make datomic-stop` as convenient aliases.

@@ -2,8 +2,11 @@ FROM clojure:openjdk-11-lein
 
 # Install useful dev tools
 RUN apt-get update \
- && apt-get install -y --no-install-recommends rlwrap git curl tmux \
+ && apt-get install -y --no-install-recommends rlwrap git curl tmux make git-lfs \
  && rm -rf /var/lib/apt/lists/*
+
+# Ensure git-lfs is configured system-wide so LFS files are available in Codespaces
+RUN git lfs install --system || true
 
 # Install Leiningen so `lein` is available for LSP and project tasks
 RUN curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein \

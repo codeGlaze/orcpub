@@ -28,9 +28,14 @@ done
 
 echo "Dev setup: NO_START=$NO_START SKIP_DATOMIC=$SKIP_DATOMIC START=$START"
 
-# Start Datomic transactor if requested and docker-compose is available
+# Start Datomic transactor if requested
 if [ "$SKIP_DATOMIC" = false ]; then
-  if command -v docker-compose >/dev/null 2>&1; then
+  if [ "$USE_LOCAL_DATOMIC" = true ]; then
+    echo "Starting Datomic transactor locally (using bundled datomic tar)..."
+    bash ./scripts/start-datomic-local.sh || {
+      echo "Local Datomic start failed; continuing but DB init may be skipped." >&2
+    }
+  elif command -v docker-compose >/dev/null 2>&1; then
     echo "Starting Datomic transactor via docker-compose..."
     docker-compose up -d datomic || true
 
@@ -44,7 +49,7 @@ if [ "$SKIP_DATOMIC" = false ]; then
       echo "Waiting for Datomic... ($i/60)"
     done
   else
-    echo "docker-compose not found; skipping starting Datomic. If you need a local transactor, run it manually or set SKIP_DATOMIC=false when Docker is available."
+    echo "No docker-compose found; to auto-start Datomic use --local-datomic or start a transactor manually."
   fi
 else
   echo "Skipping Datomic startup as requested."

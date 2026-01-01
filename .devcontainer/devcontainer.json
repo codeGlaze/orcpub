@@ -5,7 +5,7 @@
     "context": ".."
   },
   "forwardPorts": [8890, 3449, 7888],
-  "postCreateCommand": "bash ./scripts/dev-setup.sh --no-start",
+  "postCreateCommand": "bash ./scripts/dev-verify.sh",
   "customizations": {
     "vscode": {
       "extensions": [

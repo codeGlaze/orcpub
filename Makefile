@@ -11,5 +11,12 @@ dev-start:
 dev-monitor:
 	bash ./scripts/dev-monitor.sh
 
+# Start local bundled Datomic (no Docker)
+datomic-start:
+	bash ./scripts/start-datomic-local.sh || true
+
+datomic-stop:
+	bash ./scripts/stop-datomic-local.sh || true
+
 dev-stop:
 	docker-compose down || true
