@@ -36,38 +36,40 @@ jobs:
 
       - name: Environment info
         run: |
-          echo "## Environment" > audit-summary.txt
-          java -version 2>&1 | sed -n '1,3p' >> audit-summary.txt || true
-          lein -v 2>&1 | sed -n '1,3p' >> audit-summary.txt || true
-          node -v >> audit-summary.txt || true
-          npm -v >> audit-summary.txt || true
+          echo "=== Java Version ===" | tee audit-summary.txt
+          java -version 2>&1 | tee -a audit-summary.txt
+          echo "" | tee -a audit-summary.txt
+          echo "=== Leiningen Version ===" | tee -a audit-summary.txt
+          lein -v | tee -a audit-summary.txt
+          echo "" | tee -a audit-summary.txt
+          echo "=== Node Version ===" | tee -a audit-summary.txt
+          node -v | tee -a audit-summary.txt
+          echo "" | tee -a audit-summary.txt
+          echo "=== NPM Version ===" | tee -a audit-summary.txt
+          npm -v | tee -a audit-summary.txt
 
       - name: Capture dependency tree
         run: |
-          echo "## Lein deps :tree" > deps-tree.txt
-          lein deps :tree 2>&1 | sed -n '1,4000p' >> deps-tree.txt || true
+          lein deps :tree | tee deps-tree.txt
 
       - name: Run tests
         run: |
-          echo "## Lein test" > test-results.txt
-          lein test 2>&1 | sed -n '1,4000p' >> test-results.txt || true
+          lein test | tee test-results.txt
 
       - name: Run lint
         run: |
-          echo "## Lein lint" > lint-results.txt
-          lein lint 2>&1 | sed -n '1,4000p' >> lint-results.txt || true
+          lein lint | tee lint-results.txt
 
-      - name: NPM outdated
+      - name: NPM outdated (informational)
+        continue-on-error: true
         run: |
-          npm --version || true
-          echo "## npm outdated" > npm-outdated.json
-          npm outdated --json > npm-outdated.json || true
-          echo "" >> npm-outdated.json || true
+          npm outdated --json | tee npm-outdated.json || true
 
-      - name: NPM-check-updates (ncu)
+      - name: NPM-check-updates (informational)
+        continue-on-error: true
         run: |
-          npm i -g npm-check-updates --silent || true
-          npx npm-check-updates --packageFile package.json --jsonUpgraded > ncu.json || true
+          npm i -g npm-check-updates --silent
+          npx npm-check-updates --packageFile package.json --jsonUpgraded | tee ncu.json || true
 
       - name: Create summary
         run: |
