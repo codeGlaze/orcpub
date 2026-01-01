@@ -41,3 +41,7 @@ deploy/homebrew/*
 
 # Datomic local files
 /.datomic/
+
+# Local audit outputs
+/audit/
+Connection to server got closed. Server will not be restarted.

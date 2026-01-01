@@ -121,15 +121,57 @@ This document describes a proposed, incremental plan to modernize the project's 
 
 ---
 
+## Audit results (live — deps tree)
+
+I inspected the `deps-tree.txt` output you provided and prioritized likely security and compatibility issues below (direct and notable transitive versions found):
+
+- **com.fasterxml.jackson.core/jackson-databind 2.11.1** — outdated and known to have multiple CVEs in older lines; **recommend pinning to 2.15.x (or latest stable 2.15/2.16+)** and add an explicit dependency override in `project.clj` to ensure transitive libs use the safe version.
+
+- **com.google.guava/guava 21.0** — old; **recommend upgrading to >= 30.1.x or the latest stable 31/32+** to pick up security and bug fixes. Verify binary compatibility with any code using Guava APIs.
+
+- **org.h2database/h2 1.3.171** (transitive via Datomic) — very old; upgrade to a modern 1.4.x/2.x line if you directly depend on H2, or accept Datomic's internal use if not used directly.
+
+- **org.eclipse.jetty 9.3.8.v20160314** (via pedestal.jetty) — old Jetty versions may lack HTTP/2 and have security fixes in newer 9.4.x or 11.x lines; test Pedestal upgrades carefully.
+
+- **io.pedestal/pedestal.* 0.5.1** — older Pedestal; plan an incremental upgrade and run integration tests since there may be breaking changes in interceptors or HTTP pipeline behavior.
+
+- **reagent 0.7.0**, **re-frame 0.10.9**, **cljsjs/react 16.6.0** — frontend stack is old; recommend moving React to an npm-managed React (React 18+), upgrade Reagent to 1.x and re-frame incrementally, and consider Shadow-CLJS for smoother npm interop.
+
+- **com.datomic/datomic-free 0.9.5697** — legacy Datomic Free; verify compatibility with target JDK (17/21) and consider if migration to a supported DB or Datomic Cloud is needed in the medium term.
+
+- Several transitive deps show dated versions (commons-logging, commons-codec, tomcat, etc.). After bumping Jackson & Guava, run `lein deps :tree` again and a CVE scanner to find remaining risky transitive versions.
+
+---
+
+## Concrete next steps I can take now
+1. Create a small branch `upgrade/security-jackson-guava` and open a PR that:
+   - Adds an explicit dependency override/pin for `com.fasterxml.jackson.core/jackson-databind` to `2.15.x` (or latest stable), and updates `com.google.guava/guava` to `31.x` or later.
+   - Runs CI (the `dependency-audit` workflow will post artifacts) and fixes any immediate failures.
+2. Add Dependabot configuration (`.github/dependabot.yml`) and/or a CI CVE scan job to continuously track vulnerabilities.
+3. After the PR lands, re-run the dependency audit to gather updated `deps-tree` and repeat for the next-highest-risk libs (Pedestal, Reagent, etc.).
+
+---
+
+Would you like me to open the PR `upgrade/security-jackson-guava` now and push the change, or would you rather review recommended target versions first? (Reply with **"open PR"** or **"show versions first"**.)
+
 ## Next steps (my plan)
 1. Run the live dependency audit and tests (if you say “allow live audit”) and append concrete outputs to this document.
 2. Create the upgrade branch and begin with high-priority security upgrades.
 3. CI workflow added: `.github/workflows/dependency-audit.yml` was created to run audits on PRs and manually (workflow_dispatch). Artifacts (deps tree, tests, lint, npm outdated) are uploaded for review.
+4. Local audit script: `scripts/run-dependency-audit.sh` added to run the audit locally and save outputs to `./audit/`. Add execute permission and run with `./scripts/run-dependency-audit.sh`.
 
 ---
 
 If you want to proceed now, reply with:
 - **"allow live audit"** — I will run `lein deps :tree`, `lein test`, `lein lint`, and `npm outdated` and append outputs and suggested version pins; or
 - **"start upgrades"** — I will open branch `upgrade/deps-$(date +%F)` and prepare the first PR to bump Jackson/Guava.
+
+---
+
+How to run the script locally:
+
+1. Make it executable: `chmod +x scripts/run-dependency-audit.sh`
+2. Run: `./scripts/run-dependency-audit.sh`
+3. Upload or attach the `audit/` folder to the PR for review (or `git add audit/ && git commit -m "chore(audit): add audit output"` if you want to include temporary outputs for discussion).
 
 
