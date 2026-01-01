@@ -30,12 +30,20 @@ if [ ! -f "$TRANS_PROPERTIES_PATH" ]; then
   exit 2
 fi
 
-# Prepare transactor properties
-cp "$TRANS_PROPERTIES_PATH" "$TRANS_COPY"
-# configure sensible defaults for development
-sed -i "s/# data-dir=data/data-dir=./data/" "$TRANS_COPY"
-sed -i "s/# log-dir=log/log-dir=./log/" "$TRANS_COPY"
-sed -i "s/host=localhost/host=0.0.0.0/" "$TRANS_COPY"
+# Prepare transactor properties using an absolute path so the transactor (which cd's into its bin/..) can locate it reliably
+TRANS_COPY_ABS="$(cd "$DATOMIC_DIR" && pwd)/transactor.properties"
+cp "$TRANS_PROPERTIES_PATH" "$TRANS_COPY_ABS"
+# configure sensible defaults for development (use portable sed with alternate delimiter and create a backup then remove it)
+sed -i.bak "s|# data-dir=data|data-dir=./data|" "$TRANS_COPY_ABS" && rm -f "$TRANS_COPY_ABS.bak"
+sed -i.bak "s|# log-dir=log|log-dir=./log|" "$TRANS_COPY_ABS" && rm -f "$TRANS_COPY_ABS.bak"
+sed -i.bak "s|host=localhost|host=0.0.0.0|" "$TRANS_COPY_ABS" && rm -f "$TRANS_COPY_ABS.bak"
+# disable encrypted transport for local dev to avoid SSL handshake requirements
+# Template usually has '# encrypt-channel=true' commented out; replace/comment accordingly
+sed -i.bak "s|# encrypt-channel=true|encrypt-channel=false|" "$TRANS_COPY_ABS" && rm -f "$TRANS_COPY_ABS.bak"
+# If the property wasn't present at all, append it for clarity
+if ! grep -q "^encrypt-channel=" "$TRANS_COPY_ABS"; then
+  printf "\n# Disable SSL for local development\nencrypt-channel=false\n" >> "$TRANS_COPY_ABS"
+fi
 
 # Make sure data/log dirs exist
 mkdir -p "$DATOMIC_DIR/data" "$DATOMIC_DIR/log"
@@ -47,8 +55,10 @@ if [ -f "$PIDFILE" ] && kill -0 "$(cat $PIDFILE)" 2>/dev/null; then
 fi
 
 echo "Starting Datomic transactor (logs: $TRANSACTOR_LOG)..."
-# Start in background
-nohup "$DATOMIC_DIR/bin/transactor" "$TRANS_COPY" > "$TRANSACTOR_LOG" 2>&1 &
+# Note which properties file we'll be using
+echo "Using transactor properties: $TRANS_COPY_ABS"
+# Start in background; pass the absolute path to the transactor properties so it is found regardless of transactor's CWD
+nohup "$DATOMIC_DIR/bin/transactor" "$TRANS_COPY_ABS" > "$TRANSACTOR_LOG" 2>&1 &
 TRANS_PID=$!
 
 # write pid

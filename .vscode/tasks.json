@@ -49,6 +49,20 @@
       "command": "bash -lc 'tail -F /tmp/figwheel.log'",
       "presentation": { "panel": "dedicated", "reveal": "always" },
       "problemMatcher": []
+    },
+    {
+      "label": "Dev: Tail Datomic Log",
+      "type": "shell",
+      "command": "bash -lc 'tail -F /tmp/datomic-transactor.log'",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Open Interactive Menu",
+      "type": "shell",
+      "command": "bash -lc 'bash ./scripts/dev-menu.sh'",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
     }
   ]
 }

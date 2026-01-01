@@ -38,3 +38,6 @@ deploy/homebrew/*
 
 # As created by some LSP-protocol tooling, e.g. nvim-lsp
 .lsp
+
+# Datomic local files
+/.datomic/

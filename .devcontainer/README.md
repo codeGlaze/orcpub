@@ -26,6 +26,7 @@ This Codespace is designed for Clojure/ClojureScript development using Leiningen
 - Leiningen: The Dockerfile now installs Leiningen and runs it once so `lein` is available for editor/LSP tasks (e.g., `lein with-profile +test,+dev classpath`). After changes to the devcontainer, rebuild the container (`Dev Containers: Rebuild Container`) to pick up the change.
 - Apt install uses `--no-install-recommends` and clears `apt` lists to avoid pulling unnecessary recommended packages (e.g., `python3`) and to keep the image small.
 - Vendored snapshot: This project vendors `org.apache.pdfbox:pdfbox:2.1.0-SNAPSHOT` in `lib/` because the vendor no longer publishes that snapshot. The Dockerfile copies `lib/` into the image before running `lein deps`, and CI copies `lib/` into `~/.m2/repository` to make the artifact available during builds and tests.
+- Fonts & X libs: The container now installs font and X libraries (e.g., `libfreetype6`, `fontconfig`, `fonts-dejavu-core`, and related `libx*` packages) to support Java AWT/Swing (needed by some tools like Calva during a GUI-based jack-in). If you hit errors like `UnsatisfiedLinkError: libfreetype.so.6` or `NoClassDefFoundError: Could not initialize class sun.font.SunFontManager`, rebuild the devcontainer (`Dev Containers: Rebuild Container`) or install the packages inside the running container and restart your editor session.
 - Dev setup helper: Use `./scripts/dev-setup.sh` to perform idempotent setup (start datomic, wait for it, run `lein deps`, and run the idempotent DB init).
   - Examples:
     - `bash ./scripts/dev-setup.sh --no-start` (recommended for `postCreateCommand`)
@@ -48,7 +49,7 @@ This Codespace is designed for Clojure/ClojureScript development using Leiningen
   Additions:
   - `Makefile` target `dev-monitor` runs the tmux monitor script.
   - `tmux`, `make`, and `git-lfs` are installed in the devcontainer so `dev-monitor` and `make` targets work inside Codespaces after rebuilding the container. The image also runs `git lfs install --system` during build so LFS files are available to the workspace.
-- On container creation, the `postCreateCommand` runs `bash ./scripts/dev-verify.sh` which executes the idempotent setup (`scripts/dev-setup.sh --no-start`) and verifies presence of `make`, `git-lfs`, `tmux`, and `lein` (prints diagnostics but does not fail the build).
+- On container creation, the `postCreateCommand` runs `bash ./scripts/dev-verify.sh` which executes the idempotent setup (`scripts/dev-setup.sh --no-start`) and verifies presence of `make`, `git-lfs`, `tmux`, `lsof` (for port checks), `ss` (from `iproute2`), and `lein` (prints diagnostics but does not fail the build).
 
 - Starting Datomic without Docker (optional):
   - The repository includes the Datomic Free tarball under `lib/datomic-free-0.9.5703.tar.gz`.

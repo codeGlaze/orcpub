@@ -296,7 +296,8 @@ To start REPL with VS Code:
 Monitoring: You can monitor the dev processes in two ways:
 
 - tmux (terminal): `bash ./scripts/dev-monitor.sh` opens a tmux session with windows for the server, Figwheel, REPL and combined logs. Use `make dev-monitor` as a shortcut. This is recommended for terminal-first workflows or remote sessions.
-- Interactive menu: `bash ./scripts/dev-menu.sh` provides a small terminal menu to run the canonical 3-step flow (start Datomic, init DB, start backend) and other helpers.
+- Interactive menu: `make dev-menu` (or `bash ./scripts/dev-menu.sh`) provides a small terminal menu to run the canonical 3-step flow (start Datomic, init DB, start backend) and other helpers. `make dev-menu` runs the script via `bash` so no executable bit is required.
+  - Tip: to view Datomic logs in the editor (scrollable), use the VS Code Task **Dev: Tail Datomic Log** after starting Datomic. Use **Dev: Open Interactive Menu** to open the menu inside the editor.
 - VS Code Tasks (editor): Open Command Palette → Tasks: Run Task and choose "Dev: Start Figwheel" or "Dev: Tail Figwheel Log". Tasks open dedicated terminals inside the editor and are more approachable for GUI users.
 
 See `.devcontainer/README.md` for more details on when to pick which option and how to use them.
