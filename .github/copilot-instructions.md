@@ -46,5 +46,6 @@ Purpose: help an AI coding agent get immediately productive in this repo — wha
 - Run `lein lint` and `lein test` before proposing code changes.
 - Large schema changes must include a clear migration plan and a dev-test that exercises the schema change (use `dev/user.clj` helpers to set up a test DB).
 - Avoid committing secrets (SIGNATURE, DB credentials). Use `.env` or CI secret store instead.
+- **When swapping libraries, keep the same require alias** (e.g., if code uses `[clj-time.core :as t]`, swap to `[java-time.api :as t]` — not `:as jt`). Changing aliases introduces unnecessary churn and potential bugs. Only rename if there's an actual conflict with another library's alias.
 
 If anything here is unclear or you want additional examples (e.g., a short checklist for creating a new endpoint or a sample PR checklist), tell me which section to expand. I can iterate. ✅
