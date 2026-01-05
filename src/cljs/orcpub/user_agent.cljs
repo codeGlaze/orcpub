@@ -1,15 +1,27 @@
 (ns orcpub.user-agent
+  "Browser, device, and platform detection utilities.
+   
+   ## Google Closure Library Migration (ClojureScript 1.11.x)
+   
+   The goog.labs.userAgent.browser API changed in newer Closure versions:
+   - OLD: (g-browser/isChrome), (g-browser/isFirefox), etc.
+   - NEW: (g-browser/matchBrowser \"Chrome\"), or use Brand enum
+   
+   We use matchBrowser for compatibility with the updated Closure library."
   (:require [goog.labs.userAgent.browser :as g-browser]
             [goog.labs.userAgent.device :as g-device]
             [goog.labs.userAgent.platform :as g-platform]))
 
-(defn browser []
+(defn browser
+  "Detects the current browser. Returns a keyword like :chrome, :firefox, :safari, etc.
+   Uses goog.labs.userAgent.browser/matchBrowser for modern Closure compatibility."
+  []
   (cond
-    (g-browser/isChrome) :chrome
-    (g-browser/isEdge) :edge
-    (g-browser/isFirefox) :firefox
-    (g-browser/isIE) :ie
-    (g-browser/isSafari) :safari
+    (g-browser/matchBrowser "Chromium") :chrome  ; Covers Chrome, Chromium-based Edge, etc.
+    (g-browser/matchBrowser "Firefox") :firefox
+    (g-browser/matchBrowser "Safari") :safari
+    (g-browser/matchBrowser "Edge") :edge
+    (g-browser/matchBrowser "IE") :ie
     :else :not-found))
 
 (defn browser-version []

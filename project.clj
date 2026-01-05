@@ -70,8 +70,11 @@
 
                  [pdfkit-clj "0.1.7"]
                  [vvvvalvalval/datomock "0.2.0"]
-                 [com.datomic/datomic-free "0.9.5697"]
-                 [funcool/cuerdas "2.2.0"]
+                 ;; Datomic Free: abandoned, Java 8 only, has var shadowing warnings (requiring-resolve).
+                 ;; Exclude slf4j-nop to avoid duplicate SLF4J binding warnings.
+                 [com.datomic/datomic-free "0.9.5697" :exclusions [org.slf4j/slf4j-nop]]
+                 ;; cuerdas 2024.03.02: Latest stable, no longer shadows clojure.core/parse-long|parse-double
+                 [funcool/cuerdas "2024.03.02"]
                  [camel-snake-kebab "0.4.0"]
                  [org.webjars/font-awesome "5.13.1"]]
 
