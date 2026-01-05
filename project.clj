@@ -24,7 +24,7 @@
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
 
   :dependencies [[org.clojure/clojure "1.11.4"]
-                 [org.clojure/test.check "0.9.0"]
+                 [org.clojure/test.check "1.1.1"]
                  [org.clojure/clojurescript "1.11.132"]
                  [org.clojure/core.async "1.8.741"]
                  [cljsjs/react "16.6.0-0"]
@@ -34,27 +34,27 @@
                  [cljs-http "0.1.45"]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
                  [clojure.java-time "1.4.2"]
-                 [clj-http "3.9.1"]
+                 [clj-http "3.12.3"]
                  [com.yetanalytics/ring-etag-middleware "0.1.1"]
-                 [org.clojure/test.check "0.9.0"]
+                 [org.clojure/test.check "1.1.1"]
 
-                 [org.clojure/core.match "0.3.0-alpha5"]
+                 [org.clojure/core.match "1.1.1"]
                  [re-frame "1.3.0"]
                  [reagent "1.2.0"]
-                 [garden "1.3.2"]
-                 [org.apache.pdfbox/pdfbox "2.1.0-SNAPSHOT"]
+                 [garden "1.3.10"]
+                 [org.apache.pdfbox/pdfbox "3.0.6"]
                  [io.pedestal/pedestal.service "0.7.2"]
                  [io.pedestal/pedestal.route "0.7.2"]
                  [io.pedestal/pedestal.jetty "0.7.2"]
                  [io.pedestal/pedestal.error "0.7.2"]
-                 [org.clojure/data.json "0.2.6"]
+                 [org.clojure/data.json "2.5.0"]
                  [org.slf4j/slf4j-simple "1.7.21"]
                  [buddy/buddy-auth "3.0.323"]
                  [buddy/buddy-hashers "2.0.167"]
                  [reloaded.repl "0.2.3"]
-                 [bidi "2.0.17"]
+                 [bidi "2.1.6"]
 
-                 [com.stuartsierra/component "0.3.2"]
+                 [com.stuartsierra/component "1.1.0"]
                  [com.google.guava/guava "32.1.2-jre"]
 
                  [com.fasterxml.jackson.core/jackson-databind "2.15.2"]
@@ -64,9 +64,9 @@
                  ;; Required for Pedestal 0.7.x ring-middlewares
                  [commons-io/commons-io "2.15.1"]
 
-                 [hiccup "1.0.5"]
-                 [com.draines/postal "2.0.2"]
-                 [environ "1.1.0"]
+                 [hiccup "2.0.0"]
+                 [com.draines/postal "2.0.5"]
+                 [environ "1.2.0"]
 
                  [pdfkit-clj "0.1.7"]
                  [vvvvalvalval/datomock "0.2.0"]
@@ -191,11 +191,11 @@
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["with-profile" "prod" "cljsbuild" "once" "main"]]}
-  :profiles {:dev          {:dependencies [[binaryage/devtools "0.9.10"]
+  :profiles {:dev          {:dependencies [[binaryage/devtools "1.0.7"]
                                            [figwheel-sidecar "0.5.19"]
-                                           [cider/piggieback "0.4.0"]
-                                           [org.clojure/test.check "0.9.0"]
-                                           [day8.re-frame/re-frame-10x "0.3.7"]]
+                                           [cider/piggieback "0.5.3"]
+                                           [org.clojure/test.check "1.1.1"]
+                                           [day8.re-frame/re-frame-10x "1.9.9"]]
                             :env       {:dev-mode "true"}
                             ;; need to add dev source path here to get user.clj loaded
                             :source-paths ["web/cljs" "src/clj" "src/cljc" "src/cljs" "dev"]
@@ -213,7 +213,7 @@
                                            :nrepl-middleware [cider.piggieback/wrap-cljs-repl]}}
              :native-dev   {:dependencies [[figwheel-sidecar "0.5.19"]
                                            [com.cemerick/piggieback "0.2.1"]
-                                           [org.clojure/test.check "0.9.0"]]
+                                           [org.clojure/test.check "1.1.1"]]
                             :source-paths ["src/cljs" "native/cljs" "src/cljc" "env/dev"]
                             :cljsbuild    {:builds [{:id           "main"
                                                      :source-paths ["src/cljs" "native/cljs" "src/cljc" "env/dev"]
