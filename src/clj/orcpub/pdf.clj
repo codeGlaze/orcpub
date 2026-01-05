@@ -28,6 +28,10 @@
             [orcpub.dnd.e5.options :as options])
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
+           ;; PDFBox 3.x: AppendMode enum replaces boolean flags in PDPageContentStream constructor
+           ;; Use APPEND when adding content to existing pages (templates)
+           ;; APPEND adds new drawing/text operators to the end of the page’s existing content stream, preserving everything already on the page.
+           (org.apache.pdfbox.pdmodel PDPageContentStream$AppendMode)
            (org.apache.pdfbox.pdmodel.graphics.image JPEGFactory LosslessFactory)
            ;; PDFBox 3.x: Standard14Fonts$FontName is a nested enum class
            ;; In Java: org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName
@@ -105,8 +109,17 @@
       (.setNeedAppearances form false)
       (.flatten form))))
 
-(defn content-stream [doc page]
-  (PDPageContentStream. doc page true false true))
+(defn content-stream
+  "Create a PDPageContentStream for appending content to an existing page.
+   
+   PDFBox 3.x API: Use AppendMode enum instead of boolean flags.
+   - APPEND: Add content after existing page content (what we want for templates)
+   - OVERWRITE: Replace existing content (triggers warning on non-empty pages)
+   - PREPEND: Add content before existing content
+   
+   The 4th arg (true) enables compression."
+  [doc page]
+  (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND true))
 
 (defn in-to-sz [inches]
   (float (* 72 inches)))
