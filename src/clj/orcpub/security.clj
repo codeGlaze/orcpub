@@ -1,7 +1,7 @@
 (ns orcpub.security
   "Login attempt tracking and rate limiting.
    See orcpub.time for date/time utilities."
-  (:require [orcpub.time :as time :refer [minutes hours ago from-now]]))
+  (:require [orcpub.time :as time :refer [minutes ago]]))
 
 (defn compare-dates [attempt-1 attempt-2]
   (compare (:date attempt-1) (:date attempt-2)))

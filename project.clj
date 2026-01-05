@@ -186,7 +186,8 @@
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
             "rebuild-modules" ["run" "-m" "user" "--rebuild-modules"]
-            "lint" ["with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src"]
+            ;; --fail-level error: exit 0 on warnings, exit 1 only on errors
+            "lint" ["with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["with-profile" "prod" "cljsbuild" "once" "main"]]}
