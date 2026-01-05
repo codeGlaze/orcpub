@@ -529,12 +529,12 @@
                 :spell-name (:name spell)}))))))))
 
 (defn create-monsters-pdf
-  \"Development/testing function that generates a sample monster stat block PDF.
+  "Development/testing function that generates a sample monster stat block PDF.
    
    This function is not used in production - it's a utility for testing PDF
    generation during development. The output is saved to a temporary file.
    
-   Returns: The temp file path where the PDF was saved.\"
+   Returns: The temp file path where the PDF was saved."
   []
   (let [page (PDPage.)
         doc (PDDocument.)]
