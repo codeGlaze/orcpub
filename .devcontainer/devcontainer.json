@@ -12,7 +12,10 @@
         "betterthantomorrow.calva",
         "github.copilot",
         "github.copilot-chat"
-      ]
+      ],
+      "settings": {
+        "github.copilot.chat.runCommand.enabled": true
+      }
     }
   }
 }

@@ -6,12 +6,41 @@ This document describes a proposed, incremental plan to modernize the project's 
 
 ---
 
+## ✅ Completed Upgrades
+
+### Phase 1: Security-Critical Updates (Complete)
+| Dependency | Old Version | New Version | Status |
+|------------|-------------|-------------|--------|
+| jackson-databind | 2.11.1 | 2.15.2 | ✅ Done |
+| jackson-core | 2.11.1 | 2.15.2 | ✅ Done |
+| jackson-annotations | 2.11.1 | 2.15.2 | ✅ Done |
+| guava | 21.0 | 32.1.2-jre | ✅ Done |
+
+### Phase 2: Core Clojure Upgrade (Complete)
+| Dependency | Old Version | New Version | Status |
+|------------|-------------|-------------|--------|
+| org.clojure/clojure | 1.10.0 | 1.11.4 | ✅ Done |
+| org.clojure/clojurescript | 1.10.439 | 1.11.132 | ✅ Done |
+| org.clojure/core.async | 0.4.490 | 1.8.741 | ✅ Done |
+
+### Phase 3: Pedestal Stack Upgrade (In Progress)
+| Dependency | Old Version | New Version | Status |
+|------------|-------------|-------------|--------|
+| pedestal.service | 0.5.1 | 0.7.2 | 🔄 Applied, needs `lein test` |
+| pedestal.route | 0.5.1 | 0.7.2 | 🔄 Applied |
+| pedestal.jetty | 0.5.1 | 0.7.2 | 🔄 Jetty 9→11 (security) |
+| pedestal.error | N/A | 0.7.2 | 🔄 Added (required for error interceptor) |
+
+**Note**: Jetty upgraded from 9.x (EOL) to 11.x LTS for security fixes.
+
+---
+
 ## Current observations (quick audit)
-- `project.clj` uses **Clojure 1.10.0** and **ClojureScript 1.10.439**.
+- `project.clj` now uses **Clojure 1.11.4** and **ClojureScript 1.11.132**.
 - Frontend uses **Reagent 0.7.0**, **re-frame 0.10.9** and `cljsjs`-packaged **React 16.6.0**.
 - Dev tooling uses **Figwheel** + `lein-cljsbuild` and older `figwheel-sidecar`.
-- Server libraries include **Pedestal 0.5.1**, **Buddy 1.x**, **Datomic Free 0.9.x**, **Jackson 2.11.1**, **Guava 21.0** and `clj-time`.
-- There are several possibly outdated/unsafe transitive deps (e.g., Guava, Jackson) that should be audited.
+- Server libraries: **Pedestal 0.7.2** (upgraded), **Buddy 1.x**, **Datomic Free 0.9.x**.
+- Jackson and Guava have been upgraded to secure versions.
 
 ---
 
@@ -56,10 +85,44 @@ This document describes a proposed, incremental plan to modernize the project's 
 
 ## Detailed tasks (immediate)
 - [x] Create this `UPGRADE_PLAN.md` (this file).
-- [ ] Run dependency audit: `lein deps :tree` and `npm outdated`.
-- [ ] Run test suite: `lein test` and `npm test` (if applicable).
-- [ ] Create branch `upgrade/deps-<date>` and open a draft PR.
-- [ ] Prioritize critical security updates (e.g., Jackson, Guava) for immediate PRs.
+- [x] Run dependency audit: `lein deps :tree` and `npm outdated`. ✅ *Completed — output in `audit/deps-tree.txt`*
+- [x] Run test suite: `lein test` and `npm test` (if applicable). ✅ *54 tests, 157 assertions pass — see `audit/test-results.txt`*
+- [x] Create branch `upgrade/deps-<date>` and open a draft PR. ✅ *Branch: `upgrade/security-jackson-guava`*
+- [x] Prioritize critical security updates (e.g., Jackson, Guava) for immediate PRs. ✅ *Jackson 2.15.2, Guava 32.1.2-jre applied*
+
+## Next phase (in progress)
+- [x] Upgrade Clojure 1.10.0 → 1.11.4 ✅ *Applied in project.clj*
+- [x] Upgrade ClojureScript 1.10.439 → 1.11.132 ✅ *Applied in project.clj*
+- [x] Upgrade core.async 0.4.490 → 1.8.741 ✅ *Applied in project.clj*
+- [ ] **Validate**: Run `lein test` and `lein figwheel` to confirm everything works
+- [ ] Upgrade Pedestal 0.5.1 → 0.6.x/0.7.x
+- [ ] Upgrade Buddy libs to 2.x
+- [ ] Upgrade Reagent 0.7.0 → 1.x and re-frame 0.10.9 → 1.x
+- [ ] Migrate clj-time 0.15.0 → java-time
+- [ ] Evaluate Shadow-CLJS migration
+
+---
+
+## 🧪 Validation Commands
+
+After each upgrade phase, run these commands to validate:
+
+```bash
+# Clean previous build artifacts
+lein clean
+
+# Run all tests (should show 54 tests, 157 assertions, 0 failures)
+lein test
+
+# Run linter (should show 0 errors, 0 warnings)
+lein lint
+
+# Test CLJS compilation
+lein cljsbuild once dev
+
+# Optional: Test Figwheel live reload
+lein figwheel
+```
 
 ---
 

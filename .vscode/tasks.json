@@ -63,6 +63,21 @@
       "command": "bash -lc 'bash ./scripts/dev-menu.sh'",
       "presentation": { "panel": "dedicated", "reveal": "always" },
       "problemMatcher": []
+    },
+    {
+      "label": "Test: Run All Tests",
+      "type": "shell",
+      "command": "lein test",
+      "group": { "kind": "test", "isDefault": true },
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Lint: Run Linter",
+      "type": "shell",
+      "command": "lein lint",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
     }
   ]
 }

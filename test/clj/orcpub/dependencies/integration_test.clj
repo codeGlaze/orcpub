@@ -74,7 +74,7 @@
     (is (false? (Strings/isNullOrEmpty "test")))
     (is (= "test" (Strings/nullToEmpty "test")))
     (is (= "" (Strings/nullToEmpty nil)))
-    (is (= "abc" (Strings/repeat "a" 1)))))
+    (is (= "aaa" (Strings/repeat "a" 3)))))
 
 (deftest test-json-round-trip-with-character-data
   (testing "JSON round-trip with realistic D&D character data"
