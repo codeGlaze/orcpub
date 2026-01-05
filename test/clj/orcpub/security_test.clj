@@ -1,8 +1,14 @@
 (ns orcpub.security-test
   (:require [clojure.test :refer [testing deftest is]]
-            [clj-time.core :as t :refer [hours minutes seconds millis ago now]]
+            [java-time.api :as t]
             [orcpub.security :as s]
             [clojure.set :as sets]))
+
+;; Helper functions for java-time duration arithmetic
+(defn seconds-ago [n] (t/minus (t/instant) (t/seconds n)))
+(defn minutes-ago [n] (t/minus (t/instant) (t/minutes n)))
+(defn hours-ago [n] (t/minus (t/instant) (t/hours n)))
+(defn millis-ago [n] (t/minus (t/instant) (t/millis n)))
 
 (defn attempts-set [attempts]
   (into
@@ -19,30 +25,30 @@
 
 (deftest test-compare-dates
   (is (= 1 (s/compare-dates
-            {:date (-> 10 seconds ago)}
-            {:date (-> 11 seconds ago)})))
+            {:date (seconds-ago 10)}
+            {:date (seconds-ago 11)})))
   (is (= 1 (s/compare-dates
-            {:date (-> 10 seconds ago)}
-            {:date (-> 11 minutes ago)})))
+            {:date (seconds-ago 10)}
+            {:date (minutes-ago 11)})))
   (is (= -1 (s/compare-dates
-            {:date (-> 10 seconds ago)}
-            {:date (-> 9 seconds ago)})))
+            {:date (seconds-ago 10)}
+            {:date (seconds-ago 9)})))
   (is (= -1 (s/compare-dates
-            {:date (-> 10 minutes ago)}
-            {:date (-> 9 seconds ago)}))))
+            {:date (minutes-ago 10)}
+            {:date (seconds-ago 9)}))))
 
 (deftest test-too-many-attempts-for-username?
-  (let [attempts {"larry" (attempts-for-dates (map #(-> % seconds ago) (range 5)))
-                  "larry-2" (attempts-for-dates (map #(-> % seconds ago) (range 6)))
-                  "redorc" (attempts-for-dates (map #(-> % seconds ago) (range 4)))
+  (let [attempts {"larry" (attempts-for-dates (map seconds-ago (range 5)))
+                  "larry-2" (attempts-for-dates (map seconds-ago (range 6)))
+                  "redorc" (attempts-for-dates (map seconds-ago (range 4)))
                   "redorc-2" (sets/union
-                              (attempts-for-dates (map #(-> % seconds ago) (range 1 5)))
-                              (attempts-for-dates (map #(-> % hours ago) (range 1 6))))}]
+                              (attempts-for-dates (map seconds-ago (range 1 5)))
+                              (attempts-for-dates (map hours-ago (range 1 6))))}]
     (is (s/too-many-attempts-for-username-aux "larry" attempts))
     (is (s/too-many-attempts-for-username-aux "larry-2" attempts))
     (is (not (s/too-many-attempts-for-username-aux "redorc" attempts)))
-    (is (= 5 (-> "redorc-2" attempts (subseq < {:date (-> 1 minutes ago)}) count)))
-    (is (= 4 (-> "redorc-2" attempts (subseq > {:date (-> 1 minutes ago)}) count)))
+    (is (= 5 (-> "redorc-2" attempts (subseq < {:date (minutes-ago 1)}) count)))
+    (is (= 4 (-> "redorc-2" attempts (subseq > {:date (minutes-ago 1)}) count)))
     (is (not (s/too-many-attempts-for-username-aux "redorc-2" attempts)))
     (is (not (s/too-many-attempts-for-username-aux "larry-3" attempts)))))
 
@@ -50,19 +56,19 @@
   (let [attempts {"1.2.3.4" (attempts-set
                              (map
                               (fn [i]
-                                {:date (-> i seconds ago)
+                                {:date (seconds-ago i)
                                  :user (str "user-" i)})
                               (range 5)))
                   "1.2.3.5" (attempts-set
                              (map
                               (fn [i]
-                                {:date (-> i seconds ago)
+                                {:date (seconds-ago i)
                                  :user (str "user-" i)})
                               (range 6)))
                   "1.2.3.6" (attempts-set
                              (map
                               (fn [i]
-                                {:date (-> i seconds ago)
+                                {:date (seconds-ago i)
                                  :user (str "user-" i)})
                               (range 4)))}
         attempts-2 (update
@@ -72,7 +78,7 @@
                     (attempts-set
                      (map
                       (fn [i]
-                        {:date (-> i hours ago)
+                        {:date (hours-ago i)
                          :user (str "user-" i)})
                       (range 1 10))))]
     (is (s/multiple-account-access-aux "1.2.3.4" attempts))
@@ -86,19 +92,19 @@
   (let [attempts {"user-1" (attempts-set
                             (map
                              (fn [i]
-                               {:date (-> i millis ago)
+                               {:date (millis-ago i)
                                 :ip (str i)})
                              (range 3)))
                   "user-2" (attempts-set
                             (map
                              (fn [i]
-                               {:date (-> i millis ago)
+                               {:date (millis-ago i)
                                 :ip (str i)})
                              (range 4)))
                   "user-3" (attempts-set
                             (map
                              (fn [i]
-                               {:date (-> i millis ago)
+                               {:date (millis-ago i)
                                 :ip (str i)})
                              (range 2)))}]
     (is (s/multiple-ip-attempts-to-same-account-aux
@@ -147,29 +153,29 @@
                              (fn [i]
                                {:ip (str i)
                                 :user "user-1"
-                                :date (-> i minutes ago)})
+                                :date (minutes-ago i)})
                              (range 1 10)))
                   "user-2" (attempts-set
                             (map
                              (fn [i]
                                {:ip (str i)
                                 :user "user-2"
-                                :date (-> (+ i 10) minutes ago)})
+                                :date (minutes-ago (+ i 10))})
                              (range 1 10)))
                   "user-3" (attempts-set
                             (map
                              (fn [i]
                                {:ip (str i)
                                 :user "user-3"
-                                :date (-> i minutes ago)})
+                                :date (minutes-ago i)})
                              (range 1 20)))}
         result (s/add-and-remove-old
                 "user-1"
                 {:ip "x"
                  :user "user-1"
-                 :date (now)}
+                 :date (t/instant)}
                 attempts
-                (-> 10 minutes ago))]
+                (minutes-ago 10))]
     (is (-> "user-2" result nil?))
     (is (= 10 (-> "user-1" result count)))
     (is (= 9 (-> "user-3" result count)))))
