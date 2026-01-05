@@ -97,9 +97,32 @@ This document describes a proposed, incremental plan to modernize the project's 
 - [ ] **Validate**: Run `lein test` and `lein figwheel` to confirm everything works
 - [ ] Upgrade Pedestal 0.5.1 → 0.6.x/0.7.x
 - [ ] Upgrade Buddy libs to 2.x
-- [ ] Upgrade Reagent 0.7.0 → 1.x and re-frame 0.10.9 → 1.x
-- [ ] Migrate clj-time 0.15.0 → java-time
+- [x] Upgrade Reagent 0.7.0 → 1.2.0 and re-frame 0.10.9 → 1.3.0 ✅ *Applied, changed r/render → rdom/render*
+- [x] Migrate clj-time 0.15.0 → clojure.java-time 1.4.2 ✅ *Server-side only*
 - [ ] Evaluate Shadow-CLJS migration
+
+---
+
+## 🔮 Future Work: Unified Date/Time Library
+
+**Current state:**
+- Server-side ([`src/clj`](src/clj)): Uses `clojure.java-time` 1.4.2
+- Client-side ([`src/cljs`](src/cljs), [`web/cljs`](web/cljs)): Uses `cljs-time` 0.5.2
+
+**Problem:** `cljs-time` is stale (last updated 2019) and won't receive updates.
+
+**Future consideration:** Evaluate migrating both server and client to a unified cross-platform library:
+- **`cljc.java-time`** - Thin wrapper, works in `.cljc` files, uses js-joda on CLJS (~40KB bundle increase)
+- **`tick` (juxt)** - Higher-level API, also cross-platform, uses cljc.java-time internally
+
+**Benefits of unification:**
+- Single API for date/time logic
+- Shared date utilities can live in `src/cljc`
+- Active maintenance and security updates for both platforms
+
+**Trade-off:** CLJS bundle size increases due to js-joda dependency.
+
+**Decision:** Keep current setup for now. Revisit when `cljs-time` becomes a blocker or when shared date logic is needed in `src/cljc`.
 
 ---
 
@@ -111,18 +134,29 @@ After each upgrade phase, run these commands to validate:
 # Clean previous build artifacts
 lein clean
 
-# Run all tests (should show 54 tests, 157 assertions, 0 failures)
+# Run SERVER-SIDE tests only (Clojure JVM code)
+# Does NOT test ClojureScript/Reagent/re-frame code!
 lein test
 
-# Run linter (should show 0 errors, 0 warnings)
+# Run linter (checks both CLJ and CLJS syntax)
 lein lint
 
-# Test CLJS compilation
+# ⚠️ CRITICAL: Compile ClojureScript to catch frontend issues
+# This is REQUIRED after any Reagent/re-frame/CLJS dependency change!
 lein cljsbuild once dev
 
-# Optional: Test Figwheel live reload
+# Full frontend validation with live reload
 lein figwheel
 ```
+
+### What each command validates:
+
+| Command | Scope | Catches |
+|---------|-------|--------|
+| `lein test` | Server-side Clojure only | Backend logic, routes, DB, PDF |
+| `lein lint` | CLJ + CLJS syntax | Typos, unused vars, style |
+| `lein cljsbuild once dev` | **ClojureScript compilation** | Reagent/re-frame API changes, missing namespaces, CLJS errors |
+| `lein figwheel` | Full frontend runtime | Runtime errors, React rendering issues |
 
 ---
 

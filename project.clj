@@ -33,14 +33,14 @@
                  [com.cognitect/transit-cljs "0.8.256"]
                  [cljs-http "0.1.45"]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
-                 [clj-time "0.15.0"]
+                 [clojure.java-time "1.4.2"]
                  [clj-http "3.9.1"]
                  [com.yetanalytics/ring-etag-middleware "0.1.1"]
                  [org.clojure/test.check "0.9.0"]
 
                  [org.clojure/core.match "0.3.0-alpha5"]
-                 [re-frame "0.10.9"]
-                 [reagent "0.7.0"]
+                 [re-frame "1.3.0"]
+                 [reagent "1.2.0"]
                  [garden "1.3.2"]
                  [org.apache.pdfbox/pdfbox "2.1.0-SNAPSHOT"]
                  [io.pedestal/pedestal.service "0.7.2"]
@@ -49,8 +49,8 @@
                  [io.pedestal/pedestal.error "0.7.2"]
                  [org.clojure/data.json "0.2.6"]
                  [org.slf4j/slf4j-simple "1.7.21"]
-                 [buddy/buddy-auth "1.4.1"]
-                 [buddy/buddy-hashers "1.2.0"]
+                 [buddy/buddy-auth "3.0.323"]
+                 [buddy/buddy-hashers "2.0.167"]
                  [reloaded.repl "0.2.3"]
                  [bidi "2.0.17"]
 
@@ -60,6 +60,9 @@
                  [com.fasterxml.jackson.core/jackson-databind "2.15.2"]
                  [com.fasterxml.jackson.core/jackson-core "2.15.2"]
                  [com.fasterxml.jackson.core/jackson-annotations "2.15.2"]
+
+                 ;; Required for Pedestal 0.7.x ring-middlewares
+                 [commons-io/commons-io "2.15.1"]
 
                  [hiccup "1.0.5"]
                  [com.draines/postal "2.0.2"]

@@ -16,8 +16,7 @@
             [buddy.auth.middleware :refer [authentication-request]]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clj-time.core :as t :refer [hours from-now ago]]
-            [clj-time.coerce :as tc :refer [from-date]]
+            [java-time.api :as t]
             [clojure.string :as s]
             [clojure.spec.alpha :as spec]
             [clojure.pprint]
@@ -166,7 +165,7 @@
 
 
 (defn verification-expired? [verification-sent]
-  (t/before? (from-date verification-sent) (-> 24 hours ago)))
+  (t/before? (t/instant verification-sent) (t/minus (t/instant) (t/hours 24))))
 
 (defn login-error [error-key & [data]]
   {:status 401 :body (merge
@@ -198,7 +197,7 @@
 
 (defn create-login-response [db user & [headers]]
   (let [token (create-token (:orcpub.user/username user)
-                            (-> 24 hours from-now))]
+                            (t/plus (t/instant) (t/hours 24)))]
     {:status 200
      :headers headers
      :body {:user-data (user-body db user)
@@ -354,10 +353,10 @@
     {:status 200}))
 
 (defn password-reset-expired? [password-reset-sent]
-  (and password-reset-sent (t/before? (tc/from-date password-reset-sent) (-> 24 hours ago))))
+  (and password-reset-sent (t/before? (t/instant password-reset-sent) (t/minus (t/instant) (t/hours 24)))))
 
 (defn password-already-reset? [password-reset password-reset-sent]
-  (and password-reset (t/before? (tc/from-date password-reset-sent) (tc/from-date password-reset))))
+  (and password-reset (t/before? (t/instant password-reset-sent) (t/instant password-reset))))
 
 (defn send-password-reset [{:keys [query-params db conn scheme headers] :as request}]
   (try

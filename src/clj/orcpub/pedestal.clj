@@ -4,9 +4,9 @@
             [pandect.algo.sha1 :refer [sha1]]
             [datomic.api :as d]
             [clojure.string :as s]
-            [clj-time.format :as tf]
-            [clj-time.coerce :as tc])
-  (:import [java.io File]))
+            [java-time.api :as t])
+  (:import [java.io File]
+           [java.time.format DateTimeFormatter]))
 
 (defn test?
   [service-map]
@@ -30,9 +30,14 @@
 (defmethod calculate-etag :default [x]
   nil)
 
+(def rfc822-formatter
+  (DateTimeFormatter/ofPattern "EEE, dd MMM yyyy HH:mm:ss Z"))
+
 (defn parse-date [date content-length]
   (when date
-    (str (tc/to-long (tf/parse (tf/formatters :rfc822) (s/replace date #"GMT" "+00:00")))
+    (str (.toEpochMilli
+          (t/instant
+           (t/zoned-date-time rfc822-formatter (s/replace date #"GMT" "+0000"))))
          "-"
          content-length)))
 

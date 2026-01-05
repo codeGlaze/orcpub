@@ -14,7 +14,8 @@ Purpose: help an AI coding agent get immediately productive in this repo — wha
 - Init DB (once on a fresh DB): `(init-database)` from a REPL (calls schema transact).
 - Frontend live reload: `lein figwheel` or call `(fig-start)` then `(cljs-repl)`; front-end build id is `:dev` (see :cljsbuild in `project.clj`).
 - Prod build: `lein prod-build` (alias) or `lein with-profile prod cljsbuild once main`, then `lein uberjar` to make `target/orcpub.jar`.
-- Run tests: `lein test` (server and cljc tests are under `test/`).
+- Run tests: `lein test` (server and cljc tests are under `test/`). **Note: This only tests server-side Clojure code!**
+- **For frontend changes (Reagent, re-frame, CLJS)**: Must run `lein cljsbuild once dev` to validate ClojureScript compilation.
 - Lint & format: `lein lint` (runs clj-kondo via alias), and use `lein cljfmt` for formatting.
 
 3) Important environment & launch details
