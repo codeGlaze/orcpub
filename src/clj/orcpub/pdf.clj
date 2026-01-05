@@ -1,4 +1,24 @@
 (ns orcpub.pdf
+  "PDF generation utilities for character sheets, spell cards, and monster stat blocks.
+   
+   ## PDFBox 3.x Migration Notes (January 2026)
+   
+   This namespace was updated from PDFBox 2.x to 3.x. Key API changes:
+   
+   1. **Standard fonts** - In PDFBox 2.x, fonts were static fields like `PDType1Font/HELVETICA`.
+      In PDFBox 3.x, you must create font instances using the `Standard14Fonts$FontName` enum:
+      ```clojure
+      ;; Old (2.x): PDType1Font/HELVETICA
+      ;; New (3.x): (PDType1Font. Standard14Fonts$FontName/HELVETICA)
+      ```
+      We define these as module-level constants (HELVETICA, HELVETICA_BOLD, etc.) for convenience.
+   
+   2. **Loading PDFs** - In PDFBox 2.x, use `PDDocument/load`. In 3.x, use `Loader/loadPDF`.
+      See routes.clj for this change.
+   
+   3. **Java interop syntax** - The `$` in `Standard14Fonts$FontName` is Clojure's way of
+      accessing a Java nested/inner class. `Standard14Fonts.FontName` in Java becomes
+      `Standard14Fonts$FontName` in Clojure imports."
   (:require [clojure.string :as s]
             [clojure.stacktrace :as strace]
             [clojure.java.io :as io]
@@ -9,9 +29,40 @@
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
            (org.apache.pdfbox.pdmodel.graphics.image JPEGFactory LosslessFactory)
-           (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font)
+           ;; PDFBox 3.x: Standard14Fonts$FontName is a nested enum class
+           ;; In Java: org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName
+           ;; In Clojure: use $ to access nested classes
+           (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font Standard14Fonts$FontName)
            (javax.imageio ImageIO)
            (java.net URL)))
+
+;; =============================================================================
+;; Standard PDF Fonts (PDFBox 3.x)
+;; =============================================================================
+;;
+;; PDFBox 3.x changed how standard fonts are accessed:
+;;   - OLD (2.x): PDType1Font/HELVETICA (static field)
+;;   - NEW (3.x): (PDType1Font. Standard14Fonts$FontName/HELVETICA) (constructor + enum)
+;;
+;; We create these constants at load time so the rest of the code can use them
+;; like the old static fields. These are the standard "Base 14" PDF fonts that
+;; are guaranteed to be available in all PDF readers.
+;;
+(def HELVETICA
+  "Standard Helvetica font (regular weight, upright)"
+  (PDType1Font. Standard14Fonts$FontName/HELVETICA))
+
+(def HELVETICA_BOLD
+  "Standard Helvetica font (bold weight, upright)"
+  (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD))
+
+(def HELVETICA_OBLIQUE
+  "Standard Helvetica font (regular weight, italic/oblique)"
+  (PDType1Font. Standard14Fonts$FontName/HELVETICA_OBLIQUE))
+
+(def HELVETICA_BOLD_OBLIQUE
+  "Standard Helvetica font (bold weight, italic/oblique)"
+  (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD_OBLIQUE))
 
 (defn load-fonts
   "Loads the fonts for the document. Will contain
@@ -236,7 +287,7 @@
   (.setNonStrokingColor cs 0 0 0)
   (draw-text cs
              value
-             PDType1Font/HELVETICA_BOLD_OBLIQUE
+             HELVETICA_BOLD_OBLIQUE
              8
              x
              (- y 0.07))
@@ -477,7 +528,14 @@
                {:remaining-lines remaining-desc-lines
                 :spell-name (:name spell)}))))))))
 
-(defn create-monsters-pdf []
+(defn create-monsters-pdf
+  \"Development/testing function that generates a sample monster stat block PDF.
+   
+   This function is not used in production - it's a utility for testing PDF
+   generation during development. The output is saved to a temporary file.
+   
+   Returns: The temp file path where the PDF was saved.\"
+  []
   (let [page (PDPage.)
         doc (PDDocument.)]
     (.addPage doc page)
@@ -490,13 +548,13 @@
             (let [monster (monsters i)]
               (draw-text-from-top cs
                                   (:name monster)
-                                  PDType1Font/HELVETICA_BOLD
+                                  HELVETICA_BOLD
                                   14
                                   0.1
                                   (+ (* i h) 0.25))
               (draw-text-from-top cs
                                   (monsters/monster-subheader monster)
-                                  PDType1Font/HELVETICA_OBLIQUE
+                                  HELVETICA_OBLIQUE
                                   12
                                   0.1
                                   (+ (* i h) 0.45))
@@ -505,7 +563,7 @@
                       x (+ 0.15 (* 0.65 j))]
                   (draw-text-from-top cs
                                       (name ability)
-                                      PDType1Font/HELVETICA_BOLD
+                                      HELVETICA_BOLD
                                       10
                                       x
                                       (+ (* i h) 0.7))
@@ -514,38 +572,41 @@
                                            " ("
                                            (options/ability-bonus-str (ability monster))
                                            ")")
-                                      PDType1Font/HELVETICA
+                                      HELVETICA
                                       12
                                       x
                                       (+ (* i h) 0.85))))
               (draw-text-from-top cs
                                   "Saving Throws"
-                                  PDType1Font/HELVETICA_BOLD
+                                  HELVETICA_BOLD
                                   10
                                   0.1
                                   (+ (* i h) 1.1))
               (draw-text-from-top cs
                                   (common/print-bonus-map (:saving-throws monster))
-                                  PDType1Font/HELVETICA
+                                  HELVETICA
                                   10
                                   (+ 0.1 (string-width
                                           "Saving Throws "
-                                          PDType1Font/HELVETICA_BOLD
+                                          HELVETICA_BOLD
                                           10))
                                   (+ (* i h) 1.1))
               (draw-text-from-top cs
                                   "Skills"
-                                  PDType1Font/HELVETICA_BOLD
+                                  HELVETICA_BOLD
                                   10
                                   0.1
                                   (+ (* i h) 1.3))
               (draw-text-from-top cs
                                   (common/print-bonus-map (:skills monster))
-                                  PDType1Font/HELVETICA
+                                  HELVETICA
                                   10
                                   (+ 0.1 (string-width
                                           "Skills "
-                                          PDType1Font/HELVETICA_BOLD
+                                          HELVETICA_BOLD
                                           10))
                                   (+ (* i h) 1.3)))))))
-    (.save doc "/home/larry/Documents/test.pdf")))
+    ;; Save to a cross-platform temp file instead of a hardcoded path.
+    ;; java.io.File/createTempFile creates a file in the system temp directory
+    ;; and returns a File object that PDDocument.save() accepts.
+    (.save doc (java.io.File/createTempFile "monsters" ".pdf"))))

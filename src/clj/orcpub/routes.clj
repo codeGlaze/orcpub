@@ -47,6 +47,10 @@
             [ring.util.codec :as codec]
             [ring.util.request :as req])
   (:import (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
+           ;; PDFBox 3.x: Use Loader class instead of PDDocument.load() static method
+           ;; OLD (2.x): (PDDocument/load input-stream)
+           ;; NEW (3.x): (Loader/loadPDF input-stream)
+           (org.apache.pdfbox.Loader)
            (java.io ByteArrayOutputStream ByteArrayInputStream))
   (:gen-class))
 
@@ -476,7 +480,8 @@
         chrome? (re-matches #".*Chrome.*" user-agent)
         filename (str player-name " - " character-name " - " class-level ".pdf")]
         
-    (with-open [doc (PDDocument/load input)]
+    ;; PDFBox 3.x: Loader/loadPDF replaces the deprecated PDDocument/load
+    (with-open [doc (Loader/loadPDF input)]
       (pdf/write-fields! doc fields (not chrome?) font-sizes)
       (if (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod?))
