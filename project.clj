@@ -73,8 +73,8 @@
                  ;; Datomic Free: abandoned, Java 8 only, has var shadowing warnings (requiring-resolve).
                  ;; Exclude slf4j-nop to avoid duplicate SLF4J binding warnings.
                  [com.datomic/datomic-free "0.9.5697" :exclusions [org.slf4j/slf4j-nop]]
-                 ;; cuerdas 2024.03.02: Latest stable, no longer shadows clojure.core/parse-long|parse-double
-                 [funcool/cuerdas "2024.03.02"]
+                 ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
+                 [funcool/cuerdas "2026.415"]
                  [camel-snake-kebab "0.4.0"]
                  [org.webjars/font-awesome "5.13.1"]]
 
