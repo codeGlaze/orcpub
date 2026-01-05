@@ -103,6 +103,67 @@ This document describes a proposed, incremental plan to modernize the project's 
 
 ---
 
+## ⚠️ Known Build Warnings (Third-Party, Unfixable)
+
+After upgrading to Clojure 1.11.4, some third-party libraries produce warnings that **cannot be fixed from our code**. These are documented here for reference.
+
+### 1. `garden.color/abs` shadows `clojure.core/abs`
+
+**Warning message:**
+```
+WARNING: abs already refers to: #'clojure.core/abs in namespace: garden.color, being replaced by: #'garden.color/abs
+```
+
+**Cause:** The `garden` CSS library (v1.3.10, last updated 2019) defines its own `abs` function internally. Clojure 1.11 added `clojure.core/abs`, causing a var shadowing conflict.
+
+**Impact:** None — the warning is cosmetic. Garden's internal `abs` function works correctly for its own use.
+
+**Why we can't fix it:** The warning comes from inside `garden.color` namespace, not our code. We cannot add `:refer-clojure :exclude [abs]` to a third-party library's source.
+
+**Quick-fix option (if desired):** Fork garden and add one line to `garden/color.cljc`:
+```clojure
+(ns garden.color
+  (:refer-clojure :exclude [abs])  ;; <-- add this line
+  ...)
+```
+Then reference the fork in `project.clj` via a local path or git coordinate.
+
+**Decision:** Live with the warning. Garden is stable and widely used; forking adds maintenance burden.
+
+---
+
+### 2. `datomic.common/requiring-resolve` shadows `clojure.core/requiring-resolve`
+
+**Warning message:**
+```
+WARNING: requiring-resolve already refers to: #'clojure.core/requiring-resolve in namespace: datomic.common, being replaced by: #'datomic.common/requiring-resolve
+```
+
+**Cause:** Datomic Free 0.9.5697 (released ~2018) defined its own `requiring-resolve` before Clojure 1.10 added `clojure.core/requiring-resolve`.
+
+**Impact:** None — Datomic works correctly.
+
+**Why we can't fix it:** Datomic Free is abandoned (no longer maintained by Cognitect). There will be no fix.
+
+**Decision:** Accept the warning. Migration to Datomic Cloud or another database is a separate, larger effort.
+
+---
+
+### 3. PDFBox font fallback warnings
+
+**Warning message:**
+```
+WARN org.apache.pdfbox.pdmodel.font.PDType1Font - Using fallback font ...
+```
+
+**Cause:** The Docker container/CI environment lacks Helvetica fonts. PDFBox falls back to available system fonts.
+
+**Impact:** PDFs may use a slightly different font if Helvetica is not installed. In production with fonts installed, this won't appear.
+
+**Fix (if needed):** Install `fonts-liberation` or `fonts-freefont-ttf` in the Docker image.
+
+---
+
 ## 🔮 Future Work: Unified Date/Time Library
 
 **Current state:**
