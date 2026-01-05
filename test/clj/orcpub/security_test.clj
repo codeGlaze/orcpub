@@ -1,14 +1,14 @@
 (ns orcpub.security-test
   (:require [clojure.test :refer [testing deftest is]]
-            [java-time.api :as t]
+            [orcpub.time :as time :refer [seconds minutes hours millis ago now]]
             [orcpub.security :as s]
             [clojure.set :as sets]))
 
-;; Helper functions for java-time duration arithmetic
-(defn seconds-ago [n] (t/minus (t/instant) (t/seconds n)))
-(defn minutes-ago [n] (t/minus (t/instant) (t/minutes n)))
-(defn hours-ago [n] (t/minus (t/instant) (t/hours n)))
-(defn millis-ago [n] (t/minus (t/instant) (t/millis n)))
+;; Convenience wrappers for tests - these take n and return an Instant n units ago
+(defn seconds-ago [n] (-> n seconds ago))
+(defn minutes-ago [n] (-> n minutes ago))
+(defn hours-ago [n] (-> n hours ago))
+(defn millis-ago [n] (-> n millis ago))
 
 (defn attempts-set [attempts]
   (into
@@ -173,7 +173,7 @@
                 "user-1"
                 {:ip "x"
                  :user "user-1"
-                 :date (t/instant)}
+                 :date (now)}
                 attempts
                 (minutes-ago 10))]
     (is (-> "user-2" result nil?))

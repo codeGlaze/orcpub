@@ -4,7 +4,7 @@
             [pandect.algo.sha1 :refer [sha1]]
             [datomic.api :as d]
             [clojure.string :as s]
-            [java-time.api :as t])
+            [java-time.api :as t])  ;; Keep same alias as clj-time had
   (:import [java.io File]
            [java.time.format DateTimeFormatter]))
 
