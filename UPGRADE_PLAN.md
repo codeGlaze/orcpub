@@ -23,13 +23,40 @@ This document describes a proposed, incremental plan to modernize the project's 
 | org.clojure/clojurescript | 1.10.439 | 1.11.132 | ✅ Done |
 | org.clojure/core.async | 0.4.490 | 1.8.741 | ✅ Done |
 
-### Phase 3: Pedestal Stack Upgrade (In Progress)
+### Phase 3: Pedestal Stack Upgrade (Complete)
 | Dependency | Old Version | New Version | Status |
 |------------|-------------|-------------|--------|
-| pedestal.service | 0.5.1 | 0.7.2 | 🔄 Applied, needs `lein test` |
-| pedestal.route | 0.5.1 | 0.7.2 | 🔄 Applied |
-| pedestal.jetty | 0.5.1 | 0.7.2 | 🔄 Jetty 9→11 (security) |
-| pedestal.error | N/A | 0.7.2 | 🔄 Added (required for error interceptor) |
+| pedestal.service | 0.5.1 | 0.7.2 | ✅ Done |
+| pedestal.route | 0.5.1 | 0.7.2 | ✅ Done |
+| pedestal.jetty | 0.5.1 | 0.7.2 | ✅ Done (Jetty 9→11 LTS) |
+| pedestal.error | N/A | 0.7.2 | ✅ Added |
+
+### Phase 4: Frontend Upgrades (Complete)
+| Dependency | Old Version | New Version | Status |
+|------------|-------------|-------------|--------|
+| reagent | 0.7.0 | 1.2.0 | ✅ Done |
+| re-frame | 0.10.9 | 1.3.0 | ✅ Done |
+| re-frame-10x | 0.3.7 | 1.9.9 | ✅ Done |
+| devtools | 0.9.10 | 1.0.7 | ✅ Done |
+
+### Phase 5: Additional Library Upgrades (Complete)
+| Dependency | Old Version | New Version | Status |
+|------------|-------------|-------------|--------|
+| PDFBox | 2.1.0-SNAPSHOT | 3.0.6 | ✅ Done (API migrated) |
+| buddy-auth | 1.x | 3.0.323 | ✅ Done |
+| buddy-hashers | 1.x | 2.0.167 | ✅ Done |
+| clj-http | 3.9.0 | 3.12.3 | ✅ Done |
+| data.json | 0.2.6 | 2.5.0 | ✅ Done |
+| hiccup | 1.0.5 | 2.0.0 | ✅ Done |
+| postal | 2.0.2 | 2.0.5 | ✅ Done |
+| environ | 1.1.0 | 1.2.0 | ✅ Done |
+| component | 0.3.2 | 1.1.0 | ✅ Done |
+| garden | 1.3.5 | 1.3.10 | ✅ Done |
+| bidi | 2.1.3 | 2.1.6 | ✅ Done |
+| test.check | 0.9.0 | 1.1.1 | ✅ Done |
+| core.match | 0.3.0-alpha5 | 1.1.1 | ✅ Done (stable) |
+| cuerdas | 2.0.5 | 2026.415 | ✅ Done |
+| clojure.java-time | N/A | 1.4.2 | ✅ Added (replaces clj-time) |
 
 **Note**: Jetty upgraded from 9.x (EOL) to 11.x LTS for security fixes.
 
@@ -37,10 +64,11 @@ This document describes a proposed, incremental plan to modernize the project's 
 
 ## Current observations (quick audit)
 - `project.clj` now uses **Clojure 1.11.4** and **ClojureScript 1.11.132**.
-- Frontend uses **Reagent 0.7.0**, **re-frame 0.10.9** and `cljsjs`-packaged **React 16.6.0**.
+- Frontend uses **Reagent 1.2.0**, **re-frame 1.3.0** and `cljsjs`-packaged **React 16.6.0**.
 - Dev tooling uses **Figwheel** + `lein-cljsbuild` and older `figwheel-sidecar`.
-- Server libraries: **Pedestal 0.7.2** (upgraded), **Buddy 1.x**, **Datomic Free 0.9.x**.
-- Jackson and Guava have been upgraded to secure versions.
+- Server libraries: **Pedestal 0.7.2**, **Buddy 3.x**, **PDFBox 3.0.6**, **Datomic Free 0.9.x**.
+- Jackson 2.15.2 and Guava 32.1.2-jre (secure versions).
+- All tests pass (61 tests, 193 assertions).
 
 ---
 
@@ -91,15 +119,17 @@ This document describes a proposed, incremental plan to modernize the project's 
 - [x] Prioritize critical security updates (e.g., Jackson, Guava) for immediate PRs. ✅ *Jackson 2.15.2, Guava 32.1.2-jre applied*
 
 ## Next phase (in progress)
-- [x] Upgrade Clojure 1.10.0 → 1.11.4 ✅ *Applied in project.clj*
-- [x] Upgrade ClojureScript 1.10.439 → 1.11.132 ✅ *Applied in project.clj*
-- [x] Upgrade core.async 0.4.490 → 1.8.741 ✅ *Applied in project.clj*
-- [ ] **Validate**: Run `lein test` and `lein figwheel` to confirm everything works
-- [ ] Upgrade Pedestal 0.5.1 → 0.6.x/0.7.x
-- [ ] Upgrade Buddy libs to 2.x
-- [x] Upgrade Reagent 0.7.0 → 1.2.0 and re-frame 0.10.9 → 1.3.0 ✅ *Applied, changed r/render → rdom/render*
+- [x] Upgrade Clojure 1.10.0 → 1.11.4 ✅
+- [x] Upgrade ClojureScript 1.10.439 → 1.11.132 ✅
+- [x] Upgrade core.async 0.4.490 → 1.8.741 ✅
+- [x] Upgrade Pedestal 0.5.1 → 0.7.2 ✅
+- [x] Upgrade Buddy libs to 3.x ✅
+- [x] Upgrade Reagent 0.7.0 → 1.2.0 and re-frame 0.10.9 → 1.3.0 ✅
 - [x] Migrate clj-time 0.15.0 → clojure.java-time 1.4.2 ✅ *Server-side only*
+- [x] Upgrade PDFBox 2.1.0-SNAPSHOT → 3.0.6 ✅ *API migrated, warnings fixed*
 - [ ] Evaluate Shadow-CLJS migration
+- [ ] Consider replacing cljsjs React with npm React
+- [ ] JDK upgrade (blocked by Datomic Free — requires Java 8)
 
 ---
 
