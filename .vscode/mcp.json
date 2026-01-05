@@ -4,7 +4,7 @@
 			"type": "http",
 			"url": "https://api.githubcopilot.com/mcp/",
 			"headers": {
-				"Authorization": "${input:Authorization}"
+				"Authorization": "${env:COPILOT_MCP_TOKEN}"
 			},
 			"gallery": "https://api.mcp.github.com",
 			"version": "0.26.3"
