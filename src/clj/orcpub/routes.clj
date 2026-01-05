@@ -46,11 +46,15 @@
             [ring.middleware.head :as head]
             [ring.util.codec :as codec]
             [ring.util.request :as req])
+  ;; PDFBox 3.x: Use Loader class instead of PDDocument.load() static method
+  ;; OLD (2.x): (PDDocument/load input-stream)
+  ;; NEW (3.x): (Loader/loadPDF input-stream)
+  ;; 
+  ;; Import syntax notes for Clojure newcomers:
+  ;;   - (org.apache.pdfbox.pdmodel PDDocument PDPage) imports multiple classes from one package
+  ;;   - org.apache.pdfbox.Loader imports a single class (no parens needed)
   (:import (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
-           ;; PDFBox 3.x: Use Loader class instead of PDDocument.load() static method
-           ;; OLD (2.x): (PDDocument/load input-stream)
-           ;; NEW (3.x): (Loader/loadPDF input-stream)
-           (org.apache.pdfbox.Loader)
+           org.apache.pdfbox.Loader
            (java.io ByteArrayOutputStream ByteArrayInputStream))
   (:gen-class))
 
