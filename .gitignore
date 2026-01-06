@@ -44,4 +44,7 @@ deploy/homebrew/*
 
 # Local audit outputs
 /audit/
+
+# Cursor IDE local config (contains user-specific paths)
+.cursor/
 Connection to server got closed. Server will not be restarted.
