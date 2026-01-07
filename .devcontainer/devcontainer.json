@@ -10,11 +10,18 @@
     }
   },
   "forwardPorts": [8890, 3449, 7888],
-  "remoteEnv": {
-    "LEIN_USERNAME": "${localEnv:LEIN_USERNAME}",
-    "LEIN_PASSWORD": "${localEnv:LEIN_PASSWORD}"
+  "secrets": {
+    "LEIN_USERNAME": {
+      "description": "my.datomic.com email for Datomic Pro access"
+    },
+    "LEIN_PASSWORD": {
+      "description": "my.datomic.com download key for Datomic Pro"
+    }
   },
-  "postCreateCommand": "bash ./scripts/dev-verify.sh",
+  "postCreateCommand": "bash ./scripts/dev-verify.sh && bash -c 'if [ -n \"$LEIN_USERNAME\" ] && [ -n \"$LEIN_PASSWORD\" ]; then mkdir -p ~/.lein && cat > ~/.lein/credentials.clj <<EOF
+{#\"my\\\\.datomic\\\\.com\" {:username \"$LEIN_USERNAME\" :password \"$LEIN_PASSWORD\"}}
+EOF
+echo \"✅ Leiningen credentials configured\"; fi'",
   "customizations": {
     "vscode": {
       "extensions": [
