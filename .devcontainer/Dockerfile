@@ -16,6 +16,14 @@ RUN curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bi
 
 WORKDIR /workspace
 
+# Copy project.clj first (needed to know version)
+COPY project.clj /workspace/
+
+# Copy existing lib/ directory first (preserves pdfbox and other vendor deps)
+# Create lib/ directory if it doesn't exist, then copy contents
+RUN mkdir -p /workspace/lib/
+COPY lib/ /workspace/lib/ || true
+
 # Download and install Datomic Pro to lib/ using existing file:lib repository pattern
 # Latest version: https://docs.datomic.com/releases-pro.html
 ARG DATOMIC_VERSION=1.0.7482
@@ -33,10 +41,6 @@ RUN echo "[DOCKER BUILD] Starting Datomic Pro ${DATOMIC_VERSION} installation...
     ls -lh "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar" && \
     rm -rf /tmp/datomic-pro-${DATOMIC_VERSION}.zip /tmp/datomic-extract && \
     echo "[DOCKER BUILD] ✅ Datomic Pro installed to lib/ (file:lib repository pattern)"
-
-# Copy project.clj and local libs (if present)
-COPY project.clj /workspace/
-COPY lib/ /workspace/lib/
 
 # Copy the rest of the source
 COPY . /workspace
