@@ -14,8 +14,8 @@
 
   :repositories [["apache" "http://repository.apache.org/snapshots/"]
                  ["my.datomic.com" {:url "https://my.datomic.com/repo"
-                                    :username [:gpg :env]
-                                    :password [:gpg :env]}]
+                                    :username [:gpg :env/LEIN_USERNAME]
+                                    :password [:gpg :env/LEIN_PASSWORD]}]
                  ; This allows us to seamlessly load jars from local disk.
                  ["local" {:url "file:lib"
                            :checksum :ignore
