@@ -10,22 +10,32 @@
     }
   },
   "forwardPorts": [8890, 3449, 7888],
-  "postCreateCommand": "bash -c 'DATOMIC_VERSION=\"1.0.7482\" && \
+  "postCreateCommand": "bash -c 'echo \"[POST-CREATE] Starting postCreateCommand...\" && \
+DATOMIC_VERSION=\"1.0.7482\" && \
 DATOMIC_JAR=\"lib/com/datomic/datomic-pro/\${DATOMIC_VERSION}/datomic-pro-\${DATOMIC_VERSION}.jar\" && \
 if [ ! -f \"\${DATOMIC_JAR}\" ]; then \
-  echo \"Downloading Datomic Pro \${DATOMIC_VERSION}...\" && \
+  echo \"[POST-CREATE] Datomic Pro JAR not found, downloading...\" && \
   mkdir -p \"lib/com/datomic/datomic-pro/\${DATOMIC_VERSION}\" && \
   curl -L -o /tmp/datomic-pro-\${DATOMIC_VERSION}.zip \
     \"https://datomic-pro-downloads.s3.amazonaws.com/\${DATOMIC_VERSION}/datomic-pro-\${DATOMIC_VERSION}.zip\" && \
+  echo \"[POST-CREATE] Extracting zip...\" && \
   unzip -q /tmp/datomic-pro-\${DATOMIC_VERSION}.zip -d /tmp/datomic-extract && \
   JAR_FILE=$(find /tmp/datomic-extract -name \"datomic-pro-*.jar\" -type f | head -1) && \
+  echo \"[POST-CREATE] Found JAR: \${JAR_FILE}\" && \
   cp \"\${JAR_FILE}\" \"\${DATOMIC_JAR}\" && \
+  echo \"[POST-CREATE] Verifying JAR placement...\" && \
+  ls -lh \"\${DATOMIC_JAR}\" && \
   rm -rf /tmp/datomic-pro-\${DATOMIC_VERSION}.zip /tmp/datomic-extract && \
-  echo \"✅ Datomic Pro installed to lib/ (using file:lib repository)\"; \
+  echo \"[POST-CREATE] ✅ Datomic Pro installed to lib/ (using file:lib repository)\"; \
 else \
-  echo \"✅ Datomic Pro already in lib/\"; \
+  echo \"[POST-CREATE] ✅ Datomic Pro already in lib/\" && \
+  ls -lh \"\${DATOMIC_JAR}\"; \
 fi && \
-lein deps'",
+echo \"[POST-CREATE] Running lein deps...\" && \
+lein deps && \
+echo \"[POST-CREATE] ✅ lein deps completed successfully\" && \
+echo \"[POST-CREATE] Verifying Datomic Pro dependency resolution...\" && \
+lein classpath | grep -q datomic-pro && echo \"[POST-CREATE] ✅ Datomic Pro found in classpath\" || echo \"[POST-CREATE] ⚠️  Datomic Pro not found in classpath\"'",
   "customizations": {
     "vscode": {
       "extensions": [

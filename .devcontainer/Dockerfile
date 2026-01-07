@@ -19,13 +19,20 @@ WORKDIR /workspace
 # Download and install Datomic Pro to lib/ using existing file:lib repository pattern
 # Latest version: https://docs.datomic.com/releases-pro.html
 ARG DATOMIC_VERSION=1.0.7482
-RUN mkdir -p lib/com/datomic/datomic-pro/${DATOMIC_VERSION} && \
+RUN echo "[DOCKER BUILD] Starting Datomic Pro ${DATOMIC_VERSION} installation..." && \
+    mkdir -p lib/com/datomic/datomic-pro/${DATOMIC_VERSION} && \
+    echo "[DOCKER BUILD] Downloading Datomic Pro zip..." && \
     curl -L -o /tmp/datomic-pro-${DATOMIC_VERSION}.zip \
     "https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip" && \
+    echo "[DOCKER BUILD] Extracting zip..." && \
     unzip -q /tmp/datomic-pro-${DATOMIC_VERSION}.zip -d /tmp/datomic-extract && \
     DATOMIC_JAR=$(find /tmp/datomic-extract -name "datomic-pro-*.jar" -type f | head -1) && \
+    echo "[DOCKER BUILD] Found JAR: ${DATOMIC_JAR}" && \
     cp "${DATOMIC_JAR}" "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar" && \
-    rm -rf /tmp/datomic-pro-${DATOMIC_VERSION}.zip /tmp/datomic-extract
+    echo "[DOCKER BUILD] Verifying JAR placement..." && \
+    ls -lh "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar" && \
+    rm -rf /tmp/datomic-pro-${DATOMIC_VERSION}.zip /tmp/datomic-extract && \
+    echo "[DOCKER BUILD] ✅ Datomic Pro installed to lib/ (file:lib repository pattern)"
 
 # Copy project.clj and local libs (if present)
 COPY project.clj /workspace/
