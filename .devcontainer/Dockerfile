@@ -20,9 +20,9 @@ WORKDIR /workspace
 COPY project.clj /workspace/
 
 # Copy existing lib/ directory first (preserves pdfbox and other vendor deps)
-# Create lib/ directory if it doesn't exist, then copy contents
+# Create lib/ directory, then copy if it exists (COPY will fail silently if lib/ is empty)
 RUN mkdir -p /workspace/lib/
-COPY lib/ /workspace/lib/ || true
+COPY lib/ /workspace/lib/
 
 # Download and install Datomic Pro to lib/ using existing file:lib repository pattern
 # Latest version: https://docs.datomic.com/releases-pro.html
