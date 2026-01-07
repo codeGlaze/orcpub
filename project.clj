@@ -236,7 +236,7 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}
-                            :dependencies [[com.datomic/datomic-pro "1.0.7469"]]}
+                            :dependencies [[com.datomic/datomic-pro "1.0.7482"]]}
              :uberjar      {:prep-tasks  ["clean" "compile" ["cljsbuild" "once" "prod"]]
                             :env         {:production true}
                             :aot         :all

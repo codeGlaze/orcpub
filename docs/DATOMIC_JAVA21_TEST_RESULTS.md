@@ -173,9 +173,11 @@ AMQ119007: Cannot connect to server(s). Tried with all available servers.
 - ✅ API-compatible with Datomic Free (minimal code changes)
 
 **Migration Path:**
-1. Register at [my.datomic.com](https://my.datomic.com) (free)
-2. Download Datomic Pro 1.0.7469
-3. Update `project.clj` dependency
+1. Download Datomic Pro 1.0.7482 (public, no registration needed)
+   - Download URL: `https://datomic-pro-downloads.s3.amazonaws.com/1.0.7482/datomic-pro-1.0.7482.zip`
+   - Latest version: [https://docs.datomic.com/releases-pro.html](https://docs.datomic.com/releases-pro.html)
+2. Update `project.clj` dependency to `1.0.7482`
+3. Place JAR in `lib/com/datomic/datomic-pro/1.0.7482/` (uses existing `file:lib` repository pattern)
 4. Update transactor startup scripts
 5. Test peer connections
 
