@@ -42,8 +42,20 @@ RUN echo "[DOCKER BUILD] Starting Datomic Pro ${DATOMIC_VERSION} installation...
     rm -rf /tmp/datomic-pro-${DATOMIC_VERSION}.zip /tmp/datomic-extract && \
     echo "[DOCKER BUILD] ✅ Datomic Pro installed to lib/ (file:lib repository pattern)"
 
-# Copy the rest of the source
+# Copy the rest of the source (exclude lib/ since we've already set it up)
+# Use .dockerignore or copy selectively to avoid overwriting lib/
 COPY . /workspace
+# Ensure Datomic Pro JAR is still present after COPY
+RUN test -f lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar || \
+    (echo "[DOCKER BUILD] ⚠️  Datomic Pro JAR missing after COPY, re-downloading..." && \
+     mkdir -p lib/com/datomic/datomic-pro/${DATOMIC_VERSION} && \
+     curl -L -o /tmp/datomic-pro-${DATOMIC_VERSION}.zip \
+     "https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip" && \
+     unzip -q /tmp/datomic-pro-${DATOMIC_VERSION}.zip -d /tmp/datomic-extract && \
+     DATOMIC_JAR=$(find /tmp/datomic-extract -name "datomic-pro-*.jar" -type f | head -1) && \
+     cp "${DATOMIC_JAR}" "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar" && \
+     rm -rf /tmp/datomic-pro-${DATOMIC_VERSION}.zip /tmp/datomic-extract && \
+     echo "[DOCKER BUILD] ✅ Datomic Pro JAR restored")
 
 # Default shell to bash for VS Code terminal
 SHELL ["/bin/bash", "-c"]
