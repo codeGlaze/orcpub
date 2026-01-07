@@ -2,10 +2,12 @@
   "Integration tests to validate Jackson 2.15.2 and Guava 32.1.2-jre upgrades.
    Tests actual runtime behavior of upgraded dependencies."
   (:require [clojure.test :refer :all]
-            [cheshire.core :as json])
+            [cheshire.core :as json]
+            [datomic.api :as d])
   (:import [com.google.common.collect ImmutableList ImmutableMap]
            [com.google.common.base Strings]
-           [com.fasterxml.jackson.databind ObjectMapper]))
+           [com.fasterxml.jackson.databind ObjectMapper]
+           [java.util UUID]))
 
 (deftest test-jackson-json-serialization
   (testing "Jackson can serialize complex Clojure data structures"
@@ -107,7 +109,7 @@
   (testing "Upgraded dependencies don't break existing json-params usage"
     ;; Simulate what happens in routes when processing JSON request bodies
     (let [simulated-json-params {:username "testuser"
-                                 :email "test@example.com" 
+                                 :email "test@example.com"
                                  :password "secret123"
                                  :send-updates? true}
           ;; Convert to JSON and back (simulating HTTP request/response)
@@ -116,3 +118,30 @@
       (is (= "testuser" (:username parsed)))
       (is (= "test@example.com" (:email parsed)))
       (is (= true (:send-updates? parsed))))))
+
+(deftest test-datomic-pro-basic-connectivity
+  (testing "Datomic Pro can create in-memory database and perform basic operations"
+    (let [uri (str "datomic:mem://test-db-" (UUID/randomUUID))]
+      ;; Test database creation
+      (is (true? (d/create-database uri)) "Database creation succeeds")
+
+      ;; Test connection
+      (let [conn (d/connect uri)]
+        (is (some? conn) "Connection created successfully")
+
+        ;; Test schema transaction
+        (let [schema [{:db/ident :person/name
+                       :db/valueType :db.type/string
+                       :db/cardinality :db.cardinality/one
+                       :db/doc "A person's name"}]]
+          (is (some? @(d/transact conn schema)) "Schema transaction succeeds"))
+
+        ;; Test data insertion and query
+        (is (some? @(d/transact conn [{:person/name "Test User"}])) "Data insertion succeeds")
+
+        (let [db (d/db conn)
+              result (d/q '[:find ?name :where [_ :person/name ?name]] db)]
+          (is (= #{["Test User"]} result) "Query returns expected result"))
+
+        ;; Test database deletion
+        (is (true? (d/delete-database uri)) "Database deletion succeeds")))))

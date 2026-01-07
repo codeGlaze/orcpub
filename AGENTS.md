@@ -139,6 +139,24 @@ lein figwheel
 - `scripts/start-datomic-local.sh` - Starts Datomic transactor (not a Leiningen concern)
 - `scripts/dev-setup.sh` - Orchestrates multiple services (Datomic + server + figwheel)
 
+### Look for Existing Functionality First
+
+**CRITICAL WORKFLOW**: Before creating new files, scripts, or tools, thoroughly explore existing repository functionality:
+
+1. **Check existing test files** - Use established testing patterns and infrastructure
+2. **Review existing scripts** - See if they can be extended or modified
+3. **Examine existing code** - Look for reusable functions, macros, or utilities
+4. **Follow established patterns** - Match existing naming conventions and structures
+5. **Add to existing files** - Extend integration tests, route handlers, etc.
+6. **Create new files only as last resort** - When no existing pattern fits
+
+**Examples:**
+- ✅ Add dependency tests to `test/clj/orcpub/dependencies/integration_test.clj`
+- ✅ Extend existing route handlers instead of creating new ones
+- ✅ Use existing macros like `with-conn` in routes tests
+- ❌ Create separate test files when integration tests exist
+- ❌ Write custom scripts when built-in Leiningen tasks exist
+
 ❌ **Avoid**: Scripts that duplicate Leiningen functionality
 - Installing dependencies (`lein deps` exists)
 - Running tests (`lein test` exists)
