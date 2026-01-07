@@ -16,10 +16,10 @@ RUN curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bi
 
 WORKDIR /workspace
 
-# Copy project.clj and local libs (if present) for dependency download layer
+# Copy project.clj and local libs (if present)
+# Note: lein deps is run in postCreateCommand where secrets are available
 COPY project.clj /workspace/
 COPY lib/ /workspace/lib/
-RUN lein deps
 
 # Copy the rest of the source
 COPY . /workspace

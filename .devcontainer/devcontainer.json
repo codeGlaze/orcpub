@@ -22,7 +22,10 @@
       "description": "my.datomic.com download key for Datomic Pro"
     }
   },
-  "postCreateCommand": "bash ./scripts/dev-verify.sh",
+  "postCreateCommand": "bash -c 'mkdir -p ~/.lein && if [ -n \"$LEIN_USERNAME\" ] && [ -n \"$LEIN_PASSWORD\" ]; then cat > ~/.lein/credentials.clj <<EOF
+{#\"my\\\\.datomic\\\\.com\" {:username \"$LEIN_USERNAME\" :password \"$LEIN_PASSWORD\"}}
+EOF
+echo \"✅ Leiningen credentials configured\"; fi && lein deps'",
   "customizations": {
     "vscode": {
       "extensions": [
