@@ -1,4 +1,4 @@
-FROM clojure:openjdk-11-lein
+FROM clojure:temurin-21-lein
 
 # Install useful dev tools (including unzip for Datomic Pro)
 RUN apt-get update \
