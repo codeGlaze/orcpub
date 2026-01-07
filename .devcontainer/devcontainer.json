@@ -10,7 +10,7 @@
     }
   },
   "forwardPorts": [8890, 3449, 7888],
-  "remoteEnv": {
+  "containerEnv": {
     "LEIN_USERNAME": "${secrets:LEIN_USERNAME}",
     "LEIN_PASSWORD": "${secrets:LEIN_PASSWORD}"
   },
