@@ -10,8 +10,11 @@
     }
   },
   "forwardPorts": [8890, 3449, 7888],
+  "remoteEnv": {
+    "LEIN_USERNAME": "${localEnv:LEIN_USERNAME}",
+    "LEIN_PASSWORD": "${localEnv:LEIN_PASSWORD}"
+  },
   "postCreateCommand": "bash ./scripts/dev-verify.sh",
-  "postStartCommand": "bash -c 'if [ -f ~/.codespace-secrets ]; then source ~/.codespace-secrets; fi' || true",
   "customizations": {
     "vscode": {
       "extensions": [
