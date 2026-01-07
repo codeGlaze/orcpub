@@ -13,9 +13,6 @@
   :min-lein-version "2.7.1"
 
   :repositories [["apache" "http://repository.apache.org/snapshots/"]
-                 ["my.datomic.com" {:url "https://my.datomic.com/repo"
-                                    :username [:gpg :env/LEIN_USERNAME]
-                                    :password [:gpg :env/LEIN_PASSWORD]}]
                  ; This allows us to seamlessly load jars from local disk.
                  ["local" {:url "file:lib"
                            :checksum :ignore
@@ -72,7 +69,10 @@
                  [vvvvalvalval/datomock "0.2.0"]
                  ;; Datomic Pro: Free under Apache 2.0, supports Java 11/17/21, actively maintained.
                  ;; Exclude slf4j-nop to avoid duplicate SLF4J binding warnings.
-                 [com.datomic/datomic-pro "1.0.7469" :exclusions [org.slf4j/slf4j-nop]]
+                 ;; Installed to lib/com/datomic/datomic-pro/1.0.7482/ during Docker build/postCreateCommand
+                 ;; Uses existing file:lib repository pattern (same as pdfbox)
+                 ;; Latest version: https://docs.datomic.com/releases-pro.html
+                 [com.datomic/datomic-pro "1.0.7482" :exclusions [org.slf4j/slf4j-nop]]
                  ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
                  [funcool/cuerdas "2026.415"]
                  [camel-snake-kebab "0.4.0"]

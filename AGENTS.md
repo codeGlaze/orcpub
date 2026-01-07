@@ -117,6 +117,81 @@ lein figwheel
 
 ---
 
+## 🎯 Tooling Philosophy — Use Built-in Capabilities First
+
+**CRITICAL PRINCIPLE**: Before writing custom scripts or tools, explore what Leiningen, Clojure, and Figwheel provide natively.
+
+### Built-in Leiningen Capabilities
+
+| Task | Built-in Solution | Custom Script ❌ |
+|------|------------------|------------------|
+| Install local JAR | Use `file:lib` repository (existing pattern) | ❌ Custom install script |
+| Run tests | `lein test` | ❌ Custom test runner |
+| Lint code | `lein lint` (via plugin) | ❌ Custom linter wrapper |
+| Compile CSS | `lein garden` (via plugin) | ❌ Custom CSS build |
+| Start REPL | `lein repl` | ❌ Custom REPL launcher |
+| Build uberjar | `lein uberjar` | ❌ Custom build script |
+| Dependency management | `lein deps` | ❌ Custom deps script |
+
+### When Custom Scripts Are Acceptable
+
+✅ **Acceptable**: Scripts that orchestrate multiple tools or handle environment-specific setup
+- `scripts/start-datomic-local.sh` - Starts Datomic transactor (not a Leiningen concern)
+- `scripts/dev-setup.sh` - Orchestrates multiple services (Datomic + server + figwheel)
+
+❌ **Avoid**: Scripts that duplicate Leiningen functionality
+- Installing dependencies (`lein deps` exists)
+- Running tests (`lein test` exists)
+- Building projects (`lein build`/`lein uberjar` exists)
+
+### Leiningen Hooks & Tasks
+
+Use Leiningen's built-in mechanisms before creating custom tasks:
+
+- **`:prep-tasks`** - Run before compilation (e.g., `[["garden" "once"]]`)
+- **`:post-tasks`** - Run after compilation
+- **`:hooks`** - Custom functions that run during build lifecycle
+- **Plugins** - Extend Leiningen via plugins (already using: `lein-localrepo`, `lein-garden`, `lein-cljfmt`, `lein-kibit`)
+- **`:repositories`** - Use `file:lib` for vendor dependencies (existing pattern)
+
+### Example: Datomic Pro Installation
+
+**✅ Correct approach** (using existing `file:lib` repository pattern):
+```dockerfile
+# Download and place JAR in lib/com/datomic/datomic-pro/VERSION/
+# Uses existing file:lib repository - no lein localrepo install needed
+```
+
+**❌ Avoid** (custom script or unnecessary tooling):
+```bash
+# Don't create scripts/install-datomic-pro.sh
+# Don't use lein localrepo install when file:lib repository exists
+# Use the existing file:lib pattern (same as pdfbox)
+```
+
+### Vendor Dependencies Pattern
+
+This project uses the `file:lib` repository pattern for vendor dependencies:
+
+1. **Place JAR in Maven directory structure**: `lib/com/group/artifact/version/artifact-version.jar`
+2. **Configure repository**: Already done in `project.clj` with `["local" {:url "file:lib"}]`
+3. **CI copies to Maven repo**: CI workflow copies `lib/*` to `~/.m2/repository/` automatically
+
+This pattern is used for:
+- `org.apache.pdfbox/pdfbox` (in `lib/org/apache/pdfbox/...`)
+- `com.datomic/datomic-pro` (in `lib/com/datomic/datomic-pro/...`)
+
+### Documentation References
+
+- [Leiningen Plugins](https://github.com/technomancy/leiningen/blob/master/doc/PLUGINS.md)
+- [Leiningen Hooks](https://github.com/technomancy/leiningen/blob/master/doc/HOOKS.md)
+- [Leiningen Profiles](https://github.com/technomancy/leiningen/blob/master/doc/PROFILES.md)
+- [Leiningen Repositories](https://github.com/technomancy/leiningen/blob/master/doc/DEPLOY.md#repositories)
+- [Figwheel Configuration](https://figwheel.org/docs/configuration.html)
+- [Datomic Pro Releases](https://docs.datomic.com/releases-pro.html) - Check for latest version
+
+---
+
 ## 🔧 Environment Variables
 
 Key environment variables (via `environ`):

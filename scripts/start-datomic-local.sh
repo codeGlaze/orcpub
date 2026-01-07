@@ -5,8 +5,9 @@ set -euo pipefail
 # Unpack Datomic Pro tar under .datomic if needed, prepare transactor properties,
 # and start the Datomic transactor in background, writing a PID file.
 
-# Datomic Pro 1.0.7469 (free under Apache 2.0)
-DATOMIC_TAR="lib/datomic-pro-1.0.7469.tar.gz"
+# Datomic Pro 1.0.7482 (free under Apache 2.0)
+# Download URL: https://datomic-pro-downloads.s3.amazonaws.com/1.0.7482/datomic-pro-1.0.7482.zip
+DATOMIC_ZIP="lib/datomic-pro-1.0.7482.zip"
 DATOMIC_DIR=".datomic"
 PIDFILE="/tmp/datomic-transactor.pid"
 TRANSACTOR_LOG="/tmp/datomic-transactor.log"
@@ -16,9 +17,10 @@ TRANS_PROPERTIES_PATH="$DATOMIC_DIR/config/samples/dev-transactor-template.prope
 [ ! -f "$TRANS_PROPERTIES_PATH" ] && TRANS_PROPERTIES_PATH="$DATOMIC_DIR/config/samples/free-transactor-template.properties"
 TRANS_COPY="$DATOMIC_DIR/transactor.properties"
 
-if [ ! -f "$DATOMIC_TAR" ]; then
-  echo "Datomic tar not found at $DATOMIC_TAR" >&2
-  echo "Please place the datomic tar in the repo under lib/ or use docker-compose if available." >&2
+if [ ! -f "$DATOMIC_ZIP" ]; then
+  echo "Datomic zip not found at $DATOMIC_ZIP" >&2
+  echo "Please download Datomic Pro and place it in lib/ or use docker-compose if available." >&2
+  echo "Download: curl https://datomic-pro-downloads.s3.amazonaws.com/1.0.7482/datomic-pro-1.0.7482.zip -O" >&2
   exit 2
 fi
 
@@ -26,7 +28,15 @@ fi
 if [ ! -d "$DATOMIC_DIR" ]; then
   echo "Extracting Datomic to $DATOMIC_DIR..."
   mkdir -p "$DATOMIC_DIR"
-  tar -xzf "$DATOMIC_TAR" -C "$DATOMIC_DIR" --strip-components=1
+  unzip -q "$DATOMIC_ZIP" -d /tmp/datomic-extract-tmp && \
+  # The zip contains a single directory, move its contents
+  EXTRACTED_DIR=$(find /tmp/datomic-extract-tmp -maxdepth 1 -type d ! -name . | head -1) && \
+  if [ -n "$EXTRACTED_DIR" ]; then
+    cp -r "$EXTRACTED_DIR"/* "$DATOMIC_DIR/"
+  else
+    cp -r /tmp/datomic-extract-tmp/* "$DATOMIC_DIR/"
+  fi && \
+  rm -rf /tmp/datomic-extract-tmp
 fi
 
 if [ ! -f "$TRANS_PROPERTIES_PATH" ]; then
