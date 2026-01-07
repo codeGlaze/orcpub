@@ -34,7 +34,15 @@ RUN echo "[DOCKER BUILD] Starting Datomic Pro ${DATOMIC_VERSION} installation...
     "https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip" && \
     echo "[DOCKER BUILD] Extracting zip..." && \
     unzip -q /tmp/datomic-pro-${DATOMIC_VERSION}.zip -d /tmp/datomic-extract && \
-    DATOMIC_JAR=$(find /tmp/datomic-extract -name "datomic-pro-*.jar" -type f | head -1) && \
+    echo "[DOCKER BUILD] Listing extracted contents..." && \
+    find /tmp/datomic-extract -type f -name "*.jar" | head -5 && \
+    DATOMIC_JAR=$(find /tmp/datomic-extract -type f -name "*.jar" | grep -i datomic | head -1) && \
+    if [ -z "${DATOMIC_JAR}" ]; then \
+      echo "[DOCKER BUILD] ERROR: No Datomic JAR found in extracted zip" && \
+      echo "[DOCKER BUILD] Full directory structure:" && \
+      find /tmp/datomic-extract -type f | head -20 && \
+      exit 1; \
+    fi && \
     echo "[DOCKER BUILD] Found JAR: ${DATOMIC_JAR}" && \
     cp "${DATOMIC_JAR}" "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar" && \
     echo "[DOCKER BUILD] Verifying JAR placement..." && \
