@@ -129,7 +129,7 @@ This document describes a proposed, incremental plan to modernize the project's 
 - [x] Upgrade PDFBox 2.1.0-SNAPSHOT → 3.0.6 ✅ *API migrated, warnings fixed*
 - [ ] Evaluate Shadow-CLJS migration
 - [ ] Consider replacing cljsjs React with npm React
-- [ ] JDK upgrade (blocked by Datomic Free — requires Java 8)
+- [ ] **JDK upgrade** — **REQUIRES Datomic Pro migration** (see test results below)
 
 ---
 
@@ -175,7 +175,56 @@ WARNING: requiring-resolve already refers to: #'clojure.core/requiring-resolve i
 
 **Why we can't fix it:** Datomic Free is abandoned (no longer maintained by Cognitect). There will be no fix.
 
-**Decision:** Accept the warning. Migration to Datomic Cloud or another database is a separate, larger effort.
+**Decision:** Accept the warning. Migration to Datomic Pro is required for JDK 21 support (see test results below).
+
+---
+
+### 3. Datomic Free + Java 21 Compatibility Test Results
+
+**Date:** January 6, 2026  
+**Test Environment:** GitHub Codespace, Alpine Linux, OpenJDK 21.0.9
+
+#### Test Summary
+
+| Component | Java 21 Status | Notes |
+|-----------|----------------|-------|
+| **Transactor startup** | ✅ **Works** | Transactor launches successfully on Java 21 |
+| **Peer library loading** | ✅ **Works** | Datomic peer library loads without errors |
+| **Unit tests (mocked)** | ✅ **Pass** | All 61 tests pass (uses `datomock`, not real transactor) |
+| **Peer → Transactor connection** | ❌ **FAILS** | SSL handshake timeout in ActiveMQ Artemis layer |
+
+#### Detailed Test Results
+
+**Test 1: Transactor Startup**
+```bash
+# Transactor started successfully
+bin/transactor config/samples/free-transactor-template.properties
+# Output: "System started datomic:free://localhost:4334/<DB-NAME>"
+```
+
+**Test 2: Peer Library Connection**
+```clojure
+(require '[datomic.api :as d])
+(d/create-database "datomic:free://127.0.0.1:4334/test")
+```
+
+**Result:** Connection fails with:
+```
+javax.net.ssl.SSLException: handshake timed out
+ActiveMQNotConnectedException: Cannot connect to server(s)
+```
+
+#### Root Cause
+
+Java 21 enforces stricter SSL/TLS defaults that are incompatible with Datomic Free's older SSL implementation. The ActiveMQ Artemis messaging layer (used for peer-transactor communication) cannot complete the SSL handshake.
+
+#### Conclusion
+
+**Datomic Free 0.9.5697 does NOT fully work on Java 21.** While the transactor starts and the peer library loads, actual peer-to-transactor connections fail due to SSL/TLS incompatibility.
+
+**Migration to Datomic Pro is required** to use Java 21. Datomic Pro is now free under Apache 2.0 license and supports Java 11, 17, and 21.
+
+**See:** [`docs/DATOMIC_JAVA21_TEST_RESULTS.md`](docs/DATOMIC_JAVA21_TEST_RESULTS.md) for complete test details.
 
 ---
 

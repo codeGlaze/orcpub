@@ -70,9 +70,9 @@
 
                  [pdfkit-clj "0.1.7"]
                  [vvvvalvalval/datomock "0.2.0"]
-                 ;; Datomic Free: abandoned, Java 8 only, has var shadowing warnings (requiring-resolve).
+                 ;; Datomic Pro: Free under Apache 2.0, supports Java 11/17/21, actively maintained.
                  ;; Exclude slf4j-nop to avoid duplicate SLF4J binding warnings.
-                 [com.datomic/datomic-free "0.9.5697" :exclusions [org.slf4j/slf4j-nop]]
+                 [com.datomic/datomic-pro "1.0.7469" :exclusions [org.slf4j/slf4j-nop]]
                  ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
                  [funcool/cuerdas "2026.415"]
                  [camel-snake-kebab "0.4.0"]
@@ -236,7 +236,7 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}
-                            :dependencies [[com.datomic/datomic-free "0.9.5697"]]}
+                            :dependencies [[com.datomic/datomic-pro "1.0.7469"]]}
              :uberjar      {:prep-tasks  ["clean" "compile" ["cljsbuild" "once" "prod"]]
                             :env         {:production true}
                             :aot         :all

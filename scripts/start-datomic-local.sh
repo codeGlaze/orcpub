@@ -2,14 +2,18 @@
 set -euo pipefail
 
 # scripts/start-datomic-local.sh
-# Unpack datomic-free tar under .datomic if needed, prepare transactor properties,
+# Unpack Datomic Pro tar under .datomic if needed, prepare transactor properties,
 # and start the Datomic transactor in background, writing a PID file.
 
-DATOMIC_TAR="lib/datomic-free-0.9.5703.tar.gz"
+# Datomic Pro 1.0.7469 (free under Apache 2.0)
+DATOMIC_TAR="lib/datomic-pro-1.0.7469.tar.gz"
 DATOMIC_DIR=".datomic"
 PIDFILE="/tmp/datomic-transactor.pid"
 TRANSACTOR_LOG="/tmp/datomic-transactor.log"
-TRANS_PROPERTIES_PATH="$DATOMIC_DIR/config/samples/free-transactor-template.properties"
+# Datomic Pro uses dev-transactor-template.properties (or free-transactor-template.properties for compatibility)
+TRANS_PROPERTIES_PATH="$DATOMIC_DIR/config/samples/dev-transactor-template.properties"
+# Fallback to free template if dev doesn't exist (for compatibility)
+[ ! -f "$TRANS_PROPERTIES_PATH" ] && TRANS_PROPERTIES_PATH="$DATOMIC_DIR/config/samples/free-transactor-template.properties"
 TRANS_COPY="$DATOMIC_DIR/transactor.properties"
 
 if [ ! -f "$DATOMIC_TAR" ]; then

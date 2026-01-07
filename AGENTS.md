@@ -43,6 +43,8 @@ Before working on this project, read these documents:
 - **Frontend**: Reagent + re-frame + Figwheel
 - **Build**: Leiningen + cljsbuild
 
+**⚠️ Important:** Datomic Free does NOT work on Java 21 (SSL/TLS incompatibility). See [`docs/DATOMIC_JAVA21_TEST_RESULTS.md`](docs/DATOMIC_JAVA21_TEST_RESULTS.md) for test results. Migration to Datomic Pro required for JDK 21 support.
+
 ### Key Files & Entry Points
 
 | Purpose | Location |
@@ -216,6 +218,12 @@ These warnings come from third-party libraries and are unfixable from our code:
 1. **`garden.color/abs`** — shadows `clojure.core/abs` (Garden library issue)
 2. **`datomic.common/requiring-resolve`** — Datomic Free is unmaintained
 3. **PDFBox font fallback** — Missing Helvetica in Docker/CI environments
+
+## ⚠️ Critical Compatibility Issue
+
+**Datomic Free + Java 21:** Datomic Free 0.9.5703 does NOT work on Java 21. Peer-to-transactor connections fail with SSL handshake timeout. See [`docs/DATOMIC_JAVA21_TEST_RESULTS.md`](docs/DATOMIC_JAVA21_TEST_RESULTS.md) for complete test results.
+
+**Impact:** Application cannot run on Java 21 with Datomic Free. Migration to Datomic Pro required.
 
 ---
 

@@ -18,6 +18,7 @@ This folder contains detailed documentation for the OrcPub/Dungeon Master's Vaul
 | File | Purpose |
 |------|---------|
 | [`DEPENDENCY_VALIDATION.md`](DEPENDENCY_VALIDATION.md) | Detailed validation report for dependency upgrades |
+| [`DATOMIC_JAVA21_TEST_RESULTS.md`](DATOMIC_JAVA21_TEST_RESULTS.md) | Compatibility test results: Datomic Free on Java 21 |
 
 ### Other Documentation Locations
 
