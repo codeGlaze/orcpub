@@ -12,10 +12,12 @@ DATOMIC_DIR=".datomic"
 PIDFILE="/tmp/datomic-transactor.pid"
 TRANSACTOR_LOG="/tmp/datomic-transactor.log"
 # Datomic Pro uses dev-transactor-template.properties (or free-transactor-template.properties for compatibility)
-TRANS_PROPERTIES_PATH="$DATOMIC_DIR/config/samples/dev-transactor-template.properties"
+# Find the versioned subdirectory first
+DATOMIC_VERSION_DIR=$(find "$DATOMIC_DIR" -maxdepth 1 -type d -name "datomic-pro-*" | head -1)
+TRANS_PROPERTIES_PATH="$DATOMIC_VERSION_DIR/config/samples/dev-transactor-template.properties"
 # Fallback to free template if dev doesn't exist (for compatibility)
-[ ! -f "$TRANS_PROPERTIES_PATH" ] && TRANS_PROPERTIES_PATH="$DATOMIC_DIR/config/samples/free-transactor-template.properties"
-TRANS_COPY="$DATOMIC_DIR/transactor.properties"
+[ ! -f "$TRANS_PROPERTIES_PATH" ] && TRANS_PROPERTIES_PATH="$DATOMIC_VERSION_DIR/config/samples/free-transactor-template.properties"
+TRANS_COPY="$DATOMIC_VERSION_DIR/transactor.properties"
 
 if [ ! -f "$DATOMIC_ZIP" ]; then
   echo "Datomic zip not found at $DATOMIC_ZIP" >&2
@@ -45,7 +47,7 @@ if [ ! -f "$TRANS_PROPERTIES_PATH" ]; then
 fi
 
 # Prepare transactor properties using an absolute path so the transactor (which cd's into its bin/..) can locate it reliably
-TRANS_COPY_ABS="$(cd "$DATOMIC_DIR" && pwd)/transactor.properties"
+TRANS_COPY_ABS="$(cd "$DATOMIC_VERSION_DIR" && pwd)/transactor.properties"
 cp "$TRANS_PROPERTIES_PATH" "$TRANS_COPY_ABS"
 # configure sensible defaults for development (use portable sed with alternate delimiter and create a backup then remove it)
 sed -i.bak "s|# data-dir=data|data-dir=./data|" "$TRANS_COPY_ABS" && rm -f "$TRANS_COPY_ABS.bak"
@@ -60,7 +62,7 @@ if ! grep -q "^encrypt-channel=" "$TRANS_COPY_ABS"; then
 fi
 
 # Make sure data/log dirs exist
-mkdir -p "$DATOMIC_DIR/data" "$DATOMIC_DIR/log"
+mkdir -p "$DATOMIC_VERSION_DIR/data" "$DATOMIC_VERSION_DIR/log"
 
 # Start transactor if not already running
 if [ -f "$PIDFILE" ] && kill -0 "$(cat $PIDFILE)" 2>/dev/null; then
@@ -72,7 +74,7 @@ echo "Starting Datomic transactor (logs: $TRANSACTOR_LOG)..."
 # Note which properties file we'll be using
 echo "Using transactor properties: $TRANS_COPY_ABS"
 # Start in background; pass the absolute path to the transactor properties so it is found regardless of transactor's CWD
-nohup "$DATOMIC_DIR/bin/transactor" "$TRANS_COPY_ABS" > "$TRANSACTOR_LOG" 2>&1 &
+nohup "$DATOMIC_VERSION_DIR/bin/transactor" "$TRANS_COPY_ABS" > "$TRANSACTOR_LOG" 2>&1 &
 TRANS_PID=$!
 
 # write pid
