@@ -11,6 +11,7 @@
   },
   "forwardPorts": [8890, 3449, 7888],
   "postCreateCommand": "bash ./scripts/dev-verify.sh",
+  "postStartCommand": "bash -c 'if [ -f ~/.codespace-secrets ]; then source ~/.codespace-secrets; fi' || true",
   "customizations": {
     "vscode": {
       "extensions": [
