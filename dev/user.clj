@@ -134,3 +134,13 @@
   (NB: Call fig-start first.)"
   []
   (f/cljs-repl))
+
+(defn add-test-user
+  "Creates a test user for development, already marked as verified. Only runs if ORCPUB_ENV=dev."
+  []
+  (if (= (System/getenv "ORCPUB_ENV") "dev")
+    (let [username "test"
+          email "test@example.com"
+          password "testpass"]
+      (r/register {:username username :email email :password password :verified true}))
+    (println "add-test-user is disabled outside dev environment.")))

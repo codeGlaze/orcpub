@@ -327,7 +327,7 @@ Within Emacs you should be able to save your file (C-x C-s) and reload it into t
 
 The design is based around the concept of hierarchical option selections applying modifiers to a entity. 
 
-Consider D&D 5e as an example. In D&D 5e you build and maintain characters, which are entities, by selecting from a set of character options, such as race and class. When you select a race you will be afforded other option selections, such as subrace or subclass. 
+Consider D&D 5e as an example. In D&D 5e you build and maintain characters, which are entities, by selecting from a set of character options, such as race and class.
 
 Option selections also apply modifiers to your character, such as 'Darkvision 60'. Option selections are defined in templates. An entity is really just a record of hierarchical choices made. 
 
