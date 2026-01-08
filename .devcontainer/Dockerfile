@@ -2,7 +2,7 @@ FROM clojure:temurin-21-lein
 
 # Install useful dev tools (including unzip for Datomic Pro)
 RUN apt-get update \
- && apt-get install -y --no-install-recommends rlwrap git curl tmux make git-lfs lsof iproute2 unzip \
+ && apt-get install -y --no-install-recommends rlwrap git curl tmux make git-lfs lsof iproute2 unzip rsync maven \
     libfreetype6 fontconfig fonts-dejavu-core libxrender1 libxext6 libxi6 libxrandr2 \
  && rm -rf /var/lib/apt/lists/*
 
@@ -36,17 +36,25 @@ RUN echo "[DOCKER BUILD] Starting Datomic Pro ${DATOMIC_VERSION} installation...
     unzip -q /tmp/datomic-pro-${DATOMIC_VERSION}.zip -d /tmp/datomic-extract && \
     echo "[DOCKER BUILD] Listing extracted contents..." && \
     find /tmp/datomic-extract -type f -name "*.jar" | head -5 && \
-    DATOMIC_JAR=$(find /tmp/datomic-extract -type f -name "*.jar" | grep -i datomic | head -1) && \
-    if [ -z "${DATOMIC_JAR}" ]; then \
-      echo "[DOCKER BUILD] ERROR: No Datomic JAR found in extracted zip" && \
-      echo "[DOCKER BUILD] Full directory structure:" && \
-      find /tmp/datomic-extract -type f | head -20 && \
-      exit 1; \
+    # Copy entire distribution into vendor layout so POMs and support files are available
+    EXTRACTED_DIR=$(find /tmp/datomic-extract -maxdepth 1 -type d ! -name . | head -1) && \
+    mkdir -p lib/com/datomic/datomic-pro/${DATOMIC_VERSION} && \
+    if [ -n "${EXTRACTED_DIR}" ]; then \
+      echo "[DOCKER BUILD] Copying extracted distribution from ${EXTRACTED_DIR} -> lib/com/datomic/datomic-pro/${DATOMIC_VERSION}" && \
+      cp -r "${EXTRACTED_DIR}"/* "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/" && \
+      # If a peer jar exists in the distribution, also ensure datomic-pro-<version>.jar exists for vendor layout
+      if [ -f "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/peer-${DATOMIC_VERSION}.jar" ]; then \
+        cp "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/peer-${DATOMIC_VERSION}.jar" "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar"; \
+      fi; \
+    else \
+      # Fallback to copying a single jar if extraction produced unexpected layout
+      DATOMIC_POTENTIAL_JAR=$(find /tmp/datomic-extract -type f -name 'peer*.jar' -print -quit || true) && \
+      if [ -z "${DATOMIC_POTENTIAL_JAR}" ]; then DATOMIC_POTENTIAL_JAR=$(find /tmp/datomic-extract -type f -name 'datomic-pro-*.jar' -print -quit || true); fi && \
+      if [ -z "${DATOMIC_POTENTIAL_JAR}" ]; then echo "[DOCKER BUILD] ERROR: No Datomic JAR found in extracted zip" && find /tmp/datomic-extract -type f | head -20 && exit 1; fi && \
+      cp "${DATOMIC_POTENTIAL_JAR}" "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar"; \
     fi && \
-    echo "[DOCKER BUILD] Found JAR: ${DATOMIC_JAR}" && \
-    cp "${DATOMIC_JAR}" "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar" && \
-    echo "[DOCKER BUILD] Verifying JAR placement..." && \
-    ls -lh "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar" && \
+    echo "[DOCKER BUILD] Verifying vendor path contents..." && \
+    ls -lh "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/" && \
     rm -rf /tmp/datomic-pro-${DATOMIC_VERSION}.zip /tmp/datomic-extract && \
     echo "[DOCKER BUILD] ✅ Datomic Pro installed to lib/ (file:lib repository pattern)"
 

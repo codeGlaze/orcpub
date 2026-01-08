@@ -1,94 +1,283 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# scripts/start-datomic-local.sh
-# Unpack Datomic Pro tar under .datomic if needed, prepare transactor properties,
-# and start the Datomic transactor in background, writing a PID file.
+echo "[start-datomic-local.sh] Starting Datomic transactor script..." >&2
+sleep 0.1
 
-# Datomic Pro 1.0.7482 (free under Apache 2.0)
-# Download URL: https://datomic-pro-downloads.s3.amazonaws.com/1.0.7482/datomic-pro-1.0.7482.zip
-DATOMIC_ZIP="lib/datomic-pro-1.0.7482.zip"
-DATOMIC_DIR=".datomic"
+# Minimal Datomic Pro transactor start script
+# Behavior: starts transactor, checks for existing transactor processes and processes holding the configured port (default 4334) and offers to kill them when run interactively.
+# Usage: ./scripts/start-datomic-local.sh [DATOMIC_DIR] [CONFIG_PATH]
+
+# Option: --check or --no-start to run validations without starting the transactor
+NO_START=0
+POSITIONAL=()
+for arg in "$@"; do
+  case "$arg" in
+    --check|--no-start)
+      NO_START=1
+      ;;
+    *)
+      POSITIONAL+=("$arg")
+      ;;
+  esac
+done
+# restore positional parameters to the non-flag args
+set -- "${POSITIONAL[@]}"
+
+DATOMIC_DIR="${1:-lib/com/datomic/datomic-pro/1.0.7482}"
+CONFIG_PATH="${2:-config/samples/dev-transactor-template.properties}"
 PIDFILE="/tmp/datomic-transactor.pid"
 TRANSACTOR_LOG="/tmp/datomic-transactor.log"
-# Datomic Pro uses dev-transactor-template.properties (or free-transactor-template.properties for compatibility)
-# Find the versioned subdirectory first
-DATOMIC_VERSION_DIR=$(find "$DATOMIC_DIR" -maxdepth 1 -type d -name "datomic-pro-*" | head -1)
-TRANS_PROPERTIES_PATH="$DATOMIC_VERSION_DIR/config/samples/dev-transactor-template.properties"
-# Fallback to free template if dev doesn't exist (for compatibility)
-[ ! -f "$TRANS_PROPERTIES_PATH" ] && TRANS_PROPERTIES_PATH="$DATOMIC_VERSION_DIR/config/samples/free-transactor-template.properties"
-TRANS_COPY="$DATOMIC_VERSION_DIR/transactor.properties"
 
-if [ ! -f "$DATOMIC_ZIP" ]; then
-  echo "Datomic zip not found at $DATOMIC_ZIP" >&2
-  echo "Please download Datomic Pro and place it in lib/ or use docker-compose if available." >&2
-  echo "Download: curl https://datomic-pro-downloads.s3.amazonaws.com/1.0.7482/datomic-pro-1.0.7482.zip -O" >&2
-  exit 2
+# Determine service port (default 4334). Done early so post-start checks can reference it.
+SERVICE_PORT=4334
+if [ -f "$DATOMIC_DIR/$CONFIG_PATH" ]; then
+  cfg_port=$(grep -E '(^|[[:space:]])port[[:space:]]*=' "$DATOMIC_DIR/$CONFIG_PATH" | head -n1 | sed -E 's/.*=[[:space:]]*([0-9]+).*/\1/') || true
+  if [[ "$cfg_port" =~ ^[0-9]+$ ]]; then
+    SERVICE_PORT="$cfg_port"
+  fi
 fi
 
-# Unpack if needed
-if [ ! -d "$DATOMIC_DIR" ]; then
-  echo "Extracting Datomic to $DATOMIC_DIR..."
-  mkdir -p "$DATOMIC_DIR"
-  unzip -q "$DATOMIC_ZIP" -d /tmp/datomic-extract-tmp && \
-  # The zip contains a single directory, move its contents
-  EXTRACTED_DIR=$(find /tmp/datomic-extract-tmp -maxdepth 1 -type d ! -name . | head -1) && \
-  if [ -n "$EXTRACTED_DIR" ]; then
-    cp -r "$EXTRACTED_DIR"/* "$DATOMIC_DIR/"
+# Timeouts (seconds)
+KILL_WAIT=5
+PORT_WAIT=10
+
+# Helpers
+kill_pids() {
+  local pids="$1"
+  local remaining=""
+  echo "Attempting to kill PIDs: $pids" >&2
+  for pid in $pids; do
+    echo "Sending TERM to $pid" >&2
+    kill "$pid" || true
+  done
+
+  # wait and escalate
+  for pid in $pids; do
+    for i in $(seq 1 $KILL_WAIT); do
+      if ps -p "$pid" >/dev/null 2>&1; then
+        sleep 1
+      else
+        break
+      fi
+    done
+    if ps -p "$pid" >/dev/null 2>&1; then
+      echo "Process $pid did not exit; sending KILL" >&2
+      kill -9 "$pid" || true
+    else
+      echo "Process $pid exited" >&2
+    fi
+  done
+
+  # collect any remaining
+  for pid in $pids; do
+    if ps -p "$pid" >/dev/null 2>&1; then
+      remaining="$remaining $pid"
+    fi
+  done
+
+  if [ -n "$remaining" ]; then
+    echo "Remaining PIDs after kill attempt:$remaining" >&2
+    return 1
+  fi
+  return 0
+}
+
+port_in_use() {
+  local p=$1
+  if ss -ltn 2>/dev/null | grep -q ":$p\b" || netstat -ltn 2>/dev/null | grep -q ":$p\b"; then
+    return 0
+  fi
+  return 1
+}
+
+get_port_pids() {
+  local p=$1
+  local pids=""
+  pids=$(ss -ltnp 2>/dev/null | grep ":$p\b" | sed -nE 's/.*pid=([0-9]+),.*/\1/p' || true)
+  if [ -z "$pids" ]; then
+    pids=$(lsof -nPi :$p -sTCP:LISTEN -t 2>/dev/null || true)
+  fi
+  echo "$pids" | tr '\n' ' ' | sed 's/^ *//;s/ *$//'
+}
+
+wait_for_port_free() {
+  local p=$1
+  local timeout=${2:-$PORT_WAIT}
+  for i in $(seq 1 $timeout); do
+    if ! port_in_use "$p"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# If not in check mode, check for running transactor processes
+if [ "$NO_START" -eq 0 ]; then
+
+  # Prefer pgrep to reliably find running transactor processes and show their commands
+  EXISTING_PROCS=$(pgrep -af 'transactor' || true)
+  if [ -n "$EXISTING_PROCS" ]; then
+    echo "Datomic transactor process(es) found:" >&2
+    echo "$EXISTING_PROCS" | sed 's/^/  /' >&2
+
+    # interactive prompt only when stdin is a tty
+    if [ -t 0 ]; then
+      read -p "Kill all running transactor processes? [y/N]: " REPLY
+    else
+      echo "Non-interactive shell; not killing existing transactor processes. Exiting." >&2
+      exit 0
+    fi
+
+    PRE_PORT_PIDS=$(get_port_pids "$SERVICE_PORT")
+    echo "Pre-kill port PIDs for $SERVICE_PORT: ${PRE_PORT_PIDS:-<none>}" >&2
+
+    if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+      PIDS_TO_KILL=$(echo "$EXISTING_PROCS" | awk '{print $1}')
+      if ! kill_pids "$PIDS_TO_KILL"; then
+        echo "ERROR: some transactor processes did not exit cleanly." >&2
+        exit 1
+      fi
+
+      MID_PORT_PIDS=$(get_port_pids "$SERVICE_PORT")
+      echo "Mid-kill port PIDs for $SERVICE_PORT: ${MID_PORT_PIDS:-<none>}" >&2
+
+      # Wait for the configured service port to be free
+      echo "Waiting up to $PORT_WAIT s for port $SERVICE_PORT to be free" >&2
+      if ! wait_for_port_free "$SERVICE_PORT" "$PORT_WAIT"; then
+        echo "ERROR: port $SERVICE_PORT still in use after killing processes. Aborting." >&2
+        ss -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" || netstat -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" || true
+        exit 1
+      fi
+
+      rm -f "$PIDFILE"
+      echo "Killed Datomic transactor process(es). Continuing to start a new one." >&2
+      sleep 0.1
+    else
+      echo "Exiting without starting a new transactor." >&2
+      sleep 0.1
+      exit 0
+    fi
   else
-    cp -r /tmp/datomic-extract-tmp/* "$DATOMIC_DIR/"
-  fi && \
-  rm -rf /tmp/datomic-extract-tmp
+    # No transactor-named processes; check if the configured/service port is in use by another process
+    if (ss -ltnp 2>/dev/null | grep -q ":$SERVICE_PORT\\b" || netstat -ltnp 2>/dev/null | grep -q ":$SERVICE_PORT\\b"); then
+      echo "Port $SERVICE_PORT appears to be in use by another process:" >&2
+      ss -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" || netstat -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" || true
+
+      # try to extract PIDs from ss or fall back to lsof
+      PIDS=$(ss -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" | sed -nE 's/.*pid=([0-9]+),.*/\1/p' || true)
+      if [ -z "$PIDS" ]; then
+        PIDS=$(lsof -nPi :$SERVICE_PORT -sTCP:LISTEN -t 2>/dev/null || true)
+      fi
+
+      if [ -n "$PIDS" ]; then
+        echo "Process(es) holding port $SERVICE_PORT: $PIDS" >&2
+        echo "Detailed listeners (before kill):" >&2
+        (ss -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" || netstat -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b") || true
+
+        if [ -t 0 ]; then
+          read -p "Kill process(es) holding port $SERVICE_PORT? [y/N]: " REPLY
+        else
+          echo "Non-interactive shell; not killing port-hogging processes. Exiting." >&2
+          exit 0
+        fi
+
+        if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+          echo "Attempting to kill PIDs: $PIDS" >&2
+          if ! kill_pids "$PIDS"; then
+            echo "ERROR: some port-hogging processes did not exit cleanly." >&2
+            ss -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" || netstat -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" || true
+            # try to extract PIDs again and show detailed ps for them
+            REMAINING_PIDS=$(ss -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" | sed -nE 's/.*pid=([0-9]+),.*/\1/p' || true)
+            if [ -n "$REMAINING_PIDS" ]; then
+              echo "Remaining PIDs: $REMAINING_PIDS" >&2
+              for rp in $REMAINING_PIDS; do
+                echo "Details for $rp:" >&2
+                ps -fp "$rp" || true
+                echo "Open files for $rp:" >&2
+                lsof -p "$rp" 2>/dev/null || true
+              done
+            fi
+            exit 1
+          fi
+
+          # Confirm port is free
+          echo "Waiting up to $PORT_WAIT s for port $SERVICE_PORT to be free" >&2
+          if ! wait_for_port_free "$SERVICE_PORT" "$PORT_WAIT"; then
+            echo "ERROR: port $SERVICE_PORT still in use after killing processes. Remaining listeners:" >&2
+            ss -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" || netstat -ltnp 2>/dev/null | grep ":$SERVICE_PORT\\b" || true
+            exit 1
+          fi
+
+          rm -f "$PIDFILE"
+          echo "Killed process(es) holding port $SERVICE_PORT. Continuing to start a new one." >&2
+          sleep 0.1
+        else
+          echo "Exiting without starting a new transactor." >&2
+          sleep 0.1
+          exit 0
+        fi
+      fi
+    fi
+  fi
 fi
 
-if [ ! -f "$TRANS_PROPERTIES_PATH" ]; then
-  echo "Transactor properties template not found at $TRANS_PROPERTIES_PATH" >&2
+if [ ! -d "$DATOMIC_DIR" ]; then
+  echo "ERROR: Datomic directory not found: $DATOMIC_DIR" >&2
+  sleep 0.1
   exit 2
 fi
 
-# Prepare transactor properties using an absolute path so the transactor (which cd's into its bin/..) can locate it reliably
-TRANS_COPY_ABS="$(cd "$DATOMIC_VERSION_DIR" && pwd)/transactor.properties"
-cp "$TRANS_PROPERTIES_PATH" "$TRANS_COPY_ABS"
-# configure sensible defaults for development (use portable sed with alternate delimiter and create a backup then remove it)
-sed -i.bak "s|# data-dir=data|data-dir=./data|" "$TRANS_COPY_ABS" && rm -f "$TRANS_COPY_ABS.bak"
-sed -i.bak "s|# log-dir=log|log-dir=./log|" "$TRANS_COPY_ABS" && rm -f "$TRANS_COPY_ABS.bak"
-sed -i.bak "s|host=localhost|host=0.0.0.0|" "$TRANS_COPY_ABS" && rm -f "$TRANS_COPY_ABS.bak"
-# disable encrypted transport for local dev to avoid SSL handshake requirements
-# Template usually has '# encrypt-channel=true' commented out; replace/comment accordingly
-sed -i.bak "s|# encrypt-channel=true|encrypt-channel=false|" "$TRANS_COPY_ABS" && rm -f "$TRANS_COPY_ABS.bak"
-# If the property wasn't present at all, append it for clarity
-if ! grep -q "^encrypt-channel=" "$TRANS_COPY_ABS"; then
-  printf "\n# Disable SSL for local development\nencrypt-channel=false\n" >> "$TRANS_COPY_ABS"
+if [ ! -f "$DATOMIC_DIR/$CONFIG_PATH" ]; then
+  echo "ERROR: Transactor config not found: $DATOMIC_DIR/$CONFIG_PATH" >&2
+  sleep 0.1
+  exit 2
 fi
 
-# Make sure data/log dirs exist
-mkdir -p "$DATOMIC_VERSION_DIR/data" "$DATOMIC_VERSION_DIR/log"
-
-# Start transactor if not already running
-if [ -f "$PIDFILE" ] && kill -0 "$(cat $PIDFILE)" 2>/dev/null; then
-  echo "Datomic transactor already running (pid $(cat $PIDFILE))." 
+# If running in check-only mode, stop here after validations
+if [ "$NO_START" -eq 1 ]; then
+  echo "Check mode: validations passed; not starting transactor." >&2
   exit 0
 fi
 
-echo "Starting Datomic transactor (logs: $TRANSACTOR_LOG)..."
-# Note which properties file we'll be using
-echo "Using transactor properties: $TRANS_COPY_ABS"
-# Start in background; pass the absolute path to the transactor properties so it is found regardless of transactor's CWD
-nohup "$DATOMIC_VERSION_DIR/bin/transactor" "$TRANS_COPY_ABS" > "$TRANSACTOR_LOG" 2>&1 &
-TRANS_PID=$!
+cd "$DATOMIC_DIR"
 
-# write pid
+echo "Starting transactor (nohup bin/transactor \"$CONFIG_PATH\") -> log: $TRANSACTOR_LOG" >&2
+nohup bin/transactor "$CONFIG_PATH" > "$TRANSACTOR_LOG" 2>&1 &
+TRANS_PID=$!
+echo "Started transactor PID: $TRANS_PID" >&2
 echo "$TRANS_PID" > "$PIDFILE"
 
-# Wait for port 4334 to be reachable (blocking, 60s)
+# Verify the process is alive shortly after spawn
+sleep 0.2
+if ! ps -p "$TRANS_PID" >/dev/null 2>&1; then
+  echo "ERROR: transactor process $TRANS_PID exited immediately. Showing last 200 lines of log:" >&2
+  tail -n 200 "$TRANSACTOR_LOG" >&2 || true
+  rm -f "$PIDFILE" || true
+  exit 1
+fi
+
+# Wait for configured service port to be reachable (blocking, 60s)
 for i in $(seq 1 60); do
-  if timeout 1 bash -c '</dev/tcp/localhost/4334' >/dev/null 2>&1; then
-    echo "Datomic transactor is up (port 4334 reachable)."
+  if timeout 1 bash -c "</dev/tcp/localhost/$SERVICE_PORT" >/dev/null 2>&1; then
+    echo "Datomic transactor is up (port $SERVICE_PORT reachable)." >&2
+    POST_PORT_PIDS=$(get_port_pids "$SERVICE_PORT")
+    echo "Post-start port PIDs for $SERVICE_PORT: ${POST_PORT_PIDS:-<none>}" >&2
+    if [ -n "${PRE_PORT_PIDS:-}" ]; then
+      if [ "$POST_PORT_PIDS" = "$PRE_PORT_PIDS" ]; then
+        echo "WARNING: port $SERVICE_PORT is owned by same PID(s) after start: $POST_PORT_PIDS" >&2
+      else
+        echo "Port ownership changed (pre: ${PRE_PORT_PIDS:-<none>}, post: ${POST_PORT_PIDS:-<none>})" >&2
+      fi
+    fi
     exit 0
   fi
   sleep 1
 done
 
-echo "Timed out waiting for Datomic on port 4334; tailing last 200 lines of transactor log:" >&2
-tail -n 200 "$TRANSACTOR_LOG" >&2
+# timed out
+echo "Timed out waiting for Datomic on port $SERVICE_PORT; tailing last 200 lines of transactor log:" >&2
+sleep 0.1
+tail -n 200 "$TRANSACTOR_LOG" >&2 || true
 exit 1

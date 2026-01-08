@@ -485,3 +485,23 @@ Larry Christensen original author of [Orcpub2](https://github.com/larrychristens
 
 ## License
 [EPL-2.0](LICENSE)
+
+## Datomic Transactor Management
+
+A minimal interactive script for managing Datomic transactor processes is provided at `scripts/start-datomic.sh`.
+
+- Polls for running Datomic transactor processes (matches 'transactor' or 'datomic' in the command line)
+- If none are found, automatically launches the Datomic transactor
+- Displays a clean process table (NAME, PID)
+- Interactive menu: kill all, kill by PID, start manually, repoll, abort
+- Configurable Datomic version, directory, and properties file at the top of the script
+
+**Usage:**
+
+```bash
+./scripts/start-datomic.sh
+```
+
+To customize Datomic version or config, edit the variables at the top of the script.
+
+See the script header for full documentation.

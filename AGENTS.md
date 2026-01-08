@@ -43,6 +43,43 @@ Before working on this project, read these documents:
 - **Frontend**: Reagent + re-frame + Figwheel
 - **Build**: Leiningen + cljsbuild
 
+## 🟢 Datomic Pro Installation & Usage (Agent Guidance)
+### Local Datomic Transactor Script
+
+- The canonical script for starting a local Datomic Pro transactor is `scripts/start-datomic-local.sh`.
+- This script is invoked by the dev menu, Makefile, and `scripts/dev-setup.sh` for local development workflows.
+- Its responsibilities are:
+   - Unzipping the Datomic Pro distribution into `.datomic/` if not already present (preserving original structure).
+   - Preparing a transactor properties file for local dev from the provided template.
+   - Starting the transactor process in the background, writing a PID file, and waiting for port 4334.
+   - Managing logs and PID files for troubleshooting.
+- **It does NOT install or copy the peer JAR by default during transactor start.** The correct place for peer JAR installation is the devcontainer `postCreateCommand` (or Dockerfile during image build), which should *prefer* the distribution's `peer-*.jar` and copy it into the vendor layout as `lib/com/datomic/datomic-pro/<version>/datomic-pro-<version>.jar` so Leiningen can resolve `com.datomic/datomic-pro` via the `file:lib` repo. The start script (`scripts/start-datomic-local.sh`) contains repair logic to detect `peer*.jar` in an extracted transactor and copy/rename it into the vendor path when necessary. This ensures a single source of truth and consistent resolution.
+- The entirety of datomic's zip contents need to be copied to `lib/com/datomic/datomic-pro/<version>/` so they can be used by datomic when it launches.
+- The script is idempotent and does not tamper with vendor JARs or Datomic internals.
+- This separation ensures there is a single source of truth for peer JAR installation and avoids duplication or accidental tampering.
+
+**Transactor vs Peer JAR:**
+- The Datomic transactor is NOT a JAR. It is a process started using a configuration file (e.g., `.datomic/datomic-pro-<version>/config/dev-transactor-template.properties`).
+- The transactor is started by running the `bin/transactor` script with the appropriate properties file, NOT by running a JAR directly.
+- The Datomic peer library (for use in Clojure code, i.e., `datomic.api`) is distributed as a JAR (e.g., `peer.<version>.jar`) in the Datomic Pro zip under `lib/`.
+- **Do NOT rename or move the peer JAR after unzipping.** The peer JAR must retain its original name (e.g., `peer.1.0.7482.jar`) and location for compatibility and reproducibility.
+- The correct way to "install" the peer JAR for Leiningen is to copy it (without renaming) into the vendor layout: `lib/com/datomic/datomic-pro/<version>/peer.<version>.jar`.
+- The project should reference the peer JAR in `project.clj` using the `file:lib` repository pattern. Do not use the transactor JAR for the peer API.
+
+**Unzipping Datomic Pro:**
+- Always unzip the Datomic Pro distribution as-is into `.datomic/datomic-pro-<version>/`.
+- Do not rename, move, or tamper with any files inside the unzipped directory, especially the peer JAR.
+- The transactor configuration file is found at `.datomic/datomic-pro-<version>/config/dev-transactor-template.properties` (or similar).
+- The transactor is started using the `bin/transactor` script and the config file above.
+
+**Development verbosity:**
+- For developer convenience, the devcontainer enables `POST_CREATE_VERBOSE=1` by default so the post-create script emits timestamped, verbose logs during container creation. This makes long-running steps (download, mvn install, `lein deps`) visible in real time. In production images or CI builds, this should be disabled to reduce log noise.
+
+**Summary for agents:**
+- Never treat the transactor as a JAR or attempt to run it as one.
+- Never rename the peer JAR; always use the original name and location.
+- Installation of the peer JAR for Clojure/Leiningen is handled by copying it to the vendor path, not by the transactor or its config.
+
 **⚠️ Important:** Datomic Free does NOT work on Java 21 (SSL/TLS incompatibility). See [`docs/DATOMIC_JAVA21_TEST_RESULTS.md`](docs/DATOMIC_JAVA21_TEST_RESULTS.md) for test results. Migration to Datomic Pro required for JDK 21 support.
 
 ### Key Files & Entry Points
@@ -332,3 +369,13 @@ These warnings come from third-party libraries and are unfixable from our code:
 ---
 
 *Last updated: January 2026*
+
+## Datomic Transactor Script
+
+A minimal interactive script for Datomic transactor management is available at `scripts/start-datomic.sh`.
+- Polls for running Datomic transactor processes (matches 'transactor' or 'datomic')
+- Auto-starts Datomic if none are found
+- Interactive menu for process management
+- Configurable at the top of the script
+
+See the script and project README for usage details.

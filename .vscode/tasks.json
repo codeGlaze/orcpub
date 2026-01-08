@@ -37,6 +37,20 @@
       "problemMatcher": []
     },
     {
+      "label": "Dev: Init DB (dev,test)",
+      "type": "shell",
+      "command": "bash -lc 'lein with-profile dev,test run -m orcpub.dev-init'",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: Inspect Datomic Jars",
+      "type": "shell",
+      "command": "bash -lc 'bash ./scripts/inspect-datomic-jars.sh'",
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
       "label": "Dev: Tail Server Log",
       "type": "shell",
       "command": "bash -lc 'tail -F /tmp/orcpub-server.log'",

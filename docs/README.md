@@ -42,3 +42,7 @@ When adding documentation:
 ## For AI Agents
 
 If you're an AI coding assistant, start with [`AGENTS.md`](../AGENTS.md) — it contains all the rules and patterns you need to know.
+
+## Datomic Transactor Script
+
+See `scripts/start-datomic.sh` for a minimal, interactive Datomic process manager. Usage and configuration are documented in the script header and the main project README.

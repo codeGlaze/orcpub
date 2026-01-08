@@ -1,0 +1,300 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Minimal interactive helper to start a Datomic transactor.
+# Behavior:
+# - Poll for running transactor processes and print them.
+# - If none: start the transactor and wait for the configured port.
+# - If one or more: show a menu:
+#    1) kill all datomic processes (then re-poll)
+#    2) kill a specific service (accepts PID or port; then re-poll)
+#    3) abort
+#
+# Usage: scripts/start-datomic [DATOMIC_DIR] [CONFIG_PATH]
+
+DATOMIC_DIR="${1:-lib/com/datomic/datomic-pro/1.0.7482}"
+CONFIG_PATH="${2:-config/samples/dev-transactor-template.properties}"
+PIDFILE="/tmp/datomic-transactor.pid"
+TRANSACTOR_LOG="/tmp/datomic-transactor.log"
+KILL_WAIT=5
+PORT_WAIT=10
+START_WAIT=60
+
+# Helpers
+get_service_ports() {
+  # returns "MAIN_P:H2_P"
+  local mainp=4334
+  if [ -f "$DATOMIC_DIR/$CONFIG_PATH" ]; then
+    cfg_port=$(grep -E '(^|[[:space:]])port[[:space:]]*=' "$DATOMIC_DIR/$CONFIG_PATH" | head -n1 | sed -E 's/.*=[[:space:]]*([0-9]+).*/\1/' || true)
+    if [[ "$cfg_port" =~ ^[0-9]+$ ]]; then
+      mainp="$cfg_port"
+    fi
+  fi
+  local h2p=$(grep -E '(^|[[:space:]])h2-port[[:space:]]*=' "$DATOMIC_DIR/$CONFIG_PATH" 2>/dev/null | head -n1 | sed -E 's/.*=[[:space:]]*([0-9]+).*/\1/' || true)
+  if [[ "$h2p" =~ ^[0-9]+$ ]]; then
+    echo "$mainp:$h2p"
+  else
+    echo "$mainp:$((mainp+1))"
+  fi
+}
+
+get_running_transactors() {
+  # Build a concise table of running datomic-related processes
+  IFS=':' read -r mainp h2p <<< "$(get_service_ports)"
+  declare -A seen=()
+  local pid
+
+    # Find all processes with 'datomic' in their command line
+    while read -r pid comm args; do
+      [[ -z "$pid" || -z "$comm" ]] && continue
+      if [[ "$args" == *datomic* ]]; then
+        seen[$pid]=1
+      fi
+    done < <(ps -eo pid=,comm=,args=)
+
+  # PIDs from ports
+  for p in "$mainp" "$h2p"; do
+    for pid in $(get_port_pids "$p"); do
+      [ -z "$pid" ] && continue
+      seen[$pid]=1
+    done
+  done
+
+  # Exclude self
+  unset "seen[$$]"
+
+  # Collect and sort PIDs
+  local pids=()
+  for pid in "${!seen[@]}"; do
+    pids+=("$pid")
+  done
+  if [ ${#pids[@]} -eq 0 ]; then
+    return 0
+  fi
+  IFS=$'\n' pids_sorted=($(printf "%s\n" "${pids[@]}" | sort -n))
+  unset IFS
+
+  # Print PID|COMM|ARGS_TRUNC|PORTS lines
+  for pid in "${pids_sorted[@]}"; do
+    comm=$(ps -p "$pid" -o comm= 2>/dev/null || echo "<no-comm>")
+    args=$(ps -p "$pid" -o args= 2>/dev/null || echo "")
+    # normalize and shorten args; remove embedded newlines
+    args_short=$(printf '%s' "$args" | tr '\n' ' ' | sed -E 's/:\/[^ ]+//g' | sed -E 's/\s+/ /g' | cut -c1-80)
+    ports=$(ss -ltnp 2>/dev/null | grep -F "pid=$pid," | sed -nE 's/.*:([0-9]+)\b.*/\1/p' | tr '\n' ' ' | sed 's/ $//')
+    [ -z "$ports" ] && ports="none"
+    printf "%s|%s|%s|%s\n" "$pid" "$comm" "$args_short" "$ports"
+  done
+}
+
+get_port_pids() {
+  local p=$1
+  local pids=""
+  pids=$(ss -ltnp 2>/dev/null | grep ":$p\b" | sed -nE 's/.*pid=([0-9]+),.*/\1/p' || true)
+  if [ -z "$pids" ]; then
+    pids=$(lsof -nPi :$p -sTCP:LISTEN -t 2>/dev/null || true)
+  fi
+  echo "$pids" | tr '\n' ' ' | sed 's/^ *//;s/ *$//'
+}
+
+kill_pids() {
+  local pids="$1"
+  if [ -z "$pids" ]; then
+    return 0
+  fi
+  echo "Killing PIDs: $pids"
+  for pid in $pids; do
+    kill "$pid" || true
+  done
+  for pid in $pids; do
+    for i in $(seq 1 $KILL_WAIT); do
+      if ps -p "$pid" >/dev/null 2>&1; then
+        sleep 1
+      else
+        break
+      fi
+    done
+    if ps -p "$pid" >/dev/null 2>&1; then
+      echo "PID $pid did not exit; sending KILL"
+      kill -9 "$pid" || true
+    else
+      echo "PID $pid exited"
+    fi
+  done
+  # report remaining
+  local remaining=""
+  for pid in $pids; do
+    if ps -p "$pid" >/dev/null 2>&1; then
+      remaining="$remaining $pid"
+    fi
+  done
+  if [ -n "$remaining" ]; then
+    echo "Remaining PIDs after kill attempt: $remaining"
+    return 1
+  fi
+  return 0
+}
+
+port_in_use() {
+  local p=$1
+  if ss -ltn 2>/dev/null | grep -q ":$p\b" || netstat -ltn 2>/dev/null | grep -q ":$p\b"; then
+    return 0
+  fi
+  return 1
+}
+
+wait_for_port() {
+  local p=$1
+  local timeout=${2:-$START_WAIT}
+  for i in $(seq 1 $timeout); do
+    if timeout 1 bash -c "</dev/tcp/localhost/$p" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+start_transactor() {
+  if [ ! -d "$DATOMIC_DIR" ]; then
+    echo "ERROR: Datomic directory not found: $DATOMIC_DIR" >&2
+    return 2
+  fi
+  if [ ! -f "$DATOMIC_DIR/$CONFIG_PATH" ]; then
+    echo "ERROR: Transactor config not found: $DATOMIC_DIR/$CONFIG_PATH" >&2
+    return 2
+  fi
+
+  # find configured port
+  SERVICE_PORT=4334
+  cfg_port=$(grep -E '(^|[[:space:]])port[[:space:]]*=' "$DATOMIC_DIR/$CONFIG_PATH" | head -n1 | sed -E 's/.*=[[:space:]]*([0-9]+).*/\1/' || true)
+  if [[ "$cfg_port" =~ ^[0-9]+$ ]]; then
+    SERVICE_PORT="$cfg_port"
+  fi
+
+  echo "Starting transactor (port $SERVICE_PORT). Logs: $TRANSACTOR_LOG"
+  cd "$DATOMIC_DIR"
+  nohup bin/transactor "$CONFIG_PATH" > "$TRANSACTOR_LOG" 2>&1 &
+  TRANS_PID=$!
+  echo "$TRANS_PID" > "$PIDFILE"
+
+  sleep 0.2
+  if ! ps -p "$TRANS_PID" >/dev/null 2>&1; then
+    echo "ERROR: transactor process $TRANS_PID exited immediately. See log: $TRANSACTOR_LOG" >&2
+    tail -n 200 "$TRANSACTOR_LOG" >&2 || true
+    return 1
+  fi
+
+  if wait_for_port "$SERVICE_PORT" "$START_WAIT"; then
+    echo "Transactor is up (port $SERVICE_PORT reachable). PID: $TRANS_PID"
+    return 0
+  else
+    echo "Timed out waiting for port $SERVICE_PORT; see logs: $TRANSACTOR_LOG" >&2
+    tail -n 200 "$TRANSACTOR_LOG" >&2 || true
+    return 1
+  fi
+}
+
+# Require interactive terminal for menu
+if [ ! -t 0 ]; then
+  echo "This script requires an interactive terminal for the menu. Use ./scripts/start-datomic to run interactively." >&2
+  exit 2
+fi
+
+while true; do
+  echo "\nPolling for running Datomic transactor processes..."
+
+  # find configured port (default 4334)
+  SERVICE_PORT=4334
+  if [ -f "$DATOMIC_DIR/$CONFIG_PATH" ]; then
+    cfg_port=$(grep -E '(^|[[:space:]])port[[:space:]]*=' "$DATOMIC_DIR/$CONFIG_PATH" | head -n1 | sed -E 's/.*=[[:space:]]*([0-9]+).*/\1/' || true)
+    if [[ "$cfg_port" =~ ^[0-9]+$ ]]; then
+      SERVICE_PORT="$cfg_port"
+    fi
+  fi
+
+  RUNNING=$(get_running_transactors)
+
+  # If no transactor-named process found, also check for a listener on the service port
+  if [ -z "$RUNNING" ]; then
+    PORT_PIDS=$(get_port_pids "$SERVICE_PORT")
+    if [ -n "$PORT_PIDS" ]; then
+      # build a pseudo-entry per pid showing it's a port listener
+      RUNNING=""
+      for p in $PORT_PIDS; do
+        cmd=$(ps -p "$p" -o pid,cmd --no-headers 2>/dev/null || echo "$p <no-cmd>")
+        RUNNING="$RUNNING\n$p $cmd (listening on port $SERVICE_PORT)"
+      done
+    fi
+  fi
+
+  if [ -z "$RUNNING" ]; then
+    echo "No running transactor processes detected. Starting service..."
+    start_transactor && exit 0 || exit 1
+  fi
+
+  # Determine ports for display
+  IFS=':' read -r mainp h2p <<< "$(get_service_ports)"
+
+  # Build port->pid map and a concise summary
+  PORT_MAP=""
+  for p in "$mainp" "$h2p"; do
+    pids_on_port=$(get_port_pids "$p")
+    if [ -z "$pids_on_port" ]; then
+      PORT_MAP="$PORT_MAP$p-><none> "
+    else
+      PORT_MAP="$PORT_MAP$p->${pids_on_port// /,} "
+    fi
+  done
+
+  # RUNNING is lines of "PID|COMM|ARGS|PORTS"
+  uniq_pids_count=$(echo "$RUNNING" | awk -F'|' '{print $1}' | tr '\n' ' ' | sed 's/^ *//;s/ *$//' | tr ' ' '\n' | sed '/^$/d' | sort -n -u | wc -l | tr -d ' ')
+  echo "Detected $uniq_pids_count unique process(es). Port mapping: $PORT_MAP"
+  echo
+  printf "%-8s %-16s %-60s %s\n" "PID" "COMM" "ARGS (truncated)" "PORTS"
+  echo "$RUNNING" | while IFS='|' read -r pid comm args ports; do
+    printf "%-8s %-16s %-60s %s\n" "$pid" "$comm" "$args" "$ports"
+  done
+
+  echo "\nMenu:"
+  echo "  1) Kill all datomic processes"
+  echo "  2) Kill specific service (PID or port)"
+  echo "  3) Abort"
+  read -p "Choose an option [1-3]: " CHOICE
+
+  case "$CHOICE" in
+    1)
+      PIDS=$(echo "$RUNNING" | awk '{print $1}')
+      kill_pids "$PIDS" || echo "Warning: not all processes exited." 
+      ;;
+    2)
+      read -p "Enter PID or port to kill: " TARGET
+      if [[ "$TARGET" =~ ^[0-9]+$ ]]; then
+        # could be pid or port; check if any running transactor has this pid
+        if ps -p "$TARGET" >/dev/null 2>&1; then
+          echo "Killing PID $TARGET"
+          kill_pids "$TARGET" || echo "Warning: PID $TARGET did not exit." 
+        else
+          # treat as port
+          PIDS=$(get_port_pids "$TARGET")
+          if [ -z "$PIDS" ]; then
+            echo "No process listening on port $TARGET"
+          else
+            echo "Killing PIDs on port $TARGET: $PIDS"
+            kill_pids "$PIDS" || echo "Warning: not all port processes exited." 
+          fi
+        fi
+      else
+        echo "Invalid input; provide a numeric pid or port." 
+      fi
+      ;;
+    3)
+      echo "Abort selected. Exiting."
+      exit 0
+      ;;
+    *)
+      echo "Invalid choice" ;;
+  esac
+
+  # small pause then re-loop to poll updated state
+  sleep 0.2
+done
