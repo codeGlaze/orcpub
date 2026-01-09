@@ -47,6 +47,13 @@ deploy/homebrew/*
 # Local audit outputs
 /audit/
 
+
 # Cursor IDE local config (contains user-specific paths)
 .cursor/
-Connection to server got closed. Server will not be restarted.
+
+# Ignore all log files in logs/
+logs/
+
+*/*.log
+/workspaces/.codespaces/.persistedshare/creation.log
+.devcontainer/post-create.log

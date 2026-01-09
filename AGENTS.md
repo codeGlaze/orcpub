@@ -1,3 +1,4 @@
+
 # AI Agent Instructions — OrcPub/Dungeon Master's Vault
 
 > **Purpose**: Help AI coding agents get immediately productive in this repository while respecting project governance and workflow rules.
@@ -21,6 +22,10 @@
 3. ✅ Work in `upgrade/*` branches
 4. ✅ Create Pull Requests for review — do not merge them yourself
 5. ✅ Branch new features from `upgrade/security-jackson-guava`
+
+---
+
+> **TOP PRIORITY:** Agents MUST maintain up-to-date documentation—including agent instructions, workflow notes, and onboarding details—whenever features, commands, or workflows are added or changed. Update AGENTS.md, README.md, and related docs in the same PR as code changes. Documentation is a first-class deliverable.
 
 ---
 
@@ -155,6 +160,7 @@ lein figwheel
 | `lein cljsbuild once dev` | ClojureScript | Reagent/re-frame API changes, CLJS errors |
 | `lein figwheel` | Full frontend runtime | Runtime errors, React rendering |
 
+
 ### Starting Development Environment
 
 ```bash
@@ -164,13 +170,25 @@ bin/transactor config/samples/free-transactor-template.properties
 # 2. Start backend REPL
 lein with-profile +start-server repl
 
-# 3. In REPL: initialize DB (first time only) and start server
-(init-database)  ; Only needed once per fresh DB
+# 3. Initialize DB (first time only) and optionally create a test user
+# Option A: Just initialize DB
+lein run -m orcpub.dev-init
+# Option B: Initialize DB and create a test user automatically (recommended for dev/testing)
+lein run -m orcpub.dev-init --add-test-user
+
+# 4. Start server (if not already running)
 (start-server)
 
-# 4. Start frontend (separate terminal)
+# 5. Start frontend (separate terminal)
 lein figwheel
 ```
+
+#### Menu Automation
+The interactive startup menu ([start.sh](start.sh)) exposes both options:
+- "Init DB" runs the database initialization only.
+- "Add test user (dev only)" runs DB init and creates a test user in one step.
+
+Agents and contributors should use the menu or the CLI flag for automated onboarding and test user creation.
 
 ---
 

@@ -89,17 +89,13 @@ EOF
         read -p "Choose Datomic option [1-3]: " DCHOICE
         case "$DCHOICE" in
           1)
-            echo "Starting Datomic transactor..."
-            ./scripts/start-datomic.sh
+            echo "Initializing DB via init-database..."
+            lein run -m orcpub.dev-init
             ;;
-          2)
-            echo "Tailing Datomic log... (Ctrl+C to stop)"
-            tail -F /tmp/datomic-transactor.log
+            tail -F logs/datomic-transactor.log
+            echo "Initializing DB and adding test user..."
+            lein run -m orcpub.dev-init --add-test-user
             ;;
-          3)
-            break
-            ;;
-          *)
             echo "Invalid option." ;;
         esac
       done
@@ -119,7 +115,7 @@ EOF
             ;;
           3)
             echo "Tailing server log... (Ctrl+C to stop)"
-            tail -F /tmp/orcpub-server.log
+            tail -F logs/orcpub-server.log
             ;;
           4)
             break

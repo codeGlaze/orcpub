@@ -347,6 +347,22 @@ user=> (stop-server)
 
 Within Emacs you should be able to save your file (C-x C-s) and reload it into the REPL (C-c C-w) to get your server-side changes to take effect. Within Vim with `vim-fireplace` you can eval a form with `cpp`, a paragraph with `cpip`, etc; check out its help file for more information. Regardless of editor, your client-side changes will take effect immediately when you change a CLJS or CLJC file while `lein figwheel` is running.
 
+# Common Development Commands
+
+These commands are useful for initializing the database and setting up a test user during development:
+
+```bash
+# Initialize the database (first time only)
+lein run -m orcpub.dev-init
+
+# Initialize the database and create a test user (recommended for dev/testing)
+lein run -m orcpub.dev-init --add-test-user
+```
+
+You can also use the interactive menu via `./start.sh` to run these steps:
+- "Init DB" runs the database initialization only.
+- "Add test user (dev only)" runs DB init and creates a test user in one step.
+
 ## Fundamentals
 
 ### Overview - from the original author - Larry

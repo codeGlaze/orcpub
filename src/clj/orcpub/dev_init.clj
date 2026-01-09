@@ -4,8 +4,10 @@
             [orcpub.config :refer [get-datomic-uri]])
   (:gen-class))
 
-(defn -main [& _]
-  (let [uri (get-datomic-uri)]
+
+(defn -main [& args]
+  (let [uri (get-datomic-uri)
+        add-user? (some #(= % "--add-test-user") args)]
     (println "Ensuring database exists at" uri)
     (println "Note: Datomic may emit logs to this terminal; if you prefer, run this in the background or tail /tmp/datomic-transactor.log in another terminal.")
     (try
@@ -15,7 +17,11 @@
       (let [conn (d/connect uri)]
         (println "Applying schema...")
         (d/transact conn schema/all-schemas)
-        (println "DB init done."))
+        (println "DB init done.")
+        (when add-user?
+          (println "Creating test user...")
+          (require 'user)
+          ((resolve 'user/add-test-user))))
       (catch Exception e
         (binding [*out* *err*]
           (println "DB init failed:" (.getMessage e)))
