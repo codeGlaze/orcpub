@@ -3,13 +3,13 @@
   (:require [datomic.api :as d]
             [buddy.hashers :as hashers]
             [clojure.string :as s]
-            [orcpub.routes :as r])
+            [orcpub.routes :as r]
+            [orcpub.config :as config])
   (:gen-class))
 
-(def default-uri "datomic:free://localhost:4334/orcpub")
 
 (defn conn
-  ([] (conn default-uri))
+  ([] (conn (config/get-datomic-uri)))
   ([uri]
    (d/connect uri)))
 

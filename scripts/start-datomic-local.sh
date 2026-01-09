@@ -247,6 +247,8 @@ echo "Starting transactor (nohup bin/transactor \"$CONFIG_PATH\") -> log: $TRANS
 nohup bin/transactor "$CONFIG_PATH" > "$TRANSACTOR_LOG" 2>&1 &
 TRANS_PID=$!
 echo "Started transactor PID: $TRANS_PID" >&2
+echo "Transactor logs: $TRANSACTOR_LOG" >&2
+echo "You can monitor logs with: tail -F $TRANSACTOR_LOG" >&2
 echo "$TRANS_PID" > "$PIDFILE"
 
 # Verify the process is alive shortly after spawn

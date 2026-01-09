@@ -52,7 +52,8 @@ while true; do
     echo "  3) Start $SERVICE manually"
     echo "  4) Repoll"
     echo "  5) Abort"
-    read -p "Choose an option [1-5]: " CHOICE
+    echo "  6) Open main dev menu (./start.sh)"
+    read -p "Choose an option [1-6]: " CHOICE
 
     case "$CHOICE" in
         1)
@@ -81,6 +82,14 @@ while true; do
         5)
             echo "Abort selected. Exiting."
             exit 0
+            ;;
+        6)
+            if [ -x "./start.sh" ]; then
+                echo "Opening main dev menu (./start.sh)..."
+                ./start.sh
+            else
+                echo "./start.sh not found or not executable."
+            fi
             ;;
         *)
             echo "Invalid option."

@@ -5,7 +5,9 @@
             [datomic.api :as datomic]
             [orcpub.routes :as r]
             [orcpub.system :as s]
-            [orcpub.db.schema :as schema]))
+            [orcpub.db.schema :as schema]
+            [orcpub.config :as config]
+            [environ.core :as environ]))
 
 (alter-var-root #'*print-length* (constantly 50))
 
@@ -72,11 +74,15 @@
 
 (defn init-database
   ([]
-   (init-database :free))
+   (init-database nil))
   ([mode]
-   (when-not (contains? #{:free :dev :mem} mode)
-     (throw (IllegalArgumentException. (str "Unknown db type " mode))))
-   (let [db-uri (str "datomic" mode "://localhost:4334/orcpub")]
+   (let [env-uri (orcpub.config/datomic-env)
+         db-uri (if (some-> env-uri not-empty)
+                  env-uri
+                  (let [m (or mode :dev)]
+                    (when-not (contains? #{:free :dev :mem} m)
+                      (throw (IllegalArgumentException. (str "Unknown db type " m))))
+                    (str "datomic" m "://localhost:4334/orcpub")))]
      (datomic/create-database db-uri)
      (let [conn (datomic/connect db-uri)]
        (datomic/transact conn schema/all-schemas)))))

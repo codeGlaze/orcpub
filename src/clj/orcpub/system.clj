@@ -5,6 +5,7 @@
             [orcpub.pedestal :as pedestal]                         
             [orcpub.routes :as routes]
             [orcpub.datomic :as datomic]
+            [orcpub.config :as config]
             [environ.core :as environ])
   (:import (org.eclipse.jetty.server.handler.gzip GzipHandler)))
 
@@ -34,11 +35,7 @@
   (component/system-map
     :conn
     (datomic/new-datomic
-      (if-let [datomic-url (:datomic-url environ/env)]
-        (str datomic-url)
-        (when true #_(= :dev env)
-          (println "WARN: no :datomic-url environment variable set; using local dev")
-          "datomic:free://localhost:4334/orcpub?password=datomic")))
+      (config/get-datomic-uri))
 
     :service-map
     (cond-> (merge
