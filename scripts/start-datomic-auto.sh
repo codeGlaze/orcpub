@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+
+# Source .env from repo root if present (authoritative config)
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -f "$REPO_ROOT/.env" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$REPO_ROOT/.env"
+  set +a
+fi
+
 echo "[start-datomic-auto.sh] Starting Datomic transactor (advanced/auto mode) script..." >&2
 sleep 0.1
 
@@ -8,13 +18,22 @@ sleep 0.1
 # Behavior: robustly starts transactor, checks for existing transactor processes and processes holding the configured port (default 4334), offers controlled kills when run interactively, or runs non-interactively in automation.
 # Usage: ./scripts/start-datomic-auto.sh [DATOMIC_DIR] [CONFIG_PATH]
 
-# Option: --check or --no-start to run validations without starting the transactor
+# Options: --check or --no-start to run validations without starting the transactor
+#          --install to run the canonical installer (./.devcontainer/post-create.sh)
 NO_START=0
+INSTALL=0
 POSITIONAL=()
 for arg in "$@"; do
   case "$arg" in
     --check|--no-start)
       NO_START=1
+      ;;
+    --install)
+      INSTALL=1
+      ;;
+    --help|-h)
+      echo "Usage: $0 [--check|--no-start] [--install] [DATOMIC_DIR] [CONFIG_PATH]" >&2
+      exit 0
       ;;
     *)
       POSITIONAL+=("$arg")
@@ -23,6 +42,20 @@ for arg in "$@"; do
 done
 # restore positional parameters to the non-flag args
 set -- "${POSITIONAL[@]}"
+
+# If --install was requested, run the canonical installer (post-create)
+if [ "$INSTALL" -eq 1 ]; then
+  REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+  INSTALL_SCRIPT="$REPO_ROOT/.devcontainer/post-create.sh"
+  if [ -x "$INSTALL_SCRIPT" ]; then
+    echo "Running Datomic installer: $INSTALL_SCRIPT" >&2
+    "$INSTALL_SCRIPT"
+    exit $? 
+  else
+    echo "ERROR: Installer not found or not executable: $INSTALL_SCRIPT" >&2
+    exit 2
+  fi
+fi
 
 DATOMIC_DIR="${1:-lib/com/datomic/datomic-pro/1.0.7482}"
 CONFIG_PATH="${2:-config/samples/dev-transactor-template.properties}"

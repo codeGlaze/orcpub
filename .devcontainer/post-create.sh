@@ -10,7 +10,17 @@
 # This script does NOT cherry-pick, rename, or check for specific files before extraction.
 # All contents of the zip are placed in the target directory, overwriting any previous install.
 #
+
 set -euo pipefail
+
+# Source .env from repo root if present (authoritative config)
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -f "$REPO_ROOT/.env" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "$REPO_ROOT/.env"
+  set +a
+fi
 
 # Redirect all output to persistent logs for visibility during Codespace creation
 LOG="/tmp/orcpub-post-create.log"
@@ -34,7 +44,16 @@ step_start() { STEP_START_TS=$(date +%s); }
 step_done() { local name="$1"; local now=$(date +%s); local elapsed=$((now-STEP_START_TS)); log "STEP DONE: ${name} (elapsed ${elapsed}s)"; }
 
 log "Starting postCreateCommand... (logging to $LOG and $WORKSPACE_LOG)"
-DATOMIC_VERSION='1.0.7482'
+# Allow overriding the Datomic version via environment (e.g., DATOMIC_VERSION=1.0.7482)
+# Accept either a bare version (1.0.7482) or a distribution filename like
+# datomic-pro-1.0.7482 or datomic-pro-1.0.7482.zip or a path to that zip.
+RAW_DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7482}"
+# basename in case a path was provided (e.g., /tmp/datomic-pro-1.0.7482.zip)
+RAW_DATOMIC_VERSION="$(basename "$RAW_DATOMIC_VERSION")"
+# strip leading prefix and trailing .zip if present
+DATOMIC_VERSION="${RAW_DATOMIC_VERSION#datomic-pro-}"
+DATOMIC_VERSION="${DATOMIC_VERSION%.zip}"
+log "Using DATOMIC_VERSION=$DATOMIC_VERSION"
 DATOMIC_JAR="lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar"
 
 TARGET_DIR="lib/com/datomic/datomic-pro/${DATOMIC_VERSION}"

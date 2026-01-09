@@ -15,7 +15,9 @@
     "./.devcontainer/post-create.sh"
   ],
   "containerEnv": {
-    "POST_CREATE_VERBOSE": "1"
+    "POST_CREATE_VERBOSE": "1",
+    "DATOMIC_VERSION": "1.0.7482",
+    "DATOMIC_URL": "datomic:dev://localhost:4334/orcpub"
   },
   "customizations": {
     "vscode": {

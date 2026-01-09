@@ -30,6 +30,24 @@ This is the code forked from OrcPub2, from the [original](https://github.com/lar
 Dungeon Master's Vault is a web server that allows you to host your own Character Generator website for D&D 5th Edition.
 
 
+
+## Environment Configuration (Canonical)
+
+All configuration (Datomic, secrets, ports, email, etc.) is managed via a single `.env` file at the repo root.
+
+- Copy `.env.example` to `.env` and edit as needed for your environment.
+- All shell scripts, Docker Compose, devcontainer, and Clojure code will source/read `.env` if present.
+- `.env` is git-ignored; never commit secrets. `.env.example` is safe for sharing.
+
+**Precedence:**
+1. `.env` in repo root (authoritative, always sourced if present)
+2. Docker Compose/devcontainer: use `env_file: .env` or `containerEnv` as fallback
+3. Shell scripts: always source `.env` if present
+4. Clojure: use `environ` or `dotenv` to read `.env`/ENV
+
+See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for full details and variable documentation.
+
+---
 ## Getting Started
 
 To run your own install of Dungeon Master's Vault, there are two ways to do this.  
@@ -89,7 +107,7 @@ These passwords are used to secure the database server Datomic.
 
 **Note about Datomic and terminal behavior:** When starting the Datomic transactor or running database initialization (for example via `./scripts/start-datomic-auto.sh` or `lein run -m orcpub.dev-init`), the Datomic process may emit continuous logs to the terminal and might appear to keep the terminal occupied (it's monitoring/logging rather than a one-shot command). Instead of leaving that terminal open you can:
 
-- Use `./scripts/start-datomic-auto.sh` which backgrounds the transactor and writes logs to `/tmp/datomic-transactor.log`.
+- Use `./scripts/start-datomic-auto.sh` which backgrounds the transactor and writes logs to `/tmp/datomic-transactor.log`. For installation of Datomic, prefer running the canonical installer `./.devcontainer/post-create.sh` (it will unzip the distribution into `lib/com/datomic/datomic-pro/<version>` and run the vendor `bin/maven-install`). You can override the installed version via the `DATOMIC_VERSION` environment variable (use a bare version like `1.0.7482`, not the full filename).
 - Tail the log in a separate terminal with `tail -F /tmp/datomic-transactor.log` to watch progress.
 - Run long-running commands in a dedicated terminal or background them with `&` or `nohup`.
 

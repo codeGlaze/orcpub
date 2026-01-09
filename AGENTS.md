@@ -36,6 +36,25 @@ Before working on this project, read these documents:
 
 ---
 
+
+## 🗂️ Environment Variable Pattern (Canonical)
+
+**All configuration for Datomic, secrets, and app settings is managed via a single `.env` file at the repo root.**
+
+- All shell scripts and the canonical installer source `.env` if present.
+- Docker Compose and devcontainer use `.env` via `env_file` or `containerEnv` (as fallback).
+- Clojure code uses `environ` or `dotenv` to read `.env`/ENV.
+- `.env.example` provides safe defaults; `.env` is git-ignored.
+
+**Precedence:**
+1. `.env` in repo root (authoritative, always sourced if present)
+2. Docker Compose/devcontainer: use `env_file: .env` or `containerEnv` as fallback
+3. Shell scripts: always source `.env` if present
+4. Clojure: use `environ` or `dotenv` to read `.env`/ENV
+
+See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for full details and variable documentation.
+
+---
 ## 📁 Project Overview
 
 **Stack**: Full-stack Clojure/ClojureScript application
@@ -44,16 +63,17 @@ Before working on this project, read these documents:
 - **Build**: Leiningen + cljsbuild
 
 ## 🟢 Datomic Pro Installation & Usage (Agent Guidance)
+
+**Tip:** Set `DATOMIC_VERSION` in the environment to control which Datomic Pro distribution is installed by `.devcontainer/post-create.sh` (e.g., `export DATOMIC_VERSION=1.0.7482`). This keeps the version authoritative and configurable by CI or Codespaces.
 ### Local Datomic Transactor Script
 
 - The canonical script for starting a local Datomic Pro transactor is `scripts/start-datomic-auto.sh` (advanced; non-interactive/automation-friendly).
 - This script is invoked by the dev menu, Makefile, and `scripts/dev-setup.sh` for local development workflows.
 - Its responsibilities are:
-   - Unzipping the Datomic Pro distribution into `.datomic/` if not already present (preserving original structure).
-   - Preparing a transactor properties file for local dev from the provided template.
+   - Preparing a transactor properties file for local dev from the provided template and ensuring expected vendor layout is present (installation is handled by `.devcontainer/post-create.sh`).
    - Starting the transactor process in the background, writing a PID file, and waiting for port 4334.
    - Managing logs and PID files for troubleshooting.
-- **It does NOT install or copy the peer JAR by default during transactor start.** The correct place for peer JAR installation is the devcontainer `postCreateCommand` (or Dockerfile during image build), which should *prefer* the distribution's `peer-*.jar` and copy it into the vendor layout as `lib/com/datomic/datomic-pro/<version>/datomic-pro-<version>.jar` so Leiningen can resolve `com.datomic/datomic-pro` via the `file:lib` repo. The start script (`scripts/start-datomic-auto.sh`) contains repair logic to detect `peer*.jar` in an extracted transactor and copy/rename it into the vendor path when necessary. This ensures a single source of truth and consistent resolution.
+- **Installation of Datomic is handled by `.devcontainer/post-create.sh` (canonical installer) and not by `start-datomic-auto.sh` by default.** The installer will ensure the full Datomic distribution is unzipped into `lib/com/datomic/datomic-pro/<version>/`, flatten nested directories if present, and run the vendor `bin/maven-install` to populate the Maven/local layout so Leiningen can resolve dependencies. If an automated install is explicitly requested, `scripts/start-datomic-auto.sh --install` will invoke the canonical `.devcontainer/post-create.sh` rather than duplicating install logic, ensuring a single source of truth and consistent resolution.
 - The entirety of datomic's zip contents need to be copied to `lib/com/datomic/datomic-pro/<version>/` so they can be used by datomic when it launches.
 - The script is idempotent and does not tamper with vendor JARs or Datomic internals.
 - This separation ensures there is a single source of truth for peer JAR installation and avoids duplication or accidental tampering.
