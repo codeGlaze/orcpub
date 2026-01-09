@@ -28,7 +28,7 @@ function start_local_datomic(){
   if command -v tmux >/dev/null 2>&1; then
     echo "tmux available — attempting to start Datomic in tmux session 'orcpub'..."
     if tmux has-session -t orcpub 2>/dev/null; then
-      if tmux new-window -t orcpub -n datomic "bash -lc 'bash \"$SCRIPT_DIR/start-datomic-local.sh\"; echo \"Datomic start finished (press Enter to close window)\"; read -r'" 2>/dev/null; then
+      if tmux new-window -t orcpub -n datomic "bash -lc 'bash "$SCRIPT_DIR/start-datomic-auto.sh"; echo "Datomic start finished (press Enter to close window)"; read -r'" 2>/dev/null; then
         echo "Started Datomic in new tmux window 'datomic' of session 'orcpub'. Use 'tmux attach -t orcpub' or 'make dev-monitor' to view."
         # Try to open the datomic log in the editor if available
         if command -v code >/dev/null 2>&1; then
@@ -41,7 +41,7 @@ function start_local_datomic(){
     fi
 
     # Try creating a new session if we couldn't add a window
-    if tmux new-session -d -s orcpub -n datomic "bash -lc 'bash \"$SCRIPT_DIR/start-datomic-local.sh\"; echo \"Datomic start finished (press Enter to close window)\"; read -r'" 2>/dev/null; then
+    if tmux new-session -d -s orcpub -n datomic "bash -lc 'bash "$SCRIPT_DIR/start-datomic-auto.sh"; echo "Datomic start finished (press Enter to close window)"; read -r'" 2>/dev/null; then
       echo "Created tmux session 'orcpub' and started Datomic in window 'datomic'."
       # Auto-attach if running interactively and not already in tmux
 
@@ -62,7 +62,7 @@ function start_local_datomic(){
 
   # Fallback: run the start script in background and log to /tmp/datomic-setup.log
   echo "Running start script in background and logging to /tmp/datomic-setup.log"
-  nohup bash "$SCRIPT_DIR/start-datomic-local.sh" > /tmp/datomic-setup.log 2>&1 &
+  nohup bash "$SCRIPT_DIR/start-datomic-auto.sh" > /tmp/datomic-setup.log 2>&1 &
   echo "Datomic start launched in background (see /tmp/datomic-setup.log)."
   # If VS Code CLI is available, open the setup log and the transactor log (if present) for convenience
   if command -v code >/dev/null 2>&1; then

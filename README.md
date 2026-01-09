@@ -87,9 +87,9 @@ Create an SSL certificate using `deploy/snakeoil.sh (or bat)` or simply edit the
 
 These passwords are used to secure the database server Datomic.
 
-**Note about Datomic and terminal behavior:** When starting the Datomic transactor or running database initialization (for example via `./scripts/start-datomic-local.sh` or `lein run -m orcpub.dev-init`), the Datomic process may emit continuous logs to the terminal and might appear to keep the terminal occupied (it's monitoring/logging rather than a one-shot command). Instead of leaving that terminal open you can:
+**Note about Datomic and terminal behavior:** When starting the Datomic transactor or running database initialization (for example via `./scripts/start-datomic-auto.sh` or `lein run -m orcpub.dev-init`), the Datomic process may emit continuous logs to the terminal and might appear to keep the terminal occupied (it's monitoring/logging rather than a one-shot command). Instead of leaving that terminal open you can:
 
-- Use `./scripts/start-datomic-local.sh` which backgrounds the transactor and writes logs to `/tmp/datomic-transactor.log`.
+- Use `./scripts/start-datomic-auto.sh` which backgrounds the transactor and writes logs to `/tmp/datomic-transactor.log`.
 - Tail the log in a separate terminal with `tail -F /tmp/datomic-transactor.log` to watch progress.
 - Run long-running commands in a dedicated terminal or background them with `&` or `nohup`.
 

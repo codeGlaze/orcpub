@@ -54,9 +54,9 @@ This Codespace is designed for Clojure/ClojureScript development using Leiningen
 - Starting Datomic without Docker (optional):
   - The repository includes the Datomic Free tarball under `lib/datomic-free-0.9.5703.tar.gz`.
   - To start a local transactor inside your Codespace/devcontainer without Docker run:
-    - `bash ./scripts/start-datomic-local.sh` (creates `.datomic/`, prepares transactor.properties, starts transactor, waits for port 4334)
+    - `bash ./scripts/start-datomic-auto.sh` (creates `.datomic/`, prepares transactor.properties, starts transactor, waits for port 4334) - use this for automation or local setups where you want robust start behavior
     - The start script will check for an existing transactor or any process holding the configured port (default 4334). When run interactively it will show matching processes and prompt to either kill them (TERM then KILL escalation) or abort the start.
-    - Use `--check` (`bash ./scripts/start-datomic-local.sh --check`) to validate the Datomic layout and config without launching the service.
+    - Use `--check` (`bash ./scripts/start-datomic-auto.sh --check`) to validate the Datomic layout and config without launching the service.
   - To stop the local transactor run:
     - `bash ./scripts/stop-datomic-local.sh` or `make datomic-stop`
   - To prefer local Datomic when using `dev-setup`, run:

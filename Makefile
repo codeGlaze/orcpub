@@ -17,7 +17,7 @@ dev-menu:
 
 # Start local bundled Datomic (no Docker)
 datomic-start:
-	bash ./scripts/start-datomic-local.sh || true
+	bash ./scripts/start-datomic-auto.sh || true
 
 datomic-stop:
 	bash ./scripts/stop-datomic-local.sh || true

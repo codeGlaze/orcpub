@@ -25,7 +25,7 @@
     {
       "label": "Dev: Start Local Datomic",
       "type": "shell",
-      "command": "bash -lc './scripts/start-datomic-local.sh'",
+      "command": "bash -lc './scripts/start-datomic-auto.sh'",
       "presentation": { "panel": "dedicated", "reveal": "always" },
       "problemMatcher": []
     },

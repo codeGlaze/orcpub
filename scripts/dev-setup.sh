@@ -32,7 +32,7 @@ echo "Dev setup: NO_START=$NO_START SKIP_DATOMIC=$SKIP_DATOMIC START=$START"
 if [ "$SKIP_DATOMIC" = false ]; then
   if [ "$USE_LOCAL_DATOMIC" = true ]; then
     echo "Starting Datomic transactor locally (using bundled datomic tar)..."
-    bash ./scripts/start-datomic-local.sh || {
+    bash ./scripts/start-datomic-auto.sh || {
       echo "Local Datomic start failed; continuing but DB init may be skipped." >&2
     }
   elif command -v docker-compose >/dev/null 2>&1; then

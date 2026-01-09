@@ -46,14 +46,14 @@ Before working on this project, read these documents:
 ## 🟢 Datomic Pro Installation & Usage (Agent Guidance)
 ### Local Datomic Transactor Script
 
-- The canonical script for starting a local Datomic Pro transactor is `scripts/start-datomic-local.sh`.
+- The canonical script for starting a local Datomic Pro transactor is `scripts/start-datomic-auto.sh` (advanced; non-interactive/automation-friendly).
 - This script is invoked by the dev menu, Makefile, and `scripts/dev-setup.sh` for local development workflows.
 - Its responsibilities are:
    - Unzipping the Datomic Pro distribution into `.datomic/` if not already present (preserving original structure).
    - Preparing a transactor properties file for local dev from the provided template.
    - Starting the transactor process in the background, writing a PID file, and waiting for port 4334.
    - Managing logs and PID files for troubleshooting.
-- **It does NOT install or copy the peer JAR by default during transactor start.** The correct place for peer JAR installation is the devcontainer `postCreateCommand` (or Dockerfile during image build), which should *prefer* the distribution's `peer-*.jar` and copy it into the vendor layout as `lib/com/datomic/datomic-pro/<version>/datomic-pro-<version>.jar` so Leiningen can resolve `com.datomic/datomic-pro` via the `file:lib` repo. The start script (`scripts/start-datomic-local.sh`) contains repair logic to detect `peer*.jar` in an extracted transactor and copy/rename it into the vendor path when necessary. This ensures a single source of truth and consistent resolution.
+- **It does NOT install or copy the peer JAR by default during transactor start.** The correct place for peer JAR installation is the devcontainer `postCreateCommand` (or Dockerfile during image build), which should *prefer* the distribution's `peer-*.jar` and copy it into the vendor layout as `lib/com/datomic/datomic-pro/<version>/datomic-pro-<version>.jar` so Leiningen can resolve `com.datomic/datomic-pro` via the `file:lib` repo. The start script (`scripts/start-datomic-auto.sh`) contains repair logic to detect `peer*.jar` in an extracted transactor and copy/rename it into the vendor path when necessary. This ensures a single source of truth and consistent resolution.
 - The entirety of datomic's zip contents need to be copied to `lib/com/datomic/datomic-pro/<version>/` so they can be used by datomic when it launches.
 - The script is idempotent and does not tamper with vendor JARs or Datomic internals.
 - This separation ensures there is a single source of truth for peer JAR installation and avoids duplication or accidental tampering.
@@ -173,7 +173,7 @@ lein figwheel
 ### When Custom Scripts Are Acceptable
 
 ✅ **Acceptable**: Scripts that orchestrate multiple tools or handle environment-specific setup
-- `scripts/start-datomic-local.sh` - Starts Datomic transactor (not a Leiningen concern)
+- `scripts/start-datomic-auto.sh` - Starts Datomic transactor (not a Leiningen concern)
 - `scripts/dev-setup.sh` - Orchestrates multiple services (Datomic + server + figwheel)
 
 ### Look for Existing Functionality First
