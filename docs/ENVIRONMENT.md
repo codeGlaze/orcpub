@@ -15,6 +15,9 @@ This file documents the canonical environment variable pattern for all environme
     SIGNATURE=changeme
     ADMIN_PASSWORD=changeme
     PORT=8080
+    # Logs directory (defaults to repo ./logs if unset)
+    # Example: LOG_DIR=/var/log/orcpub
+    LOG_DIR=
     EMAIL_HOST=smtp.example.com
     EMAIL_PORT=587
     EMAIL_USER=your@email.com

@@ -4,6 +4,9 @@ set -euo pipefail
 
 # Source .env from repo root if present (authoritative config)
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Allow overriding logs directory via LOG_DIR env var; default to repo-root logs/
+LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"
+mkdir -p "$LOG_DIR"
 if [ -f "$REPO_ROOT/.env" ]; then
   set -a
   # shellcheck disable=SC1090
@@ -59,8 +62,8 @@ fi
 
 DATOMIC_DIR="${1:-lib/com/datomic/datomic-pro/1.0.7482}"
 CONFIG_PATH="${2:-config/samples/dev-transactor-template.properties}"
-PIDFILE="/tmp/datomic-transactor.pid"
-TRANSACTOR_LOG="/tmp/datomic-transactor.log"
+PIDFILE="$LOG_DIR/datomic-transactor.pid"
+TRANSACTOR_LOG="$LOG_DIR/datomic-transactor.log"
 
 # Determine service port (default 4334). Done early so post-start checks can reference it.
 SERVICE_PORT=4334
@@ -283,6 +286,9 @@ echo "Started transactor PID: $TRANS_PID" >&2
 echo "Transactor logs: $TRANSACTOR_LOG" >&2
 echo "You can monitor logs with: tail -F $TRANSACTOR_LOG" >&2
 echo "$TRANS_PID" > "$PIDFILE"
+# Ensure transactor PID and logs are stored in repo logs/ (not /tmp)
+chmod 644 "$TRANSACTOR_LOG" || true
+
 
 # Verify the process is alive shortly after spawn
 sleep 0.2

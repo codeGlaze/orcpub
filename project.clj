@@ -77,8 +77,10 @@
                  ;; cuerdas 026.415: Latest release on Clojars... does not match GH release versioning.
                  [funcool/cuerdas "2026.415"]
                  [camel-snake-kebab "0.4.0"]
-                 [org.webjars/font-awesome "5.13.1"]]
-
+                 [org.webjars/font-awesome "5.13.1"]
+                 ;; See docs/UPGRADE_DEPENDENCIES.md for why this is needed on Java 9+/21
+                 [javax.servlet/javax.servlet-api "4.0.1"]
+              ]
   :plugins [[lein-figwheel "0.5.19"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
             [lein-localrepo "0.5.4"]
@@ -199,7 +201,9 @@
                                            [figwheel-sidecar "0.5.19"]
                                            [cider/piggieback "0.5.3"]
                                            [org.clojure/test.check "1.1.1"]
-                                           [day8.re-frame/re-frame-10x "1.9.9"]]
+                                           [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]
+                                           [zprint "0.4.15"]
+                                           [rewrite-clj "0.6.1"]]
                             :env       {:dev-mode "true"}
                             ;; need to add dev source path here to get user.clj loaded
                             :source-paths ["web/cljs" "src/clj" "src/cljc" "src/cljs" "dev"]

@@ -4,14 +4,21 @@
 DATOMIC_VERSION="1.0.7482"
 DATOMIC_DIR="lib/com/datomic/datomic-pro/$DATOMIC_VERSION"
 PROPERTIES_FILE="config/samples/dev-transactor-template.properties"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# Allow overriding LOG_DIR via environment
+LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"
+mkdir -p "$LOG_DIR"
+TRANSACTOR_LOG="$LOG_DIR/datomic-transactor.log"
+TRANSACTOR_PID="$LOG_DIR/datomic-transactor.pid"
 
 SERVICE="${1:-datomic}"
 
 # Helper to start datomic
 start_datomic() {
     echo "Starting $SERVICE..."
-    (cd "$DATOMIC_DIR" && bin/transactor "$PROPERTIES_FILE" &)
-    echo "$SERVICE started. Waiting for process to appear..."
+    (cd "$DATOMIC_DIR" && nohup bin/transactor "$PROPERTIES_FILE" > "$TRANSACTOR_LOG" 2>&1 & echo $! > "$TRANSACTOR_PID")
+    echo "$SERVICE started. PID: $(cat "$TRANSACTOR_PID" 2>/dev/null || echo '<unknown>')"
+    echo "Transactor logs: $TRANSACTOR_LOG"
     sleep 2
 }
 

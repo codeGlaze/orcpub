@@ -7,6 +7,10 @@
 # Usage: ./start.sh
 
 set -euo pipefail
+# Ensure project logs dir exists (LOG_DIR can be overridden via .env)
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"
+mkdir -p "$LOG_DIR"
 
 main_menu() {
   echo
@@ -110,8 +114,10 @@ EOF
             lein repl
             ;;
           2)
-            echo "Starting server..."
-            lein with-profile +start-server repl
+            echo "Starting server (background, logging to $LOG_DIR/orcpub-server.log)..."
+            nohup lein with-profile +start-server repl > "$LOG_DIR/orcpub-server.log" 2>&1 &
+            echo $! > "$LOG_DIR/orcpub-server.pid"
+            echo "Server started (PID $(cat "$LOG_DIR/orcpub-server.pid"))"
             ;;
           3)
             echo "Tailing server log... (Ctrl+C to stop)"
