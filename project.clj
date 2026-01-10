@@ -20,23 +20,23 @@
                  ]
   :mirrors {"apache" {:url "https://repository.apache.org/snapshots/"}}
 
-  :dependencies [[org.clojure/clojure "1.11.4"]
+  :dependencies [[org.clojure/clojure "1.12.4"]
                  [org.clojure/test.check "1.1.1"]
-                 [org.clojure/clojurescript "1.11.132"]
+                 [org.clojure/clojurescript "1.12.134"]
                  [org.clojure/core.async "1.8.741"]
                  [cljsjs/react "16.6.0-0"]
                  [cljsjs/react-dom "16.6.0-0"]
                  [cljsjs/filesaverjs "1.3.3-0"]
-                 [com.cognitect/transit-cljs "0.8.256"]
+                 [com.cognitect/transit-cljs "0.8.280"]
                  [cljs-http "0.1.45"]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
                  [clojure.java-time "1.4.2"]
-                 [clj-http "3.12.3"]
+                 [clj-http "3.13.1"]
                  [com.yetanalytics/ring-etag-middleware "0.1.1"]
                  [org.clojure/test.check "1.1.1"]
 
                  [org.clojure/core.match "1.1.1"]
-                 [re-frame "1.3.0"]
+                 [re-frame "1.4.4"]
                  [reagent "1.2.0"]
                  [garden "1.3.10"]
                  [org.apache.pdfbox/pdfbox "3.0.6"]
@@ -54,7 +54,7 @@
                  [reloaded.repl "0.2.3"]
                  [bidi "2.1.6"]
 
-                 [com.stuartsierra/component "1.1.0"]
+                 [com.stuartsierra/component "1.2.0"]
                  [com.google.guava/guava "32.1.2-jre"]
 
                  [com.fasterxml.jackson.core/jackson-databind "2.15.2"]
