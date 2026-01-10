@@ -9,7 +9,7 @@
       "version": "latest"
     }
   },
-  "forwardPorts": [8890, 3449, 7888],
+  "forwardPorts": [8890, 9500, 4334],
   "postCreateCommand": [
     "bash",
     "./.devcontainer/post-create.sh"
