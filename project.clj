@@ -69,7 +69,9 @@
                  [environ "1.2.0"]
 
                  [pdfkit-clj "0.1.7"]
-                 [vvvvalvalval/datomock "0.2.0"]
+                 ;; datomock fork with Datomic Pro 1.0.6527+ compatibility (new transact signature)
+                 ;; Original vvvvalvalval/datomock 0.2.0 causes AbstractMethodError with Datomic Pro
+                 [org.clojars.favila/datomock "0.2.2-favila1"]
                  ;; Datomic Pro: Free under Apache 2.0, supports Java 11/17/21, actively maintained.
                  ;; Exclude slf4j-nop to avoid duplicate SLF4J binding warnings.
                  ;; Installed to lib/com/datomic/datomic-pro/1.0.7482/ during Docker build/postCreateCommand
