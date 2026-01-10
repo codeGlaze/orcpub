@@ -6,6 +6,215 @@ This document describes a proposed, incremental plan to modernize the project's 
 
 ---
 
+## 🚨 Major Changes (January 2026)
+
+This section documents the significant architectural and tooling changes made during the upgrade from the legacy stack.
+
+### Summary of Breaking Changes
+
+| Component | Before | After | Impact |
+|-----------|--------|-------|--------|
+| **Database** | Datomic Free 0.9.5697 | Datomic Pro 1.0.7482 | Different installation, Java 21 support |
+| **Web Framework** | Pedestal 0.5.x | Pedestal 0.7.0 | Interceptor wrapping required |
+| **Hot Reload** | lein-figwheel (port 3449) | figwheel-main 0.2.20 (port 9500) | Different dev workflow |
+| **Clojure** | 1.11.4 | 1.12.4 | Minor API additions |
+| **ClojureScript** | 1.11.132 | 1.12.134 | Google Closure Library changes |
+
+---
+
+### 1. Datomic Free → Datomic Pro
+
+**Why:** Short answer: Datomic Pro is basically the new Datomic Free (which is no longer supported).
+Longer answer: Datomic Free 0.9.5697 does NOT work on Java 21 due to SSL/TLS incompatibility in the ActiveMQ Artemis layer. Datomic Pro is now free under Apache 2.0 and supports Java 11/17/21.
+
+**What Changed:**
+- Dependency changed from `com.datomic/datomic-free` to `com.datomic/peer`
+- Transactor uses `dev-transactor-template.properties` instead of `free-transactor-template.properties`
+- Datomic Pro requires installation via the post-create script (downloads from an aws link via datomic's official page)
+
+**Developer Impact:**
+- The `DATOMIC_URL` environment variable format changed:
+  - Before: `datomic:free://localhost:4334/orcpub`
+  - After: `datomic:dev://localhost:4334/orcpub`
+- Transactor must be started via `scripts/start-datomic-auto.sh` or the dev menu
+- First-time setup runs `.devcontainer/post-create.sh` which downloads and installs Datomic Pro
+
+**See:** [docs/DATOMIC_JAVA21_TEST_RESULTS.md](docs/DATOMIC_JAVA21_TEST_RESULTS.md) for compatibility test details.
+
+---
+
+### 2. Pedestal 0.5.x → 0.7.0 (Interceptor Changes)
+
+**Why:** Security updates and Jetty 11 LTS support. Pedestal 0.7.1+ uses Jetty 12 which is incompatible with figwheel-main, so we're pinned to 0.7.0.
+
+**What Changed:**
+Pedestal 0.7 has stricter interceptor validation. Plain maps are no longer auto-coerced to interceptors. All custom interceptors must be explicitly wrapped with `interceptor/interceptor`.
+
+**Files Modified:**
+- [src/clj/orcpub/routes.clj](src/clj/orcpub/routes.clj) - Added `[io.pedestal.interceptor :as interceptor]` require and wrapped:
+  - `check-auth`
+  - `parse-id`
+  - `check-party-owner`
+
+- [src/clj/orcpub/pedestal.clj](src/clj/orcpub/pedestal.clj) - Wrapped:
+  - `db-interceptor`
+  - `etag-interceptor`
+
+**How to Create New Interceptors:**
+```clojure
+;; BEFORE (Pedestal 0.5.x) - Plain maps worked
+(def my-interceptor
+  {:name ::my-interceptor
+   :enter (fn [ctx] ...)
+   :leave (fn [ctx] ...)})
+
+;; AFTER (Pedestal 0.7.x) - Must wrap with interceptor/interceptor
+(def my-interceptor
+  (interceptor/interceptor
+    {:name ::my-interceptor
+     :enter (fn [ctx] ...)
+     :leave (fn [ctx] ...)}))
+```
+
+**Error if Not Wrapped:**
+```
+AssertionError: Assert failed: (every? interceptor/interceptor? interceptors)
+```
+
+---
+
+### 3. lein-figwheel → figwheel-main 0.2.20
+
+**Why:** lein-figwheel (figwheel-sidecar) is deprecated. figwheel-main is the actively maintained replacement with better error messages and modern tooling.
+
+**What Changed:**
+| Aspect | Before (lein-figwheel) | After (figwheel-main) |
+|--------|------------------------|----------------------|
+| Port | 3449 | **9500** |
+| Start command | `lein figwheel` | `lein fig:dev` (or `lein figwheel` - aliased) |
+| Config file | In `project.clj` `:figwheel` | `dev.cljs.edn` + `project.clj` |
+| REPL | Via browser | Via browser + improved REPL |
+
+**Developer Workflow:**
+```bash
+# Start all services (recommended order):
+1. Start Datomic:    Run task "Dev: Start Local Datomic" or ./scripts/start-datomic-auto.sh
+2. Start Server:     Run task "Dev: Start Server" (port 8890)
+3. Start Figwheel:   Run task "Dev: Start Figwheel" (port 9500)
+
+# Access the app:
+- Backend API:       http://localhost:8890
+- Frontend (dev):    http://localhost:9500 (with hot-reload)
+```
+
+**devcontainer.json Port Forwarding:**
+Updated from `[8890, 3449, 7888]` to `[8890, 9500, 4334]`
+
+---
+
+### 4. ClojureScript Browser Detection Rewrite
+
+**Why:** ClojureScript 1.11+ updated the Google Closure Library, removing/changing the `goog.labs.userAgent.browser` API.
+
+**File Changed:** [src/cljs/orcpub/user_agent.cljs](src/cljs/orcpub/user_agent.cljs)
+
+**What Changed:**
+```clojure
+;; BEFORE - Used deprecated Closure Library APIs
+(ns orcpub.user-agent
+  (:require [goog.labs.userAgent.browser :as browser]
+            [goog.labs.userAgent.device :as device]
+            [goog.labs.userAgent.platform :as platform]))
+
+(defn chrome? [] (browser/isChrome))
+(defn firefox? [] (browser/isFirefox))
+;; etc.
+
+;; AFTER - Uses native navigator.userAgent
+(ns orcpub.user-agent
+  (:require [clojure.string :as str]))
+
+(defn- user-agent-string []
+  (when (exists? js/navigator)
+    (.-userAgent js/navigator)))
+
+(defn chrome? []
+  (when-let [ua (user-agent-string)]
+    (and (str/includes? ua "Chrome")
+         (not (str/includes? ua "Edg")))))
+;; etc.
+```
+
+---
+
+### 5. Test Library: datomock Upgrade
+
+**Why:** The original `vvvvalvalval/datomock 0.2.0` doesn't support Datomic Pro 1.0.7482's new `transact` method signature.
+
+**What Changed:**
+```clojure
+;; BEFORE
+[vvvvalvalval/datomock "0.2.0"]
+
+;; AFTER - Fork with Datomic Pro compatibility
+[org.clojars.favila/datomock "0.2.2-favila1"]
+```
+
+**No code changes required** - the namespace (`datomock.core`) is identical.
+
+---
+
+### 6. Dependency Version Summary (Current State)
+
+| Dependency | Old Version | New Version |
+|------------|-------------|-------------|
+| org.clojure/clojure | 1.11.4 | **1.12.4** |
+| org.clojure/clojurescript | 1.11.132 | **1.12.134** |
+| re-frame | 1.3.0 | **1.4.4** |
+| clj-http | 3.12.3 | **3.13.1** |
+| com.stuartsierra/component | 1.1.0 | **1.2.0** |
+| com.cognitect/transit-cljs | 0.8.256 | **0.8.280** |
+| Pedestal (all) | 0.7.2 | **0.7.0** (downgraded for Jetty 11) |
+| figwheel-main | N/A | **0.2.20** (new) |
+| datomock | 0.2.0 | **0.2.2-favila1** (fork) |
+| Datomic | Free 0.9.5697 | **Pro 1.0.7482** |
+
+---
+
+### 7. Known Constraints
+
+| Constraint | Reason | Workaround |
+|------------|--------|------------|
+| **Pedestal pinned to 0.7.0** | Pedestal 0.7.1+ uses Jetty 12, incompatible with figwheel-main's Ring adapter (Jetty 11) | Wait for figwheel-main Jetty 12 support |
+| **React pinned to 16.x** | Reagent 1.2.0 requires React 16; upgrading to React 18 requires Reagent 2.0 | Future: Coordinate Reagent 2.0 + React 18 upgrade |
+| **cljsjs React packages** | Using cljsjs/react instead of npm | Future: Consider Shadow-CLJS for npm React |
+
+---
+
+### 8. Development Commands Quick Reference
+
+```bash
+# Start development environment (in order):
+./scripts/start-datomic-auto.sh    # or VS Code task "Dev: Start Local Datomic"
+# Then in REPL: (start-server)      # or VS Code task "Dev: Start Server"
+lein fig:dev                        # or VS Code task "Dev: Start Figwheel"
+
+# Run tests
+lein test                           # All server-side tests
+
+# Compile ClojureScript (without hot-reload)
+lein cljsbuild once dev
+
+# Run linter
+lein lint
+
+# Access the app
+# Backend:  http://localhost:8890
+# Frontend: http://localhost:9500 (dev with hot-reload)
+```
+
+---
+
 ## ✅ Completed Upgrades
 
 ### Phase 1: Security-Critical Updates (Complete)
@@ -19,25 +228,28 @@ This document describes a proposed, incremental plan to modernize the project's 
 ### Phase 2: Core Clojure Upgrade (Complete)
 | Dependency | Old Version | New Version | Status |
 |------------|-------------|-------------|--------|
-| org.clojure/clojure | 1.10.0 | 1.11.4 | ✅ Done |
-| org.clojure/clojurescript | 1.10.439 | 1.11.132 | ✅ Done |
+| org.clojure/clojure | 1.10.0 | **1.12.4** | ✅ Done |
+| org.clojure/clojurescript | 1.10.439 | **1.12.134** | ✅ Done |
 | org.clojure/core.async | 0.4.490 | 1.8.741 | ✅ Done |
 
 ### Phase 3: Pedestal Stack Upgrade (Complete)
 | Dependency | Old Version | New Version | Status |
 |------------|-------------|-------------|--------|
-| pedestal.service | 0.5.1 | 0.7.2 | ✅ Done |
-| pedestal.route | 0.5.1 | 0.7.2 | ✅ Done |
-| pedestal.jetty | 0.5.1 | 0.7.2 | ✅ Done (Jetty 9→11 LTS) |
-| pedestal.error | N/A | 0.7.2 | ✅ Added |
+| pedestal.service | 0.5.1 | **0.7.0** | ✅ Done |
+| pedestal.route | 0.5.1 | **0.7.0** | ✅ Done |
+| pedestal.jetty | 0.5.1 | **0.7.0** | ✅ Done (Jetty 9→11 LTS) |
+| pedestal.error | N/A | **0.7.0** | ✅ Added |
+
+**Note:** Pedestal pinned to 0.7.0 (not 0.7.2) due to Jetty 12 incompatibility with figwheel-main.
 
 ### Phase 4: Frontend Upgrades (Complete)
 | Dependency | Old Version | New Version | Status |
 |------------|-------------|-------------|--------|
 | reagent | 0.7.0 | 1.2.0 | ✅ Done |
-| re-frame | 0.10.9 | 1.3.0 | ✅ Done |
-| re-frame-10x | 0.3.7 | 1.9.9 | ✅ Done |
+| re-frame | 0.10.9 | **1.4.4** | ✅ Done |
+| re-frame-10x | 0.3.7 | 1.11.0 | ✅ Done |
 | devtools | 0.9.10 | 1.0.7 | ✅ Done |
+| figwheel-main | N/A | **0.2.20** | ✅ Added (replaces lein-figwheel) |
 
 ### Phase 5: Additional Library Upgrades (Complete)
 | Dependency | Old Version | New Version | Status |
@@ -45,30 +257,39 @@ This document describes a proposed, incremental plan to modernize the project's 
 | PDFBox | 2.1.0-SNAPSHOT | 3.0.6 | ✅ Done (API migrated) |
 | buddy-auth | 1.x | 3.0.323 | ✅ Done |
 | buddy-hashers | 1.x | 2.0.167 | ✅ Done |
-| clj-http | 3.9.0 | 3.12.3 | ✅ Done |
+| clj-http | 3.9.0 | **3.13.1** | ✅ Done |
 | data.json | 0.2.6 | 2.5.0 | ✅ Done |
 | hiccup | 1.0.5 | 2.0.0 | ✅ Done |
 | postal | 2.0.2 | 2.0.5 | ✅ Done |
 | environ | 1.1.0 | 1.2.0 | ✅ Done |
-| component | 0.3.2 | 1.1.0 | ✅ Done |
+| component | 0.3.2 | **1.2.0** | ✅ Done |
 | garden | 1.3.5 | 1.3.10 | ✅ Done |
 | bidi | 2.1.3 | 2.1.6 | ✅ Done |
 | test.check | 0.9.0 | 1.1.1 | ✅ Done |
 | core.match | 0.3.0-alpha5 | 1.1.1 | ✅ Done (stable) |
 | cuerdas | 2.0.5 | 2026.415 | ✅ Done |
 | clojure.java-time | N/A | 1.4.2 | ✅ Added (replaces clj-time) |
+| transit-cljs | 0.8.256 | **0.8.280** | ✅ Done |
+
+### Phase 6: Database Migration (Complete)
+| Dependency | Old Version | New Version | Status |
+|------------|-------------|-------------|--------|
+| Datomic Free | 0.9.5697 | N/A | ❌ Removed (Java 21 incompatible) |
+| Datomic Pro (peer) | N/A | **1.0.7482** | ✅ Added |
+| datomock | 0.2.0 | **0.2.2-favila1** | ✅ Done (Pro-compatible fork) |
 
 **Note**: Jetty upgraded from 9.x (EOL) to 11.x LTS for security fixes.
 
 ---
 
-## Current observations (quick audit)
-- `project.clj` now uses **Clojure 1.11.4** and **ClojureScript 1.11.132**.
-- Frontend uses **Reagent 1.2.0**, **re-frame 1.3.0** and `cljsjs`-packaged **React 16.6.0**.
-- Dev tooling uses **Figwheel** + `lein-cljsbuild` and older `figwheel-sidecar`.
-- Server libraries: **Pedestal 0.7.2**, **Buddy 3.x**, **PDFBox 3.0.6**, **Datomic Free 0.9.x**.
+## Current observations (January 2026)
+- `project.clj` now uses **Clojure 1.12.4** and **ClojureScript 1.12.134**.
+- Frontend uses **Reagent 1.2.0**, **re-frame 1.4.4** and `cljsjs`-packaged **React 16.6.0**.
+- Dev tooling uses **figwheel-main 0.2.20** (replaced lein-figwheel).
+- Server libraries: **Pedestal 0.7.0**, **Buddy 3.x**, **PDFBox 3.0.6**, **Datomic Pro 1.0.7482**.
 - Jackson 2.15.2 and Guava 32.1.2-jre (secure versions).
-- All tests pass (61 tests, 193 assertions).
+- All tests pass (62 tests, 199 assertions).
+- Running on **Java 21** with full Datomic Pro compatibility.
 
 ---
 
@@ -119,17 +340,19 @@ This document describes a proposed, incremental plan to modernize the project's 
 - [x] Prioritize critical security updates (e.g., Jackson, Guava) for immediate PRs. ✅ *Jackson 2.15.2, Guava 32.1.2-jre applied*
 
 ## Next phase (in progress)
-- [x] Upgrade Clojure 1.10.0 → 1.11.4 ✅
-- [x] Upgrade ClojureScript 1.10.439 → 1.11.132 ✅
+- [x] Upgrade Clojure 1.10.0 → 1.12.4 ✅
+- [x] Upgrade ClojureScript 1.10.439 → 1.12.134 ✅
 - [x] Upgrade core.async 0.4.490 → 1.8.741 ✅
-- [x] Upgrade Pedestal 0.5.1 → 0.7.2 ✅
+- [x] Upgrade Pedestal 0.5.1 → 0.7.0 ✅ (pinned due to Jetty 12 incompatibility)
 - [x] Upgrade Buddy libs to 3.x ✅
-- [x] Upgrade Reagent 0.7.0 → 1.2.0 and re-frame 0.10.9 → 1.3.0 ✅
+- [x] Upgrade Reagent 0.7.0 → 1.2.0 and re-frame 0.10.9 → 1.4.4 ✅
 - [x] Migrate clj-time 0.15.0 → clojure.java-time 1.4.2 ✅ *Server-side only*
 - [x] Upgrade PDFBox 2.1.0-SNAPSHOT → 3.0.6 ✅ *API migrated, warnings fixed*
+- [x] Migrate Datomic Free → Datomic Pro 1.0.7482 ✅
+- [x] Migrate lein-figwheel → figwheel-main 0.2.20 ✅
+- [ ] **React 18 Migration** - Upgrade React 16 → 18 with Reagent 2.0 (breaking changes)
 - [ ] Evaluate Shadow-CLJS migration
 - [ ] Consider replacing cljsjs React with npm React
-- [ ] **JDK upgrade** — **REQUIRES Datomic Pro migration** (see test results below)
 
 ---
 
@@ -285,7 +508,9 @@ lein lint
 # This is REQUIRED after any Reagent/re-frame/CLJS dependency change!
 lein cljsbuild once dev
 
-# Full frontend validation with live reload
+# Full frontend validation with live reload (figwheel-main)
+lein fig:dev
+# Or the alias:
 lein figwheel
 ```
 
@@ -296,7 +521,7 @@ lein figwheel
 | `lein test` | Server-side Clojure only | Backend logic, routes, DB, PDF |
 | `lein lint` | CLJ + CLJS syntax | Typos, unused vars, style |
 | `lein cljsbuild once dev` | **ClojureScript compilation** | Reagent/re-frame API changes, missing namespaces, CLJS errors |
-| `lein figwheel` | Full frontend runtime | Runtime errors, React rendering issues |
+| `lein fig:dev` | Full frontend runtime | Runtime errors, React rendering issues |
 
 ---
 
