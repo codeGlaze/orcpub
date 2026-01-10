@@ -11,7 +11,7 @@
     {
       "label": "Dev: Start Figwheel",
       "type": "shell",
-      "command": "lein figwheel",
+      "command": "lein fig:dev",
       "presentation": { "panel": "dedicated", "reveal": "always" },
       "problemMatcher": []
     },

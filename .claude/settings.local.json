@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(bash:*)",
+      "Bash(lein run:*)",
+      "Bash(lein check:*)",
+      "Bash(git checkout:*)",
+      "Bash(ls:*)",
+      "Bash(lein figwheel:*)",
+      "Bash(pkill:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs:*)"
+    ]
+  }
+}

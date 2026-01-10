@@ -6,6 +6,7 @@
             [ring.middleware.resource :as ring-resource]
             [ring.util.response :as ring-resp]
             [io.pedestal.http.body-params :as body-params]
+            [io.pedestal.interceptor :as interceptor]
             [io.pedestal.interceptor.error :as error-int]
             [io.pedestal.interceptor.chain :refer [terminate]]
             #_[com.stuartsierra.component :as component]
@@ -129,15 +130,16 @@
       (assoc :response {:status status :body {:message message}})))
 
 (def check-auth
-  {:name :check-auth
-   :enter (fn [context]
-            (let [request (:request context)
-                  updated-request (authentication-request request backend)
-                  username (get-in updated-request [:identity :user])]
-              (if (and (:identity updated-request)
-                       username)
-                (assoc context :request (assoc updated-request :username username))
-                (terminate-request context 401 "Unauthorized"))))})
+  (interceptor/interceptor
+   {:name :check-auth
+    :enter (fn [context]
+             (let [request (:request context)
+                   updated-request (authentication-request request backend)
+                   username (get-in updated-request [:identity :user])]
+               (if (and (:identity updated-request)
+                        username)
+                 (assoc context :request (assoc updated-request :username username))
+                 (terminate-request context 401 "Unauthorized"))))}))
 
 (defn party-owner [db id]
   (d/q '[:find ?owner .
@@ -149,24 +151,26 @@
 (def id-path [:request :path-params :id])
 
 (def parse-id
-  {:name :parse-id
-   :enter (fn [context]
-            (let [id-str (get-in context id-path)]
-              (if (and id-str (re-matches #"\d+" id-str))
-                (assoc-in context
-                          id-path
-                          (Long/parseLong id-str))
-                (terminate-request context 400 "Bad ID"))))})
+  (interceptor/interceptor
+   {:name :parse-id
+    :enter (fn [context]
+             (let [id-str (get-in context id-path)]
+               (if (and id-str (re-matches #"\d+" id-str))
+                 (assoc-in context
+                           id-path
+                           (Long/parseLong id-str))
+                 (terminate-request context 400 "Bad ID"))))}))
 
 
 (def check-party-owner
-  {:name :check-party-owner
-   :enter (fn [context]
-            (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
-                  party-owner (party-owner db id)]
-              (if (= (:user identity) party-owner)
-                context
-                (terminate-request context 401 "You don't own this party"))))})
+  (interceptor/interceptor
+   {:name :check-party-owner
+    :enter (fn [context]
+             (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
+                   party-owner (party-owner db id)]
+               (if (= (:user identity) party-owner)
+                 context
+                 (terminate-request context 401 "You don't own this party"))))}))
 
 (defn redirect [route-key]
   (ring-resp/redirect (route-map/path-for route-key)))

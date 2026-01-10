@@ -1,6 +1,7 @@
 (ns orcpub.pedestal
   (:require [com.stuartsierra.component :as component]
             [io.pedestal.http :as http]
+            [io.pedestal.interceptor :as interceptor]
             [pandect.algo.sha1 :refer [sha1]]
             [datomic.api :as d]
             [clojure.string :as s]
@@ -13,11 +14,12 @@
   (= :test (:env service-map)))
 
 (defn db-interceptor [conn]
-  {:name :db-interceptor
-   :enter (fn [context]
-            (let [conn (:conn conn)
-                  db (d/db conn)]
-                (update context :request assoc :db db :conn conn)))})
+  (interceptor/interceptor
+   {:name :db-interceptor
+    :enter (fn [context]
+             (let [conn (:conn conn)
+                   db (d/db conn)]
+               (update context :request assoc :db db :conn conn)))}))
 
 (defmulti calculate-etag class)
 
@@ -42,12 +44,13 @@
          content-length)))
 
 (def etag-interceptor
-  {:name :etag-interceptor
-   :leave (fn [{:keys [request response] :as context}]
-            (try
-              (let [{{etag "etag"
-                      if-none-match "if-none-match"
-                      last-modified "Last-Modified"
+  (interceptor/interceptor
+   {:name :etag-interceptor
+    :leave (fn [{:keys [request response] :as context}]
+             (try
+               (let [{{etag "etag"
+                       if-none-match "if-none-match"
+                       last-modified "Last-Modified"
                       :as headers} :headers} request
                     {body :body
                      {last-modified "Last-Modified"
@@ -63,7 +66,7 @@
                   (if new-etag
                     (assoc-in context [:response :headers "etag"] new-etag)
                     context)))
-              (catch Throwable t (prn "T" t ))))})
+              (catch Throwable t (prn "T" t ))))}))
 
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle

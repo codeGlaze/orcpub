@@ -40,10 +40,13 @@
                  [reagent "1.2.0"]
                  [garden "1.3.10"]
                  [org.apache.pdfbox/pdfbox "3.0.6"]
-                 [io.pedestal/pedestal.service "0.7.2"]
-                 [io.pedestal/pedestal.route "0.7.2"]
-                 [io.pedestal/pedestal.jetty "0.7.2"]
-                 [io.pedestal/pedestal.error "0.7.2"]
+                 ;; Pedestal 0.7.0 uses Jetty 11, which is compatible with figwheel-main's Ring adapter.
+                 ;; Pedestal 0.7.1+ and 0.8.x use Jetty 12, causing NoClassDefFoundError: ScopedHandler
+                 ;; (removed in Jetty 12). Upgrade blocked until figwheel-main supports Jetty 12.
+                 [io.pedestal/pedestal.service "0.7.0"]
+                 [io.pedestal/pedestal.route "0.7.0"]
+                 [io.pedestal/pedestal.jetty "0.7.0"]
+                 [io.pedestal/pedestal.error "0.7.0"]
                  [org.clojure/data.json "2.5.0"]
                  [org.slf4j/slf4j-simple "1.7.21"]
                  [buddy/buddy-auth "3.0.323"]
@@ -80,9 +83,11 @@
                  [org.webjars/font-awesome "5.13.1"]
                  ;; See docs/UPGRADE_DEPENDENCIES.md for why this is needed on Java 9+/21
                  [javax.servlet/javax.servlet-api "4.0.1"]
+                 ;; figwheel-main for hot-reload dev (compatible with Pedestal 0.7.0's Jetty 11)
+                 [com.bhauman/figwheel-main "0.2.20"]
+                 [com.bhauman/rebel-readline-cljs "0.1.4"]
               ]
-  :plugins [[lein-figwheel "0.5.19"]
-            [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
+  :plugins [[lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
             [lein-localrepo "0.5.4"]
             [lein-garden "0.3.0"]
             [lein-environ "1.1.0"]
@@ -96,7 +101,7 @@
 
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"]
 
-  :resource-paths ["resources" "resources/.ebextensions/"]
+  :resource-paths ["resources" "target" "resources/.ebextensions/"]
 
   :uberjar-name "orcpub.jar"
 
@@ -135,8 +140,7 @@
                                :source-map-timestamp true
                                :pretty-print         true
                                :closure-defines      {goog.DEBUG true}
-                               :optimizations        :none
-                               }}}}
+                               :optimizations        :none}}}}
 
   :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
              ;; :server-port 3449 ;; default
@@ -187,8 +191,9 @@
   :uberjar-inclusions [#"^\.ebextensions"]
   :jar-inclusions [#"^\.ebextensions"]
 
-  :aliases {"figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
-            ;;"figwheel-web" ["figwheel"]
+  :aliases {"fig:dev" ["trampoline" "run" "-m" "figwheel.main" "--" "--build" "dev" "--repl"]
+            "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
+            "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
             "rebuild-modules" ["run" "-m" "user" "--rebuild-modules"]
@@ -198,12 +203,10 @@
             ["externs"
              ["with-profile" "prod" "cljsbuild" "once" "main"]]}
   :profiles {:dev          {:dependencies [[binaryage/devtools "1.0.7"]
-                                           [figwheel-sidecar "0.5.19"]
                                            [cider/piggieback "0.5.3"]
                                            [org.clojure/test.check "1.1.1"]
-                                           [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]
-                                           [zprint "0.4.15"]
-                                           [rewrite-clj "0.6.1"]]
+                                           [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]]
+                                           ]
                             :env       {:dev-mode "true"}
                             ;; need to add dev source path here to get user.clj loaded
                             :source-paths ["web/cljs" "src/clj" "src/cljc" "src/cljs" "dev"]
@@ -214,13 +217,12 @@
                                                                      :pretty-print     true
                                                                      ;; To console.log CLJS data-structures make sure you enable devtools in Chrome
                                                                      ;; https://github.com/binaryage/cljs-devtools
-                                                                     :preloads        [devtools.preload day8.re-frame-10x.preload]}}}}
+                                                                     :preloads        [devtools.preload]}}}}
                             ;; for CIDER
                             ;; :plugins [[cider/cider-nrepl "0.12.0"]]
                             :repl-options {:init-ns          user
                                            :nrepl-middleware [cider.piggieback/wrap-cljs-repl]}}
-             :native-dev   {:dependencies [[figwheel-sidecar "0.5.19"]
-                                           [com.cemerick/piggieback "0.2.1"]
+             :native-dev   {:dependencies [[com.cemerick/piggieback "0.2.1"]
                                            [org.clojure/test.check "1.1.1"]]
                             :source-paths ["src/cljs" "native/cljs" "src/cljc" "env/dev"]
                             :cljsbuild    {:builds [{:id           "main"

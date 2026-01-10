@@ -22,6 +22,8 @@
 (def prod-service-map
   {::http/routes routes/routes
    ::http/type :jetty
+   ;; Pedestal 0.7+ requires explicit interceptor coercion for maps/functions
+   ::http/enable-session false  ; Disable default session handling if not needed
    ::http/port (let [port-str (System/getenv "PORT")]
                  (when port-str (Integer/parseInt port-str)))
    ::http/join false
