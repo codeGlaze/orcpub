@@ -76,5 +76,51 @@ See [SETUP.md](SETUP.md) for:
 
 ---
 
+## 7. Agent Guidelines: Avoiding Common Mistakes
+
+### MCP Servers Are NOT Always npm Packages
+
+**Mistake made:** Assumed MCP (Model Context Protocol) servers are distributed via npm and fabricated package names like `@anthropic/clojure-mcp`.
+
+**Root cause:** Many MCP servers ARE npm packages (e.g., `@modelcontextprotocol/server-*`), so there was an incorrect pattern match. The agent generated plausible-sounding but non-existent package names.
+
+**Critical failure:** The agent did NOT properly research before making assumptions. When asked about clojure-mcp:
+1. Did not read the GitHub repo the user later provided
+2. Fabricated a package name based on pattern-matching
+3. Subagent "research" returned hallucinated information that was accepted without verification
+4. Added non-existent packages to configuration files
+5. Only discovered the error when npm returned 404
+
+**Reality:** MCP servers can be written in **any language**:
+- **Clojure:** [bhauman/clojure-mcp](https://github.com/bhauman/clojure-mcp) - installed via `clojure -Ttools install-latest`
+- **Python:** Many MCP servers use `uvx` or `pip`
+- **Node.js:** Use `npx` or `npm install -g`
+- **Go, Rust, etc.:** Native binaries
+
+**How to avoid this mistake:**
+1. **When a user provides a GitHub URL, READ IT FIRST** - it's the source of truth
+2. **Never fabricate package names** - verify they exist before adding to configs
+3. **Check the repo's README for installation instructions** - don't assume
+4. **If unsure, ask** - "Is this an npm package or something else?"
+5. **Don't trust your own "research"** - if you can't link to a real source, you may be hallucinating
+
+### Verify Before You Configure
+
+Before adding any dependency, tool, or MCP server:
+
+1. **Confirm the package/tool exists** at the specified registry (npm, clojars, pypi, etc.)
+2. **Read the official installation docs** from the source repository
+3. **Test the installation command** if possible before committing to config files
+4. **Don't trust hallucinated research** - subagent responses can contain fabricated information
+
+### Configuration Debugging
+
+When a configuration fails:
+1. **Read the error message carefully** - `npm error 404 Not Found` means the package doesn't exist
+2. **Check the source** - go to the official repository
+3. **Verify the installation method** - npm, clojure tools, pip, cargo, etc.
+
+---
+
 **Tip:**  
 Before submitting changes, review documentation and the changelog to ensure they accurately reflect the current state of the project.
