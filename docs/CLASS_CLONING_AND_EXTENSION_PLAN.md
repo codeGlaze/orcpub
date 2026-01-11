@@ -148,7 +148,109 @@ This aggregation logic determines which classes are available. Any changes here 
 
 ---
 
-## Implementation Plan
+## 🔬 RESEARCH FINDINGS (2026-01-11)
+
+### Key Discovery: Infrastructure Already Exists
+
+Initial assumption was that we'd need to build a new feature system. **Research revealed the opposite:**
+
+**The conversion pipeline already exists:**
+```
+Built-in Classes              Homebrew Classes
+      ↓                              ↓
+Use modifier functions        Store :props as data
+      ↓                              ↓
+      └──────────┬─────────────────┘
+                 ↓
+         plugin-modifiers()
+         make-feat-modifiers()
+                 ↓
+         Same modifier objects
+                 ↓
+        Applied to character
+```
+
+**What this means:**
+- ✅ Homebrew already has access to modifier functions via `:props`
+- ✅ System is already DRY (both use same functions)
+- ✅ No new architecture needed
+- ⚠️ Current `:props` system only supports ~30 feature types
+- ⚠️ Need to add ~26 more feature types to cover all built-in class features
+
+### Comprehensive Analysis Complete
+
+**Three research documents created:**
+
+1. **FEATURE_SYSTEM_ARCHITECTURE.md**
+   - Documents how the conversion pipeline works
+   - Catalogs 100+ modifier functions available
+   - Lists what's already exposed in `:props`
+   - Identifies what needs to be added
+
+2. **BUILT_IN_CLASS_FEATURES_CATALOG.md**
+   - Analyzed 289 modifier instances across 12 classes
+   - Organized into 8 major categories
+   - Identified 10 core prop patterns
+   - Provides implementation priorities
+
+3. **PROPS_SCHEMA_DESIGN.md**
+   - Defines data format for all 10 prop types
+   - Includes complete schemas with examples
+   - Maps each prop to modifier functions
+   - Provides conversion functions and validation
+
+### What Needs to Be Done
+
+**Not:** Build a new feature system
+**Actually:** Extend `make-feat-modifiers` with new cases
+
+**Example:**
+```clojure
+;; In options.cljc:3230, add cases:
+(defn make-feat-modifiers [k v option-key]
+  (if v
+    (case k
+      ;; ... existing 30 cases ...
+
+      ;; NEW cases:
+      :resource-pool (resource-pool-modifiers v option-key)
+      :action-feature (action-feature-modifiers v option-key)
+      :scaling-damage (scaling-damage-modifiers v option-key)
+      ;; ... etc
+
+      nil)))
+```
+
+### 10 Core Prop Patterns Identified
+
+| Priority | Prop Type | Examples | Complexity |
+|----------|-----------|----------|------------|
+| HIGH | `:resource-pool` | Rage, Ki, Bardic Inspiration | Low |
+| HIGH | `:static-trait` | Danger Sense, Evasion | Low |
+| HIGH | `:proficiency` | Skills, saves, languages | Low |
+| HIGH | `:spell-feature` | Domain spells, Arcane Recovery | Medium |
+| MEDIUM | `:action-feature` | Cunning Action, Flurry of Blows | Medium |
+| MEDIUM | `:scaling-damage` | Sneak Attack, Divine Strike | Medium |
+| MEDIUM | `:defense` | Resistances, immunities | Low |
+| LOW | `:movement` | Speed bonuses, flying | Medium |
+| LOW | `:dynamic-trait` | Jack of All Trades, Aura of Protection | High |
+| LOW | `:ac-calculation` | Unarmored Defense | High |
+
+### Revised Understanding
+
+**Original assumption:** Homebrew format can't represent built-in features
+**Actual situation:** Infrastructure exists, just needs extension
+
+**Original plan:** Build feature language, create new systems
+**Revised plan:** Extend existing `make-feat-modifiers`, add UI controls
+
+**Effort estimate:**
+- Originally thought: Major new architecture (months)
+- Actually needed: Extend existing pipeline (weeks)
+
+---
+
+## Implementation Plan (REVISED)
 
 ### Phase 1: Basic Cloning (Quick Win) ✅ BACKWARD COMPATIBLE
 
