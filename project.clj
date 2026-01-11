@@ -166,6 +166,8 @@
              ;; increase this to wait longer before timing out.
              ;; Defaults to 30000 (30 seconds)
                  :timeout 300000 ; 5 mins to wait
+                 :port 7888      ; Fixed port for MCP/tooling integration
+                 :host "0.0.0.0" ; Allow connections from MCP servers
                  }
 
   ;; setting up nREPL for Figwheel and ClojureScript dev

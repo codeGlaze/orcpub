@@ -2,8 +2,40 @@
   "name": "OrcPub Dev",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
   "features": {
-    "ghcr.io/devcontainers/features/java:1": { "version": "8" },
-    "ghcr.io/devcontainers/features/leiningen:1": {}
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "8",
+      "installMaven": false,
+      "installGradle": false
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
   },
-  "postCreateCommand": "lein --version"
+  "onCreateCommand": "sudo curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein && sudo chmod +x /usr/local/bin/lein && lein version",
+  "postCreateCommand": "lein deps && npm install -g @anthropic/clojure-mcp @anthropic/github-mcp",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "betterthantomorrow.calva",
+        "borkdude.clj-kondo",
+        "github.copilot"
+      ],
+      "settings": {
+        "calva.replConnectSequences": [
+          {
+            "name": "OrcPub REPL",
+            "projectType": "Leiningen",
+            "cljsType": "Figwheel Main"
+          }
+        ]
+      }
+    }
+  },
+  "forwardPorts": [8890, 4334, 3449, 7888],
+  "portsAttributes": {
+    "8890": { "label": "OrcPub Server" },
+    "4334": { "label": "Datomic Transactor" },
+    "3449": { "label": "Figwheel" },
+    "7888": { "label": "nREPL (MCP)" }
+  }
 }
