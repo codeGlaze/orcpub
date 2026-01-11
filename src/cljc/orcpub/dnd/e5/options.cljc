@@ -3227,6 +3227,26 @@
        (modifier-fn k))))
    m))
 
+(defn rage-modifiers [rage-cfg option-key]
+  "Creates modifiers for Barbarian Rage feature.
+   rage-cfg map should contain :uses and :damage.
+   If :uses is 0 or missing, returns nil (feature disabled)."
+  (when (and rage-cfg (pos? (or (:uses rage-cfg) 0)))
+    (let [{:keys [uses damage]} rage-cfg
+          damage-val (or damage 2)]
+      [(modifiers/bonus-action
+        {:name "Rage"
+         :page 48
+         :duration units5e/minutes-1
+         :frequency (units5e/long-rests uses)
+         :summary (str "Advantage on STR checks and saves; "
+                       (common/bonus-str damage-val) " melee damage; "
+                       "resistance to bludgeoning, piercing, and slashing damage")})
+       (modifiers/damage-resistance :bludgeoning "while raging")
+       (modifiers/damage-resistance :piercing "while raging")
+       (modifiers/damage-resistance :slashing "while raging")
+       (modifiers/saving-throw-advantage ["Rage"] [:str])])))
+
 (defn make-feat-modifiers [k v option-key]
   (if v
     (case k
@@ -3283,6 +3303,8 @@
       :damage-immunity (collect-map-modifiers
                         v
                         #(modifiers/damage-immunity %))
+      ;; Resource pool features
+      :rage (rage-modifiers v option-key)
       nil)))
 
 (defn plugin-modifiers [props option-key]
