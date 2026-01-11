@@ -8,7 +8,7 @@
       "installGradle": false
     }
   },
-  "onCreateCommand": "sudo curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein && sudo chmod +x /usr/local/bin/lein && lein version && curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh && chmod +x linux-install.sh && sudo ./linux-install.sh && rm linux-install.sh && clojure -Ttools install-latest :lib io.github.bhauman/clojure-mcp :as mcp",
+  "onCreateCommand": "sudo apt-get update && sudo apt-get install -y openjdk-17-jdk && sudo curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein && sudo chmod +x /usr/local/bin/lein && lein version && curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh && chmod +x linux-install.sh && sudo ./linux-install.sh && rm linux-install.sh && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 clojure -Ttools install-latest :lib io.github.bhauman/clojure-mcp :as mcp",
   "postCreateCommand": "chmod +x start.sh menu.sh 2>/dev/null || true && lein deps",
   "customizations": {
     "vscode": {

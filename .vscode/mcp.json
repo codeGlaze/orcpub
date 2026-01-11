@@ -4,7 +4,9 @@
     "clojure-mcp": {
       "command": "clojure",
       "args": ["-Tmcp", "start", ":port", "7888"],
-      "env": {}
+      "env": {
+        "JAVA_HOME": "/usr/lib/jvm/java-17-openjdk-amd64"
+      }
     }
   }
 }
