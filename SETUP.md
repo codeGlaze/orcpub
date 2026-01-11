@@ -17,13 +17,10 @@ Create `.devcontainer/devcontainer.json`:
       "version": "8",
       "installMaven": false,
       "installGradle": false
-    },
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "lts"
     }
   },
-  "onCreateCommand": "sudo curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein && sudo chmod +x /usr/local/bin/lein && lein version",
-  "postCreateCommand": "lein deps && npm install -g @anthropic/clojure-mcp @anthropic/github-mcp",
+  "onCreateCommand": "sudo curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein && sudo chmod +x /usr/local/bin/lein && lein version && curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh && chmod +x linux-install.sh && sudo ./linux-install.sh && rm linux-install.sh && clojure -Ttools install-latest :lib io.github.bhauman/clojure-mcp :as mcp",
+  "postCreateCommand": "lein deps",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -52,18 +49,26 @@ Create `.devcontainer/devcontainer.json`:
 }
 ```
 
-> **Note:** The Leiningen devcontainer feature (`ghcr.io/devcontainers/features/leiningen:1`) is no longer available, so we install it manually via `onCreateCommand`.
+> **Note:** The Leiningen devcontainer feature is no longer available, so we install Leiningen and the Clojure CLI manually via `onCreateCommand`.
 
 ---
 
 ### 2. **MCP (Model Context Protocol) Integration**
 
-This project includes MCP support for AI-assisted development. The following MCPs are configured:
+This project includes [clojure-mcp](https://github.com/bhauman/clojure-mcp) by Bruce Hauman (creator of Figwheel) for AI-assisted Clojure development.
 
 | MCP Server | Purpose |
 |------------|---------|
 | **clojure-mcp** | Connects AI to your running REPL for code evaluation, debugging, and exploration |
-| **github-mcp** | GitHub integration for issues, PRs, and repository operations |
+
+#### Installation
+
+clojure-mcp is installed automatically in the devcontainer. To install manually:
+
+```bash
+# Install Clojure CLI first if needed
+clojure -Ttools install-latest :lib io.github.bhauman/clojure-mcp :as mcp
+```
 
 #### Configuration
 
@@ -71,7 +76,7 @@ MCP settings are in `.vscode/mcp.json`. The REPL must be running on port `7888` 
 
 #### Using clojure-mcp
 
-1. Start the REPL: `lein repl` (will bind to port 7888)
+1. Start the REPL: `lein repl` (binds to port 7888)
 2. The MCP server connects automatically when you use AI features
 3. AI can now evaluate Clojure code, inspect namespaces, look up docs, and more
 

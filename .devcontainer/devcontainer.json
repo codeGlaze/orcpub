@@ -6,13 +6,10 @@
       "version": "8",
       "installMaven": false,
       "installGradle": false
-    },
-    "ghcr.io/devcontainers/features/node:1": {
-      "version": "lts"
     }
   },
-  "onCreateCommand": "sudo curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein && sudo chmod +x /usr/local/bin/lein && lein version",
-  "postCreateCommand": "lein deps && npm install -g @anthropic/clojure-mcp @anthropic/github-mcp",
+  "onCreateCommand": "sudo curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein && sudo chmod +x /usr/local/bin/lein && lein version && curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh && chmod +x linux-install.sh && sudo ./linux-install.sh && rm linux-install.sh && clojure -Ttools install-latest :lib io.github.bhauman/clojure-mcp :as mcp",
+  "postCreateCommand": "lein deps",
   "customizations": {
     "vscode": {
       "extensions": [

@@ -1,20 +1,10 @@
 {
   "inputs": [],
   "servers": {
-    "clojure-repl": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/clojure-mcp"],
-      "env": {
-        "NREPL_HOST": "127.0.0.1",
-        "NREPL_PORT": "7888"
-      }
-    },
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@anthropic/github-mcp"],
-      "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${input:github_token}"
-      }
+    "clojure-mcp": {
+      "command": "clojure",
+      "args": ["-Tmcp", "start", ":port", "7888"],
+      "env": {}
     }
   }
 }
