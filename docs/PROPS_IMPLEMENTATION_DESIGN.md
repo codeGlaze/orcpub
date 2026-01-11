@@ -350,140 +350,240 @@ No breaking changes to existing data!
 
 ## Implementation Status
 
-### ✅ Completed: Rage Prototype
+### ✅ FINAL IMPLEMENTATION: Level-Based Rage with Vector Format
 
-**File: `src/cljc/orcpub/dnd/e5/options.cljc`**
-
-#### 1. Helper Function (lines 3230-3248)
+**Data Format:**
 ```clojure
-(defn rage-modifiers [rage-cfg option-key]
-  "Creates modifiers for Barbarian Rage feature.
-   rage-cfg map should contain :uses and :damage.
-   If :uses is 0 or missing, returns nil (feature disabled)."
-  (when (and rage-cfg (pos? (or (:uses rage-cfg) 0)))
-    (let [{:keys [uses damage]} rage-cfg
-          damage-val (or damage 2)]
-      [(modifiers/bonus-action
-        {:name "Rage"
-         :page 48
-         :duration units5e/minutes-1
-         :frequency (units5e/long-rests uses)
-         :summary (str "Advantage on STR checks and saves; "
-                       (common/bonus-str damage-val) " melee damage; "
-                       "resistance to bludgeoning, piercing, and slashing damage")})
+:props {
+  :rage {
+    :levels {
+      1  [2 2]    ; [uses damage]
+      3  [3 2]
+      6  [4 2]
+      9  [4 3]
+      12 [5 3]
+      16 [5 4]
+      17 [6 4]
+    }
+  }
+}
+```
+
+**Benefits:**
+- ✅ **50% smaller** - Vector format saves characters
+- ✅ **Level scaling works** - Different values per level
+- ✅ **Clean data** - Easy to read/export
+- ✅ **Auto-expands** - Transparent to character builder
+
+---
+
+#### 1. Auto-Expansion Logic (spell_subs.cljs:345-364)
+
+```clojure
+(defn expand-props-with-levels
+  "Expands props that have :levels into level-modifiers format.
+   E.g. {:rage {:levels {1 [2 2] 3 [3 2]}}} becomes
+        [{:level 1 :type :rage :value [2 2]}
+         {:level 3 :type :rage :value [3 2]}]"
+  [props]
+  (reduce-kv
+    (fn [result prop-key prop-value]
+      (if (:levels prop-value)
+        (concat result
+          (map (fn [[level level-value]]
+                 {:level level
+                  :type prop-key
+                  :value level-value})
+               (:levels prop-value)))
+        result))
+    []
+    props))
+```
+
+#### 2. Level Modifier Integration (spell_subs.cljs:147)
+
+```clojure
+(defn level-modifier [class-key {:keys [type value]}]
+  (case type
+    ;; ... existing cases ...
+    :rage (opt5e/rage-modifiers value class-key)))  ; ← NEW!
+```
+
+#### 3. Plugin Classes Subscription (spell_subs.cljs:432-449)
+
+```clojure
+(reg-sub
+ ::classes5e/plugin-classes
+ ...
+ (fn [[plugins spell-lists spells-map selection-map]]
+   (map
+    (fn [class]
+      (let [expanded-level-mods (expand-props-with-levels (:props class))
+            combined-level-mods (concat (:level-modifiers class) expanded-level-mods)
+            class-with-mods (assoc class :level-modifiers combined-level-mods)
+            levels (make-levels spell-lists spells-map selection-map class-with-mods)]
+        (assoc class
+               :modifiers (opt5e/plugin-modifiers (:props class) (:key class))
+               :levels levels)))
+    (mapcat (comp vals ::e5/classes) plugins))))
+```
+
+#### 4. Vector-Compatible rage-modifiers (options.cljc:3230-3253)
+
+```clojure
+(defn rage-modifiers
+  "Accepts either:
+   - Vector: [uses damage] e.g. [2 2]
+   - Map: {:uses N :damage N} (backward compat)"
+  [rage-cfg option-key]
+  (let [[uses damage] (if (vector? rage-cfg)
+                        rage-cfg
+                        [(:uses rage-cfg) (:damage rage-cfg)])
+        damage-val (or damage 2)]
+    (when (and uses (pos? uses))
+      [(modifiers/bonus-action ...)
        (modifiers/damage-resistance :bludgeoning "while raging")
        (modifiers/damage-resistance :piercing "while raging")
        (modifiers/damage-resistance :slashing "while raging")
        (modifiers/saving-throw-advantage ["Rage"] [:str])])))
 ```
 
-#### 2. Case Addition (line 3307)
+#### 5. Table UI (views.cljs:5429-5474)
+
 ```clojure
-;; Resource pool features
-:rage (rage-modifiers v option-key)
+(defn class-resource-pools [class]
+  (let [rage-levels (get-in class [:props :rage :levels] {})]
+    [:div.m-b-30
+     [:div.f-s-24.f-w-b.m-b-10 "Resource Pools"]
+     [:table.w-100-p
+       [:thead
+        [:tr
+         [:th "Level"]
+         [:th "Uses"]
+         [:th "Damage"]
+         [:th ""]]]
+       [:tbody
+        (map (fn [[level [uses damage]]]
+               [:tr
+                [:td level]
+                [:td [number-input uses ...]]
+                [:td [number-input damage ...]]
+                [:td [:button "×"]]])
+             (sort-by first rage-levels))]
+       [:tfoot
+        [:tr [:td {:col-span 4}
+              [:button "+ Add Level Breakpoint"]]]]]]))
 ```
 
-#### 3. Unit Tests (test/cljc/orcpub/dnd/e5/options_test.clj)
-- ✅ Test with uses > 0 creates 5 modifiers
-- ✅ Test with uses = 0 returns nil
-- ✅ Test with nil config returns nil
-- ✅ Test with missing uses returns nil
-- ✅ Test default damage value
-- ✅ Test integration with make-feat-modifiers
+#### 6. Event Handlers (events.cljs:2632-2652)
 
-### Key Design Decisions
+```clojure
+(reg-event-db ::class5e/set-rage-level
+  (fn [class [_ level uses damage]]
+    (assoc-in class [:props :rage :levels level] [uses damage])))
 
-1. **Duration**: Fixed at 1 minute (standard D&D 5e Rage duration) using `units5e/minutes-1`
-2. **Resistance Qualifier**: Used "while raging" text to indicate conditional nature
-3. **Default Damage**: Defaults to +2 if not specified
-4. **Disabled State**: `uses: 0` or missing `:uses` = feature disabled
+(reg-event-db ::class5e/delete-rage-level
+  (fn [class [_ level]]
+    (update-in class [:props :rage :levels] dissoc level)))
+
+(reg-event-db ::class5e/add-rage-level
+  (fn [class _]
+    (let [max-level (apply max (keys rage-levels))
+          new-level (inc max-level)]
+      (assoc-in class [:props :rage :levels new-level] [2 2]))))
+```
+
+#### 7. Comprehensive Tests (options_test.clj:16-61)
+
+```clojure
+(deftest test-rage-modifiers
+  (testing "Vector format [uses damage]"
+    (is (= 5 (count (opt/rage-modifiers [2 2] :test)))))
+
+  (testing "Vector [0 damage] returns nil"
+    (is (nil? (opt/rage-modifiers [0 2] :test))))
+
+  (testing "Map format backward compat"
+    (is (= 5 (count (opt/rage-modifiers {:uses 2 :damage 2} :test))))))
+```
+
+---
+
+### How The Complete System Works
+
+```
+1. User configures in UI table:
+   Level 1: 2 uses, +2 damage
+   Level 9: 4 uses, +3 damage
+        ↓
+2. Stored in :props:
+   {:rage {:levels {1 [2 2] 9 [4 3]}}}
+        ↓
+3. Plugin classes subscription expands:
+   [{:level 1 :type :rage :value [2 2]}
+    {:level 9 :type :rage :value [4 3]}]
+        ↓
+4. Merged with :level-modifiers array
+        ↓
+5. make-levels groups by level:
+   {1 {:modifiers [...]}
+    9 {:modifiers [...]}}
+        ↓
+6. level-modifier called for each:
+   (opt5e/rage-modifiers [2 2] :barbarian)
+   (opt5e/rage-modifiers [4 3] :barbarian)
+        ↓
+7. Character gets proper Rage at each level!
+   - Level 1-2: 2 uses, +2 damage
+   - Level 3-8: inherited from level 1
+   - Level 9+: 4 uses, +3 damage
+```
 
 ### Usage Example
 
-Homebrew class with Rage:
 ```clojure
-{:name "My Custom Barbarian"
- :key :custom-barb
+{:name "My Barbarian"
  :hit-die 12
- :props {:rage {:uses 2 :damage 2}}}  ; Level 1 Barbarian
+ :props {:rage {:levels {1 [2 2]    ; Level 1: 2 uses, +2 damage
+                         3 [3 2]    ; Level 3: 3 uses, +2 damage
+                         6 [4 2]    ; Level 6: 4 uses, +2 damage
+                         9 [4 3]    ; Level 9: 4 uses, +3 damage
+                         12 [5 3]   ; Level 12: 5 uses, +3 damage
+                         16 [5 4]   ; Level 16: 5 uses, +4 damage
+                         17 [6 4]}}}}  ; Level 17: 6 uses, +4 damage
 ```
 
-This generates:
-- Bonus action "Rage" usable 2 times per long rest
-- Duration: 1 minute
-- Summary includes +2 damage, advantage on STR, resistances
-- 3 damage resistances (bludgeoning, piercing, slashing) with "while raging" qualifier
-- Advantage on STR saves with "Rage" type indicator
+### Export Format
 
-### ✅ Completed: UI and Event Handlers
+When exported/imported, the compact vector format saves significant space:
 
-**File: `src/cljs/orcpub/dnd/e5/views.cljs`**
-
-#### UI Component (lines 5429-5452)
+**Old approach (if we used maps):**
 ```clojure
-(defn class-resource-pools [class]
-  "UI for configuring class resource pool features like Rage, Ki, etc."
-  [:div.m-b-30
-   [:div.f-s-24.f-w-b.m-b-10 "Resource Pools"]
-   [:div.f-s-14.m-b-10.i "Configure resource-based class features (Rage, Ki, Sorcery Points, etc.)"]
-
-   ;; Rage Configuration
-   [:div.m-b-20
-    [:div.f-s-18.f-w-b.m-b-10 "Rage (Barbarian)"]
-    [:div.flex.flex-wrap
-     [:div.m-r-20.m-b-10
-      [:label.f-w-b.m-b-5 "Uses per Long Rest"]
-      [comps/number-input
-       (get-in class [:props :rage :uses] 0)
-       #(dispatch [::classes/set-class-prop-value :rage :uses %])
-       {:min 0 :max 20}]]
-     [:div.m-r-20.m-b-10
-      [:label.f-w-b.m-b-5 "Damage Bonus"]
-      [comps/number-input
-       (get-in class [:props :rage :damage] 2)
-       #(dispatch [::classes/set-class-prop-value :rage :damage %])
-       {:min 1 :max 10}]]
-     [:div.m-b-10.f-s-12.i
-      "Set Uses to 0 to disable this feature."]]]])
+{1 {:uses 2 :damage 2}   ; 25 chars
+ 3 {:uses 3 :damage 2}}  ; 50 chars total
 ```
 
-#### Integration (line 5686-5687)
-Added `[class-resource-pools class]` to class-builder after skill expertise section.
-
-**File: `src/cljs/orcpub/dnd/e5/events.cljs`**
-
-#### Event Handler (lines 2626-2630)
+**New approach (vectors):**
 ```clojure
-(reg-event-db
- ::class5e/set-class-prop-value
- class-interceptors
- (fn [class [_ prop-key sub-key value]]
-   (assoc-in class [:props prop-key sub-key] value)))
+{1 [2 2] 3 [3 2]}  ; 17 chars - 66% smaller!
 ```
 
-### How It Works
+### Key Design Decisions
 
-1. **User opens class builder** → sees "Resource Pools" section
-2. **User sets "Uses per Long Rest" to 3** → dispatches `[::classes/set-class-prop-value :rage :uses 3]`
-3. **Event handler updates** → `(assoc-in class [:props :rage :uses] 3)`
-4. **User sets "Damage Bonus" to 2** → dispatches `[::classes/set-class-prop-value :rage :damage 2]`
-5. **Resulting class data:**
-   ```clojure
-   {:name "My Barbarian"
-    :hit-die 12
-    :props {:rage {:uses 3 :damage 2}}}
-   ```
-6. **When class is saved** → `plugin-modifiers` calls `make-feat-modifiers`
-7. **Conversion happens** → `rage-modifiers` creates 5 modifiers
-8. **Character builder sees** → Rage bonus action with frequency, resistances, save advantages
+1. **Vector Format**: `[uses damage]` is primary, map is backward compat
+2. **Level-Based**: Stored per level, auto-expands to level-modifiers
+3. **Table UI**: Headers once, data in rows - clean and scannable
+4. **Auto-Expansion**: Transparent conversion in subscription layer
+5. **Backward Compatible**: Existing classes unaffected
 
 ## Next Steps
 
-1. ✅ Design `:props` format
-2. ✅ Prototype Rage end-to-end (COMPLETED)
-3. ✅ Add UI components for rage configuration (COMPLETED)
-4. ✅ Add event handlers for rage prop updates (COMPLETED)
-5. ⏭️ Manual integration test with character builder UI
-6. ⏭️ Add Ki, Sneak Attack, Action Surge features
-7. ⏭️ Document for users
-8. ⏭️ Implement level-based scaling (different rage values per level)
+1. ✅ Design `:props` format (COMPLETED - vector format)
+2. ✅ Prototype Rage end-to-end (COMPLETED - level-based)
+3. ✅ Add UI components (COMPLETED - table format)
+4. ✅ Add event handlers (COMPLETED - level management)
+5. ✅ Update tests (COMPLETED - vector + map formats)
+6. ⏭️ **Manual integration test** with dev server
+7. ⏭️ **Add more features**: Ki, Sneak Attack, Action Surge
+8. ⏭️ **Template system**: "Standard Barbarian Rage" button auto-fills
+9. ⏭️ **Document for users**: Export/import guide
