@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-01-11] - Updated
+
+### Java Version Isolation for clojure-mcp
+- clojure-mcp requires Java 17+, OrcPub/Datomic requires Java 8
+- Updated devcontainer to install both Java 8 (default) and Java 17 (for MCP only)
+- MCP config uses PATH/JAVA_HOME override to isolate Java 17 to MCP process
+
+### Known Issues Documented
+- Codespaces browser client crashes during MCP initialize handshake (platform bug)
+- Workaround: Use VS Code Desktop connected to Codespace
+- Added `clojure-mcp (Test)` task for manual verification
+
+### Documentation Updates
+- Updated SETUP.md with Java version requirements table
+- Added Known Issues section with workarounds
+- Updated AGENTS.md with clojure-mcp integration lessons learned
+- Documented that SSE transport requires Clojure deps, not Maven Central artifacts
+
+---
+
 ## [2026-01-11] - Added
 
 ### Devcontainer Improvements

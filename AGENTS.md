@@ -120,6 +120,42 @@ When a configuration fails:
 2. **Check the source** - go to the official repository
 3. **Verify the installation method** - npm, clojure tools, pip, cargo, etc.
 
+### clojure-mcp Integration Lessons
+
+**Key Discoveries:**
+
+1. **Java Version Isolation**  
+   - OrcPub/Datomic requires Java 8
+   - clojure-mcp requires Java 17+
+   - Solution: Install both, override PATH/JAVA_HOME only for MCP process
+
+2. **VS Code MCP Configuration (`.vscode/mcp.json`)**  
+   ```json
+   {
+     "servers": {
+       "clojure-mcp": {
+         "command": "/bin/bash",
+         "args": ["-c", "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH clojure -Tmcp start :port 7888"]
+       }
+     }
+   }
+   ```
+
+3. **Codespaces Browser Bug**  
+   - MCP stdio handshake crashes the VS Code browser client
+   - clojure-mcp works perfectly when run manually via terminal/task
+   - Workaround: Use VS Code Desktop connected to Codespace
+
+4. **SSE Transport is NOT a Simple Alternative**  
+   - SSE mode requires running clojure-mcp as HTTP server (`-Sdeps` with specific config)
+   - clojure-mcp is distributed via Clojure tools, NOT Maven Central
+   - Don't fabricate Maven coordinates - they won't work
+
+5. **Testing MCP Server Independently**  
+   - Create a VS Code task to run the MCP command
+   - Verify JSON-RPC output appears: `{"jsonrpc":"2.0","method":"notifications/..."}`
+   - If task works but MCP integration doesn't, the issue is client-side
+
 ---
 
 **Tip:**  

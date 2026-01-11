@@ -97,6 +97,31 @@ This is powerful because AI can **test and validate code changes in real-time** 
 - Check database state via Datomic queries
 - Explore your data structures interactively
 
+#### Java Version Requirements
+
+**Important:** clojure-mcp requires Java 17+, but OrcPub/Datomic requires Java 8.
+
+The devcontainer installs both versions:
+- **Java 8** (default): Used by Leiningen, Datomic, and all OrcPub code
+- **Java 17**: Used only by clojure-mcp via PATH override in `.vscode/mcp.json`
+
+This isolation is achieved by setting `JAVA_HOME` and `PATH` only for the MCP process:
+```json
+{
+  "command": "/bin/bash",
+  "args": ["-c", "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH clojure -Tmcp start :port 7888"]
+}
+```
+
+#### Known Issues
+
+| Issue | Status | Workaround |
+|-------|--------|------------|
+| **Codespaces browser crash** | Platform bug | Use VS Code Desktop connected to Codespace, or test via task |
+| **MCP initialize timeout** | Related to above | The `clojure-mcp (Test)` task can verify the server works |
+
+The Codespaces browser client crashes during the MCP stdio handshake. This is a VS Code Codespaces bug, not a configuration issue. The server itself works correctly (verified via terminal/task).
+
 ---
 
 ### 3. **Prepare Datomic Properties**
