@@ -5426,6 +5426,31 @@
      edit-selection-level-event
      delete-selection-event]]])
 
+(defn class-resource-pools [class]
+  "UI for configuring class resource pool features like Rage, Ki, etc."
+  [:div.m-b-30
+   [:div.f-s-24.f-w-b.m-b-10 "Resource Pools"]
+   [:div.f-s-14.m-b-10.i "Configure resource-based class features (Rage, Ki, Sorcery Points, etc.)"]
+
+   ;; Rage Configuration
+   [:div.m-b-20
+    [:div.f-s-18.f-w-b.m-b-10 "Rage (Barbarian)"]
+    [:div.flex.flex-wrap
+     [:div.m-r-20.m-b-10
+      [:label.f-w-b.m-b-5 "Uses per Long Rest"]
+      [comps/number-input
+       (get-in class [:props :rage :uses] 0)
+       #(dispatch [::classes/set-class-prop-value :rage :uses %])
+       {:min 0 :max 20}]]
+     [:div.m-r-20.m-b-10
+      [:label.f-w-b.m-b-5 "Damage Bonus"]
+      [comps/number-input
+       (get-in class [:props :rage :damage] 2)
+       #(dispatch [::classes/set-class-prop-value :rage :damage %])
+       {:min 1 :max 10}]]
+     [:div.m-b-10.f-s-12.i
+      "Set Uses to 0 to disable this feature."]]]])
+
 (defn class-builder []
   (let [class @(subscribe [::classes/builder-item])
         spell-lists @(subscribe [::spells/spell-lists])
@@ -5658,6 +5683,8 @@
        class
        ::classes/set-class-path-prop
        ::classes/toggle-class-path-prop]]
+     [:div
+      [class-resource-pools class]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [option-level-modifiers

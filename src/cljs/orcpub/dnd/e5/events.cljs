@@ -2624,6 +2624,12 @@
    (assoc class prop-key prop-value)))
 
 (reg-event-db
+ ::class5e/set-class-prop-value
+ class-interceptors
+ (fn [class [_ prop-key sub-key value]]
+   (assoc-in class [:props prop-key sub-key] value)))
+
+(reg-event-db
  ::class5e/toggle-class-spell-list
  class-interceptors
  (fn [class [_ level spell-kw]]
