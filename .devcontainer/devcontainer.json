@@ -1,0 +1,9 @@
+{
+  "name": "OrcPub Dev",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": { "version": "8" },
+    "ghcr.io/devcontainers/features/leiningen:1": {}
+  },
+  "postCreateCommand": "lein --version"
+}
