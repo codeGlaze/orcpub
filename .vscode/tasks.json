@@ -4,7 +4,7 @@
     {
       "label": "Datomic Transactor",
       "type": "shell",
-      "command": "lib/datomic-free-0.9.5703/bin/transactor lib/datomic-free-0.9.5703/config/working-transactor.properties",
+      "command": "/workspaces/orcpub/lib/datomic-free-0.9.5703/bin/transactor /workspaces/orcpub/lib/datomic-free-0.9.5703/config/working-transactor.properties",
       "isBackground": true,
       "problemMatcher": []
     },
