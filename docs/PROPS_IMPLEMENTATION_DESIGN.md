@@ -415,12 +415,75 @@ This generates:
 - 3 damage resistances (bludgeoning, piercing, slashing) with "while raging" qualifier
 - Advantage on STR saves with "Rage" type indicator
 
+### ✅ Completed: UI and Event Handlers
+
+**File: `src/cljs/orcpub/dnd/e5/views.cljs`**
+
+#### UI Component (lines 5429-5452)
+```clojure
+(defn class-resource-pools [class]
+  "UI for configuring class resource pool features like Rage, Ki, etc."
+  [:div.m-b-30
+   [:div.f-s-24.f-w-b.m-b-10 "Resource Pools"]
+   [:div.f-s-14.m-b-10.i "Configure resource-based class features (Rage, Ki, Sorcery Points, etc.)"]
+
+   ;; Rage Configuration
+   [:div.m-b-20
+    [:div.f-s-18.f-w-b.m-b-10 "Rage (Barbarian)"]
+    [:div.flex.flex-wrap
+     [:div.m-r-20.m-b-10
+      [:label.f-w-b.m-b-5 "Uses per Long Rest"]
+      [comps/number-input
+       (get-in class [:props :rage :uses] 0)
+       #(dispatch [::classes/set-class-prop-value :rage :uses %])
+       {:min 0 :max 20}]]
+     [:div.m-r-20.m-b-10
+      [:label.f-w-b.m-b-5 "Damage Bonus"]
+      [comps/number-input
+       (get-in class [:props :rage :damage] 2)
+       #(dispatch [::classes/set-class-prop-value :rage :damage %])
+       {:min 1 :max 10}]]
+     [:div.m-b-10.f-s-12.i
+      "Set Uses to 0 to disable this feature."]]]])
+```
+
+#### Integration (line 5686-5687)
+Added `[class-resource-pools class]` to class-builder after skill expertise section.
+
+**File: `src/cljs/orcpub/dnd/e5/events.cljs`**
+
+#### Event Handler (lines 2626-2630)
+```clojure
+(reg-event-db
+ ::class5e/set-class-prop-value
+ class-interceptors
+ (fn [class [_ prop-key sub-key value]]
+   (assoc-in class [:props prop-key sub-key] value)))
+```
+
+### How It Works
+
+1. **User opens class builder** → sees "Resource Pools" section
+2. **User sets "Uses per Long Rest" to 3** → dispatches `[::classes/set-class-prop-value :rage :uses 3]`
+3. **Event handler updates** → `(assoc-in class [:props :rage :uses] 3)`
+4. **User sets "Damage Bonus" to 2** → dispatches `[::classes/set-class-prop-value :rage :damage 2]`
+5. **Resulting class data:**
+   ```clojure
+   {:name "My Barbarian"
+    :hit-die 12
+    :props {:rage {:uses 3 :damage 2}}}
+   ```
+6. **When class is saved** → `plugin-modifiers` calls `make-feat-modifiers`
+7. **Conversion happens** → `rage-modifiers` creates 5 modifiers
+8. **Character builder sees** → Rage bonus action with frequency, resistances, save advantages
+
 ## Next Steps
 
 1. ✅ Design `:props` format
 2. ✅ Prototype Rage end-to-end (COMPLETED)
-3. ⏭️ Add UI components for rage configuration
-4. ⏭️ Add event handlers for rage prop updates
-5. ⏭️ Integration test with character builder UI
+3. ✅ Add UI components for rage configuration (COMPLETED)
+4. ✅ Add event handlers for rage prop updates (COMPLETED)
+5. ⏭️ Manual integration test with character builder UI
 6. ⏭️ Add Ki, Sneak Attack, Action Surge features
 7. ⏭️ Document for users
+8. ⏭️ Implement level-based scaling (different rage values per level)
