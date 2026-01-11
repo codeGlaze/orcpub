@@ -568,13 +568,138 @@ These are lower priority and require Phase 1-3 to be stable:
 
 ---
 
-## Questions to Resolve
+## Design Decisions (Resolved)
 
-1. **Clone naming:** Should cloned classes auto-append "(Clone)" or let user rename immediately?
-2. **Parent changes:** If parent class updates (e.g., errata), should variants auto-inherit changes?
-3. **Export format:** Should exported variants include full class data or just parent reference + overrides?
-4. **UI placement:** Where should "Clone" button appear? (Class selection? Class detail view? Both?)
-5. **Validation depth:** How much validation should prevent "broken" variants? (e.g., warn vs. block)
+### 1. Clone Naming
+**Decision:** Offer rename as part of clone process with "(Clone)" default
+- Default name: `"[Original Class Name] (Clone)"`
+- User can edit immediately in the clone dialog
+- Can always rename later in class builder
+
+### 2. Parent Changes (Errata)
+**Decision:** Auto-inherit by default, allow overrides
+- If parent class updates, variants inherit changes automatically
+- Users can override specific features if they prefer old version
+- Respects user's ability to be "picky about errata" while providing sensible defaults
+
+### 3. Export Format
+**Decision:** Parent reference + overrides only
+- More efficient (smaller export codes)
+- Requires parent class to exist on import
+- Import validation checks for parent availability
+- Can fall back to full export if parent is custom/unavailable
+
+### 4. UI Placement
+**Decision:** Both locations initially, refine based on feedback
+- Add "Clone" button in class selection view
+- Add "Clone" button in class detail view
+- Monitor usage and remove less-used location later
+
+### 5. Validation Strategy
+**Decision:** Three-tier approach with configurable levels (Tier 1 always enforced)
+
+#### Tier 1: PREVENT (Non-negotiable, always enforced)
+**Purpose:** Prevent data corruption and application breakage
+
+**Enforcement:** UI-level data validation
+- Hit die: Number input with min=4, max=20 (or dropdown: 4, 6, 8, 10, 12, 20)
+- Required fields: Validate before allowing save
+- Data types: Enforce through form controls (no string in number field)
+- Circular dependencies: Check parent-class chain for loops
+
+**Never allow:**
+- Missing required fields (name, key, option-pack)
+- Invalid data types (string where number expected)
+- Circular inheritance (Class A → Class B → Class A)
+
+**Implementation:**
+```clojure
+(defn validate-tier1 [class-data]
+  (let [errors []]
+    (when-not (:name class-data)
+      (conj errors "Name is required"))
+    (when-not (number? (:hit-die class-data))
+      (conj errors "Hit die must be a number"))
+    (when (and (:parent-class class-data)
+               (circular-dependency? class-data))
+      (conj errors "Circular dependency detected in parent class chain"))
+    errors))
+```
+
+#### Tier 2: WARN (Enabled by default, user can dismiss)
+**Purpose:** Help users avoid common mistakes
+
+**Show warning modal for:**
+- Disabling features that other features depend on
+  - Example: Disabling "Rage" but keeping "Persistent Rage"
+- Conflicting modifiers at same level
+  - Example: Two features both modifying attack count at level 5
+- Removing core class identity features
+  - Example: Removing spellcasting from Wizard
+
+**Implementation:**
+```clojure
+(defn validate-tier2 [class-data parent-class]
+  (let [warnings []]
+    (when (and (disabled? class-data :rage)
+               (has-feature? class-data :persistent-rage))
+      (conj warnings "Persistent Rage depends on Rage. Disabling Rage may cause issues."))
+    warnings))
+```
+
+**UI Flow:**
+- Show modal: "⚠️ Warnings Detected"
+- List all warnings
+- Buttons: "Cancel" | "Save Anyway"
+
+#### Tier 3: INFO (Helpful hints, non-intrusive)
+**Purpose:** Provide helpful information without interrupting
+
+**Show info banner for:**
+- Factual differences from parent
+  - Example: "This variant has higher hit die than parent class"
+  - Example: "This variant has 2 more ASIs than parent"
+- Feature counts
+  - Example: "This class has 12 custom features"
+
+**DO NOT warn about:**
+- Power level / balance concerns
+  - Users know their own game better than we do
+  - "Overpowered" is subjective and campaign-dependent
+
+**Implementation:**
+```clojure
+(defn validate-tier3 [class-data parent-class]
+  (let [info []]
+    (when (and parent-class
+               (> (:hit-die class-data) (:hit-die parent-class)))
+      (conj info (str "This variant has higher hit die than parent class (d"
+                     (:hit-die class-data) " vs d" (:hit-die parent-class) ")")))
+    info))
+```
+
+**UI Display:**
+- Small info banner below save button
+- Dismissible (X button)
+- Non-blocking
+
+#### Configurable Validation Levels (Future Enhancement)
+
+**User Preference Setting:**
+```clojure
+;; In user preferences
+{:validation-level :moderate  ; :strict | :moderate | :minimal}
+```
+
+**Levels:**
+- **Strict:** All three tiers active
+- **Moderate (Default):** Tiers 1 + 2 active, Tier 3 optional
+- **Minimal:** Tier 1 only (expert users)
+
+**CRITICAL:** Tier 1 can NEVER be disabled
+- Data integrity is non-negotiable
+- UI controls enforce valid data types
+- Required fields always required
 
 ---
 
@@ -625,5 +750,5 @@ These are lower priority and require Phase 1-3 to be stable:
 ---
 
 **Last Updated:** 2026-01-11
-**Document Version:** 1.0
-**Status:** DRAFT - Awaiting Review
+**Document Version:** 1.1
+**Status:** Design Decisions Finalized - Ready for Implementation
