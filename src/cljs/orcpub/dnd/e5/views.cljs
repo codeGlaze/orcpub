@@ -5428,28 +5428,51 @@
 
 (defn class-resource-pools [class]
   "UI for configuring class resource pool features like Rage, Ki, etc."
-  [:div.m-b-30
-   [:div.f-s-24.f-w-b.m-b-10 "Resource Pools"]
-   [:div.f-s-14.m-b-10.i "Configure resource-based class features (Rage, Ki, Sorcery Points, etc.)"]
+  (let [rage-levels (get-in class [:props :rage :levels] {})]
+    [:div.m-b-30
+     [:div.f-s-24.f-w-b.m-b-10 "Resource Pools"]
+     [:div.f-s-14.m-b-10.i "Configure level-based class features (Rage, Ki, etc.)"]
 
-   ;; Rage Configuration
-   [:div.m-b-20
-    [:div.f-s-18.f-w-b.m-b-10 "Rage (Barbarian)"]
-    [:div.flex.flex-wrap
-     [:div.m-r-20.m-b-10
-      [:label.f-w-b.m-b-5 "Uses per Long Rest"]
-      [comps/number-input
-       (get-in class [:props :rage :uses] 0)
-       #(dispatch [::classes/set-class-prop-value :rage :uses %])
-       {:min 0 :max 20}]]
-     [:div.m-r-20.m-b-10
-      [:label.f-w-b.m-b-5 "Damage Bonus"]
-      [comps/number-input
-       (get-in class [:props :rage :damage] 2)
-       #(dispatch [::classes/set-class-prop-value :rage :damage %])
-       {:min 1 :max 10}]]
-     [:div.m-b-10.f-s-12.i
-      "Set Uses to 0 to disable this feature."]]]])
+     ;; Rage Configuration Table
+     [:div.m-b-20
+      [:div.f-s-18.f-w-b.m-b-10 "Rage (Barbarian)"]
+      [:div.f-s-12.m-b-10 "Format: [uses damage] - Set uses to 0 to disable at that level"]
+      [:table.w-100-p
+       [:thead
+        [:tr
+         [:th.p-5.t-a-l "Level"]
+         [:th.p-5.t-a-l "Uses"]
+         [:th.p-5.t-a-l "Damage"]
+         [:th.p-5.t-a-l ""]]]
+       [:tbody
+        (doall
+         (map
+          (fn [[level [uses damage]]]
+            ^{:key level}
+            [:tr
+             [:td.p-5 level]
+             [:td.p-5
+              [comps/number-input
+               uses
+               #(dispatch [::classes/set-rage-level level % damage])
+               {:min 0 :max 20}]]
+             [:td.p-5
+              [comps/number-input
+               (or damage 2)
+               #(dispatch [::classes/set-rage-level level uses %])
+               {:min 1 :max 10}]]
+             [:td.p-5
+              [:button.form-button
+               {:on-click #(dispatch [::classes/delete-rage-level level])}
+               "×"]]])
+          (sort-by first rage-levels)))]
+       [:tfoot
+        [:tr
+         [:td.p-5 {:col-span 4}
+          [:button.form-button
+           {:on-click #(dispatch [::classes/add-rage-level])}
+           "+ Add Level Breakpoint"]]]]]]]))
+
 
 (defn class-builder []
   (let [class @(subscribe [::classes/builder-item])

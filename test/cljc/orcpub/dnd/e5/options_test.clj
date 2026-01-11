@@ -14,13 +14,34 @@
          (opt/total-slots 20 3))))
 
 (deftest test-rage-modifiers
-  (testing "Rage with uses > 0 creates modifiers"
-    (let [rage-cfg {:uses 2 :damage 2}
+  (testing "Rage with vector format [uses damage] creates modifiers"
+    (let [rage-cfg [2 2]
           result (opt/rage-modifiers rage-cfg :test-class)]
       (is (seq result) "Should return a sequence of modifiers")
       (is (= 5 (count result)) "Should have 5 modifiers: bonus-action + 3 resistances + 1 save advantage")))
 
-  (testing "Rage with uses = 0 returns nil"
+  (testing "Rage with vector [uses damage] uses damage value"
+    (let [rage-cfg [3 4]
+          result (opt/rage-modifiers rage-cfg :test-class)]
+      (is (seq result) "Should return modifiers with damage 4")))
+
+  (testing "Rage with vector [uses nil] uses default damage"
+    (let [rage-cfg [3 nil]
+          result (opt/rage-modifiers rage-cfg :test-class)]
+      (is (seq result) "Should return modifiers with default damage 2")))
+
+  (testing "Rage with vector [0 damage] returns nil"
+    (let [rage-cfg [0 2]
+          result (opt/rage-modifiers rage-cfg :test-class)]
+      (is (nil? result) "Should return nil when uses is 0")))
+
+  (testing "Rage with map format (backward compat) creates modifiers"
+    (let [rage-cfg {:uses 2 :damage 2}
+          result (opt/rage-modifiers rage-cfg :test-class)]
+      (is (seq result) "Should return a sequence of modifiers")
+      (is (= 5 (count result)) "Should have 5 modifiers")))
+
+  (testing "Rage with map uses = 0 returns nil"
     (let [rage-cfg {:uses 0 :damage 2}
           result (opt/rage-modifiers rage-cfg :test-class)]
       (is (nil? result) "Should return nil when uses is 0")))
@@ -29,12 +50,12 @@
     (let [result (opt/rage-modifiers nil :test-class)]
       (is (nil? result) "Should return nil when config is nil")))
 
-  (testing "Rage with missing uses returns nil"
+  (testing "Rage map with missing uses returns nil"
     (let [rage-cfg {:damage 2}
           result (opt/rage-modifiers rage-cfg :test-class)]
       (is (nil? result) "Should return nil when uses is missing")))
 
-  (testing "Rage uses default damage value if not specified"
+  (testing "Rage map uses default damage value if not specified"
     (let [rage-cfg {:uses 3}
           result (opt/rage-modifiers rage-cfg :test-class)]
       (is (seq result) "Should return modifiers with default damage value"))))

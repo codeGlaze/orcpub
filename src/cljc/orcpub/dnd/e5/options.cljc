@@ -3227,13 +3227,18 @@
        (modifier-fn k))))
    m))
 
-(defn rage-modifiers [rage-cfg option-key]
+(defn rage-modifiers
   "Creates modifiers for Barbarian Rage feature.
-   rage-cfg map should contain :uses and :damage.
-   If :uses is 0 or missing, returns nil (feature disabled)."
-  (when (and rage-cfg (pos? (or (:uses rage-cfg) 0)))
-    (let [{:keys [uses damage]} rage-cfg
-          damage-val (or damage 2)]
+   Accepts either:
+   - Vector: [uses damage] e.g. [2 2]
+   - Map: {:uses N :damage N} (backward compat)
+   Returns nil if uses is 0 or missing."
+  [rage-cfg option-key]
+  (let [[uses damage] (if (vector? rage-cfg)
+                        rage-cfg
+                        [(:uses rage-cfg) (:damage rage-cfg)])
+        damage-val (or damage 2)]
+    (when (and uses (pos? uses))
       [(modifiers/bonus-action
         {:name "Rage"
          :page 48

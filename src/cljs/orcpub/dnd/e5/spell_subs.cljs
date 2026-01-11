@@ -143,7 +143,8 @@
                                (:key value)
                                (:ability value)
                                (if (keyword? class-key)
-                                 (common/safe-capitalize-kw class-key)))))
+                                 (common/safe-capitalize-kw class-key)))
+    :rage (opt5e/rage-modifiers value class-key)))
 
 (defn eldritch-knight-spell? [s]
     (let [school (:school s)]
@@ -341,6 +342,27 @@
     []
     cleric-spells)))
 
+(defn expand-props-with-levels
+  "Expands props that have :levels into level-modifiers format.
+   E.g. {:rage {:levels {1 [2 2] 3 [3 2]}}} becomes
+        [{:level 1 :type :rage :value [2 2]}
+         {:level 3 :type :rage :value [3 2]}]"
+  [props]
+  (reduce-kv
+    (fn [result prop-key prop-value]
+      (if (:levels prop-value)
+        ;; Has levels - expand into level-modifiers
+        (concat result
+          (map (fn [[level level-value]]
+                 {:level level
+                  :type prop-key
+                  :value level-value})
+               (:levels prop-value)))
+        ;; No levels - skip (will be handled by plugin-modifiers)
+        result))
+    []
+    props))
+
 (defn make-levels [spell-lists spells-map selection-map {:keys [key class spellcasting] :as option}]
   (let [modifiers (:level-modifiers option)
         selections (:level-selections option)
@@ -416,7 +438,10 @@
  (fn [[plugins spell-lists spells-map selection-map]]
    (map
     (fn [class]
-      (let [levels (make-levels spell-lists spells-map selection-map class)]
+      (let [expanded-level-mods (expand-props-with-levels (:props class))
+            combined-level-mods (concat (:level-modifiers class) expanded-level-mods)
+            class-with-mods (assoc class :level-modifiers combined-level-mods)
+            levels (make-levels spell-lists spells-map selection-map class-with-mods)]
         (assoc class
                :modifiers (opt5e/plugin-modifiers (:props class)
                                                   (:key class))

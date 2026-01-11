@@ -2630,6 +2630,28 @@
    (assoc-in class [:props prop-key sub-key] value)))
 
 (reg-event-db
+ ::class5e/set-rage-level
+ class-interceptors
+ (fn [class [_ level uses damage]]
+   (assoc-in class [:props :rage :levels level] [uses damage])))
+
+(reg-event-db
+ ::class5e/delete-rage-level
+ class-interceptors
+ (fn [class [_ level]]
+   (update-in class [:props :rage :levels] dissoc level)))
+
+(reg-event-db
+ ::class5e/add-rage-level
+ class-interceptors
+ (fn [class _]
+   (let [existing-levels (keys (get-in class [:props :rage :levels] {}))
+         max-level (if (seq existing-levels) (apply max existing-levels) 0)
+         new-level (inc max-level)
+         new-level (if (> new-level 20) 1 new-level)]
+     (assoc-in class [:props :rage :levels new-level] [2 2]))))
+
+(reg-event-db
  ::class5e/toggle-class-spell-list
  class-interceptors
  (fn [class [_ level spell-kw]]
