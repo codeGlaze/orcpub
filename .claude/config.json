@@ -1,0 +1,11 @@
+{
+  "instructions": "agents.md",
+  "documentation": [
+    "CODEBASE.md",
+    "README.md"
+  ],
+  "context": {
+    "primary_instructions": "agents.md",
+    "codebase_overview": "CODEBASE.md"
+  }
+}
