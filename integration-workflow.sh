@@ -24,33 +24,25 @@ if [[ -z "$WORKING_BRANCH" ]]; then
   BRANCHES=($(git for-each-ref --sort=-committerdate refs/heads/ --format='%(refname:short)' | grep -vE '^(main|develop|testing/develop|agents/develop|integration/)'))
   if [[ ${#BRANCHES[@]} -eq 0 ]]; then
     echo "No working branch found. Please specify one."
+    exit 1
+  fi
   echo "Available working branches:"
   for i in "${!BRANCHES[@]}"; do
+    printf "%2d) %s\n" $((i+1)) "${BRANCHES[$i]}"
   done
+  echo "  0) Cancel"
   DEFAULT_BRANCH="${BRANCHES[0]}"
-  read -p "Select working branch [default: $DEFAULT_BRANCH]: " BRANCH_NUM
+  read -p "Select working branch [default: $DEFAULT_BRANCH, 0 to cancel]: " BRANCH_NUM
+  if [[ -z "$BRANCH_NUM" ]]; then
     WORKING_BRANCH="$DEFAULT_BRANCH"
+  elif [[ "$BRANCH_NUM" == "0" ]]; then
+    echo "Cancelled by user."
+    exit 0
   else
     IDX=$((BRANCH_NUM-1))
-
-    set -e
-
     if [[ $IDX -ge 0 && $IDX -lt ${#BRANCHES[@]} ]]; then
       WORKING_BRANCH="${BRANCHES[$IDX]}"
     else
-
-    # Always merge in develop, agents/develop, testing/develop, and the working branch
-    for BR in develop agents/develop "$TESTING_BRANCH" "$WORKING_BRANCH"; do
-      if git show-ref --verify --quiet refs/remotes/origin/$BR; then
-        echo "Merging latest from $BR..."
-        git merge origin/$BR || {
-          echo "Merge conflict with $BR. Please resolve manually.";
-          exit 1;
-        }
-      else
-        echo "Branch $BR not found on origin, skipping."
-      fi
-    done
       echo "Invalid selection. Aborting."
       exit 1
     fi
