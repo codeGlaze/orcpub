@@ -1,0 +1,62 @@
+{
+  "name": "OrcPub Development",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "installOhMyZsh": true,
+      "upgradePackages": true
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "betterthantomorrow.calva",
+        "betterthantomorrow.calva-spritz",
+        "vscjava.vscode-java-pack",
+        "redhat.java"
+      ],
+      "settings": {
+        "java.configuration.runtimes": [
+          {
+            "name": "JavaSE-1.8",
+            "path": "/usr/lib/jvm/java-8-openjdk-amd64",
+            "default": true
+          }
+        ],
+        "calva.replConnectSequences": [
+          {
+            "name": "OrcPub Server",
+            "projectType": "Leiningen",
+            "cljsType": "Figwheel Main",
+            "menuSelections": {
+              "leinProfiles": ["dev"]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "forwardPorts": [4334, 3000, 8080],
+  "portsAttributes": {
+    "4334": {
+      "label": "Datomic Transactor",
+      "onAutoForward": "silent"
+    },
+    "3000": {
+      "label": "ClojureScript Dev Server",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "OrcPub Server",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "remoteUser": "vscode"
+}

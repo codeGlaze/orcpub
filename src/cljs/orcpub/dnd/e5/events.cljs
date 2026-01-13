@@ -8,6 +8,7 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
+            [orcpub.dnd.e5.import-validation :as import-val]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
@@ -3161,20 +3162,66 @@
 (reg-event-fx
  ::e5/export-plugin
  (fn [_ [_ name plugin]]
-   (let [blob (js/Blob.
-               (clj->js [(str plugin)])
-               (clj->js {:type "text/plain;charset=utf-8"}))]
-     (js/saveAs blob (str name ".orcbrew"))
-     {})))
+   ;; Validate before export to catch bugs early
+   (let [validation (import-val/validate-before-export plugin)]
+     (if (:valid validation)
+       (do
+         ;; Log warnings if any
+         (when (seq (:warnings validation))
+           (js/console.warn "Export warnings for" name ":")
+           (doseq [warning (:warnings validation)]
+             (js/console.warn " " warning)))
+
+         ;; Proceed with export
+         (let [blob (js/Blob.
+                     (clj->js [(str plugin)])
+                     (clj->js {:type "text/plain;charset=utf-8"}))]
+           (js/saveAs blob (str name ".orcbrew"))
+           (if (seq (:warnings validation))
+             {:dispatch [:show-warning-message
+                        (str "Plugin '" name "' exported with warnings. Check console for details.")]}
+             {})))
+
+       ;; Validation failed - don't export
+       (do
+         (js/console.error "Export validation failed for" name ":")
+         (js/console.error (:errors validation))
+         {:dispatch [:show-error-message
+                    (str "Cannot export '" name "' - contains invalid data. Check console for details.")]})))))
 
 (reg-event-fx
  ::e5/export-all-plugins
  (fn [_ _]
-   (let [blob (js/Blob.
-               (clj->js [(str @(subscribe [::e5/plugins]))])
-               (clj->js {:type "text/plain;charset=utf-8"}))]
-     (js/saveAs blob (str "all-content.orcbrew"))
-     {})))
+   (let [all-plugins @(subscribe [::e5/plugins])
+         ;; Validate each plugin
+         validations (into {}
+                          (map (fn [[name plugin]]
+                                 [name (import-val/validate-before-export plugin)])
+                               all-plugins))
+         has-errors (some (fn [[_ v]] (not (:valid v))) validations)
+         has-warnings (some (fn [[_ v]] (seq (:warnings v))) validations)]
+
+     (when (or has-errors has-warnings)
+       (js/console.warn "Export validation results:")
+       (doseq [[name validation] validations]
+         (when-not (:valid validation)
+           (js/console.error "Plugin" name "has errors:" (:errors validation)))
+         (when (seq (:warnings validation))
+           (js/console.warn "Plugin" name "has warnings:" (:warnings validation)))))
+
+     (if has-errors
+       {:dispatch [:show-error-message
+                  "Cannot export all plugins - some contain invalid data. Check console for details."]}
+
+       (do
+         (let [blob (js/Blob.
+                     (clj->js [(str all-plugins)])
+                     (clj->js {:type "text/plain;charset=utf-8"}))]
+           (js/saveAs blob (str "all-content.orcbrew"))
+           (if has-warnings
+             {:dispatch [:show-warning-message
+                        "All plugins exported with some warnings. Check console for details."]}
+             {})))))))
 
 (reg-event-fx
   ::e5/export-plugin-pretty-print
@@ -3208,7 +3255,10 @@
  (fn [{:keys [db]} [_ plugin-name type-key key]]
    {:dispatch [::e5/set-plugins (-> db :plugins (update-in [plugin-name type-key key :disabled?] not))]}))
 
-(defn clean-plugin-errors [plugin-text]
+(defn clean-plugin-errors
+  "DEPRECATED: Use import-validation/validate-import instead.
+   Kept for backward compatibility only."
+  [plugin-text]
   (-> plugin-text
       (clojure.string/replace #"disabled\?\s+nil" "disabled? false") ; disabled? nil - replace w/disabled? false
       (clojure.string/replace #"(?m)nil nil, " "") ; nil nil,  - find+remove
@@ -3220,31 +3270,75 @@
 (reg-event-fx
  ::e5/import-plugin
  (fn [{:keys [db]} [_ plugin-name plugin-text]]
-   (let [cleaned-plugin-text (clean-plugin-errors plugin-text)
-         plugin (try
-                  (reader/read-string cleaned-plugin-text)
-                  (catch js/Error e nil))]
-     (cond 
-       (spec/valid? ::e5/plugin plugin)
-       {:dispatch-n [[::e5/set-plugins (assoc (:plugins db)
-                                              plugin-name
-                                              plugin)]
-                     [:show-warning-message (str "File imported as '" plugin-name "'. To be safe, you should 'Export All' and save to a safe location now.")]]}
+   ;; Use comprehensive validation with progressive import strategy
+   (let [result (import-val/validate-import plugin-text {:strategy :progressive
+                                                         :auto-clean true})
+         user-message (import-val/format-import-result result)]
 
-       (spec/valid? ::e5/plugins plugin)
-       {:dispatch-n [[::e5/set-plugins (e5/merge-all-plugins
-                                        (:plugins db)
-                                        plugin)]
-                     [:show-warning-message "Imported content was merged into your existing content. To be safe, you should 'Export All' and save to a safe location now."]]}
-       
-       :else
+     ;; Log detailed results to console for debugging
+     (js/console.log "Import validation result:" (clj->js result))
+
+     (cond
+       ;; Parse error - cannot recover
+       (:parse-error result)
        (do
-         (prn "PLUGIN" plugin)
-         (prn "INVALID PLUGINS FILE"
-              (spec/explain-data ::e5/plugins plugin))
-         (prn "INVALID PLUGIN FILE"
-              (spec/explain-data ::e5/plugin plugin))
-         {:dispatch [:show-error-message "Invalid .orcbrew file"]})))))
+         (js/console.error "Parse error:" (:error result))
+         {:dispatch [:show-error-message user-message]})
+
+       ;; Validation failed completely
+       (and (not (:success result)) (:errors result))
+       (do
+         (js/console.error "Validation errors:" (clj->js (:errors result)))
+         {:dispatch [:show-error-message user-message]})
+
+       ;; Progressive import succeeded (may have skipped some items)
+       (:success result)
+       (let [plugin (:data result)
+             is-multi-plugin (and (spec/valid? ::e5/plugins plugin)
+                                 (not (spec/valid? ::e5/plugin plugin)))]
+
+         ;; Log skipped items if any
+         (when (:had-errors result)
+           (js/console.warn "Skipped invalid items:")
+           (doseq [item (:skipped-items result)]
+             (js/console.warn "  " (:key item))
+             (js/console.warn "    Errors:" (:errors item))))
+
+         {:dispatch-n (cond-> []
+                        ;; Set the plugins
+                        true
+                        (conj (if is-multi-plugin
+                                [::e5/set-plugins (e5/merge-all-plugins (:plugins db) plugin)]
+                                [::e5/set-plugins (assoc (:plugins db) plugin-name plugin)]))
+
+                        ;; Show appropriate message
+                        true
+                        (conj (if (:had-errors result)
+                                [:show-warning-message user-message]
+                                [:show-warning-message user-message])))})
+
+       ;; Unknown state
+       :else
+       {:dispatch [:show-error-message "Unknown import error. Check console for details."]}))))
+
+;; Add a strict import option for users who want all-or-nothing behavior
+(reg-event-fx
+ ::e5/import-plugin-strict
+ (fn [{:keys [db]} [_ plugin-name plugin-text]]
+   (let [result (import-val/validate-import plugin-text {:strategy :strict
+                                                         :auto-clean true})
+         user-message (import-val/format-import-result result)]
+
+     (js/console.log "Strict import validation result:" (clj->js result))
+
+     (if (:success result)
+       (let [plugin (:data result)]
+         {:dispatch-n [[::e5/set-plugins (if (= :multi-plugin (:strategy result))
+                                           (e5/merge-all-plugins (:plugins db) plugin)
+                                           (assoc (:plugins db) plugin-name plugin))]
+                      [:show-warning-message user-message]]})
+
+       {:dispatch [:show-error-message user-message]}))))
 
 (reg-event-db
  ::spells/set-spell

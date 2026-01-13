@@ -91,22 +91,61 @@
 (def user-agent "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.22 (KHTML, like Gecko) Chrome/25.0.1364.172")
 
 (defn draw-non-jpg [doc page url x y width height]
-  (with-open [c-stream (content-stream doc page)]
-    (let [buff-image (ImageIO/read (.getInputStream
-                                     (doto
-                                       (.openConnection (URL. url))
-                                       (.setRequestProperty "User-Agent" user-agent))))
-          img (LosslessFactory/createFromImage doc buff-image)]
-      (draw-imagex c-stream img x y width height))))
+  (try
+    (with-open [c-stream (content-stream doc page)]
+      (let [connection (doto (.openConnection (URL. url))
+                         (.setRequestProperty "User-Agent" user-agent)
+                         (.setConnectTimeout 10000)
+                         (.setReadTimeout 10000))
+            buff-image (ImageIO/read (.getInputStream connection))]
+        (when (nil? buff-image)
+          (throw (ex-info "Unable to read image from URL"
+                          {:error :invalid-image-format
+                           :url url})))
+        (let [img (LosslessFactory/createFromImage doc buff-image)]
+          (draw-imagex c-stream img x y width height))))
+    (catch java.net.SocketTimeoutException e
+      (throw (ex-info (str "Timeout loading image from URL: " url)
+                      {:error :image-load-timeout
+                       :url url}
+                      e)))
+    (catch java.net.UnknownHostException e
+      (throw (ex-info (str "Unable to resolve host for image URL: " url)
+                      {:error :unknown-host
+                       :url url}
+                      e)))
+    (catch Exception e
+      (throw (ex-info (str "Failed to load image from URL: " url)
+                      {:error :image-load-failed
+                       :url url}
+                      e)))))
 
 (defn draw-jpg [doc page url x y width height]
-  (with-open [c-stream (content-stream doc page)
-              image-stream (.getInputStream
-                             (doto
-                               (.openConnection (URL. url))
-                               (.setRequestProperty "User-Agent" user-agent)))]
-    (let [img (JPEGFactory/createFromStream doc image-stream)]
-      (draw-imagex c-stream img x y width height))))
+  (try
+    (with-open [c-stream (content-stream doc page)
+                image-stream (.getInputStream
+                               (doto
+                                 (.openConnection (URL. url))
+                                 (.setRequestProperty "User-Agent" user-agent)
+                                 (.setConnectTimeout 10000)
+                                 (.setReadTimeout 10000)))]
+      (let [img (JPEGFactory/createFromStream doc image-stream)]
+        (draw-imagex c-stream img x y width height)))
+    (catch java.net.SocketTimeoutException e
+      (throw (ex-info (str "Timeout loading image from URL: " url)
+                      {:error :image-load-timeout
+                       :url url}
+                      e)))
+    (catch java.net.UnknownHostException e
+      (throw (ex-info (str "Unable to resolve host for image URL: " url)
+                      {:error :unknown-host
+                       :url url}
+                      e)))
+    (catch Exception e
+      (throw (ex-info (str "Failed to load JPEG image from URL: " url)
+                      {:error :jpeg-load-failed
+                       :url url}
+                      e)))))
 
 (defn draw-image! [doc page url x y width height]
   (let [lower-case-url (s/lower-case url)
@@ -115,8 +154,16 @@
         draw-fn (if jpg? draw-jpg draw-non-jpg)]
     (try
       (draw-fn doc page url x y width height)
+      (catch clojure.lang.ExceptionInfo e
+        (println "ERROR: Failed to load image for PDF:" (.getMessage e))
+        (println "  URL:" url)
+        (println "  Details:" (ex-data e))
+        nil)
       (catch Exception e
-        (prn "failed loading image" (clojure.stacktrace/print-stack-trace e))))))
+        (println "ERROR: Unexpected error loading image for PDF:" (.getMessage e))
+        (println "  URL:" url)
+        (clojure.stacktrace/print-stack-trace e)
+        nil))))
 
 (defn get-page [doc index]
   (.getPage doc index))

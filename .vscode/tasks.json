@@ -1,0 +1,26 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Datomic Transactor",
+      "type": "shell",
+      "command": "./lib/datomic-free-0.9.5703/bin/transactor ./lib/datomic-free-0.9.5703/config/working-transactor.properties",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Clojure Server",
+      "type": "shell",
+      "command": "lein run",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Lein REPL",
+      "type": "shell",
+      "command": "lein repl",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

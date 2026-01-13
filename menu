@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+
+while true; do
+  echo "OrcPub Service Launcher"
+  echo "----------------------"
+  echo "1) Datomic Transactor"
+  echo "2) Clojure REPL (for init/start)"
+  echo "3) Figwheel (ClojureScript)"
+  echo "4) Quit"
+  echo
+  read -p "Select a service to launch [1-4]: " choice
+
+  case $choice in
+    1)
+      echo "Starting Datomic Transactor..."
+      /workspaces/orcpub/lib/datomic-free-0.9.5703/bin/transactor /workspaces/orcpub/lib/datomic-free-0.9.5703/config/working-transactor.properties &
+      ;;
+    2)
+      echo "Starting Clojure REPL..."
+      lein repl &
+      echo "You can now run (init-database), (start-server), etc. in the REPL."
+      ;;
+    3)
+      echo "Starting Figwheel (ClojureScript)..."
+      lein figwheel &
+      ;;
+    4)
+      echo "Exiting."
+      exit 0
+      ;;
+    *)
+      echo "Invalid choice."
+      ;;
+  esac
+  echo
+  sleep 1
+done
