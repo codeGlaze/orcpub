@@ -1,0 +1,72 @@
+{:orcpub.dnd.e5/plugin
+ {:orcpub.dnd.e5/name "Test Fighting Styles"
+  :orcpub.dnd.e5/key :test-fighting-styles
+
+  :orcpub.dnd.e5/fighting-styles
+  {;; Simple combat bonuses
+   :rapid-strike
+   {:name "Rapid Strike"
+    :key :rapid-strike
+    :option-pack "Test Fighting Styles"
+    :description "You've trained to strike with blinding speed. You gain a +2 bonus to initiative rolls."
+    :props {:initiative 2}}
+
+   ;; AC bonus
+   :defensive-stance
+   {:name "Defensive Stance"
+    :key :defensive-stance
+    :option-pack "Test Fighting Styles"
+    :description "You've mastered defensive techniques. You gain a +1 bonus to AC whether you're wearing armor or not."
+    :props {:armored-ac-bonus 1
+            :unarmored-ac-bonus 1}}
+
+   ;; TCE-style - grants sense
+   :keen-senses
+   {:name "Keen Senses"
+    :key :keen-senses
+    :option-pack "Test Fighting Styles"
+    :description "Your training has heightened your awareness. You gain blindsight with a range of 10 feet."
+    :props {:blindsight 10}}
+
+   ;; Critical hit expansion (from TGS2 examples)
+   :keen-eye
+   {:name "Keen Eye"
+    :key :keen-eye
+    :option-pack "Test Fighting Styles"
+    :description "Your practice with ranged weapons has honed your ability to spot weaknesses. You score critical hits on a roll of 19 or 20 with ranged weapons."
+    :props {:critical 19
+            :ranged-attack-bonus 0}}
+
+   ;; Melee specialist
+   :blade-master
+   {:name "Blade Master"
+    :key :blade-master
+    :option-pack "Test Fighting Styles"
+    :description "Your melee weapon training grants you superior accuracy. You gain a +2 bonus to melee attack rolls."
+    :props {:melee-attack-bonus 2}}
+
+   ;; Reaction-based (like Protection)
+   :interception
+   {:name "Interception"
+    :key :interception
+    :option-pack "Test Fighting Styles"
+    :description "When a creature you can see hits a target, other than you, within 5 feet of you with an attack, you can use your reaction to reduce the damage the target takes by 1d10 + your proficiency bonus (to a minimum of 0 damage). You must be wielding a shield or a simple or martial weapon to use this reaction."
+    :ability-type :reaction
+    :props {}}
+
+   ;; Combined bonuses
+   :versatile-warrior
+   {:name "Versatile Warrior"
+    :key :versatile-warrior
+    :option-pack "Test Fighting Styles"
+    :description "You're equally dangerous at range and in melee. You gain a +1 bonus to both melee and ranged attack rolls."
+    :props {:melee-attack-bonus 1
+            :ranged-attack-bonus 1}}
+
+   ;; Speed boost
+   :mobile-combatant
+   {:name "Mobile Combatant"
+    :key :mobile-combatant
+    :option-pack "Test Fighting Styles"
+    :description "Your agility in combat is unmatched. Your speed increases by 10 feet."
+    :props {:speed 10}}}}}

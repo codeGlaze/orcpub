@@ -430,6 +430,12 @@
    (mapcat (comp vals ::e5/feats) plugins)))
 
 (reg-sub
+ ::opt5e/plugin-fighting-styles
+ :<- [::e5/plugin-vals]
+ (fn [plugins _]
+   (mapcat (comp vals ::e5/fighting-styles) plugins)))
+
+(reg-sub
  ::classes5e/plugin-invocations
  :<- [::e5/plugin-vals]
  (fn [plugins _]
