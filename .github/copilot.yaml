@@ -1,0 +1,21 @@
+# .github/copilot.yaml
+# Enforces that Copilot agents cannot create PRs, branches, or commits
+# unless the user explicitly approves the action.
+
+permissions:
+  contents: write
+  pull_requests: write
+
+rules:
+  # Forces the agent to ask before performing any action that modifies the repo.
+  require_explicit_user_confirmation: true
+
+  # Prevents the agent from including chat transcripts or session history
+  # in PR descriptions or commit messages.
+  redact_chat_history_in_generated_content: true
+
+  # Blocks autonomous branch creation unless explicitly approved.
+  block_autonomous_branch_creation: true
+
+  # Blocks autonomous PR creation unless explicitly approved.
+  block_autonomous_pr_creation: true
