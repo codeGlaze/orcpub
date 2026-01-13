@@ -1685,32 +1685,63 @@
                                                              (magic-initiate-option spells-map :wizard "Wizard" ::character/int spell-lists)]})]})]})]})))
    (range 10)))
 
-(def fighting-style-options
-  [(t/option-cfg
-    {:name "Archery"
-     :modifiers [(modifiers/ranged-attack-bonus 2)
-      (modifiers/trait-cfg
-       {:name "Archery Fighting Style"
-        :page 72
-        :description "You gain a +2 bonus to attack rolls you make with ranged weapons."})]})
-   (t/option-cfg
-    {:name "Defense"
-     :modifiers [(modifiers/armored-ac-bonus 1)
-      (modifiers/trait-cfg
-       {:name "Defense Fighting Style"
-        :page 72
-        :description "While you are wearing armor, you gain a +1 bonus to AC."})]})
-   (t/option-cfg
-    {:name "Dueling"
-     :modifiers [(modifiers/trait-cfg
-       {:name "Dueling Fighting Style"
-        :page 72
-        :description "When you are wielding a melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon."})
-                (mods/vec-mod ?damage-bonus-fns ;vec-mod prop
+;; Fighting style data in props format (serializable for plugins)
+(def fighting-style-data
+  [;; Simple props-based fighting styles
+   {:name "Archery"
+    :key :archery
+    :page 72
+    :source :phb
+    :description "You gain a +2 bonus to attack rolls you make with ranged weapons."
+    :props {:ranged-attack-bonus 2}}
+
+   {:name "Defense"
+    :key :defense
+    :page 72
+    :source :phb
+    :description "While you are wearing armor, you gain a +1 bonus to AC."
+    :props {:armored-ac-bonus 1}}
+
+   ;; Great Weapon Fighting - purely descriptive (no mechanical props)
+   {:name "Great Weapon Fighting"
+    :key :great-weapon-fighting
+    :page 72
+    :source :phb
+    :description "When you roll a 1 or 2 on a damage die for an attack you make with a melee weapon that you are wielding with two hands, you can reroll the die and must use the new roll, even if the new roll is a 1 or a 2. The weapon must have the two-handed or versatile property for you to gain this benefit."
+    :props {}}
+
+   ;; Protection - reaction type (no mechanical props, just reaction marker)
+   {:name "Protection"
+    :key :protection
+    :page 72
+    :source :phb
+    :description "When a creature you can see attacks a target other than you that is within 5 feet of you, you can use your reaction to impose disadvantage on the attack roll. You must be wielding a shield."
+    :ability-type :reaction
+    :props {}}
+
+   ;; Two Weapon Fighting - uses weapon-ability-damage-modifier prop
+   {:name "Two Weapon Fighting"
+    :key :two-weapon-fighting
+    :page 72
+    :source :phb
+    :description "When you engage in two-weapon fighting, you can add your ability modifier to the damage of the second attack."
+    :props {:weapon-ability-damage-modifier true}}])
+
+;; Dueling kept as direct modifiers for now (complex conditional logic)
+(def dueling-fighting-style
+  (t/option-cfg
+   {:name "Dueling"
+    :key :dueling
+    :modifiers [(modifiers/trait-cfg
+                 {:name "Dueling Fighting Style"
+                  :page 72
+                  :source :phb
+                  :description "When you are wielding a melee weapon in one hand and no other weapons, you gain a +2 bonus to damage rolls with that weapon."})
+                (mods/vec-mod ?damage-bonus-fns
                               (fn [weapon _] (if (or (weapon ::weapons/two-handed?)
-                                                     (weapon ::weapons/ranged?)) 0 2)) ;vec-mod val ... maybe?
-                              nil ;vec-mod nm
-                              nil ;vec-mod value ... maybe?
+                                                     (weapon ::weapons/ranged?)) 0 2))
+                              nil
+                              nil
                               [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                                      off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
                                      all-weapons-map @(subscribe [::mi/all-weapons-map])]
@@ -1722,30 +1753,15 @@
                                                     main-hand-weapon
                                                     ::weapons/two-handed?)))
                                       (and off-hand-weapon
-                                           (not (-> all-weapons-map  ;ensure no weapons in off hand
+                                           (not (-> all-weapons-map
                                                     off-hand-weapon
-                                                    ::weapons/type)))))])
-                 ]})
-   (t/option-cfg
-    {:name "Great Weapon Fighting"
-     :modifiers [(modifiers/trait-cfg
-       {:name "Great Weapon Fighting Style"
-        :page 72
-        :description "When you roll a 1 or 2 on a damage die for an attack you make with a melee weapon that you are wielding with two hands, you can reroll the die and must use the new roll, even if the new roll is a 1 or a 2. The weapon must have the two-handed or versatile property for you to gain this benefit."})]})
-   (t/option-cfg
-    {:name "Protection"
-     :modifiers [(modifiers/reaction
-       {:name "Protection Fighting Style"
-        :page 72
-        :description "When a creature you can see attacks a target other than you that is within 5 feet of you, you can use your reaction to impose disadvantage on the attack roll. You must be wielding a shield."})]})
-   (t/option-cfg
-    {:name"Two Weapon Fighting"
-     :modifiers [(modifiers/trait-cfg
-                  {:name "Two Weapon Fighting"
-                   :description "When you engage in two-weapon fighting, you can add your ability modifier to the damage of the second attack."})
-                 (mods/modifier ?weapon-ability-damage-modifier
-                                (fn [weapon finesse? _]
-                                  (?weapon-ability-modifier weapon finesse?)))]})])
+                                                    ::weapons/type)))))])]}))
+
+;; Convert props-based data to options, merge with complex Dueling
+(def fighting-style-options
+  (concat
+   (map fighting-style-option-from-cfg fighting-style-data)
+   [dueling-fighting-style]))
 
 (defn fighting-style-selection-2 [class-kw num options]
   (t/selection-cfg
@@ -3231,6 +3247,18 @@
   (if v
     (case k
       :initiative [(modifiers/initiative v)]
+      :ranged-attack-bonus [(modifiers/ranged-attack-bonus v)]
+      :melee-attack-bonus [(modifiers/melee-attack-bonus v)]
+      :armored-ac-bonus [(modifiers/armored-ac-bonus v)]
+      :unarmored-ac-bonus [(modifiers/unarmored-ac-bonus v)]
+      :critical [(modifiers/critical v)]
+      :darkvision [(modifiers/darkvision v)]
+      :blindsight [(modifiers/blindsight v)]
+      :weapon-ability-damage-modifier (if v
+                                        [(mods/modifier ?weapon-ability-damage-modifier
+                                                        (fn [weapon finesse? _]
+                                                          (?weapon-ability-modifier weapon finesse?)))]
+                                        [])
       :two-weapon-ac-1 [dual-wield-ac-mod]
       :two-weapon-any-one-handed [dual-wield-weapon-mod]
       :max-hp-bonus [(mods/modifier ?hit-point-level-bonus (+ v ?hit-point-level-bonus))]
@@ -3369,6 +3397,39 @@
       :selections feat-selections
       :summary description
       :prereqs (feat-prereqs prereqs path-prereqs)})))
+
+(defn fighting-style-option-from-cfg
+  "Converts fighting style data (with props) to option-cfg (with modifiers).
+
+  Semantic function for fighting styles - different signature from feat-option-from-cfg
+  because fighting styles don't need language maps, spell lists, etc."
+  [{:keys [name key page source description ability-type props] :as cfg}]
+  (let [;; Convert props to mechanic modifiers using plugin-modifiers
+        mechanic-mods (plugin-modifiers props key)
+
+        ;; Determine which wrapper to use based on ability-type
+        display-mod-fn (case ability-type
+                         :reaction modifiers/reaction
+                         :bonus-action modifiers/bonus-action
+                         modifiers/trait-cfg)  ; Default
+
+        ;; Create the display modifier (trait/reaction/bonus-action) with metadata
+        display-mod (display-mod-fn
+                     (cond-> {:name (str name " Fighting Style")}
+                       description (assoc :description description)
+                       page (assoc :page page)
+                       source (assoc :source source)))
+
+        ;; Combine mechanic modifiers with display modifier
+        all-mods (if (seq mechanic-mods)
+                   (concat mechanic-mods [display-mod])
+                   [display-mod])]
+
+    ;; Return option-cfg
+    (t/option-cfg
+     {:name name
+      :key key
+      :modifiers all-mods})))
 
 (def draconic-ancestries
   [{:name "Black"

@@ -220,11 +220,68 @@ Uses re-frame pattern:
 
 - [2026-01-12] Claude: Import changelog panel added - tracks all cleaning operations during import with a slide-in UI panel. Auto-expands after import if changes were made. Components: `import-log-button` (fixed bottom-right), `import-log-panel` (slides from right). State stored in `:import-log` with subscriptions for reactivity. Change types: `:string-fix`, `:renamed-plugin-key`, `:fixed-option-pack`, `:removed-nil`, `:replaced-nil`, `:preserved-nil`.
 
+- [2026-01-13] Claude: **Builder Design Philosophy** - Builders are data transcription tools that mirror source material layouts. Users copy field-by-field from books into builders. Different source layouts require different builder UIs, even if they share 70% of implementation code. This reduces cognitive load and makes homebrew content creation easier.
+
+- [2026-01-13] Claude: **make-feat-modifiers is misnamed** - Despite the name, this function converts ANY props to modifiers (used by feats, races, and potentially fighting styles). The name is historical (created for feats first, then repurposed). It's really a generic "props → modifiers" converter. Consider renaming to `make-prop-modifiers` or `props->modifiers` in future refactoring.
+
+- [2026-01-13] Claude: **File size issues** - Large files (options.cljc: 3,428 lines, views.cljs: 8,231 lines) cause debugging and navigation difficulties. When refactoring for new features, consider splitting into logical modules with clear hierarchy to avoid circular dependencies. Namespace organization should prioritize maintainability over minimizing import statements.
+
+- [2026-01-13] Claude: **Fighting styles complexity tiers** - PHB fighting styles are simple (+2 attack, +1 AC). Tasha's Cauldron of Everything introduced game-changing complexity: Blessed Warrior grants cleric cantrips, Blind Fighting grants blindsight, Superior Technique grants maneuvers and superiority dice. Homebrew styles (TGS2) add weapon-specific targeting and entirely new mechanics. Any fighting styles implementation must support this full complexity spectrum.
+
+---
+
+## Key File Deep Dives
+
+### src/cljc/orcpub/dnd/e5/options.cljc (3,428 lines)
+
+This file is central to the plugin system and homebrew content support. It's large and could benefit from reorganization.
+
+**Key Functions:**
+
+- **`make-feat-modifiers`** (line ~3230) - Converts props (data) to modifiers (code). Despite the name, it's used for feats, races, and potentially other content types. Has 60+ case statements for different prop types (`:initiative`, `:speed`, `:ranged-attack-bonus`, etc.). Name is historical - should be `make-prop-modifiers`.
+
+- **`plugin-modifiers`** (line ~3288) - Takes a props map and converts it to a list of modifiers by calling `make-feat-modifiers` for each prop. This is the bridge between serializable data (.edn files) and executable code (modifier functions).
+
+- **`feat-option-from-cfg`** - Semantic function that converts feat data to option-cfg. Different signature than racial-trait or class-feature equivalents. The semantic distinction matters for context-specific processing.
+
+- **`fighting-style-options`** (line ~1688) - Currently hardcoded fighting styles using direct modifier calls. Cannot be extended via orcbrew files. Planned to be migrated to props-based system like feats.
+
+**Props vs Modifiers Pattern:**
+
+```clojure
+;; Props = data (can be in .edn files)
+{:initiative 2
+ :ranged-attack-bonus 2}
+
+;; Modifiers = code (applied at runtime)
+[(modifiers/initiative 2)
+ (modifiers/ranged-attack-bonus 2)]
+
+;; Conversion happens via:
+(plugin-modifiers props option-key)
+  → (make-feat-modifiers k v option-key) for each prop
+  → produces modifier functions
+```
+
+**Why Both Exist:**
+- Orcbrew files are .edn format (data only, no function calls)
+- Props are the serializable format
+- Modifiers are the executable format
+- Conversion happens at compile-time (SOURCE) or runtime (plugins)
+
+**Future Refactoring Considerations:**
+- File is 3,428 lines - candidate for splitting
+- Potential structure: `options/core.cljc` (prop converters), `options/feats.cljc`, `options/fighting_styles.cljc`, etc.
+- Must maintain clear dependency hierarchy to avoid circular deps
+- See `docs/analysis/` for fighting styles implementation exploration
+
 ---
 
 ## Related Documentation
 
+- [DEVELOPER_ONBOARDING.md](./DEVELOPER_ONBOARDING.md) - Props vs modifiers deep dive, plugin system
 - [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling patterns and utilities
 - [ORCBREW_FILE_VALIDATION.md](./ORCBREW_FILE_VALIDATION.md) - File import/export validation
+- [analysis/](./analysis/) - Exploratory analysis and design decisions (fighting styles, universal systems)
 - [AGENTS.md](../AGENTS.md) - Guidelines for AI agents working on this repo
 - [README.md](../README.md) - Setup, deployment, and contributing guide

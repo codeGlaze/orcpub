@@ -99,6 +99,15 @@
    "Darkvision"
    (common/bonus-str value)))
 
+(defn blindsight [value & [order-number]]
+  (mods/modifier
+   ?blindsight
+   value
+   "Blindsight"
+   (str value " feet")
+   nil
+   order-number))
+
 (defn speed [value]
   (mods/cum-sum-mod ?speed value "speed" (mods/bonus-str value)))
 
@@ -541,6 +550,9 @@
 
 (defn ranged-attack-bonus [bonus]
   (mods/cum-sum-mod ?ranged-attack-bonus bonus))
+
+(defn melee-attack-bonus [bonus]
+  (mods/cum-sum-mod ?melee-attack-bonus bonus))
 
 (defn attack-modifier-fn [bonus-fn]
   (mods/vec-mod ?attack-modifier-fns bonus-fn))
