@@ -2,10 +2,13 @@
   "instructions": "agents.md",
   "documentation": [
     "CODEBASE.md",
-    "README.md"
+    "README.md",
+    "CONFIGURATION_PATTERN.md"
   ],
   "context": {
     "primary_instructions": "agents.md",
-    "codebase_overview": "CODEBASE.md"
+    "codebase_overview": "CODEBASE.md",
+    "configuration": "CONFIGURATION_PATTERN.md",
+    "deployment_note": "Most developers run bare metal (lein repl + figwheel). Docker is for deployment only. Use profiles.clj for local env vars, NOT docker-compose.yaml."
   }
 }

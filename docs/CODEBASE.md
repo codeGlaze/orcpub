@@ -136,6 +136,39 @@ This is the heart of OrcPub. Understanding this is critical.
 
 ## Patterns & Conventions
 
+### Configuration
+
+**Single Source of Truth: Environment Variables**
+
+The codebase uses `environ` library to read environment variables. Access them directly via `(env :key-name)`.
+
+**Setting Variables (by use case):**
+
+1. **Local Development (PRIMARY)** - Create `profiles.clj`:
+   ```clojure
+   {:dev {:env {:signature "..." :datomic-url "..." :google-client-id "..."}}}
+   ```
+   Then run `lein repl` - variables auto-loaded.
+
+2. **Docker Deployment (SECONDARY)** - Edit `docker-compose.yaml`:
+   ```yaml
+   environment:
+     SIGNATURE: '...'
+     DATOMIC_URL: '...'
+   ```
+
+**Pattern:**
+```clojure
+;; Direct usage throughout codebase (no wrappers)
+(def backend (backends/jws {:secret (env :signature)}))  ; routes.clj
+{:user (env :email-access-key) ...}                      ; email.clj
+(when-let [client-id (env :google-client-id)] ...)       ; index.clj
+```
+
+**DO NOT** create wrapper namespaces around `environ/env` - use it directly.
+
+See `docs/CONFIGURATION_PATTERN.md` for full explanation.
+
 ### Error Handling
 
 The codebase uses DRY error handling macros defined in `src/cljc/orcpub/errors.cljc`:
@@ -224,7 +257,9 @@ Uses re-frame pattern:
 
 ## Related Documentation
 
+- [CONFIGURATION_PATTERN.md](./CONFIGURATION_PATTERN.md) - Environment variable configuration (profiles.clj vs docker-compose.yaml)
 - [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling patterns and utilities
 - [ORCBREW_FILE_VALIDATION.md](./ORCBREW_FILE_VALIDATION.md) - File import/export validation
+- [CLOUD_DRIVE_INTEGRATION_FEASIBILITY.md](./CLOUD_DRIVE_INTEGRATION_FEASIBILITY.md) - Google Drive integration architecture
 - [AGENTS.md](../AGENTS.md) - Guidelines for AI agents working on this repo
 - [README.md](../README.md) - Setup, deployment, and contributing guide

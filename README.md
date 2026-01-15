@@ -32,10 +32,61 @@ Dungeon Master's Vault is a web server that allows you to host your own Characte
 
 ## Getting Started
 
-To run your own install of Dungeon Master's Vault, there are two ways to do this.  
+There are two main ways to run Dungeon Master's Vault:
 
-1. Pulls docker containers from our docker repository.
-2. Build your own.
+1. **Local Development (Bare Metal)** - Most developers use this method for active development
+2. **Docker Deployment** - For production hosting or deploying without code changes
+
+### Option 1: Local Development (Recommended for Developers)
+
+**Most common for active development.** Run the app directly using Leiningen.
+
+**Prerequisites:**
+- Java 8 (required for Datomic Free)
+- [Leiningen](https://leiningen.org/#install)
+- [Datomic Free](https://www.datomic.com/get-datomic.html) ([Windows users see note](#datomic-on-windows))
+
+**Quick Start:**
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Orcpub/orcpub.git
+   cd orcpub
+   ```
+
+2. **Configure environment variables** - Create `profiles.clj` in project root:
+   ```clojure
+   {:dev {:env {:signature "my-secret-20-chars-min"
+                :datomic-url "datomic:free://localhost:4334/orcpub"
+                :google-client-id ""}}}  ; Optional - for Google Drive integration
+   ```
+
+   See [Configuration](#configuration) for all available variables.
+
+3. Start Datomic:
+   ```bash
+   # In Datomic directory
+   bin/transactor config/samples/free-transactor-template.properties
+   ```
+
+4. Start backend server:
+   ```bash
+   lein with-profile +start-server repl
+   # Then in REPL:
+   user=> (init-database)  ; Only needed once
+   user=> (start-server)
+   ```
+
+5. Start frontend live reload:
+   ```bash
+   lein figwheel  # Opens browser automatically
+   ```
+
+See [Development](#development) section for detailed workflow.
+
+### Option 2: Docker Deployment
+
+**For production hosting or deploying without making code changes.**
 
 In this section we will pull from the docker repository.  If you want to build your own docker containers from source, see [Development](#development)
 
@@ -128,6 +179,53 @@ If not - run the docker containers with `docker-compose up` which will show you 
 To have your orcbrew file you want to load automatically when a new client connects, place it in the `./deploy/homebrew/homebrew.orcbrew`
 
 All orcbrew files have to be combined into a single file named "homebrew.orcbrew".
+
+## Configuration
+
+OrcPub uses environment variables for configuration. **How you set them depends on your deployment method:**
+
+### Local Development: profiles.clj (PRIMARY)
+
+**Most developers use this method.** Create `profiles.clj` in project root (already gitignored):
+
+```clojure
+{:dev {:env {
+  ; Required
+  :signature "unique-secret-20-chars-minimum"
+  :datomic-url "datomic:free://localhost:4334/orcpub"
+
+  ; Optional - Email (for user registration/password reset)
+  :email-server-url "smtp.gmail.com"
+  :email-access-key "your-email@gmail.com"
+  :email-secret-key "your-app-password"
+  :email-server-port "587"
+  :email-from-address "no-reply@orcpub.com"
+  :email-errors-to "errors@orcpub.com"
+  :email-ssl "true"
+  :email-tls "false"
+
+  ; Optional - Google Drive integration (multi-device cloud storage)
+  :google-client-id "your-id.apps.googleusercontent.com"
+}}}
+```
+
+Then just run `lein repl` or `lein figwheel` - variables are automatically loaded.
+
+### Docker Deployment: docker-compose.yaml (SECONDARY)
+
+For Docker deployments, set environment variables in `docker-compose.yaml` (see examples in file).
+
+### Alternative: Shell Export
+
+If you prefer shell variables over `profiles.clj`, see `env.sh.example`:
+```bash
+cp env.sh.example env.sh
+# Edit env.sh with your values
+source env.sh
+lein repl
+```
+
+**See** `docs/CONFIGURATION_PATTERN.md` for detailed explanation of the configuration system.
 
 ### Google Drive Integration (Optional)
 
