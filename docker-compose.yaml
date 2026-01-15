@@ -15,10 +15,12 @@ services:
       EMAIL_ERRORS_TO: ''
       EMAIL_SSL: 'FALSE'
       EMAIL_TLS: 'FALSE'
-      # Datomic connection string - Make sure the <change this> matches the DATOMIC_PASSWORD below 
+      # Datomic connection string - Make sure the <change this> matches the DATOMIC_PASSWORD below
       DATOMIC_URL: datomic:free://datomic:4334/orcpub?password=<change this>
       # The secret used to hash your password in the browser, 20+ characters recommended
       SIGNATURE: '<change me to something unique>'
+      # Optional: Google OAuth Client ID for Drive integration (enables multi-device cloud storage)
+      GOOGLE_CLIENT_ID: ''
     depends_on:
       - datomic
     restart: always
