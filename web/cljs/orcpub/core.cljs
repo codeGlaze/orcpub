@@ -5,6 +5,8 @@
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.cloud.views :as cloud-views]
+            [orcpub.cloud.events]
             [orcpub.route-map :as routes]
             [cljs-http.client :as http]
             [clojure.string :as s]
@@ -65,7 +67,8 @@
    routes/reset-password-page-route views/password-reset-page
    routes/password-reset-success-route views/password-reset-success
    routes/password-reset-expired-route views/password-reset-expired-page
-   routes/password-reset-used-route views/password-reset-used-page})
+   routes/password-reset-used-route views/password-reset-used-page
+   routes/google-oauth-callback-route cloud-views/google-oauth-callback-page})
 
 (defn handle-url-change [_]
   (let [route (if js/window.location

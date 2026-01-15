@@ -253,6 +253,8 @@ Uses re-frame pattern:
 
 - [2026-01-12] Claude: Import changelog panel added - tracks all cleaning operations during import with a slide-in UI panel. Auto-expands after import if changes were made. Components: `import-log-button` (fixed bottom-right), `import-log-panel` (slides from right). State stored in `:import-log` with subscriptions for reactivity. Change types: `:string-fix`, `:renamed-plugin-key`, `:fixed-option-pack`, `:removed-nil`, `:replaced-nil`, `:preserved-nil`.
 
+- [2026-01-15] Claude: Google Drive integration implemented as optional browser-only feature. Uses OAuth 2.0 + PKCE for secure authentication, stores tokens in memory only. Enables multi-device homebrew access via cloud storage. Feature-flagged by GOOGLE_CLIENT_ID env var - completely hidden when not configured. All import/export logic reuses existing code (no duplication). See `docs/GOOGLE_DRIVE_INTEGRATION.md` for full details.
+
 ---
 
 ## Related Documentation
@@ -260,6 +262,7 @@ Uses re-frame pattern:
 - [CONFIGURATION_PATTERN.md](./CONFIGURATION_PATTERN.md) - Environment variable configuration (profiles.clj vs docker-compose.yaml)
 - [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling patterns and utilities
 - [ORCBREW_FILE_VALIDATION.md](./ORCBREW_FILE_VALIDATION.md) - File import/export validation
-- [CLOUD_DRIVE_INTEGRATION_FEASIBILITY.md](./CLOUD_DRIVE_INTEGRATION_FEASIBILITY.md) - Google Drive integration architecture
+- [GOOGLE_DRIVE_INTEGRATION.md](./GOOGLE_DRIVE_INTEGRATION.md) - Google Drive integration user guide and technical docs
+- [CLOUD_DRIVE_INTEGRATION_FEASIBILITY.md](./CLOUD_DRIVE_INTEGRATION_FEASIBILITY.md) - Google Drive integration architecture and feasibility analysis
 - [AGENTS.md](../AGENTS.md) - Guidelines for AI agents working on this repo
 - [README.md](../README.md) - Setup, deployment, and contributing guide

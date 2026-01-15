@@ -110,6 +110,7 @@
 (def privacy-policy-route :privacy-policy)
 (def community-guidelines-route :community-guidelines)
 (def cookies-policy-route :cookies-policy)
+(def google-oauth-callback-route :google-oauth-callback)
 
 (def routes ["/" {"" default-route
                   "verify" verify-route
@@ -135,6 +136,7 @@
                   "privacy-policy" privacy-policy-route
                   "community-guidelines" community-guidelines-route
                   "cookies-policy" cookies-policy-route
+                  "oauth/google/callback" google-oauth-callback-route
 
                   "following/users" {["/" :user] follow-user-route}
                   

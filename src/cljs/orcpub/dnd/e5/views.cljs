@@ -37,6 +37,7 @@
             [orcpub.dnd.e5.display :as disp]
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.cloud.views :as cloud-views]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
@@ -7498,6 +7499,9 @@
      [:input {:type "file"
               :accept ".orcbrew"
               :on-change import-file}]]
+    ;; Cloud Storage Integration
+    [:div.m-l-10.m-r-10.m-b-10
+     [cloud-views/cloud-storage-panel]]
     [my-content]]])
 
 (defn my-account-page []
