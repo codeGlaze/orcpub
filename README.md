@@ -73,11 +73,12 @@ EMAIL_SERVER_PORT: 587 # Mail server port
 EMAIL_FROM_ADDRESS: '' # Email address to send from, will default to 'no-reply@orcpub.com' if not set
 EMAIL_ERRORS_TO: '' # Email address that errors will be sent to
 EMAIL_SSL: 'false' # Should SSL be used? Gmail requires this.
-EMAIL_TLS: 'false' # Should TLS be used? 
+EMAIL_TLS: 'false' # Should TLS be used?
 DATOMIC_URL: datomic:free://datomic:4334/orcpub?password=yourpassword # Url for the database
 ADMIN_PASSWORD: supersecretpassword #The datomic admin password (should be different than the DATOMIC_PASSWORD)
 DATOMIC_PASSWORD: yourpassword #The datomic application password
 SIGNATURE: '<change me to something unique>' # The Secret used to hash your password in the browser, 20+ characters recommended
+GOOGLE_CLIENT_ID: '' # (Optional) Google OAuth Client ID for Drive integration - enables multi-device cloud storage
 ```
 
 The `ADMIN_PASSWORD` and `DATOMIC_PASSWORD`
@@ -127,6 +128,52 @@ If not - run the docker containers with `docker-compose up` which will show you 
 To have your orcbrew file you want to load automatically when a new client connects, place it in the `./deploy/homebrew/homebrew.orcbrew`
 
 All orcbrew files have to be combined into a single file named "homebrew.orcbrew".
+
+### Google Drive Integration (Optional)
+
+**Overview**
+
+OrcPub supports optional Google Drive integration for multi-device access to homebrew content. When enabled, users can save and load `.orcbrew` files directly to/from their Google Drive, making it easy to work on homebrew content across desktop and mobile devices.
+
+**By default, Drive integration is disabled.** Local file import/export works without any configuration.
+
+**Setup for Self-Hosters**
+
+To enable Google Drive integration:
+
+1. Create a Google Cloud Console project at https://console.cloud.google.com
+2. Enable the Google Drive API
+3. Create OAuth 2.0 Client ID (Web application type)
+4. Add your domain to "Authorized JavaScript origins":
+   - Development: `http://localhost` or `https://your-domain.com`
+   - Production: `https://your-domain.com` (HTTPS required)
+5. Copy your Client ID (format: `xxxxx.apps.googleusercontent.com`)
+6. Set the environment variable:
+   ```
+   GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+   ```
+7. Restart the application
+
+**Important Notes:**
+- The Client ID is NOT a secret - it's safe to include in client-side code
+- Use the `drive.file` OAuth scope (no Google verification required)
+- Users will see an "unverified app" warning during OAuth (this is normal for non-verified apps)
+- All OAuth happens browser-side - your server never sees user tokens
+- No backend changes needed - purely frontend feature
+
+**User Experience**
+
+Once enabled, users will see:
+- "Save to Google Drive" button when exporting homebrew
+- "Import from Google Drive" button with file picker
+- Seamless sync across devices (desktop ↔ mobile)
+
+**Security**
+
+- OAuth tokens stored only in browser memory (not in your database)
+- Users can revoke access anytime via Google Account settings
+- Minimal scope (`drive.file`) - app can only access files it creates
+- Zero access to users' other Drive files
 
 ### Character Data
 

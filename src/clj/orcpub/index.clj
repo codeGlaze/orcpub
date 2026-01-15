@@ -3,8 +3,9 @@
             [orcpub.oauth :as oauth]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
+            [orcpub.config :as config]
             [environ.core :refer [env]]
-            ))
+            [cheshire.core :as json]))
 
 (def devmode? (env :dev-mode))
 
@@ -124,6 +125,14 @@ html {
         [:img {:src "/image/spiral.gif"
                :style "height:200px;width:200px;margin-top:200px"}]])]
     (include-css "/css/compiled/styles.css")
+    ;; Inject configuration before app loads
+    [:script {:type "text/javascript"}
+     (str "window.orcpubConfig = " (json/generate-string (config/client-config)) ";")]
+    ;; Load Google Drive API if enabled
+    (when (config/google-drive-enabled?)
+      (list
+       [:script {:src "https://apis.google.com/js/api.js" :async true :defer true}]
+       [:script {:src "https://accounts.google.com/gsi/client" :async true :defer true}]))
     (include-js "/js/compiled/orcpub.js")
     (include-js "/js/cookies.js")
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
