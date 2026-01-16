@@ -2015,7 +2015,7 @@
         view-width (.-width (gdom/getViewportSize js/window))
         plugins @(subscribe [:plugins])
         mobile? @(subscribe [:mobile?])
-        all-selections (entity/available-selections character built-char built-template)
+        all-selections @(subscribe [:available-selections])
         selection-validation-messages (validate-selections built-template character all-selections)
         al-illegal-reasons (concat @(subscribe [::char5e/al-illegal-reasons])
                                    selection-validation-messages)

@@ -274,8 +274,8 @@
  (fn [[selected-plugin-options template] _]
    (built-template template selected-plugin-options)))
 
-(defn built-character [character built-template]
-  (entity/build character built-template))
+(def built-character (memoize (fn [character built-template]
+                                 (entity/build character built-template))))
 
 (reg-sub
  :built-character
@@ -283,6 +283,14 @@
  :<- [:built-template]
  (fn [[character built-template] _]
    (built-character character built-template)))
+
+(reg-sub
+ :available-selections
+ :<- [:character]
+ :<- [:built-character]
+ :<- [:built-template]
+ (fn [[character built-character built-template] _]
+   (entity/available-selections character built-character built-template)))
 
 (reg-sub
  :expanded-characters

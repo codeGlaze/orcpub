@@ -613,7 +613,7 @@
 (def memoized-build-aux (memoize build-aux))
 
 (defn build [raw-entity template]
-  (build-aux raw-entity template))
+  (memoized-build-aux raw-entity template))
 
 (def memoized-make-modifier-map (memoize t/make-modifier-map))
 
