@@ -1,334 +1,95 @@
 # OrcPub Documentation
 
-Welcome to the OrcPub documentation! This directory contains comprehensive guides for developers and power users working with OrcPub's homebrew content system.
+Guides for developers and power users working with OrcPub's homebrew content system.
 
 ## Quick Navigation
 
-### For Users
+**For Users:**
+- [📥 Import/Export Validation](ORCBREW_FILE_VALIDATION.md) - Safely import/export `.orcbrew` files
+- [⚔️ Conflict Resolution](CONFLICT_RESOLUTION.md) - Handle duplicate keys during import
+- [🔍 Missing Content Detection](CONTENT_RECONCILIATION.md) - Find/fix missing content references
+- [📋 Required Fields Guide](HOMEBREW_REQUIRED_FIELDS.md) - Required fields per content type
 
-**Working with Homebrew Content:**
-- [📥 Import/Export Validation](ORCBREW_FILE_VALIDATION.md) - How to safely import and export `.orcbrew` files
-- [⚔️ Conflict Resolution](CONFLICT_RESOLUTION.md) - Handling duplicate keys during import
-- [🔍 Missing Content Detection](CONTENT_RECONCILIATION.md) - Finding and fixing missing content references
-- [📋 Required Fields Guide](HOMEBREW_REQUIRED_FIELDS.md) - What fields are needed for each content type
+**For Developers:**
+- [🏗️ Codebase Overview](CODEBASE.md) - Architecture and patterns
+- [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities
+- [📝 Progress Log](progress.md) - Session state and handoff notes
 
-### For Developers
+## Key Design Decisions
 
-**Development Guides:**
-- [🏗️ Codebase Overview](CODEBASE.md) - Architecture, patterns, and key concepts
-- [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities and best practices
-- [📝 Progress Log](progress.md) - Current session state and handoff notes
+### Why Progressive Import?
 
-## Feature Overview
+**Problem:** Users had partially corrupted `.orcbrew` files. Previous all-or-nothing approach: one bad item blocks entire import.
 
-### Import/Export System
+**Decision:** Import valid items, skip invalid, show detailed error report.
 
-The OrcPub import/export system provides comprehensive validation and error handling for `.orcbrew` files:
+**Rationale:** Partial data recovery better than total failure. Users can fix issues incrementally.
 
-```
-Import File → Validate → Detect Conflicts → Resolve → Import Successfully
-                ↓            ↓                ↓
-            Fix Issues   Show Modal      Rename/Skip/Replace
-```
+→ [ORCBREW_FILE_VALIDATION.md](ORCBREW_FILE_VALIDATION.md)
 
-**Key capabilities:**
-- ✅ Progressive import (recovers valid items, skips invalid)
-- ✅ Detailed error messages with line numbers
-- ✅ Automatic cleaning of common corruption patterns
-- ✅ Pre-export validation to catch issues early
-- ✅ Console logging for debugging
+### Why Interactive Conflict Resolution?
 
-**Documentation:** [ORCBREW_FILE_VALIDATION.md](ORCBREW_FILE_VALIDATION.md)
+**Problem:** Silent overwrites caused data loss. Users wouldn't notice until characters broke.
 
-**Implementation:**
-- `src/cljs/orcpub/dnd/e5/import_validation.cljs` - Core validation logic
-- `src/cljs/orcpub/dnd/e5/events.cljs` - Import/export events
-- `test/cljs/orcpub/dnd/e5/import_validation_test.cljs` - Test suite
+**Decision:** Detect conflicts pre-import, show modal with resolution options (rename/skip/replace).
 
-### Conflict Resolution
+**Critical insight:** When renaming parent content (e.g., class), all child references (subclasses) must auto-update or they become orphaned. Early implementation forgot this → orphaned subclasses appeared in UI but were unselectable.
 
-When importing content with duplicate keys, the conflict resolution system provides an interactive modal for resolving conflicts:
+→ [CONFLICT_RESOLUTION.md](CONFLICT_RESOLUTION.md)
 
-```
-Detect Duplicates → Show Modal → User Chooses → Update References → Import
-     ↓                  ↓             ↓               ↓
-External/Internal   Visual UI   Rename/Skip      Auto-update
- Conflicts         Per-item      Replace         Subclasses etc.
-```
+### Why Fuzzy Matching for Missing Content?
 
-**Key capabilities:**
-- ✅ Detects external conflicts (existing vs importing)
-- ✅ Detects internal conflicts (within import file)
-- ✅ Interactive resolution modal
-- ✅ Automatic reference updates when renaming
-- ✅ Bulk operations (rename all, skip all)
+**Problem:** Content keys change between versions (`:blood-hunter` → `:blood-hunter-v2`). Users see "(not loaded)" with no help.
 
-**Documentation:** [CONFLICT_RESOLUTION.md](CONFLICT_RESOLUTION.md)
+**Decision:** Multiple fuzzy matching strategies (Levenshtein, prefix, name similarity) to catch typos and versioning.
 
-**Implementation:**
-- `src/cljs/orcpub/dnd/e5/import_validation.cljs` - Duplicate detection
-- `src/cljs/orcpub/dnd/e5/views.cljs` - Conflict modal UI
-- `src/cljs/orcpub/dnd/e5/events.cljs` - Resolution events
+**Gotcha:** Must exclude built-in content (PHB, Xanathar's) or system suggests switching from homebrew Artificer to PHB Artificer (which doesn't exist in 5e).
 
-### Content Reconciliation
+→ [CONTENT_RECONCILIATION.md](CONTENT_RECONCILIATION.md)
 
-The content reconciliation system detects when characters reference homebrew content that isn't currently loaded, and suggests alternatives:
+**Problem:** Inconsistent error handling across codebase. Some code logged, some didn't. User messages inconsistent.
 
-```
-Load Character → Extract References → Check Availability → Suggest Alternatives
-      ↓                 ↓                    ↓                    ↓
-  Options tree     All ::entity/keys    Missing items?    Fuzzy matching
-                                             ↓
-                                    ":artificer (not loaded - try :armorer?)"
-```
+**Decision:** Centralize in macros (`with-db-error-handling`, `with-email-error-handling`, `with-validation`).
 
-**Key capabilities:**
-- ✅ Detects missing classes, races, backgrounds, etc.
-- ✅ Fuzzy matching suggestions (Levenshtein, prefix, name matching)
-- ✅ Source name display for disambiguation
-- ✅ Built-in content exclusions (PHB, Xanathar's, etc.)
-- ✅ Clear UI warnings with actionable suggestions
+**Rationale:** Consistency in logging, user messages, error data structure. Easier to add monitoring later.
 
-**Documentation:** [CONTENT_RECONCILIATION.md](CONTENT_RECONCILIATION.md)
-
-**Implementation:**
-- `src/cljs/orcpub/dnd/e5/content_reconciliation.cljs` - Detection & fuzzy matching
-- `src/cljs/orcpub/dnd/e5/subs.cljs` - Missing content subscriptions
-- `src/cljs/orcpub/dnd/e5/views.cljs` - Warning UI components
-
-### Error Handling Framework
-
-A DRY error handling system built on `ex-info` with reusable macros for common operations:
-
-```clojure
-;; Before (verbose, inconsistent)
-(try
-  @(d/transact conn [party])
-  (catch Exception e
-    (println "ERROR:" (.getMessage e))
-    (throw (ex-info "Unable to create party" {:error :failed} e))))
-
-;; After (concise, consistent)
-(errors/with-db-error-handling :party-creation-failed
-  {:party-data party}
-  "Unable to create party. Please try again."
-  @(d/transact conn [party]))
-```
-
-**Key capabilities:**
-- ✅ Macros for database, email, and validation operations
-- ✅ Structured error data with `ex-info`
-- ✅ Automatic logging with context
-- ✅ User-friendly error messages
-- ✅ Comprehensive test coverage
-
-**Documentation:** [ERROR_HANDLING.md](ERROR_HANDLING.md)
-
-**Implementation:**
-- `src/cljc/orcpub/errors.cljc` - Error handling utilities
-- `test/clj/orcpub/errors_test.clj` - Test suite
-- Used throughout: `email.clj`, `datomic.clj`, `routes/*.clj`, `pdf.clj`
-
-### Required Fields Reference
-
-A comprehensive reference of which fields are required for each homebrew content type:
-
-**Tracks:**
-- Spec requirements (validated by `clojure.spec`)
-- Functional requirements (will break features if missing)
-- Default values (can be auto-filled)
-- Optional fields (truly optional)
-
-**Covers:**
-- Classes, Subclasses
-- Races, Subraces
-- Backgrounds
-- Spells, Items
-- And more...
-
-**Documentation:** [HOMEBREW_REQUIRED_FIELDS.md](HOMEBREW_REQUIRED_FIELDS.md)
+→ [ERROR_HANDLING.md](ERROR_HANDLING.md)
 
 ## Common Workflows
 
-### Creating Homebrew Content
+**Creating homebrew:** Create in UI → Export → Check console warnings → Fix required fields → Re-export
 
-1. Create your content in OrcPub
-2. Export to `.orcbrew` file → [ORCBREW_FILE_VALIDATION.md](ORCBREW_FILE_VALIDATION.md)
-3. Check console for validation warnings
-4. Fix any missing required fields → [HOMEBREW_REQUIRED_FIELDS.md](HOMEBREW_REQUIRED_FIELDS.md)
-5. Re-export to create clean file
+**Importing content:** Import file → Resolve conflicts (if any) → Check for missing content warnings
 
-### Importing Homebrew Content
+**Debugging imports:** Console (F12) → Check validation errors → Use progressive import to recover partial data
 
-1. Import `.orcbrew` file → [ORCBREW_FILE_VALIDATION.md](ORCBREW_FILE_VALIDATION.md)
-2. Review import results (success/warnings/errors)
-3. Resolve any conflicts → [CONFLICT_RESOLUTION.md](CONFLICT_RESOLUTION.md)
-4. Check for missing content warnings → [CONTENT_RECONCILIATION.md](CONTENT_RECONCILIATION.md)
-5. Export all content to create backup
+**Fixing characters:** Check missing content warnings → Import plugin or use suggested alternative
 
-### Debugging Import Issues
+## Known Limitations
 
-1. Check browser console (F12) for detailed errors
-2. Review validation messages → [ORCBREW_FILE_VALIDATION.md](ORCBREW_FILE_VALIDATION.md)
-3. Identify missing required fields → [HOMEBREW_REQUIRED_FIELDS.md](HOMEBREW_REQUIRED_FIELDS.md)
-4. Use progressive import to recover valid items
-5. File bug report if needed
+**Export validation:** Currently validates on import only. Export-time validation would catch issues earlier.
 
-### Resolving Character Issues
+**Field requirements:** Not all required fields are enforced. Some will silently break features (see HOMEBREW_REQUIRED_FIELDS.md).
 
-1. Character shows "(not loaded)" warnings
-2. Check which content is missing → [CONTENT_RECONCILIATION.md](CONTENT_RECONCILIATION.md)
-3. Import required plugin
-4. Or switch to suggested alternative
-5. Verify character displays correctly
+**Batch operations:** Can only import one file at a time. Multi-file import with cross-reference resolution would be valuable.
 
-## Implementation Status
+## Implementation Files
 
-### ✅ Completed Features
+**Import/Export:** `import_validation.cljs`, `events.cljs`, `views.cljs` (import UI, conflict modal)
+**Content Reconciliation:** `content_reconciliation.cljs`, `subs.cljs`, `views.cljs` (warning UI)
+**Error Handling:** `errors.cljc` (DRY macros)
+**Tests:** `import_validation_test.cljs`
 
-- [x] Import/export validation
-- [x] Progressive import strategy
-- [x] Automatic corruption cleaning
-- [x] Duplicate key detection
-- [x] Conflict resolution modal
-- [x] Key renaming with reference updates
-- [x] Missing content detection
-- [x] Fuzzy matching suggestions
-- [x] Error handling framework
-- [x] Comprehensive test coverage
-- [x] User documentation
+All in `src/cljs/orcpub/dnd/e5/` unless noted.
 
-### 🚧 In Progress
+## Debugging Tips
 
-- [ ] Export-time validation warnings
-- [ ] Required field validation enforcement
-- [ ] Testing which fields actually break features
+**Import failures:** Check console (F12) → Use progressive import to recover partial data
 
-### 💡 Future Enhancements
+**Character broken:** Look for "(not loaded)" warnings → Import missing plugin or use suggested alternative
 
-**Import/Export:**
-- Batch import (multiple files at once)
-- Import preview (show what will be imported)
-- Merge wizard (combine multiple versions)
-- Version control integration
-
-**Conflict Resolution:**
-- Smart suggestions (recommend best resolution)
-- Diff view (compare conflicting versions)
-- Conflict history (remember past decisions)
-- Auto-merge compatible changes
-
-**Content Reconciliation:**
-- Auto-fix button (one-click apply suggestion)
-- Bulk suggestions (fix all missing at once)
-- Plugin recommendations (suggest which to install)
-- Central content library (download missing content)
-
-**Error Handling:**
-- Retry logic for transient failures
-- Circuit breakers for external dependencies
-- Error monitoring integration (Sentry, Rollbar)
-- Internationalization (multi-language errors)
-
-## File Reference
-
-### Documentation Files
-
-```
-docs/
-├── README.md                          # This file (documentation index)
-├── ORCBREW_FILE_VALIDATION.md        # Import/export validation (417 lines)
-├── CONFLICT_RESOLUTION.md            # Duplicate key handling (584 lines)
-├── CONTENT_RECONCILIATION.md         # Missing content detection (458 lines)
-├── ERROR_HANDLING.md                 # Error handling framework (210 lines)
-├── HOMEBREW_REQUIRED_FIELDS.md       # Required fields reference (201 lines)
-├── CODEBASE.md                       # Codebase architecture (varies)
-└── progress.md                        # Session progress log (varies)
-```
-
-### Implementation Files
-
-**Import/Export:**
-```
-src/cljs/orcpub/dnd/e5/
-├── import_validation.cljs            # Validation, conflict detection, key renaming
-├── events.cljs                       # Import/export/resolution events
-└── views.cljs                        # Import UI, conflict modal
-```
-
-**Content Reconciliation:**
-```
-src/cljs/orcpub/dnd/e5/
-├── content_reconciliation.cljs       # Missing content detection, fuzzy matching
-├── subs.cljs                         # Missing content subscriptions
-├── views.cljs                        # Warning UI components
-└── spell_subs.cljs                   # Spell-specific detection
-```
-
-**Error Handling:**
-```
-src/cljc/orcpub/
-└── errors.cljc                       # Error handling utilities
-```
-
-**Utilities:**
-```
-src/cljc/orcpub/
-└── common.cljc                       # Shared utilities (kw-base, traverse-nested)
-```
-
-**Tests:**
-```
-test/cljs/orcpub/dnd/e5/
-├── import_validation_test.cljs       # Import validation tests
-└── ...
-```
-
-## Getting Help
-
-### For Users
-
-1. **Check the documentation** - Start with the relevant guide above
-2. **Check the console** - Press F12 and look for detailed error messages
-3. **Try progressive import** - Can recover partial data from corrupted files
-4. **File an issue** - GitHub issues with reproduction steps
-
-### For Developers
-
-1. **Read the codebase overview** - [CODEBASE.md](CODEBASE.md)
-2. **Check the progress log** - [progress.md](progress.md) for current state
-3. **Review the test suite** - `test/cljs/orcpub/dnd/e5/import_validation_test.cljs`
-4. **Check browser console** - Detailed logging for all operations
-5. **File a bug report** - Include error messages and reproduction steps
-
-## Contributing
-
-When adding new features:
-
-1. **Update relevant documentation** - Don't leave docs stale
-2. **Add tests** - Comprehensive test coverage is required
-3. **Use error handling utilities** - Don't roll your own error handling
-4. **Follow existing patterns** - See [CODEBASE.md](CODEBASE.md)
-5. **Update this index** - Add new docs to the navigation above
-
-## Version Information
-
-**Current version:** See individual documentation files for version histories
-
-**Branch:** `claude/add-error-handling-mk82zx2vzck9nv9m-IMm3C`
-
-**Recent updates:**
-- 2026-01-15: Conflict resolution modal, key renaming, reference updates
-- 2026-01-15: Missing content detection, fuzzy matching, source names
-- 2026-01-14: Import validation, progressive import, automatic cleaning
-- Earlier: Error handling framework, required fields documentation
-
-**Compatibility:** All features work with existing `.orcbrew` files (backwards compatible)
+**Conflicts on import:** Modal should appear automatically → Choose rename/skip/replace per item
 
 ---
 
-**Last updated:** 2026-01-16
-
-**Maintained by:** Claude Code development sessions
-
-**Questions?** Check the documentation above or file an issue on GitHub.
+**Branch:** `claude/add-error-handling-mk82zx2vzck9nv9m-IMm3C` | **Last updated:** 2026-01-16
