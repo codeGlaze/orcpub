@@ -60,6 +60,104 @@
                          (vals plugins)))]
      result)))
 
+;; Plugin Content Index - for fast searching across all custom content
+;; Indexes by name (case-insensitive) and type for O(1) lookups
+(reg-sub
+ ::e5/plugin-content-index
+ :<- [::e5/plugin-vals]
+ (fn [plugins _]
+   (let [index-item (fn [type-key type-name item]
+                      (let [name-lower (s/lower-case (or (:name item) ""))]
+                        {:name (:name item)
+                         :key (:key item)
+                         :type type-key
+                         :type-name type-name
+                         :name-lower name-lower
+                         :item item}))]
+     ;; Build comprehensive index of all plugin content
+     {:by-name (reduce
+                (fn [m plugin]
+                  (merge-with
+                   (fn [existing new-items]
+                     (if (vector? existing)
+                       (into existing new-items)
+                       (conj [existing] new-items)))
+                   m
+                   (into {}
+                         (concat
+                          (map (fn [[k v]] [(s/lower-case (:name v)) (index-item :race "Race" v)])
+                               (::e5/races plugin))
+                          (map (fn [[k v]] [(s/lower-case (:name v)) (index-item :subrace "Subrace" v)])
+                               (::e5/subraces plugin))
+                          (map (fn [[k v]] [(s/lower-case (:name v)) (index-item :class "Class" v)])
+                               (::e5/classes plugin))
+                          (map (fn [[k v]] [(s/lower-case (:name v)) (index-item :subclass "Subclass" v)])
+                               (::e5/subclasses plugin))
+                          (map (fn [[k v]] [(s/lower-case (:name v)) (index-item :spell "Spell" v)])
+                               (::e5/spells plugin))
+                          (map (fn [[k v]] [(s/lower-case (:name v)) (index-item :feat "Feat" v)])
+                               (::e5/feats plugin))
+                          (map (fn [[k v]] [(s/lower-case (:name v)) (index-item :background "Background" v)])
+                               (::e5/backgrounds plugin))
+                          (map (fn [[k v]] [(s/lower-case (:name v)) (index-item :language "Language" v)])
+                               (::e5/languages plugin))
+                          (map (fn [[k v]] [(s/lower-case (:name v)) (index-item :invocation "Invocation" v)])
+                               (::e5/invocations plugin))))))
+                {}
+                plugins)
+      :by-type (reduce
+                (fn [m plugin]
+                  (-> m
+                      (update :race (fnil into []) (map #(index-item :race "Race" %) (vals (::e5/races plugin))))
+                      (update :subrace (fnil into []) (map #(index-item :subrace "Subrace" %) (vals (::e5/subraces plugin))))
+                      (update :class (fnil into []) (map #(index-item :class "Class" %) (vals (::e5/classes plugin))))
+                      (update :subclass (fnil into []) (map #(index-item :subclass "Subclass" %) (vals (::e5/subclasses plugin))))
+                      (update :spell (fnil into []) (map #(index-item :spell "Spell" %) (vals (::e5/spells plugin))))
+                      (update :feat (fnil into []) (map #(index-item :feat "Feat" %) (vals (::e5/feats plugin))))
+                      (update :background (fnil into []) (map #(index-item :background "Background" %) (vals (::e5/backgrounds plugin))))
+                      (update :language (fnil into []) (map #(index-item :language "Language" %) (vals (::e5/languages plugin))))
+                      (update :invocation (fnil into []) (map #(index-item :invocation "Invocation" %) (vals (::e5/invocations plugin))))))
+                {}
+                plugins)
+      :total-count (reduce
+                    (fn [count plugin]
+                      (+ count
+                         (count (::e5/races plugin))
+                         (count (::e5/subraces plugin))
+                         (count (::e5/classes plugin))
+                         (count (::e5/subclasses plugin))
+                         (count (::e5/spells plugin))
+                         (count (::e5/feats plugin))
+                         (count (::e5/backgrounds plugin))
+                         (count (::e5/languages plugin))
+                         (count (::e5/invocations plugin))))
+                    0
+                    plugins)})))
+
+;; Fast search across all plugin content using index
+(reg-sub
+ ::e5/search-plugin-content
+ (fn [[_ search-term]]
+   [(subscribe [::e5/plugin-content-index])])
+ (fn [[index] [_ search-term]]
+   (if (or (nil? search-term) (s/blank? search-term))
+     []
+     (let [term-lower (s/lower-case (s/trim search-term))]
+       ;; Exact name match first, then contains match
+       (or (get-in index [:by-name term-lower])
+           (filter
+            (fn [{:keys [name-lower]}]
+              (s/includes? name-lower term-lower))
+            (mapcat second (:by-name index))))))))
+
+;; Get all plugin content of a specific type
+(reg-sub
+ ::e5/plugin-content-by-type
+ (fn [[_ content-type]]
+   [(subscribe [::e5/plugin-content-index])])
+ (fn [[index] [_ content-type]]
+   (get-in index [:by-type content-type] [])))
+
 (reg-sub
  ::bg5e/plugin-backgrounds
  :<- [::e5/plugin-vals]
