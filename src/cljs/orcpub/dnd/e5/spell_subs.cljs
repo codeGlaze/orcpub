@@ -1130,6 +1130,16 @@
     {}
     spells)))
 
+;; Subscription for on-demand spell help content
+;; Used when lazy-spell-help? flag is enabled to avoid embedding
+;; all spell descriptions in the template
+(reg-sub
+ ::spells5e/spell-help
+ :<- [::spells5e/spells-map]
+ (fn [spells-map [_ spell-key]]
+   (when-let [spell (spells-map spell-key)]
+     (opt5e/spell-help spell))))
+
 (defn merge-spell-lists [& spell-lists]
   (apply
    merge-with

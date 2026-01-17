@@ -11,7 +11,7 @@
    {:keys [::t/min ::t/max ::t/options ::t/multiselect? ::t/ref] :as selection}
    disable-select-new?
    homebrew?
-   {:keys [::t/key ::t/name ::t/path ::t/help ::t/selections ::t/prereqs
+   {:keys [::t/key ::t/name ::t/path ::t/help ::t/spell-key ::t/selections ::t/prereqs
            ::t/modifiers ::t/select-fn ::t/ui-fn ::t/icon] :as option}]
   (let [built-template @(subscribe [:built-template])
         option-paths @(subscribe [:option-paths])
@@ -46,6 +46,7 @@
      :modifiers-str modifiers-str
      :failed-prereqs failed-prereqs
      :help help
+     :spell-key spell-key
      #_:help #_(if (or help has-named-mods?)
                  [:div
                   (if has-named-mods? [:div.i modifiers-str])

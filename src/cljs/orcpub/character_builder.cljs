@@ -206,7 +206,7 @@
               (filter
                (filter-classes key unselected-classes-set)
                options))))]
-          (if (::t/help class-template-option)
+          (if (or (::t/help class-template-option) (::t/spell-key class-template-option))
             [show-info-button expanded?])
           (let [levels-selection (some levels-selection (::t/selections class-template-option))
                 available-levels (::t/options levels-selection)
@@ -226,7 +226,11 @@
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
          (if @expanded?
-           [:div.m-t-5.m-b-10 (::t/help class-template-option)])]))))
+           (let [spell-key (::t/spell-key class-template-option)
+                 help-content (if spell-key
+                                @(subscribe [::spells/spell-help spell-key])
+                                (::t/help class-template-option))]
+             [:div.m-t-5.m-b-10 help-content]))]))))
 
 (def select-template-key #(select-keys % [::t/key]))
 
@@ -531,20 +535,24 @@
                            disable-select-new?
                            homebrew?
                            option]
-  (let [{:keys [help has-named-mods? modifiers-str failed-prereqs] :as data}
+  (let [{:keys [help spell-key has-named-mods? modifiers-str failed-prereqs] :as data}
         (views-aux/option-selector-data option-path
                                         selection
                                         disable-select-new?
                                         homebrew?
-                                        option)]
+                                        option)
+        ;; Look up spell help on-demand if spell-key is present (lazy loading)
+        actual-help (if spell-key
+                      @(subscribe [::spells/spell-help spell-key])
+                      help)]
     (if (not-any? ::t/hide-if-fail? failed-prereqs)
       ^{:key (::t/key option)}
       [option-selector-base (assoc data
                                    :help
-                                   (if (or help has-named-mods?)
+                                   (if (or actual-help has-named-mods?)
                                         [:div
                                          (if has-named-mods? [:div.i modifiers-str])
-                                         [:div {:class-name (if has-named-mods? "m-t-5")} help]])
+                                         [:div {:class-name (if has-named-mods? "m-t-5")} actual-help]])
                                    :edit-event (::t/edit-event option))])))
 
 (defn selection-section-title [title]
