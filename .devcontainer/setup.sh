@@ -1,0 +1,64 @@
+#!/bin/bash
+#############################################################################
+# OrcPub Devcontainer Setup Script
+#
+# This script runs during codespace creation to set up all dependencies.
+#############################################################################
+
+set -e
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  OrcPub Devcontainer Setup"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Install Java 17 for clojure-mcp compatibility (OrcPub uses Java 8)
+echo "[1/5] Installing Java 17 (for clojure-mcp)..."
+sudo apt-get update
+sudo apt-get install -y openjdk-17-jdk
+
+# Install Leiningen
+echo "[2/5] Installing Leiningen..."
+sudo curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein
+sudo chmod +x /usr/local/bin/lein
+lein version
+
+# Install Clojure CLI (for clojure-mcp)
+echo "[3/5] Installing Clojure CLI..."
+curl -L -O https://github.com/clojure/brew-install/releases/latest/download/linux-install.sh
+chmod +x linux-install.sh
+sudo ./linux-install.sh
+rm linux-install.sh
+
+# Install clojure-mcp (optional, for MCP integration)
+echo "[4/5] Installing clojure-mcp..."
+JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 clojure -Ttools install-latest :lib io.github.bhauman/clojure-mcp :as mcp || true
+
+# Install Playwright dependencies
+echo "[5/5] Installing Playwright system dependencies..."
+sudo apt-get install -y \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libpango-1.0-0 \
+    libcairo2 \
+    libatspi2.0-0
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Setup complete!"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "Next steps:"
+echo "  1. Run './start.sh' to start OrcPub"
+echo "  2. Run 'cd e2e && npm test' for E2E tests"
+echo ""

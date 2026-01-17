@@ -1,0 +1,17 @@
+{:orcpub.dnd.e5/plugins
+ {:test-plugin
+  {:orcpub.dnd.e5.options/key :test-plugin
+   :orcpub.dnd.e5.options/name "Test Plugin"
+   :orcpub.dnd.e5.options/owner nil
+   :orcpub.dnd.e5.options/races []
+   :orcpub.dnd.e5.options/subraces []
+   :orcpub.dnd.e5.options/classes []
+   :orcpub.dnd.e5.options/subclasses []
+   :orcpub.dnd.e5.options/feats []
+   :orcpub.dnd.e5.options/backgrounds []
+   :orcpub.dnd.e5.options/spells []
+   :orcpub.dnd.e5.options/monsters []
+   :orcpub.dnd.e5.options/encounters []
+   :orcpub.dnd.e5.options/selections []
+   :orcpub.dnd.e5.options/languages []
+   :orcpub.dnd.e5.options/invocations []}}}

@@ -1,0 +1,31 @@
+{
+  "$schema": "./test-config.schema.json",
+  "description": "Example test configuration for OrcPub E2E tests",
+
+  "scenarios": [
+    "console-errors",
+    "ui-smoke"
+  ],
+
+  "patchContext": "Fix modal styling issue #123",
+
+  "appUrl": "http://localhost:8890",
+
+  "options": {
+    "headed": false,
+    "retries": 0,
+    "timeout": 30000,
+    "screenshotOnFailure": true,
+    "videoOnFailure": true
+  },
+
+  "fixtures": {
+    "importFile": "./fixtures/test-content.orcbrew"
+  },
+
+  "codespace": {
+    "autoConnect": true,
+    "name": null,
+    "createIfMissing": false
+  }
+}

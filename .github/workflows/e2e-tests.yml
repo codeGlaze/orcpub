@@ -1,0 +1,138 @@
+name: E2E Tests
+
+on:
+  # Run on PRs
+  pull_request:
+    branches: [develop, main]
+
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      scenarios:
+        description: 'Test scenarios to run'
+        required: false
+        default: 'console-errors,ui-smoke'
+        type: choice
+        options:
+          - 'all'
+          - 'console-errors'
+          - 'ui-smoke'
+          - 'import-export'
+          - 'console-errors,ui-smoke'
+      patch_context:
+        description: 'Description of what is being tested'
+        required: false
+        type: string
+
+jobs:
+  e2e-tests:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'e2e/package-lock.json'
+
+      - name: Install Leiningen
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein
+          chmod +x /usr/local/bin/lein
+          lein version
+
+      - name: Cache Clojure dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-lein-${{ hashFiles('project.clj') }}
+          restore-keys: |
+            ${{ runner.os }}-lein-
+
+      - name: Install Clojure dependencies
+        run: lein deps
+
+      - name: Install Playwright
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+
+      - name: Build ClojureScript
+        run: |
+          lein cljsbuild once min || true
+        continue-on-error: true
+
+      - name: Start OrcPub server
+        run: |
+          # Start in background
+          lein run &
+          echo $! > /tmp/orcpub.pid
+
+          # Wait for server to be ready
+          echo "Waiting for OrcPub to start..."
+          for i in {1..60}; do
+            if curl -s http://localhost:8890 > /dev/null 2>&1; then
+              echo "OrcPub is ready!"
+              break
+            fi
+            sleep 2
+          done
+        env:
+          JAVA_OPTS: "-Xmx2g"
+
+      - name: Run E2E tests
+        working-directory: e2e
+        run: |
+          npx playwright test --project=chromium
+        env:
+          APP_URL: http://localhost:8890
+          PATCH_CONTEXT: ${{ inputs.patch_context || github.event.pull_request.title || 'CI Test Run' }}
+          TEST_SCENARIOS: ${{ inputs.scenarios || 'console-errors,ui-smoke' }}
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 7
+
+      - name: Upload agent report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-report
+          path: e2e/test-results/agent-report.json
+          retention-days: 30
+
+      - name: Stop OrcPub server
+        if: always()
+        run: |
+          if [ -f /tmp/orcpub.pid ]; then
+            kill $(cat /tmp/orcpub.pid) 2>/dev/null || true
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## E2E Test Results" >> $GITHUB_STEP_SUMMARY
+          if [ -f e2e/test-results/agent-report.json ]; then
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat e2e/test-results/agent-report.json | jq '.summary' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi

@@ -1,0 +1,46 @@
+{
+  "name": "OrcPub Dev + E2E Testing",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "8",
+      "installMaven": false,
+      "installGradle": false
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "20"
+    }
+  },
+  "onCreateCommand": "bash .devcontainer/setup.sh",
+  "postCreateCommand": "chmod +x start.sh menu.sh e2e/scripts/*.sh 2>/dev/null || true && lein deps && cd e2e && npm install && npx playwright install chromium --with-deps",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "betterthantomorrow.calva",
+        "borkdude.clj-kondo",
+        "github.copilot",
+        "ms-playwright.playwright"
+      ],
+      "settings": {
+        "calva.replConnectSequences": [
+          {
+            "name": "OrcPub REPL",
+            "projectType": "Leiningen",
+            "cljsType": "Figwheel Main"
+          }
+        ],
+        "playwright.reuseBrowser": true
+      }
+    }
+  },
+  "forwardPorts": [8890, 4334, 3449, 7888],
+  "portsAttributes": {
+    "8890": { "label": "OrcPub Server", "onAutoForward": "notify" },
+    "4334": { "label": "Datomic Transactor" },
+    "3449": { "label": "Figwheel" },
+    "7888": { "label": "nREPL (MCP)" }
+  },
+  "remoteEnv": {
+    "APP_URL": "http://localhost:8890"
+  }
+}
