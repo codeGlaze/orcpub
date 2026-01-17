@@ -34,3 +34,7 @@ deploy/homebrew/*
 
 # As created by some LSP-protocol tooling, e.g. nvim-lsp
 .lsp
+
+# Test runner outputs
+.claude/test-results.json
+.claude/.test-output.txt
