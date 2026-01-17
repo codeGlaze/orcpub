@@ -1,0 +1,108 @@
+{
+  "description": "OrcPub automated testing results schema - structured for agent consumption",
+  "timestamp": "ISO-8601 datetime when tests were run",
+  "branch": "git branch name",
+  "commit": "git commit hash",
+  "test_run_id": "unique identifier for this test run",
+  "test_focus": {
+    "description": "Which aspects of the app this test run is focused on",
+    "target": "e.g., 'modals', 'spell-selection', 'console-errors', 'character-builder' or 'all'",
+    "custom_tests": "array of custom test names if provided"
+  },
+  "backend_tests": {
+    "status": "passed | failed | error",
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "error": 0,
+    "duration_ms": 0,
+    "output": "raw lein test output",
+    "failures": [
+      {
+        "test_name": "test name",
+        "error": "error message",
+        "context": "surrounding context"
+      }
+    ]
+  },
+  "frontend_console": {
+    "status": "clean | warnings | errors",
+    "total_logs": 0,
+    "total_warnings": 0,
+    "total_errors": 0,
+    "warnings": [
+      {
+        "message": "warning message",
+        "source": "file:line",
+        "timestamp": "ISO-8601"
+      }
+    ],
+    "errors": [
+      {
+        "message": "error message",
+        "source": "file:line",
+        "stack_trace": "full stack trace if available",
+        "timestamp": "ISO-8601"
+      }
+    ]
+  },
+  "frontend_unit_tests": {
+    "status": "passed | failed | error | not_configured",
+    "total": 0,
+    "passed": 0,
+    "failed": 0,
+    "error": 0,
+    "duration_ms": 0,
+    "failures": [
+      {
+        "test_name": "test name",
+        "error": "error message"
+      }
+    ]
+  },
+  "build_artifacts": {
+    "main_js": {
+      "exists": true,
+      "size_bytes": 0,
+      "last_modified": "ISO-8601"
+    },
+    "css": {
+      "exists": true,
+      "size_bytes": 0,
+      "last_modified": "ISO-8601"
+    }
+  },
+  "performance": {
+    "backend_test_duration_ms": 0,
+    "frontend_build_duration_ms": 0
+  },
+  "targeted_ui_tests": {
+    "status": "not_run | passed | failed | error",
+    "description": "Results from patch-specific UI tests",
+    "tests": [
+      {
+        "name": "test name",
+        "status": "passed | failed | error",
+        "description": "what was tested",
+        "steps": [
+          "step 1 - action taken",
+          "step 2 - verification"
+        ],
+        "result": "what was found"
+      }
+    ]
+  },
+  "summary": {
+    "overall_status": "passed | failed | partial | not_run",
+    "all_tests_passed": true,
+    "blocking_issues": [
+      "critical issues that prevent feature from working"
+    ],
+    "warnings": [
+      "non-blocking issues to address"
+    ],
+    "next_steps": [
+      "recommended actions"
+    ]
+  }
+}
