@@ -29,7 +29,7 @@ interface ConsoleMessage {
 interface TestResultSummary {
   name: string;
   scenario: string;
-  status: 'passed' | 'failed' | 'skipped' | 'timedOut';
+  status: 'passed' | 'failed' | 'skipped' | 'timedOut' | 'interrupted';
   duration: number;
   error?: string;
   consoleErrors: ConsoleMessage[];
