@@ -2537,24 +2537,29 @@
         armor-profs (keys armor)
         weapon-profs (keys weapon)
         tool-profs (keys tool)
-        spellcasting-template (spellcasting-template
-                               spell-lists
-                               spells-map
-                               (assoc
-                                spellcasting
-                                :class-key
-                                (or (:spell-list spellcasting) kw))
-                               subcls)
-        spell-selections (mapcat
-                          (fn [[lvl selections]]
-                            (map
-                             (fn [selection]
-                               (assoc selection
-                                      ::t/prereq-fn
-                                      (fn [c] (let [total-levels @(subscribe [::character/total-levels nil c])]
-                                                (>= lvl total-levels)))))
-                             selections))
-                          (:selections spellcasting-template))
+        ;; Only build spellcasting template if subclass has :spellcasting defined
+        ;; (e.g., Eldritch Knight, Arcane Trickster, but not Champion, Assassin)
+        spellcasting-template (when spellcasting
+                                (spellcasting-template
+                                 spell-lists
+                                 spells-map
+                                 (assoc
+                                  spellcasting
+                                  :class-key
+                                  (or (:spell-list spellcasting) kw))
+                                 subcls))
+        spell-selections (if spellcasting-template
+                           (mapcat
+                            (fn [[lvl selections]]
+                              (map
+                               (fn [selection]
+                                 (assoc selection
+                                        ::t/prereq-fn
+                                        (fn [c] (let [total-levels @(subscribe [::character/total-levels nil c])]
+                                                  (>= lvl total-levels)))))
+                               selections))
+                            (:selections spellcasting-template))
+                           [])
         level-selections (mapcat
                           (fn [[lvl {selections :selections}]]
                             (map
@@ -2858,11 +2863,15 @@
                               (map :key skills/skills)
                               (keys (:options skill-expertise-options)))
         save-profs (keys save)
-        spellcasting-template (spellcasting-template
-                               spell-lists
-                               spells-map
-                               (assoc spellcasting :class-key kw)
-                               merged-class)
+        ;; Only build spellcasting template if class has :spellcasting defined
+        ;; This saves processing for non-spellcasters (Barbarian, base Fighter, etc.)
+        ;; Works correctly with spellcasting subclasses (Eldritch Knight, Arcane Trickster)
+        spellcasting-template (when spellcasting
+                                (spellcasting-template
+                                 spell-lists
+                                 spells-map
+                                 (assoc spellcasting :class-key kw)
+                                 merged-class))
         first-class? (fn [c] (let [first-class (first @(subscribe [::character/classes nil c]))]
                                (= kw first-class)))]
     (t/option-cfg
