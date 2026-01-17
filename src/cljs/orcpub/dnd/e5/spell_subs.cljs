@@ -3,6 +3,7 @@
             [orcpub.common :as common]
             [orcpub.template :as t]
             [orcpub.modifiers :as mod]
+            [orcpub.dice :as dice]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.backgrounds :as bg5e]
             [orcpub.dnd.e5.languages :as langs5e]
@@ -13,6 +14,7 @@
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.weapons :as weapon5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.monsters :as monsters5e]
@@ -24,6 +26,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.template-base :as t-base]
@@ -1399,3 +1402,126 @@
  :<- [::classes5e/builder-item]
  (fn [class [_ prof-type prof-key]]
    (some? (get-in class [:profs prof-type prof-key]))))
+
+;; ============================================================================
+;; Orcacle Search Subscriptions
+;; ============================================================================
+
+(defn filter-by-name
+  "Fast case-insensitive name filter using string/includes instead of regex"
+  [search-text name-key items]
+  (if (< (count search-text) 3)
+    []
+    (let [lower-search (s/lower-case search-text)]
+      (filter
+       (fn [item]
+         (s/includes? (s/lower-case (name-key item)) lower-search))
+       items))))
+
+(reg-sub
+ :orcacle/spell-results
+ :<- [::spells5e/spells]
+ :<- [:search-text]
+ (fn [[spells search-text] _]
+   (filter-by-name search-text :name spells)))
+
+(reg-sub
+ :orcacle/monster-results
+ :<- [::monsters5e/monsters]
+ :<- [:search-text]
+ (fn [[monsters search-text] _]
+   (filter-by-name search-text :name monsters)))
+
+(reg-sub
+ :orcacle/plugin-results
+ :<- [::e5/plugin-content-index]
+ :<- [:search-text]
+ (fn [[index search-text] _]
+   (if (and index (>= (count search-text) 3))
+     (let [lower-search (s/lower-case search-text)
+           {:keys [by-name]} index
+           ;; Fast exact match first
+           exact-match (get by-name lower-search)
+           ;; Then search for contains
+           contains-matches (when-not exact-match
+                              (reduce-kv
+                               (fn [acc name items]
+                                 (if (s/includes? name lower-search)
+                                   (into acc items)
+                                   acc))
+                               []
+                               by-name))]
+       (or exact-match contains-matches []))
+     [])))
+
+(reg-sub
+ :orcacle/top-result
+ :<- [:search-text]
+ :<- [::spells5e/spells-map]
+ :<- [::monsters5e/monster-map]
+ :<- [::mi5e/magic-item-map]
+ (fn [[search-text spells-map monster-map item-map] _]
+   (when (not (s/blank? search-text))
+     (let [lower-text (s/lower-case search-text)
+           kw (common/name-to-kw search-text)
+           ;; Check dice roll
+           dice-result (try
+                         (dice/dice-roll-text lower-text)
+                         (catch :default _ nil))
+           ;; Name generation - parse name query
+           name-result (try
+                         (let [[sex race subrace :as result] (event-handlers/parse-name-query search-text)]
+                           (when result
+                             {:type :name
+                              :result (char-rand5e/random-name-result
+                                       {:race race
+                                        :subrace subrace
+                                        :sex sex})}))
+                         (catch :default _ nil))]
+       (cond
+         dice-result {:type :dice-roll :result dice-result}
+         (spells-map kw) {:type :spell :result (spells-map kw)}
+         (monster-map kw) {:type :monster :result (monster-map kw)}
+         (item-map kw) {:type :magic-item :result (item-map kw)}
+         (= "tavern name" lower-text) {:type :tavern-name
+                                       :result (char-rand5e/random-tavern-name)}
+         name-result name-result
+         :else nil)))))
+
+(reg-sub
+ :orcacle/search-results
+ :<- [:orcacle/top-result]
+ :<- [:orcacle/spell-results]
+ :<- [:orcacle/monster-results]
+ :<- [:orcacle/plugin-results]
+ (fn [[top-result spells monsters plugins] _]
+   (cond-> {}
+     top-result (assoc :top-result top-result)
+     (seq spells) (update :results (fnil conj [])
+                          {:type :spell :results spells})
+     (seq monsters) (update :results (fnil conj [])
+                            {:type :monster :results monsters})
+     (seq plugins) (update :results (fnil conj [])
+                           {:type :plugin :results plugins}))))
+
+;; ============================================================================
+;; Filtered Lists Subscriptions (for spell/item list pages)
+;; ============================================================================
+
+(reg-sub
+ ::char5e/filtered-spells
+ :<- [::char5e/sorted-spells]
+ :<- [::char5e/spell-text-filter]
+ (fn [[spells filter-text] _]
+   (if (and filter-text (>= (count filter-text) 3))
+     (filter-by-name filter-text :name spells)
+     spells)))
+
+(reg-sub
+ ::char5e/filtered-items
+ :<- [::char5e/sorted-items]
+ :<- [::char5e/item-text-filter]
+ (fn [[items filter-text] _]
+   (if (and filter-text (>= (count filter-text) 3))
+     (filter-by-name filter-text mi5e/name-key items)
+     items)))

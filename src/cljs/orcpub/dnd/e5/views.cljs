@@ -1300,6 +1300,35 @@
     (svg-icon "hydra" 36 "")
     [monster-component monster]]])
 
+(defn plugin-results [results]
+  [:div.white
+   [:div.flex
+    (svg-icon "hood" 36 "")
+    [:div.m-l-10
+     [:div.f-s-18.f-w-600.m-b-10 "Custom Content"]
+     (doall
+      (map
+       (fn [{:keys [type item]}]
+         (let [{item-name :name item-key :key} item
+               type-str (case type
+                          :race "Race"
+                          :subrace "Subrace"
+                          :class "Class"
+                          :subclass "Subclass"
+                          :spell "Spell"
+                          :feat "Feat"
+                          :background "Background"
+                          :language "Language"
+                          :invocation "Invocation"
+                          "Item")]
+           ^{:key (str type "-" item-key)}
+           [:div.pointer.m-b-10
+            {:on-click (fn [_]
+                         (dispatch [:route routes/dnd-e5-my-content-route]))}
+            [:div.f-s-16.f-w-600 item-name]
+            [:div.f-s-12.i.opacity-5 (str "Custom " type-str)]]))
+       results))]]])
+
 (defn search-results []
   (if-let [{{:keys [result] :as top-result} :top-result
             results :results
@@ -1325,7 +1354,8 @@
            [:div.p-20
             (case type
               :spell (spell-results results)
-              :monster (monster-results results))])
+              :monster (monster-results results)
+              :plugin (plugin-results results))])
          results)))]))
 
 (def oracle-frame-style

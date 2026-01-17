@@ -1902,8 +1902,7 @@
  :set-search-text
  (fn [db [_ search-text]]
    (cond-> db
-     true (assoc :search-text search-text
-                 :search-results (search-results search-text))
+     true (assoc :search-text search-text)
      (s/blank? search-text) (assoc :orcacle-clicked? false))))
 
 (reg-event-db
@@ -1950,20 +1949,12 @@
 (reg-event-db
  ::char5e/filter-spells
  (fn [db [_ filter-text]]
-   (assoc db
-          ::char5e/spell-text-filter filter-text
-          ::char5e/filtered-spells (if (>= (count filter-text) 3)
-                                     (filter-spells filter-text)
-                                     @(subscribe [::char5e/sorted-spells])))))
+   (assoc db ::char5e/spell-text-filter filter-text)))
 
 (reg-event-db
  ::char5e/filter-items
  (fn [db [_ filter-text]]
-   (assoc db
-          ::char5e/item-text-filter filter-text
-          ::char5e/filtered-items (if (>= (count filter-text) 3)
-                                     (filter-items filter-text)
-                                     @(subscribe [::char5e/sorted-items])))))
+   (assoc db ::char5e/item-text-filter filter-text)))
 
 (reg-event-db
  ::char5e/toggle-selected

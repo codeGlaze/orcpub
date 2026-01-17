@@ -790,8 +790,9 @@
 
 (reg-sub
  :search-results
- (fn [db _]
-   (:search-results db)))
+ :<- [:orcacle/search-results]
+ (fn [results _]
+   results))
 
 (reg-sub
  :search-text?

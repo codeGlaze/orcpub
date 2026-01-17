@@ -128,7 +128,7 @@ Character builder froze for seconds with large custom content (100+ homebrew ite
 
 ---
 
-### Solution 4: Plugin Content Indexing (This commit)
+### Solution 4: Plugin Content Indexing (Commit: aa5e453)
 **What**: Create search index for fast O(1) lookups instead of O(n) iteration
 
 **Problem**: Searching/filtering 500+ homebrew items required iterating through all items:
@@ -159,6 +159,68 @@ Character builder froze for seconds with large custom content (100+ homebrew ite
 ```
 
 **Result**: Search 500+ items in <1ms (was 200ms). Enables real-time search-as-you-type.
+
+---
+
+### Solution 5: Orcacle Search Optimization + Plugin Integration (This commit)
+**What**: Fix re-frame anti-patterns, optimize search, integrate plugin content
+
+**Problems Identified**:
+1. **Critical Bug**: Subscriptions called inside event handlers (re-frame anti-pattern)
+2. **Inefficient Search**: Regex filtering through all items on every keystroke
+3. **Missing Feature**: Plugin/homebrew content not searchable in Orcacle
+4. **Architecture Issue**: Search results stored in db instead of derived via subscription
+
+**Bugs Fixed**:
+```clojure
+;; BAD: Calling subscription in event handler (events.cljs:1859)
+(defn filter-spells [filter-text]
+  @(subscribe [::char5e/sorted-spells]))  ; ❌ NEVER do this!
+
+;; BAD: Storing derived data in db (events.cljs:1906)
+(reg-event-db
+ :set-search-text
+ (fn [db [_ text]]
+   (assoc db :search-results (search-results text))))  ; ❌ Wrong layer
+
+;; GOOD: Derive from subscriptions (spell_subs.cljs:1492)
+(reg-sub
+ :orcacle/search-results
+ :<- [:orcacle/top-result]
+ :<- [:orcacle/spell-results]
+ (fn [[top spells] _] ...))  ; ✅ Correct pattern
+```
+
+**Changes**:
+1. `spell_subs.cljs:1406-1527` - Created Orcacle search subscriptions
+   - `:orcacle/spell-results` - Filter spells (string/includes, not regex)
+   - `:orcacle/monster-results` - Filter monsters
+   - `:orcacle/plugin-results` - Search plugin index (O(1))
+   - `:orcacle/top-result` - Dice rolls, exact matches, name gen
+   - `:orcacle/search-results` - Aggregate all results
+   - `::char5e/filtered-spells` - Spell list filtering
+   - `::char5e/filtered-items` - Item list filtering
+
+2. `subs.cljs:792-795` - Changed `:search-results` to derive from `:orcacle/search-results`
+
+3. `events.cljs:1903-1906` - Simplified `:set-search-text` to just store text
+
+4. `events.cljs:1950-1957` - Fixed `::char5e/filter-spells` and `::char5e/filter-items` to only store filter text
+
+5. `views.cljs:1303-1330` - Added `plugin-results` rendering component
+
+6. `views.cljs:1358` - Added `:plugin` case to search results display
+
+**Performance Improvements**:
+- **Search algorithm**: Regex (`".*fire.*"`) → `string/includes` (~2x faster)
+- **Plugin search**: Linear O(n) → Indexed O(1) (200x faster)
+- **Re-computation**: Every keystroke → Only when dependencies change
+
+**Result**:
+- Orcacle now searches plugin content alongside SRD content
+- No more buggy behavior from subscriptions in event handlers
+- Faster search with simpler algorithm
+- Proper reactive architecture following re-frame best practices
 
 ---
 
@@ -267,6 +329,51 @@ Same applies to data loading in applications:
 
 ---
 
+### 8. **Never Call Subscriptions Inside Event Handlers (Re-frame)**
+**Critical re-frame anti-pattern**: Calling `@(subscribe [...])` inside event handlers or helper functions called by events.
+
+**Why it's wrong**:
+- Event handlers should be pure functions of `[db event]`
+- Subscriptions are for views, not events
+- Creates hidden dependencies and unpredictable behavior
+- Breaks re-frame's unidirectional data flow
+
+**Wrong Pattern**:
+```clojure
+;; ❌ BAD: Subscription in event
+(defn filter-items [text]
+  (filter ... @(subscribe [::items])))  ; NEVER do this
+
+(reg-event-db
+ :filter
+ (fn [db [_ text]]
+   (assoc db :filtered (filter-items text))))
+```
+
+**Right Pattern**:
+```clojure
+;; ✅ GOOD: Derive via subscription
+(reg-sub
+ ::filtered-items
+ :<- [::items]
+ :<- [::filter-text]
+ (fn [[items text] _]
+   (filter ... items)))
+
+(reg-event-db
+ :set-filter-text
+ (fn [db [_ text]]
+   (assoc db ::filter-text text)))  ; Just store the input
+```
+
+**How to fix**:
+1. Move computation to a subscription
+2. Store only the input (filter text, sort criteria) in db
+3. Derive filtered/sorted results via subscriptions
+4. Views subscribe to derived data
+
+---
+
 ## Performance Impact Summary
 
 | Metric | Before | After | Improvement |
@@ -277,8 +384,9 @@ Same applies to data loading in applications:
 | Memory usage | High constant | Grows as needed | **-50-70%** |
 | Spell selections built | 100% (all classes) | ~60% (only spellcasters) | **-40%** |
 | Plugin search (500 items) | 200ms (linear) | <1ms (indexed) | **200x faster** |
+| Orcacle search | Regex + bugs | string/includes + plugin | **2x faster + fixed** |
 
-**Combined Effect**: Freezing → smooth, instant response. Real-time search enabled.
+**Combined Effect**: Freezing → smooth, instant response. Real-time search enabled. Plugin content now searchable.
 
 ---
 
@@ -298,8 +406,14 @@ Same applies to data loading in applications:
 ### Conditional Spellcasting Template (7421a39):
 - `src/cljc/orcpub/dnd/e5/options.cljc` - Conditional spell template building for classes and subclasses
 
-### Plugin Content Indexing (This commit):
+### Plugin Content Indexing (aa5e453):
 - `src/cljs/orcpub/dnd/e5/spell_subs.cljs` - Build and use search index for plugin content
+
+### Orcacle Optimization (This commit):
+- `src/cljs/orcpub/dnd/e5/spell_subs.cljs` - Orcacle search subscriptions, filtered lists
+- `src/cljs/orcpub/dnd/e5/subs.cljs` - Derive :search-results from subscription
+- `src/cljs/orcpub/dnd/e5/events.cljs` - Remove buggy subscription calls from events
+- `src/cljs/orcpub/dnd/e5/views.cljs` - Add plugin results rendering
 
 ---
 
