@@ -1,0 +1,37 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Datomic Transactor",
+      "type": "shell",
+      "command": "/workspaces/orcpub/lib/datomic-free-0.9.5703/bin/transactor /workspaces/orcpub/lib/datomic-free-0.9.5703/config/working-transactor.properties",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Clojure REPL",
+      "type": "shell",
+      "command": "lein repl",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Figwheel",
+      "type": "shell",
+      "command": "lein figwheel",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "clojure-mcp (Test)",
+      "type": "shell",
+      "command": "cd /workspaces/orcpub && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH clojure -Tmcp start :port 7888",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
+  ]
+}

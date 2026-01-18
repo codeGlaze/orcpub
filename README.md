@@ -1,3 +1,82 @@
+# THIS BRANCH IS FOR INTEGRATION TESTING
+## DO NOT COMMIT PRs FROM THIS BRANCH OR RELATED SUB-BRANCHES
+
+(Extreme repetition in notes bc I am dumb)
+
+## Integration Workflow
+
+1. `testing/develop` : Where the devcontainer / testing scripts live and should be updated
+2. `agents/develop` : Where agentic shit should be updated/silo'd
+  * FORK YOUR NEW <working-branch> BRANCHES FROM HERE
+3. `<descriptor/working-branch> : BRANCH FROM `agents/develop` IF USING AGENTS
+4. `integration/<your-branch>` : branch from `testing/develop` - pull your branch in, watch your branch, agents, testing, AND develop 
+
+
+### 1. IF USING AGENTS
+## branch from `agents/develop` to `<descriptor>/<working-branch>`
+
+### 2. Branch `testing/develop` to `integration/<working-branch>`
+### 3. Pull `<descriptor>/<working-branch>` INTO `integration/<working-branch>`
+`working-branch --> integration/working-branch`
+### 4. WATCH BOTH `testing/develop` and `working-branch`
+* NOTE: You may also want to watch `agents/develop` for direct instruction changes
+### 5. DE-POLLUTE `<descriptor>/<working-branch>` of agentic BS before PR
+
+## Example Workflow
+Workflow Steps
+A. Create a new working branch from agents/develop
+```gitbash
+git checkout agents/develop
+git pull
+git checkout -b feature/my-working-branch
+# ...work, commit, push as needed...
+```
+
+B. Create a new integration branch from testing/develop
+```bash
+git checkout testing/develop
+git pull
+git checkout -b integration/my-feature
+```
+
+C. Pull in the working branch (from agents/develop) into the integration branch
+```bash
+git merge feature/my-working-branch
+# Resolve conflicts, favoring testing/develop for devcontainer, agents/develop for agent docs, as needed.
+```
+
+D. Ongoing: Watch for changes in both parents
+```bash
+git checkout integration/my-feature
+git fetch origin
+git merge origin/testing/develop
+git merge origin/agents/develop
+git merge origin/feature/my-working-branch
+# Resolve conflicts as above.
+```
+
+Periodically update the integration branch:
+
+E. When done testing, delete the integration branch
+```bash
+git branch -d integration/my-feature
+```
+
+F. Prepare PR from working branch, but exclude agent instructions
+
+    If agent instructions are in a specific file (e.g., AGENTS.md), you can temporarily remove or revert that file before creating the PR:
+```bash
+git checkout feature/my-working-branch
+git rm AGENTS.md
+git commit -m "Remove agent instructions for PR"
+# Or, if you want to keep AGENTS.md but with only production content:
+# Edit AGENTS.md, commit the change
+```
+
+Then push and open the PR.
+```
+
+
 # Dungeon Master's Vault - Community Edition
 <div align="center">
     <br>

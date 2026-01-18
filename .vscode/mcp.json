@@ -1,0 +1,10 @@
+{
+  "inputs": [],
+  "servers": {
+    "clojure-mcp": {
+      "command": "/bin/bash",
+      "args": ["-c", "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH clojure -Tmcp start :port 7888"],
+      "env": {}
+    }
+  }
+}
