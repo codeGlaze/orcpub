@@ -41,19 +41,23 @@ export default defineConfig({
     },
   },
 
+  // Default to Chromium only for faster CI/local runs
+  // Use --project=firefox or --project=mobile to test other browsers
+  // Note: Firefox/mobile browsers need to be installed: npx playwright install firefox webkit
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    {
-      name: 'mobile',
-      use: { ...devices['iPhone 13'] },
-    },
+    // Uncomment to enable multi-browser testing (requires browser install)
+    // {
+    //   name: 'firefox',
+    //   use: { ...devices['Desktop Firefox'] },
+    // },
+    // {
+    //   name: 'mobile',
+    //   use: { ...devices['iPhone 13'] },
+    // },
   ],
 
   // Don't start a server - assume app is already running (Codespace or local)

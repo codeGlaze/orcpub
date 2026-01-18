@@ -58,8 +58,9 @@ export async function attachConsoleErrors(
  * The app uses ClojureScript/Reagent which may take time to hydrate.
  */
 export async function waitForAppReady(page: Page): Promise<void> {
-  // Wait for the main app container
-  await page.waitForSelector('#app-header', { timeout: 30000 });
+  // Wait for the main app container to be rendered by ClojureScript/Reagent
+  // The app container has id="app" - wait for it to have content
+  await page.waitForSelector('#app', { timeout: 30000 });
 
   // Wait for any loading spinners to disappear
   await page.waitForFunction(
@@ -80,14 +81,16 @@ export async function navigateTo(
   page: Page,
   route: 'characters' | 'spells' | 'monsters' | 'items' | 'encounters' | 'my-content' | 'builder'
 ): Promise<void> {
+  // Note: OrcPub routes use /dnd/5e/ (not /dnd/e5/)
+  // Page routes use /pages/ prefix for SPA navigation
   const routes: Record<string, string> = {
     characters: '/',
-    spells: '/dnd/e5/spells',
-    monsters: '/dnd/e5/monsters',
-    items: '/dnd/e5/items',
-    encounters: '/dnd/e5/my-encounters',
-    'my-content': '/dnd/e5/my-content',
-    builder: '/dnd/e5/character-builder',
+    spells: '/pages/dnd/5e/spells',
+    monsters: '/pages/dnd/5e/monsters',
+    items: '/pages/dnd/5e/items',
+    encounters: '/pages/dnd/5e/encounters',
+    'my-content': '/dnd/5e/my-content',
+    builder: '/pages/dnd/5e/character-builder',
   };
 
   await page.goto(routes[route] || '/');

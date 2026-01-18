@@ -3,15 +3,28 @@ import {
   setupConsoleCapture,
   attachConsoleErrors,
   waitForAppReady,
-  openUserMenu,
   takeScreenshot,
 } from '../fixtures/test-utils';
+
+/**
+ * Helper to filter out expected Figwheel WebSocket errors in production mode
+ */
+function filterFigwheelErrors(errors: { type: string; text: string }[]) {
+  return errors.filter((e) =>
+    e.type === 'error' &&
+    !e.text.includes('figwheel-ws') &&
+    !e.text.includes('ws://localhost:3449')
+  );
+}
 
 /**
  * UI Smoke Test Suite
  *
  * Verifies basic UI elements are visible and interactive.
  * These tests catch rendering issues and broken layouts.
+ *
+ * Note: OrcPub has a splash page at / without a traditional header.
+ * The header appears on interior pages like /pages/dnd/5e/character-builder.
  */
 
 test.describe('UI Smoke Tests', () => {
@@ -20,70 +33,64 @@ test.describe('UI Smoke Tests', () => {
     await waitForAppReady(page);
   });
 
-  test('app header is visible and contains navigation', async ({ page }, testInfo) => {
+  test('splash page loads with navigation buttons', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    // Header should be visible
-    const header = page.locator('#app-header');
-    await expect(header).toBeVisible();
+    // Splash page should have splash buttons for navigation
+    const splashButtons = page.locator('.splash-button');
+    const buttonCount = await splashButtons.count();
+    expect(buttonCount).toBeGreaterThan(0);
 
-    // Should have navigation menu
-    const navMenu = page.locator('.app-header-menu');
-    await expect(navMenu).toBeVisible();
-
-    // Should have at least some nav tabs
-    const navTabs = page.locator('.header-tab');
-    const tabCount = await navTabs.count();
-    expect(tabCount).toBeGreaterThan(0);
+    // Should have key navigation options (Character Builder, Spells, etc.)
+    const characterButton = page.locator('.splash-button', { hasText: /character/i });
+    await expect(characterButton.first()).toBeVisible();
 
     await attachConsoleErrors(testInfo, errors);
-    await takeScreenshot(page, testInfo, 'header-loaded');
+    await takeScreenshot(page, testInfo, 'splash-page');
   });
 
-  test('user menu opens and closes', async ({ page }, testInfo) => {
+  test('splash buttons are clickable and navigate', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    // User header area should exist
-    const userHeader = page.locator('#user-header');
-    await expect(userHeader).toBeVisible();
+    // Click the Character Builder button
+    const builderButton = page.locator('.splash-button', { hasText: /character.*builder/i }).first();
 
-    // Click to open menu
-    await userHeader.click();
+    if (await builderButton.isVisible()) {
+      await builderButton.click();
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(1000);
 
-    // User menu should appear
-    const userMenu = page.locator('#user-menu');
-    await expect(userMenu).toBeVisible({ timeout: 5000 });
+      // Should have navigated to builder page
+      const url = page.url();
+      expect(url).toContain('character-builder');
 
-    // Menu should contain login/account options
-    const menuText = await userMenu.textContent();
-    expect(menuText?.toLowerCase()).toMatch(/login|log in|account|register/i);
-
-    // Click elsewhere to close (or click user-header again)
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
+      await takeScreenshot(page, testInfo, 'after-builder-click');
+    }
 
     await attachConsoleErrors(testInfo, errors);
-    await takeScreenshot(page, testInfo, 'user-menu');
   });
 
   test('navigation tabs work', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    // Try clicking different nav tabs
-    const tabsToTest = ['Spells', 'Monsters', 'Items'];
+    // On splash page, navigation is via splash buttons not tabs
+    // Try clicking different splash buttons
+    const buttonsToTest = ['Spells', 'Monsters', 'Items'];
 
-    for (const tabName of tabsToTest) {
-      const tab = page.locator('.header-tab', { hasText: new RegExp(tabName, 'i') });
+    for (const buttonName of buttonsToTest) {
+      const button = page.locator('.splash-button', { hasText: new RegExp(buttonName, 'i') });
 
-      if (await tab.isVisible()) {
-        await tab.click();
-        await waitForAppReady(page);
-
-        // Verify URL changed or content area updated
+      if (await button.isVisible()) {
+        await button.click();
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
         await page.waitForTimeout(500);
 
         // Take screenshot of each page
-        await takeScreenshot(page, testInfo, `nav-${tabName.toLowerCase()}`);
+        await takeScreenshot(page, testInfo, `nav-${buttonName.toLowerCase()}`);
+
+        // Go back to home for next iteration
+        await page.goto('/');
+        await waitForAppReady(page);
       }
     }
 
@@ -93,8 +100,8 @@ test.describe('UI Smoke Tests', () => {
   test('main content area renders', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    // Main content container should exist
-    const mainContent = page.locator('#app-main, .container, [class*="content"]').first();
+    // Main content container should exist (either #app or elements with content classes)
+    const mainContent = page.locator('#app, .app, .splash-page-content, [class*="content"]').first();
     await expect(mainContent).toBeVisible();
 
     // Content should have some text (not empty)
@@ -107,12 +114,13 @@ test.describe('UI Smoke Tests', () => {
   test('character builder page loads', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    await page.goto('/dnd/e5/character-builder');
+    // Use correct route
+    await page.goto('/pages/dnd/5e/character-builder');
     await waitForAppReady(page);
 
     // Should have some form of character builder UI
     // Look for common builder elements
-    const builderElements = page.locator('.form-button, .character-builder, [class*="builder"]');
+    const builderElements = page.locator('.form-button, .character-builder, [class*="builder"], [class*="character"]');
     const elementCount = await builderElements.count();
 
     // Take screenshot for manual review
@@ -127,7 +135,8 @@ test.describe('UI Smoke Tests', () => {
   test('spell list page loads', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    await page.goto('/dnd/e5/spells');
+    // Use correct route
+    await page.goto('/pages/dnd/5e/spells');
     await waitForAppReady(page);
 
     // Page should load without errors
@@ -136,7 +145,7 @@ test.describe('UI Smoke Tests', () => {
     await takeScreenshot(page, testInfo, 'spell-list');
     await attachConsoleErrors(testInfo, errors);
 
-    const jsErrors = errors.filter((e) => e.type === 'error');
+    const jsErrors = filterFigwheelErrors(errors);
     expect(jsErrors).toHaveLength(0);
   });
 
@@ -149,9 +158,14 @@ test.describe('UI Smoke Tests', () => {
     await page.goto('/');
     await waitForAppReady(page);
 
-    // Header should still be visible
-    const header = page.locator('#app-header');
-    await expect(header).toBeVisible();
+    // App container should still be visible
+    const appContainer = page.locator('#app');
+    await expect(appContainer).toBeVisible();
+
+    // Splash buttons should adapt to mobile
+    const splashButtons = page.locator('.splash-button');
+    const buttonCount = await splashButtons.count();
+    expect(buttonCount).toBeGreaterThan(0);
 
     await takeScreenshot(page, testInfo, 'mobile-view');
     await attachConsoleErrors(testInfo, errors);

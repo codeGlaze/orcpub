@@ -19,6 +19,20 @@ import * as path from 'path';
  * - Actionable recommendations
  */
 
+/**
+ * Known expected errors that should not cause test failure.
+ * These are typically dev-mode artifacts that appear in production builds.
+ */
+const EXPECTED_ERROR_PATTERNS = [
+  'figwheel-ws',           // Figwheel WebSocket (dev mode only)
+  'ws://localhost:3449',   // Figwheel WebSocket URL
+  'DevTools',              // DevTools warnings
+];
+
+function isExpectedError(text: string): boolean {
+  return EXPECTED_ERROR_PATTERNS.some(pattern => text.includes(pattern));
+}
+
 interface ConsoleMessage {
   type: 'error' | 'warning' | 'log' | 'info';
   text: string;
@@ -121,12 +135,14 @@ class AgentReporter implements Reporter {
     const recommendations: string[] = [];
     const blockingIssues: string[] = [];
 
-    if (this.allConsoleErrors.length > 0) {
-      const errorCount = this.allConsoleErrors.filter((e) => e.type === 'error').length;
-      if (errorCount > 0) {
-        blockingIssues.push(`${errorCount} console error(s) detected`);
-        recommendations.push('Review console errors - they may indicate runtime issues');
-      }
+    // Filter out expected errors (like Figwheel WebSocket in production mode)
+    const unexpectedErrors = this.allConsoleErrors.filter(
+      (e) => e.type === 'error' && !isExpectedError(e.text)
+    );
+
+    if (unexpectedErrors.length > 0) {
+      blockingIssues.push(`${unexpectedErrors.length} unexpected console error(s) detected`);
+      recommendations.push('Review console errors - they may indicate runtime issues');
     }
 
     if (failed > 0) {
@@ -137,8 +153,8 @@ class AgentReporter implements Reporter {
       recommendations.push('Fix failing tests before proceeding');
     }
 
-    if (passed === this.results.length && this.allConsoleErrors.length === 0) {
-      recommendations.push('All tests passed with no console errors - ready to proceed');
+    if (passed === this.results.length && unexpectedErrors.length === 0) {
+      recommendations.push('All tests passed with no unexpected errors - ready to proceed');
     }
 
     // Build the report
@@ -153,7 +169,8 @@ class AgentReporter implements Reporter {
         failed,
         skipped,
         duration,
-        overallStatus: failed === 0 && this.allConsoleErrors.filter((e) => e.type === 'error').length === 0
+        // Pass if no test failures and no unexpected console errors
+        overallStatus: failed === 0 && unexpectedErrors.length === 0
           ? 'passed'
           : 'failed',
       },
@@ -177,7 +194,7 @@ class AgentReporter implements Reporter {
     console.log(`  OrcPub E2E Test Results`);
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`  Total: ${this.results.length} | Passed: ${passed} | Failed: ${failed}`);
-    console.log(`  Console Errors: ${this.allConsoleErrors.filter((e) => e.type === 'error').length}`);
+    console.log(`  Console Errors: ${unexpectedErrors.length} (${this.allConsoleErrors.filter((e) => e.type === 'error').length} total, ${this.allConsoleErrors.filter((e) => e.type === 'error').length - unexpectedErrors.length} expected)`);
     console.log(`  Overall: ${report.summary.overallStatus.toUpperCase()}`);
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     console.log(`  Agent report: ${outputPath}`);

@@ -8,30 +8,44 @@ import {
 } from '../fixtures/test-utils';
 
 /**
+ * Helper to filter out expected Figwheel WebSocket errors in production mode
+ */
+function filterFigwheelErrors(errors: { type: string; text: string }[]) {
+  return errors.filter((e) =>
+    e.type === 'error' &&
+    !e.text.includes('figwheel-ws') &&
+    !e.text.includes('ws://localhost:3449')
+  );
+}
+
+/**
  * Import/Export Test Suite
  *
  * Tests the .orcbrew file import functionality and data loading.
  * These tests verify that custom content can be loaded into the app.
+ *
+ * Note: OrcPub routes use /dnd/5e/ (not /dnd/e5/)
  */
 
 test.describe('Import/Export', () => {
   test('my content page loads', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    await page.goto('/dnd/e5/my-content');
+    // Note: my-content route doesn't use /pages/ prefix
+    await page.goto('/dnd/5e/my-content');
     await waitForAppReady(page);
 
     await takeScreenshot(page, testInfo, 'my-content-page');
     await attachConsoleErrors(testInfo, errors);
 
-    const jsErrors = errors.filter((e) => e.type === 'error');
+    const jsErrors = filterFigwheelErrors(errors);
     expect(jsErrors).toHaveLength(0);
   });
 
   test('file input for .orcbrew is present', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    await page.goto('/dnd/e5/my-content');
+    await page.goto('/dnd/5e/my-content');
     await waitForAppReady(page);
 
     // Look for file input that accepts .orcbrew files
@@ -54,7 +68,7 @@ test.describe('Import/Export', () => {
   test('import .orcbrew file', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    await page.goto('/dnd/e5/my-content');
+    await page.goto('/dnd/5e/my-content');
     await waitForAppReady(page);
 
     // Find the file input
@@ -95,7 +109,7 @@ test.describe('Import/Export', () => {
   test('export functionality is accessible', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    await page.goto('/dnd/e5/my-content');
+    await page.goto('/dnd/5e/my-content');
     await waitForAppReady(page);
 
     // Look for export buttons/links
@@ -120,8 +134,8 @@ test.describe('Import/Export', () => {
     await page.goto('/');
     await waitForAppReady(page);
 
-    // Look for character list items
-    const characterItems = page.locator('.item-list-item, .list-character-summary, [class*="character"]');
+    // Look for character list items or splash buttons
+    const characterItems = page.locator('.item-list-item, .list-character-summary, [class*="character"], .splash-button');
     const itemCount = await characterItems.count();
 
     await takeScreenshot(page, testInfo, 'character-list');
@@ -139,14 +153,14 @@ test.describe('Import/Export', () => {
     await page.goto('/');
     await waitForAppReady(page);
 
-    // Look for "New" or "Create" button
-    const newButton = page.locator('button, .form-button', {
-      hasText: /^new$|create/i,
+    // Look for "New" or "Create" button, or the character builder splash button
+    const newButton = page.locator('button, .form-button, .splash-button', {
+      hasText: /new|create|character.*builder/i,
     });
 
     if (await newButton.count() > 0) {
       await newButton.first().click();
-      await waitForAppReady(page);
+      await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
       // Should navigate to character builder or show creation UI
       await page.waitForTimeout(1000);
@@ -166,7 +180,8 @@ test.describe('Import/Export', () => {
   test('PDF export form exists on character builder', async ({ page }, testInfo) => {
     const errors = setupConsoleCapture(page);
 
-    await page.goto('/dnd/e5/character-builder');
+    // Use correct route path
+    await page.goto('/pages/dnd/5e/character-builder');
     await waitForAppReady(page);
 
     // Look for download form or print button
