@@ -59,19 +59,20 @@ interactive_menu() {
         echo -e "  ${GREEN}Start${NC}"
         echo "  1) Start all services"
         echo "  2) Start Figwheel (ClojureScript)"
+        echo "  3) Start Garden (CSS auto-compile)"
         echo ""
         echo -e "  ${YELLOW}Stop${NC}"
-        echo "  3) Stop all services"
-        echo "  4) Stop nREPL only"
-        echo "  5) Stop server only"
-        echo "  6) Stop Datomic only"
+        echo "  4) Stop all services"
+        echo "  5) Stop nREPL only"
+        echo "  6) Stop server only"
+        echo "  7) Stop Datomic only"
         echo ""
         echo -e "  ${CYAN}Info${NC}"
-        echo "  7) Show status"
+        echo "  8) Show status"
         echo ""
         echo "  q) Quit"
         echo ""
-        read -p "Select [1-7, q]: " -n 1 -r choice
+        read -p "Select [1-8, q]: " -n 1 -r choice
         echo ""
 
         case "$choice" in
@@ -81,26 +82,31 @@ interactive_menu() {
                 ;;
             2)
                 echo ""
-                echo "Starting Figwheel..."
-                lein figwheel
+                echo "Starting Figwheel with dev profile..."
+                lein with-profile +dev figwheel
                 ;;
             3)
                 echo ""
-                "$SCRIPT_DIR/stop.sh"
+                echo "Starting Garden in auto mode (CSS watcher)..."
+                lein garden auto
                 ;;
             4)
                 echo ""
-                "$SCRIPT_DIR/stop.sh" repl
+                "$SCRIPT_DIR/stop.sh"
                 ;;
             5)
                 echo ""
-                "$SCRIPT_DIR/stop.sh" server
+                "$SCRIPT_DIR/stop.sh" repl
                 ;;
             6)
                 echo ""
-                "$SCRIPT_DIR/stop.sh" datomic
+                "$SCRIPT_DIR/stop.sh" server
                 ;;
             7)
+                echo ""
+                "$SCRIPT_DIR/stop.sh" datomic
+                ;;
+            8)
                 "$SCRIPT_DIR/stop.sh" --dry-run
                 ;;
             q|Q)
