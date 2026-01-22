@@ -88,26 +88,51 @@ Git hooks automatically enforce branch rules:
 | `agents/develop` | `*.md`, `.claude/*`, `docs/*` | Source code, tests |
 | `feature/*` | Everything | Nothing |
 
-### For Agents: Workflow
+### For Agents: Starting a Feature
 
-1. **Hooks protect you automatically** - If you try to commit wrong files, you'll see a clear error with fix instructions
+Use the dual-branch workflow to keep your PR clean:
 
-2. **If blocked**, follow the guidance in the error message:
-   - Unstage the wrong file: `git reset HEAD <file>`
+```bash
+./scripts/git/start-feature.sh my-feature
+# Creates: feature/my-feature (clean, from develop)
+# Creates: integrate/my-feature (work branch, from agents/develop)
+```
+
+You work in `integrate/my-feature` (has CLAUDE.md, agent tooling). Code commits get routed to `feature/my-feature` (clean, for PR).
+
+**Branch type prefixes**: `feature/`, `fix/`, `bugfix/`, `hotfix/`, `patch/`, `enhancement/`
+
+### For Agents: During Development
+
+1. **Hooks protect you automatically** - Wrong files get blocked with clear fix instructions
+
+2. **Route code commits to the clean branch**:
+   ```bash
+   ./scripts/git/route-commit.sh HEAD my-feature
+   # Cherry-picks to feature/my-feature
+   ```
+
+3. **If blocked**, follow the error message guidance:
+   - Unstage wrong file: `git reset HEAD <file>`
    - Route to correct branch: `./scripts/git/route-commit.sh HEAD <target>`
    - Switch worktrees: `cd ../orcpub-<target>`
 
-3. **Preparing a PR to develop**:
-   - Feature branches from `agents/develop` contain agent files
-   - Before PR, run: `./scripts/git/prepare-pr.sh`
-   - This creates a clean branch without agent files
+### For Agents: Creating the PR
 
-4. **Worktrees** (if set up):
-   ```
-   /workspaces/orcpub/          # Your working branch
-   /workspaces/orcpub-develop/  # develop
-   /workspaces/orcpub-testing/  # testing/develop
-   /workspaces/orcpub-agents/   # agents/develop
-   ```
+When ready, your `feature/my-feature` branch is already clean:
+```bash
+git checkout feature/my-feature
+git push -u origin feature/my-feature
+gh pr create --base develop
+```
+
+### Worktrees (for routing to develop/testing/agents)
+
+```
+/workspaces/orcpub/          # Your working branch
+/workspaces/orcpub-develop/  # develop
+/workspaces/orcpub-testing/  # testing/develop
+/workspaces/orcpub-agents/   # agents/develop
+```
 
 See `scripts/git/README.md` for full documentation.
