@@ -267,6 +267,27 @@ The `--strip-only` flag is useful when you accidentally committed agent files an
 | `develop` | Everything (with warning) | Main development |
 | `feature/*`, `integrate/*` | Everything | Integration work |
 
+## File Routing Quick Reference
+
+When routing commits, use this table to determine the correct destination:
+
+| File/Path | Destination | Why |
+|-----------|-------------|-----|
+| `CLAUDE.md`, `*.md` (root) | `agents/develop` | Documentation |
+| `.claude/*`, `docs/*` | `agents/develop` | Agent configuration |
+| `scripts/git/*`, `.githooks/*` | `testing/develop` | Git workflow scripts |
+| `e2e/*`, `.devcontainer/*`, `.github/*` | `testing/develop` | Test/CI infrastructure |
+| `*.sh` (root: `pull.sh`, `start.sh`) | `testing/develop` | Dev utility scripts |
+| `src/*`, `*.clj`, `*.cljs`, `*.cljc` | Feature branch | Source code (via PR) |
+
+**Key rules:**
+1. **`develop` requires PRs** - Never push directly; route source code to a feature branch
+2. **Root shell scripts** → `testing/develop`, not `develop`
+3. **`scripts/git/README.md`** → `testing/develop` (it's in `scripts/git/`)
+4. **Commit separately by destination** - Don't bundle files going to different branches
+
+**When blocked by hooks:** The error message tells you exactly what's allowed and where to route.
+
 ## Troubleshooting
 
 ### "Worktree not found"
