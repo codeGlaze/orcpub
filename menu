@@ -83,13 +83,11 @@ interactive_menu() {
                 ;;
             2)
                 echo ""
-                echo "Starting Figwheel with dev profile..."
-                lein with-profile +dev figwheel
+                "$SCRIPT_DIR/start.sh" figwheel
                 ;;
             3)
                 echo ""
-                echo "Starting Garden in auto mode (CSS watcher)..."
-                lein garden auto
+                "$SCRIPT_DIR/start.sh" garden
                 ;;
             4)
                 echo ""
