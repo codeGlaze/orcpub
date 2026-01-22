@@ -520,3 +520,120 @@ Current variables (defined in core.clj, overridden per-theme):
 | `--accent-success` | `.app` | Success states (green variant) |
 | `--accent-warning` | `.app` | Warning states (amber variant) |
 | `--text-muted` | `.app` | Secondary text |
+
+---
+
+## Icon System Decoupling Fix (Session 5)
+
+### Problem
+Icons were coupled to text color via `.main-text-color` class, causing issues:
+1. White icons on white background in Ability Scores preview
+2. Icons looked black instead of intended theme colors
+3. Changing icon colors in themes changed ALL text on page
+
+### Root Cause
+The icon wrapper had BOTH classes: `div.main-text-color.svg-icon-wrapper.svg-icon-light`
+- Themes set `.main-text-color { color: #363636 }` for text
+- `.svg-icon-light` tries to set `color: var(--icon-color)` for icons
+- Same specificity = last one wins = text color applied to icons
+
+### Solution
+**Remove `.main-text-color` from icon wrapper** - icons should ONLY use `.svg-icon-light`/`.svg-icon-dark`.
+
+```clojure
+;; Before (views.cljs)
+[:div.main-text-color.svg-icon-wrapper ...]
+
+;; After
+[:div.svg-icon-wrapper ...]
+```
+
+Changed in both:
+- `src/cljs/orcpub/dnd/e5/views.cljs` (CLJS component)
+- `src/cljc/orcpub/dnd/e5/views_2.cljc` (CLJC server-rendered component)
+
+Also updated `core.clj` header rules from `.svg-icon-wrapper.main-text-color` to just `.svg-icon-wrapper`.
+
+### Additional Fixes
+- **Theme selector overflow**: Changed `flex-shrink: 0` to `min-width: 0` to allow shrinking
+- **Page wobble**: Added `.app { overflow-x: hidden }` and content padding
+- **Nord Light+ sticky header**: Changed from semi-transparent gradient to solid opaque `nord6`
+
+---
+
+## Sunset Beach Theme (Session 5)
+
+### Motivation
+Nord themes felt "one note" - cool blue-gray palette with minor variations between 4 themes. User wanted something warm, inviting, readable - "like sunset on a beach."
+
+### Design Philosophy: Warmth Over Cool
+Instead of the muted, eye-comfort-focused Nord palette, Sunset Beach uses:
+- **Warm earth tones** instead of cool blue-grays
+- **High contrast** for excellent readability
+- **Complementary accents** (ocean teal) for interactive elements
+- **Personality** - feels inviting and distinct
+
+### Sunset Beach Palette
+
+| Role | Name | Hex | Purpose |
+|------|------|-----|---------|
+| Background | Sand Light | `#FDF6E8` | Warm cream, main bg |
+| Background | Sand | `#F5E6D3` | Beach tan, secondary bg |
+| Borders | Sand Dark | `#E8D5BE` | Wet sand, dividers |
+| Text | Driftwood | `#5D4E3C` | Primary text (~10:1 contrast) |
+| Text | Driftwood Dark | `#3D3229` | Headers, strong emphasis |
+| Accent | Coral | `#E07A5F` | Primary accent, buttons |
+| Accent | Amber | `#E9B44C` | Golden highlights |
+| Accent | Rose | `#C17C74` | Secondary accent |
+| Links | Teal | `#2A7C6F` | Ocean teal (~5:1 contrast) |
+| Links | Teal Dark | `#1D5B52` | Hover states |
+
+### Color Context
+- **Gradient background**: Sand Light → Sand (warm, not flat)
+- **Text color**: Driftwood brown provides excellent readability
+- **Links/Active**: Ocean teal as complementary contrast to warm tones
+- **Primary action**: Coral for buttons (warm, inviting)
+- **Header icons**: Sand Light (warm cream on dark header)
+
+### Theme Cycle (8 themes)
+Dark → Light → Light+ → **Sunset** → Nord → Nord Light → Nord+ → Nord Light+
+
+### Key Lesson: Variety Over Similarity
+Having multiple themes from the same palette (4 Nord variants) provides less user value than having distinct themes with different personalities. Better to have:
+- 1-2 cool themes (Nord)
+- 1-2 warm themes (Sunset)
+- 1-2 high-contrast accessibility themes
+
+Than 6 variations of the same color family.
+
+---
+
+## Current Theme Inventory
+
+| Theme | Palette | Character | Best For |
+|-------|---------|-----------|----------|
+| `dark-theme` | Original | Dark default | Default |
+| `light-theme` | Basic | Plain, minimal | Light mode baseline |
+| `light-plus-theme` | Bold | Blue accents | Light mode with personality |
+| `sunset-theme` | Sunset Beach | Warm, inviting | Cozy reading experience |
+| `nord-theme` | Nord | Cool, muted dark | Eye comfort (dark) |
+| `nord-light-theme` | Nord | Cool, muted light | Eye comfort (light) |
+| `nord-theme-elevated` | Nord | Dark + shadows | Modern dark |
+| `nord-light-theme-elevated` | Nord | Light + shadows | Modern light |
+
+---
+
+## Git Status (Session 5)
+
+**Branch**: `integrate/themes-nordic`
+**Status**: Changes pending commit
+
+### Files Modified
+- `src/clj/orcpub/styles/colors.clj` - Added Sunset Beach palette
+- `src/clj/orcpub/styles/core.clj` - Icon decoupling, overflow fix, content padding
+- `src/clj/orcpub/styles/themes.clj` - Added sunset-theme
+- `src/cljc/orcpub/dnd/e5/views_2.cljc` - Removed main-text-color from icons
+- `src/cljs/orcpub/character_builder.cljs` - Theme display name, toggle fix
+- `src/cljs/orcpub/dnd/e5/db.cljs` - Theme spec
+- `src/cljs/orcpub/dnd/e5/events.cljs` - Theme cycle
+- `src/cljs/orcpub/dnd/e5/views.cljs` - Icon decoupling, light-theme? detection
