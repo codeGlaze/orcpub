@@ -219,13 +219,44 @@ Examples:
 ./scripts/git/start-feature.sh perf enhancement   # enhancement/perf + integrate/perf
 ```
 
+### `pull.sh` (root directory)
+
+Interactive script to pull updates from multiple branches into your integration branch. Merges `testing/develop`, `agents/develop`, and a working branch of your choice.
+
+```bash
+./pull.sh                           # Interactive mode
+./pull.sh testing/develop feature/x # With arguments
+```
+
+**Features:**
+- Remembers your last selections (stored in `.integration-workflow-state`)
+- Interactive branch selection with filtering and pagination
+- Prefers local branches over remote (preserves unpushed commits)
+- Explicit conflict detection with clear guidance
+- Auto-resolves known conflicts (devcontainer.json, AGENTS.md)
+
+**Typical usage:**
+```bash
+# On your integration branch
+./pull.sh
+# Select testing branch (default: testing/develop)
+# Select working branch from menu
+# Script merges all three sources
+```
+
 ### `prepare-pr.sh`
 
 Cleans agent files from a branch (alternative to dual-branch workflow).
 
 ```bash
+# Full workflow: create clean branch from develop with cherry-picked commits
 ./scripts/git/prepare-pr.sh [source-branch] [target-branch]
+
+# Quick strip: just remove agent files from current branch
+./scripts/git/prepare-pr.sh --strip-only
 ```
+
+The `--strip-only` flag is useful when you accidentally committed agent files and just want to remove them without creating a new branch.
 
 ## Branch Protection Rules
 
@@ -267,3 +298,57 @@ cd ../orcpub-develop
 git add .
 git cherry-pick --continue
 ```
+
+## Bash Script Best Practices
+
+Lessons learned from developing these workflow scripts:
+
+### State Persistence
+Use `trap` to ensure state is saved on any exit (success, error, Ctrl+C):
+```bash
+trap save_state EXIT
+```
+Don't rely on end-of-script calls alone—they won't run on errors.
+
+### Config File Security
+Avoid `source` for user-writeable config files (security risk). Parse safely:
+```bash
+while IFS='=' read -r key val; do
+  val="${val#\"}"  # Strip quotes
+  val="${val%\"}"
+  case "$key" in
+    MY_VAR) MY_VAR="$val" ;;
+  esac
+done < "$CONFIG_FILE"
+```
+
+### Pre-Operation Checks
+Before operations that could fail with dirty state (checkout, merge):
+```bash
+ensure_clean_worktree() {
+  if [[ -n $(git status --porcelain) ]]; then
+    echo "Working tree not clean. Commit or stash first."
+    exit 1
+  fi
+}
+```
+
+### Local vs Remote Branches
+When merging, prefer local branches (may have unpushed commits):
+```bash
+if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+  git merge "$BRANCH"  # Local
+else
+  git fetch origin "$BRANCH"
+  git merge origin/"$BRANCH"  # Remote fallback
+fi
+```
+
+### Explicit Error Handling
+Check return codes and give clear guidance:
+```bash
+if ! git merge origin/"$BRANCH"; then
+  echo "Merge conflicts detected. Resolve and re-run."
+fi
+```
+Avoid `|| true` which silently swallows errors.
