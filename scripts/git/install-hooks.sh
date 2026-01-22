@@ -55,11 +55,11 @@ if [ ! -f "$HOOKS_DIR/pre-commit" ]; then
     exit 1
 fi
 
-# Configure git to use our hooks directory
-print_info "Configuring git to use hooks from: .githooks/"
-git -C "$REPO_ROOT" config core.hooksPath .githooks
+# Configure git to use our hooks directory (absolute path for worktree support)
+print_info "Configuring git to use hooks from: $HOOKS_DIR"
+git -C "$REPO_ROOT" config core.hooksPath "$HOOKS_DIR"
 
-print_success "Git hooks path configured"
+print_success "Git hooks path configured (absolute path for worktree support)"
 
 # Make hooks executable
 chmod +x "$HOOKS_DIR"/*
@@ -70,8 +70,8 @@ echo ""
 print_info "Verifying installation..."
 
 current_hooks_path=$(git -C "$REPO_ROOT" config --get core.hooksPath || echo "")
-if [ "$current_hooks_path" = ".githooks" ]; then
-    print_success "Hooks are active"
+if [ "$current_hooks_path" = "$HOOKS_DIR" ]; then
+    print_success "Hooks are active (works in all worktrees)"
 else
     print_error "Hook configuration failed"
     exit 1
