@@ -1,0 +1,162 @@
+#!/bin/bash
+#
+# pre-push hook - Final safety check before pushing
+#
+# This hook provides a last line of defense before changes are pushed
+# to protected branches. It validates that the commits being pushed
+# contain only appropriate files for the target branch.
+#
+# This is more strict than pre-commit because it checks ALL commits
+# being pushed, not just the current staged files.
+#
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# Read standard input (provided by git)
+# Format: <local ref> <local sha> <remote ref> <remote sha>
+while read local_ref local_sha remote_ref remote_sha; do
+    # Extract branch name from remote ref
+    BRANCH="${remote_ref#refs/heads/}"
+
+    # Skip if deleting a branch
+    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+        continue
+    fi
+
+    # Determine the range of commits being pushed
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        # New branch, check all commits
+        RANGE="$local_sha"
+    else
+        # Existing branch, check only new commits
+        RANGE="$remote_sha..$local_sha"
+    fi
+
+    # Get all files changed in the commits being pushed
+    CHANGED_FILES=$(git diff --name-only "$RANGE" 2>/dev/null || git diff-tree --no-commit-id --name-only -r "$local_sha")
+
+    if [ -z "$CHANGED_FILES" ]; then
+        continue
+    fi
+
+    # Helper to check file patterns
+    check_files() {
+        local branch="$1"
+        local allowed_desc="$2"
+        shift 2
+        local patterns=("$@")
+
+        for file in $CHANGED_FILES; do
+            local matched=false
+            for pattern in "${patterns[@]}"; do
+                case "$file" in
+                    $pattern) matched=true; break ;;
+                esac
+            done
+
+            if [ "$matched" = false ]; then
+                echo ""
+                echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                echo -e "${RED}${BOLD}  ✗ PUSH BLOCKED${NC}"
+                echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                echo ""
+                echo -e "  ${BOLD}Branch:${NC} $branch"
+                echo -e "  ${BOLD}File:${NC}   $file"
+                echo ""
+                echo -e "  ${YELLOW}This branch only accepts:${NC}"
+                echo -e "    $allowed_desc"
+                echo ""
+                echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                echo -e "${CYAN}  HOW TO FIX${NC}"
+                echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                echo ""
+                echo "  The commit containing '$file' should not be pushed to $branch."
+                echo ""
+                echo "  Options:"
+                echo "    1. Revert the commit locally"
+                echo "    2. Use interactive rebase to remove the file"
+                echo "    3. Push to a different branch (feature/integrate branch)"
+                echo ""
+                echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+                echo ""
+                return 1
+            fi
+        done
+        return 0
+    }
+
+    case "$BRANCH" in
+        testing/develop)
+            PATTERNS=(
+                "e2e/*"
+                "e2e/**/*"
+                ".devcontainer/*"
+                ".devcontainer/**/*"
+                "test/*"
+                "test/**/*"
+                ".github/workflows/*"
+                ".github/*"
+                "scripts/git/*"
+                ".githooks/*"
+                "Dockerfile*"
+                "docker-compose*"
+                "*.dockerfile"
+            )
+            if ! check_files "$BRANCH" "e2e/*, .devcontainer/*, test/*, .github/*, scripts/git/*" "${PATTERNS[@]}"; then
+                exit 1
+            fi
+            ;;
+
+        agents/develop)
+            PATTERNS=(
+                "*.md"
+                "CLAUDE.md"
+                ".claude/*"
+                ".claude/**/*"
+                "agents/*"
+                "agents/**/*"
+                "docs/*"
+                "docs/**/*"
+                "scripts/git/*"
+                ".githooks/*"
+            )
+            if ! check_files "$BRANCH" "*.md, CLAUDE.md, .claude/*, agents/*, docs/*" "${PATTERNS[@]}"; then
+                exit 1
+            fi
+            ;;
+
+        main|master)
+            # Extra protection for main branches
+            echo ""
+            echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo -e "${YELLOW}  ⚠ Pushing directly to $BRANCH${NC}"
+            echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo ""
+            echo "  Consider using a pull request instead for better review."
+            echo ""
+            # Allow but warn
+            ;;
+
+        develop)
+            # Develop is less restricted but warn
+            echo -e "${BLUE}ℹ${NC} Pushing to develop branch"
+            ;;
+
+        feature/*|integrate/*|claude/*|integration/*)
+            # Feature/integration branches - no restrictions
+            ;;
+
+        *)
+            echo -e "${BLUE}ℹ${NC} Pushing to branch: $BRANCH"
+            ;;
+    esac
+done
+
+exit 0
