@@ -72,6 +72,42 @@ Before committing:
 
 ## Branch Strategy
 
-- `develop` - Main development branch
+- `develop` - Main development branch (PRs only, no direct push)
 - `testing/develop` - Testing infrastructure (devcontainer, E2E, CI)
 - `agents/develop` - AI agent configuration and documentation
+- `feature/*`, `integrate/*` - Feature and integration branches
+
+### Branch Protection
+
+Git hooks automatically enforce branch rules:
+
+| Branch | Allowed Files | Blocked |
+|--------|---------------|---------|
+| `develop` | N/A | Direct pushes (use PR) |
+| `testing/develop` | `e2e/*`, `.devcontainer/*`, `.github/*` | Source code |
+| `agents/develop` | `*.md`, `.claude/*`, `docs/*` | Source code, tests |
+| `feature/*` | Everything | Nothing |
+
+### For Agents: Workflow
+
+1. **Hooks protect you automatically** - If you try to commit wrong files, you'll see a clear error with fix instructions
+
+2. **If blocked**, follow the guidance in the error message:
+   - Unstage the wrong file: `git reset HEAD <file>`
+   - Route to correct branch: `./scripts/git/route-commit.sh HEAD <target>`
+   - Switch worktrees: `cd ../orcpub-<target>`
+
+3. **Preparing a PR to develop**:
+   - Feature branches from `agents/develop` contain agent files
+   - Before PR, run: `./scripts/git/prepare-pr.sh`
+   - This creates a clean branch without agent files
+
+4. **Worktrees** (if set up):
+   ```
+   /workspaces/orcpub/          # Your working branch
+   /workspaces/orcpub-develop/  # develop
+   /workspaces/orcpub-testing/  # testing/develop
+   /workspaces/orcpub-agents/   # agents/develop
+   ```
+
+See `scripts/git/README.md` for full documentation.
