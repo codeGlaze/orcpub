@@ -320,6 +320,18 @@ git add .
 git cherry-pick --continue
 ```
 
+### Adding new file patterns to hooks
+
+Both `pre-commit` AND `pre-push` hooks have their own pattern lists. When adding new allowed patterns (like `*.sh`), update BOTH hooks:
+- `.githooks/pre-commit` - validates at commit time
+- `.githooks/pre-push` - validates at push time
+
+**Chicken-and-egg problem**: When pushing a hook update that allows new patterns along with files matching those patterns:
+1. Push the hook update commit first: `git push origin <commit>:<branch>`
+2. Then push remaining commits: `git push origin <branch>`
+
+The local pre-push hook runs with your updated code, but the patterns need to already be in place for the push to succeed.
+
 ## Bash Script Best Practices
 
 Lessons learned from developing these workflow scripts:
