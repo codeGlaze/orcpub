@@ -145,8 +145,30 @@ while read local_ref local_sha remote_ref remote_sha; do
             ;;
 
         develop)
-            # Develop is less restricted but warn
-            echo -e "${BLUE}ℹ${NC} Pushing to develop branch"
+            # Block direct pushes to develop - must use PR
+            echo ""
+            echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo -e "${RED}${BOLD}  ✗ DIRECT PUSH TO DEVELOP BLOCKED${NC}"
+            echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo ""
+            echo "  Direct pushes to 'develop' are not allowed."
+            echo "  All changes must go through a Pull Request."
+            echo ""
+            echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo -e "${CYAN}  HOW TO FIX${NC}"
+            echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo ""
+            echo "  1. Push to a feature branch instead:"
+            echo -e "     ${GREEN}git push origin HEAD:feature/my-feature${NC}"
+            echo ""
+            echo "  2. Create a PR from your feature branch to develop"
+            echo ""
+            echo "  3. If your branch has agent files, clean them first:"
+            echo -e "     ${GREEN}./scripts/git/prepare-pr.sh${NC}"
+            echo ""
+            echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+            echo ""
+            exit 1
             ;;
 
         feature/*|integrate/*|claude/*|integration/*)
