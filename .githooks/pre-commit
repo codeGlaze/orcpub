@@ -103,8 +103,9 @@ case "$BRANCH" in
             "Dockerfile*"
             "docker-compose*"
             "*.dockerfile"
+            "*.sh"
         )
-        ALLOWED_DESC="e2e/*, .devcontainer/*, test/*, .github/*, scripts/git/*, .githooks/*"
+        ALLOWED_DESC="e2e/*, .devcontainer/*, test/*, .github/*, scripts/git/*, .githooks/*, *.sh"
         TARGET_SUGGESTION="develop"
 
         for file in $STAGED_FILES; do
