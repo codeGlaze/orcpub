@@ -1486,6 +1486,31 @@
 (def faq-link
   [:a.orange {:href "https://www.dungeonmastersvault.com/help/" :target "_blank"} " here"])
 
+
+(defn current-year []
+  (.getFullYear (js/Date.))) 
+
+;; ------------------------------------------------------------------
+;; A helper that lets us embed a raw string of HTML inside Reagent.
+;; (If you’re using reagent‑core ≥1.2, `:raw` is built‑in; otherwise
+;; you can use the small shim below.)
+;; ------------------------------------------------------------------
+;; Render *any* raw HTML string.  
+(defn raw-html [html]
+  ;; Note: no `:>` or `js/React.createElement`.  
+  [:div {:dangerouslySetInnerHTML #js {:__html html}}])
+
+;; ------------------------------------------------------------------
+(defn ad-banner []
+  (raw-html
+   (str
+    "<!-- InPage -->\n"
+    "<ins class=\"adsbygoogle\" style=\"display:block\" "
+    "data-ad-client=\"ca-pub-8187136334148207\" "
+    "data-ad-slot=\"9874975572\" data-ad-format=\"auto\" "
+    "data-full-width-responsive=\"true\"></ins>\n"
+    "<script> (adsbygoogle = window.adsbygoogle || []).push({}); </script>")))
+
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   (let [on-scroll (fn [e]
                     (when-not @(subscribe [:orcacle-open?])
@@ -1569,10 +1594,8 @@
                 [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                  [:div.content.p-10.flex
                   [:div.flex-grow-1.t-a-c
-                   (if (not mobile?)
-                     [:div#nn_lb1.p-t-10.p-b-10]
-                     [:div#nn_mobile_lb1.p-t-10.p-b-10])
-                   [:div#nn_1by1]]]])
+                  [ad-banner]
+                   ]]])
 
 
               [:div#app-main.container
@@ -1585,9 +1608,8 @@
                   [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                    [:div.content.p-10.flex
                     [:div.flex-grow-1.t-a-c
-                     (if (not mobile?)
-                       [:div#nn_lb2.p-t-10.p-b-10]
-                       [:div#nn_mobile_lb2.p-t-10.p-b-10])]]])
+                    [ad-banner]
+                     ]]])
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
@@ -1604,7 +1626,7 @@
                    [:a.orange.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
                    [:a.orange.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Policy"]]]
                  [:div.legal-footer
-                  [:p "© 2025 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
+                  [:p "© " (current-year) " " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved."]
                   [:p "DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]

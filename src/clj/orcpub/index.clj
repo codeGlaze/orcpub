@@ -142,23 +142,7 @@ html {
     [:noscript "<p><img src=\"//t.dungeonmastersvault.com/matomo.php?idsite=7&amp;rec=1\" style=\"border:0;\" alt=\"\" /></p>"]
 
 ;<!-- IMPORTANT: Place these lines as high as you can in <head>, ideally just after <title> tag -->
-;<link rel="preconnect" href="https://tags.bkrtx.com/">
-    [:link {:rel "preconnect" :href "https://tags.bkrtx.com/"}]
-;<link rel="preconnect" href="https://securepubads.g.doubleclick.net/" crossorigin>
-    [:link {:rel "preconnect" :href "https://securepubads.g.doubleclick.net/" :crossorigin ""}]
-;<link rel="preconnect" href="https://cdn.consentmanager.mgr.consensu.org/" crossorigin>
-    [:link {:rel "preconnect" :href "https://cdn.consentmanager.mgr.consensu.org/" :crossorigin ""}]
-
-
-;<!-- Place the below code anywhere you like in the <head> (higher is better) -->
-;<script>window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};</script>
-    [:script "window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};"]
-;<script async src="https://tags.bkrtx.com/js/bk-coretag.js"></script>
-    [:script {:async "" :src "https://tags.bkrtx.com/js/bk-coretag.js"}]
-;<script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
-    [:script {:async "" :src "https://securepubads.g.doubleclick.net/tag/js/gpt.js"}]
-;<script async src="/dist/dungeonmastersvault.min.js"></script>
-    [:script {:async "" :src "https://kumo.network-n.com/dist/app.js" :site "dungeon-masters-vault"}]]
+    [:script {:async "" :src "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8187136334148207" :crossorigin "anonymous"}]]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
