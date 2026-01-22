@@ -139,6 +139,25 @@ Agent files removed:
 - `.claude/` directory
 - `flow*.md` (workflow notes)
 
+## Future Improvements
+
+- [ ] Add `--strip-only` flag to prepare-pr.sh for quick cleanup without cherry-pick workflow
+- [ ] GitHub Actions to validate branch contents on PR
+- [ ] Script to sync worktrees after pulling
+- [ ] Interactive mode for route-commit.sh to select commits
+- [ ] VSCode tasks for common operations
+
+## Session Continuation Notes
+
+This summary was continued across multiple sessions due to context compaction.
+
+**Key discussion points preserved:**
+1. User explored keeping agent files outside git entirely
+2. Symlink approach was considered but rejected (agent discovery risk, Windows issues)
+3. Separate repo was considered but rejected (too much overhead)
+4. Final decision: Keep dual-branch workflow, rely on prepare-pr.sh for cleanup
+5. Critical insight: Testing infra is *part of project*, agent docs are *meta* - this justifies different treatment
+
 ## Remaining Work
 
 Theme changes on `integrate/themes-nordic` (unrelated to workflow):
