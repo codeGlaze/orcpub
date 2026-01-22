@@ -5,6 +5,7 @@ set -euo pipefail
 # menu - OrcPub Development Hub
 # =============================================================================
 # A wrapper/hub for starting, stopping, and checking OrcPub services.
+# Intended for LOCAL DEVELOPMENT - an alternative to Calva/IDE-based workflows.
 #
 # Usage:
 #   ./menu              Interactive menu
