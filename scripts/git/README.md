@@ -5,13 +5,17 @@ This directory contains scripts for managing a multi-branch workflow that preven
 ## Quick Start
 
 ```bash
-# 1. Set up worktrees (one-time)
+# 1. Set up worktrees (one-time, auto-runs in devcontainer)
 ./scripts/git/setup-worktrees.sh
 
-# 2. Install git hooks (one-time)
+# 2. Install git hooks (one-time, auto-runs in devcontainer)
 ./scripts/git/install-hooks.sh
 
-# 3. Work normally - hooks protect you automatically
+# 3. Start a new feature (creates paired branches)
+./scripts/git/start-feature.sh my-feature
+
+# 4. Work in integrate/my-feature, route code to feature/my-feature
+./scripts/git/route-commit.sh HEAD my-feature
 ```
 
 ## The Problem We're Solving
@@ -75,9 +79,53 @@ When you need to move a commit to the right branch:
 ./scripts/git/route-commit.sh HEAD~3..HEAD agents
 ```
 
+## Dual-Branch Feature Workflow
+
+The recommended workflow uses paired branches to keep PRs clean:
+
+```
+develop ──────────────────────> feature/my-feature (clean, for PR)
+                                       ↑
+                                       │ route-commit.sh
+                                       │
+agents/develop ──> integrate/my-feature (work here, has tooling)
+```
+
+### Starting a Feature
+
+```bash
+./scripts/git/start-feature.sh my-feature
+# Creates: feature/my-feature (from develop, stays clean)
+# Creates: integrate/my-feature (from agents/develop, for work)
+```
+
+You can specify a branch type: `feature`, `fix`, `bugfix`, `hotfix`, `patch`, `enhancement`
+
+```bash
+./scripts/git/start-feature.sh login-bug fix
+# Creates: fix/login-bug, integrate/login-bug
+```
+
+### During Development
+
+Work in `integrate/my-feature`. Route code commits to the clean branch:
+
+```bash
+# After committing code changes
+./scripts/git/route-commit.sh HEAD my-feature
+```
+
+### Creating the PR
+
+```bash
+git checkout feature/my-feature
+git push -u origin feature/my-feature
+gh pr create --base develop
+```
+
 ## For Agents (AI Assistants)
 
-Agents work normally but are protected by hooks. If blocked:
+Agents work in `integrate/*` branches and are protected by hooks. If blocked:
 
 ```
 ✗ COMMIT BLOCKED
@@ -102,12 +150,12 @@ Agents work normally but are protected by hooks. If blocked:
     cd ../orcpub-develop
 ```
 
-### Agent Workflow Recommendation
+### Agent Workflow Summary
 
-1. **Start sessions in the right worktree** when possible
-2. **Let hooks catch mistakes** - they're automatic
-3. **Use `route-commit.sh`** to fix blocked commits
-4. **Ask the user** if unsure which branch is correct
+1. **Work in `integrate/*` branches** - has CLAUDE.md and agent tooling
+2. **Route code commits**: `./scripts/git/route-commit.sh HEAD <feature-name>`
+3. **Let hooks catch mistakes** - they're automatic with clear guidance
+4. **PR from clean branch** - `feature/*` is already clean, no prep needed
 
 ## Scripts Reference
 
@@ -134,12 +182,49 @@ git config --unset core.hooksPath
 
 ### `route-commit.sh`
 
-Cherry-picks commits to the appropriate worktree.
+Cherry-picks commits to the appropriate branch (worktree or local).
 
 ```bash
 ./scripts/git/route-commit.sh <commit-or-range> <target>
 
-# Targets: develop, testing, agents
+# Worktree targets:
+#   develop, testing, agents
+
+# Feature targets (local branch):
+#   <feature-name>  → routes to feature/<name>, fix/<name>, etc.
+```
+
+Examples:
+```bash
+./scripts/git/route-commit.sh HEAD develop        # → orcpub-develop worktree
+./scripts/git/route-commit.sh HEAD testing        # → orcpub-testing worktree
+./scripts/git/route-commit.sh HEAD my-feature     # → feature/my-feature branch
+./scripts/git/route-commit.sh HEAD~3..HEAD agents # → orcpub-agents worktree
+```
+
+### `start-feature.sh`
+
+Creates paired branches for clean PR workflow.
+
+```bash
+./scripts/git/start-feature.sh <name> [type]
+
+# Types: feature (default), fix, bugfix, hotfix, patch, enhancement
+```
+
+Examples:
+```bash
+./scripts/git/start-feature.sh dark-mode           # feature/dark-mode + integrate/dark-mode
+./scripts/git/start-feature.sh login-bug fix       # fix/login-bug + integrate/login-bug
+./scripts/git/start-feature.sh perf enhancement   # enhancement/perf + integrate/perf
+```
+
+### `prepare-pr.sh`
+
+Cleans agent files from a branch (alternative to dual-branch workflow).
+
+```bash
+./scripts/git/prepare-pr.sh [source-branch] [target-branch]
 ```
 
 ## Branch Protection Rules
