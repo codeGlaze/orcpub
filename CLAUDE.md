@@ -6,6 +6,11 @@ OrcPub is a D&D 5e character builder written in ClojureScript (frontend) and Clo
 - **Backend**: Pedestal (REST framework) + Datomic (database)
 - **Build**: Leiningen + Figwheel (hot reload)
 
+## Attribution Policy
+
+**Do not add** `Co-Authored-By: Claude` or `Generated with Claude Code` lines to commits or PR descriptions.
+If Claude Code ignores this setting, add the local hook described in SETUP.md.
+
 ## E2E Testing
 
 ### Running Tests
@@ -185,13 +190,41 @@ You work in `integrate/my-feature` (has CLAUDE.md, agent tooling). Code commits 
    - Route to correct branch: `./scripts/git/route-commit.sh HEAD <target>`
    - Switch worktrees: `cd ../orcpub-<target>`
 
-### For Agents: Creating the PR
+### For Agents: Cherry-Pick Gotchas
 
-When ready, your `feature/my-feature` branch is already clean:
+**Cherry-pick conflict semantics are counterintuitive:**
+- `--ours` = branch you're ON (target branch HEAD)
+- `--theirs` = commit being cherry-picked (incoming changes)
+
+This is **opposite** of merge semantics!
+
+**When feature branch is messy** (many old commits, wrong files):
+Don't cherry-pick. Instead, reset to clean state and copy files:
+```bash
+git checkout feature-branch
+git reset --hard origin/develop
+git checkout integration-branch -- src/ dev/ project.clj
+git commit -m "Feature description"
+git push --force origin feature-branch
+```
+
+### For Agents: Preparing for PR
+
+PRs are **manually created by the user** as the final step. Agents should:
+
+1. **Prepare the feature branch** (clean commits, force-pushed if needed)
+2. **Provide the compare URL** for convenience
+3. **Do NOT auto-create PRs** via `gh pr create`
+
+When ready, ensure the feature branch is pushed:
 ```bash
 git checkout feature/my-feature
 git push -u origin feature/my-feature
-gh pr create --base develop
+```
+
+Then provide the user with:
+```
+PR URL when ready: https://github.com/<org>/<repo>/compare/develop...<feature-branch>
 ```
 
 ### For Agents: Pulling Updates

@@ -2,7 +2,8 @@
 
 **Date**: 2026-01-22
 **Branch**: integrate/themes-nordic
-**Status**: Git workflow docs committed & pushed; theme source code awaiting commit
+**Feature Branch**: `claude/add-color-themes-gyRhI` (configured in `.claude/branch-config`)
+**Status**: READY FOR PR - Feature branch is clean, awaiting manual PR creation
 
 ## What Was Done
 
@@ -177,17 +178,17 @@ When adding new allowed patterns AND files using those patterns:
 ### Pushed to `agents/develop`
 - `CLAUDE.md` - Added pull.sh usage section for agents
 
-## Git Status (Still Uncommitted)
+## Git Status
 
-```
- D agents.md                              # deleted (superseded)
- M src/clj/orcpub/styles/core.clj         # refactored (theme work)
- M src/cljc/orcpub/dnd/e5/views_2.cljc    # new svg-icon (theme work)
-?? src/clj/orcpub/styles/colors.clj       # new (theme work)
-?? src/clj/orcpub/styles/themes.clj       # new (theme work)
-```
+**Source code**: ✓ Committed to feature branch `claude/add-color-themes-gyRhI` (commit `14f7fe4b`)
 
-**Note**: The theme source code (`src/*`) should be committed to a feature branch per routing rules, then PR'd to `develop`.
+**Remaining uncommitted** (agent files → `agents/develop`):
+```
+ M .claude/summaries/...        # this file
+ M .integration-workflow-state  # workflow state
+ M CLAUDE.md                    # updated docs
+?? .claude/branch-config        # new
+```
 
 ## Key Gotchas Documented
 
@@ -231,9 +232,170 @@ Key improvements integrated into `pull.sh`:
 
 ## Session Continuation Notes
 
-If resuming this work:
-1. Read `.claude/branch-config` for the feature branch name (`claude/add-color-themes-gyRhI`)
-2. Theme source files need to be committed to current branch (`integrate/themes-nordic`)
-3. Then route source commits to feature branch: `./scripts/git/route-commit.sh HEAD claude/add-color-themes-gyRhI`
-4. Create PR from `claude/add-color-themes-gyRhI` to `develop`
-5. Run `lein garden once` to verify CSS compiles after any theme changes
+### CRITICAL: Feature Branch Mess - Needs Clean Reset
+
+The feature branch `claude/add-color-themes-gyRhI` has 70 commits on remote that include:
+- Testing infrastructure (e2e/, .devcontainer/) that should NOT be there
+- Old SVG iterations superseded by current work
+- Reverts and re-reverts creating noise
+
+**The integration branch `integrate/themes-nordic` is the source of truth.** It has:
+- All style refactoring (colors.clj, themes.clj, core.clj)
+- All SVG icon improvements (views.cljs with CSS mask, defensive guards)
+- css-watch profile (dev/user.clj, project.clj)
+- views_2.cljc fixes
+
+### Next Steps to Complete
+
+1. **Reset feature branch to clean state from develop**:
+   ```bash
+   git checkout claude/add-color-themes-gyRhI
+   git reset --hard origin/develop
+   ```
+
+2. **Copy src/ and dev/ files from integrate/themes-nordic**:
+   ```bash
+   git checkout integrate/themes-nordic -- src/ dev/ project.clj
+   ```
+
+3. **Commit and force push**:
+   ```bash
+   git add -A
+   git commit -m "Theme system: refactored styles, SVG icons, css-watch profile"
+   git push --force origin claude/add-color-themes-gyRhI
+   ```
+
+4. **Create PR from clean feature branch to develop**
+
+### Cherry-Pick Confusion - Lessons Learned
+
+**Problem**: Tried to cherry-pick style refactor commit to feature branch, but:
+- Feature branch was 70 commits behind with conflicting changes
+- Cherry-pick `--theirs` vs `--ours` is counterintuitive (theirs = incoming commit)
+- The commit only had style files, not views.cljs SVG improvements
+
+**Solution**: Don't cherry-pick to a messy branch. Reset to clean state and copy files.
+
+### Git Semantics Reminder
+
+In **cherry-pick** conflicts:
+- `--ours` = branch you're ON (target branch HEAD)
+- `--theirs` = commit being cherry-picked (the incoming changes)
+
+This is opposite of merge semantics where "ours" is your branch and "theirs" is the branch being merged.
+
+### Branch Configuration
+
+Created `.claude/branch-config` to tell agents where to route source code:
+```
+FEATURE_BRANCH=claude/add-color-themes-gyRhI
+INTEGRATION_BRANCH=integrate/themes-nordic
+```
+
+Agents should read this on session start. If missing, ask the user.
+
+### Files in integrate/themes-nordic (source of truth)
+
+All files changed from develop (copy these to feature branch):
+```
+dev/user.clj                           # css-watch auto-start
+project.clj                            # :css-watch profile
+src/clj/orcpub/styles/colors.clj       # Nord palette + app colors (NEW)
+src/clj/orcpub/styles/core.clj         # Base styles (refactored)
+src/clj/orcpub/styles/themes.clj       # 5 theme definitions (NEW)
+src/cljc/orcpub/dnd/e5/views_2.cljc    # Pure svg-icon for server-rendered
+src/cljs/orcpub/character_builder.cljs # Theme display names
+src/cljs/orcpub/dnd/e5/db.cljs         # Theme schema (6 themes)
+src/cljs/orcpub/dnd/e5/events.cljs     # Theme cycle (6 themes)
+src/cljs/orcpub/dnd/e5/views.cljs      # CSS mask svg-icon with guards
+```
+
+**To copy all at once:**
+```bash
+git checkout integrate/themes-nordic -- src/ dev/ project.clj
+```
+
+### Uncommitted in integrate/themes-nordic
+
+After feature branch cleanup, remaining uncommitted files are **agent/doc files only**:
+
+```
+ M .claude/summaries/...        # this file
+ M .integration-workflow-state  # workflow state
+ M CLAUDE.md                    # branch-config docs, workflow clarifications
+?? .claude/branch-config        # new - feature branch config for agents
+```
+
+**Destination**: `agents/develop` (via worktree at `/workspaces/orcpub-agents/`)
+
+**Source code** (`src/*`, `dev/*`, `project.clj`) is now on the feature branch `claude/add-color-themes-gyRhI`.
+
+## Latest Session Update (Post-Compaction)
+
+### What Was Attempted
+
+1. **Cherry-pick attempt**: Tried to cherry-pick commit 67b41030 (style refactor) to feature branch
+   - Failed because feature branch was 70 commits behind with conflicts
+   - Resolved conflict with `--theirs` (kept refactored version)
+   - Push rejected due to divergent history
+
+2. **Discovery**: The cherry-picked commit only contained style files, NOT:
+   - `views.cljs` SVG improvements (CSS mask system with defensive guards)
+   - `dev/user.clj` css-watch auto-start
+   - `project.clj` css-watch profile
+   - Other CLJS files with theme support
+
+3. **Decision**: User chose "cleanest solution" - reset feature branch and copy files
+
+### SVG Icon Implementation (Important Context)
+
+The improved SVG system in `views.cljs` on `integrate/themes-nordic`:
+
+```clojure
+(defn svg-icon [icon-name & [size theme-override]]
+  ;; DEFENSIVE GUARD: Return nil if icon-name is invalid
+  (when-let [icon-str (normalize-icon-name icon-name)]
+    (let [theme-value (if (should-use-theme-override? theme-override)
+                        theme-override
+                        @(subscribe [:theme]))
+          theme (str (or theme-value "dark-theme"))
+          size (or size 32)
+          icon-url (str "/image/" icon-str ".svg")]
+      [:div.main-text-color.svg-icon-wrapper
+       {:class-name (wrapper-theme-class theme)
+        :style {:height (str size "px")
+                :width (str size "px")
+                :-webkit-mask-image (str "url(" icon-url ")")
+                :mask-image (str "url(" icon-url ")")}}
+       [:img.svg-icon
+        {:src icon-url :alt "" :aria-hidden true
+         :style {:visibility "hidden" :position "absolute"}}]])))
+```
+
+Key features:
+- Defensive nil guard via `when-let` + `normalize-icon-name`
+- Theme override support (explicit theme or empty string for subscription)
+- CSS mask technique for theme-aware coloring
+
+### Feature Branch Clean-Up ✓ COMPLETED
+
+The following tasks were completed:
+1. ✓ Reset `claude/add-color-themes-gyRhI` to `origin/develop`
+2. ✓ Copy src/, dev/, project.clj from `integrate/themes-nordic`
+3. ✓ Commit and force push (commit `14f7fe4b`)
+4. ⏳ PR creation - **manual step, end of workflow**
+
+**Feature branch is now clean**: Single commit on top of develop with all theme work.
+
+**PR URL when ready**: https://github.com/codeGlaze/orcpub/compare/develop...claude/add-color-themes-gyRhI
+
+### Workflow Lesson: PRs Are Manual
+
+**Important**: PRs are the **last step** in the development workflow and are created **manually** by the user, not automated by agents.
+
+Agents should:
+- Prepare the feature branch (clean commits, pushed to origin)
+- Provide the compare URL for convenience
+- **NOT** automatically create PRs via `gh pr create`
+
+This ensures the user reviews what's going into develop before the PR is opened.
