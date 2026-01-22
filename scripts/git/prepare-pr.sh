@@ -16,6 +16,7 @@
 #   ./scripts/git/prepare-pr.sh                          # Uses current branch
 #   ./scripts/git/prepare-pr.sh feature/my-feature       # Specific source
 #   ./scripts/git/prepare-pr.sh feature/old pr/my-feature # Custom target name
+#   ./scripts/git/prepare-pr.sh --strip-only             # Just remove agent files from current branch
 #
 
 set -e
@@ -73,6 +74,7 @@ AGENT_DIRS=(
 show_usage() {
     cat << 'EOF'
 Usage: prepare-pr.sh [source-branch] [new-branch-name]
+       prepare-pr.sh --strip-only
 
 Prepare a feature branch for PR to develop by removing agent files.
 
@@ -80,8 +82,12 @@ ARGUMENTS:
     source-branch     Branch to prepare (default: current branch)
     new-branch-name   Name for the clean branch (default: pr/<source-branch-name>)
 
+OPTIONS:
+    --strip-only      Just remove agent files from the current branch (no cherry-pick)
+    -h, --help        Show this help message
+
 EXAMPLES:
-    # Prepare current branch
+    # Prepare current branch (full workflow)
     ./scripts/git/prepare-pr.sh
 
     # Prepare specific branch
@@ -90,12 +96,20 @@ EXAMPLES:
     # Prepare with custom target name
     ./scripts/git/prepare-pr.sh feature/add-themes pr/themes-clean
 
-WHAT THIS DOES:
+    # Quick strip: just remove agent files from current branch
+    ./scripts/git/prepare-pr.sh --strip-only
+
+WHAT THIS DOES (full workflow):
     1. Fetches latest develop
     2. Creates a new branch from develop
     3. Cherry-picks non-agent commits from your feature branch
     4. Removes any agent files that slipped through
     5. Creates a final "clean" commit if needed
+
+WHAT --strip-only DOES:
+    1. Removes agent files from current branch
+    2. Creates a cleanup commit if any files were removed
+    (Does NOT create a new branch or cherry-pick)
 
 AGENT FILES REMOVED:
     - CLAUDE.md, AGENTS.md, agents.md
@@ -178,7 +192,74 @@ remove_agent_files() {
     echo "$removed"
 }
 
+# Strip-only mode: just remove agent files from current branch
+strip_only() {
+    print_header "Stripping Agent Files"
+
+    local current_branch
+    current_branch=$(git branch --show-current)
+
+    echo ""
+    print_info "Branch: $current_branch"
+    echo ""
+
+    # Ensure we're in the repo root
+    cd "$REPO_ROOT"
+
+    # Check for uncommitted changes
+    if ! git diff-index --quiet HEAD -- 2>/dev/null; then
+        print_error "You have uncommitted changes. Please commit or stash them first."
+        exit 1
+    fi
+
+    # Remove agent files
+    local removed
+    removed=$(remove_agent_files)
+
+    if [ "$removed" -gt 0 ]; then
+        # Check if there are changes to commit
+        if ! git diff-index --quiet HEAD -- 2>/dev/null || [ -n "$(git ls-files --deleted)" ]; then
+            git add -A
+            git commit -m "chore: remove agent files for PR
+
+Removed agent-specific files that were inherited from agents/develop.
+These files are not needed in the main codebase.
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+            print_success "Created cleanup commit"
+        fi
+    else
+        print_info "No agent files found to remove"
+    fi
+
+    # Summary
+    print_header "Summary"
+
+    echo ""
+    echo "  Agent files removed: $removed"
+    echo "  Branch: $current_branch"
+    echo ""
+
+    if [ "$removed" -gt 0 ]; then
+        print_success "Agent files stripped!"
+        echo ""
+        echo "Next steps:"
+        echo ""
+        echo "  1. Push the branch:"
+        echo -e "     ${GREEN}git push origin $current_branch${NC}"
+        echo ""
+    else
+        print_info "Branch was already clean"
+    fi
+}
+
 main() {
+    # Handle --strip-only flag
+    if [ "${1:-}" = "--strip-only" ]; then
+        strip_only
+        exit 0
+    fi
+
     # Parse arguments
     local source_branch="${1:-$(git branch --show-current)}"
     local target_branch="${2:-pr/${source_branch#*/}}"
