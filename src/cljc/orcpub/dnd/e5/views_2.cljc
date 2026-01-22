@@ -11,9 +11,62 @@
               (str (name k) ": " (if (keyword? v) (name v) v)))
             style))))
 
-(defn svg-icon-2 [icon-name & [theme]]
-  [:img.svg-icon
-   {:src (str "/image/" icon-name ".svg")}])
+;; ========================================================================
+;; Pure svg-icon component (no re-frame dependencies)
+;; Mirrors the CLJS svg-icon but works in both CLJ and CLJS contexts.
+;; Uses CSS mask technique for theme-aware icon coloring.
+;; ========================================================================
+
+(defn normalize-icon-name
+  "Normalizes icon-name to a non-empty string, or returns nil."
+  [icon-name]
+  (when icon-name
+    (let [converted (if (keyword? icon-name)
+                      (name icon-name)
+                      (str icon-name))]
+      (when (seq converted)
+        converted))))
+
+(defn light-theme?
+  "Detects if a theme string represents a light theme."
+  [theme-str]
+  (and theme-str
+       (or (= "light-theme" theme-str)
+           (s/includes? (str theme-str) "light"))))
+
+(defn wrapper-theme-class
+  "Returns the appropriate theme class for the icon wrapper."
+  [theme-str]
+  (if (light-theme? theme-str)
+    "svg-icon-light"
+    "svg-icon-dark"))
+
+(defn svg-icon
+  "Pure svg-icon component that works in both CLJ and CLJS.
+   Uses CSS mask technique for theme-aware coloring.
+
+   Arguments:
+   - icon-name: string or keyword name of the icon (required)
+   - size: pixel size (default 32)
+   - theme: theme string for color selection (default \"dark-theme\")"
+  [icon-name & [size theme]]
+  (when-let [icon-str (normalize-icon-name icon-name)]
+    (let [size (or size 32)
+          theme (or theme "dark-theme")
+          icon-url (str "/image/" icon-str ".svg")]
+      [:div.main-text-color.svg-icon-wrapper
+       {:class (wrapper-theme-class theme)
+        :style (style {:height (str size "px")
+                       :width (str size "px")
+                       :-webkit-mask-image (str "url(" icon-url ")")
+                       :mask-image (str "url(" icon-url ")")})}
+       ;; Hidden img for fallback (visible in .no-mask-support)
+       [:img.svg-icon
+        {:src icon-url
+         :alt ""
+         :aria-hidden true
+         :style (style {:visibility "hidden"
+                        :position "absolute"})}]])))
 
 (defn splash-page-button [title icon route & [handler]]
   [:a.splash-button
@@ -33,7 +86,7 @@
                     :justify-content :space-around
                     :font-weight :bold})}
     [:div
-     (svg-icon-2 icon 64 "dark")
+     (svg-icon icon 64 "dark-theme")
      [:div
       [:span.splash-button-title-prefix "D&D 5e "] [:span title]]]]])
 

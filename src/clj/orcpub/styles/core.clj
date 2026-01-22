@@ -1,13 +1,17 @@
+;; version: 0.1.01
 (ns orcpub.styles.core
      (:require [garden.stylesheet :refer [at-media at-keyframes]]
                [garden.units :refer [px]]
                [orcpub.constants :as const]
-               [garden.selectors :as s]))
+               [garden.selectors :as s]
+               [orcpub.styles.colors :as colors]
+               [orcpub.styles.themes :as themes]))
 
-(def orange "#f0a100")
-(def button-color orange)
-(def red "#9a031e")
-(def green "#70a800")
+;; Colors are defined in orcpub.styles.colors
+(def orange colors/orange)
+(def button-color colors/button-color)
+(def red colors/red)
+(def green colors/green)
 
 (def container-style
   {:display :flex
@@ -318,9 +322,113 @@
     {:position :fixed}]
    [:.main-text-color
     {:color :white
-     :fill :white}]
+     :fill :white}
+
+    [:svg
+     {:fill "currentColor"
+      :color "inherit"}]
+
+    [:path
+     {:fill "currentColor"
+      :color "inherit"}]]
+
    [:.stroke-color
-    {:stroke :white}]
+    {:stroke :white}
+
+    [:svg
+     {:stroke "currentColor"
+      :color "inherit"}]
+
+    [:path
+     {:stroke "currentColor"
+      :color "inherit"}]]
+
+   [:svg
+    {:fill "currentColor"
+     :color "inherit"}]
+
+   ;; ========================================================================
+   ;; SVG Icon Theming - CSS Mask Approach
+   ;; ========================================================================
+   ;;
+   ;; GOAL: Enable true color control of SVG icons (not just black/white)
+   ;; so we can use Aurora palette colors for different icon types/themes.
+   ;;
+   ;; APPROACH: CSS mask-image with currentColor
+   ;; - SVG file becomes a "stencil" that clips the background-color
+   ;; - background-color: currentColor inherits from .main-text-color
+   ;; - Themes can override colors: .nord-theme .icon { color: #88C0D0; }
+   ;; - Safe: No HTML injection, works with external SVG files
+   ;;
+   ;; ALTERNATIVES CONSIDERED:
+   ;; 1. <use href="icon.svg#id"> - Would work for individual SVGs and give
+   ;;    true CSS control, but decided to try CSS mask first as it requires
+   ;;    less restructuring of existing icon files. May revisit if mask has
+   ;;    browser compatibility issues.
+   ;; 2. dangerouslySetInnerHTML - Rejected for security reasons
+   ;; 3. CSS filters - Limited to visual transformations, no true color control
+   ;;
+   ;; BROWSER SUPPORT:
+   ;; - Modern browsers: mask-image
+   ;; - Safari: -webkit-mask-image
+   ;; - Fallback: CSS filter (defined below)
+   ;; ========================================================================
+
+   ;; Container wraps the icon and provides the colored background
+   [:.svg-icon-wrapper
+    {:display :inline-block
+     :vertical-align :middle
+     :position :relative
+     ;; Use currentColor so icons inherit theme colors from .main-text-color
+     :background-color "currentColor"
+     :-webkit-mask-size :contain
+     :mask-size :contain
+     :-webkit-mask-repeat :no-repeat
+     :mask-repeat :no-repeat
+     :-webkit-mask-position :center
+     :mask-position :center}]
+
+   ;; The img provides the mask shape via its src
+   [:.svg-icon
+    {:display :block
+     :width "100%"
+     :height "100%"
+     ;; Make the img invisible, we only need it for the mask
+     :visibility :hidden}]
+
+   ;; Theme-specific wrapper classes for explicit icon color control
+   ;; These work with .main-text-color to ensure proper contrast
+   [:.svg-icon-dark
+    {:color :white}]
+
+   [:.svg-icon-light
+    {:color "#191919"}]
+
+   ;; Apply mask from parent img to wrapper
+   ;; Note: This requires setting mask-image via inline style with url(src)
+   ;; which we'll do in the ClojureScript component
+
+   ;; Fallback for browsers that don't support CSS mask
+   ;; Uses filter-based approach (less flexible but works everywhere)
+   [:.no-mask-support
+    [:.svg-icon
+     {:background-color :transparent
+      :-webkit-mask-image :none
+      :mask-image :none}
+
+     [:img
+      {:opacity 1
+       :position :static}]]
+
+    ;; Match class names used by the component: svg-icon-dark / svg-icon-light
+    [:.svg-icon-dark
+     [:img
+      {:filter :none}]]
+
+    [:.svg-icon-light
+     [:img
+      {:filter "invert(1) brightness(0) contrast(100)"}]]]
+
    [:.white
     {:color :white}]
    [:.black
@@ -927,7 +1035,16 @@
       :background-image "url(/../../image/header-background.jpg)"
       :background-position "right center"
       :background-size "cover"
-      :height (px const/header-height)}]
+      :height (px const/header-height)
+      ;; Default header icon color (themes can override via --header-icon-color)
+      :--header-icon-color :white}
+
+     ;; Header icons use CSS variable for theme-aware coloring
+     ;; Background stays dark across themes, so icons should always be light
+     ;; but can use theme-appropriate light colors (e.g., nord6 for nord themes)
+     [:.svg-icon-wrapper
+      {:filter "drop-shadow(1px 1px 2px rgba(0,0,0,0.8))"
+       :color "var(--header-icon-color, white)"}]]
 
     [:.header-tab
      {:background-color "rgba(0, 0, 0, 0.5)"
@@ -1217,80 +1334,11 @@
       :justify-content :space-between
       :align-items :center}]
 
-    [:.app.light-theme
-     {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
-
-     [:select
-      {:font-family font-family
-       :color "black";
-       :background-color :transparent}]
-
-     [:.item-list
-      {:border-top "1px solid rgba(0,0,0,0.5)"}]
-
-     [:.link-button
-      {:color "#363636"}]
-
-     [:.item-list-item
-      {:border-bottom "1px solid rgba(0,0,0,0.5)"}]
-
-     [:.main-text-color
-      {:color "#363636"
-       :fill "#363636"}]
-     [:.stroke-color
-      {:stroke "#363636"}]
-
-     [:.input
-      {:background-color :transparent
-       :color :black
-       :border "1px solid #282828"
-       :border-radius "5px"
-       :margin-top "5px"
-       :display :block
-       :padding "10px"
-       :width "100%"
-       :box-sizing :border-box
-       :font-size "14px"}]
-
-     [:.form-button
-      {:background-image "linear-gradient(to bottom, #33658A, #33658A)"}]
-
-     [:.orange
-      {:color "rgba(0,0,0,0.8)"}]
-
-     [:.b-orange
-      {:border-color "rgba(0,0,0,0.6)"}]
-
-     [:.text-shadow
-      {:text-shadow :none}]
-
-     [:.bg-light
-      {:background-color "rgba(0,0,0,0.4)"}]
-     [:.bg-lighter
-      {:background-color "rgba(0,0,0,0.15)"}]
-
-     [:.b-color-gray
-      {:border-color "rgba(0,0,0,0.3)"}]
-
-     [:.builder-option-dropdown
-      (merge
-       {:border "1px solid #282828"
-        :color "#282828"})
-
-      [:&:active :&:focus
-       {:outline :none}]]
-
-     [:.builder-dropdown-item
-      {:background-color :white
-       :color "#282828"}]
-
-     [:.sticky-header
-      {:background-color :white}]
-
-     [:table.striped
-      [:tr
-       [(s/& (s/nth-child :even))
-        {:background-color "rgba(0, 0, 0, 0.1)"}]]]]
+    ;; ==========================================================================
+    ;; Theme definitions are in orcpub.styles.themes
+    ;; Available themes: light-theme, nord-theme, nord-light-theme,
+    ;;                   nord-theme-elevated, nord-light-theme-elevated
+    ;; ==========================================================================
 
     ;;;; "Modal" styles
     [:.modal-container
@@ -1334,7 +1382,8 @@
    widths
    font-sizes
    props
-   media-queries) ;concat
+   media-queries
+   themes/all-themes) ;concat
 );def app
 
 

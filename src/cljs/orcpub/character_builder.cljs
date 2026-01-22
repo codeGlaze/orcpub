@@ -1,3 +1,4 @@
+;; version: 0.1.01
 (ns orcpub.character-builder
   (:require [goog.dom :as gdom]
             [goog.string :as gs]
@@ -1395,7 +1396,7 @@
         :body (hit-points-entry character selections built-template)}])))
 
 (defn info-block [text]
-  [:div.bg-light.b-rad-5.p-10.f-w-b.m-l-5.m-r-5.m-b-5.white
+  [:div.bg-light.b-rad-5.p-10.f-w-b.m-l-5.m-r-5.m-b-5.main-text-color
    text])
 
 (defn known-mode-info []
@@ -1984,12 +1985,24 @@
 (defn toggle-theme []
   (dispatch [:toggle-theme]))
 
+(defn theme-display-name [theme]
+  (case theme
+    "dark-theme" "Dark"
+    "light-theme" "Light"
+    "nord-theme" "Nord"
+    "nord-light-theme" "Nord Light"
+    "nord-theme-elevated" "Nord+"
+    "nord-light-theme-elevated" "Nord Light+"
+    "Dark"))
+
 (defn theme-toggle []
   (let [theme @(subscribe [:theme])]
-    [:div.pointer
-     {:on-click toggle-theme}
-     [:span.m-r-5 (comps/checkbox (= "light-theme" theme) false)]
-     [:span.main-text-color "Light Theme"]]))
+    [:div.pointer.flex.align-items-c
+     {:on-click toggle-theme
+      :style {:white-space "nowrap"
+              :flex-shrink 0}}
+     [:span.main-text-color.m-r-5 "Theme:"]
+     [:span.main-text-color.f-w-bold (theme-display-name theme)]]))
 
 (defn set-loading []
   (dispatch-sync [:set-loading true]))

@@ -166,6 +166,8 @@
              ;; increase this to wait longer before timing out.
              ;; Defaults to 30000 (30 seconds)
                  :timeout 300000 ; 5 mins to wait
+                 :port 7888      ; Fixed port for MCP/tooling integration
+                 :host "0.0.0.0" ; Allow connections from MCP servers
                  }
 
   ;; setting up nREPL for Figwheel and ClojureScript dev
@@ -245,4 +247,7 @@
                                                   :shadowed-var {:level :off}}}}
              ;; Use like: lein with-profile +start-server repl
              :start-server {:repl-options {:init-ns user
-                                           :init    (start-server)}}})
+                                           :init    (start-server)}}
+             ;; Use like: lein with-profile +start-server,+css-watch repl
+             ;; Starts garden auto in background for CSS hot-reload
+             :css-watch {:env {:css-watch "true"}}})

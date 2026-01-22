@@ -260,7 +260,7 @@
 (spec/def ::username string?)
 (spec/def ::email string?)
 (spec/def ::token string?)
-(spec/def ::theme string?)
+(spec/def ::theme #{"light-theme" "dark-theme" "nord-theme" "nord-light-theme" "nord-theme-elevated" "nord-light-theme-elevated"})
 (spec/def ::user-data (spec/keys :req-un [::username ::email]))
 (spec/def ::user (spec/keys :opt-un [::user-data ::token ::theme]))
 

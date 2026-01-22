@@ -2208,15 +2208,17 @@
      ::char-equip5e/name]
     value)))
 
+(def theme-cycle ["dark-theme" "light-theme" "nord-theme" "nord-light-theme" "nord-theme-elevated" "nord-light-theme-elevated"])
+
 (reg-event-db
  :toggle-theme
  [user->local-store-interceptor]
  (fn [db _]
    (update-in db [:user-data :theme]
               (fn [theme]
-                (if (= theme "light-theme")
-                  "dark-theme"
-                  "light-theme")))))
+                (let [current-idx (.indexOf theme-cycle (or theme "dark-theme"))
+                      next-idx (mod (inc current-idx) (count theme-cycle))]
+                  (nth theme-cycle next-idx))))))
 
 (reg-event-db
  ::mi/set-builder-item

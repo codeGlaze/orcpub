@@ -1,6 +1,8 @@
 (ns user
   (:require [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
             [com.stuartsierra.component :as component]
+            [environ.core :refer [env]]
             [figwheel-sidecar.repl-api :as f]
             [datomic.api :as datomic]
             [orcpub.routes :as r]
@@ -87,10 +89,36 @@
     (component/stop s)
     (reset! -server nil)))
 
+(defonce ^:private css-watch-process (atom nil))
+
+(defn start-css-watch
+  "Start garden auto-compile in background for CSS hot-reload.
+   Spawns a detached process. Call stop-css-watch to stop it."
+  []
+  (when-not @css-watch-process
+    (println "Starting garden auto for CSS watching...")
+    (let [proc (-> (ProcessBuilder. ["lein" "garden" "auto"])
+                   (.directory (io/file (System/getProperty "user.dir")))
+                   (.redirectOutput java.lang.ProcessBuilder$Redirect/INHERIT)
+                   (.redirectError java.lang.ProcessBuilder$Redirect/INHERIT)
+                   (.start))]
+      (reset! css-watch-process proc)
+      proc)))
+
+(defn stop-css-watch
+  "Stop the garden auto process if running."
+  []
+  (when-let [proc @css-watch-process]
+    (println "Stopping garden auto...")
+    (.destroy proc)
+    (reset! css-watch-process nil)))
+
 (defn start-server
   []
   ; restart
   (stop-server)
+  (when (env :css-watch)
+    (start-css-watch))
   (reset! -server (component/start (s/system :dev))))
 
 (defn verify-new-user

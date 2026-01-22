@@ -1,3 +1,4 @@
+;; version: 0.1.01
 (ns orcpub.dnd.e5.views
   (:require [re-frame.core :refer [subscribe dispatch dispatch-sync]]
             [reagent.core :as r]
@@ -131,15 +132,120 @@
    [:input {:type "hidden" :name "body" :id "fields-input"}]])
 
 
+;; ========================================================================
+;; SVG Icon Component - CSS Mask Approach
+;; ========================================================================
+;; Wraps SVG icons in a container that uses CSS mask-image for true color
+;; control. The SVG file becomes a "stencil" and currentColor provides the
+;; fill color, allowing per-theme and per-icon-type coloring.
+;;
+;; STRUCTURE:
+;; - Wrapper div with .main-text-color class (provides currentColor)
+;; - Inner div with mask-image set to the SVG url
+;; - Hidden img element (for fallback in browsers without mask support)
+;;
+;; FALLBACK:
+;; - Browsers with .no-mask-support class use CSS filter on img
+;; - Detect with: @supports not (mask-image: url())
+;;
+;; DEFENSIVE PROGRAMMING:
+;; This function includes extensive nil/empty guards to prevent crashes.
+;; Common failure modes addressed:
+;; 1. icon-name is nil → returns nil (React handles gracefully)
+;; 2. icon-name is "" → returns nil (no broken image)
+;; 3. icon-name is keyword → converts to string (:foo → "foo")
+;; 4. theme subscription is nil → defaults to "dark-theme"
+;; 5. theme-override is "" → treated as "no override" (uses subscription)
+;;
+;; USAGE:
+;; (svg-icon "bookshelf" 32)              ; string icon name
+;; (svg-icon :bookshelf 32)               ; keyword icon name (converted)
+;; (svg-icon nil)                         ; returns nil (safe)
+;; (svg-icon "" 32)                       ; returns nil (safe)
+;; (svg-icon "book" 48 "nord-theme")      ; override theme
+;; (svg-icon "book" 48 "")                ; empty override = use subscription
+;;
+;; PERFORMANCE NOTE:
+;; Each call creates a theme subscription. For hot paths (lists with many
+;; icons), consider passing theme from parent to avoid subscription overhead:
+;;   (let [theme @(subscribe [:theme])]
+;;     (for [icon icons]
+;;       (svg-icon icon 32 theme)))
+;;
+;; ACCESSIBILITY:
+;; Icons are marked as decorative (aria-hidden) since they're supplementary
+;; to text labels in the UI. If an icon conveys unique meaning, add :role
+;; "img" and meaningful :alt text at the call site.
+;;
+;; CODE REVIEW FEEDBACK INCORPORATED:
+;; - Guard empty strings with (seq ...) not just nil check ✅
+;; - Handle keywords (common in CLJS) with (name ...) ✅
+;; - Treat empty theme-override "" as "no override" ✅
+;; - Add aria-hidden for decorative icons ✅
+;; - Document performance implications ✅
+;; - Use s/includes? (already aliased in ns) ✅
+;; - Return nil early if invalid input (no exception throwing) ✅
+;; ========================================================================
+
+;; Pure helper functions for svg-icon (extracted for unit testing)
+
+(defn normalize-icon-name
+  "Normalizes icon-name to a non-empty string, or returns nil.
+  Handles nil, keywords, and empty strings."
+  [icon-name]
+  (when icon-name
+    (let [converted (if (keyword? icon-name)
+                      (name icon-name)
+                      (str icon-name))]
+      (when (seq converted)
+        converted))))
+
+(defn should-use-theme-override?
+  "Returns true if theme-override should be used, false if subscription should be used.
+  Empty strings are treated as 'no override' to match subscription behavior."
+  [theme-override]
+  (and theme-override (seq (str theme-override))))
+
+(defn light-theme?
+  "Detects if a theme string represents a light theme."
+  [theme-str]
+  (or (= "light-theme" theme-str)
+      (s/includes? theme-str "light")))
+
+(defn wrapper-theme-class
+  "Returns the appropriate theme class for the icon wrapper."
+  [theme-str]
+  (if (light-theme? theme-str)
+    "svg-icon-light"
+    "svg-icon-dark"))
+
 (defn svg-icon [icon-name & [size theme-override]]
-  (let [theme (or theme-override @(subscribe [:theme]))
-        light-theme? (= "light-theme" theme)
-        size (or size 32)]
-    [:img.svg-icon
-     {:style {:height (str size "px")
-              :width (str size "px")}
-      :class-name (if light-theme? " opacity-7")
-      :src (str (if light-theme? "/image/black/" "/image/") icon-name ".svg")}]))
+  ;; DEFENSIVE GUARD: Return nil if icon-name is invalid
+  (when-let [icon-str (normalize-icon-name icon-name)]
+    (let [;; THEME HANDLING: Treat empty string as "no override"
+          theme-value (if (should-use-theme-override? theme-override)
+                        theme-override
+                        @(subscribe [:theme]))
+          ;; DEFENSIVE: Coerce to string and provide fallback
+          theme (str (or theme-value "dark-theme"))
+          size (or size 32)
+          icon-url (str "/image/" icon-str ".svg")]
+      [:div.main-text-color.svg-icon-wrapper
+       {:class-name (wrapper-theme-class theme)
+        :style {:height (str size "px")
+                :width (str size "px")
+                ;; Set mask-image inline since it needs the dynamic URL
+                :-webkit-mask-image (str "url(" icon-url ")")
+                :mask-image (str "url(" icon-url ")")}}
+       ;; Hidden img for fallback (visible in .no-mask-support)
+       ;; Visually hidden but keeps src for potential fallback detection
+       [:img.svg-icon
+        {:src icon-url
+         :alt ""
+         :aria-hidden true
+         :style {:visibility "hidden"
+                 :position "absolute"}}]])))
+
 
 (def login-style
   {:color "#f0a100"})
@@ -353,7 +459,7 @@
   (let [device-type @(subscribe [:device-type])
         mobile? (= :mobile device-type)
         active-route @(subscribe [:route])]
-      [:div#app-header.app-header.flex.flex-column.justify-cont-s-b.white
+      [:div#app-header.app-header.flex.flex-column.justify-cont-s-b.main-text-color
        [:div.app-header-bar.container
         [:div.content
          [:div.flex.align-items-c.h-100-p
@@ -964,7 +1070,7 @@
      (if @(subscribe [::char/options-shown?])
        [:div.bg-light.m-b-10 @(subscribe [::char/options-component])])
      (if @(subscribe [:message-shown?])
-       [:div.p-b-10.p-r-10.p-l-10.white
+       [:div.p-b-10.p-r-10.p-l-10.main-text-color
         [message
          @(subscribe [:message-type])
          @(subscribe [:message])
@@ -1011,7 +1117,7 @@
        ])))
 
 (defn dice-roll-result [{:keys [total rolls mod raw-mod plus-minus]}]
-  [:div.white.f-s-32.flex.align-items-c
+  [:div.main-text-color.f-s-32.flex.align-items-c
    (svg-icon "rolling-dices" 36 "")
    [:div.m-l-10
     [:span.f-w-b total]
@@ -1102,19 +1208,19 @@
    [:div [item-details item single-column?]]])
 
 (defn magic-item-result [item]
-  [:div.white
+  [:div.main-text-color
    [:div.flex
     (svg-icon "orb-wand" 36 "")
     [item-component item]]])
 
 (defn name-result [{:keys [sex race subrace] :as result}]
-  [:div.white
+  [:div.main-text-color
    [:span.f-s-24.f-w-b (:name result)]
    [:div
     [:span.f-s-14.opacity-5.i (s/join " " (map (fn [k] (if k (name k))) [sex race subrace]))]]])
 
 (defn tavern-name-result [name]
-  [:span.f-s-24.f-w-b.white name])
+  [:span.f-s-24.f-w-b.main-text-color name])
 
 (defn spell-summary [name level school ritual include-name? & [subheader-size]]
   [:div.p-b-20
@@ -1150,13 +1256,13 @@
        #_[:span (str "(" (disp/source-description source page) " for more details)")]])]])
 
 (defn spell-result [spell]
-  [:div.white
+  [:div.main-text-color
    [:div.flex
     (svg-icon "spell-book" 36 "")
     [spell-component spell true]]])
 
 (defn spell-results [results]
-  [:div.white
+  [:div.main-text-color
    [:div.flex
     (svg-icon "spell-book" 36 36)
     [:div.m-l-10
@@ -1177,7 +1283,7 @@
    [:div.f-s-14.i.opacity-5 (monsters/monster-subheader size type subtypes alignment)]])
 
 (defn monster-results [results]
-  [:div.white
+  [:div.main-text-color
    [:div.flex
     (svg-icon "hydra" 36 "")
     [:div.m-l-10
@@ -1295,7 +1401,7 @@
        [:div.m-t-10 (str description)])]))
 
 (defn monster-result [monster]
-  [:div.white
+  [:div.main-text-color
    [:div.flex
     (svg-icon "hydra" 36 "")
     [monster-component monster]]])
@@ -1360,7 +1466,7 @@
 
 (defn orcacle []
   (let [search-text @(subscribe [:search-text])]
-    [:div.flex.flex-column.h-100-p.white
+    [:div.flex.flex-column.h-100-p.main-text-color
      {:style oracle-frame-style}
      [:i.fa.fa-times-circle.f-s-24.orange.pointer
       {:on-click close-orcacle
@@ -7217,7 +7323,8 @@
 (defn my-content-type []
   (let [expanded? (r/atom false)]
     (fn [source-name plugin type-name type-key icon add-event edit-event delete-event plural]
-      (let [items (sort (type-key plugin))]
+      (let [items (sort (type-key plugin))
+            theme @(subscribe [:theme])]
         [:div.pointer.item-list-item
          [:div.flex.justify-cont-s-b.align-items-c.p-10
           {:on-click #(swap! expanded? not)}
@@ -7228,9 +7335,9 @@
                (map-indexed
                 (fn [index ico]
                   ^{:key index}
-                  [svg-icon ico (/ 48 (count icon)) @(subscribe [:theme])])
+                  [svg-icon ico (/ 48 (count icon)) theme])
                 icon))
-              [svg-icon icon 48 @(subscribe [:theme])])]
+              [svg-icon icon 48 theme])]
            [:span.m-l-10.f-s-24 (let [num (count items)
                                       final-type-name (if plural
                                                         (if (not= 1 num) plural type-name)
@@ -7510,7 +7617,7 @@
                  {:confirm-button-text "DELETE ACCOUNT"
                   :question "Are you sure you want to delete your account, characters, and associated data?"
                   :event [:delete-account]}])}]
-   [:div.f-s-24.p-10.white
+   [:div.f-s-24.p-10.main-text-color
     [:div.p-5
      [:span.f-w-b "Username: "]
      [:span @(subscribe [:username])]]
@@ -7940,7 +8047,8 @@
 (defn monster-list-item [{:keys [name size type subtypes alignment key] :as monster}]
   (r/with-let [device-type? (subscribe [:device-type])]
     (let [homebrew? (:option-pack monster)
-          expanded? @(subscribe [:monster-expanded? name])]
+          expanded? @(subscribe [:monster-expanded? name])
+          theme @(subscribe [:theme])]
       [:div.main-text-color.item-list-item
        [:div.pointer
         [:div.flex.justify-cont-s-b.align-items-c
@@ -7948,7 +8056,7 @@
          [:div.m-l-10
           [:div.f-s-24.f-w-600.p-b-20.p-t-20.flex
            (when homebrew?
-             [:div.m-r-10 (svg-icon "beer-stein" 24 @(subscribe [:theme]))])
+             [:div.m-r-10 (svg-icon "beer-stein" 24 theme)])
            [monster-summary name size type subtypes alignment]]]
          [:div.orange.pointer.m-r-10
           (when (not= @device-type? :mobile)
@@ -8090,6 +8198,7 @@
 (defn spell-list-item [{:keys [name level school ritual key] :as spell}]
   (let [expanded? @(subscribe [:spell-expanded? name])
         device-type @(subscribe [:device-type])
+        theme @(subscribe [:theme])
         spell-page-path (routes/path-for routes/dnd-e5-spell-page-route :key key)
         spell-page-route (routes/match-route spell-page-path)
         homebrew? (:option-pack spell)]
@@ -8100,7 +8209,7 @@
        [:div.m-l-10
         [:div.f-s-24.f-w-600.p-t-20.flex
          (if homebrew?
-           [:div.m-r-10 (svg-icon "beer-stein" 24 @(subscribe [:theme]))])
+           [:div.m-r-10 (svg-icon "beer-stein" 24 theme)])
          [spell-summary name level school ritual true 12]]]
        [:div.orange.pointer.m-r-10
         (if (not= device-type :mobile) [:span.underline (if expanded?
@@ -8216,7 +8325,7 @@
      "Items"
      [[:button.form-button
        {:on-click (make-event-handler ::mi/new-item)}
-       [:div.flex.align-items-c.white
+       [:div.flex.align-items-c.main-text-color
         [svg-icon "beer-stein" 18 ""]
         [:span.m-l-5 "New Item"]]]]
      [:div.p-l-5.p-r-5.p-b-10
