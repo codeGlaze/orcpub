@@ -165,38 +165,18 @@ When adding new allowed patterns AND files using those patterns:
 1. Push hook update first: `git push origin <hook-commit>:<branch>`
 2. Then push remaining: `git push origin <branch>`
 
-## Git Status (Current Session - Uncommitted)
+## Git Status
 
 **Branch**: `integrate/themes-nordic`
+**Status**: Clean working directory (all previous changes committed and routed)
 
-```
-M .claude/summaries/2026-01-22-theme-integration.md  # → agents/develop
-M CLAUDE.md                                          # → agents/develop
-M src/clj/orcpub/styles/core.clj                     # → feature/themes-nordic
-M src/clj/orcpub/styles/themes.clj                   # → feature/themes-nordic
-M src/cljc/orcpub/dnd/e5/views_2.cljc                # → feature/themes-nordic
-M src/cljs/orcpub/dnd/e5/views.cljs                  # → feature/themes-nordic
-```
+### Committed Work (Sessions 1-3)
+- Source code fixes → `feature/themes-nordic` (ready for PR when complete)
+- Documentation → `agents/develop`
+- E2E artifacts gitignore → `testing/develop`
 
-### Routing Guide
-Per the dual-branch workflow:
-1. **Documentation** (*.md, .claude/*) → `agents/develop`
-2. **Source code** (src/*) → `feature/themes-nordic` (clean branch for PR)
-
-### To Commit Properly
-```bash
-# 1. Commit source code changes
-git add src/
-git commit -m "Theme fixes: header icons, flyout menus, opacity"
-
-# 2. Route to feature branch
-./scripts/git/route-commit.sh HEAD themes-nordic
-
-# 3. Commit documentation separately
-git add CLAUDE.md .claude/
-git commit -m "docs: Update theme documentation with lessons learned"
-# This stays in integrate/ branch or routes to agents/develop
-```
+### Current Session (Session 4)
+Accessibility audit and color enhancement planning - documentation only so far.
 
 ## Key Gotchas Documented
 
@@ -447,3 +427,96 @@ orange "#f0a100"  ; primary accent, button color
 red    "#9a031e"  ; errors, danger
 green  "#70a800"  ; success
 ```
+
+---
+
+## Theme Accessibility Audit (Session 4)
+
+### Contrast Ratio Analysis
+
+| Theme | Element | Foreground | Background | Ratio | WCAG |
+|-------|---------|------------|------------|-------|------|
+| Light | Text | #363636 | #FFFFFF | ~7:1 | AAA |
+| Light | Links | #363636 | #FFFFFF | ~7:1 | ⚠️ Same as text |
+| Nord Dark | Text | nord4 | nord0 | ~10:1 | AAA |
+| Nord Dark | Links | nord8 | nord0 | ~7:1 | AAA |
+| Nord Light | Text | nord0 | nord6 | ~13:1 | AAA |
+| Nord Light | Body icons | nord10 | nord6 | ~4.5:1 | AA (borderline) |
+| **Nord Light** | **Active icons** | **nord14** | **nord6** | **~3:1** | **FAIL** |
+| **Nord Light Elev.** | **Body icons** | **nord15** | **nord6** | **~3.5:1** | **FAIL** |
+| All | Header icons | nord6/white | dark bg | ~10:1+ | AAA |
+
+### Issues Identified
+
+1. **nord14 (Aurora Green) Active Icons** - Fails WCAG AA (4.5:1) on light backgrounds
+2. **nord15 (Aurora Purple) Body Icons** - Borderline fail for functional UI elements
+3. **Washed Out Aesthetic** - Nord is intentionally muted; light themes feel flat
+4. **Basic Light Theme** - Links indistinguishable from text, no personality
+
+### Design Philosophy: Bold Over Boring
+
+The Nord palette prioritizes eye comfort over visual excitement. For OrcPub's D&D character builder aesthetic, we want:
+- **Bold, distinct colors** that pop for interactive elements
+- **Maintained contrast** for accessibility (WCAG AA minimum: 4.5:1)
+- **Personality** - this is a fantasy RPG tool, not a minimalist note app
+
+### Proposed "OrcPub Bold" Color Variants
+
+These maintain Nord's hue/saturation family but are deepened for contrast:
+
+| Nord Original | Hex | Issue | OrcPub Bold | New Hex | New Contrast |
+|---------------|-----|-------|-------------|---------|--------------|
+| nord10 (frost blue) | #5E81AC | Borderline (~4.5:1) | Deep Frost | #3D6A99 | ~6:1 |
+| nord14 (green) | #A3BE8C | Fails (~3:1) | Aurora Verdant | #6B9352 | ~5:1 |
+| nord15 (purple) | #B48EAD | Fails (~3.5:1) | Aurora Amethyst | #8B5C84 | ~5:1 |
+| nord13 (yellow) | #EBCB8B | Mid-tone | Aurora Amber | #D4A84A | ~4.5:1 on dark |
+| nord11 (red) | #BF616A | Good | Keep | - | - |
+| nord12 (orange) | #D08770 | Mid-tone | Aurora Ember | #C06A50 | ~5:1 |
+
+### Implementation Strategy
+
+**Phase 1: Fix Accessibility Failures**
+1. Replace nord14 with #6B9352 (Aurora Verdant) for active icons on light themes
+2. Replace nord15 with #8B5C84 (Aurora Amethyst) for elevated light theme body icons
+3. Update nord10 to #3D6A99 (Deep Frost) for standard light theme body icons
+
+**Phase 2: Add Personality**
+1. Use app orange (#f0a100) or Aurora Amber for call-to-action buttons
+2. Add hover states with brightness/saturation boost
+3. Consider gradient accents using Frost + Aurora combinations
+
+**Phase 3: Theme-Specific Polish**
+1. Basic light theme: needs complete personality overhaul
+2. Nord light: frost blues work, fix greens/purples
+3. Nord light elevated: most sophisticated, tweak for boldness
+
+### Color Context Rules
+
+**On Dark Backgrounds (header, dark themes)**
+- Use LIGHT colors: nord6, nord4, white
+- Aurora colors work well (they were designed for dark backgrounds)
+- Mid-tones like nord13/nord12 are acceptable
+
+**On Light Backgrounds (light themes body)**
+- Use DARK/SATURATED colors: nord0, deepened Aurora variants
+- Raw Aurora colors (nord11-15) are too pale - they need darkening
+- Frost colors (nord7-10) need deepening for body use
+
+### CSS Variables for Theming
+
+Current variables (defined in core.clj, overridden per-theme):
+
+| Variable | Scope | Default | Purpose |
+|----------|-------|---------|---------|
+| `--icon-color` | `.svg-icon-*` | white/dark | Body icon default |
+| `--icon-active-color` | `.svg-icon-*` | same | Active/selected icon |
+| `--header-icon-color` | `.app-header` | white | Header icon/text |
+| `--header-active-bg` | `.header-tab` | frost cyan | Active tab background |
+
+**Proposed additions:**
+| Variable | Scope | Purpose |
+|----------|-------|---------|
+| `--accent-primary` | `.app` | Main accent (buttons, links) |
+| `--accent-success` | `.app` | Success states (green variant) |
+| `--accent-warning` | `.app` | Warning states (amber variant) |
+| `--text-muted` | `.app` | Secondary text |
