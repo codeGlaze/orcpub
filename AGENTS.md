@@ -48,13 +48,9 @@ See [SETUP.md](SETUP.md) for:
   Make scripts executable:  
   `chmod +x start.sh menu.sh`
 
-- **Port Conflicts:**
-  If a service fails to start, use the built-in kill subcommands:
-  ```bash
-  ./start.sh kill-all --yes        # Kill all OrcPub processes
-  ./start.sh kill-port 8890 --yes  # Kill specific port
-  ```
-  Or check manually with `lsof -i :8890` or `lsof -i :4334`.
+- **Port Conflicts:**  
+  If a service fails to start, check for running processes with  
+  `lsof -i :8890` or `lsof -i :4334` and kill as needed.
 
 ---
 
@@ -62,67 +58,7 @@ See [SETUP.md](SETUP.md) for:
 
 ---
 
-## 6. Process Management with start.sh
-
-The `start.sh` script includes kill/stop subcommands for cleanly stopping stray nREPL, CLJS servers, or OrcPub processes without guessing PIDs.
-
-### Available Subcommands
-
-| Command | Description |
-|---------|-------------|
-| `./start.sh` | Start Datomic, server, and REPL (default) |
-| `./start.sh kill-repl` | Kill nREPL processes (port 7888) |
-| `./start.sh kill-server` | Kill OrcPub server (port 8890) |
-| `./start.sh kill-datomic` | Kill Datomic transactor (port 4334) |
-| `./start.sh kill-port <port>` | Kill process on a specific port |
-| `./start.sh kill-name <pattern>` | Kill processes matching a pattern |
-| `./start.sh kill-all` | Kill all OrcPub-related processes |
-| `./start.sh help` | Show help message |
-
-### Options
-
-- `--yes` or `-y`: Skip the confirmation prompt
-- `--force` or `-f`: Send SIGKILL if SIGTERM doesn't stop the process
-
-### Examples
-
-```bash
-# Interactive - shows what will be killed and asks for confirmation
-./start.sh kill-repl
-
-# No prompt, use SIGTERM
-./start.sh kill-repl --yes
-
-# No prompt, escalate to SIGKILL if needed
-./start.sh kill-repl --yes --force
-
-# Kill a specific port
-./start.sh kill-port 7888 --yes
-
-# Kill by process name pattern
-./start.sh kill-name "lein run" --yes
-
-# Clean slate - kill everything OrcPub-related
-./start.sh kill-all --yes --force
-```
-
-### Environment Variables
-
-You can override the default ports:
-- `NREPL_PORT` (default: 7888)
-- `SERVER_PORT` (default: 8890)
-- `DATOMIC_PORT` (default: 4334)
-
-### How It Works
-
-1. **Process Discovery**: Uses `lsof` to find PIDs by port, with fallback to `ss`/`netstat`. Uses `pgrep` to find PIDs by name pattern, with fallback to `ps`.
-2. **Confirmation**: Shows exactly which processes will be killed (PID, user, command) and asks for confirmation (skip with `--yes`).
-3. **Graceful Termination**: Sends SIGTERM first and waits 3 seconds.
-4. **Force Kill**: If `--force` is specified and processes survive SIGTERM, escalates to SIGKILL.
-
----
-
-## 7. Documentation and Changelog Requirements
+## 6. Documentation and Changelog Requirements
 
 - **Documentation:**  
   - For every new feature, configuration, or setup change, update the relevant documentation files (such as `README.md`, `SETUP.md`, or inline code comments).
