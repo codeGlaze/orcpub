@@ -1,0 +1,9 @@
+# Branch configuration for agent workflows
+# This file tells agents where to route source code commits
+
+# Feature branch for source code PRs (src/*, *.clj, *.cljs, *.cljc)
+# This is where code changes should be committed/routed for PR to develop
+FEATURE_BRANCH=claude/add-color-themes-gyRhI
+
+# Integration branch (where agents work, has CLAUDE.md and tooling)
+INTEGRATION_BRANCH=integrate/themes-nordic

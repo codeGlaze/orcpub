@@ -2,7 +2,7 @@
 
 **Date**: 2026-01-22
 **Branch**: integrate/themes-nordic
-**Status**: Implementation complete - awaiting commit
+**Status**: Git workflow docs committed & pushed; theme source code awaiting commit
 
 ## What Was Done
 
@@ -165,18 +165,29 @@ When adding new allowed patterns AND files using those patterns:
 1. Push hook update first: `git push origin <hook-commit>:<branch>`
 2. Then push remaining: `git push origin <branch>`
 
-## Git Status (Uncommitted)
+## Commits Completed
+
+### Pushed to `testing/develop`
+- `.githooks/pre-commit` - Added `*.sh` pattern
+- `.githooks/pre-push` - Added `*.sh` pattern (must match pre-commit!)
+- `scripts/git/README.md` - Added pull.sh docs, file routing table, bash best practices
+- `scripts/git/prepare-pr.sh` - Added `--strip-only` mode
+- `pull.sh` - Improved with trap, safe parsing, local branch preference
+
+### Pushed to `agents/develop`
+- `CLAUDE.md` - Added pull.sh usage section for agents
+
+## Git Status (Still Uncommitted)
 
 ```
-D agents.md                              # deleted (superseded)
-D integration-workflow.sh                # deleted (renamed to pull.sh)
-M scripts/git/README.md                  # troubleshooting docs
-M scripts/git/prepare-pr.sh              # --strip-only feature
-M src/clj/orcpub/styles/core.clj         # refactored
-A src/clj/orcpub/styles/colors.clj       # new
-A src/clj/orcpub/styles/themes.clj       # new
-M src/cljc/orcpub/dnd/e5/views_2.cljc    # new svg-icon
+ D agents.md                              # deleted (superseded)
+ M src/clj/orcpub/styles/core.clj         # refactored (theme work)
+ M src/cljc/orcpub/dnd/e5/views_2.cljc    # new svg-icon (theme work)
+?? src/clj/orcpub/styles/colors.clj       # new (theme work)
+?? src/clj/orcpub/styles/themes.clj       # new (theme work)
 ```
+
+**Note**: The theme source code (`src/*`) should be committed to a feature branch per routing rules, then PR'd to `develop`.
 
 ## Key Gotchas Documented
 
@@ -207,3 +218,22 @@ orange "#f0a100"  ; primary accent, button color
 red    "#9a031e"  ; errors, danger
 green  "#70a800"  ; success
 ```
+
+## Pull.sh Improvements Made
+
+Key improvements integrated into `pull.sh`:
+
+1. **Reliable state persistence** - `trap save_state EXIT` ensures state is saved on any exit
+2. **Safe config parsing** - No `source` for security; parses key=value manually
+3. **Clean worktree check** - `ensure_clean_worktree()` prevents dirty-state operations
+4. **Local branch preference** - Merges local branch if exists (preserves unpushed commits)
+5. **Explicit conflict detection** - Clear messages when merge conflicts occur
+
+## Session Continuation Notes
+
+If resuming this work:
+1. Read `.claude/branch-config` for the feature branch name (`claude/add-color-themes-gyRhI`)
+2. Theme source files need to be committed to current branch (`integrate/themes-nordic`)
+3. Then route source commits to feature branch: `./scripts/git/route-commit.sh HEAD claude/add-color-themes-gyRhI`
+4. Create PR from `claude/add-color-themes-gyRhI` to `develop`
+5. Run `lein garden once` to verify CSS compiles after any theme changes

@@ -35,10 +35,22 @@ This is expected - the Figwheel client code is in the compiled JS but Figwheel i
 ## Development Workflow
 
 ### Starting the App
+
+#### Option 1: Using start.sh (recommended)
+```bash
+./start.sh              # Interactive menu
+./start.sh all          # Start transactor + server
+./start.sh transactor   # Start transactor only
+./start.sh server       # Start server only
+./start.sh status       # Show running processes
+./start.sh kill         # Stop all processes
+```
+The script will prompt to unpack Datomic if not already done.
+
+#### Option 2: Manual
 ```bash
 # 1. Start Datomic transactor
-cd lib/datomic-free-0.9.5703
-./bin/transactor config/working-transactor.properties &
+lib/datomic-free-0.9.5703/bin/transactor lib/datomic-free-0.9.5703/config/working-transactor.properties &
 
 # 2. Start app server (production mode)
 PORT=8890 lein run
@@ -49,7 +61,32 @@ PORT=8890 lein run  # Backend still needed
 ```
 
 ### Calva (VSCode)
-For interactive development, use Calva's "Jack-in" command which starts the REPL with Figwheel.
+For interactive development, use Calva's "Jack-in" command. Select profiles at the prompt:
+- **start-server**: Auto-starts the web server on REPL launch
+- **css-watch**: Auto-recompiles CSS (Garden) on file changes
+- **dev**: Development mode with debugging tools
+
+Example: Select both `start-server` and `css-watch` for full dev experience.
+
+### Lein Profiles
+```bash
+# Start REPL with auto-start server
+lein with-profile +start-server repl
+
+# Start REPL with server AND CSS auto-recompile
+lein with-profile +start-server,+css-watch repl
+
+# Compile CSS once
+lein garden once
+
+# Watch CSS for changes (standalone)
+lein garden auto
+```
+
+### CSS (Garden) Compilation
+Styles are written in Clojure using Garden (`src/clj/orcpub/styles/`). To recompile:
+- **Once**: `lein garden once` (also runs automatically as a prep-task)
+- **Watch mode**: `lein garden auto` or use the `+css-watch` profile
 
 #### Style Architecture
 ```
@@ -105,6 +142,18 @@ Git hooks automatically enforce branch rules:
 | `agents/develop` | `*.md`, `.claude/*`, `docs/*` | Source code, tests |
 | `feature/*` | Everything | Nothing |
 
+### For Agents: Branch Configuration
+
+**On session start**, read `.claude/branch-config` to know where to route source code:
+
+```bash
+# .claude/branch-config
+FEATURE_BRANCH=claude/add-color-themes-gyRhI   # Route src/* here
+INTEGRATION_BRANCH=integrate/themes-nordic      # You work here
+```
+
+If this file doesn't exist, ask the user which branch to use for source code PRs.
+
 ### For Agents: Starting a Feature
 
 Use the dual-branch workflow to keep your PR clean:
@@ -117,16 +166,18 @@ Use the dual-branch workflow to keep your PR clean:
 
 You work in `integrate/my-feature` (has CLAUDE.md, agent tooling). Code commits get routed to `feature/my-feature` (clean, for PR).
 
-**Branch type prefixes**: `feature/`, `fix/`, `bugfix/`, `hotfix/`, `patch/`, `enhancement/`
+**Branch type prefixes**: `feature/`, `fix/`, `bugfix/`, `hotfix/`, `patch/`, `enhancement/`, `claude/`
 
 ### For Agents: During Development
 
 1. **Hooks protect you automatically** - Wrong files get blocked with clear fix instructions
 
-2. **Route code commits to the clean branch**:
+2. **Check `.claude/branch-config`** for the feature branch name
+
+3. **Route code commits to the feature branch**:
    ```bash
-   ./scripts/git/route-commit.sh HEAD my-feature
-   # Cherry-picks to feature/my-feature
+   ./scripts/git/route-commit.sh HEAD claude/add-color-themes-gyRhI
+   # Or use the branch name from branch-config
    ```
 
 3. **If blocked**, follow the error message guidance:
