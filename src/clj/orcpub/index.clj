@@ -142,7 +142,7 @@ html {
     [:noscript "<p><img src=\"//t.dungeonmastersvault.com/matomo.php?idsite=7&amp;rec=1\" style=\"border:0;\" alt=\"\" /></p>"]
 
 ;<!-- IMPORTANT: Place these lines as high as you can in <head>, ideally just after <title> tag -->
-    [:script {:async "" :src "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8187136334148207" :crossorigin "anonymous"}]]
+    [:script {:async "" :src "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3202063096003962" :crossorigin "anonymous"}]]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
