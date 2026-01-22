@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-01-22] - Added
+
+### Process Management Scripts
+- Added `stop.sh` for stopping OrcPub services with confirmation and status display
+  - `--dry-run` shows formatted status table without stopping anything
+  - `--yes` skips confirmation prompt
+  - `--force` escalates to SIGKILL if SIGTERM doesn't work
+  - Supports targets: `repl`, `server`, `datomic`, `port <n>`, `name <pattern>`
+  - Uses lsof/pgrep with fallbacks to ss/netstat/ps
+- Added `menu` as a hub/wrapper script (no .sh extension for easier invocation)
+  - Interactive menu when run without arguments
+  - CLI mode: `./menu start`, `./menu stop`, `./menu status`
+  - Passes options through to underlying scripts
+- Deprecated `menu.sh` (replaced by `menu`)
+
+### Documentation
+- Updated AGENTS.md with process management section
+- Updated troubleshooting with new stop.sh commands
+
+---
+
 ## [2026-01-11] - Updated
 
 ### Java Version Isolation for clojure-mcp

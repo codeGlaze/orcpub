@@ -14,7 +14,12 @@ Create `.devcontainer/devcontainer.json` as described in [SETUP.md](SETUP.md).
 
 ### 2. **Add Helper Scripts**
 
-Copy the provided `start.sh` and `menu.sh` scripts from [SETUP.md](SETUP.md) into your project root.
+The project includes these scripts in the root:
+- `menu` - Interactive hub for starting/stopping services
+- `start.sh` - Start all services (Datomic, server, REPL)
+- `stop.sh` - Stop services with status display
+
+See [SETUP.md](SETUP.md) for details.
 
 ---
 
@@ -44,13 +49,17 @@ See [SETUP.md](SETUP.md) for:
 - **Leiningen Not Found:**  
   Install with `sudo apt-get install leiningen` or use the devcontainer.
 
-- **Permissions:**  
-  Make scripts executable:  
-  `chmod +x start.sh menu.sh`
+- **Permissions:**
+  Make scripts executable:
+  `chmod +x menu start.sh stop.sh`
 
-- **Port Conflicts:**  
-  If a service fails to start, check for running processes with  
-  `lsof -i :8890` or `lsof -i :4334` and kill as needed.
+- **Port Conflicts:**
+  Use `./stop.sh --dry-run` to see what's running, then:
+  ```bash
+  ./stop.sh --yes           # Stop all services
+  ./stop.sh server --yes    # Stop just the server
+  ./stop.sh port 8890       # Stop specific port
+  ```
 
 ---
 
@@ -58,7 +67,46 @@ See [SETUP.md](SETUP.md) for:
 
 ---
 
-## 6. Documentation and Changelog Requirements
+## 6. Process Management
+
+### The `menu` Hub
+
+Run `./menu` for an interactive menu, or use CLI commands:
+
+```bash
+./menu              # Interactive menu
+./menu start        # Start all services
+./menu stop         # Stop all (with confirmation)
+./menu status       # Show what's running
+```
+
+### The `stop.sh` Script
+
+For more control over stopping processes:
+
+```bash
+./stop.sh --dry-run          # Status display (no changes)
+./stop.sh                    # Stop all (interactive)
+./stop.sh --yes              # Stop all (no prompt)
+./stop.sh --yes --force      # Force kill if needed
+./stop.sh repl --yes         # Stop just nREPL
+./stop.sh server --yes       # Stop just server
+./stop.sh datomic --yes      # Stop just Datomic
+./stop.sh port 8890          # Stop specific port
+./stop.sh name "pattern"     # Stop by process name
+```
+
+### Default Ports
+
+| Service | Port | Env Variable |
+|---------|------|--------------|
+| Datomic | 4334 | `DATOMIC_PORT` |
+| Server  | 8890 | `SERVER_PORT` |
+| nREPL   | 7888 | `NREPL_PORT` |
+
+---
+
+## 7. Documentation and Changelog Requirements
 
 - **Documentation:**  
   - For every new feature, configuration, or setup change, update the relevant documentation files (such as `README.md`, `SETUP.md`, or inline code comments).
@@ -76,7 +124,7 @@ See [SETUP.md](SETUP.md) for:
 
 ---
 
-## 7. Agent Guidelines: Avoiding Common Mistakes
+## 8. Agent Guidelines: Avoiding Common Mistakes
 
 ### MCP Servers Are NOT Always npm Packages
 
