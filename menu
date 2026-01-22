@@ -56,16 +56,22 @@ interactive_menu() {
         echo -e "${BOLD}OrcPub Development Hub${NC}"
         echo "══════════════════════════════════"
         echo ""
+        echo -e "  ${GREEN}Start${NC}"
         echo "  1) Start all services"
-        echo "  2) Stop all services"
-        echo "  3) Show status"
+        echo "  2) Start Figwheel (ClojureScript)"
+        echo ""
+        echo -e "  ${YELLOW}Stop${NC}"
+        echo "  3) Stop all services"
         echo "  4) Stop nREPL only"
         echo "  5) Stop server only"
         echo "  6) Stop Datomic only"
         echo ""
+        echo -e "  ${CYAN}Info${NC}"
+        echo "  7) Show status"
+        echo ""
         echo "  q) Quit"
         echo ""
-        read -p "Select [1-6, q]: " -n 1 -r choice
+        read -p "Select [1-7, q]: " -n 1 -r choice
         echo ""
 
         case "$choice" in
@@ -75,10 +81,12 @@ interactive_menu() {
                 ;;
             2)
                 echo ""
-                "$SCRIPT_DIR/stop.sh"
+                echo "Starting Figwheel..."
+                lein figwheel
                 ;;
             3)
-                "$SCRIPT_DIR/stop.sh" --dry-run
+                echo ""
+                "$SCRIPT_DIR/stop.sh"
                 ;;
             4)
                 echo ""
@@ -91,6 +99,9 @@ interactive_menu() {
             6)
                 echo ""
                 "$SCRIPT_DIR/stop.sh" datomic
+                ;;
+            7)
+                "$SCRIPT_DIR/stop.sh" --dry-run
                 ;;
             q|Q)
                 echo "Goodbye."

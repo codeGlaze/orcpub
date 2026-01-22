@@ -134,53 +134,50 @@ Edit `working-transactor.properties` as needed for dev (set passwords, etc.).
 
 ---
 
-### 4. **start.sh**
+### 4. **Helper Scripts**
 
-Copy the provided `start.sh` (see your attached file or above) into your project root and make it executable:
+The project includes three helper scripts in the root directory:
+
+| Script | Purpose |
+|--------|---------|
+| `menu` | Interactive hub for starting/stopping services |
+| `start.sh` | Start all services (Datomic, server, REPL) |
+| `stop.sh` | Stop services with status display |
+
+Make them executable:
 
 ```bash
-#!/usr/bin/env bash
-
-while true; do
-  echo ""
-  echo "OrcPub Service Launcher"
-  echo "----------------------"
-  echo "1) Start Datomic Transactor"
-  echo "2) Start Clojure REPL"
-  echo "3) Start Figwheel (ClojureScript)"
-  echo "4) Quit"
-  echo ""
-  read -p "Select a service to launch [1-4]: " choice
-
-  case $choice in
-    1)
-      echo "Starting Datomic Transactor..."
-      lib/datomic-free-0.9.5703/bin/transactor lib/datomic-free-0.9.5703/config/working-transactor.properties &
-      ;;
-    2)
-      echo "Starting Clojure REPL..."
-      lein repl &
-      ;;
-    3)
-      echo "Starting Figwheel..."
-      lein figwheel &
-      ;;
-    4)
-      echo "Exiting."
-      exit 0
-      ;;
-    *)
-      echo "Invalid choice."
-      ;;
-  esac
-  sleep 1
-done
+chmod +x menu start.sh stop.sh
 ```
 
-Make it executable:
+#### Using the Menu (Recommended)
 
 ```bash
-chmod +x menu.sh
+./menu              # Interactive menu
+./menu start        # Start all services
+./menu stop         # Stop all services
+./menu status       # Show what's running
+```
+
+#### Direct Script Usage
+
+```bash
+# Start everything
+./start.sh
+
+# Check status
+./stop.sh --dry-run
+
+# Stop all services
+./stop.sh --yes
+
+# Stop specific service
+./stop.sh repl --yes
+./stop.sh server --yes
+./stop.sh datomic --yes
+
+# Force kill if needed
+./stop.sh --yes --force
 ```
 
 ---

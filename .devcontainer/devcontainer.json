@@ -12,7 +12,7 @@
     }
   },
   "onCreateCommand": "bash .devcontainer/setup.sh",
-  "postCreateCommand": "chmod +x start.sh menu.sh e2e/scripts/*.sh 2>/dev/null || true && lein deps && cd e2e && npm install && npx playwright install chromium --with-deps",
+  "postCreateCommand": "chmod +x start.sh stop.sh menu e2e/scripts/*.sh 2>/dev/null || true && lein deps && cd e2e && npm install && npx playwright install chromium --with-deps",
   "customizations": {
     "vscode": {
       "extensions": [
