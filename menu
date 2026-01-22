@@ -58,7 +58,7 @@ interactive_menu() {
         echo ""
         echo -e "  ${GREEN}Start${NC}"
         echo "  1) Start all services"
-        echo "  2) Start Figwheel (ClojureScript)"
+        echo "  2) Start Garden (CSS auto-compile)"
         echo ""
         echo -e "  ${YELLOW}Stop${NC}"
         echo "  3) Stop all services"
@@ -81,8 +81,8 @@ interactive_menu() {
                 ;;
             2)
                 echo ""
-                echo "Starting Figwheel..."
-                lein figwheel
+                echo "Starting Garden in auto mode (CSS watcher)..."
+                lein garden auto
                 ;;
             3)
                 echo ""
