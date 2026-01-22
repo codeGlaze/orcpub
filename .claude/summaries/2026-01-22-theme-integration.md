@@ -2,8 +2,7 @@
 
 **Date**: 2026-01-22
 **Branch**: integrate/themes-nordic
-**Feature Branch**: `claude/add-color-themes-gyRhI` (configured in `.claude/branch-config`)
-**Status**: READY FOR PR - Feature branch is clean, awaiting manual PR creation
+**Status**: Implementation complete - awaiting commit
 
 ## What Was Done
 
@@ -166,28 +165,37 @@ When adding new allowed patterns AND files using those patterns:
 1. Push hook update first: `git push origin <hook-commit>:<branch>`
 2. Then push remaining: `git push origin <branch>`
 
-## Commits Completed
+## Git Status (Current Session - Uncommitted)
 
-### Pushed to `testing/develop`
-- `.githooks/pre-commit` - Added `*.sh` pattern
-- `.githooks/pre-push` - Added `*.sh` pattern (must match pre-commit!)
-- `scripts/git/README.md` - Added pull.sh docs, file routing table, bash best practices
-- `scripts/git/prepare-pr.sh` - Added `--strip-only` mode
-- `pull.sh` - Improved with trap, safe parsing, local branch preference
+**Branch**: `integrate/themes-nordic`
 
-### Pushed to `agents/develop`
-- `CLAUDE.md` - Added pull.sh usage section for agents
-
-## Git Status
-
-**Source code**: ✓ Committed to feature branch `claude/add-color-themes-gyRhI` (commit `14f7fe4b`)
-
-**Remaining uncommitted** (agent files → `agents/develop`):
 ```
- M .claude/summaries/...        # this file
- M .integration-workflow-state  # workflow state
- M CLAUDE.md                    # updated docs
-?? .claude/branch-config        # new
+M .claude/summaries/2026-01-22-theme-integration.md  # → agents/develop
+M CLAUDE.md                                          # → agents/develop
+M src/clj/orcpub/styles/core.clj                     # → feature/themes-nordic
+M src/clj/orcpub/styles/themes.clj                   # → feature/themes-nordic
+M src/cljc/orcpub/dnd/e5/views_2.cljc                # → feature/themes-nordic
+M src/cljs/orcpub/dnd/e5/views.cljs                  # → feature/themes-nordic
+```
+
+### Routing Guide
+Per the dual-branch workflow:
+1. **Documentation** (*.md, .claude/*) → `agents/develop`
+2. **Source code** (src/*) → `feature/themes-nordic` (clean branch for PR)
+
+### To Commit Properly
+```bash
+# 1. Commit source code changes
+git add src/
+git commit -m "Theme fixes: header icons, flyout menus, opacity"
+
+# 2. Route to feature branch
+./scripts/git/route-commit.sh HEAD themes-nordic
+
+# 3. Commit documentation separately
+git add CLAUDE.md .claude/
+git commit -m "docs: Update theme documentation with lessons learned"
+# This stays in integrate/ branch or routes to agents/develop
 ```
 
 ## Key Gotchas Documented
@@ -195,6 +203,226 @@ When adding new allowed patterns AND files using those patterns:
 1. **`.svg-icon` class has `visibility: hidden`** - for mask system, don't reuse for plain `<img>`
 2. **Splash page is server-rendered (CLJC)** - no re-frame, theme must be passed explicitly
 3. **Garden CSS syntax** - each theme must be inside a single outer vector
+4. **Vendor prefixes in Reagent/React styles** - Use camelCase, not kebab-case:
+   - WRONG: `:-webkit-mask-image` (React silently drops this!)
+   - RIGHT: `:WebkitMaskImage` (React renders as `-webkit-mask-image`)
+   - The CLJC `style` function in `views_2.cljc` converts camelCase back to CSS format for server rendering
+
+---
+
+## Firefox Icon Disappearing Bug Fix (Session 2)
+
+### Problem
+SVG icons on the splash/landing page loaded correctly on initial server render, then disappeared when re-frame's debug panel appeared (client hydration). Issue was specific to modern Firefox.
+
+### Root Cause
+React/Reagent **silently drops** kebab-case vendor prefixes in style maps:
+- Server-rendered HTML: `style="-webkit-mask-image: url(...); mask-image: url(...)"`
+- Client-rendered DOM: `style="mask-image: url(...);"` ← webkit missing!
+
+Firefox requires the unprefixed `mask-image`, but the hydration mismatch caused issues.
+
+### Solution
+Changed vendor prefix from kebab-case to camelCase in both components:
+
+**In `views.cljs` (CLJS component):**
+```clojure
+;; Before (WRONG)
+:-webkit-mask-image (str "url(" icon-url ")")
+
+;; After (CORRECT)
+:WebkitMaskImage (str "url(" icon-url ")")
+```
+
+**In `views_2.cljc` (CLJC component):**
+Added helper functions to convert camelCase back to CSS format for server rendering:
+```clojure
+(defn camel->kebab
+  "Converts camelCase to kebab-case, with special handling for vendor prefixes.
+   WebkitMaskImage -> -webkit-mask-image"
+  [s]
+  (-> s
+      (s/replace #"([A-Z])" "-$1")
+      s/lower-case
+      (s/replace #"^-" "")))
+
+(defn css-property-name
+  "Converts a ClojureScript style keyword to CSS property name.
+   Handles both kebab-case (:mask-image) and camelCase (:WebkitMaskImage)."
+  [k]
+  (let [n (name k)]
+    (if (re-find #"[A-Z]" n)
+      (let [kebab (camel->kebab n)]
+        (if (re-find #"^(webkit|moz|ms|o)-" kebab)
+          (str "-" kebab)  ; Add leading hyphen for vendor prefix
+          kebab))
+      n)))
+```
+
+### Why This Works
+- **CLJS**: React expects camelCase (`WebkitMaskImage`) and outputs `-webkit-mask-image`
+- **CLJ (server)**: Custom `style` function converts `:WebkitMaskImage` → `-webkit-mask-image`
+- Both server and client now produce identical HTML
+
+### Testing
+Playwright E2E tests verified fix works in both Chromium and Firefox:
+- Icons visible on page load (14/14 detected)
+- Icons remain visible after re-frame hydration
+- Server-rendered HTML includes both `-webkit-mask-image` and `mask-image`
+
+---
+
+## Header Element Theming Fixes (Session 3)
+
+### Problem
+Three issues with header elements when switching themes:
+1. **Header icons flipping to dark** - SVG icons in header inherited dark color from theme's `.main-text-color` override
+2. **Logo inverting on dark themes** - Dark themes applied `filter: invert(1) brightness(2.5)` to the logo
+3. **Header text not matching icon color** - Tab labels didn't use the same `--header-icon-color` variable
+
+### Root Cause: CSS Specificity
+The header background stays **dark across ALL themes**, but theme rules were overriding header element colors:
+- Theme rules: `.app.nord-theme .main-text-color` = 3 classes (wins due to specificity + order)
+- Header rules: `.app-header .svg-icon-wrapper` = 2 classes (loses)
+
+### Solution
+
+**1. Use `!important` for header overrides** (in [core.clj:1055-1065](src/clj/orcpub/styles/core.clj#L1055-L1065)):
+```clojure
+[:.app
+ [:.app-header
+  ;; Icons: Force light color regardless of theme's .main-text-color
+  [:.svg-icon-wrapper.main-text-color
+   {:color "var(--header-icon-color, white) !important"}]
+  ;; Logo: Never filter - designed for dark backgrounds
+  [:img.h-60
+   {:filter "none !important"}]]]
+```
+
+**2. Remove conflicting theme rules** from [themes.clj](src/clj/orcpub/styles/themes.clj):
+- Deleted `[:img.h-60 {:filter "invert(1) brightness(2.5)"}]` from dark themes
+- Deleted `[:img.h-60 {:filter "none"}]` from light themes (now redundant)
+
+**3. Add text color to header tabs** (in [core.clj:1067-1078](src/clj/orcpub/styles/core.clj#L1067-L1078)):
+```clojure
+[:.header-tab
+ {:color "var(--header-icon-color, white)"
+  :--header-active-bg "rgba(136, 192, 208, 0.6)"}  ; nord8 frost cyan
+ [:&.active
+  {:background-color "var(--header-active-bg)"}]]
+```
+
+**4. Update active tab to use CSS class** (in [views.cljs](src/cljs/orcpub/dnd/e5/views.cljs)):
+- Changed from inline `:style active-style` to `:class-name "active"`
+- Allows themes to customize active background via CSS variable
+
+### Key Lesson: When to Use `!important`
+Using `!important` is appropriate when:
+- A property should **never** be overridden by any theme
+- Specificity wars would require increasingly complex selectors
+- The rule represents a fundamental constraint (dark header = light content)
+
+### CSS Variables for Header Theming
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `--header-icon-color` | `white` | Icon and text color in header |
+| `--header-active-bg` | `rgba(136, 192, 208, 0.6)` | Active tab background |
+
+Themes can override these in their `.app-header` rules.
+
+---
+
+## Aurora Colors in Light Themes (Session 3 continued)
+
+### Problem
+Light themes had plain dark icons (#191919) which felt flat and lacked personality compared to the colorful Nord palette.
+
+### Solution
+Added CSS variables `--icon-color` and `--icon-active-color` to the icon system, allowing themes to customize icon colors.
+
+**Base icon classes** (in [core.clj](src/clj/orcpub/styles/core.clj)):
+```clojure
+[:.svg-icon-dark
+ {:--icon-color :white
+  :--icon-active-color :white
+  :color "var(--icon-color, white)"}]
+
+[:.svg-icon-light
+ {:--icon-color "#191919"
+  :--icon-active-color "#191919"
+  :color "var(--icon-color, #191919)"}]
+```
+
+**Light theme overrides** (in [themes.clj](src/clj/orcpub/styles/themes.clj)):
+
+| Theme | Body Icons | Active Icon | Header Icons | Header Active |
+|-------|------------|-------------|--------------|---------------|
+| `nord-light-theme` | nord10 (frost blue) | nord14 (aurora green) | nord6 (snow white) | nord14 (aurora green) |
+| `nord-light-theme-elevated` | nord15 (aurora purple) | nord14 (aurora green) | nord6 (snow white) | nord14 (aurora green) |
+
+### Aurora Color Usage
+- **nord10 (frost blue)** - Default body icons for standard light theme
+- **nord14 (green)** - Universal active/selected state across light themes
+- **nord15 (purple)** - Default body icons for elevated light theme (adds personality)
+
+**Important**: Header icons must ALWAYS be light (nord6 or white) because the header background is dark across all themes. Mid-tone Aurora colors (nord12 orange, nord13 yellow) don't have enough contrast on dark backgrounds.
+
+### CSS Variables Summary
+| Variable | Scope | Purpose |
+|----------|-------|---------|
+| `--icon-color` | `.svg-icon-*` | Default icon color |
+| `--icon-active-color` | `.svg-icon-*` | Selected/active icon color |
+| `--header-icon-color` | `.app-header` | Header icon and text color |
+| `--header-active-bg` | `.header-tab` | Active tab background |
+
+---
+
+## Light Theme Readability Fixes (Session 3 continued)
+
+### Problems Identified
+1. **Header icons unreadable** - Mid-tone Aurora colors (nord13 yellow, nord12 orange) don't have enough contrast on dark header
+2. **Selected tab icons not visually distinct** - `--icon-active-color` was set but never applied
+3. **Non-selected tabs too faint** - `opacity-6` (60%) made icons hard to see
+4. **Flyout menus unreadable** - Light background with light text (inherited from header)
+
+### Solutions
+
+**1. Header icons must be LIGHT** (nord6 snow white):
+```clojure
+[:.app-header
+ {:--header-icon-color colors/nord6}]  ; NOT aurora mid-tones!
+```
+
+**2. Active tab icon color** - Added CSS rule in [core.clj](src/clj/orcpub/styles/core.clj):
+```clojure
+[:&.active
+ {:background-color "var(--header-active-bg)"}
+ [:.svg-icon-wrapper
+  {:color "var(--icon-active-color, var(--header-icon-color, white))"}]]
+```
+
+**3. Increased non-active opacity** - Changed from `opacity-6` to `opacity-8` in [views.cljs](src/cljs/orcpub/dnd/e5/views.cljs):
+```clojure
+;; Before: "opacity-6 hover-opacity-full"
+;; After:  "opacity-8 hover-opacity-full"
+```
+Also added `.opacity-8` class to core.clj.
+
+**4. Flyout menu text color** - Added dark text to light theme `.shadow` rules:
+```clojure
+[:.shadow
+ {:background-color "rgba(236, 239, 244, 0.98) !important"
+  :color colors/nord0}]  ; Dark text on light background
+```
+
+### Key Lesson: Color Contrast on Dark Backgrounds
+When element backgrounds are dark (like the header), text/icons must be LIGHT:
+- ✅ nord6 (#ECEFF4) - bright snow white
+- ✅ white
+- ❌ nord13 (#EBCB8B) - aurora yellow (mid-tone, poor contrast)
+- ❌ nord12 (#D08770) - aurora orange (mid-tone, poor contrast)
+
+Aurora colors work great for body content on light backgrounds, but NOT for elements on dark backgrounds.
 
 ## Color Reference
 
@@ -219,183 +447,3 @@ orange "#f0a100"  ; primary accent, button color
 red    "#9a031e"  ; errors, danger
 green  "#70a800"  ; success
 ```
-
-## Pull.sh Improvements Made
-
-Key improvements integrated into `pull.sh`:
-
-1. **Reliable state persistence** - `trap save_state EXIT` ensures state is saved on any exit
-2. **Safe config parsing** - No `source` for security; parses key=value manually
-3. **Clean worktree check** - `ensure_clean_worktree()` prevents dirty-state operations
-4. **Local branch preference** - Merges local branch if exists (preserves unpushed commits)
-5. **Explicit conflict detection** - Clear messages when merge conflicts occur
-
-## Session Continuation Notes
-
-### CRITICAL: Feature Branch Mess - Needs Clean Reset
-
-The feature branch `claude/add-color-themes-gyRhI` has 70 commits on remote that include:
-- Testing infrastructure (e2e/, .devcontainer/) that should NOT be there
-- Old SVG iterations superseded by current work
-- Reverts and re-reverts creating noise
-
-**The integration branch `integrate/themes-nordic` is the source of truth.** It has:
-- All style refactoring (colors.clj, themes.clj, core.clj)
-- All SVG icon improvements (views.cljs with CSS mask, defensive guards)
-- css-watch profile (dev/user.clj, project.clj)
-- views_2.cljc fixes
-
-### Next Steps to Complete
-
-1. **Reset feature branch to clean state from develop**:
-   ```bash
-   git checkout claude/add-color-themes-gyRhI
-   git reset --hard origin/develop
-   ```
-
-2. **Copy src/ and dev/ files from integrate/themes-nordic**:
-   ```bash
-   git checkout integrate/themes-nordic -- src/ dev/ project.clj
-   ```
-
-3. **Commit and force push**:
-   ```bash
-   git add -A
-   git commit -m "Theme system: refactored styles, SVG icons, css-watch profile"
-   git push --force origin claude/add-color-themes-gyRhI
-   ```
-
-4. **Create PR from clean feature branch to develop**
-
-### Cherry-Pick Confusion - Lessons Learned
-
-**Problem**: Tried to cherry-pick style refactor commit to feature branch, but:
-- Feature branch was 70 commits behind with conflicting changes
-- Cherry-pick `--theirs` vs `--ours` is counterintuitive (theirs = incoming commit)
-- The commit only had style files, not views.cljs SVG improvements
-
-**Solution**: Don't cherry-pick to a messy branch. Reset to clean state and copy files.
-
-### Git Semantics Reminder
-
-In **cherry-pick** conflicts:
-- `--ours` = branch you're ON (target branch HEAD)
-- `--theirs` = commit being cherry-picked (the incoming changes)
-
-This is opposite of merge semantics where "ours" is your branch and "theirs" is the branch being merged.
-
-### Branch Configuration
-
-Created `.claude/branch-config` to tell agents where to route source code:
-```
-FEATURE_BRANCH=claude/add-color-themes-gyRhI
-INTEGRATION_BRANCH=integrate/themes-nordic
-```
-
-Agents should read this on session start. If missing, ask the user.
-
-### Files in integrate/themes-nordic (source of truth)
-
-All files changed from develop (copy these to feature branch):
-```
-dev/user.clj                           # css-watch auto-start
-project.clj                            # :css-watch profile
-src/clj/orcpub/styles/colors.clj       # Nord palette + app colors (NEW)
-src/clj/orcpub/styles/core.clj         # Base styles (refactored)
-src/clj/orcpub/styles/themes.clj       # 5 theme definitions (NEW)
-src/cljc/orcpub/dnd/e5/views_2.cljc    # Pure svg-icon for server-rendered
-src/cljs/orcpub/character_builder.cljs # Theme display names
-src/cljs/orcpub/dnd/e5/db.cljs         # Theme schema (6 themes)
-src/cljs/orcpub/dnd/e5/events.cljs     # Theme cycle (6 themes)
-src/cljs/orcpub/dnd/e5/views.cljs      # CSS mask svg-icon with guards
-```
-
-**To copy all at once:**
-```bash
-git checkout integrate/themes-nordic -- src/ dev/ project.clj
-```
-
-### Uncommitted in integrate/themes-nordic
-
-After feature branch cleanup, remaining uncommitted files are **agent/doc files only**:
-
-```
- M .claude/summaries/...        # this file
- M .integration-workflow-state  # workflow state
- M CLAUDE.md                    # branch-config docs, workflow clarifications
-?? .claude/branch-config        # new - feature branch config for agents
-```
-
-**Destination**: `agents/develop` (via worktree at `/workspaces/orcpub-agents/`)
-
-**Source code** (`src/*`, `dev/*`, `project.clj`) is now on the feature branch `claude/add-color-themes-gyRhI`.
-
-## Latest Session Update (Post-Compaction)
-
-### What Was Attempted
-
-1. **Cherry-pick attempt**: Tried to cherry-pick commit 67b41030 (style refactor) to feature branch
-   - Failed because feature branch was 70 commits behind with conflicts
-   - Resolved conflict with `--theirs` (kept refactored version)
-   - Push rejected due to divergent history
-
-2. **Discovery**: The cherry-picked commit only contained style files, NOT:
-   - `views.cljs` SVG improvements (CSS mask system with defensive guards)
-   - `dev/user.clj` css-watch auto-start
-   - `project.clj` css-watch profile
-   - Other CLJS files with theme support
-
-3. **Decision**: User chose "cleanest solution" - reset feature branch and copy files
-
-### SVG Icon Implementation (Important Context)
-
-The improved SVG system in `views.cljs` on `integrate/themes-nordic`:
-
-```clojure
-(defn svg-icon [icon-name & [size theme-override]]
-  ;; DEFENSIVE GUARD: Return nil if icon-name is invalid
-  (when-let [icon-str (normalize-icon-name icon-name)]
-    (let [theme-value (if (should-use-theme-override? theme-override)
-                        theme-override
-                        @(subscribe [:theme]))
-          theme (str (or theme-value "dark-theme"))
-          size (or size 32)
-          icon-url (str "/image/" icon-str ".svg")]
-      [:div.main-text-color.svg-icon-wrapper
-       {:class-name (wrapper-theme-class theme)
-        :style {:height (str size "px")
-                :width (str size "px")
-                :-webkit-mask-image (str "url(" icon-url ")")
-                :mask-image (str "url(" icon-url ")")}}
-       [:img.svg-icon
-        {:src icon-url :alt "" :aria-hidden true
-         :style {:visibility "hidden" :position "absolute"}}]])))
-```
-
-Key features:
-- Defensive nil guard via `when-let` + `normalize-icon-name`
-- Theme override support (explicit theme or empty string for subscription)
-- CSS mask technique for theme-aware coloring
-
-### Feature Branch Clean-Up ✓ COMPLETED
-
-The following tasks were completed:
-1. ✓ Reset `claude/add-color-themes-gyRhI` to `origin/develop`
-2. ✓ Copy src/, dev/, project.clj from `integrate/themes-nordic`
-3. ✓ Commit and force push (commit `14f7fe4b`)
-4. ⏳ PR creation - **manual step, end of workflow**
-
-**Feature branch is now clean**: Single commit on top of develop with all theme work.
-
-**PR URL when ready**: https://github.com/codeGlaze/orcpub/compare/develop...claude/add-color-themes-gyRhI
-
-### Workflow Lesson: PRs Are Manual
-
-**Important**: PRs are the **last step** in the development workflow and are created **manually** by the user, not automated by agents.
-
-Agents should:
-- Prepare the feature branch (clean commits, pushed to origin)
-- Provide the compare URL for convenience
-- **NOT** automatically create PRs via `gh pr create`
-
-This ensures the user reviews what's going into develop before the PR is opened.

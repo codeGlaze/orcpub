@@ -271,19 +271,38 @@ Icons use CSS mask technique for theme-aware coloring:
 (svg-icon "bookshelf" 32 "dark-theme") ; theme required
 ```
 
+**How CSS mask icons work:**
+1. `.svg-icon-wrapper` div has `background-color: currentColor` and `mask-image: url(icon.svg)`
+2. The SVG acts as a stencil - only the SVG shape is visible
+3. Color comes from CSS `color` property (inherited from `.main-text-color` or `.svg-icon-dark`/`.svg-icon-light`)
+4. Both `mask-image` AND `-webkit-mask-image` must be set for cross-browser support
+
 **Key files:**
 - CLJS component: `src/cljs/orcpub/dnd/e5/views.cljs` (line ~222)
 - CLJC component: `src/cljc/orcpub/dnd/e5/views_2.cljc` (for splash page)
 - CSS styles: `src/clj/orcpub/styles/core.clj` (`.svg-icon-wrapper`)
 
-### Header Icon Colors
-The header background stays dark across ALL themes. Header icons use `--header-icon-color` CSS variable:
-- Default: `white`
-- Nord themes: `nord6` (#ECEFF4 - bright snow white)
+### Icon Color System
+Icons use CSS variables for theme customization:
+- `--icon-color`: Default body icon color (dark themes: white, light themes: Aurora colors)
+- `--icon-active-color`: Selected/active icon color
+- `--header-icon-color`: Header icon and text color (default: `white`)
+- `--header-active-bg`: Active tab background (default: frost cyan)
 
-**Important**: Light themes should NOT use dark header icon colors - the header background doesn't change with theme.
+**Light theme colors:**
+- `nord-light-theme`: frost blue body icons, **white header icons**, aurora green active
+- `nord-light-theme-elevated`: aurora purple body icons, **white header icons**, aurora green active
+
+**Critical**: Header icons must ALWAYS be light (nord6/white) because header background is dark. Mid-tone Aurora colors don't have enough contrast on dark backgrounds.
+
+**Important**: Header overrides use `!important` in `core.clj` to beat theme specificity. Never add header styling in theme files.
 
 ### Theme Gotchas
 1. **`.svg-icon` class has `visibility: hidden`** - It's for the mask-based system where the img is hidden. Don't reuse this class for plain `<img>` tags.
 2. **Splash page is server-rendered (CLJC)** - Uses pure `svg-icon` without re-frame. Theme must be passed explicitly.
 3. **Garden CSS syntax**: Each theme rule must be inside a single vector. Multiple top-level vectors in a `def` causes "Too many arguments to def" error.
+4. **Vendor prefixes in Reagent/React styles** - Use camelCase, not kebab-case:
+   - WRONG: `:-webkit-mask-image` (React silently drops this!)
+   - RIGHT: `:WebkitMaskImage` (React renders as `-webkit-mask-image`)
+   - The CLJC `style` function in `views_2.cljc` converts camelCase back to CSS format for server rendering.
+5. **Header elements need `!important`** - Theme rules like `.app.theme .main-text-color` have 3-class specificity. Header overrides in `core.clj` use `!important` to ensure header icons/logo/text stay light regardless of theme.
