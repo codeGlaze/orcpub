@@ -106,6 +106,39 @@ Reverted bad commit (580ab206) that deleted infrastructure files (.devcontainer,
 ./scripts/git/setup-worktrees.sh --status
 ```
 
+## Alternative Approaches Discussed
+
+### Symlink Approach (Not Adopted)
+- Keep agent files in `agents/develop` worktree only
+- Symlink CLAUDE.md and .claude/ into feature branches (gitignored)
+- **Rejected because**: Risk of agents not finding symlinked files, IDE/platform issues
+
+### Separate Repository (Not Adopted)
+- Keep agent instructions in completely separate git repo
+- **Rejected because**: Too much overhead for single project
+
+### Key Insight: testing/develop vs agents/develop
+- `testing/develop` also "pollutes" feature branches when merged
+- But testing infrastructure is *part of the project* (legitimate)
+- Agent instructions are *meta* (about how to work, not the work itself)
+- This justifies treating them differently
+
+### Final Decision
+Stick with dual-branch workflow + `prepare-pr.sh` cleanup script for edge cases.
+
+## prepare-pr.sh Capabilities
+
+The existing cleanup script handles:
+1. Cherry-picks non-agent commits from source branch
+2. Skips agent-only commits automatically
+3. Removes agent files that slipped through (CLAUDE.md, .claude/, flow*.md)
+4. Creates cleanup commit if needed
+
+Agent files removed:
+- `CLAUDE.md`, `AGENTS.md`, `agents.md`
+- `.claude/` directory
+- `flow*.md` (workflow notes)
+
 ## Remaining Work
 
 Theme changes on `integrate/themes-nordic` (unrelated to workflow):

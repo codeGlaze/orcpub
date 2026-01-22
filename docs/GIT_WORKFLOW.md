@@ -219,9 +219,62 @@ scripts/git/
 └── prepare-pr.sh       # Clean agent files (alternative)
 ```
 
+## Alternative Approaches Considered
+
+### Symlink Approach (Not Adopted)
+
+**Idea**: Keep agent files only in `agents/develop` worktree, symlink them into feature branches (gitignored).
+
+```
+feature/my-feature/
+├── CLAUDE.md -> ../orcpub-agents/CLAUDE.md  # symlink, gitignored
+├── .claude/ -> ../orcpub-agents/.claude/     # symlink, gitignored
+└── src/...                                   # actual code
+```
+
+**Pros**:
+- Feature branches stay completely clean
+- No stripping needed before PR
+- Agent files versioned but never in feature branch history
+
+**Cons**:
+- Risk of agents not finding symlinked CLAUDE.md
+- Symlinks may not work on Windows without admin privileges
+- IDE indexing behavior varies with symlinks
+- More complex setup
+
+**Decision**: Stick with dual-branch workflow. The `prepare-pr.sh` cleanup script handles edge cases where agent files slip through.
+
+### Separate Repository (Not Adopted)
+
+**Idea**: Keep agent instructions in a completely separate git repository.
+
+**Pros**:
+- Complete isolation
+- Can version independently
+- Shareable across multiple projects
+
+**Cons**:
+- Two repos to manage
+- Sync complexity
+- Instructions can drift from code
+
+**Decision**: Not worth the overhead for a single project.
+
+### testing/develop vs agents/develop
+
+**Observation**: `testing/develop` also "pollutes" feature branches when merged (for devcontainer, E2E access), but this is acceptable because:
+
+1. Testing infrastructure is *part of the project* - legitimate to include
+2. CI needs `.github/workflows/` to run
+3. E2E tests validate the feature
+
+Agent instructions are *meta* - about how to work on the project, not part of it. This distinction justifies treating them differently.
+
 ## Future Improvements
 
 - [ ] GitHub Actions to validate branch contents on PR
 - [ ] Script to sync worktrees after pulling
 - [ ] Interactive mode for route-commit.sh to select commits
 - [ ] VSCode tasks for common operations
+- [ ] `--strip-only` flag for prepare-pr.sh (quick cleanup without cherry-pick)
