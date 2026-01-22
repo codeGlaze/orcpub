@@ -109,8 +109,9 @@ while read local_ref local_sha remote_ref remote_sha; do
                 "docker-compose*"
                 "*.dockerfile"
                 "*.sh"
+                ".gitignore"
             )
-            if ! check_files "$BRANCH" "e2e/*, .devcontainer/*, test/*, .github/*, scripts/git/*, *.sh" "${PATTERNS[@]}"; then
+            if ! check_files "$BRANCH" "e2e/*, .devcontainer/*, test/*, .github/*, scripts/git/*, *.sh, .gitignore" "${PATTERNS[@]}"; then
                 exit 1
             fi
             ;;
