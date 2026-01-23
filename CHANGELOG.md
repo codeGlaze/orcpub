@@ -22,8 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | org.clojure/clojurescript | 1.10.439 | 1.12.134 |
 | org.clojure/core.async | 0.4.490 | 1.8.741 |
 | io.pedestal/* | 0.5.1 | 0.7.0 |
-| reagent | 0.7.0 | 1.2.0 |
+| reagent | 0.7.0 | 2.0.1 |
 | re-frame | 0.10.9 | 1.4.4 |
+| cljsjs/react | 16.6.0-0 | 18.3.1-1 |
+| cljsjs/react-dom | 16.6.0-0 | 18.3.1-1 |
 | buddy/buddy-auth | 1.x | 3.0.323 |
 | buddy/buddy-hashers | 1.x | 2.0.167 |
 | org.apache.pdfbox/pdfbox | 2.1.0-SNAPSHOT | 3.0.6 |
@@ -55,6 +57,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **PDFBox API** migrated from 2.x to 3.x (`PDDocument.load()` → `Loader.loadPDF()`)
 - **Date/time** server-side code migrated from `clj-time` to `clojure.java-time`
 - **Hiccup API** migrated from deprecated `hiccup.core` to `hiccup2.core` in `email.clj`
+- **React 18 + Reagent 2.0** migrated from `ReactDOM.render` to `createRoot` API in `core.cljs`
+  - Changed `reagent.dom/render` → `reagent.dom.client/create-root` + `render`
+  - Enables React 18 Concurrent Mode features
 
 #### Documentation
 - Updated all Datomic URL examples from `datomic:free://` to `datomic:dev://` (README.md, docker-compose files)
@@ -97,12 +102,6 @@ This represents the state of the project before the January 2026 modernization e
 ---
 
 ## Future Planned Changes
-
-### React 18 Migration (Breaking)
-- Upgrade cljsjs/react 16.6.0 → 18.x
-- Upgrade cljsjs/react-dom 16.6.0 → 18.x  
-- Upgrade Reagent 1.2.0 → 2.0.x (required for React 18)
-- Migrate from `ReactDOM.render` to `createRoot` API
 
 ### Build Tooling Improvements
 - Evaluate Shadow-CLJS for npm React integration

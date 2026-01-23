@@ -24,8 +24,9 @@
                  [org.clojure/test.check "1.1.1"]
                  [org.clojure/clojurescript "1.12.134"]
                  [org.clojure/core.async "1.8.741"]
-                 [cljsjs/react "16.6.0-0"]
-                 [cljsjs/react-dom "16.6.0-0"]
+                 ;; React 18 + Reagent 2.0 (Concurrent Mode)
+                 [cljsjs/react "18.3.1-1"]
+                 [cljsjs/react-dom "18.3.1-1"]
                  [cljsjs/filesaverjs "1.3.3-0"]
                  [com.cognitect/transit-cljs "0.8.280"]
                  [cljs-http "0.1.45"]
@@ -37,7 +38,7 @@
 
                  [org.clojure/core.match "1.1.1"]
                  [re-frame "1.4.4"]
-                 [reagent "1.2.0"]
+                 [reagent "2.0.1"]
                  [garden "1.3.10"]
                  [org.apache.pdfbox/pdfbox "3.0.6"]
                  ;; Pedestal 0.7.0 uses Jetty 11, which is compatible with figwheel-main's Ring adapter.

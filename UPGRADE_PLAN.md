@@ -170,6 +170,9 @@ Updated from `[8890, 3449, 7888]` to `[8890, 9500, 4334]`
 |------------|-------------|-------------|
 | org.clojure/clojure | 1.11.4 | **1.12.4** |
 | org.clojure/clojurescript | 1.11.132 | **1.12.134** |
+| cljsjs/react | 16.6.0-0 | **18.3.1-1** |
+| cljsjs/react-dom | 16.6.0-0 | **18.3.1-1** |
+| reagent | 1.2.0 | **2.0.1** |
 | re-frame | 1.3.0 | **1.4.4** |
 | clj-http | 3.12.3 | **3.13.1** |
 | com.stuartsierra/component | 1.1.0 | **1.2.0** |
@@ -186,7 +189,7 @@ Updated from `[8890, 3449, 7888]` to `[8890, 9500, 4334]`
 | Constraint | Reason | Workaround |
 |------------|--------|------------|
 | **Pedestal pinned to 0.7.0** | Pedestal 0.7.1+ uses Jetty 12, incompatible with figwheel-main's Ring adapter (Jetty 11) | Wait for figwheel-main Jetty 12 support |
-| **React pinned to 16.x** | Reagent 1.2.0 requires React 16; upgrading to React 18 requires Reagent 2.0 | Future: Coordinate Reagent 2.0 + React 18 upgrade |
+| ~~**React pinned to 16.x**~~ | ~~Reagent 1.2.0 requires React 16~~ | ✅ **RESOLVED** - Upgraded to React 18.3.1 + Reagent 2.0.1 |
 | **cljsjs React packages** | Using cljsjs/react instead of npm | Future: Consider Shadow-CLJS for npm React |
 
 ---
@@ -345,12 +348,12 @@ lein lint
 - [x] Upgrade core.async 0.4.490 → 1.8.741 ✅
 - [x] Upgrade Pedestal 0.5.1 → 0.7.0 ✅ (pinned due to Jetty 12 incompatibility)
 - [x] Upgrade Buddy libs to 3.x ✅
-- [x] Upgrade Reagent 0.7.0 → 1.2.0 and re-frame 0.10.9 → 1.4.4 ✅
+- [x] Upgrade Reagent 0.7.0 → 2.0.1 and re-frame 0.10.9 → 1.4.4 ✅
 - [x] Migrate clj-time 0.15.0 → clojure.java-time 1.4.2 ✅ *Server-side only*
 - [x] Upgrade PDFBox 2.1.0-SNAPSHOT → 3.0.6 ✅ *API migrated, warnings fixed*
 - [x] Migrate Datomic Free → Datomic Pro 1.0.7482 ✅
 - [x] Migrate lein-figwheel → figwheel-main 0.2.20 ✅
-- [ ] **React 18 Migration** - Upgrade React 16 → 18 with Reagent 2.0 (breaking changes)
+- [x] **React 18 Migration** - Upgrade React 16.6 → 18.3.1 with Reagent 2.0.1 ✅ *createRoot API migrated*
 - [ ] Evaluate Shadow-CLJS migration
 - [ ] Consider replacing cljsjs React with npm React
 
