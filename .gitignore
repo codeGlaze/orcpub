@@ -57,3 +57,5 @@ logs/
 */*.log
 /workspaces/.codespaces/.persistedshare/creation.log
 .devcontainer/post-create.log
+
+scripts/analyze/
