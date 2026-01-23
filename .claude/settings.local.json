@@ -16,7 +16,8 @@
       "Bash(lein lint:*)",
       "Bash(chmod:*)",
       "Bash(/workspaces/orcpub/scripts/external/start.sh:*)",
-      "Bash(java -version:*)"
+      "Bash(java -version:*)",
+      "Bash(/workspaces/orcpub/scripts/external/menu:*)"
     ]
   }
 }

@@ -11,6 +11,7 @@ set -euo pipefail
 #   ./start.sh figwheel     Start Figwheel for ClojureScript hot-reload
 #   ./start.sh garden       Start Garden for CSS auto-compilation
 #   ./start.sh --install    Run Datomic Pro installation (post-create.sh)
+#   ./start.sh --tmux       Run service(s) in tmux session 'orcpub'
 #   ./start.sh help         Show this help
 # =============================================================================
 
@@ -85,14 +86,21 @@ check_lein() {
 
 check_datomic_installed() {
     if [[ ! -d "$DATOMIC_DIR" ]]; then
-        log_error "Datomic ${DATOMIC_TYPE} ${DATOMIC_VERSION} not found at: $DATOMIC_DIR"
+        log_error "Datomic ${DATOMIC_TYPE} ${DATOMIC_VERSION} not found."
+        log_error "Expected at: $DATOMIC_DIR"
         log_info "Run './start.sh --install' to install Datomic."
         exit 1
     fi
 
-    if [[ ! -x "$DATOMIC_DIR/bin/transactor" ]]; then
-        log_error "Datomic transactor not executable. Installation may be incomplete."
+    if [[ ! -f "$DATOMIC_DIR/bin/transactor" ]]; then
+        log_error "Datomic transactor not found. Installation may be incomplete."
+        log_error "Expected at: $DATOMIC_DIR/bin/transactor"
         log_info "Run './start.sh --install' to reinstall Datomic."
+        exit 1
+    elif [[ ! -x "$DATOMIC_DIR/bin/transactor" ]]; then
+        log_error "Datomic transactor exists but is not executable."
+        log_error "Path: $DATOMIC_DIR/bin/transactor"
+        log_info "Try: chmod +x $DATOMIC_DIR/bin/transactor"
         exit 1
     fi
 }
@@ -101,9 +109,10 @@ prepare_datomic_config() {
     if [[ ! -f "$DATOMIC_CONFIG" ]]; then
         if [[ -f "$DATOMIC_CONFIG_TEMPLATE" ]]; then
             cp "$DATOMIC_CONFIG_TEMPLATE" "$DATOMIC_CONFIG"
-            log_info "Created transactor config from template"
+            log_info "Created transactor config from template: $DATOMIC_CONFIG"
         else
-            log_error "Datomic config template not found: $DATOMIC_CONFIG_TEMPLATE"
+            log_error "Datomic config template not found."
+            log_error "Expected at: $DATOMIC_CONFIG_TEMPLATE"
             exit 1
         fi
     fi
@@ -124,6 +133,39 @@ run_install() {
     log_info "Running Datomic ${DATOMIC_TYPE} ${DATOMIC_VERSION} installation..."
     "$post_create"
     log_info "Installation complete."
+}
+
+# -----------------------------------------------------------------------------
+# Tmux Support
+# -----------------------------------------------------------------------------
+# Runs a command in a tmux session. Creates session 'orcpub' if needed,
+# otherwise adds a new window. Allows non-blocking service starts.
+
+TMUX_SESSION="orcpub"
+
+run_in_tmux() {
+    local window_name="$1"
+    local cmd="$2"
+
+    if ! command -v tmux >/dev/null 2>&1; then
+        log_error "tmux not found. Install tmux or run without --tmux."
+        exit 1
+    fi
+
+    # Build the command to run (re-invoke this script without --tmux)
+    local full_cmd="cd $REPO_ROOT && $cmd; echo ''; echo 'Press Enter to close...'; read"
+
+    if tmux has-session -t "$TMUX_SESSION" 2>/dev/null; then
+        # Session exists - add new window
+        tmux new-window -t "$TMUX_SESSION" -n "$window_name" "bash -c '$full_cmd'"
+        log_info "Started '$window_name' in tmux window (session: $TMUX_SESSION)"
+    else
+        # Create new session with this window
+        tmux new-session -d -s "$TMUX_SESSION" -n "$window_name" "bash -c '$full_cmd'"
+        log_info "Created tmux session '$TMUX_SESSION' with window '$window_name'"
+    fi
+
+    log_info "Attach with: tmux attach -t $TMUX_SESSION"
 }
 
 # -----------------------------------------------------------------------------
@@ -193,6 +235,7 @@ Targets:
 
 Options:
   --install, -i   Install/reinstall Datomic Pro (runs post-create.sh)
+  --tmux, -t      Run in tmux session 'orcpub' (non-blocking)
 
 Environment Variables (via .env or shell):
   DATOMIC_VERSION   Datomic version (default: 1.0.7482)
@@ -211,6 +254,8 @@ Examples:
   ./start.sh server         # Just REPL+server (after Datomic is running)
   ./start.sh figwheel       # ClojureScript hot-reload (separate terminal)
   ./start.sh garden         # CSS watcher (separate terminal)
+  ./start.sh --tmux         # All services in tmux session
+  ./start.sh datomic --tmux # Datomic in tmux window
 
 Notes:
   - For full development, run in separate terminals:
@@ -219,6 +264,7 @@ Notes:
     3. ./start.sh figwheel  (optional)
     4. ./start.sh garden    (optional)
   - Or use ./start.sh alone for Datomic + server in one terminal
+  - Or use ./start.sh --tmux to run all in a tmux session
 EOF
 }
 
@@ -229,12 +275,14 @@ EOF
 main() {
     local target=""
     local do_install="false"
+    local use_tmux="false"
     local positional=()
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --install|-i)  do_install="true"; shift ;;
+            --tmux|-t)     use_tmux="true"; shift ;;
             --help|-h)     show_help; exit 0 ;;
             -*)            log_error "Unknown option: $1"; show_help; exit 1 ;;
             *)             positional+=("$1"); shift ;;
@@ -253,6 +301,37 @@ main() {
     check_java
     check_lein
 
+    # If --tmux, delegate to tmux runner
+    if [[ "$use_tmux" == "true" ]]; then
+        case "$target" in
+            all|"")
+                # Start each service in its own tmux window
+                run_in_tmux "datomic" "$SCRIPT_DIR/start.sh datomic"
+                sleep 1
+                run_in_tmux "server" "$SCRIPT_DIR/start.sh server"
+                ;;
+            datomic)
+                run_in_tmux "datomic" "$SCRIPT_DIR/start.sh datomic"
+                ;;
+            server|repl)
+                run_in_tmux "server" "$SCRIPT_DIR/start.sh server"
+                ;;
+            figwheel|cljs)
+                run_in_tmux "figwheel" "$SCRIPT_DIR/start.sh figwheel"
+                ;;
+            garden|css)
+                run_in_tmux "garden" "$SCRIPT_DIR/start.sh garden"
+                ;;
+            *)
+                log_error "Unknown target: $target"
+                show_help
+                exit 1
+                ;;
+        esac
+        exit 0
+    fi
+
+    # Direct execution (foreground)
     case "$target" in
         all|"")
             start_all

@@ -53,27 +53,32 @@ EOF
 
 interactive_menu() {
     while true; do
-        echo ""
+        # Show status first
+        "$SCRIPT_DIR/stop.sh" --dry-run
+
         echo -e "${BOLD}OrcPub Development Hub${NC}"
         echo "══════════════════════════════════"
         echo ""
         echo -e "  ${GREEN}Start${NC}"
-        echo "  1) Start all services"
-        echo "  2) Start Figwheel (ClojureScript)"
-        echo "  3) Start Garden (CSS auto-compile)"
+        echo "  1) Start all (Datomic + Server)"
+        echo "  2) Start Datomic only"
+        echo "  3) Start Server only"
+        echo "  4) Start Figwheel (ClojureScript)"
+        echo "  5) Start Garden (CSS)"
+        echo "  t) Start all (tmux session)"
         echo ""
         echo -e "  ${YELLOW}Stop${NC}"
-        echo "  4) Stop all services"
-        echo "  5) Stop nREPL only"
-        echo "  6) Stop server only"
+        echo "  6) Stop all services"
         echo "  7) Stop Datomic only"
+        echo "  8) Stop Server only"
+        echo "  9) Stop nREPL only"
         echo ""
-        echo -e "  ${CYAN}Info${NC}"
-        echo "  8) Show status"
-        echo ""
+        echo -e "  ${CYAN}Other${NC}"
+        echo "  s) Refresh status"
+        echo "  i) Install Datomic"
         echo "  q) Quit"
         echo ""
-        read -p "Select [1-8, q]: " -n 1 -r choice
+        read -p "Select [1-9, t, s, i, q]: " -n 1 -r choice
         echo ""
 
         case "$choice" in
@@ -83,30 +88,46 @@ interactive_menu() {
                 ;;
             2)
                 echo ""
-                "$SCRIPT_DIR/start.sh" figwheel
+                "$SCRIPT_DIR/start.sh" datomic
                 ;;
             3)
                 echo ""
-                "$SCRIPT_DIR/start.sh" garden
+                "$SCRIPT_DIR/start.sh" server
                 ;;
             4)
                 echo ""
-                "$SCRIPT_DIR/stop.sh"
+                "$SCRIPT_DIR/start.sh" figwheel
                 ;;
             5)
                 echo ""
-                "$SCRIPT_DIR/stop.sh" repl
+                "$SCRIPT_DIR/start.sh" garden
                 ;;
             6)
                 echo ""
-                "$SCRIPT_DIR/stop.sh" server
+                "$SCRIPT_DIR/stop.sh"
                 ;;
             7)
                 echo ""
                 "$SCRIPT_DIR/stop.sh" datomic
                 ;;
             8)
-                "$SCRIPT_DIR/stop.sh" --dry-run
+                echo ""
+                "$SCRIPT_DIR/stop.sh" server
+                ;;
+            9)
+                echo ""
+                "$SCRIPT_DIR/stop.sh" repl
+                ;;
+            t|T)
+                echo ""
+                "$SCRIPT_DIR/start.sh" --tmux
+                ;;
+            s|S)
+                # Just loop back to show refreshed status
+                ;;
+            i|I)
+                echo ""
+                "$SCRIPT_DIR/start.sh" --install
                 ;;
             q|Q)
                 echo "Goodbye."
