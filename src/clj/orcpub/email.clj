@@ -1,5 +1,5 @@
 (ns orcpub.email
-  (:require [hiccup.core :as hiccup]
+  (:require [hiccup2.core :as hiccup]
             [postal.core :as postal]
             [environ.core :as environ]
             [clojure.pprint :as pprint]
@@ -25,7 +25,7 @@
 
 (defn verification-email [first-and-last-name username verification-url]
   [{:type "text/html"
-    :content (hiccup/html (verification-email-html first-and-last-name username verification-url))}])
+    :content (str (hiccup/html (verification-email-html first-and-last-name username verification-url)))}])
 
 (defn email-cfg []
   {:user (environ/env :email-access-key)
@@ -70,7 +70,7 @@
 
 (defn reset-password-email [first-and-last-name reset-url]
   [{:type "text/html"
-    :content (hiccup/html (reset-password-email-html first-and-last-name reset-url))}])
+    :content (str (hiccup/html (reset-password-email-html first-and-last-name reset-url)))}])
 
 (defn send-reset-email [base-url {:keys [email username first-and-last-name]} reset-key]
   (postal/send-message (email-cfg)

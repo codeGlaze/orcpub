@@ -92,7 +92,7 @@ EMAIL_FROM_ADDRESS: '' # Email address to send from, will default to 'no-reply@o
 EMAIL_ERRORS_TO: '' # Email address that errors will be sent to
 EMAIL_SSL: 'false' # Should SSL be used? Gmail requires this.
 EMAIL_TLS: 'false' # Should TLS be used? 
-DATOMIC_URL: datomic:free://datomic:4334/orcpub?password=yourpassword # Url for the database
+DATOMIC_URL: datomic:dev://datomic:4334/orcpub?password=yourpassword # Url for the database (use datomic:dev:// for Datomic Pro)
 ADMIN_PASSWORD: supersecretpassword #The datomic admin password (should be different than the DATOMIC_PASSWORD)
 DATOMIC_PASSWORD: yourpassword #The datomic application password
 SIGNATURE: '<change me to something unique>' # The Secret used to hash your password in the browser, 20+ characters recommended
@@ -225,7 +225,7 @@ EMAIL_SERVER_PORT: 587 # Mail server port
 EMAIL_FROM_ADDRESS: '' # Email address to send from, will default to 'no-reply@orcpub.com'
 EMAIL_ERRORS_TO: '' # Email address that errors will be sent to
 EMAIL_SSL: 'false' # Should SSL be used? Gmail requires this.
-DATOMIC_URL: datomic:free://datomic:4334/orcpub?password=yourpassword # Url for the database
+DATOMIC_URL: datomic:dev://datomic:4334/orcpub?password=yourpassword # Url for the database (use datomic:dev:// for Datomic Pro)
 ADMIN_PASSWORD: supersecretpassword
 DATOMIC_PASSWORD: yourpassword  #(Same as above)
 SIGNATURE: '<change me to something unique>' # The Secret used to hash your password in the browser, 20+ characters recommended

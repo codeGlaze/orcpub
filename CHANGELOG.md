@@ -54,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Browser detection** rewritten in `user_agent.cljs` to use native `navigator.userAgent` instead of deprecated Google Closure Library APIs
 - **PDFBox API** migrated from 2.x to 3.x (`PDDocument.load()` → `Loader.loadPDF()`)
 - **Date/time** server-side code migrated from `clj-time` to `clojure.java-time`
+- **Hiccup API** migrated from deprecated `hiccup.core` to `hiccup2.core` in `email.clj`
+
+#### Documentation
+- Updated all Datomic URL examples from `datomic:free://` to `datomic:dev://` (README.md, docker-compose files)
 
 ### Deprecated
 - `lein figwheel` still works but now aliases to `lein fig:dev` (figwheel-main)
@@ -62,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Datomic Free 0.9.5697** - Incompatible with Java 21 (SSL handshake failures)
 - **lein-figwheel (figwheel-sidecar)** - Replaced by figwheel-main
 - **clj-time** - Replaced by clojure.java-time (server-side)
+- Orphaned `test_datomic_simple.clj` script (was for Datomic Free testing)
+- Unused `PDDocument` import in `routes.clj`
 
 ### Fixed
 - SSL/TLS compatibility issues with Java 21 (via Datomic Pro migration)

@@ -10,7 +10,10 @@
       "Bash(lein figwheel:*)",
       "Bash(pkill:*)",
       "Bash(lsof:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(lein test:*)",
+      "Bash(lein cljsbuild:*)",
+      "Bash(lein lint:*)"
     ]
   }
 }

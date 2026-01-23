@@ -54,7 +54,7 @@
   ;; Import syntax notes for Clojure newcomers:
   ;;   - (org.apache.pdfbox.pdmodel PDDocument PDPage) imports multiple classes from one package
   ;;   - org.apache.pdfbox.Loader imports a single class (no parens needed)
-  (:import (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
+  (:import (org.apache.pdfbox.pdmodel PDPage PDPageContentStream)
            org.apache.pdfbox.Loader
            (java.io ByteArrayOutputStream ByteArrayInputStream))
   (:gen-class))
