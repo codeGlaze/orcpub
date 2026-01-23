@@ -10,14 +10,44 @@ set -euo pipefail
 #   ./start.sh server       Start REPL with server (requires Datomic running)
 #   ./start.sh figwheel     Start Figwheel for ClojureScript hot-reload
 #   ./start.sh garden       Start Garden for CSS auto-compilation
+#   ./start.sh --install    Run Datomic Pro installation (post-create.sh)
 #   ./start.sh help         Show this help
 # =============================================================================
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# -----------------------------------------------------------------------------
+# Environment Configuration
+# -----------------------------------------------------------------------------
+
+# Source .env if present (authoritative config)
+if [[ -f "$REPO_ROOT/.env" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    . "$REPO_ROOT/.env"
+    set +a
+fi
+
+# Defaults (used if not set in .env)
+DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7482}"
+DATOMIC_TYPE="${DATOMIC_TYPE:-pro}"
+JAVA_MIN_VERSION="${JAVA_MIN_VERSION:-11}"
+LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"
+
+# Derived paths
+DATOMIC_DIR="$REPO_ROOT/lib/com/datomic/datomic-${DATOMIC_TYPE}/${DATOMIC_VERSION}"
+DATOMIC_CONFIG="$DATOMIC_DIR/config/working-transactor.properties"
+DATOMIC_CONFIG_TEMPLATE="$DATOMIC_DIR/config/samples/dev-transactor-template.properties"
+
+# Ensure logs directory exists
+mkdir -p "$LOG_DIR"
+
 # --- Colors ---
-# TODO: Consider moving to scripts/common.sh
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+CYAN='\033[0;36m'
 NC='\033[0m'
 
 log_info()  { echo -e "${GREEN}[INFO]${NC} $1"; }
@@ -29,10 +59,21 @@ log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 # -----------------------------------------------------------------------------
 
 check_java() {
-    if ! java -version 2>&1 | grep -q '1.8'; then
-        log_error "Java 8 is required. Please use the devcontainer or install Java 8."
+    local java_version
+    java_version=$(java -version 2>&1 | head -1 | sed -E 's/.*"([0-9]+).*/\1/')
+
+    if [[ -z "$java_version" ]]; then
+        log_error "Java not found. Please install Java $JAVA_MIN_VERSION or higher."
         exit 1
     fi
+
+    if [[ "$java_version" -lt "$JAVA_MIN_VERSION" ]]; then
+        log_error "Java $JAVA_MIN_VERSION+ required (found Java $java_version)."
+        log_info "Use the devcontainer or install a compatible JDK."
+        exit 1
+    fi
+
+    log_info "Java $java_version detected (minimum: $JAVA_MIN_VERSION)"
 }
 
 check_lein() {
@@ -42,12 +83,47 @@ check_lein() {
     fi
 }
 
-prepare_datomic_config() {
-    if [ ! -f lib/datomic-free-0.9.5703/config/working-transactor.properties ]; then
-        cp lib/datomic-free-0.9.5703/config/samples/free-transactor-template.properties \
-           lib/datomic-free-0.9.5703/config/working-transactor.properties
-        log_info "Copied Datomic properties template to working-transactor.properties"
+check_datomic_installed() {
+    if [[ ! -d "$DATOMIC_DIR" ]]; then
+        log_error "Datomic ${DATOMIC_TYPE} ${DATOMIC_VERSION} not found at: $DATOMIC_DIR"
+        log_info "Run './start.sh --install' to install Datomic."
+        exit 1
     fi
+
+    if [[ ! -x "$DATOMIC_DIR/bin/transactor" ]]; then
+        log_error "Datomic transactor not executable. Installation may be incomplete."
+        log_info "Run './start.sh --install' to reinstall Datomic."
+        exit 1
+    fi
+}
+
+prepare_datomic_config() {
+    if [[ ! -f "$DATOMIC_CONFIG" ]]; then
+        if [[ -f "$DATOMIC_CONFIG_TEMPLATE" ]]; then
+            cp "$DATOMIC_CONFIG_TEMPLATE" "$DATOMIC_CONFIG"
+            log_info "Created transactor config from template"
+        else
+            log_error "Datomic config template not found: $DATOMIC_CONFIG_TEMPLATE"
+            exit 1
+        fi
+    fi
+}
+
+# -----------------------------------------------------------------------------
+# Install
+# -----------------------------------------------------------------------------
+
+run_install() {
+    local post_create="$REPO_ROOT/.devcontainer/post-create.sh"
+
+    if [[ ! -x "$post_create" ]]; then
+        log_error "Install script not found or not executable: $post_create"
+        exit 1
+    fi
+
+    log_info "Running Datomic ${DATOMIC_TYPE} ${DATOMIC_VERSION} installation..."
+    "$post_create"
+    log_info "Installation complete."
 }
 
 # -----------------------------------------------------------------------------
@@ -55,33 +131,36 @@ prepare_datomic_config() {
 # -----------------------------------------------------------------------------
 
 start_datomic() {
+    check_datomic_installed
     prepare_datomic_config
-    log_info "Starting Datomic transactor..."
-    lib/datomic-free-0.9.5703/bin/transactor \
-        lib/datomic-free-0.9.5703/config/working-transactor.properties
+    log_info "Starting Datomic transactor (${DATOMIC_TYPE} ${DATOMIC_VERSION})..."
+    "$DATOMIC_DIR/bin/transactor" "$DATOMIC_CONFIG"
 }
 
 start_server() {
     log_info "Starting REPL with server (profile: +dev,+start-server)..."
+    cd "$REPO_ROOT"
     lein with-profile +dev,+start-server repl
 }
 
 start_figwheel() {
     log_info "Starting Figwheel (ClojureScript hot-reload)..."
+    cd "$REPO_ROOT"
     lein with-profile +dev figwheel
 }
 
 start_garden() {
     log_info "Starting Garden (CSS auto-compilation)..."
+    cd "$REPO_ROOT"
     lein garden auto
 }
 
 start_all() {
+    check_datomic_installed
     prepare_datomic_config
 
     log_info "Starting Datomic transactor (background)..."
-    lib/datomic-free-0.9.5703/bin/transactor \
-        lib/datomic-free-0.9.5703/config/working-transactor.properties &
+    "$DATOMIC_DIR/bin/transactor" "$DATOMIC_CONFIG" &
     local datomic_pid=$!
     log_info "Datomic transactor started (PID $datomic_pid)"
 
@@ -89,6 +168,7 @@ start_all() {
     sleep 3
 
     log_info "Starting REPL with server (profile: +dev,+start-server)..."
+    cd "$REPO_ROOT"
     lein with-profile +dev,+start-server repl
 }
 
@@ -97,11 +177,11 @@ start_all() {
 # -----------------------------------------------------------------------------
 
 show_help() {
-    cat << 'EOF'
+    cat << EOF
 OrcPub Service Launcher
 
 Usage:
-  ./start.sh [target]
+  ./start.sh [target] [options]
 
 Targets:
   (none)      Start Datomic (background) + REPL with server (foreground)
@@ -111,8 +191,22 @@ Targets:
   garden      Start Garden for CSS auto-compilation
   help        Show this help
 
+Options:
+  --install, -i   Install/reinstall Datomic Pro (runs post-create.sh)
+
+Environment Variables (via .env or shell):
+  DATOMIC_VERSION   Datomic version (default: 1.0.7482)
+  DATOMIC_TYPE      Datomic type: pro or dev (default: pro)
+  JAVA_MIN_VERSION  Minimum Java version required (default: 11)
+  LOG_DIR           Directory for log files (default: ./logs)
+
+Configuration:
+  Config is loaded from: \$REPO_ROOT/.env
+  Datomic is expected at: lib/com/datomic/datomic-\${TYPE}/\${VERSION}/
+
 Examples:
   ./start.sh                # Full dev stack: Datomic + server
+  ./start.sh --install      # Install Datomic Pro
   ./start.sh datomic        # Just Datomic (run in separate terminal)
   ./start.sh server         # Just REPL+server (after Datomic is running)
   ./start.sh figwheel       # ClojureScript hot-reload (separate terminal)
@@ -133,9 +227,29 @@ EOF
 # -----------------------------------------------------------------------------
 
 main() {
-    local target="${1:-all}"
+    local target=""
+    local do_install="false"
+    local positional=()
 
-    # Always check prerequisites
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --install|-i)  do_install="true"; shift ;;
+            --help|-h)     show_help; exit 0 ;;
+            -*)            log_error "Unknown option: $1"; show_help; exit 1 ;;
+            *)             positional+=("$1"); shift ;;
+        esac
+    done
+
+    target="${positional[0]:-all}"
+
+    # Handle install flag
+    if [[ "$do_install" == "true" ]]; then
+        run_install
+        exit 0
+    fi
+
+    # Always check prerequisites for runtime targets
     check_java
     check_lein
 
@@ -155,7 +269,7 @@ main() {
         garden|css)
             start_garden
             ;;
-        help|--help|-h)
+        help)
             show_help
             ;;
         *)

@@ -13,7 +13,10 @@
       "Bash(xargs:*)",
       "Bash(lein test:*)",
       "Bash(lein cljsbuild:*)",
-      "Bash(lein lint:*)"
+      "Bash(lein lint:*)",
+      "Bash(chmod:*)",
+      "Bash(/workspaces/orcpub/scripts/external/start.sh:*)",
+      "Bash(java -version:*)"
     ]
   }
 }
