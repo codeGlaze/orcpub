@@ -17,13 +17,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# --- Colors ---
-# TODO: Consider moving to scripts/common.sh
-BOLD='\033[1m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
+# Source shared utilities (colors, logging, port config)
+# shellcheck source=common.sh
+source "$SCRIPT_DIR/common.sh"
+
+# -----------------------------------------------------------------------------
+# Help
+# -----------------------------------------------------------------------------
 
 show_help() {
     cat << 'EOF'
@@ -51,35 +51,58 @@ Examples:
 EOF
 }
 
-interactive_menu() {
-    while true; do
-        # Show status first
-        "$SCRIPT_DIR/stop.sh" --dry-run
+# -----------------------------------------------------------------------------
+# Interactive Menu
+# -----------------------------------------------------------------------------
 
-        echo -e "${BOLD}OrcPub Development Hub${NC}"
-        echo "══════════════════════════════════"
-        echo ""
-        echo -e "  ${GREEN}Start${NC}"
-        echo "  1) Start all (Datomic + Server)"
-        echo "  2) Start Datomic only"
-        echo "  3) Start Server only"
-        echo "  4) Start Figwheel (ClojureScript)"
-        echo "  5) Start Garden (CSS)"
-        echo "  t) Start all (tmux session)"
-        echo ""
-        echo -e "  ${YELLOW}Stop${NC}"
-        echo "  6) Stop all services"
-        echo "  7) Stop Datomic only"
-        echo "  8) Stop Server only"
-        echo "  9) Stop nREPL only"
-        echo ""
-        echo -e "  ${CYAN}Other${NC}"
-        echo "  s) Refresh status"
-        echo "  i) Install Datomic"
-        echo "  q) Quit"
-        echo ""
-        read -p "Select [1-9, t, s, i, q]: " -n 1 -r choice
-        echo ""
+show_menu() {
+    echo ""
+    echo -e "${BOLD}OrcPub Development Hub${NC}"
+    echo "══════════════════════════════════════════════════════════════════"
+    echo ""
+    echo -e "  ${GREEN}Start${NC}"
+    echo "  1) Start all (Datomic + Server)"
+    echo "  2) Start Datomic only"
+    echo "  3) Start Server only"
+    echo "  4) Start Figwheel (ClojureScript)"
+    echo "  5) Start Garden (CSS)"
+    echo "  t) Start all (tmux session)"
+    echo "  b) Start all (background)"
+    echo ""
+    echo -e "  ${YELLOW}Stop${NC}"
+    echo "  6) Stop all services"
+    echo "  7) Stop Datomic only"
+    echo "  8) Stop Server only"
+    echo "  9) Stop nREPL only"
+    echo ""
+    echo -e "  ${CYAN}Other${NC}"
+    echo "  d) Init Database"
+    echo "  i) Install Datomic"
+    echo "  s) Refresh status"
+    echo "  h) Help"
+    echo "  q) Quit"
+    echo ""
+}
+
+interactive_menu() {
+    local choice
+    local timeout_sec=120  # Auto-refresh status every 2 minutes
+
+    while true; do
+        # Show status at top of menu
+        "$SCRIPT_DIR/stop.sh" --dry-run 2>/dev/null || true
+
+        show_menu
+
+        # Read with timeout for auto-refresh, -r to handle backslash
+        if read -t "$timeout_sec" -r -p "Select [1-9, t, b, d, i, s, h, q]: " -n 1 choice; then
+            echo ""  # Newline after single-char input
+        else
+            # Timeout reached - just refresh
+            echo ""
+            echo -e "${CYAN}[Auto-refresh]${NC}"
+            continue
+        fi
 
         case "$choice" in
             1)
@@ -121,24 +144,59 @@ interactive_menu() {
             t|T)
                 echo ""
                 "$SCRIPT_DIR/start.sh" --tmux
+                echo ""
+                echo -e "${CYAN}Services started in tmux session 'orcpub'.${NC}"
+                echo "Attach with: tmux attach -t orcpub"
+                echo ""
+                read -r -p "Press Enter to continue..."
                 ;;
-            s|S)
-                # Just loop back to show refreshed status
+            b|B)
+                echo ""
+                "$SCRIPT_DIR/start.sh" --background
+                echo ""
+                read -r -p "Press Enter to continue..."
+                ;;
+            d|D)
+                echo ""
+                "$SCRIPT_DIR/start.sh" init-db
+                echo ""
+                read -r -p "Press Enter to continue..."
                 ;;
             i|I)
                 echo ""
                 "$SCRIPT_DIR/start.sh" --install
+                echo ""
+                read -r -p "Press Enter to continue..."
                 ;;
-            q|Q)
+            s|S)
+                # Loop back to show refreshed status
+                ;;
+            h|H)
+                echo ""
+                show_help
+                echo ""
+                read -r -p "Press Enter to continue..."
+                ;;
+            q|Q|$'\e')  # q, Q, or Escape
+                echo ""
                 echo "Goodbye."
                 exit 0
                 ;;
+            "")
+                # Enter pressed - just refresh
+                ;;
             *)
-                echo -e "${YELLOW}Invalid choice.${NC}"
+                echo ""
+                echo -e "${YELLOW}Invalid choice: '$choice'${NC}"
+                sleep 1
                 ;;
         esac
     done
 }
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
 
 main() {
     local command="${1:-}"
@@ -148,7 +206,8 @@ main() {
             interactive_menu
             ;;
         start)
-            "$SCRIPT_DIR/start.sh"
+            shift
+            "$SCRIPT_DIR/start.sh" "$@"
             ;;
         stop)
             shift
