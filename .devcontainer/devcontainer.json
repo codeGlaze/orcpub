@@ -24,7 +24,8 @@
       "extensions": [
         "betterthantomorrow.calva",
         "github.copilot",
-        "github.copilot-chat"
+        "github.copilot-chat",
+        "anthropics.claude-code"
       ],
       "settings": {
         "github.copilot.chat.runCommand.enabled": true

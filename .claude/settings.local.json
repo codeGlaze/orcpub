@@ -19,7 +19,11 @@
       "Bash(java -version:*)",
       "Bash(/workspaces/orcpub/scripts/external/menu:*)",
       "Bash(./start.sh:*)",
-      "Bash(./stop.sh:*)"
+      "Bash(./stop.sh:*)",
+      "Bash(for f in /workspaces/orcpub/scripts/external/*)",
+      "Bash(do bash -n \"$f\")",
+      "Bash(echo:*)",
+      "Bash(done)"
     ]
   }
 }

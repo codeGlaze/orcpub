@@ -36,7 +36,7 @@ Longer answer: Datomic Free 0.9.5697 does NOT work on Java 21 due to SSL/TLS inc
 - The `DATOMIC_URL` environment variable format changed:
   - Before: `datomic:free://localhost:4334/orcpub`
   - After: `datomic:dev://localhost:4334/orcpub`
-- Transactor must be started via `scripts/start-datomic-auto.sh` or the dev menu
+- Transactor must be started via `./scripts/start.sh datomic` or the dev menu
 - First-time setup runs `.devcontainer/post-create.sh` which downloads and installs Datomic Pro
 
 **See:** [docs/DATOMIC_JAVA21_TEST_RESULTS.md](docs/DATOMIC_JAVA21_TEST_RESULTS.md) for compatibility test details.
@@ -98,7 +98,7 @@ AssertionError: Assert failed: (every? interceptor/interceptor? interceptors)
 **Developer Workflow:**
 ```bash
 # Start all services (recommended order):
-1. Start Datomic:    Run task "Dev: Start Local Datomic" or ./scripts/start-datomic-auto.sh
+1. Start Datomic:    Run task "Dev: Start Local Datomic" or ././scripts/start.sh datomic
 2. Start Server:     Run task "Dev: Start Server" (port 8890)
 3. Start Figwheel:   Run task "Dev: Start Figwheel" (port 9500)
 
@@ -198,7 +198,7 @@ Updated from `[8890, 3449, 7888]` to `[8890, 9500, 4334]`
 
 ```bash
 # Start development environment (in order):
-./scripts/start-datomic-auto.sh    # or VS Code task "Dev: Start Local Datomic"
+././scripts/start.sh datomic    # or VS Code task "Dev: Start Local Datomic"
 # Then in REPL: (start-server)      # or VS Code task "Dev: Start Server"
 lein fig:dev                        # or VS Code task "Dev: Start Figwheel"
 

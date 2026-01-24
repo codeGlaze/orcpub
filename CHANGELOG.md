@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **figwheel-main 0.2.20** - Modern hot-reload development tooling (replaces deprecated lein-figwheel)
 - **Datomic Pro 1.0.7482** - Java 21 compatible database (replaces Datomic Free)
 - `dev.cljs.edn` - figwheel-main build configuration
-- `scripts/start-datomic-auto.sh` - Automated Datomic transactor management
+- `./menu` + `scripts/start.sh` - Unified service management (replaces legacy scripts)
 
 ### Changed
 

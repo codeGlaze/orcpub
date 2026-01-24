@@ -51,6 +51,9 @@ deploy/homebrew/*
 # Cursor IDE local config (contains user-specific paths)
 .cursor/
 
+# Claude Code local data (conversation history, credentials)
+.claude-data/
+
 # Ignore all log files in logs/
 logs/
 

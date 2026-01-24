@@ -3,6 +3,14 @@ set -euo pipefail
 
 # scripts/dev-setup.sh
 # Usage: ./scripts/dev-setup.sh [--no-start] [--skip-datomic] [--start]
+#
+# This script orchestrates initial dev environment setup:
+# 1. Start Datomic (if not skipped)
+# 2. Run lein deps
+# 3. Initialize database
+# 4. Optionally start server/figwheel
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 NO_START=false
 SKIP_DATOMIC=false
 START=0
@@ -18,7 +26,7 @@ Usage: $0 [--no-start] [--skip-datomic] [--start]
 
 Options:
   --no-start       Only perform setup steps (deps, DB) and do NOT start servers (default)
-  --skip-datomic   Don't attempt to start Datomic via docker-compose
+  --skip-datomic   Don't attempt to start Datomic
   --start          After setup, start the backend and figwheel in background (not recommended in postCreate)
 EOF
       exit 0 ;;
@@ -30,27 +38,10 @@ echo "Dev setup: NO_START=$NO_START SKIP_DATOMIC=$SKIP_DATOMIC START=$START"
 
 # Start Datomic transactor if requested
 if [ "$SKIP_DATOMIC" = false ]; then
-  if [ "$USE_LOCAL_DATOMIC" = true ]; then
-    echo "Starting Datomic transactor locally (using bundled datomic tar)..."
-    bash ./scripts/start-datomic-auto.sh || {
-      echo "Local Datomic start failed; continuing but DB init may be skipped." >&2
-    }
-  elif command -v docker-compose >/dev/null 2>&1; then
-    echo "Starting Datomic transactor via docker-compose..."
-    docker-compose up -d datomic || true
-
-    echo "Waiting for Datomic on localhost:4334 (timeout 60s) ..."
-    for i in $(seq 1 60); do
-      if timeout 1 bash -c '</dev/tcp/localhost/4334' >/dev/null 2>&1; then
-        echo "Datomic is reachable"
-        break
-      fi
-      sleep 1
-      echo "Waiting for Datomic... ($i/60)"
-    done
-  else
-    echo "No docker-compose found; to auto-start Datomic use --local-datomic or start a transactor manually."
-  fi
+  echo "Starting Datomic transactor..."
+  "$SCRIPT_DIR/start.sh" datomic --quiet --idempotent || {
+    echo "Datomic start failed; continuing but DB init may be skipped." >&2
+  }
 else
   echo "Skipping Datomic startup as requested."
 fi
@@ -74,14 +65,15 @@ fi
 
 if [ "$START" -eq 1 ] && [ "$NO_START" = false ]; then
   echo "Starting backend and figwheel in background..."
-  nohup lein with-profile +start-server repl >/tmp/orcpub-server.log 2>&1 &
-  nohup lein figwheel >/tmp/figwheel.log 2>&1 &
-  echo "Started server & figwheel (logs: /tmp/orcpub-server.log, /tmp/figwheel.log)"
+  "$SCRIPT_DIR/start.sh" server --background --quiet || true
+  "$SCRIPT_DIR/start.sh" figwheel --background --quiet || true
+  echo "Started server & figwheel (logs in ./logs/)"
 else
-  echo "Setup complete. To start server manually:"
-  echo "  lein with-profile +start-server repl" 
-  echo "To start figwheel:"
-  echo "  lein figwheel"
+  echo "Setup complete. To start services:"
+  echo "  ./scripts/start.sh server"
+  echo "  ./scripts/start.sh figwheel"
+  echo "Or use the interactive menu:"
+  echo "  ./menu"
 fi
 
 exit 0

@@ -32,34 +32,24 @@ This Codespace is designed for Clojure/ClojureScript development using Leiningen
     - `bash ./scripts/dev-setup.sh --no-start` (recommended for `postCreateCommand`)
     - `bash ./scripts/dev-setup.sh --start` (also starts the backend & figwheel in the background)
 
-- Monitoring options (tmux vs VS Code Tasks):
-  - **tmux (recommended for terminal users / remote shells)**
-    - Run `bash ./scripts/dev-monitor.sh` to open a tmux session with windows for the server, Figwheel, REPL, and combined logs.
-    - Pros: single place to see everything, works in plain terminals, detachable (`Ctrl-b d`).
-    - Cons: requires `tmux` (installed in the devcontainer Dockerfile) and some familiarity with tmux navigation.
-  - **VS Code Tasks (recommended for GUI/editor users)**
-    - Use Command Palette → Tasks: Run Task → choose tasks like **Dev: Start Figwheel**, **Dev: Tail Figwheel Log**, etc. The tasks open dedicated terminals in the editor.
-    - Pros: editor-native, easy to run/stop, good for less terminal-savvy contributors.
-    - Cons: requires VS Code / Codespaces UI and task configuration.
+- Monitoring options:
+  - **Interactive menu (recommended)**: Run `././menu`
+    - Provides status display, quick actions (start Datomic, init DB, stop all)
+    - Submenus for start/stop individual services, tmux, utilities
+    - Utilities include tail logs and open in VS Code
+  - **VS Code Tasks**: Use Command Palette → Tasks: Run Task
+    - Tasks like **Dev: Start Datomic**, **Dev: Tail Datomic Log**, **Dev: Open Menu**
+  - **tmux** (optional): Available through menu option 7 (Tmux →)
+    - Start services in tmux, attach/detach, kill session
+    - Detach: `Ctrl-b d`, Attach: `tmux attach -t orcpub`
 
-  **When to pick which:**
-  - Use **tmux** if you prefer full-screen terminal monitoring, detaching/re-attaching sessions, or when working over SSH/Codespaces terminals.
-  - Use **VS Code Tasks** if you want editor-integrated terminals with buttons and easy task execution.
-
-  Additions:
-  - `Makefile` target `dev-monitor` runs the tmux monitor script.
-  - `tmux`, `make`, and `git-lfs` are installed in the devcontainer so `dev-monitor` and `make` targets work inside Codespaces after rebuilding the container. The image also runs `git lfs install --system` during build so LFS files are available to the workspace.
-- On container creation, the `postCreateCommand` runs `bash ./scripts/dev-verify.sh` which executes the idempotent setup (`scripts/dev-setup.sh --no-start`) and verifies presence of `make`, `git-lfs`, `tmux`, `lsof` (for port checks), `ss` (from `iproute2`), and `lein` (prints diagnostics but does not fail the build).
-
-- Starting Datomic without Docker (optional):
-  - The repository includes the Datomic Free tarball under `lib/datomic-free-0.9.5703.tar.gz`.
-  - To start a local transactor inside your Codespace/devcontainer without Docker run:
-    - `bash ./scripts/start-datomic-auto.sh` (starts transactor, prepares transactor.properties, waits for port 4334) - use this for automation or local setups where you want robust start behavior. It does NOT perform Datomic distribution installation by default; use the installer below for that step.
-    - The start script will check for an existing transactor or any process holding the configured port (default 4334). When run interactively it will show matching processes and prompt to either kill them (TERM then KILL escalation) or abort the start.
-    - Use `--check` (`bash ./scripts/start-datomic-auto.sh --check`) to validate the Datomic layout and config without launching the service.
-    - For installation, run `./.devcontainer/post-create.sh` (the installer unzips the full Datomic distribution into `lib/com/datomic/datomic-pro/<version>` and runs the vendor `bin/maven-install`). You can override the version via `DATOMIC_VERSION`.
-  - To stop the local transactor run:
-    - `bash ./scripts/stop-datomic-local.sh` or `make datomic-stop`
-  - To prefer local Datomic when using `dev-setup`, run:
-    - `bash ./scripts/dev-setup.sh --no-start --local-datomic`
-  - Use `make datomic-start` / `make datomic-stop` as convenient aliases.
+- Starting/Stopping Datomic (quick CLI):
+  ```bash
+  ././menu start datomic   # start
+  ././menu stop datomic    # stop
+  ././menu status          # check status
+  ```
+- Other options:
+  - `--check` to validate prerequisites: `./scripts/start.sh --check`
+  - `--idempotent` for automation: `././menu start datomic --idempotent`
+- Logs are written to `./logs/` (datomic.log, server.log, figwheel.log)

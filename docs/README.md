@@ -27,7 +27,7 @@ This folder contains detailed documentation for the OrcPub/Dungeon Master's Vaul
 | [`.github/copilot-instructions.md`](../.github/copilot-instructions.md) | GitHub Copilot quick reference (points to AGENTS.md) |
 | [`.cursor/worktrees.json`](../.cursor/worktrees.json) | Worktree configuration and branch protection rules |
 | [`test/README.md`](../test/README.md) | Testing documentation |
-| [`scripts/experimental/README.md`](../scripts/experimental/README.md) | Experimental scripts documentation |
+| [`scripts/legacy/README.md`](../scripts/legacy/README.md) | Legacy/archived scripts documentation |
 | [`docker/*/README.md`](../docker/) | Docker container documentation |
 
 ## Contributing Documentation
@@ -43,6 +43,6 @@ When adding documentation:
 
 If you're an AI coding assistant, start with [`AGENTS.md`](../AGENTS.md) — it contains all the rules and patterns you need to know.
 
-## Datomic Transactor Script
+## Service Management
 
-See `scripts/start-datomic.sh` for a minimal, interactive Datomic process manager. Usage and configuration are documented in the script header and the main project README.
+Use `./menu` for interactive service management, or `./scripts/start.sh` and `./scripts/stop.sh` for CLI usage. See the main project README for detailed usage.

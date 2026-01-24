@@ -105,11 +105,11 @@ Create an SSL certificate using `deploy/snakeoil.sh (or bat)` or simply edit the
 
 These passwords are used to secure the database server Datomic.
 
-**Note about Datomic and terminal behavior:** When starting the Datomic transactor or running database initialization (for example via `./scripts/external/start.sh datomic` or `lein run -m orcpub.dev-init`), the Datomic process may emit continuous logs to the terminal and might appear to keep the terminal occupied (it's monitoring/logging rather than a one-shot command). Instead of leaving that terminal open you can:
+**Note about Datomic and terminal behavior:** When starting the Datomic transactor or running database initialization (for example via `./scripts/start.sh datomic` or `lein run -m orcpub.dev-init`), the Datomic process may emit continuous logs to the terminal and might appear to keep the terminal occupied (it's monitoring/logging rather than a one-shot command). Instead of leaving that terminal open you can:
 
-- Use `./scripts/external/start.sh datomic --background` which backgrounds the transactor and writes logs to `logs/datomic.log`. For installation of Datomic, prefer running the canonical installer `./.devcontainer/post-create.sh` (it will unzip the distribution into `lib/com/datomic/datomic-pro/<version>` and run the vendor `bin/maven-install`). You can override the installed version via the `DATOMIC_VERSION` environment variable (use a bare version like `1.0.7482`, not the full filename).
+- Use `./scripts/start.sh datomic --background` which backgrounds the transactor and writes logs to `logs/datomic.log`. For installation of Datomic, prefer running the canonical installer `./.devcontainer/post-create.sh` (it will unzip the distribution into `lib/com/datomic/datomic-pro/<version>` and run the vendor `bin/maven-install`). You can override the installed version via the `DATOMIC_VERSION` environment variable (use a bare version like `1.0.7482`, not the full filename).
 - Tail the log in a separate terminal with `tail -F logs/datomic.log` to watch progress.
-- Use `./scripts/external/start.sh --tmux` to launch services in a tmux session.
+- Use `./scripts/start.sh --tmux` to launch services in a tmux session.
 - Run long-running commands in a dedicated terminal or background them with `&` or `nohup`.
 
 This avoids accidentally leaving your interactive shell attached to a long-lived Datomic log stream.
@@ -320,14 +320,20 @@ To start REPL with VS Code:
   * you can also just add that to a `.ps1` file inside your project for easier reference eg. `run-datomic ps1`
 * THEN jack-in using the `Leiningen + Legacy Figwheel`, `figwheel-native`, and select the `:dev` and optionally `:start-server`
 
-Monitoring: You can monitor the dev processes in two ways:
+**Service Management:**
 
-- tmux (terminal): `bash ./scripts/dev-monitor.sh` opens a tmux session with windows for the server, Figwheel, REPL and combined logs. Use `make dev-monitor` as a shortcut. This is recommended for terminal-first workflows or remote sessions.
-- Interactive menu: `make dev-menu` (or `bash ./scripts/dev-menu.sh`) provides a small terminal menu to run the canonical 3-step flow (start Datomic, init DB, start backend) and other helpers. `make dev-menu` runs the script via `bash` so no executable bit is required.
-  - Tip: to view Datomic logs in the editor (scrollable), use the VS Code Task **Dev: Tail Datomic Log** after starting Datomic. Use **Dev: Open Interactive Menu** to open the menu inside the editor.
-- VS Code Tasks (editor): Open Command Palette → Tasks: Run Task and choose "Dev: Start Figwheel" or "Dev: Tail Figwheel Log". Tasks open dedicated terminals inside the editor and are more approachable for GUI users.
+- Interactive menu: `././menu`
+  - Quick actions: Start Datomic, Init DB, Stop all
+  - Submenus for individual services, tmux, utilities (tail logs, open in VS Code)
+- CLI via menu (quick commands during dev):
+  ```bash
+  ././menu start datomic   # start Datomic
+  ././menu stop datomic    # stop Datomic
+  ././menu status          # check what's running
+  ```
+- VS Code Tasks: Command Palette → Tasks: Run Task → "Dev: Start Datomic", "Dev: Open Menu", etc.
 
-See `.devcontainer/README.md` for more details on when to pick which option and how to use them.
+Logs are written to `./logs/` and can be tailed via menu utilities or VS Code tasks.
 
 ### REPL
 
@@ -531,27 +537,26 @@ Larry Christensen original author of [Orcpub2](https://github.com/larrychristens
 
 ## Datomic Transactor Management
 
-The `scripts/external/` suite provides unified service management for OrcPub development:
+The `scripts/` suite provides unified service management for OrcPub development:
 
-- **`./scripts/external/menu`** - Interactive development hub with status display and submenus
-- **`./scripts/external/start.sh`** - Start services (Datomic, server, Figwheel, Garden)
-- **`./scripts/external/stop.sh`** - Stop services with graceful shutdown
+- **`./menu`** - Interactive development hub with status display and submenus
+- **`./scripts/start.sh`** - Start services (Datomic, server, Figwheel, Garden)
+- **`./scripts/stop.sh`** - Stop services with graceful shutdown
 
 **Quick Start:**
 
 ```bash
-cd scripts/external
-./start.sh datomic              # Start Datomic transactor
-./start.sh                      # Start all services
-./menu                          # Interactive menu
+./menu                                    # Interactive menu (recommended)
+./scripts/start.sh datomic                # Start Datomic transactor
+./scripts/start.sh                        # Start all services
 ```
 
 **Automation flags:**
 
 ```bash
-./start.sh --check              # Pre-flight validation (CI)
-./start.sh datomic --quiet --idempotent   # Idempotent start for scripts
-./stop.sh datomic --yes --quiet           # Non-interactive shutdown
+./scripts/start.sh --check                        # Pre-flight validation (CI)
+./scripts/start.sh datomic --quiet --idempotent   # Idempotent start for scripts
+./scripts/stop.sh datomic --yes --quiet           # Non-interactive shutdown
 ```
 
-Configuration is via `.env` file or environment variables (`DATOMIC_PORT`, `DATOMIC_VERSION`, etc.). See `scripts/external/common.sh` for defaults.
+Configuration is via `.env` file or environment variables (`DATOMIC_PORT`, `DATOMIC_VERSION`, etc.). See `scripts/common.sh` for defaults.

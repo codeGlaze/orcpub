@@ -1,0 +1,632 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# =============================================================================
+# menu - OrcPub Development Hub
+# =============================================================================
+# A wrapper/hub for starting, stopping, and checking OrcPub services.
+# Intended for LOCAL DEVELOPMENT - an alternative to Calva/IDE-based workflows.
+#
+# Usage:
+#   ./menu              Interactive menu
+#   ./menu start        Start all services (calls start.sh)
+#   ./menu stop         Stop all services (calls stop.sh)
+#   ./menu status       Show service status (calls stop.sh --dry-run)
+#   ./menu help         Show help
+# =============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source shared utilities (colors, logging, port config)
+# shellcheck source=scripts/common.sh
+source "$SCRIPT_DIR/scripts/common.sh"
+
+# -----------------------------------------------------------------------------
+# Help
+# -----------------------------------------------------------------------------
+
+show_help() {
+    cat << 'EOF'
+OrcPub Development Hub
+
+Usage:
+  ./menu                      Interactive menu (recommended)
+  ./menu start [service]      Start services (passthrough to start.sh)
+  ./menu stop [service]       Stop services (passthrough to stop.sh)
+  ./menu status               Show service status
+
+Quick CLI examples:
+  ./menu start datomic        Start just Datomic
+  ./menu start server         Start just server
+  ./menu stop datomic         Stop just Datomic
+  ./menu stop --yes           Stop all without prompting
+  ./menu status               Check what's running
+
+Start options (passed through to start.sh):
+  datomic|server|figwheel|garden   Specific service
+  init-db                          Initialize database
+  --quiet                          Suppress output
+  --idempotent                     Skip if already running
+  --background                     Run in background
+  --tmux                           Run in tmux session
+
+Stop options (passed through to stop.sh):
+  datomic|server|repl|figwheel     Specific service
+  --yes, -y                        Skip confirmation
+  --force, -f                      Use SIGKILL if needed
+
+Tmux tips:
+  Attach:  tmux attach -t orcpub
+  Detach:  Ctrl+B, then D
+  Kill:    tmux kill-session -t orcpub
+EOF
+}
+
+# -----------------------------------------------------------------------------
+# Status Display
+# -----------------------------------------------------------------------------
+
+show_status_header() {
+    "$SCRIPT_DIR/scripts/stop.sh" --dry-run 2>/dev/null || true
+}
+
+# -----------------------------------------------------------------------------
+# Start Services Submenu
+# -----------------------------------------------------------------------------
+
+show_start_submenu() {
+    echo ""
+    echo -e "${BOLD}Start Services${NC}"
+    echo "───────────────────────────────────────"
+    echo "  1) Datomic only"
+    echo "  2) Server only"
+    echo "  3) Figwheel (ClojureScript)"
+    echo "  4) Garden (CSS)"
+    echo ""
+    echo "  a) All (foreground)"
+    echo "  b) All (background)"
+    echo ""
+    echo "  0) Back"
+    echo ""
+}
+
+handle_start_submenu() {
+    local choice
+    while true; do
+        show_start_submenu
+        read -r -p "Select: " -n 1 choice
+        echo ""
+
+        case "$choice" in
+            1)
+                "$SCRIPT_DIR/scripts/start.sh" datomic
+                return
+                ;;
+            2)
+                "$SCRIPT_DIR/scripts/start.sh" server
+                return
+                ;;
+            3)
+                "$SCRIPT_DIR/scripts/start.sh" figwheel
+                return
+                ;;
+            4)
+                "$SCRIPT_DIR/scripts/start.sh" garden
+                return
+                ;;
+            a|A)
+                "$SCRIPT_DIR/scripts/start.sh"
+                return
+                ;;
+            b|B)
+                "$SCRIPT_DIR/scripts/start.sh" --background
+                echo ""
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            0|""|$'\e'|$'\x7f')  # 0, Enter, Escape, or Backspace
+                return
+                ;;
+            *)
+                echo -e "${YELLOW}Invalid choice${NC}"
+                sleep 0.5
+                ;;
+        esac
+    done
+}
+
+# -----------------------------------------------------------------------------
+# Stop Services Submenu
+# -----------------------------------------------------------------------------
+
+show_stop_submenu() {
+    echo ""
+    echo -e "${BOLD}Stop Services${NC}"
+    echo "───────────────────────────────────────"
+    echo "  1) Stop all"
+    echo "  2) Datomic only"
+    echo "  3) Server only"
+    echo "  4) nREPL only"
+    echo "  5) Figwheel only"
+    echo ""
+    echo "  0) Back"
+    echo ""
+}
+
+handle_stop_submenu() {
+    local choice
+    while true; do
+        show_stop_submenu
+        read -r -p "Select: " -n 1 choice
+        echo ""
+
+        case "$choice" in
+            1)
+                "$SCRIPT_DIR/scripts/stop.sh"
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            2)
+                "$SCRIPT_DIR/scripts/stop.sh" datomic
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            3)
+                "$SCRIPT_DIR/scripts/stop.sh" server
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            4)
+                "$SCRIPT_DIR/scripts/stop.sh" repl
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            5)
+                "$SCRIPT_DIR/scripts/stop.sh" figwheel
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            0|""|$'\e'|$'\x7f')
+                return
+                ;;
+            *)
+                echo -e "${YELLOW}Invalid choice${NC}"
+                sleep 0.5
+                ;;
+        esac
+    done
+}
+
+# -----------------------------------------------------------------------------
+# Tmux Submenu
+# -----------------------------------------------------------------------------
+
+show_tmux_submenu() {
+    local session_status
+    if tmux has-session -t orcpub 2>/dev/null; then
+        session_status="${GREEN}(session exists)${NC}"
+    else
+        session_status="${YELLOW}(no session)${NC}"
+    fi
+
+    echo ""
+    echo -e "${BOLD}Tmux${NC} $session_status"
+    echo "───────────────────────────────────────"
+    echo "  1) Start all in tmux"
+    echo "  2) Attach to session"
+    echo "  3) Kill session"
+    echo ""
+    echo "  0) Back"
+    echo ""
+}
+
+handle_tmux_submenu() {
+    local choice
+    while true; do
+        show_tmux_submenu
+        read -r -p "Select: " -n 1 choice
+        echo ""
+
+        case "$choice" in
+            1)
+                "$SCRIPT_DIR/scripts/start.sh" --tmux
+                echo ""
+                echo -e "${CYAN}Services started in tmux session 'orcpub'.${NC}"
+                echo ""
+                echo "To attach:  tmux attach -t orcpub"
+                echo "To detach:  Ctrl+B, then D"
+                echo ""
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            2)
+                if tmux has-session -t orcpub 2>/dev/null; then
+                    echo ""
+                    echo "Attaching to tmux session 'orcpub'..."
+                    echo "(Detach with Ctrl+B, then D)"
+                    echo ""
+                    sleep 1
+                    tmux attach -t orcpub
+                else
+                    echo ""
+                    echo -e "${YELLOW}No tmux session 'orcpub' found.${NC}"
+                    echo "Use option 1 to start services in tmux first."
+                    echo ""
+                    read -r -p "Press Enter to continue..."
+                fi
+                return
+                ;;
+            3)
+                if tmux has-session -t orcpub 2>/dev/null; then
+                    tmux kill-session -t orcpub
+                    echo ""
+                    echo -e "${GREEN}Killed tmux session 'orcpub'.${NC}"
+                else
+                    echo ""
+                    echo -e "${YELLOW}No tmux session 'orcpub' to kill.${NC}"
+                fi
+                echo ""
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            0|""|$'\e'|$'\x7f')
+                return
+                ;;
+            *)
+                echo -e "${YELLOW}Invalid choice${NC}"
+                sleep 0.5
+                ;;
+        esac
+    done
+}
+
+# -----------------------------------------------------------------------------
+# Tail Logs Submenu
+# -----------------------------------------------------------------------------
+
+show_tail_submenu() {
+    echo ""
+    echo -e "${BOLD}Tail Logs${NC}"
+    echo "───────────────────────────────────────"
+    echo "  1) Datomic"
+    echo "  2) Server"
+    echo "  3) Figwheel"
+    echo "  4) All (interleaved)"
+    echo ""
+    echo "  (Press Ctrl+C to stop tailing)"
+    echo ""
+    echo "  0) Back"
+    echo ""
+}
+
+handle_tail_submenu() {
+    local choice
+    while true; do
+        show_tail_submenu
+        read -r -p "Select: " -n 1 choice
+        echo ""
+
+        case "$choice" in
+            1)
+                local log="$LOG_DIR/datomic.log"
+                if [[ -f "$log" ]]; then
+                    echo ""
+                    echo -e "${CYAN}Tailing $log (Ctrl+C to stop)${NC}"
+                    echo ""
+                    tail -f "$log" || true
+                else
+                    echo -e "${YELLOW}Log not found: $log${NC}"
+                    read -r -p "Press Enter to continue..."
+                fi
+                return
+                ;;
+            2)
+                local log="$LOG_DIR/server.log"
+                if [[ -f "$log" ]]; then
+                    echo ""
+                    echo -e "${CYAN}Tailing $log (Ctrl+C to stop)${NC}"
+                    echo ""
+                    tail -f "$log" || true
+                else
+                    echo -e "${YELLOW}Log not found: $log${NC}"
+                    read -r -p "Press Enter to continue..."
+                fi
+                return
+                ;;
+            3)
+                local log="$LOG_DIR/figwheel.log"
+                if [[ -f "$log" ]]; then
+                    echo ""
+                    echo -e "${CYAN}Tailing $log (Ctrl+C to stop)${NC}"
+                    echo ""
+                    tail -f "$log" || true
+                else
+                    echo -e "${YELLOW}Log not found: $log${NC}"
+                    read -r -p "Press Enter to continue..."
+                fi
+                return
+                ;;
+            4)
+                echo ""
+                echo -e "${CYAN}Tailing all logs (Ctrl+C to stop)${NC}"
+                echo ""
+                # Use tail -f on all existing logs
+                local logs=()
+                [[ -f "$LOG_DIR/datomic.log" ]] && logs+=("$LOG_DIR/datomic.log")
+                [[ -f "$LOG_DIR/server.log" ]] && logs+=("$LOG_DIR/server.log")
+                [[ -f "$LOG_DIR/figwheel.log" ]] && logs+=("$LOG_DIR/figwheel.log")
+                if [[ ${#logs[@]} -gt 0 ]]; then
+                    tail -f "${logs[@]}" || true
+                else
+                    echo -e "${YELLOW}No log files found in $LOG_DIR${NC}"
+                    read -r -p "Press Enter to continue..."
+                fi
+                return
+                ;;
+            0|""|$'\e'|$'\x7f')
+                return
+                ;;
+            *)
+                echo -e "${YELLOW}Invalid choice${NC}"
+                sleep 0.5
+                ;;
+        esac
+    done
+}
+
+# -----------------------------------------------------------------------------
+# Open in VS Code Submenu
+# -----------------------------------------------------------------------------
+
+show_vscode_submenu() {
+    echo ""
+    echo -e "${BOLD}Open Log in VS Code${NC}"
+    echo "───────────────────────────────────────"
+    echo "  1) Datomic log"
+    echo "  2) Server log"
+    echo "  3) Figwheel log"
+    echo ""
+    echo "  0) Back"
+    echo ""
+}
+
+handle_vscode_submenu() {
+    local choice
+    while true; do
+        show_vscode_submenu
+        read -r -p "Select: " -n 1 choice
+        echo ""
+
+        case "$choice" in
+            1)
+                open_log_in_editor "$LOG_DIR/datomic.log"
+                return
+                ;;
+            2)
+                open_log_in_editor "$LOG_DIR/server.log"
+                return
+                ;;
+            3)
+                open_log_in_editor "$LOG_DIR/figwheel.log"
+                return
+                ;;
+            0|""|$'\e'|$'\x7f')
+                return
+                ;;
+            *)
+                echo -e "${YELLOW}Invalid choice${NC}"
+                sleep 0.5
+                ;;
+        esac
+    done
+}
+
+open_log_in_editor() {
+    local log="$1"
+
+    if [[ ! -f "$log" ]]; then
+        echo ""
+        echo -e "${YELLOW}Log not found: $log${NC}"
+        read -r -p "Press Enter to continue..."
+        return
+    fi
+
+    if command -v code >/dev/null 2>&1; then
+        echo ""
+        echo -e "${GREEN}Opening in VS Code: $log${NC}"
+        code --goto "$log:1" || {
+            echo -e "${YELLOW}Failed to open VS Code. Path: $log${NC}"
+        }
+    else
+        echo ""
+        echo -e "${YELLOW}VS Code CLI not found.${NC}"
+        echo "Log path: $log"
+    fi
+    read -r -p "Press Enter to continue..."
+}
+
+# -----------------------------------------------------------------------------
+# Utilities Submenu
+# -----------------------------------------------------------------------------
+
+show_utils_submenu() {
+    echo ""
+    echo -e "${BOLD}Utilities${NC}"
+    echo "───────────────────────────────────────"
+    echo "  l) Tail logs →"
+    echo "  o) Open log in VS Code →"
+    echo ""
+    echo "  i) Install Datomic"
+    echo "  c) Check prerequisites"
+    echo "  r) Refresh status"
+    echo ""
+    echo "  0) Back"
+    echo ""
+}
+
+handle_utils_submenu() {
+    local choice
+    while true; do
+        show_utils_submenu
+        read -r -p "Select: " -n 1 choice
+        echo ""
+
+        case "$choice" in
+            l|L)
+                handle_tail_submenu
+                ;;
+            o|O)
+                handle_vscode_submenu
+                ;;
+            i|I)
+                "$SCRIPT_DIR/scripts/start.sh" --install
+                echo ""
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            c|C)
+                "$SCRIPT_DIR/scripts/start.sh" --check
+                echo ""
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            r|R)
+                return  # Just return to refresh main menu
+                ;;
+            0|""|$'\e'|$'\x7f')
+                return
+                ;;
+            *)
+                echo -e "${YELLOW}Invalid choice${NC}"
+                sleep 0.5
+                ;;
+        esac
+    done
+}
+
+# -----------------------------------------------------------------------------
+# Main Menu
+# -----------------------------------------------------------------------------
+
+show_main_menu() {
+    echo ""
+    echo -e "${BOLD}OrcPub Development Hub${NC}"
+    echo "══════════════════════════════════════════════════════════════════"
+    echo ""
+    echo -e "${GREEN}Quick Actions${NC}"
+    echo "  1) Start Datomic"
+    echo "  2) Init Database"
+    echo "  3) Stop all services"
+    echo "  q) Quit"
+    echo ""
+    echo "  4) Start Services →"
+    echo "  5) Stop Services →"
+    echo "  6) Utilities →"
+    echo "  7) Tmux →"
+    echo "  8) Help"
+    echo ""
+}
+
+interactive_menu() {
+    local choice
+    local timeout_sec=120  # Auto-refresh status every 2 minutes
+
+    while true; do
+        # Show status at top of menu
+        show_status_header
+        show_main_menu
+
+        # Read with timeout for auto-refresh, -r to handle backslash
+        if read -t "$timeout_sec" -r -p "Select: " -n 1 choice; then
+            echo ""  # Newline after single-char input
+        else
+            # Timeout reached - just refresh
+            echo ""
+            echo -e "${CYAN}[Auto-refresh]${NC}"
+            continue
+        fi
+
+        case "$choice" in
+            1)
+                echo ""
+                "$SCRIPT_DIR/scripts/start.sh" datomic
+                ;;
+            2)
+                echo ""
+                "$SCRIPT_DIR/scripts/start.sh" init-db
+                read -r -p "Press Enter to continue..."
+                ;;
+            3)
+                echo ""
+                "$SCRIPT_DIR/scripts/stop.sh"
+                read -r -p "Press Enter to continue..."
+                ;;
+            4)
+                handle_start_submenu
+                ;;
+            5)
+                handle_stop_submenu
+                ;;
+            6)
+                handle_utils_submenu
+                ;;
+            7)
+                handle_tmux_submenu
+                ;;
+            8)
+                echo ""
+                show_help
+                echo ""
+                read -r -p "Press Enter to continue..."
+                ;;
+            q|Q|$'\e')  # q, Q, or Escape
+                echo ""
+                echo "Goodbye."
+                exit 0
+                ;;
+            "")
+                # Enter pressed - just refresh
+                ;;
+            *)
+                echo ""
+                echo -e "${YELLOW}Invalid choice: '$choice'${NC}"
+                sleep 1
+                ;;
+        esac
+    done
+}
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
+
+main() {
+    local command="${1:-}"
+
+    case "$command" in
+        "")
+            interactive_menu
+            ;;
+        start)
+            shift
+            "$SCRIPT_DIR/scripts/start.sh" "$@"
+            ;;
+        stop)
+            shift
+            "$SCRIPT_DIR/scripts/stop.sh" "$@"
+            ;;
+        status)
+            "$SCRIPT_DIR/scripts/stop.sh" --dry-run
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            echo "Unknown command: $command"
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
+main "$@"

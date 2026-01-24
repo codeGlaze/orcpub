@@ -1,14 +1,33 @@
-# External Scripts Consolidation - Session Summary
+# Service Management Scripts - Session Summary
 
 **Date**: January 2026
 **Branch**: `upgrade/datomic-pro`
-**Plan File**: `/root/.claude/plans/effervescent-baking-flask.md`
 
 ---
 
-## Overview
+## Final State
 
-This session focused on modernizing the `scripts/external/` suite for the OrcPub repository, creating a unified system that serves both interactive development and automation workflows via flags.
+The service management suite is now organized as follows:
+
+```
+./menu                  # Interactive hub + CLI passthrough (at repo root)
+scripts/
+├── common.sh           # Shared utilities (colors, logging, port config, exit codes)
+├── start.sh            # Start services (datomic, server, figwheel, garden, init-db)
+├── stop.sh             # Stop services with graceful shutdown
+├── dev-setup.sh        # Initial dev environment setup
+└── legacy/             # Archived scripts (for reference only)
+    ├── dev-menu.sh
+    ├── start-datomic.sh
+    ├── start-datomic-auto.sh
+    ├── stop-datomic-local.sh
+    ├── dev-monitor.sh
+    └── experimental/
+```
+
+**Primary interface**: `./menu`
+- Interactive mode: `./menu` (numbered options, submenus)
+- CLI passthrough: `./menu start datomic`, `./menu stop --yes`
 
 ---
 
@@ -16,151 +35,125 @@ This session focused on modernizing the `scripts/external/` suite for the OrcPub
 
 | # | Decision | Rationale |
 |---|----------|-----------|
-| 1 | **Port INTO external/, don't delegate OUT** | Features from legacy scripts get absorbed into external/, not the other way around. No wrapper/shim approach. |
-| 2 | **Flag-based dual mode** | Same script serves both interactive dev and automation via flags (`--quiet`, `--check`, `--idempotent`), not separate scripts. |
-| 3 | **Start Datomic is the primary action** | Most common dev workflow is starting Datomic then using IDE/Calva. Menu reflects this. |
-| 4 | **Submenus for menu** | 16 flat options was cluttered. Use submenus with "Start Datomic" and "Stop all" as quick actions. |
-| 5 | **dev-setup.sh deferred** | Update it AFTER external/ is stable, not during this work. |
-| 6 | **No reason to keep start-datomic-auto.sh** | Once external/ has feature parity, deprecate it entirely. |
-| 7 | **Exit codes 0/1/2/3** | More granular than 0/1/2 - separates usage errors from prereq failures from runtime failures. |
-| 8 | **Quiet mode still emits errors** | `log_error` always outputs to stderr even with `--quiet`. |
-| 9 | **tmux -c flag** | Use tmux's native working directory support instead of `bash -c` string building. |
-| 10 | **PID-first, port-fallback** | Check PID files before port scanning for more reliable process finding. |
+| 1 | **Menu at repo root** | Easy access: just `./menu` from anywhere in the repo |
+| 2 | **Scripts in scripts/** | Logical grouping, menu delegates to start.sh/stop.sh |
+| 3 | **Legacy scripts preserved** | Moved to scripts/legacy/ for reference, not deleted |
+| 4 | **Flag-based dual mode** | Same scripts for interactive and automation via `--quiet`, `--check`, `--idempotent` |
+| 5 | **Logs in ./logs/** | Consolidated from /tmp/ to repo-local directory |
+| 6 | **Exit codes 0/1/2/3** | 0=success, 1=usage, 2=prereq, 3=runtime |
+| 7 | **PID-first, port-fallback** | More reliable process detection |
 
 ---
 
-## What Was Learned From Legacy Scripts
+## Menu Structure
 
-### start-datomic-auto.sh (most robust)
-- Idempotent start + PID/log management
-- Port wait with timeout
-- Failure tail diagnostics (shows last N lines of log on failure)
-- Config templating / vendor layout checks
-- AGENTS.md called it "canonical" but we're porting its features, not delegating to it
+```
+Quick Actions
+  1) Start Datomic
+  2) Init Database
+  3) Stop all services
+  q) Quit
 
-### dev-menu.sh
-- VS Code integration (`code --goto` for logs)
-- tmux session management
-- Uses `/tmp/` for logs (inconsistent - we use `$LOG_DIR`)
-
-### dev-setup.sh
-- First-run devcontainer setup
-- Calls start-datomic-auto.sh OR docker-compose
-- Runs `lein deps` and DB init
-- Has own port-wait loop (redundant with common.sh)
-- Deferred for later update
-
-### External scripts (current state)
-- **common.sh**: Created with colors, logging, port utilities, prerequisite checks
-- **start.sh**: Rewritten - sources common.sh, port conflict detection, Datomic readiness wait (polls instead of sleep), `--tmux`, `--background`, `--install`
-- **stop.sh**: Rewritten - sources common.sh, macOS-compatible (no grep -oP), Figwheel/Garden in status
-- **menu**: Updated - sources common.sh, status display at top, auto-refresh timeout
+  4) Start Services →
+  5) Stop Services →
+  6) Utilities →       (tail logs, open in VS Code, install, check prereqs)
+  7) Tmux →            (start in tmux, attach, kill session)
+  8) Help
+```
 
 ---
 
-## Analysis Files
+## Quick Reference
 
-| File | Description |
-|------|-------------|
-| `scripts/analyze/cld-analyze.md` | Copy of consolidation plan |
-| `scripts/analyze/gp52-analyze.md` | External review with suggestions (some adopted, some rejected) |
-| `scripts/external/analysis.md` | Earlier efficiency/security analysis |
+```bash
+# Interactive
+./menu
 
----
+# CLI (recommended for frequent use)
+./menu start datomic
+./menu stop datomic
+./menu status
 
-## Technical Concepts
+# Direct script usage
+./scripts/start.sh datomic
+./scripts/stop.sh --yes
 
-- **Bash scripting**: `set -euo pipefail`, `.env` file sourcing
-- **tmux**: Session management with `-c` flag for working directory
-- **Port checking**: Cross-platform fallbacks (lsof/ss/netstat)
-- **Process management**: SIGTERM/SIGKILL escalation, PID tracking
-- **Non-interactive detection**: `[[ -t 0 && -t 1 ]]`
-- **Exit codes**: 0=success, 1=usage error, 2=prereq failure, 3=runtime failure
-- **PID-first strategy**: More reliable than port scanning when PID files exist
-- **Idempotent startup**: Succeed if service already running
+# Automation / CI
+./scripts/start.sh --check
+./scripts/start.sh datomic --quiet --idempotent
+./scripts/stop.sh --yes --quiet
 
----
-
-## Implementation Status
-
-### Completed
-- [x] Create common.sh with shared colors, logging, port config
-- [x] Update stop.sh - source common.sh, fix macOS grep, add Figwheel/Garden status
-- [x] Update start.sh - source common.sh, add readiness wait, port conflict check, --background flag
-- [x] Update menu - source common.sh, add Init DB option, input timeout
-- [x] `--quiet`, `--check`, `--idempotent` (and `--if-not-running` alias) flags in start.sh
-- [x] Non-interactive detection (`is_interactive()` in common.sh)
-- [x] Failure diagnostics (`show_startup_failure()` in common.sh)
-- [x] Granular exit codes (0/1/2/3) - EXIT_SUCCESS, EXIT_USAGE, EXIT_PREREQ, EXIT_RUNTIME
-- [x] Submenu redesign for menu (Quick Actions + Start/Stop/Utils submenus)
-- [x] tmux `-c` fix (uses native working directory support + remain-on-exit)
-- [x] PID-first lookup (`find_service_pids()` in common.sh)
-- [x] Pattern validation warning in stop.sh (refuses broad patterns in non-interactive mode)
-- [x] Graceful kill with escalation (`kill_gracefully()` in common.sh)
-- [x] Stale PID cleanup (`cleanup_stale_pid()` in common.sh)
-- [x] Configurable timeouts via env vars (KILL_WAIT, PORT_WAIT)
-- [x] Non-interactive stop protection (fails fast without --yes in CI)
-- [x] Port consistency check in --check mode (warns if config port differs from DATOMIC_PORT)
-
----
-
-## Scripts to Deprecate After Migration
-
-Once external/ is complete:
-- `scripts/start-datomic.sh` → replaced by `./start.sh datomic`
-- `scripts/start-datomic-auto.sh` → replaced by `./start.sh datomic --quiet --idempotent`
-- `scripts/dev-menu.sh` → replaced by `./menu`
-
-**Keep**:
-- `scripts/dev-setup.sh` → still useful for devcontainer first-run setup
-- `.devcontainer/post-create.sh` → canonical installer (called by `--install`)
-
----
-
-## External Review (gp52-analyze.md) - Decisions
-
-| Suggestion | Status | Notes |
-|------------|--------|-------|
-| Delegate to start-datomic-auto.sh | **REJECTED** | Port features into external/ instead |
-| Exit codes 0/1/2/3 | **ADOPTED** | Separates usage/prereq/runtime failures |
-| Quiet mode still emits errors | **ADOPTED** | `log_error` always outputs to stderr |
-| Staged deprecation with wrappers | **REJECTED** | Direct replacement preferred |
-| tmux `-c` flag | **ADOPTED** | Security + reliability improvement |
-| PID-first, port-fallback | **ADOPTED** | More deterministic process finding |
+# Setup (first run)
+./scripts/dev-setup.sh --no-start
+```
 
 ---
 
 ## Verification Commands
 
 ```bash
-# Interactive dev workflow
-./menu                    # Should show status, allow start/stop
-./start.sh               # Should start Datomic + server interactively
+# Syntax check all scripts
+bash -n ./menu && echo "menu: OK"
+for f in scripts/*.sh; do bash -n "$f" && echo "OK: $f"; done
+
+# Interactive workflow
+./menu
 
 # Automation workflow
-./start.sh --check && echo "Ready"           # Pre-flight
-./start.sh datomic --quiet --idempotent      # Idempotent start
-echo $?                                       # Should be 0
-./start.sh datomic --quiet --idempotent      # Run again - still 0
-./stop.sh datomic --yes --quiet              # Clean shutdown
+./scripts/start.sh --check && echo "Ready"
+./scripts/start.sh datomic --quiet --idempotent
+echo "Exit code: $?"
+./scripts/stop.sh datomic --yes --quiet
 
-# Failure diagnostics
-./start.sh datomic &
-sleep 5
-./start.sh datomic        # Should show clear error + diagnostics
-
-# Security test
-REPO_ROOT="/tmp/test'quoted\"path" ./start.sh --check
-# Should not break
+# Idempotent test (run twice, should succeed both times)
+./scripts/start.sh datomic --idempotent
+./scripts/start.sh datomic --idempotent
+echo "Both succeeded: $?"
 ```
 
 ---
 
-## Documentation Updates
+## Codespace Rebuild Checklist
 
-Completed:
-- **README.md**: Updated Datomic terminal behavior note (line ~108) and "Datomic Transactor Management" section (line ~531) to reference `scripts/external/` suite
-- **AGENTS.md**: Updated "Local Datomic Transactor Script" section (line ~73) and "Datomic Transactor Script" section (line ~411) to reference `scripts/external/` suite
+After rebuild, verify:
+```bash
+# Check scripts are executable
+ls -la ./menu scripts/*.sh
 
-Optional:
-- **scripts/external/README.md**: Create if needed - document flags and usage (help is embedded in each script via `--help`)
+# Check menu loads
+./menu --help
+
+# Check start.sh prerequisites
+./scripts/start.sh --check
+
+# Full workflow test
+./menu start datomic
+./menu status
+./menu stop datomic --yes
+```
+
+Potential issues:
+- Scripts not executable → `chmod +x ./menu scripts/*.sh`
+- logs/ directory missing → scripts create it automatically
+- Java not available → `--check` will report prereq failure
+- Old PID files from previous session → scripts handle stale cleanup
+
+---
+
+## Design Patterns Adopted
+
+- `set -euo pipefail` - Fail fast
+- `is_interactive()` - `[[ -t 0 && -t 1 ]]`
+- `log_error` always outputs - Even in quiet mode
+- SIGTERM → wait → SIGKILL escalation
+- PID file in $LOG_DIR, not /tmp/
+
+---
+
+## History
+
+This document was originally created during the January 2026 upgrade session when the `scripts/external/` suite was developed. The scripts have since been reorganized:
+
+- `scripts/external/` → `scripts/` (modern scripts moved to main scripts dir)
+- `./menu` moved to repo root for easy access
+- Legacy scripts moved to `scripts/legacy/` for reference
