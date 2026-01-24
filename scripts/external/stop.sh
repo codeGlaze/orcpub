@@ -16,6 +16,11 @@ set -euo pipefail
 #   ./stop.sh figwheel            Stop Figwheel only
 #   ./stop.sh port <port>         Stop process on specific port
 #   ./stop.sh name <pattern>      Stop processes matching pattern
+#
+# Exit Codes:
+#   0 - Success (processes stopped or none found)
+#   1 - Usage error (invalid args)
+#   3 - Runtime failure (failed to stop processes)
 # =============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -100,6 +105,13 @@ confirm_kill() {
 
     [[ "$skip_confirm" == "true" ]] && return 0
 
+    # Non-interactive protection: fail fast instead of hanging on read
+    if ! is_interactive; then
+        log_error "Cannot prompt for confirmation (non-interactive mode)"
+        log_error "Use --yes to skip confirmation in scripts/CI"
+        return 1
+    fi
+
     read -p "Stop these processes? [y/N] " -n 1 -r
     echo
     [[ $REPLY =~ ^[Yy]$ ]] && return 0
@@ -147,48 +159,65 @@ kill_pids() {
 }
 
 # -----------------------------------------------------------------------------
-# Stop Targets
+# Stop Targets (PID-first, port-fallback approach)
 # -----------------------------------------------------------------------------
 
 stop_repl() {
     local skip="$1" force="$2" quiet="$3"
     local pids
-    pids=$(echo "$(find_pids_by_port "$NREPL_PORT") $(find_pids_by_name 'nrepl')" | tr ' ' '\n' | sort -u | xargs)
-    confirm_kill "$pids" "nREPL (port $NREPL_PORT)" "$skip" "$quiet" && kill_pids "$pids" "$force" "$quiet"
+    # Use PID-first lookup from common.sh
+    pids=$(find_service_pids "nrepl" "$NREPL_PORT" 'nrepl')
+    if confirm_kill "$pids" "nREPL (port $NREPL_PORT)" "$skip" "$quiet"; then
+        kill_pids "$pids" "$force" "$quiet"
+        # Clean up PID file after stopping
+        rm -f "$LOG_DIR/nrepl.pid" 2>/dev/null || true
+    fi
 }
 
 stop_server() {
     local skip="$1" force="$2" quiet="$3"
     local pids
-    pids=$(echo "$(find_pids_by_port "$SERVER_PORT") $(find_pids_by_name 'lein.*start-server')" | tr ' ' '\n' | sort -u | xargs)
-    confirm_kill "$pids" "Server (port $SERVER_PORT)" "$skip" "$quiet" && kill_pids "$pids" "$force" "$quiet"
+    pids=$(find_service_pids "server" "$SERVER_PORT" 'lein.*start-server')
+    if confirm_kill "$pids" "Server (port $SERVER_PORT)" "$skip" "$quiet"; then
+        kill_pids "$pids" "$force" "$quiet"
+        rm -f "$LOG_DIR/server.pid" 2>/dev/null || true
+    fi
 }
 
 stop_datomic() {
     local skip="$1" force="$2" quiet="$3"
     local pids
-    pids=$(echo "$(find_pids_by_port "$DATOMIC_PORT") $(find_pids_by_name 'datomic.*transactor')" | tr ' ' '\n' | sort -u | xargs)
-    confirm_kill "$pids" "Datomic (port $DATOMIC_PORT)" "$skip" "$quiet" && kill_pids "$pids" "$force" "$quiet"
+    pids=$(find_service_pids "datomic" "$DATOMIC_PORT" 'datomic.*transactor')
+    if confirm_kill "$pids" "Datomic (port $DATOMIC_PORT)" "$skip" "$quiet"; then
+        kill_pids "$pids" "$force" "$quiet"
+        rm -f "$LOG_DIR/datomic.pid" 2>/dev/null || true
+    fi
 }
 
 stop_figwheel() {
     local skip="$1" force="$2" quiet="$3"
     local pids
-    pids=$(echo "$(find_pids_by_port "$FIGWHEEL_PORT") $(find_pids_by_name 'figwheel')" | tr ' ' '\n' | sort -u | xargs)
-    confirm_kill "$pids" "Figwheel (port $FIGWHEEL_PORT)" "$skip" "$quiet" && kill_pids "$pids" "$force" "$quiet"
+    pids=$(find_service_pids "figwheel" "$FIGWHEEL_PORT" 'figwheel')
+    if confirm_kill "$pids" "Figwheel (port $FIGWHEEL_PORT)" "$skip" "$quiet"; then
+        kill_pids "$pids" "$force" "$quiet"
+        rm -f "$LOG_DIR/figwheel.pid" 2>/dev/null || true
+    fi
 }
 
 stop_garden() {
     local skip="$1" force="$2" quiet="$3"
     local pids
-    pids=$(find_pids_by_name 'garden.*auto')
-    confirm_kill "$pids" "Garden" "$skip" "$quiet" && kill_pids "$pids" "$force" "$quiet"
+    pids=$(find_service_pids "garden" "$GARDEN_PORT" 'garden.*auto')
+    if confirm_kill "$pids" "Garden" "$skip" "$quiet"; then
+        kill_pids "$pids" "$force" "$quiet"
+        rm -f "$LOG_DIR/garden.pid" 2>/dev/null || true
+    fi
 }
 
 stop_port() {
     local port="$1" skip="$2" force="$3" quiet="$4"
-    [[ -z "$port" ]] && { log_error "Usage: $0 port <port>"; exit 1; }
-    [[ ! "$port" =~ ^[0-9]+$ ]] && { log_error "Invalid port: $port"; exit 1; }
+    [[ -z "$port" ]] && { log_error "Usage: $0 port <port>"; exit $EXIT_USAGE; }
+    [[ ! "$port" =~ ^[0-9]+$ ]] && { log_error "Invalid port: $port"; exit $EXIT_USAGE; }
     local pids
     pids=$(find_pids_by_port "$port")
     confirm_kill "$pids" "port $port" "$skip" "$quiet" && kill_pids "$pids" "$force" "$quiet"
@@ -196,7 +225,20 @@ stop_port() {
 
 stop_name() {
     local pattern="$1" skip="$2" force="$3" quiet="$4"
-    [[ -z "$pattern" ]] && { log_error "Usage: $0 name <pattern>"; exit 1; }
+    [[ -z "$pattern" ]] && { log_error "Usage: $0 name <pattern>"; exit $EXIT_USAGE; }
+
+    # Warn about very broad patterns (security/safety measure)
+    if [[ ${#pattern} -lt 4 ]]; then
+        log_warn "Pattern '$pattern' is very broad (${#pattern} chars)"
+        if ! is_interactive; then
+            log_error "Refusing to use broad pattern in non-interactive mode"
+            exit $EXIT_USAGE
+        fi
+        read -p "This may match many processes. Continue? [y/N] " -n 1 -r
+        echo
+        [[ ! $REPLY =~ ^[Yy]$ ]] && { log_info "Aborted."; exit $EXIT_SUCCESS; }
+    fi
+
     local pids
     pids=$(find_pids_by_name "$pattern")
     confirm_kill "$pids" "pattern '$pattern'" "$skip" "$quiet" && kill_pids "$pids" "$force" "$quiet"
@@ -204,9 +246,28 @@ stop_name() {
 
 stop_all() {
     local skip="$1" force="$2" quiet="$3"
-    local pids
-    pids=$(echo "$(find_pids_by_port "$NREPL_PORT") $(find_pids_by_port "$SERVER_PORT") $(find_pids_by_port "$DATOMIC_PORT") $(find_pids_by_port "$FIGWHEEL_PORT") $(find_pids_by_name 'lein.*start-server\|nrepl\|datomic.*transactor\|figwheel\|garden.*auto')" | tr ' ' '\n' | sort -u | xargs)
-    confirm_kill "$pids" "all OrcPub services" "$skip" "$quiet" && kill_pids "$pids" "$force" "$quiet"
+    local pids=""
+
+    # Collect PIDs from all services using PID-first approach
+    for service in datomic server nrepl figwheel garden; do
+        local service_pids=""
+        case "$service" in
+            datomic)  service_pids=$(find_service_pids "datomic" "$DATOMIC_PORT" 'datomic.*transactor') ;;
+            server)   service_pids=$(find_service_pids "server" "$SERVER_PORT" 'lein.*start-server') ;;
+            nrepl)    service_pids=$(find_service_pids "nrepl" "$NREPL_PORT" 'nrepl') ;;
+            figwheel) service_pids=$(find_service_pids "figwheel" "$FIGWHEEL_PORT" 'figwheel') ;;
+            garden)   service_pids=$(find_service_pids "garden" "$GARDEN_PORT" 'garden.*auto') ;;
+        esac
+        [[ -n "$service_pids" ]] && pids="$pids $service_pids"
+    done
+
+    pids=$(echo "$pids" | tr ' ' '\n' | sort -u | xargs)
+
+    if confirm_kill "$pids" "all OrcPub services" "$skip" "$quiet"; then
+        kill_pids "$pids" "$force" "$quiet"
+        # Clean up all PID files
+        rm -f "$LOG_DIR"/*.pid 2>/dev/null || true
+    fi
 }
 
 # -----------------------------------------------------------------------------
@@ -264,14 +325,14 @@ main() {
             --dry-run|--status) dry_run="true"; shift ;;
             --yes|-y)           skip_confirm="true"; shift ;;
             --force|-f)         use_force="true"; shift ;;
-            --quiet|-q)         quiet="true"; skip_confirm="true"; shift ;;
-            --help|-h)          show_help; exit 0 ;;
-            -*)                 log_error "Unknown option: $1"; show_help; exit 1 ;;
+            --quiet|-q)         quiet="true"; QUIET="true"; export QUIET; skip_confirm="true"; shift ;;
+            --help|-h)          show_help; exit $EXIT_SUCCESS ;;
+            -*)                 log_error "Unknown option: $1"; show_help; exit $EXIT_USAGE ;;
             *)                  positional+=("$1"); shift ;;
         esac
     done
 
-    [[ "$dry_run" == "true" ]] && { show_status "$quiet"; exit 0; }
+    [[ "$dry_run" == "true" ]] && { show_status "$quiet"; exit $EXIT_SUCCESS; }
 
     target="${positional[0]:-all}"
 
@@ -284,7 +345,7 @@ main() {
         garden)   stop_garden "$skip_confirm" "$use_force" "$quiet" ;;
         port)     stop_port "${positional[1]:-}" "$skip_confirm" "$use_force" "$quiet" ;;
         name)     stop_name "${positional[1]:-}" "$skip_confirm" "$use_force" "$quiet" ;;
-        *)        log_error "Unknown target: $target"; show_help; exit 1 ;;
+        *)        log_error "Unknown target: $target"; show_help; exit $EXIT_USAGE ;;
     esac
 }
 

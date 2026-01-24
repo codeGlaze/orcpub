@@ -72,15 +72,16 @@ See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for full details and variable d
 **Tip:** Set `DATOMIC_VERSION` in the environment to control which Datomic Pro distribution is installed by `.devcontainer/post-create.sh` (e.g., `export DATOMIC_VERSION=1.0.7482`). This keeps the version authoritative and configurable by CI or Codespaces.
 ### Local Datomic Transactor Script
 
-- The canonical script for starting a local Datomic Pro transactor is `scripts/start-datomic-auto.sh` (advanced; non-interactive/automation-friendly).
-- This script is invoked by the dev menu, Makefile, and `scripts/dev-setup.sh` for local development workflows.
+- The canonical script for starting a local Datomic Pro transactor is `scripts/external/start.sh` (supports both interactive and automation workflows).
+- This script is invoked by the dev menu (`scripts/external/menu`), Makefile, and `scripts/dev-setup.sh` for local development workflows.
 - Its responsibilities are:
    - Preparing a transactor properties file for local dev from the provided template and ensuring expected vendor layout is present (installation is handled by `.devcontainer/post-create.sh`).
-   - Starting the transactor process in the background, writing a PID file, and waiting for port 4334.
+   - Starting the transactor process in the background, writing a PID file to `logs/`, and waiting for port readiness.
    - Managing logs and PID files for troubleshooting.
-- **Installation of Datomic is handled by `.devcontainer/post-create.sh` (canonical installer) and not by `start-datomic-auto.sh` by default.** The installer will ensure the full Datomic distribution is unzipped into `lib/com/datomic/datomic-pro/<version>/`, flatten nested directories if present, and run the vendor `bin/maven-install` to populate the Maven/local layout so Leiningen can resolve dependencies. If an automated install is explicitly requested, `scripts/start-datomic-auto.sh --install` will invoke the canonical `.devcontainer/post-create.sh` rather than duplicating install logic, ensuring a single source of truth and consistent resolution.
+   - Supporting automation via flags: `--quiet` (minimal output), `--check` (pre-flight validation), `--idempotent` (succeed if already running).
+- **Installation of Datomic is handled by `.devcontainer/post-create.sh` (canonical installer).** The installer will ensure the full Datomic distribution is unzipped into `lib/com/datomic/datomic-pro/<version>/`, flatten nested directories if present, and run the vendor `bin/maven-install` to populate the Maven/local layout so Leiningen can resolve dependencies. If an automated install is explicitly requested, `scripts/external/start.sh --install` will invoke the canonical `.devcontainer/post-create.sh` rather than duplicating install logic, ensuring a single source of truth and consistent resolution.
 - The entirety of datomic's zip contents need to be copied to `lib/com/datomic/datomic-pro/<version>/` so they can be used by datomic when it launches.
-- The script is idempotent and does not tamper with vendor JARs or Datomic internals.
+- The script is idempotent (with `--idempotent` flag) and does not tamper with vendor JARs or Datomic internals.
 - This separation ensures there is a single source of truth for peer JAR installation and avoids duplication or accidental tampering.
 
 **Transactor vs Peer JAR:**
@@ -410,10 +411,24 @@ These warnings come from third-party libraries and are unfixable from our code:
 
 ## Datomic Transactor Script
 
-A minimal interactive script for Datomic transactor management is available at `scripts/start-datomic.sh`.
-- Polls for running Datomic transactor processes (matches 'transactor' or 'datomic')
-- Auto-starts Datomic if none are found
-- Interactive menu for process management
-- Configurable at the top of the script
+The `scripts/external/` suite provides unified service management:
 
-See the script and project README for usage details.
+- **`scripts/external/start.sh`** - Start services (Datomic, server, Figwheel, Garden)
+- **`scripts/external/stop.sh`** - Stop services with graceful shutdown
+- **`scripts/external/menu`** - Interactive development hub
+- **`scripts/external/common.sh`** - Shared utilities (colors, logging, port config)
+
+**Interactive usage:**
+```bash
+./scripts/external/menu              # Interactive menu with status
+./scripts/external/start.sh datomic  # Start Datomic
+```
+
+**Automation usage:**
+```bash
+./scripts/external/start.sh --check                    # Pre-flight validation
+./scripts/external/start.sh datomic --quiet --idempotent  # Idempotent start
+./scripts/external/stop.sh datomic --yes --quiet       # Non-interactive stop
+```
+
+See the scripts and project README for full documentation.

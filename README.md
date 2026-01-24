@@ -105,10 +105,11 @@ Create an SSL certificate using `deploy/snakeoil.sh (or bat)` or simply edit the
 
 These passwords are used to secure the database server Datomic.
 
-**Note about Datomic and terminal behavior:** When starting the Datomic transactor or running database initialization (for example via `./scripts/start-datomic-auto.sh` or `lein run -m orcpub.dev-init`), the Datomic process may emit continuous logs to the terminal and might appear to keep the terminal occupied (it's monitoring/logging rather than a one-shot command). Instead of leaving that terminal open you can:
+**Note about Datomic and terminal behavior:** When starting the Datomic transactor or running database initialization (for example via `./scripts/external/start.sh datomic` or `lein run -m orcpub.dev-init`), the Datomic process may emit continuous logs to the terminal and might appear to keep the terminal occupied (it's monitoring/logging rather than a one-shot command). Instead of leaving that terminal open you can:
 
-- Use `./scripts/start-datomic-auto.sh` which backgrounds the transactor and writes logs to `/tmp/datomic-transactor.log`. For installation of Datomic, prefer running the canonical installer `./.devcontainer/post-create.sh` (it will unzip the distribution into `lib/com/datomic/datomic-pro/<version>` and run the vendor `bin/maven-install`). You can override the installed version via the `DATOMIC_VERSION` environment variable (use a bare version like `1.0.7482`, not the full filename).
-- Tail the log in a separate terminal with `tail -F /tmp/datomic-transactor.log` to watch progress.
+- Use `./scripts/external/start.sh datomic --background` which backgrounds the transactor and writes logs to `logs/datomic.log`. For installation of Datomic, prefer running the canonical installer `./.devcontainer/post-create.sh` (it will unzip the distribution into `lib/com/datomic/datomic-pro/<version>` and run the vendor `bin/maven-install`). You can override the installed version via the `DATOMIC_VERSION` environment variable (use a bare version like `1.0.7482`, not the full filename).
+- Tail the log in a separate terminal with `tail -F logs/datomic.log` to watch progress.
+- Use `./scripts/external/start.sh --tmux` to launch services in a tmux session.
 - Run long-running commands in a dedicated terminal or background them with `&` or `nohup`.
 
 This avoids accidentally leaving your interactive shell attached to a long-lived Datomic log stream.
@@ -530,20 +531,27 @@ Larry Christensen original author of [Orcpub2](https://github.com/larrychristens
 
 ## Datomic Transactor Management
 
-A minimal interactive script for managing Datomic transactor processes is provided at `scripts/start-datomic.sh`.
+The `scripts/external/` suite provides unified service management for OrcPub development:
 
-- Polls for running Datomic transactor processes (matches 'transactor' or 'datomic' in the command line)
-- If none are found, automatically launches the Datomic transactor
-- Displays a clean process table (NAME, PID)
-- Interactive menu: kill all, kill by PID, start manually, repoll, abort
-- Configurable Datomic version, directory, and properties file at the top of the script
+- **`./scripts/external/menu`** - Interactive development hub with status display and submenus
+- **`./scripts/external/start.sh`** - Start services (Datomic, server, Figwheel, Garden)
+- **`./scripts/external/stop.sh`** - Stop services with graceful shutdown
 
-**Usage:**
+**Quick Start:**
 
 ```bash
-./scripts/start-datomic.sh
+cd scripts/external
+./start.sh datomic              # Start Datomic transactor
+./start.sh                      # Start all services
+./menu                          # Interactive menu
 ```
 
-To customize Datomic version or config, edit the variables at the top of the script.
+**Automation flags:**
 
-See the script header for full documentation.
+```bash
+./start.sh --check              # Pre-flight validation (CI)
+./start.sh datomic --quiet --idempotent   # Idempotent start for scripts
+./stop.sh datomic --yes --quiet           # Non-interactive shutdown
+```
+
+Configuration is via `.env` file or environment variables (`DATOMIC_PORT`, `DATOMIC_VERSION`, etc.). See `scripts/external/common.sh` for defaults.

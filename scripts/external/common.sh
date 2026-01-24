@@ -73,12 +73,61 @@ else
 fi
 
 # -----------------------------------------------------------------------------
+# Exit Codes (standardized across all scripts)
+# -----------------------------------------------------------------------------
+# 0 = Success (or already running in idempotent mode)
+# 1 = Usage / invalid args
+# 2 = Prerequisite / config failure
+# 3 = Runtime failure (process crashed, timeout, port conflict)
+
+EXIT_SUCCESS=0
+EXIT_USAGE=1
+EXIT_PREREQ=2
+EXIT_RUNTIME=3
+
+# -----------------------------------------------------------------------------
+# Configurable Timeouts
+# -----------------------------------------------------------------------------
+
+KILL_WAIT="${KILL_WAIT:-5}"
+PORT_WAIT="${PORT_WAIT:-30}"
+
+# -----------------------------------------------------------------------------
+# Quiet Mode Support
+# -----------------------------------------------------------------------------
+
+# Global quiet mode flag (set by scripts via --quiet)
+QUIET="${QUIET:-false}"
+
+# -----------------------------------------------------------------------------
+# Interactive Detection
+# -----------------------------------------------------------------------------
+
+# Check if running interactively (both stdin and stdout are terminals)
+is_interactive() {
+    [[ -t 0 && -t 1 ]]
+}
+
+# -----------------------------------------------------------------------------
 # Logging
 # -----------------------------------------------------------------------------
 
-log_info()  { echo -e "${GREEN}[INFO]${NC} $1"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+# log_info and log_warn respect QUIET mode
+# log_error ALWAYS outputs (to stderr) - errors should never be silenced
+log_info() {
+    [[ "$QUIET" == "true" ]] && return
+    echo -e "${GREEN}[INFO]${NC} $1"
+}
+
+log_warn() {
+    [[ "$QUIET" == "true" ]] && return
+    echo -e "${YELLOW}[WARN]${NC} $1" >&2
+}
+
+log_error() {
+    # Always output errors to stderr, even in quiet mode
+    echo -e "${RED}[ERROR]${NC} $1" >&2
+}
 
 # -----------------------------------------------------------------------------
 # Port Utilities
@@ -248,4 +297,119 @@ check_datomic_installed() {
     fi
 
     return 0
+}
+
+# -----------------------------------------------------------------------------
+# Process Management
+# -----------------------------------------------------------------------------
+
+# Graceful shutdown with SIGKILL fallback
+kill_gracefully() {
+    local pid="$1"
+    local wait_secs="${2:-$KILL_WAIT}"
+
+    # Try SIGTERM first
+    kill -TERM "$pid" 2>/dev/null || return 0
+
+    # Wait for process to exit
+    for ((i=0; i<wait_secs; i++)); do
+        kill -0 "$pid" 2>/dev/null || return 0
+        sleep 1
+    done
+
+    # Process still running - escalate to SIGKILL
+    log_warn "Process $pid didn't stop gracefully, sending SIGKILL"
+    kill -KILL "$pid" 2>/dev/null || true
+}
+
+# Clean up stale PID files
+cleanup_stale_pid() {
+    local name="$1"
+    local pid_file="$LOG_DIR/${name}.pid"
+
+    if [[ -f "$pid_file" ]]; then
+        local old_pid
+        old_pid=$(cat "$pid_file" 2>/dev/null || true)
+        if [[ -n "$old_pid" ]] && ! kill -0 "$old_pid" 2>/dev/null; then
+            rm -f "$pid_file"
+            log_info "Cleaned up stale PID file for $name"
+        fi
+    fi
+}
+
+# Find service PIDs using PID file first, then port/pattern fallback
+find_service_pids() {
+    local name="$1"
+    local port="$2"
+    local pattern="$3"
+    local pids=""
+
+    # 1. Check PID file first (most reliable)
+    local pid_file="$LOG_DIR/${name}.pid"
+    if [[ -f "$pid_file" ]]; then
+        local file_pid
+        file_pid=$(cat "$pid_file" 2>/dev/null || true)
+        if [[ -n "$file_pid" ]] && kill -0 "$file_pid" 2>/dev/null; then
+            pids="$file_pid"
+        fi
+    fi
+
+    # 2. Fall back to port scan + name pattern
+    if [[ -z "$pids" ]]; then
+        pids=$(echo "$(find_pids_by_port "$port") $(find_pids_by_name "$pattern")" | tr ' ' '\n' | sort -u | xargs)
+    fi
+
+    echo "$pids"
+}
+
+# -----------------------------------------------------------------------------
+# Failure Diagnostics
+# -----------------------------------------------------------------------------
+
+# Show detailed diagnostics when a service fails to start
+show_startup_failure() {
+    local name="$1"
+    local log_file="$2"
+    local port="${3:-}"
+
+    log_error "Service '$name' failed to start. Diagnostics:"
+    echo "─────────────────────────────────────────────────────────────"
+
+    if [[ -n "$log_file" && -f "$log_file" ]]; then
+        echo "Last 30 lines of $log_file:"
+        tail -30 "$log_file" 2>/dev/null || echo "(could not read log file)"
+    else
+        echo "Log file: (not available)"
+    fi
+
+    echo "─────────────────────────────────────────────────────────────"
+
+    if [[ -n "$port" ]]; then
+        echo "Processes on port $port:"
+        local pids
+        pids=$(find_pids_by_port "$port")
+        if [[ -n "$pids" ]]; then
+            for pid in $pids; do
+                ps -p "$pid" -o pid,user,args 2>/dev/null || echo "  PID $pid (info unavailable)"
+            done
+        else
+            echo "  (none)"
+        fi
+    fi
+
+    echo "─────────────────────────────────────────────────────────────"
+}
+
+# -----------------------------------------------------------------------------
+# Datomic Config Helpers
+# -----------------------------------------------------------------------------
+
+# Parse port from transactor config file
+get_datomic_port_from_config() {
+    local config="$1"
+    if [[ -f "$config" ]]; then
+        grep -E '^port=' "$config" 2>/dev/null | cut -d= -f2 || echo "$DATOMIC_PORT"
+    else
+        echo "$DATOMIC_PORT"
+    fi
 }
