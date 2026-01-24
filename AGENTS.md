@@ -148,8 +148,8 @@ lein cljsbuild once dev
 # Linter
 lein lint
 
-# Full frontend with hot reload
-lein figwheel
+# Full frontend with hot reload (figwheel-main)
+lein fig:dev
 ```
 
 ### What Each Command Validates
@@ -159,33 +159,38 @@ lein figwheel
 | `lein test` | Server-side only | Backend logic, routes, DB, PDF |
 | `lein lint` | CLJ + CLJS syntax | Typos, unused vars, style |
 | `lein cljsbuild once dev` | ClojureScript | Reagent/re-frame API changes, CLJS errors |
-| `lein figwheel` | Full frontend runtime | Runtime errors, React rendering |
+| `lein fig:dev` | Full frontend runtime | Runtime errors, React rendering |
 
 
 ### Starting Development Environment
 
 ```bash
-# 1. Start Datomic transactor (separate terminal)
-bin/transactor config/samples/free-transactor-template.properties
+# Using the menu (recommended)
+./menu
 
-# 2. Start backend REPL
-lein with-profile +start-server repl
+# Or using scripts directly:
 
-# 3. Initialize DB (first time only) and optionally create a test user
-# Option A: Just initialize DB
-lein run -m orcpub.dev-init
-# Option B: Initialize DB and create a test user automatically (recommended for dev/testing)
-lein run -m orcpub.dev-init --add-test-user
+# 1. Start Datomic transactor
+./scripts/start.sh datomic
 
-# 4. Start server (if not already running)
-(start-server)
+# 2. Initialize DB (first time only) - uses fast :init-db profile
+./scripts/start.sh init-db
+# Or with test user:
+lein with-profile init-db run -m orcpub.dev-init --add-test-user
 
-# 5. Start frontend (separate terminal)
-lein figwheel
+# 3. Start backend REPL (foreground, interactive)
+./scripts/start.sh server
+# Or: lein with-profile +start-server repl
+
+# 4. Optional: Start Figwheel for frontend hot-reload
+./scripts/start.sh figwheel
+
+# 5. Optional: Start Garden CSS watcher
+./scripts/start.sh garden
 ```
 
 #### Menu Automation
-The interactive startup menu ([start.sh](start.sh)) exposes both options:
+The interactive menu (`./menu`) exposes options for:
 - "Init DB" runs the database initialization only.
 - "Add test user (dev only)" runs DB init and creates a test user in one step.
 
@@ -212,8 +217,10 @@ Agents and contributors should use the menu or the CLI flag for automated onboar
 ### When Custom Scripts Are Acceptable
 
 ✅ **Acceptable**: Scripts that orchestrate multiple tools or handle environment-specific setup
-- `scripts/start-datomic-auto.sh` - Starts Datomic transactor (not a Leiningen concern)
-- `scripts/dev-setup.sh` - Orchestrates multiple services (Datomic + server + figwheel)
+- `scripts/start.sh` - Unified service launcher (Datomic, server, figwheel, garden)
+- `scripts/stop.sh` - Service stopper with graceful shutdown
+- `scripts/dev-setup.sh` - Orchestrates initial dev environment setup
+- `./menu` - Interactive development hub
 
 ### Look for Existing Functionality First
 
@@ -242,7 +249,7 @@ Agents and contributors should use the menu or the CLI flag for automated onboar
 
 Use Leiningen's built-in mechanisms before creating custom tasks:
 
-- **`:prep-tasks`** - Run before compilation (e.g., `[["garden" "once"]]`)
+- **`:prep-tasks`** - Run before compilation (profile-specific, e.g., in `:uberjar`)
 - **`:post-tasks`** - Run after compilation
 - **`:hooks`** - Custom functions that run during build lifecycle
 - **Plugins** - Extend Leiningen via plugins (already using: `lein-localrepo`, `lein-garden`, `lein-cljfmt`, `lein-kibit`)
@@ -420,7 +427,7 @@ The `scripts/` suite provides unified service management:
 
 **Interactive usage:**
 ```bash
-././menu              # Interactive menu with status
+./menu              # Interactive menu with status
 ./scripts/start.sh datomic  # Start Datomic
 ```
 

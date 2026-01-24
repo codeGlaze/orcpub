@@ -276,9 +276,9 @@ We work on forks, and branches.  Fork our repo, then create a new branch for any
 - create a new branch for the bug fix or feature you are about to work on `git checkout -b <your_new_branch_name>`
 - Pick an editor from the next steps.
 - run `lein with-profile +start-server repl`
-- run `lein figwheel` Once lein figwheel finishes, a browser will launch.
+- run `lein fig:dev` Once figwheel-main finishes compiling, a browser will launch.
 
-You should have all three processes running: the Datomic transactor, lein repl, and lein figwheel. 
+You should have all three processes running: the Datomic transactor, lein repl, and lein fig:dev. 
 
 On the front end, When you save changes, it will auto compile and send all changes to the browser without the
 need to reload. After the compilation process is complete, you will get a Browser Connected REPL. 
@@ -322,14 +322,14 @@ To start REPL with VS Code:
 
 **Service Management:**
 
-- Interactive menu: `././menu`
+- Interactive menu: `./menu`
   - Quick actions: Start Datomic, Init DB, Stop all
   - Submenus for individual services, tmux, utilities (tail logs, open in VS Code)
 - CLI via menu (quick commands during dev):
   ```bash
-  ././menu start datomic   # start Datomic
-  ././menu stop datomic    # stop Datomic
-  ././menu status          # check what's running
+  ./menu start datomic   # start Datomic
+  ./menu stop datomic    # stop Datomic
+  ./menu status          # check what's running
   ```
 - VS Code Tasks: Command Palette → Tasks: Run Task → "Dev: Start Datomic", "Dev: Open Menu", etc.
 
@@ -352,7 +352,7 @@ To stop you will need to do this:
 user=> (stop-server)
 ```
 
-Within Emacs you should be able to save your file (C-x C-s) and reload it into the REPL (C-c C-w) to get your server-side changes to take effect. Within Vim with `vim-fireplace` you can eval a form with `cpp`, a paragraph with `cpip`, etc; check out its help file for more information. Regardless of editor, your client-side changes will take effect immediately when you change a CLJS or CLJC file while `lein figwheel` is running.
+Within Emacs you should be able to save your file (C-x C-s) and reload it into the REPL (C-c C-w) to get your server-side changes to take effect. Within Vim with `vim-fireplace` you can eval a form with `cpp`, a paragraph with `cpip`, etc; check out its help file for more information. Regardless of editor, your client-side changes will take effect immediately when you change a CLJS or CLJC file while `lein fig:dev` is running.
 
 # Common Development Commands
 

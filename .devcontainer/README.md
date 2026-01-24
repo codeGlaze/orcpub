@@ -6,19 +6,36 @@ This Codespace is designed for Clojure/ClojureScript development using Leiningen
 
 1. Open this repo in GitHub Codespaces.
 2. Wait for the container to build and dependencies to download.
-3. **To start the hot-reloading dev server:**
-   ```
-   lein figwheel
+3. **To start all services (recommended):**
+   ```bash
+   ./menu                     # Interactive menu
+   # Or directly:
+   ./scripts/start.sh datomic
+   ./scripts/start.sh init-db
+   ./scripts/start.sh server --background
+   ./scripts/start.sh figwheel
    ```
    - The site will be available at https://`<your-codespace>`-8890.githubpreview.dev
-   - Figwheel websocket port 3449 and nREPL 7888 are forwarded for REPL tooling.
+   - Figwheel websocket runs on port 3449 for hot-reload
 4. Use Calva (VS Code extension) to jack-in to nREPL if you want interactive REPL or in-browser eval.
+
+## Port Forwarding
+
+The devcontainer pre-configures labeled ports for VS Code/Codespaces:
+
+| Port | Label | Purpose |
+|------|-------|---------|
+| 8890 | Backend Server | Main application server |
+| 3449 | Figwheel | ClojureScript hot-reload |
+| 4334 | Datomic | Database transactor |
+
+These labels appear in VS Code's Ports panel for easy identification.
 
 ## Notes
 
-- Ports 8890, 3449, and 7888 are pre-forwarded for Figwheel and nREPL.
-- If you use another Leiningen alias for dev, adjust `lein figwheel` accordingly.
-- Add more ports to forward as needed in `devcontainer.json`.
+- **Figwheel command**: Use `lein fig:dev` (not the deprecated `lein figwheel`)
+- The figwheel-main config is in `dev.cljs.edn`
+- Add more ports to forward as needed in `devcontainer.json` using `portsAttributes`
 
 ### Devcontainer build details
 
@@ -33,7 +50,7 @@ This Codespace is designed for Clojure/ClojureScript development using Leiningen
     - `bash ./scripts/dev-setup.sh --start` (also starts the backend & figwheel in the background)
 
 - Monitoring options:
-  - **Interactive menu (recommended)**: Run `././menu`
+  - **Interactive menu (recommended)**: Run `./menu`
     - Provides status display, quick actions (start Datomic, init DB, stop all)
     - Submenus for start/stop individual services, tmux, utilities
     - Utilities include tail logs and open in VS Code
@@ -45,11 +62,11 @@ This Codespace is designed for Clojure/ClojureScript development using Leiningen
 
 - Starting/Stopping Datomic (quick CLI):
   ```bash
-  ././menu start datomic   # start
-  ././menu stop datomic    # stop
-  ././menu status          # check status
+  ./menu start datomic   # start
+  ./menu stop datomic    # stop
+  ./menu status          # check status
   ```
 - Other options:
   - `--check` to validate prerequisites: `./scripts/start.sh --check`
-  - `--idempotent` for automation: `././menu start datomic --idempotent`
+  - `--idempotent` for automation: `./menu start datomic --idempotent`
 - Logs are written to `./logs/` (datomic.log, server.log, figwheel.log)

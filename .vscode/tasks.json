@@ -39,7 +39,7 @@
     {
       "label": "Dev: Open Menu",
       "type": "shell",
-      "command": "././menu",
+      "command": "./menu",
       "presentation": { "panel": "dedicated", "reveal": "always" },
       "problemMatcher": []
     },

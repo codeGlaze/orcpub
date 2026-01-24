@@ -98,7 +98,7 @@ AssertionError: Assert failed: (every? interceptor/interceptor? interceptors)
 **Developer Workflow:**
 ```bash
 # Start all services (recommended order):
-1. Start Datomic:    Run task "Dev: Start Local Datomic" or ././scripts/start.sh datomic
+1. Start Datomic:    Run task "Dev: Start Local Datomic" or ./scripts/start.sh datomic
 2. Start Server:     Run task "Dev: Start Server" (port 8890)
 3. Start Figwheel:   Run task "Dev: Start Figwheel" (port 9500)
 
@@ -198,7 +198,7 @@ Updated from `[8890, 3449, 7888]` to `[8890, 9500, 4334]`
 
 ```bash
 # Start development environment (in order):
-././scripts/start.sh datomic    # or VS Code task "Dev: Start Local Datomic"
+./scripts/start.sh datomic    # or VS Code task "Dev: Start Local Datomic"
 # Then in REPL: (start-server)      # or VS Code task "Dev: Start Server"
 lein fig:dev                        # or VS Code task "Dev: Start Figwheel"
 

@@ -34,7 +34,6 @@
                  [clojure.java-time "1.4.2"]
                  [clj-http "3.13.1"]
                  [com.yetanalytics/ring-etag-middleware "0.1.1"]
-                 [org.clojure/test.check "1.1.1"]
 
                  [org.clojure/core.match "1.1.1"]
                  [re-frame "1.4.4"]
@@ -120,7 +119,9 @@
                                 ;; Compress the output?
                                 :pretty-print? false}}]}
 
-  :prep-tasks [["garden" "once"]]
+  ;; NOTE: Garden compilation removed from global :prep-tasks for faster REPL startup.
+  ;; CSS is compiled via: ./menu start garden, lein garden once, or automatically in uberjar build.
+  ;; The compiled CSS is checked into resources/public/css/compiled/styles.css
 
   :cljsbuild {:builds
               {:dev
@@ -207,7 +208,6 @@
              ["with-profile" "prod" "cljsbuild" "once" "main"]]}
   :profiles {:dev          {:dependencies [[binaryage/devtools "1.0.7"]
                                            [cider/piggieback "0.5.3"]
-                                           [org.clojure/test.check "1.1.1"]
                                            [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]]
                                            ]
                             :env       {:dev-mode "true"}
@@ -225,8 +225,8 @@
                             ;; :plugins [[cider/cider-nrepl "0.12.0"]]
                             :repl-options {:init-ns          user
                                            :nrepl-middleware [cider.piggieback/wrap-cljs-repl]}}
-             :native-dev   {:dependencies [[com.cemerick/piggieback "0.2.1"]
-                                           [org.clojure/test.check "1.1.1"]]
+             ;; NOTE: :native-dev was for React Native builds (legacy, may be unused)
+             :native-dev   {:dependencies [[cider/piggieback "0.5.3"]]
                             :source-paths ["src/cljs" "native/cljs" "src/cljc" "env/dev"]
                             :cljsbuild    {:builds [{:id           "main"
                                                      :source-paths ["src/cljs" "native/cljs" "src/cljc" "env/dev"]
@@ -236,6 +236,8 @@
                                                                     :output-dir    "target"
                                                                     :optimizations :none}}]}
                             :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}}
+             ;; NOTE: :prod was for React Native builds (legacy, may be unused)
+             ;; datomic-pro dependency removed - peer is already in main deps
              :prod         {:cljsbuild    {:builds [{:id           "main"
                                                      :source-paths ["src/cljs" "native/cljs" "src/cljc" "env/prod"]
                                                      :compiler     {:output-to          "main.js"
@@ -245,9 +247,8 @@
                                                                     :externs            ["js/externs.js"]
                                                                     :parallel-build     true
                                                                     :optimize-constants true
-                                                                    :optimizations      :advanced}}]}
-                            :dependencies [[com.datomic/datomic-pro "1.0.7482"]]}
-             :uberjar      {:prep-tasks  ["clean" "compile" ["cljsbuild" "once" "prod"]]
+                                                                    :optimizations      :advanced}}]}}
+             :uberjar      {:prep-tasks  ["clean" ["garden" "once"] "compile" ["cljsbuild" "once" "prod"]]
                             :env         {:production true}
                             :aot         :all
                             :omit-source true
@@ -263,6 +264,10 @@
              :lint         {:dependencies [[clj-kondo "2024.05.22"]]
                             :clj-kondo {:linters {:shadowed-fn-param {:level :off}
                                                   :shadowed-var {:level :off}}}}
+             ;; Minimal profile for init-db - no ClojureScript, no Garden
+             ;; Use: lein with-profile init-db run -m orcpub.dev-init
+             :init-db      {:source-paths ["src/clj" "src/cljc"]
+                            :prep-tasks   ^:replace []}
              ;; Use like: lein with-profile +start-server repl
              :start-server {:repl-options {:init-ns user
                                            :init    (start-server)}}})

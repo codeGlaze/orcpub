@@ -9,7 +9,21 @@
       "version": "latest"
     }
   },
-  "forwardPorts": [8890, 9500, 4334],
+  "forwardPorts": [8890, 3449, 4334],
+  "portsAttributes": {
+    "8890": {
+      "label": "Backend Server",
+      "onAutoForward": "notify"
+    },
+    "3449": {
+      "label": "Figwheel",
+      "onAutoForward": "silent"
+    },
+    "4334": {
+      "label": "Datomic",
+      "onAutoForward": "silent"
+    }
+  },
   "postCreateCommand": [
     "bash",
     "./.devcontainer/post-create.sh"

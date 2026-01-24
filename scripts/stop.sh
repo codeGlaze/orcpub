@@ -112,7 +112,11 @@ confirm_kill() {
         return 1
     fi
 
-    read -p "Stop these processes? [y/N] " -n 1 -r
+    if ! read -t 30 -p "Stop these processes? [y/N] " -n 1 -r; then
+        echo
+        log_error "Prompt timed out after 30 seconds"
+        return 1
+    fi
     echo
     [[ $REPLY =~ ^[Yy]$ ]] && return 0
     [[ "$quiet" != "true" ]] && log_info "Aborted."
@@ -164,54 +168,59 @@ kill_pids() {
 
 stop_repl() {
     local skip="$1" force="$2" quiet="$3"
-    local pids
+    local pids result=0
     # Use PID-first lookup from common.sh
     pids=$(find_service_pids "nrepl" "$NREPL_PORT" 'nrepl')
     if confirm_kill "$pids" "nREPL (port $NREPL_PORT)" "$skip" "$quiet"; then
-        kill_pids "$pids" "$force" "$quiet"
+        kill_pids "$pids" "$force" "$quiet" || result=$?
         # Clean up PID file after stopping
         rm -f "$LOG_DIR/nrepl.pid" 2>/dev/null || true
     fi
+    return $result
 }
 
 stop_server() {
     local skip="$1" force="$2" quiet="$3"
-    local pids
+    local pids result=0
     pids=$(find_service_pids "server" "$SERVER_PORT" 'lein.*start-server')
     if confirm_kill "$pids" "Server (port $SERVER_PORT)" "$skip" "$quiet"; then
-        kill_pids "$pids" "$force" "$quiet"
+        kill_pids "$pids" "$force" "$quiet" || result=$?
         rm -f "$LOG_DIR/server.pid" 2>/dev/null || true
     fi
+    return $result
 }
 
 stop_datomic() {
     local skip="$1" force="$2" quiet="$3"
-    local pids
+    local pids result=0
     pids=$(find_service_pids "datomic" "$DATOMIC_PORT" 'datomic.*transactor')
     if confirm_kill "$pids" "Datomic (port $DATOMIC_PORT)" "$skip" "$quiet"; then
-        kill_pids "$pids" "$force" "$quiet"
+        kill_pids "$pids" "$force" "$quiet" || result=$?
         rm -f "$LOG_DIR/datomic.pid" 2>/dev/null || true
     fi
+    return $result
 }
 
 stop_figwheel() {
     local skip="$1" force="$2" quiet="$3"
-    local pids
+    local pids result=0
     pids=$(find_service_pids "figwheel" "$FIGWHEEL_PORT" 'figwheel')
     if confirm_kill "$pids" "Figwheel (port $FIGWHEEL_PORT)" "$skip" "$quiet"; then
-        kill_pids "$pids" "$force" "$quiet"
+        kill_pids "$pids" "$force" "$quiet" || result=$?
         rm -f "$LOG_DIR/figwheel.pid" 2>/dev/null || true
     fi
+    return $result
 }
 
 stop_garden() {
     local skip="$1" force="$2" quiet="$3"
-    local pids
+    local pids result=0
     pids=$(find_service_pids "garden" "$GARDEN_PORT" 'garden.*auto')
     if confirm_kill "$pids" "Garden" "$skip" "$quiet"; then
-        kill_pids "$pids" "$force" "$quiet"
+        kill_pids "$pids" "$force" "$quiet" || result=$?
         rm -f "$LOG_DIR/garden.pid" 2>/dev/null || true
     fi
+    return $result
 }
 
 stop_port() {
@@ -234,7 +243,11 @@ stop_name() {
             log_error "Refusing to use broad pattern in non-interactive mode"
             exit $EXIT_USAGE
         fi
-        read -p "This may match many processes. Continue? [y/N] " -n 1 -r
+        if ! read -t 30 -p "This may match many processes. Continue? [y/N] " -n 1 -r; then
+            echo
+            log_error "Prompt timed out after 30 seconds"
+            exit $EXIT_RUNTIME
+        fi
         echo
         [[ ! $REPLY =~ ^[Yy]$ ]] && { log_info "Aborted."; exit $EXIT_SUCCESS; }
     fi
@@ -246,7 +259,7 @@ stop_name() {
 
 stop_all() {
     local skip="$1" force="$2" quiet="$3"
-    local pids=""
+    local pids="" result=0
 
     # Collect PIDs from all services using PID-first approach
     for service in datomic server nrepl figwheel garden; do
@@ -264,10 +277,11 @@ stop_all() {
     pids=$(echo "$pids" | tr ' ' '\n' | sort -u | xargs)
 
     if confirm_kill "$pids" "all OrcPub services" "$skip" "$quiet"; then
-        kill_pids "$pids" "$force" "$quiet"
+        kill_pids "$pids" "$force" "$quiet" || result=$?
         # Clean up all PID files
         rm -f "$LOG_DIR"/*.pid 2>/dev/null || true
     fi
+    return $result
 }
 
 # -----------------------------------------------------------------------------

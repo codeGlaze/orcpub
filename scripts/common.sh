@@ -16,7 +16,7 @@ _ORCPUB_COMMON_LOADED=1
 
 # SCRIPT_DIR should be set by the sourcing script, but provide fallback
 COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="${REPO_ROOT:-$(cd "$COMMON_DIR/../.." && pwd)}"
+REPO_ROOT="${REPO_ROOT:-$(cd "$COMMON_DIR/.." && pwd)}"
 
 # -----------------------------------------------------------------------------
 # Environment Configuration
@@ -161,6 +161,31 @@ wait_for_port() {
         sleep 1
         ((elapsed++))
     done
+    return 1
+}
+
+# Wait for a port to become available, but fail fast if the process dies
+# Usage: wait_for_port_or_die PORT PID [TIMEOUT]
+wait_for_port_or_die() {
+    local port="$1"
+    local pid="$2"
+    local timeout="${3:-60}"
+    local elapsed=0
+
+    while [[ $elapsed -lt $timeout ]]; do
+        # Check if process is still alive
+        if ! kill -0 "$pid" 2>/dev/null; then
+            log_error "Process $pid died while waiting for port $port"
+            return 1
+        fi
+        # Check if port is ready
+        if port_in_use "$port"; then
+            return 0
+        fi
+        sleep 1
+        ((elapsed++))
+    done
+    log_error "Timeout waiting for port $port (process $pid still running)"
     return 1
 }
 

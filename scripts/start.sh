@@ -83,9 +83,13 @@ check_port_available() {
             return 1
         fi
 
-        # Interactive mode: offer to stop existing service
+        # Interactive mode: offer to stop existing service (with timeout)
         log_warn "Port $port is already in use (PID: ${pid:-unknown})"
-        read -p "Stop existing $service and continue? [y/N] " -n 1 -r
+        if ! read -t 30 -p "Stop existing $service and continue? [y/N] " -n 1 -r; then
+            echo
+            log_error "Prompt timed out after 30 seconds"
+            return 1
+        fi
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             log_info "Stopping existing $service..."
@@ -130,6 +134,8 @@ prepare_datomic_config() {
     if [[ ! -f "$DATOMIC_CONFIG" ]]; then
         if [[ -f "$DATOMIC_CONFIG_TEMPLATE" ]]; then
             cp "$DATOMIC_CONFIG_TEMPLATE" "$DATOMIC_CONFIG"
+            # Restrict permissions (config may contain secrets)
+            chmod 600 "$DATOMIC_CONFIG"
             log_info "Created transactor config from template"
         else
             log_error "Datomic config template not found."
@@ -260,20 +266,24 @@ run_in_tmux() {
 
     check_tmux || exit $EXIT_PREREQ
 
+    # Build a properly quoted command string to avoid argument splitting
+    local quoted_cmd
+    quoted_cmd=$(printf '%q ' "${cmd_args[@]}")
+
     if tmux has-session -t "$TMUX_SESSION" 2>/dev/null; then
         # Session exists - add new window
         # Use -c for working directory (safer than bash -c string building)
         tmux new-window -t "$TMUX_SESSION" -n "$window_name" -c "$REPO_ROOT"
         # Set remain-on-exit so window stays open after command finishes
         tmux set-option -t "$TMUX_SESSION:$window_name" remain-on-exit on
-        # Send the command
-        tmux send-keys -t "$TMUX_SESSION:$window_name" "${cmd_args[*]}" Enter
+        # Send the command (properly quoted)
+        tmux send-keys -t "$TMUX_SESSION:$window_name" "$quoted_cmd" C-m
         log_info "Started '$window_name' in tmux window (session: $TMUX_SESSION)"
     else
         # Create new session with this window
         tmux new-session -d -s "$TMUX_SESSION" -n "$window_name" -c "$REPO_ROOT"
         tmux set-option -t "$TMUX_SESSION:$window_name" remain-on-exit on
-        tmux send-keys -t "$TMUX_SESSION:$window_name" "${cmd_args[*]}" Enter
+        tmux send-keys -t "$TMUX_SESSION:$window_name" "$quoted_cmd" C-m
         log_info "Created tmux session '$TMUX_SESSION' with window '$window_name'"
     fi
 
@@ -329,8 +339,29 @@ start_datomic() {
 
     prepare_datomic_config || exit $EXIT_PREREQ
 
+    # Clean up stale PID file
+    cleanup_stale_pid "datomic"
+
     log_info "Starting Datomic transactor (${DATOMIC_TYPE} ${DATOMIC_VERSION})..."
-    "$DATOMIC_DIR/bin/transactor" "$DATOMIC_CONFIG"
+    nohup "$DATOMIC_DIR/bin/transactor" "$DATOMIC_CONFIG" > "$LOG_DIR/datomic.log" 2>&1 &
+    local datomic_pid=$!
+    echo "$datomic_pid" > "$LOG_DIR/datomic.pid"
+    log_info "Datomic transactor started (PID $datomic_pid)"
+    log_info "Logs: $LOG_DIR/datomic.log"
+
+    # Early verification: ensure process didn't die immediately
+    sleep 0.5
+    if ! kill -0 "$datomic_pid" 2>/dev/null; then
+        log_error "Datomic process died immediately after starting"
+        show_startup_failure "datomic" "$LOG_DIR/datomic.log" "$DATOMIC_PORT"
+        exit $EXIT_RUNTIME
+    fi
+
+    # Wait for Datomic to be ready
+    if ! wait_for_datomic "$PORT_WAIT" "$LOG_DIR/datomic.log"; then
+        log_error "Failed to start Datomic. Check logs: $LOG_DIR/datomic.log"
+        exit $EXIT_RUNTIME
+    fi
 }
 
 start_server() {
@@ -342,9 +373,16 @@ start_server() {
         exit $EXIT_SUCCESS
     fi
 
-    log_info "Starting REPL with server (profile: +dev,+start-server)..."
     cd "$REPO_ROOT"
-    lein with-profile +dev,+start-server repl
+
+    # Use headless mode if not running interactively (background/nohup)
+    if [[ -t 0 ]]; then
+        log_info "Starting REPL with server (profile: +dev,+start-server)..."
+        lein with-profile +dev,+start-server repl
+    else
+        log_info "Starting headless server (profile: +dev,+start-server)..."
+        lein with-profile +dev,+start-server repl :headless
+    fi
 }
 
 start_figwheel() {
@@ -356,15 +394,62 @@ start_figwheel() {
         exit $EXIT_SUCCESS
     fi
 
+    # Clean up stale PID file
+    cleanup_stale_pid "figwheel"
+
     log_info "Starting Figwheel (ClojureScript hot-reload)..."
     cd "$REPO_ROOT"
-    lein with-profile +dev figwheel
+    # Use fig:dev alias (trampoline run -m figwheel.main -- --build dev --repl)
+    nohup lein fig:dev > "$LOG_DIR/figwheel.log" 2>&1 &
+    local figwheel_pid=$!
+    echo "$figwheel_pid" > "$LOG_DIR/figwheel.pid"
+    log_info "Figwheel started (PID $figwheel_pid)"
+    log_info "Logs: $LOG_DIR/figwheel.log"
+
+    # Early verification: ensure process didn't die immediately
+    sleep 0.5
+    if ! kill -0 "$figwheel_pid" 2>/dev/null; then
+        log_error "Figwheel process died immediately after starting"
+        show_startup_failure "figwheel" "$LOG_DIR/figwheel.log" "$FIGWHEEL_PORT"
+        exit $EXIT_RUNTIME
+    fi
+
+    # Wait for Figwheel to be ready (fail fast if process dies)
+    log_info "Waiting for Figwheel to be ready (port $FIGWHEEL_PORT)..."
+    if wait_for_port_or_die "$FIGWHEEL_PORT" "$figwheel_pid" "$PORT_WAIT"; then
+        log_info "Figwheel is ready"
+    else
+        show_startup_failure "figwheel" "$LOG_DIR/figwheel.log" "$FIGWHEEL_PORT"
+        exit $EXIT_RUNTIME
+    fi
 }
 
 start_garden() {
+    # Clean up stale PID file
+    cleanup_stale_pid "garden"
+
     log_info "Starting Garden (CSS auto-compilation)..."
     cd "$REPO_ROOT"
-    lein garden auto
+    nohup lein garden auto > "$LOG_DIR/garden.log" 2>&1 &
+    local garden_pid=$!
+    echo "$garden_pid" > "$LOG_DIR/garden.pid"
+    log_info "Garden started (PID $garden_pid)"
+    log_info "Logs: $LOG_DIR/garden.log"
+
+    # Garden has no port to check - verify process survives startup
+    # Check multiple times to catch delayed failures (e.g., lein project parsing)
+    local checks=0
+    local max_checks=5
+    while [[ $checks -lt $max_checks ]]; do
+        sleep 1
+        if ! kill -0 "$garden_pid" 2>/dev/null; then
+            log_error "Garden process died during startup"
+            show_startup_failure "garden" "$LOG_DIR/garden.log" ""
+            exit $EXIT_RUNTIME
+        fi
+        ((checks++))
+    done
+    log_info "Garden is running"
 }
 
 init_database() {
@@ -378,7 +463,9 @@ init_database() {
     fi
 
     cd "$REPO_ROOT"
-    if lein run -m orcpub.dev-init; then
+    # Use init-db profile to skip ClojureScript/Garden compilation
+    # This only loads src/clj and src/cljc - much faster
+    if lein with-profile init-db run -m orcpub.dev-init; then
         log_info "Database initialized successfully"
     else
         log_error "Database initialization failed"
@@ -388,6 +475,26 @@ init_database() {
 
 start_all() {
     local idempotent="${1:-false}"
+    local started_datomic="false"
+    local datomic_pid=""
+
+    # Cleanup function for signal handling
+    cleanup_on_exit() {
+        local exit_code=$?
+        if [[ "$started_datomic" == "true" && -n "$datomic_pid" ]]; then
+            log_info "Stopping Datomic (PID $datomic_pid)..."
+            kill "$datomic_pid" 2>/dev/null || true
+            # Wait briefly for graceful shutdown
+            sleep 1
+            kill -0 "$datomic_pid" 2>/dev/null && kill -9 "$datomic_pid" 2>/dev/null || true
+            rm -f "$LOG_DIR/datomic.pid"
+            log_info "Datomic stopped"
+        fi
+        exit "$exit_code"
+    }
+
+    # Set up trap for cleanup on interrupt/termination
+    trap cleanup_on_exit INT TERM
 
     check_datomic_installed || exit $EXIT_PREREQ
     check_port_available "$DATOMIC_PORT" "datomic" "$idempotent" || exit $EXIT_RUNTIME
@@ -400,10 +507,20 @@ start_all() {
         cleanup_stale_pid "datomic"
 
         log_info "Starting Datomic transactor (background)..."
-        "$DATOMIC_DIR/bin/transactor" "$DATOMIC_CONFIG" > "$LOG_DIR/datomic.log" 2>&1 &
-        local datomic_pid=$!
+        nohup "$DATOMIC_DIR/bin/transactor" "$DATOMIC_CONFIG" > "$LOG_DIR/datomic.log" 2>&1 &
+        datomic_pid=$!
+        started_datomic="true"
         echo "$datomic_pid" > "$LOG_DIR/datomic.pid"
         log_info "Datomic transactor started (PID $datomic_pid)"
+
+        # Early verification: ensure process didn't die immediately
+        sleep 0.5
+        if ! kill -0 "$datomic_pid" 2>/dev/null; then
+            log_error "Datomic process died immediately after starting"
+            show_startup_failure "datomic" "$LOG_DIR/datomic.log" "$DATOMIC_PORT"
+            started_datomic="false"  # Don't try to clean up a dead process
+            exit $EXIT_RUNTIME
+        fi
 
         # Wait for Datomic to be ready (with proper readiness check)
         if ! wait_for_datomic "$PORT_WAIT" "$LOG_DIR/datomic.log"; then
@@ -418,10 +535,13 @@ start_all() {
 
     if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" ]]; then
         log_info "Server already running on port $SERVER_PORT"
+        # Clear trap since we're not managing Datomic lifecycle
+        trap - INT TERM
         exit $EXIT_SUCCESS
     fi
 
     log_info "Starting REPL with server (profile: +dev,+start-server)..."
+    log_info "Note: Ctrl+C will stop both server and Datomic"
     cd "$REPO_ROOT"
     lein with-profile +dev,+start-server repl
 }

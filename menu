@@ -81,7 +81,7 @@ show_start_submenu() {
     echo "  1) Datomic only"
     echo "  2) Server only"
     echo "  3) Figwheel (ClojureScript)"
-    echo "  4) Garden (CSS)"
+    echo "  4) Garden Auto (CSS watcher)"
     echo ""
     echo "  a) All (foreground)"
     echo "  b) All (background)"
@@ -99,27 +99,42 @@ handle_start_submenu() {
 
         case "$choice" in
             1)
-                "$SCRIPT_DIR/scripts/start.sh" datomic
+                if ! "$SCRIPT_DIR/scripts/start.sh" datomic; then
+                    echo ""
+                    read -r -p "Press Enter to return to menu..."
+                fi
                 return
                 ;;
             2)
-                "$SCRIPT_DIR/scripts/start.sh" server
+                if ! "$SCRIPT_DIR/scripts/start.sh" server; then
+                    echo ""
+                    read -r -p "Press Enter to return to menu..."
+                fi
                 return
                 ;;
             3)
-                "$SCRIPT_DIR/scripts/start.sh" figwheel
+                if ! "$SCRIPT_DIR/scripts/start.sh" figwheel; then
+                    echo ""
+                    read -r -p "Press Enter to return to menu..."
+                fi
                 return
                 ;;
             4)
-                "$SCRIPT_DIR/scripts/start.sh" garden
+                if ! "$SCRIPT_DIR/scripts/start.sh" garden; then
+                    echo ""
+                    read -r -p "Press Enter to return to menu..."
+                fi
                 return
                 ;;
             a|A)
-                "$SCRIPT_DIR/scripts/start.sh"
+                if ! "$SCRIPT_DIR/scripts/start.sh"; then
+                    echo ""
+                    read -r -p "Press Enter to return to menu..."
+                fi
                 return
                 ;;
             b|B)
-                "$SCRIPT_DIR/scripts/start.sh" --background
+                "$SCRIPT_DIR/scripts/start.sh" --background || true
                 echo ""
                 read -r -p "Press Enter to continue..."
                 return
@@ -162,27 +177,32 @@ handle_stop_submenu() {
 
         case "$choice" in
             1)
-                "$SCRIPT_DIR/scripts/stop.sh"
+                "$SCRIPT_DIR/scripts/stop.sh" || true
+                echo ""
                 read -r -p "Press Enter to continue..."
                 return
                 ;;
             2)
-                "$SCRIPT_DIR/scripts/stop.sh" datomic
+                "$SCRIPT_DIR/scripts/stop.sh" datomic || true
+                echo ""
                 read -r -p "Press Enter to continue..."
                 return
                 ;;
             3)
-                "$SCRIPT_DIR/scripts/stop.sh" server
+                "$SCRIPT_DIR/scripts/stop.sh" server || true
+                echo ""
                 read -r -p "Press Enter to continue..."
                 return
                 ;;
             4)
-                "$SCRIPT_DIR/scripts/stop.sh" repl
+                "$SCRIPT_DIR/scripts/stop.sh" repl || true
+                echo ""
                 read -r -p "Press Enter to continue..."
                 return
                 ;;
             5)
-                "$SCRIPT_DIR/scripts/stop.sh" figwheel
+                "$SCRIPT_DIR/scripts/stop.sh" figwheel || true
+                echo ""
                 read -r -p "Press Enter to continue..."
                 return
                 ;;
@@ -229,12 +249,13 @@ handle_tmux_submenu() {
 
         case "$choice" in
             1)
-                "$SCRIPT_DIR/scripts/start.sh" --tmux
-                echo ""
-                echo -e "${CYAN}Services started in tmux session 'orcpub'.${NC}"
-                echo ""
-                echo "To attach:  tmux attach -t orcpub"
-                echo "To detach:  Ctrl+B, then D"
+                if "$SCRIPT_DIR/scripts/start.sh" --tmux; then
+                    echo ""
+                    echo -e "${CYAN}Services started in tmux session 'orcpub'.${NC}"
+                    echo ""
+                    echo "To attach:  tmux attach -t orcpub"
+                    echo "To detach:  Ctrl+B, then D"
+                fi
                 echo ""
                 read -r -p "Press Enter to continue..."
                 return
@@ -246,21 +267,28 @@ handle_tmux_submenu() {
                     echo "(Detach with Ctrl+B, then D)"
                     echo ""
                     sleep 1
-                    tmux attach -t orcpub
+                    tmux attach -t orcpub || {
+                        echo ""
+                        echo -e "${YELLOW}Session ended or detached.${NC}"
+                    }
                 else
                     echo ""
                     echo -e "${YELLOW}No tmux session 'orcpub' found.${NC}"
                     echo "Use option 1 to start services in tmux first."
-                    echo ""
-                    read -r -p "Press Enter to continue..."
                 fi
+                echo ""
+                read -r -p "Press Enter to continue..."
                 return
                 ;;
             3)
                 if tmux has-session -t orcpub 2>/dev/null; then
-                    tmux kill-session -t orcpub
-                    echo ""
-                    echo -e "${GREEN}Killed tmux session 'orcpub'.${NC}"
+                    if tmux kill-session -t orcpub 2>/dev/null; then
+                        echo ""
+                        echo -e "${GREEN}Killed tmux session 'orcpub'.${NC}"
+                    else
+                        echo ""
+                        echo -e "${YELLOW}Session may have already ended.${NC}"
+                    fi
                 else
                     echo ""
                     echo -e "${YELLOW}No tmux session 'orcpub' to kill.${NC}"
@@ -314,10 +342,11 @@ handle_tail_submenu() {
                     echo -e "${CYAN}Tailing $log (Ctrl+C to stop)${NC}"
                     echo ""
                     tail -f "$log" || true
+                    echo ""
                 else
                     echo -e "${YELLOW}Log not found: $log${NC}"
-                    read -r -p "Press Enter to continue..."
                 fi
+                read -r -p "Press Enter to continue..."
                 return
                 ;;
             2)
@@ -327,10 +356,11 @@ handle_tail_submenu() {
                     echo -e "${CYAN}Tailing $log (Ctrl+C to stop)${NC}"
                     echo ""
                     tail -f "$log" || true
+                    echo ""
                 else
                     echo -e "${YELLOW}Log not found: $log${NC}"
-                    read -r -p "Press Enter to continue..."
                 fi
+                read -r -p "Press Enter to continue..."
                 return
                 ;;
             3)
@@ -340,10 +370,11 @@ handle_tail_submenu() {
                     echo -e "${CYAN}Tailing $log (Ctrl+C to stop)${NC}"
                     echo ""
                     tail -f "$log" || true
+                    echo ""
                 else
                     echo -e "${YELLOW}Log not found: $log${NC}"
-                    read -r -p "Press Enter to continue..."
                 fi
+                read -r -p "Press Enter to continue..."
                 return
                 ;;
             4)
@@ -357,10 +388,11 @@ handle_tail_submenu() {
                 [[ -f "$LOG_DIR/figwheel.log" ]] && logs+=("$LOG_DIR/figwheel.log")
                 if [[ ${#logs[@]} -gt 0 ]]; then
                     tail -f "${logs[@]}" || true
+                    echo ""
                 else
                     echo -e "${YELLOW}No log files found in $LOG_DIR${NC}"
-                    read -r -p "Press Enter to continue..."
                 fi
+                read -r -p "Press Enter to continue..."
                 return
                 ;;
             0|""|$'\e'|$'\x7f')
@@ -456,6 +488,7 @@ show_utils_submenu() {
     echo "  l) Tail logs →"
     echo "  o) Open log in VS Code →"
     echo ""
+    echo "  u) Create test user (verified)"
     echo "  i) Install Datomic"
     echo "  c) Check prerequisites"
     echo "  r) Refresh status"
@@ -478,14 +511,26 @@ handle_utils_submenu() {
             o|O)
                 handle_vscode_submenu
                 ;;
+            u|U)
+                echo ""
+                echo -e "${CYAN}Creating test user (test@example.com / testpass)...${NC}"
+                if "$SCRIPT_DIR/scripts/create_dummy_user.sh" test test@example.com testpass verify; then
+                    echo -e "${GREEN}Test user created successfully${NC}"
+                else
+                    echo -e "${YELLOW}User creation failed (may already exist)${NC}"
+                fi
+                echo ""
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
             i|I)
-                "$SCRIPT_DIR/scripts/start.sh" --install
+                "$SCRIPT_DIR/scripts/start.sh" --install || true
                 echo ""
                 read -r -p "Press Enter to continue..."
                 return
                 ;;
             c|C)
-                "$SCRIPT_DIR/scripts/start.sh" --check
+                "$SCRIPT_DIR/scripts/start.sh" --check || true
                 echo ""
                 read -r -p "Press Enter to continue..."
                 return
@@ -549,16 +594,22 @@ interactive_menu() {
         case "$choice" in
             1)
                 echo ""
-                "$SCRIPT_DIR/scripts/start.sh" datomic
+                if ! "$SCRIPT_DIR/scripts/start.sh" datomic; then
+                    # start.sh failed (port conflict declined, prereq error, etc.)
+                    echo ""
+                    read -r -p "Press Enter to return to menu..."
+                fi
                 ;;
             2)
                 echo ""
-                "$SCRIPT_DIR/scripts/start.sh" init-db
+                "$SCRIPT_DIR/scripts/start.sh" init-db || true
+                echo ""
                 read -r -p "Press Enter to continue..."
                 ;;
             3)
                 echo ""
-                "$SCRIPT_DIR/scripts/stop.sh"
+                "$SCRIPT_DIR/scripts/stop.sh" || true
+                echo ""
                 read -r -p "Press Enter to continue..."
                 ;;
             4)
