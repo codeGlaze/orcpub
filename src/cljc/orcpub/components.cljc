@@ -6,7 +6,7 @@
   [:i.fa.fa-check.f-s-14.bg-white.b-color-gray.orange-shadow.pointer.b-1
    {:class-name (str (if selected? "black slight-text-shadow" "white transparent")
                      " "
-                     (if disable?
+                     (when disable?
                        "opacity-5"))}])
 
 (defn labeled-checkbox [label selected? disabled? on-click]
@@ -54,7 +54,7 @@
          :on-change (fn [e] #?(:cljs
                                (swap! state
                                       (fn [{:keys [timeout temp-val] :as s}]
-                                        (if timeout
+                                        (when timeout
                                           (js/clearTimeout timeout))
                                         (let [v (.. e -target -value)]
                                           (assoc s
@@ -71,7 +71,7 @@
    value
    (fn [str-v]
      #?(:cljs
-        (let [v (if (not (s/blank? str-v))
+        (let [v (when (not (s/blank? str-v))
                   (js/parseInt str-v))]
           (on-change v))))
    (assoc attrs :type :number)])

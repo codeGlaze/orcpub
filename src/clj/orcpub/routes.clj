@@ -896,9 +896,9 @@
 (defn character-summary-description [{:keys [::char5e/race-name ::char5e/subrace-name ::char5e/classes]}]
   (str race-name
        " "
-       (if subrace-name (str "(" subrace-name ") "))
+       (when subrace-name (str "(" subrace-name ") "))
        " "
-       (if (seq classes)
+       (when (seq classes)
          (s/join
           " / "
           (map

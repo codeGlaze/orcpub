@@ -290,7 +290,7 @@
    ::description (str "You can use an action to blow this horn. In response, "
                      die "d4 + " die " warrior spirits from the Valhalla appear within 60 feet of you. They use the statistics of a berserker.
 They return to Valhalla after 1 hour or when they drop to 0 hit points. Once you use the horn, it can’t be used again until 7 days have passed."
-                     (if requirement
+                     (when requirement
                        (str "
 You must have proficiency with all "
                             requirement
@@ -2994,7 +2994,7 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
     (let [base-weapon-fn (make-base-weapon-fn item-subtype subtypes)
           of-type (filter base-weapon-fn (concat weapons5e/weapons
                                                  weapons5e/ammunition))]
-      #?(:clj (if (empty? of-type)
+      #?(:clj (when (empty? of-type)
                  (throw (IllegalArgumentException. (str "No base types matched for weapon item!: " (::name item))))))
       (map
        (fn [weapon]
@@ -3041,7 +3041,7 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
           of-type (filter
                    base-armor-fn
                    armor5e/armor)]
-      #?(:clj (if (empty? of-type)
+      #?(:clj (when (empty? of-type)
                  (throw (IllegalArgumentException. "No base types matched for armor item!"))))
       (map
        (fn [armor]
