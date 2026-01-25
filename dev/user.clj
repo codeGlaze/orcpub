@@ -5,8 +5,7 @@
             [orcpub.routes :as r]
             [orcpub.system :as s]
             [orcpub.db.schema :as schema]
-            [orcpub.config :as config]
-            [environ.core :as environ]))
+            [orcpub.config :as config]))
 
 ;; Lazy-load figwheel-main only when needed (avoids loading it for server-only REPL)
 (def ^:private fig-api
@@ -85,7 +84,7 @@
   ([]
    (init-database nil))
   ([mode]
-   (let [env-uri (orcpub.config/datomic-env)
+   (let [env-uri (config/datomic-env)
          db-uri (if (some-> env-uri not-empty)
                   env-uri
                   (let [m (or mode :dev)]
