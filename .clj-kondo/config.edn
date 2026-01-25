@@ -3,6 +3,7 @@
            :shadowed-var {:level :off}
            :unused-namespace {:level :off}
            :unused-binding {:level :off}
+           :missing-else-branch {:level :off}
            :clojure-lsp/unused-public-var
            {:exclude-when-defined-by [user]}
            :unresolved-symbol

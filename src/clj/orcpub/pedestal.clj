@@ -89,7 +89,7 @@
                     {body :body
                      {last-modified "Last-Modified"
                       content-length "Content-Length"} :headers} response
-                    old-etag (if if-none-match
+                    old-etag (when if-none-match
                                (-> if-none-match (s/split #"--gzip") first))
                     new-etag (or (parse-date last-modified content-length) (calculate-etag body))
                     not-modified? (and old-etag (= new-etag old-etag))]
