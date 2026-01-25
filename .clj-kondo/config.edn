@@ -1,8 +1,9 @@
 {:linters {:shadowed-fn-param {:level :off}
            :shadowed-var {:level :off}
-           :if {:level :off}
            :unused-namespace {:level :off}
            :unused-binding {:level :off}
+           :clojure-lsp/unused-public-var
+           {:exclude-when-defined-by [user]}
            :unresolved-symbol
            {:exclude
             [(clojure.core.match/match)
@@ -29,6 +30,8 @@
              (orcpub.dnd.e5.modifiers/reaction)
              (orcpub.dnd.e5.modifiers/level-val)
              (orcpub.entity-spec/make-entity)
-             (orcpub.routes-test/with-conn)]}}
-  :lint-as {reagent.core/with-let clojure.core/let
-            hiccup.def/defhtml clojure.core/defn}}
+             (orcpub.routes-test/with-conn)
+             (user/with-db)]}}
+ :lint-as {reagent.core/with-let clojure.core/let
+           hiccup.def/defhtml clojure.core/defn
+           user/with-db clojure.core/let}}
