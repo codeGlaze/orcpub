@@ -35,4 +35,5 @@
              (user/with-db)]}}
  :lint-as {reagent.core/with-let clojure.core/let
            hiccup.def/defhtml clojure.core/defn
-           user/with-db clojure.core/let}}
+           user/with-db clojure.core/let
+           clojure.test.check.clojure-test/defspec clojure.test/deftest}}
