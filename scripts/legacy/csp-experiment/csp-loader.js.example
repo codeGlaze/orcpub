@@ -1,0 +1,68 @@
+/**
+ * CSP-Compatible ClojureScript Dev Loader (EXPERIMENTAL - NOT USED)
+ *
+ * This loader uses createElement() instead of document.write() to be
+ * compatible with CSP 'strict-dynamic'. However, figwheel-main doesn't
+ * support this approach, so we use Report-Only CSP in dev instead.
+ *
+ * See README.md in this directory for details.
+ */
+(function() {
+  'use strict';
+
+  // Get nonce from the script tag that loaded us
+  var nonce = document.currentScript ? document.currentScript.nonce : '';
+
+  // Tell Google Closure to use createElement() for dynamic script loading
+  window.CLOSURE_DEFINES = window.CLOSURE_DEFINES || {};
+  window.CLOSURE_DEFINES['goog.ENABLE_CHROME_APP_SAFE_SCRIPT_LOADING'] = true;
+
+  // Base path for compiled output (must match dev.cljs.edn :output-dir)
+  var basePath = '/js/compiled/out';
+
+  /**
+   * Load a script using createElement (CSP-compatible)
+   * With 'strict-dynamic', scripts created by trusted scripts inherit trust
+   */
+  function loadScript(src, callback) {
+    var script = document.createElement('script');
+    script.src = src;
+    if (nonce) script.nonce = nonce;
+    script.async = false; // Preserve load order
+    if (callback) {
+      script.onload = callback;
+      script.onerror = function() {
+        console.error('Failed to load: ' + src);
+      };
+    }
+    document.head.appendChild(script);
+  }
+
+  /**
+   * Load scripts in sequence
+   */
+  function loadScriptsSequentially(scripts, callback) {
+    if (scripts.length === 0) {
+      if (callback) callback();
+      return;
+    }
+    var first = scripts[0];
+    var rest = scripts.slice(1);
+    loadScript(first, function() {
+      loadScriptsSequentially(rest, callback);
+    });
+  }
+
+  // Load Closure base, then deps, then bootstrap the app
+  loadScriptsSequentially([
+    basePath + '/goog/base.js',
+    basePath + '/cljs_deps.js'
+  ], function() {
+    // After deps loaded, require the main namespace
+    goog.require('orcpub.dnd.e5.core');
+    // Require figwheel for hot reload
+    goog.require('figwheel.core');
+    goog.require('figwheel.main');
+    goog.require('figwheel.repl.preload');
+  });
+})();

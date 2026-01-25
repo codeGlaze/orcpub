@@ -17,7 +17,11 @@
    ;;  we can use this to set the routes to be reloadable
    ::http/routes #(deref #'routes/routes)
    ;; all origins are allowed in dev mode
-   ::http/allowed-origins {:creds true :allowed-origins (constantly true)}})
+   ::http/allowed-origins {:creds true :allowed-origins (constantly true)}
+   ;; CSP now enabled in dev mode too (catches issues early).
+   ;; Uses same config as prod - nonce-interceptor handles strict mode dynamically.
+   ;; See orcpub.config/get-secure-headers-config
+   })
 
 (def prod-service-map
   {::http/routes routes/routes
@@ -28,6 +32,9 @@
                  (when port-str (Integer/parseInt port-str)))
    ::http/join false
    ::http/resource-path "/public"
+   ;; CSP configured via CSP_POLICY env var (strict|permissive|none)
+   ;; See orcpub.config for details
+   ::http/secure-headers (config/get-secure-headers-config)
    ::http/container-options {:context-configurator (fn [c]
                                                      (let [gzip-handler (GzipHandler.)]
                                                        (.setGzipHandler c gzip-handler)

@@ -22,6 +22,24 @@ This file documents the canonical environment variable pattern for all environme
     EMAIL_PORT=587
     EMAIL_USER=your@email.com
     EMAIL_PASSWORD=changeme
+    # Content Security Policy (strict|permissive|none)
+    CSP_POLICY=strict
+
+## Security Configuration
+
+### CSP_POLICY
+
+Controls the Content-Security-Policy HTTP header. This is important for production deployments.
+
+| Value | Description |
+|-------|-------------|
+| `strict` | **(Default)** Nonce-based CSP with `'strict-dynamic'`. Maximum security - scripts must have valid nonce. |
+| `permissive` | Allows same-origin scripts without nonces. Legacy fallback for compatibility. |
+| `none` | Disables CSP entirely. Not recommended for production but useful for debugging. |
+
+**Note:** In dev mode (`DEV_MODE=true`) with `CSP_POLICY=strict`, the header uses `Content-Security-Policy-Report-Only` instead of `Content-Security-Policy`. This logs violations to browser console without blocking scripts, allowing Figwheel to work while still catching CSP issues during development. Production uses enforcing CSP.
+
+See [UPGRADE_DEPENDENCIES.md](UPGRADE_DEPENDENCIES.md) for implementation details and background.
 
 ## Precedence
 

@@ -47,6 +47,8 @@ All configuration (Datomic, secrets, ports, email, etc.) is managed via a single
 
 See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for full details and variable documentation.
 
+**Upgrading?** See [`docs/UPGRADE_DEPENDENCIES.md`](docs/UPGRADE_DEPENDENCIES.md) for breaking changes and migration notes (Pedestal CSP, Java 21, etc.).
+
 ---
 ## Getting Started
 
@@ -91,11 +93,12 @@ EMAIL_SERVER_PORT: 587 # Mail server port
 EMAIL_FROM_ADDRESS: '' # Email address to send from, will default to 'no-reply@orcpub.com' if not set
 EMAIL_ERRORS_TO: '' # Email address that errors will be sent to
 EMAIL_SSL: 'false' # Should SSL be used? Gmail requires this.
-EMAIL_TLS: 'false' # Should TLS be used? 
+EMAIL_TLS: 'false' # Should TLS be used?
 DATOMIC_URL: datomic:dev://datomic:4334/orcpub?password=yourpassword # Url for the database (use datomic:dev:// for Datomic Pro)
 ADMIN_PASSWORD: supersecretpassword #The datomic admin password (should be different than the DATOMIC_PASSWORD)
 DATOMIC_PASSWORD: yourpassword #The datomic application password
 SIGNATURE: '<change me to something unique>' # The Secret used to hash your password in the browser, 20+ characters recommended
+CSP_POLICY: 'strict' # Content Security Policy: strict|permissive|none (see docs/UPGRADE_DEPENDENCIES.md)
 ```
 
 The `ADMIN_PASSWORD` and `DATOMIC_PASSWORD`

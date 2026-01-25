@@ -1,0 +1,33 @@
+Content-Security-Policy: This site (https://datomic-pro-upgrade-pjrvpvv9r6wf79xj-8890.app.github.dev) has a Report-Only policy without a report-uri directive nor a report-to directive. CSP will not block and cannot report violations of this policy. character-builder
+Installing CLJS DevTools 1.0.7 and enabling features :formatters :hints :async util.js:325:25
+re-frame: Subscribe was called outside of a reactive context.
+ https://day8.github.io/re-frame/FAQs/UseASubscriptionInAnEventHandler/ 4 core.js:13738:10
+Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools react-dom.inc.js:29905:19
+re-frame: Subscribe was called outside of a reactive context.
+ https://day8.github.io/re-frame/FAQs/UseASubscriptionInAnEventHandler/ core.js:13738:10
+ [goog.net.WebSocket] Opening the WebSocket on ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d <empty string> console.js:218:20
+Cookie warnings 2
+Firefox can’t establish a connection to the server at ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d. websocket.js:67:23
+ [goog.net.WebSocket] An error occurred: undefined <empty string> console.js:218:20
+ [goog.net.WebSocket] The WebSocket on ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d closed. <empty string> console.js:218:20
+ [goog.net.WebSocket] The WebSocket disconnected unexpectedly: undefined <empty string> console.js:218:20
+ [goog.net.WebSocket] Seconds until next reconnect attempt: 1 <empty string> console.js:218:20
+ [goog.net.WebSocket] Opening the WebSocket on ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d <empty string> console.js:218:20
+Firefox can’t establish a connection to the server at ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d. websocket.js:67:23
+ [goog.net.WebSocket] An error occurred: undefined <empty string> console.js:218:20
+ [goog.net.WebSocket] The WebSocket on ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d closed. <empty string> console.js:218:20
+ [goog.net.WebSocket] The WebSocket disconnected unexpectedly: undefined <empty string> console.js:218:20
+ [goog.net.WebSocket] Seconds until next reconnect attempt: 2 <empty string> console.js:218:20
+ [goog.net.WebSocket] Opening the WebSocket on ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d <empty string> console.js:218:20
+Firefox can’t establish a connection to the server at ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d. websocket.js:67:23
+ [goog.net.WebSocket] An error occurred: undefined <empty string> console.js:218:20
+ [goog.net.WebSocket] The WebSocket on ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d closed. <empty string> console.js:218:20
+ [goog.net.WebSocket] The WebSocket disconnected unexpectedly: undefined <empty string> console.js:218:20
+ [goog.net.WebSocket] Seconds until next reconnect attempt: 4 <empty string> console.js:218:20
+ [goog.net.WebSocket] Opening the WebSocket on ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d <empty string> console.js:218:20
+Firefox can’t establish a connection to the server at ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d. websocket.js:67:23
+ [goog.net.WebSocket] An error occurred: undefined <empty string> console.js:218:20
+ [goog.net.WebSocket] The WebSocket on ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d closed. <empty string> console.js:218:20
+ [goog.net.WebSocket] The WebSocket disconnected unexpectedly: undefined <empty string> console.js:218:20
+ [goog.net.WebSocket] Seconds until next reconnect attempt: 8 <empty string> console.js:218:20
+ [goog.net.WebSocket] Opening the WebSocket on ws://localhost:3449/figwheel-connect?fwsid=8ea6952d-1c2b-48d1-a950-bd0718df976d <empty string> console.js:218:20

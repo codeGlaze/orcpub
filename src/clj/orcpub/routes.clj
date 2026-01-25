@@ -539,7 +539,7 @@
 (defn default-image-url [host]
   (str "http://" host "/image/dmv-box-logo.png"))
 
-(defn index-page-response [{:keys [headers uri] :as request}
+(defn index-page-response [{:keys [headers uri csp-nonce] :as request}
                            {:keys [title description image-url]}
                            & [response]]
   (let [host (headers "host")]
@@ -552,7 +552,8 @@
        {:url (str "http://" host uri)
         :title (or title default-title)
         :description (or description default-description)
-        :image (or image-url (default-image-url host))}
+        :image (or image-url (default-image-url host))
+        :nonce csp-nonce}
        (= "/" uri))})))
 
 (defn default-index-page [request & [response]]

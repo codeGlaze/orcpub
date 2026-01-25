@@ -1,10 +1,9 @@
 (ns orcpub.index
-  (:require [hiccup.page :refer [html5 include-css include-js]]
+  (:require [hiccup.page :refer [html5 include-css]]
             [orcpub.oauth :as oauth]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
-            [environ.core :refer [env]]
-            ))
+            [environ.core :refer [env]]))
 
 (def devmode? (env :dev-mode))
 
@@ -14,11 +13,23 @@
      {:property property
       :content content}]))
 
+(defn script-tag
+  "Generate a script tag with optional nonce for CSP strict mode.
+   For external scripts, pass :src. For inline scripts, pass content as body."
+  [{:keys [src nonce]} & body]
+  (let [attrs (cond-> {}
+                src (assoc :src src)
+                nonce (assoc :nonce nonce))]
+    (if (seq body)
+      (into [:script attrs] body)
+      [:script attrs])))
+
 (defn index-page [{:keys [url
                           title
                           description
                           image
-                          fb-type]}
+                          fb-type
+                          nonce]}
                   & [splash?]]
   (html5
    {:lang :en}
@@ -36,9 +47,9 @@
                 :xml "/favicon"
                 :ver "1")
     (include-css "/css/cookiestyles.css")
-    [:script
+    (script-tag {:nonce nonce}
      "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
-     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));"]
+     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));")
     [:style
      "
 .splash-page-content {}
@@ -124,19 +135,21 @@ html {
         [:img {:src "/image/spiral.gif"
                :style "height:200px;width:200px;margin-top:200px"}]])]
     (include-css "/css/compiled/styles.css")
-    (include-js "/js/compiled/orcpub.js")
-    (include-js "/js/cookies.js")
+    ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
+    ;; Prod mode uses enforcing CSP with nonces
+    (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
+    (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
     (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
-    [:script " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"]
+    (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
     (if devmode?
       (println "dev mode - no script")
 
-      [:script
+      (script-tag {:nonce nonce}
        "const protocol = window.location.protocol;
         const apiUrl = `${protocol}://${window.location.host}`;
         const pluginUrl = `${apiUrl}/homebrew.orcbrew`;
-        
+
         let plugins = localStorage.getItem('plugins');
         if (plugins === null || plugins === '{}') {
           fetch(pluginUrl)
@@ -157,7 +170,7 @@ html {
               // You can also add a fallback or default behavior here
             });
         }
-      "]
+      ")
     )
    ]))
   

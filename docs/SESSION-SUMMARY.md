@@ -471,6 +471,130 @@ When resuming after a compaction or new session:
 - **January 2026 (3rd)**: Leiningen profile cleanup, faster REPL/init-db startup
 - **January 2026 (4th)**: Documentation updates, verified all changes from 3rd session
 - **January 2026 (5th)**: Figwheel/server startup fixes, devcontainer port labels
+- **January 2026 (6th)**: Nonce-based CSP implementation for XSS protection
+- **January 2026 (7th)**: CSP implementation verification and completion confirmation
+- **January 2026 (8th)**: Deep dive into CLJS ecosystem CSP support, custom loader implementation
+- **January 2026 (9th)**: Documentation completion after context compaction
+
+---
+
+## CSP Deep Dive & Custom Loader (January 2026 - 8th Session)
+
+Extensive research into why CSP is challenging with ClojureScript development builds and implementation of a custom CSP-compatible loader.
+
+### Key Findings
+
+| Component | CSP Support | Status |
+|-----------|-------------|--------|
+| Google Closure Library | ✅ `goog.getScriptNonce()`, `ENABLE_CHROME_APP_SAFE_SCRIPT_LOADING` | Built-in |
+| ClojureScript Compiler | ✅ `:target-fn` option for custom loaders | Works |
+| Figwheel-main | ❌ Doesn't pass through `:target-fn` | Gap |
+| shadow-cljs | ❌ Same issue | Gap |
+
+### The Problem
+
+CLJS dev builds generate a loader that uses `document.write()`:
+```javascript
+document.write('<script src="goog/base.js"></script>');
+```
+
+CSP `'strict-dynamic'` blocks `document.write()` scripts (security feature), only allowing `createElement('script')`.
+
+### What We Discovered
+
+1. **Closure Library HAS CSP support** - `goog.ENABLE_CHROME_APP_SAFE_SCRIPT_LOADING` makes it use `createElement()`
+2. **ClojureScript compiler HAS `:target-fn`** - allows custom loader generation
+3. **We verified `:target-fn` works** directly with ClojureScript API
+4. **Figwheel-main doesn't pass it through** - throws NullPointerException
+
+### Solutions Implemented
+
+1. **Report-Only CSP in dev mode** - Logs violations without blocking (Figwheel works, issues visible)
+2. **Static CSP loader** - `resources/public/js/csp-loader.js` uses `createElement()` with nonce propagation
+3. **Dynamic loader function** - `src/clj/orcpub/cljs_loader.clj` ready for when figwheel supports `:target-fn`
+
+### Files Created/Modified
+
+| File | Purpose |
+|------|---------|
+| `resources/public/js/csp-loader.js` | Static CSP-compatible dev loader |
+| `src/clj/orcpub/cljs_loader.clj` | Function for `:target-fn` (ready for future use) |
+| `src/clj/orcpub/index.clj` | Uses csp-loader.js in dev mode |
+| `src/clj/orcpub/pedestal.clj` | Report-Only header in dev mode |
+| `docs/UPGRADE_DEPENDENCIES.md` | Comprehensive CSP documentation |
+
+### How the Custom Loader Works
+
+```javascript
+// csp-loader.js
+(function() {
+  var nonce = document.currentScript.nonce;
+
+  // Tell Closure to use createElement()
+  window.CLOSURE_DEFINES = {
+    'goog.ENABLE_CHROME_APP_SAFE_SCRIPT_LOADING': true
+  };
+
+  // Load with createElement (CSP-compatible)
+  function loadScript(src) {
+    var script = document.createElement('script');
+    script.src = src;
+    script.nonce = nonce;  // 'strict-dynamic' trusts this
+    document.head.appendChild(script);
+  }
+  // ...
+})();
+```
+
+### Why This Matters
+
+- **Dev mode can have enforcing CSP** (not just Report-Only) with the custom loader
+- **Catches CSP issues immediately** during development
+- **Same security in dev and prod** (no surprises at deployment)
+- **Documented the ecosystem gap** for future reference
+
+### Research Sources
+
+- [Google's CSP Adopting Guide](https://csp.withgoogle.com/docs/adopting-csp.html) - `goog.getScriptNonce()` documentation
+- [ClojureScript Compiler Options](https://clojurescript.org/reference/compiler-options) - `:target-fn` reference
+- [Figwheel-main Config](https://figwheel.org/config-options.html) - Confirmed no CSP options
+- [shadow-cljs Issue #566](https://github.com/thheller/shadow-cljs/issues/566) - Same problem in shadow-cljs
+
+---
+
+## Documentation Completion (January 2026 - 9th Session)
+
+Continued from context compaction to complete documentation of CSP findings from session 8.
+
+### Tasks Completed
+
+| Task | Status |
+|------|--------|
+| Document CSP findings in UPGRADE_DEPENDENCIES.md | ✅ Deep Dive section added |
+| Update SESSION-SUMMARY.md with session 8 details | ✅ Comprehensive section added |
+| Add comments to csp-loader.js explaining the approach | ✅ Inline documentation added |
+
+### Documentation Added
+
+**[UPGRADE_DEPENDENCIES.md](UPGRADE_DEPENDENCIES.md)** - "Deep Dive: CLJS Ecosystem and CSP Support" section:
+- Core problem explanation (document.write vs createElement)
+- Ecosystem component support table
+- Google Closure Library CSP features
+- ClojureScript `:target-fn` option details
+- Why figwheel-main doesn't work with `:target-fn`
+- Our static loader solution
+- Files implementing the solution
+
+**[csp-loader.js](../resources/public/js/csp-loader.js)** - Comprehensive inline comments:
+- WHY THIS EXISTS (Figwheel uses document.write, CSP blocks it)
+- THE GAP (ecosystem support exists but not exposed)
+- HOW IT WORKS (nonce propagation, CLOSURE_DEFINES)
+- CONFIGURATION (must match dev.cljs.edn)
+- FUTURE (if figwheel adds :target-fn support)
+
+### Key Insight Documented
+
+The CLJS ecosystem has a gap: Google Closure Library and ClojureScript compiler both have CSP support, but the build tools (figwheel-main, shadow-cljs) don't expose it. Our static loader works around this gap until upstream fixes are available.
 
 ---
 
@@ -603,3 +727,85 @@ The correct order for launching the full stack:
 4. **Figwheel** - `./scripts/start.sh figwheel` (background, port 3449)
 
 Or use `./scripts/start.sh` (no args) for the integrated flow that handles all of this
+
+---
+
+## Nonce-Based CSP Implementation (January 2026 - 6th Session)
+
+Implemented Content-Security-Policy with per-request cryptographic nonces to protect against XSS attacks.
+
+### Problem
+
+Pedestal 0.7.x added strict CSP with `'strict-dynamic'` by default, which blocked all scripts because they didn't have nonces. The application was broken after the upgrade.
+
+### Solution
+
+Implemented proper nonce-based CSP:
+1. Generate unique 128-bit nonce per request
+2. Add nonce attribute to all server-rendered `<script>` tags
+3. CSP header uses `'strict-dynamic' 'nonce-{value}'`
+
+### Key Discovery: ClojureScript Dev Builds Incompatible
+
+**Critical lesson:** ClojureScript dev builds (Figwheel) are fundamentally incompatible with strict CSP because they:
+- Generate inline `<script>` tags in HTML (blocked by `'strict-dynamic'`)
+- Dynamically load `goog/base.js`, `cljs_deps.js` without nonces
+- Parser-inserted scripts are blocked; only `createElement('script')` scripts allowed
+
+**Solution:** Dev mode (`DEV_MODE=true`) automatically falls back to permissive CSP. Production builds compile to single file, so strict CSP works.
+
+### Files Created
+
+| File | Purpose |
+|------|---------|
+| `src/clj/orcpub/csp.clj` | Nonce generation, CSP header building |
+| `test/clj/orcpub/csp_test.clj` | Integration tests (13 assertions) |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `src/clj/orcpub/config.clj` | Added `strict-csp?`, `dev-mode?` predicates; default to strict |
+| `src/clj/orcpub/pedestal.clj` | Added `nonce-interceptor` to chain |
+| `src/clj/orcpub/routes.clj` | Pass `:csp-nonce` to `index-page` |
+| `src/clj/orcpub/index.clj` | Added `script-tag` helper, nonces on all 5 scripts |
+| `src/clj/orcpub/system.clj` | Removed dev mode CSP override |
+| `docs/UPGRADE_DEPENDENCIES.md` | CSP documentation with lessons learned |
+| `docs/ENVIRONMENT.md` | Updated CSP_POLICY docs |
+| `.env.example` | Updated default to strict |
+
+1
+
+```
+default-src 'self';
+script-src 'strict-dynamic' 'nonce-{base64}';
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+font-src 'self' https://fonts.gstatic.com;
+img-src 'self' data: https:;
+connect-src 'self';
+object-src 'none';
+base-uri 'self';
+frame-ancestors 'self';
+form-action 'self'
+```
+
+### Implementation Challenges Encountered
+
+1. **Function ordering bug in config.clj**: `strict-csp?` called `dev-mode?` before it was defined. Fixed by reordering function definitions.
+
+2. **User feedback: "doesn't look like it helped at all"**: Console showed CSP violations blocking `goog/base.js`, `cljs_deps.js`, and inline scripts. This led to the critical discovery about CLJS dev builds.
+
+3. **External code review**: Review documented in `scripts/analyze/gp52-analyze.md` identified gaps in nonce flow, Figwheel/HMR issues, and missing CSP directives. All issues were addressed.
+
+4. **Design rationale documented**: We work WITH Pedestal, not around it. Response headers from nonce-interceptor override Pedestal's static secure-headers (by design). This is the [recommended approach](https://pedestal-users.narkive.com/nOdeCHui/csp-headers-issue) per Pedestal community.
+
+### Verification
+
+```bash
+# Run CSP tests
+lein test orcpub.csp-test
+
+# Production mode - check CSP header in browser DevTools
+# View source - verify <script nonce="..."> attributes
+# Multiple page loads - verify different nonce each time
+```

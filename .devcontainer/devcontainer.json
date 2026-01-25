@@ -37,6 +37,7 @@
     "vscode": {
       "extensions": [
         "betterthantomorrow.calva",
+        "borkdude.clj-kondo",
         "github.copilot",
         "github.copilot-chat",
         "anthropic.claude-code"

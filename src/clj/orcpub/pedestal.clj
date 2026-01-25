@@ -5,7 +5,9 @@
             [pandect.algo.sha1 :refer [sha1]]
             [datomic.api :as d]
             [clojure.string :as s]
-            [java-time.api :as t])  ;; Keep same alias as clj-time had
+            [java-time.api :as t]
+            [orcpub.csp :as csp]
+            [orcpub.config :as config])
   (:import [java.io File]
            [java.time.format DateTimeFormatter]))
 
@@ -43,6 +45,38 @@
          "-"
          content-length)))
 
+(defn make-nonce-interceptor
+  "Creates an interceptor that generates per-request CSP nonces.
+
+   When CSP_POLICY=strict:
+   - :enter phase generates a nonce and stores it in [:request :csp-nonce]
+   - :leave phase adds CSP header with the nonce
+
+   The header type depends on mode:
+   - Dev mode (dev-mode?=true): Content-Security-Policy-Report-Only
+     Violations are logged to browser console but scripts aren't blocked.
+     This catches CSP issues during development while Figwheel still works.
+   - Prod mode: Content-Security-Policy (enforcing)
+     Violations block script execution for real XSS protection."
+  [dev-mode?]
+  (let [header-name (if dev-mode?
+                      "Content-Security-Policy-Report-Only"
+                      "Content-Security-Policy")]
+    (interceptor/interceptor
+     {:name :nonce-interceptor
+      :enter (fn [ctx]
+               (if (config/strict-csp?)
+                 (assoc-in ctx [:request :csp-nonce] (csp/generate-nonce))
+                 ctx))
+      :leave (fn [ctx]
+               (if-let [nonce (get-in ctx [:request :csp-nonce])]
+                 (assoc-in ctx [:response :headers header-name]
+                           (csp/build-csp-header nonce :dev-mode? dev-mode?))
+                 ctx))})))
+
+;; Create the nonce interceptor with current dev-mode? setting
+(def nonce-interceptor (make-nonce-interceptor (config/dev-mode?)))
+
 (def etag-interceptor
   (interceptor/interceptor
    {:name :etag-interceptor
@@ -75,7 +109,8 @@
     (if service
       this
       (cond-> service-map
-        true (update ::http/interceptors conj (db-interceptor conn) etag-interceptor)
+        ;; nonce-interceptor first: runs last in :leave phase (sets CSP header after response built)
+        true (update ::http/interceptors conj nonce-interceptor (db-interceptor conn) etag-interceptor)
         true http/create-server
         (not (test? service-map)) http/start
         true ((partial assoc this :service)))))
