@@ -94,10 +94,8 @@
         (let [field (.getField form (name k))]
           (when field
             
-            (if (and flatten (font-sizes k) (instance? PDTextField field))
-              (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg"))
-              ;; this prints out weird boxes
-              #_(.setDefaultAppearance field (str COSName/DA "/" (.getName font-name) " " (font-sizes k 8) " Tf 0 0 0 rg")))
+            (when (and flatten (font-sizes k) (instance? PDTextField field))
+              (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg")))
             (.setValue
              field
              (cond 
