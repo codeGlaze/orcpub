@@ -539,7 +539,8 @@
                {:remaining-lines remaining-desc-lines
                 :spell-name (:name spell)}))))))))
 
-(defn create-monsters-pdf
+#_{:clj-kondo/ignore [:unused-private-var]}
+(defn- create-monsters-pdf
   "Development/testing function that generates a sample monster stat block PDF.
    
    This function is not used in production - it's a utility for testing PDF
