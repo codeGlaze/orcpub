@@ -1,5 +1,7 @@
 (ns orcpub.dnd.e5.warlock-test
-  (:require [clojure.test :refer :all]
+  ;; deftest and is are unused while the test is #_ commented out,
+  ;; but kept for when the TODO on line 143 is resolved
+  (:require [clojure.test :refer [deftest is]]
             [orcpub.entity :as entity]
             [orcpub.entity-spec :as es]
             [orcpub.template :as t]

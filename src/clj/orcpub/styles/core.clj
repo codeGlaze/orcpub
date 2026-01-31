@@ -554,11 +554,8 @@
 (def md-query
   {:min-width md-min :max-width md-max})
 
-(def sm-or-md-query
+(def ^:private sm-or-md-query
   {:min-width sm-min :max-width md-max})
-
-(def xs-or-sm-query
-  {:min-width xs-min :max-width sm-max})
 
 
 (def lg-min "1200px")
