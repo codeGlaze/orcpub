@@ -34,6 +34,7 @@ Usage:
   ./menu start [service]      Start services (passthrough to start.sh)
   ./menu stop [service]       Stop services (passthrough to stop.sh)
   ./menu status               Show service status
+  ./menu cleanup              Kill duplicate processes & show memory
 
 Quick CLI examples:
   ./menu start datomic        Start just Datomic
@@ -491,6 +492,7 @@ show_utils_submenu() {
     echo "  u) Create test user (verified)"
     echo "  i) Install Datomic"
     echo "  c) Check prerequisites"
+    echo "  m) Memory cleanup (kill duplicates)"
     echo "  r) Refresh status"
     echo ""
     echo "  0) Back"
@@ -531,6 +533,13 @@ handle_utils_submenu() {
                 ;;
             c|C)
                 "$SCRIPT_DIR/scripts/start.sh" --check || true
+                echo ""
+                read -r -p "Press Enter to continue..."
+                return
+                ;;
+            m|M)
+                echo ""
+                "$SCRIPT_DIR/scripts/cleanup-duplicates.sh"
                 echo ""
                 read -r -p "Press Enter to continue..."
                 return
@@ -668,6 +677,9 @@ main() {
             ;;
         status)
             "$SCRIPT_DIR/scripts/stop.sh" --dry-run
+            ;;
+        cleanup)
+            "$SCRIPT_DIR/scripts/cleanup-duplicates.sh"
             ;;
         help|--help|-h)
             show_help

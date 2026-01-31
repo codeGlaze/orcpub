@@ -56,14 +56,16 @@ run_install() {
 # -----------------------------------------------------------------------------
 
 # Check port availability, respecting --idempotent and non-interactive mode
-# Returns: 0 if available (or idempotent+running), 1 otherwise
+# Returns: 0 if available (or idempotent+running), 1 if should abort, 2 if should skip
 # Sets IDEMPOTENT_ALREADY_RUNNING=true if service already running in idempotent mode
+# Sets SKIP_SERVICE=true if user chose to skip this service
 check_port_available() {
     local port="$1"
     local service="$2"
     local idempotent="${3:-false}"
 
     IDEMPOTENT_ALREADY_RUNNING=false
+    SKIP_SERVICE=false
 
     if port_in_use "$port"; then
         local pid
@@ -83,29 +85,36 @@ check_port_available() {
             return 1
         fi
 
-        # Interactive mode: offer to stop existing service (with timeout)
+        # Interactive mode: offer to stop, skip, or abort (with timeout)
         log_warn "Port $port is already in use (PID: ${pid:-unknown})"
-        if ! read -t 30 -p "Stop existing $service and continue? [y/N] " -n 1 -r; then
+        if ! read -t 30 -p "$service: [s]kip, s[t]op existing, or [a]bort? [s/t/a] " -n 1 -r; then
             echo
             log_error "Prompt timed out after 30 seconds"
             return 1
         fi
         echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            log_info "Stopping existing $service..."
-            "$SCRIPT_DIR/stop.sh" "$service" --yes --quiet
-            sleep 1
-            if port_in_use "$port"; then
-                log_error "Failed to stop $service on port $port"
+        case "$REPLY" in
+            t|T|y|Y)
+                log_info "Stopping existing $service..."
+                "$SCRIPT_DIR/stop.sh" "$service" --yes --quiet
+                sleep 1
+                if port_in_use "$port"; then
+                    log_error "Failed to stop $service on port $port"
+                    return 1
+                fi
+                log_info "Port $port is now available"
+                return 0
+                ;;
+            s|S|"")
+                log_info "Skipping $service (already running)"
+                SKIP_SERVICE=true
+                return 2
+                ;;
+            *)
+                log_error "Aborting."
                 return 1
-            fi
-            log_info "Port $port is now available"
-            return 0
-        else
-            log_error "Port $port is in use. Aborting."
-            log_info "Stop manually with: ./stop.sh $service"
-            return 1
-        fi
+                ;;
+        esac
     fi
     return 0
 }
@@ -328,12 +337,16 @@ run_in_background() {
 
 start_datomic() {
     local idempotent="${1:-false}"
+    local port_result=0
 
     check_datomic_installed || exit $EXIT_PREREQ
-    check_port_available "$DATOMIC_PORT" "datomic" "$idempotent" || exit $EXIT_RUNTIME
 
-    # If idempotent mode detected already-running service, exit success
-    if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" ]]; then
+    # Check port (0=available, 1=abort, 2=skip)
+    check_port_available "$DATOMIC_PORT" "datomic" "$idempotent" || port_result=$?
+    [[ $port_result -eq 1 ]] && exit $EXIT_RUNTIME
+
+    # If already running (idempotent or user chose skip), exit success
+    if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" || "$SKIP_SERVICE" == "true" ]]; then
         exit $EXIT_SUCCESS
     fi
 
@@ -366,10 +379,14 @@ start_datomic() {
 
 start_server() {
     local idempotent="${1:-false}"
+    local port_result=0
 
-    check_port_available "$SERVER_PORT" "server" "$idempotent" || exit $EXIT_RUNTIME
+    # Check port (0=available, 1=abort, 2=skip)
+    check_port_available "$SERVER_PORT" "server" "$idempotent" || port_result=$?
+    [[ $port_result -eq 1 ]] && exit $EXIT_RUNTIME
 
-    if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" ]]; then
+    # If already running (idempotent or user chose skip), exit success
+    if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" || "$SKIP_SERVICE" == "true" ]]; then
         exit $EXIT_SUCCESS
     fi
 
@@ -387,10 +404,14 @@ start_server() {
 
 start_figwheel() {
     local idempotent="${1:-false}"
+    local port_result=0
 
-    check_port_available "$FIGWHEEL_PORT" "figwheel" "$idempotent" || exit $EXIT_RUNTIME
+    # Check port (0=available, 1=abort, 2=skip)
+    check_port_available "$FIGWHEEL_PORT" "figwheel" "$idempotent" || port_result=$?
+    [[ $port_result -eq 1 ]] && exit $EXIT_RUNTIME
 
-    if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" ]]; then
+    # If already running (idempotent or user chose skip), exit success
+    if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" || "$SKIP_SERVICE" == "true" ]]; then
         exit $EXIT_SUCCESS
     fi
 
@@ -477,6 +498,7 @@ start_all() {
     local idempotent="${1:-false}"
     local started_datomic="false"
     local datomic_pid=""
+    local port_result=0
 
     # Cleanup function for signal handling
     cleanup_on_exit() {
@@ -497,10 +519,16 @@ start_all() {
     trap cleanup_on_exit INT TERM
 
     check_datomic_installed || exit $EXIT_PREREQ
-    check_port_available "$DATOMIC_PORT" "datomic" "$idempotent" || exit $EXIT_RUNTIME
 
-    # If Datomic already running in idempotent mode, skip starting it
-    if [[ "$IDEMPOTENT_ALREADY_RUNNING" != "true" ]]; then
+    # Check Datomic port (0=available, 1=abort, 2=skip)
+    port_result=0
+    check_port_available "$DATOMIC_PORT" "datomic" "$idempotent" || port_result=$?
+    if [[ $port_result -eq 1 ]]; then
+        exit $EXIT_RUNTIME
+    fi
+
+    # If Datomic already running (idempotent or skipped), skip starting it
+    if [[ "$IDEMPOTENT_ALREADY_RUNNING" != "true" && "$SKIP_SERVICE" != "true" ]]; then
         prepare_datomic_config || exit $EXIT_PREREQ
 
         # Clean up stale PID
@@ -531,9 +559,14 @@ start_all() {
         log_info "Datomic already running, skipping startup"
     fi
 
-    check_port_available "$SERVER_PORT" "server" "$idempotent" || exit $EXIT_RUNTIME
+    # Check server port (0=available, 1=abort, 2=skip)
+    port_result=0
+    check_port_available "$SERVER_PORT" "server" "$idempotent" || port_result=$?
+    if [[ $port_result -eq 1 ]]; then
+        exit $EXIT_RUNTIME
+    fi
 
-    if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" ]]; then
+    if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" || "$SKIP_SERVICE" == "true" ]]; then
         log_info "Server already running on port $SERVER_PORT"
         # Clear trap since we're not managing Datomic lifecycle
         trap - INT TERM
