@@ -1,7 +1,8 @@
 (ns orcpub.dependencies.integration-test
   "Integration tests to validate Jackson 2.15.2 and Guava 32.1.2-jre upgrades.
    Tests actual runtime behavior of upgraded dependencies."
-  (:require [clojure.test :refer :all]
+  ;; explicit :refer to avoid namespace pollution from :refer :all
+  (:require [clojure.test :refer [deftest testing is]]
             [cheshire.core :as json]
             [datomic.api :as d])
   (:import [com.google.common.collect ImmutableList ImmutableMap]

@@ -71,14 +71,15 @@
         equipment-kw
         (common/kw-to-name equipment-kw true))))
 
-(defn unit-amount-description [{:keys [units amount singular plural] :or {amount 1 plural (plural-map units)}}]
-  (str amount " " (if (not= 1 amount)
-                    (if plural
-                      (common/safe-name plural)
-                      (str (common/safe-name units) "s"))
-                    (if singular
-                      (common/safe-name singular)
-                      (str (common/safe-name units))))))
+(defn unit-amount-description [{:keys [units amount singular plural] :or {amount 1}}]
+  (let [plural (or plural (plural-map units))]
+    (str amount " " (if (not= 1 amount)
+                      (if plural
+                        (common/safe-name plural)
+                        (str (common/safe-name units) "s"))
+                      (if singular
+                        (common/safe-name singular)
+                        (str (common/safe-name units)))))))
 
 (defn duration-description [{:keys [concentration] :as duration}]
   (str (when concentration "conc. ") (unit-amount-description duration)))

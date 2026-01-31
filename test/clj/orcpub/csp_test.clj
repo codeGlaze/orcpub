@@ -1,6 +1,7 @@
 (ns orcpub.csp-test
   "Tests for CSP (Content Security Policy) nonce generation and header building."
-  (:require [clojure.test :refer :all]
+  ;; explicit :refer to avoid namespace pollution from :refer :all
+  (:require [clojure.test :refer [deftest testing is]]
             [clojure.string :as str]
             [orcpub.csp :as csp]
             [orcpub.pedestal :as pedestal]))
