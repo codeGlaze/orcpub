@@ -228,9 +228,9 @@ CORE ENGINE
   orcpub.modifiers        [==]            Indirect coverage via entity-spec
   orcpub.template         [====]          1 test, modifier maps
   orcpub.common           [=]             1 test, namespace keys
-  orcpub.dice             [stub]          File exists, no tests
+  orcpub.dice             [======]        9 tests: roll bounds, means, parsing, formatting
   orcpub.errors           [----]          No tests
-  orcpub.registration     [----]          No tests
+  orcpub.registration     [========]      8 tests: email/username/password validation
   orcpub.pdf-spec         [----]          No tests
 
 D&D 5e GAME LOGIC
@@ -239,7 +239,7 @@ D&D 5e GAME LOGIC
   dnd.e5.event-handlers   [==========]   9 tests, level/class/inventory
   dnd.e5.magic-items      [========]      3 tests, conversion + expansion
   dnd.e5.options          [=]             1 test, spell slots
-  dnd.e5.modifiers        [stub]          File exists, no tests
+  dnd.e5.modifiers        [======]        8 tests: add-bonus, levels, equipment, spells
   dnd.e5.warlock          [####]          Test data defined, test commented out
   dnd.e5.classes          [----]          3,144 lines, no tests
   dnd.e5.template         [----]          1,552 lines, no tests
