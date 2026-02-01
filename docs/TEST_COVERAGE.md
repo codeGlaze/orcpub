@@ -241,8 +241,8 @@ D&D 5e GAME LOGIC
   dnd.e5.options          [=]             1 test, spell slots
   dnd.e5.modifiers        [====]          3 tests: add-bonus nil handling, level gating, spell accumulation
   dnd.e5.warlock          [####]          Test data defined, test commented out
-  dnd.e5.classes          [----]          3,144 lines, no tests
-  dnd.e5.template         [----]          1,552 lines, no tests
+  dnd.e5.classes          [====]          Smoke-tested via template construction (all 12 PHB classes)
+  dnd.e5.template         [====]          3 tests: nil construction, class construction, selection validation
   dnd.e5.weapons          [----]          No tests
   dnd.e5.armor            [----]          No tests
   dnd.e5.skills           [----]          No tests
@@ -257,7 +257,7 @@ D&D 5e GAME LOGIC
   dnd.e5.feats            [----]          No tests
   dnd.e5.char-decision-tree [----]        No tests
   dnd.e5.character.random [----]          No tests
-  15x UA/SCAG templates   [----]          No tests
+  15x UA/SCAG templates   [n/a]           Dead code, kept as reference for original author's patterns
 
 BACKEND
   routes                  [==========]   7 tests, character CRUD
@@ -297,6 +297,7 @@ or static data definitions unless there's a specific reason to.
 - [x] **Add `registration_test`** - security boundary, user-facing input validation with regex
 - [x] **Fill `dice_test`** - now tests `dice-roll-text` parsing (user input boundary), dropped trivial arithmetic tests
 - [x] **Fill `modifiers_test`** - now tests `add-bonus` (nil branching), `enough-levels?` (level gating), `add-spell` (accumulation). Removed constructor-only tests.
+- [x] **Add `template` smoke test** - Constructs all 12 PHB class options and the full template from static CLJC data. Exercises ~10k lines across classes.cljc, options.cljc, template.cljc, weapons, armor, equipment, spells, and spell-lists. Catches structural breaks that previously were only found at runtime in the browser.
 
 ### High Priority (bugs here directly affect character sheets)
 
@@ -313,11 +314,6 @@ or static data definitions unless there's a specific reason to.
    because it broke. It attempts to build a full warlock through the entity system,
    which is exactly the kind of integration test that catches real regressions.
    (Currently being worked on by another agent.)
-
-4. **Add `template` smoke test** - Construct the full `t5e/template` and verify it
-   doesn't throw. This catches broken option definitions in `classes.cljc`,
-   `races.cljc`, etc. without testing every detail. Currently, a typo in any
-   class definition is only caught at runtime in the browser.
 
 ### Medium Priority (backend correctness, integration coverage)
 
