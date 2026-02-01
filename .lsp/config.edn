@@ -1,2 +1,6 @@
-{:source-paths-ignore-regex ["resources/public/js/compiled/.*"]
- :paths-ignore-regex ["resources/public/js/compiled/.*"]}
+{;; Explicit source-paths override classpath discovery.
+ ;; Without this, clojure-lsp scans `resources/` (a :resource-path)
+ ;; and lints compiled CLJS output in resources/public/js/compiled/out/.
+ :source-paths #{"src/clj" "src/cljc" "src/cljs" "web/cljs"
+                 "test/clj" "test/cljc" "test/cljs" "dev"}
+ :source-paths-ignore-regex ["resources/public/js/compiled"]}
