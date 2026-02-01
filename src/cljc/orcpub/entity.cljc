@@ -135,10 +135,11 @@
    []
    homebrew-paths))
 
-(defn to-strict [{:keys [:db/id ::options ::values ::homebrew-paths]}]
+(defn to-strict [{:keys [:db/id ::options ::values ::homebrew-paths ::owner]}]
   (cond-> {::strict/selections (to-strict-selections options [] homebrew-paths)}
     values (assoc ::strict/values (into {} (remove (comp nil? val)) values))
     id (assoc :db/id id)
+    owner (assoc ::strict/owner owner)              ;; round-trip ::strict/owner via ::owner
     true remove-empty-fields))
 
 (spec/fdef to-strict
@@ -164,18 +165,19 @@
 (defn from-strict-options [options]
   (mapv from-strict-option options))
 
+;; array-map preserves insertion order at any size. The previous reduce/assoc
+;; approach promoted to PersistentHashMap beyond 8 keys, scrambling selection
+;; order during strict round-trips.
 (defn from-strict-selections [selections]
-  (reduce
-   (fn [s {:keys [:db/id ::strict/key ::strict/option ::strict/options]}]
-     (assoc s
-            key
-            (with-meta
-              (if option
-                (from-strict-option option)
-                (from-strict-options options))
-              {:db/id id})))
-   {}
-   selections))
+  (apply array-map
+         (mapcat
+          (fn [{:keys [:db/id ::strict/key ::strict/option ::strict/options]}]
+            [key (with-meta
+                   (if option
+                     (from-strict-option option)
+                     (from-strict-options options))
+                   {:db/id id})])
+          selections)))
 
 (defn from-strict-homebrew-paths [homebrew-paths]
   (reduce
