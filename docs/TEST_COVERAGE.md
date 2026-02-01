@@ -228,7 +228,7 @@ CORE ENGINE
   orcpub.modifiers        [==]            Indirect coverage via entity-spec
   orcpub.template         [====]          1 test, modifier maps
   orcpub.common           [=]             1 test, namespace keys
-  orcpub.dice             [======]        9 tests: roll bounds, means, parsing, formatting
+  orcpub.dice             [====]          3 tests: dice-roll-text parsing (user input boundary)
   orcpub.errors           [----]          No tests
   orcpub.registration     [========]      8 tests: email/username/password validation
   orcpub.pdf-spec         [----]          No tests
@@ -239,7 +239,7 @@ D&D 5e GAME LOGIC
   dnd.e5.event-handlers   [==========]   9 tests, level/class/inventory
   dnd.e5.magic-items      [========]      3 tests, conversion + expansion
   dnd.e5.options          [=]             1 test, spell slots
-  dnd.e5.modifiers        [======]        8 tests: add-bonus, levels, equipment, spells
+  dnd.e5.modifiers        [====]          3 tests: add-bonus nil handling, level gating, spell accumulation
   dnd.e5.warlock          [####]          Test data defined, test commented out
   dnd.e5.classes          [----]          3,144 lines, no tests
   dnd.e5.template         [----]          1,552 lines, no tests
@@ -285,18 +285,69 @@ FRONTEND (all untested)
 
 ## Suggested Priority Order
 
-If you're going to invest time in improving test coverage, here's the suggested order of maximum impact per effort:
+Prioritized by **likelihood of catching a real bug**, not ease of writing.
+Tests earn their keep when code has branching logic that's hard to verify
+by inspection, or sits at a trust boundary where bad input arrives.
+Don't test constructors that return literal maps, arithmetic wrappers,
+or static data definitions unless there's a specific reason to.
 
-1. **Fill stub files** (`dice_test`, `modifiers_test`) - 30 min, removes false-coverage impression
-2. **Fix broken test** (`character_test.clj:106` missing `is`) - 5 min, silent test failure
-3. **Add `registration_test`** - 30 min, security-relevant validation
-4. **Expand `options_test`** (spell slots, proficiency bonus) - 1-2 hours, commonly broken area
-5. **Expand `character_test`** (AC, HP, ability bonuses) - 2-3 hours, core correctness
-6. **Repair commented-out tests** (`warlock_test`, `security_test`) - 1-2 hours, reclaim lost coverage
-7. **Add data spec validation** (spells, monsters, classes) - 1-2 hours, catches data corruption
-8. **Add `party` route tests** - 1 hour, mirrors existing `routes_test` pattern
-9. **Add `template` smoke test** - 1 hour, catches broken option definitions
-10. **Set up CLJS test runner** - 2-3 hours infrastructure, then ongoing test writing
+### Completed
+
+- [x] **Fix silent assertion** (`character_test.clj:109` missing `is`) - was a real bug in the test suite
+- [x] **Add `registration_test`** - security boundary, user-facing input validation with regex
+- [x] **Fill `dice_test`** - now tests `dice-roll-text` parsing (user input boundary), dropped trivial arithmetic tests
+- [x] **Fill `modifiers_test`** - now tests `add-bonus` (nil branching), `enough-levels?` (level gating), `add-spell` (accumulation). Removed constructor-only tests.
+
+### High Priority (bugs here directly affect character sheets)
+
+1. **Expand `character_test`** - AC calculation, HP calculation, ability bonus derivation.
+   These are the values users see on their character sheet. The existing tests cover
+   strict round-trips (serialization) but not the actual game math. A bug in
+   `ability-values` or `armor-class` silently produces wrong numbers.
+
+2. **Expand `options_test`** - Multiclass spell slot calculation, proficiency bonus by
+   level, ability score improvement logic. Only `total-slots` is tested today. The
+   multiclass spell slot table is a common source of bugs in D&D character builders.
+
+3. **Repair `warlock_test`** - The `book-of-ancient-secrets` test was commented out
+   because it broke. It attempts to build a full warlock through the entity system,
+   which is exactly the kind of integration test that catches real regressions.
+   (Currently being worked on by another agent.)
+
+4. **Add `template` smoke test** - Construct the full `t5e/template` and verify it
+   doesn't throw. This catches broken option definitions in `classes.cljc`,
+   `races.cljc`, etc. without testing every detail. Currently, a typo in any
+   class definition is only caught at runtime in the browser.
+
+### Medium Priority (backend correctness, integration coverage)
+
+5. **Repair `security_test`** - The `test-multiple-ip-attempts-to-same-account?` test
+   is commented out. This is brute-force protection logic; if it's broken, the
+   test should be fixed, not disabled.
+
+6. **Add `party` route tests** - Mirror the pattern in `routes_test.clj`. Party CRUD
+   is the only route group with zero test coverage.
+
+7. **Expand `pdf_test`** - Test the field-mapping logic (`pdf_spec.cljc`). Given a
+   built character, verify the correct values land in the correct PDF form fields.
+   Currently only font loading is tested.
+
+### Lower Priority (structural validation, infrastructure)
+
+8. **Add data spec validation** - A single test exercising `spec/valid?` against every
+   spell, monster, and class definition. Catches structural corruption (missing required
+   fields, wrong types) without testing game logic. Low effort, low ongoing maintenance.
+
+9. **Set up CLJS test runner** - Requires `lein-doo` or `shadow-cljs` infrastructure.
+   Priority targets would be re-frame subscriptions (pure functions of app-db) and
+   event handlers. High effort for setup, but enables testing ~17k lines of frontend.
+
+### Not Worth Testing
+
+- **Static data maps** (monsters, spells, equipment lists) - unless spec validation above catches something
+- **One-line constructors** that return literal maps (`equipment-cfg`, `resistance-cfg`, `spell-data`)
+- **Arithmetic wrappers** around `rand-int` or `Math/floor` (`die-roll`, `die-mean-round-down`)
+- **Thin delegation functions** that just call another function with slightly different args
 
 ---
 
