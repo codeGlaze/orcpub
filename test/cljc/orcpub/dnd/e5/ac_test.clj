@@ -1,7 +1,6 @@
 (ns orcpub.dnd.e5.ac-test
   (:require [clojure.test :refer [deftest is testing]]
             [orcpub.entity :as entity]
-            [orcpub.modifiers :as mod]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.classes :as classes5e]
@@ -9,30 +8,27 @@
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.weapons :as weapons5e]
+            [orcpub.dnd.e5.options :as opt5e]
             [orcpub.common :as common]))
 
 ;;; ---------------------------------------------------------------------------
-;;; AC stacking / override test suite
+;;; AC stacking bug test suite
 ;;;
 ;;; D&D 5e PHB p.14: "If you have multiple features that give you different
 ;;; ways to calculate your AC, you choose which one to use."
 ;;;
-;;; BUG 1 — Stacking (template_base.cljc:38-41,60):
+;;; The AC pipeline in template_base.cljc has a stacking bug:
+;;;
 ;;;   ?base-armor-class = 10 + DEX + (if unarmored > natural: 0 else: natural)
 ;;;   ?unarmored-armor-class = ?base-armor-class + ?unarmored-ac-bonus
-;;;   When both are present, they stack instead of using the better formula.
 ;;;
-;;; BUG 2 — Stale closure in race AC overrides:
-;;;   Lizardfolk/Tortle races override ?armor-class-with-armor via
-;;;   (mod/modifier ?armor-class-with-armor ...). The modifier macro captures
-;;;   the entity at modifier-application time. Because race modifiers run
-;;;   before class modifiers, the override's closure never sees class-based
-;;;   unarmored-ac-bonus (barbarian CON, monk WIS). This means a Lizardfolk
-;;;   Barbarian's displayed AC ignores Unarmored Defense entirely.
+;;; When natural-ac-bonus >= unarmored-ac-bonus, BOTH are added to the final
+;;; AC. For example, a Barbarian 1 / Sorcerer(Draconic) 1 with DEX +2, CON +2
+;;; gets 10 + 2 (DEX) + 3 (natural) + 2 (CON) = 17, when RAW says
+;;; max(Barbarian: 10+2+2=14, Draconic: 13+2=15) = 15.
 ;;;
-;;; Tests 1-3: single-source AC (should pass).
-;;; Test 4: class multiclass stacking bug (Barbarian/Draconic).
-;;; Tests 5-6: race override + class unarmored defense interaction.
+;;; Tests 1-3 verify single-class AC formulas (these should pass).
+;;; Test 4 asserts the RAW-correct value for multiclass, exposing the bug.
 ;;; ---------------------------------------------------------------------------
 
 ;;; ---------------------------------------------------------------------------
@@ -110,73 +106,6 @@
     language-map)))
 
 ;;; ---------------------------------------------------------------------------
-;;; Race AC configs — Lizardfolk and Tortle
-;;;
-;;; These race definitions mirror the commented-out lizardfolk-option-cfg in
-;;; template.cljc:265 and the :tortle-ac property in options.cljc:3253.
-;;; Both are available to users via the homebrew race property system.
-;;; ---------------------------------------------------------------------------
-
-;; Lizardfolk: Natural Armor (PHB-equivalent, VGM p.113)
-;; "You have tough, scaly skin. When you aren't wearing armor, your AC is
-;; 13 + your Dexterity modifier."
-;; Implementation: sets ?natural-ac-bonus to 3, overrides ?armor-class-with-armor
-;; to take max of natural and armored/unarmored AC.
-(def lizardfolk-race-cfg
-  {:name "Lizardfolk"
-   :key :lizardfolk
-   :abilities {:orcpub.dnd.e5.character/con 2
-               :orcpub.dnd.e5.character/wis 1}
-   :size :medium
-   :speed 30
-   :languages ["Common" "Draconic"]
-   :modifiers [(mod/modifier ?natural-ac-bonus 3)
-               (mod/modifier ?armor-class-with-armor
-                             (fn [armor & [shield]]
-                               (max (+ ?base-armor-class
-                                       (if shield (?shield-ac-bonus shield) 0))
-                                    (?armor-class-with-armor armor shield))))]})
-
-;; Tortle: Natural Armor (XGE/TTP)
-;; "Your shell provides ample protection ... your AC is 17."
-;; Implementation: sets ?natural-ac-bonus to 7, overrides ?armor-class-with-armor
-;; to always return flat 17 + shield bonus.
-(def tortle-race-cfg
-  {:name "Tortle"
-   :key :tortle
-   :abilities {:orcpub.dnd.e5.character/str 2
-               :orcpub.dnd.e5.character/wis 1}
-   :size :medium
-   :speed 30
-   :languages ["Common" "Aquan"]
-   :modifiers [(mod/modifier ?natural-ac-bonus 7)
-               (mod/modifier ?armor-class-with-armor
-                             (fn [armor & [shield]]
-                               (+ 17
-                                  (if shield (?shield-ac-bonus shield) 0))))]})
-
-;;; ---------------------------------------------------------------------------
-;;; Template with race-based AC — includes Lizardfolk, Tortle + Barbarian, Monk
-;;; ---------------------------------------------------------------------------
-
-(def race-ac-template
-  (t5e/template
-   (t5e/template-selections
-    nil nil nil
-    weapons5e/weapons-map
-    weapons5e/weapons
-    sl5e/spell-lists
-    spells5e/spell-map
-    nil
-    [lizardfolk-race-cfg tortle-race-cfg]
-    [(classes5e/barbarian-option
-      sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)
-     (classes5e/monk-option
-      sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)]
-    nil
-    language-map)))
-
-;;; ---------------------------------------------------------------------------
 ;;; Helper
 ;;; ---------------------------------------------------------------------------
 
@@ -187,13 +116,19 @@
   (char5e/get-prop built-char k))
 
 (defn displayed-ac
-  "Get the effective unarmored AC through the armor-class-with-armor function,
-   which is the code path max-armor-class uses to compute the value shown to
-   users. For races with AC overrides (Lizardfolk, Tortle), this is the
-   override function; for others, it's the standard pipeline."
+  "The AC returned by ?armor-class-with-armor when called with no armor/shield.
+   This goes through any overrides (e.g. lizardfolk-ac, tortle-ac) and may
+   differ from ?unarmored-armor-class due to stale modifier closures."
   [built-char]
-  (let [ac-fn (char5e/armor-class-with-armor built-char)]
+  (let [ac-fn (char5e/get-prop built-char :armor-class-with-armor)]
     (ac-fn nil)))
+
+(defn ac-with-shield
+  "The AC returned by ?armor-class-with-armor with a basic (non-magical) shield.
+   Shield AC bonus is +2 by default."
+  [built-char]
+  (let [ac-fn (char5e/get-prop built-char :armor-class-with-armor)]
+    (ac-fn nil {})))
 
 ;;; ---------------------------------------------------------------------------
 ;;; Entity definitions
@@ -322,31 +257,99 @@
            {:draconic-ancestry-type
             {:orcpub.entity/key :black}}}}}]}}]}})
 
-;;; ---------------------------------------------------------------------------
-;;; Race-AC entities (use race-ac-template, NOT test-template)
-;;;
-;;; Lizardfolk: CON +2, WIS +1 from race.
-;;; Tortle: STR +2, WIS +1 from race.
-;;; ---------------------------------------------------------------------------
-
-;; Lizardfolk Barbarian: high CON so Barbarian AC > Lizardfolk natural AC.
-;; After race: STR 15, DEX 10(+0), CON 18(+4), INT 8, WIS 11(+0), CHA 8
-;; Barbarian Unarmored Defense: 10 + DEX(+0) + CON(+4) = 14
-;; Lizardfolk Natural Armor:   13 + DEX(+0)            = 13
-;; RAW: max(14, 13) = 14
-(def liz-barb-entity
+;; Monk (high WIS) for shield interaction test.
+;; Final DEX 14(+2), WIS 16(+3) → AC without shield: 10+2+3=15
+;; AC with shield: 10+2+0+2=14 (monk loses WIS with shield; PHB p.78)
+(def monk-shield-entity
   {:orcpub.entity/options
    {:race
-    {:orcpub.entity/key :lizardfolk}
+    {:orcpub.entity/key :elf
+     :orcpub.entity/options
+     {:subrace {:orcpub.entity/key :dark-elf-drow-}}}
+    :ability-scores
+    {:orcpub.entity/key :standard-roll
+     :orcpub.entity/value
+     {:orcpub.dnd.e5.character/str 8
+      :orcpub.dnd.e5.character/dex 12  ; +2 elf = 14
+      :orcpub.dnd.e5.character/con 10
+      :orcpub.dnd.e5.character/int 10
+      :orcpub.dnd.e5.character/wis 16
+      :orcpub.dnd.e5.character/cha 10}} ; +1 drow = 11
+    :class
+    [{:orcpub.entity/key :monk
+      :orcpub.entity/options
+      {:skill-proficiency
+       [{:orcpub.entity/key :acrobatics}
+        {:orcpub.entity/key :insight}]
+       :levels
+       [{:orcpub.entity/key :level-1}]}}]}})
+
+;;; ---------------------------------------------------------------------------
+;;; Homebrew AC modifiers via plugin-modifiers (options.cljc)
+;;;
+;;; :lizardfolk-ac and :tortle-ac are generic homebrew AC options with legacy
+;;; names for backward compatibility. They can be applied to any custom race
+;;; or feat through the plugin system.
+;;; ---------------------------------------------------------------------------
+
+(def natural-armor-mods
+  (opt5e/plugin-modifiers {:lizardfolk-ac true} :custom-natural-armor))
+
+(def shell-armor-mods
+  (opt5e/plugin-modifiers {:tortle-ac true} :custom-shell-armor))
+
+(def natural-armor-race-cfg
+  {:name "Custom Natural Armor"
+   :key :custom-natural-armor
+   :abilities {}
+   :size :medium
+   :speed 30
+   :languages ["Common"]
+   :modifiers natural-armor-mods})
+
+(def shell-armor-race-cfg
+  {:name "Custom Shell Armor"
+   :key :custom-shell-armor
+   :abilities {}
+   :size :medium
+   :speed 30
+   :languages ["Common"]
+   :modifiers shell-armor-mods})
+
+(def homebrew-ac-template
+  (t5e/template
+   (t5e/template-selections
+    nil                                       ; magic-weapon-options
+    nil                                       ; magic-armor-options
+    nil                                       ; other-magic-item-options
+    weapons5e/weapons-map                     ; weapon-map
+    weapons5e/weapons                         ; custom-and-standard-weapons
+    sl5e/spell-lists                          ; spell-lists
+    spells5e/spell-map                        ; spells-map
+    nil                                       ; backgrounds
+    [natural-armor-race-cfg shell-armor-race-cfg] ; races
+    [(classes5e/barbarian-option              ; classes
+      sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)
+     (classes5e/monk-option
+      sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)]
+    nil                                       ; feats
+    language-map)))
+
+;; Custom Natural Armor + Barbarian: DEX 14(+2), CON 14(+2)
+;; :lizardfolk-ac sets ?natural-ac-bonus 3 + overrides ?armor-class-with-armor
+(def natural-armor-barb-entity
+  {:orcpub.entity/options
+   {:race
+    {:orcpub.entity/key :custom-natural-armor}
     :ability-scores
     {:orcpub.entity/key :standard-roll
      :orcpub.entity/value
      {:orcpub.dnd.e5.character/str 15
-      :orcpub.dnd.e5.character/dex 10
-      :orcpub.dnd.e5.character/con 16  ; +2 lizardfolk = 18
+      :orcpub.dnd.e5.character/dex 14
+      :orcpub.dnd.e5.character/con 14
       :orcpub.dnd.e5.character/int 8
-      :orcpub.dnd.e5.character/wis 10  ; +1 lizardfolk = 11
-      :orcpub.dnd.e5.character/cha 8}}
+      :orcpub.dnd.e5.character/wis 10
+      :orcpub.dnd.e5.character/cha 10}}
     :class
     [{:orcpub.entity/key :barbarian
       :orcpub.entity/options
@@ -356,24 +359,21 @@
        :levels
        [{:orcpub.entity/key :level-1}]}}]}})
 
-;; Tortle Monk: moderate DEX/WIS so Monk AC < Tortle flat 17.
-;; After race: STR 10(+0), DEX 14(+2), CON 10, INT 10, WIS 15(+2), CHA 8
-;; Monk Unarmored Defense: 10 + DEX(+2) + WIS(+2) = 14
-;; Tortle Natural Armor:   flat 17
-;; RAW: max(17, 14) = 17
-(def tortle-monk-entity
+;; Custom Shell Armor + Monk: DEX 14(+2), WIS 14(+2)
+;; :tortle-ac sets ?natural-ac-bonus 7 + flat 17 ?armor-class-with-armor
+(def shell-armor-monk-entity
   {:orcpub.entity/options
    {:race
-    {:orcpub.entity/key :tortle}
+    {:orcpub.entity/key :custom-shell-armor}
     :ability-scores
     {:orcpub.entity/key :standard-roll
      :orcpub.entity/value
-     {:orcpub.dnd.e5.character/str 8   ; +2 tortle = 10
+     {:orcpub.dnd.e5.character/str 8
       :orcpub.dnd.e5.character/dex 14
       :orcpub.dnd.e5.character/con 10
       :orcpub.dnd.e5.character/int 10
-      :orcpub.dnd.e5.character/wis 14  ; +1 tortle = 15
-      :orcpub.dnd.e5.character/cha 8}}
+      :orcpub.dnd.e5.character/wis 14
+      :orcpub.dnd.e5.character/cha 10}}
     :class
     [{:orcpub.entity/key :monk
       :orcpub.entity/options
@@ -441,59 +441,102 @@
           (str "RAW: max(Barbarian=14, Draconic=15) = 15, got " ac)))))
 
 ;;; ---------------------------------------------------------------------------
-;;; Race AC override tests — Lizardfolk, Tortle
-;;;
-;;; These tests use the race-ac-template (not test-template) and access AC
-;;; through both the displayed path (armor-class-with-armor, what users see)
-;;; and the pipeline intermediate (unarmored-armor-class).
+;;; Shield interaction tests
 ;;; ---------------------------------------------------------------------------
 
-(deftest lizardfolk-barbarian-ac-override
-  (testing "Lizardfolk Barbarian: barbarian CON bonus should not be lost"
-    (let [built (entity/build liz-barb-entity race-ac-template)]
-      ;; Intermediate bonus values
-      (is (= 4 (ac-bonus built :unarmored-ac-bonus))
-          "Barbarian CON +4")
-      (is (= 3 (ac-bonus built :natural-ac-bonus))
-          "Lizardfolk natural AC +3")
-      ;; D&D 5e RAW: pick the best AC formula.
-      ;;   Barbarian Unarmored Defense: 10 + DEX(+0) + CON(+4) = 14
-      ;;   Lizardfolk Natural Armor:   13 + DEX(+0)            = 13
-      ;;   Best formula = 14
-      ;;
-      ;; BUG (stale closure): The lizardfolk ?armor-class-with-armor override
-      ;; captures the entity at race-modifier time, before barbarian modifiers
-      ;; run. The override's closure has ?unarmored-ac-bonus = 0, so it always
-      ;; returns the lizardfolk natural AC (13 + DEX = 13), ignoring barbarian.
-      ;;
-      ;; BUG (stacking pipeline): ?unarmored-armor-class adds both natural(3)
-      ;; and unarmored(4) giving 10 + 0 + 3 + 4 = 17 instead of max(14, 13).
+(deftest barbarian-shield-ac
+  (testing "Barbarian AC with shield: CON applies (PHB p.48 allows shield)"
+    (let [built (entity/build barbarian-entity test-template)]
+      ;; Without shield: 10 + DEX(2) + CON(2) = 14 (verified above)
       (is (= 14 (displayed-ac built))
-          (str "displayed AC should be max(Barbarian=14, Lizardfolk=13) = 14, "
-               "got " (displayed-ac built)))
-      (is (= 14 (unarmored-ac built))
-          (str "pipeline AC should be 14, got " (unarmored-ac built))))))
+          "displayed AC matches unarmored AC")
+      ;; With shield: barbarian sets ?unarmored-with-shield-ac-bonus = CON(+2)
+      ;; 10 + DEX(2) + CON(2) + shield(2) = 16
+      (is (= 16 (ac-with-shield built))
+          "Barbarian + shield: 10+DEX(2)+CON(2)+shield(2)=16"))))
 
-(deftest tortle-monk-ac-override
-  (testing "Tortle Monk: tortle flat 17 should win over monk's 14"
-    (let [built (entity/build tortle-monk-entity race-ac-template)]
+(deftest monk-shield-ac
+  (testing "Monk AC with shield: WIS does NOT apply (PHB p.78 requires no shield)"
+    (let [built (entity/build monk-shield-entity test-template)]
+      ;; Monk unarmored without shield: 10 + DEX(+2) + WIS(+3) = 15
+      (is (= 3 (ac-bonus built :unarmored-ac-bonus))
+          "WIS +3 unarmored bonus")
+      (is (= 0 (ac-bonus built :unarmored-with-shield-ac-bonus))
+          "Monk does NOT set unarmored-with-shield bonus")
+      (is (= 15 (unarmored-ac built))
+          "no shield: 10+DEX(2)+WIS(3)=15")
+      ;; With shield: monk does NOT set ?unarmored-with-shield-ac-bonus
+      ;; AC = 10 + DEX(2) + 0 + shield(2) = 14 (WIS lost)
+      (is (= 14 (ac-with-shield built))
+          "with shield: 10+DEX(2)+shield(2)=14, WIS NOT applied"))))
+
+;;; ---------------------------------------------------------------------------
+;;; Homebrew AC formula tests (plugin-modifiers code path)
+;;;
+;;; These exercise the :lizardfolk-ac and :tortle-ac feat modifier functions
+;;; from options.cljc via plugin-modifiers, using generic custom race names.
+;;;
+;;; Key interactions tested:
+;;;   - ?natural-ac-bonus stacking with ?unarmored-ac-bonus (bug)
+;;;   - ?armor-class-with-armor override vs ?unarmored-armor-class divergence
+;;;   - Shield stacking through the override function
+;;;   - DEX inclusion/exclusion per formula
+;;; ---------------------------------------------------------------------------
+
+(deftest natural-armor-barbarian-stacking
+  (testing "Custom Natural Armor + Barbarian: :lizardfolk-ac path"
+    (let [built (entity/build natural-armor-barb-entity homebrew-ac-template)]
       ;; Intermediate bonus values
+      (is (= 3 (ac-bonus built :natural-ac-bonus))
+          ":lizardfolk-ac sets natural AC bonus to 3")
+      (is (= 2 (ac-bonus built :unarmored-ac-bonus))
+          "Barbarian CON +2")
+      (is (= 2 (ac-bonus built :unarmored-with-shield-ac-bonus))
+          "Barbarian CON +2 applies with shield too")
+
+      ;; ?unarmored-armor-class resolves from the FINAL entity where both
+      ;; natural and unarmored bonuses are present.
+      ;; RAW: max(Natural 13+DEX(2)=15, Barbarian 10+DEX(2)+CON(2)=14) = 15
+      ;; BUG: base=10+DEX(2)+natural(3)=15, unarmored=15+CON(2)=17
+      (is (= 15 (unarmored-ac built))
+          (str "RAW: max(Natural=15, Barbarian=14)=15, got " (unarmored-ac built)))
+
+      ;; The :lizardfolk-ac override of ?armor-class-with-armor captures a
+      ;; stale closure (entity at race-modifier time, before Barbarian's
+      ;; CON bonus is applied). This may produce a different value than
+      ;; ?unarmored-armor-class.
+      (is (= 15 (displayed-ac built))
+          (str "displayed AC should be 15, got " (displayed-ac built)))
+
+      ;; Shield: RAW max(Natural 13+DEX(2)+shield(2)=17,
+      ;;              Barbarian 10+DEX(2)+CON(2)+shield(2)=16) = 17
+      (is (= 17 (ac-with-shield built))
+          (str "with shield: max(Natural=17, Barbarian=16)=17, got "
+               (ac-with-shield built))))))
+
+(deftest shell-armor-monk-stacking
+  (testing "Custom Shell Armor + Monk: :tortle-ac path"
+    (let [built (entity/build shell-armor-monk-entity homebrew-ac-template)]
+      ;; Intermediate bonus values
+      (is (= 7 (ac-bonus built :natural-ac-bonus))
+          ":tortle-ac sets natural AC bonus to 7")
       (is (= 2 (ac-bonus built :unarmored-ac-bonus))
           "Monk WIS +2")
-      (is (= 7 (ac-bonus built :natural-ac-bonus))
-          "Tortle natural AC +7")
-      ;; D&D 5e RAW:
-      ;;   Monk Unarmored Defense: 10 + DEX(+2) + WIS(+2) = 14
-      ;;   Tortle Natural Armor:  flat 17
-      ;;   Best formula = 17
-      ;;
-      ;; The tortle override hardcodes 17, so the displayed AC is correct
-      ;; for these stats. But the pipeline intermediate (?unarmored-armor-class)
-      ;; has the stacking bug: 10 + DEX(2) + natural(7) + unarmored(2) = 21.
+      (is (= 0 (ac-bonus built :unarmored-with-shield-ac-bonus))
+          "Monk does NOT set shield bonus (correct)")
+
+      ;; ?unarmored-armor-class has the stacking bug
+      ;; RAW: max(Shell=17, Monk 10+DEX(2)+WIS(2)=14) = 17
+      ;; BUG: base=10+DEX(2)+natural(7)=19, unarmored=19+WIS(2)=21
+      (is (= 17 (unarmored-ac built))
+          (str "RAW: max(Shell=17, Monk=14)=17, got " (unarmored-ac built)))
+
+      ;; The :tortle-ac override of ?armor-class-with-armor returns flat 17.
+      ;; DEX is NOT added (correct for shell armor).
       (is (= 17 (displayed-ac built))
-          (str "displayed AC should be 17 (tortle shell), got "
-               (displayed-ac built)))
-      ;; The pipeline should not give an inflated value
-      (is (<= (unarmored-ac built) 17)
-          (str "pipeline AC should not exceed tortle's 17, got "
-               (unarmored-ac built))))))
+          (str "displayed AC should be flat 17, got " (displayed-ac built)))
+
+      ;; Shield: shell armor 17 + shield(2) = 19
+      (is (= 19 (ac-with-shield built))
+          (str "with shield: 17+shield(2)=19, got "
+               (ac-with-shield built))))))

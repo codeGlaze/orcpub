@@ -53,7 +53,7 @@ No stubs remain. One test is commented out with `#_` reader macros (`security_te
 | `dnd/e5/modifiers_test.clj` | `orcpub.dnd.e5.modifiers` | **0** | **Stub** | Requires namespace but defines no tests |
 | `dnd/e5/options_test.clj` | `orcpub.dnd.e5.options` | 1 | Minimal | Only tests `total-slots` |
 | `dnd/e5/warlock_test.clj` | `orcpub.dnd.e5.character` | 8 | **Strong** | Full level-10 Drow warlock integration test: abilities, race, skills, levels, speed, spells, AC |
-| `dnd/e5/ac_test.clj` | `orcpub.dnd.e5.character` | 4 | **Strong** | AC formula tests: barbarian, monk, draconic resilience, multiclass stacking bug |
+| `dnd/e5/ac_test.clj` | `orcpub.dnd.e5.character`, `orcpub.dnd.e5.options` | 8 | **Strong** | AC formula tests: barbarian, monk, draconic resilience, multiclass stacking bug, shield interactions (barbarian CON w/shield, monk WIS w/o shield), homebrew AC via plugin-modifiers (:lizardfolk-ac + barbarian, :tortle-ac + monk) |
 | `entity/strict_test.clj` | `orcpub.entity.strict` | 2 | Good | Duplicate selection detection, spec validation |
 | `entity_test.clj` | `orcpub.entity` | 12 | **Strong** | to-strict/from-strict, round-trips (5 variants), path mapping, homebrew, empty field removal |
 | `template_test.clj` | `orcpub.template` | 1 | Good | Modifier map construction at 1 and 2 levels |
@@ -301,7 +301,7 @@ or static data definitions unless there's a specific reason to.
 - [x] **Fill `modifiers_test`** - now tests `add-bonus` (nil branching), `enough-levels?` (level gating), `add-spell` (accumulation). Removed constructor-only tests.
 - [x] **Add `template` smoke test** - Constructs all 12 PHB class options and the full template from static CLJC data. Exercises ~10k lines across classes.cljc, options.cljc, template.cljc, weapons, armor, equipment, spells, and spell-lists. Catches structural breaks that previously were only found at runtime in the browser.
 - [x] **Rewrite `warlock_test`** - Full level-10 Drow Elf Warlock integration test via `entity/build`. 8 tests covering ability scores (with racial/feat bonuses), race/subrace, skill proficiencies, class levels, speed, spells (invocations, pacts, cantrips), and unarmored AC.
-- [x] **Add `ac_test`** - 4 tests targeting the AC calculation pipeline in `template_base.cljc`. Tests barbarian, monk, and draconic resilience AC individually (should pass), plus a multiclass test that **exposes the known stacking bug** where `?natural-ac-bonus` and `?unarmored-ac-bonus` both contribute to final AC instead of using the better formula (see `template_base.cljc:38-41,60`).
+- [x] **Add `ac_test`** - 8 tests targeting the AC calculation pipeline in `template_base.cljc` and homebrew AC modifiers in `options.cljc`. Tests barbarian, monk, and draconic resilience AC individually (should pass), multiclass stacking bug, shield interactions (barbarian CON with shield, monk WIS lost with shield), and homebrew AC via `plugin-modifiers` (:lizardfolk-ac natural armor + barbarian stacking, :tortle-ac shell armor + monk stacking/DEX exclusion/shield). Uses generic custom race names (no trademarked content).
 
 ### High Priority (bugs here directly affect character sheets)
 
