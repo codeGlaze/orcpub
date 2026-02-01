@@ -285,6 +285,14 @@
     (let [built (entity/build warlock-entity test-template)]
       (is (= 30 (char5e/base-land-speed built))))))
 
+(deftest warlock-armor-class
+  (testing "unarmored warlock AC = 10 + DEX modifier"
+    (let [built (entity/build warlock-entity test-template)]
+      ;; DEX: 11 base + 2 elf racial = 13, modifier = +1
+      ;; No armor, no unarmored defense, no natural AC
+      (is (= 11 (char5e/get-prop built :unarmored-armor-class))
+          "AC should be 10 + DEX(+1) = 11"))))
+
 (deftest warlock-spells
   (testing "special spells from invocations and pacts appear in spells-known"
     (let [built (entity/build warlock-entity test-template)]

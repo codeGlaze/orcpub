@@ -8,9 +8,9 @@
 
 ## Executive Summary
 
-OrcPub has **17 test files** covering **~2,100 lines** of test code against a codebase of **99 source files / ~62,000 lines**. Coverage is concentrated on the **core entity system** (entity building, strict conversions, round-trips) and **backend route handlers**, while the **D&D 5e game logic**, **frontend code**, and several **backend services** have little to no test coverage.
+OrcPub has **20 test files** covering **~3,100 lines** of test code against a codebase of **99 source files / ~62,000 lines**. Coverage is concentrated on the **core entity system** (entity building, strict conversions, round-trips) and **backend route handlers**, with recent additions covering **D&D 5e game logic** (warlock integration test, AC calculation, template smoke test, modifiers, dice parsing, registration validation). The **frontend code** and several **backend services** still have no test coverage.
 
-Two test files are effectively empty (stubs with no test definitions), and two tests are commented out with `#_` reader macros. The test infrastructure uses `clojure.test`, `clojure.spec`, and `clojure.test.check` (property-based testing), which is a solid foundation.
+No stubs remain. One test is commented out with `#_` reader macros (`security_test`). The test infrastructure uses `clojure.test`, `clojure.spec`, and `clojure.test.check` (property-based testing), which is a solid foundation.
 
 ### Key Numbers
 
@@ -20,11 +20,11 @@ Two test files are effectively empty (stubs with no test definitions), and two t
 | Source lines (approx.) | 62,200 |
 | Test files | 17 |
 | Test lines (approx.) | 2,100 |
-| **Effective** test files (with actual tests) | 13 |
-| Empty/stub test files | 2 (`dice_test`, `modifiers_test`) |
-| Commented-out tests | 2 (`warlock_test`, `security_test`) |
-| Test-to-source line ratio | ~3.4% |
-| Source namespaces with any tests | 13 of 99 (~13%) |
+| **Effective** test files (with actual tests) | 20 |
+| Empty/stub test files | 0 |
+| Commented-out tests | 1 (`security_test`) |
+| Test-to-source line ratio | ~5% |
+| Source namespaces with any tests | 17 of 99 (~17%) |
 
 ---
 
@@ -52,7 +52,8 @@ Two test files are effectively empty (stubs with no test definitions), and two t
 | `dnd/e5/magic_items_test.clj` | `orcpub.dnd.e5.magic-items` | 3 | **Strong** | to/from internal item, armor expansion, edge cases |
 | `dnd/e5/modifiers_test.clj` | `orcpub.dnd.e5.modifiers` | **0** | **Stub** | Requires namespace but defines no tests |
 | `dnd/e5/options_test.clj` | `orcpub.dnd.e5.options` | 1 | Minimal | Only tests `total-slots` |
-| `dnd/e5/warlock_test.clj` | `orcpub.dnd.e5.character` | **0 active** | **Commented** | Elaborate test data defined, but `book-of-ancient-secrets` test is `#_`-ed out |
+| `dnd/e5/warlock_test.clj` | `orcpub.dnd.e5.character` | 8 | **Strong** | Full level-10 Drow warlock integration test: abilities, race, skills, levels, speed, spells, AC |
+| `dnd/e5/ac_test.clj` | `orcpub.dnd.e5.character` | 4 | **Strong** | AC formula tests: barbarian, monk, draconic resilience, multiclass stacking bug |
 | `entity/strict_test.clj` | `orcpub.entity.strict` | 2 | Good | Duplicate selection detection, spec validation |
 | `entity_test.clj` | `orcpub.entity` | 12 | **Strong** | to-strict/from-strict, round-trips (5 variants), path mapping, homebrew, empty field removal |
 | `template_test.clj` | `orcpub.template` | 1 | Good | Modifier map construction at 1 and 2 levels |
@@ -240,7 +241,8 @@ D&D 5e GAME LOGIC
   dnd.e5.magic-items      [========]      3 tests, conversion + expansion
   dnd.e5.options          [=]             1 test, spell slots
   dnd.e5.modifiers        [====]          3 tests: add-bonus nil handling, level gating, spell accumulation
-  dnd.e5.warlock          [####]          Test data defined, test commented out
+  dnd.e5.warlock          [==========]   8 tests: full entity/build integration (abilities, race, skills, levels, speed, spells, AC)
+  dnd.e5.ac (template_base) [========]   4 tests: barbarian/monk/draconic AC, multiclass stacking bug detection
   dnd.e5.classes          [====]          Smoke-tested via template construction (all 12 PHB classes)
   dnd.e5.template         [====]          3 tests: nil construction, class construction, selection validation
   dnd.e5.weapons          [----]          No tests
@@ -298,22 +300,19 @@ or static data definitions unless there's a specific reason to.
 - [x] **Fill `dice_test`** - now tests `dice-roll-text` parsing (user input boundary), dropped trivial arithmetic tests
 - [x] **Fill `modifiers_test`** - now tests `add-bonus` (nil branching), `enough-levels?` (level gating), `add-spell` (accumulation). Removed constructor-only tests.
 - [x] **Add `template` smoke test** - Constructs all 12 PHB class options and the full template from static CLJC data. Exercises ~10k lines across classes.cljc, options.cljc, template.cljc, weapons, armor, equipment, spells, and spell-lists. Catches structural breaks that previously were only found at runtime in the browser.
+- [x] **Rewrite `warlock_test`** - Full level-10 Drow Elf Warlock integration test via `entity/build`. 8 tests covering ability scores (with racial/feat bonuses), race/subrace, skill proficiencies, class levels, speed, spells (invocations, pacts, cantrips), and unarmored AC.
+- [x] **Add `ac_test`** - 4 tests targeting the AC calculation pipeline in `template_base.cljc`. Tests barbarian, monk, and draconic resilience AC individually (should pass), plus a multiclass test that **exposes the known stacking bug** where `?natural-ac-bonus` and `?unarmored-ac-bonus` both contribute to final AC instead of using the better formula (see `template_base.cljc:38-41,60`).
 
 ### High Priority (bugs here directly affect character sheets)
 
-1. **Expand `character_test`** - AC calculation, HP calculation, ability bonus derivation.
+1. **Expand `character_test`** - HP calculation, ability bonus derivation.
    These are the values users see on their character sheet. The existing tests cover
    strict round-trips (serialization) but not the actual game math. A bug in
-   `ability-values` or `armor-class` silently produces wrong numbers.
+   `ability-values` silently produces wrong numbers. (AC is now covered by `ac_test`.)
 
 2. **Expand `options_test`** - Multiclass spell slot calculation, proficiency bonus by
    level, ability score improvement logic. Only `total-slots` is tested today. The
    multiclass spell slot table is a common source of bugs in D&D character builders.
-
-3. **Repair `warlock_test`** - The `book-of-ancient-secrets` test was commented out
-   because it broke. It attempts to build a full warlock through the entity system,
-   which is exactly the kind of integration test that catches real regressions.
-   (Currently being worked on by another agent.)
 
 ### Medium Priority (backend correctness, integration coverage)
 
