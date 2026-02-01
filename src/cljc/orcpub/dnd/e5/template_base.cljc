@@ -69,11 +69,11 @@
                                               (nil? shield)) ?unarmored-armor-class
                                          (nil? armor) (?unarmored-with-shield-armor-class shield)
                                          :else (+ (if shield (?shield-ac-bonus shield) 0)
-                                                  (+ (?armor-dex-bonus armor)
-                                                     (or ?armored-ac-bonus 0)
-                                                     (:base-ac armor)
-                                                     (::mi5e/magical-ac-bonus armor)
-                                                     ?ac-bonus)
+                                                  (?armor-dex-bonus armor)
+                                                  (or ?armored-ac-bonus 0)
+                                                  (:base-ac armor)
+                                                  (::mi5e/magical-ac-bonus armor)
+                                                  ?ac-bonus
                                                   ?magical-ac-bonus)))
     ?armor-class-with-armor (fn [armor & [shield]]
                               (let [max-ac (apply max

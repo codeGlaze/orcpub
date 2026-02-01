@@ -63,7 +63,7 @@
       2 (s/join (str " " preceding-last " ") list)
       (str
        (s/join ", " (butlast list))
-       (str ", " preceding-last " ")
+       ", " preceding-last " "
        (last list)))))
 
 (defn round-up [num]

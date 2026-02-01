@@ -538,7 +538,7 @@
    [:.no-appearance
     (handle-browsers :appearance :none)]])
 
-(def xs-min "0")
+#_(def xs-min "0")
 (def sm-min "768px")
 (def sm-max "991px")
 (def md-max "1199px")
@@ -554,8 +554,8 @@
 (def md-query
   {:min-width md-min :max-width md-max})
 
-(def ^:private sm-or-md-query
-  {:min-width sm-min :max-width md-max})
+#_(def ^:private sm-or-md-query
+    {:min-width sm-min :max-width md-max})
 
 
 (def lg-min "1200px")
