@@ -37,3 +37,11 @@ deploy/homebrew/*
 
 # As created by some LSP-protocol tooling, e.g. nvim-lsp
 .lsp
+
+# =================================================================
+# AGENT-ONLY section (exists only on agents/* branches)
+# To remove: delete everything between the AGENT-ONLY markers
+# and run: git rm -r .agent-workarounds/
+# =================================================================
+# none yet -- .agent-workarounds/ is intentionally tracked
+# END AGENT-ONLY
