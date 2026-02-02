@@ -1944,6 +1944,7 @@
          (modifiers/weapon-proficiency weapon-kw first-class? cls-kw))))
    weapon-proficiencies))
 
+(declare customized-origin-ability-selection)
 
 (defn subrace-option [race
                       spell-lists
@@ -1970,11 +1971,14 @@
                     (map :key skills/skills)
                     (map
                      clojure.core/key
-                     (filter val options)))]
+                     (filter val options)))
+        ability-assignment-sel (customized-origin-ability-selection abilities :subrace)]
     (t/option-cfg
      {:name name
       :edit-event edit-event
       :selections (concat
+                   (if ability-assignment-sel
+                     [ability-assignment-sel])
                    (if (seq skill-kws)
                      [(skill-selection skill-kws (or skill-num 1))])
                    selections)
@@ -1990,10 +1994,14 @@
                   (armor-prof-modifiers armor-proficiencies)
                   (weapon-prof-modifiers weapon-proficiencies)
                   (tool-prof-modifiers (common/true-keys tool))
-                  (map
-                   (fn [[k v]]
-                     (modifiers/subrace-ability k v))
-                   abilities)
+                  ;; When ability-assignment-sel is present, subrace ability
+                  ;; modifiers are handled inside the selection
+                  ;; (Standard vs Customized). Otherwise apply directly.
+                  (when-not ability-assignment-sel
+                    (map
+                     (fn [[k v]]
+                       (modifiers/subrace-ability k v))
+                     abilities))
                   (traits-modifiers traits nil source)
                   (if source [(modifiers/used-resource source name)]))})))
 
@@ -2020,6 +2028,178 @@
 (def homebrew-ability-increase-selection
   (ability-increase-selection-2
    {:min 0}))
+
+;; ---------------------------------------------------------------------------
+;; Flexible Racial Ability Bonus Selections
+;; Supports customized origin rules and custom race/subrace builders.
+;; Unlike homebrew-ability-increase-selection (which uses level-ability-increase),
+;; these use race-ability / subrace-ability modifiers so bonuses are properly
+;; tagged as racial bonuses in the character sheet.
+;; ---------------------------------------------------------------------------
+
+(defn race-ability-bonus-selection
+  "Selection for choosing which ability score(s) receive a racial bonus.
+   `name-str`     - display label, e.g. \"Primary Ability (+2)\"
+   `bonus-amount` - the numeric bonus each pick grants (e.g. 2)
+   `key-suffix`   - unique suffix for the selection key
+   opts map may contain:
+     :ability-keys - subset of abilities to offer (default: all six)
+     :num          - how many picks (default 1)
+     :different?   - force each pick to be a different ability (default true when num > 1)"
+  [name-str bonus-amount key-suffix & [{:keys [ability-keys num different?]}]]
+  (let [num-picks (or num 1)]
+    (t/selection-cfg
+     {:name name-str
+      :key (keyword (str "race-ability-" key-suffix))
+      :min num-picks
+      :max num-picks
+      :tags #{:ability-scores :race}
+      :different? (if (some? different?) different? (> num-picks 1))
+      :multiselect? (> num-picks 1)
+      :options (map
+                (fn [k]
+                  (t/option-cfg
+                   {:name (:name (abilities-map k))
+                    :key k
+                    :modifiers (modifiers/race-ability k bonus-amount)}))
+                (or ability-keys character/ability-keys))})))
+
+(defn subrace-ability-bonus-selection
+  "Same as race-ability-bonus-selection but uses subrace-ability modifiers."
+  [name-str bonus-amount key-suffix & [{:keys [ability-keys num different?]}]]
+  (let [num-picks (or num 1)]
+    (t/selection-cfg
+     {:name name-str
+      :key (keyword (str "subrace-ability-" key-suffix))
+      :min num-picks
+      :max num-picks
+      :tags #{:ability-scores :subrace}
+      :different? (if (some? different?) different? (> num-picks 1))
+      :multiselect? (> num-picks 1)
+      :options (map
+                (fn [k]
+                  (t/option-cfg
+                   {:name (:name (abilities-map k))
+                    :key k
+                    :modifiers (modifiers/subrace-ability k bonus-amount)}))
+                (or ability-keys character/ability-keys))})))
+
+(defn custom-race-ability-distribution
+  "Top-level selection for the custom race builder. Lets the homebrew author
+   define the distribution pattern for their race's ability bonuses."
+  []
+  (t/selection-cfg
+   {:name "Racial Ability Bonuses"
+    :key :racial-ability-bonuses
+    :tags #{:ability-scores :race}
+    :min 0
+    :max 1
+    :options [(t/option-cfg
+               {:name "+2 to one / +1 to another"
+                :key :standard-2-1
+                :help "The standard racial bonus distribution: +2 to one ability score of your choice and +1 to a different ability score."
+                :selections [(race-ability-bonus-selection "Primary Ability (+2)" 2 "primary")
+                             (race-ability-bonus-selection "Secondary Ability (+1)" 1 "secondary")]})
+              (t/option-cfg
+               {:name "+2 to one ability"
+                :key :single-2
+                :help "A single +2 bonus to one ability score of your choice."
+                :selections [(race-ability-bonus-selection "Ability (+2)" 2 "single-2")]})
+              (t/option-cfg
+               {:name "+1 to two different abilities"
+                :key :dual-1-1
+                :help "+1 bonus to two different ability scores of your choice."
+                :selections [(race-ability-bonus-selection "Abilities (+1 each)" 1 "dual"
+                              {:num 2 :different? true})]})
+              (t/option-cfg
+               {:name "+1 to three different abilities"
+                :key :triple-1-1-1
+                :help "+1 bonus to three different ability scores of your choice."
+                :selections [(race-ability-bonus-selection "Abilities (+1 each)" 1 "triple"
+                              {:num 3 :different? true})]})
+              (t/option-cfg
+               {:name "+1 to one ability"
+                :key :single-1
+                :help "A single +1 bonus to one ability score of your choice."
+                :selections [(race-ability-bonus-selection "Ability (+1)" 1 "single-1")]})]}))
+
+(defn custom-subrace-ability-distribution
+  "Top-level selection for the custom subrace builder. Lets the homebrew author
+   define the distribution pattern for their subrace's ability bonuses."
+  []
+  (t/selection-cfg
+   {:name "Subrace Ability Bonuses"
+    :key :subrace-ability-bonuses
+    :tags #{:ability-scores :subrace}
+    :min 0
+    :max 1
+    :options [(t/option-cfg
+               {:name "+2 to one / +1 to another"
+                :key :standard-2-1
+                :selections [(subrace-ability-bonus-selection "Primary Ability (+2)" 2 "primary")
+                             (subrace-ability-bonus-selection "Secondary Ability (+1)" 1 "secondary")]})
+              (t/option-cfg
+               {:name "+2 to one ability"
+                :key :single-2
+                :selections [(subrace-ability-bonus-selection "Ability (+2)" 2 "single-2")]})
+              (t/option-cfg
+               {:name "+1 to two different abilities"
+                :key :dual-1-1
+                :selections [(subrace-ability-bonus-selection "Abilities (+1 each)" 1 "dual"
+                              {:num 2 :different? true})]})
+              (t/option-cfg
+               {:name "+1 to one ability"
+                :key :single-1
+                :selections [(subrace-ability-bonus-selection "Ability (+1)" 1 "single-1")]})]}))
+
+(defn customized-origin-ability-selection
+  "For a standard race/subrace with fixed ability bonuses, creates a selection
+   that lets the player either keep the standard bonuses or reassign them to
+   ability scores of their choice. Each distinct bonus value becomes a separate
+   chooseable selection under the 'Customized' option.
+   `abilities` - map like {::char5e/str 2 ::char5e/con 1}
+   `race-or-subrace` - :race or :subrace (determines modifier type)"
+  [abilities race-or-subrace]
+  (when (seq abilities)
+    (let [bonus-fn (if (= :subrace race-or-subrace)
+                     modifiers/subrace-ability
+                     modifiers/race-ability)
+          tag-set (if (= :subrace race-or-subrace)
+                    #{:ability-scores :subrace}
+                    #{:ability-scores :race})
+          sel-fn (if (= :subrace race-or-subrace)
+                   subrace-ability-bonus-selection
+                   race-ability-bonus-selection)
+          ;; Group abilities by bonus value, e.g. {2 [::str], 1 [::con]}
+          by-bonus (reduce (fn [m [k v]]
+                             (update m v (fnil conj []) k))
+                           (sorted-map-by >)
+                           abilities)
+          ;; Build one selection per bonus-value group
+          custom-selections
+          (mapcat
+           (fn [[bonus-val ability-ks]]
+             (let [n (count ability-ks)]
+               [(sel-fn
+                 (str "Ability (+" bonus-val (if (> n 1) " each" "") ")")
+                 bonus-val
+                 (str "custom-" bonus-val)
+                 {:num n :different? (> n 1)})]))
+           by-bonus)]
+      (t/selection-cfg
+       {:name "Ability Score Assignment"
+        :key :ability-score-assignment
+        :tags tag-set
+        :options [(t/option-cfg
+                   {:name "Standard (as written)"
+                    :key :standard
+                    :help "Use the ability score increases exactly as defined by this race."
+                    :modifiers (mapcat (fn [[k v]] (bonus-fn k v)) abilities)})
+                  (t/option-cfg
+                   {:name "Customized Origin"
+                    :key :customized
+                    :help "Reassign your racial ability score increases to abilities of your choice. You can't apply multiple increases to the same ability score, and you can't increase a score above 20."
+                    :selections (vec custom-selections)})]}))))
 
 (defn homebrew-feat-selection [spell-lists spells-map]
   (feat-selection-2
@@ -2083,9 +2263,9 @@
     :modifiers [(modifiers/deferred-subrace)
                 homebrew-al-illegal]
     :order 1000
-    :selections [homebrew-skill-prof-selection
+    :selections [(custom-subrace-ability-distribution)
+                 homebrew-skill-prof-selection
                  homebrew-tool-prof-selection
-                 homebrew-ability-increase-selection
                  (homebrew-feat-selection spell-lists spells-map)
                  homebrew-speed-selection
                  homebrew-darkvision-selection
@@ -2121,7 +2301,7 @@
    {:name "Custom"
     :icon "beer-stein"
     :ui-fn custom-race-builder
-    :help "Homebrew race. This allows you to use a race that is not on the list. This will allow unrestricted access to skill and tool proficiencies, racial ability increases, and feats."
+    :help "Homebrew race. This allows you to use a race that is not on the list. Choose an ability bonus distribution, then assign bonuses to the ability scores of your choice."
     :modifiers [(modifiers/deferred-race)
                 homebrew-al-illegal]
     #_:prereqs #_[(t/option-prereq
@@ -2130,9 +2310,9 @@
                true)]
     :order 1000
     :selections [(subrace-selection {} spell-lists spells-map language-map weapon-map false nil nil [:race :custom])
+                 (custom-race-ability-distribution)
                  homebrew-skill-prof-selection
                  homebrew-tool-prof-selection
-                 homebrew-ability-increase-selection
                  (homebrew-feat-selection spell-lists spells-map)
                  homebrew-speed-selection
                  homebrew-darkvision-selection
@@ -2199,7 +2379,8 @@
                     (map :key skills/skills)
                     (map
                      clojure.core/key
-                     (filter val options)))]
+                     (filter val options)))
+        ability-assignment-sel (customized-origin-ability-selection abilities :race)]
     (t/option-cfg
      {:name name
       :icon icon
@@ -2207,6 +2388,8 @@
       :help help
       :edit-event edit-event
       :selections (concat
+                   (if ability-assignment-sel
+                     [ability-assignment-sel])
                    (if (seq skill-kws)
                      [(skill-selection skill-kws (or skill-num 1))])
                    (if (seq subraces)
@@ -2228,10 +2411,15 @@
                    (fn [language]
                      (modifiers/language (common/name-to-kw language)))
                    languages)
-                  (map
-                   (fn [[k v]]
-                     (modifiers/race-ability k v))
-                   abilities)
+                  ;; When ability-assignment-sel is present, ability modifiers
+                  ;; are handled inside the selection (Standard vs Customized).
+                  ;; Otherwise apply them directly (backward compat for races
+                  ;; with no abilities defined, e.g. Human).
+                  (when-not ability-assignment-sel
+                    (map
+                     (fn [[k v]]
+                       (modifiers/race-ability k v))
+                     abilities))
                   modifiers
                   (tool-prof-modifiers (common/true-keys tool))
                   (traits-modifiers traits nil source)
