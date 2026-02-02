@@ -2198,7 +2198,7 @@
                   (t/option-cfg
                    {:name "Flexible"
                     :key :flexible
-                    :help "Choose which ability scores receive the racial bonuses. The total bonus values stay the same, but you pick where they go. Each bonus should apply to a different ability score."
+                    :help "Choose which ability scores receive the racial bonuses. You cannot apply more than one of these increases to the same ability score, and no score can exceed 20."
                     :selections (vec custom-selections)})]}))))
 
 (defn homebrew-feat-selection [spell-lists spells-map]
