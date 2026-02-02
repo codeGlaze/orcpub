@@ -3,10 +3,9 @@
 ## Purpose
 
 Fix two confirmed AC (armor class) calculation bugs in the D&D 5e character
-builder. This branch was created from `claude/improve-test-coverage-hlyhp`,
-which contains 11 tests (47 assertions) that already assert RAW-correct values.
-10 assertions currently fail, documenting the bugs. The goal of this branch is
-to fix the source code so all 47 assertions pass.
+builder. **Both bugs are fixed.** All 47 assertions across 11 tests pass.
+No regressions in warlock, template, character, or dice tests (31 tests, 164
+assertions total).
 
 ## Parent Branch
 
@@ -51,112 +50,67 @@ Full analysis with code snippets, examples, and fix strategies is in
   from `ac-bonus-fn` to `ac-fn`
 - **Affected tests:** `robe-archmagi-draconic-stacking`
 
-## Fix Strategy — Step by Step
+## What Was Fixed
 
-### Step 1: Fix Bug 1 in template_base.cljc
+### Bug 1 fix (template_base.cljc)
 
-```clojure
-;; BEFORE (buggy) — lines 38-41:
-?base-armor-class (+ 10 (?ability-bonuses ::char5e/dex)
-                     (if (> ?unarmored-ac-bonus ?natural-ac-bonus) 0 ?natural-ac-bonus)
-                     ?magical-ac-bonus)
+The original plan put `max()` in `?base-armor-class`. This was wrong — it
+bled monk WIS into the shield path (monk WIS shouldn't apply with shield).
 
-;; AFTER (fixed):
-?base-armor-class (+ 10 (?ability-bonuses ::char5e/dex)
-                     (max ?unarmored-ac-bonus ?natural-ac-bonus)
-                     ?magical-ac-bonus)
-```
+**Actual fix:** Keep `?base-armor-class` clean (`10 + DEX + magical`), move
+the `max()` into the downstream formulas where each path can select the
+correct bonus independently:
 
 ```clojure
-;; BEFORE (buggy) — line 60:
-?unarmored-armor-class (+ ?base-armor-class ?unarmored-ac-bonus ?ac-bonus)
+?base-armor-class (+ 10 (?ability-bonuses ::char5e/dex) ?magical-ac-bonus)
 
-;; AFTER (fixed) — remove redundant ?unarmored-ac-bonus:
-?unarmored-armor-class (+ ?base-armor-class ?ac-bonus)
-```
+?unarmored-armor-class (+ ?base-armor-class
+                          (max ?unarmored-ac-bonus ?natural-ac-bonus)
+                          ?ac-bonus)
 
-```clojure
-;; BEFORE (buggy) — lines 61-65:
 ?unarmored-with-shield-armor-class (fn [shield]
                                      (+ ?base-armor-class
-                                        ?unarmored-with-shield-ac-bonus
-                                        ?ac-bonus
-                                        (?shield-ac-bonus shield)))
-
-;; AFTER (fixed) — remove redundant ?unarmored-with-shield-ac-bonus:
-?unarmored-with-shield-armor-class (fn [shield]
-                                     (+ ?base-armor-class
+                                        (max ?unarmored-with-shield-ac-bonus ?natural-ac-bonus)
                                         ?ac-bonus
                                         (?shield-ac-bonus shield)))
 ```
 
-**Side effects to check:**
-- Barbarian's `?unarmored-ac-bonus` (CON) and `?unarmored-with-shield-ac-bonus`
-  (CON) are set in `classes.cljc:65-72`. After the fix, `?base-armor-class`
-  already includes the max of unarmored vs natural, so the separate additions
-  in `?unarmored-armor-class` and `?unarmored-with-shield-armor-class` become
-  redundant and must be removed.
-- Monk's `?unarmored-ac-bonus` (WIS) in `classes.cljc:1255-1259` — same logic.
-- Verify that `?unarmored-with-shield-ac-bonus` is ONLY set by barbarian
-  (monks don't get shield bonuses per RAW). Grep the codebase to confirm.
+**Why this works:** Each path picks the best bonus independently. The shield
+path uses `?unarmored-with-shield-ac-bonus` (set by barbarian only, 0 for
+monk), so monk WIS correctly drops out when a shield is equipped.
 
-### Step 2: Fix Bug 2 in modifiers.cljc and magic_items.cljc
+### Bug 1 supplemental fix (options.cljc)
+
+Tortle's `:tortle-ac` override only replaced `?armor-class-with-armor` (flat
+17), but the test reads `?unarmored-armor-class` directly. Added
+`(mods/modifier ?unarmored-armor-class 17)` to the tortle override so both
+properties agree.
+
+### Bug 2 fix (modifiers.cljc, magic_items.cljc, ac_test.clj)
+
+Added `ac-fn` macro targeting `?ac-fns` (the max-comparison vector). Changed
+the Robe of the Archmagi from `ac-bonus-fn` (additive) to `ac-fn` (formula).
+The Robe's function now returns the full AC value including DEX and shield:
 
 ```clojure
-;; ADD to modifiers.cljc (near line 568, after ac-bonus-fn):
-(defmacro ac-fn [ac-fn]
-  `(mods/vec-mod ~'?ac-fns ~ac-fn))
-```
-
-Then in `magic_items.cljc:2260`, change:
-```clojure
-;; BEFORE:
-(mod5e/ac-bonus-fn
-  (fn [armor shield]
-    (if (nil? armor) 5 0)))
-
-;; AFTER:
 (mod5e/ac-fn
   (fn [armor shield]
-    (+ 15 (if (nil? armor)
-             (?ability-bonuses ::char5e/dex)
-             0))))
+    (if (nil? armor)
+      (+ 15 (?ability-bonuses ::char5e/dex)
+         (if shield (?shield-ac-bonus shield) 0))
+      0)))
 ```
 
-Note: The Robe's formula is "base AC 15 + DEX when unarmored". It should
-return the full AC value (not a delta), because `?ac-fns` entries are compared
-via `max()` against the base AC calculation.
+The test's `robe-bearer-race-cfg` was also updated to use `ac-fn` (the test
+defined its own Robe implementation independent of `magic_items.cljc`).
 
-**Audit other `ac-bonus-fn` usages** to determine if they are truly additive
-bonuses or alternative formulas:
-- `magic_items.cljc:1631` — Ioun Stone of Protection: `(fn [_ _] 1)` — flat +1
-  to AC regardless of armor. This IS a true additive bonus. Leave as-is.
-- `magic_items.cljc:2522` — Staff of Power: `(fn [_ _] 2)` — flat +2 to AC.
-  This IS a true additive bonus. Leave as-is.
+### Verification
 
-### Step 3: Verify with tests
-
-```bash
-/usr/bin/lein test :only orcpub.dnd.e5.ac-test
 ```
-
-All 47 assertions across 11 tests should pass. If Claude Code Web lacks
-Clojars access, run the workarounds first:
-```bash
-bash .agent-workarounds/maven-proxy/setup-maven-proxy.sh
-bash .agent-workarounds/clojars-deps/install-test-deps.sh
+11 AC tests, 47 assertions: 0 failures
+31 total tests, 164 assertions: 0 failures (excludes routes_test which
+  requires Datomic, unavailable in this environment)
 ```
-
-### Step 4: Run full test suite for regressions
-
-```bash
-/usr/bin/lein test
-```
-
-Ensure no existing tests break. Pay special attention to:
-- `warlock_test.clj` — exercises the full entity build pipeline
-- `template_test.clj` — may reference AC properties
-- `character_test.clj` — character accessors
 
 ## Architectural Context
 
