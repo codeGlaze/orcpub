@@ -1,10 +1,13 @@
 (ns orcpub.dnd.e5.magic-items-integration-test
   (:require [clojure.test :refer [deftest is testing]]
             [orcpub.entity :as entity]
+            [orcpub.template :as t]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.character.equipment :as char-equip]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
+            [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.weapons :as weapons5e]
@@ -692,3 +695,173 @@
       ;; Unarmored AC = 10 + DEX(+2) + CON(+4) = 16
       (is (= 16 unarmored)
           "Barbarian with Amulet: 10 + DEX(2) + CON(4) = 16"))))
+
+;;; ===========================================================================
+;;; EQUIP/UNEQUIP TESTS — deferred modifier system
+;;;
+;;; These tests exercise the real magic item equipment flow:
+;;; - Items are included as template options via deferred-magic-item
+;;; - Entity selects item with equipped?=true or false
+;;; - deferred-magic-item-fn gates modifier application on equipped? flag
+;;; ===========================================================================
+
+;;; ---------------------------------------------------------------------------
+;;; Magic item option builders (replicates equipment_subs.cljs logic for JVM)
+;;; ---------------------------------------------------------------------------
+
+(defn make-magic-item-option
+  "Build a template option for a magic item, using the deferred modifier system.
+   This replicates what equipment_subs.cljs:magic-item-options does on the
+   frontend, but callable from JVM tests."
+  [{:keys [name key] :as item}]
+  (let [item-key (or key (common/name-to-kw name))
+        ;; build-modifiers resolves data-based modifier configs to functions
+        full-item (update item ::mi/modifiers mod5e/build-modifiers)]
+    (t/option-cfg
+     {:name name
+      :key item-key
+      :modifiers [(mod5e/deferred-magic-item item-key full-item)]})))
+
+;; Test magic items (simplified versions of real items)
+(def test-bracers-of-defense
+  {:name "Bracers of Defense"
+   :key :bracers-of-defense
+   ::mi/type :wondrous-item
+   ::mi/rarity :rare
+   ::mi/attunement [:any]
+   ::mi/modifiers [(mod5e/unarmored-ac-bonus 2)]})
+
+(def test-cloak-of-protection
+  {:name "Cloak of Protection"
+   :key :cloak-of-protection
+   ::mi/type :wondrous-item
+   ::mi/rarity :uncommon
+   ::mi/attunement [:any]
+   ::mi/modifiers [(mod5e/saving-throw-bonuses 1)]})
+
+(def test-staff-of-fire
+  {:name "Staff of Fire"
+   :key :staff-of-fire
+   ::mi/type :staff
+   ::mi/rarity :very-rare
+   ::mi/attunement [:any]
+   ::mi/modifiers [(mod5e/damage-resistance :fire)]})
+
+(def test-gauntlets-of-ogre-power
+  {:name "Gauntlets of Ogre Power"
+   :key :gauntlets-of-ogre-power
+   ::mi/type :wondrous-item
+   ::mi/rarity :uncommon
+   ::mi/attunement [:any]
+   ::mi/modifiers [(mod5e/ability-override ::char5e/str 19)]})
+
+;; Template that includes these items as selectable equipment
+(def equip-test-template
+  (t5e/template
+   (t5e/template-selections
+    nil                                         ; magic-weapon-options
+    nil                                         ; magic-armor-options
+    (map make-magic-item-option                 ; other-magic-item-options
+         [test-bracers-of-defense
+          test-cloak-of-protection
+          test-staff-of-fire
+          test-gauntlets-of-ogre-power])
+    weapons5e/weapons-map
+    weapons5e/weapons
+    sl5e/spell-lists
+    spells5e/spell-map
+    nil                                         ; backgrounds
+    [base-race-cfg]                             ; races (no modifiers)
+    [(classes5e/barbarian-option
+      sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)]
+    nil                                         ; feats
+    language-map)))
+
+(defn make-equip-entity
+  "Build entity that selects a magic item, with equipped?=true or false."
+  [item-key equipped? & [abilities]]
+  {:orcpub.entity/options
+   {:race {:orcpub.entity/key :test-human}
+    :ability-scores
+    {:orcpub.entity/key :standard-roll
+     :orcpub.entity/value (or abilities default-abilities)}
+    :class
+    [{:orcpub.entity/key :barbarian
+      :orcpub.entity/options
+      {:skill-proficiency
+       [{:orcpub.entity/key :athletics}
+        {:orcpub.entity/key :survival}]
+       :levels
+       [{:orcpub.entity/key :level-1}]}}]
+    :other-magic-items
+    [{:orcpub.entity/key item-key
+      ;; Value must be a map — deferred-magic-item-fn checks
+      ;; (::char-equip/equipped? cfg) directly on the raw value.
+      ;; Integer values (e.g. 1) return nil for keyword lookup.
+      :orcpub.entity/value {::char-equip/quantity 1
+                            ::char-equip/equipped? equipped?}}]}})
+
+(defn build-equip [item-key equipped? & [abilities]]
+  (entity/build (make-equip-entity item-key equipped? abilities)
+                equip-test-template))
+
+;;; ---------------------------------------------------------------------------
+;;; 11. Equip/unequip: modifiers only apply when equipped
+;;; ---------------------------------------------------------------------------
+
+(deftest bracers-of-defense-equipped-vs-unequipped
+  (testing "Bracers of Defense: +2 unarmored AC only when equipped"
+    (let [equipped (build-equip :bracers-of-defense true)
+          unequipped (build-equip :bracers-of-defense false)
+          eq-ac (get-prop equipped :unarmored-armor-class)
+          uneq-ac (get-prop unequipped :unarmored-armor-class)]
+      ;; All abilities are 10 (+0). Barbarian CON +0.
+      ;; Base unarmored: 10 + DEX(0) + CON(0) = 10
+      ;; Equipped: 10 + bracers(2) = 12
+      ;; Unequipped: 10
+      (is (= 12 eq-ac)
+          "Equipped bracers: 10 + bracers(2) = 12")
+      (is (= 10 uneq-ac)
+          "Unequipped bracers: no AC bonus, stays 10")
+      (is (= 2 (- eq-ac uneq-ac))
+          "Difference should be exactly +2"))))
+
+(deftest cloak-of-protection-equipped-vs-unequipped
+  (testing "Cloak of Protection: +1 all saves only when equipped"
+    (let [equipped (build-equip :cloak-of-protection true)
+          unequipped (build-equip :cloak-of-protection false)
+          eq-saves (char5e/save-bonuses equipped)
+          uneq-saves (char5e/save-bonuses unequipped)]
+      ;; Barbarian proficient: STR, CON. All abilities 10 (+0). Prof +2.
+      ;; Equipped: proficient = 0+2+1=3, non-prof = 0+0+1=1
+      ;; Unequipped: proficient = 0+2=2, non-prof = 0+0=0
+      (is (= 3 (::char5e/str eq-saves))
+          "Equipped: STR save = prof(2) + cloak(1) = 3")
+      (is (= 2 (::char5e/str uneq-saves))
+          "Unequipped: STR save = prof(2) = 2")
+      (is (= 1 (::char5e/dex eq-saves))
+          "Equipped: DEX save = cloak(1) = 1")
+      (is (= 0 (::char5e/dex uneq-saves))
+          "Unequipped: DEX save = 0"))))
+
+(deftest staff-of-fire-equipped-vs-unequipped
+  (testing "Staff of Fire: fire resistance only when equipped"
+    (let [equipped (build-equip :staff-of-fire true)
+          unequipped (build-equip :staff-of-fire false)
+          eq-res (char5e/damage-resistances equipped)
+          uneq-res (char5e/damage-resistances unequipped)]
+      (is (some #(= :fire (:value %)) eq-res)
+          "Equipped: should have fire resistance")
+      (is (not (some #(= :fire (:value %)) uneq-res))
+          "Unequipped: should NOT have fire resistance"))))
+
+(deftest gauntlets-equipped-vs-unequipped
+  (testing "Gauntlets of Ogre Power: STR 19 override only when equipped"
+    (let [equipped (build-equip :gauntlets-of-ogre-power true)
+          unequipped (build-equip :gauntlets-of-ogre-power false)
+          eq-str (::char5e/str (char5e/ability-values equipped))
+          uneq-str (::char5e/str (char5e/ability-values unequipped))]
+      (is (= 19 eq-str)
+          "Equipped: STR overridden to 19")
+      (is (= 10 uneq-str)
+          "Unequipped: STR stays at base 10"))))
