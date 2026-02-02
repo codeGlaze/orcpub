@@ -355,7 +355,7 @@
     language-map)))
 
 ;; Custom Natural Armor + Barbarian: DEX 14(+2), CON 14(+2)
-;; :lizardfolk-ac sets ?natural-ac-bonus 3 + overrides ?armor-class-with-armor
+;; :lizardfolk-ac sets ?natural-ac-bonus 3
 (def natural-armor-barb-entity
   {:orcpub.entity/options
    {:race
@@ -379,7 +379,7 @@
        [{:orcpub.entity/key :level-1}]}}]}})
 
 ;; Custom Shell Armor + Monk: DEX 14(+2), WIS 14(+2)
-;; :tortle-ac sets ?natural-ac-bonus 7 + flat 17 ?armor-class-with-armor
+;; :tortle-ac registers a flat 17 (+shield) formula via ?ac-fns
 (def shell-armor-monk-entity
   {:orcpub.entity/options
    {:race
@@ -520,10 +520,8 @@
       (is (= 15 (unarmored-ac built))
           (str "RAW: max(Natural=15, Barbarian=14)=15, got " (unarmored-ac built)))
 
-      ;; The :lizardfolk-ac override of ?armor-class-with-armor captures a
-      ;; stale closure (entity at race-modifier time, before Barbarian's
-      ;; CON bonus is applied). This may produce a different value than
-      ;; ?unarmored-armor-class.
+      ;; displayed-ac goes through ?armor-class-with-armor which does
+      ;; max(?unarmored-armor-class, ...?ac-fns...) — same result here
       (is (= 15 (displayed-ac built))
           (str "displayed AC should be 15, got " (displayed-ac built)))
 
@@ -534,30 +532,28 @@
                (ac-with-shield built))))))
 
 (deftest shell-armor-monk-stacking
-  (testing "Custom Shell Armor + Monk: :tortle-ac path"
+  (testing "Custom Shell Armor + Monk: :tortle-ac via ?ac-fns"
     (let [built (entity/build shell-armor-monk-entity homebrew-ac-template)]
-      ;; Intermediate bonus values
-      (is (= 7 (ac-bonus built :natural-ac-bonus))
-          ":tortle-ac sets natural AC bonus to 7")
+      ;; Intermediate bonus values — tortle uses ?ac-fns, not ?natural-ac-bonus
+      (is (= 0 (ac-bonus built :natural-ac-bonus))
+          "tortle registers via ?ac-fns, not ?natural-ac-bonus")
       (is (= 2 (ac-bonus built :unarmored-ac-bonus))
           "Monk WIS +2")
       (is (= 0 (ac-bonus built :unarmored-with-shield-ac-bonus))
           "Monk does NOT set shield bonus (correct)")
 
-      ;; ?unarmored-armor-class has the stacking bug
-      ;; RAW: max(Shell=17, Monk 10+DEX(2)+WIS(2)=14) = 17
-      ;; BUG: base=10+DEX(2)+natural(7)=19, unarmored=19+WIS(2)=21
-      (is (= 17 (unarmored-ac built))
-          (str "RAW: max(Shell=17, Monk=14)=17, got " (unarmored-ac built)))
+      ;; ?unarmored-armor-class is just the monk formula: 10+DEX(2)+WIS(2)=14
+      ;; The tortle's flat 17 participates at the ?armor-class-with-armor level
+      (is (= 14 (unarmored-ac built))
+          (str "monk formula: 10+DEX(2)+WIS(2)=14, got " (unarmored-ac built)))
 
-      ;; The :tortle-ac override of ?armor-class-with-armor returns flat 17.
-      ;; DEX is NOT added (correct for shell armor).
+      ;; displayed-ac: max(?unarmored=14, tortle-ac-fn=17) = 17
       (is (= 17 (displayed-ac built))
-          (str "displayed AC should be flat 17, got " (displayed-ac built)))
+          (str "displayed AC: max(monk=14, shell=17)=17, got " (displayed-ac built)))
 
-      ;; Shield: shell armor 17 + shield(2) = 19
+      ;; Shield: max(monk-shield=10+2+0+2=14, tortle-shield=17+2=19) = 19
       (is (= 19 (ac-with-shield built))
-          (str "with shield: 17+shield(2)=19, got "
+          (str "with shield: max(monk=14, shell=19)=19, got "
                (ac-with-shield built))))))
 
 ;;; ---------------------------------------------------------------------------
@@ -644,10 +640,8 @@
 
 ;; Custom Natural Armor + Barbarian: DEX 14(+2), CON 18(+4)
 ;; High CON so barbarian formula (10+2+4=16) > natural (13+2=15).
-;; Verifies that the lizardfolk-ac override closure sees barbarian's CON
-;; correctly — the entity build pipeline topologically sorts modifiers
-;; (entity.cljc:apply-options), so all deps are satisfied before the
-;; :armor-class-with-armor override runs.
+;; Verifies the component-level max picks barbarian's CON when it beats
+;; natural AC.
 (def natural-armor-barb-high-con-entity
   {:orcpub.entity/options
    {:race
@@ -688,9 +682,7 @@
       (is (= 15 (unarmored-ac built))
           (str "RAW: best of 3 formulas = 15, got " (unarmored-ac built)))
 
-      ;; Displayed AC through the :lizardfolk-ac override (stale closure).
-      ;; The override captures entity at race-modifier time (before
-      ;; barbarian CON and draconic natural-ac are applied).
+      ;; displayed-ac: max(?unarmored=15, ...no ac-fns...) = 15
       (is (= 15 (displayed-ac built))
           (str "displayed AC should be 15, got " (displayed-ac built)))
 
@@ -739,20 +731,14 @@
                (ac-with-shield built))))))
 
 ;;; ---------------------------------------------------------------------------
-;;; Override closure correctness test
+;;; High-CON correctness test
 ;;;
-;;; The :lizardfolk-ac override of ?armor-class-with-armor creates a closure
-;;; referencing ?base-armor-class.  The entity build pipeline (entity.cljc)
-;;; topologically sorts modifiers by dependency (Kahn's algorithm), so ALL
-;;; dependent values — including barbarian's CON bonus — are present in the
-;;; entity before the :armor-class-with-armor modifier runs.
-;;;
-;;; This test verifies the closure sees the correct values when barbarian's
-;;; CON is high enough to beat natural armor.  All assertions should PASS.
+;;; When barbarian's CON bonus exceeds the natural AC bonus, the
+;;; component-level max in ?unarmored-armor-class should pick CON.
 ;;; ---------------------------------------------------------------------------
 
 (deftest natural-armor-barbarian-high-con-override-closure
-  (testing "High-CON Barbarian + Natural Armor: override closure sees all deps"
+  (testing "High-CON Barbarian + Natural Armor: barbarian formula wins"
     (let [built (entity/build natural-armor-barb-high-con-entity homebrew-ac-template)]
       ;; Intermediate values
       (is (= 3 (ac-bonus built :natural-ac-bonus))
@@ -762,20 +748,13 @@
       (is (= 4 (ac-bonus built :unarmored-with-shield-ac-bonus))
           "Barbarian CON +4 applies with shield")
 
-      ;; ?unarmored-armor-class: CON(4) > natural(3), so the conditional
-      ;; in ?base-armor-class excludes natural.  base = 10+DEX(2) = 12.
-      ;; unarmored = 12 + CON(4) = 16.
-      ;; NOTE: this gives the correct answer (16) but via the wrong formula
-      ;; (stacking bug adds CON on top of base that excluded natural).
-      ;; The RAW-correct result is max(Natural=15, Barbarian=16) = 16.
+      ;; ?unarmored-armor-class = 10+DEX(2)+max(CON(4),natural(3))+0 = 16
+      ;; RAW: max(Natural=15, Barbarian=16) = 16
       (is (= 16 (unarmored-ac built))
           (str "barbarian wins when CON>natural, got "
                (unarmored-ac built)))
 
-      ;; The :lizardfolk-ac override closure sees the fully-built entity
-      ;; (topological sort ensures deps are satisfied).  The override
-      ;; computes max(base-armor-class + shield, previous-ac-fn).
-      ;; Both paths yield 16 here, so displayed-ac = 16 (correct).
+      ;; displayed-ac: max(?unarmored=16, ...no ac-fns...) = 16
       (is (= 16 (displayed-ac built))
           (str "displayed AC should be 16 (barbarian wins), got "
                (displayed-ac built)))
