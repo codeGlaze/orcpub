@@ -11,6 +11,11 @@ ordering (topological sort, not source order).
 - **11 AC tests** written and verified (`test/cljc/orcpub/dnd/e5/ac_test.clj`)
   - 37/47 assertions pass (single-class formulas, shield interactions, closure correctness)
   - 10/47 assertions fail as expected (Bug 1 x8, Bug 2 x2)
+- **23 magic item modifier integration tests** (`test/cljc/orcpub/dnd/e5/magic_items_integration_test.clj`)
+  - 38/38 assertions pass (all modifiers produce correct values in character builds)
+  - Covers: ability overrides, ability bonuses, saving throw bonuses, damage
+    resistances/immunities, speed overrides, swimming speed, darkvision,
+    skill bonuses, spell DC/attack bonuses, AC bonus items, multi-item stacking
 - **Bug 1 confirmed:** natural + unarmored AC bonuses stack instead of using max
   (`template_base.cljc:38-41,60`)
 - **Bug 2 confirmed:** Robe of Archmagi adds +5 on top of max AC instead of

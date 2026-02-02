@@ -29,10 +29,13 @@ Test files live in `test/clj/` and `test/cljc/`:
 | File | What it tests |
 |------|---------------|
 | `character_test.clj` | Strict format round-trips (Datomic serialization) |
-| `warlock_test.clj` | Entity/build integration — 7 tests, 20 assertions |
+| `warlock_test.clj` | Entity/build integration — 8 tests, 21 assertions |
 | `template_test.clj` | Template smoke test — constructs all 12 PHB class options |
 | `registration_test.clj` | User registration |
 | `entity_test.clj` | Entity spec validation |
+| `ac_test.clj` | AC stacking bugs — 11 tests, 47 assertions (10 fail: Bug 1 x8, Bug 2 x2) |
+| `magic_items_test.clj` | Magic item modifier serialization — 3 tests, 22 assertions |
+| `magic_items_integration_test.clj` | Magic item modifiers in character builds — 23 tests, 38 assertions |
 
 ### Entity/Build Integration Tests
 
@@ -41,7 +44,20 @@ Test files live in `test/clj/` and `test/cljc/`:
 - Exercises the full `entity/build` pipeline
 - Tests class features, ability scores, proficiencies, spell slots
 
-Use it as a template for adding new class/build tests.
+`magic_items_integration_test.clj` tests magic item modifier functions via
+custom race configs injected into the entity build. Covers:
+- Ability score overrides (`ability-override`) and additive bonuses (`ability`)
+- Saving throw bonuses (`saving-throw-bonuses`)
+- Damage resistances and immunities
+- Speed overrides and swimming speed
+- Darkvision (base + bonus stacking)
+- Skill bonuses (single and all-skills)
+- Spell save DC and attack modifier bonuses
+- AC bonus items (Bracers of Defense, Staff of Power)
+- Multi-item stacking interactions
+
+Use `warlock_test.clj` as a template for class tests, and
+`magic_items_integration_test.clj` as a template for item/modifier tests.
 
 ## E2E Testing
 
