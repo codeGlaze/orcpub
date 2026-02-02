@@ -316,6 +316,19 @@
    :languages ["Common"]
    :modifiers shell-armor-mods})
 
+;; Custom race carrying the Robe of Archmagi's ac-bonus-fn modifier.
+;; The Robe's bonus is +5 when no armor, +0 when armored.
+;; This is used to test Bug 2 (additive stacking via ?ac-bonus-fns).
+(def robe-bearer-race-cfg
+  {:name "Robe Bearer"
+   :key :robe-bearer
+   :abilities {}
+   :size :medium
+   :speed 30
+   :languages ["Common"]
+   :modifiers [(mod5e/ac-bonus-fn (fn [armor shield]
+                                    (if (nil? armor) 5 0)))]})
+
 (def homebrew-ac-template
   (t5e/template
    (t5e/template-selections
@@ -327,7 +340,7 @@
     sl5e/spell-lists                          ; spell-lists
     spells5e/spell-map                        ; spells-map
     nil                                       ; backgrounds
-    [natural-armor-race-cfg shell-armor-race-cfg] ; races
+    [natural-armor-race-cfg shell-armor-race-cfg robe-bearer-race-cfg] ; races
     [(classes5e/barbarian-option              ; classes
       sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)
      (classes5e/monk-option
@@ -592,6 +605,64 @@
            {:draconic-ancestry-type
             {:orcpub.entity/key :black}}}}}]}}]}})
 
+;; Robe Bearer + Sorcerer (Draconic): DEX 14(+2)
+;; Robe ac-bonus-fn returns +5 when no armor, +0 when armored.
+;; Draconic sets ?natural-ac-bonus 3 → base = 13 + DEX.
+;; RAW: max(Robe: 15+DEX=17, Draconic: 13+DEX=15) = 17
+;; Bug 2: Robe's +5 is ADDED to max-ac(15), giving 20.
+(def robe-draconic-entity
+  {:orcpub.entity/options
+   {:race
+    {:orcpub.entity/key :robe-bearer}
+    :ability-scores
+    {:orcpub.entity/key :standard-roll
+     :orcpub.entity/value
+     {:orcpub.dnd.e5.character/str 8
+      :orcpub.dnd.e5.character/dex 14
+      :orcpub.dnd.e5.character/con 10
+      :orcpub.dnd.e5.character/int 10
+      :orcpub.dnd.e5.character/wis 10
+      :orcpub.dnd.e5.character/cha 14}}
+    :class
+    [{:orcpub.entity/key :sorcerer
+      :orcpub.entity/options
+      {:skill-proficiency
+       [{:orcpub.entity/key :arcana}
+        {:orcpub.entity/key :deception}]
+       :levels
+       [{:orcpub.entity/key :level-1
+         :orcpub.entity/options
+         {:sorcerous-origin
+          {:orcpub.entity/key :draconic-bloodline
+           :orcpub.entity/options
+           {:draconic-ancestry-type
+            {:orcpub.entity/key :black}}}}}]}}]}})
+
+;; Custom Natural Armor + Barbarian: DEX 14(+2), CON 18(+4)
+;; High CON so barbarian formula (10+2+4=16) > natural (13+2=15).
+;; Bug 3: the lizardfolk override's stale closure doesn't see barbarian's CON.
+(def natural-armor-barb-high-con-entity
+  {:orcpub.entity/options
+   {:race
+    {:orcpub.entity/key :custom-natural-armor}
+    :ability-scores
+    {:orcpub.entity/key :standard-roll
+     :orcpub.entity/value
+     {:orcpub.dnd.e5.character/str 14
+      :orcpub.dnd.e5.character/dex 14
+      :orcpub.dnd.e5.character/con 18
+      :orcpub.dnd.e5.character/int 8
+      :orcpub.dnd.e5.character/wis 10
+      :orcpub.dnd.e5.character/cha 10}}
+    :class
+    [{:orcpub.entity/key :barbarian
+      :orcpub.entity/options
+      {:skill-proficiency
+       [{:orcpub.entity/key :athletics}
+        {:orcpub.entity/key :survival}]
+       :levels
+       [{:orcpub.entity/key :level-1}]}}]}})
+
 (deftest full-stack-race-multiclass-shield
   (testing "Custom Natural Armor + Barbarian/Sorcerer(Draconic) + shield"
     (let [built (entity/build natural-armor-barb-sorc-entity homebrew-ac-template)]
@@ -619,4 +690,87 @@
       ;; With shield: RAW max(Natural 15+2=17, Barbarian 14+2=16) = 17
       (is (= 17 (ac-with-shield built))
           (str "with shield: best formula + shield = 17, got "
+               (ac-with-shield built))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Bug 2: Robe of Archmagi additive stacking (ac-bonus-fns)
+;;;
+;;; The Robe is implemented as a +5 additive bonus via ?ac-bonus-fns, not
+;;; as an alternative AC formula via ?ac-fns.  When combined with other
+;;; AC sources (e.g. Draconic Resilience), the +5 is added ON TOP instead
+;;; of being compared via max().
+;;; ---------------------------------------------------------------------------
+
+(deftest robe-archmagi-draconic-stacking
+  (testing "Robe of Archmagi + Draconic Resilience: should use best formula, not add"
+    (let [built (entity/build robe-draconic-entity homebrew-ac-template)]
+      ;; Intermediate values
+      (is (= 3 (ac-bonus built :natural-ac-bonus))
+          "Draconic Resilience natural AC +3")
+      (is (= 0 (ac-bonus built :unarmored-ac-bonus))
+          "no unarmored defense class")
+
+      ;; ?unarmored-armor-class = base(10+2+3) + 0 + 0 = 15
+      ;; This is correct for Draconic alone (13 + DEX)
+      (is (= 15 (unarmored-ac built))
+          "unarmored pipeline: 13+DEX(2)=15 (no stacking in pipeline)")
+
+      ;; D&D 5e RAW: Robe gives 15+DEX=17, Draconic gives 13+DEX=15.
+      ;; You choose one: max(17, 15) = 17.
+      ;;
+      ;; BUG 2: ?armor-class-with-armor adds Robe's +5 bonus ON TOP of
+      ;; max-ac (which is ?unarmored-armor-class = 15), giving 15+5 = 20.
+      ;; The Robe should be an alternative formula (via ?ac-fns),
+      ;; not an additive bonus (via ?ac-bonus-fns).
+      (is (= 17 (displayed-ac built))
+          (str "RAW: max(Robe=17, Draconic=15) = 17, got " (displayed-ac built)))
+
+      ;; With shield: RAW max(Robe 15+2+2=19, Draconic 13+2+2=17) = 19
+      ;; BUG 2: 15+2+5 = 22
+      (is (= 19 (ac-with-shield built))
+          (str "with shield: max(Robe=19, Draconic=17)=19, got "
+               (ac-with-shield built))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Bug 3: Stale closure in lizardfolk AC override
+;;;
+;;; The :lizardfolk-ac override of ?armor-class-with-armor captures the entity
+;;; at race-modifier application time (before class modifiers run).  When
+;;; barbarian's CON is high enough to beat natural armor, the override doesn't
+;;; see it — the barbarian formula is invisible in the stale closure.
+;;; ---------------------------------------------------------------------------
+
+(deftest natural-armor-barbarian-high-con-stale-closure
+  (testing "High-CON Barbarian + Natural Armor: stale closure hides barbarian"
+    (let [built (entity/build natural-armor-barb-high-con-entity homebrew-ac-template)]
+      ;; Intermediate values
+      (is (= 3 (ac-bonus built :natural-ac-bonus))
+          ":lizardfolk-ac sets natural AC bonus to 3")
+      (is (= 4 (ac-bonus built :unarmored-ac-bonus))
+          "Barbarian CON +4")
+      (is (= 4 (ac-bonus built :unarmored-with-shield-ac-bonus))
+          "Barbarian CON +4 applies with shield")
+
+      ;; ?unarmored-armor-class: since CON(4) > natural(3), the conditional
+      ;; in ?base-armor-class EXCLUDES natural.  base = 10+DEX(2) = 12.
+      ;; unarmored = 12 + CON(4) = 16.  Correct by accident.
+      ;; RAW: max(Natural 13+2=15, Barbarian 10+2+4=16) = 16
+      (is (= 16 (unarmored-ac built))
+          (str "pipeline: barbarian wins when CON>natural, got "
+               (unarmored-ac built)))
+
+      ;; BUG 3: displayed-ac goes through the :lizardfolk-ac override of
+      ;; ?armor-class-with-armor.  The override captures the entity at race-
+      ;; modifier time (BEFORE barbarian's CON bonus is applied).  In the
+      ;; stale closure, ?unarmored-ac-bonus=0 and ?base-armor-class=15.
+      ;; Override: max(stale-base(15), stale-ac(15)) = 15.
+      ;; RAW: 16 (barbarian is better but invisible to the override)
+      (is (= 16 (displayed-ac built))
+          (str "displayed AC should be 16 (barbarian wins), got "
+               (displayed-ac built)))
+
+      ;; Shield: RAW max(Natural 13+2+2=17, Barbarian 10+2+4+2=18) = 18
+      ;; Override stale closure: max(15+2, stale-ac(nil,shield)=17) = 17
+      (is (= 18 (ac-with-shield built))
+          (str "with shield: barbarian(18) > natural(17), got "
                (ac-with-shield built))))))
