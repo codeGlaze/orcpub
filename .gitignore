@@ -3,7 +3,7 @@
 /resources/public/css/compiled
 /resources/public/js/compiled
 /resources/*_backup.pdf
-figwheel_server.log
+*.log
 pom.xml
 *jar
 /lib/
@@ -31,6 +31,9 @@ env.sh
 *.crt
 *.key
 deploy/homebrew/*
+
+.datomic
+.java11
 
 # As created by some LSP-protocol tooling, e.g. nvim-lsp
 .lsp
