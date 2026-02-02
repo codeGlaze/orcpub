@@ -79,12 +79,18 @@ correct bonus independently:
 path uses `?unarmored-with-shield-ac-bonus` (set by barbarian only, 0 for
 monk), so monk WIS correctly drops out when a shield is equipped.
 
-### Bug 1 supplemental fix (options.cljc)
+### Cleanup: lizardfolk/tortle overrides (options.cljc)
 
-Tortle's `:tortle-ac` override only replaced `?armor-class-with-armor` (flat
-17), but the test reads `?unarmored-armor-class` directly. Added
-`(mods/modifier ?unarmored-armor-class 17)` to the tortle override so both
-properties agree.
+**Lizardfolk:** Removed dead `?armor-class-with-armor` override — after
+Bug 1 fix, `?base-armor-class` no longer includes natural bonus, so the
+override (`max(?base-armor-class + shield, prev-ac)`) can never win.
+Kept `?natural-ac-bonus 3` which works through the component-level max.
+
+**Tortle:** Replaced three hard overrides (`?natural-ac-bonus 7`,
+`?unarmored-armor-class 17`, `?armor-class-with-armor` fn) with a single
+`?ac-fns` formula (`17 + shield`). This fixes the pre-existing limitation
+where a Tortle Monk with DEX+WIS > 17 was locked to shell AC 17 instead
+of being able to pick the monk formula.
 
 ### Bug 2 fix (modifiers.cljc, magic_items.cljc, ac_test.clj)
 
