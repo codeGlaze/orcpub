@@ -53,7 +53,7 @@ No stubs remain. One test is commented out with `#_` reader macros (`security_te
 | `dnd/e5/modifiers_test.clj` | `orcpub.dnd.e5.modifiers` | **0** | **Stub** | Requires namespace but defines no tests |
 | `dnd/e5/options_test.clj` | `orcpub.dnd.e5.options` | 1 | Minimal | Only tests `total-slots` |
 | `dnd/e5/warlock_test.clj` | `orcpub.dnd.e5.character` | 8 | **Strong** | Full level-10 Drow warlock integration test: abilities, race, skills, levels, speed, spells, AC |
-| `dnd/e5/ac_test.clj` | `orcpub.dnd.e5.character`, `orcpub.dnd.e5.options` | 8 | **Strong** | AC formula tests: barbarian, monk, draconic resilience, multiclass stacking bug, shield interactions (barbarian CON w/shield, monk WIS w/o shield), homebrew AC via plugin-modifiers (:lizardfolk-ac + barbarian, :tortle-ac + monk) |
+| `dnd/e5/ac_test.clj` | `orcpub.dnd.e5.character`, `orcpub.dnd.e5.options` | 9 | **Strong** | AC formula tests: barbarian, monk, draconic resilience, multiclass stacking bug, shield interactions (barbarian CON w/shield, monk WIS w/o shield), homebrew AC via plugin-modifiers (:lizardfolk-ac + barbarian, :tortle-ac + monk), full-stack race feat + multiclass + draconic + shield |
 | `entity/strict_test.clj` | `orcpub.entity.strict` | 2 | Good | Duplicate selection detection, spec validation |
 | `entity_test.clj` | `orcpub.entity` | 12 | **Strong** | to-strict/from-strict, round-trips (5 variants), path mapping, homebrew, empty field removal |
 | `template_test.clj` | `orcpub.template` | 1 | Good | Modifier map construction at 1 and 2 levels |

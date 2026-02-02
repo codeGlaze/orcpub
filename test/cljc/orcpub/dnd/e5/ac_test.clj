@@ -331,6 +331,8 @@
     [(classes5e/barbarian-option              ; classes
       sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)
      (classes5e/monk-option
+      sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)
+     (classes5e/sorcerer-option
       sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map)]
     nil                                       ; feats
     language-map)))
@@ -539,4 +541,82 @@
       ;; Shield: shell armor 17 + shield(2) = 19
       (is (= 19 (ac-with-shield built))
           (str "with shield: 17+shield(2)=19, got "
+               (ac-with-shield built))))))
+
+;;; ---------------------------------------------------------------------------
+;;; Full-stack stacking test: race feat AC + multiclass + shield
+;;;
+;;; Combines ALL AC modifier sources in one character:
+;;;   - Race feat: :lizardfolk-ac (natural-ac-bonus 3, armor-class-with-armor override)
+;;;   - Class 1:  Barbarian (unarmored-ac-bonus = CON, shield bonus = CON)
+;;;   - Class 2:  Sorcerer/Draconic (natural-ac-bonus 3, redundant with race)
+;;;   - Shield:   basic +2
+;;; ---------------------------------------------------------------------------
+
+;; Custom Natural Armor + Barbarian 1/Sorcerer(Draconic) 1 + shield
+;; DEX 14(+2), CON 14(+2), CHA 14(+2)
+;; Three AC formulas in play:
+;;   Natural Armor (race feat):      13 + DEX(2) = 15
+;;   Barbarian Unarmored Defense:    10 + DEX(2) + CON(2) = 14
+;;   Draconic Resilience (class):    13 + DEX(2) = 15  (same as race feat)
+;; RAW: best formula = 15
+(def natural-armor-barb-sorc-entity
+  {:orcpub.entity/options
+   {:race
+    {:orcpub.entity/key :custom-natural-armor}
+    :ability-scores
+    {:orcpub.entity/key :standard-roll
+     :orcpub.entity/value
+     {:orcpub.dnd.e5.character/str 14
+      :orcpub.dnd.e5.character/dex 14
+      :orcpub.dnd.e5.character/con 14
+      :orcpub.dnd.e5.character/int 8
+      :orcpub.dnd.e5.character/wis 10
+      :orcpub.dnd.e5.character/cha 14}}
+    :class
+    [{:orcpub.entity/key :barbarian
+      :orcpub.entity/options
+      {:skill-proficiency
+       [{:orcpub.entity/key :athletics}
+        {:orcpub.entity/key :survival}]
+       :levels
+       [{:orcpub.entity/key :level-1}]}}
+     {:orcpub.entity/key :sorcerer
+      :orcpub.entity/options
+      {:levels
+       [{:orcpub.entity/key :level-1
+         :orcpub.entity/options
+         {:sorcerous-origin
+          {:orcpub.entity/key :draconic-bloodline
+           :orcpub.entity/options
+           {:draconic-ancestry-type
+            {:orcpub.entity/key :black}}}}}]}}]}})
+
+(deftest full-stack-race-multiclass-shield
+  (testing "Custom Natural Armor + Barbarian/Sorcerer(Draconic) + shield"
+    (let [built (entity/build natural-armor-barb-sorc-entity homebrew-ac-template)]
+      ;; Modifier chain: race sets natural-ac-bonus=3, then draconic
+      ;; overwrites it to 3 (same value, last-write-wins).
+      ;; Barbarian sets unarmored-ac-bonus=CON(+2).
+      (is (= 3 (ac-bonus built :natural-ac-bonus))
+          "natural AC bonus = 3 (race feat and draconic both set 3)")
+      (is (= 2 (ac-bonus built :unarmored-ac-bonus))
+          "Barbarian CON +2")
+      (is (= 2 (ac-bonus built :unarmored-with-shield-ac-bonus))
+          "Barbarian CON +2 with shield")
+
+      ;; RAW: max(Natural=15, Barbarian=14, Draconic=15) = 15
+      ;; BUG: base=10+DEX(2)+natural(3)=15, unarmored=15+CON(2)=17
+      (is (= 15 (unarmored-ac built))
+          (str "RAW: best of 3 formulas = 15, got " (unarmored-ac built)))
+
+      ;; Displayed AC through the :lizardfolk-ac override (stale closure).
+      ;; The override captures entity at race-modifier time (before
+      ;; barbarian CON and draconic natural-ac are applied).
+      (is (= 15 (displayed-ac built))
+          (str "displayed AC should be 15, got " (displayed-ac built)))
+
+      ;; With shield: RAW max(Natural 15+2=17, Barbarian 14+2=16) = 17
+      (is (= 17 (ac-with-shield built))
+          (str "with shield: best formula + shield = 17, got "
                (ac-with-shield built))))))
