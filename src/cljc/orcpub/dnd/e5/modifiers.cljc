@@ -567,6 +567,9 @@
 (defmacro ac-bonus-fn [bonus-fn]
   `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
 
+(defmacro ac-fn [ac-fn]
+  `(mods/vec-mod ~'?ac-fns ~ac-fn))
+
 (defn unarmored-defense [cls]
   (mods/vec-mod ?unarmored-defense cls))
 

@@ -316,9 +316,10 @@
    :languages ["Common"]
    :modifiers shell-armor-mods})
 
-;; Custom race carrying the Robe of Archmagi's ac-bonus-fn modifier.
-;; The Robe's bonus is +5 when no armor, +0 when armored.
-;; This is used to test Bug 2 (additive stacking via ?ac-bonus-fns).
+;; Custom race carrying the Robe of Archmagi's AC formula.
+;; RAW: "base Armor Class is 15 + your Dexterity modifier" when unarmored.
+;; This is an alternative AC formula (via ?ac-fns, compared via max),
+;; not an additive bonus.
 (def robe-bearer-race-cfg
   {:name "Robe Bearer"
    :key :robe-bearer
@@ -326,8 +327,11 @@
    :size :medium
    :speed 30
    :languages ["Common"]
-   :modifiers [(mod5e/ac-bonus-fn (fn [armor shield]
-                                    (if (nil? armor) 5 0)))]})
+   :modifiers [(mod5e/ac-fn (fn [armor shield]
+                              (if (nil? armor)
+                                (+ 15 (?ability-bonuses ::char5e/dex)
+                                   (if shield (?shield-ac-bonus shield) 0))
+                                0)))]})
 
 (def homebrew-ac-template
   (t5e/template

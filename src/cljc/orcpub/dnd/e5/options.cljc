@@ -3252,6 +3252,7 @@
                                              (?armor-class-with-armor armor shield))))])
       :tortle-ac (if v
                    [(mods/modifier ?natural-ac-bonus 7)
+                    (mods/modifier ?unarmored-armor-class 17)
                     (mods/modifier ?armor-class-with-armor
                                   (fn [armor & [shield]]
                                     (+ 17

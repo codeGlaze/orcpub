@@ -36,8 +36,6 @@
   (es/make-entity
    {?armor-class (+ 10 (?ability-bonuses ::char5e/dex))
     ?base-armor-class (+ 10 (?ability-bonuses ::char5e/dex)
-                         ;; Checks whether barbarian unarmored bonus exists (or is higher) than natural AC/Draconic Bloodline AC
-                         (if (> ?unarmored-ac-bonus ?natural-ac-bonus ) 0 ?natural-ac-bonus)
                          ?magical-ac-bonus)
     ?levels {}
     ?ac-bonus 0
@@ -57,10 +55,12 @@
                            0)))
     ?shield-ac-bonus (fn [shield]
                        (+ 2 (or (::mi5e/magical-ac-bonus shield) 0)))
-    ?unarmored-armor-class (+ ?base-armor-class ?unarmored-ac-bonus ?ac-bonus)
+    ?unarmored-armor-class (+ ?base-armor-class
+                              (max ?unarmored-ac-bonus ?natural-ac-bonus)
+                              ?ac-bonus)
     ?unarmored-with-shield-armor-class (fn [shield]
                                          (+ ?base-armor-class
-                                            ?unarmored-with-shield-ac-bonus
+                                            (max ?unarmored-with-shield-ac-bonus ?natural-ac-bonus)
                                             ?ac-bonus
                                             (?shield-ac-bonus shield)))
     ?dual-wield-weapon? weapon5e/light-melee-weapon?
