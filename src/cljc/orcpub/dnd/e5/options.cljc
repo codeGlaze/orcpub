@@ -2031,10 +2031,10 @@
 
 ;; ---------------------------------------------------------------------------
 ;; Flexible Racial Ability Bonus Selections
-;; Supports customized origin rules and custom race/subrace builders.
-;; Unlike homebrew-ability-increase-selection (which uses level-ability-increase),
-;; these use race-ability / subrace-ability modifiers so bonuses are properly
-;; tagged as racial bonuses in the character sheet.
+;; Used by custom race/subrace builders and by the flexible assignment option
+;; on standard races. Unlike homebrew-ability-increase-selection (which uses
+;; level-ability-increase), these use race-ability / subrace-ability modifiers
+;; so bonuses are properly tagged as racial bonuses in the character sheet.
 ;; ---------------------------------------------------------------------------
 
 (defn race-ability-bonus-selection
@@ -2097,30 +2097,30 @@
     :options [(t/option-cfg
                {:name "+2 to one / +1 to another"
                 :key :standard-2-1
-                :help "The standard racial bonus distribution: +2 to one ability score of your choice and +1 to a different ability score."
+                :help "+2 to one ability score and +1 to a different one."
                 :selections [(race-ability-bonus-selection "Primary Ability (+2)" 2 "primary")
                              (race-ability-bonus-selection "Secondary Ability (+1)" 1 "secondary")]})
               (t/option-cfg
                {:name "+2 to one ability"
                 :key :single-2
-                :help "A single +2 bonus to one ability score of your choice."
+                :help "Apply a +2 bonus to one ability score."
                 :selections [(race-ability-bonus-selection "Ability (+2)" 2 "single-2")]})
               (t/option-cfg
                {:name "+1 to two different abilities"
                 :key :dual-1-1
-                :help "+1 bonus to two different ability scores of your choice."
+                :help "Apply a +1 bonus to each of two different ability scores."
                 :selections [(race-ability-bonus-selection "Abilities (+1 each)" 1 "dual"
                               {:num 2 :different? true})]})
               (t/option-cfg
                {:name "+1 to three different abilities"
                 :key :triple-1-1-1
-                :help "+1 bonus to three different ability scores of your choice."
+                :help "Apply a +1 bonus to each of three different ability scores."
                 :selections [(race-ability-bonus-selection "Abilities (+1 each)" 1 "triple"
                               {:num 3 :different? true})]})
               (t/option-cfg
                {:name "+1 to one ability"
                 :key :single-1
-                :help "A single +1 bonus to one ability score of your choice."
+                :help "Apply a +1 bonus to one ability score."
                 :selections [(race-ability-bonus-selection "Ability (+1)" 1 "single-1")]})]}))
 
 (defn custom-subrace-ability-distribution
@@ -2154,9 +2154,9 @@
 
 (defn customized-origin-ability-selection
   "For a standard race/subrace with fixed ability bonuses, creates a selection
-   that lets the player either keep the standard bonuses or reassign them to
-   ability scores of their choice. Each distinct bonus value becomes a separate
-   chooseable selection under the 'Customized' option.
+   that lets the player either keep the fixed bonuses or choose where to
+   assign them. Each distinct bonus value becomes a separate chooseable
+   selection under the 'Flexible' option.
    `abilities` - map like {::char5e/str 2 ::char5e/con 1}
    `race-or-subrace` - :race or :subrace (determines modifier type)"
   [abilities race-or-subrace]
@@ -2191,14 +2191,14 @@
         :key :ability-score-assignment
         :tags tag-set
         :options [(t/option-cfg
-                   {:name "Standard (as written)"
+                   {:name "Fixed (default)"
                     :key :standard
-                    :help "Use the ability score increases exactly as defined by this race."
+                    :help "Apply the listed ability score bonuses as-is."
                     :modifiers (mapcat (fn [[k v]] (bonus-fn k v)) abilities)})
                   (t/option-cfg
-                   {:name "Customized Origin"
-                    :key :customized
-                    :help "Reassign your racial ability score increases to abilities of your choice. You can't apply multiple increases to the same ability score, and you can't increase a score above 20."
+                   {:name "Flexible"
+                    :key :flexible
+                    :help "Choose which ability scores receive the racial bonuses. The total bonus values stay the same, but you pick where they go. Each bonus should apply to a different ability score."
                     :selections (vec custom-selections)})]}))))
 
 (defn homebrew-feat-selection [spell-lists spells-map]
@@ -2301,7 +2301,7 @@
    {:name "Custom"
     :icon "beer-stein"
     :ui-fn custom-race-builder
-    :help "Homebrew race. This allows you to use a race that is not on the list. Choose an ability bonus distribution, then assign bonuses to the ability scores of your choice."
+    :help "Homebrew race. This allows you to use a race that is not on the list. Pick a bonus distribution pattern, then assign each bonus to an ability score."
     :modifiers [(modifiers/deferred-race)
                 homebrew-al-illegal]
     #_:prereqs #_[(t/option-prereq
