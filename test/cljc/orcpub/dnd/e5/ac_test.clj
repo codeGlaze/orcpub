@@ -640,7 +640,10 @@
 
 ;; Custom Natural Armor + Barbarian: DEX 14(+2), CON 18(+4)
 ;; High CON so barbarian formula (10+2+4=16) > natural (13+2=15).
-;; Bug 3: the lizardfolk override's stale closure doesn't see barbarian's CON.
+;; Verifies that the lizardfolk-ac override closure sees barbarian's CON
+;; correctly — the entity build pipeline topologically sorts modifiers
+;; (entity.cljc:apply-options), so all deps are satisfied before the
+;; :armor-class-with-armor override runs.
 (def natural-armor-barb-high-con-entity
   {:orcpub.entity/options
    {:race
@@ -732,16 +735,20 @@
                (ac-with-shield built))))))
 
 ;;; ---------------------------------------------------------------------------
-;;; Bug 3: Stale closure in lizardfolk AC override
+;;; Override closure correctness test
 ;;;
-;;; The :lizardfolk-ac override of ?armor-class-with-armor captures the entity
-;;; at race-modifier application time (before class modifiers run).  When
-;;; barbarian's CON is high enough to beat natural armor, the override doesn't
-;;; see it — the barbarian formula is invisible in the stale closure.
+;;; The :lizardfolk-ac override of ?armor-class-with-armor creates a closure
+;;; referencing ?base-armor-class.  The entity build pipeline (entity.cljc)
+;;; topologically sorts modifiers by dependency (Kahn's algorithm), so ALL
+;;; dependent values — including barbarian's CON bonus — are present in the
+;;; entity before the :armor-class-with-armor modifier runs.
+;;;
+;;; This test verifies the closure sees the correct values when barbarian's
+;;; CON is high enough to beat natural armor.  All assertions should PASS.
 ;;; ---------------------------------------------------------------------------
 
-(deftest natural-armor-barbarian-high-con-stale-closure
-  (testing "High-CON Barbarian + Natural Armor: stale closure hides barbarian"
+(deftest natural-armor-barbarian-high-con-override-closure
+  (testing "High-CON Barbarian + Natural Armor: override closure sees all deps"
     (let [built (entity/build natural-armor-barb-high-con-entity homebrew-ac-template)]
       ;; Intermediate values
       (is (= 3 (ac-bonus built :natural-ac-bonus))
@@ -751,26 +758,25 @@
       (is (= 4 (ac-bonus built :unarmored-with-shield-ac-bonus))
           "Barbarian CON +4 applies with shield")
 
-      ;; ?unarmored-armor-class: since CON(4) > natural(3), the conditional
-      ;; in ?base-armor-class EXCLUDES natural.  base = 10+DEX(2) = 12.
-      ;; unarmored = 12 + CON(4) = 16.  Correct by accident.
-      ;; RAW: max(Natural 13+2=15, Barbarian 10+2+4=16) = 16
+      ;; ?unarmored-armor-class: CON(4) > natural(3), so the conditional
+      ;; in ?base-armor-class excludes natural.  base = 10+DEX(2) = 12.
+      ;; unarmored = 12 + CON(4) = 16.
+      ;; NOTE: this gives the correct answer (16) but via the wrong formula
+      ;; (stacking bug adds CON on top of base that excluded natural).
+      ;; The RAW-correct result is max(Natural=15, Barbarian=16) = 16.
       (is (= 16 (unarmored-ac built))
-          (str "pipeline: barbarian wins when CON>natural, got "
+          (str "barbarian wins when CON>natural, got "
                (unarmored-ac built)))
 
-      ;; BUG 3: displayed-ac goes through the :lizardfolk-ac override of
-      ;; ?armor-class-with-armor.  The override captures the entity at race-
-      ;; modifier time (BEFORE barbarian's CON bonus is applied).  In the
-      ;; stale closure, ?unarmored-ac-bonus=0 and ?base-armor-class=15.
-      ;; Override: max(stale-base(15), stale-ac(15)) = 15.
-      ;; RAW: 16 (barbarian is better but invisible to the override)
+      ;; The :lizardfolk-ac override closure sees the fully-built entity
+      ;; (topological sort ensures deps are satisfied).  The override
+      ;; computes max(base-armor-class + shield, previous-ac-fn).
+      ;; Both paths yield 16 here, so displayed-ac = 16 (correct).
       (is (= 16 (displayed-ac built))
           (str "displayed AC should be 16 (barbarian wins), got "
                (displayed-ac built)))
 
-      ;; Shield: RAW max(Natural 13+2+2=17, Barbarian 10+2+4+2=18) = 18
-      ;; Override stale closure: max(15+2, stale-ac(nil,shield)=17) = 17
+      ;; Shield: max(Natural 13+2+2=17, Barbarian 10+2+4+2=18) = 18
       (is (= 18 (ac-with-shield built))
           (str "with shield: barbarian(18) > natural(17), got "
                (ac-with-shield built))))))
