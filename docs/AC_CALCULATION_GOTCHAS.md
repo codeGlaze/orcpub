@@ -67,16 +67,18 @@ unarmored when natural wins.
 - Then unarmored adds CON: 15 + 2 = **17**
 - RAW: max(Barbarian 10+2+2=14, Draconic 13+2=15) = **15**
 
-**Fix strategy:** Replace the conditional-add with `max()`:
+**Why a simple `max()` in `?base-armor-class` does NOT work:**
 
-```clojure
-?base-armor-class (+ 10 (?ability-bonuses ::char5e/dex)
-                     (max ?unarmored-ac-bonus ?natural-ac-bonus)
-                     ?magical-ac-bonus)
-```
+The obvious fix — `(max ?unarmored-ac-bonus ?natural-ac-bonus)` in
+`?base-armor-class` — breaks the shield path. `?base-armor-class` feeds
+both `?unarmored-armor-class` and `?unarmored-with-shield-armor-class`.
+Monk sets `?unarmored-ac-bonus` = WIS but `?unarmored-with-shield-ac-bonus`
+= 0 (PHB p.78: no shield). Baking `max(WIS, natural)` into the shared base
+leaks monk WIS into the shield formula. A monk with DEX +2, WIS +3 would
+get shield AC = 10+2+3+2 = **17** instead of the correct 10+2+0+2 = **14**.
 
-And remove the redundant `?unarmored-ac-bonus` add from
-`?unarmored-armor-class`.
+**Fix strategy:** See "Recommended Fix Architecture" below — both bugs share
+the same root cause and the same solution.
 
 ---
 
@@ -109,8 +111,78 @@ with `max`), not an additive bonus (via `?ac-bonus-fns`).
 - Code: 15 + 5 = **20**
 - RAW: max(Robe 15+2=17, Draconic 13+2=15) = **17**
 
-**Fix strategy:** Move the Robe from `?ac-bonus-fns` to `?ac-fns` so it
-participates in `max()` instead of being added.
+---
+
+## Recommended Fix Architecture
+
+Bugs 1 and 2 share the same root cause: the pipeline tries to combine
+AC formulas into a single chain of intermediate values (`?base-armor-class`
+→ `?unarmored-armor-class`), when D&D 5e says you pick the best formula.
+
+The pipeline already has the right mechanism — `?ac-fns` at
+`template_base.cljc:87` — but nothing populates it. There is no `ac-fn`
+helper macro; only `ac-bonus-fn` exists (`modifiers.cljc:567-568`), which
+pushes to the **additive** `?ac-bonus-fns`.
+
+**The fix: make each AC source a self-contained formula in `?ac-fns`.**
+
+Each formula receives `(armor, shield)` and returns its AC independently.
+The pipeline picks the highest via `max`. No shared intermediate, no
+stacking, no ordering issues.
+
+```clojure
+;; 1. Create ac-fn helper (doesn't exist yet)
+(defmacro ac-fn [f]
+  `(mod5e/vec-mod ?ac-fns ~f))
+
+;; 2. Barbarian unarmored defense → register formula
+(ac-fn (fn [armor shield]
+         (when (nil? armor)
+           (+ 10 DEX CON (if shield 2 0)))))
+
+;; 3. Natural armor (generic, takes base-ac param)
+(defn natural-armor-modifiers [base-ac]
+  [(ac-fn (fn [armor shield]
+            (when (nil? armor)
+              (+ base-ac DEX (if shield 2 0)))))])
+;; lizardfolk: (natural-armor-modifiers 13)
+;; tortle:     flat 17 + shield, no DEX
+
+;; 4. Robe of Archmagi → move from ac-bonus-fn to ac-fn
+(ac-fn (fn [armor shield]
+         (when (nil? armor)
+           (+ 15 DEX (if shield 2 0)))))
+```
+
+**Why this works:**
+- `max` is commutative — modifier ordering is irrelevant
+- Each formula handles its own shield logic — no shared base leaking WIS
+- Aligns with D&D 5e RAW: "choose which one to use"
+- Eliminates the `?base-armor-class` double-duty problem
+- Makes homebrew natural armor trivial: `(natural-armor-modifiers N)`
+
+**What `?ac-bonus-fns` is still for:** True additive bonuses that stack on
+top of ANY formula — Shield of Faith (+2), Ring of Protection (+1), etc.
+These are correct as additive. The bug is items that provide an
+**alternative formula** being registered as additive bonuses.
+
+### Same-key modifier ordering (architectural note)
+
+When two modifiers target the same `?`-key (e.g., both override
+`?armor-class-with-armor`), the winner depends on:
+
+1. `flatten-options` iterates the entity's `::options` map (`entity.cljc:297`)
+2. `collect-modifiers-2` preserves that order (`entity.cljc:574`)
+3. `order-modifiers` stable-sorts by topological position (`entity.cljc:417`)
+4. Same-key modifiers keep their collection order (stable sort)
+5. `apply-modifiers` reduce makes last-wins (`modifiers.cljc:101`)
+
+For small option maps (≤8 keys), Clojure uses array-maps (insertion order).
+Larger maps use hash-maps (hash-dependent order). Typical characters stay
+in array-map territory, so the order is deterministic but implicit.
+
+The `?ac-fns` approach eliminates this concern entirely — formulas are
+collected into a vector and compared via `max`, so order doesn't matter.
 
 ---
 
@@ -174,7 +246,7 @@ dependency sorting. Trace the actual order via `entity.cljc:apply-options`.
 | `shell-armor-monk-stacking` | Bug 1: tortle-ac + monk | Fail (21 vs 17) |
 | `full-stack-race-multiclass-shield` | Bug 1: race + barb/sorc + shield | Fail (3 assertions) |
 | `robe-archmagi-draconic-stacking` | Bug 2: Robe additive stacking | Fail (20 vs 17) |
-| `natural-armor-barbarian-high-con-stale-closure` | Non-bug: closure is not stale | Pass |
+| `natural-armor-barbarian-high-con-override-closure` | Non-bug: closure is not stale | Pass |
 
 ---
 

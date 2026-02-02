@@ -34,23 +34,29 @@ ordering (topological sort, not source order).
 
 Branch from `upgrade/security-jackson-guava` (per AGENTS.md).
 
-**Bug 1 fix** (`template_base.cljc`): Replace the conditional-add with `max()`:
-```clojure
-;; Current (buggy):
-?base-armor-class (+ 10 DEX (if (> unarmored natural) 0 natural) magical)
-?unarmored-armor-class (+ ?base-armor-class ?unarmored-ac-bonus ?ac-bonus)
+**DO NOT** put `max()` into `?base-armor-class`. That breaks the shield
+path — monk WIS leaks into the shield formula because `?base-armor-class`
+is shared between `?unarmored-armor-class` and
+`?unarmored-with-shield-armor-class`.
 
-;; Fixed: pick one formula, don't add both
-?base-armor-class (+ 10 DEX (max ?unarmored-ac-bonus ?natural-ac-bonus) ?magical-ac-bonus)
-;; Remove redundant ?unarmored-ac-bonus from ?unarmored-armor-class
-```
+**Recommended approach: revive `?ac-fns`.**
 
-**Bug 2 fix** (`magic_items.cljc`): Move Robe of Archmagi from `?ac-bonus-fns`
-(additive) to `?ac-fns` (compared via max). Search for `ac-bonus-fn` calls
-that should be `ac-fn` calls.
+`?ac-fns` (`template_base.cljc:87`) is an empty vec designed for alternative
+AC formulas compared via `max`. Nothing populates it — there is no `ac-fn`
+helper (only `ac-bonus-fn` exists). The fix for both bugs:
 
-**After fixing**, the 10 currently-failing assertions in `ac_test.clj` should pass.
-No test changes needed — the tests already assert RAW-correct values.
+1. Create an `ac-fn` helper macro that pushes to `?ac-fns`
+2. Move each AC source (barbarian, monk, draconic, lizardfolk, tortle, Robe)
+   from the `?base-armor-class`/`?unarmored-ac-bonus` chain into
+   self-contained `?ac-fns` formulas
+3. Each formula receives `(armor, shield)` and handles its own shield logic
+4. `?ac-bonus-fns` stays for true additive bonuses (Shield of Faith, etc.)
+
+See `docs/AC_CALCULATION_GOTCHAS.md` "Recommended Fix Architecture" for
+details and pseudocode.
+
+**After fixing**, the 10 currently-failing assertions in `ac_test.clj` should
+pass. No test changes needed — the tests already assert RAW-correct values.
 
 ### Key architectural insight
 
