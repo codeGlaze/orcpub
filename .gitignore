@@ -45,3 +45,6 @@ deploy/homebrew/*
 # =================================================================
 # none yet -- .agent-workarounds/ is intentionally tracked
 # END AGENT-ONLY
+
+# Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json
