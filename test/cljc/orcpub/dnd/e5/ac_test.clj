@@ -556,11 +556,58 @@
           (str "with shield: max(monk=14, shell=19)=19, got "
                (ac-with-shield built))))))
 
+;; Custom Shell Armor + High-stat Monk: DEX 18(+4), WIS 18(+4)
+;; Monk formula: 10+4+4=18 > shell 17, so monk should win.
+;; With shield: monk loses WIS → 10+4+0+2=16, shell 17+2=19, shell wins.
+(def shell-armor-high-monk-entity
+  {:orcpub.entity/options
+   {:race
+    {:orcpub.entity/key :custom-shell-armor}
+    :ability-scores
+    {:orcpub.entity/key :standard-roll
+     :orcpub.entity/value
+     {:orcpub.dnd.e5.character/str 8
+      :orcpub.dnd.e5.character/dex 18
+      :orcpub.dnd.e5.character/con 10
+      :orcpub.dnd.e5.character/int 10
+      :orcpub.dnd.e5.character/wis 18
+      :orcpub.dnd.e5.character/cha 10}}
+    :class
+    [{:orcpub.entity/key :monk
+      :orcpub.entity/options
+      {:skill-proficiency
+       [{:orcpub.entity/key :acrobatics}
+        {:orcpub.entity/key :insight}]
+       :levels
+       [{:orcpub.entity/key :level-1}]}}]}})
+
+(deftest shell-armor-high-monk-picks-monk-formula
+  (testing "Tortle Monk with DEX+WIS > 17: monk formula beats shell"
+    (let [built (entity/build shell-armor-high-monk-entity homebrew-ac-template)]
+      (is (= 4 (ac-bonus built :unarmored-ac-bonus))
+          "Monk WIS +4")
+      (is (= 0 (ac-bonus built :unarmored-with-shield-ac-bonus))
+          "Monk does NOT set shield bonus")
+
+      ;; Monk formula: 10+DEX(4)+WIS(4)=18 > shell 17
+      (is (= 18 (unarmored-ac built))
+          (str "monk formula: 10+4+4=18, got " (unarmored-ac built)))
+
+      ;; displayed-ac: max(monk=18, shell=17) = 18 — monk wins
+      (is (= 18 (displayed-ac built))
+          (str "monk beats shell: max(18,17)=18, got " (displayed-ac built)))
+
+      ;; With shield: monk loses WIS → 10+4+0+2=16, shell 17+2=19
+      ;; Shell wins with shield because monk can't use WIS
+      (is (= 19 (ac-with-shield built))
+          (str "shell wins with shield: max(16,19)=19, got "
+               (ac-with-shield built))))))
+
 ;;; ---------------------------------------------------------------------------
 ;;; Full-stack stacking test: race feat AC + multiclass + shield
 ;;;
 ;;; Combines ALL AC modifier sources in one character:
-;;;   - Race feat: :lizardfolk-ac (natural-ac-bonus 3, armor-class-with-armor override)
+;;;   - Race feat: :lizardfolk-ac (natural-ac-bonus 3)
 ;;;   - Class 1:  Barbarian (unarmored-ac-bonus = CON, shield bonus = CON)
 ;;;   - Class 2:  Sorcerer/Draconic (natural-ac-bonus 3, redundant with race)
 ;;;   - Shield:   basic +2
