@@ -1,0 +1,63 @@
+{:orcpub.dnd.e5/classes
+ {:artificer
+  {:key :artificer
+   :name "Artificer (Alternate)"
+   :option-pack "Homebrew Pack B"
+   :hit-die 8
+   :ability-increase-levels [4 8 12 16 19]
+   :subclass-level 3
+   :subclass-title "Artificer Specialization"
+   :traits [{:name "Experimental Tweaks" :level 1 :description "You sow a bit of magical inspiration into mundane objects."}
+            {:name "Spellcasting" :level 1 :description "You have studied the principles behind magic and crafting."}]
+   :level-modifiers []}
+  :monster-hunter
+  {:key :monster-hunter
+   :name "Monster Hunter (Alternate)"
+   :option-pack "Homebrew Pack B"
+   :hit-die 10
+   :ability-increase-levels [4 8 12 16 19]
+   :subclass-level 3
+   :subclass-title "Monster Hunter Order"
+   :traits [{:name "Crimson Rite" :level 1 :description "You learn to channel blood magic through your weapons."}]
+   :level-modifiers []}}
+ :orcpub.dnd.e5/subclasses
+ {:alchemist
+  {:key :alchemist
+   :name "Alchemist"
+   :class :artificer
+   :option-pack "Homebrew Pack B"
+   :level-modifiers [{:level 3 :modifiers []}]}
+  :artillerist
+  {:key :artillerist
+   :name "Artillerist"
+   :class :artificer
+   :option-pack "Homebrew Pack B"
+   :level-modifiers [{:level 3 :modifiers []}]}}
+ :orcpub.dnd.e5/races
+ {:custom-lineage
+  {:key :custom-lineage
+   :name "Custom Lineage (Variant)"
+   :option-pack "Homebrew Pack B"
+   :speed 30
+   :size "Medium"
+   :abilities {:any 2}
+   :traits [{:name "Feat" :description "You gain one feat of your choice."}]}
+  :ironwrought
+  {:key :ironwrought
+   :name "Ironwrought"
+   :option-pack "Homebrew Pack B"
+   :speed 30
+   :size "Medium"
+   :abilities {:con 2}
+   :traits [{:name "Constructed Resilience" :description "You are resistant to poison and do not need to eat, drink, or breathe."}]}}
+ :orcpub.dnd.e5/subraces
+ {:envoy
+  {:key :envoy
+   :name "Envoy"
+   :race :ironwrought
+   :option-pack "Homebrew Pack B"}
+  :juggernaut
+  {:key :juggernaut
+   :name "Juggernaut"
+   :race :ironwrought
+   :option-pack "Homebrew Pack B"}}}

@@ -2505,6 +2505,7 @@
                        language-map
                        cls
                        {:keys [name
+                               key
                                source
                                edit-event
                                profs
@@ -2516,7 +2517,8 @@
                                prereqs
                                levels]
                         :as subcls}]
-  (let [kw (common/name-to-kw name)
+  ;; Use explicit :key if present (for renamed plugins), otherwise generate from name
+  (let [kw (or key (common/name-to-kw name))
         {:keys [armor weapon save skill-options skill-expertise-options tool-options tool language-options]} profs
         {skill-num :choose options :options} skill-options
         {level-factor :level-factor} spellcasting
