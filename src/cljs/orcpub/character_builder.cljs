@@ -35,6 +35,7 @@
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
+            [orcpub.dnd.e5.subs :as subs5e]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.user-agent :as user-agent]
@@ -1900,7 +1901,68 @@
 (def patreon-link-props
   {:href "https://www.patreon.com/user?u=5892323" :target "_blank"})
 
-#_  (defn al-legality []
+;; ============================================================================
+;; Missing Content Warning
+;; ============================================================================
+
+(defn missing-content-warning
+  "Displays a warning when the character references content that isn't loaded."
+  []
+  (let [expanded? (r/atom false)
+        logged? (r/atom false)]
+    (fn []
+      (let [report @(subscribe [::char5e/missing-content-report])
+            mobile? @(subscribe [:mobile?])]
+        (when (:has-missing? report)
+          ;; Log missing content details to console (once per report)
+          (when (and (not @logged?) (seq (:items report)))
+            (reset! logged? true)
+            (js/console.warn "[OrcPub] Missing content detected:"
+                             (clj->js {:count (:missing-count report)
+                                       :items (mapv (fn [{:keys [key content-label inferred-source]}]
+                                                      {:type content-label
+                                                       :key (name key)
+                                                       :source inferred-source})
+                                                    (:items report))})))
+          [:div
+           {:id "missing-content-warning"
+            :class-name (if mobile? "m-l-10 m-b-10" "m-l-20 m-b-20")
+            :data-missing-count (:missing-count report)}
+           [:div.flex.align-items-c.pointer
+            {:on-click #(swap! expanded? not)}
+            [:div.orange
+             [:i.fa.fa-exclamation-triangle.f-s-18]]
+            [:span.m-l-10.orange.f-w-b
+             (str "Missing Content (" (:missing-count report) ")")]
+            [:i.fa.m-l-5
+             {:class-name (if @expanded? "fa-caret-up" "fa-caret-down")}]]
+           (when @expanded?
+             [:div#missing-content-details.bg-warning.p-10.m-t-5
+              [:div.f-s-14.m-b-10.main-text-color
+               "This character uses content that isn't currently loaded. "
+               "Upload the relevant .orcbrew files to restore full functionality."]
+              [:div
+               (map-indexed
+                (fn [idx {:keys [key content-label inferred-source suggestions]}]
+                  ^{:key idx}
+                  [:div.missing-content-item.bg-warning-item.m-b-10.p-5
+                   {:data-content-type content-label
+                    :data-content-key (name key)}
+                   [:div
+                    [:span.f-w-b.orange (str content-label ": ")]
+                    [:span.f-s-12.main-text-color (str ":" (name key))]]
+                   (when inferred-source
+                     [:div.f-s-12.m-t-5.main-text-color
+                      [:span "Likely from source: "]
+                      [:span.i inferred-source]])
+                   (when (seq suggestions)
+                     [:div.m-t-5
+                      [:span.f-s-12.main-text-color "Similar available: "]
+                      [:span.f-s-12.main-text-color
+                       (s/join ", " (map #(or (:name %) (str ":" (name (:key %)))) suggestions))]])])
+                (:items report))]])])))))
+
+#_(defn al-legality []
   (let [expanded? (r/atom false)]
     (fn [al-illegal-reasons used-resources]
       (let [num-resources (count (set (map :resource-key used-resources)))
@@ -2076,8 +2138,8 @@
       [:div.container
        [:div.content
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
-         [:div]
-          ;[al-legality al-illegal-reasons used-resources]]
+         [:div
+          [missing-content-warning]]
          [:div.flex
           [theme-toggle]
           (if character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c

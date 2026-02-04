@@ -16,6 +16,12 @@
 
 (enable-console-print!)
 
+;; =============================================================================
+;; Dev Version: 0.0.19 - Fix missing content detection (built-in exclusions)
+;; =============================================================================
+(def dev-version "0.0.19")
+(js/console.log (str "OrcPub Dev Version: " dev-version))
+
 (if (and js/window.location
          (not (or (s/starts-with? js/window.location.href "https")
                   (s/starts-with? js/window.location.href "http://localhost"))))
@@ -102,7 +108,9 @@
         view (pages (or handler route))
         query-string js/window.location.search
         query-map (query-map query-string)]
-    [view (assoc route-params :query query-map)]))
+    [:div
+     [view (assoc route-params :query query-map)]
+     [views/import-log-overlay]]))
 
 @(subscribe [:user false])
 
