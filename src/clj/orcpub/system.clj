@@ -22,7 +22,14 @@
   {::http/routes routes/routes
    ::http/type :jetty
    ::http/port (let [port-str (System/getenv "PORT")]
-                 (when port-str (Integer/parseInt port-str)))
+                 (when port-str
+                   (try
+                     (Integer/parseInt port-str)
+                     (catch NumberFormatException e
+                       (throw (ex-info "Invalid PORT environment variable. Expected a number."
+                                       {:error :invalid-port
+                                        :port port-str}
+                                       e))))))
    ::http/join false
    ::http/resource-path "/public"
    ::http/container-options {:context-configurator (fn [c]

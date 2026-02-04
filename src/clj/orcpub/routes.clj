@@ -253,15 +253,21 @@
 (defn do-verification [request params conn & [tx-data]]
   (let [verification-key (str (java.util.UUID/randomUUID))
         now (java.util.Date.)]
-    @(d/transact
+    (try
+      @(d/transact
         conn
         [(merge
           tx-data
           {:orcpub.user/verified? false
-            :orcpub.user/verification-key verification-key
-            :orcpub.user/verification-sent now})])
+           :orcpub.user/verification-key verification-key
+           :orcpub.user/verification-sent now})])
       (send-verification-email request params verification-key)
-      {:status 200}))
+      {:status 200}
+      (catch Exception e
+        (println "ERROR: Failed to create verification record:" (.getMessage e))
+        (throw (ex-info "Unable to complete registration. Please try again or contact support."
+                        {:error :verification-failed}
+                        e))))))
 
 (defn register [{:keys [json-params db conn] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
@@ -341,17 +347,24 @@
 
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
-    @(d/transact
-      conn
-      [{:db/id user-id
-        :orcpub.user/password-reset-key key
-        :orcpub.user/password-reset-sent (java.util.Date.)}])
-    (email/send-reset-email
-     (base-url request)
-     {:first-and-last-name "OrcPub Patron"
-      :email email}
-     key)
-    {:status 200}))
+    (try
+      @(d/transact
+        conn
+        [{:db/id user-id
+          :orcpub.user/password-reset-key key
+          :orcpub.user/password-reset-sent (java.util.Date.)}])
+      (email/send-reset-email
+       (base-url request)
+       {:first-and-last-name "OrcPub Patron"
+        :email email}
+       key)
+      {:status 200}
+      (catch Exception e
+        (println "ERROR: Failed to initiate password reset for user" user-id ":" (.getMessage e))
+        (throw (ex-info "Unable to initiate password reset. Please try again or contact support."
+                        {:error :password-reset-failed
+                         :user-id user-id}
+                        e))))))
 
 (defn password-reset-expired? [password-reset-sent]
   (and password-reset-sent (t/before? (tc/from-date password-reset-sent) (-> 24 hours ago))))
@@ -373,13 +386,20 @@
     (catch Throwable e (prn e) (throw e))))
 
 (defn do-password-reset [conn user-id password]
-  @(d/transact
-    conn
-    [{:db/id user-id
-      :orcpub.user/password (hashers/encrypt (s/trim password))
-      :orcpub.user/password-reset (java.util.Date.)
-      :orcpub.user/verified? true}])
-  {:status 200})
+  (try
+    @(d/transact
+      conn
+      [{:db/id user-id
+        :orcpub.user/password (hashers/encrypt (s/trim password))
+        :orcpub.user/password-reset (java.util.Date.)
+        :orcpub.user/verified? true}])
+    {:status 200}
+    (catch Exception e
+      (println "ERROR: Failed to reset password for user" user-id ":" (.getMessage e))
+      (throw (ex-info "Unable to reset password. Please try again or contact support."
+                      {:error :password-update-failed
+                       :user-id user-id}
+                      e)))))
 
 (defn reset-password [{:keys [json-params db conn cookies identity] :as request}]
   (try
@@ -453,7 +473,12 @@
     (catch Exception e (prn "FAILED ADDING SPELLS CARDS!" e))))
 
 (defn character-pdf-2 [req]
-  (let [fields (-> req :form-params :body edn/read-string)
+  (let [fields (try
+                 (-> req :form-params :body edn/read-string)
+                 (catch Exception e
+                   (throw (ex-info "Invalid character data format. Unable to parse PDF request."
+                                   {:error :invalid-pdf-data}
+                                   e))))
         
         {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? character-name class-level player-name]} fields
 
@@ -594,14 +619,21 @@
   (-> result :tempids (get temp-id)))
 
 (defn create-entity [conn username entity owner-prop]
-  (as-> entity $
-    (entity/remove-ids $)
-    (assoc $
-           :db/id "tempid"
-           owner-prop username)
-    @(d/transact conn [$])
-    (get-new-id "tempid" $)
-    (d/pull (d/db conn) '[*] $)))
+  (try
+    (as-> entity $
+      (entity/remove-ids $)
+      (assoc $
+             :db/id "tempid"
+             owner-prop username)
+      @(d/transact conn [$])
+      (get-new-id "tempid" $)
+      (d/pull (d/db conn) '[*] $))
+    (catch Exception e
+      (println "ERROR: Failed to create entity for user" username ":" (.getMessage e))
+      (throw (ex-info "Unable to create entity. Please try again or contact support."
+                      {:error :entity-creation-failed
+                       :username username}
+                      e)))))
 
 (defn email-for-username [db username]
   (d/q '[:find ?email .
@@ -613,25 +645,35 @@
        username))
 
 (defn update-entity [conn username entity owner-prop]
-  (let [id (:db/id entity)
-        current (d/pull (d/db conn) '[*] id)
-        owner (get current owner-prop)
-        email (email-for-username (d/db conn) username)]
-    (if ((set [username email]) owner)
-      (let [current-ids (entity/db-ids current)
-            new-ids (entity/db-ids entity)
-            retract-ids (sets/difference current-ids new-ids)
-            retractions (map
-                         (fn [retract-id]
-                           [:db/retractEntity retract-id])
-                         retract-ids)
-            remove-ids (sets/difference new-ids current-ids)
-            with-ids-removed (entity/remove-specific-ids entity remove-ids)
-            new-entity (assoc with-ids-removed owner-prop username)
-            result @(d/transact conn (concat retractions [new-entity]))]
-        (d/pull (d/db conn) '[*] id))
-      (throw (ex-info "Not user entity"
-                      {:error :not-user-entity})))))
+  (try
+    (let [id (:db/id entity)
+          current (d/pull (d/db conn) '[*] id)
+          owner (get current owner-prop)
+          email (email-for-username (d/db conn) username)]
+      (if ((set [username email]) owner)
+        (let [current-ids (entity/db-ids current)
+              new-ids (entity/db-ids entity)
+              retract-ids (sets/difference current-ids new-ids)
+              retractions (map
+                           (fn [retract-id]
+                             [:db/retractEntity retract-id])
+                           retract-ids)
+              remove-ids (sets/difference new-ids current-ids)
+              with-ids-removed (entity/remove-specific-ids entity remove-ids)
+              new-entity (assoc with-ids-removed owner-prop username)
+              result @(d/transact conn (concat retractions [new-entity]))]
+          (d/pull (d/db conn) '[*] id))
+        (throw (ex-info "Not user entity"
+                        {:error :not-user-entity}))))
+    (catch clojure.lang.ExceptionInfo e
+      (throw e))
+    (catch Exception e
+      (println "ERROR: Failed to update entity for user" username ":" (.getMessage e))
+      (throw (ex-info "Unable to update entity. Please try again or contact support."
+                      {:error :entity-update-failed
+                       :username username
+                       :entity-id (:db/id entity)}
+                      e)))))
 
 (defn save-entity [conn username e owner-prop]
   (let [without-empty-fields (entity/remove-empty-fields e)]
@@ -703,14 +745,30 @@
       (throw (ex-info "Not user character"
                       {:error :not-user-character})))))
 
-(defn create-new-character [conn character username]
-  (let [result @(d/transact conn
-                            [(-> character
-                                 (assoc :db/id "tempid"
-                                        ::se/owner username)
-                                 add-dnd-5e-character-tags)])
-        new-id (get-new-id "tempid" result)]
-    (d/pull (d/db conn) '[*] new-id)))
+(defn create-new-character
+  "Creates a new D&D 5e character.
+
+  Args:
+    conn - Database connection
+    character - Character data map
+    username - Owner username
+
+  Returns:
+    Created character entity
+
+  Throws:
+    ExceptionInfo on database failure"
+  [conn character username]
+  (errors/with-db-error-handling :character-creation-failed
+    {:username username}
+    "Unable to create character. Please try again or contact support."
+    (let [result @(d/transact conn
+                              [(-> character
+                                   (assoc :db/id "tempid"
+                                          ::se/owner username)
+                                   add-dnd-5e-character-tags)])
+          new-id (get-new-id "tempid" result)]
+      (d/pull (d/db conn) '[*] new-id))))
 
 (defn clean-up-character [character]
   (if (-> character ::se/values ::char5e/xps string?)
@@ -764,10 +822,23 @@
        :body item}
       {:status 404})))
 
-(defn delete-item [{:keys [db conn username] {:keys [:id]} :path-params}]
+(defn delete-item
+  "Deletes a magic item owned by the user.
+
+  Args:
+    request - HTTP request with item ID
+
+  Returns:
+    HTTP 200 on success, 401 if not owned
+
+  Throws:
+    ExceptionInfo on database failure"
+  [{:keys [db conn username] {:keys [:id]} :path-params}]
   (let [{:keys [::mi5e/owner]} (d/pull db '[::mi5e/owner] id)]
     (if (= username owner)
-      (do
+      (errors/with-db-error-handling :item-deletion-failed
+        {:item-id id}
+        "Unable to delete item. Please try again or contact support."
         @(d/transact conn [[:db/retractEntity id]])
         {:status 200})
       {:status 401})))
@@ -822,29 +893,73 @@
                     results)]
     {:status 200 :body characters}))
 
-(defn follow-user [{:keys [db conn identity] {:keys [user]} :path-params}]
+(defn follow-user
+  "Adds a user to the authenticated user's following list.
+
+  Args:
+    request - HTTP request with username to follow
+
+  Returns:
+    HTTP 200 on success
+
+  Throws:
+    ExceptionInfo on database failure"
+  [{:keys [db conn identity] {:keys [user]} :path-params}]
   (let [other-user-id (user-id-for-username db user)
         username (:user identity)
         user-id (user-id-for-username db username)]
-    @(d/transact conn [{:db/id user-id
-                        :orcpub.user/following other-user-id}])
-    {:status 200}))
+    (errors/with-db-error-handling :follow-user-failed
+      {:follower username :followed user}
+      "Unable to follow user. Please try again or contact support."
+      @(d/transact conn [{:db/id user-id
+                          :orcpub.user/following other-user-id}])
+      {:status 200})))
 
-(defn unfollow-user [{:keys [db conn identity] {:keys [user]} :path-params}]
+(defn unfollow-user
+  "Removes a user from the authenticated user's following list.
+
+  Args:
+    request - HTTP request with username to unfollow
+
+  Returns:
+    HTTP 200 on success
+
+  Throws:
+    ExceptionInfo on database failure"
+  [{:keys [db conn identity] {:keys [user]} :path-params}]
   (let [other-user-id (user-id-for-username db user)
         username (:user identity)
         user-id (user-id-for-username db username)]
-    @(d/transact conn [[:db/retract user-id :orcpub.user/following other-user-id]])
-    {:status 200}))
+    (errors/with-db-error-handling :unfollow-user-failed
+      {:follower username :unfollowed user}
+      "Unable to unfollow user. Please try again or contact support."
+      @(d/transact conn [[:db/retract user-id :orcpub.user/following other-user-id]])
+      {:status 200})))
 
-(defn delete-character [{:keys [db conn identity] {:keys [id]} :path-params}]
-  (let [parsed-id (Long/parseLong id)
+(defn delete-character
+  "Deletes a character owned by the authenticated user.
+
+  Args:
+    request - HTTP request with character ID in path params
+
+  Returns:
+    HTTP 200 on success, 400 for problems, 401 if not owned
+
+  Throws:
+    ExceptionInfo on invalid ID or database failure"
+  [{:keys [db conn identity] {:keys [id]} :path-params}]
+  (let [parsed-id (errors/with-validation :invalid-character-id
+                    {:id id}
+                    "Invalid character ID format"
+                    (Long/parseLong id))
         username (:user identity)
         character (d/pull db '[*] parsed-id)
         problems [] #_(dnd-e5-char-type-problems character)]
     (if (owns-entity? db username parsed-id)
       (if (empty? problems)
-        (do
+        (errors/with-db-error-handling :character-deletion-failed
+          {:character-id parsed-id}
+          "Unable to delete character. Please try again or contact support."
           @(d/transact conn [[:db/retractEntity parsed-id]])
           {:status 200})
         {:status 400 :body problems})
@@ -860,8 +975,22 @@
 (defn character-summary-for-id [db id]
   {:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id))
 
-(defn get-character [{:keys [db] {:keys [:id]} :path-params}]
-  (let [parsed-id (Long/parseLong id)]
+(defn get-character
+  "Retrieves a character by ID.
+
+  Args:
+    request - HTTP request with character ID in path params
+
+  Returns:
+    HTTP response with character data
+
+  Throws:
+    ExceptionInfo on invalid ID format"
+  [{:keys [db] {:keys [:id]} :path-params}]
+  (let [parsed-id (errors/with-validation :invalid-character-id
+                    {:id id}
+                    "Invalid character ID format"
+                    (Long/parseLong id))]
     (get-character-for-id db parsed-id)))
 
 (defn get-user [{:keys [db identity]}]
@@ -869,15 +998,29 @@
         user (find-user-by-username-or-email db username)]
     {:status 200 :body (user-body db user)}))
 
-(defn delete-user [{:keys [db conn identity]}]
+(defn delete-user
+  "Deletes the authenticated user's account.
+
+  Args:
+    request - HTTP request with authenticated user identity
+
+  Returns:
+    HTTP 200 on success
+
+  Throws:
+    ExceptionInfo on database failure"
+  [{:keys [db conn identity]}]
   (let [username (:user identity)
         user (d/q '[:find ?u .
                     :in $ ?username
                     :where [?u :orcpub.user/username ?username]]
                   db
                   username)]
-    @(d/transact conn [[:db/retractEntity user]])
-    {:status 200}))
+    (errors/with-db-error-handling :user-deletion-failed
+      {:username username}
+      "Unable to delete user account. Please try again or contact support."
+      @(d/transact conn [[:db/retractEntity user]])
+      {:status 200})))
 
 (defn character-summary-description [{:keys [::char5e/race-name ::char5e/subrace-name ::char5e/classes]}]
   (str race-name
