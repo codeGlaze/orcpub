@@ -13,6 +13,7 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 **For Developers:**
 - [🏗️ Codebase Overview](CODEBASE.md) - Architecture and patterns
 - [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities
+- [🗡️ Language Selection Fix](LANGUAGE_SELECTION_FIX.md) - Ranger favored enemy language corruption (#296)
 - [📝 Progress Log](progress.md) - Session state and handoff notes
 
 ## Key Design Decisions
@@ -46,6 +47,18 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 **Gotcha:** Must exclude built-in content (PHB, Xanathar's) or system suggests switching from homebrew Artificer to PHB Artificer (which doesn't exist in 5e).
 
 → [CONTENT_RECONCILIATION.md](CONTENT_RECONCILIATION.md)
+
+### Why a Fallback Chain for Language Selection?
+
+**Problem:** Ranger favored enemy types reference 24 exotic language keys (`:aquan`, `:gith`, `:bullywug`, etc.) that aren't in the base 16 languages. `language-selection` returned nil for these, corrupting character data.
+
+**Decision:** Three-layer fallback: language-map → corrections shim → generated entry from key. Never returns nil.
+
+**Critical insight:** Can't remove or remap exotic keys because homebrew plugins legitimately define them. The fallback generates a valid entry when the plugin isn't loaded and uses the plugin's definition when it is.
+
+**Gotcha:** Two different "key" concepts exist: language `:key` (data keyword like `:aquan`) and option `::entity/key` (derived from display name via `name-to-kw`). The fallback must produce names that round-trip correctly through `key-to-name` / `name-to-kw`.
+
+> [LANGUAGE_SELECTION_FIX.md](LANGUAGE_SELECTION_FIX.md)
 
 **Problem:** Inconsistent error handling across codebase. Some code logged, some didn't. User messages inconsistent.
 
