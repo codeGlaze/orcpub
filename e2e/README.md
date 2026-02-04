@@ -138,6 +138,89 @@ test('my new test', async ({ page }, testInfo) => {
 
 See `.github/workflows/e2e-tests.yml` for CI integration example.
 
+## Test Fixtures
+
+Located in `/test/`:
+- `duplicate-external-a.orcbrew` - Homebrew with artificer, blood-hunter, custom-lineage
+- `duplicate-external-b.orcbrew` - Similar content for duplicate testing
+
+**Important**: Do NOT modify these fixture files. They are properly formatted orcbrew files.
+
+## Key UI Selectors
+
+```typescript
+// Missing Content Warning
+'#missing-content-warning'        // Warning banner
+'#missing-content-details'        // Expanded details
+'.missing-content-item'           // Individual items (data-key, data-type attrs)
+
+// Character Builder
+'text=Class / Level'              // Class section header (click to navigate)
+'select'                          // Class dropdown (use selectOption())
+'text=Custom Lineage (Variant)'   // Clickable race option
+
+// My Content
+'button:has-text("Delete All")'   // Delete all button
+'.link-button:has-text("delete")' // Confirmation (NOT "Yes/Confirm"!)
+```
+
+## Critical Gotchas
+
+### 1. CLJS Compilation is NOT Automatic
+
+`lein run` does NOT compile ClojureScript. The server will use stale JS.
+
+```bash
+# WRONG - uses stale code
+lein run
+
+# CORRECT - compile first
+lein cljsbuild once dev && PORT=8890 lein run
+```
+
+### 2. re-frame-10x Debug Panel Blocks Clicks
+
+In dev mode, the debug panel intercepts click events. Hide it before clicking:
+
+```typescript
+await page.evaluate(() => {
+  const panel = document.getElementById('--re-frame-10x--');
+  if (panel) panel.style.display = 'none';
+});
+```
+
+### 3. Class Selection Uses Dropdown, Not Tiles
+
+Classes are in a `<select>` dropdown, unlike races which are clickable tiles:
+
+```typescript
+// WRONG - times out waiting for visible element
+const artificer = page.locator('text=Artificer').first();
+await artificer.click();
+
+// CORRECT - use selectOption with the class key
+const classDropdown = page.locator('select').filter({ hasText: /Artificer|Barbarian/i });
+await classDropdown.selectOption('artificer');
+```
+
+### 4. Delete All Confirmation Button
+
+The confirmation is a `.link-button` with text "delete", not a regular button:
+
+```typescript
+// WRONG - won't find confirmation
+const confirmBtn = page.locator('button', { hasText: /yes|confirm|ok/i });
+
+// CORRECT - link-button with "delete"
+const confirmBtn = page.locator('.link-button, button, span', { hasText: /^delete$/i });
+```
+
+### 5. Test Accounts
+
+- **Credentials**: `tester1@example.com` / `Testing123!`
+- **Seed command**: `lein with-profile +no-prep run -m orcpub.seed-test-accounts`
+- **Port conflicts**: Use `PORT=8891` if 8890 is in use
+
 ## Troubleshooting
 
 ### "App not accessible"
@@ -158,7 +241,25 @@ npx playwright install chromium
 - Increase timeout in `playwright.config.ts`
 - Check if app is loading slowly (ClojureScript compilation)
 - Try running with `--headed` to see what's happening
+- **Class selection**: Make sure you're using `selectOption()` not `click()`
 
 ### "Console errors in report but tests pass"
 
 Tests only fail on JavaScript errors by default. Warnings are captured but don't fail tests. Review the `agent-report.json` for full details.
+
+### Debugging Failed Tests
+
+1. **Check screenshots**: `e2e/test-results/*/test-failed-*.png`
+2. **Check videos**: `e2e/test-results/*/*.webm`
+3. **Check error context**: `e2e/test-results/*/error-context.md`
+4. **Run single test**: `npx playwright test --grep "test name"`
+5. **Run headed**: `npx playwright test --headed`
+
+### Port Conflicts
+
+```bash
+# Kill stuck processes
+pkill -f "lein"
+# or
+killall -9 java
+```

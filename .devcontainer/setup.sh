@@ -34,7 +34,7 @@ echo "[4/5] Installing clojure-mcp..."
 JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 clojure -Ttools install-latest :lib io.github.bhauman/clojure-mcp :as mcp || true
 
 # Install Playwright dependencies
-echo "[5/6] Installing Playwright system dependencies..."
+echo "[5/5] Installing Playwright system dependencies..."
 sudo apt-get install -y \
     libnss3 \
     libnspr4 \
@@ -53,21 +53,6 @@ sudo apt-get install -y \
     libcairo2 \
     libatspi2.0-0
 
-# Install git workflow tools (hooks, worktrees)
-echo "[6/6] Setting up git workflow tools..."
-if [ -f "./scripts/git/install-hooks.sh" ]; then
-    chmod +x ./scripts/git/*.sh 2>/dev/null || true
-    ./scripts/git/install-hooks.sh || echo "  (hooks not available on this branch)"
-
-    # Set up worktrees if not already done
-    if [ -f "./scripts/git/setup-worktrees.sh" ]; then
-        echo "Setting up worktrees for parallel branch development..."
-        ./scripts/git/setup-worktrees.sh 2>/dev/null || echo "  (worktrees setup skipped)"
-    fi
-else
-    echo "  Git workflow scripts not found (may not be on testing/develop branch)"
-fi
-
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Setup complete!"
@@ -76,9 +61,4 @@ echo ""
 echo "Next steps:"
 echo "  1. Run './start.sh' to start OrcPub"
 echo "  2. Run 'cd e2e && npm test' for E2E tests"
-echo ""
-echo "Git workflow (if available):"
-echo "  • Start a feature: ./scripts/git/start-feature.sh <name>"
-echo "  • Route commits:   ./scripts/git/route-commit.sh HEAD <target>"
-echo "  • See help:        ./scripts/git/README.md"
 echo ""

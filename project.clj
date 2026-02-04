@@ -78,7 +78,7 @@
             [lein-kibit "0.1.8"]
             #_[lein-resource "16.9.1"]]
 
-  :source-paths ["src/clj" "src/cljc" "src/cljs"]
+  :source-paths ["src/clj" "src/cljc" "src/cljs" "dev"]
 
   :test-paths ["test/clj" "test/cljc" "test/cljs"]
 
@@ -100,7 +100,10 @@
                                 ;; Compress the output?
                                 :pretty-print? false}}]}
 
-  :prep-tasks [["garden" "once"]]
+  ;; Run Garden by default, but allow skipping by setting SKIP_GARDEN=1 for fast REPL/task startup
+  :prep-tasks ~(if (System/getenv "SKIP_GARDEN")
+                 []
+                 [["garden" "once"]])
 
   :cljsbuild {:builds
               {:dev
@@ -183,6 +186,10 @@
                        ["run" "-m" "externs"]]
             "rebuild-modules" ["run" "-m" "user" "--rebuild-modules"]
             "lint" ["with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src"]
+            ;; Skip prep-tasks (e.g., garden) when starting a REPL or seeding test accounts
+            "repl-no-prep" ["with-profile" "+dev,+no-prep" "repl"]
+            "seed-test-accounts" ["with-profile" "+dev,+no-prep" "run" "-m" "orcpub.seed-test-accounts"]
+            "prettify-orcbrew" ["run" "-m" "orcpub.tools.orcbrew"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["with-profile" "prod" "cljsbuild" "once" "main"]]}
@@ -194,6 +201,7 @@
                             :env       {:dev-mode "true"}
                             ;; need to add dev source path here to get user.clj loaded
                             :source-paths ["web/cljs" "src/clj" "src/cljc" "src/cljs" "dev"]
+                           :prep-tasks ^:replace []
                             :cljsbuild    {:builds {:dev {:compiler {:closure-defines {"re_frame.trace.trace_enabled_QMARK_" true
                                                                                        goog.DEBUG                            true
                                                                                        }
@@ -206,6 +214,9 @@
                             ;; :plugins [[cider/cider-nrepl "0.12.0"]]
                             :repl-options {:init-ns          user
                                            :nrepl-middleware [cider.piggieback/wrap-cljs-repl]}}
+             :no-prep      {:prep-tasks ^:replace []
+                            ;; Ensure dev helpers are on classpath even when skipping prep
+                            :source-paths ^:replace ["src/clj" "src/cljc" "src/cljs" "web/cljs" "dev"]}
              :native-dev   {:dependencies [[figwheel-sidecar "0.5.19"]
                                            [com.cemerick/piggieback "0.2.1"]
                                            [org.clojure/test.check "0.9.0"]]
@@ -245,6 +256,7 @@
              :lint         {:dependencies [[clj-kondo "2024.05.22"]]
                             :clj-kondo {:linters {:shadowed-fn-param {:level :off}
                                                   :shadowed-var {:level :off}}}}
+             :tools        {:prep-tasks ^:replace []}
              ;; Use like: lein with-profile +start-server repl
              :start-server {:repl-options {:init-ns user
                                            :init    (start-server)}}})

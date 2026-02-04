@@ -2,6 +2,10 @@
 
 ## OrcPub Setup & Script Reference
 
+This document contains the canonical script and configuration examples for setting up a fresh fork of the develop branch. It is the source of truth for all default scripts, devcontainer configs, and helper files. Use these examples to bootstrap your environment or restore a clean setup.
+
+- For agent onboarding, repo expectations, and advanced usage, see [AGENTS.md](AGENTS.md).
+
 ---
 
 ### 1. **Devcontainer**
@@ -136,10 +140,13 @@ Edit `working-transactor.properties` as needed for dev (set passwords, etc.).
 
 ### 4. **start.sh**
 
-Copy the provided `start.sh` (see your attached file or above) into your project root and make it executable:
+done
+Copy the provided `menu.sh` (see your attached file or below) into your project root and make it executable:
 
 ```bash
 #!/usr/bin/env bash
+# Always resolve the script directory for full path execution
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 while true; do
   echo ""
@@ -155,15 +162,15 @@ while true; do
   case $choice in
     1)
       echo "Starting Datomic Transactor..."
-      lib/datomic-free-0.9.5703/bin/transactor lib/datomic-free-0.9.5703/config/working-transactor.properties &
+      "$SCRIPT_DIR/lib/datomic-free-0.9.5703/bin/transactor" "$SCRIPT_DIR/lib/datomic-free-0.9.5703/config/working-transactor.properties" &
       ;;
     2)
       echo "Starting Clojure REPL..."
-      lein repl &
+      (cd "$SCRIPT_DIR" && lein repl &)
       ;;
     3)
       echo "Starting Figwheel..."
-      lein figwheel &
+      (cd "$SCRIPT_DIR" && lein figwheel &)
       ;;
     4)
       echo "Exiting."
@@ -177,6 +184,14 @@ while true; do
 done
 ```
 
+> **Note:** `menu.sh` is interactive and will keep the terminal open while running. If you want to launch Datomic as a background server without occupying your terminal, use the following one-liner instead:
+
+```bash
+$PWD/lib/datomic-free-0.9.5703/bin/transactor $PWD/lib/datomic-free-0.9.5703/config/working-transactor.properties &
+```
+> **Why use `$PWD`?** This ensures the path is absolute, so the command works no matter what your current directory is. If you use a relative path, the transactor may fail to find its config file unless you are in the project root.
+
+This will start Datomic in the background and immediately return control of your terminal.
 Make it executable:
 
 ```bash
@@ -194,13 +209,23 @@ Create `.vscode/tasks.json`:
   "version": "2.0.0",
   "tasks": [
     {
+      "description": "Starts the Datomic database process using a root variable for portability",
       "label": "Datomic Transactor",
       "type": "shell",
-      "command": "lib/datomic-free-0.9.5703/bin/transactor lib/datomic-free-0.9.5703/config/working-transactor.properties",
+      "command": "${workspaceFolder}/lib/datomic-free-0.9.5703/bin/transactor ${workspaceFolder}/lib/datomic-free-0.9.5703/config/working-transactor.properties",
       "isBackground": true,
       "problemMatcher": []
     },
     {
+      "description": "Runs the main application (lein run)",
+      "label": "Clojure Server",
+      "type": "shell",
+      "command": "lein run",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "description": "Starts an interactive REPL for development",
       "label": "Clojure REPL",
       "type": "shell",
       "command": "lein repl",
@@ -208,15 +233,54 @@ Create `.vscode/tasks.json`:
       "problemMatcher": []
     },
     {
+      "description": "Starts the ClojureScript hot-reload server",
       "label": "Figwheel",
       "type": "shell",
       "command": "lein figwheel",
       "isBackground": true,
       "problemMatcher": []
+    },
+    {
+      "description": "Starts the MCP server for integration",
+      "label": "clojure-mcp (Test)",
+      "type": "shell",
+      "command": "cd ${workspaceFolder} && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH clojure -Tmcp start :port 7888",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
     }
   ]
 }
 ```
+
+---
+
+---
+
+### 5. **Test Accounts**
+
+Test accounts for development are defined in `dev/test-accounts.edn`. To seed them into Datomic:
+
+**From command line** (preferred):
+```bash
+./add-testers.sh
+```
+
+This script:
+- Checks Datomic is running (required)
+- Uses `+no-prep` profile to skip Garden CSS compilation (faster)
+- Works without `(start-server)` - connects directly to Datomic
+
+**From REPL:**
+```clojure
+(ensure-test-accounts!)  ; Create accounts from dev/test-accounts.edn
+(list-test-accounts)     ; Check which accounts exist
+```
+
+Default test account: `tester1@example.com` / `Testing123!`
 
 ---
 

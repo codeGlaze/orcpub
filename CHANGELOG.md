@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented in this file.
 
+Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+---
+
+## [Unreleased]
+
+### Added
+- **Import Changelog Panel**: Slide-in UI showing all auto-fixes applied during orcbrew import
+  - Collapsible sections for Errors, Skipped Items, Auto-Fixes
+  - Always-visible button (bottom-right) with badge count
+  - Auto-expands after import if changes were made
+- **Two-phase orcbrew cleaning**: String-level (syntax) then data-level (semantic)
+- **Field-specific nil handling**: Preserve semantic nils, remove accidental nils, replace with defaults
+- **Agent onboarding system**: CLAUDE.md, /onboard, /onboard-deep, /new-task skills
+- **Comprehensive error handling**: DRY macros for DB, email, validation errors
+- **Progressive import strategy**: Imports valid items, skips invalid ones
+- **Unicode→ASCII normalization**: Automatically converts smart quotes, em-dashes, special spaces, etc. to ASCII equivalents during import and homebrew save (40+ character mappings)
+- **Lein prettify-orcbrew tool**: CLI tool for analyzing/debugging orcbrew files (`lein with-profile +tools prettify-orcbrew file.orcbrew --analyze`)
+- **:tools profile**: Skip Garden compilation for faster CLI tool execution
+- **Required field validation**:
+  - On import: auto-fills missing required fields (`:name`, `:level`, `:school`, etc.) with placeholder data like "[Missing Name]"
+  - On export: shows warning modal listing items with missing fields, with "Export Anyway" button
+  - Supports all content types: classes, subclasses, races, subraces, backgrounds, feats, spells, monsters, invocations, languages, selections, encounters
+  - Also validates traits for missing `:name` fields
+
+### Fixed
+- Delete-all-plugins now instant (was doing full page reload)
+- Multi-plugin file item count (was showing 0)
+- Hyphenated field regex matching (`:spell-list-kw` etc.)
+- Duplicate key error from string-level regex manipulation
+- **Root cause of `nil nil` corruption**: `set-class-path-prop` was calling `(assoc-in class nil nil)` when optional path args not provided; now uses `cond->` to skip nil paths
+- **PDF nil crashes**: Added nil guards throughout PDF generation code (`pdf_spec.cljc`, `pdf.clj`) to prevent crashes on missing/malformed data; uses fallback strings like "(unknown)" instead of crashing
+
+### Changed
+- Import log icons use neutral colors (gray/blue) instead of red for non-errors
+- Chevron-right close button indicates panel slides away
+
+### Documentation
+- CLAUDE.md: Auto-loading context for Claude Code
+- AGENTS.md: Model-neutral guidelines, branching workflow
+- docs/CODEBASE.md: Architecture, patterns, learnings
+- docs/progress.md: Session state, handoff notes
+- docs/ORCBREW_FILE_VALIDATION.md: Unicode normalization, lein tool docs
+- .claude/settings.json: Onboarding skills
+
+---
+
+## [Previous]
+
+See git history for changes prior to this changelog.
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
 ---
 
 ## [2026-01-11] - Updated

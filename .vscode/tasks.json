@@ -1,14 +1,23 @@
 {
   "version": "2.0.0",
-  "tasks": [
     {
+      "description": "Starts the Datomic database process using a root variable for portability",
       "label": "Datomic Transactor",
       "type": "shell",
-      "command": "/workspaces/orcpub/lib/datomic-free-0.9.5703/bin/transactor /workspaces/orcpub/lib/datomic-free-0.9.5703/config/working-transactor.properties",
+      "command": "${workspaceFolder}/lib/datomic-free-0.9.5703/bin/transactor ${workspaceFolder}/lib/datomic-free-0.9.5703/config/working-transactor.properties",
       "isBackground": true,
       "problemMatcher": []
     },
     {
+      "description": "Runs the main application (lein run)",
+      "label": "Clojure Server",
+      "type": "shell",
+      "command": "lein run",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "description": "Starts an interactive REPL for development",
       "label": "Clojure REPL",
       "type": "shell",
       "command": "lein repl",
@@ -16,6 +25,25 @@
       "problemMatcher": []
     },
     {
+      "description": "Starts the ClojureScript hot-reload server",
+      "label": "Figwheel",
+      "type": "shell",
+      "command": "lein figwheel",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "description": "Starts the MCP server for integration",
+      "label": "clojure-mcp (Test)",
+      "type": "shell",
+      "command": "cd ${workspaceFolder} && JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH clojure -Tmcp start :port 7888",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      }
+    }
       "label": "Figwheel",
       "type": "shell",
       "command": "lein figwheel",

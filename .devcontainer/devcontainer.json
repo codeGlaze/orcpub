@@ -19,9 +19,19 @@
         "betterthantomorrow.calva",
         "borkdude.clj-kondo",
         "github.copilot",
+        "betterthantomorrow.calva-spritz",
+        "vscjava.vscode-java-pack",
+        "redhat.java",
         "ms-playwright.playwright"
       ],
       "settings": {
+        "java.configuration.runtimes": [
+          {
+            "name": "JavaSE-1.8",
+            "path": "/usr/lib/jvm/java-8-openjdk-amd64",
+            "default": true
+          }
+        ],
         "calva.replConnectSequences": [
           {
             "name": "OrcPub REPL",

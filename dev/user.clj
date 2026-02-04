@@ -1,8 +1,11 @@
 (ns user
-  (:require [clojure.java.io :as io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
             [com.stuartsierra.component :as component]
             [figwheel-sidecar.repl-api :as f]
             [datomic.api :as datomic]
+            [buddy.hashers :as hashers]
             [orcpub.routes :as r]
             [orcpub.system :as s]
             [orcpub.db.schema :as schema]))
@@ -27,26 +30,26 @@
 
 (defonce -server (atom nil))
 
+(def ^:private default-db-uri "datomic:free://localhost:4334/orcpub")
+
 (defmacro with-db
   "Convenience util to get access to the datomic conn and/or db
    objects. Call as:
    (with-db [conn db]
      (do-stuff-to db)
-   You can also just do (with-db [db]) or (with-db [conn])"
+   You can also just do (with-db [db]) or (with-db [conn])
+
+   Works with or without the server running - connects directly to
+   Datomic if the server isn't started."
   [init-vector & body]
-  `(if-let [system-map# @-server]
-     ; first :conn here is a DatomicComponent;
-     ; the second is the actual connection object
-     (let [conn# (->> system-map# :conn :conn)
-           db# (datomic/db conn#)
-
-           ; unpack the requested values:
-           {:keys ~init-vector} {:conn conn#
-                                 :db db#}]
-       ~@body)
-
-     ;; nothing in -server:
-     (throw (IllegalStateException. "Call (start-server) first"))))
+  `(let [conn# (if-let [system-map# @-server]
+                 ;; Server running: get conn from component system
+                 (->> system-map# :conn :conn)
+                 ;; No server: connect directly to Datomic
+                 (datomic/connect default-db-uri))
+         db# (datomic/db conn#)
+         {:keys ~init-vector} {:conn conn# :db db#}]
+     ~@body))
 
 (defn- project-form
   []
@@ -103,6 +106,74 @@
       (r/verify {:query-params {:key verification-key}
                  :conn conn
                  :db db}))))
+
+;; -----------------------------------------------------------------------------
+;; Test account helpers
+;; -----------------------------------------------------------------------------
+
+(def default-test-accounts-file "dev/test-accounts.edn")
+
+(defn- load-test-accounts
+  "Load test accounts from an EDN file. Defaults to dev/test-accounts.edn"
+  ([] (load-test-accounts default-test-accounts-file))
+  ([path]
+   (let [f (clojure.java.io/file path)]
+     (if (.exists f)
+       (edn/read-string (slurp f))
+       (throw (ex-info (str "Test accounts file not found: " path) {:path path}))))))
+
+(defn- normalize-email [email]
+  (some-> email str/trim str/lower-case))
+
+(defn- test-account-exists?
+  [db {:keys [username email]}]
+  (or (r/find-user-by-username db username)
+      (r/find-user-by-username-or-email db (normalize-email email))))
+
+(defn ensure-test-accounts!
+  "Idempotently ensure a set of test accounts exist and are verified.
+
+  Call with no args to load from dev/test-accounts.edn, or pass a file path,
+  or pass a collection of account maps directly. Maps should have :username
+  :email :password and optional :first-and-last-name / :send-updates?.
+  Passwords are hashed; users are created verified to skip email flow."
+  ([] (ensure-test-accounts! (load-test-accounts)))
+  ([path-or-accounts]
+   (if (string? path-or-accounts)
+     (ensure-test-accounts! (load-test-accounts path-or-accounts))
+     (let [accounts path-or-accounts]
+       (with-db [conn db]
+         (doseq [{:keys [username email password first-and-last-name send-updates?] :as acct} accounts]
+           (if (test-account-exists? db acct)
+             (println "Already exists:" username "(" email ")")
+             (let [now (java.util.Date.)
+                   tx [{:db/id "tempid"
+                        :orcpub.user/username username
+                        :orcpub.user/email (normalize-email email)
+                        :orcpub.user/first-and-last-name (or first-and-last-name username)
+                        :orcpub.user/password (hashers/encrypt (str/trim password))
+                        :orcpub.user/send-updates? (boolean send-updates?)
+                        :orcpub.user/created now
+                        :orcpub.user/verified? true
+                        :orcpub.user/verification-sent now
+                        :orcpub.user/verification-key (str (java.util.UUID/randomUUID))}]
+                   result @(datomic/transact conn tx)
+                   new-id (-> result :tempids (get "tempid"))]
+               (println "Created test account" username "id" new-id)))))))))
+
+(defn list-test-accounts
+  "Return a summary of whether the provided (or default) test accounts exist."
+  ([] (list-test-accounts (load-test-accounts)))
+  ([path-or-accounts]
+   (if (string? path-or-accounts)
+     (list-test-accounts (load-test-accounts path-or-accounts))
+     (let [accounts path-or-accounts]
+       (with-db [db]
+         (map (fn [{:keys [username email] :as acct}]
+                {:username username
+                 :email email
+                 :exists? (boolean (test-account-exists? db acct))})
+              accounts))))))
 
 (defn fig-start
   "This starts the figwheel server and watch based auto-compiler.

@@ -1,82 +1,3 @@
-# THIS BRANCH IS FOR INTEGRATION TESTING
-## DO NOT COMMIT PRs FROM THIS BRANCH OR RELATED SUB-BRANCHES
-
-(Extreme repetition in notes bc I am dumb)
-
-## Integration Workflow
-
-1. `testing/develop` : Where the devcontainer / testing scripts live and should be updated
-2. `agents/develop` : Where agentic shit should be updated/silo'd
-  * FORK YOUR NEW <working-branch> BRANCHES FROM HERE
-3. `<descriptor/working-branch> : BRANCH FROM `agents/develop` IF USING AGENTS
-4. `integration/<your-branch>` : branch from `testing/develop` - pull your branch in, watch your branch, agents, testing, AND develop 
-
-
-### 1. IF USING AGENTS
-## branch from `agents/develop` to `<descriptor>/<working-branch>`
-
-### 2. Branch `testing/develop` to `integration/<working-branch>`
-### 3. Pull `<descriptor>/<working-branch>` INTO `integration/<working-branch>`
-`working-branch --> integration/working-branch`
-### 4. WATCH BOTH `testing/develop` and `working-branch`
-* NOTE: You may also want to watch `agents/develop` for direct instruction changes
-### 5. DE-POLLUTE `<descriptor>/<working-branch>` of agentic BS before PR
-
-## Example Workflow
-Workflow Steps
-A. Create a new working branch from agents/develop
-```gitbash
-git checkout agents/develop
-git pull
-git checkout -b feature/my-working-branch
-# ...work, commit, push as needed...
-```
-
-B. Create a new integration branch from testing/develop
-```bash
-git checkout testing/develop
-git pull
-git checkout -b integration/my-feature
-```
-
-C. Pull in the working branch (from agents/develop) into the integration branch
-```bash
-git merge feature/my-working-branch
-# Resolve conflicts, favoring testing/develop for devcontainer, agents/develop for agent docs, as needed.
-```
-
-D. Ongoing: Watch for changes in both parents
-```bash
-git checkout integration/my-feature
-git fetch origin
-git merge origin/testing/develop
-git merge origin/agents/develop
-git merge origin/feature/my-working-branch
-# Resolve conflicts as above.
-```
-
-Periodically update the integration branch:
-
-E. When done testing, delete the integration branch
-```bash
-git branch -d integration/my-feature
-```
-
-F. Prepare PR from working branch, but exclude agent instructions
-
-    If agent instructions are in a specific file (e.g., AGENTS.md), you can temporarily remove or revert that file before creating the PR:
-```bash
-git checkout feature/my-working-branch
-git rm AGENTS.md
-git commit -m "Remove agent instructions for PR"
-# Or, if you want to keep AGENTS.md but with only production content:
-# Edit AGENTS.md, commit the change
-```
-
-Then push and open the PR.
-```
-
-
 # Dungeon Master's Vault - Community Edition
 <div align="center">
     <br>
@@ -223,6 +144,26 @@ The `./logs` directory contains error logs for Datomic itself and any files here
 
 Watch this directory and clean up old files, it can grow quite large quickly.  It is recommended to setup log rotate or some other mechanism to clean these up.
 
+
+## Quick Reference: Common Development Commands
+
+Here are the most common commands for developing and running OrcPub locally:
+
+| Command | Purpose |
+|--------|---------|
+| `bin/transactor config/samples/free-transactor-template.properties` | Start the Datomic database (run from the Datomic directory) |
+| `lein run` | Start the main Clojure server (backend web app) |
+| `lein repl` | Start an interactive Clojure REPL for development/debugging |
+| `lein with-profile +no-prep repl` | Start REPL without Garden CSS compilation (faster) |
+| `lein figwheel` | Start the ClojureScript hot-reload server for frontend development |
+| `./add-testers.sh` | Seed test accounts into Datomic (works without server) |
+
+You should have Datomic, the Clojure server, and Figwheel running in separate terminals for full-stack development.
+
+See the [Development](#development) section below for more details.
+
+---
+
 ## Development
 
 ### Building your own docker images
@@ -246,6 +187,9 @@ Windows instructions [here](https://github.com/Orcpub/orcpub/wiki/Orcpub-on-Wind
 
 Docker Cheat [Sheet](https://github.com/Orcpub/orcpub/wiki/Docker-Cheat-sheet)
 
+
+
+> **Tip:** See the [Quick Reference: Common Development Commands](#quick-reference-common-development-commands) above for the most-used commands.
 
 ### Getting started - building the docker image from source
 
@@ -388,6 +332,38 @@ To stop you will need to do this:
 ```clojure
 user=> (stop-server)
 ```
+
+#### Available REPL Helper Functions
+
+All helpers are in the `user` namespace and available automatically in dev REPLs:
+
+| Function | Description |
+|----------|-------------|
+| `(start-server)` | Start the web server |
+| `(stop-server)` | Stop the web server |
+| `(init-database)` | Initialize/reset the Datomic schema (run once) |
+| `(ensure-test-accounts!)` | Create test accounts from `dev/test-accounts.edn` |
+| `(list-test-accounts)` | Check which test accounts exist in the database |
+| `(verify-new-user "email")` | Mark a user as verified (skip email verification) |
+| `(fig-start)` | Start Figwheel for ClojureScript hot-reload |
+| `(fig-stop)` | Stop Figwheel |
+| `(cljs-repl)` | Connect to ClojureScript REPL (after fig-start) |
+
+#### Test Accounts
+
+Test accounts are defined in `dev/test-accounts.edn`. To seed them:
+
+**From command line** (preferred - works without starting server):
+```bash
+./add-testers.sh
+```
+
+**From REPL:**
+```clojure
+user=> (ensure-test-accounts!)
+```
+
+The script checks that Datomic is running, skips Garden CSS compilation for faster startup, and works whether or not the server is running.
 
 Within Emacs you should be able to save your file (C-x C-s) and reload it into the REPL (C-c C-w) to get your server-side changes to take effect. Within Vim with `vim-fireplace` you can eval a form with `cpp`, a paragraph with `cpip`, etc; check out its help file for more information. Regardless of editor, your client-side changes will take effect immediately when you change a CLJS or CLJC file while `lein figwheel` is running.
 
