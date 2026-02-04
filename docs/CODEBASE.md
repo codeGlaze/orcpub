@@ -170,6 +170,26 @@ Uses re-frame pattern:
 - **Subscriptions**: `(rf/subscribe [:sub-name])` - reactive data access
 - **Effects**: Side effects (HTTP, local storage) via effect handlers
 
+### Styling (Frontend)
+
+**Use Garden CSS classes, not inline styles.** The app uses Garden (CSS-in-Clojure) with theme support.
+
+```clojure
+;; BAD - inline styles don't respect theming
+[:div {:style {:background "#3a3a3a" :color "white"}}]
+
+;; GOOD - use existing CSS classes
+[:div.bg-light.main-text-color]
+```
+
+Key style patterns:
+- **Theme-aware colors**: `.main-text-color`, `.bg-light`, `.orange`, `.green`, `.red`
+- **Spacing**: `.m-t-5`, `.m-b-10`, `.p-5`, `.p-10` (margin/padding in 5px increments)
+- **Flexbox**: `.flex`, `.align-items-c`, `.justify-cont-s-b`
+- **Font**: `.f-s-12`, `.f-s-14`, `.f-w-b` (font-size, font-weight-bold)
+
+If you need new styles, add them to `src/clj/orcpub/styles/core.clj` rather than using inline `:style` maps. Inline styles are acceptable for rapid prototyping but should be converted to classes before finalizing. After adding styles, run `lein garden once` to compile CSS.
+
 ### Testing
 
 - Backend: `clojure.test` - run with `lein test`
@@ -206,6 +226,84 @@ Uses re-frame pattern:
 
 ---
 
+## Common Utilities (common.cljc)
+
+Shared utility functions used across frontend and backend. Key helpers:
+
+### Keyword Helpers
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `name-to-kw` | Convert name string to keyword | `"High Elf"` → `:high-elf` |
+| `kw-to-name` | Convert keyword to display name | `:high-elf` → `"high elf"` or `"High Elf"` |
+| `kw-base` | Extract base before first dash | `:artificer-kibbles` → `"artificer"` |
+| `safe-name` | Get name from keyword with logging | Logs warning if not keyword |
+| `safe-capitalize` | Capitalize string safely | Returns nil if not string |
+
+### Traversal Helpers
+| Function | Purpose |
+|----------|---------|
+| `traverse-nested` | HOF for walking nested option structures (handles vector/map/nil pattern) |
+
+### Design Decisions
+- **safe-* helpers**: Use in UI code where you want visibility (logs) without crashes
+- **Explicit guards**: Use in data processing code where you want fail-fast behavior
+- **Avoid shadowing**: Don't destructure `:name` in function args - it shadows `clojure.core/name`. Use `(:name content)` instead.
+
+---
+
+## UI Patterns
+
+### Modal Pattern
+
+Modals in this codebase follow a consistent pattern:
+
+1. **State in db**: Store modal state under a key like `:conflict-resolution` or `:export-warning`
+   ```clojure
+   {:active? true
+    :data-field-1 ...
+    :data-field-2 ...}
+   ```
+
+2. **Subscription**: Register a subscription to access the state
+   ```clojure
+   (reg-sub :export-warning (fn [db _] (:export-warning db)))
+   ```
+
+3. **Events**: Three standard events per modal
+   - Show: `:show-<modal-name>` - sets `:active? true` and populates data
+   - Cancel: `:cancel-<modal-name>` - sets `:active? false`
+   - Confirm: `:apply-<action>` - performs action, then sets `:active? false`
+
+4. **Component**: Render when `active?` is true, with fixed overlay
+   ```clojure
+   (defn my-modal []
+     (let [{:keys [active? ...]} @(subscribe [:my-modal])]
+       (when active?
+         [:div {:style {:position "fixed" :z-index 2000 ...}}
+          ...])))
+   ```
+
+5. **Mount in overlay**: Add to `import-log-overlay` in `views.cljs`
+   ```clojure
+   (defn import-log-overlay []
+     [:div
+      [import-log-button]
+      [import-log-panel]
+      [conflict-resolution-modal]
+      [export-warning-modal]])  ;; <-- add new modals here
+   ```
+
+### Placeholder Text Convention
+
+When auto-filling missing data, use square brackets to make placeholders obvious:
+- `[Missing Name]`
+- `[Missing Trait Name]`
+- `[Missing Subclass Name]`
+
+This makes it clear to users that data needs attention, and is easily searchable.
+
+---
+
 ## Learnings & Discoveries
 
 > Add discoveries here as you work on the codebase. Format: `- [Date] [Agent/Person]: Discovery`
@@ -220,11 +318,31 @@ Uses re-frame pattern:
 
 - [2026-01-12] Claude: Import changelog panel added - tracks all cleaning operations during import with a slide-in UI panel. Auto-expands after import if changes were made. Components: `import-log-button` (fixed bottom-right), `import-log-panel` (slides from right). State stored in `:import-log` with subscriptions for reactivity. Change types: `:string-fix`, `:renamed-plugin-key`, `:fixed-option-pack`, `:removed-nil`, `:replaced-nil`, `:preserved-nil`.
 
+- [2026-01-14] Claude: **IMPORTANT - Large file analysis technique**: A 3.5MB orcbrew file couldn't be read into context (too large, caused freezes). Solution: Use PowerShell/CLI to scan for patterns externally. Example that found 37 nil values:
+  ```powershell
+  Select-String -Path "file.orcbrew" -Pattern ":[\w-]+\s+nil" -AllMatches |
+    ForEach-Object { $_.Matches } |
+    Group-Object Value |
+    Sort-Object Count -Descending
+  ```
+  This revealed hyphenated field names (`:spell-list-kw nil`) that the original regex `:\w+\s+nil` missed. Always use `[\w-]+` to match hyphenated Clojure keywords. Don't try to load large files into context - scan externally first.
+
+- [2026-01-18] Claude: **ROOT CAUSE of `nil nil` corruption**: The `::class5e/set-class-path-prop` event in `events.cljs` accepted 4 args (path1, val1, path2, val2) but callers often only passed 2 args. The function did `(assoc-in class nil nil)` when path2 was nil, creating `{nil nil, :key :foo}` entries. Fix: use `cond->` to skip the second assoc-in when path2 is nil. This affected class creation in homebrew builder. Lesson: **optional args in event handlers need defensive checks** - use `cond->` or `when` guards.
+
+- [2026-01-18] Claude: **Unicode normalization**: Smart quotes (`'` `"`) and other Unicode characters from copy/paste (Word, Google Docs) can cause PDF rendering issues. Added 40+ character mappings (quotes, dashes, special spaces, symbols) to convert to ASCII. Applied both on import (after EDN parse) and on homebrew save. Lesson: **user-generated text needs sanitization at entry points**.
+
+- [2026-01-18] Claude: **Lein tool for debugging**: Created `lein with-profile +tools prettify-orcbrew` for analyzing orcbrew files offline. The `+tools` profile sets `:prep-tasks ^:replace []` to skip Garden CSS compilation. Useful for quick debugging without starting the full app.
+
+- [2026-01-18] Claude: **PDF nil handling**: Functions like `(name value)`, `(s/capitalize x)`, and map destructuring `{:keys [name]}` can crash on nil. The PDF spec code (`pdf_spec.cljc`) and backend (`pdf.clj`) have many places that assume data exists. Added nil guards throughout with fallback strings: "(unknown)", "(Unknown Spell)", "(Unnamed Trait)". Key pattern: use `(or (:name item) "fallback")` before passing to `name` or string functions. Lesson: **PDF generation should be defensive** - better to show placeholder text than crash the entire export.
+
+- [2026-01-18] Claude: **Required field validation strategy**: Import should be permissive (auto-fill missing fields), export should be strict (warn user). Added `required-fields` map in `import_validation.cljs` defining fields per content type. On import, missing fields are filled with placeholder text like "[Missing Name]". On export, a modal shows all issues and offers "Export Anyway" which fills and exports. Key insight: **different validation strictness for different directions** - import prioritizes data recovery, export prioritizes data quality warnings.
+
 ---
 
 ## Related Documentation
 
 - [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling patterns and utilities
 - [ORCBREW_FILE_VALIDATION.md](./ORCBREW_FILE_VALIDATION.md) - File import/export validation
+- [ORCBREW_IMPORT_DEEP_DIVE.md](./ORCBREW_IMPORT_DEEP_DIVE.md) - Deep dive on import system, lessons learned, pitfalls
 - [AGENTS.md](../AGENTS.md) - Guidelines for AI agents working on this repo
 - [README.md](../README.md) - Setup, deployment, and contributing guide

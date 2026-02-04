@@ -1,0 +1,16 @@
+{
+  "skills": {
+    "onboard": {
+      "description": "Bootstrap context for existing work",
+      "prompt": "You're working on OrcPub (D&D 5e character builder). Run `git branch --show-current` and `git status --short`. Read @docs/progress.md. Summarize in 3 bullets: (1) current branch and git state, (2) what's in progress or ready for testing, (3) known issues. Ask what to work on."
+    },
+    "onboard-deep": {
+      "description": "Full context load for complex work",
+      "prompt": "You're working on OrcPub. Run `git branch --show-current`. Read @docs/progress.md then @docs/CODEBASE.md. Summarize: (1) current branch and state, (2) key technical patterns, (3) lessons learned relevant to your task. Ask what to work on."
+    },
+    "new-task": {
+      "description": "Start a new task with proper branching",
+      "prompt": "You're starting a new task on OrcPub. Workflow: (1) Run `git fetch origin` then `git checkout agents/develop && git pull`. (2) Ask the user for a short branch name for this task. (3) Create branch with `git checkout -b <branch-name>`. (4) Read @docs/progress.md briefly. (5) Ask what the task is. Note: agents/develop is the clean base - work happens on feature branches. Branches need scrubbing before PR to main."
+    }
+  }
+}

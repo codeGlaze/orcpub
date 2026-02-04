@@ -1,305 +1,378 @@
+# AGENTS.md
 
-# AI Agent Instructions — OrcPub/Dungeon Master's Vault
+## OrcPub Agent Onboarding & Repo Expectations
 
-> **Purpose**: Help AI coding agents get immediately productive in this repository while respecting project governance and workflow rules.
+This document explains the expectations, onboarding steps, and advanced workflows for coding agents and contributors. It covers how to bring a fresh clone of the `develop` branch up to full development parity, including devcontainer, helper scripts, and troubleshooting.
 
----
 
-## Critical Rules (Read First)
 
-### Branch Protection — MUST FOLLOW
+### 1. **Add Devcontainer Support**
 
-| Branch | Protection Level | Rule |
-|--------|-----------------|------|
-| `develop` | **OWNER ONLY** | NEVER merge or push. Only the repo owner touches this branch. |
-| `modernize-stack` | **PR REQUIRED** | All changes require a Pull Request with owner approval. No direct pushes. No overrides. |
-| `upgrade/*` | **OPEN** | Agents may work freely in these branches. |
+Create `.devcontainer/devcontainer.json` as described in [SETUP.md](SETUP.md).
 
-### Agent Workflow Rules
 
-1. NEVER merge or push directly to `develop`
-2. NEVER merge or push directly to `modernize-stack`
-3. Work in `upgrade/*` branches
-4. Create Pull Requests for review — do not merge them yourself
-5. Branch new features from `upgrade/security-jackson-guava`
+### 2. **Add Helper Scripts**
 
----
+Copy the provided `start.sh` and `menu.sh` scripts from [SETUP.md](SETUP.md) into your project root.
 
-> **TOP PRIORITY:** Agents MUST maintain up-to-date documentation whenever features, commands, or workflows are added or changed. See `docs/DOC-CONVENTIONS.md` for the documentation structure.
 
----
+### 3. **Add VS Code Tasks (Optional, but recommended)**
 
-## Required Reading
+See [SETUP.md](SETUP.md) for a ready-to-use `.vscode/tasks.json` that launches Datomic, the server, and Figwheel in dedicated terminals.
 
-Before working on this project, read these documents:
 
-| Document | Purpose | When to Read |
-|----------|---------|--------------|
-| [`BRANCH.md`](BRANCH.md) | Branch-specific context and handoff notes | Every session start |
-| [`UPGRADE_PLAN.md`](UPGRADE_PLAN.md) | Current upgrade roadmap, progress, and next steps | Before any upgrade work |
-| [`README.md`](README.md) | Project overview, getting started, Docker setup | First time setup |
-| [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) | Documentation structure and KB conventions | When creating/updating docs |
+### 4. **Follow the Detailed Setup**
 
----
+See [SETUP.md](SETUP.md) for:
 
-## Environment Variable Pattern (Canonical)
 
-**All configuration for Datomic, secrets, and app settings is managed via a single `.env` file at the repo root.**
+### 5. **Troubleshooting**
 
-- All shell scripts and the canonical installer source `.env` if present.
-- Docker Compose and devcontainer use `.env` via `env_file` or `containerEnv` (as fallback).
-- Clojure code uses `environ` or `dotenv` to read `.env`/ENV.
-- `.env.example` provides safe defaults; `.env` is git-ignored.
+  Always run scripts from the project root. If `working-transactor.properties` is missing, run `start.sh` or copy the template as shown in [SETUP.md](SETUP.md).
 
-**Precedence:**
-1. `.env` in repo root (authoritative, always sourced if present)
-2. Docker Compose/devcontainer: use `env_file: .env` or `containerEnv` as fallback
-3. Shell scripts: always source `.env` if present
-4. Clojure: use `environ` or `dotenv` to read `.env`/ENV
+  Java 8 is required. The devcontainer ensures this, but check with `java -version`.
 
-See [`docs/ENVIRONMENT.md`](docs/ENVIRONMENT.md) for full details.
+  Install with `sudo apt-get install leiningen` or use the devcontainer.
 
----
+  Make scripts executable:  
+  `chmod +x start.sh menu.sh`
 
-## Project Overview
+  If a service fails to start, check for running processes with  
+  `lsof -i :8890` or `lsof -i :4334` and kill as needed.
 
-**Stack**: Full-stack Clojure/ClojureScript application
-- **Backend**: Pedestal + Datomic + Buddy auth
-- **Frontend**: Reagent + re-frame + Figwheel
-- **Build**: Leiningen + cljsbuild
 
-For Datomic installation and transactor setup, see [`docs/DATOMIC_SETUP.md`](docs/DATOMIC_SETUP.md).
+**For all setup details and script examples, see [SETUP.md](SETUP.md).**
 
-### Key Files & Entry Points
 
-| Purpose | Location |
-|---------|----------|
-| Server entry | `src/clj/orcpub/server.clj`, `src/clj/orcpub/system.clj` |
-| Frontend entry | `web/cljs/orcpub/core.cljs` |
-| Re-frame events | `src/cljs/orcpub/dnd/e5/events.cljs` |
-| Re-frame subs | `src/cljs/orcpub/dnd/e5/subs.cljs` |
-| Routes & auth | `src/clj/orcpub/routes.clj` |
-| DB schema | `src/clj/orcpub/db/schema.clj` |
-| Shared domain logic | `src/cljc/orcpub/entity.cljc`, `src/cljc/orcpub/template.cljc` |
-| D&D 5e rules | `src/cljc/orcpub/dnd/e5/` |
-| REPL/dev helpers | `dev/user.clj` |
-| PDF generation | `src/clj/orcpub/pdf.clj` |
-| Styles (Garden) | `src/clj/orcpub/styles/` |
-| Splash page (CLJC) | `src/cljc/orcpub/dnd/e5/views_2.cljc` |
-| Project config | `project.clj` |
+## 6. Documentation and Changelog Requirements
 
-### Code Organization
+  - For every new feature, configuration, or setup change, update the relevant documentation files (such as `README.md`, `SETUP.md`, or inline code comments).
+  - If you add or modify scripts, document their usage and options in `SETUP.md`.
+  - Ensure all onboarding steps are clear for future contributors.
 
-```
-src/
-├── clj/      # Server-only Clojure (JVM)
-├── cljc/     # Shared code (runs on JVM and JS)
-└── cljs/     # Client-only ClojureScript
-web/
-└── cljs/     # Frontend application code
-```
+  - Record all significant changes, bug fixes, and enhancements in `CHANGELOG.md`.
+  - Use clear, dated entries. Example format:
+    ```
+    ## [YYYY-MM-DD] - Added
+    - Brief description of the change or feature.
+    ```
+  - For each pull request or merge, ensure the changelog is updated before completion.
 
----
 
-## Development Commands
+## 7. Agent Guidelines: Avoiding Common Mistakes
 
-### Validation (Run Before Committing)
+### MCP Servers Are NOT Always npm Packages
 
-```bash
-# Server-side tests (Clojure JVM only)
-lein test
+**Mistake made:** Assumed MCP (Model Context Protocol) servers are distributed via npm and fabricated package names like `@anthropic/clojure-mcp`.
 
-# ClojureScript compilation — REQUIRED after frontend changes
-lein cljsbuild once dev
+**Root cause:** Many MCP servers ARE npm packages (e.g., `@modelcontextprotocol/server-*`), so there was an incorrect pattern match. The agent generated plausible-sounding but non-existent package names.
 
-# Linter
-lein lint
+**Critical failure:** The agent did NOT properly research before making assumptions. When asked about clojure-mcp:
+1. Did not read the GitHub repo the user later provided
+2. Fabricated a package name based on pattern-matching
+3. Subagent "research" returned hallucinated information that was accepted without verification
+4. Added non-existent packages to configuration files
+5. Only discovered the error when npm returned 404
 
-# Full frontend with hot reload (figwheel-main)
-lein fig:dev
-```
+**Reality:** MCP servers can be written in **any language**:
 
-### Starting Development Environment
+**How to avoid this mistake:**
+1. **When a user provides a GitHub URL, READ IT FIRST** - it's the source of truth
+2. **Never fabricate package names** - verify they exist before adding to configs
+3. **Check the repo's README for installation instructions** - don't assume
+4. **If unsure, ask** - "Is this an npm package or something else?"
+5. **Don't trust your own "research"** - if you can't link to a real source, you may be hallucinating
 
-```bash
-# Using the menu (recommended)
-./menu
+### Verify Before You Configure
 
-# Or using scripts directly:
-./scripts/start.sh datomic      # Start Datomic transactor
-./scripts/start.sh init-db      # Initialize DB (first time only)
-./scripts/start.sh server       # Start backend REPL
-./scripts/start.sh figwheel     # Optional: Frontend hot-reload
-./scripts/start.sh garden       # Optional: CSS watcher
-```
+Before adding any dependency, tool, or MCP server:
 
-### Calva (VSCode)
+1. **Confirm the package/tool exists** at the specified registry (npm, clojars, pypi, etc.)
+2. **Read the official installation docs** from the source repository
+3. **Test the installation command** if possible before committing to config files
+4. **Don't trust hallucinated research** - subagent responses can contain fabricated information
 
-For interactive development, use Calva's "Jack-in" command. Select profiles:
-- **start-server**: Auto-starts the web server on REPL launch
-- **css-watch**: Auto-recompiles CSS (Garden) on file changes
-- **dev**: Development mode with debugging tools
+### Configuration Debugging
 
-### Lein Profiles
+When a configuration fails:
+1. **Read the error message carefully** - `npm error 404 Not Found` means the package doesn't exist
+2. **Check the source** - go to the official repository
+3. **Verify the installation method** - npm, clojure tools, pip, cargo, etc.
 
-```bash
-lein with-profile +start-server repl              # REPL with auto-start server
-lein with-profile +start-server,+css-watch repl   # REPL with server + CSS watch
-lein garden once                                   # Compile CSS once
-lein garden auto                                   # Watch CSS for changes
-```
-
----
-
-## Tooling Philosophy — Use Built-in Capabilities First
-
-**CRITICAL PRINCIPLE**: Before writing custom scripts or tools, explore what Leiningen, Clojure, and Figwheel provide natively.
-
-### Built-in Leiningen Capabilities
-
-| Task | Built-in Solution | Custom Script |
-|------|------------------|---------------|
-| Install local JAR | Use `file:lib` repository (existing pattern) | Avoid |
-| Run tests | `lein test` | Avoid |
-| Lint code | `lein lint` (via plugin) | Avoid |
-| Compile CSS | `lein garden` (via plugin) | Avoid |
-| Start REPL | `lein repl` | Avoid |
-| Build uberjar | `lein uberjar` | Avoid |
-| Dependency management | `lein deps` | Avoid |
-
-### When Custom Scripts Are Acceptable
-
-Scripts that orchestrate multiple tools or handle environment-specific setup:
-- `scripts/start.sh` — Unified service launcher
-- `scripts/stop.sh` — Service stopper with graceful shutdown
-- `scripts/dev-setup.sh` — Orchestrates initial dev environment setup
-- `./menu` — Interactive development hub
-
-### Look for Existing Functionality First
-
-1. **Check existing test files** — Use established testing patterns
-2. **Review existing scripts** — Extend rather than duplicate
-3. **Examine existing code** — Look for reusable functions
-4. **Follow established patterns** — Match naming conventions
-5. **Add to existing files** — Extend integration tests, route handlers
-6. **Create new files only as last resort**
-
----
-
-## Environment Variables
-
-Key environment variables (via `environ`):
-
-| Variable | Purpose |
-|----------|---------|
-| `DATOMIC_URL` | Database connection string |
-| `DATOMIC_PASSWORD` | Database password |
-| `SIGNATURE` | JWT signing secret (authentication) |
-| `PORT` | Web server port (production) |
-| `EMAIL_*` | SMTP configuration for emails |
-
----
-
-## Code Patterns & Conventions
-
-### Must Preserve
-
-1. **Shared logic** goes in `src/cljc/`, backend-only in `src/clj/`, client-only in `src/cljs/` or `web/cljs/`
-
-2. **Component lifecycle**: Use `com.stuartsierra/component` patterns. Restart cleanly via `dev/user.clj` helpers.
-
-3. **Authentication**: Buddy JWS tokens. Keep token handling consistent with `orcpub.routes`.
-
-4. **Homebrew compatibility**: Front-facing keys in exports are user-facing. Never rename without providing backwards compatibility mapping.
-
-5. **Require aliases**: When swapping libraries, keep the same alias:
-   ```clojure
-   ;; Good: same alias
-   [clj-time.core :as t]  →  [java-time.api :as t]
-
-   ;; Bad: new alias causes churn
-   [java-time.api :as jt]
+### clojure-mcp Integration Lessons
+
+**Key Discoveries:**
+
+1. **Java Version Isolation**  
+   - OrcPub/Datomic requires Java 8
+   - clojure-mcp requires Java 17+
+   - Solution: Install both, override PATH/JAVA_HOME only for MCP process
+
+2. **VS Code MCP Configuration (`.vscode/mcp.json`)**  
+   ```json
+   {
+     "servers": {
+       "clojure-mcp": {
+         "command": "/bin/bash",
+         "args": ["-c", "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 PATH=/usr/lib/jvm/java-17-openjdk-amd64/bin:$PATH clojure -Tmcp start :port 7888"]
+       }
+     }
+   }
    ```
 
-### Re-frame Conventions
+3. **Codespaces Browser Bug**  
+   - MCP stdio handshake crashes the VS Code browser client
+   - clojure-mcp works perfectly when run manually via terminal/task
+   - Workaround: Use VS Code Desktop connected to Codespace
 
-Follow existing event/subscription naming in `web/cljs/orcpub/*`.
+4. **SSE Transport is NOT a Simple Alternative**  
+   - SSE mode requires running clojure-mcp as HTTP server (`-Sdeps` with specific config)
+   - clojure-mcp is distributed via Clojure tools, NOT Maven Central
+   - Don't fabricate Maven coordinates - they won't work
 
----
+5. **Testing MCP Server Independently**  
+   - Create a VS Code task to run the MCP command
+   - Verify JSON-RPC output appears: `{"jsonrpc":"2.0","method":"notifications/..."}`
+   - If task works but MCP integration doesn't, the issue is client-side
 
-## Documentation Standards
 
-See [`docs/DOC-CONVENTIONS.md`](docs/DOC-CONVENTIONS.md) for the three-tier structure
-(CLAUDE.md / AGENTS.md / BRANCH.md) and KB conventions.
-
-### Documentation Locations
-
-| Document | Purpose | Owner |
-|----------|---------|-------|
-| `CLAUDE.md` | Claude Code bootstrapper (auto-loads AGENTS.md + BRANCH.md) | Thin, rarely changes |
-| `AGENTS.md` | Universal AI agent instructions (this file) | Repo owner |
-| `BRANCH.md` | Branch-specific context and handoff notes | Current branch maintainer |
-| `README.md` | Project overview, setup, usage | All contributors |
-| `docs/` | Knowledge base — technical reference docs | As needed |
-| `docs/DOC-CONVENTIONS.md` | Documentation structure and conventions | Repo owner |
-
-### Documentation Principles
-
-1. **Single source of truth** — Don't duplicate information; reference other documents
-2. **Keep it current** — Update docs in the same PR as code changes
-3. **Capture insights as KB docs** — Discoveries belong in `docs/*.md`, not session transcripts
-4. **Proximity** — Put docs close to what they document
-5. **Agent-friendly** — Use clear headings and tables for easy parsing
+**Tip:**
+Before submitting changes, review documentation and the changelog to ensure they accurately reflect the current state of the project.
 
 ---
 
-## Testing Guidelines
+## 8. Why Documentation Matters
 
-1. **Always run `lein test`** before committing server changes
-2. **Always run `lein cljsbuild once dev`** after frontend/CLJS changes
-3. **Run `lein lint`** to catch syntax issues
-4. Large schema changes require migration scripts and tests
-5. **See `docs/TESTING.md`** for test suite inventory, gotchas, and patterns
-6. **See `docs/ENTITY-BUILD.md`** for the character build pipeline architecture
-7. **`warlock_test.clj`** is the entity/build integration test — use it as a pattern
-   for adding new build tests (e.g. other classes, multiclassing)
+> **This is a living document.** Update it as conventions evolve or new patterns emerge. When you establish a new pattern or discover a better approach, document it here.
 
----
+**Documentation saves tokens and prevents re-learning.**
 
-## PR & Safety Guidelines
+- Context is lost on compact/new sessions - docs preserve it
+- Lessons learned once shouldn't need re-learning (expensive)
+- Large files can't be read into context - document the analysis technique instead
+- Handoffs between agents/sessions need documented state
+- The code is truth, but docs explain *why*
 
-1. Run `lein lint` and `lein test` before proposing changes
-2. Never commit secrets (`SIGNATURE`, DB credentials)
-3. Use `.env` or CI secret stores for sensitive values
-4. Keep PRs small and atomic — one upgrade per PR
-5. Include migration notes for breaking changes
+**Update docs when you:**
+- Learn something non-obvious
+- Solve a tricky problem (document the solution)
+- Discover a pattern or anti-pattern
+- Complete significant work
 
----
-
-## Known Warnings (Cannot Fix)
-
-These warnings come from third-party libraries and are unfixable from our code:
-
-1. **`garden.color/abs`** — shadows `clojure.core/abs` (Garden library issue)
-2. **`datomic.common/requiring-resolve`** — Datomic Free is unmaintained
-3. **PDFBox font fallback** — Missing Helvetica in Docker/CI environments
-
-## Compatibility Warning
-
-**Datomic Free + Java 21:** Datomic Free 0.9.5703 does NOT work on Java 21.
-See [`docs/DATOMIC_SETUP.md`](docs/DATOMIC_SETUP.md) for details and test results.
+**Keep docs concise** - verbose docs waste tokens too.
 
 ---
 
-## Additional Resources
+## 9. First Steps
 
-- [Clojure Documentation](https://clojure.org/reference)
-- [ClojureScript Documentation](https://clojurescript.org/)
-- [Reagent](https://reagent-project.github.io/)
-- [re-frame](https://day8.github.io/re-frame/)
-- [Pedestal](http://pedestal.io/pedestal/0.7/)
-- [Datomic](https://docs.datomic.com/)
+**Before doing anything else, read [`docs/CODEBASE.md`](./docs/CODEBASE.md).**
+
+That document contains the architecture, key patterns, and learnings from previous work.
+
+**Update `docs/CODEBASE.md`** when you learn something new about the codebase.
 
 ---
 
-*Last updated: February 2026*
+## 10. Development Setup
+
+### Quick Start (Local)
+
+1. **Java 8** required (not newer)
+2. **Leiningen** for build/REPL
+3. **Datomic transactor** running:
+   ```bash
+   # Windows (use bundled version due to path length bug)
+   bin\transactor config/samples/free-transactor-template.properties
+
+   # Mac/Linux
+   bin/transactor config/samples/free-transactor-template.properties
+   ```
+4. **Backend REPL**: `lein with-profile +start-server repl`
+   ```clojure
+   (init-database)  ; only once per fresh DB
+   (start-server)
+   ```
+5. **Frontend**: `lein figwheel` (hot reloads)
+
+### Using Dev Container
+
+The `.devcontainer/` setup handles all dependencies automatically.
+
+### Using start.sh
+
+The `start.sh` script automates the above steps with dependency checking.
+
+---
+
+## 11. Code Conventions
+
+### Error Handling
+
+Use the DRY macros from `src/cljc/orcpub/errors.cljc`:
+
+```clojure
+(require '[orcpub.errors :as errors])
+
+;; Database operations
+(errors/with-db-error-handling :operation-failed {:user-id id} "Failed to save"
+  (d/transact conn tx-data))
+
+;; Email operations
+(errors/with-email-error-handling :email-failed {:to email} "Failed to send"
+  (postal/send-message msg))
+
+;; Parsing/validation
+(errors/with-validation :invalid-input {:field "id"} "Invalid ID format"
+  (Long/parseLong id-string))
+```
+
+See `docs/ERROR_HANDLING.md` for full documentation.
+
+### File Versioning
+
+**Every file you touch should have a version comment.** This helps track changes across sessions.
+
+**Format** (place after the `ns` declaration):
+```clojure
+;; =============================================================================
+;; Version: X.YY - Brief description of changes
+;; =============================================================================
+```
+
+**Version numbering:**
+- Pre-existing files: start at `1.01` (or continue from existing version)
+- New files created by agents: start at `0.01`
+- Increment minor version (`.01` → `.02`) for each significant change
+- Increment major version (`1.xx` → `2.xx`) only for major rewrites
+
+**When to update:**
+- Always update the version when making functional changes
+- Update the description to reflect what changed
+- Check for existing version comment before adding a new one
+
+**Example:**
+```clojure
+(ns orcpub.dnd.e5.events
+  (:require ...))
+
+;; =============================================================================
+;; Version: 1.06 - Add export warning modal events, required field validation
+;; =============================================================================
+```
+
+**Track versions in `docs/progress.md`** under "Version Summary" table.
+
+---
+
+## 12. Working on This Repo
+
+### Before Making Changes
+
+1. Read `docs/CODEBASE.md` for context
+2. Understand the entity/template/modifier system if touching character logic
+3. Check existing patterns in similar files
+
+### After Making Changes
+
+1. Run relevant tests
+2. Update `docs/CODEBASE.md` if you learned something new
+3. Update this file if you established new conventions
+
+### Branching Workflow
+
+**Always branch from `agents/develop`:**
+```bash
+git fetch origin
+git checkout agents/develop && git pull
+git checkout -b your-task-name
+```
+
+- `agents/develop` is the **clean base** for agent work
+- Create a new branch for each task/feature
+- Agent branches may accumulate cruft (debug code, experiments, etc.)
+- **Before PR to main**: Scrub the branch or create a clean branch with cherry-picked commits
+- `agents/develop` only gets: docs updates, agent settings, clean utilities
+- Never PR agent cruft to main or develop
+
+### Commit Style
+
+Follow conventional commits (e.g., `feat:`, `fix:`, `docs:`, `refactor:`).
+
+---
+
+## 13. Key Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [`CLAUDE.md`](./CLAUDE.md) | Quick context (auto-loads in Claude Code) |
+| [`CHANGELOG.md`](./CHANGELOG.md) | What's changed (features, fixes, breaking changes) |
+| [`docs/progress.md`](./docs/progress.md) | Session history, current state, handoff notes |
+| [`docs/CODEBASE.md`](./docs/CODEBASE.md) | **Start here.** Architecture, patterns, learnings |
+| [`docs/ERROR_HANDLING.md`](./docs/ERROR_HANDLING.md) | Error handling utilities and patterns |
+| [`docs/ORCBREW_FILE_VALIDATION.md`](./docs/ORCBREW_FILE_VALIDATION.md) | File import/export validation |
+| [`README.md`](./README.md) | Setup, deployment, contributing |
+
+---
+
+## 14. Notes for Future Agents
+
+### Codebase Quick Facts
+- The modifier system uses `?symbol` syntax - this is intentional DSL, not a typo
+- Datomic Free on Windows requires the bundled version (path length bug)
+- Frontend changes hot-reload; backend changes need REPL reload
+- `clojure.edn/read-string` is safe; `clojure.core/read-string` is not - we use the safe one
+
+### Clojure/ClojureScript Gotchas
+
+**Forward declarations**: Functions must be defined before use. Use `(declare fn-name)` at top of file if needed.
+
+**Destructuring keywords**: `:db/id` becomes local binding `id`:
+```clojure
+(fn [{:keys [:db/id ::se/owner]}]
+  (println id owner))  ; id and owner are local bindings
+```
+
+**Re-frame subscriptions**: Lazy and cached. If nil, check: Is data in app-db? Is subscription registered?
+
+### Common Agent Mistakes
+
+1. **Modifying test fixtures to make tests pass** - Use fixtures AS-IS to detect real bugs
+2. **Assuming UI elements are clickable tiles** - Classes use `<select>` dropdown, not tiles
+3. **Looking for "Yes/Confirm" buttons** - OrcPub uses `.link-button` with "delete" text
+4. **Expecting `lein run` to compile CLJS** - Always `lein cljsbuild once dev` first
+5. **Creating new fixtures** - Use existing ones in `test/` directory
+6. **"Helping" by cleaning up state** - Sometimes broken state is intentional (e.g., for warnings)
+7. **Assuming bugs are regressions** - Use `git blame` - many bugs are old code never triggered before
+
+### Validation Philosophy
+
+**Import = Permissive, Export = Strict**
+
+This is a core design principle for data handling:
+
+- **On Import**: Accept as much as possible, auto-fix issues silently
+  - Fill missing required fields with placeholder data like `[Missing Name]`
+  - Normalize Unicode to ASCII
+  - Clean up nil values, fix syntax issues
+  - Log changes but don't block import
+  - Goal: recover user's data even if corrupted
+
+- **On Export**: Warn about issues, let user decide
+  - Show modal listing all problems
+  - Provide "Cancel" (go fix it) and "Export Anyway" (fill placeholders)
+  - Log issues to console for debugging
+  - Goal: help users produce clean files, but don't block them
+
+### Placeholder Text Convention
+
+Use square brackets for auto-filled placeholder data:
+- `[Missing Name]`
+- `[Missing Trait Name]`
+
+This makes placeholders obvious and easily searchable in exported files.
+
+### Debug Files
+
+The `debug-examples/` directory contains test files:
+- `serakat-all-content.orcbrew` - Large file (3.5MB) with 1598 smart quotes, 36 nil nil patterns
+- Use `lein with-profile +tools prettify-orcbrew <file> --analyze` to analyze without loading into context

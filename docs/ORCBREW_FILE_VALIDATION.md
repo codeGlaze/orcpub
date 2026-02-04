@@ -124,7 +124,62 @@ The system automatically fixes these common corruption patterns:
 
 **This happens automatically** - you don't need to do anything!
 
-### 5. **Detailed Console Logging**
+### 5. **Required Field Validation**
+
+The system validates that all content has required fields (like `:name`), with different behavior for import vs export:
+
+**On Import (Permissive):**
+- Missing required fields are auto-filled with placeholder data
+- Placeholder examples: `[Missing Name]`, `[Missing Trait Name]`
+- Import continues without interruption
+- Changes are logged for user awareness
+
+**On Export (Strict):**
+- Missing fields trigger a warning modal
+- Modal lists all items with issues
+- User can:
+  - **Cancel**: Go back and fix the issues manually
+  - **Export Anyway**: Export with placeholder data filled in
+
+**Required fields by content type:**
+
+| Content Type | Required Fields |
+|--------------|-----------------|
+| Classes | `:name` |
+| Subclasses | `:name` |
+| Races | `:name` |
+| Subraces | `:name` |
+| Backgrounds | `:name` |
+| Feats | `:name` |
+| Spells | `:name`, `:level`, `:school` |
+| Monsters | `:name` |
+| Invocations | `:name` |
+| Languages | `:name` |
+| Traits (nested) | `:name` |
+
+### 6. **Unicode Normalization**
+
+Text content is automatically normalized to ASCII-safe characters. This prevents encoding issues with PDF generation and ensures compatibility across systems.
+
+**Characters automatically converted:**
+
+| Category | Examples | Converted To |
+|----------|----------|--------------|
+| Smart quotes | `'` `'` `"` `"` | `'` `"` |
+| Dashes | `–` (en-dash) `—` (em-dash) | `-` `--` |
+| Special spaces | non-breaking, thin, em | regular space |
+| Symbols | `…` `•` `©` `®` `™` | `...` `*` `(c)` `(R)` `(TM)` |
+
+**Why this matters:**
+- Smart quotes often sneak in from copy/paste from Word, Google Docs, etc.
+- PDF fonts may not have glyphs for these characters
+- Ensures clean exports that work everywhere
+
+**This happens during:**
+- Import (after EDN parsing)
+- Homebrew save (when you click Save)
+
+### 6. **Detailed Console Logging**
 
 Open the browser console (F12) to see:
 
@@ -307,6 +362,49 @@ All errors include:
 - **hint** - Suggested fix (when available)
 - **line** - Line number (for parse errors)
 
+## Developer Tools
+
+### Lein Prettify Tool
+
+A command-line tool for analyzing and debugging orcbrew files without running the full app:
+
+```bash
+# Analyze a file for issues
+lein with-profile +tools prettify-orcbrew path/to/file.orcbrew --analyze
+
+# Pretty-print a file (for manual inspection)
+lein with-profile +tools prettify-orcbrew path/to/file.orcbrew
+
+# Write prettified output to file
+lein with-profile +tools prettify-orcbrew path/to/file.orcbrew --output=pretty.edn
+```
+
+**The `+tools` profile skips Garden CSS compilation for faster startup.**
+
+**Analysis output includes:**
+- File size
+- `nil nil` pattern count
+- Problematic Unicode characters (with counts by type)
+- Unknown non-ASCII characters
+- Disabled entry count
+- Plugin structure (single vs multi-plugin)
+- Traits missing `:name` fields
+
+**Example output:**
+```
+=== Content Analysis ===
+File size: 1843232 bytes
+
+[WARNING] Found 36 'nil nil,' patterns
+  Spurious nil key-value pairs (e.g., {nil nil, :key :foo})
+
+[WARNING] Found 1621 problematic Unicode characters (will be auto-fixed on import):
+  - right single quote (U+2019): 1598 occurrences
+  - left double quote (U+201C): 23 occurrences
+
+[INFO] Found 48 disabled entries (previously errored content)
+```
+
 ## Troubleshooting
 
 ### Import Fails with "Could not read file"
@@ -349,6 +447,42 @@ All errors include:
 1. Review your content
 2. Fill in missing fields
 3. Export to create clean version
+
+## Related Features
+
+This validation system works alongside other import/export features:
+
+### Conflict Resolution
+When duplicate keys are detected during import, the **Conflict Resolution** system helps you:
+- Detect duplicate keys (same key in different sources)
+- Choose how to handle each conflict (rename, skip, or replace)
+- Automatically update references when renaming
+
+**See:** [CONFLICT_RESOLUTION.md](CONFLICT_RESOLUTION.md)
+
+### Missing Content Detection
+After import, the **Content Reconciliation** system:
+- Detects when characters reference content that isn't loaded
+- Suggests similar content using fuzzy matching
+- Helps identify which plugins are needed
+
+**See:** [CONTENT_RECONCILIATION.md](CONTENT_RECONCILIATION.md)
+
+### Error Handling Framework
+All validation operations use the **Error Handling** framework:
+- Structured error messages with `ex-info`
+- Consistent logging and error reporting
+- User-friendly error messages
+
+**See:** [ERROR_HANDLING.md](ERROR_HANDLING.md)
+
+### Required Fields
+Understand what fields are needed for each content type:
+- Spec requirements vs functional requirements
+- Which fields can break features if missing
+- Default values and optional fields
+
+**See:** [HOMEBREW_REQUIRED_FIELDS.md](HOMEBREW_REQUIRED_FIELDS.md)
 
 ## Support
 
