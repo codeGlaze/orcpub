@@ -1186,9 +1186,9 @@
                        edn-text)]
 
     ;; Step 2: Parse EDN
-    (let [parse-result (parse-edn cleaned-text)]
-      (if (:success parse-result)
-
+    (let [parse-result (parse-edn cleaned-text)
+          success? (:success parse-result)]
+      (if success?
         ;; Step 2.5: Normalize text (Unicode → ASCII) for reliable PDF/export
         (let [parsed-data (:data parse-result)
               normalized-data (if auto-clean
@@ -1218,17 +1218,17 @@
               key-conflicts (detect-duplicate-keys (:data fill-result)
                                                    existing-plugins
                                                    import-source-name)
-              key-warnings (format-duplicate-key-warnings key-conflicts)]
+              key-warnings (format-duplicate-key-warnings key-conflicts)
 
-          ;; Step 5: Validate structure based on strategy
-          (let [validation-result (if (= strategy :strict)
-                                    (import-all-or-nothing (:data fill-result))
-                                    (import-progressive (:data fill-result)))]
-            ;; Add changes and key conflict info to result
-            (assoc validation-result
-                   :changes all-changes
-                   :key-conflicts key-conflicts
-                   :key-warnings key-warnings)))
+              ;; Step 5: Validate structure based on strategy
+              validation-result (if (= strategy :strict)
+                                  (import-all-or-nothing (:data fill-result))
+                                  (import-progressive (:data fill-result)))]
+          ;; Add changes and key conflict info to result
+          (assoc validation-result
+                 :changes all-changes
+                 :key-conflicts key-conflicts
+                 :key-warnings key-warnings))
 
         ;; Parse failed - return detailed error
         {:success false

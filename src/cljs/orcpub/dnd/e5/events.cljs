@@ -3288,16 +3288,14 @@
      (if has-errors
        {:dispatch [:show-error-message
                   "Cannot export all plugins - some contain invalid data. Check console for details."]}
-
-       (do
-         (let [blob (js/Blob.
-                     (clj->js [(str all-plugins)])
-                     (clj->js {:type "text/plain;charset=utf-8"}))]
-           (js/saveAs blob (str "all-content.orcbrew"))
-           (if has-warnings
-             {:dispatch [:show-warning-message
-                        "All plugins exported with some warnings. Check console for details."]}
-             {})))))))
+       (let [blob (js/Blob.
+                   (clj->js [(str all-plugins)])
+                   (clj->js {:type "text/plain;charset=utf-8"}))]
+         (js/saveAs blob (str "all-content.orcbrew"))
+         (if has-warnings
+           {:dispatch [:show-warning-message
+                      "All plugins exported with some warnings. Check console for details."]}
+           {}))))))
 
 (reg-event-fx
   ::e5/export-plugin-pretty-print
