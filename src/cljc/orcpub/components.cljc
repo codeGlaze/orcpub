@@ -20,10 +20,7 @@
    {:value key}
    name])
 
-;; Form-2 component: local atom tracks the dropdown value so that after the
-;; on-change handler fires we can immediately reset the <select> back to the
-;; placeholder.  This prevents the dropdown from appearing "stuck" on the last
-;; selected item after adding it to the list.
+;; Form-2 component: resets <select> to placeholder after each on-change fires.
 (defn selection-adder [values on-change]
   (let [selected-value (atom "")]
     (fn [values on-change]

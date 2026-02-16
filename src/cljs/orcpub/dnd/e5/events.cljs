@@ -3747,47 +3747,11 @@
                   ability-kw
                   value)))
 
-(defn remove-custom-weapon-fields [item]
-  (dissoc item
-          ::weapons/finesse?
-          ::weapons/versatile?
-          ::weapons/reach?
-          ::weapons/two-handed?
-          ::weapons/thrown?
-          ::weapons/heavy?
-          ::weapons/light?
-          ::weapons/ammunition?
-          ::weapons/damage-die-count
-          ::weapons/damage-die
-          ::weapons/versatile
-          ::weapons/melee?
-          ::weapons/ranged?
-          ::weapons/type
-          ::weapons/range
-          ::weapons/damage-type))
-
 (reg-event-db
  ::mi/toggle-subtype
  item-interceptors
  (fn [item [_ type]]
-   (remove-custom-weapon-fields
-    (case type
-      ;; When switching to Custom (:other), initialise weapon fields to sane
-      ;; defaults here in the event handler instead of during view render.
-      ;; Setting them during render caused the dropdowns to reset on every
-      ;; re-render, making user selection impossible.
-      :other (-> item
-                 (assoc ::mi/subtypes #{:other})
-                 (assoc ::mi/damage-die-count 1)
-                 (assoc ::mi/damage-die 4)
-                 (assoc ::mi/weapon-type :simple)
-                 (assoc ::mi/melee-ranged :melee))
-      :all (assoc item ::mi/subtypes #{:all})
-      (update item
-              ::mi/subtypes
-              #(as-> % $
-                 (disj $ :other :all)
-                 (toggle-set type $)))))))
+   (mi/apply-subtype-toggle item type)))
 
 (reg-event-fx
  ::char5e/open-character
