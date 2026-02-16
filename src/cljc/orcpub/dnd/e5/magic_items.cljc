@@ -3149,3 +3149,44 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
 
 (defn equipped-armor-details [armor]
   (equipped-items-details armor all-armor-map))
+
+;; Strip base-weapon detail keys that only apply to custom (:other) weapons.
+(defn remove-custom-weapon-fields [item]
+  (dissoc item
+          ::weapons5e/finesse?
+          ::weapons5e/versatile?
+          ::weapons5e/reach?
+          ::weapons5e/two-handed?
+          ::weapons5e/thrown?
+          ::weapons5e/heavy?
+          ::weapons5e/light?
+          ::weapons5e/ammunition?
+          ::weapons5e/damage-die-count
+          ::weapons5e/damage-die
+          ::weapons5e/versatile
+          ::weapons5e/melee?
+          ::weapons5e/ranged?
+          ::weapons5e/type
+          ::weapons5e/range
+          ::weapons5e/damage-type))
+
+;; Apply a subtype toggle to an item. Initialises sane defaults when
+;; switching to :other (Custom) so the view doesn't need to dispatch
+;; defaults during render.
+(defn apply-subtype-toggle [item type]
+  (remove-custom-weapon-fields
+   (case type
+     :other (-> item
+                (assoc ::subtypes #{:other})
+                (assoc ::damage-die-count 1)
+                (assoc ::damage-die 4)
+                (assoc ::weapon-type :simple)
+                (assoc ::melee-ranged :melee))
+     :all (assoc item ::subtypes #{:all})
+     (update item
+             ::subtypes
+             (fn [s]
+               (let [clean (disj (or s #{}) :other :all)]
+                 (if (get clean type)
+                   (disj clean type)
+                   (conj clean type))))))))

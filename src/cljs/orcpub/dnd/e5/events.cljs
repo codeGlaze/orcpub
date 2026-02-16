@@ -3747,38 +3747,11 @@
                   ability-kw
                   value)))
 
-(defn remove-custom-weapon-fields [item]
-  (dissoc item
-          ::weapons/finesse?
-          ::weapons/versatile?
-          ::weapons/reach?
-          ::weapons/two-handed?
-          ::weapons/thrown?
-          ::weapons/heavy?
-          ::weapons/light?
-          ::weapons/ammunition?
-          ::weapons/damage-die-count
-          ::weapons/damage-die
-          ::weapons/versatile
-          ::weapons/melee?
-          ::weapons/ranged?
-          ::weapons/type
-          ::weapons/range
-          ::weapons/damage-type))
-
 (reg-event-db
  ::mi/toggle-subtype
  item-interceptors
  (fn [item [_ type]]
-   (remove-custom-weapon-fields
-    (case type
-      :other (assoc item ::mi/subtypes #{:other})
-      :all (assoc item ::mi/subtypes #{:all})
-      (update item
-              ::mi/subtypes
-              #(as-> % $
-                 (disj $ :other :all)
-                 (toggle-set type $)))))))
+   (mi/apply-subtype-toggle item type)))
 
 (reg-event-fx
  ::char5e/open-character

@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [testing deftest is]]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.character :as char]
+            [orcpub.dnd.e5.weapons :as weapons5e]
             [orcpub.modifiers :as mod]
             [orcpub.dnd.e5.modifiers :as mod5e]))
 
@@ -140,3 +141,66 @@
                 ::mi/type :armor
                 ::mi/item-subtype (constantly false)}]
       (is (thrown? IllegalArgumentException (mi/expand-armor item))))))
+
+(deftest test-remove-custom-weapon-fields
+  (testing "strips all weapon-specific keys"
+    (let [item {::mi/name "Test Weapon"
+                ::weapons5e/finesse? true
+                ::weapons5e/versatile? true
+                ::weapons5e/reach? false
+                ::weapons5e/two-handed? true
+                ::weapons5e/thrown? false
+                ::weapons5e/heavy? true
+                ::weapons5e/light? false
+                ::weapons5e/ammunition? false
+                ::weapons5e/damage-die-count 2
+                ::weapons5e/damage-die 6
+                ::weapons5e/versatile 8
+                ::weapons5e/melee? true
+                ::weapons5e/ranged? false
+                ::weapons5e/type :martial
+                ::weapons5e/range [20 60]
+                ::weapons5e/damage-type :slashing}
+          result (mi/remove-custom-weapon-fields item)]
+      (is (= {::mi/name "Test Weapon"} result))))
+  (testing "preserves item when no weapon keys present"
+    (let [item {::mi/name "Ring" ::mi/type :ring}
+          result (mi/remove-custom-weapon-fields item)]
+      (is (= item result)))))
+
+(deftest test-apply-subtype-toggle--custom
+  (testing ":other sets custom defaults and strips weapon fields"
+    (let [item {::mi/name "My Sword"
+                ::weapons5e/finesse? true}
+          result (mi/apply-subtype-toggle item :other)]
+      (is (= #{:other} (::mi/subtypes result)))
+      (is (= 1 (::mi/damage-die-count result)))
+      (is (= 4 (::mi/damage-die result)))
+      (is (= :simple (::mi/weapon-type result)))
+      (is (= :melee (::mi/melee-ranged result)))
+      (is (nil? (::weapons5e/finesse? result))
+          "base weapon keys should be stripped")))
+  (testing ":other is idempotent"
+    (let [item {}
+          r1 (mi/apply-subtype-toggle item :other)
+          r2 (mi/apply-subtype-toggle r1 :other)]
+      (is (= r1 r2)))))
+
+(deftest test-apply-subtype-toggle--all
+  (testing ":all sets subtypes to #{:all}"
+    (let [result (mi/apply-subtype-toggle {} :all)]
+      (is (= #{:all} (::mi/subtypes result))))))
+
+(deftest test-apply-subtype-toggle--named
+  (testing "adds a named subtype"
+    (let [result (mi/apply-subtype-toggle {} :sword)]
+      (is (= #{:sword} (::mi/subtypes result)))))
+  (testing "toggles off an existing subtype"
+    (let [item {::mi/subtypes #{:sword}}
+          result (mi/apply-subtype-toggle item :sword)]
+      (is (= #{} (::mi/subtypes result)))))
+  (testing "clears :other/:all when toggling a named subtype"
+    (let [item {::mi/subtypes #{:other}}
+          result (mi/apply-subtype-toggle item :sword)]
+      (is (= #{:sword} (::mi/subtypes result)))
+      (is (not (contains? (::mi/subtypes result) :other))))))
