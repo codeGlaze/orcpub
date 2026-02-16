@@ -153,6 +153,8 @@
                 ::weapons5e/heavy? true
                 ::weapons5e/light? false
                 ::weapons5e/ammunition? false
+                ::weapons5e/special? true
+                ::weapons5e/loading? true
                 ::weapons5e/damage-die-count 2
                 ::weapons5e/damage-die 6
                 ::weapons5e/versatile 8
@@ -174,10 +176,12 @@
                 ::weapons5e/finesse? true}
           result (mi/apply-subtype-toggle item :other)]
       (is (= #{:other} (::mi/subtypes result)))
-      (is (= 1 (::mi/damage-die-count result)))
-      (is (= 4 (::mi/damage-die result)))
-      (is (= :simple (::mi/weapon-type result)))
-      (is (= :melee (::mi/melee-ranged result)))
+      (is (= 1 (::weapons5e/damage-die-count result)))
+      (is (= 4 (::weapons5e/damage-die result)))
+      (is (= :simple (::weapons5e/type result)))
+      (is (= :bludgeoning (::weapons5e/damage-type result)))
+      (is (true? (::weapons5e/melee? result)))
+      (is (false? (::weapons5e/ranged? result)))
       (is (nil? (::weapons5e/finesse? result))
           "base weapon keys should be stripped")))
   (testing ":other is idempotent"
@@ -204,3 +208,54 @@
           result (mi/apply-subtype-toggle item :sword)]
       (is (= #{:sword} (::mi/subtypes result)))
       (is (not (contains? (::mi/subtypes result) :other))))))
+
+(deftest test-custom-weapon-round-trip
+  (testing "custom weapon defaults survive from-internal-item serialization"
+    (let [builder-item (-> {::mi/name "Test Blade"
+                            ::mi/type :weapon
+                            ::mi/rarity :uncommon}
+                           (mi/apply-subtype-toggle :other))
+          serialized (mi/from-internal-item builder-item)]
+      (is (= "Test Blade" (::mi/name serialized)))
+      (is (= :weapon (::mi/type serialized)))
+      (is (= :uncommon (::mi/rarity serialized)))
+      (is (= #{:other} (::mi/subtypes serialized)))
+      (is (= 1 (::weapons5e/damage-die-count serialized))
+          "damage die count must survive serialization")
+      (is (= 4 (::weapons5e/damage-die serialized))
+          "damage die must survive serialization")
+      (is (= :simple (::weapons5e/type serialized))
+          "weapon type must survive serialization")
+      (is (= :bludgeoning (::weapons5e/damage-type serialized))
+          "damage type must survive serialization")
+      (is (true? (::weapons5e/melee? serialized))
+          "melee flag must survive serialization")))
+  (testing "custom weapon with user overrides round-trips correctly"
+    (let [builder-item (-> {::mi/name "Fire Lance"
+                            ::mi/type :weapon
+                            ::mi/rarity :rare}
+                           (mi/apply-subtype-toggle :other)
+                           (assoc ::weapons5e/damage-die-count 2)
+                           (assoc ::weapons5e/damage-die 8)
+                           (assoc ::weapons5e/type :martial)
+                           (assoc ::weapons5e/damage-type :fire)
+                           (assoc ::weapons5e/melee? false)
+                           (assoc ::weapons5e/ranged? true))
+          serialized (mi/from-internal-item builder-item)]
+      (is (= 2 (::weapons5e/damage-die-count serialized)))
+      (is (= 8 (::weapons5e/damage-die serialized)))
+      (is (= :martial (::weapons5e/type serialized)))
+      (is (= :fire (::weapons5e/damage-type serialized)))
+      (is (true? (::weapons5e/ranged? serialized)))))
+  (testing "special and loading properties survive round-trip"
+    (let [builder-item (-> {::mi/name "Net Launcher"
+                            ::mi/type :weapon
+                            ::mi/rarity :common}
+                           (mi/apply-subtype-toggle :other)
+                           (assoc ::weapons5e/special? true)
+                           (assoc ::weapons5e/loading? true))
+          serialized (mi/from-internal-item builder-item)]
+      (is (true? (::weapons5e/special? serialized))
+          "special? must survive serialization")
+      (is (true? (::weapons5e/loading? serialized))
+          "loading? must survive serialization"))))

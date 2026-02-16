@@ -230,6 +230,7 @@
                     ::weapons5e/range
                     ::weapons5e/versatile
                     ::weapons5e/special?
+                    ::weapons5e/loading?
                     ::weapons5e/melee?
                     ::weapons5e/ranged?
                     ::weapons5e/heavy?
@@ -3161,6 +3162,8 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
           ::weapons5e/heavy?
           ::weapons5e/light?
           ::weapons5e/ammunition?
+          ::weapons5e/special?
+          ::weapons5e/loading?
           ::weapons5e/damage-die-count
           ::weapons5e/damage-die
           ::weapons5e/versatile
@@ -3174,19 +3177,24 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
 ;; switching to :other (Custom) so the view doesn't need to dispatch
 ;; defaults during render.
 (defn apply-subtype-toggle [item type]
-  (remove-custom-weapon-fields
-   (case type
-     :other (-> item
-                (assoc ::subtypes #{:other})
-                (assoc ::damage-die-count 1)
-                (assoc ::damage-die 4)
-                (assoc ::weapon-type :simple)
-                (assoc ::melee-ranged :melee))
-     :all (assoc item ::subtypes #{:all})
-     (update item
-             ::subtypes
-             (fn [s]
-               (let [clean (disj (or s #{}) :other :all)]
-                 (if (get clean type)
-                   (disj clean type)
-                   (conj clean type))))))))
+  (case type
+    :other (-> item
+               remove-custom-weapon-fields
+               (assoc ::subtypes #{:other})
+               (assoc ::weapons5e/damage-die-count 1)
+               (assoc ::weapons5e/damage-die 4)
+               (assoc ::weapons5e/type :simple)
+               (assoc ::weapons5e/damage-type :bludgeoning)
+               (assoc ::weapons5e/melee? true)
+               (assoc ::weapons5e/ranged? false))
+    :all (-> item
+             remove-custom-weapon-fields
+             (assoc ::subtypes #{:all}))
+    (-> item
+        remove-custom-weapon-fields
+        (update ::subtypes
+                (fn [s]
+                  (let [clean (disj (or s #{}) :other :all)]
+                    (if (get clean type)
+                      (disj clean type)
+                      (conj clean type))))))))
