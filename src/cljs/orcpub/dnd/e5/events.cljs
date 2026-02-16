@@ -3772,7 +3772,16 @@
  (fn [item [_ type]]
    (remove-custom-weapon-fields
     (case type
-      :other (assoc item ::mi/subtypes #{:other})
+      ;; When switching to Custom (:other), initialise weapon fields to sane
+      ;; defaults here in the event handler instead of during view render.
+      ;; Setting them during render caused the dropdowns to reset on every
+      ;; re-render, making user selection impossible.
+      :other (-> item
+                 (assoc ::mi/subtypes #{:other})
+                 (assoc ::mi/damage-die-count 1)
+                 (assoc ::mi/damage-die 4)
+                 (assoc ::mi/weapon-type :simple)
+                 (assoc ::mi/melee-ranged :melee))
       :all (assoc item ::mi/subtypes #{:all})
       (update item
               ::mi/subtypes

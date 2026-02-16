@@ -3844,13 +3844,6 @@
             )
             )))])]]
      (when other?
-       ;;;batch-set multiple default values
-       (doseq [evt [[::mi/set-item-damage-die-count 1]
-                    [::mi/set-item-damage-die       4]
-                    [::mi/set-item-weapon-type      :simple]
-                    [::mi/set-item-melee-ranged     :melee]]
-               ]
-         (dispatch evt))
        [:div.main-text-color.m-b-10.m-t-10
         [:span.f-s-18.f-w-b "Base Weapon Details"]
         [:div.flex.flex-wrap.m-t-10
