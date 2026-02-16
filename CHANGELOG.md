@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [2026-02-16] - Fixed
+
+### Magic Item Builder — Custom Weapon Defaults
+- Fixed `apply-subtype-toggle` writing defaults to `::mi/` namespace keys instead of `::weapons5e/` keys, causing custom weapon properties (damage die, type, melee/ranged, damage type) to be silently dropped during serialization
+- Fixed `remove-custom-weapon-fields` wrapping the entire case expression, stripping defaults even for the `:other` (Custom) path
+- Added `::weapons5e/damage-type` default (`:bludgeoning`) when toggling to Custom
+
+### Magic Item Builder — Save Without Reload
+- Fixed `item-save-success` to update `::mi/custom-items` in app-db so saved items appear in the item list immediately without a page reload
+
+## [2026-02-16] - Added
+
+### Weapon Properties — Special and Loading (#276)
+- Added "Special?" checkbox to custom weapon builder (UI, event, subscription; schema and serialization already existed)
+- Added "Loading?" property end-to-end: DB schema, serialization, subscription, event handler, UI checkbox
+- Tagged existing weapons with `::loading? true` per 5e PHB: crossbow (light, hand, heavy), blowgun, firearm (hand, long)
+- Added round-trip serialization tests verifying custom weapon properties survive the `apply-subtype-toggle` → `from-internal-item` pipeline
+
+---
+
 ## [2026-01-11] - Updated
 
 ### Java Version Isolation for clojure-mcp

@@ -220,4 +220,53 @@ Create `.vscode/tasks.json`:
 
 ---
 
+### 5. **Local Testing via nREPL**
+
+Once the backend is running (Datomic + `lein repl` + `(start-server)`), you can interact with the live system via the nREPL on port 7888.
+
+#### Create a Test User
+
+```clojure
+;; Connect: lein repl :connect 7888
+(require '[datomic.api :as d])
+(require '[buddy.hashers :as hashers])
+(let [conn (->> @user/-server :conn :conn)]
+  (d/transact conn [{:orcpub.user/email "test@test.com"
+                     :orcpub.user/username "testuser"
+                     :orcpub.user/password (hashers/encrypt "testpass123")
+                     :orcpub.user/verified? true
+                     :orcpub.user/created (java.util.Date.)}]))
+```
+
+This bypasses email verification. The user can log in immediately at `http://localhost:8890`.
+
+#### Verify a User (if registered via UI)
+
+```clojure
+;; In the REPL (user namespace is auto-loaded):
+(verify-new-user "testuser")  ;; or email address
+```
+
+#### Query Custom Magic Items
+
+```clojure
+(let [conn (->> @user/-server :conn :conn)
+      db (d/db conn)]
+  (d/q '[:find [(pull ?e [*]) ...]
+         :where [?e :orcpub.dnd.e5.magic-items/name _]]
+       db))
+```
+
+#### Query All Users
+
+```clojure
+(let [conn (->> @user/-server :conn :conn)
+      db (d/db conn)]
+  (d/q '[:find [(pull ?e [:orcpub.user/username :orcpub.user/email :orcpub.user/verified?]) ...]
+         :where [?e :orcpub.user/username _]]
+       db))
+```
+
+---
+
 **Refer back to AGENTS.md for troubleshooting and onboarding steps.**
