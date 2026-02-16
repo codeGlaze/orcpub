@@ -1106,6 +1106,18 @@
    (get item ::weapon5e/ammunition?)))
 
 (reg-sub
+ ::mi5e/item-special?
+ :<- [::mi5e/builder-item]
+ (fn [item _]
+   (get item ::weapon5e/special?)))
+
+(reg-sub
+ ::mi5e/item-loading?
+ :<- [::mi5e/builder-item]
+ (fn [item _]
+   (get item ::weapon5e/loading?)))
+
+(reg-sub
  ::mi5e/item-versatile?
  :<- [::mi5e/builder-item]
  (fn [item _]

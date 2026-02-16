@@ -3870,7 +3870,13 @@
           [labeled-checkbox "Light?" @(subscribe [::mi/item-light?])]]
          [:div.m-l-10
           {:on-click (make-event-handler ::mi/toggle-item-ammunition?)}
-          [labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?])]]]
+          [labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?])]]
+         [:div.m-l-10
+          {:on-click (make-event-handler ::mi/toggle-item-special?)}
+          [labeled-checkbox "Special?" @(subscribe [::mi/item-special?])]]
+         [:div.m-l-10
+          {:on-click (make-event-handler ::mi/toggle-item-loading?)}
+          [labeled-checkbox "Loading?" @(subscribe [::mi/item-loading?])]]]
         [:div.flex.flex-wrap
          [:div.m-t-10
           [labeled-dropdown
