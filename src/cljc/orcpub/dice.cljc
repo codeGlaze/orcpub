@@ -31,7 +31,7 @@
 (def dice-regex #"(\d+)?d(\d+)\s?([+-])?\s?(\d+)?")
 
 (defn parse-int [s]
-  (if s
+  (when s
     #?(:cljs (js/parseInt s))
     #?(:clj (Integer/valueOf s))))
 

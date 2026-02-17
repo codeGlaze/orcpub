@@ -6,7 +6,7 @@
 (def dot-char "•")
 
 (defn- name-to-kw-aux [name ns]
-  (if (string? name)
+  (when (string? name)
     (as-> name $
         (s/lower-case $)
         (s/replace $ #"'" "")
@@ -20,7 +20,7 @@
   (memoized-name-to-kw name ns))
 
 (defn kw-to-name [kw & [capitalize?]]
-  (if (keyword? kw)
+  (when (keyword? kw)
     (as-> kw $
       (name $)
       (s/split $ #"\-")
@@ -41,7 +41,7 @@
        (time ~body)))
 
 (defn bonus-str [val]
-  (str (if (pos? val) "+") val))
+  (str (when (pos? val) "+") val))
 
 (defn mod-str [val]
   (cond (pos? val) (str "+" val)
@@ -63,7 +63,7 @@
       2 (s/join (str " " preceding-last " ") list)
       (str
        (s/join ", " (butlast list))
-       (str ", " preceding-last " ")
+       ", " preceding-last " "
        (last list)))))
 
 (defn round-up [num]
@@ -79,7 +79,7 @@
     (warn (str "non-keyword value passed to safe-name: " kw))))
 
 (defn safe-capitalize [s]
-  (if (string? s) (s/capitalize s)))
+  (when (string? s) (s/capitalize s)))
 
 (defn safe-capitalize-kw [kw]
   (some-> kw
@@ -87,11 +87,11 @@
           safe-capitalize))
 
 (defn sentensize [desc]
-  (if desc
+  (when desc
     (str
      (s/upper-case (subs desc 0 1))
      (subs desc 1)
-     (if (not (s/ends-with? desc "."))
+     (when (not (s/ends-with? desc "."))
        "."))))
 
 (def add-keys-xform
@@ -143,7 +143,7 @@
   (vec
    (keep-indexed
     (fn [i item]
-      (if (not= i index)
+      (when (not= i index)
         item))
     v)))
 
@@ -179,18 +179,11 @@
 
 ;; Case Insensitive `sort-by`
 (defn aloof-sort-by [sorter coll]
-  (sort-by (fn [x]
-             (let [v (sorter x)]
-               (cond
-                 (string? v) (s/lower-case v)
-                 (nil? v) ""
-                 :else (s/lower-case (str v)))))
-           coll)
+  (sort-by (comp s/lower-case sorter) coll)
   )
 
 (defn ->kebab-case [s]
-  (when (string? s)
-    (-> s
-        ;; Insert hyphen before each capital letter, but not at the start.
-        (s/replace #"([A-Z])" "-$1")
-        (s/lower-case))))
+  (-> s
+      ;; Insert hyphen before each capital letter, but not at the start.
+      (s/replace #"([A-Z])" "-$1")
+      .toLowerCase))

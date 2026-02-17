@@ -1,11 +1,21 @@
 (ns user
   (:require [clojure.java.io :as io]
             [com.stuartsierra.component :as component]
-            [figwheel-sidecar.repl-api :as f]
             [datomic.api :as datomic]
             [orcpub.routes :as r]
             [orcpub.system :as s]
-            [orcpub.db.schema :as schema]))
+            [orcpub.db.schema :as schema]
+            [orcpub.config :as config]))
+
+;; Lazy-load figwheel-main only when needed (avoids loading it for server-only REPL)
+(def ^:private fig-api
+  (delay
+    (try
+      (require 'figwheel.main.api)
+      (find-ns 'figwheel.main.api)
+      (catch Exception e
+        (println "figwheel.main.api not available:" (.getMessage e))
+        nil))))
 
 (alter-var-root #'*print-length* (constantly 50))
 
@@ -72,11 +82,15 @@
 
 (defn init-database
   ([]
-   (init-database :free))
+   (init-database nil))
   ([mode]
-   (when-not (contains? #{:free :dev :mem} mode)
-     (throw (IllegalArgumentException. (str "Unknown db type " mode))))
-   (let [db-uri (str "datomic" mode "://localhost:4334/orcpub")]
+   (let [env-uri (config/datomic-env)
+         db-uri (if (some-> env-uri not-empty)
+                  env-uri
+                  (let [m (or mode :dev)]
+                    (when-not (contains? #{:free :dev :mem} m)
+                      (throw (IllegalArgumentException. (str "Unknown db type " m))))
+                    (str "datomic" m "://localhost:4334/orcpub")))]
      (datomic/create-database db-uri)
      (let [conn (datomic/connect db-uri)]
        (datomic/transact conn schema/all-schemas)))))
@@ -106,25 +120,22 @@
 
 (defn fig-start
   "This starts the figwheel server and watch based auto-compiler.
+  Uses figwheel-main 0.2.20 with dev.cljs.edn build config.
 
   Afterwards, call (cljs-repl) to connect."
   ([]
    (fig-start "dev"))
   ([build-id]
-   ;; this call will only work as long as your :cljsbuild and
-   ;; :figwheel configurations are at the top level of your project.clj
-   ;; and are not spread across different lein profiles
-
-   ;; otherwise you can pass a configuration into start-figwheel! manually
-   (f/start-figwheel!
-     {:figwheel-options {}
-      :build-ids [build-id]
-      :all-builds (get-cljs-build build-id)})))
+   (if-let [api @fig-api]
+     ((ns-resolve api 'start) build-id)
+     (println "figwheel-main not available. Run 'lein fig:dev' instead."))))
 
 (defn fig-stop
   "Stop the figwheel server and watch based auto-compiler."
   []
-  (f/stop-figwheel!))
+  (if-let [api @fig-api]
+    ((ns-resolve api 'stop-all))
+    (println "figwheel-main not available.")))
 
 ;; if you are in an nREPL environment you will need to make sure you
 ;; have setup piggieback for this to work
@@ -132,5 +143,19 @@
   "Launch a ClojureScript REPL that is connected to your build and host environment.
 
   (NB: Call fig-start first.)"
+  ([]
+   (cljs-repl "dev"))
+  ([build-id]
+   (if-let [api @fig-api]
+     ((ns-resolve api 'cljs-repl) build-id)
+     (println "figwheel-main not available."))))
+
+(defn add-test-user
+  "Creates a test user for development, already marked as verified. Only runs if ORCPUB_ENV=dev."
   []
-  (f/cljs-repl))
+  (if (= (System/getenv "ORCPUB_ENV") "dev")
+    (let [username "test"
+          email "test@example.com"
+          password "testpass"]
+      (r/register {:username username :email email :password password :verified true}))
+    (println "add-test-user is disabled outside dev environment.")))

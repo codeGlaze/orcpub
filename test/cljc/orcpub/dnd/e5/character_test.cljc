@@ -23,7 +23,7 @@
 
 (defspec non-negative-speeds-are-valid
   100
-  (prop/for-all [speed gen/int]
+  (prop/for-all [speed gen/small-integer]
                 (let [updated-char (assoc valid-char ::char5e/speed speed)]
                   (= (not (neg? speed))
                      (spec/valid? ::char5e/character updated-char)))))

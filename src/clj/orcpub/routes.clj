@@ -6,6 +6,7 @@
             [ring.middleware.resource :as ring-resource]
             [ring.util.response :as ring-resp]
             [io.pedestal.http.body-params :as body-params]
+            [io.pedestal.interceptor :as interceptor]
             [io.pedestal.interceptor.error :as error-int]
             [io.pedestal.interceptor.chain :refer [terminate]]
             #_[com.stuartsierra.component :as component]
@@ -16,8 +17,7 @@
             [buddy.auth.middleware :refer [authentication-request]]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clj-time.core :as t :refer [hours from-now ago]]
-            [clj-time.coerce :as tc :refer [from-date]]
+            [orcpub.time :as time :refer [hours ago from-now instant before?]]
             [clojure.string :as s]
             [clojure.spec.alpha :as spec]
             [clojure.pprint]
@@ -47,7 +47,15 @@
             [ring.middleware.head :as head]
             [ring.util.codec :as codec]
             [ring.util.request :as req])
-  (:import (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
+  ;; PDFBox 3.x: Use Loader class instead of PDDocument.load() static method
+  ;; OLD (2.x): (PDDocument/load input-stream)
+  ;; NEW (3.x): (Loader/loadPDF input-stream)
+  ;; 
+  ;; Import syntax notes for Clojure newcomers:
+  ;;   - (org.apache.pdfbox.pdmodel PDDocument PDPage) imports multiple classes from one package
+  ;;   - org.apache.pdfbox.Loader imports a single class (no parens needed)
+  (:import (org.apache.pdfbox.pdmodel PDPage PDPageContentStream)
+           org.apache.pdfbox.Loader
            (java.io ByteArrayOutputStream ByteArrayInputStream))
   (:gen-class))
 
@@ -122,15 +130,16 @@
       (assoc :response {:status status :body {:message message}})))
 
 (def check-auth
-  {:name :check-auth
-   :enter (fn [context]
-            (let [request (:request context)
-                  updated-request (authentication-request request backend)
-                  username (get-in updated-request [:identity :user])]
-              (if (and (:identity updated-request)
-                       username)
-                (assoc context :request (assoc updated-request :username username))
-                (terminate-request context 401 "Unauthorized"))))})
+  (interceptor/interceptor
+   {:name :check-auth
+    :enter (fn [context]
+             (let [request (:request context)
+                   updated-request (authentication-request request backend)
+                   username (get-in updated-request [:identity :user])]
+               (if (and (:identity updated-request)
+                        username)
+                 (assoc context :request (assoc updated-request :username username))
+                 (terminate-request context 401 "Unauthorized"))))}))
 
 (defn party-owner [db id]
   (d/q '[:find ?owner .
@@ -142,31 +151,33 @@
 (def id-path [:request :path-params :id])
 
 (def parse-id
-  {:name :parse-id
-   :enter (fn [context]
-            (let [id-str (get-in context id-path)]
-              (if (and id-str (re-matches #"\d+" id-str))
-                (assoc-in context
-                          id-path
-                          (Long/parseLong id-str))
-                (terminate-request context 400 "Bad ID"))))})
+  (interceptor/interceptor
+   {:name :parse-id
+    :enter (fn [context]
+             (let [id-str (get-in context id-path)]
+               (if (and id-str (re-matches #"\d+" id-str))
+                 (assoc-in context
+                           id-path
+                           (Long/parseLong id-str))
+                 (terminate-request context 400 "Bad ID"))))}))
 
 
 (def check-party-owner
-  {:name :check-party-owner
-   :enter (fn [context]
-            (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
-                  party-owner (party-owner db id)]
-              (if (= (:user identity) party-owner)
-                context
-                (terminate-request context 401 "You don't own this party"))))})
+  (interceptor/interceptor
+   {:name :check-party-owner
+    :enter (fn [context]
+             (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
+                   party-owner (party-owner db id)]
+               (if (= (:user identity) party-owner)
+                 context
+                 (terminate-request context 401 "You don't own this party"))))}))
 
 (defn redirect [route-key]
   (ring-resp/redirect (route-map/path-for route-key)))
 
 
 (defn verification-expired? [verification-sent]
-  (t/before? (from-date verification-sent) (-> 24 hours ago)))
+  (before? (instant verification-sent) (-> 24 hours ago)))
 
 (defn login-error [error-key & [data]]
   {:status 401 :body (merge
@@ -265,9 +276,9 @@
 
 (defn register [{:keys [json-params db conn] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
-        username (if username (s/trim username))
-        email (if email (s/lower-case (s/trim email)))
-        password (if password (s/trim password))
+        username (when username (s/trim username))
+        email (when email (s/lower-case (s/trim email)))
+        password (when password (s/trim password))
         validation (registration/validate-registration
                     json-params
                     (seq (d/q email-query db email))
@@ -354,10 +365,10 @@
     {:status 200}))
 
 (defn password-reset-expired? [password-reset-sent]
-  (and password-reset-sent (t/before? (tc/from-date password-reset-sent) (-> 24 hours ago))))
+  (and password-reset-sent (before? (instant password-reset-sent) (-> 24 hours ago))))
 
 (defn password-already-reset? [password-reset password-reset-sent]
-  (and password-reset (t/before? (tc/from-date password-reset-sent) (tc/from-date password-reset))))
+  (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
 
 (defn send-password-reset [{:keys [query-params db conn scheme headers] :as request}]
   (try
@@ -477,27 +488,28 @@
         chrome? (re-matches #".*Chrome.*" user-agent)
         filename (str player-name " - " character-name " - " class-level ".pdf")]
         
-    (with-open [doc (PDDocument/load input)]
+    ;; PDFBox 3.x: Loader/loadPDF replaces the deprecated PDDocument/load
+    (with-open [doc (Loader/loadPDF input)]
       (pdf/write-fields! doc fields (not chrome?) font-sizes)
-      (if (and print-spell-cards? (seq spells-known))
+      (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod?))
 
-      (if (and image-url
-               (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
-               (not image-url-failed))
+      (when (and image-url
+                 (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
+                 (not image-url-failed))
         (case print-character-sheet-style?
           1 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
           2 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
           3 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
           4 (pdf/draw-image! doc (pdf/get-page doc 0) image-url 0.50 0.85 2.35 3.15)))
-      (if (and faction-image-url
-               (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
-               (not faction-image-url-failed))
+      (when (and faction-image-url
+                 (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
+                 (not faction-image-url-failed))
         (case print-character-sheet-style?
           1 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)
           2 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)
           3 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.0 1.905 1.52)
-          4 ()))
+          4 nil))
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
@@ -527,7 +539,7 @@
 (defn default-image-url [host]
   (str "http://" host "/image/dmv-box-logo.png"))
 
-(defn index-page-response [{:keys [headers uri] :as request}
+(defn index-page-response [{:keys [headers uri csp-nonce] :as request}
                            {:keys [title description image-url]}
                            & [response]]
   (let [host (headers "host")]
@@ -540,7 +552,8 @@
        {:url (str "http://" host uri)
         :title (or title default-title)
         :description (or description default-description)
-        :image (or image-url (default-image-url host))}
+        :image (or image-url (default-image-url host))
+        :nonce csp-nonce}
        (= "/" uri))})))
 
 (defn default-index-page [request & [response]]
@@ -858,7 +871,8 @@
       {:status 200 :body character})))
 
 (defn character-summary-for-id [db id]
-  {:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id))
+  (let [{:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id)]
+    summary))
 
 (defn get-character [{:keys [db] {:keys [:id]} :path-params}]
   (let [parsed-id (Long/parseLong id)]
@@ -882,9 +896,9 @@
 (defn character-summary-description [{:keys [::char5e/race-name ::char5e/subrace-name ::char5e/classes]}]
   (str race-name
        " "
-       (if subrace-name (str "(" subrace-name ") "))
+       (when subrace-name (str "(" subrace-name ") "))
        " "
-       (if (seq classes)
+       (when (seq classes)
          (s/join
           " / "
           (map

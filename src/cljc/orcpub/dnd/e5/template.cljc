@@ -66,7 +66,7 @@
    Only used for `ability-icons` -- see body of function below."
   [k size theme]
   (let [light-theme? (= "light-theme" theme)]
-    [:img {:class-name (str "h-" size " w-" size (if light-theme? " opacity-7"))
+    [:img {:class-name (str "h-" size " w-" size (when light-theme? " opacity-7"))
            :src (str (if light-theme? "/image/black/" "/image/") (ability-icons k) ".svg")}]))
 
 (defn ability-modifier [v]
@@ -142,11 +142,11 @@
             [ability-component k v i app-state
              [:div.f-s-16
               [:i.fa.fa-minus-circle.orange
-               {:class-name (if decrease-disabled? "opacity-5 cursor-disabled")
-                :on-click (fn [_] (if (not decrease-disabled?) (set-ability! app-state k (dec v))))}]
+               {:class-name (when decrease-disabled? "opacity-5 cursor-disabled")
+                :on-click (fn [_] (when (not decrease-disabled?) (set-ability! app-state k (dec v))))}]
               [:i.fa.fa-plus-circle.orange.m-l-5
-               {:class-name (if increase-disabled? "opacity-5 cursor-disabled")
-                :on-click (fn [_] (if (not increase-disabled?) (set-ability! app-state k (inc v))))}]]]))
+               {:class-name (when increase-disabled? "opacity-5 cursor-disabled")
+                :on-click (fn [_] (when (not increase-disabled?) (set-ability! app-state k (inc v))))}]]]))
         abilities-vec))]]))
 
 (declare template-selections)
@@ -1268,7 +1268,7 @@
                   (t/option-cfg
                    {:name name
                     :key key
-                    :help (if (or description
+                    :help (when (or description
                                   page)
                             (inventory-help description page source))
                     :modifiers [(modifier-fn key item)]})))

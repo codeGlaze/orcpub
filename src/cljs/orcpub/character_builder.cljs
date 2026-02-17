@@ -1900,7 +1900,7 @@
 (def patreon-link-props
   {:href "https://www.patreon.com/user?u=5892323" :target "_blank"})
 
-#_  (defn al-legality []
+(defn al-legality []
   (let [expanded? (r/atom false)]
     (fn [al-illegal-reasons used-resources]
       (let [num-resources (count (set (map :resource-key used-resources)))
@@ -2017,8 +2017,8 @@
         mobile? @(subscribe [:mobile?])
         all-selections (entity/available-selections character built-char built-template)
         selection-validation-messages (validate-selections built-template character all-selections)
-        ;al-illegal-reasons (concat @(subscribe [::char5e/al-illegal-reasons])
-        ;                           selection-validation-messages)
+        al-illegal-reasons (concat @(subscribe [::char5e/al-illegal-reasons])
+                                   selection-validation-messages)
         used-resources @(subscribe [::char5e/used-resources])
         loading @(subscribe [:loading])
         locked-components @(subscribe [:locked-components])
@@ -2076,8 +2076,8 @@
       [:div.container
        [:div.content
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
-         [:div]
-          ;[al-legality al-illegal-reasons used-resources]]
+         [:div
+          [al-legality al-illegal-reasons used-resources]]
          [:div.flex
           [theme-toggle]
           (if character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c

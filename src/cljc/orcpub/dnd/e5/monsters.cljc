@@ -16,10 +16,10 @@
 
 (defn monster-subheader
   ([size type subtypes alignment]
-   (str (if size (common/safe-capitalize-kw size))
+   (str (when size (common/safe-capitalize-kw size))
         " "
         (common/kw-to-name type)
-        (if (seq subtypes)
+        (when (seq subtypes)
           (str " (" (s/join ", " (map common/kw-to-name subtypes)) ")"))
         ", "
         alignment))
