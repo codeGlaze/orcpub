@@ -45,3 +45,6 @@ e2e/**/screenshots/
 e2e/e2e/
 temp/debug.console.txt
 .integration-workflow-state
+
+# Claude Code local data (conversation history, credentials)
+.claude-data/

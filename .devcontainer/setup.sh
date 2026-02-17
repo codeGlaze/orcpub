@@ -11,6 +11,32 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "  OrcPub Devcontainer Setup"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
+# --- Claude Code data persistence ---
+# Store Claude Code data (conversation history, settings, etc.) in the workspace
+# so it survives codespace rebuilds
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+CLAUDE_WORKSPACE_DATA="$REPO_ROOT/.claude-data"
+CLAUDE_HOME_DIR="$HOME/.claude"
+
+if [ ! -d "$CLAUDE_WORKSPACE_DATA" ]; then
+  echo "[setup] Creating Claude Code data directory at $CLAUDE_WORKSPACE_DATA"
+  mkdir -p "$CLAUDE_WORKSPACE_DATA"
+fi
+
+# If ~/.claude exists and is not a symlink, migrate existing data
+if [ -d "$CLAUDE_HOME_DIR" ] && [ ! -L "$CLAUDE_HOME_DIR" ]; then
+  echo "[setup] Migrating existing Claude Code data to workspace..."
+  cp -rn "$CLAUDE_HOME_DIR"/* "$CLAUDE_WORKSPACE_DATA/" 2>/dev/null || true
+  rm -rf "$CLAUDE_HOME_DIR"
+fi
+
+# Create symlink from ~/.claude to workspace location
+if [ ! -L "$CLAUDE_HOME_DIR" ]; then
+  echo "[setup] Creating symlink: $CLAUDE_HOME_DIR -> $CLAUDE_WORKSPACE_DATA"
+  ln -sf "$CLAUDE_WORKSPACE_DATA" "$CLAUDE_HOME_DIR"
+fi
+# --- End Claude Code data persistence ---
+
 # Install Java 17 for clojure-mcp compatibility (OrcPub uses Java 8)
 echo "[1/5] Installing Java 17 (for clojure-mcp)..."
 sudo apt-get update
