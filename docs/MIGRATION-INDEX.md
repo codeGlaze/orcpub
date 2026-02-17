@@ -11,7 +11,7 @@ This branch (`breaking/2026-stack-modernization`) upgrades the full OrcPub stack
 | Web framework | Pedestal 0.5.1 → 0.7.0 | [migration/pedestal-0.7.md](migration/pedestal-0.7.md) |
 | Frontend | React 15 / Reagent 0.6 → React 18 / Reagent 2.0 | [migration/frontend-stack.md](migration/frontend-stack.md) |
 | Libraries | clj-time, PDFBox 2, Buddy 1, etc. | [migration/library-upgrades.md](migration/library-upgrades.md) |
-| Dev tooling | lein-figwheel → figwheel-main, user.clj, scripts | [migration/dev-tooling.md](migration/dev-tooling.md) |
+| Dev tooling | Consolidated CLI + REPL into user.clj, profiles, scripts | [migration/dev-tooling.md](migration/dev-tooling.md) |
 | Environment | `.env` pattern, new variables | [ENVIRONMENT.md](ENVIRONMENT.md) |
 
 ## Why One Branch
