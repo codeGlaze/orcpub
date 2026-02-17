@@ -44,6 +44,7 @@ dev/test-accounts.edn
 
 # Clojure CLI cache
 .cpcache
+cljs-test-runner-out
 
 # As created by some LSP-protocol tooling, e.g. nvim-lsp
 .lsp
