@@ -162,3 +162,36 @@ npx playwright install chromium
 ### "Console errors in report but tests pass"
 
 Tests only fail on JavaScript errors by default. Warnings are captured but don't fail tests. Review the `agent-report.json` for full details.
+
+## Theme Screenshot Testing
+
+### How Theme Testing Works
+
+The theme toggle is on the character builder page (`/pages/dnd/5e/character-builder`). It shows "Theme: <name> ▾" and clicking it cycles through all themes.
+
+```typescript
+// Navigate once, then click to cycle
+await page.goto('/pages/dnd/5e/character-builder');
+await waitForAppReady(page);
+
+// Click "Theme:" text to cycle to next theme
+await page.getByText('Theme:').click();
+```
+
+### Disabling re-frame-10x
+
+The re-frame-10x devtools panel can interfere with screenshots. Use the `dev-clean` profile:
+
+```bash
+# Build JS without 10x panel
+lein with-profile dev-clean cljsbuild once dev
+
+# Then start server
+PORT=8890 lein run
+```
+
+**Note:** `lein run` serves pre-compiled JS. The 10x panel is baked into the JS build, not the server.
+
+### Screenshot Location
+
+Screenshots are saved to `e2e/screenshots/`.
