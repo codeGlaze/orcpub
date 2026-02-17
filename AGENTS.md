@@ -113,6 +113,44 @@ Before adding any dependency, tool, or MCP server:
 3. **Test the installation command** if possible before committing to config files
 4. **Don't trust hallucinated research** - subagent responses can contain fabricated information
 
+### Dev Server Startup: nREPL ≠ Web Server
+
+**Mistake made:** Started `lein repl` (nREPL on port 7888) and assumed the web server was running. The app server on port 8890 was never started.
+
+**Root cause:** `menu.sh` lists "Start Clojure REPL" as step 2 without mentioning that `(start-server)` must be called inside the REPL. The nREPL is just a protocol endpoint — the Pedestal/Jetty web server is a separate component.
+
+**Additional pitfall:** Running `lein repl` in a non-interactive background shell causes it to exit immediately. Use `lein repl :headless :port 7888` instead.
+
+**Correct startup sequence (back to front):**
+
+1. **Datomic Transactor** (port 4334):
+   ```bash
+   lib/datomic-free-0.9.5703/bin/transactor lib/datomic-free-0.9.5703/config/working-transactor.properties &
+   ```
+2. **Headless nREPL** (port 7888):
+   ```bash
+   lein repl :headless :port 7888 &
+   ```
+3. **App Server** (port 8890) — connect to nREPL and call `start-server`:
+   ```bash
+   echo '(start-server)' | lein repl :connect 7888
+   ```
+4. **Figwheel** (port 3449):
+   ```bash
+   lein figwheel &
+   ```
+
+**Verify all four ports:**
+```bash
+ss -tlnp | grep -E '4334|7888|8890|3449'
+```
+
+**Key files:**
+- `src/clj/orcpub/system.clj` — port 8890 defined in `dev-service-map-overrides`
+- `dev/user.clj` — `start-server`, `stop-server`, `verify-new-user`
+
+---
+
 ### Configuration Debugging
 
 When a configuration fails:
