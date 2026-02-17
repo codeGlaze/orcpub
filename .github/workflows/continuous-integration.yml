@@ -77,10 +77,18 @@ jobs:
           mkdir -p ~/.m2/repository/org/
           cp -rv ./lib/* ~/.m2/repository
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
       - name: Install Leiningen
         uses: DeLaGuardo/setup-clojure@12.5
         with:
           lein: '2.9.10'
 
-      - name: Run tests
+      - name: Run CLJ tests
         run: lein test
+
+      - name: Run CLJS tests
+        run: lein doo node test once
