@@ -4106,13 +4106,6 @@
             )
             )))])]]
      (when other?
-       ;;;batch-set multiple default values
-       (doseq [evt [[::mi/set-item-damage-die-count 1]
-                    [::mi/set-item-damage-die       4]
-                    [::mi/set-item-weapon-type      :simple]
-                    [::mi/set-item-melee-ranged     :melee]]
-               ]
-         (dispatch evt))
        [:div.main-text-color.m-b-10.m-t-10
         [:span.f-s-18.f-w-b "Base Weapon Details"]
         [:div.flex.flex-wrap.m-t-10
@@ -4139,7 +4132,13 @@
           [labeled-checkbox "Light?" @(subscribe [::mi/item-light?])]]
          [:div.m-l-10
           {:on-click (make-event-handler ::mi/toggle-item-ammunition?)}
-          [labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?])]]]
+          [labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?])]]
+         [:div.m-l-10
+          {:on-click (make-event-handler ::mi/toggle-item-special?)}
+          [labeled-checkbox "Special?" @(subscribe [::mi/item-special?])]]
+         [:div.m-l-10
+          {:on-click (make-event-handler ::mi/toggle-item-loading?)}
+          [labeled-checkbox "Loading?" @(subscribe [::mi/item-loading?])]]]
         [:div.flex.flex-wrap
          [:div.m-t-10
           [labeled-dropdown

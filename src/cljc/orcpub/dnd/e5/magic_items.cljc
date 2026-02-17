@@ -230,6 +230,7 @@
                     ::weapons5e/range
                     ::weapons5e/versatile
                     ::weapons5e/special?
+                    ::weapons5e/loading?
                     ::weapons5e/melee?
                     ::weapons5e/ranged?
                     ::weapons5e/heavy?
@@ -2950,7 +2951,9 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
    weapons5e/ammunition))
 
 (defn add-key [item]
-  (assoc item :key (common/name-to-kw (name-key item))))
+  (assoc item
+         :key (common/name-to-kw (name-key item))
+         :name (name-key item)))
 
 (def weapon-subtypes
   #{:axe :sword :staff})
@@ -3149,3 +3152,51 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
 
 (defn equipped-armor-details [armor]
   (equipped-items-details armor all-armor-map))
+
+;; Strip base-weapon detail keys that only apply to custom (:other) weapons.
+(defn remove-custom-weapon-fields [item]
+  (dissoc item
+          ::weapons5e/finesse?
+          ::weapons5e/versatile?
+          ::weapons5e/reach?
+          ::weapons5e/two-handed?
+          ::weapons5e/thrown?
+          ::weapons5e/heavy?
+          ::weapons5e/light?
+          ::weapons5e/ammunition?
+          ::weapons5e/special?
+          ::weapons5e/loading?
+          ::weapons5e/damage-die-count
+          ::weapons5e/damage-die
+          ::weapons5e/versatile
+          ::weapons5e/melee?
+          ::weapons5e/ranged?
+          ::weapons5e/type
+          ::weapons5e/range
+          ::weapons5e/damage-type))
+
+;; Apply a subtype toggle to an item. Initialises sane defaults when
+;; switching to :other (Custom) so the view doesn't need to dispatch
+;; defaults during render.
+(defn apply-subtype-toggle [item type]
+  (case type
+    :other (-> item
+               remove-custom-weapon-fields
+               (assoc ::subtypes #{:other})
+               (assoc ::weapons5e/damage-die-count 1)
+               (assoc ::weapons5e/damage-die 4)
+               (assoc ::weapons5e/type :simple)
+               (assoc ::weapons5e/damage-type :bludgeoning)
+               (assoc ::weapons5e/melee? true)
+               (assoc ::weapons5e/ranged? false))
+    :all (-> item
+             remove-custom-weapon-fields
+             (assoc ::subtypes #{:all}))
+    (-> item
+        remove-custom-weapon-fields
+        (update ::subtypes
+                (fn [s]
+                  (let [clean (disj (or s #{}) :other :all)]
+                    (if (get clean type)
+                      (disj clean type)
+                      (conj clean type))))))))

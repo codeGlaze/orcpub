@@ -378,6 +378,7 @@
    (map
     bool-prop-no-history
     [::weapon5e/special?
+     ::weapon5e/loading?
      ::weapon5e/melee?
      ::weapon5e/ranged?
      ::weapon5e/heavy?
