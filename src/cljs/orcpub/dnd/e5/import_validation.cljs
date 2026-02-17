@@ -407,7 +407,7 @@
   "Converts a spec problem into a human-readable error message."
   [{:keys [path pred val via in]}]
   (let [location (if (seq in)
-                   (str "at " (str/join " > " (map name in)))
+                   (str "at " (str/join " > " (map str in)))
                    "at root")]
     (str "  • " location ": "
          (cond
@@ -443,9 +443,13 @@
     {:success true :data <parsed-data>} on success
     {:success false :error <error-msg> :line <line-number>} on failure"
   [edn-text]
-  (try
-    (let [result (reader/read-string edn-text)]
-      {:success true :data result})
+  (if (str/blank? edn-text)
+    {:success false
+     :error "Empty input"
+     :hint "The file is empty or contains only whitespace"}
+    (try
+      (let [result (reader/read-string edn-text)]
+        {:success true :data result})
     (catch js/Error e
       (let [msg (.-message e)
             line-match (re-find #"line (\d+)" msg)
@@ -464,7 +468,7 @@
                  "File contains invalid characters or syntax"
 
                  :else
-                 "Check the file syntax and ensure it's valid EDN format")}))))
+                 "Check the file syntax and ensure it's valid EDN format")})))))
 
 ;; ============================================================================
 ;; Progressive Validation

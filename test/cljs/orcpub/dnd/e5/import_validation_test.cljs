@@ -1,5 +1,6 @@
 (ns orcpub.dnd.e5.import-validation-test
   (:require [cljs.test :refer-macros [deftest testing is]]
+            [cljs.reader :refer [read-string]]
             [orcpub.dnd.e5.import-validation :as import-val]
             [orcpub.dnd.e5 :as e5]
             [cljs.spec.alpha :as spec]))
@@ -12,10 +13,12 @@
   "{:orcpub.dnd.e5/spells
     {:fireball {:option-pack \"My Homebrew\"
                 :name \"Fireball\"
-                :level 3}
+                :level 3
+                :school \"evocation\"}
      :lightning-bolt {:option-pack \"My Homebrew\"
                       :name \"Lightning Bolt\"
-                      :level 3}}}")
+                      :level 3
+                      :school \"evocation\"}}}")
 
 (def invalid-plugin-edn-parse-error
   "{:orcpub.dnd.e5/spells
