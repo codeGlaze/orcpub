@@ -264,9 +264,11 @@
              :lint         {:dependencies [[clj-kondo "2024.05.22"]]
                             :clj-kondo {:linters {:shadowed-fn-param {:level :off}
                                                   :shadowed-var {:level :off}}}}
-             ;; Minimal profile for init-db - no ClojureScript, no Garden
-             ;; Use: lein with-profile init-db run -m orcpub.dev-init
-             :init-db      {:source-paths ["src/clj" "src/cljc"]
+             ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden
+             ;; Use: lein with-profile init-db run -m user <command>
+             ;; dev/ is included so user.clj is on the classpath.
+             ;; This does NOT affect production — uberjar uses :uberjar profile only.
+             :init-db      {:source-paths ["src/clj" "src/cljc" "dev"]
                             :prep-tasks   ^:replace []}
              ;; Use like: lein with-profile +start-server repl
              :start-server {:repl-options {:init-ns user

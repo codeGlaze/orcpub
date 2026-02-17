@@ -484,9 +484,10 @@ init_database() {
     fi
 
     cd "$REPO_ROOT"
-    # Use init-db profile to skip ClojureScript/Garden compilation
-    # This only loads src/clj and src/cljc - much faster
-    if lein with-profile init-db run -m orcpub.dev-init; then
+    # Use init-db profile to skip ClojureScript/Garden compilation.
+    # This loads src/clj, src/cljc, and dev/ — much faster than a full dev build.
+    # The CLI entrypoint is dev/user.clj -main, which dispatches by command name.
+    if lein with-profile init-db run -m user init-db; then
         log_info "Database initialized successfully"
     else
         log_error "Database initialization failed"

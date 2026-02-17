@@ -50,11 +50,11 @@ fi
 echo "Running lein deps..."
 lein deps
 
-# Run idempotent DB initialization via dev-init main
+# Run idempotent DB initialization via dev/user.clj CLI entrypoint
 echo "Initializing database (idempotent)..."
 # Only attempt DB init if Datomic is reachable on the expected port
 if timeout 1 bash -c '</dev/tcp/localhost/4334' >/dev/null 2>&1; then
-  if lein run -m orcpub.dev-init; then
+  if lein with-profile init-db run -m user init-db; then
     echo "DB init succeeded."
   else
     echo "DB init failed but continuing (non-fatal)." >&2
