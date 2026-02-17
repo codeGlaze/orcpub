@@ -1,0 +1,66 @@
+# Pedestal CSP History — Agent Knowledge Base
+
+## Timeline
+
+### Pedestal 0.5.1 (original project version)
+- Zero CSP support. No `::http/secure-headers` feature.
+- Inline scripts, `document.write()`, and `unsafe-eval` all work freely.
+
+### Pedestal 0.7.0 (upgrade target)
+- Adds `::http/secure-headers` to `http/default-interceptors`
+- Default CSP includes `strict-dynamic` in the `script-src` directive
+- This is a **breaking change** that wasn't prominently documented
+
+### CSP Level 3 Browser Behavior
+In all modern browsers (Chrome 76+, Firefox 68+, Safari 15.4+):
+- `strict-dynamic` causes the browser to **ignore** `unsafe-inline` and `unsafe-eval`
+- Only scripts with a matching nonce or hash will execute
+- This means Figwheel's `document.write()` for hot-reload script injection gets blocked
+- Any `<script>` tags without nonces get blocked
+
+### Why This Was Confusing
+1. UPGRADE_PLAN.md presented CSP as an optional security feature the agent "added proactively"
+2. In reality, Pedestal 0.7 injects CSP by default — not adding CSP handling would break the app
+3. The `strict-dynamic` interaction with `unsafe-inline` is a CSP Level 3 behavior, not a Pedestal behavior
+4. The fix (nonce-based CSP) is the standard solution for `strict-dynamic` compatibility
+
+## Implementation Decision
+
+### Why Nonces (Not Static Hashes)
+- Script content changes per deployment (CLJS compilation output differs)
+- Figwheel injects scripts dynamically at runtime — can't pre-hash
+- Nonces are per-request (128-bit cryptographic, base64-encoded)
+- `strict-dynamic` + nonce is the CSP Level 3 recommended pattern
+
+### Dev Mode Strategy
+- **Dev**: Uses `Content-Security-Policy-Report-Only` header
+  - Violations logged to browser console but scripts NOT blocked
+  - Figwheel's `document.write()` still works
+  - Developers see CSP violations early
+- **Prod**: Uses `Content-Security-Policy` header (enforcing)
+  - Scripts without nonces are blocked
+  - Real XSS protection
+
+### Configuration via CSP_POLICY env var
+- `strict` (default): nonce-based with `strict-dynamic`
+- `permissive`: `unsafe-inline` + `unsafe-eval` (no nonces, legacy fallback)
+- `none`: CSP disabled entirely
+
+## Files
+
+| File | Role |
+|------|------|
+| `src/clj/orcpub/csp.clj` | `generate-nonce`, `build-csp-header` |
+| `src/clj/orcpub/config.clj` | `get-csp-policy`, `strict-csp?`, `get-secure-headers-config` |
+| `src/clj/orcpub/pedestal.clj` | `make-nonce-interceptor`, `nonce-interceptor` |
+| `src/clj/orcpub/system.clj` | `::http/secure-headers (config/get-secure-headers-config)` |
+| `.env.example` | `CSP_POLICY=strict` |
+
+## Corrections to UPGRADE_PLAN.md
+
+The original UPGRADE_PLAN.md contains these inaccuracies:
+1. CSP presented as optional/proactive — it is **required** by Pedestal 0.7
+2. Figwheel port claimed to be 9500 — it has always been **3449**
+3. CSP section implied the agent "added CSP" — Pedestal adds it by default, the agent added nonce handling to make it work
+
+These corrections are noted here for future agents working with the original UPGRADE_PLAN.md.
