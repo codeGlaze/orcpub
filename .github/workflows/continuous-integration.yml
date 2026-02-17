@@ -21,11 +21,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 8
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8'
+          java-version: '21'
 
       - name: Set up Clojure (Leiningen)
         uses: DeLaGuardo/setup-clojure@12.5
