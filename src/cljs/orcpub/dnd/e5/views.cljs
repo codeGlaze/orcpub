@@ -2420,7 +2420,7 @@
    [:div.p-10.flex.flex-column.align-items-c
     (section-header-2 title icon)
     [:div.f-s-24.f-w-b
-     {:class (csk/->kebab-case title)}
+     {:class (orcpub.common/->kebab-case title)}
      (if (boolean show-button)
        (roll-button
         (str title " check: ")

@@ -179,5 +179,18 @@
 
 ;; Case Insensitive `sort-by`
 (defn aloof-sort-by [sorter coll]
-  (sort-by (comp s/lower-case sorter) coll)
+  (sort-by (fn [x]
+             (let [v (sorter x)]
+               (cond
+                 (string? v) (s/lower-case v)
+                 (nil? v) ""
+                 :else (s/lower-case (str v)))))
+           coll)
   )
+
+(defn ->kebab-case [s]
+  (when (string? s)
+    (-> s
+        ;; Insert hyphen before each capital letter, but not at the start.
+        (s/replace #"([A-Z])" "-$1")
+        (s/lower-case))))

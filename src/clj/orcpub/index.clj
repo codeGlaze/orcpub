@@ -161,7 +161,7 @@ html {
 
       [:script
        "const protocol = window.location.protocol;
-        const apiUrl = `${protocol}://${window.location.host}`;
+        const apiUrl = `${protocol}//${window.location.host}`;
         const pluginUrl = `${apiUrl}/homebrew.orcbrew`;
         
         let plugins = localStorage.getItem('plugins');
