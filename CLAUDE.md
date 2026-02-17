@@ -1,10 +1,7 @@
-# Claude Code Instructions for OrcPub
+@AGENTS.md
+@BRANCH.md
 
-## Project Overview
-OrcPub is a D&D 5e character builder written in ClojureScript (frontend) and Clojure (backend), using:
-- **Frontend**: Reagent + Re-frame (ClojureScript/React)
-- **Backend**: Pedestal (REST framework) + Datomic (database)
-- **Build**: Leiningen + Figwheel (hot reload)
+## Claude-Specific Settings
 
 ## E2E Testing
 
