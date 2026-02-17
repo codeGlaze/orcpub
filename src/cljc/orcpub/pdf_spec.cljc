@@ -158,7 +158,8 @@
 (def coin-keys [:cp :sp :ep :gp :pp])
 
 (defn equipment-fields [built-char]
-  (let [equipment (es/entity-val built-char :equipment)
+  (let [equipment-map (merge mi5e/all-equipment-map @(subscribe [::mi5e/all-magic-items-map]))
+        equipment (es/entity-val built-char :equipment)
         armor (es/entity-val built-char :armor)
         magic-armor (es/entity-val built-char :magic-armor)
         magic-items (es/entity-val built-char :magic-items)
@@ -188,8 +189,8 @@
                    (map
                    (fn [[kw {count ::char-equip5e/quantity}]]
                      (if (> count 1)
-                       (str (disp5e/equipment-name mi5e/all-equipment-map kw) " x" count )
-                       (str (disp5e/equipment-name mi5e/all-equipment-map kw))
+                       (str (disp5e/equipment-name equipment-map kw) " x" count )
+                       (str (disp5e/equipment-name equipment-map kw))
                        )
                      )
                    (filter
@@ -199,7 +200,7 @@
                   "\n"
                   (map
                    (fn [[kw {count ::char-equip5e/quantity}]]
-                     (str (disp5e/equipment-name mi5e/all-equipment-map kw) " (" count ")"))
+                     (str (disp5e/equipment-name equipment-map kw) " (" count ")"))
                    (merge
                     (apply dissoc treasure coin-keys)
                     unequipped-items)))})))

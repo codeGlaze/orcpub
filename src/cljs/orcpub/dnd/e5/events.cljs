@@ -440,8 +440,14 @@
  :item-save-success
  (fn [{:keys [db]} [_ response]]
    (let [strict-item (:body response)
-         item (mi/to-internal-item strict-item)]
-     {:dispatch-n [[:show-message "Your item has been saved."]
+         item (mi/to-internal-item strict-item)
+         item-id (:db/id strict-item)
+         existing-items (::mi/custom-items db)
+         updated-items (if (some #(= item-id (:db/id %)) existing-items)
+                         (mapv #(if (= item-id (:db/id %)) strict-item %) existing-items)
+                         (conj (vec existing-items) strict-item))]
+     {:db (assoc db ::mi/custom-items updated-items)
+      :dispatch-n [[:show-message "Your item has been saved."]
                    [::mi/set-item item]]})))
 
 (reg-event-fx
@@ -3073,6 +3079,18 @@
    (update item ::weapons/ammunition? not)))
 
 (reg-event-db
+ ::mi/toggle-item-special?
+ item-interceptors
+ (fn [item _]
+   (update item ::weapons/special? not)))
+
+(reg-event-db
+ ::mi/toggle-item-loading?
+ item-interceptors
+ (fn [item _]
+   (update item ::weapons/loading? not)))
+
+(reg-event-db
  ::mi/toggle-item-versatile?
  item-interceptors
  (fn [item _]
@@ -3747,38 +3765,11 @@
                   ability-kw
                   value)))
 
-(defn remove-custom-weapon-fields [item]
-  (dissoc item
-          ::weapons/finesse?
-          ::weapons/versatile?
-          ::weapons/reach?
-          ::weapons/two-handed?
-          ::weapons/thrown?
-          ::weapons/heavy?
-          ::weapons/light?
-          ::weapons/ammunition?
-          ::weapons/damage-die-count
-          ::weapons/damage-die
-          ::weapons/versatile
-          ::weapons/melee?
-          ::weapons/ranged?
-          ::weapons/type
-          ::weapons/range
-          ::weapons/damage-type))
-
 (reg-event-db
  ::mi/toggle-subtype
  item-interceptors
  (fn [item [_ type]]
-   (remove-custom-weapon-fields
-    (case type
-      :other (assoc item ::mi/subtypes #{:other})
-      :all (assoc item ::mi/subtypes #{:all})
-      (update item
-              ::mi/subtypes
-              #(as-> % $
-                 (disj $ :other :all)
-                 (toggle-set type $)))))))
+   (mi/apply-subtype-toggle item type)))
 
 (reg-event-fx
  ::char5e/open-character
