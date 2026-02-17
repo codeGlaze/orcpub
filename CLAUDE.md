@@ -6,11 +6,6 @@ OrcPub is a D&D 5e character builder written in ClojureScript (frontend) and Clo
 - **Backend**: Pedestal (REST framework) + Datomic (database)
 - **Build**: Leiningen + Figwheel (hot reload)
 
-## Attribution Policy
-
-**Do not add** `Co-Authored-By: Claude` or `Generated with Claude Code` lines to commits or PR descriptions.
-If Claude Code ignores this setting, add the local hook described in SETUP.md.
-
 ## E2E Testing
 
 ### Running Tests
@@ -86,6 +81,14 @@ lein garden once
 
 # Watch CSS for changes (standalone)
 lein garden auto
+
+# Build JS without re-frame-10x panel (for cleaner screenshots/E2E)
+# The re-frame-10x panel is baked into the JS build, not the server
+# Use this when you need clean UI for visual testing
+lein with-profile dev-clean figwheel
+# Or just build once:
+lein with-profile dev-clean cljsbuild once dev
+# Then start server normally: PORT=8890 lein run
 ```
 
 ### CSS (Garden) Compilation
@@ -97,13 +100,14 @@ Styles are written in Clojure using Garden (`src/clj/orcpub/styles/`). To recomp
 ```
 src/clj/orcpub/styles/
 ├── core.clj      # Base styles, layout, utilities (~1400 lines)
-├── themes.clj    # Theme definitions (light, nord variants)
-└── colors.clj    # Color palettes (Nord, core app colors)
+├── themes.clj    # Theme definitions (11 themes, ~1000 lines)
+└── colors.clj    # Color palettes (Nord, Midnight, Forest, Crimson, etc.)
 ```
 
-- **Adding a theme**: Define in `themes.clj`, add to `all-themes` vector
+- **Adding a theme**: Define in `themes.clj`, add to `all-themes` vector, update cycle in `events.cljs`
 - **CSS variables**: Used for theme-aware values (e.g., `--header-icon-color`)
 - **Themes use concat**: Each theme is a vector of rules, concatenated into `app`
+- **Theme backgrounds**: Can layer SVG patterns with gradients using `background-image`
 
 ## Code Locations
 
@@ -143,21 +147,9 @@ Git hooks automatically enforce branch rules:
 | Branch | Allowed Files | Blocked |
 |--------|---------------|---------|
 | `develop` | N/A | Direct pushes (use PR) |
-| `testing/develop` | `e2e/*`, `.devcontainer/*`, `.github/*` | Source code |
-| `agents/develop` | `*.md`, `.claude/*`, `docs/*` | Source code, tests |
+| `testing/develop` | `e2e/*`, `.devcontainer/*`, `test/*`, `.github/*`, `scripts/*`, `.githooks/*`, `.gitignore`, `Dockerfile*`, `docker-compose*`, `*.sh` | Source code |
+| `agents/develop` | `*.md`, `.claude/*`, `agents/*`, `docs/*`, `scripts/git/*`, `.githooks/*` | Source code, tests |
 | `feature/*` | Everything | Nothing |
-
-### For Agents: Branch Configuration
-
-**On session start**, read `.claude/branch-config` to know where to route source code:
-
-```bash
-# .claude/branch-config
-FEATURE_BRANCH=claude/add-color-themes-gyRhI   # Route src/* here
-INTEGRATION_BRANCH=integrate/themes-nordic      # You work here
-```
-
-If this file doesn't exist, ask the user which branch to use for source code PRs.
 
 ### For Agents: Starting a Feature
 
@@ -171,18 +163,16 @@ Use the dual-branch workflow to keep your PR clean:
 
 You work in `integrate/my-feature` (has CLAUDE.md, agent tooling). Code commits get routed to `feature/my-feature` (clean, for PR).
 
-**Branch type prefixes**: `feature/`, `fix/`, `bugfix/`, `hotfix/`, `patch/`, `enhancement/`, `claude/`
+**Branch type prefixes**: `feature/`, `fix/`, `bugfix/`, `hotfix/`, `patch/`, `enhancement/`
 
 ### For Agents: During Development
 
 1. **Hooks protect you automatically** - Wrong files get blocked with clear fix instructions
 
-2. **Check `.claude/branch-config`** for the feature branch name
-
-3. **Route code commits to the feature branch**:
+2. **Route code commits to the clean branch**:
    ```bash
-   ./scripts/git/route-commit.sh HEAD claude/add-color-themes-gyRhI
-   # Or use the branch name from branch-config
+   ./scripts/git/route-commit.sh HEAD my-feature
+   # Cherry-picks to feature/my-feature
    ```
 
 3. **If blocked**, follow the error message guidance:
@@ -190,41 +180,13 @@ You work in `integrate/my-feature` (has CLAUDE.md, agent tooling). Code commits 
    - Route to correct branch: `./scripts/git/route-commit.sh HEAD <target>`
    - Switch worktrees: `cd ../orcpub-<target>`
 
-### For Agents: Cherry-Pick Gotchas
+### For Agents: Creating the PR
 
-**Cherry-pick conflict semantics are counterintuitive:**
-- `--ours` = branch you're ON (target branch HEAD)
-- `--theirs` = commit being cherry-picked (incoming changes)
-
-This is **opposite** of merge semantics!
-
-**When feature branch is messy** (many old commits, wrong files):
-Don't cherry-pick. Instead, reset to clean state and copy files:
-```bash
-git checkout feature-branch
-git reset --hard origin/develop
-git checkout integration-branch -- src/ dev/ project.clj
-git commit -m "Feature description"
-git push --force origin feature-branch
-```
-
-### For Agents: Preparing for PR
-
-PRs are **manually created by the user** as the final step. Agents should:
-
-1. **Prepare the feature branch** (clean commits, force-pushed if needed)
-2. **Provide the compare URL** for convenience
-3. **Do NOT auto-create PRs** via `gh pr create`
-
-When ready, ensure the feature branch is pushed:
+When ready, your `feature/my-feature` branch is already clean:
 ```bash
 git checkout feature/my-feature
 git push -u origin feature/my-feature
-```
-
-Then provide the user with:
-```
-PR URL when ready: https://github.com/<org>/<repo>/compare/develop...<feature-branch>
+gh pr create --base develop
 ```
 
 ### For Agents: Pulling Updates
@@ -251,12 +213,29 @@ See `scripts/git/README.md` for full documentation.
 
 ## Theming System
 
-### Available Themes
+### Available Themes (11 total)
+- `dark-theme` - Default dark mode (calm, good for night use)
+- `nord-theme` - Nord dark palette (calm Nordic)
+- `midnight-theme` - Deep blue midnight
+- `forest-theme` - Forest green with dot pattern texture
+- `slate-theme` - Cool gray slate
+- `crimson-theme` - Deep red/burgundy
 - `light-theme` - Basic light mode
-- `nord-theme` - Nord dark palette
-- `nord-light-theme` - Nord light palette
-- `nord-theme-elevated` - Nord dark with shadows/depth
-- `nord-light-theme-elevated` - Nord light with modern card design
+- `light-plus-theme` - Enhanced light with better contrast
+- `sunset-theme` - Warm sunset colors
+- `arctic-aurora-theme` - Teal/cyan aurora colors
+- `parchment-theme` - Warm parchment/paper aesthetic
+
+### Theme Toggle
+The theme toggle is on the character builder page header. It shows "Theme: \<name\> ▾" and clicking cycles through all themes.
+
+**Key files:**
+- Toggle component: `src/cljs/orcpub/character_builder.cljs` (`theme-toggle` fn)
+- Theme cycle logic: `src/cljs/orcpub/dnd/e5/events.cljs` (`:cycle-theme` event)
+- Theme spec: `src/cljs/orcpub/dnd/e5/db.cljs` (`:theme` spec)
+- Toggle styling: `src/clj/orcpub/styles/core.clj` (`.theme-toggle` rule)
+
+**Styling approach:** Uses `currentColor` for borders so it works on both light and dark themes without hardcoded colors.
 
 ### SVG Icon System
 Icons use CSS mask technique for theme-aware coloring:
@@ -306,3 +285,36 @@ Icons use CSS variables for theme customization:
    - RIGHT: `:WebkitMaskImage` (React renders as `-webkit-mask-image`)
    - The CLJC `style` function in `views_2.cljc` converts camelCase back to CSS format for server rendering.
 5. **Header elements need `!important`** - Theme rules like `.app.theme .main-text-color` have 3-class specificity. Header overrides in `core.clj` use `!important` to ensure header icons/logo/text stay light regardless of theme.
+6. **Button gradient fix**: Never use `background-image: none` - it cancels out `background` shorthand gradients. Always use `background-image` directly with the gradient value.
+7. **Breaking up heavy solid colors**: Use SVG data URI patterns in `background-image` layered with gradients. Example from Forest theme:
+   ```clojure
+   {:background-image "url(\"data:image/svg+xml,...\"), linear-gradient(...)"}
+   ```
+8. **Theme toggle visibility**: Use `currentColor` for borders instead of hardcoded colors so it works on both light and dark themes.
+
+### Playwright Theme Screenshots
+
+**How to test themes visually:**
+```bash
+# Build JS without re-frame-10x panel (cleaner screenshots)
+lein with-profile dev-clean cljsbuild once dev
+
+# Start server
+PORT=8890 lein run
+
+# Run theme screenshot test
+cd e2e && npm test -- --grep "Theme Screenshots"
+```
+
+**What DOESN'T work:**
+- Setting localStorage before navigation (theme loads from re-frame db, not localStorage)
+- Using EDN format in localStorage (it's a webpage, everything is JavaScript)
+
+**What DOES work:**
+- Navigate to `/pages/dnd/5e/character-builder`
+- Click the "Theme:" text to cycle through themes
+- Take screenshot after each click
+
+Screenshots are saved to `e2e/screenshots/` with format `01-dark-theme.png`, `02-nord-theme.png`, etc.
+
+See `e2e/scenarios/theme-screenshots.spec.ts` for the working implementation.

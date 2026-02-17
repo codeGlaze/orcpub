@@ -637,3 +637,165 @@ Than 6 variations of the same color family.
 - `src/cljs/orcpub/dnd/e5/db.cljs` - Theme spec
 - `src/cljs/orcpub/dnd/e5/events.cljs` - Theme cycle
 - `src/cljs/orcpub/dnd/e5/views.cljs` - Icon decoupling, light-theme? detection
+
+---
+
+## Theme Refinement & Visual Polish (Session 6)
+
+### User Feedback: "Early 00s MySpace"
+Initial bold theme implementations were too garish - heavy solid colors, hard edges, flat buttons. User wanted:
+- **Subtle gradients** instead of flat colors
+- **Restrained accents** - not every element needs to pop
+- **Visual depth** through shadows and transparency
+- **Texture** to break up heavy solid backgrounds
+
+### Themes Expanded to 11
+
+| Theme | Type | Character |
+|-------|------|-----------|
+| `dark-theme` | Dark | Default dark, calm for night use |
+| `nord-theme` | Dark | Calm Nordic palette |
+| `midnight-theme` | Dark | Deep blue twilight |
+| `forest-theme` | Dark | Woodland green with texture |
+| `slate-theme` | Dark | Professional gray, purple/cyan accents |
+| `crimson-theme` | Dark | Rich burgundy and gold |
+| `light-theme` | Light | Basic light mode |
+| `light-plus-theme` | Light | Enhanced contrast, blue accents |
+| `sunset-theme` | Light | Warm beach colors |
+| `arctic-aurora-theme` | Light | Teal/cyan aurora aesthetic |
+| `parchment-theme` | Light | Warm paper/parchment feel |
+
+### Button Gradient Bug Fix
+
+**Problem**: Buttons showed flat colors instead of gradients
+**Cause**: Using `background` shorthand then `background-image: none` later
+
+```clojure
+;; WRONG - cancels the gradient!
+{:background "linear-gradient(...)"}
+;; Later in cascade or pseudo:
+{:background-image :none}  ; ← This wipes out the gradient!
+
+;; RIGHT - use background-image directly
+{:background-image "linear-gradient(135deg, #color1 0%, #color2 100%)"}
+;; No background-image: none anywhere
+```
+
+### Theme Toggle Visibility Fix
+
+**Problem**: Toggle borders invisible on light themes (rgba white borders on light bg)
+**Solution**: Use `currentColor` which inherits from text color
+
+```clojure
+[:.theme-toggle
+ {:padding "4px 10px"
+  :border-radius "4px"
+  :border "1px solid currentColor"  ; ← Adapts to any theme
+  :opacity 0.6
+  :transition "all 0.15s ease"}
+ [:&:hover
+  {:opacity 1
+   :background "rgba(128, 128, 128, 0.12)"}]]
+```
+
+### SVG Pattern Texture for Forest Theme
+
+**Problem**: Forest theme's dark green background felt "heavy" and bland
+**Solution**: Layer an SVG dot pattern with the gradient using data URI
+
+```clojure
+{:background-image "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Cg fill='%235a8a5a' fill-opacity='0.4'%3E%3Ccircle cx='5' cy='5' r='3'/%3E%3Ccircle cx='25' cy='25' r='3'/%3E%3Ccircle cx='35' cy='10' r='2'/%3E%3Ccircle cx='10' cy='30' r='2'/%3E%3C/g%3E%3C/svg%3E\"), linear-gradient(180deg, #2D2810 0%, #1F2810 15%, #182418 35%, #142014 60%, #0F1F0F 100%)"
+ :background-attachment "fixed"}
+```
+
+Key points:
+- SVG pattern is FIRST in the `background-image` list (renders on top)
+- Gradient is SECOND (renders behind pattern)
+- `background-attachment: fixed` keeps pattern stable during scroll
+- Use `fill-opacity` in SVG for subtle texture
+
+### Playwright Theme Screenshot Testing
+
+**What DOESN'T Work**:
+- Setting localStorage before navigation (theme loads from re-frame db, not localStorage)
+- Using EDN format in localStorage (it's a webpage, everything is JavaScript)
+
+**What DOES Work**:
+1. Navigate to `/pages/dnd/5e/character-builder`
+2. Click the "Theme:" text to cycle through themes
+3. Take screenshot after each click
+
+```typescript
+// Navigate once, then click to cycle
+await page.goto('/pages/dnd/5e/character-builder');
+await waitForAppReady(page);
+
+for (let i = 0; i < THEMES.length; i++) {
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `screenshots/${theme}.png` });
+  if (i < THEMES.length - 1) {
+    await page.getByText('Theme:').click();  // Cycles to next theme
+  }
+}
+```
+
+**Disabling re-frame-10x for Clean Screenshots**:
+```bash
+# Build JS without 10x panel
+lein with-profile dev-clean cljsbuild once dev
+
+# Start server (serves pre-compiled JS)
+PORT=8890 lein run
+
+# Run tests
+cd e2e && npm test -- --grep "Theme Screenshots"
+```
+
+### Theme Design Principles Refined
+
+1. **Subtle gradients** - Multi-stop gradients with soft transitions, not flat colors
+2. **Restrained accents** - Accent colors for interactive elements only, not backgrounds
+3. **Transparency** - Use rgba() for borders and overlays instead of solid colors
+4. **Hover = brightness** - Show interactivity through brightness/glow, not color change
+5. **Texture for dark themes** - SVG patterns prevent "wall of color" feeling
+6. **Consistent transitions** - `transition: all 0.2s ease` for smooth state changes
+
+### Files Modified (Session 6)
+
+| File | Change |
+|------|--------|
+| `src/clj/orcpub/styles/themes.clj` | Added 6 new themes, refined existing |
+| `src/clj/orcpub/styles/colors.clj` | New palettes (forest, slate, crimson, arctic, parchment) |
+| `src/clj/orcpub/styles/core.clj` | Theme toggle styling with currentColor |
+| `src/cljs/orcpub/dnd/e5/events.cljs` | Extended theme cycle to 11 themes |
+| `src/cljs/orcpub/dnd/e5/db.cljs` | Theme spec updated |
+| `e2e/scenarios/theme-screenshots.spec.ts` | New test file |
+| `e2e/README.md` | Theme testing documentation |
+| `CLAUDE.md` | Comprehensive theming documentation |
+| `project.clj` | Added `dev-clean` profile |
+
+### New Theme Gotchas
+
+6. **Button gradient fix**: Never use `background-image: none` - it cancels out `background` shorthand gradients. Always use `background-image` directly with the gradient value.
+
+7. **Breaking up heavy solid colors**: Use SVG data URI patterns in `background-image` layered with gradients.
+
+8. **Theme toggle visibility**: Use `currentColor` for borders instead of hardcoded colors so it works on both light and dark themes.
+
+---
+
+## Current Theme Inventory (Updated)
+
+| Theme | Palette | Character | Best For |
+|-------|---------|-----------|----------|
+| `dark-theme` | Original | Calm dark default | Night use |
+| `nord-theme` | Nord | Calm Nordic dark | Eye comfort (dark) |
+| `midnight-theme` | Midnight | Deep twilight blue | Atmospheric |
+| `forest-theme` | Forest | Woodland green + texture | Nature lovers |
+| `slate-theme` | Slate | Modern gray + purple | Professional |
+| `crimson-theme` | Crimson | Burgundy + gold | Dramatic fantasy |
+| `light-theme` | Basic | Plain light | Baseline light |
+| `light-plus-theme` | Enhanced | Blue accents | Modern light |
+| `sunset-theme` | Sunset Beach | Warm coral + teal | Cozy reading |
+| `arctic-aurora-theme` | Arctic | Teal/cyan aurora | Cool bright |
+| `parchment-theme` | Parchment | Warm paper aesthetic | Fantasy document |
