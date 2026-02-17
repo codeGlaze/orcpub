@@ -2951,7 +2951,9 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
    weapons5e/ammunition))
 
 (defn add-key [item]
-  (assoc item :key (common/name-to-kw (name-key item))))
+  (assoc item
+         :key (common/name-to-kw (name-key item))
+         :name (name-key item)))
 
 (def weapon-subtypes
   #{:axe :sword :staff})
