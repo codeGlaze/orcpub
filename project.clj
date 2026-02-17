@@ -76,6 +76,7 @@
             [lein-environ "1.1.0"]
             [lein-cljfmt "0.6.8"]
             [lein-kibit "0.1.8"]
+            [lein-doo "0.1.11"]
             #_[lein-resource "16.9.1"]]
 
   :source-paths ["src/clj" "src/cljc" "src/cljs"]
@@ -124,7 +125,14 @@
                                :pretty-print         true
                                :closure-defines      {goog.DEBUG true}
                                :optimizations        :none
-                               }}}}
+                               }}
+               :test
+               {:source-paths ["src/cljc" "src/cljs" "test/cljs"]
+                :compiler     {:output-to     "target/test/test.js"
+                               :output-dir    "target/test/out"
+                               :main          orcpub.test-runner
+                               :target        :nodejs
+                               :optimizations :none}}}}
 
   :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
              ;; :server-port 3449 ;; default
