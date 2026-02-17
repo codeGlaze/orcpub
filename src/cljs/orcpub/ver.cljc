@@ -1,5 +1,5 @@
 (ns orcpub.ver)
 ; To be updated by build server
-(defn version [] "v2.5.0.28")
-(defn date [] "09-07-2025")
-(defn description []  "Assault of the Last Stand edition")
+(defn version [] "v2.5.0.29")
+(defn date [] "02-17-2026")
+(defn description []  "The Raving Badlands")
