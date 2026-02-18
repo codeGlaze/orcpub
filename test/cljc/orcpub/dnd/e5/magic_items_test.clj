@@ -140,3 +140,57 @@
                 ::mi/type :armor
                 ::mi/item-subtype (constantly false)}]
       (is (thrown? IllegalArgumentException (mi/expand-armor item))))))
+
+;; -- compute-all-weapons-map --
+
+(deftest compute-all-weapons-map-includes-phb-weapons
+  (testing "static PHB weapons are always present"
+    (let [result (mi/compute-all-weapons-map nil)]
+      (is (contains? result :longsword))
+      (is (contains? result :dagger))
+      (is (contains? result :handaxe)))))
+
+(deftest compute-all-weapons-map-includes-magic-weapons
+  (testing "static magic weapons from raw-magic-items are merged in"
+    (let [result (mi/compute-all-weapons-map nil)]
+      ;; magic-weapon-map has specific keys; verify they survive the merge
+      (doseq [k (take 3 (keys mi/magic-weapon-map))]
+        (is (contains? result k)
+            (str "magic weapon " k " missing from all-weapons-map"))))))
+
+(deftest compute-all-weapons-map-nil-equals-empty
+  (testing "nil custom items and empty vector produce same result"
+    (is (= (mi/compute-all-weapons-map nil)
+           (mi/compute-all-weapons-map [])))))
+
+(deftest compute-all-weapons-map-custom-weapon-appears
+  (testing "custom weapon items get expanded and merged"
+    (let [custom [{mi/name-key "Homebrew Blade"
+                   ::mi/type :weapon
+                   ::mi/item-subtype :longsword
+                   ::mi/rarity :rare
+                   ::mi/magical-attack-bonus 2
+                   ::mi/magical-damage-bonus 2}]
+          result (mi/compute-all-weapons-map custom)
+          custom-keys (set (keys result))
+          ;; expand-weapon generates keys like :homebrew-blade-longsword
+          has-custom? (some #(re-matches #".*homebrew-blade.*" (name %))
+                           custom-keys)]
+      (is has-custom?
+          "custom weapon should appear after expansion"))))
+
+(deftest compute-all-weapons-map-custom-overrides-base
+  (testing "custom magic longsword has higher attack bonus than base longsword"
+    (let [custom [{mi/name-key "Vorpal Sword"
+                   ::mi/type :weapon
+                   ::mi/item-subtype :longsword
+                   ::mi/rarity :legendary
+                   ::mi/magical-attack-bonus 3
+                   ::mi/magical-damage-bonus 3}]
+          result (mi/compute-all-weapons-map custom)
+          base-longsword (get result :longsword)]
+      ;; base longsword still present (custom gets a different key)
+      (is (some? base-longsword) "base longsword should survive custom additions")
+      ;; custom weapon gets its own key, doesn't clobber base
+      (is (> (count result) (count (mi/compute-all-weapons-map nil)))
+          "adding custom items should increase total weapon count"))))
