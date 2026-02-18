@@ -1744,8 +1744,11 @@
   {:max-height "100px"
    :max-width "200px"})
 
-(defn set-random-name []
-  (dispatch [::char5e/set-random-name]))
+(defn set-random-name
+  "Dispatch random name generation. Passes built-char so the handler can
+   extract race/subrace/sex without subscribing outside reactive context."
+  [built-char]
+  (dispatch [::char5e/set-random-name built-char]))
 
 (defn set-image-url [v]
   (dispatch [:set-image-url v]))
@@ -1766,6 +1769,7 @@
 
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
+        built-char @(subscribe [:built-character])
         image-url @(subscribe [::char5e/image-url])
         image-url-failed @(subscribe [::char5e/image-url-failed])
         faction-image-url @(subscribe [::char5e/faction-image-url])
@@ -1776,7 +1780,7 @@
       [:div.flex.align-items-c
        [character-input entity-values ::char5e/character-name]
        [:button.form-button.p-10.m-t-5.m-l-5
-        {:on-click set-random-name}
+        {:on-click #(set-random-name built-char)}
         [:i.fa.fa-random.main-text-color.f-s-16]]]]
      [:div.flex.justify-cont-s-b
       [:div.field.flex-grow-1.m-r-2
@@ -1994,8 +1998,11 @@
 (defn set-loading []
   (dispatch-sync [:set-loading true]))
 
-(defn save-character []
-  (dispatch [:save-character]))
+(defn save-character
+  "Dispatch manual save. Passes built-char so the handler can compute
+   the character summary without subscribing outside reactive context."
+  [built-char]
+  (dispatch [:save-character built-char]))
 
 (defn load-character-page-fn [id]
   (fn [_]
@@ -2067,7 +2074,7 @@
                  "Save New Character")
         :icon "save"
         :style (if character-changed? unsaved-button-style)
-        :on-click save-character}
+        :on-click #(save-character built-char)}
        (if (:db/id character)
          {:title "View"
           :icon "eye"

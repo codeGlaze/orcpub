@@ -1,7 +1,8 @@
 (ns ^{:doc "Effects and utils for handling throttled autosave"}
   orcpub.dnd.e5.autosave-fx
   (:require [orcpub.dnd.e5.character :as char5e]
-            [re-frame.core :refer [reg-fx dispatch]]))
+            [re-frame.core :refer [reg-fx reg-event-db dispatch subscribe]]
+            [reagent.core :as r]))
 
 ;; timeout in ms during which we wait for further changes; if
 ;; none are received, the save will be performed.
@@ -53,4 +54,22 @@
             (js/setTimeout
               dispatch-throttled-saves
               throttled-save-timeout))))
+
+;; -- Template cache --
+;; Cache the global template in app-db so the save handler can compute
+;; built-character without subscribing outside a reactive context.
+;; track! creates a proper reactive context — no warnings.
+(reg-event-db
+ ::cache-template
+ (fn [db [_ template]]
+   (assoc db ::cached-template template)))
+
+(defonce _init-template-cache
+  (js/setTimeout
+    (fn []
+      (r/track!
+        (fn []
+          (when-let [template @(subscribe [::char5e/template])]
+            (dispatch [::cache-template template])))))
+    0))
 

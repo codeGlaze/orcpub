@@ -25,7 +25,7 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.route-map :as routes]
-            [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.event-utils]
             [orcpub.dnd.e5.template-base :as t-base]
             [reagent.ratom :as ra]
             [clojure.string :as s]

@@ -1168,15 +1168,24 @@
                    false
                    (?armor-stealth-disadvantage? armor)))))
 
-(defn custom-option-builder [name-sub name-event]
-  [:div.m-t-10
-   [:span "Name"]
-   [comps/input-field
-    :input
-    @(subscribe name-sub)
-    (fn [value]
-      (dispatch (conj name-event value)))
-    {:class-name "input"}]])
+(defn custom-option-builder
+  "Renders a name input that dispatches name-event with the typed value.
+   When inject-template? is true, also passes the built template via dispatch
+   for handlers that need entity/get-option-value-path (set-custom-subclass,
+   set-custom-feat-name)."
+  ([name-sub name-event] (custom-option-builder name-sub name-event false))
+  ([name-sub name-event inject-template?]
+   (let [built-template (when inject-template? @(subscribe [:built-template]))]
+     [:div.m-t-10
+      [:span "Name"]
+      [comps/input-field
+       :input
+       @(subscribe name-sub)
+       (fn [value]
+         (dispatch (cond-> name-event
+                     built-template (conj built-template)
+                     true (conj value))))
+       {:class-name "input"}]])))
 
 (defn feat-options [spell-lists spells-map]
   [#_(feat-option
@@ -1536,7 +1545,8 @@
          :order (inc i)
          :ui-fn #(custom-option-builder
                   [:custom-feat-name [:feats kw]]
-                  [:set-custom-feat-name [:feats kw]])
+                  [:set-custom-feat-name [:feats kw]]
+                  true)
          :selections [(t/selection-cfg
                        {:name "Feat Modifiers"
                         :min 0
@@ -2639,10 +2649,14 @@
                   :help (str "This option just gives you the average value (" average ") for the die roll (1D" die ").")
                   :modifiers [(modifiers/max-hit-points average)]}))]}))
 
-(defn custom-subclass-builder [path]
+(defn custom-subclass-builder
+  "Renders custom subclass name input. Passes built-template via dispatch
+   because the handler needs entity/get-option-value-path."
+  [path]
   (custom-option-builder
    [:custom-subclass-name path]
-   [:set-custom-subclass path]))
+   [:set-custom-subclass path]
+   true))
 
 #_(defn custom-subclass-spell-selection [ability-kw level]
   (t/selection-cfg

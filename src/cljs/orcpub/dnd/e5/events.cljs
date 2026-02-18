@@ -62,9 +62,11 @@
                                       default-subrace
                                       default-class
                                       default-subclass]]
-            [orcpub.dnd.e5.autosave-fx]
+            [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.event-utils :as event-utils]
+            [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
-                                   after dispatch subscribe ->interceptor]]
+                                   after dispatch ->interceptor]]
             [cljs.spec.alpha :as spec]
             [cljs-http.client :as http]
             [cljs.core.async :refer [<! timeout]]
@@ -187,11 +189,8 @@
 
 ;; -- Event Handlers --------------------------------------------------
 
-(defn backend-url [path]
-  (if (and js/window.location
-           (s/starts-with? js/window.location.href "http://localhost"))
-    (str "http://localhost:8890" (if (not (s/starts-with? path "/")) "/") path)
-    path))
+;; Delegated to event-utils to break circular dep with subs files.
+(def backend-url event-utils/backend-url)
 
 (reg-event-fx
  :initialize-db
@@ -394,35 +393,41 @@
                                                    class-level (assoc ::char5e/level class-level))))
                                              classes)))))
 
-(defn authorization-headers [db]
-  {"Authorization" (str "Token " (-> db :user-data :token))})
+(def authorization-headers event-utils/auth-headers)
+(def url-for-route event-utils/url-for-route)
 
-(defn url-for-route [route & args]
-  (backend-url (apply routes/path-for route args)))
-
+;; Autosave handler — dispatched from autosave_fx.cljs throttle timer.
+;; Posts character + summary to server.
 (reg-event-fx
  ::char5e/save-character
  (fn [{:keys [db]} [_ id]]
-   (let [{:keys [:db/id] :as strict} (char5e/to-strict @(subscribe [::char5e/character id]))
-         built-character @(subscribe [::char5e/built-character id])
-         summary (make-summary built-character)]
-     (if (every?
-          (fn [ability-kw]
-            (nat-int? (get-in built-character [:base-abilities ability-kw])))
-          char5e/ability-keys)
-       {:dispatch [:set-loading true]
-        :http {:method :post
-               :headers (authorization-headers db)
-               :url (url-for-route routes/dnd-e5-char-list-route)
-               :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-               :on-success [:character-save-success]}}
-       {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))
+   (let [character (get-in db [::char5e/character-map (js/parseInt id)] {})
+         ;; Template is cached in app-db by autosave_fx's track! watcher.
+         ;; Since built-template is a no-op (plugin merging commented out),
+         ;; we use the cached template directly with entity/build.
+         cached-template (get db ::autosave-fx/cached-template)]
+     (if-not cached-template
+       {} ;; template not cached yet — skip this cycle, next autosave will retry
+       (let [{:keys [:db/id] :as strict} (char5e/to-strict character)
+             built-character (entity/build character cached-template)
+             summary (make-summary built-character)]
+         (if (every?
+              (fn [ability-kw]
+                (nat-int? (get-in built-character [:base-abilities ability-kw])))
+              char5e/ability-keys)
+           {:dispatch [:set-loading true]
+            :http {:method :post
+                   :headers (authorization-headers db)
+                   :url (url-for-route routes/dnd-e5-char-list-route)
+                   :transit-params (assoc strict :orcpub.entity.strict/summary summary)
+                   :on-success [:character-save-success]}}
+           {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))))
 
+;; Manual save — dispatched from character builder UI with built-char in scope.
 (reg-event-fx
  :save-character
- (fn [{:keys [db]} _]
+ (fn [{:keys [db]} [_ built-character]]
    (let [{:keys [:db/id] :as strict} (char5e/to-strict (:character db))
-         built-character @(subscribe [:built-character])
          summary (make-summary built-character)]
      (if (every?
           (fn [ability-kw]
@@ -875,14 +880,16 @@
  character-interceptors
  update-value-field)
 
+;; Generate a random name based on character's race/subrace/sex.
+;; built-char passed from component (description-fields).
 (reg-event-fx
  ::char5e/set-random-name
- (fn [_ _]
-   (let [race-name @(subscribe [::char5e/race])
+ (fn [_ [_ built-char]]
+   (let [race-name (char5e/race built-char)
          race-kw (common/name-to-kw race-name "orcpub.dnd.e5.character.random")
-         subrace-name @(subscribe [::char5e/subrace])
+         subrace-name (char5e/subrace built-char)
          subrace-kw (common/name-to-kw subrace-name "orcpub.dnd.e5.character.random")
-         sex @(subscribe [::char5e/sex])
+         sex (char5e/sex built-char)
          sex-kw (common/name-to-kw sex "orcpub.dnd.e5.character.random")]
      {:dispatch [:update-value-field ::char5e/character-name (:name
                                                               (char-rand5e/random-name-result
@@ -1218,6 +1225,22 @@
  (fn [db [_ user-data]]
    (update db :user-data dissoc :user-data :token)))
 
+;; Replaces top-level @(subscribe [:user false]) in core.cljs — that was a
+;; Replaces top-level @(subscribe [:user false]) in core.cljs — that was a
+;; side-effect-only subscribe used to trigger an HTTP auth check on app startup.
+(reg-event-fx
+ :verify-user-session
+ (fn [{:keys [db]} _]
+   (if (and (:user db) (:token (:user db)))
+     (do (go (let [response (<! (http/get (url-for-route routes/user-route)
+                                           {:headers (authorization-headers db)}))]
+               (case (:status response)
+                 200 nil
+                 401 (dispatch [:clear-login])
+                 nil)))
+         {})
+     {})))
+
 (reg-event-db
  :set-user
  (fn [db [_ user-data]]
@@ -1313,24 +1336,26 @@
               ::entity/value]
              name)))
 
+;; Set homebrew subclass name. built-template passed from custom-option-builder.
 (reg-event-db
  :set-custom-subclass
  character-interceptors
- (fn [character [_ path name]]
+ (fn [character [_ path built-template name]]
    (let [entity-path (entity/get-option-value-path
-                      @(subscribe [:built-template])
+                      built-template
                       character
                       path)]
      (assoc-in character
                entity-path
                name))))
 
+;; Set homebrew feat name. built-template passed from custom-option-builder.
 (reg-event-db
  :set-custom-feat-name
  character-interceptors
- (fn [character [_ path name]]
+ (fn [character [_ path built-template name]]
    (let [entity-path (entity/get-option-value-path
-                      @(subscribe [:built-template])
+                      built-template
                       character
                       path)]
      (assoc-in character
@@ -1353,8 +1378,7 @@
           (map #(s/split % "="))
           (s/split cookie "; "))))
 
-(defn show-generic-error []
-  [:show-error-message [:div "There was an error, please refresh your browser and try again."]])
+(def show-generic-error event-utils/show-generic-error)
 
 (reg-fx
  :http
@@ -1847,21 +1871,15 @@
   (let [result (sets/difference subtypes hidden-subtypes)]
     result))
 
-(defn filter-by-name-xform [filter-text name-key]
-  (let [pattern (re-pattern (str ".*" (s/lower-case filter-text) ".*"))]
-    (filter
-     (fn [x]
-       (re-matches pattern (s/lower-case (name-key x)))))))
+;; Pure computation helpers — delegated to orcpub.dnd.e5.compute (.cljc)
+;; Aliases kept for backward compatibility within this namespace.
 
-(defn filter-spells [filter-text]
-  (sort-by
-   :name
-   (sequence (filter-by-name-xform filter-text :name) @(subscribe [::char5e/sorted-spells]))))
-
-(defn filter-items [filter-text]
-  (sort-by
-   mi/name-key
-   (sequence (filter-by-name-xform filter-text mi/name-key) @(subscribe [::char5e/sorted-items]))))
+(def compute-plugin-vals compute/compute-plugin-vals)
+(def compute-sorted-spells compute/compute-sorted-spells)
+(def compute-sorted-items compute/compute-sorted-items)
+(def filter-by-name-xform compute/filter-by-name-xform)
+(def filter-spells compute/filter-spells)
+(def filter-items compute/filter-items)
 
 (defn search-results [text]
   (let [search-text (s/lower-case text)
@@ -1947,23 +1965,28 @@
  (fn [db [_ filter-text]]
    (assoc db ::char5e/monster-text-filter filter-text)))
 
+;; Filter spell list by name. Computes sorted spells from db directly
+;; (avoids subscribe outside reactive context).
 (reg-event-db
  ::char5e/filter-spells
  (fn [db [_ filter-text]]
-   (assoc db
-          ::char5e/spell-text-filter filter-text
-          ::char5e/filtered-spells (if (>= (count filter-text) 3)
-                                     (filter-spells filter-text)
-                                     @(subscribe [::char5e/sorted-spells])))))
+   (let [sorted (compute-sorted-spells db)]
+     (assoc db
+            ::char5e/spell-text-filter filter-text
+            ::char5e/filtered-spells (if (>= (count filter-text) 3)
+                                       (filter-spells filter-text sorted)
+                                       sorted)))))
 
+;; Filter magic item list by name. Computes sorted items from db directly.
 (reg-event-db
  ::char5e/filter-items
  (fn [db [_ filter-text]]
-   (assoc db
-          ::char5e/item-text-filter filter-text
-          ::char5e/filtered-items (if (>= (count filter-text) 3)
-                                     (filter-items filter-text)
-                                     @(subscribe [::char5e/sorted-items])))))
+   (let [sorted (compute-sorted-items db)]
+     (assoc db
+            ::char5e/item-text-filter filter-text
+            ::char5e/filtered-items (if (>= (count filter-text) 3)
+                                       (filter-items filter-text sorted)
+                                       sorted)))))
 
 (reg-event-db
  ::char5e/toggle-selected
@@ -2099,11 +2122,12 @@
  (fn [{:keys [db]} [_ id]]
    (update-character-fx db id add-level)))
 
+;; Level up a character by id — adds a level and opens the builder.
 (reg-event-fx
  ::char5e/level-up
- (fn [_ [_ character-id]]
+ (fn [{:keys [db]} [_ character-id]]
    {:dispatch-n [[::char5e/add-level character-id]
-                 [:set-character @(subscribe [::char5e/character character-id])]
+                 [:set-character (get-in db [::char5e/character-map (js/parseInt character-id)] {})]
                  [:route routes/dnd-e5-char-builder-route]]}))
 
 (reg-event-fx
@@ -3109,31 +3133,11 @@
  (fn [item [_ bonus]]
    (set-value item ::mi/magical-ac-bonus bonus)))
 
-(defn mod-cfg [key & args]
-  {::mod/key key
-   ::mod/args args})
-
-(defmulti mod-key (fn [{:keys [::mod/key ::mod/args] :as item}]
-                    key))
-
-(defmethod mod-key :ability [{:keys [::mod/key ::mod/args]}]
-  [key (first args)])
-
-(defmethod mod-key :ability-override [{:keys [::mod/key ::mod/args]}]
-  [key (first args)])
-
-(defmethod mod-key :default [{:keys [::mod/key ::mod/args]}]
-  [key args])
-
-(defn compare-mod-keys [item-1 item-2]
-  (compare (mod-key item-1)
-           (mod-key item-2)))
-
-(defn default-mod-set [mod-set]
-  (if (and (set? mod-set)
-           (sorted? mod-set))
-    mod-set
-    (into (sorted-set-by compare-mod-keys) mod-set)))
+;; Modifier config utilities — delegated to event-utils.
+(def mod-cfg event-utils/mod-cfg)
+(def mod-key event-utils/mod-key)
+(def compare-mod-keys event-utils/compare-mod-keys)
+(def default-mod-set event-utils/default-mod-set)
 
 (doseq [toggle-mod [:damage-resistance :damage-vulnerability :damage-immunity :condition-immunity]]
   (reg-event-db
@@ -3167,11 +3171,12 @@
      (js/saveAs blob (str name ".orcbrew"))
      {})))
 
+;; Export all homebrew plugins as .orcbrew file.
 (reg-event-fx
  ::e5/export-all-plugins
- (fn [_ _]
+ (fn [{:keys [db]} _]
    (let [blob (js/Blob.
-               (clj->js [(str @(subscribe [::e5/plugins]))])
+               (clj->js [(str (get db :plugins))])
                (clj->js {:type "text/plain;charset=utf-8"}))]
      (js/saveAs blob (str "all-content.orcbrew"))
      {})))
@@ -3184,11 +3189,12 @@
                  (clj->js {:type "text/plain;charset=utf-8"}))]
       (js/saveAs blob (str name ".orcbrew"))
       {})))
+;; Export all homebrew plugins as pretty-printed .orcbrew file.
 (reg-event-fx
   ::e5/export-all-plugins-pretty-print
-  (fn [_ _]
+  (fn [{:keys [db]} _]
     (let [blob (js/Blob.
-                 (clj->js [(with-out-str (pprint/pprint @(subscribe [::e5/plugins])))])
+                 (clj->js [(with-out-str (pprint/pprint (get db :plugins)))])
                  (clj->js {:type "text/plain;charset=utf-8"}))]
       (js/saveAs blob (str "all-content.orcbrew"))
       {})))

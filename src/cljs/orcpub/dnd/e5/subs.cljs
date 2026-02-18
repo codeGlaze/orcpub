@@ -9,7 +9,9 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.db :refer [tab-path]]
-            [orcpub.dnd.e5.events :refer [url-for-route] :as events]
+            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
+                                                                    show-generic-error mod-cfg
+                                                                    default-mod-set]]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
@@ -319,12 +321,6 @@
  (fn [db [_ name]]
    (get-in db [:expanded-items name])))
 
-(defn auth-headers [db]
-  (let [token (-> db :user-data :token)]
-    (if token
-      {"Authorization" (str "Token " token)}
-      {})))
-
 (reg-sub-raw
   ::char5e/characters
   (fn [app-db [_ login-optional?]]
@@ -336,7 +332,7 @@
             200 (dispatch [::char5e/set-characters (:body response)])
             401 (if (not login-optional?)
                   (dispatch [:route-to-login]))
-            500 (dispatch (events/show-generic-error)))))
+            500 (dispatch (show-generic-error)))))
     (ra/make-reaction
      (fn [] (get @app-db ::char5e/characters [])))))
 
@@ -351,7 +347,7 @@
             200 (dispatch [::party5e/set-parties (:body response)])
             401 (if (not login-optional?)
                   (dispatch [:route-to-login]))
-            500 (dispatch (events/show-generic-error)))))
+            500 (dispatch (show-generic-error)))))
     (ra/make-reaction
      (fn [] (get @app-db ::char5e/parties [])))))
 
@@ -367,7 +363,7 @@
                   (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
                   (if required?
                     (dispatch [:route-to-login])))
-            500 (if required? (dispatch (events/show-generic-error)))))
+            500 (if required? (dispatch (show-generic-error)))))
         ))
     (ra/make-reaction
      (fn [] (get @app-db :user [])))))
@@ -419,7 +415,7 @@
                                int-id
                                (char5e/from-strict (:body response))])
                 401 (dispatch [:route-to-login])
-                500 (dispatch (events/show-generic-error))))))
+                500 (dispatch (show-generic-error))))))
       (ra/make-reaction
        (fn []
          (if int-id
@@ -1008,11 +1004,11 @@
  ::mi5e/item-ability-bonus
  :<- [::mi5e/builder-item]
  (fn [item [_ type ability]]
-   (let [mod-cfg (events/mod-cfg (if (= type :becomes-at-least)
+   (let [mod-cfg (mod-cfg (if (= type :becomes-at-least)
                                    :ability-override
                                    :ability)
                                  ability)
-         modifiers (events/default-mod-set (::mi5e/internal-modifiers item))
+         modifiers (default-mod-set (::mi5e/internal-modifiers item))
          modifier (get modifiers mod-cfg)
          args (::mod/args modifier)]
      (second args))))
@@ -1021,11 +1017,11 @@
  ::mi5e/item-ability-mod-type
  :<- [::mi5e/builder-item]
  (fn [item [_ type ability]]
-   (let [mod-cfg (events/mod-cfg (if (= type :becomes-at-least)
+   (let [mod-cfg (mod-cfg (if (= type :becomes-at-least)
                                    :ability-override
                                    :ability)
                                  ability)
-         modifiers (events/default-mod-set (::mi5e/internal-modifiers item))
+         modifiers (default-mod-set (::mi5e/internal-modifiers item))
          modifier (get modifiers mod-cfg)
          args (::mod/args modifier)]
      (second args))))

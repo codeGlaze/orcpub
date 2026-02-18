@@ -105,7 +105,8 @@
         query-map (query-map query-string)]
     [view (assoc route-params :query query-map)]))
 
-@(subscribe [:user false])
+;; Verify auth token on startup (replaces @(subscribe [:user false]) side-effect)
+(dispatch-sync [:verify-user-session])
 
 ;; React 18 createRoot API (Reagent 2.0)
 (defonce root (rdc/create-root (js/document.getElementById "app")))

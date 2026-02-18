@@ -17,7 +17,8 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.route-map :as routes]
-            [orcpub.dnd.e5.events :refer [url-for-route] :as events]
+            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
+                                                                    show-generic-error]]
             [reagent.ratom :as ra]
             [clojure.string :as s]
             [cljs-http.client :as http]
@@ -28,12 +29,6 @@
 (def sorted-items
   (delay (sort-by mi5e/name-key mi5e/magic-items))
   )
-
-(defn auth-headers [db]
-  (let [token (-> db :user-data :token)]
-    (if token
-      {"Authorization" (str "Token " token)}
-      {})))
 
 (if js/window.location
   (reg-sub-raw
@@ -47,7 +42,7 @@
              (case (:status response)
                200 (dispatch [::mi5e/set-custom-items (:body response)])
                401 nil ;;(dispatch [:route routes/login-page-route {:secure? true}])
-               500 (dispatch (events/show-generic-error))))))
+               500 (dispatch (show-generic-error))))))
      (ra/make-reaction
       (fn [] (get @app-db ::mi5e/custom-items [])))))
   (reg-sub
@@ -258,7 +253,7 @@
          (dispatch [:set-loading false])
          (case (:status response)
            200 (dispatch [::mi5e/add-remote-item (:body response)])
-           500 (dispatch (events/show-generic-error))))))
+           500 (dispatch (show-generic-error))))))
    (ra/make-reaction
     (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
 
