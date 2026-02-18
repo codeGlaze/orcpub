@@ -33,11 +33,11 @@ services:
       - ./data:/data
       - ./logs:/logs
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 4334"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/4334'"]
       interval: 5s
       timeout: 3s
-      retries: 10
-      start_period: 10s
+      retries: 20
+      start_period: 30s
     restart: always
   web:
     image: nginx:alpine
