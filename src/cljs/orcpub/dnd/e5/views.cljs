@@ -7794,7 +7794,8 @@
         [expanded-character-list-item id owner username char-page-route])]]))
 
 (defn folder-item [f expanded-characters selected-ids username filtered-char-ids]
-  (let [edit-name (r/atom (::folder/name f))]
+  (let [edit-name      (r/atom (::folder/name f))
+        confirm-delete? (r/atom false)]
     (fn [f expanded-characters selected-ids username filtered-char-ids]
       (let [folder-id (:db/id f)
             folder-name (::folder/name f)
@@ -7850,10 +7851,26 @@
           [:span.link-button.f-s-12
            {:on-click (fn [e]
                         (.stopPropagation e)
-                        (dispatch [::folder/delete-folder folder-id]))}
+                        (reset! confirm-delete? true))}
            "delete"]
-          [:i.fa.m-l-10.orange
-           {:class-name (if folder-expanded? "fa-caret-up" "fa-caret-down")}]])]
+          [:i.fa.m-l-10.orange.pointer
+           {:class-name (if folder-expanded? "fa-caret-up" "fa-caret-down")
+            :on-click   (make-event-handler ::folder/toggle-expanded folder-id)}]])]
+      (when @confirm-delete?
+        [:div.p-20.flex.justify-cont-end
+         [:div
+          [:div.m-b-10 "Are you sure you want to delete this folder? Characters will not be deleted."]
+          [:div.flex
+           [:button.form-button
+            {:on-click (fn [e]
+                         (.stopPropagation e)
+                         (reset! confirm-delete? false))}
+            "cancel"]
+           [:span.link-button.m-l-10
+            {:on-click (fn [e]
+                         (.stopPropagation e)
+                         (dispatch [::folder/delete-folder folder-id]))}
+            "delete"]]]])
       (if folder-expanded?
         [:div.item-list
          (doall
