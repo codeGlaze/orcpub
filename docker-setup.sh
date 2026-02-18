@@ -114,13 +114,18 @@ header "Dungeon Master's Vault — Docker Setup"
 if [ -f "$ENV_FILE" ] && [ "$FORCE_MODE" = "false" ]; then
   info "Existing .env file found. Skipping generation (use --force to overwrite)."
 else
-  info "Generating secure credentials..."
+  header "Database Passwords"
 
-  ADMIN_PASSWORD="$(generate_password 24)"
-  DATOMIC_PASSWORD="$(generate_password 24)"
-  SIGNATURE="$(generate_password 32)"
+  # Generate defaults but let user override
+  DEFAULT_ADMIN_PW="$(generate_password 24)"
+  DEFAULT_DATOMIC_PW="$(generate_password 24)"
+  DEFAULT_SIGNATURE="$(generate_password 32)"
 
-  header "Configuration"
+  ADMIN_PASSWORD=$(prompt_value "Datomic admin password" "$DEFAULT_ADMIN_PW")
+  DATOMIC_PASSWORD=$(prompt_value "Datomic application password" "$DEFAULT_DATOMIC_PW")
+  SIGNATURE=$(prompt_value "JWT signing secret (20+ chars)" "$DEFAULT_SIGNATURE")
+
+  header "Application"
 
   PORT=$(prompt_value "Application port" "8890")
   EMAIL_SERVER_URL=$(prompt_value "SMTP server URL (leave empty to skip email)" "")
@@ -278,13 +283,21 @@ cat <<'NEXT'
 2. Launch the application:
      docker-compose up -d
 
-3. Access the site at:
+3. Create your first user (once containers are running):
+     ./docker-user.sh create <username> <email> <password>
+
+4. Access the site at:
      https://localhost
 
-4. To import homebrew content, place your .orcbrew file at:
+5. Manage users later with:
+     ./docker-user.sh list              # List all users
+     ./docker-user.sh check <user>      # Check a user's status
+     ./docker-user.sh verify <user>     # Verify an unverified user
+
+6. To import homebrew content, place your .orcbrew file at:
      deploy/homebrew/homebrew.orcbrew
 
-5. To build from source instead of pulling images:
+7. To build from source instead of pulling images:
      docker-compose -f docker-compose-build.yaml build
      docker-compose -f docker-compose-build.yaml up -d
 
