@@ -198,6 +198,7 @@
   :aliases {"fig:dev" ["trampoline" "run" "-m" "figwheel.main" "--" "--build" "dev" "--repl"]
             "fig:watch" ["run" "-m" "figwheel.main" "--" "--build" "dev"]
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
+            "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
