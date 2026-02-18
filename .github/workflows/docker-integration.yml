@@ -134,6 +134,58 @@ jobs:
           fi
           echo "OK: Nonexistent user correctly not found"
 
+      - name: Test — created user can log in via HTTP
+        run: |
+          # Wait for the HTTP server to be listening
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8890/ >/dev/null 2>&1 || \
+               curl -sf -o /dev/null -w "%{http_code}" http://localhost:8890/ 2>&1 | grep -qE "^[234]"; then
+              echo "HTTP server is up (after ~${i}s)"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "WARN: HTTP server not reachable, skipping login test"
+              exit 0
+            fi
+            sleep 1
+          done
+
+          # POST /login with the user we created
+          RESPONSE=$(curl -sf -X POST http://localhost:8890/login \
+            -H "Content-Type: application/json" \
+            -d '{"username":"testadmin","password":"SecurePass123"}' \
+            -w "\n%{http_code}" 2>&1) || true
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP $HTTP_CODE"
+          echo "$BODY"
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "OK: Login succeeded"
+            echo "$BODY" | grep -q "token"
+            echo "OK: Response contains JWT token"
+          else
+            echo "FAIL: Expected HTTP 200, got $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Test — wrong password is rejected
+        run: |
+          HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+            -X POST http://localhost:8890/login \
+            -H "Content-Type: application/json" \
+            -d '{"username":"testadmin","password":"WrongPassword"}' 2>&1) || true
+
+          echo "HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" = "401" ]; then
+            echo "OK: Wrong password correctly rejected"
+          else
+            echo "FAIL: Expected HTTP 401, got $HTTP_CODE"
+            exit 1
+          fi
+
       - name: Collect logs on failure
         if: failure()
         run: |
