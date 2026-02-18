@@ -3,17 +3,17 @@
             #?(:cljs [reagent.core :refer [atom]])))
 
 (defn checkbox [selected? disable?]
-  [:i.fa.fa-check.f-s-14.bg-white.b-color-gray.orange-shadow.pointer.b-1
+  [:i.fa.fa-check.f-s-14.bg-white.b-color-gray.orange-shadow.pointer.b-3
    {:class-name (str (if selected? "black slight-text-shadow" "white transparent")
                      " "
                      (if disable?
                        "opacity-5"))}])
 
 (defn labeled-checkbox [label selected? disabled? on-click]
-  [:div.flex.pointer
+  [:div.flex.pointer.align-items-c
    {:on-click on-click}
    [checkbox selected? disabled?]
-   [:span.m-l-5 label]])
+   [:span.m-l-5.align-items-c label]])
 
 (defn selection-item [key name selected?]
   [:option.builder-dropdown-item
