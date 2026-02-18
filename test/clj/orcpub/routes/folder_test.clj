@@ -92,7 +92,8 @@
         (let [body (:body (folder/folders {:db       (d/db mocked-conn)
                                            :identity {:user "alice"}}))]
           (is (= 2 (count body)))
-          (is (every? #(= "alice" (::folder5e/owner %)) body))))
+          (is (= #{"Alice Folder 1" "Alice Folder 2"}
+                 (into #{} (map ::folder5e/name) body)))))
       (testing "bob sees only his own folder"
         (let [body (:body (folder/folders {:db       (d/db mocked-conn)
                                            :identity {:user "bob"}}))]
