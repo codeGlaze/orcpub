@@ -1,43 +1,38 @@
 # Input Field Debounce Architecture
 
-## Current Design (components.cljc)
+## Current Design (post-refactor)
 
-`input-field` is a Reagent Form-2 component (closure over local atom). It debounces re-frame dispatches to avoid triggering expensive `entity/build` on every keystroke.
+Debounce responsibility lives in the `:built-character` subscription, not in `input-field`. The component dispatches on every keystroke; `entity/build` is debounced downstream with leading+trailing edge.
 
-### How it works
+### Data flow
 
 ```
-User types → local :temp-val updated immediately → UI shows typed text
-           → 500ms timer starts
-           → timer fires → on-change dispatched → re-frame event → db update
-           → subscription recalculates → parent re-renders with new value prop
-           → input-field sees value ≠ :prev-value → clears :temp-val
-           → now showing subscription value (which matches what user typed)
+User types → on-change dispatches immediately → app-db updated
+           → :built-character subscription sees change
+           → leading edge: if ≥500ms since last build, compute now
+           → trailing edge: if <500ms, schedule build after 500ms quiet
+           → entity/build runs → derived subs (~60) recalculate
 ```
 
-### State atom structure
+### input-field (components.cljc)
+
+Form-2 component with minimal local atom. Dispatches `on-change` on every keystroke. Local `reagent.core/atom` buffers the typed value to prevent controlled-input flicker while re-frame propagates.
 
 ```clojure
-{:timeout   nil      ;; js/setTimeout handle (for clearTimeout)
- :temp-val  nil      ;; what user has typed (not yet dispatched)
- :prev-value nil}    ;; last value prop from parent (for change detection)
+;; State: two atoms (reagent, for reactive re-render)
+local-val  ;; what user typed (cleared when subscription catches up)
+prev       ;; last value prop from parent (change detection)
 ```
 
-Uses `clojure.core/atom` (NOT `reagent.core/atom`) because we `swap!` during render to sync `:prev-value`. A Reagent atom would cause infinite re-render loops.
+The `(when (not= value @prev) ...)` check runs during render and causes one extra render cycle when the subscription value changes. Not infinite — on the second render `value == @prev` so no further reset.
 
-### The flickering bug (fixed)
+### debounced-build-sub (subs.cljs)
 
-**Old code** cleared `:temp-val` inside the setTimeout callback after dispatching. This raced with Reagent 2.x's synchronous rendering:
+`reg-sub-raw` handler shared by `:built-character` and `::char5e/built-character`. Uses `add-watch` on the input subscription reactions.
 
-1. Timer fires → dispatch + clear temp-val
-2. Re-frame processes event → updates db
-3. Reagent 2.x renders synchronously → component re-renders
-4. But subscription hasn't propagated yet → value prop is still OLD
-5. temp-val is nil (cleared in step 1) → shows old subscription value
-6. Subscription catches up → another re-render with correct value
-7. User sees: typed text → flash of old text → correct text
+**Leading+trailing edge**: dropdown changes compute immediately (>500ms since last build). Rapid keystrokes batch — only the last value triggers a build after 500ms quiet.
 
-**Fix**: Track `:prev-value`. Only clear `:temp-val` when the parent value prop actually changes (subscription caught up). No clearing in setTimeout.
+Cleanup via `:on-dispose` — removes watches, clears pending timeout.
 
 ## Why the Debounce Exists
 
@@ -49,7 +44,7 @@ Every character value change triggers `entity/build` which:
 
 Without debounce: 10 keystrokes = 10 full builds = 500-2000ms of computation = visible lag.
 
-## All Callsites
+## All input-field Callsites
 
 | File | Element | on-change Event | Notes |
 |------|---------|----------------|-------|
@@ -61,26 +56,12 @@ Without debounce: 10 keystrokes = 10 full builds = 500-2000ms of computation = v
 | views.cljs | Builder fields | Various | Spell/Monster/Feat builders |
 | options.cljc | Custom option name | Variable name-event | Plugin option builder |
 
-## Future: Dispatch-Immediate Architecture
+## Historical: The Flickering Bug
 
-The cleaner approach eliminates local state entirely:
+**Old code** (pre-refactor) debounced the dispatch in `input-field` and cleared `:temp-val` inside the setTimeout callback. This raced with Reagent 2.x's synchronous rendering — temp-val cleared before subscription caught up, causing a visible flash of the old value.
 
-1. **Dispatch immediately** on every keystroke → value goes into `app-db` instantly
-2. **Debounce `entity/build`** downstream — the `:built-character` subscription waits 500ms after last db change before recomputing
-3. **No local atom** needed — pure re-frame controlled input, no race conditions
+The intermediate fix (prev-value tracking) solved the flicker. The current refactor eliminated the problem entirely by removing setTimeout from the component.
 
-### Scope of the refactor
+## Design Decision: Why Leading+Trailing Edge
 
-~50 lines total:
-
-1. **`input-field`** — delete local atom, just dispatch. Becomes a thin wrapper.
-2. **`:built-character` subscription** in `subs.cljs` — wrap `entity/build` call in debounced `reg-sub-raw` that delays recomputation by 500ms, returning stale value in the interim.
-3. **`->local-store` interceptor** — already fires on every character event (saves to localStorage). Unchanged.
-
-### Trade-off
-
-During the 500ms window, derived values (AC, ability scores, etc.) show stale. For most inputs this is invisible — nobody notices their AC lagging after typing a character name. For inputs that affect the build (class selection, race selection), those use dropdowns, not text fields, so debounce doesn't apply.
-
-### Why not do it now
-
-The current fix (prev-value tracking) works correctly. The refactor is a cleanup, not a bug fix. Worth doing when touching the subscription architecture for other reasons.
+Plain trailing-edge debounce would delay ALL changes by 500ms, including dropdown selections (class, race, etc.) that should compute instantly. Leading edge fires the first change immediately; only rapid subsequent changes within 500ms are batched. Result: dropdowns feel instant, typing doesn't lag.
