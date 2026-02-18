@@ -1,0 +1,151 @@
+name: Docker Integration Test
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'docker/**'
+      - 'docker-compose*.yaml'
+      - 'docker-setup.sh'
+      - 'docker-user.sh'
+      - 'deploy/**'
+      - '.github/workflows/docker-integration.yml'
+  workflow_dispatch:
+
+jobs:
+  docker-test:
+    name: Docker Setup & User Management
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Lint shell scripts
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck docker-setup.sh docker-user.sh
+
+      - name: Run docker-setup.sh --auto
+        run: |
+          ./docker-setup.sh --auto
+          echo "--- Generated .env (secrets redacted) ---"
+          sed 's/=.*/=***/' .env
+
+      - name: Validate .env password consistency
+        run: |
+          PW=$(grep '^DATOMIC_PASSWORD=' .env | cut -d= -f2)
+          URL_PW=$(grep '^DATOMIC_URL=' .env | sed 's/.*password=//')
+          if [ "$PW" != "$URL_PW" ]; then
+            echo "FAIL: DATOMIC_PASSWORD and DATOMIC_URL password mismatch"
+            exit 1
+          fi
+          echo "OK: Passwords match"
+
+      - name: Pull and start containers
+        run: |
+          docker compose up -d
+          docker compose ps
+
+      - name: Wait for Datomic transactor
+        run: |
+          echo "Waiting for Datomic transactor to accept connections..."
+          for i in $(seq 1 30); do
+            if docker compose logs datomic 2>&1 | grep -q "System started"; then
+              echo "Datomic transactor is ready (after ~${i}s)"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "FAIL: Datomic did not start within 30s"
+              docker compose logs datomic
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Wait for orcpub app
+        run: |
+          echo "Waiting for orcpub app to be ready..."
+          for i in $(seq 1 60); do
+            CONTAINER=$(docker compose ps -q orcpub)
+            if docker exec "$CONTAINER" java -cp /orcpub.jar clojure.main -e \
+              '(require (quote [datomic.api :as d])) (d/connect (System/getenv "DATOMIC_URL")) (println "ready")' \
+              2>/dev/null | grep -q "ready"; then
+              echo "orcpub app connected to Datomic (after ~${i}s)"
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "FAIL: orcpub could not connect to Datomic within 60s"
+              docker compose logs
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Test — create user
+        run: |
+          ./docker-user.sh create testadmin admin@test.local SecurePass123
+          echo "Exit code: $?"
+
+      - name: Test — check user exists
+        run: |
+          OUTPUT=$(./docker-user.sh check testadmin)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "testadmin"
+          echo "$OUTPUT" | grep -q "admin@test.local"
+          echo "$OUTPUT" | grep -q "true"   # verified
+
+      - name: Test — list includes user
+        run: |
+          OUTPUT=$(./docker-user.sh list)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "testadmin"
+
+      - name: Test — duplicate user fails
+        run: |
+          if ./docker-user.sh create testadmin admin@test.local SecurePass123 2>&1; then
+            echo "FAIL: Should have rejected duplicate user"
+            exit 1
+          fi
+          echo "OK: Duplicate user correctly rejected"
+
+      - name: Test — create second user
+        run: ./docker-user.sh create player2 player2@test.local AnotherPass456
+
+      - name: Test — list shows both users
+        run: |
+          OUTPUT=$(./docker-user.sh list)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "testadmin"
+          echo "$OUTPUT" | grep -q "player2"
+
+      - name: Test — verify already-verified user is idempotent
+        run: |
+          OUTPUT=$(./docker-user.sh verify testadmin)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "already verified"
+
+      - name: Test — check nonexistent user fails
+        run: |
+          if ./docker-user.sh check nobody@nowhere.com 2>&1; then
+            echo "FAIL: Should have reported user not found"
+            exit 1
+          fi
+          echo "OK: Nonexistent user correctly not found"
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== docker compose ps ==="
+          docker compose ps
+          echo "=== datomic logs ==="
+          docker compose logs datomic
+          echo "=== orcpub logs ==="
+          docker compose logs orcpub
+          echo "=== web logs ==="
+          docker compose logs web
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v
