@@ -14,6 +14,7 @@
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.party :as party5e]
+            [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.monsters :as monsters5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.armor :as armor5e]
@@ -389,6 +390,48 @@
    (subscribe [::party5e/parties login-optional?]))
  (fn [parties _]
    (common/map-by-id parties)))
+
+(reg-sub-raw
+  ::folder5e/folders
+  (fn [app-db _]
+    (go (dispatch [:set-loading true])
+        (let [response (<! (http/get (url-for-route routes/dnd-e5-char-folders-route)
+                                     {:headers (auth-headers @app-db)}))]
+          (dispatch [:set-loading false])
+          (case (:status response)
+            200 (dispatch [::folder5e/set-folders (:body response)])
+            401 (dispatch [:route-to-login])
+            500 (dispatch (events/show-generic-error)))))
+    (ra/make-reaction
+     (fn [] (get @app-db ::folder5e/folders [])))))
+
+(reg-sub
+ ::folder5e/folder-map
+ :<- [::folder5e/folders]
+ (fn [folders _]
+   (common/map-by-id folders)))
+
+(reg-sub
+ ::folder5e/expanded
+ (fn [db _]
+   (get db ::folder5e/expanded {})))
+
+(reg-sub
+ ::folder5e/renaming
+ (fn [db _]
+   (get db ::folder5e/renaming {})))
+
+(reg-sub
+ ::folder5e/character-folder-map
+ :<- [::folder5e/folders]
+ (fn [folders _]
+   (reduce (fn [m folder]
+             (reduce (fn [m char]
+                       (assoc m (:db/id char) (:db/id folder)))
+                     m
+                     (::folder5e/character-ids folder)))
+           {}
+           folders)))
 
 (reg-sub
  ::char5e/summary-map

@@ -18,6 +18,7 @@
             [orcpub.dnd.e5.classes :as class5e]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.party :as party5e]
+            [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
@@ -798,6 +799,104 @@
                 party))
             parties)))
     :dispatch [::party5e/add-character-remote id character-id show-confirmation?]}))
+
+;; ---- Folder Events -------------------------------------------------------
+
+(reg-event-db
+ ::folder5e/set-folders
+ (fn [db [_ folders]]
+   (assoc db ::folder5e/folders folders)))
+
+(reg-event-fx
+ ::folder5e/create-folder
+ (fn [{:keys [db]} [_]]
+   {:http {:method :post
+           :headers (authorization-headers db)
+           :transit-params {::folder5e/name "New Folder"}
+           :url (url-for-route routes/dnd-e5-char-folders-route)
+           :on-success [::folder5e/create-folder-success]}}))
+
+(reg-event-fx
+ ::folder5e/create-folder-success
+ (fn [{:keys [db]} [_ response]]
+   (let [folder (:body response)]
+     {:db (update db ::folder5e/folders conj folder)
+      :dispatch [::folder5e/toggle-renaming (:db/id folder)]})))
+
+(reg-event-fx
+ ::folder5e/rename-folder
+ (fn [{:keys [db]} [_ id new-name]]
+   {:db (update db ::folder5e/folders
+                (fn [folders]
+                  (map (fn [f]
+                         (if (= id (:db/id f))
+                           (assoc f ::folder5e/name new-name)
+                           f))
+                       folders)))
+    :http {:method :put
+           :headers (authorization-headers db)
+           :transit-params new-name
+           :url (url-for-route routes/dnd-e5-char-folder-name-route :id id)}}))
+
+(reg-event-fx
+ ::folder5e/delete-folder
+ (fn [{:keys [db]} [_ id]]
+   {:db (update db ::folder5e/folders
+                (fn [folders]
+                  (remove #(= id (:db/id %)) folders)))
+    :http {:method :delete
+           :headers (authorization-headers db)
+           :url (url-for-route routes/dnd-e5-char-folder-route :id id)}}))
+
+(reg-event-fx
+ ::folder5e/add-character
+ (fn [{:keys [db]} [_ folder-id character-id]]
+   {:db (update db ::folder5e/folders
+                (fn [folders]
+                  (map (fn [f]
+                         (if (= folder-id (:db/id f))
+                           (update f ::folder5e/character-ids
+                                   conj
+                                   (get-in db [::char5e/summary-map character-id]))
+                           ;; remove from any other folder (at-most-one constraint)
+                           (update f ::folder5e/character-ids
+                                   (fn [chars]
+                                     (remove #(= character-id (:db/id %)) chars)))))
+                       folders)))
+    :http {:method :post
+           :headers (authorization-headers db)
+           :transit-params character-id
+           :url (url-for-route routes/dnd-e5-char-folder-characters-route :id folder-id)}}))
+
+(reg-event-fx
+ ::folder5e/remove-character
+ (fn [{:keys [db]} [_ folder-id character-id]]
+   {:db (update db ::folder5e/folders
+                (fn [folders]
+                  (map (fn [f]
+                         (if (= folder-id (:db/id f))
+                           (update f ::folder5e/character-ids
+                                   (fn [chars]
+                                     (remove #(= character-id (:db/id %)) chars)))
+                           f))
+                       folders)))
+    :http {:method :delete
+           :headers (authorization-headers db)
+           :url (url-for-route routes/dnd-e5-char-folder-character-route
+                               :id folder-id
+                               :character-id character-id)}}))
+
+(reg-event-db
+ ::folder5e/toggle-expanded
+ (fn [db [_ folder-id]]
+   (update-in db [::folder5e/expanded folder-id] not)))
+
+(reg-event-db
+ ::folder5e/toggle-renaming
+ (fn [db [_ folder-id]]
+   (update-in db [::folder5e/renaming folder-id] not)))
+
+;; ---- End Folder Events ----------------------------------------------------
 
 (reg-event-fx
  :follow-user-success
