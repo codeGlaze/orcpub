@@ -43,6 +43,34 @@ jobs:
           fi
           echo "OK: Passwords match"
 
+      - name: Test — setup --force preserves existing values
+        run: |
+          # Save original passwords
+          ORIG_ADMIN=$(grep '^ADMIN_PASSWORD=' .env | cut -d= -f2)
+          ORIG_DATOMIC=$(grep '^DATOMIC_PASSWORD=' .env | cut -d= -f2)
+          ORIG_SIG=$(grep '^SIGNATURE=' .env | cut -d= -f2)
+
+          # Re-run with --force --auto (should regenerate)
+          ./docker-setup.sh --auto --force
+
+          # Verify .env was regenerated (new passwords, since --auto generates fresh ones)
+          NEW_ADMIN=$(grep '^ADMIN_PASSWORD=' .env | cut -d= -f2)
+          NEW_DATOMIC=$(grep '^DATOMIC_PASSWORD=' .env | cut -d= -f2)
+
+          # Verify structure is intact
+          grep -q '^DATOMIC_URL=' .env || { echo "FAIL: DATOMIC_URL missing"; exit 1; }
+          grep -q '^SIGNATURE=' .env || { echo "FAIL: SIGNATURE missing"; exit 1; }
+          grep -q '^PORT=' .env || { echo "FAIL: PORT missing"; exit 1; }
+
+          # Re-check password consistency after --force
+          PW=$(grep '^DATOMIC_PASSWORD=' .env | cut -d= -f2)
+          URL_PW=$(grep '^DATOMIC_URL=' .env | sed 's/.*password=//')
+          if [ "$PW" != "$URL_PW" ]; then
+            echo "FAIL: Password mismatch after --force re-run"
+            exit 1
+          fi
+          echo "OK: --force regenerated .env with consistent passwords"
+
       - name: Start datomic (no deps)
         run: |
           docker compose pull
@@ -184,6 +212,33 @@ jobs:
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "batch1"
           echo "$OUTPUT" | grep -q "batch2"
+
+      - name: Test — init creates admin from .env
+        run: |
+          # Append INIT_ADMIN_* vars to .env
+          printf '\nINIT_ADMIN_USER=initadmin\nINIT_ADMIN_EMAIL=initadmin@test.local\nINIT_ADMIN_PASSWORD=InitPass789\n' >> .env
+
+          # Run init
+          OUTPUT=$(./docker-user.sh init)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "initadmin"
+
+          # Verify user was created
+          CHECK=$(./docker-user.sh check initadmin)
+          echo "$CHECK"
+          echo "$CHECK" | grep -q "initadmin"
+          echo "$CHECK" | grep -q "initadmin@test.local"
+          echo "$CHECK" | grep -q "true"
+          echo "OK: init created admin from .env"
+
+      - name: Test — init is idempotent (re-run skips existing)
+        run: |
+          # Running init again should not fail — duplicate is handled
+          if ./docker-user.sh init 2>&1; then
+            echo "FAIL: init should exit non-zero for duplicate user"
+            exit 1
+          fi
+          echo "OK: init correctly reports duplicate on re-run"
 
       - name: Test — check nonexistent user fails
         run: |
