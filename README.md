@@ -54,7 +54,25 @@ You will need a few tools:
  `git clone https://github.com/Orcpub/orcpub.git` if you don't have a github account
 
  `git clone git@github.com:Orcpub/orcpub.git` if you do want to make changes to the code and make pull requests.
- 
+
+### Quick Setup (Recommended)
+
+Run the automated setup script to generate secure passwords, SSL certificates, and all required directories:
+
+```bash
+./docker-setup.sh              # Interactive — prompts for each value
+./docker-setup.sh --auto       # Non-interactive — generates secure defaults
+```
+
+Then start the containers and create your first user:
+
+```bash
+docker-compose up -d
+./docker-user.sh create admin admin@example.com MySecurePass123
+```
+
+The `create` command creates a **pre-verified** account — no SMTP server or email confirmation needed. For batch user creation, additional commands, and full details see the [Docker User Management](docs/docker-user-management.md) guide.
+
 ### Edit docker-compose.yaml
 
 Edit the `docker-compose.yaml` and update all the environmental variables and or paths as needed.
