@@ -22,6 +22,7 @@ pom.xml
 orcpub.iml
 profiles.clj
 env.sh
+.env
 .repl
 .nrepl-port
 *~
@@ -34,3 +35,6 @@ deploy/homebrew/*
 
 # As created by some LSP-protocol tooling, e.g. nvim-lsp
 .lsp
+
+# Claude Code local session data
+.claude-data/
