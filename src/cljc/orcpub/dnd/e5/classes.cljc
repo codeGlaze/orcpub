@@ -13,7 +13,6 @@
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.template-base :as t-base]
-            [re-frame.core :refer [subscribe]]
             [clojure.string :as s]))
 
 (spec/def ::name (spec/and string? common/starts-with-letter?))
@@ -1058,7 +1057,7 @@
             :skill-options {:choose 2 :options {:acrobatics true :animal-handling true :athletics true :history true :insight true :intimidation true :perception true :survival true}}}
     :multiclass-prereqs [(t/option-prereq "Requires Strength 13 or Dexterity 13"
                                           (fn [c]
-                                            (let [abilities @(subscribe [::char5e/abilities nil c])]
+                                            (let [abilities (char5e/ability-values c)]
                                               (or (>= (::char5e/str abilities) 13)
                                                   (>= (::char5e/dex abilities) 13)))))]
     :equipment-choices [{:name "Equipment Pack"
@@ -1237,7 +1236,7 @@
              :skill-options {:choose 2 :options {:acrobatics true :athletics true :history true :insight true :religion true :stealth true}}}
      :multiclass-prereqs [(t/option-prereq "Requires Wisdom 13 and Dexterity 13"
                                            (fn [c]
-                                             (let [abilities @(subscribe [::char5e/abilities nil c])]
+                                             (let [abilities (char5e/ability-values c)]
                                                (and (>= (::char5e/wis abilities) 13)
                                                     (>= (::char5e/dex abilities) 13)))))]
      :equipment-choices [{:name "Equipment Pack"
@@ -1438,7 +1437,7 @@
              :skill-options {:choose 2 :options {:athletics true :insight true :intimidation true :medicine true :persuasion true :religion true}}}
      :multiclass-prereqs [(t/option-prereq "Requires Strength 13 and Charisma 13"
                                            (fn [c]
-                                             (let [abilities @(subscribe [::char5e/abilities nil c])]
+                                             (let [abilities (char5e/ability-values c)]
                                                (and (>= (::char5e/str abilities) 13)
                                                     (>= (::char5e/cha abilities) 13)))))]
      :equipment-choices [{:name "Equipment Pack"
@@ -1779,7 +1778,7 @@
              :multiclass-skill-options {:choose 1 :options opt5e/ranger-skills}}
      :multiclass-prereqs [(t/option-prereq "Requires Wisdom 13 and Dexterity 13"
                                            (fn [c]
-                                             (let [abilities @(subscribe [::char5e/abilities nil c])]
+                                             (let [abilities (char5e/ability-values c)]
                                                (and (>= (::char5e/wis abilities) 13)
                                                     (>= (::char5e/dex abilities) 13)))))]
      :ability-increase-levels [4 8 12 16 19]
@@ -2341,7 +2340,7 @@
                     :prereqs [(t/option-prereq
                                nil
                                (fn [c]
-                                 (let [spells-known @(subscribe [::char5e/spells-known nil c])]
+                                 (let [spells-known (char5e/spells-known c)]
                                    (get-in spells-known [level ["Wizard" spell-kw]])))
                                true)]})))
               (get-in sl5e/spell-lists [:wizard level]))}))
@@ -2362,7 +2361,7 @@
                     :prereqs [(t/option-prereq
                                nil
                                (fn [c]
-                                 (let [spells-known @(subscribe [::char5e/spells-known nil c])]
+                                 (let [spells-known (char5e/spells-known c)]
                                    (get-in spells-known [3 ["Wizard" spell-kw]])))
                                true)]})))
               (get-in sl5e/spell-lists [:wizard 3]))}))
@@ -2538,7 +2537,7 @@
                                    :tags (opt5e/spell-tags :wizard 0)
                                    :options (opt5e/spell-options (get-in sl/spell-lists [:wizard 0]) ::char5e/int "Wizard")
                                    :prereq-fn (fn [c]
-                                                (let [spells-known @(subscribe [::char5e/spells-known nil c])
+                                                (let [spells-known (char5e/spells-known c)
                                                       passes? (or (nil? spells-known)
                                                                   (some
                                                                    (fn [s]
