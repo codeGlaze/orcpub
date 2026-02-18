@@ -49,7 +49,7 @@
      #_:help #_(if (or help has-named-mods?)
                  [:div
                   (if has-named-mods? [:div.i modifiers-str])
-                  [:div {:class-name (if has-named-mods? "m-t-5")} help]])
+                  [:div {:class (if has-named-mods? "m-t-5")} help]])
      :selected? selected?
      :selectable? selectable?
      :option-path new-option-path

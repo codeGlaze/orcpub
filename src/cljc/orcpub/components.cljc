@@ -4,7 +4,7 @@
 
 (defn checkbox [selected? disable?]
   [:i.fa.fa-check.f-s-14.bg-white.b-color-gray.orange-shadow.pointer.b-1
-   {:class-name (str (if selected? "black slight-text-shadow" "white transparent")
+   {:class (str (if selected? "black slight-text-shadow" "white transparent")
                      " "
                      (when disable?
                        "opacity-5"))}])

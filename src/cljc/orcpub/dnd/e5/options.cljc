@@ -1185,7 +1185,7 @@
          (dispatch (cond-> name-event
                      built-template (conj built-template)
                      true (conj value))))
-       {:class-name "input"}]])))
+       {:class "input"}]])))
 
 (defn feat-options [spell-lists spells-map]
   [#_(feat-option

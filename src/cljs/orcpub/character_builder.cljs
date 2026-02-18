@@ -100,7 +100,7 @@
                 (stop-propagation e))}
    [:span.underline.orange.p-0.m-r-2 (if @expanded? expand-text collapse-text)]
    [:i.fa.orange
-    {:class-name (if @expanded? "fa-caret-up" "fa-caret-down")}]])
+    {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]])
 
 (defn show-info-button [expanded?]
   [:div.f-w-n.m-l-5 [expand-button "hide info" "show info" expanded?]])
@@ -128,7 +128,7 @@
    (get entity-values prop-name)
    (update-value-field prop-name)
    {:type input-type
-    :class-name (str "input w-100-p " cls-str)}])
+    :class (str "input w-100-p " cls-str)}])
 
 (defn character-input [entity-values prop-name & [cls-str handler type]]
   [character-field entity-values prop-name :input cls-str handler type])
@@ -187,7 +187,7 @@
             class-template-option (options-map key)
             path [:class-levels key]]
         [:div.m-b-5
-         {:class-name (if @expanded? "b-1 b-rad-5 p-5")}
+         {:class (if @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
           [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
            {:value key
@@ -310,13 +310,13 @@
            :input
            item-name
            (set-custom-item-name selection-key i)
-           {:class-name "input m-t-0"}]
+           {:class "input m-t-0"}]
           [:div.flex-grow-1 item-name])
         (if item-description [:div.w-60 [show-info-button expanded?]])
         [comps/int-field
          item-qty
          qty-change-fn
-         {:class-name (str "input m-l-5 m-t-0 w-" (or qty-input-width 60))}]
+         {:class (str "input m-l-5 m-t-0 w-" (or qty-input-width 60))}]
         [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
          {:on-click remove-fn}]]
        (if @expanded? [:div.m-t-5 item-description])])))
@@ -471,7 +471,7 @@
   (let [expanded? (r/atom false)]
     (fn [{:keys [name key help selected? selectable? option-path select-fn content explanation-text icon classes multiselect? disable-checkbox? edit-event]}]
       [:div.p-10.b-1.b-rad-5.m-5.b-orange
-       {:class-name (s/join " " (conj
+       {:class (s/join " " (conj
                                  (remove nil? [(if selected? "b-w-5")
                                                (if selectable? "pointer hover-shadow")
                                                (if (not selectable?) "opacity-5")])
@@ -511,7 +511,7 @@
   [:span.bg-red.t-a-c.p-t-4.b-rad-50-p.inline-block.f-w-b.white
    (let [size (or size 18)
          font-size (or font-size 14)]
-     {:class-name (str "h-" size " w-" size " f-s-" font-size)})
+     {:class (str "h-" size " w-" size " f-s-" font-size)})
    remaining])
 
 (defn validate-selections [built-template character selections]
@@ -544,7 +544,7 @@
                                    (if (or help has-named-mods?)
                                         [:div
                                          (if has-named-mods? [:div.i modifiers-str])
-                                         [:div {:class-name (if has-named-mods? "m-t-5")} help]])
+                                         [:div {:class (if has-named-mods? "m-t-5")} help]])
                                    :edit-event (::t/edit-event option))])))
 
 (defn selection-section-title [title]
@@ -613,11 +613,11 @@
                "Locked to prevent changes - click to unlock"
                "Unlocked - click to lock the section to prevent changes")
              [:i.fa.f-s-16.m-l-10.m-r-5.pointer
-              {:class-name (if locked? "fa-lock" "fa-unlock-alt opacity-5 hover-opacity-full")
+              {:class (if locked? "fa-lock" "fa-unlock-alt opacity-5 hover-opacity-full")
                :on-click (toggle-locked path)}]])
           (if (not hide-homebrew?)
             [:span.pointer
-             {:class-name (if (not homebrew?) "opacity-5 hover-opacity-full")
+             {:class (if (not homebrew?) "opacity-5 hover-opacity-full")
               :on-click (toggle-homebrew path)}
              [tooltip
               (if-not homebrew?
@@ -730,7 +730,7 @@
        (fn [i part]
          ^{:key i}
          [:div.flex-grow-1
-          {:class-name (str "w-" (int (/ 100 num-columns)) "-p")}
+          {:class (str "w-" (int (/ 100 num-columns)) "-p")}
           [:div
            (doall
             (map-indexed
@@ -851,21 +851,21 @@
                                               (not (pos? (ability-increases k))))]
                    ^{:key k}
                    [:div.t-a-c
-                    {:class-name (if ability-disabled? "opacity-5 cursor-disabled")}
+                    {:class (if ability-disabled? "opacity-5 cursor-disabled")}
                     [:div
-                     {:class-name (if (and (not ability-disabled?)
+                     {:class (if (and (not ability-disabled?)
                                            (zero? (ability-increases k 0)))
                                     "opacity-5")}
                      (ability-value (ability-increases k 0))] 
                     [:div.f-s-16
                      [:i.fa.fa-minus-circle.orange
-                      {:class-name (if decrease-disabled? "opacity-5 cursor-disabled")
+                      {:class (if decrease-disabled? "opacity-5 cursor-disabled")
                        :on-click (stop-prop-fn
                                   (fn []
                                     (if (not decrease-disabled?)
                                       (dispatch [:decrease-ability-value increases-path k]))))}]
                      [:i.fa.fa-plus-circle.orange.m-l-5
-                      {:class-name (if increase-disabled? "opacity-5 cursor-disabled")
+                      {:class (if increase-disabled? "opacity-5 cursor-disabled")
                        :on-click (stop-prop-fn
                                   (fn []
                                     (if (not increase-disabled?)
@@ -890,7 +890,7 @@
              (ability-subtitle "race")
              (let [race-v (get race-ability-increases k 0)]
                [:div
-                {:class-name (if (zero? race-v)
+                {:class (if (zero? race-v)
                                "opacity-5")}
                 (ability-value race-v)])])
           (if (seq subrace-ability-increases)
@@ -899,7 +899,7 @@
              (ability-subtitle "subrace")
              (let [subrace-v (get subrace-ability-increases k 0)]
                [:div
-                {:class-name (if (zero? subrace-v)
+                {:class (if (zero? subrace-v)
                                "opacity-5")}
                 (ability-value subrace-v)])])
           (if (seq ability-increases)
@@ -910,7 +910,7 @@
                               (get race-ability-increases k 0)
                               (get subrace-ability-increases k 0))]
                [:div
-                {:class-name (if (zero? other-v)
+                {:class (if (zero? other-v)
                                "opacity-5")}
                 (ability-value other-v)])])])
        ability-keys))]))
@@ -994,13 +994,13 @@
               [:div.f-s-11.f-w-b (str "(" (score-costs v) " pts)")]
               [:div.f-s-16
                [:i.fa.fa-minus-circle.orange
-                {:class-name (if decrease-disabled? "opacity-5 cursor-disabled")
+                {:class (if decrease-disabled? "opacity-5 cursor-disabled")
                  :on-click (stop-prop-fn
                             (fn [e]
                               (if (not decrease-disabled?)
                                 (set-abilities! (update abilities k dec)))))}]
                [:i.fa.fa-plus-circle.orange.m-l-5
-                {:class-name (if increase-disabled? "opacity-5 cursor-disabled")
+                {:class (if increase-disabled? "opacity-5 cursor-disabled")
                  :on-click (stop-prop-fn
                             (fn [_]
                               (if (not increase-disabled?) (set-abilities! (update abilities k inc)))))}]]]))
@@ -1336,7 +1336,7 @@
                    [:td.p-5 (:level level-value)]
                    [:td.p-5 [:input.input.m-t-0
                              {:type :number
-                              :class-name (if (or (nil? (:value level-value))
+                              :class (if (or (nil? (:value level-value))
                                                   (not (pos? (:value level-value))))
                                             "b-red b-3")
                               :on-change (fn [e]
@@ -1555,10 +1555,10 @@
                class-name (if (= i page-index) "selected-tab" "opacity-5 hover-opacity-full")]
            ^{:key name}
            [:div.p-5.hover-opacity-full.pointer.flex.flex-column.align-items-c.t-a-c
-            {:class-name (if (= i page-index) "b-b-2 b-orange" "")
+            {:class (if (= i page-index) "b-b-2 b-orange" "")
              :on-click (fn [_] (dispatch [:set-page i]))}
             [:div
-             {:class-name class-name}
+             {:class class-name}
              (if (= :desktop device-type)
                [:div.f-s-10.m-b-2
                 name])
@@ -1862,7 +1862,7 @@
 
 (defn builder-tab [title key current-tab]
   [:span.builder-tab
-   {:class-name (if (= current-tab key) "selected-builder-tab")
+   {:class (if (= current-tab key) "selected-builder-tab")
     :on-click (set-builder-tab key)}
    [:span.builder-tab-text title]])
 
@@ -1915,17 +1915,17 @@
                            (not multiple-resources?)
                            (not has-homebrew?))]
         [:div
-         {:class-name (if (not mobile?)
+         {:class (if (not mobile?)
                         "m-l-20 m-b-20"
                         "m-l-10")}
          [:div.flex.align-items-c
           [:div.i
-           {:class-name
+           {:class
             (if al-legal?
               "green"
               "red")}
            [:i.fa.f-s-18
-            {:class-name
+            {:class
              (if al-legal?
                "fa-check"
                "fa-times")}]

@@ -105,7 +105,7 @@
          :value value
          :placeholder title
          :style input-style
-         :class-name (if (and @blurred? (seq messages))
+         :class (if (and @blurred? (seq messages))
                        "b-red"
                        "b-gray")
          :on-focus (fn [_] (reset! blurred? false))
@@ -138,7 +138,7 @@
     [:img.svg-icon
      {:style {:height (str size "px")
               :width (str size "px")}
-      :class-name (if light-theme? " opacity-7")
+      :class (if light-theme? " opacity-7")
       :src (str (if light-theme? "/image/black/" "/image/") icon-name ".svg")}]))
 
 (def login-style
@@ -258,11 +258,11 @@
           :on-mouse-over #(reset! hovered? true)
           :on-mouse-out #(reset! hovered? false)
           :style (if active active-style)
-          :class-name (str (if disabled "disabled" "pointer")
+          :class (str (if disabled "disabled" "pointer")
                            " "
                            (if (not mobile?) " w-110"))}
          [:div.p-10
-          {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
+          {:class (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
           (let [size (if mobile? 24 48)] (svg-icon icon size ""))
           (if (not mobile?)
             [:div.title.uppercase title])]
@@ -292,7 +292,7 @@
    {:style social-icon-style
     :href link :target :_blank}
    [:i.fab
-    {:class-name (str "fa-" icon)}]])
+    {:class (str "fa-" icon)}]])
 
 (def search-input-style
   {:height "60px"
@@ -362,7 +362,7 @@
            (let [search-text @(subscribe [:search-text])
                  search-text? @(subscribe [:search-text?])]
              [:div
-              {:class-name (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
+              {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
               [:div.b-rad-5.flex.align-items-c
                {:style search-input-parent-style}
                (if (not mobile?)
@@ -380,7 +380,7 @@
        [:div.container
         [:div.content
          [:div.flex.w-100-p.align-items-end
-          {:class-name (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
+          {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
           [:div
            {:style {:min-width "53px"}}
            [:a {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank}
@@ -613,7 +613,7 @@
                      :width "174px"
                      :font-size "16px"
                      :font-weight "600"}
-             :class-name (if bad-email? "disabled opacity-5 hover-no-shadow")
+             :class (if bad-email? "disabled opacity-5 hover-no-shadow")
              :on-click (if (not bad-email?) (make-event-handler :send-password-reset @params))}
             "SUBMIT"]]])))))
 
@@ -666,7 +666,7 @@
                      :width "174px"
                      :font-size "16px"
                      :font-weight "600"}
-             :class-name (if invalid? "opacity-5 hover-no-shadow cursor-disabled")
+             :class (if invalid? "opacity-5 hover-no-shadow cursor-disabled")
              :on-click (if (not invalid?) (make-event-handler :password-reset @params))}
             "SUBMIT"]]])))))
 
@@ -783,7 +783,7 @@
                      :opacity "0.7"
                      :width "100%"
                      :position :absolute}
-             :class-name color}]
+             :class color}]
            [:div.b-rad-5.password-strength-meter
             {:style {:top 0
                      :left 0
@@ -791,7 +791,7 @@
                      :height "30px"
                      :transition "width 1s"
                      :width (str (* 100 (float (/ password-strength 5))) "%")}
-             :class-name color}]
+             :class color}]
            [:div.main-text-color.p-l-10.b-rad-5
             {:style {:position :absolute
                      :padding-top "6px"}}
@@ -801,7 +801,7 @@
         {:style {:text-align :left
                  :margin-left "15px"}}
         [:i.fa.fa-check.f-s-14.pointer
-         {:class-name (if send-updates? "orange" "white")
+         {:class (if send-updates? "orange" "white")
           :style {:margin-top "-3px"
                   :border-color "#f0a100"
                   :border-style :solid
@@ -818,7 +818,7 @@
                   :width "174px"
                   :font-size "16px"
                   :font-weight "600"}
-          :class-name (if (seq registration-validation) "opacity-5 hover-no-shadow cursor-disabled")
+          :class (if (seq registration-validation) "opacity-5 hover-no-shadow cursor-disabled")
           :on-click #(if (empty? registration-validation)
                        (dispatch [:register]))}
          "JOIN"]]]
@@ -919,7 +919,7 @@
      [:div.flex.align-items-c.justify-cont-s-b.flex-wrap
       [:div.flex
        [:h1.f-s-36.f-w-b.m-t-5.m-l-10
-        {:class-name (if (not= :mobile device-type) "m-t-21 m-b-20")}
+        {:class (if (not= :mobile device-type) "m-t-21 m-b-20")}
         title]
        (if frame?
          logo)]
@@ -933,11 +933,11 @@
             ^{:key i}
             [:button.form-button.h-40.m-l-5.m-t-5.m-b-5
              {:on-click on-click
-              :class-name class-name
+              :class class-name
               :style style}
              [:span
               [:i.fa.f-s-18
-               (if icon {:class-name (str "fa-" icon)})]]
+               (if icon {:class (str "fa-" icon)})]]
              [:span.m-l-5.header-button-text title]]
               ))
         button-cfgs)]]
@@ -979,7 +979,7 @@
        [:div.orange.pointer.underline
         {:on-click #(swap! expanded? not)
          :title "Development - Debug Info" }
-        [:i.fa.fa-bug {:class-name (if @expanded? "white")}]]
+        [:i.fa.fa-bug {:class (if @expanded? "white")}]]
        (if @expanded?
          [:textarea.m-t-5
           {:read-only true
@@ -1112,7 +1112,7 @@
   [:div.p-b-20
    (if include-name? [:span.f-s-24.f-w-b name])
    [:div.i.f-w-b.opacity-5
-    {:class-name (str "f-s-" (or subheader-size 18))}
+    {:class (str "f-s-" (or subheader-size 18))}
     (str (if (pos? level)
            (str (common/ordinal level) "-level"))
          " "
@@ -1403,7 +1403,7 @@
               theme @(subscribe [:theme])
               mobile? @(subscribe [:mobile?])]
           [:div.app.min-h-full
-           {:class-name theme
+           {:class theme
             :on-scroll (when-not frame?
                          (fn [e]))}
            (when-not frame?
@@ -1473,7 +1473,7 @@
     [:div.flex.m-l-10.align-items-c
      (svg-icon "orc-head" 32)
      [:div.f-s-18.m-l-5
-      {:class-name text-classes}
+      {:class text-classes}
       owner]
      (if (and show-follow? username (not= username owner))
        [:button.form-button.m-l-10.p-6
@@ -1611,7 +1611,7 @@
        conj
        [:div]
        buttons))]
-   [:div {:class-name (if list? "m-t-0" "m-t-4")}
+   [:div {:class (if list? "m-t-0" "m-t-4")}
     [:span.f-s-24.f-w-600
      value]]])
 
@@ -1649,7 +1649,7 @@
    {:on-click on-click}
    [:span (if expanded? "hide" "details")]
    [:i.fa.m-l-5
-    {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]])
+    {:class (if expanded? "fa-caret-up" "fa-caret-down")}]])
 
 
 (defn spellcaster-levels-table []
@@ -1734,7 +1734,7 @@
                                             (= first-class-level lvl)))]
                     ^{:key lvl}
                     [:tr
-                     {:class-name (if highlight?
+                     {:class (if highlight?
                                     "f-w-b")
                       :style (if highlight?
                                highlight-spell-slot-row-style)}
@@ -1760,7 +1760,7 @@
                  (range (apply max (keys spell-slots)))))
                [:td.p-r-5
                 [:i.fa.orange
-                 {:class-name (if @checkboxes-expanded? "fa-caret-up" "fa-caret-down")}]]])]]]
+                 {:class (if @checkboxes-expanded? "fa-caret-up" "fa-caret-down")}]]])]]]
          (if @checkboxes-expanded?
            [:div.bg-light.p-5
             (doall
@@ -1841,7 +1841,7 @@
             :on-change #(reset! selected-level (js/parseInt %))}]]
          [:div.m-l-5
           [:button.form-button.p-10
-           {:class-name (if (empty? usable-slot-levels) "disabled")
+           {:class (if (empty? usable-slot-levels) "disabled")
             :on-click #(if (seq usable-slot-levels)
                          (dispatch [::char/use-spell-slot id (or @selected-level (first usable-slot-levels))]))}
            "cast spell"]]]))))
@@ -1862,7 +1862,7 @@
        (if (and (pos? lvl)
                 (get prepares-spells class))
          [:span.m-r-5
-          {:class-name (if always-prepared?
+          {:class (if always-prepared?
                          "cursor-disabled")
            :on-click (fn [e]
                        (if (not always-prepared?)
@@ -1887,7 +1887,7 @@
         :text (str "1d20" (common/mod-str (get cls-mods :spell-attack-modifier))))]
       [:td.p-l-10.p-b-5.p-t-5.pointer.orange
        [:i.fa
-        {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+        {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
      (when expanded?
        [:tr {:style expanded-spell-background-style}
         [:td {:col-span 7}
@@ -1928,7 +1928,7 @@
             [:th.p-l-10.p-b-5.p-t-5 (if mobile? "Aby" "Ability")]
             [:th.p-l-10.p-b-5.p-t-5 "DC"]
             [:th
-             {:class-name (if (not mobile?) "p-b-10 p-t-10")}
+             {:class (if (not mobile?) "p-b-10 p-t-10")}
              "Mod."]
             [:th.p-l-10.p-b-5.p-t-5 "Attack"]
             [:th.p-l-10.p-b-5.p-t-5]]
@@ -2309,7 +2309,7 @@
           (fn [{skill-name :name skill-key :key icon :icon :as skill}]
             ^{:key skill-key}
             [:tr.t-a-l
-             {:class-name (if (skill-profs skill-key) "f-w-b" "opacity-7")}
+             {:class (if (skill-profs skill-key) "f-w-b" "opacity-7")}
              [:td [:div.skill-name
                    (svg-icon icon 18)
                    [:span.m-l-5 skill-name]]]
@@ -2355,7 +2355,7 @@
          (fn [k]
            ^{:key k}
             [:tr.t-a-l
-             {:class-name (if (saving-throws k) "f-w-b" "opacity-7")}
+             {:class (if (saving-throws k) "f-w-b" "opacity-7")}
              [:td [:div
                    (t/ability-icon k 18 theme)
                    [:span.m-l-5.saving-throw-name (s/upper-case (name k))]]]
@@ -2507,7 +2507,7 @@
              :input
              xps
              #(dispatch [::char/set-current-xps id (js/parseInt %)])
-             {:class-name "input"
+             {:class "input"
               :type :number}]]
            [:div.p-5
             [:div
@@ -2591,7 +2591,7 @@
            @(subscribe [::char/notes id])
            (set-notes-handler id)
            {:style notes-style
-            :class-name "input"}]]]]]]]))
+            :class "input"}]]]]]]]))
 
 (defn weapon-details-field [nm value]
   [:div.p-2
@@ -2684,7 +2684,7 @@
          [:div.m-t-10 (str "Shield: " (:description shield))])]])])
 
 (defn boolean-icon [v]
-  [:i.fa {:class-name (if v "fa-check green" "fa-times red")}])
+  [:i.fa {:class (if v "fa-check green" "fa-times red")}])
 
 (defn toggle-details-expanded-fn [expanded-details k]
   #(swap! expanded-details (fn [d] (update d k not))))
@@ -2711,7 +2711,7 @@
           [:table.w-100-p.t-a-l.striped
            [:tbody.armor
             [:tr.f-w-b
-             {:class-name (if mobile? "f-s-12")}
+             {:class (if mobile? "f-s-12")}
              [:th.p-10 "Name"]
              (if (not mobile?) [:th.p-10 "Proficient?"])
              [:th.p-10 "Details"]
@@ -2746,7 +2746,7 @@
                     #_(if (not mobile?)
                         [:span.underline (if expanded? "less" "more")])
                     [:i.fa.m-l-5
-                     {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))]]]]))))
+                     {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))]]]]))))
 
 (defn section-header [icon title]
   [:div.flex.align-items-c
@@ -2771,7 +2771,7 @@
           [:table.w-100-p.t-a-l.striped
            [:tbody.weapons
             [:tr.f-w-b
-             {:class-name (if mobile? "f-s-12")}
+             {:class (if mobile? "f-s-12")}
              [:th.p-10 "Name"]
              (if (not mobile?) [:th.p-10 "Proficient?"])
              [:th.p-10 "Details"]
@@ -2821,7 +2821,7 @@
                        #_(if (not mobile?)
                            [:span.underline (if expanded? "less" "more")])
                        [:i.fa.m-l-5
-                        {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))
+                        {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))
               all-weapons))]]]]))))
 
 (defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
@@ -2842,7 +2842,7 @@
              #_(if (not mobile?)
                  [:span.underline (if expanded? "less" "more")])
              [:i.fa.m-l-5
-              {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]]
+              {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]]
           (if expanded?
             [:tr
              [:td.p-10
@@ -2868,7 +2868,7 @@
           [:table.w-100-p.t-a-l.striped
            [:tbody.other-magic-items
             [:tr.f-w-b
-             {:class-name (if mobile? "f-s-12")}
+             {:class (if mobile? "f-s-12")}
              [:th.p-10 "Name"]
              [:th.p-10 "Details"]
              [:th]]
@@ -2898,7 +2898,7 @@
           [:table.w-100-p.t-a-l.striped
            [:tbody.equipment
             [:tr.f-w-b
-             {:class-name (if mobile? "f-s-12")}
+             {:class (if mobile? "f-s-12")}
              [:th.p-10 "Name"]
              [:th.p-10 "Qty."]
              [:th.p-10 "Details"]
@@ -2940,7 +2940,7 @@
           [:table.w-100-p.t-a-l.striped
            [:tbody
             [:tr.f-w-b
-             {:class-name (if mobile? "f-s-12")}
+             {:class (if mobile? "f-s-12")}
              [:th.p-10 "Name"]
              [:th.p-10 "Qty."]
              [:th]]
@@ -2972,7 +2972,7 @@
           [:table.w-100-p.t-a-l.striped
            [:tbody
             [:tr.f-w-b
-             {:class-name (if mobile? "f-s-12")}
+             {:class (if mobile? "f-s-12")}
              [:th.p-5 "Name"]
              [:th.p-5 (if mobile? "Prof?" "Proficient?")]
              (if skill-expertise
@@ -3012,7 +3012,7 @@
             [:table.w-100-p.t-a-l.striped
              [:tbody
               [:tr.f-w-b
-               {:class-name (if mobile? "f-s-12")}
+               {:class (if mobile? "f-s-12")}
                [:th.p-10 "Name"]
                [:th.p-10 (if mobile? "Prof?" "Proficient?")]
                (if tool-expertise
@@ -3039,9 +3039,9 @@
   (let [ability-bonuses @(subscribe [::char/ability-bonuses id])
         language-map @(subscribe [::langs/language-map])]
     [:div.details-columns
-     {:class-name (if (= 2 num-columns) "flex")}
+     {:class (if (= 2 num-columns) "flex")}
      [:div.flex-grow-1.details-column-2
-      {:class-name (if (= 2 num-columns) "w-50-p m-l-20")}
+      {:class (if (= 2 num-columns) "w-50-p m-l-20")}
       [skill-details-section-2 id]
       [:div.m-t-20
        [tool-prof-details-section-2 id]]
@@ -3213,7 +3213,7 @@
      [:div.m-t-30
       [armor-section-2 id]]
      [:div
-      {:class-name (if (= 2 num-columns) "w-50-p m-l-20")}
+      {:class (if (= 2 num-columns) "w-50-p m-l-20")}
       [list-item-section "Weapon Proficiencies" "bowman" weapon-profs (partial prof-name @(subscribe [::mi/custom-and-standard-weapons-map]))]
       [list-item-section "Armor Proficiencies" "mailed-fist" armor-profs (partial prof-name armor/armor-map)]]]))
 
@@ -3239,10 +3239,10 @@
         all-traits (concat actions bonus-actions reactions traits attacks)
         freqs (set (map has-frequency-units? all-traits))]
     [:div.details-columns
-     {:class-name (if (= 2 num-columns) "flex")}
+     {:class (if (= 2 num-columns) "flex")}
 
      [:div.flex-grow-1.details-column-2
-      {:class-name (if (= 2 num-columns) "w-50-p m-l-20")}
+      {:class (if (= 2 num-columns) "w-50-p m-l-20")}
       [list-item-section "Damage Resistances" "surrounded-shield" resistances resistance-str]
       [list-item-section "Damage Vulnerabilities" nil damage-vulnerabilities resistance-str]
       [list-item-section "Damage Immunities" nil damage-immunities resistance-str]
@@ -3277,9 +3277,9 @@
         total-spellcaster-levels @(subscribe [::char/total-spellcaster-levels id])
         levels @(subscribe [::char/levels id])]
     [:div.details-columns
-     {:class-name (if (= 2 num-columns) "flex")}
+     {:class (if (= 2 num-columns) "flex")}
      [:div.flex-grow-1.details-column-2
-      {:class-name (if (= 2 num-columns) "w-50-p m-l-20")}
+      {:class (if (= 2 num-columns) "w-50-p m-l-20")}
       (if (seq spells-known) [spells-known-section
                               id
                               spells-known
@@ -3306,10 +3306,10 @@
 
 (defn details-tab [title icon device-type selected? on-select]
   [:div.b-b-2.f-w-b.pointer.p-10.hover-opacity-full
-   {:class-name (if selected? "b-orange" "b-gray")
+   {:class (if selected? "b-orange" "b-gray")
     :on-click on-select}
    [:div.hover-opacity-full
-    {:class-name (if (not selected?) "opacity-5")}
+    {:class (if (not selected?) "opacity-5")}
     [:div (svg-icon icon 24)]
     (if (= device-type :desktop)
       [:div.uppercase.f-s-10
@@ -3388,7 +3388,7 @@
              [:div.w-50-p
               [summary-details num-columns id]])
            [:div
-            {:class-name (if two-columns? "w-50-p" "w-100-p")}
+            {:class (if two-columns? "w-50-p" "w-100-p")}
             [:div.flex.p-l-10.m-b-10.m-r-10
              (doall
               (map
@@ -3412,7 +3412,7 @@
                      "hide selections"
                      "show selections")]
             [:i.fa.m-l-5
-             {:class-name (if @show-selections? "fa-caret-up" "fa-caret-down")}]]
+             {:class (if @show-selections? "fa-caret-up" "fa-caret-down")}]]
            (if @show-selections?
              [character-selections id])]]]))))
 
@@ -3703,14 +3703,14 @@
    :input
    value
    on-change
-   {:class-name "input"}])
+   {:class "input"}])
 
 (defn textarea-field [{:keys [value on-change]}]
   [comps/input-field
    :textarea
    value
    on-change
-   {:class-name "input"}])
+   {:class "input"}])
 
 (defn number-field [{:keys [value on-change]}]
   [comps/input-field
@@ -3719,7 +3719,7 @@
    (fn [v]
      (on-change
       (if (re-matches #"\d+" v) (js/parseInt v))))
-   {:class-name "input"
+   {:class "input"
     :type :number}])
 
 (defn attunement-value [attunement key name]
@@ -4114,13 +4114,13 @@
 
 (defn builder-input-field [title prop item prop-event & [class-names type]]
   [:div.flex-grow-1
-   {:class-name class-names
+   {:class class-names
     :name prop}
    [input-builder-field
     [:span.f-w-b title]
     (prop item)
     #(dispatch [prop-event prop %])
-    {:class-name "input h-40"
+    {:class "input h-40"
      :type type}]])
 
 #_(defn item-input-field [title prop item & [class-names]]
@@ -4471,7 +4471,7 @@
      [:span.f-w-b "Gold"]
      (get-in background [:treasure :gp])
      #(dispatch [::bg/set-background-gold %])
-     {:class-name "input h-40"
+     {:class "input h-40"
       :type :number}]]
    [:div.m-b-10
     [:div.f-s-18.f-w-b.m-b-10 "Clothing"]
@@ -4864,7 +4864,7 @@
               [:span.f-w-b "Name"]
               name
               #(dispatch [edit-trait-name-event i %])
-              {:class-name "input h-40"}]]
+              {:class "input h-40"}]]
             (if types
               [:div.flex-grow-1.m-l-5
                [labeled-dropdown
@@ -4996,7 +4996,7 @@
       (js/console.log plugin-name))))
 
 (def option-pack-styles
-  {:class-name "flex-grow-1 m-l-5 m-b-20"
+  {:class "flex-grow-1 m-l-5 m-b-20"
    :name "option-pack"})
 
 (defn get-plugin-names []
@@ -5012,7 +5012,7 @@
         ]
     (fn []
       [:div.flex-grow-1
-       {:class-name "m-l-5 m-b-20"
+       {:class "m-l-5 m-b-20"
         :name "option-pack"}
        [:div.f-w-b.m-b-5 label]
        [:input {:type "text"
@@ -5358,7 +5358,7 @@
         [:span.orange.pointer.f-s-18.m-l-5
          {:on-click #(swap! expanded? not)}
          [:i.fa.fa-question-circle.m-r-2]
-         [:i.fa {:class-name (if @expanded? "fa-caret-up" "fa-caret-down")}]]]
+         [:i.fa {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]]]
        (if @expanded?
          [:div.bg-light.f-s-18
           help])])))
@@ -6208,7 +6208,7 @@
                [:span.f-w-b "Name"]
                name
                #(dispatch [::selections/set-selection-path-prop [:options i :name] %])
-               {:class-name "input h-40"}]]
+               {:class "input h-40"}]]
              [:div
               [:button.form-button.m-l-5
                {:on-click #(dispatch [::selections/delete-option i])}
@@ -6395,7 +6395,7 @@
          (get hit-points :modifier 0)
          #(let [v (js/parseInt %)]
             (dispatch [::monsters/set-monster-path-prop [:hit-points :modifier] (if (not (js/isNaN v)) v)]))
-         {:class-name "input h-40"}]]
+         {:class "input h-40"}]]
       [monster-input-field
        "Speed"
        :speed
@@ -6887,7 +6887,7 @@
                        [:span.f-w-b.f-s-12 "Initiative"]
                        initiative
                        #(dispatch [::combat/set-combat-path-prop path (js/parseInt %)])
-                       {:class-name "input h-40 w-80 f-s-24 f-w-b m-r-10 m-t-10 m-b-10"
+                       {:class "input h-40 w-80 f-s-24 f-w-b m-r-10 m-t-10 m-b-10"
                         :type :number}]
                       [:div.m-r-10
                        [svg-icon
@@ -6927,7 +6927,7 @@
                                        [svg-icon (get-in opt/conditions-map [type :icon]) 36]])
                                     conditions))]]))
                             (range num)))]])]
-                     [:i.fa {:class-name (if (get @expanded-rows path)
+                     [:i.fa {:class (if (get @expanded-rows path)
                                            "fa-caret-up"
                                            "fa-caret-down")}]]
                     (if (get @expanded-rows path)
@@ -6955,7 +6955,7 @@
                                           (get-in monster [:hit-points :mean]))
                                   #(dispatch [::combat/set-monster-hit-points combatant x (js/parseInt %)])
                                   {:type :number
-                                   :class-name "input w-80"}]]
+                                   :class "input w-80"}]]
                                 (let [current-round (dec (get tracker-item :round 1))
                                       conditions (get-in monster-data [(:key monster) x :conditions])
                                       used-conditions (into #{} (map :type) conditions)]
@@ -7146,7 +7146,7 @@
           "Item Name" ;:name
           name
           #(dispatch [::mi/set-item-name %])
-          {:class-name "input h-40"}]
+          {:class "input h-40"}]
        (when (seq name) 
          (valid-wel name))
        #_(when-let [messages (validate-name name)]
@@ -7230,7 +7230,7 @@
                                   (str num " " (capitalize-words final-type-name)))]]
           [:div.orange.pointer
            [:i.fa.m-r-5
-            {:class-name (if @expanded? "fa-caret-up" "fa-caret-down")}]
+            {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
            [:span.underline (if @expanded? "collapse" "expand")]]]
          (if @expanded?
            [:div.bg-lighter.p-10
@@ -7424,7 +7424,7 @@
         [:span.f-s-24.flex-grow-1 name]
         [:div.orange
          [:i.fa.m-r-5
-          {:class-name (if @expanded? "fa-caret-up" "fa-caret-down")}]
+          {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
          [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
        (if @expanded?
          [:div.bg-lighter.p-10
@@ -7543,12 +7543,12 @@
           "View Character"]])
       [:div.m-t-20
        [:button.link-button
-        {:class-name (if (not has-history?) "disabled")
+        {:class (if (not has-history?) "disabled")
          :on-click #(if has-history? (dispatch [::char/previous-question]))}
         "Back"]
        [:button.form-button
         {:on-click #(if current-answer (dispatch [::char/next-question]))
-         :class-name (if (nil? current-answer) "disabled")}
+         :class (if (nil? current-answer) "disabled")}
         "Next"]]])
    :hide-header-message? true])
 
@@ -7763,7 +7763,7 @@
                                                             "collapse"
                                                             "open")])
         [:i.fa.m-l-5
-         {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
       (if expanded?
         [expanded-character-list-item id owner username char-page-route])]]))
 
@@ -7787,7 +7787,7 @@
        :on-click #(dispatch [:new-character])}
       {:title "Make Party"
        :icon "users"
-       :class-name (if (not has-selected?) "opacity-5 cursor-disabled")
+       :class (if (not has-selected?) "opacity-5 cursor-disabled")
        :on-click (if has-selected? (make-event-handler ::party/make-party selected-ids))}]
      [:div.p-5
       [:div
@@ -7910,7 +7910,7 @@
                                                                                "collapse"
                                                                                "open")])
                              [:i.fa.m-l-5
-                              {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+                              {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
                            (if expanded?
                              [:div
                               {:style character-display-style}
@@ -7948,7 +7948,7 @@
                                "collapse"
                                "open")])
           [:i.fa.m-l-5
-           {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+           {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
         (when expanded?
           [:div.p-10
            {:style character-display-style}
@@ -8050,7 +8050,7 @@
                         "hide"
                         "filters")])
    [:i.fa.m-l-5
-    {:class-name (if @filters-expanded? "fa-caret-up" "fa-caret-down")}]])
+    {:class (if @filters-expanded? "fa-caret-up" "fa-caret-down")}]])
 
 (defn monster-list []
   (r/with-let [filters-expanded? (r/atom false)
@@ -8099,7 +8099,7 @@
                                                           "collapse"
                                                           "open")])
         [:i.fa.m-l-5
-         {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
       (if expanded?
         [:div.p-10
          {:style character-display-style}
@@ -8162,7 +8162,7 @@
                                                           "collapse"
                                                           "open")])
         [:i.fa.m-l-5
-         {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]
+         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
       (if expanded?
         [:div.p-10
          {:style character-display-style}
