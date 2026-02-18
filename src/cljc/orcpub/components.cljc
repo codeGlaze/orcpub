@@ -42,10 +42,20 @@
    (for [{:keys [key name]} values]
      ^{:key key} [selection-item key name])])
 
-(defn input-field []
+(defn input-field
+  "Debounced input: shows typed text immediately via local :temp-val,
+   dispatches on-change after 500ms. Clears temp-val only when the
+   parent value prop catches up (avoids flicker from the old
+   clear-in-setTimeout approach)."
+  []
   (let [state (atom {:timeout nil
-                     :temp-val nil})]
+                     :temp-val nil
+                     :prev-value nil})]
     (fn [type value on-change attrs]
+      ;; When parent value changes (subscription caught up or external
+      ;; change), sync prev-value and clear stale temp-val.
+      (when (not= value (:prev-value @state))
+        (swap! state assoc :prev-value value :temp-val nil))
       [type
        (merge
         attrs
@@ -53,15 +63,13 @@
          :on-click #(.stopPropagation %)
          :on-change (fn [e] #?(:cljs
                                (swap! state
-                                      (fn [{:keys [timeout temp-val] :as s}]
+                                      (fn [{:keys [timeout] :as s}]
                                         (when timeout
                                           (js/clearTimeout timeout))
                                         (let [v (.. e -target -value)]
                                           (assoc s
                                                  :timeout (js/setTimeout
-                                                           (fn []
-                                                             (on-change v)
-                                                             (swap! state dissoc :temp-val))
+                                                           (fn [] (on-change v))
                                                            500)
                                                  :temp-val v))))))})])))
 

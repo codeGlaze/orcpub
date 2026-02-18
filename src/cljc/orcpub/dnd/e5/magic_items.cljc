@@ -3089,10 +3089,22 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
 (def magic-weapon-map
   (common/map-by-key magic-weapons))
 
+(defn compute-all-weapons-map
+  "Compute merged weapons map: static PHB + static magic + custom magic.
+   custom-items are raw user-imported items (pre-expansion).
+   SSOT for weapon lookup — called by both subscriptions and modifier
+   condition code."
+  [custom-items]
+  (let [expanded (expand-magic-items custom-items)
+        all-items (concat expanded magic-items)
+        all-magic-weapons (sequence magic-weapon-xform all-items)
+        magic-weapon-lookup (common/map-by-key all-magic-weapons)]
+    (merge magic-weapon-lookup weapons5e/weapons-map)))
+
 (def all-weapons-map
-  (merge
-   weapons5e/weapons-map
-   magic-weapon-map))
+  "Static weapons map (no custom items). Use compute-all-weapons-map
+   when custom items may be present."
+  (compute-all-weapons-map nil))
 
 (def magic-armor-xform
   (filter

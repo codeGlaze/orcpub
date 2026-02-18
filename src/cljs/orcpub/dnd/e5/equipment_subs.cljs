@@ -257,12 +257,14 @@
    (ra/make-reaction
     (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
 
-(reg-sub
+(reg-sub-raw
  ::mi5e/item
- (fn [item [_ key]]
+ ;; For int keys, delegate to ::remote-item (triggers HTTP fetch).
+ ;; For keyword keys, return static lookup.
+ (fn [_app-db [_ key]]
    (if (int? key)
-     @(subscribe [::mi5e/remote-item key])
-     (get mi5e/all-equipment-map key))))
+     (subscribe [::mi5e/remote-item key])
+     (ra/make-reaction (fn [] (get mi5e/all-equipment-map key))))))
 
 (reg-sub
  ::equipment5e/armor-map

@@ -22,7 +22,8 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as eh]
             [orcpub.components :as comps]
-            [re-frame.core :refer [dispatch subscribe]])
+            [re-frame.core :refer [dispatch subscribe]]
+            [re-frame.db])
   #?(:cljs (:require-macros [orcpub.dnd.e5.modifiers :as modifiers])))
 
 #?(:cljs (enable-console-print!))
@@ -1145,7 +1146,8 @@
                 nil
                 [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                        off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
-                       all-weapons-map @(subscribe [::mi/all-weapons-map])]
+                       all-weapons-map (mi/compute-all-weapons-map
+                                        (get @re-frame.db/app-db ::mi/custom-items))]
                    (and (and main-hand-weapon
                              (-> all-weapons-map
                                  main-hand-weapon
@@ -1723,7 +1725,8 @@
                               nil ;vec-mod value ... maybe?
                               [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                                      off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
-                                     all-weapons-map @(subscribe [::mi/all-weapons-map])]
+                                     all-weapons-map (mi/compute-all-weapons-map
+                                                      (get @re-frame.db/app-db ::mi/custom-items))]
                                  (and (and main-hand-weapon
                                            (-> all-weapons-map
                                                main-hand-weapon
@@ -2047,7 +2050,11 @@
     :order 1001
     :prereqs [(t/option-prereq
                nil
-               (fn [_] @(subscribe [:homebrew? path]))
+               (fn [_]
+                 ;; Read homebrew flag from raw character in app-db;
+                 ;; built entity doesn't carry ::homebrew-paths.
+                 (get-in (:character @re-frame.db/app-db)
+                         [::entity/homebrew-paths path]))
                true)]}))
 
 
@@ -3151,7 +3158,10 @@
                 (modifiers/spells-known 1 :disguise-self ::character/cha "Deep Gnome" 0 "once per long rest")]}))
 
 
-(defn feat-prereqs [prereqs path-prereqs]
+(defn feat-prereqs
+  "Build prereq list for a feat. race-map is a {key->race} lookup
+   threaded from template-selections so we avoid subscribing."
+  [prereqs path-prereqs race-map]
   (concat
    (map
     (fn [prereq]
@@ -3174,8 +3184,7 @@
                       key))
                     race-prereqs)]
      (when (seq race-keys)
-       (let [race-map @(subscribe [::races/race-map])
-             race-names (map (comp :name race-map) race-keys)]
+       (let [race-names (map (comp :name race-map) race-keys)]
          [(race-prereq race-names)])))))
 
 (def filter-true (filter val))
@@ -3350,19 +3359,22 @@
      props)))
 
 
-(defn feat-option-from-cfg [language-map
-                            spells-map
-                            spell-lists
-                            custom-and-standard-weapons
-                            {:keys [name
-                                    key
-                                    icon
-                                    description
-                                    prereqs
-                                    path-prereqs
-                                    props
-                                    ability-increases
-                                    edit-event]}]
+(defn feat-option-from-cfg
+  "Build a feat option. race-map is threaded from template-selections."
+  [language-map
+   spells-map
+   spell-lists
+   custom-and-standard-weapons
+   race-map
+   {:keys [name
+           key
+           icon
+           description
+           prereqs
+           path-prereqs
+           props
+           ability-increases
+           edit-event]}]
   (let [feat-mods (feat-modifiers key
                                   name
                                   description
@@ -3382,7 +3394,7 @@
       :modifiers feat-mods
       :selections feat-selections
       :summary description
-      :prereqs (feat-prereqs prereqs path-prereqs)})))
+      :prereqs (feat-prereqs prereqs path-prereqs race-map)})))
 
 (def draconic-ancestries
   [{:name "Black"

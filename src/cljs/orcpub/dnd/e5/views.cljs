@@ -113,10 +113,13 @@
          :on-blur (fn [e] (reset! blurred? true))}]
        (if @blurred? (validation-messages messages))])))
 
-(defn export-pdf [built-char id & [options]]
+(defn export-pdf
+  "Returns an onClick handler that generates and submits the PDF.
+   plugin-data map is pre-subscribed by the calling component."
+  [built-char id plugin-data & [options]]
   (fn [_]
     (let [field (.getElementById js/document "fields-input")]
-      (aset field "value" (str (pdf-spec/make-spec built-char id options)))
+      (aset field "value" (str (pdf-spec/make-spec built-char id options plugin-data)))
       (.submit (.getElementById js/document "download-form")))))
 
 (defn download-form [built-char]
@@ -3465,6 +3468,7 @@
 
 (defn export-pdf-fn [built-char
                      id
+                     plugin-data
                      print-character-sheet?
                      print-spell-cards?
                      print-prepared-spells?
@@ -3473,6 +3477,7 @@
                      print-spell-card-dc-mod?]
   #(let [export-fn (export-pdf built-char
                                id
+                               plugin-data
                                {:print-character-sheet? print-character-sheet?
                                 :print-spell-cards? print-spell-cards?
                                 :print-prepared-spells? print-prepared-spells?
@@ -3510,6 +3515,11 @@
         print-large-abilities? @(subscribe [::char/print-large-abilities?])
         print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
         print-spell-card-dc-mod? @(subscribe [::char/print-spell-card-dc-mod?])
+        plugin-data {:spells-map @(subscribe [::spells/spells-map])
+                     :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
+                     :language-map @(subscribe [::langs/language-map])
+                     :all-weapons-map @(subscribe [::mi/all-weapons-map])
+                     :current-armor-class @(subscribe [::char/current-armor-class id])}
         has-spells? (seq (char/spells-known built-char))
         print-button-enabled (if (or (= print-character-sheet-style? nil)
                                      (= (str print-character-sheet-style?) "NaN"))
@@ -3573,6 +3583,7 @@
        {:style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char
                                       id
+                                      plugin-data
                                       print-character-sheet?
                                       print-spell-cards?
                                       print-prepared-spells?
@@ -7694,31 +7705,39 @@
   (builder-page "Feat" ::feats/reset-feat ::feats/save-feat feat-builder))
 
 (defn expanded-character-list-item [id owner username char-page-route]
-  [:div
-   {:style character-display-style}
-   [:div.flex.justify-cont-end.uppercase.align-items-c
-    [share-link id]
-    (if (= username owner)
-      [:button.form-button
-       {:on-click (make-event-handler :edit-character @(subscribe [::char/character id]))}
-       "edit"])
-    (if (= username owner)
+  (let [built-char @(subscribe [::char/built-character id])
+        character @(subscribe [::char/character id])
+        plugin-data {:spells-map @(subscribe [::spells/spells-map])
+                     :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
+                     :language-map @(subscribe [::langs/language-map])
+                     :all-weapons-map @(subscribe [::mi/all-weapons-map])
+                     :current-armor-class @(subscribe [::char/current-armor-class id])}]
+    [:div
+     {:style character-display-style}
+     [:div.flex.justify-cont-end.uppercase.align-items-c
+      [share-link id]
+      (if (= username owner)
+        [:button.form-button
+         {:on-click (make-event-handler :edit-character character)}
+         "edit"])
+      (if (= username owner)
+        [:button.form-button.m-l-5
+         {:on-click (make-event-handler ::char/save-character id)}
+         "save"])
       [:button.form-button.m-l-5
-       {:on-click (make-event-handler ::char/save-character id)}
-       "save"])
-    [:button.form-button.m-l-5
-     {:on-click (make-event-handler :route char-page-route)}
-     "view"]
-    [:button.form-button.m-l-5
-     {:on-click (export-pdf
-                 @(subscribe [::char/built-character id])
-                 id
-                 {:print-character-sheet? true
-                  :print-spell-cards? true
-                  :print-prepared-spells? false
-                  :print-character-sheet-style? 1
-                  :print-spell-card-dc-mod? true})}
-     "print"]
+       {:on-click (make-event-handler :route char-page-route)}
+       "view"]
+      [:button.form-button.m-l-5
+       {:on-click (export-pdf
+                   built-char
+                   id
+                   plugin-data
+                   {:print-character-sheet? true
+                    :print-spell-cards? true
+                    :print-prepared-spells? false
+                    :print-character-sheet-style? 1
+                    :print-spell-card-dc-mod? true})}
+       "print"]
     (if (= username owner)
       [:button.form-button.m-l-5
        {:on-click (make-event-handler ::char/show-delete-confirmation id)}
@@ -7734,7 +7753,7 @@
         [:span.link-button
          {:on-click (make-event-handler :delete-character id)}
          "delete"]]]])
-   [character-display id false (if (= :mobile @(subscribe [:device-type])) 1 2)]])
+   [character-display id false (if (= :mobile @(subscribe [:device-type])) 1 2)]]))
 
 (defn character-list-item [expanded-characters
                            selected-ids
@@ -7893,6 +7912,7 @@
                     (map
                      (fn [{:keys [::se/owner] :as summary}]
                        (let [character-id (:db/id summary)
+                             character @(subscribe [::char/character character-id])
                              expanded? (get-in @expanded-characters [id character-id])
                              char-page-path (routes/path-for routes/dnd-e5-char-page-route :id character-id)
                              char-page-route (routes/match-route char-page-path)]
@@ -7917,7 +7937,7 @@
                               [:div.flex.justify-cont-end.uppercase.align-items-c
                                (if (= username owner)
                                  [:button.form-button
-                                  {:on-click #(dispatch [:edit-character @(subscribe [::char/character character-id])])}
+                                  {:on-click #(dispatch [:edit-character character])}
                                   "edit"])
                                [:button.form-button.m-l-5
                                 {:on-click #(dispatch [:route char-page-route])}
