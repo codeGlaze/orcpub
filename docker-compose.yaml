@@ -33,11 +33,11 @@ services:
       - ./data:/data
       - ./logs:/logs
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/4334'"]
+      test: ["CMD-SHELL", "grep -q ':10EE ' /proc/net/tcp || grep -q ':10EE ' /proc/net/tcp6"]
       interval: 5s
       timeout: 3s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 40s
     restart: always
   web:
     image: nginx:alpine
