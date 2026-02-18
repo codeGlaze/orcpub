@@ -5,6 +5,7 @@
 ;;
 ;; Commands:
 ;;   create <username> <email> <password>  — Create and auto-verify a user
+;;   batch  <file>                         — Create users from a file (one per line)
 ;;   verify <username-or-email>            — Verify an existing unverified user
 ;;   check  <username-or-email>            — Check if a user exists and their status
 ;;   list                                  — List all users (username + email + verified)
@@ -40,30 +41,69 @@
        db
        username-or-email))
 
-(defn create-user! [conn username email password]
-  (let [db    (d/db conn)
-        email (s/lower-case (s/trim email))
+(defn try-create-user!
+  "Creates a user. Returns {:ok true} on success, {:duplicate \"reason\"} if the
+   user/email already exists, or {:error \"message\"} on unexpected failure."
+  [conn username email password]
+  (let [db       (d/db conn)
+        email    (s/lower-case (s/trim email))
         username (s/trim username)]
-    ;; Check for duplicates
-    (when (d/q '[:find ?e . :in $ ?email
-                 :where [?e :orcpub.user/email ?email]] db email)
-      (binding [*out* *err*]
-        (println "ERROR: Email already registered:" email))
-      (System/exit 1))
-    (when (d/q '[:find ?e . :in $ ?username
-                 :where [?e :orcpub.user/username ?username]] db username)
-      (binding [*out* *err*]
-        (println "ERROR: Username already taken:" username))
-      (System/exit 1))
-    ;; Create user — already verified, no email step needed
-    @(d/transact conn
-       [{:orcpub.user/email      email
-         :orcpub.user/username   username
-         :orcpub.user/password   (hashers/encrypt password)
-         :orcpub.user/verified?  true
-         :orcpub.user/send-updates? false
-         :orcpub.user/created    (java.util.Date.)}])
-    (println "OK: User created and verified —" username "<" email ">")))
+    (cond
+      (d/q '[:find ?e . :in $ ?email
+             :where [?e :orcpub.user/email ?email]] db email)
+      {:duplicate (str "Email already registered: " email)}
+
+      (d/q '[:find ?e . :in $ ?username
+             :where [?e :orcpub.user/username ?username]] db username)
+      {:duplicate (str "Username already taken: " username)}
+
+      :else
+      (do
+        @(d/transact conn
+           [{:orcpub.user/email      email
+             :orcpub.user/username   username
+             :orcpub.user/password   (hashers/encrypt password)
+             :orcpub.user/verified?  true
+             :orcpub.user/send-updates? false
+             :orcpub.user/created    (java.util.Date.)}])
+        (println "OK: User created and verified —" username "<" email ">")
+        {:ok true}))))
+
+(defn batch-create-users!
+  "Reads a user file (one user per line: username email password) and creates
+   all users in a single JVM session. Blank lines and #-comments are skipped.
+   Duplicates are logged and skipped (not counted as failures).
+   Returns exit code 0 if no hard failures, 1 otherwise."
+  [conn path]
+  (let [lines   (->> (s/split-lines (slurp path))
+                     (map s/trim)
+                     (remove #(or (s/blank? %) (s/starts-with? % "#"))))
+        results (doall
+                  (for [line lines]
+                    (let [parts (s/split line #"\s+")]
+                      (if (< (count parts) 3)
+                        (do (binding [*out* *err*]
+                              (println "SKIP: bad line (need: username email password):" line))
+                            {:error "bad line"})
+                        (let [[username email password] parts
+                              result (try
+                                       (try-create-user! conn username email password)
+                                       (catch Exception e
+                                         {:error (.getMessage e)}))]
+                          (when (:duplicate result)
+                            (println "SKIP:" username "—" (:duplicate result)))
+                          (when (:error result)
+                            (binding [*out* *err*]
+                              (println "FAIL:" username "—" (:error result))))
+                          result)))))
+        total   (count results)
+        created (count (filter :ok results))
+        dupes   (count (filter :duplicate results))
+        failed  (count (filter :error results))]
+    (println)
+    (println (format "Batch complete: %d created, %d skipped (duplicate), %d failed, %d total"
+                     created dupes failed total))
+    (if (pos? failed) 1 0)))
 
 (defn verify-user! [conn username-or-email]
   (let [db   (d/db conn)
@@ -118,8 +158,23 @@
                  (binding [*out* *err*]
                    (println "Usage: manage-user.clj create <username> <email> <password>"))
                  (System/exit 1))
-               (let [conn (get-conn)]
-                 (create-user! conn username email password)))
+               (let [conn   (get-conn)
+                     result (try-create-user! conn username email password)]
+                 (when-let [msg (or (:duplicate result) (:error result))]
+                   (binding [*out* *err*]
+                     (println "ERROR:" msg))
+                   (System/exit 1))))
+
+    "batch"  (let [[_ path] args]
+               (when-not path
+                 (binding [*out* *err*]
+                   (println "Usage: manage-user.clj batch <file>")
+                   (println "  File format: one user per line — username email password")
+                   (println "  Lines starting with # and blank lines are skipped"))
+                 (System/exit 1))
+               (let [conn (get-conn)
+                     exit (batch-create-users! conn path)]
+                 (System/exit exit)))
 
     "verify" (let [[_ username-or-email] args]
                (when-not username-or-email
@@ -147,6 +202,7 @@
       (println "")
       (println "Commands:")
       (println "  create <username> <email> <password>  Create and auto-verify a user")
+      (println "  batch  <file>                         Create users from a file (one per line)")
       (println "  verify <username-or-email>            Verify an existing user")
       (println "  check  <username-or-email>            Check if a user exists")
       (println "  list                                  List all users")

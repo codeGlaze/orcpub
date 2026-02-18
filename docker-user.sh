@@ -41,6 +41,12 @@ Usage:
   ./docker-user.sh create <username> <email> <password>
       Create a new user (auto-verified, skips email)
 
+  ./docker-user.sh batch <file>
+      Create multiple users from a file (one JVM startup).
+      File format: one user per line — username email password
+      Lines starting with # and blank lines are skipped.
+      Duplicates are logged and skipped (not treated as errors).
+
   ./docker-user.sh verify <username-or-email>
       Verify an existing unverified user
 
@@ -56,6 +62,7 @@ Options:
 
 Examples:
   ./docker-user.sh create admin admin@example.com MySecurePass123
+  ./docker-user.sh batch users.txt
   ./docker-user.sh check admin
   ./docker-user.sh list
 USAGE
@@ -222,4 +229,20 @@ fi
 
 # Wait for Datomic to be reachable, then run the command
 wait_for_ready "$CONTAINER"
-run_in_container "$CONTAINER" "$@"
+
+# For batch: copy the user file into the container and rewrite the path
+if [ "${1:-}" = "batch" ]; then
+  USER_FILE="${2:-}"
+  if [ -z "$USER_FILE" ]; then
+    error "Usage: ./docker-user.sh batch <file>"
+    exit 1
+  fi
+  if [ ! -f "$USER_FILE" ]; then
+    error "File not found: $USER_FILE"
+    exit 1
+  fi
+  docker cp "$USER_FILE" "${CONTAINER}:/tmp/batch-users.txt"
+  run_in_container "$CONTAINER" batch /tmp/batch-users.txt
+else
+  run_in_container "$CONTAINER" "$@"
+fi
