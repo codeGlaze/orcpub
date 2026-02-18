@@ -7872,8 +7872,129 @@
    []
    [orcacle]])
 
+(defn character-filter-bar []
+  (let [classes-open? (r/atom false)
+        levels-open? (r/atom false)]
+    (fn []
+      (let [name-filter      @(subscribe [::char/char-name-filter])
+            level-filters    @(subscribe [::char/char-level-filters])
+            class-filters    @(subscribe [::char/char-class-filters])
+            has-portrait?    @(subscribe [::char/char-has-portrait?])
+            has-faction-pic? @(subscribe [::char/char-has-faction-pic?])
+            avail-classes    @(subscribe [::char/char-classes-available])
+            avail-levels     @(subscribe [::char/char-levels-available])
+            any-filter?      (or (not (s/blank? name-filter))
+                                 (seq level-filters)
+                                 (seq class-filters)
+                                 has-portrait?
+                                 has-faction-pic?)]
+        [:div.main-text-color.m-b-10
+         (when @classes-open?
+           [:div.posn-fixed
+            {:style    {:top 0 :left 0 :right 0 :bottom 0 :z-index 100}
+             :on-click (fn [e] (.stopPropagation e) (reset! classes-open? false))}])
+         (when @levels-open?
+           [:div.posn-fixed
+            {:style    {:top 0 :left 0 :right 0 :bottom 0 :z-index 100}
+             :on-click (fn [e] (.stopPropagation e) (reset! levels-open? false))}])
+         [:div.flex.align-items-c.flex-wrap.p-5
+          ;; Name search
+          [:div.posn-rel.m-r-5.m-b-5
+           [:input.input
+            {:placeholder "Search by name..."
+             :style       {:width "200px"}
+             :value       name-filter
+             :on-change   #(dispatch [::char/set-char-name-filter (.. % -target -value)])}]
+           (when (not (s/blank? name-filter))
+             [:i.fa.fa-times.posn-abs.pointer.orange.f-s-14
+              {:style    {:right "8px" :top "8px"}
+               :on-click #(dispatch [::char/set-char-name-filter ""])}])]
+
+          ;; Classes multi-select dropdown
+          [:div.posn-rel.m-r-5.m-b-5
+           {:style {:z-index (if @classes-open? 200 1)}}
+           [:button.form-button
+            {:on-click (fn [e] (.stopPropagation e) (swap! classes-open? not))}
+            (str "Classes" (when (seq class-filters) (str " (" (count class-filters) ")")))
+            [:i.fa.m-l-5 {:class-name (if @classes-open? "fa-caret-up" "fa-caret-down")}]]
+           (when @classes-open?
+             [:div.posn-abs.main-text-color
+              {:style {:z-index      200
+                       :background   "rgba(0,0,0,0.92)"
+                       :padding      "10px"
+                       :min-width    "160px"
+                       :top          "105%"
+                       :border       "1px solid rgba(255,255,255,0.15)"
+                       :border-radius "4px"
+                       :max-height   "300px"
+                       :overflow-y   "auto"
+                       :font-weight  "normal"
+                       :font-size    "small"}}
+              (if (seq avail-classes)
+                (doall
+                 (map (fn [cls]
+                        ^{:key cls}
+                        [:div {:style {:margin-bottom "3px"}}
+                         [comps/labeled-checkbox cls (contains? class-filters cls) false
+                          (fn [] (dispatch [::char/toggle-char-class-filter cls]))]])
+                      avail-classes))
+                [:span.opacity-5.f-s-12 "No classes yet"])])]
+
+          ;; Levels multi-select dropdown
+          [:div.posn-rel.m-r-5.m-b-5
+           {:style {:z-index (if @levels-open? 200 1)}}
+           [:button.form-button
+            {:on-click (fn [e] (.stopPropagation e) (swap! levels-open? not))}
+            (str "Levels" (when (seq level-filters) (str " (" (count level-filters) ")")))
+            [:i.fa.m-l-5 {:class-name (if @levels-open? "fa-caret-up" "fa-caret-down")}]]
+           (when @levels-open?
+             [:div.posn-abs.main-text-color.center
+              {:style {:z-index       200
+                       :background    "rgba(0,0,0,0.92)"
+                       :padding       "10px"
+                       :min-width     "110px"
+                       :top           "105%"
+                       :border        "1px solid rgba(255,255,255,0.15)"
+                       :border-radius "4px"
+                       :max-height    "300px"
+                       :overflow-y    "auto"
+                       :font-weight   "normal"
+                       :font-size     "small"}}
+              (if (seq avail-levels)
+                (doall
+                 (map (fn [lvl]
+                        ^{:key lvl}
+                        [:div {:style {:margin-bottom "3px"}}
+                         [comps/labeled-checkbox (str "Level " lvl) (contains? level-filters lvl) false
+                          (fn [] (dispatch [::char/toggle-char-level-filter lvl]))]])
+                      avail-levels))
+                [:span.opacity-5.f-s-12 "No levels yet"])])]
+
+          ;; Portrait toggle (nil=all, true=with portrait, false=without portrait)
+          [:button.form-button.m-r-5.m-b-5
+           {:on-click #(dispatch [::char/toggle-char-has-portrait])}
+           [:i.fa.fa-user.m-r-5]
+           (cond (true? has-portrait?)  "Portrait: Has"
+                 (false? has-portrait?) "Portrait: None"
+                 :else                  "Portrait: All")]
+
+          ;; Faction Pic toggle (nil=all, true=with faction pic, false=without faction pic)
+          [:button.form-button.m-r-5.m-b-5
+           {:on-click #(dispatch [::char/toggle-char-has-faction-pic])}
+           [:i.fa.fa-flag.m-r-5]
+           (cond (true? has-faction-pic?)  "Faction Pic: Has"
+                 (false? has-faction-pic?) "Faction Pic: None"
+                 :else                     "Faction Pic: All")]
+
+          ;; Clear button — only shown when any filter is active
+          (when any-filter?
+            [:button.form-button.m-b-5
+             {:on-click #(dispatch [::char/clear-char-filters])}
+             [:i.fa.fa-times.m-r-5]
+             "Clear"])]]))))
+
 (defn character-list []
-  (let [characters @(subscribe [::char/characters])
+  (let [characters @(subscribe [::char/filtered-characters])
         folders @(subscribe [::folder/folders])
         char-folder-map @(subscribe [::folder/character-folder-map])
         expanded-characters @(subscribe [:expanded-characters])
@@ -7893,6 +8014,7 @@
        :icon "folder"
        :on-click #(dispatch [::folder/create-folder])}]
      [:div.p-5
+      [character-filter-bar]
       [:div
        (let [grouped-characters (group-by ::se/owner characters)
              user-characters (find grouped-characters username)

@@ -1167,14 +1167,14 @@
       :align-items :center}]
 
     [:.checkbox
-     {:width "16px"
-      :height "16px"
+     {:width "12px"
+      :height "12px"
       :box-shadow "0 1px 0 0 #f0a100"
       :background-color :white
       :cursor :pointer}
 
      [:.fa-check
-      {:font-size "14px"
+      {:font-size "12px"
        :margin "1px"}]]
 
     [:.checkbox.checked.disabled

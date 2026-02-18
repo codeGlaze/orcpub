@@ -362,6 +362,7 @@
         subrace (char5e/subrace built-char)
         character-name (char5e/character-name built-char)
         image-url (char5e/image-url built-char)
+        faction-image-url (char5e/faction-image-url built-char)
         age (char5e/age built-char)
         sex (char5e/sex built-char)
         height (char5e/height built-char)
@@ -369,11 +370,12 @@
         hair (char5e/hair built-char)
         eyes (char5e/eyes built-char)
         skin (char5e/skin built-char)
-        ;alignment (char5e/get-prop built-char ::alignment)  ;This is not available? 
-        ;background (char5e/get-prop built-char ::background)  ;This is not available? 
+        ;alignment (char5e/get-prop built-char ::alignment)  ;This is not available?
+        ;background (char5e/get-prop built-char ::background)  ;This is not available?
         ]
     (cond-> {::char5e/character-name (or character-name "")}
       image-url (assoc ::char5e/image-url image-url)
+      faction-image-url (assoc ::char5e/faction-image-url faction-image-url)
       race (assoc ::char5e/race-name race)
       subrace (assoc ::char5e/subrace-name subrace)
       age (assoc ::char5e/age age)
@@ -897,6 +899,51 @@
    (update-in db [::folder5e/renaming folder-id] not)))
 
 ;; ---- End Folder Events ----------------------------------------------------
+
+;; ---- Character Filter Events -----------------------------------------------
+
+(reg-event-db
+ ::char5e/set-char-name-filter
+ (fn [db [_ v]]
+   (assoc db ::char5e/char-name-filter v)))
+
+(reg-event-db
+ ::char5e/toggle-char-level-filter
+ (fn [db [_ level]]
+   (let [filters (or (get db ::char5e/char-level-filters) #{})]
+     (assoc db ::char5e/char-level-filters
+            ((if (filters level) disj conj) filters level)))))
+
+(reg-event-db
+ ::char5e/toggle-char-class-filter
+ (fn [db [_ cls]]
+   (let [filters (or (get db ::char5e/char-class-filters) #{})]
+     (assoc db ::char5e/char-class-filters
+            ((if (filters cls) disj conj) filters cls)))))
+
+(reg-event-db
+ ::char5e/toggle-char-has-portrait
+ (fn [db _]
+   (update db ::char5e/char-has-portrait?
+           #(case % nil true, true false, false nil))))
+
+(reg-event-db
+ ::char5e/toggle-char-has-faction-pic
+ (fn [db _]
+   (update db ::char5e/char-has-faction-pic?
+           #(case % nil true, true false, false nil))))
+
+(reg-event-db
+ ::char5e/clear-char-filters
+ (fn [db _]
+   (dissoc db
+           ::char5e/char-name-filter
+           ::char5e/char-level-filters
+           ::char5e/char-class-filters
+           ::char5e/char-has-portrait?
+           ::char5e/char-has-faction-pic?)))
+
+;; ---- End Character Filter Events -------------------------------------------
 
 (reg-event-fx
  :follow-user-success
