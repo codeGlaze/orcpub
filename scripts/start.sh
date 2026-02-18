@@ -420,8 +420,9 @@ start_figwheel() {
 
     log_info "Starting Figwheel (ClojureScript hot-reload)..."
     cd "$REPO_ROOT"
-    # Use fig:dev alias (trampoline run -m figwheel.main -- --build dev --repl)
-    nohup lein fig:dev > "$LOG_DIR/figwheel.log" 2>&1 &
+    # Use fig:watch alias (headless build + watch, no REPL — works with nohup)
+    # For interactive REPL use: lein fig:dev (needs a terminal)
+    nohup lein fig:watch > "$LOG_DIR/figwheel.log" 2>&1 &
     local figwheel_pid=$!
     echo "$figwheel_pid" > "$LOG_DIR/figwheel.pid"
     log_info "Figwheel started (PID $figwheel_pid)"
@@ -439,6 +440,11 @@ start_figwheel() {
     log_info "Waiting for Figwheel to be ready (port $FIGWHEEL_PORT)..."
     if wait_for_port_or_die "$FIGWHEEL_PORT" "$figwheel_pid" "$PORT_WAIT"; then
         log_info "Figwheel is ready"
+    elif kill -0 "$figwheel_pid" 2>/dev/null; then
+        # Process alive but port not ready — likely first-run compile/dep download
+        log_warn "Figwheel still starting (PID $figwheel_pid alive, port $FIGWHEEL_PORT not yet open)"
+        log_warn "First run may take a few minutes for ClojureScript compilation"
+        log_info "Logs: $LOG_DIR/figwheel.log"
     else
         show_startup_failure "figwheel" "$LOG_DIR/figwheel.log" "$FIGWHEEL_PORT"
         exit $EXIT_RUNTIME

@@ -48,31 +48,26 @@
 (defn make-nonce-interceptor
   "Creates an interceptor that generates per-request CSP nonces.
 
-   When CSP_POLICY=strict:
+   In prod (dev-mode?=false) with CSP_POLICY=strict:
    - :enter phase generates a nonce and stores it in [:request :csp-nonce]
-   - :leave phase adds CSP header with the nonce
+   - :leave phase adds enforcing Content-Security-Policy header with the nonce
 
-   The header type depends on mode:
-   - Dev mode (dev-mode?=true): Content-Security-Policy-Report-Only
-     Violations are logged to browser console but scripts aren't blocked.
-     This catches CSP issues during development while Figwheel still works.
-   - Prod mode: Content-Security-Policy (enforcing)
-     Violations block script execution for real XSS protection."
+   In dev mode: CSP is skipped entirely. Pedestal 0.7's default CSP is still
+   active, but the nonce interceptor becomes a no-op. This avoids flooding the
+   browser console with Report-Only violations (inline Figwheel scripts, etc.)
+   that obscure real issues during development."
   [dev-mode?]
-  (let [header-name (if dev-mode?
-                      "Content-Security-Policy-Report-Only"
-                      "Content-Security-Policy")]
-    (interceptor/interceptor
-     {:name :nonce-interceptor
-      :enter (fn [ctx]
-               (if (config/strict-csp?)
-                 (assoc-in ctx [:request :csp-nonce] (csp/generate-nonce))
-                 ctx))
-      :leave (fn [ctx]
-               (if-let [nonce (get-in ctx [:request :csp-nonce])]
-                 (assoc-in ctx [:response :headers header-name]
-                           (csp/build-csp-header nonce :dev-mode? dev-mode?))
-                 ctx))})))
+  (interceptor/interceptor
+   {:name :nonce-interceptor
+    :enter (fn [ctx]
+             (if (and (config/strict-csp?) (not dev-mode?))
+               (assoc-in ctx [:request :csp-nonce] (csp/generate-nonce))
+               ctx))
+    :leave (fn [ctx]
+             (if-let [nonce (get-in ctx [:request :csp-nonce])]
+               (assoc-in ctx [:response :headers "Content-Security-Policy"]
+                         (csp/build-csp-header nonce :dev-mode? false))
+               ctx))}))
 
 ;; Create the nonce interceptor with current dev-mode? setting
 (def nonce-interceptor (make-nonce-interceptor (config/dev-mode?)))

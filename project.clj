@@ -29,7 +29,7 @@
                  [cljsjs/react-dom "18.3.1-1"]
                  [cljsjs/filesaverjs "1.3.3-0"]
                  [com.cognitect/transit-cljs "0.8.280"]
-                 [cljs-http "0.1.45"]
+                 [cljs-http "0.1.49"]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
                  [clojure.java-time "1.4.2"]
                  [clj-http "3.13.1"]
@@ -38,7 +38,7 @@
                  [org.clojure/core.match "1.1.1"]
                  [re-frame "1.4.4"]
                  [reagent "2.0.1"]
-                 [garden "1.3.10"]
+                 [com.lambdaisland/garden "1.9.606"]
                  [org.apache.pdfbox/pdfbox "3.0.6"]
                  ;; Pedestal 0.7.0 uses Jetty 11, which is compatible with figwheel-main's Ring adapter.
                  ;; Pedestal 0.7.1+ and 0.8.x use Jetty 12, causing NoClassDefFoundError: ScopedHandler
@@ -196,6 +196,7 @@
   :jar-inclusions [#"^\.ebextensions"]
 
   :aliases {"fig:dev" ["trampoline" "run" "-m" "figwheel.main" "--" "--build" "dev" "--repl"]
+            "fig:watch" ["run" "-m" "figwheel.main" "--" "--build" "dev"]
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
@@ -260,6 +261,8 @@
                                                            :output-to     "resources/public/js/compiled/orcpub.js"
                                                            ;;:output-dir "resources/public/js/compiled/out"
                                                            :optimizations :advanced
+                                                           :infer-externs true
+                                                           :externs       ["externs.js"]
                                                            :pretty-print  false}}}}}
              :lint         {:dependencies [[clj-kondo "2024.05.22"]]
                             :clj-kondo {:linters {:shadowed-fn-param {:level :off}

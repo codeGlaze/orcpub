@@ -565,21 +565,14 @@
            :on-click (make-event-handler :re-verify @params)}
           "RESEND"]]]))))
 
-(def message-style
-  {:padding "10px"
-   :border-radius "5px"
-   :display :flex
-   :justify-content :space-between})
-
 (defn message [message-type message-text close-handler]
   [:div.pointer.f-w-b ;;.h-0.opacity-0.fade-out
    {:on-click close-handler}
-   [:div.white
-    {:style message-style
-     :class-name (case message-type
-                   :error "bg-red"
-                   :warning "bg-orange"
-                   "bg-green")}
+   [:div.message
+    {:class (case message-type
+              :error "bg-red"
+              :warning "bg-orange"
+              "bg-green")}
     [:span message-text]
     [:i.fa.fa-times]]])
 
@@ -860,8 +853,7 @@
            "LOGIN"]
           ;[:div.m-t-10
           ; [facebook-login-button]]
-          [:div
-           {:style {:margin-top "50px"}}
+          [:div.login-form-inputs
            [form-input {:title "Username or Email"
                         :key :username
                         :value (:username @params)
@@ -8229,3 +8221,4 @@
          {:style close-icon-style
           :on-click (make-event-handler ::char/filter-items "")}]]]
       [item-list-items]]]))
+

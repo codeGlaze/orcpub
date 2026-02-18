@@ -29,6 +29,9 @@ Upgrading any one of these in isolation would leave the application broken.
 
 ## Test Status
 
-- 74 tests, 237 assertions, 0 failures, 0 errors
+- Backend: 74 tests, 237 assertions, 0 failures, 0 errors
 - Lint: 0 errors (455 warnings — all from third-party libraries)
+- Dev CLJS build: 0 errors, 0 warnings
+- Production CLJS build (`:advanced`): succeeds with custom `externs.js` for React 18 APIs
+- Garden CSS: 0 warnings (after lambdaisland/garden upgrade)
 - CI: Java 21, `lein test` + `lein lint` + `lein cljsbuild once dev`

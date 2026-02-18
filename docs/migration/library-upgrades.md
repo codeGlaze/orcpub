@@ -96,12 +96,27 @@ Jackson and Guava are pinned to resolve transitive dependency conflicts and CVEs
 | Library | Before | After | Notes |
 |---------|--------|-------|-------|
 | `funcool/cuerdas` | old | 2026.415 | String utilities (Clojars versioning) |
-| `clj-http` | old | 3.13.1 | HTTP client |
+| `clj-http` | old | 3.13.1 | HTTP client (JVM) |
+| `cljs-http` | 0.1.45 | 0.1.49 | HTTP client (CLJS) — fixes `no.en.core` shadowing (see below) |
 | `hiccup` | 1.x | 2.0.0 | HTML rendering |
-| `garden` | old | 1.3.10 | CSS-in-Clojure |
+| `garden` → `com.lambdaisland/garden` | old | 1.9.606 | CSS-in-Clojure (see below) |
 | `bidi` | old | 2.1.6 | Routing |
 | `com.draines/postal` | old | 2.0.5 | Email |
 | `javax.servlet/javax.servlet-api` | — | 4.0.1 | Required on Java 9+ |
+
+## Garden: noprompt → lambdaisland Fork
+
+```clojure
+;; Before
+[garden "1.3.10"]
+
+;; After
+[com.lambdaisland/garden "1.9.606"]
+```
+
+The original `noprompt/garden` is unmaintained. On Clojure 1.12, it causes a `clojure.core/abs` shadowing warning because it only excludes `complement` from core, not `abs` (added in Clojure 1.11).
+
+The [lambdaisland/garden](https://github.com/lambdaisland/garden) fork fixes this by adding `abs` to `:refer-clojure :exclude`. It's a **drop-in replacement** — same namespaces, same API, same `lein-garden` plugin compatibility.
 
 ## Test Dependencies
 
@@ -118,6 +133,19 @@ Jackson and Guava are pinned to resolve transitive dependency conflicts and CVEs
 | `binaryage/devtools` | old | 1.0.7 |
 | `cider/piggieback` | old | 0.5.3 |
 | `day8.re-frame/re-frame-10x` | old | 1.11.0 |
+
+## Clojure 1.11+ Core Shadowing Pattern
+
+Clojure 1.11 added `abs`, `parse-long`, `parse-double`, and `parse-integer` to `clojure.core`. Libraries written before 1.11 that define their own versions of these functions produce shadowing warnings on modern Clojure/ClojureScript.
+
+This affected two dependencies in this project:
+
+| Library | Shadowed functions | Fix |
+|---------|-------------------|-----|
+| `garden` (noprompt) | `abs` | Switched to `com.lambdaisland/garden` fork |
+| `noencore` (via `cljs-http`) | `parse-long`, `parse-double` | Upgraded `cljs-http` 0.1.45 → 0.1.49 |
+
+**If you see similar warnings from other libraries in the future**, the fix is usually: check for a newer version that adds the functions to `:refer-clojure :exclude`, or switch to a maintained fork.
 
 ## Build Plugins
 

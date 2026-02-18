@@ -3,7 +3,7 @@ FROM clojure:temurin-21-lein
 # Install useful dev tools (including unzip for Datomic Pro)
 RUN apt-get update \
  && apt-get install -y --no-install-recommends rlwrap git curl tmux make git-lfs lsof iproute2 unzip rsync maven \
-    libfreetype6 fontconfig fonts-dejavu-core libxrender1 libxext6 libxi6 libxrandr2 \
+    libfreetype6 fontconfig fonts-dejavu-core fonts-liberation libxrender1 libxext6 libxi6 libxrandr2 \
  && rm -rf /var/lib/apt/lists/*
 
 # Ensure git-lfs is configured system-wide so LFS files are available in Codespaces

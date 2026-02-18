@@ -531,6 +531,13 @@
    [:.bg-green
     {:background-color "#70a800"}]
 
+   [:.message
+    {:padding "10px"
+     :border-radius "5px"
+     :display :flex
+     :justify-content :space-between
+     :color :white}]
+
    [:.fade-out
     {:animation-name :fade-out
      :animation-duration :5s}]
@@ -879,6 +886,15 @@
     [:.registration-content
      {:width "785px"
       :min-height "600px"}]
+
+    [:.login-form-inputs
+     {:max-width "350px"
+      :margin-left :auto
+      :margin-right :auto
+      :margin-top "50px"}
+     [:input
+      {:width "100%"
+       :box-sizing :border-box}]]
 
     [:.registration-input
      {:min-width "438px"}]

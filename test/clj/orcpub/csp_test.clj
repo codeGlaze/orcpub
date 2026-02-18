@@ -62,20 +62,22 @@
           "script-src should NOT contain 'unsafe-inline' in strict mode"))))
 
 (deftest nonce-interceptor-header-type
-  (testing "Dev mode interceptor uses Report-Only header"
+  (testing "Dev mode interceptor is a no-op (no CSP header added)"
     (let [interceptor (pedestal/make-nonce-interceptor true)
-          ;; Simulate a request/response cycle with CSP enabled
           ctx {:request {}
                :response {:status 200 :body "test"}}
-          ;; Manually add a nonce (simulating :enter phase with strict-csp? true)
-          ctx-with-nonce (assoc-in ctx [:request :csp-nonce] "test-nonce")
-          ;; Run :leave phase
-          leave-fn (get-in interceptor [:leave])
-          result (leave-fn ctx-with-nonce)]
-      (is (contains? (get-in result [:response :headers]) "Content-Security-Policy-Report-Only")
-          "Dev mode should use Content-Security-Policy-Report-Only header")
-      (is (not (contains? (get-in result [:response :headers]) "Content-Security-Policy"))
-          "Dev mode should NOT use Content-Security-Policy header")))
+          ;; Run :enter phase — should NOT add a nonce in dev mode
+          enter-fn (get-in interceptor [:enter])
+          after-enter (enter-fn ctx)]
+      (is (nil? (get-in after-enter [:request :csp-nonce]))
+          "Dev mode :enter should not generate a nonce")
+      ;; Run :leave phase — without a nonce, should not add any header
+      (let [leave-fn (get-in interceptor [:leave])
+            result (leave-fn after-enter)]
+        (is (not (contains? (get-in result [:response :headers]) "Content-Security-Policy"))
+            "Dev mode should NOT add Content-Security-Policy header")
+        (is (not (contains? (get-in result [:response :headers]) "Content-Security-Policy-Report-Only"))
+            "Dev mode should NOT add Content-Security-Policy-Report-Only header"))))
 
   (testing "Prod mode interceptor uses enforcing header"
     (let [interceptor (pedestal/make-nonce-interceptor false)

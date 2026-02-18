@@ -114,6 +114,18 @@ There are two ways to run services: the **interactive menu** or **shell scripts*
 
 Displays service status and lets you start/stop services with single keystrokes.
 
+#### User Management
+
+```bash
+./menu add bob pass123                # Create bob@test.com (auto-verified)
+./menu add user                       # Interactive prompt for name/password
+./menu verify bob                     # Verify an existing user
+./menu delete bob                     # Delete a user
+./menu user                           # Show all user commands
+```
+
+Email auto-generates as `<name>@test.com`. Credentials are logged to `.test-users` (gitignored).
+
 #### Shell Scripts
 
 ```bash
@@ -126,14 +138,14 @@ Displays service status and lets you start/stop services with single keystrokes.
 # 3. Start backend REPL
 ./scripts/start.sh server
 
-# 4. Start Figwheel (frontend hot-reload)
+# 4. Start Figwheel (frontend hot-reload, headless watcher)
 ./scripts/start.sh figwheel
 
-# 5. Start Garden (CSS watcher)
+# 5. Start Garden (CSS auto-compilation)
 ./scripts/start.sh garden
 ```
 
-Or run the first-time setup script, which starts Datomic and initializes the database:
+Or run the first-time setup script, which starts Datomic, initializes the database, and creates a test user (`test` / `test@test.com` / `testpass`):
 
 ```bash
 ./scripts/dev-setup.sh
@@ -155,8 +167,8 @@ lein deps
 # "run -m user init-db" runs the init-db command in dev/user.clj.
 lein with-profile init-db run -m user init-db
 
-# Optionally create a test user (already verified, ready to log in)
-lein with-profile init-db run -m user create-user test test@example.com testpass verify
+# Create a test user (auto-verified, email = test@test.com)
+./menu add test testpass
 ```
 
 ### REPL Workflow
@@ -209,7 +221,17 @@ lein cljsbuild once dev
 | `lein test` | Backend (JVM) | Logic, routes, DB, PDF errors |
 | `lein lint` | CLJ + CLJS | Typos, unused vars, style |
 | `lein cljsbuild once dev` | Frontend (CLJS) | Reagent/re-frame API changes |
-| `lein fig:dev` | Full frontend | Runtime rendering errors |
+| `lein fig:build` | Full frontend | One-time CLJS compilation check |
+
+### Frontend Hot-Reload
+
+| Command | Mode | Use when |
+|---------|------|----------|
+| `./scripts/start.sh figwheel` | Headless watcher | Background/scripted startup |
+| `lein fig:dev` | Interactive REPL | You want a ClojureScript REPL in your terminal |
+| `lein fig:build` | One-time build | CI or quick compilation check |
+
+**CSS** is compiled separately by Garden (`lein garden once` or `./scripts/start.sh garden` for auto-watch). Both Figwheel and Garden need to run during active frontend work.
 
 ### Editors
 

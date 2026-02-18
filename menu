@@ -43,6 +43,14 @@ Quick CLI examples:
   ./menu stop --yes           Stop all without prompting
   ./menu status               Check what's running
 
+User management (email = <name>@test.com):
+  ./menu add <name> <pass>              Create user (auto-verified)
+  ./menu add <name> <pass> --no-verify  Create without verification
+  ./menu add user                       Interactive prompt
+  ./menu verify <name>                  Verify existing user
+  ./menu delete <name>                  Delete user
+  ./menu user                           Show user commands
+
 Start options (passed through to start.sh):
   datomic|server|figwheel|garden   Specific service
   init-db                          Initialize database
@@ -559,6 +567,60 @@ handle_utils_submenu() {
 }
 
 # -----------------------------------------------------------------------------
+# User Management CLI
+# -----------------------------------------------------------------------------
+
+# Append credentials to .test-users so you can look them up later.
+# File is gitignored. Format: username | email | password | status | timestamp
+log_test_user() {
+    local user="$1" email="$2" pass="$3" status="${4:-unverified}"
+    local file="$SCRIPT_DIR/.test-users"
+    # Add header on first use
+    if [[ ! -f "$file" ]]; then
+        echo "# Test users created by dev tooling (gitignored)" > "$file"
+        echo "# username | email | password | status | created" >> "$file"
+    fi
+    echo "$user | $email | $pass | $status | $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$file"
+}
+
+# Create a user. Auto-verified unless --no-verify.
+# Email auto-generates as <username>@test.com.
+do_add_user() {
+    local username="$1" password="$2" flag="${3:-}"
+    local email="${username}@test.com"
+    if [[ "$flag" == "--no-verify" ]]; then
+        log_test_user "$username" "$email" "$password" "unverified"
+        lein with-profile init-db run -m user create-user "$username" "$email" "$password"
+    else
+        log_test_user "$username" "$email" "$password" "verified"
+        lein with-profile init-db run -m user create-user "$username" "$email" "$password" verify
+    fi
+}
+
+# Interactive user creation prompt
+do_add_user_interactive() {
+    echo ""
+    read -rp "Username: " username
+    if [[ -z "$username" ]]; then echo "Username required."; exit 1; fi
+    read -rsp "Password: " password; echo ""
+    if [[ -z "$password" ]]; then echo "Password required."; exit 1; fi
+    do_add_user "$username" "$password"
+}
+
+# User submenu (./menu user)
+handle_user_submenu() {
+    echo ""
+    echo "User commands (email = <name>@test.com):"
+    echo ""
+    echo "  ./menu add <name> <pass>              Create (auto-verified)"
+    echo "  ./menu add <name> <pass> --no-verify  Create (skip verification)"
+    echo "  ./menu add user                       Create (interactive prompt)"
+    echo "  ./menu verify <name>                  Verify existing user"
+    echo "  ./menu delete <name>                  Delete user"
+    echo ""
+}
+
+# -----------------------------------------------------------------------------
 # Main Menu
 # -----------------------------------------------------------------------------
 
@@ -680,6 +742,38 @@ main() {
             ;;
         cleanup)
             "$SCRIPT_DIR/scripts/cleanup-duplicates.sh"
+            ;;
+        add)
+            shift
+            if [[ "${1:-}" == "user" ]] || [[ -z "${1:-}" ]]; then
+                do_add_user_interactive
+            elif [[ -z "${2:-}" ]]; then
+                echo "Usage: ./menu add <username> <password> [--no-verify]"
+                exit 1
+            else
+                do_add_user "$@"
+            fi
+            ;;
+        verify)
+            shift
+            local username="${1:-}"
+            if [[ -z "$username" ]]; then
+                echo "Usage: ./menu verify <username>"
+                exit 1
+            fi
+            lein with-profile init-db run -m user verify-user "${username}@test.com"
+            ;;
+        delete)
+            shift
+            local username="${1:-}"
+            if [[ -z "$username" ]]; then
+                echo "Usage: ./menu delete <username>"
+                exit 1
+            fi
+            lein with-profile init-db run -m user delete-user "${username}@test.com"
+            ;;
+        user)
+            handle_user_submenu
             ;;
         help|--help|-h)
             show_help

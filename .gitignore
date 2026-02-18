@@ -62,3 +62,12 @@ logs/
 .devcontainer/post-create.log
 
 scripts/analyze/
+
+# Test user credentials log (created by ./menu user create / dev-setup.sh)
+.test-users
+
+# cljsjs extracted externs (build artifact from classpath)
+cljsjs/
+
+# Local devcontainer setup (superseded by dotfiles)
+.devcontainer/local-setup.sh
