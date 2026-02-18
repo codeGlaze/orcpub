@@ -13,6 +13,8 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [SESSION-SUMMARY.md](SESSION-SUMMARY.md) | Service management scripts session history |
 | [DEPENDENCY_VALIDATION.md](DEPENDENCY_VALIDATION.md) | Jackson/Guava dependency validation report |
 | [UPGRADE_DEPENDENCIES.md](UPGRADE_DEPENDENCIES.md) | Dependency upgrade rationale and compatibility notes |
+| [re-frame-subscribe-refactor.md](re-frame-subscribe-refactor.md) | Subscribe-outside-reactive-context: all 12 fixes, subscription chain analysis, track! risks |
+| [testing-infrastructure.md](testing-infrastructure.md) | Test runners, re-frame testing truths, .cljc gotchas, namespace architecture, test patterns |
 
 ## Human-Facing Docs (Copies)
 
