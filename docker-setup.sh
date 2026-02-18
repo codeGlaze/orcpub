@@ -29,10 +29,10 @@ color_red='\033[0;31m'
 color_cyan='\033[0;36m'
 color_reset='\033[0m'
 
-info()  { printf "${color_green}[INFO]${color_reset}  %s\n" "$*"; }
-warn()  { printf "${color_yellow}[WARN]${color_reset}  %s\n" "$*"; }
-error() { printf "${color_red}[ERROR]${color_reset} %s\n" "$*" >&2; }
-header() { printf "\n${color_cyan}=== %s ===${color_reset}\n\n" "$*"; }
+info()  { printf '%s[INFO]%s  %s\n' "$color_green" "$color_reset" "$*"; }
+warn()  { printf '%s[WARN]%s  %s\n' "$color_yellow" "$color_reset" "$*"; }
+error() { printf '%s[ERROR]%s %s\n' "$color_red" "$color_reset" "$*" >&2; }
+header() { printf '\n%s=== %s ===%s\n\n' "$color_cyan" "$*" "$color_reset"; }
 
 generate_password() {
   # Generate a URL-safe random password (no special chars that break URLs/YAML)

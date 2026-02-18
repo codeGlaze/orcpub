@@ -29,9 +29,9 @@ color_red='\033[0;31m'
 color_yellow='\033[1;33m'
 color_reset='\033[0m'
 
-info()  { printf "${color_green}[OK]${color_reset}    %s\n" "$*"; }
-error() { printf "${color_red}[ERROR]${color_reset} %s\n" "$*" >&2; }
-warn()  { printf "${color_yellow}[WARN]${color_reset}  %s\n" "$*"; }
+info()  { printf '%s[OK]%s    %s\n' "$color_green" "$color_reset" "$*"; }
+error() { printf '%s[ERROR]%s %s\n' "$color_red" "$color_reset" "$*" >&2; }
+warn()  { printf '%s[WARN]%s  %s\n' "$color_yellow" "$color_reset" "$*"; }
 
 usage() {
   cat <<'USAGE'
