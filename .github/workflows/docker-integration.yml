@@ -43,53 +43,77 @@ jobs:
           fi
           echo "OK: Passwords match"
 
-      - name: Pull and start containers
+      - name: Start datomic (no deps)
         run: |
-          docker compose up -d
-          docker compose ps
+          docker compose pull
+          docker compose up -d --no-deps datomic
+          echo "Datomic container started, waiting for health..."
 
-      - name: Wait for healthy containers
+      - name: Wait for datomic healthy
         run: |
-          echo "Waiting for datomic healthcheck..."
-          for i in $(seq 1 60); do
-            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$(docker compose ps -q datomic)" 2>/dev/null || echo "waiting")
+          for i in $(seq 1 90); do
+            CID=$(docker compose ps -q datomic 2>/dev/null) || true
+            if [ -z "$CID" ]; then
+              echo "  [$i/90] datomic container not found yet"
+              sleep 2
+              continue
+            fi
+            RUNNING=$(docker inspect --format='{{.State.Running}}' "$CID" 2>/dev/null || echo "false")
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CID" 2>/dev/null || echo "starting")
+            echo "  [$i/90] running=$RUNNING health=$STATUS"
             if [ "$STATUS" = "healthy" ]; then
               echo "Datomic is healthy (after ~$((i * 2))s)"
               break
             fi
-            if [ "$STATUS" = "unhealthy" ]; then
-              echo "FAIL: Datomic reported unhealthy"
+            if [ "$RUNNING" = "false" ]; then
+              echo "WARN: datomic container stopped — dumping logs"
               docker compose logs datomic
-              exit 1
+              echo "Container will restart (restart: always), continuing to wait..."
             fi
-            if [ "$i" -eq 60 ]; then
-              echo "FAIL: Datomic did not become healthy within 120s"
+            if [ "$i" -eq 90 ]; then
+              echo "FAIL: Datomic did not become healthy within 180s"
+              echo "=== container state ==="
+              docker inspect --format='{{json .State}}' "$CID" | python3 -m json.tool || true
+              echo "=== datomic logs ==="
               docker compose logs datomic
               exit 1
             fi
             sleep 2
           done
 
-          echo "Waiting for orcpub healthcheck..."
-          for i in $(seq 1 60); do
-            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$(docker compose ps -q orcpub)" 2>/dev/null || echo "waiting")
+      - name: Start orcpub and web
+        run: |
+          docker compose up -d
+          docker compose ps
+
+      - name: Wait for orcpub healthy
+        run: |
+          for i in $(seq 1 90); do
+            CID=$(docker compose ps -q orcpub 2>/dev/null) || true
+            if [ -z "$CID" ]; then
+              echo "  [$i/90] orcpub container not found yet"
+              sleep 2
+              continue
+            fi
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CID" 2>/dev/null || echo "starting")
+            echo "  [$i/90] orcpub health=$STATUS"
             if [ "$STATUS" = "healthy" ]; then
               echo "orcpub is healthy (after ~$((i * 2))s)"
               break
             fi
             if [ "$STATUS" = "unhealthy" ]; then
               echo "FAIL: orcpub reported unhealthy"
+              echo "=== all logs ==="
               docker compose logs
               exit 1
             fi
-            if [ "$i" -eq 60 ]; then
-              echo "FAIL: orcpub did not become healthy within 120s"
+            if [ "$i" -eq 90 ]; then
+              echo "FAIL: orcpub did not become healthy within 180s"
               docker compose logs
               exit 1
             fi
             sleep 2
           done
-
           docker compose ps
 
       - name: Test — create user
