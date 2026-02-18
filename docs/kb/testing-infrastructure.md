@@ -6,7 +6,7 @@
 
 | Command | Runtime | What runs | Test count (as of 2026-02-18) |
 |---------|---------|-----------|-------------------------------|
-| `lein test` | JVM (Clojure) | `test/clj/` + `test/cljc/` | 105 tests, 301 assertions |
+| `lein test` | JVM (Clojure) | `test/clj/` + `test/cljc/` | 123 tests, 332 assertions |
 | `lein fig:test` | CLJS → browser | `test/cljs/` + transitive `.cljc` | Compiles only; runs in browser |
 | `lein fig:build` | CLJS compilation | Source only, no tests | N/A |
 
