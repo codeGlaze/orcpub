@@ -7793,9 +7793,9 @@
       (if expanded?
         [expanded-character-list-item id owner username char-page-route])]]))
 
-(defn folder-item [f expanded-characters selected-ids username]
+(defn folder-item [f expanded-characters selected-ids username filtered-char-ids]
   (let [edit-name (r/atom (::folder/name f))]
-    (fn [f expanded-characters selected-ids username]
+    (fn [f expanded-characters selected-ids username filtered-char-ids]
       (let [folder-id (:db/id f)
             folder-name (::folder/name f)
             expanded? @(subscribe [::folder/expanded])
@@ -7803,6 +7803,9 @@
             renaming? @(subscribe [::folder/renaming])
             folder-renaming? (get renaming? folder-id)
             chars (::folder/character-ids f)
+            visible-chars (if (seq filtered-char-ids)
+                            (filter #(filtered-char-ids (:db/id %)) chars)
+                            chars)
             save-fn (fn []
                       (dispatch [::folder/rename-folder folder-id @edit-name])
                       (dispatch [::folder/toggle-renaming folder-id]))]
@@ -7835,7 +7838,7 @@
            folder-name])
         (when (not folder-renaming?)
           [:span.m-l-10.f-s-12.opacity-5
-           (str "(" (count chars) ")")])]
+           (str "(" (count visible-chars) ")")])]
        (when (not folder-renaming?)
          [:div.flex.align-items-c.m-r-10
           [:span.link-button.m-r-10.f-s-12
@@ -7864,7 +7867,7 @@
               owner
               username
               summary])
-           (sort-by ::char/character-name chars)))])]]))))
+           (sort-by ::char/character-name visible-chars)))])]]))))
 
 (defn orcacle-page []
   [content-page
@@ -8016,7 +8019,8 @@
      [:div.p-5
       [character-filter-bar]
       [:div
-       (let [grouped-characters (group-by ::se/owner characters)
+       (let [filtered-char-ids (into #{} (map :db/id) characters)
+             grouped-characters (group-by ::se/owner characters)
              user-characters (find grouped-characters username)
              other-characters (sort-by key (dissoc grouped-characters username))
              user-chars-list (second user-characters)
@@ -8029,7 +8033,7 @@
               (map
                (fn [f]
                  ^{:key (:db/id f)}
-                 [folder-item f expanded-characters selected-ids username])
+                 [folder-item f expanded-characters selected-ids username filtered-char-ids])
                user-folders))])
           (when (and username (seq unfiled-user-chars))
             [:div.m-b-40
