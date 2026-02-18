@@ -80,11 +80,33 @@ You don't need to remember the `lein` commands above. Shell scripts wrap them:
 ./scripts/start.sh datomic    # Start Datomic transactor
 ./scripts/start.sh init-db    # Initialize database (calls user.clj init-db)
 ./scripts/start.sh server     # Start backend REPL
-./scripts/start.sh figwheel   # Start Figwheel hot-reload
+./scripts/start.sh figwheel   # Start Figwheel hot-reload (headless watcher)
 ./scripts/start.sh garden     # Start Garden CSS watcher
 ```
 
 Flags: `--quiet` (less output), `--check` (pre-flight only), `--idempotent` (succeed if already running)
+
+### Figwheel Modes
+
+Figwheel-main has three modes, exposed as Leiningen aliases:
+
+| Alias | Command | What it does |
+|-------|---------|-------------|
+| `lein fig:dev` | `--build dev --repl` | Build + watch + interactive REPL (needs a terminal) |
+| `lein fig:watch` | `--build dev` | Build + watch, headless (works with nohup/background) |
+| `lein fig:build` | `--build-once dev` | One-time build, no watcher |
+
+**`start.sh figwheel`** uses `fig:watch` (headless) so it works when backgrounded. If you want an interactive ClojureScript REPL, run `lein fig:dev` directly in a terminal instead.
+
+### Garden CSS
+
+Garden compiles Clojure style definitions (`src/clj/orcpub/styles/core.clj`) into CSS (`resources/public/css/compiled/styles.css`).
+
+- **One-time compile**: `lein garden once`
+- **Auto-watch**: `lein garden auto` (blocks the terminal — run in a separate session or use `./scripts/start.sh garden`)
+- **start.sh garden**: Runs `lein garden auto` in the background
+
+Garden and Figwheel are independent — Figwheel hot-reloads ClojureScript, Garden compiles CSS. Both need to run during active frontend development.
 
 ### stop.sh — Service Shutdown
 
@@ -92,25 +114,41 @@ Flags: `--quiet` (less output), `--check` (pre-flight only), `--idempotent` (suc
 ./scripts/stop.sh datomic --yes --quiet
 ```
 
-### menu — Interactive Hub
+### menu — Interactive Hub + CLI
 
 ```bash
-./menu    # Interactive terminal menu with status display
+./menu                                # Interactive terminal menu with status display
+./menu add bob pass123                # Create bob@test.com (auto-verified)
+./menu add bob pass123 --no-verify    # Create without verification
+./menu add user                       # Interactive prompt for name/password
+./menu verify bob                     # Verify existing user
+./menu delete bob                     # Delete bob@test.com
+./menu user                           # Show all user commands
 ```
 
-### create_dummy_user.sh — Create a User
+Email auto-generates as `<name>@test.com`. Credentials are logged to `.test-users` (gitignored) for easy lookup.
+
+### create_dummy_user.sh — Create a User (full control)
+
+For cases where you need a specific email address (not `@test.com`):
 
 ```bash
-./scripts/create_dummy_user.sh testuser test@example.com s3cret verify
+./scripts/create_dummy_user.sh testuser custom@email.com s3cret verify
 ```
 
 ### dev-setup.sh — First-Time Onboarding
 
-Runs the full first-time setup: start Datomic, install dependencies, initialize database.
+Runs the full first-time setup: start Datomic, install dependencies, initialize database, and create a verified test user.
 
 ```bash
-./scripts/dev-setup.sh
+./scripts/dev-setup.sh                # full setup including test user
+./scripts/dev-setup.sh --no-test-user # skip test user creation
+./scripts/dev-setup.sh --skip-datomic # skip Datomic startup (if already running)
 ```
+
+Default test user credentials: `test` / `test@test.com` / `testpass` (pre-verified, ready to log in).
+
+All user-creation paths log credentials to `.test-users` in the repo root (gitignored).
 
 ## config.clj — Configuration Hub
 
