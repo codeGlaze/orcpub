@@ -18,7 +18,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="${SCRIPT_DIR}/.env"
-ENV_EXAMPLE="${SCRIPT_DIR}/.env.example"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -196,9 +195,9 @@ header "Directories"
 for dir in "${SCRIPT_DIR}/data" "${SCRIPT_DIR}/logs" "${SCRIPT_DIR}/deploy/homebrew"; do
   if [ ! -d "$dir" ]; then
     mkdir -p "$dir"
-    info "Created directory: ${dir#${SCRIPT_DIR}/}"
+    info "Created directory: ${dir#"${SCRIPT_DIR}"/}"
   else
-    info "Directory exists:  ${dir#${SCRIPT_DIR}/}"
+    info "Directory exists:  ${dir#"${SCRIPT_DIR}"/}"
   fi
 done
 
