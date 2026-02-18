@@ -151,4 +151,6 @@
       (println "  check  <username-or-email>            Check if a user exists")
       (println "  list                                  List all users")
       (when-not cmd
-        (System/exit 1)))))
+        (System/exit 1))))
+  ;; Datomic peer threads are non-daemon and keep the JVM alive; force exit.
+  (System/exit 0))
