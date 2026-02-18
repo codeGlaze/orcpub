@@ -14,12 +14,15 @@
    {:keys [::t/key ::t/name ::t/path ::t/help ::t/selections ::t/prereqs
            ::t/modifiers ::t/select-fn ::t/ui-fn ::t/icon] :as option}]
   (let [built-template @(subscribe [:built-template])
+        built-char @(subscribe [:built-character])
         option-paths @(subscribe [:option-paths])
         new-option-path (conj (vec option-path) key)
         selected? (get-in option-paths new-option-path)
+        ;; Pass built-char so prereq-fns can compute from it directly
+        ;; instead of subscribing to character subs internally.
         failed-prereqs (reduce
                         (fn [failures {:keys [::t/prereq-fn ::t/label ::t/hide-if-fail?] :as prereq}]
-                          (if (and prereq-fn (not (prereq-fn)))
+                          (if (and prereq-fn (not (prereq-fn built-char)))
                             (conj failures prereq)
                             failures))
                         []

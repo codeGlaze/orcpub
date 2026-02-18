@@ -254,6 +254,7 @@
 
 (defn class-levels-selector [{:keys [selection]}]
   (let [options (::t/options selection)
+        built-char @(subscribe [:built-character])
         selected-classes @(subscribe [::char5e/levels])
         unselected-classes (remove
                             (set (keys selected-classes))
@@ -263,7 +264,7 @@
                            (fn [option]
                              (and
                               (unselected-classes-set (::t/key option))
-                              (entity/meets-prereqs? option)))
+                              (entity/meets-prereqs? option built-char)))
                            options)]
     [:div
      [:div

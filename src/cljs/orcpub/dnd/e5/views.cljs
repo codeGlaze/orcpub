@@ -316,7 +316,7 @@
   (dispatch [:route routes/default-route]))
 
 (defn search-input-keypress [e]
-  (if (= "Enter" (.-key e)) (dispatch [:set-search-text @(subscribe [:search-text])])))
+  (if (= "Enter" (.-key e)) (dispatch [:set-search-text (.. e -target -value)])))
 
 (defn set-search-text [e]
   (dispatch [:set-search-text (event-value e)]))

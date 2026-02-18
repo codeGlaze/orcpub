@@ -146,7 +146,7 @@
     :prereqs [(t/option-prereq
                "You already have this skill"
                (fn [c]
-                 (let [skill-profs @(subscribe [::character/skill-profs nil c])]
+                 (let [skill-profs (character/skill-proficiencies c)]
                    (not (get skill-profs (:key skill))))))]
     :modifiers [(modifiers/skill-proficiency (:key skill))]}))
 
@@ -258,7 +258,7 @@
     :modifiers [(modifiers/deferred-ability-increases)]}))
 
 (defn min-ability [ability-kw min-value]
-  (fn [c] (>= (ability-kw @(subscribe [::character/abilities nil c])) min-value)))
+  (fn [c] (>= (ability-kw (character/ability-values c)) min-value)))
 
 (defn ability-prereq [ability-kw min-value]
   (t/option-prereq (str "Requires " (s/upper-case (name ability-kw)) " " min-value " or higher")
@@ -266,7 +266,7 @@
 
 (defn armor-prereq [armor-kw]
   (t/option-prereq (str "Requires proficiency with " (name armor-kw) " armor")
-                   (fn [c] (let [prof-keys @(subscribe [::character/armor-profs nil c])]
+                   (fn [c] (let [prof-keys (character/armor-proficiencies c)]
                              (boolean (and prof-keys (prof-keys armor-kw)))))))
 
 (def elemental-disciplines
@@ -390,7 +390,7 @@
     :modifiers [(modifiers/language key)]
     :prereqs [(t/option-prereq
                "You already have this language"
-               (fn [c] (not (get @(subscribe [::character/languages nil c]) key))))]}))
+               (fn [c] (not (get (character/languages c) key))))]}))
 
 (defn key-to-name [key]
   (s/join " " (map s/capitalize (s/split (name key) #"-"))))
@@ -442,7 +442,7 @@
       :help (spell-help spell)
       :prereqs [(t/option-prereq
                  "You already know this spell"
-                 (fn [c] (let [spells-known @(subscribe [::character/spells-known nil c])]
+                 (fn [c] (let [spells-known (character/spells-known c)]
                            (or (not spells-known)
                                (not-any?
                                 (fn [[[_ kw]]]
@@ -1036,11 +1036,11 @@
 
 (def can-cast-spell-prereq
   (t/option-prereq "Requires the ability to cast at least one spell."
-                   (fn [c] (some (fn [[k v]] (seq v)) @(subscribe [::character/spells-known nil c])))))
+                   (fn [c] (some (fn [[k v]] (seq v)) (character/spells-known c)))))
 
 (defn does-not-have-feat-prereq [kw]
   {::t/label "You already have this feat."
-   ::t/prereq-fn (fn [c] (let [feats @(subscribe [::character/feats nil c])]
+   ::t/prereq-fn (fn [c] (let [feats (character/feats c)]
                            (not (and feats (feats kw)))))})
 
 (defn feat-option [cfg & [multiselect?]]
@@ -1449,7 +1449,7 @@
                                 (ritual-caster-option :wizard "Wizard" ::character/int sl/spell-lists)]})]
        :prereqs [(t/option-prereq "Requires Intelligence or Wisdom 13 or higher"
                                   (fn [c]
-                                    (let [{:keys [::character/wis ::character/int] :as abilities} @(subscribe [::character/abilities nil c])]
+                                    (let [{:keys [::character/wis ::character/int] :as abilities} (character/ability-values c)]
                                       (or (and wis (>= wis 13))
                                           (and int (>= int 13))))))]})
    #_(feat-option
@@ -1813,7 +1813,7 @@
                   :modifiers [(modifiers/skill-expertise key)]
                   :prereqs [(t/option-prereq (str "Requires proficiency in " name)
                                              (fn [built-char]
-                                               (let [skill-profs @(subscribe [::character/skill-profs nil built-char])]
+                                               (let [skill-profs (character/skill-proficiencies built-char)]
                                                  (and skill-profs (skill-profs key)))))]}))
               skills/skills)
     :min num
@@ -2311,7 +2311,7 @@
         :tags #{:profs :tool-profs}}))))
 
 (defn first-class? [class-kw & [classes]]
-  (fn [c] (= class-kw (first (or classes @(subscribe [::character/classes nil c]))))))
+  (fn [c] (= class-kw (first (or classes (character/classes c))))))
 
 (defn new-starting-equipment-selection [class-kw {:keys [name options] :as cfg}]
   (t/selection-cfg
@@ -2414,7 +2414,7 @@
                                    0
                                    nil
                                    (fn [c]
-                                     (let [skill-profs @(subscribe [::character/skill-profs nil c])
+                                     (let [skill-profs (character/skill-proficiencies c)
                                            skill-sources (get skill-profs skill-kw)
                                            passes? (and skill-sources
                                                         (not (skill-sources background-nm)))]
@@ -2478,8 +2478,8 @@
 
 (defn total-levels-prereq [level & [class-key]]
   (fn [c] (>= (if class-key
-                (@(subscribe [::character/class-level-fn nil c]) class-key)
-                @(subscribe [::character/total-levels nil c]))
+                ((character/class-level-fn c) class-key)
+                (character/total-levels c))
               level)))
 
 (defn total-levels-prereq-2 [level & [class-key]]
@@ -2551,7 +2551,7 @@
                              (fn [selection]
                                (assoc selection
                                       ::t/prereq-fn
-                                      (fn [c] (let [total-levels @(subscribe [::character/total-levels nil c])]
+                                      (fn [c] (let [total-levels (character/total-levels c)]
                                                 (>= lvl total-levels)))))
                              selections))
                           (:selections spellcasting-template))
@@ -2670,7 +2670,7 @@
     :tags #{:spells}
     :order level
     :prereq-fn (fn [c] (or (zero? level)
-                           (-> @(subscribe [::character/total-levels nil c])
+                           (-> (character/total-levels c)
                                (total-slots 3)
                                (get level)
                                pos?)))
@@ -2785,7 +2785,7 @@
                       [(assoc
                         (hit-points-selection hit-die name i)
                         ::t/prereq-fn
-                        (fn [c] (or (not (= kw (first @(subscribe [::character/classes nil c]))))
+                        (fn [c] (or (not (= kw (first (character/classes c))))
                                     (> i 1))))])))
       :modifiers (concat
                   (some-> levels (get i) :modifiers)
@@ -2867,7 +2867,7 @@
                                spells-map
                                (assoc spellcasting :class-key kw)
                                merged-class)
-        first-class? (fn [c] (let [first-class (first @(subscribe [::character/classes nil c]))]
+        first-class? (fn [c] (let [first-class (first (character/classes c))]
                                (= kw first-class)))]
     (t/option-cfg
      {:name name
@@ -3066,7 +3066,7 @@
 (defn has-trait-with-name-prereq [name]
   (t/option-prereq
    (str "You must have " name)
-   (fn [c] (some #(= name (:name %)) @(subscribe [::character/traits nil c])))))
+   (fn [c] (some #(= name (:name %)) (character/traits c)))))
 
 (def pact-of-the-tome-prereq
   (has-trait-with-name-prereq pact-of-the-tome-name))
@@ -3081,7 +3081,7 @@
   (t/option-prereq
    "You must know the edritch blast cantrip"
    (fn [c]
-     (get-in @(subscribe [::character/spells-known nil c])
+     (get-in (character/spells-known c)
              [0 ["Warlock" :eldritch-blast]]))))
 
 (defn deep-gnome-option-cfg [key source page]
@@ -3123,18 +3123,18 @@
                    (into #{} race-nms))]
     (t/option-prereq
      (str (common/list-print name-set "or") " Only")
-     (fn [c] (name-set @(subscribe [::character/race nil c]))))))
+     (fn [c] (name-set (character/race c))))))
 
 (defn subrace-prereq [race-nm subrace-nm]
   (t/option-prereq
    (str subrace-nm " Only")
-   (fn [c] (and (= race-nm @(subscribe [::character/race nil c]))
-                (= subrace-nm @(subscribe [::character/subrace nil c]))))))
+   (fn [c] (and (= race-nm (character/race c))
+                (= subrace-nm (character/subrace c))))))
 
 #_(def deep-gnome-prereq
   (t/option-prereq
    "Deep Gnome only"
-   (fn [c] (let [subrace @(subscribe [::character/subrace nil c])]
+   (fn [c] (let [subrace (character/subrace c)]
              (or (= "Deep Gnome (EE)" subrace)
                  (= "Deep Gnome (SCAG)" subrace))))))
 

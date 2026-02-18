@@ -292,4 +292,7 @@
     (catch Exception e
       (binding [*out* *err*]
         (println "Error:" (.getMessage e)))
-      (System/exit 1))))
+      (System/exit 1)))
+  ;; Datomic peer metrics thread is non-daemon and prevents clean JVM exit.
+  ;; Force exit after successful command completion.
+  (System/exit 0))

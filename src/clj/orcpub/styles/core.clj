@@ -1230,6 +1230,11 @@
       :justify-content :space-between
       :align-items :center}]
 
+    ;; Prevent horizontal scroll caused by fixed-position elements
+    ;; spanning full viewport width when vertical scrollbar is present.
+    [:.app
+     {:overflow-x :hidden}]
+
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
 

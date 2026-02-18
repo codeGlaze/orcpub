@@ -479,7 +479,10 @@
                  accum-selections)))
       accum-selections)))
 
-(defn remove-disqualified-selections [selections built-char]
+(defn remove-disqualified-selections
+  "Remove selections whose prereq-fn fails against built-char.
+   Callers must provide a real built entity, never nil."
+  [selections built-char]
   (remove #(or (nil? %)
                (let [prereq-fn (::t/prereq-fn %)]
                  (and prereq-fn (not (prereq-fn built-char)))))
@@ -742,10 +745,14 @@
           :else
           0)))
 
-(defn meets-prereqs? [option & [built-char]]
+(defn meets-prereqs?
+  "Check if option's prereqs are satisfied by built-char.
+   Callers must provide a real built entity (from entity/build or
+   subscribe [:built-character]), never nil."
+  [option & [built-char]]
   (every?
-   (fn [{:keys [::t/prereq-fn] :as prereq}]
-     (when prereq-fn
+   (fn [{:keys [::t/prereq-fn]}]
+     (if prereq-fn
        (prereq-fn built-char)
-       #?(:cljs (js/console.warn "NO PREREQ_FN" (::t/name option) prereq))))
+       true))
    (::t/prereqs option)))
