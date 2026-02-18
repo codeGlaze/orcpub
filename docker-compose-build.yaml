@@ -6,21 +6,17 @@ services:
       context: .
       dockerfile: docker/orcpub/Dockerfile
     environment:
-      PORT: 8890
-      EMAIL_SERVER_URL: ''
-      EMAIL_ACCESS_KEY: ''
-      EMAIL_SECRET_KEY: ''
-      EMAIL_SERVER_PORT: 587
-      # Email address to send from, will default to 'no-reply@orcpub.com'
-      EMAIL_FROM_ADDRESS: ''
-      # Email address to send errors to
-      EMAIL_ERRORS_TO: ''
-      EMAIL_SSL: 'TRUE'
-      EMAIL_TLS: 'FALSE'
-      # Datomic connection string - Make sure the <change this> matches the DATOMIC_PASSWORD below 
-      DATOMIC_URL: datomic:free://datomic:4334/orcpub?password=<change this>
-      # The secret used to hash your password in the browser, 20+ characters recommended
-      SIGNATURE: '<change me to something unique>'
+      PORT: ${PORT:-8890}
+      EMAIL_SERVER_URL: ${EMAIL_SERVER_URL:-}
+      EMAIL_ACCESS_KEY: ${EMAIL_ACCESS_KEY:-}
+      EMAIL_SECRET_KEY: ${EMAIL_SECRET_KEY:-}
+      EMAIL_SERVER_PORT: ${EMAIL_SERVER_PORT:-587}
+      EMAIL_FROM_ADDRESS: ${EMAIL_FROM_ADDRESS:-}
+      EMAIL_ERRORS_TO: ${EMAIL_ERRORS_TO:-}
+      EMAIL_SSL: ${EMAIL_SSL:-FALSE}
+      EMAIL_TLS: ${EMAIL_TLS:-FALSE}
+      DATOMIC_URL: ${DATOMIC_URL:-datomic:free://datomic:4334/orcpub?password=change-me}
+      SIGNATURE: ${SIGNATURE:-change-me-to-something-unique}
     depends_on:
       - datomic
     restart: always
@@ -29,9 +25,8 @@ services:
       context: .
       dockerfile: docker/datomic/Dockerfile
     environment:
-      ADMIN_PASSWORD: <change this as well!>
-      # Must match the <change this> in the DATOMIC_URL above.
-      DATOMIC_PASSWORD: <change this>
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
+      DATOMIC_PASSWORD: ${DATOMIC_PASSWORD:-change-me}
     volumes:
       - ./data:/data
       - ./logs:/logs

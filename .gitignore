@@ -22,6 +22,7 @@ pom.xml
 orcpub.iml
 profiles.clj
 env.sh
+.env
 .repl
 .nrepl-port
 *~
