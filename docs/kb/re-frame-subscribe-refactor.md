@@ -187,11 +187,33 @@ Handlers using `character-interceptors` receive `character` (not `db`) because t
 | `core.cljs` top-level | Replace with dispatch-sync [:verify-user-session] | Low |
 | `::char5e/save-character` (character) | Direct db read | Zero |
 
-### Remaining (1 of 12)
+### Last fix: Template cache via `track!` (12 of 12)
 
-| Handler | Why |
-|---------|-----|
-| `::char5e/save-character` (built-character) | Template chain = 12 inputs. Replication fragile. Caching adds infrastructure for one call site. |
+| Handler | Technique |
+|---------|-----------|
+| `::char5e/save-character` (built-character) | Cache template in app-db via `reagent.core/track!`, compute `entity/build` in handler |
+
+**How it works**: `autosave_fx.cljs` creates a `track!` watcher (proper reactive context) that observes the `::char5e/template` subscription and caches its value in app-db under `::autosave-fx/cached-template`. The save handler reads the cached template and calls `entity/build(character, cached-template)` directly.
+
+**Why this works**: `built-template` is a no-op (plugin merging is commented out in `subs.cljs:254-270`). So `built-character = entity/build(character, template)` — no need for the full `built-template` computation.
+
+**Safety**: Nil guard skips save if template not cached yet. Next autosave cycle (7.5s) retries.
+
+### Circular Dependency (Root Cause)
+
+```
+equipment_subs.cljs → events.cljs (url-for-route, show-generic-error)
+subs.cljs           → events.cljs (url-for-route, show-generic-error, mod-cfg, default-mod-set)
+spell_subs.cljs     → events.cljs (dead import — not actually used)
+```
+
+Also: `auth-headers` duplicated 3x (events.cljs as `authorization-headers`, subs.cljs, equipment_subs.cljs).
+
+**Fix**: Create `orcpub.dnd.e5.event-utils` with shared utility functions. Sub files import from event-utils instead of events. Events can then import from sub files, breaking the circle.
+
+### Critical Bug Found and Fixed
+
+`custom-option-builder` in options.cljc was initially modified to unconditionally inject `built-template` into ALL dispatch vectors. Only 2 of 5 handlers (`:set-custom-subclass`, `:set-custom-feat-name`) expected it. The other 3 (`:set-custom-race`, `:set-custom-subrace`, `:set-custom-background`) would receive the template object as the "name" argument — data corruption for homebrew content (core functionality, not niche). Fixed with multi-arity: `inject-template?` flag defaults to `false`.
 
 ## Files Changed
 
@@ -199,12 +221,38 @@ Handlers using `character-interceptors` receive `character` (not `db`) because t
 |------|---------|
 | `src/cljs/orcpub/dnd/e5/events.cljs` | All handler fixes + compute helpers + verify-user-session event |
 | `src/cljs/orcpub/character_builder.cljs` | save-character and set-random-name pass values via dispatch |
-| `src/cljc/orcpub/dnd/e5/options.cljc` | custom-option-builder passes built-template via dispatch |
+| `src/cljc/orcpub/dnd/e5/options.cljc` | custom-option-builder multi-arity (inject-template? flag) |
 | `web/cljs/orcpub/core.cljs` | @(subscribe [:user false]) → (dispatch-sync [:verify-user-session]) |
+| `src/cljs/orcpub/dnd/e5/event_utils.cljs` | NEW: shared utility functions extracted from events.cljs |
+| `src/cljs/orcpub/dnd/e5/subs.cljs` | Import event-utils instead of events, remove local auth-headers |
+| `src/cljs/orcpub/dnd/e5/equipment_subs.cljs` | Import event-utils instead of events, remove local auth-headers |
+| `src/cljs/orcpub/dnd/e5/spell_subs.cljs` | Remove dead events import |
 
-## Verification Checklist
+## Verification
 
-- [ ] `lein test` — 74 tests, 238 assertions, 0 failures
-- [ ] `lein fig:build` — 0 errors, 0 warnings
-- [ ] Browser console — zero "subscribe was called outside of a reactive context" warnings (except autosave, which fires once every 7.5s during editing)
-- [ ] Manual test: save character, random name, filter spells/items, level up, export plugins, login
+**Automated**:
+- [x] `lein test` — 74 tests, 238 assertions, 0 failures
+- [x] `lein fig:build` — 0 errors, 0 warnings
+- [x] `subscribe` removed from events.cljs requires — zero subscribe calls outside reactive context
+
+**Manual testing needed** (no CLJS test infra exists):
+- [ ] Save character (manual + autosave) — verify correct summary
+- [ ] Random name — verify race/subrace/sex-appropriate
+- [ ] Filter spells/items — type 3+ characters, verify filtering
+- [ ] Level up — verify navigation to builder
+- [ ] Export plugins — verify .orcbrew file downloads
+- [ ] Custom subclass/feat name — verify homebrew name input
+- [ ] Login/startup — verify auth check fires
+- [ ] Homebrew import — import .orcbrew file, create character with custom content
+
+## Risk: `reagent.core/track!` (new pattern)
+
+**First use in this project.** `track!` is stable Reagent API (since ~0.6) but has never been used in OrcPub.
+
+Risk factors:
+- Creates a long-lived reactive watcher — won't be GC'd
+- `js/setTimeout 0` relies on all `reg-sub` calls completing before the timeout fires
+- If `::char5e/template` subscription is renamed/removed, the watcher silently fails
+- If `built-template` plugin merging is re-enabled, the cached template would be incomplete
+
+The nil guard (returns `{}` if template not cached) prevents data loss but means autosave silently skips one 7.5s cycle on cold start.
