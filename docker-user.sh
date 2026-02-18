@@ -95,7 +95,7 @@ find_container() {
 
 wait_for_ready() {
   local container="$1"
-  local max_wait=30
+  local max_wait=120
   local waited=0
 
   # Check container is running
@@ -105,14 +105,41 @@ wait_for_ready() {
     exit 1
   fi
 
-  # Wait for the app to have connected to Datomic (the uberjar starts the
-  # Component system which connects on boot). We test by attempting a
-  # trivial Datomic query via clojure.main.
-  printf "Waiting for Datomic connection"
+  # Wait for Docker's native healthcheck (defined in docker-compose.yaml)
+  # to report the container as healthy. This avoids spawning a JVM per check.
+  local health
+  health=$(docker inspect --format='{{if .State.Health}}yes{{end}}' "$container" 2>/dev/null || true)
+
+  if [ "$health" = "yes" ]; then
+    printf "Waiting for container health check"
+    while [ $waited -lt $max_wait ]; do
+      local status
+      status=$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null || true)
+      if [ "$status" = "healthy" ]; then
+        echo ""
+        info "Container is healthy"
+        return 0
+      fi
+      if [ "$status" = "unhealthy" ]; then
+        echo ""
+        error "Container reported unhealthy"
+        exit 1
+      fi
+      printf "."
+      sleep 2
+      waited=$((waited + 2))
+    done
+    echo ""
+    error "Timed out waiting for healthy status (${max_wait}s)."
+    exit 1
+  fi
+
+  # Fallback: no healthcheck defined — check HTTP readiness directly
+  warn "No Docker healthcheck found; polling HTTP on container port..."
+  printf "Waiting for app"
   while [ $waited -lt $max_wait ]; do
-    if docker exec "$container" java -cp /orcpub.jar clojure.main -e \
-      '(require (quote [datomic.api :as d])) (d/connect (System/getenv "DATOMIC_URL")) (println "ready")' \
-      2>/dev/null | grep -q "ready"; then
+    if docker exec "$container" wget --no-verbose --tries=1 --spider \
+      "http://localhost:${PORT:-8890}/" 2>/dev/null; then
       echo ""
       return 0
     fi
@@ -122,7 +149,7 @@ wait_for_ready() {
   done
 
   echo ""
-  error "Timed out waiting for Datomic (${max_wait}s). Is the datomic container running?"
+  error "Timed out waiting for app (${max_wait}s). Is the datomic container running?"
   exit 1
 }
 

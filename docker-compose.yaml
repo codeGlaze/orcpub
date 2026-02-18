@@ -1,5 +1,4 @@
 ---
-version: '3'
 services:
   orcpub:
     image: orcpub/orcpub:latest
@@ -16,7 +15,14 @@ services:
       DATOMIC_URL: ${DATOMIC_URL:-datomic:free://datomic:4334/orcpub?password=change-me}
       SIGNATURE: ${SIGNATURE:-change-me-to-something-unique}
     depends_on:
-      - datomic
+      datomic:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8890/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
     restart: always
   datomic:
     image: orcpub/datomic:latest
@@ -26,6 +32,12 @@ services:
     volumes:
       - ./data:/data
       - ./logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 4334"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     restart: always
   web:
     image: nginx:alpine
@@ -38,5 +50,6 @@ services:
       - ./deploy/snakeoil.key:/etc/nginx/snakeoil.key
       - ./deploy/homebrew/:/usr/share/nginx/html/homebrew/
     depends_on:
-      - orcpub
+      orcpub:
+        condition: service_healthy
     restart: always

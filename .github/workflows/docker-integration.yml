@@ -48,40 +48,49 @@ jobs:
           docker compose up -d
           docker compose ps
 
-      - name: Wait for Datomic transactor
+      - name: Wait for healthy containers
         run: |
-          echo "Waiting for Datomic transactor to accept connections..."
-          for i in $(seq 1 30); do
-            if docker compose logs datomic 2>&1 | grep -q "System started"; then
-              echo "Datomic transactor is ready (after ~${i}s)"
+          echo "Waiting for datomic healthcheck..."
+          for i in $(seq 1 60); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$(docker compose ps -q datomic)" 2>/dev/null || echo "waiting")
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Datomic is healthy (after ~$((i * 2))s)"
               break
             fi
-            if [ "$i" -eq 30 ]; then
-              echo "FAIL: Datomic did not start within 30s"
+            if [ "$STATUS" = "unhealthy" ]; then
+              echo "FAIL: Datomic reported unhealthy"
               docker compose logs datomic
               exit 1
             fi
-            sleep 1
+            if [ "$i" -eq 60 ]; then
+              echo "FAIL: Datomic did not become healthy within 120s"
+              docker compose logs datomic
+              exit 1
+            fi
+            sleep 2
           done
 
-      - name: Wait for orcpub app
-        run: |
-          echo "Waiting for orcpub app to be ready..."
+          echo "Waiting for orcpub healthcheck..."
           for i in $(seq 1 60); do
-            CONTAINER=$(docker compose ps -q orcpub)
-            if docker exec "$CONTAINER" java -cp /orcpub.jar clojure.main -e \
-              '(require (quote [datomic.api :as d])) (d/connect (System/getenv "DATOMIC_URL")) (println "ready")' \
-              2>/dev/null | grep -q "ready"; then
-              echo "orcpub app connected to Datomic (after ~${i}s)"
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$(docker compose ps -q orcpub)" 2>/dev/null || echo "waiting")
+            if [ "$STATUS" = "healthy" ]; then
+              echo "orcpub is healthy (after ~$((i * 2))s)"
               break
             fi
-            if [ "$i" -eq 60 ]; then
-              echo "FAIL: orcpub could not connect to Datomic within 60s"
+            if [ "$STATUS" = "unhealthy" ]; then
+              echo "FAIL: orcpub reported unhealthy"
               docker compose logs
               exit 1
             fi
-            sleep 1
+            if [ "$i" -eq 60 ]; then
+              echo "FAIL: orcpub did not become healthy within 120s"
+              docker compose logs
+              exit 1
+            fi
+            sleep 2
           done
+
+          docker compose ps
 
       - name: Test — create user
         run: |
@@ -136,22 +145,8 @@ jobs:
 
       - name: Test — created user can log in via HTTP
         run: |
-          # Wait for the HTTP server to be listening
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8890/ >/dev/null 2>&1 || \
-               curl -sf -o /dev/null -w "%{http_code}" http://localhost:8890/ 2>&1 | grep -qE "^[234]"; then
-              echo "HTTP server is up (after ~${i}s)"
-              break
-            fi
-            if [ "$i" -eq 30 ]; then
-              echo "WARN: HTTP server not reachable, skipping login test"
-              exit 0
-            fi
-            sleep 1
-          done
-
-          # POST /login with the user we created
-          RESPONSE=$(curl -sf -X POST http://localhost:8890/login \
+          # Use nginx (port 443) since orcpub:8890 is not exposed to host
+          RESPONSE=$(curl -sk -X POST https://localhost/login \
             -H "Content-Type: application/json" \
             -d '{"username":"testadmin","password":"SecurePass123"}' \
             -w "\n%{http_code}" 2>&1) || true
@@ -173,8 +168,8 @@ jobs:
 
       - name: Test — wrong password is rejected
         run: |
-          HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
-            -X POST http://localhost:8890/login \
+          HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" \
+            -X POST https://localhost/login \
             -H "Content-Type: application/json" \
             -d '{"username":"testadmin","password":"WrongPassword"}' 2>&1) || true
 
