@@ -279,12 +279,44 @@
 (defn built-character [character built-template]
   (entity/build character built-template))
 
-(reg-sub
+(def ^:private build-debounce-ms
+  "Leading+trailing debounce for entity/build. First change fires
+   immediately; rapid changes batch until quiet for this many ms."
+  500)
+
+(defn- debounced-build-sub
+  "reg-sub-raw handler: wraps entity/build with leading+trailing edge
+   debounce. Dropdown changes compute instantly; rapid keystrokes batch."
+  [char-sub tmpl-sub]
+  (let [timeout-id (atom nil)
+        last-run   (atom 0)
+        result     (ra/atom (built-character @char-sub @tmpl-sub))
+        wk         (gensym "build-")
+        do-build   (fn []
+                     (reset! last-run (.now js/Date))
+                     (reset! result (built-character @char-sub @tmpl-sub)))
+        on-change  (fn [_ _ _ _]
+                     (when-let [tid @timeout-id] (js/clearTimeout tid))
+                     (if (>= (- (.now js/Date) @last-run) build-debounce-ms)
+                       (do-build)
+                       (reset! timeout-id
+                               (js/setTimeout do-build build-debounce-ms))))]
+    (add-watch char-sub wk on-change)
+    (add-watch tmpl-sub wk on-change)
+    (ra/make-reaction
+     (fn [] @result)
+     :on-dispose (fn []
+                   (remove-watch char-sub wk)
+                   (remove-watch tmpl-sub wk)
+                   (when-let [tid @timeout-id]
+                     (js/clearTimeout tid))))))
+
+(reg-sub-raw
  :built-character
- :<- [:character]
- :<- [:built-template]
- (fn [[character built-template] _]
-   (built-character character built-template)))
+ (fn [_ _]
+   (debounced-build-sub
+    (subscribe [:character])
+    (subscribe [:built-template]))))
 
 (reg-sub
  :expanded-characters
@@ -466,13 +498,12 @@
  (fn [[selected-plugin-options template] _]
    (built-template template selected-plugin-options)))
 
-(reg-sub
+(reg-sub-raw
  ::char5e/built-character
- (fn [[_ id] _]
-   [(subscribe [::char5e/character id])
-    (subscribe [::char5e/built-template id])])
- (fn [[character built-template] _ _]
-   (built-character character built-template)))
+ (fn [_ [_ id]]
+   (debounced-build-sub
+    (subscribe [::char5e/character id])
+    (subscribe [::char5e/built-template id]))))
 
 (reg-sub
  :message-shown?
