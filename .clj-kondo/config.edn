@@ -1,6 +1,6 @@
 {:linters {:shadowed-fn-param {:level :off}
            :shadowed-var {:level :off}
-           :if {:level :off}
+           :missing-else-branch {:level :off}
            :unused-namespace {:level :off}
            :unused-binding {:level :off}
            :unresolved-symbol
@@ -31,4 +31,24 @@
              (orcpub.entity-spec/make-entity)
              (orcpub.routes-test/with-conn)]}}
   :lint-as {reagent.core/with-let clojure.core/let
-            hiccup.def/defhtml clojure.core/defn}}
+            hiccup.def/defhtml clojure.core/defn}
+ ;; ── LSP false-positive suppression ──────────────────────────────
+ ;; clojure-lsp flags these as unused because it can't trace cross-file
+ ;; macro-generated references or re-frame keyword dispatch.
+ :clojure-lsp/unused-public-var
+ {:exclude [user                              ; REPL utilities
+            orcpub.styles.core/app
+            ;; LSP can't trace cross-file references to these —
+            ;; all are called from classes.cljc (live code)
+            orcpub.dnd.e5.options/monk-elemental-disciplines
+            orcpub.dnd.e5.options/spell-tags
+            orcpub.dnd.e5.options/potent-spellcasting
+            ;; Live callers exist but LSP can't trace them
+            orcpub.common/dissoc-in                ; events.cljs
+            orcpub.dnd.e5.character/add-ability-namespaces] ; test
+  ;; re-frame event handlers are dispatched via keyword, not var reference.
+  ;; LSP can't connect reg-event-db registration to (dispatch [:keyword]).
+  :exclude-when-defined-by #{re-frame.core/reg-event-db
+                              re-frame.core/reg-event-fx
+                              re-frame.core/reg-sub
+                              re-frame.core/reg-sub-raw}}}
