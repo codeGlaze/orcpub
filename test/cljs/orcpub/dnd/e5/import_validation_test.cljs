@@ -605,3 +605,52 @@
       (is (= "[Option 1]" (get-in result [:item :options 0 :name])))
       (is (= 1 (get-in result [:changes :traits-fixed])))
       (is (= 1 (get-in result [:changes :options-fixed]))))))
+
+;; ============================================================================
+;; Levenshtein Distance Tests
+;; ============================================================================
+
+(deftest test-levenshtein-distance-basics
+  (testing "Known edit distances"
+    (is (= 0 (import-val/levenshtein-distance :abc :abc)))
+    (is (= 3 (import-val/levenshtein-distance :kitten :sitting)))
+    (is (= 3 (import-val/levenshtein-distance :saturday :sunday))))
+  (testing "Empty string edge cases"
+    (is (= 3 (import-val/levenshtein-distance :abc (keyword ""))))
+    (is (= 0 (import-val/levenshtein-distance (keyword "") (keyword ""))))))
+
+(deftest test-levenshtein-early-return
+  (testing "Length diff > 10 returns len-diff (skips matrix computation)"
+    ;; :ab (2 chars) vs :abcdefghijklmno (15 chars) — diff is 13
+    (is (= 13 (import-val/levenshtein-distance :ab :abcdefghijklmno))))
+  (testing "Length diff <= 10 still computes full matrix"
+    ;; :abc (3 chars) vs :abcdefghijk (11 chars) — diff is 8, should compute
+    (let [dist (import-val/levenshtein-distance :abc :abcdefghijk)]
+      (is (= 8 dist)))))
+
+;; ============================================================================
+;; Format Spec Problem — falsy value handling
+;; ============================================================================
+
+(deftest test-format-spec-problem-val-display
+  (testing "nil val suppressed from output (no 'Got:' line)"
+    (let [result (import-val/format-spec-problem {:path [] :pred 'string? :val nil :via [] :in []})]
+      (is (not (re-find #"Got:" result)))))
+  (testing "false val shown (some? distinguishes false from nil)"
+    (let [result (import-val/format-spec-problem {:path [] :pred 'string? :val false :via [] :in []})]
+      (is (re-find #"Got: false" result))))
+  (testing "Long values truncated at 50 chars"
+    (let [long-str (apply str (repeat 60 "x"))
+          result (import-val/format-spec-problem {:path [] :pred 'string? :val long-str :via [] :in []})]
+      (is (re-find #"\.\.\." result)))))
+
+;; ============================================================================
+;; Normalize Text — seq input handling
+;; ============================================================================
+
+(deftest test-normalize-text-in-data-seq-input
+  (testing "seq input returns vector (not lazy seq) with normalized strings"
+    (let [input (list "h\u00e9llo" "w\u00f6rld")
+          result (import-val/normalize-text-in-data input)]
+      (is (vector? result))
+      (is (= 2 (count result))))))

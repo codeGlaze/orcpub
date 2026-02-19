@@ -45,8 +45,11 @@
              (orcpub.dnd.e5.modifiers/level-val)
              (orcpub.entity-spec/make-entity)
              (orcpub.routes-test/with-conn)
+             (orcpub.routes.folder-test/with-conn)
              (user/with-db)]}}
  :lint-as {reagent.core/with-let clojure.core/let
            hiccup.def/defhtml clojure.core/defn
            user/with-db clojure.core/let
+           orcpub.routes-test/with-conn clojure.core/let
+           orcpub.routes.folder-test/with-conn clojure.core/let
            clojure.test.check.clojure-test/defspec clojure.test/deftest}}
