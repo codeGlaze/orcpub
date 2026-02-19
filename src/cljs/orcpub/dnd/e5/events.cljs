@@ -822,7 +822,7 @@
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-folders-route)
            :on-success [::folder5e/set-folders-from-response]}
-    :dispatch (show-generic-error)}))
+    :dispatch (event-utils/show-generic-error)}))
 
 (reg-event-db
  ::folder5e/set-folders-from-response
