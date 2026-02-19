@@ -1134,7 +1134,7 @@
     (str (when (pos? level)
            (str (common/ordinal level) "-level"))
          " "
-         (str (common/safe-capitalize school) (if ritual " (can be cast as ritual)" ""))
+         (common/safe-capitalize school) (if ritual " (can be cast as ritual)" "")
          (when (zero? level)
            " cantrip"))]])
 
@@ -7855,7 +7855,7 @@
     (let [expanded? (get expanded-characters id)
           char-page-path (routes/path-for routes/dnd-e5-char-page-route :id id)
           char-page-route (routes/match-route char-page-path)]
-    [:div.main-text-color.item-list-item
+      [:div.main-text-color.item-list-item
      [:div
       [:div.flex.justify-cont-s-b.align-items-c.pointer
        {:on-click (make-event-handler :toggle-character-expanded id)}

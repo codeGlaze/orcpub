@@ -393,8 +393,7 @@
                "You already have this language"
                (fn [c] (not (get @(subscribe [::character/languages nil c]) key))))]}))
 
-;; unreferenced — common/name-to-kw is used instead
-#_(defn key-to-name [key]
+(defn key-to-name [key]
   (s/join " " (map s/capitalize (s/split (name key) #"-"))))
 
 (defn spell-field [name value]
