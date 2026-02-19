@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.equipment-subs
-  (:require [re-frame.core :refer [reg-sub reg-sub-raw dispatch subscribe]]
+  (:require [re-frame.core :refer [reg-sub reg-sub-raw dispatch #_subscribe]]
             [orcpub.common :as common]
             [orcpub.template :as t]
             [orcpub.dnd.e5.spell-subs]
@@ -114,13 +114,14 @@
  (fn [magic-weapons]
    (concat magic-weapons weapon5e/weapons)))
 
-(reg-sub
- ::mi5e/all-melee-weapons
- :<- [::mi5e/all-weapons]
- (fn [all-weapons]
-   (filter
-    ::weapon5e/melee?
-    all-weapons)))
+;; Unused — melee-only filter. UI filters inline. Restore if a melee-only view is added.
+#_(reg-sub
+   ::mi5e/all-melee-weapons
+   :<- [::mi5e/all-weapons]
+   (fn [all-weapons]
+     (filter
+      ::weapon5e/melee?
+      all-weapons)))
 
 (defn map-by-key-or-id [items]
   (reduce
@@ -213,10 +214,8 @@
  (fn [magic-items _]
    (map-by-key-or-id magic-items)))
 
-(reg-sub
- ::equipment5e/weapons-map
- (fn [_ _]
-   weapon5e/weapons-map))
+;; Deleted: static wrapper returning weapon5e/weapons-map. Use ::mi5e/all-weapons-map
+;; (includes homebrew) or weapon5e/weapons-map directly for SRD-only.
 
 (reg-sub
  ::mi5e/all-weapons-map
@@ -257,29 +256,18 @@
    (ra/make-reaction
     (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
 
-(reg-sub-raw
- ::mi5e/item
- ;; For int keys, delegate to ::remote-item (triggers HTTP fetch).
- ;; For keyword keys, return static lookup.
- (fn [_app-db [_ key]]
-   (if (int? key)
-     (subscribe [::mi5e/remote-item key])
-     (ra/make-reaction (fn [] (get mi5e/all-equipment-map key))))))
+;; Unused — item detail lookup with remote HTTP fetch for int keys.
+;; Groundwork for a magic item detail page. Restore when needed.
+#_(reg-sub-raw
+   ::mi5e/item
+   (fn [_app-db [_ key]]
+     (if (int? key)
+       (subscribe [::mi5e/remote-item key])
+       (ra/make-reaction (fn [] (get mi5e/all-equipment-map key))))))
 
-(reg-sub
- ::equipment5e/armor-map
- (fn [_ _]
-   armor5e/armor-map))
-
-(reg-sub
- ::equipment5e/equipment-map
- (fn [_ _]
-   equipment5e/equipment-map))
-
-(reg-sub
- ::equipment5e/treasure-map
- (fn [_ _]
-   equipment5e/treasure-map))
+;; Deleted: static wrappers returning armor5e/armor-map, equipment5e/equipment-map,
+;; equipment5e/treasure-map. Use ::mi5e/all-armor-map (includes homebrew) or the
+;; static vars directly for SRD-only.
 
 (reg-sub
  ::char5e/template-selections
