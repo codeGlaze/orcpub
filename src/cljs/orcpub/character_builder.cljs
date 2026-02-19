@@ -1464,11 +1464,11 @@
                [:div.m-t-5
                 [:span.pointer.underline.orange
                  {:on-click #(dispatch [:route routes/dnd-e5-race-builder-page-route])}
-                 (str "CLICK HERE TO ADD A RACE")]]
+                 "CLICK HERE TO ADD A RACE"]]
                [:div.m-t-5
                 [:span.pointer.underline.orange
                  {:on-click #(dispatch [:route routes/dnd-e5-subrace-builder-page-route])}
-                 (str "CLICK HERE TO ADD A SUBRACE")]]]))
+                 "CLICK HERE TO ADD A SUBRACE"]]]))
 
 (defn add-feat-component []
   (add-item-component "feat" routes/dnd-e5-feat-builder-page-route))
@@ -1479,11 +1479,11 @@
                [:div.m-t-5
                 [:span.pointer.underline.orange
                  {:on-click #(dispatch [:route routes/dnd-e5-class-builder-page-route])}
-                 (str "CLICK HERE TO ADD A CLASS")]]
+                 "CLICK HERE TO ADD A CLASS"]]
                [:div.m-t-5
                 [:span.pointer.underline.orange
                  {:on-click #(dispatch [:route routes/dnd-e5-subclass-builder-page-route])}
-                 (str "CLICK HERE TO ADD A SUBCLASS")]]]))
+                 "CLICK HERE TO ADD A SUBCLASS"]]]))
 
 (def pages
   [{:name "Race"

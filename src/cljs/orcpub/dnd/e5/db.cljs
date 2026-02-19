@@ -274,7 +274,8 @@
  local-storage-magic-item-key
  ::mi5e/internal-magic-item)
 
-(def musical-instrument-choice-cfg
+;; dead — duplicate of classes.cljc def, never referenced from .cljs code
+#_(def musical-instrument-choice-cfg
   {:name "Musical Instrument"
    :options (zipmap (map :key equip5e/musical-instruments) (repeat 1))})
 
