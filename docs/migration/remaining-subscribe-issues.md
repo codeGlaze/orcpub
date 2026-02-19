@@ -1,6 +1,6 @@
 # Subscribe-Outside-Reactive-Context Issues — ALL FIXED
 
-All 13 subscribe-outside-reactive-context warnings have been resolved
+All 14 subscribe-outside-reactive-context warnings have been resolved
 on `breaking/2026-stack-modernization`.
 
 ## Fixed Issues
@@ -53,6 +53,17 @@ For keyword keys, wraps static lookup in `reagent.ratom/make-reaction`.
 Moved subscribe to render-time `let` binding. The `character` value is
 now captured at render and closed over in the onClick handler.
 
+### views.cljs — Top-Level def with subscribe (1) ✓
+
+**Line 4336** — `@(subscribe [::langs/languages])`
+
+`option-language-proficiency-choice` was a `def` using `partial` that
+evaluated `@(subscribe ...)` at namespace load time. Converted to `defn`
+so the subscribe runs during render (inside reactive context). This single
+call site produced 4 cascading warnings because `::langs/languages` has a
+3-deep subscription chain — each inner `reg-sub` input function also calls
+`subscribe`, each triggering its own warning.
+
 ---
 
 ## Dead Code (unchanged, not executing)
@@ -69,5 +80,6 @@ now captured at render and closed over in the onClick handler.
 
 ## Summary
 
-All 13 active subscribe-outside-reactive-context instances are resolved.
+All 14 active subscribe-outside-reactive-context instances are resolved.
+Browser console is clean — zero subscribe warnings on fresh page load.
 Dead code in `#_` blocks is inert and can be cleaned up separately.

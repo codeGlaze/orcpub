@@ -4329,11 +4329,16 @@
            :skill-expertise-options
            skills/skills))
 
-(def option-language-proficiency-choice
-  (partial option-proficiency-choice
-           "Language Proficiency Choice"
-           :language-options
-           @(subscribe [::langs/languages])))
+(defn option-language-proficiency-choice
+  "Wraps option-proficiency-choice; subscribes inside render context."
+  [option set-path-prop-event toggle-path-prop-event]
+  (option-proficiency-choice
+   "Language Proficiency Choice"
+   :language-options
+   @(subscribe [::langs/languages])
+   option
+   set-path-prop-event
+   toggle-path-prop-event))
 
 (def option-skill-proficiency-choice
   (partial option-proficiency-choice
