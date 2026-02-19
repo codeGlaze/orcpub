@@ -981,25 +981,41 @@
     :http {:method :put
            :headers (authorization-headers db)
            :url (backend-url (routes/path-for routes/user-email-route))
-           :transit-params new-email
+           :transit-params {:new-email new-email}
            :on-success [:change-email-success]
            :on-failure [:change-email-failure]}}))
 
 (reg-event-db
  :change-email-success
- (fn [db _]
-   (assoc db :email-change-sent? true)))
+ (fn [db [_ response]]
+   (-> db
+       (assoc :email-change-sent? true)
+       ;; Use server-canonical (lowercased/trimmed) email for display
+       (assoc-in [:user-data :user-data :pending-email]
+                 (-> response :body :pending-email)))))
 
 (reg-event-db
  :change-email-failure
  (fn [db [_ response]]
-   (assoc db :email-change-error
-          (case (-> response :body :error)
-            :email-taken "That email address is already in use by another account."
-            :invalid-email "Please enter a valid email address."
-            :same-as-current "That is already your current email address."
-            :too-many-requests "Please wait a few minutes before requesting another email change."
-            "There was an error updating your email. Please try again."))))
+   (let [body (:body response)
+         error (:error body)]
+     (assoc db :email-change-error
+            (case error
+              :email-taken "That email address is already in use by another account."
+              :invalid-email "Please enter a valid email address."
+              :same-as-current "That is already your current email address."
+              :too-many-requests
+              (let [secs (:retry-after-secs body)]
+                (if (and secs (pos? secs))
+                  (if (<= secs 60)
+                    ;; 0–1 min zone: email is in transit, show short countdown
+                    (str "Your email is on its way. You can resend in " secs " second" (when (> secs 1) "s") ".")
+                    ;; 1–5 min zone for a different email: show minutes
+                    (let [mins (.ceil js/Math (/ secs 60))]
+                      (str "Please wait " mins " minute" (when (> mins 1) "s") " before requesting another change.")))
+                  "Please wait a few minutes before requesting another email change."))
+              :email-send-failed "Verification email could not be sent. Please try again later."
+              "There was an error updating your email. Please try again.")))))
 
 (reg-event-db
  :change-email-clear
