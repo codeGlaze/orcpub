@@ -370,7 +370,8 @@
                                                :page 55
                                                :summary "make a weapon attack when you use your action to cast a bard spell"})]}}}]}))
 
-(defn blessings-of-knowledge-skill [skill-name]
+;; dead — only called from #_ discarded block at line 527
+#_(defn blessings-of-knowledge-skill [skill-name]
   (let [skill-kw (common/name-to-kw skill-name)]
     (t/option-cfg
      {:name skill-name
@@ -378,7 +379,8 @@
       :modifiers [(mod5e/skill-proficiency skill-kw)
                   (mod5e/skill-expertise skill-kw)]})))
 
-(def spell-level-to-cleric-level
+;; dead — zero callers
+#_(def spell-level-to-cleric-level
   {1 1
    2 3
    3 5
@@ -1465,7 +1467,7 @@
               10 {:modifiers [(mod5e/dependent-trait
                                {:name "Aura of Courage"
                                 :page 85
-                                :summary (str (str "you and friendly creatures within " ?paladin-aura " ft. can't be frightened"))})]}
+                                :summary (str "you and friendly creatures within " ?paladin-aura " ft. can't be frightened")})]}
               14 {:modifiers [(mod5e/action
                                {:name "Cleansing Touch"
                                 :page 85
@@ -2323,7 +2325,8 @@
    :page page
    :description (str "time and money to copy an " school " spell is halved")})
 
-(defn spell-in-spells-known? [known level spell-key]
+;; dead — only called from #_ discarded block
+#_(defn spell-in-spells-known? [known level spell-key]
   (and known (some #(= spell-key (:key %)) (known level))))
 
 (defn spell-mastery-selection [level]
@@ -2612,7 +2615,8 @@
       (t/option-cfg
        {:name (or (:name weapon) (::weapon5e/name weapon))})))))
 
-(defn pact-weapon-option [title weapons]
+;; dead — zero callers
+#_(defn pact-weapon-option [title weapons]
   (t/option-cfg
    {:name title
     :selections [(t/selection-cfg
