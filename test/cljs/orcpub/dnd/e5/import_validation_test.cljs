@@ -645,7 +645,7 @@
       (is (re-find #"\.\.\." result)))))
 
 ;; ============================================================================
-;; Normalize Text — seq input handling
+;; Normalize Text & count-non-ascii (I13)
 ;; ============================================================================
 
 (deftest test-normalize-text-in-data-seq-input
@@ -654,3 +654,105 @@
           result (import-val/normalize-text-in-data input)]
       (is (vector? result))
       (is (= 2 (count result))))))
+
+(deftest test-normalize-text-common-unicode
+  (testing "Smart quotes become straight quotes"
+    (is (= "\"Hello\" and 'World'" (import-val/normalize-text "\u201cHello\u201d and \u2018World\u2019"))))
+  (testing "Em-dash and en-dash become hyphens"
+    (is (= "foo--bar" (import-val/normalize-text "foo\u2014bar")))
+    (is (= "1-5" (import-val/normalize-text "1\u20135"))))
+  (testing "Ellipsis becomes three dots"
+    (is (= "Wait..." (import-val/normalize-text "Wait\u2026"))))
+  (testing "Non-breaking space becomes regular space"
+    (is (= "10 ft" (import-val/normalize-text "10\u00A0ft"))))
+  (testing "Zero-width space removed entirely"
+    (is (= "nobreak" (import-val/normalize-text "no\u200Bbreak"))))
+  (testing "Plain ASCII string unchanged"
+    (is (= "normal text" (import-val/normalize-text "normal text"))))
+  (testing "Non-string input passed through"
+    (is (= 42 (import-val/normalize-text 42)))
+    (is (= nil (import-val/normalize-text nil)))))
+
+(deftest test-count-non-ascii
+  (testing "All-ASCII string returns nil"
+    (is (nil? (import-val/count-non-ascii "hello world"))))
+  (testing "String with non-ASCII returns count and char set"
+    (let [result (import-val/count-non-ascii "caf\u00e9")]
+      (is (= 1 (:count result)))
+      (is (contains? (:chars result) \u00e9))))
+  (testing "Multiple non-ASCII chars counted"
+    (let [result (import-val/count-non-ascii "\u201cHello\u201d")]
+      (is (= 2 (:count result)))))
+  (testing "Non-string input returns nil"
+    (is (nil? (import-val/count-non-ascii nil)))
+    (is (nil? (import-val/count-non-ascii 42)))))
+
+(deftest test-normalize-text-in-data-recursive
+  (testing "Normalizes strings nested in maps and vectors"
+    (let [input {:name "Caf\u00e9"
+                 :traits [{:name "Smart\u2019s"
+                            :description "Uses \u201cmagic\u201d"}]
+                 :level 3}
+          result (import-val/normalize-text-in-data input)]
+      (is (= "Cafe" (:name result)))
+      (is (= "Smart's" (get-in result [:traits 0 :name])))
+      (is (= "Uses \"magic\"" (get-in result [:traits 0 :description])))
+      (is (= 3 (:level result))))))
+
+;; ============================================================================
+;; Nil Cleaning Edge Cases (I4)
+;; ============================================================================
+
+(deftest test-clean-nil-in-map-nil-key
+  (testing "Map entries with nil keys are removed"
+    (let [input {nil nil :name "Test"}
+          result (import-val/clean-nil-in-map-with-log input)]
+      (is (not (contains? (:data result) nil)))
+      (is (= "Test" (get-in result [:data :name])))
+      (is (seq (:changes result)))
+      (is (= :removed-nil-key (-> result :changes first :type))))))
+
+(deftest test-clean-nil-preserves-semantic-nils
+  (testing "spell-list-kw nil is preserved (means custom spell list)"
+    (let [input {:spell-list-kw nil :name "Wizard"}
+          result (import-val/clean-nil-in-map-with-log input)]
+      (is (contains? (:data result) :spell-list-kw))
+      (is (nil? (get-in result [:data :spell-list-kw])))
+      (is (some #(= :preserved-nil (:type %)) (:changes result))))))
+
+(deftest test-clean-nil-removes-numeric-nils
+  (testing "Ability score nils are removed (accidental leftover data)"
+    (let [input {:str nil :dex 14 :con nil :name "Fighter"}
+          result (import-val/clean-nil-in-map-with-log input)]
+      (is (not (contains? (:data result) :str)))
+      (is (not (contains? (:data result) :con)))
+      (is (= 14 (get-in result [:data :dex])))
+      (is (= "Fighter" (get-in result [:data :name]))))))
+
+(deftest test-clean-nil-replaces-with-defaults
+  (testing "Known nil fields get replaced with sensible defaults"
+    (let [input {:option-pack nil :name "Test Spell"}
+          result (import-val/clean-nil-in-map-with-log input)]
+      (is (= "Unnamed Content" (get-in result [:data :option-pack])))
+      (is (some #(= :replaced-nil (:type %)) (:changes result))))))
+
+(deftest test-validate-import-mixed-nil-scenarios
+  (testing "Full pipeline handles plugin with all nil categories"
+    (let [plugin-edn (str "{:orcpub.dnd.e5/classes"
+                          " {:wizard {:option-pack nil"
+                          "           :name \"Wizard\""
+                          "           :spellcasting {:spell-list-kw nil}"
+                          "           :abilities {:str nil :int 16}}}}")
+          result (import-val/validate-import plugin-edn
+                                             {:strategy :progressive
+                                              :auto-clean true})]
+      (is (:success result))
+      (let [wizard (get-in result [:data :orcpub.dnd.e5/classes :wizard])]
+        ;; option-pack nil → "Unnamed Content" (replaced)
+        (is (= "Unnamed Content" (:option-pack wizard)))
+        ;; spell-list-kw nil → preserved (semantic)
+        (is (contains? (:spellcasting wizard) :spell-list-kw))
+        (is (nil? (get-in wizard [:spellcasting :spell-list-kw])))
+        ;; :str nil → removed, :int 16 → kept
+        (is (not (contains? (:abilities wizard) :str)))
+        (is (= 16 (get-in wizard [:abilities :int])))))))
