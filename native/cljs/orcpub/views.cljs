@@ -1,5 +1,5 @@
 (ns orcpub.views
-  (:require [reagent.core :as r :refer [atom]]))
+  (:require [reagent.core :as r]))
 
 (def ReactNative (js/require "react-native"))
 #_(def FontAwesome (js/require "react-native-fontawesome"))

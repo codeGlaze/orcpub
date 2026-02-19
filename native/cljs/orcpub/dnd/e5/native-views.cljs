@@ -11,7 +11,7 @@
             [clojure.string :as s]
             [reagent.core :as r]
             [clojure.pprint :refer [pprint]]
-            [re-frame.core :refer [subscribe dispatch dispatch-sync]]))
+            [re-frame.core :refer [subscribe]]))
 
 (def tab-style
   {:padding 10
@@ -146,7 +146,7 @@
 (defn i [s]
   (assoc s :font-style :italic))
 
-(defn remaining-bubble [value color left-offset top-offset]
+(defn remaining-bubble [value color left-offset top-offset & [font-size]]
   [view {:style {:background-color color
                  :border-color color
                  :border-radius 12
@@ -158,6 +158,7 @@
              :font-weight :bold
              :font-size (or font-size 14)
              :color :white}}
+             
     value]])
 
 (defn remaining-indicator [remaining & [size font-size]]
@@ -202,13 +203,13 @@
             homebrew? @(subscribe [:homebrew? path])]
         [view {:style {:padding 5
                        :margin-bottom 20}}
-         (if (and (or title name) parent-title)
+         (when (and (or title name) parent-title)
            (selection-section-parent-title parent-title))
          [view
           #_(if icon (views5e/svg-icon icon 24))
           (if (or title name)
             (selection-section-title (or title name))
-            (if parent-title
+            (when parent-title
               (selection-section-parent-title parent-title)))
           #_(if (and path help)
             [show-info-button expanded?])
@@ -223,7 +224,7 @@
              (views5e/svg-icon "beer-stein" 18)])]
          #_(if (and help path @expanded?)
            [help-section help])
-         (if (int? min)
+         (when (int? min)
            [view {:style {:flex-direction :row
                           :align-items :center
                           :padding-horizontal 5

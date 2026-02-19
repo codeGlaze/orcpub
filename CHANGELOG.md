@@ -48,12 +48,39 @@ Format: per-commit entries grouped by category, newest first.
 
 ### Cleanup
 
-- **Remove 11 orphaned subscriptions** (uncommitted)
+- **Remove 11 orphaned subscriptions** (`bb2400d`)
   4 static map wrappers deleted (superseded by homebrew-aware versions).
   7 unused subs reader-discarded (`#_`) with comments: `all-melee-weapons`,
   `item`, `base-spells-map`, `spell-option`, `spell-options`,
   `filtered-monster-names`, `has-prof?`. Pre-existing tech debt, not caused
   by subscribe refactor.
+
+- **Fix 591 missing-else-branch lint warnings** (`29c9f28`, via `fix/lint-missing-else`)
+  Mechanical `if→when`, `if-let→when-let`, `if-not→when-not` across 33 files.
+  Scripted fix (`scripts/fix-missing-else.py`) with column-precise substitution.
+  Also fixed 2 pre-existing bugs: `when` used instead of `if` for two-branch
+  conditionals in classes.cljc:1808 and options.cljc:463.
+
+- **Fix forward-reference lint error** (`792fe3c`)
+  `show-generic-error` used before its `def` alias in events.cljs. Changed to
+  fully-qualified `event-utils/show-generic-error`.
+
+- **Consolidate lint config** (`7476f10`)
+  All linter settings moved from project.clj `:lint` profile to
+  `.clj-kondo/config.edn` (single source of truth for IDE + CLI). Lint scope
+  expanded to cover `native/`, `test/`, `web/`. clj-kondo bumped to 2026.01.19.
+  LSP false-positive suppression via `:exclude-when-defined-by` for re-frame.
+
+- **Dead code cleanup — ~92 vars** (`6bbcd9a`, `b68b917`)
+  `#_` reader-discard on dead defs across 10 source files: deprecated ua/scag
+  refs, superseded template UI (ability roller, amazon frames), 17 never-dispatched
+  event handlers, dead style defs, duplicate constants. Includes cascade cleanup
+  (helpers that lost all callers). Each `#_` has a comment explaining why.
+
+- **Redundant expression fixes** (in `6bbcd9a`, `b68b917`, `429152e`)
+  Remove nested `(str (str ...))`, flatten `(and (and ...))`, remove duplicate
+  destructuring param, remove unused refers, narrow test `:refer` lists,
+  fix unreachable code in registration.cljc.
 
 ### Enhancements
 
@@ -103,4 +130,4 @@ Format: per-commit entries grouped by category, newest first.
 - **174 JVM tests**, 444 assertions, 0 failures
 - **0 CLJS errors**, 0 warnings (dev + advanced)
 - **0 subscribe warnings** in browser console
-- **0 linter errors** (455 warnings — all third-party)
+- **0 linter errors**, 0 warnings

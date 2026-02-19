@@ -24,7 +24,6 @@
         ;;password-missing-uppercase? (fails-match? #".*[A-Z].*" password)
         ;;password-missing-lowercase? (fails-match? #".*[a-z].*" password)
         password-too-short? (or (nil? password) (< (count password) 6))]
-    {}
     (cond-> {}
       ;;password-missing-lowercase? (update :password conj "Password must have a least one lowercase character")
       ;;password-missing-uppercase? (update :password conj "Password must have a least one uppercase character")

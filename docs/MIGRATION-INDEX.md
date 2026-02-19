@@ -31,7 +31,7 @@ Upgrading any one of these in isolation would leave the application broken.
 ## Test Status
 
 - Backend: 174 tests, 444 assertions, 0 failures, 0 errors
-- Lint: 0 errors (455 warnings — all from third-party libraries)
+- Lint: 0 errors, 0 warnings
 - Dev CLJS build: 0 errors, 0 warnings
 - Production CLJS build (`:advanced`): succeeds with custom `externs.js` for React 18 APIs
 - Garden CSS: 0 warnings (after lambdaisland/garden upgrade)

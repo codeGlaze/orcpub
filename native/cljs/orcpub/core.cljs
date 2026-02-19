@@ -1,6 +1,6 @@
 (ns orcpub.core
-    (:require [reagent.core :as r :refer [atom]]
-              [re-frame.core :refer [subscribe dispatch dispatch-sync]]
+    (:require [reagent.core :as r]
+              [re-frame.core :refer [dispatch-sync]]
               [orcpub.dnd.e5.events]
               [orcpub.dnd.e5.equipment-subs]
               [orcpub.dnd.e5.subs]
