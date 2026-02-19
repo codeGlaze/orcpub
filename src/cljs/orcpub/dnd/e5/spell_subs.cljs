@@ -476,7 +476,9 @@
                                (:name class))]
             (assoc class-with-key
                    :name display-name
-                   :original-name (:name class)  ;; Preserve original for lookups
+                   ;; :name is display-only (may include source suffix).
+                   ;; All internal lookups use :key, never :name.
+                   :original-name (:name class)
                    :plugin-source source-name
                    :modifiers (opt5e/plugin-modifiers (:props class)
                                                       class-key)
