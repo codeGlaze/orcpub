@@ -32,7 +32,8 @@
 
 (def xps [0 300 900 2700 6500 14000 23000 34000 48000 64000 85000 100000 120000 140000 165000 195000 225000 265000 305000 355000])
 
-(def levels
+;; unreferenced — xps is used directly elsewhere
+#_(def levels
   (map-indexed
    (fn [i xp] {:level (inc i) :min-xp xp})
    xps))
@@ -392,7 +393,8 @@
                "You already have this language"
                (fn [c] (not (get @(subscribe [::character/languages nil c]) key))))]}))
 
-(defn key-to-name [key]
+;; unreferenced — common/name-to-kw is used instead
+#_(defn key-to-name [key]
   (s/join " " (map s/capitalize (s/split (name key) #"-"))))
 
 (defn spell-field [name value]
@@ -816,7 +818,8 @@
                     (map language-map (keys lang-options)))]
     (language-selection-aux languages lang-num)))
 
-(defn any-language-selection [language-map & [num]]
+;; unreferenced — language-selection and homebrew-language-selection used instead
+#_(defn any-language-selection [language-map & [num]]
   (language-selection-aux (vals language-map) num))
 
 #_(defn maneuver-option [name & [desc]]
@@ -865,7 +868,8 @@
                                            (not= k source))
                                          (?tool-profs tool-kw))])])
 
-(defn skill-or-expertise-selection [num skill-kws option-source]
+;; dead — only called from deprecated ua_race_feats.cljc
+#_(defn skill-or-expertise-selection [num skill-kws option-source]
   (t/selection-cfg
    {:name "Skill Proficiency"
     :order 0
@@ -1061,9 +1065,11 @@
                     (mods/set-mod ?feats kw))
        (not multiselect?) (update :prereqs conj (does-not-have-feat-prereq kw))))))
 
-(def charge-summary "when you Dash, you can make 1 melee attack or shove as a bonus action; if you move 10 ft. before taking this bonus action you gain +5 damage to attack or shove 10 ft.")
+;; dead — zero callers
+#_(def charge-summary "when you Dash, you can make 1 melee attack or shove as a bonus action; if you move 10 ft. before taking this bonus action you gain +5 damage to attack or shove 10 ft.")
 
-(def defensive-duelist-summary "when you are hit with a melee attack, you can add your prof bonus to AC for the attack if you are wielding a finesse weapon you are proficient with")
+;; dead — zero callers
+#_(def defensive-duelist-summary "when you are hit with a melee attack, you can add your prof bonus to AC for the attack if you are wielding a finesse weapon you are proficient with")
 
 #_(defn homebrew-spell-selection [spell-lists spells-map]
   (spell-selection
@@ -1146,14 +1152,14 @@
                 [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                        off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
                        all-weapons-map @(subscribe [::mi/all-weapons-map])]
-                   (and (and main-hand-weapon
-                             (-> all-weapons-map
-                                 main-hand-weapon
-                                 ::weapons/melee?))
-                        (and off-hand-weapon
-                             (-> all-weapons-map
-                                 off-hand-weapon
-                                 ::weapons/melee?))))]))
+                   (and main-hand-weapon
+                        (-> all-weapons-map
+                            main-hand-weapon
+                            ::weapons/melee?)
+                        off-hand-weapon
+                        (-> all-weapons-map
+                            off-hand-weapon
+                            ::weapons/melee?)))]))
 
 (def dual-wield-weapon-mod
   (mods/modifier ?dual-wield-weapon? weapons/one-handed-weapon?))
@@ -1714,17 +1720,17 @@
                               [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                                      off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
                                      all-weapons-map @(subscribe [::mi/all-weapons-map])]
-                                 (and (and main-hand-weapon
-                                           (-> all-weapons-map
+                                 (and main-hand-weapon
+                                      (-> all-weapons-map
+                                          main-hand-weapon
+                                          ::weapons/melee?)
+                                      (not (-> all-weapons-map
                                                main-hand-weapon
-                                               ::weapons/melee?)
-                                           (not (-> all-weapons-map
-                                                    main-hand-weapon
-                                                    ::weapons/two-handed?)))
-                                      (and off-hand-weapon
-                                           (not (-> all-weapons-map  ;ensure no weapons in off hand
-                                                    off-hand-weapon
-                                                    ::weapons/type)))))])
+                                               ::weapons/two-handed?))
+                                      off-hand-weapon
+                                      (not (-> all-weapons-map ;ensure no weapons in off hand
+                                               off-hand-weapon
+                                               ::weapons/type))))])
                  ]})
    (t/option-cfg
     {:name "Great Weapon Fighting"
@@ -1861,7 +1867,8 @@
 
 (def ua-al-illegal (modifiers/al-illegal "Unearthed Arcana options are not allowed"))
 
-(defn subclass-plugin [class-base-cfg source subclasses ua-al-illegal?]
+;; dead — all callers are in #_ discarded template blocks (dmg-classes, ua, scag)
+#_(defn subclass-plugin [class-base-cfg source subclasses ua-al-illegal?]
   (merge
    class-base-cfg
    {:source source
@@ -1899,7 +1906,8 @@
     :num num
     :prepend-level? true}))
 
-(defn subclass-cantrip-selection [spell-lists spells-map class-key class-name ability spells num]
+;; dead — only called from deprecated ua_sorcerer.cljc
+#_(defn subclass-cantrip-selection [spell-lists spells-map class-key class-name ability spells num]
   (spell-selection
    spell-lists
    spells-map
@@ -1997,7 +2005,8 @@
                   (traits-modifiers traits nil source)
                   (if source [(modifiers/used-resource source name)]))})))
 
-(defn ability-modifiers [abilities]
+;; unreferenced — inline (map modifiers/ability ...) used at call sites
+#_(defn ability-modifiers [abilities]
   (map
    (fn [[k v]]
      (modifiers/ability k v))
@@ -2188,7 +2197,6 @@
                            armor-proficiencies
                            weapon-proficiencies
                            profs
-                           source
                            plugin?
                            edit-event]
                     :as race}]
@@ -2239,12 +2247,14 @@
                   (weapon-prof-modifiers weapon-proficiencies)
                   (if source [(modifiers/used-resource source name)]))})))
 
-(defn add-sources [source background]
+;; dead — only called from #_ discarded block in template.cljc
+#_(defn add-sources [source background]
   (-> background
       (assoc :source source)
       (update :traits (fn [traits] (map (fn [t] (assoc t :source source)) traits)))))
 
-(def artisans-tools-choice-cfg
+;; dead — only called from #_ discarded backgrounds in template.cljc and deprecated scag.cljc
+#_(def artisans-tools-choice-cfg
   {:name "Artisan's Tool"
    :options (zipmap (map :key equipment/artisans-tools) (repeat 1))})
 
@@ -2597,7 +2607,8 @@
 (defn level-name [index]
   (str "Level " index))
 
-(defn subclass-level-option [{:keys [name
+;; unreferenced — subclass-option builds level options inline
+#_(defn subclass-level-option [{:keys [name
                                      levels] :as subcls}
                              kw
                              spellcasting-template
@@ -3030,7 +3041,8 @@
    :yuan-ti-pureblood {:name "Yuan-Ti Pureblood"
                        :languages [:abyssal :draconic]}})
 
-(defn druid-cantrip-selection [spell-lists spells-map class-nm]
+;; dead — only called from deprecated ua_race_feats.cljc
+#_(defn druid-cantrip-selection [spell-lists spells-map class-nm]
   (t/selection-cfg
    {:name "Druid Cantrip"
     :tags #{:spells}
@@ -3070,7 +3082,8 @@
      (get-in @(subscribe [::character/spells-known nil c])
              [0 ["Warlock" :eldritch-blast]]))))
 
-(defn deep-gnome-option-cfg [key source page]
+;; dead — only called from #_ discarded blocks in template.cljc
+#_(defn deep-gnome-option-cfg [key source page]
   {:name "Gnome"
    :plugin? true
    :subraces
@@ -3085,7 +3098,8 @@
                :page page
                :summary "Advantage on hide checks in rocky terrain"}]}]})
 
-(defmacro eldritch-invocation-option [{:keys [name summary source page prereqs modifiers trait-type frequency range]}]
+;; dead — only called from deprecated ua_warlock_and_wizard.cljc / ua_revised_class_options.cljc
+#_(defmacro eldritch-invocation-option [{:keys [name summary source page prereqs modifiers trait-type frequency range]}]
   `(t/option-cfg
     {:name ~name
      :prereqs ~prereqs
