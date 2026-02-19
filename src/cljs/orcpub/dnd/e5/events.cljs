@@ -18,6 +18,7 @@
             [orcpub.dnd.e5.classes :as class5e]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.party :as party5e]
+            [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
@@ -360,6 +361,7 @@
         subrace (char5e/subrace built-char)
         character-name (char5e/character-name built-char)
         image-url (char5e/image-url built-char)
+        faction-image-url (char5e/faction-image-url built-char)
         age (char5e/age built-char)
         sex (char5e/sex built-char)
         height (char5e/height built-char)
@@ -367,11 +369,12 @@
         hair (char5e/hair built-char)
         eyes (char5e/eyes built-char)
         skin (char5e/skin built-char)
-        ;alignment (char5e/get-prop built-char ::alignment)  ;This is not available? 
-        ;background (char5e/get-prop built-char ::background)  ;This is not available? 
+        ;alignment (char5e/get-prop built-char ::alignment)  ;This is not available?
+        ;background (char5e/get-prop built-char ::background)  ;This is not available?
         ]
     (cond-> {::char5e/character-name (or character-name "")}
       image-url (assoc ::char5e/image-url image-url)
+      faction-image-url (assoc ::char5e/faction-image-url faction-image-url)
       race (assoc ::char5e/race-name race)
       subrace (assoc ::char5e/subrace-name subrace)
       age (assoc ::char5e/age age)
@@ -445,8 +448,14 @@
  :item-save-success
  (fn [{:keys [db]} [_ response]]
    (let [strict-item (:body response)
-         item (mi/to-internal-item strict-item)]
-     {:dispatch-n [[:show-message "Your item has been saved."]
+         item (mi/to-internal-item strict-item)
+         item-id (:db/id strict-item)
+         existing-items (::mi/custom-items db)
+         updated-items (if (some #(= item-id (:db/id %)) existing-items)
+                         (mapv #(if (= item-id (:db/id %)) strict-item %) existing-items)
+                         (conj (vec existing-items) strict-item))]
+     {:db (assoc db ::mi/custom-items updated-items)
+      :dispatch-n [[:show-message "Your item has been saved."]
                    [::mi/set-item item]]})))
 
 (reg-event-fx
@@ -797,6 +806,154 @@
                 party))
             parties)))
     :dispatch [::party5e/add-character-remote id character-id show-confirmation?]}))
+
+;; ---- Folder Events -------------------------------------------------------
+
+(reg-event-db
+ ::folder5e/set-folders
+ (fn [db [_ folders]]
+   (assoc db ::folder5e/folders folders)))
+
+(reg-event-fx
+ ::folder5e/create-folder
+ (fn [{:keys [db]} [_]]
+   {:http {:method :post
+           :headers (authorization-headers db)
+           :transit-params {::folder5e/name "New Folder"}
+           :url (url-for-route routes/dnd-e5-char-folders-route)
+           :on-success [::folder5e/create-folder-success]}}))
+
+(reg-event-fx
+ ::folder5e/create-folder-success
+ (fn [{:keys [db]} [_ response]]
+   (let [folder (:body response)]
+     {:db (update db ::folder5e/folders conj folder)
+      :dispatch [::folder5e/toggle-renaming (:db/id folder)]})))
+
+(reg-event-fx
+ ::folder5e/rename-folder
+ (fn [{:keys [db]} [_ id new-name]]
+   {:db (update db ::folder5e/folders
+                (fn [folders]
+                  (map (fn [f]
+                         (if (= id (:db/id f))
+                           (assoc f ::folder5e/name new-name)
+                           f))
+                       folders)))
+    :http {:method :put
+           :headers (authorization-headers db)
+           :transit-params new-name
+           :url (url-for-route routes/dnd-e5-char-folder-name-route :id id)}}))
+
+(reg-event-fx
+ ::folder5e/delete-folder
+ (fn [{:keys [db]} [_ id]]
+   {:db (update db ::folder5e/folders
+                (fn [folders]
+                  (remove #(= id (:db/id %)) folders)))
+    :http {:method :delete
+           :headers (authorization-headers db)
+           :url (url-for-route routes/dnd-e5-char-folder-route :id id)}}))
+
+(reg-event-fx
+ ::folder5e/add-character
+ (fn [{:keys [db]} [_ folder-id character-id]]
+   {:db (update db ::folder5e/folders
+                (fn [folders]
+                  (map (fn [f]
+                         (if (= folder-id (:db/id f))
+                           (update f ::folder5e/character-ids
+                                   conj
+                                   (get-in db [::char5e/summary-map character-id]))
+                           ;; remove from any other folder (at-most-one constraint)
+                           (update f ::folder5e/character-ids
+                                   (fn [chars]
+                                     (remove #(= character-id (:db/id %)) chars)))))
+                       folders)))
+    :http {:method :post
+           :headers (authorization-headers db)
+           :transit-params character-id
+           :url (url-for-route routes/dnd-e5-char-folder-characters-route :id folder-id)}}))
+
+(reg-event-fx
+ ::folder5e/remove-character
+ (fn [{:keys [db]} [_ folder-id character-id]]
+   {:db (update db ::folder5e/folders
+                (fn [folders]
+                  (map (fn [f]
+                         (if (= folder-id (:db/id f))
+                           (update f ::folder5e/character-ids
+                                   (fn [chars]
+                                     (remove #(= character-id (:db/id %)) chars)))
+                           f))
+                       folders)))
+    :http {:method :delete
+           :headers (authorization-headers db)
+           :url (url-for-route routes/dnd-e5-char-folder-character-route
+                               :id folder-id
+                               :character-id character-id)}}))
+
+;; When expanding a folder, collapse its characters so they start closed
+(reg-event-db
+ ::folder5e/toggle-expanded
+ (fn [db [_ folder-id char-ids]]
+   (let [opening? (not (get-in db [::folder5e/expanded folder-id]))]
+     (cond-> (update-in db [::folder5e/expanded folder-id] not)
+       (and opening? (seq char-ids))
+       (update :expanded-characters
+               (fn [ec] (apply dissoc (or ec {}) char-ids)))))))
+
+(reg-event-db
+ ::folder5e/toggle-renaming
+ (fn [db [_ folder-id]]
+   (update-in db [::folder5e/renaming folder-id] not)))
+
+;; ---- End Folder Events ----------------------------------------------------
+
+;; ---- Character Filter Events -----------------------------------------------
+
+(reg-event-db
+ ::char5e/set-char-name-filter
+ (fn [db [_ v]]
+   (assoc db ::char5e/char-name-filter v)))
+
+(reg-event-db
+ ::char5e/toggle-char-level-filter
+ (fn [db [_ level]]
+   (let [filters (or (get db ::char5e/char-level-filters) #{})]
+     (assoc db ::char5e/char-level-filters
+            ((if (filters level) disj conj) filters level)))))
+
+(reg-event-db
+ ::char5e/toggle-char-class-filter
+ (fn [db [_ cls]]
+   (let [filters (or (get db ::char5e/char-class-filters) #{})]
+     (assoc db ::char5e/char-class-filters
+            ((if (filters cls) disj conj) filters cls)))))
+
+(reg-event-db
+ ::char5e/toggle-char-has-portrait
+ (fn [db _]
+   (update db ::char5e/char-has-portrait?
+           #(case % nil true, true false, false nil))))
+
+(reg-event-db
+ ::char5e/toggle-char-has-faction-pic
+ (fn [db _]
+   (update db ::char5e/char-has-faction-pic?
+           #(case % nil true, true false, false nil))))
+
+(reg-event-db
+ ::char5e/clear-char-filters
+ (fn [db _]
+   (dissoc db
+           ::char5e/char-name-filter
+           ::char5e/char-level-filters
+           ::char5e/char-class-filters
+           ::char5e/char-has-portrait?
+           ::char5e/char-has-faction-pic?)))
+
+;; ---- End Character Filter Events -------------------------------------------
 
 (reg-event-fx
  :follow-user-success
@@ -3097,6 +3254,18 @@
    (update item ::weapons/ammunition? not)))
 
 (reg-event-db
+ ::mi/toggle-item-special?
+ item-interceptors
+ (fn [item _]
+   (update item ::weapons/special? not)))
+
+(reg-event-db
+ ::mi/toggle-item-loading?
+ item-interceptors
+ (fn [item _]
+   (update item ::weapons/loading? not)))
+
+(reg-event-db
  ::mi/toggle-item-versatile?
  item-interceptors
  (fn [item _]
@@ -3753,38 +3922,11 @@
                   ability-kw
                   value)))
 
-(defn remove-custom-weapon-fields [item]
-  (dissoc item
-          ::weapons/finesse?
-          ::weapons/versatile?
-          ::weapons/reach?
-          ::weapons/two-handed?
-          ::weapons/thrown?
-          ::weapons/heavy?
-          ::weapons/light?
-          ::weapons/ammunition?
-          ::weapons/damage-die-count
-          ::weapons/damage-die
-          ::weapons/versatile
-          ::weapons/melee?
-          ::weapons/ranged?
-          ::weapons/type
-          ::weapons/range
-          ::weapons/damage-type))
-
 (reg-event-db
  ::mi/toggle-subtype
  item-interceptors
  (fn [item [_ type]]
-   (remove-custom-weapon-fields
-    (case type
-      :other (assoc item ::mi/subtypes #{:other})
-      :all (assoc item ::mi/subtypes #{:all})
-      (update item
-              ::mi/subtypes
-              #(as-> % $
-                 (disj $ :other :all)
-                 (toggle-set type $)))))))
+   (mi/apply-subtype-toggle item type)))
 
 (reg-event-fx
  ::char5e/open-character

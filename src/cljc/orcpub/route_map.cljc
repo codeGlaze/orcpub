@@ -15,6 +15,11 @@
 (def dnd-e5-char-party-characters-route :char-party-characters-5e)
 (def dnd-e5-char-party-character-route :char-party-character-5e)
 (def dnd-e5-char-parties-page-route :char-parties-5e-page)
+(def dnd-e5-char-folders-route :char-folders-5e)
+(def dnd-e5-char-folder-route :char-folder-5e)
+(def dnd-e5-char-folder-name-route :char-folder-name-5e)
+(def dnd-e5-char-folder-characters-route :char-folder-characters-5e)
+(def dnd-e5-char-folder-character-route :char-folder-character-5e)
 (def dnd-e5-orcacle-page-route :orcacle-page)
 
 (def dnd-e5-char-page-routes #{default-route
@@ -150,6 +155,11 @@
                                                 "/name" dnd-e5-char-party-name-route
                                                 "/characters" {"" dnd-e5-char-party-characters-route
                                                                ["/" :character-id] dnd-e5-char-party-character-route}}}
+                          "folders" {"" dnd-e5-char-folders-route
+                                     ["/" :id] {"" dnd-e5-char-folder-route
+                                                "/name" dnd-e5-char-folder-name-route
+                                                "/characters" {"" dnd-e5-char-folder-characters-route
+                                                               ["/" :character-id] dnd-e5-char-folder-character-route}}}
                           "character-summaries" dnd-e5-char-summary-list-route}}
                   "pages/" {"my-account" my-account-page-route
                             "register-page" register-page-route

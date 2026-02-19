@@ -4,6 +4,7 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.party :as party5e]
+            [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.weapons :as weapon5e]
             [orcpub.dnd.e5.spells :as spells5e]
@@ -312,6 +313,17 @@
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/many}])
 
+(def folder-schema
+  [{:db/ident ::folder5e/owner
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident ::folder5e/name
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
+   {:db/ident ::folder5e/character-ids
+    :db/valueType :db.type/ref
+    :db/cardinality :db.cardinality/many}])
+
 (def character-equipment-schema
   (concat
    [(string-prop ::char-equip-5e/name)
@@ -369,6 +381,7 @@
    (map
     bool-prop-no-history
     [::weapon5e/special?
+     ::weapon5e/loading?
      ::weapon5e/melee?
      ::weapon5e/ranged?
      ::weapon5e/heavy?
@@ -388,5 +401,6 @@
    character-equipment-schema
    features-used-schema
    party-schema
+   folder-schema
    magic-item-schema
    weapon-schema))

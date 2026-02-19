@@ -28,6 +28,7 @@ pom.xml
 orcpub.iml
 profiles.clj
 env.sh
+.env
 .repl
 .nrepl-port
 *~
@@ -46,7 +47,6 @@ deploy/homebrew/*
 
 # Local audit outputs
 /audit/
-
 
 # Cursor IDE local config (contains user-specific paths)
 .cursor/
