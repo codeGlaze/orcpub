@@ -469,7 +469,8 @@
  (fn [characters _]
    (common/map-by :db/id characters)))
 
-(reg-sub
+;; dead — never subscribed to; events.cljs accesses ::char5e/summary-map directly
+#_(reg-sub
  ::char5e/summary
  :<- [::char5e/summary-map]
  (fn [character-map [_ id]]
