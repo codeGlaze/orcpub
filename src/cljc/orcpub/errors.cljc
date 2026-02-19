@@ -77,7 +77,7 @@
       (throw e))
     (catch #?(:clj Exception :cljs :default) e
       (log-error "ERROR:" (str "Failed " operation-name ":")
-                 (merge context {:message (.getMessage e)}))
+                 (merge context {:message #?(:clj (.getMessage e) :cljs (.-message e))}))
       (when on-error
         (on-error e))
       (throw (create-error user-message error-code context e)))))

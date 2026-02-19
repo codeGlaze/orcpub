@@ -116,8 +116,8 @@
    :check-fn - Optional predicate; if provided, field fails if (check-fn value) is false
                Default check is just (some? value)"
   {:orcpub.dnd.e5/classes
-   {:name {:dummy "[Missing Name]"}
-    :key {:dummy nil}} ; key is usually auto-derived, checked specially
+   {:name {:dummy "[Missing Name]"}}
+   ;; :key is auto-derived from :name, not checked here
 
    :orcpub.dnd.e5/subclasses
    {:name {:dummy "[Missing Subclass Name]"}
@@ -245,7 +245,7 @@
    Returns [updated-option changes] where changes is a vector of field names filled."
   [index option]
   (let [missing (reduce-kv
-                 (fn [acc field {:keys [_dummy]}]
+                 (fn [acc field _field-spec]
                    (if (or (nil? (get option field))
                            (and (string? (get option field))
                                 (str/blank? (get option field))))
@@ -292,7 +292,7 @@
   (reduce-kv
    (fn [acc item-key item]
      (let [{:keys [item changes]} (fill-all-missing-fields item content-type)]
-       (if (or (seq (:fields changes)) (pos? (:traits-fixed changes)))
+       (if (or (seq (:fields changes)) (pos? (:traits-fixed changes)) (pos? (:options-fixed changes)))
          {:items (assoc (:items acc) item-key item)
           :changes (conj (:changes acc) {:key item-key :changes changes})}
          {:items (assoc (:items acc) item-key item)
@@ -419,10 +419,9 @@
 
            :else
            (str "Failed validation: " pred))
-         (when val
-           (str "\n    Got: " (pr-str (if (> (count (pr-str val)) 50)
-                                        (str (subs (pr-str val) 0 47) "...")
-                                        val)))))))
+         (when (some? val)
+           (let [s (pr-str val)]
+             (str "\n    Got: " (if (> (count s) 50) (str (subs s 0 47) "...") s)))))))
 
 (defn format-validation-errors
   "Formats spec validation errors into user-friendly messages."
@@ -617,7 +616,7 @@
                   (:valid (validate-item k v)))
                 items)))
 
-(defn- is-multi-plugin?
+(defn is-multi-plugin?
   "Check if the data is a multi-plugin structure (string keys at top level)."
   [data]
   (and (map? data)
@@ -1187,11 +1186,11 @@
                                   {:type :string-fix
                                    :description (str "Removed " comma-count " trailing comma(s)")}))
                          after-commas)
-                       edn-text)]
+                       edn-text)
+        ;; Step 2: Parse EDN
+        parse-result (parse-edn cleaned-text)]
 
-    ;; Step 2: Parse EDN
-    (let [parse-result (parse-edn cleaned-text)]
-      (if (:success parse-result)
+    (if (:success parse-result)
 
         ;; Step 2.5: Normalize text (Unicode → ASCII) for reliable PDF/export
         (let [parsed-data (:data parse-result)
@@ -1222,17 +1221,18 @@
               key-conflicts (detect-duplicate-keys (:data fill-result)
                                                    existing-plugins
                                                    import-source-name)
-              key-warnings (format-duplicate-key-warnings key-conflicts)]
+              key-warnings (format-duplicate-key-warnings key-conflicts)
 
-          ;; Step 5: Validate structure based on strategy
-          (let [validation-result (if (= strategy :strict)
-                                    (import-all-or-nothing (:data fill-result))
-                                    (import-progressive (:data fill-result)))]
-            ;; Add changes and key conflict info to result
-            (assoc validation-result
-                   :changes all-changes
-                   :key-conflicts key-conflicts
-                   :key-warnings key-warnings)))
+              ;; Step 5: Validate structure based on strategy
+              validation-result (if (= strategy :strict)
+                                  (import-all-or-nothing (:data fill-result))
+                                  (import-progressive (:data fill-result)))]
+
+          ;; Add changes and key conflict info to result
+          (assoc validation-result
+                 :changes all-changes
+                 :key-conflicts key-conflicts
+                 :key-warnings key-warnings))
 
         ;; Parse failed - return detailed error
         {:success false
@@ -1240,7 +1240,7 @@
          :error (:error parse-result)
          :line (:line parse-result)
          :hint (:hint parse-result)
-         :changes @string-changes}))))
+         :changes @string-changes})))
 
 ;; ============================================================================
 ;; Key Renaming (for conflict resolution)
@@ -1291,11 +1291,6 @@
    1. The item moved to the new key
    2. All internal references updated (e.g., subclasses pointing to renamed class)"
   [plugin content-type old-key new-key]
-  (js/console.log "rename-key-in-plugin called:"
-                  (clj->js {:content-type content-type
-                            :old-key old-key
-                            :new-key new-key
-                            :has-content-group (boolean (get plugin content-type))}))
   (if-let [content-group (get plugin content-type)]
     (let [;; Step 1: Rename the key in its content group
           item (get content-group old-key)
@@ -1308,34 +1303,19 @@
                                     (when (some #(= (val %) content-type) refs)
                                       [ct (key (first (filter #(= (val %) content-type) refs)))]))
                                   key-reference-map)
-          _ (js/console.log "Referencing types to update:" (pr-str referencing-types))
 
           ;; Step 3: Update references in those content types
           updated-plugin (reduce
                           (fn [p [ref-content-type ref-field]]
                             (if-let [ref-group (get p ref-content-type)]
-                              (do
-                                (js/console.log "Updating references in" (pr-str ref-content-type)
-                                                "field:" (pr-str ref-field)
-                                                "items:" (count ref-group))
-                                ;; Log items that will be updated
-                                (doseq [[k v] ref-group]
-                                  (when (= (get v ref-field) old-key)
-                                    (js/console.log "  Will update" (pr-str k)
-                                                    "from" (pr-str old-key) "to" (pr-str new-key))))
-                                (assoc p ref-content-type
-                                       (update-references-in-content-group
-                                        ref-group ref-field old-key new-key)))
-                              (do
-                                (js/console.log "No items found for" (pr-str ref-content-type))
-                                p)))
+                              (assoc p ref-content-type
+                                     (update-references-in-content-group
+                                      ref-group ref-field old-key new-key))
+                              p))
                           (assoc plugin content-type updated-group)
                           referencing-types)]
-      (js/console.log "Rename complete. Updated plugin content types:" (pr-str (keys updated-plugin)))
       updated-plugin)
-    (do
-      (js/console.log "No content group found for" (pr-str content-type))
-      plugin)))
+    plugin))
 
 (defn rename-key-in-plugins
   "Rename a key within a multi-plugin structure.

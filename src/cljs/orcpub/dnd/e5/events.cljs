@@ -498,8 +498,8 @@
            key (common/name-to-kw name)
            ;; Normalize text then auto-fill missing required fields
            normalized-item (import-val/normalize-text-in-data item)
-           {:keys [item]} (import-val/fill-all-missing-fields normalized-item plugin-key)
-           item-with-key (assoc item :key key)
+           {filled-item :item} (import-val/fill-all-missing-fields normalized-item plugin-key)
+           item-with-key (assoc filled-item :key key)
            plugins (:plugins db)
            explanation (spec/explain-data spec-key item-with-key)]
        (if (nil? explanation)
@@ -3436,8 +3436,8 @@
 
 (reg-event-fx
  ::e5/export-all-plugins
- (fn [_ _]
-   (let [all-plugins @(subscribe [::e5/plugins])
+ (fn [{:keys [db]} _]
+   (let [all-plugins (:plugins db)
          ;; Validate each plugin
          validations (into {}
                           (map (fn [[name plugin]]
@@ -3458,15 +3458,14 @@
        {:dispatch [:show-error-message
                   "Cannot export all plugins - some contain invalid data. Check console for details."]}
 
-       (do
-         (let [blob (js/Blob.
-                     (clj->js [(str all-plugins)])
-                     (clj->js {:type "text/plain;charset=utf-8"}))]
-           (js/saveAs blob (str "all-content.orcbrew"))
-           (if has-warnings
-             {:dispatch [:show-warning-message
-                        "All plugins exported with some warnings. Check console for details."]}
-             {})))))))
+       (let [blob (js/Blob.
+                   (clj->js [(str all-plugins)])
+                   (clj->js {:type "text/plain;charset=utf-8"}))]
+         (js/saveAs blob (str "all-content.orcbrew"))
+         (if has-warnings
+           {:dispatch [:show-warning-message
+                      "All plugins exported with some warnings. Check console for details."]}
+           {}))))))
 
 (reg-event-fx
   ::e5/export-plugin-pretty-print
@@ -3478,9 +3477,9 @@
       {})))
 (reg-event-fx
   ::e5/export-all-plugins-pretty-print
-  (fn [_ _]
+  (fn [{:keys [db]} _]
     (let [blob (js/Blob.
-                 (clj->js [(with-out-str (pprint/pprint @(subscribe [::e5/plugins])))])
+                 (clj->js [(with-out-str (pprint/pprint (:plugins db)))])
                  (clj->js {:type "text/plain;charset=utf-8"}))]
       (js/saveAs blob (str "all-content.orcbrew"))
       {})))
@@ -3622,9 +3621,7 @@
 
                         ;; Show appropriate message
                         true
-                        (conj (if (:had-errors result)
-                                [:show-warning-message user-message]
-                                [:show-warning-message user-message]))
+                        (conj [:show-warning-message user-message])
 
                         ;; Store import log for UI panel
                         true

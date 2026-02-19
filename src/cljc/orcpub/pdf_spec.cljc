@@ -67,10 +67,11 @@
 
 (defn trait-string [nm desc]
   ;; Handle nil name gracefully - use description start or placeholder
-  (let [display-name (or nm
-                         (when desc (str (subs desc 0 (min 30 (count desc))) "..."))
+  (let [desc-str (when (and (string? desc) (not (s/blank? desc))) desc)
+        display-name (or nm
+                         (when desc-str (str (subs desc-str 0 (min 30 (count desc-str))) "..."))
                          "(Unnamed Trait)")]
-    (str display-name ". " (common/sentensize desc))))
+    (str display-name ". " (common/sentensize desc-str))))
 
 (defn traits-string [traits]
   (s/join
