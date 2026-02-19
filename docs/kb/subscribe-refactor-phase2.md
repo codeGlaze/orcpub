@@ -158,9 +158,38 @@ Only ONE new require across all changes: `[re-frame.db]` in `options.cljc`. Ever
 - `lein fig:build` — 0 errors, 0 warnings
 - Browser console: zero subscribe-outside-reactive-context warnings expected
 
+### Pattern 10: Top-level `def` with `partial` → `defn`
+
+**When**: A `def` uses `partial` with `@(subscribe ...)` as an eagerly-evaluated argument — runs at namespace load time, outside any reactive context.
+
+```clojure
+;; BEFORE — subscribes at load time (bad)
+(def option-language-proficiency-choice
+  (partial option-proficiency-choice
+           "Language Proficiency Choice"
+           :language-options
+           @(subscribe [::langs/languages])))
+
+;; AFTER — subscribes during render (good)
+(defn option-language-proficiency-choice
+  [option set-path-prop-event toggle-path-prop-event]
+  (option-proficiency-choice
+   "Language Proficiency Choice"
+   :language-options
+   @(subscribe [::langs/languages])
+   option
+   set-path-prop-event
+   toggle-path-prop-event))
+```
+
+**Key**: `def` + `partial` is fine for static data (e.g. `skills/skills`), but NOT for subscriptions. The `partial` evaluates all args immediately. Converting to `defn` defers evaluation to call time (render).
+
+**Diagnosis note**: This single call site produced 4 warnings because `::langs/languages` has a 3-deep `reg-sub` chain — each inner input function also calls `subscribe`, each triggering its own warning. One source, multiple warnings.
+
 ## Lessons
 
 1. **Trace the full subscription chain before replacing.** `::mi/all-weapons-map` is NOT just `mi/all-weapons-map` — it includes custom items from user plugins.
 2. **Custom content is never empty.** Treat `[]` as a test fixture, not a default.
 3. **Check what the caller already has.** `feat-prereqs` didn't need to subscribe to race-map because `template-selections` (its grandparent caller) already had `races`.
 4. **Pure .cljc namespaces shouldn't depend on re-frame.** The pdf_spec cleanup makes the module testable on JVM and removes a framework coupling that never belonged there.
+5. **`def` + `partial` with dynamic data is a trap.** Looks clean, evaluates at load time. Any arg that needs reactive data must move to a `defn`.
