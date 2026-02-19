@@ -365,7 +365,7 @@
 (reg-sub-raw
   :user
   (fn [app-db [_ required?]]
-    (if (and (:user @app-db) (:token (:user @app-db))) ;;check if logged in, prevent unncessary calls
+    (when (and (:user @app-db) (:token (:user @app-db))) ;;check if logged in, prevent unncessary calls
      (go (let [hdrs (auth-headers @app-db)
               response (<! (http/get (url-for-route routes/user-route) {:headers hdrs}))]
           (handle-api-response response
@@ -453,8 +453,8 @@
 (reg-sub-raw
   ::char5e/character
   (fn [app-db [_ id :as args]]
-    (let [int-id (if id (js/parseInt id))]
-      (if (some? int-id)
+    (let [int-id (when id (js/parseInt id))]
+      (when (some? int-id)
         (go (dispatch [:set-loading true])
             (let [response (<! (http/get (url-for-route
                                            routes/dnd-e5-char-route
@@ -725,9 +725,9 @@
    (if (and (nil? armor-kw)
             (nil? shield-kw))
      (:ac best-armor-combo)
-     (let [armor (if armor-kw
+     (let [armor (when armor-kw
                    (all-armor-map armor-kw))
-           shield (if shield-kw
+           shield (when shield-kw
                     (all-armor-map shield-kw))]
        (ac-fn armor shield)))))
 

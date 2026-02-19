@@ -39,7 +39,7 @@
         (let [field (.getField form (name k))]
           (when field
             
-            (if (and flatten (font-sizes k) (instance? PDTextField field))
+            (when (and flatten (font-sizes k) (instance? PDTextField field))
               (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg"))
               ;; this prints out weird boxes
               #_(.setDefaultAppearance field (str COSName/DA "/" (.getName font-name) " " (font-sizes k 8) " Tf 0 0 0 rg")))
@@ -179,7 +179,7 @@
            current-line nil
            [next-word & remaining-words :as current-words] words]
       (if next-word
-        (let [line-with-word (str current-line (if current-line " ") next-word)
+        (let [line-with-word (str current-line (when current-line " ") next-word)
               new-width (string-width line-with-word font font-size)]
           (if (> new-width width)
             (recur (conj lines current-line)
@@ -216,16 +216,16 @@
   (.setNonStrokingColor cs r g b))
 
 (defn draw-text [cs text font font-size x y & [color]]
-  (if text
+  (when text
     (let [units-x (* 72 x)
           units-y (* 72 y)]
       (.beginText cs)
       (.setFont cs font font-size)
-      (if color
+      (when color
         (apply set-text-color cs color))
       (.moveTextPositionByAmount cs units-x units-y)
       (.drawString cs (if (keyword? text) (common/safe-name text) text))
-      (if color
+      (when color
         (set-text-color cs 0 0 0))
       (.endText cs))))
 
@@ -301,7 +301,7 @@
     (subs s 0 len)))
 
 (defn abbreviate-duration [duration]
-  (if duration
+  (when duration
     (-> duration
         (s/replace #"Concentration,? up to " "Conc, ")
         abbreviate-times
@@ -400,7 +400,7 @@
          (for [j (range num-boxes-y)
                i (range (dec num-boxes-x) -1 -1)
                :let [spell-index (+ i (* j num-boxes-x))]]
-           (if-let [{:keys [class-nm dc attack-bonus spell] :as spell-data}
+           (when-let [{:keys [class-nm dc attack-bonus spell] :as spell-data}
                     (get (vec spells) spell-index)]
              (let [{:keys [description
                            casting-time
@@ -435,7 +435,7 @@
                                      (- 11.0 y 1.08) ;from the top down
                                      (- box-width 0.24)
                                      (- box-height 1.13))]
-               (if (:material-component components)
+               (when (:material-component components)
                  (draw-text-to-box cs
                                    (str (s/capitalize (:material-component components)))
                                    (:italic fonts)
@@ -476,7 +476,7 @@
                                  (- 11.0 y 0.19)
                                  (- box-width 0.24)
                                  0.25)
-               (if casting-time
+               (when casting-time
                  (draw-spell-field cs
                                    document
                                    "magic-swirl"
@@ -487,7 +487,7 @@
                                            #","))))
                                    (+ x 0.12)
                                    (- 11.0 y 0.45)))
-               (if range
+               (when range
                  (draw-spell-field cs
                                    document
                                    "arrow-dunk"
@@ -503,21 +503,21 @@
                                    nil?
                                    (map
                                     (fn [[k v]]
-                                      (if (-> spell :components k)
+                                      (when (-> spell :components k)
                                         v))
                                     {:verbal "V"
                                      :somatic "S"
                                      :material "M"})))
                                  (+ x 1.12)
                                  (- 11.0 y 0.45))
-               (if duration
+               (when duration
                  (draw-spell-field cs
                                    document
                                    "sands-of-time"
                                    (abbreviate-duration duration)
                                    (+ x 1.62)
                                    (- 11.0 y 0.45)))
-               (if (seq remaining-desc-lines)
+               (when (seq remaining-desc-lines)
                  (draw-imagex cs
                               over-img
                               (+ x 2.3)

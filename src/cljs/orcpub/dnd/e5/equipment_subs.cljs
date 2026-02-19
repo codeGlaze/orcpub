@@ -159,7 +159,7 @@
          (t/option-cfg
           {:name (or (:name item) name)
            :key item-key
-           :help (if (or description
+           :help (when (or description
                          page)
                    (t5e/inventory-help description page source))
            :modifiers [(modifier-fn

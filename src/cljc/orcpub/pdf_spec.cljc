@@ -82,7 +82,7 @@
     traits)))
 
 (defn actions-string [title actions]
-  (if (seq actions)
+  (when (seq actions)
     (str
      title
      "\n"
@@ -94,7 +94,7 @@
        actions)))))
 
 (defn vec-trait [nm items]
-  (if (seq items) (str nm ": " (s/join ", " items))))
+  (when (seq items) (str nm ": " (s/join ", " items))))
 
 (defn keyword-vec-trait [nm keywords]
   (vec-trait nm (map #(if % (name %) "(unknown)") (remove nil? keywords))))
@@ -103,7 +103,7 @@
   (map
    (fn [{:keys [value qualifier]}]
      (str (if value (name value) "(unknown)")
-          (if qualifier
+          (when qualifier
             (str "(" qualifier ")"))))
    resistances))
 
@@ -117,8 +117,8 @@
     (s/join
      "\n"
      (remove nil?
-             [(if (and darkvision (pos? darkvision)) (str "Darkvision: " darkvision " ft."))
-              (if (> (count crit-values) 1) (str "Critical Hits: " (char5e/crit-values-str built-char)))
+             [(when (and darkvision (pos? darkvision)) (str "Darkvision: " darkvision " ft."))
+              (when (> (count crit-values) 1) (str "Critical Hits: " (char5e/crit-values-str built-char)))
               (vec-trait "Damage Resistances" (resistance-strings damage-resistances))
               (vec-trait "Damage Immunities" (resistance-strings damage-immunities))
               (vec-trait "Condition Immunities" (resistance-strings condition-immunities))
@@ -383,7 +383,7 @@
                                          (when spell-key (name spell-key))
                                          "(Unknown Spell)")
                           qualifier (:qualifier spell)]
-                      (str spell-name (if qualifier (str " (" qualifier ")"))))})
+                      (str spell-name (when qualifier (str " (" qualifier ")"))))})
                  spells)
                 {(keyword (str "spell-slots-" level suffix))
                  (spell-slots level)}))
@@ -410,7 +410,7 @@
                        prepared-spells-by-class)))
 
 (defn profs-paragraph [profs prof-map title]
-  (if (seq profs)
+  (when (seq profs)
     (str
      title
      " Proficiencies: "
@@ -470,7 +470,7 @@
                            (remove
                             nil?
                             [normal
-                             (if (:versatile weapon)
+                             (when (:versatile weapon)
                                {:name (str (:name weapon) " (two-handed)")
                                 :attack-bonus (char5e/weapon-attack-modifier built-char weapon false)
                                 :damage (damage-str (:damage-die versatile) (:damage-die-count versatile) normal-damage-modifier damage-type)})])))
@@ -535,12 +535,12 @@
         subrace (char5e/subrace built-char)
         abilities (abilities-spec
                    (char5e/ability-values built-char)
-                   (if (not print-large-abilities?)
+                   (when (not print-large-abilities?)
                      "-mod")
                    false)
         ability-bonuses (abilities-spec
                          (char5e/ability-bonuses built-char)
-                         (if print-large-abilities?
+                         (when print-large-abilities?
                            "-mod")
                          true)
         saving-throws (set (char5e/saving-throws built-char))
@@ -569,7 +569,7 @@
                             (s/join "\n"))
         speed (speed built-char)]
     (merge
-     {:race (str race (if subrace (str "/" subrace)))
+     {:race (str race (when subrace (str "/" subrace)))
       :alignment (char5e/alignment built-char)
       :class-level (class-string classes levels)
       :background (char5e/background built-char)

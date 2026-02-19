@@ -6,7 +6,7 @@
 (def dot-char "•")
 
 (defn- name-to-kw-aux [name ns]
-  (if (string? name)
+  (when (string? name)
     (as-> name $
         (s/lower-case $)
         (s/replace $ #"'" "")
@@ -20,7 +20,7 @@
   (memoized-name-to-kw name ns))
 
 (defn kw-to-name [kw & [capitalize?]]
-  (if (keyword? kw)
+  (when (keyword? kw)
     (as-> kw $
       (name $)
       (s/split $ #"\-")
@@ -41,7 +41,7 @@
        (time ~body)))
 
 (defn bonus-str [val]
-  (str (if (pos? val) "+") val))
+  (str (when (pos? val) "+") val))
 
 (defn mod-str [val]
   (cond (pos? val) (str "+" val)
@@ -79,7 +79,7 @@
     (warn (str "non-keyword value passed to safe-name: " kw))))
 
 (defn safe-capitalize [s]
-  (if (string? s) (s/capitalize s)))
+  (when (string? s) (s/capitalize s)))
 
 (defn safe-capitalize-kw [kw]
   (some-> kw
@@ -108,11 +108,11 @@
    coll))
 
 (defn sentensize [desc]
-  (if desc
+  (when desc
     (str
      (s/upper-case (subs desc 0 1))
      (subs desc 1)
-     (if (not (s/ends-with? desc "."))
+     (when (not (s/ends-with? desc "."))
        "."))))
 
 (def add-keys-xform
@@ -164,7 +164,7 @@
   (vec
    (keep-indexed
     (fn [i item]
-      (if (not= i index)
+      (when (not= i index)
         item))
     v)))
 

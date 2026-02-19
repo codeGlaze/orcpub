@@ -120,7 +120,7 @@
      (let [{:keys [ability key]} value]
        (mod5e/spells-known (or (:level value) 0)
                            key
-                           (if (keyword? ability)
+                           (when (keyword? ability)
                              (keyword "orcpub.dnd.e5.character" (name ability)))
                            class-name
                            level)))
@@ -169,7 +169,7 @@
     :spell (mod5e/spells-known (:level value)
                                (:key value)
                                (:ability value)
-                               (if (keyword? class-key)
+                               (when (keyword? class-key)
                                  (common/safe-capitalize-kw class-key)))
     ;; Default case: log warning and return nil modifier for unknown types
     (do
@@ -389,9 +389,9 @@
                   (keep (partial level-modifier class) level-modifiers)))
      (merge-levels
       selections-levels
-      (if add-spellcasting?
+      (when add-spellcasting?
         spellcaster-levels)
-      (if (and (= class :paladin)
+      (when (and (= class :paladin)
                (:paladin-spells option))
         {1 {:modifiers (reduce-kv
                         (fn [mods spell-level spells]
@@ -405,16 +405,16 @@
                         []
                         (:paladin-spells option))}})
       (let [cleric-spells (:cleric-spells option)]
-        (if (and (= class :cleric)
+        (when (and (= class :cleric)
                  cleric-spells)
           (let [cleric-spell-mods (make-cleric-spell-mods cleric-spells)]
             {1 {:modifiers cleric-spell-mods}})))
-      (if (and (= class :warlock)
+      (when (and (= class :warlock)
                (:warlock-spells option))
         (reduce-kv
          (fn [levels spell-level spells]
            (let [level (to-class-level spell-level)]
-             (if (and spell-level (seq (vals spells)))
+             (when (and spell-level (seq (vals spells)))
                (assoc-in levels
                          [level :selections]
                          [(opt5e/warlock-subclass-spell-selection spell-lists spells-map (vals spells))]))))
@@ -770,7 +770,7 @@
                   (merge
                    breath-weapon
                    {:name "Breath Weapon"
-                    :summary (if damage-type
+                    :summary (when damage-type
                                (common/safe-capitalize-kw damage-type))
                     :attack-type :area
                     :damage-die 6
