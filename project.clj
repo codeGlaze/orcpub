@@ -204,7 +204,7 @@
                        ["run" "-m" "externs"]]
             "rebuild-modules" ["run" "-m" "user" "--rebuild-modules"]
             ;; --fail-level error: exit 0 on warnings, exit 1 only on errors
-            "lint" ["with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "--fail-level" "error"]
+            "lint" ["with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "native" "test" "web" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["with-profile" "prod" "cljsbuild" "once" "main"]]}
@@ -265,9 +265,8 @@
                                                            :infer-externs true
                                                            :externs       ["externs.js"]
                                                            :pretty-print  false}}}}}
-             :lint         {:dependencies [[clj-kondo "2024.05.22"]]
-                            :clj-kondo {:linters {:shadowed-fn-param {:level :off}
-                                                  :shadowed-var {:level :off}}}}
+             ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
+             :lint         {:dependencies [[clj-kondo "2026.01.19"]]}
              ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden
              ;; Use: lein with-profile init-db run -m user <command>
              ;; dev/ is included so user.clj is on the classpath.
