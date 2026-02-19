@@ -160,7 +160,8 @@
 (defn dispatch-route-to-my-account [e]
   (dispatch [:route :my-account]))
 
-(def header-tab-style
+;; dead — zero callers
+#_(def header-tab-style
   {:width "85px"})
 
 (def active-style {:background-color "rgba(240, 161, 0, 0.7)"})
@@ -174,7 +175,8 @@
    :top 84
    :right 0})
 
-(def desktop-menu-item-style
+;; dead — zero callers
+#_(def desktop-menu-item-style
   (assoc header-menu-item-style
          :width "100%"))
 
@@ -308,14 +310,16 @@
    :background-color :transparent
    :color :white})
 
-(def search-icon-style
+;; dead — zero callers
+#_(def search-icon-style
   {:top 6
    :right 25})
 
 (def search-input-parent-style
   {:background-color "rgba(0,0,0,0.15)"})
 
-(def transparent-search-input-style
+;; dead — zero callers
+#_(def transparent-search-input-style
   (assoc search-input-style :color :transparent))
 
 (defn route-to-default-route []
@@ -1361,7 +1365,8 @@
 (defn close-orcacle []
   (dispatch [:close-orcacle]))
 
-(def srd-link
+;; dead — template.cljc has its own srd-link used by character_builder.cljs
+#_(def srd-link
   [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD"])
 
 (defn orcacle []
@@ -1467,16 +1472,20 @@
                   [:p "Version " (v/version) " (" (v/date) ")"]]]
                 [debug-data]]]])]))})))
 
-(def row-style
+;; dead — zero callers
+#_(def row-style
   {:border-bottom "1px solid rgba(255,255,255,0.5)"})
 
-(def light-row-style
+;; dead — zero callers
+#_(def light-row-style
   {:border-bottom "1px solid rgba(0,0,0,0.5)"})
 
-(def list-style
+;; dead — zero callers
+#_(def list-style
   {:border-top "2px solid rgba(255,255,255,0.5)"})
 
-(def thumbnail-style
+;; dead — zero callers
+#_(def thumbnail-style
   {:height "100px"
    :max-width "200px"})
 
@@ -1651,7 +1660,8 @@
      true
      true)))
 
-(defn realize-char [built-char]
+;; dead — character_builder.cljs has its own realize-char
+#_(defn realize-char [built-char]
   (reduce-kv
    (fn [m k v]
      (let [realized-value (es/entity-val built-char k)]
@@ -1661,7 +1671,8 @@
    (sorted-map)
    built-char))
 
-(def summary-style
+;; dead — zero callers
+#_(def summary-style
   {:padding "33px 0"})
 
 
@@ -1691,7 +1702,8 @@
        values)]
      true)))
 
-(defn svg-icon-section [title icon-name content]
+;; dead — zero callers
+#_(defn svg-icon-section [title icon-name content]
   [:div.m-t-20
    [:span.f-s-16.f-w-600 title]
    [:div.flex.align-items-c
@@ -1705,7 +1717,8 @@
       ((or name-fn :name) item))
     items)])
 
-(defn compare-spell [spell-1 spell-2]
+;; dead — zero callers
+#_(defn compare-spell [spell-1 spell-2]
   (let [key-fn (juxt :key :ability)]
     (compare (key-fn spell-1) (key-fn spell-2))))
 
@@ -2124,7 +2137,8 @@
      [[finish-long-rest-button id]
       (when (contains? classes :warlock) [finish-short-rest-button-warlock id])]]))
 
-(defn equipment-section [title icon-name equipment equipment-map]
+;; dead — zero callers
+#_(defn equipment-section [title icon-name equipment equipment-map]
   [list-display-section title icon-name
    (map
     (fn [[equipment-kw {item-qty ::char-equip/quantity
@@ -2272,9 +2286,11 @@
   (str (name value)
        (when qualifier (str " (" qualifier ")"))))
 
-(def no-https-images "Sorry, we don't currently support images that start with https")
+;; dead — zero callers
+#_(def no-https-images "Sorry, we don't currently support images that start with https")
 
-(defn default-image [race classes]
+;; dead — zero callers
+#_(defn default-image [race classes]
   (when (and (or (= "Human" race)
                (nil? race))
            (= :barbarian (first classes)))
@@ -3754,7 +3770,8 @@
     on-change
     attrs]))
 
-(defn select-builder-field [name value on-change children]
+;; dead — zero callers
+#_(defn select-builder-field [name value on-change children]
   (base-builder-field
    name
    (cond-> [:select.builder-option.builder-option-dropdown
@@ -3765,7 +3782,8 @@
 (defn input-builder-field [name value on-change attrs]
   [builder-field :input name value on-change attrs])
 
-(defn text-field [{:keys [value on-change]}]
+;; dead — zero callers
+#_(defn text-field [{:keys [value on-change]}]
   [comps/input-field
    :input
    value
@@ -4986,7 +5004,8 @@
 (defn feat-damage-resistance [feat]
   (option-damage-resistance feat ::feats/toggle-feat-map-prop))
 
-(defn subrace-damage-resistance [subrace]
+;; dead — zero callers
+#_(defn subrace-damage-resistance [subrace]
   (option-damage-resistance subrace ::feats/toggle-subrace-map-prop))
 
 (defn feat-misc-modifiers [feat]
@@ -5061,7 +5080,8 @@
     (doseq [plugin-name (keys plugins)]
       (js/console.log plugin-name))))
 
-(def option-pack-styles
+;; dead — zero callers
+#_(def option-pack-styles
   {:class-name "flex-grow-1 m-l-5 m-b-20"
    :name "option-pack"})
 
@@ -5140,7 +5160,8 @@
      [:div [option-skill-proficiency-or-expertise feat ::feats/toggle-feat-map-prop]]
      [:div [option-tool-proficiency-or-expertise feat ::feats/toggle-feat-map-prop]]]))
 
-(defn selection-selector [index selection-cfg value-change-event]
+;; dead — zero callers
+#_(defn selection-selector [index selection-cfg value-change-event]
   (let [selections @(subscribe [::selections/plugin-selections])]
     [:div.flex
      [:div.m-r-5
@@ -6702,9 +6723,12 @@
               [:monsters index :num]
               (js/parseInt %)]))
 
-(def rounds-per-minute 10)
-(def minutes-per-hour 60)
-(def hours-per-day 24)
+;; dead — duplicates of common.cljc defs, never referenced from views
+#_(def rounds-per-minute 10)
+;; dead — duplicates of common.cljc defs, never referenced from views
+#_(def minutes-per-hour 60)
+;; dead — duplicates of common.cljc defs, never referenced from views
+#_(def hours-per-day 24)
 
 (def w-155 {:style {:width "155px"}})
 (def w-160 {:style {:width "160px"}})
@@ -7182,11 +7206,11 @@
       )
     ))
 
-(def invalid-styling
+;; dead — zero callers
+#_(def invalid-styling
   {:color "red"
    :font-size "12px"
-   :display "block"}
-  )
+   :display "block"})
 
 (defn valid-wel [name]
   (when-let [messages (validate-name name)]
@@ -7561,7 +7585,7 @@
 (defn my-account-page []
   [content-page
    "My Account"
-   [{:title (str "Delete Account")
+   [{:title "Delete Account"
      :icon "trash"
      :on-click #(dispatch
                 [:show-confirmation

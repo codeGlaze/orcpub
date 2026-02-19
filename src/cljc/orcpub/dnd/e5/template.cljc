@@ -23,7 +23,7 @@
             [orcpub.dnd.e5.template-base :as t-base]
             #_[orcpub.dnd.e5.templates.scag :as scag]
             #_[orcpub.dnd.e5.templates.ua-base :as ua]
-            [re-frame.core :refer [subscribe dispatch]]))
+            #_[re-frame.core :refer [subscribe dispatch]]))
 
 (def character
   {::entity/options {:ability-scores {::entity/key :standard-scores
@@ -31,13 +31,15 @@
                      :class [{::entity/key :barbarian
                               ::entity/options {:levels [{::entity/key :level-1}]}}]}})
 
-(defn set-ability! [app-state ability-key ability-value]
+;; dead — ability roller UI superseded by character_builder.cljs
+#_(defn set-ability! [app-state ability-key ability-value]
   (swap! app-state
          assoc-in
          [:character ::entity/options :ability-scores ::entity/value ability-key]
          ability-value))
 
-(defn swap-abilities [app-state i other-i k v]
+;; dead — ability roller UI superseded by character_builder.cljs
+#_(defn swap-abilities [app-state i other-i k v]
   (fn []
     (swap! app-state
            update-in
@@ -69,14 +71,16 @@
     [:img {:class-name (str "h-" size " w-" size (when light-theme? " opacity-7"))
            :src (str (if light-theme? "/image/black/" "/image/") (ability-icons k) ".svg")}]))
 
-(defn ability-modifier [v]
+;; dead — ability roller UI superseded by character_builder.cljs
+#_(defn ability-modifier [v]
   [:div.f-6-12.f-w-n.h-24
    [:div.t-a-c.f-s-10.opacity-5
     "mod"]
    [:div.m-t--1
     (opt5e/ability-bonus-str v)]])
 
-(defn ability-component [k v i app-state controls]
+;; dead — ability roller UI superseded by character_builder.cljs
+#_(defn ability-component [k v i app-state controls]
   [:div.m-t-10.t-a-c
    (ability-icon k 24 @(subscribe [:theme]))
    [:div.uppercase (name k)]
@@ -84,7 +88,8 @@
    (ability-modifier v)
    controls])
 
-(defn abilities-standard [app-state]
+;; dead — ability roller UI superseded by character_builder.cljs
+#_(defn abilities-standard [app-state]
   [:div.flex.justify-cont-s-b
     (let [abilities (or (opt5e/get-raw-abilities app-state) (char5e/abilities 15 14 13 12 10 8))
           abilities-vec (vec abilities)]
@@ -100,7 +105,8 @@
              {:on-click (swap-abilities app-state i (inc i) k v)}]]])
         abilities-vec)))])
 
-(defn abilities-roller [app-state reroll-fn]
+;; dead — zero callers (character_builder.cljs has its own abilities-roller)
+#_(defn abilities-roller [app-state reroll-fn]
   [:div
    (abilities-standard app-state)
    [:button.form-button.m-t-5
@@ -109,7 +115,8 @@
                  (.stopPropagation e))}
     "Re-Roll"]])
 
-(def score-costs
+;; dead — ability roller UI superseded by character_builder.cljs
+#_(def score-costs
   {8 0
    9 1
    10 2
@@ -119,10 +126,12 @@
    14 7
    15 9})
 
-(def point-buy-points 27)
+;; dead — ability roller UI superseded by character_builder.cljs
+#_(def point-buy-points 27)
 
 
-(defn point-buy-abilities [app-state]
+;; dead — zero callers (character_builder.cljs has its own point-buy-abilities)
+#_(defn point-buy-abilities [app-state]
   (let [abilities (or (opt5e/get-raw-abilities app-state)
                       (char5e/abilities 8 8 8 8 8 8))
         abilities-vec (vec (map (fn [[a v]] [a (-> v (min 15) (max 8))]) abilities))
@@ -1274,7 +1283,8 @@
                     :modifiers [(modifier-fn key item)]})))
               items)}))
 
-(defn amazon-frame [link]
+;; dead — all amazon affiliate frame defs are #_ discarded
+#_(defn amazon-frame [link]
   [:iframe {:style {:width "120px" :height "240px"}
             :margin-width 0
             :margin-height 0
@@ -1282,7 +1292,8 @@
             :frame-border 0
             :src link}])
 
-(defn content-list [options]
+;; dead — only called from #_ discarded plugins block
+#_(defn content-list [options]
   [:ul.m-t-5
    (doall
     (map
@@ -1297,7 +1308,8 @@
 #_(def volos-amazon-frame
   (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=tf_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786966017&asins=0786966017&linkId=8c552e7b980d7d944bd12dec57e002e8&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
 
-(def phb-amazon-frame
+;; dead — only called from #_ discarded plugins block
+#_(def phb-amazon-frame
   (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965606&asins=0786965606&linkId=3b5b686390559c31dbc3c20d20f37ec4&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
 
 #_(def dmg-amazon-frame
@@ -1306,7 +1318,8 @@
 #_(def cos-amazon-frame
   (amazon-frame "//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ac&ref=qf_sp_asin_til&ad_type=product_link&tracking_id=orcpub-20&marketplace=amazon&region=US&placement=0786965983&asins=0786965983&linkId=91dfcae14b0c8ecd3795eaf375104ca5&show_border=false&link_opens_in_new_window=true&price_color=ffffff&title_color=f0a100&bg_color=2c3445"))
 
-(defn amazon-frame-help [frame content]
+;; dead — only called from #_ discarded plugins block
+#_(defn amazon-frame-help [frame content]
   [:div.flex.m-t-10
    [:div.flex-grow-1.p-r-5
     content]
@@ -1456,7 +1469,8 @@
       [:td 15]
       [:td 9]]]]])
 
-(defn custom-race-builder []
+;; dead — zero callers (options.cljc has its own custom-race-builder)
+#_(defn custom-race-builder []
   [:div.m-t-10
    [:span "Name"]
    [:input.input
