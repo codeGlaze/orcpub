@@ -81,7 +81,7 @@
                       (str (common/safe-name units))))))
 
 (defn duration-description [{:keys [concentration] :as duration}]
-  (str (if concentration "conc. ") (unit-amount-description duration)))
+  (str (when concentration "conc. ") (unit-amount-description duration)))
 
 #_(defn get-source [source]
   (sources (or source :phb)))
@@ -133,15 +133,15 @@
 (defn action-description [{:keys [description summary source page duration range frequency qualifier]}]
   (str
    (or summary description)
-   (if (or range duration frequency)
+   (when (or range duration frequency)
      (str
       " ("
       (s/join ", "
               (remove
                nil?
                [qualifier
-                (if range (str "range " (unit-amount-description range)))
-                (if duration (str "lasts " (duration-description duration)))
-                (if frequency (str "use " (frequency-description frequency)))
+                (when range (str "range " (unit-amount-description range)))
+                (when duration (str "lasts " (duration-description duration)))
+                (when frequency (str "use " (frequency-description frequency)))
                 #_(if page (source-description source page))]))
       ")"))))

@@ -31,7 +31,7 @@
                             {:name "Arcane Shot: Banishing Arrow"
                              :page 3
                              :source ua-revised-subclasses-kw
-                             :summary (str "If the arrow hits, banish the creature until the end of it's next turn, it's speed becomes 0 and it is incapacitated unless it succeeds on a DC " (?spell-save-dc ::char5e/int) " CHA save. " (if (>= (?class-level :fighter) 18) " The target also takes 2d6 force damage."))})
+                             :summary (str "If the arrow hits, banish the creature until the end of it's next turn, it's speed becomes 0 and it is incapacitated unless it succeeds on a DC " (?spell-save-dc ::char5e/int) " CHA save. " (when (>= (?class-level :fighter) 18) " The target also takes 2d6 force damage."))})
                            (mod5e/dependent-trait
                             {:name "Arcane Shot: Brute Bane Arrow"
                              :page 3

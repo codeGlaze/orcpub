@@ -9,7 +9,7 @@
 (def devmode? (env :dev-mode))
 
 (defn meta-tag [property content]
-  (if content
+  (when content
     [:meta
      {:property property
       :content content}]))

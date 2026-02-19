@@ -472,7 +472,7 @@
     (let [equipment-mod (equipment-mod-fn cfg)]
       (if (::char-equip/equipped? cfg)
         (let [mods (concat [equipment-mod]
-                           (if (and include-magic-bonus? magical-ac-bonus)
+                           (when (and include-magic-bonus? magical-ac-bonus)
                              [(mods/cum-sum-mod ?magical-ac-bonus magical-ac-bonus)])
                            modifiers)]
           mods)
@@ -651,7 +651,7 @@
       (fn [{:keys [::mods/key ::mods/args]}]
         (let [raw-args (mods/raw-args args)
               mod-fn (mods-map key)]
-          (if mod-fn
+          (when mod-fn
             (apply mod-fn raw-args)))))
      (remove nil?))
     mod-cfgs)))

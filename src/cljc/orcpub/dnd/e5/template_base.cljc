@@ -294,7 +294,7 @@
                                        (some-> ?spell-slot-factors first val))
 
                     :else {})
-                  (if ?pact-magic?
+                  (when ?pact-magic?
                     (warlock-spell-slot-schedule (?class-level :warlock))))
     ?classes []
     ?reactions []

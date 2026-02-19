@@ -50,7 +50,7 @@
    (if (map? values)
      values
      ;; some weird spec issue causes values to look like [:map values]
-     (if (and (vector? values) (= (first values) :map))
+     (when (and (vector? values) (= (first values) :map))
        (second values)))))
 
 (defn equipment-has-simple-keywords? [equipment]
