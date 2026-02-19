@@ -888,10 +888,15 @@
                                :id folder-id
                                :character-id character-id)}}))
 
+;; When expanding a folder, collapse its characters so they start closed
 (reg-event-db
  ::folder5e/toggle-expanded
- (fn [db [_ folder-id]]
-   (update-in db [::folder5e/expanded folder-id] not)))
+ (fn [db [_ folder-id char-ids]]
+   (let [opening? (not (get-in db [::folder5e/expanded folder-id]))]
+     (cond-> (update-in db [::folder5e/expanded folder-id] not)
+       (and opening? (seq char-ids))
+       (update :expanded-characters
+               (fn [ec] (apply dissoc (or ec {}) char-ids)))))))
 
 (reg-event-db
  ::folder5e/toggle-renaming

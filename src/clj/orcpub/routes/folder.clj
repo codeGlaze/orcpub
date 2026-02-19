@@ -7,8 +7,10 @@
   [:db/id ::folder/name {::folder/character-ids [:db/id ::se/owner ::se/summary]}])
 
 (defn create-folder [{:keys [conn identity] folder-data :transit-params}]
+  ;; Whitelist only ::folder/name from client data; owner is always server-set
   (let [username (:user identity)
-        result @(d/transact conn [(assoc folder-data ::folder/owner username)])
+        result @(d/transact conn [{::folder/name (::folder/name folder-data)
+                                   ::folder/owner username}])
         new-id (-> result :tempids first val)]
     {:status 200 :body (d/pull (d/db conn) '[*] new-id)}))
 

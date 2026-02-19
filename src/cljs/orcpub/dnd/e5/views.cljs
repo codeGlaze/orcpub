@@ -7804,21 +7804,21 @@
             renaming? @(subscribe [::folder/renaming])
             folder-renaming? (get renaming? folder-id)
             chars (::folder/character-ids f)
-            visible-chars (if (seq filtered-char-ids)
-                            (filter #(filtered-char-ids (:db/id %)) chars)
-                            chars)
+            visible-chars (filter #(filtered-char-ids (:db/id %)) chars)
             save-fn (fn []
                       (dispatch [::folder/rename-folder folder-id @edit-name])
                       (dispatch [::folder/toggle-renaming folder-id]))]
     [:div.main-text-color.item-list-item.m-b-5
      ^{:key folder-id}
      [:div
-      [:div.flex.justify-cont-s-b.align-items-c
+      ;; Entire row is clickable to expand/collapse folder
+      [:div.flex.justify-cont-s-b.align-items-c.pointer
+       {:on-click (when (not folder-renaming?)
+                    #(dispatch [::folder/toggle-expanded folder-id (mapv :db/id chars)]))}
        [:div.flex.align-items-c.m-l-10
         (when (not folder-renaming?)
-          [:i.fa.m-r-10.orange.pointer
-           {:class-name (if folder-expanded? "fa-folder-open" "fa-folder")
-            :on-click (make-event-handler ::folder/toggle-expanded folder-id)}])
+          [:i.fa.m-r-10.orange
+           {:class-name (if folder-expanded? "fa-folder-open" "fa-folder")}])
         (if folder-renaming?
           [:div.flex.align-items-c
            [:input.input
@@ -7834,8 +7834,7 @@
                          (.stopPropagation e)
                          (save-fn))}
             "save"]]
-          [:span.f-s-18.f-w-b.pointer
-           {:on-click (make-event-handler ::folder/toggle-expanded folder-id)}
+          [:span.f-s-18.f-w-b
            folder-name])
         (when (not folder-renaming?)
           [:span.m-l-10.f-s-12.opacity-5
@@ -7853,9 +7852,8 @@
                         (.stopPropagation e)
                         (reset! confirm-delete? true))}
            "delete"]
-          [:i.fa.m-l-10.orange.pointer
-           {:class-name (if folder-expanded? "fa-caret-up" "fa-caret-down")
-            :on-click   (make-event-handler ::folder/toggle-expanded folder-id)}]])]
+          [:i.fa.m-l-10.orange
+           {:class-name (if folder-expanded? "fa-caret-up" "fa-caret-down")}]])]
       (when @confirm-delete?
         [:div.p-20.flex.justify-cont-end
          [:div
@@ -7908,7 +7906,7 @@
                                  (seq class-filters)
                                  has-portrait?
                                  has-faction-pic?)]
-        [:div.main-text-color.m-b-10
+        [:div.main-text-color.m-b-10.char-filter-bar
          (when @classes-open?
            [:div.posn-fixed
             {:style    {:top 0 :left 0 :right 0 :bottom 0 :z-index 100}
@@ -7938,27 +7936,17 @@
             (str "Classes" (when (seq class-filters) (str " (" (count class-filters) ")")))
             [:i.fa.m-l-5 {:class-name (if @classes-open? "fa-caret-up" "fa-caret-down")}]]
            (when @classes-open?
-             [:div.posn-abs.main-text-color
-              {:style {:z-index      200
-                       :background   "rgba(0,0,0,0.92)"
-                       :padding      "10px"
-                       :min-width    "160px"
-                       :top          "105%"
-                       :border       "1px solid rgba(255,255,255,0.15)"
-                       :border-radius "4px"
-                       :max-height   "300px"
-                       :overflow-y   "auto"
-                       :font-weight  "normal"
-                       :font-size    "small"}}
+             [:div.filter-dropdown.main-text-color
+              {:style {:min-width "160px"}}
               (if (seq avail-classes)
                 (doall
                  (map (fn [cls]
                         ^{:key cls}
-                        [:div {:style {:margin-bottom "3px"}}
+                        [:div.filter-dropdown-item
                          [comps/labeled-checkbox cls (contains? class-filters cls) false
                           (fn [] (dispatch [::char/toggle-char-class-filter cls]))]])
                       avail-classes))
-                [:span.opacity-5.f-s-12 "No classes yet"])])]
+                [:span.opacity-5.f-s-12.p-5 "No classes yet"])])]
 
           ;; Levels multi-select dropdown
           [:div.posn-rel.m-r-5.m-b-5
@@ -7968,27 +7956,17 @@
             (str "Levels" (when (seq level-filters) (str " (" (count level-filters) ")")))
             [:i.fa.m-l-5 {:class-name (if @levels-open? "fa-caret-up" "fa-caret-down")}]]
            (when @levels-open?
-             [:div.posn-abs.main-text-color.center
-              {:style {:z-index       200
-                       :background    "rgba(0,0,0,0.92)"
-                       :padding       "10px"
-                       :min-width     "110px"
-                       :top           "105%"
-                       :border        "1px solid rgba(255,255,255,0.15)"
-                       :border-radius "4px"
-                       :max-height    "300px"
-                       :overflow-y    "auto"
-                       :font-weight   "normal"
-                       :font-size     "small"}}
+             [:div.filter-dropdown.main-text-color
+              {:style {:min-width "120px"}}
               (if (seq avail-levels)
                 (doall
                  (map (fn [lvl]
                         ^{:key lvl}
-                        [:div {:style {:margin-bottom "3px"}}
+                        [:div.filter-dropdown-item
                          [comps/labeled-checkbox (str "Level " lvl) (contains? level-filters lvl) false
                           (fn [] (dispatch [::char/toggle-char-level-filter lvl]))]])
                       avail-levels))
-                [:span.opacity-5.f-s-12 "No levels yet"])])]
+                [:span.opacity-5.f-s-12.p-5 "No levels yet"])])]
 
           ;; Portrait toggle (nil=all, true=with portrait, false=without portrait)
           [:button.form-button.m-r-5.m-b-5
