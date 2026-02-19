@@ -9,10 +9,10 @@
 
 (defn verification-email-html [first-and-last-name username verification-url]
   [:div
-   (str "Dear OrcPub Patron,")
+   (str "Dear Dungeon Master's Vault Patron,")
    [:br]
    [:br]
-   "Your OrcPub account is almost ready, we just need you to verify your email address going the following URL to confirm that you are authorized to use this email address:"
+   "Your Dungeon Master's Vault account is almost ready, we just need you to verify your email address going the following URL to confirm that you are authorized to use this email address:"
    [:br]
    [:br]
    [:a {:href verification-url} verification-url]
@@ -21,7 +21,7 @@
    "Sincerely,"
    [:br]
    [:br]
-   "The OrcPub Team"])
+   "The Dungeon Master's Vault Team"])
 
 (defn verification-email [first-and-last-name username verification-url]
   [{:type "text/html"
@@ -31,10 +31,10 @@
   "Email body for existing users changing their email (distinct from registration)."
   [username verification-url]
   [:div
-   "Dear OrcPub Patron,"
+   "Dear Dungeon Master's Vault Patron,"
    [:br]
    [:br]
-   "You requested to change the email address on your OrcPub account (" username "). "
+   "You requested to change the email address on your account (" username "). "
    "Please visit the following URL to confirm this change:"
    [:br]
    [:br]
@@ -47,7 +47,7 @@
    "Sincerely,"
    [:br]
    [:br]
-   "The OrcPub Team"])
+   "The Dungeon Master's Vault Team"])
 
 (defn email-change-verification-email [username verification-url]
   [{:type "text/html"
@@ -63,13 +63,13 @@
     cfg))
 
 (defn emailfrom []
-  (if (not (s/blank? (environ/env :email-from-address))) (environ/env :email-from-address) (str "no-reply@orcpub.com")))
+  (if (not (s/blank? (environ/env :email-from-address))) (environ/env :email-from-address) (str "no-reply@dungeonmastersvault.com")))
 
 (defn send-verification-email [base-url {:keys [email username first-and-last-name]} verification-key]
   (postal/send-message (email-cfg)
-                       {:from (str "OrcPub Team <" (emailfrom) ">")
+                       {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
                         :to email
-                        :subject "OrcPub Email Verification"
+                        :subject "Dungeon Master's Vault Email Verification"
                         :body (verification-email
                                first-and-last-name
                                username
@@ -79,16 +79,16 @@
   "Send a verification email for an email-change request (not registration)."
   [base-url {:keys [email username]} verification-key]
   (postal/send-message (email-cfg)
-                       {:from (str "OrcPub Team <" (emailfrom) ">")
+                       {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
                         :to email
-                        :subject "OrcPub Email Change Verification"
+                        :subject "Dungeon Master's Vault Email Change Verification"
                         :body (email-change-verification-email
                                username
                                (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))}))
 
 (defn reset-password-email-html [first-and-last-name reset-url]
   [:div
-   (str "Dear OrcPub Patron")
+   (str "Dear Dungeon Master's Vault Patron")
    [:br]
    [:br]
    "We received a request to reset your password, to do so please go to the following URL to complete the reset."
@@ -103,7 +103,7 @@
    "Sincerely,"
    [:br]
    [:br]
-   "The OrcPub Team"])
+   "The Dungeon Master's Vault Team"])
 
 (defn reset-password-email [first-and-last-name reset-url]
   [{:type "text/html"
@@ -111,9 +111,9 @@
 
 (defn send-reset-email [base-url {:keys [email username first-and-last-name]} reset-key]
   (postal/send-message (email-cfg)
-                       {:from (str "OrcPub Team <" (emailfrom) ">")
+                       {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
                         :to email
-                        :subject "OrcPub Password Reset"
+                        :subject "Dungeon Master's Vault Password Reset"
                         :body (reset-password-email
                                 first-and-last-name
                                 (str base-url (routes/path-for routes/reset-password-page-route) "?key=" reset-key))}))
@@ -121,7 +121,7 @@
 (defn send-error-email [context exception]
   (if (not-empty (environ/env :email-errors-to))
     (postal/send-message (email-cfg)
-                         {:from (str "OrcPub Errors <" (emailfrom) ">")
+                         {:from (str "Dungeon Master's Vault Errors <" (emailfrom) ">")
                           :to (str (environ/env :email-errors-to))
                           :subject "Exception"
                           :body [{:type "text/plain"

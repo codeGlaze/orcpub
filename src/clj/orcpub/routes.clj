@@ -390,7 +390,7 @@
       (redirect route-map/verify-success-route)
       (do-verification request
                        (merge query-params
-                              {:first-and-last-name "OrcPub Patron"})
+                              {:first-and-last-name "DMV Patron"})
                        conn
                        {:db/id id}))))
 
@@ -403,7 +403,7 @@
         :orcpub.user/password-reset-sent (java.util.Date.)}])
     (email/send-reset-email
      (base-url request)
-     {:first-and-last-name "OrcPub Patron"
+     {:first-and-last-name "DMV Patron"
       :email email}
      key)
     {:status 200}))
@@ -574,7 +574,7 @@
     :where [?e :orcpub.user/password-reset-key ?key]])
 
 (def default-title
-  "The New OrcPub: D&D 5e Character Builder/Generator")
+  "Dungeon Master's Vault: D&D 5e Character Builder/Generator")
 
 (def default-description
   "Dungeons & Dragons 5th Edition (D&D 5e) character builder/generator and digital character sheet far beyond any other in the multiverse.")

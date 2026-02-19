@@ -1450,16 +1450,18 @@
                [:div.content.f-w-n.f-s-12
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
-                  [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]]
+                  [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
+                  [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
                   [:a.orange {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]
                  [:div.m-l-10.m-r-10.p-10
                   [:a.orange {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
                   [:a.orange.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]]
                  [:div.legal-footer
-                  [:p "© 2025 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "Orcpub"]]
-                  [:p "Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved. OrcPub.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
-                  [:p "Version " (v/version) " (" (v/date) ")"]]]
+                  [:p "© " (.getFullYear (js/Date.)) " " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "Orcpub"]]
+                  [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © " (.getFullYear (js/Date.)) " Wizards. All Rights Reserved."]
+                  [:p "This site is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
+                  [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
                 [debug-data]]]])]))})))
 
 (def row-style
