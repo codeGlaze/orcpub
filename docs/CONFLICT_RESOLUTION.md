@@ -62,7 +62,7 @@ Use when: You want to update to the new version
 
 **Design decision:** Originally considered automatic resolution strategies (always rename, always skip). User testing showed explicit per-conflict choices prevent unexpected behavior and data loss.
 
-**Implementation:** `views.cljs:530-670`
+**Implementation:** `views/conflict_resolution.cljs`
 
 ### Key Renaming with Reference Updates
 
@@ -165,14 +165,14 @@ Without auto-update, subclass becomes orphaned (shows in UI but unselectable).
 2. **Validation runs** - Checks for duplicate keys (`events.cljs:3318-3329`)
 3. **Conflicts found?** - If yes, dispatch `:start-conflict-resolution` (`events.cljs:3353-3360`)
 4. **State updated** - Event sets `:conflict-resolution {:active? true ...}` (`events.cljs:3466-3475`)
-5. **Modal subscribes** - Component subscribes to `:conflict-resolution` (`subs.cljs:1296`, `views.cljs:8577`)
-6. **Conditional render** - `(when active? ...)` shows modal (`views.cljs:8580`)
+5. **Modal subscribes** - Component subscribes to `:conflict-resolution` (`subs.cljs:1296`, `views/conflict_resolution.cljs`)
+6. **Conditional render** - `(when active? ...)` shows modal (`views/conflict_resolution.cljs`)
 7. **Always mounted** - Modal part of `import-log-overlay` rendered in `main-view` (`core.cljs:113`)
 
 **Key files:**
 - `import_validation.cljs` - Conflict detection logic
 - `events.cljs:3314-3575` - Import event, conflict check, resolution events
-- `views.cljs:8576-8659` - Modal component + overlay container
+- `views/conflict_resolution.cljs` - Modal component + overlay container
 - `core.cljs:106-113` - App root (mounts overlay on every page)
 - `subs.cljs:1296-1313` - State subscriptions
 - `import_validation_test.cljs` - Tests

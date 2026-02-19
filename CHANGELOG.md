@@ -27,7 +27,7 @@ All changes target `develop` from `feature/error-handling-import-validation`.
 - **Detail panel**: Lists each missing item with its content type, key, inferred source, and suggestions for similar available content.
 - **DOM IDs for testability**: `#missing-content-warning`, `#missing-content-details`, `.missing-content-item` with `data-key` and `data-type` attributes.
 
-### Conflict Resolution Modal (`views.cljs`, `events.cljs`)
+### Conflict Resolution Modal (`views/conflict_resolution.cljs`, `events.cljs`)
 - **Duplicate key detection**: On import, detects keys that conflict with already-loaded homebrew (both internal duplicates within a file and external conflicts with existing content).
 - **Resolution UI**: Modal presents each conflict with rename options. Key renaming updates internal references (subclass -> parent class mappings, etc.).
 
@@ -135,7 +135,12 @@ All changes target `develop` from `feature/error-handling-import-validation`.
 | **New** | `src/cljs/orcpub/dnd/e5/views/conflict_resolution.cljs` | Conflict/export modals |
 | Modified | `web/cljs/orcpub/core.cljs` | Entry point |
 | **New** | `test/clj/orcpub/errors_test.clj` | Unit tests |
+| **New** | `test/cljc/orcpub/dnd/e5/favored_enemy_language_test.cljc` | Unit tests |
+| **New** | `test/clj/orcpub/tools/orcbrew_test.clj` | Unit tests |
+| **New** | `test/cljc/orcpub/pdf_spec_test.clj` | Unit tests |
+| **New** | `test/cljs/orcpub/dnd/e5/content_reconciliation_test.cljs` | Unit tests |
 | **New** | `test/cljs/orcpub/dnd/e5/import_validation_test.cljs` | Unit tests |
+| Modified | `test/cljc/orcpub/dnd/e5/folder_test.clj` | Lint fix |
 | **New** | `test/duplicate-external-a.orcbrew` | Test fixture |
 | **New** | `test/duplicate-external-b.orcbrew` | Test fixture |
 | Modified | `.clj-kondo/config.edn` | Linter config |
@@ -145,7 +150,9 @@ All changes target `develop` from `feature/error-handling-import-validation`.
 | **New** | `docs/ERROR_HANDLING.md` | Feature documentation |
 | **New** | `docs/HOMEBREW_REQUIRED_FIELDS.md` | Feature documentation |
 | **New** | `docs/ORCBREW_FILE_VALIDATION.md` | Feature documentation |
+| **New** | `docs/LANGUAGE_SELECTION_FIX.md` | Feature documentation |
 | **New** | `docs/README.md` | Documentation index |
+| Modified | `.gitignore` | Ignore patterns |
 
 ---
 
@@ -160,6 +167,7 @@ Feature documentation is included in `docs/`:
 | [CONTENT_RECONCILIATION.md](docs/CONTENT_RECONCILIATION.md) | Missing content detection, fuzzy matching strategies |
 | [HOMEBREW_REQUIRED_FIELDS.md](docs/HOMEBREW_REQUIRED_FIELDS.md) | Required fields per content type, breaking code locations |
 | [ORCBREW_FILE_VALIDATION.md](docs/ORCBREW_FILE_VALIDATION.md) | Import/export validation user and developer guide |
+| [LANGUAGE_SELECTION_FIX.md](docs/LANGUAGE_SELECTION_FIX.md) | Ranger favored enemy language corruption fix (#296) |
 
 ## Design Principles
 
