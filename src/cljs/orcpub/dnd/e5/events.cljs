@@ -975,6 +975,38 @@
              :url (backend-url path)}})))
 
 (reg-event-fx
+ :change-email
+ (fn [{:keys [db]} [_ new-email]]
+   {:db (dissoc db :email-change-sent? :email-change-error)
+    :http {:method :put
+           :headers (authorization-headers db)
+           :url (backend-url (routes/path-for routes/user-email-route))
+           :transit-params new-email
+           :on-success [:change-email-success]
+           :on-failure [:change-email-failure]}}))
+
+(reg-event-db
+ :change-email-success
+ (fn [db _]
+   (assoc db :email-change-sent? true)))
+
+(reg-event-db
+ :change-email-failure
+ (fn [db [_ response]]
+   (assoc db :email-change-error
+          (case (-> response :body :error)
+            :email-taken "That email address is already in use by another account."
+            :invalid-email "Please enter a valid email address."
+            :same-as-current "That is already your current email address."
+            :too-many-requests "Please wait a few minutes before requesting another email change."
+            "There was an error updating your email. Please try again."))))
+
+(reg-event-db
+ :change-email-clear
+ (fn [db _]
+   (dissoc db :email-change-sent? :email-change-error)))
+
+(reg-event-fx
  :unfollow-user
  (fn [{:keys [db]} [_ username]]
    (let [path (routes/path-for routes/follow-user-route :user username)]

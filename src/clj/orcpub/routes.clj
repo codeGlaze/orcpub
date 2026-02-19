@@ -200,9 +200,11 @@
        (d/pull-many db '[:orcpub.user/username] ids)))
 
 (defn user-body [db user]
-  {:username (:orcpub.user/username user)
-   :email (:orcpub.user/email user)
-   :following (following-usernames db (map :db/id (:orcpub.user/following user)))})
+  (cond-> {:username (:orcpub.user/username user)
+           :email (:orcpub.user/email user)
+           :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
+    (:orcpub.user/pending-email user)
+    (assoc :pending-email (:orcpub.user/pending-email user))))
 
 (defn bad-credentials-response [db username ip]
   (security/add-failed-login-attempt! username ip)
@@ -330,16 +332,28 @@
     (let [{:keys [:orcpub.user/verification-sent
                   :orcpub.user/verified?
                   :orcpub.user/username
+                  :orcpub.user/pending-email
                   :db/id] :as user} (user-for-verification-key (d/db conn) key)]
       (if username
-        (if verified?
+        (cond
+          (and verified? (nil? pending-email))
           (redirect route-map/verify-success-route)
-          (if (or (nil? verification-sent)
-                  (verification-expired? verification-sent))
-            (redirect route-map/verify-failed-route)
-            (do (d/transact conn [{:db/id id
-                                   :orcpub.user/verified? true}])
-                (redirect route-map/verify-success-route))))
+
+          (or (nil? verification-sent)
+              (verification-expired? verification-sent))
+          (redirect route-map/verify-failed-route)
+
+          pending-email
+          (do @(d/transact conn [{:db/id id
+                                  :orcpub.user/email pending-email
+                                  :orcpub.user/verified? true}
+                                 [:db/retract id :orcpub.user/pending-email pending-email]])
+              (redirect route-map/verify-success-route))
+
+          :else
+          (do @(d/transact conn [{:db/id id
+                                  :orcpub.user/verified? true}])
+              (redirect route-map/verify-success-route)))
         {:status 400}))
     {:status 400}))
 
@@ -896,6 +910,56 @@
     @(d/transact conn [[:db/retractEntity user]])
     {:status 200}))
 
+(defn email-change-rate-limited? [verification-sent pending-email]
+  ;; Only rate-limit if the last key was generated for a pending email change
+  ;; (not for initial registration verification).
+  ;; Allow at most one request per 5 minutes.
+  (and pending-email
+       verification-sent
+       (t/before? (-> 5 t/minutes t/ago) (tc/from-date verification-sent))))
+
+(defn request-email-change [{:keys [transit-params db conn identity] :as request}]
+  (try
+    (let [new-email (s/lower-case (s/trim (str transit-params)))
+          username (:user identity)
+          {:keys [:db/id
+                  :orcpub.user/email
+                  :orcpub.user/pending-email
+                  :orcpub.user/verification-sent] :as user} (find-user-by-username db username)]
+      (cond
+        (nil? id)
+        {:status 400 :body {:error :user-not-found}}
+
+        (registration/bad-email? new-email)
+        {:status 400 :body {:error :invalid-email}}
+
+        (= new-email (some-> email s/lower-case))
+        {:status 400 :body {:error :same-as-current}}
+
+        (email-change-rate-limited? verification-sent pending-email)
+        {:status 429 :body {:error :too-many-requests}}
+
+        ;; Check no other account already owns this email
+        (seq (d/q email-query db new-email))
+        {:status 400 :body {:error :email-taken}}
+
+        :else
+        (let [verification-key (str (java.util.UUID/randomUUID))
+              now (java.util.Date.)]
+          @(d/transact conn [{:db/id id
+                              :orcpub.user/pending-email new-email
+                              :orcpub.user/verification-key verification-key
+                              :orcpub.user/verification-sent now}])
+          (try
+            (send-verification-email request
+                                     {:email new-email
+                                      :first-and-last-name "OrcPub Patron"}
+                                     verification-key)
+            (catch Throwable e
+              (prn "Warning: email sending failed (check SMTP config):" (.getMessage e))))
+          {:status 200})))
+    (catch Throwable e (prn e) (throw e))))
+
 (defn character-summary-description [{:keys [::char5e/race-name ::char5e/subrace-name ::char5e/classes]}]
   (str race-name
        " "
@@ -1043,6 +1107,8 @@
        [(route-map/path-for route-map/user-route) ^:interceptors [check-auth]
         {:get `get-user
          :delete `delete-user}]
+       [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
+        {:put `request-email-change}]
        [(route-map/path-for route-map/follow-user-route :user ":user") ^:interceptors [check-auth]
         {:post `follow-user
          :delete `unfollow-user}]

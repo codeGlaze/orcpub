@@ -7501,22 +7501,68 @@
     [my-content]]])
 
 (defn my-account-page []
-  [content-page
-   "My Account"
-   [{:title (str "Delete Account")
-     :icon "trash"
-     :on-click #(dispatch
-                [:show-confirmation
-                 {:confirm-button-text "DELETE ACCOUNT"
-                  :question "Are you sure you want to delete your account, characters, and associated data?"
-                  :event [:delete-account]}])}]
-   [:div.f-s-24.p-10.white
-    [:div.p-5
-     [:span.f-w-b "Username: "]
-     [:span @(subscribe [:username])]]
-    [:div.p-5
-     [:span.f-w-b "Email: "]
-     [:span @(subscribe [:email])]]]])
+  (r/with-let [editing? (r/atom false)
+               new-email (r/atom "")]
+    (let [current-email @(subscribe [:email])
+          pending-email @(subscribe [:pending-email])
+          sent? @(subscribe [:email-change-sent?])
+          error @(subscribe [:email-change-error])]
+      [content-page
+       "My Account"
+       [{:title (str "Delete Account")
+         :icon "trash"
+         :on-click #(dispatch
+                    [:show-confirmation
+                     {:confirm-button-text "DELETE ACCOUNT"
+                      :question "Are you sure you want to delete your account, characters, and associated data?"
+                      :event [:delete-account]}])}]
+       [:div.f-s-24.p-10.white
+        [:div.p-5
+         [:span.f-w-b "Username: "]
+         [:span @(subscribe [:username])]]
+        [:div.p-5
+         [:span.f-w-b "Email: "]
+         (cond
+           sent?
+           [:div
+            [:span current-email]
+            [:div.m-t-5.f-s-14 "A verification email has been sent to your new address. Click the link in that email to confirm the change."]
+            [:button.link-button.m-t-5.f-s-14
+             {:on-click #(do (reset! editing? true)
+                             (reset! new-email "")
+                             (dispatch [:change-email-clear]))}
+             "Change again"]]
+
+           @editing?
+           [:div.m-t-5
+            [:input.input
+             {:type :email
+              :value @new-email
+              :placeholder "New email address"
+              :on-change #(reset! new-email (event-value %))}]
+            [:div.m-t-5
+             [:button.form-button
+              {:on-click #(dispatch [:change-email @new-email])}
+              "Save"]
+             [:button.link-button.m-l-10
+              {:on-click #(do (reset! editing? false)
+                              (reset! new-email "")
+                              (dispatch [:change-email-clear]))}
+              "Cancel"]]
+            (when error
+              [:div.m-t-5.red error])]
+
+           :else
+           [:div
+            [:span current-email]
+            (when pending-email
+              [:div.m-t-5.f-s-14 "Pending: " pending-email " — check your email to verify the change."])
+            [:button.link-button.m-l-10
+             {:on-click #(do (reset! editing? true)
+                             (reset! new-email "")
+                             (dispatch [:change-email-clear]))}
+             "Change"]])]]])))
+
 
 (defn newb-character-builder-page []
   [content-page

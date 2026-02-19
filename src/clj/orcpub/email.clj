@@ -28,13 +28,18 @@
     :content (hiccup/html (verification-email-html first-and-last-name username verification-url))}])
 
 (defn email-cfg []
-  {:user (environ/env :email-access-key)
-   :pass (environ/env :email-secret-key)
-   :host (environ/env :email-server-url)
-   :port (Integer/parseInt (or (environ/env :email-server-port) "587"))
-   :ssl (or (str/to-bool (environ/env :email-ssl)) nil)
-   :tls (or (str/to-bool (environ/env :email-tls)) nil)
-   })
+  (let [cfg {:user (environ/env :email-access-key)
+             :pass (environ/env :email-secret-key)
+             :host (environ/env :email-server-url)
+             :port (Integer/parseInt (or (environ/env :email-server-port) "587"))
+             :ssl  (or (str/to-bool (environ/env :email-ssl)) nil)
+             :tls  (or (str/to-bool (environ/env :email-tls)) nil)}]
+    (println "[email-cfg] host=" (:host cfg)
+             "user=" (:user cfg)
+             "port=" (:port cfg)
+             "ssl=" (:ssl cfg)
+             "tls=" (:tls cfg))
+    cfg))
 
 (defn emailfrom []
   (if (not (s/blank? (environ/env :email-from-address))) (environ/env :email-from-address) (str "no-reply@orcpub.com")))
