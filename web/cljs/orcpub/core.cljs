@@ -5,6 +5,7 @@
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
             [orcpub.route-map :as routes]
             [cljs-http.client :as http]
             [clojure.string :as s]
@@ -110,7 +111,7 @@
         query-map (query-map query-string)]
     [:div
      [view (assoc route-params :query query-map)]
-     [views/import-log-overlay]]))
+     [conflict-views/import-log-overlay]]))
 
 @(subscribe [:user false])
 
