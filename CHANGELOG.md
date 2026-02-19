@@ -130,7 +130,9 @@ All changes target `develop` from `feature/error-handling-import-validation`.
 | **New** | `src/cljs/orcpub/dnd/e5/import_validation.cljs` | Validation framework |
 | Modified | `src/cljs/orcpub/dnd/e5/spell_subs.cljs` | Plugin robustness |
 | Modified | `src/cljs/orcpub/dnd/e5/subs.cljs` | Subscriptions |
-| Modified | `src/cljs/orcpub/dnd/e5/views.cljs` | Conflict/export modals |
+| Modified | `src/cljs/orcpub/dnd/e5/views.cljs` | Fuzzy matching, nil guards |
+| **New** | `src/cljs/orcpub/dnd/e5/views/import_log.cljs` | Import log panel |
+| **New** | `src/cljs/orcpub/dnd/e5/views/conflict_resolution.cljs` | Conflict/export modals |
 | Modified | `web/cljs/orcpub/core.cljs` | Entry point |
 | **New** | `test/clj/orcpub/errors_test.clj` | Unit tests |
 | **New** | `test/cljs/orcpub/dnd/e5/import_validation_test.cljs` | Unit tests |

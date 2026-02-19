@@ -1,4 +1,5 @@
-{:output {:exclude-files [".*resources/public/js/compiled.*"]}
+{:output {:exclude-files [".*resources/public/js/compiled.*"
+                          ".*docker/scripts/.*"]}
  :linters {:shadowed-fn-param {:level :off}
            :shadowed-var {:level :off}
            :unused-namespace {:level :off}

@@ -11,10 +11,9 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 - [📋 Required Fields Guide](HOMEBREW_REQUIRED_FIELDS.md) - Required fields per content type
 
 **For Developers:**
-- [🏗️ Codebase Overview](CODEBASE.md) - Architecture and patterns
 - [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities
 - [🗡️ Language Selection Fix](LANGUAGE_SELECTION_FIX.md) - Ranger favored enemy language corruption (#296)
-- [📝 Progress Log](progress.md) - Session state and handoff notes
+- [🐳 Docker User Management](docker-user-management.md) - Verified user setup for Docker deployments
 
 ## Key Design Decisions
 
@@ -88,10 +87,11 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 
 ## Implementation Files
 
-**Import/Export:** `import_validation.cljs`, `events.cljs`, `views.cljs` (import UI, conflict modal)
-**Content Reconciliation:** `content_reconciliation.cljs`, `subs.cljs`, `views.cljs` (warning UI)
+**Import/Export:** `import_validation.cljs`, `events.cljs`
+**Import UI:** `views/import_log.cljs` (log panel), `views/conflict_resolution.cljs` (conflict modal, export warning)
+**Content Reconciliation:** `content_reconciliation.cljs`, `subs.cljs`, `character_builder.cljs` (warning UI)
 **Error Handling:** `errors.cljc` (DRY macros)
-**Tests:** `import_validation_test.cljs`
+**Tests:** `import_validation_test.cljs`, `errors_test.clj`, `favored_enemy_language_test.cljc`
 
 All in `src/cljs/orcpub/dnd/e5/` unless noted.
 
@@ -105,4 +105,4 @@ All in `src/cljs/orcpub/dnd/e5/` unless noted.
 
 ---
 
-**Branch:** `claude/add-error-handling-mk82zx2vzck9nv9m-IMm3C` | **Last updated:** 2026-01-16
+**Branch:** `feature/error-handling-import-validation` | **Last updated:** 2026-02-19
