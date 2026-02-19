@@ -20,20 +20,26 @@
    {:value key}
    name])
 
+;; Form-2 component: resets <select> to placeholder after each on-change fires.
 (defn selection-adder [values on-change]
-  [:select.builder-option.builder-option-dropdown
-   {:value ""
-    :on-change on-change}
-   [:option.builder-dropdown-item
-    {:value ""
-     :disabled true}
-    "<select to add>"]
-   (doall
-    (map
-     (fn [{:keys [key name]}]
-       ^{:key key}
-       [selection-item key name false])
-     values))])
+  (let [selected-value (atom "")]
+    (fn [values on-change]
+      [:select.builder-option.builder-option-dropdown
+       {:value @selected-value
+        :on-change (fn [e]
+                     (let [v (-> e .-target .-value)]
+                       (on-change e)
+                       (reset! selected-value "")))}
+       [:option.builder-dropdown-item
+        {:value ""
+         :disabled true}
+        "<select to add>"]
+       (doall
+        (map
+         (fn [{:keys [key name]}]
+           ^{:key key}
+           [selection-item key name false])
+         values))])))
 
 (defn selection [values on-change selected-value]
   [:select

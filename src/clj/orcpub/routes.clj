@@ -40,6 +40,7 @@
             [orcpub.entity :as entity]
             [orcpub.security :as security]
             [orcpub.routes.party :as party]
+            [orcpub.routes.folder :as folder]
             [orcpub.oauth :as oauth]
             [hiccup.page :as page]
             [environ.core :as environ]
@@ -160,6 +161,22 @@
               (if (= (:user identity) party-owner)
                 context
                 (terminate-request context 401 "You don't own this party"))))})
+
+(defn folder-owner [db id]
+  (d/q '[:find ?owner .
+         :in $ ?id
+         :where [?id :orcpub.dnd.e5.folder/owner ?owner]]
+       db
+       id))
+
+(def check-folder-owner
+  {:name :check-folder-owner
+   :enter (fn [context]
+            (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
+                  folder-owner (folder-owner db id)]
+              (if (= (:user identity) folder-owner)
+                context
+                (terminate-request context 401 "You don't own this folder"))))})
 
 (defn redirect [route-key]
   (ring-resp/redirect (route-map/path-for route-key)))
@@ -1206,6 +1223,17 @@
         {:post `party/add-character}]
        [(route-map/path-for route-map/dnd-e5-char-party-character-route :id ":id" :character-id ":character-id") ^:interceptors [check-auth parse-id check-party-owner]
         {:delete `party/remove-character}]
+       [(route-map/path-for route-map/dnd-e5-char-folders-route) ^:interceptors [check-auth]
+        {:post `folder/create-folder
+         :get `folder/folders}]
+       [(route-map/path-for route-map/dnd-e5-char-folder-route :id ":id") ^:interceptors [check-auth parse-id check-folder-owner]
+        {:delete `folder/delete-folder}]
+       [(route-map/path-for route-map/dnd-e5-char-folder-name-route :id ":id") ^:interceptors [check-auth parse-id check-folder-owner]
+        {:put `folder/update-folder-name}]
+       [(route-map/path-for route-map/dnd-e5-char-folder-characters-route :id ":id") ^:interceptors [check-auth parse-id check-folder-owner]
+        {:post `folder/add-character}]
+       [(route-map/path-for route-map/dnd-e5-char-folder-character-route :id ":id" :character-id ":character-id") ^:interceptors [check-auth parse-id check-folder-owner]
+        {:delete `folder/remove-character}]
        [(route-map/path-for route-map/login-route)
         {:post `login}]
        [(route-map/path-for route-map/character-pdf-route)

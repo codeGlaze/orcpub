@@ -20,6 +20,7 @@
             [orcpub.dnd.e5.feats :as feats]
             [orcpub.dnd.e5.units :as units]
             [orcpub.dnd.e5.party :as party]
+            [orcpub.dnd.e5.folder :as folder]
             [orcpub.dnd.e5.character.random :as char-random]
             [orcpub.dnd.e5.character.equipment :as char-equip]
             [orcpub.registration :as registration]
@@ -3902,13 +3903,6 @@
             )
             )))])]]
      (when other?
-       ;;;batch-set multiple default values
-       (doseq [evt [[::mi/set-item-damage-die-count 1]
-                    [::mi/set-item-damage-die       4]
-                    [::mi/set-item-weapon-type      :simple]
-                    [::mi/set-item-melee-ranged     :melee]]
-               ]
-         (dispatch evt))
        [:div.main-text-color.m-b-10.m-t-10
         [:span.f-s-18.f-w-b "Base Weapon Details"]
         [:div.flex.flex-wrap.m-t-10
@@ -3935,7 +3929,13 @@
           [labeled-checkbox "Light?" @(subscribe [::mi/item-light?])]]
          [:div.m-l-10
           {:on-click (make-event-handler ::mi/toggle-item-ammunition?)}
-          [labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?])]]]
+          [labeled-checkbox "Ammunition?" @(subscribe [::mi/item-ammunition?])]]
+         [:div.m-l-10
+          {:on-click (make-event-handler ::mi/toggle-item-special?)}
+          [labeled-checkbox "Special?" @(subscribe [::mi/item-special?])]]
+         [:div.m-l-10
+          {:on-click (make-event-handler ::mi/toggle-item-loading?)}
+          [labeled-checkbox "Loading?" @(subscribe [::mi/item-loading?])]]]
         [:div.flex.flex-wrap
          [:div.m-t-10
           [labeled-dropdown
@@ -7760,47 +7760,65 @@
   (builder-page "Feat" ::feats/reset-feat ::feats/save-feat feat-builder))
 
 (defn expanded-character-list-item [id owner username char-page-route]
-  [:div
-   {:style character-display-style}
-   [:div.flex.justify-cont-end.uppercase.align-items-c
-    [share-link id]
-    (if (= username owner)
-      [:button.form-button
-       {:on-click (make-event-handler :edit-character @(subscribe [::char/character id]))}
-       "edit"])
-    (if (= username owner)
-      [:button.form-button.m-l-5
-       {:on-click (make-event-handler ::char/save-character id)}
-       "save"])
-    [:button.form-button.m-l-5
-     {:on-click (make-event-handler :route char-page-route)}
-     "view"]
-    [:button.form-button.m-l-5
-     {:on-click (export-pdf
-                 @(subscribe [::char/built-character id])
-                 id
-                 {:print-character-sheet? true
-                  :print-spell-cards? true
-                  :print-prepared-spells? false
-                  :print-character-sheet-style? 1
-                  :print-spell-card-dc-mod? true})}
-     "print"]
-    (if (= username owner)
-      [:button.form-button.m-l-5
-       {:on-click (make-event-handler ::char/show-delete-confirmation id)}
-       "delete"])]
-   (if @(subscribe [::char/delete-confirmation-shown? id])
-     [:div.p-20.flex.justify-cont-end
-      [:div
-       [:div.m-b-10 "Are you sure you want to delete this character?"]
-       [:div.flex
+  (let [folders @(subscribe [::folder/folders])
+        char-folder-map @(subscribe [::folder/character-folder-map])
+        current-folder-id (get char-folder-map id)]
+    [:div
+     {:style character-display-style}
+     [:div.flex.justify-cont-end.uppercase.align-items-c
+      [share-link id]
+      (if (= username owner)
         [:button.form-button
-         {:on-click (make-event-handler ::char/hide-delete-confirmation id)}
-         "cancel"]
-        [:span.link-button
-         {:on-click (make-event-handler :delete-character id)}
-         "delete"]]]])
-   [character-display id false (if (= :mobile @(subscribe [:device-type])) 1 2)]])
+         {:on-click (make-event-handler :edit-character @(subscribe [::char/character id]))}
+         "edit"])
+      (if (= username owner)
+        [:button.form-button.m-l-5
+         {:on-click (make-event-handler ::char/save-character id)}
+         "save"])
+      [:button.form-button.m-l-5
+       {:on-click (make-event-handler :route char-page-route)}
+       "view"]
+      [:button.form-button.m-l-5
+       {:on-click (export-pdf
+                   @(subscribe [::char/built-character id])
+                   id
+                   {:print-character-sheet? true
+                    :print-spell-cards? true
+                    :print-prepared-spells? false
+                    :print-character-sheet-style? 1
+                    :print-spell-card-dc-mod? true})}
+       "print"]
+      (if (and (= username owner) (seq folders))
+        [:select.form-button.m-l-5.builder-dropdown
+         {:value (or current-folder-id "")
+          :on-change (fn [e]
+                       (let [val (.-value (.-target e))]
+                         (if (= val "")
+                           (when current-folder-id
+                             (dispatch [::folder/remove-character current-folder-id id]))
+                           (dispatch [::folder/add-character (js/parseInt val) id]))))}
+         [:option.builder-dropdown-item {:value ""} "No folder"]
+         (doall
+          (map (fn [f]
+                 ^{:key (:db/id f)}
+                 [:option.builder-dropdown-item {:value (:db/id f)} (::folder/name f)])
+               (sort-by ::folder/name folders)))])
+      (if (= username owner)
+        [:button.form-button.m-l-5
+         {:on-click (make-event-handler ::char/show-delete-confirmation id)}
+         "delete"])]
+     (if @(subscribe [::char/delete-confirmation-shown? id])
+       [:div.p-20.flex.justify-cont-end
+        [:div
+         [:div.m-b-10 "Are you sure you want to delete this character?"]
+         [:div.flex
+          [:button.form-button
+           {:on-click (make-event-handler ::char/hide-delete-confirmation id)}
+           "cancel"]
+          [:span.link-button
+           {:on-click (make-event-handler :delete-character id)}
+           "delete"]]]])
+     [character-display id false (if (= :mobile @(subscribe [:device-type])) 1 2)]]))
 
 (defn character-list-item [expanded-characters
                            selected-ids
@@ -7835,16 +7853,209 @@
       (if expanded?
         [expanded-character-list-item id owner username char-page-route])]])))
 
+(defn folder-item [f expanded-characters selected-ids username filtered-char-ids]
+  (let [edit-name      (r/atom (::folder/name f))
+        confirm-delete? (r/atom false)]
+    (fn [f expanded-characters selected-ids username filtered-char-ids]
+      (let [folder-id (:db/id f)
+            folder-name (::folder/name f)
+            expanded? @(subscribe [::folder/expanded])
+            folder-expanded? (get expanded? folder-id)
+            renaming? @(subscribe [::folder/renaming])
+            folder-renaming? (get renaming? folder-id)
+            chars (::folder/character-ids f)
+            visible-chars (filter #(filtered-char-ids (:db/id %)) chars)
+            save-fn (fn []
+                      (dispatch [::folder/rename-folder folder-id @edit-name])
+                      (dispatch [::folder/toggle-renaming folder-id]))]
+    [:div.main-text-color.item-list-item.m-b-5
+     ^{:key folder-id}
+     [:div
+      ;; Entire row is clickable to expand/collapse folder
+      [:div.flex.justify-cont-s-b.align-items-c.pointer
+       {:on-click (when (not folder-renaming?)
+                    #(dispatch [::folder/toggle-expanded folder-id (mapv :db/id chars)]))}
+       [:div.flex.align-items-c.m-l-10
+        (when (not folder-renaming?)
+          [:i.fa.m-r-10.orange
+           {:class-name (if folder-expanded? "fa-folder-open" "fa-folder")}])
+        (if folder-renaming?
+          [:div.flex.align-items-c
+           [:input.input
+            {:auto-focus true
+             :value @edit-name
+             :style {:width "160px"}
+             :on-change #(reset! edit-name (.-value (.-target %)))
+             :on-key-down (fn [e]
+                            (when (= "Enter" (.-key e))
+                              (save-fn)))}]
+           [:button.form-button.m-l-5
+            {:on-click (fn [e]
+                         (.stopPropagation e)
+                         (save-fn))}
+            "save"]]
+          [:span.f-s-18.f-w-b
+           folder-name])
+        (when (not folder-renaming?)
+          [:span.m-l-10.f-s-12.opacity-5
+           (str "(" (count visible-chars) ")")])]
+       (when (not folder-renaming?)
+         [:div.flex.align-items-c.m-r-10
+          [:span.link-button.m-r-10.f-s-12
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (reset! edit-name folder-name)
+                        (dispatch [::folder/toggle-renaming folder-id]))}
+           "rename"]
+          [:span.link-button.f-s-12
+           {:on-click (fn [e]
+                        (.stopPropagation e)
+                        (reset! confirm-delete? true))}
+           "delete"]
+          [:i.fa.m-l-10.orange
+           {:class-name (if folder-expanded? "fa-caret-up" "fa-caret-down")}]])]
+      (when @confirm-delete?
+        [:div.p-20.flex.justify-cont-end
+         [:div
+          [:div.m-b-10 "Are you sure you want to delete this folder? Characters will not be deleted."]
+          [:div.flex
+           [:button.form-button
+            {:on-click (fn [e]
+                         (.stopPropagation e)
+                         (reset! confirm-delete? false))}
+            "cancel"]
+           [:span.link-button.m-l-10
+            {:on-click (fn [e]
+                         (.stopPropagation e)
+                         (dispatch [::folder/delete-folder folder-id]))}
+            "delete"]]]])
+      (if folder-expanded?
+        [:div.item-list
+         (doall
+          (map
+           (fn [{:keys [:db/id ::se/owner] :as summary}]
+             ^{:key (:db/id summary)}
+             [character-list-item
+              expanded-characters
+              selected-ids
+              (:db/id summary)
+              owner
+              username
+              summary])
+           (sort-by ::char/character-name visible-chars)))])]]))))
+
 (defn orcacle-page []
   [content-page
    "Orcacle"
    []
    [orcacle]])
 
+(defn character-filter-bar []
+  (let [classes-open? (r/atom false)
+        levels-open? (r/atom false)]
+    (fn []
+      (let [name-filter      @(subscribe [::char/char-name-filter])
+            level-filters    @(subscribe [::char/char-level-filters])
+            class-filters    @(subscribe [::char/char-class-filters])
+            has-portrait?    @(subscribe [::char/char-has-portrait?])
+            has-faction-pic? @(subscribe [::char/char-has-faction-pic?])
+            avail-classes    @(subscribe [::char/char-classes-available])
+            avail-levels     @(subscribe [::char/char-levels-available])
+            any-filter?      (or (not (s/blank? name-filter))
+                                 (seq level-filters)
+                                 (seq class-filters)
+                                 has-portrait?
+                                 has-faction-pic?)]
+        [:div.main-text-color.m-b-10.char-filter-bar
+         (when @classes-open?
+           [:div.posn-fixed
+            {:style    {:top 0 :left 0 :right 0 :bottom 0 :z-index 100}
+             :on-click (fn [e] (.stopPropagation e) (reset! classes-open? false))}])
+         (when @levels-open?
+           [:div.posn-fixed
+            {:style    {:top 0 :left 0 :right 0 :bottom 0 :z-index 100}
+             :on-click (fn [e] (.stopPropagation e) (reset! levels-open? false))}])
+         [:div.flex.align-items-c.flex-wrap.p-5
+          ;; Name search
+          [:div.posn-rel.m-r-5.m-b-5
+           [:input.input
+            {:placeholder "Search by name..."
+             :style       {:width "200px"}
+             :value       name-filter
+             :on-change   #(dispatch [::char/set-char-name-filter (.. % -target -value)])}]
+           (when (not (s/blank? name-filter))
+             [:i.fa.fa-times.posn-abs.pointer.orange.f-s-14
+              {:style    {:right "8px" :top "8px"}
+               :on-click #(dispatch [::char/set-char-name-filter ""])}])]
+
+          ;; Classes multi-select dropdown
+          [:div.posn-rel.m-r-5.m-b-5
+           {:style {:z-index (if @classes-open? 200 1)}}
+           [:button.form-button
+            {:on-click (fn [e] (.stopPropagation e) (swap! classes-open? not))}
+            (str "Classes" (when (seq class-filters) (str " (" (count class-filters) ")")))
+            [:i.fa.m-l-5 {:class-name (if @classes-open? "fa-caret-up" "fa-caret-down")}]]
+           (when @classes-open?
+             [:div.filter-dropdown.main-text-color
+              {:style {:min-width "160px"}}
+              (if (seq avail-classes)
+                (doall
+                 (map (fn [cls]
+                        ^{:key cls}
+                        [:div.filter-dropdown-item
+                         [comps/labeled-checkbox cls (contains? class-filters cls) false
+                          (fn [] (dispatch [::char/toggle-char-class-filter cls]))]])
+                      avail-classes))
+                [:span.opacity-5.f-s-12.p-5 "No classes yet"])])]
+
+          ;; Levels multi-select dropdown
+          [:div.posn-rel.m-r-5.m-b-5
+           {:style {:z-index (if @levels-open? 200 1)}}
+           [:button.form-button
+            {:on-click (fn [e] (.stopPropagation e) (swap! levels-open? not))}
+            (str "Levels" (when (seq level-filters) (str " (" (count level-filters) ")")))
+            [:i.fa.m-l-5 {:class-name (if @levels-open? "fa-caret-up" "fa-caret-down")}]]
+           (when @levels-open?
+             [:div.filter-dropdown.main-text-color
+              {:style {:min-width "120px"}}
+              (if (seq avail-levels)
+                (doall
+                 (map (fn [lvl]
+                        ^{:key lvl}
+                        [:div.filter-dropdown-item
+                         [comps/labeled-checkbox (str "Level " lvl) (contains? level-filters lvl) false
+                          (fn [] (dispatch [::char/toggle-char-level-filter lvl]))]])
+                      avail-levels))
+                [:span.opacity-5.f-s-12.p-5 "No levels yet"])])]
+
+          ;; Portrait toggle (nil=all, true=with portrait, false=without portrait)
+          [:button.form-button.m-r-5.m-b-5
+           {:on-click #(dispatch [::char/toggle-char-has-portrait])}
+           [:i.fa.fa-user.m-r-5]
+           (cond (true? has-portrait?)  "Portrait: Has"
+                 (false? has-portrait?) "Portrait: None"
+                 :else                  "Portrait: All")]
+
+          ;; Faction Pic toggle (nil=all, true=with faction pic, false=without faction pic)
+          [:button.form-button.m-r-5.m-b-5
+           {:on-click #(dispatch [::char/toggle-char-has-faction-pic])}
+           [:i.fa.fa-flag.m-r-5]
+           (cond (true? has-faction-pic?)  "Faction Pic: Has"
+                 (false? has-faction-pic?) "Faction Pic: None"
+                 :else                     "Faction Pic: All")]
+
+          ;; Clear button — only shown when any filter is active
+          (when any-filter?
+            [:button.form-button.m-b-5
+             {:on-click #(dispatch [::char/clear-char-filters])}
+             [:i.fa.fa-times.m-r-5]
+             "Clear"])]]))))
+
 (defn character-list []
-  (let [characters @(subscribe [::char/characters])
+  (let [characters @(subscribe [::char/filtered-characters])
+        folders @(subscribe [::folder/folders])
+        char-folder-map @(subscribe [::folder/character-folder-map])
         expanded-characters @(subscribe [:expanded-characters])
-        device-type @(subscribe [:device-type])
         username @(subscribe [:username])
         selected-ids @(subscribe [::char/selected])
         has-selected? @(subscribe [::char/has-selected?])]
@@ -7856,36 +8067,67 @@
       {:title "Make Party"
        :icon "users"
        :class-name (if (not has-selected?) "opacity-5 cursor-disabled")
-       :on-click (if has-selected? (make-event-handler ::party/make-party selected-ids))}]
+       :on-click (if has-selected? (make-event-handler ::party/make-party selected-ids))}
+      {:title "New Folder"
+       :icon "folder"
+       :on-click #(dispatch [::folder/create-folder])}]
      [:div.p-5
+      [character-filter-bar]
       [:div
-       (let [grouped-characters (group-by ::se/owner characters)
+       (let [filtered-char-ids (into #{} (map :db/id) characters)
+             grouped-characters (group-by ::se/owner characters)
              user-characters (find grouped-characters username)
              other-characters (sort-by key (dissoc grouped-characters username))
-             sorted-groups (if user-characters
-                             (cons user-characters other-characters)
-                             other-characters)]
-         (doall
-          (map
-           (fn [[owner owner-characters]]
-             ^{:key owner}
-             [:div.m-b-40
-              [:div.m-b-10.main-text-color.f-w-b.f-s-16
-               [other-user-component owner "f-s-24 m-l-10 m-r-20 i" true]]
-              [:div.item-list
-               (doall
-                (map
-                 (fn [{:keys [:db/id ::se/owner] :as summary}]
-                   ^{:key id}
-                   [character-list-item
-                    expanded-characters
-                    selected-ids
-                    id
-                    owner
-                    username
-                    summary])
-                 (sort-by ::char/character-name owner-characters)))]])
-           sorted-groups)))]]]))
+             user-chars-list (second user-characters)
+             unfiled-user-chars (remove #(get char-folder-map (:db/id %)) user-chars-list)
+             user-folders (sort-by ::folder/name folders)]
+         [:div
+          (when (and username (seq user-folders))
+            [:div.m-b-20
+             (doall
+              (map
+               (fn [f]
+                 ^{:key (:db/id f)}
+                 [folder-item f expanded-characters selected-ids username filtered-char-ids])
+               user-folders))])
+          (when (and username (seq unfiled-user-chars))
+            [:div.m-b-40
+             (when (seq user-folders)
+               [:div.m-b-10.main-text-color.f-s-14.opacity-5 "Unfiled"])
+             [:div.item-list
+              (doall
+               (map
+                (fn [{:keys [:db/id ::se/owner] :as summary}]
+                  ^{:key (:db/id summary)}
+                  [character-list-item
+                   expanded-characters
+                   selected-ids
+                   (:db/id summary)
+                   owner
+                   username
+                   summary])
+                (sort-by ::char/character-name unfiled-user-chars)))]])
+          (doall
+           (map
+            (fn [[owner owner-characters]]
+              ^{:key owner}
+              [:div.m-b-40
+               [:div.m-b-10.main-text-color.f-w-b.f-s-16
+                [other-user-component owner "f-s-24 m-l-10 m-r-20 i" true]]
+               [:div.item-list
+                (doall
+                 (map
+                  (fn [{:keys [:db/id ::se/owner] :as summary}]
+                    ^{:key (:db/id summary)}
+                    [character-list-item
+                     expanded-characters
+                     selected-ids
+                     (:db/id summary)
+                     owner
+                     username
+                     summary])
+                  (sort-by ::char/character-name owner-characters)))]])
+            (sort-by key other-characters)))])]]]))
 
 (def party-name-editor-style
   {:width "200px"

@@ -1193,6 +1193,39 @@
     [:.checkbox-text
      {:margin-left "5px"}]
 
+    ;; Character filter bar — scoped styles for dropdowns and checkboxes
+    [:.char-filter-bar
+     [:.filter-dropdown
+      {:position :absolute
+       :background-color "#313A4D"
+       :padding "6px 4px"
+       :top "100%"
+       :margin-top "4px"
+       :border "1px solid rgba(255,255,255,0.15)"
+       :border-radius "4px"
+       :max-height "300px"
+       :overflow-y :auto
+       :font-weight :normal
+       :font-size "14px"
+       :z-index 200
+       :box-shadow "0 4px 12px rgba(0,0,0,0.4)"}]
+     [:.filter-dropdown-item
+      {:padding "6px 10px"
+       :border-radius "3px"
+       :cursor :pointer}]
+     [:.filter-dropdown-item:hover
+      {:background-color "rgba(255,255,255,0.08)"}]
+     [:.checkbox
+      {:width "14px"
+       :height "14px"
+       :min-width "14px"
+       :flex-shrink 0}
+      [:.fa-check
+       {:font-size "12px"}]]
+     [:.flex.pointer
+      {:align-items :center
+       :gap "8px"}]]
+
     [:#selection-stepper
      {:transition "top 2s ease-in-out"
       :width "240px"
