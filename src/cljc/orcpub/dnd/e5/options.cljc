@@ -460,7 +460,7 @@
    (sort spells)))
 
 (defn spell-level-title [class-name level]
-  (str class-name (when (and level (zero? level)) " Cantrips Known" (str " Spells Known" (if level (str " " level))))))
+  (str class-name (if (and level (zero? level)) " Cantrips Known" (str " Spells Known" (when level (str " " level))))))
 
 (defn spell-selection [spell-lists spells-map {:keys [title class-key level spellcasting-ability class-name num prepend-level? spell-keys options min max exclude-ref? ref]}]
   (let [title (or title (spell-level-title class-name level))

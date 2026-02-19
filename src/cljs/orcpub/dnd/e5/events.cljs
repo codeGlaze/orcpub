@@ -772,7 +772,7 @@
 (reg-event-fx
  ::party5e/add-character-remote-success
  (fn [_ [_ show-confirmation?]]
-   (if show-confirmation?
+   (when show-confirmation?
      {:dispatch [:show-message [:div
                                 "Character has been added to the party. View it on the "
                                 [:span.underline.pointer.orange
@@ -1073,7 +1073,7 @@
      {:dispatch [:update-value-field ::char5e/character-name (:name
                                                               (char-rand5e/random-name-result
                                                                {:race race-kw
-                                                                :subrace (if (= ::char-rand5e/human race-kw) subrace-kw)
+                                                                :subrace (when (= ::char-rand5e/human race-kw) subrace-kw)
                                                                 :sex sex-kw}))]})))
 (reg-event-db
  :select-option
@@ -1147,7 +1147,7 @@
                  [::entity/options :class]
                  (fn [classes] (vec (remove #(= class-key (::entity/key %)) classes))))
         new-first-class-key (get-in updated [::entity/options :class 0 ::entity/key])
-        new-first-class-option (if new-first-class-key (options-map new-first-class-key))]
+        new-first-class-option (when new-first-class-key (options-map new-first-class-key))]
     (if (and (zero? i)
              new-first-class-option)
       (char5e/set-class updated new-first-class-key 0 new-first-class-option)
@@ -1354,7 +1354,7 @@
    character
    (entity/get-entity-path built-template character (:path level-value))
    {::entity/key :manual-entry
-    ::entity/value (if (not (js/isNaN value)) value)}))
+    ::entity/value (when (not (js/isNaN value)) value)}))
 
 (reg-event-db
  :set-level-hit-points
@@ -1369,7 +1369,7 @@
  set-page)
 
 (defn make-url [protocol hostname path & [port]]
-  (str protocol "://" hostname (if port (str ":" port)) path))
+  (str protocol "://" hostname (when port (str ":" port)) path))
 
 (reg-event-fx
  :route
@@ -1568,7 +1568,7 @@
      (go (let [response (<! (http/request final-cfg))]
            (dispatch [:set-loading false])
            (if (<= 200 (:status response) 299)
-             (if on-success (dispatch (conj on-success response)))
+             (when on-success (dispatch (conj on-success response)))
              (if (= 401 (:status response))
                (if on-unauthorized
                  (dispatch (conj on-unauthorized response))
@@ -2039,7 +2039,7 @@
 
 (defn name-result [search-text]
   (let [[sex race subrace :as result] (event-handlers/parse-name-query search-text)]
-    (if result
+    (when result
       {:type :name
        :result (char-rand5e/random-name-result
                 {:race race
@@ -2063,7 +2063,7 @@
 (defn search-results [text]
   (let [search-text (s/lower-case text)
         dice-result (dice/dice-roll-text search-text)
-        kw (if search-text (common/name-to-kw search-text))
+        kw (when search-text (common/name-to-kw search-text))
         name-result (name-result search-text)
         top-result (cond
                      dice-result {:type :dice-roll
@@ -2079,11 +2079,11 @@
                      name-result name-result
                      :else nil)
         filter-xform (filter-by-name-xform search-text :name)
-        top-spells (if (>= (count text) 3)
+        top-spells (when (>= (count text) 3)
                      (sequence
                       filter-xform
                       spells/spells))
-        top-monsters (if (>= (count text) 3)
+        top-monsters (when (>= (count text) 3)
                        (sequence
                         filter-xform
                         monsters/monsters))]
@@ -2227,7 +2227,7 @@
    (fn [level-slots-used]
      (let [first-empty-slot (some
                              (fn [v]
-                               (if (not (get level-slots-used v))
+                               (when (not (get level-slots-used v))
                                  v))
                              (range))]
        (conj (or level-slots-used #{})
@@ -2257,7 +2257,7 @@
    character
    [::entity/values
     ::char5e/xps]
-   (if (not (js/isNaN xps))
+   (when (not (js/isNaN xps))
      xps)))
 
 (defn set-notes [character notes]
@@ -2568,7 +2568,7 @@
    condition
    :duration
    (fn [{:keys [hours minutes rounds] :as duration}]
-     (if (not (zero-duration? condition))
+     (when (not (zero-duration? condition))
        (let [total-rounds (+ rounds
                              (* common/rounds-per-minute minutes)
                              (* common/rounds-per-hour hours))
@@ -2637,7 +2637,7 @@
                    true (assoc :current-initiative next-initiative)
                    next-round? (assoc :round (inc round))
                    next-round? update-conditions)
-         removed-conditions (if next-round?
+         removed-conditions (when next-round?
                               (filter
                                (comp seq :removed-conditions)
                                (flatten

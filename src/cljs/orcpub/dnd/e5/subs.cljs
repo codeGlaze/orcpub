@@ -364,7 +364,7 @@
           (dispatch [:set-loading false])
           (case (:status response)
             200 (dispatch [::char5e/set-characters (:body response)])
-            401 (if (not login-optional?)
+            401 (when (not login-optional?)
                   (dispatch [:route-to-login]))
             500 (dispatch (show-generic-error)))))
     (ra/make-reaction
@@ -379,7 +379,7 @@
           (dispatch [:set-loading false])
           (case (:status response)
             200 (dispatch [::party5e/set-parties (:body response)])
-            401 (if (not login-optional?)
+            401 (when (not login-optional?)
                   (dispatch [:route-to-login]))
             500 (dispatch (show-generic-error)))))
     (ra/make-reaction
@@ -388,16 +388,16 @@
 (reg-sub-raw
   :user
   (fn [app-db [_ required?]]
-    (if (and (:user @app-db) (:token (:user @app-db))) ;;check if logged in, prevent unncessary calls
+    (when (and (:user @app-db) (:token (:user @app-db))) ;;check if logged in, prevent unncessary calls
      (go (let [hdrs (auth-headers @app-db)
               response (<! (http/get (url-for-route routes/user-route) {:headers hdrs}))]
           (case (:status response)
             200 nil
             401 (do
                   (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
-                  (if required?
+                  (when required?
                     (dispatch [:route-to-login])))
-            500 (if required? (dispatch (show-generic-error)))))
+            500 (when required? (dispatch (show-generic-error)))))
         ))
     (ra/make-reaction
      (fn [] (get @app-db :user [])))))
@@ -479,8 +479,8 @@
 (reg-sub-raw
   ::char5e/character
   (fn [app-db [_ id :as args]]
-    (let [int-id (if id (js/parseInt id))]
-      (if (some? int-id)
+    (let [int-id (when id (js/parseInt id))]
+      (when (some? int-id)
         (go (dispatch [:set-loading true])
             (let [response (<! (http/get (url-for-route
                                            routes/dnd-e5-char-route
@@ -751,9 +751,9 @@
    (if (and (nil? armor-kw)
             (nil? shield-kw))
      (:ac best-armor-combo)
-     (let [armor (if armor-kw
+     (let [armor (when armor-kw
                    (all-armor-map armor-kw))
-           shield (if shield-kw
+           shield (when shield-kw
                     (all-armor-map shield-kw))]
        (ac-fn armor shield)))))
 

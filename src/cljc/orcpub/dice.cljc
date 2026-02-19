@@ -36,7 +36,7 @@
     #?(:clj (Integer/valueOf s))))
 
 (defn dice-roll-text [dice-text]
-  (if-let [[_ num-str sides-str plus-minus-str mod-str :as match]
+  (when-let [[_ num-str sides-str plus-minus-str mod-str :as match]
            (re-matches dice-regex dice-text)]
     (let [num (or (parse-int num-str) 1)
           sides (parse-int sides-str)
@@ -54,7 +54,7 @@
        :plus-minus plus-minus})))
 
 (defn dice-roll-text-2 [dice-text]
-  (if-let [[_ num-str sides-str plus-minus-str mod-str :as match]
+  (when-let [[_ num-str sides-str plus-minus-str mod-str :as match]
            (re-matches dice-regex dice-text)]
     (let [num (or (parse-int num-str) 1)
           sides (parse-int sides-str)

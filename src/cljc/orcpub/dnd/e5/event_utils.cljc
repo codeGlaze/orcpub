@@ -14,7 +14,7 @@
      [path]
      (if (and js/window.location
               (s/starts-with? js/window.location.href "http://localhost"))
-       (str "http://localhost:8890" (if (not (s/starts-with? path "/")) "/") path)
+       (str "http://localhost:8890" (when (not (s/starts-with? path "/")) "/") path)
        path)))
 
 #?(:cljs
