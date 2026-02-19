@@ -1,4 +1,4 @@
-FROM openjdk:8u242-jre as builder
+FROM clojure:lein as builder
 
 # Build cache layer
 ADD ./lib/ /root/.m2/repository/
