@@ -430,7 +430,7 @@
           (case (:status response)
             200 (dispatch [::folder5e/set-folders (:body response)])
             401 (dispatch [:route-to-login])
-            500 (dispatch (events/show-generic-error)))))
+            (dispatch (show-generic-error)))))
     (ra/make-reaction
      (fn [] (get @app-db ::folder5e/folders [])))))
 

@@ -13,6 +13,7 @@ This branch (`breaking/2026-stack-modernization`) upgrades the full OrcPub stack
 | Libraries | clj-time, PDFBox 2, Buddy 1, etc. | [migration/library-upgrades.md](migration/library-upgrades.md) |
 | Dev tooling | Consolidated CLI + REPL into user.clj, profiles, scripts | [migration/dev-tooling.md](migration/dev-tooling.md) |
 | Environment | `.env` pattern, new variables | [ENVIRONMENT.md](ENVIRONMENT.md) |
+| Stack overview | Architecture, dependencies, build system | [STACK.md](STACK.md) |
 
 ## Why One Branch
 
@@ -29,7 +30,7 @@ Upgrading any one of these in isolation would leave the application broken.
 
 ## Test Status
 
-- Backend: 74 tests, 237 assertions, 0 failures, 0 errors
+- Backend: 174 tests, 444 assertions, 0 failures, 0 errors
 - Lint: 0 errors (455 warnings — all from third-party libraries)
 - Dev CLJS build: 0 errors, 0 warnings
 - Production CLJS build (`:advanced`): succeeds with custom `externs.js` for React 18 APIs

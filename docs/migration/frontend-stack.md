@@ -73,7 +73,7 @@ Updated from `0.x` to `1.4.4`. The event/subscription API is unchanged — exist
 
 #### Subscribe-outside-reactive-context: Fixed
 
-The original codebase had 12 instances of `@(subscribe [...])` called outside Reagent reactive context (inside event handlers and top-level code). In re-frame 0.x these worked silently; in 1.3+ they produce console warnings and leak Reaction objects. All 12 have been fixed.
+The original codebase had **56 instances** of `@(subscribe [...])` called outside Reagent reactive context (inside event handlers, modifier conditions, top-level code, and pure `.cljc` namespaces). In re-frame 0.x these worked silently; in 1.3+ they produce console warnings and leak Reaction objects. All 56 have been fixed across two phases.
 
 **Fix patterns used** (stable re-frame APIs only — no `re-frame.alpha` or third-party libs):
 
@@ -85,8 +85,19 @@ The original codebase had 12 instances of `@(subscribe [...])` called outside Re
 | Replace with dispatch | `reg-sub-raw` used for side effects | 1 |
 | Template cache via `track!` | Autosave handler (no component context) | 1 |
 | Direct db read (character) | Character already in db map | 1 |
+| SSOT pure fn + `@app-db` | Modifier conditions needing dynamic data | 4 |
+| Thread parameter from caller | Data already in the calling chain | 1 |
+| Plugin-data map | Pure `.cljc` namespace, multiple subscribes | 7 |
+| `reg-sub-raw` | Conditional subscription routing | 1 |
+| Move to render scope | `@(subscribe)` in event closure | 1 |
+| Pure character fns | Prereq functions with subscribe | 22 |
+| `def` + `partial` → `defn` | Subscribe at load time via `partial` | 1 |
 
-**Key insight**: 11 of 12 subscriptions were Layer 3 (computed/derived). Only `::e5/plugins` was a simple db lookup. Naively replacing `@(subscribe [...])` with `(get db ...)` would have returned `nil` — the computed values only exist in the subscription cache, not in app-db.
+**Phase 1** (events.cljs, options.cljc, classes.cljc, core.cljs): 42 fixes
+**Phase 2** (options.cljc, pdf_spec.cljc, equipment_subs.cljs, views.cljs): 14 fixes
+**Browser console**: zero subscribe warnings on fresh page load.
+
+**Key insight**: Most subscriptions were Layer 3 (computed/derived). Naively replacing `@(subscribe [...])` with `(get db ...)` would have returned `nil` — the computed values only exist in the subscription cache, not in app-db. Custom/homebrew content is especially tricky: `mi/all-weapons-map` (static) does NOT include user-imported weapons.
 
 #### Utility namespace: `orcpub.dnd.e5.event-utils`
 
@@ -172,14 +183,12 @@ The save handler then reads the cached template and computes `entity/build(chara
 
 #### Test coverage
 
-**Existing tests do NOT cover these changes.** The test suite is JVM-only (`lein test`). There are no ClojureScript tests. The refactored event handlers, dispatch-site changes, `track!` caching, and `verify-user-session` all require browser/CLJS runtime to test.
+Pure function tests now cover many refactored modules. CLJS-only tests exist for re-frame handler integration. The JVM test suite includes tests for `compute-all-weapons-map`, feat-prereqs, pdf_spec pure functions, folder routes (CRUD + validation), and event handler round-trips.
 
-**Pure functions that CAN be tested** (`.cljc`):
-- `compute-plugin-vals` — filters disabled plugins/entries
-- `compute-sorted-spells` — replicates spells subscription chain
-- `compute-sorted-items` — replicates items subscription chain
-- `filter-spells`, `filter-items` — name-based filtering
-- All `event-utils` functions
+**Current**: 174 JVM tests, 444 assertions, 0 failures.
+
+**CLJS-only tests** (browser via `lein fig:test`):
+- `test/cljs/orcpub/dnd/e5/events_test.cljs` — re-frame handler tests
 
 **Manual testing checklist**:
 - [ ] Save character (manual) — verify character saves with correct summary

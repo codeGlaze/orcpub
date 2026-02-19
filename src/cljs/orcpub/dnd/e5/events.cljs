@@ -815,13 +815,29 @@
    (assoc db ::folder5e/folders folders)))
 
 (reg-event-fx
+ ::folder5e/on-folder-failure
+ ;; Re-fetches folders from server to reconcile optimistic UI on HTTP failure.
+ (fn [{:keys [db]} [_ _response]]
+   {:http {:method :get
+           :headers (authorization-headers db)
+           :url (url-for-route routes/dnd-e5-char-folders-route)
+           :on-success [::folder5e/set-folders-from-response]}
+    :dispatch (show-generic-error)}))
+
+(reg-event-db
+ ::folder5e/set-folders-from-response
+ (fn [db [_ response]]
+   (assoc db ::folder5e/folders (:body response))))
+
+(reg-event-fx
  ::folder5e/create-folder
  (fn [{:keys [db]} [_]]
    {:http {:method :post
            :headers (authorization-headers db)
            :transit-params {::folder5e/name "New Folder"}
            :url (url-for-route routes/dnd-e5-char-folders-route)
-           :on-success [::folder5e/create-folder-success]}}))
+           :on-success [::folder5e/create-folder-success]
+           :on-failure [::folder5e/on-folder-failure]}}))
 
 (reg-event-fx
  ::folder5e/create-folder-success
@@ -833,17 +849,20 @@
 (reg-event-fx
  ::folder5e/rename-folder
  (fn [{:keys [db]} [_ id new-name]]
-   {:db (update db ::folder5e/folders
-                (fn [folders]
-                  (map (fn [f]
-                         (if (= id (:db/id f))
-                           (assoc f ::folder5e/name new-name)
-                           f))
-                       folders)))
-    :http {:method :put
-           :headers (authorization-headers db)
-           :transit-params new-name
-           :url (url-for-route routes/dnd-e5-char-folder-name-route :id id)}}))
+   (let [trimmed (clojure.string/trim (str new-name))]
+     (when-not (clojure.string/blank? trimmed)
+       {:db (update db ::folder5e/folders
+                    (fn [folders]
+                      (map (fn [f]
+                             (if (= id (:db/id f))
+                               (assoc f ::folder5e/name trimmed)
+                               f))
+                           folders)))
+        :http {:method :put
+               :headers (authorization-headers db)
+               :transit-params trimmed
+               :url (url-for-route routes/dnd-e5-char-folder-name-route :id id)
+               :on-failure [::folder5e/on-folder-failure]}}))))
 
 (reg-event-fx
  ::folder5e/delete-folder
@@ -853,7 +872,8 @@
                   (remove #(= id (:db/id %)) folders)))
     :http {:method :delete
            :headers (authorization-headers db)
-           :url (url-for-route routes/dnd-e5-char-folder-route :id id)}}))
+           :url (url-for-route routes/dnd-e5-char-folder-route :id id)
+           :on-failure [::folder5e/on-folder-failure]}}))
 
 (reg-event-fx
  ::folder5e/add-character
@@ -873,7 +893,8 @@
     :http {:method :post
            :headers (authorization-headers db)
            :transit-params character-id
-           :url (url-for-route routes/dnd-e5-char-folder-characters-route :id folder-id)}}))
+           :url (url-for-route routes/dnd-e5-char-folder-characters-route :id folder-id)
+           :on-failure [::folder5e/on-folder-failure]}}))
 
 (reg-event-fx
  ::folder5e/remove-character
@@ -891,7 +912,8 @@
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-folder-character-route
                                :id folder-id
-                               :character-id character-id)}}))
+                               :character-id character-id)
+           :on-failure [::folder5e/on-folder-failure]}}))
 
 ;; When expanding a folder, collapse its characters so they start closed
 (reg-event-db

@@ -181,13 +181,15 @@
        id))
 
 (def check-folder-owner
-  {:name :check-folder-owner
-   :enter (fn [context]
-            (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
-                  folder-owner (folder-owner db id)]
-              (if (= (:user identity) folder-owner)
-                context
-                (terminate-request context 401 "You don't own this folder"))))})
+  (interceptor/interceptor
+   {:name :check-folder-owner
+    :enter (fn [context]
+             (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
+                   owner (folder-owner db id)]
+               (cond
+                 (nil? owner) (terminate-request context 404 "Folder not found")
+                 (= (:user identity) owner) context
+                 :else (terminate-request context 401 "You don't own this folder"))))}))
 
 (defn redirect [route-key]
   (ring-resp/redirect (route-map/path-for route-key)))

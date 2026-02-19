@@ -78,6 +78,18 @@
       (testing "body has a db/id"
         (is (int? (:db/id (:body result))))))))
 
+(deftest test-create-folder--nil-name-defaults
+  (with-conn conn
+    (setup-db! conn)
+    (let [mocked-conn (dm/fork-conn conn)
+          result      (folder/create-folder {:conn           mocked-conn
+                                             :identity       {:user "alice"}
+                                             :transit-params {}})]
+      (testing "returns HTTP 200"
+        (is (= 200 (:status result))))
+      (testing "name defaults to New Folder"
+        (is (= "New Folder" (::folder5e/name (:body result))))))))
+
 ;; ---------------------------------------------------------------------------
 ;; folders (list)
 
@@ -116,6 +128,49 @@
         (is (= 200 (:status result))))
       (testing "folder name is updated"
         (is (= "New Name" (::folder5e/name (:body result))))))))
+
+;; ---------------------------------------------------------------------------
+;; update-folder-name — validation
+
+(deftest test-update-folder-name--blank-rejected
+  (with-conn conn
+    (setup-db! conn)
+    (let [mocked-conn (dm/fork-conn conn)
+          created     (create-folder! mocked-conn "alice" "Original")
+          folder-id   (:db/id created)]
+      (testing "empty string returns 400"
+        (is (= 400 (:status (folder/update-folder-name
+                              {:conn mocked-conn
+                               :transit-params ""
+                               :path-params {:id folder-id}})))))
+      (testing "whitespace-only returns 400"
+        (is (= 400 (:status (folder/update-folder-name
+                              {:conn mocked-conn
+                               :transit-params "   "
+                               :path-params {:id folder-id}})))))
+      (testing "nil coerced to blank returns 400"
+        (is (= 400 (:status (folder/update-folder-name
+                              {:conn mocked-conn
+                               :transit-params nil
+                               :path-params {:id folder-id}})))))
+      (testing "name is unchanged after rejected renames"
+        (let [db-name (::folder5e/name (d/pull (d/db mocked-conn)
+                                               [::folder5e/name] folder-id))]
+          (is (= "Original" db-name)))))))
+
+(deftest test-update-folder-name--trims-whitespace
+  (with-conn conn
+    (setup-db! conn)
+    (let [mocked-conn (dm/fork-conn conn)
+          created     (create-folder! mocked-conn "alice" "Old")
+          folder-id   (:db/id created)
+          result      (folder/update-folder-name {:conn mocked-conn
+                                                  :transit-params "  Trimmed  "
+                                                  :path-params {:id folder-id}})]
+      (testing "returns 200"
+        (is (= 200 (:status result))))
+      (testing "name is trimmed"
+        (is (= "Trimmed" (::folder5e/name (:body result))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; add-character

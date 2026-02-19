@@ -7749,7 +7749,7 @@
                     :print-spell-card-dc-mod? true})}
        "print"]
       (if (and (= username owner) (seq folders))
-        [:select.form-button.m-l-5.builder-dropdown
+        [:select.form-button.m-l-5.builder-option-dropdown
          {:value (or current-folder-id "")
           :on-change (fn [e]
                        (let [val (.-value (.-target e))]
