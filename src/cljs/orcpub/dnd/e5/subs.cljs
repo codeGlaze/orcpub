@@ -9,7 +9,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.db :refer [tab-path]]
-            [orcpub.dnd.e5.events :refer [url-for-route] :as events]
+            [orcpub.dnd.e5.events :refer [url-for-route handle-api-response] :as events]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.char-filter :as char-filter]
@@ -332,6 +332,8 @@
       {"Authorization" (str "Token " token)}
       {})))
 
+;; API-backed subscriptions — use handle-api-response for consistent
+;; status handling with sensible 401/500 defaults and catch-all logging.
 (reg-sub-raw
   ::char5e/characters
   (fn [app-db [_ login-optional?]]
@@ -339,11 +341,10 @@
         (let [response (<! (http/get (url-for-route routes/dnd-e5-char-summary-list-route)
                                      {:headers (auth-headers @app-db)}))]
           (dispatch [:set-loading false])
-          (case (:status response)
-            200 (dispatch [::char5e/set-characters (:body response)])
-            401 (if (not login-optional?)
-                  (dispatch [:route-to-login]))
-            500 (dispatch (events/show-generic-error)))))
+          (handle-api-response response
+            #(dispatch [::char5e/set-characters (:body response)])
+            :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
+            :context "fetch characters")))
     (ra/make-reaction
      (fn [] (get @app-db ::char5e/characters [])))))
 
@@ -354,11 +355,10 @@
         (let [response (<! (http/get (url-for-route routes/dnd-e5-char-parties-route)
                                      {:headers (auth-headers @app-db)}))]
           (dispatch [:set-loading false])
-          (case (:status response)
-            200 (dispatch [::party5e/set-parties (:body response)])
-            401 (if (not login-optional?)
-                  (dispatch [:route-to-login]))
-            500 (dispatch (events/show-generic-error)))))
+          (handle-api-response response
+            #(dispatch [::party5e/set-parties (:body response)])
+            :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
+            :context "fetch parties")))
     (ra/make-reaction
      (fn [] (get @app-db ::char5e/parties [])))))
 
@@ -368,14 +368,12 @@
     (if (and (:user @app-db) (:token (:user @app-db))) ;;check if logged in, prevent unncessary calls
      (go (let [hdrs (auth-headers @app-db)
               response (<! (http/get (url-for-route routes/user-route) {:headers hdrs}))]
-          (case (:status response)
-            200 nil
-            401 (do
-                  (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
-                  (if required?
-                    (dispatch [:route-to-login])))
-            500 (if required? (dispatch (events/show-generic-error)))))
-        ))
+          (handle-api-response response
+            (fn [])
+            :on-401 #(do (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
+                         (when required? (dispatch [:route-to-login])))
+            :on-500 #(when required? (dispatch (events/show-generic-error)))
+            :context "fetch user"))))
     (ra/make-reaction
      (fn [] (get @app-db :user [])))))
 
@@ -404,10 +402,9 @@
         (let [response (<! (http/get (url-for-route routes/dnd-e5-char-folders-route)
                                      {:headers (auth-headers @app-db)}))]
           (dispatch [:set-loading false])
-          (case (:status response)
-            200 (dispatch [::folder5e/set-folders (:body response)])
-            401 (dispatch [:route-to-login])
-            500 (dispatch (events/show-generic-error)))))
+          (handle-api-response response
+            #(dispatch [::folder5e/set-folders (:body response)])
+            :context "fetch folders")))
     (ra/make-reaction
      (fn [] (get @app-db ::folder5e/folders [])))))
 
@@ -463,12 +460,11 @@
                                            routes/dnd-e5-char-route
                                            :id int-id)))]
               (dispatch [:set-loading false])
-              (case (:status response)
-                200 (dispatch [::char5e/set-character
-                               int-id
-                               (char5e/from-strict (:body response))])
-                401 (dispatch [:route-to-login])
-                500 (dispatch (events/show-generic-error))))))
+              (handle-api-response response
+                #(dispatch [::char5e/set-character
+                            int-id
+                            (char5e/from-strict (:body response))])
+                :context (str "fetch character " int-id)))))
       (ra/make-reaction
        (fn []
          (if int-id

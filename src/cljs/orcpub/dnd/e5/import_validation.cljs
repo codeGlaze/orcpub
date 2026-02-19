@@ -1331,16 +1331,16 @@
 
    Parameters:
    - data: the import data (single or multi-plugin)
-   - renames: vector of {:source :content-type :old-key :new-key}
+   - renames: vector of {:source :content-type :from :to}
 
    Returns updated data with all renames applied."
   [data renames]
   (let [is-multi (is-multi-plugin? data)]
     (reduce
-     (fn [d {:keys [source content-type old-key new-key]}]
+     (fn [d {:keys [source content-type from to]}]
        (if is-multi
-         (rename-key-in-plugins d source content-type old-key new-key)
-         (rename-key-in-plugin d content-type old-key new-key)))
+         (rename-key-in-plugins d source content-type from to)
+         (rename-key-in-plugin d content-type from to)))
      data
      renames)))
 

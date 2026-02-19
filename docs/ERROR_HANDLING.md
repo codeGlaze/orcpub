@@ -188,6 +188,34 @@ All error handling utilities are fully tested. See `test/clj/orcpub/errors_test.
 - Log errors without context
 - Silently swallow exceptions
 
+## Client-Side API Response Handling
+
+All API-calling re-frame subscriptions use the `handle-api-response` HOF from `events.cljs`:
+
+```clojure
+(require '[orcpub.dnd.e5.events :refer [handle-api-response]])
+
+;; Basic usage — 401 routes to login, 500 shows generic error
+(handle-api-response response
+  #(dispatch [::set-data (:body response)])
+  :context "fetch characters")
+
+;; Custom overrides
+(handle-api-response response
+  #(dispatch [::set-data (:body response)])
+  :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
+  :on-500 #(when required? (dispatch (show-generic-error)))
+  :context "fetch user")
+```
+
+**Defaults:**
+- 200: calls `on-success`
+- 401: dispatches `:route-to-login` (override with `:on-401`)
+- 500: dispatches `show-generic-error` (override with `:on-500`)
+- Any other status: logs to console with `:context` string
+
+This prevents the class of bug where a bare `case` with no default clause crashes on unexpected HTTP statuses.
+
 ## Future Improvements
 
 Potential enhancements to consider:
@@ -200,7 +228,8 @@ Potential enhancements to consider:
 
 ## Related Files
 
-- `src/cljc/orcpub/errors.cljc` - Error handling utilities
+- `src/cljc/orcpub/errors.cljc` - Error handling utilities (backend)
+- `src/cljs/orcpub/dnd/e5/events.cljs` - `handle-api-response` HOF (client-side)
 - `test/clj/orcpub/errors_test.clj` - Comprehensive test suite
 - `src/clj/orcpub/email.clj` - Email operations with error handling
 - `src/clj/orcpub/datomic.clj` - Database connection with error handling

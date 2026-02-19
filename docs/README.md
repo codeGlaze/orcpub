@@ -79,8 +79,6 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 
 ## Known Limitations
 
-**Export validation:** Currently validates on import only. Export-time validation would catch issues earlier.
-
 **Field requirements:** Not all required fields are enforced. Some will silently break features (see HOMEBREW_REQUIRED_FIELDS.md).
 
 **Batch operations:** Can only import one file at a time. Multi-file import with cross-reference resolution would be valuable.
@@ -88,7 +86,7 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 ## Implementation Files
 
 **Import/Export:** `import_validation.cljs`, `events.cljs`
-**Import UI:** `views/import_log.cljs` (log panel), `views/conflict_resolution.cljs` (conflict modal, export warning)
+**Import UI:** `views/import_log.cljs` (log panel with grouped collapsible sections), `views/conflict_resolution.cljs` (conflict modal, export warning)
 **Content Reconciliation:** `content_reconciliation.cljs`, `subs.cljs`, `character_builder.cljs` (warning UI)
 **Error Handling:** `errors.cljc` (DRY macros)
 **Tests:** `import_validation_test.cljs`, `errors_test.clj`, `favored_enemy_language_test.cljc`

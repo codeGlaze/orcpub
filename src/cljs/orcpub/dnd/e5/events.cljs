@@ -1538,6 +1538,24 @@
 (defn show-generic-error []
   [:show-error-message [:div "There was an error, please refresh your browser and try again."]])
 
+(defn handle-api-response
+  "Dispatch on HTTP response status with sensible defaults.
+   on-success is called for 200. Options:
+     :on-401  — called on 401 (default: dispatch :route-to-login)
+     :on-500  — called on 500 (default: dispatch show-generic-error)
+     :context — string describing the request, used in console warning for unhandled statuses"
+  [response on-success & {:keys [on-401 on-500 context]}]
+  (case (:status response)
+    200 (on-success)
+    401 (if on-401
+          (on-401)
+          (dispatch [:route-to-login]))
+    500 (if on-500
+          (on-500)
+          (dispatch (show-generic-error)))
+    (js/console.warn "Unhandled HTTP status:" (:status response)
+                     (str "(" (or context "unknown request") ")"))))
+
 (reg-fx
  :http
  (fn [{:keys [on-success on-failure on-unauthorized auth-token] :as cfg}]
@@ -3759,8 +3777,8 @@
                         (= :rename-import (:action decision))
                         (conj acc {:source (:source decision)
                                    :content-type content-type
-                                   :old-key key
-                                   :new-key (:new-key decision)})
+                                   :from key
+                                   :to (:new-key decision)})
 
                         ;; Skip this item (don't import it)
                         (= :skip (:action decision))

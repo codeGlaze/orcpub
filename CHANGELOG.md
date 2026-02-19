@@ -30,6 +30,12 @@ All changes target `develop` from `feature/error-handling-import-validation`.
 ### Conflict Resolution Modal (`views/conflict_resolution.cljs`, `events.cljs`)
 - **Duplicate key detection**: On import, detects keys that conflict with already-loaded homebrew (both internal duplicates within a file and external conflicts with existing content).
 - **Resolution UI**: Modal presents each conflict with rename options. Key renaming updates internal references (subclass -> parent class mappings, etc.).
+- **Color-coded radio options**: Rename (cyan), Keep (orange), Skip (purple) with left-border + tinted background. All styles in Garden CSS.
+
+### Import Log Panel (`views/import_log.cljs`)
+- **Grouped collapsible sections**: Changes grouped into Key Renames, Field Fixes, Data Cleanup, and Advanced Details (collapsed by default). Empty sections hidden automatically.
+- **Detailed field fix reporting**: Field Fixes section shows per-item breakdown — which item, content type, which fields were filled, how many traits/options were fixed.
+- **Collapsible section component**: Reusable `collapsible-section` with configurable icon, colors, and default-expanded state.
 
 ### OrcBrew CLI Debug Tool (`tools/orcbrew.clj` -- new file)
 - `lein prettify-orcbrew <file>` -- Pretty-prints orcbrew EDN for readability.
@@ -53,6 +59,12 @@ All changes target `develop` from `feature/error-handling-import-validation`.
 - `plugin-vals` subscription wrapped in try-catch to skip malformed plugin data instead of crashing.
 - `level-modifier` handles unknown modifier types gracefully (logs warning, returns nil instead of throwing).
 - `make-levels` filters out nil modifiers with `keep`.
+
+### Unhandled HTTP Status Crash (`subs.cljs`, `equipment_subs.cljs`)
+- All 7 API-calling subscriptions used bare `case` on HTTP status with no default clause. Any unexpected status (e.g., 400) threw `No matching clause`. Replaced with `handle-api-response` HOF that logs unhandled statuses to console.
+
+### Import Log "Renamed key nil -> nil" (`events.cljs`, `import_validation.cljs`)
+- Key rename change entries used `:old-key`/`:new-key` fields but display code expected `:from`/`:to`. Unified on `:from`/`:to` across creation, application, and display.
 
 ---
 
@@ -90,12 +102,15 @@ All changes target `develop` from `feature/error-handling-import-validation`.
 
 ### Styles (`styles/core.clj`)
 - `.bg-warning`, `.bg-warning-item` CSS classes for warning banner UI.
+- `.conflict-*` Garden CSS classes for conflict resolution modal (backdrop, modal, header, footer, body, radio options with color-coded variants: cyan/rename, orange/keep, purple/skip).
+- `.export-issue-*` Garden CSS classes for export warning modal.
 
 ### App State (`db.cljs`)
 - Added `import-log` and `conflict-resolution` state maps to re-frame db.
 
-### Subscriptions (`subs.cljs`)
+### Subscriptions (`subs.cljs`, `equipment_subs.cljs`)
 - Import log, conflict resolution, export warning, missing content report subscriptions.
+- `handle-api-response` HOF (`events.cljs`) — centralizes HTTP status dispatch with sensible defaults (401 → login, 500 → generic error) and catch-all logging for unhandled statuses. Replaces bare `case` statements across 7 API-calling subscriptions.
 
 ### Entry Point (`core.cljs`)
 - Dev version logging on startup.

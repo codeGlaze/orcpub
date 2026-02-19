@@ -2,7 +2,8 @@
   "Import log slide-out panel and floating button.
    Displays import results: errors, skipped items, and auto-fixes applied."
   (:require [re-frame.core :refer [subscribe dispatch]]
-            [reagent.core :as r]))
+            [reagent.core :as r]
+            [clojure.string :as str]))
 
 (def ^:private code-style
   {:background "rgba(0,0,0,0.3)" :padding "2px 6px" :border-radius "3px"})
@@ -10,7 +11,11 @@
 (def ^:private code-style-sm
   (assoc code-style :font-size "11px"))
 
-(defn format-change-item [{:keys [type path field from to description] :as change}]
+(defn format-change-item
+  "Render a single change entry from the import log.
+   Dispatches on :type to produce the appropriate icon + description.
+   :filled-required-fields entries expand their :details into per-item sub-rows."
+  [{:keys [type path field from to description] :as change}]
   [:div.import-log-item
    {:style {:padding "8px 12px"
             :border-bottom "1px solid rgba(255,255,255,0.15)"
@@ -53,8 +58,31 @@
       (or description "Normalized Unicode characters to ASCII")]
 
      :filled-required-fields
-     [:span [:i.fa.fa-pencil.m-r-5 {:style {:color "#f0a100"}}]
-      (or description "Filled missing required fields with placeholders")]
+     (let [details (:details change)]
+       [:div
+        [:span [:i.fa.fa-pencil.m-r-5 {:style {:color "#f0a100"}}]
+         (or description "Filled missing required fields with placeholders")]
+        (when (seq details)
+          [:div {:style {:margin-top "4px" :padding-left "20px"}}
+           (for [[idx {:keys [key content-type plugin changes]}] (map-indexed vector details)]
+             ^{:key idx}
+             [:div {:style {:padding "2px 0" :font-size "11px"
+                            :color "rgba(255,255,255,0.6)"}}
+              [:code {:style code-style-sm} (name key)]
+              (when content-type
+                [:span " (" (-> (name content-type) (.replace "orcpub.dnd.e5/" "")) ")"])
+              (when plugin
+                [:span {:style {:color "rgba(255,255,255,0.35)"}} (str " in " plugin)])
+              (let [{:keys [fields traits-fixed options-fixed]} changes
+                    parts (cond-> []
+                            (seq fields)
+                            (conj (str "filled " (str/join ", " (map name fields))))
+                            (and traits-fixed (pos? traits-fixed))
+                            (conj (str traits-fixed " trait(s) named"))
+                            (and options-fixed (pos? options-fixed))
+                            (conj (str options-fixed " option(s) filled")))]
+                (when (seq parts)
+                  [:span " \u2014 " (str/join "; " parts)]))])])])
 
      :key-renamed
      [:span [:i.fa.fa-tag.m-r-5 {:style {:color "#47eaf8"}}]
@@ -65,9 +93,10 @@
      [:span (pr-str change)])])
 
 (defn collapsible-section
-  "A collapsible section with header and content. Open by default."
-  [{:keys [title icon icon-color bg-color border-color]} content]
-  (let [expanded? (r/atom true)]
+  "A collapsible section with header and content.
+   Pass :default-expanded? false to start collapsed."
+  [{:keys [title icon icon-color bg-color border-color default-expanded?]} content]
+  (let [expanded? (r/atom (if (some? default-expanded?) default-expanded? true))]
     (fn [{:keys [title icon icon-color bg-color border-color]} content]
       [:div {:style {:margin "10px"}}
        [:div.flex.align-items-c.f-w-b.pointer
@@ -146,18 +175,51 @@
              [:div.f-w-b {:style {:color "#f0a100"}} (name (:key item))]
              [:div.f-s-12 {:style {:color "rgba(255,255,255,0.35)" :margin-top "4px"}} (:errors item)]])]])
 
-      ;; Changes section
-      (when (seq (:changes log))
-        [collapsible-section
-         {:title (str "Auto-Fixes Applied (" (count (:changes log)) ")")
-          :icon "fa-wrench"
-          :icon-color "#47eaf8"
-          :bg-color "rgba(71, 234, 248, 0.08)"
-          :border-color "#47eaf8"}
-         [:div
-          (for [[idx change] (map-indexed vector (:changes log))]
-            ^{:key idx}
-            [format-change-item change])]])
+      ;; Grouped change sections
+      (let [changes (:changes log)
+            user-types #{:key-renamed :filled-required-fields
+                         :string-fix :text-normalization :renamed-plugin-key}
+            sections [{:types #{:key-renamed}
+                       :title-fn #(str "Key Renames (" (count %) ")")
+                       :icon "fa-tag" :icon-color "#47eaf8"
+                       :bg-color "rgba(71, 234, 248, 0.08)" :border-color "#47eaf8"}
+                      {:types #{:filled-required-fields}
+                       :title-fn (fn [items]
+                                   (let [detail-count (reduce + 0 (map #(count (:details %)) items))]
+                                     (if (pos? detail-count)
+                                       (str "Field Fixes (" detail-count " items)")
+                                       (str "Field Fixes (" (count items) ")"))))
+                       :icon "fa-pencil" :icon-color "#f0a100"
+                       :bg-color "rgba(240, 161, 0, 0.1)" :border-color "#f0a100"}
+                      {:types #{:string-fix :text-normalization :renamed-plugin-key}
+                       :title-fn #(str "Data Cleanup (" (count %) ")")
+                       :icon "fa-wrench" :icon-color "#47eaf8"
+                       :bg-color "rgba(71, 234, 248, 0.08)" :border-color "#47eaf8"}]
+            ;; Debug section: known debug types + any unknown types (catch-all)
+            debug-items (filterv #(not (user-types (:type %))) changes)]
+        [:div
+         (for [{:keys [types title-fn icon icon-color bg-color border-color]} sections
+               :let [items (filterv #(types (:type %)) changes)]
+               :when (seq items)]
+           ^{:key (str (first types))}
+           [collapsible-section
+            {:title (title-fn items)
+             :icon icon :icon-color icon-color
+             :bg-color bg-color :border-color border-color}
+            [:div
+             (for [[idx change] (map-indexed vector items)]
+               ^{:key idx}
+               [format-change-item change])]])
+         (when (seq debug-items)
+           [collapsible-section
+            {:title (str "Advanced Details (" (count debug-items) ")")
+             :icon "fa-cog" :icon-color "rgba(255,255,255,0.35)"
+             :bg-color "rgba(255,255,255,0.04)" :border-color "rgba(255,255,255,0.15)"
+             :default-expanded? false}
+            [:div
+             (for [[idx change] (map-indexed vector debug-items)]
+               ^{:key idx}
+               [format-change-item change])]])])
 
       ;; Empty state
       (when (and (empty? (:errors log))
