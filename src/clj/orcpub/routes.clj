@@ -68,10 +68,13 @@
     :in $ ?username
     :where [?e :orcpub.user/username ?username]])
 
+;; Case-insensitive email lookup to guard against mixed-case legacy data.
+;; Callers must pass a lowercased email.
 (def email-query
   '[:find ?e
     :in $ ?email
-    :where [?e :orcpub.user/email ?email]])
+    :where [?e :orcpub.user/email ?stored]
+           [(clojure.string/lower-case ?stored) ?email]])
 
 (defn find-user-by-username-or-email [db username-or-email]
   (d/q
@@ -269,6 +272,12 @@
    params
    verification-key))
 
+(defn send-email-change-verification [request params verification-key]
+  (email/send-email-change-verification
+   (base-url request)
+   params
+   verification-key))
+
 (defn do-verification [request params conn & [tx-data]]
   (let [verification-key (str (java.util.UUID/randomUUID))
         now (java.util.Date.)]
@@ -341,14 +350,29 @@
 
           (or (nil? verification-sent)
               (verification-expired? verification-sent))
-          (redirect route-map/verify-failed-route)
+          ;; Clean up stale pending state so user can request a fresh change
+          (do (let [retractions (cond-> [[:db/retract id :orcpub.user/verification-key key]
+                                         [:db/retract id :orcpub.user/verification-sent verification-sent]]
+                                  pending-email
+                                  (conj [:db/retract id :orcpub.user/pending-email pending-email]))]
+                @(d/transact conn retractions))
+              (redirect route-map/verify-failed-route))
 
           pending-email
-          (do @(d/transact conn [{:db/id id
-                                  :orcpub.user/email pending-email
-                                  :orcpub.user/verified? true}
-                                 [:db/retract id :orcpub.user/pending-email pending-email]])
-              (redirect route-map/verify-success-route))
+          ;; Guard: re-check that the target email hasn't been claimed since request.
+          ;; All paths retract verification-key and verification-sent to prevent
+          ;; link reuse and avoid stale rate-limit data.
+          (if (seq (d/q email-query (d/db conn) pending-email))
+            (do @(d/transact conn [[:db/retract id :orcpub.user/pending-email pending-email]
+                                   [:db/retract id :orcpub.user/verification-key key]
+                                   [:db/retract id :orcpub.user/verification-sent verification-sent]])
+                (redirect route-map/verify-failed-route))
+            (do @(d/transact conn [{:db/id id
+                                    :orcpub.user/email pending-email}
+                                   [:db/retract id :orcpub.user/pending-email pending-email]
+                                   [:db/retract id :orcpub.user/verification-key key]
+                                   [:db/retract id :orcpub.user/verification-sent verification-sent]])
+                (redirect route-map/verify-success-route)))
 
           :else
           (do @(d/transact conn [{:db/id id
@@ -609,7 +633,7 @@
   (check-field username-query (:username query-params) db))
 
 (defn check-email [{:keys [db query-params]}]
-  (check-field email-query (:email query-params) db))
+  (check-field email-query (some-> (:email query-params) s/lower-case) db))
 
 (defn character-for-id [db id]
   (d/pull db '[*] id))
@@ -910,54 +934,104 @@
     @(d/transact conn [[:db/retractEntity user]])
     {:status 200}))
 
-(defn email-change-rate-limited? [verification-sent pending-email]
+(defn rate-limit-remaining-secs
+  "Seconds until the user can act again. In the 0–1 min zone (email in transit)
+   returns time until the 1-min resend window opens. In the 1–5 min zone (for a
+   different email) returns time until the 5-min cooldown expires."
+  [verification-sent new-email pending-email]
+  (when verification-sent
+    (let [elapsed-ms (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))
+          ;; If same email, they're waiting for the 1-min resend window to open.
+          ;; If different email, they're waiting for the full 5-min cooldown.
+          target-ms (if (= new-email pending-email)
+                      (* 1 60 1000)
+                      (* 5 60 1000))
+          remaining-ms (- target-ms elapsed-ms)]
+      (when (pos? remaining-ms)
+        (int (Math/ceil (/ remaining-ms 1000.0)))))))
+
+(defn email-change-rate-limited? [verification-sent pending-email new-email]
   ;; Only rate-limit if the last key was generated for a pending email change
   ;; (not for initial registration verification).
-  ;; Allow at most one request per 5 minutes.
+  ;; Three zones from verification-sent:
+  ;;   0–1 min  → too soon, email is in transit (always blocked)
+  ;;   1–5 min  → free resend allowed for same email, otherwise blocked
+  ;;   5+ min   → open for any request
   (and pending-email
        verification-sent
-       (t/before? (-> 5 t/minutes t/ago) (tc/from-date verification-sent))))
+       (let [elapsed-ms (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))
+             same-email? (= new-email pending-email)]
+         (cond
+           (>= elapsed-ms (* 5 60 1000)) false          ;; past cooldown
+           (< elapsed-ms (* 1 60 1000))  true           ;; too soon
+           :else                          (not same-email?)))) ;; 1-5 min: resend ok, new email blocked
+  )
 
 (defn request-email-change [{:keys [transit-params db conn identity] :as request}]
   (try
-    (let [new-email (s/lower-case (s/trim (str transit-params)))
-          username (:user identity)
-          {:keys [:db/id
-                  :orcpub.user/email
-                  :orcpub.user/pending-email
-                  :orcpub.user/verification-sent] :as user} (find-user-by-username db username)]
-      (cond
-        (nil? id)
+    ;; Client sends {:new-email "..."} (confirm-email is validated client-side only)
+    (let [new-email (s/lower-case (s/trim (str (:new-email transit-params))))
+          username (:user identity)]
+      (if (nil? username)
         {:status 400 :body {:error :user-not-found}}
+        (let [{:keys [:db/id
+                      :orcpub.user/email
+                      :orcpub.user/pending-email
+                      :orcpub.user/verification-sent] :as user} (find-user-by-username db username)]
+          (cond
+            (nil? id)
+            {:status 400 :body {:error :user-not-found}}
 
-        (registration/bad-email? new-email)
-        {:status 400 :body {:error :invalid-email}}
+            (registration/bad-email? new-email)
+            {:status 400 :body {:error :invalid-email}}
 
-        (= new-email (some-> email s/lower-case))
-        {:status 400 :body {:error :same-as-current}}
+            (= new-email (some-> email s/lower-case))
+            {:status 400 :body {:error :same-as-current}}
 
-        (email-change-rate-limited? verification-sent pending-email)
-        {:status 429 :body {:error :too-many-requests}}
+            (email-change-rate-limited? verification-sent pending-email new-email)
+            {:status 429 :body {:error :too-many-requests
+                                :retry-after-secs (rate-limit-remaining-secs verification-sent new-email pending-email)}}
 
-        ;; Check no other account already owns this email
-        (seq (d/q email-query db new-email))
-        {:status 400 :body {:error :email-taken}}
+            ;; Check no other account already owns this email
+            (seq (d/q email-query db new-email))
+            {:status 400 :body {:error :email-taken}}
 
-        :else
-        (let [verification-key (str (java.util.UUID/randomUUID))
-              now (java.util.Date.)]
-          @(d/transact conn [{:db/id id
-                              :orcpub.user/pending-email new-email
-                              :orcpub.user/verification-key verification-key
-                              :orcpub.user/verification-sent now}])
-          (try
-            (send-verification-email request
-                                     {:email new-email
-                                      :first-and-last-name "OrcPub Patron"}
-                                     verification-key)
-            (catch Throwable e
-              (prn "Warning: email sending failed (check SMTP config):" (.getMessage e))))
-          {:status 200})))
+            ;; Free resend: same email, 1–5 min after original send. Re-send with
+            ;; existing key and don't update verification-sent (no rolling window).
+            (and (= new-email pending-email)
+                 verification-sent
+                 (let [elapsed (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))]
+                   (and (>= elapsed (* 1 60 1000))
+                        (< elapsed (* 5 60 1000)))))
+            (try
+              (send-email-change-verification request
+                                              {:email new-email :username username}
+                                              (:orcpub.user/verification-key user))
+              {:status 200 :body {:pending-email new-email}}
+              (catch Throwable e
+                (prn "Email resend failed:" (.getMessage e))
+                {:status 500 :body {:error :email-send-failed}}))
+
+            :else
+            (let [verification-key (str (java.util.UUID/randomUUID))
+                  now (java.util.Date.)]
+              @(d/transact conn [{:db/id id
+                                  :orcpub.user/pending-email new-email
+                                  :orcpub.user/verification-key verification-key
+                                  :orcpub.user/verification-sent now}])
+              ;; Roll back pending-email if verification email fails to send
+              (try
+                (send-email-change-verification request
+                                                {:email new-email :username username}
+                                                verification-key)
+                {:status 200 :body {:pending-email new-email}}
+                (catch Throwable e
+                  (prn "Email send failed, rolling back pending state:" (.getMessage e))
+                  ;; Full rollback: retract all attributes set by the failed attempt
+                  @(d/transact conn [[:db/retract id :orcpub.user/pending-email new-email]
+                                     [:db/retract id :orcpub.user/verification-key verification-key]
+                                     [:db/retract id :orcpub.user/verification-sent now]])
+                  {:status 500 :body {:error :email-send-failed}})))))))
     (catch Throwable e (prn e) (throw e))))
 
 (defn character-summary-description [{:keys [::char5e/race-name ::char5e/subrace-name ::char5e/classes]}]

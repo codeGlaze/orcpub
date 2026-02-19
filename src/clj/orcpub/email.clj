@@ -27,6 +27,32 @@
   [{:type "text/html"
     :content (hiccup/html (verification-email-html first-and-last-name username verification-url))}])
 
+(defn email-change-verification-html
+  "Email body for existing users changing their email (distinct from registration)."
+  [username verification-url]
+  [:div
+   "Dear OrcPub Patron,"
+   [:br]
+   [:br]
+   "You requested to change the email address on your OrcPub account (" username "). "
+   "Please visit the following URL to confirm this change:"
+   [:br]
+   [:br]
+   [:a {:href verification-url} verification-url]
+   [:br]
+   [:br]
+   "If you did not request this change, you can safely ignore this email."
+   [:br]
+   [:br]
+   "Sincerely,"
+   [:br]
+   [:br]
+   "The OrcPub Team"])
+
+(defn email-change-verification-email [username verification-url]
+  [{:type "text/html"
+    :content (hiccup/html (email-change-verification-html username verification-url))}])
+
 (defn email-cfg []
   (let [cfg {:user (environ/env :email-access-key)
              :pass (environ/env :email-secret-key)
@@ -34,11 +60,6 @@
              :port (Integer/parseInt (or (environ/env :email-server-port) "587"))
              :ssl  (or (str/to-bool (environ/env :email-ssl)) nil)
              :tls  (or (str/to-bool (environ/env :email-tls)) nil)}]
-    (println "[email-cfg] host=" (:host cfg)
-             "user=" (:user cfg)
-             "port=" (:port cfg)
-             "ssl=" (:ssl cfg)
-             "tls=" (:tls cfg))
     cfg))
 
 (defn emailfrom []
@@ -51,6 +72,17 @@
                         :subject "OrcPub Email Verification"
                         :body (verification-email
                                first-and-last-name
+                               username
+                               (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))}))
+
+(defn send-email-change-verification
+  "Send a verification email for an email-change request (not registration)."
+  [base-url {:keys [email username]} verification-key]
+  (postal/send-message (email-cfg)
+                       {:from (str "OrcPub Team <" (emailfrom) ">")
+                        :to email
+                        :subject "OrcPub Email Change Verification"
+                        :body (email-change-verification-email
                                username
                                (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))}))
 

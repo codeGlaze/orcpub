@@ -7502,11 +7502,20 @@
 
 (defn my-account-page []
   (r/with-let [editing? (r/atom false)
-               new-email (r/atom "")]
+               new-email (r/atom "")
+               confirm-email (r/atom "")]
     (let [current-email @(subscribe [:email])
           pending-email @(subscribe [:pending-email])
           sent? @(subscribe [:email-change-sent?])
-          error @(subscribe [:email-change-error])]
+          error @(subscribe [:email-change-error])
+          ;; Client-side validation: format check + confirm match
+          bad-format? (and (seq @new-email)
+                          (registration/bad-email? @new-email))
+          emails-dont-match? (and (seq @confirm-email)
+                                  (not= @new-email @confirm-email))
+          can-submit? (and (seq @new-email)
+                           (not bad-format?)
+                           (= @new-email @confirm-email))]
       [content-page
        "My Account"
        [{:title (str "Delete Account")
@@ -7526,10 +7535,11 @@
            sent?
            [:div
             [:span current-email]
-            [:div.m-t-5.f-s-14 "A verification email has been sent to your new address. Click the link in that email to confirm the change."]
+            [:div.m-t-5.f-s-14 "A verification email has been sent to " [:strong pending-email] ". Click the link in that email to confirm the change."]
             [:button.link-button.m-t-5.f-s-14
              {:on-click #(do (reset! editing? true)
                              (reset! new-email "")
+                             (reset! confirm-email "")
                              (dispatch [:change-email-clear]))}
              "Change again"]]
 
@@ -7540,13 +7550,26 @@
               :value @new-email
               :placeholder "New email address"
               :on-change #(reset! new-email (event-value %))}]
+            (when bad-format?
+              [:div.m-t-5.red "Not a valid email format"])
+            ;; Confirm field to prevent typo-induced lockout
+            [:input.input.m-t-5
+             {:type :email
+              :value @confirm-email
+              :placeholder "Confirm new email address"
+              :on-change #(reset! confirm-email (event-value %))}]
+            (when emails-dont-match?
+              [:div.m-t-5.red "Email addresses don't match"])
             [:div.m-t-5
              [:button.form-button
-              {:on-click #(dispatch [:change-email @new-email])}
+              {:disabled (not can-submit?)
+               :on-click #(when can-submit?
+                            (dispatch [:change-email @new-email]))}
               "Save"]
              [:button.link-button.m-l-10
               {:on-click #(do (reset! editing? false)
                               (reset! new-email "")
+                              (reset! confirm-email "")
                               (dispatch [:change-email-clear]))}
               "Cancel"]]
             (when error
@@ -7556,10 +7579,19 @@
            [:div
             [:span current-email]
             (when pending-email
-              [:div.m-t-5.f-s-14 "Pending: " pending-email " — check your email to verify the change."])
+              [:div.m-t-5.f-s-14
+               "Pending: " pending-email " — check your email to verify the change. "
+               ;; Resend uses the same change-email flow; server enforces 3-zone rate limit
+               ;; (0–1 min blocked, 1–5 min free resend, 5+ min open)
+               [:button.link-button.f-s-14
+                {:on-click #(dispatch [:change-email pending-email])}
+                "Resend"]
+               (when error
+                 [:span.m-l-5.red.f-s-14 error])])
             [:button.link-button.m-l-10
              {:on-click #(do (reset! editing? true)
                              (reset! new-email "")
+                             (reset! confirm-email "")
                              (dispatch [:change-email-clear]))}
              "Change"]])]]])))
 
