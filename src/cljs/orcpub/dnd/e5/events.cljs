@@ -474,10 +474,11 @@
    error message. Falls back to the static message if parsing fails."
   [type-name explanation fallback-message]
   (if-let [problems (::spec/problems explanation)]
-    (let [missing-fields (->> problems
+    (let [contains-syms #{'cljs.core/contains? 'clojure.core/contains?}
+          missing-fields (->> problems
                               (keep (fn [{:keys [pred]}]
                                       (when (and (sequential? pred)
-                                                 (= 'cljs.core/contains? (first pred)))
+                                                 (contains-syms (first pred)))
                                         (name (last pred)))))
                               distinct)]
       (if (seq missing-fields)

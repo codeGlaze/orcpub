@@ -244,12 +244,12 @@
         (println "  lein prettify-orcbrew my-content.orcbrew")
         (println "  lein prettify-orcbrew my-content.orcbrew --analyze")
         (println "  lein prettify-orcbrew my-content.orcbrew --output=pretty.edn")
-        (System/exit 1))
+        (throw (ex-info "No filepath provided" {:type :usage-error})))
 
       (not (.exists (io/file filepath)))
       (do
         (println (str "Error: File not found: " filepath))
-        (System/exit 1))
+        (throw (ex-info (str "File not found: " filepath) {:type :file-not-found :filepath filepath})))
 
       analyze?
       (analyze-file filepath)

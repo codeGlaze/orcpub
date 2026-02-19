@@ -98,7 +98,7 @@
     (string? data) (normalize-text data)
     (map? data) (into {} (map (fn [[k v]] [k (normalize-text-in-data v)]) data))
     (vector? data) (mapv normalize-text-in-data data)
-    (seq? data) (map normalize-text-in-data data)
+    (seq? data) (mapv normalize-text-in-data data)
     (set? data) (set (map normalize-text-in-data data))
     :else data))
 
@@ -539,42 +539,36 @@
     {:valid true :warnings [...]} if exportable (no required field issues)
     {:valid false :errors [...] :missing-fields-issues [...]} if has required field issues"
   [plugin-data]
-  (let [warnings (atom [])
-        ;; Check for missing required fields (names, etc.)
-        required-field-validation (validate-plugin-for-export plugin-data)]
-
-    ;; Check for nil values
-    (doseq [[k v] plugin-data]
-      (when (nil? v)
-        (swap! warnings conj (str "Found nil value for key: " k))))
-
-    ;; Check for empty option-pack strings
-    (doseq [[content-key items] plugin-data]
-      (when (and (qualified-keyword? content-key) (map? items))
-        (doseq [[item-key item] items]
-          (when (and (map? item)
-                    (or (nil? (:option-pack item))
-                        (= "" (:option-pack item))))
-            (swap! warnings conj
-                   (str "Item " (name content-key) "/" (name item-key)
-                        " has missing option-pack"))))))
+  (let [required-field-validation (validate-plugin-for-export plugin-data)
+        ;; Collect nil-value warnings
+        nil-warnings (keep (fn [[k v]] (when (nil? v) (str "Found nil value for key: " k)))
+                           plugin-data)
+        ;; Collect empty option-pack warnings
+        option-pack-warnings (for [[content-key items] plugin-data
+                                   :when (and (qualified-keyword? content-key) (map? items))
+                                   [item-key item] items
+                                   :when (and (map? item)
+                                              (or (nil? (:option-pack item))
+                                                  (= "" (:option-pack item))))]
+                               (str "Item " (name content-key) "/" (name item-key)
+                                    " has missing option-pack"))
+        warnings (into (vec nil-warnings) option-pack-warnings)]
 
     ;; Check for required field issues
     (if (not (:valid required-field-validation))
-      ;; Has missing required fields - return issues for modal
       {:valid false
        :has-missing-required-fields true
        :missing-fields-issues (:issues required-field-validation)
-       :warnings @warnings
+       :warnings warnings
        :errors ["Some items are missing required fields (names, etc.)"]}
 
       ;; No required field issues - run full spec validation
       (if (spec/valid? ::e5/plugin plugin-data)
         {:valid true
-         :warnings @warnings}
+         :warnings warnings}
         {:valid false
          :errors (format-validation-errors (spec/explain-data ::e5/plugin plugin-data))
-         :warnings @warnings}))))
+         :warnings warnings}))))
 
 (defn fill-missing-for-export
   "Fill missing required fields in a plugin for export.
@@ -978,51 +972,44 @@
 
         ;; Find external conflicts (import vs existing)
         external-conflicts (when existing-plugins
-                            (let [existing-keys (collect-all-keys-from-plugins existing-plugins)
-                                  ;; For each import key, check if it exists in existing
-                                  conflicts (atom [])]
-                              (doseq [[content-type import-items] import-keys
-                                      {:keys [key source] item-name :name} import-items]
-                                (when-let [existing-items (get existing-keys content-type)]
-                                  (when-let [existing (first (filter #(= (:key %) key) existing-items))]
-                                    ;; Only conflict if from different source
-                                    (when (not= source (:source existing))
-                                      (swap! conflicts conj
-                                             {:key key
-                                              :content-type content-type
-                                              :content-type-name (get content-type-names content-type
-                                                                      (clojure.core/name content-type))
-                                              :import-source source
-                                              :import-name item-name
-                                              :existing-source (:source existing)
-                                              :existing-name (:name existing)})))))
-                              @conflicts))]
+                            (let [existing-keys (collect-all-keys-from-plugins existing-plugins)]
+                              (for [[content-type import-items] import-keys
+                                    {:keys [key source] item-name :name} import-items
+                                    :let [existing-items (get existing-keys content-type)
+                                          existing (when existing-items
+                                                     (first (filter #(= (:key %) key) existing-items)))]
+                                    :when (and existing (not= source (:source existing)))]
+                                {:key key
+                                 :content-type content-type
+                                 :content-type-name (get content-type-names content-type
+                                                         (clojure.core/name content-type))
+                                 :import-source source
+                                 :import-name item-name
+                                 :existing-source (:source existing)
+                                 :existing-name (:name existing)})))]
     {:internal-conflicts internal-conflicts
      :external-conflicts (or external-conflicts [])}))
 
 (defn format-duplicate-key-warnings
   "Formats duplicate key conflicts into user-friendly warning messages."
   [{:keys [internal-conflicts external-conflicts]}]
-  (let [warnings (atom [])]
-    ;; Internal conflicts
-    (doseq [{:keys [key content-type-name sources]} internal-conflicts]
-      (swap! warnings conj
-             {:type :internal-duplicate
-              :severity :warning
-              :message (str "Duplicate " content-type-name " key :" (name key)
-                           " found in: " (str/join ", " (map :source sources)))}))
-    ;; External conflicts
-    (doseq [{:keys [key content-type-name import-source import-name
-                    existing-source existing-name]} external-conflicts]
-      (swap! warnings conj
-             {:type :external-duplicate
-              :severity :warning
-              :key key
-              :content-type-name content-type-name
-              :message (str "Key :" (name key) " (" content-type-name ") conflicts: "
-                           "\"" import-name "\" from " import-source
-                           " vs \"" existing-name "\" from " existing-source)}))
-    @warnings))
+  (into
+   (mapv (fn [{:keys [key content-type-name sources]}]
+           {:type :internal-duplicate
+            :severity :warning
+            :message (str "Duplicate " content-type-name " key :" (name key)
+                         " found in: " (str/join ", " (map :source sources)))})
+         internal-conflicts)
+   (map (fn [{:keys [key content-type-name import-source import-name
+                     existing-source existing-name]}]
+          {:type :external-duplicate
+           :severity :warning
+           :key key
+           :content-type-name content-type-name
+           :message (str "Key :" (name key) " (" content-type-name ") conflicts: "
+                        "\"" import-name "\" from " import-source
+                        " vs \"" existing-name "\" from " existing-source)})
+        external-conflicts)))
 
 ;; ============================================================================
 ;; Fuzzy Key Matching
@@ -1035,10 +1022,15 @@
   (let [s1 (name s1)
         s2 (name s2)
         len1 (count s1)
-        len2 (count s2)]
+        len2 (count s2)
+        len-diff (Math/abs (- len1 len2))]
     (cond
       (zero? len1) len2
       (zero? len2) len1
+      ;; Early return: if lengths differ by more than 10, edit distance is at
+      ;; least len-diff and the normalized similarity score will be very low.
+      ;; Skip the expensive O(n*m) matrix computation.
+      (> len-diff 10) len-diff
       :else
       (let [;; Create distance matrix
             matrix (vec (for [i (range (inc len1))]
