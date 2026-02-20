@@ -4,11 +4,11 @@ name: Docker Releases
 on:
   push:
     tags:
-      - 'v*'                     # e.g. v1.0, v2.3.4
+      - '*'                     # e.g. 1.0, 2.3.4.4
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag name to build (e.g., v1.2.3)"
+        description: "Tag name to build (e.g., 1.2.3.4)"
         required: true
 
 jobs:
@@ -23,25 +23,26 @@ jobs:
         id: get_version
         run: |
           if [[ -n "${{ github.event.inputs.tag }}" ]]; then
-            ref="${{ github.event.inputs.tag }}"
+            VERSION="${{ github.event.inputs.tag }}"
           else
-            ref="${GITHUB_REF}"
+            VERSION="${GITHUB_REF#refs/tags/}"
           fi
-          echo "VERSION1=${ref#refs/*/}" >> $GITHUB_OUTPUT
-          echo "VERSION2=${ref#refs/*/v}" >> $GITHUB_OUTPUT
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
 
       # --------------------------------------------------------------------
       # Checkout the repo (HTTPS – no SSH key needed)
       # --------------------------------------------------------------------
       - name: Checkout
         uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.tag && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
 
       # --------------------------------------------------------------------
       # Update version/date in src/cljs/orcpub/ver.cljc
       # --------------------------------------------------------------------
       - name: Update src/cljs/orcpub/ver.cljc
         run: |
-          sed -i 's/defn version \[\] ".*"/defn version [] "${{ steps.get_version.outputs.VERSION1 }}"/' src/cljs/orcpub/ver.cljc
+          sed -i 's/defn version \[\] ".*"/defn version [] "${{ steps.get_version.outputs.VERSION }}"/' src/cljs/orcpub/ver.cljc
           sed -i 's/defn date \[\] ".*"/defn date [] "$(date +%m-%d-%Y)"/' src/cljs/orcpub/ver.cljc
           cat src/cljs/orcpub/ver.cljc
 
@@ -75,14 +76,14 @@ jobs:
       # --------------------------------------------------------------------
       # Build & push the versioned image for orcpub
       # --------------------------------------------------------------------
-      - name: Build and push ${{ steps.get_version.outputs.VERSION2 }} orcpub
+      - name: Build and push ${{ steps.get_version.outputs.VERSION }} orcpub
         uses: docker/build-push-action@v3
         with:
           context: .
           file: ./docker/orcpub/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: orcpub/orcpub:release-${{ steps.get_version.outputs.VERSION2 }}
+          tags: orcpub/orcpub:release-${{ steps.get_version.outputs.VERSION }}
 
       # --------------------------------------------------------------------
       # Build & push the “latest” image for datomic
@@ -99,14 +100,14 @@ jobs:
       # --------------------------------------------------------------------
       #  Build & push the versioned image for datomic
       # --------------------------------------------------------------------
-      - name: Build and push ${{ steps.get_version.outputs.VERSION2 }} datomic
+      - name: Build and push ${{ steps.get_version.outputs.VERSION }} datomic
         uses: docker/build-push-action@v3
         with:
           context: .
           file: ./docker/datomic/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: orcpub/datomic:release-${{ steps.get_version.outputs.VERSION2 }}
+          tags: orcpub/datomic:release-${{ steps.get_version.outputs.VERSION }}
 
       # --------------------------------------------------------------------
       #  Commit the updated version file back to *develop*
@@ -118,5 +119,5 @@ jobs:
           git fetch --all
           git checkout develop || git checkout -b develop
           git add src/cljs/orcpub/ver.cljc
-          git commit -m "Update version to ${{ steps.get_version.outputs.VERSION1 }}"
+          git commit -m "Update version to ${{ steps.get_version.outputs.VERSION }}"
           git push

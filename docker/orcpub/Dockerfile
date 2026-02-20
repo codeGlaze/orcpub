@@ -1,5 +1,4 @@
-FROM clojure:openjdk-8-lein as builder
-MAINTAINER daemonsthere@gmail.com
+FROM clojure:lein as builder
 
 # Build cache layer
 ADD ./lib/ /root/.m2/repository/
@@ -11,8 +10,7 @@ ADD ./ /orcpub
 RUN printenv &&\
 	lein uberjar
 
-FROM openjdk:8-jre-alpine as runner
-MAINTAINER daemonsthere@gmail.com
+FROM eclipse-temurin:8-jre-alpine as runner
 
 COPY --from=builder /orcpub/target/orcpub.jar /orcpub.jar
 

@@ -103,6 +103,7 @@
 (def check-email-route :check-email)
 (def check-username-route :check-username)
 (def user-route :user)
+(def user-email-route :user-email)
 (def reset-password-page-route :reset-password-page)
 (def reset-password-route :reset-password)
 (def send-password-reset-route :send-password-reset)
@@ -124,8 +125,9 @@
                   "re-verify" re-verify-route
                   "register" register-route
                   "login" login-route
-                  "user" user-route
-                  
+                  "user" {"" user-route
+                          "/email" user-email-route}
+
                   "character.pdf" character-pdf-route
                   "check-email" check-email-route
                   "check-username" check-username-route
