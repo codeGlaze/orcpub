@@ -15,7 +15,10 @@
                       orcpub.dnd.e5.options/potent-spellcasting
                       ;; Live callers exist but LSP can't trace them
                       orcpub.common/dissoc-in                ; events.cljs
-                      orcpub.dnd.e5.character/add-ability-namespaces] ; test
+                      orcpub.dnd.e5.character/add-ability-namespaces ; test
+                      ;; Cross-file refs: used in template.cljc but defined in spell_subs.cljs
+                      orcpub.dnd.e5.spell-subs/sunlight-sensitivity
+                      orcpub.dnd.e5.spell-subs/mask-of-the-wild-mod]
             ;; re-frame event handlers are dispatched via keyword, not var reference.
             ;; LSP can't connect reg-event-db registration to (dispatch [:keyword]).
             :exclude-when-defined-by #{re-frame.core/reg-event-db
@@ -27,7 +30,10 @@
            ;; clj-kondo can't resolve macro-generated vars statically and
            ;; garden doesn't ship a clj-kondo config.
            :unresolved-var
-           {:exclude [garden.selectors]}
+           {:exclude [garden.selectors
+                      ;; errors.cljc macros behind #?(:clj) reader conditional —
+                      ;; one kondo instance can't resolve them
+                      orcpub.errors]}
            ;; read-string is a valid cljs.core symbol that clj-kondo
            ;; doesn't recognize in its ClojureScript analysis data.
            :unresolved-symbol
@@ -64,7 +70,5 @@
  :lint-as {reagent.core/with-let clojure.core/let
            hiccup.def/defhtml clojure.core/defn
            user/with-db clojure.core/let
-           orcpub.routes-test/with-conn clojure.core/let
-           orcpub.routes.folder-test/with-conn clojure.core/let
            clojure.test.check.clojure-test/defspec clojure.test/deftest}
 }
