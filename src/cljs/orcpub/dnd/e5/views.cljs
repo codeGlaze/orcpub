@@ -1365,8 +1365,7 @@
 (defn close-orcacle []
   (dispatch [:close-orcacle]))
 
-;; dead — template.cljc has its own srd-link used by character_builder.cljs
-#_(def srd-link
+(def srd-link
   [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD"])
 
 (defn orcacle []
