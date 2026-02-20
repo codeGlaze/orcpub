@@ -204,7 +204,7 @@
      (let [new-path (conj path key)]
        (merge
         paths
-        (if homebrew? {new-path true})
+        (when homebrew? {new-path true})
         (option-homebrew-paths option new-path)
         (options-homebrew-paths options new-path))))
    {}
@@ -303,7 +303,7 @@
   (let [[option option-i]
         (first (keep-indexed
                 (fn [i s]
-                  (if (= (::t/key s) f)
+                  (when (= (::t/key s) f)
                     [s i]))
                 (selection-options selection)))
         next-path (vec (concat current-path [::t/options option-i]))]
@@ -315,7 +315,7 @@
   (let [[selection selection-i]
         (first (keep-indexed
                 (fn [i s]
-                  (if (= (::t/key s) f)
+                  (when (= (::t/key s) f)
                     [s i]))
                 (::t/selections template)))
         next-path (vec (concat current-path [::t/selections selection-i]))]
@@ -352,7 +352,7 @@
   (first
    (keep-indexed
     (fn [i v]
-      (if (= option-key (::key v))
+      (when (= option-key (::key v))
         i))
     selection)))
 
@@ -360,7 +360,7 @@
   (first
    (keep-indexed
     (fn [i s]
-      (if (= (::t/key s) item-key)
+      (when (= (::t/key s) item-key)
         [i s]))
     items)))
 
@@ -368,7 +368,7 @@
   (first
    (keep-indexed
     (fn [i s]
-      (if (and item-key
+      (when (and item-key
                (= (::key s) item-key))
         [i s]))
     items)))
@@ -385,7 +385,7 @@
            selection-path (vec (concat current-path [::options selection-k]))
            entity-items (get-in entity selection-path)
            [entity-i _] (entity-item-with-key entity-items option-k)
-           path-i (if (and (or option-k entity-i)
+           path-i (when (and (or option-k entity-i)
                            (or (nil? max)
                                (> max 1)
                                multiselect?))
@@ -420,11 +420,11 @@
 
 (defn combine-ref-selections [selections]
   (let [first-selection (first selections)]
-    (if first-selection
+    (when first-selection
       (assoc
        first-selection
        ::t/min (apply + (map ::t/min selections))
-       ::t/max (if (every? ::t/max selections) (apply + (map ::t/max selections)))
+       ::t/max (when (every? ::t/max selections) (apply + (map ::t/max selections)))
        ::t/options (into
                     (sorted-set-by
                      #(compare (::t/key %) (::t/key %2)))
@@ -620,7 +620,7 @@
 (declare merge-selections)
 
 (defn merge-options [options other-options]
-  (if (or options other-options)
+  (when (or options other-options)
     (let [opt-map (zipmap (map ::t/key options) options)
           other-opt-map (zipmap (map ::t/key other-options) other-options)
           merged (merge-with
@@ -640,7 +640,7 @@
         (vals (apply dissoc merged (map ::t/key options))))))))
 
 (defn merge-selections [selections other-selections]
-  (if (or selections other-selections)
+  (when (or selections other-selections)
     (let [sel-map (zipmap (map ::t/key selections) selections)
           other-sel-map (zipmap (map ::t/key other-selections) other-selections)
           merged (merge-with
@@ -743,7 +743,7 @@
 (defn meets-prereqs? [option & [built-char]]
   (every?
    (fn [{:keys [::t/prereq-fn] :as prereq}]
-     (if prereq-fn
+     (when prereq-fn
        (prereq-fn built-char)
        #?(:cljs (js/console.warn "NO PREREQ_FN" (::t/name option) prereq))))
    (::t/prereqs option)))

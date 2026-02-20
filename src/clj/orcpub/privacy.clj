@@ -81,7 +81,7 @@
                 :font-size 32
                 :paragraphs
                            ["We may change this policy from time to time, and if we do we'll post any changes on this page. If you continue to use OrcPub after those changes are in effect, you agree to the revised policy. If the changes are significant, we may provide more prominent notice or get your consent as required by law."]}
-               (if (not (s/blank? (environ/env :email-access-key)))
+               (when (not (s/blank? (environ/env :email-access-key)))
                {:title     "How can you contact us?"
                 :font-size 32
                 :paragraphs

@@ -143,7 +143,7 @@
    (map
     (fn [{:keys [::t/prereq-fn ::t/label] :as prereq}]
       (if prereq-fn
-        (if (not (prereq-fn))
+        (when (not (prereq-fn))
           label)
         (js/console.warn "NO PREREQ_FN" (::t/name option) prereq)))
     (::t/prereqs option))))
@@ -178,7 +178,7 @@
 
 (def filter-classes (memoize filter-classes-fn))
 
-(def levels-selection #(if (= :levels (::t/key %)) %))
+(def levels-selection #(when (= :levels (::t/key %)) %))
 
 (defn class-level-selector []
   (let [expanded? (r/atom false)]
@@ -187,7 +187,7 @@
             class-template-option (options-map key)
             path [:class-levels key]]
         [:div.m-b-5
-         {:class-name (if @expanded? "b-1 b-rad-5 p-5")}
+         {:class-name (when @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
           [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
            {:value key
@@ -195,18 +195,18 @@
            (doall
             (map
              (fn [{:keys [::t/key ::t/name] :as option}]
-               (let [failed-prereqs (if (pos? i) (prereq-failures option))]
+               (let [failed-prereqs (when (pos? i) (prereq-failures option))]
                  ^{:key key}
                  [:option.builder-dropdown-item
                   {:value key
                    :disabled (seq failed-prereqs)}
-                  (str name (if (seq failed-prereqs) (str " (" (s/join ", " failed-prereqs) ")")))]))
+                  (str name (when (seq failed-prereqs) (str " (" (s/join ", " failed-prereqs) ")")))]))
              (sort-by
               ::t/name
               (filter
                (filter-classes key unselected-classes-set)
                options))))]
-          (if (::t/help class-template-option)
+          (when (::t/help class-template-option)
             [show-info-button expanded?])
           (let [levels-selection (some levels-selection (::t/selections class-template-option))
                 available-levels (::t/options levels-selection)
@@ -225,7 +225,7 @@
                available-levels))])
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
-         (if @expanded?
+         (when @expanded?
            [:div.m-t-5.m-b-10 (::t/help class-template-option)])]))))
 
 (def select-template-key #(select-keys % [::t/key]))
@@ -233,7 +233,7 @@
 (defn class-level-data [option]
   (let [levels (some
                 (fn [s]
-                  (if (= :levels (::t/key s))
+                  (when (= :levels (::t/key s))
                     s))
                 (::t/selections option))]
     (assoc
@@ -273,7 +273,7 @@
           ^{:key key}
           [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set])
         selected-classes))]
-     (if (seq remaining-classes)
+     (when (seq remaining-classes)
        [:div.orange.p-5.underline.pointer
         [:i.fa.fa-plus-circle.orange.f-s-16]
         [:span.m-l-5
@@ -312,14 +312,14 @@
            (set-custom-item-name selection-key i)
            {:class-name "input m-t-0"}]
           [:div.flex-grow-1 item-name])
-        (if item-description [:div.w-60 [show-info-button expanded?]])
+        (when item-description [:div.w-60 [show-info-button expanded?]])
         [comps/int-field
          item-qty
          qty-change-fn
          {:class-name (str "input m-l-5 m-t-0 w-" (or qty-input-width 60))}]
         [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
          {:on-click remove-fn}]]
-       (if @expanded? [:div.m-t-5 item-description])])))
+       (when @expanded? [:div.m-t-5 item-description])])))
 
 (defn add-inventory-item-fn [key]
   (fn [e]
@@ -445,7 +445,7 @@
         magic-weapons (= key :magic-weapons)]
     [:div
      [inventory-adder key options selected-keys]
-     (if (seq selected-items)
+     (when (seq selected-items)
        [:div.flex.f-s-12.opacity-5.m-t-10.justify-cont-s-b
         [:div.m-r-10 "Carried?"]
         [:div.m-r-30 "Quantity"]])
@@ -454,7 +454,7 @@
        (map-indexed
         (make-inventory-item key item-map qty-input-width)
         selected-items))]
-     (if custom-equipment-key
+     (when custom-equipment-key
        [:div
         [:div
          (doall
@@ -472,29 +472,29 @@
     (fn [{:keys [name key help selected? selectable? option-path select-fn content explanation-text icon classes multiselect? disable-checkbox? edit-event]}]
       [:div.p-10.b-1.b-rad-5.m-5.b-orange
        {:class-name (s/join " " (conj
-                                 (remove nil? [(if selected? "b-w-5")
-                                               (if selectable? "pointer hover-shadow")
-                                               (if (not selectable?) "opacity-5")])
+                                 (remove nil? [(when selected? "b-w-5")
+                                               (when selectable? "pointer hover-shadow")
+                                               (when (not selectable?) "opacity-5")])
                                  classes))
         :on-click select-fn}
        [:div.flex.align-items-c
         [:div.flex-grow-1
          [:div.flex.align-items-c
-          (if multiselect?
+          (when multiselect?
             [:span.m-r-5 (comps/checkbox selected? disable-checkbox?)])
-          (if icon [:div.m-r-5 (views5e/svg-icon icon 24)])
+          (when icon [:div.m-r-5 (views5e/svg-icon icon 24)])
           [:span.f-w-b.f-s-1.flex-grow-1 name]
-          (if edit-event
+          (when edit-event
             [:span.orange.underline.pointer
              {:on-click (apply views5e/make-stop-prop-event-handler edit-event)}
              "edit"])
-          (if help
+          (when help
             [show-info-button expanded?])]
-         (if (and help @expanded?)
+         (when (and help @expanded?)
            [help-section help])
-         (if (and content selected?)
+         (when (and content selected?)
            content)
-         (if explanation-text
+         (when explanation-text
            [:div.i.f-s-12.f-w-n 
             explanation-text])]]])))
 
@@ -517,11 +517,11 @@
 (defn validate-selections [built-template character selections]
   (mapcat
    (fn [{:keys [::t/name ::t/tags] :as selection}]
-     (if (not (get tags :starting-equipment))
+     (when (not (get tags :starting-equipment))
        (let [remaining (entity/count-remaining built-template character selection)]
          (cond
-           (pos? remaining) [(str "You have " remaining " more '" name "' selection" (if (> remaining 1) "s") " to make.")]
-           (neg? remaining) [(str "You must remove " (Math/abs remaining) " '" name "' selection" (if (< remaining -1) "s") ".")]
+           (pos? remaining) [(str "You have " remaining " more '" name "' selection" (when (> remaining 1) "s") " to make.")]
+           (neg? remaining) [(str "You must remove " (Math/abs remaining) " '" name "' selection" (when (< remaining -1) "s") ".")]
            :else nil))))
    (entity/combine-selections selections)))
 
@@ -537,14 +537,14 @@
                                         disable-select-new?
                                         homebrew?
                                         option)]
-    (if (not-any? ::t/hide-if-fail? failed-prereqs)
+    (when (not-any? ::t/hide-if-fail? failed-prereqs)
       ^{:key (::t/key option)}
       [option-selector-base (assoc data
                                    :help
-                                   (if (or help has-named-mods?)
+                                   (when (or help has-named-mods?)
                                         [:div
-                                         (if has-named-mods? [:div.i modifiers-str])
-                                         [:div {:class-name (if has-named-mods? "m-t-5")} help]])
+                                         (when has-named-mods? [:div.i modifiers-str])
+                                         [:div {:class-name (when has-named-mods? "m-t-5")} help]])
                                    :edit-event (::t/edit-event option))])))
 
 (defn selection-section-title [title]
@@ -597,17 +597,17 @@
       (let [locked? @(subscribe [:locked path])
             homebrew? @(subscribe [:homebrew? path])]
         [:div.p-5.m-b-20.m-b-0-last
-         (if (and (or title name) parent-title)
+         (when (and (or title name) parent-title)
            (selection-section-parent-title parent-title))
          [:div.flex.align-items-c.w-100-p.justify-cont-s-b
-          (if icon (views5e/svg-icon icon 24))
+          (when icon (views5e/svg-icon icon 24))
           (if (or title name)
             (selection-section-title (or title name))
-            (if parent-title
+            (when parent-title
               (selection-section-parent-title parent-title)))
-          (if (and path help)
+          (when (and path help)
             [show-info-button expanded?])
-          (if (not hide-lock?)
+          (when (not hide-lock?)
             [tooltip
              (if locked?
                "Locked to prevent changes - click to unlock"
@@ -615,18 +615,18 @@
              [:i.fa.f-s-16.m-l-10.m-r-5.pointer
               {:class-name (if locked? "fa-lock" "fa-unlock-alt opacity-5 hover-opacity-full")
                :on-click (toggle-locked path)}]])
-          (if (not hide-homebrew?)
+          (when (not hide-homebrew?)
             [:span.pointer
-             {:class-name (if (not homebrew?) "opacity-5 hover-opacity-full")
+             {:class-name (when (not homebrew?) "opacity-5 hover-opacity-full")
               :on-click (toggle-homebrew path)}
              [tooltip
               (if-not homebrew?
                 (str "Homebrew is off for " title " - enabling this option allows you select options you would not normally have (turns on homebrew rules)")
                 (str "Homebrew is on for " title " - you can select anything and make it homebrew"))
               (views5e/svg-icon "beer-stein" 18)]])]
-         (if (and help path @expanded?)
+         (when (and help path @expanded?)
            [help-section help])
-         (if (int? min)
+         (when (int? min)
            [:div.p-5.f-s-16
             [:div.flex.align-items-c.justify-cont-s-b
              [:span.i.m-r-10 (str "select " (cond
@@ -738,7 +738,7 @@
                ^{:key j}
                [:div selector])
              part))]
-          (if (and item-adder (= i (dec (count parts))))
+          (when (and item-adder (= i (dec (count parts))))
             item-adder)])
        parts))]))
 
@@ -851,24 +851,24 @@
                                               (not (pos? (ability-increases k))))]
                    ^{:key k}
                    [:div.t-a-c
-                    {:class-name (if ability-disabled? "opacity-5 cursor-disabled")}
+                    {:class-name (when ability-disabled? "opacity-5 cursor-disabled")}
                     [:div
-                     {:class-name (if (and (not ability-disabled?)
+                     {:class-name (when (and (not ability-disabled?)
                                            (zero? (ability-increases k 0)))
                                     "opacity-5")}
                      (ability-value (ability-increases k 0))] 
                     [:div.f-s-16
                      [:i.fa.fa-minus-circle.orange
-                      {:class-name (if decrease-disabled? "opacity-5 cursor-disabled")
+                      {:class-name (when decrease-disabled? "opacity-5 cursor-disabled")
                        :on-click (stop-prop-fn
                                   (fn []
-                                    (if (not decrease-disabled?)
+                                    (when (not decrease-disabled?)
                                       (dispatch [:decrease-ability-value increases-path k]))))}]
                      [:i.fa.fa-plus-circle.orange.m-l-5
-                      {:class-name (if increase-disabled? "opacity-5 cursor-disabled")
+                      {:class-name (when increase-disabled? "opacity-5 cursor-disabled")
                        :on-click (stop-prop-fn
                                   (fn []
-                                    (if (not increase-disabled?)
+                                    (when (not increase-disabled?)
                                       (dispatch [:increase-ability-value increases-path k]))))}]]]))
                ability-keys))]]))
        asi-selections))]))
@@ -884,25 +884,25 @@
        (fn [i k]
          ^{:key k}
          [:div.t-a-c
-          (if (seq race-ability-increases)
+          (when (seq race-ability-increases)
             [:div
              [:div.m-t-10.m-b-10 "+"]
              (ability-subtitle "race")
              (let [race-v (get race-ability-increases k 0)]
                [:div
-                {:class-name (if (zero? race-v)
+                {:class-name (when (zero? race-v)
                                "opacity-5")}
                 (ability-value race-v)])])
-          (if (seq subrace-ability-increases)
+          (when (seq subrace-ability-increases)
             [:div
              [:div.m-t-10.m-b-10 "+"]
              (ability-subtitle "subrace")
              (let [subrace-v (get subrace-ability-increases k 0)]
                [:div
-                {:class-name (if (zero? subrace-v)
+                {:class-name (when (zero? subrace-v)
                                "opacity-5")}
                 (ability-value subrace-v)])])
-          (if (seq ability-increases)
+          (when (seq ability-increases)
             [:div
              [:div.m-t-10.m-b-10 "+"]
              (ability-subtitle "other")
@@ -910,7 +910,7 @@
                               (get race-ability-increases k 0)
                               (get subrace-ability-increases k 0))]
                [:div
-                {:class-name (if (zero? other-v)
+                {:class-name (when (zero? other-v)
                                "opacity-5")}
                 (ability-value other-v)])])])
        ability-keys))]))
@@ -994,16 +994,16 @@
               [:div.f-s-11.f-w-b (str "(" (score-costs v) " pts)")]
               [:div.f-s-16
                [:i.fa.fa-minus-circle.orange
-                {:class-name (if decrease-disabled? "opacity-5 cursor-disabled")
+                {:class-name (when decrease-disabled? "opacity-5 cursor-disabled")
                  :on-click (stop-prop-fn
                             (fn [e]
-                              (if (not decrease-disabled?)
+                              (when (not decrease-disabled?)
                                 (set-abilities! (update abilities k dec)))))}]
                [:i.fa.fa-plus-circle.orange.m-l-5
-                {:class-name (if increase-disabled? "opacity-5 cursor-disabled")
+                {:class-name (when increase-disabled? "opacity-5 cursor-disabled")
                  :on-click (stop-prop-fn
                             (fn [_]
-                              (if (not increase-disabled?) (set-abilities! (update abilities k inc)))))}]]]))
+                              (when (not increase-disabled?) (set-abilities! (update abilities k inc)))))}]]]))
          char5e/ability-keys))]])))
 
 (defn abilities-standard []
@@ -1061,7 +1061,7 @@
             {:value (k abilities)
              :type :number
              :on-change (fn [e] (let [value (.-value (.-target e))
-                                      new-v (if (not (s/blank? value))
+                                      new-v (when (not (s/blank? value))
                                               (js/parseInt value))]
                                   (dispatch [:set-ability-score k new-v])))}]])
         char5e/ability-keys))]
@@ -1076,14 +1076,14 @@
            [:div.m-t-10.m-b-10 "="]
            [:div.f-w-b "total"]
            [:input.input.b-3.f-s-18.m-b-5.p-l-0.w-100-p
-            {:value (if (abilities k)
+            {:value (when (abilities k)
                       (total-abilities k))
              :type :number
              :on-change (fn [e] (let [total (total-abilities k)                                     
                                       value (.-value (.-target e))
                                       diff (- total
                                               (abilities k))
-                                      new-v (if (not (s/blank? value))
+                                      new-v (when (not (s/blank? value))
                                               (- (js/parseInt value) (or diff 0)))]
                                   (dispatch [:set-ability-score k new-v])))}]])
         total-abilities))]]))
@@ -1098,7 +1098,7 @@
     :content content
     :select-fn (fn [_]
                  (when (not= selected-key key)
-                   (if select-fn (select-fn))
+                   (when select-fn (select-fn))
                    (dispatch [:set-ability-score-variant key])))}])
 
 (def point-buy-starting-abilities-fn #(set-abilities! (char5e/abilities 8 8 8 8 8 8)))
@@ -1114,7 +1114,7 @@
                                    (= :asi-or-feat (::t/key s)))
                                  selections)
          character @(subscribe [:character])]
-     (if (seq asi-or-feat-selections)
+     (when (seq asi-or-feat-selections)
        [:div
         [:div.m-l-5 (selection-section-title "Ability Score Improvements")]
         (doall
@@ -1208,13 +1208,13 @@
                                  :selectable? allow-select?
                                  :option-path [:skill-profs key]
                                  :select-fn (fn [_]
-                                              (if allow-select?
+                                              (when allow-select?
                                                 (dispatch [:select-skill path selected? key])))
-                                 :explanation-text (if (and has-prof?
+                                 :explanation-text (when (and has-prof?
                                                             (not selected?))
                                                      "You already have this skill proficiency")
                                  :icon icon
-                                 :classes (if bad-selection? "b-red")
+                                 :classes (when bad-selection? "b-red")
                                  :multiselect? true}]))
       skill5e/skills))))
 
@@ -1238,7 +1238,7 @@
 (defn hit-points-entry [character selections built-template]
   (let [classes @(subscribe [::char5e/classes])
         levels @(subscribe [::char5e/levels])
-        first-class (if levels (levels (first classes)))
+        first-class (when levels (levels (first classes)))
         first-class-hit-die (:hit-die first-class)
         level-bonus @(subscribe [::char5e/hit-point-level-bonus])
         con-bonus (::char5e/con @(subscribe [::char5e/ability-bonuses]))
@@ -1283,14 +1283,14 @@
                              (let [entity-path (entity/get-entity-path built-template character (::entity/path selection))]
                                (dispatch [:set-total-hps entity-path first-selection selection average-value remainder])))))}]
           total-hps)]]
-      (if (seq selections)
+      (when (seq selections)
         [:button.form-button.p-10
          {:on-click (fn [_]
                       (doseq [selection selections]
                         (let [[_ class-kw :as path] (::entity/path selection)]
                           (dispatch [:randomize-hit-points built-template path levels class-kw]))))}
          "Random"])
-      (if (seq selections)
+      (when (seq selections)
         [:button.form-button.p-10
          {:on-click (fn [_]
                       (doseq [selection selections]
@@ -1320,7 +1320,7 @@
             [:table.w-100-p.striped
              [:tbody
               hit-points-headers
-              (if (zero? i)
+              (when (zero? i)
                 [:tr
                  [:td.p-5 1]
                  [:td.p-5 first-class-hit-die]
@@ -1336,7 +1336,7 @@
                    [:td.p-5 (:level level-value)]
                    [:td.p-5 [:input.input.m-t-0
                              {:type :number
-                              :class-name (if (or (nil? (:value level-value))
+                              :class-name (when (or (nil? (:value level-value))
                                                   (not (pos? (:value level-value))))
                                             "b-red b-3")
                               :on-change (fn [e]
@@ -1360,7 +1360,7 @@
                [:td.p-5 (+ total-base-hps total-con-bonus total-misc-bonus)]
                [:td.p-5]]]]]))
        classes))
-     (if (> (count classes) 1)
+     (when (> (count classes) 1)
        [:div.m-t-20
         [:div.f-s-16.m-l-5.f-w-b "Total"]
         [:table.w-100-p.striped
@@ -1384,14 +1384,14 @@
 
 (defn hit-points-editor [{:keys [character built-template option-paths selections]}]
   (let [num-selections (count selections)]
-    (if @(subscribe [::char5e/levels])
+    (when @(subscribe [::char5e/levels])
       [selection-section-base
        {:name "Hit Points"
         :hide-lock? true
         :hide-homebrew? true
-        :min (if (pos? num-selections) num-selections)
-        :max (if (pos? num-selections) num-selections)
-        :remaining (if (pos? num-selections) (sum-remaining built-template character selections)) 
+        :min (when (pos? num-selections) num-selections)
+        :max (when (pos? num-selections) num-selections)
+        :remaining (when (pos? num-selections) (sum-remaining built-template character selections)) 
         :body (hit-points-entry character selections built-template)}])))
 
 (defn info-block [text]
@@ -1408,7 +1408,7 @@
                                (map key)
                                (map (fn [nm] (str nm "s"))))
                               spells-known-modes)]
-    (if (seq any-mode-class-names)
+    (when (seq any-mode-class-names)
       (info-block
        (str "Except for cantrips, "
             (common/list-print any-mode-class-names)
@@ -1559,12 +1559,12 @@
              :on-click (fn [_] (dispatch [:set-page i]))}
             [:div
              {:class-name class-name}
-             (if (= :desktop device-type)
+             (when (= :desktop device-type)
                [:div.f-s-10.m-b-2
                 name])
              [:div.t-a-c
               (views5e/svg-icon icon 32)]]
-            (if (not (zero? total-remaining))
+            (when (not (zero? total-remaining))
               [:div.flex.justify-cont-end.m-t--10.p-l-20 (remaining-indicator total-remaining 12 11)])]))
        pages))]))
 
@@ -1576,7 +1576,7 @@
 
 (defn matches-non-group-fn [key]
   (fn [{s-key ::t/key ref ::t/ref :as s}]
-    (let [v (if (or (= s-key key)
+    (let [v (when (or (= s-key key)
                     (= ref [key]))
               s)]
       v)))
@@ -1639,7 +1639,7 @@
   (let [character @(subscribe [:character])
         built-template @(subscribe [:built-template])
         available-selections @(subscribe [:available-selections])
-        _ (if print-enabled? (js/console.log "AVAILABLE SELECTIONS" available-selections))
+        _ (when print-enabled? (js/console.log "AVAILABLE SELECTIONS" available-selections))
         page @(subscribe [:page])
         page-index (or page 0)
         option-paths @(subscribe [:option-paths])
@@ -1647,7 +1647,7 @@
         selections (entity/tagged-selections available-selections tags)
         combined-selections (entity/combine-selections selections)
         final-selections combined-selections]
-    (if print-enabled? (js/console.log "FINAL SELECTIONS" final-selections))
+    (when print-enabled? (js/console.log "FINAL SELECTIONS" final-selections))
     [:div.w-100-p
      [:div#options-column.b-1.b-rad-5
       [section-tabs available-selections built-template character page-index]
@@ -1725,7 +1725,7 @@
                (map
                 (fn [{:keys [::t/min ::t/max ::t/show-if-zero?] :as selection}]
                   (let [remaining (entity/count-remaining built-template character selection)]
-                    (if (or (nil? max)
+                    (when (or (nil? max)
                             (pos? max)
                             (not (zero? remaining))
                             show-if-zero?)
@@ -1824,28 +1824,28 @@
       [:span.personality-label.f-s-18 "Flaws"]
       [character-textarea entity-values ::char5e/flaws]]
      [:div.flex.align-items-c.w-100-p.m-t-30
-      (if image-url
+      (when image-url
         [:img.m-r-10.image-character-thumbnail {:src image-url
                       :on-error (image-error :failed-loading-image image-url)
-                      :on-load (if image-url-failed image-loaded)}])
+                      :on-load (when image-url-failed image-loaded)}])
       [:div.flex-grow-1
        [:span.personality-label.f-s-18 "Image URL"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
-       (if image-url-failed
+       (when image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
      [:div.flex.align-items-c.w-100-p.m-t-30
-      (if faction-image-url
+      (when faction-image-url
         [:img.m-r-10.image-faction-thumbnail {:src faction-image-url
                       :on-error (image-error :failed-loading-faction-image faction-image-url)
-                      :on-load (if faction-image-url-failed
+                      :on-load (when faction-image-url-failed
                                  faction-image-loaded)}])
       [:div.flex-grow-1
        [:span.personality-label.f-s-18 "Faction Image URL"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
-       (if faction-image-url-failed
+       (when faction-image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
      [:div.field
       [:span.personality-label.f-s-18 "Description/Backstory"]
@@ -1858,7 +1858,7 @@
 
 (defn builder-tab [title key current-tab]
   [:span.builder-tab
-   {:class-name (if (= current-tab key) "selected-builder-tab")
+   {:class-name (when (= current-tab key) "selected-builder-tab")
     :on-click (set-builder-tab key)}
    [:span.builder-tab-text title]])
 
@@ -1976,7 +1976,7 @@
     (if character-changed?
       (dispatch [:show-confirmation cfg])
       (do
-        (if (:pre cfg) ((:pre cfg)))
+        (when (:pre cfg) ((:pre cfg)))
         (dispatch (:event cfg))))))
 
 #_(def confirm-handler (memoize confirm-handler-fn))
@@ -2007,7 +2007,7 @@
 
 (defn character-builder []
   (let [character @(subscribe [:character])
-        _  (if print-enabled? (cljs.pprint/pprint character))
+        _  (when print-enabled? (cljs.pprint/pprint character))
         option-paths @(subscribe [:option-paths])
         built-template @(subscribe [:built-template])
         built-char @(subscribe [:built-character])
@@ -2024,19 +2024,19 @@
         locked-components @(subscribe [:locked-components])
         character-map @(subscribe [::char5e/character-map])
         character-id (:db/id character)
-        saved-character (if (and character-id
+        saved-character (when (and character-id
                                  character-map)
                           (character-map character-id))
         character-changed? (if character-id
                              @(subscribe [::char5e/character-changed? character-id])
                              (not= db/default-character character))]
-    (if print-enabled? (print-char built-char))
-    (if (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
+    (when print-enabled? (print-char built-char))
+    (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [views5e/content-page
      "Character Builder"
      (remove
       nil?
-      [(if character-id [views5e/share-link character-id])
+      [(when character-id [views5e/share-link character-id])
        {:title "Random"
         :icon "random"
         :on-click (confirm-handler
@@ -2066,9 +2066,9 @@
                  "Update Existing Character"
                  "Save New Character")
         :icon "save"
-        :style (if character-changed? unsaved-button-style)
+        :style (when character-changed? unsaved-button-style)
         :on-click save-character}
-       (if (:db/id character)
+       (when (:db/id character)
          {:title "View"
           :icon "eye"
           :on-click (load-character-page (:db/id character))})])
@@ -2080,9 +2080,9 @@
           ;[al-legality al-illegal-reasons used-resources]]
          [:div.flex
           [theme-toggle]
-          (if character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c
+          (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c
                                   (views5e/svg-icon "thunder-skull" 24 24)
-                                  (if (not mobile?)
+                                  (when (not mobile?)
                                     [:span "You have unsaved changes"])])]]]]
       [:div.flex.justify-cont-c.p-b-40
        [:div.f-s-14.main-text-color.content

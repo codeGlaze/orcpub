@@ -76,7 +76,7 @@
     traits)))
 
 (defn actions-string [title actions]
-  (if (seq actions)
+  (when (seq actions)
     (str
      title
      "\n"
@@ -88,7 +88,7 @@
        actions)))))
 
 (defn vec-trait [nm items]
-  (if (seq items) (str nm ": " (s/join ", " items))))
+  (when (seq items) (str nm ": " (s/join ", " items))))
 
 (defn keyword-vec-trait [nm keywords]
   (vec-trait nm (map name keywords)))
@@ -97,7 +97,7 @@
   (map
    (fn [{:keys [value qualifier]}]
      (str (name value)
-          (if qualifier
+          (when qualifier
             (str "(" qualifier ")"))))
    resistances))
 
@@ -111,8 +111,8 @@
     (s/join
      "\n"
      (remove nil?
-             [(if (and darkvision (pos? darkvision)) (str "Darkvision: " darkvision " ft."))
-              (if (> (count crit-values) 1) (str "Critical Hits: " (char5e/crit-values-str built-char)))
+             [(when (and darkvision (pos? darkvision)) (str "Darkvision: " darkvision " ft."))
+              (when (> (count crit-values) 1) (str "Critical Hits: " (char5e/crit-values-str built-char)))
               (vec-trait "Damage Resistances" (resistance-strings damage-resistances))
               (vec-trait "Damage Immunities" (resistance-strings damage-immunities))
               (vec-trait "Condition Immunities" (resistance-strings condition-immunities))
@@ -372,7 +372,7 @@
                  (fn [spell-index spell]
                    {(keyword (str "spells-" level "-" (inc spell-index) suffix))
                     (str (:name (spells-map (:key spell))) (let [qualifier (:qualifier spell)]
-                                                                   (if qualifier
+                                                                   (when qualifier
                                                                      (str " (" qualifier ")"))))})
                  spells)
                 {(keyword (str "spell-slots-" level suffix))
@@ -400,7 +400,7 @@
                        prepared-spells-by-class)))
 
 (defn profs-paragraph [profs prof-map title]
-  (if (seq profs)
+  (when (seq profs)
     (str
      title
      " Proficiencies: "
@@ -428,7 +428,7 @@
 
 (defn damage-str [die die-count mod damage-type]
   (str (dice/dice-string die-count die mod)
-       (if damage-type (str " " (name damage-type)))))
+       (when damage-type (str " " (name damage-type)))))
 
 (defn attacks-and-spellcasting-fields 
   "For each weapon, we are creating a new map with the name, the attack bonus, and the damage.
@@ -457,7 +457,7 @@
                            (remove
                             nil?
                             [normal
-                             (if (:versatile weapon)
+                             (when (:versatile weapon)
                                {:name (str (:name weapon) " (two-handed)")
                                 :attack-bonus (char5e/weapon-attack-modifier built-char weapon false)
                                 :damage (damage-str (:damage-die versatile) (:damage-die-count versatile) normal-damage-modifier damage-type)})])))
@@ -522,12 +522,12 @@
         subrace (char5e/subrace built-char)
         abilities (abilities-spec
                    (char5e/ability-values built-char)
-                   (if (not print-large-abilities?)
+                   (when (not print-large-abilities?)
                      "-mod")
                    false)
         ability-bonuses (abilities-spec
                          (char5e/ability-bonuses built-char)
-                         (if print-large-abilities?
+                         (when print-large-abilities?
                            "-mod")
                          true)
         saving-throws (set (char5e/saving-throws built-char))
@@ -556,7 +556,7 @@
                             (s/join "\n"))
         speed (speed built-char)]
     (merge
-     {:race (str race (if subrace (str "/" subrace)))
+     {:race (str race (when subrace (str "/" subrace)))
       :alignment (char5e/alignment built-char)
       :class-level (class-string classes levels)
       :background (char5e/background built-char)

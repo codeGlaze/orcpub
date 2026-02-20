@@ -44,7 +44,7 @@
      ::options options
      ::help help
      ::min (or min 1)
-     ::max (or max (if (not multiselect?) (or min 1)))
+     ::max (or max (when (not multiselect?) (or min 1)))
      ::sequential? (boolean sequential?)
      ::multiselect? (or multiselect? (and (some? max) (> max 1)))
      ::ui-fn ui-fn

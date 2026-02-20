@@ -190,7 +190,7 @@
 (defn backend-url [path]
   (if (and js/window.location
            (s/starts-with? js/window.location.href "http://localhost"))
-    (str "http://localhost:8890" (if (not (s/starts-with? path "/")) "/") path)
+    (str "http://localhost:8890" (when (not (s/starts-with? path "/")) "/") path)
     path))
 
 (reg-event-fx
@@ -768,7 +768,7 @@
 (reg-event-fx
  ::party5e/add-character-remote-success
  (fn [_ [_ show-confirmation?]]
-   (if show-confirmation?
+   (when show-confirmation?
      {:dispatch [:show-message [:div
                                 "Character has been added to the party. View it on the "
                                 [:span.underline.pointer.orange
@@ -981,6 +981,54 @@
              :url (backend-url path)}})))
 
 (reg-event-fx
+ :change-email
+ (fn [{:keys [db]} [_ new-email]]
+   {:db (dissoc db :email-change-sent? :email-change-error)
+    :http {:method :put
+           :headers (authorization-headers db)
+           :url (backend-url (routes/path-for routes/user-email-route))
+           :transit-params {:new-email new-email}
+           :on-success [:change-email-success]
+           :on-failure [:change-email-failure]}}))
+
+(reg-event-db
+ :change-email-success
+ (fn [db [_ response]]
+   (-> db
+       (assoc :email-change-sent? true)
+       ;; Use server-canonical (lowercased/trimmed) email for display
+       (assoc-in [:user-data :user-data :pending-email]
+                 (-> response :body :pending-email)))))
+
+(reg-event-db
+ :change-email-failure
+ (fn [db [_ response]]
+   (let [body (:body response)
+         error (:error body)]
+     (assoc db :email-change-error
+            (case error
+              :email-taken "That email address is already in use by another account."
+              :invalid-email "Please enter a valid email address."
+              :same-as-current "That is already your current email address."
+              :too-many-requests
+              (let [secs (:retry-after-secs body)]
+                (if (and secs (pos? secs))
+                  (if (<= secs 60)
+                    ;; 0–1 min zone: email is in transit, show short countdown
+                    (str "Your email is on its way. You can resend in " secs " second" (when (> secs 1) "s") ".")
+                    ;; 1–5 min zone for a different email: show minutes
+                    (let [mins (.ceil js/Math (/ secs 60))]
+                      (str "Please wait " mins " minute" (when (> mins 1) "s") " before requesting another change.")))
+                  "Please wait a few minutes before requesting another email change."))
+              :email-send-failed "Verification email could not be sent. Please try again later."
+              "There was an error updating your email. Please try again.")))))
+
+(reg-event-db
+ :change-email-clear
+ (fn [db _]
+   (dissoc db :email-change-sent? :email-change-error)))
+
+(reg-event-fx
  :unfollow-user
  (fn [{:keys [db]} [_ username]]
    (let [path (routes/path-for routes/follow-user-route :user username)]
@@ -1045,7 +1093,7 @@
      {:dispatch [:update-value-field ::char5e/character-name (:name
                                                               (char-rand5e/random-name-result
                                                                {:race race-kw
-                                                                :subrace (if (= ::char-rand5e/human race-kw) subrace-kw)
+                                                                :subrace (when (= ::char-rand5e/human race-kw) subrace-kw)
                                                                 :sex sex-kw}))]})))
 (reg-event-db
  :select-option
@@ -1120,7 +1168,7 @@
                  [::entity/options :class]
                  (fn [classes] (vec (remove #(= class-key (::entity/key %)) classes))))
         new-first-class-key (get-in updated [::entity/options :class 0 ::entity/key])
-        new-first-class-option (if new-first-class-key (options-map new-first-class-key))]
+        new-first-class-option (when new-first-class-key (options-map new-first-class-key))]
     (if (and (zero? i)
              new-first-class-option)
       (char5e/set-class updated new-first-class-key 0 new-first-class-option)
@@ -1327,7 +1375,7 @@
    character
    (entity/get-entity-path built-template character (:path level-value))
    {::entity/key :manual-entry
-    ::entity/value (if (not (js/isNaN value)) value)}))
+    ::entity/value (when (not (js/isNaN value)) value)}))
 
 (reg-event-db
  :set-level-hit-points
@@ -1342,7 +1390,7 @@
  set-page)
 
 (defn make-url [protocol hostname path & [port]]
-  (str protocol "://" hostname (if port (str ":" port)) path))
+  (str protocol "://" hostname (when port (str ":" port)) path))
 
 (reg-event-fx
  :route
@@ -1526,7 +1574,7 @@
      (go (let [response (<! (http/request final-cfg))]
            (dispatch [:set-loading false])
            (if (<= 200 (:status response) 299)
-             (if on-success (dispatch (conj on-success response)))
+             (when on-success (dispatch (conj on-success response)))
              (if (= 401 (:status response))
                (if on-unauthorized
                  (dispatch (conj on-unauthorized response))
@@ -2002,7 +2050,7 @@
 
 (defn name-result [search-text]
   (let [[sex race subrace :as result] (event-handlers/parse-name-query search-text)]
-    (if result
+    (when result
       {:type :name
        :result (char-rand5e/random-name-result
                 {:race race
@@ -2033,7 +2081,7 @@
 (defn search-results [text]
   (let [search-text (s/lower-case text)
         dice-result (dice/dice-roll-text search-text)
-        kw (if search-text (common/name-to-kw search-text))
+        kw (when search-text (common/name-to-kw search-text))
         name-result (name-result search-text)
         top-result (cond
                      dice-result {:type :dice-roll
@@ -2049,11 +2097,11 @@
                      name-result name-result
                      :else nil)
         filter-xform (filter-by-name-xform search-text :name)
-        top-spells (if (>= (count text) 3)
+        top-spells (when (>= (count text) 3)
                      (sequence
                       filter-xform
                       spells/spells))
-        top-monsters (if (>= (count text) 3)
+        top-monsters (when (>= (count text) 3)
                        (sequence
                         filter-xform
                         monsters/monsters))]
@@ -2193,7 +2241,7 @@
    (fn [level-slots-used]
      (let [first-empty-slot (some
                              (fn [v]
-                               (if (not (get level-slots-used v))
+                               (when (not (get level-slots-used v))
                                  v))
                              (range))]
        (conj (or level-slots-used #{})
@@ -2223,7 +2271,7 @@
    character
    [::entity/values
     ::char5e/xps]
-   (if (not (js/isNaN xps))
+   (when (not (js/isNaN xps))
      xps)))
 
 (defn set-notes [character notes]
@@ -2534,7 +2582,7 @@
    condition
    :duration
    (fn [{:keys [hours minutes rounds] :as duration}]
-     (if (not (zero-duration? condition))
+     (when (not (zero-duration? condition))
        (let [total-rounds (+ rounds
                              (* common/rounds-per-minute minutes)
                              (* common/rounds-per-hour hours))
@@ -2603,7 +2651,7 @@
                    true (assoc :current-initiative next-initiative)
                    next-round? (assoc :round (inc round))
                    next-round? update-conditions)
-         removed-conditions (if next-round?
+         removed-conditions (when next-round?
                               (filter
                                (comp seq :removed-conditions)
                                (flatten

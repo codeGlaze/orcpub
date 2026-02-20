@@ -1,4 +1,4 @@
-FROM openjdk:8u242-jre
+FROM eclipse-temurin:8-jre-alpine
 
 ENV DATOMIC_VERSION 0.9.5703
 
