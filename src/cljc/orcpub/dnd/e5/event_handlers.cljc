@@ -41,7 +41,7 @@
                    indicator-key true}})
 
 (defn starting-equipment-entity-options [indicator-key key items]
-  (if items
+  (when items
     {key
      (mapv
       (partial starting-equipment-entity-option indicator-key)
@@ -119,7 +119,7 @@
                homebrew?)
            selectable?)
     (do
-      (if select-fn
+      (when select-fn
         (select-fn (entity/get-option-value-path
                     built-template
                     character
@@ -142,4 +142,4 @@
 
 (defn parse-name-query [search-text]
   (let [match (re-matches name-query-regex search-text)]
-    (if match (map #(common/name-to-kw % "orcpub.dnd.e5.character.random") (rest match)))))
+    (when match (map #(common/name-to-kw % "orcpub.dnd.e5.character.random") (rest match)))))

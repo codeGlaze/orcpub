@@ -55,7 +55,7 @@
      :option-path new-option-path
      :multiselect? multiselect?
      :select-fn (fn [e]
-                  (if (or multiselect?
+                  (when (or multiselect?
                           (not selected?))
                     (dispatch [:select-option {:option-path option-path
                                                :selected? selected?
@@ -68,9 +68,9 @@
                                                :built-template built-template
                                                :new-option-path new-option-path}]))
                   (.stopPropagation e))
-     :content (if (and (or selected? (= 1 (count options))) ui-fn)
+     :content (when (and (or selected? (= 1 (count options))) ui-fn)
                 (ui-fn new-option-path built-template))
-     :explanation-text (let [explanation-text (if (and (not meets-prereqs?)
+     :explanation-text (let [explanation-text (when (and (not meets-prereqs?)
                                                        (not selected?))
                                                 (s/join ", " (map ::t/label failed-prereqs)))]                      
                          explanation-text)
@@ -112,7 +112,7 @@
     {:title title
      :path actual-path
      :disable-select-new? disable-select-new?
-     :parent-title (if (not (s/blank? ancestor-names)) ancestor-names)
+     :parent-title (when (not (s/blank? ancestor-names)) ancestor-names)
      :name name
      :icon icon
      :help help

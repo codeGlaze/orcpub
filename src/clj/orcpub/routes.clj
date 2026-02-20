@@ -293,9 +293,9 @@
 
 (defn register [{:keys [json-params db conn] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
-        username (if username (s/trim username))
-        email (if email (s/lower-case (s/trim email)))
-        password (if password (s/trim password))
+        username (when username (s/trim username))
+        email (when email (s/lower-case (s/trim email)))
+        password (when password (s/trim password))
         validation (registration/validate-registration
                     json-params
                     (seq (d/q email-query db email))
@@ -534,10 +534,10 @@
         
     (with-open [doc (PDDocument/load input)]
       (pdf/write-fields! doc fields (not chrome?) font-sizes)
-      (if (and print-spell-cards? (seq spells-known))
+      (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod?))
 
-      (if (and image-url
+      (when (and image-url
                (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
                (not image-url-failed))
         (case print-character-sheet-style?
@@ -545,7 +545,7 @@
           2 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
           3 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
           4 (pdf/draw-image! doc (pdf/get-page doc 0) image-url 0.50 0.85 2.35 3.15)))
-      (if (and faction-image-url
+      (when (and faction-image-url
                (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
                (not faction-image-url-failed))
         (case print-character-sheet-style?
@@ -1037,9 +1037,9 @@
 (defn character-summary-description [{:keys [::char5e/race-name ::char5e/subrace-name ::char5e/classes]}]
   (str race-name
        " "
-       (if subrace-name (str "(" subrace-name ") "))
+       (when subrace-name (str "(" subrace-name ") "))
        " "
-       (if (seq classes)
+       (when (seq classes)
          (s/join
           " / "
           (map
