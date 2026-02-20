@@ -47,7 +47,6 @@
                                       subclass->local-store
                                       class->local-store
                                       plugins->local-store
-                                      tab-path
                                       default-character
                                       default-spell
                                       default-monster
@@ -284,7 +283,8 @@
                  (fn [_]
                    (random-hit-points-option (char5e/levels built-char) class-kw)))})
 
-(def max-iterations 100)
+;; unreferenced — random-character loop hardcodes 10
+#_(def max-iterations 100)
 
 (defn keep-options [built-template entity option-paths]
   (reduce
@@ -343,7 +343,8 @@
  (fn [_ [_ character built-template locked-components]]
    {:dispatch [:set-random-character character built-template locked-components]}))
 
-(def dnd-5e-characters-path [:dnd :e5 :characters])
+;; unreferenced — character path is constructed inline
+#_(def dnd-5e-characters-path [:dnd :e5 :characters])
 
 (reg-event-fx
  :character-save-success
@@ -1123,7 +1124,8 @@
            ::char5e/image-url-failed
            nil)))
 
-(reg-event-db
+;; never dispatched from UI
+#_(reg-event-db
  :toggle-public
  character-interceptors
  (fn [character _]
@@ -1428,10 +1430,12 @@
  (fn [db [_ user-data]]
    (assoc db :user user-data)))
 
-(defn set-active-tabs [db [_ active-tabs]]
+;; never dispatched from UI
+#_(defn set-active-tabs [db [_ active-tabs]]
   (assoc-in db tab-path active-tabs))
 
-(reg-event-db
+;; never dispatched from UI
+#_(reg-event-db
  :set-active-tabs
  set-active-tabs)
 
@@ -1656,7 +1660,8 @@
  (fn [cofx [_ response]]
    {:dispatch [:clear-login]}))
 
-(defn validate-registration [])
+;; dead stub — real impl is orcpub.registration/validate-registration
+#_(defn validate-registration [])
 
 (reg-event-db
  :email-taken
@@ -1668,7 +1673,8 @@
  (fn [db [_ response]]
    (assoc db :username-taken? (-> response :body (= "true")))))
 
-(reg-event-db
+;; never dispatched — registration form uses :register-first-and-last-name
+#_(reg-event-db
  :registration-first-and-last-name
  (fn [db [_ first-and-last-name]]
    (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
@@ -1700,7 +1706,8 @@
  (fn [db [_ send-updates?]]
    (assoc-in db [:registration-form :send-updates?] send-updates?)))
 
-(reg-event-db
+;; never dispatched from UI
+#_(reg-event-db
  :register-first-and-last-name
  (fn [db [_ first-and-last-name]]
    (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
@@ -1769,7 +1776,8 @@
            :on-success [:send-password-reset-success]
            :on-failure [:send-password-reset-failure]}}))
 
-(reg-event-db
+;; never dispatched — character loading uses :load-user-data flow
+#_(reg-event-db
  :load-characters-success
  (fn [db [_ response]]
    (assoc-in db [:dnd :e5 :characters] (:body response))))
@@ -2016,7 +2024,8 @@
           :login-message-shown? true
           :login-message message)))
 
-(reg-event-db
+;; never dispatched from UI
+#_(reg-event-db
  :hide-warning
  (fn [db _]
    (assoc db :warning-hidden true)))
@@ -2048,7 +2057,8 @@
                  :subrace subrace
                  :sex sex})})))
 
-(defn remove-subtypes [subtypes hidden-subtypes]
+;; unreferenced
+#_(defn remove-subtypes [subtypes hidden-subtypes]
   (let [result (sets/difference subtypes hidden-subtypes)]
     result))
 
@@ -2118,7 +2128,8 @@
        (assoc :orcacle-clicked? false)
        (dissoc :search-text))))
 
-(reg-event-fx
+;; never dispatched from UI (note: "orcacle" typo)
+#_(reg-event-fx
  :open-orcacle-over-character-builder
  (fn []
    {:dispatch-n [[:route routes/dnd-e5-char-builder-route]
@@ -2423,7 +2434,8 @@
                   "dark-theme"
                   "light-theme")))))
 
-(reg-event-db
+;; never dispatched from UI
+#_(reg-event-db
  ::mi/set-builder-item
  [magic-item->local-store-interceptor]
  (fn [db [_ magic-item]]
@@ -2854,7 +2866,8 @@
  (fn [subclass [_ class-spells-key level index spell-kw]]
    (assoc-in subclass [class-spells-key level index] spell-kw)))
 
-(reg-event-db
+;; never dispatched from UI
+#_(reg-event-db
  ::class5e/set-spell-list
  subclass-interceptors
  (fn [subclass [_ class-kw]]
@@ -2866,7 +2879,8 @@
  (fn [feat [_ prop-key prop-value]]
    (assoc feat prop-key prop-value)))
 
-(reg-event-db
+;; never dispatched from UI
+#_(reg-event-db
  ::bg5e/set-feature-prop
  background-interceptors
  (fn [background [_ prop-key prop-value]]
@@ -2878,7 +2892,8 @@
  (fn [feat [_ key]]
    (update-in feat [:props key] not)))
 
-(reg-event-db
+;; never dispatched from UI — feat builder uses toggle-feat-prop instead
+#_(reg-event-db
  ::feats5e/toggle-feat-selection
  feat-interceptors
  (fn [feat [_ key]]
@@ -2908,7 +2923,8 @@
                            (dissoc m key)
                            (assoc m key num))))))
 
-(reg-event-db
+;; never dispatched — class/subclass builder UI not wired for value-prop toggles
+#_(reg-event-db
  ::class5e/toggle-subclass-value-prop
  subclass-interceptors
  (fn [subclass [_ key num]]
@@ -2917,7 +2933,8 @@
                            (dissoc m key)
                            (assoc m key num))))))
 
-(reg-event-db
+;; never dispatched — class builder UI not wired for value-prop toggles
+#_(reg-event-db
  ::class5e/toggle-class-value-prop
  class-interceptors
  (fn [class [_ key num]]
@@ -2950,7 +2967,8 @@
  (fn [class [_ prop-path prop-value]]
    (update-in class prop-path not)))
 
-(reg-event-db
+;; never dispatched — class builder UI not wired for prof toggles
+#_(reg-event-db
  ::class5e/toggle-class-prof
  class-interceptors
  (fn [class [_ prop-path]]
@@ -2985,19 +3003,22 @@
  (fn [race [_ key value]]
    (update-in race [:props key value] not)))
 
-(reg-event-db
+;; never dispatched — class builder UI not wired for subclass map-prop toggles
+#_(reg-event-db
  ::class5e/toggle-subclass-map-prop
  subclass-interceptors
  (fn [subclass [_ key value]]
    (update-in subclass [:props key value] not)))
 
-(reg-event-db
+;; never dispatched — class builder UI not wired for class map-prop toggles
+#_(reg-event-db
  ::class5e/toggle-class-map-prop
  class-interceptors
  (fn [class [_ key value]]
    (update-in class [:props key value] not)))
 
-(reg-event-db
+;; never dispatched — background builder UI not wired for map-prop toggles
+#_(reg-event-db
  ::bg5e/toggle-background-map-prop
  background-interceptors
  (fn [background [_ key value]]
@@ -3390,7 +3411,7 @@
    (let [blob (js/Blob.
                (clj->js [(str @(subscribe [::e5/plugins]))])
                (clj->js {:type "text/plain;charset=utf-8"}))]
-     (js/saveAs blob (str "all-content.orcbrew"))
+     (js/saveAs blob "all-content.orcbrew")
      {})))
 
 (reg-event-fx
@@ -3407,7 +3428,7 @@
     (let [blob (js/Blob.
                  (clj->js [(with-out-str (pprint/pprint @(subscribe [::e5/plugins])))])
                  (clj->js {:type "text/plain;charset=utf-8"}))]
-      (js/saveAs blob (str "all-content.orcbrew"))
+      (js/saveAs blob "all-content.orcbrew")
       {})))
 
 (reg-event-fx

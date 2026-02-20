@@ -449,7 +449,8 @@
            {}
            folders)))
 
-(reg-sub
+;; dead — never subscribed to; events.cljs accesses ::char5e/summary-map directly
+#_(reg-sub
  ::char5e/summary-map
  (fn [[_ login-optional?]]
    (subscribe [::char5e/characters login-optional?]))

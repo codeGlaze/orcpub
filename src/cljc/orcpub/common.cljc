@@ -36,7 +36,8 @@
 (defn map-by-id [values]
   (map-by :db/id values))
 
-(defmacro ptime [message body]
+;; dead — zero callers
+#_(defmacro ptime [message body]
   `(do (prn ~message)
        (time ~body)))
 
@@ -149,14 +150,17 @@
 
 (def rounds-per-minute 10)
 (def minutes-per-hour 60)
-(def hours-per-day 24)
+;; dead — redefined in views.cljs, never used from common
+#_(def hours-per-day 24)
 
 (def rounds-per-hour (* minutes-per-hour rounds-per-minute))
 
-(defn rounds-to-hours [rounds]
+;; dead — zero callers
+#_(defn rounds-to-hours [rounds]
   (int (/ rounds rounds-per-hour)))
 
-(defn rounds-to-minutes [rounds]
+;; dead — zero callers
+#_(defn rounds-to-minutes [rounds]
   (int (/ (rem rounds rounds-per-hour) rounds-per-minute)))
 
 (def filter-true-xform
