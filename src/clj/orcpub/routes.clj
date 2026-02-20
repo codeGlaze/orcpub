@@ -17,7 +17,7 @@
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clj-time.core :as t :refer [hours from-now ago]]
-            [clj-time.coerce :as tc :refer [from-date]]
+            [clj-time.coerce :as tc]
             [clojure.string :as s]
             [clojure.spec.alpha :as spec]
             [clojure.pprint]
@@ -183,7 +183,7 @@
 
 
 (defn verification-expired? [verification-sent]
-  (t/before? (from-date verification-sent) (-> 24 hours ago)))
+  (t/before? (tc/from-date verification-sent) (-> 24 hours ago)))
 
 (defn login-error [error-key & [data]]
   {:status 401 :body (merge
@@ -990,7 +990,9 @@
       {:status 200 :body character})))
 
 (defn character-summary-for-id [db id]
-  {:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id))
+  ;; Fixed: bare destructuring outside let silently returned nil
+  (let [{:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id)]
+    summary))
 
 (defn get-character
   "Retrieves a character by ID.

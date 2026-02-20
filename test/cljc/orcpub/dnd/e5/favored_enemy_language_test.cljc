@@ -138,11 +138,11 @@
       (is (= :aquan (:key aquan-result))))
 
     (let [homebrew-map (assoc language-map
-                              :aquan {:name "Aquan" :key :aquan})]
-      ;; Giant-elk is still NOT in the map
-      (let [elk-result (lookup-with-fallback homebrew-map :giant-elk)]
-        (is (= "Giant Elk" (:name elk-result))
-            "Non-homebrew key should still get fallback name")))))
+                              :aquan {:name "Aquan" :key :aquan})
+          ;; Giant-elk is still NOT in the map
+          elk-result (lookup-with-fallback homebrew-map :giant-elk)]
+      (is (= "Giant Elk" (:name elk-result))
+          "Non-homebrew key should still get fallback name"))))
 
 (deftest test-key-to-name-generates-readable-names
   (testing "key-to-name converts keyword keys to human-readable names"
