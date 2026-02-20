@@ -41,16 +41,11 @@
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
-            [orcpub.dnd.e5.import-validation :as import-val]
             [orcpub.ver :as v]
             [clojure.string :as s]
             [cljs.reader :as reader]
             [orcpub.user-agent :as user-agent]
             [bidi.bidi :as bidi]))
-
-;; =============================================================================
-;; Version: 1.08 - Add export warning modal for required field validation
-;; =============================================================================
 
 ;; the `amount` of "uses" an action may have before it warrants
 ;; using a dropdown instead of a list of checkboxes
@@ -1134,7 +1129,7 @@
     (str (when (pos? level)
            (str (common/ordinal level) "-level"))
          " "
-         (common/safe-capitalize school) (if ritual " (can be cast as ritual)" "")
+         (str (common/safe-capitalize school) (when ritual " (can be cast as ritual)"))
          (when (zero? level)
            " cantrip"))]])
 
@@ -1582,39 +1577,7 @@
         classes @(subscribe [::char/classes id])
         alignment  @(subscribe [::char/alignment id])
         background  @(subscribe [::char/background id])
-        {:keys [::se/owner] :as strict-character} @(subscribe [::char/character id])
-        ;; Get plugins for fuzzy matching suggestions
-        plugins @(subscribe [::e5/plugins])
-        ;; Get raw class data from entity for fallback when plugins aren't loaded
-        raw-classes (get-in strict-character [::entity/options :class])
-        ;; Extract subclass key from raw class data by searching level options
-        ;; The subclass is stored in a level's options with ::entity/key
-        extract-subclass-key (fn [raw-class]
-                               (let [levels-data (get-in raw-class [::entity/options :levels])]
-                                 (some (fn [level-entry]
-                                         (let [level-opts (::entity/options level-entry)]
-                                           (some (fn [[k v]]
-                                                   (when (and (map? v) (::entity/key v))
-                                                     (::entity/key v)))
-                                                 level-opts)))
-                                       levels-data)))
-        ;; Build maps of class-key -> stored level and class-key -> subclass-key
-        raw-class-data (into {}
-                             (map (fn [c]
-                                    [(::entity/key c)
-                                     {:level (count (get-in c [::entity/options :levels]))
-                                      :subclass-key (extract-subclass-key c)}])
-                                  raw-classes))
-        ;; Merge class keys: built classes + any raw classes not in built
-        all-class-keys (distinct (concat classes (keys raw-class-data)))
-        ;; Helper to find best fuzzy match suggestion for a missing key
-        find-suggestion (fn [missing-key content-type]
-                          (when plugins
-                            (let [suggestions (import-val/suggest-key-matches
-                                               missing-key content-type plugins)]
-                              (when (and (seq suggestions)
-                                         (>= (:score (first suggestions)) 50))
-                                (first suggestions)))))]
+        {:keys [::se/owner] :as strict-character} @(subscribe [::char/character id])]
     (character-summary-2
      {::char/character-name character-name
       ::char/age age
@@ -1632,30 +1595,11 @@
       ::char/classes (map
                       (fn [class-kw]
                         (let [{:keys [class-name class-level subclass-name] :as cfg}
-                              (get levels class-kw)
-                              ;; Get raw stored data for this class
-                              {:keys [level subclass-key]} (get raw-class-data class-kw)
-                              ;; Check for fuzzy match suggestion if class not found
-                              class-suggestion (when-not class-name
-                                                 (find-suggestion class-kw :orcpub.dnd.e5/classes))
-                              subclass-suggestion (when (and (not subclass-name) subclass-key)
-                                                    (find-suggestion subclass-key :orcpub.dnd.e5/subclasses))
-                              ;; Build display names with suggestions
-                              display-class (or class-name
-                                                (if class-suggestion
-                                                  (str (common/kw-to-name class-kw) " (not loaded - try "
-                                                       (:name class-suggestion) " from " (:source class-suggestion) "?)")
-                                                  (str (common/kw-to-name class-kw) " (not loaded)")))
-                              display-subclass (or subclass-name
-                                                   (when subclass-key
-                                                     (if subclass-suggestion
-                                                       (str (common/kw-to-name subclass-key) " (not loaded - try "
-                                                            (:name subclass-suggestion) "?)")
-                                                       (str (common/kw-to-name subclass-key) " (not loaded)"))))]
-                          {::char/class-name display-class
-                           ::char/level (or class-level level 0)
-                           ::char/subclass-name display-subclass}))
-                      all-class-keys)}
+                              (get levels class-kw)]
+                          {::char/class-name class-name
+                           ::char/level class-level
+                           ::char/subclass-name subclass-name}))
+                      classes)}
      include-name?
      owner
      true
@@ -1753,16 +1697,14 @@
             (doall
              (map
               (fn [[class-key factor]]
-                (let [{:keys [class-name class-level subclass-name]} (levels class-key)
-                      display-name (or class-name (str (common/kw-to-name class-key) " (not loaded)"))
-                      display-level (or class-level 0)]
+                (let [{:keys [class-name class-level subclass-name]} (levels class-key)]
                   ^{:key class-key}
                   [:tr
-                   [:td.p-10 display-name]
+                   [:td.p-10 class-name]
                    [:td.p-10 subclass-name]
-                   [:td.p-10 display-level]
+                   [:td.p-10 class-level]
                    [:td.p-10 (if (= 1 factor) 1 (str "1/" factor))]
-                   [:td.p-10 (int (/ display-level factor))]]))
+                   [:td.p-10 (int (/ class-level factor))]]))
               spell-slot-factors))
             [:tr
              [:td.p-10 "Total"]
@@ -7584,100 +7526,99 @@
     [my-content]]])
 
 (defn my-account-page []
-  (r/with-let [editing? (r/atom false)
-               new-email (r/atom "")
-               confirm-email (r/atom "")]
-    (let [current-email @(subscribe [:email])
-          pending-email @(subscribe [:pending-email])
-          sent? @(subscribe [:email-change-sent?])
-          error @(subscribe [:email-change-error])
-          ;; Client-side validation: format check + confirm match
-          bad-format? (and (seq @new-email)
-                          (registration/bad-email? @new-email))
-          emails-dont-match? (and (seq @confirm-email)
-                                  (not= @new-email @confirm-email))
-          can-submit? (and (seq @new-email)
-                           (not bad-format?)
-                           (= @new-email @confirm-email))]
-      [content-page
-       "My Account"
-       [{:title (str "Delete Account")
-         :icon "trash"
-         :on-click #(dispatch
-                    [:show-confirmation
-                     {:confirm-button-text "DELETE ACCOUNT"
-                      :question "Are you sure you want to delete your account, characters, and associated data?"
-                      :event [:delete-account]}])}]
-       [:div.f-s-24.p-10.white
-        [:div.p-5
-         [:span.f-w-b "Username: "]
-         [:span @(subscribe [:username])]]
-        [:div.p-5
-         [:span.f-w-b "Email: "]
-         (cond
-           sent?
-           [:div
-            [:span current-email]
-            [:div.m-t-5.f-s-14 "A verification email has been sent to " [:strong pending-email] ". Click the link in that email to confirm the change."]
-            [:button.link-button.m-t-5.f-s-14
-             {:on-click #(do (reset! editing? true)
-                             (reset! new-email "")
-                             (reset! confirm-email "")
-                             (dispatch [:change-email-clear]))}
-             "Change again"]]
+    (r/with-let [editing? (r/atom false)
+                 new-email (r/atom "")
+                 confirm-email (r/atom "")]
+      (let [current-email @(subscribe [:email])
+            pending-email @(subscribe [:pending-email])
+            sent? @(subscribe [:email-change-sent?])
+            error @(subscribe [:email-change-error])
+            ;; Client-side validation: format check + confirm match
+            bad-format? (and (seq @new-email)
+                            (registration/bad-email? @new-email))
+            emails-dont-match? (and (seq @confirm-email)
+                                    (not= @new-email @confirm-email))
+            can-submit? (and (seq @new-email)
+                             (not bad-format?)
+                             (= @new-email @confirm-email))]
+        [content-page
+         "My Account"
+         [{:title (str "Delete Account")
+           :icon "trash"
+           :on-click #(dispatch
+                      [:show-confirmation
+                       {:confirm-button-text "DELETE ACCOUNT"
+                        :question "Are you sure you want to delete your account, characters, and associated data?"
+                        :event [:delete-account]}])}]
+         [:div.f-s-24.p-10.white
+          [:div.p-5
+           [:span.f-w-b "Username: "]
+           [:span @(subscribe [:username])]]
+          [:div.p-5
+           [:span.f-w-b "Email: "]
+           (cond
+             sent?
+             [:div
+              [:span current-email]
+              [:div.m-t-5.f-s-14 "A verification email has been sent to " [:strong pending-email] ". Click the link in that email to confirm the change."]
+              [:button.link-button.m-t-5.f-s-14
+               {:on-click #(do (reset! editing? true)
+                               (reset! new-email "")
+                               (reset! confirm-email "")
+                               (dispatch [:change-email-clear]))}
+               "Change again"]]
 
-           @editing?
-           [:div.m-t-5
-            [:input.input
-             {:type :email
-              :value @new-email
-              :placeholder "New email address"
-              :on-change #(reset! new-email (event-value %))}]
-            (when bad-format?
-              [:div.m-t-5.red "Not a valid email format"])
-            ;; Confirm field to prevent typo-induced lockout
-            [:input.input.m-t-5
-             {:type :email
-              :value @confirm-email
-              :placeholder "Confirm new email address"
-              :on-change #(reset! confirm-email (event-value %))}]
-            (when emails-dont-match?
-              [:div.m-t-5.red "Email addresses don't match"])
-            [:div.m-t-5
-             [:button.form-button
-              {:disabled (not can-submit?)
-               :on-click #(when can-submit?
-                            (dispatch [:change-email @new-email]))}
-              "Save"]
-             [:button.link-button.m-l-10
-              {:on-click #(do (reset! editing? false)
-                              (reset! new-email "")
-                              (reset! confirm-email "")
-                              (dispatch [:change-email-clear]))}
-              "Cancel"]]
-            (when error
-              [:div.m-t-5.red error])]
+             @editing?
+             [:div.m-t-5
+              [:input.input
+               {:type :email
+                :value @new-email
+                :placeholder "New email address"
+                :on-change #(reset! new-email (event-value %))}]
+              (when bad-format?
+                [:div.m-t-5.red "Not a valid email format"])
+              ;; Confirm field to prevent typo-induced lockout
+              [:input.input.m-t-5
+               {:type :email
+                :value @confirm-email
+                :placeholder "Confirm new email address"
+                :on-change #(reset! confirm-email (event-value %))}]
+              (when emails-dont-match?
+                [:div.m-t-5.red "Email addresses don't match"])
+              [:div.m-t-5
+               [:button.form-button
+                {:disabled (not can-submit?)
+                 :on-click #(when can-submit?
+                              (dispatch [:change-email @new-email]))}
+                "Save"]
+               [:button.link-button.m-l-10
+                {:on-click #(do (reset! editing? false)
+                                (reset! new-email "")
+                                (reset! confirm-email "")
+                                (dispatch [:change-email-clear]))}
+                "Cancel"]]
+              (when error
+                [:div.m-t-5.red error])]
 
-           :else
-           [:div
-            [:span current-email]
-            (when pending-email
-              [:div.m-t-5.f-s-14
-               "Pending: " pending-email " — check your email to verify the change. "
-               ;; Resend uses the same change-email flow; server enforces 3-zone rate limit
-               ;; (0–1 min blocked, 1–5 min free resend, 5+ min open)
-               [:button.link-button.f-s-14
-                {:on-click #(dispatch [:change-email pending-email])}
-                "Resend"]
-               (when error
-                 [:span.m-l-5.red.f-s-14 error])])
-            [:button.link-button.m-l-10
-             {:on-click #(do (reset! editing? true)
-                             (reset! new-email "")
-                             (reset! confirm-email "")
-                             (dispatch [:change-email-clear]))}
-             "Change"]])]]])))
-
+             :else
+             [:div
+              [:span current-email]
+              (when pending-email
+                [:div.m-t-5.f-s-14
+                 "Pending: " pending-email " — check your email to verify the change. "
+                 ;; Resend uses the same change-email flow; server enforces 3-zone rate limit
+                 ;; (0–1 min blocked, 1–5 min free resend, 5+ min open)
+                 [:button.link-button.f-s-14
+                  {:on-click #(dispatch [:change-email pending-email])}
+                  "Resend"]
+                 (when error
+                   [:span.m-l-5.red.f-s-14 error])])
+              [:button.link-button.m-l-10
+               {:on-click #(do (reset! editing? true)
+                               (reset! new-email "")
+                               (reset! confirm-email "")
+                               (dispatch [:change-email-clear]))}
+               "Change"]])]]])))
 
 (defn newb-character-builder-page []
   [content-page
@@ -7929,12 +7870,10 @@
                            owner
                            username
                            summary]
-  ;; Guard against nil id - unsaved characters don't have :db/id yet
-  (when id
-    (let [expanded? (get expanded-characters id)
-          char-page-path (routes/path-for routes/dnd-e5-char-page-route :id id)
-          char-page-route (routes/match-route char-page-path)]
-      [:div.main-text-color.item-list-item
+  (let [expanded? (get expanded-characters id)
+        char-page-path (routes/path-for routes/dnd-e5-char-page-route :id id)
+        char-page-route (routes/match-route char-page-path)]
+    [:div.main-text-color.item-list-item
      [:div
       [:div.flex.justify-cont-s-b.align-items-c.pointer
        {:on-click (make-event-handler :toggle-character-expanded id)}
@@ -7954,8 +7893,7 @@
         [:i.fa.m-l-5
          {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]
       (when expanded?
-        [expanded-character-list-item id owner username char-page-route])]])))
-
+        [expanded-character-list-item id owner username char-page-route])]]))
 
 (defn folder-item [f expanded-characters selected-ids username filtered-char-ids]
   (let [edit-name      (r/atom (::folder/name f))
