@@ -3501,7 +3501,7 @@
        (let [blob (js/Blob.
                    (clj->js [(str all-plugins)])
                    (clj->js {:type "text/plain;charset=utf-8"}))]
-         (js/saveAs blob (str "all-content.orcbrew"))
+         (js/saveAs blob "all-content.orcbrew")
          (if has-warnings
            {:dispatch [:show-warning-message
                       "All plugins exported with some warnings. Check console for details."]}

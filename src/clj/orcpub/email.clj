@@ -14,7 +14,7 @@
 
 (defn verification-email-html [first-and-last-name username verification-url]
   [:div
-   (str "Dear OrcPub Patron,")
+   "Dear OrcPub Patron,"
    [:br]
    [:br]
    "Your OrcPub account is almost ready, we just need you to verify your email address going the following URL to confirm that you are authorized to use this email address:"
@@ -47,7 +47,7 @@
                       e)))))
 
 (defn emailfrom []
-  (if (not (s/blank? (environ/env :email-from-address))) (environ/env :email-from-address) (str "no-reply@orcpub.com")))
+  (if (not (s/blank? (environ/env :email-from-address))) (environ/env :email-from-address) "no-reply@orcpub.com"))
 
 (defn send-verification-email
   "Sends account verification email to a new user.
@@ -88,7 +88,7 @@
 
 (defn reset-password-email-html [first-and-last-name reset-url]
   [:div
-   (str "Dear OrcPub Patron")
+   "Dear OrcPub Patron"
    [:br]
    [:br]
    "We received a request to reset your password, to do so please go to the following URL to complete the reset."

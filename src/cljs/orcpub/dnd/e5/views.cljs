@@ -7875,7 +7875,7 @@
         [:i.fa.m-l-5
          {:class-name (if expanded? "fa-caret-up" "fa-caret-down")}]]]
       (when expanded?
-        [expanded-character-list-item id owner username char-page-route])]]))
+        [expanded-character-list-item id owner username char-page-route])]])))
 
 
 (defn folder-item [f expanded-characters selected-ids username filtered-char-ids]

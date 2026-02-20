@@ -537,7 +537,7 @@
    ;; Warning/alert styles
    [:.bg-warning
     {:background-color "rgba(240, 161, 0, 0.1)"
-     :border (str "1px solid rgba(240, 161, 0, 0.3)")
+     :border "1px solid rgba(240, 161, 0, 0.3)"
      :border-radius "4px"}]
    [:.bg-warning-item
     {:background-color "rgba(0, 0, 0, 0.2)"

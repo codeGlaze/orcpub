@@ -1443,7 +1443,7 @@ When you hit a giant with it, the giant takes an extra 2d6 damage of the weaponâ
                   {:name "Gloves of Missile Snaring"
                    :page 172
                    :source :dmg
-                   :summary (str "when hit by a ranged weapon attack, reduce the damage by 1d10 + DEX mod")})]
+                   :summary "when hit by a ranged weapon attack, reduce the damage by 1d10 + DEX mod"})]
      ::description "These gloves seem to almost meld into your hands when you don them. When a ranged weapon attack hits you while youâ€™re wearing them, you can use your reaction to reduce the damage by 1d10 + your Dexterity modifier, provided that you have a free hand. If you reduce the damage to 0, you can catch the missile if it is small enough for you to hold in that hand."
      }{
      name-key "Gloves of Swimming and Climbing"
