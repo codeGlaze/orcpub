@@ -1,6 +1,5 @@
 (ns orcpub.dnd.e5.event-handlers-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.data :refer [diff]]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
             [orcpub.entity.strict :as se]
