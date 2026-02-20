@@ -1,9 +1,6 @@
 (ns orcpub.dnd.e5.options-test
-  (:require [clojure.test :refer [is deftest testing]]
-            [clojure.spec.alpha :as spec]
-            [clojure.data :refer [diff]]
-            [orcpub.dnd.e5.options :as opt]
-            [orcpub.entity :as entity]))
+  (:require [clojure.test :refer [deftest is]]
+            [orcpub.dnd.e5.options :as opt]))
 
 (deftest test-total-slots
   (is (= {1 2} (opt/total-slots 3 3)))

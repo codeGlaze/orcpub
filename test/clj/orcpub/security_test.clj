@@ -1,6 +1,6 @@
 (ns orcpub.security-test
-  (:require [clojure.test :refer [testing deftest is]]
-            [clj-time.core :as t :refer [hours minutes seconds millis ago now]]
+  (:require [clojure.test :refer [deftest is]]
+            [clj-time.core :as t :refer [hours minutes seconds ago now]]
             [orcpub.security :as s]
             [clojure.set :as sets]))
 

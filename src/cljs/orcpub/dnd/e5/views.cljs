@@ -2234,7 +2234,7 @@
 
 ;; dead — zero callers
 #_(defn default-image [race classes]
-  (if (and (or (= "Human" race)
+  (when (and (or (= "Human" race)
                (nil? race))
            (= :barbarian (first classes)))
     "/image/barbarian.png"))

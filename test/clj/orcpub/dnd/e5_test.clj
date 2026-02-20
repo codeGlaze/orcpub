@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is]]
             [orcpub.dnd.e5 :as e5]
             [clojure.spec.alpha :as spec]))
 

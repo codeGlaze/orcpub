@@ -8,6 +8,7 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
+            [orcpub.dnd.e5.import-validation :as import-val]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
@@ -78,6 +79,10 @@
             [cljsjs.filesaverjs]
             [clojure.pprint :as pprint])
   (:require-macros [cljs.core.async.macros :refer [go]]))
+
+;; =============================================================================
+;; Version: 1.06 - Add export warning modal events, required field validation
+;; =============================================================================
 
 (defn check-and-throw
   "throw an exception if db doesn't match the spec"
@@ -465,6 +470,23 @@
              :transit-params strict-item
              :on-success [:item-save-success]}})))
 
+(defn spec-error-message
+  "Extract specific field names from a spec explanation to produce a targeted
+   error message. Falls back to the static message if parsing fails."
+  [type-name explanation fallback-message]
+  (if-let [problems (::spec/problems explanation)]
+    (let [contains-syms #{'cljs.core/contains? 'clojure.core/contains?}
+          missing-fields (->> problems
+                              (keep (fn [{:keys [pred]}]
+                                      (when (and (sequential? pred)
+                                                 (contains-syms (first pred)))
+                                        (name (last pred)))))
+                              distinct)]
+      (if (seq missing-fields)
+        (str type-name " is missing required fields: " (s/join ", " missing-fields))
+        fallback-message))
+    fallback-message))
+
 (defn reg-save-homebrew [type-name
                          event-key
                          item-key
@@ -476,7 +498,10 @@
    (fn [{:keys [db]} _]
      (let [{:keys [name option-pack] :as item} (item-key db)
            key (common/name-to-kw name)
-           item-with-key (assoc item :key key)
+           ;; Normalize text then auto-fill missing required fields
+           normalized-item (import-val/normalize-text-in-data item)
+           {filled-item :item} (import-val/fill-all-missing-fields normalized-item plugin-key)
+           item-with-key (assoc filled-item :key key)
            plugins (:plugins db)
            explanation (spec/explain-data spec-key item-with-key)]
        (if (nil? explanation)
@@ -492,7 +517,7 @@
                             {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
                             "here"]]
                           60000]]})
-         {:dispatch [:show-error-message error-message]})))))
+         {:dispatch [:show-error-message (spec-error-message type-name explanation error-message)]})))))
 
 (reg-save-homebrew
  "Spell"
@@ -1564,6 +1589,24 @@
 
 (defn show-generic-error []
   [:show-error-message [:div "There was an error, please refresh your browser and try again."]])
+
+(defn handle-api-response
+  "Dispatch on HTTP response status with sensible defaults.
+   on-success is called for 200. Options:
+     :on-401  — called on 401 (default: dispatch :route-to-login)
+     :on-500  — called on 500 (default: dispatch show-generic-error)
+     :context — string describing the request, used in console warning for unhandled statuses"
+  [response on-success & {:keys [on-401 on-500 context]}]
+  (case (:status response)
+    200 (on-success)
+    401 (if on-401
+          (on-401)
+          (dispatch [:route-to-login]))
+    500 (if on-500
+          (on-500)
+          (dispatch (show-generic-error)))
+    (js/console.warn "Unhandled HTTP status:" (:status response)
+                     (str "(" (or context "unknown request") ")"))))
 
 (reg-fx
  :http
@@ -2722,9 +2765,11 @@
  ::class5e/set-class-path-prop
  class-interceptors
  (fn [class [_ prop-path prop-value prop-path-2 prop-value-2]]
-   (-> class
-       (assoc-in prop-path prop-value)
-       (assoc-in prop-path-2 prop-value-2))))
+   ;; Only apply second assoc-in if prop-path-2 is provided
+   ;; (prevents {nil nil} corruption when called with 2 args)
+   (cond-> class
+     true (assoc-in prop-path prop-value)
+     prop-path-2 (assoc-in prop-path-2 prop-value-2))))
 
 (reg-event-db
  ::selections5e/set-selection-path-prop
@@ -2738,11 +2783,18 @@
  (fn [selection [_ index]]
    (update selection :options common/remove-at-index index)))
 
+;; Append a new option to the selection with a unique default name ("Option N").
+;; Starts from count+1, increments if that name already exists (e.g., after deletions).
 (reg-event-db
  ::selections5e/add-option
  selection-interceptors
  (fn [selection]
-   (update selection :options conj {})))
+   (let [existing (set (map :name (:options selection)))
+         idx (inc (count (:options selection)))
+         idx (if (contains? existing (str "Option " idx))
+               (loop [n idx] (if (contains? existing (str "Option " n)) (recur (inc n)) n))
+               idx)]
+     (update selection :options conj {:name (str "Option " idx)}))))
 
 (reg-event-db
  ::class5e/set-subclass-path-prop
@@ -3399,20 +3451,109 @@
 (reg-event-fx
  ::e5/export-plugin
  (fn [_ [_ name plugin]]
-   (let [blob (js/Blob.
-               (clj->js [(str plugin)])
+   ;; Validate before export to catch bugs early
+   (let [validation (import-val/validate-before-export plugin)]
+     (cond
+       ;; Has missing required fields - show modal for user decision
+       (:has-missing-required-fields validation)
+       (do
+         (js/console.warn "Export validation found missing required fields for" name ":")
+         (js/console.warn (clj->js (:missing-fields-issues validation)))
+         {:dispatch [:show-export-warning-modal
+                     {:name name
+                      :plugin plugin
+                      :issues (:missing-fields-issues validation)
+                      :warnings (:warnings validation)}]})
+
+       ;; Valid - proceed with export
+       (:valid validation)
+       (do
+         ;; Log warnings if any
+         (when (seq (:warnings validation))
+           (js/console.warn "Export warnings for" name ":")
+           (doseq [warning (:warnings validation)]
+             (js/console.warn " " warning)))
+
+         ;; Proceed with export
+         (let [blob (js/Blob.
+                     (clj->js [(str plugin)])
+                     (clj->js {:type "text/plain;charset=utf-8"}))]
+           (js/saveAs blob (str name ".orcbrew"))
+           (if (seq (:warnings validation))
+             {:dispatch [:show-warning-message
+                        (str "Plugin '" name "' exported with warnings. Check console for details.")]}
+             {})))
+
+       ;; Other validation failure - don't export
+       :else
+       (do
+         (js/console.error "Export validation failed for" name ":")
+         (js/console.error (:errors validation))
+         {:dispatch [:show-error-message
+                    (str "Cannot export '" name "' - contains invalid data. Check console for details.")]})))))
+
+;; Export warning modal events
+(reg-event-db
+ :show-export-warning-modal
+ (fn [db [_ {:keys [name plugin issues warnings]}]]
+   (assoc db :export-warning
+          {:active? true
+           :name name
+           :plugin plugin
+           :issues issues
+           :warnings warnings})))
+
+(reg-event-db
+ :cancel-export
+ (fn [db _]
+   (assoc db :export-warning {:active? false})))
+
+(reg-event-fx
+ :export-anyway
+ (fn [{:keys [db]} _]
+   (let [{:keys [name plugin]} (:export-warning db)
+         ;; Fill missing fields with dummy data
+         filled-plugin (import-val/fill-missing-for-export plugin)
+         blob (js/Blob.
+               (clj->js [(str filled-plugin)])
                (clj->js {:type "text/plain;charset=utf-8"}))]
      (js/saveAs blob (str name ".orcbrew"))
-     {})))
+     {:db (assoc db :export-warning {:active? false})
+      :dispatch [:show-warning-message
+                 (str "Plugin '" name "' exported with placeholder data for missing fields.")]})))
 
 (reg-event-fx
  ::e5/export-all-plugins
- (fn [_ _]
-   (let [blob (js/Blob.
-               (clj->js [(str @(subscribe [::e5/plugins]))])
-               (clj->js {:type "text/plain;charset=utf-8"}))]
-     (js/saveAs blob "all-content.orcbrew")
-     {})))
+ (fn [{:keys [db]} _]
+   (let [all-plugins (:plugins db)
+         ;; Validate each plugin
+         validations (into {}
+                          (map (fn [[name plugin]]
+                                 [name (import-val/validate-before-export plugin)])
+                               all-plugins))
+         has-errors (some (fn [[_ v]] (not (:valid v))) validations)
+         has-warnings (some (fn [[_ v]] (seq (:warnings v))) validations)]
+
+     (when (or has-errors has-warnings)
+       (js/console.warn "Export validation results:")
+       (doseq [[name validation] validations]
+         (when-not (:valid validation)
+           (js/console.error "Plugin" name "has errors:" (:errors validation)))
+         (when (seq (:warnings validation))
+           (js/console.warn "Plugin" name "has warnings:" (:warnings validation)))))
+
+     (if has-errors
+       {:dispatch [:show-error-message
+                  "Cannot export all plugins - some contain invalid data. Check console for details."]}
+
+       (let [blob (js/Blob.
+                   (clj->js [(str all-plugins)])
+                   (clj->js {:type "text/plain;charset=utf-8"}))]
+         (js/saveAs blob "all-content.orcbrew")
+         (if has-warnings
+           {:dispatch [:show-warning-message
+                      "All plugins exported with some warnings. Check console for details."]}
+           {}))))))
 
 (reg-event-fx
   ::e5/export-plugin-pretty-print
@@ -3424,9 +3565,9 @@
       {})))
 (reg-event-fx
   ::e5/export-all-plugins-pretty-print
-  (fn [_ _]
+  (fn [{:keys [db]} _]
     (let [blob (js/Blob.
-                 (clj->js [(with-out-str (pprint/pprint @(subscribe [::e5/plugins])))])
+                 (clj->js [(with-out-str (pprint/pprint (:plugins db)))])
                  (clj->js {:type "text/plain;charset=utf-8"}))]
       (js/saveAs blob "all-content.orcbrew")
       {})))
@@ -3446,7 +3587,10 @@
  (fn [{:keys [db]} [_ plugin-name type-key key]]
    {:dispatch [::e5/set-plugins (-> db :plugins (update-in [plugin-name type-key key :disabled?] not))]}))
 
-(defn clean-plugin-errors [plugin-text]
+(defn clean-plugin-errors
+  "DEPRECATED: Use import-validation/validate-import instead.
+   Kept for backward compatibility only."
+  [plugin-text]
   (-> plugin-text
       (clojure.string/replace #"disabled\?\s+nil" "disabled? false") ; disabled? nil - replace w/disabled? false
       (clojure.string/replace #"(?m)nil nil, " "") ; nil nil,  - find+remove
@@ -3455,34 +3599,301 @@
       (clojure.string/replace #":option-pack\s*\"\s*\"\s*," ":option-pack \"Default Option Source\",") ;:option-pack "",
       ))
 
+;; ============================================================================
+;; Import Log Events
+;; ============================================================================
+
+(reg-event-db
+ :set-import-log
+ (fn [db [_ {:keys [name changes errors skipped-items]}]]
+   (assoc db :import-log
+          {:panel-shown? (or (seq changes) (seq errors) (seq skipped-items))
+           :changes (or changes [])
+           :errors (or errors [])
+           :skipped-items (or skipped-items [])
+           :import-name name
+           :timestamp (js/Date.)})))
+
+(reg-event-db
+ :toggle-import-log-panel
+ (fn [db _]
+   (update-in db [:import-log :panel-shown?] not)))
+
+(reg-event-db
+ :close-import-log-panel
+ (fn [db _]
+   (assoc-in db [:import-log :panel-shown?] false)))
+
+(reg-event-db
+ :clear-import-log
+ (fn [db _]
+   (assoc db :import-log {:panel-shown? false
+                          :changes []
+                          :errors []
+                          :skipped-items []
+                          :import-name nil
+                          :timestamp nil})))
+
+;; ============================================================================
+;; Import Plugin Events
+;; ============================================================================
+
 (reg-event-fx
  ::e5/import-plugin
  (fn [{:keys [db]} [_ plugin-name plugin-text]]
-   (let [cleaned-plugin-text (clean-plugin-errors plugin-text)
-         plugin (try
-                  (reader/read-string cleaned-plugin-text)
-                  (catch js/Error e nil))]
-     (cond 
-       (spec/valid? ::e5/plugin plugin)
-       {:dispatch-n [[::e5/set-plugins (assoc (:plugins db)
-                                              plugin-name
-                                              plugin)]
-                     [:show-warning-message (str "File imported as '" plugin-name "'. To be safe, you should 'Export All' and save to a safe location now.")]]}
+   ;; Use comprehensive validation with progressive import strategy
+   ;; Pass existing plugins for duplicate key detection
+   (let [result (import-val/validate-import plugin-text {:strategy :progressive
+                                                         :auto-clean true
+                                                         :existing-plugins (:plugins db)
+                                                         :import-source-name plugin-name})
+         user-message (import-val/format-import-result result)
+         has-conflicts? (or (seq (get-in result [:key-conflicts :internal-conflicts]))
+                           (seq (get-in result [:key-conflicts :external-conflicts])))]
 
-       (spec/valid? ::e5/plugins plugin)
-       {:dispatch-n [[::e5/set-plugins (e5/merge-all-plugins
-                                        (:plugins db)
-                                        plugin)]
-                     [:show-warning-message "Imported content was merged into your existing content. To be safe, you should 'Export All' and save to a safe location now."]]}
-       
-       :else
+     ;; Log detailed results to console for debugging
+     (js/console.log "Import validation result:" (clj->js result))
+     (js/console.log "Key conflicts:" (clj->js (:key-conflicts result)))
+     (js/console.log "Has conflicts?:" has-conflicts?)
+
+     (cond
+       ;; Parse error - cannot recover
+       (:parse-error result)
        (do
-         (prn "PLUGIN" plugin)
-         (prn "INVALID PLUGINS FILE"
-              (spec/explain-data ::e5/plugins plugin))
-         (prn "INVALID PLUGIN FILE"
-              (spec/explain-data ::e5/plugin plugin))
-         {:dispatch [:show-error-message "Invalid .orcbrew file"]})))))
+         (js/console.error "Parse error:" (:error result))
+         {:dispatch-n [[:show-error-message user-message]
+                       [:set-import-log {:name plugin-name
+                                         :changes (:changes result)
+                                         :errors [(:error result)]
+                                         :skipped-items []}]]})
+
+       ;; Validation failed completely
+       (and (not (:success result)) (:errors result))
+       (do
+         (js/console.error "Validation errors:" (clj->js (:errors result)))
+         {:dispatch-n [[:show-error-message user-message]
+                       [:set-import-log {:name plugin-name
+                                         :changes (:changes result)
+                                         :errors (:errors result)
+                                         :skipped-items []}]]})
+
+       ;; Key conflicts detected - show resolution modal
+       (and (:success result) has-conflicts?)
+       (do
+         (js/console.log "Key conflicts detected, showing resolution modal")
+         {:dispatch [:start-conflict-resolution
+                     {:import-name plugin-name
+                      :import-data (:data result)
+                      :conflicts (:key-conflicts result)
+                      :validation-result result}]})
+
+       ;; Progressive import succeeded (may have skipped some items)
+       (:success result)
+       (let [plugin (:data result)
+             is-multi-plugin (and (spec/valid? ::e5/plugins plugin)
+                                 (not (spec/valid? ::e5/plugin plugin)))]
+
+         ;; Log skipped items if any
+         (when (:had-errors result)
+           (js/console.warn "Skipped invalid items:")
+           (doseq [item (:skipped-items result)]
+             (js/console.warn "  " (:key item))
+             (js/console.warn "    Errors:" (:errors item))))
+
+         {:dispatch-n (cond-> []
+                        ;; Set the plugins
+                        true
+                        (conj (if is-multi-plugin
+                                [::e5/set-plugins (e5/merge-all-plugins (:plugins db) plugin)]
+                                [::e5/set-plugins (assoc (:plugins db) plugin-name plugin)]))
+
+                        ;; Show appropriate message
+                        true
+                        (conj [:show-warning-message user-message])
+
+                        ;; Store import log for UI panel
+                        true
+                        (conj [:set-import-log {:name plugin-name
+                                                :changes (:changes result)
+                                                :errors []
+                                                :skipped-items (:skipped-items result)
+                                                :key-conflicts (:key-conflicts result)
+                                                :key-warnings (:key-warnings result)}]))})
+
+       ;; Unknown state
+       :else
+       {:dispatch [:show-error-message "Unknown import error. Check console for details."]}))))
+
+;; Add a strict import option for users who want all-or-nothing behavior
+(reg-event-fx
+ ::e5/import-plugin-strict
+ (fn [{:keys [db]} [_ plugin-name plugin-text]]
+   (let [result (import-val/validate-import plugin-text {:strategy :strict
+                                                         :auto-clean true
+                                                         :existing-plugins (:plugins db)
+                                                         :import-source-name plugin-name})
+         user-message (import-val/format-import-result result)]
+
+     (js/console.log "Strict import validation result:" (clj->js result))
+
+     (if (:success result)
+       (let [plugin (:data result)]
+         {:dispatch-n [[::e5/set-plugins (if (= :multi-plugin (:strategy result))
+                                           (e5/merge-all-plugins (:plugins db) plugin)
+                                           (assoc (:plugins db) plugin-name plugin))]
+                      [:show-warning-message user-message]]})
+
+       {:dispatch [:show-error-message user-message]}))))
+
+;; ============================================================================
+;; Conflict Resolution Events
+;; ============================================================================
+
+(defn build-conflict-list
+  "Build a list of conflicts with unique IDs for UI tracking.
+   Combines internal and external conflicts with suggested renames."
+  [{:keys [internal-conflicts external-conflicts]} import-name]
+  (let [;; Internal conflicts: same key appears in multiple sources within the import
+        internal (map-indexed
+                  (fn [idx {:keys [key content-type content-type-name sources]}]
+                    {:id (str "internal-" idx)
+                     :type :internal
+                     :key key
+                     :content-type content-type
+                     :content-type-name content-type-name
+                     :sources sources
+                     ;; For internal, user picks which source to rename
+                     :suggested-renames (mapv (fn [{:keys [source name]}]
+                                                {:source source
+                                                 :new-key (import-val/generate-new-key key source)})
+                                              sources)})
+                  internal-conflicts)
+
+        ;; External conflicts: imported key conflicts with existing key
+        external (map-indexed
+                  (fn [idx {:keys [key content-type content-type-name
+                                   import-source import-name
+                                   existing-source existing-name]}]
+                    {:id (str "external-" idx)
+                     :type :external
+                     :key key
+                     :content-type content-type
+                     :content-type-name content-type-name
+                     :import-source import-source
+                     :import-name import-name
+                     :existing-source existing-source
+                     :existing-name existing-name
+                     ;; Suggested rename for the import
+                     :suggested-new-key (import-val/generate-new-key key import-source)})
+                  external-conflicts)]
+    (vec (concat internal external))))
+
+(reg-event-db
+ :start-conflict-resolution
+ (fn [db [_ {:keys [import-name import-data conflicts validation-result]}]]
+   (let [conflict-list (build-conflict-list conflicts import-name)]
+     (assoc db :conflict-resolution
+            {:active? true
+             :import-name import-name
+             :import-data import-data
+             :conflicts conflict-list
+             :decisions {}
+             :validation-result validation-result}))))
+
+(reg-event-db
+ :set-conflict-decision
+ (fn [db [_ conflict-id decision]]
+   ;; decision is {:action :rename-import | :skip | :keep-both, :new-key :foo, :source "..."}
+   (assoc-in db [:conflict-resolution :decisions conflict-id] decision)))
+
+(reg-event-db
+ :rename-all-conflicts
+ (fn [db _]
+   (let [conflicts (get-in db [:conflict-resolution :conflicts])
+         decisions (into {}
+                         (map (fn [{:keys [id suggested-new-key suggested-renames
+                                           import-source sources]}]
+                                [id {:action :rename-import
+                                     :source (or import-source (-> sources first :source))
+                                     :new-key (or suggested-new-key
+                                                  (-> suggested-renames first :new-key))}])
+                              conflicts))]
+     (assoc-in db [:conflict-resolution :decisions] decisions))))
+
+(reg-event-db
+ :cancel-conflict-resolution
+ (fn [db _]
+   (assoc db :conflict-resolution
+          {:active? false
+           :import-name nil
+           :import-data nil
+           :conflicts []
+           :decisions {}
+           :validation-result nil})))
+
+(reg-event-fx
+ :apply-conflict-resolutions
+ (fn [{:keys [db]} _]
+   (let [{:keys [import-name import-data conflicts decisions validation-result]}
+         (:conflict-resolution db)
+
+         ;; Build list of renames from decisions
+         renames (reduce
+                  (fn [acc {:keys [id type key content-type] :as conflict}]
+                    (let [decision (get decisions id)]
+                      (cond
+                        ;; User chose to rename the import
+                        (= :rename-import (:action decision))
+                        (conj acc {:source (:source decision)
+                                   :content-type content-type
+                                   :from key
+                                   :to (:new-key decision)})
+
+                        ;; Skip this item (don't import it)
+                        (= :skip (:action decision))
+                        acc  ; Will handle removal separately
+
+                        ;; Keep both (no rename - allows override)
+                        :else
+                        acc)))
+                  []
+                  conflicts)
+
+         ;; Apply renames to import data
+         renamed-data (if (seq renames)
+                        (import-val/apply-key-renames import-data renames)
+                        import-data)
+
+         ;; Check if this is a multi-plugin
+         is-multi-plugin (and (spec/valid? ::e5/plugins renamed-data)
+                              (not (spec/valid? ::e5/plugin renamed-data)))]
+
+     (js/console.log "Applying conflict resolutions:" (clj->js {:renames renames}))
+
+     {:db (assoc db :conflict-resolution
+                 {:active? false
+                  :import-name nil
+                  :import-data nil
+                  :conflicts []
+                  :decisions {}
+                  :validation-result nil})
+      :dispatch-n [;; Set the plugins with renamed data
+                   (if is-multi-plugin
+                     [::e5/set-plugins (e5/merge-all-plugins (:plugins db) renamed-data)]
+                     [::e5/set-plugins (assoc (:plugins db) import-name renamed-data)])
+
+                   ;; Show success message
+                   [:show-warning-message
+                    (str "✅ Import successful"
+                         (when (seq renames)
+                           (str "\n\nRenamed " (count renames) " key(s) to resolve conflicts.")))]
+
+                   ;; Store import log
+                   [:set-import-log {:name import-name
+                                     :changes (concat (:changes validation-result)
+                                                      (mapv #(assoc % :type :key-renamed) renames))
+                                     :errors []
+                                     :skipped-items (:skipped-items validation-result)}]]})))
 
 (reg-event-db
  ::spells/set-spell
@@ -4079,12 +4490,38 @@
  (fn [db _]
    (assoc-in db [::char5e/delete-plugin-confirmation-shown?] false)))
 
-;to-do probably should reach into plugins and delete one at the time instead of brute forcing it.
+;; Base class keys that are always available (not from plugins)
+(def base-class-keys
+  #{:barbarian :bard :cleric :druid :fighter :monk :paladin :ranger :rogue :sorcerer :warlock :wizard})
+
+(defn remove-plugin-classes
+  "Removes classes from character that aren't base classes.
+   If no classes remain, sets to Barbarian. Preserves all other character data."
+  [character]
+  (let [current-classes (get-in character [::entity/options :class])
+        valid-classes (vec (filter #(base-class-keys (::entity/key %)) current-classes))]
+    (if (seq valid-classes)
+      ;; Keep only valid base classes
+      (assoc-in character [::entity/options :class] valid-classes)
+      ;; No valid classes - set to Barbarian
+      (char5e/set-class character :barbarian 0 (class5e/barbarian-option [] {} {} {} {})))))
+
 (reg-event-db
+ ::char5e/remove-plugin-classes
+ character-interceptors
+ (fn [character _]
+   (remove-plugin-classes character)))
+
+(reg-event-fx
  ::char5e/delete-all-plugins
- (fn [db _]
-   (js/localStorage.removeItem "plugins")
-   (js/location.reload)))
+ (fn [{:keys [db]} _]
+   ;; Reset to default empty plugins state.
+   ;; DO NOT call remove-plugin-classes - let the character keep its
+   ;; references so the Missing Content Warning can properly show what's missing.
+   ;; The warning system will help users understand which homebrew they need
+   ;; to re-import to restore their character.
+   {:dispatch-n [[::e5/set-plugins {"Default Option Source" {}}]
+                 [::char5e/hide-delete-plugin-confirmation]]}))
 
 (reg-event-fx
  ::char5e/don-armor

@@ -114,7 +114,7 @@
       (is (= 1 (count expanded)))
       (is (= (mi/name-key glamoured-studded-leather)
              (:name first-expanded)))
-      (is (= (:base-ac 12 first-expanded)))))
+      (is (= 12 (:base-ac first-expanded)))))
   (testing "multiple subtypes expand to multiple items"
     (let [item {mi/name-key "My Item"
                 ::mi/type :armor

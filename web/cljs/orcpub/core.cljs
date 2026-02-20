@@ -5,6 +5,7 @@
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
             [orcpub.route-map :as routes]
             [cljs-http.client :as http]
             [clojure.string :as s]
@@ -15,6 +16,12 @@
    [goog.history Html5History EventType]))
 
 (enable-console-print!)
+
+;; =============================================================================
+;; Dev Version: 0.0.19 - Fix missing content detection (built-in exclusions)
+;; =============================================================================
+(def dev-version "0.0.19")
+(js/console.log (str "OrcPub Dev Version: " dev-version))
 
 (if (and js/window.location
          (not (or (s/starts-with? js/window.location.href "https")
@@ -102,7 +109,9 @@
         view (pages (or handler route))
         query-string js/window.location.search
         query-map (query-map query-string)]
-    [view (assoc route-params :query query-map)]))
+    [:div
+     [view (assoc route-params :query query-map)]
+     [conflict-views/import-log-overlay]]))
 
 @(subscribe [:user false])
 

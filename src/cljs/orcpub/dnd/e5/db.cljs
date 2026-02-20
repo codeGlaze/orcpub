@@ -25,6 +25,10 @@
             [cljs-http.client :as http]
             [cljs.pprint :refer [pprint]]))
 
+;; =============================================================================
+;; Version: 1.01 - Add conflict-resolution state for duplicate key handling
+;; =============================================================================
+
 (def local-storage-character-key "character")
 (def local-storage-user-key "user")
 (def local-storage-magic-item-key "magic-item")
@@ -125,6 +129,19 @@
    :return-route default-route
    :registration-form {:send-updates? false}
    :device-type (user-agent/device-type)
+   :import-log {:panel-shown? false
+                :changes []
+                :errors []
+                :skipped-items []
+                :import-name nil
+                :timestamp nil}
+   ;; Conflict resolution state for import key conflicts
+   :conflict-resolution {:active? false
+                         :import-name nil
+                         :import-data nil         ; The raw parsed data to import
+                         :conflicts []            ; List of conflicts to resolve
+                         :decisions {}            ; User decisions: {conflict-id {:action :rename-import :new-key ...}}
+                         :validation-result nil}  ; Original validation result
    ::spells5e/builder-item default-spell
    ::monsters5e/builder-item default-monster
    ::encounters5e/builder-item default-encounter

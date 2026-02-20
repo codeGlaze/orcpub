@@ -61,11 +61,17 @@
 (defn total-length [traits]
   (reduce + (map
              (fn [{:keys [name description]}]
-               (+ (count name) (count description)))
+               ;; Handle nil name/description gracefully
+               (+ (count (or name "")) (count (or description ""))))
              traits)))
 
 (defn trait-string [nm desc]
-  (str nm ". " (common/sentensize desc)))
+  ;; Handle nil name gracefully - use description start or placeholder
+  (let [desc-str (when (and (string? desc) (not (s/blank? desc))) desc)
+        display-name (or nm
+                         (when desc-str (str (subs desc-str 0 (min 30 (count desc-str))) "..."))
+                         "(Unnamed Trait)")]
+    (str display-name ". " (common/sentensize desc-str))))
 
 (defn traits-string [traits]
   (s/join
@@ -91,12 +97,12 @@
   (when (seq items) (str nm ": " (s/join ", " items))))
 
 (defn keyword-vec-trait [nm keywords]
-  (vec-trait nm (map name keywords)))
+  (vec-trait nm (map #(if % (name %) "(unknown)") (remove nil? keywords))))
 
 (defn resistance-strings [resistances]
   (map
    (fn [{:keys [value qualifier]}]
-     (str (name value)
+     (str (if value (name value) "(unknown)")
           (when qualifier
             (str "(" qualifier ")"))))
    resistances))
@@ -371,9 +377,13 @@
                 (map-indexed
                  (fn [spell-index spell]
                    {(keyword (str "spells-" level "-" (inc spell-index) suffix))
-                    (str (:name (spells-map (:key spell))) (let [qualifier (:qualifier spell)]
-                                                                   (when qualifier
-                                                                     (str " (" qualifier ")"))))})
+                    (let [spell-key (:key spell)
+                          spell-data (spells-map spell-key)
+                          spell-name (or (:name spell-data)
+                                         (when spell-key (name spell-key))
+                                         "(Unknown Spell)")
+                          qualifier (:qualifier spell)]
+                      (str spell-name (when qualifier (str " (" qualifier ")"))))})
                  spells)
                 {(keyword (str "spell-slots-" level suffix))
                  (spell-slots level)}))
@@ -405,11 +415,13 @@
      title
      " Proficiencies: "
      (s/join "; " (map (fn [p]
-                         (let [prof (prof-map p)]
-                           (if prof
-                             (:name prof)
-                             (s/capitalize (name p)))))
-                       (sort profs))))))
+                         (let [prof (if p (prof-map p) nil)]
+                           (cond
+                             (:name prof) (:name prof)
+                             (keyword? p) (s/capitalize (name p))
+                             (string? p) (s/capitalize p)
+                             :else "(unknown)")))
+                       (sort (remove nil? profs)))))))
 
 (defn other-profs-field [built-char]
   (let [tool-profs (char5e/tool-proficiencies built-char)
@@ -428,7 +440,8 @@
 
 (defn damage-str [die die-count mod damage-type]
   (str (dice/dice-string die-count die mod)
-       (when damage-type (str " " (name damage-type)))))
+       (when damage-type
+         (str " " (if (keyword? damage-type) (name damage-type) (str damage-type))))))
 
 (defn attacks-and-spellcasting-fields 
   "For each weapon, we are creating a new map with the name, the attack bonus, and the damage.

@@ -393,8 +393,7 @@
                "You already have this language"
                (fn [c] (not (get @(subscribe [::character/languages nil c]) key))))]}))
 
-;; unreferenced — common/name-to-kw is used instead
-#_(defn key-to-name [key]
+(defn key-to-name [key]
   (s/join " " (map s/capitalize (s/split (name key) #"-"))))
 
 (defn spell-field [name value]
@@ -811,11 +810,22 @@
     :min (or num 0)
     :max num}))
 
+(def ^:private language-key-corrections
+  "Maps legacy/misspelled language keys to their corrected keys.
+   Existing characters may reference these; the correction ensures
+   they resolve to the proper language-map entry instead of generating
+   a fallback with the misspelled name."
+  {:primoridial :primordial})
+
 (defn language-selection [language-map language-options]
   (let [{lang-num :choose lang-options :options} language-options
         languages (if (:any lang-options)
                     (vals language-map)
-                    (map language-map (keys lang-options)))]
+                    (map (fn [k]
+                           (or (language-map k)
+                               (language-map (language-key-corrections k))
+                               {:name (key-to-name k) :key k}))
+                         (keys lang-options)))]
     (language-selection-aux languages lang-num)))
 
 ;; unreferenced — language-selection and homebrew-language-selection used instead
@@ -2515,6 +2525,7 @@
                        language-map
                        cls
                        {:keys [name
+                               key
                                source
                                edit-event
                                profs
@@ -2526,7 +2537,8 @@
                                prereqs
                                levels]
                         :as subcls}]
-  (let [kw (common/name-to-kw name)
+  ;; Use explicit :key if present (for renamed plugins), otherwise generate from name
+  (let [kw (or key (common/name-to-kw name))
         {:keys [armor weapon save skill-options skill-expertise-options tool-options tool language-options]} profs
         {skill-num :choose options :options} skill-options
         {level-factor :level-factor} spellcasting
@@ -3014,7 +3026,7 @@
    :construct [:modron]
    :dragon [:aquan :draconic :sylvan]
    :elemental [:auran :terran :ignan :aquan]
-   :fey [:draconic :elvish :sylvan :abyssal :infernal :primoridial :aquan :giant]
+   :fey [:draconic :elvish :sylvan :abyssal :infernal :primordial :aquan :giant]
    :fiend (keys language-map)
    :giant [:giant :orc :undercommon]
    :monstrosity [:draconic :sylvan :elvish :hook-horror :abyssal :celestial :infernal :primordial :aquan :sphynx :umber-hulk :yeti :winter-wolf :goblin :worg]
