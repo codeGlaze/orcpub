@@ -64,12 +64,20 @@
  (fn [db [_ template]]
    (assoc db ::cached-template template)))
 
+;; Init with retry: in dev mode (:optimizations :none), each namespace
+;; loads as a separate script. This ns loads before equipment_subs.cljs
+;; (which registers ::char5e/template), so setTimeout 0 can fire between
+;; script loads. Retry until the subscription is available.
 (defonce _init-template-cache
-  (js/setTimeout
-    (fn []
-      (r/track!
-        (fn []
-          (when-let [template @(subscribe [::char5e/template])]
-            (dispatch [::cache-template template])))))
-    0))
+  (letfn [(try-init []
+            (let [sub (subscribe [::char5e/template])]
+              (if (some? sub)
+                ;; Subscription registered — set up reactive cache watcher.
+                (r/track!
+                  (fn []
+                    (when-let [template @sub]
+                      (dispatch [::cache-template template]))))
+                ;; Not yet registered (loading order race) — retry.
+                (js/setTimeout try-init 200))))]
+    (js/setTimeout try-init 0)))
 

@@ -214,8 +214,15 @@
  (fn [magic-items _]
    (map-by-key-or-id magic-items)))
 
-;; Deleted: static wrapper returning weapon5e/weapons-map. Use ::mi5e/all-weapons-map
-;; (includes homebrew) or weapon5e/weapons-map directly for SRD-only.
+;; Standard (SRD) equipment lookup maps — used by character_builder's
+;; inventory-selector for the non-magic equipment sections. These are
+;; thin wrappers around static vars, kept as subscriptions because
+;; inventory-selector receives the sub vector dynamically.
+(reg-sub
+ ::equipment5e/weapons-map
+ (fn [_ _] weapon5e/weapons-map))
+
+;; For homebrew-inclusive weapons, use ::mi5e/all-weapons-map instead.
 
 (reg-sub
  ::mi5e/all-weapons-map
@@ -265,9 +272,19 @@
        (subscribe [::mi5e/remote-item key])
        (ra/make-reaction (fn [] (get mi5e/all-equipment-map key))))))
 
-;; Deleted: static wrappers returning armor5e/armor-map, equipment5e/equipment-map,
-;; equipment5e/treasure-map. Use ::mi5e/all-armor-map (includes homebrew) or the
-;; static vars directly for SRD-only.
+(reg-sub
+ ::equipment5e/armor-map
+ (fn [_ _] armor5e/armor-map))
+
+(reg-sub
+ ::equipment5e/equipment-map
+ (fn [_ _] equipment5e/equipment-map))
+
+(reg-sub
+ ::equipment5e/treasure-map
+ (fn [_ _] equipment5e/treasure-map))
+
+;; For homebrew-inclusive armor, use ::mi5e/all-armor-map instead.
 
 (reg-sub
  ::char5e/template-selections
