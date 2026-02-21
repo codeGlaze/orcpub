@@ -480,16 +480,16 @@
            {}
            folders)))
 
-;; dead — never subscribed to; events.cljs accesses ::char5e/summary-map directly
-#_(reg-sub
+;; Used by combat_tracker (views.cljs) and as input signal for ::char5e/summary
+(reg-sub
  ::char5e/summary-map
  (fn [[_ login-optional?]]
    (subscribe [::char5e/characters login-optional?]))
  (fn [characters _]
    (common/map-by :db/id characters)))
 
-;; dead — never subscribed to; events.cljs accesses ::char5e/summary-map directly
-#_(reg-sub
+;; Used by combat_tracker (views.cljs)
+(reg-sub
  ::char5e/summary
  :<- [::char5e/summary-map]
  (fn [character-map [_ id]]
@@ -548,10 +548,8 @@
  (fn [character _ _]
    (selected-plugin-options character)))
 
-#_(reg-sub
- ::char5e/template
- (fn [db _]
-   (:template db)))
+;; ::char5e/template is registered in equipment_subs.cljs (derives from template-selections).
+;; Used by autosave_fx.cljs and as input signal for ::char5e/built-template.
 
 (reg-sub
  ::char5e/built-template
