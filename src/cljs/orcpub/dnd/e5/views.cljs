@@ -261,8 +261,8 @@
          {:on-click (fn [e] (if (seq buttons)
                               #(swap! hovered? not)
                               (on-click e)))
-          :on-mouse-over #(reset! hovered? true)
-          :on-mouse-out #(reset! hovered? false)
+          :on-mouse-enter #(reset! hovered? true)
+          :on-mouse-leave #(reset! hovered? false)
           :style (when active active-style)
           :class (str (if disabled "disabled" "pointer")
                            " "
@@ -1798,9 +1798,9 @@
    {:value (or value "")
     :on-change #(on-change (event-value %))}
    (doall
-    (map
-     (fn [{:keys [value title disabled?]}]
-       ^{:key (or value title)}
+    (map-indexed
+     (fn [i {:keys [value title disabled?]}]
+       ^{:key (str i "-" (or value title))}
        [:option.builder-dropdown-item
         (cond-> {:value value}
           disabled? (assoc :disabled true))
