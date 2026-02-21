@@ -38,7 +38,36 @@ Works in principle (updates an atom), but fires TOO LATE. The app's
 If the warning fires during namespace loading, the custom logger isn't
 installed yet.
 
-## What Works: Figwheel Preload
+## What Works
+
+### Option 1: Monkey-patch `re-frame.core/subscribe` in the app entry ns
+
+Simpler than a preload. Wrap `subscribe` to check `reagent.ratom/reactive?`
+and log the query vector + stack trace. Place AFTER `dispatch-sync [:initialize-db]`
+in core.cljs so all subs are registered:
+
+```clojure
+(:require [reagent.ratom :as ratom])
+
+(let [original-subscribe re-frame.core/subscribe]
+  (set! re-frame.core/subscribe
+        (fn [query-v & args]
+          (when-not (ratom/reactive?)
+            (js/console.warn "[TRACE] subscribe outside reactive context:"
+                             (pr-str query-v))
+            (js/console.trace))
+          (apply original-subscribe query-v args))))
+```
+
+**Why this works but the earlier `set!` approach didn't:** The key difference
+is using `apply original-subscribe` (the captured function value) rather than
+calling through the namespace var. The captured reference bypasses the dispatch
+function that caused infinite recursion in the broken approach above.
+
+**Limitation:** Won't catch warnings during namespace loading (before the
+entry ns body runs). Use the preload approach for those.
+
+### Option 2: Figwheel Preload (catches namespace-loading warnings)
 
 Preload namespaces run before the app entry point and all its requires.
 Patch `console.warn` (plain JS, no CLJS inlining issues) in a preload:
@@ -86,6 +115,7 @@ The trace shows the full call chain. Key frames to look for:
 | Top-level `defonce` with subscribe | `(defonce x @(subscribe [...]))` | Move to init event |
 | Subscribe in event handler | `@(subscribe [...])` in `reg-event-fx` | Read from `db` or pass from component |
 | Subscribe in onClick/callback | `{:on-click #(... @(subscribe [...]))}` | Move to render-time `let` |
+| Subscribe in DOM event listener | `on-scroll` calls `@(subscribe [...])` | Plain atom mirror synced from render fn |
 
 ## Cleanup
 
