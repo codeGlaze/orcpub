@@ -87,6 +87,27 @@
           name
           safe-capitalize))
 
+(defn kw-base
+  "Extract the base part of a keyword (before first dash).
+   E.g., :artificer-kibbles-tasty -> \"artificer\""
+  [kw]
+  (when (keyword? kw)
+    (first (s/split (name kw) #"-"))))
+
+(defn traverse-nested
+  "HOF for traversing nested option structures (vector/map/nil pattern).
+   Calls (f item path) for each nested item, returns concatenated results."
+  [f coll path]
+  (mapcat
+   (fn [[k v]]
+     (cond
+       (vector? v)
+       (apply concat (map-indexed (fn [idx item] (f item (conj path k idx))) v))
+       (map? v)
+       (f v (conj path k))
+       :else nil))
+   coll))
+
 (defn sentensize [desc]
   (when desc
     (str
