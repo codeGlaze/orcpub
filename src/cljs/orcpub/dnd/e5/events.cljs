@@ -580,13 +580,63 @@
  ::e5/boons
  "You must specify 'Name', 'Option Source Name'")
 
-(reg-save-homebrew
- "Selection"
+;; Selection save handler — standalone instead of reg-save-homebrew to add
+;; duplicate option name validation. Mirrors reg-save-homebrew logic plus
+;; checks for empty names and duplicate option names within :options.
+(reg-event-fx
  ::selections5e/save-selection
- ::selections5e/builder-item
- ::selections5e/homebrew-selection
- ::e5/selections
- "You must specify 'Name', 'Option Source Name'")
+ (fn [{:keys [db]} _]
+   (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
+         key (common/name-to-kw name)
+         normalized-item (import-val/normalize-text-in-data item)
+         {filled-item :item} (import-val/fill-all-missing-fields normalized-item ::e5/selections)
+         item-with-key (assoc filled-item :key key)
+         plugins (:plugins db)
+         explanation (spec/explain-data ::selections5e/homebrew-selection item-with-key)
+         ;; Check for empty option names
+         option-names (map :name (:options item))
+         empty-names? (some s/blank? option-names)
+         ;; Check for duplicate option names (case-insensitive via key derivation)
+         option-keys (map #(when-not (s/blank? %) (common/name-to-kw %))
+                          option-names)
+         key-freqs (frequencies (remove nil? option-keys))
+         dupe-keys (set (map first (filter #(> (val %) 1) key-freqs)))
+         dupe-names (when (seq dupe-keys)
+                      (->> option-names
+                           (filter #(and (not (s/blank? %))
+                                         (contains? dupe-keys (common/name-to-kw %))))
+                           distinct
+                           sort))]
+     (cond
+       ;; Reject empty option names
+       empty-names?
+       {:dispatch [:show-error-message
+                   "Cannot save: all options must have names"]}
+       ;; Reject duplicate option names
+       (seq dupe-names)
+       {:dispatch [:show-error-message
+                   (str "Cannot save: duplicate option names: "
+                        (s/join ", " dupe-names)
+                        ". Each option must have a unique name.")]}
+       ;; Spec validation
+       (some? explanation)
+       {:dispatch [:show-error-message
+                   (spec-error-message "Selection" explanation
+                                       "You must specify 'Name', 'Option Source Name'")]}
+       ;; All good — save
+       :else
+       (let [new-plugins (assoc-in plugins
+                                   [option-pack ::e5/selections key]
+                                   item-with-key)]
+         {:dispatch-n [[::e5/set-plugins new-plugins]
+                       [:show-warning-message
+                        [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
+                         [:span.text-shadow
+                          (str "Selection saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
+                         [:span.pointer.underline.black
+                          {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
+                          "here"]]
+                        60000]]})))))
 
 (reg-save-homebrew
  "Feat"

@@ -1794,18 +1794,28 @@
               spell-slots))])]))))
 
 (defn dropdown [{:keys [items value on-change]}]
-  [:select.builder-option.builder-option-dropdown.m-t-0
-   {:value (or value "")
-    :on-change #(on-change (event-value %))}
-   (doall
-    (map-indexed
-     (fn [i {:keys [value title disabled?]}]
-       ^{:key (str i "-" (or value title))}
-       [:option.builder-dropdown-item
-        (cond-> {:value value}
-          disabled? (assoc :disabled true))
-        title])
-     items))])
+  ;; Dedup items by :value as a safety net — duplicate option values from
+  ;; homebrew plugins can slip through if imported before dedup was added.
+  (let [unique-items (->> items
+                          (reduce (fn [{:keys [seen result]} item]
+                                    (let [v (:value item)]
+                                      (if (contains? seen v)
+                                        {:seen seen :result result}
+                                        {:seen (conj seen v) :result (conj result item)})))
+                                  {:seen #{} :result []})
+                          :result)]
+    [:select.builder-option.builder-option-dropdown.m-t-0
+     {:value (or value "")
+      :on-change #(on-change (event-value %))}
+     (doall
+      (map-indexed
+       (fn [i {:keys [value title disabled?]}]
+         ^{:key (str i "-" (or value title))}
+         [:option.builder-dropdown-item
+          (cond-> {:value value}
+            disabled? (assoc :disabled true))
+          title])
+       unique-items))]))
 
 (defn labeled-dropdown [label cfg]
   [:div
@@ -6211,8 +6221,32 @@
        ::e5/edit-background-trait-description
        ::e5/delete-background-trait]]]))
 
+(defn- find-duplicate-option-names
+  "Returns a set of option names (lowercased via name-to-kw) that appear more than once.
+   Used by selection-builder to highlight duplicate names inline."
+  [options]
+  (let [keys (map #(when-let [n (:name %)]
+                     (when-not (s/blank? n)
+                       (common/name-to-kw n)))
+                  options)
+        freqs (frequencies (remove nil? keys))]
+    (set (map first (filter #(> (val %) 1) freqs)))))
+
 (defn selection-builder []
-  (let [selection @(subscribe [::selections/builder-item])]
+  (let [selection @(subscribe [::selections/builder-item])
+        options (:options selection)
+        dupe-keys (find-duplicate-option-names options)
+        has-dupes? (seq dupe-keys)
+        ;; Collect the display names of duplicate options for the summary
+        dupe-names (when has-dupes?
+                     (->> options
+                          (filter #(and (not (s/blank? (:name %)))
+                                        (contains? dupe-keys (common/name-to-kw (:name %)))))
+                          (map :name)
+                          distinct
+                          sort))
+        ;; Check for empty/blank option names
+        has-empty? (some #(s/blank? (:name %)) options)]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [selection-input-field
@@ -6231,31 +6265,58 @@
        [:button.form-button
         {:on-click #(dispatch [::selections/add-option])}
         "Add Option"]]
+      ;; Summary warning for duplicate names
+      (when has-dupes?
+        [:div.p-10.m-b-10.red
+         {:style {:background-color "rgba(255,0,0,0.1)"
+                  :border "1px solid red"
+                  :border-radius "4px"}}
+         [:span.f-w-b "Duplicate names found: "]
+         [:span (s/join ", " dupe-names)]
+         [:div.f-s-12 "Each option must have a unique name. Rename duplicates before saving."]])
+      ;; Warning for empty option names
+      (when has-empty?
+        [:div.p-10.m-b-10.red
+         {:style {:background-color "rgba(255,0,0,0.1)"
+                  :border "1px solid red"
+                  :border-radius "4px"}}
+         "One or more options have no name. All options must be named."])
       [:div
        (doall
         (map-indexed
          (fn [i {:keys [name description]}]
-           ^{:key i}
-           [:div.m-b-30
-            [:div.flex.align-items-end.m-b-10
-             [:div.f-w-b.f-s-24.m-r-10 (str (inc i) ".")]
-             [:div.flex-grow-1
-              [input-builder-field
-               [:span.f-w-b "Name"]
-               name
-               #(dispatch [::selections/set-selection-path-prop [:options i :name] %])
-               {:class "input h-40"}]]
-             [:div
-              [:button.form-button.m-l-5
-               {:on-click #(dispatch [::selections/delete-option i])}
-               "delete"]]]
-            [:div.w-100-p
-             [:div.f-w-b
-              "Description"]
-             [textarea-field
-              {:value description
-               :on-change #(dispatch [::selections/set-selection-path-prop [:options i :description] %])}]]])
-         (:options selection)))]]]))
+           (let [is-dupe? (and (not (s/blank? name))
+                               (contains? dupe-keys (common/name-to-kw name)))
+                 is-empty? (s/blank? name)]
+             ^{:key i}
+             [:div.m-b-30
+              [:div.flex.align-items-end.m-b-10
+               [:div.f-w-b.f-s-24.m-r-10 (str (inc i) ".")]
+               [:div.flex-grow-1
+                [input-builder-field
+                 [:span.f-w-b "Name"]
+                 name
+                 #(dispatch [::selections/set-selection-path-prop [:options i :name] %])
+                 {:class "input h-40"
+                  :style (when (or is-dupe? is-empty?)
+                           {:border "2px solid red"})}]
+                (when is-dupe?
+                  [:div.red.f-s-12.m-t-2
+                   "Duplicate name \u2014 rename to a unique name before saving"])
+                (when is-empty?
+                  [:div.red.f-s-12.m-t-2
+                   "Option name is required"])]
+               [:div
+                [:button.form-button.m-l-5
+                 {:on-click #(dispatch [::selections/delete-option i])}
+                 "delete"]]]
+              [:div.w-100-p
+               [:div.f-w-b
+                "Description"]
+               [textarea-field
+                {:value description
+                 :on-change #(dispatch [::selections/set-selection-path-prop [:options i :description] %])}]]]))
+         options))]]]))
 
 (defn language-builder []
   (let [language @(subscribe [::langs/builder-item])]
