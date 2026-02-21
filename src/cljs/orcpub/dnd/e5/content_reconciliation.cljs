@@ -74,7 +74,8 @@
      [:race]                             → race
      [:race :subrace]                    → subrace
      [:background]                       → background
-     [:class :levels :asi-or-feat :feats] → feat (deep path, detected by :feats keyword)
+     [:feats]                              → feat (top-level feat selection)
+     [:class :levels :asi-or-feat :feats]  → feat (class-level ASI-or-feat choice)
 
    Other paths (level-up choices, fighting styles, skills, HP method,
    etc.) are left as :unknown and filtered out downstream."
@@ -86,10 +87,14 @@
         is-subclass? (and (= :class (first kw-path))
                           (= 2 (count kw-path))
                           (contains? subclass-path-patterns (second kw-path)))
-        ;; Feat: :feats appears as the immediate parent in the kw-path.
-        ;; Feats are nested deep (e.g. [:class :levels :asi-or-feat :feats])
-        ;; so we match by the parent keyword rather than fixed depth.
-        is-feat? (= :feats (last (butlast kw-path)))
+        ;; Feat: the key's immediate parent selection is :feats.
+        ;; kw-path is the path TO the key, so :feats must be the LAST keyword.
+        ;; Top-level feats: path [:feats 0] → kw-path [:feats] → last = :feats
+        ;; Class-level feats: path [:class 0 :levels 3 :asi-or-feat :feats 0]
+        ;;   → kw-path [:class :levels :asi-or-feat :feats] → last = :feats
+        ;; Sub-selections UNDER a feat (e.g. ability score choice):
+        ;;   path [:feats 2 :asi 0] → kw-path [:feats :asi] → last = :asi (NOT matched)
+        is-feat? (= :feats (last kw-path))
         content-type (cond
                        is-subclass? {:type :subclass :label "Subclass"}
                        is-feat? {:type :feat :label "Feat"}

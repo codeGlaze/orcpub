@@ -149,3 +149,68 @@
       ;; :artificer-kibbles-tasty → should infer something like "Kibbles Tasty"
       (is (some? (:inferred-source missing-artificer)))
       (is (string? (:inferred-source missing-artificer))))))
+
+;; ============================================================================
+;; Feat Detection — content type classification
+;; ============================================================================
+
+(def feat-test-character
+  "Character with top-level feats (some with nested ability score selections)
+   and class-level ASI-or-feat choices. Mimics the Datomic entity structure
+   for a Dragon Knight character using the exported.orcbrew test data."
+  {::entity/options
+   {:race {::entity/key :tegokka}
+    :class [{::entity/key :dragon-knight
+             ::entity/options
+             {:levels [{::entity/key :level-1}
+                       {::entity/key :level-2}
+                       {::entity/key :level-3}
+                       {::entity/key :level-4
+                        ::entity/options
+                        {:asi-or-feat {::entity/key :feat}}}]}}]
+    :background {::entity/key :folk-hero}
+    ;; Top-level feat selection: multi-select vector of chosen feats.
+    ;; Metabolic Control has a nested :asi sub-selection for ability score.
+    :feats [{::entity/key :blade-mastery}
+            {::entity/key :brawny}
+            {::entity/key :metabolic-control
+             ::entity/options
+             {:asi [{::entity/key :orcpub.dnd.e5.character/con}]}}]}})
+
+(deftest test-feat-detection-top-level
+  (testing "Top-level feats are detected as :feat content type"
+    (let [keys (reconcile/extract-content-keys feat-test-character)
+          by-key (zipmap (map :key keys) keys)]
+      (is (= :feat (:content-type (get by-key :blade-mastery))))
+      (is (= :feat (:content-type (get by-key :brawny))))
+      (is (= :feat (:content-type (get by-key :metabolic-control)))))))
+
+(deftest test-ability-score-under-feat-not-detected-as-feat
+  (testing "Ability score nested under a feat is NOT tagged as :feat"
+    (let [keys (reconcile/extract-content-keys feat-test-character)
+          by-key (zipmap (map :key keys) keys)
+          con-entry (get by-key :orcpub.dnd.e5.character/con)]
+      ;; The ability score choice should be :unknown, not :feat
+      (is (some? con-entry) "ability score key should be extracted")
+      (is (not= :feat (:content-type con-entry))
+          "ability score under a feat must not be classified as :feat"))))
+
+(deftest test-feat-not-flagged-when-loaded
+  (testing "Feats present in available content are not flagged as missing"
+    (let [content (assoc available-content
+                         :feats [{:key :blade-mastery :name "Blade Mastery"}
+                                 {:key :brawny :name "Brawny"}
+                                 {:key :metabolic-control :name "Metabolic Control"}])
+          report (reconcile/generate-missing-content-report feat-test-character content)]
+      ;; Feats are loaded — should not appear in missing items
+      (is (not (some #(= :feat (:content-type %)) (:items report)))
+          "no feats should be missing when all are in available content"))))
+
+(deftest test-feat-flagged-when-missing
+  (testing "Feats absent from available content ARE flagged as missing"
+    (let [report (reconcile/generate-missing-content-report feat-test-character {})
+          missing-feats (filter #(= :feat (:content-type %)) (:items report))]
+      (is (= 3 (count missing-feats))
+          "all 3 feats should be flagged as missing")
+      (is (= #{:blade-mastery :brawny :metabolic-control}
+             (set (map :key missing-feats)))))))
