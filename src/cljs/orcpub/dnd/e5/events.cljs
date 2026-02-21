@@ -2831,7 +2831,11 @@
  ::combat/set-combat-path-prop
  combat-interceptors
  (fn [combat [_ path-prop prop-value]]
-   (assoc-in combat path-prop prop-value)))
+   ;; Guard: ensure combat is a valid map with vector collections.
+   ;; If the path interceptor extracts nil (key missing from db), bare
+   ;; assoc-in creates maps for integer keys instead of vectors,
+   ;; corrupting localStorage and failing the spec on next load.
+   (assoc-in (or combat default-combat) path-prop prop-value)))
 
 (reg-event-db
  ::encounters/delete-creature
