@@ -1388,8 +1388,12 @@
        [search-results]]]]))
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
-  (let [on-scroll (fn [e]
-                    (when-not @(subscribe [:orcacle-open?])
+  ;; Plain atom (not r/atom) mirrors the :orcacle-open? subscription value
+  ;; for the scroll handler, which runs as a DOM event listener outside
+  ;; Reagent's reactive context. Synced from the render fn below.
+  (let [orcacle-open?* (atom false)
+        on-scroll (fn [e]
+                    (when-not @orcacle-open?*
                       (let [app-header (js/document.getElementById "app-header")
                             header-height (.-offsetHeight app-header)
                             scroll-top (.-scrollTop (.-documentElement (.-target e)))
@@ -1411,6 +1415,7 @@
               orcacle-open? @(subscribe [:orcacle-open?])
               theme @(subscribe [:theme])
               mobile? @(subscribe [:mobile?])]
+          (reset! orcacle-open?* orcacle-open?)
           [:div.app.min-h-full
            {:class theme
             :on-scroll (when-not frame?

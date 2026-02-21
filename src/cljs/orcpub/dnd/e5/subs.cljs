@@ -1423,19 +1423,22 @@
 (reg-sub
  ::char5e/available-content
  (fn [_]
-   ;; Subscribe to all content types we need to check against
-   ;; These are defined in spell_subs.cljs with namespaced keys
+   ;; Subscribe to all content types we need to check against.
+   ;; Uses plugin-* subs (not the full subs) because SRD content is
+   ;; hardcoded and handled by builtin-* sets in content_reconciliation.
    [(subscribe [:orcpub.dnd.e5.classes/plugin-classes])
     (subscribe [:orcpub.dnd.e5.classes/plugin-subclasses])
     (subscribe [:orcpub.dnd.e5.races/plugin-races])
     (subscribe [:orcpub.dnd.e5.races/plugin-subraces])
-    (subscribe [:orcpub.dnd.e5.backgrounds/plugin-backgrounds])])
- (fn [[classes subclasses races subraces backgrounds]]
+    (subscribe [:orcpub.dnd.e5.backgrounds/plugin-backgrounds])
+    (subscribe [:orcpub.dnd.e5.feats/plugin-feats])])
+ (fn [[classes subclasses races subraces backgrounds feats]]
    {:classes classes
     :subclasses subclasses
     :races races
     :subraces subraces
-    :backgrounds backgrounds}))
+    :backgrounds backgrounds
+    :feats feats}))
 
 (reg-sub
  ::char5e/missing-content-report

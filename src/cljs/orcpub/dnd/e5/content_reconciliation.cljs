@@ -40,7 +40,8 @@
    :subclass :subclasses
    :race :races
    :subrace :subraces
-   :background :backgrounds})
+   :background :backgrounds
+   :feat :feats})
 
 ;; ============================================================================
 ;; Key Extraction from Character
@@ -63,23 +64,35 @@
 (defn- annotate-content-type
   "Add content type info to a key entry based on its path.
 
-   Only flags keys at content-relevant path depths:
-     [:class]              → class
-     [:class :archetype]   → subclass (where archetype in subclass-path-patterns)
-     [:race]               → race
-     [:race :subrace]      → subrace
-     [:background]         → background
+   traverse-nested produces indexed paths like [:class 0], [:race 0 :subrace 0].
+   We strip numeric indices to match against content-type-paths which uses
+   keyword-only paths like [:class], [:race :subrace].
 
-   Deeper paths (level-up choices, fighting styles, skills, HP method,
-   feats, etc.) are left as :unknown and filtered out downstream."
+   Detection by path shape (after stripping indices):
+     [:class]                            → class
+     [:class :martial-archetype]         → subclass (archetype in subclass-path-patterns)
+     [:race]                             → race
+     [:race :subrace]                    → subrace
+     [:background]                       → background
+     [:class :levels :asi-or-feat :feats] → feat (deep path, detected by :feats keyword)
+
+   Other paths (level-up choices, fighting styles, skills, HP method,
+   etc.) are left as :unknown and filtered out downstream."
   [{:keys [path] :as entry}]
-  (let [direct-match (get content-type-paths (vec (take 2 path)))
-        ;; Subclass: exactly 2-deep under :class, last element is an archetype key
-        is-subclass? (and (= :class (first path))
-                          (= 2 (count path))
-                          (contains? subclass-path-patterns (second path)))
+  ;; Strip vector indices from path for matching: [:class 0] → [:class]
+  (let [kw-path (vec (remove integer? path))
+        direct-match (get content-type-paths (vec (take 2 kw-path)))
+        ;; Subclass: exactly 2 keywords deep under :class, second is an archetype key
+        is-subclass? (and (= :class (first kw-path))
+                          (= 2 (count kw-path))
+                          (contains? subclass-path-patterns (second kw-path)))
+        ;; Feat: :feats appears as the immediate parent in the kw-path.
+        ;; Feats are nested deep (e.g. [:class :levels :asi-or-feat :feats])
+        ;; so we match by the parent keyword rather than fixed depth.
+        is-feat? (= :feats (last (butlast kw-path)))
         content-type (cond
                        is-subclass? {:type :subclass :label "Subclass"}
+                       is-feat? {:type :feat :label "Feat"}
                        direct-match direct-match
                        :else {:type :unknown :label "Content"})]
     (assoc entry
@@ -180,30 +193,35 @@
         internal-key-patterns #{"level-" "hit-points-" "ability-scores"}
         internal-keys #{:standard-scores :point-buy :average :manual-entry
                         :hit-points :starting-equipment :equipment-pack}
-        ;; Built-in content keys - these are not homebrew, don't flag as missing
+        ;; Built-in (SRD) content keys — hardcoded in the app, not from plugins.
+        ;; available-content uses plugin-* subs which don't include these,
+        ;; so we must exclude them here to avoid false positives.
+        ;; NOTE: Only SRD content belongs here. Non-SRD PHB content comes
+        ;; from plugins and SHOULD be flagged when plugins are removed.
         builtin-classes #{:barbarian :bard :cleric :druid :fighter :monk
                           :paladin :ranger :rogue :sorcerer :warlock :wizard}
         builtin-races #{:dwarf :elf :halfling :human :dragonborn :gnome
                         :half-elf :half-orc :tiefling :hill-dwarf :mountain-dwarf
                         :high-elf :wood-elf :drow :lightfoot :stout :forest-gnome
                         :rock-gnome}
-        builtin-backgrounds #{:acolyte :charlatan :criminal :entertainer
-                              :folk-hero :guild-artisan :hermit :noble :outlander
-                              :sage :sailor :soldier :urchin}
-        ;; Built-in subclasses - all PHB subclasses
-        builtin-subclasses #{:champion :battle-master :eldritch-knight  ;; Fighter
-                             :berserker :totem-warrior                   ;; Barbarian
-                             :lore :valor                                ;; Bard
-                             :knowledge :life :light :nature :tempest :trickery :war  ;; Cleric
-                             :land :moon                                 ;; Druid
-                             :open-hand :shadow :four-elements           ;; Monk
-                             :devotion :ancients :vengeance              ;; Paladin
-                             :hunter :beast-master                       ;; Ranger
-                             :thief :assassin :arcane-trickster          ;; Rogue
-                             :draconic :wild-magic                       ;; Sorcerer
-                             :archfey :fiend :great-old-one              ;; Warlock
-                             :abjuration :conjuration :divination :enchantment
-                             :evocation :illusion :necromancy :transmutation}  ;; Wizard
+        ;; Only Acolyte is hardcoded (spell_subs.cljs:538). All other
+        ;; backgrounds come from plugins.
+        builtin-backgrounds #{:acolyte}
+        ;; SRD subclasses — one per class, hardcoded in classes.cljc.
+        ;; Non-SRD subclasses (Battle Master, Totem Warrior, etc.) are
+        ;; reader-discarded (#_) and come from plugins.
+        builtin-subclasses #{:champion      ;; Fighter
+                             :berserker     ;; Barbarian
+                             :lore          ;; Bard
+                             :life          ;; Cleric
+                             :land          ;; Druid
+                             :open-hand     ;; Monk
+                             :devotion      ;; Paladin
+                             :hunter        ;; Ranger
+                             :thief         ;; Rogue
+                             :draconic      ;; Sorcerer
+                             :fiend         ;; Warlock
+                             :evocation}    ;; Wizard
         is-builtin? (fn [k ct]
                       (case ct
                         :class (contains? builtin-classes k)

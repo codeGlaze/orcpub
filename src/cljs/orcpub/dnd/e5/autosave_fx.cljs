@@ -1,7 +1,6 @@
 (ns ^{:doc "Effects and utils for handling throttled autosave"}
   orcpub.dnd.e5.autosave-fx
   (:require [orcpub.dnd.e5.character :as char5e]
-            [orcpub.dnd.e5.equipment-subs] ;; ensures ::char5e/template sub registered before defonce
             [re-frame.core :refer [reg-fx reg-event-db dispatch subscribe]]
             [reagent.core :as r]))
 
@@ -66,8 +65,10 @@
    (assoc db ::cached-template template)))
 
 ;; Deferred init: subscribe inside r/track! (reactive context — no warning).
-;; equipment-subs is required above, guaranteeing ::char5e/template is
-;; registered before this defonce runs.
+;; core.cljs requires equipment-subs before events (which transitively loads
+;; this file), so ::char5e/template is registered by the time setTimeout 0
+;; fires. Even if load order shifted, when-let + r/track! is self-healing:
+;; nil on first tick, re-fires reactively once the sub becomes available.
 (defonce _init-template-cache
   (js/setTimeout
     (fn []
