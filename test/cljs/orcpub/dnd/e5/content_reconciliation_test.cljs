@@ -50,17 +50,20 @@
 (deftest test-extract-content-keys
   (testing "Extracts all content keys with correct content types"
     (let [keys (reconcile/extract-content-keys test-character)
-          key-set (set (map :key keys))]
-      ;; Should find all the keys from our character
-      (is (contains? key-set :tiefling))
-      (is (contains? key-set :artificer-kibbles-tasty))
-      (is (contains? key-set :wizard))
-      (is (contains? key-set :sage))))
+          by-key (zipmap (map :key keys) keys)]
+      (is (contains? by-key :tiefling))
+      (is (contains? by-key :artificer-kibbles-tasty))
+      (is (contains? by-key :wizard))
+      (is (contains? by-key :sage))))
   (testing "Annotates content types correctly"
     (let [keys (reconcile/extract-content-keys test-character)
           by-key (zipmap (map :key keys) keys)]
       (is (= :race (:content-type (get by-key :tiefling))))
+      (is (= :subrace (:content-type (get by-key :winged-tiefling))))
       (is (= :class (:content-type (get by-key :wizard))))
+      (is (= :class (:content-type (get by-key :artificer-kibbles-tasty))))
+      (is (= :subclass (:content-type (get by-key :alchemist-kibbles))))
+      (is (= :subclass (:content-type (get by-key :school-of-chronurgy))))
       (is (= :background (:content-type (get by-key :sage)))))))
 
 (deftest test-extract-empty-character
@@ -77,21 +80,18 @@
     (let [char-keys (reconcile/extract-content-keys test-character)
           missing (reconcile/check-content-availability char-keys available-content)
           missing-keys (set (map :key missing))]
-      ;; :artificer-kibbles-tasty is not in available classes → missing
       (is (contains? missing-keys :artificer-kibbles-tasty))
-      ;; :wizard IS in available classes → not missing
       (is (not (contains? missing-keys :wizard)))
-      ;; :sage IS in available backgrounds → not missing
       (is (not (contains? missing-keys :sage))))))
 
 (deftest test-builtin-content-not-flagged
-  (testing "Built-in PHB content is never flagged as missing"
+  (testing "Built-in SRD content is never flagged as missing"
     (let [character {::entity/options
                      {:class [{::entity/key :fighter}]
                       :race {::entity/key :elf}
                       :background {::entity/key :acolyte}}}
           char-keys (reconcile/extract-content-keys character)
-          ;; Pass empty available content — builtins should still not be flagged
+          ;; Empty available content — builtins should still not be flagged
           missing (reconcile/check-content-availability char-keys {})]
       (is (empty? missing)))))
 
@@ -105,13 +105,11 @@
                       {:key :wizard :name "Wizard"}
                       {:key :bard :name "Bard"}]
           results (reconcile/find-similar-content :artificer-kibbles-tasty :class candidates)]
-      ;; Should suggest :artificer as similar (prefix match)
       (is (seq results))
       (is (= :artificer (-> results first :key)))))
   (testing "No suggestions for completely unrelated keys"
     (let [candidates [{:key :wizard :name "Wizard"}]
           results (reconcile/find-similar-content :blood-hunter-order-of-the-lycan :class candidates)]
-      ;; :wizard has no similarity to :blood-hunter-order-of-the-lycan
       (is (empty? results)))))
 
 ;; ============================================================================
@@ -123,11 +121,9 @@
     (let [report (reconcile/generate-missing-content-report test-character available-content)]
       (is (:has-missing? report))
       (is (pos? (:missing-count report)))
-      ;; Should have suggestions for the missing homebrew class
       (let [missing-artificer (first (filter #(= :artificer-kibbles-tasty (:key %))
                                              (:items report)))]
         (is (some? missing-artificer))
-        ;; Should suggest the base :artificer as a match
         (is (seq (:suggestions missing-artificer)))))))
 
 (deftest test-report-no-missing-content
@@ -146,12 +142,11 @@
     (let [report (reconcile/generate-missing-content-report test-character available-content)
           missing-artificer (first (filter #(= :artificer-kibbles-tasty (:key %))
                                            (:items report)))]
-      ;; :artificer-kibbles-tasty → should infer something like "Kibbles Tasty"
       (is (some? (:inferred-source missing-artificer)))
       (is (string? (:inferred-source missing-artificer))))))
 
 ;; ============================================================================
-;; Feat Detection — content type classification
+;; Feat Detection
 ;; ============================================================================
 
 (def feat-test-character
@@ -185,15 +180,13 @@
       (is (= :feat (:content-type (get by-key :brawny))))
       (is (= :feat (:content-type (get by-key :metabolic-control)))))))
 
-(deftest test-ability-score-under-feat-not-detected-as-feat
-  (testing "Ability score nested under a feat is NOT tagged as :feat"
+(deftest test-ability-score-under-feat-not-extracted
+  (testing "Ability score nested under a feat is NOT extracted at all"
     (let [keys (reconcile/extract-content-keys feat-test-character)
-          by-key (zipmap (map :key keys) keys)
-          con-entry (get by-key :orcpub.dnd.e5.character/con)]
-      ;; The ability score choice should be :unknown, not :feat
-      (is (some? con-entry) "ability score key should be extracted")
-      (is (not= :feat (:content-type con-entry))
-          "ability score under a feat must not be classified as :feat"))))
+          key-set (set (map :key keys))]
+      ;; Direct extraction only gets feat keys, not their sub-selections
+      (is (not (contains? key-set :orcpub.dnd.e5.character/con))
+          "ability score under a feat must not be extracted as content"))))
 
 (deftest test-feat-not-flagged-when-loaded
   (testing "Feats present in available content are not flagged as missing"
@@ -202,7 +195,6 @@
                                  {:key :brawny :name "Brawny"}
                                  {:key :metabolic-control :name "Metabolic Control"}])
           report (reconcile/generate-missing-content-report feat-test-character content)]
-      ;; Feats are loaded — should not appear in missing items
       (is (not (some #(= :feat (:content-type %)) (:items report)))
           "no feats should be missing when all are in available content"))))
 
