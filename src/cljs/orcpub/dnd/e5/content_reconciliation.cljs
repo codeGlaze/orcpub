@@ -61,14 +61,26 @@
          (common/traverse-nested extract-keys-from-option nested-options path))))))
 
 (defn- annotate-content-type
-  "Add content type info to a key entry based on its path."
+  "Add content type info to a key entry based on its path.
+
+   Only flags keys at content-relevant path depths:
+     [:class]              → class
+     [:class :archetype]   → subclass (where archetype in subclass-path-patterns)
+     [:race]               → race
+     [:race :subrace]      → subrace
+     [:background]         → background
+
+   Deeper paths (level-up choices, fighting styles, skills, HP method,
+   feats, etc.) are left as :unknown and filtered out downstream."
   [{:keys [path] :as entry}]
   (let [direct-match (get content-type-paths (vec (take 2 path)))
-        is-subclass? (some subclass-path-patterns path)
+        ;; Subclass: exactly 2-deep under :class, last element is an archetype key
+        is-subclass? (and (= :class (first path))
+                          (= 2 (count path))
+                          (contains? subclass-path-patterns (second path)))
         content-type (cond
                        is-subclass? {:type :subclass :label "Subclass"}
                        direct-match direct-match
-                       (= :class (first path)) {:type :class :label "Class"}
                        :else {:type :unknown :label "Content"})]
     (assoc entry
            :content-type (:type content-type)

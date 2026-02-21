@@ -1,6 +1,7 @@
 (ns ^{:doc "Effects and utils for handling throttled autosave"}
   orcpub.dnd.e5.autosave-fx
   (:require [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.equipment-subs] ;; ensures ::char5e/template sub registered before defonce
             [re-frame.core :refer [reg-fx reg-event-db dispatch subscribe]]
             [reagent.core :as r]))
 
@@ -64,20 +65,15 @@
  (fn [db [_ template]]
    (assoc db ::cached-template template)))
 
-;; Init with retry: in dev mode (:optimizations :none), each namespace
-;; loads as a separate script. This ns loads before equipment_subs.cljs
-;; (which registers ::char5e/template), so setTimeout 0 can fire between
-;; script loads. Retry until the subscription is available.
+;; Deferred init: subscribe inside r/track! (reactive context — no warning).
+;; equipment-subs is required above, guaranteeing ::char5e/template is
+;; registered before this defonce runs.
 (defonce _init-template-cache
-  (letfn [(try-init []
-            (let [sub (subscribe [::char5e/template])]
-              (if (some? sub)
-                ;; Subscription registered — set up reactive cache watcher.
-                (r/track!
-                  (fn []
-                    (when-let [template @sub]
-                      (dispatch [::cache-template template]))))
-                ;; Not yet registered (loading order race) — retry.
-                (js/setTimeout try-init 200))))]
-    (js/setTimeout try-init 0)))
+  (js/setTimeout
+    (fn []
+      (r/track!
+        (fn []
+          (when-let [template @(subscribe [::char5e/template])]
+            (dispatch [::cache-template template])))))
+    0))
 
