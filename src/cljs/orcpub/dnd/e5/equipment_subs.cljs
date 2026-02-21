@@ -18,7 +18,7 @@
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
-                                                                    show-generic-error]]
+                                                                    handle-api-response]]
             [reagent.ratom :as ra]
             [clojure.string :as s]
             [cljs-http.client :as http]
@@ -39,10 +39,10 @@
            (let [response (<! (http/get (url-for-route routes/dnd-e5-items-route)
                                         {:headers (auth-headers @app-db)}))]
              (dispatch [:set-loading false])
-             (case (:status response)
-               200 (dispatch [::mi5e/set-custom-items (:body response)])
-               401 nil ;;(dispatch [:route routes/login-page-route {:secure? true}])
-               500 (dispatch (show-generic-error))))))
+             (handle-api-response response
+               #(dispatch [::mi5e/set-custom-items (:body response)])
+               :on-401 (fn [])
+               :context "fetch custom items"))))
      (ra/make-reaction
       (fn [] (get @app-db ::mi5e/custom-items [])))))
   (reg-sub
@@ -250,9 +250,9 @@
                                       :id id)
                                     {:headers (auth-headers @app-db)}))]
          (dispatch [:set-loading false])
-         (case (:status response)
-           200 (dispatch [::mi5e/add-remote-item (:body response)])
-           500 (dispatch (show-generic-error))))))
+         (handle-api-response response
+           #(dispatch [::mi5e/add-remote-item (:body response)])
+           :context "fetch item"))))
    (ra/make-reaction
     (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
 

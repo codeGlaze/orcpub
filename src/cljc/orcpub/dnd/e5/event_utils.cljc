@@ -4,7 +4,8 @@
   orcpub.dnd.e5.event-utils
   (:require [orcpub.modifiers :as mod]
             [orcpub.route-map :as routes]
-            [clojure.string :as s]))
+            [clojure.string :as s]
+            #?(:cljs [re-frame.core :refer [dispatch]])))
 
 ;; -- URL helpers (CLJS-only: depend on js/window.location) --
 
@@ -39,6 +40,25 @@
   "Returns a dispatch vector for the generic error message."
   []
   [:show-error-message [:div "There was an error, please refresh your browser and try again."]])
+
+#?(:cljs
+   (defn handle-api-response
+     "Dispatch on HTTP response status with sensible defaults.
+      on-success is called for 200. Options:
+        :on-401  — called on 401 (default: dispatch :route-to-login)
+        :on-500  — called on 500 (default: dispatch show-generic-error)
+        :context — string describing the request, used in console warning for unhandled statuses"
+     [response on-success & {:keys [on-401 on-500 context]}]
+     (case (:status response)
+       200 (on-success)
+       401 (if on-401
+             (on-401)
+             (dispatch [:route-to-login]))
+       500 (if on-500
+             (on-500)
+             (dispatch (show-generic-error)))
+       (js/console.warn "Unhandled HTTP status:" (:status response)
+                        (str "(" (or context "unknown request") ")")))))
 
 ;; -- Modifier config --
 

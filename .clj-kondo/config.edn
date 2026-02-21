@@ -1,7 +1,8 @@
 {;; Prevent analysis of compiled CLJS output -- source copies live there
  ;; and cause "redefined var" when IDE analyzes both src/ and compiled/.
  :exclude-files "resources/public/js/compiled"
- :output {:exclude-files [".*resources/public/js/compiled.*"]}
+ :output {:exclude-files [".*resources/public/js/compiled.*"
+                          ".*docker/scripts/.*"]}
  :linters {;; Enabled at :warning so NEW accidental shadows are caught.
            ;; :exclude covers established patterns: core vars used as param names
            ;; (name, key, type, etc.) and domain terms used as both defs and params
@@ -53,7 +54,10 @@
                       orcpub.dnd.e5.options/potent-spellcasting
                       ;; Live callers exist but LSP can't trace them
                       orcpub.common/dissoc-in                ; events.cljs:2976
-                      orcpub.dnd.e5.character/add-ability-namespaces] ; test
+                      orcpub.dnd.e5.character/add-ability-namespaces ; test
+                      ;; Cross-file refs: used in template.cljc but defined in spell_subs.cljs
+                      orcpub.dnd.e5.spell-subs/sunlight-sensitivity
+                      orcpub.dnd.e5.spell-subs/mask-of-the-wild-mod]
             ;; re-frame event handlers are dispatched via keyword, not var reference.
             ;; LSP can't connect reg-event-db registration to (dispatch [:keyword]).
             :exclude-when-defined-by #{re-frame.core/reg-event-db
@@ -65,13 +69,17 @@
            ;; clj-kondo can't resolve macro-generated vars statically and
            ;; garden doesn't ship a clj-kondo config.
            :unresolved-var
-           {:exclude [garden.selectors]}
+           {:exclude [garden.selectors
+                      ;; errors.cljc macros behind #?(:clj) reader conditional —
+                      ;; one kondo instance can't resolve them
+                      orcpub.errors]}
            ;; Macros that introduce bindings kondo can't resolve statically.
            ;; Each (ns/macro) entry suppresses unresolved symbols inside that
            ;; macro's body. Modifier macros use defmacro with gensym bindings.
            :unresolved-symbol
            {:exclude
-            [(clojure.test.check.clojure-test/defspec)
+            [read-string
+             (clojure.test.check.clojure-test/defspec)
              (clojure.core.match/match)
              (cljs.core.match/match)
              (io.pedestal.interceptor.error/error-dispatch)
@@ -96,6 +104,8 @@
              (orcpub.dnd.e5.modifiers/reaction)
              (orcpub.dnd.e5.modifiers/level-val)
              (orcpub.entity-spec/make-entity)
+             (orcpub.routes-test/with-conn)
+             (orcpub.routes.folder-test/with-conn)
              (user/with-db)]}}
  ;; native/cljs and web/cljs are separate source roots; kondo doesn't know
  ;; about them so ns names appear to mismatch their file paths.
@@ -111,4 +121,5 @@
  :lint-as {reagent.core/with-let clojure.core/let
            hiccup.def/defhtml clojure.core/defn
            user/with-db clojure.core/let
-           clojure.test.check.clojure-test/defspec clojure.test/deftest}}
+           clojure.test.check.clojure-test/defspec clojure.test/deftest}
+}

@@ -39,6 +39,20 @@ env.sh
 *.key
 deploy/homebrew/*
 
+# Local working files
+.integration-workflow-state
+branch-sync-plan.md
+dev/test-accounts.edn
+
+# E2E test artifacts
+/e2e/node_modules/
+/e2e/playwright-report/
+/e2e/test-results/
+
+# Clojure CLI cache
+.cpcache
+cljs-test-runner-out
+
 # As created by some LSP-protocol tooling, e.g. nvim-lsp
 .lsp
 

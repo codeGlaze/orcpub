@@ -68,6 +68,7 @@
                                    (cond (and (nil? armor)
                                               (nil? shield)) ?unarmored-armor-class
                                          (nil? armor) (?unarmored-with-shield-armor-class shield)
+                                         ;; Flattened nested (+ ...) — semantically equivalent
                                          :else (+ (if shield (?shield-ac-bonus shield) 0)
                                                   (?armor-dex-bonus armor)
                                                   (or ?armored-ac-bonus 0)

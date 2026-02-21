@@ -5,6 +5,7 @@
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
             [orcpub.route-map :as routes]
             [cljs-http.client :as http]
             [clojure.string :as s]
@@ -103,7 +104,9 @@
         view (pages (or handler route))
         query-string js/window.location.search
         query-map (query-map query-string)]
-    [view (assoc route-params :query query-map)]))
+    [:div
+     [view (assoc route-params :query query-map)]
+     [conflict-views/import-log-overlay]]))
 
 ;; Verify auth token on startup (replaces @(subscribe [:user false]) side-effect)
 (dispatch-sync [:verify-user-session])

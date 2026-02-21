@@ -4,10 +4,13 @@
                [orcpub.constants :as const]
                [garden.selectors :as s]))
 
+;; Color palette — used across UI for consistent theming
 (def orange "#f0a100")
 (def button-color orange)
 (def red "#9a031e")
 (def green "#70a800")
+(def cyan "#47eaf8")      ; import log, conflict rename option
+(def purple "#8b7ec8")    ; conflict skip option
 
 (def container-style
   {:display :flex
@@ -537,6 +540,15 @@
      :display :flex
      :justify-content :space-between
      :color :white}]
+
+   ;; Warning/alert styles
+   [:.bg-warning
+    {:background-color "rgba(240, 161, 0, 0.1)"
+     :border "1px solid rgba(240, 161, 0, 0.3)"
+     :border-radius "4px"}]
+   [:.bg-warning-item
+    {:background-color "rgba(0, 0, 0, 0.2)"
+     :border-radius "4px"}]
 
    [:.fade-out
     {:animation-name :fade-out
@@ -1379,7 +1391,190 @@
        :margin-left "-5px"
        :border-width "10px"
        :border-style "solid"
-       :border-color "transparent transparent #e96868 transparent"}]]];concat-bracket
+       :border-color "transparent transparent #e96868 transparent"}]]
+
+    ;;;; CONFLICT RESOLUTION MODAL
+
+    ;; Modal structure
+    [:.conflict-backdrop
+     {:position :fixed
+      :top 0 :left 0 :right 0 :bottom 0
+      :background "rgba(0,0,0,0.6)"
+      :z-index 10001
+      :display :flex
+      :align-items :center
+      :justify-content :center}]
+
+    [:.conflict-modal
+     {:background "#1a1e28"
+      :border-radius "5px"
+      :max-width "600px"
+      :max-height "80vh"
+      :overflow :hidden
+      :display :flex
+      :flex-direction :column
+      :box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}]
+
+    [:.conflict-modal-header
+     {:padding "16px 20px"
+      :border-bottom "1px solid rgba(255,255,255,0.15)"
+      :background "#2c3445"}]
+
+    [:.conflict-modal-footer
+     {:padding "16px 20px"
+      :border-top "1px solid rgba(255,255,255,0.15)"
+      :display :flex
+      :justify-content :flex-end
+      :gap "12px"}]
+
+    [:.conflict-modal-body
+     {:padding "16px 20px"
+      :overflow-y :auto
+      :flex 1}]
+
+    ;; Header elements
+    [:.conflict-title-icon
+     {:color orange
+      :font-size "18px"}]
+
+    [:.conflict-title
+     {:color orange}]
+
+    [:.conflict-subtitle
+     {:color "rgba(255,255,255,0.5)"
+      :margin-top "4px"}]
+
+    [:.conflict-count
+     {:color "rgba(255,255,255,0.5)"
+      :margin-top "8px"}]
+
+    ;; Conflict card
+    [:.conflict-item
+     {:background "rgba(255,255,255,0.07)"
+      :border-radius "0 5px 5px 0"
+      :padding "12px"
+      :margin-bottom "8px"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-left (str "3px solid " orange)}]
+
+    [:.conflict-item-header
+     {:margin-bottom "10px"}]
+
+    [:.conflict-item-key
+     {:color orange}]
+
+    [:.conflict-item-type
+     {:color "rgba(255,255,255,0.7)"
+      :margin-left "8px"}]
+
+    [:.conflict-item-desc
+     {:color "rgba(255,255,255,0.7)"
+      :margin-bottom "8px"}]
+
+    [:.conflict-item-detail
+     {:margin-left "12px"}]
+
+    [:.conflict-source-import
+     {:color cyan
+      :font-weight :bold}]
+
+    [:.conflict-source-existing
+     {:color green
+      :font-weight :bold}]
+
+    [:.conflict-source-label
+     {:color "rgba(255,255,255,0.5)"}]
+
+    [:.conflict-source-origin
+     {:color "rgba(255,255,255,0.35)"}]
+
+    [:.conflict-source-row
+     {:margin-bottom "6px"
+      :color :white}]
+
+    ;; Resolution options section
+    [:.conflict-options
+     {:margin-top "12px"
+      :border-top "1px solid rgba(255,255,255,0.2)"
+      :padding-top "12px"}]
+
+    [:.conflict-options-label
+     {:color "rgba(255,255,255,0.7)"
+      :margin-bottom "10px"
+      :text-transform :uppercase
+      :letter-spacing "0.5px"
+      :font-weight :bold
+      :font-size "12px"}]
+
+    ;; Radio option — base (unselected)
+    [:.conflict-radio
+     {:margin-bottom "8px"
+      :padding "8px 8px 8px 12px"
+      :background "rgba(255,255,255,0.04)"
+      :border-left "3px solid rgba(255,255,255,0.1)"
+      :border-radius "0 5px 5px 0"
+      :cursor :pointer
+      :transition "background 0.15s ease, border-color 0.15s ease"
+      :color "rgba(255,255,255,0.7)"}
+     [:.radio-icon
+      {:color "rgba(255,255,255,0.35)"
+       :font-size "16px"
+       :margin-right "10px"
+       :width "16px"}]]
+
+    ;; Radio option — selected (shared)
+    [:.conflict-radio.selected
+     {:color "rgba(255,255,255,0.95)"}]
+
+    ;; Radio option — rename variant (cyan)
+    [:.conflict-radio-rename.selected
+     {:border-left (str "3px solid " cyan)
+      :background (str cyan "18")}
+     [:.radio-icon
+      {:color cyan}]]
+
+    ;; Radio option — keep variant (orange)
+    [:.conflict-radio-keep.selected
+     {:border-left (str "3px solid " orange)
+      :background (str orange "18")}
+     [:.radio-icon
+      {:color orange}]]
+
+    ;; Radio option — skip variant (purple)
+    [:.conflict-radio-skip.selected
+     {:border-left (str "3px solid " purple)
+      :background (str purple "18")}
+     [:.radio-icon
+      {:color purple}]]
+
+    ;; Code block in rename option
+    [:.conflict-code
+     {:background "rgba(0,0,0,0.3)"
+      :padding "3px 8px"
+      :border-radius "3px"
+      :margin-left "6px"
+      :color cyan
+      :font-weight :bold}]
+
+    ;; Export warning modal reuses conflict-backdrop, conflict-modal,
+    ;; conflict-modal-header, conflict-modal-footer, conflict-modal-body
+
+    [:.export-issue-type
+     {:color "rgba(255,255,255,0.7)"
+      :margin-bottom "6px"
+      :font-weight :bold}]
+
+    [:.export-issue-item
+     {:color "rgba(255,255,255,0.5)"
+      :font-size "12px"
+      :margin-bottom "4px"}]
+
+    [:.export-issue-name
+     {:color "rgba(255,255,255,0.8)"}]
+
+    [:.export-issue-missing
+     {:color orange
+      :margin-left "8px"}]];concat-bracket
    margin-lefts
    margin-tops
    widths

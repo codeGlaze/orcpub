@@ -29,7 +29,14 @@
    ;; Pedestal 0.7+ requires explicit interceptor coercion for maps/functions
    ::http/enable-session false  ; Disable default session handling if not needed
    ::http/port (let [port-str (System/getenv "PORT")]
-                 (when port-str (Integer/parseInt port-str)))
+                 (when port-str
+                   (try
+                     (Integer/parseInt port-str)
+                     (catch NumberFormatException e
+                       (throw (ex-info "Invalid PORT environment variable. Expected a number."
+                                       {:error :invalid-port
+                                        :port port-str}
+                                       e))))))
    ::http/join false
    ::http/resource-path "/public"
    ;; CSP configured via CSP_POLICY env var (strict|permissive|none)

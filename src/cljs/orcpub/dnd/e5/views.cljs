@@ -1355,8 +1355,8 @@
 (defn close-orcacle []
   (dispatch [:close-orcacle]))
 
-;; dead — template.cljc has its own srd-link used by character_builder.cljs
-#_(def srd-link
+;; Used in legal footer below. template.cljc has a separate srd-link for character_builder.
+(def srd-link
   [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD"])
 
 (defn orcacle []
@@ -1450,16 +1450,18 @@
                [:div.content.f-w-n.f-s-12
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
-                  [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]]
+                  [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
+                  [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
                   [:a.orange {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]
                  [:div.m-l-10.m-r-10.p-10
                   [:a.orange {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
                   [:a.orange.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]]
                  [:div.legal-footer
-                  [:p "© 2025 " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "Orcpub"]]
-                  [:p "Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved. OrcPub.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
-                  [:p "Version " (v/version) " (" (v/date) ")"]]]
+                  [:p "© " (.getFullYear (js/Date.)) " " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "Orcpub"]]
+                  [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © " (.getFullYear (js/Date.)) " Wizards. All Rights Reserved."]
+                  [:p "This site is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
+                  [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
                 [debug-data]]]])]))})))
 
 ;; dead — zero callers (4 style defs)
@@ -1471,7 +1473,6 @@
 
 #_(def list-style
   {:border-top "2px solid rgba(255,255,255,0.5)"})
-
 #_(def thumbnail-style
   {:height "100px"
    :max-width "200px"})
@@ -7529,22 +7530,100 @@
     [my-content]]])
 
 (defn my-account-page []
-  [content-page
-   "My Account"
-   [{:title "Delete Account"
-     :icon "trash"
-     :on-click #(dispatch
-                [:show-confirmation
-                 {:confirm-button-text "DELETE ACCOUNT"
-                  :question "Are you sure you want to delete your account, characters, and associated data?"
-                  :event [:delete-account]}])}]
-   [:div.f-s-24.p-10.white
-    [:div.p-5
-     [:span.f-w-b "Username: "]
-     [:span @(subscribe [:username])]]
-    [:div.p-5
-     [:span.f-w-b "Email: "]
-     [:span @(subscribe [:email])]]]])
+    (r/with-let [editing? (r/atom false)
+                 new-email (r/atom "")
+                 confirm-email (r/atom "")]
+      (let [current-email @(subscribe [:email])
+            pending-email @(subscribe [:pending-email])
+            sent? @(subscribe [:email-change-sent?])
+            error @(subscribe [:email-change-error])
+            ;; Client-side validation: format check + confirm match
+            bad-format? (and (seq @new-email)
+                            (registration/bad-email? @new-email))
+            emails-dont-match? (and (seq @confirm-email)
+                                    (not= @new-email @confirm-email))
+            can-submit? (and (seq @new-email)
+                             (not bad-format?)
+                             (= @new-email @confirm-email))]
+        [content-page
+         "My Account"
+         [{:title "Delete Account"
+           :icon "trash"
+           :on-click #(dispatch
+                      [:show-confirmation
+                       {:confirm-button-text "DELETE ACCOUNT"
+                        :question "Are you sure you want to delete your account, characters, and associated data?"
+                        :event [:delete-account]}])}]
+         [:div.f-s-24.p-10.white
+          [:div.p-5
+           [:span.f-w-b "Username: "]
+           [:span @(subscribe [:username])]]
+          [:div.p-5
+           [:span.f-w-b "Email: "]
+           (cond
+             sent?
+             [:div
+              [:span current-email]
+              [:div.m-t-5.f-s-14 "A verification email has been sent to " [:strong pending-email] ". Click the link in that email to confirm the change."]
+              [:button.link-button.m-t-5.f-s-14
+               {:on-click #(do (reset! editing? true)
+                               (reset! new-email "")
+                               (reset! confirm-email "")
+                               (dispatch [:change-email-clear]))}
+               "Change again"]]
+
+             @editing?
+             [:div.m-t-5
+              [:input.input
+               {:type :email
+                :value @new-email
+                :placeholder "New email address"
+                :on-change #(reset! new-email (event-value %))}]
+              (when bad-format?
+                [:div.m-t-5.red "Not a valid email format"])
+              ;; Confirm field to prevent typo-induced lockout
+              [:input.input.m-t-5
+               {:type :email
+                :value @confirm-email
+                :placeholder "Confirm new email address"
+                :on-change #(reset! confirm-email (event-value %))}]
+              (when emails-dont-match?
+                [:div.m-t-5.red "Email addresses don't match"])
+              [:div.m-t-5
+               [:button.form-button
+                {:disabled (not can-submit?)
+                 :on-click #(when can-submit?
+                              (dispatch [:change-email @new-email]))}
+                "Save"]
+               [:button.link-button.m-l-10
+                {:on-click #(do (reset! editing? false)
+                                (reset! new-email "")
+                                (reset! confirm-email "")
+                                (dispatch [:change-email-clear]))}
+                "Cancel"]]
+              (when error
+                [:div.m-t-5.red error])]
+
+             :else
+             [:div
+              [:span current-email]
+              (when pending-email
+                [:div.m-t-5.f-s-14
+                 "Pending: " pending-email " — check your email to verify the change. "
+                 ;; Resend uses the same change-email flow; server enforces 3-zone rate limit
+                 ;; (0–1 min blocked, 1–5 min free resend, 5+ min open)
+                 [:button.link-button.f-s-14
+                  {:on-click #(dispatch [:change-email pending-email])}
+                  "Resend"]
+                 (when error
+                   [:span.m-l-5.red.f-s-14 error])])
+              [:button.link-button.m-l-10
+               {:on-click #(do (reset! editing? true)
+                               (reset! new-email "")
+                               (reset! confirm-email "")
+                               (dispatch [:change-email-clear]))}
+               "Change"]])]]])))
+
 
 (defn newb-character-builder-page []
   [content-page
