@@ -757,6 +757,15 @@
            :on-success [::party5e/make-party-success]}}))
 
 (reg-event-fx
+ ::party5e/make-empty-party-success
+ (fn [{:keys [db]} [_ response]]
+   (let [new-party (:body response)
+         parties (conj (vec (::char5e/parties db)) new-party)]
+     {:db (assoc db
+                 ::char5e/parties parties
+                 ::char5e/parties-map (common/map-by-id parties))})))
+
+(reg-event-fx
   ::party5e/make-empty-party
   (fn [{:keys [db]} [_]]
     {:dispatch [:set-loading true]
@@ -764,8 +773,7 @@
             :headers (authorization-headers db)
             :url (url-for-route routes/dnd-e5-char-parties-route)
             :transit-params {::party5e/name "A New Party"}
-            :on-success (.reload js/window.location true)
-            }}))
+            :on-success [::party5e/make-empty-party-success]}}))
 
 (reg-event-fx
  ::party5e/rename-party
