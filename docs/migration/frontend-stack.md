@@ -185,7 +185,7 @@ The save handler then reads the cached template and computes `entity/build(chara
 
 Pure function tests now cover many refactored modules. CLJS-only tests exist for re-frame handler integration. The JVM test suite includes tests for `compute-all-weapons-map`, feat-prereqs, pdf_spec pure functions, folder routes (CRUD + validation), and event handler round-trips.
 
-**Current**: 174 JVM tests, 444 assertions, 0 failures.
+**Current**: 206 JVM tests, 945 assertions, 0 failures.
 
 **CLJS-only tests** (browser via `lein fig:test`):
 - `test/cljs/orcpub/dnd/e5/events_test.cljs` — re-frame handler tests

@@ -155,7 +155,7 @@ Key aliases:
 
 | Command | What it does |
 |---------|-------------|
-| `lein test` | Run JVM tests (174 tests) |
+| `lein test` | Run JVM tests (206 tests) |
 | `lein fig:build` | One-shot CLJS compilation |
 | `lein fig:dev` | CLJS dev with REPL + hot reload |
 | `lein fig:test` | Compile + run CLJS tests in browser |
