@@ -178,6 +178,9 @@
   #{:champion :berserker :lore :life :land :open-hand
     :devotion :hunter :thief :draconic :fiend :evocation})
 
+;; Grappler is the only SRD feat (feats5e/feats-plugin, hardcoded).
+(def ^:private builtin-feats #{:grappler})
+
 (defn- builtin?
   "True if this key is SRD built-in content that won't appear in plugin subs."
   [k content-type]
@@ -187,6 +190,7 @@
     :race (contains? builtin-races k)
     :subrace (contains? builtin-races k)
     :background (contains? builtin-backgrounds k)
+    :feat (contains? builtin-feats k)
     false))
 
 ;; ============================================================================

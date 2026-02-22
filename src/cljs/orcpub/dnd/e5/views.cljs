@@ -1501,6 +1501,24 @@
           "unfollow"
           "follow")])]))
 
+(defn character-display-name
+  "Return the character's name, or a descriptive fallback like 'High Elf Ranger 3'
+   built from race/class/level when the name is blank. Works on summary maps."
+  [{:keys [::char/character-name ::char/race-name ::char/subrace-name ::char/classes]}]
+  (if (s/blank? character-name)
+    (let [race-part (or subrace-name race-name)
+          class-str (when (seq classes)
+                      (s/join "/"
+                              (map (fn [{:keys [::char/class-name ::char/level]}]
+                                     (str class-name " " level))
+                                   classes)))]
+      (cond
+        (and race-part class-str) (str race-part " " class-str)
+        race-part race-part
+        class-str class-str
+        :else "New Character"))
+    character-name))
+
 (defn character-summary-2 [{:keys [::char/character-name
                                    ::char/image-url
                                    ::char/race-name
@@ -1514,19 +1532,21 @@
                                    ::char/skin
                                    ::char/classes
                                    ::char/alignment
-                                   ::char/background]}
+                                   ::char/background]
+                            :as summary}
                            include-name?
                            owner
                            show-owner?
                            show-follow?]
-  (let [username @(subscribe [:username])]
+  (let [username @(subscribe [:username])
+        display-name (when include-name? (character-display-name summary))]
     [:div.flex.justify-cont-s-b.w-100-p.align-items-c
      [:div.flex.align-items-c.align-items-t
       (when image-url
         [:img.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:src image-url }])
       [:div.flex.character-summary.m-t-20.m-b-20
-       (when (and character-name include-name?) [:span.m-r-20.m-b-5
-                                               [:span.character-name character-name]
+       (when display-name [:span.m-r-20.m-b-5
+                                               [:span.character-name display-name]
                                                [:div.f-s-12.m-t-5.opacity-6.character-background background]
                                                [:div.f-s-12.m-t-5.opacity-6.character-alignment alignment]
                                                (when (not (s/blank? age)) [:div.f-s-12.m-t-5.opacity-6.character-age "Age: " age])
@@ -6643,10 +6663,9 @@
        {:items (cons
                 {:title "<select character>"}
                 (map
-                 (fn [{:keys [::char/character-name
-                              ::char/race-name
+                 (fn [{:keys [::char/race-name
                               ::char/classes] :as character-summary}]
-                   {:title (str character-name
+                   {:title (str (character-display-name character-summary)
                                 " - "
                                 race-name
                                 " "
@@ -8298,8 +8317,8 @@
                             (fn [{:keys [:db/id]}]
                               (character-ids id)))
                            (map
-                            (fn [{:keys [:db/id ::char/character-name]}]
-                              {:name character-name
+                            (fn [{:keys [:db/id] :as char-summary}]
+                              {:name (character-display-name char-summary)
                                :key id})))
                           @(subscribe [::char/characters]))
                          (fn [e]

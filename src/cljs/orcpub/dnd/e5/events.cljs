@@ -360,6 +360,23 @@
                    [:set-character character]
                    [::char5e/set-character id character]]})))
 
+(defn descriptive-character-label
+  "Build a descriptive label like 'High Elf Ranger 3' from character properties.
+   Used as the summary name when the user hasn't set a character name."
+  [race subrace classes levels]
+  (let [race-part (or subrace race)
+        class-parts (when (seq classes)
+                      (s/join "/"
+                              (map (fn [cls]
+                                     (let [{:keys [class-name class-level]} (levels cls)]
+                                       (str class-name " " class-level)))
+                                   classes)))]
+    (cond
+      (and race-part class-parts) (str race-part " " class-parts)
+      race-part race-part
+      class-parts class-parts
+      :else "Adventurer")))
+
 (defn make-summary [built-char]
   (let [classes (char5e/classes built-char)
         levels (char5e/levels built-char)
@@ -375,10 +392,12 @@
         hair (char5e/hair built-char)
         eyes (char5e/eyes built-char)
         skin (char5e/skin built-char)
-        ;alignment (char5e/get-prop built-char ::alignment)  ;This is not available?
-        ;background (char5e/get-prop built-char ::background)  ;This is not available?
-        ]
-    (cond-> {::char5e/character-name (or character-name "")}
+        ;; When user hasn't set a name, auto-generate a descriptive label
+        ;; for the summary (what lists/parties display).
+        display-name (if (s/blank? character-name)
+                       (descriptive-character-label race subrace classes levels)
+                       character-name)]
+    (cond-> {::char5e/character-name display-name}
       image-url (assoc ::char5e/image-url image-url)
       faction-image-url (assoc ::char5e/faction-image-url faction-image-url)
       race (assoc ::char5e/race-name race)
@@ -433,18 +452,31 @@
            {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))))
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
+;; If the user hasn't set a name, generates a random one and persists it.
 (reg-event-fx
  :save-character
  (fn [{:keys [db]} [_ built-character]]
-   (let [{:keys [:db/id] :as strict} (char5e/to-strict (:character db))
-         summary (make-summary built-character)]
+   (let [character-name (char5e/character-name built-character)
+         needs-name? (s/blank? character-name)
+         ;; Generate a random name for unnamed characters on manual save
+         rand-name (when needs-name? (generate-random-name built-character))
+         ;; Update entity in db so the name persists across future edits
+         db' (if needs-name?
+               (assoc-in db [:character ::entity/values ::char5e/character-name] rand-name)
+               db)
+         {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))
+         summary (cond-> (make-summary built-character)
+                   ;; Override summary name with the generated name
+                   ;; (make-summary produced a descriptive label since entity was blank)
+                   needs-name? (assoc ::char5e/character-name rand-name))]
      (if (every?
           (fn [ability-kw]
             (nat-int? (get-in built-character [:base-abilities ability-kw])))
           char5e/ability-keys)
-       {:dispatch [:set-loading true]
+       {:db db'
+        :dispatch [:set-loading true]
         :http {:method :post
-               :headers (authorization-headers db)
+               :headers (authorization-headers db')
                :url (url-for-route routes/dnd-e5-char-list-route)
                :transit-params (assoc strict :orcpub.entity.strict/summary summary)
                :on-success [:character-save-success]}}
@@ -1191,22 +1223,25 @@
  character-interceptors
  update-value-field)
 
+(defn generate-random-name
+  "Generate a random name from the built character's race/subrace/sex.
+   Falls back to a random human name for unsupported or custom races."
+  [built-char]
+  (let [race-kw (common/name-to-kw (char5e/race built-char) "orcpub.dnd.e5.character.random")
+        subrace-kw (common/name-to-kw (char5e/subrace built-char) "orcpub.dnd.e5.character.random")
+        sex-kw (common/name-to-kw (char5e/sex built-char) "orcpub.dnd.e5.character.random")]
+    (:name (char-rand5e/random-name-result
+            {:race race-kw
+             :subrace (when (= ::char-rand5e/human race-kw) subrace-kw)
+             :sex sex-kw}))))
+
 ;; Generate a random name based on character's race/subrace/sex.
 ;; built-char passed from component (description-fields).
 (reg-event-fx
  ::char5e/set-random-name
  (fn [_ [_ built-char]]
-   (let [race-name (char5e/race built-char)
-         race-kw (common/name-to-kw race-name "orcpub.dnd.e5.character.random")
-         subrace-name (char5e/subrace built-char)
-         subrace-kw (common/name-to-kw subrace-name "orcpub.dnd.e5.character.random")
-         sex (char5e/sex built-char)
-         sex-kw (common/name-to-kw sex "orcpub.dnd.e5.character.random")]
-     {:dispatch [:update-value-field ::char5e/character-name (:name
-                                                              (char-rand5e/random-name-result
-                                                               {:race race-kw
-                                                                :subrace (when (= ::char-rand5e/human race-kw) subrace-kw)
-                                                                :sex sex-kw}))]})))
+   {:dispatch [:update-value-field ::char5e/character-name
+               (generate-random-name built-char)]}))
 (reg-event-db
  :select-option
  character-interceptors
