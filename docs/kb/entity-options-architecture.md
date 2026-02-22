@@ -57,26 +57,40 @@ core.cljs requires (in order):
 ```
 
 **Critical invariant:** equipment-subs loads BEFORE events. This guarantees
-all subscription handlers are registered before autosave-fx's `defonce` runs.
+all subscription handlers are registered before autosave-fx is initialized.
 
 **Don't add equipment-subs as a require in autosave-fx** — it pulls the entire
 subscription dependency tree into the events.cljs load chain, changing namespace
 initialization order and causing content blowout on page refresh.
 
+After all requires complete, `core.cljs` calls `(autosave-fx/init-template-cache!)`
+explicitly - no `defonce` or `setTimeout` needed.
+
 ## autosave-fx Template Cache
 
+The template cache is initialized by an explicit function call from core.cljs,
+after all subscriptions are registered:
+
 ```clojure
-(defonce _init-template-cache
-  (js/setTimeout
-    (fn [] (r/track! (fn [] (when-let [template @(subscribe [...])] ...))))
-    0))
+;; autosave_fx.cljs
+(defn init-template-cache! []
+  (r/track!
+    (fn []
+      (when-let [sub (subscribe [::char5e/template])]
+        (when-let [template @sub]
+          (dispatch [::cache-template template]))))))
+
+;; core.cljs (after dispatch-sync [:initialize-db])
+(autosave-fx/init-template-cache!)
 ```
 
-Why `setTimeout 0` is safe:
-1. core.cljs load order guarantees the sub is registered before this file loads
-2. `setTimeout 0` defers to next event loop tick — after ALL synchronous loading
-3. `when-let` nil-guards if timing is off; `r/track!` re-fires reactively
-4. `defonce` prevents double-init on hot reload
+Key design decisions:
+1. No `defonce` or `setTimeout 0` - explicit call after all requires have loaded
+2. Guards the subscribe call itself: `(when-let [sub (subscribe [...])]` prevents
+   `@nil` crash (subscribe returns nil if handler isn't registered yet)
+3. `r/track!` creates reactive context, re-fires when subscription value changes
+4. **`when-let` does NOT guard `@nil`** - `@(subscribe [...])` evaluates deref
+   BEFORE `when-let` checks. Always guard subscribe itself, not the deref.
 
 ## Content Source: SRD vs Plugins
 
@@ -88,7 +102,7 @@ Only SRD content is hardcoded. Most PHB content comes from orcbrew plugins.
 | 9 races + subraces | Plugin races |
 | 1 subclass per class (Champion, Berserker, Lore, Life, Land, Open Hand, Devotion, Hunter, Thief, Draconic, Fiend, Evocation) | All other subclasses (Battle Master, Totem Warrior, etc.) |
 | Acolyte background | All other backgrounds (Folk Hero, Sage, etc.) |
-| No feats | All feats |
+| Grappler (only SRD feat) | All other feats |
 
 Non-SRD subclasses in `classes.cljc` are `#_` reader-discarded — they come from plugins.
 

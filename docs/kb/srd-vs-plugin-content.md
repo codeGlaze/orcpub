@@ -16,7 +16,7 @@ and any feature that checks "is this content available?"
 | Races | 9 races + subraces (dwarf, elf, halfling, human, dragonborn, gnome, half-elf, half-orc, tiefling) | `spell_subs.cljs:902-928` |
 | Subclasses | 1 per class (Champion, Berserker, Lore, Life, Land, Open Hand, Devotion, Hunter, Thief, Draconic, Fiend, Evocation) | `classes.cljc` — non-SRD are `#_` discarded |
 | Backgrounds | Acolyte only | `spell_subs.cljs:538` — `(cons acolyte-bg plugin-backgrounds)` |
-| Feats | None | All from plugins |
+| Feats | Grappler only | All other feats from plugins |
 
 ## What Comes From Plugins
 
@@ -35,6 +35,7 @@ The full subscriptions combine hardcoded + plugin:
 - `::classes5e/classes` = base-class-options + plugin-classes
 - `::races5e/races` = 9 hardcoded races + plugin-races
 - `::bg5e/backgrounds` = acolyte + plugin-backgrounds
+- `::feats5e/feats` = grappler + plugin-feats
 
 ## Lesson Learned
 
