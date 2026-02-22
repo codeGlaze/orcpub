@@ -1,3 +1,7 @@
+# Docker integration tests: script validation always runs, container tests
+# only run when Docker Hub images are available (orcpub/orcpub:latest may
+# not exist for all release cycles).
+
 name: Docker Integration Test
 
 on:
@@ -21,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # ── Script validation (always runs) ──────────────────────────
 
       - name: Lint shell scripts
         run: |
@@ -71,13 +77,21 @@ jobs:
           fi
           echo "OK: --force regenerated .env with consistent passwords"
 
+      # ── Container tests (only if images are available) ───────────
+
+      - name: Pull container images
+        id: pull
+        continue-on-error: true
+        run: docker compose pull
+
       - name: Start datomic (no deps)
+        if: steps.pull.outcome == 'success'
         run: |
-          docker compose pull
           docker compose up -d --no-deps datomic
           echo "Datomic container started, waiting for health..."
 
       - name: Wait for datomic healthy
+        if: steps.pull.outcome == 'success'
         run: |
           for i in $(seq 1 90); do
             CID=$(docker compose ps -q datomic 2>/dev/null) || true
@@ -110,11 +124,13 @@ jobs:
           done
 
       - name: Start orcpub and web
+        if: steps.pull.outcome == 'success'
         run: |
           docker compose up -d
           docker compose ps
 
       - name: Wait for orcpub healthy
+        if: steps.pull.outcome == 'success'
         run: |
           for i in $(seq 1 90); do
             CID=$(docker compose ps -q orcpub 2>/dev/null) || true
@@ -145,11 +161,13 @@ jobs:
           docker compose ps
 
       - name: Test — create user
+        if: steps.pull.outcome == 'success'
         run: |
           ./docker-user.sh create testadmin admin@test.local SecurePass123
           echo "Exit code: $?"
 
       - name: Test — check user exists
+        if: steps.pull.outcome == 'success'
         run: |
           OUTPUT=$(./docker-user.sh check testadmin)
           echo "$OUTPUT"
@@ -158,12 +176,14 @@ jobs:
           echo "$OUTPUT" | grep -q "true"   # verified
 
       - name: Test — list includes user
+        if: steps.pull.outcome == 'success'
         run: |
           OUTPUT=$(./docker-user.sh list)
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "testadmin"
 
       - name: Test — duplicate user fails
+        if: steps.pull.outcome == 'success'
         run: |
           if ./docker-user.sh create testadmin admin@test.local SecurePass123 2>&1; then
             echo "FAIL: Should have rejected duplicate user"
@@ -172,9 +192,11 @@ jobs:
           echo "OK: Duplicate user correctly rejected"
 
       - name: Test — create second user
+        if: steps.pull.outcome == 'success'
         run: ./docker-user.sh create player2 player2@test.local AnotherPass456
 
       - name: Test — list shows both users
+        if: steps.pull.outcome == 'success'
         run: |
           OUTPUT=$(./docker-user.sh list)
           echo "$OUTPUT"
@@ -182,12 +204,14 @@ jobs:
           echo "$OUTPUT" | grep -q "player2"
 
       - name: Test — verify already-verified user is idempotent
+        if: steps.pull.outcome == 'success'
         run: |
           OUTPUT=$(./docker-user.sh verify testadmin)
           echo "$OUTPUT"
           echo "$OUTPUT" | grep -q "already verified"
 
       - name: Test — batch create users (with duplicates)
+        if: steps.pull.outcome == 'success'
         run: |
           cat > /tmp/test-users.txt <<'TXT'
           # Test batch file
@@ -207,6 +231,7 @@ jobs:
           echo "OK: Batch created 2 new, skipped 1 duplicate"
 
       - name: Test — batch users appear in list
+        if: steps.pull.outcome == 'success'
         run: |
           OUTPUT=$(./docker-user.sh list)
           echo "$OUTPUT"
@@ -214,6 +239,7 @@ jobs:
           echo "$OUTPUT" | grep -q "batch2"
 
       - name: Test — init creates admin from .env
+        if: steps.pull.outcome == 'success'
         run: |
           # Append INIT_ADMIN_* vars to .env
           printf '\nINIT_ADMIN_USER=initadmin\nINIT_ADMIN_EMAIL=initadmin@test.local\nINIT_ADMIN_PASSWORD=InitPass789\n' >> .env
@@ -232,6 +258,7 @@ jobs:
           echo "OK: init created admin from .env"
 
       - name: Test — init is idempotent (re-run skips existing)
+        if: steps.pull.outcome == 'success'
         run: |
           # Running init again should not fail — duplicate is handled
           if ./docker-user.sh init 2>&1; then
@@ -241,6 +268,7 @@ jobs:
           echo "OK: init correctly reports duplicate on re-run"
 
       - name: Test — check nonexistent user fails
+        if: steps.pull.outcome == 'success'
         run: |
           if ./docker-user.sh check nobody@nowhere.com 2>&1; then
             echo "FAIL: Should have reported user not found"
@@ -249,6 +277,7 @@ jobs:
           echo "OK: Nonexistent user correctly not found"
 
       - name: Test — created user can log in via HTTP
+        if: steps.pull.outcome == 'success'
         run: |
           # Use nginx (port 443) since orcpub:8890 is not exposed to host
           RESPONSE=$(curl -sk -X POST https://localhost/login \
@@ -272,6 +301,7 @@ jobs:
           fi
 
       - name: Test — wrong password is rejected
+        if: steps.pull.outcome == 'success'
         run: |
           HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" \
             -X POST https://localhost/login \
@@ -285,6 +315,15 @@ jobs:
             echo "FAIL: Expected HTTP 401, got $HTTP_CODE"
             exit 1
           fi
+
+      # ── Always-run steps ─────────────────────────────────────────
+
+      - name: Container tests skipped (images unavailable)
+        if: steps.pull.outcome == 'failure'
+        run: |
+          echo "## Docker Integration" >> $GITHUB_STEP_SUMMARY
+          echo "Container images not available on Docker Hub." >> $GITHUB_STEP_SUMMARY
+          echo "Script validation passed. Container tests skipped." >> $GITHUB_STEP_SUMMARY
 
       - name: Collect logs on failure
         if: failure()
