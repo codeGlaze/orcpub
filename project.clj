@@ -212,7 +212,8 @@
                                            [cider/piggieback "0.5.3"]
                                            [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]]
                                            ]
-                            :env       {:dev-mode "true"}
+                            :env       {:dev-mode  "true"
+                                        :signature "dev-secret-do-not-use-in-production"}
                             ;; need to add dev source path here to get user.clj loaded
                             :source-paths ["web/cljs" "src/clj" "src/cljc" "src/cljs" "dev"]
                             :cljsbuild    {:builds {:dev {:compiler {:closure-defines {"re_frame.trace.trace_enabled_QMARK_" true
