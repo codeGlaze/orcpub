@@ -14,14 +14,15 @@ services:
       EMAIL_ERRORS_TO: ${EMAIL_ERRORS_TO:-}
       EMAIL_SSL: ${EMAIL_SSL:-FALSE}
       EMAIL_TLS: ${EMAIL_TLS:-FALSE}
-      # Use datomic:dev:// for Datomic Pro (required for Java 21 support)
+      # Datomic Pro with dev storage protocol (required for Java 21 support)
       DATOMIC_URL: ${DATOMIC_URL:-datomic:dev://datomic:4334/orcpub?password=change-me}
       SIGNATURE: ${SIGNATURE:-change-me-to-something-unique}
     depends_on:
       datomic:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8890/"]
+      # BusyBox wget (Alpine): only -q and --spider are supported
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8890/"]
       interval: 5s
       timeout: 3s
       retries: 20

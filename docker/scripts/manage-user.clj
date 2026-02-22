@@ -17,7 +17,7 @@
 
 (def datomic-url
   (or (System/getenv "DATOMIC_URL")
-      "datomic:free://datomic:4334/orcpub?password=datomic"))
+      "datomic:dev://datomic:4334/orcpub?password=datomic"))
 
 (defn get-conn []
   (try

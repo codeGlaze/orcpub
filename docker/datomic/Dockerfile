@@ -1,21 +1,24 @@
-FROM eclipse-temurin:8-jre-alpine
+# Datomic Pro transactor — dev storage protocol (datomic:dev://)
+FROM eclipse-temurin:21-jre-alpine-3.22 as base
 
-ENV DATOMIC_VERSION 0.9.5703
+ENV DATOMIC_VERSION=1.0.7482
 
-RUN wget https://github.com/Orcpub/orcpub/raw/refs/heads/develop/lib/datomic-free-0.9.5703.tar.gz -qO /tmp/datomic.tar.gz \
-  && cd /tmp \
-  && tar -xvzf /tmp/datomic.tar.gz \
-  && rm /tmp/datomic.tar.gz \
-  && mv datomic-free-0.9.5703 /datomic
+RUN apk add --no-cache curl unzip
+
+RUN curl --fail --location --silent --show-error \
+      -o /tmp/datomic-pro.zip \
+      "https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip" \
+ && unzip -q /tmp/datomic-pro.zip -d /tmp \
+ && mv /tmp/datomic-pro-${DATOMIC_VERSION} /datomic \
+ && rm /tmp/datomic-pro.zip
 
 WORKDIR /datomic
 
-RUN cp /datomic/config/samples/free-transactor-template.properties transactor.properties
+# Use dev-transactor-template (dev storage protocol for datomic:dev://)
+RUN cp /datomic/config/samples/dev-transactor-template.properties transactor.properties
 
-RUN mkdir /data
+RUN mkdir -p /data /log
 RUN sed "s/# data-dir=data/data-dir=\/data/" -i transactor.properties
-
-RUN mkdir /log
 RUN sed "s/# log-dir=log/log-dir=\/log/" -i transactor.properties
 
 RUN sed "s/host=localhost/host=0.0.0.0/" -i transactor.properties

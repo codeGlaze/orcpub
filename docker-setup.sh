@@ -198,7 +198,7 @@ PORT=${PORT}
 # The password in DATOMIC_URL must match DATOMIC_PASSWORD
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 DATOMIC_PASSWORD=${DATOMIC_PASSWORD}
-DATOMIC_URL=datomic:free://datomic:4334/orcpub?password=${DATOMIC_PASSWORD}
+DATOMIC_URL=datomic:dev://datomic:4334/orcpub?password=${DATOMIC_PASSWORD}
 
 # --- Security ---
 # Secret used to sign JWT tokens (20+ characters recommended)
