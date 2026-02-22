@@ -3,7 +3,7 @@ FROM eclipse-temurin:21-jre-alpine-3.22 as base
 
 ENV DATOMIC_VERSION=1.0.7482
 
-RUN apk add --no-cache curl unzip
+RUN apk add --no-cache curl unzip bash
 
 RUN curl --fail --location --silent --show-error \
       -o /tmp/datomic-pro.zip \
@@ -18,11 +18,11 @@ WORKDIR /datomic
 RUN cp /datomic/config/samples/dev-transactor-template.properties transactor.properties
 
 RUN mkdir -p /data /log
-RUN sed "s/# data-dir=data/data-dir=\/data/" -i transactor.properties
-RUN sed "s/# log-dir=log/log-dir=\/log/" -i transactor.properties
+RUN sed -i "s/# data-dir=data/data-dir=\/data/" transactor.properties
+RUN sed -i "s/# log-dir=log/log-dir=\/log/" transactor.properties
 
-RUN sed "s/host=localhost/host=0.0.0.0/" -i transactor.properties
-RUN sed "s/# storage-access=local/storage-access=remote/" -i transactor.properties
+RUN sed -i "s/host=localhost/host=0.0.0.0/" transactor.properties
+RUN sed -i "s/# storage-access=local/storage-access=remote/" transactor.properties
 
 ADD deploy/start.sh /datomic/
 RUN chmod +x /datomic/start.sh

@@ -1,4 +1,7 @@
-FROM clojure:temurin-21-lein as builder
+FROM clojure:temurin-21-lein-alpine as builder
+
+# Install tools needed to fetch and unpack Datomic Pro distribution
+RUN apk add --no-cache curl unzip bash
 
 # Build cache layer — pdfbox snapshots from lib/
 ADD ./lib/ /root/.m2/repository/
@@ -22,6 +25,9 @@ RUN printenv &&\
 
 # Alpine runner — BusyBox wget handles healthchecks (use -q --spider, not GNU flags)
 FROM eclipse-temurin:21-jre-alpine-3.22 as runner
+
+# PDFBox requires fontconfig, fonts, and lcms2 for PDF character sheet generation
+RUN apk add --no-cache fontconfig ttf-dejavu freetype lcms2
 
 COPY --from=builder /orcpub/target/orcpub.jar /orcpub.jar
 
