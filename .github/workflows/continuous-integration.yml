@@ -1,3 +1,7 @@
+# Dual-stack CI: auto-detects Java 8 (develop) vs Java 21 (breaking/) based
+# on whether dev.cljs.edn exists in the checkout. After breaking/ merges to
+# develop, the Java 8 path becomes dead code and can be removed.
+
 name: CI
 
 on:
@@ -13,37 +17,102 @@ permissions:
   checks: write
 
 jobs:
-  test:
-    name: Test & Lint
+  detect-stack:
+    name: Detect Stack
     runs-on: ubuntu-latest
-    
+    outputs:
+      java-version: ${{ steps.detect.outputs.java-version }}
+      java-distribution: ${{ steps.detect.outputs.java-distribution }}
+      lein-version: ${{ steps.detect.outputs.lein-version }}
+      cljs-command: ${{ steps.detect.outputs.cljs-command }}
+      needs-datomic-pro: ${{ steps.detect.outputs.needs-datomic-pro }}
+      stack-label: ${{ steps.detect.outputs.stack-label }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
+      - name: Detect stack from project files
+        id: detect
+        run: |
+          # dev.cljs.edn is the figwheel-main build config — only exists on
+          # breaking/2026-stack-modernization (Java 21, Datomic Pro, fig:build).
+          if [ -f "dev.cljs.edn" ]; then
+            echo "Detected: figwheel-main stack (Java 21, Datomic Pro)"
+            echo "java-version=21" >> $GITHUB_OUTPUT
+            echo "java-distribution=temurin" >> $GITHUB_OUTPUT
+            echo "lein-version=2.11.2" >> $GITHUB_OUTPUT
+            echo "cljs-command=fig:build" >> $GITHUB_OUTPUT
+            echo "needs-datomic-pro=true" >> $GITHUB_OUTPUT
+            echo "stack-label=Java 21 / figwheel-main / Datomic Pro" >> $GITHUB_OUTPUT
+          else
+            echo "Detected: legacy stack (Java 8, Datomic Free)"
+            echo "java-version=8" >> $GITHUB_OUTPUT
+            echo "java-distribution=zulu" >> $GITHUB_OUTPUT
+            echo "lein-version=2.9.10" >> $GITHUB_OUTPUT
+            echo "cljs-command=cljsbuild once dev" >> $GITHUB_OUTPUT
+            echo "needs-datomic-pro=false" >> $GITHUB_OUTPUT
+            echo "stack-label=Java 8 / cljsbuild / Datomic Free" >> $GITHUB_OUTPUT
+          fi
+
+  test:
+    name: Test & Lint (${{ needs.detect-stack.outputs.stack-label }})
+    runs-on: ubuntu-latest
+    needs: detect-stack
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ needs.detect-stack.outputs.java-version }}
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: ${{ needs.detect-stack.outputs.java-distribution }}
+          java-version: ${{ needs.detect-stack.outputs.java-version }}
 
-      - name: Set up Clojure (Leiningen)
+      - name: Set up Leiningen
         uses: DeLaGuardo/setup-clojure@12.5
         with:
-          lein: 2.11.2
+          lein: ${{ needs.detect-stack.outputs.lein-version }}
 
       - name: Cache Maven dependencies
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('project.clj') }}
+          key: ${{ runner.os }}-maven-j${{ needs.detect-stack.outputs.java-version }}-${{ hashFiles('project.clj') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-maven-j${{ needs.detect-stack.outputs.java-version }}-
 
-      - name: Load local pdfbox libs
+      - name: Load local libs (pdfbox)
         run: |
           mkdir -p ~/.m2/repository/org/
-          cp -rv ./lib/* ~/.m2/repository/
+          cp -rv ./lib/org/* ~/.m2/repository/org/
+
+      # Datomic Pro jars are not committed to git. Download and maven-install
+      # them the same way .devcontainer/post-create.sh does.
+      - name: Install Datomic Pro
+        if: needs.detect-stack.outputs.needs-datomic-pro == 'true'
+        run: |
+          DATOMIC_VERSION=1.0.7482
+          TARGET_DIR="lib/com/datomic/datomic-pro/${DATOMIC_VERSION}"
+          ZIP_PATH="/tmp/datomic-pro-${DATOMIC_VERSION}.zip"
+          DOWNLOAD_URL="https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip"
+
+          echo "Downloading Datomic Pro ${DATOMIC_VERSION}..."
+          curl --fail --location --silent --show-error -o "$ZIP_PATH" "$DOWNLOAD_URL"
+
+          mkdir -p "${TARGET_DIR}"
+          unzip -q "$ZIP_PATH" -d "${TARGET_DIR}"
+
+          # Flatten nested directory if present (zip contains datomic-pro-VERSION/ subdir)
+          TOP_SUBDIR=$(find "${TARGET_DIR}" -mindepth 1 -maxdepth 1 -type d -print -quit || true)
+          if [ -n "${TOP_SUBDIR}" ] && [ -z "$(find "${TARGET_DIR}" -maxdepth 1 -type f -print -quit)" ]; then
+            mv "${TOP_SUBDIR}"/* "${TARGET_DIR}/"
+            rmdir "${TOP_SUBDIR}"
+          fi
+
+          # Populate ~/.m2 with Datomic Pro artifacts
+          (cd "${TARGET_DIR}" && bash bin/maven-install)
+          echo "Datomic Pro ${DATOMIC_VERSION} installed to local Maven repo"
 
       - name: Install dependencies
         run: lein deps
@@ -51,11 +120,11 @@ jobs:
       - name: Run linter
         id: lint
         run: |
-          echo "## 🔍 Lint Results" >> $GITHUB_STEP_SUMMARY
+          echo "## Lint Results" >> $GITHUB_STEP_SUMMARY
           if lein lint 2>&1 | tee lint-output.txt; then
-            echo "✅ **Lint passed** - no errors" >> $GITHUB_STEP_SUMMARY
+            echo "**Lint passed** - no errors" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Lint failed**" >> $GITHUB_STEP_SUMMARY
+            echo "**Lint failed**" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat lint-output.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -65,15 +134,14 @@ jobs:
       - name: Run tests
         id: test
         run: |
-          echo "## 🧪 Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
           if lein test 2>&1 | tee test-output.txt; then
-            # Extract test summary
             SUMMARY=$(grep -E "^Ran [0-9]+ tests" test-output.txt || echo "Tests completed")
-            echo "✅ **Tests passed**" >> $GITHUB_STEP_SUMMARY
+            echo "**Tests passed**" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **Tests failed**" >> $GITHUB_STEP_SUMMARY
+            echo "**Tests failed**" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             tail -50 test-output.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -83,11 +151,11 @@ jobs:
       - name: Build ClojureScript
         id: cljs
         run: |
-          echo "## 📦 ClojureScript Build" >> $GITHUB_STEP_SUMMARY
-          if lein cljsbuild once dev 2>&1 | tee cljs-output.txt; then
-            echo "✅ **CLJS build succeeded**" >> $GITHUB_STEP_SUMMARY
+          echo "## ClojureScript Build" >> $GITHUB_STEP_SUMMARY
+          if lein ${{ needs.detect-stack.outputs.cljs-command }} 2>&1 | tee cljs-output.txt; then
+            echo "**CLJS build succeeded**" >> $GITHUB_STEP_SUMMARY
           else
-            echo "❌ **CLJS build failed**" >> $GITHUB_STEP_SUMMARY
+            echo "**CLJS build failed**" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             tail -50 cljs-output.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
@@ -100,55 +168,55 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            
-            // Read outputs
+
             const lintOutput = fs.existsSync('lint-output.txt') ? fs.readFileSync('lint-output.txt', 'utf8') : 'No output';
             const testOutput = fs.existsSync('test-output.txt') ? fs.readFileSync('test-output.txt', 'utf8') : 'No output';
             const cljsOutput = fs.existsSync('cljs-output.txt') ? fs.readFileSync('cljs-output.txt', 'utf8') : 'No output';
-            
-            // Determine status
+
             const lintOk = '${{ steps.lint.outcome }}' === 'success';
             const testOk = '${{ steps.test.outcome }}' === 'success';
             const cljsOk = '${{ steps.cljs.outcome }}' === 'success';
             const allOk = lintOk && testOk && cljsOk;
-            
-            // Extract test summary
+            const stackLabel = '${{ needs.detect-stack.outputs.stack-label }}';
+
             const testMatch = testOutput.match(/Ran (\d+) tests containing (\d+) assertions/);
-            const testSummary = testMatch ? `${testMatch[1]} tests, ${testMatch[2]} assertions` : 'Unknown';
-            
-            // Build comment
-            const status = allOk ? '✅ All checks passed' : '❌ Some checks failed';
-            const body = `## ${status}
+            const testSummary = testMatch ? `${testMatch[1]} tests, ${testMatch[2]} assertions` : 'See logs';
 
-| Check | Status | Details |
-|-------|--------|---------|
-| 🔍 Lint | ${lintOk ? '✅ Pass' : '❌ Fail'} | ${lintOk ? 'No errors' : 'See workflow logs'} |
-| 🧪 Tests | ${testOk ? '✅ Pass' : '❌ Fail'} | ${testOk ? testSummary : 'See workflow logs'} |
-| 📦 CLJS Build | ${cljsOk ? '✅ Pass' : '❌ Fail'} | ${cljsOk ? 'Compiled successfully' : 'See workflow logs'} |
+            const status = allOk ? 'All checks passed' : 'Some checks failed';
+            const body = [
+              `## ${status}`,
+              '',
+              '| Check | Status | Details |',
+              '|-------|--------|---------|',
+              `| Lint | ${lintOk ? 'Pass' : 'Fail'} | ${lintOk ? 'No errors' : 'See workflow logs'} |`,
+              `| Tests | ${testOk ? 'Pass' : 'Fail'} | ${testOk ? testSummary : 'See workflow logs'} |`,
+              `| CLJS Build | ${cljsOk ? 'Pass' : 'Fail'} | ${cljsOk ? 'Compiled' : 'See workflow logs'} |`,
+              '',
+              `**Stack**: ${stackLabel}`,
+              '',
+              '<details>',
+              '<summary>Full test output</summary>',
+              '',
+              '```',
+              testOutput.slice(-2000),
+              '```',
+              '',
+              '</details>',
+              '',
+              '---',
+              `*[Workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})*`
+            ].join('\n');
 
-<details>
-<summary>📋 Full test output</summary>
-
-\`\`\`
-${testOutput.slice(-2000)}
-\`\`\`
-
-</details>
-
----
-*Workflow run: [${context.runId}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})*`;
-
-            // Find existing comment
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number
             });
-            
-            const botComment = comments.find(c => 
-              c.user.type === 'Bot' && c.body.includes('All checks passed') || c.body.includes('Some checks failed')
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && (c.body.includes('All checks passed') || c.body.includes('Some checks failed'))
             );
-            
+
             if (botComment) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
