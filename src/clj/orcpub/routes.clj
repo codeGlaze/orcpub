@@ -62,7 +62,15 @@
 
 (deftype FixedBuffer [^long len])
 
-(def backend (backends/jws {:secret (environ/env :signature)}))
+(def ^:private jwt-secret
+  "JWT signing secret from SIGNATURE env var.
+   nil when unset — check-auth returns 500 with a diagnostic message."
+  (environ/env :signature))
+
+(when-not jwt-secret
+  (println "WARNING: SIGNATURE env var is not set — all authenticated API calls will fail"))
+
+(def backend (backends/jws {:secret jwt-secret}))
 
 (defn first-user-by [db query value]
   (let [result (d/q query
@@ -134,16 +142,27 @@
       (assoc :response {:status status :body {:message message}})))
 
 (def check-auth
+  "Interceptor that verifies the JWT bearer token on authenticated routes.
+   Returns 401 for missing/invalid tokens, 500 with diagnostic if the
+   JWT secret itself is not configured."
   (interceptor/interceptor
    {:name :check-auth
     :enter (fn [context]
-             (let [request (:request context)
-                   updated-request (authentication-request request backend)
-                   username (get-in updated-request [:identity :user])]
-               (if (and (:identity updated-request)
-                        username)
-                 (assoc context :request (assoc updated-request :username username))
-                 (terminate-request context 401 "Unauthorized"))))}))
+             (if-not jwt-secret
+               (terminate-request context 500
+                                  "Server misconfigured: SIGNATURE env var not set")
+               (try
+                 (let [request (:request context)
+                       updated-request (authentication-request request backend)
+                       username (get-in updated-request [:identity :user])]
+                   (if (and (:identity updated-request)
+                            username)
+                     (assoc context :request (assoc updated-request :username username))
+                     (terminate-request context 401 "Unauthorized")))
+                 (catch Exception e
+                   (terminate-request context 401
+                                      (str "Authentication failed: "
+                                           (.getMessage e)))))))}))
 
 (defn party-owner [db id]
   (d/q '[:find ?owner .

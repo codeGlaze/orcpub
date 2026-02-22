@@ -64,17 +64,16 @@
  (fn [db [_ template]]
    (assoc db ::cached-template template)))
 
-;; Deferred init: subscribe inside r/track! (reactive context — no warning).
-;; core.cljs requires equipment-subs before events (which transitively loads
-;; this file), so ::char5e/template is registered by the time setTimeout 0
-;; fires. Even if load order shifted, when-let + r/track! is self-healing:
-;; nil on first tick, re-fires reactively once the sub becomes available.
-(defonce _init-template-cache
-  (js/setTimeout
+(defn init-template-cache!
+  "Start reactive watcher that mirrors ::char5e/template into app-db.
+   Called from core.cljs after all subscriptions are registered.
+   Guards the subscribe call itself — if the handler isn't registered yet,
+   subscribe returns nil and we skip (no @nil crash). r/track! re-fires
+   reactively when the subscription value changes."
+  []
+  (r/track!
     (fn []
-      (r/track!
-        (fn []
-          (when-let [template @(subscribe [::char5e/template])]
-            (dispatch [::cache-template template])))))
-    0))
+      (when-let [sub (subscribe [::char5e/template])]
+        (when-let [template @sub]
+          (dispatch [::cache-template template]))))))
 

@@ -3,6 +3,7 @@
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
@@ -25,6 +26,10 @@
   (set! js/window.location.protocol "https"))
 
 (dispatch-sync [:initialize-db])
+
+;; Init template cache after all subscription handlers are registered.
+;; Must be called here (not self-initializing) so equipment-subs has loaded.
+(autosave-fx/init-template-cache!)
 
 ;; DEBUG: trace subscribe calls outside reactive context.
 ;; Prints a full stack trace so we can find the call site.
