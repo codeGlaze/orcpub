@@ -106,6 +106,7 @@
              (orcpub.entity-spec/make-entity)
              (orcpub.routes-test/with-conn)
              (orcpub.routes.folder-test/with-conn)
+             (orcpub.email-change-test/with-conn)
              (user/with-db)]}}
  ;; native/cljs and web/cljs are separate source roots; kondo doesn't know
  ;; about them so ns names appear to mismatch their file paths.

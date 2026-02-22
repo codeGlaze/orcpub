@@ -755,7 +755,7 @@
         (is (nil? (get-in wizard [:spellcasting :spell-list-kw])))
         ;; :str nil → removed, :int 16 → kept
         (is (not (contains? (:abilities wizard) :str)))
-        (is (= 16 (get-in wizard [:abilities :int]))))))
+        (is (= 16 (get-in wizard [:abilities :int])))))))
 
 ;; ============================================================================
 ;; Selection Option Deduplication Tests
@@ -836,4 +836,4 @@
         (is (= 2 (count options)))
         (is (= #{"Alpha" "Beta"} (set (map :name options)))))
       ;; Should have a dedup change logged
-      (is (some #(= :dedup-selection-options (:type %)) (:changes result)))))))
+      (is (some #(= :dedup-selection-options (:type %)) (:changes result))))))

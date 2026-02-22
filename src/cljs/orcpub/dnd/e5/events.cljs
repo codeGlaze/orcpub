@@ -86,6 +86,10 @@
 ;; Version: 1.06 - Add export warning modal events, required field validation
 ;; =============================================================================
 
+;; Forward declaration — defined below :update-value-field (line ~1226).
+;; Used in :save-character to auto-generate names for unnamed characters.
+(declare generate-random-name)
+
 (defn check-and-throw
   "throw an exception if db doesn't match the spec"
   [a-spec db]

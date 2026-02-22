@@ -203,8 +203,11 @@
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
             "rebuild-modules" ["run" "-m" "user" "--rebuild-modules"]
-            ;; --fail-level error: exit 0 on warnings, exit 1 only on errors
-            "lint" ["with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "native" "test" "web" "--fail-level" "error"]
+            ;; --fail-level error: exit 0 on warnings, exit 1 only on errors.
+            ;; trampoline re-execs in a fresh JVM so System/exit propagates
+            ;; (without it, lein suppresses the exit code).
+            ;; native/ is excluded — directory only exists for React Native builds.
+            "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["with-profile" "prod" "cljsbuild" "once" "main"]]}
