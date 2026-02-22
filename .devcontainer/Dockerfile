@@ -16,62 +16,15 @@ RUN curl -fsSL https://raw.githubusercontent.com/technomancy/leiningen/stable/bi
 
 WORKDIR /workspace
 
-# Copy project.clj first (needed to know version)
-COPY project.clj /workspace/
-
-# Copy existing lib/ directory first (preserves pdfbox and other vendor deps)
-# Create lib/ directory - COPY will handle copying if lib/ exists in build context
-RUN mkdir -p /workspace/lib/
-COPY lib/ /workspace/lib/
-
-# Download and install Datomic Pro to lib/ using existing file:lib repository pattern
-# Latest version: https://docs.datomic.com/releases-pro.html
-ARG DATOMIC_VERSION=1.0.7482
-RUN echo "[DOCKER BUILD] Starting Datomic Pro ${DATOMIC_VERSION} installation..." && \
-    mkdir -p lib/com/datomic/datomic-pro/${DATOMIC_VERSION} && \
-    echo "[DOCKER BUILD] Downloading Datomic Pro zip..." && \
-    curl -L -o /tmp/datomic-pro-${DATOMIC_VERSION}.zip \
-    "https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip" && \
-    echo "[DOCKER BUILD] Extracting zip..." && \
-    unzip -q /tmp/datomic-pro-${DATOMIC_VERSION}.zip -d /tmp/datomic-extract && \
-    echo "[DOCKER BUILD] Listing extracted contents..." && \
-    find /tmp/datomic-extract -type f -name "*.jar" | head -5 && \
-    # Copy entire distribution into vendor layout so POMs and support files are available
-    EXTRACTED_DIR=$(find /tmp/datomic-extract -maxdepth 1 -type d ! -name . | head -1) && \
-    mkdir -p lib/com/datomic/datomic-pro/${DATOMIC_VERSION} && \
-    if [ -n "${EXTRACTED_DIR}" ]; then \
-      echo "[DOCKER BUILD] Copying extracted distribution from ${EXTRACTED_DIR} -> lib/com/datomic/datomic-pro/${DATOMIC_VERSION}" && \
-      cp -r "${EXTRACTED_DIR}"/* "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/" && \
-      # If a peer jar exists in the distribution, also ensure datomic-pro-<version>.jar exists for vendor layout
-      if [ -f "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/peer-${DATOMIC_VERSION}.jar" ]; then \
-        cp "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/peer-${DATOMIC_VERSION}.jar" "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar"; \
-      fi; \
-    else \
-      # Fallback to copying a single jar if extraction produced unexpected layout
-      DATOMIC_POTENTIAL_JAR=$(find /tmp/datomic-extract -type f -name 'peer*.jar' -print -quit || true) && \
-      if [ -z "${DATOMIC_POTENTIAL_JAR}" ]; then DATOMIC_POTENTIAL_JAR=$(find /tmp/datomic-extract -type f -name 'datomic-pro-*.jar' -print -quit || true); fi && \
-      if [ -z "${DATOMIC_POTENTIAL_JAR}" ]; then echo "[DOCKER BUILD] ERROR: No Datomic JAR found in extracted zip" && find /tmp/datomic-extract -type f | head -20 && exit 1; fi && \
-      cp "${DATOMIC_POTENTIAL_JAR}" "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar"; \
-    fi && \
-    echo "[DOCKER BUILD] Verifying vendor path contents..." && \
-    ls -lh "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/" && \
-    rm -rf /tmp/datomic-pro-${DATOMIC_VERSION}.zip /tmp/datomic-extract && \
-    echo "[DOCKER BUILD] ✅ Datomic Pro installed to lib/ (file:lib repository pattern)"
-
-# Copy the rest of the source (exclude lib/ since we've already set it up)
-# Use .dockerignore or copy selectively to avoid overwriting lib/
+# Copy project source (lib/ includes pdfbox vendor deps from host)
 COPY . /workspace
-# Ensure Datomic Pro JAR is still present after COPY
-RUN test -f lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar || \
-    (echo "[DOCKER BUILD] ⚠️  Datomic Pro JAR missing after COPY, re-downloading..." && \
-     mkdir -p lib/com/datomic/datomic-pro/${DATOMIC_VERSION} && \
-     curl -L -o /tmp/datomic-pro-${DATOMIC_VERSION}.zip \
-     "https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip" && \
-     unzip -q /tmp/datomic-pro-${DATOMIC_VERSION}.zip -d /tmp/datomic-extract && \
-     DATOMIC_JAR=$(find /tmp/datomic-extract -name "datomic-pro-*.jar" -type f | head -1) && \
-     cp "${DATOMIC_JAR}" "lib/com/datomic/datomic-pro/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.jar" && \
-     rm -rf /tmp/datomic-pro-${DATOMIC_VERSION}.zip /tmp/datomic-extract && \
-     echo "[DOCKER BUILD] ✅ Datomic Pro JAR restored")
+
+# Pre-cache Datomic Pro zip so post-create.sh skips the download.
+# The actual install (extract, flatten, maven-install) is done by post-create.sh
+# because the volume mount overwrites /workspace during container creation.
+ARG DATOMIC_VERSION=1.0.7482
+RUN curl --fail -L -o "/tmp/datomic-pro-${DATOMIC_VERSION}.zip" \
+      "https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip"
 
 # Default shell to bash for VS Code terminal
 SHELL ["/bin/bash", "-c"]

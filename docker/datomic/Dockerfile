@@ -8,8 +8,10 @@ RUN apk add --no-cache curl unzip bash
 RUN curl --fail --location --silent --show-error \
       -o /tmp/datomic-pro.zip \
       "https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip" \
- && unzip -q /tmp/datomic-pro.zip -d /tmp \
- && mv /tmp/datomic-pro-${DATOMIC_VERSION} /datomic \
+ && mkdir -p /datomic \
+ && unzip -q /tmp/datomic-pro.zip -d /datomic \
+ && mv /datomic/datomic-pro-${DATOMIC_VERSION}/* /datomic/ \
+ && rmdir /datomic/datomic-pro-${DATOMIC_VERSION} \
  && rm /tmp/datomic-pro.zip
 
 WORKDIR /datomic

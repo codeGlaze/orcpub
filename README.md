@@ -73,15 +73,16 @@ For the full walkthrough (including manual setup without scripts), see **[docs/G
 
 ### Self-hosting (Docker)
 
-For running your own production instance from pre-built images:
+For running your own production instance:
 
-1. Clone the repository
-2. Copy `.env.example` to `.env` and edit the values (see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md))
-3. Create SSL certificates: `./deploy/snakeoil.sh`
-4. Run: `docker-compose pull && docker-compose up`
-5. Visit `https://localhost`
+```bash
+git clone https://github.com/orcpub/orcpub.git && cd orcpub
+./docker-setup.sh           # generates .env, SSL certs, directories
+docker compose up -d        # pull images and start
+./docker-user.sh init       # create admin from .env settings
+```
 
-See the [Docker deployment section](#docker-deployment) for full details.
+Visit `https://localhost`. See the [Docker deployment section](#docker-deployment) for full details including migration from older versions.
 
 ---
 
@@ -293,36 +294,84 @@ For self-hosting a production instance.
 
 ### Containers
 
-The Docker setup runs three containers:
-
 | Container | Purpose |
 |-----------|---------|
-| `datomic` | Datomic database transactor |
-| `orcpub` | JVM application server |
-| `web` | nginx reverse proxy with SSL |
+| `datomic` | Datomic Pro database transactor |
+| `orcpub` | JVM application server (Java 21) |
+| `web` | nginx reverse proxy with SSL termination |
 
-### Setup
-
-1. Clone the repository
-2. Copy `.env.example` to `.env` and configure (see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md))
-3. Create SSL certificates:
-   - Quick self-signed: `./deploy/snakeoil.sh` (unix) or `./deploy/snakeoil.bat` (windows)
-   - Or use your own certificate
-4. Launch:
+### Fresh Install
 
 ```bash
-docker-compose pull    # use pre-built images
-docker-compose up -d   # start in background
-```
+git clone https://github.com/orcpub/orcpub.git && cd orcpub
 
-To build from source instead:
+# Interactive setup — generates .env, SSL certs, and directories
+./docker-setup.sh
 
-```bash
-docker-compose -f docker-compose-build.yaml build
-docker-compose -f docker-compose-build.yaml up -d
+# Pull pre-built images and start
+docker compose up -d
+
+# Create your first user (once containers are healthy)
+./docker-user.sh init                                   # from .env settings
+./docker-user.sh create <username> <email> <password>   # or directly
 ```
 
 Visit `https://localhost` when running.
+
+To build from source instead of pulling images:
+
+```bash
+docker compose -f docker-compose-build.yaml build
+docker compose -f docker-compose-build.yaml up -d
+```
+
+For environment variable details, see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
+
+### Upgrading from Datomic Free (pre-2026)
+
+If you have an existing deployment using the old Java 8 / Datomic Free stack,
+your `./data` directory is **not compatible** with the new Datomic Pro transactor.
+The storage protocols (`datomic:free://` vs `datomic:dev://`) use different formats.
+
+**You must migrate your database before upgrading.** The migration tool handles this:
+
+**Bare metal** — use `scripts/migrate-db.sh` which wraps the `bin/datomic` CLI:
+
+```bash
+./scripts/migrate-db.sh backup                    # With old (Free) transactor running
+# ... stop Free transactor, move ./data aside, start Pro transactor ...
+./scripts/migrate-db.sh restore "datomic:dev://localhost:4334/orcpub?password=..."
+./scripts/migrate-db.sh verify
+```
+
+**Docker** — use `docker-migrate.sh` which runs `bin/datomic` inside containers:
+
+```bash
+./docker-migrate.sh backup        # With old stack running
+docker compose down
+docker compose -f docker-compose-build.yaml build
+docker compose -f docker-compose-build.yaml up -d
+./docker-migrate.sh restore       # After new stack is healthy
+./docker-migrate.sh verify
+```
+
+Or run `./docker-migrate.sh full` for a guided migration.
+
+The backup is storage-protocol-independent and writes to `./backup/`, so databases
+of any size (including 20GB+) are handled. See [docs/migration/datomic-data-migration.md](docs/migration/datomic-data-migration.md)
+for the full guide including disk space planning and troubleshooting.
+
+### User Management
+
+```bash
+./docker-user.sh create <user> <email> <password>   # Create a verified user
+./docker-user.sh batch users.txt                     # Bulk create from file
+./docker-user.sh list                                # List all users
+./docker-user.sh check <user>                        # Check user status
+./docker-user.sh verify <user>                       # Verify unverified user
+```
+
+See [docs/docker-user-management.md](docs/docker-user-management.md) for details.
 
 ### Importing Homebrew Content
 
@@ -332,6 +381,15 @@ Place your `.orcbrew` file at `./deploy/homebrew/homebrew.orcbrew` — it loads 
 
 - **Database**: Stored in `./data/`. Back up this directory when Datomic is stopped. Delete it to start fresh.
 - **Logs**: Stored in `./logs/`. Safe to clean up; does not affect character data. Set up log rotation for production.
+
+### Scripts Reference
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/migrate-db.sh` | Migrate data from Datomic Free to Pro (bare metal) |
+| `docker-migrate.sh` | Migrate data from Datomic Free to Pro (Docker) |
+| `docker-setup.sh` | Generate `.env`, SSL certs, and directories |
+| `docker-user.sh` | Create, verify, and list users in the database |
 
 ---
 

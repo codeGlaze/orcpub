@@ -8,6 +8,7 @@ This branch (`breaking/2026-stack-modernization`) upgrades the full OrcPub stack
 |-------|---------|---------|
 | Java runtime | 8 → 21 | [JAVA-COMPATIBILITY.md](JAVA-COMPATIBILITY.md) |
 | Database | Datomic Free → Datomic Pro | [migration/datomic-pro.md](migration/datomic-pro.md) |
+| Database data | Migrating existing Free databases | [migration/datomic-data-migration.md](migration/datomic-data-migration.md) ([explained](migration/datomic-data-migration-explained.md)) |
 | Web framework | Pedestal 0.5.1 → 0.7.0 | [migration/pedestal-0.7.md](migration/pedestal-0.7.md) |
 | Frontend | React 15 / Reagent 0.6 → React 18 / Reagent 2.0 | [migration/frontend-stack.md](migration/frontend-stack.md) |
 | Libraries | clj-time, PDFBox 2, Buddy 1, etc. | [migration/library-upgrades.md](migration/library-upgrades.md) |
