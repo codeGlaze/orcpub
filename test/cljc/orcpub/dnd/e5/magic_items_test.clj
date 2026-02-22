@@ -121,7 +121,6 @@
                 ::mi/subtypes [:plate :chain-mail]}
           expansion (mi/expand-armor item)
           names (set (map :name expansion))]
-      (prn "NAMES" names)
       (is (= 2 (count expansion)))
       (is (names "My Item, Plate"))
       (is (names "My Item, Chain mail"))))

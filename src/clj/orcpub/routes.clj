@@ -1205,7 +1205,7 @@
                                                 verification-key)
                 {:status 200 :body {:pending-email new-email}}
                 (catch Throwable e
-                  (prn "Email send failed, rolling back pending state:" (.getMessage e))
+                  (errors/log-error "ERROR:" (str "Email send failed, rolling back pending state: " (.getMessage e)))
                   ;; Full rollback: retract all attributes set by the failed attempt
                   @(d/transact conn [[:db/retract id :orcpub.user/pending-email new-email]
                                      [:db/retract id :orcpub.user/verification-key verification-key]

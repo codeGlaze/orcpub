@@ -113,12 +113,9 @@
  :config-in-ns {orcpub.core {:linters {:namespace-name-mismatch {:level :off}}}
                 orcpub.views {:linters {:namespace-name-mismatch {:level :off}}}
                 orcpub.dnd.e5.native-views {:linters {:namespace-name-mismatch {:level :off}}}}
- ;; with-conn macros take a bare symbol binding (not vector syntax).
- ;; :macroexpand hooks in .clj-kondo/orcpub/ teach kondo the expansion
- ;; so it can detect typos and unused bindings inside the macro body.
- :hooks {:macroexpand
-         {orcpub.routes.folder-test/with-conn orcpub.routes.folder-test/with-conn
-          orcpub.routes-test/with-conn         orcpub.routes-test/with-conn}}
+ ;; with-conn macros use bare symbol bindings — handled via
+ ;; :unresolved-symbol :exclude above (macroexpand hooks can't find
+ ;; the test namespaces and produce noisy warnings).
  :lint-as {reagent.core/with-let clojure.core/let
            hiccup.def/defhtml clojure.core/defn
            user/with-db clojure.core/let
