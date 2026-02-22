@@ -1,6 +1,6 @@
-# Docker integration tests: script validation always runs, container tests
-# only run when Docker Hub images are available (orcpub/orcpub:latest may
-# not exist for all release cycles).
+# Docker integration tests: script validation always runs. Container tests
+# pull pre-built images from Docker Hub — skipped gracefully when images
+# are unavailable (Docker images lag behind source between releases).
 
 name: Docker Integration Test
 
@@ -78,6 +78,9 @@ jobs:
           echo "OK: --force regenerated .env with consistent passwords"
 
       # ── Container tests (only if images are available) ───────────
+      # Docker images lag behind source — they're only rebuilt after a
+      # release. These tests validate deployment infrastructure (compose,
+      # nginx, docker-user.sh), not application code.
 
       - name: Pull container images
         id: pull

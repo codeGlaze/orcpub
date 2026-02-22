@@ -1,7 +1,9 @@
 ---
 services:
   orcpub:
-    image: orcpub/orcpub:latest
+    # No :latest tag on Docker Hub — pin to newest published version.
+    # Override with ORCPUB_TAG env var for custom builds.
+    image: orcpub/orcpub:${ORCPUB_TAG:-release-v2.5.0.27}
     environment:
       PORT: ${PORT:-8890}
       EMAIL_SERVER_URL: ${EMAIL_SERVER_URL:-}
