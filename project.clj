@@ -107,7 +107,11 @@
 
   :clean-targets ^{:protect false} ["resources/public/js/compiled" "target"]
 
-  :resource-paths ["resources" "target" "resources/.ebextensions/"]
+  ;; NOTE: "target" was here historically but causes the jar to recursively
+  ;; include itself (jar output goes to target/, which is in resource-paths).
+  ;; Masked when "clean" runs first, but fatal when skipping clean.
+  ;; .class files are handled by :compile-path, not resource-paths.
+  :resource-paths ["resources" "resources/.ebextensions/"]
 
   :uberjar-name "orcpub.jar"
 
@@ -278,9 +282,13 @@
                             :aot         :all
                             :omit-source true}
              ;; Docker build: CLJS is compiled separately via figwheel-main.
-             ;; uberjar-package overrides prep-tasks to skip "clean" (preserves
-             ;; the JS compiled in the prior Docker step).
-             :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]}
+             ;; uberjar-package removes "clean" AND "compile" from prep-tasks,
+             ;; and disables auto-clean (jar.clj calls clean/clean before
+             ;; prep-tasks unless :auto-clean is false). AOT compile is done
+             ;; in a prior Docker step; this profile just packages existing
+             ;; .class files into the jar.
+             :uberjar-package {:auto-clean false
+                               :prep-tasks ^:replace [["garden" "once"]]}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
              :lint         {:dependencies [[clj-kondo "2026.01.19"]]}
              ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden

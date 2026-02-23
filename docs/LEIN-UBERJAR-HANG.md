@@ -2,95 +2,97 @@
 
 ## The Problem
 
-`lein uberjar` hangs indefinitely in Docker and CI (no-TTY environments)
-when `lein-cljsbuild` is loaded as a plugin. The ClojureScript compilation
-succeeds, but lein never reaches jar packaging. Inside Docker, the `RUN`
-step hangs until CI times out.
+`lein uberjar` hangs indefinitely in Docker and CI (no-TTY environments).
+AOT compilation finishes (all namespaces compiled, .class files written),
+but the JVM subprocess never exits. lein waits for the subprocess → the jar
+is never created → Docker step hangs until timeout.
 
 ## Root Causes
 
-### 1. cljsbuild I/O subprocess pump (primary)
+Two compounding issues cause the hang:
 
-`lein-cljsbuild` spawns a subprocess for ClojureScript compilation and pumps
-its I/O streams. In no-TTY environments (Docker, CI), the pump hangs after
-compilation finishes — the task never returns control to lein. The jar is
-**never created** because lein never gets past the compile hooks.
+### 1. AOT compile subprocess hang (primary)
 
-This is [lein-cljsbuild issue #171](https://github.com/emezeske/lein-cljsbuild/issues/171).
-The plugin is abandoned (last release: 1.1.8, April 2020).
+Leiningen's `compile` task spawns a subprocess via `eval-in-project` to AOT
+compile namespaces. After compilation finishes, the subprocess JVM should
+exit, but **non-daemon threads** started during namespace loading prevent it:
 
-### 2. cljsbuild hooks always fire
+- Datomic Peer starts background threads for caching/heartbeats
+- `core.async` creates thread pools
+- Other libraries may use agents, futures, or `pmap` during loading
 
-`lein-cljsbuild` registers hooks on `compile`, `jar`, and `clean` tasks at
-plugin load time (via `robert.hooke`). The `compile-hook` **always** calls
-`run-compiler`, which spawns a subprocess via `eval-in-project` — even with
-nil/empty `:cljsbuild` config. No config manipulation can prevent the hang;
-the only fix is to not load the plugin at all.
+Lein 2.12.0's compile task sets a 100ms keep-alive on the agent thread pool,
+but this only handles Clojure agent threads — not threads from libraries that
+create their own pools.
 
-### 3. Non-daemon agent threads (secondary)
+`eval-in-project` waits for the subprocess to exit. It never does. lein
+hangs. The jar is never created because lein never gets past compile.
 
-Clojure's agent thread pool uses **non-daemon threads**. During AOT
-compilation (`:aot :all`), every namespace is loaded. Libraries that call
-`send`, `send-off`, or `pmap` at load time start these threads. Even if lein
-finishes packaging the jar, the JVM won't exit.
+### 2. lein-cljsbuild hooks (eliminated)
 
-## The Fix: Replace lein-cljsbuild with figwheel-main
+`lein-cljsbuild` (abandoned, last release: 1.1.8, April 2020) registered
+hooks on `compile`/`jar` that spawned an additional subprocess with the same
+I/O pump hang. **This was eliminated by replacing cljsbuild with
+figwheel-main** for production CLJS builds (see below). But the AOT
+subprocess hang persists because it's in lein's own compile task.
 
-`lein-cljsbuild` has been **completely removed** from the project. Production
-CLJS builds now use `figwheel-main` (already a dependency for dev builds):
+## The Fix: Three-Step Docker Build
 
-```sh
-# Local
-lein fig:prod
-
-# Docker (see Dockerfile)
-lein run -m figwheel.main -- --build-once prod
-```
-
-The production build config lives in `prod.cljs.edn` (same format as
-`dev.cljs.edn`). figwheel-main's `--build-once` mode invokes the
-ClojureScript compiler directly, writes the .js file, and exits cleanly.
-No hooks, no subprocess pump, no hang.
-
-### Docker build structure
+### Step 1: CLJS via figwheel-main
 
 ```dockerfile
-# Step 1: CLJS via figwheel-main (no cljsbuild, no hang)
 RUN lein run -m figwheel.main -- --build-once prod && \
     test -f resources/public/js/compiled/orcpub.js
+```
 
-# Step 2: garden CSS + AOT + jar
-# timeout kills non-daemon agent threads that prevent JVM exit after AOT.
-# The jar IS created before the hang — timeout just lets the container move on.
+figwheel-main replaces lein-cljsbuild. `--build-once` compiles CLJS with
+`:advanced` optimizations, writes the .js file, and exits cleanly. Config
+lives in `prod.cljs.edn`.
+
+### Step 2: AOT compile (with timeout)
+
+```dockerfile
+RUN timeout 300 lein with-profile uberjar,uberjar-package compile || true; \
+    test -f target/classes/orcpub/server__init.class || exit 1
+```
+
+AOT compiles all namespaces (`:aot :all`). The compilation **finishes** —
+all .class files are written to `target/classes/`. But the subprocess hangs
+due to non-daemon threads. `timeout` kills it. `|| true` allows the step
+to continue despite the non-zero exit code. `test -f` verifies the main
+class was actually compiled.
+
+### Step 3: jar packaging (compile is no-op)
+
+```dockerfile
 RUN timeout 300 lein with-profile uberjar,uberjar-package uberjar; \
     test -f target/orcpub.jar || exit 1
 ```
 
-- **Step 1** compiles CLJS with `:advanced` optimizations. No timeout needed
-  because figwheel-main exits cleanly after compilation.
-- **Step 2** uses `uberjar-package` to skip the `clean` prep-task (which
-  would delete the JS from step 1). `timeout` handles the agent thread issue.
+The key insight: lein's `stale-namespaces` function is **timestamp-based**.
+It only compiles namespaces where the source file is newer than the .class
+file. Since step 2 just wrote all .class files, they're all newer than the
+source → `stale-namespaces` returns empty → **no subprocess is spawned** →
+compile returns instantly → lein proceeds to jar creation.
 
-### Why not keep cljsbuild in a profile?
+`uberjar-package` provides `^:replace` prep-tasks that skip `"clean"`,
+preserving the JS from step 1 and .class files from step 2.
 
-We tried 7 different approaches to isolate cljsbuild via Leiningen profiles.
-All failed because:
+### Why `uberjar-package` survives the re-merge
 
-1. cljsbuild hooks fire on `compile`/`jar` tasks regardless of config
-2. The `uberjar` task internally re-merges profiles, stripping custom profiles
-3. `^:replace` on `:plugins` doesn't prevent a plugin already loaded
-4. Even moving the plugin to a profile didn't reliably prevent loading
+The `uberjar` task internally re-merges profiles. It includes profiles that
+are in `:included-profiles` metadata and not in the default profile set.
+Since `:uberjar-package` is explicitly specified via `with-profile`, it's in
+`:included-profiles` and is NOT a default profile, so it survives the
+re-merge. Its `^:replace` on `:prep-tasks` takes precedence over `:uberjar`'s.
 
-See the agent KB doc (`docs/kb/lein-uberjar-hang.md`) for the full record
-of all 7 failed attempts.
-
-### Local uberjar builds
+### Local builds
 
 ```sh
-# Compile CLJS (figwheel-main exits cleanly in a TTY)
+# CLJS (figwheel-main exits cleanly in a TTY)
 lein fig:prod
 
-# Build the uberjar (garden CSS + AOT + jar)
+# Uberjar (in a TTY, you can Ctrl-C the hang after "Created target/orcpub.jar")
 lein uberjar
 ```
 
@@ -99,8 +101,7 @@ lein uberjar
 | File | What | Why |
 |------|------|-----|
 | `prod.cljs.edn` | Production CLJS build config | Replaces cljsbuild :prod build |
-| `docker/Dockerfile` | Two-step build | Step 1: figwheel-main, Step 2: uberjar |
-| `project.clj` | No `lein-cljsbuild` in any `:plugins` | Eliminates hooks entirely |
+| `docker/Dockerfile` | Three-step build | Separates compile from jar creation |
+| `project.clj` | No `lein-cljsbuild` in any `:plugins` | Eliminates cljsbuild hooks |
 | `project.clj` | `fig:prod` alias | Local production CLJS builds |
-| `project.clj` | `:uberjar-package` profile | Skips clean, preserves step 1 JS |
-| `.github/workflows/docker-integration.yml` | `DOCKER_BUILDKIT=0` | Avoids BuildKit export hang |
+| `project.clj` | `:uberjar-package` profile | Skips clean, preserves artifacts |

@@ -64,20 +64,29 @@ RUN lein deps
 
 ADD ./ /orcpub
 
-# CLJS + uberjar build — two steps because lein uberjar's "clean" prep-task
-# would delete the compiled JS. Step 1 compiles CLJS, step 2 builds the jar
-# with uberjar-package (skips "clean", preserves the JS from step 1).
+# Three-step build: CLJS, AOT compile, uberjar packaging.
 #
-# figwheel-main replaces lein-cljsbuild for prod builds. lein-cljsbuild is
-# abandoned (last release: 1.1.8, April 2020) and its hooks spawn a subprocess
-# whose I/O pump hangs in no-TTY environments. See docs/LEIN-UBERJAR-HANG.md
+# lein's compile task spawns a subprocess that hangs in no-TTY (Docker/CI)
+# because non-daemon threads (Datomic Peer, core.async, etc.) started during
+# namespace loading prevent JVM exit. Compilation FINISHES but the subprocess
+# never exits. lein waits → jar never created.
 #
-# timeout on step 2 kills non-daemon agent threads that prevent JVM exit
-# after AOT compilation. The jar IS created before the hang — timeout just
-# lets the container move on. See docs/LEIN-UBERJAR-HANG.md
+# Fix: pre-compile in step 2 (timeout kills the hung subprocess after .class
+# files are written). Step 3's uberjar-package uses ^:replace to remove
+# "compile" from prep-tasks entirely — verified to survive the uberjar
+# re-merge. Lein just packages the existing .class files without spawning
+# a new compile subprocess. See docs/LEIN-UBERJAR-HANG.md
+
+# Step 1: CLJS via figwheel-main (exits cleanly, no hang)
 RUN lein run -m figwheel.main -- --build-once prod && \
     test -f resources/public/js/compiled/orcpub.js
-RUN timeout 300 lein with-profile uberjar,uberjar-package uberjar; \
+
+# Step 2: AOT compile (compilation finishes, subprocess hangs, timeout kills)
+RUN timeout 300 lein with-profile uberjar,uberjar-package compile || true; \
+    test -f target/classes/orcpub/server__init.class || exit 1
+
+# Step 3: garden CSS + jar packaging (no compile — .class files from step 2)
+RUN timeout 600 lein with-profile uberjar,uberjar-package uberjar; \
     test -f target/orcpub.jar || exit 1
 
 # Alpine runner — BusyBox wget handles healthchecks (use -q --spider, not GNU flags)
