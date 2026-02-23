@@ -48,6 +48,17 @@ CSP modes:
 - **permissive** — allows `unsafe-inline` and `unsafe-eval`. Legacy fallback.
 - **none** — disables CSP entirely. Not recommended for production.
 
+### Docker / Transactor
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ALT_HOST` | `127.0.0.1` | Transactor alt-host for peer fallback connections. Set to service name for Swarm. |
+| `ENCRYPT_CHANNEL` | `true` | Encrypt peer-transactor communication. Disable only for debugging. |
+| `ADMIN_PASSWORD_OLD` | — | Old admin password during rotation. Remove after all peers reconnect. |
+| `DATOMIC_PASSWORD_OLD` | — | Old datomic password during rotation. Remove after all peers reconnect. |
+
+See `docker/transactor.properties.template` for the full transactor configuration.
+
 ### Email (SMTP)
 
 | Variable | Default | Description |
@@ -79,4 +90,5 @@ CSP modes:
 | `src/clj/orcpub/routes.clj` | `SIGNATURE`, `EMAIL_*`, `ADMIN_PASSWORD` |
 | `.devcontainer/post-create.sh` | `DATOMIC_VERSION`, `DATOMIC_TYPE` |
 | `scripts/start.sh` | `DATOMIC_URL`, `LOG_DIR` |
+| `deploy/start.sh` | `ADMIN_PASSWORD`, `DATOMIC_PASSWORD`, `ALT_HOST`, `ENCRYPT_CHANNEL`, `*_OLD` rotation vars |
 | `dev/user.clj` | `ORCPUB_ENV` (for add-test-user guard) |
