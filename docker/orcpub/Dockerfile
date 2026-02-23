@@ -1,18 +1,23 @@
 FROM clojure:temurin-21-lein-alpine as builder
 
-# Install tools needed to fetch and unpack Datomic Pro distribution
-RUN apk add --no-cache curl unzip bash
+RUN apk add --no-cache curl unzip
 
-# Build cache layer — pdfbox snapshots from lib/
+# Vendor jars (pdfbox snapshots) → Maven local repo
 ADD ./lib/ /root/.m2/repository/
 
-# Datomic Pro peer jar isn't in public Maven repos; install from the distribution zip
+# Datomic Pro peer jar isn't in public Maven repos.
+# Download the distribution zip and install the peer jar + pom manually
+# (bin/maven-install calls mvn, which isn't in this image).
 ENV DATOMIC_VERSION=1.0.7482
 RUN curl --fail --location --silent --show-error \
       -o /tmp/datomic-pro.zip \
       "https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip" \
  && unzip -q /tmp/datomic-pro.zip -d /tmp \
- && cd /tmp/datomic-pro-${DATOMIC_VERSION} && bash bin/maven-install \
+ && mkdir -p /root/.m2/repository/com/datomic/peer/${DATOMIC_VERSION} \
+ && cp /tmp/datomic-pro-${DATOMIC_VERSION}/peer-${DATOMIC_VERSION}.jar \
+       /root/.m2/repository/com/datomic/peer/${DATOMIC_VERSION}/ \
+ && cp /tmp/datomic-pro-${DATOMIC_VERSION}/pom.xml \
+       /root/.m2/repository/com/datomic/peer/${DATOMIC_VERSION}/peer-${DATOMIC_VERSION}.pom \
  && rm -rf /tmp/datomic-pro*
 
 WORKDIR /orcpub
