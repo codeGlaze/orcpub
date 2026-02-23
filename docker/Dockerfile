@@ -35,7 +35,10 @@ RUN mkdir -p /data /log
 RUN sed -i "s/# data-dir=data/data-dir=\/data/" transactor.properties
 RUN sed -i "s/# log-dir=log/log-dir=\/log/" transactor.properties
 
-RUN sed -i "s/host=localhost/host=0.0.0.0/" transactor.properties
+# host= is what the transactor ADVERTISES to peers, not what it binds to.
+# Peers connect, receive this hostname, then use it to reach the transactor.
+# Must match the Docker Compose service name so peer DNS resolves correctly.
+RUN sed -i "s/host=localhost/host=datomic/" transactor.properties
 RUN sed -i "s/# storage-access=local/storage-access=remote/" transactor.properties
 
 ADD deploy/start.sh /datomic/
