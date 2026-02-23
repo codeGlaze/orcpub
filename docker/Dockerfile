@@ -74,6 +74,9 @@ ADD ./ /orcpub
 #         post-compilation hang. "Successfully compiled" = JS is ready.
 # Step 2: garden CSS + AOT + jar packaging (no cljsbuild). timeout kills
 #         the post-AOT hang (non-daemon agent threads). jar check = success.
+# NOTE: if a step fails, check whether the artifact exists before assuming
+#       a code error. Missing artifact after timeout = build too slow (bump
+#       timeout), not a compilation problem. See docs/LEIN-UBERJAR-HANG.md
 RUN timeout 120 lein with-profile uberjar,uberjar-cljs cljsbuild once prod; \
     test -f resources/public/js/compiled/orcpub.js || exit 1
 RUN timeout 300 lein with-profile +uberjar-package uberjar; \

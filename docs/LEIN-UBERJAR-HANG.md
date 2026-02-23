@@ -67,8 +67,37 @@ not in post-build thread cleanup. The uberjar build doesn't run `-main`.
 
 ## The Fix
 
-Split ClojureScript compilation out of `lein uberjar` into its own step. Two
-Leiningen profiles in `project.clj` make this work:
+Two changes work together to prevent the hang:
+
+### 1. Move `:prod` cljsbuild config to the top level
+
+The `:prod` ClojureScript build was originally defined inside the `:uberjar`
+profile. It has been moved to the **top level** of `project.clj`, alongside
+the `:dev` build:
+
+```clojure
+;; project.clj — top level, NOT inside any profile
+:cljsbuild {:builds {:dev {...} :prod {...}}}
+
+;; :uberjar profile — NO :cljsbuild key
+:uberjar {:prep-tasks ["clean" ["garden" "once"] "compile" ["cljsbuild" "once" "prod"]]
+          :env {:production true} :aot :all :omit-source true}
+```
+
+**Why**: the `uberjar` task internally re-merges the `:uberjar` profile
+(see root cause #2 above). If `:cljsbuild` were inside `:uberjar`, the
+re-merge would restore it after any `^:replace {}` wipe, causing hooks to
+fire and hang. With `:cljsbuild` at the top level, the re-merge has nothing
+to bring back.
+
+**What this doesn't break**: normal `lein uberjar` still works — the
+`["cljsbuild" "once" "prod"]` prep-task finds the `:prod` build at the top
+level. The `:uberjar` profile doesn't need to contain cljsbuild config for
+this to work; it just needs to reference the build name in its prep-task.
+
+### 2. Split CLJS compilation into its own Docker step
+
+Two Leiningen profiles separate CLJS from jar packaging:
 
 ```clojure
 ;; CLJS only — no prep-tasks, run cljsbuild directly
@@ -81,11 +110,6 @@ Leiningen profiles in `project.clj` make this work:
 :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]
                   :cljsbuild  ^:replace {}}
 ```
-
-**Critical constraint**: the `:prod` cljsbuild build config lives at the
-**top level** of `project.clj` (alongside `:dev`), NOT inside the `:uberjar`
-profile. If it were inside `:uberjar`, the task's internal re-merge would
-restore it after our `^:replace {}` wipe.
 
 In `docker/Dockerfile`, both steps use `timeout` + artifact check:
 
