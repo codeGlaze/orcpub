@@ -115,21 +115,12 @@ jobs:
       # Java 21: build from source (no pre-built images for new stack)
       # Java 8:  pull pre-built images from Docker Hub (skip if unavailable)
 
-      - name: Set up Docker Buildx
-        if: needs.detect-stack.outputs.build-mode == 'build'
-        uses: docker/setup-buildx-action@v3
-
       - name: Build container images (Java 21)
         id: build
         if: needs.detect-stack.outputs.build-mode == 'build'
-        env:
-          DOCKER_BUILDKIT: 1
         run: |
-          echo "Building from source with $COMPOSE_FILE (BuildKit cache)..."
-          docker buildx bake -f "$COMPOSE_FILE" \
-            --set '*.cache-from=type=gha' \
-            --set '*.cache-to=type=gha,mode=max' \
-            --load
+          echo "Building from source with $COMPOSE_FILE..."
+          docker compose -f "$COMPOSE_FILE" build --progress=plain
           echo "Build complete"
 
       - name: Pull container images (Java 8)
