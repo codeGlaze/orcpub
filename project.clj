@@ -123,6 +123,11 @@
   ;; CSS is compiled via: ./menu start garden, lein garden once, or automatically in uberjar build.
   ;; The compiled CSS is checked into resources/public/css/compiled/styles.css
 
+  ;; Both :dev and :prod builds live at the top level so lein-cljsbuild
+  ;; hooks can find them. The :prod build was previously inside :uberjar,
+  ;; but the uberjar task re-merges :uberjar internally — any :cljsbuild
+  ;; in that profile gets restored after our ^:replace {} wipe, causing
+  ;; hooks to fire and the I/O pump to hang. See docs/LEIN-UBERJAR-HANG.md
   :cljsbuild {:builds
               {:dev
                {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
@@ -144,7 +149,16 @@
                                :source-map-timestamp true
                                :pretty-print         true
                                :closure-defines      {goog.DEBUG true}
-                               :optimizations        :none}}}}
+                               :optimizations        :none}}
+               :prod
+               {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
+                :compiler     {:main          orcpub.core
+                               :asset-path    "/js/compiled/out"
+                               :output-to     "resources/public/js/compiled/orcpub.js"
+                               :optimizations :advanced
+                               :infer-externs true
+                               :externs       ["externs.js"]
+                               :pretty-print  false}}}}
 
   :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
              ;; :server-port 3449 ;; default
@@ -254,21 +268,14 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}}
+             ;; NOTE: :cljsbuild config is NOT in :uberjar — it's at the top level.
+             ;; The uberjar task internally re-merges :uberjar (leiningen/uberjar.clj:176),
+             ;; which would restore any :cljsbuild here after our ^:replace {} wipe.
+             ;; See docs/LEIN-UBERJAR-HANG.md
              :uberjar      {:prep-tasks  ["clean" ["garden" "once"] "compile" ["cljsbuild" "once" "prod"]]
                             :env         {:production true}
                             :aot         :all
-                            :omit-source true
-                            :cljsbuild   {:builds
-                                          {:prod
-                                           {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
-                                            :compiler     {:main          orcpub.core
-                                                           :asset-path    "/js/compiled/out"
-                                                           :output-to     "resources/public/js/compiled/orcpub.js"
-                                                           ;;:output-dir "resources/public/js/compiled/out"
-                                                           :optimizations :advanced
-                                                           :infer-externs true
-                                                           :externs       ["externs.js"]
-                                                           :pretty-print  false}}}}}
+                            :omit-source true}
              ;; Docker build: CLJS is compiled separately (cljsbuild hangs in no-TTY).
              ;; uberjar-cljs    — CLJS only, no prep-tasks (run cljsbuild directly).
              ;; uberjar-package — garden + AOT + jar packaging, no cljsbuild.
