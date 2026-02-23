@@ -11,6 +11,8 @@
 
 (def dev-service-map-overrides
   {::http/port 8890
+   ;; Bind to loopback only in dev (don't expose to LAN)
+   ::http/host "localhost"
    ;; do not block thread that starts web server
    ::http/join? false
    ;; Routes can be a function that resolve routes,
@@ -26,6 +28,10 @@
 (def prod-service-map
   {::http/routes routes/routes
    ::http/type :jetty
+   ;; Bind to all interfaces so the server is reachable from other Docker
+   ;; containers (nginx proxy, healthchecks) and external clients.
+   ;; Pedestal defaults to "localhost" when unset, which only binds loopback.
+   ::http/host "0.0.0.0"
    ;; Pedestal 0.7+ requires explicit interceptor coercion for maps/functions
    ::http/enable-session false  ; Disable default session handling if not needed
    ::http/port (let [port-str (System/getenv "PORT")]

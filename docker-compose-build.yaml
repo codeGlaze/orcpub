@@ -23,9 +23,10 @@ services:
       datomic:
         condition: service_healthy
     healthcheck:
-      # BusyBox wget (Alpine): only -q and --spider are supported
-      # App takes ~110s to boot (Datomic peer init + schema + font cache)
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8890/"]
+      # BusyBox wget (Alpine): only -q and --spider are supported.
+      # Use 127.0.0.1 (not localhost) to avoid IPv4/IPv6 ambiguity.
+      # /health returns 200 OK — lighter than / which renders the full SPA page.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8890/health"]
       interval: 10s
       timeout: 5s
       retries: 30
