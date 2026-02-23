@@ -89,8 +89,13 @@
                  [com.bhauman/figwheel-main "0.2.20"]
                  [com.bhauman/rebel-readline-cljs "0.1.4"]
               ]
-  :plugins [[lein-cljsbuild "1.1.8" :exclusions [[org.clojure/clojure]]]
-            [lein-localrepo "0.5.4"]
+  ;; NOTE: lein-cljsbuild is NOT here — it's in the :cljsbuild-config profile.
+  ;; Lein loads plugins from the raw project before applying profiles, so any
+  ;; plugin at the top level is ALWAYS loaded. lein-cljsbuild's activate()
+  ;; registers hooks on compile/jar that spawn a subprocess via eval-in-project.
+  ;; That subprocess hangs in no-TTY (Docker/CI). Moving it to a profile means
+  ;; it's only loaded when that profile is active. See docs/LEIN-UBERJAR-HANG.md
+  :plugins [[lein-localrepo "0.5.4"]
             [lein-garden "0.3.0"]
             [lein-environ "1.2.0"]
             [dev.weavejester/lein-cljfmt "0.16.0"]
@@ -203,7 +208,8 @@
              ;; :dev includes this via composite profile. Docker step 1 adds it
              ;; explicitly. See docs/LEIN-UBERJAR-HANG.md
              :cljsbuild-config
-                           {:cljsbuild
+                           {:plugins [[lein-cljsbuild "1.1.8" :exclusions [[org.clojure/clojure]]]]
+                            :cljsbuild
                             {:builds
                              {:dev
                               {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
@@ -295,12 +301,7 @@
              ;;   and hooks are never registered.
              ;; See: docs/LEIN-UBERJAR-HANG.md
              :uberjar-cljs    {:prep-tasks ^:replace []}
-             :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]
-                               ;; Only garden + environ needed. Excluding lein-cljsbuild
-                               ;; prevents its activate() from registering hooks that
-                               ;; spawn a subprocess on every compile/jar call.
-                               :plugins ^:replace [[lein-garden "0.3.0"]
-                                                   [lein-environ "1.2.0"]]}
+             :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
              :lint         {:dependencies [[clj-kondo "2026.01.19"]]}
              ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden
