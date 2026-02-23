@@ -274,7 +274,11 @@
              ;; uberjar-package — garden + AOT + jar packaging, no cljsbuild.
              ;; See: docs/LEIN-UBERJAR-HANG.md
              :uberjar-cljs    {:prep-tasks ^:replace []}
-             :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]}
+             :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]
+                              ;; Wipe cljsbuild config so hooks find nothing to build.
+                              ;; lein-cljsbuild hooks into compile/jar at plugin load —
+                              ;; removing it from prep-tasks alone isn't enough.
+                              :cljsbuild  ^:replace {}}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
              :lint         {:dependencies [[clj-kondo "2026.01.19"]]}
              ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden
