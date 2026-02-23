@@ -36,18 +36,35 @@ build doesn't run `-main` — it only compiles.
 
 ## The Fix
 
-In `docker/Dockerfile`, the uberjar step uses `timeout`:
+Split ClojureScript compilation out of `lein uberjar` into its own step. Two
+Leiningen profiles in `project.clj` make this work:
 
-```dockerfile
-RUN timeout 300 lein uberjar; \
-    EXIT=$?; \
-    if [ -f target/orcpub.jar ]; then exit 0; fi; \
-    exit $EXIT
+```clojure
+;; CLJS only — no prep-tasks, run cljsbuild directly
+:uberjar-cljs {:prep-tasks ^:replace []}
+
+;; Garden CSS + AOT + jar packaging — no cljsbuild
+:uberjar-jar  {:prep-tasks ^:replace [["garden" "once"] "compile"]}
 ```
 
-- `timeout 300` — gives lein 5 minutes to build, then sends SIGTERM
-- If the jar exists after timeout, the build succeeded — exit 0
-- If the jar does NOT exist, a real build failure occurred — propagate the error
+In `docker/Dockerfile`:
+
+```dockerfile
+# Step 1: CLJS only. timeout kills the post-compilation hang.
+# "Successfully compiled" = JS file exists = success.
+RUN timeout 120 lein with-profile uberjar,uberjar-cljs cljsbuild once prod; \
+    test -f resources/public/js/compiled/orcpub.js || exit 1
+
+# Step 2: garden CSS + AOT + jar packaging (JS already in resources/).
+RUN lein with-profile uberjar,uberjar-jar uberjar
+```
+
+- **Step 1** merges `uberjar` (for compiler config) with `uberjar-cljs` (wipes
+  prep-tasks). `timeout` kills the JVM after CLJS finishes, then `test -f`
+  confirms the JS file was produced. No wasted AOT.
+- **Step 2** merges `uberjar` with `uberjar-jar` (garden + AOT, no cljsbuild).
+  The compiled JS from step 1 is already in `resources/public/js/compiled/`.
+- Garden CSS is gitignored (build artifact), so it must run during Docker build.
 
 In CI (`.github/workflows/docker-integration.yml`), the build uses
 `DOCKER_BUILDKIT=0` and direct `docker build` commands. Docker Compose v2
@@ -58,7 +75,8 @@ stalling during image export.
 
 | File | What | Why |
 |------|------|-----|
-| `docker/Dockerfile` | `timeout 300 lein uberjar` | Kills zombie JVM after build |
+| `docker/Dockerfile` | Two-step build with `timeout` | Isolates cljsbuild hang |
+| `project.clj` | `:uberjar-cljs` + `:uberjar-jar` profiles | Split prep-tasks |
 | `.github/workflows/docker-integration.yml` | `DOCKER_BUILDKIT=0` + direct `docker build` | Avoids BuildKit export hang |
 | `project.clj` | `lein-cljsbuild 1.1.8` | Abandoned plugin, no thread cleanup |
 

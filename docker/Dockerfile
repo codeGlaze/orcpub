@@ -69,9 +69,13 @@ ADD ./ /orcpub
 # so lein never creates the jar. Fix: run cljsbuild separately with timeout,
 # then build the uberjar with prep-tasks that skip cljsbuild.
 # See: docs/LEIN-UBERJAR-HANG.md, lein-cljsbuild issue #171
-RUN timeout 120 lein with-profile uberjar cljsbuild once prod; \
+#
+# Step 1: CLJS only (no prep-tasks, no wasted AOT). timeout kills the
+#         post-compilation hang. "Successfully compiled" = JS is ready.
+# Step 2: garden CSS + AOT + jar packaging (no cljsbuild).
+RUN timeout 120 lein with-profile uberjar,uberjar-cljs cljsbuild once prod; \
     test -f resources/public/js/compiled/orcpub.js || exit 1
-RUN lein with-profile uberjar,uberjar-docker uberjar
+RUN lein with-profile uberjar,uberjar-jar uberjar
 
 # Alpine runner — BusyBox wget handles healthchecks (use -q --spider, not GNU flags)
 FROM eclipse-temurin:21-jre-alpine-3.22 AS app
