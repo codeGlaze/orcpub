@@ -64,20 +64,24 @@ RUN lein deps
 
 ADD ./ /orcpub
 
-# WORKAROUND: lein-cljsbuild's I/O subprocess pump hangs indefinitely in
-# no-TTY environments (Docker, CI). The cljsbuild prep-task never returns,
-# so lein never creates the jar. Fix: run cljsbuild separately with timeout,
-# then build the uberjar with prep-tasks that skip cljsbuild.
-# See: docs/LEIN-UBERJAR-HANG.md, lein-cljsbuild issue #171
+# WORKAROUND: lein-cljsbuild hangs in no-TTY environments (Docker, CI).
+# Three compounding issues: (1) cljsbuild I/O pump hang after compilation,
+# (2) cljsbuild hooks fire on compile/jar tasks at plugin load time, and
+# (3) non-daemon agent threads after AOT prevent JVM exit.
 #
-# Step 1: CLJS only (no prep-tasks, no wasted AOT). timeout kills the
-#         post-compilation hang. "Successfully compiled" = JS is ready.
-# Step 2: garden CSS + AOT + jar packaging (no cljsbuild). timeout kills
-#         the post-AOT hang (non-daemon agent threads). jar check = success.
+# Fix: cljsbuild config lives in the :cljsbuild-config profile (NOT at the
+# top level of project.clj). The uberjar task re-merges from base + [:uberjar],
+# so anything not in those profiles is invisible to hooks after re-merge.
+# See: docs/LEIN-UBERJAR-HANG.md
+#
+# Step 1: CLJS only. cljsbuild-config provides build definitions.
+#         uberjar-cljs wipes prep-tasks. timeout kills I/O pump hang.
+# Step 2: garden CSS + AOT + jar. No cljsbuild config visible after
+#         re-merge, so hooks are no-ops. timeout kills agent thread hang.
 # NOTE: if a step fails, check whether the artifact exists before assuming
 #       a code error. Missing artifact after timeout = build too slow (bump
 #       timeout), not a compilation problem. See docs/LEIN-UBERJAR-HANG.md
-RUN timeout 120 lein with-profile uberjar,uberjar-cljs cljsbuild once prod; \
+RUN timeout 120 lein with-profile uberjar,uberjar-cljs,cljsbuild-config cljsbuild once prod; \
     test -f resources/public/js/compiled/orcpub.js || exit 1
 RUN timeout 300 lein with-profile +uberjar-package uberjar; \
     test -f target/orcpub.jar || exit 1

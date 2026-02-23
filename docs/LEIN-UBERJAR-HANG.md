@@ -30,20 +30,27 @@ plugin load time (via `robert.hooke`). These hooks fire regardless of
 The hooks check the project's `:cljsbuild` config for builds to compile.
 You might think `^:replace {}` in a profile would wipe this config. It does
 — for the initial profile merge. But the `uberjar` task internally re-merges
-the `:uberjar` profile (`leiningen/uberjar.clj` line 176):
+profiles starting from the **base project** (`leiningen/uberjar.clj`):
 
 ```clojure
 project (->> (into [:uberjar] provided-profiles)
              (project/merge-profiles project))
 ```
 
-This re-merge **restores** any `:cljsbuild` config from `:uberjar`, overriding
-the `^:replace {}` wipe. The hooks then see full build config and fire,
-triggering the I/O pump hang all over again.
+`merge-profiles` starts from `:without-profiles` (the raw base project with
+no profiles applied), then applies only `[:uberjar :provided]`. **Any other
+active profile — including custom ones like `:uberjar-package` — is stripped.**
 
-**This is why `:cljsbuild` config must NOT live inside the `:uberjar` profile.**
-It must be at the top level of `project.clj`, where `^:replace {}` in
-`uberjar-package` can wipe it without the re-merge bringing it back.
+This means:
+- `:cljsbuild ^:replace {}` in `:uberjar-package` works for the initial merge
+- But the re-merge strips `:uberjar-package` and rebuilds from base + `:uberjar`
+- If `:cljsbuild` exists at the top level of `project.clj` OR in `:uberjar`,
+  the re-merge restores it, hooks see builds, and the hang returns
+
+**This is why `:cljsbuild` config must NOT exist at the top level of
+`project.clj` or in the `:uberjar` profile.** It must be isolated in a
+separate profile (`:cljsbuild-config`) that is only explicitly activated
+when needed.
 
 ### 3. Non-daemon agent threads (secondary)
 
@@ -69,70 +76,105 @@ not in post-build thread cleanup. The uberjar build doesn't run `-main`.
 
 Two changes work together to prevent the hang:
 
-### 1. Move `:prod` cljsbuild config to the top level
+### 1. Isolate cljsbuild config in its own profile
 
-The `:prod` ClojureScript build was originally defined inside the `:uberjar`
-profile. It has been moved to the **top level** of `project.clj`, alongside
-the `:dev` build:
+All ClojureScript build definitions (`:dev` and `:prod`) live in the
+`:cljsbuild-config` profile — **not** at the top level of `project.clj`
+and **not** in the `:uberjar` profile:
 
 ```clojure
-;; project.clj — top level, NOT inside any profile
-:cljsbuild {:builds {:dev {...} :prod {...}}}
+;; project.clj — NO :cljsbuild at top level
 
-;; :uberjar profile — NO :cljsbuild key
-:uberjar {:prep-tasks ["clean" ["garden" "once"] "compile" ["cljsbuild" "once" "prod"]]
-          :env {:production true} :aot :all :omit-source true}
+:profiles {
+  ;; All cljsbuild definitions isolated here
+  :cljsbuild-config {:cljsbuild {:builds {:dev {...} :prod {...}}}}
+
+  ;; Dev-only overrides (devtools, compiler flags)
+  :dev-config {:dependencies [...] :cljsbuild {:builds {:dev {:compiler {...}}}}}
+
+  ;; Composite — includes cljsbuild-config so builds are visible during dev
+  :dev [:cljsbuild-config :dev-config]
+
+  ;; No :cljsbuild here — re-merge sees nothing, hooks are no-ops
+  :uberjar {:prep-tasks ["clean" ["garden" "once"] "compile"]
+            :env {:production true} :aot :all :omit-source true}
+}
 ```
 
-**Why**: the `uberjar` task internally re-merges the `:uberjar` profile
-(see root cause #2 above). If `:cljsbuild` were inside `:uberjar`, the
-re-merge would restore it after any `^:replace {}` wipe, causing hooks to
-fire and hang. With `:cljsbuild` at the top level, the re-merge has nothing
-to bring back.
+**Why this works**: the `uberjar` task's internal re-merge starts from the
+base project (no `:cljsbuild` at top level) and applies `[:uberjar]` (no
+`:cljsbuild` key). The hooks check the re-merged project's `:cljsbuild`
+config, find nothing, and skip — no I/O pump, no hang.
 
-**What this doesn't break**: normal `lein uberjar` still works — the
-`["cljsbuild" "once" "prod"]` prep-task finds the `:prod` build at the top
-level. The `:uberjar` profile doesn't need to contain cljsbuild config for
-this to work; it just needs to reference the build name in its prep-task.
+**Why the top level doesn't work**: we originally tried putting `:cljsbuild`
+at the top level with `^:replace {}` in `:uberjar-package`. The initial
+merge wiped it correctly, but the re-merge starts from the raw base project
+(which includes top-level config) and doesn't include `:uberjar-package`
+in its merge set. The top-level config survived the re-merge.
+
+**Why `:uberjar` doesn't work**: same reason — the re-merge applies
+`:uberjar`, so any `:cljsbuild` inside it gets restored.
+
+**What about dev?**: the `:dev` profile is a composite that includes
+`:cljsbuild-config`. During `lein fig:build` or REPL use, `:dev` is active,
+so builds are visible. During `lein uberjar`, `:dev` is NOT in the re-merge
+set `[:uberjar :provided]`, so `:cljsbuild-config` is not pulled in.
 
 ### 2. Split CLJS compilation into its own Docker step
 
-Two Leiningen profiles separate CLJS from jar packaging:
+Three Leiningen profiles coordinate the Docker build:
 
 ```clojure
-;; CLJS only — no prep-tasks, run cljsbuild directly
+;; Build definitions — only active when explicitly included
+:cljsbuild-config {:cljsbuild {:builds {:dev {...} :prod {...}}}}
+
+;; CLJS only — wipes prep-tasks so cljsbuild runs alone (no AOT)
 :uberjar-cljs {:prep-tasks ^:replace []}
 
-;; Garden CSS + AOT + jar packaging — no cljsbuild.
-;; ^:replace {} wipes the top-level :cljsbuild config so hooks are no-ops.
-;; This works because :uberjar has NO :cljsbuild key — the re-merge
-;; inside the uberjar task has nothing to restore.
-:uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]
-                  :cljsbuild  ^:replace {}}
+;; Skips clean (preserves step 1 JS), runs garden + AOT
+:uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]}
 ```
 
 In `docker/Dockerfile`, both steps use `timeout` + artifact check:
 
 ```dockerfile
-# Step 1: CLJS only. timeout kills the post-compilation I/O pump hang.
-RUN timeout 120 lein with-profile uberjar,uberjar-cljs cljsbuild once prod; \
+# Step 1: CLJS only. cljsbuild-config provides build definitions.
+# timeout kills the I/O pump hang.
+RUN timeout 120 lein with-profile uberjar,uberjar-cljs,cljsbuild-config cljsbuild once prod; \
     test -f resources/public/js/compiled/orcpub.js || exit 1
 
-# Step 2: garden CSS + AOT + jar packaging. timeout kills the post-AOT
-# agent thread hang. jar check confirms success.
+# Step 2: garden CSS + AOT + jar packaging.
+# No cljsbuild config visible after re-merge — hooks are no-ops.
+# timeout kills the agent thread hang.
 RUN timeout 300 lein with-profile +uberjar-package uberjar; \
     test -f target/orcpub.jar || exit 1
 ```
 
-- **Step 1** merges `uberjar` (for compiler config) with `uberjar-cljs` (wipes
-  prep-tasks). `timeout` kills the JVM after CLJS finishes (I/O pump hang),
-  then `test -f` confirms the JS file was produced. No wasted AOT.
-- **Step 2** uses `+uberjar-package` on top of the auto-activated `:uberjar`
-  profile (garden + AOT, no cljsbuild). `timeout` kills the JVM after packaging
-  (non-daemon agent thread hang), then `test -f` confirms the jar exists.
+- **Step 1** explicitly includes `cljsbuild-config` for the `:prod` build.
+  `uberjar` provides `:env {:production true}`. `uberjar-cljs` wipes
+  prep-tasks. `timeout` kills the JVM after CLJS finishes (I/O pump hang),
+  then `test -f` confirms the JS file was produced.
+- **Step 2** uses `+uberjar-package` on top of auto-activated `:uberjar`.
+  Neither the base project nor `:uberjar` has `:cljsbuild`, so the re-merge
+  produces a project with no cljsbuild config. Hooks find nothing and skip.
+  `timeout` kills the JVM after packaging (non-daemon agent threads), then
+  `test -f` confirms the jar exists.
 - Garden CSS is gitignored (build artifact), so it must run during Docker build.
 - If a step fails, check whether the artifact exists before assuming a code
   error. Missing artifact after timeout = build too slow (bump timeout).
+
+### Local uberjar builds
+
+For building outside Docker (in a TTY), CLJS must be compiled separately:
+
+```sh
+lein with-profile +cljsbuild-config cljsbuild once prod
+lein uberjar
+```
+
+The first command compiles CLJS (the hang can be Ctrl-C'd in a terminal
+after "Successfully compiled" appears). The second runs garden + AOT + jar
+without cljsbuild interference.
 
 In CI (`.github/workflows/docker-integration.yml`), the build uses
 `DOCKER_BUILDKIT=0` and direct `docker build` commands. Docker Compose v2
@@ -144,8 +186,10 @@ stalling during image export.
 | File | What | Why |
 |------|------|-----|
 | `docker/Dockerfile` | Two-step build with `timeout` | Isolates cljsbuild hang |
-| `project.clj` | `:uberjar-cljs` + `:uberjar-package` profiles | Split prep-tasks |
-| `project.clj` | `:prod` build at top level, NOT in `:uberjar` | Prevents re-merge trap |
+| `project.clj` | `:cljsbuild-config` profile | Isolates builds from base project |
+| `project.clj` | `:dev` as composite `[:cljsbuild-config :dev-config]` | Dev sees builds, uberjar doesn't |
+| `project.clj` | `:uberjar-cljs` + `:uberjar-package` profiles | Split Docker steps |
+| `project.clj` | `:uberjar` has NO `:cljsbuild` | Re-merge stays clean |
 | `.github/workflows/docker-integration.yml` | `DOCKER_BUILDKIT=0` + direct `docker build` | Avoids BuildKit export hang |
 | `project.clj` | `lein-cljsbuild 1.1.8` | Abandoned plugin, no thread cleanup |
 

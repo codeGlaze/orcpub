@@ -123,42 +123,12 @@
   ;; CSS is compiled via: ./menu start garden, lein garden once, or automatically in uberjar build.
   ;; The compiled CSS is checked into resources/public/css/compiled/styles.css
 
-  ;; Both :dev and :prod builds live at the top level so lein-cljsbuild
-  ;; hooks can find them. The :prod build was previously inside :uberjar,
-  ;; but the uberjar task re-merges :uberjar internally — any :cljsbuild
-  ;; in that profile gets restored after our ^:replace {} wipe, causing
-  ;; hooks to fire and the I/O pump to hang. See docs/LEIN-UBERJAR-HANG.md
-  :cljsbuild {:builds
-              {:dev
-               {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
-
-                ;; the presence of a :figwheel configuration here
-                ;; will cause figwheel to inject the figwheel client
-                ;; into your build
-                :figwheel     {:on-jsload "orcpub.core/on-js-reload"
-                               ;; :open-urls will pop open your application
-                               ;; in the default browser once Figwheel has
-                               ;; started and complied your application.
-                               ;; Comment this out once it no longer serves you.
-                               :open-urls ["http://localhost:8890"]}
-
-                :compiler     {:main                 orcpub.core
-                               :asset-path           "/js/compiled/out"
-                               :output-to            "resources/public/js/compiled/orcpub.js"
-                               :output-dir           "resources/public/js/compiled/out"
-                               :source-map-timestamp true
-                               :pretty-print         true
-                               :closure-defines      {goog.DEBUG true}
-                               :optimizations        :none}}
-               :prod
-               {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
-                :compiler     {:main          orcpub.core
-                               :asset-path    "/js/compiled/out"
-                               :output-to     "resources/public/js/compiled/orcpub.js"
-                               :optimizations :advanced
-                               :infer-externs true
-                               :externs       ["externs.js"]
-                               :pretty-print  false}}}}
+  ;; IMPORTANT: No :cljsbuild config at the top level. It lives in the
+  ;; :cljsbuild-config profile (see :profiles below). The uberjar task
+  ;; internally re-merges from the base project + [:uberjar :provided],
+  ;; stripping any other active profiles. If :cljsbuild were here, the
+  ;; re-merge would restore it, cljsbuild hooks would fire on compile/jar,
+  ;; and the I/O pump would hang in Docker/CI. See docs/LEIN-UBERJAR-HANG.md
 
   :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
              ;; :server-port 3449 ;; default
@@ -225,7 +195,39 @@
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["with-profile" "prod" "cljsbuild" "once" "main"]]}
-  :profiles {:dev          {:dependencies [[binaryage/devtools "1.0.7"]
+  :profiles {;; ClojureScript build configs — isolated in their own profile so they
+             ;; don't exist in the base project. The uberjar task re-merges from
+             ;; base + [:uberjar :provided], stripping all other profiles. If
+             ;; cljsbuild config were at the top level or in :uberjar, the re-merge
+             ;; would restore it, hooks would fire, and the I/O pump would hang.
+             ;; :dev includes this via composite profile. Docker step 1 adds it
+             ;; explicitly. See docs/LEIN-UBERJAR-HANG.md
+             :cljsbuild-config
+                           {:cljsbuild
+                            {:builds
+                             {:dev
+                              {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
+                               :figwheel     {:on-jsload "orcpub.core/on-js-reload"
+                                              :open-urls ["http://localhost:8890"]}
+                               :compiler     {:main                 orcpub.core
+                                              :asset-path           "/js/compiled/out"
+                                              :output-to            "resources/public/js/compiled/orcpub.js"
+                                              :output-dir           "resources/public/js/compiled/out"
+                                              :source-map-timestamp true
+                                              :pretty-print         true
+                                              :closure-defines      {goog.DEBUG true}
+                                              :optimizations        :none}}
+                              :prod
+                              {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
+                               :compiler     {:main          orcpub.core
+                                              :asset-path    "/js/compiled/out"
+                                              :output-to     "resources/public/js/compiled/orcpub.js"
+                                              :optimizations :advanced
+                                              :infer-externs true
+                                              :externs       ["externs.js"]
+                                              :pretty-print  false}}}}}
+             ;; Dev-only deps, source paths, and compiler overlays (devtools, re-frame-10x).
+             :dev-config   {:dependencies [[binaryage/devtools "1.0.7"]
                                            [cider/piggieback "0.5.3"]
                                            [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]]
                                            ]
@@ -245,6 +247,9 @@
                             ;; :plugins [[cider/cider-nrepl "0.12.0"]]
                             :repl-options {:init-ns          user
                                            :nrepl-middleware [cider.piggieback/wrap-cljs-repl]}}
+             ;; Composite: includes cljsbuild-config (build definitions) + dev-config
+             ;; (deps, devtools overlays). No inline maps — lein warns against those.
+             :dev          [:cljsbuild-config :dev-config]
              ;; NOTE: :native-dev was for React Native builds (legacy, may be unused)
              :native-dev   {:dependencies [[cider/piggieback "0.5.3"]]
                             :source-paths ["src/cljs" "native/cljs" "src/cljc" "env/dev"]
@@ -268,24 +273,24 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}}
-             ;; NOTE: :cljsbuild config is NOT in :uberjar — it's at the top level.
-             ;; The uberjar task internally re-merges :uberjar (leiningen/uberjar.clj:176),
-             ;; which would restore any :cljsbuild here after our ^:replace {} wipe.
-             ;; See docs/LEIN-UBERJAR-HANG.md
-             :uberjar      {:prep-tasks  ["clean" ["garden" "once"] "compile" ["cljsbuild" "once" "prod"]]
+             ;; No :cljsbuild here or at top level. The uberjar task internally
+             ;; re-merges from base + [:uberjar :provided] (leiningen/uberjar.clj:176).
+             ;; Any cljsbuild config reachable from that merge causes hooks to fire
+             ;; and the I/O pump to hang. See docs/LEIN-UBERJAR-HANG.md
+             ;;
+             ;; CLJS compilation is handled separately:
+             ;;   Local: lein with-profile +cljsbuild-config cljsbuild once prod
+             ;;   Docker: step 1 in Dockerfile (with timeout)
+             :uberjar      {:prep-tasks  ["clean" ["garden" "once"] "compile"]
                             :env         {:production true}
                             :aot         :all
                             :omit-source true}
              ;; Docker build: CLJS is compiled separately (cljsbuild hangs in no-TTY).
-             ;; uberjar-cljs    — CLJS only, no prep-tasks (run cljsbuild directly).
-             ;; uberjar-package — garden + AOT + jar packaging, no cljsbuild.
+             ;; uberjar-cljs    — wipes prep-tasks so cljsbuild runs alone (no AOT).
+             ;; uberjar-package — skips clean (preserves step 1 JS), runs garden + AOT.
              ;; See: docs/LEIN-UBERJAR-HANG.md
              :uberjar-cljs    {:prep-tasks ^:replace []}
-             :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]
-                              ;; Wipe cljsbuild config so hooks find nothing to build.
-                              ;; lein-cljsbuild hooks into compile/jar at plugin load —
-                              ;; removing it from prep-tasks alone isn't enough.
-                              :cljsbuild  ^:replace {}}
+             :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
              :lint         {:dependencies [[clj-kondo "2026.01.19"]]}
              ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden
