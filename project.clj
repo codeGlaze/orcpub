@@ -89,12 +89,11 @@
                  [com.bhauman/figwheel-main "0.2.20"]
                  [com.bhauman/rebel-readline-cljs "0.1.4"]
               ]
-  ;; NOTE: lein-cljsbuild is NOT here — it's in the :cljsbuild-config profile.
-  ;; Lein loads plugins from the raw project before applying profiles, so any
-  ;; plugin at the top level is ALWAYS loaded. lein-cljsbuild's activate()
-  ;; registers hooks on compile/jar that spawn a subprocess via eval-in-project.
-  ;; That subprocess hangs in no-TTY (Docker/CI). Moving it to a profile means
-  ;; it's only loaded when that profile is active. See docs/LEIN-UBERJAR-HANG.md
+  ;; NOTE: lein-cljsbuild is fully removed. Prod CLJS builds use figwheel-main
+  ;; (fig:prod alias / prod.cljs.edn). lein-cljsbuild is abandoned (last release:
+  ;; 1.1.8, April 2020) and its hooks cause a JVM hang in Docker/CI — it always
+  ;; spawns a subprocess via eval-in-project whose I/O pump hangs in no-TTY.
+  ;; See docs/LEIN-UBERJAR-HANG.md
   :plugins [[lein-localrepo "0.5.4"]
             [lein-garden "0.3.0"]
             [lein-environ "1.2.0"]
@@ -128,12 +127,8 @@
   ;; CSS is compiled via: ./menu start garden, lein garden once, or automatically in uberjar build.
   ;; The compiled CSS is checked into resources/public/css/compiled/styles.css
 
-  ;; IMPORTANT: No :cljsbuild config at the top level. It lives in the
-  ;; :cljsbuild-config profile (see :profiles below). The uberjar task
-  ;; internally re-merges from the base project + [:uberjar :provided],
-  ;; stripping any other active profiles. If :cljsbuild were here, the
-  ;; re-merge would restore it, cljsbuild hooks would fire on compile/jar,
-  ;; and the I/O pump would hang in Docker/CI. See docs/LEIN-UBERJAR-HANG.md
+  ;; CLJS production builds use figwheel-main (prod.cljs.edn / fig:prod alias).
+  ;; lein-cljsbuild has been fully removed — see docs/LEIN-UBERJAR-HANG.md
 
   :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
              ;; :server-port 3449 ;; default
@@ -187,6 +182,7 @@
   :aliases {"fig:dev" ["trampoline" "run" "-m" "figwheel.main" "--" "--build" "dev" "--repl"]
             "fig:watch" ["run" "-m" "figwheel.main" "--" "--build" "dev"]
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
+            "fig:prod" ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
@@ -199,17 +195,13 @@
             "lint" ["trampoline" "with-profile" "lint" "run" "-m" "clj-kondo.main" "--lint" "src" "test" "web" "--fail-level" "error"]
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
-             ["with-profile" "prod" "cljsbuild" "once" "main"]]}
-  :profiles {;; ClojureScript build configs — isolated in their own profile so they
-             ;; don't exist in the base project. The uberjar task re-merges from
-             ;; base + [:uberjar :provided], stripping all other profiles. If
-             ;; cljsbuild config were at the top level or in :uberjar, the re-merge
-             ;; would restore it, hooks would fire, and the I/O pump would hang.
-             ;; :dev includes this via composite profile. Docker step 1 adds it
-             ;; explicitly. See docs/LEIN-UBERJAR-HANG.md
+             ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]]}
+  :profiles {;; Legacy cljsbuild build configs — retained for lein figwheel (legacy
+             ;; dev server) and reference. lein-cljsbuild PLUGIN has been removed;
+             ;; prod CLJS builds now use figwheel-main (prod.cljs.edn / fig:prod).
+             ;; The :cljsbuild map is inert data without the plugin loaded.
              :cljsbuild-config
-                           {:plugins [[lein-cljsbuild "1.1.8" :exclusions [[org.clojure/clojure]]]]
-                            :cljsbuild
+                           {:cljsbuild
                             {:builds
                              {:dev
                               {:source-paths ["web/cljs" "src/cljc" "src/cljs"]
@@ -279,28 +271,15 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}}
-             ;; No :cljsbuild here or at top level. The uberjar task internally
-             ;; re-merges from base + [:uberjar :provided] (leiningen/uberjar.clj:176).
-             ;; Any cljsbuild config reachable from that merge causes hooks to fire
-             ;; and the I/O pump to hang. See docs/LEIN-UBERJAR-HANG.md
-             ;;
-             ;; CLJS compilation is handled separately:
-             ;;   Local: lein with-profile +cljsbuild-config cljsbuild once prod
-             ;;   Docker: step 1 in Dockerfile (with timeout)
+             ;; CLJS compilation is separate (fig:prod locally, figwheel-main in Docker).
+             ;; No lein-cljsbuild plugin in the project at all, so no hook hang.
              :uberjar      {:prep-tasks  ["clean" ["garden" "once"] "compile"]
                             :env         {:production true}
                             :aot         :all
                             :omit-source true}
-             ;; Docker build: CLJS is compiled separately (cljsbuild hangs in no-TTY).
-             ;; uberjar-cljs    — wipes prep-tasks so cljsbuild runs alone (no AOT).
-             ;; uberjar-package — excludes lein-cljsbuild from plugins entirely.
-             ;;   The compile-hook in lein-cljsbuild ALWAYS spawns a subprocess via
-             ;;   eval-in-project, even with zero builds. The I/O pump in that
-             ;;   subprocess hangs in no-TTY environments. The only way to prevent
-             ;;   this is to not load the plugin at all, so activate() never runs
-             ;;   and hooks are never registered.
-             ;; See: docs/LEIN-UBERJAR-HANG.md
-             :uberjar-cljs    {:prep-tasks ^:replace []}
+             ;; Docker build: CLJS is compiled separately via figwheel-main.
+             ;; uberjar-package overrides prep-tasks to skip "clean" (preserves
+             ;; the JS compiled in the prior Docker step).
              :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
              :lint         {:dependencies [[clj-kondo "2026.01.19"]]}

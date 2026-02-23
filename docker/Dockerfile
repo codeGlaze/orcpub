@@ -64,26 +64,19 @@ RUN lein deps
 
 ADD ./ /orcpub
 
-# WORKAROUND: lein-cljsbuild hangs in no-TTY environments (Docker, CI).
-# Three compounding issues: (1) cljsbuild I/O pump hang after compilation,
-# (2) cljsbuild hooks fire on compile/jar tasks at plugin load time, and
-# (3) non-daemon agent threads after AOT prevent JVM exit.
+# CLJS + uberjar build — two steps because lein uberjar's "clean" prep-task
+# would delete the compiled JS. Step 1 compiles CLJS, step 2 builds the jar
+# with uberjar-package (skips "clean", preserves the JS from step 1).
 #
-# Fix: cljsbuild config lives in the :cljsbuild-config profile (NOT at the
-# top level of project.clj or in :uberjar). Both steps use EXPLICIT profile
-# lists (no +prefix) to exclude :dev, which is composite and includes
-# :cljsbuild-config. If :dev were active, cljsbuild config would enter the
-# merge and hooks would fire. See: docs/LEIN-UBERJAR-HANG.md
+# figwheel-main replaces lein-cljsbuild for prod builds. lein-cljsbuild is
+# abandoned (last release: 1.1.8, April 2020) and its hooks spawn a subprocess
+# whose I/O pump hangs in no-TTY environments. See docs/LEIN-UBERJAR-HANG.md
 #
-# Step 1: CLJS only. cljsbuild-config provides build definitions.
-#         uberjar-cljs wipes prep-tasks. timeout kills I/O pump hang.
-# Step 2: garden CSS + AOT + jar. No :dev means no :cljsbuild-config,
-#         so hooks find nothing. timeout kills agent thread hang.
-# NOTE: if a step fails, check whether the artifact exists before assuming
-#       a code error. Missing artifact after timeout = build too slow (bump
-#       timeout), not a compilation problem. See docs/LEIN-UBERJAR-HANG.md
-RUN timeout 120 lein with-profile uberjar,uberjar-cljs,cljsbuild-config cljsbuild once prod; \
-    test -f resources/public/js/compiled/orcpub.js || exit 1
+# timeout on step 2 kills non-daemon agent threads that prevent JVM exit
+# after AOT compilation. The jar IS created before the hang — timeout just
+# lets the container move on. See docs/LEIN-UBERJAR-HANG.md
+RUN lein run -m figwheel.main -- --build-once prod && \
+    test -f resources/public/js/compiled/orcpub.js
 RUN timeout 300 lein with-profile uberjar,uberjar-package uberjar; \
     test -f target/orcpub.jar || exit 1
 
