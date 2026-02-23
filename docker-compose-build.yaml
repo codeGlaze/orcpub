@@ -24,11 +24,12 @@ services:
         condition: service_healthy
     healthcheck:
       # BusyBox wget (Alpine): only -q and --spider are supported
+      # App takes ~110s to boot (Datomic peer init + schema + font cache)
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8890/"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-      start_period: 15s
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
     restart: always
   datomic:
     image: orcpub-datomic
