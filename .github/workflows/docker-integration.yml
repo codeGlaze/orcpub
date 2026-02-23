@@ -115,6 +115,10 @@ jobs:
       # Java 21: build from source (no pre-built images for new stack)
       # Java 8:  pull pre-built images from Docker Hub (skip if unavailable)
 
+      # DOCKER_BUILDKIT=0 — docker compose v2 delegates to BuildKit on GH
+      # runners, which hangs during image export. Legacy builder avoids this.
+      # Direct docker build (not compose build) — compose build also hangs.
+      # See: docs/LEIN-UBERJAR-HANG.md for full explanation.
       - name: Build container images (Java 21)
         id: build
         if: needs.detect-stack.outputs.build-mode == 'build'

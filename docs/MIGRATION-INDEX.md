@@ -15,6 +15,7 @@ This branch (`breaking/2026-stack-modernization`) upgrades the full OrcPub stack
 | Dev tooling | Consolidated CLI + REPL into user.clj, profiles, scripts | [migration/dev-tooling.md](migration/dev-tooling.md) |
 | Environment | `.env` pattern, new variables | [ENVIRONMENT.md](ENVIRONMENT.md) |
 | Stack overview | Architecture, dependencies, build system | [STACK.md](STACK.md) |
+| Docker build hang | `lein uberjar` JVM hang + BuildKit workarounds | [LEIN-UBERJAR-HANG.md](LEIN-UBERJAR-HANG.md) |
 
 ## Why One Branch
 

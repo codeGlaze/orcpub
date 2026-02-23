@@ -163,6 +163,10 @@ Key aliases:
 | `lein lint` | Run clj-kondo linter |
 | `lein uberjar` | Production build (AOT + advanced CLJS + CSS) |
 
+**Known issue**: `lein uberjar` hangs after completing the build due to
+Clojure's non-daemon agent threads. Docker builds use `timeout` to work
+around this. See [LEIN-UBERJAR-HANG.md](LEIN-UBERJAR-HANG.md) for details.
+
 ### Profiles
 
 | Profile | Purpose |

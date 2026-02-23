@@ -63,7 +63,21 @@ COPY project.clj /orcpub/
 RUN lein deps
 
 ADD ./ /orcpub
-RUN lein uberjar
+
+# WORKAROUND: lein uberjar hangs after completing the build.
+# Clojure's agent thread pool uses non-daemon threads that prevent JVM exit
+# (https://clojure.org/reference/agents — "Use shutdown-agents to terminate
+# these threads and allow shutdown"). Any library that calls send/send-off
+# during AOT compilation leaves these threads alive. lein-cljsbuild 1.1.8
+# (abandoned since 2020) does not clean up after itself.
+# timeout lets the build finish, then kills the zombie JVM. Exit code 124
+# means timeout fired (build succeeded but JVM hung); we verify the jar
+# exists to distinguish from a real build failure.
+# See: docs/LEIN-UBERJAR-HANG.md
+RUN timeout 300 lein uberjar; \
+    EXIT=$?; \
+    if [ -f target/orcpub.jar ]; then exit 0; fi; \
+    exit $EXIT
 
 # Alpine runner — BusyBox wget handles healthchecks (use -q --spider, not GNU flags)
 FROM eclipse-temurin:21-jre-alpine-3.22 AS app
