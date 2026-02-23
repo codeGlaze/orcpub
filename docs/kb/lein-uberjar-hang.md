@@ -39,11 +39,13 @@ the hook doesn't check whether builds is empty before calling it.
 **This means no amount of profile-based `:cljsbuild` config manipulation can
 prevent the hang.** The only fix is to prevent the plugin from loading entirely.
 
-### 3. Plugin loading happens before profile application
-Lein loads plugins from the raw project.clj BEFORE applying `with-profile`
-overrides. A plugin at the top level of `:plugins` is ALWAYS loaded, and
-`:plugins ^:replace [...]` in a profile cannot prevent this — the override
-is applied after the plugin is already loaded and `activate()` has run.
+### 3. Top-level plugins survive profile overrides (observed, mechanism unclear)
+A plugin at the top level of `:plugins` is loaded even when `:plugins ^:replace`
+in a profile should remove it (CI run 22301557284). The exact mechanism is unclear:
+it could be that lein loads plugins before applying profiles, or that the plugin
+jar is already on the classpath from dependency resolution. Either way, the
+observed behavior is that `^:replace` on `:plugins` in a profile does NOT prevent
+a top-level plugin from being loaded and activated.
 
 ### 4. Non-daemon agent threads (secondary)
 Clojure's agent thread pool uses non-daemon threads. Libraries that call
@@ -51,9 +53,9 @@ Clojure's agent thread pool uses non-daemon threads. Libraries that call
 During AOT, all namespaces are loaded. Even if lein finishes, the JVM won't
 exit. `shutdown-agents` is a **runtime** call — cannot be added to project.clj.
 
-## The Actual Fix
+## Current Approach (Attempt 7 — UNVERIFIED, CI pending)
 
-**Both** the plugin AND the config must live in a profile, not at the top level:
+**Both** the plugin AND the config live in a profile, not at the top level:
 
 ```clojure
 ;; project.clj — NO lein-cljsbuild in top-level :plugins
@@ -62,43 +64,52 @@ exit. `shutdown-agents` is a **runtime** call — cannot be added to project.clj
 :plugins [[lein-garden ...] [lein-environ ...]]  ;; no cljsbuild
 
 :profiles {
-  ;; Plugin + config isolated here — only loaded when profile is active
+  ;; Plugin + config isolated here — only loaded when profile is active (theory)
   :cljsbuild-config {:plugins [[lein-cljsbuild "1.1.8" ...]]
                      :cljsbuild {:builds {:dev {...} :prod {...}}}}
 
   ;; Dev sees builds via composite
   :dev [:cljsbuild-config :dev-config]
 
-  ;; No cljsbuild plugin or config — hooks never registered
+  ;; No cljsbuild plugin or config
   :uberjar {:prep-tasks ["clean" ["garden" "once"] "compile"]
             :env {:production true} :aot :all :omit-source true}
 }
 ```
 
-Docker step 1 (CLJS): explicitly includes `cljsbuild-config` → plugin loaded.
-Docker step 2 (jar): uses `uberjar,uberjar-package` (NO cljsbuild-config) →
-plugin never loaded → `activate()` never runs → no hooks → no subprocess.
+Docker step 1 (CLJS): explicitly includes `cljsbuild-config`.
+Docker step 2 (jar): uses `uberjar,uberjar-package` (NO cljsbuild-config).
+Theory: plugin not loaded → `activate()` never runs → no hooks → no subprocess.
 
 ```dockerfile
 # Step 1: cljsbuild-config provides plugin + config
 RUN timeout 120 lein with-profile uberjar,uberjar-cljs,cljsbuild-config cljsbuild once prod; \
     test -f resources/public/js/compiled/orcpub.js || exit 1
 
-# Step 2: explicit profiles (no cljsbuild-config) → plugin not loaded
+# Step 2: explicit profiles (no cljsbuild-config)
 RUN timeout 300 lein with-profile uberjar,uberjar-package uberjar; \
     test -f target/orcpub.jar || exit 1
 ```
 
+**If this fails**: the plugin jar may be on the classpath from Docker layer
+caching or step 1's `lein deps`. Next approach would be to split into separate
+Dockerfile stages (separate Docker images) so step 2's classpath is fully clean.
+
 ## Key Facts for Agents
 
+### Verified (source code or CI evidence)
 - `lein-cljsbuild` is abandoned (last release: 1.1.8, April 2020)
 - The hooks spawn a subprocess even with nil/empty config — there is no "safe" config
-- Plugin loading happens BEFORE `with-profile` overrides — top-level plugins are always loaded
-- `:plugins ^:replace [...]` in a profile does NOT prevent a top-level plugin from loading
-- The jar is **never created** when hooks hang — `test -f` will fail, not pass
+  (source: `leiningen/cljsbuild.clj` lines 281-283, `config.clj` lines 179-185)
+- `:plugins ^:replace` in a profile does NOT prevent a top-level plugin from loading
+  (CI run: 22301557284)
+- The jar is **never created** when hooks hang — `test -f` fails (all CI runs)
 - `shutdown-agents` does NOT fix this — the hang is in cljsbuild's subprocess
 - This is NOT a Docker, BuildKit, or CI-specific problem — it's lein-cljsbuild
-- BuildKit on GH runners compounds it with an additional export hang
+
+### Observed but mechanism unclear
+- Top-level plugins survive profile overrides — could be load order or classpath
+- BuildKit on GH runners compounds the issue with an additional export hang
 
 ---
 
@@ -205,66 +216,76 @@ not which plugins were actually loaded and activated.
 **What**: Removed `lein-cljsbuild` from top-level `:plugins`. Added it to
 `:cljsbuild-config` profile. Dev tasks get it via `:dev` composite. Docker step 1
 gets it via explicit `cljsbuild-config` in the profile list. Docker step 2 uses
-`uberjar,uberjar-package` — no `:cljsbuild-config`, so the plugin is never loaded.
+`uberjar,uberjar-package` — no `:cljsbuild-config`, so the plugin should not load.
 
-**Why this should work**: Plugins in profiles are only loaded when the profile is
-active. With `:cljsbuild-config` NOT in the step 2 profile set, lein never sees
-lein-cljsbuild in `:plugins`, never loads it, `activate()` never runs, hooks are
-never registered. The `compile` and `jar` tasks run without interference.
+**Theory**: If the plugin jar is not in the effective project's `:plugins` list
+after profile merging, lein won't resolve or load it, `activate()` never runs,
+and hooks are never registered.
 
-**Status**: Pushed as commit `7e2fdc6e`. CI pending.
+**Status**: UNVERIFIED. Pushed as commit `7e2fdc6e`. CI pending.
+
+**Risk**: It's unclear exactly when lein resolves plugin jars vs when it loads
+plugin namespaces. Attempts 5 and 6 showed that `:plugins ^:replace` in a profile
+didn't prevent the hooks. This could mean either: (a) plugins are loaded before
+profile merging, or (b) the jar was already on the classpath from a prior Docker
+layer (`lein deps` or step 1). Attempt 7 removes the plugin from the top level
+entirely, which is a stronger intervention than `^:replace` — but whether it
+actually prevents loading is unconfirmed until CI passes.
 
 ---
 
-## Lein Plugin Architecture Summary (for future agents)
+## What Is Verified vs Assumed
 
-```
-lein with-profile X,Y task
-  │
-  ├─ 1. Read raw project.clj
-  ├─ 2. Determine active profiles: [base, system, user, X, Y]
-  ├─ 3. Merge profiles → effective project map
-  ├─ 4. Read :plugins from EFFECTIVE project (not raw)   ← KEY INSIGHT
-  ├─ 5. Download + load plugin jars
-  ├─ 6. Call activate() on each plugin → registers hooks
-  ├─ 7. Run prep-tasks (hooks fire on compile/jar)
-  └─ 8. Run main task
-         └─ uberjar internally: merge-profiles(base, [:uberjar :provided])
-            └─ hooks fire AGAIN on compile/jar with re-merged project
-```
+### VERIFIED (from source code or CI failures)
 
-**Correction from Attempt 6**: Step 4 reads from the EFFECTIVE (merged) project,
-not the raw project. But the merge happens in step 3, which applies the profiles
-from `with-profile`. If cljsbuild is in the raw project's top-level `:plugins`,
-it survives the merge unless explicitly overridden. And `^:replace` in a profile
-DOES work for the initial merge — but the problem is the plugin is loaded from
-the raw project's classpath resolution, which happens before profile merging.
+- `compile-hook` always calls `run-compiler` → `run-local-project` →
+  `eval-in-project` — spawns subprocess regardless of config
+  (source: `leiningen/cljsbuild.clj` lines 33-44, 80-151, 281-283)
+- `extract-options` processes nil `:cljsbuild` into `{:builds ()}` with defaults
+  — it does NOT short-circuit on nil
+  (source: `leiningen/cljsbuild/config.clj` lines 179-185)
+- `^:replace {}` on `:cljsbuild` in `:uberjar-package` does NOT prevent the
+  subprocess (CI runs: 22298816262, 22299537252, 22299722719, 22300857430)
+- `^:replace` on `:plugins` in `:uberjar-package` does NOT prevent the hooks
+  (CI run: 22301557284)
+- Removing cljsbuild from `:prep-tasks` does NOT prevent hooks — they fire on
+  compile/jar tasks via `robert.hooke`
+  (source: `leiningen/cljsbuild.clj` lines 292-298)
+- The uberjar task does an internal re-merge
+  (source: `leiningen/uberjar.clj` line 176, verified by reading lein JAR)
+- Top-level `:cljsbuild` config survives the uberjar re-merge
+  (CI runs confirm hang persists after moving config to top level)
 
-**Actually**: Lein's boot process loads plugins in two phases:
-1. Pomegranate resolves plugin jars from `:plugins` (needs merged project)
-2. Classloader loads the plugin namespaces and calls activate
+### UNVERIFIED (theories / assumptions)
 
-The confusion: lein does apply profiles before loading plugins. But the issue is
-that if lein-cljsbuild's JAR is already on the classpath from a previous step
-(Docker layer caching, or `lein deps` step), the classloader may find it regardless
-of `:plugins`. Need to verify this theory.
+- Whether `merge-profiles` in the uberjar task starts from `:without-profiles`
+  or layers on top of the current project — we inferred "starts from base" but
+  haven't confirmed via lein source
+- Whether lein loads plugins from the raw project or the merged project —
+  Attempts 5-6 suggest top-level plugins survive, but the mechanism is unclear
+- Whether moving the plugin to a profile (Attempt 7) actually prevents loading —
+  CI pending
+- Whether Docker layer caching of `lein deps` puts the plugin jar on the
+  classpath regardless of `:plugins` — untested
 
-**Safest approach**: Don't have the plugin at the top level at all. Profile
-isolation ensures the jar is only resolved when needed.
+## DO NOT (verified by CI failures or source analysis)
 
-## DO NOT
+- Remove the `timeout` wrapper — even if hooks are fixed, agent threads prevent exit
+- Replace `timeout` with `(shutdown-agents)` — hang is in cljsbuild subprocess, not post-build
+- Assume `^:replace {}` on `:cljsbuild` prevents the subprocess — it doesn't;
+  hooks call `run-compiler` regardless of config (verified: source lines 281-283)
+- Assume `:plugins ^:replace` in a profile prevents plugin loading — didn't work
+  (verified: CI run 22301557284)
+- Assume removing cljsbuild from `:prep-tasks` is sufficient — hooks fire via
+  `robert.hooke` on compile/jar (verified: source lines 292-298)
+- Put `:cljsbuild` config in `:uberjar` — the re-merge applies `:uberjar`
+  (verified: reading lein uberjar.clj source)
 
-- Remove the `timeout` wrapper — agent threads still prevent clean exit
-- Run `lein uberjar` with default profiles in Docker — `:dev` includes cljsbuild
-- Replace `timeout` with `(shutdown-agents)` — hang is in cljsbuild subprocess
-- Put lein-cljsbuild in top-level `:plugins` — it will be loaded for all tasks
-- Put `:cljsbuild` config at the top level — it's part of the base project
-- Put `:cljsbuild` config in `:uberjar` — the re-merge applies it
-- Assume `^:replace {}` on `:cljsbuild` prevents the subprocess — it doesn't
-- Assume `:plugins ^:replace` prevents plugin loading — not if the jar is cached
-- Assume removing cljsbuild from `:prep-tasks` is sufficient — hooks still fire
-- Use `+prefix` in Docker step 2 — it includes `:dev` which includes cljsbuild
-- Make `:dev` a non-composite profile — cljsbuild-config must be excludable
+## AVOID (based on CI failures, mechanism not fully understood)
+
+- Put lein-cljsbuild in top-level `:plugins` — correlated with all failures
+- Put `:cljsbuild` config at the top level — correlated with failures
+- Use `+prefix` in Docker step 2 — includes `:dev` which includes cljsbuild
 
 ## Related Files
 
