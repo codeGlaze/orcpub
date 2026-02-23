@@ -21,21 +21,26 @@ services:
       datomic:
         condition: service_healthy
     healthcheck:
-      # BusyBox wget (Alpine): only -q and --spider are supported
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8890/"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-      start_period: 15s
+      # BusyBox wget (Alpine): only -q and --spider are supported.
+      # Use 127.0.0.1 (not localhost) to avoid IPv4/IPv6 ambiguity.
+      # /health returns 200 OK — lighter than / which renders the full SPA page.
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8890/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
     restart: always
   datomic:
     image: orcpub/datomic:latest
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
       DATOMIC_PASSWORD: ${DATOMIC_PASSWORD:-change-me}
+      ALT_HOST: ${ALT_HOST:-127.0.0.1}
+      ENCRYPT_CHANNEL: ${ENCRYPT_CHANNEL:-true}
     volumes:
       - ./data:/data
       - ./logs:/logs
+      - ./backups:/backups
     healthcheck:
       test: ["CMD-SHELL", "grep -q ':10EE ' /proc/net/tcp || grep -q ':10EE ' /proc/net/tcp6"]
       interval: 5s

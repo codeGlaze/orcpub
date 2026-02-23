@@ -200,6 +200,13 @@ ADMIN_PASSWORD=${ADMIN_PASSWORD}
 DATOMIC_PASSWORD=${DATOMIC_PASSWORD}
 DATOMIC_URL=datomic:dev://datomic:4334/orcpub?password=${DATOMIC_PASSWORD}
 
+# --- Transactor Tuning ---
+# These rarely need changing. See docker/transactor.properties.template.
+ALT_HOST=127.0.0.1
+ENCRYPT_CHANNEL=true
+# ADMIN_PASSWORD_OLD=
+# DATOMIC_PASSWORD_OLD=
+
 # --- Security ---
 # Secret used to sign JWT tokens (20+ characters recommended)
 SIGNATURE=${SIGNATURE}
@@ -235,7 +242,7 @@ fi
 
 header "Directories"
 
-for dir in "${SCRIPT_DIR}/data" "${SCRIPT_DIR}/logs" "${SCRIPT_DIR}/deploy/homebrew"; do
+for dir in "${SCRIPT_DIR}/data" "${SCRIPT_DIR}/logs" "${SCRIPT_DIR}/backups" "${SCRIPT_DIR}/deploy/homebrew"; do
   if [ ! -d "$dir" ]; then
     mkdir -p "$dir"
     info "Created directory: ${dir#"${SCRIPT_DIR}"/}"
@@ -305,6 +312,7 @@ check_file "SSL certificate"     "$CERT_FILE"
 check_file "SSL key"             "$KEY_FILE"
 check_dir  "data/"               "${SCRIPT_DIR}/data"
 check_dir  "logs/"               "${SCRIPT_DIR}/logs"
+check_dir  "backups/"            "${SCRIPT_DIR}/backups"
 check_dir  "deploy/homebrew/"    "${SCRIPT_DIR}/deploy/homebrew"
 
 echo ""

@@ -41,9 +41,12 @@ services:
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
       DATOMIC_PASSWORD: ${DATOMIC_PASSWORD:-change-me}
+      ALT_HOST: ${ALT_HOST:-127.0.0.1}
+      ENCRYPT_CHANNEL: ${ENCRYPT_CHANNEL:-true}
     volumes:
       - ./data:/data
       - ./logs:/logs
+      - ./backups:/backups
     healthcheck:
       test: ["CMD-SHELL", "grep -q ':10EE ' /proc/net/tcp || grep -q ':10EE ' /proc/net/tcp6"]
       interval: 5s
@@ -60,6 +63,7 @@ services:
       - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf
       - ./deploy/snakeoil.crt:/etc/nginx/snakeoil.crt
       - ./deploy/snakeoil.key:/etc/nginx/snakeoil.key
+      - ./deploy/homebrew/:/usr/share/nginx/html/homebrew/
     depends_on:
       orcpub:
         condition: service_healthy
