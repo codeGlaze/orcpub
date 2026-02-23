@@ -70,20 +70,21 @@ ADD ./ /orcpub
 # (3) non-daemon agent threads after AOT prevent JVM exit.
 #
 # Fix: cljsbuild config lives in the :cljsbuild-config profile (NOT at the
-# top level of project.clj). The uberjar task re-merges from base + [:uberjar],
-# so anything not in those profiles is invisible to hooks after re-merge.
-# See: docs/LEIN-UBERJAR-HANG.md
+# top level of project.clj or in :uberjar). Both steps use EXPLICIT profile
+# lists (no +prefix) to exclude :dev, which is composite and includes
+# :cljsbuild-config. If :dev were active, cljsbuild config would enter the
+# merge and hooks would fire. See: docs/LEIN-UBERJAR-HANG.md
 #
 # Step 1: CLJS only. cljsbuild-config provides build definitions.
 #         uberjar-cljs wipes prep-tasks. timeout kills I/O pump hang.
-# Step 2: garden CSS + AOT + jar. No cljsbuild config visible after
-#         re-merge, so hooks are no-ops. timeout kills agent thread hang.
+# Step 2: garden CSS + AOT + jar. No :dev means no :cljsbuild-config,
+#         so hooks find nothing. timeout kills agent thread hang.
 # NOTE: if a step fails, check whether the artifact exists before assuming
 #       a code error. Missing artifact after timeout = build too slow (bump
 #       timeout), not a compilation problem. See docs/LEIN-UBERJAR-HANG.md
 RUN timeout 120 lein with-profile uberjar,uberjar-cljs,cljsbuild-config cljsbuild once prod; \
     test -f resources/public/js/compiled/orcpub.js || exit 1
-RUN timeout 300 lein with-profile +uberjar-package uberjar; \
+RUN timeout 300 lein with-profile uberjar,uberjar-package uberjar; \
     test -f target/orcpub.jar || exit 1
 
 # Alpine runner — BusyBox wget handles healthchecks (use -q --spider, not GNU flags)
