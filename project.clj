@@ -270,11 +270,11 @@
                                                            :externs       ["externs.js"]
                                                            :pretty-print  false}}}}}
              ;; Docker build: CLJS is compiled separately (cljsbuild hangs in no-TTY).
-             ;; uberjar-cljs — CLJS only, no prep-tasks (run cljsbuild directly).
-             ;; uberjar-jar  — garden + AOT + jar packaging, no cljsbuild.
+             ;; uberjar-cljs    — CLJS only, no prep-tasks (run cljsbuild directly).
+             ;; uberjar-package — garden + AOT + jar packaging, no cljsbuild.
              ;; See: docs/LEIN-UBERJAR-HANG.md
-             :uberjar-cljs {:prep-tasks ^:replace []}
-             :uberjar-jar  {:prep-tasks ^:replace [["garden" "once"] "compile"]}
+             :uberjar-cljs    {:prep-tasks ^:replace []}
+             :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
              :lint         {:dependencies [[clj-kondo "2026.01.19"]]}
              ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden

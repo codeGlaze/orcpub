@@ -1,15 +1,27 @@
-# lein uberjar Hangs After Build
+# lein uberjar Hangs During Docker Build
 
 ## The Problem
 
-`lein uberjar` completes compilation (AOT + ClojureScript) but the JVM never
-exits. In a terminal you'd wait a minute and hit Ctrl-C. Inside a Docker build,
-the `RUN` step hangs indefinitely, eventually hitting the CI timeout.
+`lein uberjar` hangs indefinitely in Docker and CI (no-TTY environments).
+The ClojureScript compilation succeeds, but lein never reaches AOT or jar
+packaging. In a terminal you'd wait and eventually Ctrl-C. Inside a Docker
+build, the `RUN` step hangs until CI times out.
 
-This blocks the Docker Integration CI pipeline — the build succeeds but the
-step never finishes.
+## Root Causes
 
-## Root Cause
+Two compounding issues cause the hang:
+
+### 1. cljsbuild I/O subprocess pump (primary)
+
+`lein-cljsbuild` spawns a subprocess for ClojureScript compilation and pumps
+its I/O streams. In no-TTY environments (Docker, CI), the pump hangs after
+compilation finishes — the cljsbuild prep-task never returns control to lein.
+The jar is **never created** because lein never gets past the prep-tasks.
+
+This is [lein-cljsbuild issue #171](https://github.com/emezeske/lein-cljsbuild/issues/171).
+The plugin is abandoned (last release: 1.1.8, April 2020).
+
+### 2. Non-daemon agent threads (secondary)
 
 Clojure's agent thread pool uses **non-daemon threads**. From the
 [official docs](https://clojure.org/reference/agents):
@@ -18,21 +30,16 @@ Clojure's agent thread pool uses **non-daemon threads**. From the
 > prevent shutdown of the JVM. Use `shutdown-agents` to terminate these
 > threads and allow shutdown.
 
-During AOT compilation (`:aot :all`), every namespace is loaded and evaluated.
-Any library that calls `send`, `send-off`, or `pmap` at load time starts these
-threads. The Google Closure Compiler (used by `lein-cljsbuild` for `:advanced`
-optimizations) and various Clojure libraries trigger this.
-
-After the uberjar is fully built, the JVM should exit — but the non-daemon
-threads keep it alive. Leiningen does not call `(shutdown-agents)` after
-compilation, and `lein-cljsbuild` (abandoned since 2020, latest 1.1.8) does
-not clean up either.
+During AOT compilation (`:aot :all`), every namespace is loaded. Libraries
+that call `send`, `send-off`, or `pmap` at load time start these threads.
+Even if lein finishes, the JVM won't exit. This compounds with the cljsbuild
+hang — even bypassing the pump issue wouldn't fully solve the problem.
 
 ## Why Not Just Call `(shutdown-agents)`?
 
 `shutdown-agents` is a runtime function call, not a project.clj config option.
-You'd have to modify application code to fix a build-only problem. The uberjar
-build doesn't run `-main` — it only compiles.
+It also doesn't fix the primary issue — the hang is in cljsbuild's I/O pump,
+not in post-build thread cleanup. The uberjar build doesn't run `-main`.
 
 ## The Fix
 
@@ -44,26 +51,28 @@ Leiningen profiles in `project.clj` make this work:
 :uberjar-cljs {:prep-tasks ^:replace []}
 
 ;; Garden CSS + AOT + jar packaging — no cljsbuild
-:uberjar-jar  {:prep-tasks ^:replace [["garden" "once"] "compile"]}
+:uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]}
 ```
 
-In `docker/Dockerfile`:
+In `docker/Dockerfile`, both steps use `timeout` + artifact check:
 
 ```dockerfile
-# Step 1: CLJS only. timeout kills the post-compilation hang.
-# "Successfully compiled" = JS file exists = success.
+# Step 1: CLJS only. timeout kills the post-compilation I/O pump hang.
 RUN timeout 120 lein with-profile uberjar,uberjar-cljs cljsbuild once prod; \
     test -f resources/public/js/compiled/orcpub.js || exit 1
 
-# Step 2: garden CSS + AOT + jar packaging (JS already in resources/).
-RUN lein with-profile uberjar,uberjar-jar uberjar
+# Step 2: garden CSS + AOT + jar packaging. timeout kills the post-AOT
+# agent thread hang. jar check confirms success.
+RUN timeout 300 lein with-profile +uberjar-package uberjar; \
+    test -f target/orcpub.jar || exit 1
 ```
 
 - **Step 1** merges `uberjar` (for compiler config) with `uberjar-cljs` (wipes
-  prep-tasks). `timeout` kills the JVM after CLJS finishes, then `test -f`
-  confirms the JS file was produced. No wasted AOT.
-- **Step 2** merges `uberjar` with `uberjar-jar` (garden + AOT, no cljsbuild).
-  The compiled JS from step 1 is already in `resources/public/js/compiled/`.
+  prep-tasks). `timeout` kills the JVM after CLJS finishes (I/O pump hang),
+  then `test -f` confirms the JS file was produced. No wasted AOT.
+- **Step 2** uses `+uberjar-package` on top of the auto-activated `:uberjar`
+  profile (garden + AOT, no cljsbuild). `timeout` kills the JVM after packaging
+  (non-daemon agent thread hang), then `test -f` confirms the jar exists.
 - Garden CSS is gitignored (build artifact), so it must run during Docker build.
 
 In CI (`.github/workflows/docker-integration.yml`), the build uses
@@ -76,7 +85,7 @@ stalling during image export.
 | File | What | Why |
 |------|------|-----|
 | `docker/Dockerfile` | Two-step build with `timeout` | Isolates cljsbuild hang |
-| `project.clj` | `:uberjar-cljs` + `:uberjar-jar` profiles | Split prep-tasks |
+| `project.clj` | `:uberjar-cljs` + `:uberjar-package` profiles | Split prep-tasks |
 | `.github/workflows/docker-integration.yml` | `DOCKER_BUILDKIT=0` + direct `docker build` | Avoids BuildKit export hang |
 | `project.clj` | `lein-cljsbuild 1.1.8` | Abandoned plugin, no thread cleanup |
 

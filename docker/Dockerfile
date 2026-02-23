@@ -72,10 +72,12 @@ ADD ./ /orcpub
 #
 # Step 1: CLJS only (no prep-tasks, no wasted AOT). timeout kills the
 #         post-compilation hang. "Successfully compiled" = JS is ready.
-# Step 2: garden CSS + AOT + jar packaging (no cljsbuild).
+# Step 2: garden CSS + AOT + jar packaging (no cljsbuild). timeout kills
+#         the post-AOT hang (non-daemon agent threads). jar check = success.
 RUN timeout 120 lein with-profile uberjar,uberjar-cljs cljsbuild once prod; \
     test -f resources/public/js/compiled/orcpub.js || exit 1
-RUN lein with-profile uberjar,uberjar-jar uberjar
+RUN timeout 300 lein with-profile +uberjar-package uberjar; \
+    test -f target/orcpub.jar || exit 1
 
 # Alpine runner — BusyBox wget handles healthchecks (use -q --spider, not GNU flags)
 FROM eclipse-temurin:21-jre-alpine-3.22 AS app
