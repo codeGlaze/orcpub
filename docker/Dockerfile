@@ -21,6 +21,8 @@ RUN curl --fail --location --silent --show-error \
 
 # ── Target: transactor ───────────────────────────────────────
 # Runs the Datomic Pro transactor with dev storage protocol.
+# Configuration: docker/transactor.properties.template (complete, pre-tuned).
+# Secrets (passwords) are substituted at runtime by deploy/start.sh.
 FROM eclipse-temurin:21-jre-alpine-3.22 AS transactor
 
 RUN apk add --no-cache bash
@@ -28,20 +30,13 @@ RUN apk add --no-cache bash
 COPY --from=datomic-dist /datomic /datomic
 WORKDIR /datomic
 
-# Configure dev storage protocol (datomic:dev://)
-RUN cp config/samples/dev-transactor-template.properties transactor.properties
+# Template with ${VAR} placeholders for secrets only.
+# All structural config (host, protocol, dirs, memory) is pre-set.
+COPY docker/transactor.properties.template /datomic/transactor.properties.template
 
-RUN mkdir -p /data /log
-RUN sed -i "s/# data-dir=data/data-dir=\/data/" transactor.properties
-RUN sed -i "s/# log-dir=log/log-dir=\/log/" transactor.properties
+RUN mkdir -p /data /log /backups
 
-# host= is what the transactor ADVERTISES to peers, not what it binds to.
-# Peers connect, receive this hostname, then use it to reach the transactor.
-# Must match the Docker Compose service name so peer DNS resolves correctly.
-RUN sed -i "s/host=localhost/host=datomic/" transactor.properties
-RUN sed -i "s/# storage-access=local/storage-access=remote/" transactor.properties
-
-ADD deploy/start.sh /datomic/
+COPY deploy/start.sh /datomic/start.sh
 RUN chmod +x /datomic/start.sh
 
 EXPOSE 4334 4335 4336
