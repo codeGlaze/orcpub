@@ -287,10 +287,20 @@
                             :omit-source true}
              ;; Docker build: CLJS is compiled separately (cljsbuild hangs in no-TTY).
              ;; uberjar-cljs    — wipes prep-tasks so cljsbuild runs alone (no AOT).
-             ;; uberjar-package — skips clean (preserves step 1 JS), runs garden + AOT.
+             ;; uberjar-package — excludes lein-cljsbuild from plugins entirely.
+             ;;   The compile-hook in lein-cljsbuild ALWAYS spawns a subprocess via
+             ;;   eval-in-project, even with zero builds. The I/O pump in that
+             ;;   subprocess hangs in no-TTY environments. The only way to prevent
+             ;;   this is to not load the plugin at all, so activate() never runs
+             ;;   and hooks are never registered.
              ;; See: docs/LEIN-UBERJAR-HANG.md
              :uberjar-cljs    {:prep-tasks ^:replace []}
-             :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]}
+             :uberjar-package {:prep-tasks ^:replace [["garden" "once"] "compile"]
+                               ;; Only garden + environ needed. Excluding lein-cljsbuild
+                               ;; prevents its activate() from registering hooks that
+                               ;; spawn a subprocess on every compile/jar call.
+                               :plugins ^:replace [[lein-garden "0.3.0"]
+                                                   [lein-environ "1.2.0"]]}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
              :lint         {:dependencies [[clj-kondo "2026.01.19"]]}
              ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden
