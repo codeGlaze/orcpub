@@ -118,6 +118,8 @@ jobs:
       - name: Build container images (Java 21)
         id: build
         if: needs.detect-stack.outputs.build-mode == 'build'
+        env:
+          DOCKER_BUILDKIT: 0
         run: |
           echo "Building from source with $COMPOSE_FILE..."
           docker compose -f "$COMPOSE_FILE" build --progress=plain
