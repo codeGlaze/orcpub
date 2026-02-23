@@ -121,9 +121,11 @@ jobs:
         env:
           DOCKER_BUILDKIT: 0
         run: |
-          echo "Building from source with $COMPOSE_FILE..."
-          docker compose -f "$COMPOSE_FILE" build --progress=plain
-          echo "Build complete"
+          echo "=== Building datomic (transactor) ==="
+          docker build --progress=plain --target transactor -t orcpub-datomic -f docker/Dockerfile .
+          echo "=== Building orcpub (app) ==="
+          docker build --progress=plain --target app -t orcpub-app -f docker/Dockerfile .
+          echo "=== Build complete ==="
 
       - name: Pull container images (Java 8)
         id: pull

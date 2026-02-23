@@ -1,6 +1,7 @@
 ---
 services:
   orcpub:
+    image: orcpub-app
     build:
       context: .
       dockerfile: docker/Dockerfile
@@ -30,6 +31,7 @@ services:
       start_period: 15s
     restart: always
   datomic:
+    image: orcpub-datomic
     build:
       context: .
       dockerfile: docker/Dockerfile
