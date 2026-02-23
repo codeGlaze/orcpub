@@ -3,7 +3,8 @@ services:
   orcpub:
     build:
       context: .
-      dockerfile: docker/orcpub/Dockerfile
+      dockerfile: docker/Dockerfile
+      target: app
     environment:
       PORT: ${PORT:-8890}
       EMAIL_SERVER_URL: ${EMAIL_SERVER_URL:-}
@@ -31,7 +32,8 @@ services:
   datomic:
     build:
       context: .
-      dockerfile: docker/datomic/Dockerfile
+      dockerfile: docker/Dockerfile
+      target: transactor
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
       DATOMIC_PASSWORD: ${DATOMIC_PASSWORD:-change-me}
