@@ -122,9 +122,9 @@ jobs:
           DOCKER_BUILDKIT: 0
         run: |
           echo "=== Building datomic (transactor) ==="
-          docker build --progress=plain --target transactor -t orcpub-datomic -f docker/Dockerfile .
+          docker build --target transactor -t orcpub-datomic -f docker/Dockerfile .
           echo "=== Building orcpub (app) ==="
-          docker build --progress=plain --target app -t orcpub-app -f docker/Dockerfile .
+          docker build --target app -t orcpub-app -f docker/Dockerfile .
           echo "=== Build complete ==="
 
       - name: Pull container images (Java 8)
