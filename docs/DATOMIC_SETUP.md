@@ -72,9 +72,48 @@ See `docs/DATOMIC_JAVA21_TEST_RESULTS.md` for complete test results.
 
 Migration to Datomic Pro is required for JDK 21 support.
 
+## Distribution & Maven
+
+Datomic Pro is **not on Maven Central**. The peer jar is only available inside
+the distribution zip hosted on S3 (`datomic-pro-downloads.s3.amazonaws.com`).
+The zip is public (no auth required).
+
+The distribution bundles `bin/maven-install` — a shell script that calls
+`mvn install:install-file` to place the peer jar into `~/.m2/repository/`.
+**`mvn` must be installed** for this to work (Alpine images don't have it).
+
+## Docker Build Architecture
+
+A single `docker/Dockerfile` with a shared download stage and two build targets:
+
+- `datomic-dist` — downloads the zip once (shared layer)
+- `transactor` — copies full distribution, configures dev storage, runs transactor
+- `app` — copies distribution, runs `maven-install` for peer jar, builds uberjar
+
+`docker-compose-build.yaml` selects targets:
+```yaml
+orcpub:
+  build: { dockerfile: docker/Dockerfile, target: app }
+datomic:
+  build: { dockerfile: docker/Dockerfile, target: transactor }
+```
+
+**Do NOT split into separate Dockerfiles** — that causes the 150MB zip to be
+downloaded twice independently.
+
+### BuildKit on GitHub Actions
+
+`docker compose build` delegates to BuildKit (buildx) on GH runners. BuildKit
+**hangs for 10+ minutes** during image export after successful compilation.
+Force the legacy builder with `DOCKER_BUILDKIT=0` in CI.
+
 ## Summary for Agents
 
 - Never treat the transactor as a JAR or attempt to run it as one
 - Never rename the peer JAR; always use the original name and location
 - Installation is handled by `.devcontainer/post-create.sh`, not custom scripts
 - Use the existing `file:lib` pattern for vendor dependencies
+- Datomic Pro is NOT on Maven Central — only available via S3 zip download
+- `bin/maven-install` requires `mvn` — ensure Maven is installed in build images
+- Docker uses ONE Dockerfile with two targets — never split back into two files
+- Disable BuildKit in CI (`DOCKER_BUILDKIT=0`) to avoid export hang
