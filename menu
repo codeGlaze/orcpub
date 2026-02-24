@@ -34,7 +34,7 @@ Usage:
   ./menu start [service]      Start services (passthrough to start.sh)
   ./menu stop [service]       Stop services (passthrough to stop.sh)
   ./menu status               Show service status
-  ./menu cleanup              Kill duplicate processes & show memory
+  ./menu cleanup              Show Java/Clojure process memory usage
 
 Quick CLI examples:
   ./menu start datomic        Start just Datomic
@@ -500,7 +500,7 @@ show_utils_submenu() {
     echo "  u) Create test user (verified)"
     echo "  i) Install Datomic"
     echo "  c) Check prerequisites"
-    echo "  m) Memory cleanup (kill duplicates)"
+    echo "  m) Show memory usage"
     echo "  r) Refresh status"
     echo ""
     echo "  0) Back"
@@ -547,7 +547,10 @@ handle_utils_submenu() {
                 ;;
             m|M)
                 echo ""
-                "$SCRIPT_DIR/scripts/cleanup-duplicates.sh"
+                echo -e "${BOLD}Java/Clojure Processes:${NC}"
+                ps aux 2>/dev/null | grep -E '[j]ava|[l]ein' | awk '{printf "  PID %-8s  RSS %-8s  %s\n", $2, $6, substr($0, index($0,$11))}' || echo "  (none)"
+                echo ""
+                echo "To kill duplicates: ./scripts/stop.sh --yes --force"
                 echo ""
                 read -r -p "Press Enter to continue..."
                 return
@@ -741,7 +744,10 @@ main() {
             "$SCRIPT_DIR/scripts/stop.sh" --dry-run
             ;;
         cleanup)
-            "$SCRIPT_DIR/scripts/cleanup-duplicates.sh"
+            echo -e "${BOLD}Java/Clojure Processes:${NC}"
+            ps aux 2>/dev/null | grep -E '[j]ava|[l]ein' | awk '{printf "  PID %-8s  RSS %-8s  %s\n", $2, $6, substr($0, index($0,$11))}' || echo "  (none)"
+            echo ""
+            echo "To kill all: ./scripts/stop.sh --yes --force"
             ;;
         add)
             shift

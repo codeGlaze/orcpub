@@ -85,3 +85,6 @@ cljsjs/
 
 # Local devcontainer setup (superseded by dotfiles)
 .devcontainer/local-setup.sh
+
+# Datomic migration backups (created by docs/migration/tools/migrate-db.sh)
+/backup/
