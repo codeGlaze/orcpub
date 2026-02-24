@@ -275,9 +275,11 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}}
-             ;; figwheel-main --build-once exits cleanly (no JVM hang like lein-cljsbuild).
-             ;; Full pipeline: clean → CSS → CLJS → AOT → jar. Just `lein uberjar`.
-             :uberjar      {:prep-tasks  ["clean" ["garden" "once"] ["run" "-m" "figwheel.main" "--" "--build-once" "prod"] "compile"]
+             ;; CLJS compilation is separate (fig:prod locally, figwheel-main in Docker).
+             ;; Cannot add figwheel to prep-tasks — `run` as a prep-task triggers
+             ;; the uberjar profile's own prep-tasks again, causing infinite recursion.
+             ;; Bare-metal: `lein fig:prod && lein uberjar`
+             :uberjar      {:prep-tasks  ["clean" ["garden" "once"] "compile"]
                             :env         {:production true}
                             :aot         :all
                             :omit-source true}
