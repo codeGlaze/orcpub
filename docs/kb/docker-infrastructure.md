@@ -56,7 +56,7 @@
 | `docker/Dockerfile` | Multi-target: datomic-dist, transactor, app-builder, app |
 | `docker/transactor.properties.template` | Complete transactor config (Option C) |
 | `deploy/start.sh` | Transactor startup: secret substitution + exec |
-| `deploy/nginx.conf` | Nginx reverse proxy config |
+| `deploy/nginx.conf.template` | Nginx reverse proxy template (envsubst resolves `${ORCPUB_PORT}`) |
 | `docker-compose-build.yaml` | Build-from-source compose |
 | `docker-compose.yaml` | Pre-built images compose |
 | `docker-setup.sh` | Interactive setup: .env, dirs, SSL |

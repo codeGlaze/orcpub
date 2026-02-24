@@ -70,19 +70,22 @@ history` or shared CI daemons.
 **What breaks if reverted:** Secrets in build cache. Final image unaffected
 (only copies jar), but builder layer is compromised.
 
-## CMD-SHELL Healthcheck with PORT
+## Dynamic PORT Across All Services
 
-**Decision:** `CMD-SHELL` instead of `CMD` for app healthcheck.
+**Decision:** PORT is dynamic in healthcheck (CMD-SHELL) and nginx (envsubst template).
 
-**Why:** `CMD` (array) does no shell expansion — `${PORT:-8890}` is literal.
-`CMD-SHELL` runs through `/bin/sh -c`, expanding the variable from container env.
+**How it works:**
+- Healthcheck: `CMD-SHELL` runs through `/bin/sh -c`, expanding `${PORT:-8890}`
+- Nginx: `deploy/nginx.conf.template` uses `${ORCPUB_PORT}`. Official `nginx:alpine`
+  runs `envsubst` on `/etc/nginx/templates/*.template` at startup. Only defined
+  env vars are substituted — nginx's `$host`, `$scheme`, `$remote_addr` are safe.
+- Compose passes `ORCPUB_PORT: ${PORT:-8890}` to web service.
 
-**Caveat:** `deploy/nginx.conf` hardcodes `proxy_pass http://orcpub:8890`.
-Changing PORT without updating nginx breaks the proxy. The dynamic healthcheck
-is defense-in-depth, not a complete PORT-flexibility solution.
+**Why ORCPUB_PORT not PORT:** Avoids name collision with nginx internals and makes
+the compose explicit about what the web service needs.
 
-**What breaks if reverted to CMD:** Healthcheck always hits 8890 regardless of
-PORT setting. If PORT ever changes, healthcheck fails, web never starts.
+**What breaks if reverted to static 8890:** Changing PORT in .env breaks both
+healthcheck (wrong port) and nginx proxy (wrong upstream). Web service never starts.
 
 ## DATOMIC_URL Password Sync Validation
 
