@@ -35,6 +35,7 @@
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
+            [orcpub.dnd.e5.views.common :as views-common]
             [orcpub.dnd.e5.subs :as subs5e]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
@@ -484,11 +485,11 @@
          [:div.flex.align-items-c
           (when multiselect?
             [:span.m-r-5 (comps/checkbox selected? disable-checkbox?)])
-          (when icon [:div.m-r-5 (views5e/svg-icon icon 24)])
+          (when icon [:div.m-r-5 (views-common/svg-icon icon 24)])
           [:span.f-w-b.f-s-1.flex-grow-1 name]
           (when edit-event
             [:span.orange.underline.pointer
-             {:on-click (apply views5e/make-stop-prop-event-handler edit-event)}
+             {:on-click (apply views-common/make-stop-prop-event-handler edit-event)}
              "edit"])
           (when help
             [show-info-button expanded?])]
@@ -503,7 +504,7 @@
 (defn skill-help [name key ability icon description]
   [:div
    [:div.flex.align-items-c
-    (views5e/svg-icon icon 48)
+    (views-common/svg-icon icon 48)
     [:div.f-s-18.f-w-b.m-l-5
      [:div name]
      [:div.i (str "(" (:name (opt5e/abilities-map ability)) ")")]]]
@@ -602,7 +603,7 @@
          (when (and (or title name) parent-title)
            (selection-section-parent-title parent-title))
          [:div.flex.align-items-c.w-100-p.justify-cont-s-b
-          (when icon (views5e/svg-icon icon 24))
+          (when icon (views-common/svg-icon icon 24))
           (if (or title name)
             (selection-section-title (or title name))
             (when parent-title
@@ -625,7 +626,7 @@
               (if-not homebrew?
                 (str "Homebrew is off for " title " - enabling this option allows you select options you would not normally have (turns on homebrew rules)")
                 (str "Homebrew is on for " title " - you can select anything and make it homebrew"))
-              (views5e/svg-icon "beer-stein" 18)]])]
+              (views-common/svg-icon "beer-stein" 18)]])]
          (when (and help path @expanded?)
            [help-section help])
          (when (int? min)
@@ -1565,7 +1566,7 @@
                [:div.f-s-10.m-b-2
                 name])
              [:div.t-a-c
-              (views5e/svg-icon icon 32)]]
+              (views-common/svg-icon icon 32)]]
             (when (not (zero? total-remaining))
               [:div.flex.justify-cont-end.m-t--10.p-l-20 (remaining-indicator total-remaining 12 11)])]))
        pages))]))
@@ -1588,7 +1589,7 @@
     (fn []
       [:div.m-b-20
        [:div.flex.align-items-c
-        (views5e/svg-icon "bookshelf" 36)
+        (views-common/svg-icon "bookshelf" 36)
         (selection-section-title "Option Sources")
         [expand-button "collapse" "select sources" expanded?]]
        (if @expanded?
@@ -2151,7 +2152,7 @@
          [:div.flex
           [theme-toggle]
           (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c
-                                  (views5e/svg-icon "thunder-skull" 24 24)
+                                  (views-common/svg-icon "thunder-skull" 24 24)
                                   (when (not mobile?)
                                     [:span "You have unsaved changes"])])]]]]
       [:div.flex.justify-cont-c.p-b-40
