@@ -188,6 +188,10 @@
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
             "fig:prod" ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
+            ;; Single-command production build: CLJS → uberjar.
+            ;; fig:prod runs without :uberjar profile (avoids prep-task recursion).
+            ;; CLJS output (resources/public/) survives uberjar's clean (target/ only).
+            "build" ["do" "fig:prod," "uberjar"]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
@@ -278,7 +282,7 @@
              ;; CLJS compilation is separate (fig:prod locally, figwheel-main in Docker).
              ;; Cannot add figwheel to prep-tasks — `run` as a prep-task triggers
              ;; the uberjar profile's own prep-tasks again, causing infinite recursion.
-             ;; Bare-metal: `lein fig:prod && lein uberjar`
+             ;; Use `lein build` (alias above) for single-command CLJS+uberjar.
              :uberjar      {:prep-tasks  ["clean" ["garden" "once"] "compile"]
                             :env         {:production true}
                             :aot         :all
