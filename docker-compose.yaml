@@ -17,6 +17,8 @@ services:
       # Datomic Pro with dev storage protocol (required for Java 21 support)
       DATOMIC_URL: ${DATOMIC_URL:-datomic:dev://datomic:4334/orcpub?password=change-me}
       SIGNATURE: ${SIGNATURE:-change-me-to-something-unique}
+      CSP_POLICY: ${CSP_POLICY:-strict}
+      DEV_MODE: ${DEV_MODE:-}
     depends_on:
       datomic:
         condition: service_healthy
@@ -24,7 +26,7 @@ services:
       # BusyBox wget (Alpine): only -q and --spider are supported.
       # Use 127.0.0.1 (not localhost) to avoid IPv4/IPv6 ambiguity.
       # /health returns 200 OK — lighter than / which renders the full SPA page.
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8890/health"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:${PORT:-8890}/health"]
       interval: 10s
       timeout: 5s
       retries: 30

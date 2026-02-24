@@ -32,7 +32,7 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `8080` | Production web server port (dev uses 8890) |
+| `PORT` | `8890` | Web server port. Must match `deploy/nginx.conf` `proxy_pass` (currently 8890). |
 | `SIGNATURE` | — | **Required.** JWT signing secret for authentication. All login and API calls fail without it. |
 | `ADMIN_PASSWORD` | — | Admin password |
 
@@ -63,10 +63,14 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `EMAIL_HOST` | — | SMTP server hostname |
-| `EMAIL_PORT` | — | SMTP port |
-| `EMAIL_USER` | — | SMTP username |
-| `EMAIL_PASSWORD` | — | SMTP password |
+| `EMAIL_SERVER_URL` | — | SMTP server hostname. Leave empty to disable email. |
+| `EMAIL_ACCESS_KEY` | — | SMTP username |
+| `EMAIL_SECRET_KEY` | — | SMTP password |
+| `EMAIL_SERVER_PORT` | `587` | SMTP port |
+| `EMAIL_FROM_ADDRESS` | `no-reply@dungeonmastersvault.com` | Sender email address |
+| `EMAIL_ERRORS_TO` | — | Error notification recipient |
+| `EMAIL_SSL` | `FALSE` | Enable SSL for SMTP |
+| `EMAIL_TLS` | `FALSE` | Enable TLS for SMTP |
 
 ### Logging
 
