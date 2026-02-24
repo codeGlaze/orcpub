@@ -36,6 +36,12 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 | `SIGNATURE` | — | **Required.** JWT signing secret for authentication. All login and API calls fail without it. |
 | `ADMIN_PASSWORD` | — | Admin password |
 
+### Plugins
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOAD_HOMEBREW_URL` | — | URL to fetch server-hosted `.orcbrew` plugins on first load (e.g. `/homebrew.orcbrew`). Unset = no fetch. |
+
 ### Security
 
 | Variable | Default | Description |
@@ -92,6 +98,7 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 | `src/clj/orcpub/config.clj` | `DATOMIC_URL`, `CSP_POLICY`, `DEV_MODE` |
 | `src/clj/orcpub/system.clj` | `PORT` (via `System/getenv`) |
 | `src/clj/orcpub/routes.clj` | `SIGNATURE`, `EMAIL_*`, `ADMIN_PASSWORD` |
+| `src/clj/orcpub/index.clj` | `DEV_MODE`, `LOAD_HOMEBREW_URL` |
 | `.devcontainer/post-create.sh` | `DATOMIC_VERSION`, `DATOMIC_TYPE` |
 | `scripts/start.sh` | `DATOMIC_URL`, `LOG_DIR` |
 | `deploy/start.sh` | `ADMIN_PASSWORD`, `DATOMIC_PASSWORD`, `ALT_HOST`, `ENCRYPT_CHANNEL`, `*_OLD` rotation vars |

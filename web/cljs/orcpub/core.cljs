@@ -28,7 +28,6 @@
             [clojure.string :as s]
             [re-frame.core :refer [dispatch dispatch-sync subscribe]]
             [reagent.core :as r]
-            [reagent.ratom :as ratom]
             [reagent.dom.client :as rdc]
             [goog.events])
   (:import
@@ -46,18 +45,6 @@
 ;; Init template cache after all subscription handlers are registered.
 ;; Must be called here (not self-initializing) so equipment-subs has loaded.
 (autosave-fx/init-template-cache!)
-
-;; DEBUG: trace subscribe calls outside reactive context.
-;; Prints a full stack trace so we can find the call site.
-;; REMOVE after fixing the warnings.
-(let [original-subscribe re-frame.core/subscribe]
-  (set! re-frame.core/subscribe
-        (fn [query-v & args]
-          (when-not (ratom/reactive?)
-            (js/console.warn "[TRACE] subscribe outside reactive context:"
-                             (pr-str query-v))
-            (js/console.trace))
-          (apply original-subscribe query-v args))))
 
 (def pages
   {;; Splash / default
