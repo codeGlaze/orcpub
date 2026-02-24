@@ -43,6 +43,11 @@
 - Do NOT use envsubst in Alpine — requires gettext package; use sed instead
 - Do NOT run lein uberjar as a single step in Docker — subprocess hangs permanently
 - Do NOT run the transactor without `exec` — shell stays as PID 1, swallows Docker signals
+- Do NOT use raw password values in sed replacements — escape `\`, `&`, `|` first (silent corruption)
+- Do NOT mount `./logs:/logs` — transactor uses `log-dir=/log` (no trailing s), mount to `/log`
+- Do NOT create `.env` or `transactor.properties` without `chmod 600` — contains plaintext secrets
+- Do NOT run containers as root — both stages have non-root users (datomic, app)
+- Do NOT trust ENVIRONMENT.md email vars blindly — cross-check against `email.clj` (was wrong for months)
 
 ## File Inventory
 
