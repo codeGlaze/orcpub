@@ -15,11 +15,11 @@
 # the installed Pro distribution.
 #
 # Usage:
-#   ./docs/migration/tools/migrate-db.sh backup                  Back up the running database
-#   ./docs/migration/tools/migrate-db.sh restore <target-uri>    Restore into a new database
-#   ./docs/migration/tools/migrate-db.sh verify                  Verify a backup's integrity
-#   ./docs/migration/tools/migrate-db.sh list                    List available backup points
-#   ./docs/migration/tools/migrate-db.sh full                    Guided full migration
+#   ./migration/tools/migrate-db.sh backup                  Back up the running database
+#   ./migration/tools/migrate-db.sh restore <target-uri>    Restore into a new database
+#   ./migration/tools/migrate-db.sh verify                  Verify a backup's integrity
+#   ./migration/tools/migrate-db.sh list                    List available backup points
+#   ./migration/tools/migrate-db.sh full                    Guided full migration
 #
 # Prerequisites:
 #   - Source transactor running (for backup)
@@ -35,9 +35,9 @@ set -euo pipefail
 trap 'echo ""; log_warn "Interrupted. If a backup or restore was in progress, it may be incomplete."; exit 130' INT TERM
 
 # Source shared utilities (env, logging, Datomic paths).
-# This script lives in docs/migration/tools/ but sources from scripts/.
+# This script lives in migration/tools/ but sources from scripts/.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck disable=SC1091
 source "$REPO_ROOT/scripts/common.sh"
 
