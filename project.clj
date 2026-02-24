@@ -188,6 +188,12 @@
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
             "fig:prod" ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
+            ;; Single-command production build: clean → CLJS → uberjar.
+            ;; clean runs first because :clean-targets includes
+            ;; resources/public/js/compiled (the CLJS output dir).
+            ;; The :uberjar profile itself never cleans — CLJS is compiled
+            ;; BEFORE the uberjar step and must not be deleted.
+            "build" ["do" "clean," "fig:prod," ["with-profile" "uberjar" "uberjar"]]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
@@ -276,19 +282,28 @@
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}}
              ;; CLJS compilation is separate (fig:prod locally, figwheel-main in Docker).
-             ;; No lein-cljsbuild plugin in the project at all, so no hook hang.
-             :uberjar      {:prep-tasks  ["clean" ["garden" "once"] "compile"]
+             ;; Cannot add figwheel to prep-tasks — `run` as a prep-task triggers
+             ;; the uberjar profile's own prep-tasks again, causing infinite recursion.
+             ;; Use `lein build` (alias above) for single-command CLJS+uberjar.
+             ;;
+             ;; IMPORTANT: no "clean" here and :auto-clean false. CLJS is compiled
+             ;; BEFORE the uberjar step (fig:prod in build alias, figwheel-main in
+             ;; Docker). If clean ran here it would delete resources/public/js/compiled/
+             ;; (the CLJS output), causing orcpub.js to be missing from the jar → 404.
+             ;; The build alias and Docker both handle clean explicitly/implicitly.
+             ;; ^:replace prevents lein's default prep-tasks ["javac" "compile"] from
+             ;; being concatenated, and survives the uberjar task's internal re-merge
+             ;; of the :uberjar profile.
+             :uberjar      {:auto-clean  false
+                            :prep-tasks  ^:replace [["garden" "once"] "compile"]
                             :env         {:production true}
                             :aot         :all
                             :omit-source true}
              ;; Docker build: CLJS is compiled separately via figwheel-main.
-             ;; uberjar-package removes "clean" AND "compile" from prep-tasks,
-             ;; and disables auto-clean (jar.clj calls clean/clean before
-             ;; prep-tasks unless :auto-clean is false). AOT compile is done
-             ;; in a prior Docker step; this profile just packages existing
-             ;; .class files into the jar.
-             :uberjar-package {:auto-clean false
-                               :prep-tasks ^:replace [["garden" "once"]]}
+             ;; uberjar-package removes "compile" from prep-tasks and keeps
+             ;; auto-clean false. AOT compile is done in a prior Docker step;
+             ;; this profile just packages existing .class files into the jar.
+             :uberjar-package {:prep-tasks ^:replace [["garden" "once"]]}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
              :lint         {:dependencies [[clj-kondo "2026.01.19"]]}
              ;; Minimal profile for init-db and dev CLI - no ClojureScript, no Garden

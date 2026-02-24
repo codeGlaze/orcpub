@@ -7,6 +7,12 @@
 
 (def devmode? (env :dev-mode))
 
+(def homebrew-url
+  "URL to fetch server-hosted .orcbrew plugins from on first load.
+   Set LOAD_HOMEBREW_URL to enable (e.g. \"/homebrew.orcbrew\" or a full URL).
+   When unset, no fetch is attempted — plugins come only from local imports."
+  (env :load-homebrew-url))
+
 (defn meta-tag [property content]
   (when content
     [:meta
@@ -142,20 +148,15 @@ html {
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
     (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
     (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
-    (if devmode?
-      (println "dev mode - no script")
-
+    (when homebrew-url
       (script-tag {:nonce nonce}
-       "const protocol = window.location.protocol;
-        const apiUrl = `${protocol}://${window.location.host}`;
-        const pluginUrl = `${apiUrl}/homebrew.orcbrew`;
-
+       (str "
         let plugins = localStorage.getItem('plugins');
         if (plugins === null || plugins === '{}') {
-          fetch(pluginUrl)
+          fetch('" homebrew-url "')
             .then(resp => {
               if (!resp.ok) {
-                throw new Error(`Failed to fetch plugins: ${resp.status} ${resp.statusText}`);
+                throw new Error('Failed to fetch plugins: ' + resp.status);
               }
               return resp.text();
             })
@@ -167,10 +168,8 @@ html {
             })
             .catch(error => {
               console.error('Error fetching plugins:', error);
-              // You can also add a fallback or default behavior here
             });
         }
-      ")
-    )
+       ")))
    ]))
   
