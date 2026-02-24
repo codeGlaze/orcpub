@@ -44,6 +44,7 @@ RUN addgroup -S datomic && adduser -S -G datomic datomic \
  && chown -R datomic:datomic /data /log /backups /datomic
 USER datomic
 
+VOLUME ["/data", "/log", "/backups"]
 EXPOSE 4334 4335 4336
 CMD ["/datomic/start.sh"]
 

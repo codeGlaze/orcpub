@@ -131,7 +131,7 @@ healthcheck:
 
 ```yaml
 healthcheck:
-  test: ["CMD-SHELL", "grep -q ':10EE ' /proc/net/tcp"]
+  test: ["CMD-SHELL", "grep -q ':10EE ' /proc/net/tcp || grep -q ':10EE ' /proc/net/tcp6"]
 ```
 
 Checks that port 4334 (hex `0x10EE`) is listening by inspecting the kernel's

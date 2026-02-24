@@ -38,7 +38,7 @@ generate_password() {
   # Generate a URL-safe random password (no special chars that break URLs/YAML)
   local length="${1:-24}"
   if command -v openssl &>/dev/null; then
-    openssl rand -base64 "$length" | tr -d '/+=' | head -c "$length"
+    openssl rand -base64 "$((length * 2))" | tr -d '/+=' | head -c "$length"
   elif [ -r /dev/urandom ]; then
     tr -dc 'A-Za-z0-9' < /dev/urandom | head -c "$length"
   else
@@ -306,6 +306,22 @@ check_dir() {
   fi
 }
 
+# Validate DATOMIC_PASSWORD matches the password in DATOMIC_URL
+if [ -f "$ENV_FILE" ]; then
+  # Read specific values without polluting current shell namespace
+  _env_datomic_pw=$(grep -m1 '^DATOMIC_PASSWORD=' "$ENV_FILE" 2>/dev/null | cut -d= -f2-)
+  _env_datomic_url=$(grep -m1 '^DATOMIC_URL=' "$ENV_FILE" 2>/dev/null | cut -d= -f2-)
+  if [ -n "$_env_datomic_pw" ] && [ -n "$_env_datomic_url" ]; then
+    if [[ "$_env_datomic_url" != *"password=${_env_datomic_pw}"* ]]; then
+      warn "  DATOMIC_PASSWORD does not match the password in DATOMIC_URL"
+      ERRORS=$((ERRORS + 1))
+    else
+      info "  DATOMIC_URL password: OK"
+    fi
+  fi
+  unset _env_datomic_pw _env_datomic_url
+fi
+
 check_file ".env"                "$ENV_FILE"
 check_file "docker-compose.yaml" "${SCRIPT_DIR}/docker-compose.yaml"
 check_file "nginx.conf"          "${SCRIPT_DIR}/deploy/nginx.conf"
@@ -332,7 +348,7 @@ cat <<'NEXT'
 1. Review your .env file and adjust values if needed.
 
 2. Launch the application:
-     docker-compose up -d
+     docker compose up -d
 
 3. Create your first user (once containers are running):
      ./docker-user.sh init                                 # uses admin from .env
@@ -350,8 +366,8 @@ cat <<'NEXT'
      deploy/homebrew/homebrew.orcbrew
 
 7. To build from source instead of pulling images:
-     docker-compose -f docker-compose-build.yaml build
-     docker-compose -f docker-compose-build.yaml up -d
+     docker compose -f docker-compose-build.yaml build
+     docker compose -f docker-compose-build.yaml up -d
 
 For more details, see README.md.
 NEXT
