@@ -7,6 +7,12 @@
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
+            [orcpub.dnd.e5.views.header :as views-header]
+            [orcpub.dnd.e5.views.auth :as views-auth]
+            [orcpub.dnd.e5.views.builders :as views-builders]
+            [orcpub.dnd.e5.views.content :as views-content]
+            [orcpub.dnd.e5.views.combat :as views-combat]
+            [orcpub.dnd.e5.views.lists :as views-lists]
             [orcpub.route-map :as routes]
             [cljs-http.client :as http]
             [clojure.string :as s]
@@ -44,48 +50,63 @@
           (apply original-subscribe query-v args))))
 
 (def pages
-  {nil views-2/splash-page
+  {;; Splash / default
+   nil views-2/splash-page
    routes/default-route views-2/splash-page
-   routes/dnd-e5-orcacle-page-route views/orcacle-page
+
+   ;; Character builder (character_builder.cljs)
    routes/dnd-e5-char-builder-route ch/character-builder
-   routes/dnd-e5-newb-char-builder-route views/newb-character-builder-page
-   routes/dnd-e5-char-list-page-route views/character-list
-   routes/dnd-e5-monster-list-page-route views/monster-list
-   routes/dnd-e5-spell-list-page-route views/spell-list
-   routes/dnd-e5-spell-builder-page-route views/spell-builder-page
-   routes/dnd-e5-monster-builder-page-route views/monster-builder-page
-   routes/dnd-e5-encounter-builder-page-route views/encounter-builder-page
-   routes/dnd-e5-combat-tracker-page-route views/combat-tracker-page
-   routes/dnd-e5-background-builder-page-route views/background-builder-page
-   routes/dnd-e5-race-builder-page-route views/race-builder-page
-   routes/dnd-e5-subrace-builder-page-route views/subrace-builder-page
-   routes/dnd-e5-subclass-builder-page-route views/subclass-builder-page
-   routes/dnd-e5-class-builder-page-route views/class-builder-page
-   routes/dnd-e5-feat-builder-page-route views/feat-builder-page
-   routes/dnd-e5-language-builder-page-route views/language-builder-page
-   routes/dnd-e5-invocation-builder-page-route views/invocation-builder-page
-   routes/dnd-e5-boon-builder-page-route views/boon-builder-page
-   routes/dnd-e5-selection-builder-page-route views/selection-builder-page
-   routes/dnd-e5-item-list-page-route views/item-list
+
+   ;; Lists module — entity browsers + parties
+   routes/dnd-e5-orcacle-page-route views-lists/orcacle-page
+   routes/dnd-e5-char-list-page-route views-lists/character-list
+   routes/dnd-e5-monster-list-page-route views-lists/monster-list
+   routes/dnd-e5-spell-list-page-route views-lists/spell-list
+   routes/dnd-e5-item-list-page-route views-lists/item-list
+   routes/dnd-e5-char-parties-page-route views-lists/parties
+
+   ;; Builders module — homebrew content editors
+   routes/dnd-e5-newb-char-builder-route views-builders/newb-character-builder-page
+   routes/dnd-e5-spell-builder-page-route views-builders/spell-builder-page
+   routes/dnd-e5-monster-builder-page-route views-builders/monster-builder-page
+   routes/dnd-e5-background-builder-page-route views-builders/background-builder-page
+   routes/dnd-e5-race-builder-page-route views-builders/race-builder-page
+   routes/dnd-e5-subrace-builder-page-route views-builders/subrace-builder-page
+   routes/dnd-e5-subclass-builder-page-route views-builders/subclass-builder-page
+   routes/dnd-e5-class-builder-page-route views-builders/class-builder-page
+   routes/dnd-e5-feat-builder-page-route views-builders/feat-builder-page
+   routes/dnd-e5-language-builder-page-route views-builders/language-builder-page
+   routes/dnd-e5-invocation-builder-page-route views-builders/invocation-builder-page
+   routes/dnd-e5-boon-builder-page-route views-builders/boon-builder-page
+   routes/dnd-e5-selection-builder-page-route views-builders/selection-builder-page
+   routes/dnd-e5-item-builder-page-route views-builders/item-builder-page
+
+   ;; Combat module — encounter builder + tracker
+   routes/dnd-e5-encounter-builder-page-route views-combat/encounter-builder-page
+   routes/dnd-e5-combat-tracker-page-route views-combat/combat-tracker-page
+
+   ;; Content module — user content + account
+   routes/dnd-e5-my-content-route views-content/my-content-page
+   routes/my-account-page-route views-content/my-account-page
+
+   ;; Auth module — registration, login, password reset
+   routes/register-page-route views-auth/register-form
+   routes/verify-failed-route views-auth/verify-failed
+   routes/verify-success-route views-auth/verify-success
+   routes/verify-sent-route views-auth/verify-sent
+   routes/login-page-route views-auth/login-page
+   routes/send-password-reset-page-route views-auth/send-password-reset-page
+   routes/password-reset-sent-route views-auth/password-reset-sent
+   routes/reset-password-page-route views-auth/password-reset-page
+   routes/password-reset-success-route views-auth/password-reset-success
+   routes/password-reset-expired-route views-auth/password-reset-expired-page
+   routes/password-reset-used-route views-auth/password-reset-used-page
+
+   ;; Detail pages — stay in views/ (not yet extracted)
    routes/dnd-e5-char-page-route views/character-page
    routes/dnd-e5-monster-page-route views/monster-page
    routes/dnd-e5-spell-page-route views/spell-page
-   routes/dnd-e5-item-page-route views/item-page
-   routes/dnd-e5-item-builder-page-route views/item-builder-page
-   routes/dnd-e5-char-parties-page-route views/parties
-   routes/dnd-e5-my-content-route views/my-content-page
-   routes/my-account-page-route views/my-account-page
-   routes/register-page-route views/register-form
-   routes/verify-failed-route views/verify-failed
-   routes/verify-success-route views/verify-success
-   routes/verify-sent-route views/verify-sent
-   routes/login-page-route views/login-page
-   routes/send-password-reset-page-route views/send-password-reset-page
-   routes/password-reset-sent-route views/password-reset-sent
-   routes/reset-password-page-route views/password-reset-page
-   routes/password-reset-success-route views/password-reset-success
-   routes/password-reset-expired-route views/password-reset-expired-page
-   routes/password-reset-used-route views/password-reset-used-page})
+   routes/dnd-e5-item-page-route views/item-page})
 
 (defn handle-url-change [_]
   (let [route (when js/window.location
@@ -140,7 +161,7 @@
                            (aget doc-style "msFlexWrap"))))
               [main-view]
               [:div
-               [views/app-header]
+               [views-header/app-header]
                [:div.f-s-24.main-text-color.sans
                 {:style {:padding "200px"}}
                 "Sorry, we are unable to support your browser since it does not support important HTML5 features. Please try a modern browser such as " [:a {:href "https://www.google.com/chrome/browser/desktop/index.html"} "Google Chrome"] " or " [:a {:href "https://www.mozilla.org/en-US/firefox/products/?v=a"} "Mozilla Firefox"]]]))
