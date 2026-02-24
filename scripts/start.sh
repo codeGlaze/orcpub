@@ -392,8 +392,8 @@ start_server() {
 
     cd "$REPO_ROOT"
 
-    # First-run warning: lein repl triggers dep download + compile on first run.
-    # This can take several minutes and looks like a hang. Warn the user.
+    # First run: lein repl downloads all dependencies before starting the REPL.
+    # This can take several minutes and appear idle. Warn the user.
     if ! check_lein_deps_present; then
         log_warn "First run detected — lein will download dependencies before starting."
         log_warn "This may take several minutes. Do not interrupt."
@@ -402,9 +402,6 @@ start_server() {
     # Use headless mode if not running interactively (background/nohup)
     if [[ -t 0 ]]; then
         log_info "Starting REPL with server (profile: +dev,+start-server)..."
-        # Note: lein repl may not exit cleanly due to non-daemon JVM threads
-        # (Datomic peer, core.async). This is a known lein issue, not a bug.
-        # See docs/kb/lein-uberjar-hang.md for details.
         lein with-profile +dev,+start-server repl
     else
         log_info "Starting headless server (profile: +dev,+start-server)..."
