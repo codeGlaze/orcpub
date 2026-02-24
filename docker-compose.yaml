@@ -19,6 +19,7 @@ services:
       SIGNATURE: ${SIGNATURE:-change-me-to-something-unique}
       CSP_POLICY: ${CSP_POLICY:-strict}
       DEV_MODE: ${DEV_MODE:-}
+      LOAD_HOMEBREW_URL: ${LOAD_HOMEBREW_URL:-}
     depends_on:
       datomic:
         condition: service_healthy

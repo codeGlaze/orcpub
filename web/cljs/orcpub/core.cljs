@@ -12,7 +12,6 @@
             [clojure.string :as s]
             [re-frame.core :refer [dispatch dispatch-sync subscribe]]
             [reagent.core :as r]
-
             [reagent.dom.client :as rdc]
             [goog.events])
   (:import
@@ -30,7 +29,6 @@
 ;; Init template cache after all subscription handlers are registered.
 ;; Must be called here (not self-initializing) so equipment-subs has loaded.
 (autosave-fx/init-template-cache!)
-
 
 (def pages
   {nil views-2/splash-page

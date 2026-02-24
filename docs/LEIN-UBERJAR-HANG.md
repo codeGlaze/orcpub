@@ -78,11 +78,12 @@ namespaces where the source file is newer than the .class file. Since step 2
 just wrote all .class files, they're newer than source, so
 `stale-namespaces` returns empty, no subprocess is spawned.
 
-**b) `^:replace` on prep-tasks**: The `:uberjar-package` profile sets
-`:prep-tasks ^:replace [["garden" "once"]]` -- removing both `"clean"` and
-`"compile"` from prep-tasks. The `^:replace` metadata survives the uberjar
-task's internal profile re-merge because `:uberjar-package` is explicitly
-specified via `with-profile` and is therefore in `:included-profiles`.
+**b) `^:replace` on prep-tasks**: Both `:uberjar` and `:uberjar-package`
+profiles use `^:replace` on `:prep-tasks`. `:uberjar` sets
+`^:replace [["garden" "once"] "compile"]`, `:uberjar-package` overrides to
+`^:replace [["garden" "once"]]` (no compile). The `^:replace` metadata
+survives the uberjar task's internal profile re-merge because these profiles
+are explicitly specified via `with-profile` and are in `:included-profiles`.
 
 **c) `:auto-clean false`**: Critical discovery. lein's `jar.clj` (line
 341-342) calls `clean/clean` **directly** before prep-tasks even run,
@@ -90,7 +91,8 @@ controlled by the `:auto-clean` project key (defaults to `true`). This is
 NOT controlled by prep-tasks -- it's a separate, earlier cleanup. Without
 `:auto-clean false`, lein would wipe `target/` (destroying step 2's .class
 files) and `resources/public/js/compiled/` (destroying step 1's JS) before
-jar creation even begins.
+jar creation even begins. `:auto-clean false` lives in the `:uberjar`
+profile so both bare-metal (`lein build`) and Docker builds inherit it.
 
 ### `resource-paths` fix
 
@@ -107,12 +109,18 @@ resource-paths.
 ### Local builds
 
 ```sh
-# CLJS (figwheel-main exits cleanly in a TTY)
-lein fig:prod
+# Single-command production build: clean → CLJS → uberjar
+lein build
 
-# Uberjar (in a TTY, you can Ctrl-C the hang after "Created target/orcpub.jar")
-lein uberjar
+# Or manually:
+lein fig:prod            # CLJS (figwheel-main exits cleanly in a TTY)
+lein uberjar             # Uberjar (Ctrl-C the hang after "Created target/orcpub.jar")
 ```
+
+The `build` alias runs `["do" "clean," "fig:prod," ["with-profile" "uberjar" "uberjar"]]`.
+Clean runs first (explicit), then CLJS, then uberjar. The `:uberjar` profile
+has `:auto-clean false` and `^:replace` prep-tasks so the CLJS output from
+`fig:prod` is preserved during jar packaging.
 
 ## Affected Components
 
@@ -122,13 +130,15 @@ lein uberjar
 | `docker/Dockerfile` | Three-step build | Separates compile from jar creation |
 | `project.clj` | No `lein-cljsbuild` in any `:plugins` | Eliminates cljsbuild hooks |
 | `project.clj` | `fig:prod` alias | Local production CLJS builds |
-| `project.clj` | `:uberjar-package` profile | `:auto-clean false`, `^:replace` prep-tasks |
+| `project.clj` | `:uberjar` profile | `:auto-clean false`, `^:replace` prep-tasks (bare-metal + Docker) |
+| `project.clj` | `:uberjar-package` profile | Overrides prep-tasks to skip compile (Docker step 3 only) |
+| `project.clj` | `build` alias | Single-command: clean → fig:prod → uberjar |
 | `project.clj` | `:resource-paths` | Removed `"target"` to prevent recursive jar inclusion |
 
 ## DO NOT (each verified by failure)
 
 - **Remove `timeout` from step 2** -- non-daemon threads from Datomic/core.async prevent JVM exit
-- **Remove `:auto-clean false`** -- `jar.clj` wipes target/ before prep-tasks run (destroys .class files from step 2)
+- **Remove `:auto-clean false` from `:uberjar`** -- `jar.clj` wipes target/ before prep-tasks run (destroys .class files from step 2, CLJS from step 1)
 - **Add `"target"` back to `:resource-paths`** -- causes recursive jar inclusion (6.7GB thin jar)
 - **Remove `^:replace` from prep-tasks** -- `"clean"` in prep-tasks wipes resources/public/js/compiled/ (destroys JS from step 1)
 - **Try `:eval-in :leiningen`** -- causes classpath conflict between lein's internal Clojure and project's Clojure 1.12.4
@@ -218,6 +228,7 @@ empty — no .class files, no compiled JS. Root cause: lein's `jar.clj` (line
 341-342) calls `clean/clean` **directly**, controlled by `:auto-clean` (defaults
 to `true`). This runs BEFORE prep-tasks, wiping both `target/` and
 `resources/public/js/compiled/` (the clean-targets). Fixed with `:auto-clean
-false` in `:uberjar-package`.
+false` in the uberjar profile (originally in `:uberjar-package`, now in `:uberjar`
+directly so bare-metal `lein build` also inherits it).
 
 This was the final piece — the 3-step build worked after this fix.
