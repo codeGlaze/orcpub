@@ -2,6 +2,8 @@
 
 > **167 open issues** | Synced: 2026-02-24
 > Source: [Orcpub/orcpub](https://github.com/Orcpub/orcpub/issues)
+>
+> **[TRIAGE.md](TRIAGE.md)** — Investigated issues with codebase findings, fix locations, and sprint plan
 
 ## Overview
 
