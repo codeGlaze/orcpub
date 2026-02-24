@@ -5,32 +5,49 @@ infrastructure. For architecture and configuration reference, see `DOCKER.md`.
 
 ## Non-Root Containers
 
-Both container stages run as non-root users created at build time.
+Both containers create non-root users at build time. The transactor uses an
+entrypoint-chown-drop pattern; the app uses a static `USER` directive.
 
-### Transactor (`datomic` user)
+### Transactor (`datomic` user) — Entrypoint-Chown-Drop
 
 The transactor writes to four locations at runtime:
 
-| Path | Purpose | Owned by |
-|------|---------|----------|
-| `/data` | Datomic dev storage files | `datomic` (chown at build) |
-| `/log` | Transactor log output | `datomic` (chown at build) |
-| `/backups` | Datomic backup destination | `datomic` (chown at build) |
-| `/datomic/transactor.properties` | Generated config (secrets) | `datomic` (chown at build) |
+| Path | Purpose |
+|------|---------|
+| `/data` | Datomic dev storage files |
+| `/log` | Transactor log output |
+| `/backups` | Datomic backup destination |
+| `/datomic/transactor.properties` | Generated config (secrets) |
 
-The Dockerfile creates the user and transfers ownership before switching:
+**Why not `USER datomic` in the Dockerfile?** Build-time `chown` is overridden
+by Docker bind mounts (`./data:/data`, `./logs:/log`, `./backups:/backups`).
+The host directory's ownership takes over, making the container's `/log` etc.
+unwritable by the `datomic` user. This caused "Permission denied" on
+`/log/2026-02-24.log` in CI.
 
-```dockerfile
-RUN addgroup -S datomic && adduser -S -G datomic datomic \
- && chown -R datomic:datomic /data /log /backups /datomic
-USER datomic
+**Solution:** The entrypoint-chown-drop pattern (used by official postgres,
+redis, and other images):
+
+1. Container starts as root (no `USER` directive)
+2. `start.sh` fixes ownership of mounted volumes
+3. `su-exec` drops to `datomic` user before exec-ing the transactor
+
+```bash
+# In deploy/start.sh:
+chown -R datomic:datomic /data /log /backups /datomic
+exec su-exec datomic /datomic/bin/transactor "$OUTPUT"
 ```
+
+`su-exec` (Alpine's lightweight `gosu` alternative) replaces itself with the
+target command — no intermediate process, transactor becomes PID 1 as the
+`datomic` user.
 
 ### App (`app` user)
 
 The app is stateless inside its container. The only runtime writes go to `/tmp`
 for temporary PDF generation (PDFBox `createTempFile`). `/tmp` is
-world-writable by default on Alpine, so no chown is needed:
+world-writable by default on Alpine, so no chown is needed. No bind mounts
+means the static `USER` directive works fine:
 
 ```dockerfile
 RUN addgroup -S app && adduser -S -G app app

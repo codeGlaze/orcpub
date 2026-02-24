@@ -71,8 +71,16 @@ fi
 
 echo "Transactor config written to ${OUTPUT}"
 
-# --- Launch transactor --------------------------------------------------------
-# exec replaces the shell so the transactor is PID 1 and receives Docker
-# signals (SIGTERM on docker stop) directly.
+# --- Fix bind-mount ownership ------------------------------------------------
+# Build-time chown is overridden by Docker bind mounts — the host directory's
+# ownership takes over. Fix at runtime before dropping privileges.
+# This is the standard entrypoint-chown-drop pattern (cf. postgres, redis).
+chown -R datomic:datomic /data /log /backups /datomic
 
-exec /datomic/bin/transactor "$OUTPUT"
+# --- Launch transactor --------------------------------------------------------
+# su-exec drops from root to datomic user. exec replaces the shell so the
+# transactor is PID 1 and receives Docker signals (SIGTERM) directly.
+# su-exec is Alpine's lightweight alternative to gosu — it execs directly
+# without an intermediate process.
+
+exec su-exec datomic /datomic/bin/transactor "$OUTPUT"

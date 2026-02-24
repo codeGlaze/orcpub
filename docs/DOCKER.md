@@ -142,11 +142,16 @@ TCP socket table. No `curl` or `wget` is available in the transactor image.
 
 ## Production Memory Tuning
 
+The template defaults are safe for the stock 1 GB heap (`-Xmx1g` in
+`bin/transactor`). Scale up when increasing the heap.
+
+**Constraint:** `(object-cache-max + memory-index-max)` must be < 75% of `-Xmx`.
+
 | Setting | 1 GB heap (`-Xmx1g`) | 4 GB heap (`-Xmx4g`) |
 |---------|-----------------------|-----------------------|
-| `memory-index-threshold` | `16m` | `32m` |
-| `memory-index-max` | `128m` | `512m` |
-| `object-cache-max` | `128m` | `512m` |
+| `memory-index-threshold` | `16m` (default) | `32m` |
+| `memory-index-max` | `128m` (default) | `512m` |
+| `object-cache-max` | `128m` (default) | `512m` |
 
 Rules of thumb (from Datomic capacity planning docs):
 

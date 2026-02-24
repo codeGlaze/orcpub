@@ -25,7 +25,8 @@ RUN curl --fail --location --silent --show-error \
 # Secrets (passwords) are substituted at runtime by deploy/start.sh.
 FROM eclipse-temurin:21-jre-alpine-3.22 AS transactor
 
-RUN apk add --no-cache bash
+# bash for start.sh, su-exec for privilege drop after fixing bind-mount ownership
+RUN apk add --no-cache bash su-exec
 
 COPY --from=datomic-dist /datomic /datomic
 WORKDIR /datomic
@@ -39,10 +40,12 @@ RUN mkdir -p /data /log /backups
 COPY deploy/start.sh /datomic/start.sh
 RUN chmod +x /datomic/start.sh
 
-# Run as non-root. Transactor writes to /data, /log, /backups at runtime.
-RUN addgroup -S datomic && adduser -S -G datomic datomic \
- && chown -R datomic:datomic /data /log /backups /datomic
-USER datomic
+# Create non-root user for the transactor process.
+# NOTE: No USER directive here — container starts as root so start.sh can
+# chown bind-mounted volumes (/data, /log, /backups), then drops to datomic
+# via su-exec. Build-time chown is useless for bind mounts because the host
+# directory's ownership overrides it.
+RUN addgroup -S datomic && adduser -S -G datomic datomic
 
 VOLUME ["/data", "/log", "/backups"]
 EXPOSE 4334 4335 4336

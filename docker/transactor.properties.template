@@ -72,23 +72,26 @@ storage-datomic-password=${DATOMIC_PASSWORD}
 # ===========================================================================
 # Memory Tuning
 # ===========================================================================
-# Defaults below are for a 4GB-heap production deployment (-Xmx4g).
-# The transactor JVM heap is set in bin/transactor (JAVA_OPTS).
+# Defaults below are safe for the stock 1GB heap (-Xmx1g in bin/transactor).
 #
-# For a dev laptop (1GB heap), use these instead:
-#   memory-index-threshold=16m
-#   memory-index-max=128m
-#   object-cache-max=128m
+# For a 4GB-heap production deployment (-Xmx4g), scale up:
+#   memory-index-threshold=32m
+#   memory-index-max=512m
+#   object-cache-max=512m
 #
 # Rules of thumb (from Datomic capacity docs):
 #   memory-index-threshold: ~1% of -Xmx
 #   memory-index-max:       ~13% of -Xmx (2x threshold minimum)
 #   object-cache-max:       ~50% of -Xmx minus index memory
+#
+# CONSTRAINT: (object-cache-max + memory-index-max) must be < 75% of -Xmx.
+#   1GB: 128m + 128m = 256m < 768m  ✓
+#   4GB: 512m + 512m = 1024m < 3072m  ✓
 # ===========================================================================
 
-memory-index-threshold=32m
-memory-index-max=512m
-object-cache-max=512m
+memory-index-threshold=16m
+memory-index-max=128m
+object-cache-max=128m
 
 # --- Concurrency --------------------------------------------------------------
 # Increase for SSDs or high-throughput workloads.
