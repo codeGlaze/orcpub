@@ -24,7 +24,7 @@ orcpub/
 ├── scripts/
 │   ├── services.json               # NEW: Shared service manifest (ports, patterns, exit codes)
 │   ├── common.sh                   # HARDENED: manifest reading, timeouts, first-run detection
-│   ├── start.sh                    # HARDENED: shellcheck fixes, lein hang docs, first-run warnings
+│   ├── start.sh                    # HARDENED: shellcheck fixes, first-run dep-download warning
 │   ├── stop.sh                     # HARDENED: shellcheck fixes (quoted exit codes)
 │   ├── dev-setup.sh                # HARDENED: uses common.sh logging, port_in_use()
 │   ├── create_dummy_user.sh        # HARDENED: sources common.sh for logging and exit codes
@@ -67,8 +67,7 @@ natively. No type coercion ambiguity.
 ### start.sh
 - All `$EXIT_*` variables quoted (~37 instances) — SC2086 fix
 - Fixed `A && B || C` pattern — SC2015 fix in cleanup_on_exit
-- Added first-run detection warning before `lein repl` (deps download can look like a hang)
-- Added comments documenting lein subprocess hang issue (non-daemon JVM threads)
+- Added first-run detection warning before `lein repl` (dep download appears idle)
 - Figwheel: already had first-run CLJS compilation handling (extended timeout + warning)
 - Garden: already had multiple startup survival checks
 
