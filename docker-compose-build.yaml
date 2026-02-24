@@ -45,7 +45,7 @@ services:
       ENCRYPT_CHANNEL: ${ENCRYPT_CHANNEL:-true}
     volumes:
       - ./data:/data
-      - ./logs:/logs
+      - ./logs:/log
       - ./backups:/backups
     healthcheck:
       test: ["CMD-SHELL", "grep -q ':10EE ' /proc/net/tcp || grep -q ':10EE ' /proc/net/tcp6"]

@@ -39,6 +39,11 @@ RUN mkdir -p /data /log /backups
 COPY deploy/start.sh /datomic/start.sh
 RUN chmod +x /datomic/start.sh
 
+# Run as non-root. Transactor writes to /data, /log, /backups at runtime.
+RUN addgroup -S datomic && adduser -S -G datomic datomic \
+ && chown -R datomic:datomic /data /log /backups /datomic
+USER datomic
+
 EXPOSE 4334 4335 4336
 CMD ["/datomic/start.sh"]
 
@@ -94,6 +99,10 @@ FROM eclipse-temurin:21-jre-alpine-3.22 AS app
 RUN apk add --no-cache fontconfig ttf-dejavu freetype lcms2
 
 COPY --from=app-builder /orcpub/target/orcpub.jar /orcpub.jar
+
+# Run as non-root. App only writes to /tmp (world-writable by default).
+RUN addgroup -S app && adduser -S -G app app
+USER app
 
 ENTRYPOINT ["java", "-jar"]
 CMD ["/orcpub.jar"]

@@ -235,7 +235,8 @@ INIT_ADMIN_EMAIL=${INIT_ADMIN_EMAIL}
 INIT_ADMIN_PASSWORD=${INIT_ADMIN_PASSWORD}
 EOF
 
-  info ".env file created at ${ENV_FILE}"
+  chmod 600 "$ENV_FILE"
+  info ".env file created at ${ENV_FILE} (permissions: 600)"
 fi
 
 # ---- Step 2: Directories -------------------------------------------------

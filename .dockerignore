@@ -3,6 +3,11 @@
 .cache
 .idea
 .github
+
+# Secrets — never copy into build context
+.env
+.lein-env
+logs/console.log
 docker-compose*
 test/*
 *.md

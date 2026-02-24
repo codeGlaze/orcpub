@@ -156,7 +156,7 @@ Rules of thumb (from Datomic capacity planning docs):
 | Volume Mount | Service | Purpose |
 |--------------|---------|---------|
 | `./data` | datomic | Datomic dev storage data files |
-| `./logs` | datomic | Transactor log output |
+| `./logs` → `/log` | datomic | Transactor log output (host `logs/`, container `/log`) |
 | `./backups` | datomic | Datomic backup destination |
 | `./deploy/homebrew/` | web | User homebrew `.orcbrew` files served by nginx |
 | `./deploy/nginx.conf` | web | Nginx configuration |

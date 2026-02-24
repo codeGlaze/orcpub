@@ -30,29 +30,42 @@ if [ -z "${DATOMIC_PASSWORD:-}" ]; then
 fi
 
 # --- Substitute env vars into template ----------------------------------------
-# Pipe delimiter avoids conflicts with passwords containing / or &.
-# Only known variables are substituted — no risk of expanding Datomic's own
-# ${...} patterns (there are none in the template, but this is defensive).
+# Pipe delimiter in sed avoids conflicts with passwords containing /.
+# escape_sed_replacement handles \, &, and | in values so passwords with
+# special characters don't break or corrupt the substitution.
+
+escape_sed_replacement() {
+  # Escape: backslash first (so we don't double-escape), then & and |
+  printf '%s' "$1" | sed -e 's/[\\]/\\&/g' -e 's/[&|]/\\&/g'
+}
 
 ALT_HOST="${ALT_HOST:-127.0.0.1}"
 ENCRYPT_CHANNEL="${ENCRYPT_CHANNEL:-true}"
 
 sed \
-  -e "s|\${ADMIN_PASSWORD}|${ADMIN_PASSWORD}|g" \
-  -e "s|\${DATOMIC_PASSWORD}|${DATOMIC_PASSWORD}|g" \
-  -e "s|\${ALT_HOST:-127.0.0.1}|${ALT_HOST}|g" \
-  -e "s|\${ENCRYPT_CHANNEL:-true}|${ENCRYPT_CHANNEL}|g" \
+  -e "s|\${ADMIN_PASSWORD}|$(escape_sed_replacement "$ADMIN_PASSWORD")|g" \
+  -e "s|\${DATOMIC_PASSWORD}|$(escape_sed_replacement "$DATOMIC_PASSWORD")|g" \
+  -e "s|\${ALT_HOST:-127.0.0.1}|$(escape_sed_replacement "$ALT_HOST")|g" \
+  -e "s|\${ENCRYPT_CHANNEL:-true}|$(escape_sed_replacement "$ENCRYPT_CHANNEL")|g" \
   "$TEMPLATE" > "$OUTPUT"
+
+chmod 600 "$OUTPUT"
 
 # --- Password rotation (conditional) -----------------------------------------
 # Append old-password lines only when rotation env vars are set.
 # The transactor accepts both old and new passwords during the transition.
 
 if [ -n "${ADMIN_PASSWORD_OLD:-}" ]; then
+  if [[ "${ADMIN_PASSWORD_OLD}" == *$'\n'* ]]; then
+    echo "ERROR: ADMIN_PASSWORD_OLD contains newline characters." >&2; exit 1
+  fi
   echo "old-storage-admin-password=${ADMIN_PASSWORD_OLD}" >> "$OUTPUT"
 fi
 
 if [ -n "${DATOMIC_PASSWORD_OLD:-}" ]; then
+  if [[ "${DATOMIC_PASSWORD_OLD}" == *$'\n'* ]]; then
+    echo "ERROR: DATOMIC_PASSWORD_OLD contains newline characters." >&2; exit 1
+  fi
   echo "old-storage-datomic-password=${DATOMIC_PASSWORD_OLD}" >> "$OUTPUT"
 fi
 
