@@ -186,6 +186,32 @@ wait_healthy() {
   exit 1
 }
 
+# Discover the latest restore point (t value) from the backup's roots/ directory.
+# Root filenames ARE the t values (e.g., roots/168103969 → t=168103969).
+#
+# This filesystem scan is more reliable than list-backups, which can fail on
+# some platforms due to a directory enumeration bug in Datomic's Java code.
+# Always passing the explicit t value bypasses this bug.
+get_latest_t() {
+  local roots_dir="${BACKUP_DIR}/orcpub/roots"
+  local latest_t=""
+
+  if [[ -d "$roots_dir" ]]; then
+    # Find the highest numeric filename — that's the latest restore point
+    latest_t=$(ls -1 "$roots_dir" 2>/dev/null \
+      | grep -E '^[0-9]+$' \
+      | sort -n \
+      | tail -1 || true)
+  fi
+
+  if [[ -n "$latest_t" ]]; then
+    echo "$latest_t"
+    return 0
+  fi
+
+  return 1
+}
+
 # Run bin/datomic CLI in a temporary container that shares the compose
 # network and bind-mounts the backup directory.
 #
@@ -290,14 +316,35 @@ do_restore() {
   fi
   info "Target URI: $new_url"
 
+  # Auto-discover the latest restore point from the filesystem.
+  # Always pass t explicitly to work around a JVM bug where Datomic
+  # fails to enumerate the roots/ directory on some platforms.
+  local restore_t=""
+  if restore_t=$(get_latest_t); then
+    info "Restore point: t=$restore_t (from roots/ directory)"
+  else
+    warn "Could not discover restore point from filesystem."
+    warn "restore-db will attempt automatic root discovery."
+  fi
+
   info "Starting restore (large databases may take 30+ minutes)..."
   echo ""
 
-  if ! run_datomic_cli "$datomic_image" \
-    restore-db "file:/backup/orcpub" "$new_url"; then
-    error "restore-db failed. Is the target transactor running?"
-    error "If 'database already exists', clear ./data and restart the transactor."
-    exit 1
+  # Pass t value explicitly when available (3rd positional arg to restore-db)
+  if [[ -n "$restore_t" ]]; then
+    if ! run_datomic_cli "$datomic_image" \
+      restore-db "file:/backup/orcpub" "$new_url" "$restore_t"; then
+      error "restore-db failed. Is the target transactor running?"
+      error "If 'database already exists', clear ./data and restart the transactor."
+      exit 1
+    fi
+  else
+    if ! run_datomic_cli "$datomic_image" \
+      restore-db "file:/backup/orcpub" "$new_url"; then
+      error "restore-db failed. Is the target transactor running?"
+      error "If 'database already exists', clear ./data and restart the transactor."
+      exit 1
+    fi
   fi
 
   echo ""
@@ -320,13 +367,20 @@ do_verify() {
   run_datomic_cli "$datomic_image" list-backups "file:/backup/orcpub"
   echo ""
 
-  # Get the latest t for verification
+  # Get the latest t for verification.
+  # Try list-backups first, fall back to filesystem scan if it fails
+  # (list-backups can fail on some platforms due to root directory enumeration bug)
   local latest_t
   latest_t=$(run_datomic_cli "$datomic_image" list-backups "file:/backup/orcpub" 2>&1 | tail -1 || true)
 
   if [[ -z "$latest_t" ]]; then
-    error "Could not determine latest backup point."
-    exit 1
+    warn "list-backups returned empty — trying filesystem scan..."
+    if latest_t=$(get_latest_t); then
+      info "Found restore point from filesystem: t=$latest_t"
+    else
+      error "Could not determine latest backup point."
+      exit 1
+    fi
   fi
 
   info "Verifying backup at t=$latest_t (reads every segment)..."
