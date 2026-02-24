@@ -72,6 +72,8 @@
 
 ## See Also
 
+- `docker-security-decisions.md` — detailed reasoning for each security fix (agent KB)
 - `docs/DOCKER.md` — human-facing Docker reference
+- `docs/DOCKER-SECURITY.md` — human-facing security hardening with code examples
 - `docs/LEIN-UBERJAR-HANG.md` — detailed uberjar hang investigation
 - `docs/ENVIRONMENT.md` — all environment variables

@@ -1,0 +1,129 @@
+# Docker Security Decisions
+
+Decision log for Docker security hardening. Each entry explains what was done,
+why, and what breaks if reverted. Cross-reference: `docs/DOCKER-SECURITY.md`
+has the human-facing version with code examples.
+
+## Non-Root Containers
+
+**Decision:** Transactor runs as `datomic` user, app runs as `app` user.
+
+**Why:** Root in container = root-level impact from any JVM/Datomic vulnerability.
+Volume-mounted files owned by root on host. Security scanners flag it.
+
+**What breaks if reverted:** Nothing functionally — it's defense-in-depth. But
+security scanners will flag, and volume file ownership changes to root.
+
+**Implementation detail:** Transactor needs `chown -R datomic:datomic /data /log
+/backups /datomic` because it writes to all four at runtime. App only writes to
+`/tmp` (world-writable), no chown needed.
+
+## sed Replacement Escaping
+
+**Decision:** `escape_sed_replacement()` in `deploy/start.sh` escapes `\`, `&`,
+`|` before passing values to sed.
+
+**Why:** Without escaping:
+- `\` in password → sed interprets as escape sequence (silent data corruption)
+- `&` in password → sed replaces with entire match string (silent data corruption)
+- `|` in password → breaks sed delimiter (container fails to start)
+
+**What breaks if reverted:** Any password containing `\`, `&`, or `|` causes
+either silent authentication failure or container crash. `docker-setup.sh`
+generates safe alphanumeric passwords, but manual `.env` edits are unprotected.
+
+**Implementation detail:** Backslash escaped FIRST to avoid double-escaping.
+Then `&` and `|`. Order matters.
+
+## Log Directory: `/log` Not `/logs`
+
+**Decision:** Compose mounts `./logs:/log` (host plural, container singular).
+
+**Why:** Datomic's stock config uses `log-dir=log` (no s). Our template and
+Dockerfile follow that convention. The compose files originally mounted to
+`/logs` (with s) — transactor wrote to ephemeral `/log`, logs lost on restart.
+
+**What breaks if changed to `/logs`:** Must also change template `log-dir=/logs`
+AND Dockerfile `mkdir /logs`. All three must agree or logs are silently lost.
+
+**Verification:** After container start, `docker exec <container> ls /log` should
+show transactor log files. `ls ./logs/` on host should mirror.
+
+## File Permissions (chmod 600)
+
+**Decision:** `transactor.properties` and `.env` are chmod 600 after creation.
+
+**Why:** Both contain plaintext passwords (ADMIN_PASSWORD, DATOMIC_PASSWORD,
+SIGNATURE). Default umask creates world-readable files (0644).
+
+**What breaks if reverted:** Information disclosure if container filesystem or
+host is compromised. No functional impact.
+
+## .dockerignore Secrets Exclusion
+
+**Decision:** `.env` and `.lein-env` excluded from Docker build context.
+
+**Why:** `ADD ./ /orcpub` in app-builder copies entire context. Without exclusion,
+secrets end up in intermediate Docker layer cache — extractable via `docker
+history` or shared CI daemons.
+
+**What breaks if reverted:** Secrets in build cache. Final image unaffected
+(only copies jar), but builder layer is compromised.
+
+## CMD-SHELL Healthcheck with PORT
+
+**Decision:** `CMD-SHELL` instead of `CMD` for app healthcheck.
+
+**Why:** `CMD` (array) does no shell expansion — `${PORT:-8890}` is literal.
+`CMD-SHELL` runs through `/bin/sh -c`, expanding the variable from container env.
+
+**Caveat:** `deploy/nginx.conf` hardcodes `proxy_pass http://orcpub:8890`.
+Changing PORT without updating nginx breaks the proxy. The dynamic healthcheck
+is defense-in-depth, not a complete PORT-flexibility solution.
+
+**What breaks if reverted to CMD:** Healthcheck always hits 8890 regardless of
+PORT setting. If PORT ever changes, healthcheck fails, web never starts.
+
+## DATOMIC_URL Password Sync Validation
+
+**Decision:** `docker-setup.sh` validates that DATOMIC_PASSWORD matches the
+password embedded in DATOMIC_URL.
+
+**Why:** DATOMIC_URL format is `datomic:dev://datomic:4334/orcpub?password=<PW>`.
+If user changes DATOMIC_PASSWORD without updating DATOMIC_URL, app gets cryptic
+Datomic auth failure. No helpful error message.
+
+**Implementation:** grep-based extraction (not source, to avoid polluting shell):
+```bash
+_env_datomic_pw=$(grep -m1 '^DATOMIC_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
+```
+
+## CSP_POLICY / DEV_MODE Passthrough
+
+**Decision:** Both compose files pass `CSP_POLICY` and `DEV_MODE` to orcpub
+container's environment block.
+
+**Why:** Docker compose `.env` variables are available for compose interpolation
+(`${VAR}`) but are NOT automatically injected into containers. The app reads
+env vars via `environ.core` inside the JVM. Without explicit passthrough,
+setting CSP_POLICY in .env has zero effect — silent security misconfiguration.
+
+**What breaks if removed:** CSP_POLICY and DEV_MODE silently ignored in Docker.
+App uses defaults (strict CSP, dev mode off).
+
+## VOLUME Declarations
+
+**Decision:** Transactor Dockerfile declares `VOLUME ["/data", "/log", "/backups"]`.
+
+**Why:** Standalone `docker run` (no compose) uses ephemeral storage by default.
+VOLUME tells Docker to create anonymous volumes automatically, preserving data
+across container restarts even without explicit `-v` flags.
+
+**What breaks if removed:** Only affects standalone docker run users — compose
+users have explicit bind mounts. Standalone users lose data on container removal.
+
+## See Also
+
+- `docker-infrastructure.md` — key architecture decisions, DO NOT list
+- `docs/DOCKER-SECURITY.md` — human-facing version with code examples
+- `docs/DOCKER.md` — architecture and operational reference
