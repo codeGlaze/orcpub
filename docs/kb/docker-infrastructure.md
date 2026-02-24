@@ -47,6 +47,8 @@
 - Do NOT mount `./logs:/logs` — transactor uses `log-dir=/log` (no trailing s), mount to `/log`
 - Do NOT create `.env` or `transactor.properties` without `chmod 600` — contains plaintext secrets
 - Do NOT run containers as root — both stages have non-root users (datomic, app)
+- Do NOT use `USER datomic` in the transactor Dockerfile — bind mounts override build-time chown, causing "Permission denied" on /log. Use entrypoint-chown-drop pattern with su-exec instead.
+- Do NOT set memory-index-max + object-cache-max > 75% of JVM -Xmx — Datomic refuses to start with `:db.error/not-enough-memory`. Template defaults are for 1GB heap (128m+128m=256m < 768m).
 - Do NOT trust ENVIRONMENT.md email vars blindly — cross-check against `email.clj` (was wrong for months)
 
 ## File Inventory
@@ -68,7 +70,9 @@
 - Datomic transactor port 4334 = 0x10EE in hex (used in /proc/net/tcp healthcheck)
 - App boot takes ~110 seconds (Datomic peer connection + schema setup)
 - PDFBox requires fontconfig, ttf-dejavu, freetype, lcms2 on Alpine for PDF generation
-- Production memory tuning for 4GB heap: 32m/512m/512m (threshold/index-max/object-cache)
+- Template memory defaults are for 1GB heap: 16m/128m/128m (threshold/index-max/object-cache)
+- Production 4GB heap memory tuning: 32m/512m/512m (threshold/index-max/object-cache)
+- Build-time chown does NOT survive Docker bind mounts — host ownership wins
 
 ## See Also
 

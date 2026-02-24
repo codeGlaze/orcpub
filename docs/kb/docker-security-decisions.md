@@ -4,9 +4,10 @@ Decision log for Docker security hardening. Each entry explains what was done,
 why, and what breaks if reverted. Cross-reference: `docs/DOCKER-SECURITY.md`
 has the human-facing version with code examples.
 
-## Non-Root Containers
+## Non-Root Containers (Entrypoint-Chown-Drop)
 
-**Decision:** Transactor runs as `datomic` user, app runs as `app` user.
+**Decision:** Transactor runs as `datomic` user via `su-exec` privilege drop in
+`start.sh`. App runs as `app` user via `USER` in Dockerfile.
 
 **Why:** Root in container = root-level impact from any JVM/Datomic vulnerability.
 Volume-mounted files owned by root on host. Security scanners flag it.
@@ -14,9 +15,18 @@ Volume-mounted files owned by root on host. Security scanners flag it.
 **What breaks if reverted:** Nothing functionally — it's defense-in-depth. But
 security scanners will flag, and volume file ownership changes to root.
 
-**Implementation detail:** Transactor needs `chown -R datomic:datomic /data /log
-/backups /datomic` because it writes to all four at runtime. App only writes to
-`/tmp` (world-writable), no chown needed.
+**Implementation detail:** Build-time `chown` + `USER datomic` does NOT work
+with bind mounts — the host directory ownership overrides container ownership.
+This caused "Permission denied" on `/log` in CI. Fix: entrypoint-chown-drop
+pattern (same as official postgres, redis images):
+1. Container starts as root (no `USER` directive)
+2. `start.sh` runs `chown -R datomic:datomic /data /log /backups /datomic`
+3. `exec su-exec datomic /datomic/bin/transactor` drops privileges
+
+App doesn't need this — no bind mounts, only writes to `/tmp` (world-writable).
+
+**DO NOT** add `USER datomic` to the transactor Dockerfile — bind mounts will
+break with permission denied errors.
 
 ## sed Replacement Escaping
 
