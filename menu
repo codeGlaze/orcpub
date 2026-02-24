@@ -35,10 +35,14 @@ Usage:
   ./menu stop [service]       Stop services (passthrough to stop.sh)
   ./menu status               Show service status
   ./menu cleanup              Show Java/Clojure process memory usage
+  ./menu build                Build production uberjar (alias: prod, production)
+  ./menu start prod           Build + run production jar
+  ./menu start prod --skip    Run existing jar (skip build)
 
 Quick CLI examples:
   ./menu start datomic        Start just Datomic
   ./menu start server         Start just server
+  ./menu start prod           Build + run production jar
   ./menu stop datomic         Stop just Datomic
   ./menu stop --yes           Stop all without prompting
   ./menu status               Check what's running
@@ -777,6 +781,10 @@ main() {
                 exit 1
             fi
             lein with-profile init-db run -m user delete-user "${username}@test.com"
+            ;;
+        build|prod|production)
+            shift
+            "$SCRIPT_DIR/scripts/prod.sh" "$@"
             ;;
         user)
             handle_user_submenu

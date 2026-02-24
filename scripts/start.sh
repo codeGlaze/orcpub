@@ -11,6 +11,7 @@ set -euo pipefail
 #   ./start.sh figwheel     Start Figwheel for ClojureScript hot-reload
 #   ./start.sh garden       Start Garden for CSS auto-compilation
 #   ./start.sh init-db      Initialize the database
+#   ./start.sh prod         Build production uberjar + run it
 #
 # Options:
 #   --install, -i      Run Datomic Pro installation (post-create.sh)
@@ -19,6 +20,7 @@ set -euo pipefail
 #   --quiet, -q        Minimal output (for automation)
 #   --check, -c        Validate prerequisites without starting services
 #   --idempotent, -I   Succeed if service is already running
+#   --no-build, --skip Skip the build step (prod target only)
 #   --help, -h         Show this help
 #
 # Exit Codes:
@@ -508,6 +510,29 @@ init_database() {
     fi
 }
 
+start_prod() {
+    local skip_build="${1:-false}"
+    local jar="$REPO_ROOT/target/orcpub.jar"
+
+    # Build unless --no-build/--skip
+    if [[ "$skip_build" == "true" ]]; then
+        if [[ -f "$jar" ]]; then
+            log_info "Skipping build (--no-build/--skip)"
+        else
+            log_error "No jar found at $jar — cannot skip build"
+            exit "$EXIT_PREREQ"
+        fi
+    else
+        log_info "Building production uberjar..."
+        "$SCRIPT_DIR/prod.sh" || exit "$EXIT_RUNTIME"
+    fi
+
+    # Run
+    log_info "Starting production server: java -jar $jar"
+    cd "$REPO_ROOT"
+    java -jar "$jar"
+}
+
 start_all() {
     local idempotent="${1:-false}"
     local started_datomic="false"
@@ -613,6 +638,7 @@ Targets:
   figwheel    Start Figwheel for ClojureScript hot-reload
   garden      Start Garden for CSS auto-compilation
   init-db     Initialize the database (requires Datomic running)
+  prod        Build production uberjar + run it
   help        Show this help
 
 Options:
@@ -623,6 +649,7 @@ Options:
   --check, -c                Validate prerequisites without starting
   --idempotent, -I           Succeed if service already running
   --if-not-running           Alias for --idempotent
+  --no-build, --skip         Skip build step (prod target only, reuse existing jar)
 
 Exit Codes:
   0  Success (or already running with --idempotent)
@@ -654,6 +681,11 @@ Examples:
   ./start.sh datomic --tmux               # Datomic in tmux window
   ./start.sh datomic -b                   # Datomic in background
 
+Production build + run:
+  ./start.sh prod                         # Build uberjar then run it
+  ./start.sh prod --no-build              # Run existing jar (skip build)
+  ./start.sh prod --skip                  # Same as --no-build
+
 Automation examples:
   ./start.sh --check                      # Pre-flight: validate all prerequisites
   ./start.sh datomic --check              # Pre-flight: validate Datomic only
@@ -683,6 +715,7 @@ main() {
     local use_background="false"
     local do_check="false"
     local idempotent="false"
+    local skip_build="false"
     local positional=()
 
     # Parse arguments
@@ -695,6 +728,7 @@ main() {
             --check|-c)           do_check="true"; shift ;;
             --idempotent|-I|--if-not-running)
                                   idempotent="true"; shift ;;
+            --no-build|--skip)    skip_build="true"; shift ;;
             --help|-h)            show_help; exit "$EXIT_SUCCESS" ;;
             -*)                   log_error "Unknown option: $1"; show_help; exit "$EXIT_USAGE" ;;
             *)                    positional+=("$1"); shift ;;
@@ -739,6 +773,9 @@ main() {
             figwheel)  run_in_tmux "figwheel" "$SCRIPT_DIR/start.sh" figwheel ;;
             garden)    run_in_tmux "garden" "$SCRIPT_DIR/start.sh" garden ;;
             init-db)   run_in_tmux "init-db" "$SCRIPT_DIR/start.sh" init-db ;;
+            prod)      local tmux_args=("$SCRIPT_DIR/start.sh" prod)
+                       [[ "$skip_build" == "true" ]] && tmux_args+=(--no-build)
+                       run_in_tmux "prod" "${tmux_args[@]}" ;;
             *)         log_error "Unknown target: $target"; show_help; exit "$EXIT_USAGE" ;;
         esac
         exit "$EXIT_SUCCESS"
@@ -761,6 +798,9 @@ main() {
             server)    run_in_background "server" "$SCRIPT_DIR/start.sh" server ;;
             figwheel)  run_in_background "figwheel" "$SCRIPT_DIR/start.sh" figwheel ;;
             garden)    run_in_background "garden" "$SCRIPT_DIR/start.sh" garden ;;
+            prod)      local bg_args=(prod)
+                       [[ "$skip_build" == "true" ]] && bg_args+=(--no-build)
+                       run_in_background "prod" "$SCRIPT_DIR/start.sh" "${bg_args[@]}" ;;
             *)         log_error "Cannot run '$target' in background"; exit "$EXIT_USAGE" ;;
         esac
         exit "$EXIT_SUCCESS"
@@ -774,6 +814,7 @@ main() {
         figwheel)  start_figwheel "$idempotent" ;;
         garden)    start_garden ;;
         init-db)   init_database ;;
+        prod)      start_prod "$skip_build" ;;
         *)         log_error "Unknown target: $target"; show_help; exit "$EXIT_USAGE" ;;
     esac
 }

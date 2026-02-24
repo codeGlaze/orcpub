@@ -46,6 +46,11 @@ function Show-Menu {
     Write-Host "    6)  Stop all services"
     Write-Host "    7)  Stop specific service"
     Write-Host ""
+    Write-Host "  Production" -ForegroundColor White
+    Write-Host "   13)  Build production uberjar"
+    Write-Host "   14)  Build + run production server"
+    Write-Host "   15)  Run existing production jar (skip build)"
+    Write-Host ""
     Write-Host "  Setup & Tools" -ForegroundColor White
     Write-Host "    8)  First-time dev setup"
     Write-Host "    9)  Initialize database"
@@ -93,7 +98,7 @@ if ($Help) {
 while ($true) {
     Show-Menu
 
-    $choice = Read-Host "  Select [1-12/q]"
+    $choice = Read-Host "  Select [1-15/q]"
 
     switch ($choice) {
         "1"  { & "$ScriptsDir\start.ps1" all }
@@ -118,6 +123,9 @@ while ($true) {
         }
         "11" { & "$ScriptsDir\start.ps1" -Check }
         "12" { & "$ScriptsDir\stop.ps1" -DryRun }
+        "13" { & "$ScriptsDir\prod.ps1" }
+        "14" { & "$ScriptsDir\start.ps1" prod }
+        "15" { & "$ScriptsDir\start.ps1" prod -NoBuild }
         "q"  { Write-Host ""; Write-Host "Goodbye." -ForegroundColor Cyan; exit 0 }
         "Q"  { Write-Host ""; Write-Host "Goodbye." -ForegroundColor Cyan; exit 0 }
         default { Write-Host "Invalid choice." -ForegroundColor Yellow }

@@ -13,11 +13,14 @@
       figwheel  Start Figwheel for ClojureScript hot-reload
       garden    Start Garden for CSS auto-compilation
       init-db   Initialize the database (requires Datomic running)
+      prod      Build production uberjar + run it
 
 .EXAMPLE
     .\start.ps1                     # Full dev stack
     .\start.ps1 datomic             # Just Datomic
     .\start.ps1 server              # Just REPL+server
+    .\start.ps1 prod                # Build + run production jar
+    .\start.ps1 prod -NoBuild       # Run existing production jar
     .\start.ps1 -Check              # Pre-flight validation
     .\start.ps1 datomic -Idempotent # Start or succeed if running
     .\start.ps1 datomic -Background # Run in background
@@ -26,7 +29,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet("all", "datomic", "server", "figwheel", "garden", "init-db", "help")]
+    [ValidateSet("all", "datomic", "server", "figwheel", "garden", "init-db", "prod", "help")]
     [string]$Target = "all",
 
     [Alias("i")][switch]$Install,
@@ -34,6 +37,7 @@ param(
     [Alias("q")][switch]$Quiet,
     [Alias("c")][switch]$Check,
     [Alias("I")][switch]$Idempotent,
+    [Alias("Skip")][switch]$NoBuild,
     [Alias("h")][switch]$Help
 )
 
@@ -415,6 +419,31 @@ function Start-All {
     }
 }
 
+function Start-Prod {
+    param([bool]$SkipBuild = $false)
+
+    $jar = Join-Path $script:REPO_ROOT "target\orcpub.jar"
+
+    if ($SkipBuild) {
+        if (Test-Path $jar) {
+            Write-LogInfo "Skipping build (-NoBuild/-Skip)"
+        }
+        else {
+            Write-LogError "No jar found at $jar - cannot skip build"
+            exit $script:EXIT_PREREQ
+        }
+    }
+    else {
+        Write-LogInfo "Building production uberjar..."
+        & "$PSScriptRoot\prod.ps1"
+        if ($LASTEXITCODE -ne 0) { exit $script:EXIT_RUNTIME }
+    }
+
+    Write-LogInfo "Starting production server: java -jar $jar"
+    Set-Location $script:REPO_ROOT
+    & java -jar $jar
+}
+
 # -----------------------------------------------------------------------------
 # Main
 # -----------------------------------------------------------------------------
@@ -429,4 +458,5 @@ switch ($Target) {
     "figwheel" { Start-Figwheel -IsIdempotent $Idempotent.IsPresent }
     "garden"   { Start-Garden }
     "init-db"  { Initialize-Database }
+    "prod"     { Start-Prod -SkipBuild $NoBuild.IsPresent }
 }
