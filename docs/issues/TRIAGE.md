@@ -176,9 +176,10 @@ deployable and user-visible.
 5. Fix #520 (spell card sort)
 
 ### Batch 2: Spellcasting Domino (2-3 days)
-1. Fix #435 (2-line `int` → `ceil`)
-2. Test #437, #47 for cascade resolution
-3. Decide on Artificer content (#272)
+1. Fix #435 — add `:round-up?` to data model + `Math/ceil` path in `template_base.cljc`
+2. Add round-up options to spellcasting builder dropdown (`builders.cljs:1918-1930`)
+3. Test #437, #47 for cascade resolution
+4. Decide on Artificer content (#272)
 
 ### Batch 3: Investigation + Testing (1-2 days)
 1. Reproduce #304 (level sort)
@@ -189,3 +190,18 @@ deployable and user-visible.
 ### Batch 4: Architecture (future sprint)
 1. Equipment identity refactor (#340, #138, #229) — L
 2. Selection nesting in homebrew builder (#260, #486) — L
+
+### Future: Expanded Builder Customization
+Once the current spellcasting model is stabilized (Batch 2), expand the builder to allow
+deeper customization beyond the standard 1/2/3 progression presets:
+- Custom spell slot factor (beyond 1-3)
+- Custom spell slot schedules (user-defined tables)
+- Custom spells-known progressions
+- Per-level spell slot overrides
+
+The current dropdown ("At what level does this class first gain spell slots?" → 1, 2, 3)
+works well as the default entry point. Expanded customization would sit behind an
+"Advanced" option that exposes the raw knobs. Presets stay as the 90% path.
+
+Related issues: #34 (Class Build Spellcasting Upgrade, open since 2019), #561 (Schedule 5),
+#440 (spell points), #486 (nested selections for class features).
