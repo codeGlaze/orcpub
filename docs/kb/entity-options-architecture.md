@@ -164,6 +164,76 @@ Dragon Knight character using `exported.orcbrew` test data:
 Datomic URI: `datomic:dev://localhost:4334/orcpub`
 Test orcbrew: `logs/exported.orcbrew` (69 plugins, 84 feats, BOM-prefixed)
 
+## Equipment Storage: Map vs Vector (`sequential?`)
+
+The `sequential?` flag on a `selection-cfg` determines storage type:
+- `sequential? false` → **map** keyed by option keyword (uses `map-mod`)
+- `sequential? true` → **vector** of items (uses `vec-mod`)
+
+Verified at `template.cljc:1268`: weapons/equipment use `sequential? false`.
+
+### Impact: duplicate items overwrite
+
+Map storage means two items with the same key silently overwrite:
+
+```clojure
+;; Two longswords — second overwrites first:
+{:longsword {:equipped? true}}
+
+;; Two packs with rations — Dungeoneer's (10) overwrites Burglar's (5):
+{:rations-1-day- {:quantity 10}}
+```
+
+Confirmed root cause of #340 (duplicate weapons), #138 (pack item overlap),
+#229 (quantity display).
+
+### Modifier types (`modifiers.cljc`)
+
+- `map-mod` (line 464) — stores `{item-kw → config}`, current for weapons
+- `vec-mod` — stores `[{:key item-kw ...} ...]`, needed for per-instance identity
+
+### Quantity field exists but is underused
+
+`character/equipment.cljc:5-25` — `::quantity nat-int?` is in the spec.
+`views.cljs:2111-2119` has commented-out display code with `"x " item-qty`.
+Weapons view (`views.cljs:2834-2878`) has no quantity column.
+
+### Subscription merge assumes maps
+
+`subs.cljs:849-855` — `(merge magic-weapons weapons)` uses standard map
+merge. If both maps contain `:longsword`, right side wins.
+
+## Selection Nesting: Template vs Builder Gap
+
+### Verified: template layer supports arbitrary nesting
+
+`template.cljc` — `option-cfg` accepts `:selections` parameter. Built-in
+content uses this heavily:
+
+- Sailor background (`template.cljc:665`) — option contains nested selection
+- Half-Elf Sword Coast (`template.cljc:1074-1105`) — 3+ levels deep
+- Tiefling Sword Coast (`template.cljc:1128-1159`) — nested ability + feature selections
+
+### Verified: homebrew builder doesn't expose nesting
+
+`views/builders.cljs:2545-2629` — selection builder option UI only has:
+- `:name` (text input)
+- `:description` (textarea)
+
+The homebrew option spec (`selections.cljc:24-25`):
+```clojure
+::option (spec/keys :req-un [::name]
+                    :opt-un [::description])
+```
+
+No `:selections` key. Users cannot create nested selections via homebrew
+builder despite the template system fully supporting them.
+
+Confirmed root cause of #260 (nesting in class builder), #486 (nested
+classes/items), #174 (selection builder problems).
+
+---
+
 ## Key Files
 
 | File | Role |
