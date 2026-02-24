@@ -10,6 +10,16 @@
             [orcpub.dnd.e5.views.header :as views-header]
             [orcpub.dnd.e5.views.auth :as views-auth]
             [orcpub.dnd.e5.views.builders :as views-builders]
+            [orcpub.dnd.e5.views.builders.feat :as views-builders-feat]
+            [orcpub.dnd.e5.views.builders.classes :as views-builders-class]
+            [orcpub.dnd.e5.views.builders.item :as views-builders-item]
+            [orcpub.dnd.e5.views.builders.monster :as views-builders-monster]
+            [orcpub.dnd.e5.views.builders.race :as views-builders-race]
+            [orcpub.dnd.e5.views.builders.background :as views-builders-bg]
+            [orcpub.dnd.e5.views.builders.spell :as views-builders-spell]
+            [orcpub.dnd.e5.views.builders.selection :as views-builders-sel]
+            [orcpub.dnd.e5.views.builders.language :as views-builders-lang]
+            [orcpub.dnd.e5.views.builders.warlock :as views-builders-warlock]
             [orcpub.dnd.e5.views.content :as views-content]
             [orcpub.dnd.e5.views.combat :as views-combat]
             [orcpub.dnd.e5.views.lists :as views-lists]
@@ -67,19 +77,19 @@
 
    ;; Builders module — homebrew content editors
    routes/dnd-e5-newb-char-builder-route views-builders/newb-character-builder-page
-   routes/dnd-e5-spell-builder-page-route views-builders/spell-builder-page
-   routes/dnd-e5-monster-builder-page-route views-builders/monster-builder-page
-   routes/dnd-e5-background-builder-page-route views-builders/background-builder-page
-   routes/dnd-e5-race-builder-page-route views-builders/race-builder-page
-   routes/dnd-e5-subrace-builder-page-route views-builders/subrace-builder-page
-   routes/dnd-e5-subclass-builder-page-route views-builders/subclass-builder-page
-   routes/dnd-e5-class-builder-page-route views-builders/class-builder-page
-   routes/dnd-e5-feat-builder-page-route views-builders/feat-builder-page
-   routes/dnd-e5-language-builder-page-route views-builders/language-builder-page
-   routes/dnd-e5-invocation-builder-page-route views-builders/invocation-builder-page
-   routes/dnd-e5-boon-builder-page-route views-builders/boon-builder-page
-   routes/dnd-e5-selection-builder-page-route views-builders/selection-builder-page
-   routes/dnd-e5-item-builder-page-route views-builders/item-builder-page
+   routes/dnd-e5-spell-builder-page-route views-builders-spell/spell-builder-page
+   routes/dnd-e5-monster-builder-page-route views-builders-monster/monster-builder-page
+   routes/dnd-e5-background-builder-page-route views-builders-bg/background-builder-page
+   routes/dnd-e5-race-builder-page-route views-builders-race/race-builder-page
+   routes/dnd-e5-subrace-builder-page-route views-builders-race/subrace-builder-page
+   routes/dnd-e5-subclass-builder-page-route views-builders-class/subclass-builder-page
+   routes/dnd-e5-class-builder-page-route views-builders-class/class-builder-page
+   routes/dnd-e5-feat-builder-page-route views-builders-feat/feat-builder-page
+   routes/dnd-e5-language-builder-page-route views-builders-lang/language-builder-page
+   routes/dnd-e5-invocation-builder-page-route views-builders-warlock/invocation-builder-page
+   routes/dnd-e5-boon-builder-page-route views-builders-warlock/boon-builder-page
+   routes/dnd-e5-selection-builder-page-route views-builders-sel/selection-builder-page
+   routes/dnd-e5-item-builder-page-route views-builders-item/item-builder-page
 
    ;; Combat module — encounter builder + tracker
    routes/dnd-e5-encounter-builder-page-route views-combat/encounter-builder-page
