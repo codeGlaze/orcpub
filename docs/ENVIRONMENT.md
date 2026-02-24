@@ -32,7 +32,7 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `8890` | Web server port. Must match `deploy/nginx.conf` `proxy_pass` (currently 8890). |
+| `PORT` | `8890` | Web server port. Nginx proxy and healthcheck adapt automatically. |
 | `SIGNATURE` | — | **Required.** JWT signing secret for authentication. All login and API calls fail without it. |
 | `ADMIN_PASSWORD` | — | Admin password |
 

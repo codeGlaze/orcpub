@@ -55,8 +55,12 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      # nginx:alpine runs envsubst on /etc/nginx/templates/*.template at startup.
+      # Only defined env vars are substituted — nginx's own $host, $scheme, etc. are safe.
+      ORCPUB_PORT: ${PORT:-8890}
     volumes:
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./deploy/nginx.conf.template:/etc/nginx/templates/default.conf.template
       - ./deploy/snakeoil.crt:/etc/nginx/snakeoil.crt
       - ./deploy/snakeoil.key:/etc/nginx/snakeoil.key
       - ./deploy/homebrew/:/usr/share/nginx/html/homebrew/

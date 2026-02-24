@@ -112,9 +112,12 @@ This mismatch went undetected because the transactor ran without errors — it
 just wrote to the ephemeral `/log` directory, and logs were silently lost on
 every container restart.
 
-## Healthcheck Port Binding
+## Dynamic PORT Across All Services
 
-The app healthcheck uses `CMD-SHELL` to enable environment variable expansion:
+Three components must agree on the app's port: the Jetty server (`PORT` env
+var), the healthcheck, and the nginx reverse proxy.
+
+### Healthcheck
 
 ```yaml
 test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:${PORT:-8890}/health"]
@@ -124,11 +127,21 @@ test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:${PORT:-8890}/health"]
 runs through `/bin/sh -c`, so `${PORT:-8890}` expands from the container's
 environment at runtime.
 
-**Caveat:** `deploy/nginx.conf` hardcodes `proxy_pass http://orcpub:8890`.
-Changing `PORT` without updating nginx breaks the reverse proxy. The dynamic
-healthcheck is defense-in-depth — it ensures the healthcheck matches the app's
-actual port, but PORT is effectively locked to 8890 until nginx is also
-templated. This is documented in `.env.example` and `ENVIRONMENT.md`.
+### Nginx Template
+
+`deploy/nginx.conf.template` uses `${ORCPUB_PORT}` instead of a hardcoded port:
+
+```nginx
+proxy_pass http://orcpub:${ORCPUB_PORT};
+```
+
+The official `nginx:alpine` image runs `envsubst` on files in
+`/etc/nginx/templates/*.template` at container startup. Only defined environment
+variables are substituted — nginx's own `$host`, `$scheme`, `$remote_addr` are
+left untouched because they don't exist as environment variables.
+
+The compose files pass `ORCPUB_PORT: ${PORT:-8890}` to the web service so all
+three components track the same value from a single `.env` setting.
 
 ## DATOMIC_URL Password Sync
 

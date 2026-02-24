@@ -162,7 +162,7 @@ Rules of thumb (from Datomic capacity planning docs):
 | `./logs` → `/log` | datomic | Transactor log output (host `logs/`, container `/log`) |
 | `./backups` | datomic | Datomic backup destination |
 | `./deploy/homebrew/` | web | User homebrew `.orcbrew` files served by nginx |
-| `./deploy/nginx.conf` | web | Nginx configuration |
+| `./deploy/nginx.conf.template` | web | Nginx config template (`envsubst` at startup) |
 | `./deploy/snakeoil.*` | web | Self-signed SSL certificates |
 
 ## Swarm Migration Notes
@@ -185,7 +185,7 @@ The current configuration is Swarm-ready with minimal changes:
 | `docker/Dockerfile` | Multi-target: `datomic-dist` (downloader), `transactor`, `app-builder`, `app` |
 | `docker/transactor.properties.template` | Complete transactor config (Option C hybrid template) |
 | `deploy/start.sh` | Transactor startup: secret substitution + exec |
-| `deploy/nginx.conf` | Nginx reverse proxy configuration |
+| `deploy/nginx.conf.template` | Nginx reverse proxy template (`envsubst` resolves `${ORCPUB_PORT}`) |
 | `deploy/snakeoil.sh` | Self-signed SSL certificate generator |
 | `docker-compose-build.yaml` | Build-from-source compose |
 | `docker-compose.yaml` | Pre-built images compose |
