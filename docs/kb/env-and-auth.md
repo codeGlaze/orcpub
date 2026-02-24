@@ -70,6 +70,7 @@ The most critical env var. Without it, ALL authenticated API calls fail with 500
 | `routes.clj` | `SIGNATURE` | JWT signing, auth interceptor |
 | `config.clj` | `DATOMIC_URL`, `CSP_POLICY`, `DEV_MODE` | App config |
 | `system.clj` | `PORT` | Server port |
+| `index.clj` | `DEV_MODE`, `LOAD_HOMEBREW_URL` | Plugin fetch gate, dev mode flag |
 | `project.clj` | `:env` in `:dev` profile | Dev defaults for `.lein-env` |
 | `.env.example` | All | Template for user's `.env` |
 | `scripts/common.sh` | `.env` sourcing | Auto-loads for script-based startup |

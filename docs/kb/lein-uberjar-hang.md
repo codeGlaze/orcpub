@@ -29,15 +29,28 @@ RUN timeout 600 lein with-profile uberjar,uberjar-package uberjar; \
 Three mechanisms prevent a second compile subprocess:
 
 1. **stale-namespaces**: timestamp-based. .class files from step 2 are newer than source -> empty list -> no subprocess spawned.
-2. **`^:replace` prep-tasks**: `:uberjar-package` profile sets `{:prep-tasks ^:replace [["garden" "once"]]}` — removes "clean" and "compile". The `^:replace` survives lein's internal uberjar re-merge because `:uberjar-package` is explicitly in `with-profile` and is therefore in `:included-profiles`.
-3. **`:auto-clean false`**: lein's `jar.clj` (line 341-342) calls `clean/clean` BEFORE prep-tasks, controlled by `:auto-clean` (defaults `true`). Without this, target/ and resources/public/js/compiled/ are wiped before jar creation begins.
+2. **`^:replace` prep-tasks**: Both `:uberjar` and `:uberjar-package` profiles use `^:replace` on `:prep-tasks`. `:uberjar` sets `^:replace [["garden" "once"] "compile"]`, `:uberjar-package` overrides to `^:replace [["garden" "once"]]` (no compile). The `^:replace` survives lein's internal uberjar re-merge because these profiles are in `:included-profiles`.
+3. **`:auto-clean false`**: lein's `jar.clj` (line 341-342) calls `clean/clean` BEFORE prep-tasks, controlled by `:auto-clean` (defaults `true`). Without this, target/ and resources/public/js/compiled/ are wiped before jar creation begins. Lives in `:uberjar` so both bare-metal (`lein build`) and Docker inherit it.
 
-### project.clj profile
+### project.clj profiles
 
 ```clojure
-:uberjar-package {:auto-clean false
-                  :prep-tasks ^:replace [["garden" "once"]]}
+;; Base uberjar — auto-clean false prevents jar.clj from wiping CLJS output
+:uberjar {:auto-clean false
+           :prep-tasks ^:replace [["garden" "once"] "compile"]
+           :env {:production true} :aot :all :omit-source true}
+
+;; Docker step 3 only — skip compile (AOT done in step 2)
+:uberjar-package {:prep-tasks ^:replace [["garden" "once"]]}
 ```
+
+### Bare-metal build alias
+
+```clojure
+"build" ["do" "clean," "fig:prod," ["with-profile" "uberjar" "uberjar"]]
+```
+
+Clean runs first (explicit), then CLJS, then uberjar. `:auto-clean false` in `:uberjar` preserves CLJS output during jar packaging.
 
 ### resource-paths fix
 
@@ -78,7 +91,7 @@ Three mechanisms prevent a second compile subprocess:
 ## DO NOT (each verified by failure or local testing)
 
 - **Remove `timeout` from step 2** — non-daemon threads prevent JVM exit
-- **Remove `:auto-clean false`** from uberjar-package — jar.clj wipes target/ and compiled JS
+- **Remove `:auto-clean false`** from `:uberjar` — jar.clj wipes target/ and compiled JS
 - **Add `"target"` to `:resource-paths`** — recursive jar inclusion (6.7GB)
 - **Remove `^:replace` from prep-tasks** — "clean" prep-task wipes compiled JS
 - **Try `:eval-in :leiningen`** — classpath conflict with Clojure 1.12.4
@@ -113,12 +126,12 @@ Removed cljsbuild entirely. CI STILL HUNG — proving the primary issue was alwa
 | 11 | Skip clean, keep `"target"` in resource-paths | Recursive jar inclusion: jar includes itself (6.7GB thin jar) |
 | 12 | All above fixed but auto-clean wipes artifacts | `jar.clj` calls `clean/clean` before prep-tasks (`:auto-clean` defaults true) |
 
-Attempt 12 was the final piece — adding `:auto-clean false` to `:uberjar-package` completed the fix.
+Attempt 12 was the final piece — adding `:auto-clean false` completed the fix. (Originally in `:uberjar-package`, now in `:uberjar` directly so bare-metal `lein build` also inherits it.)
 
 ## Related Files
 
 - `docker/Dockerfile` — three-step build with timeout
-- `project.clj` — `:uberjar-package` profile, no lein-cljsbuild, fig:prod alias
+- `project.clj` — `:uberjar`/`:uberjar-package` profiles, `build` alias, no lein-cljsbuild, fig:prod alias
 - `prod.cljs.edn` — figwheel-main production CLJS config
 - `.github/workflows/docker-integration.yml` — `DOCKER_BUILDKIT=0` + direct docker build
 - `docs/LEIN-UBERJAR-HANG.md` — human-facing documentation
