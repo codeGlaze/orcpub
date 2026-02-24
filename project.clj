@@ -188,10 +188,11 @@
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
             "fig:prod" ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
-            ;; Single-command production build: CLJS → uberjar.
-            ;; fig:prod runs without :uberjar profile (avoids prep-task recursion).
-            ;; CLJS output (resources/public/) survives uberjar's clean (target/ only).
-            "build" ["do" "fig:prod," "uberjar"]
+            ;; Single-command production build: clean → CLJS → uberjar.
+            ;; clean must run BEFORE fig:prod because :clean-targets includes
+            ;; resources/public/js/compiled (the CLJS output dir). The uberjar
+            ;; step uses uberjar-noclean profile to skip the redundant clean.
+            "build" ["do" "clean," "fig:prod," ["with-profile" "uberjar,uberjar-noclean" "uberjar"]]
             "figwheel-native" ["with-profile" "native-dev" "run" "-m" "user" "--figwheel"]
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
@@ -287,6 +288,10 @@
                             :env         {:production true}
                             :aot         :all
                             :omit-source true}
+             ;; Used by `lein build` alias: clean already happened, skip it here.
+             ;; Garden and compile still run as prep-tasks.
+             :uberjar-noclean {:auto-clean false
+                               :prep-tasks ^:replace [["garden" "once"] "compile"]}
              ;; Docker build: CLJS is compiled separately via figwheel-main.
              ;; uberjar-package removes "clean" AND "compile" from prep-tasks,
              ;; and disables auto-clean (jar.clj calls clean/clean before
