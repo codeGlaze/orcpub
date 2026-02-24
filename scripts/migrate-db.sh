@@ -119,7 +119,7 @@ find_free_datomic() {
   local candidate
   for candidate in "$REPO_ROOT"/lib/datomic-free-*/bin/datomic; do
     if [[ -x "$candidate" ]]; then
-      echo "$(dirname "$(dirname "$candidate")")"
+      dirname "$(dirname "$candidate")"
       return 0
     fi
   done

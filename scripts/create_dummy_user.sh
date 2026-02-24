@@ -6,13 +6,19 @@ set -euo pipefail
 # The CLI entrypoint is dev/user.clj -main with the "create-user" command.
 # Duplicate checking (email/username) happens inside create-user!.
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Source common.sh for shared config and logging
+# shellcheck source=common.sh
+source "$SCRIPT_DIR/common.sh"
+
 if [ "$#" -lt 3 ]; then
   echo "Usage: $0 <username> <email> <password> [verify]"
   echo "Example: $0 testuser test@example.com s3cret verify"
   echo ""
   echo "Options:"
   echo "  verify    Mark user as verified (can log in immediately)"
-  exit 1
+  exit "$EXIT_USAGE"
 fi
 
 username="$1"
@@ -21,9 +27,6 @@ password="$3"
 shift 3
 
 override="${1:-}" # optional "verify"
-
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # Append credentials to .test-users (gitignored) so you can look them up later
 log_test_user() {

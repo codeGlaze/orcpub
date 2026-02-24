@@ -225,8 +225,8 @@ stop_garden() {
 
 stop_port() {
     local port="$1" skip="$2" force="$3" quiet="$4"
-    [[ -z "$port" ]] && { log_error "Usage: $0 port <port>"; exit $EXIT_USAGE; }
-    [[ ! "$port" =~ ^[0-9]+$ ]] && { log_error "Invalid port: $port"; exit $EXIT_USAGE; }
+    [[ -z "$port" ]] && { log_error "Usage: $0 port <port>"; exit "$EXIT_USAGE"; }
+    [[ ! "$port" =~ ^[0-9]+$ ]] && { log_error "Invalid port: $port"; exit "$EXIT_USAGE"; }
     local pids
     pids=$(find_pids_by_port "$port")
     confirm_kill "$pids" "port $port" "$skip" "$quiet" && kill_pids "$pids" "$force" "$quiet"
@@ -234,22 +234,22 @@ stop_port() {
 
 stop_name() {
     local pattern="$1" skip="$2" force="$3" quiet="$4"
-    [[ -z "$pattern" ]] && { log_error "Usage: $0 name <pattern>"; exit $EXIT_USAGE; }
+    [[ -z "$pattern" ]] && { log_error "Usage: $0 name <pattern>"; exit "$EXIT_USAGE"; }
 
     # Warn about very broad patterns (security/safety measure)
     if [[ ${#pattern} -lt 4 ]]; then
         log_warn "Pattern '$pattern' is very broad (${#pattern} chars)"
         if ! is_interactive; then
             log_error "Refusing to use broad pattern in non-interactive mode"
-            exit $EXIT_USAGE
+            exit "$EXIT_USAGE"
         fi
         if ! read -t 30 -p "This may match many processes. Continue? [y/N] " -n 1 -r; then
             echo
             log_error "Prompt timed out after 30 seconds"
-            exit $EXIT_RUNTIME
+            exit "$EXIT_RUNTIME"
         fi
         echo
-        [[ ! $REPLY =~ ^[Yy]$ ]] && { log_info "Aborted."; exit $EXIT_SUCCESS; }
+        [[ ! $REPLY =~ ^[Yy]$ ]] && { log_info "Aborted."; exit "$EXIT_SUCCESS"; }
     fi
 
     local pids
@@ -340,13 +340,13 @@ main() {
             --yes|-y)           skip_confirm="true"; shift ;;
             --force|-f)         use_force="true"; shift ;;
             --quiet|-q)         quiet="true"; QUIET="true"; export QUIET; skip_confirm="true"; shift ;;
-            --help|-h)          show_help; exit $EXIT_SUCCESS ;;
-            -*)                 log_error "Unknown option: $1"; show_help; exit $EXIT_USAGE ;;
+            --help|-h)          show_help; exit "$EXIT_SUCCESS" ;;
+            -*)                 log_error "Unknown option: $1"; show_help; exit "$EXIT_USAGE" ;;
             *)                  positional+=("$1"); shift ;;
         esac
     done
 
-    [[ "$dry_run" == "true" ]] && { show_status "$quiet"; exit $EXIT_SUCCESS; }
+    [[ "$dry_run" == "true" ]] && { show_status "$quiet"; exit "$EXIT_SUCCESS"; }
 
     target="${positional[0]:-all}"
 
@@ -359,7 +359,7 @@ main() {
         garden)   stop_garden "$skip_confirm" "$use_force" "$quiet" ;;
         port)     stop_port "${positional[1]:-}" "$skip_confirm" "$use_force" "$quiet" ;;
         name)     stop_name "${positional[1]:-}" "$skip_confirm" "$use_force" "$quiet" ;;
-        *)        log_error "Unknown target: $target"; show_help; exit $EXIT_USAGE ;;
+        *)        log_error "Unknown target: $target"; show_help; exit "$EXIT_USAGE" ;;
     esac
 }
 
