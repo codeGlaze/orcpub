@@ -65,8 +65,9 @@ cljs-test-runner-out
 # Cursor IDE local config (contains user-specific paths)
 .cursor/
 
-# Claude Code local data (conversation history, credentials)
+# Claude Code local data (conversation history, credentials, settings)
 .claude-data/
+.claude/
 
 # Ignore all log files in logs/
 logs/
