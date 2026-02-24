@@ -204,7 +204,12 @@ backup_uri() {
 # This filesystem scan is more reliable than list-backups, which can fail on
 # Windows due to a directory enumeration bug in Datomic's Java code (the JVM
 # silently fails to read roots/, producing :restore/no-roots even though the
-# files exist). Always passing the explicit t value bypasses this bug.
+# files exist). On macOS, the same code path crashes on .DS_Store files with
+# NumberFormatException (https://github.com/Datomic/mbrainz-sample/issues/10).
+# The underlying issue is that backup.clj parses every filename in roots/ with
+# Long.parseLong() without filtering non-numeric entries or handling platform
+# directory enumeration quirks. Always passing the explicit t value bypasses
+# this fragile code path.
 get_latest_t() {
   local roots_dir="${BACKUP_DIR}/orcpub/roots"
   local latest_t=""

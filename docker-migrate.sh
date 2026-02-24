@@ -191,7 +191,11 @@ wait_healthy() {
 #
 # This filesystem scan is more reliable than list-backups, which can fail on
 # some platforms due to a directory enumeration bug in Datomic's Java code.
-# Always passing the explicit t value bypasses this bug.
+# Datomic's backup.clj parses every filename in roots/ with Long.parseLong()
+# without filtering non-numeric entries or handling platform quirks — crashes
+# on macOS .DS_Store (https://github.com/Datomic/mbrainz-sample/issues/10),
+# silently produces :restore/no-roots on Windows. Always passing the explicit
+# t value bypasses this fragile code path.
 get_latest_t() {
   local roots_dir="${BACKUP_DIR}/orcpub/roots"
   local latest_t=""
