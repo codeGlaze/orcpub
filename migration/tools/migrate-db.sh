@@ -200,6 +200,38 @@ backup_uri() {
   echo "file:${BACKUP_DIR}/orcpub"
 }
 
+# Discover the latest restore point (t value) from the backup's roots/ directory.
+# Root filenames ARE the t values (e.g., roots/168103969 → t=168103969).
+#
+# This filesystem scan is more reliable than list-backups, which can fail on
+# Windows due to a directory enumeration bug in Datomic's Java code (the JVM
+# silently fails to read roots/, producing :restore/no-roots even though the
+# files exist). On macOS, the same code path crashes on .DS_Store files with
+# NumberFormatException (https://github.com/Datomic/mbrainz-sample/issues/10).
+# The underlying issue is that backup.clj parses every filename in roots/ with
+# Long.parseLong() without filtering non-numeric entries or handling platform
+# directory enumeration quirks. Always passing the explicit t value bypasses
+# this fragile code path.
+get_latest_t() {
+  local roots_dir="${BACKUP_DIR}/orcpub/roots"
+  local latest_t=""
+
+  if [[ -d "$roots_dir" ]]; then
+    # Find the highest numeric filename — that's the latest restore point
+    latest_t=$(ls -1 "$roots_dir" 2>/dev/null \
+      | grep -E '^[0-9]+$' \
+      | sort -n \
+      | tail -1 || true)
+  fi
+
+  if [[ -n "$latest_t" ]]; then
+    echo "$latest_t"
+    return 0
+  fi
+
+  return 1
+}
+
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
@@ -287,16 +319,37 @@ do_restore() {
     log_info "Backed up from:   $(cat "${BACKUP_DIR}/.source-uri")"
   fi
 
+  # Auto-discover the latest restore point from the filesystem.
+  # Always pass t explicitly to work around a Windows JVM bug where Datomic
+  # fails to enumerate the roots/ directory (producing :restore/no-roots).
+  local restore_t=""
+  if restore_t=$(get_latest_t); then
+    log_info "Restore point: t=$restore_t (from roots/ directory)"
+  else
+    log_warn "Could not discover restore point from filesystem."
+    log_warn "restore-db will attempt automatic root discovery."
+  fi
+
   log_info "Datomic CLI: $(datomic_bin)"
   log_info "Backup source: $(backup_uri)"
   log_info "Target URI:    $target_uri"
   log_info "Starting restore (large databases may take 30+ minutes)..."
   echo ""
 
-  if ! "$(datomic_bin)" restore-db "$(backup_uri)" "$target_uri"; then
-    log_error "restore-db failed. Is the target transactor running?"
-    log_error "If 'database already exists', clear ./data and restart the transactor."
-    exit "$EXIT_RUNTIME"
+  # Pass t value explicitly when available (3rd positional arg to restore-db)
+  if [[ -n "$restore_t" ]]; then
+    if ! "$(datomic_bin)" restore-db "$(backup_uri)" "$target_uri" "$restore_t"; then
+      log_error "restore-db failed. Is the target transactor running?"
+      log_error "If 'database already exists', clear ./data and restart the transactor."
+      exit "$EXIT_RUNTIME"
+    fi
+  else
+    if ! "$(datomic_bin)" restore-db "$(backup_uri)" "$target_uri"; then
+      log_error "restore-db failed. Is the target transactor running?"
+      log_error "If 'database already exists', clear ./data and restart the transactor."
+      log_error "On Windows: if :restore/no-roots, see docs/migration/datomic-data-migration.md"
+      exit "$EXIT_RUNTIME"
+    fi
   fi
 
   echo ""
@@ -320,13 +373,19 @@ do_verify() {
   echo ""
 
   # verify-backup positional args: <backup-uri> <read-all> <t>
-  # First get the latest t from list-backups
+  # Try list-backups first, fall back to filesystem scan if it fails
+  # (list-backups can fail on Windows due to root directory enumeration bug)
   local latest_t
   latest_t=$("$(datomic_bin)" list-backups "$(backup_uri)" 2>&1 | tail -1 || true)
 
   if [[ -z "$latest_t" ]]; then
-    log_error "Could not determine latest backup point. Is the backup complete?"
-    exit "$EXIT_RUNTIME"
+    log_warn "list-backups returned empty — trying filesystem scan..."
+    if latest_t=$(get_latest_t); then
+      log_info "Found restore point from filesystem: t=$latest_t"
+    else
+      log_error "Could not determine latest backup point. Is the backup complete?"
+      exit "$EXIT_RUNTIME"
+    fi
   fi
 
   log_info "Latest backup point: t=$latest_t"

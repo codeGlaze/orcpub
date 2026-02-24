@@ -297,6 +297,37 @@ it on first boot:
 2. `rm -rf ./data/*`
 3. Restart, then retry restore
 
+### `:restore/no-roots` on Windows (and `.DS_Store` on macOS)
+
+Datomic's `restore-db` and `list-backups` discover restore points by reading the
+`roots/` directory inside the backup. The underlying code (`backup.clj`) calls
+`Long.parseLong()` on every filename in the directory without filtering non-numeric
+entries or handling platform directory enumeration quirks. On Windows, the JVM's
+directory listing can silently fail, causing `:restore/no-roots` even though the
+backup is intact. On macOS, the same code crashes with `NumberFormatException` on
+`.DS_Store` files ([Datomic/mbrainz-sample#10](https://github.com/Datomic/mbrainz-sample/issues/10)).
+
+**Diagnosis**: Check that `backup/orcpub/roots/` contains a numeric file
+(e.g., `168103969`). If it does, the backup is valid — the error is a platform
+bug, not a data problem.
+
+**Fix**: Pass the `t` value (the filename from `roots/`) explicitly as the third
+argument to `restore-db`:
+
+```bash
+# Find the t value
+dir backup\orcpub\roots\
+# e.g., shows file "168103969"
+
+# Pass it explicitly
+bin\datomic restore-db "file:///C:/path/to/backup/orcpub" "datomic:dev://localhost:4334/orcpub?password=..." 168103969
+```
+
+The migration scripts (`scripts/migrate-db.sh` and `docker-migrate.sh`) auto-
+discover the `t` value from the filesystem and pass it explicitly, so this is
+handled automatically. If running `bin/datomic` directly on Windows, always pass
+the explicit `t` value.
+
 ### Interrupted backup
 
 Delete the incomplete backup directory and re-run. Backups are not resumable
