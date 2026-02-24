@@ -12,6 +12,11 @@ set -euo pipefail
 # 5. Optionally start server/figwheel
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Source common.sh for shared config (DATOMIC_PORT, logging, etc.)
+# shellcheck source=common.sh
+source "$SCRIPT_DIR/common.sh"
+
 NO_START=false
 SKIP_DATOMIC=false
 SKIP_TEST_USER=false
@@ -38,65 +43,65 @@ EOF
   esac
 done
 
-echo "Dev setup: NO_START=$NO_START SKIP_DATOMIC=$SKIP_DATOMIC SKIP_TEST_USER=$SKIP_TEST_USER START=$START"
+log_info "Dev setup: NO_START=$NO_START SKIP_DATOMIC=$SKIP_DATOMIC SKIP_TEST_USER=$SKIP_TEST_USER START=$START"
 
 # Start Datomic transactor if requested
 if [ "$SKIP_DATOMIC" = false ]; then
-  echo "Starting Datomic transactor..."
+  log_info "Starting Datomic transactor..."
   "$SCRIPT_DIR/start.sh" datomic --quiet --idempotent || {
-    echo "Datomic start failed; continuing but DB init may be skipped." >&2
+    log_warn "Datomic start failed; continuing but DB init may be skipped."
   }
 else
-  echo "Skipping Datomic startup as requested."
+  log_info "Skipping Datomic startup as requested."
 fi
 
 # Ensure dependencies are downloaded
-echo "Running lein deps..."
+log_info "Running lein deps..."
 lein deps
 
 # Run idempotent DB initialization via dev/user.clj CLI entrypoint
-echo "Initializing database (idempotent)..."
+log_info "Initializing database (idempotent)..."
 # Only attempt DB init if Datomic is reachable on the expected port
-if timeout 1 bash -c '</dev/tcp/localhost/4334' >/dev/null 2>&1; then
+if port_in_use "$DATOMIC_PORT"; then
   if lein with-profile init-db run -m user init-db; then
-    echo "DB init succeeded."
+    log_info "DB init succeeded."
 
     # Create a default test user so you can log in immediately after setup.
     # Credentials: test / test@example.com / testpass (already verified).
     # Idempotent: create-user! checks for existing email/username before inserting.
     if [ "$SKIP_TEST_USER" = false ]; then
-      echo "Creating test user (test / test@test.com / testpass)..."
+      log_info "Creating test user (test / test@test.com / testpass)..."
       # Log credentials before lein so the entry persists even if the JVM is slow to exit
-      users_file="$SCRIPT_DIR/../.test-users"
+      users_file="$REPO_ROOT/.test-users"
       if [[ ! -f "$users_file" ]]; then
         echo "# Test users created by dev tooling (gitignored)" > "$users_file"
         echo "# username | email | password | status | created" >> "$users_file"
       fi
       echo "test | test@test.com | testpass | verified | $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$users_file"
       if lein with-profile init-db run -m user create-user test test@test.com testpass verify; then
-        echo "Test user created and verified."
+        log_info "Test user created and verified."
       else
-        echo "Test user creation failed (may already exist)." >&2
+        log_warn "Test user creation failed (may already exist)."
       fi
     fi
   else
-    echo "DB init failed but continuing (non-fatal)." >&2
+    log_warn "DB init failed but continuing (non-fatal)."
   fi
 else
-  echo "Datomic not reachable on localhost:4334; skipping DB init (post-create will not fail)."
+  log_warn "Datomic not reachable on port $DATOMIC_PORT; skipping DB init."
 fi
 
 if [ "$START" -eq 1 ] && [ "$NO_START" = false ]; then
-  echo "Starting backend and figwheel in background..."
+  log_info "Starting backend and figwheel in background..."
   "$SCRIPT_DIR/start.sh" server --background --quiet || true
   "$SCRIPT_DIR/start.sh" figwheel --background --quiet || true
-  echo "Started server & figwheel (logs in ./logs/)"
+  log_info "Started server & figwheel (logs in $LOG_DIR/)"
 else
-  echo "Setup complete. To start services:"
-  echo "  ./scripts/start.sh server"
-  echo "  ./scripts/start.sh figwheel"
-  echo "Or use the interactive menu:"
-  echo "  ./menu"
+  log_info "Setup complete. To start services:"
+  log_info "  ./scripts/start.sh server"
+  log_info "  ./scripts/start.sh figwheel"
+  log_info "Or use the interactive menu:"
+  log_info "  ./menu"
 fi
 
 exit 0

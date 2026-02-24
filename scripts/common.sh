@@ -19,6 +19,31 @@ COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${REPO_ROOT:-$(cd "$COMMON_DIR/.." && pwd)}"
 
 # -----------------------------------------------------------------------------
+# Service Manifest (scripts/services.json)
+# -----------------------------------------------------------------------------
+# The manifest is the shared source of truth for service definitions, ports,
+# and exit codes — read by both bash (this file) and PowerShell (common.ps1).
+# If jq is available, defaults are loaded from the manifest. Otherwise,
+# hardcoded fallbacks are used (kept in sync manually).
+
+MANIFEST_PATH="$COMMON_DIR/services.json"
+
+# Read a value from the manifest using jq. Falls back to a default if jq is
+# not installed or the key is missing. This keeps the scripts fully functional
+# without jq while allowing the manifest to be the authoritative source.
+_manifest_val() {
+    local jq_path="$1"
+    local fallback="$2"
+    if command -v jq >/dev/null 2>&1 && [[ -f "$MANIFEST_PATH" ]]; then
+        local val
+        val=$(jq -r "$jq_path // empty" "$MANIFEST_PATH" 2>/dev/null)
+        echo "${val:-$fallback}"
+    else
+        echo "$fallback"
+    fi
+}
+
+# -----------------------------------------------------------------------------
 # Environment Configuration
 # -----------------------------------------------------------------------------
 
@@ -30,18 +55,19 @@ if [[ -f "$REPO_ROOT/.env" ]]; then
     set +a
 fi
 
-# Defaults (used if not set in .env)
-DATOMIC_VERSION="${DATOMIC_VERSION:-1.0.7482}"
-DATOMIC_TYPE="${DATOMIC_TYPE:-pro}"
-JAVA_MIN_VERSION="${JAVA_MIN_VERSION:-11}"
-LOG_DIR="${LOG_DIR:-$REPO_ROOT/logs}"
+# Defaults — manifest values when jq is available, hardcoded fallbacks otherwise.
+# Env vars from .env always take priority (the :- syntax preserves existing values).
+DATOMIC_VERSION="${DATOMIC_VERSION:-$(_manifest_val '.defaults.datomic_version' '1.0.7482')}"
+DATOMIC_TYPE="${DATOMIC_TYPE:-$(_manifest_val '.defaults.datomic_type' 'pro')}"
+JAVA_MIN_VERSION="${JAVA_MIN_VERSION:-$(_manifest_val '.defaults.java_min_version' '11')}"
+LOG_DIR="${LOG_DIR:-$REPO_ROOT/$(_manifest_val '.defaults.log_dir' 'logs')}"
 
-# Port configuration
-DATOMIC_PORT="${DATOMIC_PORT:-4334}"
-SERVER_PORT="${SERVER_PORT:-8890}"
-NREPL_PORT="${NREPL_PORT:-7888}"
-FIGWHEEL_PORT="${FIGWHEEL_PORT:-3449}"
-GARDEN_PORT="${GARDEN_PORT:-3000}"
+# Port configuration — manifest values with hardcoded fallbacks
+DATOMIC_PORT="${DATOMIC_PORT:-$(_manifest_val '.services.datomic.port_default' '4334')}"
+SERVER_PORT="${SERVER_PORT:-$(_manifest_val '.services.server.port_default' '8890')}"
+NREPL_PORT="${NREPL_PORT:-$(_manifest_val '.services.nrepl.port_default' '7888')}"
+FIGWHEEL_PORT="${FIGWHEEL_PORT:-$(_manifest_val '.services.figwheel.port_default' '3449')}"
+GARDEN_PORT="${GARDEN_PORT:-$(_manifest_val '.services.garden.port_default' '3000')}"
 
 # Derived paths
 DATOMIC_DIR="$REPO_ROOT/lib/com/datomic/datomic-${DATOMIC_TYPE}/${DATOMIC_VERSION}"
@@ -80,17 +106,25 @@ fi
 # 2 = Prerequisite / config failure
 # 3 = Runtime failure (process crashed, timeout, port conflict)
 
-EXIT_SUCCESS=0
-EXIT_USAGE=1
-EXIT_PREREQ=2
-EXIT_RUNTIME=3
+EXIT_SUCCESS=$(_manifest_val '.exit_codes.success' '0')
+EXIT_USAGE=$(_manifest_val '.exit_codes.usage' '1')
+EXIT_PREREQ=$(_manifest_val '.exit_codes.prereq' '2')
+EXIT_RUNTIME=$(_manifest_val '.exit_codes.runtime' '3')
 
 # -----------------------------------------------------------------------------
 # Configurable Timeouts
 # -----------------------------------------------------------------------------
+# PORT_WAIT: How long to wait for a service port to become available.
+#   - Datomic transactor: usually ready in 5-15s
+#   - Server (lein repl): first run downloads deps + compiles = several minutes
+#   - Figwheel: first-run CLJS compilation can take 2-5 minutes
+# SERVER_BOOT_WAIT: Extra timeout for app server (Datomic peer + schema = ~110s)
+# FIRST_RUN_WAIT: Extended timeout for first-run scenarios (dep download + compile)
 
 KILL_WAIT="${KILL_WAIT:-5}"
 PORT_WAIT="${PORT_WAIT:-30}"
+SERVER_BOOT_WAIT="${SERVER_BOOT_WAIT:-180}"
+FIRST_RUN_WAIT="${FIRST_RUN_WAIT:-600}"
 
 # -----------------------------------------------------------------------------
 # Quiet Mode Support
@@ -279,8 +313,26 @@ check_java() {
         return 1
     fi
 
+    # Warn about Datomic Free + Java 21 incompatibility (KB: DATOMIC_JAVA21_TEST_RESULTS)
+    if [[ "$DATOMIC_TYPE" == "free" && "$java_version" -ge 21 ]]; then
+        log_warn "Datomic Free does NOT work with Java 21+ (SSL handshake timeout)."
+        log_warn "Migrate to Datomic Pro or use Java 8. See docs/JAVA-COMPATIBILITY.md"
+    fi
+
     log_info "Java $java_version detected (minimum: $JAVA_MIN_VERSION)"
     return 0
+}
+
+# Check whether lein dependencies have been downloaded (first-run detection).
+# Returns 0 if deps appear present, 1 if this looks like a first run.
+check_lein_deps_present() {
+    # If the local Maven repo has datomic, deps are likely resolved.
+    # This is a heuristic — not perfect, but catches the common case.
+    local m2_datomic="$HOME/.m2/repository/com/datomic"
+    if [[ -d "$m2_datomic" ]]; then
+        return 0
+    fi
+    return 1
 }
 
 check_lein() {

@@ -255,10 +255,10 @@ run_checks() {
     echo ""
     if [[ $failed -gt 0 ]]; then
         log_error "$failed prerequisite check(s) failed"
-        return $EXIT_PREREQ
+        return "$EXIT_PREREQ"
     else
         log_info "All prerequisite checks passed"
-        return $EXIT_SUCCESS
+        return "$EXIT_SUCCESS"
     fi
 }
 
@@ -273,7 +273,7 @@ run_in_tmux() {
     shift
     local cmd_args=("$@")
 
-    check_tmux || exit $EXIT_PREREQ
+    check_tmux || exit "$EXIT_PREREQ"
 
     # Build a properly quoted command string to avoid argument splitting
     local quoted_cmd
@@ -339,18 +339,18 @@ start_datomic() {
     local idempotent="${1:-false}"
     local port_result=0
 
-    check_datomic_installed || exit $EXIT_PREREQ
+    check_datomic_installed || exit "$EXIT_PREREQ"
 
     # Check port (0=available, 1=abort, 2=skip)
     check_port_available "$DATOMIC_PORT" "datomic" "$idempotent" || port_result=$?
-    [[ $port_result -eq 1 ]] && exit $EXIT_RUNTIME
+    [[ $port_result -eq 1 ]] && exit "$EXIT_RUNTIME"
 
     # If already running (idempotent or user chose skip), exit success
     if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" || "$SKIP_SERVICE" == "true" ]]; then
-        exit $EXIT_SUCCESS
+        exit "$EXIT_SUCCESS"
     fi
 
-    prepare_datomic_config || exit $EXIT_PREREQ
+    prepare_datomic_config || exit "$EXIT_PREREQ"
 
     # Clean up stale PID file
     cleanup_stale_pid "datomic"
@@ -367,13 +367,13 @@ start_datomic() {
     if ! kill -0 "$datomic_pid" 2>/dev/null; then
         log_error "Datomic process died immediately after starting"
         show_startup_failure "datomic" "$LOG_DIR/datomic.log" "$DATOMIC_PORT"
-        exit $EXIT_RUNTIME
+        exit "$EXIT_RUNTIME"
     fi
 
     # Wait for Datomic to be ready
     if ! wait_for_datomic "$PORT_WAIT" "$LOG_DIR/datomic.log"; then
         log_error "Failed to start Datomic. Check logs: $LOG_DIR/datomic.log"
-        exit $EXIT_RUNTIME
+        exit "$EXIT_RUNTIME"
     fi
 }
 
@@ -383,18 +383,28 @@ start_server() {
 
     # Check port (0=available, 1=abort, 2=skip)
     check_port_available "$SERVER_PORT" "server" "$idempotent" || port_result=$?
-    [[ $port_result -eq 1 ]] && exit $EXIT_RUNTIME
+    [[ $port_result -eq 1 ]] && exit "$EXIT_RUNTIME"
 
     # If already running (idempotent or user chose skip), exit success
     if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" || "$SKIP_SERVICE" == "true" ]]; then
-        exit $EXIT_SUCCESS
+        exit "$EXIT_SUCCESS"
     fi
 
     cd "$REPO_ROOT"
 
+    # First-run warning: lein repl triggers dep download + compile on first run.
+    # This can take several minutes and looks like a hang. Warn the user.
+    if ! check_lein_deps_present; then
+        log_warn "First run detected — lein will download dependencies before starting."
+        log_warn "This may take several minutes. Do not interrupt."
+    fi
+
     # Use headless mode if not running interactively (background/nohup)
     if [[ -t 0 ]]; then
         log_info "Starting REPL with server (profile: +dev,+start-server)..."
+        # Note: lein repl may not exit cleanly due to non-daemon JVM threads
+        # (Datomic peer, core.async). This is a known lein issue, not a bug.
+        # See docs/kb/lein-uberjar-hang.md for details.
         lein with-profile +dev,+start-server repl
     else
         log_info "Starting headless server (profile: +dev,+start-server)..."
@@ -408,11 +418,11 @@ start_figwheel() {
 
     # Check port (0=available, 1=abort, 2=skip)
     check_port_available "$FIGWHEEL_PORT" "figwheel" "$idempotent" || port_result=$?
-    [[ $port_result -eq 1 ]] && exit $EXIT_RUNTIME
+    [[ $port_result -eq 1 ]] && exit "$EXIT_RUNTIME"
 
     # If already running (idempotent or user chose skip), exit success
     if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" || "$SKIP_SERVICE" == "true" ]]; then
-        exit $EXIT_SUCCESS
+        exit "$EXIT_SUCCESS"
     fi
 
     # Clean up stale PID file
@@ -433,7 +443,7 @@ start_figwheel() {
     if ! kill -0 "$figwheel_pid" 2>/dev/null; then
         log_error "Figwheel process died immediately after starting"
         show_startup_failure "figwheel" "$LOG_DIR/figwheel.log" "$FIGWHEEL_PORT"
-        exit $EXIT_RUNTIME
+        exit "$EXIT_RUNTIME"
     fi
 
     # Wait for Figwheel to be ready (fail fast if process dies)
@@ -447,7 +457,7 @@ start_figwheel() {
         log_info "Logs: $LOG_DIR/figwheel.log"
     else
         show_startup_failure "figwheel" "$LOG_DIR/figwheel.log" "$FIGWHEEL_PORT"
-        exit $EXIT_RUNTIME
+        exit "$EXIT_RUNTIME"
     fi
 }
 
@@ -472,7 +482,7 @@ start_garden() {
         if ! kill -0 "$garden_pid" 2>/dev/null; then
             log_error "Garden process died during startup"
             show_startup_failure "garden" "$LOG_DIR/garden.log" ""
-            exit $EXIT_RUNTIME
+            exit "$EXIT_RUNTIME"
         fi
         ((checks++))
     done
@@ -486,7 +496,7 @@ init_database() {
     if ! port_in_use "$DATOMIC_PORT"; then
         log_error "Datomic is not running on port $DATOMIC_PORT"
         log_info "Start Datomic first: ./start.sh datomic"
-        exit $EXIT_PREREQ
+        exit "$EXIT_PREREQ"
     fi
 
     cd "$REPO_ROOT"
@@ -497,7 +507,7 @@ init_database() {
         log_info "Database initialized successfully"
     else
         log_error "Database initialization failed"
-        exit $EXIT_RUNTIME
+        exit "$EXIT_RUNTIME"
     fi
 }
 
@@ -515,7 +525,9 @@ start_all() {
             kill "$datomic_pid" 2>/dev/null || true
             # Wait briefly for graceful shutdown
             sleep 1
-            kill -0 "$datomic_pid" 2>/dev/null && kill -9 "$datomic_pid" 2>/dev/null || true
+            if kill -0 "$datomic_pid" 2>/dev/null; then
+                kill -9 "$datomic_pid" 2>/dev/null || true
+            fi
             rm -f "$LOG_DIR/datomic.pid"
             log_info "Datomic stopped"
         fi
@@ -525,18 +537,18 @@ start_all() {
     # Set up trap for cleanup on interrupt/termination
     trap cleanup_on_exit INT TERM
 
-    check_datomic_installed || exit $EXIT_PREREQ
+    check_datomic_installed || exit "$EXIT_PREREQ"
 
     # Check Datomic port (0=available, 1=abort, 2=skip)
     port_result=0
     check_port_available "$DATOMIC_PORT" "datomic" "$idempotent" || port_result=$?
     if [[ $port_result -eq 1 ]]; then
-        exit $EXIT_RUNTIME
+        exit "$EXIT_RUNTIME"
     fi
 
     # If Datomic already running (idempotent or skipped), skip starting it
     if [[ "$IDEMPOTENT_ALREADY_RUNNING" != "true" && "$SKIP_SERVICE" != "true" ]]; then
-        prepare_datomic_config || exit $EXIT_PREREQ
+        prepare_datomic_config || exit "$EXIT_PREREQ"
 
         # Clean up stale PID
         cleanup_stale_pid "datomic"
@@ -554,13 +566,13 @@ start_all() {
             log_error "Datomic process died immediately after starting"
             show_startup_failure "datomic" "$LOG_DIR/datomic.log" "$DATOMIC_PORT"
             started_datomic="false"  # Don't try to clean up a dead process
-            exit $EXIT_RUNTIME
+            exit "$EXIT_RUNTIME"
         fi
 
         # Wait for Datomic to be ready (with proper readiness check)
         if ! wait_for_datomic "$PORT_WAIT" "$LOG_DIR/datomic.log"; then
             log_error "Failed to start Datomic. Check logs: $LOG_DIR/datomic.log"
-            exit $EXIT_RUNTIME
+            exit "$EXIT_RUNTIME"
         fi
     else
         log_info "Datomic already running, skipping startup"
@@ -570,14 +582,14 @@ start_all() {
     port_result=0
     check_port_available "$SERVER_PORT" "server" "$idempotent" || port_result=$?
     if [[ $port_result -eq 1 ]]; then
-        exit $EXIT_RUNTIME
+        exit "$EXIT_RUNTIME"
     fi
 
     if [[ "$IDEMPOTENT_ALREADY_RUNNING" == "true" || "$SKIP_SERVICE" == "true" ]]; then
         log_info "Server already running on port $SERVER_PORT"
         # Clear trap since we're not managing Datomic lifecycle
         trap - INT TERM
-        exit $EXIT_SUCCESS
+        exit "$EXIT_SUCCESS"
     fi
 
     log_info "Starting REPL with server (profile: +dev,+start-server)..."
@@ -686,8 +698,8 @@ main() {
             --check|-c)           do_check="true"; shift ;;
             --idempotent|-I|--if-not-running)
                                   idempotent="true"; shift ;;
-            --help|-h)            show_help; exit $EXIT_SUCCESS ;;
-            -*)                   log_error "Unknown option: $1"; show_help; exit $EXIT_USAGE ;;
+            --help|-h)            show_help; exit "$EXIT_SUCCESS" ;;
+            -*)                   log_error "Unknown option: $1"; show_help; exit "$EXIT_USAGE" ;;
             *)                    positional+=("$1"); shift ;;
         esac
     done
@@ -697,13 +709,13 @@ main() {
     # Handle install flag (no prereq checks needed)
     if [[ "$do_install" == "true" ]]; then
         run_install
-        exit $EXIT_SUCCESS
+        exit "$EXIT_SUCCESS"
     fi
 
     # Handle help (no prereq checks needed)
     if [[ "$target" == "help" ]]; then
         show_help
-        exit $EXIT_SUCCESS
+        exit "$EXIT_SUCCESS"
     fi
 
     # Handle --check mode (pre-flight validation)
@@ -713,8 +725,8 @@ main() {
     fi
 
     # Check prerequisites for runtime targets
-    check_java || exit $EXIT_PREREQ
-    check_lein || exit $EXIT_PREREQ
+    check_java || exit "$EXIT_PREREQ"
+    check_lein || exit "$EXIT_PREREQ"
 
     # If --tmux, delegate to tmux runner
     if [[ "$use_tmux" == "true" ]]; then
@@ -730,9 +742,9 @@ main() {
             figwheel)  run_in_tmux "figwheel" "$SCRIPT_DIR/start.sh" figwheel ;;
             garden)    run_in_tmux "garden" "$SCRIPT_DIR/start.sh" garden ;;
             init-db)   run_in_tmux "init-db" "$SCRIPT_DIR/start.sh" init-db ;;
-            *)         log_error "Unknown target: $target"; show_help; exit $EXIT_USAGE ;;
+            *)         log_error "Unknown target: $target"; show_help; exit "$EXIT_USAGE" ;;
         esac
-        exit $EXIT_SUCCESS
+        exit "$EXIT_SUCCESS"
     fi
 
     # If --background, delegate to background runner
@@ -745,16 +757,16 @@ main() {
                     run_in_background "server" "$SCRIPT_DIR/start.sh" server
                 else
                     log_error "Datomic failed to start"
-                    exit $EXIT_RUNTIME
+                    exit "$EXIT_RUNTIME"
                 fi
                 ;;
             datomic)   run_in_background "datomic" "$SCRIPT_DIR/start.sh" datomic ;;
             server)    run_in_background "server" "$SCRIPT_DIR/start.sh" server ;;
             figwheel)  run_in_background "figwheel" "$SCRIPT_DIR/start.sh" figwheel ;;
             garden)    run_in_background "garden" "$SCRIPT_DIR/start.sh" garden ;;
-            *)         log_error "Cannot run '$target' in background"; exit $EXIT_USAGE ;;
+            *)         log_error "Cannot run '$target' in background"; exit "$EXIT_USAGE" ;;
         esac
-        exit $EXIT_SUCCESS
+        exit "$EXIT_SUCCESS"
     fi
 
     # Direct execution (foreground)
@@ -765,7 +777,7 @@ main() {
         figwheel)  start_figwheel "$idempotent" ;;
         garden)    start_garden ;;
         init-db)   init_database ;;
-        *)         log_error "Unknown target: $target"; show_help; exit $EXIT_USAGE ;;
+        *)         log_error "Unknown target: $target"; show_help; exit "$EXIT_USAGE" ;;
     esac
 }
 

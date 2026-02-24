@@ -1,0 +1,89 @@
+{
+  "$comment": "Shared service manifest — read by both bash (common.sh) and PowerShell (common.ps1). Single source of truth for service definitions, ports, and process patterns.",
+  "defaults": {
+    "datomic_version": "1.0.7482",
+    "datomic_type": "pro",
+    "java_min_version": 11,
+    "log_dir": "logs",
+    "kill_wait": 5,
+    "port_wait": 30
+  },
+  "services": {
+    "datomic": {
+      "port_env": "DATOMIC_PORT",
+      "port_default": 4334,
+      "process_pattern": "datomic.*transactor",
+      "start_command": {
+        "linux": "{datomic_dir}/bin/transactor {datomic_config}",
+        "windows": "{datomic_dir}\\bin\\transactor.bat {datomic_config}"
+      },
+      "description": "Datomic transactor",
+      "can_background": true,
+      "has_port_check": true
+    },
+    "server": {
+      "port_env": "SERVER_PORT",
+      "port_default": 8890,
+      "process_pattern": "lein.*start-server",
+      "start_command": {
+        "both": "lein with-profile +dev,+start-server repl"
+      },
+      "start_command_headless": {
+        "both": "lein with-profile +dev,+start-server repl :headless"
+      },
+      "description": "OrcPub REPL + server",
+      "can_background": true,
+      "has_port_check": true,
+      "requires": ["datomic"]
+    },
+    "nrepl": {
+      "port_env": "NREPL_PORT",
+      "port_default": 7888,
+      "process_pattern": "nrepl",
+      "description": "nREPL server",
+      "can_background": false,
+      "has_port_check": true
+    },
+    "figwheel": {
+      "port_env": "FIGWHEEL_PORT",
+      "port_default": 3449,
+      "process_pattern": "figwheel",
+      "start_command": {
+        "both": "lein fig:watch"
+      },
+      "description": "Figwheel (ClojureScript hot-reload)",
+      "can_background": true,
+      "has_port_check": true
+    },
+    "garden": {
+      "port_env": "GARDEN_PORT",
+      "port_default": 3000,
+      "process_pattern": "garden.*auto",
+      "start_command": {
+        "both": "lein garden auto"
+      },
+      "description": "Garden (CSS auto-compilation)",
+      "can_background": true,
+      "has_port_check": false
+    }
+  },
+  "targets": {
+    "all": {
+      "description": "Start Datomic (background) + REPL with server (foreground)",
+      "services": ["datomic", "server"]
+    },
+    "init-db": {
+      "description": "Initialize the database (requires Datomic running)",
+      "command": {
+        "both": "lein with-profile init-db run -m user init-db"
+      },
+      "requires": ["datomic"]
+    }
+  },
+  "exit_codes": {
+    "success": 0,
+    "usage": 1,
+    "prereq": 2,
+    "runtime": 3
+  }
+}
