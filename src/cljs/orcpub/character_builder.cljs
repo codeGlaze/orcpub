@@ -1651,28 +1651,31 @@
         combined-selections (entity/combine-selections selections)
         final-selections combined-selections]
     (when print-enabled? (js/console.log "FINAL SELECTIONS" final-selections))
-    [:div.w-100-p
-     [:div#options-column.b-1.b-rad-5
-      [section-tabs available-selections built-template character page-index]
-      [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
-       [:button.form-button.p-5-10.m-r-5
-        {:on-click
-         (fn [_]
-           (dispatch [:set-page (let [prev (dec page-index)]
-                                  (if (neg? prev)
-                                    (dec (count pages))
-                                    prev))]))}
-        "Back"]
-       [:div.flex-grow-1
-        [:h3.f-w-b.f-s-20.t-a-c (:name page)]]
-       [:button.form-button.p-5-10.m-l-5
-        {:on-click
-         (fn [_]
-           (dispatch [:set-page (let [next (inc page-index)]
-                                  (if (>= next (count pages))
-                                    0
-                                    next))]))}
-        "Next"]]
+    (let [nav-bar
+          ;; Back / page title / Next — rendered at top and bottom of the page
+          [:div.flex.justify-cont-s-b.p-t-5.p-10.align-items-t
+           [:button.form-button.p-5-10.m-r-5
+            {:on-click
+             (fn [_]
+               (dispatch [:set-page (let [prev (dec page-index)]
+                                      (if (neg? prev)
+                                        (dec (count pages))
+                                        prev))]))}
+            "Back"]
+           [:div.flex-grow-1
+            [:h3.f-w-b.f-s-20.t-a-c (:name page)]]
+           [:button.form-button.p-5-10.m-l-5
+            {:on-click
+             (fn [_]
+               (dispatch [:set-page (let [next (inc page-index)]
+                                      (if (>= next (count pages))
+                                        0
+                                        next))]))}
+            "Next"]]]
+      [:div.w-100-p
+       [:div#options-column.b-1.b-rad-5
+        [section-tabs available-selections built-template character page-index]
+        nav-bar
       (let [ui-fn-selections (mapcat
                               (fn [{:keys [key group? ui-fn]}]
                                 (if group?
@@ -1741,7 +1744,8 @@
                              selection
                              num-columns
                              remaining)])))
-                sorted-selections)))])])]]))
+                sorted-selections)))])])
+        nav-bar]])))
 
 (def image-style
   {:max-height "100px"
