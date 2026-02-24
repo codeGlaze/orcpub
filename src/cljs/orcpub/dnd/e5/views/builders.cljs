@@ -43,26 +43,8 @@
                      labeled-checkbox]]))
 
 
-;; dead — zero callers
-#_(defn select-builder-field [name value on-change children]
-  (base-builder-field
-   name
-   (cond-> [:select.builder-option.builder-option-dropdown
-            [:option {:value :none}
-             "None"]]
-     children (concat children))))
-
 (defn input-builder-field [name value on-change attrs]
   [builder-field :input name value on-change attrs])
-
-;; dead — zero callers
-#_(defn text-field [{:keys [value on-change]}]
-  [comps/input-field
-   :input
-   value
-   on-change
-   {:class "input"}])
-
 
 (defn number-field [{:keys [value on-change]}]
   [comps/input-field
@@ -1251,7 +1233,12 @@
        {:on-click #(dispatch [add-trait-event])}
        [:span "There are currently no features/traits, click "]
        [:span.orange.underline "here"]
-       [:span " or on the button above to add one."]])]])
+       [:span " or on the button above to add one."]])]
+   ;; Mirror add button at bottom for long trait lists
+   [:div.p-t-10.flex.justify-cont-end
+    [:button.form-button.m-l-5
+     {:on-click (make-event-handler add-trait-event)}
+     (or button-title "add feature / trait")]]])
 
 (defn option-saving-throw-advantages [option toggle-map-prop-event]
   [:div.m-b-20
@@ -1273,9 +1260,6 @@
 (defn feat-damage-resistance [feat]
   (option-damage-resistance feat ::feats/toggle-feat-map-prop))
 
-;; dead — zero callers
-#_(defn subrace-damage-resistance [subrace]
-  (option-damage-resistance subrace ::feats/toggle-subrace-map-prop))
 
 (defn feat-misc-modifiers [feat]
   [:div.m-b-20
@@ -1343,16 +1327,6 @@
         false
         #(dispatch [::feats/toggle-feat-prop kw])])]]])
 
-;;;; TODO remove when no longer useful for debugging
-#_(defn print-plugin-names []
-  (let [plugins @(subscribe [::e5/plugins])]
-    (doseq [plugin-name (keys plugins)]
-      (js/console.log plugin-name))))
-
-;; dead — zero callers
-#_(def option-pack-styles
-  {:class "flex-grow-1 m-l-5 m-b-20"
-   :name "option-pack"})
 
 (defn get-plugin-names []
   (let [plugins @(subscribe [::e5/plugins])]
@@ -1429,30 +1403,6 @@
      [:div [option-skill-proficiency-or-expertise feat ::feats/toggle-feat-map-prop]]
      [:div [option-tool-proficiency-or-expertise feat ::feats/toggle-feat-map-prop]]]))
 
-;; dead — zero callers
-#_(defn selection-selector [index selection-cfg value-change-event]
-  (let [selections @(subscribe [::selections/plugin-selections])]
-    [:div.flex
-     [:div.m-r-5
-      [labeled-dropdown
-       "Selection Name"
-       {:items (cons
-                {:title "<select selection>"
-                 :value nil}
-                (map
-                 obj-to-item
-                 selections))
-        :value (get selection-cfg :key)
-        :on-change #(dispatch [value-change-event index (assoc selection-cfg :key (keyword %))])}]]
-     (when (:key selection-cfg)
-       [:div
-        [labeled-dropdown
-         "Amount to Select"
-         {:items (map
-                  value-to-item
-                  (range 1 11))
-          :value (get selection-cfg :choose)
-          :on-change #(dispatch [value-change-event index (assoc selection-cfg :choose (js/parseInt %))])}]])]))
 
 (defn spell-selector [index spell-cfg value-change-event]
   (let [spells @(subscribe [::spells/spells-for-level (or (:level spell-cfg) 0)])
@@ -1702,8 +1652,13 @@
      delete-modifier-event]]])
 
 (def selection-help
+  "Help tooltip explaining what a Selection is in the builder context."
   [:div.p-20
-   "Selections provide options that one can pick when building a character, typically associated with a class and given at a certain level. The class and subclass builders allow selections to be added. Examples of selections one might want to build are 'Martial Maneuvers' or 'Totem Spirit'"])
+   "A Selection is a choice your character makes — like picking a "
+   "Fighting Style, a Totem Spirit, or Martial Maneuvers. "
+   "You define the list of options here, then add the Selection to a "
+   "class or subclass so it shows up at the right level during "
+   "character creation."])
 
 (defn title-with-help []
   (let [expanded? (r/atom false)]
@@ -1774,7 +1729,10 @@
      edit-selection-level-event
      delete-selection-event]]])
 
-(defn class-builder []
+(defn class-builder
+  "Homebrew class builder form — hit die, saves, spellcasting, cantrips,
+   spell lists, modifiers, level selections, and traits."
+  []
   (let [class @(subscribe [::classes/builder-item])
         spell-lists @(subscribe [::spells/spell-lists])
         class-key (get class :class)
@@ -2626,7 +2584,12 @@
                [textarea-field
                 {:value description
                  :on-change #(dispatch [::selections/set-selection-path-prop [:options i :description] %])}]]]))
-         options))]]]))
+         options))]
+      ;; Mirror add button at bottom for long option lists
+      [:div.p-t-10.flex.justify-cont-end
+       [:button.form-button
+        {:on-click #(dispatch [::selections/add-option])}
+        "Add Option"]]]]))
 
 (defn language-builder []
   (let [language @(subscribe [::langs/builder-item])]
@@ -2691,7 +2654,10 @@
        {:value (get invocation :description)
         :on-change #(dispatch [::classes/set-invocation-prop :description %])}]]]))
 
-(defn monster-builder []
+(defn monster-builder
+  "Homebrew monster/NPC builder form — stats, AC, HP, speeds, saves,
+   skills, senses, languages, challenge rating, and actions/features."
+  []
   (let [{:keys [name
                 key
                 size
@@ -3001,20 +2967,11 @@
            [:span.m-l-5 name]])
         @(subscribe [::spells/spellcasting-classes]))]]]))
 
-(defn validate-name [name]
-  (if (nil? name)
-    [] ;if nil, no error
-    (if (common/starts-with-letter? (str name))
-      nil
-      "Name must start with a letter"
-      )
-    ))
-
-;; dead — zero callers
-#_(def invalid-styling
-  {:color "red"
-   :font-size "12px"
-   :display "block"})
+(defn validate-name
+  "Returns an error message string if name is invalid, nil otherwise."
+  [name]
+  (when (and (some? name) (not (common/starts-with-letter? (str name))))
+    "Name must start with a letter"))
 
 (defn valid-wel [name]
   (when-let [messages (validate-name name)]
@@ -3028,7 +2985,10 @@
   )
   )
 
-(defn item-builder []
+(defn item-builder
+  "Homebrew magic item builder form — name, type, rarity, description,
+   armor/weapon config, attunement, and stat bonuses."
+  []
   (let [{:keys [::mi/name ::mi/type ::mi/rarity ::mi/description ::mi/attunement] :as item}
         @(subscribe [::mi/builder-item])
         item-types @(subscribe [::mi/item-types])
@@ -3137,38 +3097,14 @@
    [builder]])
 
 
-#_(defn item-builder-page []
-  (builder-page "Item" ::mi/reset-item ::mi/save-item item-builder))
 
-#_(defn item-page [{:keys [key] :as arg}]
-  (let [item-key (if (re-matches #"\d+" key)
-                   (js/parseInt key)
-                   (keyword key))
-        item @(subscribe [::mi/item item-key])
-        username @(subscribe [:username])
-        owner? (= username (::mi/owner item))]
-    [content-page
-     "Item Page"
-     (remove
-      nil?
-      [(if owner?
-         {:title "Delete"
-          :icon "trash"
-          :on-click (delete-item-handler item-key)})
-       (if owner?
-         {:title "Edit"
-          :icon "pencil"
-          :on-click (make-event-handler [::mi/edit-custom-item item])})])
-     [:div.p-10.main-text-color
-      [item-component item]]]))
-
-(defn get-owner? [item-key] ;item-key could be other things that need ownership with a refactor
+(defn get-owner?
+  "True when the logged-in user owns the given custom item (by db id)."
+  [item-key]
   (let [username @(subscribe [:username])
         item @(subscribe [::mi/custom-item item-key])
         builder-item @(subscribe [::mi/builder-item item-key])]
-    #_(println "username" username "item" item "item-key" item-key "ownitem" (::mi/owner item) "ownbuild" (::mi/owner builder-item) "time" common/ptime)
-    (= username (or (::mi/owner item) (::mi/owner builder-item)))
-    ))
+    (= username (or (::mi/owner item) (::mi/owner builder-item)))))
 
 (defn deletion-modal-with [builder-page item-key]
   (let [show? @(subscribe [::mi/delete-confirmation-shown? item-key])
@@ -3207,10 +3143,9 @@
     ))
 
 (defn item-builder-page []
-  (let [item (subscribe [::mi/builder-item])
-        item-key (:db/id @item)
-        buttons (item-builder-buttons item-key item)
-        ]
+  (let [item @(subscribe [::mi/builder-item])
+        item-key (:db/id item)
+        buttons (item-builder-buttons item-key item)]
     [content-page
      "Item Builder"
      buttons
