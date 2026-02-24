@@ -113,12 +113,15 @@ interface is isolated from the bridge network.
 
 ```yaml
 healthcheck:
-  test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8890/health"]
+  test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:${PORT:-8890}/health"]
   interval: 10s
   timeout: 5s
   retries: 30
   start_period: 60s
 ```
+
+`CMD-SHELL` enables `${PORT}` expansion from the container's environment.
+`CMD` (array form) would pass it literally with no expansion.
 
 - BusyBox `wget` (Alpine) only supports `-q` and `--spider` — not GNU flags
   like `-O` or `--timeout`
@@ -189,8 +192,17 @@ The current configuration is Swarm-ready with minimal changes:
 | `docker-setup.sh` | Interactive setup: generates `.env`, dirs, SSL certs |
 | `.env.example` | Environment variable reference with defaults |
 
+## Security
+
+Both containers run as non-root users (`datomic` and `app`). Secrets are
+handled with `chmod 600` file permissions, sed escaping for special characters
+in passwords, and `.dockerignore` exclusion of `.env` from the build context.
+
+For full reasoning behind each security decision, see `DOCKER-SECURITY.md`.
+
 ## See Also
 
-- `docs/LEIN-UBERJAR-HANG.md` — Why the uberjar build uses a 3-step process
-- `docs/ENVIRONMENT.md` — All environment variables
-- `docs/docker-user-management.md` — User management in Docker deployments
+- `DOCKER-SECURITY.md` — Security hardening decisions with reasoning
+- `LEIN-UBERJAR-HANG.md` — Why the uberjar build uses a 3-step process
+- `ENVIRONMENT.md` — All environment variables
+- `docker-user-management.md` — User management in Docker deployments
