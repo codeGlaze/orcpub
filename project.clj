@@ -275,9 +275,9 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}}
-             ;; CLJS compilation is separate (fig:prod locally, figwheel-main in Docker).
-             ;; No lein-cljsbuild plugin in the project at all, so no hook hang.
-             :uberjar      {:prep-tasks  ["clean" ["garden" "once"] "compile"]
+             ;; figwheel-main --build-once exits cleanly (no JVM hang like lein-cljsbuild).
+             ;; Full pipeline: clean → CSS → CLJS → AOT → jar. Just `lein uberjar`.
+             :uberjar      {:prep-tasks  ["clean" ["garden" "once"] ["run" "-m" "figwheel.main" "--" "--build-once" "prod"] "compile"]
                             :env         {:production true}
                             :aot         :all
                             :omit-source true}
