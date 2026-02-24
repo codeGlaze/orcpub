@@ -59,6 +59,7 @@ services:
     environment:
       # nginx:alpine runs envsubst on /etc/nginx/templates/*.template at startup.
       # Only defined env vars are substituted — nginx's own $host, $scheme, etc. are safe.
+      ORCPUB_HOST: ${ORCPUB_HOST:-orcpub}
       ORCPUB_PORT: ${PORT:-8890}
     volumes:
       - ./deploy/nginx.conf.template:/etc/nginx/templates/default.conf.template
