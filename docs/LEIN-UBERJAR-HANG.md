@@ -104,15 +104,37 @@ to `resources/public/js/compiled/` (already in resource-paths via
 `"resources"`). `.class` files are handled by `:compile-path`, not
 resource-paths.
 
-### Local builds
+### Local / bare-metal builds (Linux, macOS, Windows)
+
+A single command builds the complete jar:
 
 ```sh
-# CLJS (figwheel-main exits cleanly in a TTY)
-lein fig:prod
-
-# Uberjar (in a TTY, you can Ctrl-C the hang after "Created target/orcpub.jar")
 lein uberjar
 ```
+
+The `:uberjar` profile's prep-tasks handle everything automatically:
+1. `clean` — wipe old artifacts
+2. `garden once` — compile CSS
+3. `figwheel-main --build-once prod` — compile CLJS (:advanced optimizations)
+4. `compile` — AOT compile Clojure
+5. Package jar
+
+On bare metal (TTY environment), the AOT compile subprocess exits normally.
+The three-step Docker build is only needed in no-TTY/CI environments where
+the compile subprocess hangs.
+
+**Note:** On Windows, use `scripts\windows\prod.ps1` if you hit the compile
+hang (some CI runners). For interactive use (PowerShell/cmd), `lein uberjar`
+works.
+
+### Why not bare `lein uberjar` in Docker?
+
+In no-TTY environments (Docker, CI), lein's AOT compile subprocess hangs
+after writing all .class files — non-daemon threads from Datomic and
+core.async prevent JVM exit. The three-step build with `timeout` works
+around this. See the Dockerfile and `scripts/prod.sh` for the full
+pipeline. Local TTY sessions don't have this problem because the JVM
+exits normally when it detects an interactive terminal.
 
 ## Affected Components
 
@@ -122,15 +144,17 @@ lein uberjar
 | `docker/Dockerfile` | Three-step build | Separates compile from jar creation |
 | `project.clj` | No `lein-cljsbuild` in any `:plugins` | Eliminates cljsbuild hooks |
 | `project.clj` | `fig:prod` alias | Local production CLJS builds |
-| `project.clj` | `:uberjar-package` profile | `:auto-clean false`, `^:replace` prep-tasks |
+| `project.clj` | `:uberjar` profile | prep-tasks include figwheel-main CLJS step (bare-metal single-command build) |
+| `project.clj` | `:uberjar-package` profile | `:auto-clean false`, `^:replace` prep-tasks (Docker/CI override) |
 | `project.clj` | `:resource-paths` | Removed `"target"` to prevent recursive jar inclusion |
 
 ## DO NOT (each verified by failure)
 
-- **Remove `timeout` from step 2** -- non-daemon threads from Datomic/core.async prevent JVM exit
+- **Remove figwheel-main from `:uberjar` prep-tasks** -- `lein uberjar` will produce a jar with NO compiled JS (clean wipes it, nothing rebuilds it)
+- **Remove `^:replace` from `:uberjar-package` prep-tasks** -- Docker/CI builds will inherit `:uberjar`'s clean+CLJS steps, breaking the three-step pipeline
+- **Remove `timeout` from Docker step 2** -- non-daemon threads from Datomic/core.async prevent JVM exit
 - **Remove `:auto-clean false`** -- `jar.clj` wipes target/ before prep-tasks run (destroys .class files from step 2)
 - **Add `"target"` back to `:resource-paths`** -- causes recursive jar inclusion (6.7GB thin jar)
-- **Remove `^:replace` from prep-tasks** -- `"clean"` in prep-tasks wipes resources/public/js/compiled/ (destroys JS from step 1)
 - **Try `:eval-in :leiningen`** -- causes classpath conflict between lein's internal Clojure and project's Clojure 1.12.4
 - **Try to isolate cljsbuild via profiles** -- 7 attempts failed; hooks fire regardless of config (see Failed Approaches)
 

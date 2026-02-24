@@ -139,6 +139,53 @@ Navigate to `http://localhost:8890`. Log in with **test@test.com** / **testpass*
 
 ---
 
+## Production Build (Uberjar)
+
+To build a self-contained jar for deployment:
+
+```sh
+lein uberjar
+```
+
+This single command handles everything: clean, CSS compilation, CLJS compilation (:advanced optimizations), AOT compilation, and jar packaging. Output: `target/orcpub.jar`.
+
+### Running the jar
+
+```sh
+# Set required environment variables
+export SIGNATURE="your-jwt-secret-here"
+export DATOMIC_URL="datomic:dev://localhost:4334/orcpub"
+
+java -jar target/orcpub.jar
+```
+
+### SIGNATURE (JWT secret) — required for production
+
+The `SIGNATURE` environment variable is the JWT signing secret used for all authentication. **Every login and API call fails without it.**
+
+- **Development:** A dev default is provided automatically via `.lein-env` (from the `:dev` profile). No action needed.
+- **Production:** You **must** set `SIGNATURE` to a unique, random string (32+ characters). Copy from `.env.example` and change the value:
+  ```sh
+  # Generate a random secret
+  openssl rand -base64 48
+  ```
+  Set it in your `.env` file or export it before running the jar. See [ENVIRONMENT.md](ENVIRONMENT.md) for all variables.
+
+> **Warning:** If you change `SIGNATURE` after users have logged in, all existing sessions are invalidated (JWTs signed with the old secret fail verification).
+
+### Docker / CI builds
+
+In no-TTY environments (Docker, CI runners), lein's AOT compile subprocess may hang due to non-daemon threads. Use the three-step build instead:
+
+```sh
+scripts/prod.sh           # Linux/macOS
+scripts\windows\prod.ps1  # Windows PowerShell
+```
+
+These scripts use timeouts to handle the hang. See [LEIN-UBERJAR-HANG.md](LEIN-UBERJAR-HANG.md) for the full explanation.
+
+---
+
 ## Using the REPL directly
 
 If you prefer `lein repl` over the shell scripts:

@@ -275,18 +275,41 @@
                                                                     :parallel-build     true
                                                                     :optimize-constants true
                                                                     :optimizations      :advanced}}]}}
-             ;; figwheel-main --build-once exits cleanly (no JVM hang like lein-cljsbuild).
-             ;; Full pipeline: clean → CSS → CLJS → AOT → jar. Just `lein uberjar`.
+             ;; ── Uberjar Build Profiles ──────────────────────────────────
+             ;;
+             ;; TWO ways to build a production jar:
+             ;;
+             ;;   1. BARE METAL (local/Windows/Linux):
+             ;;        lein uberjar
+             ;;      Single command. :uberjar prep-tasks run: clean → Garden CSS
+             ;;      → figwheel-main CLJS (:advanced) → AOT compile → jar.
+             ;;      figwheel-main --build-once exits cleanly (no JVM hang like
+             ;;      the old lein-cljsbuild plugin). See docs/LEIN-UBERJAR-HANG.md
+             ;;
+             ;;   2. DOCKER / CI (three-step with timeouts):
+             ;;        lein fig:prod
+             ;;        lein with-profile uberjar,uberjar-package compile
+             ;;        lein with-profile uberjar,uberjar-package uberjar
+             ;;      Needed because lein's AOT compile subprocess hangs in no-TTY
+             ;;      environments (non-daemon threads from Datomic/core.async).
+             ;;      The :uberjar-package profile's ^:replace OVERRIDES :uberjar's
+             ;;      prep-tasks entirely — changes to :uberjar prep-tasks do NOT
+             ;;      affect Docker/CI builds. See scripts/prod.sh, scripts/windows/prod.ps1
+             ;;
+             ;; WARNING: Do NOT remove the figwheel-main step from :uberjar prep-tasks.
+             ;;          Without it, `lein uberjar` produces a jar with NO compiled JS
+             ;;          (clean wipes it, nothing rebuilds it).
+             ;; WARNING: Do NOT remove ^:replace from :uberjar-package prep-tasks.
+             ;;          Without it, Docker builds inherit :uberjar's clean step which
+             ;;          wipes the CLJS output from the prior Docker step.
+             ;; ─────────────────────────────────────────────────────────────
              :uberjar      {:prep-tasks  ["clean" ["garden" "once"] ["run" "-m" "figwheel.main" "--" "--build-once" "prod"] "compile"]
                             :env         {:production true}
                             :aot         :all
                             :omit-source true}
-             ;; Docker build: CLJS is compiled separately via figwheel-main.
-             ;; uberjar-package removes "clean" AND "compile" from prep-tasks,
-             ;; and disables auto-clean (jar.clj calls clean/clean before
-             ;; prep-tasks unless :auto-clean is false). AOT compile is done
-             ;; in a prior Docker step; this profile just packages existing
-             ;; .class files into the jar.
+             ;; Docker/CI only. ^:replace completely overrides :uberjar prep-tasks.
+             ;; :auto-clean false prevents lein's jar.clj from wiping target/ before
+             ;; prep-tasks run (it calls clean/clean directly, not via prep-tasks).
              :uberjar-package {:auto-clean false
                                :prep-tasks ^:replace [["garden" "once"]]}
              ;; All lint config lives in .clj-kondo/config.edn so IDE and CLI agree.
