@@ -44,14 +44,17 @@ services:
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
       DATOMIC_PASSWORD: ${DATOMIC_PASSWORD:-change-me}
-      ALT_HOST: ${ALT_HOST:-127.0.0.1}
+      ALT_HOST: ${ALT_HOST:-datomic}
       ENCRYPT_CHANNEL: ${ENCRYPT_CHANNEL:-true}
     volumes:
       - ./data:/data
       - ./logs:/log
       - ./backups:/backups
     healthcheck:
-      test: ["CMD-SHELL", "grep -q ':10EE ' /proc/net/tcp || grep -q ':10EE ' /proc/net/tcp6"]
+      # Bash /dev/tcp performs an actual TCP connection — works in both
+      # Compose (bridge) and Swarm (overlay). The previous /proc/net/tcp
+      # grep broke in Swarm where the overlay network namespace differs.
+      test: ["CMD-SHELL", "echo > /dev/tcp/127.0.0.1/4334"]
       interval: 5s
       timeout: 3s
       retries: 30

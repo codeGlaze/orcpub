@@ -61,7 +61,7 @@ placeholders for runtime substitution:
 |----------|---------|---------|
 | `DATOMIC_PASSWORD` | *(required)* | Storage access password |
 | `ADMIN_PASSWORD` | *(required)* | Admin/monitoring password |
-| `ALT_HOST` | `127.0.0.1` | Advertised host for peer connections |
+| `ALT_HOST` | `datomic` | Peer fallback hostname (Docker service name, resolves via DNS) |
 | `ENCRYPT_CHANNEL` | `true` | Peer-transactor encryption |
 
 `deploy/start.sh` handles startup:
@@ -70,31 +70,34 @@ placeholders for runtime substitution:
 3. Supports password rotation via `ADMIN_PASSWORD_OLD` / `DATOMIC_PASSWORD_OLD`
 4. Uses `exec` so the transactor becomes PID 1 (receives Docker signals directly)
 
-## host=datomic Rationale
+## host=0.0.0.0 Rationale
 
-The `host=` property in transactor.properties controls what the transactor
-**advertises** to peers — it is not what it binds to.
+The `host=` property controls the Artemis acceptor bind address AND is
+advertised to peers. Both roles matter for choosing the right value.
 
-Connection flow:
-1. Peer connects to the transactor using the URI hostname (e.g., `datomic` in
-   `datomic:dev://datomic:4334/orcpub`)
-2. Transactor responds with its advertised `host=` value
-3. Peer uses the advertised host for subsequent connections
+**Why `host=0.0.0.0` is correct:**
+- The embedded Artemis broker binds its acceptor to whatever `host=` resolves
+  to. In Docker Swarm, a service name like `datomic` resolves to the Swarm
+  VIP (Virtual IP), which is NOT a local interface on the container. Artemis
+  cannot bind to it, causing:
+  `ActiveMQNotConnectedException — Cannot connect to server(s).`
+- `host=0.0.0.0` binds to all interfaces, working in both Compose and Swarm.
+- With the `dev` protocol, peers connect using the URI hostname (e.g.,
+  `datomic` from `datomic:dev://datomic:4334/...`), not the advertised host.
+  So `0.0.0.0` is never sent to peers for initial connections.
 
-**Why `host=0.0.0.0` is wrong:** It works on single-host Docker Compose by
-accident because the `dev://` protocol reuses the URI hostname rather than the
-advertised address. In Docker Swarm with a multi-node overlay network, a peer
-on node A would try to connect to `0.0.0.0:4334` locally, hitting itself
-instead of the transactor on node B.
+**Why `host=datomic` is wrong for Swarm:**
+- Works in Compose (service name resolves to container's own bridge IP).
+- Fails in Swarm (service name resolves to VIP → bind fails → transactor
+  crashes on startup).
 
-**Why `host=datomic` is correct:** The Docker Compose service name resolves
-via Docker DNS in both single-host bridge networks and multi-node overlay
-networks.
+**`alt-host` for peer fallback:** `alt-host=datomic` (the default) provides a
+resolvable hostname for peer reconnection/fallback. Docker DNS resolves the
+service name correctly in both Compose bridge and Swarm overlay networks.
 
-**If `host=datomic` fails to resolve:** The containers are not on a shared
-Docker network. `docker compose` creates one automatically. Standalone
-`docker run` requires `--network <name>`. Host networking bypasses Docker DNS
-entirely.
+**If `datomic` fails to resolve:** The containers are not on a shared Docker
+network. `docker compose` creates one automatically. Standalone `docker run`
+requires `--network <name>`. Host networking bypasses Docker DNS entirely.
 
 ## Jetty Binding
 
@@ -134,11 +137,17 @@ healthcheck:
 
 ```yaml
 healthcheck:
-  test: ["CMD-SHELL", "grep -q ':10EE ' /proc/net/tcp || grep -q ':10EE ' /proc/net/tcp6"]
+  test: ["CMD-SHELL", "echo > /dev/tcp/127.0.0.1/4334"]
 ```
 
-Checks that port 4334 (hex `0x10EE`) is listening by inspecting the kernel's
-TCP socket table. No `curl` or `wget` is available in the transactor image.
+Uses bash's built-in `/dev/tcp` to perform an actual TCP connection to port
+4334. This works in both Compose (bridge network) and Swarm (overlay network).
+
+The previous approach (`grep -q ':10EE ' /proc/net/tcp`) inspected the
+kernel's TCP socket table, but broke in Swarm where the overlay network
+namespace differs from the container's `/proc/net/tcp` view. No `curl` or
+`wget` is available in the transactor image, but bash is (required by
+`start.sh`).
 
 ## Production Memory Tuning
 
@@ -196,10 +205,11 @@ environment to use production mode.
 
 ## Swarm Migration Notes
 
-The current configuration is Swarm-ready with minimal changes:
+The current configuration is Swarm-ready:
 
-- `host=datomic` already works with overlay network DNS
-- Set `ALT_HOST=datomic` in `.env` (change from default `127.0.0.1`)
+- `host=0.0.0.0` binds Artemis to all interfaces (works with overlay networks)
+- `alt-host=datomic` (default) resolves via overlay DNS for peer reconnection
+- Healthchecks use bash `/dev/tcp` (works in overlay network namespaces)
 - Add a `deploy:` section to each service for replica count and placement
   constraints (~5-10 lines per service)
 - Consider using Docker secrets instead of environment variables for

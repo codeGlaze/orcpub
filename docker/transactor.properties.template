@@ -17,29 +17,30 @@
 protocol=dev
 
 # --- Host & Networking --------------------------------------------------------
-# host= is what the transactor ADVERTISES to peers, not what it binds to.
-# Peers connect via the URI hostname, receive this advertised host, then use
-# it for subsequent connections.
+# host= controls the Artemis acceptor bind address AND is advertised to peers.
 #
-# Why "datomic" (the Docker Compose service name) and not "0.0.0.0":
+# Why "0.0.0.0" and not a hostname like "datomic":
 #
-#   host=0.0.0.0 works on single-host Docker Compose by accident — peers
-#   never actually use the advertised address (they reuse the URI hostname).
-#   In Swarm with multi-node overlay, a peer on node A would try to connect
-#   to 0.0.0.0:4334 locally, hitting itself instead of the transactor on
-#   node B. host=<service-name> works in both modes because Docker DNS
-#   resolves it correctly across the overlay network.
+#   The embedded Artemis broker binds to whatever host= resolves to. In Docker
+#   Swarm, the service name "datomic" resolves to the Swarm VIP (Virtual IP)
+#   which is NOT a local interface on the container. Artemis cannot bind to it,
+#   causing: ActiveMQNotConnectedException — "Cannot connect to server(s)."
 #
-# If host=datomic fails: your containers aren't on a shared Docker network.
-#   docker compose creates one by default (projectname_default). Standalone
-#   docker run needs --network. Host networking mode has no DNS at all.
-host=datomic
+#   host=0.0.0.0 binds to all interfaces, which works in both single-host
+#   Compose and multi-node Swarm. With the dev protocol, peers connect using
+#   the URI hostname (e.g., "datomic" from datomic:dev://datomic:4334/...),
+#   not the advertised host — so 0.0.0.0 is never sent to peers.
+#
+#   alt-host provides a resolvable hostname for peer fallback/reconnection.
+#   Defaulting to the service name "datomic" works in both Compose (bridge
+#   DNS) and Swarm (overlay DNS).
+host=0.0.0.0
 port=4334
 
 # Alternative hostname for peer fallback connections.
-# Default 127.0.0.1 (container loopback). For Swarm with overlay networks,
-# set ALT_HOST to the service name or external hostname.
-alt-host=${ALT_HOST:-127.0.0.1}
+# "datomic" (service name) resolves via Docker DNS in both Compose and Swarm.
+# Override with ALT_HOST env var for custom networking setups.
+alt-host=${ALT_HOST:-datomic}
 
 # --- Storage Access -----------------------------------------------------------
 # remote = peers in separate containers can connect (required for Docker)

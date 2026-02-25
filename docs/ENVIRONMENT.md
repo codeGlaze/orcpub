@@ -64,7 +64,7 @@ CSP modes:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ALT_HOST` | `127.0.0.1` | Transactor alt-host for peer fallback connections. Set to service name for Swarm. |
+| `ALT_HOST` | `datomic` | Transactor alt-host for peer fallback connections. Resolves via Docker DNS in both Compose and Swarm. |
 | `ENCRYPT_CHANNEL` | `true` | Encrypt peer-transactor communication. Disable only for debugging. |
 | `ADMIN_PASSWORD_OLD` | — | Old admin password during rotation. Remove after all peers reconnect. |
 | `DATOMIC_PASSWORD_OLD` | — | Old datomic password during rotation. Remove after all peers reconnect. |

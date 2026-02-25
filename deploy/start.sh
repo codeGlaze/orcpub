@@ -39,13 +39,13 @@ escape_sed_replacement() {
   printf '%s' "$1" | sed -e 's/[\\]/\\&/g' -e 's/[&|]/\\&/g'
 }
 
-ALT_HOST="${ALT_HOST:-127.0.0.1}"
+ALT_HOST="${ALT_HOST:-datomic}"
 ENCRYPT_CHANNEL="${ENCRYPT_CHANNEL:-true}"
 
 sed \
   -e "s|\${ADMIN_PASSWORD}|$(escape_sed_replacement "$ADMIN_PASSWORD")|g" \
   -e "s|\${DATOMIC_PASSWORD}|$(escape_sed_replacement "$DATOMIC_PASSWORD")|g" \
-  -e "s|\${ALT_HOST:-127.0.0.1}|$(escape_sed_replacement "$ALT_HOST")|g" \
+  -e "s|\${ALT_HOST:-datomic}|$(escape_sed_replacement "$ALT_HOST")|g" \
   -e "s|\${ENCRYPT_CHANNEL:-true}|$(escape_sed_replacement "$ENCRYPT_CHANNEL")|g" \
   "$TEMPLATE" > "$OUTPUT"
 

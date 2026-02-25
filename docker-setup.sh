@@ -202,7 +202,7 @@ DATOMIC_URL=datomic:dev://datomic:4334/orcpub?password=${DATOMIC_PASSWORD}
 
 # --- Transactor Tuning ---
 # These rarely need changing. See docker/transactor.properties.template.
-ALT_HOST=127.0.0.1
+ALT_HOST=datomic
 ENCRYPT_CHANNEL=true
 # ADMIN_PASSWORD_OLD=
 # DATOMIC_PASSWORD_OLD=
