@@ -18,6 +18,8 @@
             [orcpub.dnd.e5.template-base :as t-base]
             [clojure.string :as s]))
 
+;;; ─── Shared Helpers ─────
+
 (defn class-level [levels class-kw]
   (get-in levels [class-kw :class-level]))
 
@@ -26,6 +28,8 @@
    {:name "Extra Attack"
     :page page
     :summary "Attack twice when taking Attack action"}))
+
+;;; ─── Barbarian ─────
 
 (defn barbarian-option [spells spells-map plugin-subclasses-map language-map weapon-map]
   (opt5e/class-option
@@ -219,6 +223,8 @@
                                                                           :page 50
                                                                           :summary "While raging, if you hit a Large or smaller creature, you can use a bonus action to knock it prone."})]})]})]}}}]}))
 
+;;; ─── Bard ─────
+
 (defn bardic-inspiration-die [levels]
   (condp <= (class-level levels :bard)
     15 12
@@ -377,6 +383,8 @@
    3 5
    4 7
    5 9})
+
+;;; ─── Cleric ─────
 
 (defn cleric-option [spells spells-map plugin-subclasses-map language-map weapon-map]
   (opt5e/class-option
@@ -717,6 +725,8 @@
                               :level 17
                               :summary "from non-magical weapons, resistance to slashing, bludgeoning, and piercing damage"}]}]}))
 
+;;; ─── Druid ─────
+
 (defn druid-spell [spell-level spell-key min-level]
   (mod5e/spells-known-cfg spell-level
                           {:key spell-key
@@ -1033,6 +1043,8 @@
       :max num}))
 
 
+;;; ─── Fighter ─────
+
 (defn fighter-option [spells spells-map plugin-subclasses-map language-map weapon-map]
   (opt5e/class-option
    spells
@@ -1201,6 +1213,8 @@
                               :class-key :fighter
                               :summary "you regain 1 superiority die when you roll iniative and have no remaining superiority dice"}]}
                  #_eldritch-knight-cfg]}))
+
+;;; ─── Monk ─────
 
 (defn monk-weapon? [{:keys [key ::weapon5e/type ::weapon5e/melee? ::weapon5e/heavy? ::weapon5e/two-handed?]}]
   (or (= key :shortsword)
@@ -1405,6 +1419,8 @@
                                :page 81
                                :summary "create minor elemental effect"}]}]})))
 
+
+;;; ─── Paladin ─────
 
 (defn paladin-option [spells spells-map plugin-subclasses-map language-map weapon-map]
   (opt5e/class-option
@@ -1647,6 +1663,8 @@
                                :level 7
                                :page 88
                                :summary "when you hit with opportunity attack, you can also move up to half your speed after the attack without provoking opportunity attacks"}]}]})))
+
+;;; ─── Ranger ─────
 
 (defn favored-enemy-option [language-map [enemy-type info]]
   (let [vec-info? (sequential? info)
@@ -1957,6 +1975,8 @@
                                :page 93
                                :summary "when you target yourself with a spell you can also affect your companion if within 30 ft."}]}]})))
 
+;;; ─── Rogue ─────
+
 (def rogue-skills {:acrobatics true :athletics true :deception true :insight true :intimidation true :investigation true :perception true :performance true :persuasion true :sleight-of-hand true :stealth true})
 
 (defn rogue-option [spells spells-map plugin-subclasses-map language-map weapon-map]
@@ -2129,6 +2149,8 @@
                               :level 9
                               :page 98
                               :summary "creatures have disadvantage on saves against your spells (only on the turn you cast them) if you are hidden from them"}]}]}))
+
+;;; ─── Sorcerer ─────
 
 (defn metamagic-selection [num]
   (t/selection-cfg
@@ -2309,6 +2331,8 @@
                               :page 103
                               :summary "When you roll a die for spell damage, roll max rolls an additional time"
                               :frequency units5e/turns-1}]}]}))
+
+;;; ─── Wizard ─────
 
 (defn spell-school-savant [school page]
   {:level 2
@@ -2596,6 +2620,8 @@
                               :page 119
                               :frequency units5e/long-rests-1
                               :summary "cast polymorph without a spell slot to turn into a CR 1 or less beast"}]}]}))
+
+;;; ─── Warlock ─────
 
 (def melee-weapons-xform
   (comp

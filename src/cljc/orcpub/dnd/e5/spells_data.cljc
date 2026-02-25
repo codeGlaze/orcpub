@@ -4,6 +4,8 @@
    vectors, and the derived spells/spell-map lookups."
   (:require [orcpub.common :as common]))
 
+;;; ─── Spell Constants (schools, durations, ranges, casting times) ─────
+
 (def necromancy "necromancy")
 (def abjuration "abjuration")
 (def evocation "evocation")
@@ -32,6 +34,8 @@
 
 (def self "Self")
 (def touch "Touch")
+
+;;; ─── A Spells ─────
 
 (def a-spells
   [
@@ -323,6 +327,8 @@ If you cast the spell two or more times before completing your next long rest, t
 The awakened beast or plant is charmed by you for 30 days or until you or your companions do anything harmful to it. When the charmed condition ends, the awakened creature chooses whether to remain friendly to you, based on how you treated it while it was charmed."
     }])
 
+;;; ─── B Spells ─────
+
 (def b-spells
   [{
     :name "Bane"
@@ -487,6 +493,8 @@ While on the Ethereal Plane, you can see and hear the plane you originated from,
 The fire ignites any flammable objects in the area that aren't being worn or carried.
 At Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, the damage increases by 1d6 for each slot level above 1st."
     }])
+
+;;; ─── C Spells ─────
 
 (def c-spells
   [{
@@ -992,6 +1000,8 @@ At Higher Levels. When you cast this spell using a spell slot of 6th level or hi
 At Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, the healing increases by 1d8 for each slot level above 1st."
     }])
 
+;;; ─── D Spells ─────
+
 (def d-spells [{
                 :name "Dancing Lights"
                 :school evocation
@@ -1292,6 +1302,8 @@ If you have a body part, lock of hair, clipping from a nail, or similar portion 
 • You create an instantaneous, harmless sensory effect, such as falling leaves, a puff of wind, the sound of a small animal, or the faint odor of skunk. The effect must fit in a 5-foot cube.
 • You instantly light or snuff out a candle, a torch, or a small campfire."}])
 
+;;; ─── E Spells ─────
+
 (def e-spells [{
                 :name "Earthquake"
                 :school evocation
@@ -1410,6 +1422,8 @@ Asleep. The target falls unconscious. It wakes up if it takes any damage or if a
 Panicked. The target is frightened of you. On each of its turns, the frightened creature must take the Dash action and move away from you by the safest and shortest available route, unless there is nowhere to move. If the target moves to a place at least 60 feet away from you where it can no longer see you, this effect ends.
 Sickened. The target has disadvantage on attack rolls and ability checks. At the end of each of its turns, it can make another Wisdom saving throw. If it succeeds, the effect ends."
                 }])
+
+;;; ─── F Spells ─────
 
 (def f-spells
   [{
@@ -1758,6 +1772,8 @@ At Higher Levels. When you cast this spell using a spell slot of 7th level or hi
     }
    ])
 
+;;; ─── G Spells ─────
+
 (def g-spells
   [{
     :name "Gaseous Form"
@@ -1979,6 +1995,8 @@ The gust disperses gas or vapor, and it extinguishes candles, torches, and simil
 As a bonus action on each of your turns before the spell ends, you can change the direction in which the line blasts from you."
     }])
 
+;;; ─── H Spells ─────
+
 (def h-spells
   [{
     :name "Hallow"
@@ -2166,6 +2184,8 @@ At Higher Levels. When you cast this spell using a spell slot of 3rd level or hi
 The spell ends for an affected creature if it takes any damage or if someone else uses an action to shake the creature out of its stupor."
     }])
 
+;;; ─── I Spells ─────
+
 (def i-spells
   [
    {
@@ -2303,6 +2323,8 @@ A dancing creature must use all its movement to dance without leaving its space 
     }
    ])
 
+;;; ─── J Spells ─────
+
 (def j-spells
   [{
     :name "Jump"
@@ -2314,6 +2336,8 @@ A dancing creature must use all its movement to dance without leaving its space 
     :duration "1 minute"
     :description "You touch a creature. The creature's jump distance is tripled until the spell ends."
     }])
+
+;;; ─── K Spells ─────
 
 (def k-spells
   [{
@@ -2328,6 +2352,8 @@ A dancing creature must use all its movement to dance without leaving its space 
 A target that is held shut by a mundane lock or that is stuck or barred becomes unlocked, unstuck, or unbarred. If the object has multiple locks, only one of them is unlocked. If you choose a target that is held shut with arcane lock, that spell is suppressed for 10 minutes, during which time the target can be opened and shut normally.
 When you cast the spell, a loud knock, audible from as far away as 300 feet, emanates from the target object."
     }])
+
+;;; ─── L Spells ─────
 
 (def l-spells
   [{
@@ -2432,6 +2458,8 @@ This spell can't locate an object if any thickness of lead, even a thin sheet, b
     :description "You touch a creature. The target's speed increases by 10 feet until the spell ends.
 At Higher Levels. When you cast this spell using a spell slot of 2nd level or higher, you can target one additional creature for each slot level above 1st."
     }])
+
+;;; ─── M Spells ─────
 
 (def m-spells
   [
@@ -2772,6 +2800,8 @@ This spell can't manipulate natural stone or stone construction. Rocks and struc
 Similarly, this spell doesn't directly affect plant growth. The moved earth carries any plants along with it."
     }])
 
+;;; ─── N Spells ─────
+
 (def n-spells
   [{
     :name "Nondetection"
@@ -2784,6 +2814,8 @@ Similarly, this spell doesn't directly affect plant growth. The moved earth carr
     :description "For the duration, you hide a target that you touch from divination magic. The target can be a willing creature or a place or an object no larger than 10 feet in any dimension. The target can't be targeted by any divination magic or perceived through magical scrying sensors."
     }])
 
+
+;;; ─── P Spells ─────
 
 (def p-spells
   [{
@@ -3097,6 +3129,8 @@ For the duration, the target has advantage on saving throws against being poison
     }
    ])
 
+;;; ─── R Spells ─────
+
 (def r-spells
   [{
     :name "Raise Dead"
@@ -3255,6 +3289,8 @@ The extradimensional space can be reached by climbing to the top of the rope. Th
 Attacks and spells can't cross through the entrance into or out of the extradimensional space, but those inside can see out of it as if through a 3-foot-by-5-foot window centered on the rope.
 Anything inside the extradimensional space drops out when the spell ends."
     }])
+
+;;; ─── S Spells ─────
 
 (def s-spells
   [{
@@ -3711,6 +3747,8 @@ Sleep. Each target must make a Wisdom saving throw and falls unconscious for 10 
 Stunning. Each target must make a Wisdom saving throw and becomes stunned for 1 minute on a failed save."
     }])
 
+;;; ─── T Spells ─────
+
 (def t-spells
   [
    {
@@ -3920,6 +3958,8 @@ The spell can even provide a new body if the original no longer exists, in which
     :description "You extend your hand and point a finger at a target in range. Your magic grants you a brief insight into the target's defenses. On your next turn, you gain advantage on your first attack roll against the target, provided that this spell hasn't ended."
     }])
 
+;;; ─── U Spells ─────
+
 (def u-spells [{
                 :name "Unseen Servant"
                 :ritual true
@@ -3933,6 +3973,8 @@ The spell can even provide a new body if the original no longer exists, in which
 Once on each of your turns as a bonus action, you can mentally command the servant to move up to 15 feet and interact with an object. The servant can perform simple tasks that a human servant could do, such as fetching things, cleaning, mending, folding clothes, lighting fires, serving food, and pouring wine. Once you give the command, the servant performs the task to the best of its ability until it completes the task, then waits for your next command.
 If you command the servant to perform a task that would move it more than 60 feet away from you, the spell ends."
                 }])
+
+;;; ─── V Spells ─────
 
 (def v-spells [{
                 :name "Vampiric Touch"
@@ -3957,6 +3999,8 @@ At Higher Levels. When you cast this spell using a spell slot of 4th level or hi
                 :page 285
                 :description "Choose a creature you can see. If it can hear you, it must pass a Wisdom save or take 1d4 psychic damage and have disadvantage on its next attack roll before the end of its next turn.
                 The damage increases by 1d4 when you reach 5th, 11th, and 17th level."}])
+
+;;; ─── W Spells ─────
 
 (def w-spells [{
                 :name "Wall of Fire"
@@ -4138,6 +4182,8 @@ The stress of casting this spell to produce any effect other than duplicating an
 You must designate a sanctuary by casting this spell within a location, such as a temple, dedicated to or strongly linked to your deity. If you attempt to cast the spell in this manner in an area that isn't dedicated to your deity, the spell has no effect."
                 }])
 
+;;; ─── Z Spells ─────
+
 (def z-spells [{
                 :name "Zone of Truth"
                 :school enchantment
@@ -4148,6 +4194,8 @@ You must designate a sanctuary by casting this spell within a location, such as 
                 :duration "10 minutes"
                 :description "You create a magical zone that guards against deception in a 15-foot-radius sphere centered on a point of your choice within range. Until the spell ends, a creature that enters the spell's area for the first time on a turn or starts its turn there must make a Charisma saving throw. On a failed save, a creature can't speak a deliberate lie while in the radius. You know whether each creature succeeds or fails on its saving throw.
 An affected creature is aware of the spell and can thus avoid answering questions to which it would normally respond with a lie. Such a creature can be evasive in its answers as long as it remains within the boundaries of the truth."}])
+
+;;; ─── Derived Lookups ─────
 
 (def spells
   (map

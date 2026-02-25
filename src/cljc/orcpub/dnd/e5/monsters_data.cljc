@@ -1,6 +1,8 @@
 (ns orcpub.dnd.e5.monsters-data
   "SRD monster stat blocks — extracted from monsters.cljc for navigability.")
 
+;;; ─── SRD Monster Stat Blocks (alphabetical) ─────
+
 (def monsters-raw [
 {
  :name "Aboleth"

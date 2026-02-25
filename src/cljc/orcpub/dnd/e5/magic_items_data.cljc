@@ -13,9 +13,13 @@
             [clojure.string :as s])
   #?(:cljs (:require-macros [orcpub.dnd.e5.modifiers :as mod5e])))
 
-;; Key aliases — resolve to :orcpub.dnd.e5.magic-items/* keywords,
+;;; ─── Key Aliases ─────
+;; Resolve to :orcpub.dnd.e5.magic-items/* keywords,
 ;; matching the parent namespace's qualified keyword space.
+
 (def name-key ::mi/name)
+
+;;; ─── Item Predicates ─────
 
 (defn sword? [w]
   (= :sword (::weapons5e/subtype w)))
@@ -51,6 +55,8 @@
 
 (defn not-shield? [a] (#{:light :medium :heavy} (:type a)))
 
+;;; ─── Item Generator Helpers ─────
+
 (defn bonus-name-fn [name-kw bonus]
   (fn [item] (str (name-kw item) " +" bonus)))
 
@@ -58,6 +64,7 @@
 (defn plus-2-name [name-kw] (bonus-name-fn name-kw 2))
 (defn plus-3-name [name-kw] (bonus-name-fn name-kw 3))
 
+;; Generate a Horn of Valhalla item entry
 (defn horn-of-valhalla [name rarity die & [requirement]]
   {
    name-key (str name " Horn of Valhalla")
@@ -81,6 +88,7 @@ You must have proficiency with all "
    ::mi/description (str "When you drink this potion, your Strength score becomes " strength " for 1 hour. The potion has no effect on you if your Strength is equal to or greater than " strength ".
 This potion’s transparent liquid has floating in it a sliver of fingernail from a giant of the appropriate type. The potion of frost giant strength and the potion of stone giant strength have the same effect.")})
 
+;; Generate a Figurine of Wondrous Power item entry
 (defn figurine-of-wondrous-power [rarity name description]
   {
    name-key (str "Figurine of Wondrous Power: " name)
@@ -92,11 +100,13 @@ commands, the creature defends itself but takes no other actions.
 The creature exists for a duration specific to each figurine. At the end of the duration, the creature reverts to its figurine form. It reverts to a figurine early if it drops to 0 hit points or if you use an action to speak the command word again while touching it. When the creature becomes a figurine again, its property can’t be used again until a certain amount of time has passed, as specified in the figurine’s description.
 " description)})
 
+;; Generate a Belt of Giant Strength ability modifier
 (defn belt-of-giant-strength-mod [value]
   (mod/vec-mod ?ability-overrides
                {:ability :orcpub.dnd.e5.character/str :value
                 (min 30 (+ value (if (and ?giants-bane-gauntlet ?giants-bane-hammer) 4 0)))}))
 
+;; Generate a Dragon Scale Mail item entry with damage resistance
 (defn dragon-scale-mail [color-nm resistance-kw]
   {name-key (str "Dragon Scale Mail, " color-nm)
    ::mi/magical-ac-bonus 1
@@ -120,6 +130,7 @@ Additionally, you can focus your senses as an action to magically discern the di
 direction to the closest dragon within 30 miles of you that is of the same type as the armor. This special action can’t be used again until the next dawn."
                      )})
 
+;; Generate a caster bonus item (wand/rod/etc.) with spell attack/DC modifiers
 (defn
   ^{:doc "Generic function for creating magic items with + bonuses.
    Use :sp-atk-mod for spell-attack-modifier bonuses.
@@ -156,6 +167,7 @@ direction to the closest dragon within 30 miles of you that is of the same type 
                    " to spell attack rolls and saving throw DCs for your warlock spells")
    })
 
+;; Generate an Ioun Stone item entry with orbiting stone trait
 (defn ioun-stone [name rarity description & modifiers]
   (let [full-name (str "Ioun Stone (" name ")")]
     {
@@ -174,6 +186,8 @@ direction to the closest dragon within 30 miles of you that is of the same type 
 When you use an action to toss one of these stones into the air, the stone orbits your head at a distance of 1d3 feet and confers a benefit to you. Thereafter, another creature must use an action to grasp or net the stone to separate it from you, either by making a successful attack roll against AC 24 or a successful DC 24 Dexterity (Acrobatics) check. You can use an action to seize and stow the stone, ending its effect.
 A stone has AC 24, 10 hit points, and resistance to all damage. It is considered to be an object that is being worn while it orbits your head." description)
      }))
+
+;;; ─── Resistance / Vulnerability Sets ─────
 
 (def armors-of-resistance
   (map
@@ -232,6 +246,8 @@ Curse. This armor is cursed, a fact that is revealed only when an identify spell
       ::mi/description (str "You have resistance to " (name damage-type) " damage.")
       })
    damage-types5e/damage-types))
+
+;;; ─── SRD Magic Item Data ─────
 
 (def raw-magic-items
   (concat
