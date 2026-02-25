@@ -74,3 +74,37 @@ jpackage --input target --main-jar orcpub.jar --type exe \
 - Bundle Datomic alongside the app, start as a Windows service (`--win-service`)
 - Package as two installers (app + transactor)
 - Single installer with a launcher script that starts both
+
+## Magic item builder: saving throw bonus dropdown is a dead control
+
+**Status:** Open
+**Severity:** Low (cosmetic)
+**Reported:** 2026-02-25
+
+### Problem
+
+In the homebrew magic item builder, the "Saving Throw Bonus" section renders a
+dropdown per ability — but each dropdown is hardcoded to a single option
+(`"Increases By"`) with no `on-change` handler and no subscription for its value.
+
+Compare with the sibling sections:
+
+| Section | Options | Wired up? |
+|---------|---------|-----------|
+| Ability Bonus | "Becomes At Least", "Increases By" | Yes |
+| Speed Bonus | "Becomes At Least", "Increases By", "Equals Walking Speed" | Yes |
+| Saving Throw Bonus | "Increases By" (only) | **No** |
+
+The number field next to the dropdown works correctly — only the dropdown itself
+is inert.
+
+### Proposed fix
+
+Wire it up — add "Becomes At Least" option with `on-change` dispatch and
+subscription, matching the ability bonus pattern. Even though no SRD item uses
+a saving throw floor, homebrew creators should have the same modifier knobs
+available for saves as they do for abilities and speed.
+
+### Related
+
+- `src/cljs/orcpub/dnd/e5/views/builders/item.cljs` — `item-saving-throw-bonuses` (~line 302)
