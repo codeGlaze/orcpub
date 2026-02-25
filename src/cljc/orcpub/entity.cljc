@@ -135,10 +135,11 @@
    []
    homebrew-paths))
 
-(defn to-strict [{:keys [:db/id ::options ::values ::homebrew-paths]}]
+(defn to-strict [{:keys [:db/id ::options ::values ::homebrew-paths ::owner]}]
   (cond-> {::strict/selections (to-strict-selections options [] homebrew-paths)}
     values (assoc ::strict/values (into {} (remove (comp nil? val)) values))
     id (assoc :db/id id)
+    owner (assoc ::strict/owner owner)              ;; round-trip ::strict/owner via ::owner
     true remove-empty-fields))
 
 (spec/fdef to-strict
@@ -164,18 +165,19 @@
 (defn from-strict-options [options]
   (mapv from-strict-option options))
 
+;; array-map preserves insertion order at any size. The previous reduce/assoc
+;; approach promoted to PersistentHashMap beyond 8 keys, scrambling selection
+;; order during strict round-trips.
 (defn from-strict-selections [selections]
-  (reduce
-   (fn [s {:keys [:db/id ::strict/key ::strict/option ::strict/options]}]
-     (assoc s
-            key
-            (with-meta
-              (if option
-                (from-strict-option option)
-                (from-strict-options options))
-              {:db/id id})))
-   {}
-   selections))
+  (apply array-map
+         (mapcat
+          (fn [{:keys [:db/id ::strict/key ::strict/option ::strict/options]}]
+            [key (with-meta
+                   (if option
+                     (from-strict-option option)
+                     (from-strict-options options))
+                   {:db/id id})])
+          selections)))
 
 (defn from-strict-homebrew-paths [homebrew-paths]
   (reduce
@@ -477,7 +479,10 @@
                  accum-selections)))
       accum-selections)))
 
-(defn remove-disqualified-selections [selections built-char]
+(defn remove-disqualified-selections
+  "Remove selections whose prereq-fn fails against built-char.
+   Callers must provide a real built entity, never nil."
+  [selections built-char]
   (remove #(or (nil? %)
                (let [prereq-fn (::t/prereq-fn %)]
                  (and prereq-fn (not (prereq-fn built-char)))))
@@ -740,10 +745,14 @@
           :else
           0)))
 
-(defn meets-prereqs? [option & [built-char]]
+(defn meets-prereqs?
+  "Check if option's prereqs are satisfied by built-char.
+   Callers must provide a real built entity (from entity/build or
+   subscribe [:built-character]), never nil."
+  [option & [built-char]]
   (every?
-   (fn [{:keys [::t/prereq-fn] :as prereq}]
-     (when prereq-fn
+   (fn [{:keys [::t/prereq-fn]}]
+     (if prereq-fn
        (prereq-fn built-char)
-       #?(:cljs (js/console.warn "NO PREREQ_FN" (::t/name option) prereq))))
+       true))
    (::t/prereqs option)))

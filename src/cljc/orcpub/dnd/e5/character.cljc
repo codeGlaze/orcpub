@@ -126,7 +126,7 @@
                      %))
     raw-character))
 
-;; dead — only caller was add-namespaces
+;; dead — only caller (add-namespaces) is #_ discarded
 #_(defn add-equipment-namespaces [raw-character]
   (-> (reduce
        add-equipment-namespace
@@ -146,7 +146,7 @@
                 ::wis (or n-wis wis)
                 ::cha (or n-cha cha)})))
 
-;; dead — only caller was add-namespaces
+;; dead — only caller (add-namespaces) is #_ discarded
 #_(defn add-namespaces-to-values [raw-character]
   (if (seq (::entity/values raw-character))
     (update raw-character
@@ -157,7 +157,7 @@
                values)))
     raw-character))
 
-;; dead — zero live callers (cascade: add-equipment-namespaces, add-namespaces-to-values)
+;; dead — zero callers
 #_(defn add-namespaces [raw-character]
   (-> raw-character
       add-equipment-namespaces
@@ -602,7 +602,7 @@
 (defn save-bonuses [built-char]
   (get-prop built-char :save-bonuses))
 
-;; dead — zero callers
+;; dead — zero callers (views.cljs option-saving-throw-advantages is unrelated)
 #_(defn saving-throw-advantages [built-char]
   (get-prop built-char :saving-throw-advantage))
 
@@ -738,7 +738,7 @@
 (defn dual-wield-weapon-fn [built-char]
   (get-prop built-char :dual-wield-weapon?))
 
-;; dead — zero callers
+;; dead — zero callers (pdf_spec.cljc computes armor class inline)
 #_(defn max-armor-class [unarmored-armor-class
                        ac-with-armor-fn
                        all-armor-inventory

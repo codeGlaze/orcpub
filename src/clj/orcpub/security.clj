@@ -1,5 +1,7 @@
 (ns orcpub.security
-  (:require [clj-time.core :as t :refer [ago minutes]]))
+  "Login attempt tracking and rate limiting.
+   See orcpub.time for date/time utilities."
+  (:require [orcpub.time :as time :refer [minutes ago]]))
 
 (defn compare-dates [attempt-1 attempt-2]
   (compare (:date attempt-1) (:date attempt-2)))
@@ -10,7 +12,7 @@
 (def failed-login-attempts-by-ip
   (atom {}))
 
-(defn threshold  []
+(defn threshold []
   (-> 1 minutes ago))
 
 (defn remove-old [attempts threshold-date]
@@ -31,7 +33,7 @@
 (defn add-failed-login-attempt! [username ip]
   (let [attempt {:user username
                  :ip ip
-                 :date (t/now)}]
+                 :date (time/now)}]
     (swap! failed-login-attempts-by-username
            #(add-and-remove-old username attempt % (threshold)))
     (swap! failed-login-attempts-by-ip
@@ -62,7 +64,9 @@
 (defn multiple-account-access-aux [ip attempts-by-ip]
   (some-> ip
           attempts-by-ip
-          (subseq > (-> 1 minutes ago))
+          ;; Filter attempts newer than 1 minute ago.
+          ;; Uses {:date ...} map because sorted-set compares by :date field.
+          (subseq > {:date (-> 1 minutes ago)})
           usernames-for-attempts
           count
           (>= 5)))
@@ -75,7 +79,9 @@
 (defn multiple-ip-attempts-to-same-account-aux [username attempts-by-username]
   (some-> username
           attempts-by-username
-          (subseq > (-> 1 minutes ago))
+          ;; Filter attempts newer than 1 minute ago.
+          ;; Uses {:date ...} map because sorted-set compares by :date field.
+          (subseq > {:date (-> 1 minutes ago)})
           ips-for-attempts
           count
           (>= 3)))

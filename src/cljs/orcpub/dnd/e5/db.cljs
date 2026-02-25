@@ -261,7 +261,7 @@
                   (item-fn stored-item)
                   stored-item)
                 (do
-                  (js/console.warn "INVALID ITEM FOUND, IGNORING")
+                  (js/console.warn "INVALID ITEM FOUND, IGNORING" local-storage-key)
                   (pprint (spec/explain-data item-spec stored-item)))))))))
 
 (reg-local-store-cofx

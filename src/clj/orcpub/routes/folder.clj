@@ -1,17 +1,22 @@
 (ns orcpub.routes.folder
-  (:require [datomic.api :as d]
+  (:require [clojure.string]
+            [datomic.api :as d]
             [orcpub.dnd.e5.folder :as folder]
             [orcpub.entity.strict :as se]))
 
 (def pull-folder
   [:db/id ::folder/name {::folder/character-ids [:db/id ::se/owner ::se/summary]}])
 
-(defn create-folder [{:keys [conn identity] folder-data :transit-params}]
-  ;; Whitelist only ::folder/name from client data; owner is always server-set
+(defn create-folder
+  "Creates a new folder owned by the authenticated user."
+  [{:keys [conn identity] folder-data :transit-params}]
   (let [username (:user identity)
-        result @(d/transact conn [{::folder/name (::folder/name folder-data)
+        folder-name (or (::folder/name folder-data) "New Folder")
+        tempid "new-folder"
+        result @(d/transact conn [{:db/id tempid
+                                   ::folder/name folder-name
                                    ::folder/owner username}])
-        new-id (-> result :tempids first val)]
+        new-id (d/resolve-tempid (d/db conn) (:tempids result) tempid)]
     {:status 200 :body (d/pull (d/db conn) '[*] new-id)}))
 
 (defn folders [{:keys [db identity]}]
@@ -29,11 +34,16 @@
                     result)]
     {:status 200 :body mapped}))
 
-(defn update-folder-name [{:keys [conn]
-                           folder-name :transit-params
-                           {:keys [id]} :path-params}]
-  @(d/transact conn [{:db/id id ::folder/name folder-name}])
-  {:status 200 :body (d/pull (d/db conn) pull-folder id)})
+(defn update-folder-name
+  "Renames a folder. Rejects blank names."
+  [{:keys [conn]
+    folder-name :transit-params
+    {:keys [id]} :path-params}]
+  (let [trimmed (clojure.string/trim (str folder-name))]
+    (if (clojure.string/blank? trimmed)
+      {:status 400 :body {:message "Folder name cannot be blank"}}
+      (do @(d/transact conn [{:db/id id ::folder/name trimmed}])
+          {:status 200 :body (d/pull (d/db conn) pull-folder id)}))))
 
 (defn add-character [{:keys [db conn]
                       character-id :transit-params

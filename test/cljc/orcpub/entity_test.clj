@@ -1,5 +1,5 @@
 (ns orcpub.entity-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest testing is]]
             [clojure.spec.alpha :as spec]
             [clojure.spec.test.alpha :as stest]
             [orcpub.entity.strict :as e]

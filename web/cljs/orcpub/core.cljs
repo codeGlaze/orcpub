@@ -3,6 +3,7 @@
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
@@ -11,24 +12,23 @@
             [clojure.string :as s]
             [re-frame.core :refer [dispatch dispatch-sync subscribe]]
             [reagent.core :as r]
+            [reagent.dom.client :as rdc]
             [goog.events])
   (:import
    [goog.history Html5History EventType]))
 
 (enable-console-print!)
 
-;; =============================================================================
-;; Dev Version: 0.0.19 - Fix missing content detection (built-in exclusions)
-;; =============================================================================
-(def dev-version "0.0.19")
-(js/console.log (str "OrcPub Dev Version: " dev-version))
-
-(if (and js/window.location
-         (not (or (s/starts-with? js/window.location.href "https")
-                  (s/starts-with? js/window.location.href "http://localhost"))))
+(when (and js/window.location
+           (not (or (s/starts-with? js/window.location.href "https")
+                    (s/starts-with? js/window.location.href "http://localhost"))))
   (set! js/window.location.protocol "https"))
 
 (dispatch-sync [:initialize-db])
+
+;; Init template cache after all subscription handlers are registered.
+;; Must be called here (not self-initializing) so equipment-subs has loaded.
+(autosave-fx/init-template-cache!)
 
 (def pages
   {nil views-2/splash-page
@@ -75,7 +75,7 @@
    routes/password-reset-used-route views/password-reset-used-page})
 
 (defn handle-url-change [_]
-  (let [route (if js/window.location
+  (let [route (when js/window.location
                 (routes/match-route js/window.location.pathname))
         config {:skip-path? true}]
     (dispatch [:route route (if (events/login-routes (:handler route))
@@ -113,18 +113,22 @@
      [view (assoc route-params :query query-map)]
      [conflict-views/import-log-overlay]]))
 
-@(subscribe [:user false])
+;; Verify auth token on startup (replaces @(subscribe [:user false]) side-effect)
+(dispatch-sync [:verify-user-session])
 
-(r/render (if (let [doc-style js/document.documentElement.style]
-                (and js/window.localStorage
-                     (or (aget doc-style "flexWrap")
-                         (aget doc-style "WebkitFlexWrap")
-                         (aget doc-style "msFlexWrap"))))
-            [main-view]
-            [:div
-             [views/app-header]
-             [:div.f-s-24.main-text-color.sans
-              {:style {:padding "200px"}}
-              "Sorry, we are unable to support your browser since it does not support important HTML5 features. Please try a modern browser such as " [:a {:href "https://www.google.com/chrome/browser/desktop/index.html"} "Google Chrome"] " or " [:a {:href "https://www.mozilla.org/en-US/firefox/products/?v=a"} "Mozilla Firefox"]]])
-          (js/document.getElementById "app"))
+;; React 18 createRoot API (Reagent 2.0)
+(defonce root (rdc/create-root (js/document.getElementById "app")))
+
+(rdc/render root
+            (if (let [doc-style js/document.documentElement.style]
+                  (and js/window.localStorage
+                       (or (aget doc-style "flexWrap")
+                           (aget doc-style "WebkitFlexWrap")
+                           (aget doc-style "msFlexWrap"))))
+              [main-view]
+              [:div
+               [views/app-header]
+               [:div.f-s-24.main-text-color.sans
+                {:style {:padding "200px"}}
+                "Sorry, we are unable to support your browser since it does not support important HTML5 features. Please try a modern browser such as " [:a {:href "https://www.google.com/chrome/browser/desktop/index.html"} "Google Chrome"] " or " [:a {:href "https://www.mozilla.org/en-US/firefox/products/?v=a"} "Mozilla Firefox"]]]))
 

@@ -150,7 +150,8 @@ wait_for_ready() {
   warn "No Docker healthcheck found; polling HTTP on container port..."
   printf "Waiting for app"
   while [ $waited -lt $max_wait ]; do
-    if docker exec "$container" wget --no-verbose --tries=1 --spider \
+    # BusyBox wget (Alpine): only -q and --spider are supported
+    if docker exec "$container" wget -q --spider \
       "http://localhost:${PORT:-8890}/" 2>/dev/null; then
       echo ""
       return 0

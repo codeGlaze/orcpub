@@ -63,9 +63,11 @@
                                       default-subrace
                                       default-class
                                       default-subclass]]
-            [orcpub.dnd.e5.autosave-fx]
+            [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.dnd.e5.event-utils :as event-utils]
+            [orcpub.dnd.e5.compute :as compute]
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
-                                   after dispatch subscribe ->interceptor]]
+                                   after dispatch ->interceptor]]
             [cljs.spec.alpha :as spec]
             [cljs-http.client :as http]
             [cljs.core.async :refer [<! timeout]]
@@ -83,6 +85,10 @@
 ;; =============================================================================
 ;; Version: 1.06 - Add export warning modal events, required field validation
 ;; =============================================================================
+
+;; Forward declaration — defined below :update-value-field (line ~1226).
+;; Used in :save-character to auto-generate names for unnamed characters.
+(declare generate-random-name)
 
 (defn check-and-throw
   "throw an exception if db doesn't match the spec"
@@ -192,11 +198,8 @@
 
 ;; -- Event Handlers --------------------------------------------------
 
-(defn backend-url [path]
-  (if (and js/window.location
-           (s/starts-with? js/window.location.href "http://localhost"))
-    (str "http://localhost:8890" (when (not (s/starts-with? path "/")) "/") path)
-    path))
+;; Delegated to event-utils to break circular dep with subs files.
+(def backend-url event-utils/backend-url)
 
 (reg-event-fx
  :initialize-db
@@ -288,8 +291,8 @@
                  (fn [_]
                    (random-hit-points-option (char5e/levels built-char) class-kw)))})
 
-;; unreferenced — random-character loop hardcodes 10
-#_(def max-iterations 100)
+#_ ;; unreferenced — random-character loop hardcodes 10
+(def max-iterations 100)
 
 (defn keep-options [built-template entity option-paths]
   (reduce
@@ -348,8 +351,8 @@
  (fn [_ [_ character built-template locked-components]]
    {:dispatch [:set-random-character character built-template locked-components]}))
 
-;; unreferenced — character path is constructed inline
-#_(def dnd-5e-characters-path [:dnd :e5 :characters])
+#_ ;; unreferenced — character path is constructed inline
+(def dnd-5e-characters-path [:dnd :e5 :characters])
 
 (reg-event-fx
  :character-save-success
@@ -360,6 +363,23 @@
      {:dispatch-n [[:show-message "Your character has been saved."]
                    [:set-character character]
                    [::char5e/set-character id character]]})))
+
+(defn descriptive-character-label
+  "Build a descriptive label like 'High Elf Ranger 3' from character properties.
+   Used as the summary name when the user hasn't set a character name."
+  [race subrace classes levels]
+  (let [race-part (or subrace race)
+        class-parts (when (seq classes)
+                      (s/join "/"
+                              (map (fn [cls]
+                                     (let [{:keys [class-name class-level]} (levels cls)]
+                                       (str class-name " " class-level)))
+                                   classes)))]
+    (cond
+      (and race-part class-parts) (str race-part " " class-parts)
+      race-part race-part
+      class-parts class-parts
+      :else "Adventurer")))
 
 (defn make-summary [built-char]
   (let [classes (char5e/classes built-char)
@@ -376,10 +396,12 @@
         hair (char5e/hair built-char)
         eyes (char5e/eyes built-char)
         skin (char5e/skin built-char)
-        ;alignment (char5e/get-prop built-char ::alignment)  ;This is not available?
-        ;background (char5e/get-prop built-char ::background)  ;This is not available?
-        ]
-    (cond-> {::char5e/character-name (or character-name "")}
+        ;; When user hasn't set a name, auto-generate a descriptive label
+        ;; for the summary (what lists/parties display).
+        display-name (if (s/blank? character-name)
+                       (descriptive-character-label race subrace classes levels)
+                       character-name)]
+    (cond-> {::char5e/character-name display-name}
       image-url (assoc ::char5e/image-url image-url)
       faction-image-url (assoc ::char5e/faction-image-url faction-image-url)
       race (assoc ::char5e/race-name race)
@@ -403,43 +425,62 @@
                                                    class-level (assoc ::char5e/level class-level))))
                                              classes)))))
 
-(defn authorization-headers [db]
-  {"Authorization" (str "Token " (-> db :user-data :token))})
+(def authorization-headers event-utils/auth-headers)
+(def url-for-route event-utils/url-for-route)
 
-(defn url-for-route [route & args]
-  (backend-url (apply routes/path-for route args)))
-
+;; Autosave handler — dispatched from autosave_fx.cljs throttle timer.
+;; Posts character + summary to server.
 (reg-event-fx
  ::char5e/save-character
  (fn [{:keys [db]} [_ id]]
-   (let [{:keys [:db/id] :as strict} (char5e/to-strict @(subscribe [::char5e/character id]))
-         built-character @(subscribe [::char5e/built-character id])
-         summary (make-summary built-character)]
-     (if (every?
-          (fn [ability-kw]
-            (nat-int? (get-in built-character [:base-abilities ability-kw])))
-          char5e/ability-keys)
-       {:dispatch [:set-loading true]
-        :http {:method :post
-               :headers (authorization-headers db)
-               :url (url-for-route routes/dnd-e5-char-list-route)
-               :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-               :on-success [:character-save-success]}}
-       {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))
+   (let [character (get-in db [::char5e/character-map (js/parseInt id)] {})
+         ;; Template is cached in app-db by autosave_fx's track! watcher.
+         ;; Since built-template is a no-op (plugin merging commented out),
+         ;; we use the cached template directly with entity/build.
+         cached-template (get db ::autosave-fx/cached-template)]
+     (if-not cached-template
+       {} ;; template not cached yet — skip this cycle, next autosave will retry
+       (let [{:keys [:db/id] :as strict} (char5e/to-strict character)
+             built-character (entity/build character cached-template)
+             summary (make-summary built-character)]
+         (if (every?
+              (fn [ability-kw]
+                (nat-int? (get-in built-character [:base-abilities ability-kw])))
+              char5e/ability-keys)
+           {:dispatch [:set-loading true]
+            :http {:method :post
+                   :headers (authorization-headers db)
+                   :url (url-for-route routes/dnd-e5-char-list-route)
+                   :transit-params (assoc strict :orcpub.entity.strict/summary summary)
+                   :on-success [:character-save-success]}}
+           {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))))
 
+;; Manual save — dispatched from character builder UI with built-char in scope.
+;; If the user hasn't set a name, generates a random one and persists it.
 (reg-event-fx
  :save-character
- (fn [{:keys [db]} _]
-   (let [{:keys [:db/id] :as strict} (char5e/to-strict (:character db))
-         built-character @(subscribe [:built-character])
-         summary (make-summary built-character)]
+ (fn [{:keys [db]} [_ built-character]]
+   (let [character-name (char5e/character-name built-character)
+         needs-name? (s/blank? character-name)
+         ;; Generate a random name for unnamed characters on manual save
+         rand-name (when needs-name? (generate-random-name built-character))
+         ;; Update entity in db so the name persists across future edits
+         db' (if needs-name?
+               (assoc-in db [:character ::entity/values ::char5e/character-name] rand-name)
+               db)
+         {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))
+         summary (cond-> (make-summary built-character)
+                   ;; Override summary name with the generated name
+                   ;; (make-summary produced a descriptive label since entity was blank)
+                   needs-name? (assoc ::char5e/character-name rand-name))]
      (if (every?
           (fn [ability-kw]
             (nat-int? (get-in built-character [:base-abilities ability-kw])))
           char5e/ability-keys)
-       {:dispatch [:set-loading true]
+       {:db db'
+        :dispatch [:set-loading true]
         :http {:method :post
-               :headers (authorization-headers db)
+               :headers (authorization-headers db')
                :url (url-for-route routes/dnd-e5-char-list-route)
                :transit-params (assoc strict :orcpub.entity.strict/summary summary)
                :on-success [:character-save-success]}}
@@ -575,13 +616,63 @@
  ::e5/boons
  "You must specify 'Name', 'Option Source Name'")
 
-(reg-save-homebrew
- "Selection"
+;; Selection save handler — standalone instead of reg-save-homebrew to add
+;; duplicate option name validation. Mirrors reg-save-homebrew logic plus
+;; checks for empty names and duplicate option names within :options.
+(reg-event-fx
  ::selections5e/save-selection
- ::selections5e/builder-item
- ::selections5e/homebrew-selection
- ::e5/selections
- "You must specify 'Name', 'Option Source Name'")
+ (fn [{:keys [db]} _]
+   (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
+         key (common/name-to-kw name)
+         normalized-item (import-val/normalize-text-in-data item)
+         {filled-item :item} (import-val/fill-all-missing-fields normalized-item ::e5/selections)
+         item-with-key (assoc filled-item :key key)
+         plugins (:plugins db)
+         explanation (spec/explain-data ::selections5e/homebrew-selection item-with-key)
+         ;; Check for empty option names
+         option-names (map :name (:options item))
+         empty-names? (some s/blank? option-names)
+         ;; Check for duplicate option names (case-insensitive via key derivation)
+         option-keys (map #(when-not (s/blank? %) (common/name-to-kw %))
+                          option-names)
+         key-freqs (frequencies (remove nil? option-keys))
+         dupe-keys (set (map first (filter #(> (val %) 1) key-freqs)))
+         dupe-names (when (seq dupe-keys)
+                      (->> option-names
+                           (filter #(and (not (s/blank? %))
+                                         (contains? dupe-keys (common/name-to-kw %))))
+                           distinct
+                           sort))]
+     (cond
+       ;; Reject empty option names
+       empty-names?
+       {:dispatch [:show-error-message
+                   "Cannot save: all options must have names"]}
+       ;; Reject duplicate option names
+       (seq dupe-names)
+       {:dispatch [:show-error-message
+                   (str "Cannot save: duplicate option names: "
+                        (s/join ", " dupe-names)
+                        ". Each option must have a unique name.")]}
+       ;; Spec validation
+       (some? explanation)
+       {:dispatch [:show-error-message
+                   (spec-error-message "Selection" explanation
+                                       "You must specify 'Name', 'Option Source Name'")]}
+       ;; All good — save
+       :else
+       (let [new-plugins (assoc-in plugins
+                                   [option-pack ::e5/selections key]
+                                   item-with-key)]
+         {:dispatch-n [[::e5/set-plugins new-plugins]
+                       [:show-warning-message
+                        [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
+                         [:span.text-shadow
+                          "Selection saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking "]
+                         [:span.pointer.underline.black
+                          {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
+                          "here"]]
+                        60000]]})))))
 
 (reg-save-homebrew
  "Feat"
@@ -702,6 +793,15 @@
            :on-success [::party5e/make-party-success]}}))
 
 (reg-event-fx
+ ::party5e/make-empty-party-success
+ (fn [{:keys [db]} [_ response]]
+   (let [new-party (:body response)
+         parties (conj (vec (::char5e/parties db)) new-party)]
+     {:db (assoc db
+                 ::char5e/parties parties
+                 ::char5e/parties-map (common/map-by-id parties))})))
+
+(reg-event-fx
   ::party5e/make-empty-party
   (fn [{:keys [db]} [_]]
     {:dispatch [:set-loading true]
@@ -709,8 +809,7 @@
             :headers (authorization-headers db)
             :url (url-for-route routes/dnd-e5-char-parties-route)
             :transit-params {::party5e/name "A New Party"}
-            :on-success (.reload js/window.location true)
-            }}))
+            :on-success [::party5e/make-empty-party-success]}}))
 
 (reg-event-fx
  ::party5e/rename-party
@@ -836,13 +935,29 @@
    (assoc db ::folder5e/folders folders)))
 
 (reg-event-fx
+ ::folder5e/on-folder-failure
+ ;; Re-fetches folders from server to reconcile optimistic UI on HTTP failure.
+ (fn [{:keys [db]} [_ _response]]
+   {:http {:method :get
+           :headers (authorization-headers db)
+           :url (url-for-route routes/dnd-e5-char-folders-route)
+           :on-success [::folder5e/set-folders-from-response]}
+    :dispatch (event-utils/show-generic-error)}))
+
+(reg-event-db
+ ::folder5e/set-folders-from-response
+ (fn [db [_ response]]
+   (assoc db ::folder5e/folders (:body response))))
+
+(reg-event-fx
  ::folder5e/create-folder
  (fn [{:keys [db]} [_]]
    {:http {:method :post
            :headers (authorization-headers db)
            :transit-params {::folder5e/name "New Folder"}
            :url (url-for-route routes/dnd-e5-char-folders-route)
-           :on-success [::folder5e/create-folder-success]}}))
+           :on-success [::folder5e/create-folder-success]
+           :on-failure [::folder5e/on-folder-failure]}}))
 
 (reg-event-fx
  ::folder5e/create-folder-success
@@ -854,17 +969,20 @@
 (reg-event-fx
  ::folder5e/rename-folder
  (fn [{:keys [db]} [_ id new-name]]
-   {:db (update db ::folder5e/folders
-                (fn [folders]
-                  (map (fn [f]
-                         (if (= id (:db/id f))
-                           (assoc f ::folder5e/name new-name)
-                           f))
-                       folders)))
-    :http {:method :put
-           :headers (authorization-headers db)
-           :transit-params new-name
-           :url (url-for-route routes/dnd-e5-char-folder-name-route :id id)}}))
+   (let [trimmed (clojure.string/trim (str new-name))]
+     (when-not (clojure.string/blank? trimmed)
+       {:db (update db ::folder5e/folders
+                    (fn [folders]
+                      (map (fn [f]
+                             (if (= id (:db/id f))
+                               (assoc f ::folder5e/name trimmed)
+                               f))
+                           folders)))
+        :http {:method :put
+               :headers (authorization-headers db)
+               :transit-params trimmed
+               :url (url-for-route routes/dnd-e5-char-folder-name-route :id id)
+               :on-failure [::folder5e/on-folder-failure]}}))))
 
 (reg-event-fx
  ::folder5e/delete-folder
@@ -874,7 +992,8 @@
                   (remove #(= id (:db/id %)) folders)))
     :http {:method :delete
            :headers (authorization-headers db)
-           :url (url-for-route routes/dnd-e5-char-folder-route :id id)}}))
+           :url (url-for-route routes/dnd-e5-char-folder-route :id id)
+           :on-failure [::folder5e/on-folder-failure]}}))
 
 (reg-event-fx
  ::folder5e/add-character
@@ -894,7 +1013,8 @@
     :http {:method :post
            :headers (authorization-headers db)
            :transit-params character-id
-           :url (url-for-route routes/dnd-e5-char-folder-characters-route :id folder-id)}}))
+           :url (url-for-route routes/dnd-e5-char-folder-characters-route :id folder-id)
+           :on-failure [::folder5e/on-folder-failure]}}))
 
 (reg-event-fx
  ::folder5e/remove-character
@@ -912,7 +1032,8 @@
            :headers (authorization-headers db)
            :url (url-for-route routes/dnd-e5-char-folder-character-route
                                :id folder-id
-                               :character-id character-id)}}))
+                               :character-id character-id)
+           :on-failure [::folder5e/on-folder-failure]}}))
 
 ;; When expanding a folder, collapse its characters so they start closed
 (reg-event-db
@@ -1106,20 +1227,25 @@
  character-interceptors
  update-value-field)
 
+(defn generate-random-name
+  "Generate a random name from the built character's race/subrace/sex.
+   Falls back to a random human name for unsupported or custom races."
+  [built-char]
+  (let [race-kw (common/name-to-kw (char5e/race built-char) "orcpub.dnd.e5.character.random")
+        subrace-kw (common/name-to-kw (char5e/subrace built-char) "orcpub.dnd.e5.character.random")
+        sex-kw (common/name-to-kw (char5e/sex built-char) "orcpub.dnd.e5.character.random")]
+    (:name (char-rand5e/random-name-result
+            {:race race-kw
+             :subrace (when (= ::char-rand5e/human race-kw) subrace-kw)
+             :sex sex-kw}))))
+
+;; Generate a random name based on character's race/subrace/sex.
+;; built-char passed from component (description-fields).
 (reg-event-fx
  ::char5e/set-random-name
- (fn [_ _]
-   (let [race-name @(subscribe [::char5e/race])
-         race-kw (common/name-to-kw race-name "orcpub.dnd.e5.character.random")
-         subrace-name @(subscribe [::char5e/subrace])
-         subrace-kw (common/name-to-kw subrace-name "orcpub.dnd.e5.character.random")
-         sex @(subscribe [::char5e/sex])
-         sex-kw (common/name-to-kw sex "orcpub.dnd.e5.character.random")]
-     {:dispatch [:update-value-field ::char5e/character-name (:name
-                                                              (char-rand5e/random-name-result
-                                                               {:race race-kw
-                                                                :subrace (when (= ::char-rand5e/human race-kw) subrace-kw)
-                                                                :sex sex-kw}))]})))
+ (fn [_ [_ built-char]]
+   {:dispatch [:update-value-field ::char5e/character-name
+               (generate-random-name built-char)]}))
 (reg-event-db
  :select-option
  character-interceptors
@@ -1149,8 +1275,8 @@
            ::char5e/image-url-failed
            nil)))
 
-;; never dispatched from UI
-#_(reg-event-db
+#_ ;; never dispatched from UI
+(reg-event-db
  :toggle-public
  character-interceptors
  (fn [character _]
@@ -1395,6 +1521,7 @@
  character-interceptors
  set-hit-points-to-average)
 
+#_:clj-kondo/ignore
 (defn set-level-hit-points [character [_ built-template character level-value value]]
   (assoc-in
    character
@@ -1450,17 +1577,33 @@
  (fn [db [_ user-data]]
    (update db :user-data dissoc :user-data :token)))
 
+;; Replaces top-level @(subscribe [:user false]) in core.cljs — that was a
+;; Replaces top-level @(subscribe [:user false]) in core.cljs — that was a
+;; side-effect-only subscribe used to trigger an HTTP auth check on app startup.
+(reg-event-fx
+ :verify-user-session
+ (fn [{:keys [db]} _]
+   (if (and (:user db) (:token (:user db)))
+     (do (go (let [response (<! (http/get (url-for-route routes/user-route)
+                                           {:headers (authorization-headers db)}))]
+               (case (:status response)
+                 200 nil
+                 401 (dispatch [:clear-login])
+                 nil)))
+         {})
+     {})))
+
 (reg-event-db
  :set-user
  (fn [db [_ user-data]]
    (assoc db :user user-data)))
 
-;; never dispatched from UI
-#_(defn set-active-tabs [db [_ active-tabs]]
+#_ ;; never dispatched from UI
+(defn set-active-tabs [db [_ active-tabs]]
   (assoc-in db tab-path active-tabs))
 
-;; never dispatched from UI
-#_(reg-event-db
+#_ ;; never dispatched from UI
+(reg-event-db
  :set-active-tabs
  set-active-tabs)
 
@@ -1547,24 +1690,26 @@
               ::entity/value]
              name)))
 
+;; Set homebrew subclass name. built-template passed from custom-option-builder.
 (reg-event-db
  :set-custom-subclass
  character-interceptors
- (fn [character [_ path name]]
+ (fn [character [_ path built-template name]]
    (let [entity-path (entity/get-option-value-path
-                      @(subscribe [:built-template])
+                      built-template
                       character
                       path)]
      (assoc-in character
                entity-path
                name))))
 
+;; Set homebrew feat name. built-template passed from custom-option-builder.
 (reg-event-db
  :set-custom-feat-name
  character-interceptors
- (fn [character [_ path name]]
+ (fn [character [_ path built-template name]]
    (let [entity-path (entity/get-option-value-path
-                      @(subscribe [:built-template])
+                      built-template
                       character
                       path)]
      (assoc-in character
@@ -1587,26 +1732,7 @@
           (map #(s/split % "="))
           (s/split cookie "; "))))
 
-(defn show-generic-error []
-  [:show-error-message [:div "There was an error, please refresh your browser and try again."]])
-
-(defn handle-api-response
-  "Dispatch on HTTP response status with sensible defaults.
-   on-success is called for 200. Options:
-     :on-401  — called on 401 (default: dispatch :route-to-login)
-     :on-500  — called on 500 (default: dispatch show-generic-error)
-     :context — string describing the request, used in console warning for unhandled statuses"
-  [response on-success & {:keys [on-401 on-500 context]}]
-  (case (:status response)
-    200 (on-success)
-    401 (if on-401
-          (on-401)
-          (dispatch [:route-to-login]))
-    500 (if on-500
-          (on-500)
-          (dispatch (show-generic-error)))
-    (js/console.warn "Unhandled HTTP status:" (:status response)
-                     (str "(" (or context "unknown request") ")"))))
+(def show-generic-error event-utils/show-generic-error)
 
 (reg-fx
  :http
@@ -1703,8 +1829,8 @@
  (fn [cofx [_ response]]
    {:dispatch [:clear-login]}))
 
-;; dead stub — real impl is orcpub.registration/validate-registration
-#_(defn validate-registration [])
+#_ ;; dead stub — real impl is orcpub.registration/validate-registration
+(defn validate-registration [])
 
 (reg-event-db
  :email-taken
@@ -1716,8 +1842,8 @@
  (fn [db [_ response]]
    (assoc db :username-taken? (-> response :body (= "true")))))
 
-;; never dispatched — registration form uses :register-first-and-last-name
-#_(reg-event-db
+#_ ;; never dispatched — registration form uses :register-first-and-last-name
+(reg-event-db
  :registration-first-and-last-name
  (fn [db [_ first-and-last-name]]
    (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
@@ -1749,8 +1875,8 @@
  (fn [db [_ send-updates?]]
    (assoc-in db [:registration-form :send-updates?] send-updates?)))
 
-;; never dispatched from UI
-#_(reg-event-db
+#_ ;; never dispatched from UI
+(reg-event-db
  :register-first-and-last-name
  (fn [db [_ first-and-last-name]]
    (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
@@ -1828,6 +1954,7 @@
 (defn get-auth-token [db]
   (-> db :user-data :token))
 
+#_ ;; never dispatched — character loading uses :load-user-data flow
 (reg-event-fx
  :load-characters
  (fn [{:keys [db]} [_ params]]
@@ -2067,8 +2194,8 @@
           :login-message-shown? true
           :login-message message)))
 
-;; never dispatched from UI
-#_(reg-event-db
+#_ ;; never dispatched from UI
+(reg-event-db
  :hide-warning
  (fn [db _]
    (assoc db :warning-hidden true)))
@@ -2100,26 +2227,18 @@
                  :subrace subrace
                  :sex sex})})))
 
-;; unreferenced
-#_(defn remove-subtypes [subtypes hidden-subtypes]
+#_ ;; unreferenced
+(defn remove-subtypes [subtypes hidden-subtypes]
   (let [result (sets/difference subtypes hidden-subtypes)]
     result))
 
-(defn filter-by-name-xform [filter-text name-key]
-  (let [pattern (re-pattern (str ".*" (s/lower-case filter-text) ".*"))]
-    (filter
-     (fn [x]
-       (re-matches pattern (s/lower-case (name-key x)))))))
-
-(defn filter-spells [filter-text]
-  (sort-by
-   :name
-   (sequence (filter-by-name-xform filter-text :name) @(subscribe [::char5e/sorted-spells]))))
-
-(defn filter-items [filter-text]
-  (sort-by
-   mi/name-key
-   (sequence (filter-by-name-xform filter-text mi/name-key) @(subscribe [::char5e/sorted-items]))))
+#_ ;; orphaned re-export alias — callers use compute/compute-plugin-vals directly
+(def compute-plugin-vals compute/compute-plugin-vals)
+(def compute-sorted-spells compute/compute-sorted-spells)
+(def compute-sorted-items compute/compute-sorted-items)
+(def filter-by-name-xform compute/filter-by-name-xform)
+(def filter-spells compute/filter-spells)
+(def filter-items compute/filter-items)
 
 (defn search-results [text]
   (let [search-text (s/lower-case text)
@@ -2171,8 +2290,8 @@
        (assoc :orcacle-clicked? false)
        (dissoc :search-text))))
 
-;; never dispatched from UI (note: "orcacle" typo)
-#_(reg-event-fx
+#_ ;; never dispatched from UI (note: "orcacle" typo)
+(reg-event-fx
  :open-orcacle-over-character-builder
  (fn []
    {:dispatch-n [[:route routes/dnd-e5-char-builder-route]
@@ -2206,23 +2325,28 @@
  (fn [db [_ filter-text]]
    (assoc db ::char5e/monster-text-filter filter-text)))
 
+;; Filter spell list by name. Computes sorted spells from db directly
+;; (avoids subscribe outside reactive context).
 (reg-event-db
  ::char5e/filter-spells
  (fn [db [_ filter-text]]
-   (assoc db
-          ::char5e/spell-text-filter filter-text
-          ::char5e/filtered-spells (if (>= (count filter-text) 3)
-                                     (filter-spells filter-text)
-                                     @(subscribe [::char5e/sorted-spells])))))
+   (let [sorted (compute-sorted-spells db)]
+     (assoc db
+            ::char5e/spell-text-filter filter-text
+            ::char5e/filtered-spells (if (>= (count filter-text) 3)
+                                       (filter-spells filter-text sorted)
+                                       sorted)))))
 
+;; Filter magic item list by name. Computes sorted items from db directly.
 (reg-event-db
  ::char5e/filter-items
  (fn [db [_ filter-text]]
-   (assoc db
-          ::char5e/item-text-filter filter-text
-          ::char5e/filtered-items (if (>= (count filter-text) 3)
-                                     (filter-items filter-text)
-                                     @(subscribe [::char5e/sorted-items])))))
+   (let [sorted (compute-sorted-items db)]
+     (assoc db
+            ::char5e/item-text-filter filter-text
+            ::char5e/filtered-items (if (>= (count filter-text) 3)
+                                       (filter-items filter-text sorted)
+                                       sorted)))))
 
 (reg-event-db
  ::char5e/toggle-selected
@@ -2358,11 +2482,12 @@
  (fn [{:keys [db]} [_ id]]
    (update-character-fx db id add-level)))
 
+;; Level up a character by id — adds a level and opens the builder.
 (reg-event-fx
  ::char5e/level-up
- (fn [_ [_ character-id]]
+ (fn [{:keys [db]} [_ character-id]]
    {:dispatch-n [[::char5e/add-level character-id]
-                 [:set-character @(subscribe [::char5e/character character-id])]
+                 [:set-character (get-in db [::char5e/character-map (js/parseInt character-id)] {})]
                  [:route routes/dnd-e5-char-builder-route]]}))
 
 (reg-event-fx
@@ -2477,8 +2602,8 @@
                   "dark-theme"
                   "light-theme")))))
 
-;; never dispatched from UI
-#_(reg-event-db
+#_ ;; never dispatched from UI
+(reg-event-db
  ::mi/set-builder-item
  [magic-item->local-store-interceptor]
  (fn [db [_ magic-item]]
@@ -2753,7 +2878,11 @@
  ::combat/set-combat-path-prop
  combat-interceptors
  (fn [combat [_ path-prop prop-value]]
-   (assoc-in combat path-prop prop-value)))
+   ;; Guard: ensure combat is a valid map with vector collections.
+   ;; If the path interceptor extracts nil (key missing from db), bare
+   ;; assoc-in creates maps for integer keys instead of vectors,
+   ;; corrupting localStorage and failing the spec on next load.
+   (assoc-in (or combat default-combat) path-prop prop-value)))
 
 (reg-event-db
  ::encounters/delete-creature
@@ -2918,8 +3047,8 @@
  (fn [subclass [_ class-spells-key level index spell-kw]]
    (assoc-in subclass [class-spells-key level index] spell-kw)))
 
-;; never dispatched from UI
-#_(reg-event-db
+#_ ;; never dispatched from UI
+(reg-event-db
  ::class5e/set-spell-list
  subclass-interceptors
  (fn [subclass [_ class-kw]]
@@ -2931,8 +3060,8 @@
  (fn [feat [_ prop-key prop-value]]
    (assoc feat prop-key prop-value)))
 
-;; never dispatched from UI
-#_(reg-event-db
+#_ ;; never dispatched from UI
+(reg-event-db
  ::bg5e/set-feature-prop
  background-interceptors
  (fn [background [_ prop-key prop-value]]
@@ -2944,8 +3073,8 @@
  (fn [feat [_ key]]
    (update-in feat [:props key] not)))
 
-;; never dispatched from UI — feat builder uses toggle-feat-prop instead
-#_(reg-event-db
+#_ ;; never dispatched from UI — feat builder uses toggle-feat-prop instead
+(reg-event-db
  ::feats5e/toggle-feat-selection
  feat-interceptors
  (fn [feat [_ key]]
@@ -2975,8 +3104,8 @@
                            (dissoc m key)
                            (assoc m key num))))))
 
-;; never dispatched — class/subclass builder UI not wired for value-prop toggles
-#_(reg-event-db
+#_ ;; never dispatched — class/subclass builder UI not wired for value-prop toggles
+(reg-event-db
  ::class5e/toggle-subclass-value-prop
  subclass-interceptors
  (fn [subclass [_ key num]]
@@ -2985,8 +3114,8 @@
                            (dissoc m key)
                            (assoc m key num))))))
 
-;; never dispatched — class builder UI not wired for value-prop toggles
-#_(reg-event-db
+#_ ;; never dispatched — class builder UI not wired for value-prop toggles
+(reg-event-db
  ::class5e/toggle-class-value-prop
  class-interceptors
  (fn [class [_ key num]]
@@ -3019,8 +3148,8 @@
  (fn [class [_ prop-path prop-value]]
    (update-in class prop-path not)))
 
-;; never dispatched — class builder UI not wired for prof toggles
-#_(reg-event-db
+#_ ;; never dispatched — class builder UI not wired for prof toggles
+(reg-event-db
  ::class5e/toggle-class-prof
  class-interceptors
  (fn [class [_ prop-path]]
@@ -3055,22 +3184,22 @@
  (fn [race [_ key value]]
    (update-in race [:props key value] not)))
 
-;; never dispatched — class builder UI not wired for subclass map-prop toggles
-#_(reg-event-db
+#_ ;; never dispatched — class builder UI not wired for subclass map-prop toggles
+(reg-event-db
  ::class5e/toggle-subclass-map-prop
  subclass-interceptors
  (fn [subclass [_ key value]]
    (update-in subclass [:props key value] not)))
 
-;; never dispatched — class builder UI not wired for class map-prop toggles
-#_(reg-event-db
+#_ ;; never dispatched — class builder UI not wired for class map-prop toggles
+(reg-event-db
  ::class5e/toggle-class-map-prop
  class-interceptors
  (fn [class [_ key value]]
    (update-in class [:props key value] not)))
 
-;; never dispatched — background builder UI not wired for map-prop toggles
-#_(reg-event-db
+#_ ;; never dispatched — background builder UI not wired for map-prop toggles
+(reg-event-db
  ::bg5e/toggle-background-map-prop
  background-interceptors
  (fn [background [_ key value]]
@@ -3399,31 +3528,11 @@
  (fn [item [_ bonus]]
    (set-value item ::mi/magical-ac-bonus bonus)))
 
-(defn mod-cfg [key & args]
-  {::mod/key key
-   ::mod/args args})
-
-(defmulti mod-key (fn [{:keys [::mod/key ::mod/args] :as item}]
-                    key))
-
-(defmethod mod-key :ability [{:keys [::mod/key ::mod/args]}]
-  [key (first args)])
-
-(defmethod mod-key :ability-override [{:keys [::mod/key ::mod/args]}]
-  [key (first args)])
-
-(defmethod mod-key :default [{:keys [::mod/key ::mod/args]}]
-  [key args])
-
-(defn compare-mod-keys [item-1 item-2]
-  (compare (mod-key item-1)
-           (mod-key item-2)))
-
-(defn default-mod-set [mod-set]
-  (if (and (set? mod-set)
-           (sorted? mod-set))
-    mod-set
-    (into (sorted-set-by compare-mod-keys) mod-set)))
+#_ ;; orphaned re-export aliases — all callers use event-utils/ directly now
+(def mod-cfg event-utils/mod-cfg)
+#_(def mod-key event-utils/mod-key)
+#_(def compare-mod-keys event-utils/compare-mod-keys)
+#_(def default-mod-set event-utils/default-mod-set)
 
 (doseq [toggle-mod [:damage-resistance :damage-vulnerability :damage-immunity :condition-immunity]]
   (reg-event-db
@@ -3522,6 +3631,7 @@
       :dispatch [:show-warning-message
                  (str "Plugin '" name "' exported with placeholder data for missing fields.")]})))
 
+;; Export all homebrew plugins as .orcbrew file.
 (reg-event-fx
  ::e5/export-all-plugins
  (fn [{:keys [db]} _]
@@ -3563,6 +3673,7 @@
                  (clj->js {:type "text/plain;charset=utf-8"}))]
       (js/saveAs blob (str name ".orcbrew"))
       {})))
+;; Export all homebrew plugins as pretty-printed .orcbrew file.
 (reg-event-fx
   ::e5/export-all-plugins-pretty-print
   (fn [{:keys [db]} _]
@@ -4425,6 +4536,7 @@
  (fn [db _]
    (assoc db ::char5e/options-shown? false)))
 
+#_ ;; never dispatched — print UI not wired
 (reg-event-db
  ::char5e/toggle-character-sheet-print
  (fn [db _]
@@ -4435,6 +4547,7 @@
  (fn [db _]
    (update db ::char5e/exclude-spell-cards-print? not)))
 
+#_ ;; never dispatched — print UI not wired
 (reg-event-db
  ::char5e/toggle-spell-cards-by-level
  (fn [db _]
@@ -4562,6 +4675,7 @@
                                  ::char5e/off-hand-weapon]
                                 weapon-kw))))
 
+#_ ;; never dispatched — attunement UI not wired
 (reg-event-fx
  ::char5e/attune-magic-item
  (fn [{:keys [db]} [_ id i weapon-kw]]

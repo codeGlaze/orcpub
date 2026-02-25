@@ -36,7 +36,7 @@
 (defn map-by-id [values]
   (map-by :db/id values))
 
-;; dead — zero callers
+;; dead — zero callers (only ref is in #_ discarded views.cljs block)
 #_(defmacro ptime [message body]
   `(do (prn ~message)
        (time ~body)))
@@ -171,7 +171,7 @@
 
 (def rounds-per-minute 10)
 (def minutes-per-hour 60)
-;; dead — redefined in views.cljs, never used from common
+;; dead — redefined in views.cljs (also dead there), never referenced from common
 #_(def hours-per-day 24)
 
 (def rounds-per-hour (* minutes-per-hour rounds-per-minute))
@@ -204,18 +204,11 @@
 
 ;; Case Insensitive `sort-by`
 (defn aloof-sort-by [sorter coll]
-  (sort-by (fn [x]
-             (let [v (sorter x)]
-               (cond
-                 (string? v) (s/lower-case v)
-                 (nil? v) ""
-                 :else (s/lower-case (str v)))))
-           coll)
+  (sort-by (comp s/lower-case sorter) coll)
   )
 
 (defn ->kebab-case [s]
-  (when (string? s)
-    (-> s
-        ;; Insert hyphen before each capital letter, but not at the start.
-        (s/replace #"([A-Z])" "-$1")
-        (s/lower-case))))
+  (-> s
+      ;; Insert hyphen before each capital letter, but not at the start.
+      (s/replace #"([A-Z])" "-$1")
+      .toLowerCase))

@@ -102,5 +102,3 @@ All in `src/cljs/orcpub/dnd/e5/` unless noted.
 **Conflicts on import:** Modal should appear automatically → Choose rename/skip/replace per item
 
 ---
-
-**Branch:** `feature/error-handling-import-validation` | **Last updated:** 2026-02-19

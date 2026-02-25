@@ -25,7 +25,7 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.route-map :as routes]
-            [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.event-utils]
             [orcpub.dnd.e5.template-base :as t-base]
             [reagent.ratom :as ra]
             [clojure.string :as s]
@@ -1163,22 +1163,24 @@
  (fn [[sorted-monsters filter-text monster-filters]]
    (filter-monsters sorted-monsters (or filter-text "") monster-filters)))
 
-(reg-sub
-  ::monsters5e/filtered-monster-names
-  :<- [::monsters5e/filtered-monsters]
-  (fn [filtered-monsters]
-    (set (map :name filtered-monsters))))
+;; Unused — pre-derived name set from filtered monsters. Useful for autocomplete/search.
+#_(reg-sub
+   ::monsters5e/filtered-monster-names
+   :<- [::monsters5e/filtered-monsters]
+   (fn [filtered-monsters]
+     (set (map :name filtered-monsters))))
 
 (reg-sub
  ::spells5e/base-spells
  (fn [_]
    spells5e/spells))
 
-(reg-sub
- ::spells5e/base-spells-map
- :<- [::spells5e/base-spells]
- (fn [spells]
-   (common/map-by-key spells)))
+;; Unused — superseded by ::spells5e/spells-map which includes plugin spells.
+#_(reg-sub
+   ::spells5e/base-spells-map
+   :<- [::spells5e/base-spells]
+   (fn [spells]
+     (common/map-by-key spells)))
 
 (reg-sub
  ::spells5e/spells
@@ -1260,23 +1262,24 @@
                     ability-key
                     class-name)]})))
 
-(reg-sub
- ::spells5e/spell-option
- :<- [::spells5e/spells-map]
- spell-option)
+;; Unused — spell-option fn is called directly; these sub wrappers were never wired up.
+#_(reg-sub
+   ::spells5e/spell-option
+   :<- [::spells5e/spells-map]
+   spell-option)
 
-(reg-sub
- ::spells5e/spell-options
- :<- [::spells5e/spells-map]
- :<- [::spells5e/spell-lists]
- (fn [[spells-map spell-lists] [_ ability-key class-name levels]]
-   (apply concat
-          (sequence
-           (comp
-            (map spell-lists)
-            (map (fn [spell-key]
-                   (spell-option spells-map [nil spell-key ability-key class-name]))))
-           levels))))
+#_(reg-sub
+   ::spells5e/spell-options
+   :<- [::spells5e/spells-map]
+   :<- [::spells5e/spell-lists]
+   (fn [[spells-map spell-lists] [_ ability-key class-name levels]]
+     (apply concat
+            (sequence
+             (comp
+              (map spell-lists)
+              (map (fn [spell-key]
+                     (spell-option spells-map [nil spell-key ability-key class-name]))))
+             levels))))
 
 (reg-sub
  ::spells5e/builder-item
@@ -1364,8 +1367,9 @@
             (first pair)))
             monsters5e/challenge-ratings))))
 
-(reg-sub
- ::classes5e/has-prof?
- :<- [::classes5e/builder-item]
- (fn [class [_ prof-type prof-key]]
-   (some? (get-in class [:profs prof-type prof-key]))))
+;; Unused — proficiency predicate on builder-item graph. Useful for conditional UI.
+#_(reg-sub
+   ::classes5e/has-prof?
+   :<- [::classes5e/builder-item]
+   (fn [class [_ prof-type prof-key]]
+     (some? (get-in class [:profs prof-type prof-key]))))
