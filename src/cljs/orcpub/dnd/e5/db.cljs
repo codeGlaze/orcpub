@@ -25,6 +25,10 @@
             [cljs-http.client :as http]
             [cljs.pprint :refer [pprint]]))
 
+;; =============================================================================
+;; Version: 1.01 - Add conflict-resolution state for duplicate key handling
+;; =============================================================================
+
 (def local-storage-character-key "character")
 (def local-storage-user-key "user")
 (def local-storage-magic-item-key "magic-item")
@@ -47,7 +51,7 @@
 (def default-route route-map/dnd-e5-char-builder-route)
 
 (defn parse-route []
-  (let [route (if js/window.location
+  (let [route (when js/window.location
                 (bidi/match-route route-map/routes js/window.location.pathname))]
     (or route
         default-route)))
@@ -125,6 +129,19 @@
    :return-route default-route
    :registration-form {:send-updates? false}
    :device-type (user-agent/device-type)
+   :import-log {:panel-shown? false
+                :changes []
+                :errors []
+                :skipped-items []
+                :import-name nil
+                :timestamp nil}
+   ;; Conflict resolution state for import key conflicts
+   :conflict-resolution {:active? false
+                         :import-name nil
+                         :import-data nil         ; The raw parsed data to import
+                         :conflicts []            ; List of conflicts to resolve
+                         :decisions {}            ; User decisions: {conflict-id {:action :rename-import :new-key ...}}
+                         :validation-result nil}  ; Original validation result
    ::spells5e/builder-item default-spell
    ::monsters5e/builder-item default-monster
    ::encounters5e/builder-item default-encounter
@@ -148,84 +165,84 @@
     (catch js/Object e (prn "FAILED SETTING LOCALSTORAGE ITEM"))))
 
 (defn character->local-store [character]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-character-key
               (str (assoc (char5e/to-strict character)
                           :changed
                           (:changed character))))))
 
 (defn user->local-store [user-data]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-user-key (str user-data))))
 
 (defn magic-item->local-store [magic-item]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-magic-item-key (str magic-item))))
 
 (defn spell->local-store [spell]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-spell-key (str spell))))
 
 (defn monster->local-store [monster]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-monster-key (str monster))))
 
 (defn encounter->local-store [encounter]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-encounter-key (str encounter))))
 
 (defn combat->local-store [combat]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-combat-key (str combat))))
 
 (defn background->local-store [background]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-background-key (str background))))
 
 (defn language->local-store [language]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-language-key (str language))))
 
 (defn invocation->local-store [invocation]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-invocation-key (str invocation))))
 
 (defn boon->local-store [boon]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-boon-key (str boon))))
 
 (defn selection->local-store [selection]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-selection-key (str selection))))
 
 (defn feat->local-store [feat]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-feat-key (str feat))))
 
 (defn race->local-store [race]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-race-key (str race))))
 
 (defn subrace->local-store [subrace]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-subrace-key (str subrace))))
 
 (defn subclass->local-store [subclass]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-subclass-key (str subclass))))
 
 (defn class->local-store [class]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-class-key (str class))))
 
 (defn plugins->local-store [plugins]
-  (if js/window.localStorage
+  (when js/window.localStorage
     (set-item local-storage-plugins-key (str plugins))))
 
 (def tab-path [:builder :character :tab])
 
 (defn get-local-storage-item [local-storage-key]
-  (if-let [stored-str (if js/window.localStorage
+  (when-let [stored-str (when js/window.localStorage
                         (.getItem js/window.localStorage local-storage-key))]
     (try (reader/read-string stored-str)
          (catch js/Object e (prn "E" e)
@@ -238,13 +255,13 @@
    (fn [cofx _]
      (assoc cofx
             key
-            (if-let [stored-item (get-local-storage-item local-storage-key)]
+            (when-let [stored-item (get-local-storage-item local-storage-key)]
               (if (spec/valid? item-spec stored-item)
                 (if item-fn
                   (item-fn stored-item)
                   stored-item)
                 (do
-                  (js/console.warn "INVALID ITEM FOUND, IGNORING")
+                  (js/console.warn "INVALID ITEM FOUND, IGNORING" local-storage-key)
                   (pprint (spec/explain-data item-spec stored-item)))))))))
 
 (reg-local-store-cofx
@@ -276,7 +293,8 @@
  local-storage-magic-item-key
  ::mi5e/internal-magic-item)
 
-(def musical-instrument-choice-cfg
+;; dead — duplicate of classes.cljc def, never referenced from .cljs code
+#_(def musical-instrument-choice-cfg
   {:name "Musical Instrument"
    :options (zipmap (map :key equip5e/musical-instruments) (repeat 1))})
 

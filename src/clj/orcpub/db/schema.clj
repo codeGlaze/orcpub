@@ -145,6 +145,9 @@
    {:db/ident :orcpub.user/password-reset-key
     :db/valueType :db.type/string
     :db/cardinality :db.cardinality/one}
+   {:db/ident :orcpub.user/pending-email
+    :db/valueType :db.type/string
+    :db/cardinality :db.cardinality/one}
    {:db/ident :orcpub.user/following
     :db/valueType :db.type/ref
     :db/cardinality :db.cardinality/many}

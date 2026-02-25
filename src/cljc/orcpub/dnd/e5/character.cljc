@@ -50,7 +50,7 @@
    (if (map? values)
      values
      ;; some weird spec issue causes values to look like [:map values]
-     (if (and (vector? values) (= (first values) :map))
+     (when (and (vector? values) (= (first values) :map))
        (second values)))))
 
 (defn equipment-has-simple-keywords? [equipment]
@@ -126,7 +126,8 @@
                      %))
     raw-character))
 
-(defn add-equipment-namespaces [raw-character]
+;; dead — only caller (add-namespaces) is #_ discarded
+#_(defn add-equipment-namespaces [raw-character]
   (-> (reduce
        add-equipment-namespace
        raw-character
@@ -145,7 +146,8 @@
                 ::wis (or n-wis wis)
                 ::cha (or n-cha cha)})))
 
-(defn add-namespaces-to-values [raw-character]
+;; dead — only caller (add-namespaces) is #_ discarded
+#_(defn add-namespaces-to-values [raw-character]
   (if (seq (::entity/values raw-character))
     (update raw-character
             ::entity/values
@@ -155,7 +157,8 @@
                values)))
     raw-character))
 
-(defn add-namespaces [raw-character]
+;; dead — zero callers
+#_(defn add-namespaces [raw-character]
   (-> raw-character
       add-equipment-namespaces
       add-ability-namespaces
@@ -396,7 +399,8 @@
 (defn base-flying-speed [built-char]
   (get-prop built-char :flying-speed))
 
-(defn base-climbing-speed [built-char]
+;; dead — zero callers
+#_(defn base-climbing-speed [built-char]
   (get-prop built-char :climbing-speed))
 
 (defn land-speed-with-armor [built-char]
@@ -598,7 +602,8 @@
 (defn save-bonuses [built-char]
   (get-prop built-char :save-bonuses))
 
-(defn saving-throw-advantages [built-char]
+;; dead — zero callers (views.cljs option-saving-throw-advantages is unrelated)
+#_(defn saving-throw-advantages [built-char]
   (get-prop built-char :saving-throw-advantage))
 
 (defn best-weapon-attack-modifier-fn [built-char]
@@ -733,7 +738,8 @@
 (defn dual-wield-weapon-fn [built-char]
   (get-prop built-char :dual-wield-weapon?))
 
-(defn max-armor-class [unarmored-armor-class
+;; dead — zero callers (pdf_spec.cljc computes armor class inline)
+#_(defn max-armor-class [unarmored-armor-class
                        ac-with-armor-fn
                        all-armor-inventory
                        equipped-armor

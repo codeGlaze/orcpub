@@ -1,0 +1,34 @@
+server {
+    listen 80 default_server;
+    server_name _;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen       443 ssl;
+    server_name  _;
+
+    ssl_certificate      /etc/nginx/snakeoil.crt;
+    ssl_certificate_key  /etc/nginx/snakeoil.key;
+    #charset koi8-r;
+    #access_log  /var/log/nginx/host.access.log  main;
+
+    location / {
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_pass http://orcpub:${ORCPUB_PORT};
+    }
+
+    #error_page  404              /404.html;
+
+    # redirect server error pages to the static page /50x.html
+    #
+    error_page   500 502 503 504  /50x.html;
+    location = /50x.html {
+        root   /usr/share/nginx/html;
+    }
+    location /homebrew.orcbrew {
+        root /usr/share/nginx/html/homebrew;
+    }
+}

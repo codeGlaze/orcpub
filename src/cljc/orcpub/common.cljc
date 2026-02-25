@@ -6,7 +6,7 @@
 (def dot-char "•")
 
 (defn- name-to-kw-aux [name ns]
-  (if (string? name)
+  (when (string? name)
     (as-> name $
         (s/lower-case $)
         (s/replace $ #"'" "")
@@ -20,7 +20,7 @@
   (memoized-name-to-kw name ns))
 
 (defn kw-to-name [kw & [capitalize?]]
-  (if (keyword? kw)
+  (when (keyword? kw)
     (as-> kw $
       (name $)
       (s/split $ #"\-")
@@ -36,12 +36,13 @@
 (defn map-by-id [values]
   (map-by :db/id values))
 
-(defmacro ptime [message body]
+;; dead — zero callers (only ref is in #_ discarded views.cljs block)
+#_(defmacro ptime [message body]
   `(do (prn ~message)
        (time ~body)))
 
 (defn bonus-str [val]
-  (str (if (pos? val) "+") val))
+  (str (when (pos? val) "+") val))
 
 (defn mod-str [val]
   (cond (pos? val) (str "+" val)
@@ -63,7 +64,7 @@
       2 (s/join (str " " preceding-last " ") list)
       (str
        (s/join ", " (butlast list))
-       (str ", " preceding-last " ")
+       ", " preceding-last " "
        (last list)))))
 
 (defn round-up [num]
@@ -79,19 +80,40 @@
     (warn (str "non-keyword value passed to safe-name: " kw))))
 
 (defn safe-capitalize [s]
-  (if (string? s) (s/capitalize s)))
+  (when (string? s) (s/capitalize s)))
 
 (defn safe-capitalize-kw [kw]
   (some-> kw
           name
           safe-capitalize))
 
+(defn kw-base
+  "Extract the base part of a keyword (before first dash).
+   E.g., :artificer-kibbles-tasty -> \"artificer\""
+  [kw]
+  (when (keyword? kw)
+    (first (s/split (name kw) #"-"))))
+
+(defn traverse-nested
+  "HOF for traversing nested option structures (vector/map/nil pattern).
+   Calls (f item path) for each nested item, returns concatenated results."
+  [f coll path]
+  (mapcat
+   (fn [[k v]]
+     (cond
+       (vector? v)
+       (apply concat (map-indexed (fn [idx item] (f item (conj path k idx))) v))
+       (map? v)
+       (f v (conj path k))
+       :else nil))
+   coll))
+
 (defn sentensize [desc]
-  (if desc
+  (when desc
     (str
      (s/upper-case (subs desc 0 1))
      (subs desc 1)
-     (if (not (s/ends-with? desc "."))
+     (when (not (s/ends-with? desc "."))
        "."))))
 
 (def add-keys-xform
@@ -143,20 +165,23 @@
   (vec
    (keep-indexed
     (fn [i item]
-      (if (not= i index)
+      (when (not= i index)
         item))
     v)))
 
 (def rounds-per-minute 10)
 (def minutes-per-hour 60)
-(def hours-per-day 24)
+;; dead — redefined in views.cljs (also dead there), never referenced from common
+#_(def hours-per-day 24)
 
 (def rounds-per-hour (* minutes-per-hour rounds-per-minute))
 
-(defn rounds-to-hours [rounds]
+;; dead — zero callers
+#_(defn rounds-to-hours [rounds]
   (int (/ rounds rounds-per-hour)))
 
-(defn rounds-to-minutes [rounds]
+;; dead — zero callers
+#_(defn rounds-to-minutes [rounds]
   (int (/ (rem rounds rounds-per-hour) rounds-per-minute)))
 
 (def filter-true-xform
@@ -179,18 +204,11 @@
 
 ;; Case Insensitive `sort-by`
 (defn aloof-sort-by [sorter coll]
-  (sort-by (fn [x]
-             (let [v (sorter x)]
-               (cond
-                 (string? v) (s/lower-case v)
-                 (nil? v) ""
-                 :else (s/lower-case (str v)))))
-           coll)
+  (sort-by (comp s/lower-case sorter) coll)
   )
 
 (defn ->kebab-case [s]
-  (when (string? s)
-    (-> s
-        ;; Insert hyphen before each capital letter, but not at the start.
-        (s/replace #"([A-Z])" "-$1")
-        (s/lower-case))))
+  (-> s
+      ;; Insert hyphen before each capital letter, but not at the start.
+      (s/replace #"([A-Z])" "-$1")
+      .toLowerCase))

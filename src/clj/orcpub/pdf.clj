@@ -1,4 +1,24 @@
 (ns orcpub.pdf
+  "PDF generation utilities for character sheets, spell cards, and monster stat blocks.
+   
+   ## PDFBox 3.x Migration Notes (January 2026)
+   
+   This namespace was updated from PDFBox 2.x to 3.x. Key API changes:
+   
+   1. **Standard fonts** - In PDFBox 2.x, fonts were static fields like `PDType1Font/HELVETICA`.
+      In PDFBox 3.x, you must create font instances using the `Standard14Fonts$FontName` enum:
+      ```clojure
+      ;; Old (2.x): PDType1Font/HELVETICA
+      ;; New (3.x): (PDType1Font. Standard14Fonts$FontName/HELVETICA)
+      ```
+      We define these as module-level constants (HELVETICA, HELVETICA_BOLD, etc.) for convenience.
+   
+   2. **Loading PDFs** - In PDFBox 2.x, use `PDDocument/load`. In 3.x, use `Loader/loadPDF`.
+      See routes.clj for this change.
+   
+   3. **Java interop syntax** - The `$` in `Standard14Fonts$FontName` is Clojure's way of
+      accessing a Java nested/inner class. `Standard14Fonts.FontName` in Java becomes
+      `Standard14Fonts$FontName` in Clojure imports."
   (:require [clojure.string :as s]
             [clojure.stacktrace :as strace]
             [clojure.java.io :as io]
@@ -9,41 +29,45 @@
             [clj-http.client :as client])
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
+           ;; PDFBox 3.x: AppendMode enum replaces boolean flags in PDPageContentStream constructor
+           ;; Use APPEND when adding content to existing pages (templates)
+           ;; APPEND adds new drawing/text operators to the end of the page’s existing content stream, preserving everything already on the page.
+           (org.apache.pdfbox.pdmodel PDPageContentStream$AppendMode)
            (org.apache.pdfbox.pdmodel.graphics.image JPEGFactory LosslessFactory)
-           (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font)
+           ;; PDFBox 3.x: Standard14Fonts$FontName is a nested enum class
+           ;; In Java: org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName
+           ;; In Clojure: use $ to access nested classes
+           (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font Standard14Fonts$FontName)
            (javax.imageio ImageIO)
            (java.net URL)))
 
-(defn extract-value [h hname]
-  (if-not (or (nil? h)
-              (nil? hname))
-    (let [x (get h hname)]
-      (if-not (nil? x)
-        x
-        ""))
-    ""))
+;; =============================================================================
+;; Standard PDF Fonts (PDFBox 3.x)
+;; =============================================================================
+;;
+;; PDFBox 3.x changed how standard fonts are accessed:
+;;   - OLD (2.x): PDType1Font/HELVETICA (static field)
+;;   - NEW (3.x): (PDType1Font. Standard14Fonts$FontName/HELVETICA) (constructor + enum)
+;;
+;; We create these constants at load time so the rest of the code can use them
+;; like the old static fields. These are the standard "Base 14" PDF fonts that
+;; are guaranteed to be available in all PDF readers.
+;;
+(def HELVETICA
+  "Standard Helvetica font (regular weight, upright)"
+  (PDType1Font. Standard14Fonts$FontName/HELVETICA))
 
-(defn extract-name [h hname]
-  (if (and (not (nil? h))
-           (not (nil? hname)))
-    (try
-      (let [parts (s/split (extract-value h hname) #";")]
-        (first parts))
-      (catch Exception e ""))))
+(def HELVETICA_BOLD
+  "Standard Helvetica font (bold weight, upright)"
+  (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD))
 
-(defn extract-info [h hname]
-  (if (and (not (nil? h))
-           (not (nil? hname)))
-    (try
-      (let [parts (s/split (extract-value h hname) #";")]
-        (s/join "; " (map s/trim (rest parts))))
-      (catch Exception e ""))))
+(def HELVETICA_OBLIQUE
+  "Standard Helvetica font (regular weight, italic/oblique)"
+  (PDType1Font. Standard14Fonts$FontName/HELVETICA_OBLIQUE))
 
-(defn parse-number
-  "Reads a number from a string. Returns nil if not a number."
-  [s]
-  (if (re-find #"^-?\d+\.?\d*$" s)
-    (read-string s)))
+(def HELVETICA_BOLD_OBLIQUE
+  "Standard Helvetica font (bold weight, italic/oblique)"
+  (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD_OBLIQUE))
 
 (defn load-fonts
   "Loads the fonts for the document. Will contain
@@ -71,10 +95,8 @@
         (let [field (.getField form (name k))]
           (when field
             
-            (if (and flatten (font-sizes k) (instance? PDTextField field))
-              (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg"))
-              ;; this prints out weird boxes
-              #_(.setDefaultAppearance field (str COSName/DA "/" (.getName font-name) " " (font-sizes k 8) " Tf 0 0 0 rg")))
+            (when (and flatten (font-sizes k) (instance? PDTextField field))
+              (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg")))
             (.setValue
              field
              (cond 
@@ -86,8 +108,17 @@
       (.setNeedAppearances form false)
       (.flatten form))))
 
-(defn content-stream [doc page]
-  (PDPageContentStream. doc page true false true))
+(defn content-stream
+  "Create a PDPageContentStream for appending content to an existing page.
+   
+   PDFBox 3.x API: Use AppendMode enum instead of boolean flags.
+   - APPEND: Add content after existing page content (what we want for templates)
+   - OVERWRITE: Replace existing content (triggers warning on non-empty pages)
+   - PREPEND: Add content before existing content
+   
+   The 4th arg (true) enables compression."
+  [doc page]
+  (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND true))
 
 (defn in-to-sz [inches]
   (float (* 72 inches)))
@@ -123,44 +154,79 @@
 (def user-agent "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.22 (KHTML, like Gecko) Chrome/25.0.1364.172")
 
 (defn draw-non-jpg [doc page url x y width height]
-  (with-open [c-stream (content-stream doc page)]
-    (let [buff-image (ImageIO/read (.getInputStream
-                                     (doto
-                                       (.openConnection (URL. url))
-                                       (.setRequestProperty "User-Agent" user-agent))))
-          img (LosslessFactory/createFromImage doc buff-image)]
-      (draw-imagex c-stream img x y width height))))
+  (try
+    (with-open [c-stream (content-stream doc page)]
+      (let [connection (doto (.openConnection (URL. url))
+                         (.setRequestProperty "User-Agent" user-agent)
+                         (.setConnectTimeout 10000)
+                         (.setReadTimeout 10000))
+            buff-image (ImageIO/read (.getInputStream connection))]
+        (when (nil? buff-image)
+          (throw (ex-info "Unable to read image from URL"
+                          {:error :invalid-image-format
+                           :url url})))
+        (let [img (LosslessFactory/createFromImage doc buff-image)]
+          (draw-imagex c-stream img x y width height))))
+    (catch java.net.SocketTimeoutException e
+      (throw (ex-info (str "Timeout loading image from URL: " url)
+                      {:error :image-load-timeout
+                       :url url}
+                      e)))
+    (catch java.net.UnknownHostException e
+      (throw (ex-info (str "Unable to resolve host for image URL: " url)
+                      {:error :unknown-host
+                       :url url}
+                      e)))
+    (catch Exception e
+      (throw (ex-info (str "Failed to load image from URL: " url)
+                      {:error :image-load-failed
+                       :url url}
+                      e)))))
 
 (defn draw-jpg [doc page url x y width height]
-  (with-open [c-stream (content-stream doc page)
-              image-stream (.getInputStream
-                             (doto
-                               (.openConnection (URL. url))
-                               (.setRequestProperty "User-Agent" user-agent)))]
-    (let [img (JPEGFactory/createFromStream doc image-stream)]
-      (draw-imagex c-stream img x y width height))))
+  (try
+    (with-open [c-stream (content-stream doc page)
+                image-stream (.getInputStream
+                               (doto
+                                 (.openConnection (URL. url))
+                                 (.setRequestProperty "User-Agent" user-agent)
+                                 (.setConnectTimeout 10000)
+                                 (.setReadTimeout 10000)))]
+      (let [img (JPEGFactory/createFromStream doc image-stream)]
+        (draw-imagex c-stream img x y width height)))
+    (catch java.net.SocketTimeoutException e
+      (throw (ex-info (str "Timeout loading image from URL: " url)
+                      {:error :image-load-timeout
+                       :url url}
+                      e)))
+    (catch java.net.UnknownHostException e
+      (throw (ex-info (str "Unable to resolve host for image URL: " url)
+                      {:error :unknown-host
+                       :url url}
+                      e)))
+    (catch Exception e
+      (throw (ex-info (str "Failed to load JPEG image from URL: " url)
+                      {:error :jpeg-load-failed
+                       :url url}
+                      e)))))
 
 (defn draw-image! [doc page url x y width height]
   (let [lower-case-url (s/lower-case url)
         jpg? (or (s/ends-with? lower-case-url "jpg")
                  (s/ends-with? lower-case-url "jpeg"))
-        draw-fn (if jpg? draw-jpg draw-non-jpg)
-        response (client/head url {:throw-exceptions false})
-        size (parse-number (extract-value (:headers response) "Content-Length"))]
-    (prn (str "Check " (:reason-phrase response) " - " url))
-    (if (= (:reason-phrase response) "OK")
-      (if (<= size 128000)
-        (try
-          (prn (str "Image size ok: " size))
-          (draw-fn doc page url x y width height)
-          (catch Exception e
-            (prn "failed loading image" (clojure.stacktrace/print-stack-trace e))))
-        (try
-          (prn (str "Image is to large: " size " - skipping"))
-          (draw-fn doc page (str (io/resource (str "public/image/stop.png"))) x y width height)
-          (catch Exception e
-            (prn "failed loading image" (clojure.stacktrace/print-stack-trace e)))))
-      (draw-fn doc page (str (io/resource (str "public/image/error.png"))) x y width height))))
+        draw-fn (if jpg? draw-jpg draw-non-jpg)]
+    (try
+      (draw-fn doc page url x y width height)
+      (catch clojure.lang.ExceptionInfo e
+        (println "ERROR: Failed to load image for PDF:" (.getMessage e))
+        (println "  URL:" url)
+        (println "  Details:" (ex-data e))
+        nil)
+      (catch Exception e
+        (println "ERROR: Unexpected error loading image for PDF:" (.getMessage e))
+        (println "  URL:" url)
+        (clojure.stacktrace/print-stack-trace e)
+        nil))))
 
 (defn get-page [doc index]
   (.getPage doc index))
@@ -176,7 +242,7 @@
            current-line nil
            [next-word & remaining-words :as current-words] words]
       (if next-word
-        (let [line-with-word (str current-line (if current-line " ") next-word)
+        (let [line-with-word (str current-line (when current-line " ") next-word)
               new-width (string-width line-with-word font font-size)]
           (if (> new-width width)
             (recur (conj lines current-line)
@@ -213,16 +279,16 @@
   (.setNonStrokingColor cs r g b))
 
 (defn draw-text [cs text font font-size x y & [color]]
-  (if text
+  (when text
     (let [units-x (* 72 x)
           units-y (* 72 y)]
       (.beginText cs)
       (.setFont cs font font-size)
-      (if color
+      (when color
         (apply set-text-color cs color))
       (.moveTextPositionByAmount cs units-x units-y)
       (.drawString cs (if (keyword? text) (common/safe-name text) text))
-      (if color
+      (when color
         (set-text-color cs 0 0 0))
       (.endText cs))))
 
@@ -265,9 +331,10 @@
     (.setStrokingColor cs 0 0 0)))
 
 (defn spell-school-level [{:keys [level school]} class-nm]
-  (if (zero? level)
-    (str class-nm " Cantrip " (s/capitalize school))
-    (str class-nm " Level " level " " (str (s/capitalize school)))))
+  (let [school-str (if school (s/capitalize school) "Unknown")]
+    (if (and level (zero? level))
+      (str class-nm " Cantrip " school-str)
+      (str class-nm " Level " (or level "?") " " school-str))))
 
 (defn draw-spell-field [cs document title value x y]
   (with-open [img-stream (io/input-stream (io/resource (str "public/image/" title ".png")))]
@@ -280,7 +347,7 @@
   (.setNonStrokingColor cs 0 0 0)
   (draw-text cs
              value
-             PDType1Font/HELVETICA_BOLD_OBLIQUE
+             HELVETICA_BOLD_OBLIQUE
              8
              x
              (- y 0.07))
@@ -297,7 +364,7 @@
     (subs s 0 len)))
 
 (defn abbreviate-duration [duration]
-  (if duration
+  (when duration
     (-> duration
         (s/replace #"Concentration,? up to " "Conc, ")
         abbreviate-times
@@ -396,8 +463,8 @@
          (for [j (range num-boxes-y)
                i (range (dec num-boxes-x) -1 -1)
                :let [spell-index (+ i (* j num-boxes-x))]]
-           (if-let [{:keys [class-nm dc attack-bonus spell] :as spell-data}
-                    (get (vec spells) spell-index)]
+           (when-let [{:keys [class-nm dc attack-bonus spell] :as spell-data}
+                      (get (vec spells) spell-index)]
              (let [{:keys [description
                            casting-time
                            duration
@@ -408,6 +475,8 @@
                    y (+ margin-y (* box-height j))
 
                    {:keys [page source description summary components]} spell
+                   ;; Handle nil spell name gracefully
+                   spell-name (or (:name spell) "(Unknown Spell)")
 
                    dc-str (str "DC " dc)
                    remaining-desc-lines
@@ -429,7 +498,7 @@
                                      (- 11.0 y 1.08) ;from the top down
                                      (- box-width 0.24)
                                      (- box-height 1.13))]
-               (if (:material-component components)
+               (when (:material-component components)
                  (draw-text-to-box cs
                                    (str (s/capitalize (:material-component components)))
                                    (:italic fonts)
@@ -445,7 +514,7 @@
                             1.0
                             0.25)
                (draw-text-to-box cs
-                                 (:name spell)
+                                 spell-name
                                  (:bold fonts)
                                  10
                                  (+ x 0.12)
@@ -456,13 +525,13 @@
                                  (if ritual " (ritual)" "")
                                  (:italic fonts)
                                  10
-                                 (+ x 0.12 (string-width (:name spell) (:bold fonts) 10))
+                                 (+ x 0.12 (string-width spell-name (:bold fonts) 10))
                                  (- 11.0 y)
                                  (- box-width 0.3)
                                  0.2)
                (draw-text-to-box cs
                                  (if (not= class-nm "Homebrew")
-                                   (str (spell-school-level spell class-nm) (when print-spell-card-dc-mod? (str " " dc-str (str " Spell Mod " (common/bonus-str attack-bonus)))))
+                                   (str (spell-school-level spell class-nm) (when print-spell-card-dc-mod? (str " " dc-str " Spell Mod " (common/bonus-str attack-bonus))))
                                    (spell-school-level spell class-nm))
                                  (:italic fonts)
                                  8
@@ -470,7 +539,7 @@
                                  (- 11.0 y 0.19)
                                  (- box-width 0.24)
                                  0.25)
-               (if casting-time
+               (when casting-time
                  (draw-spell-field cs
                                    document
                                    "magic-swirl"
@@ -481,7 +550,7 @@
                                            #","))))
                                    (+ x 0.12)
                                    (- 11.0 y 0.45)))
-               (if range
+               (when range
                  (draw-spell-field cs
                                    document
                                    "arrow-dunk"
@@ -497,21 +566,21 @@
                                    nil?
                                    (map
                                     (fn [[k v]]
-                                      (if (-> spell :components k)
+                                      (when (-> spell :components k)
                                         v))
                                     {:verbal "V"
                                      :somatic "S"
                                      :material "M"})))
                                  (+ x 1.12)
                                  (- 11.0 y 0.45))
-               (if duration
+               (when duration
                  (draw-spell-field cs
                                    document
                                    "sands-of-time"
                                    (abbreviate-duration duration)
                                    (+ x 1.62)
                                    (- 11.0 y 0.45)))
-               (if (seq remaining-desc-lines)
+               (when (seq remaining-desc-lines)
                  (draw-imagex cs
                               over-img
                               (+ x 2.3)
@@ -519,9 +588,17 @@
                               0.15
                               0.15))
                {:remaining-lines remaining-desc-lines
-                :spell-name (:name spell)}))))))))
+                :spell-name spell-name}))))))))
 
-(defn create-monsters-pdf []
+#_{:clj-kondo/ignore [:unused-private-var]}
+(defn- create-monsters-pdf
+  "Development/testing function that generates a sample monster stat block PDF.
+   
+   This function is not used in production - it's a utility for testing PDF
+   generation during development. The output is saved to a temporary file.
+   
+   Returns: The temp file path where the PDF was saved."
+  []
   (let [page (PDPage.)
         doc (PDDocument.)]
     (.addPage doc page)
@@ -534,13 +611,13 @@
             (let [monster (monsters i)]
               (draw-text-from-top cs
                                   (:name monster)
-                                  PDType1Font/HELVETICA_BOLD
+                                  HELVETICA_BOLD
                                   14
                                   0.1
                                   (+ (* i h) 0.25))
               (draw-text-from-top cs
                                   (monsters/monster-subheader monster)
-                                  PDType1Font/HELVETICA_OBLIQUE
+                                  HELVETICA_OBLIQUE
                                   12
                                   0.1
                                   (+ (* i h) 0.45))
@@ -549,7 +626,7 @@
                       x (+ 0.15 (* 0.65 j))]
                   (draw-text-from-top cs
                                       (name ability)
-                                      PDType1Font/HELVETICA_BOLD
+                                      HELVETICA_BOLD
                                       10
                                       x
                                       (+ (* i h) 0.7))
@@ -558,38 +635,41 @@
                                            " ("
                                            (options/ability-bonus-str (ability monster))
                                            ")")
-                                      PDType1Font/HELVETICA
+                                      HELVETICA
                                       12
                                       x
                                       (+ (* i h) 0.85))))
               (draw-text-from-top cs
                                   "Saving Throws"
-                                  PDType1Font/HELVETICA_BOLD
+                                  HELVETICA_BOLD
                                   10
                                   0.1
                                   (+ (* i h) 1.1))
               (draw-text-from-top cs
                                   (common/print-bonus-map (:saving-throws monster))
-                                  PDType1Font/HELVETICA
+                                  HELVETICA
                                   10
                                   (+ 0.1 (string-width
                                           "Saving Throws "
-                                          PDType1Font/HELVETICA_BOLD
+                                          HELVETICA_BOLD
                                           10))
                                   (+ (* i h) 1.1))
               (draw-text-from-top cs
                                   "Skills"
-                                  PDType1Font/HELVETICA_BOLD
+                                  HELVETICA_BOLD
                                   10
                                   0.1
                                   (+ (* i h) 1.3))
               (draw-text-from-top cs
                                   (common/print-bonus-map (:skills monster))
-                                  PDType1Font/HELVETICA
+                                  HELVETICA
                                   10
                                   (+ 0.1 (string-width
                                           "Skills "
-                                          PDType1Font/HELVETICA_BOLD
+                                          HELVETICA_BOLD
                                           10))
                                   (+ (* i h) 1.3)))))))
-    (.save doc "/home/larry/Documents/test.pdf")))
+    ;; Save to a cross-platform temp file instead of a hardcoded path.
+    ;; java.io.File/createTempFile creates a file in the system temp directory
+    ;; and returns a File object that PDDocument.save() accepts.
+    (.save doc (java.io.File/createTempFile "monsters" ".pdf"))))

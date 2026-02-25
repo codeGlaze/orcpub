@@ -1,30 +1,46 @@
 (ns user
   (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [com.stuartsierra.component :as component]
-            [figwheel-sidecar.repl-api :as f]
-            [datomic.api :as d]
+            [datomic.api :as datomic]
+            [buddy.hashers :as hashers]
             [orcpub.routes :as r]
             [orcpub.system :as s]
             [orcpub.db.schema :as schema]
-            [clojure.data.csv :as csv]))
+            [orcpub.config :as config])
+  (:gen-class))
 
-(alter-var-root #'*print-length* (constantly 100))
+;; ---------------------------------------------------------------------------
+;; Dev tooling hub — REPL helpers and CLI entrypoint.
+;;
+;; The `user` namespace is special in Clojure: the runtime automatically looks
+;; for and loads it when starting a REPL. Any functions defined here are
+;; immediately available when you run `lein repl`.
+;;
+;; This file lives in dev/ and is only on the classpath in :dev and :init-db
+;; profiles. It is NOT included in the production uberjar — keeping dev
+;; tooling (user creation, DB init, Figwheel) out of production builds.
+;;
+;; Two ways to use it:
+;;   1. REPL: (start-server), (init-database), (create-user! (conn) {...}), etc.
+;;   2. CLI:  lein with-profile init-db run -m user <command> [args]
+;;            (see -main at bottom for available commands)
+;;
+;; The :init-db profile skips ClojureScript/Garden compilation for fast CLI
+;; startup. It includes dev/ in source-paths so this file is loadable.
+;; ---------------------------------------------------------------------------
 
-;; user is a namespace that the Clojure runtime looks for and
-;; loads if its available
+;; Lazy-load figwheel-main only when needed (avoids loading it for server-only REPL)
+(def ^:private fig-api
+  (delay
+    (try
+      (require 'figwheel.main.api)
+      (find-ns 'figwheel.main.api)
+      (catch Exception e
+        (println "figwheel.main.api not available:" (.getMessage e))
+        nil))))
 
-;; You can place helper functions in here. This is great for starting
-;; and stopping your webserver and other development services
-
-;; The definitions in here will be available if you run "lein repl" or launch a
-;; Clojure repl some other way
-
-;; You have to ensure that the libraries you :require are listed in your dependencies
-
-;; Once you start down this path
-;; you will probably want to look at
-;; tools.namespace https://github.com/clojure/tools.namespace
-;; and Component https://github.com/stuartsierra/component
+(alter-var-root #'*print-length* (constantly 50))
 
 (defonce -server (atom nil))
 
@@ -39,7 +55,7 @@
      ; first :conn here is a DatomicComponent;
      ; the second is the actual connection object
      (let [conn# (->> system-map# :conn :conn)
-           db# (d/db conn#)
+           db# (datomic/db conn#)
 
            ; unpack the requested values:
            {:keys ~init-vector} {:conn conn#
@@ -73,14 +89,18 @@
 
 (defn init-database
   ([]
-   (init-database :free))
+   (init-database nil))
   ([mode]
-   (when-not (contains? #{:free :dev :mem} mode)
-     (throw (IllegalArgumentException. (str "Unknown db type " mode))))
-   (let [db-uri (str "datomic" mode "://localhost:4334/orcpub")]
-     (d/create-database db-uri)
-     (let [conn (d/connect db-uri)]
-       (d/transact conn schema/all-schemas)))))
+   (let [env-uri (config/datomic-env)
+         db-uri (if (some-> env-uri not-empty)
+                  env-uri
+                  (let [m (or mode :dev)]
+                    (when-not (contains? #{:free :dev :mem} m)
+                      (throw (IllegalArgumentException. (str "Unknown db type " m))))
+                    (str "datomic" m "://localhost:4334/orcpub")))]
+     (datomic/create-database db-uri)
+     (let [conn (datomic/connect db-uri)]
+       (datomic/transact conn schema/all-schemas)))))
 
 (defn stop-server
   []
@@ -94,7 +114,10 @@
   (stop-server)
   (reset! -server (component/start (s/system :dev))))
 
-(defn verify-new-user [username-or-email]
+(defn verify-new-user
+  "Automatically mark a user as `verified`. Useful for local testing
+   since the email never gets sent."
+  [username-or-email]
   (with-db [conn db]
     (let [user (r/find-user-by-username-or-email db username-or-email)
           verification-key (:orcpub.user/verification-key user)]
@@ -102,498 +125,24 @@
                  :conn conn
                  :db db}))))
 
-#_(defn update-patron-status [username b]
-  (with-db [conn db]
-    (d/transact conn [{:db/id 17592187167708
-                              :orcpub.user/email "thdm@dungeonmastersvault.com"}])))
-
-(defn cleanup-image-url []
-  (let [image-url (with-db [db] (d/q '[:find ?e ?doc
-                                       :where
-                                       [?e :orcpub.dnd.e5.character/image-url ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k u] image-url]
-        (if (re-matches #"^(https?|ftp)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" u)
-          (#_(println k u))
-          ((println (str k u))
-           (deref (d/transact conn [[:db/retract k :orcpub.dnd.e5.character/image-url u]]))))))))
-
-(defn cleanup-faction-image-url []
-  (let [image-url (with-db [db] (d/q '[:find ?e ?doc
-                                       :where
-                                       [?e :orcpub.dnd.e5.character/faction-image-url ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k u] image-url]
-        (if (re-matches #"^(https?|ftp)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" u)
-          (#_(println k u))
-          ((println (str k u))
-           (deref (d/transact conn [[:db/retract k :orcpub.dnd.e5.character/faction-image-url u]]))))))))
-
-(defn cleanup-age []
-  (let [age
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/age ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] age]
-        (if (> (count n) 1000)
-          ((println k (count n))
-           (d/transact conn [[:db/retract k
-                              :orcpub.dnd.e5.character/age n]])))))))
-
-(defn cleanup-bonds []
-  (let [bonds
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/bonds ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] bonds]
-        (if (> (count n) 50000)
-          ((println k (count n))
-           (d/transact conn [[:db/retract k
-                              :orcpub.dnd.e5.character/bonds n]])))))))
-
-(defn cleanup-character-name []
-  (let [name
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/character-name ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] name]
-        (if (> (count n) 255)
-          ((println k (count n))
-           (d/transact conn [[:db/retract k
-                              :orcpub.dnd.e5.character/character-name n]])))))))
-
-(defn cleanup-description []
-  (let [description
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/description ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] description]
-        (if (> (count n) 50000)
-          ((println k (count n))
-           (d/transact conn [[:db/retract k
-                              :orcpub.dnd.e5.character/description n]]))
-          (println k (count n)))))))
-
-(defn cleanup-faction-name []
-  (let [faction-name
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/faction-name ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] faction-name]
-        (if (> (count n) 50000)
-          ((println k (count n))
-           (d/transact conn [[:db/retract k
-                              :orcpub.dnd.e5.character/faction-name n]])))))))
-
-
-(defn cleanup-flaws []
-  (let [flaws
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/flaws ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] flaws]
-        (if (> (count n) 50000)
-          ((println k (count n))
-           (d/transact conn [[:db/retract k
-                              :orcpub.dnd.e5.character/flaws n]])))))))
-(defn cleanup-hair []
-  (let [hair
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/hair ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] hair]
-        (if (> (count n) 255)
-          ((println k (count n))
-           (d/transact conn [[:db/retract k
-                              :orcpub.dnd.e5.character/hair n]])))))))
-
-(defn cleanup-height []
-  (let [height
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/height ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] height]
-        (if (> (count n) 255)
-          ((println k (count n))
-           (d/transact conn [[:db/retract k
-                              :orcpub.dnd.e5.character/height n]])))))))
-
-(defn cleanup-ideals []
-  (let [ideals
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/ideals ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] ideals]
-        (if (> (count n) 50000)
-          ((println k (count n))
-           (d/transact conn [[:db/retract k
-                              :orcpub.dnd.e5.character/ideals n]])))))))
-
-(defn cleanup-notes []
-  (let [notes
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/notes ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] notes]
-        (if (> (count n) 50000)
-          ((println k (count n))
-           #_(d/transact conn [{:db/id k
-                                :orcpub.dnd.e5.character/notes (subs n 0 50000)}]))
-          (println k (count n)))))))
-
-(defn cleanup-personality-trait-1 []
-  (let [personality-trait-1
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/personality-trait-1 ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] personality-trait-1]
-        (if (> (count n) 50000)
-          (d/transact conn [[:db/retract k
-                             :orcpub.dnd.e5.character/personality-trait-1 n]])
-          #_(println k (count n)))))))
-
-(defn cleanup-personality-trait-2 []
-  (let [personality-trait-2
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/personality-trait-2 ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] personality-trait-2]
-        (if (> (count n) 50000)
-          (d/transact conn [[:db/retract k
-                             :orcpub.dnd.e5.character/personality-trait-2 n]])
-          #_(println k (count n)))))))
-
-(defn cleanup-sex []
-  (let [sex
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/sex ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] sex]
-        (if (> (count n) 255)
-          (d/transact conn [[:db/retract k
-                             :orcpub.dnd.e5.character/sex n]])
-          #_(println k (count n)))))))
-
-(defn cleanup-skin []
-  (let [skin
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/skin ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] skin]
-        (if (> (count n) 255)
-          (d/transact conn [[:db/retract k
-                             :orcpub.dnd.e5.character/skin n]])
-          #_(println k (count n)))))))
-
-(defn cleanup-weight []
-  (let [weight
-        (with-db [db] (d/q '[:find ?e ?doc
-                             :where
-                             [?e :orcpub.dnd.e5.character/weight ?doc]] db))]
-    (with-db [conn]
-      (doseq [[k n] weight]
-        (if (> (count n) 255)
-          (d/transact conn [[:db/retract k
-                             :orcpub.dnd.e5.character/weight n]])
-          #_(println k (count n)))))))
-
-
-(defn cleanup-users []
-  (let [userdata
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.user/verified? false]] db))]
-    (with-db [conn]
-      (doseq [[k] userdata]
-        (d/transact conn [[:db/retractEntity k]]))))
-
-  #_(let [userdata2
-        (with-db [db] (d/q '[:find ?e ?doc ?created
-                                   :where
-                                   [?e :orcpub.user/email ?doc]
-                                   [?e :orcpub.user/created ?created]
-                                   [(missing? $ ?e :orcpub.user/last-login)]] db))]
-    (with-db [conn]
-      (doseq [[k] userdata2]
-        (d/transact conn [[:db/retractEntity k]])))))
-
-
-(defn cleanup []
-  (cleanup-image-url)
-  (cleanup-faction-image-url))
-
-
-(defn dumpusers []
-  (let [userdata
-        (with-db [db] (d/q '[:find ?e ?username ?email ?verified ?sendupdates ?lastlogin
-                                   :where
-                                   [?e :orcpub.user/username ?username]
-                                   [?e :orcpub.user/email ?email]
-                                   [?e :orcpub.user/verified? ?verified]
-                                   [?e :orcpub.user/send-updates? ?sendupdates]
-                                   [?e :orcpub.user/last-login ?lastlogin]
-                                   ] db))]
-    (with-open [out-file (io/writer "users.csv")]
-      (csv/write-csv out-file userdata))))
-
-(defn dumpusers2 []
-  (let [userdata
-        (with-db [db] (d/q '[:find ?e ?doc ?created
-                                   :where
-                                   [?e :orcpub.user/email ?doc]
-                                   [?e :orcpub.user/created ?created]
-                                   [(missing? $ ?e :orcpub.user/last-login)]] db))]
-    (with-open [out-file (io/writer "users.csv")]
-      (csv/write-csv out-file userdata))))
-
-(defn dump-unverifiedusers []
-  (let [userdata
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.user/verified? false] ] db) )]
-    (with-open [out-file (io/writer "users.csv")]
-      (csv/write-csv out-file userdata))))
-
-(defn fixsrd []
-  (println "fix tashas-hideous-laughter")
-  (let [u1
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :tashas-hideous-laughter]] db))]
-    (with-db [conn]
-             (doseq [[k] u1]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :hideous-laughter}])
-               )
-             )
-    )
-
-  (println "fix :bigbys-hand")
-  (let [u1
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :bigbys-hand]] db))]
-    (with-db [conn]
-             (doseq [[k] u1]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :arcane-hand}])
-               )
-             )
-    )
-
-  (println "fix :drawmijs-instant-summons")
-  (let [u1
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :drawmijs-instant-summons]] db))]
-    (with-db [conn]
-             (doseq [[k] u1]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :instant-summons}])
-               )
-             )
-    )
-
-  (println "fix :evards-black-tentacles")
-  (let [u1
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :evards-black-tentacles]] db))]
-    (with-db [conn]
-             (doseq [[k] u1]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :black-tentacles}])
-               )
-             )
-    )
-
-  (println "fix :leomunds-tiny-hut")
-  (let [u1
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :leomunds-tiny-hut]] db))]
-    (with-db [conn]
-             (doseq [[k] u1]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :tiny-hut}])
-               )
-             )
-    )
-
-  (println "fix :leomunds-secret-chest")
-  (let [u1
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :leomunds-secret-chest]] db))]
-    (with-db [conn]
-             (doseq [[k] u1]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :secret-chest}])
-               )
-             )
-    )
-
-  (println "fix melfs-acid-arrow")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :melfs-acid-arrow]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :acid-arrow}])
-               )
-             )
-    )
-
-  (println "fix :mordenkainens-faithful-hound")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :mordenkainens-faithful-hound]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :faithful-hound}])
-               )
-             )
-    )
-
-  (println "fix :mordenkainens-magnificent-mansion")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :mordenkainens-magnificent-mansion]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :magnificent-mansion}])
-               )
-             )
-    )
-
-  (println "fix :mordenkainens-private-sanctum")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :mordenkainens-private-sanctum]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :private-sanctum}])
-               )
-             )
-    )
-
-  (println "fix :mordenkainens-sword")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :mordenkainens-sword]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :arcane-sword}])
-               )
-             )
-    )
-
-  (println "fix :nystuls-magic-aura")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :nystuls-magic-aura]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :magic-aura}])
-               )
-             )
-    )
-
-  (println "fix :otilukes-freezing-sphere")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :otilukes-freezing-sphere]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :freezing-sphere}])
-               )
-             )
-    )
-
-  (println "fix :otilukes-resilient-sphere")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :otilukes-resilient-sphere]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :resilient-sphere}])
-               )
-             )
-    )
-
-  (println "fix :ottos-irresistible-dance")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :ottos-irresistible-dance]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :irresistible-dance}])
-               )
-             )
-    )
-
-  (println "fix :tashas-hideous-laughter")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :tashas-hideous-laughter]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :hideous-laughter}])
-               )
-             )
-    )
-
-  (println "fix :tensers-floating-disk")
-  (let [u
-        (with-db [db] (d/q '[:find ?e :where [?e :orcpub.entity.strict/key :tensers-floating-disk]] db))]
-    (with-db [conn]
-             (doseq [[k] u]
-               (println k)
-               (d/transact conn [{:db/id k
-                                        :orcpub.entity.strict/key :floating-disk}])
-               )
-             )
-    )
-
-  )
-
-
-
 (defn fig-start
   "This starts the figwheel server and watch based auto-compiler.
+  Uses figwheel-main 0.2.20 with dev.cljs.edn build config.
 
   Afterwards, call (cljs-repl) to connect."
   ([]
    (fig-start "dev"))
   ([build-id]
-   ;; this call will only work as long as your :cljsbuild and
-   ;; :figwheel configurations are at the top level of your project.clj
-   ;; and are not spread across different lein profiles
-
-   ;; otherwise you can pass a configuration into start-figwheel! manually
-   (f/start-figwheel!
-     {:figwheel-options {}
-      :build-ids [build-id]
-      :all-builds (get-cljs-build build-id)})))
+   (if-let [api @fig-api]
+     ((ns-resolve api 'start) build-id)
+     (println "figwheel-main not available. Run 'lein fig:dev' instead."))))
 
 (defn fig-stop
   "Stop the figwheel server and watch based auto-compiler."
   []
-  (f/stop-figwheel!))
+  (if-let [api @fig-api]
+    ((ns-resolve api 'stop-all))
+    (println "figwheel-main not available.")))
 
 ;; if you are in an nREPL environment you will need to make sure you
 ;; have setup piggieback for this to work
@@ -601,5 +150,149 @@
   "Launch a ClojureScript REPL that is connected to your build and host environment.
 
   (NB: Call fig-start first.)"
+  ([]
+   (cljs-repl "dev"))
+  ([build-id]
+   (if-let [api @fig-api]
+     ((ns-resolve api 'cljs-repl) build-id)
+     (println "figwheel-main not available."))))
+
+(defn add-test-user
+  "Creates a test user for development, already marked as verified. Only runs if ORCPUB_ENV=dev."
   []
-  (f/cljs-repl))
+  (if (= (System/getenv "ORCPUB_ENV") "dev")
+    (let [username "test"
+          email "test@example.com"
+          password "testpass"]
+      (r/register {:username username :email email :password password :verified true}))
+    (println "add-test-user is disabled outside dev environment.")))
+
+;; ---------------------------------------------------------------------------
+;; Standalone DB connection (no running server required)
+;; ---------------------------------------------------------------------------
+
+(defn conn
+  "Connect to Datomic without starting the full server.
+   Uses DATOMIC_URL env or default."
+  ([] (conn (config/get-datomic-uri)))
+  ([uri] (datomic/connect uri)))
+
+;; ---------------------------------------------------------------------------
+;; User CRUD (for CLI and REPL use — does not require a running server)
+;; ---------------------------------------------------------------------------
+
+(defn email-exists? [db email]
+  (boolean (datomic/q '[:find ?e . :in $ ?email :where [?e :orcpub.user/email ?email]]
+                      db (str/lower-case email))))
+
+(defn username-exists? [db username]
+  (boolean (datomic/q '[:find ?e . :in $ ?username :where [?e :orcpub.user/username ?username]]
+                      db username)))
+
+(defn create-user!
+  "Create a user directly in the database. Does not require a running server.
+
+  Usage from REPL:
+    (create-user! (conn) {:username \"bob\" :email \"bob@example.com\" :password \"pass\" :verify? true})
+
+  Usage from CLI:
+    lein with-profile init-db run -m user create-user bob bob@example.com pass verify"
+  [conn {:keys [username email password verify? send-updates?] :or {verify? false send-updates? false}}]
+  (let [db (datomic/db conn)
+        email (when email (str/lower-case (str/trim email)))
+        username (when username (str/trim username))]
+    (cond
+      (and email (email-exists? db email))
+      (throw (ex-info "Email already exists" {:email email}))
+
+      (and username (username-exists? db username))
+      (throw (ex-info "Username already exists" {:username username}))
+
+      :else
+      (let [now (java.util.Date.)
+            pw (hashers/encrypt (or password "password"))
+            tx {:orcpub.user/email email
+                :orcpub.user/username username
+                :orcpub.user/password pw
+                :orcpub.user/created now
+                :orcpub.user/send-updates? (boolean send-updates?)
+                :orcpub.user/verified? (boolean verify?)}]
+        @(datomic/transact conn [tx])))))
+
+(defn verify-user!
+  "Mark an existing user as verified by username or email.
+   Does not require a running server."
+  [conn username-or-email]
+  (let [db (datomic/db conn)
+        user (r/find-user-by-username-or-email db username-or-email)]
+    (if-not user
+      (throw (ex-info "User not found" {:username-or-email username-or-email}))
+      @(datomic/transact conn [[:db/add (:db/id user) :orcpub.user/verified? true]]))))
+
+(defn delete-user!
+  "Remove a user entity by username or email. Dev only."
+  [conn username-or-email]
+  (let [db (datomic/db conn)
+        user (r/find-user-by-username-or-email db username-or-email)]
+    (if-not user
+      (throw (ex-info "User not found" {:username-or-email username-or-email}))
+      @(datomic/transact conn [[:db/retractEntity (:db/id user)]]))))
+
+;; ---------------------------------------------------------------------------
+;; CLI entrypoint — used by scripts/start.sh, scripts/create_dummy_user.sh
+;;
+;; Usage:
+;;   lein with-profile init-db run -m user init-db
+;;   lein with-profile init-db run -m user init-db --add-test-user
+;;   lein with-profile init-db run -m user create-user <name> <email> <pass> [verify]
+;;   lein with-profile init-db run -m user verify-user <name-or-email>
+;;   lein with-profile init-db run -m user delete-user <name-or-email>
+;; ---------------------------------------------------------------------------
+
+(defn -main [& [cmd & args]]
+  (try
+    (case cmd
+      "init-db"
+      (let [uri (config/get-datomic-uri)]
+        (println "Ensuring database exists at" uri)
+        (datomic/create-database uri)
+        (let [c (datomic/connect uri)]
+          (println "Applying schema...")
+          (datomic/transact c schema/all-schemas)
+          (println "DB init done.")
+          (when (some #{"--add-test-user"} args)
+            (println "Creating test user...")
+            (add-test-user))))
+
+      "create-user"
+      (let [[username email password & flags] args
+            verify? (some #{"verify"} flags)
+            c (conn)]
+        (println "Creating user:" username email "verified?" (boolean verify?))
+        (create-user! c {:username username :email email :password password :verify? verify?})
+        (println "User created."))
+
+      "verify-user"
+      (do (verify-user! (conn) (first args))
+          (println "User verified:" (first args)))
+
+      "delete-user"
+      (do (delete-user! (conn) (first args))
+          (println "User deleted:" (first args)))
+
+      ;; default
+      (do (println "Usage: lein with-profile init-db run -m user <command> [args]")
+          (println "")
+          (println "Commands:")
+          (println "  init-db [--add-test-user]   Create database and apply schema")
+          (println "  create-user <u> <e> <p> [verify]   Create a user")
+          (println "  verify-user <name-or-email>        Mark user as verified")
+          (println "  delete-user <name-or-email>        Delete a user")
+          (System/exit 1)))
+    (catch Exception e
+      (binding [*out* *err*]
+        (println "Error:" (.getMessage e)))
+      (System/exit 1)))
+  ;; Datomic peer metrics thread is non-daemon and prevents clean JVM exit.
+  ;; Force exit after successful command completion.
+  (System/exit 0))

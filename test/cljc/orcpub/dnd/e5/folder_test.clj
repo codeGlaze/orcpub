@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.folder-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is]]
             [clojure.spec.alpha :as spec]
             [orcpub.dnd.e5.folder :as folder5e]))
 

@@ -6,6 +6,7 @@
             [ring.middleware.resource :as ring-resource]
             [ring.util.response :as ring-resp]
             [io.pedestal.http.body-params :as body-params]
+            [io.pedestal.interceptor :as interceptor]
             [io.pedestal.interceptor.error :as error-int]
             [io.pedestal.interceptor.chain :refer [terminate]]
             #_[com.stuartsierra.component :as component]
@@ -16,8 +17,7 @@
             [buddy.auth.middleware :refer [authentication-request]]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clj-time.core :as t :refer [hours from-now ago]]
-            [clj-time.coerce :as tc :refer [from-date]]
+            [orcpub.time :as time :refer [hours ago from-now instant before?]]
             [clojure.string :as s]
             [clojure.spec.alpha :as spec]
             [clojure.pprint]
@@ -48,13 +48,29 @@
             [ring.middleware.head :as head]
             [ring.util.codec :as codec]
             [ring.util.request :as req])
-  (:import (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
+  ;; PDFBox 3.x: Use Loader class instead of PDDocument.load() static method
+  ;; OLD (2.x): (PDDocument/load input-stream)
+  ;; NEW (3.x): (Loader/loadPDF input-stream)
+  ;; 
+  ;; Import syntax notes for Clojure newcomers:
+  ;;   - (org.apache.pdfbox.pdmodel PDDocument PDPage) imports multiple classes from one package
+  ;;   - org.apache.pdfbox.Loader imports a single class (no parens needed)
+  (:import (org.apache.pdfbox.pdmodel PDPage PDPageContentStream)
+           org.apache.pdfbox.Loader
            (java.io ByteArrayOutputStream ByteArrayInputStream))
   (:gen-class))
 
 (deftype FixedBuffer [^long len])
 
-(def backend (backends/jws {:secret (environ/env :signature)}))
+(def ^:private jwt-secret
+  "JWT signing secret from SIGNATURE env var.
+   nil when unset — check-auth returns 500 with a diagnostic message."
+  (environ/env :signature))
+
+(when-not jwt-secret
+  (println "WARNING: SIGNATURE env var is not set — all authenticated API calls will fail"))
+
+(def backend (backends/jws {:secret jwt-secret}))
 
 (defn first-user-by [db query value]
   (let [result (d/q query
@@ -68,10 +84,13 @@
     :in $ ?username
     :where [?e :orcpub.user/username ?username]])
 
+;; Case-insensitive email lookup to guard against mixed-case legacy data.
+;; Callers must pass a lowercased email.
 (def email-query
   '[:find ?e
     :in $ ?email
-    :where [?e :orcpub.user/email ?email]])
+    :where [?e :orcpub.user/email ?stored]
+           [(clojure.string/lower-case ?stored) ?email]])
 
 (defn find-user-by-username-or-email [db username-or-email]
   (d/q
@@ -123,15 +142,27 @@
       (assoc :response {:status status :body {:message message}})))
 
 (def check-auth
-  {:name :check-auth
-   :enter (fn [context]
-            (let [request (:request context)
-                  updated-request (authentication-request request backend)
-                  username (get-in updated-request [:identity :user])]
-              (if (and (:identity updated-request)
-                       username)
-                (assoc context :request (assoc updated-request :username username))
-                (terminate-request context 401 "Unauthorized"))))})
+  "Interceptor that verifies the JWT bearer token on authenticated routes.
+   Returns 401 for missing/invalid tokens, 500 with diagnostic if the
+   JWT secret itself is not configured."
+  (interceptor/interceptor
+   {:name :check-auth
+    :enter (fn [context]
+             (if-not jwt-secret
+               (terminate-request context 500
+                                  "Server misconfigured: SIGNATURE env var not set")
+               (try
+                 (let [request (:request context)
+                       updated-request (authentication-request request backend)
+                       username (get-in updated-request [:identity :user])]
+                   (if (and (:identity updated-request)
+                            username)
+                     (assoc context :request (assoc updated-request :username username))
+                     (terminate-request context 401 "Unauthorized")))
+                 (catch Exception e
+                   (terminate-request context 401
+                                      (str "Authentication failed: "
+                                           (.getMessage e)))))))}))
 
 (defn party-owner [db id]
   (d/q '[:find ?owner .
@@ -143,24 +174,26 @@
 (def id-path [:request :path-params :id])
 
 (def parse-id
-  {:name :parse-id
-   :enter (fn [context]
-            (let [id-str (get-in context id-path)]
-              (if (and id-str (re-matches #"\d+" id-str))
-                (assoc-in context
-                          id-path
-                          (Long/parseLong id-str))
-                (terminate-request context 400 "Bad ID"))))})
+  (interceptor/interceptor
+   {:name :parse-id
+    :enter (fn [context]
+             (let [id-str (get-in context id-path)]
+               (if (and id-str (re-matches #"\d+" id-str))
+                 (assoc-in context
+                           id-path
+                           (Long/parseLong id-str))
+                 (terminate-request context 400 "Bad ID"))))}))
 
 
 (def check-party-owner
-  {:name :check-party-owner
-   :enter (fn [context]
-            (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
-                  party-owner (party-owner db id)]
-              (if (= (:user identity) party-owner)
-                context
-                (terminate-request context 401 "You don't own this party"))))})
+  (interceptor/interceptor
+   {:name :check-party-owner
+    :enter (fn [context]
+             (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
+                   party-owner (party-owner db id)]
+               (if (= (:user identity) party-owner)
+                 context
+                 (terminate-request context 401 "You don't own this party"))))}))
 
 (defn folder-owner [db id]
   (d/q '[:find ?owner .
@@ -170,20 +203,22 @@
        id))
 
 (def check-folder-owner
-  {:name :check-folder-owner
-   :enter (fn [context]
-            (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
-                  folder-owner (folder-owner db id)]
-              (if (= (:user identity) folder-owner)
-                context
-                (terminate-request context 401 "You don't own this folder"))))})
+  (interceptor/interceptor
+   {:name :check-folder-owner
+    :enter (fn [context]
+             (let [{:keys [identity db] {:keys [id]} :path-params} (:request context)
+                   owner (folder-owner db id)]
+               (cond
+                 (nil? owner) (terminate-request context 404 "Folder not found")
+                 (= (:user identity) owner) context
+                 :else (terminate-request context 401 "You don't own this folder"))))}))
 
 (defn redirect [route-key]
   (ring-resp/redirect (route-map/path-for route-key)))
 
 
 (defn verification-expired? [verification-sent]
-  (t/before? (from-date verification-sent) (-> 24 hours ago)))
+  (before? (instant verification-sent) (-> 24 hours ago)))
 
 (defn login-error [error-key & [data]]
   {:status 401 :body (merge
@@ -200,11 +235,13 @@
        (d/pull-many db '[:orcpub.user/username] ids)))
 
 (defn user-body [db user]
-  {:username (:orcpub.user/username user)
-   :email (:orcpub.user/email user)
-   :patron (:orcpub.user/patron user)
-   :patron-tier (:orcpub.user/patron-tier user)
-   :following (following-usernames db (map :db/id (:orcpub.user/following user)))})
+  (cond-> {:username (:orcpub.user/username user)
+           :email (:orcpub.user/email user)
+     		   :patron (:orcpub.user/patron user)
+           :patron-tier (:orcpub.user/patron-tier user) 
+           :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
+    (:orcpub.user/pending-email user)
+    (assoc :pending-email (:orcpub.user/pending-email user))))
 
 (defn bad-credentials-response [db username ip]
   (security/add-failed-login-attempt! username ip)
@@ -275,26 +312,36 @@
    params
    verification-key send-updates?))
 
-(defn do-verification [request params conn send-updates? & [tx-data]]
+(defn send-email-change-verification [request params verification-key]
+  (email/send-email-change-verification
+   (base-url request)
+   params
+   verification-key))
+
+(defn do-verification [request params conn & [tx-data]]
   (let [verification-key (str (java.util.UUID/randomUUID))
         now (java.util.Date.)]
+    (try
       @(d/transact
-          conn
-          [(merge
-            tx-data
-            {:orcpub.user/patron false
-             :orcpub.user/patron-tier " "
-             :orcpub.user/verified? false
-             :orcpub.user/verification-key verification-key
-             :orcpub.user/verification-sent now})])
-        (send-verification-email request params verification-key send-updates?)
-        {:status 200}))
+        conn
+        [(merge
+          tx-data
+          {:orcpub.user/verified? false
+           :orcpub.user/verification-key verification-key
+           :orcpub.user/verification-sent now})])
+      (send-verification-email request params verification-key)
+      {:status 200}
+      (catch Exception e
+        (println "ERROR: Failed to create verification record:" (.getMessage e))
+        (throw (ex-info "Unable to complete registration. Please try again or contact support."
+                        {:error :verification-failed}
+                        e))))))
 
 (defn register [{:keys [json-params db conn] :as request}]
   (let [{:keys [username email password send-updates?]} json-params
-        username (if username (s/trim username))
-        email (if email (s/lower-case (s/trim email)))
-        password (if password (s/trim password))
+        username (when username (s/trim username))
+        email (when email (s/lower-case (s/trim email)))
+        password (when password (s/trim password))
         validation (registration/validate-registration
                     json-params
                     (seq (d/q email-query db email))
@@ -345,16 +392,43 @@
     (let [{:keys [:orcpub.user/verification-sent
                   :orcpub.user/verified?
                   :orcpub.user/username
+                  :orcpub.user/pending-email
                   :db/id] :as user} (user-for-verification-key (d/db conn) key)]
       (if username
-        (if verified?
+        (cond
+          (and verified? (nil? pending-email))
           (redirect route-map/verify-success-route)
-          (if (or (nil? verification-sent)
-                  (verification-expired? verification-sent))
-            (redirect route-map/verify-failed-route)
-            (do (d/transact conn [{:db/id id
-                                   :orcpub.user/verified? true}])
-                (redirect route-map/verify-success-route))))
+
+          (or (nil? verification-sent)
+              (verification-expired? verification-sent))
+          ;; Clean up stale pending state so user can request a fresh change
+          (do (let [retractions (cond-> [[:db/retract id :orcpub.user/verification-key key]
+                                         [:db/retract id :orcpub.user/verification-sent verification-sent]]
+                                  pending-email
+                                  (conj [:db/retract id :orcpub.user/pending-email pending-email]))]
+                @(d/transact conn retractions))
+              (redirect route-map/verify-failed-route))
+
+          pending-email
+          ;; Guard: re-check that the target email hasn't been claimed since request.
+          ;; All paths retract verification-key and verification-sent to prevent
+          ;; link reuse and avoid stale rate-limit data.
+          (if (seq (d/q email-query (d/db conn) pending-email))
+            (do @(d/transact conn [[:db/retract id :orcpub.user/pending-email pending-email]
+                                   [:db/retract id :orcpub.user/verification-key key]
+                                   [:db/retract id :orcpub.user/verification-sent verification-sent]])
+                (redirect route-map/verify-failed-route))
+            (do @(d/transact conn [{:db/id id
+                                    :orcpub.user/email pending-email}
+                                   [:db/retract id :orcpub.user/pending-email pending-email]
+                                   [:db/retract id :orcpub.user/verification-key key]
+                                   [:db/retract id :orcpub.user/verification-sent verification-sent]])
+                (redirect route-map/verify-success-route)))
+
+          :else
+          (do @(d/transact conn [{:db/id id
+                                  :orcpub.user/verified? true}])
+              (redirect route-map/verify-success-route)))
         {:status 400}))
     {:status 400}))
 
@@ -367,29 +441,36 @@
       (redirect route-map/verify-success-route)
       (do-verification request
                        (merge query-params
-                              {:first-and-last-name "OrcPub Patron"})
+                              {:first-and-last-name "DMV Patron"})
                        conn
                        {:db/id id}))))
 
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
-    @(d/transact
-      conn
-      [{:db/id user-id
-        :orcpub.user/password-reset-key key
-        :orcpub.user/password-reset-sent (java.util.Date.)}])
-    (email/send-reset-email
-     (base-url request)
-     {:first-and-last-name "Dungeon Master's Vault Patron"
-      :email email}
-     key)
-    {:status 200}))
+    (try
+      @(d/transact
+        conn
+        [{:db/id user-id
+          :orcpub.user/password-reset-key key
+          :orcpub.user/password-reset-sent (java.util.Date.)}])
+      (email/send-reset-email
+       (base-url request)
+       {:first-and-last-name "DMV Patron"
+        :email email}
+       key)
+      {:status 200}
+      (catch Exception e
+        (println "ERROR: Failed to initiate password reset for user" user-id ":" (.getMessage e))
+        (throw (ex-info "Unable to initiate password reset. Please try again or contact support."
+                        {:error :password-reset-failed
+                         :user-id user-id}
+                        e))))))
 
 (defn password-reset-expired? [password-reset-sent]
-  (and password-reset-sent (t/before? (tc/from-date password-reset-sent) (-> 24 hours ago))))
+  (and password-reset-sent (before? (instant password-reset-sent) (-> 24 hours ago))))
 
 (defn password-already-reset? [password-reset password-reset-sent]
-  (and password-reset (t/before? (tc/from-date password-reset-sent) (tc/from-date password-reset))))
+  (and password-reset (before? (instant password-reset-sent) (instant password-reset))))
 
 (defn send-password-reset [{:keys [query-params db conn scheme headers] :as request}]
   (try
@@ -405,13 +486,20 @@
     (catch Throwable e (prn e) (throw e))))
 
 (defn do-password-reset [conn user-id password]
-  @(d/transact
-    conn
-    [{:db/id user-id
-      :orcpub.user/password (hashers/encrypt (s/trim password))
-      :orcpub.user/password-reset (java.util.Date.)
-      :orcpub.user/verified? true}])
-  {:status 200})
+  (try
+    @(d/transact
+      conn
+      [{:db/id user-id
+        :orcpub.user/password (hashers/encrypt (s/trim password))
+        :orcpub.user/password-reset (java.util.Date.)
+        :orcpub.user/verified? true}])
+    {:status 200}
+    (catch Exception e
+      (println "ERROR: Failed to reset password for user" user-id ":" (.getMessage e))
+      (throw (ex-info "Unable to reset password. Please try again or contact support."
+                      {:error :password-update-failed
+                       :user-id user-id}
+                      e)))))
 
 (defn reset-password [{:keys [json-params db conn cookies identity] :as request}]
   (try
@@ -485,7 +573,12 @@
     (catch Exception e (prn "FAILED ADDING SPELLS CARDS!" e))))
 
 (defn character-pdf-2 [req]
-  (let [fields (-> req :form-params :body edn/read-string)
+  (let [fields (try
+                 (-> req :form-params :body edn/read-string)
+                 (catch Exception e
+                   (throw (ex-info "Invalid character data format. Unable to parse PDF request."
+                                   {:error :invalid-pdf-data}
+                                   e))))
         
         {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? character-name class-level player-name]} fields
 
@@ -509,27 +602,28 @@
         chrome? (re-matches #".*Chrome.*" user-agent)
         filename (str player-name " - " character-name " - " class-level ".pdf")]
         
-    (with-open [doc (PDDocument/load input)]
+    ;; PDFBox 3.x: Loader/loadPDF replaces the deprecated PDDocument/load
+    (with-open [doc (Loader/loadPDF input)]
       (pdf/write-fields! doc fields (not chrome?) font-sizes)
-      (if (and print-spell-cards? (seq spells-known))
+      (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod?))
 
-      (if (and image-url
-               (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
-               (not image-url-failed))
+      (when (and image-url
+                 (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
+                 (not image-url-failed))
         (case print-character-sheet-style?
           1 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
           2 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
           3 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
           4 (pdf/draw-image! doc (pdf/get-page doc 0) image-url 0.50 0.85 2.35 3.15)))
-      (if (and faction-image-url
-               (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
-               (not faction-image-url-failed))
+      (when (and faction-image-url
+                 (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
+                 (not faction-image-url-failed))
         (case print-character-sheet-style?
           1 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)
           2 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)
           3 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.0 1.905 1.52)
-          4 ()))
+          4 nil))
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200
@@ -551,7 +645,7 @@
     :where [?e :orcpub.user/password-reset-key ?key]])
 
 (def default-title
-  "Dungeon Master's Vault")
+  "Dungeon Master's Vault: D&D 5e Character Builder/Generator")
 
 (def default-description
   "Dungeons & Dragons 5th Edition (D&D 5e) character builder/generator and digital character sheet far beyond any other in the multiverse.")
@@ -559,7 +653,7 @@
 (defn default-image-url [host]
   (str "https://" host "/image/dmv-box-logo.png"))
 
-(defn index-page-response [{:keys [headers uri] :as request}
+(defn index-page-response [{:keys [headers uri csp-nonce] :as request}
                            {:keys [title description image-url]}
                            & [response]]
   (let [host (headers "host")]
@@ -572,7 +666,8 @@
        {:url (str "http://" host uri)
         :title (or title default-title)
         :description (or description default-description)
-        :image (or image-url (default-image-url host))}
+        :image (or image-url (default-image-url host))
+        :nonce csp-nonce}
        (= "/" uri))})))
 
 (defn default-index-page [request & [response]]
@@ -610,7 +705,7 @@
   (check-field username-query (:username query-params) db))
 
 (defn check-email [{:keys [db query-params]}]
-  (check-field email-query (:email query-params) db))
+  (check-field email-query (some-> (:email query-params) s/lower-case) db))
 
 (defn character-for-id [db id]
   (d/pull db '[*] id))
@@ -626,14 +721,21 @@
   (-> result :tempids (get temp-id)))
 
 (defn create-entity [conn username entity owner-prop]
-  (as-> entity $
-    (entity/remove-ids $)
-    (assoc $
-           :db/id "tempid"
-           owner-prop username)
-    @(d/transact conn [$])
-    (get-new-id "tempid" $)
-    (d/pull (d/db conn) '[*] $)))
+  (try
+    (as-> entity $
+      (entity/remove-ids $)
+      (assoc $
+             :db/id "tempid"
+             owner-prop username)
+      @(d/transact conn [$])
+      (get-new-id "tempid" $)
+      (d/pull (d/db conn) '[*] $))
+    (catch Exception e
+      (println "ERROR: Failed to create entity for user" username ":" (.getMessage e))
+      (throw (ex-info "Unable to create entity. Please try again or contact support."
+                      {:error :entity-creation-failed
+                       :username username}
+                      e)))))
 
 (defn email-for-username [db username]
   (d/q '[:find ?email .
@@ -645,25 +747,35 @@
        username))
 
 (defn update-entity [conn username entity owner-prop]
-  (let [id (:db/id entity)
-        current (d/pull (d/db conn) '[*] id)
-        owner (get current owner-prop)
-        email (email-for-username (d/db conn) username)]
-    (if ((set [username email]) owner)
-      (let [current-ids (entity/db-ids current)
-            new-ids (entity/db-ids entity)
-            retract-ids (sets/difference current-ids new-ids)
-            retractions (map
-                         (fn [retract-id]
-                           [:db/retractEntity retract-id])
-                         retract-ids)
-            remove-ids (sets/difference new-ids current-ids)
-            with-ids-removed (entity/remove-specific-ids entity remove-ids)
-            new-entity (assoc with-ids-removed owner-prop username)
-            result @(d/transact conn (concat retractions [new-entity]))]
-        (d/pull (d/db conn) '[*] id))
-      (throw (ex-info "Not user entity"
-                      {:error :not-user-entity})))))
+  (try
+    (let [id (:db/id entity)
+          current (d/pull (d/db conn) '[*] id)
+          owner (get current owner-prop)
+          email (email-for-username (d/db conn) username)]
+      (if ((set [username email]) owner)
+        (let [current-ids (entity/db-ids current)
+              new-ids (entity/db-ids entity)
+              retract-ids (sets/difference current-ids new-ids)
+              retractions (map
+                           (fn [retract-id]
+                             [:db/retractEntity retract-id])
+                           retract-ids)
+              remove-ids (sets/difference new-ids current-ids)
+              with-ids-removed (entity/remove-specific-ids entity remove-ids)
+              new-entity (assoc with-ids-removed owner-prop username)
+              result @(d/transact conn (concat retractions [new-entity]))]
+          (d/pull (d/db conn) '[*] id))
+        (throw (ex-info "Not user entity"
+                        {:error :not-user-entity}))))
+    (catch clojure.lang.ExceptionInfo e
+      (throw e))
+    (catch Exception e
+      (println "ERROR: Failed to update entity for user" username ":" (.getMessage e))
+      (throw (ex-info "Unable to update entity. Please try again or contact support."
+                      {:error :entity-update-failed
+                       :username username
+                       :entity-id (:db/id entity)}
+                      e)))))
 
 (defn save-entity [conn username e owner-prop]
   (let [without-empty-fields (entity/remove-empty-fields e)]
@@ -735,14 +847,30 @@
       (throw (ex-info "Not user character"
                       {:error :not-user-character})))))
 
-(defn create-new-character [conn character username]
-  (let [result @(d/transact conn
-                            [(-> character
-                                 (assoc :db/id "tempid"
-                                        ::se/owner username)
-                                 add-dnd-5e-character-tags)])
-        new-id (get-new-id "tempid" result)]
-    (d/pull (d/db conn) '[*] new-id)))
+(defn create-new-character
+  "Creates a new D&D 5e character.
+
+  Args:
+    conn - Database connection
+    character - Character data map
+    username - Owner username
+
+  Returns:
+    Created character entity
+
+  Throws:
+    ExceptionInfo on database failure"
+  [conn character username]
+  (errors/with-db-error-handling :character-creation-failed
+    {:username username}
+    "Unable to create character. Please try again or contact support."
+    (let [result @(d/transact conn
+                              [(-> character
+                                   (assoc :db/id "tempid"
+                                          ::se/owner username)
+                                   add-dnd-5e-character-tags)])
+          new-id (get-new-id "tempid" result)]
+      (d/pull (d/db conn) '[*] new-id))))
 
 (defn clean-up-character [character]
   (if (-> character ::se/values ::char5e/xps string?)
@@ -796,10 +924,23 @@
        :body item}
       {:status 404})))
 
-(defn delete-item [{:keys [db conn username] {:keys [:id]} :path-params}]
+(defn delete-item
+  "Deletes a magic item owned by the user.
+
+  Args:
+    request - HTTP request with item ID
+
+  Returns:
+    HTTP 200 on success, 401 if not owned
+
+  Throws:
+    ExceptionInfo on database failure"
+  [{:keys [db conn username] {:keys [:id]} :path-params}]
   (let [{:keys [::mi5e/owner]} (d/pull db '[::mi5e/owner] id)]
     (if (= username owner)
-      (do
+      (errors/with-db-error-handling :item-deletion-failed
+        {:item-id id}
+        "Unable to delete item. Please try again or contact support."
         @(d/transact conn [[:db/retractEntity id]])
         {:status 200})
       {:status 401})))
@@ -854,29 +995,73 @@
                     results)]
     {:status 200 :body characters}))
 
-(defn follow-user [{:keys [db conn identity] {:keys [user]} :path-params}]
+(defn follow-user
+  "Adds a user to the authenticated user's following list.
+
+  Args:
+    request - HTTP request with username to follow
+
+  Returns:
+    HTTP 200 on success
+
+  Throws:
+    ExceptionInfo on database failure"
+  [{:keys [db conn identity] {:keys [user]} :path-params}]
   (let [other-user-id (user-id-for-username db user)
         username (:user identity)
         user-id (user-id-for-username db username)]
-    @(d/transact conn [{:db/id user-id
-                        :orcpub.user/following other-user-id}])
-    {:status 200}))
+    (errors/with-db-error-handling :follow-user-failed
+      {:follower username :followed user}
+      "Unable to follow user. Please try again or contact support."
+      @(d/transact conn [{:db/id user-id
+                          :orcpub.user/following other-user-id}])
+      {:status 200})))
 
-(defn unfollow-user [{:keys [db conn identity] {:keys [user]} :path-params}]
+(defn unfollow-user
+  "Removes a user from the authenticated user's following list.
+
+  Args:
+    request - HTTP request with username to unfollow
+
+  Returns:
+    HTTP 200 on success
+
+  Throws:
+    ExceptionInfo on database failure"
+  [{:keys [db conn identity] {:keys [user]} :path-params}]
   (let [other-user-id (user-id-for-username db user)
         username (:user identity)
         user-id (user-id-for-username db username)]
-    @(d/transact conn [[:db/retract user-id :orcpub.user/following other-user-id]])
-    {:status 200}))
+    (errors/with-db-error-handling :unfollow-user-failed
+      {:follower username :unfollowed user}
+      "Unable to unfollow user. Please try again or contact support."
+      @(d/transact conn [[:db/retract user-id :orcpub.user/following other-user-id]])
+      {:status 200})))
 
-(defn delete-character [{:keys [db conn identity] {:keys [id]} :path-params}]
-  (let [parsed-id (Long/parseLong id)
+(defn delete-character
+  "Deletes a character owned by the authenticated user.
+
+  Args:
+    request - HTTP request with character ID in path params
+
+  Returns:
+    HTTP 200 on success, 400 for problems, 401 if not owned
+
+  Throws:
+    ExceptionInfo on invalid ID or database failure"
+  [{:keys [db conn identity] {:keys [id]} :path-params}]
+  (let [parsed-id (errors/with-validation :invalid-character-id
+                    {:id id}
+                    "Invalid character ID format"
+                    (Long/parseLong id))
         username (:user identity)
         character (d/pull db '[*] parsed-id)
         problems [] #_(dnd-e5-char-type-problems character)]
     (if (owns-entity? db username parsed-id)
       (if (empty? problems)
-        (do
+        (errors/with-db-error-handling :character-deletion-failed
+          {:character-id parsed-id}
+          "Unable to delete character. Please try again or contact support."
           @(d/transact conn [[:db/retractEntity parsed-id]])
           {:status 200})
         {:status 400 :body problems})
@@ -890,10 +1075,26 @@
       {:status 200 :body character})))
 
 (defn character-summary-for-id [db id]
-  {:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id))
+  ;; Fixed: bare destructuring outside let silently returned nil
+  (let [{:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id)]
+    summary))
 
-(defn get-character [{:keys [db] {:keys [:id]} :path-params}]
-  (let [parsed-id (Long/parseLong id)]
+(defn get-character
+  "Retrieves a character by ID.
+
+  Args:
+    request - HTTP request with character ID in path params
+
+  Returns:
+    HTTP response with character data
+
+  Throws:
+    ExceptionInfo on invalid ID format"
+  [{:keys [db] {:keys [:id]} :path-params}]
+  (let [parsed-id (errors/with-validation :invalid-character-id
+                    {:id id}
+                    "Invalid character ID format"
+                    (Long/parseLong id))]
     (get-character-for-id db parsed-id)))
 
 (defn get-user [{:keys [db identity]}]
@@ -901,22 +1102,136 @@
         user (find-user-by-username-or-email db username)]
     {:status 200 :body (user-body db user)}))
 
-(defn delete-user [{:keys [db conn identity]}]
+(defn delete-user
+  "Deletes the authenticated user's account.
+
+  Args:
+    request - HTTP request with authenticated user identity
+
+  Returns:
+    HTTP 200 on success
+
+  Throws:
+    ExceptionInfo on database failure"
+  [{:keys [db conn identity]}]
   (let [username (:user identity)
         user (d/q '[:find ?u .
                     :in $ ?username
                     :where [?u :orcpub.user/username ?username]]
                   db
                   username)]
-    @(d/transact conn [[:db/retractEntity user]])
-    {:status 200}))
+    (errors/with-db-error-handling :user-deletion-failed
+      {:username username}
+      "Unable to delete user account. Please try again or contact support."
+      @(d/transact conn [[:db/retractEntity user]])
+      {:status 200})))
+
+(defn rate-limit-remaining-secs
+  "Seconds until the user can act again. In the 0–1 min zone (email in transit)
+   returns time until the 1-min resend window opens. In the 1–5 min zone (for a
+   different email) returns time until the 5-min cooldown expires."
+  [verification-sent new-email pending-email]
+  (when verification-sent
+    (let [elapsed-ms (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))
+          ;; If same email, they're waiting for the 1-min resend window to open.
+          ;; If different email, they're waiting for the full 5-min cooldown.
+          target-ms (if (= new-email pending-email)
+                      (* 1 60 1000)
+                      (* 5 60 1000))
+          remaining-ms (- target-ms elapsed-ms)]
+      (when (pos? remaining-ms)
+        (int (Math/ceil (/ remaining-ms 1000.0)))))))
+
+(defn email-change-rate-limited? [verification-sent pending-email new-email]
+  ;; Only rate-limit if the last key was generated for a pending email change
+  ;; (not for initial registration verification).
+  ;; Three zones from verification-sent:
+  ;;   0–1 min  → too soon, email is in transit (always blocked)
+  ;;   1–5 min  → free resend allowed for same email, otherwise blocked
+  ;;   5+ min   → open for any request
+  (and pending-email
+       verification-sent
+       (let [elapsed-ms (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))
+             same-email? (= new-email pending-email)]
+         (cond
+           (>= elapsed-ms (* 5 60 1000)) false          ;; past cooldown
+           (< elapsed-ms (* 1 60 1000))  true           ;; too soon
+           :else                          (not same-email?)))) ;; 1-5 min: resend ok, new email blocked
+  )
+
+(defn request-email-change [{:keys [transit-params db conn identity] :as request}]
+  (try
+    ;; Client sends {:new-email "..."} (confirm-email is validated client-side only)
+    (let [new-email (s/lower-case (s/trim (str (:new-email transit-params))))
+          username (:user identity)]
+      (if (nil? username)
+        {:status 400 :body {:error :user-not-found}}
+        (let [{:keys [:db/id
+                      :orcpub.user/email
+                      :orcpub.user/pending-email
+                      :orcpub.user/verification-sent] :as user} (find-user-by-username db username)]
+          (cond
+            (nil? id)
+            {:status 400 :body {:error :user-not-found}}
+
+            (registration/bad-email? new-email)
+            {:status 400 :body {:error :invalid-email}}
+
+            (= new-email (some-> email s/lower-case))
+            {:status 400 :body {:error :same-as-current}}
+
+            (email-change-rate-limited? verification-sent pending-email new-email)
+            {:status 429 :body {:error :too-many-requests
+                                :retry-after-secs (rate-limit-remaining-secs verification-sent new-email pending-email)}}
+
+            ;; Check no other account already owns this email
+            (seq (d/q email-query db new-email))
+            {:status 400 :body {:error :email-taken}}
+
+            ;; Free resend: same email, 1–5 min after original send. Re-send with
+            ;; existing key and don't update verification-sent (no rolling window).
+            (and (= new-email pending-email)
+                 verification-sent
+                 (let [elapsed (- (System/currentTimeMillis) (.getTime ^java.util.Date verification-sent))]
+                   (and (>= elapsed (* 1 60 1000))
+                        (< elapsed (* 5 60 1000)))))
+            (try
+              (send-email-change-verification request
+                                              {:email new-email :username username}
+                                              (:orcpub.user/verification-key user))
+              {:status 200 :body {:pending-email new-email}}
+              (catch Throwable e
+                (prn "Email resend failed:" (.getMessage e))
+                {:status 500 :body {:error :email-send-failed}}))
+
+            :else
+            (let [verification-key (str (java.util.UUID/randomUUID))
+                  now (java.util.Date.)]
+              @(d/transact conn [{:db/id id
+                                  :orcpub.user/pending-email new-email
+                                  :orcpub.user/verification-key verification-key
+                                  :orcpub.user/verification-sent now}])
+              ;; Roll back pending-email if verification email fails to send
+              (try
+                (send-email-change-verification request
+                                                {:email new-email :username username}
+                                                verification-key)
+                {:status 200 :body {:pending-email new-email}}
+                (catch Throwable e
+                  (errors/log-error "ERROR:" (str "Email send failed, rolling back pending state: " (.getMessage e)))
+                  ;; Full rollback: retract all attributes set by the failed attempt
+                  @(d/transact conn [[:db/retract id :orcpub.user/pending-email new-email]
+                                     [:db/retract id :orcpub.user/verification-key verification-key]
+                                     [:db/retract id :orcpub.user/verification-sent now]])
+                  {:status 500 :body {:error :email-send-failed}})))))))
+    (catch Throwable e (prn e) (throw e))))
 
 (defn character-summary-description [{:keys [::char5e/race-name ::char5e/subrace-name ::char5e/classes]}]
   (str race-name
        " "
-       (if subrace-name (str "(" subrace-name ") "))
+       (when subrace-name (str "(" subrace-name ") "))
        " "
-       (if (seq classes)
+       (when (seq classes)
          (s/join
           " / "
           (map
@@ -1058,6 +1373,8 @@
        [(route-map/path-for route-map/user-route) ^:interceptors [check-auth]
         {:get `get-user
          :delete `delete-user}]
+       [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
+        {:put `request-email-change}]
        [(route-map/path-for route-map/follow-user-route :user ":user") ^:interceptors [check-auth]
         {:post `follow-user
          :delete `unfollow-user}]

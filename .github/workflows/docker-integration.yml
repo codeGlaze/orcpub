@@ -1,0 +1,400 @@
+# Dual-stack Docker integration tests: auto-detects Java 8 (develop) vs Java 21
+# (breaking/) based on whether dev.cljs.edn exists in the checkout.
+#
+# Java 8 (legacy):  Pulls pre-built images from Docker Hub — skipped gracefully
+#                    when images are unavailable.
+# Java 21 (modern): Builds from source using docker-compose-build.yaml with
+#                    Datomic Pro and eclipse-temurin:21.
+
+name: Docker Integration Test
+
+on:
+  pull_request:
+    branches: [develop]
+    paths:
+      - 'docker/**'
+      - 'docker-compose*.yaml'
+      - 'docker-setup.sh'
+      - 'docker-user.sh'
+      - 'deploy/**'
+      - '.github/workflows/docker-integration.yml'
+  workflow_dispatch:
+
+jobs:
+  detect-stack:
+    name: Detect Stack
+    runs-on: ubuntu-latest
+    outputs:
+      build-mode: ${{ steps.detect.outputs.build-mode }}
+      compose-file: ${{ steps.detect.outputs.compose-file }}
+      stack-label: ${{ steps.detect.outputs.stack-label }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect stack from project files
+        id: detect
+        run: |
+          if [ -f "dev.cljs.edn" ]; then
+            echo "Detected: Java 21 / Datomic Pro / figwheel-main → build from source"
+            echo "build-mode=build" >> $GITHUB_OUTPUT
+            echo "compose-file=docker-compose-build.yaml" >> $GITHUB_OUTPUT
+            echo "stack-label=Java 21 / Datomic Pro (build)" >> $GITHUB_OUTPUT
+          else
+            echo "Detected: Java 8 / Datomic Free / cljsbuild → pull pre-built"
+            echo "build-mode=pull" >> $GITHUB_OUTPUT
+            echo "compose-file=docker-compose.yaml" >> $GITHUB_OUTPUT
+            echo "stack-label=Java 8 / Datomic Free (pre-built)" >> $GITHUB_OUTPUT
+          fi
+
+  docker-test:
+    name: Docker Setup & User Management (${{ needs.detect-stack.outputs.stack-label }})
+    runs-on: ubuntu-latest
+    needs: detect-stack
+    timeout-minutes: 35
+
+    env:
+      COMPOSE_FILE: ${{ needs.detect-stack.outputs.compose-file }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Script validation (always runs) ──────────────────────────
+
+      - name: Lint shell scripts
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck docker-setup.sh docker-user.sh
+
+      - name: Run docker-setup.sh --auto
+        run: |
+          ./docker-setup.sh --auto
+          echo "--- Generated .env (secrets redacted) ---"
+          sed 's/=.*/=***/' .env
+
+      - name: Validate .env password consistency
+        run: |
+          PW=$(grep '^DATOMIC_PASSWORD=' .env | cut -d= -f2)
+          URL_PW=$(grep '^DATOMIC_URL=' .env | sed 's/.*password=//')
+          if [ "$PW" != "$URL_PW" ]; then
+            echo "FAIL: DATOMIC_PASSWORD and DATOMIC_URL password mismatch"
+            exit 1
+          fi
+          echo "OK: Passwords match"
+
+      - name: Test — setup --force preserves existing values
+        run: |
+          # Save original passwords
+          ORIG_ADMIN=$(grep '^ADMIN_PASSWORD=' .env | cut -d= -f2)
+          ORIG_DATOMIC=$(grep '^DATOMIC_PASSWORD=' .env | cut -d= -f2)
+          ORIG_SIG=$(grep '^SIGNATURE=' .env | cut -d= -f2)
+
+          # Re-run with --force --auto (should regenerate)
+          ./docker-setup.sh --auto --force
+
+          # Verify .env was regenerated (new passwords, since --auto generates fresh ones)
+          NEW_ADMIN=$(grep '^ADMIN_PASSWORD=' .env | cut -d= -f2)
+          NEW_DATOMIC=$(grep '^DATOMIC_PASSWORD=' .env | cut -d= -f2)
+
+          # Verify structure is intact
+          grep -q '^DATOMIC_URL=' .env || { echo "FAIL: DATOMIC_URL missing"; exit 1; }
+          grep -q '^SIGNATURE=' .env || { echo "FAIL: SIGNATURE missing"; exit 1; }
+          grep -q '^PORT=' .env || { echo "FAIL: PORT missing"; exit 1; }
+
+          # Re-check password consistency after --force
+          PW=$(grep '^DATOMIC_PASSWORD=' .env | cut -d= -f2)
+          URL_PW=$(grep '^DATOMIC_URL=' .env | sed 's/.*password=//')
+          if [ "$PW" != "$URL_PW" ]; then
+            echo "FAIL: Password mismatch after --force re-run"
+            exit 1
+          fi
+          echo "OK: --force regenerated .env with consistent passwords"
+
+      # ── Container image acquisition ─────────────────────────────
+      # Java 21: build from source (no pre-built images for new stack)
+      # Java 8:  pull pre-built images from Docker Hub (skip if unavailable)
+
+      # DOCKER_BUILDKIT=0 — docker compose v2 delegates to BuildKit on GH
+      # runners, which hangs during image export. Legacy builder avoids this.
+      # Direct docker build (not compose build) — compose build also hangs.
+      # See: docs/LEIN-UBERJAR-HANG.md for full explanation.
+      - name: Build container images (Java 21)
+        id: build
+        if: needs.detect-stack.outputs.build-mode == 'build'
+        env:
+          DOCKER_BUILDKIT: 0
+        run: |
+          echo "=== Building datomic (transactor) ==="
+          docker build --target transactor -t orcpub-datomic -f docker/Dockerfile .
+          echo "=== Building orcpub (app) ==="
+          docker build --target app -t orcpub-app -f docker/Dockerfile .
+          echo "=== Build complete ==="
+
+      - name: Pull container images (Java 8)
+        id: pull
+        if: needs.detect-stack.outputs.build-mode == 'pull'
+        continue-on-error: true
+        run: docker compose pull
+
+      # ── Container tests ─────────────────────────────────────────
+      # Run if images were built (Java 21) or successfully pulled (Java 8).
+      # steps.build.outcome is only set when the step runs; default to 'skipped'.
+
+      - name: Start datomic (no deps)
+        id: start-datomic
+        if: steps.build.outcome == 'success' || steps.pull.outcome == 'success'
+        run: |
+          docker compose up -d --no-deps datomic
+          echo "Datomic container started, waiting for health..."
+
+      - name: Wait for datomic healthy
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          for i in $(seq 1 90); do
+            CID=$(docker compose ps -q datomic 2>/dev/null) || true
+            if [ -z "$CID" ]; then
+              echo "  [$i/90] datomic container not found yet"
+              sleep 2
+              continue
+            fi
+            RUNNING=$(docker inspect --format='{{.State.Running}}' "$CID" 2>/dev/null || echo "false")
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CID" 2>/dev/null || echo "starting")
+            echo "  [$i/90] running=$RUNNING health=$STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Datomic is healthy (after ~$((i * 2))s)"
+              break
+            fi
+            if [ "$RUNNING" = "false" ]; then
+              echo "WARN: datomic container stopped — dumping logs"
+              docker compose logs datomic
+              echo "Container will restart (restart: always), continuing to wait..."
+            fi
+            if [ "$i" -eq 90 ]; then
+              echo "FAIL: Datomic did not become healthy within 180s"
+              echo "=== container state ==="
+              docker inspect --format='{{json .State}}' "$CID" | python3 -m json.tool || true
+              echo "=== datomic logs ==="
+              docker compose logs datomic
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Start orcpub and web
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          docker compose up -d
+          docker compose ps
+
+      - name: Wait for orcpub healthy
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          for i in $(seq 1 90); do
+            CID=$(docker compose ps -q orcpub 2>/dev/null) || true
+            if [ -z "$CID" ]; then
+              echo "  [$i/90] orcpub container not found yet"
+              sleep 2
+              continue
+            fi
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CID" 2>/dev/null || echo "starting")
+            echo "  [$i/90] orcpub health=$STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "orcpub is healthy (after ~$((i * 2))s)"
+              break
+            fi
+            if [ "$STATUS" = "unhealthy" ]; then
+              echo "FAIL: orcpub reported unhealthy"
+              echo "=== all logs ==="
+              docker compose logs
+              exit 1
+            fi
+            if [ "$i" -eq 90 ]; then
+              echo "FAIL: orcpub did not become healthy within 180s"
+              docker compose logs
+              exit 1
+            fi
+            sleep 2
+          done
+          docker compose ps
+
+      - name: Test — create user
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          ./docker-user.sh create testadmin admin@test.local SecurePass123
+          echo "Exit code: $?"
+
+      - name: Test — check user exists
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          OUTPUT=$(./docker-user.sh check testadmin)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "testadmin"
+          echo "$OUTPUT" | grep -q "admin@test.local"
+          echo "$OUTPUT" | grep -q "true"   # verified
+
+      - name: Test — list includes user
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          OUTPUT=$(./docker-user.sh list)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "testadmin"
+
+      - name: Test — duplicate user fails
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          if ./docker-user.sh create testadmin admin@test.local SecurePass123 2>&1; then
+            echo "FAIL: Should have rejected duplicate user"
+            exit 1
+          fi
+          echo "OK: Duplicate user correctly rejected"
+
+      - name: Test — create second user
+        if: steps.start-datomic.outcome == 'success'
+        run: ./docker-user.sh create player2 player2@test.local AnotherPass456
+
+      - name: Test — list shows both users
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          OUTPUT=$(./docker-user.sh list)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "testadmin"
+          echo "$OUTPUT" | grep -q "player2"
+
+      - name: Test — verify already-verified user is idempotent
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          OUTPUT=$(./docker-user.sh verify testadmin)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "already verified"
+
+      - name: Test — batch create users (with duplicates)
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          cat > /tmp/test-users.txt <<'TXT'
+          # Test batch file
+          batch1  batch1@test.local  BatchPass111
+          batch2  batch2@test.local  BatchPass222
+          # This next line is a duplicate from earlier single-create test
+          testadmin  admin@test.local  SecurePass123
+          TXT
+          OUTPUT=$(./docker-user.sh batch /tmp/test-users.txt)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "batch1"
+          echo "$OUTPUT" | grep -q "batch2"
+          echo "$OUTPUT" | grep -q "SKIP.*testadmin"
+          echo "$OUTPUT" | grep -q "2 created"
+          echo "$OUTPUT" | grep -q "1 skipped (duplicate)"
+          echo "$OUTPUT" | grep -q "0 failed"
+          echo "OK: Batch created 2 new, skipped 1 duplicate"
+
+      - name: Test — batch users appear in list
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          OUTPUT=$(./docker-user.sh list)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "batch1"
+          echo "$OUTPUT" | grep -q "batch2"
+
+      - name: Test — init creates admin from .env
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          # Append INIT_ADMIN_* vars to .env
+          printf '\nINIT_ADMIN_USER=initadmin\nINIT_ADMIN_EMAIL=initadmin@test.local\nINIT_ADMIN_PASSWORD=InitPass789\n' >> .env
+
+          # Run init
+          OUTPUT=$(./docker-user.sh init)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "initadmin"
+
+          # Verify user was created
+          CHECK=$(./docker-user.sh check initadmin)
+          echo "$CHECK"
+          echo "$CHECK" | grep -q "initadmin"
+          echo "$CHECK" | grep -q "initadmin@test.local"
+          echo "$CHECK" | grep -q "true"
+          echo "OK: init created admin from .env"
+
+      - name: Test — init is idempotent (re-run skips existing)
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          # Running init again should not fail — duplicate is handled
+          if ./docker-user.sh init 2>&1; then
+            echo "FAIL: init should exit non-zero for duplicate user"
+            exit 1
+          fi
+          echo "OK: init correctly reports duplicate on re-run"
+
+      - name: Test — check nonexistent user fails
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          if ./docker-user.sh check nobody@nowhere.com 2>&1; then
+            echo "FAIL: Should have reported user not found"
+            exit 1
+          fi
+          echo "OK: Nonexistent user correctly not found"
+
+      - name: Test — created user can log in via HTTP
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          # Use nginx (port 443) since orcpub:8890 is not exposed to host
+          RESPONSE=$(curl -sk -X POST https://localhost/login \
+            -H "Content-Type: application/json" \
+            -d '{"username":"testadmin","password":"SecurePass123"}' \
+            -w "\n%{http_code}" 2>&1) || true
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP $HTTP_CODE"
+          echo "$BODY"
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "OK: Login succeeded"
+            echo "$BODY" | grep -q "token"
+            echo "OK: Response contains JWT token"
+          else
+            echo "FAIL: Expected HTTP 200, got $HTTP_CODE"
+            exit 1
+          fi
+
+      - name: Test — wrong password is rejected
+        if: steps.start-datomic.outcome == 'success'
+        run: |
+          HTTP_CODE=$(curl -sk -o /dev/null -w "%{http_code}" \
+            -X POST https://localhost/login \
+            -H "Content-Type: application/json" \
+            -d '{"username":"testadmin","password":"WrongPassword"}' 2>&1) || true
+
+          echo "HTTP $HTTP_CODE"
+          if [ "$HTTP_CODE" = "401" ]; then
+            echo "OK: Wrong password correctly rejected"
+          else
+            echo "FAIL: Expected HTTP 401, got $HTTP_CODE"
+            exit 1
+          fi
+
+      # ── Always-run steps ─────────────────────────────────────────
+
+      - name: Container tests skipped (images unavailable)
+        if: steps.pull.outcome == 'failure'
+        run: |
+          echo "## Docker Integration" >> $GITHUB_STEP_SUMMARY
+          echo "Container images not available on Docker Hub." >> $GITHUB_STEP_SUMMARY
+          echo "Script validation passed. Container tests skipped." >> $GITHUB_STEP_SUMMARY
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "=== docker compose ps ==="
+          docker compose ps
+          echo "=== datomic logs ==="
+          docker compose logs datomic
+          echo "=== orcpub logs ==="
+          docker compose logs orcpub
+          echo "=== web logs ==="
+          docker compose logs web
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down -v

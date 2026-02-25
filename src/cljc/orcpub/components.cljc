@@ -3,17 +3,17 @@
             #?(:cljs [reagent.core :refer [atom]])))
 
 (defn checkbox [selected? disable?]
-  [:i.fa.fa-check.f-s-14.bg-white.b-color-gray.orange-shadow.pointer.b-3
-   {:class-name (str (if selected? "black slight-text-shadow" "white transparent")
+  [:i.fa.fa-check.f-s-14.bg-white.b-color-gray.orange-shadow.pointer.b-1
+   {:class (str (if selected? "black slight-text-shadow" "white transparent")
                      " "
-                     (if disable?
+                     (when disable?
                        "opacity-5"))}])
 
 (defn labeled-checkbox [label selected? disabled? on-click]
-  [:div.flex.pointer.align-items-c
+  [:div.flex.pointer
    {:on-click on-click}
    [checkbox selected? disabled?]
-   [:span.m-l-5.align-items-c label]])
+   [:span.m-l-5 label]])
 
 (defn selection-item [key name selected?]
   [:option.builder-dropdown-item
@@ -48,28 +48,28 @@
    (for [{:keys [key name]} values]
      ^{:key key} [selection-item key name])])
 
-(defn input-field []
-  (let [state (atom {:timeout nil
-                     :temp-val nil})]
+(defn input-field
+  "Dispatches on-change on every keystroke. Build debounce lives in
+   the :built-character subscription, not here. Local atom buffers the
+   typed value so React doesn't flicker before re-frame catches up."
+  []
+  (let [local-val (atom nil)
+        prev      (atom nil)]
     (fn [type value on-change attrs]
+      ;; Subscription caught up — clear local override
+      (when (not= value @prev)
+        (reset! prev value)
+        (reset! local-val nil))
       [type
        (merge
         attrs
-        {:value (or (:temp-val @state) value "")
+        {:value (or @local-val value "")
          :on-click #(.stopPropagation %)
-         :on-change (fn [e] #?(:cljs
-                               (swap! state
-                                      (fn [{:keys [timeout temp-val] :as s}]
-                                        (if timeout
-                                          (js/clearTimeout timeout))
-                                        (let [v (.. e -target -value)]
-                                          (assoc s
-                                                 :timeout (js/setTimeout
-                                                           (fn []
-                                                             (on-change v)
-                                                             (swap! state dissoc :temp-val))
-                                                           500)
-                                                 :temp-val v))))))})])))
+         :on-change (fn [e]
+                      #?(:cljs
+                         (let [v (.. e -target -value)]
+                           (reset! local-val v)
+                           (on-change v))))})])))
 
 (defn int-field [value on-change attrs]
   [input-field
@@ -77,7 +77,7 @@
    value
    (fn [str-v]
      #?(:cljs
-        (let [v (if (not (s/blank? str-v))
+        (let [v (when (not (s/blank? str-v))
                   (js/parseInt str-v))]
           (on-change v))))
    (assoc attrs :type :number)])

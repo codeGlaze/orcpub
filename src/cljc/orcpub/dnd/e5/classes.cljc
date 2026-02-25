@@ -13,7 +13,6 @@
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.template-base :as t-base]
-            [re-frame.core :refer [subscribe]]
             [clojure.string :as s]))
 
 (spec/def ::name (spec/and string? common/starts-with-letter?))
@@ -371,7 +370,8 @@
                                                :page 55
                                                :summary "make a weapon attack when you use your action to cast a bard spell"})]}}}]}))
 
-(defn blessings-of-knowledge-skill [skill-name]
+;; dead — only called from #_ discarded block at line 527
+#_(defn blessings-of-knowledge-skill [skill-name]
   (let [skill-kw (common/name-to-kw skill-name)]
     (t/option-cfg
      {:name skill-name
@@ -379,7 +379,8 @@
       :modifiers [(mod5e/skill-proficiency skill-kw)
                   (mod5e/skill-expertise skill-kw)]})))
 
-(def spell-level-to-cleric-level
+;; dead — zero callers
+#_(def spell-level-to-cleric-level
   {1 1
    2 3
    3 5
@@ -797,7 +798,7 @@
                               :duration (units5e/hours (int (/ (?class-level :druid) 2)))
                               :summary (str "You can transform into a beast you have seen with CR "
                                             ?wild-shape-cr
-                                            (if ?wild-shape-limitation (str " and " ?wild-shape-limitation)))})]}}
+                                            (when ?wild-shape-limitation (str " and " ?wild-shape-limitation)))})]}}
     :selections [(opt5e/new-starting-equipment-selection
                   :druid
                   {:name "Druidic Focus"
@@ -1058,7 +1059,7 @@
             :skill-options {:choose 2 :options {:acrobatics true :animal-handling true :athletics true :history true :insight true :intimidation true :perception true :survival true}}}
     :multiclass-prereqs [(t/option-prereq "Requires Strength 13 or Dexterity 13"
                                           (fn [c]
-                                            (let [abilities @(subscribe [::char5e/abilities nil c])]
+                                            (let [abilities (char5e/ability-values c)]
                                               (or (>= (::char5e/str abilities) 13)
                                                   (>= (::char5e/dex abilities) 13)))))]
     :equipment-choices [{:name "Equipment Pack"
@@ -1237,7 +1238,7 @@
              :skill-options {:choose 2 :options {:acrobatics true :athletics true :history true :insight true :religion true :stealth true}}}
      :multiclass-prereqs [(t/option-prereq "Requires Wisdom 13 and Dexterity 13"
                                            (fn [c]
-                                             (let [abilities @(subscribe [::char5e/abilities nil c])]
+                                             (let [abilities (char5e/ability-values c)]
                                                (and (>= (::char5e/wis abilities) 13)
                                                     (>= (::char5e/dex abilities) 13)))))]
      :equipment-choices [{:name "Equipment Pack"
@@ -1438,7 +1439,7 @@
              :skill-options {:choose 2 :options {:athletics true :insight true :intimidation true :medicine true :persuasion true :religion true}}}
      :multiclass-prereqs [(t/option-prereq "Requires Strength 13 and Charisma 13"
                                            (fn [c]
-                                             (let [abilities @(subscribe [::char5e/abilities nil c])]
+                                             (let [abilities (char5e/ability-values c)]
                                                (and (>= (::char5e/str abilities) 13)
                                                     (>= (::char5e/cha abilities) 13)))))]
      :equipment-choices [{:name "Equipment Pack"
@@ -1466,7 +1467,7 @@
               10 {:modifiers [(mod5e/dependent-trait
                                {:name "Aura of Courage"
                                 :page 85
-                                :summary (str (str "you and friendly creatures within " ?paladin-aura " ft. can't be frightened"))})]}
+                                :summary (str "you and friendly creatures within " ?paladin-aura " ft. can't be frightened")})]}
               14 {:modifiers [(mod5e/action
                                {:name "Cleansing Touch"
                                 :page 85
@@ -1663,14 +1664,14 @@
         language-options (zipmap languages (repeat true))]
       (t/option-cfg
        {:name name
-        :selections (if (> (count languages) 1)
+        :selections (when (> (count languages) 1)
                       [(opt5e/language-selection
                         language-map
                         {:choose 1
                          :options language-options})])
         :modifiers (remove
                     nil?
-                    [(if (= 1 (count languages))
+                    [(when (= 1 (count languages))
                        (mod5e/language (first languages)))
                      (mod/set-mod ?ranger-favored-enemies enemy-type)])})))
 
@@ -1779,7 +1780,7 @@
              :multiclass-skill-options {:choose 1 :options opt5e/ranger-skills}}
      :multiclass-prereqs [(t/option-prereq "Requires Wisdom 13 and Dexterity 13"
                                            (fn [c]
-                                             (let [abilities @(subscribe [::char5e/abilities nil c])]
+                                             (let [abilities (char5e/ability-values c)]
                                                (and (>= (::char5e/wis abilities) 13)
                                                     (>= (::char5e/dex abilities) 13)))))]
      :ability-increase-levels [4 8 12 16 19]
@@ -1806,7 +1807,7 @@
                    :page 91
                    :summary (let [favored-terrain ?ranger-favored-terrain
                                   one-terrain? (= 1 (count favored-terrain))]
-                              (str "your favored terrain " (if one-terrain? "type is" "types are") " " (if (seq favored-terrain) (common/list-print (map #(common/kw-to-name % false) ?ranger-favored-terrain)) "not selected") ". Related to the terrain type" (if (not one-terrain?) "s") ": 2X proficiency bonus for INT and WIS checks for which you are proficient, difficult terrain doesn't slow your group, always alert for danger, can move stealthily alone at normal pace, 2x food when foraging, while tracking learn exact number, size, and when they passed through"))})]
+                              (str "your favored terrain " (if one-terrain? "type is" "types are") " " (if (seq favored-terrain) (common/list-print (map #(common/kw-to-name % false) ?ranger-favored-terrain)) "not selected") ". Related to the terrain type" (when (not one-terrain?) "s") ": 2X proficiency bonus for INT and WIS checks for which you are proficient, difficult terrain doesn't slow your group, always alert for danger, can move stealthily alone at normal pace, 2x food when foraging, while tracking learn exact number, size, and when they passed through"))})]
      :selections [(opt5e/new-starting-equipment-selection
                    :ranger
                    {:name "Melee Weapon"
@@ -2324,7 +2325,8 @@
    :page page
    :description (str "time and money to copy an " school " spell is halved")})
 
-(defn spell-in-spells-known? [known level spell-key]
+;; dead — only called from #_ discarded block
+#_(defn spell-in-spells-known? [known level spell-key]
   (and known (some #(= spell-key (:key %)) (known level))))
 
 (defn spell-mastery-selection [level]
@@ -2341,7 +2343,7 @@
                     :prereqs [(t/option-prereq
                                nil
                                (fn [c]
-                                 (let [spells-known @(subscribe [::char5e/spells-known nil c])]
+                                 (let [spells-known (char5e/spells-known c)]
                                    (get-in spells-known [level ["Wizard" spell-kw]])))
                                true)]})))
               (get-in sl5e/spell-lists [:wizard level]))}))
@@ -2362,7 +2364,7 @@
                     :prereqs [(t/option-prereq
                                nil
                                (fn [c]
-                                 (let [spells-known @(subscribe [::char5e/spells-known nil c])]
+                                 (let [spells-known (char5e/spells-known c)]
                                    (get-in spells-known [3 ["Wizard" spell-kw]])))
                                true)]})))
               (get-in sl5e/spell-lists [:wizard 3]))}))
@@ -2538,7 +2540,7 @@
                                    :tags (opt5e/spell-tags :wizard 0)
                                    :options (opt5e/spell-options (get-in sl/spell-lists [:wizard 0]) ::char5e/int "Wizard")
                                    :prereq-fn (fn [c]
-                                                (let [spells-known @(subscribe [::char5e/spells-known nil c])
+                                                (let [spells-known (char5e/spells-known c)
                                                       passes? (or (nil? spells-known)
                                                                   (some
                                                                    (fn [s]
@@ -2613,7 +2615,8 @@
       (t/option-cfg
        {:name (or (:name weapon) (::weapon5e/name weapon))})))))
 
-(defn pact-weapon-option [title weapons]
+;; dead — zero callers
+#_(defn pact-weapon-option [title weapons]
   (t/option-cfg
    {:name title
     :selections [(t/selection-cfg
