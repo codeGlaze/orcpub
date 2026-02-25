@@ -141,7 +141,7 @@ html {
 }"]
     [:title title]
     [:link {:rel "preconnect" :href "https://t.dungeonmastersvault.com/" :crossorigin ""}]
-    [:script
+    (script-tag {:nonce nonce}
      " var _paq = window._paq = window._paq || [];
       //_paq.push([\"setDocumentTitle\", document.domain + \"/\" + document.title]);
       _paq.push([\"setCookieDomain\", \"*.www.dungeonmastersvault.com\"]);
@@ -155,11 +155,11 @@ html {
       _paq.push(['setSiteId', '7']);
       var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
       g.type='text/javascript'; g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
-      })();"]
+      })();")
     [:noscript "<p><img src=\"//t.dungeonmastersvault.com/matomo.php?idsite=7&amp;rec=1\" style=\"border:0;\" alt=\"\" /></p>"]
 
 ;<!-- IMPORTANT: Place these lines as high as you can in <head>, ideally just after <title> tag -->
-    [:script {:async "" :src "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3202063096003962" :crossorigin "anonymous"}]]
+    (script-tag {:nonce nonce :async "" :src "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3202063096003962" :crossorigin "anonymous"})]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
