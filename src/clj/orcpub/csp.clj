@@ -30,6 +30,8 @@
    The resulting CSP:
      - Uses 'strict-dynamic' for script-src (only nonced scripts execute)
      - Allows Google Fonts for styles and fonts
+     - Allows Matomo analytics (connect-src, img-src)
+     - Allows Google AdSense iframes (frame-src)
      - Restricts all other sources to 'self'
      - Blocks object embeds, restricts base-uri, frame-ancestors, and form-action"
   [nonce & {:keys [dev-mode?]}]
@@ -38,7 +40,9 @@
        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
        "font-src 'self' https://fonts.gstatic.com; "
        "img-src 'self' data: https:; "
-       "connect-src 'self'" (when dev-mode? " ws://localhost:3449") "; "
+       "connect-src 'self' https://t.dungeonmastersvault.com https://pagead2.googlesyndication.com"
+       (when dev-mode? " ws://localhost:3449") "; "
+       "frame-src 'self' https://googleads.g.doubleclick.net https://tpc.googlesyndication.com; "
        "object-src 'none'; "
        "base-uri 'self'; "
        "frame-ancestors 'self'; "

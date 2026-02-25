@@ -43,6 +43,18 @@
       (is (str/includes? header "form-action 'self'")
           "Should restrict form-action")))
 
+  (testing "Header allows Matomo analytics"
+    (let [header (csp/build-csp-header "test-nonce")]
+      (is (str/includes? header "https://t.dungeonmastersvault.com")
+          "connect-src should allow Matomo tracker")))
+
+  (testing "Header allows AdSense iframes"
+    (let [header (csp/build-csp-header "test-nonce")]
+      (is (str/includes? header "https://googleads.g.doubleclick.net")
+          "frame-src should allow Google ad iframes")
+      (is (str/includes? header "https://tpc.googlesyndication.com")
+          "frame-src should allow Google syndication iframes")))
+
   (testing "Production mode does not include WebSocket"
     (let [header (csp/build-csp-header "test")]
       (is (not (str/includes? header "ws://"))
