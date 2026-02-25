@@ -14,18 +14,21 @@ The split also exposed that `classes.cljs` at 740 lines is the largest child —
 
 ## 2. What Files Can or Should Be Broken Down?
 
-### Tier 1: Data/logic separation (high impact, low risk)
+### Tier 1: Data/logic separation (high impact, low risk) — DONE
 
-These are **data-heavy cljc files** where thousands of lines of SRD content are mixed with spec/utility code. The split is mechanical — move the data defs to a `_data` sibling file.
+Completed on `refactor/data-extraction` branch (5 commits, 2026-02-25).
 
-| File | Lines | Logic | Data | Split strategy |
-|------|-------|-------|------|----------------|
-| `monsters.cljc` | 9,272 | ~300 | ~8,972 | `monsters.cljc` (specs + utils) + `monsters_data.cljc` (SRD content) |
-| `spells.cljc` | 4,229 | ~200 | ~4,029 | `spells.cljc` (specs + utils) + `spells_data.cljc` (SRD content) |
-| `magic_items.cljc` | 3,214 | ~800 | ~2,414 | `magic_items.cljc` (builder logic) + `magic_items_data.cljc` (SRD content) |
-| `classes.cljc` | 3,147 | ~1,000 | ~2,147 | `classes.cljc` (specs + spellcasting) + `classes_data.cljc` (SRD content) |
+| File | Before | After | Data file | Technique |
+|------|--------|-------|-----------|-----------|
+| `monsters.cljc` | 9,273 | 54 | `monsters_data.cljc` (9,226) | Pure data move, no deps |
+| `spells.cljc` | 4,229 | 59 | `spells_data.cljc` (4,187) | Constants move with data, re-export `schools`/`spells`/`spell-map` |
+| `magic_items.cljc` | 3,214 | 512 | `magic_items_data.cljc` (2,721) | `:as-alias` for parent ns keywords, ~1,150 `::` → `::mi/` replacements |
+| `classes.cljc` | 3,147 | 45 | `classes_data.cljc` (3,137) | 12 class option fns + helpers, 15 re-exports |
 
-**Why these first**: Pure data extraction has zero behavioral risk. The logic files get dramatically smaller and more scannable. The data files rarely need editing (SRD content is stable).
+**Key learnings:**
+- `:as-alias` (Clojure 1.11+) is the right tool when data entries use `::` qualified keywords from the parent namespace. Avoids circular deps without changing keyword identity.
+- `class-level` had to move to the data file (not stay in logic) because class option functions call it internally. Re-exported from the logic file for external consumers.
+- Pre-existing issue surfaced: `item-saving-throw-bonuses` dropdown in item builder is a dead control (logged in docs/TODO.md).
 
 ### Tier 2: Domain decomposition (medium impact, medium risk)
 
@@ -53,10 +56,10 @@ These are **behavioral monoliths** where multiple concerns are interleaved. Spli
 
 ## 3. Order of Precedence
 
-### Phase A: Data extraction (Tier 1)
+### Phase A: Data extraction (Tier 1) — DONE
 **monsters → spells → magic_items → classes**
 
-Rationale: Biggest files first. Monsters alone is 9K lines — extracting data makes it immediately navigable. Each split is independent, mechanical, and low-risk.
+Completed 2026-02-25 on `refactor/data-extraction`. All 4 files extracted, 206 tests passing, 0 CLJS warnings.
 
 ### Phase B: Events decomposition
 **events.cljs → subs.cljs** (mirror the same domain boundaries)
@@ -72,11 +75,11 @@ Rationale: views.cljs refactor is already in progress. character_builder.cljs ov
 
 ### Recommendation: One branch per tier, not per file
 
-| Branch | Scope | Off of |
-|--------|-------|--------|
-| `refactor/data-extraction` | All Tier 1 (monsters, spells, magic_items, classes data separation) | `breaking/` |
-| `refactor/events-decomposition` | events.cljs + subs.cljs domain split | `breaking/` |
-| `refactor/views-extraction` (current) | views.cljs + character_builder.cljs | `breaking/` |
+| Branch | Scope | Off of | Status |
+|--------|-------|--------|--------|
+| `refactor/data-extraction` | All Tier 1 (monsters, spells, magic_items, classes data separation) | `breaking/` | **DONE** |
+| `refactor/events-decomposition` | events.cljs + subs.cljs domain split | `breaking/` | Next |
+| `refactor/views-extraction` | views.cljs + character_builder.cljs | `breaking/` | In progress |
 
 **Why per-tier, not per-file:**
 
@@ -97,3 +100,4 @@ These are bugs/inefficiencies that exist in the codebase today, not introduced b
 | `classes.cljs:56` (was `builders.cljs:1458`) | `modifier-values` rebuilds full sorted-map with subscribe on every render | MEDIUM | Efficiency — should memoize or lift subscribe |
 | `builders.cljs:70` | `plugin-datalist` uses local atom, TODO says consider re-frame | LOW | Works fine, just not idiomatic |
 | `views.cljs` (various) | Detail pages still in monolith | LOW | Active refactor, tracked separately |
+| `views/builders/item.cljs:302` | `item-saving-throw-bonuses` dropdown hardcoded to 1 option, no event wiring | LOW | Logged in docs/TODO.md — wire up "Becomes At Least" option |

@@ -79,17 +79,21 @@ test/
 | `orcpub.views-aux` | 139 | `option-selector-data` + option UI helpers |
 | `orcpub.constants` | 3 | `header-height 227` |
 
-### D&D 5e data namespaces (MONOLITH CANDIDATES)
+### D&D 5e data namespaces (Tier 1 extraction DONE)
 
-These are the large data-heavy files targeted for Tier 1 decomposition (extract SRD data to `*_data.cljc` siblings):
+SRD data extracted to `*_data.cljc` siblings. Logic files are now small spec/re-export shells.
 
 | Namespace | Lines | Content |
 |-----------|-------|---------|
-| `dnd.e5.monsters` | **9,272** | SRD monster stat blocks + spec + display helpers |
-| `dnd.e5.spells` | **4,229** | SRD spell data + spec + query helpers |
-| `dnd.e5.options` | **3,483** | Option builder helpers: `option-cfg`, `spell-option`, `feat-option` |
-| `dnd.e5.magic-items` | **3,214** | SRD magic items + spec + modifier builders |
-| `dnd.e5.classes` | **3,147** | SRD class/subclass data + spec + homebrew handlers |
+| `dnd.e5.monsters` | 54 | Specs + display helpers + derived lookups (re-exports from data) |
+| `dnd.e5.monsters-data` | 9,226 | SRD monster stat blocks (`monsters-raw`) |
+| `dnd.e5.spells` | 59 | Specs + re-exports (`schools`, `spells`, `spell-map`) |
+| `dnd.e5.spells-data` | 4,187 | School constants + 22 alphabetical spell vectors + derived lookups |
+| `dnd.e5.magic-items` | 512 | Specs + internal-format converters + expansion logic |
+| `dnd.e5.magic-items-data` | 2,721 | Predicates, generator helpers, raw-magic-items (uses `:as-alias` for parent ns keywords) |
+| `dnd.e5.classes` | 45 | Specs + `class-level` + 15 re-exports |
+| `dnd.e5.classes-data` | 3,137 | 12 class option builders + local helpers |
+| `dnd.e5.options` | **3,483** | Option builder helpers: `option-cfg`, `spell-option`, `feat-option` (Tier 2 candidate) |
 | `dnd.e5.character.random` | 2,462 | Name tables (all D&D races) + `random-name-result` |
 | `dnd.e5.template` | 1,567 | Full 5e character template tree (SRD races, classes, backgrounds) |
 
