@@ -28,3 +28,4 @@ Before scanning the codebase, read the architecture map and KB index:
 - **`def` vs `defn`** — several key helpers are `def`s (partials/data), not `defn`s. Won't appear in `defn` greps
 - **Shared helper deps dictate placement** — if a shared helper calls X, X must stay shared too, even if X looks domain-specific
 - **`.clj-kondo` is in `.gitignore`** — use `git add -f` to stage kondo config
+- **`::` keywords and data extraction** — `_data.cljc` siblings use `:as-alias` to produce the parent namespace's qualified keywords without circular deps (see `magic_items_data.cljc`)
