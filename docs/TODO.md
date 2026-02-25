@@ -75,6 +75,38 @@ jpackage --input target --main-jar orcpub.jar --type exe \
 - Package as two installers (app + transactor)
 - Single installer with a launcher script that starts both
 
+## Replace or fork lein-garden
+
+**Status:** Open — future work
+**Severity:** Low (tech debt)
+**Reported:** 2026-02-25
+
+### Problem
+
+`lein-garden` 0.3.0 (last release: 2016) is abandoned. It pins `ns-tracker`
+0.3.0 (2014), which doesn't understand `:as-alias` (Clojure 1.11+) and treats
+it as a real dependency — causing false circular dep errors during AOT.
+
+We work around this with a dependency override (`ns-tracker` 1.0.0 exclusion in
+`project.clj`), but the plugin itself is unmaintained and a liability.
+
+### Options
+
+1. **Maintenance fork** — fork `lein-garden` to `orcpub/lein-garden`, bump
+   `ns-tracker` to 1.0.0, publish to Clojars. Minimal effort, self-hosted.
+2. **Replace with a script** — `lein-garden` is a thin wrapper around
+   `garden.core/css`. A 10-line Leiningen alias or shell script calling
+   `garden.core/css` directly would do the same job with no plugin dependency.
+3. **Migrate to `lambdaisland/garden`** — the Garden CSS library itself is
+   alive (`com.lambdaisland/garden 1.9.606`). Evaluate if the maintained
+   version has its own build tooling.
+
+### Related
+
+- `project.clj` — `:plugins` section, ns-tracker exclusion/override
+- `ns-tracker` 1.0.0 fix: commit `6f508d5` (Sept 2021), released June 2024
+- `lein-garden` last release: 0.3.0, April 2016 — no maintained fork found
+
 ## Magic item builder: saving throw bonus dropdown is a dead control
 
 **Status:** Open

@@ -39,6 +39,11 @@
                  [re-frame "1.4.4"]
                  [reagent "2.0.1"]
                  [com.lambdaisland/garden "1.9.606"]
+                 ;; lein-garden 0.3.0 injects ns-tracker 0.2.2 (^:displace) into
+                 ;; its subprocess classpath. That version doesn't understand
+                 ;; :as-alias (Clojure 1.11+), causing false circular dep errors.
+                 ;; This explicit dep displaces the old version everywhere garden runs.
+                 [ns-tracker "1.0.0"]
                  [org.apache.pdfbox/pdfbox "3.0.6"]
                  ;; Pedestal 0.7.0 uses Jetty 11, which is compatible with figwheel-main's Ring adapter.
                  ;; Pedestal 0.7.1+ and 0.8.x use Jetty 12, causing NoClassDefFoundError: ScopedHandler
@@ -95,6 +100,9 @@
   ;; spawns a subprocess via eval-in-project whose I/O pump hangs in no-TTY.
   ;; See docs/LEIN-UBERJAR-HANG.md
   :plugins [[lein-localrepo "0.5.4"]
+            ;; lein-garden 0.3.0 (2016, abandoned) — see docs/TODO.md
+            ;; "Replace or fork lein-garden" for long-term plan.
+            ;; ns-tracker override is in :dependencies (see comment there).
             [lein-garden "0.3.0"]
             [lein-environ "1.2.0"]
             [dev.weavejester/lein-cljfmt "0.16.0"]
