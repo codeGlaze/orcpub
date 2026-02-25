@@ -10,6 +10,6 @@
      (.format (java.time.LocalDate/now)
               (java.time.format.DateTimeFormatter/ofPattern "MM-dd-yyyy"))))
 
-(defn version [] "2.4.0.28")
+(defn version [] "2.6.0.0")
 (defn date [] (build-date))
-(defn description [] "Assault of the Last Stand")
+(defn description [] "'Liberation of the Iron Coder - tinkan's last stand")
