@@ -72,9 +72,9 @@
   [_opts]
   nil)
 
-;; ─── PDF Upsell ──────────────────────────────────────────────
+;; ─── PDF Options Slot ────────────────────────────────────────
 ;; Hook for additional content below PDF sheet options.
-;; Fork overrides: return hiccup for upsell blocks, premium feature promos.
+;; Fork overrides: return hiccup for premium feature promos, etc.
 
 (defn pdf-options-slot
   "Additional content below PDF options. Returns nil by default."
