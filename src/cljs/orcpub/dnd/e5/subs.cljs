@@ -386,35 +386,37 @@
 (reg-sub-raw
   ::char5e/characters
   (fn [app-db [_ login-optional?]]
-    (go (dispatch [:set-loading true])
-        (let [response (<! (http/get (url-for-route routes/dnd-e5-char-summary-list-route)
-                                     {:headers (auth-headers @app-db)}))]
-          (dispatch [:set-loading false])
-          (handle-api-response response
-            #(dispatch [::char5e/set-characters (:body response)])
-            :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
-            :context "fetch characters")))
+    (when (:token (:user-data @app-db))
+      (go (dispatch [:set-loading true])
+          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-summary-list-route)
+                                       {:headers (auth-headers @app-db)}))]
+            (dispatch [:set-loading false])
+            (handle-api-response response
+              #(dispatch [::char5e/set-characters (:body response)])
+              :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
+              :context "fetch characters"))))
     (ra/make-reaction
      (fn [] (get @app-db ::char5e/characters [])))))
 
 (reg-sub-raw
   ::party5e/parties
   (fn [app-db [_ login-optional?]]
-    (go (dispatch [:set-loading true])
-        (let [response (<! (http/get (url-for-route routes/dnd-e5-char-parties-route)
-                                     {:headers (auth-headers @app-db)}))]
-          (dispatch [:set-loading false])
-          (handle-api-response response
-            #(dispatch [::party5e/set-parties (:body response)])
-            :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
-            :context "fetch parties")))
+    (when (:token (:user-data @app-db))
+      (go (dispatch [:set-loading true])
+          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-parties-route)
+                                       {:headers (auth-headers @app-db)}))]
+            (dispatch [:set-loading false])
+            (handle-api-response response
+              #(dispatch [::party5e/set-parties (:body response)])
+              :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
+              :context "fetch parties"))))
     (ra/make-reaction
      (fn [] (get @app-db ::char5e/parties [])))))
 
 (reg-sub-raw
   :user
   (fn [app-db [_ required?]]
-    (when (and (:user @app-db) (:token (:user @app-db))) ;;check if logged in, prevent unncessary calls
+    (when (:token (:user-data @app-db)) ;; guard: skip HTTP when not logged in
      (go (let [hdrs (auth-headers @app-db)
               response (<! (http/get (url-for-route routes/user-route) {:headers hdrs}))]
           (handle-api-response response
