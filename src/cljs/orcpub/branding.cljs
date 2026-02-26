@@ -44,3 +44,7 @@
 (def social-links
   "Map of social platform links. Empty string = hidden."
   (:social-links config {}))
+
+(def field-limits
+  "Max-length constraints for form input fields."
+  (:field-limits config {:notes 50000 :text 255 :number 7}))

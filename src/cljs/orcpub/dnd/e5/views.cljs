@@ -394,12 +394,7 @@
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
           [:div
            {:style {:min-width "53px"}}
-           (when-let [url (not-empty (:patreon branding/social-links))]
-             [:a {:href url :target :_blank}
-              [:img.h-32.m-l-10.m-b-5.pointer.opacity-7.hover-opacity-full
-               {:src (if mobile?
-                       "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
-                       "https://c5.patreon.com/external/logo/become_a_patron_button.png")}]])
+           [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
               (when-let [url (not-empty (:facebook branding/social-links))]
@@ -1366,6 +1361,14 @@
 (def srd-link
   [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD"])
 
+(defn current-year []
+  (.getFullYear (js/Date.)))
+
+(defn raw-html
+  "Render raw HTML string inside Reagent."
+  [html]
+  [:div {:dangerouslySetInnerHTML #js {:__html html}}])
+
 (defn orcacle []
   (let [search-text @(subscribe [:search-text])]
     [:div.flex.flex-column.h-100-p.white
@@ -1445,21 +1448,24 @@
                  hdr]]]              
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
-        ;  Banner for announcements
-              #_[:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-                 (if (and (not srd-message-closed?)
-                          (not hide-header-message?))
-                   [:div
-                    (if (not frame?)
-                      [:div.content.bg-lighter.p-10.flex
-                       [:div.flex-grow-1
-                        [:div "Site is based on SRD rules. " srd-link "."]]
-                       [:i.fa.fa-times.p-10.pointer
-                        {:on-click #(dispatch [:close-srd-message])}]])])]
+              ;; Support banner (integrations-gated)
+              [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+               [integrations/support-banner
+                {:srd-message-closed? srd-message-closed?
+                 :hide-header-message? hide-header-message?
+                 :frame? frame?
+                 :user-tier @(subscribe [:user-tier])
+                 :on-dismiss #(dispatch [:close-srd-message])}]]
+
+              ;; Content slot (integrations-gated)
+              [integrations/content-slot @(subscribe [:user-tier])]
+
               [:div#app-main.container
                [:div.content.w-100-p content]]
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
+                ;; Content slot (integrations-gated)
+                [integrations/content-slot @(subscribe [:user-tier])]
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
                   [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
@@ -1470,8 +1476,8 @@
                   [:a.orange {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
                   [:a.orange.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]]
                  [:div.legal-footer
-                  [:p "© " branding/copyright-year " " branding/copyright-holder]
-                  [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © " (.getFullYear (js/Date.)) " Wizards. All Rights Reserved."]
+                  [:p "© " (current-year) " " branding/copyright-holder]
+                  [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © " (current-year) " Wizards. All Rights Reserved."]
                   [:p "This site is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
                 [debug-data]]]])]))})))
@@ -3476,15 +3482,6 @@
            (when @show-selections?
              [character-selections id])]]]))))
 
-(defn share-link [id]
-  [:a.m-r-5.f-s-14
-   {:href (str "mailto:?subject=My%20" (js/encodeURIComponent branding/app-name) "%20Character%20"
-               @(subscribe [::char/character-name id])
-               "&body=https://"
-               js/window.location.hostname
-               (routes/path-for routes/dnd-e5-char-page-route :id id))}
-   [:i.fa.fa-envelope.m-r-5]
-   "share"])
 
 (def character-display-style
   {:padding "20px 5px"
@@ -3597,6 +3594,7 @@
                    {:title "Petersen Games - Cthulhu Mythos Sagas sheet" :value 4}]
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
+       [integrations/pdf-options-slot @(subscribe [:user-tier])]
        [:div.flex
         [:div
          {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
@@ -3673,21 +3671,23 @@
            "Character Page")
          (remove
           nil?
-          [[share-link id]
-           [:div.m-l-5.hover-shadow.pointer
-            {:on-click #(swap! expanded? not)}
-            [:img.h-32 {:src "/image/world-anvil.jpeg"}]]
-           (when (and username
-                    owner
-                    (= owner username))
-             {:title "Edit"
-              :icon "pencil"
-              :on-click (make-event-handler :edit-character character)})
-           {:title "Print"
-            :icon "print"
-            :on-click (make-print-handler id built-character)}
-           (when (and username owner (not= owner username))
-             [add-to-party-component id])])
+          (into
+           (vec (integrations/share-links id @(subscribe [::char/character-name id])))
+           (remove nil?
+            [[:div.m-l-5.hover-shadow.pointer
+              {:on-click #(swap! expanded? not)}
+              [:img.h-32 {:src "/image/world-anvil.jpeg"}]]
+             (when (and username
+                      owner
+                      (= owner username))
+               {:title "Edit"
+                :icon "pencil"
+                :on-click (make-event-handler :edit-character character)})
+             {:title "Print"
+              :icon "print"
+              :on-click (make-print-handler id built-character)}
+             (when (and username owner (not= owner username))
+               [add-to-party-component id])])))
          [:div.p-10.main-text-color
           (when @expanded?
             (let [url js/window.location.href]
@@ -7914,7 +7914,7 @@
     [:div
      {:style character-display-style}
      [:div.flex.justify-cont-end.uppercase.align-items-c
-      [share-link id]
+      [integrations/share-link-www id]
       (when (= username owner)
         [:button.form-button
          {:on-click (make-event-handler :edit-character character)}

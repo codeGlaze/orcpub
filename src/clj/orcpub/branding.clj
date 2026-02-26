@@ -65,7 +65,10 @@
   (or (env :app-help-url) ""))
 
 ;; ─── Social Links ──────────────────────────────────────────────────
-;; Set any of these to "" to hide the link in the UI.
+;; Each link appears in the header/footer when non-empty.
+;; Set the corresponding env var to a URL to enable, or leave unset to hide.
+;; e.g. in .env:  APP_SOCIAL_PATREON=https://www.patreon.com/YourProject
+;;                APP_SOCIAL_DISCORD=https://discord.gg/your-invite
 
 (def social-links
   "Map of social platform links. Empty string = hidden."
@@ -74,6 +77,15 @@
    :twitter  (or (env :app-social-twitter)  "")
    :reddit   (or (env :app-social-reddit)   "")
    :discord  (or (env :app-social-discord)  "")})
+
+;; ─── Field Limits ────────────────────────────────────────────────
+;; Input field max-length constraints for form validation.
+
+(def field-limits
+  "Max-length constraints for form input fields."
+  {:notes  (or (some-> (env :app-field-limit-notes) Integer/parseInt) 50000)
+   :text   (or (some-> (env :app-field-limit-text) Integer/parseInt) 255)
+   :number (or (some-> (env :app-field-limit-number) Integer/parseInt) 7)})
 
 ;; ─── Client-Side Config Bridge ───────────────────────────────────
 ;; index.clj injects this as window.__BRANDING__ JSON in <head>.
@@ -88,4 +100,5 @@
    :copyright-year   copyright-year
    :support-email    support-email
    :help-url         help-url
-   :social-links     social-links})
+   :social-links     social-links
+   :field-limits     field-limits})
