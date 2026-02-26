@@ -7,7 +7,8 @@
             [clojure.string :as s]
             [java-time.api :as t]
             [orcpub.csp :as csp]
-            [orcpub.config :as config])
+            [orcpub.config :as config]
+            [orcpub.integrations :as integrations])
   (:import [java.io File]
            [java.time.format DateTimeFormatter]))
 
@@ -66,7 +67,10 @@
     :leave (fn [ctx]
              (if-let [nonce (get-in ctx [:request :csp-nonce])]
                (assoc-in ctx [:response :headers "Content-Security-Policy"]
-                         (csp/build-csp-header nonce :dev-mode? false))
+                         (csp/build-csp-header nonce
+                           :dev-mode? false
+                           :extra-connect-src (:connect-src integrations/csp-domains)
+                           :extra-frame-src (:frame-src integrations/csp-domains)))
                ctx))}))
 
 ;; Create the nonce interceptor with current dev-mode? setting

@@ -46,6 +46,18 @@
 ;;               :src (str "https://cdn.example.com/sdk.js?client=" sdk-client)
 ;;               :crossorigin "anonymous"}]))
 
+(def csp-domains
+  "Extra CSP domains required by enabled integrations.
+   Returns {:connect-src [\"https://...\"] :frame-src [\"https://...\"]}.
+   csp.clj merges these into the Content-Security-Policy header."
+  ;; (merge-with into
+  ;;   (when (seq analytics-url)
+  ;;     {:connect-src [analytics-url]})
+  ;;   (when (seq sdk-client)
+  ;;     {:connect-src ["https://cdn.example.com"]
+  ;;      :frame-src   ["https://cdn.example.com"]}))
+  {})
+
 (defn head-tags
   "All third-party integration tags for <head>.
    Returns a flat seq of hiccup elements, empty when nothing is configured.
