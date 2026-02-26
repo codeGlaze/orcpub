@@ -89,10 +89,11 @@
                        :port (environ/env :email-server-port)}
                       e)))))
 
-(defn emailfrom []
-  (if (not (s/blank? (environ/env :email-from-address)))
-    (environ/env :email-from-address)
-    branding/email-from-address))
+(defn emailfrom
+  "Returns the configured from-address. Delegates to branding/email-from-address
+   which already reads EMAIL_FROM_ADDRESS env var with a fallback default."
+  []
+  branding/email-from-address)
 
 (defn send-verification-email
   "Sends account verification email to a new user.

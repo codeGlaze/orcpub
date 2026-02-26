@@ -19,7 +19,7 @@
   [_route]
   (when (exists? js/_paq)
     (.push js/_paq #js ["setReferrerUrl" js/location.href])
-    (.push js/_paq #js ["setCustomUrl" js/window.location])
+    (.push js/_paq #js ["setCustomUrl" js/window.location.href])
     (.push js/_paq #js ["setDocumentTitle" js/document.title])
     (.push js/_paq #js ["deleteCustomVariables" "page"])
     (.push js/_paq #js ["trackPageView"])
@@ -134,13 +134,13 @@
     {:href (str "mailto:?subject=My%20D%26D%20Character%20-%20"
                 character-name
                 "&body=" js/window.location.protocol "//" js/window.location.hostname
-                js/window.location.port
+                (when-let [p js/window.location.port] (when (seq p) (str ":" p)))
                 (routes/path-for routes/dnd-e5-char-page-route :id id "?frame=true"))}
     [:i.fa.fa-envelope.m-r-5]
     "share"]
    [:a.m-r-5.f-s-14
     {:href (str js/window.location.protocol "//" js/window.location.hostname
-                js/window.location.port
+                (when-let [p js/window.location.port] (when (seq p) (str ":" p)))
                 (routes/path-for routes/dnd-e5-char-page-route :id id) "?frame=true")
      :target "_blank"}
     [:i.fa.fa-link.m-r-5]
@@ -151,7 +151,7 @@
   [id]
   [:a.m-r-5.f-s-14
    {:href (str js/window.location.protocol "//" js/window.location.hostname
-               js/window.location.port
+               (when-let [p js/window.location.port] (when (seq p) (str ":" p)))
                (routes/path-for routes/dnd-e5-char-page-route :id id) "?frame=true")
     :target "_blank"}
    [:i.fa.fa-link.m-r-5]

@@ -395,10 +395,6 @@
 (defn route-to-my-encounters-page []
   (dispatch [:route routes/dnd-e5-my-encounters-route]))
 
-#_(def logo [:img.h-60.pointer
-           {:src "/image/dmv-logo.svg"
-            :on-click route-to-default-route}])
-
 (def logo [:a {:href "/" } [:img.h-60.pointer
            {:src branding/logo-path}]])
 
@@ -3896,15 +3892,6 @@
 
 (defn input-builder-field [name value on-change attrs]
   [builder-field :input name value on-change attrs])
-
-;; dead — zero callers
-#_(defn text-field [{:keys [value on-change]}]
-  [comps/input-field
-   :input
-   value
-   on-change
-   {:class-name "input"
-    :maxLength 255}])
 
 (defn textarea-field [{:keys [value on-change]}]
   [comps/input-field
