@@ -254,9 +254,6 @@
  (fn [db _]
    (-> db :user-data :user-data :username)))
 
-;; :patron and :patron-tier subs moved to orcpub.user-tier
-;; UI code should use :user-tier instead.
-
 (reg-sub
  :email
  (fn [db _]

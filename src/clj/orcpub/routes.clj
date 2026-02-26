@@ -40,6 +40,7 @@
             [orcpub.entity :as entity]
             [orcpub.security :as security]
             [orcpub.branding :as branding]
+            [orcpub.user-data :as user-data]
             [orcpub.routes.party :as party]
             ;[orcpub.oauth :as oauth]
             [orcpub.routes.folder :as folder]
@@ -235,12 +236,15 @@
   (map :orcpub.user/username
        (d/pull-many db '[:orcpub.user/username] ids)))
 
-(defn user-body [db user]
-  (cond-> {:username (:orcpub.user/username user)
-           :email (:orcpub.user/email user)
-     		   :patron (:orcpub.user/patron user)
-           :patron-tier (:orcpub.user/patron-tier user) 
-           :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
+(defn user-body
+  "Build the user API response. Core fields are inline; fork-specific
+   fields (e.g. tier data) are added by user-data/enrich-response."
+  [db user]
+  (cond-> (user-data/enrich-response
+           {:username (:orcpub.user/username user)
+            :email (:orcpub.user/email user)
+            :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
+           user)
     (:orcpub.user/pending-email user)
     (assoc :pending-email (:orcpub.user/pending-email user))))
 
@@ -275,8 +279,6 @@
                   {:keys [:orcpub.user/verified?
                           :orcpub.user/verification-sent
                           :orcpub.user/email
-                          :orcpub.user/patron
-                          :orcpub.user/patron-tier
                           :db/id] :as user} (lookup-user db username password)
                   unverified? (not verified?)
                   expired? (and verification-sent (verification-expired? verification-sent))]
@@ -357,14 +359,14 @@
          json-params
          conn
          send-updates?
-         {:orcpub.user/email email
-          :orcpub.user/username username
-          :orcpub.user/password (hashers/encrypt password)
-          :orcpub.user/send-updates? send-updates?
-          :orcpub.user/created now
-          :orcpub.user/patron false
-          :orcpub.user/patron-tier " "
-          :orcpub.user/last-login now}))
+         (merge
+          {:orcpub.user/email email
+           :orcpub.user/username username
+           :orcpub.user/password (hashers/encrypt password)
+           :orcpub.user/send-updates? send-updates?
+           :orcpub.user/created now
+           :orcpub.user/last-login now}
+          (user-data/registration-defaults))))
       (catch Throwable e (prn e) (throw e)))))
 
 (def user-for-verification-key-query
