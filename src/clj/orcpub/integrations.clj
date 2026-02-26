@@ -50,8 +50,9 @@
                  :crossorigin "anonymous"})))
 
 (defn head-tags
-  "All third-party integration tags for <head>. Returns a seq of hiccup elements."
+  "All third-party integration tags for <head>. Returns a flat seq of hiccup elements."
   [nonce]
-  (keep identity
-    [(adsense-tag nonce)
-     (matomo-tags nonce)]))
+  (remove nil?
+    (concat
+      [(adsense-tag nonce)]
+      (matomo-tags nonce))))
