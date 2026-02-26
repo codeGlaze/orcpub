@@ -405,6 +405,7 @@ start_server() {
 start_figwheel() {
     local idempotent="${1:-false}"
     local port_result=0
+    local build_name="dev"
 
     # Check port (0=available, 1=abort, 2=skip)
     check_port_available "$FIGWHEEL_PORT" "figwheel" "$idempotent" || port_result=$?
@@ -418,11 +419,39 @@ start_figwheel() {
     # Clean up stale PID file
     cleanup_stale_pid "figwheel"
 
+    # ── Remote dev environment detection ──────────────────────────────
+    # Figwheel's default connect URL (ws://localhost:PORT) only works when
+    # the browser is on the same machine. In remote environments (Codespaces,
+    # Gitpod, etc.) the browser connects through a forwarded hostname.
+    # We auto-detect Codespaces and pass --fw-opts to override the connect URL.
+    # Set FIGWHEEL_CONNECT_URL in .env to override for other remote setups.
+    local connect_url="${FIGWHEEL_CONNECT_URL:-}"
+    local fw_opts=""
+
+    if [[ -z "$connect_url" && "${CODESPACES:-}" == "true" ]]; then
+        local cs_domain="${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
+        local cs_name="${CODESPACE_NAME:?CODESPACE_NAME required in Codespaces}"
+        connect_url="wss://${cs_name}-${FIGWHEEL_PORT}.${cs_domain}/figwheel-connect"
+        log_info "Codespaces detected"
+    fi
+
+    if [[ -n "$connect_url" ]]; then
+        # Build EDN override for figwheel's --fw-opts flag.
+        # Merges with dev.cljs.edn metadata — no generated file needed.
+        printf -v fw_opts '{:connect-url "%s" :ring-server-options {:port %s :host "0.0.0.0"} :open-url false}' \
+            "$connect_url" "$FIGWHEEL_PORT"
+        log_info "Remote dev connect URL: $connect_url"
+    fi
+
     log_info "Starting Figwheel (ClojureScript hot-reload)..."
     cd "$REPO_ROOT"
-    # Use fig:watch alias (headless build + watch, no REPL — works with nohup)
-    # For interactive REPL use: lein fig:dev (needs a terminal)
-    nohup lein fig:watch > "$LOG_DIR/figwheel.log" 2>&1 &
+    # Use fig:watch alias for local dev, or pass --fw-opts for remote environments.
+    # --fw-opts merges EDN overrides with the build config in dev.cljs.edn.
+    if [[ -n "$fw_opts" ]]; then
+        nohup lein run -m figwheel.main -- --fw-opts "$fw_opts" --build dev > "$LOG_DIR/figwheel.log" 2>&1 &
+    else
+        nohup lein fig:watch > "$LOG_DIR/figwheel.log" 2>&1 &
+    fi
     local figwheel_pid=$!
     echo "$figwheel_pid" > "$LOG_DIR/figwheel.pid"
     log_info "Figwheel started (PID $figwheel_pid)"
@@ -440,6 +469,9 @@ start_figwheel() {
     log_info "Waiting for Figwheel to be ready (port $FIGWHEEL_PORT)..."
     if wait_for_port_or_die "$FIGWHEEL_PORT" "$figwheel_pid" "$PORT_WAIT"; then
         log_info "Figwheel is ready"
+        if [[ -n "$connect_url" ]]; then
+            log_info "Hot-reload WebSocket: $connect_url"
+        fi
     elif kill -0 "$figwheel_pid" 2>/dev/null; then
         # Process alive but port not ready — likely first-run compile/dep download
         log_warn "Figwheel still starting (PID $figwheel_pid alive, port $FIGWHEEL_PORT not yet open)"
