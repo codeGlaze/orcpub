@@ -25,7 +25,9 @@
      :font-size 32
      :paragraphs
      ["We wrote this policy to help you understand what information we collect, how we use it, and what choices you have. Because we're an internet company, some of the concepts below are a little technical, but we've tried our best to explain things in a simple and clear way. We welcome your questions and comments on this policy."
-      (str "At " branding/app-name ", accessible from <a href='https://www.dungeonmastersvault.com'>DungeonMastersVault.com</a>, https://lists.dungeonmastersvault.com or any host under the domain name *.dungeonmastersvault.com")
+      (if (seq branding/app-url)
+        (str "At " branding/app-name ", accessible from <a href='" branding/app-url "'>" branding/app-name "</a> or any host under the same domain")
+        (str "At " branding/app-name))
       (str "This Privacy Policy document contains types of information that is collected and recorded by " branding/app-name " and how we use it. If you have additional questions or require more information about our Privacy Policy, do not hesitate to contact us.")
       (str "This Privacy Policy applies only to our online activities and is valid for visitors to our website with regards to the information that they shared and/or collect in " branding/app-name ". This policy is not applicable to any information collected offline or via channels other than this website.")]}
     {:title "Consent"

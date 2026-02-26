@@ -5,7 +5,8 @@
    Server-side (.clj) is the source of truth. Client-side branding
    is delivered via the config bridge: index.clj injects client-config
    as window.__BRANDING__ JSON in <head>, and branding.cljs reads it."
-  (:require [environ.core :refer [env]]))
+  (:require [environ.core :refer [env]])
+  (:import [java.time Year]))
 
 ;; ─── App Identity ──────────────────────────────────────────────────
 
@@ -17,6 +18,10 @@
   "One-line description for OG/meta tags."
   (or (env :app-tagline)
       "Dungeons & Dragons 5th Edition (D&D 5e) character builder/generator and digital character sheet far beyond any other in the multiverse."))
+
+(def app-url
+  "Primary application URL for legal pages and external references."
+  (or (env :app-url) "https://www.dungeonmastersvault.com"))
 
 (def default-page-title
   "Default <title> and og:title when no page-specific title is set."
@@ -41,8 +46,8 @@
   (or (env :app-copyright-holder) "Dungeon Master's Vault"))
 
 (def copyright-year
-  "Copyright year string."
-  (or (env :app-copyright-year) "2025"))
+  "Copyright year string. Defaults to the current year."
+  (or (env :app-copyright-year) (str (.getValue (Year/now)))))
 
 ;; ─── Email ─────────────────────────────────────────────────────────
 
@@ -71,6 +76,7 @@
   "Map of social platform links. Empty string = hidden."
   {:patreon  (or (env :app-social-patreon)  "https://www.patreon.com/DungeonMastersVault")
    :facebook (or (env :app-social-facebook) "https://www.facebook.com/groups/252484128656613/")
+   :bluesky  (or (env :app-social-bluesky)  "")
    :twitter  (or (env :app-social-twitter)  "https://twitter.com/thdmv")
    :reddit   (or (env :app-social-reddit)   "")
    :discord  (or (env :app-social-discord)  "")})

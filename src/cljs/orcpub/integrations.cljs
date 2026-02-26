@@ -9,6 +9,15 @@
   (:require [orcpub.branding :as branding]
             [orcpub.route-map :as routes]))
 
+;; ─── Config Bridge ──────────────────────────────────────────────
+;; Server injects integrations.clj/client-config as window.__INTEGRATIONS__ JSON.
+;; We read it once at namespace load time.
+
+(def ^:private config
+  "Server-injected integration config (AdSense client/slot IDs, etc.)."
+  (when (exists? js/window.__INTEGRATIONS__)
+    (js->clj js/window.__INTEGRATIONS__ :keywordize-keys true)))
+
 ;; ─── Page View Tracking ─────────────────────────────────────────
 ;; Called from the :route event handler (events.cljs), NOT from render
 ;; function bodies (which fire on every React re-render).
@@ -67,19 +76,22 @@
 
 (defn content-slot
   "DMV: Google AdSense in-page banner. Self-gated to default-tier users.
+   Reads ad client/slot from server-injected config bridge.
    Returns hiccup with dangerouslySetInnerHTML, or nil for tiered users."
   [user-tier]
-  (when (= :free user-tier)
-    [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-     [:div.content.p-10.flex
-      [:div.flex-grow-1.t-a-c
-       [:div {:dangerouslySetInnerHTML
-              #js {:__html (str "<!-- InPage -->\n"
-                                "<ins class=\"adsbygoogle\" style=\"display:block\" "
-                                "data-ad-client=\"ca-pub-3202063096003962\" "
-                                "data-ad-slot=\"4970831358\" data-ad-format=\"auto\" "
-                                "data-full-width-responsive=\"true\"></ins>\n"
-                                "<script> (adsbygoogle = window.adsbygoogle || []).push({}); </script>")}}]]]]))
+  (let [ad-client (:adsense-client config)
+        ad-slot   (:adsense-slot config)]
+    (when (and (= :free user-tier) (seq ad-client) (seq ad-slot))
+      [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
+       [:div.content.p-10.flex
+        [:div.flex-grow-1.t-a-c
+         [:div {:dangerouslySetInnerHTML
+                #js {:__html (str "<!-- InPage -->\n"
+                                  "<ins class=\"adsbygoogle\" style=\"display:block\" "
+                                  "data-ad-client=\"" ad-client "\" "
+                                  "data-ad-slot=\"" ad-slot "\" data-ad-format=\"auto\" "
+                                  "data-full-width-responsive=\"true\"></ins>\n"
+                                  "<script> (adsbygoogle = window.adsbygoogle || []).push({}); </script>")}}]]]])))
 
 ;; ─── Supporter Link ──────────────────────────────────────────
 ;; Header supporter area. Shows tier badge for patrons, default

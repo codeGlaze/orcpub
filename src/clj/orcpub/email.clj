@@ -11,8 +11,7 @@
             [clojure.string :as s]
             [orcpub.route-map :as routes]
             [orcpub.branding :as branding]
-            [cuerdas.core :as str]
-            [clj-http.client :as client]))
+            [cuerdas.core :as str]))
 
 (defn- social-links-footer
   "Render email footer social links from branding config. Empty links hidden."
@@ -30,10 +29,11 @@
 (defn verification-email-html [first-and-last-name username verification-url]
   (into
    [:div
-    (str "Welcome to " branding/app-name "!")
+    (str "Welcome to " branding/app-name
+         (when (seq first-and-last-name) (str ", " first-and-last-name)) "!")
     [:br]
     [:br]
-    (str "Your " branding/app-name " account is almost ready, we just need you to verify your email address going the following URL to confirm that you are authorized to use this email address:")
+    (str "Your " branding/app-name " account is almost ready, we just need you to verify your email address by visiting the following URL to confirm that you are authorized to use this email address:")
     [:br]
     [:br]
     [:a {:href verification-url} verification-url]
@@ -53,7 +53,7 @@
   "Email body for existing users changing their email (distinct from registration)."
   [username verification-url]
   [:div
-   (str "Dear " branding/app-name " Patron,")
+   (str "Dear " branding/app-name " User,")
    [:br]
    [:br]
    "You requested to change the email address on your account (" username "). "
@@ -133,20 +133,45 @@
                       e)))))
 
 (defn send-email-change-verification
-  "Send a verification email for an email-change request (not registration)."
+  "Send a verification email for an email-change request (not registration).
+
+  Args:
+    base-url - Base URL for the application (for verification link)
+    user-map - Map containing :email and :username
+    verification-key - Unique key for email change verification
+
+  Returns:
+    Postal send-message result
+
+  Throws:
+    ExceptionInfo with :email-change-verification-failed error code if email cannot be sent"
   [base-url {:keys [email username]} verification-key]
-  (postal/send-message (email-cfg)
-                       {:from (str branding/email-sender-name " <" (emailfrom) ">")
-                        :to email
-                        :subject (str branding/app-name " Email Change Verification")
-                        :body (email-change-verification-email
-                               username
-                               (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))}))
+  (try
+    (let [result (postal/send-message (email-cfg)
+                                      {:from (str branding/email-sender-name " <" (emailfrom) ">")
+                                       :to email
+                                       :subject (str branding/app-name " Email Change Verification")
+                                       :body (email-change-verification-email
+                                              username
+                                              (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))})]
+      (when (not= :SUCCESS (:error result))
+        (throw (ex-info "Failed to send email change verification"
+                        {:error :email-send-failed
+                         :email email
+                         :postal-response result})))
+      result)
+    (catch Exception e
+      (println "ERROR: Failed to send email change verification to" email ":" (.getMessage e))
+      (throw (ex-info "Unable to send email change verification. Please check your email configuration or try again later."
+                      {:error :email-change-verification-failed
+                       :email email
+                       :username username}
+                      e)))))
 
 (defn reset-password-email-html [first-and-last-name reset-url]
   (into
    [:div
-    (str "Dear " branding/app-name " Patron")
+    (str "Dear " (if (seq first-and-last-name) first-and-last-name (str branding/app-name " User")) ",")
     [:br]
     [:br]
     "We received a request to reset your password, to do so please go to the following URL to complete the reset."
