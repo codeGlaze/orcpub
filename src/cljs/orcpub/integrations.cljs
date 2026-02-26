@@ -1,10 +1,14 @@
 (ns orcpub.integrations
-  "Client-side integration hooks. No-op by default.
-   Fork overrides: replace these functions with real implementations.
+  "Client-side integration hooks with minimal defaults.
+   Fork overrides: replace with full implementations.
+
+   Lifecycle hooks (track-page-view!, on-app-mount!, etc.) are no-ops.
+   UI hooks provide basic defaults (e.g. supporter-link shows a Patreon
+   button when configured, share-links provides a single email link).
 
    Companion to integrations.clj (server-side head tags).
    Server-side loads third-party scripts in <head>;
-   this namespace provides the in-app lifecycle hooks."
+   this namespace provides the in-app component hooks."
   (:require [orcpub.branding :as branding]
             [orcpub.route-map :as routes]))
 
