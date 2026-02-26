@@ -307,10 +307,10 @@
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
 (defn send-verification-email [request params verification-key send-updates?]
-  (email/send-verification-email 
+  (email/send-verification-email
    (base-url request)
    params
-   verification-key send-updates?))
+   verification-key))
 
 (defn send-email-change-verification [request params verification-key]
   (email/send-email-change-verification
