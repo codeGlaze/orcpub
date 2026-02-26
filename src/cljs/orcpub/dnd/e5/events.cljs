@@ -77,6 +77,7 @@
             [bidi.bidi :as bidi]
             [orcpub.route-map :as routes]
             [orcpub.errors :as errors]
+            [orcpub.integrations :as integrations]
             [clojure.set :as sets]
             [cljsjs.filesaverjs]
             [clojure.pprint :as pprint])
@@ -1558,6 +1559,8 @@
                                                js/window.location.hostname
                                                path
                                                js/window.location.port)))
+     ;; Fire analytics tracking once per navigation (not in render body)
+     (integrations/track-page-view! new-route)
      (cond-> {:db (assoc db :route new-route)
               :dispatch-n [[:hide-message]
                            [:close-orcacle]]}
