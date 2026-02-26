@@ -1,6 +1,7 @@
 (ns orcpub.index
   (:require [hiccup.page :refer [html5 include-css]]
             [orcpub.oauth :as oauth]
+            [orcpub.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
             [orcpub.integrations :as integrations]
@@ -46,10 +47,10 @@
     (meta-tag "og:title" title)
     (meta-tag "og:description" description)
     (meta-tag "og:image" image)
-    (meta-tag "og:site_name" "Dungeon Master's Vault")
+    (meta-tag "og:site_name" branding/app-name)
     (meta-tag "og:type" "website")
     (meta-tag "twitter:card" "summary_large_image")
-    (meta-tag "twitter:site" "Dungeon Master's Vault")
+    (meta-tag "twitter:site" branding/app-name)
     (meta-tag "twitter:title" title)
     (meta-tag "twitter:description" description)
     (meta-tag "twitter:image" image)
