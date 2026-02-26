@@ -650,7 +650,9 @@
 
 (def default-description branding/app-tagline)
 
-(defn default-image-url [host]
+(defn default-image-url
+  "OG meta image URL. Uses https:// for social sharing compatibility."
+  [host]
   (str "https://" host branding/og-image-filename))
 
 (defn index-page-response [{:keys [headers uri csp-nonce] :as request}

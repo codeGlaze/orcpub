@@ -1548,6 +1548,7 @@
 (reg-event-fx
  :route
  (fn [{:keys [db]} [_ {:keys [handler route-params] :as new-route} {:keys [no-return? skip-path? event secure?] :as options}]]
+   (integrations/track-page-view! new-route)
    (let [{:keys [route route-history]} db
          seq-params (seq route-params)
          flat-params (flatten seq-params)
@@ -1559,8 +1560,6 @@
                                                js/window.location.hostname
                                                path
                                                js/window.location.port)))
-     ;; Fire analytics tracking once per navigation (not in render body)
-     (integrations/track-page-view! new-route)
      (cond-> {:db (assoc db :route new-route)
               :dispatch-n [[:hide-message]
                            [:close-orcacle]]}
