@@ -46,6 +46,7 @@
 
             [reagent.core :as r]
             [orcpub.branding :as branding]
+            [orcpub.integrations :as integrations]
             [re-frame.core :refer [subscribe dispatch dispatch-sync]]))
 ;console-print
 (def print-disabled? true)
@@ -2115,45 +2116,46 @@
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [views5e/content-page
      "Character Builder"
-     (remove
-      nil?
-      [(if character-id [views5e/share-link-email character-id])
-       (if character-id [views5e/share-link-www character-id])
-       {:title "Random"
-        :icon "random"
-        :on-click (confirm-handler
-                   character-changed?
-                   {:confirm-button-text "GENERATE RANDOM CHARACTER"
-                    :question "You have unsaved changes, are you sure you want to discard them and generate a random character?"
-                    :pre set-loading
-                    :event [:random-character character built-template locked-components]})}
-       {:title "New"
-        :icon "plus"
-        :on-click (confirm-handler
-                   character-changed?
-                   {:confirm-button-text "CREATE NEW CHARACTER"
-                    :question "You have unsaved changes, are you sure you want to discard them and create a new character?"
-                    :event [:reset-character]})}
-       {:title "Clone"
-        :icon "clone"
-        :on-click (confirm-handler
-                   character-changed?
-                   {:confirm-button-text "CREATE CLONE"
-                    :question "You have unsaved changes, are you sure you want to discard them and clone this character? The new character will have the unsaved changes, the original will not."
-                    :event [::char5e/clone-character]})}
-       {:title (if (:db/id character)
-                 "Save"
-                 "Save New Character")
-        :icon "save"
-        :style (when character-changed? unsaved-button-style)
-        :on-click #(save-character built-char)}
-       (when (:db/id character)
-         {:title "View"
-          :icon "eye"
-          :on-click (load-character-page (:db/id character))})
-       {:title "Export"
-        :icon "download"
-        :on-click (views5e/make-print-handler (:db/id character) built-char)}])
+     (into
+      (if character-id
+        (vec (integrations/share-links character-id @(subscribe [::char5e/character-name character-id])))
+        [])
+      (remove nil?
+       [{:title "Random"
+         :icon "random"
+         :on-click (confirm-handler
+                    character-changed?
+                    {:confirm-button-text "GENERATE RANDOM CHARACTER"
+                     :question "You have unsaved changes, are you sure you want to discard them and generate a random character?"
+                     :pre set-loading
+                     :event [:random-character character built-template locked-components]})}
+        {:title "New"
+         :icon "plus"
+         :on-click (confirm-handler
+                    character-changed?
+                    {:confirm-button-text "CREATE NEW CHARACTER"
+                     :question "You have unsaved changes, are you sure you want to discard them and create a new character?"
+                     :event [:reset-character]})}
+        {:title "Clone"
+         :icon "clone"
+         :on-click (confirm-handler
+                    character-changed?
+                    {:confirm-button-text "CREATE CLONE"
+                     :question "You have unsaved changes, are you sure you want to discard them and clone this character? The new character will have the unsaved changes, the original will not."
+                     :event [::char5e/clone-character]})}
+        {:title (if (:db/id character)
+                  "Save"
+                  "Save New Character")
+         :icon "save"
+         :style (when character-changed? unsaved-button-style)
+         :on-click #(save-character built-char)}
+        (when (:db/id character)
+          {:title "View"
+           :icon "eye"
+           :on-click (load-character-page (:db/id character))})
+        {:title "Export"
+         :icon "download"
+         :on-click (views5e/make-print-handler (:db/id character) built-char)}]))
      [:div
       [:div.container
        [:div.content

@@ -436,15 +436,7 @@
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
           [:div
            {:style {:min-width "53px"}}
-           (let [patreon-url (:patreon branding/social-links)]
-             (when (seq patreon-url)
-               [:a {:href patreon-url :target :_blank}
-                (if (not= :free @(subscribe [:user-tier]))
-                  [svg-icon @(subscribe [:user-tier]) (if mobile? 40 60) ""]
-                  [:img.h-32.m-l-10.m-b-5.pointer
-                   {:src (if mobile?
-                           "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
-                           "https://c5.patreon.com/external/logo/become_a_patron_button.png")}])]))
+           [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
               (when-let [url (not-empty (:facebook branding/social-links))]
@@ -1489,15 +1481,6 @@
 (def srd-link
   [:a.orange {:href "/dnld/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
 
-(defn patron-banner-link []
-  (when-let [url (not-empty (:patreon branding/social-links))]
-    [:a.orange {:href url :target "_blank"} "Become a Patron today"]))
-
-(defn faq-link []
-  (when-let [url (not-empty branding/help-url)]
-    [:a.orange {:href url :target "_blank"} " here"]))
-
-
 (defn current-year []
   (.getFullYear (js/Date.))) 
 
@@ -1570,39 +1553,25 @@
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
 
-              ;Banner for announcements
+              ;; Support banner (integrations-gated)
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-               (if (and (not srd-message-closed?)
-                        (not hide-header-message?)
-                        (= :free @(subscribe [:user-tier])))
-                 [:div
-                  (if (not frame?)
-                    [:div.content.bg-lighter.p-10.flex
-                     [:div.flex-grow-1.t-a-c
-                      [:div.p-t-10 "Please consider a gift of $1 to support this site."]
-                      [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
-                      [:div.p-t-10.p-b-10 [patron-banner-link]]]
-                     [:i.fa.fa-times.p-10.pointer
-                      {:on-click #(dispatch [:close-srd-message])}]])])]
+               [integrations/support-banner
+                {:srd-message-closed? srd-message-closed?
+                 :hide-header-message? hide-header-message?
+                 :frame? frame?
+                 :user-tier @(subscribe [:user-tier])
+                 :on-dismiss #(dispatch [:close-srd-message])}]]
 
-                ;Content Slot
-              (when (= :free @(subscribe [:user-tier]))
-                [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-                 [:div.content.p-10.flex
-                  [:div.flex-grow-1.t-a-c
-                   [integrations/content-slot]]]])
+              ;; Content slot (integrations-gated)
+              [integrations/content-slot @(subscribe [:user-tier])]
 
               [:div#app-main.container
                [:div.content.w-100-p content]]
 
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
-                ;Content Slot
-                (when (= :free @(subscribe [:user-tier]))
-                  [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-                   [:div.content.p-10.flex
-                    [:div.flex-grow-1.t-a-c
-                     [integrations/content-slot]]]])
+                ;; Content slot (integrations-gated)
+                [integrations/content-slot @(subscribe [:user-tier])]
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
@@ -2803,7 +2772,7 @@
            @(subscribe [::char/notes id])
            (set-notes-handler id)
            {:style notes-style
-            :maxLength 50000
+            :maxLength (:notes branding/field-limits)
             :class-name "input"}]]]]]]]))
 
 (defn weapon-details-field [nm value]
@@ -3629,21 +3598,6 @@
            (when @show-selections?
              [character-selections id])]]]))))
 
-(defn share-link-email [id]
-  [:a.m-r-5.f-s-14
-   {:href (str "mailto:?subject=My%20D%26D%20Character%20-%20"
-               @(subscribe [::char/character-name id])
-               "&body=" js/window.location.protocol "//" js/window.location.hostname "" js/window.location.port
-               (routes/path-for routes/dnd-e5-char-page-route :id id "?frame=true"))}
-   [:i.fa.fa-envelope.m-r-5]
-   "share"])
-
-(defn share-link-www [id]
-  [:a.m-r-5.f-s-14
-   {:href (str js/window.location.protocol "//" js/window.location.hostname "" js/window.location.port
-               (routes/path-for routes/dnd-e5-char-page-route :id id )"?frame=true") :target "_blank"}
-   [:i.fa.fa-link.m-r-5]
-   "www"])
 
 (def character-display-style
   {:padding "20px 5px"
@@ -3741,15 +3695,6 @@
         print-button-enabled (if (or (= print-character-sheet-style? nil)
                                      (= (str print-character-sheet-style?) "NaN"))
                                false true)
-        tiered? (not= :free @(subscribe [:user-tier]))
-        items (if tiered? [{:title "Select" :value " "}
-                           {:title "Original 5e Character sheet" :value 1}
-                           {:title "Original 5e Character sheet - optional variant" :value 2}
-                           {:title "Icewind Dale 5e Character sheet" :value 3}
-                           {:title "Petersen Games - Cthulhu Mythos Sagas sheet" :value 4}]
-                  [{:title "Select" :value " "}
-                   {:title "Original 5e Character sheet" :value 1}])
-
         ]
     [:div.flex.justify-cont-end
      [:div.p-20
@@ -3766,17 +3711,7 @@
                    {:title "Petersen Games - Cthulhu Mythos Sagas sheet" :value 4}]
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
-       (when-not tiered?
-         (let [patreon-url (not-empty (:patreon branding/social-links))]
-           [:div
-            [:div.flex.m-b-10 "Supporters get access to 3 additional character sheets:"]
-            [:div.flex.m-b-10 "Original 5e Character sheet - optional variant"]
-            [:div.flex.m-b-10 "Icewind Dale 5e Character sheet"]
-            [:div.flex.m-b-10 "Cthulhu Mythos Sagas sheet"]
-            (when patreon-url
-              [:div.flex.m-b-10
-               [:a.orange {:href patreon-url :target "_blank"}
-                "Become a Patron to unlock these today"]])]))
+       [integrations/pdf-upsell @(subscribe [:user-tier])]
        [:div.flex
         [:div
          {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
@@ -3866,24 +3801,23 @@
         [content-page
          (when (not frame?)
            "Character Page")
-         (remove
-          nil?
-          [[share-link-email id]
-           [share-link-www id]
-           #_[:div.m-l-5.hover-shadow.pointer
-              {:on-click #(swap! expanded? not)}
-              [:img.h-32 {:src "/image/world-anvil.jpeg"}]]
-           (when (and username
-                    owner
-                    (= owner username))
-             {:title "Edit"
-              :icon "pencil"
-              :on-click (make-event-handler :edit-character character)})
-           {:title "Export"
-            :icon "download"
-            :on-click (make-print-handler id built-character)}
-           (when (and username owner (not= owner username))
-             [add-to-party-component id])])
+         (into
+          (vec (integrations/share-links id @(subscribe [::char/character-name id])))
+          (remove nil?
+           [#_[:div.m-l-5.hover-shadow.pointer
+               {:on-click #(swap! expanded? not)}
+               [:img.h-32 {:src "/image/world-anvil.jpeg"}]]
+            (when (and username
+                     owner
+                     (= owner username))
+              {:title "Edit"
+               :icon "pencil"
+               :on-click (make-event-handler :edit-character character)})
+            {:title "Export"
+             :icon "download"
+             :on-click (make-print-handler id built-character)}
+            (when (and username owner (not= owner username))
+              [add-to-party-component id])]))
          [:div.p-10.main-text-color
           (when @expanded?
             (let [url js/window.location.href]
@@ -3978,7 +3912,7 @@
    value
    on-change
    {:class-name "input"
-    :maxLength 50000}])
+    :maxLength (:notes branding/field-limits)}])
 
 (defn number-field [{:keys [value on-change]}]
   [comps/input-field
@@ -3989,7 +3923,7 @@
       (when (re-matches #"\d+" v) (js/parseInt v))))
    {:class "input"
     :type :number
-    :maxLength 7}])
+    :maxLength (:number branding/field-limits)}])
 
 (defn attunement-value [attunement key name]
   [:div
@@ -4390,7 +4324,7 @@
     #(dispatch [prop-event prop %])
     {:class "input h-40"
      :type type
-     :maxLength 255}]])
+     :maxLength (:text branding/field-limits)}]])
 
 #_(defn item-input-field [title prop item & [class-names]]
   (builder-input-field title prop item ::mi/set-item-name class-names))
@@ -8114,7 +8048,7 @@
     [:div
      {:style character-display-style}
      [:div.flex.justify-cont-end.uppercase.align-items-c
-      [share-link-www id]
+      [integrations/share-link-www id]
       (when (= username owner)
         [:button.form-button
          {:on-click (make-event-handler :edit-character character)}
