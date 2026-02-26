@@ -243,6 +243,7 @@
   (cond-> (user-data/enrich-response
            {:username (:orcpub.user/username user)
             :email (:orcpub.user/email user)
+            :send-updates? (boolean (:orcpub.user/send-updates? user))
             :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
            user)
     (:orcpub.user/pending-email user)
@@ -309,11 +310,11 @@
 (defn base-url [{:keys [scheme headers]}]
   (str (or (headers "x-forwarded-proto") (name scheme)) "://" (headers "host")))
 
-(defn send-verification-email [request params verification-key send-updates?]
-  (email/send-verification-email 
+(defn send-verification-email [request params verification-key]
+  (email/send-verification-email
    (base-url request)
    params
-   verification-key send-updates?))
+   verification-key))
 
 (defn send-email-change-verification [request params verification-key]
   (email/send-email-change-verification
@@ -321,7 +322,7 @@
    params
    verification-key))
 
-(defn do-verification [request params conn send-updates? & [tx-data]]
+(defn do-verification [request params conn & [tx-data]]
   (let [verification-key (str (java.util.UUID/randomUUID))
         now (java.util.Date.)]
     (try
@@ -332,7 +333,7 @@
           {:orcpub.user/verified? false
            :orcpub.user/verification-key verification-key
            :orcpub.user/verification-sent now})])
-      (send-verification-email request params verification-key send-updates?)
+      (send-verification-email request params verification-key)
       {:status 200}
       (catch Exception e
         (println "ERROR: Failed to create verification record:" (.getMessage e))
@@ -358,7 +359,6 @@
          request
          json-params
          conn
-         send-updates?
          (merge
           {:orcpub.user/email email
            :orcpub.user/username username
@@ -446,8 +446,50 @@
                        (merge query-params
                               {:first-and-last-name (str branding/app-name " User")})
                        conn
-                       nil
                        {:db/id id}))))
+
+;; ─── Email Preferences ─────────────────────────────────────────────
+
+(defn unsubscribe-token
+  "Create a JWT-signed unsubscribe token for embedding in email links.
+   Stateless — no DB storage needed. Verified by checking JWT signature."
+  [email]
+  (jwt/sign {:email (s/lower-case email) :action "unsubscribe"}
+            (environ/env :signature)))
+
+(defn unsubscribe
+  "GET handler for /unsubscribe?token=<jwt>.
+   Verifies JWT signature, sets send-updates? to false, redirects to success page.
+   Idempotent — unsubscribing twice is harmless."
+  [{:keys [query-params db conn]}]
+  (let [token (:token query-params)]
+    (if (s/blank? token)
+      {:status 400 :body "Missing token"}
+      (try
+        (let [{:keys [email action]} (jwt/unsign token (environ/env :signature))]
+          (if (not= "unsubscribe" action)
+            {:status 400 :body "Invalid token"}
+            (let [{:keys [:db/id]} (user-for-email (d/db conn) email)]
+              (if id
+                (do @(d/transact conn [{:db/id id :orcpub.user/send-updates? false}])
+                    (redirect route-map/unsubscribe-success-route))
+                {:status 400 :body "Unknown email"}))))
+        (catch Exception _
+          {:status 400 :body "Invalid or tampered token"})))))
+
+(defn update-user-preferences
+  "PUT handler for /user — update user preferences (currently send-updates?).
+   Requires authentication. Only updates fields present in transit-params."
+  [{:keys [transit-params db conn identity]}]
+  (let [username (:user identity)
+        {:keys [:db/id]} (find-user-by-username db username)]
+    (if id
+      (do (when (contains? transit-params :send-updates?)
+            @(d/transact conn [{:db/id id
+                                :orcpub.user/send-updates? (boolean (:send-updates? transit-params))}]))
+          {:status 200
+           :body {:send-updates? (boolean (:send-updates? transit-params))}})
+      {:status 400 :body {:error "User not found"}})))
 
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
@@ -1282,6 +1324,7 @@
    [route-map/password-reset-used-route]
    [route-map/verify-failed-route]
    [route-map/verify-success-route]
+   [route-map/unsubscribe-success-route]
    [route-map/dnd-e5-orcacle-page-route]])
 
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
@@ -1376,6 +1419,7 @@
         {:post `register}]
        [(route-map/path-for route-map/user-route) ^:interceptors [check-auth]
         {:get `get-user
+         :put `update-user-preferences
          :delete `delete-user}]
        [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
         {:put `request-email-change}]
@@ -1435,6 +1479,8 @@
         {:get `verify}]
        [(route-map/path-for route-map/re-verify-route)
         {:get `re-verify}]
+       [(route-map/path-for route-map/unsubscribe-route)
+        {:get `unsubscribe}]
        [(route-map/path-for route-map/reset-password-route) ^:interceptors [ring/cookies check-auth]
         {:post `reset-password}]
        [(route-map/path-for route-map/reset-password-page-route) ^:interceptors [ring/cookies]

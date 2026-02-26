@@ -265,6 +265,11 @@
    (-> db :user-data :user-data :pending-email)))
 
 (reg-sub
+ :send-updates?
+ (fn [db _]
+   (boolean (-> db :user-data :user-data :send-updates?))))
+
+(reg-sub
  :email-change-sent?
  (fn [db _]
    (:email-change-sent? db)))
