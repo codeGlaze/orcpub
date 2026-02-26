@@ -91,6 +91,10 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 |----------|---------|-------------|
 | `ORCPUB_ENV` | — | Set to `dev` to enable `add-test-user` in user.clj |
 
+### Branding, Social Links & Integrations
+
+See [BRANDING-AND-INTEGRATIONS.md](BRANDING-AND-INTEGRATIONS.md) for the full reference covering `APP_*`, `APP_SOCIAL_*`, `MATOMO_*`, and `ADSENSE_*` variables.
+
 ## Files That Read Environment
 
 | File | Variables Used |
@@ -99,6 +103,8 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 | `src/clj/orcpub/system.clj` | `PORT` (via `System/getenv`) |
 | `src/clj/orcpub/routes.clj` | `SIGNATURE`, `EMAIL_*`, `ADMIN_PASSWORD` |
 | `src/clj/orcpub/index.clj` | `DEV_MODE`, `LOAD_HOMEBREW_URL` |
+| `src/clj/orcpub/branding.clj` | `APP_*`, `APP_SOCIAL_*`, `APP_FIELD_LIMIT_*`, `EMAIL_FROM_ADDRESS` |
+| `src/clj/orcpub/integrations.clj` | `MATOMO_URL`, `MATOMO_SITE_ID`, `ADSENSE_CLIENT` |
 | `.devcontainer/post-create.sh` | `DATOMIC_VERSION`, `DATOMIC_TYPE` |
 | `scripts/start.sh` | `DATOMIC_URL`, `LOG_DIR` |
 | `deploy/start.sh` | `ADMIN_PASSWORD`, `DATOMIC_PASSWORD`, `ALT_HOST`, `ENCRYPT_CHANNEL`, `*_OLD` rotation vars |
