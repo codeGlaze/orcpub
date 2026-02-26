@@ -242,12 +242,25 @@ run_checks() {
     esac
 
     case "$target" in
-        figwheel)
+        all|figwheel)
             echo -n "Figwheel port ($FIGWHEEL_PORT): "
             if port_in_use "$FIGWHEEL_PORT"; then
                 echo -e "${YELLOW}IN USE${NC}"
             else
                 echo -e "${GREEN}AVAILABLE${NC}"
+            fi
+
+            # Report remote dev detection status
+            echo -n "Remote dev: "
+            if [[ -n "${FIGWHEEL_CONNECT_URL:-}" ]]; then
+                echo -e "${GREEN}CONFIGURED${NC} (FIGWHEEL_CONNECT_URL)"
+                echo "  URL: $FIGWHEEL_CONNECT_URL"
+            elif [[ "${CODESPACES:-}" == "true" ]]; then
+                local cs_domain="${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
+                echo -e "${GREEN}AUTO-DETECT${NC} (Codespaces)"
+                echo "  URL: wss://${CODESPACE_NAME:-???}-${FIGWHEEL_PORT}.${cs_domain}/figwheel-connect"
+            else
+                echo -e "${CYAN}LOCAL${NC} (ws://localhost:$FIGWHEEL_PORT)"
             fi
             ;;
     esac
@@ -654,14 +667,16 @@ Exit Codes:
   3  Runtime failure (port conflict, startup timeout, process crash)
 
 Environment Variables (via .env or shell):
-  DATOMIC_VERSION   Datomic version (default: 1.0.7482)
-  DATOMIC_TYPE      Datomic type: pro or dev (default: pro)
-  JAVA_MIN_VERSION  Minimum Java version required (default: 11)
-  LOG_DIR           Directory for log files (default: ./logs)
-  DATOMIC_PORT      Datomic port (default: 4334)
-  SERVER_PORT       Server port (default: 8890)
-  PORT_WAIT         Timeout for port readiness (default: 30)
-  KILL_WAIT         Timeout for graceful shutdown (default: 5)
+  DATOMIC_VERSION       Datomic version (default: 1.0.7482)
+  DATOMIC_TYPE          Datomic type: pro or dev (default: pro)
+  JAVA_MIN_VERSION      Minimum Java version required (default: 11)
+  LOG_DIR               Directory for log files (default: ./logs)
+  DATOMIC_PORT          Datomic port (default: 4334)
+  SERVER_PORT           Server port (default: 8890)
+  FIGWHEEL_PORT         Figwheel port (default: 3449)
+  FIGWHEEL_CONNECT_URL  Override Figwheel WebSocket URL for remote dev
+  PORT_WAIT             Timeout for port readiness (default: 30)
+  KILL_WAIT             Timeout for graceful shutdown (default: 5)
 
 Configuration:
   Config is loaded from: \$REPO_ROOT/.env
@@ -692,6 +707,14 @@ Notes:
   - Or use ./start.sh alone for Datomic + server in one terminal
   - Or use ./start.sh --tmux to run all in a tmux session
   - In non-interactive mode (CI/cron), port conflicts fail immediately
+
+Remote Dev (Codespaces / Gitpod / tunnels):
+  Figwheel's default ws://localhost:3449 doesn't work when the browser
+  connects through a remote hostname. start.sh handles this automatically:
+  - GitHub Codespaces: auto-detected (wss:// URL built from env vars)
+  - Other remote setups: set FIGWHEEL_CONNECT_URL in .env
+  - Local dev: no action needed (Figwheel default just works)
+  Port 3449 must be public in Codespaces for the WebSocket to connect.
 EOF
 }
 
