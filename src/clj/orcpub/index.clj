@@ -3,6 +3,7 @@
             [orcpub.oauth :as oauth]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
+            [orcpub.integrations :as integrations]
             [environ.core :refer [env]]))
 
 (def devmode? (env :dev-mode))
@@ -132,7 +133,9 @@ table {
 html {
 	min-height: 100%;
 }"]
-    [:title title]]
+    [:title title]
+    (integrations/adsense-tag nonce)
+    (integrations/matomo-tags nonce)]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
