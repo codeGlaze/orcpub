@@ -3711,7 +3711,7 @@
                    {:title "Petersen Games - Cthulhu Mythos Sagas sheet" :value 4}]
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
-       [integrations/pdf-upsell @(subscribe [:user-tier])]
+       [integrations/pdf-options-slot @(subscribe [:user-tier])]
        [:div.flex
         [:div
          {:on-click (make-event-handler ::char/toggle-large-abilities-print)}

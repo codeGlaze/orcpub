@@ -161,7 +161,7 @@
    [:i.fa.fa-link.m-r-5]
    "www"])
 
-(defn pdf-upsell
+(defn pdf-options-slot
   "DMV: Upsell block for free-tier users in the PDF options panel.
    Returns hiccup promoting additional character sheets, or nil for tiered users."
   [user-tier]
