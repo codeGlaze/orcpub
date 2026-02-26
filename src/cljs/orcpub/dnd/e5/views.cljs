@@ -41,6 +41,7 @@
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.integrations :as integrations]
             [orcpub.ver :as v]
             [clojure.string :as s]
             [cljs.reader :as reader]
@@ -1501,17 +1502,6 @@
   ;; Note: no `:>` or `js/React.createElement`.  
   [:div {:dangerouslySetInnerHTML #js {:__html html}}])
 
-;; ------------------------------------------------------------------
-(defn ad-banner []
-  (raw-html
-   (str
-    "<!-- InPage -->\n"
-    "<ins class=\"adsbygoogle\" style=\"display:block\" "
-    "data-ad-client=\"ca-pub-3202063096003962\" "
-    "data-ad-slot=\"4970831358\" data-ad-format=\"auto\" "
-    "data-full-width-responsive=\"true\"></ins>\n"
-    "<script> (adsbygoogle = window.adsbygoogle || []).push({}); </script>")))
-
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   ;; Plain atom (not r/atom) mirrors the :orcacle-open? subscription value
   ;; for the scroll handler, which runs as a DOM event listener outside
@@ -1555,7 +1545,6 @@
               theme @(subscribe [:theme])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
-          (.push js/_paq (clj->js ["setDocumentTitle", title]))
           (reset! orcacle-open?* orcacle-open?)
           [:div.app.min-h-full
            {:class theme
@@ -1600,7 +1589,7 @@
                 [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                  [:div.content.p-10.flex
                   [:div.flex-grow-1.t-a-c
-                  [ad-banner]
+                  [integrations/ad-banner]
                    ]]])
 
 
@@ -1614,7 +1603,7 @@
                   [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                    [:div.content.p-10.flex
                     [:div.flex-grow-1.t-a-c
-                    [ad-banner]
+                    [integrations/ad-banner]
                      ]]])
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
@@ -1636,17 +1625,6 @@
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved."]
                   [:p "DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
-                (.push js/_paq (clj->js ["setReferrerUrl", js/location.href]))
-                (.push js/_paq (clj->js ["setCustomUrl", js/window.location]))
-                (.push js/_paq (clj->js ["setDocumentTitle", js/document.title]))
-
-                (.push js/_paq (clj->js ["deleteCustomVariables", "page"]))
-                (.push js/_paq (clj->js ["trackPageView"]))
-
-                (.push js/_paq (clj->js ["MediaAnalytics::scanForMedia", js/document.getElementById "app"]))
-                (.push js/_paq (clj->js ["FormAnalytics::scanForForms", js/document.getElementById "app"]))
-                (.push js/_paq (clj->js ["trackContentImpressionsWithinNode", js/document.getElementById "app"]))
-                (.push js/_paq (clj->js ["enableLinkTracking"]))
                 [debug-data]]]])]))})))
 
 ;; dead — zero callers (4 style defs)
