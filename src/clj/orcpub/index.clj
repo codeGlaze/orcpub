@@ -8,8 +8,6 @@
             [orcpub.fork.integrations :as integrations]
             [environ.core :refer [env]]))
 
-(def devmode? (env :dev-mode))
-
 (def homebrew-url
   "URL to fetch server-hosted .orcbrew plugins from on first load.
    Set LOAD_HOMEBREW_URL to enable (e.g. \"/homebrew.orcbrew\" or a full URL).
