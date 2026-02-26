@@ -268,11 +268,12 @@
     (fn [title icon on-click disabled active device-type & buttons]
       (let [mobile? (= :mobile device-type)]
         [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
-         {:on-click (fn [e] (if (seq buttons)
-                              #(swap! hovered? not)
-                              (on-click e)))
-          :on-mouse-enter #(reset! hovered? true)
-          :on-mouse-leave #(reset! hovered? false)
+         {:on-click (fn [e]
+                      (if (seq buttons)
+                        (swap! hovered? not)
+                        (on-click e)))
+          :on-mouse-enter #(when-not mobile? (reset! hovered? true))
+          :on-mouse-leave #(when-not mobile? (reset! hovered? false))
           :style (when active active-style)
           :class (str (if disabled "disabled" "pointer")
                            " "
@@ -294,7 +295,10 @@
                  (let [current-route @(subscribe [:route])]
                    {:style (when (or (= route current-route)
                                    (= route (get current-route :handler))) active-style)
-                    :on-click (route-handler route)})
+                    :on-click (fn [e]
+                                (.stopPropagation e)
+                                (reset! hovered? false)
+                                ((route-handler route) e))})
                  name])
               buttons))])]))))
 
@@ -303,11 +307,12 @@
     (fn [title icon on-click disabled active device-type & buttons]
       (let [mobile? (= :mobile device-type)]
         [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
-         {:on-click (fn [e] (if (seq buttons)
-                              #(swap! hovered? not)
-                              (on-click e)))
-          :on-mouse-over #(reset! hovered? true)
-          :on-mouse-out #(reset! hovered? false)
+         {:on-click (fn [e]
+                      (if (seq buttons)
+                        (swap! hovered? not)
+                        (when (fn? on-click) (on-click e))))
+          :on-mouse-over #(when-not mobile? (reset! hovered? true))
+          :on-mouse-out #(when-not mobile? (reset! hovered? false))
           :style (if active active-style)
           :class-name (str (if disabled "disabled" "pointer")
                            " "
@@ -326,9 +331,12 @@
               (fn [{:keys [name route]}]
                 ^{:key name}
                 [:div.p-10.opacity-5.hover-opacity-full.a-white
-                 (let [current-route @(subscribe [:route])]
-                   {:style (if (or (= route current-route)
-                                   (= route (get current-route :handler))) active-style)})
+                 {:on-click (fn [e]
+                              (.stopPropagation e)
+                              (reset! hovered? false))
+                  :style (let [current-route @(subscribe [:route])]
+                           (when (or (= route current-route)
+                                     (= route (get current-route :handler))) active-style))}
                  [:a.no-text-decoration {:href route} name]])
               buttons))])]))))
 
