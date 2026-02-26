@@ -14,6 +14,7 @@
             [re-frame.db :refer [app-db]]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.party :as party5e]
+            [orcpub.dnd.e5.folder :as folder5e]
             ;; Side effect: registers subscriptions
             [orcpub.dnd.e5.subs]))
 
@@ -110,4 +111,22 @@
   (testing "with token, subscription fires (returns default until HTTP resolves)"
     (reset! app-db {:user-data {:token "test-token"}})
     (let [result @(rf/subscribe [:user])]
+      (is (= [] result)))))
+
+;; ---------------------------------------------------------------------------
+;; ::folder5e/folders — token guard
+;; ---------------------------------------------------------------------------
+
+(deftest folders-no-token-returns-empty
+  (testing "without auth token, subscription returns [] without HTTP call"
+    (reset! app-db {})
+    (let [result @(rf/subscribe [::folder5e/folders])]
+      (is (= [] result))
+      (is (nil? (:loading @app-db))
+          "No loading state should be set without token"))))
+
+(deftest folders-with-token-returns-default
+  (testing "with token but no cached data, returns []"
+    (reset! app-db {:user-data {:token "test-token"}})
+    (let [result @(rf/subscribe [::folder5e/folders])]
       (is (= [] result)))))

@@ -10,6 +10,7 @@
             [orcpub.dice :as dice]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.subs :as subs]
+            [re-frame.db :refer [app-db]]
             [orcpub.dnd.e5.equipment-subs]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.backgrounds :as bg]
@@ -1538,10 +1539,15 @@
     
     (r/create-class
      {:component-did-mount (fn [comp]
-                             (integrations/on-app-mount!
-                              {:user-tier @(subscribe [:user-tier])
-                               :username  @(subscribe [:username])
-                               :email     @(subscribe [:email])})
+                             ;; Read directly from app-db — lifecycle methods are
+                             ;; not reactive contexts, so subscribe warns here.
+                             (let [user-data (-> @app-db :user-data :user-data)]
+                               (integrations/on-app-mount!
+                                {:user-tier (if (:patron user-data)
+                                             (or (some-> user-data :patron-tier keyword) :patron)
+                                             :free)
+                                 :username  (:username user-data)
+                                 :email     (:email user-data)}))
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll))
                              (js/window.scrollTo 0,0))
