@@ -46,6 +46,36 @@
                  :src (str "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" adsense-client)
                  :crossorigin "anonymous"})))
 
+;; ─── CSP Domains ──────────────────────────────────────────────────
+;; Extra CSP domains required by enabled integrations.
+;; csp.clj merges these into the Content-Security-Policy header via pedestal.clj.
+
+(def csp-domains
+  "Extra CSP domains required by enabled integrations.
+   Returns {:connect-src [...] :frame-src [...]}."
+  (merge-with into
+    (when (seq matomo-url)
+      {:connect-src [matomo-url]})
+    (when (seq adsense-client)
+      {:connect-src ["https://pagead2.googlesyndication.com"]
+       :frame-src   ["https://googleads.g.doubleclick.net"
+                     "https://tpc.googlesyndication.com"]})))
+
+;; ─── Client-Side Config Bridge ──────────────────────────────────
+;; Server-side integrations load SDK scripts in <head>.
+;; Client-side components (ad banners, tracking) live in
+;; integrations.cljs — forks override those no-op stubs.
+;;
+;; To pass server-side config (env vars) to CLJS components:
+;;   1. Add a client-config function here:
+;;        (defn client-config [] {:sdk-client sdk-client})
+;;   2. Inject it in index.clj as a JS global:
+;;        (script-tag {:nonce nonce}
+;;          (str "window.__INTEGRATIONS__="
+;;               (cheshire.core/generate-string (integrations/client-config)) ";"))
+;;   3. Read it in CLJS:
+;;        (def config (js->clj js/window.__INTEGRATIONS__ :keywordize-keys true))
+
 (defn head-tags
   "All third-party integration tags for <head>. Returns a flat seq of hiccup elements."
   [nonce]
