@@ -74,12 +74,13 @@ All values are env-var-gated with neutral defaults.
 | Var | Env Var | Default | Used By |
 |-----|---------|---------|---------|
 | `app-name` | `APP_NAME` | `"OrcPub"` | email, index, privacy |
+| `app-url` | `APP_URL` | `""` (hidden) | privacy (domain references) |
 | `app-tagline` | `APP_TAGLINE` | D&D 5e description | index (OG meta) |
 | `default-page-title` | `APP_PAGE_TITLE` | `"OrcPub: D&D 5e..."` | index (title/OG) |
 | `logo-path` | `APP_LOGO_PATH` | `"/image/orcpub-logo.svg"` | views, privacy |
 | `og-image-filename` | `APP_OG_IMAGE` | `"/image/orcpub-logo.png"` | index (OG meta) |
 | `copyright-holder` | `APP_COPYRIGHT_HOLDER` | `"OrcPub"` | views footer |
-| `copyright-year` | `APP_COPYRIGHT_YEAR` | `"2025"` | views footer |
+| `copyright-year` | `APP_COPYRIGHT_YEAR` | *(current year)* | views footer |
 | `email-sender-name` | `APP_EMAIL_SENDER_NAME` | `"OrcPub Team"` | email |
 | `email-from-address` | `EMAIL_FROM_ADDRESS` | `"no-reply@orcpub.com"` | email |
 | `support-email` | `APP_SUPPORT_EMAIL` | `""` (hidden) | privacy, events |
@@ -94,9 +95,12 @@ Provides `<head>` tags for third-party SDKs and CSP domains.
 | Env Var | What it enables |
 |---------|-----------------|
 | `MATOMO_URL` + `MATOMO_SITE_ID` | Matomo analytics |
-| `ADSENSE_CLIENT` | Google AdSense |
+| `ADSENSE_CLIENT` | Google AdSense SDK script |
+| `ADSENSE_SLOT` | AdSense ad slot ID (passed to CLJS via `__INTEGRATIONS__` bridge) |
 
 Empty value = disabled. CSP domains are auto-derived from enabled integrations.
+
+**Config bridge:** `integrations.clj/client-config` → `index.clj` injects as `window.__INTEGRATIONS__` JSON → `integrations.cljs` reads at namespace load time. Same pattern as `window.__BRANDING__`.
 
 **CSP flow:**
 ```
