@@ -10,27 +10,40 @@
             [clojure.pprint :as pprint]
             [clojure.string :as s]
             [orcpub.route-map :as routes]
+            [orcpub.branding :as branding]
             [cuerdas.core :as str]
             [clj-http.client :as client]))
 
+(defn- social-links-footer
+  "Render email footer social links from branding config. Empty links hidden."
+  []
+  (let [{:keys [patreon twitter facebook]} branding/social-links]
+    (remove nil?
+      [(when (seq patreon) [:br])
+       (when (seq patreon) (str patreon "  <-- Like what we are doing? Support us here."))
+       (when (seq twitter) [:br])
+       (when (seq twitter) twitter)
+       (when (seq facebook) [:br])
+       (when (seq facebook) facebook)
+       [:br]])))
+
 (defn verification-email-html [first-and-last-name username verification-url]
-  [:div
-   (str "Welcome to the Vault!")
-   [:br]
-   [:br]
-   "Your Dungeon Master's Vault account is almost ready, we just need you to verify your email address going the following URL to confirm that you are authorized to use this email address:"
-   [:br]
-   [:br]
-   [:a {:href verification-url} verification-url]
-   [:br]
-   [:br]
-   "Sincerely,"
-   [:br]
-   [:br]
-   "The Dungeon Master's Vault Team" [:br]
-   "https://www.patreon.com/DungeonMastersVault  <-- Like what we are doing? Support us here." [:br]
-   "https://twitter.com/thdmv" [:br]
-   "https://www.facebook.com/groups/252484128656613/" [:br]])
+  (into
+   [:div
+    (str "Welcome to the Vault!")
+    [:br]
+    [:br]
+    (str "Your " branding/app-name " account is almost ready, we just need you to verify your email address going the following URL to confirm that you are authorized to use this email address:")
+    [:br]
+    [:br]
+    [:a {:href verification-url} verification-url]
+    [:br]
+    [:br]
+    "Sincerely,"
+    [:br]
+    [:br]
+    (str "The " branding/email-sender-name)]
+   (social-links-footer)))
 
 (defn verification-email [first-and-last-name username verification-url]
   [{:type "text/html"
@@ -40,7 +53,7 @@
   "Email body for existing users changing their email (distinct from registration)."
   [username verification-url]
   [:div
-   "Dear Dungeon Master's Vault Patron,"
+   (str "Dear " branding/app-name " Patron,")
    [:br]
    [:br]
    "You requested to change the email address on your account (" username "). "
@@ -56,7 +69,7 @@
    "Sincerely,"
    [:br]
    [:br]
-   "The Dungeon Master's Vault Team"])
+   (str "The " branding/email-sender-name)])
 
 (defn email-change-verification-email [username verification-url]
   [{:type "text/html"
@@ -95,9 +108,9 @@
   [base-url {:keys [email username first-and-last-name]} verification-key]
   (try
     (let [result (postal/send-message (email-cfg)
-                                      {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
+                                      {:from (str branding/email-sender-name " <" (emailfrom) ">")
                                        :to email
-                                       :subject "Dungeon Master's Vault Email Verification"
+                                       :subject (str branding/app-name " Email Verification")
                                        :body (verification-email
                                               first-and-last-name
                                               username
@@ -120,34 +133,33 @@
   "Send a verification email for an email-change request (not registration)."
   [base-url {:keys [email username]} verification-key]
   (postal/send-message (email-cfg)
-                       {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
+                       {:from (str branding/email-sender-name " <" (emailfrom) ">")
                         :to email
-                        :subject "Dungeon Master's Vault Email Change Verification"
+                        :subject (str branding/app-name " Email Change Verification")
                         :body (email-change-verification-email
                                username
                                (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))}))
 
 (defn reset-password-email-html [first-and-last-name reset-url]
-  [:div
-   "Dear Dungeon Master's Vault Patron"
-   [:br]
-   [:br]
-   "We received a request to reset your password, to do so please go to the following URL to complete the reset."
-   [:br]
-   [:br]
-   [:a {:href reset-url} reset-url]
-   [:br]
-   [:br]
-   "If you did NOT request a reset, please do NOT click on the link."
-   [:br]
-   [:br]
-   "Sincerely,"
-   [:br]
-   [:br]
-   "The Dungeon Master's Vault Team" [:br]
-   "https://www.patreon.com/DungeonMastersVault  <-- Like what we are doing? Support us here." [:br]
-   "https://twitter.com/thdmv" [:br]
-   "https://www.facebook.com/groups/252484128656613/" [:br]])
+  (into
+   [:div
+    (str "Dear " branding/app-name " Patron")
+    [:br]
+    [:br]
+    "We received a request to reset your password, to do so please go to the following URL to complete the reset."
+    [:br]
+    [:br]
+    [:a {:href reset-url} reset-url]
+    [:br]
+    [:br]
+    "If you did NOT request a reset, please do NOT click on the link."
+    [:br]
+    [:br]
+    "Sincerely,"
+    [:br]
+    [:br]
+    (str "The " branding/email-sender-name)]
+   (social-links-footer)))
 
 (defn reset-password-email [first-and-last-name reset-url]
   [{:type "text/html"
@@ -169,9 +181,9 @@
   [base-url {:keys [email username first-and-last-name]} reset-key]
   (try
     (let [result (postal/send-message (email-cfg)
-                                      {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
+                                      {:from (str branding/email-sender-name " <" (emailfrom) ">")
                                        :to email
-                                       :subject "Dungeon Master's Vault Password Reset"
+                                       :subject (str branding/app-name " Password Reset")
                                        :body (reset-password-email
                                               first-and-last-name
                                               (str base-url (routes/path-for routes/reset-password-page-route) "?key=" reset-key))})]
@@ -206,7 +218,7 @@
   (when (not-empty (environ/env :email-errors-to))
     (try
       (let [result (postal/send-message (email-cfg)
-                                        {:from (str "Dungeon Master's Vault Errors <" (emailfrom) ">")
+                                        {:from (str branding/app-name " Errors <" (emailfrom) ">")
                                          :to (str (environ/env :email-errors-to))
                                          :subject "Exception"
                                          :body [{:type "text/plain"
