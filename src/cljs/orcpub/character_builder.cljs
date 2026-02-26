@@ -36,7 +36,7 @@
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
             [orcpub.dnd.e5.subs :as subs5e]
-            [orcpub.branding :as branding]
+            [orcpub.fork.branding :as branding]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.user-agent :as user-agent]
@@ -46,7 +46,7 @@
             [clojure.core.match :refer [match]]
 
             [reagent.core :as r]
-            [orcpub.integrations :as integrations]
+            [orcpub.fork.integrations :as integrations]
             [re-frame.core :refer [subscribe dispatch dispatch-sync]]))
 ;console-print
 (def print-disabled? true)

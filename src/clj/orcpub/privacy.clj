@@ -2,7 +2,7 @@
   (:require [hiccup.page :as page]
             [clojure.string :as s]
             [environ.core :as environ]
-            [orcpub.branding :as branding]))
+            [orcpub.fork.branding :as branding]))
 
 (defn section [{:keys [title font-size paragraphs subsections]}]
   [:div

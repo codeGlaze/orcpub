@@ -3,8 +3,8 @@
             [orcpub.oauth :as oauth]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
-            [orcpub.integrations :as integrations]
-            [orcpub.branding :as branding]
+            [orcpub.fork.integrations :as integrations]
+            [orcpub.fork.branding :as branding]
             [cheshire.core :as cheshire]
             [environ.core :refer [env]]))
 

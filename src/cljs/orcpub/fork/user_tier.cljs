@@ -1,4 +1,4 @@
-(ns orcpub.user-tier
+(ns orcpub.fork.user-tier
   "User tier abstraction for feature gating.
    No tier system on the public repo — all users are :free.
    Fork overrides: replace this file with real tier logic.

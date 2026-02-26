@@ -80,7 +80,7 @@
             [clojure.set :as sets]
             [cljsjs.filesaverjs]
             [clojure.pprint :as pprint]
-            [orcpub.integrations :as integrations])
+            [orcpub.fork.integrations :as integrations])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 ;; =============================================================================

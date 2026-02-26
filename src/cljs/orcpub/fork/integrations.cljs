@@ -1,4 +1,4 @@
-(ns orcpub.integrations
+(ns orcpub.fork.integrations
   "Client-side integration hooks with minimal defaults.
    Fork overrides: replace with full implementations.
 
@@ -9,7 +9,7 @@
    Companion to integrations.clj (server-side head tags).
    Server-side loads third-party scripts in <head>;
    this namespace provides the in-app component hooks."
-  (:require [orcpub.branding :as branding]
+  (:require [orcpub.fork.branding :as branding]
             [orcpub.route-map :as routes]))
 
 ;; ─── Page View Tracking ─────────────────────────────────────────

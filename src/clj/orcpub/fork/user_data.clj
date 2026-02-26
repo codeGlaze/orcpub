@@ -1,4 +1,4 @@
-(ns orcpub.user-data
+(ns orcpub.fork.user-data
   "User data enrichment hooks. Pass-through by default.
    Fork overrides: replace this file to add custom fields to the
    user API response and registration defaults.

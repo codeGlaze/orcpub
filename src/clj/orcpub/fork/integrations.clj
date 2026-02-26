@@ -1,4 +1,4 @@
-(ns orcpub.integrations
+(ns orcpub.fork.integrations
   "Optional third-party <head> integrations.
    Configure via environment variables; disabled when unset.
    Fork overrides: uncomment examples and add real service config."
