@@ -318,7 +318,7 @@
    params
    verification-key))
 
-(defn do-verification [request params conn & [tx-data]]
+(defn do-verification [request params conn send-updates? & [tx-data]]
   (let [verification-key (str (java.util.UUID/randomUUID))
         now (java.util.Date.)]
     (try
@@ -329,7 +329,7 @@
           {:orcpub.user/verified? false
            :orcpub.user/verification-key verification-key
            :orcpub.user/verification-sent now})])
-      (send-verification-email request params verification-key)
+      (send-verification-email request params verification-key send-updates?)
       {:status 200}
       (catch Exception e
         (println "ERROR: Failed to create verification record:" (.getMessage e))
@@ -443,6 +443,7 @@
                        (merge query-params
                               {:first-and-last-name "DMV Patron"})
                        conn
+                       nil
                        {:db/id id}))))
 
 (defn do-send-password-reset [user-id email conn request]
