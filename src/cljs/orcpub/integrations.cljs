@@ -26,13 +26,35 @@
     (.push js/_paq #js ["trackContentImpressionsWithinNode" (js/document.getElementById "app")])
     (.push js/_paq #js ["enableLinkTracking"])))
 
+;; ─── App Mount Hook ───────────────────────────────────────────────
+;; Called from the app root component-did-mount. Handles mount-time
+;; integration setup (analytics user identification, ad slot init).
+
+(defn on-app-mount!
+  "Mount-time integrations. Called once from app root component-did-mount.
+   Context map: {:user-tier :free|:patron|... :username str :email str}"
+  [{:keys [user-tier username email]}]
+  (when (exists? js/_paq)
+    ;; Matomo user identification for all logged-in users
+    (when (seq username)
+      (.push js/_paq (clj->js ["setUserId" (str email)])))
+    ;; Matomo custom variables for tiered users
+    (when (not= :free user-tier)
+      (.push js/_paq (clj->js ["setCustomVariable" 1 "User" (str username) "visit"]))
+      (.push js/_paq (clj->js ["setCustomVariable" 2 "Email" (str email) "visit"]))
+      (.push js/_paq (clj->js ["setCustomVariable" 3 "Tier" (str user-tier) "visit"]))))
+  ;; Ad slot reload for free-tier users
+  (when (= :free user-tier)
+    (when (js-in "reloadAdSlots" js/window)
+      (js/reloadAdSlots))))
+
 ;; ─── Ad Components ──────────────────────────────────────────────
 ;; The AdSense SDK script tag is loaded server-side via integrations.clj;
 ;; this component renders the actual ad placement element.
 
 (defn ad-banner
   "Google AdSense in-page banner. Returns hiccup with dangerouslySetInnerHTML.
-   Patron-gated rendering is handled by the caller in views.cljs."
+   Tier-gated rendering is handled by the caller in views.cljs."
   []
   [:div {:dangerouslySetInnerHTML
          #js {:__html (str "<!-- InPage -->\n"

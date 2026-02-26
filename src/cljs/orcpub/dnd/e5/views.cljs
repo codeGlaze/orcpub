@@ -42,6 +42,8 @@
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
             [orcpub.integrations :as integrations]
+            [orcpub.branding :as branding]
+            [orcpub.user-tier]
             [orcpub.ver :as v]
             [clojure.string :as s]
             [cljs.reader :as reader]
@@ -398,7 +400,7 @@
             :on-click route-to-default-route}])
 
 (def logo [:a {:href "/" } [:img.h-60.pointer
-           {:src "/image/dmv-logo.svg"}]])
+           {:src branding/logo-path}]])
 
 (defn app-header []
   (let [device-type @(subscribe [:device-type])
@@ -434,18 +436,23 @@
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
           [:div
            {:style {:min-width "53px"}}
-           [:a {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank}
-            (if (boolean @(subscribe [:patron]))
-              [svg-icon @(subscribe [:patron-tier]) (if mobile? 40 60) ""]
-              [:img.h-32.m-l-10.m-b-5.pointer
-               {:src (if mobile?
-                       "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
-                       "https://c5.patreon.com/external/logo/become_a_patron_button.png")}])]
+           (let [patreon-url (:patreon branding/social-links)]
+             (when (seq patreon-url)
+               [:a {:href patreon-url :target :_blank}
+                (if (not= :free @(subscribe [:user-tier]))
+                  [svg-icon @(subscribe [:user-tier]) (if mobile? 40 60) ""]
+                  [:img.h-32.m-l-10.m-b-5.pointer
+                   {:src (if mobile?
+                           "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
+                           "https://c5.patreon.com/external/logo/become_a_patron_button.png")}])]))
            (when (not mobile?)
              [:div.main-text-color.p-10
-              (social-icon "facebook-f" "https://www.facebook.com/groups/252484128656613/")
-              (social-icon "twitter" "https://twitter.com/thDMV")
-              (social-icon "discord" "https://discord.gg/uv5vXhk")])]
+              (when-let [url (not-empty (:facebook branding/social-links))]
+                (social-icon "facebook-f" url))
+              (when-let [url (not-empty (:twitter branding/social-links))]
+                (social-icon "twitter" url))
+              (when-let [url (not-empty (:discord branding/social-links))]
+                (social-icon "discord" url))])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
            [header-tab
             "characters"
@@ -612,7 +619,7 @@
        [:div.flex.justify-cont-s-a.align-items-c
         {:style registration-header-style}
         [:img.h-60.pointer
-         {:src "/image/dmv-logo.svg"
+         {:src branding/logo-path
           :on-click route-to-default-page}]]
        [:div.flex-grow-1 content]
        [views-2/legal-footer-sm]]
@@ -904,7 +911,7 @@
                   :border-width "1px"
                   :border-bottom-width "3px"}
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
-        [:span.m-l-5 "Yes! Send me updates about Dungeon Master's Vault"]]
+        [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
        [:div.m-t-10
         [:div.p-10
          [:span "Already have an account?"]
@@ -1482,11 +1489,13 @@
 (def srd-link
   [:a.orange {:href "/dnld/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
 
-(def patron-banner-link
-  [:a.orange {:href "https://www.dungeonmastersvault.com/thank-you-for-supporting-us/" :target "_blank"} "Become a Patron today"])
+(defn patron-banner-link []
+  (when-let [url (not-empty (:patreon branding/social-links))]
+    [:a.orange {:href url :target "_blank"} "Become a Patron today"]))
 
-(def faq-link
-  [:a.orange {:href "https://www.dungeonmastersvault.com/help/" :target "_blank"} " here"])
+(defn faq-link []
+  (when-let [url (not-empty branding/help-url)]
+    [:a.orange {:href url :target "_blank"} " here"]))
 
 
 (defn current-year []
@@ -1519,21 +1528,13 @@
     
     (r/create-class
      {:component-did-mount (fn [comp]
-                             (when-not (boolean @(subscribe [:patron]))
-                               (if (js-in "reloadAdSlots" js/window)
-                                 (js/reloadAdSlots)
-                                 #_(prn "reloadAdSlots does not exist")))
+                             (integrations/on-app-mount!
+                              {:user-tier @(subscribe [:user-tier])
+                               :username  @(subscribe [:username])
+                               :email     @(subscribe [:email])})
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll))
-                             (js/window.scrollTo 0,0)
-
-                             (when (boolean @(subscribe [:username]))
-                               (.push js/_paq (clj->js ["setUserId", (str @(subscribe [:email]))]))
-                               (.push js/_paq (clj->js ["setCustomVariable", 1, "User", (str @(subscribe [:username])), "visit"])))
-                             (when (boolean @(subscribe [:patron]))
-                               (.push js/_paq (clj->js ["setCustomVariable", 1, "User", (str @(subscribe [:username])), "visit"]))
-                               (.push js/_paq (clj->js ["setCustomVariable", 2, "Email", (str @(subscribe [:email])), "visit"]))
-                               (.push js/_paq (clj->js ["setCustomVariable", 3, "Patron", (str @(subscribe [:patron-tier])), "visit"]))))
+                             (js/window.scrollTo 0,0))
 
       :component-will-unmount (fn [comp]
                                 (when-not frame?
@@ -1573,25 +1574,23 @@
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                (if (and (not srd-message-closed?)
                         (not hide-header-message?)
-                        (not (boolean @(subscribe [:patron]))))
+                        (= :free @(subscribe [:user-tier])))
                  [:div
                   (if (not frame?)
                     [:div.content.bg-lighter.p-10.flex
                      [:div.flex-grow-1.t-a-c
                       [:div.p-t-10 "Please consider a gift of $1 to support this site."]
                       [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
-                      [:div.p-t-10.p-b-10 patron-banner-link]]
+                      [:div.p-t-10.p-b-10 [patron-banner-link]]]
                      [:i.fa.fa-times.p-10.pointer
                       {:on-click #(dispatch [:close-srd-message])}]])])]
 
                 ;Ad Banner
-              (if-not (boolean @(subscribe [:patron]))
+              (when (= :free @(subscribe [:user-tier]))
                 [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                  [:div.content.p-10.flex
                   [:div.flex-grow-1.t-a-c
-                  [integrations/ad-banner]
-                   ]]])
-
+                   [integrations/ad-banner]]]])
 
               [:div#app-main.container
                [:div.content.w-100-p content]]
@@ -1599,12 +1598,11 @@
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
                 ;Ad Banner
-                (if-not (boolean @(subscribe [:patron]))
+                (when (= :free @(subscribe [:user-tier]))
                   [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                    [:div.content.p-10.flex
                     [:div.flex-grow-1.t-a-c
-                    [integrations/ad-banner]
-                     ]]])
+                     [integrations/ad-banner]]]])
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
@@ -1612,8 +1610,10 @@
                   [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
                   [:div.m-b-5.justify-cont-c
-                   [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank} "Support this site on Patreon"]
-                   [:a.orange.m-l-5 {:href "https://www.dungeonmastersvault.com/help/" :target :_blank} "Help"]
+                   (when-let [url (not-empty (:patreon branding/social-links))]
+                     [:a.orange {:href url :target :_blank} "Support this site on Patreon"])
+                   (when (seq branding/help-url)
+                     [:a.orange.m-l-5 {:href branding/help-url :target :_blank} "Help"])
                    [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
                  [:div.m-l-10.m-r-10.p-10
                   [:div.m-b-5
@@ -1621,9 +1621,9 @@
                    [:a.orange.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
                    [:a.orange.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Policy"]]]
                  [:div.legal-footer
-                  [:p "© " (current-year) " " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
+                  [:p "© " (current-year) " " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} branding/copyright-holder]]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved."]
-                  [:p "DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
+                  [:p branding/app-name " is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
                 [debug-data]]]])]))})))
 
@@ -3741,8 +3741,8 @@
         print-button-enabled (if (or (= print-character-sheet-style? nil)
                                      (= (str print-character-sheet-style?) "NaN"))
                                false true)
-        patron? (boolean @(subscribe [:patron]))
-        items (if patron? [{:title "Select" :value " "}
+        tiered? (not= :free @(subscribe [:user-tier]))
+        items (if tiered? [{:title "Select" :value " "}
                            {:title "Original 5e Character sheet" :value 1}
                            {:title "Original 5e Character sheet - optional variant" :value 2}
                            {:title "Icewind Dale 5e Character sheet" :value 3}
@@ -3766,7 +3766,17 @@
                    {:title "Petersen Games - Cthulhu Mythos Sagas sheet" :value 4}]
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
-       (when-not patron? [:div [:div.flex.m-b-10 "Patrons get access to 3 addtional character sheets:"] [:div.flex.m-b-10 "Original 5e Character sheet - optional variant"] [:div.flex.m-b-10 "Icewind Dale 5e Character sheet"] [:div.flex.m-b-10 "Cthulhu Mythos Sagas sheet"] [:div.flex.m-b-10 [:a.orange {:href "https://www.dungeonmastersvault.com/thank-you-for-supporting-us/" :target "_blank"} "Become a Patron to unlock these today"]]])
+       (when-not tiered?
+         (let [patreon-url (not-empty (:patreon branding/social-links))]
+           [:div
+            [:div.flex.m-b-10 "Supporters get access to 3 additional character sheets:"]
+            [:div.flex.m-b-10 "Original 5e Character sheet - optional variant"]
+            [:div.flex.m-b-10 "Icewind Dale 5e Character sheet"]
+            [:div.flex.m-b-10 "Cthulhu Mythos Sagas sheet"]
+            (when patreon-url
+              [:div.flex.m-b-10
+               [:a.orange {:href patreon-url :target "_blank"}
+                "Become a Patron to unlock these today"]])]))
        [:div.flex
         [:div
          {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
@@ -8397,10 +8407,10 @@
         username @(subscribe [:username])
         selected-ids @(subscribe [::char/selected])
         has-selected? @(subscribe [::char/has-selected?])
-        patron @(subscribe [:patron])
-        patron-tier @(subscribe [:patron-tier])]
-    (.push js/_paq (clj->js ["setCustomVariable", 4, "Characters", (str (count characters)), "visit"]))
-(prn (str (count characters) " characters - " patron-tier))
+        user-tier @(subscribe [:user-tier])]
+    (when (exists? js/_paq)
+      (.push js/_paq (clj->js ["setCustomVariable", 4, "Characters", (str (count characters)), "visit"])))
+    #_(prn (str (count characters) " characters - " user-tier))
 [content-page
      "Characters"
      [#_(if (>= (count characters) 5) {:title "Free accounts are limited to 5 characters"

@@ -45,6 +45,7 @@
             [clojure.core.match :refer [match]]
 
             [reagent.core :as r]
+            [orcpub.branding :as branding]
             [re-frame.core :refer [subscribe dispatch dispatch-sync]]))
 ;console-print
 (def print-disabled? true)
@@ -1911,7 +1912,9 @@
       [desktop-or-tablet-columns device-type])))
 
 (def patreon-link-props
-  {:href "https://www.patreon.com/user?u=5892323" :target "_blank"})
+  "Link props for the Patreon page. Hidden when social-links has no :patreon."
+  (when-let [url (not-empty (:patreon branding/social-links))]
+    {:href url :target "_blank"}))
 
 ;; ============================================================================
 ;; Missing Content Warning

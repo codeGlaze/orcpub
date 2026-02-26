@@ -78,6 +78,7 @@
             [orcpub.route-map :as routes]
             [orcpub.errors :as errors]
             [orcpub.integrations :as integrations]
+            [orcpub.branding :as branding]
             [clojure.set :as sets]
             [cljsjs.filesaverjs]
             [clojure.pprint :as pprint])
@@ -1791,7 +1792,11 @@
        (= error-code errors/unverified) {:db (assoc db :temp-email (-> response :body :email))
                                          :dispatch [:route routes/verify-sent-route]}
        (= error-code errors/unverified-expired) {:dispatch [:route routes/verify-failed-route]}
-       :else (dispatch-login-failure [:div "An error occurred. If the problem persists please email " [:a {:href "mailto:thDM@dungeonmastersvault.com" :target :blank} "thDM@dungeonmastersvault.com"]])))))
+       :else (dispatch-login-failure
+              (if (seq branding/support-email)
+                [:div "An error occurred. If the problem persists please email "
+                 [:a {:href (str "mailto:" branding/support-email) :target :blank} branding/support-email]]
+                [:div "An error occurred. Please try again later."]))))))
 
 (reg-event-fx
  :logout

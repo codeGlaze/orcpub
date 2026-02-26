@@ -1,5 +1,6 @@
 (ns orcpub.index
   (:require [hiccup.page :refer [html5 include-css]]
+            [cheshire.core :as cheshire]
             [orcpub.oauth :as oauth]
             [orcpub.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
@@ -142,7 +143,9 @@ html {
 	min-height: 100%;
 }"]
     [:title title]
-    (integrations/head-tags nonce)]
+    (integrations/head-tags nonce)
+    (script-tag {:nonce nonce}
+     (str "window.__BRANDING__=" (cheshire/generate-string (branding/client-config)) ";"))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
