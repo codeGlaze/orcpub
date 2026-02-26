@@ -41,10 +41,17 @@
         (str "<p><img src=\"" matomo-url "matomo.php?idsite=" matomo-site
              "&rec=1\" style=\"border:0\" alt=\"\"></p>")])))
 
-(defn adsense-tag
+(defn- adsense-tag
   "Google AdSense loader script."
   [nonce]
   (when (seq adsense-client)
     (script-tag {:nonce nonce :async ""
                  :src (str "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" adsense-client)
                  :crossorigin "anonymous"})))
+
+(defn head-tags
+  "All third-party integration tags for <head>. Returns a seq of hiccup elements."
+  [nonce]
+  (keep identity
+    [(adsense-tag nonce)
+     (matomo-tags nonce)]))

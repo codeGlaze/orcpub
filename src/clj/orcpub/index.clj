@@ -134,8 +134,7 @@ html {
 	min-height: 100%;
 }"]
     [:title title]
-    (integrations/adsense-tag nonce)
-    (integrations/matomo-tags nonce)]
+    (integrations/head-tags nonce)]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
