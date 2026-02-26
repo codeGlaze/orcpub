@@ -3,6 +3,7 @@
             [orcpub.oauth :as oauth]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
+            [orcpub.integrations :as integrations]
             [environ.core :refer [env]]))
 
 (def devmode? (env :dev-mode))
@@ -21,10 +22,10 @@
 
 (defn script-tag
   "Generate a script tag with optional nonce for CSP strict mode.
-   For external scripts, pass :src. For inline scripts, pass content as body."
-  [{:keys [src nonce]} & body]
-  (let [attrs (cond-> {}
-                src (assoc :src src)
+   For external scripts, pass :src. For inline scripts, pass content as body.
+   Extra attributes (e.g. :async, :crossorigin) are passed through to the tag."
+  [{:keys [nonce] :as opts} & body]
+  (let [attrs (cond-> (dissoc opts :nonce)
                 nonce (assoc :nonce nonce))]
     (if (seq body)
       (into [:script attrs] body)
@@ -132,7 +133,8 @@ table {
 html {
 	min-height: 100%;
 }"]
-    [:title title]]
+    [:title title]
+    (integrations/head-tags nonce)]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
