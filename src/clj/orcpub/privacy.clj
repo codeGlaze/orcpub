@@ -2,6 +2,7 @@
   (:require [hiccup.page :as page]
             [clojure.string :as s]
             [orcpub.branding :as branding]
+            [orcpub.integrations :as integrations]
             [environ.core :as environ]))
 
 (defn section [{:keys [title font-size paragraphs subsections]}]
@@ -123,24 +124,9 @@
     [:link {:rel :stylesheet :href "/css/style.css" :type "text/css"}]
     [:link {:rel :stylesheet :href "/css/compiled/styles.css" :type "text/css"}]
 
-    ;<!-- IMPORTANT: Place these lines as high as you can in <head>, ideally just after <title> tag -->
-    ;<link rel="preconnect" href="https://tags.bkrtx.com/">
-    [:link {:rel "preconnect" :href "https://tags.bkrtx.com/"}]
-    ;<link rel="preconnect" href="https://securepubads.g.doubleclick.net/" crossorigin>
-    [:link {:rel "preconnect" :href "https://securepubads.g.doubleclick.net/" :crossorigin ""}]
-    ;<link rel="preconnect" href="https://cdn.consentmanager.mgr.consensu.org/" crossorigin>
-    [:link {:rel "preconnect" :href "https://cdn.consentmanager.mgr.consensu.org/" :crossorigin ""}]
-
-
-    ;<!-- Place the below code anywhere you like in the <head> (higher is better) -->
-    ;<script>window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};</script>
-    [:script "window.AdSlots = window.AdSlots || {cmd: [], disableScripts: ['gpt','bk']};"]
-    ;<script async src="https://tags.bkrtx.com/js/bk-coretag.js"></script>
-    [:script {:async "" :src "https://tags.bkrtx.com/js/bk-coretag.js"}]
-    ;<script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
-    [:script {:async "" :src "https://securepubads.g.doubleclick.net/tag/js/gpt.js"}]
-    ;<script async src="/dist/dungeonmastersvault.min.js"></script>
-    [:script {:async "" :src "/js/dungeonmastersvault.min.js"}]]
+    ;; Third-party integration tags (analytics, ads) — same as index.clj.
+    ;; Empty on public repo, populated on DMV via integrations.clj.
+    (integrations/head-tags nil)]
    [:body.sans
     [:div
      [:div.app-header-bar.container
