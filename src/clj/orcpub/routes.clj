@@ -34,6 +34,7 @@
             [orcpub.privacy :as privacy]
             [orcpub.email :as email]
             [orcpub.branding :as branding]
+            [orcpub.user-data :as user-data]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
             [orcpub.registration :as registration]
@@ -235,10 +236,15 @@
   (map :orcpub.user/username
        (d/pull-many db '[:orcpub.user/username] ids)))
 
-(defn user-body [db user]
-  (cond-> {:username (:orcpub.user/username user)
-           :email (:orcpub.user/email user)
-           :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
+(defn user-body
+  "Build the user API response. Core fields are inline; fork-specific
+   fields (e.g. tier data) are added by user-data/enrich-response."
+  [db user]
+  (cond-> (user-data/enrich-response
+           {:username (:orcpub.user/username user)
+            :email (:orcpub.user/email user)
+            :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
+           user)
     (:orcpub.user/pending-email user)
     (assoc :pending-email (:orcpub.user/pending-email user))))
 
@@ -347,11 +353,13 @@
          request
          json-params
          conn
-         {:orcpub.user/email email
-          :orcpub.user/username username
-          :orcpub.user/password (hashers/encrypt password)
-          :orcpub.user/send-updates? send-updates?
-          :orcpub.user/created (java.util.Date.)}))
+         (merge
+          {:orcpub.user/email email
+           :orcpub.user/username username
+           :orcpub.user/password (hashers/encrypt password)
+           :orcpub.user/send-updates? send-updates?
+           :orcpub.user/created (java.util.Date.)}
+          (user-data/registration-defaults))))
       (catch Throwable e (prn e) (throw e)))))
 
 (def user-for-verification-key-query

@@ -1,7 +1,7 @@
 (ns orcpub.integrations
-  "Optional third-party <head> integrations (analytics, SDKs, etc.).
+  "Optional third-party <head> integrations.
    Configure via environment variables; disabled when unset.
-   See commented examples below for the pattern."
+   Fork overrides: uncomment examples and add real service config."
   (:require [environ.core :refer [env]]))
 
 ;; ─── How to add an integration ───────────────────────────────────────
@@ -16,70 +16,27 @@
 ;;                    :src (str "https://example.com/sdk.js?id=" my-service-id)}]))
 ;;
 ;; 3. Add it to head-tags's concat list below.
-;;
-;;
-;; ─── Example: Analytics ──────────────────────────────────────────────
-;;
-;; (def analytics-url     (env :analytics-url))
-;; (def analytics-site-id (env :analytics-site-id))
-;;
-;; (defn- analytics-tags
-;;   "Self-hosted analytics. Returns a list of hiccup elements."
-;;   [nonce]
-;;   (when (and (seq analytics-url) (seq analytics-site-id))
-;;     (list
-;;       [:link {:rel "preconnect" :href analytics-url :crossorigin ""}]
-;;       [:script {:nonce nonce}
-;;        (str "(function(){var u='" analytics-url "';"
-;;             "/* tracker init */})();")])))
-;;
-;;
-;; ─── Example: External SDK ────────────────────────────────────────────
-;;
-;; (def sdk-client (env :sdk-client))
-;;
-;; (defn- sdk-tag
-;;   "External SDK loader."
-;;   [nonce]
-;;   (when (seq sdk-client)
-;;     [:script {:nonce nonce :async ""
-;;               :src (str "https://cdn.example.com/sdk.js?client=" sdk-client)
-;;               :crossorigin "anonymous"}]))
 
 ;; ─── Client-Side Config Bridge ──────────────────────────────────
-;; Server-side integrations load SDK scripts in <head>.
-;; Client-side components (ad banners, tracking) live in
-;; integrations.cljs — forks override those no-op stubs.
+;; Server-side integrations load scripts in <head>.
+;; Client-side hooks live in integrations.cljs — forks override
+;; those no-op stubs with real implementations.
 ;;
-;; To pass server-side config (env vars) to CLJS components:
-;;   1. Add a client-config function here:
-;;        (defn client-config [] {:sdk-client sdk-client})
-;;   2. Inject it in index.clj as a JS global:
-;;        (script-tag {:nonce nonce}
-;;          (str "window.__INTEGRATIONS__="
-;;               (cheshire.core/generate-string (integrations/client-config)) ";"))
-;;   3. Read it in CLJS:
-;;        (def config (js->clj js/window.__INTEGRATIONS__ :keywordize-keys true))
+;; To pass server-side config (env vars) to CLJS:
+;;   1. Add a client-config function here
+;;   2. Inject it in index.clj as a JS global via cheshire
+;;   3. Read it in CLJS at namespace load time
+;; See branding.clj/client-config for a working example.
 
 (def csp-domains
   "Extra CSP domains required by enabled integrations.
    Returns {:connect-src [\"https://...\"] :frame-src [\"https://...\"]}.
    csp.clj merges these into the Content-Security-Policy header."
-  ;; (merge-with into
-  ;;   (when (seq analytics-url)
-  ;;     {:connect-src [analytics-url]})
-  ;;   (when (seq sdk-client)
-  ;;     {:connect-src ["https://cdn.example.com"]
-  ;;      :frame-src   ["https://cdn.example.com"]}))
   {})
 
 (defn head-tags
   "All third-party integration tags for <head>.
    Returns a flat seq of hiccup elements, empty when nothing is configured.
-   Uncomment integration calls as you enable them."
+   Fork overrides: add integration tag calls here."
   [_nonce]
-  ;; (remove nil?
-  ;;   (concat
-  ;;     [(sdk-tag nonce)]
-  ;;     (analytics-tags nonce)))
   ())

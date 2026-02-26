@@ -2,9 +2,9 @@
   "Centralized branding configuration for fork-neutral deployment.
    All values have sensible defaults; forks override via env vars.
 
-   Server-side only (.clj). Client-side branding in views.cljs reads
-   these values indirectly via server-rendered HTML (splash page, OG tags)
-   or can be centralized separately for CLJS in a future pass."
+   Server-side (.clj) is the source of truth. Client-side branding
+   is delivered via the config bridge: index.clj injects client-config
+   as window.__BRANDING__ JSON in <head>, and branding.cljs reads it."
   (:require [environ.core :refer [env]]))
 
 ;; ─── App Identity ──────────────────────────────────────────────────
@@ -50,6 +50,20 @@
   "Display name for outbound emails (verification, password reset)."
   (or (env :app-email-sender-name) (str app-name " Team")))
 
+(def email-from-address
+  "From address for outbound emails. Falls back to env EMAIL_FROM_ADDRESS."
+  (or (env :email-from-address) "no-reply@orcpub.com"))
+
+;; ─── Support & Help ──────────────────────────────────────────────
+
+(def support-email
+  "Contact email shown on privacy page, error messages, etc. Empty = hidden."
+  (or (env :app-support-email) ""))
+
+(def help-url
+  "URL for the help/FAQ page. Empty string = hidden."
+  (or (env :app-help-url) ""))
+
 ;; ─── Social Links ──────────────────────────────────────────────────
 ;; Set any of these to "" to hide the link in the UI.
 
@@ -60,3 +74,18 @@
    :twitter  (or (env :app-social-twitter)  "")
    :reddit   (or (env :app-social-reddit)   "")
    :discord  (or (env :app-social-discord)  "")})
+
+;; ─── Client-Side Config Bridge ───────────────────────────────────
+;; index.clj injects this as window.__BRANDING__ JSON in <head>.
+;; branding.cljs reads it at runtime for CLJS components.
+
+(defn client-config
+  "Map of branding values for CLJS injection. Serialized to JSON by index.clj."
+  []
+  {:app-name         app-name
+   :logo-path        logo-path
+   :copyright-holder copyright-holder
+   :copyright-year   copyright-year
+   :support-email    support-email
+   :help-url         help-url
+   :social-links     social-links})

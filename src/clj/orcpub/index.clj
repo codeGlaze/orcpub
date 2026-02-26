@@ -4,6 +4,8 @@
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
             [orcpub.integrations :as integrations]
+            [orcpub.branding :as branding]
+            [cheshire.core :as cheshire]
             [environ.core :refer [env]]))
 
 (def devmode? (env :dev-mode))
@@ -134,7 +136,9 @@ html {
 	min-height: 100%;
 }"]
     [:title title]
-    (integrations/head-tags nonce)]
+    (integrations/head-tags nonce)
+    (script-tag {:nonce nonce}
+     (str "window.__BRANDING__=" (cheshire/generate-string (branding/client-config)) ";"))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?

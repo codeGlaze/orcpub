@@ -74,7 +74,7 @@
                       e)))))
 
 (defn emailfrom []
-  (if (not (s/blank? (environ/env :email-from-address))) (environ/env :email-from-address) "no-reply@dungeonmastersvault.com"))
+  branding/email-from-address)
 
 (defn send-verification-email
   "Sends account verification email to a new user.

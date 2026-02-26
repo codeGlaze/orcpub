@@ -42,6 +42,9 @@
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
             [orcpub.ver :as v]
+            [orcpub.branding :as branding]
+            [orcpub.user-tier]
+            [orcpub.integrations :as integrations]
             [clojure.string :as s]
             [cljs.reader :as reader]
             [orcpub.user-agent :as user-agent]
@@ -354,7 +357,7 @@
   (dispatch [:route routes/dnd-e5-my-encounters-route]))
 
 (def logo [:img.h-60.pointer
-           {:src "/image/dmv-logo.svg"
+           {:src branding/logo-path
             :on-click route-to-default-route}])
 
 (defn app-header []
@@ -391,16 +394,20 @@
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
           [:div
            {:style {:min-width "53px"}}
-           [:a {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank}
-            [:img.h-32.m-l-10.m-b-5.pointer.opacity-7.hover-opacity-full
-             {:src (if mobile?
-                     "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
-                     "https://c5.patreon.com/external/logo/become_a_patron_button.png")}]]
+           (when-let [url (not-empty (:patreon branding/social-links))]
+             [:a {:href url :target :_blank}
+              [:img.h-32.m-l-10.m-b-5.pointer.opacity-7.hover-opacity-full
+               {:src (if mobile?
+                       "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
+                       "https://c5.patreon.com/external/logo/become_a_patron_button.png")}]])
            (when (not mobile?)
              [:div.main-text-color.p-10
-              (social-icon "facebook-f" "https://www.facebook.com/groups/252484128656613/")
-              (social-icon "twitter" "https://twitter.com/thDMV")
-              (social-icon "reddit-alien" "https://www.reddit.com/r/dungeonmastersvault/")])]
+              (when-let [url (not-empty (:facebook branding/social-links))]
+                (social-icon "facebook-f" url))
+              (when-let [url (not-empty (:twitter branding/social-links))]
+                (social-icon "twitter" url))
+              (when-let [url (not-empty (:reddit branding/social-links))]
+                (social-icon "reddit-alien" url))])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
            [header-tab
             "characters"
@@ -529,7 +536,7 @@
        [:div.flex.justify-cont-s-a.align-items-c
         {:style registration-header-style}
         [:img.h-55.pointer
-         {:src "/image/dmv-logo.svg"
+         {:src branding/logo-path
           :on-click route-to-default-page}]]
        [:div.flex-grow-1 content]
        [views-2/legal-footer]]
@@ -816,7 +823,7 @@
                   :border-width "1px"
                   :border-bottom-width "3px"}
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
-        [:span.m-l-5 "Yes! Send me updates about OrcPub."]]
+        [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name ".")]]
        [:div.m-t-30
         [:div.p-10
          [:span "Already have an account?"]
@@ -1463,7 +1470,7 @@
                   [:a.orange {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
                   [:a.orange.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]]
                  [:div.legal-footer
-                  [:p "© " (.getFullYear (js/Date.)) " " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "Orcpub"]]
+                  [:p "© " branding/copyright-year " " branding/copyright-holder]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © " (.getFullYear (js/Date.)) " Wizards. All Rights Reserved."]
                   [:p "This site is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
@@ -3471,7 +3478,7 @@
 
 (defn share-link [id]
   [:a.m-r-5.f-s-14
-   {:href (str "mailto:?subject=My%20OrcPub%20Character%20"
+   {:href (str "mailto:?subject=My%20" (js/encodeURIComponent branding/app-name) "%20Character%20"
                @(subscribe [::char/character-name id])
                "&body=https://"
                js/window.location.hostname

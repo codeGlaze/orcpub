@@ -1,38 +1,36 @@
 (ns orcpub.integrations
   "Client-side integration hooks. No-op by default.
-   Forks override these functions with real implementations
-   (analytics tracking, ad placements, etc.).
+   Fork overrides: replace these functions with real implementations.
 
    Companion to integrations.clj (server-side head tags).
-   Server-side loads third-party SDKs in <head>;
-   this namespace provides the in-app component hooks.")
+   Server-side loads third-party scripts in <head>;
+   this namespace provides the in-app lifecycle hooks.")
 
 ;; ─── Page View Tracking ─────────────────────────────────────────
-;; Call from the :route event handler (events.cljs), NOT from render
+;; Called from the :route event handler (events.cljs), NOT from render
 ;; function bodies (which fire on every React re-render).
-;;
-;; Example override (Matomo):
-;;   (defn track-page-view! [route]
-;;     (when (exists? js/_paq)
-;;       (.push js/_paq #js ["setCustomUrl" js/window.location.href])
-;;       (.push js/_paq #js ["trackPageView"])))
 
 (defn track-page-view!
-  "Track a page navigation. No-op by default."
+  "Track a page navigation. No-op by default.
+   Fork overrides: call your analytics provider here."
   [_route])
 
-;; ─── Ad Components ──────────────────────────────────────────────
-;; Hook for ad banner placement in the page body.
-;; The SDK script tag is loaded server-side via integrations.clj;
-;; this component renders the actual ad placement element.
-;;
-;; Example override (AdSense):
-;;   (defn ad-banner []
-;;     [:ins.adsbygoogle {:style {:display "block"}
-;;                        :data-ad-client "ca-pub-xxx"
-;;                        :data-ad-slot "yyy"}])
+;; ─── App Mount Hook ───────────────────────────────────────────────
+;; Called from the app root component-did-mount. Handles mount-time
+;; integration setup (e.g. user identification, external service init).
 
-(defn ad-banner
-  "Ad banner component. Returns nil (renders nothing) by default."
+(defn on-app-mount!
+  "Mount-time integrations. Called once from app root component-did-mount.
+   Context map: {:user-tier :free|... :username str :email str}
+   Fork overrides: wire analytics user identification, etc."
+  [_context])
+
+;; ─── Content Slot ──────────────────────────────────────────────
+;; Hook for rendering supplementary content in the page body.
+;; Fork overrides: return hiccup for banners, promotions, etc.
+
+(defn content-slot
+  "Supplementary content component. Returns nil (renders nothing) by default.
+   Fork overrides: return hiccup to render content in designated slots."
   []
   nil)

@@ -36,6 +36,7 @@
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
             [orcpub.dnd.e5.subs :as subs5e]
+            [orcpub.branding :as branding]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.user-agent :as user-agent]
@@ -1903,8 +1904,11 @@
       :mobile [mobile-columns]
       [desktop-or-tablet-columns device-type])))
 
-(def patreon-link-props
-  {:href "https://www.patreon.com/user?u=5892323" :target "_blank"})
+(defn supporter-link-props
+  "Link props for the supporter/funding page. Returns nil when no URL configured."
+  []
+  (when-let [url (not-empty (:patreon branding/social-links))]
+    {:href url :target "_blank"}))
 
 ;; ============================================================================
 ;; Missing Content Warning
