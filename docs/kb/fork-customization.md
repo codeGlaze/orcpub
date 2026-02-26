@@ -1,122 +1,174 @@
-# Fork Customization — Branding, Integrations, and CSP
+# Fork Customization — Override Files, Branding & Integrations
 
-How the public repo supports fork-specific customization (branding, analytics,
-ads, etc.) without requiring source code changes. Forks override via env vars
-and file-level overrides.
+How the public repo supports fork-specific customization without touching shared
+code. All fork-specific behavior lives in 6 override files. Shared files call
+the same API on both branches — they just get different results.
 
-## Architecture Overview
+## Override File Pattern
+
+6 files differ between public and production. On merge: **keep production's version**.
+Everything else (views.cljs, events.cljs, email.clj, privacy.clj, character_builder.cljs)
+is identical on both branches.
+
+| File | Public repo | Production override |
+|------|-------------|---------------------|
+| `branding.clj` | OrcPub defaults, empty social links | DMV defaults, real social URLs |
+| `branding.cljs` | OrcPub fallbacks | DMV fallbacks |
+| `user_tier.cljs` | `:user-tier` → always `:free` | Derived from `:patron`/`:patron-tier` |
+| `user_data.clj` | Pass-through stubs | Adds patron fields to API response |
+| `integrations.clj` | Empty `head-tags`, no CSP domains | Matomo + AdSense script injection |
+| `integrations.cljs` | No-op stubs + basic share links | Full Matomo/AdSense + tier-gated UI |
+
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ Server-side (CLJ)                                                   │
-│                                                                     │
-│  branding.clj ──→ routes.clj (OG meta title/desc/image)            │
-│       │      ──→ email.clj (sender name, greeting, subjects)       │
-│       │      ──→ views_2.cljc (splash logo, copyright)             │
-│       │      ──→ privacy.clj (legal doc brand references)          │
-│       │                                                             │
-│  integrations.clj ──→ index.clj (head-tags: SDK scripts)           │
-│       │           ──→ pedestal.clj (csp-domains → CSP header)      │
-│       │                                                             │
-│  csp.clj ←── pedestal.clj (merges integration domains into CSP)    │
-│                                                                     │
-├─────────────────────────────────────────────────────────────────────┤
-│ Client-side (CLJS)                                                  │
-│                                                                     │
-│  integrations.cljs ──→ events.cljs (:route handler calls            │
-│       │                 track-page-view! on every navigation)       │
-│       │             ──→ views.cljs (ad-banner component hook)       │
-│                                                                     │
-│  cookies.js ──→ index.clj (vanilla JS cookie banner, not CLJS)     │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│ Server-side (CLJ)                                                │
+│                                                                  │
+│  branding.clj ──→ index.clj (OG meta, window.__BRANDING__ JSON) │
+│       │      ──→ email.clj (sender name, from address)          │
+│       │      ──→ privacy.clj (legal doc brand references)       │
+│       │                                                          │
+│  integrations.clj ──→ index.clj (head-tags: SDK scripts)        │
+│       │           ──→ privacy.clj (head-tags for terms pages)    │
+│       │           ──→ pedestal.clj (csp-domains → CSP header)    │
+│                                                                  │
+│  user_data.clj ──→ routes.clj (API response enrichment)         │
+│                                                                  │
+├──────────────────────────────────────────────────────────────────┤
+│ Client-side (CLJS)                                               │
+│                                                                  │
+│  branding.cljs ──→ reads window.__BRANDING__ at load time        │
+│       │       ──→ any CLJS file via [orcpub.branding :as b]      │
+│                                                                  │
+│  user_tier.cljs ──→ registers :user-tier re-frame subscription   │
+│                                                                  │
+│  integrations.cljs ──→ views.cljs (UI hooks + lifecycle)         │
+│       │            ──→ events.cljs (track-page-view!)            │
+│       │            ──→ character_builder.cljs (share-links)      │
+│                                                                  │
+│  cookies.js ──→ index.clj (vanilla JS cookie banner)             │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+## Server → Client Config Bridge
+
+`environ.core/env` is JVM-only. CLJS gets server config via JSON injection:
+
+```
+.env → branding.clj (reads env vars)
+           ↓
+      client-config (builds map)
+           ↓
+      index.clj (serializes to JSON)
+           ↓
+      <script>window.__BRANDING__ = {...};</script>
+           ↓
+      branding.cljs (reads at namespace load time)
 ```
 
 ## Branding (`src/clj/orcpub/branding.clj`)
 
-Centralizes app identity. All values are env-var-gated with neutral defaults.
+All values are env-var-gated with neutral defaults.
 
 | Var | Env Var | Default | Used By |
 |-----|---------|---------|---------|
-| `app-name` | `APP_NAME` | `"OrcPub"` | email, routes, privacy, views_2 |
-| `app-tagline` | `APP_TAGLINE` | D&D 5e description | routes (OG meta) |
-| `default-page-title` | `APP_PAGE_TITLE` | `"OrcPub: D&D 5e..."` | routes (OG/title) |
-| `logo-path` | `APP_LOGO_PATH` | `"/image/orcpub-logo.svg"` | views_2, privacy |
-| `og-image-filename` | `APP_OG_IMAGE` | `"/image/orcpub-logo.png"` | routes (OG meta) |
-| `copyright-holder` | `APP_COPYRIGHT_HOLDER` | `"OrcPub"` | views_2 footer |
-| `copyright-year` | `APP_COPYRIGHT_YEAR` | `"2025"` | views_2 footer |
-| `email-sender-name` | `APP_EMAIL_SENDER_NAME` | `"OrcPub Team"` | email from/body |
-| `social-links` | `APP_SOCIAL_*` | all `""` (hidden) | views.cljs header |
+| `app-name` | `APP_NAME` | `"OrcPub"` | email, index, privacy |
+| `app-tagline` | `APP_TAGLINE` | D&D 5e description | index (OG meta) |
+| `default-page-title` | `APP_PAGE_TITLE` | `"OrcPub: D&D 5e..."` | index (title/OG) |
+| `logo-path` | `APP_LOGO_PATH` | `"/image/orcpub-logo.svg"` | views, privacy |
+| `og-image-filename` | `APP_OG_IMAGE` | `"/image/orcpub-logo.png"` | index (OG meta) |
+| `copyright-holder` | `APP_COPYRIGHT_HOLDER` | `"OrcPub"` | views footer |
+| `copyright-year` | `APP_COPYRIGHT_YEAR` | `"2025"` | views footer |
+| `email-sender-name` | `APP_EMAIL_SENDER_NAME` | `"OrcPub Team"` | email |
+| `email-from-address` | `EMAIL_FROM_ADDRESS` | `"no-reply@orcpub.com"` | email |
+| `support-email` | `APP_SUPPORT_EMAIL` | `""` (hidden) | privacy, events |
+| `help-url` | `APP_HELP_URL` | `""` (hidden) | views footer |
+| `social-links` | `APP_SOCIAL_*` | all `""` (hidden) | views header, integrations |
+| `field-limits` | `APP_FIELD_LIMIT_*` | `{:notes 50000 :text 255 :number 7}` | views form fields |
 
-### Not Yet Wired (future pass)
-- `views.cljs` — logo, social links, "OrcPub" text (CLJS-side, needs `goog-define` or server-injected values)
-- `styles/core.clj` — header background image path
-- `index.clj` — `og:site_name` / `twitter:*` tags (not yet added to breaking/)
+## Integrations — Server-side (`integrations.clj`)
 
-## Integrations
+Provides `<head>` tags for third-party SDKs and CSP domains.
 
-### Server-side (`src/clj/orcpub/integrations.clj`)
+| Env Var | What it enables |
+|---------|-----------------|
+| `MATOMO_URL` + `MATOMO_SITE_ID` | Matomo analytics |
+| `ADSENSE_CLIENT` | Google AdSense |
 
-Provides `<head>` tags for third-party SDKs (analytics, ad networks). Stub
-returns `()` for `head-tags` and `{}` for `csp-domains`.
-
-**Pattern:**
-1. Define env-var-gated config: `(def my-id (env :my-id))`
-2. Write a tag function returning hiccup or nil
-3. Add to `head-tags` concat list
-4. Add required domains to `csp-domains`
+Empty value = disabled. CSP domains are auto-derived from enabled integrations.
 
 **CSP flow:**
 ```
-integrations/csp-domains → pedestal.clj reads :connect-src/:frame-src
-  → csp/build-csp-header merges them into the CSP header
+integrations/csp-domains → pedestal.clj → csp/build-csp-header
 ```
 
-### Client-side (`src/cljs/orcpub/integrations.cljs`)
+## Integrations — Client-side (`integrations.cljs`)
 
-No-op stubs for in-app integration hooks. Forks override these functions.
+### Lifecycle Hooks (no return value)
 
-| Function | Purpose | Wired Into |
-|----------|---------|------------|
-| `track-page-view!` | Analytics page navigation tracking | `:route` event (events.cljs) |
-| `ad-banner` | Ad placement component (returns nil) | views.cljs (placeholder) |
+| Function | Signature | Called From |
+|----------|-----------|-------------|
+| `track-page-view!` | `[route]` | events.cljs `:route` handler |
+| `on-app-mount!` | `[{:keys [user-tier username email]}]` | views.cljs `content-page` mount |
+| `track-character-list!` | `[character-count user-tier]` | views.cljs character list |
 
-**Important:** `track-page-view!` is called from the `:route` event handler
-(single choke point), NOT from render bodies. Calling from render = inflated
-analytics on every React re-render.
+**Important:** `track-page-view!` is called from the `:route` event handler (single
+choke point), NOT from render bodies. Render bodies fire on every React re-render.
 
-### Server → Client Config Bridge
+### UI Hooks (return hiccup or nil)
 
-For forks needing to pass server-side env vars to CLJS components:
-1. Add `client-config` function to `integrations.clj`
-2. Inject as JS global in `index.clj` via `script-tag`
-3. Read from `js/window.__INTEGRATIONS__` in CLJS
+| Function | Signature | Called From | Public Returns |
+|----------|-----------|-------------|----------------|
+| `content-slot` | `[user-tier]` | views.cljs content page (2 slots) | `nil` |
+| `supporter-link` | `[user-tier mobile? icon-fn]` | views.cljs app header | Patreon button when URL set |
+| `support-banner` | `[opts-map]` | views.cljs content page | `nil` |
+| `pdf-options-slot` | `[user-tier]` | views.cljs PDF options | `nil` |
+| `share-links` | `[id character-name]` | views.cljs + character_builder.cljs | Single email link |
+| `share-link-www` | `[id]` | views.cljs character list | Basic www link |
 
-See commented example in `integrations.clj`.
+### Key patterns
+
+- **`supporter-link`** receives `icon-fn` (the `svg-icon` function) as a parameter
+  to avoid circular deps with views.cljs.
+- **`content-slot`** is self-gating — production checks tier internally, public
+  always returns nil. Callers don't need to gate.
+- **`share-links`** returns a **vector of hiccup elements** (not a single element).
+  Callers use `into`/`concat` to merge with other button configs.
+
+## User Tier (`user_tier.cljs`)
+
+Registers the `:user-tier` re-frame subscription.
+
+| Branch | Returns |
+|--------|---------|
+| Public | Always `:free` |
+| Production | Derived from `:patron` + `:patron-tier` |
+
+All tier gating in shared code uses `@(subscribe [:user-tier])`.
+
+## Adding a New Integration Hook
+
+1. Add stub on public first (empty body or `nil` return)
+2. Wire the call site in shared code (views.cljs, events.cljs, etc.)
+3. Implement real behavior on production
+4. Add to override-api-reference.md (`.claude/override-api-reference.md`)
+
+## Naming Conventions
+
+- **No monetization language on public** — `content-slot` not `ad-banner`,
+  `pdf-options-slot` not `pdf-upsell`
+- **"default-tier"** in production docstrings, not "free-tier"
+- Neutral docstrings on public: "Fork overrides: ..." not "DMV: ..."
+
+## Merge Strategy
+
+| File type | On merge public → production |
+|-----------|------------------------------|
+| Override files (6 above) | Conflict → **keep ours (production)** |
+| Shared files | No conflict — same API calls |
 
 ## Cookie Consent
 
-Cookie banner is vanilla JS (`resources/public/js/cookies.js`), loaded
-server-side in `index.clj`. NOT a CLJS component. Forks customize by
-replacing `cookies.js` and updating the init call in `index.clj`.
-
-## CSP Extensibility (`src/clj/orcpub/csp.clj`)
-
-`build-csp-header` accepts `:extra-connect-src` and `:extra-frame-src`
-sequences. These are populated from `integrations/csp-domains` via
-`pedestal.clj`'s nonce interceptor.
-
-When no integrations are configured: CSP is `connect-src 'self'` with
-no `frame-src` directive. When integrations add domains: they appear
-in `connect-src` and a `frame-src 'self' ...` directive is added.
-
-## Fork Upgrade Checklist
-
-When upgrading a fork from a new public repo release:
-
-1. **branding.clj** — no conflicts if fork only sets env vars
-2. **integrations.clj** — merge carefully; fork has real implementations
-3. **integrations.cljs** — fork overrides functions; merge new stubs
-4. **views.cljs** — still has hardcoded branding (CLJS side not yet centralized)
-5. **cookies.js** — fork may have custom version; manual merge
-6. **csp.clj** — no conflicts if fork uses `csp-domains` properly
-7. **.env** — add any new env vars from `.env.example`
+Vanilla JS (`resources/public/js/cookies.js`), loaded server-side in `index.clj`.
+NOT a CLJS component. Forks customize by replacing `cookies.js`.
