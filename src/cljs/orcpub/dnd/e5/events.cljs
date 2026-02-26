@@ -1175,6 +1175,28 @@
  (fn [db _]
    (dissoc db :email-change-sent? :email-change-error)))
 
+;; ─── Email Preferences ─────────────────────────────────────────────
+
+(reg-event-fx
+ :toggle-send-updates
+ (fn [{:keys [db]} [_ new-value]]
+   {:http {:method :put
+           :headers (authorization-headers db)
+           :url (backend-url (routes/path-for routes/user-route))
+           :transit-params {:send-updates? (boolean new-value)}
+           :on-success [:toggle-send-updates-success new-value]
+           :on-failure [:toggle-send-updates-failure]}}))
+
+(reg-event-db
+ :toggle-send-updates-success
+ (fn [db [_ new-value]]
+   (assoc-in db [:user-data :user-data :send-updates?] (boolean new-value))))
+
+(reg-event-db
+ :toggle-send-updates-failure
+ (fn [db _]
+   db))
+
 (reg-event-fx
  :unfollow-user
  (fn [{:keys [db]} [_ username]]
@@ -1808,7 +1830,8 @@
     routes/send-password-reset-page-route
     routes/password-reset-success-route
     routes/password-reset-expired-route
-    routes/password-reset-used-route})
+    routes/password-reset-used-route
+    routes/unsubscribe-success-route})
 
 (reg-event-fx
  :login

@@ -729,6 +729,19 @@
     [:div.m-t-20 "You can now log in"]
     [login-link]]))
 
+(defn unsubscribe-success []
+  (registration-page
+   [:div {:style {:text-align :center}}
+    [:div {:style {:color orange
+                   :font-weight :bold
+                   :font-size "36px"
+                   :text-transform :uppercase
+                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
+                   :margin-top "100px"}}
+     "Unsubscribed"]
+    [:div.m-t-20 "You have been successfully unsubscribed from email updates."]
+    [:div.m-t-10 "You can re-enable updates at any time from your account settings."]]))
+
 (defn email-sent [text]
   (registration-page
    [:div {:style {:text-align :center}}
@@ -7731,7 +7744,22 @@
                                (reset! new-email "")
                                (reset! confirm-email "")
                                (dispatch [:change-email-clear]))}
-               "Change"]])]]])))
+               "Change"]])]
+          ;; ─── Email Updates Toggle ─────────────────────────────────
+          [:div.p-5
+           [:span.f-w-b "Email Updates: "]
+           (let [send-updates? @(subscribe [:send-updates?])]
+             [:span
+              [:i.fa.fa-check.f-s-14.pointer.m-r-5
+               {:class (if send-updates? "orange" "white")
+                :style {:border-color "#f0a100"
+                        :border-style :solid
+                        :border-width "1px"
+                        :border-bottom-width "3px"}
+                :on-click #(dispatch [:toggle-send-updates (not send-updates?)])}]
+              (if send-updates?
+                (str "Receiving updates from " branding/app-name)
+                "Not receiving updates")])]]])))
 
 
 (defn newb-character-builder-page []
