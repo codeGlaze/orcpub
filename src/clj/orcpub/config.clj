@@ -43,11 +43,11 @@
     (str/lower-case policy)))
 
 (defn dev-mode?
-  "Returns true when running in dev mode (DEV_MODE env var is truthy).
-   Used by CSP to determine if Figwheel/CLJS dev builds are in use.
-   See also: index.clj which uses the same env var pattern."
+  "Returns true when running in dev mode (DEV_MODE env var is 'true').
+   Env vars are strings — (boolean \"false\") is true in Clojure, so we
+   must compare against the string \"true\" explicitly."
   []
-  (boolean (env :dev-mode)))
+  (= "true" (str/lower-case (or (env :dev-mode) ""))))
 
 (defn strict-csp?
   "Returns true when CSP_POLICY=strict (regardless of dev mode).
