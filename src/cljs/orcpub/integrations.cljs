@@ -122,10 +122,6 @@
      [:i.fa.fa-times.p-10.pointer
       {:on-click on-dismiss}]]))
 
-;; ─── PDF Upsell ──────────────────────────────────────────────
-;; Upsell block shown below PDF sheet options for free-tier users.
-;; Tiered users already see all sheet options in the dropdown.
-
 ;; ─── Share Links ─────────────────────────────────────────────
 ;; Character sharing links. DMV provides email + direct www link
 ;; with dynamic protocol/port and ?frame=true for embedded views.
@@ -161,9 +157,11 @@
    [:i.fa.fa-link.m-r-5]
    "www"])
 
+;; ─── PDF Options Slot ────────────────────────────────────────
+;; Hook below PDF sheet options. DMV shows tier-gated content here.
+
 (defn pdf-options-slot
-  "DMV: Upsell block for free-tier users in the PDF options panel.
-   Returns hiccup promoting additional character sheets, or nil for tiered users."
+  "DMV: Additional content below PDF sheet options for free-tier users."
   [user-tier]
   (when (= :free user-tier)
     [:div
