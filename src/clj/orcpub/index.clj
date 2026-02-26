@@ -3,6 +3,7 @@
             [orcpub.oauth :as oauth]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
+            [orcpub.integrations :as integrations]
             [environ.core :refer [env]]))
 
 (def devmode? (env :dev-mode))
@@ -21,10 +22,10 @@
 
 (defn script-tag
   "Generate a script tag with optional nonce for CSP strict mode.
-   For external scripts, pass :src. For inline scripts, pass content as body."
-  [{:keys [src nonce]} & body]
-  (let [attrs (cond-> {}
-                src (assoc :src src)
+   For external scripts, pass :src. For inline scripts, pass content as body.
+   Extra attributes (e.g. :async, :crossorigin) are passed through to the tag."
+  [{:keys [nonce] :as opts} & body]
+  (let [attrs (cond-> (dissoc opts :nonce)
                 nonce (assoc :nonce nonce))]
     (if (seq body)
       (into [:script attrs] body)
@@ -140,26 +141,7 @@ html {
 	min-height: 100%;
 }"]
     [:title title]
-    [:link {:rel "preconnect" :href "https://t.dungeonmastersvault.com/" :crossorigin ""}]
-    (script-tag {:nonce nonce}
-     " var _paq = window._paq = window._paq || [];
-      //_paq.push([\"setDocumentTitle\", document.domain + \"/\" + document.title]);
-      _paq.push([\"setCookieDomain\", \"*.www.dungeonmastersvault.com\"]);
-      _paq.push([\"setDomains\", [\"*.www.dungeonmastersvault.com\"]]);
-      _paq.push([\"setDoNotTrack\", true]);
-      //_paq.push(['trackPageView']);
-      //_paq.push(['enableLinkTracking']);
-      (function() {
-      var u=\"//t.dungeonmastersvault.com/\";
-      _paq.push(['setTrackerUrl', u+'matomo.php']);
-      _paq.push(['setSiteId', '7']);
-      var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
-      g.type='text/javascript'; g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
-      })();")
-    [:noscript "<p><img src=\"//t.dungeonmastersvault.com/matomo.php?idsite=7&amp;rec=1\" style=\"border:0;\" alt=\"\" /></p>"]
-
-;<!-- IMPORTANT: Place these lines as high as you can in <head>, ideally just after <title> tag -->
-    (script-tag {:nonce nonce :async "" :src "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3202063096003962" :crossorigin "anonymous"})]
+    (integrations/head-tags nonce)]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
