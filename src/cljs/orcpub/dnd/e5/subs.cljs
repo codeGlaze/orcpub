@@ -449,13 +449,14 @@
 (reg-sub-raw
   ::folder5e/folders
   (fn [app-db _]
-    (go (dispatch [:set-loading true])
-        (let [response (<! (http/get (url-for-route routes/dnd-e5-char-folders-route)
-                                     {:headers (auth-headers @app-db)}))]
-          (dispatch [:set-loading false])
-          (handle-api-response response
-            #(dispatch [::folder5e/set-folders (:body response)])
-            :context "fetch folders")))
+    (when (:token (:user-data @app-db))
+      (go (dispatch [:set-loading true])
+          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-folders-route)
+                                       {:headers (auth-headers @app-db)}))]
+            (dispatch [:set-loading false])
+            (handle-api-response response
+              #(dispatch [::folder5e/set-folders (:body response)])
+              :context "fetch folders"))))
     (ra/make-reaction
      (fn [] (get @app-db ::folder5e/folders [])))))
 
