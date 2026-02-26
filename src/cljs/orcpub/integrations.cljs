@@ -45,7 +45,7 @@
       (.push js/_paq (clj->js ["setCustomVariable" 1 "User" (str username) "visit"]))
       (.push js/_paq (clj->js ["setCustomVariable" 2 "Email" (str email) "visit"]))
       (.push js/_paq (clj->js ["setCustomVariable" 3 "Tier" (str user-tier) "visit"]))))
-  ;; Ad slot reload for free-tier users
+  ;; Ad slot reload for default-tier users
   (when (= :free user-tier)
     (when (js-in "reloadAdSlots" js/window)
       (js/reloadAdSlots))))
@@ -63,10 +63,10 @@
 ;; ─── Content Slot ──────────────────────────────────────────────
 ;; The AdSense SDK script tag is loaded server-side via integrations.clj;
 ;; this component renders the actual ad placement element.
-;; Self-gated: only renders for free-tier users.
+;; Self-gated: only renders for default-tier users.
 
 (defn content-slot
-  "DMV: Google AdSense in-page banner. Self-gated to free-tier users.
+  "DMV: Google AdSense in-page banner. Self-gated to default-tier users.
    Returns hiccup with dangerouslySetInnerHTML, or nil for tiered users."
   [user-tier]
   (when (= :free user-tier)
@@ -100,11 +100,11 @@
                 "https://c5.patreon.com/external/logo/become_a_patron_button.png")}])]))
 
 ;; ─── Support Banner ──────────────────────────────────────────
-;; Dismissable support/donation banner shown to free-tier users.
+;; Dismissable support/donation banner shown to default-tier users.
 ;; Absorbs the inline donation CTA that was in views.cljs.
 
 (defn support-banner
-  "DMV: Dismissable donation banner for free-tier users.
+  "DMV: Dismissable donation banner for default-tier users.
    Opts: {:srd-message-closed? bool :hide-header-message? bool
           :frame? bool :user-tier keyword :on-dismiss fn}"
   [{:keys [srd-message-closed? hide-header-message? frame? user-tier on-dismiss]}]
@@ -161,7 +161,7 @@
 ;; Hook below PDF sheet options. DMV shows tier-gated content here.
 
 (defn pdf-options-slot
-  "DMV: Additional content below PDF sheet options for free-tier users."
+  "DMV: Additional content below PDF sheet options for default-tier users."
   [user-tier]
   (when (= :free user-tier)
     [:div
