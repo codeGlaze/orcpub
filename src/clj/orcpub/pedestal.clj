@@ -2,6 +2,7 @@
   (:require [com.stuartsierra.component :as component]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as interceptor]
+            [io.pedestal.log :as log]
             [pandect.algo.sha1 :refer [sha1]]
             [datomic.api :as d]
             [clojure.string :as s]
@@ -99,8 +100,7 @@
                   (if new-etag
                     (assoc-in context [:response :headers "etag"] new-etag)
                     context)))
-              (catch Throwable t (prn "T" t ))))}))
-
+              (catch Throwable t (log/error :msg "ETag interceptor error" :exception t))))}))
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle
 

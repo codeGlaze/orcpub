@@ -473,7 +473,8 @@
 
 (defn update-user-preferences
   "PUT handler for /user — update user preferences (currently send-updates?).
-   Requires authentication. Only updates fields present in transit-params."
+   Requires authentication. Only updates fields present in transit-params.
+   Re-reads from DB after transact to return authoritative state."
   [{:keys [transit-params db conn identity]}]
   (let [username (:user identity)
         {:keys [:db/id]} (find-user-by-username db username)]
@@ -481,8 +482,10 @@
       (do (when (contains? transit-params :send-updates?)
             @(d/transact conn [{:db/id id
                                 :orcpub.user/send-updates? (boolean (:send-updates? transit-params))}]))
-          {:status 200
-           :body {:send-updates? (boolean (:send-updates? transit-params))}})
+          ;; Re-read from DB after transact for authoritative response
+          (let [updated-user (d/entity (d/db conn) id)]
+            {:status 200
+             :body {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))}}))
       {:status 400 :body {:error "User not found"}})))
 
 (defn do-send-password-reset [user-id email conn request]
@@ -939,7 +942,8 @@
         (let [data (ex-data e)]
           (case (:error data)
             :character-problems {:status 400 :body (:problems data)}
-            :not-user-character {:status 401 :body "You do not own this character"})))
+            :not-user-character {:status 401 :body "You do not own this character"}
+            (throw e))))   ; re-throw unrecognised ExceptionInfo (e.g. :db/error from Datomic)
       (catch Exception e (prn "ERROR" e) (throw e)))))
 
 (defn save-character [{:keys [db transit-params body conn identity] :as request}]
