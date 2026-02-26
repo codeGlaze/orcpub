@@ -1,0 +1,101 @@
+# ===========================================================================
+# Datomic Pro Transactor — Production Configuration Template
+# ===========================================================================
+# Complete transactor.properties with ${VARIABLE} placeholders for secrets.
+# deploy/start.sh substitutes these at container startup.
+#
+# Structural settings (host, protocol, ports, directories) are pre-configured
+# for the Docker deployment. You should NOT need to change them.
+#
+# For Datomic property reference:
+#   https://docs.datomic.com/pro/configuring/transactor.html
+# ===========================================================================
+
+# --- Protocol -----------------------------------------------------------------
+# dev storage keeps data in the transactor process (no external DB required).
+# Required for Java 21 support (Datomic Free uses protocol=free, Java 8 only).
+protocol=dev
+
+# --- Host & Networking --------------------------------------------------------
+# host= is what the transactor ADVERTISES to peers, not what it binds to.
+# Peers connect via the URI hostname, receive this advertised host, then use
+# it for subsequent connections.
+#
+# Why "datomic" (the Docker Compose service name) and not "0.0.0.0":
+#
+#   host=0.0.0.0 works on single-host Docker Compose by accident — peers
+#   never actually use the advertised address (they reuse the URI hostname).
+#   In Swarm with multi-node overlay, a peer on node A would try to connect
+#   to 0.0.0.0:4334 locally, hitting itself instead of the transactor on
+#   node B. host=<service-name> works in both modes because Docker DNS
+#   resolves it correctly across the overlay network.
+#
+# If host=datomic fails: your containers aren't on a shared Docker network.
+#   docker compose creates one by default (projectname_default). Standalone
+#   docker run needs --network. Host networking mode has no DNS at all.
+host=datomic
+port=4334
+
+# Alternative hostname for peer fallback connections.
+# Default 127.0.0.1 (container loopback). For Swarm with overlay networks,
+# set ALT_HOST to the service name or external hostname.
+alt-host=${ALT_HOST:-127.0.0.1}
+
+# --- Storage Access -----------------------------------------------------------
+# remote = peers in separate containers can connect (required for Docker)
+# local  = same-JVM only (single-process dev, not for containerized deployments)
+storage-access=remote
+
+# --- Directories --------------------------------------------------------------
+data-dir=/data
+log-dir=/log
+
+# --- Encryption ---------------------------------------------------------------
+# Encrypt peer-transactor communication. Disable only for debugging.
+encrypt-channel=${ENCRYPT_CHANNEL:-true}
+
+# --- Authentication -----------------------------------------------------------
+# REQUIRED: Substituted from environment variables at container startup.
+# deploy/start.sh refuses to start if ADMIN_PASSWORD or DATOMIC_PASSWORD
+# are not set.
+#
+# Peers must connect with the same DATOMIC_PASSWORD in their URI:
+#   datomic:dev://datomic:4334/orcpub?password=<DATOMIC_PASSWORD>
+storage-admin-password=${ADMIN_PASSWORD}
+storage-datomic-password=${DATOMIC_PASSWORD}
+
+# Password rotation: set ADMIN_PASSWORD_OLD / DATOMIC_PASSWORD_OLD env vars
+# to enable rotation. The transactor accepts both old and new passwords during
+# the transition. Remove the old-password vars after all peers have reconnected.
+# start.sh appends old-storage-*-password lines when these vars are set.
+
+# ===========================================================================
+# Memory Tuning
+# ===========================================================================
+# Defaults below are safe for the stock 1GB heap (-Xmx1g in bin/transactor).
+#
+# For a 4GB-heap production deployment (-Xmx4g), scale up:
+#   memory-index-threshold=32m
+#   memory-index-max=512m
+#   object-cache-max=512m
+#
+# Rules of thumb (from Datomic capacity docs):
+#   memory-index-threshold: ~1% of -Xmx
+#   memory-index-max:       ~13% of -Xmx (2x threshold minimum)
+#   object-cache-max:       ~50% of -Xmx minus index memory
+#
+# CONSTRAINT: (object-cache-max + memory-index-max) must be < 75% of -Xmx.
+#   1GB: 128m + 128m = 256m < 768m  ✓
+#   4GB: 512m + 512m = 1024m < 3072m  ✓
+# ===========================================================================
+
+memory-index-threshold=16m
+memory-index-max=128m
+object-cache-max=128m
+
+# --- Concurrency --------------------------------------------------------------
+# Increase for SSDs or high-throughput workloads.
+# write-concurrency: max concurrent writes to storage (default: 4, min: 2)
+# read-concurrency:  max concurrent reads (default: 2x write-concurrency)
+# write-concurrency=4
+# read-concurrency=8
