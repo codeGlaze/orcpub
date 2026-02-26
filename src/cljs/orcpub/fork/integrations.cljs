@@ -53,7 +53,7 @@
     (when (not= :free user-tier)
       (.push js/_paq (clj->js ["setCustomVariable" 1 "User" (str username) "visit"]))
       (.push js/_paq (clj->js ["setCustomVariable" 2 "Email" (str email) "visit"]))
-      (.push js/_paq (clj->js ["setCustomVariable" 3 "Tier" (str user-tier) "visit"]))))
+      (.push js/_paq (clj->js ["setCustomVariable" 3 "Tier" (name user-tier) "visit"]))))
   ;; Ad slot reload for default-tier users
   (when (= :free user-tier)
     (when (js-in "reloadAdSlots" js/window)
@@ -105,7 +105,7 @@
   (when-let [url (not-empty (:patreon branding/social-links))]
     [:a {:href url :target :_blank}
      (if (not= :free user-tier)
-       [icon-fn user-tier (if mobile? 40 60) ""]
+       [icon-fn (name user-tier) (if mobile? 40 60) ""]
        [:img.h-32.m-l-10.m-b-5.pointer.opacity-7.hover-opacity-full
         {:src (if mobile?
                 "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
