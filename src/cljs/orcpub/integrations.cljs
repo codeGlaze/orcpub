@@ -25,6 +25,14 @@
    Fork overrides: wire analytics user identification, etc."
   [_context])
 
+;; ─── Analytics Custom Variables ─────────────────────────────────
+;; Called from render functions that need to tag analytics events
+;; with page-specific data.
+
+(defn track-character-list!
+  "Tag the character list view with analytics data. No-op by default."
+  [_character-count _user-tier])
+
 ;; ─── Content Slot ──────────────────────────────────────────────
 ;; Hook for rendering supplementary content in the page body.
 ;; Fork overrides: return hiccup for banners, promotions, etc.
