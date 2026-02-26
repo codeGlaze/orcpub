@@ -79,7 +79,8 @@
             [orcpub.errors :as errors]
             [clojure.set :as sets]
             [cljsjs.filesaverjs]
-            [clojure.pprint :as pprint])
+            [clojure.pprint :as pprint]
+            [orcpub.integrations :as integrations])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 ;; =============================================================================
@@ -1547,6 +1548,7 @@
 (reg-event-fx
  :route
  (fn [{:keys [db]} [_ {:keys [handler route-params] :as new-route} {:keys [no-return? skip-path? event secure?] :as options}]]
+   (integrations/track-page-view! new-route)
    (let [{:keys [route route-history]} db
          seq-params (seq route-params)
          flat-params (flatten seq-params)

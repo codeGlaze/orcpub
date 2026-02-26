@@ -46,6 +46,21 @@
 ;;               :src (str "https://cdn.example.com/sdk.js?client=" sdk-client)
 ;;               :crossorigin "anonymous"}]))
 
+;; ─── Client-Side Config Bridge ──────────────────────────────────
+;; Server-side integrations load SDK scripts in <head>.
+;; Client-side components (ad banners, tracking) live in
+;; integrations.cljs — forks override those no-op stubs.
+;;
+;; To pass server-side config (env vars) to CLJS components:
+;;   1. Add a client-config function here:
+;;        (defn client-config [] {:sdk-client sdk-client})
+;;   2. Inject it in index.clj as a JS global:
+;;        (script-tag {:nonce nonce}
+;;          (str "window.__INTEGRATIONS__="
+;;               (cheshire.core/generate-string (integrations/client-config)) ";"))
+;;   3. Read it in CLJS:
+;;        (def config (js->clj js/window.__INTEGRATIONS__ :keywordize-keys true))
+
 (def csp-domains
   "Extra CSP domains required by enabled integrations.
    Returns {:connect-src [\"https://...\"] :frame-src [\"https://...\"]}.
