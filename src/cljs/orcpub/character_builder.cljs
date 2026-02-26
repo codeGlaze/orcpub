@@ -1911,8 +1911,9 @@
       :mobile [mobile-columns]
       [desktop-or-tablet-columns device-type])))
 
-(def patreon-link-props
-  "Link props for the Patreon page. Hidden when social-links has no :patreon."
+(defn supporter-link-props
+  "Link props for the supporter/funding page. Returns nil when no URL configured."
+  []
   (when-let [url (not-empty (:patreon branding/social-links))]
     {:href url :target "_blank"}))
 

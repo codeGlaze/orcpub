@@ -1585,24 +1585,24 @@
                      [:i.fa.fa-times.p-10.pointer
                       {:on-click #(dispatch [:close-srd-message])}]])])]
 
-                ;Ad Banner
+                ;Content Slot
               (when (= :free @(subscribe [:user-tier]))
                 [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                  [:div.content.p-10.flex
                   [:div.flex-grow-1.t-a-c
-                   [integrations/ad-banner]]]])
+                   [integrations/content-slot]]]])
 
               [:div#app-main.container
                [:div.content.w-100-p content]]
 
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
-                ;Ad Banner
+                ;Content Slot
                 (when (= :free @(subscribe [:user-tier]))
                   [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                    [:div.content.p-10.flex
                     [:div.flex-grow-1.t-a-c
-                     [integrations/ad-banner]]]])
+                     [integrations/content-slot]]]])
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div

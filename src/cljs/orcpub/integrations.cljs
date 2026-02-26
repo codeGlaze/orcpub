@@ -48,12 +48,12 @@
     (when (js-in "reloadAdSlots" js/window)
       (js/reloadAdSlots))))
 
-;; ─── Ad Components ──────────────────────────────────────────────
+;; ─── Content Slot ──────────────────────────────────────────────
 ;; The AdSense SDK script tag is loaded server-side via integrations.clj;
 ;; this component renders the actual ad placement element.
 
-(defn ad-banner
-  "Google AdSense in-page banner. Returns hiccup with dangerouslySetInnerHTML.
+(defn content-slot
+  "DMV: Google AdSense in-page banner. Returns hiccup with dangerouslySetInnerHTML.
    Tier-gated rendering is handled by the caller in views.cljs."
   []
   [:div {:dangerouslySetInnerHTML
