@@ -21,10 +21,10 @@
 
 (defn script-tag
   "Generate a script tag with optional nonce for CSP strict mode.
-   For external scripts, pass :src. For inline scripts, pass content as body."
-  [{:keys [src nonce]} & body]
-  (let [attrs (cond-> {}
-                src (assoc :src src)
+   For external scripts, pass :src. For inline scripts, pass content as body.
+   Extra attributes (e.g. :async, :crossorigin) are passed through to the tag."
+  [{:keys [nonce] :as opts} & body]
+  (let [attrs (cond-> (dissoc opts :nonce)
                 nonce (assoc :nonce nonce))]
     (if (seq body)
       (into [:script attrs] body)
