@@ -444,7 +444,7 @@
       (redirect route-map/verify-success-route)
       (do-verification request
                        (merge query-params
-                              {:first-and-last-name "DMV Patron"})
+                              {:first-and-last-name (str branding/app-name " User")})
                        conn
                        nil
                        {:db/id id}))))
@@ -459,7 +459,7 @@
           :orcpub.user/password-reset-sent (java.util.Date.)}])
       (email/send-reset-email
        (base-url request)
-       {:first-and-last-name "DMV Patron"
+       {:first-and-last-name (str branding/app-name " User")
         :email email}
        key)
       {:status 200}

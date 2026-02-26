@@ -1,7 +1,7 @@
 (ns orcpub.dnd.e5.views-2
   (:require [orcpub.route-map :as routes]
             [clojure.string :as s]
-            #?(:clj [orcpub.branding :as branding])))
+            [orcpub.branding :as branding]))
 
 (defn style [style]
   #?(:cljs style)
@@ -45,8 +45,7 @@
 
 (defn legal-footer-sm []
   [:div.m-l-15.m-b-10.m-t-10.t-a-l
-   [:span #?(:clj  (str "\u00a9 " branding/copyright-year " " branding/copyright-holder)
-             :cljs "\u00a9 2025 Dungeon Master's Vault")]
+   [:span (str "\u00a9 " branding/copyright-year " " branding/copyright-holder)]
    [:a.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]
    [:a.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
    [:a.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Policy"]])
@@ -68,7 +67,7 @@
       {:style (style {:display :flex
                       :justify-content :space-around})}
       [:img.w-50-p
-       {:src #?(:clj branding/logo-path :cljs "/image/dmv-logo.svg")}]]
+       {:src branding/logo-path}]]
      [:div
       {:style (style
                {:display :flex

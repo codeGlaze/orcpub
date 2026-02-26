@@ -30,7 +30,7 @@
 (defn verification-email-html [first-and-last-name username verification-url]
   (into
    [:div
-    (str "Welcome to the Vault!")
+    (str "Welcome to " branding/app-name "!")
     [:br]
     [:br]
     (str "Your " branding/app-name " account is almost ready, we just need you to verify your email address going the following URL to confirm that you are authorized to use this email address:")

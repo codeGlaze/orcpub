@@ -48,6 +48,16 @@
     (when (js-in "reloadAdSlots" js/window)
       (js/reloadAdSlots))))
 
+;; ─── Analytics Custom Variables ─────────────────────────────────
+;; Called from render functions that need to tag analytics events
+;; with page-specific data (e.g. character count).
+
+(defn track-character-list!
+  "Tag the character list view with character count for analytics."
+  [character-count _user-tier]
+  (when (exists? js/_paq)
+    (.push js/_paq (clj->js ["setCustomVariable" 4 "Characters" (str character-count) "visit"]))))
+
 ;; ─── Content Slot ──────────────────────────────────────────────
 ;; The AdSense SDK script tag is loaded server-side via integrations.clj;
 ;; this component renders the actual ad placement element.

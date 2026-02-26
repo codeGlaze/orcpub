@@ -8408,8 +8408,7 @@
         selected-ids @(subscribe [::char/selected])
         has-selected? @(subscribe [::char/has-selected?])
         user-tier @(subscribe [:user-tier])]
-    (when (exists? js/_paq)
-      (.push js/_paq (clj->js ["setCustomVariable", 4, "Characters", (str (count characters)), "visit"])))
+    (integrations/track-character-list! (count characters) user-tier)
     #_(prn (str (count characters) " characters - " user-tier))
 [content-page
      "Characters"
