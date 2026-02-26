@@ -262,11 +262,12 @@
     (fn [title icon on-click disabled active device-type & buttons]
       (let [mobile? (= :mobile device-type)]
         [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
-         {:on-click (fn [e] (if (seq buttons)
-                              #(swap! hovered? not)
-                              (on-click e)))
-          :on-mouse-enter #(reset! hovered? true)
-          :on-mouse-leave #(reset! hovered? false)
+         {:on-click (fn [e]
+                      (if (seq buttons)
+                        (swap! hovered? not)
+                        (on-click e)))
+          :on-mouse-enter #(when-not mobile? (reset! hovered? true))
+          :on-mouse-leave #(when-not mobile? (reset! hovered? false))
           :style (when active active-style)
           :class (str (if disabled "disabled" "pointer")
                            " "
@@ -288,7 +289,10 @@
                  (let [current-route @(subscribe [:route])]
                    {:style (when (or (= route current-route)
                                    (= route (get current-route :handler))) active-style)
-                    :on-click (route-handler route)})
+                    :on-click (fn [e]
+                                (.stopPropagation e)
+                                (reset! hovered? false)
+                                ((route-handler route) e))})
                  name])
               buttons))])]))))
 
