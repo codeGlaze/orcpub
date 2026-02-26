@@ -47,7 +47,7 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `CSP_POLICY` | `strict` | Content Security Policy mode: `strict`, `permissive`, or `none` |
-| `DEV_MODE` | `true` (in :dev profile) | Enables dev-mode CSP (Report-Only instead of enforcing) |
+| `DEV_MODE` | `"true"` (in :dev profile) | Enables dev-mode CSP (Report-Only instead of enforcing). Must be the string `"true"` (case-insensitive) -- any other value (including `"1"`, `"yes"`, or empty) is treated as false. |
 
 CSP modes:
 - **strict** — nonce-based CSP with `strict-dynamic`. Dev mode uses `Report-Only` header (logs violations but doesn't block). Prod uses enforcing header.
@@ -90,6 +90,8 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ORCPUB_ENV` | — | Set to `dev` to enable `add-test-user` in user.clj |
+| `FIGWHEEL_PORT` | `3449` | Figwheel WebSocket port for frontend hot-reload. Read by `scripts/common.sh`. |
+| `FIGWHEEL_CONNECT_URL` | *(auto-detected)* | Figwheel WebSocket URL override for remote environments (Gitpod, tunnels). Auto-detected for GitHub Codespaces. Example: `wss://my-remote-host:3449/figwheel-connect` |
 
 ### Branding, Social Links & Integrations
 
@@ -102,10 +104,12 @@ See [BRANDING-AND-INTEGRATIONS.md](BRANDING-AND-INTEGRATIONS.md) for the full re
 | `src/clj/orcpub/config.clj` | `DATOMIC_URL`, `CSP_POLICY`, `DEV_MODE` |
 | `src/clj/orcpub/system.clj` | `PORT` (via `System/getenv`) |
 | `src/clj/orcpub/routes.clj` | `SIGNATURE`, `EMAIL_*`, `ADMIN_PASSWORD` |
-| `src/clj/orcpub/index.clj` | `DEV_MODE`, `LOAD_HOMEBREW_URL` |
-| `src/clj/orcpub/branding.clj` | `APP_*`, `APP_SOCIAL_*`, `APP_FIELD_LIMIT_*`, `EMAIL_FROM_ADDRESS` |
-| `src/clj/orcpub/integrations.clj` | `MATOMO_URL`, `MATOMO_SITE_ID`, `ADSENSE_CLIENT` |
+| `src/clj/orcpub/index.clj` | `LOAD_HOMEBREW_URL` (calls `fork/branding` + `fork/integrations`) |
+| `src/clj/orcpub/fork/branding.clj` | `APP_*`, `APP_SOCIAL_*`, `APP_FIELD_LIMIT_*`, `EMAIL_FROM_ADDRESS` |
+| `src/clj/orcpub/fork/integrations.clj` | `MATOMO_URL`, `MATOMO_SITE_ID`, `ADSENSE_CLIENT`, `ADSENSE_SLOT` |
+| `src/clj/orcpub/pedestal.clj` | (reads `fork/integrations` for CSP domain allowlists) |
 | `.devcontainer/post-create.sh` | `DATOMIC_VERSION`, `DATOMIC_TYPE` |
-| `scripts/start.sh` | `DATOMIC_URL`, `LOG_DIR` |
+| `scripts/start.sh` | `DATOMIC_URL`, `LOG_DIR`, `FIGWHEEL_PORT`, `FIGWHEEL_CONNECT_URL` |
+| `scripts/common.sh` | `FIGWHEEL_PORT` (default: 3449) |
 | `deploy/start.sh` | `ADMIN_PASSWORD`, `DATOMIC_PASSWORD`, `ALT_HOST`, `ENCRYPT_CHANNEL`, `*_OLD` rotation vars |
 | `dev/user.clj` | `ORCPUB_ENV` (for add-test-user guard) |

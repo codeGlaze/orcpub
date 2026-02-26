@@ -221,7 +221,7 @@ For the full list, see [docs/migration/dev-tooling.md](docs/migration/dev-toolin
 Run these before committing:
 
 ```bash
-# Server-side tests (74 tests, 237 assertions)
+# Server-side tests (210 tests, 963 assertions)
 lein test
 
 # Linter (0 errors expected; warnings are from third-party libs)

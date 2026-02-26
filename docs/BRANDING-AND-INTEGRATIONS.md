@@ -38,16 +38,16 @@ All the actual content now lives in override files that never conflict on merge.
 
 ## The 6 Override Files
 
-These are the only files that differ between public and production. On merge, always **keep production's version**.
+All live under `src/clj/orcpub/fork/` (server) and `src/cljs/orcpub/fork/` (client). These are the only files that differ between public and production. On merge, always **keep production's version**.
 
-| File | What it controls | Public repo | Production |
-|------|-----------------|-------------|------------|
-| `branding.clj` | App name, logos, emails, social links, field limits | OrcPub defaults | DMV defaults |
-| `branding.cljs` | Same values on the client side | OrcPub fallbacks | DMV fallbacks |
-| `user_tier.cljs` | User tier subscription (`:user-tier`) | Always `:free` | Derived from patron status |
-| `user_data.clj` | API response enrichment | Pass-through | Adds patron fields |
-| `integrations.clj` | Server-side `<head>` script tags | Empty | Matomo + AdSense |
-| `integrations.cljs` | Client-side UI hooks + analytics | No-op stubs | Full implementation |
+| File | Path | What it controls | Public repo | Production |
+|------|------|-----------------|-------------|------------|
+| `branding.clj` | `src/clj/orcpub/fork/` | App name, logos, emails, social links, field limits | OrcPub defaults | DMV defaults |
+| `branding.cljs` | `src/cljs/orcpub/fork/` | Same values on the client side | OrcPub fallbacks | DMV fallbacks |
+| `user_tier.cljs` | `src/cljs/orcpub/fork/` | User tier subscription (`:user-tier`) | Always `:free` | Derived from patron status |
+| `user_data.clj` | `src/clj/orcpub/fork/` | API response enrichment | Pass-through | Adds patron fields |
+| `integrations.clj` | `src/clj/orcpub/fork/` | Server-side `<head>` script tags | Empty | Matomo + AdSense |
+| `integrations.cljs` | `src/cljs/orcpub/fork/` | Client-side UI hooks + analytics | No-op stubs | Full implementation |
 
 Everything else — views.cljs, events.cljs, email.clj, privacy.clj, character_builder.cljs — is **identical** on both branches.
 
@@ -55,10 +55,10 @@ Everything else — views.cljs, events.cljs, email.clj, privacy.clj, character_b
 
 ## How the Config Bridge Works
 
-Server-side values (from `.env` → `branding.clj`) get to the browser through a JSON bridge:
+Server-side values (from `.env` → `fork/branding.clj`) get to the browser through a JSON bridge:
 
 ```
-.env  →  branding.clj (reads env vars)
+.env  →  fork/branding.clj (reads env vars)
               ↓
          client-config (builds a map)
               ↓
@@ -66,10 +66,12 @@ Server-side values (from `.env` → `branding.clj`) get to the browser through a
               ↓
          <script>window.__BRANDING__ = {...};</script>
               ↓
-         branding.cljs (reads window.__BRANDING__ at load time)
+         fork/branding.cljs (reads window.__BRANDING__ at load time)
               ↓
-         Any CLJS file can require [orcpub.branding :as branding]
+         Any CLJS file can require [orcpub.fork.branding :as branding]
 ```
+
+A parallel bridge exists for integrations: `fork/integrations.clj` provides `client-config` which index.clj injects as `window.__INTEGRATIONS__`, read by `fork/integrations.cljs`.
 
 Why not just read env vars in ClojureScript? `environ.core/env` is JVM-only. CLJS runs in the browser — it needs the values injected.
 
@@ -77,7 +79,7 @@ Why not just read env vars in ClojureScript? `environ.core/env` is JVM-only. CLJ
 
 ## Configuration Reference
 
-All values have defaults in `branding.clj`. Set env vars in `.env` to override.
+All values have defaults in `fork/branding.clj`. Set env vars in `.env` to override.
 
 ### App Identity
 
@@ -133,7 +135,7 @@ Input validation constraints, configurable via env vars.
 
 ### Analytics & Ads
 
-Server-side (`integrations.clj`) injects SDK scripts in `<head>`. Client-side (`integrations.cljs`) handles in-app behavior.
+Server-side (`fork/integrations.clj`) injects SDK scripts in `<head>` and exports CSP domain allowlists for `pedestal.clj`. Client-side (`fork/integrations.cljs`) handles in-app behavior, reading ad client/slot IDs from the `window.__INTEGRATIONS__` config bridge.
 
 | Env Var | Default (public) | Default (production) |
 |---------|-----------------|---------------------|
@@ -144,7 +146,7 @@ Server-side (`integrations.clj`) injects SDK scripts in `<head>`. Client-side (`
 
 ---
 
-## Integration Hooks (integrations.cljs)
+## Integration Hooks (fork/integrations.cljs)
 
 These are the functions that shared files call. Public repo returns stubs/nil, production returns real UI.
 
@@ -171,7 +173,7 @@ These are the functions that shared files call. Public repo returns stubs/nil, p
 
 ---
 
-## User Tier System (user_tier.cljs)
+## User Tier System (fork/user_tier.cljs)
 
 | Branch | `:user-tier` subscription returns |
 |--------|----------------------------------|
@@ -202,13 +204,15 @@ When adding a new integration hook:
 
 | File | What it reads |
 |------|--------------|
-| `branding.clj` | All `APP_*` env vars |
-| `integrations.clj` | `MATOMO_URL`, `MATOMO_SITE_ID`, `ADSENSE_CLIENT` |
-| `index.clj` | Calls `branding/client-config` + `integrations/head-tags` |
-| `privacy.clj` | Calls `branding/*` for names + `integrations/head-tags` for scripts |
-| `email.clj` | `branding/email-from-address`, `branding/email-sender-name` |
-| `branding.cljs` | Reads `window.__BRANDING__` (injected by index.clj) |
-| `integrations.cljs` | Reads `branding/*` via branding.cljs |
-| `views.cljs` | Reads `branding/*` + calls `integrations/*` hooks |
-| `events.cljs` | Reads `branding/support-email` |
-| `character_builder.cljs` | Calls `integrations/share-links` |
+| `fork/branding.clj` | All `APP_*` env vars, `EMAIL_FROM_ADDRESS` |
+| `fork/integrations.clj` | `MATOMO_URL`, `MATOMO_SITE_ID`, `ADSENSE_CLIENT`, `ADSENSE_SLOT` |
+| `index.clj` | Calls `fork/branding/client-config` + `fork/integrations/head-tags` + `fork/integrations/client-config` |
+| `privacy.clj` | Calls `fork/branding/*` for names + `fork/integrations/head-tags` for scripts |
+| `email.clj` | `fork/branding/email-from-address`, `fork/branding/email-sender-name` |
+| `routes.clj` | `fork/branding/*` (app-name), `fork/user-data/*` (response enrichment) |
+| `pedestal.clj` | `fork/integrations/csp-domains` (CSP allowlists) |
+| `fork/branding.cljs` | Reads `window.__BRANDING__` (injected by index.clj) |
+| `fork/integrations.cljs` | Reads `window.__INTEGRATIONS__` + `fork/branding/*` via branding.cljs |
+| `views.cljs` | Reads `fork/branding/*` + calls `fork/integrations/*` hooks |
+| `events.cljs` | Reads `fork/branding/support-email`, calls `fork/integrations/track-page-view!` |
+| `character_builder.cljs` | Calls `fork/integrations/share-links` |
