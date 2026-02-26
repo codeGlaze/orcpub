@@ -84,6 +84,7 @@ All values have defaults in `branding.clj`. Set env vars in `.env` to override.
 | Env Var | Default (public) | Default (production) | Where it shows up |
 |---------|-----------------|---------------------|-------------------|
 | `APP_NAME` | OrcPub | Dungeon Master's Vault | Page titles, emails, privacy policy, OG tags |
+| `APP_URL` | *(empty)* | https://www.dungeonmastersvault.com | Privacy policy domain references |
 | `APP_LOGO_PATH` | /image/orcpub-logo.svg | /image/dmv-logo.svg | Header, splash page, privacy page |
 | `APP_OG_IMAGE` | /image/orcpub-logo.png | /image/dmv-box-logo.png | Social sharing preview |
 | `APP_TAGLINE` | Generic D&D 5e description | DMV-specific description | OG meta tags |
@@ -94,7 +95,7 @@ All values have defaults in `branding.clj`. Set env vars in `.env` to override.
 | Env Var | Default (public) | Default (production) | Where it shows up |
 |---------|-----------------|---------------------|-------------------|
 | `APP_COPYRIGHT_HOLDER` | OrcPub | Dungeon Master's Vault | Footer |
-| `APP_COPYRIGHT_YEAR` | 2025 | 2025 | Footer |
+| `APP_COPYRIGHT_YEAR` | *(current year)* | *(current year)* | Footer |
 | `APP_SUPPORT_EMAIL` | *(empty = hidden)* | thDM@dungeonmastersvault.com | Privacy page, error messages, events.cljs mailto |
 | `APP_HELP_URL` | *(empty = hidden)* | https://www.dungeonmastersvault.com/help/ | Footer help link |
 
@@ -113,6 +114,7 @@ Shown in the app header/footer when non-empty. Leave empty to hide.
 |---------|-----------------|---------------------|
 | `APP_SOCIAL_PATREON` | *(empty = hidden)* | Patreon URL |
 | `APP_SOCIAL_FACEBOOK` | *(empty = hidden)* | Facebook group URL |
+| `APP_SOCIAL_BLUESKY` | *(empty = hidden)* | *(empty)* |
 | `APP_SOCIAL_TWITTER` | *(empty = hidden)* | Twitter URL |
 | `APP_SOCIAL_REDDIT` | *(empty = hidden)* | *(empty)* |
 | `APP_SOCIAL_DISCORD` | *(empty = hidden)* | *(empty)* |
@@ -138,6 +140,7 @@ Server-side (`integrations.clj`) injects SDK scripts in `<head>`. Client-side (`
 | `MATOMO_URL` | *(empty = disabled)* | Analytics server URL |
 | `MATOMO_SITE_ID` | *(empty = disabled)* | Matomo site ID |
 | `ADSENSE_CLIENT` | *(empty = disabled)* | AdSense publisher ID |
+| `ADSENSE_SLOT` | *(empty = disabled)* | AdSense ad slot ID |
 
 ---
 
