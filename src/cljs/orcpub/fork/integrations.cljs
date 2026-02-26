@@ -1,4 +1,4 @@
-(ns orcpub.integrations
+(ns orcpub.fork.integrations
   "Client-side integration hooks.
    DMV: Matomo analytics + Google AdSense + tier-gated UI.
    Public repo overrides with no-op stubs.
@@ -6,7 +6,7 @@
    Companion to integrations.clj (server-side head tags).
    Server-side loads third-party SDKs in <head>;
    this namespace provides the in-app component hooks."
-  (:require [orcpub.branding :as branding]
+  (:require [orcpub.fork.branding :as branding]
             [orcpub.route-map :as routes]))
 
 ;; ─── Config Bridge ──────────────────────────────────────────────

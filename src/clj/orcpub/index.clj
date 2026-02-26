@@ -2,10 +2,10 @@
   (:require [hiccup.page :refer [html5 include-css]]
             [cheshire.core :as cheshire]
             [orcpub.oauth :as oauth]
-            [orcpub.branding :as branding]
+            [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
-            [orcpub.integrations :as integrations]
+            [orcpub.fork.integrations :as integrations]
             [environ.core :refer [env]]))
 
 (def devmode? (env :dev-mode))

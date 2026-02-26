@@ -1,4 +1,4 @@
-(ns orcpub.user-tier
+(ns orcpub.fork.user-tier
   "User tier abstraction for feature gating.
    DMV: derives tier from Patreon patron data in user-data.
    Public repo override: always returns :free.

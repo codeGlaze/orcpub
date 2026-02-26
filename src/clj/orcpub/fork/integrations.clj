@@ -1,4 +1,4 @@
-(ns orcpub.integrations
+(ns orcpub.fork.integrations
   "Third-party integrations (analytics, ads) gated on env vars.
    Defaults to DMV values; forks override via .env or disable with empty string."
   (:require [environ.core :refer [env]]))

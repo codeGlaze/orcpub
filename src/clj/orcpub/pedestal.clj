@@ -8,7 +8,7 @@
             [java-time.api :as t]
             [orcpub.csp :as csp]
             [orcpub.config :as config]
-            [orcpub.integrations :as integrations])
+            [orcpub.fork.integrations :as integrations])
   (:import [java.io File]
            [java.time.format DateTimeFormatter]))
 

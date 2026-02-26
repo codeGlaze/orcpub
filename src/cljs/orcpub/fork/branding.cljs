@@ -1,4 +1,4 @@
-(ns orcpub.branding
+(ns orcpub.fork.branding
   "Client-side branding config. Reads server-injected window.__BRANDING__.
    Fallback values are used in dev/REPL where no server injection exists.
 

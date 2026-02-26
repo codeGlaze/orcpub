@@ -10,7 +10,7 @@
             [clojure.pprint :as pprint]
             [clojure.string :as s]
             [orcpub.route-map :as routes]
-            [orcpub.branding :as branding]
+            [orcpub.fork.branding :as branding]
             [cuerdas.core :as str]))
 
 (defn- social-links-footer

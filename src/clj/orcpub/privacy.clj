@@ -1,8 +1,8 @@
 (ns orcpub.privacy
   (:require [hiccup.page :as page]
             [clojure.string :as s]
-            [orcpub.branding :as branding]
-            [orcpub.integrations :as integrations]
+            [orcpub.fork.branding :as branding]
+            [orcpub.fork.integrations :as integrations]
             [environ.core :as environ]))
 
 (defn section [{:keys [title font-size paragraphs subsections]}]

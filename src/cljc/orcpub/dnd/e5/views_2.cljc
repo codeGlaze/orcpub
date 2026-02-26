@@ -1,7 +1,7 @@
 (ns orcpub.dnd.e5.views-2
   (:require [orcpub.route-map :as routes]
             [clojure.string :as s]
-            [orcpub.branding :as branding]))
+            [orcpub.fork.branding :as branding]))
 
 (defn style [style]
   #?(:cljs style)

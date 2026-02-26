@@ -1,4 +1,4 @@
-(ns orcpub.branding
+(ns orcpub.fork.branding
   "Centralized branding configuration for fork-neutral deployment.
    All values have sensible defaults; forks override via env vars.
 

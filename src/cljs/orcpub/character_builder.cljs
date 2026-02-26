@@ -45,8 +45,8 @@
             [clojure.core.match :refer [match]]
 
             [reagent.core :as r]
-            [orcpub.branding :as branding]
-            [orcpub.integrations :as integrations]
+            [orcpub.fork.branding :as branding]
+            [orcpub.fork.integrations :as integrations]
             [re-frame.core :refer [subscribe dispatch dispatch-sync]]))
 ;console-print
 (def print-disabled? true)

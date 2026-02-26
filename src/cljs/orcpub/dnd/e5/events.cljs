@@ -77,8 +77,8 @@
             [bidi.bidi :as bidi]
             [orcpub.route-map :as routes]
             [orcpub.errors :as errors]
-            [orcpub.integrations :as integrations]
-            [orcpub.branding :as branding]
+            [orcpub.fork.integrations :as integrations]
+            [orcpub.fork.branding :as branding]
             [clojure.set :as sets]
             [cljsjs.filesaverjs]
             [clojure.pprint :as pprint])
