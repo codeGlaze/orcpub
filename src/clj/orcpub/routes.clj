@@ -33,6 +33,7 @@
             [orcpub.errors :as errors]
             [orcpub.privacy :as privacy]
             [orcpub.email :as email]
+            [orcpub.branding :as branding]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
             [orcpub.registration :as registration]
@@ -631,14 +632,14 @@
     :in $ ?key
     :where [?e :orcpub.user/password-reset-key ?key]])
 
-(def default-title
-  "Dungeon Master's Vault: D&D 5e Character Builder/Generator")
+(def default-title branding/default-page-title)
 
-(def default-description
-  "Dungeons & Dragons 5th Edition (D&D 5e) character builder/generator and digital character sheet far beyond any other in the multiverse.")
+(def default-description branding/app-tagline)
 
-(defn default-image-url [host]
-  (str "http://" host "/image/dmv-box-logo.png"))
+(defn default-image-url
+  "OG meta image URL. Uses https:// for social sharing compatibility."
+  [host]
+  (str "https://" host branding/og-image-filename))
 
 (defn index-page-response [{:keys [headers uri csp-nonce] :as request}
                            {:keys [title description image-url]}
