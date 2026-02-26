@@ -3653,7 +3653,6 @@
     (fn [{:keys [id] :as arg}]
       (let [id (js/parseInt id)
             frame? (= "true" (get-in arg [:query "frame"]))
-            _ (prn "FRAME?" frame?)
             {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
             built-template (subs/built-template
                             @(subscribe [::char/template])

@@ -134,7 +134,7 @@
    [:a {:href reset-url} reset-url]
    [:br]
    [:br]
-   "If you did NOT request a reset, please do no click on the link."
+   "If you did NOT request a reset, please do NOT click on the link."
    [:br]
    [:br]
    "Sincerely,"
