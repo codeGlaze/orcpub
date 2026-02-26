@@ -3,6 +3,7 @@
 
    Generates per-request cryptographic nonces and builds CSP headers
    with 'strict-dynamic' for XSS protection."
+  (:require [clojure.string :as str])
   (:import [java.security SecureRandom]
            [java.util Base64]))
 
@@ -24,25 +25,26 @@
   "Build a Content-Security-Policy header string with strict-dynamic and nonce.
 
    Options:
-     :dev-mode? - When true, adds ws://localhost:3449 to connect-src for
-                  Figwheel hot-reload WebSocket support.
+     :dev-mode?         - When true, adds ws://localhost:3449 to connect-src
+     :extra-connect-src - Seq of additional connect-src origins (from integrations)
+     :extra-frame-src   - Seq of additional frame-src origins (from integrations)
 
    The resulting CSP:
      - Uses 'strict-dynamic' for script-src (only nonced scripts execute)
      - Allows Google Fonts for styles and fonts
-     - Allows Matomo analytics (connect-src, img-src)
-     - Allows Google AdSense iframes (frame-src)
      - Restricts all other sources to 'self'
      - Blocks object embeds, restricts base-uri, frame-ancestors, and form-action"
-  [nonce & {:keys [dev-mode?]}]
+  [nonce & {:keys [dev-mode? extra-connect-src extra-frame-src]}]
   (str "default-src 'self'; "
        "script-src 'strict-dynamic' 'nonce-" nonce "'; "
        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
        "font-src 'self' https://fonts.gstatic.com; "
        "img-src 'self' data: https:; "
-       "connect-src 'self' https://t.dungeonmastersvault.com https://pagead2.googlesyndication.com"
+       "connect-src 'self'"
+       (when (seq extra-connect-src) (str " " (str/join " " extra-connect-src)))
        (when dev-mode? " ws://localhost:3449") "; "
-       "frame-src 'self' https://googleads.g.doubleclick.net https://tpc.googlesyndication.com;"
+       (when (seq extra-frame-src)
+         (str "frame-src 'self' " (str/join " " extra-frame-src) "; "))
        "object-src 'none'; "
        "base-uri 'self'; "
        "frame-ancestors 'self'; "

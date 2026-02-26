@@ -43,6 +43,11 @@ NREPL_PORT="${NREPL_PORT:-7888}"
 FIGWHEEL_PORT="${FIGWHEEL_PORT:-3449}"
 GARDEN_PORT="${GARDEN_PORT:-3000}"
 
+# Figwheel WebSocket connect URL override (for remote dev environments).
+# Auto-detected for GitHub Codespaces; set explicitly for other remote setups.
+# Leave empty for local development (uses Figwheel default: ws://localhost:PORT).
+FIGWHEEL_CONNECT_URL="${FIGWHEEL_CONNECT_URL:-}"
+
 # Derived paths
 DATOMIC_DIR="$REPO_ROOT/lib/com/datomic/datomic-${DATOMIC_TYPE}/${DATOMIC_VERSION}"
 DATOMIC_CONFIG="$DATOMIC_DIR/config/working-transactor.properties"

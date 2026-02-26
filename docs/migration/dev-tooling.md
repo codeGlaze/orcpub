@@ -161,7 +161,7 @@ Single source of truth for all runtime configuration. Reads environment variable
 | `(config/get-datomic-uri)` | `DATOMIC_URL` env or `"datomic:dev://localhost:4334/orcpub"` |
 | `(config/get-csp-policy)` | `CSP_POLICY` env or `"strict"` |
 | `(config/strict-csp?)` | `true` when CSP policy is strict |
-| `(config/dev-mode?)` | `true` when `DEV_MODE` env is truthy |
+| `(config/dev-mode?)` | `true` when `DEV_MODE` env is the string `"true"` (case-insensitive) |
 | `(config/get-secure-headers-config)` | Pedestal secure-headers map based on CSP policy |
 
 Used by: `system.clj`, `pedestal.clj`, `user.clj`

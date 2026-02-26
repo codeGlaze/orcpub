@@ -17,7 +17,8 @@
     },
     "3449": {
       "label": "Figwheel",
-      "onAutoForward": "silent"
+      "onAutoForward": "silent",
+      "visibility": "public"
     },
     "4334": {
       "label": "Datomic",
