@@ -18,15 +18,16 @@
 ;; 3. Add it to head-tags's concat list below.
 
 ;; ─── Client-Side Config Bridge ──────────────────────────────────
-;; Server-side integrations load scripts in <head>.
-;; Client-side hooks live in integrations.cljs — forks override
-;; those no-op stubs with real implementations.
-;;
-;; To pass server-side config (env vars) to CLJS:
-;;   1. Add a client-config function here
-;;   2. Inject it in index.clj as a JS global via cheshire
-;;   3. Read it in CLJS at namespace load time
+;; Passes server-side integration config to CLJS components.
+;; index.clj injects this as window.__INTEGRATIONS__ JSON in <head>.
+;; integrations.cljs reads it at namespace load time.
 ;; See branding.clj/client-config for a working example.
+
+(defn client-config
+  "Map of integration config for CLJS injection. Empty by default.
+   Fork overrides: return env-var-gated config values for CLJS components."
+  []
+  {})
 
 (def csp-domains
   "Extra CSP domains required by enabled integrations.

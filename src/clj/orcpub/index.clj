@@ -138,7 +138,8 @@ html {
     [:title title]
     (integrations/head-tags nonce)
     (script-tag {:nonce nonce}
-     (str "window.__BRANDING__=" (cheshire/generate-string (branding/client-config)) ";"))]
+     (str "window.__BRANDING__=" (cheshire/generate-string (branding/client-config)) ";"
+          "window.__INTEGRATIONS__=" (cheshire/generate-string (integrations/client-config)) ";"))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?

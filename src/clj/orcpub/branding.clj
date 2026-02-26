@@ -5,7 +5,8 @@
    Server-side (.clj) is the source of truth. Client-side branding
    is delivered via the config bridge: index.clj injects client-config
    as window.__BRANDING__ JSON in <head>, and branding.cljs reads it."
-  (:require [environ.core :refer [env]]))
+  (:require [environ.core :refer [env]])
+  (:import [java.time Year]))
 
 ;; ─── App Identity ──────────────────────────────────────────────────
 
@@ -17,6 +18,10 @@
   "One-line description for OG/meta tags."
   (or (env :app-tagline)
       "D&D 5e character builder/generator and digital character sheet far beyond any other in the multiverse."))
+
+(def app-url
+  "Primary application URL for legal pages and external references. Empty = hidden."
+  (or (env :app-url) ""))
 
 (def default-page-title
   "Default <title> and og:title when no page-specific title is set."
@@ -41,8 +46,8 @@
   (or (env :app-copyright-holder) "OrcPub"))
 
 (def copyright-year
-  "Copyright year string."
-  (or (env :app-copyright-year) "2025"))
+  "Copyright year string. Defaults to the current year."
+  (or (env :app-copyright-year) (str (.getValue (Year/now)))))
 
 ;; ─── Email ─────────────────────────────────────────────────────────
 
@@ -74,6 +79,7 @@
   "Map of social platform links. Empty string = hidden."
   {:patreon  (or (env :app-social-patreon)  "")
    :facebook (or (env :app-social-facebook) "")
+   :bluesky  (or (env :app-social-bluesky)  "")
    :twitter  (or (env :app-social-twitter)  "")
    :reddit   (or (env :app-social-reddit)   "")
    :discord  (or (env :app-social-discord)  "")})

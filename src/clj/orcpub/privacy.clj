@@ -314,7 +314,7 @@
     {:title "Where we use cookies"
      :font-size 32
      :paragraphs
-     [(str "We use cookies on orcpub.com, in our mobile applications, and in our products and services (like ads, emails and applications). We also use them on the websites of partners who use " branding/app-name "'s Save button, " branding/app-name " widgets, or ad tools like conversion tracking.")]}
+     [(str "We use cookies on " branding/app-name ", in our mobile applications, and in our products and services (like ads, emails and applications). We also use them on the websites of partners who use " branding/app-name "'s Save button, " branding/app-name " widgets, or ad tools like conversion tracking.")]}
     {:title "Your options"
      :font-size 32
      :paragraphs
