@@ -170,6 +170,30 @@ Rules of thumb (from Datomic capacity planning docs):
 | `./deploy/nginx.conf.template` | web | Nginx config template (`envsubst` at startup) |
 | `./deploy/snakeoil.*` | web | Self-signed SSL certificates |
 
+## Bare-Metal Proxy (Non-Docker)
+
+When running the app directly on the host (e.g., `java -jar` or `lein run`)
+with nginx installed natively (not in Docker), the Docker service name `orcpub`
+won't resolve. Set `ORCPUB_HOST` to point nginx at the app:
+
+```bash
+# In .env
+ORCPUB_HOST=127.0.0.1
+```
+
+Then use `envsubst` to render the template before loading it into nginx:
+
+```bash
+export ORCPUB_HOST=127.0.0.1
+export ORCPUB_PORT=8890
+envsubst '${ORCPUB_HOST} ${ORCPUB_PORT}' < deploy/nginx.conf.template > /etc/nginx/conf.d/orcpub.conf
+nginx -s reload
+```
+
+**Important:** The app must bind to `0.0.0.0` (production mode) for the proxy
+to reach it. Dev mode binds to `localhost` only. Run with `PORT=8890` set in the
+environment to use production mode.
+
 ## Swarm Migration Notes
 
 The current configuration is Swarm-ready with minimal changes:
@@ -190,7 +214,7 @@ The current configuration is Swarm-ready with minimal changes:
 | `docker/Dockerfile` | Multi-target: `datomic-dist` (downloader), `transactor`, `app-builder`, `app` |
 | `docker/transactor.properties.template` | Complete transactor config (Option C hybrid template) |
 | `deploy/start.sh` | Transactor startup: secret substitution + exec |
-| `deploy/nginx.conf.template` | Nginx reverse proxy template (`envsubst` resolves `${ORCPUB_PORT}`) |
+| `deploy/nginx.conf.template` | Nginx reverse proxy template (`envsubst` resolves `${ORCPUB_HOST}` and `${ORCPUB_PORT}`) |
 | `deploy/snakeoil.sh` | Self-signed SSL certificate generator |
 | `docker-compose-build.yaml` | Build-from-source compose |
 | `docker-compose.yaml` | Pre-built images compose |

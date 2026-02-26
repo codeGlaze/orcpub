@@ -54,6 +54,12 @@ CSP modes:
 - **permissive** — allows `unsafe-inline` and `unsafe-eval`. Legacy fallback.
 - **none** — disables CSP entirely. Not recommended for production.
 
+### Nginx Proxy
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ORCPUB_HOST` | `orcpub` | Upstream hostname for nginx `proxy_pass`. Docker uses the service name; bare-metal installs should set to `127.0.0.1`. |
+
 ### Docker / Transactor
 
 | Variable | Default | Description |
