@@ -8121,7 +8121,8 @@
          "print"])
       (when (and (= username owner) (seq folders))
         [:select.form-button.m-l-5.builder-option-dropdown
-         {:value (or current-folder-id "")
+         {:style {:width "auto" :align-self "stretch" :box-sizing "border-box"}
+          :value (or current-folder-id "")
           :on-change (fn [e]
                        (let [val (.-value (.-target e))]
                          (if (= val "")

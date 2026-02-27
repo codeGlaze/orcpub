@@ -648,10 +648,14 @@
         output (ByteArrayOutputStream.)
         user-agent (get-in req [:headers "user-agent"])
         chrome? (re-matches #".*Chrome.*" user-agent)
-        filename (str player-name " - " character-name " - " class-level ".pdf")]
+        filename (cond
+                   (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
+                   (s/blank? player-name) (str character-name " - " class-level ".pdf")
+                   :else (str player-name " - " character-name " - " class-level ".pdf"))]
         
-    ;; PDFBox 3.x: Loader/loadPDF replaces the deprecated PDDocument/load
-    (with-open [doc (Loader/loadPDF input)]
+    ;; PDFBox 3.x: Loader/loadPDF has no InputStream overload.
+    ;; Read the stream to a byte[] first, then use Loader.loadPDF(byte[]).
+    (with-open [doc (Loader/loadPDF (.readAllBytes input))]
       (pdf/write-fields! doc fields (not chrome?) font-sizes)
       (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod?))
