@@ -147,7 +147,7 @@
                 character-name
                 "&body=" js/window.location.protocol "//" js/window.location.hostname
                 (when-let [p js/window.location.port] (when (seq p) (str ":" p)))
-                (routes/path-for routes/dnd-e5-char-page-route :id id "?frame=true"))}
+                (routes/path-for routes/dnd-e5-char-page-route :id id) "?frame=true")}
     [:i.fa.fa-envelope.m-r-5]
     "share"]
    [:a.m-r-5.f-s-14
