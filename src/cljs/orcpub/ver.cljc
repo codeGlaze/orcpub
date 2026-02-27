@@ -12,4 +12,4 @@
 
 (defn version [] "2.6.0.0")
 (defn date [] (build-date))
-(defn description [] "'Liberation of the Iron Coder - tinkan's last stand")
+(defn description [] "Liberation of the Iron Coder - tinkan's last stand")
