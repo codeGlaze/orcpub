@@ -4568,8 +4568,10 @@
 
 (reg-event-fx
  :route-to-login
- (fn [_ _]
-   {:dispatch [:route routes/login-page-route {:secure? true :no-return? true}]}))
+ (fn [{:keys [db]} _]
+   ;; Force loading off — multiple parallel 401s can leave the overlay stuck
+   {:db (assoc db :loading false)
+    :dispatch [:route routes/login-page-route {:secure? true :no-return? true}]}))
 
 (reg-event-db
  ::char5e/show-options
