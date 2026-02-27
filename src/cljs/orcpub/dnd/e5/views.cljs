@@ -10,6 +10,7 @@
             [orcpub.dice :as dice]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.subs :as subs]
+            [re-frame.db :refer [app-db]]
             [orcpub.dnd.e5.equipment-subs]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.backgrounds :as bg]
@@ -41,6 +42,9 @@
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.fork.integrations :as integrations]
+            [orcpub.fork.branding :as branding]
+            [orcpub.fork.user-tier]
             [orcpub.ver :as v]
             [clojure.string :as s]
             [cljs.reader :as reader]
@@ -332,12 +336,26 @@
   {:color :white
    :font-size "20px"})
 
-(defn social-icon [icon link]
+(defn social-icon
+  "Render a Font Awesome brand icon as a social link."
+  [icon link]
   [:a.p-5.opacity-5.hover-opacity-full.main-text-color
    {:style social-icon-style
     :href link :target :_blank}
    [:i.fab
     {:class (str "fa-" icon)}]])
+
+(defn bluesky-icon
+  "Bluesky butterfly icon (inline SVG — FA 5.13.1 has no fa-bluesky)."
+  [link]
+  [:a.p-5.opacity-5.hover-opacity-full.main-text-color
+   {:style social-icon-style
+    :href link :target :_blank}
+   [:svg {:xmlns "http://www.w3.org/2000/svg"
+          :viewBox "0 0 568 501"
+          :width "20" :height "18"
+          :style {:vertical-align "middle" :fill "currentColor"}}
+    [:path {:d "M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875 79.748C507.222 323.8 536.444 388.56 473.333 453.32c-119.86 122.992-172.272-30.859-185.702-70.281-2.462-7.227-3.614-10.608-3.631-7.733-.017-2.875-1.169.506-3.631 7.733-13.43 39.422-65.842 193.273-185.702 70.281-63.111-64.76-33.89-129.52 80.986-149.07-65.72 11.185-139.6-7.295-159.875-79.748C10.945 203.659 1 75.291 1 57.946 1-28.906 76.135-1.612 123.121 33.664Z"}]]])
 
 (def search-input-style
   {:height "60px"
@@ -392,12 +410,8 @@
 (defn route-to-my-encounters-page []
   (dispatch [:route routes/dnd-e5-my-encounters-route]))
 
-#_(def logo [:img.h-60.pointer
-           {:src "/image/dmv-logo.svg"
-            :on-click route-to-default-route}])
-
 (def logo [:a {:href "/" } [:img.h-60.pointer
-           {:src "/image/dmv-logo.svg"}]])
+           {:src branding/logo-path}]])
 
 (defn app-header []
   (let [device-type @(subscribe [:device-type])
@@ -433,18 +447,19 @@
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
           [:div
            {:style {:min-width "53px"}}
-           [:a {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank}
-            (if (boolean @(subscribe [:patron]))
-              [svg-icon @(subscribe [:patron-tier]) (if mobile? 40 60) ""]
-              [:img.h-32.m-l-10.m-b-5.pointer
-               {:src (if mobile?
-                       "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
-                       "https://c5.patreon.com/external/logo/become_a_patron_button.png")}])]
+           [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
-              (social-icon "facebook-f" "https://www.facebook.com/groups/252484128656613/")
-              (social-icon "twitter" "https://twitter.com/thDMV")
-              (social-icon "discord" "https://discord.gg/uv5vXhk")])]
+              (when-let [url (not-empty (:facebook branding/social-links))]
+                (social-icon "facebook-f" url))
+              (when-let [url (not-empty (:bluesky branding/social-links))]
+                (bluesky-icon url))
+              (when-let [url (not-empty (:twitter branding/social-links))]
+                (social-icon "twitter" url))
+              (when-let [url (not-empty (:reddit branding/social-links))]
+                (social-icon "reddit-alien" url))
+              (when-let [url (not-empty (:discord branding/social-links))]
+                (social-icon "discord" url))])]
           [:div.flex.m-b-5.m-t-5.justify-cont-s-b.app-header-menu
            [header-tab
             "characters"
@@ -611,7 +626,7 @@
        [:div.flex.justify-cont-s-a.align-items-c
         {:style registration-header-style}
         [:img.h-60.pointer
-         {:src "/image/dmv-logo.svg"
+         {:src branding/logo-path
           :on-click route-to-default-page}]]
        [:div.flex-grow-1 content]
        [views-2/legal-footer-sm]]
@@ -794,6 +809,19 @@
     [:div.m-t-20 "You can now log in"]
     [login-link]]))
 
+(defn unsubscribe-success []
+  (registration-page
+   [:div {:style {:text-align :center}}
+    [:div {:style {:color orange
+                   :font-weight :bold
+                   :font-size "36px"
+                   :text-transform :uppercase
+                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
+                   :margin-top "100px"}}
+     "Unsubscribed"]
+    [:div.m-t-20 "You have been successfully unsubscribed from email updates."]
+    [:div.m-t-10 "You can re-enable updates at any time from your account settings."]]))
+
 (defn email-sent [text]
   (registration-page
    [:div {:style {:text-align :center}}
@@ -903,7 +931,7 @@
                   :border-width "1px"
                   :border-bottom-width "3px"}
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
-        [:span.m-l-5 "Yes! Send me updates about Dungeon Master's Vault"]]
+        [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
        [:div.m-t-10
         [:div.p-10
          [:span "Already have an account?"]
@@ -1481,13 +1509,6 @@
 (def srd-link
   [:a.orange {:href "/dnld/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
 
-(def patron-banner-link
-  [:a.orange {:href "https://www.dungeonmastersvault.com/thank-you-for-supporting-us/" :target "_blank"} "Become a Patron today"])
-
-(def faq-link
-  [:a.orange {:href "https://www.dungeonmastersvault.com/help/" :target "_blank"} " here"])
-
-
 (defn current-year []
   (.getFullYear (js/Date.))) 
 
@@ -1500,17 +1521,6 @@
 (defn raw-html [html]
   ;; Note: no `:>` or `js/React.createElement`.  
   [:div {:dangerouslySetInnerHTML #js {:__html html}}])
-
-;; ------------------------------------------------------------------
-(defn ad-banner []
-  (raw-html
-   (str
-    "<!-- InPage -->\n"
-    "<ins class=\"adsbygoogle\" style=\"display:block\" "
-    "data-ad-client=\"ca-pub-3202063096003962\" "
-    "data-ad-slot=\"4970831358\" data-ad-format=\"auto\" "
-    "data-full-width-responsive=\"true\"></ins>\n"
-    "<script> (adsbygoogle = window.adsbygoogle || []).push({}); </script>")))
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   ;; Plain atom (not r/atom) mirrors the :orcacle-open? subscription value
@@ -1529,21 +1539,18 @@
     
     (r/create-class
      {:component-did-mount (fn [comp]
-                             (when-not (boolean @(subscribe [:patron]))
-                               (if (js-in "reloadAdSlots" js/window)
-                                 (js/reloadAdSlots)
-                                 #_(prn "reloadAdSlots does not exist")))
+                             ;; Read directly from app-db — lifecycle methods are
+                             ;; not reactive contexts, so subscribe warns here.
+                             (let [user-data (-> @app-db :user-data :user-data)]
+                               (integrations/on-app-mount!
+                                {:user-tier (if (:patron user-data)
+                                             (or (some-> user-data :patron-tier keyword) :patron)
+                                             :free)
+                                 :username  (:username user-data)
+                                 :email     (:email user-data)}))
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll))
-                             (js/window.scrollTo 0,0)
-
-                             (when (boolean @(subscribe [:username]))
-                               (.push js/_paq (clj->js ["setUserId", (str @(subscribe [:email]))]))
-                               (.push js/_paq (clj->js ["setCustomVariable", 1, "User", (str @(subscribe [:username])), "visit"])))
-                             (when (boolean @(subscribe [:patron]))
-                               (.push js/_paq (clj->js ["setCustomVariable", 1, "User", (str @(subscribe [:username])), "visit"]))
-                               (.push js/_paq (clj->js ["setCustomVariable", 2, "Email", (str @(subscribe [:email])), "visit"]))
-                               (.push js/_paq (clj->js ["setCustomVariable", 3, "Patron", (str @(subscribe [:patron-tier])), "visit"]))))
+                             (js/window.scrollTo 0,0))
 
       :component-will-unmount (fn [comp]
                                 (when-not frame?
@@ -1555,7 +1562,6 @@
               theme @(subscribe [:theme])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
-          (.push js/_paq (clj->js ["setDocumentTitle", title]))
           (reset! orcacle-open?* orcacle-open?)
           [:div.app.min-h-full
            {:class theme
@@ -1580,42 +1586,25 @@
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
 
-              ;Banner for announcements
+              ;; Support banner (integrations-gated)
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-               (if (and (not srd-message-closed?)
-                        (not hide-header-message?)
-                        (not (boolean @(subscribe [:patron]))))
-                 [:div
-                  (if (not frame?)
-                    [:div.content.bg-lighter.p-10.flex
-                     [:div.flex-grow-1.t-a-c
-                      [:div.p-t-10 "Please consider a gift of $1 to support this site."]
-                      [:div.p-t-10 "Your support of $1 will provide the server with one lunch because no server should go hungry."]
-                      [:div.p-t-10.p-b-10 patron-banner-link]]
-                     [:i.fa.fa-times.p-10.pointer
-                      {:on-click #(dispatch [:close-srd-message])}]])])]
+               [integrations/support-banner
+                {:srd-message-closed? srd-message-closed?
+                 :hide-header-message? hide-header-message?
+                 :frame? frame?
+                 :user-tier @(subscribe [:user-tier])
+                 :on-dismiss #(dispatch [:close-srd-message])}]]
 
-                ;Ad Banner
-              (if-not (boolean @(subscribe [:patron]))
-                [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-                 [:div.content.p-10.flex
-                  [:div.flex-grow-1.t-a-c
-                  [ad-banner]
-                   ]]])
-
+              ;; Content slot (integrations-gated)
+              [integrations/content-slot @(subscribe [:user-tier])]
 
               [:div#app-main.container
                [:div.content.w-100-p content]]
 
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
-                ;Ad Banner
-                (if-not (boolean @(subscribe [:patron]))
-                  [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
-                   [:div.content.p-10.flex
-                    [:div.flex-grow-1.t-a-c
-                    [ad-banner]
-                     ]]])
+                ;; Content slot (integrations-gated)
+                [integrations/content-slot @(subscribe [:user-tier])]
 
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
@@ -1623,8 +1612,10 @@
                   [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
                   [:div.m-b-5.justify-cont-c
-                   [:a.orange {:href "https://www.patreon.com/DungeonMastersVault" :target :_blank} "Support this site on Patreon"]
-                   [:a.orange.m-l-5 {:href "https://www.dungeonmastersvault.com/help/" :target :_blank} "Help"]
+                   (when-let [url (not-empty (:patreon branding/social-links))]
+                     [:a.orange {:href url :target :_blank} "Support this site on Patreon"])
+                   (when (seq branding/help-url)
+                     [:a.orange.m-l-5 {:href branding/help-url :target :_blank} "Help"])
                    [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
                  [:div.m-l-10.m-r-10.p-10
                   [:div.m-b-5
@@ -1632,21 +1623,10 @@
                    [:a.orange.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
                    [:a.orange.m-l-5 {:href "/cookies-policy" :target :_blank} "Cookie Policy"]]]
                  [:div.legal-footer
-                  [:p "© " (current-year) " " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} "www.dungeonmastersvault.com"]]
+                  [:p "© " (current-year) " " [:a.orange {:href "https://github.com/Orcpub/orcpub/" :target :_blank} branding/copyright-holder]]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved."]
-                  [:p "DungeonMastersVault.com is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
+                  [:p branding/app-name " is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
-                (.push js/_paq (clj->js ["setReferrerUrl", js/location.href]))
-                (.push js/_paq (clj->js ["setCustomUrl", js/window.location]))
-                (.push js/_paq (clj->js ["setDocumentTitle", js/document.title]))
-
-                (.push js/_paq (clj->js ["deleteCustomVariables", "page"]))
-                (.push js/_paq (clj->js ["trackPageView"]))
-
-                (.push js/_paq (clj->js ["MediaAnalytics::scanForMedia", js/document.getElementById "app"]))
-                (.push js/_paq (clj->js ["FormAnalytics::scanForForms", js/document.getElementById "app"]))
-                (.push js/_paq (clj->js ["trackContentImpressionsWithinNode", js/document.getElementById "app"]))
-                (.push js/_paq (clj->js ["enableLinkTracking"]))
                 [debug-data]]]])]))})))
 
 ;; dead — zero callers (4 style defs)
@@ -2825,7 +2805,7 @@
            @(subscribe [::char/notes id])
            (set-notes-handler id)
            {:style notes-style
-            :maxLength 50000
+            :maxLength (:notes branding/field-limits)
             :class-name "input"}]]]]]]]))
 
 (defn weapon-details-field [nm value]
@@ -3660,13 +3640,6 @@
    [:i.fa.fa-envelope.m-r-5]
    "share"])
 
-(defn share-link-www [id]
-  [:a.m-r-5.f-s-14
-   {:href (str js/window.location.protocol "//" js/window.location.hostname "" js/window.location.port
-               (routes/path-for routes/dnd-e5-char-page-route :id id )"?frame=true") :target "_blank"}
-   [:i.fa.fa-link.m-r-5]
-   "www"])
-
 (def character-display-style
   {:padding "20px 5px"
    :background-color "rgba(0,0,0,0.15)"})
@@ -3763,15 +3736,6 @@
         print-button-enabled (if (or (= print-character-sheet-style? nil)
                                      (= (str print-character-sheet-style?) "NaN"))
                                false true)
-        patron? (boolean @(subscribe [:patron]))
-        items (if patron? [{:title "Select" :value " "}
-                           {:title "Original 5e Character sheet" :value 1}
-                           {:title "Original 5e Character sheet - optional variant" :value 2}
-                           {:title "Icewind Dale 5e Character sheet" :value 3}
-                           {:title "Petersen Games - Cthulhu Mythos Sagas sheet" :value 4}]
-                  [{:title "Select" :value " "}
-                   {:title "Original 5e Character sheet" :value 1}])
-
         ]
     [:div.flex.justify-cont-end
      [:div.p-20
@@ -3788,7 +3752,7 @@
                    {:title "Petersen Games - Cthulhu Mythos Sagas sheet" :value 4}]
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
-       (when-not patron? [:div [:div.flex.m-b-10 "Patrons get access to 3 addtional character sheets:"] [:div.flex.m-b-10 "Original 5e Character sheet - optional variant"] [:div.flex.m-b-10 "Icewind Dale 5e Character sheet"] [:div.flex.m-b-10 "Cthulhu Mythos Sagas sheet"] [:div.flex.m-b-10 [:a.orange {:href "https://www.dungeonmastersvault.com/thank-you-for-supporting-us/" :target "_blank"} "Become a Patron to unlock these today"]]])
+       [integrations/pdf-options-slot @(subscribe [:user-tier])]
        [:div.flex
         [:div
          {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
@@ -3878,24 +3842,23 @@
         [content-page
          (when (not frame?)
            "Character Page")
-         (remove
-          nil?
-          [[share-link-email id]
-           [share-link-www id]
-           #_[:div.m-l-5.hover-shadow.pointer
-              {:on-click #(swap! expanded? not)}
-              [:img.h-32 {:src "/image/world-anvil.jpeg"}]]
-           (when (and username
-                    owner
-                    (= owner username))
-             {:title "Edit"
-              :icon "pencil"
-              :on-click (make-event-handler :edit-character character)})
-           {:title "Export"
-            :icon "download"
-            :on-click (make-print-handler id built-character)}
-           (when (and username owner (not= owner username))
-             [add-to-party-component id])])
+         (into
+          (vec (integrations/share-links id @(subscribe [::char/character-name id])))
+          (remove nil?
+           [#_[:div.m-l-5.hover-shadow.pointer
+               {:on-click #(swap! expanded? not)}
+               [:img.h-32 {:src "/image/world-anvil.jpeg"}]]
+            (when (and username
+                     owner
+                     (= owner username))
+              {:title "Edit"
+               :icon "pencil"
+               :on-click (make-event-handler :edit-character character)})
+            {:title "Export"
+             :icon "download"
+             :on-click (make-print-handler id built-character)}
+            (when (and username owner (not= owner username))
+              [add-to-party-component id])]))
          [:div.p-10.main-text-color
           (when @expanded?
             (let [url js/window.location.href]
@@ -3975,22 +3938,13 @@
 (defn input-builder-field [name value on-change attrs]
   [builder-field :input name value on-change attrs])
 
-;; dead — zero callers
-#_(defn text-field [{:keys [value on-change]}]
-  [comps/input-field
-   :input
-   value
-   on-change
-   {:class-name "input"
-    :maxLength 255}])
-
 (defn textarea-field [{:keys [value on-change]}]
   [comps/input-field
    :textarea
    value
    on-change
    {:class-name "input"
-    :maxLength 50000}])
+    :maxLength (:notes branding/field-limits)}])
 
 (defn number-field [{:keys [value on-change]}]
   [comps/input-field
@@ -4001,7 +3955,7 @@
       (when (re-matches #"\d+" v) (js/parseInt v))))
    {:class "input"
     :type :number
-    :maxLength 7}])
+    :maxLength (:number branding/field-limits)}])
 
 (defn attunement-value [attunement key name]
   [:div
@@ -4402,7 +4356,7 @@
     #(dispatch [prop-event prop %])
     {:class "input h-40"
      :type type
-     :maxLength 255}]])
+     :maxLength (:text branding/field-limits)}]])
 
 #_(defn item-input-field [title prop item & [class-names]]
   (builder-input-field title prop item ::mi/set-item-name class-names))
@@ -7925,7 +7879,22 @@
                                (reset! new-email "")
                                (reset! confirm-email "")
                                (dispatch [:change-email-clear]))}
-               "Change"]])]]])))
+               "Change"]])]
+          ;; ─── Email Updates Toggle ─────────────────────────────────
+          [:div.p-5
+           [:span.f-w-b "Email Updates: "]
+           (let [send-updates? @(subscribe [:send-updates?])]
+             [:span
+              [:i.fa.fa-check.f-s-14.pointer.m-r-5
+               {:class (if send-updates? "orange" "white")
+                :style {:border-color "#f0a100"
+                        :border-style :solid
+                        :border-width "1px"
+                        :border-bottom-width "3px"}
+                :on-click #(dispatch [:toggle-send-updates (not send-updates?)])}]
+              (if send-updates?
+                (str "Receiving updates from " branding/app-name)
+                "Not receiving updates")])]]])))
 
 
 (defn newb-character-builder-page []
@@ -8126,7 +8095,7 @@
     [:div
      {:style character-display-style}
      [:div.flex.justify-cont-end.uppercase.align-items-c
-      [share-link-www id]
+      [integrations/share-link-www id]
       (when (= username owner)
         [:button.form-button
          {:on-click (make-event-handler :edit-character character)}
@@ -8419,10 +8388,9 @@
         username @(subscribe [:username])
         selected-ids @(subscribe [::char/selected])
         has-selected? @(subscribe [::char/has-selected?])
-        patron @(subscribe [:patron])
-        patron-tier @(subscribe [:patron-tier])]
-    (.push js/_paq (clj->js ["setCustomVariable", 4, "Characters", (str (count characters)), "visit"]))
-(prn (str (count characters) " characters - " patron-tier))
+        user-tier @(subscribe [:user-tier])]
+    (integrations/track-character-list! (count characters) user-tier)
+    #_(prn (str (count characters) " characters - " user-tier))
 [content-page
      "Characters"
      [#_(if (>= (count characters) 5) {:title "Free accounts are limited to 5 characters"

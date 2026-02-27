@@ -1,12 +1,12 @@
 (ns orcpub.index
   (:require [hiccup.page :refer [html5 include-css]]
+            [cheshire.core :as cheshire]
             [orcpub.oauth :as oauth]
+            [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
-            [environ.core :refer [env]]
-            [orcpub.integrations :as integrations]))
-
-(def devmode? (env :dev-mode))
+            [orcpub.fork.integrations :as integrations]
+            [environ.core :refer [env]]))
 
 (def homebrew-url
   "URL to fetch server-hosted .orcbrew plugins from on first load.
@@ -19,6 +19,17 @@
     [:meta
      {:property property
       :content content}]))
+
+(defn script-tag
+  "Generate a script tag with optional nonce for CSP strict mode.
+   For external scripts, pass :src. For inline scripts, pass content as body.
+   Extra attributes (e.g. :async, :crossorigin) are passed through to the tag."
+  [{:keys [nonce] :as opts} & body]
+  (let [attrs (cond-> (dissoc opts :nonce)
+                nonce (assoc :nonce nonce))]
+    (if (seq body)
+      (into [:script attrs] body)
+      [:script attrs])))
 
 (defn index-page [{:keys [url
                           title
@@ -35,10 +46,10 @@
     (meta-tag "og:title" title)
     (meta-tag "og:description" description)
     (meta-tag "og:image" image)
-    (meta-tag "og:site_name" "Dungeon Master's Vault")
+    (meta-tag "og:site_name" branding/app-name)
     (meta-tag "og:type" "website")
     (meta-tag "twitter:card" "summary_large_image")
-    (meta-tag "twitter:site" "Dungeon Master's Vault")
+    (meta-tag "twitter:site" branding/app-name)
     (meta-tag "twitter:title" title)
     (meta-tag "twitter:description" description)
     (meta-tag "twitter:image" image)
@@ -50,10 +61,11 @@
                 :xml "/favicon"
                 :ver "1")
     (include-css "/css/cookiestyles.css")
-    (integrations/script-tag {:nonce nonce}
-                             "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
+    (script-tag {:nonce nonce}
+     "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
      window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));")
-    [:style "
+    [:style
+     "
 .splash-page-content {}
 .splash-button .splash-button-content {height: 120px; width: 120px}
 .splash-button .svg-icon {height: 64px; width: 64px}
@@ -129,8 +141,10 @@ html {
 	min-height: 100%;
 }"]
     [:title title]
-    [:link {:rel "preconnect" :href "https://t.dungeonmastersvault.com/" :crossorigin ""}]
-    (integrations/head-tags nonce)] 
+    (integrations/head-tags nonce)
+    (script-tag {:nonce nonce}
+     (str "window.__BRANDING__=" (cheshire/generate-string (branding/client-config)) ";"
+          "window.__INTEGRATIONS__=" (cheshire/generate-string (integrations/client-config)) ";"))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
@@ -141,14 +155,14 @@ html {
     (include-css "/css/compiled/styles.css")
     ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
     ;; Prod mode uses enforcing CSP with nonces
-    (integrations/script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
-    (integrations/script-tag {:src "/js/cookies.js" :nonce nonce})
+    (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
+    (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
     (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
-    (integrations/script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
+    (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
     (when homebrew-url
-      (integrations/script-tag {:nonce nonce}
-                               (str "
+      (script-tag {:nonce nonce}
+       (str "
         let plugins = localStorage.getItem('plugins');
         if (plugins === null || plugins === '{}') {
           fetch('" homebrew-url "')
@@ -168,5 +182,6 @@ html {
               console.error('Error fetching plugins:', error);
             });
         }
-       ")))]))
+       ")))
+   ]))
   

@@ -64,6 +64,11 @@ Stop options (passed through to stop.sh):
   --yes, -y                        Skip confirmation
   --force, -f                      Use SIGKILL if needed
 
+Remote Dev (Figwheel):
+  Figwheel hot-reload auto-detects GitHub Codespaces and configures
+  the WebSocket URL. For other remote setups (Gitpod, tunnels), set
+  FIGWHEEL_CONNECT_URL in .env. Check status: ./menu start figwheel -c
+
 Tmux tips:
   Attach:  tmux attach -t orcpub
   Detach:  Ctrl+B, then D
