@@ -7862,8 +7862,14 @@
                 [:div.m-t-5.red error])]
 
              :else
-             [:div
+             [:<>
               [:span current-email]
+              [:button.link-button.m-l-10
+               {:on-click #(do (reset! editing? true)
+                               (reset! new-email "")
+                               (reset! confirm-email "")
+                               (dispatch [:change-email-clear]))}
+               "Change"]
               (when pending-email
                 [:div.m-t-5.f-s-14
                  "Pending: " pending-email " — check your email to verify the change. "
@@ -7873,13 +7879,7 @@
                   {:on-click #(dispatch [:change-email pending-email])}
                   "Resend"]
                  (when error
-                   [:span.m-l-5.red.f-s-14 error])])
-              [:button.link-button.m-l-10
-               {:on-click #(do (reset! editing? true)
-                               (reset! new-email "")
-                               (reset! confirm-email "")
-                               (dispatch [:change-email-clear]))}
-               "Change"]])]
+                   [:span.m-l-5.red.f-s-14 error])])])]
           ;; ─── Email Updates Toggle ─────────────────────────────────
           [:div.p-5
            [:span.f-w-b "Email Updates: "]

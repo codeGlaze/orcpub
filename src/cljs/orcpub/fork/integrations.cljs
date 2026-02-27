@@ -105,7 +105,7 @@
   (when-let [url (not-empty (:patreon branding/social-links))]
     [:a {:href url :target :_blank}
      (if (not= :free user-tier)
-       [icon-fn user-tier (if mobile? 40 60) ""]
+       [icon-fn (name user-tier) (if mobile? 40 60) ""]
        [:img.h-32.m-l-10.m-b-5.pointer.opacity-7.hover-opacity-full
         {:src (if mobile?
                 "https://c5.patreon.com/external/logo/downloads_logomark_color_on_navy.png"
