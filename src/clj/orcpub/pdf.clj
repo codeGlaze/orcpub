@@ -263,11 +263,11 @@
         fitting-lines (vec (take max-lines lines))]
     (.beginText cs)
     (.setFont cs font font-size)
-    (.moveTextPositionByAmount cs units-x units-y)
+    (.newLineAtOffset cs units-x units-y)
     (doseq [i (range (count fitting-lines))]
       (let [line (get fitting-lines i)]
-        (.moveTextPositionByAmount cs 0 (- leading))
-        (.drawString cs line)))
+        (.newLineAtOffset cs 0 (- leading))
+        (.showText cs line)))
     (.endText cs)
     (vec (drop max-lines lines))))
 
@@ -275,8 +275,10 @@
   (let [lines (split-lines text font font-size width)]
     (draw-lines-to-box cs lines font font-size x y height)))
 
-(defn set-text-color [cs r g b]
-  (.setNonStrokingColor cs r g b))
+(defn set-text-color
+  "Set text (non-stroking) color. Values must be 0.0-1.0 floats (PDFBox 3.x)."
+  [cs r g b]
+  (.setNonStrokingColor cs (float r) (float g) (float b)))
 
 (defn draw-text [cs text font font-size x y & [color]]
   (when text
@@ -286,8 +288,8 @@
       (.setFont cs font font-size)
       (when color
         (apply set-text-color cs color))
-      (.moveTextPositionByAmount cs units-x units-y)
-      (.drawString cs (if (keyword? text) (common/safe-name text) text))
+      (.newLineAtOffset cs units-x units-y)
+      (.showText cs (if (keyword? text) (common/safe-name text) text))
       (when color
         (set-text-color cs 0 0 0))
       (.endText cs))))
@@ -295,8 +297,12 @@
 (defn draw-text-from-top [cs text font font-size x y & [color]]
   (draw-text cs text font font-size x (- 11.0 y) color))
 
-(defn draw-line [cs start-x start-y end-x end-y]
-  (.drawLine cs start-x start-y end-x end-y))
+(defn draw-line
+  "Draw a line. PDFBox 3.x removed drawLine — use moveTo/lineTo/stroke."
+  [cs start-x start-y end-x end-y]
+  (.moveTo cs (float start-x) (float start-y))
+  (.lineTo cs (float end-x) (float end-y))
+  (.stroke cs))
 
 (defn inches-to-units [inches]
   (float (* inches 72)))
@@ -304,7 +310,9 @@
 (defn draw-line-in [cs & coords]
   (apply draw-line cs (map inches-to-units coords)))
 
-(defn draw-grid [cs box-width box-height]
+(defn draw-grid
+  "Draw the spell card grid. Light gray lines for card boundaries."
+  [cs box-width box-height]
   (let [num-boxes-x (int (/ 8.5 box-width))
         num-boxes-y (int (/ 11.0 box-height))
         total-width (* num-boxes-x box-width)
@@ -312,12 +320,15 @@
         remaining-width (- 8.5 total-width)
         margin-x (/ remaining-width 2)
         remaining-height (- 11.0 total-height)
-        margin-y (/ remaining-height 2)]
-    (.setStrokingColor cs 225 225 225)
+        margin-y (/ remaining-height 2)
+        ;; PDFBox 3.x: setStrokingColor(float,float,float) requires 0.0-1.0 range
+        ;; (PDFBox 2.x accepted 0-255 integers via a separate overload)
+        light-gray (float (/ 225.0 255.0))]
+    (.setStrokingColor cs light-gray light-gray light-gray)
     (doseq [i (range (inc num-boxes-x))]
       (let [x (+ margin-x (* box-width i))]
         (draw-line-in cs
-                      x    
+                      x
                       margin-y
                       x
                       (+ margin-y total-height))))
@@ -328,7 +339,7 @@
                       y
                       (+ margin-x total-width)
                       y)))
-    (.setStrokingColor cs 0 0 0)))
+    (.setStrokingColor cs (float 0) (float 0) (float 0))))
 
 (defn spell-school-level [{:keys [level school]} class-nm]
   (let [school-str (if school (s/capitalize school) "Unknown")]
@@ -344,14 +355,14 @@
                  (- 11 y 0.12)
                  0.25
                  0.25))
-  (.setNonStrokingColor cs 0 0 0)
+  (.setNonStrokingColor cs (float 0) (float 0) (float 0))
   (draw-text cs
              value
              HELVETICA_BOLD_OBLIQUE
              8
              x
              (- y 0.07))
-  (.setNonStrokingColor cs 0 0 0))
+  (.setNonStrokingColor cs (float 0) (float 0) (float 0)))
 
 (defn abbreviate-times [time]
   (-> time
