@@ -216,6 +216,55 @@ All API-calling re-frame subscriptions use the `handle-api-response` HOF from `e
 
 This prevents the class of bug where a bare `case` with no default clause crashes on unexpected HTTP statuses.
 
+## Error Notification Emails
+
+Unhandled exceptions in the Pedestal interceptor chain trigger error notification emails
+to the address configured in `EMAIL_ERRORS_TO`. The `send-error-email` function in
+`email.clj` produces actionable, security-conscious notifications.
+
+### Email Format
+
+**Subject:** `[AppName] ExceptionClass: message @ METHOD /uri`
+
+**Body sections:**
+1. **Request** — scrubbed request map (no credentials, cookies, body params, or Datomic objects)
+2. **Exception** — full cause chain with `orcpub.*` stack frames (infrastructure frames suppressed with count)
+3. **Exception Data** — `ex-data` map for `ExceptionInfo` exceptions
+4. **Interceptor Context** — Pedestal metadata when the exception is a wrapped interceptor error
+
+### Security: Request Scrubbing
+
+The following are stripped from the request before emailing:
+
+- `:json-params`, `:transit-params`, `:form-params` (may contain passwords)
+- `:body` (raw input stream)
+- `:db`, `:conn` (live Datomic objects)
+- `:servlet-request`, `:servlet-response`, `:servlet`, `:url-for`
+- `:identity`, `:async-supported?`, `:character-encoding`, `:protocol`, `:path-params`, `:content-length`
+- Headers filtered to safe set: `user-agent`, `referer`, `content-type`, `accept-language`,
+  `cf-ipcountry`, `x-forwarded-for`, `x-real-ip`, `cf-ray`, `sec-fetch-site`, `sec-fetch-mode`,
+  `x-forwarded-host`, `x-forwarded-proto`
+
+### Flood Throttling
+
+One email per unique error fingerprint per 5 minutes. Fingerprint = root cause class +
+deepest `orcpub.*` stack frame (or first 60 chars of root message if no app frames).
+Duplicate emails log `INFO: Suppressed duplicate error email` to stdout.
+
+### Stack Trace Filtering
+
+- Filters to `orcpub.*` frames only
+- Falls back to deepest non-infrastructure frame when no app frames exist
+- Infrastructure prefixes suppressed: `org.eclipse.jetty.`, `io.pedestal.`, `clojure.lang.`,
+  `java.lang.Thread`, `sun.reflect.`, `java.util.concurrent.`, `clojure.core$`
+- Walks the full `.getCause()` chain
+
+### Pedestal Wrapper Detection
+
+When `ex-data` contains both `:exception` and `:interceptor` keys, the real exception
+is extracted from `:exception` and the remaining metadata is shown in a separate
+"Interceptor Context" section.
+
 ## Future Improvements
 
 Potential enhancements to consider:
