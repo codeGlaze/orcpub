@@ -79,6 +79,28 @@ Added `update-user-preferences` handler on existing `/user` route (which already
 - Uses `(contains? transit-params :send-updates?)` to only update if the field was sent
 - Returns `{:send-updates? <value>}` on success
 
+## Gotcha: Re-Read After Transact
+
+`update-user-preferences` in `routes.clj` must re-read the entity from Datomic
+after `d/transact` to return the authoritative value:
+
+```clojure
+;; WRONG — echoes input params (may not match actual DB state)
+(let [_ (d/transact conn [[:db/add id :orcpub.user/send-updates? send-updates?]])]
+  {:send-updates? send-updates?})
+
+;; CORRECT — re-read from Datomic for authoritative response
+(let [_ (d/transact conn [[:db/add id :orcpub.user/send-updates? send-updates?]])]
+  (let [entity (d/entity (d/db conn) id)]
+    {:send-updates? (:orcpub.user/send-updates? entity)}))
+```
+
+**Why**: If a transaction function or middleware modifies the value, echoing the
+input gives a stale/incorrect response. Re-reading from `(d/entity (d/db conn) id)`
+after transact guarantees the response reflects the actual persisted state.
+
+This is a general Datomic pattern: always re-read after transact for responses.
+
 ## Test Infrastructure
 
 New tests added to `routes_test.clj`:

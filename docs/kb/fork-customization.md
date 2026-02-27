@@ -6,18 +6,23 @@ the same API on both branches — they just get different results.
 
 ## Override File Pattern
 
-6 files differ between public and production. On merge: **keep production's version**.
+6 files differ between public and production, now organized under a `fork/`
+subdirectory. On merge: **keep production's version**.
 Everything else (views.cljs, events.cljs, email.clj, privacy.clj, character_builder.cljs)
 is identical on both branches.
 
 | File | Public repo | Production override |
 |------|-------------|---------------------|
-| `branding.clj` | OrcPub defaults, empty social links | DMV defaults, real social URLs |
-| `branding.cljs` | OrcPub fallbacks | DMV fallbacks |
-| `user_tier.cljs` | `:user-tier` → always `:free` | Derived from `:patron`/`:patron-tier` |
-| `user_data.clj` | Pass-through stubs | Adds patron fields to API response |
-| `integrations.clj` | Empty `head-tags`, no CSP domains | Matomo + AdSense script injection |
-| `integrations.cljs` | No-op stubs + basic share links | Full Matomo/AdSense + tier-gated UI |
+| `fork/branding.clj` | OrcPub defaults, empty social links | DMV defaults, real social URLs |
+| `fork/branding.cljs` | OrcPub fallbacks | DMV fallbacks |
+| `fork/user_tier.cljs` | `:user-tier` → always `:free` | Derived from `:patron`/`:patron-tier` |
+| `fork/user_data.clj` | Pass-through stubs | Adds patron fields to API response |
+| `fork/integrations.clj` | Empty `head-tags`, no CSP domains | Matomo + AdSense script injection |
+| `fork/integrations.cljs` | No-op stubs + basic share links | Full Matomo/AdSense + tier-gated UI |
+
+**Note:** Files moved from `src/clj/orcpub/<name>` to `src/clj/orcpub/fork/<name>`
+(and corresponding cljs paths) as of commit 69eafaad. Namespaces changed from
+`orcpub.<name>` to `orcpub.fork.<name>`. 9 consumer files updated.
 
 ## Architecture
 
@@ -25,27 +30,27 @@ is identical on both branches.
 ┌──────────────────────────────────────────────────────────────────┐
 │ Server-side (CLJ)                                                │
 │                                                                  │
-│  branding.clj ──→ index.clj (OG meta, window.__BRANDING__ JSON) │
-│       │      ──→ email.clj (sender name, from address)          │
-│       │      ──→ privacy.clj (legal doc brand references)       │
-│       │                                                          │
-│  integrations.clj ──→ index.clj (head-tags: SDK scripts)        │
-│       │           ──→ privacy.clj (head-tags for terms pages)    │
-│       │           ──→ pedestal.clj (csp-domains → CSP header)    │
-│                                                                  │
-│  user_data.clj ──→ routes.clj (API response enrichment)         │
+│  fork/branding.clj ──→ index.clj (OG meta, window.__BRANDING__ JSON)│
+│       │           ──→ email.clj (sender name, from address)        │
+│       │           ──→ privacy.clj (legal doc brand references)     │
+│       │                                                            │
+│  fork/integrations.clj ──→ index.clj (head-tags: SDK scripts)     │
+│       │               ──→ privacy.clj (head-tags for terms pages)  │
+│       │               ──→ pedestal.clj (csp-domains → CSP header)  │
+│                                                                    │
+│  fork/user_data.clj ──→ routes.clj (API response enrichment)      │
 │                                                                  │
 ├──────────────────────────────────────────────────────────────────┤
 │ Client-side (CLJS)                                               │
 │                                                                  │
-│  branding.cljs ──→ reads window.__BRANDING__ at load time        │
-│       │       ──→ any CLJS file via [orcpub.branding :as b]      │
+│  fork/branding.cljs ──→ reads window.__BRANDING__ at load time   │
+│       │            ──→ any CLJS file via [orcpub.fork.branding]  │
 │                                                                  │
-│  user_tier.cljs ──→ registers :user-tier re-frame subscription   │
+│  fork/user_tier.cljs ──→ registers :user-tier re-frame sub       │
 │                                                                  │
-│  integrations.cljs ──→ views.cljs (UI hooks + lifecycle)         │
-│       │            ──→ events.cljs (track-page-view!)            │
-│       │            ──→ character_builder.cljs (share-links)      │
+│  fork/integrations.cljs ──→ views.cljs (UI hooks + lifecycle)    │
+│       │                ──→ events.cljs (track-page-view!)        │
+│       │                ──→ character_builder.cljs (share-links)  │
 │                                                                  │
 │  cookies.js ──→ index.clj (vanilla JS cookie banner)             │
 └──────────────────────────────────────────────────────────────────┘
@@ -67,7 +72,7 @@ is identical on both branches.
       branding.cljs (reads at namespace load time)
 ```
 
-## Branding (`src/clj/orcpub/branding.clj`)
+## Branding (`src/clj/orcpub/fork/branding.clj`)
 
 All values are env-var-gated with neutral defaults.
 
@@ -88,7 +93,7 @@ All values are env-var-gated with neutral defaults.
 | `social-links` | `APP_SOCIAL_*` | all `""` (hidden) | views header, integrations |
 | `field-limits` | `APP_FIELD_LIMIT_*` | `{:notes 50000 :text 255 :number 7}` | views form fields |
 
-## Integrations — Server-side (`integrations.clj`)
+## Integrations — Server-side (`fork/integrations.clj`)
 
 Provides `<head>` tags for third-party SDKs and CSP domains.
 
@@ -107,7 +112,7 @@ Empty value = disabled. CSP domains are auto-derived from enabled integrations.
 integrations/csp-domains → pedestal.clj → csp/build-csp-header
 ```
 
-## Integrations — Client-side (`integrations.cljs`)
+## Integrations — Client-side (`fork/integrations.cljs`)
 
 ### Lifecycle Hooks (no return value)
 
@@ -140,7 +145,7 @@ choke point), NOT from render bodies. Render bodies fire on every React re-rende
 - **`share-links`** returns a **vector of hiccup elements** (not a single element).
   Callers use `into`/`concat` to merge with other button configs.
 
-## User Tier (`user_tier.cljs`)
+## User Tier (`fork/user_tier.cljs`)
 
 Registers the `:user-tier` re-frame subscription.
 
@@ -164,6 +169,26 @@ All tier gating in shared code uses `@(subscribe [:user-tier])`.
   `pdf-options-slot` not `pdf-upsell`
 - **"default-tier"** in production docstrings, not "free-tier"
 - Neutral docstrings on public: "Fork overrides: ..." not "DMV: ..."
+
+## Cherry-Picking Between Branches
+
+Cherry-picks between `dmv/` and `breaking/` work cleanly because both branches
+share the same `fork/` directory structure with identical namespace paths. The
+override files have different implementations (DMV has real values, breaking/
+has env-var-gated stubs), but the shared consumer files call the same API.
+
+**What conflicts:** Override files (`fork/*.clj`, `fork/*.cljs`) — expected,
+keep the target branch's version.
+
+**What applies cleanly:** Shared consumer files (views.cljs, events.cljs,
+email.clj, etc.) — same API calls, no divergence.
+
+**One exception found:** `views.cljs` `componentDidMount` — if one branch has
+an `on-app-mount!` call and the other doesn't, the lifecycle method body differs.
+This is a call-site addition, not an override file change.
+
+See also `dmv-production-changes.md` section 9 for git ref namespace collision
+when pushing branches that share a prefix with an existing branch name.
 
 ## Merge Strategy
 

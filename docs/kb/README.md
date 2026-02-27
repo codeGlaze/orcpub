@@ -30,7 +30,10 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [namespace-architecture.md](namespace-architecture.md) | **START HERE** — full namespace map, dependency flows, entry points, layer boundaries. Read before scanning the repo. |
 | [srd-2024-integration.md](srd-2024-integration.md) | 2024 SRD integration analysis: mix-and-match constraint, overlapping keys, possible approaches, investigation needed |
 | [spa-routing-architecture.md](spa-routing-architecture.md) | SPA routing: 3-place registration (route_map, index-page-paths, core.cljs pages), user-for-email nil gotcha |
-| [email-preferences-implementation.md](email-preferences-implementation.md) | Email preferences: JWT unsubscribe, send-updates? flow, fork/ reorg, social-links-footer, test patterns |
+| [email-preferences-implementation.md](email-preferences-implementation.md) | Email preferences: JWT unsubscribe, send-updates? flow, fork/ reorg, social-links-footer, re-read after transact |
+| [remote-dev.md](remote-dev.md) | Remote development: Figwheel WebSocket URL in Codespaces/tunnels, --fw-opts discovery, port visibility, auto-detection |
+| [fork-customization.md](fork-customization.md) | Fork override files: 6-file pattern, branding/integrations/user_tier, merge strategy, cherry-pick between branches |
+| [dmv-production-changes.md](dmv-production-changes.md) | DMV production analysis: backport-worthy fixes, security issues, hotfix history, git workflow gotchas |
 
 ## Human-Facing Docs (Copies)
 

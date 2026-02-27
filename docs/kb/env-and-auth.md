@@ -39,6 +39,62 @@ The most critical env var. Without it, ALL authenticated API calls fail with 500
 - Root cause: manual server restart with `PORT=8890 lein run` instead of `./scripts/start.sh`
 - Fix: added dev default to project.clj + diagnostic error messages in routes.clj
 
+## `.lein-env` Profile Switching and Prod Builds
+
+**Critical insight:** `lein-environ` overwrites `.lein-env` on every `lein` invocation with the `:env` map from the currently active profile. This means `.lein-env` content depends on what you ran last.
+
+### Profile `:env` maps in project.clj
+
+```clojure
+;; :dev profile (active during lein run, lein fig:build, lein repl, etc.)
+:env {:dev-mode "true"
+      :signature "dev-secret-do-not-use-in-production"}
+
+;; :uberjar profile (active during lein build's final step)
+:env {:production true}
+```
+
+### The overwrite chain
+
+| Last `lein` command | `.lein-env` contents | `java -jar` sees |
+|---------------------|---------------------|------------------|
+| `lein run` / `lein fig:build` | `{:dev-mode "true", :signature "dev-..."}` | **dev-mode=true** (broken for prod!) |
+| `lein build` (alias for clean + fig:prod + uberjar) | `{:production true}` | **no dev-mode** (correct) |
+| `lein with-profile uberjar uberjar` | `{:production true}` | **no dev-mode** (correct) |
+
+### Why `java -jar target/orcpub.jar` sometimes needs `DEV_MODE=false`
+
+If you do dev work (`lein fig:build`, `lein run`) then skip `lein build` and go straight to `java -jar`, `.lein-env` still has dev values. The `environ.core/env` library reads `.lein-env` from the current working directory at JVM startup, so the jar picks up `dev-mode "true"`.
+
+**Real env vars always override `.lein-env`** — so `DEV_MODE=false java -jar target/orcpub.jar` works regardless. But the clean path is to always use `lein build` before `java -jar`.
+
+### `.env` vs `.lein-env` — completely independent
+
+| File | Written by | Read by | Source |
+|------|-----------|---------|--------|
+| `.env` | Manual (user edits) | `scripts/common.sh` → shell env | User-defined key=value pairs |
+| `.lein-env` | `lein-environ` plugin (auto) | `environ.core/env` at JVM runtime | `project.clj` `:env` map from active profile |
+
+`.lein-env` does **not** read from `.env`. `.env` does **not** influence `.lein-env`. They feed into the same `environ.core/env` map at runtime, but real env vars (from `.env` sourced by shell scripts, or set directly) always take precedence over `.lein-env` values.
+
+### Correct prod launch chain
+
+```bash
+./scripts/start.sh datomic          # Start transactor (sources .env for DATOMIC_DIR)
+lein build                           # clean + CLJS prod + uberjar → overwrites .lein-env to prod
+java -jar target/orcpub.jar         # Reads .lein-env {production: true}, no dev-mode. Clean.
+```
+
+### `lein build` alias definition (project.clj)
+
+```clojure
+"build" ["do" "clean," "fig:prod," ["with-profile" "uberjar" "uberjar"]]
+```
+
+The last step runs with `:uberjar` profile, which overwrites `.lein-env` to `{:production true}`. This is why `lein build` → `java -jar` works without env var overrides.
+
+---
+
 ## Auth flow
 
 1. Login POST to `/api/login` with username/password
@@ -62,6 +118,48 @@ The most critical env var. Without it, ALL authenticated API calls fail with 500
     (catch Exception e
       (terminate-request context 401 (str "Authentication failed: " (.getMessage e))))))
 ```
+
+## Gotcha: `(boolean "false")` Is Truthy in Clojure
+
+Clojure's `boolean` function returns `true` for any non-nil, non-false value.
+Since env vars are always strings, `(boolean "false")` returns `true`:
+
+```clojure
+;; BROKEN — "false" is a non-empty string, so (boolean "false") => true
+(def dev-mode? (boolean (env :dev-mode)))
+
+;; CORRECT — explicit string comparison
+(def dev-mode? (= "true" (str/lower-case (or (env :dev-mode) ""))))
+```
+
+This was found in `config.clj` where `DEV_MODE=false` in `.env` caused CSP to
+be disabled in production (the `dev-mode?` flag gates report-only vs enforcing
+CSP). The fix is to always use string comparison for env var booleans.
+
+**Impact chain**: `.env` has `DEV_MODE=false` -> `config.clj` reads
+`(boolean "false")` -> returns `true` -> `pedestal.clj` nonce-interceptor
+captures `dev-mode?=true` at load time -> CSP uses report-only header in prod
+-> no XSS protection.
+
+## Auth Token Canonical Path
+
+The authoritative path for the auth token in `app-db` is:
+
+```
+[:user-data :token]
+```
+
+This is what `auth-headers` in `event_utils.cljc` reads, and what
+`equipment_subs.cljs` uses as its canonical pattern for the `reg-sub-raw`
+token guard.
+
+**Historical bug:** The `:user` subscription in `subs.cljs` checked the wrong
+path `[:user :token]` instead of `[:user-data :token]`. This "worked" when
+logged out because `(get-in app-db [:user :token])` returned `nil` (key didn't
+exist), which correctly prevented the HTTP call. But it was checking a
+non-existent path — it only passed by coincidence.
+
+Fixed to match `auth-headers` and the `equipment_subs.cljs` canonical pattern.
 
 ## Key files
 

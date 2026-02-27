@@ -114,6 +114,64 @@ Ranked by preference. All use stable re-frame APIs (no alpha namespaces).
      {})))
 ```
 
+### Pattern 11: `reg-sub-raw` token guard for API subscriptions
+
+**When**: A `reg-sub-raw` subscription fires an HTTP request inside a `go` block.
+Without a guard, the request fires on first subscribe deref even when no auth
+token exists, producing spurious 401 errors on every unauthenticated page load.
+
+```clojure
+;; BEFORE — fires HTTP regardless of auth state
+(reg-sub-raw
+ ::char5e/characters
+ (fn [app-db _]
+   (go (let [response (<! (http/get ...))]
+         (dispatch [::set-characters (:body response)])))
+   (make-reaction (fn [] (get @app-db :characters)))))
+
+;; AFTER — guard with token check
+(reg-sub-raw
+ ::char5e/characters
+ (fn [app-db _]
+   (when (:token (:user-data @app-db))
+     (go (let [response (<! (http/get ...))]
+           (dispatch [::set-characters (:body response)]))))
+   (make-reaction (fn [] (get @app-db :characters [])))))
+```
+
+**Canonical pattern** from `equipment_subs.cljs:37`. Applied to `::char5e/characters`,
+`::party5e/parties`, `:user`, `::e5/folders` subscriptions.
+
+**Key**: The token path is `[:user-data :token]` — see env-and-auth.md for the
+historical bug where `:user` sub checked the wrong path `[:user :token]`.
+
+### Pattern 12: `componentDidMount` is NOT a reactive context
+
+`@(subscribe [...])` inside React lifecycle methods triggers the re-frame
+"subscribe called outside reactive context" warning. Lifecycle methods
+(`componentDidMount`, `componentWillUnmount`) run outside Reagent's tracking
+scope.
+
+```clojure
+;; BROKEN — warning on every mount
+:component-did-mount
+(fn [this]
+  (let [user @(subscribe [:user])]  ;; NOT reactive context
+    (when user (init-tracking! user))))
+
+;; FIXED — read from app-db directly for simple db lookups
+:component-did-mount
+(fn [this]
+  (let [user-data (:user-data @re-frame.db/app-db)]
+    (when (:token user-data) (init-tracking! user-data))))
+```
+
+**Key**: This pattern is appropriate for simple db reads in lifecycle methods.
+For computed/derived values, dispatch an event instead (Pattern 4).
+
+Found in `views.cljs` `content-page` `componentDidMount` where `on-app-mount!`
+needed user data to initialize tracking integrations.
+
 ## What NOT To Do
 
 ### Don't use `re-frame.flow` or `re-frame.alpha`
