@@ -1631,8 +1631,15 @@
  :set-active-tabs
  set-active-tabs)
 
-(defn set-loading [db [_ v]]
-  (assoc db :loading v))
+(defn set-loading
+  "Loading is a counter, not a boolean. true increments, false decrements.
+   Overlay shows when > 0. Multiple parallel HTTP calls no longer fight."
+  [db [_ v]]
+  (let [current (or (:loading db) 0)]
+    (assoc db :loading
+           (if v
+             (inc current)
+             (max 0 (dec current))))))
 
 (reg-event-db
  :set-loading
@@ -4547,8 +4554,8 @@
 (reg-event-fx
  :route-to-login
  (fn [{:keys [db]} _]
-   ;; Force loading off — multiple parallel 401s can leave the overlay stuck
-   {:db (assoc db :loading false)
+   ;; Reset loading counter — multiple parallel 401s can leave the overlay stuck
+   {:db (assoc db :loading 0)
     :dispatch [:route routes/login-page-route {:secure? true :no-return? true}]}))
 
 (reg-event-db
