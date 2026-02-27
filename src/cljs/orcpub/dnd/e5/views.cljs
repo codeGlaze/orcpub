@@ -1577,7 +1577,7 @@
                          (fn [e]))}
            (when-not frame?
              [download-form])
-           (when @(subscribe [:loading])
+           (when (pos? (or @(subscribe [:loading]) 0))
              [:div {:style loading-style}
               [:div.flex.justify-cont-s-a.align-items-c.h-100-p
                [:img.h-200.w-200.m-t-200 {:src "/image/spiral.gif"}]]])
