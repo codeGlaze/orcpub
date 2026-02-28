@@ -34,6 +34,8 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [remote-dev.md](remote-dev.md) | Remote development: Figwheel WebSocket URL in Codespaces/tunnels, --fw-opts discovery, port visibility, auto-detection |
 | [fork-customization.md](fork-customization.md) | Fork override files: 6-file pattern, branding/integrations/user_tier, merge strategy, cherry-pick between branches |
 | [dmv-production-changes.md](dmv-production-changes.md) | DMV production analysis: backport-worthy fixes, security issues, hotfix history, git workflow gotchas |
+| [pdf-generation-architecture.md](pdf-generation-architecture.md) | PDF export end-to-end: template selection, spell card lifecycle, silent catch pattern, PDFBox 3.x migration, testing methodology |
+| [reframe-subscription-patterns.md](reframe-subscription-patterns.md) | reg-sub-raw HTTP pattern, loading counter (int not bool), auth guard placement, subscribe context rules, debugging |
 
 ## Human-Facing Docs (Copies)
 
