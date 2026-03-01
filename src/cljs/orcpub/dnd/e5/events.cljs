@@ -1602,18 +1602,18 @@
  (fn [db [_ user-data]]
    (update db :user-data dissoc :user-data :token)))
 
-;; Replaces top-level @(subscribe [:user false]) in core.cljs — that was a
-;; Replaces top-level @(subscribe [:user false]) in core.cljs — that was a
-;; side-effect-only subscribe used to trigger an HTTP auth check on app startup.
+;; Startup auth check — validates stored token on app load (core.cljs).
+;; Clears stale sessions before reg-sub-raw subs fire HTTP with expired tokens.
 (reg-event-fx
  :verify-user-session
  (fn [{:keys [db]} _]
-   (if (and (:user db) (:token (:user db)))
+   (if (:token (:user-data db))
      (do (go (let [response (<! (http/get (url-for-route routes/user-route)
                                           {:headers (authorization-headers db)}))]
                (case (:status response)
                  200 nil
-                 401 (dispatch [:clear-login])
+                 401 (do (dispatch [:clear-login])
+                         (dispatch [:set-loading false]))
                  nil)))
          {})
      {})))
