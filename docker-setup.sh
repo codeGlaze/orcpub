@@ -324,7 +324,7 @@ fi
 
 check_file ".env"                "$ENV_FILE"
 check_file "docker-compose.yaml" "${SCRIPT_DIR}/docker-compose.yaml"
-check_file "nginx.conf"          "${SCRIPT_DIR}/deploy/nginx.conf"
+check_file "nginx.conf.template" "${SCRIPT_DIR}/deploy/nginx.conf.template"
 check_file "SSL certificate"     "$CERT_FILE"
 check_file "SSL key"             "$KEY_FILE"
 check_dir  "data/"               "${SCRIPT_DIR}/data"
@@ -347,26 +347,28 @@ header "Next Steps"
 cat <<'NEXT'
 1. Review your .env file and adjust values if needed.
 
-2. Launch the application:
-     docker compose up -d
+2. Build and launch:
+     docker compose up --build -d
 
-3. Create your first user (once containers are running):
-     ./docker-user.sh init                                 # uses admin from .env
+   First build takes ~10 minutes. Subsequent builds use cache.
+
+3. Wait for healthy (app takes ~2 minutes to boot):
+     docker compose ps
+
+4. Create your first user (once all services show "healthy"):
+     ./docker-user.sh init                                 # uses INIT_ADMIN_* from .env
      ./docker-user.sh create <username> <email> <password>  # or specify directly
 
-4. Access the site at:
+5. Access the site at:
      https://localhost
 
-5. Manage users later with:
+6. Manage users later with:
      ./docker-user.sh list              # List all users
      ./docker-user.sh check <user>      # Check a user's status
      ./docker-user.sh verify <user>     # Verify an unverified user
 
-6. To import homebrew content, place your .orcbrew file at:
+7. To import homebrew content, place your .orcbrew file at:
      deploy/homebrew/homebrew.orcbrew
 
-7. To build from source instead of pulling images:
-     docker compose up --build -d
-
-For more details, see README.md.
+For more details, see docs/DOCKER.md
 NEXT
