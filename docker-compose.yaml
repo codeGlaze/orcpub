@@ -1,9 +1,13 @@
 ---
 services:
   orcpub:
-    # No :latest tag on Docker Hub — pin to newest published version.
-    # Override with ORCPUB_TAG env var for custom builds.
-    image: orcpub/orcpub:${ORCPUB_TAG:-release-v2.5.0.27}
+    # Pre-built: docker compose up (pulls from Docker Hub)
+    # Local build: docker compose up --build (builds from Dockerfile)
+    image: ${ORCPUB_IMAGE:-orcpub/orcpub:release-v2.5.0.27}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: app
     environment:
       PORT: ${PORT:-8890}
       EMAIL_SERVER_URL: ${EMAIL_SERVER_URL:-}
@@ -34,7 +38,11 @@ services:
       start_period: 60s
     restart: always
   datomic:
-    image: orcpub/datomic:latest
+    image: ${DATOMIC_IMAGE:-orcpub/datomic:latest}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: transactor
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
       DATOMIC_PASSWORD: ${DATOMIC_PASSWORD:-change-me}
