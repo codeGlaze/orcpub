@@ -1,9 +1,9 @@
 ---
 services:
   orcpub:
-    # Pre-built: docker compose up (pulls from Docker Hub)
-    # Local build: docker compose up --build (builds from Dockerfile)
-    image: ${ORCPUB_IMAGE:-orcpub/orcpub:release-v2.5.0.27}
+    # Build: docker compose up --build
+    # Override image: ORCPUB_IMAGE=registry/name:tag docker compose up
+    image: ${ORCPUB_IMAGE:-orcpub-app}
     build:
       context: .
       dockerfile: docker/Dockerfile
@@ -38,7 +38,7 @@ services:
       start_period: 60s
     restart: always
   datomic:
-    image: ${DATOMIC_IMAGE:-orcpub/datomic:latest}
+    image: ${DATOMIC_IMAGE:-orcpub-datomic}
     build:
       context: .
       dockerfile: docker/Dockerfile

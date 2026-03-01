@@ -130,6 +130,10 @@ jobs:
           echo "=== Building orcpub (app) ==="
           docker build --target app -t orcpub-app -f docker/Dockerfile .
           echo "=== Build complete ==="
+          # Set image env vars so compose uses locally-built images
+          # instead of pulling old Datomic Free images from Docker Hub
+          echo "ORCPUB_IMAGE=orcpub-app" >> "$GITHUB_ENV"
+          echo "DATOMIC_IMAGE=orcpub-datomic" >> "$GITHUB_ENV"
 
       - name: Pull container images (Java 8)
         id: pull
