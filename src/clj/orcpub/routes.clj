@@ -648,7 +648,10 @@
         output (ByteArrayOutputStream.)
         user-agent (get-in req [:headers "user-agent"])
         chrome? (re-matches #".*Chrome.*" user-agent)
-        filename (str player-name " - " character-name " - " class-level ".pdf")]
+        filename (cond
+                   (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
+                   (s/blank? player-name) (str character-name " - " class-level ".pdf")
+                   :else (str player-name " - " character-name " - " class-level ".pdf"))]
         
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.

@@ -131,7 +131,7 @@
    (get entity-values prop-name)
    (update-value-field prop-name)
    {:type input-type
-    :maxlength "255"
+    :maxLength "255"
     :class-name (str "input w-100-p " cls-str)}])
 
 (defn character-field-50000 [entity-values prop-name type & [cls-str handler input-type]]
@@ -140,7 +140,7 @@
    (get entity-values prop-name)
    (update-value-field prop-name)
    {:type input-type
-    :maxlength "50000"
+    :maxLength "50000"
     :class-name (str "input w-100-p " cls-str)}])
 
 (defn character-input [entity-values prop-name & [cls-str handler type]]
