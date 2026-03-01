@@ -131,6 +131,16 @@ jobs:
           docker build --target app -t orcpub-app -f docker/Dockerfile .
           echo "=== Build complete ==="
 
+      # Tag images so docker compose finds them without triggering a second
+      # build via BuildKit (which hangs — see comment above).
+      - name: Tag images for compose
+        if: steps.build.outcome == 'success'
+        run: |
+          docker tag orcpub-datomic "${DATOMIC_IMAGE:-orcpub/datomic:latest}"
+          docker tag orcpub-app "${ORCPUB_IMAGE:-orcpub/orcpub:release-v2.5.0.27}"
+          echo "Tagged: orcpub-datomic → ${DATOMIC_IMAGE:-orcpub/datomic:latest}"
+          echo "Tagged: orcpub-app → ${ORCPUB_IMAGE:-orcpub/orcpub:release-v2.5.0.27}"
+
       - name: Pull container images (Java 8)
         id: pull
         if: needs.detect-stack.outputs.build-mode == 'pull'
