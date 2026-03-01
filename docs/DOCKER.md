@@ -23,15 +23,15 @@ Boot order is enforced by healthcheck dependencies:
 
 ## Compose File
 
-A single `docker-compose.yaml` handles both modes:
+A single `docker-compose.yaml`:
 
 ```sh
-docker compose up -d          # Pull pre-built images from Docker Hub
 docker compose up --build -d  # Build from source using docker/Dockerfile
 ```
 
-Image names default to Docker Hub (`orcpub/orcpub:release-*`, `orcpub/datomic:latest`)
-but can be overridden via `ORCPUB_IMAGE` and `DATOMIC_IMAGE` env vars.
+Image names default to local build tags (`orcpub-app`, `orcpub-datomic`).
+Override with `ORCPUB_IMAGE` and `DATOMIC_IMAGE` env vars to point at a
+registry (e.g., `ORCPUB_IMAGE=registry/orcpub:2.6.0.0 docker compose up -d`).
 
 ## Transactor Configuration (Option C Hybrid Template)
 
