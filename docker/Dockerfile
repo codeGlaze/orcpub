@@ -2,7 +2,7 @@
 #   transactor  — datomic transactor (dev storage protocol)
 #   app         — orcpub uberjar runner
 #
-# Usage via docker-compose-build.yaml (each service sets its target).
+# Usage: docker compose up --build (each service sets its target).
 
 # ── Shared: download Datomic Pro distribution ─────────────────
 FROM alpine:3.22 AS datomic-dist

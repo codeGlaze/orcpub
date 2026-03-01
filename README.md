@@ -321,8 +321,7 @@ Visit `https://localhost` when running.
 To build from source instead of pulling images:
 
 ```bash
-docker compose -f docker-compose-build.yaml build
-docker compose -f docker-compose-build.yaml up -d
+docker compose up --build -d
 ```
 
 For environment variable details, see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
@@ -349,8 +348,7 @@ The storage protocols (`datomic:free://` vs `datomic:dev://`) use different form
 ```bash
 ./docker-migrate.sh backup        # With old stack running
 docker compose down
-docker compose -f docker-compose-build.yaml build
-docker compose -f docker-compose-build.yaml up -d
+docker compose up --build -d
 ./docker-migrate.sh restore       # After new stack is healthy
 ./docker-migrate.sh verify
 ```

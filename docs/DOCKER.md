@@ -21,27 +21,17 @@ Boot order is enforced by healthcheck dependencies:
 
     datomic --> orcpub (waits for datomic healthy) --> web (waits for orcpub healthy)
 
-## Compose Files
+## Compose File
 
-### `docker-compose-build.yaml` — Build from Source
-
-Builds images locally using the multi-target `docker/Dockerfile`. Use for CI
-pipelines and local development.
+A single `docker-compose.yaml` handles both modes:
 
 ```sh
-docker compose -f docker-compose-build.yaml up --build
+docker compose up -d          # Pull pre-built images from Docker Hub
+docker compose up --build -d  # Build from source using docker/Dockerfile
 ```
 
-### `docker-compose.yaml` — Pre-built Images
-
-Pulls pre-built images from Docker Hub. Use for production and release
-deployments.
-
-```sh
-docker compose up -d
-```
-
-Both files are kept in sync: same env vars, healthchecks, and volume mounts.
+Image names default to Docker Hub (`orcpub/orcpub:release-*`, `orcpub/datomic:latest`)
+but can be overridden via `ORCPUB_IMAGE` and `DATOMIC_IMAGE` env vars.
 
 ## Transactor Configuration (Option C Hybrid Template)
 
@@ -192,8 +182,7 @@ The current configuration is Swarm-ready with minimal changes:
 | `deploy/start.sh` | Transactor startup: secret substitution + exec |
 | `deploy/nginx.conf.template` | Nginx reverse proxy template (`envsubst` resolves `${ORCPUB_PORT}`) |
 | `deploy/snakeoil.sh` | Self-signed SSL certificate generator |
-| `docker-compose-build.yaml` | Build-from-source compose |
-| `docker-compose.yaml` | Pre-built images compose |
+| `docker-compose.yaml` | Compose file (pull or build-from-source) |
 | `docker-setup.sh` | Interactive setup: generates `.env`, dirs, SSL certs |
 | `.env.example` | Environment variable reference with defaults |
 

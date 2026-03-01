@@ -3,7 +3,7 @@
 #
 # Java 8 (legacy):  Pulls pre-built images from Docker Hub — skipped gracefully
 #                    when images are unavailable.
-# Java 21 (modern): Builds from source using docker-compose-build.yaml with
+# Java 21 (modern): Builds from source using docker-compose.yaml (--build) with
 #                    Datomic Pro and eclipse-temurin:21.
 
 name: Docker Integration Test
@@ -38,7 +38,7 @@ jobs:
           if [ -f "dev.cljs.edn" ]; then
             echo "Detected: Java 21 / Datomic Pro / figwheel-main → build from source"
             echo "build-mode=build" >> $GITHUB_OUTPUT
-            echo "compose-file=docker-compose-build.yaml" >> $GITHUB_OUTPUT
+            echo "compose-file=docker-compose.yaml" >> $GITHUB_OUTPUT
             echo "stack-label=Java 21 / Datomic Pro (build)" >> $GITHUB_OUTPUT
           else
             echo "Detected: Java 8 / Datomic Free / cljsbuild → pull pre-built"

@@ -366,8 +366,7 @@ cat <<'NEXT'
      deploy/homebrew/homebrew.orcbrew
 
 7. To build from source instead of pulling images:
-     docker compose -f docker-compose-build.yaml build
-     docker compose -f docker-compose-build.yaml up -d
+     docker compose up --build -d
 
 For more details, see README.md.
 NEXT
