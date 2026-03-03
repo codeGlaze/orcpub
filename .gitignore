@@ -1,5 +1,8 @@
 # Ignore environment file (secrets/config)
 .env
+.env.secrets.backup
+/secrets/
+docker-compose.secrets.yaml
 .editorconfig
 /resources/public/css/compiled
 /resources/public/js/compiled

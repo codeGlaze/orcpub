@@ -24,10 +24,10 @@ MANAGE_SCRIPT="${SCRIPT_DIR}/docker/scripts/manage-user.clj"
 # Helpers
 # ---------------------------------------------------------------------------
 
-color_green='\033[0;32m'
-color_red='\033[0;31m'
-color_yellow='\033[1;33m'
-color_reset='\033[0m'
+color_green=$'\033[0;32m'
+color_red=$'\033[0;31m'
+color_yellow=$'\033[1;33m'
+color_reset=$'\033[0m'
 
 info()  { printf '%s[OK]%s    %s\n' "$color_green" "$color_reset" "$*"; }
 error() { printf '%s[ERROR]%s %s\n' "$color_red" "$color_reset" "$*" >&2; }
@@ -244,9 +244,9 @@ if [ "${1:-}" = "init" ]; then
     exit 1
   fi
 
-  # Source .env to get INIT_ADMIN_* variables
+  # Source .env to get INIT_ADMIN_* variables (tr -d '\r' for Windows line endings)
   # shellcheck disable=SC1090
-  . "$ENV_FILE"
+  . <(tr -d '\r' < "$ENV_FILE")
 
   if [ -z "${INIT_ADMIN_USER:-}" ]; then
     error "INIT_ADMIN_USER is not set in .env"
