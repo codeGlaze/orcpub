@@ -2,6 +2,3 @@
 # Public/breaking has stubs, DMV has real implementations.
 src/clj/orcpub/fork/** merge=ours
 src/cljs/orcpub/fork/** merge=ours
-
-# Devcontainer — public has neutral config, DMV may add personal extensions.
-.devcontainer/devcontainer.json merge=ours
