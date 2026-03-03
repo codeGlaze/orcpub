@@ -1,7 +1,6 @@
 # Ignore environment file (secrets/config)
 .env
 .editorconfig
-.gitattributes
 /resources/public/css/compiled
 /resources/public/js/compiled
 /resources/*_backup.pdf
@@ -67,6 +66,15 @@ cljs-test-runner-out
 
 # Claude Code local data (conversation history, credentials)
 .claude-data/
+
+# Agentic/AI tool files — belong in dotfiles or agents/ branch, not code branches
+.claude/
+
+# NewRelic (contains license key — should never be on public branches)
+newrelic*
+
+# Transactor properties (may contain hardcoded passwords)
+deploy/transactor.properties
 
 # Ignore all log files in logs/
 logs/
