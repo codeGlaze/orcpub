@@ -1,7 +1,8 @@
 (ns orcpub.dnd.e5.views-2
   (:require [orcpub.route-map :as routes]
             [clojure.string :as s]
-            [orcpub.fork.branding :as branding]))
+            [orcpub.fork.branding :as branding]
+            [orcpub.fork.splash :as splash]))
 
 (defn style [style]
   #?(:cljs style)
@@ -16,13 +17,16 @@
   [:img.svg-icon
    {:src (str "/image/" icon-name ".svg")}])
 
-(defn splash-page-button [title icon route & [handler]]
+(defn splash-page-button
+  "Render a splash page button. If handler is provided, uses on-click;
+   otherwise resolves route (keyword = path-for, string = raw href)."
+  [title icon route & [handler]]
   [:a.splash-button
    (let [cfg {:style (style {:text-decoration :none
                              :color "#f0a100"})}]
      (if handler
        (assoc cfg :on-click handler)
-       (assoc cfg :href (routes/path-for route))))
+       (assoc cfg :href (if (string? route) route (routes/path-for route)))))
    [:div.splash-button-content
     {:style (style {:box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
                     :margin "5px"
@@ -38,14 +42,15 @@
      [:div
       [:span.splash-button-title-prefix "D&D 5e "] [:span title]]]]])
 
+(def orange-style
+  {:color :orange})
+
 (defn legal-footer []
   [:div.m-l-15.m-b-10.m-t-10.t-a-l
    [:span (str "\u00a9 " branding/copyright-year " " branding/copyright-holder)]
-   [:a.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]
-   [:a.m-l-5 {:href "/privacy-policy" :target :_blank} "Privacy Policy"]])
-
-(def orange-style
-  {:color :orange})
+   (for [{:keys [label href]} splash/legal-footer-links]
+     ^{:key href}
+     [:a.m-l-5 {:href href :target :_blank} label])])
 
 (defn splash-page []
   [:div.app.h-full
@@ -63,15 +68,10 @@
      [:div
       {:style (style {:display :flex
                       :justify-content :space-around})}
-      [:img.w-30-p
-       {:src branding/logo-path}]]
-     [:div
-      {:style (style {:text-align :center
-                      :text-shadow "1px 2px 1px black"
-                      :font-weight :bold
-                      :font-size "14px"
-                      :height "48px"})}
-      "Community edition"]
+      [:img {:class splash/logo-width-class
+             :src branding/logo-path}]
+      (when splash/edition-label
+        [:div.f-s-18.opacity-5.m-t-10 splash/edition-label])]
      [:div
       {:style (style
                {:display :flex
@@ -87,6 +87,16 @@
        "baby-face"
        routes/dnd-e5-newb-char-builder-route)
       (splash-page-button
+       "Homebrew Content"
+       "beer-stein"
+       routes/dnd-e5-my-content-route)]
+     [:div
+      {:style (style
+               {:display :flex
+                :flex-wrap :wrap
+                :justify-content :center
+                :margin-top "10px"})}
+      (splash-page-button
        "Spells"
        "spell-book"
        routes/dnd-e5-spell-list-page-route)
@@ -101,11 +111,13 @@
       (splash-page-button
        "Combat Tracker"
        "sword-clash"
-       routes/dnd-e5-combat-tracker-page-route)
-      (splash-page-button
-       "Homebrew Content"
-       "beer-stein"
-       routes/dnd-e5-my-content-route)
+       routes/dnd-e5-combat-tracker-page-route)]
+     [:div
+      {:style (style
+               {:display :flex
+                :flex-wrap :wrap
+                :justify-content :center
+                :margin-top "10px"})}
       (splash-page-button
        "Encounter Builder"
        "minions"
@@ -133,9 +145,14 @@
       (splash-page-button
        "Background Builder"
        "ages"
-       routes/dnd-e5-background-builder-page-route)]]]
-   [:div.legal-footer-parent
-    {:style (style {:font-size "12px"
-                    :color :white
-                    :padding "10px"})}
-    ]])
+       routes/dnd-e5-background-builder-page-route)]
+     (when (seq splash/generator-buttons)
+       [:div
+        {:style (style
+                 {:display :flex
+                  :flex-wrap :wrap
+                  :justify-content :center
+                  :margin-top "10px"})}
+        (for [{:keys [title icon route]} splash/generator-buttons]
+          ^{:key route}
+          (splash-page-button title icon route))])]]])

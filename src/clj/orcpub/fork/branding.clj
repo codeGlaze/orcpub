@@ -84,6 +84,22 @@
    :reddit   (or (env :app-social-reddit)   "")
    :discord  (or (env :app-social-discord)  "")})
 
+;; ─── Footer ─────────────────────────────────────────────────────
+
+(def copyright-url
+  "URL for copyright holder name in footer. Empty string = plain text."
+  (or (env :app-copyright-url) ""))
+
+;; ─── UI Behavior ────────────────────────────────────────────────
+
+(def registration-logo-class
+  "CSS class for logo on registration/login page."
+  "h-55")
+
+(def restrict-print-to-owner?
+  "Whether the print button on character list is restricted to the character owner."
+  false)
+
 ;; ─── Field Limits ────────────────────────────────────────────────
 ;; Input field max-length constraints for form validation.
 
@@ -100,11 +116,14 @@
 (defn client-config
   "Map of branding values for CLJS injection. Serialized to JSON by index.clj."
   []
-  {:app-name         app-name
-   :logo-path        logo-path
-   :copyright-holder copyright-holder
-   :copyright-year   copyright-year
-   :support-email    support-email
-   :help-url         help-url
-   :social-links     social-links
-   :field-limits     field-limits})
+  {:app-name                  app-name
+   :logo-path                 logo-path
+   :copyright-holder          copyright-holder
+   :copyright-year            copyright-year
+   :copyright-url             copyright-url
+   :support-email             support-email
+   :help-url                  help-url
+   :social-links              social-links
+   :field-limits              field-limits
+   :registration-logo-class   registration-logo-class
+   :restrict-print-to-owner?  restrict-print-to-owner?})

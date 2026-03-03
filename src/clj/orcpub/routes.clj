@@ -33,17 +33,17 @@
             [orcpub.errors :as errors]
             [orcpub.privacy :as privacy]
             [orcpub.email :as email]
-            [orcpub.fork.branding :as branding]
-            [orcpub.fork.user-data :as user-data]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
             [orcpub.registration :as registration]
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
             [orcpub.security :as security]
+            [orcpub.fork.branding :as branding]
+            [orcpub.fork.auth :as auth]
+            [orcpub.fork.user-data :as user-data]
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
-            [orcpub.oauth :as oauth]
             [hiccup.page :as page]
             [environ.core :as environ]
             [clojure.set :as sets]
@@ -258,16 +258,20 @@
                      errors/bad-credentials
                      errors/no-account)))))
 
-(defn create-login-response [db user & [headers]]
+(defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
-                            (-> 24 hours from-now))]
+                            (-> auth/token-lifetime-hours hours from-now))
+        now (java.util.Date.)]
+    (when auth/track-last-login?
+      (d/transact conn [{:db/id id
+                         :orcpub.user/last-login now}]))
     {:status 200
      :headers headers
      :body {:user-data (user-body db user)
             :token token}}))
 
 (defn login-response
-  [{:keys [json-params db remote-addr] :as request}]
+  [{:keys [json-params db conn remote-addr] :as request}]
   (let [{raw-username :username raw-password :password} json-params]
     (cond
       (s/blank? raw-username) (login-error errors/username-required)
@@ -284,7 +288,8 @@
                 (nil? id) (bad-credentials-response db username remote-addr)
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
-                :else (create-login-response db user))))))
+                :else
+                (create-login-response db conn user id))))))
 
 (defn login [{:keys [json-params db] :as request}]
   (try
@@ -345,7 +350,8 @@
         validation (registration/validate-registration
                     json-params
                     (seq (d/q email-query db email))
-                    (seq (d/q username-query db username)))]
+                    (seq (d/q username-query db username)))
+        now (java.util.Date.)]
     (try
       (if (seq validation)
         {:status 400
@@ -359,7 +365,9 @@
            :orcpub.user/username username
            :orcpub.user/password (hashers/encrypt password)
            :orcpub.user/send-updates? send-updates?
-           :orcpub.user/created (java.util.Date.)}
+           :orcpub.user/created now}
+          (when auth/record-last-login-at-registration?
+            {:orcpub.user/last-login now})
           (user-data/registration-defaults))))
       (catch Throwable e (prn e) (throw e)))))
 
@@ -438,7 +446,7 @@
       (redirect route-map/verify-success-route)
       (do-verification request
                        (merge query-params
-                              {:first-and-last-name "DMV Patron"})
+                              {:first-and-last-name auth/verification-display-name})
                        conn
                        {:db/id id}))))
 
@@ -498,7 +506,7 @@
           :orcpub.user/password-reset-sent (java.util.Date.)}])
       (email/send-reset-email
        (base-url request)
-       {:first-and-last-name "DMV Patron"
+       {:first-and-last-name auth/verification-display-name
         :email email}
        key)
       {:status 200}
@@ -643,7 +651,10 @@
         output (ByteArrayOutputStream.)
         user-agent (get-in req [:headers "user-agent"])
         chrome? (re-matches #".*Chrome.*" user-agent)
-        filename (str player-name " - " character-name " - " class-level ".pdf")]
+        filename (cond
+                   (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
+                   (s/blank? player-name) (str character-name " - " class-level ".pdf")
+                   :else (str player-name " - " character-name " - " class-level ".pdf"))]
         
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.

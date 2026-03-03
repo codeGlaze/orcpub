@@ -1,4 +1,5 @@
 # Fork override files — keep each branch's version during merges.
 # Public/breaking has stubs, DMV has real implementations.
 src/clj/orcpub/fork/** merge=ours
+src/cljc/orcpub/fork/** merge=ours
 src/cljs/orcpub/fork/** merge=ours

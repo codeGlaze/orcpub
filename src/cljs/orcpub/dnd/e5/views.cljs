@@ -42,14 +42,17 @@
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
-            [orcpub.ver :as v]
-            [orcpub.fork.branding :as branding]
-            [orcpub.fork.user-tier]
             [orcpub.fork.integrations :as integrations]
+            [orcpub.fork.branding :as branding]
+            [orcpub.fork.splash :as splash]
+            [orcpub.fork.user-tier]
+            [orcpub.ver :as v]
             [clojure.string :as s]
             [cljs.reader :as reader]
             [orcpub.user-agent :as user-agent]
-            [bidi.bidi :as bidi]))
+            [bidi.bidi :as bidi]
+            [camel-snake-kebab.core :as csk])
+  #_(:require-macros [cljs.core.async.macros :refer [go]]))
 
 ;; the `amount` of "uses" an action may have before it warrants
 ;; using a dropdown instead of a list of checkboxes
@@ -152,6 +155,9 @@
 (def login-style
   {:color "#f0a100"})
 
+(def login-style-menu
+  {:background-color "rgba(0,0,0,0.4)"})
+
 (defn dispatch-logout []
   (dispatch [:logout]))
 
@@ -216,15 +222,14 @@
      (when username
        {:on-mouse-over handle-user-menu
         :on-mouse-out hide-user-menu})
-     [:div.flex.align-items-c
-      [:div.user-icon [svg-icon "orc-head" 40 ""]]
+     [:div.b-rad-5.flex.align-items-c.p-l-10.p-r-10.p-t-5.p-b-5.f-s-16 {:style login-style-menu }
+      [:div.user-icon [svg-icon "orc-head" 35 ""]]
       (if username
         [:span.f-w-b.t-a-r
          (when (not @(subscribe [:mobile?])) [:span.m-r-5 username])]
         [:span.pointer.flex.flex-column.align-items-end
-         [:span.orange.underline.f-w-b.m-l-5
-          {:style login-style
-           :on-click dispatch-route-to-login}
+         [:span.white.f-w-b.m-l-5
+          {:on-click dispatch-route-to-login}
           [:span "LOGIN"]]])
       (when username
         [:i.fa.m-l-5.fa-caret-down])]
@@ -296,6 +301,43 @@
                  name])
               buttons))])]))))
 
+(defn header-tab2 []
+  (let [hovered? (r/atom false)]
+    (fn [title icon on-click disabled active device-type & buttons]
+      (let [mobile? (= :mobile device-type)]
+        [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+         {:on-click (fn [e]
+                      (if (seq buttons)
+                        (swap! hovered? not)
+                        (when (fn? on-click) (on-click e))))
+          :on-mouse-over #(when-not mobile? (reset! hovered? true))
+          :on-mouse-out #(when-not mobile? (reset! hovered? false))
+          :style (if active active-style)
+          :class-name (str (if disabled "disabled" "pointer")
+                           " "
+                           (if (not mobile?) "w-110"))}
+         [:div.p-10
+          {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
+          (let [size (if mobile? 24 48)] (svg-icon icon size ""))
+          (if (not mobile?)
+            [:div.title.uppercase title])]
+         (if (and (seq buttons)
+                  @hovered?)
+           [:div.uppercase.shadow
+            {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
+            (doall
+             (map
+              (fn [{:keys [name route]}]
+                ^{:key name}
+                [:div.p-10.opacity-5.hover-opacity-full.a-white
+                 {:on-click (fn [e]
+                              (.stopPropagation e)
+                              (reset! hovered? false))
+                  :style (let [current-route @(subscribe [:route])]
+                           (when (or (= route current-route)
+                                     (= route (get current-route :handler))) active-style))}
+                 [:a.no-text-decoration {:href route} name]])
+              buttons))])]))))
 
 (def social-icon-style
   {:color :white
@@ -336,7 +378,7 @@
    :right 25})
 
 (def search-input-parent-style
-  {:background-color "rgba(0,0,0,0.15)"})
+  {:background-color "rgba(0,0,0,0.3)"})
 
 ;; dead — zero callers
 #_(def transparent-search-input-style
@@ -375,9 +417,8 @@
 (defn route-to-my-encounters-page []
   (dispatch [:route routes/dnd-e5-my-encounters-route]))
 
-(def logo [:img.h-60.pointer
-           {:src branding/logo-path
-            :on-click route-to-default-route}])
+(def logo [:a {:href "/" } [:img.h-60.pointer
+           {:src branding/logo-path}]])
 
 (defn app-header []
   (let [device-type @(subscribe [:device-type])
@@ -488,6 +529,15 @@
              :route routes/dnd-e5-combat-tracker-page-route}
             {:name "Encounter Builder"
              :route routes/dnd-e5-encounter-builder-page-route}]
+           (when (seq splash/header-generator-entries)
+             (into [header-tab2
+                    "generators"
+                    "elven-castle"
+                    ""
+                    false
+                    false
+                    device-type]
+                   splash/header-generator-entries))
            [header-tab
             "My Content"
             "beer-stein"
@@ -553,8 +603,9 @@
       [:div.flex {:style registration-left-column-style}
        [:div.flex.justify-cont-s-a.align-items-c
         {:style registration-header-style}
-        [:img.h-55.pointer
-         {:src branding/logo-path
+        [:img.pointer
+         {:class branding/registration-logo-class
+          :src branding/logo-path
           :on-click route-to-default-page}]]
        [:div.flex-grow-1 content]
        [views-2/legal-footer]]
@@ -648,7 +699,10 @@
                      :font-weight "600"}
              :class (when bad-email? "disabled opacity-5 hover-no-shadow")
              :on-click (when (not bad-email?) (make-event-handler :send-password-reset @params))}
-            "SUBMIT"]]])))))
+            "SUBMIT"]
+           [:div.m-t-20
+            [:span "Didn't receive reset email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "whitelist"] " our domain then try it again."]]
+           ]])))))
 
 (defn password-reset-expired-page []
   [send-password-reset-page "Your reset link has expired, you must complete the reset within 24 hours. Please use the form below to send another reset email."])
@@ -765,7 +819,9 @@
    [:div
     [:span "We sent a verification email to "]
     [:span.f-w-b.red.f-s-18 @(subscribe [:temp-email])]
-    [:span ". You must verify to complete registration and the link we sent will only be valid for 24 hours."]]))
+    [:span ". You must verify to complete registration and the link we sent will only be valid for 24 hours."]
+    [:span " "]
+    [:span "Remember to check your spam folder."]]))
 
 (defn password-reset-sent []
   (email-sent
@@ -854,11 +910,12 @@
                   :border-width "1px"
                   :border-bottom-width "3px"}
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
-        [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name ".")]]
-       [:div.m-t-30
+        [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
+       [:div.m-t-10
         [:div.p-10
          [:span "Already have an account?"]
          (login-link)]
+        [:div.m-t-10.m-b-20 [:span "After clicking JOIN A validation email will be sent to the above email address."]]
         [:button.form-button
          {:style {:height "40px"
                   :width "174px"
@@ -897,8 +954,7 @@
                          :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
                          :margin-top "20px"}}
            "LOGIN"]
-          ;[:div.m-t-10
-          ; [facebook-login-button]]
+          [:div.m-t-10]
           [:div.login-form-inputs
            [form-input {:title "Username or Email"
                         :key :username
@@ -916,6 +972,7 @@
                                       login-message
                                       hide-login-message]])
            [:div.m-t-10
+            
             [:button.form-button
              {:style {:height "40px"
                       :width "174px"
@@ -924,15 +981,18 @@
               :on-click #(dispatch [:login @params true])}
              "LOGIN"]
             [:div.m-t-20
-             [:span "Don't have a login? "]
+             [:span "Don't have a login? "][:br][:br]
              [:span.orange.underline.pointer
               {:on-click route-to-register-page}
               "REGISTER NOW"]]
             [:div.m-t-20
-             [:span "Forgot your password? "]
+             [:span "Forgot your password? "][:br][:br]
              [:span.orange.underline.pointer
               {:on-click route-to-reset-password-page}
-              "RESET PASSWORD"]]]]])))))
+              "RESET PASSWORD"]]
+            
+            [:div.m-t-20
+             [:span "Didn't receive validation the email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "Whitelist"] " our domain then reset your password." ]]]]])))))
 
 (def loading-style
   {:position :fixed
@@ -1169,7 +1229,7 @@
 (defn spell-component [{:keys [name level school casting-time ritual range duration components description summary page source] :as spell} include-name? & [subheader-size]]
   [:div.m-l-10.l-h-19
    [spell-summary name level school ritual include-name? subheader-size]
-   (spell-field "Casting Time" casting-time)
+   (spell-field "Casting Time" (str casting-time (if ritual " (ritual)" "")))
    (spell-field "Range" range)
    (spell-field "Duration" duration)
    (let [{:keys [verbal somatic material material-component]} components]
@@ -1252,7 +1312,7 @@
                             legendary-actions)]
     [:div.m-l-10.l-h-19
      (when (not @(subscribe [:mobile?])) {:style two-columns-style})
-     [:span.f-s-24.f-w-b name]
+     [:span.f-s-24.f-w-b.m-b-20 name]
      [:div.f-s-18.i.f-w-b (monsters/monster-subheader size type subtypes alignment)]
      (spell-field "Armor Class" (str armor-class (when armor-notes (str " (" armor-notes ")"))))
      (let [{:keys [mean die-count die modifier]} hit-points]
@@ -1393,17 +1453,7 @@
 (defn close-orcacle []
   (dispatch [:close-orcacle]))
 
-;; Used in legal footer below. template.cljc has a separate srd-link for character_builder.
-(def srd-link
-  [:a.orange {:href "/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD"])
 
-(defn current-year []
-  (.getFullYear (js/Date.)))
-
-(defn raw-html
-  "Render raw HTML string inside Reagent."
-  [html]
-  [:div {:dangerouslySetInnerHTML #js {:__html html}}])
 
 (defn orcacle []
   (let [search-text @(subscribe [:search-text])]
@@ -1433,6 +1483,22 @@
       [:div.flex-grow-1
        [search-results]]]]))
 
+(def srd-link
+  [:a.orange {:href "/dnld/SRD-OGL_V5.1.pdf" :target "_blank"} "the 5e SRD-OGL 5.1"])
+
+(defn current-year []
+  (.getFullYear (js/Date.))) 
+
+;; ------------------------------------------------------------------
+;; A helper that lets us embed a raw string of HTML inside Reagent.
+;; (If you’re using reagent‑core ≥1.2, `:raw` is built‑in; otherwise
+;; you can use the small shim below.)
+;; ------------------------------------------------------------------
+;; Render *any* raw HTML string.  
+(defn raw-html [html]
+  ;; Note: no `:>` or `js/React.createElement`.  
+  [:div {:dangerouslySetInnerHTML #js {:__html html}}])
+
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   ;; Plain atom (not r/atom) mirrors the :orcacle-open? subscription value
   ;; for the scroll handler, which runs as a DOM event listener outside
@@ -1447,6 +1513,7 @@
                         (if (>= scroll-top header-height)
                           (set! (.-display (.-style sticky-header)) "block")
                           (set! (.-display (.-style sticky-header)) "none")))))]
+    
     (r/create-class
      {:component-did-mount (fn [comp]
                              ;; Read directly from app-db — lifecycle methods are
@@ -1461,6 +1528,7 @@
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll))
                              (js/window.scrollTo 0,0))
+
       :component-will-unmount (fn [comp]
                                 (when-not frame?
                                   (js/window.removeEventListener "scroll" on-scroll)))
@@ -1469,7 +1537,8 @@
         (let [srd-message-closed? @(subscribe [:srd-message-closed?])
               orcacle-open? @(subscribe [:orcacle-open?])
               theme @(subscribe [:theme])
-              mobile? @(subscribe [:mobile?])]
+              mobile? @(subscribe [:mobile?])
+              username? @(subscribe [:username])]
           (reset! orcacle-open?* orcacle-open?)
           [:div.app.min-h-full
            {:class theme
@@ -1493,6 +1562,7 @@
                  hdr]]]              
               [:div.flex.justify-cont-c.main-text-color
                [:div.content hdr]]
+
               ;; Support banner (integrations-gated)
               [:div.m-l-20.m-r-20.f-w-b.f-s-18.container.m-b-10.main-text-color
                [integrations/support-banner
@@ -1507,23 +1577,35 @@
 
               [:div#app-main.container
                [:div.content.w-100-p content]]
+
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
                 ;; Content slot (integrations-gated)
                 [integrations/content-slot @(subscribe [:user-tier])]
+
                 [:div.flex.justify-cont-s-b.align-items-c.flex-wrap.p-10
                  [:div
                   [:div.m-b-5 "Icons made by Lorc, Caduceus, and Delapouite. Available on " [:a.orange {:href "http://game-icons.net"} "http://game-icons.net"]]
                   [:div.m-b-5 "Artwork provided by the talented Sandra. Available on " [:a.orange {:href "https://www.deviantart.com/sandara" :target :_blank} "Deviantart"]]]
                  [:div.m-l-10
-                  [:a.orange {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]
+                  [:div.m-b-5.justify-cont-c
+                   (when-let [url (not-empty (:patreon branding/social-links))]
+                     [:a.orange {:href url :target :_blank} "Support this site on Patreon"])
+                   (when (seq branding/help-url)
+                     [:a.orange.m-l-5 {:href branding/help-url :target :_blank} "Help"])
+                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
                  [:div.m-l-10.m-r-10.p-10
-                  [:a.orange {:href "/privacy-policy" :target :_blank} "Privacy Policy"]
-                  [:a.orange.m-l-5 {:href "/terms-of-use" :target :_blank} "Terms of Use"]]
+                  [:div.m-b-5
+                   (for [{:keys [label href]} splash/legal-footer-links]
+                     ^{:key href}
+                     [:a.orange.m-l-5 {:href href :target :_blank} label])]]
                  [:div.legal-footer
-                  [:p "© " (current-year) " " branding/copyright-holder]
-                  [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © " (current-year) " Wizards. All Rights Reserved."]
-                  [:p "This site is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
+                  [:p "© " (current-year) " "
+                   (if (seq branding/copyright-url)
+                     [:a.orange {:href branding/copyright-url :target :_blank} branding/copyright-holder]
+                     branding/copyright-holder)]
+                  [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved."]
+                  [:p branding/app-name " is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
                   [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
                 [debug-data]]]])]))})))
 
@@ -1538,7 +1620,8 @@
   {:border-top "2px solid rgba(255,255,255,0.5)"})
 #_(def thumbnail-style
   {:height "100px"
-   :max-width "200px"})
+   :max-width "200px"
+   :border-radius "5px"})
 
 (defn other-user-component [owner & [text-classes show-follow?]]
   (let [following-users @(subscribe [:following-users])
@@ -1707,8 +1790,8 @@
        conj
        [:div]
        buttons))]
-   [:div {:class (if list? "m-t-0" "m-t-4")}
-    [:span.f-s-24.f-w-600
+   [:div {:class-name (if list? "m-t-0" "m-t-4") }
+    [:span.f-s-24.f-w-600 {:class (csk/->camelCase (str title))}
      value]]])
 
 (defn list-display-section [title image-name values]
@@ -2531,7 +2614,7 @@
            (some (complement s/blank?) descriptions))
     [:div.m-t-20.t-a-l
      [:div.f-w-b.f-s-18 title]
-     [:div
+     [:div {:class (csk/->camelCase (str title))}
       (doall
        (map-indexed
         (fn [i description]
@@ -2702,7 +2785,8 @@
            @(subscribe [::char/notes id])
            (set-notes-handler id)
            {:style notes-style
-            :class "input"}]]]]]]]))
+            :maxLength (:notes branding/field-limits)
+            :class-name "input"}]]]]]]]))
 
 (defn weapon-details-field [nm value]
   [:div.p-2
@@ -2844,10 +2928,10 @@
                  ^{:key (str key (:key shield))}
                  [:tr.item.pointer
                   {:on-click (toggle-details-expanded-handler expanded-details k)}
-                  [:td.p-10.f-w-b (str (or (::mi/name armor) (:name armor) "unarmored")
+                  [:td.p-10.f-w-b.armor (str (or (::mi/name armor) (:name armor) "unarmored")
                                        (when shield (str " + " (:name shield))))]
                   (when (not mobile?)
-                    [:td.p-10 (boolean-icon proficient?)])
+                    [:td.p-10.proficient (boolean-icon proficient?)])
                   [:td.p-10.w-100-p
                    [:div
                     (armor-details-section armor shield expanded?)]]
@@ -3527,7 +3611,6 @@
            (when @show-selections?
              [character-selections id])]]]))))
 
-
 (def character-display-style
   {:padding "20px 5px"
    :background-color "rgba(0,0,0,0.15)"})
@@ -3623,13 +3706,14 @@
         has-spells? (seq (char/spells-known built-char))
         print-button-enabled (if (or (= print-character-sheet-style? nil)
                                      (= (str print-character-sheet-style?) "NaN"))
-                               false true)]
+                               false true)
+        ]
     [:div.flex.justify-cont-end
      [:div.p-20
-      [:div.f-s-24.f-w-b.m-b-10 "Print Options"]
+      [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
       [:div.m-b-2
        [:div.flex.m-b-10
-        [:div.m-t-10
+        [:div.m-t-5
          [labeled-dropdown
           "Select Character sheet"
           {:items [{:title "Select" :value " "}
@@ -3677,9 +3761,6 @@
            [labeled-checkbox
             "Prepared"
             print-prepared-spells?]]]])
-      [:span.orange.underline.pointer.uppercase.f-s-12
-       {:on-click (make-event-handler ::char/hide-options)}
-       "Cancel"]
       [:button.form-button.p-10.m-l-5
        {:style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char
@@ -3691,12 +3772,29 @@
                                       print-large-abilities?
                                       print-character-sheet-style?
                                       print-spell-card-dc-mod?)}
-       "Print"]]]))
+       "Create PDF"]
+      [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
+      [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
+     [:span.orange.underline.pointer.uppercase.m-l-10.f-s-12
+      {:on-click (make-event-handler ::char/hide-options)}
+      "Cancel"]]))
 
 (defn make-print-handler [id built-char]
   #(dispatch
     [::char/show-options
      [print-options id built-char]]))
+
+
+(defn abilities-spec [vals suffix bonus?]
+  (reduce-kv
+   (fn [m k v]
+     (let [new-k (if suffix
+                   (keyword (str (name k) "-mod"))
+                   k)
+           new-v (if bonus? (common/bonus-str v) v)]
+       (assoc m new-k new-v)))
+   {}
+   vals))
 
 (defn character-page []
   (let [expanded? (r/atom false)]
@@ -3711,28 +3809,27 @@
             built-character (subs/built-character character built-template)
             device-type @(subscribe [:device-type])
             username @(subscribe [:username])]
+        (prn "FRAME?" frame?)
         [content-page
          (when (not frame?)
            "Character Page")
-         (remove
-          nil?
-          (into
-           (vec (integrations/share-links id @(subscribe [::char/character-name id])))
-           (remove nil?
-            [[:div.m-l-5.hover-shadow.pointer
-              {:on-click #(swap! expanded? not)}
-              [:img.h-32 {:src "/image/world-anvil.jpeg"}]]
-             (when (and username
-                      owner
-                      (= owner username))
-               {:title "Edit"
-                :icon "pencil"
-                :on-click (make-event-handler :edit-character character)})
-             {:title "Print"
-              :icon "print"
-              :on-click (make-print-handler id built-character)}
-             (when (and username owner (not= owner username))
-               [add-to-party-component id])])))
+         (into
+          (vec (integrations/share-links id @(subscribe [::char/character-name id])))
+          (remove nil?
+           [#_[:div.m-l-5.hover-shadow.pointer
+               {:on-click #(swap! expanded? not)}
+               [:img.h-32 {:src "/image/world-anvil.jpeg"}]]
+            (when (and username
+                     owner
+                     (= owner username))
+              {:title "Edit"
+               :icon "pencil"
+               :on-click (make-event-handler :edit-character character)})
+            {:title "Export"
+             :icon "download"
+             :on-click (make-print-handler id built-character)}
+            (when (and username owner (not= owner username))
+              [add-to-party-component id])]))
          [:div.p-10.main-text-color
           (when @expanded?
             (let [url js/window.location.href]
@@ -3812,20 +3909,13 @@
 (defn input-builder-field [name value on-change attrs]
   [builder-field :input name value on-change attrs])
 
-;; dead — zero callers
-#_(defn text-field [{:keys [value on-change]}]
-  [comps/input-field
-   :input
-   value
-   on-change
-   {:class "input"}])
-
 (defn textarea-field [{:keys [value on-change]}]
   [comps/input-field
    :textarea
    value
    on-change
-   {:class "input"}])
+   {:class-name "input"
+    :maxLength (:notes branding/field-limits)}])
 
 (defn number-field [{:keys [value on-change]}]
   [comps/input-field
@@ -3835,7 +3925,8 @@
      (on-change
       (when (re-matches #"\d+" v) (js/parseInt v))))
    {:class "input"
-    :type :number}])
+    :type :number
+    :maxLength (:number branding/field-limits)}])
 
 (defn attunement-value [attunement key name]
   [:div
@@ -4235,7 +4326,8 @@
     (prop item)
     #(dispatch [prop-event prop %])
     {:class "input h-40"
-     :type type}]])
+     :type type
+     :maxLength (:text branding/field-limits)}]])
 
 #_(defn item-input-field [title prop item & [class-names]]
   (builder-input-field title prop item ::mi/set-item-name class-names))
@@ -5216,7 +5308,7 @@
          "Amount to Select"
          {:items (map
                   value-to-item
-                  (range 1 11))
+                  (range 1 31))
           :value (get selection-cfg :choose)
           :on-change #(dispatch [value-change-event index (assoc selection-cfg :choose (js/parseInt %))])}]])]))
 
@@ -7741,8 +7833,14 @@
                 [:div.m-t-5.red error])]
 
              :else
-             [:div
+             [:<>
               [:span current-email]
+              [:button.link-button.m-l-10
+               {:on-click #(do (reset! editing? true)
+                               (reset! new-email "")
+                               (reset! confirm-email "")
+                               (dispatch [:change-email-clear]))}
+               "Change"]
               (when pending-email
                 [:div.m-t-5.f-s-14
                  "Pending: " pending-email " — check your email to verify the change. "
@@ -7752,13 +7850,7 @@
                   {:on-click #(dispatch [:change-email pending-email])}
                   "Resend"]
                  (when error
-                   [:span.m-l-5.red.f-s-14 error])])
-              [:button.link-button.m-l-10
-               {:on-click #(do (reset! editing? true)
-                               (reset! new-email "")
-                               (reset! confirm-email "")
-                               (dispatch [:change-email-clear]))}
-               "Change"]])]
+                   [:span.m-l-5.red.f-s-14 error])])])]
           ;; ─── Email Updates Toggle ─────────────────────────────────
           [:div.p-5
            [:span.f-w-b "Email Updates: "]
@@ -7986,20 +8078,22 @@
       [:button.form-button.m-l-5
        {:on-click (make-event-handler :route char-page-route)}
        "view"]
-      [:button.form-button.m-l-5
-       {:on-click (export-pdf
-                   built-char
-                   id
-                   plugin-data
-                   {:print-character-sheet? true
-                    :print-spell-cards? true
-                    :print-prepared-spells? false
-                    :print-character-sheet-style? 1
-                    :print-spell-card-dc-mod? true})}
-       "print"]
+      (when (or (not branding/restrict-print-to-owner?) (= username owner))
+        [:button.form-button.m-l-5
+         {:on-click (export-pdf
+                     built-char
+                     id
+                     plugin-data
+                     {:print-character-sheet? true
+                      :print-spell-cards? true
+                      :print-prepared-spells? false
+                      :print-character-sheet-style? 1
+                      :print-spell-card-dc-mod? true})}
+         "print"])
       (when (and (= username owner) (seq folders))
         [:select.form-button.m-l-5.builder-option-dropdown
-         {:value (or current-folder-id "")
+         {:style {:width "auto" :align-self "stretch" :box-sizing "border-box"}
+          :value (or current-folder-id "")
           :on-change (fn [e]
                        (let [val (.-value (.-target e))]
                          (if (= val "")
@@ -8265,10 +8359,19 @@
         expanded-characters @(subscribe [:expanded-characters])
         username @(subscribe [:username])
         selected-ids @(subscribe [::char/selected])
-        has-selected? @(subscribe [::char/has-selected?])]
-    [content-page
+        has-selected? @(subscribe [::char/has-selected?])
+        user-tier @(subscribe [:user-tier])]
+    (integrations/track-character-list! (count characters) user-tier)
+    #_(prn (str (count characters) " characters - " user-tier))
+[content-page
      "Characters"
-     [{:title "New"
+     [#_(if (>= (count characters) 5) {:title "Free accounts are limited to 5 characters"
+                                       :icon "plus"
+                                       :class-name "cursor-disabled"}
+            {:title "New"
+             :icon "plus"
+             :on-click #(dispatch [:new-character])})
+      {:title "New"
        :icon "plus"
        :on-click #(dispatch [:new-character])}
       {:title "Make Party"

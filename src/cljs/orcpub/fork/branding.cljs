@@ -48,3 +48,19 @@
 (def field-limits
   "Max-length constraints for form input fields."
   (:field-limits config {:notes 50000 :text 255 :number 7}))
+
+;; ─── Footer ────────────────────────────────────────────────────────
+
+(def copyright-url
+  "URL for copyright holder name in footer. Empty = plain text."
+  (:copyright-url config ""))
+
+;; ─── UI Behavior ───────────────────────────────────────────────────
+
+(def registration-logo-class
+  "CSS class for logo on registration/login page."
+  (:registration-logo-class config "h-55"))
+
+(def restrict-print-to-owner?
+  "Whether print button is restricted to character owner."
+  (:restrict-print-to-owner? config false))
