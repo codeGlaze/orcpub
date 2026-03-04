@@ -3716,11 +3716,8 @@
         [:div.m-t-5
          [labeled-dropdown
           "Select Character sheet"
-          {:items [{:title "Select" :value " "}
-                   {:title "Original 5e Character sheet" :value 1}
-                   {:title "Original 5e Character sheet - optional variant" :value 2}
-                   {:title "Icewind Dale 5e Character sheet" :value 3}
-                   {:title "Petersen Games - Cthulhu Mythos Sagas sheet" :value 4}]
+          {:items (into [{:title "Select" :value " "}]
+                        (integrations/sheet-styles @(subscribe [:user-tier])))
            :value print-character-sheet-style?
            :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
        [integrations/pdf-options-slot @(subscribe [:user-tier])]

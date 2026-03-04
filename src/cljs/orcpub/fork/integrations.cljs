@@ -76,6 +76,16 @@
   [_opts]
   nil)
 
+;; ─── PDF Sheet Styles ───────────────────────────────────────
+;; Returns the list of available character sheet styles for the dropdown.
+;; Fork overrides: return tier-gated styles for premium users.
+
+(defn sheet-styles
+  "Available character sheet styles. Returns the default sheet only.
+   Fork overrides: return additional styles gated by user tier."
+  [_user-tier]
+  [{:title "Original 5e Character sheet" :value 1}])
+
 ;; ─── PDF Options Slot ────────────────────────────────────────
 ;; Hook for additional content below PDF sheet options.
 ;; Fork overrides: return hiccup for premium feature promos, etc.
