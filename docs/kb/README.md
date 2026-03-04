@@ -39,9 +39,9 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [docker-setup-flow.md](docker-setup-flow.md) | docker-setup.sh mode flow: block order, flag combos, helpers, generate_env(), error recovery, test infrastructure |
 | [docker-swarm-compat.md](docker-swarm-compat.md) | Compose Spec → Swarm v3 incompatibilities: depends_on, null fields, ports, jq pipeline |
 | [docker-security-decisions.md](docker-security-decisions.md) | Docker security decisions: non-root, sed escaping, chmod 600, .dockerignore, DATOMIC_URL validation |
-| [srd-2024-integration.md](srd-2024-integration.md) | 2024 SRD integration analysis: mix-and-match constraint, overlapping keys, possible approaches |
 | [homebrew-class-spellcasting.md](homebrew-class-spellcasting.md) | Homebrew class spellcasting: slot schedules, known-spells, prepared casters, integration risks |
 | [lein-uberjar-hang.md](lein-uberjar-hang.md) | lein compile hang: Datomic Peer non-daemon threads, timeout workaround, build profile fix |
+| [docker-testing-guide.md](docker-testing-guide.md) | Docker testing: 46-test suite, manual smoke tests, every gotcha (H2 lock-in, env -u, ports, transit, piped input, jq nulls) |
 
 ## Human-Facing Docs (Copies)
 
