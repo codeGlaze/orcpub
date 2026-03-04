@@ -54,6 +54,47 @@ Validates against the same old v3 schema on INPUT. Rejects our file with `depend
 
 YAML 1.1 parses unquoted `xx:yy` as base-60 when both values < 60. Always quote per Docker docs. The string→int issue is in compose config's output, not the source file.
 
+## Swarm Runtime Gotchas
+
+Beyond schema incompatibilities, Swarm behaves differently at runtime:
+
+### nginx upstream DNS
+Swarm ignores `depends_on` — services start in arbitrary order. If nginx resolves
+the app upstream at startup and the app isn't registered yet, it crashes with
+`host not found in upstream`. Fix: use runtime DNS resolution.
+
+```nginx
+resolver 127.0.0.11 valid=30s;
+set $upstream_app http://orcpub:${ORCPUB_PORT};
+
+location / {
+    proxy_pass $upstream_app;
+}
+```
+
+`127.0.0.11` is Docker's embedded DNS. The `set` variable forces nginx to resolve
+at request time, not startup. `${ORCPUB_PORT}` is substituted by envsubst at
+container start — `$upstream_app` survives because it's not an env var.
+
+### Datomic ALT_HOST
+Datomic's `host=` controls both bind address and advertised hostname. In Swarm:
+- `host=0.0.0.0` — bind to all interfaces (required; "datomic" resolves to a VIP)
+- `alt-host=datomic` — peer fallback via Docker DNS (NOT `127.0.0.1`)
+
+`docker-setup.sh --swarm` sets `ALT_HOST=datomic` in `.env` automatically. Getting
+this wrong causes ActiveMQ connection errors in the app container.
+
+### Compose teardown before Swarm init
+Stale Compose containers leave behind bridge networks (e.g., `orcpub_default`).
+`docker stack deploy` fails with `network with name orcpub_default already exists`.
+Run `docker compose down` before `docker swarm init`. `docker-setup.sh --swarm`
+detects running Compose containers and offers to stop them.
+
+### Codespaces limitation
+Swarm's ingress overlay network is not reachable by Codespaces' port forwarding
+proxy. Ports publish correctly for `curl` inside the Codespace but return 504
+from the browser. Use Compose for Codespaces development.
+
 ## Environment tested on
 
 - Docker Engine 29.2.1
