@@ -1,6 +1,6 @@
 # Docker Setup Tests
 
-Manual and automated tests for `docker-setup.sh` and `docker-user.sh`.
+Manual and automated tests for `run` and `docker-user.sh`.
 
 ## Scripts
 
@@ -38,15 +38,15 @@ Test `.env` files representing real-world configurations:
 ```bash
 # New install
 ./test/docker/reset-test.sh fresh
-./docker-setup.sh --auto
+./run --auto
 docker compose up --build -d
 ./docker-user.sh init
 
 # Upgrade + secrets
 ./test/docker/reset-test.sh upgrade
-./docker-setup.sh --upgrade-secrets --auto
+./run --upgrade-secrets --auto
 
 # Upgrade + swarm (conflict detection)
 ./test/docker/reset-test.sh conflict
-./docker-setup.sh --upgrade-swarm --auto
+./run --upgrade-swarm --auto
 ```

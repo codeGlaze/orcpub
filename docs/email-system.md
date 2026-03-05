@@ -98,13 +98,27 @@ User attributes related to email and verification (`src/clj/orcpub/db/schema.clj
 
 ### 4. Error Notification
 
-**Trigger:** Called from exception handlers (e.g., Pedestal error interceptor)
+**Trigger:** Called from `service-error-handler` interceptor in `routes.clj` on unhandled exceptions
 
-- Sends a plaintext email with the request context and exception data
-- Only sends if `EMAIL_ERRORS_TO` is set
-- Uses `email/send-error-email`
+- Only sends if `EMAIL_ERRORS_TO` env var is set
+- Sends plaintext email with scrubbed request, filtered stack trace, and cause chain
+- Throttled: one email per unique error fingerprint per 5 minutes
+- Detects Pedestal-wrapped exceptions (extracts real exception from `ex-data :exception`)
 
-**Files:** `email.clj:send-error-email`
+**Subject format:** `[AppName] ExceptionClass: message @ METHOD /uri`
+
+**Request scrubbing:** Strips credentials (`:json-params`, `:transit-params`, `:form-params`), session
+data (`:identity`, `:body`), Datomic objects (`:db`, `:conn`), servlet internals, and cookie headers.
+Only safe headers are included (user-agent, referer, content-type, CF headers, etc.).
+
+**Stack trace filtering:** Shows only `orcpub.*` frames. Falls back to deepest non-infrastructure
+frame when no app frames exist. Infrastructure prefixes (Jetty, Pedestal, clojure.lang, Thread)
+are suppressed with a count.
+
+**Throttle fingerprint:** Root cause class + deepest `orcpub.*` frame method (or first 60 chars
+of root message). Suppressed duplicates are logged to stdout.
+
+**Files:** `email.clj:send-error-email`, `routes.clj:service-error-handler`
 
 ## Rate Limiting (Email Change)
 

@@ -93,6 +93,10 @@ See `docker/transactor.properties.template` for the full transactor configuratio
 | `FIGWHEEL_PORT` | `3449` | Figwheel WebSocket port for frontend hot-reload. Read by `scripts/common.sh`. |
 | `FIGWHEEL_CONNECT_URL` | *(auto-detected)* | Figwheel WebSocket URL override for remote environments (Gitpod, tunnels). Auto-detected for GitHub Codespaces. Example: `wss://my-remote-host:3449/figwheel-connect` |
 
+### Branding, Social Links & Integrations
+
+See [BRANDING-AND-INTEGRATIONS.md](BRANDING-AND-INTEGRATIONS.md) for the full reference covering `APP_*`, `APP_SOCIAL_*`, `MATOMO_*`, and `ADSENSE_*` variables.
+
 ## Files That Read Environment
 
 | File | Variables Used |

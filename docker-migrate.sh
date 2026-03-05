@@ -97,8 +97,9 @@ load_env() {
   local env_file="${SCRIPT_DIR}/.env"
   if [[ -f "$env_file" ]]; then
     # Read specific variables we need rather than exporting everything
+    # tr -d '\r' handles Windows line endings in .env
     # shellcheck disable=SC1090
-    DATOMIC_PASSWORD="${DATOMIC_PASSWORD:-$(. "$env_file" && echo "${DATOMIC_PASSWORD:-}")}"
+    DATOMIC_PASSWORD="${DATOMIC_PASSWORD:-$(. <(tr -d '\r' < "$env_file") && echo "${DATOMIC_PASSWORD:-}")}"
   fi
 }
 

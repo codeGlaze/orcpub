@@ -1,22 +1,53 @@
 (ns orcpub.config
   (:require [environ.core :refer [env]]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [clojure.java.io :as io]))
 
 (def default-datomic-uri "datomic:dev://localhost:4334/orcpub")
+
+(defn read-secret
+  "Read a Docker secret from /run/secrets/<name>, or nil if not mounted.
+  Trims trailing whitespace (secret files often end with a newline)."
+  [name]
+  (let [f (io/file "/run/secrets" name)]
+    (when (.exists f)
+      (not-empty (str/trim (slurp f))))))
 
 (defn datomic-env
   "Return the raw DATOMIC_URL environment value or nil if unset." []
   (or (env :datomic-url)
       (some-> (System/getenv "DATOMIC_URL") not-empty)))
 
+(defn datomic-password
+  "Return DATOMIC_PASSWORD from Docker secret, env var, or nil.
+  Resolution order: /run/secrets/datomic_password > DATOMIC_PASSWORD env var." []
+  (or (read-secret "datomic_password")
+      (env :datomic-password)
+      (some-> (System/getenv "DATOMIC_PASSWORD") not-empty)))
+
+(defn signature
+  "Return SIGNATURE from Docker secret, env var, or nil.
+  Resolution order: /run/secrets/signature > SIGNATURE env var." []
+  (or (read-secret "signature")
+      (env :signature)
+      (some-> (System/getenv "SIGNATURE") not-empty)))
+
 (defn get-datomic-uri
   "Return the Datomic URI from the environment or the default.
 
   Prefers the raw env value (from `datomic-env`), otherwise returns a safe
-  local development default (datomic:dev://localhost:4334/orcpub)."
+  local development default (datomic:dev://localhost:4334/orcpub).
+
+  If the URL does not contain a ?password= parameter and DATOMIC_PASSWORD
+  is set, appends it automatically. This allows admins to keep the password
+  out of DATOMIC_URL (e.g. for Docker secrets) while remaining backward
+  compatible with URLs that embed the password."
   []
-  (or (datomic-env)
-      default-datomic-uri))
+  (let [url (or (datomic-env) default-datomic-uri)
+        pw  (datomic-password)]
+    (if (and pw (not (str/includes? url "password=")))
+      (str url "?password=" pw)
+      url)))
 
 ;; Content Security Policy configuration
 ;; CSP_POLICY environment variable options:

@@ -25,7 +25,8 @@
             [orcpub.common :as common]
             [orcpub.dnd.e5.display :as dis5e]
             [orcpub.dnd.e5.monsters :as monsters]
-            [orcpub.dnd.e5.options :as options])
+            [orcpub.dnd.e5.options :as options]
+            [clj-http.client :as client])
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
            ;; PDFBox 3.x: AppendMode enum replaces boolean flags in PDPageContentStream constructor

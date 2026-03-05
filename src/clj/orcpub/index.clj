@@ -1,11 +1,11 @@
 (ns orcpub.index
   (:require [hiccup.page :refer [html5 include-css]]
+            [cheshire.core :as cheshire]
             [orcpub.oauth :as oauth]
+            [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
             [orcpub.fork.integrations :as integrations]
-            [orcpub.fork.branding :as branding]
-            [cheshire.core :as cheshire]
             [environ.core :refer [env]]))
 
 (def homebrew-url
@@ -46,6 +46,13 @@
     (meta-tag "og:title" title)
     (meta-tag "og:description" description)
     (meta-tag "og:image" image)
+    (meta-tag "og:site_name" branding/app-name)
+    (meta-tag "og:type" "website")
+    (meta-tag "twitter:card" "summary_large_image")
+    (meta-tag "twitter:site" branding/app-name)
+    (meta-tag "twitter:title" title)
+    (meta-tag "twitter:description" description)
+    (meta-tag "twitter:image" image)
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport"
             :content "width=device-width, initial-scale=1.0, minimum-scale=1.0"}]
@@ -63,7 +70,7 @@
 .splash-button .splash-button-content {height: 120px; width: 120px}
 .splash-button .svg-icon {height: 64px; width: 64px}
 
-@media (max-width: 767px) 
+@media (max-width: 767px)
 {.splash-button .svg-icon {height: 32px; width: 32px}
 .splash-button-title-prefix {display: none}
 .splash-button .splash-button-content {height: 60px; width: 60px; font-size: 10px}
@@ -88,7 +95,7 @@ b, u, i, center,
 dl, dt, dd, ol, ul, li,
 fieldset, form, label, legend,
 table, caption, tbody, tfoot, thead, tr, th, td,
-article, aside, canvas, details, figcaption, figure, 
+article, aside, canvas, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section, summary,
 time, mark, audio, video {
 	margin: 0;
@@ -100,7 +107,7 @@ time, mark, audio, video {
 	vertical-align: baseline;
 }
 /* HTML5 display-role reset for older browsers */
-article, aside, details, figcaption, figure, 
+article, aside, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section {
 	display: block;
 }

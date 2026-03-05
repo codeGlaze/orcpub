@@ -26,14 +26,12 @@
 
    Options:
      :dev-mode?         - When true, adds ws://localhost:3449 to connect-src
-                          for Figwheel hot-reload WebSocket support.
-     :extra-connect-src - Seq of additional connect-src origins (from integrations).
-     :extra-frame-src   - Seq of additional frame-src origins (from integrations).
+     :extra-connect-src - Seq of additional connect-src origins (from integrations)
+     :extra-frame-src   - Seq of additional frame-src origins (from integrations)
 
    The resulting CSP:
      - Uses 'strict-dynamic' for script-src (only nonced scripts execute)
      - Allows Google Fonts for styles and fonts
-     - Merges integration domains into connect-src and frame-src
      - Restricts all other sources to 'self'
      - Blocks object embeds, restricts base-uri, frame-ancestors, and form-action"
   [nonce & {:keys [dev-mode? extra-connect-src extra-frame-src]}]

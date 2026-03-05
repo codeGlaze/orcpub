@@ -23,10 +23,11 @@ REPO_ROOT="${REPO_ROOT:-$(cd "$COMMON_DIR/.." && pwd)}"
 # -----------------------------------------------------------------------------
 
 # Source .env if present (authoritative config)
+# tr -d '\r' strips Windows line endings so values don't silently include \r
 if [[ -f "$REPO_ROOT/.env" ]]; then
     set -a
     # shellcheck disable=SC1091
-    . "$REPO_ROOT/.env"
+    . <(tr -d '\r' < "$REPO_ROOT/.env")
     set +a
 fi
 
@@ -438,7 +439,7 @@ show_startup_failure() {
 get_datomic_port_from_config() {
     local config="$1"
     if [[ -f "$config" ]]; then
-        grep -E '^port=' "$config" 2>/dev/null | cut -d= -f2 || echo "$DATOMIC_PORT"
+        grep -E '^port=' "$config" 2>/dev/null | cut -d= -f2 | tr -d '\r' || echo "$DATOMIC_PORT"
     else
         echo "$DATOMIC_PORT"
     fi

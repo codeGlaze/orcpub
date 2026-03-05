@@ -77,10 +77,11 @@
             [bidi.bidi :as bidi]
             [orcpub.route-map :as routes]
             [orcpub.errors :as errors]
+            [orcpub.fork.integrations :as integrations]
+            [orcpub.fork.branding :as branding]
             [clojure.set :as sets]
             [cljsjs.filesaverjs]
-            [clojure.pprint :as pprint]
-            [orcpub.fork.integrations :as integrations])
+            [clojure.pprint :as pprint])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
 ;; =============================================================================
@@ -161,7 +162,7 @@
                              encounter->local-store-interceptor])
 
 (def combat-interceptors [(path ::combat/tracker-item)
-                         combat->local-store-interceptor])
+                          combat->local-store-interceptor])
 
 (def background-interceptors [(path ::bg5e/builder-item)
                               background->local-store-interceptor])
@@ -173,13 +174,13 @@
                               invocation->local-store-interceptor])
 
 (def boon-interceptors [(path ::class5e/boon-builder-item)
-                              boon->local-store-interceptor])
+                        boon->local-store-interceptor])
 
 (def selection-interceptors [(path ::selections5e/builder-item)
-                            selection->local-store-interceptor])
+                             selection->local-store-interceptor])
 
 (def feat-interceptors [(path ::feats5e/builder-item)
-                         feat->local-store-interceptor])
+                        feat->local-store-interceptor])
 
 (def race-interceptors [(path ::race5e/builder-item)
                         race->local-store-interceptor])
@@ -191,10 +192,10 @@
                          class->local-store-interceptor])
 
 (def subclass-interceptors [(path ::class5e/subclass-builder-item)
-                          subclass->local-store-interceptor])
+                            subclass->local-store-interceptor])
 
 (def plugins-interceptors [(path :plugins)
-                          plugins->local-store-interceptor])
+                           plugins->local-store-interceptor])
 
 
 ;; -- Event Handlers --------------------------------------------------
@@ -287,13 +288,13 @@
 (def selection-randomizers
   {:ability-scores (fn [s _]
                      (fn [_] {::entity/key :standard-roll
-                             ::entity/value (char5e/standard-ability-rolls)}))
+                              ::entity/value (char5e/standard-ability-rolls)}))
    :hit-points (fn [{[_ class-kw] ::entity/path} built-char]
                  (fn [_]
                    (random-hit-points-option (char5e/levels built-char) class-kw)))})
 
 #_ ;; unreferenced — random-character loop hardcodes 10
-(def max-iterations 100)
+  (def max-iterations 100)
 
 (defn keep-options [built-template entity option-paths]
   (reduce
@@ -353,7 +354,7 @@
    {:dispatch [:set-random-character character built-template locked-components]}))
 
 #_ ;; unreferenced — character path is constructed inline
-(def dnd-5e-characters-path [:dnd :e5 :characters])
+  (def dnd-5e-characters-path [:dnd :e5 :characters])
 
 (reg-event-fx
  :character-save-success
@@ -803,14 +804,14 @@
                  ::char5e/parties-map (common/map-by-id parties))})))
 
 (reg-event-fx
-  ::party5e/make-empty-party
-  (fn [{:keys [db]} [_]]
-    {:dispatch [:set-loading true]
-     :http {:method :post
-            :headers (authorization-headers db)
-            :url (url-for-route routes/dnd-e5-char-parties-route)
-            :transit-params {::party5e/name "A New Party"}
-            :on-success [::party5e/make-empty-party-success]}}))
+ ::party5e/make-empty-party
+ (fn [{:keys [db]} [_]]
+   {:dispatch [:set-loading true]
+    :http {:method :post
+           :headers (authorization-headers db)
+           :url (url-for-route routes/dnd-e5-char-parties-route)
+           :transit-params {::party5e/name "A New Party"}
+           :on-success [::party5e/make-empty-party-success]}}))
 
 (reg-event-fx
  ::party5e/rename-party
@@ -1299,15 +1300,15 @@
            nil)))
 
 #_ ;; never dispatched from UI
-(reg-event-db
- :toggle-public
- character-interceptors
- (fn [character _]
-   (update character
-           ::entity/values
-           update
-           ::char5e/share?
-           not)))
+  (reg-event-db
+   :toggle-public
+   character-interceptors
+   (fn [character _]
+     (update character
+             ::entity/values
+             update
+             ::char5e/share?
+             not)))
 
 (reg-event-db
  :set-faction-image-url
@@ -1498,7 +1499,7 @@
    character
    path
    (fn [skills]
-     (if selected?                                             
+     (if selected?
        (vec (remove (fn [s] (= skill-key (::entity/key s))) skills))
        (vec (conj skills {::entity/key skill-key}))))))
 
@@ -1576,8 +1577,8 @@
          flat-params (flatten seq-params)
          path (apply routes/path-for (or handler new-route) flat-params)]
      (when (and js/window.location
-              secure?
-              (not= "localhost" js/window.location.hostname))
+                secure?
+                (not= "localhost" js/window.location.hostname))
        (set! js/window.location.href (make-url "https"
                                                js/window.location.hostname
                                                path
@@ -1608,7 +1609,7 @@
  (fn [{:keys [db]} _]
    (if (:token (:user-data db))
      (do (go (let [response (<! (http/get (url-for-route routes/user-route)
-                                           {:headers (authorization-headers db)}))]
+                                          {:headers (authorization-headers db)}))]
                (case (:status response)
                  200 nil
                  401 (do (dispatch [:clear-login])
@@ -1623,13 +1624,13 @@
    (assoc db :user user-data)))
 
 #_ ;; never dispatched from UI
-(defn set-active-tabs [db [_ active-tabs]]
-  (assoc-in db tab-path active-tabs))
+  (defn set-active-tabs [db [_ active-tabs]]
+    (assoc-in db tab-path active-tabs))
 
 #_ ;; never dispatched from UI
-(reg-event-db
- :set-active-tabs
- set-active-tabs)
+  (reg-event-db
+   :set-active-tabs
+   set-active-tabs)
 
 (defn set-loading
   "Loading is a counter, not a boolean. true increments, false decrements.
@@ -1797,10 +1798,10 @@
    {:db (update db :user-data merge (-> response :body))
     :dispatch [:route (or
                        (:return-route db)
-                        routes/dnd-e5-char-builder-route)]}))
+                       routes/dnd-e5-char-builder-route)]}))
 
 (defn show-old-account-message []
-  [:show-login-message [:div  "There is no account for the email or username, please double-check it. Usernames and passwords are case sensitive, email addresses are not. You can also try to " [:a {:href (routes/path-for routes/register-page-route)} "register"] "." ]])
+  [:show-login-message [:div  "There is no account for the email or username, please double-check it. Usernames and passwords are case sensitive, email addresses are not. You can also try to " [:a {:href (routes/path-for routes/register-page-route)} "register"] "."]])
 
 (defn dispatch-login-failure [message]
   {:dispatch-n [[:clear-login]
@@ -1814,13 +1815,17 @@
        (= error-code errors/username-required) (dispatch-login-failure "Username is required.")
        (= error-code errors/too-many-attempts) (dispatch-login-failure "You have made too many login attempts, you account is locked for 15 minutes. Please do not try to login again until 15 minutes have passed.")
        (= error-code errors/password-required) (dispatch-login-failure "Password is required.")
-       (= error-code errors/bad-credentials) (dispatch-login-failure "Password is incorrect.") 
+       (= error-code errors/bad-credentials) (dispatch-login-failure "Password is incorrect.")
        (= error-code errors/no-account) {:dispatch-n [[:clear-login]
                                                       (show-old-account-message)]}
        (= error-code errors/unverified) {:db (assoc db :temp-email (-> response :body :email))
                                          :dispatch [:route routes/verify-sent-route]}
        (= error-code errors/unverified-expired) {:dispatch [:route routes/verify-failed-route]}
-       :else (dispatch-login-failure [:div "A login error occurred."])))))
+       :else (dispatch-login-failure
+              (if (seq branding/support-email)
+                [:div "An error occurred. If the problem persists please email "
+                 [:a {:href (str "mailto:" branding/support-email) :target :blank} branding/support-email]]
+                [:div "An error occurred. Please try again later."]))))))
 
 (reg-event-fx
  :logout
@@ -1862,7 +1867,8 @@
    {:dispatch [:clear-login]}))
 
 #_ ;; dead stub — real impl is orcpub.registration/validate-registration
-(defn validate-registration [])
+  (defn validate-registration [])
+
 
 (reg-event-db
  :email-taken
@@ -1875,10 +1881,10 @@
    (assoc db :username-taken? (-> response :body (= "true")))))
 
 #_ ;; never dispatched — registration form uses :register-first-and-last-name
-(reg-event-db
- :registration-first-and-last-name
- (fn [db [_ first-and-last-name]]
-   (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
+  (reg-event-db
+   :registration-first-and-last-name
+   (fn [db [_ first-and-last-name]]
+     (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
 
 (reg-event-fx
  :registration-email
@@ -1908,10 +1914,10 @@
    (assoc-in db [:registration-form :send-updates?] send-updates?)))
 
 #_ ;; never dispatched from UI
-(reg-event-db
- :register-first-and-last-name
- (fn [db [_ first-and-last-name]]
-   (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
+  (reg-event-db
+   :register-first-and-last-name
+   (fn [db [_ first-and-last-name]]
+     (assoc-in db [:registration-form :first-and-last-name] first-and-last-name)))
 
 (reg-event-fx
  :check-email
@@ -1979,21 +1985,21 @@
 
 ;; never dispatched — character loading uses :load-user-data flow
 #_(reg-event-db
- :load-characters-success
- (fn [db [_ response]]
-   (assoc-in db [:dnd :e5 :characters] (:body response))))
+   :load-characters-success
+   (fn [db [_ response]]
+     (assoc-in db [:dnd :e5 :characters] (:body response))))
 
 (defn get-auth-token [db]
   (-> db :user-data :token))
 
 #_ ;; never dispatched — character loading uses :load-user-data flow
-(reg-event-fx
- :load-characters
- (fn [{:keys [db]} [_ params]]
-   {:http {:method :get
-           :auth-token (get-auth-token db)
-           :url (backend-url (routes/path-for routes/dnd-e5-char-list-route))
-           :on-success [:load-characters-success]}}))
+  (reg-event-fx
+   :load-characters
+   (fn [{:keys [db]} [_ params]]
+     {:http {:method :get
+             :auth-token (get-auth-token db)
+             :url (backend-url (routes/path-for routes/dnd-e5-char-list-route))
+             :on-success [:load-characters-success]}}))
 
 (reg-event-db
  :password-reset-success
@@ -2227,10 +2233,10 @@
           :login-message message)))
 
 #_ ;; never dispatched from UI
-(reg-event-db
- :hide-warning
- (fn [db _]
-   (assoc db :warning-hidden true)))
+  (reg-event-db
+   :hide-warning
+   (fn [db _]
+     (assoc db :warning-hidden true)))
 
 (reg-event-db
  :hide-confirmation
@@ -2260,12 +2266,12 @@
                  :sex sex})})))
 
 #_ ;; unreferenced
-(defn remove-subtypes [subtypes hidden-subtypes]
-  (let [result (sets/difference subtypes hidden-subtypes)]
-    result))
+  (defn remove-subtypes [subtypes hidden-subtypes]
+    (let [result (sets/difference subtypes hidden-subtypes)]
+      result))
 
 #_ ;; orphaned re-export alias — callers use compute/compute-plugin-vals directly
-(def compute-plugin-vals compute/compute-plugin-vals)
+  (def compute-plugin-vals compute/compute-plugin-vals)
 (def compute-sorted-spells compute/compute-sorted-spells)
 (def compute-sorted-items compute/compute-sorted-items)
 (def filter-by-name-xform compute/filter-by-name-xform)
@@ -2323,11 +2329,11 @@
        (dissoc :search-text))))
 
 #_ ;; never dispatched from UI (note: "orcacle" typo)
-(reg-event-fx
- :open-orcacle-over-character-builder
- (fn []
-   {:dispatch-n [[:route routes/dnd-e5-char-builder-route]
-                 [:open-orcacle]]}))
+  (reg-event-fx
+   :open-orcacle-over-character-builder
+   (fn []
+     {:dispatch-n [[:route routes/dnd-e5-char-builder-route]
+                   [:open-orcacle]]}))
 
 (reg-event-db
  :open-orcacle
@@ -2347,10 +2353,10 @@
    (assoc db ::char5e/builder-tab tab)))
 
 (reg-event-db
-  ::char5e/sort-monsters
-  (fn [db [_ sort-criteria sort-direction]]
-    (assoc db ::char5e/monster-sort-criteria sort-criteria
-              ::char5e/monster-sort-direction sort-direction)))
+ ::char5e/sort-monsters
+ (fn [db [_ sort-criteria sort-direction]]
+   (assoc db ::char5e/monster-sort-criteria sort-criteria
+          ::char5e/monster-sort-direction sort-direction)))
 
 (reg-event-db
  ::char5e/filter-monsters
@@ -2377,8 +2383,8 @@
      (assoc db
             ::char5e/item-text-filter filter-text
             ::char5e/filtered-items (if (>= (count filter-text) 3)
-                                       (filter-items filter-text sorted)
-                                       sorted)))))
+                                      (filter-items filter-text sorted)
+                                      sorted)))))
 
 (reg-event-db
  ::char5e/toggle-selected
@@ -2529,15 +2535,15 @@
 
 (defn toggle-feature-used [character units nm]
   (-> character
-   (update-in    
-    [::entity/values
-     ::char5e/features-used
-     units]
-    (partial toggle-set nm))
-   (dissoc
-    [::entity/values
-     ::char5e/features-used
-     :db/id])))
+      (update-in
+       [::entity/values
+        ::char5e/features-used
+        units]
+       (partial toggle-set nm))
+      (dissoc
+       [::entity/values
+        ::char5e/features-used
+        :db/id])))
 
 (reg-event-fx
  ::char5e/toggle-feature-used
@@ -2569,17 +2575,17 @@
                  ::units5e/rest)))
 
 (reg-event-fx
-  ::char5e/finish-short-rest-warlock
-  (fn [{:keys [db]} [_ id]]
-    (clear-period db
-                  id
-                  (fn [character]
-                    (update
-                      character
-                      ::entity/values
-                      dissoc
-                      ::spells/slots-used))
-                  ::units5e/rest)))
+ ::char5e/finish-short-rest-warlock
+ (fn [{:keys [db]} [_ id]]
+   (clear-period db
+                 id
+                 (fn [character]
+                   (update
+                    character
+                    ::entity/values
+                    dissoc
+                    ::spells/slots-used))
+                 ::units5e/rest)))
 
 (reg-event-fx
  ::char5e/finish-short-rest
@@ -2635,11 +2641,11 @@
                   "light-theme")))))
 
 #_ ;; never dispatched from UI
-(reg-event-db
- ::mi/set-builder-item
- [magic-item->local-store-interceptor]
- (fn [db [_ magic-item]]
-   (assoc db ::mi/builder-item magic-item)))
+  (reg-event-db
+   ::mi/set-builder-item
+   [magic-item->local-store-interceptor]
+   (fn [db [_ magic-item]]
+     (assoc db ::mi/builder-item magic-item)))
 
 (reg-event-db
  ::mi/toggle-attunement
@@ -2865,16 +2871,16 @@
                                        :removed-conditions (map :type removed-conditions)})
                                     individuals))
                                  (:monster-data updated)))))]
-       {:dispatch-n (cond-> [[::combat/set-combat updated]]
-                      (seq removed-conditions)
-                      (conj [:show-message
-                             [:div.m-t-5.f-w-b.f-s-18
-                              (doall
-                               (map-indexed
-                                (fn [i {:keys [name index removed-conditions]}]
-                                  ^{:key i}
-                                  [:div.m-b-5 (str name " #" (inc index) " is no longer " (common/list-print (map common/kw-to-name removed-conditions) "or") ".")])
-                                removed-conditions))]]))})))
+     {:dispatch-n (cond-> [[::combat/set-combat updated]]
+                    (seq removed-conditions)
+                    (conj [:show-message
+                           [:div.m-t-5.f-w-b.f-s-18
+                            (doall
+                             (map-indexed
+                              (fn [i {:keys [name index removed-conditions]}]
+                                ^{:key i}
+                                [:div.m-b-5 (str name " #" (inc index) " is no longer " (common/list-print (map common/kw-to-name removed-conditions) "or") ".")])
+                              removed-conditions))]]))})))
 
 (reg-event-db
  ::encounters/set-encounter-path-prop
@@ -3080,11 +3086,11 @@
    (assoc-in subclass [class-spells-key level index] spell-kw)))
 
 #_ ;; never dispatched from UI
-(reg-event-db
- ::class5e/set-spell-list
- subclass-interceptors
- (fn [subclass [_ class-kw]]
-   (assoc-in subclass [:spellcasting :spell-list] class-kw)))
+  (reg-event-db
+   ::class5e/set-spell-list
+   subclass-interceptors
+   (fn [subclass [_ class-kw]]
+     (assoc-in subclass [:spellcasting :spell-list] class-kw)))
 
 (reg-event-db
  ::feats5e/set-feat-prop
@@ -3093,11 +3099,11 @@
    (assoc feat prop-key prop-value)))
 
 #_ ;; never dispatched from UI
-(reg-event-db
- ::bg5e/set-feature-prop
- background-interceptors
- (fn [background [_ prop-key prop-value]]
-   (assoc-in background [:traits 0 prop-key] prop-value)))
+  (reg-event-db
+   ::bg5e/set-feature-prop
+   background-interceptors
+   (fn [background [_ prop-key prop-value]]
+     (assoc-in background [:traits 0 prop-key] prop-value)))
 
 (reg-event-db
  ::feats5e/toggle-feat-prop
@@ -3106,11 +3112,11 @@
    (update-in feat [:props key] not)))
 
 #_ ;; never dispatched from UI — feat builder uses toggle-feat-prop instead
-(reg-event-db
- ::feats5e/toggle-feat-selection
- feat-interceptors
- (fn [feat [_ key]]
-   (update-in feat [:selections key] not)))
+  (reg-event-db
+   ::feats5e/toggle-feat-selection
+   feat-interceptors
+   (fn [feat [_ key]]
+     (update-in feat [:selections key] not)))
 
 (reg-event-db
  ::feats5e/toggle-feat-value-prop
@@ -3132,29 +3138,29 @@
  subrace-interceptors
  (fn [subrace [_ key num]]
    (update subrace :props (fn [m]
-                         (if (= (get m key) num)
-                           (dissoc m key)
-                           (assoc m key num))))))
+                            (if (= (get m key) num)
+                              (dissoc m key)
+                              (assoc m key num))))))
 
 #_ ;; never dispatched — class/subclass builder UI not wired for value-prop toggles
-(reg-event-db
- ::class5e/toggle-subclass-value-prop
- subclass-interceptors
- (fn [subclass [_ key num]]
-   (update subclass :props (fn [m]
-                         (if (= (get m key) num)
-                           (dissoc m key)
-                           (assoc m key num))))))
+  (reg-event-db
+   ::class5e/toggle-subclass-value-prop
+   subclass-interceptors
+   (fn [subclass [_ key num]]
+     (update subclass :props (fn [m]
+                               (if (= (get m key) num)
+                                 (dissoc m key)
+                                 (assoc m key num))))))
 
 #_ ;; never dispatched — class builder UI not wired for value-prop toggles
-(reg-event-db
- ::class5e/toggle-class-value-prop
- class-interceptors
- (fn [class [_ key num]]
-   (update class :props (fn [m]
-                         (if (= (get m key) num)
-                           (dissoc m key)
-                           (assoc m key num))))))
+  (reg-event-db
+   ::class5e/toggle-class-value-prop
+   class-interceptors
+   (fn [class [_ key num]]
+     (update class :props (fn [m]
+                            (if (= (get m key) num)
+                              (dissoc m key)
+                              (assoc m key num))))))
 
 (reg-event-db
  ::feats5e/toggle-feat-map-prop
@@ -3181,16 +3187,16 @@
    (update-in class prop-path not)))
 
 #_ ;; never dispatched — class builder UI not wired for prof toggles
-(reg-event-db
- ::class5e/toggle-class-prof
- class-interceptors
- (fn [class [_ prop-path]]
-   (let [v (get-in class prop-path)]
-     ;; for classes, the value for a prof signals whether
-     ;; it only applies to the first class a character takes
-     (if (= v false)
-       (common/dissoc-in class prop-path)
-       (assoc-in class prop-path false)))))
+  (reg-event-db
+   ::class5e/toggle-class-prof
+   class-interceptors
+   (fn [class [_ prop-path]]
+     (let [v (get-in class prop-path)]
+       ;; for classes, the value for a prof signals whether
+       ;; it only applies to the first class a character takes
+       (if (= v false)
+         (common/dissoc-in class prop-path)
+         (assoc-in class prop-path false)))))
 
 (reg-event-db
  ::class5e/toggle-subclass-path-prop
@@ -3217,25 +3223,27 @@
    (update-in race [:props key value] not)))
 
 #_ ;; never dispatched — class builder UI not wired for subclass map-prop toggles
-(reg-event-db
- ::class5e/toggle-subclass-map-prop
- subclass-interceptors
- (fn [subclass [_ key value]]
-   (update-in subclass [:props key value] not)))
+  (reg-event-db
+   ::class5e/toggle-subclass-map-prop
+   subclass-interceptors
+   (fn [subclass [_ key value]]
+     (update-in subclass [:props key value] not)))
 
 #_ ;; never dispatched — class builder UI not wired for class map-prop toggles
-(reg-event-db
- ::class5e/toggle-class-map-prop
- class-interceptors
- (fn [class [_ key value]]
-   (update-in class [:props key value] not)))
+  (reg-event-db
+   ::class5e/toggle-class-map-prop
+   class-interceptors
+   (fn [class [_ key value]]
+     (update-in class [:props key value] not)))
 
 #_ ;; never dispatched — background builder UI not wired for map-prop toggles
-(reg-event-db
- ::bg5e/toggle-background-map-prop
- background-interceptors
- (fn [background [_ key value]]
-   (update-in background [:props key value] not)))
+  (reg-event-db
+   ::bg5e/toggle-background-map-prop
+   background-interceptors
+   (fn [background [_ key value]]
+     (update-in background [:props key value] not)))
+
+
 
 (reg-event-db
  ::feats5e/toggle-feat-ability-increase
@@ -3561,7 +3569,7 @@
    (set-value item ::mi/magical-ac-bonus bonus)))
 
 #_ ;; orphaned re-export aliases — all callers use event-utils/ directly now
-(def mod-cfg event-utils/mod-cfg)
+  (def mod-cfg event-utils/mod-cfg)
 #_(def mod-key event-utils/mod-key)
 #_(def compare-mod-keys event-utils/compare-mod-keys)
 #_(def default-mod-set event-utils/default-mod-set)
@@ -3622,7 +3630,7 @@
            (js/saveAs blob (str name ".orcbrew"))
            (if (seq (:warnings validation))
              {:dispatch [:show-warning-message
-                        (str "Plugin '" name "' exported with warnings. Check console for details.")]}
+                         (str "Plugin '" name "' exported with warnings. Check console for details.")]}
              {})))
 
        ;; Other validation failure - don't export
@@ -3631,7 +3639,7 @@
          (js/console.error "Export validation failed for" name ":")
          (js/console.error (:errors validation))
          {:dispatch [:show-error-message
-                    (str "Cannot export '" name "' - contains invalid data. Check console for details.")]})))))
+                     (str "Cannot export '" name "' - contains invalid data. Check console for details.")]})))))
 
 ;; Export warning modal events
 (reg-event-db
@@ -3670,9 +3678,9 @@
    (let [all-plugins (:plugins db)
          ;; Validate each plugin
          validations (into {}
-                          (map (fn [[name plugin]]
-                                 [name (import-val/validate-before-export plugin)])
-                               all-plugins))
+                           (map (fn [[name plugin]]
+                                  [name (import-val/validate-before-export plugin)])
+                                all-plugins))
          has-errors (some (fn [[_ v]] (not (:valid v))) validations)
          has-warnings (some (fn [[_ v]] (seq (:warnings v))) validations)]
 
@@ -3686,7 +3694,7 @@
 
      (if has-errors
        {:dispatch [:show-error-message
-                  "Cannot export all plugins - some contain invalid data. Check console for details."]}
+                   "Cannot export all plugins - some contain invalid data. Check console for details."]}
 
        (let [blob (js/Blob.
                    (clj->js [(str all-plugins)])
@@ -3694,26 +3702,40 @@
          (js/saveAs blob "all-content.orcbrew")
          (if has-warnings
            {:dispatch [:show-warning-message
-                      "All plugins exported with some warnings. Check console for details."]}
+                       "All plugins exported with some warnings. Check console for details."]}
            {}))))))
 
+
+(defn clj->json
+  [ds]
+  (.stringify js/JSON (clj->js ds) nil 2))
+
 (reg-event-fx
-  ::e5/export-plugin-pretty-print
-  (fn [_ [_ name plugin]]
-    (let [blob (js/Blob.
-                 (clj->js [(with-out-str (pprint/pprint plugin))])
-                 (clj->js {:type "text/plain;charset=utf-8"}))]
-      (js/saveAs blob (str name ".orcbrew"))
-      {})))
+ ::e5/save-to-json
+ (fn [_ [_ name plugin]]
+   (let [blob (js/Blob.
+               (clj->js [(clj->json plugin)])
+               (clj->js {:type "application/json;charset=utf-8"}))]
+     (js/saveAs blob (str name ".json"))
+     {})))
+
+(reg-event-fx
+ ::e5/export-plugin-pretty-print
+ (fn [_ [_ name plugin]]
+   (let [blob (js/Blob.
+               (clj->js [(with-out-str (pprint/pprint plugin))])
+               (clj->js {:type "text/plain;charset=utf-8"}))]
+     (js/saveAs blob (str name ".orcbrew"))
+     {})))
 ;; Export all homebrew plugins as pretty-printed .orcbrew file.
 (reg-event-fx
-  ::e5/export-all-plugins-pretty-print
-  (fn [{:keys [db]} _]
-    (let [blob (js/Blob.
-                 (clj->js [(with-out-str (pprint/pprint (:plugins db)))])
-                 (clj->js {:type "text/plain;charset=utf-8"}))]
-      (js/saveAs blob "all-content.orcbrew")
-      {})))
+ ::e5/export-all-plugins-pretty-print
+ (fn [{:keys [db]} _]
+   (let [blob (js/Blob.
+               (clj->js [(with-out-str (pprint/pprint (:plugins db)))])
+               (clj->js {:type "text/plain;charset=utf-8"}))]
+     (js/saveAs blob "all-content.orcbrew")
+     {})))
 
 (reg-event-fx
  ::e5/delete-plugin
@@ -3792,7 +3814,7 @@
                                                          :import-source-name plugin-name})
          user-message (import-val/format-import-result result)
          has-conflicts? (or (seq (get-in result [:key-conflicts :internal-conflicts]))
-                           (seq (get-in result [:key-conflicts :external-conflicts])))]
+                            (seq (get-in result [:key-conflicts :external-conflicts])))]
 
      ;; Log detailed results to console for debugging
      (js/console.log "Import validation result:" (clj->js result))
@@ -3834,7 +3856,7 @@
        (:success result)
        (let [plugin (:data result)
              is-multi-plugin (and (spec/valid? ::e5/plugins plugin)
-                                 (not (spec/valid? ::e5/plugin plugin)))]
+                                  (not (spec/valid? ::e5/plugin plugin)))]
 
          ;; Log skipped items if any
          (when (:had-errors result)
@@ -3884,7 +3906,7 @@
          {:dispatch-n [[::e5/set-plugins (if (= :multi-plugin (:strategy result))
                                            (e5/merge-all-plugins (:plugins db) plugin)
                                            (assoc (:plugins db) plugin-name plugin))]
-                      [:show-warning-message user-message]]})
+                       [:show-warning-message user-message]]})
 
        {:dispatch [:show-error-message user-message]}))))
 
@@ -4571,10 +4593,10 @@
    (assoc db ::char5e/options-shown? false)))
 
 #_ ;; never dispatched — print UI not wired
-(reg-event-db
- ::char5e/toggle-character-sheet-print
- (fn [db _]
-   (update db ::char5e/exclude-character-sheet-print? not)))
+  (reg-event-db
+   ::char5e/toggle-character-sheet-print
+   (fn [db _]
+     (update db ::char5e/exclude-character-sheet-print? not)))
 
 (reg-event-db
  ::char5e/toggle-spell-cards-print
@@ -4582,10 +4604,10 @@
    (update db ::char5e/exclude-spell-cards-print? not)))
 
 #_ ;; never dispatched — print UI not wired
-(reg-event-db
- ::char5e/toggle-spell-cards-by-level
- (fn [db _]
-   (update db ::char5e/exclude-spell-cards-by-level? not)))
+  (reg-event-db
+   ::char5e/toggle-spell-cards-by-level
+   (fn [db _]
+     (update db ::char5e/exclude-spell-cards-by-level? not)))
 
 (reg-event-db
  ::char5e/toggle-spell-cards-by-dc-mod
@@ -4710,18 +4732,18 @@
                                 weapon-kw))))
 
 #_ ;; never dispatched — attunement UI not wired
-(reg-event-fx
- ::char5e/attune-magic-item
- (fn [{:keys [db]} [_ id i weapon-kw]]
-   (update-character-fx db id #(update-in
-                                %
-                                [::entity/values
-                                 ::char5e/attuned-magic-items]
-                                (fn [items]
-                                  (assoc
-                                   (or items [:none :none :none])
-                                   i
-                                   weapon-kw))))))
+  (reg-event-fx
+   ::char5e/attune-magic-item
+   (fn [{:keys [db]} [_ id i weapon-kw]]
+     (update-character-fx db id #(update-in
+                                  %
+                                  [::entity/values
+                                   ::char5e/attuned-magic-items]
+                                  (fn [items]
+                                    (assoc
+                                     (or items [:none :none :none])
+                                     i
+                                     weapon-kw))))))
 
 (reg-event-db
  :close-srd-message

@@ -14,7 +14,7 @@ on:
     paths:
       - 'docker/**'
       - 'docker-compose*.yaml'
-      - 'docker-setup.sh'
+      - 'run'
       - 'docker-user.sh'
       - 'deploy/**'
       - '.github/workflows/docker-integration.yml'
@@ -65,11 +65,11 @@ jobs:
       - name: Lint shell scripts
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck docker-setup.sh docker-user.sh
+          shellcheck run docker-user.sh
 
-      - name: Run docker-setup.sh --auto
+      - name: Run run --auto
         run: |
-          ./docker-setup.sh --auto
+          ./run --auto
           echo "--- Generated .env (secrets redacted) ---"
           sed 's/=.*/=***/' .env
 
@@ -91,7 +91,7 @@ jobs:
           ORIG_SIG=$(grep '^SIGNATURE=' .env | cut -d= -f2)
 
           # Re-run with --force --auto (should regenerate)
-          ./docker-setup.sh --auto --force
+          ./run --auto --force
 
           # Verify .env was regenerated (new passwords, since --auto generates fresh ones)
           NEW_ADMIN=$(grep '^ADMIN_PASSWORD=' .env | cut -d= -f2)

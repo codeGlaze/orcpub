@@ -77,8 +77,7 @@ For running your own production instance:
 
 ```bash
 git clone https://github.com/orcpub/orcpub.git && cd orcpub
-./docker-setup.sh           # generates .env, SSL certs, directories
-docker compose up -d        # pull images and start
+./run                       # setup, build, and start (interactive)
 ./docker-user.sh init       # create admin from .env settings
 ```
 
@@ -305,8 +304,8 @@ For self-hosting a production instance.
 ```bash
 git clone https://github.com/orcpub/orcpub.git && cd orcpub
 
-# Interactive setup — generates .env, SSL certs, and directories
-./docker-setup.sh
+# Full pipeline — setup, build, and start (interactive)
+./run
 
 # Pull pre-built images and start
 docker compose up -d
@@ -386,7 +385,7 @@ Place your `.orcbrew` file at `./deploy/homebrew/homebrew.orcbrew` — it loads 
 |--------|---------|
 | `scripts/migrate-db.sh` | Migrate data from Datomic Free to Pro (bare metal) |
 | `docker-migrate.sh` | Migrate data from Datomic Free to Pro (Docker) |
-| `docker-setup.sh` | Generate `.env`, SSL certs, and directories |
+| `run` | Setup, build, and deploy — full pipeline or individual steps |
 | `docker-user.sh` | Create, verify, and list users in the database |
 
 ---

@@ -148,7 +148,7 @@
                   "cookies-policy" cookies-policy-route
 
                   "following/users" {["/" :user] follow-user-route}
-                  
+
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route
                                         ["/" :id] dnd-e5-char-route}

@@ -278,8 +278,10 @@
 (spec/def ::email string?)
 (spec/def ::token string?)
 (spec/def ::theme string?)
+(spec/def ::patron string?) ; patron
+(spec/def ::patron-tier string?) ; patron-tier
 (spec/def ::user-data (spec/keys :req-un [::username ::email]))
-(spec/def ::user (spec/keys :opt-un [::user-data ::token ::theme]))
+(spec/def ::user (spec/keys :opt-un [::user-data ::token ::theme ::patron ::patron-tier]))
 
 (reg-local-store-cofx
  :local-store-user

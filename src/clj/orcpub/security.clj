@@ -87,6 +87,6 @@
           (>= 3)))
 
 (defn multiple-ip-attempts-to-same-account? [username]
-  (multiple-ip-attempts-to-same-account-aux
+  multiple-ip-attempts-to-same-account-aux
   username
-  @failed-login-attempts-by-username))
+  @failed-login-attempts-by-username)

@@ -1,10 +1,10 @@
-# Branding & Integrations
+# Branding, Integrations & Configuration
 
-How to customize the app's identity and add third-party integrations.
+How the app handles fork-specific customization (logos, names, analytics, ads, tier gating) without touching shared code.
 
-## Branding
+## What Changed
 
-All branding values are configured via environment variables in `.env`. Defaults are set in `src/clj/orcpub/fork/branding.clj`.
+The app used to have DMV-specific values hardcoded throughout shared files — views, events, email templates, privacy pages. Every merge between public and production required manually resolving dozens of conflicts in the same large files.
 
 Now all fork-specific behavior lives in **6 small override files**. Shared files call the same functions on both branches — they just get different results.
 
@@ -83,103 +83,93 @@ All values have defaults in `fork/branding.clj`. Set env vars in `.env` to overr
 
 ### App Identity
 
-| Env Var | Default | Where it shows up |
-|---------|---------|-------------------|
-| `APP_NAME` | OrcPub | Page titles, emails, privacy policy, OG tags |
-| `APP_LOGO_PATH` | /image/orcpub-logo.svg | Header, splash page, privacy page |
-| `APP_OG_IMAGE` | /image/orcpub-logo.png | Social sharing preview |
-| `APP_TAGLINE` | D&D 5e character builder... | OG meta tags |
-| `APP_PAGE_TITLE` | OrcPub: D&D 5e... | Browser tab title |
+| Env Var | Default (public) | Default (production) | Where it shows up |
+|---------|-----------------|---------------------|-------------------|
+| `APP_NAME` | OrcPub | Dungeon Master's Vault | Page titles, emails, privacy policy, OG tags |
+| `APP_URL` | *(empty)* | https://www.dungeonmastersvault.com | Privacy policy domain references |
+| `APP_LOGO_PATH` | /image/orcpub-logo.svg | /image/dmv-logo.svg | Header, splash page, privacy page |
+| `APP_OG_IMAGE` | /image/orcpub-logo.png | /image/dmv-box-logo.png | Social sharing preview |
+| `APP_TAGLINE` | Generic D&D 5e description | DMV-specific description | OG meta tags |
+| `APP_PAGE_TITLE` | OrcPub: D&D 5e... | Dungeon Master's Vault: D&D 5e... | Browser tab title |
 
 ### Copyright & Contact
 
-| Env Var | Default | Where it shows up |
-|---------|---------|-------------------|
-| `APP_COPYRIGHT_HOLDER` | OrcPub | Footer |
-| `APP_COPYRIGHT_YEAR` | 2025 | Footer |
-| `APP_SUPPORT_EMAIL` | *(empty = hidden)* | Privacy page, error messages |
-| `APP_HELP_URL` | *(empty = hidden)* | Footer help link |
+| Env Var | Default (public) | Default (production) | Where it shows up |
+|---------|-----------------|---------------------|-------------------|
+| `APP_COPYRIGHT_HOLDER` | OrcPub | Dungeon Master's Vault | Footer |
+| `APP_COPYRIGHT_YEAR` | *(current year)* | *(current year)* | Footer |
+| `APP_SUPPORT_EMAIL` | *(empty = hidden)* | thDM@dungeonmastersvault.com | Privacy page, error messages, events.cljs mailto |
+| `APP_HELP_URL` | *(empty = hidden)* | https://www.dungeonmastersvault.com/help/ | Footer help link |
 
 ### Email
 
-| Env Var | Default | Where it shows up |
-|---------|---------|-------------------|
-| `APP_EMAIL_SENDER_NAME` | OrcPub Team | "From" display name |
-| `EMAIL_FROM_ADDRESS` | no-reply@orcpub.com | "From" address |
+| Env Var | Default (public) | Default (production) | Where it shows up |
+|---------|-----------------|---------------------|-------------------|
+| `APP_EMAIL_SENDER_NAME` | OrcPub Team | Dungeon Master's Vault Team | "From" display name |
+| `EMAIL_FROM_ADDRESS` | no-reply@orcpub.com | no-reply@dungeonmastersvault.com | "From" address |
 
 ### Social Links
 
-Shown in the app header/footer when non-empty. Leave unset to hide.
+Shown in the app header/footer when non-empty. Leave empty to hide.
 
-| Env Var | Example |
-|---------|---------|
-| `APP_SOCIAL_PATREON` | `https://www.patreon.com/YourProject` |
-| `APP_SOCIAL_FACEBOOK` | `https://www.facebook.com/groups/yourgroup/` |
-| `APP_SOCIAL_TWITTER` | `https://twitter.com/yourhandle` |
-| `APP_SOCIAL_REDDIT` | `https://reddit.com/r/yoursubreddit` |
-| `APP_SOCIAL_DISCORD` | `https://discord.gg/your-invite` |
+| Env Var | Default (public) | Default (production) |
+|---------|-----------------|---------------------|
+| `APP_SOCIAL_PATREON` | *(empty = hidden)* | Patreon URL |
+| `APP_SOCIAL_FACEBOOK` | *(empty = hidden)* | Facebook group URL |
+| `APP_SOCIAL_BLUESKY` | *(empty = hidden)* | *(empty)* |
+| `APP_SOCIAL_TWITTER` | *(empty = hidden)* | Twitter URL |
+| `APP_SOCIAL_REDDIT` | *(empty = hidden)* | *(empty)* |
+| `APP_SOCIAL_DISCORD` | *(empty = hidden)* | *(empty)* |
 
-When `APP_SOCIAL_PATREON` is set, a supporter button appears in the header.
+When `APP_SOCIAL_PATREON` is set, the supporter button appears in the header. When empty, nothing renders. Same code on both branches.
 
 ### Field Limits
 
-Input validation constraints for form fields.
+Input validation constraints, configurable via env vars.
 
 | Env Var | Default | Used for |
 |---------|---------|----------|
-| `APP_FIELD_LIMIT_NOTES` | 50000 | Character notes, backstory |
-| `APP_FIELD_LIMIT_TEXT` | 255 | Name fields, short text |
-| `APP_FIELD_LIMIT_NUMBER` | 7 | Numeric inputs |
-
----
-
-## Integrations
-
-Third-party services (analytics, ads) are managed through two files:
-
-- **`fork/integrations.clj`** (server-side) — injects `<script>` tags in `<head>`, exports CSP domain allowlists for `pedestal.clj`
-- **`fork/integrations.cljs`** (client-side) — provides lifecycle hooks and UI components, reads config from `window.__INTEGRATIONS__`
+| `APP_FIELD_LIMIT_NOTES` | 50000 | Character notes, backstory textareas |
+| `APP_FIELD_LIMIT_TEXT` | 255 | Name fields, short text inputs |
+| `APP_FIELD_LIMIT_NUMBER` | 7 | Numeric input fields |
 
 ### Analytics & Ads
 
 Server-side (`fork/integrations.clj`) injects SDK scripts in `<head>` and exports CSP domain allowlists for `pedestal.clj`. Client-side (`fork/integrations.cljs`) handles in-app behavior, reading ad client/slot IDs from the `window.__INTEGRATIONS__` config bridge.
 
-| Env Var | Default | What it enables |
-|---------|---------|-----------------|
-| `MATOMO_URL` | *(empty = disabled)* | Matomo analytics tracking |
+| Env Var | Default (public) | Default (production) |
+|---------|-----------------|---------------------|
+| `MATOMO_URL` | *(empty = disabled)* | Analytics server URL |
 | `MATOMO_SITE_ID` | *(empty = disabled)* | Matomo site ID |
-| `ADSENSE_CLIENT` | *(empty = disabled)* | Google AdSense |
-
-### Integration Hooks
-
-The app calls these functions at specific points. By default they're no-ops — override them in `fork/integrations.cljs` to add custom behavior.
-
-**Lifecycle hooks** (called from events/views):
-
-| Function | When it's called |
-|----------|-----------------|
-| `track-page-view!` | Every route change |
-| `on-app-mount!` | App root component mount |
-| `track-character-list!` | Character list render |
-
-**UI hooks** (return hiccup or nil):
-
-| Function | Where it renders |
-|----------|-----------------|
-| `content-slot` | Content page body (2 slots) |
-| `supporter-link` | App header |
-| `support-banner` | Content page top |
-| `pdf-options-slot` | Below PDF sheet options |
-| `share-links` | Character page + builder |
-| `share-link-www` | Character list items |
+| `ADSENSE_CLIENT` | *(empty = disabled)* | AdSense publisher ID |
+| `ADSENSE_SLOT` | *(empty = disabled)* | AdSense ad slot ID |
 
 ---
 
-## Adding a New Integration Hook
+## Integration Hooks (fork/integrations.cljs)
 
-1. Add the stub function in `fork/integrations.cljs` (empty body or `nil` return)
-2. Wire the call site in the appropriate shared file (views.cljs, etc.)
-3. Implement the real behavior in the stub body
+These are the functions that shared files call. Public repo returns stubs/nil, production returns real UI.
+
+### Lifecycle (called from events/views, no return value)
+
+| Function | Called from | What it does (production) |
+|----------|-----------|--------------------------|
+| `track-page-view!` | events.cljs `:route` handler | Matomo page view tracking |
+| `on-app-mount!` | views.cljs `content-page` mount | Matomo user identification + ad slot reload |
+| `track-character-list!` | views.cljs character list render | Matomo custom variable for character count |
+
+### UI Hooks (return hiccup or nil)
+
+| Function | Called from | What it renders (production) |
+|----------|-----------|------------------------------|
+| `content-slot` | views.cljs content page (2 slots) | AdSense banner (default-tier only) |
+| `supporter-link` | views.cljs app header | Tier badge (patrons) or Patreon button (default) |
+| `support-banner` | views.cljs content page | Dismissable donation CTA (default-tier only) |
+| `pdf-options-slot` | views.cljs PDF options panel | Sheet upsell (default-tier only) |
+| `share-links` | views.cljs + character_builder.cljs | Email + www share links |
+| `share-link-www` | views.cljs character list | Single www link |
+
+**Public repo returns:** `nil` for content-slot, support-banner, pdf-options-slot. Basic Patreon button for supporter-link (when URL configured). Single email link for share-links.
 
 ---
 

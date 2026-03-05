@@ -36,7 +36,6 @@
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
             [orcpub.dnd.e5.subs :as subs5e]
-            [orcpub.fork.branding :as branding]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
             [orcpub.user-agent :as user-agent]
@@ -46,6 +45,7 @@
             [clojure.core.match :refer [match]]
 
             [reagent.core :as r]
+            [orcpub.fork.branding :as branding]
             [orcpub.fork.integrations :as integrations]
             [re-frame.core :refer [subscribe dispatch dispatch-sync]]))
 ;console-print
@@ -125,20 +125,30 @@
 
 (def update-value-field (memoize update-value-field-fn))
 
-(defn character-field [entity-values prop-name type & [cls-str handler input-type]]
+(defn character-field-255 [entity-values prop-name type & [cls-str handler input-type]]
   [comps/input-field
    type
    (get entity-values prop-name)
    (update-value-field prop-name)
    {:type input-type
-    :class (str "input w-100-p " cls-str)}])
+    :maxLength "255"
+    :class-name (str "input w-100-p " cls-str)}])
+
+(defn character-field-50000 [entity-values prop-name type & [cls-str handler input-type]]
+  [comps/input-field
+   type
+   (get entity-values prop-name)
+   (update-value-field prop-name)
+   {:type input-type
+    :maxLength "50000"
+    :class-name (str "input w-100-p " cls-str)}])
 
 (defn character-input [entity-values prop-name & [cls-str handler type]]
-  [character-field entity-values prop-name :input cls-str handler type])
+  [character-field-255 entity-values prop-name :input cls-str handler type])
 
 
 (defn character-textarea [entity-values prop-name & [cls-str]]
-  [character-field entity-values prop-name :textarea cls-str])
+  [character-field-50000 entity-values prop-name :textarea cls-str])
 
 (defn prereq-failures [option]
   (remove
@@ -499,7 +509,7 @@
          (when (and content selected?)
            content)
          (when explanation-text
-           [:div.i.f-s-12.f-w-n 
+           [:div.i.f-s-12.f-w-n
             explanation-text])]]])))
 
 (defn skill-help [name key ability icon description]
@@ -860,7 +870,7 @@
                      {:class (when (and (not ability-disabled?)
                                            (zero? (ability-increases k 0)))
                                     "opacity-5")}
-                     (ability-value (ability-increases k 0))] 
+                     (ability-value (ability-increases k 0))]
                     [:div.f-s-16
                      [:i.fa.fa-minus-circle.orange
                       {:class (when decrease-disabled? "opacity-5 cursor-disabled")
@@ -1083,7 +1093,7 @@
             {:value (when (abilities k)
                       (total-abilities k))
              :type :number
-             :on-change (fn [e] (let [total (total-abilities k)                                     
+             :on-change (fn [e] (let [total (total-abilities k)
                                       value (.-value (.-target e))
                                       diff (- total
                                               (abilities k))
@@ -1744,9 +1754,6 @@
                              remaining)])))
                 sorted-selections)))])])]]))
 
-(def image-style
-  {:max-height "100px"
-   :max-width "200px"})
 
 (defn set-random-name
   "Dispatch random name generation. Passes built-char so the handler can
@@ -1837,7 +1844,7 @@
                       :on-error (image-error :failed-loading-image image-url)
                       :on-load (when image-url-failed image-loaded)}])
       [:div.flex-grow-1
-       [:span.personality-label.f-s-18 "Image URL"]
+       [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
        (when image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
@@ -1851,7 +1858,7 @@
                       :on-load (when faction-image-url-failed
                                  faction-image-loaded)}])
       [:div.flex-grow-1
-       [:span.personality-label.f-s-18 "Faction Image URL"]
+       [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
        (when faction-image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
@@ -2136,11 +2143,8 @@
                     {:confirm-button-text "CREATE CLONE"
                      :question "You have unsaved changes, are you sure you want to discard them and clone this character? The new character will have the unsaved changes, the original will not."
                      :event [::char5e/clone-character]})}
-        {:title "Print"
-         :icon "print"
-         :on-click (views5e/make-print-handler (:db/id character) built-char)}
         {:title (if (:db/id character)
-                  "Update Existing Character"
+                  "Save"
                   "Save New Character")
          :icon "save"
          :style (when character-changed? unsaved-button-style)
@@ -2148,7 +2152,10 @@
         (when (:db/id character)
           {:title "View"
            :icon "eye"
-           :on-click (load-character-page (:db/id character))})]))
+           :on-click (load-character-page (:db/id character))})
+        {:title "Export"
+         :icon "download"
+         :on-click (views5e/make-print-handler (:db/id character) built-char)}]))
      [:div
       [:div.container
        [:div.content

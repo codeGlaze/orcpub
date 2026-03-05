@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Test docker-setup.sh --upgrade against historical .env formats.
+# Test run --upgrade against historical .env formats.
 #
 # Copies each fixture to a temp directory as .env, runs --upgrade --auto,
 # then validates the result. No Docker daemon needed — only tests the
@@ -15,7 +15,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 FIXTURE_DIR="${SCRIPT_DIR}/fixtures"
-SETUP_SCRIPT="${PROJECT_ROOT}/docker-setup.sh"
+SETUP_SCRIPT="${PROJECT_ROOT}/run"
 
 # Colors
 green='\033[0;32m'

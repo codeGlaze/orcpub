@@ -19,6 +19,41 @@ rm -f .env .env.backup.* .env.secrets.backup
 rm -rf secrets/ docker-compose.secrets.yaml
 docker secret rm datomic_password admin_password signature 2>/dev/null || true
 git checkout docker-compose.yaml 2>/dev/null || true
+git checkout docker/transactor.properties.template 2>/dev/null || true
+
+# H2 database has ADMIN_PASSWORD locked in at creation. A fresh .env with
+# new passwords will crash the transactor unless the DB is wiped or backed up.
+if [ -f data/db/datomic.mv.db ]; then
+  echo ""
+  echo "Existing H2 database found in data/db/."
+  echo "The admin password is locked into this database."
+  echo ""
+  echo "  1) Back up to data/db.bak/ and wipe (can restore later)"
+  echo "  2) Wipe data/db/ (permanent)"
+  echo "  3) Keep it (next test may fail if passwords don't match)"
+  echo ""
+  printf "Choice [1]: "
+  read -r _choice </dev/tty 2>/dev/null || _choice="1"
+  _choice="${_choice:-1}"
+  case "$_choice" in
+    1)
+      rm -rf data/db.bak
+      mv data/db data/db.bak
+      mkdir -p data/db
+      echo "Moved data/db/ → data/db.bak/"
+      ;;
+    2)
+      rm -rf data/db/*
+      echo "Wiped data/db/"
+      ;;
+    3)
+      echo "Keeping existing database"
+      ;;
+    *)
+      echo "Invalid choice, keeping existing database"
+      ;;
+  esac
+fi
 
 case "$scenario" in
   fresh)

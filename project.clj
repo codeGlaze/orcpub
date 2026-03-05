@@ -23,7 +23,8 @@
   :dependencies [[org.clojure/clojure "1.12.4"]
                  [org.clojure/test.check "1.1.1"]
                  [org.clojure/clojurescript "1.12.134"]
-                 [org.clojure/core.async "1.8.741"]
+                 [org.clojure/core.async "1.8.741"] 
+                 [org.postgresql/postgresql "42.7.3"]
                  ;; React 18 + Reagent 2.0 (Concurrent Mode)
                  [cljsjs/react "18.3.1-1"]
                  [cljsjs/react-dom "18.3.1-1"]
@@ -236,6 +237,7 @@
                                               :pretty-print  false}}}}}
              ;; Dev-only deps, source paths, and compiler overlays (devtools, re-frame-10x).
              :dev-config   {:dependencies [[binaryage/devtools "1.0.7"]
+                                           [nrepl "1.3.0"]
                                            [cider/piggieback "0.5.3"]
                                            [day8.re-frame/re-frame-10x "1.11.0" :exclusions [zprint rewrite-clj]]
                                            ]
