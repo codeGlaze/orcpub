@@ -23,7 +23,7 @@
 #   - Docker Compose v2 (docker compose plugin)
 #   - For backup:  OLD datomic container must be running
 #   - For restore: NEW datomic container must be running
-#   - .env file must exist (run docker-setup.sh first)
+#   - .env file must exist (run run first)
 #
 # See docs/migration/datomic-data-migration.md for the full guide.
 # =============================================================================

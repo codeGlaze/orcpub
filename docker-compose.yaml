@@ -16,7 +16,7 @@
 #   docker compose config | grep DATOMIC_URL
 #
 # Recommended setup:
-#   1. Run ./docker-setup.sh to generate .env with secure passwords
+#   1. Run ./run to generate .env with secure passwords
 #   2. Run: docker compose up --build -d
 #   3. If a variable isn't being picked up from .env, check for a conflicting
 #      shell variable with: echo $DATOMIC_URL

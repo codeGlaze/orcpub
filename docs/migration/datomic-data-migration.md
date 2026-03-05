@@ -363,5 +363,5 @@ continue to work for regular backups going forward.
 
 - [datomic-pro.md](datomic-pro.md) — Code-level changes (dependency, URI, API)
 - [../ENVIRONMENT.md](../ENVIRONMENT.md) — Environment variable reference
-- [../../docker-setup.sh](../../docker-setup.sh) — Initial Docker setup
+- [../../run](../../run) — Initial Docker setup
 - [../../docker-user.sh](../../docker-user.sh) — User management after migration

@@ -4,7 +4,7 @@
 #
 # To test: make sure no .env exists, then:
 #   cp test/docker/fixtures/compose-hardcoded.yaml docker-compose.yaml
-#   ./docker-setup.sh --upgrade --auto
+#   ./run --upgrade --auto
 #
 # Expected: script extracts hardcoded values into a new .env, then upgrades it
 services:

@@ -27,7 +27,7 @@ protocol=dev
 # SWARM:               host=0.0.0.0, alt-host=datomic
 #   "datomic" resolves to a VIP in overlay networks — can't bind to that.
 #   0.0.0.0 binds to all interfaces; alt-host gives peers the service name
-#   for reconnection. docker-setup.sh --swarm switches this automatically.
+#   for reconnection. run --swarm switches this automatically.
 #
 # To switch manually: comment one host= line and uncomment the other.
 host=datomic

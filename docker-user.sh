@@ -246,7 +246,7 @@ wait_for_ready "$CONTAINER"
 if [ "${1:-}" = "init" ]; then
   ENV_FILE="${SCRIPT_DIR}/.env"
   if [ ! -f "$ENV_FILE" ]; then
-    error "No .env file found. Run ./docker-setup.sh first."
+    error "No .env file found. Run ./run first."
     exit 1
   fi
 
@@ -256,7 +256,7 @@ if [ "${1:-}" = "init" ]; then
 
   if [ -z "${INIT_ADMIN_USER:-}" ]; then
     error "INIT_ADMIN_USER is not set in .env"
-    error "Run ./docker-setup.sh to configure, or set it manually in .env"
+    error "Run ./run to configure, or set it manually in .env"
     exit 1
   fi
   if [ -z "${INIT_ADMIN_EMAIL:-}" ] || [ -z "${INIT_ADMIN_PASSWORD:-}" ]; then

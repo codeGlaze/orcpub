@@ -36,7 +36,7 @@ FAILURES=0
 # Helpers
 # ---------------------------------------------------------------------------
 
-# Read a value from an .env file (same logic as docker-setup.sh)
+# Read a value from an .env file (same logic as run)
 read_val() {
   grep -m1 "^${1}=" "$2" 2>/dev/null | cut -d= -f2- | tr -d '\r'
 }
@@ -115,13 +115,13 @@ run_fixture() {
   # Don't trap RETURN — we clean up at the end of the function
 
   # Copy fixture as .env and the setup script into tmpdir.
-  # docker-setup.sh uses SCRIPT_DIR (dirname of the script) to find .env,
+  # run uses SCRIPT_DIR (dirname of the script) to find .env,
   # so the script must live next to the .env for it to find the fixture.
   cp "$fixture_file" "${tmpdir}/.env"
-  cp "$SETUP_SCRIPT" "${tmpdir}/docker-setup.sh"
+  cp "$SETUP_SCRIPT" "${tmpdir}/run"
 
   local output
-  output=$(bash "${tmpdir}/docker-setup.sh" --upgrade --auto 2>&1) || true
+  output=$(bash "${tmpdir}/run" --upgrade --auto 2>&1) || true
 
   local result_env="${tmpdir}/.env"
   local label="[${fixture_name}] "
@@ -220,7 +220,7 @@ run_fixture() {
 # ---------------------------------------------------------------------------
 
 if [ ! -f "$SETUP_SCRIPT" ]; then
-  echo "docker-setup.sh not found at: $SETUP_SCRIPT" >&2
+  echo "run not found at: $SETUP_SCRIPT" >&2
   exit 1
 fi
 
@@ -236,10 +236,10 @@ run_secrets_test() {
 
   # Use v3-current as the base .env (already up to date)
   cp "${FIXTURE_DIR}/env-v3-current.env" "${tmpdir}/.env"
-  cp "$SETUP_SCRIPT" "${tmpdir}/docker-setup.sh"
+  cp "$SETUP_SCRIPT" "${tmpdir}/run"
 
   local output
-  output=$(bash "${tmpdir}/docker-setup.sh" --secrets --auto 2>&1) || true
+  output=$(bash "${tmpdir}/run" --secrets --auto 2>&1) || true
 
   local label="[secrets] "
 
