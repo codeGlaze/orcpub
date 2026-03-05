@@ -13,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
   checks: write
 
 jobs:
@@ -161,78 +160,6 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-
-      - name: Post PR comment with results
-        if: github.event_name == 'pull_request' && always()
-        continue-on-error: true  # Fork PRs get read-only GITHUB_TOKEN
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-
-            const lintOutput = fs.existsSync('lint-output.txt') ? fs.readFileSync('lint-output.txt', 'utf8') : 'No output';
-            const testOutput = fs.existsSync('test-output.txt') ? fs.readFileSync('test-output.txt', 'utf8') : 'No output';
-            const cljsOutput = fs.existsSync('cljs-output.txt') ? fs.readFileSync('cljs-output.txt', 'utf8') : 'No output';
-
-            const lintOk = '${{ steps.lint.outcome }}' === 'success';
-            const testOk = '${{ steps.test.outcome }}' === 'success';
-            const cljsOk = '${{ steps.cljs.outcome }}' === 'success';
-            const allOk = lintOk && testOk && cljsOk;
-            const stackLabel = '${{ needs.detect-stack.outputs.stack-label }}';
-
-            const testMatch = testOutput.match(/Ran (\d+) tests containing (\d+) assertions/);
-            const testSummary = testMatch ? `${testMatch[1]} tests, ${testMatch[2]} assertions` : 'See logs';
-
-            const status = allOk ? 'All checks passed' : 'Some checks failed';
-            const body = [
-              `## ${status}`,
-              '',
-              '| Check | Status | Details |',
-              '|-------|--------|---------|',
-              `| Lint | ${lintOk ? 'Pass' : 'Fail'} | ${lintOk ? 'No errors' : 'See workflow logs'} |`,
-              `| Tests | ${testOk ? 'Pass' : 'Fail'} | ${testOk ? testSummary : 'See workflow logs'} |`,
-              `| CLJS Build | ${cljsOk ? 'Pass' : 'Fail'} | ${cljsOk ? 'Compiled' : 'See workflow logs'} |`,
-              '',
-              `**Stack**: ${stackLabel}`,
-              '',
-              '<details>',
-              '<summary>Full test output</summary>',
-              '',
-              '```',
-              testOutput.slice(-2000),
-              '```',
-              '',
-              '</details>',
-              '',
-              '---',
-              `*[Workflow run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})*`
-            ].join('\n');
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number
-            });
-
-            const botComment = comments.find(c =>
-              c.user.type === 'Bot' && (c.body.includes('All checks passed') || c.body.includes('Some checks failed'))
-            );
-
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: body
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: body
-              });
-            }
 
       - name: Upload artifacts on failure
         if: failure()
