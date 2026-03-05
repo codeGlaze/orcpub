@@ -145,9 +145,11 @@ YAML
     local current_cf
     current_cf=$(read_env_val COMPOSE_FILE "$ENV_FILE")
     if [ -z "$current_cf" ]; then
-      echo "" >> "$ENV_FILE"
-      echo "# --- Compose file merge (secrets) ---" >> "$ENV_FILE"
-      echo "COMPOSE_FILE=${compose_file_var}" >> "$ENV_FILE"
+      {
+        echo ""
+        echo "# --- Compose file merge (secrets) ---"
+        echo "COMPOSE_FILE=${compose_file_var}"
+      } >> "$ENV_FILE"
       change "Added COMPOSE_FILE to .env (compose will merge both files)"
     elif [ "$current_cf" != "$compose_file_var" ]; then
       warn "COMPOSE_FILE already set in .env: ${current_cf}"
@@ -1082,6 +1084,7 @@ if [ "$UPGRADE_MODE" = "true" ]; then
     if [ -f "$_compose" ]; then
       for _var in DATOMIC_URL DATOMIC_PASSWORD ADMIN_PASSWORD SIGNATURE; do
         _val=$(grep -E "^\s+${_var}:" "$_compose" | head -1 | sed "s/^[[:space:]]*${_var}: *//" | tr -d '\r')
+        # shellcheck disable=SC2016  # Intentional: checking for literal '${' prefix
         if [ -n "$_val" ] && [ "${_val#'${'}" = "$_val" ]; then
           _compose_vals[$_var]="$_val"
         fi
@@ -1094,6 +1097,7 @@ if [ "$UPGRADE_MODE" = "true" ]; then
         _key="${_prop%%:*}"
         _var="${_prop##*:}"
         _val=$(grep -E "^${_key}=" "$_transactor" | head -1 | sed 's/.*=//' | tr -d '\r')
+        # shellcheck disable=SC2016  # Intentional: checking for literal '${' prefix
         if [ -n "$_val" ] && [ "${_val#'${'}" = "$_val" ]; then
           _transactor_vals[$_var]="$_val"
         fi
@@ -1166,6 +1170,7 @@ if [ "$UPGRADE_MODE" = "true" ]; then
   if [[ "$_url" == *"password="* ]]; then
     # Extract password from URL
     _url_pw=$(echo "$_url" | sed -n 's/.*[?&]password=\([^&]*\).*/\1/p')
+    # shellcheck disable=SC2001  # Regex too complex for parameter expansion
     _clean_url=$(echo "$_url" | sed 's/[?&]password=[^&]*//')
 
     if [ -n "$_url_pw" ]; then
