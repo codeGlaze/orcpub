@@ -1,0 +1,45 @@
+{
+  "name": "ClojureScript Lein-Figwheel Dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
+    }
+  },
+  "forwardPorts": [8890, 3449, 4334],
+  "portsAttributes": {
+    "8890": {
+      "label": "Backend Server",
+      "onAutoForward": "notify"
+    },
+    "3449": {
+      "label": "Figwheel",
+      "onAutoForward": "silent"
+    },
+    "4334": {
+      "label": "Datomic",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": [
+    "bash",
+    "./.devcontainer/post-create.sh"
+  ],
+  "containerEnv": {
+    "POST_CREATE_VERBOSE": "1",
+    "DATOMIC_VERSION": "1.0.7482",
+    "DATOMIC_URL": "datomic:dev://localhost:4334/orcpub"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "betterthantomorrow.calva",
+        "borkdude.clj-kondo"
+      ],
+      "settings": {}
+    }
+  }
+}

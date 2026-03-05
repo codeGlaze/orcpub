@@ -1,21 +1,25 @@
 (ns orcpub.pdf-test
-  (:require [clojure.test :refer [deftest is]]
+  ;; explicit :refer to avoid namespace pollution from :refer :all
+  (:require [clojure.test :refer [deftest is testing]]
             [orcpub.pdf :as pdf])
   (:import (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)))
 
 (deftest fonts-test
-  (let [^PDDocument doc (PDDocument.)
-        ^PDPage page (PDPage.)
-        fonts (pdf/load-fonts doc)
-        required-keys [:plain :bold :italic :bold-italic]]
-    (is (every? some? (map fonts required-keys)))
-    (is (do (.addPage doc page)
+  (testing "Font creation and ability to print latin and cyrillic characters"
+    (let [^PDDocument doc (PDDocument.)
+          ^PDPage page (PDPage.)
+          fonts (pdf/load-fonts doc)
+          required-keys [:plain :bold :italic :bold-italic]]
+      (is (every? some? (map fonts required-keys)))
+      (.addPage doc page)
+      ;; Single content stream tests all fonts - more efficient than 4 separate streams
+      (is (with-open [cs (PDPageContentStream. doc page)]
             (doseq [font-type required-keys]
-              (doto (PDPageContentStream. doc page)
+              (doto cs
                 (.beginText)
                 (.setFont (font-type fonts) 14)
-                (.newLine)
-                (.showText "abcABC012_?%абвАБВ")
+                (.newLineAtOffset (float 72) (float 700))
+                (.showText (str (name font-type) ": abcABC012_?%абвАБВ"))
                 (.endText)))
             true))
-    (.close doc)))
+      (.close doc))))

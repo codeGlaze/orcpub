@@ -1,0 +1,8 @@
+^{:watch-dirs   ["test/cljc" "test/cljs" "src/cljc" "src/cljs"]
+  :css-dirs     []
+  :auto-testing true}
+{:main          orcpub.test-runner
+ :output-to     "target/test/js/test.js"
+ :output-dir    "target/test/js/out"
+ :asset-path    "js/out"
+ :optimizations :none}

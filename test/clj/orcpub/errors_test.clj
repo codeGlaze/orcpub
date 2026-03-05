@@ -1,8 +1,15 @@
 (ns orcpub.errors-test
   "Tests for error handling utilities."
   (:require
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is testing use-fixtures]]
    [orcpub.errors :as errors]))
+
+;; Prefix all error output with TEST_ERROR so CI logs can distinguish
+;; expected error-path output from real failures.
+(use-fixtures :each
+  (fn [f]
+    (binding [errors/*error-prefix* "TEST_ERROR:"]
+      (f))))
 
 (deftest test-log-error
   (testing "log-error logs message without context"

@@ -4,7 +4,7 @@
   Provides functions for sending verification emails, password reset emails,
   and error notification emails. All operations include comprehensive error
   handling to prevent silent failures when the SMTP server is unavailable."
-  (:require [hiccup.core :as hiccup]
+  (:require [hiccup2.core :as hiccup]
             [postal.core :as postal]
             [environ.core :as environ]
             [clojure.pprint :as pprint]
@@ -14,7 +14,7 @@
 
 (defn verification-email-html [first-and-last-name username verification-url]
   [:div
-   (str "Dear Dungeon Master's Vault Patron,")
+   "Dear Dungeon Master's Vault Patron,"
    [:br]
    [:br]
    "Your Dungeon Master's Vault account is almost ready, we just need you to verify your email address going the following URL to confirm that you are authorized to use this email address:"
@@ -30,7 +30,7 @@
 
 (defn verification-email [first-and-last-name username verification-url]
   [{:type "text/html"
-    :content (hiccup/html (verification-email-html first-and-last-name username verification-url))}])
+    :content (str (hiccup/html (verification-email-html first-and-last-name username verification-url)))}])
 
 (defn email-change-verification-html
   "Email body for existing users changing their email (distinct from registration)."
@@ -56,7 +56,7 @@
 
 (defn email-change-verification-email [username verification-url]
   [{:type "text/html"
-    :content (hiccup/html (email-change-verification-html username verification-url))}])
+    :content (str (hiccup/html (email-change-verification-html username verification-url)))}])
 
 (defn email-cfg []
   (try
@@ -125,7 +125,7 @@
 
 (defn reset-password-email-html [first-and-last-name reset-url]
   [:div
-   (str "Dear Dungeon Master's Vault Patron")
+   "Dear Dungeon Master's Vault Patron"
    [:br]
    [:br]
    "We received a request to reset your password, to do so please go to the following URL to complete the reset."
@@ -144,7 +144,7 @@
 
 (defn reset-password-email [first-and-last-name reset-url]
   [{:type "text/html"
-    :content (hiccup/html (reset-password-email-html first-and-last-name reset-url))}])
+    :content (str (hiccup/html (reset-password-email-html first-and-last-name reset-url)))}])
 
 (defn send-reset-email
   "Sends password reset email to a user.

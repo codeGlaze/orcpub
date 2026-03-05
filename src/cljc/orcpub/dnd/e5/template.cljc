@@ -68,7 +68,7 @@
    Only used for `ability-icons` -- see body of function below."
   [k size theme]
   (let [light-theme? (= "light-theme" theme)]
-    [:img {:class-name (str "h-" size " w-" size (when light-theme? " opacity-7"))
+    [:img {:class (str "h-" size " w-" size (when light-theme? " opacity-7"))
            :src (str (if light-theme? "/image/black/" "/image/") (ability-icons k) ".svg")}]))
 
 ;; dead — ability roller UI superseded by character_builder.cljs
@@ -151,10 +151,10 @@
             [ability-component k v i app-state
              [:div.f-s-16
               [:i.fa.fa-minus-circle.orange
-               {:class-name (when decrease-disabled? "opacity-5 cursor-disabled")
+               {:class (when decrease-disabled? "opacity-5 cursor-disabled")
                 :on-click (fn [_] (when (not decrease-disabled?) (set-ability! app-state k (dec v))))}]
               [:i.fa.fa-plus-circle.orange.m-l-5
-               {:class-name (when increase-disabled? "opacity-5 cursor-disabled")
+               {:class (when increase-disabled? "opacity-5 cursor-disabled")
                 :on-click (fn [_] (when (not increase-disabled?) (set-ability! app-state k (inc v))))}]]]))
         abilities-vec))]]))
 
@@ -1540,9 +1540,10 @@
    (opt5e/feat-selection-2
     {:options (concat
                (opt5e/feat-options spell-lists spells-map)
-               (map
-                (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons)
-                feats))
+               (let [race-map (common/map-by-key races)]
+                 (map
+                  (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons race-map)
+                  feats)))
      :show-if-zero? true
      :min 0
      :max 0})

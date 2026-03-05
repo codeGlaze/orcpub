@@ -353,6 +353,141 @@
          :changes (or change-descriptions [])}))))
 
 ;; ============================================================================
+;; Selection Option Deduplication - Remove/rename duplicate options on import
+;; ============================================================================
+
+(defn dedup-options-in-selection
+  "Dedup options within a single selection by derived key (common/name-to-kw).
+   - Identical content (same description, modifiers, etc.): keep first, drop rest
+   - Different content but same name: append numbering ('Bonus', 'Bonus 2', etc.)
+   Returns [deduped-options changes] where changes is a vector of log entries."
+  [options]
+  (if (or (not (sequential? options)) (< (count options) 2))
+    [options []]
+    (let [;; Group by derived key
+          grouped (group-by #(when-let [n (:name %)]
+                               (when-not (str/blank? n)
+                                 (common/name-to-kw n)))
+                            options)
+          changes (atom [])]
+      [(vec
+        (mapcat
+         (fn [[k opts]]
+           (if (or (nil? k) (<= (count opts) 1))
+             ;; No duplication or unnamed — pass through
+             opts
+             ;; Multiple options with the same derived key
+             (let [;; Compare content (strip :key and :name for content comparison)
+                   content-fn #(dissoc % :key :name)
+                   distinct-contents (distinct (map content-fn opts))
+                   all-identical? (= 1 (count distinct-contents))]
+               (if all-identical?
+                 ;; True duplicates — keep first, log the drop
+                 (do
+                   (swap! changes conj
+                          {:type :dedup-identical
+                           :description (str "Removed " (dec (count opts))
+                                             " duplicate option(s) named '"
+                                             (:name (first opts)) "'")})
+                   [(first opts)])
+                 ;; Same name, different content — rename with numbers
+                 (do
+                   (swap! changes conj
+                          {:type :dedup-renamed
+                           :description (str "Renamed " (count opts)
+                                             " options with duplicate name '"
+                                             (:name (first opts))
+                                             "' to unique names")})
+                   (map-indexed
+                    (fn [i opt]
+                      (if (zero? i)
+                        opt ;; first keeps original name
+                        (let [new-name (str (:name opt) " " (inc i))]
+                          (assoc opt
+                                 :name new-name
+                                 :key (common/name-to-kw new-name)))))
+                    opts))))))
+         grouped))
+       @changes])))
+
+(defn dedup-options-in-item
+  "Dedup options within all selections of a content item.
+   Returns [updated-item changes]."
+  [item]
+  (if-let [selections (:selections item)]
+    (if (map? selections)
+      (let [result (reduce-kv
+                    (fn [acc sel-key sel-data]
+                      (if-let [options (:options sel-data)]
+                        (let [[deduped changes] (dedup-options-in-selection options)]
+                          {:selections (assoc (:selections acc) sel-key
+                                              (assoc sel-data :options deduped))
+                           :changes (into (:changes acc) changes)})
+                        {:selections (assoc (:selections acc) sel-key sel-data)
+                         :changes (:changes acc)}))
+                    {:selections {} :changes []}
+                    selections)]
+        [(assoc item :selections (:selections result)) (:changes result)])
+      [item []])
+    [item []]))
+
+(defn dedup-options-in-plugin
+  "Dedup options in all selections across all content types in a plugin.
+   Returns {:plugin updated-plugin :changes [change-descriptions]}."
+  [plugin]
+  (reduce-kv
+   (fn [acc content-type content]
+     (if (and (qualified-keyword? content-type)
+              (= (namespace content-type) "orcpub.dnd.e5")
+              (map? content))
+       (let [result (reduce-kv
+                     (fn [inner-acc item-key item]
+                       (let [[updated-item changes] (dedup-options-in-item item)]
+                         {:items (assoc (:items inner-acc) item-key updated-item)
+                          :changes (into (:changes inner-acc)
+                                         (map #(assoc % :item-key item-key
+                                                        :content-type content-type)
+                                              changes))}))
+                     {:items {} :changes []}
+                     content)]
+         {:plugin (assoc (:plugin acc) content-type (:items result))
+          :changes (into (:changes acc) (:changes result))})
+       {:plugin (assoc (:plugin acc) content-type content)
+        :changes (:changes acc)}))
+   {:plugin {} :changes []}
+   plugin))
+
+(defn dedup-options-in-import
+  "Dedup selection options during import. Handles single and multi-plugin formats.
+   Returns {:data updated-data :changes [change-descriptions]}."
+  [data]
+  (let [is-multi (is-multi-plugin? data)]
+    (if is-multi
+      (let [results (reduce-kv
+                     (fn [acc plugin-name plugin]
+                       (let [{:keys [plugin changes]} (dedup-options-in-plugin plugin)]
+                         {:data (assoc (:data acc) plugin-name plugin)
+                          :changes (into (:changes acc)
+                                         (map #(assoc % :plugin plugin-name) changes))}))
+                     {:data {} :changes []}
+                     data)
+            change-descriptions (when (seq (:changes results))
+                                  [{:type :dedup-selection-options
+                                    :description (str "Deduplicated " (count (:changes results))
+                                                      " selection option(s) with duplicate names")
+                                    :details (:changes results)}])]
+        {:data (:data results)
+         :changes (or change-descriptions [])})
+      (let [{:keys [plugin changes]} (dedup-options-in-plugin data)
+            change-descriptions (when (seq changes)
+                                  [{:type :dedup-selection-options
+                                    :description (str "Deduplicated " (count changes)
+                                                      " selection option(s) with duplicate names")
+                                    :details changes}])]
+        {:data plugin
+         :changes (or change-descriptions [])}))))
+
+;; ============================================================================
 ;; Export Validation - Check for missing required fields before export
 ;; ============================================================================
 
@@ -1202,23 +1337,29 @@
                             (fill-missing-in-import (:data clean-result))
                             {:data (:data clean-result) :changes []})
 
+              ;; Step 3.75: Dedup selection options (same-name options within selections)
+              dedup-result (if auto-clean
+                             (dedup-options-in-import (:data fill-result))
+                             {:data (:data fill-result) :changes []})
+
               all-changes (vec (concat @string-changes
                                        (when text-normalized?
                                          [{:type :text-normalization
                                            :description "Normalized Unicode characters (smart quotes, dashes, etc.) to ASCII"}])
                                        (:changes clean-result)
-                                       (:changes fill-result)))
+                                       (:changes fill-result)
+                                       (:changes dedup-result)))
 
-              ;; Step 4: Detect duplicate keys
-              key-conflicts (detect-duplicate-keys (:data fill-result)
+              ;; Step 4: Detect duplicate keys (uses deduped data)
+              key-conflicts (detect-duplicate-keys (:data dedup-result)
                                                    existing-plugins
                                                    import-source-name)
               key-warnings (format-duplicate-key-warnings key-conflicts)
 
-              ;; Step 5: Validate structure based on strategy
+              ;; Step 5: Validate structure based on strategy (uses deduped data)
               validation-result (if (= strategy :strict)
-                                  (import-all-or-nothing (:data fill-result))
-                                  (import-progressive (:data fill-result)))]
+                                  (import-all-or-nothing (:data dedup-result))
+                                  (import-progressive (:data dedup-result)))]
 
           ;; Add changes and key conflict info to result
           (assoc validation-result

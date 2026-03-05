@@ -17,6 +17,12 @@
 
 ;; Error handling utilities
 
+(def ^:dynamic *error-prefix*
+  "Prefix prepended to log-error output. Rebind to \"TEST_ERROR:\" in
+   tests so CI logs can distinguish expected error-path output from
+   real failures."
+  nil)
+
 (defn log-error
   "Logs an error message with optional context data.
 
@@ -25,12 +31,14 @@
     message - The error message
     context - Optional map of context data to log
 
+  When *error-prefix* is bound, it replaces the caller-supplied prefix.
+
   Example:
     (log-error \"ERROR\" \"Failed to save\" {:user-id 123})"
   ([prefix message]
-   (println prefix message))
+   (println (or *error-prefix* prefix) message))
   ([prefix message context]
-   (println prefix message)
+   (println (or *error-prefix* prefix) message)
    (when (seq context)
      (println "  Context:" context))))
 

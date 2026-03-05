@@ -55,7 +55,7 @@
   [lang-map k]
   (or (lang-map k)
       (lang-map (known-corrections k))
-      {:name (opt5e/key-to-name k) :key k}))
+      {:name (common/kw-to-name k true) :key k}))
 
 ;; ============================================================================
 ;; Tests
@@ -144,10 +144,10 @@
       (is (= "Giant Elk" (:name elk-result))
           "Non-homebrew key should still get fallback name"))))
 
-(deftest test-key-to-name-generates-readable-names
-  (testing "key-to-name converts keyword keys to human-readable names"
-    (is (= "Giant Elk" (opt5e/key-to-name :giant-elk)))
-    (is (= "Deep Speech" (opt5e/key-to-name :deep-speech)))
-    (is (= "Thri Kreen" (opt5e/key-to-name :thri-kreen)))
-    (is (= "Aquan" (opt5e/key-to-name :aquan)))
-    (is (= "Hook Horror" (opt5e/key-to-name :hook-horror)))))
+(deftest test-kw-to-name-generates-readable-names
+  (testing "common/kw-to-name converts keyword keys to human-readable names"
+    (is (= "Giant Elk" (common/kw-to-name :giant-elk true)))
+    (is (= "Deep Speech" (common/kw-to-name :deep-speech true)))
+    (is (= "Thri Kreen" (common/kw-to-name :thri-kreen true)))
+    (is (= "Aquan" (common/kw-to-name :aquan true)))
+    (is (= "Hook Horror" (common/kw-to-name :hook-horror true)))))

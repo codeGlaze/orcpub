@@ -14,7 +14,7 @@
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.skills :as skill5e]
-            [re-frame.core :refer [subscribe]]))
+))
 
 (defn entity-vals [built-char kws]
   (reduce
@@ -163,8 +163,10 @@
 
 (def coin-keys [:cp :sp :ep :gp :pp])
 
-(defn equipment-fields [built-char]
-  (let [equipment-map (merge mi5e/all-equipment-map @(subscribe [::mi5e/all-magic-items-map]))
+(defn equipment-fields
+  "Build PDF equipment field map. all-magic-items-map from plugin-data."
+  [built-char all-magic-items-map]
+  (let [equipment-map (merge mi5e/all-equipment-map all-magic-items-map)
         equipment (es/entity-val built-char :equipment)
         armor (es/entity-val built-char :armor)
         magic-armor (es/entity-val built-char :magic-armor)
@@ -241,7 +243,8 @@
 (defn make-page-map [spells-known
                      print-prepared-spells?
                      prepares-spells
-                     prepared-spells-by-class]
+                     prepared-spells-by-class
+                     spells-map]
   (reduce-kv
    (fn [m k s]
      (let [spell-cfgs (vals s)
@@ -254,7 +257,7 @@
            by-ability (group-by :ability filtered)]
        (reduce-kv
         (fn [am a a-s]
-          (assoc-in am [a k] (sort-by (comp :name @(subscribe [::spells/spells-map]) :key) a-s)))
+          (assoc-in am [a k] (sort-by (comp :name spells-map :key) a-s)))
         m
         by-ability)))
    {}
@@ -263,11 +266,13 @@
 (defn make-pages [spells
                   print-prepared-spells
                   prepares-spells
-                  prepared-spells-by-class]
+                  prepared-spells-by-class
+                  spells-map]
   (let [page-map (make-page-map spells
                                 print-prepared-spells
                                 prepares-spells
-                                prepared-spells-by-class)]
+                                prepared-spells-by-class
+                                spells-map)]
     (mapcat
      (fn [[ability levels]]
        (let [ability-classes (into
@@ -298,11 +303,11 @@
                             attack-mod-fn
                             print-prepared-spells?
                             prepares-spells
-                            prepared-spells-by-class]
-  
+                            prepared-spells-by-class
+                            spells-map
+                            plugin-spells-map]
+
   (let [flat-spells (char5e/flat-spells spells-known)
-        spells-map @(subscribe [::spells/spells-map])
-        plugin-spells-map @(subscribe [::spells/plugin-spells-map])
         filtered-spells-known (reduce
                                (fn [m [k v]]
                                  (assoc m k (if print-prepared-spells?
@@ -345,12 +350,14 @@
                          attack-mod-fn
                          print-prepared-spells?
                          prepares-spells
-                         prepared-spells-by-class]
+                         prepared-spells-by-class
+                         spells-map
+                         plugin-spells-map]
   (let [spell-pages (make-pages spells
                                 print-prepared-spells?
                                 prepares-spells
-                                prepared-spells-by-class)
-        spells-map @(subscribe [::spells/spells-map])]
+                                prepared-spells-by-class
+                                spells-map)]
     (apply
      merge
      (make-spell-card-info spells
@@ -358,7 +365,9 @@
                            attack-mod-fn
                            print-prepared-spells?
                            prepares-spells
-                           prepared-spells-by-class)
+                           prepared-spells-by-class
+                           spells-map
+                           plugin-spells-map)
      (flatten
       (map-indexed
        (fn [i {:keys [ability classes spells]}]
@@ -390,7 +399,7 @@
              spells)]))
        spell-pages)))))
 
-(defn spellcasting-fields [built-char print-prepared-spells?]
+(defn spellcasting-fields [built-char print-prepared-spells? spells-map plugin-spells-map]
   (let [spell-attack-modifier-fn (char5e/spell-attack-modifier-fn built-char)
         spell-save-dc-fn (char5e/spell-save-dc-fn built-char)
         spell-slots (char5e/spell-slots built-char)
@@ -407,7 +416,9 @@
                        spell-attack-modifier-fn
                        print-prepared-spells?
                        prepares-spells
-                       prepared-spells-by-class)))
+                       prepared-spells-by-class
+                       spells-map
+                       plugin-spells-map)))
 
 (defn profs-paragraph [profs prof-map title]
   (when (seq profs)
@@ -423,12 +434,11 @@
                              :else "(unknown)")))
                        (sort (remove nil? profs)))))))
 
-(defn other-profs-field [built-char]
+(defn other-profs-field [built-char language-map]
   (let [tool-profs (char5e/tool-proficiencies built-char)
         weapon-profs (char5e/weapon-proficiencies built-char)
         armor-profs (char5e/armor-proficiencies built-char)
-        languages (char5e/languages built-char)
-        language-map @(subscribe [::langs5e/language-map])]
+        languages (char5e/languages built-char)]
     (s/join
      "\n\n"
      (remove
@@ -453,12 +463,11 @@
   and the attack bonus and damage is calculated for the versatile form of the weapon.
   We then remove any nil maps, and mapcat concatenates all of the maps into a single list.
   The remove function filters out weapons of type 'ammunition'."
-  [built-char]
+  [built-char all-weapons-map]
   (let [all-weapons ; map of all weapons in inventory
         (mi5e/equipped-items-details ; function to filter for equipped weapons
          (char5e/all-weapons-inventory built-char)
-         @(subscribe [::mi5e/all-weapons-map]) ; re-frame subscription for all weapons
-         )
+         all-weapons-map)
         weapon-fields (mapcat
                        (fn [{:keys [name ::weapon5e/damage-die ::weapon5e/damage-die-count ::weapon5e/damage-type] :as weapon}]
                          (let [versatile (:versatile weapon)
@@ -523,14 +532,21 @@
    {}
    vals))
 
-(defn make-spec [built-char
-                 id
-                 {:keys [print-character-sheet?
-                         print-spell-cards?
-                         print-prepared-spells?
-                         print-large-abilities?
-                         print-character-sheet-style?
-                         print-spell-card-dc-mod?] :as options}]
+(defn make-spec
+  "Generate the PDF field spec. plugin-data is a map with keys:
+   :spells-map, :plugin-spells-map, :language-map,
+   :all-weapons-map, :all-magic-items-map, :current-armor-class
+   — all pre-subscribed by the calling component."
+  [built-char
+   id
+   {:keys [print-character-sheet?
+           print-spell-cards?
+           print-prepared-spells?
+           print-large-abilities?
+           print-character-sheet-style?
+           print-spell-card-dc-mod?] :as options}
+   {:keys [spells-map plugin-spells-map language-map
+           all-weapons-map all-magic-items-map current-armor-class]}]
   (let [race (char5e/race built-char)
         subrace (char5e/subrace built-char)
         abilities (abilities-spec
@@ -553,7 +569,6 @@
                                 shield (conj equipped-shields nil)]
                             (ac-with-armor-fn armor shield))
         max-armor-class (apply max all-armor-classes)
-        current-ac @(subscribe [::char5e/current-armor-class id])
         levels (char5e/levels built-char)
         classes (char5e/classes built-char)
         character-name (char5e/character-name built-char)
@@ -574,14 +589,14 @@
       :class-level (class-string classes levels)
       :background (char5e/background built-char)
       :prof-bonus (common/bonus-str (es/entity-val built-char :prof-bonus))
-      :ac current-ac
+      :ac current-armor-class
       :hd total-hit-dice
       :initiative (common/bonus-str (es/entity-val built-char :initiative))
       :speed speed
       :hp-max (es/entity-val built-char :max-hit-points)
       :hp-current (char5e/current-hit-points built-char)
       :passive (es/entity-val built-char :passive-perception)
-      :other-profs (other-profs-field built-char)
+      :other-profs (other-profs-field built-char language-map)
       :personality-traits (s/join "\n\n" [(char5e/personality-trait-1 built-char) (char5e/personality-trait-2 built-char)])
       :ideals (char5e/ideals built-char)
       :bonds (char5e/bonds built-char)
@@ -607,7 +622,7 @@
       :print-character-sheet-style? print-character-sheet-style?
       :print-spell-card-dc-mod? print-spell-card-dc-mod?
       }
-     (attacks-and-spellcasting-fields built-char)
+     (attacks-and-spellcasting-fields built-char all-weapons-map)
      (skill-fields built-char)
      abilities
      ability-bonuses
@@ -618,5 +633,5 @@
       {}
       char5e/ability-keys)
      (traits-fields built-char)
-     (equipment-fields built-char)
-     (spellcasting-fields built-char print-prepared-spells?))))
+     (equipment-fields built-char all-magic-items-map)
+     (spellcasting-fields built-char print-prepared-spells? spells-map plugin-spells-map))))

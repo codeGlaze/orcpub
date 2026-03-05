@@ -22,7 +22,8 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as eh]
             [orcpub.components :as comps]
-            [re-frame.core :refer [dispatch subscribe]])
+            [re-frame.core :refer [dispatch subscribe]]
+            [re-frame.db])
   #?(:cljs (:require-macros [orcpub.dnd.e5.modifiers :as modifiers])))
 
 #?(:cljs (enable-console-print!))
@@ -32,8 +33,8 @@
 
 (def xps [0 300 900 2700 6500 14000 23000 34000 48000 64000 85000 100000 120000 140000 165000 195000 225000 265000 305000 355000])
 
-;; unreferenced — xps is used directly elsewhere
-#_(def levels
+#_ ;; unreferenced — xps is used directly elsewhere
+(def levels
   (map-indexed
    (fn [i xp] {:level (inc i) :min-xp xp})
    xps))
@@ -147,7 +148,7 @@
     :prereqs [(t/option-prereq
                "You already have this skill"
                (fn [c]
-                 (let [skill-profs @(subscribe [::character/skill-profs nil c])]
+                 (let [skill-profs (character/skill-proficiencies c)]
                    (not (get skill-profs (:key skill))))))]
     :modifiers [(modifiers/skill-proficiency (:key skill))]}))
 
@@ -259,7 +260,7 @@
     :modifiers [(modifiers/deferred-ability-increases)]}))
 
 (defn min-ability [ability-kw min-value]
-  (fn [c] (>= (ability-kw @(subscribe [::character/abilities nil c])) min-value)))
+  (fn [c] (>= (ability-kw (character/ability-values c)) min-value)))
 
 (defn ability-prereq [ability-kw min-value]
   (t/option-prereq (str "Requires " (s/upper-case (name ability-kw)) " " min-value " or higher")
@@ -267,7 +268,7 @@
 
 (defn armor-prereq [armor-kw]
   (t/option-prereq (str "Requires proficiency with " (name armor-kw) " armor")
-                   (fn [c] (let [prof-keys @(subscribe [::character/armor-profs nil c])]
+                   (fn [c] (let [prof-keys (character/armor-proficiencies c)]
                              (boolean (and prof-keys (prof-keys armor-kw)))))))
 
 (def elemental-disciplines
@@ -391,8 +392,9 @@
     :modifiers [(modifiers/language key)]
     :prereqs [(t/option-prereq
                "You already have this language"
-               (fn [c] (not (get @(subscribe [::character/languages nil c]) key))))]}))
+               (fn [c] (not (get (character/languages c) key))))]}))
 
+#_ ;; unreferenced — common/name-to-kw is used instead
 (defn key-to-name [key]
   (s/join " " (map s/capitalize (s/split (name key) #"-"))))
 
@@ -443,7 +445,7 @@
       :help (spell-help spell)
       :prereqs [(t/option-prereq
                  "You already know this spell"
-                 (fn [c] (let [spells-known @(subscribe [::character/spells-known nil c])]
+                 (fn [c] (let [spells-known (character/spells-known c)]
                            (or (not spells-known)
                                (not-any?
                                 (fn [[[_ kw]]]
@@ -824,12 +826,12 @@
                     (map (fn [k]
                            (or (language-map k)
                                (language-map (language-key-corrections k))
-                               {:name (key-to-name k) :key k}))
+                               {:name (common/kw-to-name k true) :key k}))
                          (keys lang-options)))]
     (language-selection-aux languages lang-num)))
 
-;; unreferenced — language-selection and homebrew-language-selection used instead
-#_(defn any-language-selection [language-map & [num]]
+#_ ;; unreferenced — language-selection and homebrew-language-selection used instead
+(defn any-language-selection [language-map & [num]]
   (language-selection-aux (vals language-map) num))
 
 #_(defn maneuver-option [name & [desc]]
@@ -1050,11 +1052,11 @@
 
 (def can-cast-spell-prereq
   (t/option-prereq "Requires the ability to cast at least one spell."
-                   (fn [c] (some (fn [[k v]] (seq v)) @(subscribe [::character/spells-known nil c])))))
+                   (fn [c] (some (fn [[k v]] (seq v)) (character/spells-known c)))))
 
 (defn does-not-have-feat-prereq [kw]
   {::t/label "You already have this feat."
-   ::t/prereq-fn (fn [c] (let [feats @(subscribe [::character/feats nil c])]
+   ::t/prereq-fn (fn [c] (let [feats (character/feats c)]
                            (not (and feats (feats kw)))))})
 
 (defn feat-option [cfg & [multiselect?]]
@@ -1161,7 +1163,8 @@
                 nil
                 [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                        off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
-                       all-weapons-map @(subscribe [::mi/all-weapons-map])]
+                       all-weapons-map (mi/compute-all-weapons-map
+                                        (get @re-frame.db/app-db ::mi/custom-items))]
                    (and main-hand-weapon
                         (-> all-weapons-map
                             main-hand-weapon
@@ -1184,15 +1187,24 @@
                    false
                    (?armor-stealth-disadvantage? armor)))))
 
-(defn custom-option-builder [name-sub name-event]
-  [:div.m-t-10
-   [:span "Name"]
-   [comps/input-field
-    :input
-    @(subscribe name-sub)
-    (fn [value]
-      (dispatch (conj name-event value)))
-    {:class-name "input"}]])
+(defn custom-option-builder
+  "Renders a name input that dispatches name-event with the typed value.
+   When inject-template? is true, also passes the built template via dispatch
+   for handlers that need entity/get-option-value-path (set-custom-subclass,
+   set-custom-feat-name)."
+  ([name-sub name-event] (custom-option-builder name-sub name-event false))
+  ([name-sub name-event inject-template?]
+   (let [built-template (when inject-template? @(subscribe [:built-template]))]
+     [:div.m-t-10
+      [:span "Name"]
+      [comps/input-field
+       :input
+       @(subscribe name-sub)
+       (fn [value]
+         (dispatch (cond-> name-event
+                     built-template (conj built-template)
+                     true (conj value))))
+       {:class "input"}]])))
 
 (defn feat-options [spell-lists spells-map]
   [#_(feat-option
@@ -1456,7 +1468,7 @@
                                 (ritual-caster-option :wizard "Wizard" ::character/int sl/spell-lists)]})]
        :prereqs [(t/option-prereq "Requires Intelligence or Wisdom 13 or higher"
                                   (fn [c]
-                                    (let [{:keys [::character/wis ::character/int] :as abilities} @(subscribe [::character/abilities nil c])]
+                                    (let [{:keys [::character/wis ::character/int] :as abilities} (character/ability-values c)]
                                       (or (and wis (>= wis 13))
                                           (and int (>= int 13))))))]})
    #_(feat-option
@@ -1552,7 +1564,8 @@
          :order (inc i)
          :ui-fn #(custom-option-builder
                   [:custom-feat-name [:feats kw]]
-                  [:set-custom-feat-name [:feats kw]])
+                  [:set-custom-feat-name [:feats kw]]
+                  true)
          :selections [(t/selection-cfg
                        {:name "Feat Modifiers"
                         :min 0
@@ -1729,7 +1742,8 @@
                               nil ;vec-mod value ... maybe?
                               [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                                      off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
-                                     all-weapons-map @(subscribe [::mi/all-weapons-map])]
+                                     all-weapons-map (mi/compute-all-weapons-map
+                                                      (get @re-frame.db/app-db ::mi/custom-items))]
                                  (and main-hand-weapon
                                       (-> all-weapons-map
                                           main-hand-weapon
@@ -1819,7 +1833,7 @@
                   :modifiers [(modifiers/skill-expertise key)]
                   :prereqs [(t/option-prereq (str "Requires proficiency in " name)
                                              (fn [built-char]
-                                               (let [skill-profs @(subscribe [::character/skill-profs nil built-char])]
+                                               (let [skill-profs (character/skill-proficiencies built-char)]
                                                  (and skill-profs (skill-profs key)))))]}))
               skills/skills)
     :min num
@@ -1963,6 +1977,7 @@
    weapon-proficiencies))
 
 
+#_:clj-kondo/ignore ;; source param shadows outer source — intentional override
 (defn subrace-option [race
                       spell-lists
                       spells-map
@@ -2015,8 +2030,8 @@
                   (traits-modifiers traits nil source)
                   (when source [(modifiers/used-resource source name)]))})))
 
-;; unreferenced — inline (map modifiers/ability ...) used at call sites
-#_(defn ability-modifiers [abilities]
+#_ ;; unreferenced — inline (map modifiers/ability ...) used at call sites
+(defn ability-modifiers [abilities]
   (map
    (fn [[k v]]
      (modifiers/ability k v))
@@ -2056,7 +2071,11 @@
     :order 1001
     :prereqs [(t/option-prereq
                nil
-               (fn [_] @(subscribe [:homebrew? path]))
+               (fn [_]
+                 ;; Read homebrew flag from raw character in app-db;
+                 ;; built entity doesn't carry ::homebrew-paths.
+                 (get-in (:character @re-frame.db/app-db)
+                         [::entity/homebrew-paths path]))
                true)]}))
 
 
@@ -2321,7 +2340,7 @@
         :tags #{:profs :tool-profs}}))))
 
 (defn first-class? [class-kw & [classes]]
-  (fn [c] (= class-kw (first (or classes @(subscribe [::character/classes nil c]))))))
+  (fn [c] (= class-kw (first (or classes (character/classes c))))))
 
 (defn new-starting-equipment-selection [class-kw {:keys [name options] :as cfg}]
   (t/selection-cfg
@@ -2424,7 +2443,7 @@
                                    0
                                    nil
                                    (fn [c]
-                                     (let [skill-profs @(subscribe [::character/skill-profs nil c])
+                                     (let [skill-profs (character/skill-proficiencies c)
                                            skill-sources (get skill-profs skill-kw)
                                            passes? (and skill-sources
                                                         (not (skill-sources background-nm)))]
@@ -2488,8 +2507,8 @@
 
 (defn total-levels-prereq [level & [class-key]]
   (fn [c] (>= (if class-key
-                (@(subscribe [::character/class-level-fn nil c]) class-key)
-                @(subscribe [::character/total-levels nil c]))
+                ((character/class-level-fn c) class-key)
+                (character/total-levels c))
               level)))
 
 (defn total-levels-prereq-2 [level & [class-key]]
@@ -2563,7 +2582,7 @@
                              (fn [selection]
                                (assoc selection
                                       ::t/prereq-fn
-                                      (fn [c] (let [total-levels @(subscribe [::character/total-levels nil c])]
+                                      (fn [c] (let [total-levels (character/total-levels c)]
                                                 (>= lvl total-levels)))))
                              selections))
                           (:selections spellcasting-template))
@@ -2619,8 +2638,8 @@
 (defn level-name [index]
   (str "Level " index))
 
-;; unreferenced — subclass-option builds level options inline
-#_(defn subclass-level-option [{:keys [name
+#_ ;; unreferenced — subclass-option builds level options inline
+(defn subclass-level-option [{:keys [name
                                      levels] :as subcls}
                              kw
                              spellcasting-template
@@ -2662,10 +2681,14 @@
                   :help (str "This option just gives you the average value (" average ") for the die roll (1D" die ").")
                   :modifiers [(modifiers/max-hit-points average)]}))]}))
 
-(defn custom-subclass-builder [path]
+(defn custom-subclass-builder
+  "Renders custom subclass name input. Passes built-template via dispatch
+   because the handler needs entity/get-option-value-path."
+  [path]
   (custom-option-builder
    [:custom-subclass-name path]
-   [:set-custom-subclass path]))
+   [:set-custom-subclass path]
+   true))
 
 #_(defn custom-subclass-spell-selection [ability-kw level]
   (t/selection-cfg
@@ -2679,7 +2702,7 @@
     :tags #{:spells}
     :order level
     :prereq-fn (fn [c] (or (zero? level)
-                           (-> @(subscribe [::character/total-levels nil c])
+                           (-> (character/total-levels c)
                                (total-slots 3)
                                (get level)
                                pos?)))
@@ -2794,7 +2817,7 @@
                       [(assoc
                         (hit-points-selection hit-die name i)
                         ::t/prereq-fn
-                        (fn [c] (or (not (= kw (first @(subscribe [::character/classes nil c]))))
+                        (fn [c] (or (not (= kw (first (character/classes c))))
                                     (> i 1))))])))
       :modifiers (concat
                   (some-> levels (get i) :modifiers)
@@ -2876,7 +2899,7 @@
                                spells-map
                                (assoc spellcasting :class-key kw)
                                merged-class)
-        first-class? (fn [c] (let [first-class (first @(subscribe [::character/classes nil c]))]
+        first-class? (fn [c] (let [first-class (first (character/classes c))]
                                (= kw first-class)))]
     (t/option-cfg
      {:name name
@@ -3076,7 +3099,7 @@
 (defn has-trait-with-name-prereq [name]
   (t/option-prereq
    (str "You must have " name)
-   (fn [c] (some #(= name (:name %)) @(subscribe [::character/traits nil c])))))
+   (fn [c] (some #(= name (:name %)) (character/traits c)))))
 
 (def pact-of-the-tome-prereq
   (has-trait-with-name-prereq pact-of-the-tome-name))
@@ -3091,7 +3114,7 @@
   (t/option-prereq
    "You must know the edritch blast cantrip"
    (fn [c]
-     (get-in @(subscribe [::character/spells-known nil c])
+     (get-in (character/spells-known c)
              [0 ["Warlock" :eldritch-blast]]))))
 
 ;; dead — only called from #_ discarded blocks in template.cljc
@@ -3135,18 +3158,19 @@
                    (into #{} race-nms))]
     (t/option-prereq
      (str (common/list-print name-set "or") " Only")
-     (fn [c] (name-set @(subscribe [::character/race nil c]))))))
+     (fn [c] (name-set (character/race c))))))
 
-(defn subrace-prereq [race-nm subrace-nm]
+;; dead — only called from deprecated ua_race_feats.cljc
+#_(defn subrace-prereq [race-nm subrace-nm]
   (t/option-prereq
    (str subrace-nm " Only")
-   (fn [c] (and (= race-nm @(subscribe [::character/race nil c]))
-                (= subrace-nm @(subscribe [::character/subrace nil c]))))))
+   (fn [c] (and (= race-nm (character/race c))
+                (= subrace-nm (character/subrace c))))))
 
 #_(def deep-gnome-prereq
   (t/option-prereq
    "Deep Gnome only"
-   (fn [c] (let [subrace @(subscribe [::character/subrace nil c])]
+   (fn [c] (let [subrace (character/subrace c)]
              (or (= "Deep Gnome (EE)" subrace)
                  (= "Deep Gnome (SCAG)" subrace))))))
 
@@ -3163,7 +3187,10 @@
                 (modifiers/spells-known 1 :disguise-self ::character/cha "Deep Gnome" 0 "once per long rest")]}))
 
 
-(defn feat-prereqs [prereqs path-prereqs]
+(defn feat-prereqs
+  "Build prereq list for a feat. race-map is a {key->race} lookup
+   threaded from template-selections so we avoid subscribing."
+  [prereqs path-prereqs race-map]
   (concat
    (map
     (fn [prereq]
@@ -3186,8 +3213,7 @@
                       key))
                     race-prereqs)]
      (when (seq race-keys)
-       (let [race-map @(subscribe [::races/race-map])
-             race-names (map (comp :name race-map) race-keys)]
+       (let [race-names (map (comp :name race-map) race-keys)]
          [(race-prereq race-names)])))))
 
 (def filter-true (filter val))
@@ -3362,19 +3388,22 @@
      props)))
 
 
-(defn feat-option-from-cfg [language-map
-                            spells-map
-                            spell-lists
-                            custom-and-standard-weapons
-                            {:keys [name
-                                    key
-                                    icon
-                                    description
-                                    prereqs
-                                    path-prereqs
-                                    props
-                                    ability-increases
-                                    edit-event]}]
+(defn feat-option-from-cfg
+  "Build a feat option. race-map is threaded from template-selections."
+  [language-map
+   spells-map
+   spell-lists
+   custom-and-standard-weapons
+   race-map
+   {:keys [name
+           key
+           icon
+           description
+           prereqs
+           path-prereqs
+           props
+           ability-increases
+           edit-event]}]
   (let [feat-mods (feat-modifiers key
                                   name
                                   description
@@ -3394,7 +3423,7 @@
       :modifiers feat-mods
       :selections feat-selections
       :summary description
-      :prereqs (feat-prereqs prereqs path-prereqs)})))
+      :prereqs (feat-prereqs prereqs path-prereqs race-map)})))
 
 (def draconic-ancestries
   [{:name "Black"

@@ -4,125 +4,120 @@
 
 Detects when characters reference missing homebrew content and suggests alternatives using fuzzy matching.
 
-**Why this exists:** User deletes homebrew plugin, reopens character, sees `:artificer (not loaded)` with no context. No way to know which plugin to reinstall or what similar content exists.
+**Why this exists:** User deletes homebrew plugin, reopens character, sees missing content with no context. No way to know which plugin to reinstall or what similar content exists.
 
-**Design decision:** Use multiple fuzzy matching strategies (exact key, Levenshtein distance, prefix matching) to catch common cases: typos, versioning (`:blood-hunter-v2`), and renamed content.
+**Design decision:** Use multiple fuzzy matching strategies (exact key, prefix matching, keyword-base comparison, display name matching) to catch common cases: typos, versioning (`:blood-hunter-v2`), and renamed content.
 
-**Key gotcha:** Must exclude built-in content (PHB, Xanathar's, etc.) or system suggests switching from homebrew Artificer to PHB Artificer (which doesn't exist in most books).
+**Key gotcha:** Must exclude SRD built-in content. The `available-content` subscription only includes plugin content, so SRD content (hardcoded in the app) would be false-flagged as missing without explicit exclusion sets.
 
 ## How It Works
 
 ### Missing Content Detection
 
-Scans character options tree for `::entity/key` references → Checks if key exists in loaded content → Reports missing with suggestions
+Scans character options tree for `::entity/key` references, classifies each by content type, checks if key exists in loaded content, reports missing with suggestions.
 
-**Supported types:** Classes, subclasses, races, subraces, backgrounds
+**Supported types:** Classes, subclasses, races, subraces, backgrounds, feats
 
 **Implementation:** `content_reconciliation.cljs`
 
+### Content Type Detection
+
+The character entity stores options differently based on selection type:
+- **Single-select** (race, background, subrace) — stored as maps, path has no index
+- **Multi-select** (class, feats) — stored as vectors, path includes indices
+
+`annotate-content-type` strips integer indices from paths before matching:
+- `[:class 0]` → `[:class]` → class
+- `[:class 0 :martial-archetype]` → `[:class :martial-archetype]` → subclass
+- `[:race]` → race (already index-free, single-select)
+- `[:class 0 :levels 3 :asi-or-feat :feats 0]` → detected by `:feats` parent keyword → feat
+
 ### Fuzzy Matching
 
-Four strategies find similar content:
+Three strategies find similar content (`find-similar-content`):
 
-**1. Exact key, different source**
+**1. Exact key match** (similarity 1.0)
 ```
-Missing: :artificer from "Serakat's Compendium"
-Suggests: :artificer from "Player's Handbook"
-```
-
-**2. Levenshtein distance** (max 3 edits for typos)
-```
-Missing: :artficer
-Suggests: :artificer
+Missing: :artificer
+Available: :artificer (from different source)
 ```
 
-**3. Prefix matching** (min 4 chars, for versioning)
+**2. Prefix matching** (similarity 0.7)
 ```
 Missing: :battle-smith-v2
 Suggests: :battle-smith
 ```
 
-**4. Display name similarity** (max 3 edits)
+**3. Keyword-base comparison** (similarity 0.8 via `common/kw-base`)
+```
+Missing: :blood-hunter-order-of-the-lycan
+Suggests: :blood-hunter (same base before first dash)
+```
+
+**4. Display name similarity** (similarity 0.6)
 ```
 Missing: :drunken_master
-Suggests: :drunken-master
+Suggests: :drunken-master (name matches after normalization)
 ```
-
-**Why multiple strategies:** Single strategy missed too many cases. Levenshtein alone doesn't catch versioning (`:fighter-v2`). Prefix alone doesn't catch typos (`:artficer`). Combined approach catches ~80% of common cases.
-
-### Warning UI
-
-Displays in character builder:
-```
-:missing-content (not loaded)
-:missing-content (not loaded - try :suggested-content?)
-:missing-content from "Plugin Name" (not loaded - try :suggested-content?)
-```
-
-**Implementation:** `views.cljs` (display), `subs.cljs` (subscriptions)
 
 ### Built-in Content Exclusions
 
-Excludes PHB, Xanathar's, Tasha's, and 9 other official books from warnings.
+Excludes **SRD-only** content from warnings. This is NOT all PHB content — only what's hardcoded in the app:
 
-**Why:** Built-in content is always available. Without exclusion, system suggests "try PHB Artificer" when user's homebrew Artificer is missing (but PHB doesn't have Artificer in 5e).
+| Type | SRD Built-ins | Everything else |
+|------|--------------|-----------------|
+| Classes | All 12 base classes | — |
+| Races | 9 races + their subraces | — |
+| Subclasses | 1 per class (Champion, Berserker, Lore, Life, Land, Open Hand, Devotion, Hunter, Thief, Draconic, Fiend, Evocation) | All others from plugins |
+| Backgrounds | Acolyte only | All others from plugins |
+| Feats | None | All from plugins |
+
+**Critical distinction:** Non-SRD PHB content (Battle Master, Totem Warrior, Folk Hero, etc.) comes from plugins and SHOULD be flagged when plugins are removed. Earlier versions incorrectly excluded all PHB content.
+
+### Warning UI
+
+Displays in character builder via the import log overlay. Shows missing content with type, inferred source, and suggestions.
+
+**Implementation:** `views/conflict_resolution.cljs` (display), `subs.cljs` (subscriptions)
+
+## Data Flow
+
+```
+Character loaded
+  → extract-content-keys (walks ::entity/options tree via traverse-nested)
+  → annotate-content-type (classifies by path shape)
+  → check-content-availability (compares against available-content subscription)
+  → find-similar-content (fuzzy matching for suggestions)
+  → generate-missing-content-report
+  → ::char5e/missing-content-report subscription
+  → UI overlay
+```
+
+## Key Files
+
+- `content_reconciliation.cljs` — Detection, classification, fuzzy matching
+- `subs.cljs` — `::char5e/available-content`, `::char5e/missing-content-report` subscriptions
+- `common.cljc` — `kw-base`, `traverse-nested`, `name-to-kw` utilities
+- `views/conflict_resolution.cljs` — UI display
 
 ## Common Scenarios
 
-**Deleted plugin:** Character shows `:rune-knight from "Fighter Subclasses" (not loaded - try :eldritch-knight?)` → Re-import plugin or use suggested alternative
+**Deleted plugin:** Character shows missing class/subclass/background/feat with suggestions for similar available content
 
-**Shared character:** Friend's character uses homebrew → Warnings show which plugins needed → Ask friend for files or use suggested official alternatives
+**Shared character:** Friend's character uses homebrew → Warnings show which content types are missing
 
-**Renamed content:** Updated `:blood-hunter` to `:blood-hunter-v2` → Old characters suggest new version → Prefix matching catches versioning
-
-## Implementation
-
-**Key files:**
-- `content_reconciliation.cljs` - Detection, fuzzy matching (`find-missing-content`, `find-suggestion`, `levenshtein-distance`)
-- `subs.cljs`, `views.cljs` - UI integration (subscriptions, warning display)
-- `common.cljc` - Utilities (`kw-base`, `traverse-nested`)
-- `import_validation_test.cljs` - Tests
-
-**Data flow:**
-Character loaded → `extract-character-keys` → `classify-content-type` → `find-available-content` → Missing? → `find-suggestion` → Display warning with suggestion
-
-**Performance:** ~10ms detection + ~5ms per missing item for fuzzy matching. 100+ missing items may need optimization.
-
-## Testing
-
-**Automated:** `import_validation_test.cljs` - Covers detection, fuzzy matching accuracy, built-in exclusions
-
-**Critical manual tests:**
-1. Delete plugin → Reopen character → Should show "(not loaded)" warning
-2. Rename `:blood-hunter` to `:blood-hunter-v2` → Should suggest new version
-3. PHB Wizard with Evocation → Should NOT warn (built-in exclusion)
+**Renamed content:** Updated `:blood-hunter` to `:blood-hunter-v2` → Old characters detect missing, prefix matching suggests new version
 
 ## Extending
 
-**Adjust thresholds:** Edit `levenshtein-distance-threshold`, `prefix-match-length`, `name-similarity-threshold` in `content_reconciliation.cljs` (defaults: 3, 4, 3)
+**Add content types:** Add to `content-type-paths`, `content-type->field`, and `available-content` subscription in `subs.cljs`
 
-**Add content types:** Add to `content-type-paths` and `content-type->field` maps
+**Adjust thresholds:** Edit similarity cutoff (0.3) in `find-similar-content`
 
-**Exclude sources:** Add to `built-in-sources` set
-
-## Troubleshooting
-
-**"Not loaded" but exists:** Check key matches exactly (`:blood-hunter` vs `:bloodhunter`), verify plugin loaded
-
-**Wrong suggestions:** Adjust matching thresholds, check for duplicate keys
-
-**Built-in showing warnings:** Source name doesn't match exclusion list exactly, add variant to `built-in-sources`
-
-## Future Enhancements
-
-**Auto-fix button:** One-click apply suggestion
-
-**Smart migration:** Auto-update characters when content renamed (detect renames, prompt to update all affected characters)
-
-**Plugin recommendations:** Suggest which plugin to install based on missing content library lookup
+**Add SRD exclusions:** Only add truly hardcoded content to `builtin-*` sets. Plugin content should NOT be excluded.
 
 ## Related Documentation
 
-- [ORCBREW_FILE_VALIDATION.md](ORCBREW_FILE_VALIDATION.md) - Import/export validation
-- [CONFLICT_RESOLUTION.md](CONFLICT_RESOLUTION.md) - Duplicate key handling
-- [HOMEBREW_REQUIRED_FIELDS.md](HOMEBREW_REQUIRED_FIELDS.md) - Content field requirements
+- [ORCBREW_FILE_VALIDATION.md](ORCBREW_FILE_VALIDATION.md) — Import/export validation
+- [CONFLICT_RESOLUTION.md](CONFLICT_RESOLUTION.md) — Duplicate key handling
+- [HOMEBREW_REQUIRED_FIELDS.md](HOMEBREW_REQUIRED_FIELDS.md) — Content field requirements

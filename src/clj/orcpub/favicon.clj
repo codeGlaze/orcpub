@@ -4,11 +4,11 @@
 (defhtml install
          "faviconit.com favicons.
          Filenames default to: icon.ico; browserconfig.xml;
-         png - 16,32,57,64,72,76,96,114,120,144,152,160,196,"
+         png - 16,32,57,64,72,76,96,114,120,144,152,160,192,"
          [& {:keys [img xml png-prefix ver]}]
          [:link {:rel "shortcut icon" :href (str img "/favicon.ico?v=" ver)}]
          [:link {:rel "icon" :sizes "16x16 32x32 64x64" :href (str img "/favicon.ico?v=" ver)}]
-         [:link {:rel "icon" :type "image/png" :sizes "196x196" :href (str img "/" png-prefix "196.png?v=" ver)}]
+         [:link {:rel "icon" :type "image/png" :sizes "192x192" :href (str img "/" png-prefix "192.png?v=" ver)}]
          [:link {:rel "icon" :type "image/png" :sizes "160x160" :href (str img "/" png-prefix "160.png?v=" ver)}]
          [:link {:rel "icon" :type "image/png" :sizes "96x96" :href (str img "/" png-prefix "96.png?v=" ver)}]
          [:link {:rel "icon" :type "image/png" :sizes "64x64" :href (str img "/" png-prefix "64.png?v=" ver)}]

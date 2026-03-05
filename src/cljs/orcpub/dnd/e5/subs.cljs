@@ -9,7 +9,10 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.db :refer [tab-path]]
-            [orcpub.dnd.e5.events :refer [url-for-route handle-api-response] :as events]
+            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
+                                                                    show-generic-error mod-cfg
+                                                                    default-mod-set
+                                                                    handle-api-response]]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.char-filter :as char-filter]
@@ -299,12 +302,44 @@
 (defn built-character [character built-template]
   (entity/build character built-template))
 
-(reg-sub
+(def ^:private build-debounce-ms
+  "Leading+trailing debounce for entity/build. First change fires
+   immediately; rapid changes batch until quiet for this many ms."
+  500)
+
+(defn- debounced-build-sub
+  "reg-sub-raw handler: wraps entity/build with leading+trailing edge
+   debounce. Dropdown changes compute instantly; rapid keystrokes batch."
+  [char-sub tmpl-sub]
+  (let [timeout-id (atom nil)
+        last-run   (atom 0)
+        result     (ra/atom (built-character @char-sub @tmpl-sub))
+        wk         (gensym "build-")
+        do-build   (fn []
+                     (reset! last-run (.now js/Date))
+                     (reset! result (built-character @char-sub @tmpl-sub)))
+        on-change  (fn [_ _ _ _]
+                     (when-let [tid @timeout-id] (js/clearTimeout tid))
+                     (if (>= (- (.now js/Date) @last-run) build-debounce-ms)
+                       (do-build)
+                       (reset! timeout-id
+                               (js/setTimeout do-build build-debounce-ms))))]
+    (add-watch char-sub wk on-change)
+    (add-watch tmpl-sub wk on-change)
+    (ra/make-reaction
+     (fn [] @result)
+     :on-dispose (fn []
+                   (remove-watch char-sub wk)
+                   (remove-watch tmpl-sub wk)
+                   (when-let [tid @timeout-id]
+                     (js/clearTimeout tid))))))
+
+(reg-sub-raw
  :built-character
- :<- [:character]
- :<- [:built-template]
- (fn [[character built-template] _]
-   (built-character character built-template)))
+ (fn [_ _]
+   (debounced-build-sub
+    (subscribe [:character])
+    (subscribe [:built-template]))))
 
 (reg-sub
  :expanded-characters
@@ -340,12 +375,6 @@
  :item-expanded?
  (fn [db [_ name]]
    (get-in db [:expanded-items name])))
-
-(defn auth-headers [db]
-  (let [token (-> db :user-data :token)]
-    (if token
-      {"Authorization" (str "Token " token)}
-      {})))
 
 ;; API-backed subscriptions — use handle-api-response for consistent
 ;; status handling with sensible 401/500 defaults and catch-all logging.
@@ -387,7 +416,7 @@
             (fn [])
             :on-401 #(do (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
                          (when required? (dispatch [:route-to-login])))
-            :on-500 #(when required? (dispatch (events/show-generic-error)))
+            :on-500 #(when required? (dispatch (show-generic-error)))
             :context "fetch user"))))
     (ra/make-reaction
      (fn [] (get @app-db :user [])))))
@@ -451,14 +480,15 @@
            {}
            folders)))
 
-;; dead — never subscribed to; events.cljs accesses ::char5e/summary-map directly
-#_(reg-sub
+;; Used by combat_tracker (views.cljs) and as input signal for ::char5e/summary
+(reg-sub
  ::char5e/summary-map
  (fn [[_ login-optional?]]
    (subscribe [::char5e/characters login-optional?]))
  (fn [characters _]
    (common/map-by :db/id characters)))
 
+;; Used by combat_tracker (views.cljs)
 (reg-sub
  ::char5e/summary
  :<- [::char5e/summary-map]
@@ -518,10 +548,8 @@
  (fn [character _ _]
    (selected-plugin-options character)))
 
-#_(reg-sub
- ::char5e/template
- (fn [db _]
-   (:template db)))
+;; ::char5e/template is registered in equipment_subs.cljs (derives from template-selections).
+;; Used by autosave_fx.cljs and as input signal for ::char5e/built-template.
 
 (reg-sub
  ::char5e/built-template
@@ -531,13 +559,12 @@
  (fn [[selected-plugin-options template] _]
    (built-template template selected-plugin-options)))
 
-(reg-sub
+(reg-sub-raw
  ::char5e/built-character
- (fn [[_ id] _]
-   [(subscribe [::char5e/character id])
-    (subscribe [::char5e/built-template id])])
- (fn [[character built-template] _ _]
-   (built-character character built-template)))
+ (fn [_ [_ id]]
+   (debounced-build-sub
+    (subscribe [::char5e/character id])
+    (subscribe [::char5e/built-template id]))))
 
 (reg-sub
  :message-shown?
@@ -1069,11 +1096,11 @@
  ::mi5e/item-ability-bonus
  :<- [::mi5e/builder-item]
  (fn [item [_ type ability]]
-   (let [mod-cfg (events/mod-cfg (if (= type :becomes-at-least)
+   (let [mod-cfg (mod-cfg (if (= type :becomes-at-least)
                                    :ability-override
                                    :ability)
                                  ability)
-         modifiers (events/default-mod-set (::mi5e/internal-modifiers item))
+         modifiers (default-mod-set (::mi5e/internal-modifiers item))
          modifier (get modifiers mod-cfg)
          args (::mod/args modifier)]
      (second args))))
@@ -1082,11 +1109,11 @@
  ::mi5e/item-ability-mod-type
  :<- [::mi5e/builder-item]
  (fn [item [_ type ability]]
-   (let [mod-cfg (events/mod-cfg (if (= type :becomes-at-least)
+   (let [mod-cfg (mod-cfg (if (= type :becomes-at-least)
                                    :ability-override
                                    :ability)
                                  ability)
-         modifiers (events/default-mod-set (::mi5e/internal-modifiers item))
+         modifiers (default-mod-set (::mi5e/internal-modifiers item))
          modifier (get modifiers mod-cfg)
          args (::mod/args modifier)]
      (second args))))
@@ -1396,19 +1423,22 @@
 (reg-sub
  ::char5e/available-content
  (fn [_]
-   ;; Subscribe to all content types we need to check against
-   ;; These are defined in spell_subs.cljs with namespaced keys
+   ;; Subscribe to all content types we need to check against.
+   ;; Uses plugin-* subs (not the full subs) because SRD content is
+   ;; hardcoded and handled by builtin-* sets in content_reconciliation.
    [(subscribe [:orcpub.dnd.e5.classes/plugin-classes])
     (subscribe [:orcpub.dnd.e5.classes/plugin-subclasses])
     (subscribe [:orcpub.dnd.e5.races/plugin-races])
     (subscribe [:orcpub.dnd.e5.races/plugin-subraces])
-    (subscribe [:orcpub.dnd.e5.backgrounds/plugin-backgrounds])])
- (fn [[classes subclasses races subraces backgrounds]]
+    (subscribe [:orcpub.dnd.e5.backgrounds/plugin-backgrounds])
+    (subscribe [:orcpub.dnd.e5.feats/plugin-feats])])
+ (fn [[classes subclasses races subraces backgrounds feats]]
    {:classes classes
     :subclasses subclasses
     :races races
     :subraces subraces
-    :backgrounds backgrounds}))
+    :backgrounds backgrounds
+    :feats feats}))
 
 (reg-sub
  ::char5e/missing-content-report

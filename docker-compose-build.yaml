@@ -1,9 +1,11 @@
 ---
 services:
   orcpub:
+    image: orcpub-app
     build:
       context: .
-      dockerfile: docker/orcpub/Dockerfile
+      dockerfile: docker/Dockerfile
+      target: app
     environment:
       PORT: ${PORT:-8890}
       EMAIL_SERVER_URL: ${EMAIL_SERVER_URL:-}
@@ -14,28 +16,40 @@ services:
       EMAIL_ERRORS_TO: ${EMAIL_ERRORS_TO:-}
       EMAIL_SSL: ${EMAIL_SSL:-FALSE}
       EMAIL_TLS: ${EMAIL_TLS:-FALSE}
-      DATOMIC_URL: ${DATOMIC_URL:-datomic:free://datomic:4334/orcpub?password=change-me}
+      # Datomic Pro with dev storage protocol (required for Java 21 support)
+      DATOMIC_URL: ${DATOMIC_URL:-datomic:dev://datomic:4334/orcpub?password=change-me}
       SIGNATURE: ${SIGNATURE:-change-me-to-something-unique}
+      CSP_POLICY: ${CSP_POLICY:-strict}
+      DEV_MODE: ${DEV_MODE:-}
+      LOAD_HOMEBREW_URL: ${LOAD_HOMEBREW_URL:-}
     depends_on:
       datomic:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8890/"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-      start_period: 15s
+      # BusyBox wget (Alpine): only -q and --spider are supported.
+      # Use 127.0.0.1 (not localhost) to avoid IPv4/IPv6 ambiguity.
+      # /health returns 200 OK — lighter than / which renders the full SPA page.
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:${PORT:-8890}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
     restart: always
   datomic:
+    image: orcpub-datomic
     build:
       context: .
-      dockerfile: docker/datomic/Dockerfile
+      dockerfile: docker/Dockerfile
+      target: transactor
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
       DATOMIC_PASSWORD: ${DATOMIC_PASSWORD:-change-me}
+      ALT_HOST: ${ALT_HOST:-127.0.0.1}
+      ENCRYPT_CHANNEL: ${ENCRYPT_CHANNEL:-true}
     volumes:
       - ./data:/data
-      - ./logs:/logs
+      - ./logs:/log
+      - ./backups:/backups
     healthcheck:
       test: ["CMD-SHELL", "grep -q ':10EE ' /proc/net/tcp || grep -q ':10EE ' /proc/net/tcp6"]
       interval: 5s
@@ -48,10 +62,15 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      # nginx:alpine runs envsubst on /etc/nginx/templates/*.template at startup.
+      # Only defined env vars are substituted — nginx's own $host, $scheme, etc. are safe.
+      ORCPUB_PORT: ${PORT:-8890}
     volumes:
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./deploy/nginx.conf.template:/etc/nginx/templates/default.conf.template
       - ./deploy/snakeoil.crt:/etc/nginx/snakeoil.crt
       - ./deploy/snakeoil.key:/etc/nginx/snakeoil.key
+      - ./deploy/homebrew/:/usr/share/nginx/html/homebrew/
     depends_on:
       orcpub:
         condition: service_healthy

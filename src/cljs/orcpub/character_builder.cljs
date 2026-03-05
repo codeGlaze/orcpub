@@ -101,7 +101,7 @@
                 (stop-propagation e))}
    [:span.underline.orange.p-0.m-r-2 (if @expanded? expand-text collapse-text)]
    [:i.fa.orange
-    {:class-name (if @expanded? "fa-caret-up" "fa-caret-down")}]])
+    {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]])
 
 (defn show-info-button [expanded?]
   [:div.f-w-n.m-l-5 [expand-button "hide info" "show info" expanded?]])
@@ -129,7 +129,7 @@
    (get entity-values prop-name)
    (update-value-field prop-name)
    {:type input-type
-    :class-name (str "input w-100-p " cls-str)}])
+    :class (str "input w-100-p " cls-str)}])
 
 (defn character-input [entity-values prop-name & [cls-str handler type]]
   [character-field entity-values prop-name :input cls-str handler type])
@@ -188,7 +188,7 @@
             class-template-option (options-map key)
             path [:class-levels key]]
         [:div.m-b-5
-         {:class-name (when @expanded? "b-1 b-rad-5 p-5")}
+         {:class (when @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
           [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
            {:value key
@@ -255,6 +255,7 @@
 
 (defn class-levels-selector [{:keys [selection]}]
   (let [options (::t/options selection)
+        built-char @(subscribe [:built-character])
         selected-classes @(subscribe [::char5e/levels])
         unselected-classes (remove
                             (set (keys selected-classes))
@@ -264,7 +265,7 @@
                            (fn [option]
                              (and
                               (unselected-classes-set (::t/key option))
-                              (entity/meets-prereqs? option)))
+                              (entity/meets-prereqs? option built-char)))
                            options)]
     [:div
      [:div
@@ -311,13 +312,13 @@
            :input
            item-name
            (set-custom-item-name selection-key i)
-           {:class-name "input m-t-0"}]
+           {:class "input m-t-0"}]
           [:div.flex-grow-1 item-name])
         (when item-description [:div.w-60 [show-info-button expanded?]])
         [comps/int-field
          item-qty
          qty-change-fn
-         {:class-name (str "input m-l-5 m-t-0 w-" (or qty-input-width 60))}]
+         {:class (str "input m-l-5 m-t-0 w-" (or qty-input-width 60))}]
         [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
          {:on-click remove-fn}]]
        (when @expanded? [:div.m-t-5 item-description])])))
@@ -472,7 +473,7 @@
   (let [expanded? (r/atom false)]
     (fn [{:keys [name key help selected? selectable? option-path select-fn content explanation-text icon classes multiselect? disable-checkbox? edit-event]}]
       [:div.p-10.b-1.b-rad-5.m-5.b-orange
-       {:class-name (s/join " " (conj
+       {:class (s/join " " (conj
                                  (remove nil? [(when selected? "b-w-5")
                                                (when selectable? "pointer hover-shadow")
                                                (when (not selectable?) "opacity-5")])
@@ -512,7 +513,7 @@
   [:span.bg-red.t-a-c.p-t-4.b-rad-50-p.inline-block.f-w-b.white
    (let [size (or size 18)
          font-size (or font-size 14)]
-     {:class-name (str "h-" size " w-" size " f-s-" font-size)})
+     {:class (str "h-" size " w-" size " f-s-" font-size)})
    remaining])
 
 (defn validate-selections [built-template character selections]
@@ -545,7 +546,7 @@
                                    (when (or help has-named-mods?)
                                         [:div
                                          (when has-named-mods? [:div.i modifiers-str])
-                                         [:div {:class-name (when has-named-mods? "m-t-5")} help]])
+                                         [:div {:class (when has-named-mods? "m-t-5")} help]])
                                    :edit-event (::t/edit-event option))])))
 
 (defn selection-section-title [title]
@@ -614,11 +615,11 @@
                "Locked to prevent changes - click to unlock"
                "Unlocked - click to lock the section to prevent changes")
              [:i.fa.f-s-16.m-l-10.m-r-5.pointer
-              {:class-name (if locked? "fa-lock" "fa-unlock-alt opacity-5 hover-opacity-full")
+              {:class (if locked? "fa-lock" "fa-unlock-alt opacity-5 hover-opacity-full")
                :on-click (toggle-locked path)}]])
           (when (not hide-homebrew?)
             [:span.pointer
-             {:class-name (when (not homebrew?) "opacity-5 hover-opacity-full")
+             {:class (when (not homebrew?) "opacity-5 hover-opacity-full")
               :on-click (toggle-homebrew path)}
              [tooltip
               (if-not homebrew?
@@ -731,7 +732,7 @@
        (fn [i part]
          ^{:key i}
          [:div.flex-grow-1
-          {:class-name (str "w-" (int (/ 100 num-columns)) "-p")}
+          {:class (str "w-" (int (/ 100 num-columns)) "-p")}
           [:div
            (doall
             (map-indexed
@@ -852,21 +853,21 @@
                                               (not (pos? (ability-increases k))))]
                    ^{:key k}
                    [:div.t-a-c
-                    {:class-name (when ability-disabled? "opacity-5 cursor-disabled")}
+                    {:class (when ability-disabled? "opacity-5 cursor-disabled")}
                     [:div
-                     {:class-name (when (and (not ability-disabled?)
+                     {:class (when (and (not ability-disabled?)
                                            (zero? (ability-increases k 0)))
                                     "opacity-5")}
                      (ability-value (ability-increases k 0))] 
                     [:div.f-s-16
                      [:i.fa.fa-minus-circle.orange
-                      {:class-name (when decrease-disabled? "opacity-5 cursor-disabled")
+                      {:class (when decrease-disabled? "opacity-5 cursor-disabled")
                        :on-click (stop-prop-fn
                                   (fn []
                                     (when (not decrease-disabled?)
                                       (dispatch [:decrease-ability-value increases-path k]))))}]
                      [:i.fa.fa-plus-circle.orange.m-l-5
-                      {:class-name (when increase-disabled? "opacity-5 cursor-disabled")
+                      {:class (when increase-disabled? "opacity-5 cursor-disabled")
                        :on-click (stop-prop-fn
                                   (fn []
                                     (when (not increase-disabled?)
@@ -891,7 +892,7 @@
              (ability-subtitle "race")
              (let [race-v (get race-ability-increases k 0)]
                [:div
-                {:class-name (when (zero? race-v)
+                {:class (when (zero? race-v)
                                "opacity-5")}
                 (ability-value race-v)])])
           (when (seq subrace-ability-increases)
@@ -900,7 +901,7 @@
              (ability-subtitle "subrace")
              (let [subrace-v (get subrace-ability-increases k 0)]
                [:div
-                {:class-name (when (zero? subrace-v)
+                {:class (when (zero? subrace-v)
                                "opacity-5")}
                 (ability-value subrace-v)])])
           (when (seq ability-increases)
@@ -911,7 +912,7 @@
                               (get race-ability-increases k 0)
                               (get subrace-ability-increases k 0))]
                [:div
-                {:class-name (when (zero? other-v)
+                {:class (when (zero? other-v)
                                "opacity-5")}
                 (ability-value other-v)])])])
        ability-keys))]))
@@ -995,13 +996,13 @@
               [:div.f-s-11.f-w-b (str "(" (score-costs v) " pts)")]
               [:div.f-s-16
                [:i.fa.fa-minus-circle.orange
-                {:class-name (when decrease-disabled? "opacity-5 cursor-disabled")
+                {:class (when decrease-disabled? "opacity-5 cursor-disabled")
                  :on-click (stop-prop-fn
                             (fn [e]
                               (when (not decrease-disabled?)
                                 (set-abilities! (update abilities k dec)))))}]
                [:i.fa.fa-plus-circle.orange.m-l-5
-                {:class-name (when increase-disabled? "opacity-5 cursor-disabled")
+                {:class (when increase-disabled? "opacity-5 cursor-disabled")
                  :on-click (stop-prop-fn
                             (fn [_]
                               (when (not increase-disabled?) (set-abilities! (update abilities k inc)))))}]]]))
@@ -1337,7 +1338,7 @@
                    [:td.p-5 (:level level-value)]
                    [:td.p-5 [:input.input.m-t-0
                              {:type :number
-                              :class-name (when (or (nil? (:value level-value))
+                              :class (when (or (nil? (:value level-value))
                                                   (not (pos? (:value level-value))))
                                             "b-red b-3")
                               :on-change (fn [e]
@@ -1556,10 +1557,10 @@
                class-name (if (= i page-index) "selected-tab" "opacity-5 hover-opacity-full")]
            ^{:key name}
            [:div.p-5.hover-opacity-full.pointer.flex.flex-column.align-items-c.t-a-c
-            {:class-name (if (= i page-index) "b-b-2 b-orange" "")
+            {:class (if (= i page-index) "b-b-2 b-orange" "")
              :on-click (fn [_] (dispatch [:set-page i]))}
             [:div
-             {:class-name class-name}
+             {:class class-name}
              (when (= :desktop device-type)
                [:div.f-s-10.m-b-2
                 name])
@@ -1745,8 +1746,11 @@
   {:max-height "100px"
    :max-width "200px"})
 
-(defn set-random-name []
-  (dispatch [::char5e/set-random-name]))
+(defn set-random-name
+  "Dispatch random name generation. Passes built-char so the handler can
+   extract race/subrace/sex without subscribing outside reactive context."
+  [built-char]
+  (dispatch [::char5e/set-random-name built-char]))
 
 (defn set-image-url [v]
   (dispatch [:set-image-url v]))
@@ -1767,6 +1771,7 @@
 
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
+        built-char @(subscribe [:built-character])
         image-url @(subscribe [::char5e/image-url])
         image-url-failed @(subscribe [::char5e/image-url-failed])
         faction-image-url @(subscribe [::char5e/faction-image-url])
@@ -1777,7 +1782,7 @@
       [:div.flex.align-items-c
        [character-input entity-values ::char5e/character-name]
        [:button.form-button.p-10.m-t-5.m-l-5
-        {:on-click set-random-name}
+        {:on-click #(set-random-name built-char)}
         [:i.fa.fa-random.main-text-color.f-s-16]]]]
      [:div.flex.justify-cont-s-b
       [:div.field.flex-grow-1.m-r-2
@@ -1859,7 +1864,7 @@
 
 (defn builder-tab [title key current-tab]
   [:span.builder-tab
-   {:class-name (when (= current-tab key) "selected-builder-tab")
+   {:class (when (= current-tab key) "selected-builder-tab")
     :on-click (set-builder-tab key)}
    [:span.builder-tab-text title]])
 
@@ -1926,7 +1931,7 @@
                                                     (:items report))})))
           [:div
            {:id "missing-content-warning"
-            :class-name (if mobile? "m-l-10 m-b-10" "m-l-20 m-b-20")
+            :class (if mobile? "m-l-10 m-b-10" "m-l-20 m-b-20")
             :data-missing-count (:missing-count report)}
            [:div.flex.align-items-c.pointer
             {:on-click #(swap! expanded? not)}
@@ -1935,7 +1940,7 @@
             [:span.m-l-10.orange.f-w-b
              (str "Missing Content (" (:missing-count report) ")")]
             [:i.fa.m-l-5
-             {:class-name (if @expanded? "fa-caret-up" "fa-caret-down")}]]
+             {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]]
            (when @expanded?
              [:div#missing-content-details.bg-warning.p-10.m-t-5
               [:div.f-s-14.m-b-10.main-text-color
@@ -1973,17 +1978,17 @@
                            (not multiple-resources?)
                            (not has-homebrew?))]
         [:div
-         {:class-name (if (not mobile?)
+         {:class (if (not mobile?)
                         "m-l-20 m-b-20"
                         "m-l-10")}
          [:div.flex.align-items-c
           [:div.i
-           {:class-name
+           {:class
             (if al-legal?
               "green"
               "red")}
            [:i.fa.f-s-18
-            {:class-name
+            {:class
              (if al-legal?
                "fa-check"
                "fa-times")}]
@@ -1995,10 +2000,10 @@
                    (if al-legal?
                      "Legal"
                      "Illegal")))]]
-          (if (not al-legal?)
+          (when (not al-legal?)
             [:span.m-l-10.f-s-14
              [expand-button "hide reasons" "show reasons" expanded?]])]
-         (if (and @expanded?
+         (when (and @expanded?
                   (not al-legal?))
            [:div.i.red.m-t-5
             (map-indexed
@@ -2056,8 +2061,11 @@
 (defn set-loading []
   (dispatch-sync [:set-loading true]))
 
-(defn save-character []
-  (dispatch [:save-character]))
+(defn save-character
+  "Dispatch manual save. Passes built-char so the handler can compute
+   the character summary without subscribing outside reactive context."
+  [built-char]
+  (dispatch [:save-character built-char]))
 
 (defn load-character-page-fn [id]
   (fn [_]
@@ -2079,8 +2087,8 @@
         mobile? @(subscribe [:mobile?])
         all-selections (entity/available-selections character built-char built-template)
         selection-validation-messages (validate-selections built-template character all-selections)
-        ;al-illegal-reasons (concat @(subscribe [::char5e/al-illegal-reasons])
-        ;                           selection-validation-messages)
+        al-illegal-reasons (concat @(subscribe [::char5e/al-illegal-reasons])
+                                   selection-validation-messages)
         used-resources @(subscribe [::char5e/used-resources])
         loading @(subscribe [:loading])
         locked-components @(subscribe [:locked-components])
@@ -2129,7 +2137,7 @@
                  "Save New Character")
         :icon "save"
         :style (when character-changed? unsaved-button-style)
-        :on-click save-character}
+        :on-click #(save-character built-char)}
        (when (:db/id character)
          {:title "View"
           :icon "eye"

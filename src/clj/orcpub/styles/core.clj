@@ -534,6 +534,13 @@
    [:.bg-green
     {:background-color "#70a800"}]
 
+   [:.message
+    {:padding "10px"
+     :border-radius "5px"
+     :display :flex
+     :justify-content :space-between
+     :color :white}]
+
    ;; Warning/alert styles
    [:.bg-warning
     {:background-color "rgba(240, 161, 0, 0.1)"
@@ -550,7 +557,7 @@
    [:.no-appearance
     (handle-browsers :appearance :none)]])
 
-(def xs-min "0")
+#_(def xs-min "0")
 (def sm-min "768px")
 (def sm-max "991px")
 (def md-max "1199px")
@@ -566,11 +573,8 @@
 (def md-query
   {:min-width md-min :max-width md-max})
 
-(def sm-or-md-query
-  {:min-width sm-min :max-width md-max})
-
-(def xs-or-sm-query
-  {:min-width xs-min :max-width sm-max})
+#_(def ^:private sm-or-md-query
+    {:min-width sm-min :max-width md-max})
 
 
 (def lg-min "1200px")
@@ -894,6 +898,15 @@
     [:.registration-content
      {:width "785px"
       :min-height "600px"}]
+
+    [:.login-form-inputs
+     {:max-width "350px"
+      :margin-left :auto
+      :margin-right :auto
+      :margin-top "50px"}
+     [:input
+      {:width "100%"
+       :box-sizing :border-box}]]
 
     [:.registration-input
      {:min-width "438px"}]
@@ -1261,6 +1274,11 @@
      {:display :flex
       :justify-content :space-between
       :align-items :center}]
+
+    ;; Prevent horizontal scroll caused by fixed-position elements
+    ;; spanning full viewport width when vertical scrollbar is present.
+    [:.app
+     {:overflow-x :hidden}]
 
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}

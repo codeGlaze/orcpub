@@ -2,14 +2,21 @@
   "Tests for the email change flow (PR #644).
    Uses datomock for in-memory Datomic and with-redefs to stub email sending."
   (:require
-   [clojure.test :refer [deftest is testing]]
+   [clojure.test :refer [deftest is testing use-fixtures]]
    [datomic.api :as d]
    [datomock.core :as dm]
    [buddy.hashers :as hashers]
+   [orcpub.errors :as errors]
    [orcpub.routes :as routes]
    [orcpub.route-map :as route-map]
    [orcpub.db.schema :as schema])
   (:import [java.util UUID]))
+
+;; Prefix error output so CI logs distinguish test-expected errors.
+(use-fixtures :each
+  (fn [f]
+    (binding [errors/*error-prefix* "TEST_ERROR:"]
+      (f))))
 
 (defmacro with-conn [conn-binding & body]
   `(let [uri# (str "datomic:mem:email-change-test-" (UUID/randomUUID))

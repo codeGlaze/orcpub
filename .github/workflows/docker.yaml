@@ -68,7 +68,8 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          file: ./docker/orcpub/Dockerfile
+          file: ./docker/Dockerfile
+          target: app
           platforms: linux/amd64
           push: true
           tags: orcpub/orcpub:latest
@@ -80,7 +81,8 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          file: ./docker/orcpub/Dockerfile
+          file: ./docker/Dockerfile
+          target: app
           platforms: linux/amd64
           push: true
           tags: orcpub/orcpub:release-${{ steps.get_version.outputs.VERSION }}
@@ -92,7 +94,8 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          file: ./docker/datomic/Dockerfile
+          file: ./docker/Dockerfile
+          target: transactor
           platforms: linux/amd64
           push: true
           tags: orcpub/datomic:latest
@@ -104,7 +107,8 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           context: .
-          file: ./docker/datomic/Dockerfile
+          file: ./docker/Dockerfile
+          target: transactor
           platforms: linux/amd64
           push: true
           tags: orcpub/datomic:release-${{ steps.get_version.outputs.VERSION }}

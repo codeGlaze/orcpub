@@ -1,12 +1,17 @@
 (ns orcpub.index
-  (:require [hiccup.page :refer [html5 include-css include-js]]
+  (:require [hiccup.page :refer [html5 include-css]]
             [orcpub.oauth :as oauth]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
-            [environ.core :refer [env]]
-            ))
+            [environ.core :refer [env]]))
 
 (def devmode? (env :dev-mode))
+
+(def homebrew-url
+  "URL to fetch server-hosted .orcbrew plugins from on first load.
+   Set LOAD_HOMEBREW_URL to enable (e.g. \"/homebrew.orcbrew\" or a full URL).
+   When unset, no fetch is attempted — plugins come only from local imports."
+  (env :load-homebrew-url))
 
 (defn meta-tag [property content]
   (when content
@@ -14,11 +19,23 @@
      {:property property
       :content content}]))
 
+(defn script-tag
+  "Generate a script tag with optional nonce for CSP strict mode.
+   For external scripts, pass :src. For inline scripts, pass content as body."
+  [{:keys [src nonce]} & body]
+  (let [attrs (cond-> {}
+                src (assoc :src src)
+                nonce (assoc :nonce nonce))]
+    (if (seq body)
+      (into [:script attrs] body)
+      [:script attrs])))
+
 (defn index-page [{:keys [url
                           title
                           description
                           image
-                          fb-type]}
+                          fb-type
+                          nonce]}
                   & [splash?]]
   (html5
    {:lang :en}
@@ -36,9 +53,9 @@
                 :xml "/favicon"
                 :ver "1")
     (include-css "/css/cookiestyles.css")
-    [:script
+    (script-tag {:nonce nonce}
      "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
-     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));"]
+     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));")
     [:style
      "
 .splash-page-content {}
@@ -124,25 +141,22 @@ html {
         [:img {:src "/image/spiral.gif"
                :style "height:200px;width:200px;margin-top:200px"}]])]
     (include-css "/css/compiled/styles.css")
-    (include-js "/js/compiled/orcpub.js")
-    (include-js "/js/cookies.js")
+    ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
+    ;; Prod mode uses enforcing CSP with nonces
+    (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
+    (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
     (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
-    [:script " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"]
-    (if devmode?
-      (println "dev mode - no script")
-
-      [:script
-       "const protocol = window.location.protocol;
-        const apiUrl = `${protocol}//${window.location.host}`;
-        const pluginUrl = `${apiUrl}/homebrew.orcbrew`;
-        
+    (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
+    (when homebrew-url
+      (script-tag {:nonce nonce}
+       (str "
         let plugins = localStorage.getItem('plugins');
         if (plugins === null || plugins === '{}') {
-          fetch(pluginUrl)
+          fetch('" homebrew-url "')
             .then(resp => {
               if (!resp.ok) {
-                throw new Error(`Failed to fetch plugins: ${resp.status} ${resp.statusText}`);
+                throw new Error('Failed to fetch plugins: ' + resp.status);
               }
               return resp.text();
             })
@@ -154,10 +168,8 @@ html {
             })
             .catch(error => {
               console.error('Error fetching plugins:', error);
-              // You can also add a fallback or default behavior here
             });
         }
-      "]
-    )
+       ")))
    ]))
   

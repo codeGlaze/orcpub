@@ -47,8 +47,8 @@
    (modifiers/modifier ?skill-expertise (conj (or ?skill-expertise #{}) :perception))
    (modifiers/modifier ?skill-prof-bonuses (reduce-kv
                          (fn [m k v]
+                           (assoc m k (if (?skill-expertise k)
                                         (* 2 v)
-                           (assoc m k (when (?skill-expertise k)
                                         v)))
                          {}
                          ?skill-prof-bonuses))

@@ -6,449 +6,449 @@
 </div>
 
 <div align="center">
-    <h4>A web site that provides a D&D 5e Character sheet generator.</h4>
+    <h4>A D&D 5e Character Sheet Generator</h4>
 
-
-This is the code forked from OrcPub2, from the [original](https://github.com/larrychristensen/orcpub) repository on Jan 7, 2019 with improvements.
+Forked from [OrcPub2](https://github.com/larrychristensen/orcpub) (Jan 2019) with ongoing improvements.
 
 ![GitHub language count](https://img.shields.io/github/languages/count/orcpub/orcpub) ![GitHub top language](https://img.shields.io/github/languages/top/orcpub/orcpub) ![GitHub contributors](https://img.shields.io/github/contributors/orcpub/orcpub) ![GitHub repo size](https://img.shields.io/github/repo-size/orcpub/orcpub)
-![GitHub last commit (branch)](https://img.shields.io/github/last-commit/orcpub/orcpub/develop) 
+![GitHub last commit (branch)](https://img.shields.io/github/last-commit/orcpub/orcpub/develop)
 
 ![GitHub pull requests](https://img.shields.io/github/issues-pr/orcpub/orcpub) ![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/orcpub/orcpub)
 
 ![GitHub issues](https://img.shields.io/github/issues/orcpub/orcpub) ![GitHub closed issues](https://img.shields.io/github/issues-closed/orcpub/orcpub)
 
-![Docker Pulls](https://img.shields.io/docker/pulls/orcpub/orcpub)
-![Docker Cloud Automated build](https://img.shields.io/docker/cloud/automated/orcpub/orcpub)
-![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/orcpub/orcpub)
+![CI](https://img.shields.io/github/actions/workflow/status/orcpub/orcpub/continuous-integration.yml?branch=develop&label=CI) ![Docker Pulls](https://img.shields.io/docker/pulls/orcpub/orcpub)
 
-[About](#about) • [Getting Started](#getting-started) • [Development](#development) • [Contributing](#how-do-i-contribute?) • [Fundamentals](#Fundamentals)
+[About](#about) | [Quick Start](#quick-start) | [Development](#development) | [Architecture](#architecture) | [Contributing](#contributing) | [FAQ](#faq)
 
 </div>
 
 ## About
-Dungeon Master's Vault is a web server that allows you to host your own Character Generator website for D&D 5th Edition.
 
+Dungeon Master's Vault is a full-stack Clojure/ClojureScript web application for generating and managing D&D 5th Edition character sheets. You can host your own instance or contribute to development.
 
-## Getting Started
+### Stack
 
-To run your own install of Dungeon Master's Vault, there are two ways to do this.  
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Java 21 (OpenJDK) |
+| Backend | Clojure 1.12, Pedestal 0.7, Buddy auth |
+| Frontend | ClojureScript, React 18, Reagent 2.0, re-frame |
+| Database | Datomic Pro (dev transactor) |
+| Build | Leiningen, cljsbuild, figwheel-main |
+| Dev environment | VS Code devcontainer (recommended) |
 
-1. Pulls docker containers from our docker repository.
-2. Build your own.
+---
 
-In this section we will pull from the docker repository.  If you want to build your own docker containers from source, see [Development](#development)
+## Quick Start
 
-You will need a few tools:
+### Development (devcontainer)
 
-- git
-- A system that can run docker, with docker-compose (windows or unix)
-- A SSL certificate.  Self signed or from an issuing CA.
-- smtp relay
-- copy of this repo (for the ./deploy directory)
-
-### Check out this branch
-
- Clone a copy of our repository to your machine:
-
- `git clone https://github.com/Orcpub/orcpub.git` if you don't have a github account
-
- `git clone git@github.com:Orcpub/orcpub.git` if you do want to make changes to the code and make pull requests.
-
-### Quick Setup (Recommended)
-
-Run the automated setup script to generate secure passwords, SSL certificates, and all required directories:
+The fastest path. Requires [VS Code](https://code.visualstudio.com/) with [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), or [GitHub Codespaces](https://github.com/features/codespaces).
 
 ```bash
-./docker-setup.sh              # Interactive — prompts for each value
-./docker-setup.sh --auto       # Non-interactive — generates secure defaults
+git clone https://github.com/orcpub/orcpub.git
+cd orcpub && code .
+# Click "Reopen in Container" when prompted, then:
+./scripts/dev-setup.sh     # Install deps, init DB, create test user
+./menu                     # Interactive service launcher
 ```
 
-Then start the containers and create your first user:
+### Development (local machine)
+
+Requires Java 21, Leiningen 2.9+, and Datomic Pro (free, Apache 2.0).
 
 ```bash
-docker-compose up -d
-./docker-user.sh create admin admin@example.com MySecurePass123
+git clone https://github.com/orcpub/orcpub.git
+cd orcpub
+cp .env.example .env       # Dev defaults work out of the box
+./scripts/dev-setup.sh     # Install deps, start Datomic, init DB, create test user
+./menu start server        # Backend on port 8890
+./menu start figwheel      # Frontend hot-reload on port 3449
 ```
 
-The `create` command creates a **pre-verified** account — no SMTP server or email confirmation needed. For batch user creation, additional commands, and full details see the [Docker User Management](docs/docker-user-management.md) guide.
+Log in at `http://localhost:8890` with **test@test.com** / **testpass**.
 
-### Edit docker-compose.yaml
+For the full walkthrough (including manual setup without scripts), see **[docs/GETTING-STARTED.md](docs/GETTING-STARTED.md)**.
 
-Edit the `docker-compose.yaml` and update all the environmental variables and or paths as needed.
+### Self-hosting (Docker)
 
-The application configuration is environmental variables based, meaning that its behavior will change when modifying them at start time. 
+For running your own production instance:
 
-To modify the variables edit the `docker-compose.yaml` or set your own in your shell/environment variables.
-
-Example environment variables:
-
-```shell
-EMAIL_SERVER_URL: '' # DNS name of your smtp server
-EMAIL_ACCESS_KEY: '' # User for the mail server
-EMAIL_SECRET_KEY: '' # Password for the user
-EMAIL_SERVER_PORT: 587 # Mail server port
-EMAIL_FROM_ADDRESS: '' # Email address to send from, will default to 'no-reply@orcpub.com' if not set
-EMAIL_ERRORS_TO: '' # Email address that errors will be sent to
-EMAIL_SSL: 'false' # Should SSL be used? Gmail requires this.
-EMAIL_TLS: 'false' # Should TLS be used? 
-DATOMIC_URL: datomic:free://datomic:4334/orcpub?password=yourpassword # Url for the database
-ADMIN_PASSWORD: supersecretpassword #The datomic admin password (should be different than the DATOMIC_PASSWORD)
-DATOMIC_PASSWORD: yourpassword #The datomic application password
-SIGNATURE: '<change me to something unique>' # The Secret used to hash your password in the browser, 20+ characters recommended
+```bash
+git clone https://github.com/orcpub/orcpub.git && cd orcpub
+./docker-setup.sh           # generates .env, SSL certs, directories
+docker compose up -d        # pull images and start
+./docker-user.sh init       # create admin from .env settings
 ```
 
-The `ADMIN_PASSWORD` and `DATOMIC_PASSWORD`
+Visit `https://localhost`. See the [Docker deployment section](#docker-deployment) for full details including migration from older versions.
 
-Update the `<change this>` in the `DATOMIC_URL` to match the password used in `DATOMIC_PASSWORD`.
-Create an SSL certificate using `deploy/snakeoil.sh (or bat)` or simply edit the paths to an existing SSL certificate and key in the `web` service definition.
-
-These passwords are used to secure the database server Datomic.
-
-### Create a certificate or use an existing one
-
-You will need a webserver certificate.  For a quick SSL certificate, the script at `./deploy/snakeoil.sh` (unix) or `./deploy/snakeoil.bat` (windows) will create self signed certificate you can use, or you can make a request to a CA and install one from there.
-
-By default the certificate is named `snakeoil.crt` and `snakeoil.key` and used by the nginx container here:
-
-```shell
-    volumes:
-      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf
-      - ./deploy/snakeoil.crt:/etc/nginx/snakeoil.crt
-      - ./deploy/snakeoil.key:/etc/nginx/snakeoil.key
-      - ./deploy/homebrew/:/usr/share/nginx/html/homebrew/
-```
-
-For windows you will need OpenSSL installed to run the `./deploy/snakeoil.bat`. 
-
-OpenSSL be installed via [chocolatey](https://chocolatey.org/) `choco install openssl`
-
-### nginx.conf
-
-You will need the `./deploy/nginx.conf` or roll your own.
-
-### Launch the docker containers
-
-```shell
-   docker-compose pull
-   docker-compose up 
-   -or-
-   docker-compose up -d
-```
-
-If all went well you should be able to hit the site via `https://localhost`
-
-If not - run the docker containers with `docker-compose up` which will show you the logs of the containers and troubleshoot from there.
-
-### Importing your orcbrews automatically
-
-To have your orcbrew file you want to load automatically when a new client connects, place it in the `./deploy/homebrew/homebrew.orcbrew`
-
-All orcbrew files have to be combined into a single file named "homebrew.orcbrew".
-
-### Character Data
-
-**Data directory**
-
-Character item data is held in a database provided by Datomic.  Datomic stores the character and magic item information in the `./data` directory.
-
-If you want to backup the database you only need to copy the `./data` directory after Datomic is shutdown.
-
-If you want a new database, delete the `./data` directory to start over.
-
-**Log directory**
-
-The `./logs` directory contains error logs for Datomic itself and any files here can be safely removed with out affecting character data.  
-
-Watch this directory and clean up old files, it can grow quite large quickly.  It is recommended to setup log rotate or some other mechanism to clean these up.
+---
 
 ## Development
 
-### Building your own docker images
+> **New to Clojure?** See [docs/migration/dev-tooling.md](docs/migration/dev-tooling.md) for an explanation of Leiningen, profiles, the REPL, and how the dev tooling is organized. For the full stack upgrade context, see [docs/MIGRATION-INDEX.md](docs/MIGRATION-INDEX.md).
 
-There are three docker containers that will be built.
+### Prerequisites
 
-- orcpub_datomic_1 - the database service.
-- orcpub_orcpub_1 - the JRE service that is the website.
-- orcpub_web_1 - the ngnix web server that reverse proxies back to the JRE service.
+If not using the devcontainer, you need:
 
-**Dependencies**
+- **Java 21** (OpenJDK recommended) - [Adoptium](https://adoptium.net/)
+- **Leiningen** 2.9+ - [install guide](https://leiningen.org/#install)
+- **Datomic Pro** transactor - see [docs/migration/datomic-pro.md](docs/migration/datomic-pro.md)
 
-- [Docker](https://docs.docker.com/install/)
-- [Docker Compose](https://docs.docker.com/compose/)
-- [git](https://git-scm.com/downloads)
+### Project Layout
 
-
-Unix instructions [here](https://github.com/Orcpub/orcpub/wiki/Orcpub-on-Ubuntu-18.04-with-Docker)
-
-Windows instructions [here](https://github.com/Orcpub/orcpub/wiki/Orcpub-on-Windows-10-with-Docker)
-
-Docker Cheat [Sheet](https://github.com/Orcpub/orcpub/wiki/Docker-Cheat-sheet)
-
-
-### Getting started - building the docker image from source
-
-There are two docker-compose example files in this repository.
-
-`docker-compose.yaml` will pull from the docker repo which the community maintains and is rebuilt with the latest code from the develop branch. **this is the default**
-
-`docker-compose-build.yaml` is an example of how to build from the local source from a git clone. 
-
-Rename docker-compose-build.yaml to docker-compose.yaml and it will build from your downloaded cloned directory. 
-
-1. Start by forking this repo in your own github account and checkout the **develop** branch.   `git clone git@github.com:Orcpub/orcpub.git`
-2. Create snakeoil (self-signed) ssl certificates by running `./deploy/snakeoil.sh | .bat` or modify the docker-compose.yaml to your certificates.
-3. Modify the docker-compose.yaml and code you want to.
-4. Run `docker-compose build` to create the new containers built from the source.
-5. Run docker-compose `docker-compose up` or if you want to demonize it `docker-compose up -d`
-6. The website should be accessible via browser in `https://localhost`
-
-**NOTE**
-
-The application configuration is Environmental Variable based, meaning that its behavior will change when modifying them at start time. To modify the variables edit the `docker-compose.yaml` or `docker-compose-build.yaml` or set your own in your shell/environment.
-
-Example variables:
-
-```shell
-EMAIL_SERVER_URL: '' # Url to a smtp server
-EMAIL_ACCESS_KEY: '' # User for the mail server
-EMAIL_SECRET_KEY: '' # Password for the user
-EMAIL_SERVER_PORT: 587 # Mail server port
-EMAIL_FROM_ADDRESS: '' # Email address to send from, will default to 'no-reply@orcpub.com'
-EMAIL_ERRORS_TO: '' # Email address that errors will be sent to
-EMAIL_SSL: 'false' # Should SSL be used? Gmail requires this.
-DATOMIC_URL: datomic:free://datomic:4334/orcpub?password=yourpassword # Url for the database
-ADMIN_PASSWORD: supersecretpassword
-DATOMIC_PASSWORD: yourpassword  #(Same as above)
-SIGNATURE: '<change me to something unique>' # The Secret used to hash your password in the browser, 20+ characters recommended
+```
+src/
+├── clj/      # Server-only Clojure (JVM)
+├── cljc/     # Shared code (runs on both JVM and JS)
+└── cljs/     # Client-only ClojureScript
+web/
+└── cljs/     # Frontend application (Reagent/re-frame)
+dev/
+└── user.clj  # Dev tooling hub (REPL helpers + CLI)
+test/
+├── clj/      # Server-side tests
+├── cljc/     # Shared tests
+└── cljs/     # Frontend tests
+scripts/      # Shell scripts for service management
+docs/         # Technical documentation and migration guides
 ```
 
-To change the datomic passwords you can do it through the environment variables `ADMIN_PASSWORD_OLD` and `DATOMIC_PASSWORD_OLD` start the container once, then set the `ADMIN_PASSWORD` and `DATOMIC_PASSWORD` to your new passwords.
+### Starting the Dev Environment
 
-More on these passwords here.
-[ADMIN_PASSWORD](https://docs.datomic.com/on-prem/configuring-embedded.html#sec-2-1)
-[DATOMIC_PASSWORD](https://docs.datomic.com/on-prem/configuring-embedded.html#sec-2-1)
+There are two ways to run services: the **interactive menu** or **shell scripts** directly.
 
-## How do I contribute?
-Thank you for rolling for initiative!
+#### Interactive Menu (recommended)
 
-We work on forks, and branches.  Fork our repo, then create a new branch for any bug or new feature that you want to work on.
+```bash
+./menu
+```
 
-### Get started
+Displays service status and lets you start/stop services with single keystrokes.
 
-- Install Java: http://openjdk.java.net/ 
-- or http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html
-- For MacOS/Linux Download [Datomic](https://www.datomic.com/get-datomic.html), and unzip it into a directory.
+#### User Management
 
-* For Windows [DMV Datomic](https://github.com/Orcpub/orcpub/raw/refs/heads/develop/lib/datomic-free-0.9.5703.tar.gz) - newer versions do not work on Windows. it's a known issue that the Datomic team hasn't bothered to solve.  It has to do with the max characters that windows can hold for a path.
+```bash
+./menu add bob pass123                # Create bob@test.com (auto-verified)
+./menu add user                       # Interactive prompt for name/password
+./menu verify bob                     # Verify an existing user
+./menu delete bob                     # Delete a user
+./menu user                           # Show all user commands
+```
 
-  Launch Datomic by going to shell/cmd prompt in the unzipped directory and run:
+Email auto-generates as `<name>@test.com`. Credentials are logged to `.test-users` (gitignored).
 
-  On Windows:
+#### Shell Scripts
 
-  `bin\transactor config/samples/free-transactor-template.properties`
+```bash
+# 1. Start Datomic transactor
+./scripts/start.sh datomic
 
-  On Mac/Unix:
+# 2. Initialize database (first time only)
+./scripts/start.sh init-db
 
-  `bin/transactor config/samples/free-transactor-template.properties`
+# 3. Start backend REPL
+./scripts/start.sh server
 
+# 4. Start Figwheel (frontend hot-reload, headless watcher)
+./scripts/start.sh figwheel
 
-- Install [leiningen](https://leiningen.org/#install)
-  - Mac / Linux: The latest version (2.9.1 as of this writing) should work.
-  - Windows: 2.9.3 Can be installed with [chocolatey](https://chocolatey.org/install) using `choco install lein --version 2.9.3`
+# 5. Start Garden (CSS auto-compilation)
+./scripts/start.sh garden
+```
 
-- Download the code from your git fork
+Or run the first-time setup script, which starts Datomic, initializes the database, and creates a test user (`test` / `test@test.com` / `testpass`):
 
-   `git clone git@github.com:yourrepo/your.git`
- 
-   Use the clone url in YOUR repo.
+```bash
+./scripts/dev-setup.sh
+```
 
-- cd into orcpub
-- create a new branch for the bug fix or feature you are about to work on `git checkout -b <your_new_branch_name>`
-- Pick an editor from the next steps.
-- run `lein with-profile +start-server repl`
-- run `lein figwheel` Once lein figwheel finishes, a browser will launch.
+#### First-Time Dev Setup (manual)
 
-You should have all three processes running: the Datomic transactor, lein repl, and lein figwheel. 
+If not using the devcontainer or dev-setup.sh, you can run the steps yourself using `lein` (Leiningen, the Clojure build tool):
 
-On the front end, When you save changes, it will auto compile and send all changes to the browser without the
-need to reload. After the compilation process is complete, you will get a Browser Connected REPL. 
+```bash
+# Download all project dependencies
+lein deps
 
-An easy way to try it is:
+# Start the Datomic database transactor
+./scripts/start.sh datomic
+
+# Create the database and apply the schema.
+# "with-profile init-db" tells Leiningen to skip slow ClojureScript compilation.
+# "run -m user init-db" runs the init-db command in dev/user.clj.
+lein with-profile init-db run -m user init-db
+
+# Create a test user (auto-verified, email = test@test.com)
+./menu add test testpass
+```
+
+### REPL Workflow
+
+Clojure development centers on the REPL (Read-Eval-Print Loop). Start one with:
+
+```bash
+lein repl
+```
+
+The `user` namespace loads automatically with these helpers:
 
 ```clojure
-(js/alert "Am I connected?")
+;; Start/stop the web server
+(start-server)
+(stop-server)
+
+;; Initialize the database (first time)
+(init-database)
+
+;; Start Figwheel from the REPL
+(fig-start)
+(cljs-repl)    ; connect to ClojureScript REPL (after fig-start)
+
+;; Database operations (no running server needed)
+(create-user! (conn) {:username "bob" :email "bob@example.com" :password "pass" :verify? true})
+(verify-user! (conn) "bob@example.com")
+(delete-user! (conn) "bob@example.com")
 ```
 
-and you should see an alert in the browser window.
-On the backend (PDF generation) you will have to restart lein repl to get your changes.
+For the full list, see [docs/migration/dev-tooling.md](docs/migration/dev-tooling.md).
 
-Code away! and make your commits.
+### Validation
 
-When your branch is ready create a pull request on our repo for a code review and merge back into our branch.
+Run these before committing:
 
+```bash
+# Server-side tests (74 tests, 237 assertions)
+lein test
 
-### Suggested Editors
+# Linter (0 errors expected; warnings are from third-party libs)
+lein lint
 
-### Emacs
-Emacs with [Cider](https://cider.readthedocs.io/en/latest/) you can run the command to start the Cider REPL:
-
+# ClojureScript compilation check
+lein cljsbuild once dev
 ```
-C-c M-j
+
+| Command | Scope | Catches |
+|---------|-------|---------|
+| `lein test` | Backend (JVM) | Logic, routes, DB, PDF errors |
+| `lein lint` | CLJ + CLJS | Typos, unused vars, style |
+| `lein cljsbuild once dev` | Frontend (CLJS) | Reagent/re-frame API changes |
+| `lein fig:build` | Full frontend | One-time CLJS compilation check |
+
+### Frontend Hot-Reload
+
+| Command | Mode | Use when |
+|---------|------|----------|
+| `./scripts/start.sh figwheel` | Headless watcher | Background/scripted startup |
+| `lein fig:dev` | Interactive REPL | You want a ClojureScript REPL in your terminal |
+| `lein fig:build` | One-time build | CI or quick compilation check |
+
+**CSS** is compiled separately by Garden (`lein garden once` or `./scripts/start.sh garden` for auto-watch). Both Figwheel and Garden need to run during active frontend work.
+
+### Editors
+
+Any editor with Clojure support works. Recommended options:
+
+| Editor | Plugin | REPL Connection |
+|--------|--------|----------------|
+| **VS Code** | [Calva](https://marketplace.visualstudio.com/items?itemName=betterthantomorrow.calva) | Jack-in with Leiningen, select `:dev` profile |
+| **IntelliJ** | [Cursive](https://cursive-ide.com/) | Built-in REPL support |
+| **Emacs** | [CIDER](https://cider.readthedocs.io/) | `C-c M-j` to jack in |
+| **Vim/Neovim** | [vim-fireplace](https://github.com/tpope/vim-fireplace) | Connect to nREPL |
+
+### Environment Variables
+
+Configuration is managed through a `.env` file at the repository root. Copy `.env.example` to get started:
+
+```bash
+cp .env.example .env
 ```
 
-### Vim
-[vim-fireplace](https://github.com/tpope/vim-fireplace) provides a good way to interact with a running repl without leaving Vim.
+Key variables:
 
-### IntelliJ / Cursive
-You can use the community edition of [IntelliJ IDEA](https://www.jetbrains.com/idea/download/) with the [Cursive plug-in](https://cursive-ide.com/).
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `DATOMIC_URL` | Database connection string | `datomic:dev://localhost:4334/orcpub` |
+| `SIGNATURE` | JWT signing secret (**required**) | dev default in `.lein-env` |
+| `PORT` | Web server port | `8890` |
+| `EMAIL_SERVER_URL` | SMTP server | (optional) |
+| `CSP_POLICY` | Content Security Policy mode | `strict` |
+| `DEV_MODE` | Enable dev features | `true` in dev |
 
-### VS Code
-You can use the open source edition of [Visual Studio Code](https://code.visualstudio.com/Download) with the Calva: Clojure & ClojureScript Interactive Programming, Clojure Code, and Bookmarks Extensions.
+**How env vars are loaded:**
 
-To start REPL with VS Code:
-* first launch datomic in a cmd window with the transactor snippet from above: `bin\transactor config/samples/free-transactor-template.properties`
-  * you can also just add that to a `.ps1` file inside your project for easier reference eg. `run-datomic ps1`
-* THEN jack-in using the `Leiningen + Legacy Figwheel`, `figwheel-native`, and select the `:dev` and optionally `:start-server`
+- **`./menu` and `./scripts/start.sh`** source `.env` automatically — recommended for most workflows.
+- **`lein repl` / `lein run`** read dev defaults from `.lein-env` (generated by `lein-environ` from the `:dev` profile). This includes a dev-only `SIGNATURE` so auth works out of the box.
+- **`.env` values** (via scripts) and **real env vars** override `.lein-env` defaults.
 
-### REPL
+See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for the full list and precedence rules.
 
-Once you have a REPL, you can run this from within it to create the database, transact the database schema, and start the server:
+---
 
-You only need to `(init-database)` ONCE.
+## Docker Deployment
+
+For self-hosting a production instance.
+
+### Containers
+
+| Container | Purpose |
+|-----------|---------|
+| `datomic` | Datomic Pro database transactor |
+| `orcpub` | JVM application server (Java 21) |
+| `web` | nginx reverse proxy with SSL termination |
+
+### Fresh Install
+
+```bash
+git clone https://github.com/orcpub/orcpub.git && cd orcpub
+
+# Interactive setup — generates .env, SSL certs, and directories
+./docker-setup.sh
+
+# Pull pre-built images and start
+docker compose up -d
+
+# Create your first user (once containers are healthy)
+./docker-user.sh init                                   # from .env settings
+./docker-user.sh create <username> <email> <password>   # or directly
+```
+
+Visit `https://localhost` when running.
+
+To build from source instead of pulling images:
+
+```bash
+docker compose -f docker-compose-build.yaml build
+docker compose -f docker-compose-build.yaml up -d
+```
+
+For environment variable details, see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
+
+### Upgrading from Datomic Free (pre-2026)
+
+If you have an existing deployment using the old Java 8 / Datomic Free stack,
+your `./data` directory is **not compatible** with the new Datomic Pro transactor.
+The storage protocols (`datomic:free://` vs `datomic:dev://`) use different formats.
+
+**You must migrate your database before upgrading.** The migration tool handles this:
+
+**Bare metal** — use `scripts/migrate-db.sh` which wraps the `bin/datomic` CLI:
+
+```bash
+./scripts/migrate-db.sh backup                    # With old (Free) transactor running
+# ... stop Free transactor, move ./data aside, start Pro transactor ...
+./scripts/migrate-db.sh restore "datomic:dev://localhost:4334/orcpub?password=..."
+./scripts/migrate-db.sh verify
+```
+
+**Docker** — use `docker-migrate.sh` which runs `bin/datomic` inside containers:
+
+```bash
+./docker-migrate.sh backup        # With old stack running
+docker compose down
+docker compose -f docker-compose-build.yaml build
+docker compose -f docker-compose-build.yaml up -d
+./docker-migrate.sh restore       # After new stack is healthy
+./docker-migrate.sh verify
+```
+
+Or run `./docker-migrate.sh full` for a guided migration.
+
+The backup is storage-protocol-independent and writes to `./backup/`, so databases
+of any size (including 20GB+) are handled. See [docs/migration/datomic-data-migration.md](docs/migration/datomic-data-migration.md)
+for the full guide including disk space planning and troubleshooting.
+
+### User Management
+
+```bash
+./docker-user.sh create <user> <email> <password>   # Create a verified user
+./docker-user.sh batch users.txt                     # Bulk create from file
+./docker-user.sh list                                # List all users
+./docker-user.sh check <user>                        # Check user status
+./docker-user.sh verify <user>                       # Verify unverified user
+```
+
+See [docs/docker-user-management.md](docs/docker-user-management.md) for details.
+
+### Importing Homebrew Content
+
+Place your `.orcbrew` file at `./deploy/homebrew/homebrew.orcbrew` — it loads automatically when clients connect. All homebrew must be combined into this single file.
+
+### Data Management
+
+- **Database**: Stored in `./data/`. Back up this directory when Datomic is stopped. Delete it to start fresh.
+- **Logs**: Stored in `./logs/`. Safe to clean up; does not affect character data. Set up log rotation for production.
+
+### Scripts Reference
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/migrate-db.sh` | Migrate data from Datomic Free to Pro (bare metal) |
+| `docker-migrate.sh` | Migrate data from Datomic Free to Pro (Docker) |
+| `docker-setup.sh` | Generate `.env`, SSL certs, and directories |
+| `docker-user.sh` | Create, verify, and list users in the database |
+
+---
+
+## Architecture
+
+*From the original author, Larry Christensen*
+
+### Overview
+
+The design is based around the concept of hierarchical option selections applying modifiers to an entity.
+
+In D&D 5e you build characters (entities) by selecting from character options like race and class. Each selection may offer further sub-selections (subrace, subclass) and applies modifiers to the character (e.g., "Darkvision 60", "+2 Dexterity").
+
+Option selections are defined in **templates**. An entity is just a record of hierarchical choices. A **built entity** is a collection of derived attributes computed by applying all modifiers from all choices.
 
 ```clojure
-user=> (init-database)
-user=> (start-server)
+;; An entity records choices
+(def character-entity {:options {:race
+                                 {:key :elf,
+                                  :options {:subrace {:key :high-elf}}}}})
+
+;; A template defines available options and their modifiers
+(def template {:selections [{:key :race
+                             :min 1 :max 1
+                             :options [{:name "Elf"
+                                        :key :elf
+                                        :modifiers [(modifier ?dex-bonus (+ ?dex-bonus 2))
+                                                    (modifier ?race "Elf")]
+                                        :selections [{:key :subrace
+                                                      :min 1 :max 1
+                                                      :options [{:name "High Elf"
+                                                                 :key :high-elf
+                                                                 :modifiers [(modifier ?subrace "High Elf")
+                                                                             (modifier ?int-bonus (+ ?int-bonus 1))]}]}]}]}]})
+
+;; Building resolves all modifiers into concrete values
+(def built-character (build-entity character-entity template))
+;; => {:race "Elf" :subrace "High Elf" :dex-bonus 2 :int-bonus 1}
 ```
 
-To stop you will need to do this:
+### Why This Architecture?
 
-```clojure
-user=> (stop-server)
-```
+The naive approach stores characters as flat attribute maps with centralized calculation functions. This has problems:
 
-Within Emacs you should be able to save your file (C-x C-s) and reload it into the REPL (C-c C-w) to get your server-side changes to take effect. Within Vim with `vim-fireplace` you can eval a form with `cpp`, a paragraph with `cpip`, etc; check out its help file for more information. Regardless of editor, your client-side changes will take effect immediately when you change a CLJS or CLJC file while `lein figwheel` is running.
+- Hard to track which options are selected vs. still needed
+- Data patches required as the application evolves
+- Centralized calculation functions become unmanageable as options grow
+- Not reusable across game systems
 
-## Fundamentals
+The entity/template/modifier architecture fixes these:
 
-### Overview - from the original author - Larry
-
-The design is based around the concept of hierarchical option selections applying modifiers to a entity. 
-
-Consider D&D 5e as an example. In D&D 5e you build and maintain characters, which are entities, by selecting from a set of character options, such as race and class. When you select a race you will be afforded other option selections, such as subrace or subclass. 
-
-Option selections also apply modifiers to your character, such as 'Darkvision 60'. Option selections are defined in templates. An entity is really just a record of hierarchical choices made. 
-
-A built entity is a collection of derived attributes and functions derived from applying all of the modifiers of all the choices made. Here is some pseudocode to this more concrete:
-
-```clojure
-user> (def character-entity {:options {:race
-                                       {:key :elf,
-                                        :options {:subrace {:key :high-elf}}}}})
-                                          
-user> (def template {:selections [{:key :race
-                                   :min 1
-                                   :max 1
-                                   :options [{:name "Elf"
-                                              :key :elf
-                                              :modifiers [(modifier ?dex-bonus (+ ?dex-bonus 2))
-                                                          (modifier ?race "Elf")]
-                                              :selections [{:key :subrace
-                                                            :min 1
-                                                            :max 1
-                                                            :options [{:name "High Elf"
-                                                                       :key :high-elf
-                                                                       :modifiers [(modifier ?subrace "High Elf")
-                                                                                   (modifier ?int-bonus (+ ?int-bonus 1))]}]}]}]}]}
-                                                                 
-user> (def built-character (build-entity charater-entity template))
-
-user> built-character
-{:race "Elf"
- :subrace "High Elf"
- :dex-bonus 2
- :int-bonus 1}
-```
-
-This may seem overly complicated, but after my work on the Original Orcpub.com, I realized that this really the only real correct solution as it models how character building actually works. 
-
-The original Orcpub stored characters essentially like the built-character above with a centralized set of functions to compute other derived values. This is the most straightforward solution, but this has flaws:
-
-* You have difficulty figuring out which options have been selected and which ones still need to be selected.
-* You keep having to patch your data as your application evolves. For example, say you store a character's known spells as a list of spell IDs. Then you realize later that users want to also know what their attack bonus is for each spell. At the very least you'll have to make some significant changes to every stored character.
-* It is not scalable. Every time you add in more options, say from some new sourcebook, you have to pile on more conditional logic in your derived attribute functions. Believe me, this gets unmanageable very quickly.
-* It's not reusable in, say, a Rifts character builder.
-
-The architecture fixes these problems:
-
-* You know exactly which options have been selected, which have not, and how every modifier is arrived at, given the entity and the most up-to-date templates.
-* You don't need to patch up stored characters if you find a bug since characters are stored as just a set of very generic choices.
-* It's scalable and pluggable. Most logic for derived values is stored inside of the options that create or modify these derived values. Many rules within D&D 5e allow for picking the best of alternate calculations for a particular attribute (AC comes to mind). With the OrcPub2 solution you can have an option easily override or modify a calculation without any other code having to know about it. This makes for a MUCH more manageable solution and makes it easy to add options as plugins. 
-* The entity builder engine could be used for building any character in any system. In fact, it could be used to build any entity in any system. For example, say you have a game system with well-defined mechanics building a vehicle, the entity builder engine could do that.
+- You know exactly which options are selected and how every value is derived
+- Characters are stored as generic choices — no data migration needed when templates change
+- Logic for derived values lives with the options that create them, making it scalable and pluggable
+- The engine works for any entity in any system (characters, vehicles, etc.)
 
 ### Modifiers
 
-Character modifiers are tough to get right. As mentioned above, the naive approach is to try to centralize all logic for a calculation in one place. For example you might have a character that looks like this:
-
-```clojure
-{:race "Elf"
- :subrace "High Elf"
- :base-abilities {:int 12
-                  :dex 13}}
-```
-
-Given this, you might start calculating initiative as follows:
-
-```clojure
-(defn ability-modifier [value] ...)
-
-(defn race-dexterity [character]
-  (case (:race character)
-    "Elf" 2
-    ...))
-    
-(defn subrace-dexterity [character] ...)
-
-(defn base-ability [character ability-key]
-  (get-in character [:base-abilities ability-key]))
-
-(defn dexterity [character]
-  (+ (base-ability character :dex)
-     (race-dexterity character)
-     (subrace-dexterity character)))
-     
-(defn initiative [character]
-   (ability-modifier (dexterity character)))
-```
-
-Consider what happens when you need to account for the 'Improved Initiative' feat, you'll need to add the calculation to the initiative function. Okay, this is probably still manageable. 
-
-Then consider what happens when some cool subclass comes along that gets an initiative bonus at 9th level. Now it starts getting more unmanageable. When you try to add every option from every book into the mix, each of which might have some totally new condition for modifying initiative, you quickly end up with a nauseating ball of mud that will be scary to work with.
-
-This method decentralizes most calculations using modifiers associated with selected character options. When you add options you also specify any modifiers associated with that option. 
-
-For example, in the entity example above, we have the elf option:
-
-```clojure
-{:name "Elf"
-  :key :elf
-  :modifiers [(modifier ?dex-bonus (+ ?dex-bonus 2))
-              (modifier ?race "Elf")]
-  ...}
-```
-
-If you build a character that has this :elf option selected, the modifiers will be applied the the :dex-bonus and :race in the built character. Let's look closer at the ?dex-bonus modifier. 
-
-The second argument to the modifier function is a special symbol that prefixes a ? on the attribute instead of the : we'll expect on the output attribute key, in this case ?dex-bonus will be modifying the value output to the :dex-bonus attribute. 
-
-The third argument is a modifier body. 
-
-This can be any Clojure expression you like, but if you will be deriving your new value from an old value or from another attribute you must use the ?<attribute-name> reference. In this example we updating ?dex-bonus by adding 2 to it. 
-
-Modifiers can be derived from attributes that are derived from other attributes, and so forth.
-
-For example, we may have a character whose options provide the following chain of modifiers:
+Modifiers use `?<attribute-name>` references to build dependency chains:
 
 ```clojure
 (modifier ?dexterity 12)
@@ -456,41 +456,45 @@ For example, we may have a character whose options provide the following chain o
 (modifier ?dex-mod (ability-mod ?dexterity))
 (modifier ?int-mod (ability-mod ?intelligence))
 (modifier ?initiative ?dex-mod)
-(modifier ?initiative (+ ?initiative (* 2 ?intelligence-mod)))
-```
-
-### Modifier Order is Important!
-
-Consider what would happen if we applied the above modifiers in a different order:
-
-```clojure
 (modifier ?initiative (+ ?initiative (* 2 ?int-mod)))
-(modifier ?dexterity 12)
-(modifier ?intelligence 15)
-(modifier ?dex-mod (ability-mod ?dexterity))
-(modifier ?int-mod (ability-mod ?intelligence))
-(modifier ?initiative ?dex-mod)
 ```
-Either our initiative calculation would throw an error our it would be completely wrong since the other derived attributes it depends on have not been applied yet. There is no logical ordering for which options should be applied, so modifiers can very well be provided out of order. 
 
-For this reason we have to build a dependency graph of derived attributes and then apply the modifiers in topologically sorted order. Identifying these dependencies is why we use the ?<attribute-name> references. 
+**Order matters.** Since modifiers can reference attributes set by other modifiers, the system builds a dependency graph and applies modifiers in topologically sorted order. The `?<attribute-name>` references are what make this dependency tracking possible.
 
-## FAQs
-**Q: I'm a newb Clojure developer looking to get my feet wet, where to start?**
+---
 
-**A:** *First I would start by getting the fundamentals down at https://4clojure.oxal.org/ From there you might add some unit tests or pick up an open issue on the "Issues" tab (and add unit tests with it).*
+## Contributing
 
+1. Fork the repository
+2. Create a feature branch: `git checkout -b my-feature`
+3. Make your changes
+4. Run validation: `lein test && lein lint`
+5. Submit a pull request against `develop`
 
-**Q: Your DSL for defining character options is pretty cool, I can build any type of character option out there. How about I add a bunch on content from the Player's Handbook?**
+We cannot accept pull requests containing copyrighted D&D content. You're welcome to fork and add content for private use.
 
-**A:** *We love your enthusiasm, but we cannot accept pull requests containing copyrighted content. We do, however, encourage you to fork us and create your own private version with the full content options.*
+---
+
+## FAQ
+
+**Q: I'm new to Clojure — where do I start?**
+
+A: Try [4Clojure exercises](https://4clojure.oxal.org/) for fundamentals, then pick up a small issue from the Issues tab. The [dev tooling guide](docs/migration/dev-tooling.md) explains the project-specific tooling.
+
+**Q: Can I add content from the Player's Handbook?**
+
+A: We cannot accept PRs with copyrighted content. Fork the project and add content for your own private use.
+
+---
 
 ## Disclaimer
 
-The use of this tool is meant for use for your own use and your own content. It is only meant and should only be used on campaigns with content that you legally possess. This tool is not affiliated with Roll20, or Wizards of the Coast.
+This tool is for personal use with content you legally possess. It is not affiliated with Roll20 or Wizards of the Coast.
 
 ## Credits
-Larry Christensen original author of [Orcpub2](https://github.com/larrychristensen/orcpub)
+
+Larry Christensen — original author of [OrcPub2](https://github.com/larrychristensen/orcpub)
 
 ## License
+
 [EPL-2.0](LICENSE)

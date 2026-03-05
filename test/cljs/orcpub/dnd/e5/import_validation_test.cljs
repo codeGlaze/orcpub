@@ -756,3 +756,84 @@
         ;; :str nil → removed, :int 16 → kept
         (is (not (contains? (:abilities wizard) :str)))
         (is (= 16 (get-in wizard [:abilities :int])))))))
+
+;; ============================================================================
+;; Selection Option Deduplication Tests
+;; ============================================================================
+
+(deftest test-dedup-options-identical-content
+  (testing "True duplicates (same name + same content) are collapsed to first"
+    (let [options [{:name "Alchemical Homunculus" :description "A tiny construct"}
+                   {:name "Alchemical Homunculus" :description "A tiny construct"}]
+          [deduped changes] (import-val/dedup-options-in-selection options)]
+      (is (= 1 (count deduped)))
+      (is (= "Alchemical Homunculus" (:name (first deduped))))
+      (is (= 1 (count changes)))
+      (is (= :dedup-identical (:type (first changes)))))))
+
+(deftest test-dedup-options-different-content-renamed
+  (testing "Same name but different content gets numbered"
+    (let [options [{:name "Bonus" :description "Extra attack"}
+                   {:name "Bonus" :description "Extra damage"}]
+          [deduped changes] (import-val/dedup-options-in-selection options)]
+      (is (= 2 (count deduped)))
+      (is (= "Bonus" (:name (first deduped))))
+      (is (= "Bonus 2" (:name (second deduped))))
+      (is (= 1 (count changes)))
+      (is (= :dedup-renamed (:type (first changes)))))))
+
+(deftest test-dedup-options-no-duplicates
+  (testing "Unique options pass through unchanged"
+    (let [options [{:name "Option A" :description "Desc A"}
+                   {:name "Option B" :description "Desc B"}]
+          [deduped changes] (import-val/dedup-options-in-selection options)]
+      (is (= 2 (count deduped)))
+      (is (empty? changes)))))
+
+(deftest test-dedup-options-empty-or-short
+  (testing "Empty and single-element option lists pass through"
+    (let [[d1 c1] (import-val/dedup-options-in-selection [])
+          [d2 c2] (import-val/dedup-options-in-selection [{:name "Solo"}])]
+      (is (= 0 (count d1)))
+      (is (empty? c1))
+      (is (= 1 (count d2)))
+      (is (empty? c2)))))
+
+(deftest test-dedup-options-case-insensitive
+  (testing "Names differing only by case are treated as duplicates"
+    (let [options [{:name "Bonus Attack" :description "Same"}
+                   {:name "bonus attack" :description "Same"}]
+          [deduped changes] (import-val/dedup-options-in-selection options)]
+      (is (= 1 (count deduped)))
+      (is (= 1 (count changes))))))
+
+(deftest test-dedup-options-in-item-nested
+  (testing "Dedup works on selections nested within an item"
+    (let [item {:name "My Selection"
+                :selections {:companion-choice
+                             {:name "Beast Companion"
+                              :options [{:name "Homunculus" :description "A tiny construct"}
+                                        {:name "Homunculus" :description "A tiny construct"}
+                                        {:name "Defender" :description "A medium construct"}]}}}
+          [updated changes] (import-val/dedup-options-in-item item)]
+      (is (= 2 (count (get-in updated [:selections :companion-choice :options]))))
+      (is (= 1 (count changes))))))
+
+(deftest test-dedup-options-in-import-full-pipeline
+  (testing "Full import pipeline deduplicates selection options"
+    (let [plugin-edn (str "{:orcpub.dnd.e5/selections"
+                          " {:test-sel {:option-pack \"Test\""
+                          "             :name \"Test Selection\""
+                          "             :options [{:name \"Alpha\" :description \"A\"}"
+                          "                       {:name \"Alpha\" :description \"A\"}"
+                          "                       {:name \"Beta\" :description \"B\"}]}}}")
+          result (import-val/validate-import plugin-edn
+                                             {:strategy :progressive
+                                              :auto-clean true})]
+      (is (:success result))
+      ;; Should have deduped Alpha (identical content)
+      (let [options (get-in result [:data :orcpub.dnd.e5/selections :test-sel :options])]
+        (is (= 2 (count options)))
+        (is (= #{"Alpha" "Beta"} (set (map :name options)))))
+      ;; Should have a dedup change logged
+      (is (some #(= :dedup-selection-options (:type %)) (:changes result))))))
