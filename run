@@ -1462,7 +1462,7 @@ echo ""
 if [ "$ERRORS" -gt 0 ]; then
   warn "Setup completed with ${ERRORS} warning(s). Review the items above."
 else
-  info "All checks passed!"
+  success "All checks passed!"
 fi
 
 # ---- Step 3: Build + Start (naked mode only) --------------------------------
@@ -1474,7 +1474,7 @@ if [ "$_any_mode" = "false" ]; then
     info "Building images..."
     docker compose build || { error "Build failed."; exit 1; }
     echo ""
-    change "Images built successfully."
+    success "Images built successfully."
   else
     info "Skipping build."
   fi
@@ -1485,7 +1485,7 @@ if [ "$_any_mode" = "false" ]; then
     info "Starting services..."
     eval "$COMPOSE_CMD" || { error "Failed to start services."; exit 1; }
     echo ""
-    change "Services started."
+    success "Services started."
     echo ""
     echo "Wait for healthy (app takes ~2 minutes to boot):"
     echo "  docker compose ps"
