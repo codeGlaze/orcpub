@@ -73,7 +73,7 @@ jobs:
           # Naked ./run runs full pipeline (setup→build→up). Tear down containers
           # and wipe H2 data so CI's own build/start steps get a clean slate.
           docker compose down -v 2>/dev/null || true
-          rm -rf data/
+          sudo rm -rf data/
           echo "--- Generated .env (secrets redacted) ---"
           sed 's/=.*/=***/' .env
 
@@ -108,7 +108,7 @@ jobs:
           # Re-run with --force --auto (should regenerate)
           # Tear down first — naked ./run creates containers + H2 data with old passwords
           docker compose down -v 2>/dev/null || true
-          rm -rf data/
+          sudo rm -rf data/
           ./run --auto --force
 
           # Verify .env was regenerated (new passwords, since --auto generates fresh ones)
@@ -130,7 +130,7 @@ jobs:
 
           # Clean up containers/data from --force pipeline run
           docker compose down -v 2>/dev/null || true
-          rm -rf data/
+          sudo rm -rf data/
 
       # ── Container image acquisition ─────────────────────────────
       # Java 21: build from source (no pre-built images for new stack)
