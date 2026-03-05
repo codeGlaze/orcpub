@@ -39,7 +39,7 @@ break with permission denied errors.
 - `|` in password → breaks sed delimiter (container fails to start)
 
 **What breaks if reverted:** Any password containing `\`, `&`, or `|` causes
-either silent authentication failure or container crash. `docker-setup.sh`
+either silent authentication failure or container crash. `run`
 generates safe alphanumeric passwords, but manual `.env` edits are unprotected.
 
 **Implementation detail:** Backslash escaped FIRST to avoid double-escaping.
@@ -99,7 +99,7 @@ healthcheck (wrong port) and nginx proxy (wrong upstream). Web service never sta
 
 ## DATOMIC_URL Password Sync Validation
 
-**Decision:** `docker-setup.sh` validates that DATOMIC_PASSWORD matches the
+**Decision:** `run` validates that DATOMIC_PASSWORD matches the
 password embedded in DATOMIC_URL.
 
 **Why:** DATOMIC_URL format is `datomic:dev://datomic:4334/orcpub?password=<PW>`.

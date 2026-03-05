@@ -61,7 +61,7 @@
 | `deploy/nginx.conf.template` | Nginx reverse proxy template (envsubst resolves `${ORCPUB_PORT}`) |
 | `docker-compose-build.yaml` | Build-from-source compose |
 | `docker-compose.yaml` | Pre-built images compose |
-| `docker-setup.sh` | Interactive setup: .env, dirs, SSL |
+| `run` | Interactive setup: .env, dirs, SSL |
 | `.env.example` | Env var reference |
 
 ## Verified Facts

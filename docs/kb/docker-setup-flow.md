@@ -1,4 +1,4 @@
-# docker-setup.sh — Mode Flow & Check Reference
+# run — Mode Flow & Check Reference
 
 ~1460 lines as of 2026-03-04. Modes execute in source order as sequential
 `if ... exit 0; fi` blocks. Config modes (SECRETS, SWARM) precede action modes
@@ -11,7 +11,7 @@
 | `--auto` | `AUTO_MODE` | false | Skips all prompts, accepts defaults |
 | `--build` | `BUILD_MODE` | false | Build images (Swarm only — compose uses `docker compose up --build`) |
 | `--check` | `CHECK_MODE` | false | Read-only validation |
-| `--deploy` | `DEPLOY_MODE` | false | Deploy Swarm stack |
+| `--up` | `DEPLOY_MODE` | false | Deploy Swarm stack |
 | `--force` | `FORCE_MODE` | false | Overwrite existing files/secrets |
 | `--secrets` | `SECRETS_MODE` | false | File-based secrets migration |
 | `--swarm` | `SWARM_MODE` | false | Swarm external secrets |
@@ -67,7 +67,7 @@ Guard: `SWARM_MODE && !UPGRADE_MODE`
 - `write_compose_secrets("external")` — generates docker-compose.secrets.yaml
 - `switch_transactor_host "swarm"` — sets host=0.0.0.0 + ALT_HOST=datomic
 - **Fall-through**: if BUILD or DEPLOY also set, does NOT exit — continues to those blocks
-- If standalone: prints next steps (--build, --deploy) and exits
+- If standalone: prints next steps (--build, --up) and exits
 
 ### 4. `--build` alone (line ~898)
 Guard: `BUILD_MODE && !DEPLOY_MODE`
@@ -75,7 +75,7 @@ Guard: `BUILD_MODE && !DEPLOY_MODE`
 - No .env? **Recovery**: auto-runs `generate_env()` or prompts user
 - Runs `docker compose build`
 
-### 5. `--deploy` (line ~935)
+### 5. `--up` (line ~935)
 Guard: `DEPLOY_MODE` (no SWARM_MODE exclusion — SWARM runs first now)
 - Checks: docker compose available, jq available
 - Swarm not active? **Recovery**: shows init and compose alternatives
@@ -119,8 +119,8 @@ Calls `generate_env()` then runs validation.
 |---------|-------------|
 | `--auto` | Fresh install, all defaults |
 | `--swarm --auto` | Generate .env + init Swarm + create secrets |
-| `--swarm --auto --build --deploy` | Zero to running Swarm stack |
-| `--build --deploy` | Build images + deploy Swarm stack |
+| `--swarm --auto --build --up` | Zero to running Swarm stack |
+| `--build --up` | Build images + deploy Swarm stack |
 | `--secrets --auto` | Generate .env + create file-based secrets |
 | `--upgrade-secrets --auto` | Upgrade .env + migrate to file secrets |
 | `--upgrade-swarm --auto` | Upgrade .env + migrate to Swarm secrets |
@@ -169,7 +169,7 @@ output to double.
 
 Errors offer solutions instead of dead-ends:
 - `--build` without .env → auto-runs setup (auto) or prompts (interactive)
-- `--deploy` without Swarm → shows init and compose alternatives
+- `--up` without Swarm → shows init and compose alternatives
 - `--secrets --swarm` → explains which to pick and why
 - Secret file writes → fail with specific file path in error message
 - Docker secret create → preserves stderr for debugging (was `&>/dev/null`)

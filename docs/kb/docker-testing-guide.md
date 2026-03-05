@@ -1,6 +1,6 @@
 # Docker Testing Guide
 
-How to test docker-setup.sh and the Docker deployment. Covers the automated
+How to test run and the Docker deployment. Covers the automated
 test suite, manual smoke testing, and every gotcha we've hit.
 
 ## Automated Tests (No Docker Daemon)
@@ -59,7 +59,7 @@ In scripted/piped contexts, defaults to option 1 (backup + wipe).
 ```bash
 # 1. Setup
 bash test/docker/reset-test.sh fresh
-./docker-setup.sh --auto
+./run --auto
 
 # 2. Build + launch
 env -u DATOMIC_URL docker compose up --build -d
@@ -86,7 +86,7 @@ docker compose down
 ```bash
 # 1. Setup (zero to swarm in one step)
 bash test/docker/reset-test.sh fresh
-./docker-setup.sh --swarm --auto --build --deploy
+./run --swarm --auto --build --up
 
 # 2. Verify stack
 docker stack services orcpub         # all replicas should be 1/1
@@ -134,10 +134,10 @@ a backup prompt.
 
 ### `docker compose up --build` vs `docker compose build` + `docker compose up`
 For Compose deployments, `docker compose up --build -d` is the one-liner.
-`./docker-setup.sh --build` is Swarm-only (for use with `--deploy`).
+`./run --build` is Swarm-only (for use with `--up`).
 Don't mix Compose and Swarm build commands.
 
-### `--build --deploy` without `--swarm`
+### `--build --up` without `--swarm`
 Works if Swarm is already initialized. The SWARM block only runs when
 `--swarm` is passed. BUILD and DEPLOY just need an active Swarm (checked
 by DEPLOY block with a recovery message if missing).
@@ -152,7 +152,7 @@ All `read -rp` calls have `|| true`. Without it, `read` returns non-zero on
 EOF, and `set -e` kills the script. This was a pre-existing bug that caused
 doubled output in `--check` mode (script crashed partway, got re-run).
 
-When testing interactive mode with piped input (`printf '...' | ./docker-setup.sh`),
+When testing interactive mode with piped input (`printf '...' | ./run`),
 provide enough newlines for every prompt. Missing newlines → read gets EOF
 on the wrong prompt → confusing partial output.
 
@@ -174,10 +174,10 @@ tests will give wrong results.
 ### Test output capture pattern
 For assertions on script output, capture to a variable first:
 ```bash
-out=$(./docker-setup.sh --auto 2>&1)
+out=$(./run --auto 2>&1)
 echo "$out" | grep "expected"
 ```
-Don't pipe directly (`./docker-setup.sh | head -5`) — `head` closes the pipe
+Don't pipe directly (`./run | head -5`) — `head` closes the pipe
 early, which can cause "broken pipe" errors or truncated output under `set -e`.
 
 ### `docker-user.sh init` needs all containers healthy
@@ -187,21 +187,21 @@ will fail. Wait for `docker compose ps` to show all services as "healthy"
 before running user commands.
 
 ### Swarm deploy needs `jq`
-`./docker-setup.sh --deploy` requires `jq` for the Compose→Swarm JSON
+`./run --up` requires `jq` for the Compose→Swarm JSON
 pipeline. The script checks and errors with install instructions. In
 Codespaces, `jq` is pre-installed. In minimal Docker images, install it first.
 
 ## Test Loop Checklist
 
-Full verification loop after docker-setup.sh changes:
+Full verification loop after run changes:
 
 1. `bash test/docker/test-upgrade.sh` — 46/46 must pass
-2. `bash test/docker/reset-test.sh fresh && ./docker-setup.sh --auto` — compose setup
-3. `./docker-setup.sh --check` — validation
-4. `./docker-setup.sh --secrets --auto` — file secrets
-5. `bash test/docker/reset-test.sh fresh && ./docker-setup.sh --swarm --auto` — swarm setup
-6. `./docker-setup.sh --secrets --swarm` — conflict check (should error)
-7. `./docker-setup.sh --deploy` (no swarm active) — recovery message
-8. Interactive: `printf '\n\n\n...' | ./docker-setup.sh` — all defaults via Enter
-9. `./docker-setup.sh --help` — verify help text
+2. `bash test/docker/reset-test.sh fresh && ./run --auto` — compose setup
+3. `./run --check` — validation
+4. `./run --secrets --auto` — file secrets
+5. `bash test/docker/reset-test.sh fresh && ./run --swarm --auto` — swarm setup
+6. `./run --secrets --swarm` — conflict check (should error)
+7. `./run --up` (no swarm active) — recovery message
+8. Interactive: `printf '\n\n\n...' | ./run` — all defaults via Enter
+9. `./run --help` — verify help text
 10. Live: `env -u DATOMIC_URL docker compose up --build -d` → healthy → login

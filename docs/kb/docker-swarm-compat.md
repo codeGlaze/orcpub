@@ -81,13 +81,13 @@ Datomic's `host=` controls both bind address and advertised hostname. In Swarm:
 - `host=0.0.0.0` — bind to all interfaces (required; "datomic" resolves to a VIP)
 - `alt-host=datomic` — peer fallback via Docker DNS (NOT `127.0.0.1`)
 
-`docker-setup.sh --swarm` sets `ALT_HOST=datomic` in `.env` automatically. Getting
+`run --swarm` sets `ALT_HOST=datomic` in `.env` automatically. Getting
 this wrong causes ActiveMQ connection errors in the app container.
 
 ### Compose teardown before Swarm init
 Stale Compose containers leave behind bridge networks (e.g., `orcpub_default`).
 `docker stack deploy` fails with `network with name orcpub_default already exists`.
-Run `docker compose down` before `docker swarm init`. `docker-setup.sh --swarm`
+Run `docker compose down` before `docker swarm init`. `run --swarm`
 detects running Compose containers and offers to stop them.
 
 ### Codespaces limitation
