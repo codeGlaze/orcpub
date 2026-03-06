@@ -9,6 +9,8 @@
 #   - info(), warn(), change(), error() helpers (set by run)
 #   - read_env_val() (set by run)
 
+# shellcheck disable=SC2154  # color_*, SCRIPT_DIR etc. defined by sourcing script (run)
+
 SWARM_COMPOSE="${SCRIPT_DIR}/docker-compose.swarm.yaml"
 SWARM_PORTAINER_ENV="${SCRIPT_DIR}/.env.portainer"
 
