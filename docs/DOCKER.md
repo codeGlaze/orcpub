@@ -376,44 +376,76 @@ Rules of thumb (from Datomic capacity planning docs):
 
 ## Docker Swarm Deployment
 
-The same `docker-compose.yaml` works for Swarm with two `.env` changes and
-an optional `deploy:` section.
+`./run --swarm` generates a Swarm-compatible compose file and a Portainer-ready
+env file. It produces **text files only** — no Docker daemon required.
 
-### What changes from single-host
+### What changes from Compose
 
-| Setting | Single-host (default) | Swarm |
-|---------|-----------------------|-------|
-| `ALT_HOST` | `127.0.0.1` | `datomic` |
-| Network | bridge (auto) | overlay (auto with `docker stack deploy`) |
-| Secrets | `.env` file (or `file:` secrets) | `.env` file, `file:` secrets, or `external` secrets |
+| Concern | Compose (`docker-compose.yaml`) | Swarm (`docker-compose.swarm.yaml`) |
+|---------|---------------------------------|-------------------------------------|
+| Volumes | Bind mounts (`./data:/data`) | Named volumes (`orcpub_data`) with `external: true` |
+| Dependencies | `depends_on` + healthchecks | Removed (Swarm ignores `depends_on`) |
+| Restart | `restart: always` | `deploy.restart_policy` |
+| Build | `build:` supported | Removed (Swarm needs pre-built images) |
+| Networks | Default bridge | Explicit overlay (`backend`) |
+| `.env` file | Auto-read by `docker compose` | **Not read** by `docker stack deploy` |
 
-`host=datomic` in the transactor config already resolves via Docker DNS on
-both bridge and overlay networks — no template change needed.
-
-### Steps
+### Quick start
 
 ```sh
-# 1. Initialize Swarm (once per cluster)
-docker swarm init
+# 1. Generate .env (if you haven't already)
+./run
 
-# 2. Edit .env — change ALT_HOST for multi-node overlay DNS
-#    ALT_HOST=datomic
-#    (everything else stays the same)
-
-# 3. (Optional) Move passwords into Swarm secrets
+# 2. Generate Swarm compose + Portainer env file
 ./run --swarm
-# This creates docker-compose.secrets.yaml and wires COMPOSE_FILE in .env
 
-# 4. Build images (Swarm doesn't build — it needs pre-built images)
-docker compose build
+# 3. Pre-create named volumes (Swarm won't auto-create external volumes)
+docker volume create orcpub_data
+docker volume create orcpub_logs
+docker volume create orcpub_backups
 
-# 5. Deploy the stack
-docker stack deploy -c docker-compose.yaml -c docker-compose.secrets.yaml orcpub
+# 4. Deploy via CLI
+set -a; source .env; set +a
+docker stack deploy -c docker-compose.swarm.yaml orcpub
 
-# 6. Check service status
+# 5. Check status
 docker stack services orcpub
 docker service logs orcpub_orcpub --follow
 ```
+
+### Generated files
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.swarm.yaml` | Swarm-ready compose — named volumes, deploy sections, overlay networks |
+| `.env.portainer` | Flat `KEY=VALUE` file — no comments, no blank lines, no quotes. Paste into Portainer's "Advanced mode" env editor |
+| `transactor.properties.reference` | Generated when you bind-mount a custom `transactor.properties`. Shows current template values so you can diff against your file |
+
+### Portainer import
+
+Portainer has no `.env` file upload. Use its "Advanced mode" for bulk env vars:
+
+1. **Stacks → Add stack** (or update existing)
+2. Paste `docker-compose.swarm.yaml` into the compose editor
+3. Click **Advanced mode** in the Environment variables section
+4. Paste the contents of `.env.portainer` (one `KEY=VALUE` per line)
+5. Deploy
+
+### Upgrading an existing Swarm deployment
+
+Running `./run --swarm` when `docker-compose.swarm.yaml` already exists:
+
+1. Backs up the existing file (timestamped `.bak`)
+2. Extracts your customizations (Traefik labels, resource limits, network names, JVM settings, env var values, stack name)
+3. Regenerates the compose with the latest template, preserving your customizations
+4. Shows a colorized diff:
+   - **White** — unchanged lines
+   - **Cyan** — new upstream lines (using defaults)
+   - **Green** — new upstream lines where your `.env` value was applied
+   - **Yellow** — lines where the value changed from the old file
+
+New canonical env vars added upstream are appended to each service's
+environment block — existing vars are never reordered or removed.
 
 ### Scaling notes
 
@@ -422,6 +454,21 @@ docker service logs orcpub_orcpub --follow
   Each replica connects to `datomic:4334`.
 - **web**: Can scale freely. Each replica proxies to any `orcpub` replica via
   Swarm's built-in load balancing.
+
+### JVM memory guidance
+
+Do **not** set heap equal to the container memory limit — the JVM needs
+headroom for off-heap memory (metaspace, thread stacks, NIO buffers).
+
+| Approach | Example | When to use |
+|----------|---------|-------------|
+| Auto-percentage (recommended) | `JAVA_OPTS=-XX:MaxRAMPercentage=75.0` | JDK 11+, lets JVM scale with container limit |
+| Explicit heap | `XMS=-Xms1g` / `XMX=-Xmx1g` | When you need predictable fixed sizing |
+| Default (no setting) | Leave `JAVA_OPTS`, `XMS`, `XMX` empty | Small deployments, JVM picks conservative defaults |
+
+The Swarm compose sets `deploy.resources.limits.memory` (hard ceiling) and
+`deploy.resources.reservations.memory` (scheduling minimum). Configure these
+in `.env` via `APP_MEMORY_LIMIT` and `APP_MEMORY_RESERVATION`.
 
 ### Docker Secrets
 
@@ -435,43 +482,26 @@ changes needed.
 
 #### File-based secrets (single server, no Swarm)
 
-The setup script handles everything:
-
 ```sh
 ./run --secrets
 ```
 
-This reads your passwords from `.env` (or shell env vars if you export
-directly), creates a `secrets/` directory with one file per password,
-generates `docker-compose.secrets.yaml`, and adds `COMPOSE_FILE` to
-your `.env` so compose merges both files automatically.
+Creates a `secrets/` directory with one file per password (`chmod 600`),
+generates `docker-compose.secrets.yaml`, and adds `COMPOSE_FILE` to `.env`
+so compose merges both files automatically.
 
-Under the hood it creates:
-- `secrets/datomic_password`
-- `secrets/admin_password`
-- `secrets/signature`
-- `docker-compose.secrets.yaml`
+#### Swarm Raft secrets (cluster)
 
-Each file has `chmod 600` (only your user can read it). This is still a
-file on your hard drive — not encrypted — but each password is isolated
-with strict permissions instead of all sitting together in `.env`.
-
-#### Swarm secrets (cluster)
-
-If you're running Docker Swarm, passwords are stored encrypted inside
-the cluster. When a container needs one, Swarm delivers it into memory —
-the password is never saved to disk on the server running the container.
+Passwords are stored encrypted in the Swarm Raft log. Containers receive
+them via an in-memory tmpfs mount — never written to disk on worker nodes.
 
 ```sh
-./run --swarm
+./run --swarm --secrets
 ```
 
-This checks that your node is in Swarm mode, reads passwords from `.env`
-(or shell env vars), runs `docker secret create` for each one, and
-generates `docker-compose.secrets.yaml`. If you run `--secrets` instead,
-it will ask if you're using Swarm and redirect you here automatically.
-
-Deploy with `docker stack deploy` instead of `docker compose up`.
+This generates the Swarm compose (if not already present), then creates
+Docker secrets via `docker secret create` and uncomments the `secrets:`
+blocks in the generated compose file. Requires a running Swarm manager.
 
 #### What changes when using secrets
 
@@ -495,8 +525,11 @@ trailing newlines defensively, but `printf` avoids the issue entirely.
 | `deploy/nginx.conf.template` | Nginx reverse proxy template (`envsubst` resolves `${ORCPUB_PORT}`) |
 | `deploy/snakeoil.sh` | Self-signed SSL certificate generator |
 | `docker-compose.yaml` | Compose file (pull or build-from-source) |
-| `docker-compose.secrets.yaml` | Generated by `--secrets`/`--swarm` — merges secrets into compose |
-| `run` | Interactive setup: generates `.env`, dirs, SSL certs, secrets |
+| `docker-compose.secrets.yaml` | Generated by `--secrets` — merges file-based secrets into compose |
+| `docker-compose.swarm.yaml` | Generated by `--swarm` — Swarm-ready compose (named volumes, deploy sections) |
+| `.env.portainer` | Generated by `--swarm` — flat KEY=VALUE for Portainer's Advanced mode env editor |
+| `run` | Interactive setup: generates `.env`, dirs, SSL certs, secrets, Swarm compose |
+| `scripts/swarm.sh` | Swarm compose generation functions (sourced by `run`) |
 | `.env.example` | Environment variable reference with defaults |
 
 ## Security
