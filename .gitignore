@@ -3,6 +3,11 @@
 .env.secrets.backup
 /secrets/
 docker-compose.secrets.yaml
+docker-compose.swarm.yaml
+docker-compose.swarm.yaml.backup.*
+.env.portainer
+.env.backup.*
+transactor.properties.reference
 .editorconfig
 /resources/public/css/compiled
 /resources/public/js/compiled
