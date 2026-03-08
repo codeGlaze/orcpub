@@ -40,7 +40,7 @@
   (px-prop
    :margin-top
    :m-t
-   (concat (range 0 10) [21] (range 10 30 5))))
+   (concat (range 0 10) [21] (range 10 30 5) [100])))
 
 (def widths
   (px-prop
@@ -1278,6 +1278,54 @@
       :padding-left "10px"
       :color "#484848"
       :border-color "rgba(72,72,72,0.37)"}]
+
+    [:.success-header
+     {:color "#f0a100"
+      :font-weight :bold
+      :font-size "36px"
+      :text-transform :uppercase
+      :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"}]
+
+    [:.form-submit-btn
+     {:height "40px"
+      :width "174px"
+      :font-size "16px"
+      :font-weight "600"}]
+
+    [:.error-warning-box
+     {:background-color "rgba(255,0,0,0.1)"
+      :border "1px solid red"
+      :border-radius "4px"}]
+
+    [:.fullscreen-overlay
+     {:top 0
+      :left 0
+      :right 0
+      :bottom 0
+      :z-index 100}]
+
+    [:.password-strength-container
+     {:position :relative
+      :height "30px"}]
+
+    [:.password-strength-bg
+     {:top 0
+      :left 0
+      :height "30px"
+      :opacity "0.7"
+      :width "100%"
+      :position :absolute}]
+
+    [:.password-strength-meter
+     {:top 0
+      :left 0
+      :position :absolute
+      :height "30px"
+      :transition "width 1s"}]
+
+    [:.password-strength-label
+     {:position :absolute
+      :padding-top "6px"}]
 
     [:.form-button
      {:color :white

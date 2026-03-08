@@ -537,12 +537,8 @@
            :placeholder "Email"
            :class "form-input-default"
            :on-change (partial set-value params :email)}]
-         [:button.form-button.m-l-20.m-t-10
-          {:style {:height "40px"
-                   :width "174px"
-                   :font-size "16px"
-                   :font-weight "600"}
-           :on-click (make-event-handler :re-verify @params)}
+         [:button.form-button.form-submit-btn.m-l-20.m-t-10
+          {:on-click (make-event-handler :re-verify @params)}
           "RESEND"]]]))))
 
 (defn message [message-type message-text close-handler]
@@ -588,12 +584,8 @@
                :error
                @(subscribe [:login-message])
                hide-login-message]])
-           [:button.form-button.m-t-10
-            {:style {:height "40px"
-                     :width "174px"
-                     :font-size "16px"
-                     :font-weight "600"}
-             :class (when bad-email? "disabled opacity-5 hover-no-shadow")
+           [:button.form-button.form-submit-btn.m-t-10
+            {:class (when bad-email? "disabled opacity-5 hover-no-shadow")
              :on-click (when (not bad-email?) (make-event-handler :send-password-reset @params))}
             "SUBMIT"]
            [:div.m-t-20
@@ -644,12 +636,8 @@
                                       :error
                                       @(subscribe [:login-message])
                                       hide-login-message]])
-           [:button.form-button.m-l-20.m-t-10
-            {:style {:height "40px"
-                     :width "174px"
-                     :font-size "16px"
-                     :font-weight "600"}
-             :class (when invalid? "opacity-5 hover-no-shadow cursor-disabled")
+           [:button.form-button.form-submit-btn.m-l-20.m-t-10
+            {:class (when invalid? "opacity-5 hover-no-shadow cursor-disabled")
              :on-click (when (not invalid?) (make-event-handler :password-reset @params))}
             "SUBMIT"]]])))))
 
@@ -660,52 +648,32 @@
 
 (defn verify-success []
   (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
+   [:div.t-a-c
+    [:div.success-header.m-t-100
      "Success! Registration is complete"]
     [:div.m-t-20 "You can now"]
     [login-link]]))
 
 (defn password-reset-success []
   (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
+   [:div.t-a-c
+    [:div.success-header.m-t-100
      "Your password has been successfully reset"]
     [:div.m-t-20 "You can now log in"]
     [login-link]]))
 
 (defn unsubscribe-success []
   (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
+   [:div.t-a-c
+    [:div.success-header.m-t-100
      "Unsubscribed"]
     [:div.m-t-20 "You have been successfully unsubscribed from email updates."]
     [:div.m-t-10 "You can re-enable updates at any time from your account settings."]]))
 
 (defn email-sent [text]
   (registration-page
-   [:div {:style {:text-align :center}}
-    [:div {:style {:color orange
-                   :font-weight :bold
-                   :font-size "36px"
-                   :text-transform :uppercase
-                   :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                   :margin-top "100px"}}
+   [:div.t-a-c
+    [:div.success-header.m-t-100
      "Check your email"]
     [:div.p-20
      text]]))
@@ -731,13 +699,8 @@
         send-updates? (not= false (:send-updates? registration-form))
         password-strength (registration/password-strength (:password registration-form))]
     (registration-page
-     [:div {:style {:text-align :center}}
-      [:div {:style {:color orange
-                     :font-weight :bold
-                     :font-size "36px"
-                     :text-transform :uppercase
-                     :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                     :margin-top "20px"}}
+     [:div.t-a-c
+      [:div.success-header.m-t-20
        "join for free"]
       [:div.f-s-16.m-t-20 "Join now to save your characters and more!"]
       [:div.m-t-10
@@ -771,28 +734,13 @@
                 (< 1 password-strength 5) ["bg-orange" "Moderate"]
                 :else ["bg-red" "Weak"])]
          [:div.p-r-10.p-l-10.p-t-5
-          [:div
-           {:style {:position :relative
-                    :height "30px"}}
-           [:div.b-rad-5
-            {:style {:top 0
-                     :left 0
-                     :height "30px"
-                     :opacity "0.7"
-                     :width "100%"
-                     :position :absolute}
-             :class color}]
+          [:div.password-strength-container
+           [:div.b-rad-5.password-strength-bg
+            {:class color}]
            [:div.b-rad-5.password-strength-meter
-            {:style {:top 0
-                     :left 0
-                     :position :absolute
-                     :height "30px"
-                     :transition "width 1s"
-                     :width (str (* 100 (float (/ password-strength 5))) "%")}
+            {:style {:width (str (* 100 (float (/ password-strength 5))) "%")}
              :class color}]
-           [:div.main-text-color.p-l-10.b-rad-5
-            {:style {:position :absolute
-                     :padding-top "6px"}}
+           [:div.main-text-color.p-l-10.b-rad-5.password-strength-label
              [:span "Password Strength:"]
              [:span.f-w-b.m-l-5 text]]]])
        [:div.m-t-20
@@ -812,12 +760,8 @@
          [:span "Already have an account?"]
          (login-link)]
         [:div.m-t-10.m-b-20 [:span "After clicking JOIN A validation email will be sent to the above email address."]]
-        [:button.form-button
-         {:style {:height "40px"
-                  :width "174px"
-                  :font-size "16px"
-                  :font-weight "600"}
-          :class (when (seq registration-validation) "opacity-5 hover-no-shadow cursor-disabled")
+        [:button.form-button.form-submit-btn
+         {:class (when (seq registration-validation) "opacity-5 hover-no-shadow cursor-disabled")
           :on-click #(when (empty? registration-validation)
                        (dispatch [:register]))}
          "JOIN"]]]
@@ -842,13 +786,8 @@
       (let [login-message-shown? @(subscribe [:login-message-shown?])
             login-message @(subscribe [:login-message])]
         (registration-page
-         [:div {:style {:text-align :center}}
-          [:div {:style {:color orange
-                         :font-weight :bold
-                         :font-size "36px"
-                         :text-transform :uppercase
-                         :text-shadow "1px 2px 1px rgba(0,0,0,0.37)"
-                         :margin-top "20px"}}
+         [:div.t-a-c
+          [:div.success-header.m-t-20
            "LOGIN"]
           [:div.m-t-10]
           [:div.login-form-inputs
@@ -869,12 +808,8 @@
                                       hide-login-message]])
            [:div.m-t-10
             
-            [:button.form-button
-             {:style {:height "40px"
-                      :width "174px"
-                      :font-size "16px"
-                      :font-weight "600"}
-              :on-click #(dispatch [:login @params true])}
+            [:button.form-button.form-submit-btn
+             {:on-click #(dispatch [:login @params true])}
              "LOGIN"]
             [:div.m-t-20
              [:span "Don't have a login? "][:br][:br]
@@ -6245,19 +6180,13 @@
         "Add Option"]]
       ;; Summary warning for duplicate names
       (when has-dupes?
-        [:div.p-10.m-b-10.red
-         {:style {:background-color "rgba(255,0,0,0.1)"
-                  :border "1px solid red"
-                  :border-radius "4px"}}
+        [:div.p-10.m-b-10.red.error-warning-box
          [:span.f-w-b "Duplicate names found: "]
          [:span (s/join ", " dupe-names)]
          [:div.f-s-12 "Each option must have a unique name. Rename duplicates before saving."]])
       ;; Warning for empty option names
       (when has-empty?
-        [:div.p-10.m-b-10.red
-         {:style {:background-color "rgba(255,0,0,0.1)"
-                  :border "1px solid red"
-                  :border-radius "4px"}}
+        [:div.p-10.m-b-10.red.error-warning-box
          "One or more options have no name. All options must be named."])
       [:div
        (doall
@@ -8078,13 +8007,11 @@
                                  has-faction-pic?)]
         [:div.main-text-color.m-b-10.char-filter-bar
          (when @classes-open?
-           [:div.posn-fixed
-            {:style    {:top 0 :left 0 :right 0 :bottom 0 :z-index 100}
-             :on-click (fn [e] (.stopPropagation e) (reset! classes-open? false))}])
+           [:div.posn-fixed.fullscreen-overlay
+            {:on-click (fn [e] (.stopPropagation e) (reset! classes-open? false))}])
          (when @levels-open?
-           [:div.posn-fixed
-            {:style    {:top 0 :left 0 :right 0 :bottom 0 :z-index 100}
-             :on-click (fn [e] (.stopPropagation e) (reset! levels-open? false))}])
+           [:div.posn-fixed.fullscreen-overlay
+            {:on-click (fn [e] (.stopPropagation e) (reset! levels-open? false))}])
          [:div.flex.align-items-c.flex-wrap.p-5
           ;; Name search
           [:div.posn-rel.m-r-5.m-b-5
