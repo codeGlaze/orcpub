@@ -62,20 +62,6 @@
 
 (def orange "#f0a100")
 
-(def input-style
-  {:height "38px"
-   :border-style "solid"
-   :border-width "1px"
-   :border-radius "3px"
-   :font-size "14px"
-   :padding-left "10px"
-   :color text-color})
-
-(def default-input-style
-  (merge
-   input-style
-   {:border-color "rgba(72,72,72,0.37)"}))
-
 (defn event-value [e]
   (.. e -target -value))
 
@@ -112,10 +98,10 @@
          :type type
          :value value
          :placeholder title
-         :style input-style
-         :class (if (and @blurred? (seq messages))
+         :class (str "form-input-base "
+                     (if (and @blurred? (seq messages))
                        "b-red"
-                       "b-gray")
+                       "b-gray"))
          :on-focus (fn [_] (reset! blurred? false))
          :on-change on-change
          :on-blur (fn [e] (reset! blurred? true))}]
@@ -549,7 +535,7 @@
            :value (:email @params)
            :type :email
            :placeholder "Email"
-           :style default-input-style
+           :class "form-input-default"
            :on-change (partial set-value params :email)}]
          [:button.form-button.m-l-20.m-t-10
           {:style {:height "40px"
@@ -968,7 +954,6 @@
          @(subscribe [:message])
          hide-message]])]))
 
-(def debug-data-style {:width "400px" :height "450px"})
 
 (defn clj->json
   [ds]
@@ -987,9 +972,8 @@
          :title "Development - Debug Info" }
         [:i.fa.fa-bug {:class (when @expanded? "white")}]]
        (when @expanded?
-         [:textarea.m-t-5
+         [:textarea.m-t-5.debug-textarea
           {:read-only true
-           :style debug-data-style
            :value (str {:browser (user-agent/browser)
                         :browser-version (user-agent/browser-version)
                         :device-type (user-agent/device-type)
@@ -997,9 +981,8 @@
                         :platform-version (user-agent/platform-version)
                         :character (char/to-strict @(subscribe [:character]))})}])
        (when @expanded?
-         [:textarea.m-t-5
+         [:textarea.m-t-5.debug-textarea
           {:read-only true
-           :style debug-data-style
            :value (clj->json {:browser (user-agent/browser)
                               :browser-version (user-agent/browser-version)
                               :device-type (user-agent/device-type)
@@ -1023,21 +1006,6 @@
    [:span.f-w-b name ":"]
    [:span.m-l-10 value]])
 
-(defn columns-style [num]
-  {:line-height "19px"
-   :column-count num
-   :-webkit-column-count num
-   :-moz-column-count num})
-
-(def two-columns-style
-  (columns-style 2))
-
-(def three-columns-style
-  (columns-style 3))
-
-(def two-columns-second-empty-style
-  {:width "50%"})
-
 (defn paragraphs [str & [single-column?]]
   (let [mobile? @(subscribe [:mobile?])
         ps (s/split str #"\n")
@@ -1051,9 +1019,9 @@
       [:div
        p-els]
       [:div
-       {:style (if (= 1 (count ps))
-                 two-columns-second-empty-style
-                 two-columns-style)}
+       {:class (if (= 1 (count ps))
+                 "w-50-p l-h-19"
+                 "columns-2 l-h-19")}
        p-els])))
 
 (defn requires-attunement [attunement]
@@ -1198,8 +1166,7 @@
            (fn [[k v]] (str (common/safe-capitalize-kw k) " " (common/bonus-str v)))
            m)))
 
-(def max-width-300
-  {:max-width "300px"})
+
 
 
 (defn monster-component [{:keys [name description size type subtypes hit-points alignment armor-class armor-notes speed saving-throws skills damage-vulnerabilities damage-resistances damage-immunities condition-immunities senses languages challenge traits actions legendary-actions source page] :as monster}]
@@ -1211,7 +1178,7 @@
                             (update legendary-actions :actions concat legendary)
                             legendary-actions)]
     [:div.m-l-10.l-h-19
-     (when (not @(subscribe [:mobile?])) {:style two-columns-style})
+     (when (not @(subscribe [:mobile?])) {:class "columns-2"})
      [:span.f-s-24.f-w-b.m-b-20 name]
      [:div.f-s-18.i.f-w-b (monsters/monster-subheader size type subtypes alignment)]
      (spell-field "Armor Class" (str armor-class (when armor-notes (str " (" armor-notes ")"))))
@@ -1230,7 +1197,7 @@
                                         (when mean (str " (" mean ")"))))))
      (spell-field "Speed" speed)
      [:div.m-t-10.flex.justify-cont-s-a.m-b-10
-      {:style max-width-300}
+      {:class "max-w-300"}
       (doall
        (map
         (fn [ability-key]
@@ -2303,9 +2270,6 @@
         :style {:font-size "24px" :padding "2px 8px"})
        v)]]])
 
-(def current-hit-points-editor-style
-  {:width "60px"
-   :margin-top 0})
 
 (defn hit-dice-section-2 [id]
   (let [levels @(subscribe [::char/levels id])]
@@ -2331,9 +2295,8 @@
   (basic-section "Max Hit Points"
                  "health-normal"
                  [:div.flex.align-items-c
-                  [:input.input
-                   {:style current-hit-points-editor-style
-                    :type :number
+                  [:input.input.w-60.m-t-0
+                   {:type :number
                     :value (or @(subscribe [::char/current-hit-points id])
                                @(subscribe [::char/max-hit-points id]))
                     :on-change (set-current-hit-points-handler id)}]
@@ -2516,13 +2479,7 @@
      (personality-section "Description" description)]))
 
 
-(def stroke-style
-  {:stroke-width "1"})
 
-(def bar-stroke-style
-  {:stroke-width "5"
-   :stroke orange
-   :opacity "0.8"})
 
 (defn set-notes-fn [id]
   #(dispatch [::char/set-notes id %]))
@@ -2575,22 +2532,19 @@
             [:div
              [:svg {:width "250px"
                     :view-box "0 0 200 40"}
-              [:line.stroke-color {:x1 "10"
+              [:line.stroke-color.svg-stroke {:x1 "10"
                       :y1 "20"
                       :x2 "190"
-                      :y2 "20"
-                      :style stroke-style}]
-              [:line.stroke-color {:x1 "20"
+                      :y2 "20"}]
+              [:line.stroke-color.svg-stroke {:x1 "20"
                       :y1 "10"
                       :x2 "20"
-                      :y2 "25"
-                      :style stroke-style}]
+                      :y2 "25"}]
               (when (not max-levels?)
-                [:line.stroke-color {:x1 "180"
+                [:line.stroke-color.svg-stroke {:x1 "180"
                                      :y1 "10"
                                      :x2 "180"
-                                     :y2 "25"
-                                     :style stroke-style}])
+                                     :y2 "25"}])
               (let [x2 (if max-levels?
                          (if (>= xps (opt/level-xps 20))
                            20
@@ -2598,13 +2552,12 @@
                          (+ progress-length buffer 10))]
                 (when (and (not (js/isNaN x2))
                          (> x2 buffer))
-                  [:line {:x1 (if (pos? current-level-xps)
+                  [:line.svg-bar-stroke {:x1 (if (pos? current-level-xps)
                                 "10"
                                 "20")
                           :y1 "17"
                           :x2 (str x2)
-                          :y2 "17"
-                          :style bar-stroke-style}]))
+                          :y2 "17"}]))
               [:text.main-text-color {:x "8"
                       :y "30"
                       :fill "white"
@@ -3846,9 +3799,7 @@
        (base-builder-field
         [:div.f-w-b.m-b-5 "Armor Type"]
         [:div
-         {:style (if mobile?
-                   two-columns-style
-                   three-columns-style)}
+         {:class (str "l-h-19 " (if mobile? "columns-2" "columns-3"))}
          (doall
           (map
            (fn [{:keys [:key :name]}]
@@ -3883,9 +3834,7 @@
        (base-builder-field
         [:div.f-w-b.m-b-5 "Weapon Type"]
         [:div
-         {:style (if mobile?
-                   two-columns-style
-                   three-columns-style)}
+         {:class (str "l-h-19 " (if mobile? "columns-2" "columns-3"))}
          (doall
           (map
            (fn [{:keys [key name]}]
@@ -8299,9 +8248,6 @@
                   (sort-by ::char/character-name owner-characters)))]])
             (sort-by key other-characters)))])]]]))
 
-(def party-name-editor-style
-  {:width "200px"
-   :height "42px"})
 
 (defn set-editing-party-fn [editing-parties id]
   #(swap! editing-parties assoc id (event-value %)))
@@ -8334,9 +8280,8 @@
                     [:i.fa.fa-users.m-l-10]
                     (if editing?
                       [:div.flex.align-items-c.flex-wrap
-                       [:input.input.m-l-10
+                       [:input.input.m-l-10.w-200.h-42
                         {:value (or (@editing-parties id) name)
-                         :style party-name-editor-style
                          :on-change (set-editing-party-handler editing-parties id)}]
                        [:div.m-l-10.w-200
                         [comps/selection-adder

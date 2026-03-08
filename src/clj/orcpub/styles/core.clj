@@ -48,6 +48,12 @@
    :w
    [12 14 15 18 20 24 32 36 40 48 50 60 70 80 85 90 100 110 120 200 220 250 300 500 1440]))
 
+(def max-widths
+  (px-prop
+   :max-width
+   :max-w
+   [300]))
+
 (defn handle-browsers [property value]
   {(keyword (str "-webkit-" (name property))) value
    (keyword (str "-moz-" (name property))) value
@@ -294,6 +300,8 @@
     {:height "36px"}]
    [:.h-40
     {:height "40px"}]
+   [:.h-42
+    {:height "42px"}]
    [:.h-48
     {:height "48px"}]
    [:.h-60
@@ -1021,6 +1029,18 @@
       :background-color "rgba(255,255,255,0.1)"
       :color :white}]
 
+    [:.svg-stroke
+     {:stroke-width 1}]
+
+    [:.svg-bar-stroke
+     {:stroke-width 5
+      :stroke "#f0a100"
+      :opacity "0.8"}]
+
+    [:.debug-textarea
+     {:width "400px"
+      :height "450px"}]
+
     [:.login-form-inputs
      {:max-width "350px"
       :margin-left :auto
@@ -1237,6 +1257,25 @@
     [:.display-section-qualifier-text
      {:font-size "12px"
       :margin-left "5px"}]
+
+    [:.form-input-base
+     {:height "38px"
+      :border-style "solid"
+      :border-width "1px"
+      :border-radius "3px"
+      :font-size "14px"
+      :padding-left "10px"
+      :color "#484848"}]
+
+    [:.form-input-default
+     {:height "38px"
+      :border-style "solid"
+      :border-width "1px"
+      :border-radius "3px"
+      :font-size "14px"
+      :padding-left "10px"
+      :color "#484848"
+      :border-color "rgba(72,72,72,0.37)"}]
 
     [:.form-button
      {:color :white
@@ -1699,10 +1738,17 @@
 
     [:.export-issue-missing
      {:color orange
-      :margin-left "8px"}]];concat-bracket
+      :margin-left "8px"}]
+
+    [:.columns-2
+     (handle-browsers :column-count 2)]
+
+    [:.columns-3
+     (handle-browsers :column-count 3)]];concat-bracket
    margin-lefts
    margin-tops
    widths
+   max-widths
    font-sizes
    props
    media-queries) ;concat
