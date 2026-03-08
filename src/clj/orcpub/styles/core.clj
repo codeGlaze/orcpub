@@ -1100,7 +1100,9 @@
      {:background-color "rgba(0, 0, 0, 0.5)"
       :-webkit-backdrop-filter "blur(5px)"
       :backdrop-filter "blur(5px)"
-      :border-radius "5px"}]
+      :border-radius "5px"}
+     [:&:hover
+      {:z-index 10001}]]
 
     [:.header-tab-active
      {:background-color "rgba(240, 161, 0, 0.7)"}]
