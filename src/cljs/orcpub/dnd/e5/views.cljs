@@ -570,26 +570,6 @@
             {:name "Selection Builder"
              :route routes/dnd-e5-selection-builder-page-route}]]]]]]))
 
-(def registration-content-style
-  {:background-color :white
-   :border "1px solid white"
-   :color text-color})
-
-(def registration-page-style
-  {:background-image "url(/image/login-side.jpg)"
-   :background-clip :content-box
-   :width "350px"
-   :min-height "600px"})
-
-(def registration-left-column-style
-  {:flex-direction :column
-   :width "435px"})
-
-(def registration-header-style
-  {:height "65px"
-   :background-color "#1a2532"
-   :border-right "1px solid white"})
-
 (defn route-to-default-page []
   (dispatch [:route :default]))
 
@@ -598,19 +578,16 @@
    {:style {:flex-direction :column}}
    [:div.flex.justify-cont-s-a.align-items-c.flex-grow-1.h-100-p
     [:div.registration-content
-     {:style registration-content-style}
      [:div.flex.h-100-p
-      [:div.flex {:style registration-left-column-style}
-       [:div.flex.justify-cont-s-a.align-items-c
-        {:style registration-header-style}
+      [:div.flex.registration-left-col
+       [:div.flex.justify-cont-s-a.align-items-c.registration-header
         [:img.pointer
          {:class branding/registration-logo-class
           :src branding/logo-path
           :on-click route-to-default-page}]]
        [:div.flex-grow-1 content]
        [views-2/legal-footer]]
-      [:div.registration-image
-       {:style registration-page-style}]]]]])
+      [:div.registration-image]]]]])
 
 (def make-event-handler
   (memoize

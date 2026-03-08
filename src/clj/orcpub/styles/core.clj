@@ -912,7 +912,25 @@
 
     [:.registration-content
      {:width "785px"
+      :min-height "600px"
+      :background-color :white
+      :border "1px solid white"
+      :color "#484848"}]
+
+    [:.registration-image
+     {:background-image "url(/image/login-side.jpg)"
+      :background-clip :content-box
+      :width "350px"
       :min-height "600px"}]
+
+    [:.registration-left-col
+     {:flex-direction :column
+      :width "435px"}]
+
+    [:.registration-header
+     {:height "65px"
+      :background-color "#1a2532"
+      :border-right "1px solid white"}]
 
     [:.login-form-inputs
      {:max-width "350px"
