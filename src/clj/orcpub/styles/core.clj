@@ -1345,6 +1345,33 @@
     [:.z-1 {:z-index 1}]
     [:.z-200 {:z-index 200}]
 
+    [:.text-color-dark
+     {:color "#484848"}]
+
+    [:.highlight-spell-slot-row
+     {:background-color "rgba(255,255,255,0.3)"}]
+
+    [:.print-disabled
+     {:opacity 0.5
+      :cursor :not-allowed
+      :pointer-events "none"}]
+
+    [:.svg-icon-inline
+     {:vertical-align "middle"
+      :fill "currentColor"}]
+
+    [:.close-btn-posn
+     {:right "8px"
+      :top "8px"}]
+
+    [:.folder-dropdown
+     {:width :auto
+      :align-self :stretch
+      :box-sizing :border-box}]
+
+    [:.input-error
+     {:border "2px solid red"}]
+
     [:.form-button
      {:color :white
       :font-weight 600

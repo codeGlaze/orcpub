@@ -58,8 +58,6 @@
 ;; using a dropdown instead of a list of checkboxes
 (def actions-amount-many 5)
 
-(def text-color "#484848")
-
 (def orange "#f0a100")
 
 (defn event-value [e]
@@ -297,10 +295,9 @@
   [link]
   [:a.social-icon.p-5.opacity-5.hover-opacity-full.main-text-color
    {:href link :target :_blank}
-   [:svg {:xmlns "http://www.w3.org/2000/svg"
+   [:svg.svg-icon-inline {:xmlns "http://www.w3.org/2000/svg"
           :viewBox "0 0 568 501"
-          :width "20" :height "18"
-          :style {:vertical-align "middle" :fill "currentColor"}}
+          :width "20" :height "18"}
     [:path {:d "M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875 79.748C507.222 323.8 536.444 388.56 473.333 453.32c-119.86 122.992-172.272-30.859-185.702-70.281-2.462-7.227-3.614-10.608-3.631-7.733-.017-2.875-1.169.506-3.631 7.733-13.43 39.422-65.842 193.273-185.702 70.281-63.111-64.76-33.89-129.52 80.986-149.07-65.72 11.185-139.6-7.295-159.875-79.748C10.945 203.659 1 75.291 1 57.946 1-28.906 76.135-1.612 123.121 33.664Z"}]]])
 
 (defn route-to-default-route []
@@ -753,11 +750,9 @@
       [:div.m-t-5.p-r-10.p-l-10
        [:span.f-s-14
         "By clicking JOIN you agree to our"
-        [:a.m-l-5 {:href "/terms-of-use" :target :_blank
-                   :style {:color text-color}} "Terms of Use"]
+        [:a.m-l-5.text-color-dark {:href "/terms-of-use" :target :_blank} "Terms of Use"]
         [:span.m-l-5 "and that you've read our"]
-        [:a.m-l-5 {:href "/privacy-policy" :target :_blank
-                   :style {:color text-color}} "Privacy Policy"]]]])))
+        [:a.m-l-5.text-color-dark {:href "/privacy-policy" :target :_blank} "Privacy Policy"]]]])))
 
 (defn route-to-register-page []
   (dispatch [:route routes/register-page-route {:secure true :no-return? true}]))
@@ -1631,8 +1626,6 @@
              [:td]
              [:td.p-10 total-spellcaster-levels]]]]])])))
 
-(def highlight-spell-slot-row-style
-  {:background-color "rgba(255,255,255,0.3)"})
 
 (defn spell-slots-table []
   (let [expanded? (r/atom false)
@@ -1676,9 +1669,7 @@
                     ^{:key lvl}
                     [:tr
                      {:class (when highlight?
-                                    "f-w-b")
-                      :style (when highlight?
-                               highlight-spell-slot-row-style)}
+                                    "f-w-b highlight-spell-slot-row")}
                      [:td.p-10 lvl]
                      (let [total-slots (opt/total-slots lvl (if multiclass? 1 (-> spell-slot-factors first val)))]
                        (doall
@@ -3419,12 +3410,6 @@
     (dispatch [::mi/hide-delete-confirmation item-key])
     (dispatch [::mi/reset-item])))
 
-(defn print-button-style [print-button-enabled]
-  (if print-button-enabled
-    {}
-    {:opacity 0.5
-     :cursor :not-allowed
-     :pointer-events "none"}))
 
 
 (defn print-options [id built-char]
@@ -3496,7 +3481,7 @@
             "Prepared"
             print-prepared-spells?]]]])
       [:button.form-button.p-10.m-l-5
-       {:style (print-button-style print-button-enabled)
+       {:class (when-not print-button-enabled "print-disabled")
         :on-click (export-pdf-handler built-char
                                       id
                                       plugin-data
@@ -6189,9 +6174,7 @@
                  [:span.f-w-b "Name"]
                  name
                  #(dispatch [::selections/set-selection-path-prop [:options i :name] %])
-                 {:class "input h-40"
-                  :style (when (or is-dupe? is-empty?)
-                           {:border "2px solid red"})}]
+                 {:class (str "input h-40" (when (or is-dupe? is-empty?) " input-error"))}]
                 (when is-dupe?
                   [:div.red.f-s-12.m-t-2
                    "Duplicate name \u2014 rename to a unique name before saving"])
@@ -7576,12 +7559,8 @@
            [:span.f-w-b "Email Updates: "]
            (let [send-updates? @(subscribe [:send-updates?])]
              [:span
-              [:i.fa.fa-check.f-s-14.pointer.m-r-5
+              [:i.fa.fa-check.f-s-14.pointer.m-r-5.checkbox-border
                {:class (if send-updates? "orange" "white")
-                :style {:border-color "#f0a100"
-                        :border-style :solid
-                        :border-width "1px"
-                        :border-bottom-width "3px"}
                 :on-click #(dispatch [:toggle-send-updates (not send-updates?)])}]
               (if send-updates?
                 (str "Receiving updates from " branding/app-name)
@@ -7810,9 +7789,8 @@
                       :print-spell-card-dc-mod? true})}
          "print"])
       (when (and (= username owner) (seq folders))
-        [:select.form-button.m-l-5.builder-option-dropdown
-         {:style {:width "auto" :align-self "stretch" :box-sizing "border-box"}
-          :value (or current-folder-id "")
+        [:select.form-button.m-l-5.builder-option-dropdown.folder-dropdown
+         {:value (or current-folder-id "")
           :on-change (fn [e]
                        (let [val (.-value (.-target e))]
                          (if (= val "")
@@ -7901,10 +7879,9 @@
            {:class (if folder-expanded? "fa-folder-open" "fa-folder")}])
         (if folder-renaming?
           [:div.flex.align-items-c
-           [:input.input
+           [:input.input.w-160
             {:auto-focus true
              :value @edit-name
-             :style {:width "160px"}
              :on-change #(reset! edit-name (.-value (.-target %)))
              :on-key-down (fn [e]
                             (when (= "Enter" (.-key e))
@@ -7996,15 +7973,13 @@
          [:div.flex.align-items-c.flex-wrap.p-5
           ;; Name search
           [:div.posn-rel.m-r-5.m-b-5
-           [:input.input
+           [:input.input.w-200
             {:placeholder "Search by name..."
-             :style       {:width "200px"}
              :value       name-filter
              :on-change   #(dispatch [::char/set-char-name-filter (.. % -target -value)])}]
            (when (not (s/blank? name-filter))
-             [:i.fa.fa-times.posn-abs.pointer.orange.f-s-14
-              {:style    {:right "8px" :top "8px"}
-               :on-click #(dispatch [::char/set-char-name-filter ""])}])]
+             [:i.fa.fa-times.posn-abs.pointer.orange.f-s-14.close-btn-posn
+              {:on-click #(dispatch [::char/set-char-name-filter ""])}])]
 
           ;; Classes multi-select dropdown
           [:div.posn-rel.m-r-5.m-b-5
