@@ -152,11 +152,6 @@
       :class (when light-theme? " opacity-7")
       :src (str (if light-theme? "/image/black/" "/image/") icon-name ".svg")}]))
 
-(def login-style
-  {:color "#f0a100"})
-
-(def login-style-menu
-  {:background-color "rgba(0,0,0,0.4)"})
 
 (defn dispatch-logout []
   (dispatch [:logout]))
@@ -167,37 +162,6 @@
 
 (defn dispatch-route-to-my-account [e]
   (dispatch [:route :my-account]))
-
-;; dead — zero callers
-#_(def header-tab-style
-  {:width "85px"})
-
-(def active-style {:background-color "rgba(240, 161, 0, 0.7)"})
-
-(def menu-color "#2c3445")
-
-(def header-menu-item-style
-  {:position :absolute
-   :background-color "#2c3445"
-   :z-index 10000
-   :top 84
-   :right 0})
-
-;; dead — zero callers
-#_(def desktop-menu-item-style
-  (assoc header-menu-item-style
-         :width "100%"))
-
-(def mobile-header-menu-item-style
-  (assoc header-menu-item-style
-         :top 46))
-
-(def user-menu-style
-  {:background-color menu-color
-   :z-index 10000
-   :position :absolute
-   :right 0
-   :display :none})
 
 (defn handle-user-menu [e]
   (let [user-header (js/document.getElementById "user-header")
@@ -222,7 +186,7 @@
      (when username
        {:on-mouse-over handle-user-menu
         :on-mouse-out hide-user-menu})
-     [:div.b-rad-5.flex.align-items-c.p-l-10.p-r-10.p-t-5.p-b-5.f-s-16 {:style login-style-menu }
+     [:div.login-menu.b-rad-5.flex.align-items-c.p-l-10.p-r-10.p-t-5.p-b-5.f-s-16
       [:div.user-icon [svg-icon "orc-head" 35 ""]]
       (if username
         [:span.f-w-b.t-a-r
@@ -233,9 +197,8 @@
           [:span "LOGIN"]]])
       (when username
         [:i.fa.m-l-5.fa-caret-down])]
-     [:div#user-menu.shadow.f-w-b
-      {:style user-menu-style
-       :on-click hide-user-menu}
+     [:div#user-menu.shadow.f-w-b.user-menu
+      {:on-click hide-user-menu}
       [:div.p-10.opacity-5.hover-opacity-full
        {:on-click dispatch-logout}
        "LOG OUT"]
@@ -245,14 +208,12 @@
      #_(if username
          [:span.f-w-b.t-a-r
           (if (not @(subscribe [:mobile?])) [:span.m-r-5 username])
-          [:span.underline.pointer
-           {:style login-style
-            :on-click dispatch-logout}
+          [:span.orange.underline.pointer
+           {:on-click dispatch-logout}
            "LOG OUT"]]
          [:span.pointer.flex.flex-column.align-items-end
           [:span.orange.underline.f-w-b.m-l-5
-           {:style login-style
-            :on-click dispatch-route-to-login}
+           {:on-click dispatch-route-to-login}
            [:span "LOGIN"]]])]))
 
 (defn route-fn [route]
@@ -273,10 +234,10 @@
                         (on-click e)))
           :on-mouse-enter #(when-not mobile? (reset! hovered? true))
           :on-mouse-leave #(when-not mobile? (reset! hovered? false))
-          :style (when active active-style)
           :class (str (if disabled "disabled" "pointer")
-                           " "
-                           (when (not mobile?) " w-110"))}
+                      " "
+                      (when (not mobile?) " w-110")
+                      (when active " header-tab-active"))}
          [:div.p-10
           {:class (when (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
           (let [size (if mobile? 24 48)] (svg-icon icon size ""))
@@ -285,15 +246,15 @@
          (when (and (seq buttons)
                   @hovered?)
            [:div.uppercase.shadow
-            {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
+            {:class (if mobile? "header-menu-dropdown-mobile" "header-menu-dropdown")}
             (doall
              (map
               (fn [{:keys [name route]}]
                 ^{:key name}
                 [:div.p-10.opacity-5.hover-opacity-full
                  (let [current-route @(subscribe [:route])]
-                   {:style (when (or (= route current-route)
-                                   (= route (get current-route :handler))) active-style)
+                   {:class (when (or (= route current-route)
+                                     (= route (get current-route :handler))) "header-tab-active")
                     :on-click (fn [e]
                                 (.stopPropagation e)
                                 (reset! hovered? false)
@@ -312,10 +273,10 @@
                         (when (fn? on-click) (on-click e))))
           :on-mouse-over #(when-not mobile? (reset! hovered? true))
           :on-mouse-out #(when-not mobile? (reset! hovered? false))
-          :style (if active active-style)
           :class-name (str (if disabled "disabled" "pointer")
                            " "
-                           (if (not mobile?) "w-110"))}
+                           (if (not mobile?) "w-110")
+                           (when active " header-tab-active"))}
          [:div.p-10
           {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
           (let [size (if mobile? 24 48)] (svg-icon icon size ""))
@@ -324,7 +285,7 @@
          (if (and (seq buttons)
                   @hovered?)
            [:div.uppercase.shadow
-            {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
+            {:class (if mobile? "header-menu-dropdown-mobile" "header-menu-dropdown")}
             (doall
              (map
               (fn [{:keys [name route]}]
@@ -333,56 +294,30 @@
                  {:on-click (fn [e]
                               (.stopPropagation e)
                               (reset! hovered? false))
-                  :style (let [current-route @(subscribe [:route])]
+                  :class (let [current-route @(subscribe [:route])]
                            (when (or (= route current-route)
-                                     (= route (get current-route :handler))) active-style))}
+                                     (= route (get current-route :handler))) "header-tab-active"))}
                  [:a.no-text-decoration {:href route} name]])
               buttons))])]))))
-
-(def social-icon-style
-  {:color :white
-   :font-size "20px"})
 
 (defn social-icon
   "Render a Font Awesome brand icon as a social link."
   [icon link]
-  [:a.p-5.opacity-5.hover-opacity-full.main-text-color
-   {:style social-icon-style
-    :href link :target :_blank}
+  [:a.social-icon.p-5.opacity-5.hover-opacity-full.main-text-color
+   {:href link :target :_blank}
    [:i.fab
     {:class (str "fa-" icon)}]])
 
 (defn bluesky-icon
   "Bluesky butterfly icon (inline SVG — FA 5.13.1 has no fa-bluesky)."
   [link]
-  [:a.p-5.opacity-5.hover-opacity-full.main-text-color
-   {:style social-icon-style
-    :href link :target :_blank}
+  [:a.social-icon.p-5.opacity-5.hover-opacity-full.main-text-color
+   {:href link :target :_blank}
    [:svg {:xmlns "http://www.w3.org/2000/svg"
           :viewBox "0 0 568 501"
           :width "20" :height "18"
           :style {:vertical-align "middle" :fill "currentColor"}}
     [:path {:d "M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875 79.748C507.222 323.8 536.444 388.56 473.333 453.32c-119.86 122.992-172.272-30.859-185.702-70.281-2.462-7.227-3.614-10.608-3.631-7.733-.017-2.875-1.169.506-3.631 7.733-13.43 39.422-65.842 193.273-185.702 70.281-63.111-64.76-33.89-129.52 80.986-149.07-65.72 11.185-139.6-7.295-159.875-79.748C10.945 203.659 1 75.291 1 57.946 1-28.906 76.135-1.612 123.121 33.664Z"}]]])
-
-(def search-input-style
-  {:height "60px"
-   :margin-top "0px"
-   :border :none
-   :font-size "28px"
-   :background-color :transparent
-   :color :white})
-
-;; dead — zero callers
-#_(def search-icon-style
-  {:top 6
-   :right 25})
-
-(def search-input-parent-style
-  {:background-color "rgba(0,0,0,0.3)"})
-
-;; dead — zero callers
-#_(def transparent-search-input-style
-  (assoc search-input-style :color :transparent))
 
 (defn route-to-default-route []
   (dispatch [:route routes/default-route]))
@@ -434,13 +369,11 @@
                  search-text? @(subscribe [:search-text?])]
              [:div
               {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
-              [:div.b-rad-5.flex.align-items-c
-               {:style search-input-parent-style}
+              [:div.search-input-parent.b-rad-5.flex.align-items-c
                (when (not mobile?)
                  [:div.p-l-20.flex-grow-1
-                  [:input.w-100-p.main-text-color
-                   {:style search-input-style
-                    :value search-text
+                  [:input.search-input.w-100-p.main-text-color
+                   {:value search-text
                     :on-key-press search-input-keypress
                     :on-change set-search-text
                     :placeholder "search"}]])
@@ -1394,10 +1327,6 @@
          results)))]))
 
 
-(def orcacle-input-style
-  (merge search-input-style
-         {:background-color "rgba(255,255,255,0.1)"}))
-
 (defn close-orcacle []
   (dispatch [:close-orcacle]))
 
@@ -1420,8 +1349,7 @@
         [:input.input.orcacle-input
          {:value search-text
           :on-change set-search-text
-          :on-key-press search-input-keypress
-          :style orcacle-input-style}]
+          :on-key-press search-input-keypress}]
         [:i.fa.fa-times.posn-abs.f-s-24.pointer.close-icon
          {:on-click set-search-text-empty}]]
        [:span.f-s-14.i.opacity-5 "\"8d10 + 2\", \"magic missile\", \"kobold\", \"female calishite name\", \"tavern name\", etc."]]

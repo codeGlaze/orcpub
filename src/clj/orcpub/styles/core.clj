@@ -974,6 +974,53 @@
      {:padding "20px 5px"
       :background-color "rgba(0,0,0,0.15)"}]
 
+    [:.header-menu-dropdown
+     {:position :absolute
+      :background-color "#2c3445"
+      :z-index 10000
+      :top (px 84)
+      :right 0}]
+
+    [:.header-menu-dropdown-mobile
+     {:position :absolute
+      :background-color "#2c3445"
+      :z-index 10000
+      :top (px 46)
+      :right 0}]
+
+    [:.user-menu
+     {:background-color "#2c3445"
+      :z-index 10000
+      :position :absolute
+      :right 0
+      :display :none}]
+
+    [:.login-menu
+     {:background-color "rgba(0,0,0,0.4)"}]
+
+    [:.social-icon
+     {:color :white
+      :font-size "20px"}]
+
+    [:.search-input-parent
+     {:background-color "rgba(0,0,0,0.3)"}]
+
+    [:.search-input
+     {:height "60px"
+      :margin-top "0px"
+      :border :none
+      :font-size "28px"
+      :background-color :transparent
+      :color :white}]
+
+    [:.orcacle-input
+     {:height "60px"
+      :margin-top "0px"
+      :border :none
+      :font-size "28px"
+      :background-color "rgba(255,255,255,0.1)"
+      :color :white}]
+
     [:.login-form-inputs
      {:max-width "350px"
       :margin-left :auto
@@ -1034,6 +1081,9 @@
       :-webkit-backdrop-filter "blur(5px)"
       :backdrop-filter "blur(5px)"
       :border-radius "5px"}]
+
+    [:.header-tab-active
+     {:background-color "rgba(240, 161, 0, 0.7)"}]
 
     [:.header-tab.mobile
      [:.title
