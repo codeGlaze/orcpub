@@ -133,9 +133,7 @@
         light-theme? (= "light-theme" theme)
         size (or size 32)]
     [:img.svg-icon
-     {:style {:height (str size "px")
-              :width (str size "px")}
-      :class (when light-theme? " opacity-7")
+     {:class (str "w-" size " h-" size (when light-theme? " opacity-7"))
       :src (str (if light-theme? "/image/black/" "/image/") icon-name ".svg")}]))
 
 
@@ -371,8 +369,7 @@
         [:div.content
          [:div.flex.w-100-p.align-items-end
           {:class (if mobile? "justify-cont-s-b" "justify-cont-s-b")}
-          [:div
-           {:style {:min-width "53px"}}
+          [:div.min-w-53
            [integrations/supporter-link @(subscribe [:user-tier]) mobile? svg-icon]
            (when (not mobile?)
              [:div.main-text-color.p-10
@@ -493,8 +490,7 @@
   (dispatch [:route :default]))
 
 (defn registration-page [content]
-  [:div.sans.h-full.flex
-   {:style {:flex-direction :column}}
+  [:div.sans.h-full.flex.flex-column
    [:div.flex.justify-cont-s-a.align-items-c.flex-grow-1.h-100-p
     [:div.registration-content
      [:div.flex.h-100-p
@@ -524,8 +520,7 @@
   (let [params (r/atom {})]
     (fn []
       (registration-page
-       [:div.flex.justify-cont-s-b {:style {:text-align :center
-                           :flex-direction :column}}
+       [:div.flex.justify-cont-s-b.t-a-c.flex-column
         [:div.p-20
          [:div.f-w-b.f-s-24.p-b-10
           "Your key has expired."]
@@ -561,9 +556,7 @@
       (let [email (:email @params)
             bad-email? (registration/bad-email? email)]
         (registration-page
-         [:div.flex.justify-cont-s-b.w-100-p
-          {:style {:text-align :center
-                   :flex-direction :column}}
+         [:div.flex.justify-cont-s-b.w-100-p.t-a-c.flex-column
           [:div.p-t-10
            (when error-message [:div.red.m-b-20 error-message])
            [:div.f-w-b.f-s-24.p-b-10
@@ -613,8 +606,7 @@
             invalid? (or (seq password-messages)
                          different?)]
         (registration-page
-         [:div.flex.justify-cont-s-b {:style {:text-align :center
-                                              :flex-direction :column}}
+         [:div.flex.justify-cont-s-b.t-a-c.flex-column
           [:div.p-20
            [:div.f-w-b.f-s-24.p-b-10
             "Reset Password"]
@@ -743,16 +735,9 @@
            [:div.main-text-color.p-l-10.b-rad-5.password-strength-label
              [:span "Password Strength:"]
              [:span.f-w-b.m-l-5 text]]]])
-       [:div.m-t-20
-        {:style {:text-align :left
-                 :margin-left "15px"}}
-        [:i.fa.fa-check.f-s-14.pointer
+       [:div.m-t-20.t-a-l.m-l-15
+        [:i.fa.fa-check.f-s-14.pointer.checkbox-border
          {:class (if send-updates? "orange" "white")
-          :style {:margin-top "-3px"
-                  :border-color "#f0a100"
-                  :border-style :solid
-                  :border-width "1px"
-                  :border-bottom-width "3px"}
           :on-click #(dispatch [:registration-send-updates? (not send-updates?)])}]
         [:span.m-l-5 (str "Yes! Send me updates about " branding/app-name)]]
        [:div.m-t-10
@@ -6644,8 +6629,6 @@
 #_(def minutes-per-hour 60)
 #_(def hours-per-day 24)
 
-(def w-155 {:style {:width "155px"}})
-(def w-160 {:style {:width "160px"}})
 
 (defn duration-selector [title
                          key
@@ -6677,8 +6660,7 @@
                               opt/conditions)]
     (when (seq remaining-conditions)
       [:div.flex.align-items-end
-       [:div.m-r-5
-        w-155
+       [:div.m-r-5.w-155
         [:div.f-w-b.f-s-12 "Condition"]
         [dropdown
          {:items (cons
@@ -6965,8 +6947,7 @@
                                       used-conditions (into #{} (map :type) conditions)]
                                   [:div.m-t-10
                                    [:div.flex.w-100-p
-                                    [:div.f-s-16.f-w-b
-                                     w-160
+                                    [:div.f-s-16.f-w-b.w-160
                                      "Conditions"]
                                     (when (seq conditions)
                                       [:div.f-s-16.f-w-b.m-l-60 "Duration"])]
@@ -8027,14 +8008,13 @@
 
           ;; Classes multi-select dropdown
           [:div.posn-rel.m-r-5.m-b-5
-           {:style {:z-index (if @classes-open? 200 1)}}
+           {:class (if @classes-open? "z-200" "z-1")}
            [:button.form-button
             {:on-click (fn [e] (.stopPropagation e) (swap! classes-open? not))}
             (str "Classes" (when (seq class-filters) (str " (" (count class-filters) ")")))
             [:i.fa.m-l-5 {:class (if @classes-open? "fa-caret-up" "fa-caret-down")}]]
            (when @classes-open?
-             [:div.filter-dropdown.main-text-color
-              {:style {:min-width "160px"}}
+             [:div.filter-dropdown.main-text-color.min-w-160
               (if (seq avail-classes)
                 (doall
                  (map (fn [cls]
@@ -8047,14 +8027,13 @@
 
           ;; Levels multi-select dropdown
           [:div.posn-rel.m-r-5.m-b-5
-           {:style {:z-index (if @levels-open? 200 1)}}
+           {:class (if @levels-open? "z-200" "z-1")}
            [:button.form-button
             {:on-click (fn [e] (.stopPropagation e) (swap! levels-open? not))}
             (str "Levels" (when (seq level-filters) (str " (" (count level-filters) ")")))
             [:i.fa.m-l-5 {:class (if @levels-open? "fa-caret-up" "fa-caret-down")}]]
            (when @levels-open?
-             [:div.filter-dropdown.main-text-color
-              {:style {:min-width "120px"}}
+             [:div.filter-dropdown.main-text-color.min-w-120
               (if (seq avail-levels)
                 (doall
                  (map (fn [lvl]

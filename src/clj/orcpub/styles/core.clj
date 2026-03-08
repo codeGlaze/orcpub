@@ -46,13 +46,19 @@
   (px-prop
    :width
    :w
-   [12 14 15 18 20 24 32 36 40 48 50 60 70 80 85 90 100 110 120 200 220 250 300 500 1440]))
+   [12 14 15 16 18 20 24 32 36 40 48 50 60 70 80 85 90 100 110 120 155 160 200 220 250 300 500 1440]))
 
 (def max-widths
   (px-prop
    :max-width
    :max-w
    [300]))
+
+(def min-widths
+  (px-prop
+   :min-width
+   :min-w
+   [53 120 160]))
 
 (defn handle-browsers [property value]
   {(keyword (str "-webkit-" (name property))) value
@@ -286,6 +292,8 @@
     {:height "14px"}]
    [:.h-15
     {:height "15px"}]
+   [:.h-16
+    {:height "16px"}]
    [:.h-18
     {:height "18px"}]
    [:.h-20
@@ -1327,6 +1335,16 @@
      {:position :absolute
       :padding-top "6px"}]
 
+    [:.checkbox-border
+     {:margin-top "-3px"
+      :border-color "#f0a100"
+      :border-style :solid
+      :border-width "1px"
+      :border-bottom-width "3px"}]
+
+    [:.z-1 {:z-index 1}]
+    [:.z-200 {:z-index 200}]
+
     [:.form-button
      {:color :white
       :font-weight 600
@@ -1799,6 +1817,7 @@
    margin-tops
    widths
    max-widths
+   min-widths
    font-sizes
    props
    media-queries) ;concat
