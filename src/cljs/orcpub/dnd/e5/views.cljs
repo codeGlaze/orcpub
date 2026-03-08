@@ -971,16 +971,6 @@
             [:div.m-t-20
              [:span "Didn't receive validation the email? " [:br] [:a.orange {:href "/help/im-not-getting-my-signup-password-reset-email/" :target "_blank"} "Whitelist"] " our domain then reset your password." ]]]]])))))
 
-(def loading-style
-  {:position :fixed
-   :height "100%"
-   :width "100%"
-   :top 0
-   :bottom 0
-   :right 0
-   :left 0
-   :z-index 100
-   :background-color "rgba(0,0,0,0.6)"})
 
 (defn hide-confirmation []
   (dispatch [:hide-confirmation]))
@@ -1403,25 +1393,6 @@
               :monster (monster-results results))])
          results)))]))
 
-(def oracle-frame-style
-  {:overflow-y :scroll
-   :position :fixed
-   :z-index 1
-   :background-color "rgba(0,0,0,0.95)"
-   :top 0
-   :left 0
-   :right 0
-   :bottom 0})
-
-(def close-icon-style
-  {:top 0
-   :right 0
-   :padding "17px"})
-
-(def close-button-style
-  {:position :fixed
-   :top 20
-   :right 40})
 
 (def orcacle-input-style
   (merge search-input-style
@@ -1434,11 +1405,9 @@
 
 (defn orcacle []
   (let [search-text @(subscribe [:search-text])]
-    [:div.flex.flex-column.h-100-p.white
-     {:style oracle-frame-style}
-     [:i.fa.fa-times-circle.f-s-24.orange.pointer
-      {:on-click close-orcacle
-       :style close-button-style}]
+    [:div.flex.flex-column.h-100-p.white.oracle-frame
+     [:i.fa.fa-times-circle.f-s-24.orange.pointer.close-button
+      {:on-click close-orcacle}]
      [:div
       [:div.flex.justify-cont-s-a.m-t-10
        [:div.flex.align-items-c.pointer
@@ -1453,9 +1422,8 @@
           :on-change set-search-text
           :on-key-press search-input-keypress
           :style orcacle-input-style}]
-        [:i.fa.fa-times.posn-abs.f-s-24.pointer
-         {:style close-icon-style
-          :on-click set-search-text-empty}]]
+        [:i.fa.fa-times.posn-abs.f-s-24.pointer.close-icon
+         {:on-click set-search-text-empty}]]
        [:span.f-s-14.i.opacity-5 "\"8d10 + 2\", \"magic missile\", \"kobold\", \"female calishite name\", \"tavern name\", etc."]]
       [:div.flex-grow-1
        [search-results]]]]))
@@ -1524,7 +1492,7 @@
            (when-not frame?
              [download-form])
            (when (pos? (or @(subscribe [:loading]) 0))
-             [:div {:style loading-style}
+             [:div.loading-overlay
               [:div.flex.justify-cont-s-a.align-items-c.h-100-p
                [:img.h-200.w-200.m-t-200 {:src "/image/spiral.gif"}]]])
            (when-not frame?
@@ -2014,8 +1982,6 @@
                          (dispatch [::char/use-spell-slot id (or @selected-level (first usable-slot-levels))]))}
            "cast spell"]]]))))
 
-(def expanded-spell-background-style
-  {:background-color "rgba(0,0,0,0.1)"})
 
 (defn spell-row [id lvl spell-modifiers prepares-spells prepared-spells-by-class {:keys [key ability qualifier class always-prepared?]} expanded? on-click prepare-spell-count prepared-spell-count]
   (let [spell-map @(subscribe [::spells/spells-map])
@@ -2057,7 +2023,7 @@
        [:i.fa
         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
      (when expanded?
-       [:tr {:style expanded-spell-background-style}
+       [:tr.expanded-spell-background
         [:td {:col-span 7}
          [:div.p-10
           (when (pos? lvl)
@@ -2621,9 +2587,6 @@
      (personality-section "Flaws" flaws)
      (personality-section "Description" description)]))
 
-(def notes-style
-  {:height "400px"
-   :width "100%"})
 
 (def stroke-style
   {:stroke-width "1"})
@@ -2761,9 +2724,8 @@
            :textarea
            @(subscribe [::char/notes id])
            (set-notes-handler id)
-           {:style notes-style
-            :maxLength (:notes branding/field-limits)
-            :class-name "input"}]]]]]]]))
+           {:maxLength (:notes branding/field-limits)
+            :class-name "input notes-textarea"}]]]]]]]))
 
 (defn weapon-details-field [nm value]
   [:div.p-2
@@ -3588,9 +3550,6 @@
            (when @show-selections?
              [character-selections id])]]]))))
 
-(def character-display-style
-  {:padding "20px 5px"
-   :background-color "rgba(0,0,0,0.15)"})
 
 (defn add-to-party-component []
   (let [party-id (r/atom nil)]
@@ -8037,8 +7996,7 @@
         folders @(subscribe [::folder/folders])
         char-folder-map @(subscribe [::folder/character-folder-map])
         current-folder-id (get char-folder-map id)]
-    [:div
-     {:style character-display-style}
+    [:div.character-display
      [:div.flex.justify-cont-end.uppercase.align-items-c
       [integrations/share-link-www id]
       (when (= username owner)
@@ -8507,8 +8465,7 @@
                              [:i.fa.m-l-5
                               {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
                            (when expanded?
-                             [:div
-                              {:style character-display-style}
+                             [:div.character-display
                               [:div.flex.justify-cont-end.uppercase.align-items-c
                                (when (= username owner)
                                  [:button.form-button
@@ -8545,8 +8502,7 @@
           [:i.fa.m-l-5
            {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
         (when expanded?
-          [:div.p-10
-           {:style character-display-style}
+          [:div.p-10.character-display
            [:div.flex.justify-cont-end.uppercase.align-items-c
             [:button.form-button.m-l-5
              {:on-click #(dispatch [:route (routes/match-route (routes/path-for routes/dnd-e5-monster-page-route :key key))])}
@@ -8660,9 +8616,8 @@
         [:input.input.f-s-24.p-l-20.w-100-p.h-60
          {:value     @(subscribe [::char/monster-text-filter])
           :on-change (make-arg-event-handler ::char/filter-monsters event-value)}]
-        [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color
-         {:style    close-icon-style
-          :on-click clear-monsters-filter}]]]
+        [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color.close-icon
+         {:on-click clear-monsters-filter}]]]
       [:div
        [:div.flex.justify-cont-s-b.m-b-10
         [:div.orange.m-l-10.m-r-10 "Sort by:"]
@@ -8696,8 +8651,7 @@
         [:i.fa.m-l-5
          {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
       (when expanded?
-        [:div.p-10
-         {:style character-display-style}
+        [:div.p-10.character-display
          [:div.flex.justify-cont-end.uppercase.align-items-c
           [:button.form-button.m-l-5
            {:on-click (make-event-handler :route spell-page-route)}
@@ -8733,9 +8687,8 @@
         [:input.input.f-s-24.p-l-20.w-100-p.h-60
          {:value @(subscribe [::char/spell-text-filter])
           :on-change (make-arg-event-handler ::char/filter-spells event-value)}]
-        [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color
-         {:style close-icon-style
-          :on-click (make-event-handler ::char/filter-spells "")}]]]
+        [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color.close-icon
+         {:on-click (make-event-handler ::char/filter-spells "")}]]]
       [spell-list-items device-type]]]))
 
 (defn item-list-item [{:keys [key name ::mi/owner :db/id] :as item} expanded?]
@@ -8759,8 +8712,7 @@
         [:i.fa.m-l-5
          {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]
       (when expanded?
-        [:div.p-10
-         {:style character-display-style}
+        [:div.p-10.character-display
          [:div.flex.justify-cont-end.uppercase.align-items-c
           [:button.form-button.m-l-5
            {:on-click (make-event-handler :route item-page-route)}
@@ -8812,8 +8764,7 @@
         [:input.input.f-s-24.p-l-20.w-100-p.h-60
          {:value @(subscribe [::char/item-text-filter])
           :on-change (make-arg-event-handler ::char/filter-items event-value)}]
-        [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color
-         {:style close-icon-style
-          :on-click (make-event-handler ::char/filter-items "")}]]]
+        [:i.fa.fa-times.posn-abs.f-s-24.pointer.main-text-color.close-icon
+         {:on-click (make-event-handler ::char/filter-items "")}]]]
       [item-list-items]]]))
 

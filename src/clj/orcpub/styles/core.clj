@@ -932,6 +932,48 @@
       :background-color "#1a2532"
       :border-right "1px solid white"}]
 
+    [:.loading-overlay
+     {:position "fixed"
+      :height "100%"
+      :width "100%"
+      :top 0
+      :bottom 0
+      :right 0
+      :left 0
+      :z-index 100
+      :background-color "rgba(0,0,0,0.6)"}]
+
+    [:.oracle-frame
+     {:overflow-y "scroll"
+      :position "fixed"
+      :z-index 1
+      :background-color "rgba(0,0,0,0.95)"
+      :top 0
+      :left 0
+      :right 0
+      :bottom 0}]
+
+    [:.close-button
+     {:position "fixed"
+      :top "20px"
+      :right "40px"}]
+
+    [:.close-icon
+     {:top 0
+      :right 0
+      :padding "17px"}]
+
+    [:.expanded-spell-background
+     {:background-color "rgba(0,0,0,0.1)"}]
+
+    [:.notes-textarea
+     {:height "400px"
+      :width "100%"}]
+
+    [:.character-display
+     {:padding "20px 5px"
+      :background-color "rgba(0,0,0,0.15)"}]
+
     [:.login-form-inputs
      {:max-width "350px"
       :margin-left :auto
