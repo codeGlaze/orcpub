@@ -3,8 +3,7 @@
             [clojure.string :as s]
             [orcpub.fork.branding :as branding]
             [orcpub.fork.integrations :as integrations]
-            [orcpub.fork.privacy-content :as content]
-            [environ.core :as environ]))
+            [orcpub.fork.privacy-content :as content]))
 
 (defn section [{:keys [title font-size paragraphs subsections]}]
   [:div

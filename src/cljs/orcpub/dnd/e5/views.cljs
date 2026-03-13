@@ -3611,6 +3611,16 @@
            (when @show-selections?
              [character-selections id])]]]))))
 
+;; TODO: re-enable when email sharing is wired up
+#_(defn share-link-email [id]
+  [:a.m-r-5.f-s-14
+   {:href (str "mailto:?subject=My%20D%26D%20Character%20-%20"
+               @(subscribe [::char/character-name id])
+               "&body=" js/window.location.protocol "//" js/window.location.hostname "" js/window.location.port
+               (str (routes/path-for routes/dnd-e5-char-page-route :id id) "?frame=true"))}
+   [:i.fa.fa-envelope.m-r-5]
+   "share"])
+
 (def character-display-style
   {:padding "20px 5px"
    :background-color "rgba(0,0,0,0.15)"})
