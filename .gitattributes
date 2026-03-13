@@ -1,0 +1,14 @@
+# Fork override files — keep each branch's version during merges.
+# DMV has real implementations, public/breaking has stubs.
+src/clj/orcpub/fork/** merge=ours
+src/cljc/orcpub/fork/** merge=ours
+src/cljs/orcpub/fork/** merge=ours
+
+# DMV branding assets — keep each branch's version during merges.
+# These only exist on dmv/ and should never appear on public branches.
+resources/public/image/*DM* merge=ours
+resources/public/image/patron_button* merge=ours
+resources/public/js/dungeonmastersvault* merge=ours
+resources/public/ads.txt merge=ours
+deploy/error/** merge=ours
+deploy/maintenance/** merge=ours

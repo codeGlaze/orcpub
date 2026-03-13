@@ -4,12 +4,13 @@
 #?(:clj
    (defmacro build-date
      "Captures the current date at compile time (MM-dd-yyyy).
-      In CLJS, the macro runs on the JVM during compilation,
-      so the date reflects when the JS was built."
+      In CLJS, the macro runs on the JVM during compilation.
+      Uses TZ env var if set, falls back to JVM default timezone."
      []
-     (.format (java.time.LocalDate/now)
-              (java.time.format.DateTimeFormatter/ofPattern "MM-dd-yyyy"))))
+     (let [tz (or (System/getenv "TZ") (str (java.time.ZoneId/systemDefault)))]
+       (.format (java.time.LocalDate/now (java.time.ZoneId/of tz))
+                (java.time.format.DateTimeFormatter/ofPattern "MM-dd-yyyy")))))
 
-(defn version [] "2.4.0.28")
+(defn version [] "2.6.0.0")
 (defn date [] (build-date))
-(defn description [] "Assault of the Last Stand")
+(defn description [] "Liberation of the Iron Coder - tinkan's last stand")

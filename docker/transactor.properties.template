@@ -17,28 +17,25 @@
 protocol=dev
 
 # --- Host & Networking --------------------------------------------------------
-# host= is what the transactor ADVERTISES to peers, not what it binds to.
-# Peers connect via the URI hostname, receive this advertised host, then use
-# it for subsequent connections.
+# host= controls BOTH what the transactor binds to AND what it advertises
+# to peers via heartbeats. Datomic has no separate bind/advertise setting.
 #
-# Why "datomic" (the Docker Compose service name) and not "0.0.0.0":
+# COMPOSE (default):   host=datomic
+#   DNS resolves to the container's own IP → bind works, advertise gives
+#   peers the correct service name for reconnection.
 #
-#   host=0.0.0.0 works on single-host Docker Compose by accident — peers
-#   never actually use the advertised address (they reuse the URI hostname).
-#   In Swarm with multi-node overlay, a peer on node A would try to connect
-#   to 0.0.0.0:4334 locally, hitting itself instead of the transactor on
-#   node B. host=<service-name> works in both modes because Docker DNS
-#   resolves it correctly across the overlay network.
+# SWARM:               host=0.0.0.0, alt-host=datomic
+#   "datomic" resolves to a VIP in overlay networks — can't bind to that.
+#   0.0.0.0 binds to all interfaces; alt-host gives peers the service name
+#   for reconnection. run --swarm switches this automatically.
 #
-# If host=datomic fails: your containers aren't on a shared Docker network.
-#   docker compose creates one by default (projectname_default). Standalone
-#   docker run needs --network. Host networking mode has no DNS at all.
+# To switch manually: comment one host= line and uncomment the other.
 host=datomic
+#host=0.0.0.0
 port=4334
 
 # Alternative hostname for peer fallback connections.
-# Default 127.0.0.1 (container loopback). For Swarm with overlay networks,
-# set ALT_HOST to the service name or external hostname.
+# Compose: 127.0.0.1 (loopback). Swarm: datomic (Docker DNS).
 alt-host=${ALT_HOST:-127.0.0.1}
 
 # --- Storage Access -----------------------------------------------------------
@@ -59,8 +56,12 @@ encrypt-channel=${ENCRYPT_CHANNEL:-true}
 # deploy/start.sh refuses to start if ADMIN_PASSWORD or DATOMIC_PASSWORD
 # are not set.
 #
-# Peers must connect with the same DATOMIC_PASSWORD in their URI:
-#   datomic:dev://datomic:4334/orcpub?password=<DATOMIC_PASSWORD>
+# storage-admin-password — locked into the H2 database on first startup.
+#   Changing it later crashes the transactor ("Unable to connect to embedded
+#   storage"). Data is NOT lost — set it back or use ADMIN_PASSWORD_OLD to rotate.
+#
+# storage-datomic-password — peer connection password. Shared by transactor and
+#   app. Changing it disconnects the app. Use DATOMIC_PASSWORD_OLD to rotate.
 storage-admin-password=${ADMIN_PASSWORD}
 storage-datomic-password=${DATOMIC_PASSWORD}
 

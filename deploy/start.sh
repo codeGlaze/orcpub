@@ -5,9 +5,14 @@
 # Substitutes secrets into transactor.properties.template and launches the
 # transactor. Uses pure bash sed (no envsubst/gettext — Alpine doesn't have it).
 #
-# Required env vars: ADMIN_PASSWORD, DATOMIC_PASSWORD
-# Optional env vars: ALT_HOST, ENCRYPT_CHANNEL,
-#                    ADMIN_PASSWORD_OLD, DATOMIC_PASSWORD_OLD
+# Secret resolution order (per variable):
+#   1. Docker secret file at /run/secrets/<name>  (Swarm / compose secrets)
+#   2. Environment variable                       (compose environment / .env)
+#   3. (none — required vars exit 1 if missing)
+#
+# Required: ADMIN_PASSWORD, DATOMIC_PASSWORD
+# Optional: ALT_HOST, ENCRYPT_CHANNEL,
+#           ADMIN_PASSWORD_OLD, DATOMIC_PASSWORD_OLD
 # ===========================================================================
 
 set -euo pipefail
@@ -15,17 +20,39 @@ set -euo pipefail
 TEMPLATE="/datomic/transactor.properties.template"
 OUTPUT="/datomic/transactor.properties"
 
+# --- Read Docker secrets (if mounted) ----------------------------------------
+# Docker secrets are files at /run/secrets/<name>. When present, the secret
+# file OVERRIDES any env var — this matches the resolution order documented
+# above and in config.clj. If no secret file exists, the env var is used as-is.
+
+read_secret() {
+  local var_name="$1"
+  local secret_file="/run/secrets/${2:-$(echo "$var_name" | tr '[:upper:]' '[:lower:]')}"
+  if [ -f "$secret_file" ]; then
+    local val
+    val=$(<"$secret_file")
+    # Strip trailing whitespace: \r (Windows), \n (common in secret files)
+    val="${val%$'\r\n'}"
+    val="${val%$'\n'}"
+    val="${val%$'\r'}"
+    export "$var_name=$val"
+  fi
+}
+
+read_secret ADMIN_PASSWORD
+read_secret DATOMIC_PASSWORD
+read_secret ADMIN_PASSWORD_OLD
+read_secret DATOMIC_PASSWORD_OLD
+
 # --- Validate required secrets ------------------------------------------------
 
 if [ -z "${ADMIN_PASSWORD:-}" ]; then
-  echo "ERROR: ADMIN_PASSWORD not set."
-  echo "See https://docs.datomic.com/on-prem/configuring-embedded.html#sec-2-1"
+  echo "ERROR: ADMIN_PASSWORD not set (checked env var and /run/secrets/admin_password)."
   exit 1
 fi
 
 if [ -z "${DATOMIC_PASSWORD:-}" ]; then
-  echo "ERROR: DATOMIC_PASSWORD not set."
-  echo "See https://docs.datomic.com/on-prem/configuring-embedded.html#sec-2-1"
+  echo "ERROR: DATOMIC_PASSWORD not set (checked env var and /run/secrets/datomic_password)."
   exit 1
 fi
 

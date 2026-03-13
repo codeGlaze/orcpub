@@ -72,7 +72,8 @@
    routes/reset-password-page-route views/password-reset-page
    routes/password-reset-success-route views/password-reset-success
    routes/password-reset-expired-route views/password-reset-expired-page
-   routes/password-reset-used-route views/password-reset-used-page})
+   routes/password-reset-used-route views/password-reset-used-page
+   routes/unsubscribe-success-route views/unsubscribe-success})
 
 (defn handle-url-change [_]
   (let [route (when js/window.location

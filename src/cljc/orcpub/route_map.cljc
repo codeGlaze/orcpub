@@ -112,6 +112,8 @@
 (def password-reset-success-route :password-reset-success)
 (def password-reset-expired-route :password-reset-expired)
 (def password-reset-used-route :password-reset-used)
+(def unsubscribe-route :unsubscribe)
+(def unsubscribe-success-route :unsubscribe-success)
 (def terms-of-use-route :terms-of-use)
 (def privacy-policy-route :privacy-policy)
 (def community-guidelines-route :community-guidelines)
@@ -138,13 +140,15 @@
                   "password-reset-success" password-reset-success-route
                   "password-reset-expired" password-reset-expired-route
                   "password-reset-used" password-reset-used-route
+                  "unsubscribe" unsubscribe-route
+                  "unsubscribe-success" unsubscribe-success-route
                   "terms-of-use" terms-of-use-route
                   "privacy-policy" privacy-policy-route
                   "community-guidelines" community-guidelines-route
                   "cookies-policy" cookies-policy-route
 
                   "following/users" {["/" :user] follow-user-route}
-                  
+
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route
                                         ["/" :id] dnd-e5-char-route}

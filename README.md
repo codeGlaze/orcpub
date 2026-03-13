@@ -77,8 +77,7 @@ For running your own production instance:
 
 ```bash
 git clone https://github.com/orcpub/orcpub.git && cd orcpub
-./docker-setup.sh           # generates .env, SSL certs, directories
-docker compose up -d        # pull images and start
+./run                       # setup, build, and start (interactive)
 ./docker-user.sh init       # create admin from .env settings
 ```
 
@@ -221,7 +220,7 @@ For the full list, see [docs/migration/dev-tooling.md](docs/migration/dev-toolin
 Run these before committing:
 
 ```bash
-# Server-side tests (74 tests, 237 assertions)
+# Server-side tests (210 tests, 963 assertions)
 lein test
 
 # Linter (0 errors expected; warnings are from third-party libs)
@@ -305,8 +304,8 @@ For self-hosting a production instance.
 ```bash
 git clone https://github.com/orcpub/orcpub.git && cd orcpub
 
-# Interactive setup — generates .env, SSL certs, and directories
-./docker-setup.sh
+# Full pipeline — setup, build, and start (interactive)
+./run
 
 # Pull pre-built images and start
 docker compose up -d
@@ -321,8 +320,7 @@ Visit `https://localhost` when running.
 To build from source instead of pulling images:
 
 ```bash
-docker compose -f docker-compose-build.yaml build
-docker compose -f docker-compose-build.yaml up -d
+docker compose up --build -d
 ```
 
 For environment variable details, see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
@@ -349,8 +347,7 @@ The storage protocols (`datomic:free://` vs `datomic:dev://`) use different form
 ```bash
 ./docker-migrate.sh backup        # With old stack running
 docker compose down
-docker compose -f docker-compose-build.yaml build
-docker compose -f docker-compose-build.yaml up -d
+docker compose up --build -d
 ./docker-migrate.sh restore       # After new stack is healthy
 ./docker-migrate.sh verify
 ```
@@ -388,7 +385,7 @@ Place your `.orcbrew` file at `./deploy/homebrew/homebrew.orcbrew` — it loads 
 |--------|---------|
 | `scripts/migrate-db.sh` | Migrate data from Datomic Free to Pro (bare metal) |
 | `docker-migrate.sh` | Migrate data from Datomic Free to Pro (Docker) |
-| `docker-setup.sh` | Generate `.env`, SSL certs, and directories |
+| `run` | Setup, build, and deploy — full pipeline or individual steps |
 | `docker-user.sh` | Create, verify, and list users in the database |
 
 ---

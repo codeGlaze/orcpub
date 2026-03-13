@@ -10,23 +10,40 @@
             [clojure.pprint :as pprint]
             [clojure.string :as s]
             [orcpub.route-map :as routes]
+            [orcpub.fork.branding :as branding]
             [cuerdas.core :as str]))
 
+(defn- social-links-footer
+  "Render email footer social links from branding config. Empty links hidden."
+  []
+  (let [{:keys [patreon twitter facebook]} branding/social-links]
+    (remove nil?
+      [(when (seq patreon) [:br])
+       (when (seq patreon) (str patreon "  <-- Like what we are doing? Support us here."))
+       (when (seq twitter) [:br])
+       (when (seq twitter) twitter)
+       (when (seq facebook) [:br])
+       (when (seq facebook) facebook)
+       [:br]])))
+
 (defn verification-email-html [first-and-last-name username verification-url]
-  [:div
-   "Dear Dungeon Master's Vault Patron,"
-   [:br]
-   [:br]
-   "Your Dungeon Master's Vault account is almost ready, we just need you to verify your email address going the following URL to confirm that you are authorized to use this email address:"
-   [:br]
-   [:br]
-   [:a {:href verification-url} verification-url]
-   [:br]
-   [:br]
-   "Sincerely,"
-   [:br]
-   [:br]
-   "The Dungeon Master's Vault Team"])
+  (into
+   [:div
+    (str "Welcome to " branding/app-name
+         (when (seq first-and-last-name) (str ", " first-and-last-name)) "!")
+    [:br]
+    [:br]
+    (str "Your " branding/app-name " account is almost ready, we just need you to verify your email address by visiting the following URL to confirm that you are authorized to use this email address:")
+    [:br]
+    [:br]
+    [:a {:href verification-url} verification-url]
+    [:br]
+    [:br]
+    "Sincerely,"
+    [:br]
+    [:br]
+    (str "The " branding/email-sender-name)]
+   (social-links-footer)))
 
 (defn verification-email [first-and-last-name username verification-url]
   [{:type "text/html"
@@ -36,7 +53,7 @@
   "Email body for existing users changing their email (distinct from registration)."
   [username verification-url]
   [:div
-   "Dear Dungeon Master's Vault Patron,"
+   (str "Dear " branding/app-name " User,")
    [:br]
    [:br]
    "You requested to change the email address on your account (" username "). "
@@ -52,7 +69,7 @@
    "Sincerely,"
    [:br]
    [:br]
-   "The Dungeon Master's Vault Team"])
+   (str "The " branding/email-sender-name)])
 
 (defn email-change-verification-email [username verification-url]
   [{:type "text/html"
@@ -72,8 +89,11 @@
                        :port (environ/env :email-server-port)}
                       e)))))
 
-(defn emailfrom []
-  (if (not (s/blank? (environ/env :email-from-address))) (environ/env :email-from-address) "no-reply@dungeonmastersvault.com"))
+(defn emailfrom
+  "Returns the configured from-address. Delegates to branding/email-from-address
+   which already reads EMAIL_FROM_ADDRESS env var with a fallback default."
+  []
+  branding/email-from-address)
 
 (defn send-verification-email
   "Sends account verification email to a new user.
@@ -91,9 +111,9 @@
   [base-url {:keys [email username first-and-last-name]} verification-key]
   (try
     (let [result (postal/send-message (email-cfg)
-                                      {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
+                                      {:from (str branding/email-sender-name " <" (emailfrom) ">")
                                        :to email
-                                       :subject "Dungeon Master's Vault Email Verification"
+                                       :subject (str branding/app-name " Email Verification")
                                        :body (verification-email
                                               first-and-last-name
                                               username
@@ -113,34 +133,61 @@
                       e)))))
 
 (defn send-email-change-verification
-  "Send a verification email for an email-change request (not registration)."
+  "Send a verification email for an email-change request (not registration).
+
+  Args:
+    base-url - Base URL for the application (for verification link)
+    user-map - Map containing :email and :username
+    verification-key - Unique key for email change verification
+
+  Returns:
+    Postal send-message result
+
+  Throws:
+    ExceptionInfo with :email-change-verification-failed error code if email cannot be sent"
   [base-url {:keys [email username]} verification-key]
-  (postal/send-message (email-cfg)
-                       {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
-                        :to email
-                        :subject "Dungeon Master's Vault Email Change Verification"
-                        :body (email-change-verification-email
-                               username
-                               (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))}))
+  (try
+    (let [result (postal/send-message (email-cfg)
+                                      {:from (str branding/email-sender-name " <" (emailfrom) ">")
+                                       :to email
+                                       :subject (str branding/app-name " Email Change Verification")
+                                       :body (email-change-verification-email
+                                              username
+                                              (str base-url (routes/path-for routes/verify-route) "?key=" verification-key))})]
+      (when (not= :SUCCESS (:error result))
+        (throw (ex-info "Failed to send email change verification"
+                        {:error :email-send-failed
+                         :email email
+                         :postal-response result})))
+      result)
+    (catch Exception e
+      (println "ERROR: Failed to send email change verification to" email ":" (.getMessage e))
+      (throw (ex-info "Unable to send email change verification. Please check your email configuration or try again later."
+                      {:error :email-change-verification-failed
+                       :email email
+                       :username username}
+                      e)))))
 
 (defn reset-password-email-html [first-and-last-name reset-url]
-  [:div
-   "Dear Dungeon Master's Vault Patron"
-   [:br]
-   [:br]
-   "We received a request to reset your password, to do so please go to the following URL to complete the reset."
-   [:br]
-   [:br]
-   [:a {:href reset-url} reset-url]
-   [:br]
-   [:br]
-   "If you did NOT request a reset, please do no click on the link."
-   [:br]
-   [:br]
-   "Sincerely,"
-   [:br]
-   [:br]
-   "The Dungeon Master's Vault Team"])
+  (into
+   [:div
+    (str "Dear " (if (seq first-and-last-name) first-and-last-name (str branding/app-name " User")) ",")
+    [:br]
+    [:br]
+    "We received a request to reset your password, to do so please go to the following URL to complete the reset."
+    [:br]
+    [:br]
+    [:a {:href reset-url} reset-url]
+    [:br]
+    [:br]
+    "If you did NOT request a reset, please do NOT click on the link."
+    [:br]
+    [:br]
+    "Sincerely,"
+    [:br]
+    [:br]
+    (str "The " branding/email-sender-name)]
+   (social-links-footer)))
 
 (defn reset-password-email [first-and-last-name reset-url]
   [{:type "text/html"
@@ -162,9 +209,9 @@
   [base-url {:keys [email username first-and-last-name]} reset-key]
   (try
     (let [result (postal/send-message (email-cfg)
-                                      {:from (str "Dungeon Master's Vault Team <" (emailfrom) ">")
+                                      {:from (str branding/email-sender-name " <" (emailfrom) ">")
                                        :to email
-                                       :subject "Dungeon Master's Vault Password Reset"
+                                       :subject (str branding/app-name " Password Reset")
                                        :body (reset-password-email
                                               first-and-last-name
                                               (str base-url (routes/path-for routes/reset-password-page-route) "?key=" reset-key))})]
@@ -182,34 +229,162 @@
                        :username username}
                       e)))))
 
+(defn unsubscribe-url
+  "Build a full unsubscribe URL from a base-url and a pre-signed JWT token.
+   Token is generated by routes/unsubscribe-token to avoid circular deps."
+  [base-url token]
+  (str base-url (routes/path-for routes/unsubscribe-route) "?token=" token))
+
+;; ---------------------------------------------------------------------------
+;; Error email — helpers
+;; ---------------------------------------------------------------------------
+
+(def ^:private error-throttle
+  "Maps fingerprint string → last-sent-ms. Suppresses duplicate error emails."
+  (atom {}))
+
+(def ^:private throttle-window-ms (* 5 60 1000))
+
+(defn- root-cause [^Throwable ex]
+  (loop [e ex]
+    (if-let [c (.getCause e)] (recur c) e)))
+
+(defn- orcpub-frame? [^StackTraceElement f]
+  (s/starts-with? (.getClassName f) "orcpub."))
+
+(def ^:private infra-prefixes
+  ["org.eclipse.jetty." "io.pedestal." "clojure.lang."
+   "java.lang.Thread" "sun.reflect." "java.util.concurrent."
+   "clojure.core$"])
+
+(defn- infra-frame? [^StackTraceElement f]
+  (let [cls (.getClassName f)]
+    (some #(s/starts-with? cls %) infra-prefixes)))
+
+(defn- fmt-frame [^StackTraceElement f]
+  (str "    " (.getClassName f) "." (.getMethodName f)
+       " (" (.getFileName f) ":" (.getLineNumber f) ")"))
+
+(defn- render-stack [^Throwable ex]
+  (let [frames     (seq (.getStackTrace ex))
+        app-frames (filter orcpub-frame? frames)
+        suppressed (count (filter infra-frame? frames))]
+    (str
+     (if (seq app-frames)
+       (s/join "\n" (map fmt-frame app-frames))
+       (let [fallback (->> frames (remove infra-frame?) last)]
+         (if fallback
+           (str (fmt-frame fallback) "  <- deepest non-infrastructure frame")
+           "  (no frames available)")))
+     (when (pos? suppressed)
+       (str "\n    ... " suppressed " infrastructure frames suppressed")))))
+
+(defn- render-cause-chain [^Throwable ex]
+  (let [sb (java.lang.StringBuilder.)]
+    (loop [e ex, depth 0]
+      (when e
+        (.append sb (str (when (pos? depth) "\nCaused by: ")
+                         (.getName (.getClass e))
+                         ": " (or (.getMessage e) "(no message)") "\n"))
+        (.append sb (render-stack e))
+        (.append sb "\n")
+        (recur (.getCause e) (inc depth))))
+    (str sb)))
+
+(defn- throttle-fingerprint [^Throwable ex]
+  (let [root       (root-cause ex)
+        root-class (.getName (.getClass root))
+        frames     (seq (.getStackTrace ex))
+        app-frame  (first (filter orcpub-frame? frames))]
+    (if app-frame
+      (str root-class "+" (.getClassName app-frame) "." (.getMethodName app-frame))
+      (let [msg (or (.getMessage root) "")]
+        (str root-class "+" (subs msg 0 (min 60 (count msg))))))))
+
+(defn- throttled? [fp]
+  (when-let [t (get @error-throttle fp)]
+    (< (- (System/currentTimeMillis) t) throttle-window-ms)))
+
+(defn- record-sent! [fp]
+  (swap! error-throttle assoc fp (System/currentTimeMillis)))
+
+(def ^:private safe-headers
+  #{"user-agent" "referer" "content-type" "accept-language" "cf-ipcountry"
+    "x-forwarded-for" "x-real-ip" "cf-ray" "sec-fetch-site" "sec-fetch-mode"
+    "x-forwarded-host" "x-forwarded-proto"})
+
+(def ^:private drop-req-keys
+  #{:json-params :transit-params :form-params :body :db :conn
+    :servlet-request :servlet-response :servlet :url-for
+    :async-supported? :identity :character-encoding :protocol
+    :path-params :content-length})
+
+(defn- scrub-request [req]
+  (-> (apply dissoc req drop-req-keys)
+      (update :headers #(select-keys (or % {}) safe-headers))))
+
+(defn- pedestal-wrapper?
+  "True when ex-data looks like a Pedestal interceptor error map."
+  [data]
+  (and (map? data) (contains? data :exception) (contains? data :interceptor)))
+
+(defn- email-subject [^Throwable real-ex request]
+  (let [cls    (.getSimpleName (.getClass real-ex))
+        msg    (let [m (or (.getMessage real-ex) "(no message)")]
+                 (subs m 0 (min 80 (count m))))
+        method (some-> (:request-method request) name s/upper-case)
+        uri    (or (:uri request) "?")]
+    (str "[" branding/app-name "] " cls ": " msg " @ " method " " uri)))
+
+(defn- build-body [request real-ex pedestal-meta]
+  (str
+   "=== Request ===\n"
+   (with-out-str (pprint/pprint (scrub-request request)))
+   (when-let [u (:username request)] (str "User: " u "\n"))
+   "\n=== Exception ===\n"
+   (render-cause-chain real-ex)
+   (when (instance? clojure.lang.ExceptionInfo real-ex)
+     (when-let [d (ex-data real-ex)]
+       (str "\n=== Exception Data ===\n"
+            (with-out-str (pprint/pprint d)))))
+   (when pedestal-meta
+     (str "\n=== Interceptor Context ===\n"
+          (with-out-str (pprint/pprint pedestal-meta))))))
+
+;; ---------------------------------------------------------------------------
+
 (defn send-error-email
-  "Sends error notification email to configured admin email.
+  "Sends a scrubbed, readable error notification email to the configured admin
+  address (EMAIL_ERRORS_TO env var).
 
-  This function is called when unhandled exceptions occur in the application.
-  It includes request context and exception details for debugging.
-
-  Args:
-    context - Request context map
-    exception - The exception that occurred
-
-  Returns:
-    Postal send-message result, or nil if no error email is configured
-    or if sending fails (failures are logged but not thrown)"
+  - Strips credentials, cookies, body params, and Datomic objects from request
+  - Filters stack trace to orcpub.* frames; falls back to deepest non-infra frame
+  - Walks the full cause chain
+  - Throttles: one email per unique error fingerprint per 5 minutes
+  - Extracts Pedestal interceptor metadata as a separate section"
   [context exception]
   (when (not-empty (environ/env :email-errors-to))
-    (try
-      (let [result (postal/send-message (email-cfg)
-                                        {:from (str "Dungeon Master's Vault Errors <" (emailfrom) ">")
-                                         :to (str (environ/env :email-errors-to))
-                                         :subject "Exception"
-                                         :body [{:type "text/plain"
-                                                 :content (let [writer (java.io.StringWriter.)]
-                                                            (clojure.pprint/pprint (:request context) writer)
-                                                            (clojure.pprint/pprint (or (ex-data exception) exception) writer)
-                                                            (str writer))}]})]
-        (when (not= :SUCCESS (:error result))
-          (println "WARNING: Failed to send error notification email:" (:error result)))
-        result)
-      (catch Exception e
-        (println "ERROR: Failed to send error notification email:" (.getMessage e))
-        nil))))
+    (let [data-map      (ex-data exception)
+          pedestal?     (pedestal-wrapper? data-map)
+          real-ex       (if pedestal? (:exception data-map) exception)
+          pedestal-meta (when pedestal? (dissoc data-map :exception :exception-type))
+          request       (or (:request context) {})
+          fp            (throttle-fingerprint real-ex)]
+      (if (throttled? fp)
+        (println "INFO: Suppressed duplicate error email (fingerprint:" fp ")")
+        (do
+          (record-sent! fp)
+          (try
+            (let [result (postal/send-message
+                          (email-cfg)
+                          {:from    (str branding/app-name " Errors <" (emailfrom) ">")
+                           :to      (str (environ/env :email-errors-to))
+                           :subject (email-subject real-ex request)
+                           :body    [{:type    "text/plain"
+                                      :content (build-body request real-ex pedestal-meta)}]})]
+              (when (not= :SUCCESS (:error result))
+                (println "WARNING: Failed to send error notification email:" (:error result)))
+              result)
+            (catch Exception e
+              (println "ERROR: Failed to send error notification email:" (.getMessage e))
+              nil)))))))

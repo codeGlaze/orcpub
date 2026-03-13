@@ -2,7 +2,7 @@
 #   transactor  — datomic transactor (dev storage protocol)
 #   app         — orcpub uberjar runner
 #
-# Usage via docker-compose-build.yaml (each service sets its target).
+# Usage: docker compose up --build (each service sets its target).
 
 # ── Shared: download Datomic Pro distribution ─────────────────
 FROM alpine:3.22 AS datomic-dist
@@ -71,6 +71,11 @@ RUN lein deps
 
 ADD ./ /orcpub
 
+# Timezone for build-date macro and runtime logging.
+# Override via docker build --build-arg TZ=... or .env
+ARG TZ=America/Chicago
+ENV TZ=${TZ}
+
 # Three-step build: CLJS, AOT compile, uberjar packaging.
 #
 # lein's compile task spawns a subprocess that hangs in no-TTY (Docker/CI)
@@ -99,8 +104,11 @@ RUN timeout 600 lein with-profile uberjar,uberjar-package uberjar; \
 # Alpine runner — BusyBox wget handles healthchecks (use -q --spider, not GNU flags)
 FROM eclipse-temurin:21-jre-alpine-3.22 AS app
 
+ARG TZ=America/Chicago
+ENV TZ=${TZ}
+
 # PDFBox requires fontconfig, fonts, and lcms2 for PDF character sheet generation
-RUN apk add --no-cache fontconfig ttf-dejavu freetype lcms2
+RUN apk add --no-cache fontconfig ttf-dejavu freetype lcms2 tzdata
 
 COPY --from=app-builder /orcpub/target/orcpub.jar /orcpub.jar
 

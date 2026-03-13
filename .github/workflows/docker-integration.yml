@@ -3,7 +3,7 @@
 #
 # Java 8 (legacy):  Pulls pre-built images from Docker Hub — skipped gracefully
 #                    when images are unavailable.
-# Java 21 (modern): Builds from source using docker-compose-build.yaml with
+# Java 21 (modern): Builds from source using docker-compose.yaml (--build) with
 #                    Datomic Pro and eclipse-temurin:21.
 
 name: Docker Integration Test
@@ -14,7 +14,7 @@ on:
     paths:
       - 'docker/**'
       - 'docker-compose*.yaml'
-      - 'docker-setup.sh'
+      - 'run'
       - 'docker-user.sh'
       - 'deploy/**'
       - '.github/workflows/docker-integration.yml'
@@ -38,7 +38,7 @@ jobs:
           if [ -f "dev.cljs.edn" ]; then
             echo "Detected: Java 21 / Datomic Pro / figwheel-main → build from source"
             echo "build-mode=build" >> $GITHUB_OUTPUT
-            echo "compose-file=docker-compose-build.yaml" >> $GITHUB_OUTPUT
+            echo "compose-file=docker-compose.yaml" >> $GITHUB_OUTPUT
             echo "stack-label=Java 21 / Datomic Pro (build)" >> $GITHUB_OUTPUT
           else
             echo "Detected: Java 8 / Datomic Free / cljsbuild → pull pre-built"
@@ -65,23 +65,38 @@ jobs:
       - name: Lint shell scripts
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck docker-setup.sh docker-user.sh
+          shellcheck run docker-user.sh
 
-      - name: Run docker-setup.sh --auto
+      - name: Run run --auto
         run: |
-          ./docker-setup.sh --auto
+          ./run --auto
+          # Naked ./run runs full pipeline (setup→build→up). Tear down containers
+          # and wipe H2 data so CI's own build/start steps get a clean slate.
+          docker compose down -v 2>/dev/null || true
+          sudo rm -rf data/
           echo "--- Generated .env (secrets redacted) ---"
           sed 's/=.*/=***/' .env
 
       - name: Validate .env password consistency
         run: |
           PW=$(grep '^DATOMIC_PASSWORD=' .env | cut -d= -f2)
-          URL_PW=$(grep '^DATOMIC_URL=' .env | sed 's/.*password=//')
-          if [ "$PW" != "$URL_PW" ]; then
-            echo "FAIL: DATOMIC_PASSWORD and DATOMIC_URL password mismatch"
-            exit 1
+          URL=$(grep '^DATOMIC_URL=' .env | cut -d= -f2-)
+          if echo "$URL" | grep -q 'password='; then
+            # Legacy format: password embedded in URL — must match DATOMIC_PASSWORD
+            URL_PW=$(echo "$URL" | sed 's/.*password=//')
+            if [ "$PW" != "$URL_PW" ]; then
+              echo "FAIL: DATOMIC_PASSWORD and DATOMIC_URL password mismatch"
+              exit 1
+            fi
+            echo "OK: Passwords match (embedded in URL)"
+          else
+            # New format: password separate — just verify both exist
+            if [ -z "$PW" ]; then
+              echo "FAIL: DATOMIC_PASSWORD not set"
+              exit 1
+            fi
+            echo "OK: DATOMIC_PASSWORD set, URL clean (password appended at runtime by config.clj)"
           fi
-          echo "OK: Passwords match"
 
       - name: Test — setup --force preserves existing values
         run: |
@@ -91,7 +106,10 @@ jobs:
           ORIG_SIG=$(grep '^SIGNATURE=' .env | cut -d= -f2)
 
           # Re-run with --force --auto (should regenerate)
-          ./docker-setup.sh --auto --force
+          # Tear down first — naked ./run creates containers + H2 data with old passwords
+          docker compose down -v 2>/dev/null || true
+          sudo rm -rf data/
+          ./run --auto --force
 
           # Verify .env was regenerated (new passwords, since --auto generates fresh ones)
           NEW_ADMIN=$(grep '^ADMIN_PASSWORD=' .env | cut -d= -f2)
@@ -102,14 +120,17 @@ jobs:
           grep -q '^SIGNATURE=' .env || { echo "FAIL: SIGNATURE missing"; exit 1; }
           grep -q '^PORT=' .env || { echo "FAIL: PORT missing"; exit 1; }
 
-          # Re-check password consistency after --force
+          # Re-check password exists after --force
           PW=$(grep '^DATOMIC_PASSWORD=' .env | cut -d= -f2)
-          URL_PW=$(grep '^DATOMIC_URL=' .env | sed 's/.*password=//')
-          if [ "$PW" != "$URL_PW" ]; then
-            echo "FAIL: Password mismatch after --force re-run"
+          if [ -z "$PW" ]; then
+            echo "FAIL: DATOMIC_PASSWORD missing after --force re-run"
             exit 1
           fi
-          echo "OK: --force regenerated .env with consistent passwords"
+          echo "OK: --force regenerated .env with DATOMIC_PASSWORD set"
+
+          # Clean up containers/data from --force pipeline run
+          docker compose down -v 2>/dev/null || true
+          sudo rm -rf data/
 
       # ── Container image acquisition ─────────────────────────────
       # Java 21: build from source (no pre-built images for new stack)
@@ -130,6 +151,10 @@ jobs:
           echo "=== Building orcpub (app) ==="
           docker build --target app -t orcpub-app -f docker/Dockerfile .
           echo "=== Build complete ==="
+          # Set image env vars so compose uses locally-built images
+          # instead of pulling old Datomic Free images from Docker Hub
+          echo "ORCPUB_IMAGE=orcpub-app" >> "$GITHUB_ENV"
+          echo "DATOMIC_IMAGE=orcpub-datomic" >> "$GITHUB_ENV"
 
       - name: Pull container images (Java 8)
         id: pull

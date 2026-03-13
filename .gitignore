@@ -1,7 +1,9 @@
-# Ignore environment file (secrets/config)
+# Ignore environment file and Docker secret files (passwords)
 .env
+.env.secrets.backup
+/secrets/
+docker-compose.secrets.yaml
 .editorconfig
-.gitattributes
 /resources/public/css/compiled
 /resources/public/js/compiled
 /resources/*_backup.pdf
@@ -67,6 +69,15 @@ cljs-test-runner-out
 
 # Claude Code local data (conversation history, credentials)
 .claude-data/
+
+# Agentic/AI tool files — belong in dotfiles or agents/ branch, not code branches
+.claude/
+
+# NewRelic (DMV-specific, contains license key)
+newrelic*
+
+# Transactor properties (may contain hardcoded passwords)
+deploy/transactor.properties
 
 # Ignore all log files in logs/
 logs/

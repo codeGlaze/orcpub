@@ -16,8 +16,14 @@
             [clojure.string :as s]))
 
 (def datomic-url
-  (or (System/getenv "DATOMIC_URL")
-      "datomic:dev://datomic:4334/orcpub?password=datomic"))
+  (let [base-url (or (System/getenv "DATOMIC_URL")
+                     "datomic:dev://datomic:4334/orcpub")
+        password (System/getenv "DATOMIC_PASSWORD")]
+    (if (and password (not (.contains base-url "password=")))
+      (str base-url "?password=" password)
+      (if (.contains base-url "password=")
+        base-url
+        (str base-url "?password=datomic")))))
 
 (defn get-conn []
   (try

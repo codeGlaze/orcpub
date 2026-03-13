@@ -39,9 +39,11 @@
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
             [orcpub.security :as security]
+            [orcpub.fork.branding :as branding]
+            [orcpub.fork.auth :as auth]
+            [orcpub.fork.user-data :as user-data]
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
-            [orcpub.oauth :as oauth]
             [hiccup.page :as page]
             [environ.core :as environ]
             [clojure.set :as sets]
@@ -50,7 +52,7 @@
             [ring.util.request :as req])
   ;; PDFBox 3.x: Use Loader class instead of PDDocument.load() static method
   ;; OLD (2.x): (PDDocument/load input-stream)
-  ;; NEW (3.x): (Loader/loadPDF input-stream)
+  ;; NEW (3.x): (Loader/loadPDF byte-array)  — does NOT accept InputStream
   ;; 
   ;; Import syntax notes for Clojure newcomers:
   ;;   - (org.apache.pdfbox.pdmodel PDDocument PDPage) imports multiple classes from one package
@@ -234,10 +236,16 @@
   (map :orcpub.user/username
        (d/pull-many db '[:orcpub.user/username] ids)))
 
-(defn user-body [db user]
-  (cond-> {:username (:orcpub.user/username user)
-           :email (:orcpub.user/email user)
-           :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
+(defn user-body
+  "Build the user API response. Core fields are inline; fork-specific
+   fields (e.g. tier data) are added by user-data/enrich-response."
+  [db user]
+  (cond-> (user-data/enrich-response
+           {:username (:orcpub.user/username user)
+            :email (:orcpub.user/email user)
+            :send-updates? (boolean (:orcpub.user/send-updates? user))
+            :following (following-usernames db (map :db/id (:orcpub.user/following user)))}
+           user)
     (:orcpub.user/pending-email user)
     (assoc :pending-email (:orcpub.user/pending-email user))))
 
@@ -250,16 +258,20 @@
                      errors/bad-credentials
                      errors/no-account)))))
 
-(defn create-login-response [db user & [headers]]
+(defn create-login-response [db conn user id & [headers]]
   (let [token (create-token (:orcpub.user/username user)
-                            (-> 24 hours from-now))]
+                            (-> auth/token-lifetime-hours hours from-now))
+        now (java.util.Date.)]
+    (when auth/track-last-login?
+      (d/transact conn [{:db/id id
+                         :orcpub.user/last-login now}]))
     {:status 200
      :headers headers
      :body {:user-data (user-body db user)
             :token token}}))
 
 (defn login-response
-  [{:keys [json-params db remote-addr] :as request}]
+  [{:keys [json-params db conn remote-addr] :as request}]
   (let [{raw-username :username raw-password :password} json-params]
     (cond
       (s/blank? raw-username) (login-error errors/username-required)
@@ -276,7 +288,8 @@
                 (nil? id) (bad-credentials-response db username remote-addr)
                 (and unverified? expired?) (login-error errors/unverified-expired)
                 unverified? (login-error errors/unverified {:email email})
-                :else (create-login-response db user))))))
+                :else
+                (create-login-response db conn user id))))))
 
 (defn login [{:keys [json-params db] :as request}]
   (try
@@ -337,7 +350,8 @@
         validation (registration/validate-registration
                     json-params
                     (seq (d/q email-query db email))
-                    (seq (d/q username-query db username)))]
+                    (seq (d/q username-query db username)))
+        now (java.util.Date.)]
     (try
       (if (seq validation)
         {:status 400
@@ -346,11 +360,15 @@
          request
          json-params
          conn
-         {:orcpub.user/email email
-          :orcpub.user/username username
-          :orcpub.user/password (hashers/encrypt password)
-          :orcpub.user/send-updates? send-updates?
-          :orcpub.user/created (java.util.Date.)}))
+         (merge
+          {:orcpub.user/email email
+           :orcpub.user/username username
+           :orcpub.user/password (hashers/encrypt password)
+           :orcpub.user/send-updates? send-updates?
+           :orcpub.user/created now}
+          (when auth/record-last-login-at-registration?
+            {:orcpub.user/last-login now})
+          (user-data/registration-defaults))))
       (catch Throwable e (prn e) (throw e)))))
 
 (def user-for-verification-key-query
@@ -428,9 +446,55 @@
       (redirect route-map/verify-success-route)
       (do-verification request
                        (merge query-params
-                              {:first-and-last-name "DMV Patron"})
+                              {:first-and-last-name auth/verification-display-name})
                        conn
                        {:db/id id}))))
+
+;; ─── Email Preferences ─────────────────────────────────────────────
+
+(defn unsubscribe-token
+  "Create a JWT-signed unsubscribe token for embedding in email links.
+   Stateless — no DB storage needed. Verified by checking JWT signature."
+  [email]
+  (jwt/sign {:email (s/lower-case email) :action "unsubscribe"}
+            (environ/env :signature)))
+
+(defn unsubscribe
+  "GET handler for /unsubscribe?token=<jwt>.
+   Verifies JWT signature, sets send-updates? to false, redirects to success page.
+   Idempotent — unsubscribing twice is harmless."
+  [{:keys [query-params db conn]}]
+  (let [token (:token query-params)]
+    (if (s/blank? token)
+      {:status 400 :body "Missing token"}
+      (try
+        (let [{:keys [email action]} (jwt/unsign token (environ/env :signature))]
+          (if (not= "unsubscribe" action)
+            {:status 400 :body "Invalid token"}
+            (let [{:keys [:db/id]} (user-for-email (d/db conn) email)]
+              (if id
+                (do @(d/transact conn [{:db/id id :orcpub.user/send-updates? false}])
+                    (redirect route-map/unsubscribe-success-route))
+                {:status 400 :body "Unknown email"}))))
+        (catch Exception _
+          {:status 400 :body "Invalid or tampered token"})))))
+
+(defn update-user-preferences
+  "PUT handler for /user — update user preferences (currently send-updates?).
+   Requires authentication. Only updates fields present in transit-params.
+   Re-reads from DB after transact to return authoritative state."
+  [{:keys [transit-params db conn identity]}]
+  (let [username (:user identity)
+        {:keys [:db/id]} (find-user-by-username db username)]
+    (if id
+      (do (when (contains? transit-params :send-updates?)
+            @(d/transact conn [{:db/id id
+                                :orcpub.user/send-updates? (boolean (:send-updates? transit-params))}]))
+          ;; Re-read from DB after transact for authoritative response
+          (let [updated-user (d/entity (d/db conn) id)]
+            {:status 200
+             :body {:send-updates? (boolean (:orcpub.user/send-updates? updated-user))}}))
+      {:status 400 :body {:error "User not found"}})))
 
 (defn do-send-password-reset [user-id email conn request]
   (let [key (str (java.util.UUID/randomUUID))]
@@ -442,7 +506,7 @@
           :orcpub.user/password-reset-sent (java.util.Date.)}])
       (email/send-reset-email
        (base-url request)
-       {:first-and-last-name "DMV Patron"
+       {:first-and-last-name auth/verification-display-name
         :email email}
        key)
       {:status 200}
@@ -587,10 +651,14 @@
         output (ByteArrayOutputStream.)
         user-agent (get-in req [:headers "user-agent"])
         chrome? (re-matches #".*Chrome.*" user-agent)
-        filename (str player-name " - " character-name " - " class-level ".pdf")]
+        filename (cond
+                   (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
+                   (s/blank? player-name) (str character-name " - " class-level ".pdf")
+                   :else (str player-name " - " character-name " - " class-level ".pdf"))]
         
-    ;; PDFBox 3.x: Loader/loadPDF replaces the deprecated PDDocument/load
-    (with-open [doc (Loader/loadPDF input)]
+    ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
+    ;; NOT InputStream. Read the resource stream into a byte array first.
+    (with-open [doc (Loader/loadPDF (.readAllBytes input))]
       (pdf/write-fields! doc fields (not chrome?) font-sizes)
       (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod?))
@@ -631,14 +699,14 @@
     :in $ ?key
     :where [?e :orcpub.user/password-reset-key ?key]])
 
-(def default-title
-  "Dungeon Master's Vault: D&D 5e Character Builder/Generator")
+(def default-title branding/default-page-title)
 
-(def default-description
-  "Dungeons & Dragons 5th Edition (D&D 5e) character builder/generator and digital character sheet far beyond any other in the multiverse.")
+(def default-description branding/app-tagline)
 
-(defn default-image-url [host]
-  (str "http://" host "/image/dmv-box-logo.png"))
+(defn default-image-url
+  "OG meta image URL. Uses https:// for social sharing compatibility."
+  [host]
+  (str "https://" host branding/og-image-filename))
 
 (defn index-page-response [{:keys [headers uri csp-nonce] :as request}
                            {:keys [title description image-url]}
@@ -886,7 +954,8 @@
         (let [data (ex-data e)]
           (case (:error data)
             :character-problems {:status 400 :body (:problems data)}
-            :not-user-character {:status 401 :body "You do not own this character"})))
+            :not-user-character {:status 401 :body "You do not own this character"}
+            (throw e))))   ; re-throw unrecognised ExceptionInfo (e.g. :db/error from Datomic)
       (catch Exception e (prn "ERROR" e) (throw e)))))
 
 (defn save-character [{:keys [db transit-params body conn identity] :as request}]
@@ -1265,6 +1334,7 @@
    [route-map/password-reset-used-route]
    [route-map/verify-failed-route]
    [route-map/verify-success-route]
+   [route-map/unsubscribe-success-route]
    [route-map/dnd-e5-orcacle-page-route]])
 
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
@@ -1359,6 +1429,7 @@
         {:post `register}]
        [(route-map/path-for route-map/user-route) ^:interceptors [check-auth]
         {:get `get-user
+         :put `update-user-preferences
          :delete `delete-user}]
        [(route-map/path-for route-map/user-email-route) ^:interceptors [check-auth]
         {:put `request-email-change}]
@@ -1418,6 +1489,8 @@
         {:get `verify}]
        [(route-map/path-for route-map/re-verify-route)
         {:get `re-verify}]
+       [(route-map/path-for route-map/unsubscribe-route)
+        {:get `unsubscribe}]
        [(route-map/path-for route-map/reset-password-route) ^:interceptors [ring/cookies check-auth]
         {:post `reset-password}]
        [(route-map/path-for route-map/reset-password-page-route) ^:interceptors [ring/cookies]
