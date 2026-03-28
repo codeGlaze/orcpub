@@ -47,9 +47,16 @@ Use it as a template for adding new class/build tests.
 
 ### Running E2E Tests
 ```bash
-# Quick start (assumes Datomic is running)
-PORT=8890 lein run &   # Start backend
-cd e2e && npm test     # Run all tests
+# Start Datomic Pro transactor
+lib/com/datomic/datomic-pro/1.0.7482/bin/transactor \
+  lib/com/datomic/datomic-pro/1.0.7482/config/working-transactor.properties &
+sleep 5
+
+# Start backend
+PORT=8890 lein run &
+
+# Run all tests (from testing worktree or testing/develop branch)
+cd e2e && npm test
 ```
 
 ### Important Route Notes

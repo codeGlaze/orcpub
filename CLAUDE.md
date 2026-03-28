@@ -47,7 +47,8 @@ The script will prompt to unpack Datomic if not already done.
 #### Option 2: Manual
 ```bash
 # 1. Start Datomic transactor
-lib/datomic-free-0.9.5703/bin/transactor lib/datomic-free-0.9.5703/config/working-transactor.properties &
+lib/com/datomic/datomic-pro/1.0.7482/bin/transactor \
+  lib/com/datomic/datomic-pro/1.0.7482/config/working-transactor.properties &
 
 # 2. Start app server (production mode)
 PORT=8890 lein run
