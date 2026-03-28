@@ -6,7 +6,8 @@ This guide helps AI agents quickly run and understand the E2E test infrastructur
 
 ```bash
 # Start the app (from project root)
-cd /workspaces/orcpub/lib/datomic-free-0.9.5703 && ./bin/transactor config/working-transactor.properties &
+/workspaces/orcpub/lib/com/datomic/datomic-pro/1.0.7482/bin/transactor \
+  /workspaces/orcpub/lib/com/datomic/datomic-pro/1.0.7482/config/working-transactor.properties &
 sleep 5
 PORT=8890 lein run &
 
