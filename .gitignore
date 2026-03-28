@@ -1,12 +1,11 @@
 # Ignore environment file and Docker secret files (passwords)
 .env
-.env.secrets.backup
+.env.*
+!.env.example
 /secrets/
 docker-compose.secrets.yaml
 docker-compose.swarm.yaml
 docker-compose.swarm.yaml.backup.*
-.env.portainer
-.env.backup.*
 transactor.properties.reference
 .editorconfig
 /resources/public/css/compiled
