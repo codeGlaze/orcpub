@@ -10,6 +10,10 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 - [🔍 Missing Content Detection](CONTENT_RECONCILIATION.md) - Find/fix missing content references
 - [📋 Required Fields Guide](HOMEBREW_REQUIRED_FIELDS.md) - Required fields per content type
 
+**Agent Knowledge Base:**
+- [📚 KB Index](kb/README.md) - Verified findings from deep investigations
+- [💥 Datomic Crash Analysis](kb/datomic-crash-analysis.md) - Root cause, frequency, fix options
+
 **For Developers:**
 - [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities
 - [🗡️ Language Selection Fix](LANGUAGE_SELECTION_FIX.md) - Ranger favored enemy language corruption (#296)

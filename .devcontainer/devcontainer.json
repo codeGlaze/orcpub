@@ -7,7 +7,8 @@
   "features": {
     "ghcr.io/devcontainers/features/sshd:1": {
       "version": "latest"
-    }
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
   "forwardPorts": [8890, 3449, 4334],
   "portsAttributes": {
@@ -17,7 +18,8 @@
     },
     "3449": {
       "label": "Figwheel",
-      "onAutoForward": "silent"
+      "onAutoForward": "silent",
+      "visibility": "public"
     },
     "4334": {
       "label": "Datomic",

@@ -2,12 +2,14 @@
   (:require [com.stuartsierra.component :as component]
             [io.pedestal.http :as http]
             [io.pedestal.interceptor :as interceptor]
+            [io.pedestal.log :as log]
             [pandect.algo.sha1 :refer [sha1]]
             [datomic.api :as d]
             [clojure.string :as s]
             [java-time.api :as t]
             [orcpub.csp :as csp]
-            [orcpub.config :as config])
+            [orcpub.config :as config]
+            [orcpub.fork.integrations :as integrations])
   (:import [java.io File]
            [java.time.format DateTimeFormatter]))
 
@@ -66,7 +68,10 @@
     :leave (fn [ctx]
              (if-let [nonce (get-in ctx [:request :csp-nonce])]
                (assoc-in ctx [:response :headers "Content-Security-Policy"]
-                         (csp/build-csp-header nonce :dev-mode? false))
+                         (csp/build-csp-header nonce
+                           :dev-mode? false
+                           :extra-connect-src (:connect-src integrations/csp-domains)
+                           :extra-frame-src (:frame-src integrations/csp-domains)))
                ctx))}))
 
 ;; Create the nonce interceptor with current dev-mode? setting
@@ -95,8 +100,7 @@
                   (if new-etag
                     (assoc-in context [:response :headers "etag"] new-etag)
                     context)))
-              (catch Throwable t (prn "T" t ))))}))
-
+              (catch Throwable t (log/error :msg "ETag interceptor error" :exception t))))}))
 (defrecord Pedestal [service-map conn service]
   component/Lifecycle
 

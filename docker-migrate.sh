@@ -23,7 +23,7 @@
 #   - Docker Compose v2 (docker compose plugin)
 #   - For backup:  OLD datomic container must be running
 #   - For restore: NEW datomic container must be running
-#   - .env file must exist (run docker-setup.sh first)
+#   - .env file must exist (run run first)
 #
 # See docs/migration/datomic-data-migration.md for the full guide.
 # =============================================================================
@@ -72,7 +72,7 @@ Usage:
   ./docker-migrate.sh full       Guided full migration (backup → swap → restore)
 
 Options (must come BEFORE the command):
-  --compose-yaml <file>  Override compose file for rebuild (default: docker-compose-build.yaml)
+  --compose-yaml <file>  Override compose file for rebuild (default: docker-compose.yaml)
   --old-uri <uri>        Override source database URI detection
   --new-uri <uri>        Override target database URI detection
   --help                 Show this help
@@ -81,7 +81,7 @@ Examples:
   # Step-by-step (recommended for large databases)
   ./docker-migrate.sh backup           # With old stack running
   docker compose down
-  docker compose -f docker-compose-build.yaml up -d
+  docker compose -f docker-compose.yaml up -d
   ./docker-migrate.sh restore          # After new stack is healthy
   ./docker-migrate.sh verify           # Verify backup integrity
 
@@ -97,8 +97,9 @@ load_env() {
   local env_file="${SCRIPT_DIR}/.env"
   if [[ -f "$env_file" ]]; then
     # Read specific variables we need rather than exporting everything
+    # tr -d '\r' handles Windows line endings in .env
     # shellcheck disable=SC1090
-    DATOMIC_PASSWORD="${DATOMIC_PASSWORD:-$(. "$env_file" && echo "${DATOMIC_PASSWORD:-}")}"
+    DATOMIC_PASSWORD="${DATOMIC_PASSWORD:-$(. <(tr -d '\r' < "$env_file") && echo "${DATOMIC_PASSWORD:-}")}"
   fi
 }
 
@@ -403,7 +404,7 @@ do_full() {
 
   # Use a distinct variable name to avoid colliding with Docker Compose's
   # COMPOSE_FILE env var (which changes docker compose's behavior globally).
-  local compose_yaml="${COMPOSE_YAML:-docker-compose-build.yaml}"
+  local compose_yaml="${COMPOSE_YAML:-docker-compose.yaml}"
   info "New compose file: $compose_yaml"
   echo ""
 

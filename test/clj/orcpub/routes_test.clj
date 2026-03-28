@@ -5,6 +5,8 @@
    [datomic.api :as d]
    [datomock.core :as dm]
    [io.pedestal.http :as http]
+   [buddy.sign.jwt :as jwt]
+   [environ.core :as environ]
    [orcpub.routes :as routes]
    [orcpub.dnd.e5.magic-items :as mi]
    [orcpub.dnd.e5.character :as char5e]
@@ -249,3 +251,107 @@
                                                      :v 34
                                                      :zz {:v 78
                                                           :zzz [{:s "String"}]}}]}}))))
+
+;; ─── Unsubscribe Token Tests ────────────────────────────────────────
+
+(deftest test-unsubscribe-token-roundtrip
+  (testing "Token encodes email and action, verifiable with signature"
+    (let [token (routes/unsubscribe-token "Test@Example.com")
+          claims (jwt/unsign token (environ/env :signature))]
+      (is (= "test@example.com" (:email claims))
+          "Email should be lowercased")
+      (is (= "unsubscribe" (:action claims))))))
+
+(deftest test-unsubscribe-handler
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      @(d/transact mocked-conn schema/all-schemas)
+      @(d/transact mocked-conn [{:orcpub.user/username "testy"
+                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/send-updates? true}])
+
+      (testing "Valid token unsubscribes user"
+        (let [token (routes/unsubscribe-token "test@test.com")
+              resp (routes/unsubscribe {:query-params {:token token}
+                                         :db (d/db mocked-conn)
+                                         :conn mocked-conn})]
+          (is (= 302 (:status resp))
+              "Should redirect to success page")
+          (let [user (routes/user-for-email (d/db mocked-conn) "test@test.com")]
+            (is (false? (:orcpub.user/send-updates? user))
+                "send-updates? should be false after unsubscribe"))))
+
+      (testing "Idempotent — unsubscribing twice succeeds"
+        (let [token (routes/unsubscribe-token "test@test.com")
+              resp (routes/unsubscribe {:query-params {:token token}
+                                         :db (d/db mocked-conn)
+                                         :conn mocked-conn})]
+          (is (= 302 (:status resp)))))
+
+      (testing "Tampered token returns 400"
+        (let [resp (routes/unsubscribe {:query-params {:token "tampered.token.here"}
+                                         :db (d/db mocked-conn)
+                                         :conn mocked-conn})]
+          (is (= 400 (:status resp)))))
+
+      (testing "Missing token returns 400"
+        (let [resp (routes/unsubscribe {:query-params {}
+                                         :db (d/db mocked-conn)
+                                         :conn mocked-conn})]
+          (is (= 400 (:status resp)))))
+
+      (testing "Unknown email returns 400"
+        (let [token (routes/unsubscribe-token "nobody@test.com")
+              resp (routes/unsubscribe {:query-params {:token token}
+                                         :db (d/db mocked-conn)
+                                         :conn mocked-conn})]
+          (is (= 400 (:status resp))))))))
+
+(deftest test-update-user-preferences
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      @(d/transact mocked-conn schema/all-schemas)
+      @(d/transact mocked-conn [{:orcpub.user/username "testy"
+                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/send-updates? false}])
+
+      (testing "Toggle send-updates to true"
+        (let [resp (routes/update-user-preferences
+                     {:transit-params {:send-updates? true}
+                      :db (d/db mocked-conn)
+                      :conn mocked-conn
+                      :identity {:user "testy"}})]
+          (is (= 200 (:status resp)))
+          (let [user (routes/user-for-email (d/db mocked-conn) "test@test.com")]
+            (is (true? (:orcpub.user/send-updates? user))))))
+
+      (testing "Toggle send-updates back to false"
+        (let [resp (routes/update-user-preferences
+                     {:transit-params {:send-updates? false}
+                      :db (d/db mocked-conn)
+                      :conn mocked-conn
+                      :identity {:user "testy"}})]
+          (is (= 200 (:status resp)))
+          (let [user (routes/user-for-email (d/db mocked-conn) "test@test.com")]
+            (is (false? (:orcpub.user/send-updates? user))))))
+
+      (testing "Unknown user returns 400"
+        (let [resp (routes/update-user-preferences
+                     {:transit-params {:send-updates? true}
+                      :db (d/db mocked-conn)
+                      :conn mocked-conn
+                      :identity {:user "nonexistent"}})]
+          (is (= 400 (:status resp))))))))
+
+(deftest test-user-body-includes-send-updates
+  (with-conn conn
+    (let [mocked-conn (dm/fork-conn conn)]
+      @(d/transact mocked-conn schema/all-schemas)
+      @(d/transact mocked-conn [{:orcpub.user/username "testy"
+                                  :orcpub.user/email "test@test.com"
+                                  :orcpub.user/send-updates? true}])
+      (let [db (d/db mocked-conn)
+            user (routes/user-for-email db "test@test.com")
+            body (routes/user-body db user)]
+        (is (true? (:send-updates? body))
+            "user-body should include send-updates? field")))))

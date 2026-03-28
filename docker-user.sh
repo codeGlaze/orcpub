@@ -24,10 +24,10 @@ MANAGE_SCRIPT="${SCRIPT_DIR}/docker/scripts/manage-user.clj"
 # Helpers
 # ---------------------------------------------------------------------------
 
-color_green='\033[0;32m'
-color_red='\033[0;31m'
-color_yellow='\033[1;33m'
-color_reset='\033[0m'
+color_green=$'\033[0;32m'
+color_red=$'\033[0;31m'
+color_yellow=$'\033[1;33m'
+color_reset=$'\033[0m'
 
 info()  { printf '%s[OK]%s    %s\n' "$color_green" "$color_reset" "$*"; }
 error() { printf '%s[ERROR]%s %s\n' "$color_red" "$color_reset" "$*" >&2; }
@@ -80,7 +80,7 @@ USAGE
 find_container() {
   local container=""
 
-  # Try docker-compose/docker compose service name first
+  # Try docker compose service name first (works for compose, not Swarm)
   if command -v docker-compose &>/dev/null; then
     container=$(docker-compose ps -q orcpub 2>/dev/null || true)
   fi
@@ -88,14 +88,19 @@ find_container() {
     container=$(docker compose ps -q orcpub 2>/dev/null || true)
   fi
 
-  # Fallback: search by image name
+  # Try Swarm: look for running task of orcpub_orcpub service
   if [ -z "$container" ]; then
-    container=$(docker ps -q --filter "ancestor=orcpub/orcpub:latest" 2>/dev/null | head -1 || true)
+    container=$(docker ps -q --filter "label=com.docker.swarm.service.name=orcpub_orcpub" 2>/dev/null | head -1 || true)
   fi
 
-  # Fallback: search by container name pattern
+  # Fallback: search by image name
   if [ -z "$container" ]; then
-    container=$(docker ps -q --filter "name=orcpub" 2>/dev/null | head -1 || true)
+    container=$(docker ps -q --filter "ancestor=orcpub-app:latest" 2>/dev/null | head -1 || true)
+  fi
+
+  # Fallback: search by container name pattern (matches both compose and swarm)
+  if [ -z "$container" ]; then
+    container=$(docker ps -q --filter "name=orcpub" --filter "name=orcpub_orcpub" 2>/dev/null | head -1 || true)
   fi
 
   echo "$container"
@@ -150,9 +155,10 @@ wait_for_ready() {
   warn "No Docker healthcheck found; polling HTTP on container port..."
   printf "Waiting for app"
   while [ $waited -lt $max_wait ]; do
-    # BusyBox wget (Alpine): only -q and --spider are supported
+    # BusyBox wget (Alpine): only -q and --spider are supported.
+    # Use /health endpoint (lightweight, returns 200 when DB is connected).
     if docker exec "$container" wget -q --spider \
-      "http://localhost:${PORT:-8890}/" 2>/dev/null; then
+      "http://127.0.0.1:${PORT:-8890}/health" 2>/dev/null; then
       echo ""
       return 0
     fi
@@ -240,17 +246,17 @@ wait_for_ready "$CONTAINER"
 if [ "${1:-}" = "init" ]; then
   ENV_FILE="${SCRIPT_DIR}/.env"
   if [ ! -f "$ENV_FILE" ]; then
-    error "No .env file found. Run ./docker-setup.sh first."
+    error "No .env file found. Run ./run first."
     exit 1
   fi
 
-  # Source .env to get INIT_ADMIN_* variables
+  # Source .env to get INIT_ADMIN_* variables (tr -d '\r' for Windows line endings)
   # shellcheck disable=SC1090
-  . "$ENV_FILE"
+  . <(tr -d '\r' < "$ENV_FILE")
 
   if [ -z "${INIT_ADMIN_USER:-}" ]; then
     error "INIT_ADMIN_USER is not set in .env"
-    error "Run ./docker-setup.sh to configure, or set it manually in .env"
+    error "Run ./run to configure, or set it manually in .env"
     exit 1
   fi
   if [ -z "${INIT_ADMIN_EMAIL:-}" ] || [ -z "${INIT_ADMIN_PASSWORD:-}" ]; then

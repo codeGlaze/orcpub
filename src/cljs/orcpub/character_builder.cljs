@@ -45,6 +45,8 @@
             [clojure.core.match :refer [match]]
 
             [reagent.core :as r]
+            [orcpub.fork.branding :as branding]
+            [orcpub.fork.integrations :as integrations]
             [re-frame.core :refer [subscribe dispatch dispatch-sync]]))
 ;console-print
 (def print-disabled? true)
@@ -123,20 +125,30 @@
 
 (def update-value-field (memoize update-value-field-fn))
 
-(defn character-field [entity-values prop-name type & [cls-str handler input-type]]
+(defn character-field-255 [entity-values prop-name type & [cls-str handler input-type]]
   [comps/input-field
    type
    (get entity-values prop-name)
    (update-value-field prop-name)
    {:type input-type
-    :class (str "input w-100-p " cls-str)}])
+    :maxLength "255"
+    :class-name (str "input w-100-p " cls-str)}])
+
+(defn character-field-50000 [entity-values prop-name type & [cls-str handler input-type]]
+  [comps/input-field
+   type
+   (get entity-values prop-name)
+   (update-value-field prop-name)
+   {:type input-type
+    :maxLength "50000"
+    :class-name (str "input w-100-p " cls-str)}])
 
 (defn character-input [entity-values prop-name & [cls-str handler type]]
-  [character-field entity-values prop-name :input cls-str handler type])
+  [character-field-255 entity-values prop-name :input cls-str handler type])
 
 
 (defn character-textarea [entity-values prop-name & [cls-str]]
-  [character-field entity-values prop-name :textarea cls-str])
+  [character-field-50000 entity-values prop-name :textarea cls-str])
 
 (defn prereq-failures [option]
   (remove
@@ -497,7 +509,7 @@
          (when (and content selected?)
            content)
          (when explanation-text
-           [:div.i.f-s-12.f-w-n 
+           [:div.i.f-s-12.f-w-n
             explanation-text])]]])))
 
 (defn skill-help [name key ability icon description]
@@ -858,7 +870,7 @@
                      {:class (when (and (not ability-disabled?)
                                            (zero? (ability-increases k 0)))
                                     "opacity-5")}
-                     (ability-value (ability-increases k 0))] 
+                     (ability-value (ability-increases k 0))]
                     [:div.f-s-16
                      [:i.fa.fa-minus-circle.orange
                       {:class (when decrease-disabled? "opacity-5 cursor-disabled")
@@ -1081,7 +1093,7 @@
             {:value (when (abilities k)
                       (total-abilities k))
              :type :number
-             :on-change (fn [e] (let [total (total-abilities k)                                     
+             :on-change (fn [e] (let [total (total-abilities k)
                                       value (.-value (.-target e))
                                       diff (- total
                                               (abilities k))
@@ -1742,9 +1754,6 @@
                              remaining)])))
                 sorted-selections)))])])]]))
 
-(def image-style
-  {:max-height "100px"
-   :max-width "200px"})
 
 (defn set-random-name
   "Dispatch random name generation. Passes built-char so the handler can
@@ -1835,7 +1844,7 @@
                       :on-error (image-error :failed-loading-image image-url)
                       :on-load (when image-url-failed image-loaded)}])
       [:div.flex-grow-1
-       [:span.personality-label.f-s-18 "Image URL"]
+       [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
        (when image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
@@ -1849,7 +1858,7 @@
                       :on-load (when faction-image-url-failed
                                  faction-image-loaded)}])
       [:div.flex-grow-1
-       [:span.personality-label.f-s-18 "Faction Image URL"]
+       [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
        (when faction-image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
@@ -1903,8 +1912,11 @@
       :mobile [mobile-columns]
       [desktop-or-tablet-columns device-type])))
 
-(def patreon-link-props
-  {:href "https://www.patreon.com/user?u=5892323" :target "_blank"})
+(defn supporter-link-props
+  "Link props for the supporter/funding page. Returns nil when no URL configured."
+  []
+  (when-let [url (not-empty (:patreon branding/social-links))]
+    {:href url :target "_blank"}))
 
 ;; ============================================================================
 ;; Missing Content Warning
@@ -2104,44 +2116,46 @@
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
     [views5e/content-page
      "Character Builder"
-     (remove
-      nil?
-      [(when character-id [views5e/share-link character-id])
-       {:title "Random"
-        :icon "random"
-        :on-click (confirm-handler
-                   character-changed?
-                   {:confirm-button-text "GENERATE RANDOM CHARACTER"
-                    :question "You have unsaved changes, are you sure you want to discard them and generate a random character?"
-                    :pre set-loading
-                    :event [:random-character character built-template locked-components]})}
-       {:title "New"
-        :icon "plus"
-        :on-click (confirm-handler
-                   character-changed?
-                   {:confirm-button-text "CREATE NEW CHARACTER"
-                    :question "You have unsaved changes, are you sure you want to discard them and create a new character?"
-                    :event [:reset-character]})}
-       {:title "Clone"
-        :icon "clone"
-        :on-click (confirm-handler
-                   character-changed?
-                   {:confirm-button-text "CREATE CLONE"
-                    :question "You have unsaved changes, are you sure you want to discard them and clone this character? The new character will have the unsaved changes, the original will not."
-                    :event [::char5e/clone-character]})}
-       {:title "Print"
-        :icon "print"
-        :on-click (views5e/make-print-handler (:db/id character) built-char)}
-       {:title (if (:db/id character)
-                 "Update Existing Character"
-                 "Save New Character")
-        :icon "save"
-        :style (when character-changed? unsaved-button-style)
-        :on-click #(save-character built-char)}
-       (when (:db/id character)
-         {:title "View"
-          :icon "eye"
-          :on-click (load-character-page (:db/id character))})])
+     (into
+      (if character-id
+        (vec (integrations/share-links character-id @(subscribe [::char5e/character-name character-id])))
+        [])
+      (remove nil?
+       [{:title "Random"
+         :icon "random"
+         :on-click (confirm-handler
+                    character-changed?
+                    {:confirm-button-text "GENERATE RANDOM CHARACTER"
+                     :question "You have unsaved changes, are you sure you want to discard them and generate a random character?"
+                     :pre set-loading
+                     :event [:random-character character built-template locked-components]})}
+        {:title "New"
+         :icon "plus"
+         :on-click (confirm-handler
+                    character-changed?
+                    {:confirm-button-text "CREATE NEW CHARACTER"
+                     :question "You have unsaved changes, are you sure you want to discard them and create a new character?"
+                     :event [:reset-character]})}
+        {:title "Clone"
+         :icon "clone"
+         :on-click (confirm-handler
+                    character-changed?
+                    {:confirm-button-text "CREATE CLONE"
+                     :question "You have unsaved changes, are you sure you want to discard them and clone this character? The new character will have the unsaved changes, the original will not."
+                     :event [::char5e/clone-character]})}
+        {:title (if (:db/id character)
+                  "Save"
+                  "Save New Character")
+         :icon "save"
+         :style (when character-changed? unsaved-button-style)
+         :on-click #(save-character built-char)}
+        (when (:db/id character)
+          {:title "View"
+           :icon "eye"
+           :on-click (load-character-page (:db/id character))})
+        {:title "Export"
+         :icon "download"
+         :on-click (views5e/make-print-handler (:db/id character) built-char)}]))
      [:div
       [:div.container
        [:div.content

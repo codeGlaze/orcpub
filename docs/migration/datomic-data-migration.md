@@ -81,8 +81,7 @@ bin/datomic verify-backup <backup-uri> true <t>           # verify (Pro only)
 
 # 2. Stop old stack, build and start new:
 docker compose down
-docker compose -f docker-compose-build.yaml build
-docker compose -f docker-compose-build.yaml up -d
+docker compose up --build -d
 
 # 3. After services are healthy, restore:
 ./docker-migrate.sh restore
@@ -158,7 +157,7 @@ accessible, user accounts work.
 - Old Docker stack running (`docker compose ps` shows healthy datomic + orcpub)
 - `.env` file with correct `DATOMIC_PASSWORD`
 - Enough disk space (see [Performance](#performance))
-- New source code checked out (has `docker-compose-build.yaml` and migration scripts)
+- New source code checked out (has `docker-compose.yaml` and migration scripts)
 
 Each phase launches a **temporary container** (`docker run --rm`) on the Compose
 network, bind-mounting `./backup/` for I/O. No running containers are modified.
@@ -191,8 +190,7 @@ network, bind-mounting `./backup/` for I/O. No running containers are modified.
 docker compose down
 mv ./data ./data.free-backup
 mkdir -p ./data
-docker compose -f docker-compose-build.yaml build
-docker compose -f docker-compose-build.yaml up -d
+docker compose up --build -d
 ```
 
 Wait for healthy: `docker compose ps`
@@ -239,7 +237,7 @@ mv ./data.free-backup ./data
 docker compose down
 rm -rf ./data
 mv ./data.free-backup ./data
-docker compose up -d      # OLD compose file, not docker-compose-build.yaml
+docker compose up -d      # pulls pre-built images (old stack)
 ```
 
 The backup directory is never modified — you can re-attempt the restore as many
@@ -365,5 +363,5 @@ continue to work for regular backups going forward.
 
 - [datomic-pro.md](datomic-pro.md) — Code-level changes (dependency, URI, API)
 - [../ENVIRONMENT.md](../ENVIRONMENT.md) — Environment variable reference
-- [../../docker-setup.sh](../../docker-setup.sh) — Initial Docker setup
+- [../../run](../../run) — Initial Docker setup
 - [../../docker-user.sh](../../docker-user.sh) — User management after migration

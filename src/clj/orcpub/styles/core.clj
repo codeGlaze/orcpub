@@ -302,13 +302,19 @@
     {:height "72px"}]
    [:.h-120
     {:height "120px"}]
+   [:.h-170
+    {:height "170px"}]
    [:.h-200
     {:height "200px"}]
    [:.h-800
     {:height "800px"}]
 
+   [:.h-10-p
+    {:height "10%"}]
    [:.h-100-p
     {:height "100%"}]
+   [:.h-auto
+    {:height "auto"}]
 
    [:.overflow-auto
     {:overflow :auto}]
@@ -330,9 +336,11 @@
     {:color "#191919"}]
    [:.orange
     {:color button-color}
-
     [:a :a:visited
      {:color button-color}]]
+   [:.a-white
+    [:a :a:visited
+     {:color "white !important"}]]
    [:.green
     {:color green}
 
@@ -423,6 +431,8 @@
     {:border-radius "50%"}]
    [:.b-rad-5
     {:border-radius "5px"}]
+   [:.b-rad-10
+    {:border-radius "10px"}]
 
    [:.b-1
     {:border "1px solid"}]
@@ -470,6 +480,11 @@
                 :position "absolute"
                 :z-index "1"}]]
 
+   [:.image-thumbnail
+    {:max-height "100px"
+     :max-width "200px"
+     :border-radius "5px"}]
+
    [:.tooltip:hover [:.tooltiptext
                      {:visibility "visible"}]]
 
@@ -477,7 +492,7 @@
     {:max-height "100px"
      :max-width "200px"
      :border-radius "5px"}]
-   
+
    [:.image-faction-thumbnail
     {:max-height "100px"
      :max-width "200px"
@@ -950,14 +965,14 @@
     [:.app-header
      {:background-color :black
       :background-image "url(/../../image/header-background.jpg)"
-      :background-position "right center"
+      :background-position "center"
       :background-size "cover"
       :height (px const/header-height)}]
 
     [:.header-tab
      {:background-color "rgba(0, 0, 0, 0.5)"
-      :-webkit-backdrop-filter "blur(3px)"
-      :backdrop-filter "blur(3px)"
+      :-webkit-backdrop-filter "blur(5px)"
+      :backdrop-filter "blur(5px)"
       :border-radius "5px"}]
 
     [:.header-tab.mobile
@@ -1326,7 +1341,7 @@
 
      [:.text-shadow
       {:text-shadow :none}]
-
+     
      [:.bg-light
       {:background-color "rgba(0,0,0,0.4)"}]
      [:.bg-lighter

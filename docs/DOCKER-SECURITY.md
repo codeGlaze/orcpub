@@ -86,7 +86,7 @@ escape_sed_replacement() {
 **Order matters:** backslash must be escaped first. If we escaped `&` first
 (producing `\&`), then the backslash pass would double it to `\\&`.
 
-`docker-setup.sh` generates alphanumeric-only passwords (no special chars), but
+`run` generates alphanumeric-only passwords (no special chars), but
 users who set passwords manually via `.env` can use any characters. The escaping
 makes this safe.
 
@@ -100,7 +100,7 @@ sed ... "$TEMPLATE" > "$OUTPUT"
 chmod 600 "$OUTPUT"
 ```
 
-Similarly, `docker-setup.sh` sets `chmod 600` on the generated `.env` file,
+Similarly, `run` sets `chmod 600` on the generated `.env` file,
 which contains `ADMIN_PASSWORD`, `DATOMIC_PASSWORD`, `SIGNATURE` (JWT secret),
 and SMTP credentials.
 
@@ -173,7 +173,7 @@ password in `DATOMIC_URL`, the app connects with the wrong credential. The
 error is a cryptic Datomic authentication failure with no mention of password
 mismatch.
 
-`docker-setup.sh` validates this in its verification section:
+`run` validates this in its verification section:
 
 ```bash
 _env_datomic_pw=$(grep -m1 '^DATOMIC_PASSWORD=' "$ENV_FILE" | cut -d= -f2-)
@@ -183,7 +183,7 @@ if [[ "$_env_datomic_url" != *"password=${_env_datomic_pw}"* ]]; then
 fi
 ```
 
-When `docker-setup.sh` generates the file, it constructs `DATOMIC_URL` using
+When `run` generates the file, it constructs `DATOMIC_URL` using
 `${DATOMIC_PASSWORD}` so they always match at creation time.
 
 ## Environment Variable Passthrough

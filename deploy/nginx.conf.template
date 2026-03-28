@@ -13,11 +13,17 @@ server {
     #charset koi8-r;
     #access_log  /var/log/nginx/host.access.log  main;
 
+    # Resolve upstream at request time (not startup) so nginx survives
+    # Swarm's lack of depends_on — the app may not be in DNS yet.
+    # Docker's embedded DNS is at 127.0.0.11.
+    resolver 127.0.0.11 valid=30s;
+    set $upstream_app http://orcpub:${ORCPUB_PORT};
+
     location / {
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_pass http://orcpub:${ORCPUB_PORT};
+        proxy_pass $upstream_app;
     }
 
     #error_page  404              /404.html;

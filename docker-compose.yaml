@@ -1,9 +1,40 @@
 ---
+# ============================================================================
+# How variables work in this file
+# ============================================================================
+#
+# Each ${VAR:-default} reads from TWO places, in this order:
+#   1. Shell environment variables  (export VAR=value)
+#   2. The .env file in this directory
+#
+# Shell env vars ALWAYS win over .env values. This means:
+#   - You can override any setting with: VAR=value docker compose up -d
+#   - If your shell already has a variable set (e.g. from a Codespace or
+#     .bashrc), it will override what's in .env — even if you didn't intend it.
+#
+# To check what compose actually resolves:
+#   docker compose config | grep DATOMIC_URL
+#
+# Recommended setup:
+#   1. Run ./run to generate .env with secure passwords
+#   2. Run: docker compose up --build -d
+#   3. If a variable isn't being picked up from .env, check for a conflicting
+#      shell variable with: echo $DATOMIC_URL
+#      Clear it with: unset DATOMIC_URL
+#
+# See docs/DOCKER.md for the full quick-start guide.
+# See docs/ENVIRONMENT.md for all available variables.
+# ============================================================================
+
 services:
   orcpub:
-    # No :latest tag on Docker Hub — pin to newest published version.
-    # Override with ORCPUB_TAG env var for custom builds.
-    image: orcpub/orcpub:${ORCPUB_TAG:-release-v2.5.0.27}
+    # Build: docker compose up --build
+    # Override image: ORCPUB_IMAGE=registry/name:tag docker compose up
+    image: ${ORCPUB_IMAGE:-orcpub-app}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: app
     environment:
       PORT: ${PORT:-8890}
       EMAIL_SERVER_URL: ${EMAIL_SERVER_URL:-}
@@ -14,8 +45,12 @@ services:
       EMAIL_ERRORS_TO: ${EMAIL_ERRORS_TO:-}
       EMAIL_SSL: ${EMAIL_SSL:-FALSE}
       EMAIL_TLS: ${EMAIL_TLS:-FALSE}
-      # Datomic Pro with dev storage protocol (required for Java 21 support)
-      DATOMIC_URL: ${DATOMIC_URL:-datomic:dev://datomic:4334/orcpub?password=change-me}
+      # Datomic Pro with dev storage protocol (required for Java 21 support).
+      # The hostname MUST be "datomic" (the compose service name), NOT "localhost".
+      # Password is NOT in the URL — the app reads DATOMIC_PASSWORD separately
+      # and appends it at startup. Old URLs with ?password= still work.
+      DATOMIC_URL: ${DATOMIC_URL:-datomic:dev://datomic:4334/orcpub}
+      DATOMIC_PASSWORD: ${DATOMIC_PASSWORD:-change-me}
       SIGNATURE: ${SIGNATURE:-change-me-to-something-unique}
       CSP_POLICY: ${CSP_POLICY:-strict}
       DEV_MODE: ${DEV_MODE:-}
@@ -34,10 +69,16 @@ services:
       start_period: 60s
     restart: always
   datomic:
-    image: orcpub/datomic:latest
+    image: ${DATOMIC_IMAGE:-orcpub-datomic}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: transactor
     environment:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-change-me-admin}
       DATOMIC_PASSWORD: ${DATOMIC_PASSWORD:-change-me}
+      # ALT_HOST: what the transactor advertises to peers for fallback connections.
+      # Default 127.0.0.1 works for single-host. Set to "datomic" for Swarm.
       ALT_HOST: ${ALT_HOST:-127.0.0.1}
       ENCRYPT_CHANNEL: ${ENCRYPT_CHANNEL:-true}
     volumes:
@@ -69,3 +110,57 @@ services:
       orcpub:
         condition: service_healthy
     restart: always
+
+# --- Docker Secrets ---
+# Uncomment to use Docker secrets instead of .env for passwords.
+# Secrets are mounted as files at /run/secrets/<name> inside the container.
+# Both deploy/start.sh (transactor) and the app (config.clj) check
+# /run/secrets/ first, then fall back to environment variables.
+#
+# Option A: File-based secrets (works with plain docker compose, no Swarm)
+#   Each password goes in its own file instead of .env. Docker mounts
+#   them inside the container. Still plain files on your hard drive —
+#   but isolated with strict permissions instead of all in one .env.
+#   Create a secrets/ directory with one file per secret:
+#     mkdir -p secrets
+#     printf 'mypassword' > secrets/datomic_password
+#     printf 'mypassword' > secrets/admin_password
+#     printf 'mysecret'   > secrets/signature
+#     chmod 600 secrets/*
+#
+#   secrets:
+#     datomic_password:
+#       file: ./secrets/datomic_password
+#     admin_password:
+#       file: ./secrets/admin_password
+#     signature:
+#       file: ./secrets/signature
+#
+# Option B: External secrets (Swarm only — created via docker secret create)
+#   Swarm stores passwords encrypted inside the cluster. When a container
+#   needs one, Swarm delivers it into memory — the password is never
+#   saved to the server's hard drive. Use this for multi-server clusters.
+#   printf 'mypassword' | docker secret create datomic_password -
+#   printf 'mypassword' | docker secret create admin_password -
+#   printf 'mysecret'   | docker secret create signature -
+#
+#   secrets:
+#     datomic_password:
+#       external: true
+#     admin_password:
+#       external: true
+#     signature:
+#       external: true
+#
+# Then add to each service that needs secrets:
+#   orcpub:
+#     secrets:
+#       - datomic_password
+#       - signature
+#   datomic:
+#     secrets:
+#       - datomic_password
+#       - admin_password
+#
+# You can remove the corresponding env vars from .env, or leave them —
+# secret files take priority over env vars.

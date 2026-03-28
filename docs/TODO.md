@@ -1,5 +1,45 @@
 # TODO — Tracked Issues
 
+## Datomic transactor crashes — investigate Postgres migration
+
+**Status:** Open  
+**Severity:** Critical — transactor crashing 3–5× per day, 2–3 min downtime each  
+**Reported:** 2026-02-26  
+**KB doc:** [docs/kb/datomic-crash-analysis.md](kb/datomic-crash-analysis.md)
+
+### Summary
+
+The Datomic transactor is self-terminating multiple times daily with
+`"Critical failure, cannot continue: Heartbeat failed"`. Root cause is H2
+write-lock contention during memoryIndex flushes starving the heartbeat thread.
+`writeConcurrency=4` amplifies the problem — H2 cannot parallelize writes.
+
+### Immediate mitigation (low risk, config only)
+
+Set `datomic.writeConcurrency=1` in the transactor properties file. See KB doc
+for caveats.
+
+### Permanent fix
+
+Migrate from Datomic Free + H2 to Datomic Pro + PostgreSQL. Datomic Pro is
+free under Apache 2.0 (see `docs/migration/datomic-pro.md` — peer migration
+already done). What remains is the **storage backend migration**:
+
+1. Provision PostgreSQL (Docker service or managed)
+2. Run Datomic's SQL init scripts (`bin/sql/postgres-*.sql`)
+3. Export data from H2 transactor with `bin/datomic backup-db`
+4. Restore into Postgres transactor with `bin/datomic restore-db`
+5. Update transactor properties: `storage-class=sql`, JDBC params
+6. Update Docker Compose to add Postgres service and remove H2 volume
+
+### Related
+
+- `docker/datomic/` — transactor container and config templates
+- `docs/migration/datomic-pro.md` — peer library already migrated to Pro
+- `docs/kb/datomic-crash-analysis.md` — full root cause analysis with log evidence
+
+---
+
 ## localStorage corrupt data persistence
 
 **Status:** Open
