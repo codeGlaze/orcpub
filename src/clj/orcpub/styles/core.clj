@@ -990,11 +990,14 @@
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
     ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (mobile tap)
+    ;; z-index on hover/focus-within prevents adjacent tabs from intercepting the dropdown
     [:.header-tab
      [:&:focus {:outline :none}]
      [:.header-flyout {:display :none}]
-     [:&:hover [:.header-flyout {:display :block}]]
-     [:&:focus-within [:.header-flyout {:display :block}]]]
+     [:&:hover {:z-index 100}
+      [:.header-flyout {:display :block}]]
+     [:&:focus-within {:z-index 100}
+      [:.header-flyout {:display :block}]]]
 
     #_[:.header-tab:hover
        [(garden.selectors/& (garden.selectors/not :.disabled))
