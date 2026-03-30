@@ -823,19 +823,26 @@
      {:height :auto
       :background-image :none
       :background-color "rgba(0, 0, 0, 0.3)"
-      :min-height 0}]
+      :min-height 0
+      :overflow-x :hidden}]
     [:.app-header-bar
      {:min-height (px 50)
       :backdrop-filter :none
-      :-webkit-backdrop-filter :none}]
+      :-webkit-backdrop-filter :none}
+     [:.w-100-p {:box-sizing :border-box}]]
     [:.app-header-menu
      {:flex-grow 1}]
     [:.content
      {:width "100%"}]
+    [:.import-log-panel {:max-width "100vw"}]
     #_[:.options-column
        {:width "100%"}]
     [:.header-button-text :.header-links
      {:display :none}])
+   (at-media
+    xs-query
+    [:.app-header-bar
+     [:img {:max-height "40px"}]])
 
     #_(at-media
      xs-query
