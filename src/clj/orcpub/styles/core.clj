@@ -989,6 +989,13 @@
     [:.item-list-item
      {:border-bottom "1px solid rgba(255,255,255,0.5)"}]
 
+    ;; Flyout menus: hidden by default, shown on hover (desktop) or focus-within (mobile tap)
+    [:.header-tab
+     [:&:focus {:outline :none}]
+     [:.header-flyout {:display :none}]
+     [:&:hover [:.header-flyout {:display :block}]]
+     [:&:focus-within [:.header-flyout {:display :block}]]]
+
     #_[:.header-tab:hover
        [(garden.selectors/& (garden.selectors/not :.disabled))
         {:background-color orange}]]
