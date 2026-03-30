@@ -47,17 +47,21 @@ Use it as a template for adding new class/build tests.
 
 ### Running E2E Tests
 ```bash
-# Start Datomic Pro transactor
-lib/com/datomic/datomic-pro/1.0.7482/bin/transactor \
-  lib/com/datomic/datomic-pro/1.0.7482/config/working-transactor.properties &
-sleep 5
+# Start the app
+./menu start --background
 
-# Start backend
-PORT=8890 lein run &
-
-# Run all tests (from testing worktree or testing/develop branch)
-cd e2e && npm test
+# Run all tests (from testing worktree)
+cd /workspaces/orcpub-testing/e2e && npm test
 ```
+
+### E2E Scenario Files (on testing/develop)
+| File | Tests | What |
+|------|-------|------|
+| `console-errors.spec.ts` | 5 | JS error detection |
+| `ui-smoke.spec.ts` | 8 | Basic UI rendering, navigation |
+| `header-flyout.spec.ts` | 16 | Flyout open/close, desktop hover, mobile tap |
+| `import-export.spec.ts` | — | File import/export |
+| `theme-screenshots.spec.ts` | — | Theme visual regression |
 
 ### Important Route Notes
 

@@ -33,29 +33,30 @@ This is expected - the Figwheel client code is in the compiled JS but Figwheel i
 
 ### Starting the App
 
-#### Option 1: Using start.sh (recommended)
+#### Option 1: Using menu (recommended)
 ```bash
-./start.sh              # Interactive menu
-./start.sh all          # Start transactor + server
-./start.sh transactor   # Start transactor only
-./start.sh server       # Start server only
-./start.sh status       # Show running processes
-./start.sh kill         # Stop all processes
+./menu start            # Start Datomic + Server (background)
+./menu                  # Interactive menu (start, stop, status, add user)
+./menu stop             # Stop all services
+./menu status           # Show running processes
 ```
-The script will prompt to unpack Datomic if not already done.
 
-#### Option 2: Manual
+#### Option 2: Using start.sh directly
 ```bash
-# 1. Start Datomic transactor
+./start.sh              # All-in-one (Datomic + Server)
+./start.sh --tmux       # All services in tmux session 'orcpub'
+./start.sh datomic      # Start transactor only
+./start.sh server       # Start server only (after Datomic ready)
+./start.sh figwheel     # Hot-reload frontend dev server
+./start.sh --install    # First-time: downloads Datomic Pro
+```
+
+#### Option 3: Manual (fallback)
+```bash
 lib/com/datomic/datomic-pro/1.0.7482/bin/transactor \
   lib/com/datomic/datomic-pro/1.0.7482/config/working-transactor.properties &
-
-# 2. Start app server (production mode)
+sleep 5
 PORT=8890 lein run
-
-# OR for development with hot reload:
-lein figwheel  # Frontend dev server on port 3449
-PORT=8890 lein run  # Backend still needed
 ```
 
 ### Calva (VSCode)
