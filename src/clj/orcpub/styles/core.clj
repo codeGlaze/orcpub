@@ -924,7 +924,8 @@
 
 (def app
   (concat
-   [[:.character-builder-header
+   [;; — Page-specific layout —
+    [:.character-builder-header
      {:margin-bottom "19px"}]
 
     [:.senses
@@ -933,6 +934,7 @@
     [:.notes
      {:width "350px"}]
 
+    ;; — Registration page —
     [:.registration-content
      {:width "785px"
       :min-height "600px"
@@ -955,6 +957,7 @@
       :background-color "#1a2532"
       :border-right "1px solid white"}]
 
+    ;; — Overlays + modals —
     [:.loading-overlay
      {:position "fixed"
       :height "100%"
@@ -986,6 +989,7 @@
       :right 0
       :padding "17px"}]
 
+    ;; — Character sheet + spells —
     [:.expanded-spell-background
      {:background-color "rgba(0,0,0,0.1)"}]
 
@@ -997,6 +1001,7 @@
      {:padding "20px 5px"
       :background-color "rgba(0,0,0,0.15)"}]
 
+    ;; — Header menus + flyouts —
     [:.header-menu-dropdown
      {:position :absolute
       :background-color "#2c3445"
@@ -1021,6 +1026,7 @@
     [:.login-menu
      {:background-color "rgba(0,0,0,0.4)"}]
 
+    ;; — Search, login, social —
     [:.social-icon
      {:color :white
       :font-size "20px"}]
@@ -1044,6 +1050,7 @@
       :background-color "rgba(255,255,255,0.1)"
       :color :white}]
 
+    ;; — SVG + debug —
     [:.svg-stroke
      {:stroke-width 1}]
 
@@ -1056,6 +1063,7 @@
      {:width "400px"
       :height "450px"}]
 
+    ;; — Form inputs —
     [:.login-form-inputs
      {:max-width "350px"
       :margin-left :auto
@@ -1090,6 +1098,7 @@
     [:*:focus
      {:outline 0}]
 
+    ;; — Layout + header —
     [:.sticky-header
      {:top 0
       :box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
@@ -1166,6 +1175,7 @@
     #_[:.options-column
        {:width "300px"}]
 
+    ;; — Builder UI —
     [:.builder-column
      {:display :none
       :margin "0 5px"}]
@@ -1292,6 +1302,7 @@
      {:font-size "12px"
       :margin-left "5px"}]
 
+    ;; — Form input variants (flattened from merge chains) —
     [:.form-input-base
      {:height "38px"
       :border-style "solid"
@@ -1311,6 +1322,7 @@
       :color "#484848"
       :border-color "rgba(72,72,72,0.37)"}]
 
+    ;; — Deduplicated anonymous styles (was inline, now classes) —
     [:.success-header
      {:color "#f0a100"
       :font-weight :bold
@@ -1359,6 +1371,7 @@
      {:position :absolute
       :padding-top "6px"}]
 
+    ;; — Utility one-offs (converted from inline) —
     [:.checkbox-border
      {:margin-top "-3px"
       :border-color "#f0a100"
