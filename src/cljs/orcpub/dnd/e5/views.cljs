@@ -164,7 +164,7 @@
 (defn user-header-view []
   (let [username @(subscribe [:username])
         mobile? @(subscribe [:mobile?])]
-    [:div#user-header.pointer.posn-rel
+    [:div#user-header.pointer.posn-rel.header-bar-item
      (when username
        {:on-mouse-over handle-user-menu
         :on-mouse-out hide-user-menu})
@@ -337,7 +337,7 @@
 (defn route-to-my-encounters-page []
   (dispatch [:route routes/dnd-e5-my-encounters-route]))
 
-(def logo [:a {:href "/" } [:img.h-60.pointer
+(def logo [:a.flex.align-items-c {:href "/" } [:img.h-60.pointer
            {:src branding/logo-path}]])
 
 (defn app-header []
@@ -348,11 +348,11 @@
        [:div.app-header-bar.container
         [:div.content
          [:div.flex.align-items-c.h-100-p
-          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.p-l-20.p-r-20.h-100-p
-           logo
+          [:div.flex.justify-cont-s-b.header-bar-row.w-100-p.p-l-20.p-r-20.h-100-p
+           [:div.header-bar-item logo]
            (let [search-text @(subscribe [:search-text])
                  search-text? @(subscribe [:search-text?])]
-             [:div
+             [:div.header-bar-item
               {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
               [:div.search-input-parent.b-rad-5.flex.align-items-c
                (when (not mobile?)
