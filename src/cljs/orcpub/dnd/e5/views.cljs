@@ -350,22 +350,23 @@
          [:div.flex.align-items-c.h-100-p
           [:div.flex.justify-cont-s-b.header-bar-row.w-100-p.p-l-20.p-r-20.h-100-p
            [:div.header-bar-item logo]
-           (let [search-text @(subscribe [:search-text])
-                 search-text? @(subscribe [:search-text?])]
-             [:div.header-bar-item
-              {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
-              [:div.search-input-parent.b-rad-5.flex.align-items-c
-               (when (not mobile?)
-                 [:div.p-l-20.flex-grow-1
-                  [:input.search-input.w-100-p.main-text-color
-                   {:value search-text
-                    :on-key-press search-input-keypress
-                    :on-change set-search-text
-                    :placeholder "search"}]])
-               [:div.p-r-10.pointer
-                {:on-click open-orcacle}
-                [svg-icon "magnifying-glass" (if mobile? 32 48) ""]]]])
-           [user-header-view]]]]]
+           [:div.header-controls.flex.align-items-c
+            (let [search-text @(subscribe [:search-text])
+                  search-text? @(subscribe [:search-text?])]
+              [:div.header-bar-item
+               {:class (if mobile? "p-l-10 p-r-10" "p-l-20 p-r-20 flex-grow-1")}
+               [:div.search-input-parent.b-rad-5.flex.align-items-c
+                (when (not mobile?)
+                  [:div.p-l-20.flex-grow-1
+                   [:input.search-input.w-100-p.main-text-color
+                    {:value search-text
+                     :on-key-press search-input-keypress
+                     :on-change set-search-text
+                     :placeholder "search"}]])
+                [:div.p-r-10.pointer.orcacle-icon
+                 {:on-click open-orcacle}
+                 [svg-icon "magnifying-glass" (if mobile? 32 48) ""]]]])
+            [user-header-view]]]]]]
        [:div.container
         [:div.content
          [:div.flex.w-100-p.align-items-end

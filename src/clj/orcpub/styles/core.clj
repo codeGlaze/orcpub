@@ -1023,16 +1023,33 @@
       :right 0
       :display :none}]
 
+    ;; — Search, login, social (ghost button approach) —
     [:.login-menu
-     {:background-color "rgba(0,0,0,0.4)"}]
+     {:background-color :transparent
+      :border-radius "5px"
+      :transition "background-color 150ms ease"}
+     [:&:hover {:background-color "rgba(255,255,255,0.08)"}]]
 
-    ;; — Search, login, social —
     [:.social-icon
      {:color :white
       :font-size "20px"}]
 
     [:.search-input-parent
-     {:background-color "rgba(0,0,0,0.3)"}]
+     {:background-color :transparent
+      :border-radius "5px"
+      :transition "background-color 150ms ease"}
+     [:&:hover {:background-color "rgba(255,255,255,0.08)"}]]
+
+    ;; Controls group — separator between logo and actions
+    [:.header-controls
+     {:border-left "1px solid rgba(255,255,255,0.15)"
+      :padding-left "12px"
+      :margin-left :auto
+      :gap "4px"}]
+
+    ;; Orcacle icon — warm ambient glow (stacks for intensity)
+    [:.orcacle-icon
+     {:filter "drop-shadow(0 0 4px rgba(240,161,0,0.6)) drop-shadow(0 0 12px rgba(240,161,0,0.3))"}]
 
     [:.search-input
      {:height "60px"
