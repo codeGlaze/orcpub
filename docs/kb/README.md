@@ -9,6 +9,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 | Document | Topic | Source quality |
 |----------|-------|---------------|
 | [datomic-crash-analysis.md](datomic-crash-analysis.md) | Datomic transactor crashes — root cause, frequency, fix options | High — direct log analysis from `logs/datomic.{1,2,3}.log` |
+| [ui-ux-evaluation.md](ui-ux-evaluation.md) | UI/UX evaluation — architecture, visual gaps, UX patterns, competitor comparison | High — direct code inspection of all view/style files |
 
 ## Contribution rules
 
