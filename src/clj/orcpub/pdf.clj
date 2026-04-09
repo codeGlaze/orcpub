@@ -28,6 +28,7 @@
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField)
+           (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
            ;; PDFBox 3.x: AppendMode enum replaces boolean flags in PDPageContentStream constructor
            ;; Use APPEND when adding content to existing pages (templates)
@@ -84,6 +85,17 @@
      :bold        "Vollkorn-Bold.ttf"
      :bold-italic "Vollkorn-BoldItalic.ttf"}))
 
+(defn- fix-widget-page-refs!
+  "Set the /P (page) entry on widget annotations that are missing it.
+   PDFBox warns about missing /P entries during flatten; this fixes that
+   by iterating each page's annotations and linking widgets back to their page."
+  [doc]
+  (doseq [page (.getPages doc)]
+    (doseq [annotation (.getAnnotations page)]
+      (when (and (instance? PDAnnotationWidget annotation)
+                 (nil? (.getPage annotation)))
+        (.setPage annotation page)))))
+
 (defn write-fields! [doc fields flatten font-sizes]
   (let [catalog (.getDocumentCatalog doc)
         form (.getAcroForm catalog)
@@ -94,17 +106,18 @@
       (try
         (let [field (.getField form (name k))]
           (when field
-            
+
             (when (and flatten (font-sizes k) (instance? PDTextField field))
               (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg")))
             (.setValue
              field
-             (cond 
+             (cond
                (instance? PDCheckBox field) (if v "Yes" "Off")
                (instance? PDTextField field) (str v)
                :else nil))))
         (catch Exception e (prn "failed writing field: " k v (strace/print-stack-trace e)))))
     (when flatten
+      (fix-widget-page-refs! doc)
       (.setNeedAppearances form false)
       (.flatten form))))
 
