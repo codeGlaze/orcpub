@@ -159,6 +159,13 @@
 
 ;; Only SRD content belongs here. Non-SRD PHB content (Battle Master,
 ;; Folk Hero, etc.) comes from plugins and SHOULD be flagged when removed.
+;;
+;; TODO: This hardcoded approach is fragile — these sets must stay in sync
+;; with the SRD template definitions in spell_subs.cljs and classes.cljc.
+;; A better approach would be to check against the full rendered content
+;; subscriptions (SRD + plugins) instead of maintaining parallel exclusion
+;; lists. The current design can flag content as missing the moment it's
+;; selected if a builtin key is omitted from these sets.
 
 (def ^:private builtin-classes
   #{:barbarian :bard :cleric :druid :fighter :monk
@@ -166,9 +173,22 @@
 
 (def ^:private builtin-races
   #{:dwarf :elf :halfling :human :dragonborn :gnome
-    :half-elf :half-orc :tiefling :hill-dwarf :mountain-dwarf
-    :high-elf :wood-elf :drow :lightfoot :stout :forest-gnome
-    :rock-gnome})
+    :half-elf :half-orc :tiefling})
+
+(def ^:private builtin-subraces
+  #{;; Dwarf
+    :hill-dwarf :mountain-dwarf
+    ;; Elf
+    :high-elf :wood-elf :drow
+    ;; Halfling
+    :lightfoot :stout
+    ;; Gnome
+    :forest-gnome :rock-gnome
+    ;; Human ethnic subraces (spell_subs.cljs:726-734)
+    :calishite :chondathan :damaran :illuskan :mulan
+    :rashemi :shou :tethyrian :turami
+    ;; Human variant options (spell_subs.cljs:740-748)
+    :standard-human :variant-human})
 
 ;; Only Acolyte is hardcoded (spell_subs.cljs:538).
 (def ^:private builtin-backgrounds #{:acolyte})
@@ -188,7 +208,7 @@
     :class (contains? builtin-classes k)
     :subclass (contains? builtin-subclasses k)
     :race (contains? builtin-races k)
-    :subrace (contains? builtin-races k)
+    :subrace (contains? builtin-subraces k)
     :background (contains? builtin-backgrounds k)
     :feat (contains? builtin-feats k)
     false))

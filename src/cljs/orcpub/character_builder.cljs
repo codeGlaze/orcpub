@@ -125,30 +125,20 @@
 
 (def update-value-field (memoize update-value-field-fn))
 
-(defn character-field-255 [entity-values prop-name type & [cls-str handler input-type]]
+(defn character-field [entity-values prop-name type & [cls-str handler input-type max-len]]
   [comps/input-field
    type
    (get entity-values prop-name)
    (update-value-field prop-name)
    {:type input-type
-    :maxLength "255"
-    :class-name (str "input w-100-p " cls-str)}])
-
-(defn character-field-50000 [entity-values prop-name type & [cls-str handler input-type]]
-  [comps/input-field
-   type
-   (get entity-values prop-name)
-   (update-value-field prop-name)
-   {:type input-type
-    :maxLength "50000"
+    :maxLength (str (or max-len (:text branding/field-limits)))
     :class-name (str "input w-100-p " cls-str)}])
 
 (defn character-input [entity-values prop-name & [cls-str handler type]]
-  [character-field-255 entity-values prop-name :input cls-str handler type])
-
+  [character-field entity-values prop-name :input cls-str handler type])
 
 (defn character-textarea [entity-values prop-name & [cls-str]]
-  [character-field-50000 entity-values prop-name :textarea cls-str])
+  [character-field entity-values prop-name :textarea cls-str nil nil (:notes branding/field-limits)])
 
 (defn prereq-failures [option]
   (remove
@@ -195,7 +185,7 @@
 
 (defn class-level-selector []
   (let [expanded? (r/atom false)]
-    (fn [i key selected-class options unselected-classes-set]
+    (fn [i key selected-class options unselected-classes-set show-sources?]
       (let [options-map (make-options-map options)
             class-template-option (options-map key)
             path [:class-levels key]]
@@ -207,13 +197,19 @@
             :on-change (set-class i options-map)}
            (doall
             (map
-             (fn [{:keys [::t/key ::t/name] :as option}]
-               (let [failed-prereqs (when (pos? i) (prereq-failures option))]
+             (fn [{:keys [::t/key ::t/name :plugin-source] :as option}]
+               (let [failed-prereqs (when (pos? i) (prereq-failures option))
+                     source-suffix (when (and show-sources?
+                                              plugin-source
+                                              (not= plugin-source "Default Option Source"))
+                                    (str " (" plugin-source ")"))
+                     prereq-suffix (when (seq failed-prereqs)
+                                    (str " (" (s/join ", " failed-prereqs) ")"))]
                  ^{:key key}
                  [:option.builder-dropdown-item
                   {:value key
                    :disabled (seq failed-prereqs)}
-                  (str name (when (seq failed-prereqs) (str " (" (s/join ", " failed-prereqs) ")")))]))
+                  (str name source-suffix prereq-suffix)]))
              (sort-by
               ::t/name
               (filter
@@ -250,7 +246,7 @@
                     s))
                 (::t/selections option))]
     (assoc
-     (select-keys option [::t/key ::t/prereqs ::t/name ::t/help ::t/associated-options])
+     (select-keys option [::t/key ::t/prereqs ::t/name ::t/help ::t/associated-options :plugin-source])
      ::t/selections
      [{::t/key (::t/key levels)
        ::t/options (map select-template-key (::t/options levels))}])))
@@ -264,6 +260,8 @@
       (dispatch [:add-class first-unselected]))))
 
 (def add-class (memoize add-class-fn))
+
+(def show-class-sources? (r/atom false))
 
 (defn class-levels-selector [{:keys [selection]}]
   (let [options (::t/options selection)
@@ -280,12 +278,15 @@
                               (entity/meets-prereqs? option built-char)))
                            options)]
     [:div
+     [:div.flex.justify-cont-end.m-b-5
+      [comps/labeled-checkbox "Show Sources" @show-class-sources? false
+       #(swap! show-class-sources? not)]]
      [:div
       (doall
        (map-indexed
         (fn [i [key selected-class]]
           ^{:key key}
-          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set])
+          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set @show-class-sources?])
         selected-classes))]
      (when (seq remaining-classes)
        [:div.orange.p-5.underline.pointer

@@ -458,26 +458,17 @@
  :<- [::spells5e/spells-map]
  :<- [::selections5e/selection-map]
  (fn [[plugins-with-sources spell-lists spells-map selection-map]]
-   ;; Defensive handling: skip malformed classes rather than breaking
-   ;; Also includes source name for disambiguation when multiple sources
-   ;; have classes with the same name (e.g., two different "Artificer" classes)
+   ;; Defensive handling: skip malformed classes rather than breaking.
+   ;; Source name is stored as :plugin-source for optional display in UI.
    (keep
     (fn [[source-name class-key class]]
       (try
         (when (and (map? class) class-key)
           (let [;; Ensure the class has its key set (the map key is the authoritative key)
                 class-with-key (assoc class :key class-key)
-                levels (make-levels spell-lists spells-map selection-map class-with-key)
-                ;; Add source name to class name for disambiguation
-                ;; Only if source name is meaningful (not default)
-                display-name (if (and source-name
-                                      (not= source-name "Default Option Source"))
-                               (str (:name class) " (" source-name ")")
-                               (:name class))]
+                levels (make-levels spell-lists spells-map selection-map class-with-key)]
             (assoc class-with-key
-                   :name display-name
-                   ;; :name is display-only (may include source suffix).
-                   ;; All internal lookups use :key, never :name.
+                   ;; :name is display-only. All internal lookups use :key, never :name.
                    :original-name (:name class)
                    :plugin-source source-name
                    :modifiers (opt5e/plugin-modifiers (:props class)
@@ -962,13 +953,16 @@
          plugin-class-options (keep
                                (fn [plugin-class]
                                  (try
-                                   (opt5e/class-option
-                                    spell-lists
-                                    spells-map
-                                    plugin-subclasses-map
-                                    language-map
-                                    weapons-map
-                                    plugin-class)
+                                   (let [option (opt5e/class-option
+                                                 spell-lists
+                                                 spells-map
+                                                 plugin-subclasses-map
+                                                 language-map
+                                                 weapons-map
+                                                 plugin-class)]
+                                     ;; Preserve :plugin-source on the template option for
+                                     ;; optional display in class dropdowns
+                                     (assoc option :plugin-source (:plugin-source plugin-class)))
                                    (catch js/Error e
                                      (js/console.warn "Skipping plugin class due to error:" (:key plugin-class) e)
                                      nil)))
