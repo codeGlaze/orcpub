@@ -201,7 +201,7 @@
                (let [failed-prereqs (when (pos? i) (prereq-failures option))
                      source-suffix (when (and show-sources?
                                               plugin-source
-                                              (not= plugin-source "Default Option Source"))
+                                              (not= plugin-source db/default-plugin-source))
                                     (str " (" plugin-source ")"))
                      prereq-suffix (when (seq failed-prereqs)
                                     (str " (" (s/join ", " failed-prereqs) ")"))]
@@ -261,40 +261,40 @@
 
 (def add-class (memoize add-class-fn))
 
-(def show-class-sources? (r/atom false))
-
-(defn class-levels-selector [{:keys [selection]}]
-  (let [options (::t/options selection)
-        built-char @(subscribe [:built-character])
-        selected-classes @(subscribe [::char5e/levels])
-        unselected-classes (remove
-                            (set (keys selected-classes))
-                            (map ::t/key options))
-        unselected-classes-set (set unselected-classes)
-        remaining-classes (filter
-                           (fn [option]
-                             (and
-                              (unselected-classes-set (::t/key option))
-                              (entity/meets-prereqs? option built-char)))
-                           options)]
-    [:div
-     [:div.flex.justify-cont-end.m-b-5
-      [comps/labeled-checkbox "Show Sources" @show-class-sources? false
-       #(swap! show-class-sources? not)]]
-     [:div
-      (doall
-       (map-indexed
-        (fn [i [key selected-class]]
-          ^{:key key}
-          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set @show-class-sources?])
-        selected-classes))]
-     (when (seq remaining-classes)
-       [:div.orange.p-5.underline.pointer
-        [:i.fa.fa-plus-circle.orange.f-s-16]
-        [:span.m-l-5
-         {:on-click
-          (add-class remaining-classes)}
-         "Add Levels in Another Class"]])]))
+(defn class-levels-selector []
+  (let [show-sources? (r/atom false)]
+    (fn [{:keys [selection]}]
+      (let [options (::t/options selection)
+            built-char @(subscribe [:built-character])
+            selected-classes @(subscribe [::char5e/levels])
+            unselected-classes (remove
+                                (set (keys selected-classes))
+                                (map ::t/key options))
+            unselected-classes-set (set unselected-classes)
+            remaining-classes (filter
+                               (fn [option]
+                                 (and
+                                  (unselected-classes-set (::t/key option))
+                                  (entity/meets-prereqs? option built-char)))
+                               options)]
+        [:div
+         [:div.flex.justify-cont-end.m-b-5
+          [comps/labeled-checkbox "Show Sources" @show-sources? false
+           #(swap! show-sources? not)]]
+         [:div
+          (doall
+           (map-indexed
+            (fn [i [key selected-class]]
+              ^{:key key}
+              [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set @show-sources?])
+            selected-classes))]
+         (when (seq remaining-classes)
+           [:div.orange.p-5.underline.pointer
+            [:i.fa.fa-plus-circle.orange.f-s-16]
+            [:span.m-l-5
+             {:on-click
+              (add-class remaining-classes)}
+             "Add Levels in Another Class"]])]))))
 
 (defn set-custom-item-name-fn [selection-key i]
   #(dispatch [::char5e/set-custom-item-name selection-key i %]))

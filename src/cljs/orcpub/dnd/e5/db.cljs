@@ -118,11 +118,13 @@
                     :traits []
                     :level-modifiers []})
 
+(def default-plugin-source "Default Option Source")
+
 (def default-value
   {:builder {:character {:tab #{:build :options}}}
    :character default-character
    :template t5e/template
-   :plugins {"Default Option Source" {}}
+   :plugins {default-plugin-source {}}
    :locked-components #{}
    :route (parse-route)
    :route-history (list default-route)
