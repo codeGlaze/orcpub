@@ -197,11 +197,12 @@
             :on-change (set-class i options-map)}
            (doall
             (map
+             ;; TODO: extract source-suffix formatting into an HOF shared
+             ;; across all option selectors that display plugin sources,
+             ;; rather than inlining the logic per-dropdown.
              (fn [{:keys [::t/key ::t/name :plugin-source] :as option}]
                (let [failed-prereqs (when (pos? i) (prereq-failures option))
-                     source-suffix (when (and show-sources?
-                                              plugin-source
-                                              (not= plugin-source db/default-plugin-source))
+                     source-suffix (when (and show-sources? plugin-source)
                                     (str " (" plugin-source ")"))
                      prereq-suffix (when (seq failed-prereqs)
                                     (str " (" (s/join ", " failed-prereqs) ")"))]
