@@ -52,6 +52,10 @@ source_env() {
   . <(tr -d '\r' < "$1")
 }
 
+# Source optional modules
+# shellcheck source=scripts/swarm.sh
+[ -f "${SCRIPT_DIR}/scripts/swarm.sh" ] && . "${SCRIPT_DIR}/scripts/swarm.sh"
+
 # Set a variable in a .env file. Uses awk to avoid sed delimiter issues with URLs.
 # Usage: set_env_val "VAR_NAME" "value" "/path/to/.env"
 set_env_val() {
@@ -378,6 +382,37 @@ EMAIL_TLS=${EMAIL_TLS}
 INIT_ADMIN_USER=${INIT_ADMIN_USER}
 INIT_ADMIN_EMAIL=${INIT_ADMIN_EMAIL}
 INIT_ADMIN_PASSWORD=${INIT_ADMIN_PASSWORD}
+$(if [ "$SWARM_MODE" = "true" ]; then cat <<'SWARM_VARS'
+
+# --- Swarm / Portainer ---
+# These are used by docker-compose.swarm.yaml. Compose users can ignore them.
+
+# Timezone (POSIX standard — works on both musl/Alpine and glibc)
+TZ=America/Chicago
+
+# Content Security Policy mode (strict|relaxed|off)
+CSP_POLICY=strict
+
+# Stack / project name
+# COMPOSE_PROJECT_NAME=orcpub
+
+# JVM — Transactor (read natively by Datomic's bin/transactor)
+# Set to ~75% of DATOMIC_MEMORY_LIMIT. Example: 2G container → -Xms1536m
+# XMS=-Xms1g
+# XMX=-Xmx1g
+
+# JVM — App (passed via JAVA_OPTS)
+# Modern:     -XX:MaxRAMPercentage=75.0  (auto-scales to container limit)
+# Traditional: -Xms1g -Xmx1g
+# JAVA_OPTS=
+
+# Container resource limits (Swarm deploy.resources)
+# APP_MEMORY_LIMIT=2G
+# APP_MEMORY_RESERVATION=1G
+# DATOMIC_MEMORY_LIMIT=2G
+# DATOMIC_MEMORY_RESERVATION=1G
+SWARM_VARS
+fi)
 EOF
   chmod 600 "$ENV_FILE"
   change ".env file created at ${ENV_FILE} (permissions: 600)"
@@ -592,17 +627,8 @@ for arg in "$@"; do
   esac
 done
 
-# Conflict: --secrets and --swarm are mutually exclusive
-if [ "$SECRETS_MODE" = "true" ] && [ "$SWARM_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
-  error "--secrets and --swarm are mutually exclusive."
-  echo "  --secrets  writes secrets as local files (Compose)"
-  echo "  --swarm    stores secrets in the Swarm Raft log (Swarm)"
-  echo ""
-  echo "Pick one based on your deployment:"
-  echo "  Compose → ./${SCRIPT_NAME} --secrets"
-  echo "  Swarm   → ./${SCRIPT_NAME} --swarm"
-  exit 1
-fi
+# --secrets alone = Compose file-based secrets
+# --swarm --secrets = Swarm Raft-based secrets (after compose generation)
 
 # Conflict: --down is standalone
 if [ "$DOWN_MODE" = "true" ]; then
@@ -799,12 +825,12 @@ if [ "$SECRETS_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
   printf '%s' "$_pw_datomic"   > "${SECRETS_DIR}/datomic_password" || { error "Failed to write ${SECRETS_DIR}/datomic_password"; exit 1; }
   printf '%s' "$_pw_admin"     > "${SECRETS_DIR}/admin_password"   || { error "Failed to write ${SECRETS_DIR}/admin_password"; exit 1; }
   printf '%s' "$_pw_signature" > "${SECRETS_DIR}/signature"        || { error "Failed to write ${SECRETS_DIR}/signature"; exit 1; }
-  chmod 600 "${SECRETS_DIR}"/*
+  chmod 644 "${SECRETS_DIR}"/*
 
   change "Created secrets/datomic_password"
   change "Created secrets/admin_password"
   change "Created secrets/signature"
-  change "File permissions set to 600"
+  change "File permissions set to 644"
 
   unset _pw_datomic _pw_admin _pw_signature
 
@@ -837,13 +863,66 @@ if [ "$SECRETS_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Swarm secrets (--swarm mode)
+# Swarm compose generation (--swarm) — standalone Swarm-ready YAML
+# ---------------------------------------------------------------------------
+# Pure text file generation — no Docker daemon required.
+# Produces docker-compose.swarm.yaml + .env.portainer for Portainer import.
+
+if [ "$SWARM_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
+  # Ensure .env exists — generate if needed
+  if [ ! -f "$ENV_FILE" ]; then
+    generate_env
+  fi
+  source_env "$ENV_FILE"
+
+  _backup_file=""
+  _is_upgrade=false
+
+  if [ -f "$SWARM_COMPOSE" ]; then
+    _is_upgrade=true
+    _backup_file="${SWARM_COMPOSE}.backup.$(date +%s)"
+    cp "$SWARM_COMPOSE" "$_backup_file"
+    info "Existing swarm compose backed up: $_backup_file"
+
+    # Extract customizations from existing file
+    if ! extract_swarm_config "$SWARM_COMPOSE"; then
+      warn "Could not parse existing compose — generating fresh."
+      _is_upgrade=false
+    fi
+  fi
+
+  # Generate the swarm compose file (uses _swarm_* vars if upgrade)
+  generate_swarm_compose "$SWARM_COMPOSE" "$_is_upgrade"
+  change "Generated: $SWARM_COMPOSE"
+
+  # Generate stripped .env for Portainer advanced mode
+  generate_env_portainer "$ENV_FILE" "$SWARM_PORTAINER_ENV"
+  change "Generated: $SWARM_PORTAINER_ENV"
+
+  # Generate transactor.properties reference if bind-mount detected
+  if [ "${_swarm_has_transactor_props:-false}" = "true" ]; then
+    if generate_transactor_reference; then
+      change "Generated: ${SCRIPT_DIR}/transactor.properties.reference"
+    fi
+  fi
+
+  # Show colorized summary
+  print_swarm_summary "$SWARM_COMPOSE" "$_is_upgrade" "$_backup_file"
+
+  # If --build, --up, or --secrets also specified, fall through; otherwise exit
+  if [ "$BUILD_MODE" != "true" ] && [ "$UP_MODE" != "true" ] && [ "$SECRETS_MODE" != "true" ]; then
+    exit 0
+  fi
+fi
+# ---------------------------------------------------------------------------
+# Swarm secrets (--swarm --secrets)
 # ---------------------------------------------------------------------------
 # Creates Docker secrets via `docker secret create` for use in Swarm clusters.
 # Secrets are stored encrypted in the Swarm Raft log and delivered to
 # containers in memory — never written to disk on any node.
+# Requires a running Docker daemon in Swarm mode.
 
-if [ "$SWARM_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
+if [ "$SWARM_MODE" = "true" ] && [ "$SECRETS_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
   header "Dungeon Master's Vault — Swarm Secrets"
 
   # Check for running Compose containers — they'll conflict with Swarm networking
@@ -867,7 +946,7 @@ if [ "$SWARM_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
       docker swarm init 2>&1 || { error "Failed to initialize Swarm."; exit 1; }
       change "Docker Swarm initialized."
     else
-      info "Run 'docker swarm init' manually, then re-run: ./${SCRIPT_NAME} --swarm"
+      info "Run 'docker swarm init' manually, then re-run: ./${SCRIPT_NAME} --swarm --secrets"
       exit 0
     fi
   fi
@@ -925,6 +1004,12 @@ if [ "$SWARM_MODE" = "true" ] && [ "$UPGRADE_MODE" != "true" ]; then
 
   # Generate compose override so secrets are wired in automatically
   write_compose_secrets "external"
+
+  # Uncomment secrets blocks in swarm compose if it exists
+  if [ -f "$SWARM_COMPOSE" ]; then
+    activate_swarm_secrets "$SWARM_COMPOSE"
+    change "Activated secrets in $(basename "$SWARM_COMPOSE")"
+  fi
 
   # Switch transactor to Swarm-compatible host binding.
   switch_transactor_host "swarm"
