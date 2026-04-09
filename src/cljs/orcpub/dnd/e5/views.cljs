@@ -262,82 +262,86 @@
 
 (def route-handler (memoize route-fn))
 
-(defn header-tab []
-  (let [hovered? (r/atom false)]
-    (fn [title icon on-click disabled active device-type & buttons]
-      (let [mobile? (= :mobile device-type)]
-        [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
-         {:on-click (fn [e]
-                      (if (seq buttons)
-                        (swap! hovered? not)
-                        (on-click e)))
-          :on-mouse-enter #(when-not mobile? (reset! hovered? true))
-          :on-mouse-leave #(when-not mobile? (reset! hovered? false))
-          :style (when active active-style)
-          :class (str (if disabled "disabled" "pointer")
-                           " "
-                           (when (not mobile?) " w-110"))}
-         [:div.p-10
-          {:class (when (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
-          (let [size (if mobile? 24 48)] (svg-icon icon size ""))
-          (when (not mobile?)
-            [:div.title.uppercase title])]
-         (when (and (seq buttons)
-                  @hovered?)
-           [:div.uppercase.shadow
-            {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
-            (doall
-             (map
-              (fn [{:keys [name route]}]
-                ^{:key name}
-                [:div.p-10.opacity-5.hover-opacity-full
-                 (let [current-route @(subscribe [:route])]
-                   {:style (when (or (= route current-route)
-                                   (= route (get current-route :handler))) active-style)
-                    :on-click (fn [e]
-                                (.stopPropagation e)
-                                (reset! hovered? false)
-                                ((route-handler route) e))})
-                 name])
-              buttons))])]))))
+(defn header-tab [title icon on-click disabled active device-type & buttons]
+  (let [mobile? (= :mobile device-type)]
+    [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+     (cond-> {:on-mouse-down (fn [e]
+                               (when (seq buttons)
+                                 (let [tab (.. e -currentTarget)]
+                                   (when (= tab (.-activeElement js/document))
+                                     (.preventDefault e)
+                                     (.blur tab)))))
+              :on-click (fn [e]
+                          (when-not (seq buttons)
+                            (on-click e)))
+              :style (when active active-style)
+              :class (str (if disabled "disabled" "pointer")
+                          " "
+                          (when (not mobile?) " w-110"))}
+       (seq buttons) (assoc :tab-index 0))
+     [:div.p-10
+      {:class (when (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
+      (let [size (if mobile? 24 48)] (svg-icon icon size ""))
+      (when (not mobile?)
+        [:div.title.uppercase title])]
+     (when (seq buttons)
+       [:div.uppercase.shadow.header-flyout
+        {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
+        (doall
+         (map
+          (fn [{:keys [name route]}]
+            ^{:key name}
+            [:div.p-10.opacity-5.hover-opacity-full
+             (let [current-route @(subscribe [:route])]
+               {:style (when (or (= route current-route)
+                               (= route (get current-route :handler))) active-style)
+                :on-click (fn [e]
+                            (.stopPropagation e)
+                            (when-let [tab (.. e -currentTarget -parentElement -parentElement)]
+                              (.blur tab))
+                            ((route-handler route) e))})
+             name])
+          buttons))])]))
 
-(defn header-tab2 []
-  (let [hovered? (r/atom false)]
-    (fn [title icon on-click disabled active device-type & buttons]
-      (let [mobile? (= :mobile device-type)]
-        [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
-         {:on-click (fn [e]
-                      (if (seq buttons)
-                        (swap! hovered? not)
-                        (when (fn? on-click) (on-click e))))
-          :on-mouse-over #(when-not mobile? (reset! hovered? true))
-          :on-mouse-out #(when-not mobile? (reset! hovered? false))
-          :style (if active active-style)
-          :class-name (str (if disabled "disabled" "pointer")
-                           " "
-                           (if (not mobile?) "w-110"))}
-         [:div.p-10
-          {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
-          (let [size (if mobile? 24 48)] (svg-icon icon size ""))
-          (if (not mobile?)
-            [:div.title.uppercase title])]
-         (if (and (seq buttons)
-                  @hovered?)
-           [:div.uppercase.shadow
-            {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
-            (doall
-             (map
-              (fn [{:keys [name route]}]
-                ^{:key name}
-                [:div.p-10.opacity-5.hover-opacity-full.a-white
-                 {:on-click (fn [e]
-                              (.stopPropagation e)
-                              (reset! hovered? false))
-                  :style (let [current-route @(subscribe [:route])]
-                           (when (or (= route current-route)
-                                     (= route (get current-route :handler))) active-style))}
-                 [:a.no-text-decoration {:href route} name]])
-              buttons))])]))))
+(defn header-tab2 [title icon on-click disabled active device-type & buttons]
+  (let [mobile? (= :mobile device-type)]
+    [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
+     (cond-> {:on-mouse-down (fn [e]
+                               (when (seq buttons)
+                                 (let [tab (.. e -currentTarget)]
+                                   (when (= tab (.-activeElement js/document))
+                                     (.preventDefault e)
+                                     (.blur tab)))))
+              :on-click (fn [e]
+                          (when-not (seq buttons)
+                            (when (fn? on-click) (on-click e))))
+              :style (if active active-style)
+              :class-name (str (if disabled "disabled" "pointer")
+                               " "
+                               (if (not mobile?) "w-110"))}
+       (seq buttons) (assoc :tab-index 0))
+     [:div.p-10
+      {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
+      (let [size (if mobile? 24 48)] (svg-icon icon size ""))
+      (if (not mobile?)
+        [:div.title.uppercase title])]
+     (when (seq buttons)
+       [:div.uppercase.shadow.header-flyout
+        {:style (if mobile? mobile-header-menu-item-style header-menu-item-style)}
+        (doall
+         (map
+          (fn [{:keys [name route]}]
+            ^{:key name}
+            [:div.p-10.opacity-5.hover-opacity-full.a-white
+             {:on-click (fn [e]
+                          (.stopPropagation e)
+                          (when-let [tab (.. e -currentTarget -parentElement -parentElement)]
+                            (.blur tab)))
+              :style (let [current-route @(subscribe [:route])]
+                       (when (or (= route current-route)
+                                 (= route (get current-route :handler))) active-style))}
+             [:a.no-text-decoration {:href route} name]])
+          buttons))])]))
 
 (def social-icon-style
   {:color :white
