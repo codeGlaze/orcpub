@@ -147,9 +147,29 @@
    :orcpub.dnd.e5/selections "Selections"
    :orcpub.dnd.e5/encounters "Encounters"})
 
+(defn- render-issue-group
+  "Renders the invalid items for a single content-type."
+  [{:keys [content-type invalid-items]}]
+  ^{:key content-type}
+  [:div {:style {:margin-bottom "12px"}}
+   [:div.export-issue-type
+    (get content-type-display-names content-type (clojure.core/name content-type))]
+   [:ul {:style {:margin 0 :padding-left "20px"}}
+    (for [{:keys [key name missing-fields traits-missing-names]} invalid-items]
+      ^{:key key}
+      [:li.export-issue-item
+       [:span.export-issue-name
+        (or name (clojure.core/name key))]
+       (when (seq missing-fields)
+         [:span.export-issue-missing
+          (str "missing: " (s/join ", " (map clojure.core/name missing-fields)))])
+       (when (and traits-missing-names (pos? traits-missing-names))
+         [:span.export-issue-missing
+          (str traits-missing-names " trait(s) missing names")])])]])
+
 (defn export-warning-modal []
   (let [warning @(subscribe [:export-warning])
-        {:keys [active? name issues warnings]} warning]
+        {:keys [active? multi? name issues plugin-validations]} warning]
     (when active?
       [:div.conflict-backdrop
        [:div.conflict-modal
@@ -164,25 +184,20 @@
          [:div.f-s-12.conflict-count
           "Some items are missing required fields (names, etc.). You can cancel and fix them, or export with placeholder data."]]
 
-        ;; Issues list
+        ;; Issues list — grouped per-plugin in multi-plugin mode
         [:div.conflict-modal-body {:style {:max-height "300px"}}
-         (for [{:keys [content-type invalid-items]} issues]
-           ^{:key content-type}
-           [:div {:style {:margin-bottom "12px"}}
-            [:div.export-issue-type
-             (get content-type-display-names content-type (clojure.core/name content-type))]
-            [:ul {:style {:margin 0 :padding-left "20px"}}
-             (for [{:keys [key name missing-fields traits-missing-names]} invalid-items]
-               ^{:key key}
-               [:li.export-issue-item
-                [:span.export-issue-name
-                 (or name (clojure.core/name key))]
-                (when (seq missing-fields)
-                  [:span.export-issue-missing
-                   (str "missing: " (s/join ", " (map clojure.core/name missing-fields)))])
-                (when (and traits-missing-names (pos? traits-missing-names))
-                  [:span.export-issue-missing
-                   (str traits-missing-names " trait(s) missing names")])])]])]
+         (if multi?
+           (for [[plugin-name {:keys [missing-fields-issues]}]
+                 (sort-by key plugin-validations)
+                 :when (seq missing-fields-issues)]
+             ^{:key plugin-name}
+             [:div {:style {:margin-bottom "16px"}}
+              [:div.f-w-b.f-s-14 {:style {:margin-bottom "4px"}}
+               plugin-name]
+              (for [issue missing-fields-issues]
+                (render-issue-group issue))])
+           (for [issue issues]
+             (render-issue-group issue)))]
 
         ;; Footer with buttons
         [:div.conflict-modal-footer

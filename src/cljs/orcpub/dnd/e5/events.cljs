@@ -3642,15 +3642,13 @@
                      (str "Cannot export '" name "' - contains invalid data. Check console for details.")]})))))
 
 ;; Export warning modal events
+;; Supports two shapes:
+;;   Single-plugin: {:name :plugin :issues :warnings}
+;;   Multi-plugin:  {:multi? true :name :all-plugins :plugin-validations}
 (reg-event-db
  :show-export-warning-modal
- (fn [db [_ {:keys [name plugin issues warnings]}]]
-   (assoc db :export-warning
-          {:active? true
-           :name name
-           :plugin plugin
-           :issues issues
-           :warnings warnings})))
+ (fn [db [_ payload]]
+   (assoc db :export-warning (assoc payload :active? true))))
 
 (reg-event-db
  :cancel-export
@@ -3660,42 +3658,52 @@
 (reg-event-fx
  :export-anyway
  (fn [{:keys [db]} _]
-   (let [{:keys [name plugin]} (:export-warning db)
-         ;; Fill missing fields with dummy data
-         filled-plugin (import-val/fill-missing-for-export plugin)
-         blob (js/Blob.
-               (clj->js [(str filled-plugin)])
-               (clj->js {:type "text/plain;charset=utf-8"}))]
-     (js/saveAs blob (str name ".orcbrew"))
-     {:db (assoc db :export-warning {:active? false})
-      :dispatch [:show-warning-message
-                 (str "Plugin '" name "' exported with placeholder data for missing fields.")]})))
+   (let [{:keys [multi? name plugin all-plugins]} (:export-warning db)]
+     (if multi?
+       ;; Multi-plugin: fill missing fields across every plugin and export
+       ;; the combined map as a single "all-content" file.
+       (let [filled (import-val/fill-missing-for-export-all all-plugins)
+             blob (js/Blob.
+                   (clj->js [(str filled)])
+                   (clj->js {:type "text/plain;charset=utf-8"}))]
+         (js/saveAs blob "all-content.orcbrew")
+         {:db (assoc db :export-warning {:active? false})
+          :dispatch [:show-warning-message
+                     "All plugins exported with placeholder data for missing fields."]})
+       ;; Single-plugin: preserve existing behaviour
+       (let [filled-plugin (import-val/fill-missing-for-export plugin)
+             blob (js/Blob.
+                   (clj->js [(str filled-plugin)])
+                   (clj->js {:type "text/plain;charset=utf-8"}))]
+         (js/saveAs blob (str name ".orcbrew"))
+         {:db (assoc db :export-warning {:active? false})
+          :dispatch [:show-warning-message
+                     (str "Plugin '" name "' exported with placeholder data for missing fields.")]})))))
 
 ;; Export all homebrew plugins as .orcbrew file.
 (reg-event-fx
  ::e5/export-all-plugins
  (fn [{:keys [db]} _]
    (let [all-plugins (:plugins db)
-         ;; Validate each plugin
-         validations (into {}
-                           (map (fn [[name plugin]]
-                                  [name (import-val/validate-before-export plugin)])
-                                all-plugins))
-         has-errors (some (fn [[_ v]] (not (:valid v))) validations)
-         has-warnings (some (fn [[_ v]] (seq (:warnings v))) validations)]
+         {:keys [plugin-validations
+                 has-only-missing-required-fields
+                 broken-plugin-names] :as validation}
+         (import-val/validate-all-plugins-before-export all-plugins)
+         has-warnings (some (fn [v] (seq (:warnings v)))
+                            (vals plugin-validations))]
 
-     (when (or has-errors has-warnings)
+     ;; Log validation results to console for debugging/support
+     (when (or (seq broken-plugin-names) has-warnings)
        (js/console.warn "Export validation results:")
-       (doseq [[name validation] validations]
-         (when-not (:valid validation)
-           (js/console.error "Plugin" name "has errors:" (:errors validation)))
-         (when (seq (:warnings validation))
-           (js/console.warn "Plugin" name "has warnings:" (:warnings validation)))))
+       (doseq [[name v] plugin-validations]
+         (when-not (:valid v)
+           (js/console.error "Plugin" name "has errors:" (clj->js (:errors v))))
+         (when (seq (:warnings v))
+           (js/console.warn "Plugin" name "has warnings:" (clj->js (:warnings v))))))
 
-     (if has-errors
-       {:dispatch [:show-error-message
-                   "Cannot export all plugins - some contain invalid data. Check console for details."]}
-
+     (cond
+       ;; All valid - export directly
+       (:valid validation)
        (let [blob (js/Blob.
                    (clj->js [(str all-plugins)])
                    (clj->js {:type "text/plain;charset=utf-8"}))]
@@ -3703,7 +3711,24 @@
          (if has-warnings
            {:dispatch [:show-warning-message
                        "All plugins exported with some warnings. Check console for details."]}
-           {}))))))
+           {}))
+
+       ;; Only missing required fields (names, etc.) - offer the fix-up modal
+       ;; so the user can cancel and fix, or export with placeholder data.
+       has-only-missing-required-fields
+       {:dispatch [:show-export-warning-modal
+                   {:multi? true
+                    :name "all content"
+                    :all-plugins all-plugins
+                    :plugin-validations plugin-validations}]}
+
+       ;; Deeper validation failures - identify broken plugins in the error
+       ;; message so the user knows where to look.
+       :else
+       {:dispatch [:show-error-message
+                   (str "Cannot export all plugins - invalid data in: "
+                        (s/join ", " broken-plugin-names)
+                        ". Check console for details.")]}))))
 
 
 (defn clj->json

@@ -621,15 +621,39 @@
      :item-key item-key
      :errors (format-validation-errors (spec/explain-data ::e5/homebrew-item item))}))
 
+(defn- errors->vec
+  "Normalize validate-item's :errors (which may be a single string) to a
+   vector so new errors can be appended uniformly."
+  [errors]
+  (cond
+    (nil? errors) []
+    (string? errors) [errors]
+    :else (vec errors)))
+
 (defn validate-content-group
   "Validates a group of homebrew content (e.g., all spells, all races).
+
+  An item is considered invalid if its map key isn't a valid homebrew key
+  (per ::e5/homebrew-items) or its value fails ::e5/homebrew-item. Items
+  with invalid keys are reported in :invalid-items so progressive import
+  can surface them in the skipped-items log.
 
   Returns map of:
     :valid-count - number of valid items
     :invalid-count - number of invalid items
     :invalid-items - vector of {:key <key> :errors <errors>} for invalid items"
   [content-key items]
-  (let [results (map (fn [[k v]] (assoc (validate-item k v) :key k)) items)
+  (let [results (map (fn [[k v]]
+                       (let [value-validation (validate-item k v)
+                             key-ok? (valid-item-key? k)]
+                         (cond-> (assoc value-validation :key k)
+                           (not key-ok?)
+                           (assoc :valid false
+                                  :errors (conj (errors->vec (:errors value-validation))
+                                                (str "Invalid item key "
+                                                     (pr-str k)
+                                                     " - homebrew keys must be keywords that start with a letter"))))))
+                     items)
         valid (filter :valid results)
         invalid (remove :valid results)]
     {:content-type content-key
@@ -712,6 +736,46 @@
   (let [{:keys [plugin]} (fill-missing-in-plugin plugin-data)]
     plugin))
 
+(defn validate-all-plugins-before-export
+  "Validates every plugin in a multi-plugin map (as produced by (:plugins db)).
+
+  Returns:
+    {:valid true/false
+     :plugin-validations {plugin-name validation-result}
+     :has-only-missing-required-fields true/false
+     :broken-plugin-names [...]}
+
+  :has-only-missing-required-fields is true when every invalid plugin is
+  invalid solely because of missing required fields (names, etc.). This is
+  the signal that the 'Export Anyway' fix-up flow can safely be offered to
+  the user."
+  [all-plugins]
+  (let [plugin-validations (reduce-kv
+                            (fn [acc name plugin]
+                              (assoc acc name (validate-before-export plugin)))
+                            {}
+                            all-plugins)
+        invalid-entries (filter (fn [[_ v]] (not (:valid v))) plugin-validations)
+        broken-names (mapv first invalid-entries)
+        all-missing-only? (and (seq invalid-entries)
+                               (every? (fn [[_ v]]
+                                         (:has-missing-required-fields v))
+                                       invalid-entries))]
+    {:valid (empty? invalid-entries)
+     :plugin-validations plugin-validations
+     :has-only-missing-required-fields all-missing-only?
+     :broken-plugin-names broken-names}))
+
+(defn fill-missing-for-export-all
+  "Fill missing required fields for every plugin in a multi-plugin map.
+   Returns a new multi-plugin map with placeholder data filled in."
+  [all-plugins]
+  (reduce-kv
+   (fn [acc name plugin]
+     (assoc acc name (fill-missing-for-export plugin)))
+   {}
+   all-plugins))
+
 ;; ============================================================================
 ;; Import Strategies
 ;; ============================================================================
@@ -737,12 +801,25 @@
                    "\n\nIf this is a multi-plugin file:\n"
                    (format-validation-errors (spec/explain-data ::e5/plugins plugin)))]}))
 
+(defn valid-item-key?
+  "Homebrew item keys must be keywords that start with a letter (per the
+   ::e5/homebrew-items spec). Items keyed with blank/invalid keywords
+   (e.g. `:` produced by name-to-kw of an empty name) are unrenderable
+   and must be filtered out during progressive import."
+  [k]
+  (and (keyword? k)
+       (common/keyword-starts-with-letter? k)))
+
 (defn remove-invalid-items
-  "Removes invalid items from a content group, keeping only valid ones."
+  "Removes invalid items from a content group, keeping only valid ones.
+   Also filters out items whose map key is not a valid homebrew item key —
+   those cannot survive full-plugin spec validation and tend to render
+   as blank/unselectable entries in the UI."
   [content-key items]
   (into {}
         (filter (fn [[k v]]
-                  (:valid (validate-item k v)))
+                  (and (valid-item-key? k)
+                       (:valid (validate-item k v))))
                 items)))
 
 (defn is-multi-plugin?

@@ -143,6 +143,67 @@
           result (import-val/validate-before-export plugin)]
       (is (seq (:warnings result))))))
 
+(deftest test-validate-all-plugins-before-export-all-valid
+  (testing "Multi-plugin export validation succeeds when every plugin is valid"
+    (let [all-plugins {"Plugin A" {:orcpub.dnd.e5/spells
+                                   {:fireball {:option-pack "Plugin A"
+                                               :name "Fireball"
+                                               :level 3
+                                               :school "evocation"}}}
+                       "Plugin B" {:orcpub.dnd.e5/races
+                                   {:elf {:option-pack "Plugin B"
+                                          :name "Elf"}}}}
+          result (import-val/validate-all-plugins-before-export all-plugins)]
+      (is (:valid result))
+      (is (empty? (:broken-plugin-names result)))
+      (is (not (:has-only-missing-required-fields result))))))
+
+(deftest test-validate-all-plugins-before-export-missing-required-only
+  (testing "Multi-plugin export validation surfaces the missing-required-only flag"
+    (let [all-plugins {"Plugin A" {:orcpub.dnd.e5/spells
+                                   {:ok {:option-pack "Plugin A" :name "OK"
+                                         :level 1 :school "abjuration"}}}
+                       "Plugin B" {:orcpub.dnd.e5/feats
+                                   {:broken {:option-pack "Plugin B"}}}}
+          result (import-val/validate-all-plugins-before-export all-plugins)]
+      (is (not (:valid result)))
+      (is (:has-only-missing-required-fields result))
+      (is (= ["Plugin B"] (:broken-plugin-names result))))))
+
+(deftest test-fill-missing-for-export-all
+  (testing "fill-missing-for-export-all fills dummy names across every plugin"
+    (let [all-plugins {"A" {:orcpub.dnd.e5/feats {:broken {:option-pack "A"}}}
+                       "B" {:orcpub.dnd.e5/races {:broken {:option-pack "B"}}}}
+          filled (import-val/fill-missing-for-export-all all-plugins)]
+      (is (= "[Missing Feat Name]"
+             (get-in filled ["A" :orcpub.dnd.e5/feats :broken :name])))
+      (is (= "[Missing Race Name]"
+             (get-in filled ["B" :orcpub.dnd.e5/races :broken :name]))))))
+
+(deftest test-validate-content-group-rejects-invalid-keys
+  (testing "Items keyed by keywords not starting with a letter are flagged"
+    (let [items {:valid-one {:option-pack "Test" :name "Valid One"}
+                 (keyword "") {:option-pack "Test" :name "Broken"}}
+          result (import-val/validate-content-group :orcpub.dnd.e5/spells items)]
+      (is (= 1 (:valid-count result)))
+      (is (= 1 (:invalid-count result)))
+      (is (some #(some (fn [e] (re-find #"Invalid item key" e))
+                       (:errors %))
+                (:invalid-items result))))))
+
+(deftest test-progressive-import-filters-invalid-keys
+  (testing "Progressive import drops items whose keys are not valid homebrew keys"
+    (let [plugin {:orcpub.dnd.e5/spells
+                  {:fireball {:option-pack "Test" :name "Fireball"
+                              :level 3 :school "evocation"}
+                   (keyword "") {:option-pack "Test" :name "Blank key"}}}
+          result (import-val/import-progressive plugin)]
+      (is (:success result))
+      (is (:had-errors result))
+      (let [cleaned (get-in result [:data :orcpub.dnd.e5/spells])]
+        (is (contains? cleaned :fireball))
+        (is (not (contains? cleaned (keyword ""))))))))
+
 ;; ============================================================================
 ;; Import Strategy Tests
 ;; ============================================================================
