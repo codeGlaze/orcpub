@@ -631,7 +631,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? character-name class-level player-name]} fields
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? character-name class-level player-name flatten?]} fields
 
         sheet6 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-6-spells.pdf")
         sheet5 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-5-spells.pdf")
@@ -649,8 +649,12 @@
                                           (find fields :spellcasting-class-1) sheet1
                                           :else sheet0)))
         output (ByteArrayOutputStream.)
-        user-agent (get-in req [:headers "user-agent"])
-        chrome? (re-matches #".*Chrome.*" user-agent)
+        ;; Default to interactive (fillable) PDFs. Clients may pass `:flatten? true`
+        ;; in the request payload to request a locked/static PDF (e.g. for archival
+        ;; or sharing as read-only). Historically this was forced for non-Chrome
+        ;; user-agents to work around Firefox pdf.js lacking AcroForm rendering,
+        ;; which Mozilla shipped in Firefox 84 (Dec 2020) — that workaround is no
+        ;; longer needed.
         filename (cond
                    (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
                    (s/blank? player-name) (str character-name " - " class-level ".pdf")
@@ -659,7 +663,7 @@
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.
     (with-open [doc (Loader/loadPDF (.readAllBytes input))]
-      (pdf/write-fields! doc fields (not chrome?) font-sizes)
+      (pdf/write-fields! doc fields (boolean flatten?) font-sizes)
       (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod?))
 
