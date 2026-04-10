@@ -79,15 +79,20 @@
       (with-open [doc (load-response-pdf resp)]
         (is (has-fillable-form? doc))))))
 
-(deftest character-pdf-2-truthy-non-boolean-flattens
-  (testing "Non-boolean truthy :flatten? follows Clojure truthiness => flattened"
-    (let [resp (routes/character-pdf-2
-                (make-req (minimal-fields {:flatten? "yes"})))]
-      (is (= 200 (:status resp)))
-      (with-open [doc (load-response-pdf resp)]
-        (let [form (.getAcroForm (.getDocumentCatalog doc))]
-          (is (or (nil? form) (empty? (.getFields form)))
-              "any truthy value should result in flatten=true"))))))
+(deftest character-pdf-2-truthy-non-boolean-does-not-flatten
+  (testing "Non-boolean truthy :flatten? values (\"yes\", 1, {}, etc.) must
+            NOT trigger flatten. The handler uses strict `(true? flatten?)`
+            so a malformed client payload falls through to the safer
+            interactive default rather than silently locking the sheet."
+    (doseq [garbage ["yes" 1 "true" [] {} :true]]
+      (testing (str ":flatten? " (pr-str garbage))
+        (let [resp (routes/character-pdf-2
+                    (make-req (minimal-fields {:flatten? garbage})))]
+          (is (= 200 (:status resp)))
+          (with-open [doc (load-response-pdf resp)]
+            (is (has-fillable-form? doc)
+                (str "non-boolean :flatten? " (pr-str garbage)
+                     " must not flatten"))))))))
 
 (deftest character-pdf-2-ignores-user-agent
   (testing "User-Agent header has no effect on flatten behavior (regression for removed UA sniff)"
@@ -106,3 +111,55 @@
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Invalid character data format"
                             (routes/character-pdf-2 req))))))
+
+;; -----------------------------------------------------------------------------
+;; Handler-level value round-trip: the posted character-name must appear in
+;; the response PDF's corresponding AcroForm field. This exercises the full
+;; pipeline (edn parse -> write-fields! -> save -> load) and would catch a
+;; regression that pdf_test.clj's unit tests cannot: e.g. the handler passing
+;; the wrong `fields` map to write-fields!, or a ByteArrayOutputStream/save
+;; bug that produces an unreadable PDF.
+;; -----------------------------------------------------------------------------
+
+(deftest character-pdf-2-character-name-round-trips
+  (testing "Value posted in :character-name appears in the generated PDF"
+    (let [resp (routes/character-pdf-2
+                (make-req (minimal-fields {:character-name "Sir Round-Trip"})))]
+      (is (= 200 (:status resp)))
+      (with-open [doc (load-response-pdf resp)]
+        (let [form (.getAcroForm (.getDocumentCatalog doc))
+              field (.getField form "character-name")]
+          (is (some? field)
+              "character-name field must exist on the response PDF")
+          (is (= "Sir Round-Trip" (.getValue field))
+              "character-name value must round-trip through the full
+               handler"))))))
+
+;; -----------------------------------------------------------------------------
+;; Smoke test: every sheet-style × spell-count combination must produce a
+;; loadable PDF. Catches template resource renames, incomplete style rollouts,
+;; and template-specific crashes in write-fields! (e.g. a field that exists
+;; on style 1 but not style 3).
+;; -----------------------------------------------------------------------------
+
+(defn- fields-with-style [style spell-count]
+  (let [base (minimal-fields {:print-character-sheet-style? style})]
+    (if (zero? spell-count)
+      base
+      ;; Presence of :spellcasting-class-N drives template selection in the
+      ;; handler (routes.clj:644-650). Value can be anything; write-fields!
+      ;; silently skips unknown fields.
+      (assoc base (keyword (str "spellcasting-class-" spell-count)) {}))))
+
+(deftest character-pdf-2-smoke-test-all-styles-and-spell-counts
+  (doseq [style (range 1 5)
+          spell-count (range 0 7)]
+    (testing (str "style=" style " spell-count=" spell-count)
+      (let [resp (routes/character-pdf-2
+                  (make-req (fields-with-style style spell-count)))]
+        (is (= 200 (:status resp)))
+        (with-open [doc (load-response-pdf resp)]
+          (is (pos? (.getNumberOfPages doc))
+              "response PDF must have at least one page")
+          (is (has-fillable-form? doc)
+              "response PDF must be fillable (default)"))))))

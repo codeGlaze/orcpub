@@ -666,9 +666,12 @@
     (with-open [doc (Loader/loadPDF (.readAllBytes input))]
       ;; PDFs are fillable by default. Clients may opt into a locked/static
       ;; (flattened) PDF by passing `:flatten? true` in the request payload.
+      ;; Strict `true?` — not Clojure's loose truthiness — so a malformed
+      ;; client payload (`"yes"`, `0`, `{}`) falls through to the safer
+      ;; interactive default rather than silently locking the sheet.
       ;; Pre-2026 this was forced for any non-Chrome UA to work around pdf.js
       ;; lacking AcroForm rendering — a limitation Mozilla fixed in Firefox 84.
-      (pdf/write-fields! doc fields flatten? font-sizes)
+      (pdf/write-fields! doc fields (true? flatten?) font-sizes)
       (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod?))
 

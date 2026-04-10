@@ -3,8 +3,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
             [orcpub.pdf :as pdf])
-  (:import (java.io ByteArrayOutputStream PrintStream)
-           (org.apache.pdfbox Loader)
+  (:import (org.apache.pdfbox Loader)
            (org.apache.pdfbox.cos COSName)
            (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
            (org.apache.pdfbox.pdmodel.interactive.annotation
@@ -54,9 +53,6 @@
             (map #(.getFullyQualifiedName %))
             (.getFields form)))))
 
-(defn- widgets-on-page [^PDPage page]
-  (filter #(instance? PDAnnotationWidget %) (.getAnnotations page)))
-
 ;; =============================================================================
 ;; fix-widget-page-refs! unit tests
 ;;
@@ -100,14 +96,27 @@
             "existing /P should not be overwritten")))))
 
 (deftest fix-widget-page-refs-ignores-non-widget-annotations
-  (testing "Non-widget annotations are not touched and do not throw"
+  (testing "Non-widget annotations are left alone — the `instance?
+            PDAnnotationWidget` filter keeps the helper from rewriting /P on
+            links, highlights, stamps, etc., which could have their own
+            semantics. Encoded as a real invariant (DA untouched) rather than
+            just 'does not throw'."
     (with-open [doc (PDDocument.)]
-      (let [page (PDPage.)
+      (let [page-a (PDPage.)
+            page-b (PDPage.)
             link (PDAnnotationLink.)]
-        (.addPage doc page)
-        (.addAnnotation page link)
-        ;; Should be a no-op for this page, but must not NPE or throw.
-        (is (nil? (fix-widget-page-refs! doc)))))))
+        (.addPage doc page-a)
+        (.addPage doc page-b)
+        ;; Explicitly point the link's /P at page-b then attach it to page-a's
+        ;; annotations. A naive helper that drops the instance? check would
+        ;; overwrite /P to page-a; a correct one leaves it alone.
+        (.setPage link page-b)
+        (.addAnnotation page-a link)
+        (is (identical? page-b (.getPage link))
+            "precondition: link's /P points to page-b")
+        (fix-widget-page-refs! doc)
+        (is (identical? page-b (.getPage link))
+            "non-widget annotation /P must not be modified")))))
 
 (deftest fix-widget-page-refs-walks-all-pages
   (testing "Fix is applied across every page of the doc"
@@ -127,24 +136,60 @@
 ;; write-fields! integration tests against a bundled template PDF
 ;; =============================================================================
 
-(deftest write-fields-interactive-preserves-form
-  (testing "flatten=false: form remains fillable and values are populated"
+(deftest write-fields-interactive-round-trips-values
+  (testing "flatten=false: values passed to write-fields! are actually written
+            into their target fields AND the form stays fillable. Asserts
+            `.getValue` on a specific field, not just 'form still has fields'
+            — the weaker assertion would pass even if every setValue silently
+            dropped its argument."
     (with-open [doc (load-template)]
-      (let [names (form-field-names doc)]
-        ;; Sanity-check that the bundled template has at least one field.
-        (is (seq names) "template PDF should expose form fields"))
-      ;; Pick a couple of fields that plausibly exist on every style-1 template.
-      ;; Use names the write-fields! function actually iterates — it will silently
-      ;; no-op on missing fields, so this stays safe across template revisions.
-      (let [fields-to-write (->> (form-field-names doc)
-                                 (take 3)
-                                 (map (fn [n] [(keyword n) "TESTVAL"]))
-                                 (into {}))]
-        (pdf/write-fields! doc fields-to-write false {})
-        (let [form (.getAcroForm (.getDocumentCatalog doc))]
-          (is (some? form) "AcroForm must still exist (not flattened)")
-          (is (seq (.getFields form))
-              "form must still have fields after non-flatten write"))))))
+      ;; character-name is a text field on every bundled template.
+      (pdf/write-fields! doc {:character-name "Testy McTestface"} false {})
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            field (.getField form "character-name")]
+        (is (some? form) "AcroForm must still exist (not flattened)")
+        (is (seq (.getFields form))
+            "form must still have fields after non-flatten write")
+        (is (some? field) "character-name field must exist on the template")
+        (is (= "Testy McTestface" (.getValue field))
+            "the value passed in must be retrievable via getValue")))))
+
+(deftest write-fields-silently-skips-unknown-fields
+  (testing "Unknown field names are a silent no-op (per write-fields! contract)"
+    (with-open [doc (load-template)]
+      ;; Mix of valid + nonsense keys; the call must not throw.
+      (is (nil?
+           (pdf/write-fields! doc
+                              {:character-name "A"
+                               :this-field-does-not-exist "B"
+                               :and-neither-does-this false}
+                              false
+                              {})))
+      ;; And the valid one still landed.
+      (let [form (.getAcroForm (.getDocumentCatalog doc))]
+        (is (= "A" (.getValue (.getField form "character-name"))))))))
+
+(deftest write-fields-checkbox-on-off
+  (testing "Checkbox fields: truthy => \"Yes\", falsey => \"Off\" (the
+            actual PDFBox check-box values expected by AcroForm)."
+    (with-open [doc (load-template)]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            ;; Find any checkbox in the template to test against.
+            checkbox-name (some (fn [f]
+                                  (when (instance?
+                                         org.apache.pdfbox.pdmodel.interactive.form.PDCheckBox
+                                         f)
+                                    (.getFullyQualifiedName f)))
+                                (.getFields form))]
+        (if-not checkbox-name
+          (is false "template must contain at least one checkbox")
+          (do
+            (pdf/write-fields! doc {(keyword checkbox-name) true} false {})
+            (is (= "Yes" (.getValue (.getField form checkbox-name)))
+                "truthy should set the checkbox to \"Yes\"")
+            (pdf/write-fields! doc {(keyword checkbox-name) false} false {})
+            (is (= "Off" (.getValue (.getField form checkbox-name)))
+                "falsey should set the checkbox to \"Off\"")))))))
 
 (deftest write-fields-interactive-preserves-auto-sizing
   (testing "flatten=false must NOT overwrite the template's `0 Tf` auto-size
@@ -187,26 +232,67 @@
               "AcroForm should have no fields after flatten"))))))
 
 ;; =============================================================================
-;; Regression test: flatten path must not log "missing /P entry" WARN lines.
-;; PDFBox uses SLF4J; slf4j-simple writes to System.err, so we capture err.
+;; Regression test: the /P fix must render the flatten-time warning impossible.
+;;
+;; The earlier approach captured System.err and grepped for "missing /P entry",
+;; which is fragile: it depends on slf4j-simple being the active backend AND
+;; on it writing to stderr. Swap in logback (common) and the capture goes
+;; silent — the test passes vacuously.
+;;
+;; Better: assert the *data invariant* that PDFBox's flatten path is looking
+;; for. When `.flatten` encounters a widget whose `.getPage` is nil, it warns
+;; (and falls back to a slow scan). If every widget has a non-nil page ref
+;; going into flatten, the warning cannot fire. So we:
+;;   1. Load the raw template and assert that at least one widget IS missing
+;;      its /P — this is the positive control. If the template is ever
+;;      re-authored to include /P on every widget, the control fires and
+;;      someone has to rethink the test rather than it silently becoming a
+;;      no-op.
+;;   2. Run fix-widget-page-refs! and assert that ZERO widgets are missing
+;;      their /P afterward.
 ;; =============================================================================
 
-(defn- with-captured-err [f]
-  (let [baos (ByteArrayOutputStream.)
-        original System/err]
-    (try
-      (System/setErr (PrintStream. baos true "UTF-8"))
-      (f)
-      (finally
-        (System/setErr original)))
-    (.toString baos "UTF-8")))
+(defn- orphan-widgets [^PDDocument doc]
+  (for [page (.getPages doc)
+        ann (.getAnnotations page)
+        :when (and (instance? PDAnnotationWidget ann)
+                   (nil? (.getPage ^PDAnnotationWidget ann)))]
+    ann))
 
-(deftest flatten-does-not-emit-missing-p-warnings
-  (testing "write-fields! with flatten=true does not warn about missing /P entries"
-    (let [captured
-          (with-captured-err
-            (fn []
-              (with-open [doc (load-template)]
-                (pdf/write-fields! doc {} true {}))))]
-      (is (not (re-find #"(?i)missing\s*/P\s*entry" captured))
-          (str "Expected no 'missing /P entry' warnings, got:\n" captured)))))
+(deftest fix-widget-page-refs-eliminates-flatten-warnings
+  (testing "Positive control: the bundled template contains widgets with no
+            /P entry — which is exactly the condition PDFBox.flatten warns
+            about."
+    (with-open [doc (load-template)]
+      (is (pos? (count (orphan-widgets doc)))
+          "template must contain at least one widget missing /P;
+           otherwise the /P fix is unnecessary and this test is vacuous")))
+  (testing "After fix-widget-page-refs!, every widget in the document has a
+            page reference, making the flatten-time warning impossible."
+    (with-open [doc (load-template)]
+      (fix-widget-page-refs! doc)
+      (is (zero? (count (orphan-widgets doc)))
+          "fix-widget-page-refs! must populate /P on every orphaned widget"))))
+
+;; =============================================================================
+;; Template sanity: every bundled sheet style × spell-count combination must
+;; load as a valid PDF with an AcroForm. Catches a resource being corrupted,
+;; missing, or the template generator producing an unparseable file.
+;; =============================================================================
+
+(defn- all-template-names []
+  (for [style (range 1 5)
+        spells (range 0 7)]
+    (str "fillable-char-sheetstyle-" style "-" spells "-spells.pdf")))
+
+(deftest all-bundled-templates-load-with-acroform
+  (doseq [resource-name (all-template-names)]
+    (testing (str "template loads: " resource-name)
+      (with-open [in (.openStream (io/resource resource-name))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (is (pos? (.getNumberOfPages doc))
+            "template must have at least one page")
+        (let [form (.getAcroForm (.getDocumentCatalog doc))]
+          (is (some? form) "template must expose an AcroForm")
+          (is (seq (.getFields form))
+              "AcroForm must have at least one field"))))))
