@@ -205,9 +205,12 @@ Format: per-commit entries grouped by category, newest first.
 - Email config parsing catches `NumberFormatException` for invalid port (`:invalid-port`).
 - `send-verification-email` and `send-reset-email` check postal response and raise on failure (`:verification-email-failed`).
 
-#### PDF Generation (`pdf.clj`, `pdf_spec.cljc`)
+#### PDF Generation (`pdf.clj`, `pdf_spec.cljc`, `routes.clj`)
 - Network timeouts (10s connect, 10s read) for image loading. Specific handling for `SocketTimeoutException` and `UnknownHostException`.
 - Nil guards throughout `pdf_spec.cljc`: `total-length`, `trait-string`, `resistance-strings`, `profs-paragraph`, `keyword-vec-trait`, `damage-str`, spell name lookup. All use fallback strings like "(unknown)", "(Unknown Spell)", "(Unnamed Trait)".
+- **Widget `/P` fixup for PDFBox 3 flatten.** New `fix-widget-page-refs!` helper populates the missing `/P` (page reference) back-pointer on widget annotations in the bundled fillable character-sheet templates before flattening. Suppresses hundreds of `missing /P entry in a widget` WARN lines per PDF and skips PDFBox's slow fallback page-scan during flatten.
+- **PDFs are fillable by default for all browsers.** `character-pdf-2` no longer sniffs the `User-Agent` header to force flatten for non-Chrome clients. The pre-2026 UA sniff was a workaround for Firefox's pdf.js lacking AcroForm rendering — a limitation Mozilla fixed in Firefox 84 (Dec 2020). Firefox, Safari, and direct downloaders now get the same interactive/fillable PDF Chrome has always received. Clients that want a locked/static PDF can opt in by passing `:flatten? true` in the request payload.
+- **Font-size overrides now apply regardless of flatten state.** The size-8 `setDefaultAppearance` overrides for long-text fields (`personality-traits`, `bonds`, `backstory`, `features-and-traits`, etc.) were previously gated on `flatten` being true — a latent bug that caused long text to overflow in Chrome (the only browser that ever received non-flattened PDFs). Gate removed.
 
 #### Routes (`routes.clj`, `routes/party.clj`)
 - All mutation endpoints wrapped with error handling: verification, password reset, entity CRUD, party operations. Each uses structured error codes (`:verification-failed`, `:entity-creation-failed`, `:party-creation-failed`, etc.).

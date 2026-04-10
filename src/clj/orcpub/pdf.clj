@@ -18,7 +18,12 @@
    
    3. **Java interop syntax** - The `$` in `Standard14Fonts$FontName` is Clojure's way of
       accessing a Java nested/inner class. `Standard14Fonts.FontName` in Java becomes
-      `Standard14Fonts$FontName` in Clojure imports."
+      `Standard14Fonts$FontName` in Clojure imports.
+
+   4. **Stricter flatten** - PDFBox 3.x's `PDAcroForm.flatten()` warns loudly on any
+      widget annotation missing the /P (page) back-reference, which is common in
+      fillable templates authored with older tooling. `fix-widget-page-refs!` repairs
+      this in-memory before flatten is called. See that function for details."
   (:require [clojure.string :as s]
             [clojure.stacktrace :as strace]
             [clojure.java.io :as io]
@@ -86,17 +91,43 @@
      :bold-italic "Vollkorn-BoldItalic.ttf"}))
 
 (defn- fix-widget-page-refs!
-  "Set the /P (page) entry on widget annotations that are missing it.
-   PDFBox warns about missing /P entries during flatten; this fixes that
-   by iterating each page's annotations and linking widgets back to their page."
-  [doc]
-  (doseq [page (.getPages doc)]
-    (doseq [annotation (.getAnnotations page)]
-      (when (and (instance? PDAnnotationWidget annotation)
-                 (nil? (.getPage annotation)))
-        (.setPage annotation page)))))
+  "Populate the /P (page reference) entry on widget annotations that are missing it.
 
-(defn write-fields! [doc fields flatten font-sizes]
+   Many fillable PDF templates authored in older tools omit the /P back-pointer
+   from widget annotations — the forward direction (page -> annotations) works
+   fine, but the widget itself has no record of which page it lives on. PDFBox
+   3.x's AcroForm.flatten() logs a WARN for every such widget (and falls back
+   to a slower scan), producing hundreds of warning lines per PDF.
+
+   We already know each widget's page because we're iterating pages -> their
+   annotations, so we can just write the back-pointer explicitly. Widgets that
+   already have a valid /P are left alone (even if the current /P points to a
+   different page than the one we're walking — multi-widget fields are legal)."
+  [doc]
+  (doseq [page (.getPages doc)
+          annotation (.getAnnotations page)
+          :when (and (instance? PDAnnotationWidget annotation)
+                     (nil? (.getPage annotation)))]
+    (.setPage annotation page)))
+
+(defn write-fields!
+  "Populate an AcroForm in `doc` with values from the `fields` map and
+   optionally flatten the form.
+
+   - `fields`     map of {field-name-keyword value}. Checkbox fields accept
+                  truthy/falsey; text fields accept any value (stringified).
+                  Unknown field names are silently skipped.
+   - `flatten?`   when truthy, the form is flattened after values are written:
+                  widget appearances are baked into the page content stream and
+                  the interactive form is removed. Use this for locked/static
+                  PDFs. When falsey, the form stays interactive (fillable).
+   - `font-sizes` map of {field-name-keyword pt-size} overriding the default
+                  appearance font size for long-text fields. Applied regardless
+                  of `flatten?` — text fields use this as their default
+                  appearance so readers render them at the requested size.
+
+   Side effects only; returns nil."
+  [doc fields flatten? font-sizes]
   (let [catalog (.getDocumentCatalog doc)
         form (.getAcroForm catalog)
         res (or (.getDefaultResources form) (PDResources.))]
@@ -106,8 +137,12 @@
       (try
         (let [field (.getField form (name k))]
           (when field
-
-            (when (and flatten (font-sizes k) (instance? PDTextField field))
+            ;; Apply font-size overrides unconditionally — readers honor the
+            ;; default appearance whether or not the form is flattened, and
+            ;; gating this on flatten? was a latent bug that made long-text
+            ;; fields (traits, bonds, backstory, ...) overflow in interactive
+            ;; PDFs.
+            (when (and (font-sizes k) (instance? PDTextField field))
               (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg")))
             (.setValue
              field
@@ -116,7 +151,7 @@
                (instance? PDTextField field) (str v)
                :else nil))))
         (catch Exception e (prn "failed writing field: " k v (strace/print-stack-trace e)))))
-    (when flatten
+    (when flatten?
       (fix-widget-page-refs! doc)
       (.setNeedAppearances form false)
       (.flatten form))))
