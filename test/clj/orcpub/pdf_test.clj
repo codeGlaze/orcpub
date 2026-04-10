@@ -8,7 +8,8 @@
            (org.apache.pdfbox.cos COSName)
            (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
            (org.apache.pdfbox.pdmodel.interactive.annotation
-             PDAnnotationLink PDAnnotationWidget)))
+             PDAnnotationLink PDAnnotationWidget)
+           (org.apache.pdfbox.pdmodel.interactive.form PDTextField)))
 
 ;; =============================================================================
 ;; Existing font tests
@@ -144,6 +145,33 @@
           (is (some? form) "AcroForm must still exist (not flattened)")
           (is (seq (.getFields form))
               "form must still have fields after non-flatten write"))))))
+
+(deftest write-fields-interactive-preserves-auto-sizing
+  (testing "flatten=false must NOT overwrite the template's `0 Tf` auto-size
+            default appearance on long-text fields, even when font-sizes is
+            populated. Regression guard: an earlier revision decoupled the
+            font-size override from the flatten flag, which clobbered the
+            template's auto-sizing in interactive mode."
+    (with-open [doc (load-template)]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            ^PDTextField field (.getField form "personality-traits")]
+        ;; Precondition: the bundled template uses `0 Tf` auto-size on this
+        ;; field. If this fails, the template changed and the test needs
+        ;; rethinking, not the production code.
+        (is (some? field) "template must contain personality-traits")
+        (is (re-find #"\b0\s+Tf\b" (.getDefaultAppearance field))
+            (str "precondition: template's personality-traits should use "
+                 "`0 Tf` auto-size; got " (.getDefaultAppearance field))))
+      ;; Pass a non-trivial font-sizes map mirroring what routes.clj sends.
+      (pdf/write-fields! doc
+                         {:personality-traits "lorem ipsum"}
+                         false ;; interactive
+                         {:personality-traits 8})
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            ^PDTextField field (.getField form "personality-traits")]
+        (is (re-find #"\b0\s+Tf\b" (.getDefaultAppearance field))
+            (str "interactive write must preserve `0 Tf` auto-size, got "
+                 (.getDefaultAppearance field)))))))
 
 (deftest write-fields-flatten-removes-form
   (testing "flatten=true: AcroForm fields are flattened into page content"

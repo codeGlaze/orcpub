@@ -121,10 +121,13 @@
                   widget appearances are baked into the page content stream and
                   the interactive form is removed. Use this for locked/static
                   PDFs. When falsey, the form stays interactive (fillable).
-   - `font-sizes` map of {field-name-keyword pt-size} overriding the default
-                  appearance font size for long-text fields. Applied regardless
-                  of `flatten?` — text fields use this as their default
-                  appearance so readers render them at the requested size.
+   - `font-sizes` map of {field-name-keyword pt-size}. Only consulted when
+                  flattening: long-text fields in the bundled templates use
+                  `/Helv 0 Tf` (PDF auto-size), which interactive readers honor
+                  natively — but flattening has to bake in a concrete point
+                  size, so we rewrite the default appearance to the caller's
+                  chosen size first. Ignored when `flatten?` is falsey so the
+                  template's auto-sizing is preserved for interactive forms.
 
    Side effects only; returns nil."
   [doc fields flatten? font-sizes]
@@ -137,12 +140,10 @@
       (try
         (let [field (.getField form (name k))]
           (when field
-            ;; Apply font-size overrides unconditionally — readers honor the
-            ;; default appearance whether or not the form is flattened, and
-            ;; gating this on flatten? was a latent bug that made long-text
-            ;; fields (traits, bonds, backstory, ...) overflow in interactive
-            ;; PDFs.
-            (when (and (font-sizes k) (instance? PDTextField field))
+            ;; font-sizes is intentionally gated on flatten?: interactive forms
+            ;; rely on the template's `/Helv 0 Tf` auto-sizing, which readers
+            ;; honor directly. Rewriting the DA would override that.
+            (when (and flatten? (font-sizes k) (instance? PDTextField field))
               (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg")))
             (.setValue
              field
