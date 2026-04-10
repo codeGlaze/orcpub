@@ -837,3 +837,54 @@
         (is (= #{"Alpha" "Beta"} (set (map :name options)))))
       ;; Should have a dedup change logged
       (is (some #(= :dedup-selection-options (:type %)) (:changes result))))))
+
+;; ============================================================================
+;; Tests for format-export-validation-for-log
+;; ============================================================================
+;; Regression test for "Plugin X has errors: M" bug. In advanced-compilation
+;; builds, passing cljs data structures directly to js/console.error renders
+;; the munged class name (e.g. "M"). The formatter must return a plain string.
+
+(deftest test-format-export-validation-for-log-missing-required-fields
+  (testing "Missing-required-fields branch produces a readable multi-line string"
+    (let [validation {:valid false
+                      :has-missing-required-fields true
+                      :missing-fields-issues
+                      [{:content-type :orcpub.dnd.e5/spells
+                        :invalid-items [{:key :bad-spell
+                                         :name "Bad Spell"
+                                         :missing-fields [:level :school]
+                                         :traits-missing-names 0}]}]
+                      :warnings []
+                      :errors ["Some items are missing required fields (names, etc.)"]}
+          result (import-val/format-export-validation-for-log validation)]
+      (is (string? result))
+      (is (re-find #"Missing required fields" result))
+      (is (re-find #"spells" result))
+      (is (re-find #"Bad Spell" result))
+      (is (re-find #":level" result))
+      (is (re-find #":school" result)))))
+
+(deftest test-format-export-validation-for-log-string-errors
+  (testing "String :errors (from format-validation-errors) passes through"
+    (let [validation {:valid false
+                      :errors "Validation errors found:\n  • at root: bad"}
+          result (import-val/format-export-validation-for-log validation)]
+      (is (string? result))
+      (is (= "Validation errors found:\n  • at root: bad" result)))))
+
+(deftest test-format-export-validation-for-log-vector-errors
+  (testing "Vector :errors get joined into a single string"
+    (let [validation {:valid false
+                      :errors ["first error" "second error"]}
+          result (import-val/format-export-validation-for-log validation)]
+      (is (string? result))
+      (is (re-find #"first error" result))
+      (is (re-find #"second error" result)))))
+
+(deftest test-format-export-validation-for-log-nil-errors
+  (testing "Nil :errors does not throw and returns a placeholder string"
+    (let [result (import-val/format-export-validation-for-log
+                  {:valid false :errors nil})]
+      (is (string? result))
+      (is (not (re-find #"null" result))))))

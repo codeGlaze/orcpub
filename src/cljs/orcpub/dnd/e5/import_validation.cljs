@@ -566,6 +566,46 @@
       (str "Validation errors found:\n"
            (str/join "\n" (map format-spec-problem problems))))))
 
+(defn- format-missing-fields-issue
+  "Formats one content-type's missing-fields issue into a readable multi-line block."
+  [{:keys [content-type invalid-items]}]
+  (str "  " (name content-type) " (" (count invalid-items) " item"
+       (when (not= 1 (count invalid-items)) "s") "):\n"
+       (str/join "\n"
+                 (for [{:keys [key name missing-fields traits-missing-names]} invalid-items]
+                   (let [label (or name (pr-str key))
+                         parts (cond-> []
+                                 (seq missing-fields)
+                                 (conj (str "missing " (str/join ", " (map pr-str missing-fields))))
+                                 (and traits-missing-names (pos? traits-missing-names))
+                                 (conj (str traits-missing-names " trait(s) without :name")))]
+                     (str "    - " label " [" (str/join "; " parts) "]"))))))
+
+(defn format-export-validation-for-log
+  "Converts the result of `validate-before-export` into a plain string suitable
+   for console.error. Works around cljs advanced-compilation mangling of
+   PersistentVector / PersistentArrayMap class names when they're passed
+   directly to js/console.error (which is why errors show up in DevTools as
+   cryptic single letters like 'M')."
+  [validation]
+  (cond
+    (:has-missing-required-fields validation)
+    (str "Missing required fields:\n"
+         (str/join "\n" (map format-missing-fields-issue
+                             (:missing-fields-issues validation))))
+
+    (string? (:errors validation))
+    (:errors validation)
+
+    (coll? (:errors validation))
+    (str/join "\n" (map str (:errors validation)))
+
+    (nil? (:errors validation))
+    "(no error details available)"
+
+    :else
+    (pr-str (:errors validation))))
+
 ;; ============================================================================
 ;; Parse Error Detection
 ;; ============================================================================

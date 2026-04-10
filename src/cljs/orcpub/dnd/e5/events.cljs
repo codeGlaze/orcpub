@@ -3606,8 +3606,9 @@
        ;; Has missing required fields - show modal for user decision
        (:has-missing-required-fields validation)
        (do
-         (js/console.warn "Export validation found missing required fields for" name ":")
-         (js/console.warn (clj->js (:missing-fields-issues validation)))
+         (js/console.warn
+          (str "Export validation found missing required fields for \"" name "\":\n"
+               (import-val/format-export-validation-for-log validation)))
          {:dispatch [:show-export-warning-modal
                      {:name name
                       :plugin plugin
@@ -3636,8 +3637,8 @@
        ;; Other validation failure - don't export
        :else
        (do
-         (js/console.error "Export validation failed for" name ":")
-         (js/console.error (:errors validation))
+         (js/console.error (str "Export validation failed for " name ":"))
+         (js/console.error (import-val/format-export-validation-for-log validation))
          {:dispatch [:show-error-message
                      (str "Cannot export '" name "' - contains invalid data. Check console for details.")]})))))
 
@@ -3681,20 +3682,28 @@
                            (map (fn [[name plugin]]
                                   [name (import-val/validate-before-export plugin)])
                                 all-plugins))
-         has-errors (some (fn [[_ v]] (not (:valid v))) validations)
+         invalid-plugins (filter (fn [[_ v]] (not (:valid v))) validations)
+         has-errors (seq invalid-plugins)
          has-warnings (some (fn [[_ v]] (seq (:warnings v))) validations)]
 
      (when (or has-errors has-warnings)
        (js/console.warn "Export validation results:")
        (doseq [[name validation] validations]
          (when-not (:valid validation)
-           (js/console.error "Plugin" name "has errors:" (:errors validation)))
+           (js/console.error
+            (str "Plugin \"" name "\" has errors:\n"
+                 (import-val/format-export-validation-for-log validation))))
          (when (seq (:warnings validation))
-           (js/console.warn "Plugin" name "has warnings:" (:warnings validation)))))
+           (js/console.warn
+            (str "Plugin \"" name "\" has warnings:\n  "
+                 (s/join "\n  " (map str (:warnings validation))))))))
 
      (if has-errors
-       {:dispatch [:show-error-message
-                   "Cannot export all plugins - some contain invalid data. Check console for details."]}
+       (let [failed-names (map first invalid-plugins)]
+         {:dispatch [:show-error-message
+                     (str "Cannot export all plugins - invalid data in: "
+                          (s/join ", " (map #(str "\"" % "\"") failed-names))
+                          ". Check browser console (F12) for details.")]})
 
        (let [blob (js/Blob.
                    (clj->js [(str all-plugins)])
