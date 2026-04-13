@@ -40,26 +40,75 @@ most of what I was re-deriving. Entries consulted for this investigation:
 **db shape:**
 ```
 db
-└── :user-data                   ← outer "user-data" key in app-db
-    ├── :token                   ← JWT string from login response
-    ├── :user-data               ← nested literal same key — actual user record
-    │   ├── :username
-    │   ├── :email
-    │   ├── :pending-email
-    │   ├── :send-updates?
-    │   └── ...
-    └── :theme                   ← persists across logout
+├── :user-data                   ← real auth state
+│   ├── :token                   ← JWT string from login response
+│   ├── :user-data               ← nested literal same key — actual user record
+│   │   ├── :username
+│   │   ├── :email
+│   │   ├── :pending-email
+│   │   ├── :send-updates?
+│   │   └── ...
+│   └── :theme                   ← persists across logout
+│
+└── :user                        ← NEAR-DEAD STORAGE (see below)
+    └── :following               ← only attribute ever populated
 ```
 
-Upstream naming is terrible (`:user-data` nested inside `:user-data`) but
-it's the reality because `:login-success` does
-`(update db :user-data merge (-> response :body))` and the server response
-body is `{:token "..." :user-data {:username :email ...}}`.
+### Why the double-nested `:user-data` exists
 
-**Canonical paths:**
+Server `:login-success` response body is `{:token "..." :user-data {:username :email ...}}`.
+Client merges the whole body into `db[:user-data]`:
+```clojure
+(update db :user-data merge (-> response :body))
+```
+Result: `db[:user-data] = {:token "..." :user-data {...}}`.
+
+**This is fixable.** Unwrap at the merge site — flatten into `:token`
+and `:profile` (or similar) at the same level, or use explicit
+`assoc-in`. Touches login-success, set-user-data, clear-login, the
+user-data subs (subs.cljs:253-270), views.cljs:1525 lifecycle read,
+local-store interceptor, and the localStorage format (migration needed
+for existing sessions). **Not in scope for this patch.** Logged as a
+follow-up cleanup at the bottom of this file.
+
+### Why `db[:user]` exists (and why it's near-dead)
+
+`db[:user]` is read/written by:
+- `events.cljs:1110 :follow-user` — `(update (:user db) :following conj username)` → `:set-user`
+- `events.cljs:1205 :unfollow-user` — same shape
+- `events.cljs:1622 :set-user` — `(assoc db :user user-data)` — only caller is above
+- `subs.cljs:416 :user` reg-sub-raw — fetches `/user`, but **on-success is `(fn [])` — a no-op**. Response discarded.
+- `subs.cljs:429` — reaction reads `(get @app-db :user [])`
+- `subs.cljs:432 :following-users` — derived `(set (:following user))`
+
+**So `db[:user]` is only populated by the follow/unfollow flow, starting
+from nil ghost state.** The `:user` reg-sub-raw fetches `/user` but
+throws the response away. Whatever data the `/user` endpoint returns
+(profile, following list, etc.) is never installed. The `:following`
+list gets locally assembled via `:follow-user` dispatches that do
+`(update nil :following conj username)` → `{:following (...)}`.
+
+**Implication for `::mi5e/remote-item`'s broken guard:**
+```clojure
+(when (and (:user @app-db) (:token (:user @app-db))) ...)
+```
+`(:user @app-db)` returns the ghost `{:following ...}` map or nil.
+`(:token ...)` has **never** been true because `db[:user]` has never
+contained a `:token`. The guard was not "regressed" — it was wrong from
+inception in 45ef969 (the commit that introduced the guards). `a0e20a8`
+fixed the typo on the sibling `::mi5e/custom-items` sub but missed this
+one.
+
+**This is not `:user` vs `:user-data` as a var-renaming collision — they
+are two genuinely separate db keys.** But `db[:user]` is near-dead
+storage that could be collapsed into `db[:user-data]` alongside the real
+user data. Logged as a follow-up cleanup at the bottom of this file.
+
+**Canonical paths in current code:**
 - `(-> db :user-data :token)` → JWT
-- `(-> db :user-data :user-data :username)` → username
+- `(-> db :user-data :user-data :username)` → username (double traversal, see above)
 - `(-> db :user-data :theme)` → theme (survives logout)
+- `(-> db :user :following)` → follow list (ghost-state storage)
 
 **All auth-related functions and call sites in the codebase:**
 
@@ -72,8 +121,11 @@ body is `{:token "..." :user-data {:username :email ...}}`.
 | `events.cljs:1594 :set-user-data` | `(update db :user-data merge ...)` | State mutation |
 | `events.cljs:1599 :clear-login` | `(update db :user-data dissoc :user-data :token)` | Removes both nested user-data AND token; theme survives |
 | `events.cljs:1795 :login-success` | `(update db :user-data merge (-> response :body))` | Installs token + nested user-data atomically |
-| `subs.cljs:424 :user sub on-401` | Same action as `:clear-login`, inlined | Only sub that clears login state on 401 |
 | `subs.cljs:247-270` user-data subs | `(-> db :user-data :user-data :username)` etc. | User data field readers |
+| `subs.cljs:424 :user sub on-401` | Same action as `:clear-login`, inlined | Only sub that clears login state on 401 |
+| `events.cljs:1110,1205` `:follow-user`/`:unfollow-user` | `(update (:user db) :following ...)` | The ONLY live writers of `db[:user]` |
+| `events.cljs:1622 :set-user` | `(assoc db :user ...)` | Setter (only called from follow/unfollow) |
+| `subs.cljs:416 :user` reg-sub-raw | Fetches `/user`, on-success is `(fn [])` | Response discarded — reg-sub-raw is effectively fire-and-forget |
 
 **State transitions — verified:**
 
@@ -83,9 +135,10 @@ body is `{:token "..." :user-data {:username :email ...}}`.
 - Page reload: `user->local-store-interceptor` persists `(:user-data db)`
   after every mutation; `:initialize-db` rehydrates.
 
-**Conclusion**: "has token" and "logged in" are currently equivalent. But
-that's an emergent property of transitions — nothing enforces it. Adding
-`logged-in?` is the place where future enforcement could live.
+**Conclusion**: "has token" and "logged in" are currently equivalent.
+`db[:user]` is not part of the login decision — it's ghost state fed by
+the follow/unfollow flow. The auth check is always against
+`db[:user-data][:token]`.
 
 ## Architecture map (kept for branch convenience)
 
@@ -187,68 +240,53 @@ bypassing re-frame's sub cache. Reactive path memoizes the upstream chain
 and only re-runs the filter step per keystroke. Counterintuitive unless
 you know re-frame memoization rules.
 
-### Patch P2: Add `logged-in?` predicate + move `get-auth-token` to event_utils
+### Patch P2: Move `get-auth-token` to event_utils and use it as the guard
 
 **Files**: `event_utils.cljc`, `events.cljs`, `equipment_subs.cljs`, `subs.cljs`
 
-**Motivation**: exhaustive grep of the auth chain (see Auth chain map below)
-revealed that "logged in" is currently decided at 7 inline call sites with
-the shape `(when (:token (:user-data @app-db)) ...)`. One of them (the
-`::mi5e/remote-item` regression, bug #3) is misspelled as `:user` instead
-of `:user-data` — silent nil, silent failure. No predicate helper exists.
+**Motivation**: the 7 inline guards of the form
+`(when (:token (:user-data @app-db)) ...)` are scattered across three
+files, and one of them (`::mi5e/remote-item`, bug #3) was misspelled as
+`:user` instead of `:user-data` from inception (commit 45ef969). The
+hotfix `a0e20a8` fixed the sibling `::mi5e/custom-items` sub but missed
+this one. Routing all 7 through a single function eliminates the typo
+class entirely.
 
-Adding `logged-in?` is not redundant with `get-auth-token` — the two
-functions serve different consumer needs:
-
-| Consumer | Needs | Function |
-|---|---|---|
-| HTTP construction (auth header, `:auth-token` arg) | Token value | `get-auth-token` |
-| Guard / decision (`reg-sub-raw` guard, `:verify-user-session` if) | Boolean | `logged-in?` |
-
-Using `get-auth-token` in `when` forms is a stylistic overload — the
-return value (string/nil) is accidentally suitable as a predicate. The
-reader has to translate "retrieving token" into "checking presence."
-`logged-in?` makes intent explicit at the call site.
-
-**Extensibility argument**: if "logged in" ever grows beyond "has token" —
-client-side JWT expiry check, requiring nested user-data map to be
-populated, etc. — `logged-in?` is the single point of change. Call sites
-stay the same.
+`get-auth-token` already exists at `events.cljs:1992` and returns the
+token-or-nil. It is already suitable as a guard because nil is falsy.
+**No new function is needed.** Adding `logged-in?` would be artificial
+complexity — I can't name a concrete scenario where "logged in" would
+mean more than "has token," and the speculative extensibility argument
+doesn't justify a new name in a KISS/DRY codebase.
 
 **Steps**:
 
 1. Move `get-auth-token` from `events.cljs:1992` to `event_utils.cljc`
-   (alongside `auth-headers`, where the sub files already import from).
-2. Add `logged-in?` in the same file, implemented as
-   `(some? (get-auth-token db))`. Docstring explains when to use which.
-3. Refactor `auth-headers` in event_utils to call `get-auth-token`
-   internally (DRY — currently re-reads the path inline).
-4. Update `events.cljs:430` `authorization-headers` alias unchanged
-   (still points at event_utils version).
-5. Replace the 7 inline guards with `(logged-in? @app-db)`:
+   (alongside `auth-headers`, which the sub files already import).
+2. Refactor `auth-headers` in event_utils to call `get-auth-token`
+   internally — currently re-reads `(-> db :user-data :token)` inline
+   instead of delegating. Eliminates the duplication.
+3. Update the existing `:auth-token (get-auth-token db)` callers in
+   events.cljs (lines 2000, 2166) to import from event_utils if needed.
+4. Replace the 7 inline guards with `(get-auth-token @app-db)`:
    - `equipment_subs.cljs:37` `::mi5e/custom-items`
-   - `equipment_subs.cljs:253` `::mi5e/remote-item` ← picks up `:user`→`:user-data` fix as side effect
+   - `equipment_subs.cljs:253` `::mi5e/remote-item` ← picks up `:user`→`:user-data` fix
    - `events.cljs:1610` `:verify-user-session`
    - `subs.cljs:389` `::char5e/characters`
    - `subs.cljs:404` `::party5e/parties`
    - `subs.cljs:419` `:user`
    - `subs.cljs:452` `::folder5e/folders`
 
-**Non-obvious benefits (to document in-code + KB)**:
+**Non-obvious benefits (to comment in-code + KB)**:
 
-- **Typo class eliminated**: misspelled `logged-in?` is an unresolved
+- **Typo class eliminated**: misspelled `get-auth-token` is an unresolved
   symbol error at compile time. Misspelled `:user-data` is silent nil.
-  That IS the exact failure mode of the `::mi5e/remote-item` bug —
-  routing all seven decisions through one function makes this class of
-  bug impossible.
-- **Intent separation**: `get-auth-token` is retrieval, `logged-in?` is
-  decision. They compose rather than overload. Reader of a guard no
-  longer has to mentally translate "fetching token" → "checking for
-  presence."
-- **Extensibility point**: single function to evolve the definition of
-  "logged in."
-- **Searchability**: grep for `logged-in?` finds ALL auth-gated decisions.
-  Grep for `get-auth-token` finds retrievals mixed with decisions.
+  That's the exact failure mode of the `::mi5e/remote-item` bug. Routing
+  all seven decisions through one function makes this class of bug
+  impossible going forward.
+- **DRY**: `auth-headers` currently duplicates the token path read.
+  One canonical function for "where is the token stored" instead of
+  two functions and seven inlined reads.
 
 ### Patch P3: `:on-401` console.warn observability
 
@@ -266,6 +304,32 @@ reporting "items missing" give us nothing to correlate with logs.
 
 **NOT** changing to `:route-to-login` — KB `reframe-subscription-patterns.md`
 and the breaking/ work explicitly avoid that because of login-loop risk.
+
+### Follow-up cleanups (logged but not in scope)
+
+These were discovered during the auth-chain audit and are worth fixing
+in their own patches. **Do not bundle with the #669 fix** — they touch
+login flow, local-store migration, and/or have independent test surfaces.
+
+1. **`db[:user]` dead-storage cleanup**. The `:user` reg-sub-raw fetches
+   `/user` but its on-success is `(fn [])` — the response is discarded.
+   The only writers are follow/unfollow events that build ghost state
+   from nil. `:following` could live under `db[:user-data][:user-data]`
+   alongside the real user data. Candidate cleanup: wire the `:user`
+   sub's on-success to dispatch `[:set-user (:body response)]`, OR
+   collapse `db[:user]` entirely and move `:following` into the real
+   user-data path. Touches: subs.cljs:416-429, events.cljs:1110,1205,1622,
+   anywhere `:following-users` is used.
+
+2. **`db[:user-data][:user-data]` double-nesting fix**. Caused by
+   `:login-success` doing `(update db :user-data merge (-> response :body))`
+   with a body shaped `{:token ... :user-data {...}}`. Fix at the merge
+   site — unwrap token and profile into sibling keys (e.g., `:token` +
+   `:profile`), or assoc-in explicitly. Touches login-success,
+   set-user-data, clear-login, all user-data field subs
+   (subs.cljs:253-270), views.cljs:1525, local-store interceptor, and
+   needs a migration for existing localStorage entries that carry the
+   old shape.
 
 ### Dropped from plan
 
@@ -338,13 +402,41 @@ Appended live as the investigation proceeds.
 - **Discovered get-auth-token already exists**: user prompt led to
   finding events.cljs:1992 — first-pass revision of Patch P2 to reuse
   it as the guard predicate.
-- **Deeper auth-chain audit** (this session): user pushed back on the
-  "just reuse `get-auth-token`" plan and asked whether `logged-in?` is
-  more semantic. Exhaustive grep of auth-related sites revealed 7 inline
-  guards (one with the `:user` typo from `::mi5e/remote-item`), plus
-  `get-auth-token`, `auth-headers`, `authorization-headers` alias,
-  login/logout state mutations. `get-auth-token` and `logged-in?` serve
-  DIFFERENT needs (retrieval vs decision) and should compose, not
-  substitute. Revised Patch P2 to ADD `logged-in?` alongside, not
-  replace. Captured full auth chain map in this file for future
-  agents/KB reconciliation.
+- **Deeper auth-chain audit** (earlier this session): user pushed back
+  on the "just reuse `get-auth-token`" plan and asked whether
+  `logged-in?` is more semantic. Exhaustive grep of auth-related sites
+  revealed 7 inline guards (one with the `:user` typo from
+  `::mi5e/remote-item`), plus `get-auth-token`, `auth-headers`,
+  `authorization-headers` alias, login/logout state mutations.
+  Initial revision: add `logged-in?` alongside `get-auth-token` as
+  separate predicate, with extensibility and semantic intent arguments.
+
+- **Artificial-complexity correction** (this session): user called out
+  (a) the extensibility argument as speculative — I couldn't name a
+  concrete scenario where "logged in" would grow beyond "has token";
+  (b) my "note the double traversal — bad upstream naming, but it's
+  the reality" shrug as non-KISS resignation; (c) not finishing the
+  `:user` vs `:user-data` trace before labeling them "separate keys."
+
+  Corrections:
+  1. Dropped `logged-in?`. Revised Patch P2 to move `get-auth-token` to
+     event_utils.cljc and use it directly as the guard at all 7 sites.
+     No new predicate. KISS.
+  2. Finished tracing `db[:user]`: it's NOT a rename collision with
+     `:user-data`, they are separate top-level keys. But `db[:user]` is
+     NEAR-DEAD storage — the `:user` reg-sub-raw fetches `/user` but
+     its on-success is `(fn [])`, discarding the response. The only
+     writers are `:follow-user`/`:unfollow-user` which build
+     `{:following ...}` from nil ghost state. The `::mi5e/remote-item`
+     guard has been broken since inception (45ef969), not regressed
+     from a rename — it was checking for `:token` under a key that
+     has NEVER contained a token.
+  3. Flagged `db[:user-data][:user-data]` double-nesting as fixable
+     (unwrap at `:login-success` merge site) rather than immutable.
+     Added as a follow-up cleanup, not in current scope.
+  4. Flagged `db[:user]` dead-storage as a follow-up cleanup.
+
+  Updated auth chain map to reflect `db[:user]` as a separate branch
+  with its (near-dead) status and actual writers. This is the state
+  that should reconcile back to `agents/develop` KB — the existing
+  `env-and-auth.md` doesn't capture any of it.
