@@ -35,6 +35,58 @@ most of what I was re-deriving. Entries consulted for this investigation:
 | `docs/kb/env-and-auth.md` | Canonical token path `[:user-data :token]`; historical `:user` sub bug fix in `subs.cljs`. **Does not claim `::mi5e/remote-item` was fixed** — my assumption it had been was wrong |
 | `docs/kb/http-fx-patterns.md` | `:http` effect handler contract — consulted to confirm dispatch-vector semantics |
 
+## Auth chain map (full)
+
+**db shape:**
+```
+db
+└── :user-data                   ← outer "user-data" key in app-db
+    ├── :token                   ← JWT string from login response
+    ├── :user-data               ← nested literal same key — actual user record
+    │   ├── :username
+    │   ├── :email
+    │   ├── :pending-email
+    │   ├── :send-updates?
+    │   └── ...
+    └── :theme                   ← persists across logout
+```
+
+Upstream naming is terrible (`:user-data` nested inside `:user-data`) but
+it's the reality because `:login-success` does
+`(update db :user-data merge (-> response :body))` and the server response
+body is `{:token "..." :user-data {:username :email ...}}`.
+
+**Canonical paths:**
+- `(-> db :user-data :token)` → JWT
+- `(-> db :user-data :user-data :username)` → username
+- `(-> db :user-data :theme)` → theme (survives logout)
+
+**All auth-related functions and call sites in the codebase:**
+
+| Location | Shape | Role |
+|---|---|---|
+| `events.cljs:1992 get-auth-token` | `(-> db :user-data :token)` | Retrieves token (2 callers inject to `:http :auth-token`) |
+| `event_utils.cljc:29 auth-headers` | `(let [token (-> db :user-data :token)] ...)` | Builds `Authorization` header; re-reads path inline instead of calling `get-auth-token` (DRY miss) |
+| `events.cljs:430 authorization-headers` | `(def ... event-utils/auth-headers)` | Alias used by ~25 callers in events.cljs |
+| 7× inline `(when (:token (:user-data @app-db)) ...)` | Guard | `::mi5e/custom-items`, `::mi5e/remote-item` (BROKEN — uses `:user`), `:verify-user-session`, `::char5e/characters`, `::party5e/parties`, `:user`, `::folder5e/folders` |
+| `events.cljs:1594 :set-user-data` | `(update db :user-data merge ...)` | State mutation |
+| `events.cljs:1599 :clear-login` | `(update db :user-data dissoc :user-data :token)` | Removes both nested user-data AND token; theme survives |
+| `events.cljs:1795 :login-success` | `(update db :user-data merge (-> response :body))` | Installs token + nested user-data atomically |
+| `subs.cljs:424 :user sub on-401` | Same action as `:clear-login`, inlined | Only sub that clears login state on 401 |
+| `subs.cljs:247-270` user-data subs | `(-> db :user-data :user-data :username)` etc. | User data field readers |
+
+**State transitions — verified:**
+
+- `:login-success` installs token + nested user-data atomically. No state
+  with one but not the other.
+- `:clear-login` (and `:user` sub's on-401 handler) removes both atomically.
+- Page reload: `user->local-store-interceptor` persists `(:user-data db)`
+  after every mutation; `:initialize-db` rehydrates.
+
+**Conclusion**: "has token" and "logged in" are currently equivalent. But
+that's an emergent property of transitions — nothing enforces it. Adding
+`logged-in?` is the place where future enforcement could live.
+
 ## Architecture map (kept for branch convenience)
 
 ### Client ⇄ server (all confirmed symmetric)
@@ -135,29 +187,68 @@ bypassing re-frame's sub cache. Reactive path memoizes the upstream chain
 and only re-runs the filter step per keystroke. Counterintuitive unless
 you know re-frame memoization rules.
 
-### Patch P2: Move `get-auth-token` to `event_utils.cljc`, use it as reg-sub-raw guard
+### Patch P2: Add `logged-in?` predicate + move `get-auth-token` to event_utils
 
 **Files**: `event_utils.cljc`, `events.cljs`, `equipment_subs.cljs`, `subs.cljs`
 
+**Motivation**: exhaustive grep of the auth chain (see Auth chain map below)
+revealed that "logged in" is currently decided at 7 inline call sites with
+the shape `(when (:token (:user-data @app-db)) ...)`. One of them (the
+`::mi5e/remote-item` regression, bug #3) is misspelled as `:user` instead
+of `:user-data` — silent nil, silent failure. No predicate helper exists.
+
+Adding `logged-in?` is not redundant with `get-auth-token` — the two
+functions serve different consumer needs:
+
+| Consumer | Needs | Function |
+|---|---|---|
+| HTTP construction (auth header, `:auth-token` arg) | Token value | `get-auth-token` |
+| Guard / decision (`reg-sub-raw` guard, `:verify-user-session` if) | Boolean | `logged-in?` |
+
+Using `get-auth-token` in `when` forms is a stylistic overload — the
+return value (string/nil) is accidentally suitable as a predicate. The
+reader has to translate "retrieving token" into "checking presence."
+`logged-in?` makes intent explicit at the call site.
+
+**Extensibility argument**: if "logged in" ever grows beyond "has token" —
+client-side JWT expiry check, requiring nested user-data map to be
+populated, etc. — `logged-in?` is the single point of change. Call sites
+stay the same.
+
+**Steps**:
+
 1. Move `get-auth-token` from `events.cljs:1992` to `event_utils.cljc`
-   (alongside `auth-headers`).
-2. Refactor `auth-headers` to call `get-auth-token` internally (DRY).
-3. Update existing callers in `events.cljs` (the two `:auth-token` uses
-   at line 2000 and 2166) to import from event_utils if not already.
-4. Replace the five `(:token (:user-data @app-db))` inline guards in
-   `reg-sub-raw` subs with `(get-auth-token @app-db)`:
+   (alongside `auth-headers`, where the sub files already import from).
+2. Add `logged-in?` in the same file, implemented as
+   `(some? (get-auth-token db))`. Docstring explains when to use which.
+3. Refactor `auth-headers` in event_utils to call `get-auth-token`
+   internally (DRY — currently re-reads the path inline).
+4. Update `events.cljs:430` `authorization-headers` alias unchanged
+   (still points at event_utils version).
+5. Replace the 7 inline guards with `(logged-in? @app-db)`:
    - `equipment_subs.cljs:37` `::mi5e/custom-items`
-   - `equipment_subs.cljs:253` `::mi5e/remote-item` ← **picks up the `:user`→`:user-data` fix as a side effect**
+   - `equipment_subs.cljs:253` `::mi5e/remote-item` ← picks up `:user`→`:user-data` fix as side effect
+   - `events.cljs:1610` `:verify-user-session`
    - `subs.cljs:389` `::char5e/characters`
    - `subs.cljs:404` `::party5e/parties`
    - `subs.cljs:419` `:user`
    - `subs.cljs:452` `::folder5e/folders`
 
-**Non-obvious benefit**: the function-as-predicate form is typo-resistant.
-A misspelled `get-auth-token` is an unresolved-symbol compile error; a
-misspelled `:user-data` is silent nil. That's the exact failure mode of
-`::mi5e/remote-item`, and routing all six guards through one function
-makes the same class of bug impossible going forward.
+**Non-obvious benefits (to document in-code + KB)**:
+
+- **Typo class eliminated**: misspelled `logged-in?` is an unresolved
+  symbol error at compile time. Misspelled `:user-data` is silent nil.
+  That IS the exact failure mode of the `::mi5e/remote-item` bug —
+  routing all seven decisions through one function makes this class of
+  bug impossible.
+- **Intent separation**: `get-auth-token` is retrieval, `logged-in?` is
+  decision. They compose rather than overload. Reader of a guard no
+  longer has to mentally translate "fetching token" → "checking for
+  presence."
+- **Extensibility point**: single function to evolve the definition of
+  "logged in."
+- **Searchability**: grep for `logged-in?` finds ALL auth-gated decisions.
+  Grep for `get-auth-token` finds retrievals mixed with decisions.
 
 ### Patch P3: `:on-401` console.warn observability
 
@@ -245,5 +336,15 @@ Appended live as the investigation proceeds.
   Reconciled findings — filtered-items bug is genuinely new, remote-item
   typo is real, most other analysis was duplicative.
 - **Discovered get-auth-token already exists**: user prompt led to
-  finding events.cljs:1992 — obviates my proposed `logged-in?` helper.
-  Revised Patch P2 to move existing function into event_utils.cljc.
+  finding events.cljs:1992 — first-pass revision of Patch P2 to reuse
+  it as the guard predicate.
+- **Deeper auth-chain audit** (this session): user pushed back on the
+  "just reuse `get-auth-token`" plan and asked whether `logged-in?` is
+  more semantic. Exhaustive grep of auth-related sites revealed 7 inline
+  guards (one with the `:user` typo from `::mi5e/remote-item`), plus
+  `get-auth-token`, `auth-headers`, `authorization-headers` alias,
+  login/logout state mutations. `get-auth-token` and `logged-in?` serve
+  DIFFERENT needs (retrieval vs decision) and should compose, not
+  substitute. Revised Patch P2 to ADD `logged-in?` alongside, not
+  replace. Captured full auth chain map in this file for future
+  agents/KB reconciliation.
