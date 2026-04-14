@@ -369,9 +369,10 @@ and the breaking/ work explicitly avoid that because of login-loop risk.
 
 ### Follow-up cleanups (logged but not in scope)
 
-These were discovered during the auth-chain audit and are worth fixing
-in their own patches. **Do not bundle with the #669 fix** — they touch
-login flow, local-store migration, and/or have independent test surfaces.
+These were discovered during the auth-chain audit and the pattern
+smell analysis. They are worth fixing in their own patches. **Do not
+bundle with the #669 fix** — they touch login flow, local-store
+migration, or broad refactors with independent test surfaces.
 
 1. **`db[:user]` dead-storage cleanup**. The `:user` reg-sub-raw fetches
    `/user` but its on-success is `(fn [])` — the response is discarded.
@@ -392,6 +393,41 @@ login flow, local-store migration, and/or have independent test surfaces.
    (subs.cljs:253-270), views.cljs:1525, local-store interceptor, and
    needs a migration for existing localStorage entries that carry the
    old shape.
+
+3. **`reg-api-sub` template extraction**. Five reg-sub-raw API-backed
+   subs (`::mi5e/custom-items`, `::mi5e/remote-item`, `::char5e/characters`,
+   `::party5e/parties`, `::folder5e/folders`, plus `:user` which is
+   similar) all follow the same ~10-line boilerplate: auth guard,
+   loading counter increment, `http/get` with `auth-headers`, loading
+   decrement, `handle-api-response` with success dispatch + 401
+   handler + context, wrapped in `ra/make-reaction` reading a db key.
+
+   Only ~5 elements vary: sub-key, URL, success event, on-401
+   behavior, db-key for the reaction read. Each site could collapse
+   from ~14 lines to ~5 lines of configuration.
+
+   **Why it's a separate patch, not bundled**:
+
+   - Subs have subtle variations that fight a simple HOF. `::mi5e/remote-item`
+     stores to a keyed nested map and dispatches a merge event instead
+     of replacing at a top-level key. `:user` has a custom on-401 that
+     mutates login state. `::char5e/characters` / `::party5e/parties`
+     have conditional on-401 gated on a `login-optional?` query arg.
+     A fully-generic HOF needs 6-8 parameters and savings per site
+     shrink as the parameter count grows.
+   - The right abstraction may not be a HOF. Candidates: a `reg-api-sub`
+     HOF, a `defapi-sub` macro, or a smaller helper that wraps just
+     the "go + fetch + handle-response + loading counter" block and
+     leaves `reg-sub-raw` and `ra/make-reaction` explicit at call
+     sites. Picking between those is its own design pass.
+   - The 5 sites aren't going anywhere. Parking this is cheap; doing
+     it right later is not blocked by anything.
+
+   **When to revisit**: after the #669 fix ships, either as a dedicated
+   pattern-extraction session or piggybacked on whoever touches these
+   files next for another reason. Worth a KB entry in `docs/kb/` on
+   `agents/develop` documenting the decision tree between HOF / macro
+   / helper before the refactor starts.
 
 ### Dropped from plan
 
@@ -481,7 +517,24 @@ Appended live as the investigation proceeds.
   are real but tiny and don't clear the "legitimate reason to exist"
   bar. Dropped.
 
-- **SSOT follow-up** (latest session): user asked whether
+- **Pattern smell — reg-sub-raw API template** (latest session): user
+  owned their "noodle around when I see the same thing repeated"
+  instinct and asked whether there's a deeper template underneath the
+  `(some? (get-auth-token db))` idiom. Traced the five API-backed
+  reg-sub-raw subs and confirmed: yes, they all follow the same
+  ~10-line boilerplate (guard, loading counter, http/get with
+  auth-headers, handle-api-response, reaction wrapping). Extracting
+  a `reg-api-sub` helper would collapse each site from ~14 lines to
+  ~5 lines. BUT: the 5 subs have enough subtle variation
+  (`::mi5e/remote-item` uses a nested db key and a merge-dispatch,
+  `:user` has a custom on-401 that mutates login state, characters/
+  parties have conditional on-401 via `login-optional?`) that a clean
+  HOF needs 6-8 parameters and the right abstraction might be a
+  macro, not a HOF. Decision: log as follow-up #3, do not bundle
+  with #669. The noodle was finding a real pattern, just bigger than
+  the `(some? ...)` layer and too much to execute mid-patch.
+
+- **SSOT follow-up** (earlier, this session): user asked whether
   `(some? (get-auth-token db))` can be made SSOT. Clarified two
   concepts: PATH SSOT (already handled by `get-auth-token` — it owns
   `(-> db :user-data :token)`) vs CHECK SSOT ("what does 'logged in'
