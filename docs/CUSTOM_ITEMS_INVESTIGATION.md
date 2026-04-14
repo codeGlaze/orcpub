@@ -215,6 +215,84 @@ Listed here so I don't re-discover them.
 - `from-internal-item` preserves `:db/id` in its `select-keys`, so edits go to `update-entity`.
 - No `@(subscribe [::mi5e/custom-items])` callers anywhere. All consumers are chained subs or non-reactive `@re-frame.db/app-db` reads (`options.cljc:1167`, `:1746` — the latter is the canonical pattern for non-reactive contexts per KB Pattern 5).
 
+### What the existing `subs_test.cljs` tests ACTUALLY cover
+
+**Correction**: earlier I said existing tests are "most of" what P5
+needs. User pushed back and asked me to verify. Audit result:
+
+| Coverage | Subs |
+|---|---|
+| Guard skips fetch when no token | characters, parties, :user, folders |
+| `login-optional?` doesn't bypass guard | characters, parties |
+| Stale `:user` key doesn't accidentally pass | :user |
+| Reaction returns default when db empty | all 4 |
+| Loading counter not incremented on skip | characters, parties, folders |
+
+**Not covered**:
+- On-success dispatches `set-event` with body
+- On-401 dispatches correct event(s) (silent / default / conditional /
+  compound)
+- On-500 dispatches correct event(s)
+- Reaction reads cached value once db populated
+- `::mi5e/custom-items` at all — coverage gap in current code
+
+**Implication for P5**: existing tests catch **guard regressions**
+post-refactor. They do NOT catch **response-handling regressions**.
+The `:user` sub's compound on-401 is the highest-risk refactor in P5
+and is **not** currently covered. For real P5 verification of
+response-handling equivalence, need new tests that stub `:http` and
+assert on dispatch paths. KB confirms `reg-fx` stubbing works without
+`re-frame-test`.
+
+### DB mocking concern — not needed for guard tests
+
+User raised: "lein-based custom-items test is complicated by the need
+for a DB unless one can be mocked." Verified: existing `subs_test.cljs`
+avoids the DB question entirely by only testing guard behavior. From
+the test file comment (line 58-59):
+
+> The go block will fire and try HTTP (which will fail in test env),
+> but the reaction should still return [] since no data is cached yet.
+
+Tests accept silent HTTP failure and only assert on guard-skip /
+guard-pass behavior + reaction defaults. No DB needed.
+
+For P1 filter-reactivity tests: no HTTP or DB needed either — just
+`reset!` app-db with test data in `::mi/custom-items`, dispatch
+filter events, assert sub output.
+
+For P5 response-handling tests: DB not needed, but **HTTP stubbing
+is needed** via `(re-frame.core/reg-fx :http (fn [_] ...))` to
+return controlled responses and assert the dispatch paths. More work
+than the guard-only pattern but achievable without `re-frame-test`.
+
+### Branch restriction — confirmed
+
+System prompt: "DEVELOP all your changes on the designated branch
+above. NEVER push to a different branch without explicit permission."
+Designated branch: `claude/fix-custom-items-disappearing-DW8rb`.
+
+**Cannot push to `testing/develop`.** Playwright spec must be
+staged on the fix branch for later cherry-pick.
+
+**Staging strategy**: put the Playwright spec at its target path
+(`e2e/scenarios/custom-items.spec.ts`) on the fix branch. File won't
+run without `e2e/` infrastructure (package.json, playwright.config,
+fixtures) but it's inert text until it lands on `testing/develop`.
+Header comment documents the transfer path:
+
+```typescript
+/**
+ * STAGED FOR testing/develop
+ *
+ * This spec depends on e2e/ infrastructure that only exists on
+ * testing/develop. To activate: cherry-pick this file onto
+ * testing/develop and run Playwright there.
+ */
+```
+
+Transfer = one cherry-pick or file copy.
+
 ## Test strategy
 
 **Correction from earlier in the investigation**: I was hand-wringing
