@@ -215,6 +215,105 @@ Listed here so I don't re-discover them.
 - `from-internal-item` preserves `:db/id` in its `select-keys`, so edits go to `update-entity`.
 - No `@(subscribe [::mi5e/custom-items])` callers anywhere. All consumers are chained subs or non-reactive `@re-frame.db/app-db` reads (`options.cljc:1167`, `:1746` — the latter is the canonical pattern for non-reactive contexts per KB Pattern 5).
 
+## Test strategy
+
+**Correction from earlier in the investigation**: I was hand-wringing
+about P5's refactor risk under "no e2e means no verification." That
+was wrong — both `lein test`/`lein fig:test` and Playwright exist.
+
+### Available infrastructure
+
+- **`lein test`** (JVM, Clojure): runs `test/clj/` + `test/cljc/`.
+  123 tests + 332 assertions per `docs/kb/testing-infrastructure.md`
+  on `agents/develop`.
+- **`lein fig:test`** (CLJS → browser): compiles `test/cljs/` tests;
+  runs interactively in browser (no headless runner configured).
+- **Playwright E2E**: lives on `testing/develop` branch. Full
+  `e2e/` directory with `playwright.config.ts`, fixture utilities
+  (`waitForAppReady`, `setupConsoleCapture`), scenario files,
+  agent-friendly JSON reporter, and local + Codespace runner
+  scripts. **No existing spec for item-builder / custom-items** —
+  would need to be added.
+- **Existing `test/cljs/orcpub/dnd/e5/subs_test.cljs`**: 11 tests
+  covering the token-guard behavior for 4 of the 5 API subs I'm
+  touching (`::char5e/characters`, `::party5e/parties`, `:user`,
+  `::folder5e/folders`). **Missing**: `::mi5e/custom-items` tests
+  (lives in `equipment_subs.cljs`, no corresponding test file).
+- **re-frame.test NOT available** per the KB — testing uses
+  `dispatch-sync` + `reset! app-db` + direct deref assertions.
+
+### Per-patch test coverage to add
+
+- **P1** (filter HOF): new regression tests proving
+  `filtered-items`/`filtered-spells` recompute when
+  `::mi/custom-items` / `::mi/plugins` (for spells) change, plus
+  tests that the filter event no longer writes a snapshot to db.
+  New file `test/cljs/orcpub/dnd/e5/equipment_subs_test.cljs` or
+  extend `subs_test.cljs`.
+- **P2** (`get-auth-token` consolidation): existing `subs_test.cljs`
+  tests already cover guard behavior for 4 of 5 sites — they'll
+  continue passing post-refactor as built-in regression checks.
+  Add `::mi5e/custom-items` guard tests (fills a pre-existing
+  coverage gap). Add a cljc test for `get-auth-token` itself in
+  `test/cljc/orcpub/dnd/e5/event_utils_test.cljc`.
+- **P3** (console.warn observability): minimal test surface. One
+  test asserting 401 path doesn't dispatch `:route-to-login`
+  (preserving current silent behavior).
+- **P4** (comment out remote-item): nothing to test — discarded
+  forms aren't evaluated, so no subs are registered. Could assert
+  `(rf/subscribe [::mi5e/remote-item 1])` doesn't find a registered
+  sub, but that's just asserting discarded code is discarded. Skip.
+- **P5** (`reg-api-sub` HOF): the critical test surface.
+  - Existing subs_test.cljs covers 4 of 5 post-migration sites.
+  - Add tests for the `:user` sub's compound `on-401` (dispatches
+    `:set-user-data` AND conditionally `:route-to-login`) — the
+    trickiest variant.
+  - Add a test for the HOF itself: register a throwaway sub via
+    `reg-api-sub`, manipulate `app-db`, assert correct response
+    shape. Tests the abstraction, not just its applications.
+
+### E2E coverage for #669 (the user-facing symptom)
+
+Playwright spec in `e2e/scenarios/custom-items.spec.ts` on
+`testing/develop`:
+
+- `item list refreshes after creating a new custom item`
+- `item list refreshes after editing a custom item`
+- `item list refreshes after deleting a custom item`
+- `filter-then-create still shows new item`
+
+These are the user-visible regressions from #669. Unit tests prove
+the data layer; Playwright proves the UI actually re-renders.
+
+### Branch strategy for tests (pending user decision)
+
+Three options:
+- (A) Pull e2e infrastructure from `testing/develop` onto
+  `claude/fix-custom-items-disappearing-DW8rb`. Bundles everything
+  in one branch; cross-cuts are harder to review.
+- (B) cljs unit tests on fix branch, e2e spec on `testing/develop`
+  as a separate commit after the fix merges. Gap between merge and
+  e2e coverage.
+- (C) Both — cljs unit tests land with the fix on the fix branch;
+  Playwright spec lands on `testing/develop` after merge. Each
+  branch stays focused. Cleanest story.
+
+Leaning (C).
+
+### Revised commit sequence (assuming option C)
+
+1. `test: add equipment-subs test file covering custom-items guard + filter reactivity`
+2. `fix: make filtered-items/filtered-spells reactive (P1)` — regression tests from step 1 now pass
+3. `refactor: move get-auth-token to event_utils, consolidate inline guards (P2)`
+4. `fix: log 401 on custom-items fetch for session-stale diagnosis (P3)`
+5. `refactor: comment out orphaned remote-item chain with explainer (P4)`
+6. `refactor: extract reg-api-sub HOF, migrate 5 API subs (P5)` — existing subs_test.cljs + new custom-items tests verify equivalence
+7. (On `testing/develop` after merge) `test: add e2e spec for custom items create/edit/delete refresh`
+
+Each commit independently revertable. Each with tests at the
+appropriate layer (unit for data-layer changes, e2e for
+user-visible symptom).
+
 ## Planned fix — current state
 
 Five patches, all on `claude/fix-custom-items-disappearing-DW8rb`.
@@ -615,7 +714,20 @@ Appended live as the investigation proceeds.
   are real but tiny and don't clear the "legitimate reason to exist"
   bar. Dropped.
 
-- **`::mi5e/remote-item` scope decision** (latest session): user asked
+- **Test-strategy correction** (latest session): user called out
+  that I was hand-wringing about "no e2e means no verification" when
+  both `lein fig:test` (cljs) and Playwright (`testing/develop`) are
+  available. Existing `test/cljs/orcpub/dnd/e5/subs_test.cljs`
+  already covers the token-guard behavior for 4 of the 5 API subs
+  I'm refactoring — those tests are built-in regression checks for
+  P2/P5. Need to add: `::mi5e/custom-items` guard coverage (fills a
+  pre-existing gap), filter-reactivity regression tests for P1,
+  compound on-401 test for the `:user` sub variant in P5, and a
+  test for the `reg-api-sub` HOF itself. E2E for #669's user-facing
+  symptom goes to `testing/develop` as a separate follow-up commit.
+  Full test strategy documented above (see "Test strategy" section).
+
+- **`::mi5e/remote-item` scope decision** (earlier, this session): user asked
   whether the sub is orphaned and what it's supposed to do. Verified
   all four pieces (remote-items plural, remote-item singular,
   add-remote-item event, #_'d ::mi5e/item dispatcher) — registered
