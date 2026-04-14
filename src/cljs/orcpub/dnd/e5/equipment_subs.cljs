@@ -19,6 +19,7 @@
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
                                                                     handle-api-response]]
+            [orcpub.dnd.e5.api-subs :as api-subs]
             [reagent.ratom :as ra]
             [clojure.string :as s]
             [cljs-http.client :as http]
@@ -30,34 +31,30 @@
   (delay (sort-by mi5e/name-key mi5e/magic-items))
   )
 
+;; Browser vs test/CLJ compile-time split: the browser gets the real
+;; HTTP-backed reg-sub-raw via reg-api-sub; the test/CLJ path gets a
+;; plain reg-sub returning [] so the sub key is always registered but
+;; doesn't try to hit the network during tests.
 (if js/window.location
-  (reg-sub-raw
-   ::mi5e/custom-items
-   (fn [app-db [_ user-data]]
-     (when (and (:user-data @app-db) (:token (:user-data @app-db)))
-       (go (dispatch [:set-loading true])
-           (let [response (<! (http/get (url-for-route routes/dnd-e5-items-route)
-                                        {:headers (auth-headers @app-db)}))]
-             (dispatch [:set-loading false])
-             (handle-api-response response
-               #(dispatch [::mi5e/set-custom-items (:body response)])
-               ;; Silent 401 is deliberate: the handle-api-response default
-               ;; is :route-to-login, which would cause a login-loop here
-               ;; since this sub fires on first subscribe and can race with
-               ;; :verify-user-session. The console.warn is diagnostic-only —
-               ;; zero behavior change, but gives future debuggers a
-               ;; greppable breadcrumb when users report "items missing"
-               ;; (#669). If you're hunting a regression, search the dev
-               ;; console for "custom-items fetch rejected".
-               :on-401 #(js/console.warn
-                         "custom-items fetch rejected (401); session may be stale")
-               :context "fetch custom items"))))
-     (ra/make-reaction
-      (fn [] (get @app-db ::mi5e/custom-items [])))))
+  (api-subs/reg-api-sub
+   {:sub-key    ::mi5e/custom-items
+    :route      routes/dnd-e5-items-route
+    :db-key     ::mi5e/custom-items
+    :set-event  ::mi5e/set-custom-items
+    ;; Silent 401 is deliberate: the handle-api-response default is
+    ;; :route-to-login, which would cause a login-loop here since this
+    ;; sub fires on first subscribe and can race with
+    ;; :verify-user-session. The console.warn is diagnostic-only — zero
+    ;; behavior change, but gives future debuggers a greppable breadcrumb
+    ;; when users report "items missing" (#669). Search the dev console
+    ;; for "custom-items fetch rejected".
+    :on-401     (fn [_]
+                  (js/console.warn
+                   "custom-items fetch rejected (401); session may be stale"))
+    :context    "fetch custom items"})
   (reg-sub
    ::mi5e/custom-items
-   (fn [_ _] []))
-  )
+   (fn [_ _] [])))
 
 (reg-sub
  ::mi5e/expanded-custom-items

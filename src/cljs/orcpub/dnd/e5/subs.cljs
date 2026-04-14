@@ -1,5 +1,6 @@
 (ns orcpub.dnd.e5.subs
   (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch]]
+            [re-frame.db]
             [orcpub.entity :as entity]
             [orcpub.entity.strict :as se]
             [orcpub.template :as t]
@@ -9,7 +10,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.db :refer [tab-path]]
-            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
+            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route
                                                                     show-generic-error mod-cfg
                                                                     default-mod-set
                                                                     handle-api-response]]
@@ -25,6 +26,7 @@
             [orcpub.dnd.e5.weapons :as weapon5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.compute :as compute]
+            [orcpub.dnd.e5.api-subs :refer [reg-api-sub]]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
@@ -382,52 +384,54 @@
  (fn [db [_ name]]
    (get-in db [:expanded-items name])))
 
-;; API-backed subscriptions — use handle-api-response for consistent
-;; status handling with sensible 401/500 defaults and catch-all logging.
-(reg-sub-raw
-  ::char5e/characters
-  (fn [app-db [_ login-optional?]]
-    (when (:token (:user-data @app-db))
-      (go (dispatch [:set-loading true])
-          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-summary-list-route)
-                                       {:headers (auth-headers @app-db)}))]
-            (dispatch [:set-loading false])
-            (handle-api-response response
-              #(dispatch [::char5e/set-characters (:body response)])
-              :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
-              :context "fetch characters"))))
-    (ra/make-reaction
-     (fn [] (get @app-db ::char5e/characters [])))))
+;; API-backed subscriptions — use reg-api-sub for consistent guard, loading
+;; counter, auth headers, and handle-api-response wrapping. See
+;; orcpub.dnd.e5.api-subs for the HOF definition and the anti-pattern
+;; it replaces.
 
-(reg-sub-raw
-  ::party5e/parties
-  (fn [app-db [_ login-optional?]]
-    (when (:token (:user-data @app-db))
-      (go (dispatch [:set-loading true])
-          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-parties-route)
-                                       {:headers (auth-headers @app-db)}))]
-            (dispatch [:set-loading false])
-            (handle-api-response response
-              #(dispatch [::party5e/set-parties (:body response)])
-              :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
-              :context "fetch parties"))))
-    (ra/make-reaction
-     (fn [] (get @app-db ::char5e/parties [])))))
+(reg-api-sub
+ {:sub-key    ::char5e/characters
+  :route      routes/dnd-e5-char-summary-list-route
+  :db-key     ::char5e/characters
+  :set-event  ::char5e/set-characters
+  :on-401     (fn [[_ login-optional?]]
+                (when-not login-optional? (dispatch [:route-to-login])))
+  :context    "fetch characters"})
 
-(reg-sub-raw
-  :user
-  (fn [app-db [_ required?]]
-    (when (:token (:user-data @app-db)) ;; guard: skip HTTP when not logged in
-     (go (let [hdrs (auth-headers @app-db)
-              response (<! (http/get (url-for-route routes/user-route) {:headers hdrs}))]
-          (handle-api-response response
-            (fn [])
-            :on-401 #(do (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
-                         (when required? (dispatch [:route-to-login])))
-            :on-500 #(when required? (dispatch (show-generic-error)))
-            :context "fetch user"))))
-    (ra/make-reaction
-     (fn [] (get @app-db :user [])))))
+(reg-api-sub
+ {:sub-key    ::party5e/parties
+  :route      routes/dnd-e5-char-parties-route
+  ;; NB: db-key is ::char5e/parties (historical naming, set by
+  ;; ::party5e/set-parties event handler). Do not "fix" to ::party5e/parties
+  ;; without also updating set-parties and its callers.
+  :db-key     ::char5e/parties
+  :set-event  ::party5e/set-parties
+  :on-401     (fn [[_ login-optional?]]
+                (when-not login-optional? (dispatch [:route-to-login])))
+  :context    "fetch parties"})
+
+(reg-api-sub
+ {:sub-key    :user
+  :route      routes/user-route
+  :db-key     :user
+  ;; No :set-event / :on-success — the :user sub is fire-and-forget
+  ;; in the current design (the response is discarded on 200). Preserved
+  ;; bit-for-bit from the pre-HOF implementation. See the db[:user]
+  ;; dead-storage cleanup follow-up in the investigation notes for
+  ;; context on why this is intentional today.
+  :on-401     (fn [[_ required?]]
+                ;; Compound action: clear login state AND maybe bounce
+                ;; to login. Uses @re-frame.db/app-db to read the live
+                ;; user-data map at call time, same as the pre-HOF form
+                ;; did via the enclosing reg-sub-raw let binding (which
+                ;; was bound to the same atom). Behaviorally identical.
+                (dispatch [:set-user-data
+                           (dissoc (:user-data @re-frame.db/app-db)
+                                   :user-data :token)])
+                (when required? (dispatch [:route-to-login])))
+  :on-500     (fn [[_ required?]]
+                (when required? (dispatch (show-generic-error))))
+  :context    "fetch user"})
 
 (reg-sub
  :following-users
@@ -447,19 +451,12 @@
  (fn [parties _]
    (common/map-by-id parties)))
 
-(reg-sub-raw
-  ::folder5e/folders
-  (fn [app-db _]
-    (when (:token (:user-data @app-db))
-      (go (dispatch [:set-loading true])
-          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-folders-route)
-                                       {:headers (auth-headers @app-db)}))]
-            (dispatch [:set-loading false])
-            (handle-api-response response
-              #(dispatch [::folder5e/set-folders (:body response)])
-              :context "fetch folders"))))
-    (ra/make-reaction
-     (fn [] (get @app-db ::folder5e/folders [])))))
+(reg-api-sub
+ {:sub-key    ::folder5e/folders
+  :route      routes/dnd-e5-char-folders-route
+  :db-key     ::folder5e/folders
+  :set-event  ::folder5e/set-folders
+  :context    "fetch folders"})
 
 (reg-sub
  ::folder5e/folder-map
