@@ -24,6 +24,7 @@
             [orcpub.dnd.e5.armor :as armor5e]
             [orcpub.dnd.e5.weapons :as weapon5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
+            [orcpub.dnd.e5.compute :as compute]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
@@ -945,21 +946,42 @@
  (fn [spells _]
    (common/aloof-sort-by :name spells)))
 
-(reg-sub
- ::char5e/filtered-spells
- :<- [:db]
- :<- [::char5e/sorted-spells]
- (fn [[db sorted-spells] _]
-   (or (::char5e/filtered-spells db)
-       sorted-spells)))
+(defn reg-filtered-sub
+  "Register a reactively-filtered sub composing a sorted input and a
+   text-filter input.
 
-(reg-sub
- ::char5e/filtered-items
- :<- [:db]
- :<- [::char5e/sorted-items]
- (fn [[db sorted-items] _]
-   (or (::char5e/filtered-items db)
-       sorted-items)))
+   When `filter-text` is absent or shorter than `min-length`, returns
+   the sorted input unchanged. Otherwise calls `filter-fn filter-text
+   sorted` to produce the filtered slice.
+
+   This replaced a `(or (::key db) sorted)` pattern where the filter
+   event handler computed a snapshot and wrote it to db, freezing the
+   list from that point forward — breaking reactivity whenever the
+   underlying data changed (#669). The reactive composition here
+   recomputes automatically when either input changes and re-frame's
+   sub memoization keeps the per-keystroke cost low: the upstream
+   sorted-sub is cached, so only the filter step re-runs."
+  [sub-key sorted-sub-vec text-filter-sub-vec filter-fn min-length]
+  (reg-sub sub-key
+    (fn [_ _]
+      [(subscribe sorted-sub-vec)
+       (subscribe text-filter-sub-vec)])
+    (fn [[sorted filter-text] _]
+      (if (and filter-text (>= (count filter-text) min-length))
+        (filter-fn filter-text sorted)
+        sorted))))
+
+(reg-filtered-sub ::char5e/filtered-spells
+                  [::char5e/sorted-spells]
+                  [::char5e/spell-text-filter]
+                  compute/filter-spells
+                  3)
+
+(reg-filtered-sub ::char5e/filtered-items
+                  [::char5e/sorted-items]
+                  [::char5e/item-text-filter]
+                  compute/filter-items
+                  3)
 
 (reg-sub
   ::char5e/monster-sort-criteria

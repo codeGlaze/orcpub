@@ -2272,11 +2272,12 @@
 
 #_ ;; orphaned re-export alias — callers use compute/compute-plugin-vals directly
   (def compute-plugin-vals compute/compute-plugin-vals)
-(def compute-sorted-spells compute/compute-sorted-spells)
-(def compute-sorted-items compute/compute-sorted-items)
+;; Only filter-by-name-xform is still used locally (in search-results below).
+;; compute-sorted-{spells,items} and filter-{spells,items} aliases were
+;; dropped when ::char5e/filter-spells and ::char5e/filter-items became
+;; reactive subs (P1 / #669) — the handlers no longer compute anything
+;; here, they just store the filter text for the reactive sub to pick up.
 (def filter-by-name-xform compute/filter-by-name-xform)
-(def filter-spells compute/filter-spells)
-(def filter-items compute/filter-items)
 
 (defn search-results [text]
   (let [search-text (s/lower-case text)
@@ -2363,28 +2364,23 @@
  (fn [db [_ filter-text]]
    (assoc db ::char5e/monster-text-filter filter-text)))
 
-;; Filter spell list by name. Computes sorted spells from db directly
-;; (avoids subscribe outside reactive context).
+;; Filter spell list by name. Only stores the filter text — the
+;; ::char5e/filtered-spells sub reactively recomputes from sorted-spells
+;; + this text. Previously this handler snapshotted the filtered result
+;; into db, which froze the list against future changes to the underlying
+;; spells (see #669 regression for items).
 (reg-event-db
  ::char5e/filter-spells
  (fn [db [_ filter-text]]
-   (let [sorted (compute-sorted-spells db)]
-     (assoc db
-            ::char5e/spell-text-filter filter-text
-            ::char5e/filtered-spells (if (>= (count filter-text) 3)
-                                       (filter-spells filter-text sorted)
-                                       sorted)))))
+   (assoc db ::char5e/spell-text-filter filter-text)))
 
-;; Filter magic item list by name. Computes sorted items from db directly.
+;; Filter magic item list by name. Same reactive pattern as filter-spells.
+;; Do NOT write ::char5e/filtered-items into db — the sub composes
+;; sorted-items + item-text-filter reactively.
 (reg-event-db
  ::char5e/filter-items
  (fn [db [_ filter-text]]
-   (let [sorted (compute-sorted-items db)]
-     (assoc db
-            ::char5e/item-text-filter filter-text
-            ::char5e/filtered-items (if (>= (count filter-text) 3)
-                                      (filter-items filter-text sorted)
-                                      sorted)))))
+   (assoc db ::char5e/item-text-filter filter-text)))
 
 (reg-event-db
  ::char5e/toggle-selected

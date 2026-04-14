@@ -40,76 +40,81 @@
 (defn reset-db!
   "Reset app-db before each test to prevent state leakage."
   []
-  (reset! app-db pristine-db))
+  (reset! app-db pristine-db)
+  ;; Clear subscription cache so reactive subs re-evaluate against fresh db.
+  (rf/clear-subscription-cache!))
 
 (use-fixtures :each {:before reset-db!})
 
 ;; ---------------------------------------------------------------------------
 ;; ::char5e/filter-spells  (reg-event-db)
 ;;
-;; This handler was refactored to call compute-sorted-spells on db
-;; instead of @(subscribe [::char5e/sorted-spells]).
+;; Post-P1: the handler only stores ::char5e/spell-text-filter in db.
+;; The filtered list is computed reactively by the ::char5e/filtered-spells
+;; sub, which composes sorted-spells + spell-text-filter. See #669 for the
+;; snapshot-staleness bug these tests used to exercise via direct db reads.
 ;; ---------------------------------------------------------------------------
 
 (deftest filter-spells-short-text-returns-all-sorted
   (testing "filter text under 3 chars → all spells returned (no filtering)"
     (reset! app-db {:plugins {}})
     (rf/dispatch-sync [::char5e/filter-spells "fi"])
-    (let [db @app-db]
-      ;; Text stored for the UI input
-      (is (= "fi" (::char5e/spell-text-filter db)))
-      ;; All sorted spells returned (not filtered) because "fi" < 3 chars
-      (let [result (::char5e/filtered-spells db)
-            names (set (map :name result))]
-        ;; Should contain known static spells
-        (is (contains? names "Fireball"))
-        (is (contains? names "Shield"))))))
+    ;; Text stored for the UI input
+    (is (= "fi" (::char5e/spell-text-filter @app-db)))
+    ;; No snapshot written — that was the #669 bug for items
+    (is (nil? (::char5e/filtered-spells @app-db)))
+    ;; All sorted spells returned reactively via the sub (no filtering)
+    (let [result @(rf/subscribe [::char5e/filtered-spells])
+          names (set (map :name result))]
+      (is (contains? names "Fireball"))
+      (is (contains? names "Shield")))))
 
 (deftest filter-spells-long-text-filters
   (testing "filter text >= 3 chars → only matching spells returned"
     (reset! app-db {:plugins {}})
     (rf/dispatch-sync [::char5e/filter-spells "fire"])
-    (let [result (::char5e/filtered-spells @app-db)
+    (let [result @(rf/subscribe [::char5e/filtered-spells])
           names (set (map :name result))]
-      ;; Only spells containing "fire" (case-insensitive)
       (is (contains? names "Fireball"))
       (is (contains? names "Fire Bolt"))
       (is (not (contains? names "Shield"))))))
 
 (deftest filter-spells-includes-plugin-spells
   (testing "plugin spells are merged into the result"
-    (reset! app-db {:plugins {:test-plugin
+    (reset! app-db {:plugins {"test-plugin"
                               {::e5/spells
                                {:zap {:name "Zap" :key :zap}}}}})
     (rf/dispatch-sync [::char5e/filter-spells "zap"])
-    (let [result (::char5e/filtered-spells @app-db)
+    (let [result @(rf/subscribe [::char5e/filtered-spells])
           names (set (map :name result))]
       (is (contains? names "Zap")))))
 
 ;; ---------------------------------------------------------------------------
 ;; ::char5e/filter-items  (reg-event-db)
 ;;
-;; Same pattern as filter-spells but for magic items.
-;; Uses compute-sorted-items instead of subscribe.
+;; Post-P1: same as filter-spells — handler only stores text, sub composes
+;; reactively. The snapshot-to-db pattern was the root cause of #669 where
+;; the item list didn't refresh after create/edit/delete.
 ;; ---------------------------------------------------------------------------
 
 (deftest filter-items-short-text-returns-all
-  (testing "filter text under 3 chars → all items returned"
+  (testing "filter text under 3 chars → all items returned reactively"
     (reset! app-db {})
     (rf/dispatch-sync [::char5e/filter-items "ba"])
-    (let [result (::char5e/filtered-items @app-db)
+    (is (= "ba" (::char5e/item-text-filter @app-db)))
+    (is (nil? (::char5e/filtered-items @app-db))
+        "No snapshot should be written — this was #669's root cause")
+    (let [result @(rf/subscribe [::char5e/filtered-items])
           names (set (map mi/name-key result))]
-      ;; Known static item should be present
       (is (contains? names "Alchemy Jug")))))
 
 (deftest filter-items-long-text-filters
   (testing "filter text >= 3 chars → only matching items returned"
     (reset! app-db {})
     (rf/dispatch-sync [::char5e/filter-items "alchemy"])
-    (let [result (::char5e/filtered-items @app-db)
+    (let [result @(rf/subscribe [::char5e/filtered-items])
           names (set (map mi/name-key result))]
       (is (contains? names "Alchemy Jug"))
-      ;; Something unrelated should NOT be present
       (is (not (contains? names "Animated Shield"))))))
 
 ;; ---------------------------------------------------------------------------
