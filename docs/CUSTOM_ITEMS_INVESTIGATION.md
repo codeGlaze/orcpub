@@ -193,7 +193,7 @@ carries username (JWT only encodes username — see `routes.clj:230 create-token
 |---|---|---|---|---|
 | 1 | `::char5e/filtered-items` snapshot-to-db staleness | subs.cljs:956 + events.cljs:2379 | **✅ confirmed** | Static reading of filter-items event handler + sub fallback logic |
 | 2 | `::char5e/filtered-spells` same shape | subs.cljs:946 + events.cljs:2367 | **✅ confirmed** | Identical pattern to #1 |
-| 3 | `::mi5e/remote-item` guard uses stale `:user` key | equipment_subs.cljs:253 | **✅ confirmed** | Git blame: a0e20a8 fixed the sibling sub but missed this one; env-and-auth KB doesn't claim it was fixed |
+| 3 | `::mi5e/remote-item` guard uses stale `:user` key | equipment_subs.cljs:253 | **✅ confirmed** + **orphaned** | Broken from inception in 45ef969; also the sub has zero live subscribers. Resolution via P4: comment out the whole chain, fix the guard inside the discarded form so future restorer gets it right. |
 | 4 | Reg-sub-raw reaction cached at `[]` after guest→login transition | equipment_subs.cljs:33 | **Known/documented** in `reframe-subscription-patterns.md`. Current workaround: navigate away and back. Whether to fix is a design decision, not a clear bug. |
 | 5 | Silent `:on-401 (fn [])` swallow with no retry | equipment_subs.cljs:44 | **Intentional** per auth-cleanup work. Changing to `:route-to-login` risks login loops. Adding console.warn is safe. |
 | 6 | PDF first-click lazy-load race | views.cljs:8065 | **Speculative**. Only affects users who land on character list and click print before `GET /items` returns. No code change proposed without repro. |
@@ -429,6 +429,104 @@ migration, or broad refactors with independent test surfaces.
    `agents/develop` documenting the decision tree between HOF / macro
    / helper before the refactor starts.
 
+### Patch P4: Document-and-comment the orphaned `::mi5e/remote-item` chain
+
+**Files**: `equipment_subs.cljs`, `events.cljs`
+
+The `::mi5e/remote-item` machinery is groundwork for cross-user item
+viewing (item sharing). The bulk `GET /items` endpoint only returns
+items the current user owns; the server has `GET /items/:id` which
+returns any item by db-id regardless of owner, and this client-side
+chain was meant to consume it. The live `views/item-page` at
+`views.cljs:3874` punts on this — it subscribes to `::mi/custom-item`
+directly, which only works for items you already own.
+
+**Status confirmed orphaned**:
+- `::mi5e/remote-items` (plural) reg-sub: registered, zero subscribers
+- `::mi5e/remote-item` (singular) reg-sub-raw: registered, zero subscribers
+- `::mi/add-remote-item` event: registered, only dispatched from inside
+  the unsubscribed reg-sub-raw
+- `::mi5e/item` dispatcher: already `#_` reader-discard, labeled
+  "Groundwork... restore when needed"
+
+**Item sharing is on the roadmap but not at the top** (per repo owner).
+The groundwork should be preserved, not deleted.
+
+**Action**: wrap all four orphaned forms in `#_` reader-discards with
+a block-comment header explaining what they do, the chain, why they're
+commented out, and a concrete restore checklist. **Inside** the
+commented `::mi5e/remote-item`, fix the guard from `(:user @app-db)`
+to `(get-auth-token @app-db)` so the future restorer doesn't hit the
+same typo that broke it originally.
+
+**Block-comment contents (for equipment_subs.cljs above the #_ block)**:
+
+```
+ORPHANED: Cross-user item detail fetch — commented out, kept for reference.
+
+PURPOSE: Groundwork for viewing magic items owned by OTHER users
+(item sharing feature, roadmap, not yet prioritized).
+
+Why this exists: bulk GET /items returns only items where
+::mi5e/owner = current username. Server also has GET /items/:id
+(routes.clj:976 get-item) which returns ANY item by db-id.
+This chain was intended as the client-side consumer for the
+by-id endpoint. The live views/item-page (views.cljs:3874)
+bypasses it by subscribing to ::mi/custom-item directly, so
+visiting /items/<id> for an item you don't own silently falls
+back to "not found."
+
+CHAIN (when restored):
+  views/item-page calls (subscribe [::mi5e/item item-key])
+    ↓ ::mi5e/item dispatcher (below)
+    ├── int key:  (subscribe [::mi5e/remote-item id])
+    │     ↓ fires GET /api/dnd/e5/items/:id with auth headers
+    │     ↓ dispatches [::mi5e/add-remote-item (:body response)]
+    │     ↓ stores under db[::mi5e/remote-items][id]
+    │     ↓ reaction reads that path
+    └── kw key:  (get mi5e/all-equipment-map key) via ra/make-reaction
+
+COMMENTED OUT because:
+- Half-alive: registered in signal graph but no live subscribers.
+- Broken from inception (45ef969 Aug 2025): auth guard was
+  (:token (:user @app-db)) but token lives at [:user-data :token].
+  Guard has been false 100% of the time, so the fetch never fired
+  even if a subscriber had existed. Fixed below so future restorer
+  doesn't hit the same trap.
+- Leaving registered with no consumers was confusing to auditors
+  (re-discovered repeatedly).
+
+TO RESTORE when item sharing is implemented:
+1. Uncomment the four forms below and the ::mi/add-remote-item
+   event in events.cljs (~line 2673).
+2. Update views/item-page (views.cljs:3874) to subscribe to
+   [::mi5e/item key] instead of [::mi/custom-item item-key], so
+   numeric id keys route through the remote fetch.
+3. Consider whether the remote fetch should be an explicit event
+   on route-mount rather than a reg-sub-raw side effect — the
+   modern pattern. See docs/kb/reframe-subscription-patterns.md
+   on agents/develop.
+4. Product decisions needed: can viewers edit items they don't
+   own? Favorite? Clone? Decide before wiring the UI.
+5. Add a KB entry to docs/kb/ on agents/develop documenting the
+   cross-user item fetch chain once it's wired and working.
+```
+
+**Back-reference comment** at events.cljs:2673-2676 (where
+`::mi/add-remote-item` lives) pointing at the explainer:
+
+```
+;; See equipment_subs.cljs ::mi5e/remote-item block-comment —
+;; this event is part of the orphaned cross-user item fetch
+;; chain. Kept as groundwork, commented out together with the
+;; rest of the chain. Do not remove in isolation.
+```
+
+**Blast radius**: three #_ insertions, one block comment header,
+one back-reference comment. ~60 lines total touched (mostly comment
+text, not code). Zero behavior change. The `::mi5e/remote-item`
+guard fix is inside the discarded form so it's inert today.
+
 ### Dropped from plan
 
 - **Patch 4 (`:login-success` dispatches fetch)** — the KB documents the
@@ -517,7 +615,24 @@ Appended live as the investigation proceeds.
   are real but tiny and don't clear the "legitimate reason to exist"
   bar. Dropped.
 
-- **Pattern smell — reg-sub-raw API template** (latest session): user
+- **`::mi5e/remote-item` scope decision** (latest session): user asked
+  whether the sub is orphaned and what it's supposed to do. Verified
+  all four pieces (remote-items plural, remote-item singular,
+  add-remote-item event, #_'d ::mi5e/item dispatcher) — registered
+  but zero live subscribers. Purpose: groundwork for cross-user item
+  viewing (item sharing roadmap feature, not top priority). Server
+  endpoint GET /items/:id exists and returns any item by id; client
+  consumer was half-written. Live item-page bypasses it via
+  ::mi/custom-item, so cross-user URLs silently fail.
+
+  Decision: **Option C-plus** — fix the guard AND comment out the
+  whole chain with a block-comment explainer. Preserves groundwork,
+  removes the confusing "registered but no consumers" state,
+  documents the chain and restore checklist so future implementer
+  (or agent re-auditing the code) has full context without needing
+  to reconstruct it. Became new Patch P4.
+
+- **Pattern smell — reg-sub-raw API template** (earlier, this session): user
   owned their "noodle around when I see the same thing repeated"
   instinct and asked whether there's a deeper template underneath the
   `(some? (get-auth-token db))` idiom. Traced the five API-backed
