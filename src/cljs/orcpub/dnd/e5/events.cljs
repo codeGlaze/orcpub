@@ -1607,7 +1607,7 @@
 (reg-event-fx
  :verify-user-session
  (fn [{:keys [db]} _]
-   (if (:token (:user-data db))
+   (if (event-utils/get-auth-token db)
      (do (go (let [response (<! (http/get (url-for-route routes/user-route)
                                           {:headers (authorization-headers db)}))]
                (case (:status response)
@@ -1989,15 +1989,17 @@
    (fn [db [_ response]]
      (assoc-in db [:dnd :e5 :characters] (:body response))))
 
-(defn get-auth-token [db]
-  (-> db :user-data :token))
+;; get-auth-token lives in orcpub.dnd.e5.event-utils alongside auth-headers
+;; and the handle-api-response HOF. See event_utils.cljc for the canonical
+;; docstring describing its dual use (retrieval + predicate) and why it's
+;; the single source of truth for the auth token path.
 
 #_ ;; never dispatched — character loading uses :load-user-data flow
   (reg-event-fx
    :load-characters
    (fn [{:keys [db]} [_ params]]
      {:http {:method :get
-             :auth-token (get-auth-token db)
+             :auth-token (event-utils/get-auth-token db)
              :url (backend-url (routes/path-for routes/dnd-e5-char-list-route))
              :on-success [:load-characters-success]}}))
 
@@ -2163,7 +2165,7 @@
                 (fn [chars]
                   (remove #(-> % :db/id (= id)) chars)))
     :http {:method :delete
-           :auth-token (get-auth-token db)
+           :auth-token (event-utils/get-auth-token db)
            :url (backend-url (routes/path-for routes/dnd-e5-char-route :id id))
            :on-success [:delete-character-success]}}))
 
