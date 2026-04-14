@@ -41,7 +41,16 @@
              (dispatch [:set-loading false])
              (handle-api-response response
                #(dispatch [::mi5e/set-custom-items (:body response)])
-               :on-401 (fn [])
+               ;; Silent 401 is deliberate: the handle-api-response default
+               ;; is :route-to-login, which would cause a login-loop here
+               ;; since this sub fires on first subscribe and can race with
+               ;; :verify-user-session. The console.warn is diagnostic-only —
+               ;; zero behavior change, but gives future debuggers a
+               ;; greppable breadcrumb when users report "items missing"
+               ;; (#669). If you're hunting a regression, search the dev
+               ;; console for "custom-items fetch rejected".
+               :on-401 #(js/console.warn
+                         "custom-items fetch rejected (401); session may be stale")
                :context "fetch custom items"))))
      (ra/make-reaction
       (fn [] (get @app-db ::mi5e/custom-items [])))))
