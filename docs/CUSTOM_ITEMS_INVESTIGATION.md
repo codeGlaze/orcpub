@@ -240,7 +240,7 @@ bypassing re-frame's sub cache. Reactive path memoizes the upstream chain
 and only re-runs the filter step per keystroke. Counterintuitive unless
 you know re-frame memoization rules.
 
-### Patch P2: Add `logged-in?` + move `get-auth-token` to event_utils
+### Patch P2: Move `get-auth-token` to event_utils, use it as the guard
 
 **Files**: `event_utils.cljc`, `events.cljs`, `equipment_subs.cljs`, `subs.cljs`
 
@@ -265,59 +265,33 @@ of the time since the commit that introduced it.
 **Additional finding**: `::mi5e/remote-item` has ZERO live callers.
 Only in-tree reference is at `equipment_subs.cljs:272`, inside a `#_`
 reader-discard at lines 268-273 (the commented-out `::mi5e/item`
-dispatcher). The broken guard has zero observable effect today — nothing
-subscribes to this sub. Fix is hygiene (clean up latent bug before
-someone un-comments or adds a caller), not active bleeding.
+dispatcher). The broken guard has zero observable effect today —
+nothing subscribes to this sub. Fix is hygiene (clean up latent bug
+before someone un-comments or adds a caller), not active bleeding.
 
-### Why both `get-auth-token` AND `logged-in?`, not just one
+### Why `get-auth-token` directly, not a wrapper
 
-I waffled on this. The honest weighing:
+Considered adding a `logged-in?` predicate as `(some? (get-auth-token db))`.
+Dropped: the wrapper is a one-liner that doesn't do anything the
+underlying function doesn't already do. `(when (get-auth-token db) ...)`
+is a totally normal Clojure idiom — nil is falsy, retrieval-as-predicate
+is idiomatic. The "grep role separation" and "reading clarity"
+arguments I floated are real but tiny, and don't clear the bar for
+"a helper needs a legitimate reason to exist."
 
-**Pros of a dedicated `logged-in?` predicate:**
-
-1. **Grep role separation**: with only `get-auth-token`, "show me all
-   auth decisions" (7 sites) and "show me all token consumers" (2
-   retrieval sites) both grep to the same symbol. You can't distinguish
-   a retrieval (`:auth-token (get-auth-token db)`) from a guard
-   (`(when (get-auth-token @app-db) ...)`) without reading surrounding
-   context. With both functions, `grep logged-in?` = decisions only,
-   `grep get-auth-token` = retrievals only. Separation scales cleanly
-   as more auth-gated code is added.
-2. **Reading clarity at guard sites**: `(when (get-auth-token db) ...)`
-   asks the reader to recognize retrieval-as-predicate idiom.
-   `(when (logged-in? db) ...)` is immediately a predicate, no mental
-   translation. Small per-read cost, but repeated across 7 sites ×
-   future reads × all future maintainers/agents.
-3. **Typo-class elimination**: same benefit as reusing `get-auth-token`
-   alone. Both options solve `:user` vs `:user-data` equally well.
-
-**Cons:**
-
-1. One extra function name (~6 lines including docstring) to learn.
-2. One extra grep hop when someone asks "what is the canonical path?"
-   (`logged-in?` → `get-auth-token` → `(-> db :user-data :token)`).
-
-**Explicitly NOT the reason** (dropping from earlier drafts):
-speculative extensibility. I cannot name a concrete scenario where
-"logged in" would grow beyond "has token" — JWT expiry is a
-server-side 401 decision, not a client check; role-based access
-isn't in the codebase. "Maybe someday" is not a legitimate reason.
-
-**Verdict**: the grep-role-separation argument is concrete and the
-cost is low. Net: include `logged-in?`. But **for reading clarity
-and tracing, not for future-proofing**.
+What *would* clear the bar: a helper that composes multiple checks
+(token AND user-data populated AND not-stale, etc.). Current code
+makes token and user-data atomic via `:login-success` / `:clear-login`,
+so there's nothing to compose. **Not adding the wrapper.**
 
 **Steps**:
 
 1. Move `get-auth-token` from `events.cljs:1992` to `event_utils.cljc`.
    The one live caller (`events.cljs:2166 reset-password`) gets its
    import updated; events.cljs:2000 is commented out and ignored.
-2. Add `logged-in?` in `event_utils.cljc` as
-   `(some? (get-auth-token db))`. Docstring explains when to use which:
-   `get-auth-token` for retrieval, `logged-in?` for guards/decisions.
-3. Refactor `auth-headers` in event_utils to call `get-auth-token`
+2. Refactor `auth-headers` in event_utils to call `get-auth-token`
    internally — eliminates the duplicated path read.
-4. Replace the 7 inline guards with `(logged-in? @app-db)`:
+3. Replace the 7 inline guards with `(get-auth-token @app-db)`:
    - `equipment_subs.cljs:37` `::mi5e/custom-items`
    - `equipment_subs.cljs:253` `::mi5e/remote-item` ← fixes bug #3 as side effect
    - `events.cljs:1610` `:verify-user-session`
@@ -325,14 +299,14 @@ and tracing, not for future-proofing**.
    - `subs.cljs:404` `::party5e/parties`
    - `subs.cljs:419` `:user`
    - `subs.cljs:452` `::folder5e/folders`
-5. Add `logged-in?` (and `get-auth-token` if needed) to the `:refer`
-   lists in `equipment_subs.cljs`, `subs.cljs`, `events.cljs`.
+4. Add `get-auth-token` to the `:refer` lists in `equipment_subs.cljs`,
+   `subs.cljs`, `events.cljs` as needed.
 
 **Blast radius** (measured, not estimated):
 
 - Function moves/adds: `get-auth-token` move (1 live caller to update),
-  `logged-in?` new (0 existing callers), `auth-headers` internal
-  refactor (0 callers affected — signature unchanged).
+  `auth-headers` internal refactor (0 callers affected — signature
+  unchanged).
 - Guard replacements: 7 line-level changes.
 - `:refer` updates: 2-3 files.
 - **Tests/web references**: ZERO. Confirmed by grep across `test/` and
@@ -340,20 +314,17 @@ and tracing, not for future-proofing**.
 - **Downstream consumers affected**: ZERO. All changes are internal
   function moves + behavior-preserving substitutions. The only
   behavior change is `::mi5e/remote-item` (dead code today).
-- **Total diff**: ~20 changed lines, ~12 added lines.
+- **Total diff**: ~15 changed lines, ~5 added lines.
 
 **Non-obvious benefits (to comment in-code + KB)**:
 
-- **Typo class eliminated**: misspelled `logged-in?` / `get-auth-token`
-  is an unresolved-symbol compile error. Misspelled `:user-data` is
-  silent nil — the exact failure mode of the `::mi5e/remote-item` bug.
+- **Typo class eliminated**: misspelled `get-auth-token` is an
+  unresolved-symbol compile error. Misspelled `:user-data` is silent
+  nil — the exact failure mode of the `::mi5e/remote-item` bug.
   Routing all seven decisions through one function makes this class
   impossible.
 - **DRY**: `auth-headers` currently duplicates the token path read.
   After the refactor, one canonical function holds the path.
-- **Grep role separation**: decisions (`logged-in?`) and retrievals
-  (`get-auth-token`) grep independently. Auditors can answer "where
-  are auth decisions made?" with a single grep.
 
 ### Patch P3: `:on-401` console.warn observability
 
@@ -478,18 +449,27 @@ Appended live as the investigation proceeds.
   Initial revision: add `logged-in?` alongside `get-auth-token` as
   separate predicate, with extensibility and semantic intent arguments.
 
-- **Pragmatic reasoning correction** (latest session): user pushed back
-  on both earlier positions — (a) don't roll over on pushback without
-  reasoning, (b) verify the `:user` vs `:user-data` claim rigorously
-  because macros/interceptors could be hiding things, (c) quantify
-  blast radius. Did the work:
+- **`logged-in?` final drop** (latest session): user asked
+  "so `logged-in? db` is just going to swap out `get-auth-token db`?"
+  — correct instinct. The wrapper is a one-liner `(some? ...)` that
+  doesn't add any check the underlying function doesn't already
+  provide. The "grep role separation" and "reading clarity" arguments
+  are real but tiny and don't clear the "legitimate reason to exist"
+  bar. Dropped permanently. Using `get-auth-token` directly at the 7
+  guard sites. What would clear the bar: a helper that composes
+  multiple checks — token AND user-data populated AND not-stale — but
+  current code makes those atomic, so there's nothing to compose.
 
-  1. **`logged-in?` decision**: re-weighed honestly. Extensibility
-     argument dropped (speculative). Kept `logged-in?` for concrete
-     reasons — grep role separation (decisions vs retrievals are
-     distinguishable symbols in the tree) and reading clarity at guard
-     sites (no mental retrieval→predicate translation). Small cost,
-     small repeated benefit, net positive.
+- **Pragmatic reasoning correction** (earlier this session): user pushed
+  back on both earlier positions — (a) don't roll over on pushback
+  without reasoning, (b) verify the `:user` vs `:user-data` claim
+  rigorously because macros/interceptors could be hiding things, (c)
+  quantify blast radius. Did the work:
+
+  1. **`logged-in?` decision (superseded above)**: re-weighed honestly
+     with grep-role-separation and reading-clarity arguments. User
+     subsequently correctly observed the wrapper was still thin enough
+     to drop.
 
   2. **Guard-broken claim verified**: grep for all writers of `db[:user]`
      found only `:set-user` at events.cljs:1624, called only from
