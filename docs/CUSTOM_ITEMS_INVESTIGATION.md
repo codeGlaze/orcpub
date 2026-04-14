@@ -6,6 +6,97 @@ in the item list, and in PDF output.
 
 Branch: `claude/fix-custom-items-disappearing-DW8rb`
 
+## STATUS: patches landed, awaiting merge + e2e verification
+
+Commits on branch (oldest to newest, all behind `d42e05d` base):
+
+| Commit  | Type | Summary |
+|---------|------|---------|
+| `1248e8e` | test | equipment-subs tests (guard gap + filter reactivity regression) |
+| `0024e0b` | fix  | **P1** — filtered-items/filtered-spells reactive (#669 root cause fix) |
+| `910fd53` | refactor | **P2** — get-auth-token to event_utils, auth path consolidation |
+| `dbc8657` | fix  | **P3** — 401 observability breadcrumb on custom-items |
+| `73ce135` | refactor | **P4** — orphaned ::mi5e/remote-item chain commented with explainer |
+| `d9f4863` | refactor | **P5** — reg-api-sub HOF, 5 API-backed subs migrated |
+| `0553b9c` | test | **P5-guard** — :user compound on-401 pinned via pure-fn extraction |
+| `cbc63e4` | test | Playwright spec staged for cherry-pick to testing/develop |
+
+All code changes verified via `lein fig:test` (cljs) and `lein test` (cljc +
+clj) contracts — tests land with the code that makes them green. The
+Playwright spec is an inert staged file on the fix branch; it activates on
+testing/develop.
+
+### Scope boundaries
+
+**Fixed:**
+- #669 root cause: `::char5e/filtered-items` / `::char5e/filtered-spells`
+  snapshot-to-db pattern that froze the item/spell list after any
+  filter-box interaction, breaking refresh after create/edit/delete.
+- Latent `::mi5e/remote-item` stale-`:user` guard bug (inside the P4
+  discarded form, so inert today but correct if restored).
+- Scattered inline `(:token (:user-data @app-db))` guards — consolidated
+  via `get-auth-token` (canonical SSOT) and the `reg-api-sub` HOF.
+- `auth-headers` DRY cleanup — now delegates to `get-auth-token`.
+- Test coverage gap: no `::mi5e/custom-items` guard tests previously.
+
+**Not fixed / out of scope (logged as follow-ups below):**
+- `db[:user]` near-dead storage cleanup
+- `db[:user-data][:user-data]` double-nesting fix
+- Cross-user item sharing (P4 preserves the groundwork for this)
+
+### Final plan vs. executed plan
+
+The plan locked during iteration matches what was executed with two
+corrections from user pushback mid-flight:
+
+1. `logged-in?` predicate was dropped — `get-auth-token` is used directly
+   as the guard. The wrapper would have been a thin `(some? ...)` that
+   didn't clear the "helper needs a legitimate reason to exist" bar.
+   Strong docstring on `get-auth-token` captures the intent and the
+   promotion trigger if the definition of "logged in" ever grows.
+
+2. The `reg-api-sub` HOF was extracted into a new dedicated cljs-only
+   namespace `orcpub.dnd.e5.api-subs` rather than inlined in `subs.cljs`
+   or shoehorned into `event_utils.cljc`. The new namespace keeps
+   cljs-specific imports (cljs-http, core.async, reagent.ratom,
+   reg-sub-raw) isolated from the shared .cljc module and avoids
+   creating a new `equipment_subs → subs` dependency edge.
+
+### Key decisions captured for agents/develop KB reconciliation
+
+These are the non-obvious points that should propagate back to the KB
+when the work merges:
+
+1. **Canonical auth path and dual use** — `event_utils.cljc` now owns
+   the `[:user-data :token]` path inside `get-auth-token` with a
+   docstring that documents the retrieval-vs-guard dual use and the
+   promotion trigger to a dedicated `logged-in?` predicate. The
+   `env-and-auth.md` KB entry is the right home for a brief update
+   noting this function exists and what its contract is.
+
+2. **reg-api-sub HOF** — new pattern worth its own KB entry describing
+   the anti-pattern it replaces (10 lines of duplicated boilerplate
+   across 5 API-backed subs) and the opts contract. Suggested KB path:
+   `docs/kb/reframe-subscription-patterns.md` could be extended with
+   a "reg-api-sub helper" section, or a new `docs/kb/api-sub-helper.md`.
+
+3. **Filter-sub anti-pattern** — `reg-filtered-sub` in `subs.cljs`
+   documents the snapshot-to-db anti-pattern it replaces. This wasn't
+   caught by the phase-1 subscribe-outside-reactive-context refactor
+   because that refactor's scope was warnings, not cache staleness.
+   Worth a new KB entry `docs/kb/filter-sub-anti-pattern.md` that
+   cross-links to `re-frame-subscribe-refactor.md` to explain why
+   the existing phase-1 docs don't cover it.
+
+4. **`db[:user]` dead storage + `db[:user-data][:user-data]` nesting** —
+   both are existing tech debt the investigation surfaced but didn't
+   fix. Follow-ups below have enough detail to pick up directly.
+
+5. **`::mi5e/remote-item` chain intent and restore path** — P4's
+   block comment documents the full chain, why it's commented, and a
+   5-step restore checklist. Item sharing is on the roadmap; the
+   restorer should not have to reconstruct any of this.
+
 **This is branch-specific investigation state.** Reusable findings get
 reconciled back to `agents/develop` KB at the end. See
 [Reconciliation plan](#reconciliation-plan-for-agentsdevelop) at the bottom.
@@ -749,7 +840,72 @@ docs/kb/ index on agents/develop before investigating domain issues."**
 The KB is already comprehensive; investigations that skip it end up
 re-deriving documented patterns and risk missing nuances.
 
-## Session activity log
+## Session activity log — execution phase
+
+- **P1 regression tests** (`1248e8e`): new `equipment_subs_test.cljs`
+  with 10 deftests covering custom-items guard behavior (gap fill),
+  filtered-items reactive recomputation, filtered-spells parallel
+  cases, and the simulated-save-refresh flow that matches the
+  reporter scenario verbatim. These fail against the pre-P1 code.
+
+- **P1 code fix** (`0024e0b`): extracted `reg-filtered-sub` HOF in
+  `subs.cljs` with the anti-pattern docstring. Migrated both
+  filtered-items and filtered-spells subs. Simplified the
+  `::char5e/filter-items` and `::char5e/filter-spells` event
+  handlers to only store filter text. Dropped 4 dead local aliases
+  in events.cljs (compute-sorted-spells, compute-sorted-items,
+  filter-spells, filter-items) — kept filter-by-name-xform because
+  `search-results` still uses it. Updated existing events_test.cljs
+  filter tests to assert via the reactive sub rather than the dead
+  db snapshot.
+
+- **P2 auth consolidation** (`910fd53`): moved `get-auth-token` from
+  `events.cljs` to `event_utils.cljc` with a comprehensive docstring
+  declaring it the SSOT for the `[:user-data :token]` path and for
+  the logged-in check. Refactored `auth-headers` to call it
+  internally. Updated `:verify-user-session` and `:delete-character`
+  to use `event-utils/get-auth-token`. Added
+  `get-auth-token-test` in `event_utils_test.cljc`.
+
+- **P3 observability** (`dbc8657`): one-line change replacing the
+  silent `(fn [])` `:on-401` on `::mi5e/custom-items` with a
+  `console.warn`. Surrounding comment explains why the silent path
+  exists (login-loop risk) so future maintainers don't "fix" it by
+  switching to `:route-to-login`.
+
+- **P4 orphaned chain** (`73ce135`): wrapped three forms in `#_`
+  reader-discards, added a block-comment header with the full
+  restore checklist, fixed the guard inside the discarded form so
+  the next restorer inherits the correct `get-auth-token` check.
+  Cross-referenced from `events.cljs` where
+  `::mi/add-remote-item` is also commented.
+
+- **P5 HOF extraction** (`d9f4863`): created
+  `src/cljs/orcpub/dnd/e5/api_subs.cljs` with the `reg-api-sub` HOF.
+  Migrated 5 API-backed subs: `::char5e/characters`,
+  `::party5e/parties`, `::folder5e/folders`, `:user` (compound
+  on-401 preserved), and `::mi5e/custom-items` (inside the existing
+  `if js/window.location` compile-time split). Removed unused
+  `auth-headers` from subs.cljs :refer list. Added `[re-frame.db]`
+  import to subs.cljs for the `:user` on-401 callback's
+  `@re-frame.db/app-db` reference.
+
+- **P5 test pinning** (`0553b9c`): extracted
+  `user-sub-on-401-actions` as a pure fn and `user-sub-on-401` as
+  its side-effecting wrapper. Added 5 deftests pinning the
+  compound behavior: required?-true produces both dispatches,
+  required?-false/nil/absent suppresses the route-to-login, theme
+  survives the login clear, empty user-data defensive case, and
+  the query-v destructuring contract.
+
+- **Playwright spec staging** (`cbc63e4`): created
+  `e2e/scenarios/custom-items.spec.ts` with four scenarios covering
+  the user-facing #669 regression surface. Header comment documents
+  the transfer path (single-file cherry-pick to `testing/develop`).
+  The spec is inert on the fix branch — no playwright infrastructure
+  there — but activates the moment it lands on testing/develop.
+
+## Session activity log — investigation phase
 
 Appended live as the investigation proceeds.
 
