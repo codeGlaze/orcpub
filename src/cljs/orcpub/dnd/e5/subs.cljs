@@ -410,6 +410,42 @@
                 (when-not login-optional? (dispatch [:route-to-login])))
   :context    "fetch parties"})
 
+;; :user sub helpers — extracted as named fns so the compound on-401
+;; logic (clear login state + conditionally bounce to login) is unit-
+;; testable. See subs-test.cljs for the regression tests that pin this
+;; behavior in place across the P5 reg-api-sub migration.
+
+(defn user-sub-on-401-actions
+  "Pure: returns the sequence of dispatch vectors the :user sub's 401
+   handler would produce, given the current `:user-data` map and the
+   subscription query-v.
+
+   Always clears the login credentials (via `:set-user-data` with
+   `:user-data` and `:token` dissoced — preserves `:theme` and any
+   other non-login fields). Additionally bounces to the login route
+   when the subscription was invoked with `required?` true.
+
+   Split from the side-effecting `user-sub-on-401` so tests can
+   assert on the action sequence without stubbing dispatch."
+  [user-data-map [_ required?]]
+  (cond-> [[:set-user-data (dissoc user-data-map :user-data :token)]]
+    required? (conj [:route-to-login])))
+
+(defn user-sub-on-401
+  "Side-effecting: dispatches the actions produced by
+   `user-sub-on-401-actions` against the current re-frame.db/app-db."
+  [query-v]
+  (doseq [action (user-sub-on-401-actions
+                  (:user-data @re-frame.db/app-db)
+                  query-v)]
+    (dispatch action)))
+
+(defn user-sub-on-500
+  "Conditional 500 handler for the :user sub: bounces to the generic
+   error toast only when the caller flagged the request as required."
+  [[_ required?]]
+  (when required? (dispatch (show-generic-error))))
+
 (reg-api-sub
  {:sub-key    :user
   :route      routes/user-route
@@ -419,18 +455,8 @@
   ;; bit-for-bit from the pre-HOF implementation. See the db[:user]
   ;; dead-storage cleanup follow-up in the investigation notes for
   ;; context on why this is intentional today.
-  :on-401     (fn [[_ required?]]
-                ;; Compound action: clear login state AND maybe bounce
-                ;; to login. Uses @re-frame.db/app-db to read the live
-                ;; user-data map at call time, same as the pre-HOF form
-                ;; did via the enclosing reg-sub-raw let binding (which
-                ;; was bound to the same atom). Behaviorally identical.
-                (dispatch [:set-user-data
-                           (dissoc (:user-data @re-frame.db/app-db)
-                                   :user-data :token)])
-                (when required? (dispatch [:route-to-login])))
-  :on-500     (fn [[_ required?]]
-                (when required? (dispatch (show-generic-error))))
+  :on-401     user-sub-on-401
+  :on-500     user-sub-on-500
   :context    "fetch user"})
 
 (reg-sub
