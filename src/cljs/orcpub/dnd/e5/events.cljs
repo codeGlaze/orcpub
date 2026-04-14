@@ -2668,10 +2668,16 @@
                  (toggle-set value)
                  set-any-attunement))))
 
-(reg-event-db
- ::mi/add-remote-item
- (fn [db [_ item]]
-   (assoc-in db [::mi/remote-items (:db/id item)] item)))
+;; ORPHANED: see equipment_subs.cljs — ::mi5e/remote-item block-comment.
+;; This event is the handler for ::mi5e/remote-item's success response:
+;; stores a single fetched item into db[::mi/remote-items][id]. It's
+;; commented out as part of the orphaned cross-user item fetch chain
+;; (roadmap: item sharing, not yet prioritized). Do NOT remove in
+;; isolation — restore it together with the rest of the chain.
+#_(reg-event-db
+    ::mi/add-remote-item
+    (fn [db [_ item]]
+      (assoc-in db [::mi/remote-items (:db/id item)] item)))
 
 (reg-event-db
  ::mi/set-item-name
