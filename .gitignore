@@ -74,8 +74,11 @@ cljs-test-runner-out
 # Claude Code local data (conversation history, credentials)
 .claude-data/
 
-# Agentic/AI tool files — belong in dotfiles or agents/ branch, not code branches
-.claude/
+# Agentic/AI tool files — most belong on the agents/develop branch, not code branches.
+# Exception: .claude/skills/ is allowed here so code-branch sessions can be onboarded
+# to the agents/develop workflow (see .claude/skills/orcpub-primer/SKILL.md).
+.claude/*
+!.claude/skills/
 
 # NewRelic (DMV-specific, contains license key)
 newrelic*
