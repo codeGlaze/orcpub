@@ -269,20 +269,44 @@ dispatcher). The broken guard has zero observable effect today —
 nothing subscribes to this sub. Fix is hygiene (clean up latent bug
 before someone un-comments or adds a caller), not active bleeding.
 
-### Why `get-auth-token` directly, not a wrapper
+### Why `get-auth-token` directly (not a wrapper) — SSOT via docstring
 
 Considered adding a `logged-in?` predicate as `(some? (get-auth-token db))`.
 Dropped: the wrapper is a one-liner that doesn't do anything the
 underlying function doesn't already do. `(when (get-auth-token db) ...)`
-is a totally normal Clojure idiom — nil is falsy, retrieval-as-predicate
-is idiomatic. The "grep role separation" and "reading clarity"
-arguments I floated are real but tiny, and don't clear the bar for
-"a helper needs a legitimate reason to exist."
+is idiomatic Clojure — nil is falsy, retrieval-as-predicate is standard.
 
-What *would* clear the bar: a helper that composes multiple checks
-(token AND user-data populated AND not-stale, etc.). Current code
-makes token and user-data atomic via `:login-success` / `:clear-login`,
-so there's nothing to compose. **Not adding the wrapper.**
+**SSOT analysis** — two concerns, one function:
+
+- **Path SSOT** ("where is the token stored?"): `get-auth-token` already
+  captures `(-> db :user-data :token)` in one place. Move it to
+  `event_utils.cljc` and refactor `auth-headers` to call it and you've
+  got one canonical location for the path.
+- **Check SSOT** ("what does it mean to be logged in?"): today the
+  check is `(some? (get-auth-token db))`, used at all 7 guard sites
+  via `when`. This is **SSOT by convention** — uniform call-site
+  pattern, not code-enforced. A wrapper would upgrade to code-SSOT,
+  but the check is currently trivial enough that convention-SSOT is
+  sufficient.
+
+**What would change the calculus**: if the logged follow-up cleanups
+(`db[:user]` dead storage, `db[:user-data][:user-data]` double-nesting)
+ever land, the definition of "logged in" could naturally become a
+compound check (`token present AND profile map present AND not stale`).
+At that point, inlining the compound check at call sites would violate
+SSOT — that's when `logged-in?` would start earning its keep.
+
+**Decision**: no wrapper today. Strong docstring on `get-auth-token` in
+`event_utils.cljc` that documents:
+
+1. The canonical path (`(-> db :user-data :token)`)
+2. The dual use (retrieval for HTTP; predicate under `when` for guards)
+3. The promotion trigger — if a compound check becomes needed, promote
+   the guard usage to a dedicated `logged-in?` predicate at that point;
+   don't inline the additional logic at call sites.
+
+The docstring IS the SSOT for the convention. Greppers who land on
+`get-auth-token` see the rules immediately.
 
 **Steps**:
 
@@ -449,16 +473,27 @@ Appended live as the investigation proceeds.
   Initial revision: add `logged-in?` alongside `get-auth-token` as
   separate predicate, with extensibility and semantic intent arguments.
 
-- **`logged-in?` final drop** (latest session): user asked
+- **`logged-in?` final drop** (earlier, this session): user asked
   "so `logged-in? db` is just going to swap out `get-auth-token db`?"
   — correct instinct. The wrapper is a one-liner `(some? ...)` that
   doesn't add any check the underlying function doesn't already
   provide. The "grep role separation" and "reading clarity" arguments
   are real but tiny and don't clear the "legitimate reason to exist"
-  bar. Dropped permanently. Using `get-auth-token` directly at the 7
-  guard sites. What would clear the bar: a helper that composes
-  multiple checks — token AND user-data populated AND not-stale — but
-  current code makes those atomic, so there's nothing to compose.
+  bar. Dropped.
+
+- **SSOT follow-up** (latest session): user asked whether
+  `(some? (get-auth-token db))` can be made SSOT. Clarified two
+  concepts: PATH SSOT (already handled by `get-auth-token` — it owns
+  `(-> db :user-data :token)`) vs CHECK SSOT ("what does 'logged in'
+  mean?", currently SSOT-by-convention at 7 uniform call sites). A
+  `logged-in?` wrapper would upgrade convention-SSOT to code-SSOT but
+  is marginal today because the check is trivial. Landed on: add a
+  strong docstring to `get-auth-token` that explicitly documents the
+  dual use and the promotion trigger (if compound checks become
+  needed after the `db[:user]` / double-nesting follow-ups, promote
+  to `logged-in?` at that moment). The docstring IS the SSOT for the
+  convention — no code added, rules stay visible to anyone grepping
+  the function.
 
 - **Pragmatic reasoning correction** (earlier this session): user pushed
   back on both earlier positions — (a) don't roll over on pushback
