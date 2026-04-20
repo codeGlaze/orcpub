@@ -165,7 +165,36 @@ ruling out).
 
 ---
 
+## Timeline (critical)
+
+| Date | Event |
+|------|-------|
+| 2026-02-25 | PR #649 merged to `develop` (first modernization tranche) |
+| 2026-03-13 | PR #661 merged to `develop` (final modernization tranche) |
+| **2026-03-15** | **User noticed the bug** |
+| 2026-04-08 | Modernization actually went **live in production** |
+| 2026-04-20 | Investigation |
+
+**The modernization was NOT running in production when the bug was noticed.**
+Production on Mar 15 was the pre-modernization code. This eliminates the
+modernization as the *cause*. The remaining candidates:
+
+1. Pre-existing data-level shared `::se/values :db/id` from a historical bug or
+   import — the symptom would surface whenever the user edited notes on either
+   character, independent of code deployed.
+2. A bug in the **pre-modernization** code path, unchanged by modernization,
+   that we haven't identified yet.
+3. User-level action (import/restore/manual DB edit) on or before Mar 15.
+
+Diagnostic question for reporter: **has the user edited these characters'
+notes at all since ~Mar 8?** If the first post-symptom edit was on Mar 15, the
+shared-id data state may have been created much earlier (any time since the
+clone was made) and simply never been visible until one side was edited.
+
+---
+
 ## Log
 
 - **2026-04-20 (initial)** — T1/T2/T5/T6/T7 closed. T3/T4 flagged open.
 - **2026-04-20 (deep dig)** — T3/T4 confirmed: `::se/values` is a component entity, server orphan-id logic is per-character, round-trip preserves sub-entity ids. T8/T9/T10 closed. S1/S2/S3 opened. Conclusion: modernization didn't introduce the bug; data-level shared id is the most plausible root cause.
+- **2026-04-20 (timeline correction)** — reporter noticed bug Mar 15; modernization didn't reach production until Apr 8. Modernization code was never running when the symptom appeared. Shifts focus to pre-existing data corruption or a pre-modernization code bug.
