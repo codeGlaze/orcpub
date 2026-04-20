@@ -25,11 +25,15 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.route-map :as routes]
-            [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.event-utils]
             [orcpub.dnd.e5.template-base :as t-base]
             [reagent.ratom :as ra]
             [clojure.string :as s]
             [cljs-http.client :as http]))
+
+;; =============================================================================
+;; Version: 1.05 - Fix: preserve map keys for classes/subclasses (enables renamed keys)
+;; =============================================================================
 
 (reg-sub
  ::e5/plugins
@@ -40,25 +44,48 @@
  ::e5/plugin-vals
  :<- [::e5/plugins]
  (fn [plugins]
-   (let [result (map
+   ;; Defensive handling: filter out malformed plugin data to prevent
+   ;; subscription chain failures that can break the class dropdown
+   (let [result (keep
                  (fn [p]
-                   (into
-                    {}
-                    (map
-                     (fn [[type-k type-m]]
-                       [type-k
-                        (if (coll? type-m)
-                          (into
-                           {}
-                           (remove
-                            (fn [[k {:keys [disabled?]}]]
-                              disabled?)
-                            type-m))
-                          type-m)])
-                     p)))
-                 (filter (comp not :disabled?)
+                   (try
+                     (when (map? p)
+                       (into
+                        {}
+                        (keep
+                         (fn [[type-k type-m]]
+                           (when (and type-k (or (nil? type-m) (map? type-m)))
+                             [type-k
+                              (if (map? type-m)
+                                (into
+                                 {}
+                                 (keep
+                                  (fn [[k v]]
+                                    ;; Only include if v is a map and not disabled
+                                    (when (and (map? v) (not (:disabled? v)))
+                                      [k v]))
+                                  type-m))
+                                type-m)]))
+                         p)))
+                     (catch js/Error e
+                       (js/console.warn "Skipping malformed plugin data:" (pr-str p) e)
+                       nil)))
+                 (filter (fn [p] (and (map? p) (not (:disabled? p))))
                          (vals plugins)))]
      result)))
+
+;; Subscription that preserves source names when extracting content from plugins.
+;; This is needed for disambiguation when multiple sources have same-named content.
+(reg-sub
+ ::e5/plugins-with-sources
+ :<- [::e5/plugins]
+ (fn [plugins]
+   ;; Returns seq of [source-name plugin-data] pairs
+   (keep
+    (fn [[source-name plugin-data]]
+      (when (and (map? plugin-data) (not (:disabled? plugin-data)))
+        [source-name plugin-data]))
+    plugins)))
 
 (reg-sub
  ::bg5e/plugin-backgrounds
@@ -93,7 +120,7 @@
      (let [{:keys [ability key]} value]
        (mod5e/spells-known (or (:level value) 0)
                            key
-                           (if (keyword? ability)
+                           (when (keyword? ability)
                              (keyword "orcpub.dnd.e5.character" (name ability)))
                            class-name
                            level)))
@@ -126,7 +153,7 @@
              :edit-event [::races5e/edit-subrace subrace]))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
-(defn level-modifier [class-key {:keys [type value]}]
+(defn level-modifier [class-key {:keys [type value] :as modifier}]
   (case type
     :weapon-prof (mod5e/weapon-proficiency value)
     :num-attacks (mod5e/num-attacks value)
@@ -142,8 +169,12 @@
     :spell (mod5e/spells-known (:level value)
                                (:key value)
                                (:ability value)
-                               (if (keyword? class-key)
-                                 (common/safe-capitalize-kw class-key)))))
+                               (when (keyword? class-key)
+                                 (common/safe-capitalize-kw class-key)))
+    ;; Default case: log warning and return nil modifier for unknown types
+    (do
+      (js/console.warn "Unknown level-modifier type:" type "for class:" class-key "modifier:" (pr-str modifier))
+      nil)))
 
 (defn eldritch-knight-spell? [s]
     (let [school (:school s)]
@@ -354,12 +385,13 @@
        (update-in levels
                   [(or level 1) :modifiers]
                   concat
-                  (map (partial level-modifier class) level-modifiers)))
+                  ;; Filter out nil modifiers (from unknown types)
+                  (keep (partial level-modifier class) level-modifiers)))
      (merge-levels
       selections-levels
-      (if add-spellcasting?
+      (when add-spellcasting?
         spellcaster-levels)
-      (if (and (= class :paladin)
+      (when (and (= class :paladin)
                (:paladin-spells option))
         {1 {:modifiers (reduce-kv
                         (fn [mods spell-level spells]
@@ -373,16 +405,16 @@
                         []
                         (:paladin-spells option))}})
       (let [cleric-spells (:cleric-spells option)]
-        (if (and (= class :cleric)
+        (when (and (= class :cleric)
                  cleric-spells)
           (let [cleric-spell-mods (make-cleric-spell-mods cleric-spells)]
             {1 {:modifiers cleric-spell-mods}})))
-      (if (and (= class :warlock)
+      (when (and (= class :warlock)
                (:warlock-spells option))
         (reduce-kv
          (fn [levels spell-level spells]
            (let [level (to-class-level spell-level)]
-             (if (and spell-level (seq (vals spells)))
+             (when (and spell-level (seq (vals spells)))
                (assoc-in levels
                          [level :selections]
                          [(opt5e/warlock-subclass-spell-selection spell-lists spells-map (vals spells))]))))
@@ -392,36 +424,74 @@
 
 (reg-sub
  ::classes5e/plugin-subclasses
- :<- [::e5/plugin-vals]
+ :<- [::e5/plugins-with-sources]
  :<- [::spells5e/spell-lists]
  :<- [::spells5e/spells-map]
  :<- [::selections5e/selection-map]
- (fn [[plugins spell-lists spells-map selection-map] _]
-   (map
-    (fn [subclass]
-      (let [levels (make-levels spell-lists spells-map selection-map subclass)]
-        (assoc subclass
-               :modifiers (opt5e/plugin-modifiers (:props subclass)
-                                                  (:key subclass))
-               :levels levels
-               :edit-event [::classes5e/edit-subclass subclass])))
-    (mapcat (comp vals ::e5/subclasses) plugins))))
+ (fn [[plugins-with-sources spell-lists spells-map selection-map] _]
+   (keep
+    (fn [[source-name subclass-key subclass]]
+      (try
+        (when (and (map? subclass) subclass-key)
+          ;; Ensure the subclass has its key set (the map key is authoritative)
+          (let [subclass-with-key (assoc subclass :key subclass-key)
+                levels (make-levels spell-lists spells-map selection-map subclass-with-key)]
+            (assoc subclass-with-key
+                   :modifiers (opt5e/plugin-modifiers (:props subclass)
+                                                      subclass-key)
+                   :levels levels
+                   :plugin-source source-name
+                   :edit-event [::classes5e/edit-subclass subclass-with-key])))
+        (catch js/Error e
+          (js/console.warn "Skipping malformed subclass:" subclass-key e)
+          nil)))
+    ;; Extract subclasses from each plugin with the map key
+    (for [[source-name plugin-data] plugins-with-sources
+          [subclass-key subclass-data] (::e5/subclasses plugin-data)
+          :when (and (map? subclass-data) (not (:disabled? subclass-data)))]
+      [source-name subclass-key subclass-data]))))
 
 (reg-sub
  ::classes5e/plugin-classes
- :<- [::e5/plugin-vals]
+ :<- [::e5/plugins-with-sources]
  :<- [::spells5e/spell-lists]
  :<- [::spells5e/spells-map]
  :<- [::selections5e/selection-map]
- (fn [[plugins spell-lists spells-map selection-map]]
-   (map
-    (fn [class]
-      (let [levels (make-levels spell-lists spells-map selection-map class)]
-        (assoc class
-               :modifiers (opt5e/plugin-modifiers (:props class)
-                                                  (:key class))
-               :levels levels)))
-    (mapcat (comp vals ::e5/classes) plugins))))
+ (fn [[plugins-with-sources spell-lists spells-map selection-map]]
+   ;; Defensive handling: skip malformed classes rather than breaking
+   ;; Also includes source name for disambiguation when multiple sources
+   ;; have classes with the same name (e.g., two different "Artificer" classes)
+   (keep
+    (fn [[source-name class-key class]]
+      (try
+        (when (and (map? class) class-key)
+          (let [;; Ensure the class has its key set (the map key is the authoritative key)
+                class-with-key (assoc class :key class-key)
+                levels (make-levels spell-lists spells-map selection-map class-with-key)
+                ;; Add source name to class name for disambiguation
+                ;; Only if source name is meaningful (not default)
+                display-name (if (and source-name
+                                      (not= source-name "Default Option Source"))
+                               (str (:name class) " (" source-name ")")
+                               (:name class))]
+            (assoc class-with-key
+                   :name display-name
+                   ;; :name is display-only (may include source suffix).
+                   ;; All internal lookups use :key, never :name.
+                   :original-name (:name class)
+                   :plugin-source source-name
+                   :modifiers (opt5e/plugin-modifiers (:props class)
+                                                      class-key)
+                   :levels levels)))
+        (catch js/Error e
+          (js/console.warn "Skipping malformed class:" class-key e)
+          nil)))
+    ;; Extract classes from each plugin with their source name AND the map key
+    ;; The map key (e.g., :artificer-kibbles-tasty) is the authoritative key
+    (for [[source-name plugin-data] plugins-with-sources
+          [class-key class-data] (::e5/classes plugin-data)
+          :when (and (map? class-data) (not (:disabled? class-data)))]
+      [source-name class-key class-data]))))
 
 (reg-sub
  ::feats5e/plugin-feats
@@ -700,7 +770,7 @@
                   (merge
                    breath-weapon
                    {:name "Breath Weapon"
-                    :summary (if damage-type
+                    :summary (when damage-type
                                (common/safe-capitalize-kw damage-type))
                     :attack-type :area
                     :damage-die 6
@@ -883,22 +953,30 @@
  :<- [::classes5e/boons]
  :<- [::mi5e/custom-and-standard-weapons-map]
  (fn [[spell-lists spells-map plugin-subclasses-map language-map plugin-classes invocations boons weapons-map] _]
-   (vec
-    (into
-     (sorted-set-by #(compare (::t/key %1) (::t/key %2)))
-     (concat
-      (reverse
-       (map
-        (fn [plugin-class]
-          (opt5e/class-option
-           spell-lists
-           spells-map
-           plugin-subclasses-map
-           language-map
-           weapons-map
-           plugin-class))
-        plugin-classes))
-      (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons))))))
+   ;; Defensive handling: ensure base classes always render even if plugin classes fail
+   (let [base-classes (try
+                        (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons)
+                        (catch js/Error e
+                          (js/console.error "Failed to build base classes:" e)
+                          []))
+         plugin-class-options (keep
+                               (fn [plugin-class]
+                                 (try
+                                   (opt5e/class-option
+                                    spell-lists
+                                    spells-map
+                                    plugin-subclasses-map
+                                    language-map
+                                    weapons-map
+                                    plugin-class)
+                                   (catch js/Error e
+                                     (js/console.warn "Skipping plugin class due to error:" (:key plugin-class) e)
+                                     nil)))
+                               plugin-classes)]
+     (vec
+      (into
+       (sorted-set-by #(compare (::t/key %1) (::t/key %2)))
+       (concat (reverse plugin-class-options) base-classes))))))
 
 (reg-sub
  ::classes5e/class-map
@@ -1085,22 +1163,24 @@
  (fn [[sorted-monsters filter-text monster-filters]]
    (filter-monsters sorted-monsters (or filter-text "") monster-filters)))
 
-(reg-sub
-  ::monsters5e/filtered-monster-names
-  :<- [::monsters5e/filtered-monsters]
-  (fn [filtered-monsters]
-    (set (map :name filtered-monsters))))
+;; Unused — pre-derived name set from filtered monsters. Useful for autocomplete/search.
+#_(reg-sub
+   ::monsters5e/filtered-monster-names
+   :<- [::monsters5e/filtered-monsters]
+   (fn [filtered-monsters]
+     (set (map :name filtered-monsters))))
 
 (reg-sub
  ::spells5e/base-spells
  (fn [_]
    spells5e/spells))
 
-(reg-sub
- ::spells5e/base-spells-map
- :<- [::spells5e/base-spells]
- (fn [spells]
-   (common/map-by-key spells)))
+;; Unused — superseded by ::spells5e/spells-map which includes plugin spells.
+#_(reg-sub
+   ::spells5e/base-spells-map
+   :<- [::spells5e/base-spells]
+   (fn [spells]
+     (common/map-by-key spells)))
 
 (reg-sub
  ::spells5e/spells
@@ -1182,23 +1262,24 @@
                     ability-key
                     class-name)]})))
 
-(reg-sub
- ::spells5e/spell-option
- :<- [::spells5e/spells-map]
- spell-option)
+;; Unused — spell-option fn is called directly; these sub wrappers were never wired up.
+#_(reg-sub
+   ::spells5e/spell-option
+   :<- [::spells5e/spells-map]
+   spell-option)
 
-(reg-sub
- ::spells5e/spell-options
- :<- [::spells5e/spells-map]
- :<- [::spells5e/spell-lists]
- (fn [[spells-map spell-lists] [_ ability-key class-name levels]]
-   (apply concat
-          (sequence
-           (comp
-            (map spell-lists)
-            (map (fn [spell-key]
-                   (spell-option spells-map [nil spell-key ability-key class-name]))))
-           levels))))
+#_(reg-sub
+   ::spells5e/spell-options
+   :<- [::spells5e/spells-map]
+   :<- [::spells5e/spell-lists]
+   (fn [[spells-map spell-lists] [_ ability-key class-name levels]]
+     (apply concat
+            (sequence
+             (comp
+              (map spell-lists)
+              (map (fn [spell-key]
+                     (spell-option spells-map [nil spell-key ability-key class-name]))))
+             levels))))
 
 (reg-sub
  ::spells5e/builder-item
@@ -1286,8 +1367,9 @@
             (first pair)))
             monsters5e/challenge-ratings))))
 
-(reg-sub
- ::classes5e/has-prof?
- :<- [::classes5e/builder-item]
- (fn [class [_ prof-type prof-key]]
-   (some? (get-in class [:profs prof-type prof-key]))))
+;; Unused — proficiency predicate on builder-item graph. Useful for conditional UI.
+#_(reg-sub
+   ::classes5e/has-prof?
+   :<- [::classes5e/builder-item]
+   (fn [class [_ prof-type prof-key]]
+     (some? (get-in class [:profs prof-type prof-key]))))

@@ -12,6 +12,7 @@
     :key :crossbow-light
     ::two-handed? true
     ::ammunition? true
+    ::loading? true
     ::link "https://en.wikipedia.org/wiki/Crossbow"}
    {::ranged? true,
     :key :dart,
@@ -332,6 +333,7 @@
     ::ranged? true,
     ::range {::min 25, ::max 100},
     ::ammunition? true
+    ::loading? true
     :key :blowgun}
    {:name "Crossbow, hand",
     ::damage-type :piercing,
@@ -341,6 +343,7 @@
     ::ranged? true,
     ::range {::min 30, ::max 120},
     ::ammunition? true
+    ::loading? true
     ::light? true
     :key :crossbow-hand}
    {:name "Crossbow, heavy",
@@ -353,6 +356,7 @@
     ::range {::min 100, ::max 400},
     :key :crossbow-heavy
     ::ammunition? true
+    ::loading? true
     ::two-handed? true}
    {:name "Longbow",
     ::damage-type :piercing,
@@ -383,6 +387,7 @@
     ::heavy? true,
     ::range {::min 30, ::max 90},
     :key :firearm-hand
+    ::loading? true
     ::two-handed? false}
    {:name "Firearm, Burst (DMV)",
     ::damage-type :piercing,
@@ -403,6 +408,7 @@
     ::heavy? true,
     ::range {::min 60, ::max 120},
     :key :firearm-long
+    ::loading? true
     ::two-handed? true}])
 
 (def ammunition

@@ -1,5 +1,13 @@
+# Ignore environment file and Docker secret files (passwords)
+.env
+.env.*
+!.env.example
+/secrets/
+docker-compose.secrets.yaml
+docker-compose.swarm.yaml
+docker-compose.swarm.yaml.backup.*
+transactor.properties.reference
 .editorconfig
-.gitattributes
 /resources/public/css/compiled
 /resources/public/js/compiled
 /resources/*_backup.pdf
@@ -7,6 +15,10 @@
 pom.xml
 *jar
 /lib/
+# Vendored snapshot allowed: pdfbox is required locally (vendor snapshot not available upstream)
+!lib/org/apache/pdfbox/
+!lib/org/apache/pdfbox/pdfbox/2.1.0-SNAPSHOT/
+!lib/org/apache/pdfbox/pdfbox/2.1.0-SNAPSHOT/*
 /classes/
 /out/
 /target/
@@ -22,6 +34,7 @@ pom.xml
 orcpub.iml
 profiles.clj
 env.sh
+.env
 .repl
 .nrepl-port
 *~
@@ -34,6 +47,20 @@ deploy/homebrew/*
 
 .datomic
 .java11
+
+# Local working files
+.integration-workflow-state
+branch-sync-plan.md
+dev/test-accounts.edn
+
+# E2E test artifacts
+/e2e/node_modules/
+/e2e/playwright-report/
+/e2e/test-results/
+
+# Clojure CLI cache
+.cpcache
+cljs-test-runner-out
 
 # As created by some LSP-protocol tooling, e.g. nvim-lsp
 .lsp
@@ -48,3 +75,39 @@ deploy/homebrew/*
 
 # Claude Code local settings (machine-specific permissions)
 .claude/settings.local.json
+
+# Datomic local files
+/.datomic/
+
+# Local audit outputs
+/audit/
+
+# Cursor IDE local config (contains user-specific paths)
+.cursor/
+
+# Claude Code local data (conversation history, credentials)
+.claude-data/
+
+# NewRelic (DMV-specific, contains license key)
+newrelic*
+
+# Transactor properties (may contain hardcoded passwords)
+deploy/transactor.properties
+
+# Ignore all log files in logs/
+logs/
+
+*/*.log
+/workspaces/.codespaces/.persistedshare/creation.log
+.devcontainer/post-create.log
+
+scripts/analyze/
+
+# Test user credentials log (created by ./menu user create / dev-setup.sh)
+.test-users
+
+# cljsjs extracted externs (build artifact from classpath)
+cljsjs/
+
+# Local devcontainer setup (superseded by dotfiles)
+.devcontainer/local-setup.sh

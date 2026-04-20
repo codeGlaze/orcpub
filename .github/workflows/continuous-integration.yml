@@ -1,36 +1,173 @@
-name: Continuous Integration
+# Dual-stack CI: auto-detects Java 8 (develop) vs Java 21 (breaking/) based
+# on whether dev.cljs.edn exists in the checkout. After breaking/ merges to
+# develop, the Java 8 path becomes dead code and can be removed.
 
-on: 
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  checks: write
+
 jobs:
-  lint:
-    name: Run Linter and Tests
+  detect-stack:
+    name: Detect Stack
     runs-on: ubuntu-latest
+    outputs:
+      java-version: ${{ steps.detect.outputs.java-version }}
+      java-distribution: ${{ steps.detect.outputs.java-distribution }}
+      lein-version: ${{ steps.detect.outputs.lein-version }}
+      cljs-command: ${{ steps.detect.outputs.cljs-command }}
+      needs-datomic-pro: ${{ steps.detect.outputs.needs-datomic-pro }}
+      stack-label: ${{ steps.detect.outputs.stack-label }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
-      - name: Prepare java
-        uses: actions/setup-java@v3
+        uses: actions/checkout@v4
+
+      - name: Detect stack from project files
+        id: detect
+        run: |
+          # dev.cljs.edn is the figwheel-main build config — only exists on
+          # breaking/2026-stack-modernization (Java 21, Datomic Pro, fig:build).
+          if [ -f "dev.cljs.edn" ]; then
+            echo "Detected: figwheel-main stack (Java 21, Datomic Pro)"
+            echo "java-version=21" >> $GITHUB_OUTPUT
+            echo "java-distribution=temurin" >> $GITHUB_OUTPUT
+            echo "lein-version=2.11.2" >> $GITHUB_OUTPUT
+            echo "cljs-command=fig:build" >> $GITHUB_OUTPUT
+            echo "needs-datomic-pro=true" >> $GITHUB_OUTPUT
+            echo "stack-label=Java 21 / figwheel-main / Datomic Pro" >> $GITHUB_OUTPUT
+          else
+            echo "Detected: legacy stack (Java 8, Datomic Free)"
+            echo "java-version=8" >> $GITHUB_OUTPUT
+            echo "java-distribution=zulu" >> $GITHUB_OUTPUT
+            echo "lein-version=2.9.10" >> $GITHUB_OUTPUT
+            echo "cljs-command=cljsbuild once dev" >> $GITHUB_OUTPUT
+            echo "needs-datomic-pro=false" >> $GITHUB_OUTPUT
+            echo "stack-label=Java 8 / cljsbuild / Datomic Free" >> $GITHUB_OUTPUT
+          fi
+
+  test:
+    name: Test & Lint (${{ needs.detect-stack.outputs.stack-label }})
+    runs-on: ubuntu-latest
+    needs: detect-stack
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ needs.detect-stack.outputs.java-version }}
+        uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: 8.0.292
-      - name: Load pdfbox from /lib
-        run: mkdir ~/.m2/repository/ && mkdir ~/.m2/repository/org/ && cp -rv ./lib/* ~/.m2/repository
-      - name: ls .m2
-        run: ls -la ~/.m2/repository/org/
-      - name: Install clojure tools
-        uses: DeLaGuardo/setup-clojure@11.0
+          distribution: ${{ needs.detect-stack.outputs.java-distribution }}
+          java-version: ${{ needs.detect-stack.outputs.java-version }}
+
+      - name: Set up Leiningen
+        uses: DeLaGuardo/setup-clojure@12.5
         with:
-          # Install just one or all simultaneously
-          cli: 1.10.1.693 # Clojure CLI based on tools.deps
-          lein: 2.9.1     # or use 'latest' to always provision latest version of leiningen
-          boot: 2.8.3     # or use 'latest' to always provision latest version of boot
-      - name: Get leiningen version
-        run: lein -v
+          lein: ${{ needs.detect-stack.outputs.lein-version }}
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-j${{ needs.detect-stack.outputs.java-version }}-${{ hashFiles('project.clj') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-j${{ needs.detect-stack.outputs.java-version }}-
+
+      - name: Load local libs (pdfbox)
+        run: |
+          mkdir -p ~/.m2/repository/org/
+          cp -rv ./lib/org/* ~/.m2/repository/org/
+
+      # Datomic Pro jars are not committed to git. Download and maven-install
+      # them the same way .devcontainer/post-create.sh does.
+      - name: Install Datomic Pro
+        if: needs.detect-stack.outputs.needs-datomic-pro == 'true'
+        run: |
+          DATOMIC_VERSION=1.0.7482
+          TARGET_DIR="lib/com/datomic/datomic-pro/${DATOMIC_VERSION}"
+          ZIP_PATH="/tmp/datomic-pro-${DATOMIC_VERSION}.zip"
+          DOWNLOAD_URL="https://datomic-pro-downloads.s3.amazonaws.com/${DATOMIC_VERSION}/datomic-pro-${DATOMIC_VERSION}.zip"
+
+          echo "Downloading Datomic Pro ${DATOMIC_VERSION}..."
+          curl --fail --location --silent --show-error -o "$ZIP_PATH" "$DOWNLOAD_URL"
+
+          mkdir -p "${TARGET_DIR}"
+          unzip -q "$ZIP_PATH" -d "${TARGET_DIR}"
+
+          # Flatten nested directory if present (zip contains datomic-pro-VERSION/ subdir)
+          TOP_SUBDIR=$(find "${TARGET_DIR}" -mindepth 1 -maxdepth 1 -type d -print -quit || true)
+          if [ -n "${TOP_SUBDIR}" ] && [ -z "$(find "${TARGET_DIR}" -maxdepth 1 -type f -print -quit)" ]; then
+            mv "${TOP_SUBDIR}"/* "${TARGET_DIR}/"
+            rmdir "${TOP_SUBDIR}"
+          fi
+
+          # Populate ~/.m2 with Datomic Pro artifacts
+          (cd "${TARGET_DIR}" && bash bin/maven-install)
+          echo "Datomic Pro ${DATOMIC_VERSION} installed to local Maven repo"
+
+      - name: Install dependencies
+        run: lein deps
+
       - name: Run linter
-        run: lein lint
+        id: lint
+        run: |
+          echo "## Lint Results" >> $GITHUB_STEP_SUMMARY
+          if lein lint 2>&1 | tee lint-output.txt; then
+            echo "**Lint passed** - no errors" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Lint failed**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat lint-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
       - name: Run tests
-        run: lein test
+        id: test
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          if lein test 2>&1 | tee test-output.txt; then
+            SUMMARY=$(grep -E "^Ran [0-9]+ tests" test-output.txt || echo "Tests completed")
+            echo "**Tests passed**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Tests failed**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -50 test-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Build ClojureScript
+        id: cljs
+        run: |
+          echo "## ClojureScript Build" >> $GITHUB_STEP_SUMMARY
+          if lein ${{ needs.detect-stack.outputs.cljs-command }} 2>&1 | tee cljs-output.txt; then
+            echo "**CLJS build succeeded**" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**CLJS build failed**" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -50 cljs-output.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-failure-logs
+          path: |
+            lint-output.txt
+            test-output.txt
+            cljs-output.txt
+          retention-days: 7

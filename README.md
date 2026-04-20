@@ -42,32 +42,46 @@ Dungeon Master's Vault is a full-stack Clojure/ClojureScript web application for
 
 ## Quick Start
 
-### Using Docker (self-hosting)
+### Development (devcontainer)
 
-For running your own instance from pre-built images:
-
-1. Clone the repository
-2. Copy `.env.example` to `.env` and edit the values (see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md))
-3. Create SSL certificates: `./deploy/snakeoil.sh`
-4. Run: `docker-compose pull && docker-compose up`
-5. Visit `https://localhost`
-
-See the [Docker deployment section](#docker-deployment) for full details.
-
-### Using the Devcontainer (development)
-
-The fastest way to start developing. Requires [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), or [GitHub Codespaces](https://github.com/features/codespaces).
-
-1. Open the repository in VS Code
-2. When prompted, click **Reopen in Container** (or run the command manually)
-3. The container builds automatically, installing Java 21, Leiningen, and Datomic Pro
-4. Once built, use the interactive menu:
+The fastest path. Requires [VS Code](https://code.visualstudio.com/) with [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers), or [GitHub Codespaces](https://github.com/features/codespaces).
 
 ```bash
-./menu
+git clone https://github.com/orcpub/orcpub.git
+cd orcpub && code .
+# Click "Reopen in Container" when prompted, then:
+./scripts/dev-setup.sh     # Install deps, init DB, create test user
+./menu                     # Interactive service launcher
 ```
 
-The menu gives you one-keystroke access to start Datomic, initialize the database, launch the backend, and start Figwheel for frontend hot-reload.
+### Development (local machine)
+
+Requires Java 21, Leiningen 2.9+, and Datomic Pro (free, Apache 2.0).
+
+```bash
+git clone https://github.com/orcpub/orcpub.git
+cd orcpub
+cp .env.example .env       # Dev defaults work out of the box
+./scripts/dev-setup.sh     # Install deps, start Datomic, init DB, create test user
+./menu start server        # Backend on port 8890
+./menu start figwheel      # Frontend hot-reload on port 3449
+```
+
+Log in at `http://localhost:8890` with **test@test.com** / **testpass**.
+
+For the full walkthrough (including manual setup without scripts), see **[docs/GETTING-STARTED.md](docs/GETTING-STARTED.md)**.
+
+### Self-hosting (Docker)
+
+For running your own production instance:
+
+```bash
+git clone https://github.com/orcpub/orcpub.git && cd orcpub
+./run                       # setup, build, and start (interactive)
+./docker-user.sh init       # create admin from .env settings
+```
+
+Visit `https://localhost`. See the [Docker deployment section](#docker-deployment) for full details including migration from older versions.
 
 ---
 
@@ -114,6 +128,18 @@ There are two ways to run services: the **interactive menu** or **shell scripts*
 
 Displays service status and lets you start/stop services with single keystrokes.
 
+#### User Management
+
+```bash
+./menu add bob pass123                # Create bob@test.com (auto-verified)
+./menu add user                       # Interactive prompt for name/password
+./menu verify bob                     # Verify an existing user
+./menu delete bob                     # Delete a user
+./menu user                           # Show all user commands
+```
+
+Email auto-generates as `<name>@test.com`. Credentials are logged to `.test-users` (gitignored).
+
 #### Shell Scripts
 
 ```bash
@@ -126,14 +152,14 @@ Displays service status and lets you start/stop services with single keystrokes.
 # 3. Start backend REPL
 ./scripts/start.sh server
 
-# 4. Start Figwheel (frontend hot-reload)
+# 4. Start Figwheel (frontend hot-reload, headless watcher)
 ./scripts/start.sh figwheel
 
-# 5. Start Garden (CSS watcher)
+# 5. Start Garden (CSS auto-compilation)
 ./scripts/start.sh garden
 ```
 
-Or run the first-time setup script, which starts Datomic and initializes the database:
+Or run the first-time setup script, which starts Datomic, initializes the database, and creates a test user (`test` / `test@test.com` / `testpass`):
 
 ```bash
 ./scripts/dev-setup.sh
@@ -155,8 +181,8 @@ lein deps
 # "run -m user init-db" runs the init-db command in dev/user.clj.
 lein with-profile init-db run -m user init-db
 
-# Optionally create a test user (already verified, ready to log in)
-lein with-profile init-db run -m user create-user test test@example.com testpass verify
+# Create a test user (auto-verified, email = test@test.com)
+./menu add test testpass
 ```
 
 ### REPL Workflow
@@ -194,7 +220,7 @@ For the full list, see [docs/migration/dev-tooling.md](docs/migration/dev-toolin
 Run these before committing:
 
 ```bash
-# Server-side tests (74 tests, 237 assertions)
+# Server-side tests (210 tests, 963 assertions)
 lein test
 
 # Linter (0 errors expected; warnings are from third-party libs)
@@ -209,7 +235,17 @@ lein cljsbuild once dev
 | `lein test` | Backend (JVM) | Logic, routes, DB, PDF errors |
 | `lein lint` | CLJ + CLJS | Typos, unused vars, style |
 | `lein cljsbuild once dev` | Frontend (CLJS) | Reagent/re-frame API changes |
-| `lein fig:dev` | Full frontend | Runtime rendering errors |
+| `lein fig:build` | Full frontend | One-time CLJS compilation check |
+
+### Frontend Hot-Reload
+
+| Command | Mode | Use when |
+|---------|------|----------|
+| `./scripts/start.sh figwheel` | Headless watcher | Background/scripted startup |
+| `lein fig:dev` | Interactive REPL | You want a ClojureScript REPL in your terminal |
+| `lein fig:build` | One-time build | CI or quick compilation check |
+
+**CSS** is compiled separately by Garden (`lein garden once` or `./scripts/start.sh garden` for auto-watch). Both Figwheel and Garden need to run during active frontend work.
 
 ### Editors
 
@@ -235,13 +271,19 @@ Key variables:
 | Variable | Purpose | Default |
 |----------|---------|---------|
 | `DATOMIC_URL` | Database connection string | `datomic:dev://localhost:4334/orcpub` |
-| `SIGNATURE` | JWT signing secret | (must set) |
+| `SIGNATURE` | JWT signing secret (**required**) | dev default in `.lein-env` |
 | `PORT` | Web server port | `8890` |
 | `EMAIL_SERVER_URL` | SMTP server | (optional) |
 | `CSP_POLICY` | Content Security Policy mode | `strict` |
 | `DEV_MODE` | Enable dev features | `true` in dev |
 
-See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for the full list.
+**How env vars are loaded:**
+
+- **`./menu` and `./scripts/start.sh`** source `.env` automatically — recommended for most workflows.
+- **`lein repl` / `lein run`** read dev defaults from `.lein-env` (generated by `lein-environ` from the `:dev` profile). This includes a dev-only `SIGNATURE` so auth works out of the box.
+- **`.env` values** (via scripts) and **real env vars** override `.lein-env` defaults.
+
+See [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md) for the full list and precedence rules.
 
 ---
 
@@ -251,36 +293,82 @@ For self-hosting a production instance.
 
 ### Containers
 
-The Docker setup runs three containers:
-
 | Container | Purpose |
 |-----------|---------|
-| `datomic` | Datomic database transactor |
-| `orcpub` | JVM application server |
-| `web` | nginx reverse proxy with SSL |
+| `datomic` | Datomic Pro database transactor |
+| `orcpub` | JVM application server (Java 21) |
+| `web` | nginx reverse proxy with SSL termination |
 
-### Setup
-
-1. Clone the repository
-2. Copy `.env.example` to `.env` and configure (see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md))
-3. Create SSL certificates:
-   - Quick self-signed: `./deploy/snakeoil.sh` (unix) or `./deploy/snakeoil.bat` (windows)
-   - Or use your own certificate
-4. Launch:
+### Fresh Install
 
 ```bash
-docker-compose pull    # use pre-built images
-docker-compose up -d   # start in background
-```
+git clone https://github.com/orcpub/orcpub.git && cd orcpub
 
-To build from source instead:
+# Full pipeline — setup, build, and start (interactive)
+./run
 
-```bash
-docker-compose -f docker-compose-build.yaml build
-docker-compose -f docker-compose-build.yaml up -d
+# Pull pre-built images and start
+docker compose up -d
+
+# Create your first user (once containers are healthy)
+./docker-user.sh init                                   # from .env settings
+./docker-user.sh create <username> <email> <password>   # or directly
 ```
 
 Visit `https://localhost` when running.
+
+To build from source instead of pulling images:
+
+```bash
+docker compose up --build -d
+```
+
+For environment variable details, see [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
+
+### Upgrading from Datomic Free (pre-2026)
+
+If you have an existing deployment using the old Java 8 / Datomic Free stack,
+your `./data` directory is **not compatible** with the new Datomic Pro transactor.
+The storage protocols (`datomic:free://` vs `datomic:dev://`) use different formats.
+
+**You must migrate your database before upgrading.** The migration tool handles this:
+
+**Bare metal** — use `scripts/migrate-db.sh` which wraps the `bin/datomic` CLI:
+
+```bash
+./scripts/migrate-db.sh backup                    # With old (Free) transactor running
+# ... stop Free transactor, move ./data aside, start Pro transactor ...
+./scripts/migrate-db.sh restore "datomic:dev://localhost:4334/orcpub?password=..."
+./scripts/migrate-db.sh verify
+```
+
+**Docker** — use `docker-migrate.sh` which runs `bin/datomic` inside containers:
+
+```bash
+./docker-migrate.sh backup        # With old stack running
+docker compose down
+docker compose up --build -d
+./docker-migrate.sh restore       # After new stack is healthy
+./docker-migrate.sh verify
+```
+
+Or run `./docker-migrate.sh full` for a guided migration.
+
+The backup is storage-protocol-independent and writes to `./backup/`, so databases
+of any size (including 20GB+) are handled. See [docs/migration/datomic-data-migration.md](docs/migration/datomic-data-migration.md)
+for the full guide including disk space planning and troubleshooting.
+
+### User Management
+
+```bash
+./docker-user.sh create <user> <email> <password>   # Create a verified user
+./docker-user.sh batch users.txt                     # Bulk create from file
+./docker-user.sh list                                # List all users
+./docker-user.sh check <user>                        # Check user status
+./docker-user.sh verify <user>                       # Verify unverified user
+```
+
+See [docs/docker-user-management.md](docs/docker-user-management.md) for details.
 
 ### Importing Homebrew Content
 
@@ -290,6 +378,15 @@ Place your `.orcbrew` file at `./deploy/homebrew/homebrew.orcbrew` — it loads 
 
 - **Database**: Stored in `./data/`. Back up this directory when Datomic is stopped. Delete it to start fresh.
 - **Logs**: Stored in `./logs/`. Safe to clean up; does not affect character data. Set up log rotation for production.
+
+### Scripts Reference
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/migrate-db.sh` | Migrate data from Datomic Free to Pro (bare metal) |
+| `docker-migrate.sh` | Migrate data from Datomic Free to Pro (Docker) |
+| `run` | Setup, build, and deploy — full pipeline or individual steps |
+| `docker-user.sh` | Create, verify, and list users in the database |
 
 ---
 

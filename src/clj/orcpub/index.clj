@@ -1,24 +1,42 @@
 (ns orcpub.index
-  (:require [hiccup.page :refer [html5 include-css include-js]]
+  (:require [hiccup.page :refer [html5 include-css]]
+            [cheshire.core :as cheshire]
             [orcpub.oauth :as oauth]
+            [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.favicon :as fi]
-            [environ.core :refer [env]]
-            ))
+            [orcpub.fork.integrations :as integrations]
+            [environ.core :refer [env]]))
 
-(def devmode? (env :dev-mode))
+(def homebrew-url
+  "URL to fetch server-hosted .orcbrew plugins from on first load.
+   Set LOAD_HOMEBREW_URL to enable (e.g. \"/homebrew.orcbrew\" or a full URL).
+   When unset, no fetch is attempted — plugins come only from local imports."
+  (env :load-homebrew-url))
 
 (defn meta-tag [property content]
-  (if content
+  (when content
     [:meta
      {:property property
       :content content}]))
+
+(defn script-tag
+  "Generate a script tag with optional nonce for CSP strict mode.
+   For external scripts, pass :src. For inline scripts, pass content as body.
+   Extra attributes (e.g. :async, :crossorigin) are passed through to the tag."
+  [{:keys [nonce] :as opts} & body]
+  (let [attrs (cond-> (dissoc opts :nonce)
+                nonce (assoc :nonce nonce))]
+    (if (seq body)
+      (into [:script attrs] body)
+      [:script attrs])))
 
 (defn index-page [{:keys [url
                           title
                           description
                           image
-                          fb-type]}
+                          fb-type
+                          nonce]}
                   & [splash?]]
   (html5
    {:lang :en}
@@ -28,6 +46,13 @@
     (meta-tag "og:title" title)
     (meta-tag "og:description" description)
     (meta-tag "og:image" image)
+    (meta-tag "og:site_name" branding/app-name)
+    (meta-tag "og:type" "website")
+    (meta-tag "twitter:card" "summary_large_image")
+    (meta-tag "twitter:site" branding/app-name)
+    (meta-tag "twitter:title" title)
+    (meta-tag "twitter:description" description)
+    (meta-tag "twitter:image" image)
     [:meta {:charset "UTF-8"}]
     [:meta {:name "viewport"
             :content "width=device-width, initial-scale=1.0, minimum-scale=1.0"}]
@@ -36,16 +61,16 @@
                 :xml "/favicon"
                 :ver "1")
     (include-css "/css/cookiestyles.css")
-    [:script
+    (script-tag {:nonce nonce}
      "document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`);
-     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));"]
+     window.addEventListener('resize', () => document.documentElement.style.setProperty('--innerHeight', `${window.innerHeight}px`));")
     [:style
      "
 .splash-page-content {}
 .splash-button .splash-button-content {height: 120px; width: 120px}
 .splash-button .svg-icon {height: 64px; width: 64px}
 
-@media (max-width: 767px) 
+@media (max-width: 767px)
 {.splash-button .svg-icon {height: 32px; width: 32px}
 .splash-button-title-prefix {display: none}
 .splash-button .splash-button-content {height: 60px; width: 60px; font-size: 10px}
@@ -70,7 +95,7 @@ b, u, i, center,
 dl, dt, dd, ol, ul, li,
 fieldset, form, label, legend,
 table, caption, tbody, tfoot, thead, tr, th, td,
-article, aside, canvas, details, figcaption, figure, 
+article, aside, canvas, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section, summary,
 time, mark, audio, video {
 	margin: 0;
@@ -82,7 +107,7 @@ time, mark, audio, video {
 	vertical-align: baseline;
 }
 /* HTML5 display-role reset for older browsers */
-article, aside, details, figcaption, figure, 
+article, aside, details, figcaption, figure,
 footer, header, hgroup, menu, nav, section {
 	display: block;
 }
@@ -115,7 +140,11 @@ table {
 html {
 	min-height: 100%;
 }"]
-    [:title title]]
+    [:title title]
+    (integrations/head-tags nonce)
+    (script-tag {:nonce nonce}
+     (str "window.__BRANDING__=" (cheshire/generate-string (branding/client-config)) ";"
+          "window.__INTEGRATIONS__=" (cheshire/generate-string (integrations/client-config)) ";"))]
    [:body {:style "margin:0;line-height:1"}
     [:div#app
      (if splash?
@@ -124,25 +153,22 @@ html {
         [:img {:src "/image/spiral.gif"
                :style "height:200px;width:200px;margin-top:200px"}]])]
     (include-css "/css/compiled/styles.css")
-    (include-js "/js/compiled/orcpub.js")
-    (include-js "/js/cookies.js")
+    ;; Dev mode uses Report-Only CSP (logs violations but doesn't block)
+    ;; Prod mode uses enforcing CSP with nonces
+    (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
+    (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
     (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
-    [:script " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})"]
-    (if devmode?
-      (println "dev mode - no script")
-
-      [:script
-       "const protocol = window.location.protocol;
-        const apiUrl = `${protocol}://${window.location.host}`;
-        const pluginUrl = `${apiUrl}/homebrew.orcbrew`;
-        
+    (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
+    (when homebrew-url
+      (script-tag {:nonce nonce}
+       (str "
         let plugins = localStorage.getItem('plugins');
         if (plugins === null || plugins === '{}') {
-          fetch(pluginUrl)
+          fetch('" homebrew-url "')
             .then(resp => {
               if (!resp.ok) {
-                throw new Error(`Failed to fetch plugins: ${resp.status} ${resp.statusText}`);
+                throw new Error('Failed to fetch plugins: ' + resp.status);
               }
               return resp.text();
             })
@@ -154,10 +180,8 @@ html {
             })
             .catch(error => {
               console.error('Error fetching plugins:', error);
-              // You can also add a fallback or default behavior here
             });
         }
-      "]
-    )
+       ")))
    ]))
   

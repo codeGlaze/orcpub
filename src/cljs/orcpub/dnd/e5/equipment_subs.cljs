@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.equipment-subs
-  (:require [re-frame.core :refer [reg-sub reg-sub-raw dispatch subscribe]]
+  (:require [re-frame.core :refer [reg-sub reg-sub-raw dispatch #_subscribe]]
             [orcpub.common :as common]
             [orcpub.template :as t]
             [orcpub.dnd.e5.spell-subs]
@@ -17,7 +17,8 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.route-map :as routes]
-            [orcpub.dnd.e5.events :refer [url-for-route] :as events]
+            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
+                                                                    handle-api-response]]
             [reagent.ratom :as ra]
             [clojure.string :as s]
             [cljs-http.client :as http]
@@ -29,12 +30,6 @@
   (delay (sort-by mi5e/name-key mi5e/magic-items))
   )
 
-(defn auth-headers [db]
-  (let [token (-> db :user-data :token)]
-    (if token
-      {"Authorization" (str "Token " token)}
-      {})))
-
 (if js/window.location
   (reg-sub-raw
    ::mi5e/custom-items
@@ -44,10 +39,10 @@
            (let [response (<! (http/get (url-for-route routes/dnd-e5-items-route)
                                         {:headers (auth-headers @app-db)}))]
              (dispatch [:set-loading false])
-             (case (:status response)
-               200 (dispatch [::mi5e/set-custom-items (:body response)])
-               401 nil ;;(dispatch [:route routes/login-page-route {:secure? true}])
-               500 (dispatch (events/show-generic-error))))))
+             (handle-api-response response
+               #(dispatch [::mi5e/set-custom-items (:body response)])
+               :on-401 (fn [])
+               :context "fetch custom items"))))
      (ra/make-reaction
       (fn [] (get @app-db ::mi5e/custom-items [])))))
   (reg-sub
@@ -119,13 +114,14 @@
  (fn [magic-weapons]
    (concat magic-weapons weapon5e/weapons)))
 
-(reg-sub
- ::mi5e/all-melee-weapons
- :<- [::mi5e/all-weapons]
- (fn [all-weapons]
-   (filter
-    ::weapon5e/melee?
-    all-weapons)))
+;; Unused — melee-only filter. UI filters inline. Restore if a melee-only view is added.
+#_(reg-sub
+   ::mi5e/all-melee-weapons
+   :<- [::mi5e/all-weapons]
+   (fn [all-weapons]
+     (filter
+      ::weapon5e/melee?
+      all-weapons)))
 
 (defn map-by-key-or-id [items]
   (reduce
@@ -159,7 +155,7 @@
          (t/option-cfg
           {:name (or (:name item) name)
            :key item-key
-           :help (if (or description
+           :help (when (or description
                          page)
                    (t5e/inventory-help description page source))
            :modifiers [(modifier-fn
@@ -218,10 +214,15 @@
  (fn [magic-items _]
    (map-by-key-or-id magic-items)))
 
+;; Standard (SRD) equipment lookup maps — used by character_builder's
+;; inventory-selector for the non-magic equipment sections. These are
+;; thin wrappers around static vars, kept as subscriptions because
+;; inventory-selector receives the sub vector dynamically.
 (reg-sub
  ::equipment5e/weapons-map
- (fn [_ _]
-   weapon5e/weapons-map))
+ (fn [_ _] weapon5e/weapons-map))
+
+;; For homebrew-inclusive weapons, use ::mi5e/all-weapons-map instead.
 
 (reg-sub
  ::mi5e/all-weapons-map
@@ -256,33 +257,34 @@
                                       :id id)
                                     {:headers (auth-headers @app-db)}))]
          (dispatch [:set-loading false])
-         (case (:status response)
-           200 (dispatch [::mi5e/add-remote-item (:body response)])
-           500 (dispatch (events/show-generic-error))))))
+         (handle-api-response response
+           #(dispatch [::mi5e/add-remote-item (:body response)])
+           :context "fetch item"))))
    (ra/make-reaction
     (fn [] (get-in @app-db [::mi5e/remote-items id] {})))))
 
-(reg-sub
- ::mi5e/item
- (fn [item [_ key]]
-   (if (int? key)
-     @(subscribe [::mi5e/remote-item key])
-     (get mi5e/all-equipment-map key))))
+;; Unused — item detail lookup with remote HTTP fetch for int keys.
+;; Groundwork for a magic item detail page. Restore when needed.
+#_(reg-sub-raw
+   ::mi5e/item
+   (fn [_app-db [_ key]]
+     (if (int? key)
+       (subscribe [::mi5e/remote-item key])
+       (ra/make-reaction (fn [] (get mi5e/all-equipment-map key))))))
 
 (reg-sub
  ::equipment5e/armor-map
- (fn [_ _]
-   armor5e/armor-map))
+ (fn [_ _] armor5e/armor-map))
 
 (reg-sub
  ::equipment5e/equipment-map
- (fn [_ _]
-   equipment5e/equipment-map))
+ (fn [_ _] equipment5e/equipment-map))
 
 (reg-sub
  ::equipment5e/treasure-map
- (fn [_ _]
-   equipment5e/treasure-map))
+ (fn [_ _] equipment5e/treasure-map))
+
+;; For homebrew-inclusive armor, use ::mi5e/all-armor-map instead.
 
 (reg-sub
  ::char5e/template-selections

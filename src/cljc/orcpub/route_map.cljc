@@ -15,6 +15,11 @@
 (def dnd-e5-char-party-characters-route :char-party-characters-5e)
 (def dnd-e5-char-party-character-route :char-party-character-5e)
 (def dnd-e5-char-parties-page-route :char-parties-5e-page)
+(def dnd-e5-char-folders-route :char-folders-5e)
+(def dnd-e5-char-folder-route :char-folder-5e)
+(def dnd-e5-char-folder-name-route :char-folder-name-5e)
+(def dnd-e5-char-folder-characters-route :char-folder-characters-5e)
+(def dnd-e5-char-folder-character-route :char-folder-character-5e)
 (def dnd-e5-orcacle-page-route :orcacle-page)
 
 (def dnd-e5-char-page-routes #{default-route
@@ -98,6 +103,7 @@
 (def check-email-route :check-email)
 (def check-username-route :check-username)
 (def user-route :user)
+(def user-email-route :user-email)
 (def reset-password-page-route :reset-password-page)
 (def reset-password-route :reset-password)
 (def send-password-reset-route :send-password-reset)
@@ -106,6 +112,8 @@
 (def password-reset-success-route :password-reset-success)
 (def password-reset-expired-route :password-reset-expired)
 (def password-reset-used-route :password-reset-used)
+(def unsubscribe-route :unsubscribe)
+(def unsubscribe-success-route :unsubscribe-success)
 (def terms-of-use-route :terms-of-use)
 (def privacy-policy-route :privacy-policy)
 (def community-guidelines-route :community-guidelines)
@@ -119,8 +127,9 @@
                   "re-verify" re-verify-route
                   "register" register-route
                   "login" login-route
-                  "user" user-route
-                  
+                  "user" {"" user-route
+                          "/email" user-email-route}
+
                   "character.pdf" character-pdf-route
                   "check-email" check-email-route
                   "check-username" check-username-route
@@ -131,13 +140,15 @@
                   "password-reset-success" password-reset-success-route
                   "password-reset-expired" password-reset-expired-route
                   "password-reset-used" password-reset-used-route
+                  "unsubscribe" unsubscribe-route
+                  "unsubscribe-success" unsubscribe-success-route
                   "terms-of-use" terms-of-use-route
                   "privacy-policy" privacy-policy-route
                   "community-guidelines" community-guidelines-route
                   "cookies-policy" cookies-policy-route
 
                   "following/users" {["/" :user] follow-user-route}
-                  
+
                   "dnd/"
                   {"5e/" {"characters" {"" dnd-e5-char-list-route
                                         ["/" :id] dnd-e5-char-route}
@@ -150,6 +161,11 @@
                                                 "/name" dnd-e5-char-party-name-route
                                                 "/characters" {"" dnd-e5-char-party-characters-route
                                                                ["/" :character-id] dnd-e5-char-party-character-route}}}
+                          "folders" {"" dnd-e5-char-folders-route
+                                     ["/" :id] {"" dnd-e5-char-folder-route
+                                                "/name" dnd-e5-char-folder-name-route
+                                                "/characters" {"" dnd-e5-char-folder-characters-route
+                                                               ["/" :character-id] dnd-e5-char-folder-character-route}}}
                           "character-summaries" dnd-e5-char-summary-list-route}}
                   "pages/" {"my-account" my-account-page-route
                             "register-page" register-page-route

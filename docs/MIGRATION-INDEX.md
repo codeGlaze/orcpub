@@ -8,11 +8,14 @@ This branch (`breaking/2026-stack-modernization`) upgrades the full OrcPub stack
 |-------|---------|---------|
 | Java runtime | 8 → 21 | [JAVA-COMPATIBILITY.md](JAVA-COMPATIBILITY.md) |
 | Database | Datomic Free → Datomic Pro | [migration/datomic-pro.md](migration/datomic-pro.md) |
+| Database data | Migrating existing Free databases | [migration/datomic-data-migration.md](migration/datomic-data-migration.md) |
 | Web framework | Pedestal 0.5.1 → 0.7.0 | [migration/pedestal-0.7.md](migration/pedestal-0.7.md) |
 | Frontend | React 15 / Reagent 0.6 → React 18 / Reagent 2.0 | [migration/frontend-stack.md](migration/frontend-stack.md) |
 | Libraries | clj-time, PDFBox 2, Buddy 1, etc. | [migration/library-upgrades.md](migration/library-upgrades.md) |
 | Dev tooling | Consolidated CLI + REPL into user.clj, profiles, scripts | [migration/dev-tooling.md](migration/dev-tooling.md) |
 | Environment | `.env` pattern, new variables | [ENVIRONMENT.md](ENVIRONMENT.md) |
+| Stack overview | Architecture, dependencies, build system | [STACK.md](STACK.md) |
+| Docker build hang | `lein uberjar` JVM hang + BuildKit workarounds | [LEIN-UBERJAR-HANG.md](LEIN-UBERJAR-HANG.md) |
 
 ## Why One Branch
 
@@ -29,8 +32,8 @@ Upgrading any one of these in isolation would leave the application broken.
 
 ## Test Status
 
-- Backend: 74 tests, 237 assertions, 0 failures, 0 errors
-- Lint: 0 errors (455 warnings — all from third-party libraries)
+- Backend: 206 tests, 945 assertions, 0 failures, 0 errors
+- Lint: 0 errors, 0 warnings
 - Dev CLJS build: 0 errors, 0 warnings
 - Production CLJS build (`:advanced`): succeeds with custom `externs.js` for React 18 APIs
 - Garden CSS: 0 warnings (after lambdaisland/garden upgrade)

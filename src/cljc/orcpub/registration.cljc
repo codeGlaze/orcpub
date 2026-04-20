@@ -24,7 +24,6 @@
         ;;password-missing-uppercase? (fails-match? #".*[A-Z].*" password)
         ;;password-missing-lowercase? (fails-match? #".*[a-z].*" password)
         password-too-short? (or (nil? password) (< (count password) 6))]
-    {}
     (cond-> {}
       ;;password-missing-lowercase? (update :password conj "Password must have a least one lowercase character")
       ;;password-missing-uppercase? (update :password conj "Password must have a least one uppercase character")
@@ -41,7 +40,7 @@
   (fails-match? #"^[A-Za-z0-9]+$" username))
 
 (defn bad-gmail? [email]
-  (if (some? email)
+  (when (some? email)
     (let [[_ bad-host] (re-matches #".*(gmial|gmal|gmil|gmai|gmaal|gmiil|gmaail|gmaiil)\.(.*)" email)
           [_ bad-domain] (re-matches #".*gmail\.(cm|co|coom)$" email)]
       (cond

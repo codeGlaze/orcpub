@@ -9,16 +9,22 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.db :refer [tab-path]]
-            [orcpub.dnd.e5.events :refer [url-for-route] :as events]
+            [orcpub.dnd.e5.event-utils :as event-utils :refer [url-for-route auth-headers
+                                                                    show-generic-error mod-cfg
+                                                                    default-mod-set
+                                                                    handle-api-response]]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
+            [orcpub.dnd.e5.char-filter :as char-filter]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.party :as party5e]
+            [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.monsters :as monsters5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.armor :as armor5e]
             [orcpub.dnd.e5.weapons :as weapon5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
+            [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.route-map :as routes]
             [clojure.string :as s]
             [reagent.ratom :as ra]
@@ -26,6 +32,10 @@
             [cljs-http.client :as http]
             [orcpub.dnd.e5.spell-subs])
   (:require-macros [cljs.core.async.macros :refer [go]]))
+
+;; =============================================================================
+;; Version: 1.03 - Add export warning modal subscription
+;; =============================================================================
 
 (reg-sub
  :db
@@ -249,6 +259,26 @@
  (fn [db _]
    (-> db :user-data :user-data :email)))
 
+(reg-sub
+ :pending-email
+ (fn [db _]
+   (-> db :user-data :user-data :pending-email)))
+
+(reg-sub
+ :send-updates?
+ (fn [db _]
+   (boolean (-> db :user-data :user-data :send-updates?))))
+
+(reg-sub
+ :email-change-sent?
+ (fn [db _]
+   (:email-change-sent? db)))
+
+(reg-sub
+ :email-change-error
+ (fn [db _]
+   (:email-change-error db)))
+
 (defn built-template [template selected-plugin-options]
   template
   #_(let [selected-plugins (map
@@ -277,12 +307,44 @@
 (defn built-character [character built-template]
   (entity/build character built-template))
 
-(reg-sub
+(def ^:private build-debounce-ms
+  "Leading+trailing debounce for entity/build. First change fires
+   immediately; rapid changes batch until quiet for this many ms."
+  500)
+
+(defn- debounced-build-sub
+  "reg-sub-raw handler: wraps entity/build with leading+trailing edge
+   debounce. Dropdown changes compute instantly; rapid keystrokes batch."
+  [char-sub tmpl-sub]
+  (let [timeout-id (atom nil)
+        last-run   (atom 0)
+        result     (ra/atom (built-character @char-sub @tmpl-sub))
+        wk         (gensym "build-")
+        do-build   (fn []
+                     (reset! last-run (.now js/Date))
+                     (reset! result (built-character @char-sub @tmpl-sub)))
+        on-change  (fn [_ _ _ _]
+                     (when-let [tid @timeout-id] (js/clearTimeout tid))
+                     (if (>= (- (.now js/Date) @last-run) build-debounce-ms)
+                       (do-build)
+                       (reset! timeout-id
+                               (js/setTimeout do-build build-debounce-ms))))]
+    (add-watch char-sub wk on-change)
+    (add-watch tmpl-sub wk on-change)
+    (ra/make-reaction
+     (fn [] @result)
+     :on-dispose (fn []
+                   (remove-watch char-sub wk)
+                   (remove-watch tmpl-sub wk)
+                   (when-let [tid @timeout-id]
+                     (js/clearTimeout tid))))))
+
+(reg-sub-raw
  :built-character
- :<- [:character]
- :<- [:built-template]
- (fn [[character built-template] _]
-   (built-character character built-template)))
+ (fn [_ _]
+   (debounced-build-sub
+    (subscribe [:character])
+    (subscribe [:built-template]))))
 
 (reg-sub
  :expanded-characters
@@ -319,56 +381,50 @@
  (fn [db [_ name]]
    (get-in db [:expanded-items name])))
 
-(defn auth-headers [db]
-  (let [token (-> db :user-data :token)]
-    (if token
-      {"Authorization" (str "Token " token)}
-      {})))
-
+;; API-backed subscriptions — use handle-api-response for consistent
+;; status handling with sensible 401/500 defaults and catch-all logging.
 (reg-sub-raw
   ::char5e/characters
   (fn [app-db [_ login-optional?]]
-    (go (dispatch [:set-loading true])
-        (let [response (<! (http/get (url-for-route routes/dnd-e5-char-summary-list-route)
-                                     {:headers (auth-headers @app-db)}))]
-          (dispatch [:set-loading false])
-          (case (:status response)
-            200 (dispatch [::char5e/set-characters (:body response)])
-            401 (if (not login-optional?)
-                  (dispatch [:route-to-login]))
-            500 (dispatch (events/show-generic-error)))))
+    (when (:token (:user-data @app-db))
+      (go (dispatch [:set-loading true])
+          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-summary-list-route)
+                                       {:headers (auth-headers @app-db)}))]
+            (dispatch [:set-loading false])
+            (handle-api-response response
+              #(dispatch [::char5e/set-characters (:body response)])
+              :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
+              :context "fetch characters"))))
     (ra/make-reaction
      (fn [] (get @app-db ::char5e/characters [])))))
 
 (reg-sub-raw
   ::party5e/parties
   (fn [app-db [_ login-optional?]]
-    (go (dispatch [:set-loading true])
-        (let [response (<! (http/get (url-for-route routes/dnd-e5-char-parties-route)
-                                     {:headers (auth-headers @app-db)}))]
-          (dispatch [:set-loading false])
-          (case (:status response)
-            200 (dispatch [::party5e/set-parties (:body response)])
-            401 (if (not login-optional?)
-                  (dispatch [:route-to-login]))
-            500 (dispatch (events/show-generic-error)))))
+    (when (:token (:user-data @app-db))
+      (go (dispatch [:set-loading true])
+          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-parties-route)
+                                       {:headers (auth-headers @app-db)}))]
+            (dispatch [:set-loading false])
+            (handle-api-response response
+              #(dispatch [::party5e/set-parties (:body response)])
+              :on-401 #(when-not login-optional? (dispatch [:route-to-login]))
+              :context "fetch parties"))))
     (ra/make-reaction
      (fn [] (get @app-db ::char5e/parties [])))))
 
 (reg-sub-raw
   :user
   (fn [app-db [_ required?]]
-    (if (and (:user @app-db) (:token (:user @app-db))) ;;check if logged in, prevent unncessary calls
+    (when (:token (:user-data @app-db)) ;; guard: skip HTTP when not logged in
      (go (let [hdrs (auth-headers @app-db)
               response (<! (http/get (url-for-route routes/user-route) {:headers hdrs}))]
-          (case (:status response)
-            200 nil
-            401 (do
-                  (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
-                  (if required?
-                    (dispatch [:route-to-login])))
-            500 (if required? (dispatch (events/show-generic-error)))))
-        ))
+          (handle-api-response response
+            (fn [])
+            :on-401 #(do (dispatch [:set-user-data (dissoc (:user-data @app-db) :user-data :token)])
+                         (when required? (dispatch [:route-to-login])))
+            :on-500 #(when required? (dispatch (show-generic-error)))
+            :context "fetch user"))))
     (ra/make-reaction
      (fn [] (get @app-db :user [])))))
 
@@ -390,6 +446,49 @@
  (fn [parties _]
    (common/map-by-id parties)))
 
+(reg-sub-raw
+  ::folder5e/folders
+  (fn [app-db _]
+    (when (:token (:user-data @app-db))
+      (go (dispatch [:set-loading true])
+          (let [response (<! (http/get (url-for-route routes/dnd-e5-char-folders-route)
+                                       {:headers (auth-headers @app-db)}))]
+            (dispatch [:set-loading false])
+            (handle-api-response response
+              #(dispatch [::folder5e/set-folders (:body response)])
+              :context "fetch folders"))))
+    (ra/make-reaction
+     (fn [] (get @app-db ::folder5e/folders [])))))
+
+(reg-sub
+ ::folder5e/folder-map
+ :<- [::folder5e/folders]
+ (fn [folders _]
+   (common/map-by-id folders)))
+
+(reg-sub
+ ::folder5e/expanded
+ (fn [db _]
+   (get db ::folder5e/expanded {})))
+
+(reg-sub
+ ::folder5e/renaming
+ (fn [db _]
+   (get db ::folder5e/renaming {})))
+
+(reg-sub
+ ::folder5e/character-folder-map
+ :<- [::folder5e/folders]
+ (fn [folders _]
+   (reduce (fn [m folder]
+             (reduce (fn [m char]
+                       (assoc m (:db/id char) (:db/id folder)))
+                     m
+                     (::folder5e/character-ids folder)))
+           {}
+           folders)))
+
+;; Used by combat_tracker (views.cljs) and as input signal for ::char5e/summary
 (reg-sub
  ::char5e/summary-map
  (fn [[_ login-optional?]]
@@ -397,6 +496,7 @@
  (fn [characters _]
    (common/map-by :db/id characters)))
 
+;; Used by combat_tracker (views.cljs)
 (reg-sub
  ::char5e/summary
  :<- [::char5e/summary-map]
@@ -407,19 +507,18 @@
 (reg-sub-raw
   ::char5e/character
   (fn [app-db [_ id :as args]]
-    (let [int-id (if id (js/parseInt id))]
-      (if (some? int-id)
+    (let [int-id (when id (js/parseInt id))]
+      (when (some? int-id)
         (go (dispatch [:set-loading true])
             (let [response (<! (http/get (url-for-route
                                            routes/dnd-e5-char-route
                                            :id int-id)))]
               (dispatch [:set-loading false])
-              (case (:status response)
-                200 (dispatch [::char5e/set-character
-                               int-id
-                               (char5e/from-strict (:body response))])
-                401 (dispatch [:route-to-login])
-                500 (dispatch (events/show-generic-error))))))
+              (handle-api-response response
+                #(dispatch [::char5e/set-character
+                            int-id
+                            (char5e/from-strict (:body response))])
+                :context (str "fetch character " int-id)))))
       (ra/make-reaction
        (fn []
          (if int-id
@@ -457,10 +556,8 @@
  (fn [character _ _]
    (selected-plugin-options character)))
 
-#_(reg-sub
- ::char5e/template
- (fn [db _]
-   (:template db)))
+;; ::char5e/template is registered in equipment_subs.cljs (derives from template-selections).
+;; Used by autosave_fx.cljs and as input signal for ::char5e/built-template.
 
 (reg-sub
  ::char5e/built-template
@@ -470,13 +567,12 @@
  (fn [[selected-plugin-options template] _]
    (built-template template selected-plugin-options)))
 
-(reg-sub
+(reg-sub-raw
  ::char5e/built-character
- (fn [[_ id] _]
-   [(subscribe [::char5e/character id])
-    (subscribe [::char5e/built-template id])])
- (fn [[character built-template] _ _]
-   (built-character character built-template)))
+ (fn [_ [_ id]]
+   (debounced-build-sub
+    (subscribe [::char5e/character id])
+    (subscribe [::char5e/built-template id]))))
 
 (reg-sub
  :message-shown?
@@ -680,9 +776,9 @@
    (if (and (nil? armor-kw)
             (nil? shield-kw))
      (:ac best-armor-combo)
-     (let [armor (if armor-kw
+     (let [armor (when armor-kw
                    (all-armor-map armor-kw))
-           shield (if shield-kw
+           shield (when shield-kw
                     (all-armor-map shield-kw))]
        (ac-fn armor shield)))))
 
@@ -1008,11 +1104,11 @@
  ::mi5e/item-ability-bonus
  :<- [::mi5e/builder-item]
  (fn [item [_ type ability]]
-   (let [mod-cfg (events/mod-cfg (if (= type :becomes-at-least)
+   (let [mod-cfg (mod-cfg (if (= type :becomes-at-least)
                                    :ability-override
                                    :ability)
                                  ability)
-         modifiers (events/default-mod-set (::mi5e/internal-modifiers item))
+         modifiers (default-mod-set (::mi5e/internal-modifiers item))
          modifier (get modifiers mod-cfg)
          args (::mod/args modifier)]
      (second args))))
@@ -1021,11 +1117,11 @@
  ::mi5e/item-ability-mod-type
  :<- [::mi5e/builder-item]
  (fn [item [_ type ability]]
-   (let [mod-cfg (events/mod-cfg (if (= type :becomes-at-least)
+   (let [mod-cfg (mod-cfg (if (= type :becomes-at-least)
                                    :ability-override
                                    :ability)
                                  ability)
-         modifiers (events/default-mod-set (::mi5e/internal-modifiers item))
+         modifiers (default-mod-set (::mi5e/internal-modifiers item))
          modifier (get modifiers mod-cfg)
          args (::mod/args modifier)]
      (second args))))
@@ -1104,6 +1200,18 @@
  :<- [::mi5e/builder-item]
  (fn [item _]
    (get item ::weapon5e/ammunition?)))
+
+(reg-sub
+ ::mi5e/item-special?
+ :<- [::mi5e/builder-item]
+ (fn [item _]
+   (get item ::weapon5e/special?)))
+
+(reg-sub
+ ::mi5e/item-loading?
+ :<- [::mi5e/builder-item]
+ (fn [item _]
+   (get item ::weapon5e/loading?)))
 
 (reg-sub
  ::mi5e/item-versatile?
@@ -1260,3 +1368,159 @@
  ::char5e/has-question-history?
  (fn [db _]
    (seq (get-in db [::char5e/question-history :newb-char-data]))))
+
+;; ============================================================================
+;; Import Log Subscriptions
+;; ============================================================================
+
+(reg-sub
+ :import-log
+ (fn [db _]
+   (:import-log db)))
+
+(reg-sub
+ :import-log-shown?
+ (fn [db _]
+   (get-in db [:import-log :panel-shown?])))
+
+(reg-sub
+ :import-log-has-content?
+ (fn [db _]
+   (let [log (:import-log db)]
+     (or (seq (:changes log))
+         (seq (:errors log))
+         (seq (:skipped-items log))))))
+
+;; ============================================================================
+;; Conflict Resolution Subscriptions
+;; ============================================================================
+
+(reg-sub
+ :conflict-resolution
+ (fn [db _]
+   (:conflict-resolution db)))
+
+(reg-sub
+ :conflict-resolution-active?
+ (fn [db _]
+   (get-in db [:conflict-resolution :active?])))
+
+(reg-sub
+ :conflict-resolution-conflicts
+ (fn [db _]
+   (get-in db [:conflict-resolution :conflicts])))
+
+(reg-sub
+ :conflict-resolution-decisions
+ (fn [db _]
+   (get-in db [:conflict-resolution :decisions])))
+
+;; ============================================================================
+;; Export Warning Modal Subscriptions
+;; ============================================================================
+
+(reg-sub
+ :export-warning
+ (fn [db _]
+   (:export-warning db)))
+
+;; ============================================================================
+;; Missing Content Detection Subscriptions
+;; ============================================================================
+
+(reg-sub
+ ::char5e/available-content
+ (fn [_]
+   ;; Subscribe to all content types we need to check against.
+   ;; Uses plugin-* subs (not the full subs) because SRD content is
+   ;; hardcoded and handled by builtin-* sets in content_reconciliation.
+   [(subscribe [:orcpub.dnd.e5.classes/plugin-classes])
+    (subscribe [:orcpub.dnd.e5.classes/plugin-subclasses])
+    (subscribe [:orcpub.dnd.e5.races/plugin-races])
+    (subscribe [:orcpub.dnd.e5.races/plugin-subraces])
+    (subscribe [:orcpub.dnd.e5.backgrounds/plugin-backgrounds])
+    (subscribe [:orcpub.dnd.e5.feats/plugin-feats])])
+ (fn [[classes subclasses races subraces backgrounds feats]]
+   {:classes classes
+    :subclasses subclasses
+    :races races
+    :subraces subraces
+    :backgrounds backgrounds
+    :feats feats}))
+
+(reg-sub
+ ::char5e/missing-content-report
+ (fn [_]
+   [(subscribe [:character])
+    (subscribe [::char5e/available-content])])
+ (fn [[character available-content]]
+   (when character
+     (content-recon/generate-missing-content-report character available-content))))
+
+(reg-sub
+ ::char5e/has-missing-content?
+ :<- [::char5e/missing-content-report]
+ (fn [report]
+   (:has-missing? report)))
+
+;; ---- Character List Filter Subscriptions -----------------------------------
+
+(reg-sub
+ ::char5e/char-name-filter
+ (fn [db _]
+   (get db ::char5e/char-name-filter "")))
+
+(reg-sub
+ ::char5e/char-level-filters
+ (fn [db _]
+   (get db ::char5e/char-level-filters #{})))
+
+(reg-sub
+ ::char5e/char-class-filters
+ (fn [db _]
+   (get db ::char5e/char-class-filters #{})))
+
+(reg-sub
+ ::char5e/char-has-portrait?
+ (fn [db _]
+   (get db ::char5e/char-has-portrait?)))
+
+(reg-sub
+ ::char5e/char-has-faction-pic?
+ (fn [db _]
+   (get db ::char5e/char-has-faction-pic?)))
+
+(reg-sub
+ ::char5e/char-classes-available
+ :<- [::char5e/characters]
+ (fn [characters _]
+   (->> characters
+        (mapcat ::char5e/classes)
+        (map ::char5e/class-name)
+        (remove nil?)
+        distinct
+        sort
+        vec)))
+
+(reg-sub
+ ::char5e/char-levels-available
+ :<- [::char5e/characters]
+ (fn [characters _]
+   (->> characters
+        (mapcat ::char5e/classes)
+        (map ::char5e/level)
+        (remove nil?)
+        distinct
+        sort
+        vec)))
+
+(reg-sub
+ ::char5e/filtered-characters
+ :<- [::char5e/characters]
+ :<- [::char5e/char-name-filter]
+ :<- [::char5e/char-level-filters]
+ :<- [::char5e/char-class-filters]
+ :<- [::char5e/char-has-portrait?]
+ :<- [::char5e/char-has-faction-pic?]
+ (fn [[characters name-filter level-filters class-filters has-portrait? has-faction-pic?] _]
+   (char-filter/filter-characters characters name-filter level-filters class-filters has-portrait? has-faction-pic?)))

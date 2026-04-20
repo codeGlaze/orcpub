@@ -1,19 +1,30 @@
 (ns orcpub.user-agent
-  (:require [goog.labs.userAgent.browser :as g-browser]
-            [goog.labs.userAgent.device :as g-device]
-            [goog.labs.userAgent.platform :as g-platform]))
+  "Browser, device, and platform detection utilities.
+   Uses native JS navigator.userAgent for compatibility across Closure Library versions."
+  (:require [goog.labs.userAgent.device :as g-device]
+            [goog.labs.userAgent.platform :as g-platform]
+            [clojure.string :as str]))
 
-(defn browser []
-  (cond
-    (g-browser/isChrome) :chrome
-    (g-browser/isEdge) :edge
-    (g-browser/isFirefox) :firefox
-    (g-browser/isIE) :ie
-    (g-browser/isSafari) :safari
-    :else :not-found))
+(defn- user-agent-string []
+  (when (exists? js/navigator)
+    (.-userAgent js/navigator)))
+
+(defn browser
+  "Detects the current browser. Returns a keyword like :chrome, :firefox, :safari, etc."
+  []
+  (let [ua (str/lower-case (or (user-agent-string) ""))]
+    (cond
+      (str/includes? ua "edg") :edge        ; Edge uses "Edg" in UA
+      (str/includes? ua "chrome") :chrome   ; Must check after Edge
+      (str/includes? ua "firefox") :firefox
+      (str/includes? ua "safari") :safari   ; Must check after Chrome
+      (str/includes? ua "opera") :opera
+      (or (str/includes? ua "msie") (str/includes? ua "trident")) :ie
+      :else :not-found)))
 
 (defn browser-version []
-  (g-browser/getVersion))
+  ;; Return empty string - version detection is complex and rarely needed
+  "")
 
 (defn device-type []
   (cond
