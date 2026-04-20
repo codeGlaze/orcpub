@@ -135,10 +135,11 @@
    []
    homebrew-paths))
 
-(defn to-strict [{:keys [:db/id ::options ::values ::homebrew-paths]}]
+(defn to-strict [{:keys [:db/id ::options ::values ::homebrew-paths ::owner]}]
   (cond-> {::strict/selections (to-strict-selections options [] homebrew-paths)}
     values (assoc ::strict/values (into {} (remove (comp nil? val)) values))
     id (assoc :db/id id)
+    owner (assoc ::strict/owner owner)              ;; round-trip ::strict/owner via ::owner
     true remove-empty-fields))
 
 (spec/fdef to-strict
@@ -164,18 +165,19 @@
 (defn from-strict-options [options]
   (mapv from-strict-option options))
 
+;; array-map preserves insertion order at any size. The previous reduce/assoc
+;; approach promoted to PersistentHashMap beyond 8 keys, scrambling selection
+;; order during strict round-trips.
 (defn from-strict-selections [selections]
-  (reduce
-   (fn [s {:keys [:db/id ::strict/key ::strict/option ::strict/options]}]
-     (assoc s
-            key
-            (with-meta
-              (if option
-                (from-strict-option option)
-                (from-strict-options options))
-              {:db/id id})))
-   {}
-   selections))
+  (apply array-map
+         (mapcat
+          (fn [{:keys [:db/id ::strict/key ::strict/option ::strict/options]}]
+            [key (with-meta
+                   (if option
+                     (from-strict-option option)
+                     (from-strict-options options))
+                   {:db/id id})])
+          selections)))
 
 (defn from-strict-homebrew-paths [homebrew-paths]
   (reduce
@@ -204,7 +206,7 @@
      (let [new-path (conj path key)]
        (merge
         paths
-        (if homebrew? {new-path true})
+        (when homebrew? {new-path true})
         (option-homebrew-paths option new-path)
         (options-homebrew-paths options new-path))))
    {}
@@ -303,7 +305,7 @@
   (let [[option option-i]
         (first (keep-indexed
                 (fn [i s]
-                  (if (= (::t/key s) f)
+                  (when (= (::t/key s) f)
                     [s i]))
                 (selection-options selection)))
         next-path (vec (concat current-path [::t/options option-i]))]
@@ -315,7 +317,7 @@
   (let [[selection selection-i]
         (first (keep-indexed
                 (fn [i s]
-                  (if (= (::t/key s) f)
+                  (when (= (::t/key s) f)
                     [s i]))
                 (::t/selections template)))
         next-path (vec (concat current-path [::t/selections selection-i]))]
@@ -352,7 +354,7 @@
   (first
    (keep-indexed
     (fn [i v]
-      (if (= option-key (::key v))
+      (when (= option-key (::key v))
         i))
     selection)))
 
@@ -360,7 +362,7 @@
   (first
    (keep-indexed
     (fn [i s]
-      (if (= (::t/key s) item-key)
+      (when (= (::t/key s) item-key)
         [i s]))
     items)))
 
@@ -368,7 +370,7 @@
   (first
    (keep-indexed
     (fn [i s]
-      (if (and item-key
+      (when (and item-key
                (= (::key s) item-key))
         [i s]))
     items)))
@@ -385,7 +387,7 @@
            selection-path (vec (concat current-path [::options selection-k]))
            entity-items (get-in entity selection-path)
            [entity-i _] (entity-item-with-key entity-items option-k)
-           path-i (if (and (or option-k entity-i)
+           path-i (when (and (or option-k entity-i)
                            (or (nil? max)
                                (> max 1)
                                multiselect?))
@@ -420,11 +422,11 @@
 
 (defn combine-ref-selections [selections]
   (let [first-selection (first selections)]
-    (if first-selection
+    (when first-selection
       (assoc
        first-selection
        ::t/min (apply + (map ::t/min selections))
-       ::t/max (if (every? ::t/max selections) (apply + (map ::t/max selections)))
+       ::t/max (when (every? ::t/max selections) (apply + (map ::t/max selections)))
        ::t/options (into
                     (sorted-set-by
                      #(compare (::t/key %) (::t/key %2)))
@@ -477,7 +479,10 @@
                  accum-selections)))
       accum-selections)))
 
-(defn remove-disqualified-selections [selections built-char]
+(defn remove-disqualified-selections
+  "Remove selections whose prereq-fn fails against built-char.
+   Callers must provide a real built entity, never nil."
+  [selections built-char]
   (remove #(or (nil? %)
                (let [prereq-fn (::t/prereq-fn %)]
                  (and prereq-fn (not (prereq-fn built-char)))))
@@ -620,7 +625,7 @@
 (declare merge-selections)
 
 (defn merge-options [options other-options]
-  (if (or options other-options)
+  (when (or options other-options)
     (let [opt-map (zipmap (map ::t/key options) options)
           other-opt-map (zipmap (map ::t/key other-options) other-options)
           merged (merge-with
@@ -640,7 +645,7 @@
         (vals (apply dissoc merged (map ::t/key options))))))))
 
 (defn merge-selections [selections other-selections]
-  (if (or selections other-selections)
+  (when (or selections other-selections)
     (let [sel-map (zipmap (map ::t/key selections) selections)
           other-sel-map (zipmap (map ::t/key other-selections) other-selections)
           merged (merge-with
@@ -740,10 +745,14 @@
           :else
           0)))
 
-(defn meets-prereqs? [option & [built-char]]
+(defn meets-prereqs?
+  "Check if option's prereqs are satisfied by built-char.
+   Callers must provide a real built entity (from entity/build or
+   subscribe [:built-character]), never nil."
+  [option & [built-char]]
   (every?
-   (fn [{:keys [::t/prereq-fn] :as prereq}]
+   (fn [{:keys [::t/prereq-fn]}]
      (if prereq-fn
        (prereq-fn built-char)
-       #?(:cljs (js/console.warn "NO PREREQ_FN" (::t/name option) prereq))))
+       true))
    (::t/prereqs option)))

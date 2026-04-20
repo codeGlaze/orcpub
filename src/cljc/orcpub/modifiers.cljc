@@ -100,7 +100,7 @@
 (defn apply-modifiers [entity modifiers]
   (reduce
    (fn [e {:keys [::key ::conditions] :as mod}]
-     (if (nil? mod)
+     (when (nil? mod)
        #?(:clj (prn "MODIFIER IS NULL!!!!!!!!!!!!!!"))
        #?(:cljs (js/console.warn "MODIFIER IS NULL!!!!!!!!!!")))
      (let [passes-conds? (every? #(% e) conditions)

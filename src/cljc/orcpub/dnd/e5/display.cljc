@@ -71,17 +71,18 @@
         equipment-kw
         (common/kw-to-name equipment-kw true))))
 
-(defn unit-amount-description [{:keys [units amount singular plural] :or {amount 1 plural (plural-map units)}}]
-  (str amount " " (if (not= 1 amount)
-                    (if plural
-                      (common/safe-name plural)
-                      (str (common/safe-name units) "s"))
-                    (if singular
-                      (common/safe-name singular)
-                      (str (common/safe-name units))))))
+(defn unit-amount-description [{:keys [units amount singular plural] :or {amount 1}}]
+  (let [plural (or plural (plural-map units))]
+    (str amount " " (if (not= 1 amount)
+                      (if plural
+                        (common/safe-name plural)
+                        (str (common/safe-name units) "s"))
+                      (if singular
+                        (common/safe-name singular)
+                        (str (common/safe-name units)))))))
 
 (defn duration-description [{:keys [concentration] :as duration}]
-  (str (if concentration "conc. ") (unit-amount-description duration)))
+  (str (when concentration "conc. ") (unit-amount-description duration)))
 
 #_(defn get-source [source]
   (sources (or source :phb)))
@@ -133,15 +134,15 @@
 (defn action-description [{:keys [description summary source page duration range frequency qualifier]}]
   (str
    (or summary description)
-   (if (or range duration frequency)
+   (when (or range duration frequency)
      (str
       " ("
       (s/join ", "
               (remove
                nil?
                [qualifier
-                (if range (str "range " (unit-amount-description range)))
-                (if duration (str "lasts " (duration-description duration)))
-                (if frequency (str "use " (frequency-description frequency)))
+                (when range (str "range " (unit-amount-description range)))
+                (when duration (str "lasts " (duration-description duration)))
+                (when frequency (str "use " (frequency-description frequency)))
                 #_(if page (source-description source page))]))
       ")"))))

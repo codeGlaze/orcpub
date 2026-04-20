@@ -1,24 +1,55 @@
 {
   "name": "OrcPub Dev + E2E Testing",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
   "features": {
-    "ghcr.io/devcontainers/features/java:1": {
-      "version": "8",
-      "installMaven": false,
-      "installGradle": false
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
     },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
     "ghcr.io/devcontainers/features/node:1": {
       "version": "20"
     }
   },
-  "onCreateCommand": "bash .devcontainer/setup.sh",
-  "postCreateCommand": "chmod +x start.sh menu.sh e2e/scripts/*.sh 2>/dev/null || true && lein deps && cd e2e && npm install && npx playwright install chromium --with-deps",
+  "forwardPorts": [8890, 3449, 4334, 7888],
+  "portsAttributes": {
+    "8890": {
+      "label": "Backend Server",
+      "onAutoForward": "notify"
+    },
+    "3449": {
+      "label": "Figwheel",
+      "onAutoForward": "silent",
+      "visibility": "public"
+    },
+    "4334": {
+      "label": "Datomic",
+      "onAutoForward": "silent"
+    },
+    "7888": {
+      "label": "nREPL (MCP)",
+      "onAutoForward": "silent"
+    }
+  },
+  "postCreateCommand": [
+    "bash",
+    "./.devcontainer/post-create.sh"
+  ],
+  "containerEnv": {
+    "POST_CREATE_VERBOSE": "1",
+    "DATOMIC_VERSION": "1.0.7482",
+    "DATOMIC_URL": "datomic:dev://localhost:4334/orcpub"
+  },
+  "remoteEnv": {
+    "APP_URL": "http://localhost:8890"
+  },
   "customizations": {
     "vscode": {
       "extensions": [
         "betterthantomorrow.calva",
         "borkdude.clj-kondo",
-        "github.copilot",
         "ms-playwright.playwright"
       ],
       "settings": {
@@ -32,15 +63,5 @@
         "playwright.reuseBrowser": true
       }
     }
-  },
-  "forwardPorts": [8890, 4334, 3449, 7888],
-  "portsAttributes": {
-    "8890": { "label": "OrcPub Server", "onAutoForward": "notify" },
-    "4334": { "label": "Datomic Transactor" },
-    "3449": { "label": "Figwheel" },
-    "7888": { "label": "nREPL (MCP)" }
-  },
-  "remoteEnv": {
-    "APP_URL": "http://localhost:8890"
   }
 }

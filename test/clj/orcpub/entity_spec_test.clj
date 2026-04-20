@@ -1,5 +1,5 @@
 (ns orcpub.entity-spec-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is]]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.modifiers :as modifiers]
@@ -47,8 +47,8 @@
    (modifiers/modifier ?skill-expertise (conj (or ?skill-expertise #{}) :perception))
    (modifiers/modifier ?skill-prof-bonuses (reduce-kv
                          (fn [m k v]
-                                        (* 2 v)
                            (assoc m k (if (?skill-expertise k)
+                                        (* 2 v)
                                         v)))
                          {}
                          ?skill-prof-bonuses))

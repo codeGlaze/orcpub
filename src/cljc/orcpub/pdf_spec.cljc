@@ -14,7 +14,7 @@
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.skills :as skill5e]
-            [re-frame.core :refer [subscribe]]))
+))
 
 (defn entity-vals [built-char kws]
   (reduce
@@ -61,11 +61,17 @@
 (defn total-length [traits]
   (reduce + (map
              (fn [{:keys [name description]}]
-               (+ (count name) (count description)))
+               ;; Handle nil name/description gracefully
+               (+ (count (or name "")) (count (or description ""))))
              traits)))
 
 (defn trait-string [nm desc]
-  (str nm ". " (common/sentensize desc)))
+  ;; Handle nil name gracefully - use description start or placeholder
+  (let [desc-str (when (and (string? desc) (not (s/blank? desc))) desc)
+        display-name (or nm
+                         (when desc-str (str (subs desc-str 0 (min 30 (count desc-str))) "..."))
+                         "(Unnamed Trait)")]
+    (str display-name ". " (common/sentensize desc-str))))
 
 (defn traits-string [traits]
   (s/join
@@ -76,7 +82,7 @@
     traits)))
 
 (defn actions-string [title actions]
-  (if (seq actions)
+  (when (seq actions)
     (str
      title
      "\n"
@@ -88,16 +94,16 @@
        actions)))))
 
 (defn vec-trait [nm items]
-  (if (seq items) (str nm ": " (s/join ", " items))))
+  (when (seq items) (str nm ": " (s/join ", " items))))
 
 (defn keyword-vec-trait [nm keywords]
-  (vec-trait nm (map name keywords)))
+  (vec-trait nm (map #(if % (name %) "(unknown)") (remove nil? keywords))))
 
 (defn resistance-strings [resistances]
   (map
    (fn [{:keys [value qualifier]}]
-     (str (name value)
-          (if qualifier
+     (str (if value (name value) "(unknown)")
+          (when qualifier
             (str "(" qualifier ")"))))
    resistances))
 
@@ -111,8 +117,8 @@
     (s/join
      "\n"
      (remove nil?
-             [(if (and darkvision (pos? darkvision)) (str "Darkvision: " darkvision " ft."))
-              (if (> (count crit-values) 1) (str "Critical Hits: " (char5e/crit-values-str built-char)))
+             [(when (and darkvision (pos? darkvision)) (str "Darkvision: " darkvision " ft."))
+              (when (> (count crit-values) 1) (str "Critical Hits: " (char5e/crit-values-str built-char)))
               (vec-trait "Damage Resistances" (resistance-strings damage-resistances))
               (vec-trait "Damage Immunities" (resistance-strings damage-immunities))
               (vec-trait "Condition Immunities" (resistance-strings condition-immunities))
@@ -157,8 +163,11 @@
 
 (def coin-keys [:cp :sp :ep :gp :pp])
 
-(defn equipment-fields [built-char]
-  (let [equipment (es/entity-val built-char :equipment)
+(defn equipment-fields
+  "Build PDF equipment field map. all-magic-items-map from plugin-data."
+  [built-char all-magic-items-map]
+  (let [equipment-map (merge mi5e/all-equipment-map all-magic-items-map)
+        equipment (es/entity-val built-char :equipment)
         armor (es/entity-val built-char :armor)
         magic-armor (es/entity-val built-char :magic-armor)
         magic-items (es/entity-val built-char :magic-items)
@@ -188,8 +197,8 @@
                    (map
                    (fn [[kw {count ::char-equip5e/quantity}]]
                      (if (> count 1)
-                       (str (disp5e/equipment-name mi5e/all-equipment-map kw) " x" count )
-                       (str (disp5e/equipment-name mi5e/all-equipment-map kw))
+                       (str (disp5e/equipment-name equipment-map kw) " x" count )
+                       (str (disp5e/equipment-name equipment-map kw))
                        )
                      )
                    (filter
@@ -199,10 +208,46 @@
                   "\n"
                   (map
                    (fn [[kw {count ::char-equip5e/quantity}]]
+                     (str (disp5e/equipment-name equipment-map kw) " (" count ")"))
+                   (merge
+                    (apply dissoc treasure coin-keys)
+                    unequipped-items)))})))
+
+(defn treasure-fields [built-char]
+  (let [equipment (es/entity-val built-char :equipment)
+        armor (es/entity-val built-char :armor)
+        magic-armor (es/entity-val built-char :magic-armor)
+        magic-items (es/entity-val built-char :magic-items)
+        weapons (sort (es/entity-val built-char :weapons))
+        magic-weapons (sort (es/entity-val built-char :magic-weapons))
+        custom-equipment (into {}
+                               (map
+                                (juxt ::char-equip5e/name identity)
+                                (char5e/custom-equipment built-char)))
+        custom-treasure (into {}
+                               (map
+                                (juxt ::char-equip5e/name identity)
+                                (char5e/custom-treasure built-char)))
+        all-equipment (merge equipment custom-equipment custom-treasure magic-items armor magic-armor)
+        treasure (es/entity-val built-char :treasure)
+        treasure-map (into {} (map (fn [[kw {qty ::char-equip5e/quantity}]] [kw qty]) treasure))
+        unequipped-items  (filter
+                          (fn [[kw {:keys [::char-equip5e/equipped? ::char-equip5e/quantity]}]]
+                            (and (not equipped?)
+                                 (pos? quantity)))
+                          (merge all-equipment weapons magic-weapons magic-items))]
+    (merge
+     (select-keys treasure-map coin-keys)
+     {:treasure (s/join
+                  "\n"
+                  (map
+                   (fn [[kw {count ::char-equip5e/quantity}]]
                      (str (disp5e/equipment-name mi5e/all-equipment-map kw) " (" count ")"))
                    (merge
                     (apply dissoc treasure coin-keys)
                     unequipped-items)))})))
+
+
 
 (def level-max-spells
   {0 8
@@ -234,7 +279,8 @@
 (defn make-page-map [spells-known
                      print-prepared-spells?
                      prepares-spells
-                     prepared-spells-by-class]
+                     prepared-spells-by-class
+                     spells-map]
   (reduce-kv
    (fn [m k s]
      (let [spell-cfgs (vals s)
@@ -247,7 +293,7 @@
            by-ability (group-by :ability filtered)]
        (reduce-kv
         (fn [am a a-s]
-          (assoc-in am [a k] (sort-by (comp :name @(subscribe [::spells/spells-map]) :key) a-s)))
+          (assoc-in am [a k] (sort-by (comp :name spells-map :key) a-s)))
         m
         by-ability)))
    {}
@@ -256,11 +302,13 @@
 (defn make-pages [spells
                   print-prepared-spells
                   prepares-spells
-                  prepared-spells-by-class]
+                  prepared-spells-by-class
+                  spells-map]
   (let [page-map (make-page-map spells
                                 print-prepared-spells
                                 prepares-spells
-                                prepared-spells-by-class)]
+                                prepared-spells-by-class
+                                spells-map)]
     (mapcat
      (fn [[ability levels]]
        (let [ability-classes (into
@@ -291,11 +339,11 @@
                             attack-mod-fn
                             print-prepared-spells?
                             prepares-spells
-                            prepared-spells-by-class]
-  
+                            prepared-spells-by-class
+                            spells-map
+                            plugin-spells-map]
+
   (let [flat-spells (char5e/flat-spells spells-known)
-        spells-map @(subscribe [::spells/spells-map])
-        plugin-spells-map @(subscribe [::spells/plugin-spells-map])
         filtered-spells-known (reduce
                                (fn [m [k v]]
                                  (assoc m k (if print-prepared-spells?
@@ -338,12 +386,14 @@
                          attack-mod-fn
                          print-prepared-spells?
                          prepares-spells
-                         prepared-spells-by-class]
+                         prepared-spells-by-class
+                         spells-map
+                         plugin-spells-map]
   (let [spell-pages (make-pages spells
                                 print-prepared-spells?
                                 prepares-spells
-                                prepared-spells-by-class)
-        spells-map @(subscribe [::spells/spells-map])]
+                                prepared-spells-by-class
+                                spells-map)]
     (apply
      merge
      (make-spell-card-info spells
@@ -351,7 +401,9 @@
                            attack-mod-fn
                            print-prepared-spells?
                            prepares-spells
-                           prepared-spells-by-class)
+                           prepared-spells-by-class
+                           spells-map
+                           plugin-spells-map)
      (flatten
       (map-indexed
        (fn [i {:keys [ability classes spells]}]
@@ -370,16 +422,20 @@
                 (map-indexed
                  (fn [spell-index spell]
                    {(keyword (str "spells-" level "-" (inc spell-index) suffix))
-                    (str (:name (spells-map (:key spell))) (let [qualifier (:qualifier spell)]
-                                                                   (if qualifier
-                                                                     (str " (" qualifier ")"))))})
+                    (let [spell-key (:key spell)
+                          spell-data (spells-map spell-key)
+                          spell-name (or (:name spell-data)
+                                         (when spell-key (name spell-key))
+                                         "(Unknown Spell)")
+                          qualifier (:qualifier spell)]
+                      (str spell-name (when qualifier (str " (" qualifier ")"))))})
                  spells)
                 {(keyword (str "spell-slots-" level suffix))
                  (spell-slots level)}))
              spells)]))
        spell-pages)))))
 
-(defn spellcasting-fields [built-char print-prepared-spells?]
+(defn spellcasting-fields [built-char print-prepared-spells? spells-map plugin-spells-map]
   (let [spell-attack-modifier-fn (char5e/spell-attack-modifier-fn built-char)
         spell-save-dc-fn (char5e/spell-save-dc-fn built-char)
         spell-slots (char5e/spell-slots built-char)
@@ -396,26 +452,29 @@
                        spell-attack-modifier-fn
                        print-prepared-spells?
                        prepares-spells
-                       prepared-spells-by-class)))
+                       prepared-spells-by-class
+                       spells-map
+                       plugin-spells-map)))
 
 (defn profs-paragraph [profs prof-map title]
-  (if (seq profs)
+  (when (seq profs)
     (str
      title
      " Proficiencies: "
      (s/join "; " (map (fn [p]
-                         (let [prof (prof-map p)]
-                           (if prof
-                             (:name prof)
-                             (s/capitalize (name p)))))
-                       (sort profs))))))
+                         (let [prof (if p (prof-map p) nil)]
+                           (cond
+                             (:name prof) (:name prof)
+                             (keyword? p) (s/capitalize (name p))
+                             (string? p) (s/capitalize p)
+                             :else "(unknown)")))
+                       (sort (remove nil? profs)))))))
 
-(defn other-profs-field [built-char]
+(defn other-profs-field [built-char language-map]
   (let [tool-profs (char5e/tool-proficiencies built-char)
         weapon-profs (char5e/weapon-proficiencies built-char)
         armor-profs (char5e/armor-proficiencies built-char)
-        languages (char5e/languages built-char)
-        language-map @(subscribe [::langs5e/language-map])]
+        languages (char5e/languages built-char)]
     (s/join
      "\n\n"
      (remove
@@ -427,7 +486,8 @@
 
 (defn damage-str [die die-count mod damage-type]
   (str (dice/dice-string die-count die mod)
-       (if damage-type (str " " (name damage-type)))))
+       (when damage-type
+         (str " " (if (keyword? damage-type) (name damage-type) (str damage-type))))))
 
 (defn attacks-and-spellcasting-fields 
   "For each weapon, we are creating a new map with the name, the attack bonus, and the damage.
@@ -439,12 +499,11 @@
   and the attack bonus and damage is calculated for the versatile form of the weapon.
   We then remove any nil maps, and mapcat concatenates all of the maps into a single list.
   The remove function filters out weapons of type 'ammunition'."
-  [built-char]
+  [built-char all-weapons-map]
   (let [all-weapons ; map of all weapons in inventory
         (mi5e/equipped-items-details ; function to filter for equipped weapons
          (char5e/all-weapons-inventory built-char)
-         @(subscribe [::mi5e/all-weapons-map]) ; re-frame subscription for all weapons
-         )
+         all-weapons-map)
         weapon-fields (mapcat
                        (fn [{:keys [name ::weapon5e/damage-die ::weapon5e/damage-die-count ::weapon5e/damage-type] :as weapon}]
                          (let [versatile (:versatile weapon)
@@ -456,7 +515,7 @@
                            (remove
                             nil?
                             [normal
-                             (if (:versatile weapon)
+                             (when (:versatile weapon)
                                {:name (str (:name weapon) " (two-handed)")
                                 :attack-bonus (char5e/weapon-attack-modifier built-char weapon false)
                                 :damage (damage-str (:damage-die versatile) (:damage-die-count versatile) normal-damage-modifier damage-type)})])))
@@ -509,24 +568,31 @@
    {}
    vals))
 
-(defn make-spec [built-char
-                 id
-                 {:keys [print-character-sheet?
-                         print-spell-cards?
-                         print-prepared-spells?
-                         print-large-abilities?
-                         print-character-sheet-style?
-                         print-spell-card-dc-mod?] :as options}]
+(defn make-spec
+  "Generate the PDF field spec. plugin-data is a map with keys:
+   :spells-map, :plugin-spells-map, :language-map,
+   :all-weapons-map, :all-magic-items-map, :current-armor-class
+   — all pre-subscribed by the calling component."
+  [built-char
+   id
+   {:keys [print-character-sheet?
+           print-spell-cards?
+           print-prepared-spells?
+           print-large-abilities?
+           print-character-sheet-style?
+           print-spell-card-dc-mod?] :as options}
+   {:keys [spells-map plugin-spells-map language-map
+           all-weapons-map all-magic-items-map current-armor-class]}]
   (let [race (char5e/race built-char)
         subrace (char5e/subrace built-char)
         abilities (abilities-spec
                    (char5e/ability-values built-char)
-                   (if (not print-large-abilities?)
+                   (when (not print-large-abilities?)
                      "-mod")
                    false)
         ability-bonuses (abilities-spec
                          (char5e/ability-bonuses built-char)
-                         (if print-large-abilities?
+                         (when print-large-abilities?
                            "-mod")
                          true)
         saving-throws (set (char5e/saving-throws built-char))
@@ -539,7 +605,6 @@
                                 shield (conj equipped-shields nil)]
                             (ac-with-armor-fn armor shield))
         max-armor-class (apply max all-armor-classes)
-        current-ac @(subscribe [::char5e/current-armor-class id])
         levels (char5e/levels built-char)
         classes (char5e/classes built-char)
         character-name (char5e/character-name built-char)
@@ -555,19 +620,19 @@
                             (s/join "\n"))
         speed (speed built-char)]
     (merge
-     {:race (str race (if subrace (str "/" subrace)))
+     {:race (str race (when subrace (str "/" subrace)))
       :alignment (char5e/alignment built-char)
       :class-level (class-string classes levels)
       :background (char5e/background built-char)
       :prof-bonus (common/bonus-str (es/entity-val built-char :prof-bonus))
-      :ac current-ac
+      :ac current-armor-class
       :hd total-hit-dice
       :initiative (common/bonus-str (es/entity-val built-char :initiative))
       :speed speed
       :hp-max (es/entity-val built-char :max-hit-points)
       :hp-current (char5e/current-hit-points built-char)
       :passive (es/entity-val built-char :passive-perception)
-      :other-profs (other-profs-field built-char)
+      :other-profs (other-profs-field built-char language-map)
       :personality-traits (s/join "\n\n" [(char5e/personality-trait-1 built-char) (char5e/personality-trait-2 built-char)])
       :ideals (char5e/ideals built-char)
       :bonds (char5e/bonds built-char)
@@ -593,7 +658,7 @@
       :print-character-sheet-style? print-character-sheet-style?
       :print-spell-card-dc-mod? print-spell-card-dc-mod?
       }
-     (attacks-and-spellcasting-fields built-char)
+     (attacks-and-spellcasting-fields built-char all-weapons-map)
      (skill-fields built-char)
      abilities
      ability-bonuses
@@ -604,5 +669,5 @@
       {}
       char5e/ability-keys)
      (traits-fields built-char)
-     (equipment-fields built-char)
-     (spellcasting-fields built-char print-prepared-spells?))))
+     (equipment-fields built-char all-magic-items-map)
+     (spellcasting-fields built-char print-prepared-spells? spells-map plugin-spells-map))))

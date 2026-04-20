@@ -1,6 +1,6 @@
 (ns orcpub.dnd.e5.event-handlers-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clojure.data :refer [diff]]
+            [clojure.data]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
             [orcpub.entity.strict :as se]
@@ -124,7 +124,7 @@
         non-strict (entity/from-strict strict)
         template (t5e/template
                    (t5e/template-selections nil nil nil nil nil nil nil nil nil nil nil nil))
-        class-selection (some (fn [s] (if (= :class (::t/key s)) s))
+        class-selection (some (fn [s] (when (= :class (::t/key s)) s))
                               (template ::t/selections))
         class-options (::t/options class-selection)
         class-option-map (zipmap (map ::t/key class-options) class-options)
