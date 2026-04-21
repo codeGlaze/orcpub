@@ -399,9 +399,112 @@ Without either, further static code review is unlikely to surface the cause.
 
 ---
 
+## Existing guards vs missing guards (2026-04-20)
+
+### Guards that DO exist
+
+| Layer | Guard | File:line | What it catches |
+|-------|-------|-----------|-----------------|
+| Server | `owns-entity?` | `routes.clj:841-848` | Rejects save if the authed user doesn't own the character's top-level `:db/id`. Throws `:not-user-character` → 401. |
+| Server | `spec/explain-data ::se/entity` on incoming | `routes.clj:946` | Rejects malformed strict payloads with 400. |
+| Server | Current-entity spec validity check | `routes.clj:872-879` | If the already-stored character is spec-invalid, uses the "retract and replace" path instead of diffing. Recovery path, not a cross-character guard. |
+| Server | `clean-up-character` | `routes.clj:930-939` | Normalizes XP string → long. Not a cross-character guard. |
+| Client | `check-spec-interceptor` | `events.cljs:101,146,213` | Validates `:character` (or initial db) against `::entity/raw-entity` after the event runs. Only applied to `character-interceptors` events and `:initialize-db`. |
+| Client | `::char5e/set-character` id-match + changed check | `events.cljs:2063-2065` | Only replaces in-memory `:character` with an incoming server result when `int-id` matches current `:character`'s `:db/id` **and** there are no unsaved changes. Prevents clobbering in-progress builder edits. |
+| Client | `update-character-fx` `(if id …)` | `events.cljs:2426` | Falls back to `:character` edit if no id is provided. (A branch, not a guard.) |
+| Routes | `check-auth` interceptor on save route | `routes.clj:1450` | Requires a valid session token. |
+
+### Guards that DO NOT exist (the gaps)
+
+| # | Missing guard | What it would prevent |
+|---|---------------|-----------------------|
+| G1 | **Server: verify every `:db/id` in sub-entities (`::se/values`, `::se/selections`, `::se/options`, `::char5e/features-used`) belongs to the character being saved** | A save for character A carrying character B's values-entity `:db/id`. Server would transact this, retract A's old values entity via the orphan-id diff, and re-point A's `::se/values` ref at B's values entity. Future saves by either side then mutate the shared entity. **This is the one concrete server-side mechanism that would produce the reported symptom.** |
+| G2 | Server: reject saves where sub-entities carry `:db/id`s owned by a different user | Cross-user version of G1. |
+| G3 | Server: on `create-new-character`, reject incoming sub-entity `:db/id`s | Catches a client bug where `remove-ids` was skipped on a clone; server currently accepts and preserves shared ids. |
+| G4 | Client: verify `(= (:db/id character) (js/parseInt id))` before writing to `character-map[int-id]` in `::char5e/set-character` | Out-of-band mispairings of id and character data. Current audit didn't find a caller that mispairs, but this is a cheap invariant. |
+| G5 | Client: verify `(:db/id character) == (js/parseInt id)` in the save handler before POST | Catches the case where `character-map[100]` somehow holds a character whose `:db/id` is 200. |
+| G6 | Client: clear `set-notes-handler` memoize cache on logout/route, or key by `[id, character :db/id]` | Defense-in-depth against stale closures. Theoretical given the audit. |
+
+### Why G1 is the most consequential gap
+
+G1 is the only gap where, once the bad state lands, the symptom is
+**persistent and reproducible**. Sequence:
+
+1. Client sends a save for character A with `::strict/values {:db/id V-B …}`, where `V-B` is actually character B's values-entity id.
+2. Server `update-character`:
+   - `owns-entity?` passes (user owns A).
+   - `current-ids` = db-ids of A's current tree — includes A's original values entity `V-A`.
+   - `new-ids` = db-ids of incoming — includes `V-B`, not `V-A`.
+   - `retract-ids = {V-A}` → cascade-retracts A's old values entity (emptying A's notes attribute because the entity holding it is gone).
+   - Transact writes the incoming data to `V-B`, and reassigns A's `::se/values` ref to `V-B`.
+3. Post-commit: `V-A` gone; `V-B` holds the just-saved notes; A references `V-B`; B still references `V-B`. Both A and B now share `V-B`.
+4. Every subsequent save on either A or B writes to `V-B`. Every read of either returns `V-B`'s content.
+
+This matches the observed symptom at the moment of observation. The "lower
+empty, higher full" display state is explainable as stale UI caching or a
+specific observation order; what's persistent in the DB is the shared-values
+state.
+
+### What produces a client payload with B's sub-entity id on an A save?
+
+The code audit didn't find a path in current code. Possibilities still open:
+
+- **Historical client bug** (pre-modernization, long-gone code): a version of
+  clone or import logic that didn't fully strip ids. The shared-id state
+  would persist to today in the user's DB.
+- **Reactive fetch race**: re-frame sub caching could transiently mix two
+  characters' data into one `character-map` entry before a save fires. Audit
+  didn't find a concrete write path but these caches can surprise.
+- **Orcbrew import / character export** that preserves ids across
+  round-trip. Haven't deeply reviewed the import path.
+
+### Proposed instrumentation (turn the next recurrence into evidence)
+
+Without a repro or `d/pull`, add logging so the next occurrence leaves
+diagnostic breadcrumbs:
+
+1. **Server** (`do-save-character`, pre-transact): log `{:char-id (:db/id character), :values-id (-> character ::se/values :db/id), :selection-ids (map :db/id (::se/selections character)), :user username}`. If two distinct characters ever log the same `:values-id`, causation is proven.
+2. **Server** (`update-character`, post-diff): log `retract-ids` and datom count. Unexpected `::se/values` retractions stand out.
+3. **Client** (`::char5e/save-character` handler, pre-POST): log id being saved alongside top-level `:db/id` and `::entity/values :db/id`.
+4. **Client** (`:character-save-success`): log returned `:db/id` and values-id to confirm round-trip.
+
+### Proposed defensive fix (independent of root cause)
+
+Adding G1 as a server-side rejection — not just logging — closes the most
+dangerous gap regardless of which client bug produced the bad payload.
+Implementation sketch:
+
+```clojure
+(defn validate-sub-entity-ownership
+  "Every sub-entity :db/id in the incoming payload must either (a) not exist
+   yet, or (b) already belong to the character being saved."
+  [db incoming-char]
+  (let [top-id    (:db/id incoming-char)
+        current   (when top-id (d/pull db '[*] top-id))
+        valid-ids (when current (entity/db-ids current))
+        incoming  (entity/db-ids incoming-char)
+        foreign   (reduce disj
+                          (disj incoming top-id)   ; top id is already owned-checked
+                          valid-ids)]
+    (when (seq foreign)
+      (throw (ex-info "Sub-entity :db/id not owned by this character"
+                      {:error   :foreign-sub-entity-ids
+                       :foreign foreign
+                       :char-id top-id})))))
+```
+
+Wire it into `update-character` just after `owns-entity?` and return 400
+(or a specific error code) if it throws. Cost: one extra set-difference per
+save. Benefit: the reported symptom becomes impossible to produce via the
+save route.
+
+---
+
+
 
 - **2026-04-20 (initial)** — T1/T2/T5/T6/T7 closed. T3/T4 flagged open.
 - **2026-04-20 (deep dig)** — T3/T4 confirmed: `::se/values` is a component entity, server orphan-id logic is per-character, round-trip preserves sub-entity ids. T8/T9/T10 closed. S1/S2/S3 opened. Conclusion: modernization didn't introduce the bug; data-level shared id is the most plausible root cause.
 - **2026-04-20 (timeline correction)** — reporter noticed bug Mar 15; modernization didn't reach production until Apr 8. Modernization code was never running when the symptom appeared. Shifts focus to pre-existing data corruption or a pre-modernization code bug.
 - **2026-04-20 (reproduction)** — reporter reports the bug recurred after rebuilding notes on both characters. Active, reproducible state. Shared-values-entity theory still consistent, but the exact "one empty, one populated" steady state needs the reporter's rebuild sequence and a `d/pull` to interpret. Added prioritized asks for reporter.
 - **2026-04-20 (deep code-smell audit)** — audited every write path into `character-map` and `:character` and the server save route. Found two real smells (level-up stale-db capture, builder-vs-sheet slot divergence) that cause edit **loss** but not edit **transfer**. No id-routing mechanism found that would write one character's notes onto another's values entity. The "one empty, one populated" steady state is inconsistent with persistent shared-values sharing, leaving either transient cascade-retraction or a persistence-layer anomaly as open possibilities. Static review has hit diminishing returns without either a `d/pull` or a repro log.
+- **2026-04-20 (guards audit)** — inventoried existing guards (server `owns-entity?`, spec validation, client id-match/changed check in `::char5e/set-character`) and enumerated six missing guards. The most consequential gap is **G1**: the server trusts every sub-entity `:db/id` in the incoming payload. A save carrying another character's `::se/values :db/id` would cause orphan-id logic to retract the current character's values entity and re-point it at the foreign one, producing persistent shared state that matches the reported symptom. Sketched a defensive fix (reject payloads whose sub-entity ids aren't in the target character's current tree) and instrumentation to catch the next recurrence regardless of root cause.
