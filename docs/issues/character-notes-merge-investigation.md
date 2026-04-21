@@ -239,9 +239,151 @@ not just "data corrupt or not":
    save payload to the other character's values id on write. Need to look
    harder at the client-to-wire-to-server path for id crossover.
 
+## Deeper code-smell audit (2026-04-20)
+
+Audited every write path that can land data into `::char5e/character-map`,
+`:character`, or Datomic via the save route.
+
+### Writes to `character-map[id]`
+
+| Site | Source of `id` | Source of `character`'s `:db/id` | Match? |
+|------|----------------|-----------------------------------|--------|
+| `events.cljs:2059-2066` — `::char5e/set-character` handler | passed arg (from save-success or sub response) | passed arg | Checked: callers always align these |
+| `events.cljs:2425-2432` — `update-character-fx` | passed arg | preserved from existing entry | OK |
+| `:character-save-success` (`events.cljs:367`) | `(:db/id character)` from server response | same | OK by construction |
+| `::char5e/character` sub-raw fetch response (`subs.cljs:518`) | closure-captured `int-id` | from response body (server `d/pull`) | OK |
+
+No path was found where the `id` key and the `character`'s `:db/id` could
+disagree, so a character stored at `character-map[100]` with `{:db/id 200 …}`
+is not achievable through the code as written.
+
+### Writes to `:character`
+
+Writes happen via `:set-character` (and `character-interceptors` for in-builder
+edits). `:set-character` stores whatever is passed; no id consistency check.
+
+This matters because `:save-character` (the manual save) reads `(:character db)`
+and posts with **that** map's `:db/id`. If `:character` is ever stale across a
+navigation (e.g. still holds lower's data while the user is on higher's sheet),
+a manual save writes lower's payload to lower's entity. That's an edit-loss
+pattern, not a cross-character transfer.
+
+### Smell found: stale-db capture in `::char5e/level-up`
+
+`events.cljs:2525-2529`:
+```clojure
+(reg-event-fx
+ ::char5e/level-up
+ (fn [{:keys [db]} [_ character-id]]
+   {:dispatch-n [[::char5e/add-level character-id]
+                 [:set-character (get-in db [::char5e/character-map
+                                             (js/parseInt character-id)] {})]
+                 [:route routes/dnd-e5-char-builder-route]]}))
+```
+
+The `:set-character` dispatch captures `db` **at handler return time**, before
+`::char5e/add-level` has run. So `:character` is set from the *pre-increment*
+character-map entry, while `character-map[id]` has the *post-increment* entry
+(add-level runs first in the dispatch-n queue).
+
+This creates a divergence:
+- `:character` = pre-level-up state
+- `character-map[id]` = post-level-up state
+
+Until the user edits something that triggers save or a new fetch, these diverge.
+If the user then types notes in the builder (which routes through `:character`
+because the builder renders `character-display` with `id=nil`), a manual save
+posts `:character` — overwriting the server-side post-level-up state with
+pre-level-up + the user's new notes. The added level is effectively lost on
+save if the user uses manual save before any autosave reconciles.
+
+**This is not cross-character contamination, but it's a real bug** — and the
+same class of "stale :character captured in dispatch args" could exist
+elsewhere. Searched for more; see below.
+
+### Builder passes `id=nil` to `character-display`
+
+`character_builder.cljs:1893` and `:1908` both call
+`[views5e/character-display nil true 1]`. Inside the builder, the notes
+textarea's `id` is `nil`, so:
+
+- Its subscription `@(subscribe [::char/notes nil])` falls through to
+  `(subscribe [:built-character])` → reads `:character` (`subs.cljs:741-746`).
+- `(set-notes-handler nil)` dispatches `[::char/set-notes nil v]`.
+- `update-character-fx` with `id=nil` takes the else branch
+  (`events.cljs:2432`) — updates `:character` via `:set-character`. **No
+  autosave is queued.**
+
+On the character SHEET, `id` is the character's real id, notes dispatch carries
+that id, and autosave is queued.
+
+So edits in the builder and edits on the sheet target different slots:
+- Builder edit → `:character` → saved only by manual save button.
+- Sheet edit → `character-map[id]` → saved by throttled autosave.
+
+If the user moves between builder and sheet while editing the same character,
+edits made in one view aren't visible to the other until a save+reload cycle
+re-syncs. This is another staleness surface but again not cross-character.
+
+### `input-field` Form-2 component state (`components.cljc:51-72`)
+
+`local-val` and `prev` atoms persist for the life of the component instance.
+If React reuses the instance across character switches (same tree position,
+no `:key`), the per-instance atoms carry old state. The `(not= value @prev)`
+reconciler clears `local-val` whenever the subscription value changes, so
+the display recovers on re-render. No missing-clear path found; this is
+robust across single-character edit flows but it's load-bearing — any change
+that short-circuits the reconciler would cause stale typed text to be
+dispatched under whatever `on-change` is closed over at that moment.
+
+### No server-side clone, merge, or mass-edit endpoints
+
+Confirmed: all character mutation goes through `save-character` →
+`update-character` / `create-new-character`. No admin migration script that
+could cross-assign sub-entity ids.
+
 ---
 
-## Ask reporter (prioritized)
+## What the "one empty, one populated" symptom argues
+
+If both characters truly **shared** one `::se/values` entity (the leading
+theory), edits on either would be visible on both at all times. The reporter's
+steady state — lower empty, higher carrying lower's text — is **inconsistent**
+with persistent sharing.
+
+Plausible reconciliations:
+1. The values entities are **not** shared, and the symptom is id-routing on
+   save (one character's save payload somehow writes to the other's values
+   datom). Our code audit didn't find the mechanism.
+2. The values entities **are** shared, and the symptom is a transient
+   snapshot — at the moment of observation, some cascade retraction (e.g.
+   incoming save omitted `::entity/values`, server computed `retract-ids`
+   and cascaded-retracted the shared values entity) cleared both, and a
+   subsequent save on higher only re-populated higher's view. This is
+   fragile and depends on request ordering we can't reproduce.
+3. The bug is **upstream of Datomic** — a persistence layer issue (H2
+   storage, the Datomic Free→Pro migration artifact) leaked data between
+   otherwise-distinct entities. The user's production hasn't been migrated
+   yet (pre-modernization), so this is lower probability, but worth naming.
+
+---
+
+## Net verdict
+
+After an exhaustive audit of the client save/fetch/update pipeline and the
+server update-character route, **no code path reliably causes notes to be
+written from one character to another character's entity**. The level-up
+stale-db and builder-vs-sheet slot divergence smells we did find cause edit
+**loss**, not edit **transfer**. The reproducible transfer symptom most
+likely needs either:
+
+- a data-level check (`d/pull` to see if the two characters' `::se/values`
+  share an id), or
+- a step-by-step reproduction log from the user (click sequence, browser tab
+  count, whether they refreshed between edits) to reconstruct the offending
+  save order.
+
+Without either, further static code review is unlikely to surface the cause.
 
 1. **`d/pull` for both characters** — single most valuable data point:
    ```clojure
@@ -262,3 +404,4 @@ not just "data corrupt or not":
 - **2026-04-20 (deep dig)** — T3/T4 confirmed: `::se/values` is a component entity, server orphan-id logic is per-character, round-trip preserves sub-entity ids. T8/T9/T10 closed. S1/S2/S3 opened. Conclusion: modernization didn't introduce the bug; data-level shared id is the most plausible root cause.
 - **2026-04-20 (timeline correction)** — reporter noticed bug Mar 15; modernization didn't reach production until Apr 8. Modernization code was never running when the symptom appeared. Shifts focus to pre-existing data corruption or a pre-modernization code bug.
 - **2026-04-20 (reproduction)** — reporter reports the bug recurred after rebuilding notes on both characters. Active, reproducible state. Shared-values-entity theory still consistent, but the exact "one empty, one populated" steady state needs the reporter's rebuild sequence and a `d/pull` to interpret. Added prioritized asks for reporter.
+- **2026-04-20 (deep code-smell audit)** — audited every write path into `character-map` and `:character` and the server save route. Found two real smells (level-up stale-db capture, builder-vs-sheet slot divergence) that cause edit **loss** but not edit **transfer**. No id-routing mechanism found that would write one character's notes onto another's values entity. The "one empty, one populated" steady state is inconsistent with persistent shared-values sharing, leaving either transient cascade-retraction or a persistence-layer anomaly as open possibilities. Static review has hit diminishing returns without either a `d/pull` or a repro log.
