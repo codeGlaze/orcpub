@@ -193,8 +193,72 @@ clone was made) and simply never been visible until one side was edited.
 
 ---
 
-## Log
+## Reproduction (2026-04-20 update from reporter)
+
+User rebuilt notes on both characters, and the transfer happened **again**.
+The bug is currently reproducible.
+
+### What reproduction rules in
+
+- **Shared `::se/values :db/id`** is still consistent with this: if both
+  characters genuinely reference the same values entity in Datomic, every save
+  on either side overwrites the shared entity, and last-write wins. Rebuilding
+  both characters would reliably recreate the symptom as long as the shared-id
+  state persists in the DB.
+
+### What reproduction rules out (or strains)
+
+- **Pure one-time data corruption, already resolved** — if it was a stale state
+  that got cleaned up, rebuilding notes shouldn't reproduce it.
+- **Pure session-local race with no persistent effect** — reproducibility
+  across sessions points at durable state (DB or serialized client cache).
+
+### Subtle shape of the symptom vs shared-id mechanics
+
+Reporter describes: *lower ends up empty, higher carries what lower had.*
+With a literally-shared `::se/values` entity, both characters must display
+**the same** notes at any given moment (they read from the same datom).
+So the exact "one empty, one full" steady state requires:
+
+- Either the save for one side is writing to the shared entity with empty
+  string, and the save for the other side is writing the real text — and the
+  display is snapshotting those writes at different times.
+- Or the two characters don't actually share the values entity, and the bug
+  is in the save path's id routing (writing one character's notes under the
+  other's values id via some other mechanism).
+
+This means **the `d/pull` query now distinguishes between two live theories**,
+not just "data corrupt or not":
+
+1. Same `::se/values :db/id` → shared entity. The persistent "one empty,
+   one full" state means a save sequence is writing empty then non-empty to
+   the same entity, and the reporter's perception of "which character had
+   which notes" is driven by *when* they looked vs *when* the last write
+   happened. Fix = give each character its own values entity.
+2. Different `::se/values :db/id` → something is routing one character's
+   save payload to the other character's values id on write. Need to look
+   harder at the client-to-wire-to-server path for id crossover.
+
+---
+
+## Ask reporter (prioritized)
+
+1. **`d/pull` for both characters** — single most valuable data point:
+   ```clojure
+   (d/pull db '[:db/id ::char5e/notes {::se/values [:db/id ::char5e/notes]}] <low-id>)
+   (d/pull db '[:db/id ::char5e/notes {::se/values [:db/id ::char5e/notes]}] <high-id>)
+   ```
+2. **Rebuild sequence** — when you re-entered notes, was it same session or different sessions? Which character's notes were typed first? Did you save (or navigate away) between them? Did you refresh the browser between edits?
+3. **Display state at time of report** — does lower show empty *and higher show the text lower used to have*, or does lower show empty while higher shows higher's original text (untouched)? The difference tells us whether a write happened on the higher entity at all.
+4. **Other fields** — if you edit HP, XP, or description on lower, does that also transfer? If yes, the shared object is the whole `::se/values` entity. If no (only notes), the shared thing is narrower and our model is wrong.
+5. **Browser console errors** during the rebuild attempt.
+6. **Network tab**: for each save request during the rebuild, what `:db/id` is in the request body top-level and inside `::strict/values`?
+7. **Clone history** — when was the clone originally made? Was it made via the in-app "Clone" button, or a different route (import, orcbrew, admin action)?
+
+---
+
 
 - **2026-04-20 (initial)** — T1/T2/T5/T6/T7 closed. T3/T4 flagged open.
 - **2026-04-20 (deep dig)** — T3/T4 confirmed: `::se/values` is a component entity, server orphan-id logic is per-character, round-trip preserves sub-entity ids. T8/T9/T10 closed. S1/S2/S3 opened. Conclusion: modernization didn't introduce the bug; data-level shared id is the most plausible root cause.
 - **2026-04-20 (timeline correction)** — reporter noticed bug Mar 15; modernization didn't reach production until Apr 8. Modernization code was never running when the symptom appeared. Shifts focus to pre-existing data corruption or a pre-modernization code bug.
+- **2026-04-20 (reproduction)** — reporter reports the bug recurred after rebuilding notes on both characters. Active, reproducible state. Shared-values-entity theory still consistent, but the exact "one empty, one populated" steady state needs the reporter's rebuild sequence and a `d/pull` to interpret. Added prioritized asks for reporter.
