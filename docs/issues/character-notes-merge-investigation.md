@@ -425,10 +425,114 @@ Without either, further static code review is unlikely to surface the cause.
 | G5 | Client: verify `(:db/id character) == (js/parseInt id)` in the save handler before POST | Catches the case where `character-map[100]` somehow holds a character whose `:db/id` is 200. |
 | G6 | Client: clear `set-notes-handler` memoize cache on logout/route, or key by `[id, character :db/id]` | Defense-in-depth against stale closures. Theoretical given the audit. |
 
-### Why G1 is the most consequential gap
+### What the `::char5e/set-character` id-match guard does and doesn't do
 
-G1 is the only gap where, once the bad state lands, the symptom is
-**persistent and reproducible**. Sequence:
+Re-reading the guard carefully (`events.cljs:2063-2065`):
+
+```clojure
+(if (and (= int-id (get-in db [:character :db/id]))
+         (not (get-in db [:character :changed])))
+  (assoc updated :character character)
+  updated)
+```
+
+**What it does**: when a background fetch or save-success response arrives
+for id X, it only overwrites the in-memory `:character` slot if
+(a) `:character` is already at id X, and (b) `:character` has no unsaved
+builder edits. This prevents a background fetch from clobbering work the user
+is doing in the builder for a different character.
+
+**What it does NOT do**: it does not prevent `:character` from being stale.
+If the guard's condition fails, `character-map[int-id]` still gets updated
+with the fresh data, but **`:character` is left pointing at whatever
+character it was pointing at before** — possibly a completely different
+character than the one the user now believes they are viewing.
+
+**Staleness is intentional** (the guard's purpose is precisely to not
+overwrite the user's current edit), but the staleness has a downstream
+consequence that is NOT guarded: any code path that reads `(:character db)`
+and writes based on it will act on the stale character. In particular:
+
+- `:save-character` (manual save) reads `(:character db)` and posts with its
+  `:db/id`. If `:character` is stale at id=100 while the user believes they
+  are editing/viewing the character at id=200, a manual save writes to
+  entity 100, not 200.
+- `::char5e/clone-character` reads `(:character db)` and clones from it. A
+  stale `:character` means you clone a different character than the one you
+  thought.
+- Any interceptor in `character-interceptors` writes to `:character` — any
+  builder edit touches whatever character is in that slot.
+
+### Cross-tab / multiple-window scenario (responding to the question)
+
+Same browser, two tabs/windows, same origin, same user. Each tab is an
+independent JS runtime — its own re-frame `app-db`, React tree, subscription
+caches, and `set-notes-handler` memoize cache. They do not share in-memory
+state. They **do** share:
+
+- `localStorage` (the "character" key, written by every `:set-character`
+  dispatch via the `db-char->local-store` interceptor in `events.cljs:105`).
+- Cookies / auth token.
+- Server-side DB.
+
+The orcpub code does **not** listen for the DOM `storage` event (grep
+confirms no `addEventListener("storage"…)` anywhere). So writes from one tab
+do NOT push into the other tab's running `app-db`. Cross-tab `:character`
+contamination can only land via **page reload**, where `:initialize-db`
+reads whichever tab wrote `localStorage` most recently.
+
+#### Concrete cross-tab sequence that produces a wrong-character write
+
+1. Tab A: open lower character's builder. `:character` = lower, id=100.
+   localStorage = lower.
+2. Tab B: open higher character's builder. `:character` = higher, id=200.
+   localStorage = higher.
+3. User clicks save in Tab A → autosave/manual save of lower succeeds →
+   `:character-save-success` dispatches `[:set-character response]` →
+   Tab A's `:character` = lower, localStorage = **lower**.
+4. User clicks save in Tab B → same flow → Tab B's `:character` = higher,
+   localStorage = **higher**.
+5. Browser crash / accidental reload / device sleep on Tab A. Tab A reloads
+   the builder URL. `:initialize-db` reads localStorage — which is now
+   **higher** (from step 4). Tab A's `:character` = higher, id=200.
+6. The builder URL has no id in the path — `character_builder.cljs:1893`
+   and `:1908` render `[views5e/character-display nil true 1]`. The builder
+   renders whatever `:character` happens to be.
+7. **Tab A's user sees higher's data in what they believe is lower's tab.**
+   They may or may not notice — if the character names are similar, or
+   they're focused on a specific field (notes), they may just continue
+   editing.
+8. User types "L notes" into the notes field in Tab A, thinking they are
+   editing lower. The in-builder notes handler uses `id=nil`
+   (`views.cljs:2790` → `(set-notes-handler nil)`), so it dispatches
+   `[::char/set-notes nil "L notes"]`, which takes the else branch in
+   `update-character-fx` (`events.cljs:2432`) and writes to `:character`.
+   `:character` is higher. So higher's in-memory notes become "L notes".
+9. User clicks save in Tab A. `:save-character` reads `(:character db)` —
+   higher with notes "L notes". Posts with `:db/id 200`. Server writes.
+   Higher on server now has "L notes".
+10. Meanwhile, lower on server still has whatever it had before. If the
+    user also cleared lower's notes at some earlier point thinking they
+    were re-doing them, lower is empty.
+11. End state: **higher shows "L notes" (what the user meant for lower),
+    lower shows empty**. Matches the reported symptom exactly.
+
+This scenario does not require any shared Datomic sub-entity id. It does
+not require a bug in the save path. It only requires:
+
+- The user has two tabs / windows open on different characters.
+- The user or browser triggers a reload at the wrong moment.
+- The localStorage-restored `:character` doesn't match the tab's context.
+- The id-match guard in `::char5e/set-character` correctly refuses to
+  overwrite `:character`, so the staleness persists.
+- The user edits in the builder (or via a path that routes through
+  `:character`) without noticing the discrepancy.
+
+The guard is working exactly as designed — it's protecting unsaved edits.
+The design itself assumes a single-tab workflow and doesn't reconcile
+`:character` against "which character should I be editing right now".
+
+### Why G1 is the most consequential gap
 
 1. Client sends a save for character A with `::strict/values {:db/id V-B …}`, where `V-B` is actually character B's values-entity id.
 2. Server `update-character`:
@@ -508,3 +612,4 @@ save route.
 - **2026-04-20 (reproduction)** — reporter reports the bug recurred after rebuilding notes on both characters. Active, reproducible state. Shared-values-entity theory still consistent, but the exact "one empty, one populated" steady state needs the reporter's rebuild sequence and a `d/pull` to interpret. Added prioritized asks for reporter.
 - **2026-04-20 (deep code-smell audit)** — audited every write path into `character-map` and `:character` and the server save route. Found two real smells (level-up stale-db capture, builder-vs-sheet slot divergence) that cause edit **loss** but not edit **transfer**. No id-routing mechanism found that would write one character's notes onto another's values entity. The "one empty, one populated" steady state is inconsistent with persistent shared-values sharing, leaving either transient cascade-retraction or a persistence-layer anomaly as open possibilities. Static review has hit diminishing returns without either a `d/pull` or a repro log.
 - **2026-04-20 (guards audit)** — inventoried existing guards (server `owns-entity?`, spec validation, client id-match/changed check in `::char5e/set-character`) and enumerated six missing guards. The most consequential gap is **G1**: the server trusts every sub-entity `:db/id` in the incoming payload. A save carrying another character's `::se/values :db/id` would cause orphan-id logic to retract the current character's values entity and re-point it at the foreign one, producing persistent shared state that matches the reported symptom. Sketched a defensive fix (reject payloads whose sub-entity ids aren't in the target character's current tree) and instrumentation to catch the next recurrence regardless of root cause.
+- **2026-04-20 (two-window hypothesis)** — re-read the `::char5e/set-character` id-match guard closely. It protects unsaved builder edits from being clobbered by background fetches, but leaves `:character` **stale** when the id doesn't match. Combined with (a) localStorage being a single "character" slot shared across tabs but not listened to for cross-tab sync, and (b) the builder URL carrying no id (it always edits `:character`), this produces a concrete cross-tab scenario in which a reload in one tab can load the other tab's `:character` from localStorage, and subsequent builder edits + manual save post to the wrong entity. End state: the "wrong" character carries the text meant for the "right" one. Matches the reported symptom **without requiring any shared sub-entity ids in Datomic**. This is likely the real mechanism.
