@@ -52,11 +52,15 @@ The **builder** is the anomaly:
 
 This reproduces the reported symptom without any shared sub-entity ids in Datomic. It also plausibly explains why the bug recurred after the user "rebuilt" notes — the multi-tab pattern is the DM's normal workflow.
 
-## Why id-in-URL alone is not sufficient
+## Why id-in-URL alone is not the point
 
-The **character list page** (`/pages/dnd/5e/characters`) displays many characters and lets the user expand each to edit notes inline. Each expanded row calls `[expanded-character-list-item id …]` (`views.cljs:8065`) which eventually renders `[summary-details num-columns id]` with a real id. That path writes through `character-map[id]` and is already correctly isolated per character — multiple characters edited from one URL is fine.
+The **character list page** (`/pages/dnd/5e/characters`) displays many characters and lets the user expand each to edit notes inline. Each expanded row calls `[expanded-character-list-item id …]` (`views.cljs:8065`) which renders `[summary-details num-columns id]` with a real id. That path writes through `character-map[id]` and is correctly isolated per character — many characters edited from one URL works fine.
 
-So the robust fix is not "put the id in every URL" — it's **eliminate the floating `:character` slot**. Every read and write should key by id through `character-map`. The builder is the only view that doesn't do this today.
+The list view isn't safe *because* of its URL. It's safe because **the id is threaded through component props**, and every downstream subscription and event takes the id as an argument. `character-map[id]` gets all the reads and writes.
+
+The builder is the anomaly. It passes `id=nil` to the same `character-display` component (`character_builder.cljs:1893,1908`). Every sub and event short-circuits on `nil` into the `:character` slot (`subs.cljs:741-746`, `events.cljs:2432`). The `:character` slot isn't the problem per se — **the `id=nil` signal is**, because it's a "no character specified" contract that everything downstream interprets as "use the floating slot."
+
+The robust fix is: **make the builder a by-id view, like every other view in the app**. The URL extension is just the reload-survival mechanism so a fresh tab can re-seed the component tree with the right id. Runtime routing is already solved — the list-view proves it.
 
 ## Existing guards
 
@@ -84,7 +88,7 @@ Ship order, each independently valuable:
 
 1. **SessionStorage for the character draft.** Swap `character->local-store` / `:local-store-character` from `localStorage` to `sessionStorage` for the character draft key only. `sessionStorage` is per-tab by spec. Closes the multi-tab reload contamination path. ~One file change.
 
-2. **Eliminate the floating `:character` slot in the builder.** Route the builder to `/character-builder/:id` (plus `/character-builder/new` for unsaved new characters), matching the id-in-URL convention already used by share links (`route_map.cljc:180`, `fork/integrations.cljs:112,124`). Hydrate from `character-map[url-id]` on route match. Update `character-display` callsites in `character_builder.cljs` to pass the real id instead of `nil`. Once done, every view (list, sheet, builder) keys by id the same way, and `:character` can be removed or reduced to a transient "new character" buffer.
+2. **Make the builder a by-id view, matching the list view.** The list view proves that threading the id through component props routes all reads/writes correctly through `character-map[id]` (`views.cljs:8065`). The builder does the opposite — it passes `id=nil` at `character_builder.cljs:1893,1908`, and every sub and event short-circuits `nil` into the `:character` slot (`subs.cljs:741-746`, `events.cljs:2432`). Fix: give the builder a real id. URL route `/character-builder/:id` (plus `/character-builder/new` for unsaved new characters) extends the id-in-URL convention already used by share links (`route_map.cljc:180`, `fork/integrations.cljs:112,124`) and gives reload survival; the builder hydrates from `character-map[url-id]` on route match and passes the id into `character-display`. `:character` survives only as the transient buffer for genuinely-unsaved new characters.
 
 3. **Server-side G1 guard.** In `update-character`, compute `incoming-ids = entity/db-ids` on the incoming payload and reject with 400 if any id (other than the top-level character id) is not in `entity/db-ids` of the currently-stored character. One `clojure.set/difference` per save. Permanent safety net against any future client bug that would cross-write sub-entities.
 
@@ -144,3 +148,4 @@ The modernization was NOT live when the bug was first noticed, so it cannot be t
 - **2026-04-20** — Multi-tab hypothesis identified as the likely mechanism after re-reading the `::char5e/set-character` guard. The guard protects unsaved edits but leaves `:character` stale across tab/reload boundaries. Localstorage is shared cross-tab but the app doesn't listen for the `storage` event, so contamination lands only on reload.
 - **2026-04-20** — Confirmed list-view inline edit already routes correctly by id through `character-map` (`views.cljs:8065`). So the fix isn't "id in every URL" — it's "eliminate the floating `:character` slot."
 - **2026-04-20** — Share-link routes already use id in URL (`route_map.cljc:180`, `fork/integrations.cljs:112`). Extending the same convention to the builder is an incremental change, not a new pattern.
+- **2026-04-20** — Clarified framing: the real fix isn't "eliminate `:character`" per se, it's "make the builder a by-id view like the list view already is." The id-in-URL is a reload-survival mechanism; runtime routing is already correct anywhere the id is threaded through props. `:character` can stay as a transient buffer for unsaved-new-character flow.
