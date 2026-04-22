@@ -54,13 +54,22 @@ This reproduces the reported symptom without any shared sub-entity ids in Datomi
 
 ## Why id-in-URL alone is not the point
 
-The **character list page** (`/pages/dnd/5e/characters`) displays many characters and lets the user expand each to edit notes inline. Each expanded row calls `[expanded-character-list-item id …]` (`views.cljs:8065`) which renders `[summary-details num-columns id]` with a real id. That path writes through `character-map[id]` and is correctly isolated per character — many characters edited from one URL works fine.
+The **character list page** (`/pages/dnd/5e/characters`) displays many characters and lets the user expand each to edit notes inline. Each expanded row calls `[expanded-character-list-item id …]` (`views.cljs:8065`) which renders `[summary-details num-columns id]` with a real id. That path writes through `character-map[id]` and is correctly isolated per character — many characters edited from one URL works fine, no id in the URL required.
 
-The list view isn't safe *because* of its URL. It's safe because **the id is threaded through component props**, and every downstream subscription and event takes the id as an argument. `character-map[id]` gets all the reads and writes.
+The list view isn't safe *because* of its URL. It's safe because the id comes from the **data**: the `::char5e/characters` subscription returns a list of characters, each row receives its id as a component prop, and every downstream sub/event uses that id. Reload: sub re-fetches, rows re-materialize with their ids. No per-tab identity signal needed because no single "which character" decision exists — there are many rows, each with its own id.
 
-The builder is the anomaly. It passes `id=nil` to the same `character-display` component (`character_builder.cljs:1893,1908`). Every sub and event short-circuits on `nil` into the `:character` slot (`subs.cljs:741-746`, `events.cljs:2432`). The `:character` slot isn't the problem per se — **the `id=nil` signal is**, because it's a "no character specified" contract that everything downstream interprets as "use the floating slot."
+The **builder** edits exactly one character. There's no enumerated data source handing it an id; it has to *know* which character. Today it knows because `:character` in app-db holds it (set by `:edit-character`, clone, level-up, or restored from `localStorage` on init). That works in-memory per tab.
 
-The robust fix is: **make the builder a by-id view, like every other view in the app**. The URL extension is just the reload-survival mechanism so a fresh tab can re-seed the component tree with the right id. Runtime routing is already solved — the list-view proves it.
+The failure mode is purely the **reload-survival signal**: across a reload, "which character was this tab editing?" has to come from somewhere that's per-tab. Today that signal is `localStorage["character"]` — shared across tabs, last writer wins, which is exactly the contamination path.
+
+So the question is just: where does the per-tab reload-survival signal live?
+
+- Today's shared `localStorage` — broken by design for multi-tab.
+- Per-tab `sessionStorage` — per-tab by web spec; zero cross-tab contention; no router work.
+- URL path (`/character-builder/:id`) — inherently per-tab; also bookmarkable, shareable, consistent with every other character-specific page.
+- No reload survival at all — reload of builder redirects to list; user re-picks the character.
+
+For **correctness** (closing the bug), the `sessionStorage` swap is sufficient. The URL-based approach is worthwhile as a follow-up for architectural reasons (shareability, bookmarkability, cleaning up unrelated staleness smells in `level-up` and builder-vs-sheet), but it's not a prerequisite.
 
 ## Existing guards
 
@@ -84,17 +93,17 @@ The robust fix is: **make the builder a by-id view, like every other view in the
 
 ## Recommended fixes
 
-Ship order, each independently valuable:
+Ship order:
 
-1. **SessionStorage for the character draft.** Swap `character->local-store` / `:local-store-character` from `localStorage` to `sessionStorage` for the character draft key only. `sessionStorage` is per-tab by spec. Closes the multi-tab reload contamination path. ~One file change.
+1. **SessionStorage for the character draft** *(minimal correct fix)*. Swap `character->local-store` / `:local-store-character` from `localStorage` to `sessionStorage` for the character draft key only. `sessionStorage` is per-tab by spec, so the reload-survival signal becomes per-tab too. Three-tab scenario works correctly end-to-end. ~One file change (`db.cljs`). This alone closes the reported bug's mechanism.
 
-2. **Make the builder a by-id view, matching the list view.** The list view proves that threading the id through component props routes all reads/writes correctly through `character-map[id]` (`views.cljs:8065`). The builder does the opposite — it passes `id=nil` at `character_builder.cljs:1893,1908`, and every sub and event short-circuits `nil` into the `:character` slot (`subs.cljs:741-746`, `events.cljs:2432`). Fix: give the builder a real id. URL route `/character-builder/:id` (plus `/character-builder/new` for unsaved new characters) extends the id-in-URL convention already used by share links (`route_map.cljc:180`, `fork/integrations.cljs:112,124`) and gives reload survival; the builder hydrates from `character-map[url-id]` on route match and passes the id into `character-display`. `:character` survives only as the transient buffer for genuinely-unsaved new characters.
+2. **(Optional follow-up) Builder by id in URL.** Not required for correctness. Worth doing for: shareability ("send a link to edit this character"), bookmarkability, architectural consistency with every other character-specific page, and incidental cleanup of the `level-up` stale-db capture smell (`events.cljs:2525-2529`) and the builder-vs-sheet slot divergence. URL route `/character-builder/:id` (plus `/character-builder/new` for unsaved new characters) matches the id-in-URL convention already used by share links (`route_map.cljc:180`). Once the builder reads id from the URL, the `character-display` callsites at `character_builder.cljs:1893,1908` pass the real id instead of `nil`, and every sub/event routes through `character-map[id]` just like the list view does.
 
-3. **Server-side G1 guard.** In `update-character`, compute `incoming-ids = entity/db-ids` on the incoming payload and reject with 400 if any id (other than the top-level character id) is not in `entity/db-ids` of the currently-stored character. One `clojure.set/difference` per save. Permanent safety net against any future client bug that would cross-write sub-entities.
+3. **Server-side G1 guard** *(permanent safety net)*. In `update-character`, compute `incoming-ids = entity/db-ids` on the incoming payload and reject with 400 if any id (other than the top-level character id) is not in `entity/db-ids` of the currently-stored character. One `clojure.set/difference` per save. Catches any present or future client bug that would cross-write sub-entities — independent of what the client does.
 
-Add instrumentation alongside (1) and (2): log `{:char-id, :values-id, :selection-ids}` on every save (server) and on every autosave dispatch (client). Turns any future recurrence into diagnostic evidence.
+Add instrumentation alongside (1): log `{:char-id, :values-id, :selection-ids}` on every save (server) and on every autosave dispatch (client). Turns any future recurrence into diagnostic evidence.
 
-Skip the "save-time id reconciliation" and "per-id draft map" options — they become unnecessary once (2) lands.
+Skip the "save-time id reconciliation" and "per-id draft map" options — unnecessary once (1) lands, and (2) if it lands.
 
 ## Timeline
 
@@ -149,3 +158,4 @@ The modernization was NOT live when the bug was first noticed, so it cannot be t
 - **2026-04-20** — Confirmed list-view inline edit already routes correctly by id through `character-map` (`views.cljs:8065`). So the fix isn't "id in every URL" — it's "eliminate the floating `:character` slot."
 - **2026-04-20** — Share-link routes already use id in URL (`route_map.cljc:180`, `fork/integrations.cljs:112`). Extending the same convention to the builder is an incremental change, not a new pattern.
 - **2026-04-20** — Clarified framing: the real fix isn't "eliminate `:character`" per se, it's "make the builder a by-id view like the list view already is." The id-in-URL is a reload-survival mechanism; runtime routing is already correct anywhere the id is threaded through props. `:character` can stay as a transient buffer for unsaved-new-character flow.
+- **2026-04-20** — Tightened further: the list view works without URL ids because the id comes from the data (enumerated characters list). The builder edits one character, so it needs a per-tab identity signal that survives reload. Today that signal is shared localStorage — the contamination root cause. `sessionStorage` is sufficient to fix correctness (per-tab by web spec). URL-in-path is a nice-to-have for shareability and cleanup, not a prerequisite.
