@@ -399,7 +399,111 @@ Without either, further static code review is unlikely to surface the cause.
 
 ---
 
-## Existing guards vs missing guards (2026-04-20)
+## Multi-character workflow (DM with a party): design options
+
+A DM editing a party of 2–6 characters typically has several tabs open on
+the same browser. The single-slot `:character` + single-key localStorage
+design doesn't hold up to that workflow — the two-window mechanism above is
+the generalized form of the bug, not an edge case.
+
+Options, ranked by invasiveness:
+
+### Option A — Draft in `sessionStorage`, not `localStorage` (smallest fix)
+
+**Change**: swap `character->local-store`/`:local-store-character` to use
+`sessionStorage` for the character draft key. `sessionStorage` is per-tab by
+spec.
+
+**Impact**:
+- Tab A's reload never picks up Tab B's draft — the cross-tab contamination
+  path documented above is closed.
+- Drafts survive in-tab reloads (what users actually want).
+- Closing a tab intentionally throws away its draft. Arguably desirable;
+  today's "recover from localStorage" behavior is what produces the bug.
+
+**Cost**: effectively one-line change in `db.cljs`. No router or view changes.
+
+**Closes**: the two-window hypothesis path. Does not fix the builder-has-no-id
+staleness smells for a single tab.
+
+### Option B — Put the character id in the builder URL
+
+**Change**: `/builder` → `/character/:id/edit` (and `/character/new` for an
+unsaved new character). On route match, hydrate `:character` from
+`character-map[url-id]` (fetch if missing). Update `character-display` and
+`summary-details` in the builder to read by id instead of `nil`.
+
+**Impact**:
+- Each tab's URL is the single source of truth for "which character am I
+  editing." Reloads always restore the correct character.
+- The `level-up` stale-db smell (`events.cljs:2525-2529`) disappears because
+  level-up just routes to `/character/:id/edit` and the builder re-hydrates
+  on arrival — no pre-computed `:set-character` dispatch needed.
+- The builder-vs-sheet slot divergence goes away — both views now key by id.
+- Natural place to add a route guard that checks ownership before showing
+  the builder.
+
+**Cost**: medium. Router changes, view signature changes, need to preserve
+the unsaved-new-character flow (`/character/new` → saves to server → routes
+to `/character/:new-id/edit`).
+
+**Closes**: the tab-context-mismatch staleness class entirely. Combined
+with A, gives full isolation.
+
+### Option C — Per-id draft store in app-db + storage
+
+**Change**: replace `:character` with `::char5e/in-progress {id1 draft1,
+id2 draft2, :new new-draft}` keyed by id. Persist as per-id storage keys
+(`character-draft-100`, `character-draft-200`, `character-draft-new`).
+
+**Impact**: each character's unsaved work is isolated even if the same tab
+visits multiple characters. Natural when combined with B, since the tab
+knows its id from the URL.
+
+**Cost**: medium-high. Touches every site that reads or writes
+`:character`. Worth considering if DMs routinely leave multiple drafts open.
+
+### Option D — Save-time id reconciliation guard
+
+**Change**: in `:save-character` (and any other path that reads
+`:character` to post), compare `(:db/id (:character db))` against the
+URL/context id. On mismatch, refuse with an error and surface a dialog.
+
+**Impact**: detection-only — doesn't *prevent* the user from having been
+confused, just prevents the wrong-entity save from going through.
+
+**Cost**: low. Needs the tab to know its context id, which requires B.
+
+### Option E — Server-side G1 guard (orthogonal safety net)
+
+**Change**: in `update-character`, validate that every sub-entity `:db/id`
+in the incoming payload is already in the target character's current tree
+(`entity/db-ids` of the existing entity). Reject otherwise with 400.
+
+**Impact**: closes a different failure mode — any present or future client
+bug that would cross-write sub-entities is rejected at the server.
+Independent of the tab problem.
+
+**Cost**: low. One extra `clojure.set/difference` per save plus an
+error-response branch.
+
+### Recommended ship order
+
+1. **A now** (sessionStorage swap). Single-PR, closes the multi-window
+   contamination path. If the user's symptom really is the two-tab pattern,
+   this alone prevents recurrence.
+2. **B next** (id in builder URL). Makes the tab ↔ character mapping
+   explicit and unlocks C cleanly if ever needed. Also cleans up the two
+   staleness smells found during the audit.
+3. **E as a permanent server-side safety net**, regardless of the client
+   changes. Even a future client bug can't cross-write sub-entities into
+   another character once this is in place.
+
+Skip C unless the DM workflow reveals it's needed after A+B land. Skip D
+if B lands, since B makes the mismatch architecturally impossible.
+
+---
+
 
 ### Guards that DO exist
 
@@ -613,3 +717,4 @@ save route.
 - **2026-04-20 (deep code-smell audit)** — audited every write path into `character-map` and `:character` and the server save route. Found two real smells (level-up stale-db capture, builder-vs-sheet slot divergence) that cause edit **loss** but not edit **transfer**. No id-routing mechanism found that would write one character's notes onto another's values entity. The "one empty, one populated" steady state is inconsistent with persistent shared-values sharing, leaving either transient cascade-retraction or a persistence-layer anomaly as open possibilities. Static review has hit diminishing returns without either a `d/pull` or a repro log.
 - **2026-04-20 (guards audit)** — inventoried existing guards (server `owns-entity?`, spec validation, client id-match/changed check in `::char5e/set-character`) and enumerated six missing guards. The most consequential gap is **G1**: the server trusts every sub-entity `:db/id` in the incoming payload. A save carrying another character's `::se/values :db/id` would cause orphan-id logic to retract the current character's values entity and re-point it at the foreign one, producing persistent shared state that matches the reported symptom. Sketched a defensive fix (reject payloads whose sub-entity ids aren't in the target character's current tree) and instrumentation to catch the next recurrence regardless of root cause.
 - **2026-04-20 (two-window hypothesis)** — re-read the `::char5e/set-character` id-match guard closely. It protects unsaved builder edits from being clobbered by background fetches, but leaves `:character` **stale** when the id doesn't match. Combined with (a) localStorage being a single "character" slot shared across tabs but not listened to for cross-tab sync, and (b) the builder URL carrying no id (it always edits `:character`), this produces a concrete cross-tab scenario in which a reload in one tab can load the other tab's `:character` from localStorage, and subsequent builder edits + manual save post to the wrong entity. End state: the "wrong" character carries the text meant for the "right" one. Matches the reported symptom **without requiring any shared sub-entity ids in Datomic**. This is likely the real mechanism.
+- **2026-04-20 (DM-workflow design options)** — a DM handling a 2–6 character party across tabs is the generalized form of the two-window case. Documented five design options (A: sessionStorage-per-tab draft; B: id in builder URL; C: per-id draft map; D: save-time id reconciliation; E: server-side G1 sub-entity-id guard). Recommended ship order: A (tiny, closes the contamination path), B (right architectural fix, also cleans up level-up stale-db and builder-vs-sheet divergence smells), E (orthogonal server-side safety net against cross-writes).
