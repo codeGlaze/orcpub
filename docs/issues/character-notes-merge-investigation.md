@@ -91,6 +91,39 @@ For **correctness** (closing the bug), the `sessionStorage` swap is sufficient. 
 | G3 | Client does not invariant-check `(= (:db/id character) (js/parseInt id))` before writing `character-map[id]` | Out-of-band mispairings. Audit found no current caller that mispairs. |
 | G4 | Client does not reconcile `:character` against current tab context | Multi-tab contamination (the leading hypothesis). |
 
+## Scope of the sessionStorage swap across the project
+
+The character draft is one of 18 `localStorage` keys in `db.cljs:32-49`. Classified by cross-tab semantics:
+
+**Group A — single floating builder drafts (same bug pattern as `character`):**
+
+`character`, `magic-item`, `spell`, `monster`, `encounter`, `background`, `language`, `invocation`, `boon`, `selection`, `feat`, `race`, `subrace`, `subclass`, `class`.
+
+Each has its own interceptor (`events.cljs:152-162`) that writes to its own key on every edit. Each is a single slot edited by one builder. Each reloads from localStorage on init. **Every one carries the same multi-tab contamination hazard as the character case.** The character is the most visible because DMs juggle characters; the other builders are less commonly multi-tabbed, but the failure mode is identical.
+
+**Group B — cross-tab sharing is the desired behavior (keep `localStorage`):**
+
+- `user` — auth token, username, email. Log in on one tab → all tabs authed. Cross-tab sharing is the point.
+- `plugins` — loaded homebrew content. Same homebrew rules should be visible in every tab.
+- `combat` — combat tracker. Probably keep; a DM may want cross-tab persistence. Revisit if issues surface.
+
+**Group C — not involved:**
+
+- Persistent server data (saved characters, items, spells, folders, parties) — lives in Datomic, reaches client via subs, never touches localStorage.
+- Built-in content (core classes/races/items/spells) — pure Clojure constants.
+- Homebrew *content* loaded via plugins — referenced from memory after the plugins slot hydrates; the plugins slot itself is Group B.
+
+**Butterfly impact is narrow and uniform:**
+
+- Touches only the 15 Group A slots.
+- Leaves auth/session (Group B) alone.
+- Leaves every persistent or built-in data path (Group C) alone.
+- The change is mechanical per slot — one helper (`set-session-item`/`get-session-item`) keeps it to ~20-30 lines total if applied to all of Group A.
+
+**Minimum shipping scope:** the character slot alone, as the patch for the reported bug. If it lands cleanly in production, the other 14 Group A slots follow mechanically.
+
+**User-facing behavior change to flag:** today a user can start editing a new unsaved character, close the browser entirely, reopen, and find the draft still there (from localStorage). After the swap, closing the tab discards the draft. Saved characters are protected by server-side autosave already, so this only matters for **unsaved new characters**. If that UX matters, the refinement is per-temp-id drafts in sessionStorage plus an explicit "restore last draft?" prompt against a localStorage fallback on init — keep that optional until it's clear it's needed.
+
 ## Recommended fixes
 
 Ship order:
@@ -159,3 +192,4 @@ The modernization was NOT live when the bug was first noticed, so it cannot be t
 - **2026-04-20** — Share-link routes already use id in URL (`route_map.cljc:180`, `fork/integrations.cljs:112`). Extending the same convention to the builder is an incremental change, not a new pattern.
 - **2026-04-20** — Clarified framing: the real fix isn't "eliminate `:character`" per se, it's "make the builder a by-id view like the list view already is." The id-in-URL is a reload-survival mechanism; runtime routing is already correct anywhere the id is threaded through props. `:character` can stay as a transient buffer for unsaved-new-character flow.
 - **2026-04-20** — Tightened further: the list view works without URL ids because the id comes from the data (enumerated characters list). The builder edits one character, so it needs a per-tab identity signal that survives reload. Today that signal is shared localStorage — the contamination root cause. `sessionStorage` is sufficient to fix correctness (per-tab by web spec). URL-in-path is a nice-to-have for shareability and cleanup, not a prerequisite.
+- **2026-04-20** — Surveyed the full localStorage surface in `db.cljs:32-49`. 15 builder-draft slots have the same pattern and same bug as `character` (Group A). 3 slots (`user`, `plugins`, `combat`) should stay in localStorage — cross-tab sharing is the point (Group B). Persistent server data and built-in content don't touch localStorage at all (Group C). The sessionStorage fix is narrow, uniform, and can ship character-only first with the other 14 builders following mechanically.
