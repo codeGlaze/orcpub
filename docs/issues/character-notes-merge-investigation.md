@@ -145,7 +145,7 @@ The id-keyed-drafts approach generalizes naturally: each builder type gets a key
    - `:character-save-success` (`events.cljs:359-367`) currently dispatches both `[:set-character character]` and `[::char5e/set-character id character]`. Needs to atomically replace the draft slot with the real-id slot and trigger the route redirect.
    - `:edit-character` (`events.cljs:2069-2072`) callsites all need to route to `/character-builder/:id` instead of dispatching `:set-character` and routing to a no-id URL.
    - `::char5e/clone-character` (`events.cljs:238-248`) currently writes to `:character`. Must mint a new draft UUID and route to `/character-builder/draft/{uuid}`.
-   - `::char5e/level-up` (`events.cljs:2525-2529`) has a separate stale-db smell (`:set-character` argument is computed from pre-add-level db). UUID drafts don't fix this; it needs its own fix (route to `/character-builder/:id` and let the builder re-hydrate from the now-incremented `character-map[id]`).
+   - `::char5e/level-up` (`events.cljs:2525-2529`) has a staleness *smell* (the `:set-character` argument is `(get-in db [...])` computed when the handler returns its effect map — i.e. before `::char5e/add-level` processes — so `:character` is set from the pre-increment `character-map` snapshot). Not verified to break user-visible level-up; in normal use the autosave round-trip from `add-level` resolves the staleness within ~7.5s. Still worth fixing if `:character` is being removed for saved characters anyway: route to `/character-builder/:id` and let the builder re-hydrate from `character-map[id]` after `add-level` runs.
    - Every event using `character-interceptors` (`events.cljs:146`) writes via `(path :character)`. The interceptor needs to learn which draft id is active (from the route) and write to `[:character-map id]` instead.
    - `:save-character` reads `(:character db)`; needs to read `(get-in db [:character-map active-id])`.
    - **Migration**: existing users will have `localStorage["character"]` from the prior version. On first init under the new code, mint a UUID and migrate it to `localStorage["character-draft-{uuid}"]`, then route to that draft. Don't silently discard.
@@ -198,7 +198,7 @@ The modernization was NOT live when the bug was first noticed, so it cannot be t
   - `::char5e/set-notes`, `::char5e/set-current-hit-points`, etc — all use `update-character-fx`.
   - `:save-character` (line 462) — reads `(:character db)`, posts with its `:db/id`.
   - `:character-save-success` (line 359) — writes both `:character` and `character-map`.
-  - `::char5e/level-up` (line 2525) — stale-db capture smell.
+  - `::char5e/level-up` (line 2525) — stale-db capture smell (unverified user impact; autosave likely masks it).
 - `src/cljs/orcpub/dnd/e5/autosave_fx.cljs` — throttled save queue keyed by id.
 - `src/cljs/orcpub/dnd/e5/db.cljs`
   - `character->local-store` (line 167) — swap to `sessionStorage` for fix (1).
@@ -216,7 +216,7 @@ The modernization was NOT live when the bug was first noticed, so it cannot be t
 ## Log
 
 - **2026-04-20** — Initial survey. Ruled out modernization as direct cause (not live until Apr 8, reporter noticed Mar 15).
-- **2026-04-20** — Audited client save/fetch pipeline and server update-character. No id-routing mechanism found that writes one character's notes to another's entity. Found two staleness smells (level-up, builder vs sheet) — both cause edit loss, not transfer.
+- **2026-04-20** — Audited client save/fetch pipeline and server update-character. No id-routing mechanism found that writes one character's notes to another's entity. Noted two staleness smells (level-up, builder vs sheet) — both are theoretical edit-loss windows derived from reading dispatch ordering, not verified by tests or user reports. In practice the level-up autosave round-trip likely masks the level-up case.
 - **2026-04-20** — Inventoried existing guards; enumerated missing ones (G1-G4). G1 is the most consequential gap at the server; G4 at the client.
 - **2026-04-20** — Multi-tab hypothesis identified as the likely mechanism after re-reading the `::char5e/set-character` guard. The guard protects unsaved edits but leaves `:character` stale across tab/reload boundaries. Localstorage is shared cross-tab but the app doesn't listen for the `storage` event, so contamination lands only on reload.
 - **2026-04-20** — Confirmed list-view inline edit already routes correctly by id through `character-map` (`views.cljs:8065`). So the fix isn't "id in every URL" — it's "eliminate the floating `:character` slot."
