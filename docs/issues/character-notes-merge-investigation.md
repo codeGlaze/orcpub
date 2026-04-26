@@ -4,8 +4,8 @@
 
 - **Symptom**: reporter has two clones of the same character (different levels); lower-level's notes appear empty, higher-level's notes hold what lower used to have.
 - **Reproducible**: yes — recurred after the user rebuilt notes on both characters.
-- **Most likely chain of events** (after critical review): a multi-tab plant-step + a server-side commit-step. The multi-tab contamination produces a client payload that carries a foreign `::se/values :db/id`; the server's `update-character` doesn't validate sub-entity provenance, so the transact retracts the original character's values entity and re-points the ref at the foreign one. The two steps are **sequential, not alternatives.**
-- **Recommended action**: ship the server-side G1 guard *first* — it's the only step that physically severs cross-character data transfer at the data layer, regardless of which client path produced the bad payload. Then ship the structural client-side fix (UUID-keyed drafts + URL ids) to remove the multi-tab plant-step. Instrument both layers.
+- **Mechanism**: multi-tab contamination of the floating `:character` slot. Tab reload restores `:character` from `localStorage["character"]`, which holds whichever character was saved most recently across tabs. User in the builder believes they're editing one character but `:character` actually holds another; their keystrokes land on the wrong character. Reporter's "rebuild" cleared the original (which is why it now shows empty) and the rebuilt text was saved onto the wrong entity.
+- **Recommended action**: fix the multi-tab confusion at the client (UUID-keyed drafts + URL ids — see Recommended fixes). Server-side G1 guard is worth doing as defense-in-depth against a different class of bug (malformed payloads mixing two characters' sub-entity ids), but it's not what fixes the reported symptom.
 
 ## Symptom mechanics
 
@@ -47,11 +47,10 @@ The **builder** is the anomaly:
 2. Tab A reloads (crash, sleep, accidental refresh). `:initialize-db` reads `localStorage` → Tab A's `:character` is now **higher**.
 3. Builder in Tab A has no id in the URL; it just renders `:character`. Tab A's user sees higher's data in what they think is lower's tab.
 4. User types notes in Tab A thinking they're editing lower. `(set-notes-handler nil)` writes to `:character` (which is higher).
-5. Manual save posts `:character` → server writes lower's intended text onto higher's entity.
-6. **The actual data transfer happens server-side.** `update-character` (`routes.clj:867-901`) calls `entity/remove-orphan-ids` (line 888), which only strips `:db/id`s whose parent lacks a `:db/id`. **A foreign sub-entity `:db/id` under a parent that does have a `:db/id` survives.** Datomic transacts that foreign sub-id; for `:db.cardinality/one` `:db.type/ref` like `::se/values`, this retracts the original character's values entity (cascade because `:db/isComponent`) and re-points the ref at the foreign entity.
-7. End state: higher has lower's content. The "lower is empty" half is *not* fully explained by one contamination event — it requires user-side clearing, two contamination events, or a cascade-retract that leaves lower's values entity orphaned. Worth confirming with the reporter.
+5. Manual save posts `:character`. The payload's top-level `:db/id` and every sub-entity `:db/id` belong to higher (because `:character` is wholesale higher's map). Server's `update-character` sees a normal, internally-consistent save for higher, runs `owns-entity?`, updates higher with the new notes content. The notes the user typed land on higher.
+6. Reporter said they had "rebuilt" notes — i.e. cleared the original and re-typed. Whichever character was cleared shows empty on the server; whichever character was edited under the contaminated slot received the text intended for the other one.
 
-**The multi-tab plant-step and the server-side commit-step are sequential, not alternative explanations.** The plant-step gets a foreign sub-id into the client payload; the commit-step is what physically transfers the notes between Datomic entities. Either step alone would not produce the reported symptom; both together would.
+End state: higher carries the text the user intended for lower; lower is empty (because the user cleared it during the rebuild). Matches the symptom exactly. **No foreign sub-entity ids, no Datomic cascade-retract magic, no server-side bug needed.** The save itself is internally consistent — it's just for the wrong character relative to what the user thought they were editing.
 
 ### The contamination surface is wider than "two tabs in the builder"
 
@@ -138,39 +137,36 @@ The id-keyed-drafts approach generalizes naturally: each builder type gets a key
 
 ## Recommended fixes
 
-**Revised ship order after critical review.** G1 was originally listed third; it should ship first because it's the only step that severs cross-character data transfer at the data layer, regardless of what the client does. The structural client-side fix is still the right architectural direction, but it's not on the critical path for stopping the bug.
-
-1. **Server-side G1 guard** *(ship first — the only step that physically prevents cross-character writes)*. In `update-character` (`routes.clj:867-903`), compute `incoming-ids = entity/db-ids incoming-character` and `current-ids = entity/db-ids current-character`. Reject with 400 if any `:db/id` in `incoming-ids` (other than the top-level character id) is not in `current-ids`. One `clojure.set/difference` per save.
-
-   Placement specifics:
-   - Run *after* `owns-entity?` (line 869) and *before* the `current-valid?` branch (line 872).
-   - **Skip** in the `current-valid? = false` retract-and-replace branch (line 880-887) — that branch intentionally throws the stored tree away.
-   - Run only on update (`:db/id` present); skip on `create-new-character` (line 905) since there's nothing to compare against.
-   - First-time sub-entity creation is fine because `entity/db-ids` filters out nil ids (`entity.cljc:46`); new sub-entities won't appear in `incoming-ids`.
-
-   Does not address concurrent-save data races (two saves in flight, save-2 unaware of save-1's new sub-ids — `remove-orphan-ids` retracts the unknown ones). That's a separate bug and out of scope for G1.
-
-2. **Instrumentation** *(ship with G1)*. Log `{:char-id, :values-id, :selection-ids}` on every save (server) and on every autosave dispatch (client). Turns any future recurrence into diagnostic evidence regardless of code path. If the same `:values-id` ever appears under two different `:char-id`s in server logs, root cause is proven on the spot.
-
-3. **UUID-keyed builder drafts + URL ids** *(structural fix, ship after G1)*. Generate a client-side UUID when the user starts a new draft. Treat the draft like a saved character with that id: store at `character-map[:draft/{uuid}]`, persist as `localStorage["character-draft-{uuid}"]`. Saved characters keep using their `:db/id`. Builder route accepts both real ids and `:draft/{uuid}` segments. On first save, copy the slot to the new key, drop the draft slot, redirect the route.
+1. **UUID-keyed builder drafts + URL ids** *(this is what fixes the reported bug)*. The reported symptom is the multi-tab confusion writing to the wrong character. Removing the floating `:character` slot in favor of per-id storage removes the confusion. Generate a client-side UUID when the user starts a new draft. Treat the draft like a saved character with that id: store at `character-map[:draft/{uuid}]`, persist as `localStorage["character-draft-{uuid}"]`. Saved characters keep using their `:db/id`. Builder route accepts both real ids and `:draft/{uuid}` segments. On first save, copy the slot to the new key, drop the draft slot, redirect the route.
 
    Multi-tab safe by construction; crash-recoverable; supports multiple simultaneous drafts; matches the existing id-keyed model used by the list view. Removes the `:character` floating slot for saved characters.
 
    **Underspecified ripples to handle in the implementation PR(s):**
-   - `:character-save-success` (`events.cljs:359-367`) currently dispatches both `[:set-character character]` and `[::char5e/set-character id character]`. Needs to atomically replace draft slot with real-id slot and trigger the route redirect.
+   - `:character-save-success` (`events.cljs:359-367`) currently dispatches both `[:set-character character]` and `[::char5e/set-character id character]`. Needs to atomically replace the draft slot with the real-id slot and trigger the route redirect.
    - `:edit-character` (`events.cljs:2069-2072`) callsites all need to route to `/character-builder/:id` instead of dispatching `:set-character` and routing to a no-id URL.
-   - `::char5e/clone-character` (`events.cljs:238-248`) currently writes to `:character`. Must mint a new draft UUID and route to `/character-builder/:draft/{uuid}`.
+   - `::char5e/clone-character` (`events.cljs:238-248`) currently writes to `:character`. Must mint a new draft UUID and route to `/character-builder/draft/{uuid}`.
    - `::char5e/level-up` (`events.cljs:2525-2529`) has a separate stale-db smell (`:set-character` argument is computed from pre-add-level db). UUID drafts don't fix this; it needs its own fix (route to `/character-builder/:id` and let the builder re-hydrate from the now-incremented `character-map[id]`).
    - Every event using `character-interceptors` (`events.cljs:146`) writes via `(path :character)`. The interceptor needs to learn which draft id is active (from the route) and write to `[:character-map id]` instead.
    - `:save-character` reads `(:character db)`; needs to read `(get-in db [:character-map active-id])`.
    - **Migration**: existing users will have `localStorage["character"]` from the prior version. On first init under the new code, mint a UUID and migrate it to `localStorage["character-draft-{uuid}"]`, then route to that draft. Don't silently discard.
-   - **Autosave race during draft → real-id transition**: if an autosave is in-flight under the draft id when the save-success fires and the real id arrives, the in-flight save can either 404 or duplicate. Drain the autosave queue (`autosave_fx.cljs`) on transition; or have the queue key by draft-id and the save handler look up the real id at dispatch time.
+   - **Autosave race during draft → real-id transition**: if an autosave is in-flight under the draft id when save-success arrives with the real id, the in-flight save can either 404 or duplicate. Drain the autosave queue (`autosave_fx.cljs`) on transition; or have the queue key by draft-id and resolve the real id at dispatch time.
+
+2. **Instrumentation** *(ship alongside)*. Log `{:char-id, :values-id, :selection-ids}` on every save (server) and on every autosave dispatch (client). Future recurrence leaves diagnostic evidence regardless of code path.
+
+3. **Server-side G1 guard** *(defense-in-depth, NOT what fixes this bug)*. In `update-character` (`routes.clj:867-903`), compute `incoming-ids = entity/db-ids incoming-character` and `current-ids = entity/db-ids current-character`. Reject with 400 if any `:db/id` in `incoming-ids` (other than the top-level character id) is not in `current-ids`. One `clojure.set/difference` per save.
+
+   Why it does NOT fix the reported symptom: the multi-tab scenario produces a save payload that's internally consistent — every id in the payload belongs to one character (the wrong one from the user's perspective, but legitimate). G1 has nothing to reject because no foreign ids are present. G1 protects against a different threat: a payload that mixes ids from two characters (which could come from a future client bug, or a malicious request). Worth shipping for hardening, but it's not on the critical path here.
+
+   Placement specifics if implementing:
+   - Run *after* `owns-entity?` (line 869) and *before* the `current-valid?` branch (line 872).
+   - **Skip** in the `current-valid? = false` retract-and-replace branch (line 880-887) — that branch intentionally throws the stored tree away.
+   - Skip on `create-new-character` (line 905); first-time creation has nothing to compare against.
 
 **Rejected options:**
 
-- *sessionStorage swap* — earlier proposed as the minimal correctness fix. Works for multi-tab, but doesn't survive browser crash, can't hold multiple drafts of the same type, and doesn't address the underlying single-slot design. UUID-keyed drafts subsume its multi-tab benefit and add crash protection.
+- *sessionStorage swap* — works for multi-tab but doesn't survive browser crash, can't hold multiple drafts of the same type, and doesn't address the underlying single-slot design. UUID-keyed drafts subsume its multi-tab benefit and add crash protection.
 - *Save-time id reconciliation guard* — detection only, requires the tab to know its context, made unnecessary by URL ids.
-- *Per-id sessionStorage drafts* — same multi-tab safety as fix (3) but loses crash protection.
+- *Per-id sessionStorage drafts* — same multi-tab safety as fix (1) but loses crash protection.
 
 ## Timeline
 
@@ -230,4 +226,5 @@ The modernization was NOT live when the bug was first noticed, so it cannot be t
 - **2026-04-20** — Surveyed the full localStorage surface in `db.cljs:32-49`. 15 builder-draft slots have the same pattern and same bug as `character` (Group A). 3 slots (`user`, `plugins`, `combat`) should stay shared across tabs (Group B). Persistent server data and built-in content don't touch localStorage at all (Group C).
 - **2026-04-20** — Replaced the sessionStorage proposal with **UUID-keyed drafts**. Insight: the contamination problem isn't really "shared vs per-tab storage class" — it's "shared vs unique key per draft." Giving every draft a unique id (UUID for unsaved, `:db/id` for saved) and keying storage by id solves multi-tab AND adds crash protection AND supports multiple simultaneous drafts AND matches the model already used by the list view and `character-map`. SessionStorage is a band-aid on a single-slot design; UUID-keyed drafts eliminate the single slot.
 - **2026-04-20 (critical review)** — Independent agent reviewed the doc and surfaced several corrections: (a) the multi-tab story doesn't fully account for "lower notes empty" — needs user clear or two events. (b) Closed open question 4 — no orcbrew character import path exists. (c) **Multi-tab and server-side id-swap (G1) are sequential, not alternative.** Multi-tab plants the foreign sub-id into the client payload; the server's `remove-orphan-ids` (`routes.clj:888`) doesn't strip it because its parent has a `:db/id`; Datomic transacts and physically transfers data between characters' values entities. **G1 is the only step that severs the data transfer** regardless of how the foreign id got planted. (d) UUID drafts have several underspecified ripples: `:character-save-success`, `:edit-character`, `clone-character`, `level-up` (separate stale-db bug), `character-interceptors`, `:save-character`, migration of existing localStorage, autosave-queue handling during draft→real-id transition. (e) G1 placement: skip in retract-and-replace branch; only on update path. **Revised ship order: G1 first, instrumentation with it, UUID drafts third.**
-- **2026-04-20 (sheet susceptibility)** — Verified: clicking "Edit" routes to the builder (full navigation, not in-place mode). Sheet/list inline-edit of notes is id-keyed and doesn't touch `:character` directly. **But every successful autosave from any view dispatches `:set-character` via `:character-save-success`, which writes `:character` and `localStorage["character"]`.** So sheet activity isn't truly isolated — it primes localStorage with whichever character saved most recently. The trap springs the next time any tab reads `:character` (reload to builder, or `:edit-character` followed by interruption). Updated the susceptibility framing to reflect this.
+- **2026-04-20 (sheet susceptibility)** — Verified: clicking "Edit" routes to the builder (full navigation, not in-place mode). Sheet/list inline-edit of notes is id-keyed and doesn't touch `:character` directly. **But every successful autosave from any view dispatches `:set-character` via `:character-save-success`, which writes `:character` and `localStorage["character"]`.** So sheet activity isn't truly isolated — it primes localStorage with whichever character saved most recently. The trap springs the next time any tab reads `:character` (reload to builder, or `:edit-character` followed by interruption).
+- **2026-04-20 (correction — back to the simpler model)** — Reviewer's "G1 is the only step that physically transfers content between characters" claim was misleading for this case. The multi-tab scenario produces a save payload that's internally consistent (all ids belong to one character — just the wrong one from the user's perspective), so G1 has nothing to reject. The bug is purely client-side identity confusion: keystrokes intended for character A land on character B because `:character` holds B's whole map after a tab/reload mixup. The "lower notes empty" half is explained by the user's own "rebuild" (they cleared what they thought was lower). G1 is still worth doing as defense-in-depth against a different threat model (payloads mixing two characters' ids), but it's not what fixes the reported symptom. **Reverted ship order: UUID-keyed drafts first (the actual fix); G1 demoted to defense-in-depth.**
