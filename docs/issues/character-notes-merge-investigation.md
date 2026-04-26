@@ -60,16 +60,9 @@ The list view isn't safe *because* of its URL. It's safe because the id comes fr
 
 The **builder** edits exactly one character. There's no enumerated data source handing it an id; it has to *know* which character. Today it knows because `:character` in app-db holds it (set by `:edit-character`, clone, level-up, or restored from `localStorage` on init). That works in-memory per tab.
 
-The failure mode is purely the **reload-survival signal**: across a reload, "which character was this tab editing?" has to come from somewhere that's per-tab. Today that signal is `localStorage["character"]` — shared across tabs, last writer wins, which is exactly the contamination path.
+The failure mode is purely the **reload-survival signal**: across a reload, "which character was this tab editing?" has to come from somewhere that doesn't collide across tabs. Today that signal is `localStorage["character"]` — a single shared slot, last writer wins, which is exactly the contamination path.
 
-So the question is just: where does the per-tab reload-survival signal live?
-
-- Today's shared `localStorage` — broken by design for multi-tab.
-- Per-tab `sessionStorage` — per-tab by web spec; zero cross-tab contention; no router work.
-- URL path (`/character-builder/:id`) — inherently per-tab; also bookmarkable, shareable, consistent with every other character-specific page.
-- No reload survival at all — reload of builder redirects to list; user re-picks the character.
-
-For **correctness** (closing the bug), the `sessionStorage` swap is sufficient. The URL-based approach is worthwhile as a follow-up for architectural reasons (shareability, bookmarkability, cleaning up unrelated staleness smells in `level-up` and builder-vs-sheet), but it's not a prerequisite.
+The natural fix is to give every draft an id (UUIDs for unsaved-new-character drafts, real `:db/id`s for everything else) and key the draft store by that id — same model the list view uses for saved characters. Once each tab's draft has a unique key, contention disappears the same way it disappeared for the list view: unique ids → no shared slot → no contention. No need for per-tab storage classes.
 
 ## Existing guards
 
@@ -91,7 +84,7 @@ For **correctness** (closing the bug), the `sessionStorage` swap is sufficient. 
 | G3 | Client does not invariant-check `(= (:db/id character) (js/parseInt id))` before writing `character-map[id]` | Out-of-band mispairings. Audit found no current caller that mispairs. |
 | G4 | Client does not reconcile `:character` against current tab context | Multi-tab contamination (the leading hypothesis). |
 
-## Scope of the sessionStorage swap across the project
+## Scope of the storage-keying change across the project
 
 The character draft is one of 18 `localStorage` keys in `db.cljs:32-49`. Classified by cross-tab semantics:
 
@@ -99,7 +92,9 @@ The character draft is one of 18 `localStorage` keys in `db.cljs:32-49`. Classif
 
 `character`, `magic-item`, `spell`, `monster`, `encounter`, `background`, `language`, `invocation`, `boon`, `selection`, `feat`, `race`, `subrace`, `subclass`, `class`.
 
-Each has its own interceptor (`events.cljs:152-162`) that writes to its own key on every edit. Each is a single slot edited by one builder. Each reloads from localStorage on init. **Every one carries the same multi-tab contamination hazard as the character case.** The character is the most visible because DMs juggle characters; the other builders are less commonly multi-tabbed, but the failure mode is identical.
+Each has its own interceptor (`events.cljs:152-162`) that writes to its own singleton key on every edit. Each is a single slot edited by one builder. Each reloads from localStorage on init. **Every one carries the same multi-tab contamination hazard as the character case.** The character is the most visible because DMs juggle characters; the other builders are less commonly multi-tabbed, but the failure mode is identical.
+
+The id-keyed-drafts approach generalizes naturally: each builder type gets a keyspace prefix (`"character-draft-{uuid-or-id}"`, `"magic-item-draft-{uuid-or-id}"`, etc.). Multiple drafts of the same type can coexist; multiple tabs can edit different drafts of the same type without contention.
 
 **Group B — cross-tab sharing is the desired behavior (keep `localStorage`):**
 
@@ -115,28 +110,33 @@ Each has its own interceptor (`events.cljs:152-162`) that writes to its own key 
 
 **Butterfly impact is narrow and uniform:**
 
-- Touches only the 15 Group A slots.
-- Leaves auth/session (Group B) alone.
+- Touches only the 15 Group A slots — change the keying, not the storage class.
+- Leaves auth/session (Group B) alone — they're shared across tabs by design.
 - Leaves every persistent or built-in data path (Group C) alone.
-- The change is mechanical per slot — one helper (`set-session-item`/`get-session-item`) keeps it to ~20-30 lines total if applied to all of Group A.
 
-**Minimum shipping scope:** the character slot alone, as the patch for the reported bug. If it lands cleanly in production, the other 14 Group A slots follow mechanically.
+**Minimum shipping scope:** the character slot alone, as the patch for the reported bug. If it lands cleanly in production, the other 14 Group A slots follow the same pattern.
 
-**User-facing behavior change to flag:** today a user can start editing a new unsaved character, close the browser entirely, reopen, and find the draft still there (from localStorage). After the swap, closing the tab discards the draft. Saved characters are protected by server-side autosave already, so this only matters for **unsaved new characters**. If that UX matters, the refinement is per-temp-id drafts in sessionStorage plus an explicit "restore last draft?" prompt against a localStorage fallback on init — keep that optional until it's clear it's needed.
+**Crash / unsaved-draft protection improves**, doesn't regress: today's `localStorage` is preserved across browser close, but only one draft per builder type. Per-id keys preserve every in-progress draft across browser close — closing/reopening can restore any combination of unsaved drafts (with an explicit "you have unsaved drafts: [list]" prompt rather than silent restoration of whichever was edited last).
 
 ## Recommended fixes
 
 Ship order:
 
-1. **SessionStorage for the character draft** *(minimal correct fix)*. Swap `character->local-store` / `:local-store-character` from `localStorage` to `sessionStorage` for the character draft key only. `sessionStorage` is per-tab by spec, so the reload-survival signal becomes per-tab too. Three-tab scenario works correctly end-to-end. ~One file change (`db.cljs`). This alone closes the reported bug's mechanism.
+1. **UUID-keyed builder drafts** *(the structural fix)*. When the user starts a new draft, generate a client-side UUID (`cljs.core/random-uuid`). Treat the draft like a saved character with that id: store at `character-map[:draft/{uuid}]` in app-db, persist as `localStorage["character-draft-{uuid}"]`. Saved characters keep using their `:db/id` as today. Builder route becomes `/character-builder/:id` and accepts both real `:db/id`s and `:draft/{uuid}` segments; on first save the server returns a real `:db/id`, the client copies the slot under the new key, drops the draft slot, and redirects the route. From then on the character is edited through `character-map[real-id]` like everything else.
 
-2. **(Optional follow-up) Builder by id in URL.** Not required for correctness. Worth doing for: shareability ("send a link to edit this character"), bookmarkability, architectural consistency with every other character-specific page, and incidental cleanup of the `level-up` stale-db capture smell (`events.cljs:2525-2529`) and the builder-vs-sheet slot divergence. URL route `/character-builder/:id` (plus `/character-builder/new` for unsaved new characters) matches the id-in-URL convention already used by share links (`route_map.cljc:180`). Once the builder reads id from the URL, the `character-display` callsites at `character_builder.cljs:1893,1908` pass the real id instead of `nil`, and every sub/event routes through `character-map[id]` just like the list view does.
+   Multi-tab safe by construction (each draft has a unique key — no contention even on shared `localStorage`). Crash-recoverable (every draft survives browser close in its own slot). Supports multiple unsaved drafts of the same type. Eliminates the floating `:character` slot rather than papering over it. Net code reduction long-term — drops a special case.
 
-3. **Server-side G1 guard** *(permanent safety net)*. In `update-character`, compute `incoming-ids = entity/db-ids` on the incoming payload and reject with 400 if any id (other than the top-level character id) is not in `entity/db-ids` of the currently-stored character. One `clojure.set/difference` per save. Catches any present or future client bug that would cross-write sub-entities — independent of what the client does.
+   Apply the same pattern to the other 14 Group A slots if/when they show similar issues — same shape of fix.
 
-Add instrumentation alongside (1): log `{:char-id, :values-id, :selection-ids}` on every save (server) and on every autosave dispatch (client). Turns any future recurrence into diagnostic evidence.
+2. **Server-side G1 guard** *(permanent data-layer safety net)*. In `update-character`, compute `incoming-ids = entity/db-ids` on the incoming payload and reject with 400 if any id (other than the top-level character id) is not in `entity/db-ids` of the currently-stored character. One `clojure.set/difference` per save. Independent of any client-side fix.
 
-Skip the "save-time id reconciliation" and "per-id draft map" options — unnecessary once (1) lands, and (2) if it lands.
+3. **Instrumentation**. Log `{:char-id, :values-id, :selection-ids}` on every save (server) and on every autosave dispatch (client). Turns any future recurrence into diagnostic evidence regardless of code path.
+
+**Rejected options:**
+
+- *sessionStorage swap* — earlier proposed as the minimal correctness fix. Works for multi-tab, but doesn't survive browser crash, can't hold multiple drafts of the same type, and doesn't address the underlying single-slot design. The id-keyed approach above subsumes its multi-tab benefit and adds crash protection.
+- *Save-time id reconciliation guard* — detection only, requires the tab to know its context, made unnecessary by URL ids.
+- *Per-id sessionStorage drafts* — same multi-tab safety as fix (1) but loses crash protection.
 
 ## Timeline
 
@@ -192,4 +192,5 @@ The modernization was NOT live when the bug was first noticed, so it cannot be t
 - **2026-04-20** — Share-link routes already use id in URL (`route_map.cljc:180`, `fork/integrations.cljs:112`). Extending the same convention to the builder is an incremental change, not a new pattern.
 - **2026-04-20** — Clarified framing: the real fix isn't "eliminate `:character`" per se, it's "make the builder a by-id view like the list view already is." The id-in-URL is a reload-survival mechanism; runtime routing is already correct anywhere the id is threaded through props. `:character` can stay as a transient buffer for unsaved-new-character flow.
 - **2026-04-20** — Tightened further: the list view works without URL ids because the id comes from the data (enumerated characters list). The builder edits one character, so it needs a per-tab identity signal that survives reload. Today that signal is shared localStorage — the contamination root cause. `sessionStorage` is sufficient to fix correctness (per-tab by web spec). URL-in-path is a nice-to-have for shareability and cleanup, not a prerequisite.
-- **2026-04-20** — Surveyed the full localStorage surface in `db.cljs:32-49`. 15 builder-draft slots have the same pattern and same bug as `character` (Group A). 3 slots (`user`, `plugins`, `combat`) should stay in localStorage — cross-tab sharing is the point (Group B). Persistent server data and built-in content don't touch localStorage at all (Group C). The sessionStorage fix is narrow, uniform, and can ship character-only first with the other 14 builders following mechanically.
+- **2026-04-20** — Surveyed the full localStorage surface in `db.cljs:32-49`. 15 builder-draft slots have the same pattern and same bug as `character` (Group A). 3 slots (`user`, `plugins`, `combat`) should stay shared across tabs (Group B). Persistent server data and built-in content don't touch localStorage at all (Group C).
+- **2026-04-20** — Replaced the sessionStorage proposal with **UUID-keyed drafts**. Insight: the contamination problem isn't really "shared vs per-tab storage class" — it's "shared vs unique key per draft." Giving every draft a unique id (UUID for unsaved, `:db/id` for saved) and keying storage by id solves multi-tab AND adds crash protection AND supports multiple simultaneous drafts AND matches the model already used by the list view and `character-map`. SessionStorage is a band-aid on a single-slot design; UUID-keyed drafts eliminate the single slot.
