@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
+            [orcpub.entity :as entity]
             ;; Side effect: registers all event handlers
             [orcpub.dnd.e5.events :as events]))
 
@@ -188,3 +189,97 @@
     (reset! app-db {:user {:name "test"}})
     (rf/dispatch-sync [:verify-user-session])
     (is true "Handler completed without exception")))
+
+;; ---------------------------------------------------------------------------
+;; ::char5e/level-up  (reg-event-fx) — staleness smell
+;;
+;; The handler returns
+;;   {:dispatch-n [[::char5e/add-level id]
+;;                 [:set-character (get-in db [::char5e/character-map id] {})]
+;;                 [:route ...]]}
+;;
+;; The :set-character argument is computed at handler-return time from the
+;; pre-add-level db. After re-frame processes the dispatch-n queue:
+;;   character-map[id]  → has the new level (add-level processed first)
+;;   :character         → has the OLD level (set-character used the snapshot)
+;;
+;; In normal use, the autosave round-trip from add-level resolves this within
+;; ~7.5s, so the staleness window is invisible. But it's the kind of subtle
+;; ordering bug that is worth pinning down with a test rather than reasoning
+;; about. These tests document and verify the actual current behavior.
+;;
+;; NOTE: re-frame's dispatch-sync only runs the immediate handler synchronously
+;; — :dispatch-n events are queued for async processing. To exercise the
+;; ordering deterministically in a unit test, we manually replay the same
+;; sequence the level-up handler would emit, using the same arg-capture
+;; semantics (snapshot taken before add-level).
+;; ---------------------------------------------------------------------------
+
+(def ^:private level-1-character
+  "A minimal character with one class (barbarian) at level 1.
+   Shape matches what update-character-fx + add-level expect."
+  {:db/id 99
+   :orcpub.entity/options
+   {:class
+    [{:orcpub.entity/key :barbarian
+      :orcpub.entity/options
+      {:levels [{:orcpub.entity/key :level-1}]}}]}})
+
+(defn- class-0-levels
+  "Convenience: dig out the level keys for class index 0."
+  [character]
+  (->> (get-in character [:orcpub.entity/options :class 0
+                          :orcpub.entity/options :levels])
+       (mapv :orcpub.entity/key)))
+
+(deftest add-level-pure-function-appends-next-level
+  (testing "events/add-level appends the next-numbered level to class 0"
+    (let [updated (events/add-level level-1-character)]
+      (is (= [:level-1 :level-2] (class-0-levels updated))))))
+
+(deftest update-character-fx-with-id-updates-character-map-and-queues-save
+  (testing "update-character-fx with an id writes character-map[int-id] and emits the throttled-save fx"
+    (reset! app-db {::char5e/character-map {42 level-1-character}})
+    (let [effect (events/update-character-fx @app-db "42" events/add-level)]
+      (is (= 42 (-> effect ::char5e/save-character-throttled))
+          "Throttled save effect must carry the id (raw, not parseInt'd)")
+      (is (= [:level-1 :level-2]
+             (class-0-levels (get-in (:db effect)
+                                     [::char5e/character-map 42])))
+          "character-map[id] should reflect the new level"))))
+
+(deftest update-character-fx-without-id-falls-back-to-character-slot
+  (testing "update-character-fx with nil id dispatches :set-character on the in-memory :character"
+    (reset! app-db {:character level-1-character})
+    (let [effect (events/update-character-fx @app-db nil events/add-level)]
+      (is (vector? (:dispatch effect)) "Must return a :dispatch effect")
+      (is (= :set-character (first (:dispatch effect))))
+      (is (= [:level-1 :level-2] (class-0-levels (second (:dispatch effect))))))))
+
+(deftest level-up-staleness-character-slot-lags-character-map
+  (testing "After level-up, :character holds the PRE-add-level snapshot while character-map[id] holds the POST-add-level state. This is the documented staleness smell."
+    ;; Set up: character at id=42, also currently in :character (as if user
+    ;; was viewing or recently edited it). Same shape, same starting level.
+    (reset! app-db {::char5e/character-map {42 level-1-character}
+                    :character              level-1-character})
+    ;; Replay the dispatch-n sequence the level-up handler emits, with the
+    ;; same arg-capture semantics:
+    ;;   1. snapshot :set-character's argument from the pre-add-level db
+    ;;   2. dispatch ::char5e/add-level (which mutates character-map[id])
+    ;;   3. dispatch [:set-character snapshot]
+    (let [pre-snapshot (get-in @app-db [::char5e/character-map 42] {})]
+      (rf/dispatch-sync [::char5e/add-level "42"])
+      (rf/dispatch-sync [:set-character pre-snapshot]))
+
+    (let [final-character-map (get-in @app-db [::char5e/character-map 42])
+          final-character     (:character @app-db)]
+      ;; character-map got the new level (add-level worked correctly)
+      (is (= [:level-1 :level-2] (class-0-levels final-character-map))
+          "character-map[id] should have the new level after add-level")
+      ;; :character did NOT get the new level — staleness confirmed
+      (is (= [:level-1] (class-0-levels final-character))
+          ":character holds the pre-add-level snapshot — the staleness smell")
+      ;; The two slots disagree about the level count
+      (is (not= (class-0-levels final-character-map)
+                (class-0-levels final-character))
+          ":character and character-map[id] diverge after level-up. In normal use the autosave round-trip resolves this within ~7.5s. If the user clicks manual Save during that window, the stale :character is posted to the server and the level-up is undone."))))
