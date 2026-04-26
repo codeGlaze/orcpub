@@ -112,11 +112,26 @@ Date: 2026-04-02
 - My Content import: raw `<input type="file">` unstyled (views.cljs:7752)
 - Combat tracker: least polished page, no guidance, manual everything
 
+## In-Flight Branches Affecting UI/UX
+
+Fetched from remote 2026-04-02. Any agent working on UI/UX must account for these:
+
+| Branch | What It Does | Status |
+|--------|-------------|--------|
+| `refactor/garden-inline-styles` | Converts inline `:style` maps → Garden utility classes. +320 lines in core.clj, -542/+539 in views.cljs. Removes hardcoded style objects, adds responsive fixes. | ~60% done, 30+ commits |
+| `claude/add-color-themes-gyRhI` | Theme system: `styles/themes.clj` (739 lines), `styles/colors.clj` (Nord palette), CSS variables, 6 themes. SVG icon theming via CSS masks. | ~40%, **stale** — Nord variants have known visual bugs from lost iteration work. Infrastructure solid, visual application needs rework. |
+| `refactor/views-extraction` | Breaking monolithic views.cljs into modules: `views/auth.cljs`, `views/builders.cljs`, `views/combat.cljs`, `views/common.cljs`, `views/content.cljs`, `views/header.cljs`, `views/lists.cljs` + builder submodules. 121 files changed. | ~70% done |
+| `refactor/data-extraction` | SRD data (classes, spells, monsters, items) into separate `_data.cljc` files. Build perf. | ~80% done |
+
+**Dependency chain**: garden-inline-styles → color-themes → visual polish. views-extraction enables targeted UX work on modular components.
+
 ## D&D Beyond Comparison — Perception Gap
 
 The core difference: D&D Beyond invests in **perceived polish** while OrcPub invests in **information density**. Neither is wrong, but the gap creates an "age" perception.
 
-Key patterns DDB uses that OrcPub lacks:
+### Visual Polish Gap
+
+DDB patterns OrcPub lacks:
 - Multi-layered box-shadows for depth (`0 1px 3px ..., 0 4px 12px ...`)
 - Transitions on ALL interactive elements (0.15-0.3s)
 - Focus rings on every input
@@ -129,8 +144,35 @@ Key patterns DDB uses that OrcPub lacks:
 - Empty states with illustrations and CTAs
 - Breadcrumb navigation for context
 
-What OrcPub should NOT copy from DDB:
-- Heavy JavaScript animations (keep it CSS-only for Garden compat)
+### UX Design Pattern Gap (Beyond Visual Polish)
+
+Modern character creation tools (DDB, DiceCloud, Shard, Alchemy RPG) have converged on patterns that go deeper than CSS:
+
+| Pattern | Modern Standard | OrcPub Status |
+|---------|----------------|---------------|
+| **Contextual onboarding** — dismissable intro banners, first-use hints that fade after interaction | Standard. DDB has guided tooltips on first builder visit. | None. Newb builder exists as separate route but main builder has zero guidance. |
+| **Inline contextual help** — "what does this stat do?" next to controls. Critical for new D&D players. | DDB shows stat descriptions inline. Alchemy has ? icons everywhere. | `show-info` buttons exist on options but are easy to miss. No help on ability scores, no explanation of point-buy vs standard array. |
+| **Smart defaults / templates** — pre-fill sensible choices, let user override | DDB suggests "quick build" options per class from PHB. | Blank slate only. No starting packages (#111). |
+| **Visual feedback on cascading changes** — when you pick a race, ability scores highlight to show what changed | DDB highlights affected fields. Modern form builders pulse or animate changed values. | Changes happen silently. User must mentally track what a race/class choice affects. |
+| **Undo/redo** — make exploration safe | DDB doesn't fully support this either, but modern form builders (Typeform, Notion) do. | No undo at all. Deleting a class is immediately destructive. |
+| **Progress indicators** — show completion state across the full builder flow | DDB shows a checklist sidebar. Alchemy shows a progress bar. | Red remaining-count badges on section tabs (subtle, easy to miss). No overall progress. |
+| **Search within builder** — find options by name without scrolling | DDB has search within spell selection, feat selection, etc. | No search within builder sections. Only global Orcacle search. |
+| **Responsive context panel** — detail pane that updates as you hover/focus options | DDB shows stat block preview as you hover class/race options. | "show info" requires explicit click per item. |
+| **Collaborative/sharing** — share character sheets, party views | DDB has sharing links, campaign integration. | Characters are per-account. Parties exist but no sharing URL. |
+
+### What OrcPub Should NOT Copy
+
+- Heavy JavaScript animations (keep CSS-only for Garden compatibility)
 - Overly complex navigation (OrcPub's directness is a strength)
 - Subscription-gated UI patterns
-- Content-heavy pages (OrcPub's density is valued by users)
+- Content-heavy pages (OrcPub's density is valued by power users)
+- DDB's multi-step wizard (OrcPub's tab-based builder is more flexible for experienced users)
+
+### OrcPub's Actual Strengths vs. Competitors
+
+Worth preserving and building on:
+- **Information density** — power users see more at once, less clicking
+- **Split-pane builder** — options + live sheet side-by-side is better than DDB's separate "preview"
+- **Homebrew system** — `.orcbrew` import/export is more open than DDB's locked ecosystem
+- **Offline capability** — localStorage-backed, works without constant server calls
+- **Direct navigation** — fewer clicks to get anywhere vs. DDB's deep menus
