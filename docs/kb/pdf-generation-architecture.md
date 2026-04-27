@@ -118,14 +118,137 @@ Mismatched names = silently unfilled fields (no error thrown).
 
 ## Testing PDF Changes
 
-There are NO automated tests for PDF generation. To verify:
+As of 2026-04-22 there ARE automated tests:
 
-1. Start the dev server
-2. Create/load a character with spellcasting (Bard, Wizard, Cleric, or any
-   class with spells; Tiefling adds racial spells as a second group)
-3. Export to PDF
-4. Check every page: no blank pages, spell cards render, text is positioned correctly
-5. For programmatic checks, use PDFBox to inspect:
-   - Page count matches expected
-   - Content stream byte count > 0 for all pages
-   - Annotation count matches template
+- `test/clj/orcpub/pdf_test.clj` — unit tests for `fix-widget-page-refs!` and
+  integration tests for `write-fields!` against the bundled templates
+- `test/clj/orcpub/routes_pdf_test.clj` — handler-level tests for
+  `character-pdf-2` covering the `:flatten?` round-trip and the 4×7
+  style/spell-count smoke matrix
+- E2E spec at `e2e/scenarios/pdf-export.spec.ts` on `testing/develop` —
+  covers real HTTP round-trip, `pdf-lib` field counting, and native-viewer
+  rendering in Chromium + Firefox (see "Cross-browser PDF rendering" below)
+
+For ad-hoc checks beyond what the tests cover, use PDFBox to inspect:
+- Page count matches expected
+- Content stream byte count > 0 for all pages
+- Annotation count matches template
+
+## Fillable-by-default (2026-04-22)
+
+Branch landed: `bugfix/pdf-widget-warnings` (off `develop`). Worked through
+session: `claude/fix-pdf-widget-warnings-hUt9i`.
+
+Three changes:
+
+1. **`/P` widget back-refs populated before flatten** — new private helper
+   `fix-widget-page-refs!` in `pdf.clj` sets the `/P` (page reference) entry
+   on every orphaned `PDAnnotationWidget` it can find via the page-annotations
+   walk. Runs only on the flatten path (`when flatten?` in `write-fields!`).
+
+2. **Removed Chrome User-Agent sniffing** — `routes.clj` `character-pdf-2` no
+   longer force-flattens for non-Chrome User-Agent strings. The 2017
+   workaround was for Firefox's pdf.js lacking AcroForm rendering, fixed by
+   Mozilla in Firefox 84 (Dec 2020). Default is now interactive/fillable for
+   every browser.
+
+3. **Strict `(true? flatten?)` check** — clients can opt back into a
+   locked/static PDF via `:flatten? true` in the EDN payload. Loose Clojure
+   truthiness was rejected: a malformed payload (`"yes"`, `1`, `{}`,
+   `:true`) falls through to the safer interactive default rather than
+   silently locking the sheet.
+
+Font-size override (in `routes.clj` `font-sizes`) is still gated on
+`flatten?` — interactive PDFs rely on the template's `/Helv 0 Tf` auto-size
+default appearance, which readers honor natively. Flatten paths bake in
+size 8 for long-text fields (`personality-traits`, `bonds`, `backstory`,
+etc.).
+
+## PDFBox 3.0.6 verified facts
+
+These are the things a future agent should know without re-deriving from
+scratch. All verified against source at
+https://github.com/apache/pdfbox/tree/3.0.6 (don't accept claims that
+contradict the pinned source — fetch fresh).
+
+- **`PDPage` has no `addAnnotation(widget)` method.** Verified via
+  `javap -p` on `pdfbox-3.0.6.jar`. Only `getAnnotations()`,
+  `getAnnotations(filter)`, and `setAnnotations(list)` exist. To attach a
+  synthetic widget in tests, append directly to `/Annots`:
+  `(.add (.getAnnotations page) widget)` or write to the COSArray.
+- **`PDPage.getAnnotations()` does not backref `/P`.** Despite empirical
+  appearances it is read-only. See `PDPage.java` source — it builds a list
+  of `PDAnnotation` wrappers via `PDAnnotation.createAnnotation`, no `/P`
+  mutation.
+- **`PDAnnotation.getPage()` returns a fresh `PDPage` wrapper every call.**
+  `return page != null ? new PDPage(page) : null;`. Tests must compare
+  the underlying `COSDictionary` (`(.getCOSObject ...)`) for identity
+  rather than the `PDPage` wrapper itself.
+- **`PDAcroForm.flatten()` walks `field.getWidgets()` (NOT
+  `page.getAnnotations()`)** and emits `"missing /P entry (page reference)
+  in a widget for field: X"` for any widget whose `getPage()` returns nil.
+  See `PDAcroForm.java` `buildPagesWidgetsMap`. Setting `/P` on the
+  widget's COSDict is sufficient to suppress.
+- **`PDField.getWidgets()` constructs new `PDAnnotationWidget` instances**
+  on every call (each wrapping the same underlying COSDict).
+- **`Loader/loadPDF` accepts byte[], File, or RandomAccessRead — NOT
+  InputStream.** Read the resource stream into a byte array first.
+- Standard fonts: 2.x `PDType1Font/HELVETICA` → 3.x
+  `(PDType1Font. Standard14Fonts$FontName/HELVETICA)`.
+- `PDPageContentStream` constructor: 2.x boolean flags → 3.x
+  `PDPageContentStream$AppendMode/APPEND` enum.
+- Color values for `setStrokingColor` / `setNonStrokingColor`: must be
+  0.0–1.0 floats with explicit `(float x)` casts (Clojure reflection
+  picks the wrong overload otherwise).
+- `drawLine` removed → `moveTo` / `lineTo` / `stroke`.
+- `moveTextPositionByAmount` → `newLineAtOffset`; `drawString` → `showText`.
+
+## Known unknown — `fix-widget-page-refs!` mechanism
+
+The 28 bundled fillable templates show **zero** orphan widgets when probed
+via `(.getAnnotations page)` then `(.getPage widget)` — every widget already
+has `/P` populated at rest. Yet bare `AcroForm.flatten()` (without prior
+iteration of `getPages`/`getAnnotations`) emits hundreds of
+`"missing /P entry"` WARN lines per PDF.
+
+The two facts are not obviously consistent. `getAnnotations()` in 3.0.6
+source does NOT mutate `/P` — verified — so the resolution isn't a side
+effect of the helper's iteration.
+
+Hypotheses still untested:
+- `PDAcroForm.flatten` walks widgets via field.getWidgets, which may
+  produce different widget objects than the page-annotations path. Some
+  of those field-widget objects may have null `/P` even when the
+  same-COSDict widgets reachable via the page have `/P` populated. (PDFBox
+  may set `/P` lazily somewhere in the page-annotation walk that I missed.)
+- Some widgets may exist in `AcroForm.fields[].kids` without being on any
+  page's `/Annots` — those would be invisible to a page walk but visible
+  to flatten's field walk.
+
+Tests prove the *effect* (`fix-widget-page-refs!` populates `/P` on synthetic
+orphan widgets, and the flatten WARN does not fire after the helper runs).
+The *cause* of why the helper is needed against the bundled templates is
+not closed. Worth a future investigation but not a merge blocker.
+
+## Cross-browser PDF rendering
+
+Discovered while writing the E2E spec on `testing/develop`. Full matrix is
+documented in `e2e/AGENT-GUIDE.md` on that branch; key facts:
+
+- **Chromium**: full build (with PDFium) renders PDFs inline; the
+  `chromium-headless-shell` variant Playwright pulls by default does NOT
+  include PDFium and produces blank screenshots. Run
+  `./node_modules/.bin/playwright install chromium` (without `--shell`) to
+  pull the full build.
+- **Firefox**: pdf.js viewer renders inline, but Playwright's default
+  `firefoxUserPrefs` treat `application/pdf` as a download. Set
+  `pdfjs.disabled=false` (and `pdfjs.firstRun=false`) to enable inline
+  rendering. Form widgets render with light-blue highlighting — useful
+  visual signal that the form is fillable.
+- **WebKit on Linux**: no inline PDF viewer at all. Linux WebKit
+  (Cairo/GTK) doesn't have an equivalent of macOS Safari's PDFKit. Falls
+  back to download. Auto-skip the native-render assertion via
+  `process.platform !== 'darwin'`.
+
+For programmatic field-counting (no native viewer required), use the
+vendored `pdf-lib` UMD bundle in `e2e/fixtures/pdf-lib.min.js`.
