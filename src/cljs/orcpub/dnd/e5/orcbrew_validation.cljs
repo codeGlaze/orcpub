@@ -1,4 +1,4 @@
-(ns orcpub.dnd.e5.import-validation
+(ns orcpub.dnd.e5.orcbrew-validation
   "Comprehensive validation for orcbrew file import/export.
 
   Provides detailed error messages and progressive validation to help users

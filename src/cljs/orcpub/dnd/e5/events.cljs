@@ -8,7 +8,7 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
-            [orcpub.dnd.e5.import-validation :as import-val]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
@@ -542,8 +542,8 @@
      (let [{:keys [name option-pack] :as item} (item-key db)
            key (common/name-to-kw name)
            ;; Normalize text then auto-fill missing required fields
-           normalized-item (import-val/normalize-text-in-data item)
-           {filled-item :item} (import-val/fill-all-missing-fields normalized-item plugin-key)
+           normalized-item (orcbrew-val/normalize-text-in-data item)
+           {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
            item-with-key (assoc filled-item :key key)
            plugins (:plugins db)
            explanation (spec/explain-data spec-key item-with-key)]
@@ -626,8 +626,8 @@
  (fn [{:keys [db]} _]
    (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
          key (common/name-to-kw name)
-         normalized-item (import-val/normalize-text-in-data item)
-         {filled-item :item} (import-val/fill-all-missing-fields normalized-item ::e5/selections)
+         normalized-item (orcbrew-val/normalize-text-in-data item)
+         {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
          plugins (:plugins db)
          explanation (spec/explain-data ::selections5e/homebrew-selection item-with-key)
@@ -3601,14 +3601,14 @@
  ::e5/export-plugin
  (fn [_ [_ name plugin]]
    ;; Validate before export to catch bugs early
-   (let [validation (import-val/validate-before-export plugin)]
+   (let [validation (orcbrew-val/validate-before-export plugin)]
      (cond
        ;; Has missing required fields - show modal for user decision
        (:has-missing-required-fields validation)
        (do
          (js/console.warn
           (str "Export validation found missing required fields for \"" name "\":\n"
-               (import-val/format-export-validation-for-log validation)))
+               (orcbrew-val/format-export-validation-for-log validation)))
          {:dispatch [:show-export-warning-modal
                      {:name name
                       :plugin plugin
@@ -3638,7 +3638,7 @@
        :else
        (do
          (js/console.error (str "Export validation failed for " name ":"))
-         (js/console.error (import-val/format-export-validation-for-log validation))
+         (js/console.error (orcbrew-val/format-export-validation-for-log validation))
          {:dispatch [:show-error-message
                      (str "Cannot export '" name "' - contains invalid data. Check console for details.")]})))))
 
@@ -3663,7 +3663,7 @@
  (fn [{:keys [db]} _]
    (let [{:keys [name plugin]} (:export-warning db)
          ;; Fill missing fields with dummy data
-         filled-plugin (import-val/fill-missing-for-export plugin)
+         filled-plugin (orcbrew-val/fill-missing-for-export plugin)
          blob (js/Blob.
                (clj->js [(str filled-plugin)])
                (clj->js {:type "text/plain;charset=utf-8"}))]
@@ -3680,7 +3680,7 @@
          ;; Validate each plugin
          validations (into {}
                            (map (fn [[name plugin]]
-                                  [name (import-val/validate-before-export plugin)])
+                                  [name (orcbrew-val/validate-before-export plugin)])
                                 all-plugins))
          invalid-plugins (filter (fn [[_ v]] (not (:valid v))) validations)
          has-errors (seq invalid-plugins)
@@ -3692,7 +3692,7 @@
          (when-not (:valid validation)
            (js/console.error
             (str "Plugin \"" name "\" has errors:\n"
-                 (import-val/format-export-validation-for-log validation))))
+                 (orcbrew-val/format-export-validation-for-log validation))))
          (when (seq (:warnings validation))
            (js/console.warn
             (str "Plugin \"" name "\" has warnings:\n  "
@@ -3817,11 +3817,11 @@
  (fn [{:keys [db]} [_ plugin-name plugin-text]]
    ;; Use comprehensive validation with progressive import strategy
    ;; Pass existing plugins for duplicate key detection
-   (let [result (import-val/validate-import plugin-text {:strategy :progressive
+   (let [result (orcbrew-val/validate-import plugin-text {:strategy :progressive
                                                          :auto-clean true
                                                          :existing-plugins (:plugins db)
                                                          :import-source-name plugin-name})
-         user-message (import-val/format-import-result result)
+         user-message (orcbrew-val/format-import-result result)
          has-conflicts? (or (seq (get-in result [:key-conflicts :internal-conflicts]))
                             (seq (get-in result [:key-conflicts :external-conflicts])))]
 
@@ -3902,11 +3902,11 @@
 (reg-event-fx
  ::e5/import-plugin-strict
  (fn [{:keys [db]} [_ plugin-name plugin-text]]
-   (let [result (import-val/validate-import plugin-text {:strategy :strict
+   (let [result (orcbrew-val/validate-import plugin-text {:strategy :strict
                                                          :auto-clean true
                                                          :existing-plugins (:plugins db)
                                                          :import-source-name plugin-name})
-         user-message (import-val/format-import-result result)]
+         user-message (orcbrew-val/format-import-result result)]
 
      (js/console.log "Strict import validation result:" (clj->js result))
 
@@ -3939,7 +3939,7 @@
                      ;; For internal, user picks which source to rename
                      :suggested-renames (mapv (fn [{:keys [source name]}]
                                                 {:source source
-                                                 :new-key (import-val/generate-new-key key source)})
+                                                 :new-key (orcbrew-val/generate-new-key key source)})
                                               sources)})
                   internal-conflicts)
 
@@ -3958,7 +3958,7 @@
                      :existing-source existing-source
                      :existing-name existing-name
                      ;; Suggested rename for the import
-                     :suggested-new-key (import-val/generate-new-key key import-source)})
+                     :suggested-new-key (orcbrew-val/generate-new-key key import-source)})
                   external-conflicts)]
     (vec (concat internal external))))
 
@@ -4035,7 +4035,7 @@
 
          ;; Apply renames to import data
          renamed-data (if (seq renames)
-                        (import-val/apply-key-renames import-data renames)
+                        (orcbrew-val/apply-key-renames import-data renames)
                         import-data)
 
          ;; Check if this is a multi-plugin
