@@ -155,11 +155,6 @@
   ["abjuration" "conjuration" "divination" "enchantment"
    "evocation" "illusion" "necromancy" "transmutation"])
 
-(def parent-ref-fields
-  "Fields that reference a parent content type. Rendered as dropdowns
-   populated from the plugin's own data + app-db."
-  {:class :orcpub.dnd.e5/classes
-   :race  :orcpub.dnd.e5/races})
 
 (defn- field-editor
   "Renders the appropriate inline editor for a missing field."
@@ -192,27 +187,6 @@
         (for [school spell-schools]
           ^{:key school}
           [:option {:value school} (s/capitalize school)])]
-
-       ;; Parent class/race ref: dropdown from available items
-       (contains? parent-ref-fields field-key)
-       (let [ref-content-type (get parent-ref-fields field-key)
-             available-keys (when (map? plugin-data)
-                              (sort (keys (get plugin-data ref-content-type))))]
-         (if (seq available-keys)
-           [:select.export-edit-select
-            {:value (str (or val ""))
-             :on-change #(let [v (.. % -target -value)]
-                           (dispatch [:update-export-edit
-                                      edit-path
-                                      (when-not (s/blank? v) (keyword v))]))}
-            [:option {:value ""} "—"]
-            (for [k available-keys]
-              ^{:key k}
-              [:option {:value (clojure.core/name k)} (clojure.core/name k)])]
-           [:span {:style {:color "rgba(255,255,255,0.35)"
-                           :font-size "11px"
-                           :font-style "italic"}}
-            (str "No " (clojure.core/name field-key) " found in this plugin")]))
 
        ;; Default: text input (covers :name and anything else)
        :else
