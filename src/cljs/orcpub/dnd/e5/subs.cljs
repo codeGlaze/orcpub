@@ -1424,6 +1424,16 @@
  (fn [db _]
    (:export-warning db)))
 
+(reg-sub
+ :export-warning-edits
+ (fn [db _]
+   (get-in db [:export-warning :edits])))
+
+(reg-sub
+ :export-warning-show-as-is?
+ (fn [db _]
+   (get-in db [:export-warning :show-export-as-is?])))
+
 ;; ============================================================================
 ;; Missing Content Detection Subscriptions
 ;; ============================================================================

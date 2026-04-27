@@ -493,15 +493,22 @@
 
 (defn validate-item-for-export
   "Check an item for missing required fields (for export validation).
-   Returns {:valid true} or {:valid false :missing-fields [...] :traits-missing-names N}"
+   Returns {:valid true} or {:valid false :missing-fields [...] :traits-missing-names N
+            :traits-needing-names [{:index N}...]}"
   [item content-type]
   (let [missing-fields (find-missing-fields item content-type)
-        traits-missing (when-let [traits (:traits item)]
-                         (count (filter #(seq (find-missing-trait-fields %)) traits)))]
-    (if (or (seq missing-fields) (and traits-missing (pos? traits-missing)))
+        trait-details (when-let [traits (:traits item)]
+                        (keep-indexed
+                         (fn [idx trait]
+                           (when (seq (find-missing-trait-fields trait))
+                             {:index idx :current-name (:name trait)}))
+                         traits))
+        traits-missing (count trait-details)]
+    (if (or (seq missing-fields) (pos? traits-missing))
       {:valid false
        :missing-fields (mapv :field missing-fields)
-       :traits-missing-names (or traits-missing 0)}
+       :traits-missing-names traits-missing
+       :traits-needing-names (vec trait-details)}
       {:valid true})))
 
 (defn validate-content-group-for-export
@@ -751,6 +758,62 @@
   [plugin-data]
   (let [{:keys [plugin]} (fill-missing-in-plugin plugin-data)]
     plugin))
+
+(defn classify-plugins-for-export
+  "Classify plugins for batch export.
+   Returns {:fillable  [{:name :plugin :validation :issues}...]
+            :blockers  [{:name :validation}...]
+            :clean     [{:name :plugin}...]}"
+  [plugins]
+  (reduce-kv
+   (fn [acc plugin-name plugin]
+     (let [v (validate-before-export plugin)]
+       (cond
+         (:valid v)
+         (update acc :clean conj {:name plugin-name :plugin plugin})
+
+         (:has-missing-required-fields v)
+         (update acc :fillable conj {:name plugin-name
+                                     :plugin plugin
+                                     :validation v
+                                     :issues (:missing-fields-issues v)})
+
+         :else
+         (update acc :blockers conj {:name plugin-name :validation v}))))
+   {:fillable [] :blockers [] :clean []}
+   plugins))
+
+(defn apply-user-edits-to-plugin
+  "Apply user-entered values from the export warning modal to a plugin,
+   then fill any remaining gaps with dummy data.
+
+   edits is a map of vector-path → value, e.g.:
+     [\"My Pack\" :orcpub.dnd.e5/spells :fireball :level] → 3
+     [\"My Pack\" :orcpub.dnd.e5/spells :fireball :trait 0 :name] → \"Fire Aura\"
+
+   Only edits whose first element matches plugin-name are applied."
+  [plugin plugin-name edits]
+  (let [;; Apply user edits to the plugin data
+        edited-plugin
+        (reduce-kv
+         (fn [p edit-path value]
+           (let [[pname content-type item-key & field-path] edit-path]
+             (if (and (= pname plugin-name)
+                      (qualified-keyword? content-type)
+                      (some? item-key)
+                      (seq field-path)
+                      (not (str/blank? (str value))))
+               (if (= :trait (first field-path))
+                 ;; Trait edit: field-path is [:trait idx :name]
+                 (let [[_ idx field] field-path]
+                   (assoc-in p [content-type item-key :traits idx field] value))
+                 ;; Direct field edit: field-path is [:level] or [:name] etc.
+                 (assoc-in p [content-type item-key (first field-path)] value))
+               p)))
+         plugin
+         edits)]
+    ;; Fill any remaining gaps with dummy data
+    (fill-missing-for-export edited-plugin)))
 
 ;; ============================================================================
 ;; Import Strategies
