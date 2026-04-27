@@ -54,13 +54,34 @@ e2e/
 ├── scenarios/
 │   ├── console-errors.spec.ts  # JS error detection (most critical)
 │   ├── ui-smoke.spec.ts        # Basic UI rendering
-│   └── import-export.spec.ts   # File import/export features
+│   ├── import-export.spec.ts   # File import/export features
+│   └── pdf-export.spec.ts      # PDF export (fillable/flattened, native render)
 ├── fixtures/
 │   ├── test-utils.ts           # Shared utilities (waitForAppReady, etc.)
-│   └── test-content.orcbrew    # Test data file
+│   ├── test-content.orcbrew    # Test data file
+│   └── pdf-lib.min.js          # Vendored pdf-lib UMD bundle (PDF parsing)
 └── reporters/
     └── agent-reporter.ts       # Outputs JSON for agent parsing
 ```
+
+### PDF export tests
+
+`pdf-export.spec.ts` is split into two layers:
+
+1. **Byte-level via pdf-lib** — POSTs to `/character.pdf`, parses the response with the vendored pdf-lib bundle, asserts the AcroForm field count is non-zero (interactive) or zero (`:flatten? true`). These tests run under any Playwright project.
+2. **Native viewer render** — opens the PDF in each engine's actual viewer via `file://` URL navigation and screenshots it. Per-engine support:
+   - **Chromium**: requires the *full* `chromium` build (PDFium). Playwright's bundled `chromium-headless-shell` strips PDFium and yields blank screenshots — install with `./node_modules/.bin/playwright install chromium`. Test auto-skips if the full build isn't found at `/root/.cache/ms-playwright/chromium-1200/chrome-linux64/chrome` (override with `FULL_CHROMIUM_PATH` env var).
+   - **Firefox**: works out of the box with pdf.js once the spec sets `pdfjs.disabled=false` in `firefoxUserPrefs`. Form fields render with light-blue highlighting — useful visual signal that the form is fillable.
+   - **WebKit (Linux)**: auto-skipped. Linux WebKit has no inline PDF viewer (Cairo/GTK lacks PDFKit). macOS Safari does, so the test enables itself when `process.platform === 'darwin'`.
+
+To enable the full render layer locally:
+
+```bash
+./node_modules/.bin/playwright install chromium firefox webkit
+./node_modules/.bin/playwright install-deps firefox webkit  # one-time apt deps
+```
+
+`pdf-lib` is vendored (~525KB) at `fixtures/pdf-lib.min.js` rather than installed via npm so the suite runs in environments that ship Node without npm (e.g. VSCode remote servers). When a real `npm install` flow is added to this branch, move it to `package.json` `devDependencies` (`pdf-lib@^1.17.1`).
 
 ## Understanding Test Results
 
