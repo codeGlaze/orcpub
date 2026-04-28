@@ -149,3 +149,161 @@ the URL fetch.
   on a public PR. When a real fix lands, that change can carry a clean
   changelog entry describing the validation tightening without exploit
   detail.
+
+---
+
+## Wire up `:allies` PDF field + add Allies/Organizations builder UI
+
+**Status:** Open
+**Severity:** Low — feature gap, not a regression
+**Reported:** 2026-04-22
+**Upstream issue:** [Orcpub/orcpub#160](https://github.com/Orcpub/orcpub/issues/160)
+**Files:** `src/cljc/orcpub/dnd/e5/character.cljc`,
+`src/cljs/orcpub/character_builder.cljs`,
+`src/cljc/orcpub/pdf_spec.cljc`
+
+### Summary
+
+The bundled fillable templates expose a text field named `allies` that
+no code path populates. The character entity has no `allies` getter, the
+builder has no UI for it, and `pdf_spec.cljc` doesn't include it in the
+generated field map.
+
+Existing Description tab fields (verified 2026-04-22):
+- Faction Name (wired → `faction-name`)
+- Faction Image URL (wired → `faction-image-url`)
+- Description/Backstory (wired → `backstory`)
+- Notes (entity field exists; no template field to populate)
+
+### Verified gap
+
+```
+$ probe template fillable-char-sheetstyle-1-3-spells.pdf
+Field 'allies' present, currently filled by: nothing
+```
+
+`pdf_spec.cljc` populates ~50 named fields; `:allies` is not among them.
+Builder grep for "allies" or "organi[sz]ation" returns no matches.
+
+### Proposed scope
+
+Three pieces:
+1. Add `notes`-pattern getter `(defn allies [built-char])` in `character.cljc`
+2. Add an `Allies/Organizations` textarea in the Description tab of
+   `character_builder.cljs` (mirrors the `Description/Backstory`
+   textarea pattern at line ~1866)
+3. Add `:allies (char5e/allies built-char)` in the appropriate
+   field-builder fn in `pdf_spec.cljc`
+
+Tangentially helped by `bugfix/pdf-widget-warnings`: Firefox/Safari
+users who used to copy-paste from the form-fillable PDF can now do so
+on every browser, expanding who can use the workaround the issue
+describes — but doesn't address the deeper "make this editable in the
+app" ask.
+
+### Notes
+
+Repurposing `notes` for `allies` would conflate two distinct concepts.
+Cleaner to add a new field.
+
+---
+
+## Features and traits PDF cutoff for very long content
+
+**Status:** Open — partially improved by `bugfix/pdf-widget-warnings`,
+not fully fixed
+**Severity:** Low — affects characters with unusually long features lists
+**Reported:** 2026-04-22
+**Upstream issue:** [Orcpub/orcpub#192](https://github.com/Orcpub/orcpub/issues/192)
+**Files:** `resources/fillable-char-sheetstyle-*.pdf` (templates)
+
+### Summary
+
+Characters with enough features to overflow the `features-and-traits`
+field's height get cut off in the exported PDF. No overflow-to-new-page
+behavior.
+
+### Partial improvement landed
+
+`bugfix/pdf-widget-warnings` removed the User-Agent sniff and made
+interactive PDFs the default. Interactive PDFs use the template's
+`/Helv 0 Tf` auto-size default appearance, so PDF readers shrink text
+to fit the field. Before, non-Chrome users got a flattened PDF with
+size 8 baked in — guaranteed cutoff for long content.
+
+### Why not a complete fix
+
+PDF auto-size has a minimum readable size; below that, content still
+overflows. The field's height is fixed by the template. Genuinely long
+features-and-traits will still cut off at the field bottom even with
+auto-size.
+
+### Proposed fix
+
+Two viable approaches:
+- **Template-side**: re-author the bundled templates with taller
+  `features-and-traits` fields, or split into `-2`/`-3` overflow
+  fields (some templates already have a `features-and-traits-2`).
+  Affects all 28 `fillable-char-sheetstyle-*.pdf` resources.
+- **Client-side overflow**: detect overflow at PDF generation time
+  and inject an additional appendix page with the remainder. Avoids
+  re-authoring templates but adds complexity to `routes.clj`.
+
+Don't claim this issue closed in the `bugfix/pdf-widget-warnings` PR.
+Note the partial improvement on the issue itself when commenting.
+
+---
+
+## Cross-linked spell-prep checkboxes (template field-name collision)
+
+**Status:** Open
+**Severity:** Medium — incorrect form behavior visible to every user
+**Reported:** 2026-04-22
+**Upstream issue:** [Orcpub/orcpub#202](https://github.com/Orcpub/orcpub/issues/202),
+duplicate of [#323](https://github.com/Orcpub/orcpub/issues/323) (closed
+without fix)
+**Files:** `resources/fillable-char-sheetstyle-*.pdf` (templates)
+
+### Summary
+
+The bundled fillable templates contain widgets across multiple pages
+that share field names. PDF readers treat same-named widgets as one
+logical field, so checking a checkbox on page 1 also checks the
+identically-named checkbox on page 2.
+
+### Verified
+
+`fillable-char-sheetstyle-1-3-spells.pdf` (3 spell pages) contains 34+
+duplicate field names across pages — `Check Box 3010`, `Check Box 3011`,
+... `Check Box 3043` each appear on multiple pages. `CHARACTER IMAGE`
+also duplicates.
+
+```
+$ probe-template-duplicates fillable-char-sheetstyle-1-3-spells.pdf
+Check Box 25
+Check Box 3010
+Check Box 3011
+[...34 more...]
+CHARACTER IMAGE
+```
+
+### Proposed fix
+
+Template-side. Each widget needs a unique fully-qualified field name.
+Two approaches:
+
+- **Manual re-author** in Acrobat/PDF tooling: open each of the 28
+  templates, rename duplicate widgets per page (e.g.
+  `Check Box 3010` → `Check Box 3010-page2`).
+- **Programmatic regen via PDFBox**: a Clojure script that walks each
+  template's `AcroForm.fields`, detects collisions, renames widgets by
+  appending a page index, and saves back to resources. Reproducible,
+  idempotent, but needs verification that no `pdf_spec.cljc` field key
+  references the renamed names by exact match (verified 2026-04-22 for
+  the duplicate set: none of `Check Box 30NN` or `CHARACTER IMAGE` are
+  used as keyword keys in the spec — they're decorative widgets the
+  user fills manually after export).
+
+Out of scope for `bugfix/pdf-widget-warnings`. Worth filing as its own
+PR, especially since the programmatic approach is testable and produces
+diff-able binary output.
