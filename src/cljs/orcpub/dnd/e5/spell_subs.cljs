@@ -465,20 +465,9 @@
     (fn [[source-name class-key class]]
       (try
         (when (and (map? class) class-key)
-          (let [;; Ensure the class has its key set (the map key is the authoritative key)
-                class-with-key (assoc class :key class-key)
-                levels (make-levels spell-lists spells-map selection-map class-with-key)
-                ;; Add source name to class name for disambiguation
-                ;; Only if source name is meaningful (not default)
-                display-name (if (and source-name
-                                      (not= source-name "Default Option Source"))
-                               (str (:name class) " (" source-name ")")
-                               (:name class))]
+          (let [class-with-key (assoc class :key class-key)
+                levels (make-levels spell-lists spells-map selection-map class-with-key)]
             (assoc class-with-key
-                   :name display-name
-                   ;; :name is display-only (may include source suffix).
-                   ;; All internal lookups use :key, never :name.
-                   :original-name (:name class)
                    :plugin-source source-name
                    :modifiers (opt5e/plugin-modifiers (:props class)
                                                       class-key)

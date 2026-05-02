@@ -29,6 +29,7 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
+            [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.db :refer [default-value
                                       character->local-store
                                       user->local-store
@@ -1209,8 +1210,21 @@
              :url (backend-url path)
              :on-success [:unfollow-user-success]}})))
 
+(defn- loaded-plugin-classes
+  "Flatten loaded plugins into a seq of class data with :key and :name —
+   the shape reconcile-spell-selection-keys needs."
+  [db]
+  (for [[_ plugin-data] (:plugins db)
+        :when (and (map? plugin-data) (not (:disabled? plugin-data)))
+        [class-key class-data] (::e5/classes plugin-data)
+        :when (and (map? class-data) (not (:disabled? class-data)))]
+    (assoc class-data :key class-key)))
+
 (defn set-character [db [_ character]]
-  (assoc db :character character :loading false))
+  (let [{:keys [character]} (content-recon/reconcile-spell-selection-keys
+                             character
+                             (loaded-plugin-classes db))]
+    (assoc db :character character :loading false)))
 
 (reg-event-db
  :toggle-character-expanded
@@ -2639,6 +2653,12 @@
                 (if (= theme "light-theme")
                   "dark-theme"
                   "light-theme")))))
+
+(reg-event-db
+ ::toggle-class-source-suffix
+ [user->local-store-interceptor]
+ (fn [db _]
+   (update-in db [:user-data :show-class-source-suffix] not)))
 
 #_ ;; never dispatched from UI
   (reg-event-db

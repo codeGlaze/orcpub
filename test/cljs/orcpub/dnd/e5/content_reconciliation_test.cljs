@@ -206,3 +206,134 @@
           "all 3 feats should be flagged as missing")
       (is (= #{:blade-mastery :brawny :metabolic-control}
              (set (map :key missing-feats)))))))
+
+;; ============================================================================
+;; Spell Selection Key Reconciliation
+;; ============================================================================
+;;
+;; Regression-window characters had spell-selection keys derived from a
+;; mutated class :name (e.g., :cleric-source-cantrips-known instead of the
+;; canonical :cleric-cantrips-known). After reverting the mutation, the
+;; loaded plugin-class data has its canonical :name back, so the canonical
+;; selection keys can be reconstructed and used to heal orphaned saves.
+
+(defn- spell-selection-fixture
+  "Build a one-class character with a spell-selection options map under
+   the class entry. Returns the entity."
+  [class-key spell-options]
+  {::entity/options
+   {:class [{::entity/key class-key
+             ::entity/options spell-options}]}})
+
+(deftest test-reconcile-rewrites-orphan-when-class-loaded
+  (testing "Regression-window orphan rewrites to the canonical key when the
+            originating homebrew class is loaded"
+    (let [character (spell-selection-fixture
+                     :cleric-source
+                     {:cleric-source-cantrips-known
+                      [{::entity/key :spare-the-dying}
+                       {::entity/key :guidance}]})
+          loaded [{:key :cleric-source :name "Cleric"}]
+          {:keys [character rewrote parked]}
+          (reconcile/reconcile-spell-selection-keys character loaded)
+          new-options (-> character ::entity/options :class first ::entity/options)]
+      (is (= 1 (count rewrote)))
+      (is (= {:class-key :cleric-source
+              :from :cleric-source-cantrips-known
+              :to :cleric-cantrips-known}
+             (first rewrote)))
+      (is (empty? parked))
+      (is (contains? new-options :cleric-cantrips-known))
+      (is (not (contains? new-options :cleric-source-cantrips-known)))
+      (is (= 2 (count (:cleric-cantrips-known new-options)))))))
+
+(deftest test-reconcile-parks-orphan-when-class-not-loaded
+  (testing "Orphan parked when its originating homebrew class is missing"
+    (let [character (spell-selection-fixture
+                     :cleric-source
+                     {:cleric-source-cantrips-known
+                      [{::entity/key :guidance}]})
+          ;; class entry's key is not in loaded set
+          {:keys [character rewrote parked]}
+          (reconcile/reconcile-spell-selection-keys character [])
+          new-options (-> character ::entity/options :class first ::entity/options)]
+      (is (empty? rewrote))
+      (is (empty? parked) "no expected-keys to compare against → skip entirely")
+      (is (contains? new-options :cleric-source-cantrips-known)
+          "orphan data preserved unchanged"))))
+
+(deftest test-reconcile-leaves-healthy-key-alone
+  (testing "Healthy canonical key is not touched"
+    (let [character (spell-selection-fixture
+                     :cleric-source
+                     {:cleric-cantrips-known
+                      [{::entity/key :guidance}]})
+          loaded [{:key :cleric-source :name "Cleric"}]
+          {:keys [character rewrote parked]}
+          (reconcile/reconcile-spell-selection-keys character loaded)
+          new-options (-> character ::entity/options :class first ::entity/options)]
+      (is (empty? rewrote))
+      (is (empty? parked))
+      (is (contains? new-options :cleric-cantrips-known)))))
+
+(deftest test-reconcile-preserves-non-spell-selection-keys
+  (testing "Non-spell-selection keys are passed through unchanged"
+    (let [character (spell-selection-fixture
+                     :cleric-source
+                     {:divine-domain {::entity/key :life-domain}
+                      :skill-proficiency [{::entity/key :medicine}]
+                      :cleric-source-cantrips-known [{::entity/key :guidance}]})
+          loaded [{:key :cleric-source :name "Cleric"}]
+          {:keys [character]}
+          (reconcile/reconcile-spell-selection-keys character loaded)
+          new-options (-> character ::entity/options :class first ::entity/options)]
+      (is (= {::entity/key :life-domain} (:divine-domain new-options)))
+      (is (= [{::entity/key :medicine}] (:skill-proficiency new-options)))
+      (is (contains? new-options :cleric-cantrips-known))
+      (is (not (contains? new-options :cleric-source-cantrips-known))))))
+
+(deftest test-reconcile-rewrites-spells-known-suffix
+  (testing "spells-known suffix follows the same rebind path as cantrips-known"
+    (let [character (spell-selection-fixture
+                     :wizard-source
+                     {:wizard-source-spells-known
+                      [{::entity/key :magic-missile}
+                       {::entity/key :shield}]})
+          loaded [{:key :wizard-source :name "Wizard"}]
+          {:keys [character rewrote]}
+          (reconcile/reconcile-spell-selection-keys character loaded)
+          new-options (-> character ::entity/options :class first ::entity/options)]
+      (is (= :wizard-spells-known (:to (first rewrote))))
+      (is (contains? new-options :wizard-spells-known))
+      (is (= 2 (count (:wizard-spells-known new-options)))))))
+
+(deftest test-reconcile-handles-character-with-no-classes
+  (testing "Character without :class entries returns unchanged result"
+    (let [character {::entity/options {}}
+          {:keys [character rewrote parked]}
+          (reconcile/reconcile-spell-selection-keys character [])]
+      (is (empty? rewrote))
+      (is (empty? parked))
+      (is (= {::entity/options {}} character)))))
+
+(deftest test-reconcile-multiclass-each-class-isolated
+  (testing "Two classes each reconcile against their own expected keys"
+    (let [character {::entity/options
+                     {:class [{::entity/key :cleric-source
+                               ::entity/options
+                               {:cleric-source-cantrips-known
+                                [{::entity/key :guidance}]}}
+                              {::entity/key :wizard
+                               ::entity/options
+                               {:wizard-cantrips-known
+                                [{::entity/key :fire-bolt}]}}]}}
+          loaded [{:key :cleric-source :name "Cleric"}]
+          ;; built-in :wizard is not in loaded — its entry is left alone
+          {:keys [character rewrote]}
+          (reconcile/reconcile-spell-selection-keys character loaded)
+          classes (-> character ::entity/options :class)]
+      (is (= 1 (count rewrote)))
+      (is (= :cleric-source (:class-key (first rewrote))))
+      (is (contains? (-> classes first ::entity/options) :cleric-cantrips-known))
+      (is (contains? (-> classes second ::entity/options) :wizard-cantrips-known)
+          "built-in class entry untouched"))))

@@ -258,3 +258,115 @@
     {:has-missing? (boolean (seq missing))
      :missing-count (count missing)
      :items (vec missing)}))
+
+;; ============================================================================
+;; Spell Selection Key Reconciliation
+;; ============================================================================
+;;
+;; During a regression window, the plugin-classes sub mutated class :name
+;; to "Cleric (Source)", which leaked into spell-selection :key derivation
+;; (selection keys are computed via name-to-kw of the class name + suffix).
+;; Characters built or re-saved during the window have selection keys like
+;; :cleric-source-cantrips-known. After reverting the mutation, the template
+;; uses the canonical :cleric-cantrips-known again, leaving the saved key
+;; orphaned and the selections invisible.
+;;
+;; This reconciler heals unambiguous orphans at character load.
+
+(def ^:private spell-selection-suffix-re
+  #"^.+?-(cantrips-known|spells-known)$")
+
+(defn- spell-selection-suffix
+  "Returns the trailing suffix (\"cantrips-known\" or \"spells-known\")
+   for a spell-selection-shaped key, else nil."
+  [k]
+  (when (keyword? k)
+    (when-let [match (re-matches spell-selection-suffix-re (name k))]
+      (second match))))
+
+(defn- class->expected-spell-keys
+  "Compute the set of canonical spell-selection keys the post-fix template
+   uses for a class with this :name."
+  [class-name]
+  (when (string? class-name)
+    #{(common/name-to-kw (str class-name " Cantrips Known"))
+      (common/name-to-kw (str class-name " Spells Known"))}))
+
+(defn- reconcile-class-entry-options
+  "Walk one class entry's option map. Returns
+   {:options reconciled :rewrote [...] :parked [...]}."
+  [class-key options expected-keys]
+  (reduce-kv
+   (fn [acc k v]
+     (let [suffix (spell-selection-suffix k)]
+       (cond
+         (nil? suffix)
+         (update acc :options assoc k v)
+
+         (contains? expected-keys k)
+         (update acc :options assoc k v)
+
+         :else
+         (let [candidates (filter #(= suffix (spell-selection-suffix %))
+                                  expected-keys)]
+           (if (= 1 (count candidates))
+             (-> acc
+                 (update :options assoc (first candidates) v)
+                 (update :rewrote conj
+                         {:class-key class-key
+                          :from k
+                          :to (first candidates)}))
+             (-> acc
+                 (update :options assoc k v)
+                 (update :parked conj
+                         {:class-key class-key
+                          :key k
+                          :candidates (vec candidates)})))))))
+   {:options {} :rewrote [] :parked []}
+   options))
+
+(defn reconcile-spell-selection-keys
+  "Heal regression-window spell-selection key orphans on a character.
+
+   Args:
+   - character: character entity (with ::entity/options)
+   - loaded-classes: seq of currently-loaded class data, each with :key and
+     :name (built-ins + plugin classes from this load).
+
+   For each class entry in the character, computes the expected spell-selection
+   keys from the class's current canonical :name. Orphan keys (matching the
+   spell-selection shape but not in the expected set) get a single-survivor
+   suffix-match candidate within that class's expected set. Single survivor →
+   rewrite in place. Zero or multiple → park (preserved unchanged for step 2's
+   manual rebind UI to surface).
+
+   Returns:
+   {:character reconciled-character
+    :rewrote [{:class-key K :from K1 :to K2} ...]
+    :parked  [{:class-key K :key K1 :candidates [K2 ...]} ...]}"
+  [character loaded-classes]
+  (let [classes-by-key (into {} (map (juxt :key identity) loaded-classes))
+        class-entries (get-in character [::entity/options :class])]
+    (if (sequential? class-entries)
+      (let [{:keys [entries rewrote parked]}
+            (reduce
+             (fn [acc class-entry]
+               (let [class-key (::entity/key class-entry)
+                     loaded (get classes-by-key class-key)
+                     expected (class->expected-spell-keys (:name loaded))]
+                 (if (empty? expected)
+                   (update acc :entries conj class-entry)
+                   (let [opts (or (::entity/options class-entry) {})
+                         {:keys [options rewrote parked]}
+                         (reconcile-class-entry-options class-key opts expected)]
+                     (-> acc
+                         (update :entries conj
+                                 (assoc class-entry ::entity/options options))
+                         (update :rewrote into rewrote)
+                         (update :parked into parked))))))
+             {:entries [] :rewrote [] :parked []}
+             class-entries)]
+        {:character (assoc-in character [::entity/options :class] entries)
+         :rewrote rewrote
+         :parked parked})
+      {:character character :rewrote [] :parked []})))

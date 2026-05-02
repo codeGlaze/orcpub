@@ -677,17 +677,14 @@
                             filtered-keys)))
                        all-spells))]
          (assoc m cls-lvl
-                [(let [cls-key-nm (class-key-name (:key cls-cfg) (:name cls-cfg))
-                       kw (spell-selection-key cls-key-nm)
-                       cls-nm (:name cls-cfg)]
-                   (spell-selection
-                    spell-lists
-                    spells-map
-                    {:class-key class-key
-                     :class-name cls-nm
-                     :min num
-                     :max (when (not acquire?) num)
-                     :options options}))])))
+                [(spell-selection
+                  spell-lists
+                  spells-map
+                  {:class-key class-key
+                   :class-name (:name cls-cfg)
+                   :min num
+                   :max (when (not acquire?) num)
+                   :options options})])))
    {}
    spells-known))
 
@@ -2867,6 +2864,7 @@
                             help
                             hit-die
                             plugin?
+                            plugin-source
                             profs
                             levels
                             ability-increase-levels
@@ -2904,6 +2902,7 @@
     (t/option-cfg
      {:name name
       :key kw
+      :plugin-source plugin-source
       :help [:div.p-t-5.p-l-10.p-r-10
              (class-help hit-die save-profs weapon-profs armor-profs)
              [:div.m-t-10 help]]
