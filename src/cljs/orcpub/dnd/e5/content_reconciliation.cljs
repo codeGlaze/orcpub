@@ -307,6 +307,9 @@
          (update acc :options assoc k v)
 
          :else
+         ;; Within one class entry, candidates is always 0 or 1 (single suffix
+         ;; per class). Cross-class :parked merge in reconcile-spell-selection-keys
+         ;; handles multiclass overlap. See docs/kb/key-vs-name-separation.md.
          (let [candidates (filter #(= suffix (spell-selection-suffix %))
                                   expected-keys)]
            (if (= 1 (count candidates))

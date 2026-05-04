@@ -1221,6 +1221,9 @@
     (assoc class-data :key class-key)))
 
 (defn set-character [db [_ character]]
+  ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
+  ;; :initialize-db, so the reconciler can trust loaded-plugin-classes.
+  ;; See docs/kb/key-vs-name-separation.md.
   (let [{:keys [character]} (content-recon/reconcile-spell-selection-keys
                              character
                              (loaded-plugin-classes db))]
