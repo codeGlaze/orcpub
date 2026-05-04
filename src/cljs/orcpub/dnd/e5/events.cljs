@@ -1224,9 +1224,12 @@
   ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
   ;; :initialize-db, so the reconciler can trust loaded-plugin-classes.
   ;; See docs/kb/key-vs-name-separation.md.
-  (let [{:keys [character]} (content-recon/reconcile-spell-selection-keys
-                             character
-                             (loaded-plugin-classes db))]
+  (let [{:keys [character rewrote]}
+        (content-recon/reconcile-spell-selection-keys
+         character
+         (loaded-plugin-classes db))]
+    (when (seq rewrote)
+      (js/console.info "Reconciled spell-selection keys:" (clj->js rewrote)))
     (assoc db :character character :loading false)))
 
 (reg-event-db
