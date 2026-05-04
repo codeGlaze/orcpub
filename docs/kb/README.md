@@ -9,6 +9,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 | Document | Topic | Source quality |
 |----------|-------|---------------|
 | [datomic-crash-analysis.md](datomic-crash-analysis.md) | Datomic transactor crashes — root cause, frequency, fix options | High — direct log analysis from `logs/datomic.{1,2,3}.log` |
+| [key-vs-name-separation.md](key-vs-name-separation.md) | Class config `:key`/`:name` separation, cantrip regression case study, `name-to-kw(:name)` audit pattern, plugin-load race verification | High — direct code trace |
 
 ## Contribution rules
 
