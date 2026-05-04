@@ -802,7 +802,9 @@
                       (qualified-keyword? content-type)
                       (some? item-key)
                       (seq field-path)
-                      (not (str/blank? (str value))))
+                      (some? value)
+                      (not (and (number? value) (js/isNaN value)))
+                      (not (and (string? value) (str/blank? value))))
                (if (= :trait (first field-path))
                  ;; Trait edit: field-path is [:trait idx :name]
                  (let [[_ idx field] field-path]

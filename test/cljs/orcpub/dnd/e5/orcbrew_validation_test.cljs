@@ -888,3 +888,145 @@
                   {:valid false :errors nil})]
       (is (string? result))
       (is (not (re-find #"null" result))))))
+
+;; ============================================================================
+;; Tests for validate-item-for-export (enriched with trait indices)
+;; ============================================================================
+
+(deftest test-validate-item-for-export-valid-spell
+  (testing "Spell with all required fields passes"
+    (let [result (orcbrew-val/validate-item-for-export
+                  {:name "Fireball" :level 3 :school "evocation"}
+                  :orcpub.dnd.e5/spells)]
+      (is (:valid result)))))
+
+(deftest test-validate-item-for-export-missing-spell-fields
+  (testing "Spell missing level and school is flagged with both fields"
+    (let [result (orcbrew-val/validate-item-for-export
+                  {:name "Fireball"}
+                  :orcpub.dnd.e5/spells)]
+      (is (not (:valid result)))
+      (is (= #{:level :school} (set (:missing-fields result)))))))
+
+(deftest test-validate-item-for-export-traits-with-indices
+  (testing "Traits missing :name return their indices, not just a count"
+    (let [result (orcbrew-val/validate-item-for-export
+                  {:name "Fighter"
+                   :traits [{:name "Action Surge"}
+                            {:description "no name"}
+                            {:name "Extra Attack"}
+                            {:description "also no name"}]}
+                  :orcpub.dnd.e5/classes)]
+      (is (not (:valid result)))
+      (is (= 2 (:traits-missing-names result)))
+      (is (= [{:index 1 :current-name nil}
+              {:index 3 :current-name nil}]
+             (:traits-needing-names result))))))
+
+(deftest test-validate-item-for-export-no-traits-issue
+  (testing "Item with all traits named returns valid"
+    (let [result (orcbrew-val/validate-item-for-export
+                  {:name "Wizard"
+                   :traits [{:name "Arcane Recovery"} {:name "Spellcasting"}]}
+                  :orcpub.dnd.e5/classes)]
+      (is (:valid result)))))
+
+;; ============================================================================
+;; Tests for classify-plugins-for-export
+;; ============================================================================
+
+(def valid-plugin
+  {:orcpub.dnd.e5/spells
+   {:fireball {:option-pack "Test" :name "Fireball" :level 3 :school "evocation"}}})
+
+(def plugin-missing-name
+  {:orcpub.dnd.e5/spells
+   {:no-name {:option-pack "Test" :level 3 :school "evocation"}}})
+
+(deftest test-classify-clean-plugins
+  (testing "All valid plugins go into :clean"
+    (let [result (orcbrew-val/classify-plugins-for-export
+                  {"Good Plugin" valid-plugin})]
+      (is (= 1 (count (:clean result))))
+      (is (empty? (:fillable result)))
+      (is (empty? (:blockers result))))))
+
+(deftest test-classify-fillable-plugins
+  (testing "Plugin with missing required fields goes into :fillable"
+    (let [result (orcbrew-val/classify-plugins-for-export
+                  {"Missing Name" plugin-missing-name})]
+      (is (= 1 (count (:fillable result))))
+      (is (empty? (:clean result)))
+      (is (empty? (:blockers result)))
+      (is (= "Missing Name" (:name (first (:fillable result))))))))
+
+(deftest test-classify-mixed-plugins
+  (testing "Mix of clean and fillable sorts correctly"
+    (let [result (orcbrew-val/classify-plugins-for-export
+                  {"Good" valid-plugin
+                   "Bad" plugin-missing-name})]
+      (is (= 1 (count (:clean result))))
+      (is (= 1 (count (:fillable result))))
+      (is (empty? (:blockers result))))))
+
+;; ============================================================================
+;; Tests for apply-user-edits-to-plugin
+;; ============================================================================
+
+(deftest test-apply-user-edits-basic
+  (testing "User-entered name gets written into the plugin"
+    (let [plugin {:orcpub.dnd.e5/spells
+                  {:my-spell {:option-pack "Test" :level 3 :school "evocation"}}}
+          edits {["Test Pack" :orcpub.dnd.e5/spells :my-spell :name] "Meteor Swarm"}
+          result (orcbrew-val/apply-user-edits-to-plugin plugin "Test Pack" edits)]
+      (is (= "Meteor Swarm"
+             (get-in result [:orcpub.dnd.e5/spells :my-spell :name]))))))
+
+(deftest test-apply-user-edits-wrong-plugin-name-ignored
+  (testing "Edits for a different plugin name are not applied"
+    (let [plugin {:orcpub.dnd.e5/spells
+                  {:my-spell {:option-pack "Test"}}}
+          edits {["Other Pack" :orcpub.dnd.e5/spells :my-spell :name] "Nope"}
+          result (orcbrew-val/apply-user-edits-to-plugin plugin "Test Pack" edits)]
+      (is (not= "Nope"
+                (get-in result [:orcpub.dnd.e5/spells :my-spell :name]))))))
+
+(deftest test-apply-user-edits-nan-rejected
+  (testing "NaN values are not written into the plugin"
+    (let [plugin {:orcpub.dnd.e5/spells
+                  {:my-spell {:option-pack "Test" :name "X" :school "evocation"}}}
+          edits {["P" :orcpub.dnd.e5/spells :my-spell :level] js/NaN}
+          result (orcbrew-val/apply-user-edits-to-plugin plugin "P" edits)]
+      ;; NaN rejected, fill-missing fills :level with dummy (0)
+      (is (= 0 (get-in result [:orcpub.dnd.e5/spells :my-spell :level]))))))
+
+(deftest test-apply-user-edits-blank-string-rejected
+  (testing "Blank strings are not written into the plugin"
+    (let [plugin {:orcpub.dnd.e5/spells
+                  {:my-spell {:option-pack "Test" :level 3 :school "evocation"}}}
+          edits {["P" :orcpub.dnd.e5/spells :my-spell :name] "   "}
+          result (orcbrew-val/apply-user-edits-to-plugin plugin "P" edits)]
+      ;; Blank rejected, fill-missing fills :name with dummy
+      (is (= "[Missing Spell Name]"
+             (get-in result [:orcpub.dnd.e5/spells :my-spell :name]))))))
+
+(deftest test-apply-user-edits-nil-rejected
+  (testing "Nil values are not written into the plugin"
+    (let [plugin {:orcpub.dnd.e5/spells
+                  {:my-spell {:option-pack "Test" :level 3 :school "evocation"}}}
+          edits {["P" :orcpub.dnd.e5/spells :my-spell :name] nil}
+          result (orcbrew-val/apply-user-edits-to-plugin plugin "P" edits)]
+      (is (= "[Missing Spell Name]"
+             (get-in result [:orcpub.dnd.e5/spells :my-spell :name]))))))
+
+(deftest test-apply-user-edits-trait-name
+  (testing "Trait name edits apply to the correct index"
+    (let [plugin {:orcpub.dnd.e5/classes
+                  {:fighter {:option-pack "Test" :name "Fighter"
+                             :traits [{:name "Action Surge"}
+                                      {:description "unnamed"}
+                                      {:name "Extra Attack"}]}}}
+          edits {["P" :orcpub.dnd.e5/classes :fighter :trait 1 :name] "Second Wind"}
+          result (orcbrew-val/apply-user-edits-to-plugin plugin "P" edits)]
+      (is (= "Second Wind"
+             (get-in result [:orcpub.dnd.e5/classes :fighter :traits 1 :name]))))))

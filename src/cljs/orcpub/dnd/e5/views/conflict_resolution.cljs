@@ -2,7 +2,6 @@
   "Conflict resolution modal, export warning modal, and combined overlay.
    Handles import key conflicts and missing-field warnings during orcbrew export."
   (:require [re-frame.core :refer [subscribe dispatch]]
-            [reagent.core :as r]
             [clojure.string :as s]
             [orcpub.dnd.e5.views.import-log :as import-log]))
 
@@ -168,9 +167,12 @@
        (= field-key :level)
        [:select.export-edit-select
         {:value (str val)
-         :on-change #(dispatch [:update-export-edit
-                                edit-path
-                                (js/parseInt (.. % -target -value))])}
+         :on-change #(let [v (.. % -target -value)]
+                       (if (= v "")
+                         (dispatch [:remove-export-edit edit-path])
+                         (dispatch [:update-export-edit
+                                    edit-path
+                                    (js/parseInt v)])))}
         [:option {:value ""} "—"]
         (for [n (range 10)]
           ^{:key n}
@@ -180,9 +182,10 @@
        (= field-key :school)
        [:select.export-edit-select
         {:value (str val)
-         :on-change #(dispatch [:update-export-edit
-                                edit-path
-                                (.. % -target -value)])}
+         :on-change #(let [v (.. % -target -value)]
+                       (if (= v "")
+                         (dispatch [:remove-export-edit edit-path])
+                         (dispatch [:update-export-edit edit-path v])))}
         [:option {:value ""} "—"]
         (for [school spell-schools]
           ^{:key school}

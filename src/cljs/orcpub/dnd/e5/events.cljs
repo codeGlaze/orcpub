@@ -3682,6 +3682,11 @@
    (assoc-in db [:export-warning :edits edit-path] value)))
 
 (reg-event-db
+ :remove-export-edit
+ (fn [db [_ edit-path]]
+   (update-in db [:export-warning :edits] dissoc edit-path)))
+
+(reg-event-db
  :toggle-export-as-is
  (fn [db _]
    (update-in db [:export-warning :show-export-as-is?] not)))
