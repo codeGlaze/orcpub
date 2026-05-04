@@ -15,16 +15,16 @@ const { PDFDocument } = require('../fixtures/pdf-lib.min.js') as {
 /**
  * PDF Export — fillable-by-default regression tests
  *
- * Covers the fixes on branch `bugfix/pdf-widget-warnings`:
+ * Validates the `/character.pdf` endpoint behavior:
  *
- *   1. PDFs default to interactive (fillable) for every browser — the
- *      pre-2026 User-Agent sniff that force-flattened non-Chrome PDFs was
- *      removed (`src/clj/orcpub/routes.clj:674`).
+ *   1. PDFs default to interactive (fillable) for every browser — there
+ *      is no User-Agent-based override that force-flattens for any client.
  *   2. Clients may opt into a locked/static PDF via `:flatten? true` in the
  *      EDN request body; the handler uses `(true? flatten?)` so only the
- *      literal boolean true triggers flattening.
- *   3. Widget `/P` fixup runs on the flatten path so PDFBox 3.x doesn't
- *      emit hundreds of WARN lines.
+ *      literal boolean true triggers flattening (truthy non-booleans like
+ *      `"yes"`, `1`, `{}` fall through to the safer interactive default).
+ *   3. Widget `/P` back-references are populated before flatten so PDFBox
+ *      3.x does not emit `"missing /P entry"` WARN lines.
  *
  * The `/character.pdf` endpoint is unauthenticated (no `check-auth`
  * interceptor — see `routes.clj:1498`), so these tests skip login entirely
@@ -41,9 +41,9 @@ const { PDFDocument } = require('../fixtures/pdf-lib.min.js') as {
  *       WebKit `page.request` contexts (Playwright's per-browser request
  *       context exercises each engine's download stack, even for direct
  *       HTTP requests).
- *   (c) Visual: render the downloaded PDF in each browser via a blob URL
- *       and screenshot. Attached to the test result for manual review
- *       (and in this branch's case, review-via-multimodal-LLM).
+ *   (c) Visual: render the downloaded PDF in each browser via its native
+ *       viewer and screenshot. Attached to the test result for manual
+ *       review.
  *
  * Coverage matrix:
  *   - print-character-sheet-style? ∈ {1, 2, 3, 4}
