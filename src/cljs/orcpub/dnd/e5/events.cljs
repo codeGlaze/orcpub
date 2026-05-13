@@ -557,7 +557,7 @@
                            [:span.text-shadow
                             (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
                            [:span.pointer.underline.black
-                            {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
+                            {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
                             "here"]]
                           60000]]})
          {:dispatch [:show-error-message (spec-error-message type-name explanation error-message)]})))))
@@ -672,7 +672,7 @@
                          [:span.text-shadow
                           "Selection saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking "]
                          [:span.pointer.underline.black
-                          {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
+                          {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
                           "here"]]
                         60000]]})))))
 
