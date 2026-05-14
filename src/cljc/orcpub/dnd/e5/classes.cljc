@@ -27,6 +27,13 @@
 
 (spec/def ::homebrew-boon (spec/keys :req-un [::name ::key ::option-pack]))
 
+(def base-class-keys
+  "SRD built-in class keys. Source-code constants; never rename, never collide.
+   Canonical location for this set; other namespaces should reference it from
+   here rather than redefining."
+  #{:barbarian :bard :cleric :druid :fighter :monk
+    :paladin :ranger :rogue :sorcerer :warlock :wizard})
+
 (defn class-level [levels class-kw]
   (get-in levels [class-kw :class-level]))
 

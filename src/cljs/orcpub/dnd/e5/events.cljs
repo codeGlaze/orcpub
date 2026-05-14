@@ -1215,7 +1215,7 @@
    enabled plugin classes from db :plugins. Same source the class dropdown
    consumes via ::classes5e/classes."
   [db]
-  (into content-recon/builtin-classes
+  (into class5e/base-class-keys
         (for [[_ plugin-data] (:plugins db)
               :when (and (map? plugin-data) (not (:disabled? plugin-data)))
               [class-key class-data] (::e5/classes plugin-data)
@@ -4687,16 +4687,12 @@
  (fn [db _]
    (assoc-in db [::char5e/delete-plugin-confirmation-shown?] false)))
 
-;; Base class keys that are always available (not from plugins)
-(def base-class-keys
-  #{:barbarian :bard :cleric :druid :fighter :monk :paladin :ranger :rogue :sorcerer :warlock :wizard})
-
 (defn remove-plugin-classes
   "Removes classes from character that aren't base classes.
    If no classes remain, sets to Barbarian. Preserves all other character data."
   [character]
   (let [current-classes (get-in character [::entity/options :class])
-        valid-classes (vec (filter #(base-class-keys (::entity/key %)) current-classes))]
+        valid-classes (vec (filter #(class5e/base-class-keys (::entity/key %)) current-classes))]
     (if (seq valid-classes)
       ;; Keep only valid base classes
       (assoc-in character [::entity/options :class] valid-classes)

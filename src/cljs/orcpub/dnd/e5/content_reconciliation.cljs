@@ -10,7 +10,8 @@
    the entire options tree generically."
   (:require [clojure.string :as str]
             [orcpub.entity :as entity]
-            [orcpub.common :as common]))
+            [orcpub.common :as common]
+            [orcpub.dnd.e5.classes :as class5e]))
 
 ;; ============================================================================
 ;; Content Type Definitions
@@ -160,11 +161,6 @@
 ;; Only SRD content belongs here. Non-SRD PHB content (Battle Master,
 ;; Folk Hero, etc.) comes from plugins and SHOULD be flagged when removed.
 
-(def builtin-classes
-  "SRD built-in class keys. Source-code constants; never rename, never collide."
-  #{:barbarian :bard :cleric :druid :fighter :monk
-    :paladin :ranger :rogue :sorcerer :warlock :wizard})
-
 (def ^:private builtin-races
   #{:dwarf :elf :halfling :human :dragonborn :gnome
     :half-elf :half-orc :tiefling})
@@ -202,7 +198,7 @@
   "True if this key is SRD built-in content that won't appear in plugin subs."
   [k content-type]
   (case content-type
-    :class (contains? builtin-classes k)
+    :class (contains? class5e/base-class-keys k)
     :subclass (contains? builtin-subclasses k)
     :race (contains? builtin-races k)
     :subrace (contains? builtin-subraces k)
