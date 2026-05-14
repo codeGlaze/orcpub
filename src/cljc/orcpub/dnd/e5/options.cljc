@@ -461,12 +461,26 @@
    #(memoized-spell-option spells-map spellcasting-ability class-name % prepend-level? qualifier)
    (sort spells)))
 
-(defn spell-level-title [class-name level]
+(defn spell-level-title
+  "Display title for a class's spell selection at a given level."
+  [class-name level]
   (str class-name (if (and level (zero? level)) " Cantrips Known" (str " Spells Known" (when level (str " " level))))))
 
+(defn spell-selection-key
+  "Identity-derived selection key for a class's spell selection at a given
+   level. Mirrors the shape spell-level-title produces but rooted in
+   :class-key, not :name. See docs/kb/key-vs-name-separation.md."
+  [class-key level]
+  (keyword (str (name class-key)
+                (if (and level (zero? level))
+                  "-cantrips-known"
+                  (str "-spells-known" (when level (str "-" level)))))))
+
 (defn spell-selection [spell-lists spells-map {:keys [title class-key level spellcasting-ability class-name num prepend-level? spell-keys options min max exclude-ref? ref]}]
+  ;; Identity (kw) derives from :class-key. :class-name still feeds title
+  ;; for display. See docs/kb/key-vs-name-separation.md.
   (let [title (or title (spell-level-title class-name level))
-        kw (common/name-to-kw title)
+        kw (spell-selection-key class-key level)
         ref (or ref (when (not exclude-ref?) [:class class-key kw]))]
      (t/selection-cfg
       {:name title
@@ -628,14 +642,6 @@
        (restriction (spells-map spell-key)))
      spell-keys)
     spell-keys))
-
-(defn class-key-name [cls-key cls-nm]
-  (if cls-key
-    (name cls-key)
-    (common/name-to-kw cls-nm)))
-
-(defn spell-selection-key [cls-key-nm]
-  (keyword (str cls-key-nm "-spells-known")))
 
 
 (defn spells-known-selections [spell-lists

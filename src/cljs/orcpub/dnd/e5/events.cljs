@@ -1210,24 +1210,26 @@
              :url (backend-url path)
              :on-success [:unfollow-user-success]}})))
 
-(defn- loaded-plugin-classes
-  "Flatten loaded plugins into a seq of class data with :key and :name —
-   the shape reconcile-spell-selection-keys needs."
+(defn- loaded-class-keys
+  "Set of class keys currently known to the system — SRD built-ins plus
+   enabled plugin classes from db :plugins. Same source the class dropdown
+   consumes via ::classes5e/classes."
   [db]
-  (for [[_ plugin-data] (:plugins db)
-        :when (and (map? plugin-data) (not (:disabled? plugin-data)))
-        [class-key class-data] (::e5/classes plugin-data)
-        :when (and (map? class-data) (not (:disabled? class-data)))]
-    (assoc class-data :key class-key)))
+  (into content-recon/builtin-classes
+        (for [[_ plugin-data] (:plugins db)
+              :when (and (map? plugin-data) (not (:disabled? plugin-data)))
+              [class-key class-data] (::e5/classes plugin-data)
+              :when (and (map? class-data) (not (:disabled? class-data)))]
+          class-key)))
 
 (defn set-character [db [_ character]]
   ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
-  ;; :initialize-db, so the reconciler can trust loaded-plugin-classes.
+  ;; :initialize-db, so the reconciler can trust loaded-class-keys.
   ;; See docs/kb/key-vs-name-separation.md.
   (let [{:keys [character rewrote]}
         (content-recon/reconcile-spell-selection-keys
          character
-         (loaded-plugin-classes db))]
+         (loaded-class-keys db))]
     (when (seq rewrote)
       (js/console.info "Reconciled spell-selection keys:" (clj->js rewrote)))
     (assoc db :character character :loading false)))
