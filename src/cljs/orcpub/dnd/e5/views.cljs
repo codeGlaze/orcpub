@@ -1083,7 +1083,8 @@
     (fn []
       [:div.t-a-r
        [:div.orange.pointer.underline
-        {:on-click (make-event-handler ::e5/export-all-plugins-pretty-print)
+        {:on-click (make-event-handler ::e5/export-content
+                                       {:all? true :pretty? true :validate? false})
          :title "Development - Download all Orcbrews as Pretty Print, if you click this button it will take a long time to generate the orcbrew.  Click and wait."}
         [:i.fa.fa-cloud-download-alt]]
        [:div.orange.pointer.underline
@@ -7706,7 +7707,8 @@
          [:div.bg-lighter.p-10
           [:div.flex.justify-cont-end.uppercase.align-items-c.m-b-10
            [:button.form-button.m-l-5
-            {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
+            {:on-click (make-event-handler ::e5/export-content
+                                           {:name name :plugin plugin :pretty? true})}
             "export"]
            [:button.form-button.m-l-5
             {:on-click (make-event-handler ::e5/delete-plugin name)}
@@ -7733,7 +7735,7 @@
      {:on-click (make-event-handler ::char/show-delete-plugin-confirmation)}
      "Delete All"]
     [:button.form-button.m-r-10.m-b-10
-     {:on-click (make-event-handler ::e5/export-all-plugins)}
+     {:on-click (make-event-handler ::e5/export-content {:all? true})}
      "Export All"]]
    [:div.flex.justify-cont-end
     (when @(subscribe [::char/delete-plugin-confirmation-shown?])

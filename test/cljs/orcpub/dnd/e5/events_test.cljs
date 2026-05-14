@@ -188,3 +188,111 @@
     (reset! app-db {:user {:name "test"}})
     (rf/dispatch-sync [:verify-user-session])
     (is true "Handler completed without exception")))
+
+;; ---------------------------------------------------------------------------
+;; ::e5/export-content  (reg-event-fx)
+;;
+;; Unified export event. Verifies the router dispatches to the right branch
+;; and respects the :validate? / :recovery? flags so that future export entry
+;; points can't silently bypass validation.
+;;
+;; save-orcbrew! is redefined to capture calls instead of actually writing
+;; a Blob (which would fail under cljs.test without a real DOM).
+;; ---------------------------------------------------------------------------
+
+(def valid-export-plugin
+  "Minimal plugin that passes ::e5/plugin spec + validate-before-export."
+  {:orcpub.dnd.e5/spells
+   {:fireball {:option-pack "Homebrew"
+               :name "Fireball"
+               :level 3
+               :school "evocation"}}})
+
+(def plugin-missing-required
+  "Plugin with a spell missing :name — fails required-fields validation."
+  {:orcpub.dnd.e5/spells
+   {:fireball {:option-pack "Homebrew"
+               :level 3
+               :school "evocation"}}})
+
+(defn run-with-stubbed-save!
+  "Run f with events/save-orcbrew! captured into an atom. Returns the atom."
+  [f]
+  (let [calls (atom [])]
+    (with-redefs [events/save-orcbrew! (fn [& args] (swap! calls conj (vec args)))]
+      (f))
+    calls))
+
+(deftest export-content-single-valid-writes-no-modal
+  (testing "single export with valid plugin → file written, no modal"
+    (reset! app-db {})
+    (let [calls (run-with-stubbed-save!
+                 #(rf/dispatch-sync [::e5/export-content
+                                     {:name "test" :plugin valid-export-plugin}]))]
+      (is (nil? (get-in @app-db [:export-warning :active?]))
+          "Modal should not open for a valid plugin")
+      (is (= 1 (count @calls)) "save-orcbrew! should be called once")
+      (is (= "test" (first (first @calls)))
+          "First arg to save-orcbrew! is the file-name root"))))
+
+(deftest export-content-single-missing-required-opens-modal
+  (testing "single export with missing required fields → modal opens, no write"
+    (reset! app-db {})
+    (let [calls (run-with-stubbed-save!
+                 #(rf/dispatch-sync [::e5/export-content
+                                     {:name "bad" :plugin plugin-missing-required}]))]
+      (is (true? (get-in @app-db [:export-warning :active?]))
+          "Modal should open when required fields are missing")
+      (is (= 0 (count @calls)) "No file should be written when modal opens"))))
+
+(deftest export-content-single-recovery-false-skips-modal
+  (testing ":recovery? false → modal skipped even on missing fields"
+    (reset! app-db {})
+    (let [calls (run-with-stubbed-save!
+                 #(rf/dispatch-sync [::e5/export-content
+                                     {:name "bad"
+                                      :plugin plugin-missing-required
+                                      :recovery? false}]))]
+      (is (nil? (get-in @app-db [:export-warning :active?]))
+          "Modal must not open when :recovery? is false")
+      (is (= 0 (count @calls))
+          "Validation still refuses the write — :recovery? false doesn't mean 'always write'"))))
+
+(deftest export-content-validate-false-skips-validation
+  (testing ":validate? false writes directly, bypassing validation"
+    (reset! app-db {:plugins {"x" plugin-missing-required}})
+    (let [calls (run-with-stubbed-save!
+                 #(rf/dispatch-sync [::e5/export-content
+                                     {:all? true :pretty? true :validate? false}]))]
+      (is (= 1 (count @calls))
+          "Even with an invalid plugin in db, :validate? false writes the file")
+      (let [[file-name pretty? content] (first @calls)]
+        (is (= "all-content" file-name))
+        (is (true? pretty?))
+        (is (= {"x" plugin-missing-required} content))))))
+
+(deftest export-content-bulk-all-valid-writes
+  (testing "bulk export with all valid plugins → file written"
+    (reset! app-db {:plugins {"Pack1" valid-export-plugin}})
+    (let [calls (run-with-stubbed-save!
+                 #(rf/dispatch-sync [::e5/export-content {:all? true}]))]
+      (is (= 1 (count @calls)))
+      (is (= "all-content" (first (first @calls)))))))
+
+(deftest export-content-bulk-any-invalid-refuses
+  (testing "bulk export refuses entirely if any plugin invalid"
+    (reset! app-db {:plugins {"Bad"  plugin-missing-required
+                              "Good" valid-export-plugin}})
+    (let [calls (run-with-stubbed-save!
+                 #(rf/dispatch-sync [::e5/export-content {:all? true}]))]
+      (is (= 0 (count @calls))
+          "No file should be written when any plugin fails validation"))))
+
+(deftest export-content-defaults-validate-true
+  (testing "validate? defaults to true — opts omitting it still validate"
+    (reset! app-db {:plugins {"x" plugin-missing-required}})
+    (let [calls (run-with-stubbed-save!
+                 ;; No :validate? key at all. Should default to true → refusal.
+                 #(rf/dispatch-sync [::e5/export-content {:all? true}]))]
+      (is (= 0 (count @calls))
+          "Default behavior must be 'validate, refuse on error' — not 'skip if missing flag'"))))
