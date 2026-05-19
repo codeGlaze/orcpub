@@ -213,22 +213,39 @@ entity is written to Datomic it is converted to "strict" form by
 key (assoc ::strict/key key)
 ```
 
-The option key is **persisted verbatim**. For every option that used the
-derivation default (§3), that stored key *is* `name-to-kw` output captured at
-save time.
+`to-strict-selections` (`entity.cljc`, just above) does the same for selection
+nodes: `(cond-> {::strict/key k} …)` — the **selection** map-key is persisted
+too. So **both kinds of key are stored**:
 
-**Consequence:** every character ever saved embeds `name-to-kw`-derived keys
-for its non-class selections. Changing the derivation algorithm, or assigning
-explicit keys that differ from the old derived values, **silently breaks
-resolution of previously-saved characters** — the stored `::entity/key` no
-longer matches any `::key` in the rebuilt template.
+- **Option keys** — the `::entity/key` of each chosen option (subrace, feat,
+  background, language, alignment, tool prof, custom item …). Name-derived
+  whenever the option's `option-cfg` had no explicit `:key`.
+- **Selection keys** — the map-keys under `::entity/options` (e.g. a
+  spell-selection key, a subclass-archetype selection key). Name-derived
+  whenever the `selection-cfg` had no explicit `:key` — these are the
+  *second-order* keys derived from a title/name string at build time.
 
-This is precisely why `content_reconciliation.cljs` exists (see
-`docs/CONTENT_RECONCILIATION.md`): to detect a character whose stored keys no
-longer resolve. **`[UNVERIFIED]`** — reconciliation currently targets *missing
-homebrew* content; whether it would also catch/repair SRD options orphaned by a
-key-scheme change has not been confirmed and should be tested before any
-Option C work.
+**What does and does not require a data migration — the key distinction:**
+
+- **Changing the *mechanism* but not the *value* — no migration.** If a
+  second-order key is a pure function of an authoritative first-order key (e.g.
+  the class `:key`), then *threading that key through* instead of re-deriving
+  it from a display string yields the **byte-identical** result for every case
+  that is currently correct. Nothing persisted changes. The only outputs that
+  change are the ones that were *already wrong* — homebrew classes whose name
+  does not round-trip to their `:key` (§7.2), where the old re-derivation
+  produced a key that already failed to resolve. This is the §7.1/§7.2 fix and
+  it is **migration-free**.
+- **Changing a key *value* — migration required.** Renaming a persisted key, or
+  assigning an explicit `:key` that differs from the value `name-to-kw`
+  previously produced, orphans the stored `::strict/key` in every saved
+  character that used it. The rebuilt template no longer has a matching `::key`.
+
+`content_reconciliation.cljs` exists (see `docs/CONTENT_RECONCILIATION.md`) to
+detect a character whose stored keys no longer resolve. **`[UNVERIFIED]`** —
+reconciliation currently targets *missing homebrew* content; whether it would
+also catch/repair SRD options orphaned by a deliberate key-*value* change has
+not been confirmed and should be tested before any work that renames keys.
 
 ---
 
@@ -377,8 +394,12 @@ Targeted fixes, no behavioral change to the derivation contract:
 4. **`entity.cljc:701` (§7.4):** delete the dead divergent copy.
 
 - **Cost:** small, localized; ~4 files; no schema or data change.
-- **Risk:** low. No saved character is touched; the persisted-key contract (§6)
-  is unchanged.
+- **Risk:** low, and **provably migration-free.** Fixes 1 and 2 only change
+  *how* a second-order key is obtained — by threading the authoritative key in
+  rather than re-deriving it from a display string. Per §6, that yields the
+  byte-identical key for every currently-correct case; the only outputs that
+  change are homebrew cases that were already producing a non-resolving key. No
+  saved character with valid data is touched.
 - **Benefit:** eliminates every snare in §7, including the `f9015b1`-class of
   manual-mirror maintenance that triggered this audit.
 
@@ -387,22 +408,30 @@ Targeted fixes, no behavioral change to the derivation contract:
 Make `:key` mandatory on all content and drop the `(or key (name-to-kw name))`
 default.
 
-- **Cost — high, three-front:**
+- **Cost — three-front:**
   1. Assign explicit keys to *all* key-less SRD content (the ~18 §5.2 sites'
      worth of data — alignments, feats, backgrounds, languages, conditions,
-     subraces, tool profs, items, monsters, spells).
-  2. **Data migration of every saved character in Datomic** (§6): each stored
-     `::strict/key` that was name-derived must be remapped to the new explicit
-     key, or old characters break. This is the dominant cost and the dominant
-     risk.
+     subraces, tool profs, items, monsters, spells). Large but mechanical.
+  2. **A data migration of every saved character in Datomic — but only if key
+     *values* change** (§6). If C is done conservatively, freezing each new
+     explicit `:key` to *exactly* the value `name-to-kw` currently produces,
+     it is migration-free — it merely inlines the derivation. A migration
+     becomes mandatory the moment C is used to *rename* any key to something
+     nicer; then every saved character that stored the old value must be
+     remapped or it breaks. The temptation to clean up ugly derived keys is
+     precisely what makes C risky in practice.
   3. `name-to-kw` **still cannot be deleted** — homebrew/orcbrew import (§5.3)
      receives user content that legitimately may lack keys, and random-name
      generation (§5.4) needs string→keyword. So Option C removes the *default*
      but not the *function*.
-- **Risk:** high — a wrong migration silently corrupts user characters.
-- **Benefit over B:** marginal. The §7 snares are all fixable without C.
-- **Verdict:** not justified by the evidence. C pays a migration cost to remove
-  a mechanism that is mostly harmless and cannot even be fully removed.
+- **Risk:** medium-to-high — bounded if values are frozen, severe if a wrong
+  rename-migration silently corrupts user characters.
+- **Benefit over B:** marginal. The §7 snares are all fixable without C; C's
+  only unique gain is a machine-enforced "every key is explicit" invariant.
+- **Verdict:** not justified by the evidence. The conservative (migration-free)
+  form of C is just B plus a large mechanical edit; the aggressive form buys a
+  cleaner key namespace at the price of a character-data migration. Neither is
+  worth it now.
 
 ---
 
@@ -421,6 +450,14 @@ Rationale, grounded in the trace:
   for the part that matters (classes, §4), and buying it for the rest costs a
   full character-data migration (§6) for marginal gain, while still not
   letting you delete the function.
+
+**Guiding principle for the fix:** *a second-order key (a key built from
+another key — spell-selection keys, archetype-selection keys, slot-factor
+lookups) must be computed from the authoritative first-order `:key`, threaded
+in as an argument. Never reconstruct it by running `name-to-kw` on a display
+string at the call site.* Because the first-order key does not change, every
+threaded second-order key is identical to today's value — so the whole
+punch-list is migration-free (§6, Option B).
 
 **Punch-list for the Stage 2 implementation branch** (each independently
 shippable):
