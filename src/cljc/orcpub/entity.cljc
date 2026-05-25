@@ -699,10 +699,12 @@
  :ret any?)
 
 (defn name-to-kw [name]
-  (-> name
-      s/lower-case
-      (s/replace #"\W" "-")
-      keyword))
+  ;; Guard against nil and empty results — (keyword "") prints as ":" and
+  ;; EDN reader rejects it. See common/name-to-kw-aux for the same fix.
+  (when (string? name)
+    (let [slug (-> name s/lower-case (s/replace #"\W" "-"))]
+      (when (seq slug)
+        (keyword slug)))))
 
 (defn get-option-value-path [template entity path]
   (conj (get-entity-path template entity path) ::value))

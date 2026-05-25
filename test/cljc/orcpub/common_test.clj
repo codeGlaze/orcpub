@@ -12,3 +12,16 @@
                                                  :x 1
                                                  :y "sdlk"})))
   (stest/instrument `common/add-namespaces-to-keys))
+
+(deftest test-name-to-kw
+  (is (= :wizard (common/name-to-kw "Wizard")))
+  (is (= :my-class (common/name-to-kw "My Class")))
+  (is (= :dr-johns-class (common/name-to-kw "Dr. John's Class")))
+  (is (= :ns/wizard (common/name-to-kw "Wizard" "ns")))
+  ;; Regression: (keyword "") prints as ":" and the EDN reader rejects it
+  ;; with "A single colon is not a valid keyword" — a missing-homebrew
+  ;; bug previously stranded the loading spinner. Return nil instead.
+  (is (nil? (common/name-to-kw "")))
+  (is (nil? (common/name-to-kw "'")))
+  (is (nil? (common/name-to-kw nil)))
+  (is (nil? (common/name-to-kw "" "ns"))))

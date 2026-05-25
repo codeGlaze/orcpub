@@ -7,12 +7,17 @@
 
 (defn- name-to-kw-aux [name ns]
   (when (string? name)
-    (as-> name $
-        (s/lower-case $)
-        (s/replace $ #"'" "")
-        (s/replace $ #"\W" "-")
-        (s/replace $ #"\-+" "-")
-        (keyword ns $))))
+    (let [slug (-> name
+                   s/lower-case
+                   (s/replace #"'" "")
+                   (s/replace #"\W" "-")
+                   (s/replace #"\-+" "-"))]
+      ;; Guard against empty result: (keyword ns "") produces a keyword whose
+      ;; printed form is ":" (or ":ns/"), which EDN reader rejects as "A single
+      ;; colon is not a valid keyword." If the input slugifies to empty, the
+      ;; caller is responsible for handling the nil — most do already.
+      (when (seq slug)
+        (keyword ns slug)))))
 
 (def memoized-name-to-kw (memoize name-to-kw-aux))
 
