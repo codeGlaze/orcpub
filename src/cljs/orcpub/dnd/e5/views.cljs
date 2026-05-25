@@ -1523,12 +1523,16 @@
                              ;; Read directly from app-db — lifecycle methods are
                              ;; not reactive contexts, so subscribe warns here.
                              (let [user-data (-> @app-db :user-data :user-data)]
-                               (integrations/on-app-mount!
-                                {:user-tier (if (:patron user-data)
-                                             (or (some-> user-data :patron-tier keyword) :patron)
-                                             :free)
-                                 :username  (:username user-data)
-                                 :email     (:email user-data)}))
+                               ;; Fork override may throw; isolate from app mount.
+                               (try
+                                 (integrations/on-app-mount!
+                                  {:user-tier (if (:patron user-data)
+                                               (or (some-> user-data :patron-tier keyword) :patron)
+                                               :free)
+                                   :username  (:username user-data)
+                                   :email     (:email user-data)})
+                                 (catch :default e
+                                   (js/console.warn "on-app-mount! threw, ignoring:" e))))
                              (when-not frame?
                                (js/window.addEventListener "scroll" on-scroll))
                              (js/window.scrollTo 0,0))
@@ -8372,7 +8376,11 @@
         selected-ids @(subscribe [::char/selected])
         has-selected? @(subscribe [::char/has-selected?])
         user-tier @(subscribe [:user-tier])]
-    (integrations/track-character-list! (count characters) user-tier)
+    ;; Fork override may throw; isolate from render.
+    (try
+      (integrations/track-character-list! (count characters) user-tier)
+      (catch :default e
+        (js/console.warn "track-character-list! threw, ignoring:" e)))
     #_(prn (str (count characters) " characters - " user-tier))
 [content-page
      "Characters"

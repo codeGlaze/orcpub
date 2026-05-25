@@ -514,11 +514,18 @@
                                            routes/dnd-e5-char-route
                                            :id int-id)))]
               (dispatch [:set-loading false])
-              (handle-api-response response
-                #(dispatch [::char5e/set-character
-                            int-id
-                            (char5e/from-strict (:body response))])
-                :context (str "fetch character " int-id)))))
+              ;; from-strict walks the body and can throw on malformed data —
+              ;; guard so the throw can't strand other in-flight work.
+              (try
+                (handle-api-response response
+                  #(dispatch [::char5e/set-character
+                              int-id
+                              (char5e/from-strict (:body response))])
+                  :context (str "fetch character " int-id))
+                (catch :default e
+                  (js/console.error
+                    (str "fetch character " int-id ": failed to process response")
+                    e))))))
       (ra/make-reaction
        (fn []
          (if int-id

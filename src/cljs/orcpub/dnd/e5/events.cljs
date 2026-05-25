@@ -1571,7 +1571,11 @@
 (reg-event-fx
  :route
  (fn [{:keys [db]} [_ {:keys [handler route-params] :as new-route} {:keys [no-return? skip-path? event secure?] :as options}]]
-   (integrations/track-page-view! new-route)
+   ;; Fork override may throw; isolate from navigation.
+   (try
+     (integrations/track-page-view! new-route)
+     (catch :default e
+       (js/console.warn "track-page-view! threw, ignoring:" e)))
    (let [{:keys [route route-history]} db
          seq-params (seq route-params)
          flat-params (flatten seq-params)
@@ -1583,7 +1587,10 @@
                                                js/window.location.hostname
                                                path
                                                js/window.location.port)))
-     (cond-> {:db (assoc db :route new-route)
+     ;; Reset loading counter on navigation — orphan increments from a
+     ;; thrown handler would otherwise strand the spinner. set-loading uses
+     ;; (max 0 (dec …)) so late decrements are harmless.
+     (cond-> {:db (assoc db :route new-route :loading 0)
               :dispatch-n [[:hide-message]
                            [:close-orcacle]]}
        (not no-return?) (assoc-in [:db :return-route] new-route)
