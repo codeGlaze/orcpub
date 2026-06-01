@@ -451,6 +451,10 @@
           :when (and (map? subclass-data) (not (:disabled? subclass-data)))]
       [source-name subclass-key subclass-data]))))
 
+;; :name on plugin classes is canonical; do not mutate it to embed source
+;; (the source label is carried separately as :plugin-source). Mutating :name
+;; causes downstream name-to-kw to derive shifted keys; see
+;; docs/kb/key-vs-name-separation.md.
 (reg-sub
  ::classes5e/plugin-classes
  :<- [::e5/plugins-with-sources]
@@ -459,26 +463,14 @@
  :<- [::selections5e/selection-map]
  (fn [[plugins-with-sources spell-lists spells-map selection-map]]
    ;; Defensive handling: skip malformed classes rather than breaking
-   ;; Also includes source name for disambiguation when multiple sources
-   ;; have classes with the same name (e.g., two different "Artificer" classes)
+   ;; Source name carried as :plugin-source for display; never folded into :name.
    (keep
     (fn [[source-name class-key class]]
       (try
         (when (and (map? class) class-key)
-          (let [;; Ensure the class has its key set (the map key is the authoritative key)
-                class-with-key (assoc class :key class-key)
-                levels (make-levels spell-lists spells-map selection-map class-with-key)
-                ;; Add source name to class name for disambiguation
-                ;; Only if source name is meaningful (not default)
-                display-name (if (and source-name
-                                      (not= source-name "Default Option Source"))
-                               (str (:name class) " (" source-name ")")
-                               (:name class))]
+          (let [class-with-key (assoc class :key class-key)
+                levels (make-levels spell-lists spells-map selection-map class-with-key)]
             (assoc class-with-key
-                   :name display-name
-                   ;; :name is display-only (may include source suffix).
-                   ;; All internal lookups use :key, never :name.
-                   :original-name (:name class)
                    :plugin-source source-name
                    :modifiers (opt5e/plugin-modifiers (:props class)
                                                       class-key)

@@ -272,6 +272,14 @@
                           (?class-level class-kw)
                           (get ?spell-slot-factors class-kw)))
     ?prepare-spell-count (fn [class-name]
+                           ;; Latent name-to-kw on class-name. Active risk is
+                           ;; bounded — callers pass class-name from spell entries'
+                           ;; :class field (sourced from canonical hardcoded source
+                           ;; strings or class config :name, which phase 1 keeps
+                           ;; canonical). Propagating class-key through spell-data
+                           ;; and the ~100 mod5e/spells-known call sites is its own
+                           ;; PR; tracked in docs/TODO.md. See
+                           ;; docs/kb/key-vs-name-separation.md.
                            (let [class-kw (common/name-to-kw class-name)
                                  slot-factor (get ?spell-slot-factors class-kw)
                                  spell-mods ?spell-modifiers
