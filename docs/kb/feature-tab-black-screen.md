@@ -92,6 +92,17 @@ Remaining risk is purely **custom/imported** content — which the defensive fix
    **Edit this character** (dispatches `:edit-character` → loads it in the builder to fix),
    **Try again**, **Reload**, and collapsible technical details. Because it wraps *inside*
    `character-display`, the sheet, builder preview, and party view all benefit.
+   - `:component-did-catch` also `console.error`s the error + React `componentStack`, so the
+     unknown-error case leaves a persistent, forwardable trace even when the data can't be
+     auto-pinpointed.
+
+4. **(same commit set) — proactive `character-health-warning` banner.**
+   `suspected-broken-features` is also surfaced *proactively*: `character-display` renders a
+   persistent warning banner (above the tabs, on **every** tab) whenever the character contains
+   a feature missing a name — so the user sees and can fix the problem *before* hitting a blank
+   section, not only after. Renders nothing for healthy characters. This is the
+   "catch it, trace it, highlight it persistently" behavior. Reliable for the malformed-feature
+   class; novel errors still fall back to the boundary panel + console trace above.
 
 ## 5. Still open
 

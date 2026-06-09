@@ -3643,13 +3643,38 @@
   (let [err (r/atom nil)]
     (r/create-class
      {:display-name "error-boundary"
-      :component-did-catch (fn [_this e _info]
+      :component-did-catch (fn [_this e info]
+                             ;; Persist a trace for the unknown-error case: the message/stack
+                             ;; and the React component stack, so it can be read in the console
+                             ;; (and forwarded to logging) even when we can't auto-pinpoint the data.
+                             (js/console.error "[character render error]" e
+                                               (some-> info .-componentStack))
                              (reset! err e))
       :reagent-render
       (fn [fallback child]
         (if-let [e @err]
           (fallback e #(reset! err nil))
           child))})))
+
+(defn character-health-warning
+  "Proactive, persistent banner shown on every tab when the character contains a
+   feature that can choke the display (currently: a feature missing a name).
+   Lets the user see and fix the problem *before* they hit a blank section,
+   rather than only after the crash. Renders nothing for healthy characters."
+  [id]
+  (let [suspects (try (suspected-broken-features id) (catch :default _ nil))]
+    (when (seq suspects)
+      [:div.p-10.m-b-10.f-s-14.l-h-19
+       {:style {:border "1px solid #e9a227"
+                :border-radius "5px"
+                :background "rgba(233,162,39,0.12)"}}
+       [:div.f-w-b.m-b-5 "⚠ This character has content that may not display correctly"]
+       [:div.m-b-5 "The following feature is missing a name, which can stop a section from loading:"]
+       (doall
+        (map-indexed
+         (fn [i d] ^{:key i} [:div.m-t-2 (str "• " d)])
+         suspects))
+       [:div.m-t-5 "Open this character in the builder and re-select the option that grants it (or pick a different one) so it has a proper name."]])))
 
 (defn character-display []
   (let [show-selections? (r/atom false)]
@@ -3663,6 +3688,7 @@
                       "summary"))]
         [:div.w-100-p
          [:div
+          [character-health-warning id]
           (when show-summary?
             [:div.f-s-24.f-w-600.m-b-16.m-l-20.text-shadow.flex
              [character-summary id true true]])
