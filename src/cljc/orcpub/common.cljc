@@ -202,11 +202,12 @@
            (fn [[k v]] (str (safe-capitalize-kw k) " " (bonus-str v)))
            m)))
 
-;; Case Insensitive `sort-by`.
+;; Case-insensitive `sort-by`.
 ;; `str` coerces the sort key so a nil/missing or non-string value (e.g. a
-;; custom trait or feat with no :name) sorts as "" instead of throwing from
-;; `s/lower-case` calling .toLowerCase() on nil — which would blank the page
-;; on the features tab and crash PDF export.
+;; custom trait or feat with no :name) sorts as "" instead of throwing.
+;; Without `str`: on the JVM `s/lower-case` raises NullPointerException on nil
+;; (crashing PDF export); in ClojureScript it calls .toLowerCase() on null
+;; (blanking the character Features tab).
 (defn aloof-sort-by [sorter coll]
   (sort-by (comp s/lower-case str sorter) coll))
 
