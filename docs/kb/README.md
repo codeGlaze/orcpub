@@ -9,6 +9,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 | Document | Topic | Source quality |
 |----------|-------|---------------|
 | [datomic-crash-analysis.md](datomic-crash-analysis.md) | Datomic transactor crashes — root cause, frequency, fix options | High — direct log analysis from `logs/datomic.{1,2,3}.log` |
+| [feature-tab-black-screen.md](feature-tab-black-screen.md) | "Black screen" rendering a character section — a nameless feature crashes the sort; built-in (Evasion) + custom-content cases; fixes + reusable diagnosis playbook | High — live headless-browser repro (exact stack + offending map), code lines, git pickaxe |
 
 ## Contribution rules
 

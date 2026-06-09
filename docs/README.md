@@ -13,6 +13,7 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 **Agent Knowledge Base:**
 - [📚 KB Index](kb/README.md) - Verified findings from deep investigations
 - [💥 Datomic Crash Analysis](kb/datomic-crash-analysis.md) - Root cause, frequency, fix options
+- [⬛ Feature-Tab Black Screen](kb/feature-tab-black-screen.md) - Nameless feature crashes a character section; root cause, fixes, and how to diagnose any recurrence
 
 **For Developers:**
 - [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities

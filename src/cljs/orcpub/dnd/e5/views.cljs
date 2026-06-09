@@ -3567,19 +3567,54 @@
      [:div
       (options-display (::entity/options character))]]))
 
+(defn- blank-feature-name? [n]
+  (or (nil? n)
+      (and (string? n) (s/blank? n))))
+
+(defn suspected-broken-features
+  "Best-effort diagnosis for the recovery panel. The character-section crash is
+   almost always a feature/action/reaction whose definition is missing a :name
+   (frequently imported/homebrew content). Return short descriptions of any such
+   items so we can tell the user exactly what to look for and fix, instead of
+   leaving them to guess. Safe to call even when nothing is wrong (returns [])."
+  [id]
+  (->> (concat @(subscribe [::char/traits id])
+               @(subscribe [::char/actions id])
+               @(subscribe [::char/bonus-actions id])
+               @(subscribe [::char/reactions id]))
+       (filter #(blank-feature-name? (:name %)))
+       (map (fn [{:keys [summary description page]}]
+              (let [d (or summary description "(no description available)")
+                    d (if (> (count d) 160) (str (subs d 0 160) "…") d)]
+                (if page (str d " (book p." page ")") d))))
+       distinct
+       vec))
+
 (defn feature-render-error
-  "Recovery panel shown in place of a character section that failed to render
-   (e.g. a feature or imported content missing a :name). Keeps the rest of the
-   character usable instead of blanking the whole page, and gives the user a way
-   to fix it."
+  "Recovery panel shown in place of a character section that failed to render.
+   Keeps the rest of the character usable instead of blanking the whole page,
+   tells the user what is likely broken, and gives them a way to fix it."
   [_id _error _retry]
   (let [show-details? (r/atom false)]
     (fn [id error retry]
-      (let [character @(subscribe [::char/character id])]
+      (let [character @(subscribe [::char/character id])
+            suspects (try (suspected-broken-features id) (catch :default _ nil))]
         [:div.p-20.f-s-14
          [:div.f-w-b.f-s-18.m-b-10 "This section couldn’t be displayed"]
          [:div.m-b-15.l-h-19
-          "Something in this character’s data stopped this section from loading — usually a feature or piece of imported content that’s missing a name. Your character is safe and nothing was lost. You can switch to another tab, reload, or open it in the builder to correct it."]
+          "Something in this character’s data stopped this section from loading. Your character is safe and nothing was lost — you can switch tabs, reload, or open it in the builder to correct it."]
+         (if (seq suspects)
+           [:div.m-b-15.p-10.l-h-19
+            {:style {:border "1px solid rgba(255,255,255,0.25)" :border-radius "5px"}}
+            [:div.f-w-b.m-b-5 "Likely cause — feature(s) missing a name:"]
+            (doall
+             (map-indexed
+              (fn [i d] ^{:key i} [:div.m-t-5 (str "• " d)])
+              suspects))
+            [:div.m-t-10
+             "Open this character in the builder and find the option that grants the feature above — check your class/subclass, race, background, and feats, plus any imported content. Re-select it (or choose a different option) so it has a proper name."]]
+           [:div.m-b-15.l-h-19
+            "We couldn’t pinpoint the exact cause automatically. Open the technical details below and send them to support, or edit the character to find the problematic option."])
          [:div.flex.flex-wrap.align-items-c
           (when character
             [:button.form-button.m-r-10.m-b-5
