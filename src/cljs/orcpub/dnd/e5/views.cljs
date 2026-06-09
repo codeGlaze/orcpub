@@ -3590,7 +3590,11 @@
      [:div
       (options-display (::entity/options character))]]))
 
-(defn- blank-feature-name? [n]
+(defn blank-feature-name?
+  "True when a feature/action name is missing or whitespace-only — the data
+   shape that most often chokes the character display. Public so it can be
+   unit-tested directly."
+  [n]
   (or (nil? n)
       (and (string? n) (s/blank? n))))
 
@@ -3661,23 +3665,32 @@
   "React error boundary. If a child throws while rendering, render
    (fallback error retry) instead of letting the exception unmount the whole app
    (the black screen). Give the boundary a :key that changes with its content
-   (e.g. the selected tab) so navigating away clears the error automatically."
+   (e.g. the selected tab) so navigating away clears the error automatically.
+
+   Recovery is driven by React's static getDerivedStateFromError, which is the
+   only React-18 hook that re-renders the boundary to show a fallback (a
+   setState/atom reset in componentDidCatch alone does NOT). component-did-catch
+   is used solely to log the error and component stack to the console."
   [_fallback _child]
-  (let [err (r/atom nil)]
-    (r/create-class
-     {:display-name "error-boundary"
-      :component-did-catch (fn [_this e info]
-                             ;; Persist a trace for the unknown-error case: the message/stack
-                             ;; and the React component stack, so it can be read in the console
-                             ;; (and forwarded to logging) even when we can't auto-pinpoint the data.
-                             (js/console.error "[character render error]" e
-                                               (some-> info .-componentStack))
-                             (reset! err e))
-      :reagent-render
-      (fn [fallback child]
-        (if-let [e @err]
-          (fallback e #(reset! err nil))
-          child))})))
+  (r/create-class
+   {:display-name "error-boundary"
+    :constructor (fn [this _props]
+                   (set! (.-state this) #js {:error nil}))
+    :get-derived-state-from-error (fn [error] #js {:error error})
+    :component-did-catch (fn [_this e info]
+                           ;; Log a trace for the unknown-error case: the message/stack
+                           ;; and the React component stack, so it can be read in the
+                           ;; console (and forwarded to logging) even when we can't
+                           ;; auto-pinpoint the data. Recovery itself is handled by
+                           ;; get-derived-state-from-error above.
+                           (js/console.error "[character render error]" e
+                                             (some-> info .-componentStack)))
+    :reagent-render
+    (fn [fallback child]
+      (let [this (r/current-component)]
+        (if-let [e (.. this -state -error)]
+          (fallback e #(.setState this #js {:error nil}))
+          child)))}))
 
 (defn character-health-warning
   "Proactive, persistent banner shown on every tab when the character contains a
