@@ -49,16 +49,21 @@ omits `:name`. That depends on specific build choices and/or which custom conten
 - Repro character (level-20 Wood Elf Ranger/Hunter, owner `annadarkheart`):
   `https://www.dungeonmastersvault.com/pages/dnd/5e/characters/17592226989362?frame=true`
 
-### (b) Custom/imported: a Druid → crashes only when the content is loaded
+### (b) A Druid that was *reported* to black-screen — **NOT confirmed; possibly a false positive**
 - Character (Druid 16, Circle of the Land, owner `annadarkheart`):
   `https://www.dungeonmastersvault.com/pages/dnd/5e/characters/17592248048004?frame=true`
-- References **custom content not in the repo**: `:centaur` (playable race — only a *monster*
-  exists built-in), `:the-perceptive-acolyte` (0 matches in code), and a `:war-caster` feat key.
-- **Renders fine anonymously** (custom content not loaded → feature never added → no crash),
-  but black-screens for the owner (content loaded → a custom feature with no `:name` is added).
-  This is the "app shouldn't choke on imported content" case. We could **not** name the exact
-  culprit remotely because it isn't loaded in an anonymous session — needs the owner's logged-in
-  session or their orcbrew file (use the console snippet in §6).
+- **VERIFIED:** rendered **fine** anonymously (headless) — Features tab opened, tree intact,
+  **zero** page errors, **zero** sort-comparator throws. We could not reproduce any crash.
+- **VERIFIED:** references content **not in this repo** — `:centaur` (playable race; only a
+  *monster* exists built-in), `:the-perceptive-acolyte` (0 matches), `:war-caster` (feat key).
+- **⚠️ UNVALIDATED SPECULATION** — that it crashes for the *owner* because their custom content
+  loads only in their session, adding a feature with no `:name`. This is a hypothesis to explain
+  the user's report; it was **never confirmed**. No owner-session capture was ever obtained, and
+  the user themselves later questioned whether the Druid was a false positive (note: the Druid URL
+  was first sent as a copy-paste mistake — the same Ranger URL — which may have muddied the report).
+- **To resolve:** run the §6 `diagnose.js` snippet in the **owner's logged-in session** on this
+  character. If it logs nothing and the tab renders, it's a **false positive**. If it logs a
+  nameless map, that names the custom culprit. Until then, treat this case as unconfirmed.
 
 **Scan result:** after fixing Evasion, a full scan of all built-in feature constructors
 (`trait-cfg`, `trait`, `dependent-trait(-2)`, `action`, `bonus-action`, `reaction`, `attack`)
@@ -90,7 +95,8 @@ Remaining risk is purely **custom/imported** content — which the defensive fix
 
 ## 5. Still open
 
-- **Druid custom-content culprit unnamed** — needs the owner's session or orcbrew (see §6).
+- **Druid (§3b) unconfirmed / possible false positive** — rendered fine in every test we ran;
+  the owner-side crash was never reproduced. Resolve with the §6 snippet in the owner's session.
 - **PR not opened** (do not open without the user asking).
 - **No live cljs build verification** of `718e176` (see Verification).
 
