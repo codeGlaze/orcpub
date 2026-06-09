@@ -3567,6 +3567,55 @@
      [:div
       (options-display (::entity/options character))]]))
 
+(defn feature-render-error
+  "Recovery panel shown in place of a character section that failed to render
+   (e.g. a feature or imported content missing a :name). Keeps the rest of the
+   character usable instead of blanking the whole page, and gives the user a way
+   to fix it."
+  [_id _error _retry]
+  (let [show-details? (r/atom false)]
+    (fn [id error retry]
+      (let [character @(subscribe [::char/character id])]
+        [:div.p-20.f-s-14
+         [:div.f-w-b.f-s-18.m-b-10 "This section couldn’t be displayed"]
+         [:div.m-b-15.l-h-19
+          "Something in this character’s data stopped this section from loading — usually a feature or piece of imported content that’s missing a name. Your character is safe and nothing was lost. You can switch to another tab, reload, or open it in the builder to correct it."]
+         [:div.flex.flex-wrap.align-items-c
+          (when character
+            [:button.form-button.m-r-10.m-b-5
+             {:on-click #(dispatch [:edit-character character])}
+             "Edit this character"])
+          [:button.form-button.m-r-10.m-b-5
+           {:on-click retry}
+           "Try again"]
+          [:button.form-button.m-b-5
+           {:on-click #(.reload js/window.location)}
+           "Reload page"]]
+         [:div.m-t-10
+          [:span.orange.underline.pointer
+           {:on-click #(swap! show-details? not)}
+           (if @show-details? "Hide technical details" "Show technical details")]
+          (when @show-details?
+            [:pre.f-s-12.m-t-5.wsp-prw
+             (or (some-> error .-stack) (str error))])]]))))
+
+(defn error-boundary
+  "React error boundary. If a child throws while rendering, render
+   (fallback error retry) instead of letting the exception unmount the whole app
+   (the black screen). Give the boundary a :key that changes with its content
+   (e.g. the selected tab) so navigating away clears the error automatically."
+  [_fallback _child]
+  (let [err (r/atom nil)]
+    (r/create-class
+     {:display-name "error-boundary"
+      :component-did-catch (fn [_this e _info]
+                             (reset! err e))
+      :reagent-render
+      (fn [fallback child]
+        (if-let [e @err]
+          (fallback e #(reset! err nil))
+          child))})))
+
 (defn character-display []
   (let [show-selections? (r/atom false)]
     (fn [id show-summary? num-columns]
@@ -3603,7 +3652,10 @@
                (if two-columns?
                  (rest details-tabs)
                  details-tabs)))]
-            [(-> tab details-tabs :view) num-columns id]]]
+            ^{:key tab}
+            [error-boundary
+             (fn [error retry] [feature-render-error id error retry])
+             [(-> tab details-tabs :view) num-columns id]]]]
           [:div.p-10
            [:span.orange.underline.pointer
             {:on-click #(swap! show-selections? not)}
