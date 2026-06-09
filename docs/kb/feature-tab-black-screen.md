@@ -180,12 +180,22 @@ before clicking the tab**, in the **owner's logged-in session** for custom-conte
 and blame/pickaxe on the current path may dead-end at a re-import commit. Pickaxe the *exact
 text* across all objects and sort by date: `git log --all --oneline --format='%h %ad %s' --date=short -S "<unique string>"` then inspect the oldest, and confirm with `git show <c> -- <file>`.
 
-## 7. Related, NON-crashing note (low priority)
-`(opt5e/evasion ...)` sits **bare** in a `:modifiers` vector (a no-op) at
-`classes.cljc` (Hunter ~1926, Rogue ~2039) and `templates/ua_revised_ranger.cljc` ~199.
-Effect: Evasion may **silently not display** as a trait for Rogue / UA-Ranger. Not a black
-screen. Fix by wrapping in a constructor (e.g. `(mod5e/dependent-trait (opt5e/evasion ...))`)
-if/when desired.
+## 7. Related, NON-crashing note (low priority) — CORRECTED by audit agent 2
+An earlier draft of this note speculated that bare `(opt5e/evasion ...)` calls might make
+Evasion **silently not display** for Rogue / UA-Ranger. **That was wrong** — audit agent 2
+traced the modifier pipeline and verified:
+- **Hunter** (`classes.cljc` ~1926): `(opt5e/evasion 15 93)` sits bare in a `:modifiers`
+  vector and IS a genuine no-op (it carries no `::mods/fn`, so `apply-modifiers` ignores it).
+  Harmless — the trait is supplied by the adjacent (now-named) `mod5e/trait-cfg`. The only
+  cleanup available is removing that redundant line (cosmetic; left in place with a comment).
+- **Rogue** (~2039) and **Monk** (~1342): `(opt5e/evasion ...)` lives in a `:traits` vector,
+  not `:modifiers`. Those go through `options.cljc/traits-modifiers`, which wraps each entry
+  in `trait-cfg` — so the named Evasion trait **renders correctly**. Not missing.
+- **UA Revised Ranger** (`templates/ua_revised_ranger.cljc` ~199): already uses the correct
+  `(mod5e/trait-cfg (opt5e/evasion 15 93))` pattern. Fine.
+
+**Net: nothing is silently missing.** The Hunter `:modifiers` site was the only defect, and
+it's fixed. No further action required.
 
 ## Verification status
 - Reproduced the crash live (headless Chromium) and captured the exact stack
