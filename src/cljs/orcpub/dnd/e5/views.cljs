@@ -1783,6 +1783,28 @@
   {:padding "33px 0"})
 
 
+(declare error-boundary)
+
+(defn guard-fallback
+  "Inline fallback for a single item that threw while rendering: report that it
+   couldn't display and dump its raw data, so the exact malformed value — a nil, a
+   boolean that's nil/wrong, a field a feature chain expected but never got — is
+   visible. No per-bug detector required; this surfaces whatever was being rendered."
+  [data _error]
+  [:div.m-t-10.p-5.f-s-12
+   {:style {:border "1px dashed #e9a227" :border-radius "4px"}}
+   [:div.f-w-b "⚠ This item couldn’t be displayed (its data is shown below so it can be fixed)"]
+   [:pre.wsp-prw.f-s-11.m-t-5 (pr-str data)]])
+
+(defn render-guard
+  "Wrap one piece of UI so a render exception is contained to just this item
+   (showing its raw data via guard-fallback) instead of blanking the whole page.
+   General — catches any error type, not a specific known failure mode."
+  [data child]
+  [error-boundary
+   (fn [_error _retry] [guard-fallback data _error])
+   child])
+
 (defn display-section [title icon-name value & [list? buttons]]
   [:div.m-t-20
    [:div.flex.justify-cont-s-b
@@ -2387,11 +2409,12 @@
          (map
            (fn [{{:keys [units amount]} :frequency nm :name :as action}]
              ^{:key action}
-             [:p.m-t-10
-              [:span.f-w-600.i nm]
-              [:span.f-w-n.m-l-10.wsp-prw (common/sentensize (disp/action-description action))]
-              (when (and amount units)
-                (actions-indicators id nm units amount))])
+             [render-guard action
+              [:p.m-t-10
+               [:span.f-w-600.i nm]
+               [:span.f-w-n.m-l-10.wsp-prw (common/sentensize (disp/action-description action))]
+               (when (and amount units)
+                 (actions-indicators id nm units amount))]])
            (common/aloof-sort-by :name actions)))])))
 
 (defn prof-name [prof-map prof-kw]

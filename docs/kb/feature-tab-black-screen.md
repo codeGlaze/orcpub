@@ -104,6 +104,26 @@ Remaining risk is purely **custom/imported** content — which the defensive fix
    "catch it, trace it, highlight it persistently" behavior. Reliable for the malformed-feature
    class; novel errors still fall back to the boundary panel + console trace above.
 
+5. **(same commit set) — `render-guard`: general, per-item fail-soft (not a detector).**
+   `src/cljs/orcpub/dnd/e5/views.cljs`: `render-guard`/`guard-fallback` wrap an individual
+   rendered item in an error boundary. Applied per-item in `actions-section` (which renders all
+   four feature lists — actions / bonus-actions / reactions / traits). If a single item throws
+   for **any** reason — unexpected nil, a boolean that's nil/wrong, a value a feature chain
+   expected but never received — only that item degrades to an inline box that **dumps its raw
+   data** (`pr-str`), and the rest of the section/character renders normally. This is the answer
+   to "name-missing is just one error type": it needs no per-bug detector — it surfaces whatever
+   was being rendered when it broke. (`error-boundary` is forward-declared so the early sections
+   can use it.)
+
+### Defense-in-depth layers (summary)
+1. `aloof-sort-by` null-safe — the original crash can't happen at sort time.
+2. `render-guard` per item — any item that throws is contained + its data shown (general).
+3. `error-boundary` per tab — backstop if something outside an item throws; recovery panel +
+   `console.error` trace.
+4. `character-health-warning` — proactive banner for the known malformed-feature pattern.
+Detectors (layer 4) are best-effort; layers 1–3 are the general guarantees (never black-screen,
+always show *something* + the offending data/stack).
+
 ## 5. Still open
 
 - **Druid (§3b) unconfirmed / possible false positive** — rendered fine in every test we ran;
