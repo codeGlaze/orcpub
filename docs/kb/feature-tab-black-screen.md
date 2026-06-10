@@ -2,9 +2,63 @@
 
 **Status:** fixed on branch `claude/character-black-screen-feature-i8lvk3` (3 commits + this doc). Not yet merged; **not yet compiled/verified in a real cljs build** (see Verification).
 
+**Status:** implemented + self-audited on branch `claude/character-black-screen-feature-i8lvk3`
+(crash fixes, layered fail-soft UI, tests, this doc). **Not merged. Not yet compiled or run**
+— the implementing environment had no Clojure/cljs build. A test-capable agent must validate
+before merge (see §0). PR not opened.
+
 **Audience:** future Claude agents and maintainers. This documents the bug class, the
 specific cases found, the fixes, and — most importantly — **how to diagnose any future
 occurrence** so nobody has to rediscover this.
+
+---
+
+## 0. ORIENTATION FOR THE NEXT AGENT
+
+Read this first; §1–§7 are the supporting detail. Branch: `claude/character-black-screen-feature-i8lvk3`
+(`git log --oneline d42e05d..HEAD`).
+
+**Where this branch came from.** A user reported that a shared character black-screened the moment
+its **Features** tab was opened — something they'd seen randomly for years and never tracked down.
+It was investigated in a cloud environment with **no Clojure/cljs build available**, so it was
+reproduced and root-caused with a **headless browser driven against the live production site**
+(the capture technique in §6 is the one genuinely custom tool here — reuse it for any recurrence).
+
+**What it's doing.** Fixing one crash *class*: a feature with no `:name` makes the features-tab
+`sort-by` call `clojure.string/lower-case` on `nil` and throw; with no React error boundary, the
+whole component tree unmounts → black screen. The branch addresses it in layers (§4): the specific
+built-in data bug (Hunter **Evasion**), a defensive null-safe sort, **general per-item fail-soft
+rendering**, and a **recovery panel + proactive banner** so users can see and fix bad data instead
+of hitting a dead screen.
+
+**Where it's going.** It needs **build + test verification and runtime confirmation** — the
+implementing environment couldn't compile a single line — and then a PR/merge once green. *That is
+why this handoff is aimed at you:* you have the test environment the author lacked. Standard
+`lein`/figwheel applies; the only non-obvious bit is that the **cljs tests run through the figwheel
+test build** (`orcpub.test-runner`), not plain `lein test`.
+
+**The reasoning & research behind it (so you don't re-litigate decisions):**
+- The cause is evidence-based, not guessed: the exact stack (`lower-case` → `Array.sort` → null)
+  and the exact offending map (Evasion, `:name` absent) were **captured live** (§2, §3a).
+- `git` pickaxe traced the defect to its origin — commit `30e9c71` (2020-05-09, upstream
+  *"Fix rangers traits - omg."*), which unwrapped `opt5e/evasion` and added a nameless `trait-cfg`.
+  It predates this fork; that's why it seemed random and ancient (§3a).
+- The design deliberately pivoted **away from per-bug detectors toward general fail-soft** after the
+  user pointed out that "missing name" is just one failure mode — nils, wrong/nil booleans, and
+  broken feature chains all need the same containment, not a detector each (§4 layers).
+- A self-audit (three sub-agents) caught a real defect in the author's *own* fix: the first error
+  boundary used `componentDidCatch` + an `r/atom`, which on **React 18 does not reliably render a
+  fallback**. It was rewritten to `:get-derived-state-from-error` + React state (commit `b5584b5`).
+  **This is the #1 thing to confirm at runtime** — mount a throwing child / open a nameless-feature
+  character, click Features, and verify you get the recovery panel (not a blank) and that
+  "Try again" clears it.
+- The **Druid** "second case" (§3b) is an **unconfirmed possible false positive** — it rendered fine
+  in every test; the custom-content crash was only a hypothesis. Don't treat it as real; resolve it
+  only via the §6 snippet in the *owner's* logged-in session.
+
+**One test caveat to expect:** `hunter_evasion_test` models the `mod5e/trait-cfg` modifier API
+(`::mods/fn`, conj onto `:traits`) by source-reading, not by running. If it fails, fix the test's
+model — the data fix itself (`:name "Evasion"`) is verified independently.
 
 ---
 
