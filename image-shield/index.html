@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Shield — Resize, Recompress &amp; Cloak</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>🛡️ Image Shield</h1>
+    <p class="tagline">
+      Resize, recompress, and apply artist-protection cloaking — entirely in your
+      browser. Nothing is uploaded.
+    </p>
+  </header>
+
+  <main class="layout">
+    <!-- ============ LEFT: controls ============ -->
+    <section class="controls" aria-label="Controls">
+      <!-- Step 1: source -->
+      <div class="panel">
+        <h2>1 · Source image</h2>
+        <div id="dropzone" class="dropzone" tabindex="0" role="button"
+             aria-label="Choose or drop an image">
+          <input id="fileInput" type="file" accept="image/*" hidden />
+          <p class="dz-primary">Drop an image here</p>
+          <p class="dz-secondary">or click to browse</p>
+        </div>
+        <dl id="sourceInfo" class="info hidden">
+          <div><dt>File</dt><dd id="srcName">—</dd></div>
+          <div><dt>Dimensions</dt><dd id="srcDims">—</dd></div>
+          <div><dt>Size</dt><dd id="srcSize">—</dd></div>
+        </dl>
+      </div>
+
+      <!-- Step 2: resize -->
+      <div class="panel">
+        <h2>2 · Resize</h2>
+        <label class="row">
+          <span>Mode</span>
+          <select id="resizeMode">
+            <option value="none">Keep original size</option>
+            <option value="scale">Scale by percent</option>
+            <option value="dims">Exact dimensions</option>
+            <option value="longest">Fit longest edge</option>
+          </select>
+        </label>
+
+        <div id="scaleControls" class="sub hidden">
+          <label class="row">
+            <span>Scale</span>
+            <input id="scalePct" type="range" min="5" max="200" value="100" />
+            <output id="scalePctOut">100%</output>
+          </label>
+        </div>
+
+        <div id="dimsControls" class="sub hidden">
+          <label class="row">
+            <span>Width</span>
+            <input id="widthInput" type="number" min="1" step="1" />
+            <span class="unit">px</span>
+          </label>
+          <label class="row">
+            <span>Height</span>
+            <input id="heightInput" type="number" min="1" step="1" />
+            <span class="unit">px</span>
+          </label>
+          <label class="check">
+            <input id="lockAspect" type="checkbox" checked />
+            Lock aspect ratio
+          </label>
+        </div>
+
+        <div id="longestControls" class="sub hidden">
+          <label class="row">
+            <span>Longest edge</span>
+            <input id="longestInput" type="number" min="1" step="1" value="1024" />
+            <span class="unit">px</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Step 3: format & quality -->
+      <div class="panel">
+        <h2>3 · Format &amp; quality</h2>
+        <label class="row">
+          <span>Format</span>
+          <select id="formatSelect">
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/webp">WebP</option>
+            <option value="image/png">PNG (lossless)</option>
+          </select>
+        </label>
+        <label class="row" id="qualityRow">
+          <span>Quality</span>
+          <input id="qualityInput" type="range" min="1" max="100" value="82" />
+          <output id="qualityOut">82</output>
+        </label>
+      </div>
+
+      <!-- Step 4: poisoning / cloaking -->
+      <div class="panel">
+        <h2>4 · Adversarial cloaking</h2>
+        <p class="hint">
+          Adds perturbations meant to disrupt how AI models read your image.
+          See the note at the bottom about what this can and cannot do.
+        </p>
+
+        <label class="row">
+          <span>Technique</span>
+          <select id="cloakMode">
+            <option value="none">None</option>
+            <option value="glaze">Glaze-style (protect style)</option>
+            <option value="nightshade">Nightshade-style (poison concept)</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+
+        <label class="row">
+          <span>Intensity</span>
+          <input id="cloakStrength" type="range" min="1" max="32" value="10" />
+          <output id="cloakStrengthOut">10</output>
+        </label>
+
+        <label class="check">
+          <input id="perceptualMask" type="checkbox" checked />
+          Perceptual masking (hide perturbations in textured areas)
+        </label>
+
+        <label class="row">
+          <span>Seed</span>
+          <input id="seedInput" type="number" value="1337" step="1" />
+        </label>
+      </div>
+
+      <div class="actions">
+        <button id="processBtn" class="primary" disabled>Apply &amp; preview</button>
+        <button id="downloadBtn" disabled>Download</button>
+      </div>
+    </section>
+
+    <!-- ============ RIGHT: preview ============ -->
+    <section class="preview" aria-label="Preview">
+      <div class="preview-toolbar">
+        <div class="seg">
+          <button data-view="original" class="active">Original</button>
+          <button data-view="result">Result</button>
+        </div>
+        <div id="resultInfo" class="result-info">—</div>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="previewCanvas"></canvas>
+        <p id="emptyState" class="empty">Choose an image to get started.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <details>
+      <summary>About the cloaking — please read</summary>
+      <div class="disclaimer">
+        <p>
+          <strong>Glaze</strong> and <strong>Nightshade</strong> are real research
+          tools from the University of Chicago. Glaze adds perturbations that protect
+          an artist's <em>style</em> from being mimicked; Nightshade "poisons" images
+          so models that train on them learn wrong concept associations.
+        </p>
+        <p>
+          The real tools depend on trained neural networks and meaningful compute, and
+          cannot run as a small in-browser script. The options here are
+          <strong>approximations</strong>: structured, perceptually-masked adversarial
+          perturbations in the spatial domain. They can degrade naive scraping and
+          feature extraction and add a real cost to casual misuse, but they are
+          <strong>not</strong> equivalent to, and should not be relied on as a
+          substitute for, the official tools. For serious protection use the official
+          Glaze/Nightshade releases.
+        </p>
+        <p>This tool processes everything locally; your images never leave the page.</p>
+      </div>
+    </details>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
