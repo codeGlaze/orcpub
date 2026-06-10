@@ -1630,6 +1630,9 @@
       :padding "4px 8px"
       :font-size "12px"}]
 
+    [:.export-edit-select.unfilled
+     {:border-color "#f0a100"}]
+
     [:.export-bug-toggle
      {:cursor :pointer
       :color "rgba(255,255,255,0.2)"

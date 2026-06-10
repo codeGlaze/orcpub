@@ -154,6 +154,7 @@
   ["abjuration" "conjuration" "divination" "enchantment"
    "evocation" "illusion" "necromancy" "transmutation"])
 
+(def dropdown-fields #{:level :school})
 
 (defn- field-editor
   "Renders the appropriate inline editor for a missing field."
@@ -166,7 +167,8 @@
        ;; Spell level: dropdown 0-9
        (= field-key :level)
        [:select.export-edit-select
-        {:value (str val)
+        {:class (when-not (contains? edits edit-path) "unfilled")
+         :value (str val)
          :on-change #(let [v (.. % -target -value)]
                        (if (= v "")
                          (dispatch [:remove-export-edit edit-path])
@@ -181,7 +183,8 @@
        ;; Spell school: dropdown
        (= field-key :school)
        [:select.export-edit-select
-        {:value (str val)
+        {:class (when-not (contains? edits edit-path) "unfilled")
+         :value (str val)
          :on-change #(let [v (.. % -target -value)]
                        (if (= v "")
                          (dispatch [:remove-export-edit edit-path])
@@ -211,14 +214,16 @@
    [:div.f-w-b {:style {:margin-bottom "4px"}}
     (or name (str ":" (clojure.core/name key)))]
 
-   ;; Missing top-level fields
-   (for [field missing-fields]
-     ^{:key field}
-     [field-editor
-      [plugin-name content-type key field]
-      field
-      (get-in plugin-data [content-type key field])
-      plugin-data])
+   ;; Missing top-level fields (dropdowns first — they block export)
+   (let [sorted-fields (concat (filter dropdown-fields missing-fields)
+                               (remove dropdown-fields missing-fields))]
+     (for [field sorted-fields]
+       ^{:key field}
+       [field-editor
+        [plugin-name content-type key field]
+        field
+        (get-in plugin-data [content-type key field])
+        plugin-data]))
 
    ;; Traits missing :name
    (when (and traits-needing-names (seq traits-needing-names))
@@ -253,11 +258,26 @@
 
 (defn export-warning-modal []
   (let [warning @(subscribe [:export-warning])
-        {:keys [active? mode plugins warnings show-export-as-is?]} warning
+        {:keys [active? mode plugins warnings show-export-as-is? edits]} warning
         multi? (= mode :multi)
         total-items (reduce + 0 (for [p plugins
                                       i (:issues p)]
-                                  (count (:invalid-items i))))]
+                                  (count (:invalid-items i))))
+        total-dropdowns (reduce + 0
+                          (for [p plugins
+                                {:keys [content-type invalid-items]} (:issues p)
+                                {:keys [missing-fields]} invalid-items
+                                field missing-fields
+                                :when (dropdown-fields field)]
+                            1))
+        filled-dropdowns (reduce + 0
+                           (for [p plugins
+                                 {:keys [content-type invalid-items]} (:issues p)
+                                 {:keys [key missing-fields]} invalid-items
+                                 field missing-fields
+                                 :when (dropdown-fields field)]
+                             (if (contains? edits [(:name p) content-type key field]) 1 0)))
+        all-filled? (= filled-dropdowns total-dropdowns)]
     (when active?
       [:div.conflict-backdrop
        [:div.conflict-modal
@@ -316,8 +336,13 @@
 
          ;; Export & Auto-Fix — primary action
          [:button.form-button
-          {:on-click #(dispatch [:export-with-auto-fix])}
-          "Export & Auto-Fix"]]]])))
+          {:on-click #(dispatch [:export-with-auto-fix])
+           :disabled (not all-filled?)
+           :class (when-not all-filled? "disabled")}
+          (if all-filled?
+            "Export & Auto-Fix"
+            (str "Fill required fields ("
+                 filled-dropdowns "/" total-dropdowns ")"))]]]])))
 
 (defn import-log-overlay
   "Composite component rendering all import/export overlay UI.
