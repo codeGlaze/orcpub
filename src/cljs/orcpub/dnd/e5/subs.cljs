@@ -1077,6 +1077,11 @@
    (get-in db [:user-data :theme])))
 
 (reg-sub
+ ::show-class-source-suffix
+ (fn [db _]
+   (boolean (get-in db [:user-data :show-class-source-suffix]))))
+
+(reg-sub
  ::mi5e/builder-item
  (fn [db _]
    (::mi5e/builder-item db)))
