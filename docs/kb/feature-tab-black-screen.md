@@ -234,6 +234,32 @@ before clicking the tab**, in the **owner's logged-in session** for custom-conte
 and blame/pickaxe on the current path may dead-end at a re-import commit. Pickaxe the *exact
 text* across all objects and sort by date: `git log --all --oneline --format='%h %ad %s' --date=short -S "<unique string>"` then inspect the oldest, and confirm with `git show <c> -- <file>`.
 
+### Unblocking a stuck user *before* the fix is deployed
+The crash always goes through `Array.prototype.sort`, so guarding the comparator lets a stuck
+character open its Features tab. Ship-the-branch is the real fix; this is the stopgap.
+
+Bookmarklet (drag-to-install page: `docs/tools/unblock-features-tab.html` — open it and drag the
+button to the bookmarks bar):
+```
+javascript:(function(){var s=Array.prototype.sort;Array.prototype.sort=function(c){return typeof c==='function'?s.call(this,function(a,b){try{return c(a,b)}catch(e){return 0}}):s.call(this,c)};alert('Unblock armed - now click the Features tab');})();
+```
+Use: fresh load → run the bookmark → **then** click Features. Lasts until reload.
+
+**Why a raw console paste of the same snippet often fails for users (operational, not a code bug
+— the post-load paste flow IS verified working):**
+1. **Chrome/Edge "allow pasting" guard** — first console paste is blocked; must type
+   `allow pasting` + Enter first. (The bookmarklet avoids this.)
+2. **Wrong console context** — `?frame=true` pages have many Google ad iframes; the Console
+   context dropdown must be on **`top`**, not an ad frame, or the patch lands on the wrong window.
+   (The bookmarklet runs in the top context, avoiding this.)
+3. **Timing** — the guard must be armed *before* the crashing render. If the page is already black,
+   reload first (it loads fine on Summary/Combat), arm, then click Features.
+
+NOTE: when "verifying" such a snippet in headless Playwright, `addInitScript` runs it *before*
+page load — which is NOT what a human console paste does. To test the real flow, inject via
+`page.evaluate` AFTER `networkidle` and before clicking the tab (see `/tmp/browsedmv/console-flow.js`
+pattern from the investigation).
+
 ## 7. Related, NON-crashing note (low priority) — CORRECTED by audit agent 2
 An earlier draft of this note speculated that bare `(opt5e/evasion ...)` calls might make
 Evasion **silently not display** for Rogue / UA-Ranger. **That was wrong** — audit agent 2

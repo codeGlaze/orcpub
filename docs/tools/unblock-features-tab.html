@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Features-tab Unblock — drag to your bookmarks bar</title>
+<style>
+  body{font:16px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:680px;margin:40px auto;padding:0 20px;color:#1c2330}
+  h1{font-size:20px}
+  .bar{background:#fff7e6;border:1px solid #e9a227;border-radius:8px;padding:20px;text-align:center;margin:24px 0}
+  a.bm{display:inline-block;background:#e9a227;color:#1c2330;font-weight:700;text-decoration:none;
+       padding:12px 18px;border-radius:8px;border:1px solid #c8861a;cursor:grab;user-select:none}
+  a.bm:active{cursor:grabbing}
+  ol{padding-left:22px} li{margin:8px 0}
+  code{background:#eef1f5;padding:1px 5px;border-radius:4px}
+  .small{color:#5b6473;font-size:13px}
+  textarea{width:100%;height:90px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;margin-top:8px}
+</style>
+</head>
+<body>
+  <h1>Unblock the D&amp;D character "Features" tab</h1>
+  <p>This is a temporary client-side workaround so a stuck character can open its Features tab
+     without going to a black screen. (The real fix is deploying the code change.)</p>
+
+  <div class="bar">
+    <p style="margin-top:0"><b>Drag this button up to your bookmarks bar →</b></p>
+    <a class="bm" href="javascript:(function(){var s=Array.prototype.sort;Array.prototype.sort=function(c){return typeof c==='function'?s.call(this,function(a,b){try{return c(a,b)}catch(e){return 0}}):s.call(this,c)};alert('Unblock armed - now click the Features tab');})();">⚔ Unblock Features tab</a>
+    <p class="small" style="margin-bottom:0">Can't drag? Right-click your bookmarks bar → “Add page/bookmark”, and paste the code below as the URL.</p>
+  </div>
+
+  <h2 style="font-size:16px">How to use it</h2>
+  <ol>
+    <li>Make sure the bookmarks bar is visible (Chrome/Edge: <code>Ctrl/Cmd+Shift+B</code>).</li>
+    <li><b>Drag</b> the orange button onto the bookmarks bar (or use the right-click fallback above).</li>
+    <li>Open the character page and let it finish loading (it loads fine on Summary/Combat).</li>
+    <li><b>Before</b> clicking Features, click the <b>⚔ Unblock Features tab</b> bookmark — you’ll see “armed”.</li>
+    <li>Now click <b>Features</b>. It renders instead of going black.</li>
+  </ol>
+  <p class="small">If the page is already black, reload first, then run the bookmark, then click Features.
+     The workaround lasts until you reload; just click the bookmark again each visit.</p>
+
+  <h2 style="font-size:16px">Raw code (fallback)</h2>
+  <textarea readonly onclick="this.select()">javascript:(function(){var s=Array.prototype.sort;Array.prototype.sort=function(c){return typeof c==='function'?s.call(this,function(a,b){try{return c(a,b)}catch(e){return 0}}):s.call(this,c)};alert('Unblock armed - now click the Features tab');})();</textarea>
+</body>
+</html>
