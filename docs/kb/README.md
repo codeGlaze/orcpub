@@ -40,6 +40,7 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [docker-swarm-compat.md](docker-swarm-compat.md) | Compose Spec → Swarm v3 incompatibilities: depends_on, null fields, ports, jq pipeline |
 | [docker-security-decisions.md](docker-security-decisions.md) | Docker security decisions: non-root, sed escaping, chmod 600, .dockerignore, DATOMIC_URL validation |
 | [homebrew-class-spellcasting.md](homebrew-class-spellcasting.md) | Homebrew class spellcasting: slot schedules, known-spells, prepared casters, integration risks |
+| [spell-selection-source-fix.md](spell-selection-source-fix.md) | Cantrip/spell-selection source-poisoning fix (`fix-cantrips-selection-bug` branch): feature changes, the select-keys toggle gap, reconciler plugin-scope, BOM non-issue, e2e-verified remediation |
 | [lein-uberjar-hang.md](lein-uberjar-hang.md) | lein compile hang: Datomic Peer non-daemon threads, timeout workaround, build profile fix |
 | [docker-testing-guide.md](docker-testing-guide.md) | Docker testing: 46-test suite, manual smoke tests, every gotcha (H2 lock-in, env -u, ports, transit, piped input, jq nulls) |
 
