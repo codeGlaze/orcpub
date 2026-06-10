@@ -645,6 +645,82 @@
       (is (re-find #"\.\.\." result)))))
 
 ;; ============================================================================
+;; Human-readable error reporting (Dev Console)
+;; ============================================================================
+
+(deftest test-humanize-pred-cljs-namespaced-predicates
+  (testing "cljs.core/* predicates are humanized, not dumped raw"
+    ;; The bug: code matched 'clojure.core/fn but cljs emits 'cljs.core/*,
+    ;; so every predicate fell through to a raw form dump.
+    (is (= "must be true or false"
+           (import-val/humanize-pred 'cljs.core/boolean? [])))
+    (is (= "must be a map of values"
+           (import-val/humanize-pred 'cljs.core/map? [])))
+    (is (= "must be a text string"
+           (import-val/humanize-pred 'cljs.core/string? []))))
+  (testing "no raw compiler form leaks through"
+    (let [pred '(cljs.core/fn [v] (cljs.core/or (cljs.core/= v :disabled?)))
+          msg (import-val/humanize-pred pred [:orcpub.dnd.e5/content-keyword])]
+      (is (not (re-find #"cljs.core" msg)))
+      (is (re-find #"content-type key" msg)))))
+
+(deftest test-humanize-pred-missing-required-field
+  (testing "(contains? % :option-pack) becomes a clear missing-field message"
+    (let [pred '(cljs.core/fn [%] (cljs.core/contains? % :option-pack))
+          msg (import-val/humanize-pred pred [:orcpub.dnd.e5/homebrew-item])]
+      (is (= "is missing the required field :option-pack" msg)))))
+
+(deftest test-humanize-pred-via-domain-spec
+  (testing "leaf spec name from :via drives the message for anonymous fns"
+    ;; When the predicate is an anonymous fn (no concrete name), the most
+    ;; specific spec from :via produces a clear, domain-aware message.
+    (is (re-find #"source/pack"
+                 (import-val/humanize-pred '(cljs.core/fn [v] true)
+                                           [:orcpub.dnd.e5/option-pack])))))
+
+(deftest test-describe-location-map-entry-selectors
+  (testing "top level when path is empty"
+    (is (= "the top level" (import-val/describe-location []))))
+  (testing "trailing 0 (map-entry key selector) reads as 'the key'"
+    (is (= "the key \"Xanathar's Guide\""
+           (import-val/describe-location ["Xanathar's Guide" 0]))))
+  (testing "trailing 1 (value selector) is dropped, breadcrumb ends at the key"
+    (is (= "\"Xanathar's Guide\" > :orcpub.dnd.e5/subclasses"
+           (import-val/describe-location ["Xanathar's Guide" 1 :orcpub.dnd.e5/subclasses 1])))))
+
+(deftest test-describe-value-surfaces-item-identity
+  (testing "maps surface :name instead of chopped EDN"
+    (is (re-find #"Fireball"
+                 (import-val/describe-value {:name "Fireball" :level 3}))))
+  (testing "maps without :name show their keys"
+    (is (re-find #":war-magic"
+                 (import-val/describe-value {:war-magic {:class :wizard}}))))
+  (testing "scalars are still shown directly"
+    (is (= "false" (import-val/describe-value false)))))
+
+(deftest test-format-validation-errors-real-spec
+  (testing "end-to-end: a mis-shaped plugin produces readable, non-munged output"
+    (let [bad-plugin {"Xanathar's Guide" {:orcpub.dnd.e5/subclasses
+                                           {:war-magic {:class :wizard}}}}
+          explain (spec/explain-data ::e5/plugin bad-plugin)
+          msg (import-val/format-validation-errors explain)]
+      (is (string? msg))
+      (is (re-find #"Validation errors found" msg))
+      ;; The headline regression: raw compiler forms must not appear.
+      (is (not (re-find #"cljs.core/fn" msg)))
+      (is (not (re-find #"clojure.core" msg)))
+      ;; And the string plugin key is flagged as the wrong shape.
+      (is (re-find #"content-type key" msg)))))
+
+(deftest test-format-validation-errors-caps-output
+  (testing "huge problem lists are capped with a remainder note"
+    (let [explain {:cljs.spec.alpha/problems
+                   (vec (for [i (range 100)]
+                          {:pred 'cljs.core/string? :val i :via [] :in [i]}))}
+          msg (import-val/format-validation-errors explain 10)]
+      (is (re-find #"and 90 more" msg)))))
+
+;; ============================================================================
 ;; Normalize Text & count-non-ascii (I13)
 ;; ============================================================================
 

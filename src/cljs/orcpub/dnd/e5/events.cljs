@@ -3597,6 +3597,18 @@
  (fn [_ [_ plugins]]
    plugins))
 
+(defn errors->str
+  "Normalize a validation result's :errors (which may be a pre-formatted string,
+   a seq of strings, or nil) into a single clean string for console output.
+   Avoids the munging that happens when a CLJS collection is passed straight to
+   js/console.error as a trailing argument."
+  [errors]
+  (cond
+    (nil? errors) ""
+    (string? errors) errors
+    (sequential? errors) (s/join "\n\n" (map str errors))
+    :else (str errors)))
+
 (reg-event-fx
  ::e5/export-plugin
  (fn [_ [_ name plugin]]
@@ -3606,8 +3618,9 @@
        ;; Has missing required fields - show modal for user decision
        (:has-missing-required-fields validation)
        (do
-         (js/console.warn "Export validation found missing required fields for" name ":")
-         (js/console.warn (clj->js (:missing-fields-issues validation)))
+         (js/console.warn
+          (str "Export validation found missing required fields for \"" name "\":\n"
+               (import-val/format-missing-fields-issues (:missing-fields-issues validation))))
          {:dispatch [:show-export-warning-modal
                      {:name name
                       :plugin plugin
@@ -3619,9 +3632,9 @@
        (do
          ;; Log warnings if any
          (when (seq (:warnings validation))
-           (js/console.warn "Export warnings for" name ":")
-           (doseq [warning (:warnings validation)]
-             (js/console.warn " " warning)))
+           (js/console.warn
+            (str "Export warnings for \"" name "\":\n"
+                 (s/join "\n" (map #(str "  - " %) (:warnings validation))))))
 
          ;; Proceed with export
          (let [blob (js/Blob.
@@ -3636,8 +3649,9 @@
        ;; Other validation failure - don't export
        :else
        (do
-         (js/console.error "Export validation failed for" name ":")
-         (js/console.error (:errors validation))
+         (js/console.error
+          (str "Export validation failed for \"" name "\":\n"
+               (errors->str (:errors validation))))
          {:dispatch [:show-error-message
                      (str "Cannot export '" name "' - contains invalid data. Check console for details.")]})))))
 
@@ -3688,9 +3702,16 @@
        (js/console.warn "Export validation results:")
        (doseq [[name validation] validations]
          (when-not (:valid validation)
-           (js/console.error "Plugin" name "has errors:" (:errors validation)))
+           (let [details (if (:has-missing-required-fields validation)
+                           (import-val/format-missing-fields-issues
+                            (:missing-fields-issues validation))
+                           (errors->str (:errors validation)))]
+             (js/console.error
+              (str "Plugin \"" name "\" has errors:\n" details))))
          (when (seq (:warnings validation))
-           (js/console.warn "Plugin" name "has warnings:" (:warnings validation)))))
+           (js/console.warn
+            (str "Plugin \"" name "\" has warnings:\n"
+                 (s/join "\n" (map #(str "  - " %) (:warnings validation))))))))
 
      (if has-errors
        {:dispatch [:show-error-message
@@ -3816,16 +3837,29 @@
          has-conflicts? (or (seq (get-in result [:key-conflicts :internal-conflicts]))
                             (seq (get-in result [:key-conflicts :external-conflicts])))]
 
-     ;; Log detailed results to console for debugging
-     (js/console.log "Import validation result:" (clj->js result))
-     (js/console.log "Key conflicts:" (clj->js (:key-conflicts result)))
-     (js/console.log "Has conflicts?:" has-conflicts?)
+     ;; Log a concise summary to the console for debugging. Dumping the whole
+     ;; result via clj->js buries the useful bits under the entire plugin data,
+     ;; so we surface just the counts and conflict totals here; detailed errors
+     ;; are logged (already formatted) in the branches below.
+     (js/console.log
+      (str "Import \"" plugin-name "\": "
+           (cond
+             (:parse-error result) "parse error"
+             (not (:success result)) "validation failed"
+             :else (str "imported " (or (:imported-count result) 0)
+                        ", skipped " (or (:skipped-count result) 0)))
+           " | changes: " (count (:changes result))
+           " | conflicts: " (+ (count (get-in result [:key-conflicts :internal-conflicts]))
+                               (count (get-in result [:key-conflicts :external-conflicts])))))
 
      (cond
        ;; Parse error - cannot recover
        (:parse-error result)
        (do
-         (js/console.error "Parse error:" (:error result))
+         (js/console.error
+          (str "Parse error: " (:error result)
+               (when (:line result) (str " (line " (:line result) ")"))
+               (when (:hint result) (str "\n" (:hint result)))))
          {:dispatch-n [[:show-error-message user-message]
                        [:set-import-log {:name plugin-name
                                          :changes (:changes result)
@@ -3835,7 +3869,7 @@
        ;; Validation failed completely
        (and (not (:success result)) (:errors result))
        (do
-         (js/console.error "Validation errors:" (clj->js (:errors result)))
+         (js/console.error (str "Validation errors:\n" (errors->str (:errors result))))
          {:dispatch-n [[:show-error-message user-message]
                        [:set-import-log {:name plugin-name
                                          :changes (:changes result)
@@ -3860,10 +3894,13 @@
 
          ;; Log skipped items if any
          (when (:had-errors result)
-           (js/console.warn "Skipped invalid items:")
-           (doseq [item (:skipped-items result)]
-             (js/console.warn "  " (:key item))
-             (js/console.warn "    Errors:" (:errors item))))
+           (js/console.warn
+            (str "Skipped " (count (:skipped-items result)) " invalid item(s):\n"
+                 (s/join "\n\n"
+                         (map (fn [item]
+                                (str "  • " (:key item) "\n"
+                                     (errors->str (:errors item))))
+                              (:skipped-items result))))))
 
          {:dispatch-n (cond-> []
                         ;; Set the plugins
