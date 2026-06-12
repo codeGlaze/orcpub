@@ -20,6 +20,8 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [subscribe-refactor-phase2.md](subscribe-refactor-phase2.md) | Phase 2 subscribe fixes: options.cljc, pdf_spec.cljc, equipment_subs, views.cljs |
 | [srd-vs-plugin-content.md](srd-vs-plugin-content.md) | What's hardcoded SRD vs from plugins: classes, races, subclasses, backgrounds, feats |
 | [entity-options-architecture.md](entity-options-architecture.md) | Entity structure, single/multi-select, autosave template cache, content reconciliation |
+| [modifier-vs-trait-slots.md](modifier-vs-trait-slots.md) | Why a plain trait map is inert in `:modifiers` but works in `:traits`; the three Evasions; opt5e/evasion inertness (verified live) |
+| [fail-soft-rendering.md](fail-soft-rendering.md) | Never-black-screen architecture: layered error boundaries (root/tab/item), fault isolation by re-execution (item + selection level), verified findings, temp-revert fixtures to restore |
 | [folder-hardening.md](folder-hardening.md) | Folder CRUD hardening: error handling, empty name prevention |
 | [input-field-debounce.md](input-field-debounce.md) | Input field debounce pattern for character builder |
 | [http-fx-patterns.md](http-fx-patterns.md) | :http effect handler: dispatch vectors, eager JS call bug, auth headers |
