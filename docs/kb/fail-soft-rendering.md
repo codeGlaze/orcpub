@@ -1,8 +1,8 @@
 # Fail-soft rendering & fault isolation (character display)
 
 How the character view avoids black-screening and, when something does break,
-tells the user *which builder choice* to fix. Built on branch
-`claude/character-black-screen-feature-i8lvk3`. All claims here were verified live
+tells the user *which builder choice* to fix. Landed on branch
+`feature/fail-soft-character-rendering` (off `develop`). All claims here were verified live
 (figwheel build on 8890) on a real Ranger 15 / Hunter / Evasion character, not by
 reading alone. Function names (not line numbers) are used as anchors — verify
 against `src/cljs/orcpub/dnd/e5/views.cljs` and `web/cljs/orcpub/core.cljs`.
@@ -143,15 +143,24 @@ So the dev-throw belongs in `feature-name`, not in the generic fold — putting 
   **cached** (once per affected character). May briefly hang on first load of a
   complex broken character.
 
-## Cleanup before landing
+## Landing (done)
 
-- **Done:** the `aloof-sort-by` sort revert is restored — properly, as the
-  `common/lower-case` wrapper (not an inline `str`).
-- **Still to do:**
-  - `classes.cljc` Hunter Evasion `trait-cfg`: `:name "Evasion"` was removed for the
-    demo. Restore it — the placeholder is for genuinely-unknown names, not a stand-in
-    for the real Evasion name.
-  - `system.clj` binds `0.0.0.0` (LAN access for WSL) — local-only, revert.
-  - The dev diagnostics page is a dev artifact: remove the `error-handling-demo` view
-    plus its route registration (route_map.cljc keyword + path, routes.clj
-    `index-page-paths`, core.cljs `pages`).
+Landed clean on `feature/fail-soft-character-rendering` (cut off `develop`), 12
+files, authored `codeGlaze` with no agent trailer. The intentionally-broken test
+fixtures used while building were all resolved in the clean branch:
+
+- `classes.cljc` Hunter Evasion `trait-cfg` `:name "Evasion"` restored (the
+  placeholder is for genuinely-unknown names, not a stand-in for the real one) — this
+  is the actual root-cause fix, with a regression test in `hunter_evasion_test.cljc`.
+- The dev `error-handling-demo` diagnostics page + its 4 route registrations were
+  removed entirely. It was never an attack vector (client-only, no input, no writes),
+  but it was dead prod surface; preserved in the WIP branch's git history if a
+  dev-gated version is ever wanted.
+- `system.clj` no longer hardcodes `0.0.0.0`. The dev host is
+  `(or (environ/env :orcpub-http-host) "localhost")` — set `ORCPUB_HTTP_HOST=0.0.0.0`
+  per-machine for a WSL→Windows-browser workflow without exposing it to the LAN by
+  default. Prod is untouched (always `:prod`, binds all interfaces for containers).
+
+One perf fix worth noting: `guarded-feature-list` originally ran `render-coll` twice
+on the happy path (once to probe for a throw, once to return). It now renders once
+and reuses the realized result, so only the error path pays the isolation cost.
