@@ -2,7 +2,7 @@
 
 How the character view avoids black-screening and, when something does break,
 tells the user *which builder choice* to fix. Landed on branch
-`feature/fail-soft-character-rendering` (off `develop`). All claims here were verified live
+`feature/fix-black-screen-of-death` (off `develop`). All claims here were verified live
 (figwheel build on 8890) on a real Ranger 15 / Hunter / Evasion character, not by
 reading alone. Function names (not line numbers) are used as anchors — verify
 against `src/cljs/orcpub/dnd/e5/views.cljs` and `web/cljs/orcpub/core.cljs`.
@@ -145,7 +145,7 @@ So the dev-throw belongs in `feature-name`, not in the generic fold — putting 
 
 ## Landing (done)
 
-Landed clean on `feature/fail-soft-character-rendering` (cut off `develop`), 12
+Landed clean on `feature/fix-black-screen-of-death` (cut off `develop`), 12
 files, authored `codeGlaze` with no agent trailer. The intentionally-broken test
 fixtures used while building were all resolved in the clean branch:
 
