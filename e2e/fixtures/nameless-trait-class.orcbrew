@@ -1,0 +1,15 @@
+{:orcpub.dnd.e5/classes
+ {:voidcaller
+  {:key :voidcaller
+   :name "Voidcaller"
+   :option-pack "Nameless Trait Pack"
+   :hit-die 8
+   :ability-increase-levels [4 8 12 16 19]
+   :subclass-level 3
+   :subclass-title "Void Path"
+   :traits [{:level 1
+             :description "Imported feature with NO :name key. Pre-fix this nil sort key crashed the Features tab (lower-case on nil) → black screen. Post-fix: null-safe sort renders it and the health banner flags it."}
+            {:name "Void Bolt"
+             :level 1
+             :description "A normal, properly-named level 1 feature so the class is usable."}]
+   :level-modifiers []}}}
