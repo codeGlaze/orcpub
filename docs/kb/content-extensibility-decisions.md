@@ -47,9 +47,18 @@ Read this to understand what we were thinking at each step, not just where we la
    that are real instances of this problem. Restructured the docs to that KB's
    conventions and separated verified-from-code facts from the proposal. → **D8.**
 
-The throughline: each pivot came from concrete evidence (a real diff) or a domain
-constraint (5e's cross-pollination), not from preference. The registry survived; the
-slot idea did not.
+8. **Compatibility raised as a hard constraint, audited before planning.** Users with
+   existing orcbrew libraries and built characters can't be broken. Decided to audit
+   the *current* persisted formats first (orcbrew/plugins map, strict-entity
+   characters, localStorage), derive invariants, and constrain the design to be
+   additive. The audit showed the design can be zero-migration *if* catalogs derive
+   over existing storage (as subraces already do) and selection/option keys are
+   preserved. → **D9.** See
+   [content-extensibility-compatibility.md](content-extensibility-compatibility.md).
+
+The throughline: each pivot came from concrete evidence (a real diff), a domain
+constraint (5e's cross-pollination), or a user-data constraint (existing orcbrew and
+characters) — not from preference. The registry survived; the slot idea did not.
 
 ## Part 2 — Decision summary
 
@@ -80,3 +89,13 @@ at compile time; generate the bidi tree, route sets, pages, events, and subs.
 circular dep the code already works around (`events.cljs` ~204).
 
 **D8 — Document first; no code until the subrace spike is reviewed.**
+
+**D9 — Backward compatibility is a non-negotiable constraint; target zero-migration.**
+Existing orcbrew libraries and saved characters must keep working with no user-facing
+migration. The design stays additive: catalogs derive over the existing plugin
+storage (don't reformat it), existing plugin keys and the `orcpub.dnd.e5` namespace are
+preserved, and selection/option keys that characters may have chosen are not renamed.
+Each migration step is guarded by an orcbrew + saved-character fixture. *Rejected:*
+designing the storage model first and auditing compatibility afterward — the audit
+would too late to reshape it. Full analysis:
+[content-extensibility-compatibility.md](content-extensibility-compatibility.md).

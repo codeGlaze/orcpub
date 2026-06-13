@@ -111,11 +111,20 @@ The result: a homebrew cantrip flows into every "choose a cantrip" grant for fre
 and a feat that grants boons reuses the same `grant-choice :pact-boon` — neither
 needs the producing module to change.
 
+**Compatibility constraint (non-negotiable):** catalogs must be **derived over the
+existing plugin storage** (like subraces are), not a new on-disk format, and a
+migration must **preserve the selection/option keys** that saved characters already
+chose. This keeps existing orcbrew libraries and characters working with no migration.
+Full analysis and invariants in
+[content-extensibility-compatibility.md](content-extensibility-compatibility.md).
+
 ## Suggested next step
 
 A behavior-preserving spike: add the generic catalog injector and migrate
 **subraces** onto it first (they already work this way), review the diff, then
-migrate boons/invocations, then add new capability (lineages) the easy way.
+migrate boons/invocations, then add new capability (lineages) the easy way. Guard each
+step with an orcbrew + saved-character fixture (assert the built character is identical
+before/after) — see the compatibility doc.
 
 ## Related
 
