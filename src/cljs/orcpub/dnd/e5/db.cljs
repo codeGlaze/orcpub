@@ -23,7 +23,7 @@
             [cljs.reader :as reader]
             [bidi.bidi :as bidi]
             [cljs-http.client :as http]
-            [cljs.pprint :refer [pprint]]))
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]))
 
 ;; =============================================================================
 ;; Version: 1.01 - Add conflict-resolution state for duplicate key handling
@@ -261,8 +261,13 @@
                   (item-fn stored-item)
                   stored-item)
                 (do
-                  (js/console.warn "INVALID ITEM FOUND, IGNORING" local-storage-key)
-                  (pprint (spec/explain-data item-spec stored-item)))))))))
+                  ;; Humanize the spec failure instead of pprinting raw problem
+                  ;; forms (which dump cljs.core/* predicate forms to the console).
+                  (js/console.warn
+                   (str "Invalid stored item, ignoring: " local-storage-key "\n"
+                        (orcbrew-val/format-validation-errors
+                         (spec/explain-data item-spec stored-item))))
+                  nil)))))))
 
 (reg-local-store-cofx
  :local-store-character
