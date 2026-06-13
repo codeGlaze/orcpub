@@ -9,6 +9,11 @@ Capture the content-extensibility analysis and plan, and implement it in gated p
 Each step is small, behavior-preserving, and must leave the gate green
 (`lein test` + `lein lint`) before commit. Code lands on this branch.
 
+- [x] **Merged `feature/name-keyword-fix`** (commit `ec26955`) — catalog work now sits on
+      the stable-key fix. Clean auto-merge; gate green (220/1092/0, lint 0). **Live/E2E
+      verification still needed** (JVM gate doesn't run cljs subs or the app):
+      see `docs/kb/content-extensibility-e2e.md`.
+
 - [x] **Setup** — toolchain (lein + deps), baseline gate green.
 - [x] **Phase 0 — safety net.** `extensibility_golden_test.cljc` locks compat invariants
       (name-to-kw key derivation; saved-character round-trip). Pure JVM. (212→ tests green.)
@@ -88,7 +93,8 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
 ## Related Docs
 - `.claude/summaries/2026-06-13-content-extensibility.md` — session summary / handoff
 - `docs/kb/content-extensibility.md`, `docs/kb/content-extensibility-decisions.md`,
-  `docs/kb/content-extensibility-compatibility.md`, `docs/kb/content-extensibility-plan.md`
+  `docs/kb/content-extensibility-compatibility.md`, `docs/kb/content-extensibility-plan.md`,
+  `docs/kb/content-extensibility-e2e.md` (live verification checklist for a VS Code agent)
 - Cross-references: `docs/kb/spa-routing-architecture.md`,
   `entity-options-architecture.md`, `srd-vs-plugin-content.md`,
   `views-builders-split.md`, `docs/issues/homebrew-builders.md` (all on `agents/develop`)
