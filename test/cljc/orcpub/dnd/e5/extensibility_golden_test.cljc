@@ -18,7 +18,11 @@
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.walk :as walk]
             [orcpub.common :as common]
-            [orcpub.dnd.e5.character :as char5e]))
+            [orcpub.template :as t]
+            [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.classes :as classes5e]
+            [orcpub.dnd.e5.spells :as spells5e]
+            [orcpub.dnd.e5.spell-lists :as sl5e]))
 
 ;; ---------------------------------------------------------------------------
 ;; Invariant 1 — key derivation is stable (the linchpin of all compatibility)
@@ -84,3 +88,38 @@
                    :class :warlock :pact-boon :pact-of-the-undying]]
           (is (contains? survived k)
               (str "key " k " must survive load/save")))))))
+
+;; ---------------------------------------------------------------------------
+;; Invariant 3 (Phase 3 guard) — boon/invocation option + selection keys are
+;; stable. These are the keys a saved Warlock character stores its choices under.
+;; The Phase 3 refactor (catalog/grant) MUST keep these identical. Built from the
+;; real option pipeline with real spell data (Pact of the Tome / Book of Ancient
+;; Secrets dereference spells, so nil cannot be passed).
+;; ---------------------------------------------------------------------------
+
+(def spells-map (into {} (map (juxt :key identity)) spells5e/spells))
+(def spell-lists sl5e/spell-lists)
+
+(deftest pact-boon-option-keys-are-stable
+  (let [homebrew {:name "Pact of Testing" :description "a test boon"}
+        keys (set (map ::t/key (classes5e/pact-boon-options [homebrew] spell-lists spells-map)))]
+    (testing "built-in pact boon option keys are preserved"
+      (is (contains? keys :pact-of-the-chain))
+      (is (contains? keys :pact-of-the-blade))
+      (is (contains? keys :pact-of-the-tome)))
+    (testing "a homebrew boon's option key = name-to-kw of its name"
+      (is (contains? keys :pact-of-testing)))))
+
+(deftest eldritch-invocation-option-keys-are-stable
+  (let [homebrew {:name "Invocation of Testing" :description "a test invocation"}
+        keys (set (map ::t/key (classes5e/eldritch-invocation-options [homebrew] spell-lists spells-map)))]
+    (testing "representative built-in invocation keys are preserved"
+      (is (contains? keys :agonizing-blast))
+      (is (contains? keys :book-of-ancient-secrets)))
+    (testing "a homebrew invocation's option key = name-to-kw of its name"
+      (is (contains? keys :invocation-of-testing)))))
+
+(deftest boon-and-invocation-selection-keys-are-stable
+  (testing "selection keys a character stores its choice under (derived from names)"
+    (is (= :pact-boon (common/name-to-kw "Pact Boon")))
+    (is (= :eldritch-invocations (common/name-to-kw "Eldritch Invocations")))))

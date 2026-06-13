@@ -20,13 +20,14 @@ Each step is small, behavior-preserving, and must leave the gate green
         JVM-unit-tested identical to the legacy `(mapcat (comp vals key) plugins)`;
         `::classes5e/plugin-boons` and `::classes5e/plugin-invocations` routed through
         it. Behavior-preserving; no keys/signatures changed. (214 tests, lint 0 errors.)
-  - [ ] 3a. (guard, do before 3c) Build a Warlock-with-boon via `warlock-option` in a
-        `.cljc` test and lock the "Pact Boon"/"Eldritch Invocations" selection keys and
-        boon/invocation option keys. Needs real spell-lists/spells-map (Pact of the Tome
-        dereferences them — cannot pass nil).
+  - [x] 3a. (guard) `extensibility_golden_test.cljc` now builds boon/invocation options
+        via `pact-boon-options`/`eldritch-invocation-options` (real spell data) and locks
+        the built-in + homebrew option keys and the `:pact-boon`/`:eldritch-invocations`
+        selection keys. (217 tests green.)
   - [ ] 3c. (RISKY — deferred) Stop threading `boons`/`invocations` as positional args:
         inject them as a post-step (like subraces→races) or via an ambient ctx map.
-        Keys MUST stay identical; gate on 3a's build-test. Approach carefully.
+        Keys MUST stay identical; 3a guards it. Approach carefully; cljs assembly is
+        lint+review-only here.
 - [ ] **Phase 4 — Layer 1 registration/indexing registry (the "8 files → 1 descriptor"
       win). Existing types only; one subsystem per commit.**
   - [ ] 4a. Create leaf `content-types` registry ns describing existing types.
