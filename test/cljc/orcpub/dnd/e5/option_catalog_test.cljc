@@ -6,6 +6,7 @@
    behaviour-identical to `group-by`, so the subscription re-point is provably a
    no-op."
   (:require [clojure.test :refer [deftest testing is]]
+            [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.option-catalog :as catalog]))
 
 (def subraces
@@ -23,3 +24,27 @@
       (is (= [:high-elf] (map :key (grouped :elf))))))
   (testing "empty input yields an empty grouping"
     (is (= {} (catalog/by-parent :race [])))))
+
+;; plugin-vals shape: a seq of plugin maps, each holding content under namespaced
+;; content-keys mapping option-key -> option (mirrors ::e5/plugin-vals).
+(def plugin-vals
+  [{::e5/boons       {:pact-of-x {:name "Pact of X" :key :pact-of-x}}
+    ::e5/invocations {:agonizing {:name "Agonizing" :key :agonizing}}}
+   {::e5/boons       {:pact-of-y {:name "Pact of Y" :key :pact-of-y}}}])
+
+(deftest plugin-options-matches-legacy-extraction
+  (testing "plugin-options is identical to the per-type mapcat extraction it replaces"
+    (is (= (mapcat #(-> % ::e5/boons vals) plugin-vals)
+           (catalog/plugin-options ::e5/boons plugin-vals)))
+    (is (= (mapcat (comp vals ::e5/invocations) plugin-vals)
+           (catalog/plugin-options ::e5/invocations plugin-vals))))
+  (testing "collects a content-key across all plugins"
+    (is (= #{:pact-of-x :pact-of-y}
+           (set (map :key (catalog/plugin-options ::e5/boons plugin-vals))))))
+  (testing "a content-key absent from a plugin contributes nothing (no error)"
+    (is (= [:agonizing]
+           (map :key (catalog/plugin-options ::e5/invocations plugin-vals)))))
+  (testing "an unknown content-key yields nothing"
+    (is (empty? (catalog/plugin-options ::e5/spells plugin-vals))))
+  (testing "empty plugin-vals yields nothing"
+    (is (empty? (catalog/plugin-options ::e5/boons [])))))

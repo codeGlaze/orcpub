@@ -15,15 +15,18 @@ Each step is small, behavior-preserving, and must leave the gate green
 - [x] **Phase 1 — generic injector.** New leaf ns `option_catalog.cljc` (`by-parent`),
       unit-tested = `group-by`; subraces re-pointed. (213 tests, lint 0 errors.)
 - [x] **Phase 2 — subclasses** re-pointed to `by-parent`. (lint 0 errors.)
-- [ ] **Phase 3 — boons + invocations onto a catalog read (the risky one).**
-  - [ ] 3a. Extend the golden test to lock the "Pact Boon" selection key + boon option
-        keys via the `.cljc` fns (`pact-boon-options`, `warlock-option`). Additive.
-  - [ ] 3b. Add `plugin-options` to `option_catalog.cljc` (extract all items of a
-        content-key from the plugins map — the catalog read primitive).
-  - [ ] 3c. Warlock pulls boons from the catalog instead of the positional arg; keys
-        IDENTICAL. Then drop `boons` from `warlock-option` / `base-class-options` /
-        `::classes5e/classes`. STOP if any golden key changes.
-  - [ ] 3d. Repeat 3b–3c for invocations.
+- [~] **Phase 3 — boons + invocations onto a catalog read.**
+  - [x] 3b. Added `plugin-options` to `option_catalog.cljc` (catalog read primitive),
+        JVM-unit-tested identical to the legacy `(mapcat (comp vals key) plugins)`;
+        `::classes5e/plugin-boons` and `::classes5e/plugin-invocations` routed through
+        it. Behavior-preserving; no keys/signatures changed. (214 tests, lint 0 errors.)
+  - [ ] 3a. (guard, do before 3c) Build a Warlock-with-boon via `warlock-option` in a
+        `.cljc` test and lock the "Pact Boon"/"Eldritch Invocations" selection keys and
+        boon/invocation option keys. Needs real spell-lists/spells-map (Pact of the Tome
+        dereferences them — cannot pass nil).
+  - [ ] 3c. (RISKY — deferred) Stop threading `boons`/`invocations` as positional args:
+        inject them as a post-step (like subraces→races) or via an ambient ctx map.
+        Keys MUST stay identical; gate on 3a's build-test. Approach carefully.
 - [ ] **Phase 4 — Layer 1 registration/indexing registry (the "8 files → 1 descriptor"
       win). Existing types only; one subsystem per commit.**
   - [ ] 4a. Create leaf `content-types` registry ns describing existing types.

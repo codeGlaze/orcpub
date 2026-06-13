@@ -24,3 +24,19 @@
    types resolve their parent buckets through one place rather than ad-hoc calls."
   [parent-key options]
   (group-by parent-key options))
+
+(defn plugin-options
+  "All options of `content-key` contributed across `plugin-vals`.
+
+   `plugin-vals` is the seq of (enabled) plugin maps — e.g. the value of the
+   `::e5/plugin-vals` subscription. Each plugin map holds content under namespaced
+   keys (`:orcpub.dnd.e5/boons`, `…/invocations`, …) mapping option-key -> option.
+
+   `(plugin-options :orcpub.dnd.e5/boons plugin-vals)` => seq of boon maps.
+
+   Behaviour-identical to the per-type `(mapcat (comp vals <content-key>) plugin-vals)`
+   extraction. This is the catalog READ primitive: a new content type becomes
+   discoverable simply by being stored under its content-key, with no bespoke
+   extraction code."
+  [content-key plugin-vals]
+  (mapcat #(-> % content-key vals) plugin-vals))

@@ -504,13 +504,13 @@
  ::classes5e/plugin-invocations
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (mapcat (comp vals ::e5/invocations) plugins)))
+   (catalog/plugin-options ::e5/invocations plugins)))
 
 (reg-sub
  ::classes5e/plugin-boons
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (mapcat #(-> % ::e5/boons vals) plugins)))
+   (catalog/plugin-options ::e5/boons plugins)))
 
 (def acolyte-bg
   {:name "Acolyte"
