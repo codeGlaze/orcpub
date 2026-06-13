@@ -45,6 +45,7 @@ subraces already do. It also answers a cluster of open issues in
 |------|---------|
 | `docs/kb/content-extensibility.md` | Problem, verified cross-link map, proposed two-layer direction |
 | `docs/kb/content-extensibility-decisions.md` | Decision audit (how the thinking evolved) + crisp decisions D1–D8 |
+| `docs/kb/content-extensibility-compatibility.md` | Backward-compat audit: persisted formats, invariants, proposal assessment |
 | `BRANCH.md` | Branch purpose + handoff + split-commit notes |
 | `.claude/summaries/2026-06-13-content-extensibility.md` | This summary |
 
@@ -64,3 +65,7 @@ subraces already do. It also answers a cluster of open issues in
 - File:line references were read on the monolithic frontend layout of this branch; on
   `agents/develop` views are split (`views-builders-split.md`), so resolve view
   references by symbol, not line.
+- Backward compatibility is a hard constraint, audited in
+  `content-extensibility-compatibility.md`. The target is zero-migration: derive
+  catalogs over the existing plugin storage and preserve selection/option keys, then
+  prove it with an orcbrew + saved-character fixture before/after each migration.

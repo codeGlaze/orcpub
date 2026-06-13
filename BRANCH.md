@@ -33,7 +33,8 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
 
 ## Related Docs
 - `.claude/summaries/2026-06-13-content-extensibility.md` — session summary / handoff
-- `docs/kb/content-extensibility.md`, `docs/kb/content-extensibility-decisions.md`
+- `docs/kb/content-extensibility.md`, `docs/kb/content-extensibility-decisions.md`,
+  `docs/kb/content-extensibility-compatibility.md`
 - Cross-references: `docs/kb/spa-routing-architecture.md`,
   `entity-options-architecture.md`, `srd-vs-plugin-content.md`,
   `views-builders-split.md`, `docs/issues/homebrew-builders.md` (all on `agents/develop`)

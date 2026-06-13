@@ -127,3 +127,6 @@ migrate boons/invocations, then add new capability (lineages) the easy way.
   plugin-supplied, which determines what each catalog contains.
 - [content-extensibility-decisions.md](content-extensibility-decisions.md) — the
   decisions behind this direction and the options rejected.
+- [content-extensibility-compatibility.md](content-extensibility-compatibility.md) —
+  backward-compat audit: persisted formats, invariants, and how the design must stay
+  additive for existing orcbrew libraries and saved characters.
