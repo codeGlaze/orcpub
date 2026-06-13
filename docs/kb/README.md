@@ -9,6 +9,10 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 | Document | Topic | Source quality |
 |----------|-------|---------------|
 | [datomic-crash-analysis.md](datomic-crash-analysis.md) | Datomic transactor crashes — root cause, frequency, fix options | High — direct log analysis from `logs/datomic.{1,2,3}.log` |
+| [content-extensibility-cross-links.md](content-extensibility-cross-links.md) | How content aspects inject into each other today (subraces, subclasses, boons, invocations, ancestries, spells) and the target catalog/grant shape | High — direct code inspection, symbols verified |
+
+> Design, handoff, and decision records for the Content Extensibility initiative
+> (the forward-looking, non-verified half) live in [`docs/extensibility/`](../extensibility/README.md).
 
 ## Contribution rules
 

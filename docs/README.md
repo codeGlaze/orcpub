@@ -13,6 +13,10 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 **Agent Knowledge Base:**
 - [📚 KB Index](kb/README.md) - Verified findings from deep investigations
 - [💥 Datomic Crash Analysis](kb/datomic-crash-analysis.md) - Root cause, frequency, fix options
+- [🔗 Content Cross-Links](kb/content-extensibility-cross-links.md) - How content aspects inject into each other, mapped to the target catalog/grant shape
+
+**Architecture Initiatives:**
+- [🧩 Content Extensibility](extensibility/README.md) - Reducing the multi-file cost of adding content (registry + catalogs/grants); handoff, decisions, target architecture
 
 **For Developers:**
 - [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities
