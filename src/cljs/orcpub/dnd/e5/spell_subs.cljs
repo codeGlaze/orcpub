@@ -895,7 +895,7 @@
  ::classes5e/plugin-subclasses-map
  :<- [::classes5e/plugin-subclasses]
  (fn [plugin-subclasses]
-   (group-by :class plugin-subclasses)))
+   (catalog/by-parent :class plugin-subclasses)))
 
 (defn compare-keys [x y]
   (compare (:key x) (:key y)))

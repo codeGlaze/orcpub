@@ -18,8 +18,13 @@ Implementation progress (against `-plan.md`):
   `src/cljc/orcpub/dnd/e5/option_catalog.cljc` (`by-parent`), unit-tested identical to
   `group-by`; `::races5e/plugin-subraces-map` re-pointed to it. Gate green: 213 tests,
   lint 0 errors.
-- Next: **Phase 2** — re-point `::classes5e/plugin-subclasses-map` (`group-by :class`)
-  to `catalog/by-parent` (same mechanism).
+- **Phase 2 (subclasses): DONE.** `::classes5e/plugin-subclasses-map` re-pointed to
+  `catalog/by-parent` (same seam, already test-covered). Lint 0 errors; cljs-only
+  delegation, JVM suite unaffected.
+- Next: **Phase 3** — boons + invocations onto a catalog/grant, PRESERVING the "Pact
+  Boon" selection key and option keys (the risky migration; see compatibility §3/§5).
+  Before starting, extend the golden test to build a Warlock-with-boon via the option
+  pipeline so a selection-key regression is caught automatically.
 
 Note: code is currently landing on this branch (the only authorized push target). The
 docs were written to split-commit to `agents/develop`; production code should land on a
