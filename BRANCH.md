@@ -1,17 +1,25 @@
 # Branch Context: claude/zen-wright-04xhdz
 
 ## Purpose
-Capture the content-extensibility analysis and plan (reducing the multi-file cost of
-adding a content type/builder to the 5e app). Docs only — no production code changed.
+Capture the content-extensibility analysis and plan, and implement it in gated phases
+(reducing the multi-file cost of adding a content type/builder to the 5e app).
 
 ## Current State
-Done: two KB docs written, structured for `agents/develop`:
-- `docs/kb/content-extensibility.md` — the problem, verified cross-link map, and the
-  proposed two-layer direction (registry + type-addressed catalogs/grants).
-- `docs/kb/content-extensibility-decisions.md` — decisions and rejected options.
+Docs (structured for `agents/develop`): `content-extensibility.md` (design + cross-link
+map), `-decisions.md` (audit + D1–D9), `-compatibility.md` (backward-compat audit),
+`-plan.md` (phased implementation playbook).
 
-Not started: any code. The recommended first step is a behavior-preserving spike that
-migrates subraces onto a generic catalog injector (see the docs).
+Implementation progress (against `-plan.md`):
+- **Phase 0 (safety net): DONE.** `test/cljc/orcpub/dnd/e5/extensibility_golden_test.cljc`
+  locks the compat invariants (name-to-kw key derivation; saved-character round-trip
+  idempotence + key preservation). Pure JVM `.cljc`, runs under `lein test`. Full suite
+  green: 212 tests / 979 assertions / 0 failures.
+- Next: **Phase 1** — extract a generic group-by-parent injector into a new
+  `option_catalog.cljc` and re-point the subrace subscription to it (behavior-preserving).
+
+Note: code is currently landing on this branch (the only authorized push target). The
+docs were written to split-commit to `agents/develop`; production code should land on a
+code branch off the code line (`develop`) — confirm the target before merging.
 
 ## Workflow
 This branch is based on the leaner fork line, not `agents/develop`, so file
