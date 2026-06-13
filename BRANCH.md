@@ -4,31 +4,51 @@
 Capture the content-extensibility analysis and plan, and implement it in gated phases
 (reducing the multi-file cost of adding a content type/builder to the 5e app).
 
-## Current State
-Docs (structured for `agents/develop`): `content-extensibility.md` (design + cross-link
-map), `-decisions.md` (audit + D1–D9), `-compatibility.md` (backward-compat audit),
-`-plan.md` (phased implementation playbook).
+## Roadmap / TODO (live checklist — updated as work proceeds)
 
-Implementation progress (against `-plan.md`):
-- **Phase 0 (safety net): DONE.** `test/cljc/orcpub/dnd/e5/extensibility_golden_test.cljc`
-  locks the compat invariants (name-to-kw key derivation; saved-character round-trip
-  idempotence + key preservation). Pure JVM `.cljc`, runs under `lein test`. Full suite
-  green: 212 tests / 979 assertions / 0 failures.
-- **Phase 1 (generic injector, subraces): DONE.** New leaf ns
-  `src/cljc/orcpub/dnd/e5/option_catalog.cljc` (`by-parent`), unit-tested identical to
-  `group-by`; `::races5e/plugin-subraces-map` re-pointed to it. Gate green: 213 tests,
-  lint 0 errors.
-- **Phase 2 (subclasses): DONE.** `::classes5e/plugin-subclasses-map` re-pointed to
-  `catalog/by-parent` (same seam, already test-covered). Lint 0 errors; cljs-only
-  delegation, JVM suite unaffected.
-- Next: **Phase 3** — boons + invocations onto a catalog/grant, PRESERVING the "Pact
-  Boon" selection key and option keys (the risky migration; see compatibility §3/§5).
-  Before starting, extend the golden test to build a Warlock-with-boon via the option
-  pipeline so a selection-key regression is caught automatically.
+Each step is small, behavior-preserving, and must leave the gate green
+(`lein test` + `lein lint`) before commit. Code lands on this branch.
 
-Note: code is currently landing on this branch (the only authorized push target). The
-docs were written to split-commit to `agents/develop`; production code should land on a
-code branch off the code line (`develop`) — confirm the target before merging.
+- [x] **Setup** — toolchain (lein + deps), baseline gate green.
+- [x] **Phase 0 — safety net.** `extensibility_golden_test.cljc` locks compat invariants
+      (name-to-kw key derivation; saved-character round-trip). Pure JVM. (212→ tests green.)
+- [x] **Phase 1 — generic injector.** New leaf ns `option_catalog.cljc` (`by-parent`),
+      unit-tested = `group-by`; subraces re-pointed. (213 tests, lint 0 errors.)
+- [x] **Phase 2 — subclasses** re-pointed to `by-parent`. (lint 0 errors.)
+- [ ] **Phase 3 — boons + invocations onto a catalog read (the risky one).**
+  - [ ] 3a. Extend the golden test to lock the "Pact Boon" selection key + boon option
+        keys via the `.cljc` fns (`pact-boon-options`, `warlock-option`). Additive.
+  - [ ] 3b. Add `plugin-options` to `option_catalog.cljc` (extract all items of a
+        content-key from the plugins map — the catalog read primitive).
+  - [ ] 3c. Warlock pulls boons from the catalog instead of the positional arg; keys
+        IDENTICAL. Then drop `boons` from `warlock-option` / `base-class-options` /
+        `::classes5e/classes`. STOP if any golden key changes.
+  - [ ] 3d. Repeat 3b–3c for invocations.
+- [ ] **Phase 4 — Layer 1 registration/indexing registry (the "8 files → 1 descriptor"
+      win). Existing types only; one subsystem per commit.**
+  - [ ] 4a. Create leaf `content-types` registry ns describing existing types.
+  - [ ] 4b. subs: replace per-type `builder-item` passthrough subs with a loop.
+  - [ ] 4c. db: build `default-value` slots + `reg-local-store-cofx` from the registry.
+  - [ ] 4d. events: generate `set-`/`reset-` + `reg-*-homebrew` calls from the registry.
+  - [ ] 4e. routes: derive bidi tree + route sets + `routes.clj` allowlist (keep the
+        `(def …-route :kw)` lines).
+  - [ ] 4f. core: build the `pages` map from the registry.
+  - [ ] Gate each: app boots, NO route/event/sub/localStorage key renamed, golden green.
+- [ ] **Phase 5 — prove it with a new builder.**
+  - [ ] 5a. Fighting-style builder (easier): `fighting-style-options` → catalog;
+        `fighting-style-selection` → grant-with-filter; descriptor + spec + form.
+  - [ ] 5b. Lineage/ancestry builder (harder): convert `dragonborn-option-cfg` def→fn,
+        catalog, plus breath-weapon/resistance modifiers (real domain work).
+  - [ ] Gate: golden green (existing unaffected) + a test that an imported homebrew
+        fighting style / lineage appears under its parent.
+
+Honesty note: the JVM gate does not run the `.cljs` subscription code. For cljs-only
+edits I rely on `lein lint` + the `.cljc` unit tests + manual review; the risky logic is
+kept in `.cljc` (`option_catalog`, option fns) precisely so it IS JVM-tested.
+
+Note: code is landing on this branch (the only authorized push target). Docs are meant
+to split-commit to `agents/develop`; production code would normally go on a code branch
+off `develop` — confirm the target before merging.
 
 ## Workflow
 This branch is based on the leaner fork line, not `agents/develop`, so file
