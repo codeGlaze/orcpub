@@ -29,6 +29,7 @@
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
+            [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.db :refer [default-value
                                       character->local-store
                                       user->local-store
@@ -1209,8 +1210,26 @@
              :url (backend-url path)
              :on-success [:unfollow-user-success]}})))
 
+(defn- loaded-class-keys
+  "Set of class keys currently known to the system — SRD built-ins plus
+   enabled plugin classes from db :plugins. Same source the class dropdown
+   consumes via ::classes5e/classes."
+  [db]
+  (into class5e/base-class-keys
+        (for [[_ plugin-data] (:plugins db)
+              :when (and (map? plugin-data) (not (:disabled? plugin-data)))
+              [class-key class-data] (::e5/classes plugin-data)
+              :when (and (map? class-data) (not (:disabled? class-data)))]
+          class-key)))
+
 (defn set-character [db [_ character]]
-  (assoc db :character character :loading false))
+  ;; db :plugins are already hydrated here — ::e5/plugins is a sync cofx at
+  ;; :initialize-db, so the reconciler can trust loaded-class-keys.
+  (let [{:keys [character]}
+        (content-recon/reconcile-spell-selection-keys
+         character
+         (loaded-class-keys db))]
+    (assoc db :character character :loading false)))
 
 (reg-event-db
  :toggle-character-expanded
@@ -2639,6 +2658,12 @@
                 (if (= theme "light-theme")
                   "dark-theme"
                   "light-theme")))))
+
+(reg-event-db
+ ::toggle-class-source-suffix
+ [user->local-store-interceptor]
+ (fn [db _]
+   (update-in db [:user-data :show-class-source-suffix] not)))
 
 #_ ;; never dispatched from UI
   (reg-event-db
@@ -4659,16 +4684,12 @@
  (fn [db _]
    (assoc-in db [::char5e/delete-plugin-confirmation-shown?] false)))
 
-;; Base class keys that are always available (not from plugins)
-(def base-class-keys
-  #{:barbarian :bard :cleric :druid :fighter :monk :paladin :ranger :rogue :sorcerer :warlock :wizard})
-
 (defn remove-plugin-classes
   "Removes classes from character that aren't base classes.
    If no classes remain, sets to Barbarian. Preserves all other character data."
   [character]
   (let [current-classes (get-in character [::entity/options :class])
-        valid-classes (vec (filter #(base-class-keys (::entity/key %)) current-classes))]
+        valid-classes (vec (filter #(class5e/base-class-keys (::entity/key %)) current-classes))]
     (if (seq valid-classes)
       ;; Keep only valid base classes
       (assoc-in character [::entity/options :class] valid-classes)

@@ -280,8 +280,9 @@
 (spec/def ::theme string?)
 (spec/def ::patron string?) ; patron
 (spec/def ::patron-tier string?) ; patron-tier
+(spec/def ::show-class-source-suffix boolean?)
 (spec/def ::user-data (spec/keys :req-un [::username ::email]))
-(spec/def ::user (spec/keys :opt-un [::user-data ::token ::theme ::patron ::patron-tier]))
+(spec/def ::user (spec/keys :opt-un [::user-data ::token ::theme ::patron ::patron-tier ::show-class-source-suffix]))
 
 (reg-local-store-cofx
  :local-store-user
