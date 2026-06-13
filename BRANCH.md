@@ -32,6 +32,7 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
   KB docs are the durable record.
 
 ## Related Docs
+- `.claude/summaries/2026-06-13-content-extensibility.md` — session summary / handoff
 - `docs/kb/content-extensibility.md`, `docs/kb/content-extensibility-decisions.md`
 - Cross-references: `docs/kb/spa-routing-architecture.md`,
   `entity-options-architecture.md`, `srd-vs-plugin-content.md`,
