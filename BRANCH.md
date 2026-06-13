@@ -14,8 +14,12 @@ Implementation progress (against `-plan.md`):
   locks the compat invariants (name-to-kw key derivation; saved-character round-trip
   idempotence + key preservation). Pure JVM `.cljc`, runs under `lein test`. Full suite
   green: 212 tests / 979 assertions / 0 failures.
-- Next: **Phase 1** — extract a generic group-by-parent injector into a new
-  `option_catalog.cljc` and re-point the subrace subscription to it (behavior-preserving).
+- **Phase 1 (generic injector, subraces): DONE.** New leaf ns
+  `src/cljc/orcpub/dnd/e5/option_catalog.cljc` (`by-parent`), unit-tested identical to
+  `group-by`; `::races5e/plugin-subraces-map` re-pointed to it. Gate green: 213 tests,
+  lint 0 errors.
+- Next: **Phase 2** — re-point `::classes5e/plugin-subclasses-map` (`group-by :class`)
+  to `catalog/by-parent` (same mechanism).
 
 Note: code is currently landing on this branch (the only authorized push target). The
 docs were written to split-commit to `agents/develop`; production code should land on a

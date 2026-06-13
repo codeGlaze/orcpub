@@ -24,6 +24,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.option-catalog :as catalog]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils]
             [orcpub.dnd.e5.template-base :as t-base]
@@ -888,7 +889,7 @@
  ::races5e/plugin-subraces-map
  :<- [::races5e/plugin-subraces]
  (fn [plugin-subraces]
-   (group-by :race plugin-subraces)))
+   (catalog/by-parent :race plugin-subraces)))
 
 (reg-sub
  ::classes5e/plugin-subclasses-map
