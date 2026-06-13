@@ -30,7 +30,11 @@ Each step is small, behavior-preserving, and must leave the gate green
         lint+review-only here.
 - [ ] **Phase 4 — Layer 1 registration/indexing registry (the "8 files → 1 descriptor"
       win). Existing types only; one subsystem per commit.**
-  - [ ] 4a. Create leaf `content-types` registry ns describing existing types.
+  - [x] 4a. Created leaf `content_types.cljc` registry (13 plugin-based types;
+        magic-item + combat excluded as non-plugin). `content_types_test.cljc` audits it:
+        every `:spec` resolves via `spec/get-spec`, every `:plugin-key` satisfies the
+        orcbrew `::e5/content-keyword` contract, identity fields unique. (220 tests green.)
+        Built from an agent inventory; the get-spec/contract checks auto-verified it.
   - [ ] 4b. subs: replace per-type `builder-item` passthrough subs with a loop.
   - [ ] 4c. db: build `default-value` slots + `reg-local-store-cofx` from the registry.
   - [ ] 4d. events: generate `set-`/`reset-` + `reg-*-homebrew` calls from the registry.
