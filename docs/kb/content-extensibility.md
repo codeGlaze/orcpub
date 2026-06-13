@@ -118,6 +118,20 @@ chose. This keeps existing orcbrew libraries and characters working with no migr
 Full analysis and invariants in
 [content-extensibility-compatibility.md](content-extensibility-compatibility.md).
 
+**Two implementation rules for this work (learned the hard way):**
+
+1. **Keys from stable ids, never from display names.** Pass each catalog item's stored
+   `:key` through to `option-cfg`/`selection-cfg`; never let identity re-derive from a
+   `:name` that display code may manipulate. Folding a source suffix into a class
+   `:name` once orphaned saved characters via `name-to-kw` — see
+   `feature/name-keyword-fix` and the compatibility doc. Keep display (`:name`,
+   `::plugin-source`) separate from identity (`:key`).
+2. **Catalog reads must be layered, memoized subscriptions.** A `grant-choice` must not
+   recompute a whole catalog inside a hot subscription. Each catalog is its own
+   `reg-sub` (memoized by re-frame); grants reference it. Guard these with a short
+   comment so the layering isn't accidentally collapsed later. (This is also the fix for
+   the monolithic god-subscriptions, e.g. the 8-input `::classes5e/classes`.)
+
 ## Suggested next step
 
 A behavior-preserving spike: add the generic catalog injector and migrate

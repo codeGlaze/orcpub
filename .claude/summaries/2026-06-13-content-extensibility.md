@@ -71,3 +71,17 @@ subraces already do. It also answers a cluster of open issues in
   `content-extensibility-compatibility.md`. The target is zero-migration: derive
   catalogs over the existing plugin storage and preserve selection/option keys, then
   prove it with an orcbrew + saved-character fixture before/after each migration.
+- **Coordinate with `feature/name-keyword-fix`** (same base `d42e05d`): identity keys
+  derive from stable ids, not display names; `option-cfg` has a `::plugin-source` slot;
+  a reconciler heals orphaned keys. Two standing rules for the catalog/grant phases
+  (decisions D10/D11): pass each item's stored `:key` to `option-cfg` (never re-derive
+  from a display `:name`), and make catalogs layered/memoized `reg-sub`s referenced by
+  grants (never recompute a catalog in a hot sub). Guard both with comments.
+
+## Implementation progress (code, this branch)
+Phases 0, 1, 2 (subraces/subclasses via `option_catalog/by-parent`), 3a (key-lock
+guard), 3b (`option_catalog/plugin-options`; boons/invocations), and 4a (the
+`content_types.cljc` registry + audit test) are committed and gated green
+(220 tests / 1092 assertions). Remaining: 3c (positional-threading removal — risky,
+deferred), 4b–4f (wire the registry into subs/db/events/routes/core — cljs, lint+review
+only here), Phase 5 (new builders). See BRANCH.md for the live checklist.

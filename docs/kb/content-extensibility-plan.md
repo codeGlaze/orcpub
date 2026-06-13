@@ -190,10 +190,22 @@ Stop and get a human when:
 - you'd need to loosen a spec to load existing data,
 - you're unsure whether a change is additive.
 
+## Two standing rules for the catalog/grant phases (3c onward)
+
+- **Keys from stable ids, never display names.** Pass each catalog item's stored `:key`
+  through to `option-cfg`/`selection-cfg`; never let identity re-derive from a `:name`
+  that display code may manipulate (this orphaned saved characters once — see
+  `feature/name-keyword-fix` and compatibility §1b). Keep display separate from identity.
+- **Catalogs are layered, memoized subs.** A `grant-choice` references a catalog `reg-sub`;
+  it must not rebuild a whole option list inside a hot subscription. Add a short guard
+  comment at each catalog sub so the layering isn't collapsed later.
+
 ## Do NOT
 
 - change persisted or exported data shapes,
 - rename existing keys,
+- re-derive identity keys from display names / call `name-to-kw` on manipulated names,
+- recompute a whole catalog inside a hot subscription,
 - touch `mod5e/*`,
 - combine phases or skip the gate,
 - commit a red gate,

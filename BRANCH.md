@@ -68,6 +68,15 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
 `agents/develop`'s, so editing it here wouldn't carry over cleanly).
 
 ## Handoff Notes
+- **Coordinate with `feature/name-keyword-fix`** (forks from the same base `d42e05d`).
+  It establishes: identity keys derive from stable ids (`:class-key`, stored `:key`),
+  NOT display names; `option-cfg` has a `::plugin-source` slot; a reconciler heals
+  orphaned keys. Both branches touch classes.cljc / options.cljc / spell_subs.cljs /
+  events.cljs / template.cljc — expect overlap and align on its stable-key approach.
+- **Two standing rules for the catalog/grant phases (3c+):** (1) pass each item's stored
+  `:key` to `option-cfg` — never re-derive identity from a display `:name`; (2) catalogs
+  are layered, memoized `reg-sub`s referenced by grants — never recomputed in hot subs.
+  Guard both with comments. (Decisions D10/D11; details in the design + compatibility docs.)
 - The KB requires verified-only content. The cross-link map is verified from code; the
   proposed design is clearly labeled as a proposal. Preserve that boundary.
 - The design directly answers a cluster of open issues (#58, #57/#209, #172/#170,

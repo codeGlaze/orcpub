@@ -99,3 +99,19 @@ Each migration step is guarded by an orcbrew + saved-character fixture. *Rejecte
 designing the storage model first and auditing compatibility afterward — the audit
 would too late to reshape it. Full analysis:
 [content-extensibility-compatibility.md](content-extensibility-compatibility.md).
+
+**D10 — Identity comes from a stable key, never from a display name.** Option/selection
+keys must derive from a stable id (the stored `:key`, a `:class-key`, etc.), and display
+text (`:name`, plugin-source suffix) is a separate slot. `name-to-kw` is a creation-time
+default only; never re-run it on a name that display code may manipulate. *Why:* doing so
+already orphaned saved characters when a source suffix was folded into class `:name`
+(fixed on `feature/name-keyword-fix`: `option-cfg` `::plugin-source` slot, key-from-
+`:class-key`, a load-time reconciler). The catalog/grant work must pass each item's stored
+`:key` through to `option-cfg`. *Rejected:* relying on name→key re-derivation (the footgun).
+
+**D11 — Catalog reads are layered, memoized subscriptions; never recomputed in hot subs.**
+Each catalog is its own `reg-sub` (re-frame memoizes it); `grant-choice` references it
+rather than rebuilding a whole option list inside a hot subscription. Guard the layering
+with a brief comment. *Why:* avoids the recompute-everything cost and is also the fix for
+the monolithic god-subscriptions (e.g. the 8-input `::classes5e/classes`). *Rejected:*
+inline catalog construction in consumer subs.

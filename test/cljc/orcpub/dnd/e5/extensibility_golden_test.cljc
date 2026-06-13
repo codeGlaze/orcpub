@@ -28,6 +28,10 @@
 ;; Invariant 1 — key derivation is stable (the linchpin of all compatibility)
 ;; ---------------------------------------------------------------------------
 
+;; NOTE: these lock name-to-kw's CREATION-TIME derivation, which must stay stable.
+;; They are NOT an endorsement of re-deriving keys from names at read time — that
+;; footgun orphaned saved characters (see feature/name-keyword-fix; compatibility doc
+;; §1b, decision D10). Identity is the stored :key; display names are separate.
 (deftest homebrew-key-derivation-is-stable
   (testing "name-to-kw maps content names to the keys saved data references"
     (is (= :pact-boon            (common/name-to-kw "Pact Boon")))

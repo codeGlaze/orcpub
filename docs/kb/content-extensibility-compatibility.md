@@ -59,8 +59,29 @@ key must live in that namespace or it fails `::content-keyword` and won't import
 **What this constrains:** a saved character records its choices as `::se/key` keywords
 at selection/option nodes. Those keys are the addresses of choices. If a redesign
 changes the **key of a selection or option a character has already chosen**, the stored
-choice no longer resolves (orphaned). Keys derive from names via `common/name-to-kw`
-(`common.cljc` ~19).
+choice no longer resolves (orphaned).
+
+**⚠️ name-to-kw is a creation-time default, NOT a re-derivable contract.** Keys are
+*originally* produced by `common/name-to-kw` of a name (`common.cljc` ~19), but the
+durable contract is the **stored `:key`**, not the name. This already bit the project:
+class option keys were derived from the display `:name`, and when a plugin-source suffix
+was folded into that name for display, `name-to-kw` produced a *different* key and
+orphaned saved characters. The fix (`feature/name-keyword-fix`, off the same base
+`d42e05d` as this branch) establishes the rule:
+
+- **Identity derives from a stable id, never from a display string.** Selection keys now
+  derive from `:class-key` via `options.cljc` `spell-selection-key`, not `name-to-kw` of
+  the title (commit `fe54963`).
+- **Display is a separate slot.** `option-cfg` carries `::plugin-source` distinct from
+  `::name` (commit `39a054b`); the source suffix is a preference-gated *display* concern,
+  never part of the key (`9a709c0`, `show-class-source-suffix`).
+- A **reconciler** heals already-orphaned keys on load (`content_reconciliation.cljs`,
+  commits `a3e2615`/`4289871`) — the existing shim for this exact failure.
+
+**Rule for the catalog/grant work:** when building option-cfgs from catalog items
+(boons, lineages, …), pass the item's **stored `:key`** to `option-cfg` — do not let it
+re-derive from `:name` (today `pact-boon-options` re-derives, which is the same latent
+footgun). Never call `name-to-kw` on a display-manipulated name.
 
 ### 1c. localStorage
 
