@@ -46,15 +46,17 @@ subraces already do. It also answers a cluster of open issues in
 | `docs/kb/content-extensibility.md` | Problem, verified cross-link map, proposed two-layer direction |
 | `docs/kb/content-extensibility-decisions.md` | Decision audit (how the thinking evolved) + crisp decisions D1–D8 |
 | `docs/kb/content-extensibility-compatibility.md` | Backward-compat audit: persisted formats, invariants, proposal assessment |
+| `docs/kb/content-extensibility-plan.md` | Phased implementation playbook for low-context agents (gates, stop conditions) |
 | `BRANCH.md` | Branch purpose + handoff + split-commit notes |
 | `.claude/summaries/2026-06-13-content-extensibility.md` | This summary |
 
 ## How to resume
 
 1. Read `docs/kb/content-extensibility.md` (design) and `-decisions.md` (the why).
-2. First concrete step: a **behavior-preserving spike** — add a generic catalog
-   injector and migrate **subraces** onto it (they already work this way), review the
-   diff, then migrate boons/invocations, then add lineages as new capability.
+2. To implement, follow `content-extensibility-plan.md` literally: Phase 0 builds a
+   golden test, then Phase 1 migrates **subraces** onto a generic injector
+   (behavior-preserving), then subclasses, boons/invocations, the registry, and finally
+   lineages. Each phase is gated and has stop conditions.
 3. When split-committing these docs to `agents/develop`, add index rows for the two
    KB docs to `docs/kb/README.md` there (this branch's index differs).
 

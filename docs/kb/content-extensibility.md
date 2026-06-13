@@ -128,6 +128,8 @@ before/after) — see the compatibility doc.
 
 ## Related
 
+- [content-extensibility-plan.md](content-extensibility-plan.md) — step-by-step
+  implementation playbook (phased, behavior-preserving, with stop conditions).
 - [spa-routing-architecture.md](spa-routing-architecture.md) — the route-registration
   side of Layer 1 (route_map / index-page-paths / core.cljs pages).
 - [entity-options-architecture.md](entity-options-architecture.md) — the
