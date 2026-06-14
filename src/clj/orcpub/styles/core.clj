@@ -1678,7 +1678,217 @@
       :font-size "11px"
       :text-decoration :underline
       :cursor :pointer
-      :margin-left "4px"}]];concat-bracket
+      :margin-left "4px"}]
+
+    ;; ----- growable multi-select menus (option-menu-views) -----
+    [:.opt-menu
+     {:margin "5px 0"}]
+
+    [:.opt-menu-title
+     {:font-size "18px"
+      :font-weight :bold
+      :margin-bottom "8px"}]
+
+    ;; global layout toggle (segmented)
+    [:.opt-menu-layout-toggle
+     {:display :inline-flex
+      :border (str "1px solid " orange)
+      :border-radius "999px"
+      :overflow :hidden}]
+
+    [:.opt-menu-layout-seg
+     {:padding "4px 14px"
+      :cursor :pointer
+      :font-size "13px"
+      :color "rgba(255,255,255,0.7)"}]
+
+    [:.opt-menu-layout-seg.active
+     {:background orange
+      :color "#191919"
+      :font-weight 600}]
+
+    ;; grid
+    [:.opt-menu-grid
+     {:display :grid
+      :grid-template-columns "repeat(auto-fill, minmax(180px, 1fr))"
+      :align-items :start
+      :gap "2px"}]
+
+    [:.opt-menu-grid-span
+     {:grid-column "1 / -1"}]
+
+    ;; pills
+    [:.opt-menu-pills
+     {:display :flex
+      :flex-wrap :wrap
+      :gap "8px"}]
+
+    [:.opt-menu-pill
+     {:display :inline-flex
+      :align-items :center
+      :border "1px solid rgba(255,255,255,0.2)"
+      :border-radius "999px"
+      :padding "5px 14px"
+      :cursor :pointer
+      :font-size "13px"
+      :white-space :nowrap
+      :color "rgba(255,255,255,0.85)"}]
+
+    [:.opt-menu-pill.selected
+     {:background orange
+      :border (str "1px solid " orange)
+      :color "#191919"
+      :font-weight 600}]
+
+    [:.opt-menu-pill.non-standard
+     {:border (str "1px dashed " orange)
+      :color orange}]
+
+    ;; A–Z
+    [:.opt-menu-az-bar
+     {:display :flex
+      :flex-wrap :wrap
+      :gap "3px"
+      :margin-bottom "10px"}]
+
+    [:.opt-menu-az-letter
+     {:min-width "24px"
+      :text-align :center
+      :padding "2px 7px"
+      :cursor :pointer
+      :font-size "12px"
+      :font-weight 600
+      :color "rgba(255,255,255,0.55)"
+      :border "1px solid rgba(255,255,255,0.1)"
+      :border-radius "5px"}]
+
+    [:.opt-menu-az-letter.active
+     {:background orange
+      :color "#191919"
+      :border (str "1px solid " orange)}]
+
+    [:.opt-menu-az-group
+     {:margin-bottom "12px"}]
+
+    [:.opt-menu-az-heading
+     {:font-size "12px"
+      :font-weight 700
+      :color orange
+      :letter-spacing "0.08em"
+      :margin-bottom "6px"
+      :border-bottom "1px solid rgba(255,255,255,0.1)"}]
+
+    ;; pattern banner (quoted boilerplate)
+    [:.opt-menu-banner
+     {:margin "5px 0"}]
+
+    [:.opt-menu-banner-caption
+     {:font-size "10px"
+      :font-weight 700
+      :text-transform :uppercase
+      :letter-spacing "0.1em"
+      :opacity 0.7
+      :margin-bottom "5px"}]
+
+    [:.opt-menu-banner-quote
+     {:border-left (str "3px solid " orange)
+      :background "rgba(240,161,0,0.06)"
+      :border-radius "5px"
+      :padding "10px 14px"
+      :font-style :italic
+      :font-size "15px"
+      :line-height 1.6}]
+
+    [:.opt-menu-banner-slot
+     {:border "1px dashed rgba(240,161,0,0.7)"
+      :color orange
+      :font-style :normal
+      :font-weight 600
+      :padding "1px 11px"
+      :border-radius "999px"}]
+
+    ;; search
+    [:.opt-menu-search
+     {:width "100%"
+      :box-sizing :border-box
+      :padding "8px 12px"
+      :margin-bottom "10px"
+      :border "1px solid rgba(255,255,255,0.2)"
+      :border-radius "5px"
+      :background "rgba(255,255,255,0.04)"
+      :color :white
+      :font-size "14px"}]
+
+    ;; selected chips tray
+    [:.opt-menu-chips
+     {:display :flex
+      :flex-wrap :wrap
+      :align-items :center
+      :gap "7px"
+      :padding-bottom "10px"
+      :margin-bottom "10px"
+      :border-bottom "1px solid rgba(255,255,255,0.07)"}]
+
+    [:.opt-menu-chips-label
+     {:font-size "12px"
+      :text-transform :uppercase
+      :letter-spacing "0.04em"
+      :opacity 0.6}]
+
+    [:.opt-menu-chip
+     {:display :inline-flex
+      :align-items :center
+      :gap "6px"
+      :background "rgba(240,161,0,0.14)"
+      :border (str "1px solid " orange)
+      :color orange
+      :border-radius "999px"
+      :padding "3px 10px"
+      :font-size "13px"
+      :cursor :pointer
+      :white-space :nowrap}]
+
+    [:.opt-menu-chip-x
+     {:font-size "14px"
+      :opacity 0.7}]
+
+    ;; count + clear
+    [:.opt-menu-count-bar
+     {:display :flex
+      :align-items :center
+      :justify-content :space-between
+      :margin-bottom "8px"}]
+
+    [:.opt-menu-count
+     {:font-size "13px"
+      :opacity 0.7}]
+
+    [:.opt-menu-clear
+     {:cursor :pointer
+      :color orange
+      :text-decoration :underline
+      :font-size "13px"}]
+
+    ;; option cell (default / checkbox)
+    [:.opt-menu-cell
+     {:display :flex
+      :align-items :center
+      :padding "6px 8px"
+      :border-radius "5px"
+      :cursor :pointer}]
+
+    [:.opt-menu-cell.selected
+     {:background "rgba(240,161,0,0.1)"}]
+
+    [:.opt-menu-cell.non-standard
+     {:background "rgba(240,161,0,0.06)"
+      :border (str "1px solid " orange)}]
+
+    ;; empty state
+    [:.opt-menu-empty
+     {:padding "16px 4px"
+      :opacity 0.6
+      :font-size "14px"}]];concat-bracket
    margin-lefts
    margin-tops
    widths

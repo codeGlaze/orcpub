@@ -33,6 +33,7 @@
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.skills :as skills]
+            [orcpub.dnd.e5.option-menu-views :as omv]
             [orcpub.dnd.e5.equipment :as equip]
             [orcpub.dnd.e5.weapons :as weapon]
             [orcpub.dnd.e5.armor :as armor]
@@ -4856,19 +4857,13 @@
     false
     #(dispatch [::spells/toggle-component component])]])
 
-(defn tool-prof-checkboxes [background tools]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [{:keys [name key]}]
-       ^{:key key}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         name
-         (get-in background [:profs :tool key])
-         false
-         #(dispatch [::bg/toggle-tool-prof key])]])
-     tools))])
+(defn tool-prof-checkboxes [menu-id background tools]
+  [omv/option-menu
+   {:menu-id menu-id
+    :options (omv/checkbox-options
+              tools
+              #(get-in background [:profs :tool (:key %)])
+              #(dispatch [::bg/toggle-tool-prof (:key %)]))}])
 
 (defn language-checkboxes [race languages]
   [:div
@@ -4931,19 +4926,13 @@
     false
     #(dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])]])
 
-(defn starting-equipment-checkboxes [background equipment]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [{:keys [name key]}]
-       ^{:key key}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         name
-         (get-in background [:equipment key])
-         false
-         #(dispatch [::bg/toggle-starting-equipment key])]])
-     equipment))])
+(defn starting-equipment-checkboxes [menu-id background equipment]
+  [omv/option-menu
+   {:menu-id menu-id
+    :options (omv/checkbox-options
+              equipment
+              #(get-in background [:equipment (:key %)])
+              #(dispatch [::bg/toggle-starting-equipment (:key %)]))}])
 
 (def option-source-name-label
   [:span
@@ -5109,18 +5098,12 @@
 (defn background-skill-proficiencies [background]
   [:div.m-b-20
    [:div.f-s-24.f-w-b.m-b-20 "Skill Proficiencies"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in background [:profs :skill key])
-          false
-          #(dispatch [::bg/toggle-skill-prof key])]])
-      skills/skills))]])
+   [omv/option-menu
+    {:menu-id :bg-skill-prof
+     :options (omv/checkbox-options
+               skills/skills
+               #(get-in background [:profs :skill (:key %)])
+               #(dispatch [::bg/toggle-skill-prof (:key %)]))}]])
 
 (defn background-languages [background]
   [:div.m-t-20.m-b-20
@@ -5136,7 +5119,7 @@
     [:div
      [tool-choice-checkboxes background :artisans-tool]]
     [:div
-     [tool-prof-checkboxes background equip/artisans-tools]]]
+     [tool-prof-checkboxes :bg-tool-artisans background equip/artisans-tools]]]
    [:div.m-b-10
     [:div.f-s-18.f-w-b.m-b-10 "Musical Instruments"]
     [tool-choice-checkboxes background :musical-instrument]]
@@ -5145,10 +5128,10 @@
     [tool-choice-checkboxes background :gaming-set]]
    [:div.m-b-10
     [:div.f-s-18.f-w-b.m-b-10 "Vehicles"]
-    [tool-prof-checkboxes background equip/vehicle-types]]
+    [tool-prof-checkboxes :bg-tool-vehicles background equip/vehicle-types]]
    [:div.m-b-10
     [:div.f-s-18.f-w-b.m-b-10 "Other Tools"]
-    [tool-prof-checkboxes background equip/misc-tools]]])
+    [tool-prof-checkboxes :bg-tool-misc background equip/misc-tools]]])
 
 (defn background-starting-equipment [background]
   [:div.m-t-20.m-b-20
@@ -5163,23 +5146,23 @@
       :type :number}]]
    [:div.m-b-10
     [:div.f-s-18.f-w-b.m-b-10 "Clothing"]
-    [:div [starting-equipment-checkboxes background equip/clothes]]]
+    [:div [starting-equipment-checkboxes :bg-eq-clothes background equip/clothes]]]
    [:div.m-b-10
     [:div.f-s-18.f-w-b.m-b-10 "Artisan's Tools"]
     [:div [starting-equipment-choice-checkboxes background equip/artisans-tools "Artisan's Tools"]]
-    [:div [starting-equipment-checkboxes background equip/artisans-tools]]]
+    [:div [starting-equipment-checkboxes :bg-eq-artisans background equip/artisans-tools]]]
    [:div.m-b-20
     [:div.f-s-18.f-w-b.m-b-10 "Musical Instruments"]
     [starting-equipment-choice-checkboxes background equip/musical-instruments "Musical Instruments"]]
    [:div.m-b-10
     [:div.f-s-18.f-w-b.m-b-10 "Other Tools"]
-    [starting-equipment-checkboxes background equip/misc-tools]]
+    [starting-equipment-checkboxes :bg-eq-misc-tools background equip/misc-tools]]
    [:div.m-b-10
     [:div.f-s-18.f-w-b.m-b-10 "Holy Symbols"]
-    [starting-equipment-checkboxes background equip/holy-symbols]]
+    [starting-equipment-checkboxes :bg-eq-holy background equip/holy-symbols]]
    [:div.m-b-10
     [:div.f-s-18.f-w-b.m-b-10 "Other Equipment"]
-    [starting-equipment-checkboxes background equip/misc-equipment]]])
+    [starting-equipment-checkboxes :bg-eq-misc background equip/misc-equipment]]])
 
 (defn feat-prereqs [feat]
   [:div.m-b-20
@@ -6843,6 +6826,8 @@
 (defn background-builder []
   (let [background @(subscribe [::bg/builder-item])]
     [:div.p-20.main-text-color
+     [:div.m-b-20.flex.align-items-c.justify-cont-end
+      [omv/layout-toggle]]
      [:div.m-b-20.flex.flex-wrap
       [background-input-field
        "Name"

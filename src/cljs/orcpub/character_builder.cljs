@@ -32,7 +32,7 @@
             [orcpub.dnd.e5.display :as disp5e]
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.skills :as skill5e]
-            [orcpub.dnd.e5.option-grouping :as grouping]
+            [orcpub.dnd.e5.option-menu-views :as omv]
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
@@ -735,60 +735,46 @@
               [:subclass] [subclass-adder]
               :else nil))))
 
-(defn pattern-banner [prefix slot-label]
-  ;; "EVERY OPTION READS  <prefix> [slot]" — shown once when a dominant prefix is
-  ;; detected, so each option can collapse to just its keyword.
-  [:div.m-5
-   [:div.f-s-10.f-w-b.uppercase.opacity-7.m-b-5 "Every option reads"]
-   [:div.b-rad-5.p-10
-    {:style {:border-left "3px solid #f0a100"
-             :background "rgba(240,161,0,0.06)"
-             :font-style "italic" :font-size "15px" :line-height 1.6}}
-    (s/trim prefix) " "
-    [:span.b-rad-5
-     {:style {:border "1px dashed rgba(240,161,0,0.7)" :color "#f0a100"
-              :font-style "normal" :font-weight 600 :padding "1px 11px"
-              :border-radius "999px"}}
-     (or slot-label "keyword")]]])
-
 (defn default-selection-section-body [actual-path
-                                      {:keys [::t/options] :as selection}
+                                      {:keys [::t/options ::t/multiselect? ::t/ref ::t/min ::t/max]
+                                       :as selection}
                                       disable-select-new?
                                       homebrew?
                                       num-columns]
-  ;; num-columns is now advisory — the CSS grid self-fits via auto-fill, so the
-  ;; layout stays aligned regardless of label length or option count.
-  (let [sorted (sort-by (juxt ::t/order ::t/name) options)
-        labels (mapv ::t/name sorted)
-        prefix (grouping/dominant-prefix labels)
-        ann    (grouping/classify labels prefix)          ; parallel to `sorted`
-        slot   (::t/slot-label selection)                 ; optional, per-selection
-        selectors
-        (doall
-         (remove
-          nil?
-          (map
-           (fn [option {:keys [display non-standard?]}]
-             (when-let [selector (new-option-selector
-                                  actual-path selection disable-select-new? homebrew?
-                                  option
-                                  {:display-name (when prefix display) ; collapsed keyword
-                                   :non-standard? non-standard?})]
-               ;; non-standard options break to their own full row so the badge
-               ;; and 3px border make divergent wording impossible to miss.
-               ^{:key (::t/key option)}
-               [:div {:style (when non-standard? {:grid-column "1 / -1"})}
-                selector]))
-           sorted ann)))
+  ;; Delegate layout + chrome to the shared growable-menu component. num-columns is
+  ;; ignored — the global layout toggle (grid/pills/A–Z) drives every menu now.
+  ;; Each option keeps its rich SRD card (rendered by new-option-selector via cell-fn),
+  ;; while the component supplies the banner/search/chips/count from option-grouping.
+  (let [multi?  (boolean (or multiselect? ref (> (or min 0) 1) (nil? max)))
+        sorted  (sort-by (juxt ::t/order ::t/name) options)
+        opts    (->> sorted
+                     (map (fn [option]
+                            (let [data (views-aux/option-selector-data
+                                        actual-path selection disable-select-new? homebrew? option)]
+                              ;; drop prereq-hidden options so they leave no empty cell
+                              (when (not-any? ::t/hide-if-fail? (:failed-prereqs data))
+                                {:key (::t/key option)
+                                 :label (::t/name option)
+                                 :selected? (:selected? data)
+                                 :selectable? (:selectable? data)
+                                 ;; reuse the option's real select-fn (handles deselect,
+                                 ;; prereqs, single-vs-multi) for clicks, chips and Clear
+                                 :on-toggle (fn [] ((:select-fn data) #js {:stopPropagation (fn [] nil)}))
+                                 :option option}))))
+                     (remove nil?)
+                     vec)
+        cell-fn (fn [o _layout]
+                  [new-option-selector actual-path selection disable-select-new? homebrew?
+                   (:option o)
+                   {:display-name (:display o) :non-standard? (:non-standard? o)}])
         item-adder (make-item-adder selection)]
-    [:div
-     (when prefix [pattern-banner prefix slot])
-     [:div {:style {:display "grid"
-                    :grid-template-columns "repeat(auto-fill, minmax(180px, 1fr))"
-                    :align-items "start"
-                    :gap "2px"}}
-      selectors]
-     (when item-adder item-adder)]))
+    [omv/option-menu
+     {:menu-id actual-path
+      :slot-label (::t/slot-label selection)
+      :multiselect? multi?
+      :options opts
+      :cell-fn cell-fn
+      :trailer (when item-adder item-adder)}]))
 
 (defn selection-section [title
                          built-template
@@ -2196,8 +2182,9 @@
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
          [:div
           [missing-content-warning]]
-         [:div.flex
-          [theme-toggle]
+         [:div.flex.align-items-c
+          [omv/layout-toggle]
+          [:div.m-l-10 [theme-toggle]]
           (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c
                                   (views5e/svg-icon "thunder-skull" 24 24)
                                   (when (not mobile?)
