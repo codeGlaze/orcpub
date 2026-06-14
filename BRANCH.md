@@ -135,19 +135,18 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
   **headless cljs harness now exists in this container** (compile `fig:test` → serve
   `target/test/` → drive Chromium via Playwright → capture the clean reporter), so cljs is
   verifiable here. **`save-character` null crash: FIXED + verified** (errors 3→2).
-- **Import-validation triage (via the harness, verified against callers/intent):**
-  - `apply-key-renames` test → **STALE TEST** (real caller `events.cljs:4042` uses
-    `:from`/`:to`; test uses `:old-key`/`:new-key`). Code correct → update the test.
-  - `normalize-text` `café→cafe` → **STALE/WRONG TEST** (design preserves accented letters
-    and flags them via `count-non-ascii`; not transliterate). Code correct → fix the test.
-  - `count-non-ascii` → **REAL cljs bug**: `(int %)` is `0` in cljs, so non-ASCII detection
-    silently no-ops in the browser. Test correct → fix code (`(.charCodeAt % 0)`).
-  - `dedup-options-in-import` (full-pipeline test) → **REAL bug/gap (mechanism UNVERIFIED)**:
-    deduping is intended (commit `79a6a54b`, wired at `import_validation.cljs:1341`) and the
-    unit dedup passes, but the full pipeline returns 3 not 2. Where it's lost is not yet
-    pinned — needs a focused debug; do NOT assert the cause.
-  - `user-stale-user` (subs auth guard) → separate, not import.
-  - Dead `character_test.cljc` (2 errors): retire per the charter (`character-validation.md`).
+- **Import-validation triage — TRIAGED + FIXED (`86eb5cc4`), harness-verified:**
+  - `apply-key-renames` test → was STALE (`:old-key`/`:new-key`); **fixed test** to `:from`/`:to`.
+  - `normalize-text café→cafe` → was STALE/WRONG (accents are preserved + flagged);
+    **fixed test** to expect `"Café"`.
+  - `count-non-ascii` → REAL cljs bug (`(int %)`=0 in cljs); **fixed code** → `(.charCodeAt % 0)`.
+  - `dedup-options-in-import` → REAL bug (mechanism pinned): `dedup-options-in-item` only
+    handled `:selections`-nested options, not a homebrew `:orcpub.dnd.e5/selections` item's
+    own top-level `:options`; **fixed code** (additive). Full-pipeline dedup now works.
+  - Verified: headless cljs run 133 tests / **1 failure / 0 errors** — only the unrelated
+    `user-stale-user` (subs auth guard) remains. lint 0; JVM 224/1107/0.
+  - **Still open (not import, out of this list's scope):** `user-stale-user` subs auth-guard
+    test (1 failure) + the dead `character_test.cljc` (2 errors, retire per the charter).
 - The KB requires verified-only content. The cross-link map is verified from code; the
   proposed design is clearly labeled as a proposal. Preserve that boundary.
 - The design directly answers a cluster of open issues (#58, #57/#209, #172/#170,
