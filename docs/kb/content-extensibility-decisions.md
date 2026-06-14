@@ -218,7 +218,22 @@ indirection, never raw `:plugins`*. Hold it and variants slot in later with no r
 the pool/grant work. Variants reference base by stable key, not name (D10). *Rejected:*
 ignoring variants now (would force a later refactor) and building full resolution now (YAGNI).
 
+**D21 — Maintainability is a GATE: easier to add tooling, not harder.** The whole point is that
+exposing a new grant-type/pool must drop from O(builders) bespoke edits (today) to O(1)
+registration (register a pool once → grantable in every builder; "boons → feats/classes" falls
+out free because boons are already a pool). This is guarded by two non-negotiable disciplines:
+(1) `grant` is a **thin compiler** to `selection-cfg` — pool-kind logic lives in each pool's
+definition, NEVER as a `cond` inside `grant` (that's the D14 god-function trap); (2) **one
+reused** grant-authoring UI component, not per-builder forks (pools carry light "which builders
+may offer me" scoping). **Falsifiable proof, not a promise:** the first slice's acceptance test
+is "exposing a *second* pool in a builder is a ~1-line registration, shown in a commit"; if it
+isn't trivially cheap, the retooling failed and we STOP. *Rejected:* taking "it'll be easier"
+on faith — it must be measured.
+
 **Pins (designed-in, built-later):** variants (D20); new-skill *creation* (adds to the skill
 registry, not a grant — different shape); the class-feature pool (`[:class-feature :X]` —
 richer than flat pools); a declarative cross-type prereq vocabulary (`has-class?`/`level>=`/
-`has-feature?`/`ability>=` — homebrew prereqs must not be raw fns).
+`has-feature?`/`ability>=` — homebrew prereqs must not be raw fns); **mechanical effects for
+text-only content** (boons/ki/sorcery-points are prose today — authors should attach real
+modifiers/resources; user flagged boons as an enhancement; same Axis-B "declare-as-data"
+family).

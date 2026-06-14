@@ -99,6 +99,34 @@ Hold that, and adding variants later is inserting one transform at one seam; **p
 grants never change** (no refactor of the new work). Variants reference base by **stable
 key**, not name (D10). This is the whole cost of "build the idea in now."
 
+## Maintainability — the GATING requirement (easier to add tooling, not harder)
+
+The user's hard criterion: a big retooling must make it **easier to expose more tooling, not
+harder, and must not make the app unwieldy to maintain.** This is a gate, not a nice-to-have.
+
+**Why the pattern is N+M, not N×M.** Today, exposing a grant-type (e.g. "choose a fighting
+style") means editing each builder's hardcoded selection vector (`custom-race-option`,
+`custom-subrace-option`, …) — O(builders) per capability. With pool/grant: a grant-type is
+data; the builder's "add a grant" UI iterates the **registered pools**. Register a pool
+**once** → grantable in **every** builder. So exposing a capability is O(1), and adding a
+builder is O(1). "Boons shareable to feats / custom classes" falls out for free: boons are
+already a pool (`::e5/boons`); a feat/class granting "choose a boon" is just that builder
+offering the `:boon` pool — **no boon↔feat wiring.**
+
+**The two disciplines that keep it from rotting into a god-function (non-negotiable):**
+1. **`grant` is a thin compiler** — `{:pool :count :filter :gate}` → a `selection-cfg`, nothing
+   else. Pool-*kind*-specific logic (flat pool vs class-feature pool derivation) lives in each
+   **pool's own definition**, never as branches inside `grant`. A `cond` over pool kinds inside
+   `grant` = the D14 god-function trap = failure.
+2. **One reused grant-authoring UI component**, not a forked menu per builder.
+   - Light refinement: pools carry scoping metadata (*which builders may offer me*) so a feat
+     can't grant "choose a subrace." Small annotation; still N+M.
+
+**The proof (falsifiable, not a promise) — the first slice's acceptance test:**
+> After the first slice lands, exposing a **second** pool in a builder must be a ~1-line
+> registration — shown in a commit. If it isn't trivially cheap, the retooling failed its own
+> purpose; STOP and reassess. This is the real "measure the effort of adding a feature."
+
 ## Sequencing — flat pools before rich pools
 
 - **Flat pools first** (a list of self-contained items): `:spell`, `:feat`,
@@ -135,6 +163,11 @@ key**, not name (D10). This is the whole cost of "build the idea in now."
   `ability>=`): homebrew-authored prereqs must NOT be raw fns (security/stability). The engine
   evaluates prereqs already; the small declarative vocabulary is the new part. Build when the
   first cross-type gate is needed.
+- **Mechanical effects for text-only content** (Axis B sibling): boons — and ki/sorcery-points
+  — are today just descriptive `:summary` text; the mechanical benefit they describe isn't
+  modeled. Authors should be able to attach real modifiers/resources, not just prose. Same
+  family as the play-time-resources finding (ki is text, not a tracked pool). User flagged
+  boons explicitly as an enhancement. Defer; same "declare-as-data" pattern will apply.
 
 ## What already stands (don't redo)
 - `register-homebrew-content!` (the wiring sub-layer) + boon swapped through it.
