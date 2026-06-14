@@ -1866,20 +1866,45 @@
       :font-size "13px"
       :white-space :nowrap}]
 
-    ;; option cell (default / checkbox)
+    ;; option cell (default / checkbox). Transparent border on the base keeps the
+    ;; row from shifting 1px when the selected/non-standard border appears.
     [:.opt-menu-cell
      {:display :flex
       :align-items :center
-      :padding "6px 8px"
-      :border-radius "5px"
+      :gap "10px"
+      :padding "8px 10px"
+      :border "1px solid transparent"
+      :border-radius "6px"
+      :line-height 1.3
       :cursor :pointer}]
 
+    [:.opt-menu-cell:hover
+     {:background "rgba(255,255,255,0.05)"}]
+
     [:.opt-menu-cell.selected
-     {:background "rgba(240,161,0,0.1)"}]
+     {:background "rgba(240,161,0,0.12)"
+      :border (str "1px solid " orange)}]
 
     [:.opt-menu-cell.non-standard
      {:background "rgba(240,161,0,0.06)"
       :border (str "1px solid " orange)}]
+
+    ;; rounded checkbox box — subtle outline when off, filled amber when on
+    [:.opt-menu-check
+     {:display :inline-flex
+      :align-items :center
+      :justify-content :center
+      :flex "0 0 auto"
+      :width "18px"
+      :height "18px"
+      :border "1px solid rgba(255,255,255,0.35)"
+      :border-radius "4px"
+      :font-size "11px"}]
+
+    [:.opt-menu-check.selected
+     {:background orange
+      :border (str "1px solid " orange)
+      :color "#191919"}]
 
     ;; empty state
     [:.opt-menu-empty

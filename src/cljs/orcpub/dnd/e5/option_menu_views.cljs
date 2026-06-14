@@ -18,7 +18,6 @@
   (:require [re-frame.core :refer [reg-sub reg-event-db subscribe dispatch after]]
             [reagent.core :as r]
             [clojure.string :as str]
-            [orcpub.components :as comps]
             [orcpub.dnd.e5.db :as db5e]
             [orcpub.dnd.e5.option-grouping :as grouping]))
 
@@ -158,8 +157,9 @@
                                          (when non-standard? "non-standard")
                                          (when-not selectable? "opacity-5")]))
       :on-click #(when selectable? (on-toggle))}
-     (when non-standard? [:span.non-standard-badge.m-r-5 "≠ NON-STD"])
-     [:span.m-r-5 (comps/checkbox selected? (not selectable?))]
+     (when non-standard? [:span.non-standard-badge "≠ NON-STD"])
+     [:span.opt-menu-check {:class (when selected? "selected")}
+      (when selected? [:i.fa.fa-check])]
      [:span (or display label)]]))
 
 (defn- display-letter [{:keys [display label]}]
