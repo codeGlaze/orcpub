@@ -1,8 +1,13 @@
 # Session Summary: Content Extensibility Analysis
 
 **Date**: 2026-06-13
-**Branch**: claude/zen-wright-04xhdz (docs prepared for split-commit to `agents/develop`)
-**Status**: Design + docs complete. No production code changed. Awaiting go-ahead on a spike.
+**Branch**: claude/zen-wright-04xhdz
+
+> ⚠️ **READ `docs/kb/content-extensibility-direction.md` FIRST.** The plan was deliberately
+> **deflated** late in the session. Sections below (esp. "What we concluded", "How to
+> resume", the two-layer / catalog-grant framing) are **history** — the direction doc is the
+> real plan. Status: lots of code IS committed (Phases 0–4b, import-validation fixes,
+> `save-character` fix, merged `feature/name-keyword-fix`); `by-parent` is slated for revert.
 
 ## The question
 
