@@ -127,3 +127,39 @@
   (testing "selection keys a character stores its choice under (derived from names)"
     (is (= :pact-boon (common/name-to-kw "Pact Boon")))
     (is (= :eldritch-invocations (common/name-to-kw "Eldritch Invocations")))))
+
+;; ---------------------------------------------------------------------------
+;; Draconic ancestry pool — the choice a character makes from the open pool must
+;; survive a save/load round-trip with its keys intact. This is the persistence
+;; half of "a homebrew ancestry reimports to a character": the build re-derives
+;; the mechanics (resistance + breath) from the option KEY against the loaded
+;; pool, so if the key survives and the library is loaded, the mechanics return.
+;; (The key->mechanics half is proven in draconic_ancestry_test.cljs.)
+;; ---------------------------------------------------------------------------
+
+(def dragonborn-with-homebrew-ancestry
+  #:orcpub.entity.strict
+  {:selections
+   [#:orcpub.entity.strict
+    {:key :race
+     :option #:orcpub.entity.strict
+              {:key :dragonborn
+               :selections [#:orcpub.entity.strict
+                            {:key :draconic-ancestry
+                             ;; :amethyst is a homebrew gem ancestry's stored key
+                             :option #:orcpub.entity.strict{:key :amethyst}}]}}]})
+
+(deftest draconic-ancestry-choice-round-trips
+  (let [once  (-> dragonborn-with-homebrew-ancestry char5e/from-strict char5e/to-strict)
+        twice (-> once char5e/from-strict char5e/to-strict)]
+    (testing "load -> save is idempotent"
+      (is (= once twice)))
+    (testing "the dragonborn + chosen homebrew ancestry keys survive the round-trip"
+      (let [survived (strict-keys once)]
+        (doseq [k [:race :dragonborn :draconic-ancestry :amethyst]]
+          (is (contains? survived k)
+              (str "key " k " must survive load/save")))))))
+
+(deftest draconic-ancestry-selection-key-is-stable
+  (testing "the selection key a character stores its ancestry choice under"
+    (is (= :draconic-ancestry (common/name-to-kw "Draconic Ancestry")))))
