@@ -571,6 +571,8 @@
              :route routes/dnd-e5-invocation-builder-page-route}
             {:name "Pact Boon Builder"
              :route routes/dnd-e5-boon-builder-page-route}
+            {:name "Draconic Ancestry Builder"
+             :route routes/dnd-e5-draconic-ancestry-builder-page-route}
             {:name "Selection Builder"
              :route routes/dnd-e5-selection-builder-page-route}]]]]]]))
 
@@ -6549,6 +6551,29 @@
 (defn boon-builder []
   (simple-content-builder ::classes/boon-builder-item ::classes/set-boon-prop))
 
+(def draconic-ancestry-damage-types
+  ["acid" "lightning" "fire" "poison" "cold" "thunder" "force" "radiant" "necrotic" "psychic"])
+
+(defn draconic-ancestry-builder []
+  ;; Mirrors boon-builder: a simple-content-builder (Name + Option Source + Description)
+  ;; PLUS one extra field — a damage-type dropdown that writes into the nested
+  ;; [:breath-weapon :damage-type]. The set-prop handler only sets a single top-level
+  ;; key, so we set the whole :breath-weapon map (merging the existing value).
+  ;; NOTE: breath-area is a future field — only :damage-type is authored here for now.
+  (let [item @(subscribe [::races/draconic-ancestry-builder-item])
+        breath-weapon (get item :breath-weapon)]
+    (simple-content-builder
+     ::races/draconic-ancestry-builder-item
+     ::races/set-draconic-ancestry-prop
+     [[labeled-dropdown
+       "Breath Weapon Damage Type"
+       {:items (map (fn [dt] {:value dt :title (s/capitalize dt)})
+                    draconic-ancestry-damage-types)
+        :value (get breath-weapon :damage-type)
+        :on-change #(dispatch [::races/set-draconic-ancestry-prop
+                               :breath-weapon
+                               (assoc breath-weapon :damage-type %)])}]])))
+
 (defn invocation-builder []
   (simple-content-builder ::classes/invocation-builder-item ::classes/set-invocation-prop))
 
@@ -8032,6 +8057,9 @@
 
 (defn boon-builder-page []
   (builder-page "Pact Boon" ::classes/reset-boon ::classes/save-boon boon-builder))
+
+(defn draconic-ancestry-builder-page []
+  (builder-page "Draconic Ancestry" ::races/reset-draconic-ancestry ::races/save-draconic-ancestry draconic-ancestry-builder))
 
 (defn selection-builder-page []
   (builder-page "Selection" ::selections/reset-selection ::selections/save-selection selection-builder [title-with-help "Selection Builder" selection-help]))

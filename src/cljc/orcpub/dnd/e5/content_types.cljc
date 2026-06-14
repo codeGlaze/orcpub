@@ -87,6 +87,14 @@
     :route-kw route-map/dnd-e5-boon-builder-page-route
     :route-seg "boon-builder"
     :local-storage-key "boon"}
+   {:id :draconic-ancestry
+    :type-name "Draconic Ancestry"
+    :builder-item :orcpub.dnd.e5.races/draconic-ancestry-builder-item
+    :spec :orcpub.dnd.e5.races/homebrew-draconic-ancestry
+    :plugin-key :orcpub.dnd.e5/draconic-ancestries
+    :route-kw route-map/dnd-e5-draconic-ancestry-builder-page-route
+    :route-seg "draconic-ancestry-builder"
+    :local-storage-key "draconic-ancestry"}
    {:id :selection
     :type-name "Selection"
     :builder-item :orcpub.dnd.e5.selections/builder-item

@@ -52,6 +52,7 @@
    routes/dnd-e5-language-builder-page-route views/language-builder-page
    routes/dnd-e5-invocation-builder-page-route views/invocation-builder-page
    routes/dnd-e5-boon-builder-page-route views/boon-builder-page
+   routes/dnd-e5-draconic-ancestry-builder-page-route views/draconic-ancestry-builder-page
    routes/dnd-e5-selection-builder-page-route views/selection-builder-page
    routes/dnd-e5-item-list-page-route views/item-list
    routes/dnd-e5-char-page-route views/character-page

@@ -13,3 +13,5 @@
 
 (spec/def ::race (spec/and keyword? common/keyword-starts-with-letter?))
 (spec/def ::homebrew-subrace (spec/keys :req-un [::name ::key ::race ::option-pack]))
+
+(spec/def ::homebrew-draconic-ancestry (spec/keys :req-un [::name ::key ::option-pack]))

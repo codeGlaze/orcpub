@@ -40,6 +40,7 @@
 (def local-storage-language-key "language")
 (def local-storage-invocation-key "invocation")
 (def local-storage-boon-key "boon")
+(def local-storage-draconic-ancestry-key "draconic-ancestry")
 (def local-storage-selection-key "selection")
 (def local-storage-feat-key "feat")
 (def local-storage-race-key "race")
@@ -94,6 +95,8 @@
 (def default-invocation {})
 
 (def default-boon {})
+
+(def default-draconic-ancestry {})
 
 (def default-selection {:options []})
 
@@ -150,6 +153,7 @@
    ::langs5e/builder-item default-language
    ::class5e/invocation-builder-item default-invocation
    ::class5e/boon-builder-item default-boon
+   ::race5e/draconic-ancestry-builder-item default-draconic-ancestry
    ::selections5e/builder-item default-selection
    ::feats5e/builder-item default-feat
    ::race5e/builder-item default-race
@@ -210,6 +214,10 @@
 (defn boon->local-store [boon]
   (when js/window.localStorage
     (set-item local-storage-boon-key (str boon))))
+
+(defn draconic-ancestry->local-store [draconic-ancestry]
+  (when js/window.localStorage
+    (set-item local-storage-draconic-ancestry-key (str draconic-ancestry))))
 
 (defn selection->local-store [selection]
   (when js/window.localStorage

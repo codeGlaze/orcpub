@@ -26,7 +26,7 @@
 (deftest registry-is-internally-consistent
   (let [cts ct/content-types]
     (testing "covers the known plugin-based homebrew types"
-      (is (= 13 (count cts))))
+      (is (= 14 (count cts))))
     (doseq [field [:id :type-name :builder-item :spec :plugin-key :route-kw
                    :route-seg :local-storage-key]]
       (testing (str "every descriptor has " field)
@@ -51,7 +51,7 @@
   ;; the registry's set drifts from what the forms expect, that form silently breaks.
   ;; Lock the set here so drift fails loudly instead. (This is the JVM-side guard for a
   ;; cljs change we can't run in CI.)
-  (testing "registry builder-items are exactly the 13 the builder-item subs feed"
+  (testing "registry builder-items are exactly the 14 the builder-item subs feed"
     (is (= #{:orcpub.dnd.e5.spells/builder-item
              :orcpub.dnd.e5.monsters/builder-item
              :orcpub.dnd.e5.encounters/builder-item
@@ -59,6 +59,7 @@
              :orcpub.dnd.e5.languages/builder-item
              :orcpub.dnd.e5.classes/invocation-builder-item
              :orcpub.dnd.e5.classes/boon-builder-item
+             :orcpub.dnd.e5.races/draconic-ancestry-builder-item
              :orcpub.dnd.e5.selections/builder-item
              :orcpub.dnd.e5.feats/builder-item
              :orcpub.dnd.e5.races/builder-item

@@ -8,12 +8,16 @@
    If the wiring regresses to the old fixed list, test 2 goes red (homebrew vanishes)."
   (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
             [re-frame.core :as rf]
+            [re-frame.registrar :as registrar]
             [re-frame.db :refer [app-db]]
+            [cljs.spec.alpha :as spec]
+            [orcpub.common :as common]
             [orcpub.template :as t]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.races :as races5e]
-            ;; Side effect: registers ::races5e/races and ::races5e/draconic-ancestry-pool
+            ;; Side effects: register ::races5e/races + the pool sub, and the builder events
+            [orcpub.dnd.e5.events]
             [orcpub.dnd.e5.spell-subs]))
 
 (defn reset-db! []
@@ -88,3 +92,31 @@
       (is (some? sapphire))
       (is (= 3 (count (::t/modifiers sapphire)))
           "resistance + breath weapon + the :props-declared flying-speed modifier"))))
+
+;; ---------------------------------------------------------------------------
+;; The BUILDER half — drive the real events (not injection) and prove the output
+;; is savable. (The save handler's plugins write is async :dispatch-n, so we
+;; assert the registered handlers + that a builder-produced item validates against
+;; the save spec, which is exactly what reg-save-homebrew gates on.)
+;; ---------------------------------------------------------------------------
+
+(deftest builder-events-are-registered
+  (testing "register-homebrew-content! wired the draconic-ancestry builder's events"
+    (doseq [e [::races5e/save-draconic-ancestry ::races5e/new-draconic-ancestry
+               ::races5e/edit-draconic-ancestry ::races5e/delete-draconic-ancestry
+               ::races5e/set-draconic-ancestry ::races5e/set-draconic-ancestry-prop
+               ::races5e/reset-draconic-ancestry]]
+      (is (some? (registrar/get-handler :event e)) (str e " should be registered")))))
+
+(deftest builder-produces-spec-valid-savable-content
+  (testing "set + set-prop build an item that validates against the save spec"
+    (reset! app-db {})
+    (rf/dispatch-sync [::races5e/set-draconic-ancestry {:name "Amethyst" :option-pack "My Pack"}])
+    (rf/dispatch-sync [::races5e/set-draconic-ancestry-prop :breath-weapon {:damage-type :force}])
+    (let [built   (::races5e/draconic-ancestry-builder-item @app-db)
+          ;; reg-save-homebrew assoc's :key = name-to-kw of the name before validating
+          savable (assoc built :key (common/name-to-kw (:name built)))]
+      (is (= {:damage-type :force} (:breath-weapon built))
+          "set-prop wrote the nested breath-weapon the builder's damage-type field sets")
+      (is (spec/valid? ::races5e/homebrew-draconic-ancestry savable)
+          "a builder-produced item is savable (validates against the spec the save gates on)"))))

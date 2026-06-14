@@ -42,6 +42,7 @@
                                       language->local-store
                                       invocation->local-store
                                       boon->local-store
+                                      draconic-ancestry->local-store
                                       selection->local-store
                                       feat->local-store
                                       race->local-store
@@ -58,6 +59,7 @@
                                       default-language
                                       default-invocation
                                       default-boon
+                                      default-draconic-ancestry
                                       default-selection
                                       default-feat
                                       default-race
@@ -125,6 +127,8 @@
 
 (def boon->local-store-interceptor (after boon->local-store))
 
+(def draconic-ancestry->local-store-interceptor (after draconic-ancestry->local-store))
+
 (def selection->local-store-interceptor (after selection->local-store))
 
 (def feat->local-store-interceptor (after feat->local-store))
@@ -176,6 +180,9 @@
 
 (def boon-interceptors [(path ::class5e/boon-builder-item)
                         boon->local-store-interceptor])
+
+(def draconic-ancestry-interceptors [(path ::race5e/draconic-ancestry-builder-item)
+                                     draconic-ancestry->local-store-interceptor])
 
 (def selection-interceptors [(path ::selections5e/builder-item)
                              selection->local-store-interceptor])
@@ -4297,6 +4304,25 @@
   :default        default-boon
   :route          routes/dnd-e5-boon-builder-page-route
   :interceptors   boon-interceptors})
+
+;; Draconic Ancestry — mirrors the Pact Boon descriptor. Authored ancestries land in
+;; ::e5/draconic-ancestries, the pool ::races5e/draconic-ancestry-pool already reads.
+(register-homebrew-content!
+ {:type-name      "Draconic Ancestry"
+  :save-error     "You must specify 'Name', 'Option Source Name'"
+  :save-event     ::race5e/save-draconic-ancestry
+  :delete-event   ::race5e/delete-draconic-ancestry
+  :edit-event     ::race5e/edit-draconic-ancestry
+  :new-event      ::race5e/new-draconic-ancestry
+  :set-event      ::race5e/set-draconic-ancestry
+  :set-prop-event ::race5e/set-draconic-ancestry-prop
+  :reset-event    ::race5e/reset-draconic-ancestry
+  :builder-item   ::race5e/draconic-ancestry-builder-item
+  :spec           ::race5e/homebrew-draconic-ancestry
+  :plugin-key     ::e5/draconic-ancestries
+  :default        default-draconic-ancestry
+  :route          routes/dnd-e5-draconic-ancestry-builder-page-route
+  :interceptors   draconic-ancestry-interceptors})
 
 (defn reg-option-selections [option-name option-key interceptors]
   (reg-event-db
