@@ -1689,32 +1689,46 @@
       :font-weight :bold
       :margin-bottom "8px"}]
 
-    ;; global layout toggle: a padded rounded-rect track with independently-rounded
-    ;; chips (no flat-edged active capsule).
+    ;; global layout toggle: a track with one amber thumb that slides to the active
+    ;; segment (equal-width grid columns).
     [:.opt-menu-layout-toggle
-     {:display :inline-flex
+     {:position :relative
+      :display :inline-grid
+      :grid-template-columns "repeat(3, 1fr)"
       :padding "4px"
-      :gap "3px"
       :background "#161d28"
       :border "1px solid rgba(255,255,255,0.08)"
       :border-radius "10px"}]
 
-    [:.opt-menu-layout-seg
-     {:padding "7px 18px"
+    [:.opt-menu-layout-thumb
+     {:position :absolute
+      :top "4px"
+      :bottom "4px"
+      :width "calc((100% - 8px) / 3)"
+      :background orange
       :border-radius "7px"
+      :z-index 0
+      :transition "transform 0.24s cubic-bezier(.4,0,.2,1)"}]
+
+    [:.opt-menu-layout-seg
+     {:position :relative
+      :z-index 1
+      :padding "7px 18px"
+      :border :none
+      :background :transparent
       :cursor :pointer
       :font-size "13px"
       :font-weight 600
+      :text-align :center
       :white-space :nowrap
-      :color "#aab3c0"
-      :transition "all 0.12s"}]
+      :color "rgba(255,255,255,0.7)"
+      :transition "color 0.24s ease"}]
+
+    [:.opt-menu-layout-seg.active
+     {:color "#161d27"}]
 
     [:.opt-menu-layout-seg:hover
      {:color "#e7ecf2"}]
-
-    [:.opt-menu-layout-seg.active
-     {:background orange
-      :color "#161d27"}]
 
     ;; grid. The min(100%, 210px) guard prevents horizontal overflow when the
     ;; container is narrower than the track min (small phones).
@@ -1805,6 +1819,31 @@
       :font-size "13px"
       :color "#b5bdc8"
       :line-height 1.5}]
+
+    ;; collapse animation: the body stays mounted and reveals via grid-template-rows
+    ;; (1fr -> 0fr). The inner wrapper clips the overflow during the transition.
+    [:.opt-section-body
+     {:display :grid
+      :grid-template-rows "1fr"
+      :transition "grid-template-rows 0.22s ease"}]
+
+    [:.opt-section-body.collapsed
+     {:grid-template-rows "0fr"}]
+
+    ;; very long lists toggle instantly (no height animation) to avoid reflow jank
+    [:.opt-section-body.instant
+     {:transition :none}]
+
+    [:.opt-section-body-inner
+     {:min-height "0"
+      :overflow :hidden}]
+
+    ;; respect prefers-reduced-motion: no slide/reveal animation
+    (at-media {:prefers-reduced-motion :reduce}
+              [:.opt-section-body {:transition :none}]
+              [:.opt-section-chevron {:transition :none}]
+              [:.opt-menu-layout-thumb {:transition :none}]
+              [:.opt-menu-layout-seg {:transition :none}])
 
     ;; "Choose any" wildcard group (the Any N options), a labeled dashed group
     [:.opt-wildcards

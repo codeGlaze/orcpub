@@ -91,8 +91,13 @@
   "Segmented control bound to the GLOBAL layout. Reads/writes shared state, so any
    number of instances stay in sync — place one in each builder header."
   []
-  (let [cur @(subscribe [::layout])]
+  (let [cur @(subscribe [::layout])
+        idx (get {:grid 0 :pills 1 :az 2} cur 0)]
     [:div.opt-menu-layout-toggle
+     ;; single amber thumb that slides to the active segment (equal-width columns,
+     ;; so translateX(n*100%) lands on segment n)
+     [:div.opt-menu-layout-thumb
+      {:style {:transform (str "translateX(" (* idx 100) "%)")}}]
      (doall
       (for [[mode label] layouts]
         ^{:key mode}
@@ -329,22 +334,27 @@
                         :on-toggle #(dispatch [::toggle-collapsed menu-id])}]
        ;; legacy header (used by builders not yet migrated to the panel look)
        (when multiselect? [count-line selected (count options)]))
-     (if collapsed?
-       [:div.opt-section-summary (summarize-selected (mapv :label selected))]
-       [:div
-        (when header-extra header-extra)
-        (when (seq wildcards) [wildcard-group wildcards])
-        (when prefix [pattern-banner prefix slot-label])
-        (when (and has-opts? searchable?) [search-box menu-id])
-        ;; legacy chips tray only in the no-title mode; the panel header carries Clear
-        (when (and (not title) multiselect?) [chips-tray selected chip-fn clear-fn])
-        (when has-opts?
-          (cond
-            (empty? filtered) [:div.opt-menu-empty (str "No options match “" query "”.")]
-            (= layout :pills) [pills-body filtered cell-fn]
-            (= layout :az)    [az-body menu-id annotated filtered cell-fn]
-            :else             [grid-body filtered cell-fn]))
-        (when trailer trailer)])]))
+     (when collapsed?
+       [:div.opt-section-summary (summarize-selected (mapv :label selected))])
+     ;; body stays mounted and animates open/closed via grid-template-rows; very long
+     ;; lists skip the animation (instant) to avoid reflow jank.
+     [:div.opt-section-body
+      {:class (str/join " " (remove nil? [(when collapsed? "collapsed")
+                                          (when (>= (count options) 40) "instant")]))}
+      [:div.opt-section-body-inner
+       (when header-extra header-extra)
+       (when (seq wildcards) [wildcard-group wildcards])
+       (when prefix [pattern-banner prefix slot-label])
+       (when (and has-opts? searchable?) [search-box menu-id])
+       ;; legacy chips tray only in the no-title mode; the panel header carries Clear
+       (when (and (not title) multiselect?) [chips-tray selected chip-fn clear-fn])
+       (when has-opts?
+         (cond
+           (empty? filtered) [:div.opt-menu-empty (str "No options match “" query "”.")]
+           (= layout :pills) [pills-body filtered cell-fn]
+           (= layout :az)    [az-body menu-id annotated filtered cell-fn]
+           :else             [grid-body filtered cell-fn]))
+       (when trailer trailer)]]]))
 
 ;; ---------------------------------------------------------------------------
 ;; Section containment — cards (top-level) and recessed wells (nested children)
@@ -387,6 +397,10 @@
       (when meta [:span.opt-section-count meta])
       (when collapse-id
         [:i.fa.fa-chevron-down.opt-section-chevron {:class (when collapsed? "collapsed")}])]
-     (if collapsed?
-       [:div.opt-section-summary (summarize-selected summary-labels)]
-       (into [:div.opt-subsections] children))]))
+     (when collapsed?
+       [:div.opt-section-summary (summarize-selected summary-labels)])
+     ;; parents aggregate large child lists, so collapse them instantly (no height
+     ;; animation) to avoid reflow jank.
+     [:div.opt-section-body.instant {:class (when collapsed? "collapsed")}
+      [:div.opt-section-body-inner
+       (into [:div.opt-subsections] children)]]]))
