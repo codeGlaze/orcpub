@@ -13,10 +13,11 @@
    plugins map or the shared homebrew factories (server-backed / transient), so folding them in
    would be wrong (decision D14).
 
-   LEAF NAMESPACE: requires only `route-map` (for the route keyword vars). Spec, builder-item,
-   and plugin keys are written as fully-qualified keyword literals so this ns pulls in no
-   domain/events/subs/views code and cannot create the circular deps the app works around
-   (D7/D8). (The routes pass will drop even the route-map require to make this a pure-data leaf.)
+   PURE-DATA LEAF: requires nothing. Spec, builder-item, plugin, and route keys are written as
+   keyword literals so this ns pulls in no domain/routing/events/subs/views code and cannot
+   create circular deps (D7/D8). This is what lets route_map / routes.clj read it to GENERATE
+   the bidi tree + allowlist (the routes pass) without a cycle. :route-kw literals are guarded
+   against drift from route_map's vars by a test (route_map-test / content_types-test).
 
    Keys per descriptor:
      :id                content type id (keyword)
@@ -29,8 +30,7 @@
      :route-seg         builder page URL path segment
      :local-storage-key localStorage draft key
      :homebrew-builder? opt this type into the events + db generative loops (true)
-     :default           the empty-draft value (usually {}); required with :homebrew-builder?"
-  (:require [orcpub.route-map :as route-map]))
+     :default           the empty-draft value (usually {}); required with :homebrew-builder?")
 
 (def content-types
   [{:id :spell
@@ -38,7 +38,7 @@
     :builder-item :orcpub.dnd.e5.spells/builder-item
     :spec :orcpub.dnd.e5.spells/homebrew-spell
     :plugin-key :orcpub.dnd.e5/spells
-    :route-kw route-map/dnd-e5-spell-builder-page-route
+    :route-kw :spell-builder-5e-page
     :route-seg "spell-builder"
     :local-storage-key "spell"}
    {:id :monster
@@ -46,7 +46,7 @@
     :builder-item :orcpub.dnd.e5.monsters/builder-item
     :spec :orcpub.dnd.e5.monsters/homebrew-monster
     :plugin-key :orcpub.dnd.e5/monsters
-    :route-kw route-map/dnd-e5-monster-builder-page-route
+    :route-kw :monster-builder-5e-page
     :route-seg "monster-builder"
     :local-storage-key "monster"}
    {:id :encounter
@@ -55,7 +55,7 @@
     ;; note: encounter validates against ::encounters/encounter (no homebrew-* alias)
     :spec :orcpub.dnd.e5.encounters/encounter
     :plugin-key :orcpub.dnd.e5/encounters
-    :route-kw route-map/dnd-e5-encounter-builder-page-route
+    :route-kw :encounter-builder-5e-page
     :route-seg "encounter-builder"
     :local-storage-key "encounter"}
    {:id :background
@@ -63,7 +63,7 @@
     :builder-item :orcpub.dnd.e5.backgrounds/builder-item
     :spec :orcpub.dnd.e5.backgrounds/homebrew-background
     :plugin-key :orcpub.dnd.e5/backgrounds
-    :route-kw route-map/dnd-e5-background-builder-page-route
+    :route-kw :background-builder-5e-page
     :route-seg "background-builder"
     :local-storage-key "background"}
    {:id :language
@@ -71,7 +71,7 @@
     :builder-item :orcpub.dnd.e5.languages/builder-item
     :spec :orcpub.dnd.e5.languages/homebrew-language
     :plugin-key :orcpub.dnd.e5/languages
-    :route-kw route-map/dnd-e5-language-builder-page-route
+    :route-kw :language-builder-5e-page
     :route-seg "language-builder"
     :local-storage-key "language"}
    {:id :invocation
@@ -79,7 +79,7 @@
     :builder-item :orcpub.dnd.e5.classes/invocation-builder-item
     :spec :orcpub.dnd.e5.classes/homebrew-invocation
     :plugin-key :orcpub.dnd.e5/invocations
-    :route-kw route-map/dnd-e5-invocation-builder-page-route
+    :route-kw :invocation-builder-5e-page
     :route-seg "invocation-builder"
     :local-storage-key "invocation"}
    {:id :boon
@@ -87,7 +87,7 @@
     :builder-item :orcpub.dnd.e5.classes/boon-builder-item
     :spec :orcpub.dnd.e5.classes/homebrew-boon
     :plugin-key :orcpub.dnd.e5/boons
-    :route-kw route-map/dnd-e5-boon-builder-page-route
+    :route-kw :boon-builder-5e-page
     :route-seg "boon-builder"
     :local-storage-key "boon"
     ;; :homebrew-builder? — wired entirely by the events.cljs loop (no per-type code).
@@ -98,7 +98,7 @@
     :builder-item :orcpub.dnd.e5.races/draconic-ancestry-builder-item
     :spec :orcpub.dnd.e5.races/homebrew-draconic-ancestry
     :plugin-key :orcpub.dnd.e5/draconic-ancestries
-    :route-kw route-map/dnd-e5-draconic-ancestry-builder-page-route
+    :route-kw :draconic-ancestry-builder-5e-page
     :route-seg "draconic-ancestry-builder"
     :local-storage-key "draconic-ancestry"
     :homebrew-builder? true
@@ -108,7 +108,7 @@
     :builder-item :orcpub.dnd.e5.selections/builder-item
     :spec :orcpub.dnd.e5.selections/homebrew-selection
     :plugin-key :orcpub.dnd.e5/selections
-    :route-kw route-map/dnd-e5-selection-builder-page-route
+    :route-kw :selection-builder-5e-page
     :route-seg "selection-builder"
     :local-storage-key "selection"}
    {:id :feat
@@ -116,7 +116,7 @@
     :builder-item :orcpub.dnd.e5.feats/builder-item
     :spec :orcpub.dnd.e5.feats/homebrew-feat
     :plugin-key :orcpub.dnd.e5/feats
-    :route-kw route-map/dnd-e5-feat-builder-page-route
+    :route-kw :feat-builder-5e-page
     :route-seg "feat-builder"
     :local-storage-key "feat"}
    {:id :race
@@ -124,7 +124,7 @@
     :builder-item :orcpub.dnd.e5.races/builder-item
     :spec :orcpub.dnd.e5.races/homebrew-race
     :plugin-key :orcpub.dnd.e5/races
-    :route-kw route-map/dnd-e5-race-builder-page-route
+    :route-kw :race-builder-5e-page
     :route-seg "race-builder"
     :local-storage-key "race"}
    {:id :subrace
@@ -132,7 +132,7 @@
     :builder-item :orcpub.dnd.e5.races/subrace-builder-item
     :spec :orcpub.dnd.e5.races/homebrew-subrace
     :plugin-key :orcpub.dnd.e5/subraces
-    :route-kw route-map/dnd-e5-subrace-builder-page-route
+    :route-kw :subrace-builder-5e-page
     :route-seg "subrace-builder"
     :local-storage-key "subrace"}
    {:id :subclass
@@ -140,7 +140,7 @@
     :builder-item :orcpub.dnd.e5.classes/subclass-builder-item
     :spec :orcpub.dnd.e5.classes/homebrew-subclass
     :plugin-key :orcpub.dnd.e5/subclasses
-    :route-kw route-map/dnd-e5-subclass-builder-page-route
+    :route-kw :subclass-builder-5e-page
     :route-seg "subclass-builder"
     :local-storage-key "subclass"}
    {:id :class
@@ -148,7 +148,7 @@
     :builder-item :orcpub.dnd.e5.classes/builder-item
     :spec :orcpub.dnd.e5.classes/homebrew-class
     :plugin-key :orcpub.dnd.e5/classes
-    :route-kw route-map/dnd-e5-class-builder-page-route
+    :route-kw :class-builder-5e-page
     :route-seg "class-builder"
     :local-storage-key "class"}])
 
