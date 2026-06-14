@@ -107,3 +107,8 @@ computed character has no spec and why Larry's flat `::character` died.
 character-validation contract (own branch; charter in `character-validation.md`), and
 (2) getting the cljs tests into CI (own branch; the cljs suite is unrun/rotted). Surface
 both in the final PR/handoff so they aren't lost.
+
+## Verification discipline + re-anchor (late session)
+Several confident claims this session were wrong until verified (spec history, sub-vs-spec, which import tests failed). Lessons captured in `docs/kb/verification-discipline.md`: verify against real callers/intent/runtime before asserting; a red test means test+code DISAGREE, not that code is broken.
+
+RE-ANCHOR: the branch's founding purpose is **content extensibility** (Phases 0–4b done; next core step = 4c, gated by the new headless cljs harness). The test-suite / import-validation triage is a semi-related tangent that produced the harness — which enables safely finishing 4c–4f. Don't let the tangent become the branch.

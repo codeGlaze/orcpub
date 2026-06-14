@@ -4,6 +4,22 @@
 Capture the content-extensibility analysis and plan, and implement it in gated phases
 (reducing the multi-file cost of adding a content type/builder to the 5e app).
 
+## ⚓ Re-anchor — what this branch is *founded on* (don't lose the plot)
+**Founding purpose = content extensibility:** the registry + type-addressed catalog/grant
+work to collapse the ~8-file cost of adding content. Core progress: Phases 0–4b done
+(safety net, `option_catalog` seams for subraces/subclasses/boons/invocations, the
+`content_types` registry + builder-item subs). **That is the deliverable.**
+
+**Current tangent (semi-related):** verifying the above surfaced pre-existing test-suite
+debt — the rotted cljs suite, the dead `character_test.cljc`, and the import-validation
+failures. We've been triaging that. It connects back: the **headless cljs harness** built
+during the tangent (and the cljs-in-CI item) is what lets us safely *finish* the
+extensibility wiring (4c–4f). So the tangent serves the founding purpose — but the next
+core step is still **Phase 4c onward**, gated by the harness. Don't let the tangent become
+the branch.
+
+Verification discipline lessons from this session: `docs/kb/verification-discipline.md`.
+
 ## Roadmap / TODO (live checklist — updated as work proceeds)
 
 Each step is small, behavior-preserving, and must leave the gate green
@@ -115,12 +131,23 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
   - *Fix bugs on sight.* Don't leave a bug lying around once found — fix it in-flight,
     UNLESS it's deep enough to warrant its own branch (then file it and scope it).
 - **Test-suite debt found this session (`docs/kb/test-suite-state.md`):** CI runs only the
-  JVM gate (`lein lint`/`lein test`); the cljs suite is never run and has rotted (10
-  failures / 3 errors pre-existing on `develop`, all real tests or removed-subject tests,
-  none theater). Fix-now candidates: the dead `character_test.cljc` (refs a removed spec +
-  duplicate ns — JVM-verifiable), the `save-character` null crash (`make-summary →
-  entity-val`). Own-branch candidates: getting cljs tests into CI; a built-character
-  validation contract. Triage-needed: the import-validation failures (need a cljs run).
+  JVM gate (`lein lint`/`lein test`); the cljs suite is never run and has rotted. A
+  **headless cljs harness now exists in this container** (compile `fig:test` → serve
+  `target/test/` → drive Chromium via Playwright → capture the clean reporter), so cljs is
+  verifiable here. **`save-character` null crash: FIXED + verified** (errors 3→2).
+- **Import-validation triage (via the harness, verified against callers/intent):**
+  - `apply-key-renames` test → **STALE TEST** (real caller `events.cljs:4042` uses
+    `:from`/`:to`; test uses `:old-key`/`:new-key`). Code correct → update the test.
+  - `normalize-text` `café→cafe` → **STALE/WRONG TEST** (design preserves accented letters
+    and flags them via `count-non-ascii`; not transliterate). Code correct → fix the test.
+  - `count-non-ascii` → **REAL cljs bug**: `(int %)` is `0` in cljs, so non-ASCII detection
+    silently no-ops in the browser. Test correct → fix code (`(.charCodeAt % 0)`).
+  - `dedup-options-in-import` (full-pipeline test) → **REAL bug/gap (mechanism UNVERIFIED)**:
+    deduping is intended (commit `79a6a54b`, wired at `import_validation.cljs:1341`) and the
+    unit dedup passes, but the full pipeline returns 3 not 2. Where it's lost is not yet
+    pinned — needs a focused debug; do NOT assert the cause.
+  - `user-stale-user` (subs auth guard) → separate, not import.
+  - Dead `character_test.cljc` (2 errors): retire per the charter (`character-validation.md`).
 - The KB requires verified-only content. The cross-link map is verified from code; the
   proposed design is clearly labeled as a proposal. Preserve that boundary.
 - The design directly answers a cluster of open issues (#58, #57/#209, #172/#170,
@@ -136,6 +163,8 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
   `docs/kb/content-extensibility-e2e.md` (live verification checklist for a VS Code agent)
 - `docs/kb/test-suite-state.md` — verified state of the test suites, the pre-existing cljs
   failures (classified), the `::character`/built-character spec findings, open decisions
+- `docs/kb/verification-discipline.md` — lessons on assumptions & thoroughness (verify
+  against callers/intent/runtime before asserting; "red test = disagreement, not bug")
 - `docs/kb/character-validation.md` — preserves the *intent* of validating a character
   (Larry's 2016 test) + the modern, falsifiable replacement charter (own-branch). Capture
   this before retiring the broken `character_test.cljc`.
