@@ -616,13 +616,7 @@
  ::e5/invocations
  "You must specify 'Name', 'Option Source Name'")
 
-(reg-save-homebrew
- "Boon"
- ::class5e/save-boon
- ::class5e/boon-builder-item
- ::class5e/homebrew-boon
- ::e5/boons
- "You must specify 'Name', 'Option Source Name'")
+;; Boon save handler is registered via register-homebrew-content! (search "Pact Boon").
 
 ;; Selection save handler — standalone instead of reg-save-homebrew to add
 ;; duplicate option name validation. Mirrors reg-save-homebrew logic plus
@@ -752,9 +746,7 @@
  ::class5e/delete-invocation
  ::e5/invocations)
 
-(reg-delete-homebrew
- ::class5e/delete-boon
- ::e5/boons)
+;; ::class5e/delete-boon is registered via register-homebrew-content!.
 
 (reg-delete-homebrew
  ::selections5e/delete-selection
@@ -2138,10 +2130,7 @@
  ::class5e/set-invocation
  routes/dnd-e5-invocation-builder-page-route)
 
-(reg-edit-homebrew
- ::class5e/edit-boon
- ::class5e/set-boon
- routes/dnd-e5-boon-builder-page-route)
+;; ::class5e/edit-boon is registered via register-homebrew-content!.
 
 (reg-edit-homebrew
  ::selections5e/edit-selection
@@ -3029,11 +3018,7 @@
  (fn [invocation [_ prop-key prop-value]]
    (assoc invocation prop-key prop-value)))
 
-(reg-event-db
- ::class5e/set-boon-prop
- boon-interceptors
- (fn [boon [_ prop-key prop-value]]
-   (assoc boon prop-key prop-value)))
+;; ::class5e/set-boon-prop is registered via register-homebrew-content!.
 
 (reg-event-db
  ::selections5e/set-selection-prop
@@ -4132,11 +4117,7 @@
  (fn [_ [_ invocation]]
    invocation))
 
-(reg-event-db
- ::class5e/set-boon
- boon-interceptors
- (fn [_ [_ boon]]
-   boon))
+;; ::class5e/set-boon is registered via register-homebrew-content!.
 
 (reg-event-db
  ::selections5e/set-selection
@@ -4223,11 +4204,7 @@
    {:dispatch [::class5e/set-invocation
                default-invocation]}))
 
-(reg-event-fx
- ::class5e/reset-boon
- (fn [_ _]
-   {:dispatch [::class5e/set-boon
-               default-boon]}))
+;; ::class5e/reset-boon is registered via register-homebrew-content!.
 
 (reg-event-fx
  ::selections5e/reset-selection
@@ -4273,6 +4250,53 @@
                                   (assoc :option-pack option-pack)
                                   (merge option))]
                    [:route route]]})))
+
+(defn register-homebrew-content!
+  "Register the full set of re-frame handlers for one homebrew content type from a
+   single descriptor, composing the existing reg-*-homebrew factories. The win is
+   colocation: a content type's wiring is otherwise scattered across this file
+   (save / delete / edit / new + set / set-prop / reset), and this gathers it into one
+   call so adding or reading a type is a single place.
+
+   Scope: the 'basic' homebrew types whose only persistence is the in-browser :plugins
+   map. Richer types (race, class, …) additionally call reg-option-traits/modifiers/
+   selections themselves; server-persisted content (magic items) does not use this.
+
+   Every event keyword is passed explicitly (not derived) so it stays greppable."
+  [{:keys [type-name save-error
+           save-event delete-event edit-event new-event
+           set-event set-prop-event reset-event
+           builder-item spec plugin-key default route interceptors]}]
+  ;; persistence + builder lifecycle — the existing, trusted factories
+  (reg-save-homebrew type-name save-event builder-item spec plugin-key save-error)
+  (reg-delete-homebrew delete-event plugin-key)
+  (reg-edit-homebrew edit-event set-event route)
+  (reg-new-homebrew new-event set-event default route)
+  ;; in-place builder edits — mechanical (previously inline reg-event-db/fx)
+  (reg-event-db set-event interceptors (fn [_ [_ item]] item))
+  (reg-event-db set-prop-event interceptors
+                (fn [item [_ prop-key prop-value]]
+                  (assoc item prop-key prop-value)))
+  (reg-event-fx reset-event (fn [_ _] {:dispatch [set-event default]})))
+
+;; Pact Boon — first content type wired through register-homebrew-content!.
+;; All of boon's handlers live here in one descriptor instead of being scattered.
+(register-homebrew-content!
+ {:type-name      "Boon"
+  :save-error     "You must specify 'Name', 'Option Source Name'"
+  :save-event     ::class5e/save-boon
+  :delete-event   ::class5e/delete-boon
+  :edit-event     ::class5e/edit-boon
+  :new-event      ::class5e/new-boon
+  :set-event      ::class5e/set-boon
+  :set-prop-event ::class5e/set-boon-prop
+  :reset-event    ::class5e/reset-boon
+  :builder-item   ::class5e/boon-builder-item
+  :spec           ::class5e/homebrew-boon
+  :plugin-key     ::e5/boons
+  :default        default-boon
+  :route          routes/dnd-e5-boon-builder-page-route
+  :interceptors   boon-interceptors})
 
 (defn reg-option-selections [option-name option-key interceptors]
   (reg-event-db
@@ -4487,11 +4511,7 @@
  default-selection
  routes/dnd-e5-selection-builder-page-route)
 
-(reg-new-homebrew
- ::class5e/new-boon
- ::class5e/set-boon
- default-boon
- routes/dnd-e5-boon-builder-page-route)
+;; ::class5e/new-boon is registered via register-homebrew-content!.
 
 (reg-new-homebrew
  ::feats5e/new-feat
