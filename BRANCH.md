@@ -1,5 +1,9 @@
 # Branch Context: claude/zen-wright-04xhdz
 
+> **HOW IT WORKS / HOW TO EXTEND:** `docs/kb/content-extensibility-framework.md` — the canonical
+> framework reference (mental model + registry schema + conventions + how-to-add-a-type + pool/
+> grant + invariants), human- AND agent-facing. Read it to use or extend the framework.
+>
 > **READ FIRST (current direction, v2):** `docs/kb/content-extensibility-direction.md` — now
 > **re-centered**. A readability review correctly killed one unreadable wrapper (`by-parent`),
 > but that local lesson was briefly over-applied to deflate the whole *capability*. v2 restores

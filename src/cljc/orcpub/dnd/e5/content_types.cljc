@@ -1,32 +1,35 @@
 (ns orcpub.dnd.e5.content-types
   "Single source of truth describing each plugin-based homebrew content type.
 
-   Part of the content-extensibility work (docs/kb/content-extensibility.md,
-   Phase 4). Today the per-type wiring (route, db default, localStorage, events,
-   subs, page-map entry) is duplicated across many files. This registry holds the
-   per-type facts once; the wiring loops (added in later sub-phases) consume it so a
-   new type is one entry instead of edits in ~8 files.
+   The wiring loops that CONSUME this registry (see docs/kb/content-extensibility-framework.md):
+     - subs   (spell_subs.cljs)  — builder-item passthrough subscriptions   [generated]
+     - events (events.cljs)      — register-homebrew-content! for :homebrew-builder? entries [generated]
+     - db     (db.cljs)          — default-value builder-item draft slots    [generated]
+     - routes (route_map/routes.clj), core page-map                          [still hand-wired]
+   So adding a homebrew type is (increasingly) ONE entry here instead of edits in ~9 files.
 
-   SCOPE: the homebrew content types that flow through the `reg-save-homebrew` /
-   plugins-map pipeline. Magic items and the combat tracker are intentionally NOT
-   here — they do not use the plugins map or the shared homebrew factories (they
-   have bespoke save/storage), so folding them in would be wrong (see the inventory
-   in the content-extensibility KB docs).
+   SCOPE: the homebrew content types that flow through the `reg-save-homebrew` / plugins-map
+   pipeline. Magic items and the combat tracker are intentionally NOT here — they don't use the
+   plugins map or the shared homebrew factories (server-backed / transient), so folding them in
+   would be wrong (decision D14).
 
-   LEAF NAMESPACE: requires only `route-map` (for the route keyword vars). Spec,
-   builder-item, and plugin keys are written as fully-qualified keyword literals so
-   this namespace pulls in no domain/events/subs/views code and cannot create the
-   circular deps the app already works around (decisions D7/D8).
+   LEAF NAMESPACE: requires only `route-map` (for the route keyword vars). Spec, builder-item,
+   and plugin keys are written as fully-qualified keyword literals so this ns pulls in no
+   domain/events/subs/views code and cannot create the circular deps the app works around
+   (D7/D8). (The routes pass will drop even the route-map require to make this a pure-data leaf.)
 
    Keys per descriptor:
      :id                content type id (keyword)
      :type-name         human label used in builders / messages
-     :builder-item      app-db key holding the in-progress item
+     :builder-item      app-db key holding the in-progress item; MUST be
+                        ::<ns>/<base>-builder-item (the event-keyword convention derives <base>)
      :spec              spec the saved item is validated against
      :plugin-key        ::e5/* content key under which items are stored in :plugins
      :route-kw          builder page route keyword
      :route-seg         builder page URL path segment
-     :local-storage-key localStorage draft key"
+     :local-storage-key localStorage draft key
+     :homebrew-builder? opt this type into the events + db generative loops (true)
+     :default           the empty-draft value (usually {}); required with :homebrew-builder?"
   (:require [orcpub.route-map :as route-map]))
 
 (def content-types
