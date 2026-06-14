@@ -105,12 +105,14 @@
     [:span.opt-menu-banner-slot (or slot-label "keyword")]]])
 
 (defn- search-box [menu-id]
-  [:input.opt-menu-search
-   {:type "text"
-    :value @(subscribe [::menu-query menu-id])
-    :placeholder "Search…"
-    :on-click #(.stopPropagation %)
-    :on-change #(dispatch [::set-menu-query menu-id (.. % -target -value)])}])
+  [:div.opt-menu-search-wrap
+   [:span.opt-menu-search-icon "⌕"]
+   [:input.opt-menu-search
+    {:type "text"
+     :value @(subscribe [::menu-query menu-id])
+     :placeholder "Search…"
+     :on-click #(.stopPropagation %)
+     :on-change #(dispatch [::set-menu-query menu-id (.. % -target -value)])}]])
 
 (defn- chips-tray [selected chip-fn on-clear]
   ;; The selected items, each removable by clicking its ×. Clear lives here too

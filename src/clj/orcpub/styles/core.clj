@@ -1906,16 +1906,28 @@
       :padding "1px 11px"
       :border-radius "999px"}]
 
-    ;; search
+    ;; search — a recessed dark inset well (darker than the card) with a ⌕ icon
+    [:.opt-menu-search-wrap
+     {:position :relative
+      :margin-bottom "14px"}]
+
+    [:.opt-menu-search-icon
+     {:position :absolute
+      :left "13px"
+      :top "50%"
+      :transform "translateY(-50%)"
+      :color "#5d6776"
+      :font-size "14px"
+      :pointer-events :none}]
+
     [:.opt-menu-search
      {:width "100%"
       :box-sizing :border-box
-      :padding "8px 12px"
-      :margin-bottom "10px"
-      :border "1px solid rgba(255,255,255,0.2)"
-      :border-radius "5px"
-      :background "rgba(255,255,255,0.04)"
-      :color :white
+      :padding "10px 12px 10px 34px"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "8px"
+      :background "#11161d"
+      :color "#e7ecf2"
       :font-size "14px"}]
 
     ;; selected chips tray
