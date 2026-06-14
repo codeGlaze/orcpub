@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { background: #11161d; }
+  ::placeholder { color: #6b7585; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: #2c3744; border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#11161d;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#d7dde6;padding:36px clamp(20px,5vw,72px) 80px;">
+
+  <div style="max-width:1280px;margin:0 auto;">
+
+    <div style="margin-bottom:26px;">
+      <div style="font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#e6a23c;font-weight:600;margin-bottom:10px;">Character Builder · multi-select</div>
+      <h1 style="font-size:30px;line-height:1.15;margin:0 0 10px;color:#eef2f7;font-weight:650;letter-spacing:-.01em;">Menus that grow gracefully</h1>
+      <p style="margin:0;max-width:680px;font-size:15px;line-height:1.55;color:#9aa4b2;">Same data, three ways to organize an ever-growing, alphabetically-sorted, multi-select list. Selection, search and the auto-collapse of repeated wording are all live — switch the layout and compare.</p>
+    </div>
+
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-bottom:8px;">
+      <div style="display:inline-flex;padding:4px;background:#1a212d;border:1px solid rgba(255,255,255,.07);border-radius:12px;gap:3px;">
+        <sc-for list="{{ dirTabs }}" as="t" hint-placeholder-count="3">
+          <button onClick="{{ t.onClick }}" style="{{ t.style }}" style-hover="{{ t.hover }}">{{ t.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+    <p style="margin:0 0 28px;font-size:13.5px;color:#7e889700;color:#7e8897;min-height:18px;">{{ dirCaption }}</p>
+
+    <div style="display:flex;flex-direction:column;gap:22px;">
+      <sc-for list="{{ menus }}" as="menu" hint-placeholder-count="3">
+        <div style="background:#161c25;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:22px 22px 24px;">
+
+          <div style="display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px;">
+            <div>
+              <div style="font-size:18px;font-weight:600;color:#eef2f7;letter-spacing:-.005em;">{{ menu.title }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;flex:0 0 auto;">
+              <span style="font-size:13px;color:#9aa4b2;font-variant-numeric:tabular-nums;">{{ menu.countLabel }}</span>
+              <sc-if value="{{ menu.hasSel }}" hint-placeholder-val="">
+                <button onClick="{{ menu.onClear }}" style="background:transparent;border:1px solid rgba(255,255,255,.12);color:#aab3c0;font-size:12.5px;padding:5px 11px;border-radius:8px;cursor:pointer;font-family:inherit;" style-hover="border-color:rgba(230,162,60,.6);color:#e6a23c;">Clear</button>
+              </sc-if>
+            </div>
+          </div>
+
+          <sc-if value="{{ menu.contextNote }}" hint-placeholder-val="">{{ menu.contextNote }}</sc-if>
+
+          <div style="position:relative;margin:16px 0 4px;">
+            <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#5d6776;font-size:14px;pointer-events:none;">⌕</span>
+            <input value="{{ menu.query }}" onInput="{{ menu.onQuery }}" placeholder="{{ menu.placeholder }}" style="width:100%;background:#11161d;border:1px solid rgba(255,255,255,.09);border-radius:10px;color:#e7ecf2;font-size:14px;font-family:inherit;padding:10px 13px 10px 34px;outline:none;" style-focus="border-color:rgba(230,162,60,.55);" />
+          </div>
+
+          <sc-if value="{{ menu.hasSel }}" hint-placeholder-val="">
+            <div style="display:flex;flex-wrap:wrap;gap:7px;padding:13px 0 4px;border-bottom:1px solid rgba(255,255,255,.05);margin-bottom:14px;">
+              <span style="font-size:12px;color:#6b7585;align-self:center;letter-spacing:.04em;text-transform:uppercase;margin-right:2px;">Chosen</span>
+              <sc-for list="{{ menu.selChips }}" as="chip" hint-placeholder-count="3">
+                <button onClick="{{ chip.onRemove }}" style="display:inline-flex;align-items:center;gap:7px;background:rgba(230,162,60,.14);border:1px solid rgba(230,162,60,.4);color:#f0d6a6;font-size:13px;padding:5px 8px 5px 11px;border-radius:999px;cursor:pointer;font-family:inherit;white-space:nowrap;" style-hover="background:rgba(230,162,60,.22);">{{ chip.label }}<span style="opacity:.7;font-size:14px;line-height:1;">×</span></button>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ menu.showJump }}" hint-placeholder-val="">
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin:14px 0 16px;">
+              <sc-for list="{{ menu.letters }}" as="L" hint-placeholder-count="8">
+                <button onClick="{{ L.onClick }}" style="{{ L.style }}" style-hover="{{ L.hover }}">{{ L.ch }}</button>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <div style="margin-top:14px;display:flex;flex-direction:column;gap:18px;">
+            <sc-for list="{{ menu.groups }}" as="group" hint-placeholder-count="2">
+              <div>
+                <sc-if value="{{ group.heading }}" hint-placeholder-val="">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:11px;">
+                    <span style="font-size:12px;font-weight:700;letter-spacing:.08em;color:#e6a23c;">{{ group.heading }}</span>
+                    <span style="flex:1;height:1px;background:rgba(255,255,255,.06);"></span>
+                  </div>
+                </sc-if>
+                <div style="{{ group.containerStyle }}">
+                  <sc-for list="{{ group.items }}" as="item" hint-placeholder-count="6">
+                    <sc-if value="{{ item.isPill }}" hint-placeholder-val="">
+                      <div onClick="{{ item.toggle }}" title="{{ item.full }}" style="{{ item.pillStyle }}" style-hover="{{ item.pillHover }}">
+                        <sc-if value="{{ item.selected }}" hint-placeholder-val=""><span style="font-size:11px;">✓</span></sc-if>
+                        <sc-if value="{{ item.nonStandard }}" hint-placeholder-val=""><span style="font-size:11px;color:#e6a23c;font-weight:700;" title="Non-standard wording">≠</span></sc-if>
+                        {{ item.display }}
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ item.isCell }}" hint-placeholder-val="">
+                      <div onClick="{{ item.toggle }}" title="{{ item.full }}" style="{{ item.cellStyle }}" style-hover="{{ item.cellHover }}">
+                        <span style="{{ item.boxStyle }}"><span style="{{ item.checkStyle }}">✓</span></span>
+                        <span style="display:inline-flex;align-items:center;gap:7px;">
+                          <sc-if value="{{ item.nonStandard }}" hint-placeholder-val=""><span style="font-size:10px;font-weight:700;color:#15202e;background:#e6a23c;border-radius:4px;padding:1px 5px;letter-spacing:.03em;flex:0 0 auto;" title="Non-standard wording — shown in full for comparison">≠ NON-STD</span></sc-if>
+                          <span>{{ item.display }}</span>
+                        </span>
+                      </div>
+                    </sc-if>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ menu.empty }}" hint-placeholder-val="">
+              <div style="padding:18px 4px;color:#6b7585;font-size:14px;">No options match “{{ menu.query }}”.</div>
+            </sc-if>
+          </div>
+
+        </div>
+      </sc-for>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    direction: 'grid',
+    selected: {
+      equipment: { backpack: true, bedroll: true, 'rope-hempen': true, torch: true, 'rations-1-day': true, tinderbox: true, waterskin: true },
+      tools: { 'smiths-tools': true, 'leatherworkers-tools': true, 'any-1': true },
+      saves: {}
+    },
+    query: { equipment: '', tools: '', saves: '' },
+    letter: { equipment: null, tools: null, saves: null }
+  };
+
+  // ---- data ----
+  cfg() {
+    const SAVE_PRE = 'You have advantage on saving throws against being ';
+    const saveKeys = ['Blinded','Charmed','Deafened','Exhausted','Frightened','Grappled','Incapacitated','Invisible','Paralyzed','Petrified','Poisoned','Prone','Restrained','Stunned','Unconscious'];
+    return [
+      {
+        key: 'equipment', title: 'Other Equipment', minCol: 150,
+        placeholder: 'Filter equipment… e.g. rope, lantern',
+        items: ["Abacus","Acid","Alchemist's fire","Alms Box","Antitoxin","Backpack","Bag of Sand","Ball bearings","Barrel","Basket","Bedroll","Bell","Blanket","Block and tackle","Book","Bottle, glass","Bucket","Caltrops","Candle","Case, crossbow bolt","Case, map or scroll","Censer","Chain","Chalk","Chest","Climber's kit","Component pouch","Costume","Crowbar","Fishing tackle","Flask or tankard","Grappling hook","Hammer","Hammer, sledge","Healer's kit","Holy symbol","Holy water","Hourglass","Hunting trap","Incense","Ink","Ink pen","Jug or pitcher","Knife, Small","Ladder (10-foot)","Lamp","Lantern, bullseye","Lantern, hooded","Lock","Magnifying glass","Manacles","Mess kit","Mirror, steel","Oil","Paper","Parchment","Perfume","Pick, miner's","Piton","Poison, basic","Pole (10-foot)","Pot, iron","Potion of healing","Pouch","Prayer Book","Prayer Wheel","Purse","Quiver","Ram, portable","Rations (1 day)","Robes","Rope, hempen","Rope, silk","Sack","Scale, merchant's","Sealing wax","Shovel","Signal whistle","Signet ring","Soap","Spellbook","Spikes, iron","Spyglass","String","Tent, two-person","Tinderbox","Torch","Vestments","Vial","Waterskin","Whetstone","Wooden Stake"]
+      },
+      {
+        key: 'tools', title: "Tool Proficiencies · Artisan's Tools", minCol: 178,
+        placeholder: 'Filter tools…',
+        metaHeading: 'Wildcards · choose any number',
+        meta: ['Any 1','Any 2','Any 3'],
+        items: ["Alchemist's Supplies","Brewer's Supplies","Calligrapher's Supplies","Carpenter's Tools","Cartographer's Tools","Cobbler's Tools","Cook's Utensils","Glassblower's Tools","Jeweler's Tools","Leatherworker's Tools","Mason's Tools","Painter's Supplies","Potter's Tools","Smith's Tools","Tinker's Tools","Weaver's Tools","Woodcarver's Tools"]
+      },
+      {
+        key: 'saves', title: 'Saving Throw Advantage', minCol: 150, slot: 'condition',
+        placeholder: 'Filter conditions…',
+        items: saveKeys.map(k => SAVE_PRE + k).concat([
+          // illustrative non-standard wording (remove if undesired):
+          "You can't be Charmed by fey creatures"
+        ])
+      }
+    ];
+  }
+
+  slug(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+
+  // Detect the DOMINANT leading wording shared by the majority of options.
+  // Robust to additions: an off-pattern option won't suppress the collapse,
+  // it just won't conform (and gets surfaced in full elsewhere).
+  dominantPrefix(arr) {
+    const n = arr.length;
+    if (n < 3) return '';
+    const tokens = arr.map(l => l.split(' '));
+    const maxW = Math.max(...tokens.map(t => t.length));
+    const threshold = Math.max(2, Math.ceil(n * 0.5));
+    let best = '';
+    for (let w = 4; w <= maxW; w++) {
+      const counts = {};
+      tokens.forEach(t => {
+        if (t.length >= w + 1) { // keep at least one word after the prefix
+          const key = t.slice(0, w).join(' ');
+          counts[key] = (counts[key] || 0) + 1;
+        }
+      });
+      let bk = null, bc = 0;
+      for (const k in counts) { if (counts[k] > bc) { bc = counts[k]; bk = k; } }
+      if (bk && bc >= threshold) best = bk + ' '; else break;
+    }
+    return best;
+  }
+
+  toggle(menuKey, id) {
+    this.setState(s => {
+      const cur = { ...s.selected[menuKey] };
+      if (cur[id]) delete cur[id]; else cur[id] = true;
+      return { selected: { ...s.selected, [menuKey]: cur } };
+    });
+  }
+  clear(menuKey) {
+    this.setState(s => ({ selected: { ...s.selected, [menuKey]: {} } }));
+  }
+  setQuery(menuKey, v) {
+    this.setState(s => ({ query: { ...s.query, [menuKey]: v } }));
+  }
+  setLetter(menuKey, l) {
+    this.setState(s => ({ letter: { ...s.letter, [menuKey]: l } }));
+  }
+
+  // ---- style builders ----
+  cellStyle(sel, meta) {
+    return {
+      display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '8px 10px',
+      borderRadius: '9px', cursor: 'pointer', lineHeight: 1.3, fontSize: '14px',
+      userSelect: 'none', transition: 'background .12s, border-color .12s',
+      border: sel ? '1px solid rgba(230,162,60,.5)' : '1px solid transparent',
+      background: sel ? 'rgba(230,162,60,.13)' : 'transparent',
+      color: sel ? '#f3e7d2' : '#cdd4de'
+    };
+  }
+  boxStyle(sel, meta) {
+    return {
+      width: '18px', height: '18px', borderRadius: '5px', flex: '0 0 auto', marginTop: '1px',
+      display: 'grid', placeItems: 'center',
+      border: sel ? '1px solid #e6a23c' : (meta ? '1px dashed #5b6576' : '1px solid #5b6576'),
+      background: sel ? '#e6a23c' : 'transparent', transition: 'all .12s'
+    };
+  }
+  checkStyle(sel) {
+    return { fontSize: '12px', fontWeight: 700, color: '#15202e', opacity: sel ? 1 : 0 };
+  }
+  pillStyle(sel, meta) {
+    return {
+      display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 15px',
+      borderRadius: '999px', cursor: 'pointer', fontSize: '14px', lineHeight: 1.15,
+      userSelect: 'none', transition: 'all .12s', whiteSpace: 'nowrap',
+      fontWeight: sel ? 600 : 500,
+      background: sel ? '#e6a23c' : 'rgba(255,255,255,.025)',
+      color: sel ? '#15202e' : '#cdd4de',
+      border: sel ? '1px solid #e6a23c' : (meta ? '1px dashed #3a4452' : '1px solid #303a49')
+    };
+  }
+
+  renderVals() {
+    const dir = this.state.direction;
+    const tabs = [
+      { key: 'grid', label: 'Aligned grid', cap: 'Uniform columns — every option lines up, no matter how long the name or how many you add.' },
+      { key: 'az', label: 'A–Z groups', cap: 'Lettered sections with a quick-jump bar — built for long lists that keep growing.' },
+      { key: 'pills', label: 'Keyword pills', cap: 'Large toggle targets; repeated wording is detected and shown once as a heading.' }
+    ];
+    const dirTabs = tabs.map(t => ({
+      label: t.label,
+      onClick: () => this.setState({ direction: t.key }),
+      style: {
+        padding: '8px 16px', borderRadius: '9px', border: 'none', cursor: 'pointer',
+        fontFamily: 'inherit', fontSize: '13.5px', transition: 'all .12s', whiteSpace: 'nowrap',
+        background: dir === t.key ? '#e6a23c' : 'transparent',
+        color: dir === t.key ? '#15202e' : '#aab3c0',
+        fontWeight: dir === t.key ? 600 : 500
+      },
+      hover: dir === t.key ? '' : 'color:#e7ecf2;'
+    }));
+    const dirCaption = tabs.find(t => t.key === dir).cap;
+
+    const menus = this.cfg().map(c => this.buildMenu(c, dir));
+    return { dirTabs, dirCaption, menus };
+  }
+
+  buildMenu(c, dir) {
+    const key = c.key;
+    const sel = this.state.selected[key];
+    const q = (this.state.query[key] || '').trim().toLowerCase();
+    const pre = this.dominantPrefix(c.items);
+    let contextNote = null;
+    if (pre) {
+      contextNote = React.createElement('figure', { style: { margin: '14px 0 2px' } },
+        React.createElement('figcaption', { style: { fontSize: '10.5px', fontWeight: 700, letterSpacing: '.1em', color: '#7e8897', textTransform: 'uppercase', marginBottom: '7px' } }, 'Every option reads'),
+        React.createElement('blockquote', { style: { margin: 0, position: 'relative', padding: '13px 16px 13px 40px', borderRadius: '10px', borderLeft: '3px solid #e6a23c', background: 'rgba(230,162,60,.06)', fontSize: '15.5px', fontStyle: 'italic', color: '#e3e8ee', lineHeight: 1.65 } },
+          React.createElement('span', { style: { position: 'absolute', left: '13px', top: '6px', fontSize: '30px', fontStyle: 'normal', lineHeight: 1, color: 'rgba(230,162,60,.5)', fontFamily: 'Georgia, serif', userSelect: 'none' } }, '\u201C'),
+          pre.trim() + ' ',
+          React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', verticalAlign: 'baseline', padding: '1px 11px', borderRadius: '999px', background: 'rgba(230,162,60,.18)', border: '1px dashed rgba(230,162,60,.7)', color: '#f0c071', fontWeight: 600, fontStyle: 'normal', fontSize: '13px', whiteSpace: 'nowrap' } }, c.slot || 'keyword')));
+    }
+
+    // full entry maps (for chips + counts, unfiltered)
+    const metaEntries = (c.meta || []).map(l => ({ id: this.slug(l), label: l, display: l, meta: true }));
+    const entries = c.items.map(l => {
+      const conform = pre && l.startsWith(pre);
+      const nonStandard = !!(pre && !conform);
+      return { id: this.slug(l), label: l, full: l, display: conform ? l.slice(pre.length) : l, nonStandard, meta: false };
+    });
+    const all = [...metaEntries, ...entries];
+    const labelOf = {};
+    all.forEach(e => { labelOf[e.id] = e; });
+    const total = all.length;
+    const selIds = Object.keys(sel).filter(id => sel[id]);
+    const count = selIds.length;
+
+    const match = e => !q || e.display.toLowerCase().includes(q) || e.label.toLowerCase().includes(q);
+    let fMeta = metaEntries.filter(match);
+    let fEntries = entries.filter(match);
+
+    const isPill = dir === 'pills';
+    const containerStyle = isPill
+      ? { display: 'flex', flexWrap: 'wrap', gap: '9px' }
+      : { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(' + c.minCol + 'px, 1fr))', gap: '6px', alignItems: 'start' };
+
+    const toView = (e) => {
+      const s = !!sel[e.id];
+      // For off-pattern wording, render the full label with the divergent tail highlighted.
+      let display = e.display;
+      if (e.nonStandard && pre) {
+        let i = 0; while (i < e.full.length && i < pre.length && e.full[i] === pre[i]) i++;
+        display = React.createElement('span', null,
+          React.createElement('span', { style: { color: '#7e8897' } }, e.full.slice(0, i)),
+          React.createElement('span', { style: { color: '#e6a23c', fontWeight: 600 } }, e.full.slice(i)));
+      }
+      const cell = this.cellStyle(s, e.meta);
+      const pill = this.pillStyle(s, e.meta);
+      if (e.nonStandard) {
+        cell.gridColumn = '1 / -1';
+        cell.borderLeft = '2px solid #e6a23c';
+        cell.borderRadius = '6px';
+        if (!s) cell.background = 'rgba(230,162,60,.05)';
+        if (!s) { pill.border = '1px dashed #e6a23c'; pill.color = '#f0d6a6'; }
+      }
+      return {
+        display, full: e.full, nonStandard: !!e.nonStandard, selected: s, isPill, isCell: !isPill,
+        toggle: () => this.toggle(key, e.id),
+        cellStyle: cell,
+        cellHover: s ? '' : 'background:rgba(255,255,255,.05);',
+        boxStyle: this.boxStyle(s, e.meta),
+        checkStyle: this.checkStyle(s),
+        pillStyle: pill,
+        pillHover: s ? '' : 'border-color:#4a5666;background:rgba(255,255,255,.05);'
+      };
+    };
+
+    // build groups
+    const groups = [];
+    if (dir === 'az') {
+      const lf = this.state.letter[key];
+      let work = fEntries;
+      if (lf) work = work.filter(e => (e.display[0] || '').toUpperCase() === lf);
+      if (fMeta.length && !lf) groups.push({ heading: c.metaHeading || 'Any', containerStyle, items: fMeta.map(toView) });
+      const buckets = {};
+      work.forEach(e => {
+        let ch = (e.display[0] || '#').toUpperCase();
+        if (!/[A-Z]/.test(ch)) ch = '#';
+        (buckets[ch] = buckets[ch] || []).push(e);
+      });
+      Object.keys(buckets).sort().forEach(ch => {
+        groups.push({ heading: ch, containerStyle, items: buckets[ch].map(toView) });
+      });
+    } else {
+      if (fMeta.length) groups.push({ heading: c.metaHeading || 'Any', containerStyle, items: fMeta.map(toView) });
+      groups.push({ heading: null, containerStyle, items: fEntries.map(toView) });
+    }
+
+    // A–Z jump bar (from full, unfiltered entry set)
+    let letters = [];
+    if (dir === 'az') {
+      const present = new Set();
+      entries.forEach(e => {
+        let ch = (e.display[0] || '#').toUpperCase();
+        if (!/[A-Z]/.test(ch)) ch = '#';
+        present.add(ch);
+      });
+      const lf = this.state.letter[key];
+      const mk = (ch, val, active) => ({
+        ch, onClick: () => this.setLetter(key, val),
+        style: {
+          minWidth: '28px', padding: '5px 8px', borderRadius: '7px', cursor: 'pointer',
+          fontFamily: 'inherit', fontSize: '12.5px', fontWeight: 600, transition: 'all .12s',
+          background: active ? 'rgba(230,162,60,.16)' : 'transparent',
+          color: active ? '#e6a23c' : '#8893a2',
+          border: active ? '1px solid rgba(230,162,60,.45)' : '1px solid rgba(255,255,255,.07)'
+        },
+        hover: active ? '' : 'color:#e7ecf2;border-color:rgba(255,255,255,.18);'
+      });
+      letters.push(mk('All', null, !lf));
+      [...present].sort().forEach(ch => letters.push(mk(ch, ch, lf === ch)));
+    }
+
+    const selChips = selIds
+      .filter(id => labelOf[id])
+      .sort((a, b) => labelOf[a].display.localeCompare(labelOf[b].display))
+      .map(id => ({ label: labelOf[id].display, onRemove: () => this.toggle(key, id) }));
+
+    const empty = groups.every(g => g.items.length === 0);
+
+    return {
+      title: c.title, contextNote, placeholder: c.placeholder,
+      query: this.state.query[key] || '',
+      onQuery: (e) => this.setQuery(key, e.target.value),
+      countLabel: count + ' of ' + total + ' selected',
+      hasSel: count > 0,
+      onClear: () => this.clear(key),
+      selChips,
+      showJump: dir === 'az',
+      letters,
+      groups,
+      empty
+    };
+  }
+}
+</script>
+</body>
+</html>
