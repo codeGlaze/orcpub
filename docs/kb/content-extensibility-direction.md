@@ -157,6 +157,22 @@ offering the `:boon` pool — **no boon↔feat wiring.**
      with mechanics + openness. It did NOT yet build the generic grant-authoring **UI** (the
      "register a pool → it appears in every builder's grant menu" claim is proven at the
      primitive level by the test, not yet in a live builder UI). That UI is the next lever.
+   - **Richer ancestries** (`026f8707`): an ancestry pool entry can carry a declarative
+     `:props` map (extra mechanics — speed/flying/saves/skills/languages), compiled by the
+     **existing** `opt5e/plugin-modifiers` vocabulary. Built-ins unchanged.
+
+### Validation against official expansion (Fizban's Treasury of Dragons, FTD)
+Checked FTD because it officially expands draconic ancestry — a real stress-test, not theory.
+It expands along **three axes**, and the pool model maps cleanly onto where each lands:
+1. **More entries** (gem dragons + new damage types/shapes) → the pool handles for free.
+2. **Per-ancestry extra mechanics** (resistances, flight, etc.) → an entry's `:props` map via
+   `plugin-modifiers` (done). Some specific effects (e.g. telepathy/"Psionic Mind") need a new
+   `:props` key added to `make-feat-modifiers` (`options.cljc:3287`) — small, bounded.
+3. **Level-gated ancestry features** (Gem Flight @5, Chromatic Warding @5, Metallic Breath @5)
+   AND the **3-as-separate-lineages** structure → these hit the **pins**: `:props` has no
+   level-condition yet (level-gated grants need the `?total-levels` conditional pattern the
+   breath-weapon dice already use), and the three variant dragonborn are the **variant/`_copy`
+   lineage** pin. FTD is thus real-world confirmation that the pins are the right pins.
 4. **NEXT levers** (pick per value): (a) the generic **grant-authoring UI** so authors declare
    "grant a choice from pool X" in a builder (this is where the N+M maintainability win becomes
    user-visible); (b) **cross-silo reuse demo** — point the sorcerer draconic bloodline
@@ -181,6 +197,12 @@ offering the `:boon` pool — **no boon↔feat wiring.**
   modeled. Authors should be able to attach real modifiers/resources, not just prose. Same
   family as the play-time-resources finding (ki is text, not a tracked pool). User flagged
   boons explicitly as an enhancement. Defer; same "declare-as-data" pattern will apply.
+- **Level-gated grants in `:props`** (FTD axis 3): the `:props` mechanics-as-data vocabulary
+  has no level condition, so "gain X at level 5" (Gem Flight, Chromatic Warding, the level-5
+  Metallic Breath option) isn't expressible by an author yet. Mechanism exists in the engine
+  (the `?total-levels` conditional, as breath-weapon damage dice use); the gap is exposing it
+  declaratively. Likely needs a new `:props` key added to `make-feat-modifiers`
+  (`options.cljc:3287`) for telepathy and similar, too.
 
 ## What already stands (don't redo)
 - `register-homebrew-content!` (the wiring sub-layer) + boon swapped through it.
