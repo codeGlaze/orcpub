@@ -1704,6 +1704,7 @@
      {:position :absolute
       :top "4px"
       :bottom "4px"
+      :left "4px"
       :width "calc((100% - 8px) / 3)"
       :background orange
       :border-radius "7px"
