@@ -287,8 +287,10 @@
      :multiselect? default true; gates count/Clear (and the legacy chips tray)
      :collapsible? when true (and :title set), the header toggles a persisted collapse
                    that hides the body behind a 'Chosen' summary line
+     :header-extra hiccup rendered at the top of the body (e.g. a 'Choose N' dropdown),
+                   hidden along with the body when collapsed
      :on-clear / :cell-fn / :chip-fn / :trailer"
-  [{:keys [menu-id title top-level? wildcards slot-label options
+  [{:keys [menu-id title top-level? wildcards slot-label options header-extra
            multiselect? collapsible? on-clear cell-fn chip-fn trailer]
     :or   {multiselect? true}}]
   (let [collapsible? (boolean (and title collapsible?))
@@ -330,6 +332,7 @@
      (if collapsed?
        [:div.opt-section-summary (summarize-selected (mapv :label selected))]
        [:div
+        (when header-extra header-extra)
         (when (seq wildcards) [wildcard-group wildcards])
         (when prefix [pattern-banner prefix slot-label])
         (when (and has-opts? searchable?) [search-box menu-id])

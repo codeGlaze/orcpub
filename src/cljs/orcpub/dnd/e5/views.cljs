@@ -4925,29 +4925,27 @@
    [:props kw (:key item)] is truthy; clicking it dispatches
    [toggle-event kw (:key item)]."
   [entity toggle-event kw menu-key title items]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 title]
-   [omv/option-menu
-    {:menu-id [menu-key toggle-event]
-     :options (omv/checkbox-options
-               items
-               (fn [item] (get-in entity [:props kw (:key item)]))
-               (fn [item] (dispatch [toggle-event kw (:key item)])))}]])
+  [omv/section-card
+   {:menu-id [menu-key toggle-event]
+    :title title
+    :options (omv/checkbox-options
+              items
+              (fn [item] (get-in entity [:props kw (:key item)]))
+              (fn [item] (dispatch [toggle-event kw (:key item)])))}])
 
 (defn value-choice-menu
   "Single-select menu for one numeric builder property: exactly one value at a
    time. A choice is on when its value equals [:props kw]; clicking dispatches
    [toggle-event kw value]. multiselect? is off, so there's no chips/count tray."
   [entity toggle-event kw menu-key title items]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 title]
-   [omv/option-menu
-    {:menu-id [menu-key toggle-event]
-     :multiselect? false
-     :options (omv/checkbox-options
-               items
-               (fn [item] (= (:key item) (get-in entity [:props kw])))
-               (fn [item] (dispatch [toggle-event kw (:key item)])))}]])
+  [omv/section-card
+   {:menu-id [menu-key toggle-event]
+    :title title
+    :multiselect? false
+    :options (omv/checkbox-options
+              items
+              (fn [item] (= (:key item) (get-in entity [:props kw])))
+              (fn [item] (dispatch [toggle-event kw (:key item)])))}])
 
 (defn- damage-type-items
   "Damage-type choices labeled with `verb`, e.g. \"Resistance to fire damage\"."
@@ -4960,23 +4958,18 @@
                                  option
                                  set-path-prop-event
                                  toggle-path-prop-event]
-  [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 title]
-   [:div.m-b-10
-    [labeled-dropdown
-     "Choose"
-     {:items (map
-              value-to-item
-              (range 1 6))
-      :value (get-in option [:profs proficiency-choice-key :choose] 1)
-      :on-change #(dispatch [set-path-prop-event [:profs proficiency-choice-key :choose] (js/parseInt %)])}]]
-   [:div.f-s-18.f-w-b.m-b-20 "Options"]
-   [omv/option-menu
-    {:menu-id [:option-proficiency-choice toggle-path-prop-event proficiency-choice-key]
-     :options (omv/checkbox-options
-               proficiency-options
-               (fn [item] (get-in option [:profs proficiency-choice-key :options (:key item)]))
-               (fn [item] (dispatch [toggle-path-prop-event [:profs proficiency-choice-key :options (:key item)]])))}]])
+  [omv/section-card
+   {:menu-id [:option-proficiency-choice toggle-path-prop-event proficiency-choice-key]
+    :title title
+    :header-extra [labeled-dropdown
+                   "Choose"
+                   {:items (map value-to-item (range 1 6))
+                    :value (get-in option [:profs proficiency-choice-key :choose] 1)
+                    :on-change #(dispatch [set-path-prop-event [:profs proficiency-choice-key :choose] (js/parseInt %)])}]
+    :options (omv/checkbox-options
+              proficiency-options
+              (fn [item] (get-in option [:profs proficiency-choice-key :options (:key item)]))
+              (fn [item] (dispatch [toggle-path-prop-event [:profs proficiency-choice-key :options (:key item)]])))}])
 
 (defn option-weapon-proficiency-choice [option
                                         set-path-prop-event
@@ -5018,19 +5011,18 @@
 
 (defn option-languages [option toggle-map-prop-event]
   (let [languages @(subscribe [::langs/languages])]
-    [:div.m-b-20
-     [:div.f-s-24.f-w-b.m-b-20 "Languages"]
-     [omv/option-menu
-      {:menu-id [:option-languages toggle-map-prop-event]
-       :options (omv/checkbox-options
-                 (sort-by :name languages)
-                 (fn [item] (get-in option [:props :language (:key item)]))
-                 (fn [item] (dispatch [toggle-map-prop-event :language (:key item)])))
-       :trailer [:div.pointer.m-t-10
-                 [:span.bg-lighter.p-5
-                  {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
-                  [:i.fa.fa-plus]
-                  [:span.orange.underline.m-l-5 "Add Language"]]]}]]))
+    [omv/section-card
+     {:menu-id [:option-languages toggle-map-prop-event]
+      :title "Languages"
+      :options (omv/checkbox-options
+                (sort-by :name languages)
+                (fn [item] (get-in option [:props :language (:key item)]))
+                (fn [item] (dispatch [toggle-map-prop-event :language (:key item)])))
+      :trailer [:div.pointer.m-t-10
+                [:span.bg-lighter.p-5
+                 {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
+                 [:i.fa.fa-plus]
+                 [:span.orange.underline.m-l-5 "Add Language"]]]}]))
 
 (defn option-skill-proficiency-or-expertise [option toggle-event]
   (map-prop-menu option toggle-event :skill-prof-or-expertise
@@ -5038,14 +5030,13 @@
                  "Skill Proficiency or Expertise" skills/skills))
 
 (defn option-tool-proficiency [option toggle-path-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Tool Proficiency"]
-   [omv/option-menu
-    {:menu-id [:option-tool-proficiency toggle-path-prop-event]
-     :options (omv/checkbox-options
-               equip/tools
-               (fn [item] (get-in option [:profs :tool (:key item)]))
-               (fn [item] (dispatch [toggle-path-prop-event [:profs :tool (:key item)]])))}]])
+  [omv/section-card
+   {:menu-id [:option-tool-proficiency toggle-path-prop-event]
+    :title "Tool Proficiency"
+    :options (omv/checkbox-options
+              equip/tools
+              (fn [item] (get-in option [:profs :tool (:key item)]))
+              (fn [item] (dispatch [toggle-path-prop-event [:profs :tool (:key item)]])))}])
 
 (defn option-tool-proficiency-or-expertise [option toggle-event]
   (map-prop-menu option toggle-event :tool-prof-or-expertise
@@ -5297,23 +5288,22 @@
                       opt/conditions)))
 
 (defn option-weapon-proficiency [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Weapon Proficiencies"]
-   (let [kw :weapon-prof]
-     [omv/option-menu
-      {:menu-id [:option-weapon-proficiency toggle-map-prop-event]
-       :options (into
-                 (omv/checkbox-options
-                  (map (fn [weapon-type]
-                         {:key weapon-type
-                          :name (str "All " (common/safe-capitalize-kw weapon-type) " Weapons")})
-                       [:simple :martial])
-                  (fn [item] (get-in option [:props kw (:key item)]))
-                  (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))
-                 (omv/checkbox-options
-                  @(subscribe [::mi/custom-and-standard-weapons])
-                  (fn [item] (get-in option [:props kw (:key item)]))
-                  (fn [item] (dispatch [toggle-map-prop-event kw (:key item)]))))}])])
+  (let [kw :weapon-prof]
+    [omv/section-card
+     {:menu-id [:option-weapon-proficiency toggle-map-prop-event]
+      :title "Weapon Proficiencies"
+      :options (into
+                (omv/checkbox-options
+                 (map (fn [weapon-type]
+                        {:key weapon-type
+                         :name (str "All " (common/safe-capitalize-kw weapon-type) " Weapons")})
+                      [:simple :martial])
+                 (fn [item] (get-in option [:props kw (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))
+                (omv/checkbox-options
+                 @(subscribe [::mi/custom-and-standard-weapons])
+                 (fn [item] (get-in option [:props kw (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)]))))}]))
 
 (defn option-traits [option
                      add-trait-event
