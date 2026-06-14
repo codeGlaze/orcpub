@@ -1852,22 +1852,19 @@
      {:font-size "14px"
       :opacity 0.7}]
 
-    ;; count + clear
-    [:.opt-menu-count-bar
-     {:display :flex
-      :align-items :center
-      :justify-content :space-between
-      :margin-bottom "8px"}]
-
+    ;; count line (under the title) + Clear (right-aligned inside the chips row)
     [:.opt-menu-count
      {:font-size "13px"
-      :opacity 0.7}]
+      :opacity 0.7
+      :margin-bottom "8px"}]
 
     [:.opt-menu-clear
-     {:cursor :pointer
+     {:margin-left :auto
+      :cursor :pointer
       :color orange
       :text-decoration :underline
-      :font-size "13px"}]
+      :font-size "13px"
+      :white-space :nowrap}]
 
     ;; option cell (default / checkbox)
     [:.opt-menu-cell

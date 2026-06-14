@@ -48,16 +48,25 @@
 ;; Option normalization
 ;; ---------------------------------------------------------------------------
 
-;; dominant-prefix/classify are pure over the label vector but rerun on every
-;; render (each keystroke, layout flip, selection toggle). Memoize on the labels
-;; so a menu only recomputes when its option set actually changes. Vectors compare
-;; by value, so a freshly-built but equal labels vector hits the cache.
+;; These work out the shared wording and the per-option labels from the list of
+;; option names. Reagent re-runs this component constantly — on every keystroke,
+;; layout switch, and checkbox toggle — but this analysis only depends on the
+;; names, so redoing it each time is wasted work. `memoize` remembers the result
+;; for a given list of names and hands it back when that same list returns, so the
+;; work only happens when a menu's options actually change.
 (def ^:private memo-prefix (memoize grouping/dominant-prefix))
 (def ^:private memo-classify (memoize grouping/classify))
 
 (defn checkbox-options
-  "Turn a seq of `{:keys [name key]}` template items into normalized options for
-   `option-menu`. `selected-fn`/`toggle-fn` each receive the original item."
+  "Adapt a plain list of items into the option maps `option-menu` expects.
+
+   `items` is a seq of maps that each have a `:name` (the text shown) and a `:key`
+   (its identity). For each item you pass two small functions, both of which
+   receive that item map:
+     selected-fn  ->  truthy when the item is currently chosen
+     toggle-fn    ->  selects/deselects it (usually a re-frame dispatch)
+   This is the glue nearly every homebrew-builder menu uses; the callers in
+   views.cljs all follow the same shape."
   [items selected-fn toggle-fn]
   (mapv (fn [{:keys [name key] :as item}]
           {:key key
@@ -103,7 +112,9 @@
     :on-click #(.stopPropagation %)
     :on-change #(dispatch [::set-menu-query menu-id (.. % -target -value)])}])
 
-(defn- chips-tray [selected chip-fn]
+(defn- chips-tray [selected chip-fn on-clear]
+  ;; The selected items, each removable by clicking its ×. Clear lives here too
+  ;; (right-aligned) since it acts on exactly these chips.
   (when (seq selected)
     [:div.opt-menu-chips
      [:span.opt-menu-chips-label "Chosen"]
@@ -113,13 +124,12 @@
         [:span.opt-menu-chip
          {:on-click (fn [e] (.stopPropagation e) ((:on-toggle o)))}
          (chip-fn o)
-         [:span.opt-menu-chip-x "×"]]))]))
+         [:span.opt-menu-chip-x "×"]]))
+     (when on-clear
+       [:span.opt-menu-clear {:on-click on-clear} "Clear"])]))
 
-(defn- count-bar [selected total on-clear]
-  [:div.opt-menu-count-bar
-   [:span.opt-menu-count (str (count selected) " of " total " selected")]
-   (when (and on-clear (seq selected))
-     [:span.opt-menu-clear {:on-click on-clear} "Clear"])])
+(defn- count-line [selected total]
+  [:div.opt-menu-count (str (count selected) " of " total " selected")])
 
 ;; ---------------------------------------------------------------------------
 ;; Cells
@@ -237,10 +247,10 @@
         searchable? (> (count options) 8)]
     [:div.opt-menu
      (when title [:div.opt-menu-title title])
+     (when multiselect? [count-line selected (count options)])
      (when prefix [pattern-banner prefix slot-label])
      (when searchable? [search-box menu-id])
-     (when multiselect? [chips-tray selected chip-fn])
-     (when multiselect? [count-bar selected (count options) clear-fn])
+     (when multiselect? [chips-tray selected chip-fn clear-fn])
      (cond
        (empty? filtered) [:div.opt-menu-empty (str "No options match “" query "”.")]
        (= layout :pills) [pills-body filtered cell-fn]

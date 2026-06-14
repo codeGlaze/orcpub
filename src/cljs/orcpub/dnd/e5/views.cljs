@@ -4943,6 +4943,43 @@
     [:span.i "Hodor's Guide to Hodors"]
     [:span ")"]]])
 
+;; Shared shapes for the builder menus below. Renderers with extra parts (a
+;; dropdown, an Add-Language button, mixed option groups) stay hand-written.
+
+(defn map-prop-menu
+  "Multi-select checkbox menu for one builder map-property. A choice is on when
+   [:props kw (:key item)] is truthy; clicking it dispatches
+   [toggle-event kw (:key item)]."
+  [entity toggle-event kw menu-key title items]
+  [:div.m-b-20
+   [:div.f-s-18.f-w-b.m-b-10 title]
+   [omv/option-menu
+    {:menu-id [menu-key toggle-event]
+     :options (omv/checkbox-options
+               items
+               (fn [item] (get-in entity [:props kw (:key item)]))
+               (fn [item] (dispatch [toggle-event kw (:key item)])))}]])
+
+(defn value-choice-menu
+  "Single-select menu for one numeric builder property: exactly one value at a
+   time. A choice is on when its value equals [:props kw]; clicking dispatches
+   [toggle-event kw value]. multiselect? is off, so there's no chips/count tray."
+  [entity toggle-event kw menu-key title items]
+  [:div.m-b-20
+   [:div.f-s-18.f-w-b.m-b-10 title]
+   [omv/option-menu
+    {:menu-id [menu-key toggle-event]
+     :multiselect? false
+     :options (omv/checkbox-options
+               items
+               (fn [item] (= (:key item) (get-in entity [:props kw])))
+               (fn [item] (dispatch [toggle-event kw (:key item)])))}]])
+
+(defn- damage-type-items
+  "Damage-type choices labeled with `verb`, e.g. \"Resistance to fire damage\"."
+  [verb]
+  (map (fn [dt] {:key dt :name (str verb " " (name dt) " damage")}) opt/damage-types))
+
 (defn option-proficiency-choice [title
                                  proficiency-choice-key
                                  proficiency-options
@@ -5002,14 +5039,8 @@
            skills/skills))
 
 (defn option-skill-proficiency [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 "Skill Proficiencies"]
-   [omv/option-menu
-    {:menu-id [:option-skill-proficiency toggle-event]
-     :options (omv/checkbox-options
-               skills/skills
-               (fn [item] (get-in option [:props :skill-prof (:key item)]))
-               (fn [item] (dispatch [toggle-event :skill-prof (:key item)])))}]])
+  (map-prop-menu option toggle-event :skill-prof :option-skill-proficiency
+                 "Skill Proficiencies" skills/skills))
 
 (defn option-languages [option toggle-map-prop-event]
   (let [languages @(subscribe [::langs/languages])]
@@ -5028,14 +5059,9 @@
                   [:span.orange.underline.m-l-5 "Add Language"]]]}]]))
 
 (defn option-skill-proficiency-or-expertise [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Skill Proficiency or Expertise"]
-   [omv/option-menu
-    {:menu-id [:option-skill-proficiency-or-expertise toggle-event]
-     :options (omv/checkbox-options
-               skills/skills
-               (fn [item] (get-in option [:props :skill-prof-or-expertise (:key item)]))
-               (fn [item] (dispatch [toggle-event :skill-prof-or-expertise (:key item)])))}]])
+  (map-prop-menu option toggle-event :skill-prof-or-expertise
+                 :option-skill-proficiency-or-expertise
+                 "Skill Proficiency or Expertise" skills/skills))
 
 (defn option-tool-proficiency [option toggle-path-prop-event]
   [:div.m-b-20
@@ -5048,14 +5074,9 @@
                (fn [item] (dispatch [toggle-path-prop-event [:profs :tool (:key item)]])))}]])
 
 (defn option-tool-proficiency-or-expertise [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Tool Proficiency or Expertise"]
-   [omv/option-menu
-    {:menu-id [:option-tool-proficiency-or-expertise toggle-event]
-     :options (omv/checkbox-options
-               equip/tools
-               (fn [item] (get-in option [:props :tool-prof-or-expertise (:key item)]))
-               (fn [item] (dispatch [toggle-event :tool-prof-or-expertise (:key item)])))}]])
+  (map-prop-menu option toggle-event :tool-prof-or-expertise
+                 :option-tool-proficiency-or-expertise
+                 "Tool Proficiency or Expertise" equip/tools))
 
 (defn background-skill-proficiencies [background]
   [:div.m-b-20
@@ -5185,17 +5206,12 @@
                     " You gain proficiency in the saves using the chosen ability.\""))))]])
 
 (defn feat-skill-proficiency [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Skill or Tool Proficiency"]
-   (let [kw :skill-tool-choice]
-     [omv/option-menu
-      {:menu-id [:feat-skill-proficiency kw]
-       :options (omv/checkbox-options
-                 (map (fn [num] {:key num
-                                 :name (str "You gain proficiency in " num " skills or tools of your choice")})
-                      (range 1 4))
-                 (fn [item] (= (:key item) (get-in feat [:props kw])))
-                 (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
+  (value-choice-menu feat ::feats/toggle-feat-value-prop :skill-tool-choice
+                     :feat-skill-proficiency "Skill or Tool Proficiency"
+                     (map (fn [num]
+                            {:key num
+                             :name (str "You gain proficiency in " num " skills or tools of your choice")})
+                          (range 1 4))))
 
 (defn feat-weapon-proficiency [feat]
   [:div.m-b-20
@@ -5218,18 +5234,13 @@
                  (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
 
 (defn option-armor-proficiency [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Armor Proficiency"]
-   (let [kw :armor-prof]
-     [omv/option-menu
-      {:menu-id [:option-armor-proficiency toggle-map-prop-event]
-       :options (omv/checkbox-options
+  (map-prop-menu option toggle-map-prop-event :armor-prof :option-armor-proficiency
+                 "Armor Proficiency"
                  (map (fn [armor-type]
                         {:key armor-type
-                         :name (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))})
-                      (conj armor/armor-types :shields))
-                 (fn [item] (get-in option [:props kw (:key item)]))
-                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
+                         :name (str "You gain proficiency with " (name armor-type)
+                                    (when (not= armor-type :shields) " armor"))})
+                      (conj armor/armor-types :shields))))
 
 (defn feat-armor-proficiency [feat]
   [:div.m-b-20
@@ -5261,116 +5272,54 @@
         #(dispatch [::feats/toggle-feat-prop kw])])]]])
 
 (defn option-hps [option toggle-value-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Hit Points"]
-   (let [kw :max-hp-bonus]
-     [omv/option-menu
-      {:menu-id [:option-hps toggle-value-prop-event]
-       :options (omv/checkbox-options
-                 (map (fn [num] {:key num
-                                 :name (str "Your hit point maximum increases by " num " for each of your levels")})
-                      (range 1 3))
-                 (fn [item] (= (get-in option [:props kw]) (:key item)))
-                 (fn [item] (dispatch [toggle-value-prop-event kw (:key item)])))}])])
+  (value-choice-menu option toggle-value-prop-event :max-hp-bonus :option-hps
+                     "Hit Points"
+                     (map (fn [num]
+                            {:key num
+                             :name (str "Your hit point maximum increases by " num " for each of your levels")})
+                          (range 1 3))))
 
 (defn feat-hps [feat]
   (option-hps feat ::feats/toggle-feat-value-prop))
 
 (defn feat-speed-bonuses [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Speed Bonuses"]
-   (let [kw :speed]
-     [omv/option-menu
-      {:menu-id [:feat-speed-bonuses kw]
-       :options (omv/checkbox-options
-                 (map (fn [v] {:key v
-                               :name (str "Your speed is increased by " v " ft.")})
-                      (range 5 20 5))
-                 (fn [item] (= (:key item) (get-in feat [:props kw])))
-                 (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
+  (value-choice-menu feat ::feats/toggle-feat-value-prop :speed
+                     :feat-speed-bonuses "Speed Bonuses"
+                     (map (fn [v] {:key v :name (str "Your speed is increased by " v " ft.")})
+                          (range 5 20 5))))
 
 (defn feat-initiative-bonuses [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Initiative Bonuses"]
-   (let [kw :initiative]
-     [omv/option-menu
-      {:menu-id [:feat-initiative-bonuses kw]
-       :options (omv/checkbox-options
-                 (map (fn [v] {:key v
-                               :name (str "You gain a +" v " bonus to initiative")})
-                      (range 1 6))
-                 (fn [item] (= (:key item) (get-in feat [:props kw])))
-                 (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
+  (value-choice-menu feat ::feats/toggle-feat-value-prop :initiative
+                     :feat-initiative-bonuses "Initiative Bonuses"
+                     (map (fn [v] {:key v :name (str "You gain a +" v " bonus to initiative")})
+                          (range 1 6))))
 
 (defn feat-languages [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Languages"]
-   (let [kw :language-choice]
-     [omv/option-menu
-      {:menu-id [:feat-languages kw]
-       :options (omv/checkbox-options
-                 (map (fn [v] {:key v
-                               :name (str "You learn " v " languages of your choice.")})
-                      (range 1 4))
-                 (fn [item] (= (:key item) (get-in feat [:props kw])))
-                 (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
+  (value-choice-menu feat ::feats/toggle-feat-value-prop :language-choice
+                     :feat-languages "Languages"
+                     (map (fn [v] {:key v :name (str "You learn " v " languages of your choice.")})
+                          (range 1 4))))
 
 (defn option-damage-resistance [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Resistances"]
-   (let [kw :damage-resistance]
-     [omv/option-menu
-      {:menu-id [:option-damage-resistance toggle-map-prop-event]
-       :options (omv/checkbox-options
+  (map-prop-menu option toggle-map-prop-event :damage-resistance :option-damage-resistance
+                 "Damage Resistances"
                  (into [{:key :traps :name "Resistance to damage from traps"}]
-                       (map (fn [damage-type]
-                              {:key damage-type
-                               :name (str "Resistance to " (name damage-type) " damage")})
-                            opt/damage-types))
-                 (fn [item] (get-in option [:props kw (:key item)]))
-                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
+                       (damage-type-items "Resistance to"))))
 
 (defn option-damage-immunity [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Immunities"]
-   (let [kw :damage-immunity]
-     [omv/option-menu
-      {:menu-id [:option-damage-immunity toggle-map-prop-event]
-       :options (omv/checkbox-options
-                 (map (fn [damage-type]
-                        {:key damage-type
-                         :name (str "Immunity to " (name damage-type) " damage")})
-                      opt/damage-types)
-                 (fn [item] (get-in option [:props kw (:key item)]))
-                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
+  (map-prop-menu option toggle-map-prop-event :damage-immunity :option-damage-immunity
+                 "Damage Immunities" (damage-type-items "Immunity to")))
 
 (defn option-damage-vulnerability [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Vulnerabilities"]
-   (let [kw :damage-vulnerability]
-     [omv/option-menu
-      {:menu-id [:option-damage-vulnerability toggle-map-prop-event]
-       :options (omv/checkbox-options
-                 (map (fn [damage-type]
-                        {:key damage-type
-                         :name (str "Vulnerability to " (name damage-type) " damage")})
-                      opt/damage-types)
-                 (fn [item] (get-in option [:props kw (:key item)]))
-                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
+  (map-prop-menu option toggle-map-prop-event :damage-vulnerability :option-damage-vulnerability
+                 "Damage Vulnerabilities" (damage-type-items "Vulnerability to")))
 
 (defn option-condition-immunity [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Condition Immunities"]
-   (let [kw :condition-immunity]
-     [omv/option-menu
-      {:menu-id [:option-condition-immunity toggle-map-prop-event]
-       :options (omv/checkbox-options
+  (map-prop-menu option toggle-map-prop-event :condition-immunity :option-condition-immunity
+                 "Condition Immunities"
                  (map (fn [{:keys [name key]}]
-                        {:key key
-                         :name (str "Immunity to being " name)})
-                      opt/conditions)
-                 (fn [item] (get-in option [:props kw (:key item)]))
-                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
+                        {:key key :name (str "Immunity to being " name)})
+                      opt/conditions)))
 
 (defn option-weapon-proficiency [option toggle-map-prop-event]
   [:div.m-b-20
@@ -5455,18 +5404,12 @@
        [:span " or on the button above to add one."]])]])
 
 (defn option-saving-throw-advantages [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Saving Throw Advantage"]
-   (let [kw :saving-throw-advantage]
-     [omv/option-menu
-      {:menu-id [:option-saving-throw-advantages toggle-map-prop-event]
-       :options (omv/checkbox-options
+  (map-prop-menu option toggle-map-prop-event :saving-throw-advantage
+                 :option-saving-throw-advantages "Saving Throw Advantage"
                  (map (fn [{:keys [name key]}]
                         {:key key
                          :name (str "You have advantage on saving throws against being " name)})
-                      opt/conditions)
-                 (fn [item] (get-in option [:props kw (:key item)]))
-                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
+                      opt/conditions)))
 
 (defn feat-damage-resistance [feat]
   (option-damage-resistance feat ::feats/toggle-feat-map-prop))
