@@ -32,6 +32,7 @@
             [orcpub.dnd.e5.display :as disp5e]
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.skills :as skill5e]
+            [orcpub.dnd.e5.option-grouping :as grouping]
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
@@ -495,12 +496,13 @@
 
 (defn option-selector-base []
   (let [expanded? (r/atom false)]
-    (fn [{:keys [name key help selected? selectable? option-path select-fn content explanation-text icon classes multiselect? disable-checkbox? edit-event]}]
+    (fn [{:keys [name display-name non-standard? key help selected? selectable? option-path select-fn content explanation-text icon classes multiselect? disable-checkbox? edit-event]}]
       [:div.p-10.b-1.b-rad-5.m-5.b-orange
        {:class (s/join " " (conj
                                  (remove nil? [(when selected? "b-w-5")
                                                (when selectable? "pointer hover-shadow")
-                                               (when (not selectable?) "opacity-5")])
+                                               (when (not selectable?) "opacity-5")
+                                               (when non-standard? "b-w-3 non-standard-option")])
                                  classes))
         :on-click select-fn}
        [:div.flex.align-items-c
@@ -508,8 +510,10 @@
          [:div.flex.align-items-c
           (when multiselect?
             [:span.m-r-5 (comps/checkbox selected? disable-checkbox?)])
+          (when non-standard?
+            [:span.non-standard-badge.m-r-5 "≠ NON-STD"])
           (when icon [:div.m-r-5 (views5e/svg-icon icon 24)])
-          [:span.f-w-b.f-s-1.flex-grow-1 name]
+          [:span.f-w-b.f-s-1.flex-grow-1 (or display-name name)]
           (when edit-event
             [:span.orange.underline.pointer
              {:on-click (apply views5e/make-stop-prop-event-handler edit-event)}
@@ -556,7 +560,8 @@
                            selection
                            disable-select-new?
                            homebrew?
-                           option]
+                           option
+                           & [{:keys [display-name non-standard?]}]]
   (let [{:keys [help has-named-mods? modifiers-str failed-prereqs] :as data}
         (views-aux/option-selector-data option-path
                                         selection
@@ -566,6 +571,8 @@
     (when (not-any? ::t/hide-if-fail? failed-prereqs)
       ^{:key (::t/key option)}
       [option-selector-base (assoc data
+                                   :display-name display-name
+                                   :non-standard? non-standard?
                                    :help
                                    (when (or help has-named-mods?)
                                         [:div
@@ -728,45 +735,60 @@
               [:subclass] [subclass-adder]
               :else nil))))
 
+(defn pattern-banner [prefix slot-label]
+  ;; "EVERY OPTION READS  <prefix> [slot]" — shown once when a dominant prefix is
+  ;; detected, so each option can collapse to just its keyword.
+  [:div.m-5
+   [:div.f-s-10.f-w-b.uppercase.opacity-7.m-b-5 "Every option reads"]
+   [:div.b-rad-5.p-10
+    {:style {:border-left "3px solid #f0a100"
+             :background "rgba(240,161,0,0.06)"
+             :font-style "italic" :font-size "15px" :line-height 1.6}}
+    (s/trim prefix) " "
+    [:span.b-rad-5
+     {:style {:border "1px dashed rgba(240,161,0,0.7)" :color "#f0a100"
+              :font-style "normal" :font-weight 600 :padding "1px 11px"
+              :border-radius "999px"}}
+     (or slot-label "keyword")]]])
+
 (defn default-selection-section-body [actual-path
                                       {:keys [::t/options] :as selection}
                                       disable-select-new?
                                       homebrew?
                                       num-columns]
-  (let [option-selectors
-        (remove
-         nil?
-         (map
-          (fn [option]
-            [new-option-selector
-             actual-path
-             selection
-             disable-select-new?
-             homebrew?
-             option])
-          (sort-by (juxt ::t/order ::t/name) options)))
-        parts (partition-all
-               (common/round-up (/ (count option-selectors)
-                                   num-columns))
-               option-selectors)
+  ;; num-columns is now advisory — the CSS grid self-fits via auto-fill, so the
+  ;; layout stays aligned regardless of label length or option count.
+  (let [sorted (sort-by (juxt ::t/order ::t/name) options)
+        labels (mapv ::t/name sorted)
+        prefix (grouping/dominant-prefix labels)
+        ann    (grouping/classify labels prefix)          ; parallel to `sorted`
+        slot   (::t/slot-label selection)                 ; optional, per-selection
+        selectors
+        (doall
+         (remove
+          nil?
+          (map
+           (fn [option {:keys [display non-standard?]}]
+             (when-let [selector (new-option-selector
+                                  actual-path selection disable-select-new? homebrew?
+                                  option
+                                  {:display-name (when prefix display) ; collapsed keyword
+                                   :non-standard? non-standard?})]
+               ;; non-standard options break to their own full row so the badge
+               ;; and 3px border make divergent wording impossible to miss.
+               ^{:key (::t/key option)}
+               [:div {:style (when non-standard? {:grid-column "1 / -1"})}
+                selector]))
+           sorted ann)))
         item-adder (make-item-adder selection)]
-    [:div.flex
-     (doall
-      (map-indexed
-       (fn [i part]
-         ^{:key i}
-         [:div.flex-grow-1
-          {:class (str "w-" (int (/ 100 num-columns)) "-p")}
-          [:div
-           (doall
-            (map-indexed
-             (fn [j selector]
-               ^{:key j}
-               [:div selector])
-             part))]
-          (when (and item-adder (= i (dec (count parts))))
-            item-adder)])
-       parts))]))
+    [:div
+     (when prefix [pattern-banner prefix slot])
+     [:div {:style {:display "grid"
+                    :grid-template-columns "repeat(auto-fill, minmax(180px, 1fr))"
+                    :align-items "start"
+                    :gap "2px"}}
+      selectors]
+     (when item-adder item-adder)]))
 
 (defn selection-section [title
                          built-template

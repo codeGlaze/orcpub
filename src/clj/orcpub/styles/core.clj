@@ -82,7 +82,20 @@
     {:font-size "48px !important"}]])
 
 (def props
-  [[:.sans
+  [[:.non-standard-badge
+    {:background-color orange
+     :color "#191919"
+     :font-size "10px"
+     :font-weight 700
+     :border-radius "4px"
+     :padding "1px 5px"
+     :letter-spacing "0.03em"
+     :white-space "nowrap"}]
+
+   [:.non-standard-option
+    {:background-color "rgba(240,161,0,0.06)"}]
+
+   [:.sans
     {:font-family font-family}]
    [:.flex
     {:display :flex}]
