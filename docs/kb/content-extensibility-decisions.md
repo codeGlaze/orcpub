@@ -11,6 +11,12 @@ verified source behavior. See [content-extensibility.md](content-extensibility.m
 > registry / DSL was scaled back to "descriptor + a HOF over existing factories, for
 > mechanical boilerplate only." `content-extensibility-direction.md` is the authoritative
 > plan; D1–D11 are kept as the record of how we got there.
+>
+> ⚠️ **D17–D20 (Part 4) RE-CENTER.** The deflation over-applied a *local* readability lesson
+> (kill the unreadable `by-parent` wrapper) to the *capability* (cross-silo composition) and
+> wrongly shelved D3. D17+ restore the capability — an open **pool + grant** layer with
+> filter/gate/prereq and a variant forward-compat seam — with readability kept as a
+> *constraint*, not a ceiling. The direction doc (v2) is authoritative.
 
 ---
 
@@ -166,10 +172,53 @@ not HOFs.
 code, does this go red?"); **fix bugs on sight** unless deep enough for their own branch;
 goal is **stabilize while adding features**, not build on shaky foundations.
 
-**Net for next steps:** ~~revert `by-parent`~~ ✅ done `9777ce88` (also reverted `plugin-options`,
-deleted `option_catalog`); ~~build `register-homebrew-content!`; swap **boon** through it + commit~~
-✅ done `3980ea1b` (7 scattered boon sites → 1 descriptor; HOF composes the existing factories;
-event keywords kept explicit/greppable; falsifiable handler-registration tests added; harness-verified);
-then create a **new** builder end-to-end to measure the real effort. Keep `default-value` explicit;
-don't build the catalog/grant DSL. Authoritative plan:
+**Net for next steps:** ~~revert `by-parent`~~ ✅ done `9777ce88`; ~~build
+`register-homebrew-content!`; swap **boon**~~ ✅ done `3980ea1b`. **Now re-centered (Part 4):**
+the next core work is the **pool + grant** composition layer (see direction doc v2 §"The spine"
+and the PINS). Authoritative plan:
 [content-extensibility-direction.md](content-extensibility-direction.md).
+
+---
+
+## Part 4 — Re-centering (these restore the capability D12–D16 over-deflated)
+
+**Context.** After D12–D16 the plan was scaled to "collapse boilerplate, do not build
+catalogs." A vision review showed that under-served the branch's *two* equal goals —
+**stability** and **flexibility** — because it shelved the one capability that delivers both.
+
+**D17 — Stability and flexibility are the SAME abstraction.** Today every cross-type link is
+bespoke positional wiring (boons→warlock by arg; custom-race menu a hardcoded vector; styles
+baked per class). That bespoke-ness *is* the ~8-file cost and the fragility. One declarative
+**pool + grant** primitive collapses N×M bespoke wirings to N+M declarations down one tested
+path → simultaneously the stability win and the flexibility win. They do not trade off.
+*Rejected:* treating "make it stable/readable" and "make it flexible" as opposed.
+
+**D18 — The capability gap is in AUTHORING, not the engine.** Verified: `selection-cfg` has
+`prereq-fn`/`tags`/`ref`; `option-prereq` exists; `option-cfg` has `prereqs`/nested
+`selections`/`modifiers`; `ability-increase-selection-2` is the floating-ASI mechanism. The
+runtime already composes with filter/gate/prereq. What's missing is letting *content declare*
+open cross-silo grants as data. So this is exposing existing engine power, not rebuilding it.
+*Corrects:* the deflation's "named subs + selection-cfg are enough" — true of the mechanism,
+false as a stopping point (it left the menu closed and the wiring bespoke).
+
+**D19 — Pool + grant, with graceful optional filtering.** Two words of vocabulary: a **pool**
+(named, open, type-addressed, derived over plugin storage, pack-extensible) and a **grant**
+(fixed | choice → compiled to `selection-cfg`). Filters are predicates over *present*
+metadata: absent metadata → not offered → **never an error**; tags are a useful add, not a
+required schema. Blank-slate parametric grants (+N ASI / +N speed) are built-in pools +
+parametric modifiers, same primitive. This *passes* D12 (thicker than a hardcoded vector,
+intent-revealing) where `by-parent` failed it. *Rejected:* a cryptic DSL; new vocabulary
+beyond pool/grant.
+
+**D20 — Variants are designed-in-now, built-later, via one indirection.** A variant
+(`_copy` + `_mod`, the 5etools shape) resolves to an ordinary item in a pre-pass:
+`raw :plugins → resolve-variants → resolved-content → pools → grants`. `resolve-variants` is
+**identity today**. The binding rule: *every pool derives from one `resolved-content`
+indirection, never raw `:plugins`*. Hold it and variants slot in later with no refactor of
+the pool/grant work. Variants reference base by stable key, not name (D10). *Rejected:*
+ignoring variants now (would force a later refactor) and building full resolution now (YAGNI).
+
+**Pins (designed-in, built-later):** variants (D20); new-skill *creation* (adds to the skill
+registry, not a grant — different shape); the class-feature pool (`[:class-feature :X]` —
+richer than flat pools); a declarative cross-type prereq vocabulary (`has-class?`/`level>=`/
+`has-feature?`/`ability>=` — homebrew prereqs must not be raw fns).

@@ -1,43 +1,61 @@
 # Branch Context: claude/zen-wright-04xhdz
 
-> **READ FIRST (current direction):** `docs/kb/content-extensibility-direction.md` — the
-> plan was deliberately **deflated** after a readability review. The original grand
-> registry / "catalog-grant DSL" framing in `content-extensibility.md` / `-plan.md` is
-> now *history*; the direction doc is the real plan. Principle: *an abstraction earns its
-> keep only when it's thicker than what it hides and reveals intent.*
+> **READ FIRST (current direction, v2):** `docs/kb/content-extensibility-direction.md` — now
+> **re-centered**. A readability review correctly killed one unreadable wrapper (`by-parent`),
+> but that local lesson was briefly over-applied to deflate the whole *capability*. v2 restores
+> the spine: an open **pool + grant** composition layer (any (sub)race/(sub)class/feat/background
+> can grant filtered, gated choices from any other silo), with a variant forward-compat seam.
+> Principle (a *constraint*, not a ceiling): *an abstraction earns its keep only when it's
+> thicker than what it hides and reveals intent.* `content-extensibility.md` / `-plan.md` are
+> history.
 >
 > Verifying cljs in this container: `docs/kb/cljs-headless-harness.md` (rebuild recipe;
 > the harness lives in ephemeral `/tmp`+`target`).
 >
-> **Immediate next steps:** (1) ✅ DONE (`9777ce88`) — reverted `by-parent` *and*
-> `plugin-options`, deleted `option_catalog`; subs back to `group-by`/`mapcat`. (2) ✅ DONE
-> (`3980ea1b`) — built `register-homebrew-content!` (a HOF composing the existing
-> `reg-*-homebrew` factories) and swapped **boon** through it: 7 scattered `events.cljs`
-> sites → 1 colocated descriptor; harness-verified; falsifiable handler-registration tests
-> added. (3) **NEXT:** create a NEW builder end-to-end to measure the real "add a feature"
-> effort (see the direction doc's "Notes for step 3" for the remaining genuine layers).
-> Goal: **stabilize while adding features, not build on shaky foundations.**
+> **Immediate next steps:** (1) ✅ DONE (`9777ce88`) — reverted `by-parent`/`plugin-options`,
+> deleted `option_catalog`. (2) ✅ DONE (`3980ea1b`) — `register-homebrew-content!` (the
+> **wiring** sub-layer) + boon swapped through it (7 sites → 1); harness-verified. (3) **NEXT:**
+> prove the **pool + grant** spine on one slice end-to-end — `resolved-content` indirection +
+> a pool sub + the grant primitive; route one existing closed cross-link through it
+> behavior-identically (golden/fixture-gated), then add one new open capability
+> (e.g. `:draconic-ancestry` pack-extensible pool dragonborn grants from). See direction doc
+> v2 §"The spine" + the PINS.
+> Goal: **stabilize while adding features — stability and flexibility are the SAME abstraction.**
 
 ## Purpose
 Capture the content-extensibility analysis and plan, and implement it in gated phases
 (reducing the multi-file cost of adding a content type/builder to the 5e app).
 
 ## ⚓ Re-anchor — what this branch is *founded on* (don't lose the plot)
-**Founding purpose = content extensibility:** reduce the ~8-file cost of adding a content
-type/builder. After a readability review the approach was **deflated** (see the direction
-doc): no grand registry/DSL — collapse *pure boilerplate* behind clear HOFs, keep readable
-code explicit. What stands: the `content_types` registry (data + audit test) and the
-Phase-4b builder-item subs loop. The thin `option_catalog` wrappers were **reverted** (`9777ce88`).
+**Founding purpose = content extensibility, for TWO equal reasons: stability AND flexibility.**
+The insight: they're the **same abstraction**. Today every cross-type link is bespoke
+positional wiring (boons→warlock by arg; custom-race menu a hardcoded vector) — that bespoke-ness
+*is* the ~8-file cost and the fragility. An open **pool + grant** layer collapses N×M bespoke
+wirings to N+M declarations down one tested path: stability win = flexibility win. The
+engine *already* supports filter/gate/prereq (`selection-cfg`/`prereq-fn`/`option-prereq`/
+`ability-increase-selection-2`); the gap is the **authoring** layer (content can't *declare*
+open cross-silo grants). Readability stays a *constraint*: two words (pool/grant), built from
+existing thick parts, no cryptic DSL. What stands: `content_types` registry (data + audit
+test), the Phase-4b subs loop, `register-homebrew-content!` (wiring sub-layer) + boon.
+The `by-parent`/`plugin-options`/`option_catalog` wrappers were reverted (`9777ce88`).
 
-**Current state / next core step:** ✅ `register-homebrew-content!` is built and boon is
-swapped through it (`3980ea1b`). **Next core step:** create one NEW builder end-to-end to
-measure the real "add a feature" effort. The test-suite triage (rotted cljs suite, dead `character_test.cljc`,
-import fixes) was a tangent that produced the **headless cljs harness** — our means of gating
-cljs work. Don't let the tangent become the branch.
+**Current state / next core step:** ✅ `register-homebrew-content!` built; boon swapped
+(`3980ea1b`). **Next core step:** prove the **pool + grant** spine on one slice end-to-end
+(direction doc v2 §"The spine" + PINS — incl. the variant `resolved-content` forward-compat
+seam). The test-suite triage (rotted cljs suite, dead `character_test.cljc`, import fixes) was
+a tangent that produced the **headless cljs harness** — our gate for cljs work. Don't let the
+tangent become the branch.
 
 Verification discipline lessons from this session: `docs/kb/verification-discipline.md`.
 
 ## Roadmap / TODO (live checklist — updated as work proceeds)
+
+> ⚠️ **The phase numbering below is from the OLD (superseded) plan** and refers to code that
+> no longer exists (`option_catalog`, `by-parent`, `plugin-options` — all reverted in
+> `9777ce88`). Read it as *history of what was tried*, not the live plan. The live plan is the
+> re-centered **pool + grant** spine in `content-extensibility-direction.md` (v2) and Part 4
+> of the decisions doc. The `[x]` items below (name-keyword-fix merge, harness, golden/fixture
+> tests, the two ✅ steps) still stand; the `[ ]`/`[~]` catalog phases are reframed by v2.
 
 Each step is small, behavior-preserving, and must leave the gate green
 (`lein test` + `lein lint`) before commit. Code lands on this branch.
