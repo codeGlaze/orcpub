@@ -1930,9 +1930,15 @@
                                                :tags #{:class}
                                                :options [(t/option-cfg
                                                           {:name "Evasion"
-                                                           :modifiers [(opt5e/evasion 15 93)
+                                                           :modifiers [;; INERT here: opt5e/evasion returns a plain trait map (plain :name/:page/:level
+                                                                       ;; keys, NOT ::mods/* keys), so entity/apply-modifiers -> modifier-fn yields nil and
+                                                                       ;; it contributes nothing — no trait, no page reference. The map is only consumed
+                                                                       ;; when it sits in a :traits vector (as Monk/Rogue do); in :modifiers it's dead weight.
+                                                                       ;; The displayed Evasion trait and its p.93 come from the trait-cfg below.
+                                                                       (opt5e/evasion 15 93)
                                                                        (mod5e/trait-cfg
-                                                                        {:page 93
+                                                                        {:name "Evasion"
+                                                                         :page 93
                                                                          :summary "When you are subjected to an effect, such as a red dragon’s fiery breath or a lightning bolt spell, that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw, and only half damage if you fail."})]})
                                                          (t/option-cfg
                                                           {:name "Stand Against the Tide"

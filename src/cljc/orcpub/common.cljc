@@ -202,10 +202,31 @@
            (fn [[k v]] (str (safe-capitalize-kw k) " " (bonus-str v)))
            m)))
 
-;; Case Insensitive `sort-by`
+;; Crash-safe case fold for sort/compare keys: coerces a nil/non-string to "" so
+;; core s/lower-case can't crash on it. Never throws — it folds arbitrary keys
+;; (e.g. :level), so a non-string isn't a bug here; that judgment is the caller's
+;; (see feature-name, where the dev-throw lives).
+(defn lower-case [x]
+  (s/lower-case (str x)))
+
+;; Case-insensitive `sort-by`, built on the safe fold above so a nil/non-string key
+;; sorts as "" rather than throwing.
 (defn aloof-sort-by [sorter coll]
-  (sort-by (comp s/lower-case sorter) coll)
-  )
+  (sort-by (comp lower-case sorter) coll))
+
+;; Display name with an obvious placeholder, not a blank: any unusable name ->
+;; "[Unnamed feature]" (shown and sorted by), never a blank or a plausible-looking
+;; coercion. Here a string IS expected, so a wrong-typed name is a real bug — dev
+;; throws to surface it; prod also shows the placeholder rather than hiding it as
+;; e.g. "42". (The generic lower-case fold can't tell, so it never throws.)
+(defn feature-name [{:keys [name]}]
+  (cond
+    (and (string? name) (not (s/blank? name))) name
+    (or (nil? name) (string? name)) "[Unnamed feature]"   ; nil or blank string
+    :else #?(:cljs (if ^boolean goog/DEBUG
+                     (throw (ex-info "feature :name is not a string" {:name name}))
+                     "[Unnamed feature]")
+             :clj "[Unnamed feature]")))
 
 (defn ->kebab-case [s]
   (-> s
