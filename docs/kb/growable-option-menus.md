@@ -82,11 +82,25 @@ Two factories in `views.cljs` collapse the bulk of Family B (each is then a one-
   (concat of "All X weapons" + the weapon list), `feat-prereqs` (leading checkbox + 3
   concat'd groups), `feat-weapon/armor-proficiency` and `feat-ability-increase-options`
   (leading/trailing extra toggles).
-- **Intentionally untouched**: small fixed checkbox sets (`feat-misc-modifiers`,
-  `feat-spellcasting`, `component-checkbox` V/S/M).
-- **Not yet done** (different shapes): the spell-builder spell-list grid and the
-  item-builder `base-builder-field` selectors (base-armor/weapon, attunement,
-  item-modifier-toggles). Decide per-need; the spell list is already grid-shaped.
+- **Item builder**: `item-modifier-toggles` (the HOF behind item damage
+  resistances/vulnerabilities/immunities and condition immunities) routes through
+  option-menu. `base-armor/weapon-selector` are left as-is (already orderly 2/3-column
+  layouts, ambiguous multi/single semantics) and `attunement-selector` stays bespoke
+  (nested Class/Alignment sub-lists).
+- **Intentionally untouched** (not ragged lists): small fixed checkbox sets
+  (`feat-misc-modifiers`, `feat-spellcasting`, `component-checkbox` V/S/M, the spell
+  builder's Ritual/Attack toggles). These look consistent anyway via the shared
+  checkbox below.
+
+## Checkbox: single source
+
+The app's one checkbox, `comps/checkbox` (`components.cljc`), was upgraded to the
+rounded amber box and the menu cells reuse it — there's a single definition of the
+checkbox look, so menus and the rest of the app (character sheet, dialogs, toggles)
+match by construction. The original white-box look is preserved as an opt-in CSS
+fallback: add `classic-checkboxes` to the app root and `.classic-checkboxes .checkbox-box`
+restores it. Wire that root class to a re-frame user preference (mirror `:theme`) if a
+"classic checkboxes" toggle is wanted — some users are change-resistant.
 
 ## Family A integration notes
 
