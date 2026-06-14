@@ -8186,7 +8186,8 @@
      :icon "save"
      :on-click #(dispatch [save-event])}]
    [:div
-    [:div.flex.justify-cont-end.m-b-10 [omv/layout-toggle]]
+    ;; match the builders' p-20 side gutters so the toggle lines up with the cards
+    [:div.flex.justify-cont-end.p-l-20.p-r-20.p-t-10 [omv/layout-toggle]]
     [builder]]])
 
 (defn combat-tracker-page []
