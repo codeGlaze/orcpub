@@ -1,5 +1,8 @@
 (ns orcpub.route-map
-  (:require [bidi.bidi :as bidi]))
+  (:require [bidi.bidi :as bidi]
+            ;; content-types is a pure-data leaf (requires nothing) — safe to read here to
+            ;; generate the builder route segments / sets without a cycle.
+            [orcpub.dnd.e5.content-types :as ct]))
 
 (def default-route :default)
 (def dnd-e5-char-builder-route :char-builder-5e)
@@ -176,34 +179,24 @@
                             "send-password-reset-page" send-password-reset-page-route
                             "dnd/"
                             {"5e/"
-                             {"character-builder" dnd-e5-char-builder-route
-                              "newb-character-builder" dnd-e5-newb-char-builder-route
-                              "characters" {"" dnd-e5-char-list-page-route
-                                            ["/" :id] dnd-e5-char-page-route}
-                              "orcacle" dnd-e5-orcacle-page-route
-                              "parties" dnd-e5-char-parties-page-route
-                              "background-builder" dnd-e5-background-builder-page-route
-                              "encounter-builder" dnd-e5-encounter-builder-page-route
-                              "combat-tracker" dnd-e5-combat-tracker-page-route
-                              "race-builder" dnd-e5-race-builder-page-route
-                              "subrace-builder" dnd-e5-subrace-builder-page-route
-                              "subclass-builder" dnd-e5-subclass-builder-page-route
-                              "class-builder" dnd-e5-class-builder-page-route
-                              "language-builder" dnd-e5-language-builder-page-route
-                              "invocation-builder" dnd-e5-invocation-builder-page-route
-                              "boon-builder" dnd-e5-boon-builder-page-route
-                              "draconic-ancestry-builder" dnd-e5-draconic-ancestry-builder-page-route
-                              "feat-builder" dnd-e5-feat-builder-page-route
-                              "spell-builder" dnd-e5-spell-builder-page-route
-                              "selection-builder" dnd-e5-selection-builder-page-route
-                              "monster-builder" dnd-e5-monster-builder-page-route
-                              "spells" {"" dnd-e5-spell-list-page-route
-                                        ["/" :key] dnd-e5-spell-page-route}
-                              "magic-item-builder" dnd-e5-item-builder-page-route
-                              "magic-items" {"" dnd-e5-item-list-page-route
-                                             ["/" :key] dnd-e5-item-page-route}
-                              "monsters" {"" dnd-e5-monster-list-page-route
-                                          ["/" :key] dnd-e5-monster-page-route}}}}}])
+                             (merge
+                              {"character-builder" dnd-e5-char-builder-route
+                               "newb-character-builder" dnd-e5-newb-char-builder-route
+                               "characters" {"" dnd-e5-char-list-page-route
+                                             ["/" :id] dnd-e5-char-page-route}
+                               "orcacle" dnd-e5-orcacle-page-route
+                               "parties" dnd-e5-char-parties-page-route
+                               "combat-tracker" dnd-e5-combat-tracker-page-route
+                               "spells" {"" dnd-e5-spell-list-page-route
+                                         ["/" :key] dnd-e5-spell-page-route}
+                               "magic-item-builder" dnd-e5-item-builder-page-route
+                               "magic-items" {"" dnd-e5-item-list-page-route
+                                              ["/" :key] dnd-e5-item-page-route}
+                               "monsters" {"" dnd-e5-monster-list-page-route
+                                           ["/" :key] dnd-e5-monster-page-route}}
+                              ;; builder page segments ("<route-seg>" -> route-kw) generated
+                              ;; from the content-types registry — a new type's URL is automatic
+                              (into {} (map (juxt :route-seg :route-kw)) ct/content-types))}}}])
 
 (defn path-for [& args]
   (apply bidi/path-for routes args))

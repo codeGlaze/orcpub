@@ -16,3 +16,10 @@
         (when v
           (is (= route-kw (var-get v))
               (str id ": :route-kw " route-kw " must equal " var-sym)))))))
+
+(deftest builder-routes-resolve-through-the-generated-bidi-tree
+  (testing "each registry builder URL resolves to its route-kw (generated bidi segments work)"
+    (doseq [{:keys [id route-seg route-kw]} ct/content-types]
+      (let [m (route-map/match-route (str "/pages/dnd/5e/" route-seg))]
+        (is (= route-kw (:handler m))
+            (str id ": /pages/dnd/5e/" route-seg " must resolve to " route-kw))))))
