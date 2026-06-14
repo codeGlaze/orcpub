@@ -5,13 +5,15 @@
             [orcpub.dnd.e5.compute-test]
             ;; CLJS-only re-frame integration tests
             [orcpub.dnd.e5.events-test]
-            [orcpub.dnd.e5.subs-test]))
+            [orcpub.dnd.e5.subs-test]
+            [orcpub.dnd.e5.content-reconciliation-test]))
 
 (defn -main []
   (run-tests 'orcpub.dnd.e5.event-utils-test
              'orcpub.dnd.e5.compute-test
              'orcpub.dnd.e5.events-test
-             'orcpub.dnd.e5.subs-test))
+             'orcpub.dnd.e5.subs-test
+             'orcpub.dnd.e5.content-reconciliation-test))
 
 ;; Auto-run when figwheel reloads
 (defn ^:after-load on-reload []
