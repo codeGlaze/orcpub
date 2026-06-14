@@ -4854,13 +4854,17 @@
     false
     #(dispatch [::spells/toggle-component component])]])
 
-(defn tool-prof-checkboxes [menu-id background tools]
-  [omv/option-menu
-   {:menu-id menu-id
-    :options (omv/checkbox-options
-              tools
-              #(get-in background [:profs :tool (:key %)])
-              #(dispatch [::bg/toggle-tool-prof (:key %)]))}])
+;; Background-builder option/wildcard builders. These return data (option vectors
+;; and wildcard maps) that the section panels below feed into omv/option-menu.
+(defn- bg-tool-options [background tools]
+  (omv/checkbox-options tools
+                        #(get-in background [:profs :tool (:key %)])
+                        #(dispatch [::bg/toggle-tool-prof (:key %)])))
+
+(defn- bg-equipment-options [background equipment]
+  (omv/checkbox-options equipment
+                        #(get-in background [:equipment (:key %)])
+                        #(dispatch [::bg/toggle-starting-equipment (:key %)])))
 
 (defn language-checkboxes [race languages]
   [:div
@@ -4884,41 +4888,25 @@
      [:i.fa.fa-plus]
      [:span.orange.underline.m-l-5 "Add Language"]]]])
 
-(defn tool-choice-checkboxes [background key]
-  [omv/option-menu
-   {:menu-id [:tool-choice key]
-    :multiselect? false
-    :options (omv/checkbox-options
-              (map (fn [num] {:key num :name (str "Any " num)}) (range 1 4))
-              (fn [item] (= (:key item) (get-in background [:profs :tool-options key])))
-              (fn [item] (dispatch [::bg/toggle-choice-tool-prof key (:key item)])))}])
+;; "Choose any N" wildcard rows (single-select among themselves) rendered as the
+;; dashed group at the top of a panel.
+(defn- tool-choice-wildcards [background key]
+  (map (fn [num] {:key num :name (str "Any " num)
+                  :selected? (= num (get-in background [:profs :tool-options key]))
+                  :on-toggle #(dispatch [::bg/toggle-choice-tool-prof key num])})
+       (range 1 4)))
 
-(defn language-choice-checkboxes [background]
-  [omv/option-menu
-   {:menu-id :language-choice
-    :multiselect? false
-    :options (omv/checkbox-options
-              (map (fn [num] {:key num :name (str "Any " num)}) (range 1 4))
-              (fn [item] (= (:key item) (get-in background [:profs :language-options :choose])))
-              (fn [item] (dispatch [::bg/toggle-choice-language-prof (:key item)])))}])
+(defn- language-choice-wildcards [background]
+  (map (fn [num] {:key num :name (str "Any " num)
+                  :selected? (= num (get-in background [:profs :language-options :choose]))
+                  :on-toggle #(dispatch [::bg/toggle-choice-language-prof num])})
+       (range 1 4)))
 
-(defn starting-equipment-choice-checkboxes [background equipment equipment-name]
-  [omv/option-menu
-   {:menu-id [:eq-choice equipment-name]
-    :multiselect? false
-    :options (omv/checkbox-options
-              [{:key :any-1 :name "Any 1"}]
-              (fn [_] (some (fn [{:keys [name]}] (= name equipment-name))
-                            (:equipment-choices background)))
-              (fn [_] (dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])))}])
-
-(defn starting-equipment-checkboxes [menu-id background equipment]
-  [omv/option-menu
-   {:menu-id menu-id
-    :options (omv/checkbox-options
-              equipment
-              #(get-in background [:equipment (:key %)])
-              #(dispatch [::bg/toggle-starting-equipment (:key %)]))}])
+(defn- equipment-choice-wildcards [background equipment equipment-name]
+  [{:key :any-1 :name "Any 1"
+    :selected? (boolean (some (fn [{:keys [name]}] (= name equipment-name))
+                              (:equipment-choices background)))
+    :on-toggle #(dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])}])
 
 (def option-source-name-label
   [:span
@@ -5065,73 +5053,62 @@
                  "Tool Proficiency or Expertise" equip/tools))
 
 (defn background-skill-proficiencies [background]
-  [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 "Skill Proficiencies"]
-   [omv/option-menu
-    {:menu-id :bg-skill-prof
-     :options (omv/checkbox-options
-               skills/skills
-               #(get-in background [:profs :skill (:key %)])
-               #(dispatch [::bg/toggle-skill-prof (:key %)]))}]])
+  [omv/section-card
+   {:menu-id :bg-skill-prof
+    :title "Skill Proficiencies"
+    :options (omv/checkbox-options
+              skills/skills
+              #(get-in background [:profs :skill (:key %)])
+              #(dispatch [::bg/toggle-skill-prof (:key %)]))}])
 
 (defn background-languages [background]
-  [:div.m-t-20.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 "Languages"]
-   [:div
-    [language-choice-checkboxes background]]])
+  ;; OrcPub backgrounds only choose a NUMBER of languages, so this is wildcards-only.
+  [omv/section-card
+   {:menu-id :bg-languages
+    :title "Languages"
+    :wildcards (language-choice-wildcards background)
+    :options []}])
 
 (defn background-tool-proficiencies [background]
-  [:div.m-t-20.m-b-20
-   [:div.f-s-24.f-w-b.m-b-10 "Tool Proficiencies"]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Artisans Tools"]
-    [:div
-     [tool-choice-checkboxes background :artisans-tool]]
-    [:div
-     [tool-prof-checkboxes :bg-tool-artisans background equip/artisans-tools]]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Musical Instruments"]
-    [tool-choice-checkboxes background :musical-instrument]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Gaming Set"]
-    [tool-choice-checkboxes background :gaming-set]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Vehicles"]
-    [tool-prof-checkboxes :bg-tool-vehicles background equip/vehicle-types]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Other Tools"]
-    [tool-prof-checkboxes :bg-tool-misc background equip/misc-tools]]])
+  [omv/parent-section {:title "Tool Proficiencies"}
+   [omv/subsection {:menu-id :bg-tool-artisans :title "Artisan's Tools"
+                    :wildcards (tool-choice-wildcards background :artisans-tool)
+                    :options (bg-tool-options background equip/artisans-tools)}]
+   [omv/subsection {:menu-id :bg-tool-musical :title "Musical Instruments"
+                    :wildcards (tool-choice-wildcards background :musical-instrument)
+                    :options []}]
+   [omv/subsection {:menu-id :bg-tool-gaming :title "Gaming Set"
+                    :wildcards (tool-choice-wildcards background :gaming-set)
+                    :options []}]
+   [omv/subsection {:menu-id :bg-tool-vehicles :title "Vehicles"
+                    :options (bg-tool-options background equip/vehicle-types)}]
+   [omv/subsection {:menu-id :bg-tool-misc :title "Other Tools"
+                    :options (bg-tool-options background equip/misc-tools)}]])
 
 (defn background-starting-equipment [background]
-  [:div.m-t-20.m-b-20
-   [:div.f-s-24.f-w-b.m-b-10 "Starting Equipment"]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Treasure"]
+  [omv/parent-section {:title "Starting Equipment"}
+   [:div.opt-subsection
+    [:div.opt-subsection-title.m-b-10 "Gold"]
     [input-builder-field
      [:span.f-w-b "Gold"]
      (get-in background [:treasure :gp])
      #(dispatch [::bg/set-background-gold %])
      {:class "input h-40"
       :type :number}]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Clothing"]
-    [:div [starting-equipment-checkboxes :bg-eq-clothes background equip/clothes]]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Artisan's Tools"]
-    [:div [starting-equipment-choice-checkboxes background equip/artisans-tools "Artisan's Tools"]]
-    [:div [starting-equipment-checkboxes :bg-eq-artisans background equip/artisans-tools]]]
-   [:div.m-b-20
-    [:div.f-s-18.f-w-b.m-b-10 "Musical Instruments"]
-    [starting-equipment-choice-checkboxes background equip/musical-instruments "Musical Instruments"]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Other Tools"]
-    [starting-equipment-checkboxes :bg-eq-misc-tools background equip/misc-tools]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Holy Symbols"]
-    [starting-equipment-checkboxes :bg-eq-holy background equip/holy-symbols]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Other Equipment"]
-    [starting-equipment-checkboxes :bg-eq-misc background equip/misc-equipment]]])
+   [omv/subsection {:menu-id :bg-eq-clothes :title "Clothing"
+                    :options (bg-equipment-options background equip/clothes)}]
+   [omv/subsection {:menu-id :bg-eq-artisans :title "Artisan's Tools"
+                    :wildcards (equipment-choice-wildcards background equip/artisans-tools "Artisan's Tools")
+                    :options (bg-equipment-options background equip/artisans-tools)}]
+   [omv/subsection {:menu-id :bg-eq-musical :title "Musical Instruments"
+                    :wildcards (equipment-choice-wildcards background equip/musical-instruments "Musical Instruments")
+                    :options []}]
+   [omv/subsection {:menu-id :bg-eq-misc-tools :title "Other Tools"
+                    :options (bg-equipment-options background equip/misc-tools)}]
+   [omv/subsection {:menu-id :bg-eq-holy :title "Holy Symbols"
+                    :options (bg-equipment-options background equip/holy-symbols)}]
+   [omv/subsection {:menu-id :bg-eq-misc :title "Other Equipment"
+                    :options (bg-equipment-options background equip/misc-equipment)}]])
 
 (defn feat-prereqs [feat]
   [:div.m-b-20

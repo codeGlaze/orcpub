@@ -1707,15 +1707,114 @@
       :color "#191919"
       :font-weight 600}]
 
-    ;; grid
+    ;; grid. The min(100%, 210px) guard prevents horizontal overflow when the
+    ;; container is narrower than the track min (small phones).
     [:.opt-menu-grid
      {:display :grid
-      :grid-template-columns "repeat(auto-fill, minmax(180px, 1fr))"
+      :grid-template-columns "repeat(auto-fill, minmax(min(100%, 210px), 1fr))"
       :align-items :start
-      :gap "2px"}]
+      :gap "4px"}]
 
     [:.opt-menu-grid-span
      {:grid-column "1 / -1"}]
+
+    ;; ----- section containment & parent/child nesting -----
+    ;; Top-level section = elevated card; nested child = recessed well inside it.
+    [:.opt-section
+     {:background "#1b232f"
+      :border "1px solid rgba(255,255,255,0.08)"
+      :border-radius "14px"
+      :padding "20px 22px 22px"
+      :margin-bottom "18px"
+      :box-shadow "0 1px 0 rgba(255,255,255,0.04) inset, 0 14px 34px -20px rgba(0,0,0,0.8)"}]
+
+    [:.opt-subsections
+     {:display :flex
+      :flex-direction :column
+      :gap "12px"
+      :margin-top "2px"}]
+
+    [:.opt-subsection
+     {:background "rgba(0,0,0,0.24)"
+      :border "1px solid rgba(255,255,255,0.05)"
+      :border-radius "10px"
+      :padding "14px 16px 16px"}]
+
+    [:.opt-section-head
+     {:display :flex
+      :align-items :center
+      :flex-wrap :wrap
+      :gap "10px"
+      :margin-bottom "14px"}]
+
+    [:.opt-section-accent
+     {:width "4px"
+      :height "18px"
+      :border-radius "3px"
+      :background orange
+      :flex "0 0 auto"}]
+
+    ;; taller accent on a parent heading
+    [:.opt-section-accent.tall
+     {:height "22px"}]
+
+    [:.opt-section-title
+     {:font-size "clamp(19px, 3vw, 22px)"
+      :font-weight 700
+      :color "#f3f6fa"
+      :letter-spacing "-0.005em"}]
+
+    [:.opt-subsection-title
+     {:font-size "15.5px"
+      :font-weight 700
+      :color "#e3e8ef"
+      :letter-spacing "-0.005em"}]
+
+    [:.opt-section-count
+     {:font-size "12px"
+      :color "#8893a2"
+      :background "rgba(255,255,255,0.05)"
+      :padding "2px 10px"
+      :border-radius "999px"}]
+
+    ;; "Choose any" wildcard group (the Any N options), a labeled dashed group
+    [:.opt-wildcards
+     {:display :flex
+      :align-items :center
+      :flex-wrap :wrap
+      :gap "10px"
+      :margin-bottom "12px"}]
+
+    [:.opt-wildcards-label
+     {:font-size "11px"
+      :font-weight 700
+      :letter-spacing "0.07em"
+      :text-transform :uppercase
+      :color "#7e8897"}]
+
+    [:.opt-wildcards-list
+     {:display :flex
+      :flex-wrap :wrap
+      :gap "8px"}]
+
+    [:.opt-wildcard
+     {:display :inline-flex
+      :align-items :center
+      :gap "8px"
+      :padding "6px 12px"
+      :border-radius "8px"
+      :cursor :pointer
+      :font-size "13.5px"
+      :font-weight 600
+      :white-space :nowrap
+      :border "1px dashed rgba(255,255,255,0.28)"
+      :background "rgba(255,255,255,0.015)"
+      :color "#cdd4de"}]
+
+    [:.opt-wildcard.selected
+     {:border (str "1px solid " orange)
+      :background "rgba(240,161,0,0.13)"
+      :color "#f3e7cf"}]
 
     ;; pills
     [:.opt-menu-pills
@@ -1909,6 +2008,10 @@
      {:background orange
       :border (str "1px solid " orange)
       :color "#191919"}]
+
+    ;; dashed outline for wildcard ("Any N") boxes when unchecked
+    [:.checkbox-box.dashed
+     {:border-style :dashed}]
 
     [:.checkbox-box.disabled
      {:opacity 0.5}]

@@ -131,6 +131,31 @@
 (defn- count-line [selected total]
   [:div.opt-menu-count (str (count selected) " of " total " selected")])
 
+(defn- section-header
+  "Panel header row: optional amber accent tab, the title, a count pill, and Clear."
+  [{:keys [title top-level? count-label show-count? show-clear? clear-fn]}]
+  [:div.opt-section-head
+   (when top-level? [:span.opt-section-accent])
+   [:span {:class (if top-level? "opt-section-title" "opt-subsection-title")} title]
+   (when show-count? [:span.opt-section-count count-label])
+   (when (and show-clear? clear-fn) [:span.opt-menu-clear {:on-click clear-fn} "Clear"])])
+
+(defn- wildcard-group
+  "The 'Choose any' dashed group (the Any-N options) shown above a panel's list.
+   Each wildcard is {:key :name :selected? :on-toggle}."
+  [wildcards]
+  [:div.opt-wildcards
+   [:span.opt-wildcards-label "Choose any"]
+   [:div.opt-wildcards-list
+    (doall
+     (for [{:keys [key name selected? on-toggle]} wildcards]
+       ^{:key key}
+       [:div.opt-wildcard {:class (when selected? "selected")
+                           :on-click #(on-toggle)}
+        [:span.checkbox-box.dashed {:class (when selected? "checked")}
+         (when selected? [:i.fa.fa-check])]
+        [:span name]]))]])
+
 ;; ---------------------------------------------------------------------------
 ;; Cells
 ;; ---------------------------------------------------------------------------
@@ -219,12 +244,23 @@
 ;; The component
 ;; ---------------------------------------------------------------------------
 
+;; A list only gets a search box once it's long enough to need one (matches the
+;; reference's SEARCH_MIN); short lists stay compact.
+(def ^:private search-min 10)
+
 (defn option-menu
-  "Growable multi-select menu. Required: `:menu-id` (stable id; keys per-menu search
-   + letter) and `:options` (normalized vector). Optional: `:title`, `:slot-label`,
-   `:multiselect?` (default true; gates chips/count/Clear), `:on-clear` (default fires
-   each selected option's :on-toggle), `:cell-fn`, `:chip-fn`, `:trailer`."
-  [{:keys [menu-id title slot-label options multiselect? on-clear cell-fn chip-fn trailer]
+  "Growable multi-select menu / section panel.
+
+   Required: `:menu-id` (stable id; keys per-menu search + letter) and `:options`
+   (normalized vector). Optional:
+     :title        when set, renders the panel header (accent + title + count + Clear)
+                   instead of the legacy count line; `:top-level?` sizes the accent.
+     :wildcards    the 'Choose any' Any-N group shown above the list
+     :slot-label   pattern-banner slot word
+     :multiselect? default true; gates count/Clear (and the legacy chips tray)
+     :on-clear / :cell-fn / :chip-fn / :trailer"
+  [{:keys [menu-id title top-level? wildcards slot-label options
+           multiselect? on-clear cell-fn chip-fn trailer]
     :or   {multiselect? true}}]
   (let [layout    @(subscribe [::layout])
         query     @(subscribe [::menu-query menu-id])
@@ -241,19 +277,57 @@
                                (or (str/includes? (str/lower-case (str display)) q)
                                    (str/includes? (str/lower-case (str label)) q)))
                              annotated))
-        selected  (filterv :selected? annotated)
-        clear-fn  (when multiselect?
-                    (or on-clear #(doseq [o selected] ((:on-toggle o)))))
-        searchable? (> (count options) 8)]
+        selected   (filterv :selected? annotated)
+        has-opts?  (seq options)
+        clear-fn   (when multiselect?
+                     (or on-clear #(doseq [o selected] ((:on-toggle o)))))
+        searchable? (>= (count options) search-min)]
     [:div.opt-menu
-     (when title [:div.opt-menu-title title])
-     (when multiselect? [count-line selected (count options)])
+     (if title
+       ;; new panel header: count pill + Clear live in the title row
+       [section-header {:title title
+                        :top-level? top-level?
+                        :show-count? (and multiselect? has-opts?)
+                        :count-label (str (count selected) " of " (count options) " selected")
+                        :show-clear? (and multiselect? (seq selected))
+                        :clear-fn clear-fn}]
+       ;; legacy header (used by builders not yet migrated to the panel look)
+       (when multiselect? [count-line selected (count options)]))
+     (when (seq wildcards) [wildcard-group wildcards])
      (when prefix [pattern-banner prefix slot-label])
-     (when searchable? [search-box menu-id])
-     (when multiselect? [chips-tray selected chip-fn clear-fn])
-     (cond
-       (empty? filtered) [:div.opt-menu-empty (str "No options match “" query "”.")]
-       (= layout :pills) [pills-body filtered cell-fn]
-       (= layout :az)    [az-body menu-id annotated filtered cell-fn]
-       :else             [grid-body filtered cell-fn])
+     (when (and has-opts? searchable?) [search-box menu-id])
+     ;; legacy chips tray only in the no-title mode; the panel header carries Clear
+     (when (and (not title) multiselect?) [chips-tray selected chip-fn clear-fn])
+     (when has-opts?
+       (cond
+         (empty? filtered) [:div.opt-menu-empty (str "No options match “" query "”.")]
+         (= layout :pills) [pills-body filtered cell-fn]
+         (= layout :az)    [az-body menu-id annotated filtered cell-fn]
+         :else             [grid-body filtered cell-fn]))
      (when trailer trailer)]))
+
+;; ---------------------------------------------------------------------------
+;; Section containment — cards (top-level) and recessed wells (nested children)
+;; ---------------------------------------------------------------------------
+
+(defn section-card
+  "A standalone top-level section: an elevated card around one option-menu panel."
+  [opts]
+  [:div.opt-section [option-menu (assoc opts :top-level? true)]])
+
+(defn subsection
+  "A recessed child well around one option-menu panel (nested inside a parent card)."
+  [opts]
+  [:div.opt-subsection [option-menu (assoc opts :top-level? false)]])
+
+(defn parent-section
+  "A parent card with a heading and a stack of recessed child wells nested inside.
+   `children` are already-rendered hiccup (use `subsection` for option-menu panels,
+   or any `.opt-subsection` element); `meta` is an optional summary (e.g. count)."
+  [{:keys [title meta]} & children]
+  [:div.opt-section
+   [:div.opt-section-head
+    [:span.opt-section-accent.tall]
+    [:span.opt-section-title title]
+    (when meta [:span.opt-section-count meta])]
+   (into [:div.opt-subsections] children)])
