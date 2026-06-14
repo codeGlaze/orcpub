@@ -25,12 +25,14 @@
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.encounters :as encounters]
             [orcpub.dnd.e5.combat :as combat]
+            [orcpub.dnd.e5.content-types :as ct]
             [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
             [orcpub.dnd.e5.db :refer [default-value
+                                      set-item
                                       character->local-store
                                       user->local-store
                                       magic-item->local-store
@@ -58,8 +60,6 @@
                                       default-background
                                       default-language
                                       default-invocation
-                                      default-boon
-                                      default-draconic-ancestry
                                       default-selection
                                       default-feat
                                       default-race
@@ -4286,43 +4286,45 @@
                   (assoc item prop-key prop-value)))
   (reg-event-fx reset-event (fn [_ _] {:dispatch [set-event default]})))
 
-;; Pact Boon — first content type wired through register-homebrew-content!.
-;; All of boon's handlers live here in one descriptor instead of being scattered.
-(register-homebrew-content!
- {:type-name      "Boon"
-  :save-error     "You must specify 'Name', 'Option Source Name'"
-  :save-event     ::class5e/save-boon
-  :delete-event   ::class5e/delete-boon
-  :edit-event     ::class5e/edit-boon
-  :new-event      ::class5e/new-boon
-  :set-event      ::class5e/set-boon
-  :set-prop-event ::class5e/set-boon-prop
-  :reset-event    ::class5e/reset-boon
-  :builder-item   ::class5e/boon-builder-item
-  :spec           ::class5e/homebrew-boon
-  :plugin-key     ::e5/boons
-  :default        default-boon
-  :route          routes/dnd-e5-boon-builder-page-route
-  :interceptors   boon-interceptors})
+;; Derive a homebrew type's event keywords from its builder-item by the uniform naming
+;; convention EVERY homebrew builder follows: in the builder-item's namespace, the verbs
+;; save-/delete-/edit-/new-/set-/reset-<base> and set-<base>-prop, where <base> is the
+;; builder-item name minus the "-builder-item" suffix (e.g. ::class5e/boon-builder-item ->
+;; ::class5e/save-boon). These same keywords are referenced LITERALLY at their dispatch
+;; sites in views (builder-page, simple-content-builder, the new/edit/delete buttons), so
+;; grepping a specific event still finds where it's used.
+(defn- homebrew-event-keys [builder-item]
+  (let [ns   (namespace builder-item)
+        base (let [n (name builder-item)]
+               (subs n 0 (- (count n) (count "-builder-item"))))
+        ev   #(keyword ns (str % base))]
+    {:save-event (ev "save-")   :delete-event (ev "delete-") :edit-event (ev "edit-")
+     :new-event  (ev "new-")    :set-event    (ev "set-")    :reset-event (ev "reset-")
+     :set-prop-event (keyword ns (str "set-" base "-prop"))}))
 
-;; Draconic Ancestry — mirrors the Pact Boon descriptor. Authored ancestries land in
-;; ::e5/draconic-ancestries, the pool ::races5e/draconic-ancestry-pool already reads.
-(register-homebrew-content!
- {:type-name      "Draconic Ancestry"
-  :save-error     "You must specify 'Name', 'Option Source Name'"
-  :save-event     ::race5e/save-draconic-ancestry
-  :delete-event   ::race5e/delete-draconic-ancestry
-  :edit-event     ::race5e/edit-draconic-ancestry
-  :new-event      ::race5e/new-draconic-ancestry
-  :set-event      ::race5e/set-draconic-ancestry
-  :set-prop-event ::race5e/set-draconic-ancestry-prop
-  :reset-event    ::race5e/reset-draconic-ancestry
-  :builder-item   ::race5e/draconic-ancestry-builder-item
-  :spec           ::race5e/homebrew-draconic-ancestry
-  :plugin-key     ::e5/draconic-ancestries
-  :default        default-draconic-ancestry
-  :route          routes/dnd-e5-draconic-ancestry-builder-page-route
-  :interceptors   draconic-ancestry-interceptors})
+;; The localStorage draft interceptor, built generically from the registry's
+;; :local-storage-key + :builder-item — no per-type ->local-store fn needed.
+(defn- homebrew-local-store-interceptor [{:keys [builder-item local-storage-key]}]
+  [(path builder-item)
+   (after (fn [item]
+            (when js/window.localStorage
+              (set-item local-storage-key (str item)))))])
+
+;; ONE loop wires every homebrew type flagged :homebrew-builder? in the content-types
+;; registry. Adding a new simple homebrew type is a registry entry — NOT an edit here.
+;; (Richer/older types still register their extra option-trait/modifier handlers below.)
+(doseq [{:keys [type-name builder-item spec plugin-key route-kw default save-error] :as ct-entry}
+        (filter :homebrew-builder? ct/content-types)]
+  (register-homebrew-content!
+   (merge (homebrew-event-keys builder-item)
+          {:type-name    type-name
+           :save-error   (or save-error "You must specify 'Name', 'Option Source Name'")
+           :builder-item builder-item
+           :spec         spec
+           :plugin-key   plugin-key
+           :default      (or default {})
+           :route        route-kw
+           :interceptors (homebrew-local-store-interceptor ct-entry)})))
 
 (defn reg-option-selections [option-name option-key interceptors]
   (reg-event-db

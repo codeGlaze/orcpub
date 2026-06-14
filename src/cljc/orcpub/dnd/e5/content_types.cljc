@@ -86,7 +86,10 @@
     :plugin-key :orcpub.dnd.e5/boons
     :route-kw route-map/dnd-e5-boon-builder-page-route
     :route-seg "boon-builder"
-    :local-storage-key "boon"}
+    :local-storage-key "boon"
+    ;; :homebrew-builder? — wired entirely by the events.cljs loop (no per-type code).
+    :homebrew-builder? true
+    :default {}}
    {:id :draconic-ancestry
     :type-name "Draconic Ancestry"
     :builder-item :orcpub.dnd.e5.races/draconic-ancestry-builder-item
@@ -94,7 +97,9 @@
     :plugin-key :orcpub.dnd.e5/draconic-ancestries
     :route-kw route-map/dnd-e5-draconic-ancestry-builder-page-route
     :route-seg "draconic-ancestry-builder"
-    :local-storage-key "draconic-ancestry"}
+    :local-storage-key "draconic-ancestry"
+    :homebrew-builder? true
+    :default {}}
    {:id :selection
     :type-name "Selection"
     :builder-item :orcpub.dnd.e5.selections/builder-item
