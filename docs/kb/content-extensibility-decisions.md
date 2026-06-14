@@ -5,7 +5,12 @@ pivots, the dead-ends, and why we changed our minds — plus the crisp decisions
 produced. For both humans and agents picking this up cold. Design record, not
 verified source behavior. See [content-extensibility.md](content-extensibility.md).
 
-**Date opened:** 2026-06-13. **Stage:** design; no production code changed.
+**Date opened:** 2026-06-13.
+
+> ⚠️ **D12–D16 (added late) DEFLATE D2/D3 and the catalog-grant framing.** The grand
+> registry / DSL was scaled back to "descriptor + a HOF over existing factories, for
+> mechanical boilerplate only." `content-extensibility-direction.md` is the authoritative
+> plan; D1–D11 are kept as the record of how we got there.
 
 ---
 
@@ -56,9 +61,20 @@ Read this to understand what we were thinking at each step, not just where we la
    preserved. → **D9.** See
    [content-extensibility-compatibility.md](content-extensibility-compatibility.md).
 
+9. **Readability review deflated the whole thing.** Pushed on `(catalog/by-parent :race x)`
+   vs `(group-by :race x)`: the wrapper *added* thinking to a clear builtin — negative
+   value. Generalizing: an abstraction must be *thicker* than what it hides and reveal
+   intent. Re-graded everything: the catalog/grant DSL would be more `by-parent`-style
+   indirection; looping readable data (`default-value`) trades readability for little;
+   only *pure boilerplate* (identical passthrough subs) and *fragile* code earn collapsing.
+   Landed on: descriptor + a clear HOF (`register-homebrew-content!`) composing the
+   existing factories, scoped to boilerplate; keep readable code explicit. → **D12–D16.**
+
 The throughline: each pivot came from concrete evidence (a real diff), a domain
-constraint (5e's cross-pollination), or a user-data constraint (existing orcbrew and
-characters) — not from preference. The registry survived; the slot idea did not.
+constraint (5e's cross-pollination), a user-data constraint (existing orcbrew and
+characters), or a readability constraint — not from preference. Note the honest failure
+mode caught along the way: agentic *toadyism* — collapsing/backpedaling when pushed instead
+of holding or refining a position. The corrective is in `verification-discipline.md`.
 
 ## Part 2 — Decision summary
 
@@ -115,3 +131,42 @@ rather than rebuilding a whole option list inside a hot subscription. Guard the 
 with a brief comment. *Why:* avoids the recompute-everything cost and is also the fix for
 the monolithic god-subscriptions (e.g. the 8-input `::classes5e/classes`). *Rejected:*
 inline catalog construction in consumer subs.
+
+---
+
+## Part 3 — Late decisions (deflation; these supersede D2/D3 in scope)
+
+**D12 — Readability is the deciding constraint.** An abstraction earns its keep only when
+it is *thicker* than what it hides AND its interface reveals intent. `by-parent` fails
+(wraps `group-by`) → **revert it**; `reg-save-homebrew` passes (thick, clear, already
+trusted). *Rejected:* applying the registry/loops uniformly "for consistency."
+
+**D13 — Deflate Layer 1 to a descriptor + one HOF, scoped to boilerplate.** A per-type
+descriptor (data) + `register-homebrew-content!` that **composes the existing factories**
+(`reg-save/new/edit-homebrew`, `reg-option-*`). Apply only to mechanical, low-readability
+duplication (e.g. the identical passthrough subs). Keep readable data — notably
+`default-value` — **explicit**. *Rejected:* descriptor-drives-everything loops, and the
+catalog/grant **DSL** (more `by-parent`-style indirection; named subs + `selection-cfg`
+already give the cross-aspect capability without new vocabulary).
+
+**D14 — Don't force genuinely-different kinds into one registrar.** Verified 3 buckets:
+6 "basic" types fit verbatim; 6 "richer" via a readable `:builder-features` flag set
+(`reg-option-traits/modifiers/selections`); deviations stay separate — **magic-item**
+(server-persisted via `::mi/save-item`/`::mi/custom-items`) gets its own
+`register-server-content!`, **selection** gets a `:save-fn` hook (dup-option validation),
+**combat** is excluded (not a builder). *Rejected:* a universal registrar branching on
+every deviation — that's the unreadable god-function trap.
+
+**D15 — HOFs/macros are fine when fed clear inputs.** The codebase already trusts
+`reg-*-homebrew`/`reg-option-*`. The mid-session lean toward "reject HOF/macro" was an
+overcorrection to a readability concern; the real enemy is *thin/obscuring* abstraction,
+not HOFs.
+
+**D16 — Working agreements.** Tests must be **falsifiable** (no theater — "if I break the
+code, does this go red?"); **fix bugs on sight** unless deep enough for their own branch;
+goal is **stabilize while adding features**, not build on shaky foundations.
+
+**Net for next steps:** revert `by-parent`; build `register-homebrew-content!`; swap **boon**
+through it + commit (harness-gated); then create a **new** builder end-to-end to measure the
+real effort. Keep `default-value` explicit; don't build the catalog/grant DSL. Authoritative
+plan: [content-extensibility-direction.md](content-extensibility-direction.md).
