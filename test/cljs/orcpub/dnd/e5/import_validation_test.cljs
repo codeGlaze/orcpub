@@ -522,10 +522,11 @@
                             {:alchemist {:option-pack "Source A" :name "Alchemist" :class :artificer}}}
                 "Source B" {:orcpub.dnd.e5/classes
                             {:artificer {:option-pack "Source B" :name "Artificer B"}}}}
+          ;; apply-key-renames expects :from/:to (matches the real caller in events.cljs).
           renames [{:source "Source A"
                     :content-type :orcpub.dnd.e5/classes
-                    :old-key :artificer
-                    :new-key :artificer-source-a}]
+                    :from :artificer
+                    :to :artificer-source-a}]
           result (import-val/apply-key-renames data renames)]
       ;; Source A's artificer should be renamed
       (is (contains? (get-in result ["Source A" :orcpub.dnd.e5/classes]) :artificer-source-a))
@@ -694,7 +695,9 @@
                             :description "Uses \u201cmagic\u201d"}]
                  :level 3}
           result (import-val/normalize-text-in-data input)]
-      (is (= "Cafe" (:name result)))
+      ;; Accented letters are intentionally PRESERVED (normalize fixes punctuation only;
+      ;; count-non-ascii flags remaining non-ASCII). So "Café" stays "Café".
+      (is (= "Café" (:name result)))
       (is (= "Smart's" (get-in result [:traits 0 :name])))
       (is (= "Uses \"magic\"" (get-in result [:traits 0 :description])))
       (is (= 3 (:level result))))))

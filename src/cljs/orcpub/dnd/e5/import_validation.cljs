@@ -85,7 +85,9 @@
    Returns a map of {:count N :chars #{...}} or nil if all ASCII."
   [s]
   (when (string? s)
-    (let [non-ascii (filter #(> (int %) 127) s)]
+    ;; NB: in cljs a string seqs into 1-char strings, and (int "é") is 0 (not the
+    ;; code point as on the JVM) — use .charCodeAt so non-ASCII is actually detected.
+    (let [non-ascii (filter #(> (.charCodeAt % 0) 127) s)]
       (when (seq non-ascii)
         {:count (count non-ascii)
          :chars (set non-ascii)}))))
@@ -411,25 +413,37 @@
        @changes])))
 
 (defn dedup-options-in-item
-  "Dedup options within all selections of a content item.
+  "Dedup options within a content item. Handles BOTH:
+   (1) the item's own top-level :options — e.g. a homebrew :orcpub.dnd.e5/selections
+       item, which IS a selection with :options directly; and
+   (2) options nested under :selections (class/race level-selections, etc.).
    Returns [updated-item changes]."
   [item]
-  (if-let [selections (:selections item)]
-    (if (map? selections)
-      (let [result (reduce-kv
-                    (fn [acc sel-key sel-data]
-                      (if-let [options (:options sel-data)]
-                        (let [[deduped changes] (dedup-options-in-selection options)]
-                          {:selections (assoc (:selections acc) sel-key
-                                              (assoc sel-data :options deduped))
-                           :changes (into (:changes acc) changes)})
-                        {:selections (assoc (:selections acc) sel-key sel-data)
-                         :changes (:changes acc)}))
-                    {:selections {} :changes []}
-                    selections)]
-        [(assoc item :selections (:selections result)) (:changes result)])
-      [item []])
-    [item []]))
+  (let [;; (1) the item's own top-level :options (homebrew Selection content type)
+        [item own-changes]
+        (if-let [options (:options item)]
+          (let [[deduped changes] (dedup-options-in-selection options)]
+            [(assoc item :options deduped) changes])
+          [item []])
+        ;; (2) options nested under :selections
+        [item nested-changes]
+        (if-let [selections (:selections item)]
+          (if (map? selections)
+            (let [result (reduce-kv
+                          (fn [acc sel-key sel-data]
+                            (if-let [options (:options sel-data)]
+                              (let [[deduped changes] (dedup-options-in-selection options)]
+                                {:selections (assoc (:selections acc) sel-key
+                                                    (assoc sel-data :options deduped))
+                                 :changes (into (:changes acc) changes)})
+                              {:selections (assoc (:selections acc) sel-key sel-data)
+                               :changes (:changes acc)}))
+                          {:selections {} :changes []}
+                          selections)]
+              [(assoc item :selections (:selections result)) (:changes result)])
+            [item []])
+          [item []])]
+    [item (into (vec own-changes) nested-changes)]))
 
 (defn dedup-options-in-plugin
   "Dedup options in all selections across all content types in a plugin.
