@@ -13,6 +13,14 @@ Each step is small, behavior-preserving, and must leave the gate green
       the stable-key fix. Clean auto-merge; gate green (220/1092/0, lint 0). **Live/E2E
       verification still needed** (JVM gate doesn't run cljs subs or the app):
       see `docs/kb/content-extensibility-e2e.md`.
+- [x] **Live E2E verification (PR #28): all PASS / covered, no regressions.** A
+      full-environment run (figwheel + browser + Datomic) confirmed the catalog seams
+      end-to-end: homebrew subrace under built-in Elf, subclass under built-in Sorcerer,
+      boon + invocation in the Warlock builder, byte-identical character round-trip. Item 1
+      "failures" are pre-existing on `develop`; this branch's 18 added tests all pass.
+      Items 7/10 accepted as covered by `content-reconciliation-test/*` + the round-trip
+      golden. Fixture for the gaps: `test/extensibility-fixtures.orcbrew` (commit `f977ba9`).
+      **Merge is sequencing-blocked on #27** (name-keyword-fix) landing on `develop` first.
 
 - [x] **Setup** — toolchain (lein + deps), baseline gate green.
 - [x] **Phase 0 — safety net.** `extensibility_golden_test.cljc` locks compat invariants
