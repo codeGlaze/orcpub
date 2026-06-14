@@ -78,9 +78,10 @@ the opposite: real tests left unrun (§1).
 
 ## 5. Open decisions / recommendations (so we don't re-litigate)
 
-- **The dead `character_test.cljc`:** retire it with an explainer comment (it validates a
-  representation that no longer exists; note the sub-vs-spec name collision), OR modernize
-  it. Either way, **fix the duplicate namespace**.
+- **The dead `character_test.cljc`:** its *intent* (validate a character) is preserved in
+  [character-validation.md](character-validation.md), so it can now be safely retired with
+  an explainer comment pointing there (it validates a representation that no longer exists;
+  note the sub-vs-spec name collision). **Fix the duplicate namespace** when you do.
 - **Built-character validation:** if pursued, use **one narrow contract** (e.g.
   abilities / `base-abilities` present) enforced at `make-summary`/save (fail-fast) — the
   guard *is* the spec applied at the chokepoint. **Not** a big speculative `spec/keys` over

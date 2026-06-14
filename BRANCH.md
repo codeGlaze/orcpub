@@ -118,6 +118,9 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
   `docs/kb/content-extensibility-e2e.md` (live verification checklist for a VS Code agent)
 - `docs/kb/test-suite-state.md` — verified state of the test suites, the pre-existing cljs
   failures (classified), the `::character`/built-character spec findings, open decisions
+- `docs/kb/character-validation.md` — preserves the *intent* of validating a character
+  (Larry's 2016 test) + the modern, falsifiable replacement charter (own-branch). Capture
+  this before retiring the broken `character_test.cljc`.
 - Cross-references: `docs/kb/spa-routing-architecture.md`,
   `entity-options-architecture.md`, `srd-vs-plugin-content.md`,
   `views-builders-split.md`, `docs/issues/homebrew-builders.md` (all on `agents/develop`)
