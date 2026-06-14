@@ -4355,12 +4355,6 @@
 (defn language-input-field [title prop language & [class-names]]
   (builder-input-field title prop language ::langs/set-language-prop class-names))
 
-(defn invocation-input-field [title prop invocation & [class-names]]
-  (builder-input-field title prop invocation ::classes/set-invocation-prop class-names))
-
-(defn boon-input-field [title prop boon & [class-names]]
-  (builder-input-field title prop boon ::classes/set-boon-prop class-names))
-
 (defn selection-input-field [title prop selection & [class-names]]
   (builder-input-field title prop selection ::selections/set-selection-prop class-names))
 
@@ -6518,47 +6512,45 @@
        {:value (get language :description)
         :on-change #(dispatch [::langs/set-language-prop :description %])}]]]))
 
-(defn boon-builder []
-  (let [boon @(subscribe [::classes/boon-builder-item])]
+(defn simple-content-builder
+  "Generic builder form for a 'simple' homebrew content type: Name + Option Source +
+   Description, plus any `extra-fields` (hiccup, rendered after Description) for richer types.
+   Replaces the per-type copy-paste builders (boon-builder, invocation-builder, …) that
+   differed ONLY by their set-prop event keyword — the form itself is data.
+     `item-sub`     — the ::…/builder-item subscription key
+     `set-prop`     — the ::…/set-*-prop event keyword
+     `extra-fields` — optional seq of hiccup forms for richer types (e.g. a damage-type
+                      dropdown). Built from the same field widgets, so a new type's form is a
+                      field list, not a bespoke component."
+  [item-sub set-prop & [extra-fields]]
+  (let [item @(subscribe [item-sub])]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
-      [boon-input-field
+      [builder-input-field
        "Name"
        :name
-       boon
+       item
+       set-prop
        "m-b-20"]
       [plugin-datalist
        option-source-name-label
-       boon
-       ::classes/set-boon-prop]
+       item
+       set-prop]
       ]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
        "Description"]
       [textarea-field
-       {:value (get boon :description)
-        :on-change #(dispatch [::classes/set-boon-prop :description %])}]]]))
+       {:value (get item :description)
+        :on-change #(dispatch [set-prop :description %])}]]
+     (when (seq extra-fields)
+       (into [:div.w-100-p] extra-fields))]))
+
+(defn boon-builder []
+  (simple-content-builder ::classes/boon-builder-item ::classes/set-boon-prop))
 
 (defn invocation-builder []
-  (let [invocation @(subscribe [::classes/invocation-builder-item])]
-    [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [invocation-input-field
-       "Name"
-       :name
-       invocation
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       invocation
-       ::classes/set-invocation-prop]
-      ]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get invocation :description)
-        :on-change #(dispatch [::classes/set-invocation-prop :description %])}]]]))
+  (simple-content-builder ::classes/invocation-builder-item ::classes/set-invocation-prop))
 
 (defn monster-builder []
   (let [{:keys [name
