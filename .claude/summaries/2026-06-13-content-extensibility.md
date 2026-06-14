@@ -112,3 +112,16 @@ both in the final PR/handoff so they aren't lost.
 Several confident claims this session were wrong until verified (spec history, sub-vs-spec, which import tests failed). Lessons captured in `docs/kb/verification-discipline.md`: verify against real callers/intent/runtime before asserting; a red test means test+code DISAGREE, not that code is broken.
 
 RE-ANCHOR: the branch's founding purpose is **content extensibility** (Phases 0–4b done; next core step = 4c, gated by the new headless cljs harness). The test-suite / import-validation triage is a semi-related tangent that produced the harness — which enables safely finishing 4c–4f. Don't let the tangent become the branch.
+
+## DIRECTION DEFLATED (late session — read the direction doc)
+After a readability review the grand registry / catalog-grant DSL was **deliberately
+scaled back**. Authoritative plan now: `docs/kb/content-extensibility-direction.md`.
+Principle: an abstraction earns its keep only if it's thicker than what it hides and
+reveals intent (`by-parent` failed this → revert to `group-by`). Agreed shape: a
+descriptor + `register-homebrew-content!` HOF composing the existing factories, scoped
+to mechanical boilerplate; keep readable data (`default-value`) explicit; magic-item
+stays its own server-backed registrar; do NOT build a catalog/grant DSL.
+Audit: 12 types share the shape (6 basic, 6 +`:builder-features`), 3 deviate.
+cljs verification recipe: `docs/kb/cljs-headless-harness.md` (ephemeral; rebuild).
+Next: revert by-parent; swap boon through the HOF + commit; create a NEW builder to
+measure effort. Goal: stabilize while adding features.

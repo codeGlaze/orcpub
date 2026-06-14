@@ -1,5 +1,19 @@
 # Branch Context: claude/zen-wright-04xhdz
 
+> **READ FIRST (current direction):** `docs/kb/content-extensibility-direction.md` — the
+> plan was deliberately **deflated** after a readability review. The original grand
+> registry / "catalog-grant DSL" framing in `content-extensibility.md` / `-plan.md` is
+> now *history*; the direction doc is the real plan. Principle: *an abstraction earns its
+> keep only when it's thicker than what it hides and reveals intent.*
+>
+> Verifying cljs in this container: `docs/kb/cljs-headless-harness.md` (rebuild recipe;
+> the harness lives in ephemeral `/tmp`+`target`).
+>
+> **Immediate next steps:** (1) revert `by-parent` → `group-by`; (2) build
+> `register-homebrew-content!` and swap **boon** through it + commit (harness-gated);
+> (3) create a NEW builder end-to-end to measure the real "add a feature" effort.
+> Goal: **stabilize while adding features, not build on shaky foundations.**
+
 ## Purpose
 Capture the content-extensibility analysis and plan, and implement it in gated phases
 (reducing the multi-file cost of adding a content type/builder to the 5e app).
