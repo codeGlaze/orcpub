@@ -219,6 +219,38 @@ set/set-prop → output validates against the save spec) + the pool + round-trip
 injection. So adding a type is genuinely cheaper now; the residue is the field schema + the
 occasional custom field widget, exactly as D22 predicted.
 
+### Foundation: registry DRIVES the layers (the real "fewer files" fix)
+The original complaint was *file count*, not per-file effort. `content_types` was built as a
+passive list only the subs loop read; every other layer was hand-wired per type → "9 files of
+one-liners." The fix: make each layer **generate** its wiring from the registry. Progress
+(each behavior-preserving, harness-gated):
+
+- ✅ **events** (`d2e002b4`) — ONE loop over `:homebrew-builder?` registry entries calls
+  `register-homebrew-content!`. Event keywords derived from `:builder-item` by the uniform
+  `<ns>/<verb>-<base>` convention (still literal at dispatch sites, so grep works); the
+  localStorage interceptor built generically from `:local-storage-key`. **No events.cljs edit**
+  for a new homebrew type.
+- ✅ **db** (`af68061d`) — the `:homebrew-builder?` types' `default-value` builder-item slots
+  generated from the registry's `:builder-item` + `:default`. **No db.cljs edit** for new types.
+- ⏭️ **routes** (NEXT — clean but surgical; do as a focused pass): bidi tree segments, the
+  `dnd-e5-my-content-routes` set, and the `routes.clj` server allowlist are all `route-seg` /
+  `route-kw` data already in the registry → generatable. Plan: (1) break the
+  `content_types → route_map` dep cycle — store `:route-kw` as a **plain keyword literal**, drop
+  the route-map require (registry becomes a pure-data leaf), add a drift-guard test
+  (content_types_test *can* require route_map, asserts each literal == its route-map var);
+  (2) add a `:section` field (`:my-content`/`:spell`/`:monster`/`:encounter`) so the section
+  route-sets generate; (3) `route_map` + `routes.clj` require the now-leaf registry and generate
+  segments/sets/allowlist. Failure modes are **fail-closed** (missing entry → 404, not a
+  security hole) and testable. Surgical because the bidi tree is a deeply-nested map mixing the
+  14 with non-registry routes (combat-tracker, magic-items, character pages) — separate the 14
+  and `merge`.
+- ⚠️ **core page-map** — NOT a clean win, skip: a builder's view *function* can't be derived
+  from data (cljs has no reliable runtime symbol→var resolution), so generating it only *moves*
+  a per-type binding (best co-located in a `views/builder-page-views` map next to the forms).
+  The view-fn binding is irreducible; put it where the form already is.
+
+**Net after events+db:** adding a homebrew type no longer touches events.cljs or db.cljs.
+
 ### NEXT levers (pick per value)
 - (a) the generic **grant-authoring UI** so authors declare "grant a choice from pool X" in a
   builder (where the N+M maintainability win becomes user-visible — the biggest remaining lever);

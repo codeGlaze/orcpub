@@ -24,9 +24,12 @@
 > Ancestry builder end-to-end**: author in-app → pool → export → import → character round-trip,
 > all gated. Measured cost: 9 files but only 2 required thought (the view's damage-type field +
 > the spec); the rest were 1-line registrations via register-homebrew-content!/simple-content-builder/
-> content_types. (6) **NEXT levers:** generic grant-authoring **UI** (biggest remaining win);
-> spec-from-field-schema; sorcerer cross-silo reuse; breath-area + the level-gated/variant pins.
-> See direction doc v2 §"The spine", §"Maintainability", §"Builder FORMS are data", + the PINS.
+> content_types. (6) ✅ **registry now DRIVES the layers** (the real "fewer files" fix): events
+> (`d2e002b4`) + db (`af68061d`) wiring generated from `content_types` — a new homebrew type no
+> longer touches events.cljs or db.cljs (behavior-preserving, harness-gated). (7) **NEXT:** the
+> **routes** layer (clean but surgical — cycle break + `:section` + generate bidi/sets/allowlist;
+> direction doc §"Foundation"); then grant-authoring UI; the live breath-weapon bug (user
+> deprioritized vs the foundation). See direction doc v2 §"Foundation", §"The spine".
 > Goal: **stabilize while adding features — stability and flexibility are the SAME abstraction.**
 
 ## Purpose
