@@ -45,6 +45,28 @@
       (is (spec/valid? ::e5/content-keyword plugin-key)
           (str id " plugin-key " plugin-key " must satisfy ::e5/content-keyword")))))
 
+(deftest builder-items-match-the-subs
+  ;; Phase 4b generates the ::<type>/builder-item passthrough subscriptions by looping
+  ;; this registry (spell_subs.cljs). A builder form subscribes to its builder-item; if
+  ;; the registry's set drifts from what the forms expect, that form silently breaks.
+  ;; Lock the set here so drift fails loudly instead. (This is the JVM-side guard for a
+  ;; cljs change we can't run in CI.)
+  (testing "registry builder-items are exactly the 13 the builder-item subs feed"
+    (is (= #{:orcpub.dnd.e5.spells/builder-item
+             :orcpub.dnd.e5.monsters/builder-item
+             :orcpub.dnd.e5.encounters/builder-item
+             :orcpub.dnd.e5.backgrounds/builder-item
+             :orcpub.dnd.e5.languages/builder-item
+             :orcpub.dnd.e5.classes/invocation-builder-item
+             :orcpub.dnd.e5.classes/boon-builder-item
+             :orcpub.dnd.e5.selections/builder-item
+             :orcpub.dnd.e5.feats/builder-item
+             :orcpub.dnd.e5.races/builder-item
+             :orcpub.dnd.e5.races/subrace-builder-item
+             :orcpub.dnd.e5.classes/subclass-builder-item
+             :orcpub.dnd.e5.classes/builder-item}
+           (set (map :builder-item ct/content-types))))))
+
 (deftest specs-resolve-and-keys-are-well-formed
   (testing "every :spec names a registered spec (catches a wrong/renamed spec keyword)"
     (doseq [{:keys [id spec]} ct/content-types]

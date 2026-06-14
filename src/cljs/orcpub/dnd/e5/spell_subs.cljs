@@ -25,6 +25,7 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.option-catalog :as catalog]
+            [orcpub.dnd.e5.content-types :as ct]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils]
             [orcpub.dnd.e5.template-base :as t-base]
@@ -1273,70 +1274,14 @@
                      (spell-option spells-map [nil spell-key ability-key class-name]))))
              levels))))
 
-(reg-sub
- ::spells5e/builder-item
- (fn [db _]
-   (::spells5e/builder-item db)))
-
-(reg-sub
- ::bg5e/builder-item
- (fn [db _]
-   (::bg5e/builder-item db)))
-
-(reg-sub
- ::races5e/builder-item
- (fn [db _]
-   (::races5e/builder-item db)))
-
-(reg-sub
- ::races5e/subrace-builder-item
- (fn [db _]
-   (::races5e/subrace-builder-item db)))
-
-(reg-sub
- ::classes5e/subclass-builder-item
- (fn [db _]
-   (::classes5e/subclass-builder-item db)))
-
-(reg-sub
- ::classes5e/invocation-builder-item
- (fn [db _]
-   (::classes5e/invocation-builder-item db)))
-
-(reg-sub
- ::classes5e/boon-builder-item
- (fn [db _]
-   (::classes5e/boon-builder-item db)))
-
-(reg-sub
- ::classes5e/builder-item
- (fn [db _]
-   (::classes5e/builder-item db)))
-
-(reg-sub
- ::feats5e/builder-item
- (fn [db _]
-   (::feats5e/builder-item db)))
-
-(reg-sub
- ::langs5e/builder-item
- (fn [db _]
-   (::langs5e/builder-item db)))
-
-(reg-sub
- ::monsters5e/builder-item
- (fn [db _]
-   (::monsters5e/builder-item db)))
-
-(reg-sub
- ::encounters5e/builder-item
- (fn [db _]
-   (::encounters5e/builder-item db)))
-
-(reg-sub
- ::selections5e/builder-item
- (fn [db _]
-   (::selections5e/builder-item db)))
+;; Builder-item passthrough subscriptions, generated from the content-types registry
+;; (Phase 4b). Each homebrew content type exposes its in-progress builder item via
+;; ::<type>/builder-item. This loop registers the same 13 subs the hand-written block
+;; used to; the registry is the single source of truth (see content_types.cljc).
+;; content_types_test/builder-items-match-the-subs locks this set against drift.
+;; (Magic-item and combat are not registry types — the combat tracker-item sub stays below.)
+(doseq [{:keys [builder-item]} ct/content-types]
+  (reg-sub builder-item (fn [db _] (get db builder-item))))
 
 (reg-sub
  ::combat5e/tracker-item
