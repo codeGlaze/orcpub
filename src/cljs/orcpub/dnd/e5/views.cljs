@@ -2192,7 +2192,7 @@
 
 (defn labeled-dropdown [label cfg]
   [:div
-   [:div.f-w-b.m-b-5 label]
+   [:div.builder-field-label label]
    [dropdown cfg]])
 
 (defn button-roll-fn [message roll]

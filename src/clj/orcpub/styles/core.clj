@@ -1089,13 +1089,21 @@
       :font-weight :normal}]
 
     [:.builder-option-dropdown
-     (merge
-      {:background-color :transparent
-       :width "100%"
-       :cursor :pointer
-       :border "1px solid white"}
-      text-color
-      (handle-browsers :appearance :menulist))
+     {:background-color "#11161d"
+      :color :white
+      :width "100%"
+      :cursor :pointer
+      :border "1px solid rgba(255,255,255,0.1)"
+      :border-radius "8px"
+      :padding "10px 34px 10px 12px"
+      :font-size "14px"
+      :-webkit-appearance :none
+      :-moz-appearance :none
+      :appearance :none
+      ;; inline SVG caret (no native arrow once appearance:none)
+      :background-image "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath fill='none' stroke='%238893a2' stroke-width='2' d='M1 1l5 5 5-5'/%3E%3C/svg%3E\")"
+      :background-repeat :no-repeat
+      :background-position "right 12px center"}
 
      [:&:active :&:focus
       {:outline :none}]]
@@ -1212,14 +1220,23 @@
     [:.personality-label
      {:font-size "18px"}]
 
+    ;; muted uppercase form-field label (Size, Speed, Strength, the 'Choose' dropdown…)
+    [:.builder-field-label
+     {:font-size "11px"
+      :font-weight 700
+      :letter-spacing "0.07em"
+      :text-transform :uppercase
+      :color "#7e8897"
+      :margin-bottom "5px"}]
+
     [:.input
-     {:background-color :transparent
+     {:background-color "#11161d"
       :color :white
-      :border "1px solid white"
-      :border-radius "5px"
+      :border "1px solid rgba(255,255,255,0.1)"
+      :border-radius "8px"
       :margin-top "5px"
       :display :block
-      :padding "10px"
+      :padding "10px 12px"
       :width "100%"
       :box-sizing :border-box
       :font-size "14px"}]
@@ -1744,13 +1761,15 @@
 
     ;; ----- section containment & parent/child nesting -----
     ;; Top-level section = elevated card; nested child = recessed well inside it.
+    ;; flat surface (no drop shadow) — elevation is reserved for the header band,
+    ;; modals, the stepper, and popovers, so sections don't out-rank the page header.
     [:.opt-section
      {:background "#1b232f"
       :border "1px solid rgba(255,255,255,0.08)"
       :border-radius "14px"
       :padding "20px 22px 22px"
       :margin-bottom "18px"
-      :box-shadow "0 1px 0 rgba(255,255,255,0.04) inset, 0 14px 34px -20px rgba(0,0,0,0.8)"}]
+      :box-shadow "inset 0 1px 0 rgba(255,255,255,0.03)"}]
 
     [:.opt-subsections
      {:display :flex
