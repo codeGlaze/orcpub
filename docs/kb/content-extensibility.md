@@ -1,5 +1,7 @@
 # Content Extensibility
 
+> ⚠️ **SUPERSEDED / DEFLATED — see `docs/kb/content-extensibility-direction.md`.** This doc is *history*: the grand registry / catalog-grant framing was scaled back after a readability review. Read it for analysis/context, not as the plan.
+
 **Purpose:** Explain why adding a content type or builder to the 5e app touches so
 many files, and propose a direction to reduce that cost without losing the
 standardization the codebase already has.

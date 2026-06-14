@@ -1,5 +1,7 @@
 # Content Extensibility — Implementation Plan
 
+> ⚠️ **SUPERSEDED / DEFLATED — see `docs/kb/content-extensibility-direction.md`.** This doc is *history*: the grand registry / catalog-grant framing was scaled back after a readability review. Read it for analysis/context, not as the plan.
+
 **Purpose:** A step-by-step playbook to implement the content-extensibility redesign
 safely. Written for agents with little context: follow it literally, in order, and stop
 where it says stop. Do not improvise.
