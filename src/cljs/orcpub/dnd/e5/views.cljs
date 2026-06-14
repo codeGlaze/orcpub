@@ -4762,17 +4762,49 @@
     [:div.flex-grow-1
      [item-condition-immunities]]]])
 
+(defn builder-field-cue
+  "Cue class for a required field (or a set of related keys) rendered by a
+   component other than the text inputs — reads the same :builder-field-errors
+   map. Red if any related key is invalid, amber if any is missing."
+  [field-or-keys]
+  (let [errors @(subscribe [:builder-field-errors])
+        ks (if (coll? field-or-keys) field-or-keys [field-or-keys])
+        statuses (keep #(get errors %) ks)]
+    (cond
+      (some #{:invalid} statuses) " builder-field-invalid"
+      (some #{:missing} statuses) " builder-field-unfilled"
+      :else "")))
+
 (defn builder-input-field [title prop item prop-event & [class-names type]]
-  [:div.flex-grow-1
-   {:class class-names
-    :name prop}
-   [input-builder-field
-    [:span.f-w-b title]
-    (prop item)
-    #(dispatch [prop-event prop %])
-    {:class "input h-40"
-     :type type
-     :maxLength (:text branding/field-limits)}]])
+  ;; Flag a required field that failed the last save: amber if it was empty,
+  ;; red if it was filled but rejected (e.g. a name not starting with a letter).
+  ;; Editing the field clears its own save-cue.
+  (let [v (prop item)
+        ;; Live: a name that's present but doesn't start with a letter is wrong
+        ;; the instant it's typed — flag it red immediately, before any save.
+        live-invalid? (and (= prop :name)
+                           (string? v) (not (s/blank? v))
+                           (not (common/starts-with-letter? v)))
+        cue (cond
+              live-invalid? " builder-field-invalid"
+              :else (case (get @(subscribe [:builder-field-errors]) prop)
+                      :missing " builder-field-unfilled"
+                      :invalid " builder-field-invalid"
+                      ""))]
+    [:div.flex-grow-1
+     {:class class-names
+      :name prop}
+     [input-builder-field
+      [:span.f-w-b title]
+      v
+      #(do (dispatch [prop-event prop %])
+           (dispatch [:clear-builder-field-error prop]))
+      {:class (str "input h-40" cue)
+       :type type
+       :maxLength (:text branding/field-limits)}]
+     (when live-invalid?
+       [:div.f-s-12.m-t-2 {:style {:color "#d9534f"}}
+        "Name must start with a letter."])]))
 
 #_(defn item-input-field [title prop item & [class-names]]
   (builder-input-field title prop item ::mi/set-item-name class-names))
@@ -5678,7 +5710,11 @@
                 :list "plugins-list"
                 :name "plugins-choice"
                 :id "plugins-choice"
-                :class "input h-40"
+                :class (str "input h-40"
+                            (case (get @(subscribe [:builder-field-errors]) :option-pack)
+                              :missing " builder-field-unfilled"
+                              :invalid " builder-field-invalid"
+                              ""))
                 :placeholder "Default Option Source"
                 :value @selected-value
                 :onChange #(do
@@ -5688,6 +5724,7 @@
                              ;    w/ new value to save to app db (can be used elsewhere in app)
                              (reset! selected-value (-> % .-target .-value))
                              (dispatch [dispatch-event :option-pack @selected-value])
+                             (dispatch [:clear-builder-field-error :option-pack])
                              )
                 }]
        [:datalist {:id "plugins-list" :class "width-100-p"}
@@ -6911,9 +6948,12 @@
                  [:span.f-w-b "Name"]
                  name
                  #(dispatch [::selections/set-selection-path-prop [:options i :name] %])
-                 {:class "input h-40"
-                  :style (when (or is-dupe? is-empty?)
-                           {:border "2px solid red"})}]
+                 ;; Shared cue: amber when empty (missing), red when a duplicate
+                 ;; (invalid) — same language as every other builder field.
+                 {:class (str "input h-40"
+                              (cond is-dupe? " builder-field-invalid"
+                                    is-empty? " builder-field-unfilled"
+                                    :else ""))}]
                 (when is-dupe?
                   [:div.red.f-s-12.m-t-2
                    "Duplicate name \u2014 rename to a unique name before saving"])
@@ -7079,7 +7119,8 @@
        monster
        "m-b-5 m-l-5 flex-grow-1"]]
      [:div.flex.w-100-p.flex-wrap
-       [:div.m-l-5.m-b-20
+       [:div.m-l-5.m-b-20.p-5.b-rad-5
+        {:class (builder-field-cue #{:hit-points :die-count})}
         [labeled-dropdown
          "HP Die Count"
          {:items (cons
@@ -7088,8 +7129,12 @@
                    value-to-item
                    (range 1 36)))
           :value (get hit-points :die-count)
-          :on-change #(let [v (js/parseInt %)] (dispatch [::monsters/set-monster-path-prop [:hit-points :die-count] (when (not (js/isNaN v)) v)]))}]]
-       [:div.m-l-5.m-b-20
+          :on-change #(let [v (js/parseInt %)]
+                        (dispatch [::monsters/set-monster-path-prop [:hit-points :die-count] (when (not (js/isNaN v)) v)])
+                        (dispatch [:clear-builder-field-error :die-count])
+                        (dispatch [:clear-builder-field-error :hit-points]))}]]
+       [:div.m-l-5.m-b-20.p-5.b-rad-5
+        {:class (builder-field-cue #{:hit-points :die})}
         [labeled-dropdown
          "HP Die"
          {:items (cons
@@ -7099,7 +7144,9 @@
                    dice/dice-sides))
           :value (get hit-points :die)
           :on-change #(let [v (js/parseInt %)]
-                        (dispatch [::monsters/set-monster-path-prop [:hit-points :die] (when (not (js/isNaN v)) v)]))}]]
+                        (dispatch [::monsters/set-monster-path-prop [:hit-points :die] (when (not (js/isNaN v)) v)])
+                        (dispatch [:clear-builder-field-error :die])
+                        (dispatch [:clear-builder-field-error :hit-points]))}]]
        [:div.m-l-5.m-b-20
         [input-builder-field
          [:span.f-w-b.m-b-5.f-s-16 "HP Modifier"]
@@ -7808,12 +7855,14 @@
          :on-change #(dispatch [::spells/set-spell-prop :description %])}]]]
      [:div.m-b-20
       [:div.f-w-b.m-b-10 "Add This Spell to Which Class Spell Lists?"]
-      [:div.flex.flex-wrap
+      [:div.flex.flex-wrap.p-5.b-rad-5
+       {:class (builder-field-cue :spell-lists)}
        (map
         (fn [{:keys [key name]}]
           ^{:key key}
           [:div.m-r-10.pointer.m-b-10
-           {:on-click #(dispatch [::spells/toggle-spell-list key])}
+           {:on-click #(do (dispatch [::spells/toggle-spell-list key])
+                           (dispatch [:clear-builder-field-error :spell-lists]))}
            [comps/checkbox (get-in spell [:spell-lists key])]
            [:span.m-l-5 name]])
         @(subscribe [::spells/spellcasting-classes]))]]]))

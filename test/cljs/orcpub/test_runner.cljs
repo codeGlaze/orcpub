@@ -9,7 +9,9 @@
             [orcpub.dnd.e5.events-test]
             [orcpub.dnd.e5.subs-test]
             [orcpub.dnd.e5.content-reconciliation-test]
-            [orcpub.dnd.e5.views-test]))
+            [orcpub.dnd.e5.views-test]
+            ;; orcbrew import/export validation
+            [orcpub.dnd.e5.orcbrew-validation-test]))
 
 (defn -main []
   (run-tests 'orcpub.common-test
@@ -19,7 +21,8 @@
              'orcpub.dnd.e5.events-test
              'orcpub.dnd.e5.subs-test
              'orcpub.dnd.e5.content-reconciliation-test
-             'orcpub.dnd.e5.views-test))
+             'orcpub.dnd.e5.views-test
+             'orcpub.dnd.e5.orcbrew-validation-test))
 
 ;; Auto-run when figwheel reloads
 (defn ^:after-load on-reload []
