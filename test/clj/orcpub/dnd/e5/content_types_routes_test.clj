@@ -5,7 +5,8 @@
    still equals the corresponding route_map var, so they can't silently diverge."
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.dnd.e5.content-types :as ct]
-            [orcpub.route-map :as route-map]))
+            [orcpub.route-map :as route-map]
+            [orcpub.routes :as routes]))
 
 (deftest route-kw-literals-match-route-map-vars
   (testing "each registry :route-kw equals route_map's dnd-e5-<route-seg>-page-route var"
@@ -23,3 +24,19 @@
       (let [m (route-map/match-route (str "/pages/dnd/5e/" route-seg))]
         (is (= route-kw (:handler m))
             (str id ": /pages/dnd/5e/" route-seg " must resolve to " route-kw))))))
+
+(deftest my-content-route-set-is-generated-correctly
+  (testing "my-content holds every builder EXCEPT spell/monster/encounter"
+    (let [s route-map/dnd-e5-my-content-routes]
+      (is (contains? s route-map/dnd-e5-my-content-route))
+      (doseq [{:keys [id route-kw]} ct/content-types]
+        (if (#{:spell :monster :encounter} id)
+          (is (not (contains? s route-kw)) (str id " must NOT be in my-content"))
+          (is (contains? s route-kw) (str id " must be in my-content")))))))
+
+(deftest every-builder-is-allow-listed-to-serve-the-spa
+  (testing "index-page-paths (the SPA allowlist) includes every registry builder route"
+    (let [allowed (set (map first routes/index-page-paths))]
+      (doseq [{:keys [id route-kw]} ct/content-types]
+        (is (contains? allowed route-kw)
+            (str id " (" route-kw ") must be allow-listed in index-page-paths"))))))
