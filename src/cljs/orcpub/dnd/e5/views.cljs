@@ -4683,15 +4683,12 @@
 (defn item-modifier-toggles [title item-kws toggle-event has-sub]
   (base-builder-field
    [:div.f-w-b.m-b-5 title]
-   [:div
-    (doall
-     (map
-      (fn [type-kw]
-        ^{:key type-kw}
-        [:div
-         {:on-click #(dispatch [toggle-event type-kw])}
-         [labeled-checkbox (common/safe-capitalize-kw type-kw) @(subscribe [has-sub type-kw])]])
-      item-kws))]))
+   [omv/option-menu
+    {:menu-id [:item-modifier toggle-event]
+     :options (omv/checkbox-options
+               (map (fn [kw] {:key kw :name (common/safe-capitalize-kw kw)}) item-kws)
+               (fn [item] @(subscribe [has-sub (:key item)]))
+               (fn [item] (dispatch [toggle-event (:key item)])))}]))
 
 (defn item-damage-resistances []
   [item-modifier-toggles
