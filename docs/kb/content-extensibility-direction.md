@@ -73,12 +73,26 @@ current state is fully bespoke; the common registrar is strictly less duplicatio
 1. ✅ **DONE** (`9777ce88`) — reverted `by-parent` *and* `plugin-options` (the latter was
    used in only 2 of ~11 sites — inconsistent), deleted `option_catalog`, subs back to plain
    `group-by`/`mapcat`. Behavior-preserving; harness-verified.
-2. **Build `register-homebrew-content!`** (composing the existing factories) and **swap one
-   existing builder (boon) through it + commit** — gated by the headless cljs harness
-   (`cljs-headless-harness.md`).
+2. ✅ **DONE** (`3980ea1b`) — built `register-homebrew-content!` (a HOF composing the
+   existing `reg-save/delete/edit/new-homebrew` factories + the mechanical set/set-prop/
+   reset events from one descriptor) and swapped **boon** through it: 7 scattered sites in
+   `events.cljs` → 1 colocated descriptor. Every event keyword stays explicit (greppable,
+   not derived). Behavior-preserving; harness-verified (74 tests / 1 pre-existing failure /
+   0 errors). Added falsifiable tests in `events_test.cljs` (all 7 handlers registered via
+   the HOF; set/set-prop mutate the builder-item as before).
 3. **Create a NEW builder end-to-end** to measure the real "add a feature" effort going
    forward (the actual test of whether this helps).
 4. Keep `default-value` explicit; do not build the catalog/grant DSL; do not loop readable data.
+
+### Notes for step 3 (the new builder)
+- `register-homebrew-content!` lives in `events.cljs` right after `reg-new-homebrew`. It
+  covers the **events** layer only. A new builder still needs its other (genuine) layers:
+  the builder *form* (views), the *spec*, db `default-value`/local-store slot, route
+  keyword + bidi/route-set/allowlist entries, and a `builder-item` passthrough sub (already
+  looped via `content_types` in `spell_subs.cljs`). That's the ~5-edit irreducible core.
+- A "basic" type (bucket 1) needs no `:builder-features`; the descriptor maps 1:1 to boon's.
+  Define its `*-interceptors` (`[(path ::.../builder-item) ...->local-store-interceptor]`)
+  and a `default-*` first, then one `register-homebrew-content!` call.
 
 ## What already stands (don't redo)
 - Phase 4b (13 identical passthrough subs → one loop) — a clean fit, keep.

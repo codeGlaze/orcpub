@@ -10,10 +10,12 @@
 > the harness lives in ephemeral `/tmp`+`target`).
 >
 > **Immediate next steps:** (1) ✅ DONE (`9777ce88`) — reverted `by-parent` *and*
-> `plugin-options`, deleted `option_catalog`; subs back to `group-by`/`mapcat`. (2) **NEXT:**
-> build `register-homebrew-content!` (a HOF composing the existing `reg-*-homebrew` factories)
-> and swap the **boon** builder through it + commit (harness-gated); (3) create a NEW builder
-> end-to-end to measure the real "add a feature" effort.
+> `plugin-options`, deleted `option_catalog`; subs back to `group-by`/`mapcat`. (2) ✅ DONE
+> (`3980ea1b`) — built `register-homebrew-content!` (a HOF composing the existing
+> `reg-*-homebrew` factories) and swapped **boon** through it: 7 scattered `events.cljs`
+> sites → 1 colocated descriptor; harness-verified; falsifiable handler-registration tests
+> added. (3) **NEXT:** create a NEW builder end-to-end to measure the real "add a feature"
+> effort (see the direction doc's "Notes for step 3" for the remaining genuine layers).
 > Goal: **stabilize while adding features, not build on shaky foundations.**
 
 ## Purpose
@@ -27,9 +29,9 @@ doc): no grand registry/DSL — collapse *pure boilerplate* behind clear HOFs, k
 code explicit. What stands: the `content_types` registry (data + audit test) and the
 Phase-4b builder-item subs loop. The thin `option_catalog` wrappers were **reverted** (`9777ce88`).
 
-**Current state / next core step:** build **`register-homebrew-content!`** (a clear HOF over
-the existing factories) and prove it by swapping the **boon** builder, then create one NEW
-builder to measure effort. The test-suite triage (rotted cljs suite, dead `character_test.cljc`,
+**Current state / next core step:** ✅ `register-homebrew-content!` is built and boon is
+swapped through it (`3980ea1b`). **Next core step:** create one NEW builder end-to-end to
+measure the real "add a feature" effort. The test-suite triage (rotted cljs suite, dead `character_test.cljc`,
 import fixes) was a tangent that produced the **headless cljs harness** — our means of gating
 cljs work. Don't let the tangent become the branch.
 
