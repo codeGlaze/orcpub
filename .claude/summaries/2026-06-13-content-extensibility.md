@@ -82,6 +82,18 @@ subraces already do. It also answers a cluster of open issues in
 Phases 0, 1, 2 (subraces/subclasses via `option_catalog/by-parent`), 3a (key-lock
 guard), 3b (`option_catalog/plugin-options`; boons/invocations), and 4a (the
 `content_types.cljc` registry + audit test) are committed and gated green
-(220 tests / 1092 assertions). Remaining: 3c (positional-threading removal — risky,
-deferred), 4b–4f (wire the registry into subs/db/events/routes/core — cljs, lint+review
-only here), Phase 5 (new builders). See BRANCH.md for the live checklist.
+(223 tests / 1106 assertions with the e2e fixture). Merged `feature/name-keyword-fix`
+(`ec26955`); live-verified via PR #28 (all items PASS/covered, no regressions).
+Remaining: 3c (positional-threading removal — risky, deferred), 4b–4f (wire the registry
+into subs/db/events/routes/core — cljs, lint+review only here), Phase 5 (new builders).
+See BRANCH.md for the live checklist.
+
+## Test-suite debt found this session (separate from the extensibility work)
+See `docs/kb/test-suite-state.md` (verified). Headline: **CI runs only the JVM gate
+(`lein lint`/`lein test`); the cljs suite is never run and has rotted** — 10 failures /
+3 errors pre-existing on `develop`, all real or removed-subject tests (not theater).
+Notable: `character_test.cljc` references the `::character` spec Larry removed in the 2016
+entity refactor (and duplicates the `.clj` test's namespace); the computed/built character
+has no validation spec (the `save-character` null crash is a symptom). Working agreements
+adopted: tests must be falsifiable (no theater); fix bugs on sight unless deep enough for
+their own branch.

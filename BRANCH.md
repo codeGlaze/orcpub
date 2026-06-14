@@ -90,6 +90,19 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
   `:key` to `option-cfg` — never re-derive identity from a display `:name`; (2) catalogs
   are layered, memoized `reg-sub`s referenced by grants — never recomputed in hot subs.
   Guard both with comments. (Decisions D10/D11; details in the design + compatibility docs.)
+- **Working agreements (apply to all work here):**
+  - *Tests must be falsifiable.* Every test must go red if the production code it covers
+    breaks. No theater (a test that only asserts `(spec/valid? my-spec my-input)` tests the
+    spec against examples, not the system). Gut check: "if I break the code, does this fail?"
+  - *Fix bugs on sight.* Don't leave a bug lying around once found — fix it in-flight,
+    UNLESS it's deep enough to warrant its own branch (then file it and scope it).
+- **Test-suite debt found this session (`docs/kb/test-suite-state.md`):** CI runs only the
+  JVM gate (`lein lint`/`lein test`); the cljs suite is never run and has rotted (10
+  failures / 3 errors pre-existing on `develop`, all real tests or removed-subject tests,
+  none theater). Fix-now candidates: the dead `character_test.cljc` (refs a removed spec +
+  duplicate ns — JVM-verifiable), the `save-character` null crash (`make-summary →
+  entity-val`). Own-branch candidates: getting cljs tests into CI; a built-character
+  validation contract. Triage-needed: the import-validation failures (need a cljs run).
 - The KB requires verified-only content. The cross-link map is verified from code; the
   proposed design is clearly labeled as a proposal. Preserve that boundary.
 - The design directly answers a cluster of open issues (#58, #57/#209, #172/#170,
@@ -103,6 +116,8 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
 - `docs/kb/content-extensibility.md`, `docs/kb/content-extensibility-decisions.md`,
   `docs/kb/content-extensibility-compatibility.md`, `docs/kb/content-extensibility-plan.md`,
   `docs/kb/content-extensibility-e2e.md` (live verification checklist for a VS Code agent)
+- `docs/kb/test-suite-state.md` — verified state of the test suites, the pre-existing cljs
+  failures (classified), the `::character`/built-character spec findings, open decisions
 - Cross-references: `docs/kb/spa-routing-architecture.md`,
   `entity-options-architecture.md`, `srd-vs-plugin-content.md`,
   `views-builders-split.md`, `docs/issues/homebrew-builders.md` (all on `agents/develop`)
