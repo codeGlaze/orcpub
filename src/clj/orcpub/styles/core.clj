@@ -1230,6 +1230,66 @@
       :color "#7e8897"
       :margin-bottom "5px"}]
 
+    ;; ----- builder identity header band (an app bar, NOT a card) -----
+    ;; full-bleed (breaks out of the builder's p-20), elevated so content scrolls
+    ;; under it, with an amber bottom rule. No radius / no all-around shadow.
+    [:.builder-header-band
+     {:position :relative
+      :z-index 5
+      :margin "-20px -20px 20px"
+      :padding "20px clamp(16px,4vw,40px) 22px"
+      :background "linear-gradient(180deg, #222c3a 0%, #1a2230 100%)"
+      :border-bottom "3px solid #f0a100"
+      :box-shadow "0 3px 0 -1px rgba(240,161,15,0.45), 0 16px 30px -14px rgba(0,0,0,0.6)"}]
+
+    ;; Name + Option Source as equal columns, bottoms aligned; stacks on narrow
+    [:.builder-header-row
+     {:display :grid
+      :grid-template-columns "repeat(auto-fit, minmax(240px, 1fr))"
+      :gap "24px"
+      :align-items :end
+      :margin-bottom "16px"}]
+
+    ;; large title-style name input: transparent, bottom-border only, amber on focus
+    [:.builder-name-input
+     {:width "100%"
+      :box-sizing :border-box
+      :background :transparent
+      :border :none
+      :border-bottom "2px solid rgba(255,255,255,0.15)"
+      :border-radius "0"
+      :color "#f3f6fa"
+      :font-size "clamp(22px,3vw,30px)"
+      :font-weight 700
+      :padding "4px 2px"}]
+
+    [:.builder-name-input:focus
+     {:outline :none
+      :border-bottom "2px solid #f0a100"}]
+
+    ;; SAVE TARGET pill badge next to the Option Source label
+    [:.save-target-pill
+     {:display :inline-block
+      :vertical-align :middle
+      :font-size "10px"
+      :font-weight 700
+      :letter-spacing "0.06em"
+      :text-transform :uppercase
+      :color "#161d27"
+      :background "#f0a100"
+      :border-radius "4px"
+      :padding "1px 6px"
+      :margin-left "8px"}]
+
+    [:.builder-source-help
+     {:font-size "12px"
+      :color "#9aa4b2"
+      :margin-top "6px"}]
+
+    ;; the Option Source input gets an amber-tinted border to read as the save target
+    [:#plugins-choice
+     {:border "1px solid rgba(240,161,15,0.45)"}]
+
     [:.input
      {:background-color "#11161d"
       :color :white

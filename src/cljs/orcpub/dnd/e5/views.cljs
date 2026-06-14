@@ -6458,22 +6458,36 @@
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
     [:div.p-20.main-text-color
-     [:div.m-b-20.flex.flex-wrap
-      [race-input-field
-       "Name"
-       :name
-       race]
-      [plugin-datalist
-        option-source-name-label
-        race
-        ::races/set-race-prop]
-      ]
-     [:div.m-b-20
-       [:div.f-w-b
-        "Description"]
+     [:div.builder-header-band
+      [:div.builder-header-row
+       ;; large title-style Name input (keeps the required-field save cue)
+       [:div
+        [:div.builder-field-label "Race Name"]
+        (let [name-err (get @(subscribe [:builder-field-errors]) :name)]
+          [comps/input-field :input (get race :name)
+           (fn [v]
+             (dispatch [::races/set-race-prop :name v])
+             (dispatch [:clear-builder-field-error :name]))
+           {:class (str "builder-name-input"
+                        (case name-err
+                          :missing " builder-field-unfilled"
+                          :invalid " builder-field-invalid"
+                          ""))
+            :placeholder "Race name"}])]
+       ;; Option Source — the save target
+       [:div
+        [plugin-datalist
+         [:span [:span "Option Source Name"]
+          [:span.save-target-pill "Save target"]]
+         race
+         ::races/set-race-prop]
+        [:div.builder-source-help
+         "Everything you build is saved under this source."]]]
+      [:div
+       [:div.builder-field-label "Description"]
        [textarea-field
         {:value (get race :help)
-         :on-change #(dispatch [::races/set-race-prop :help %])}]]
+         :on-change #(dispatch [::races/set-race-prop :help %])}]]]
      [omv/card "Size & Speed"
       [:div.flex.flex-wrap
        [:div.m-r-5
