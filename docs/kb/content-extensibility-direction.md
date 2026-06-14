@@ -206,15 +206,27 @@ for complex fields + the field→mechanics mapping** (mostly the existing `:prop
 a bespoke form per type. (Spec-from-field-schema is the next collapse — a field schema would also
 generate the `s/keys` spec, shrinking the table's one remaining hand-written row.)
 
+### Draconic-ancestry builder — DONE end-to-end (`0aca6113`)
+A user can now author a draconic ancestry in-app; it stores into `::e5/draconic-ancestries`
+(the pool dragonborn grants from), exports, reimports, and a character's choice survives
+save/load. **The real "add a type" cost, measured with the new tools:** 9 files touched, but
+only **two required thought** — the view's damage-type field (~10 lines) and the 1-line spec.
+The rest were one-line registrations down the established pattern: `register-homebrew-content!`
+(one descriptor vs ~10 scattered event regs), `simple-content-builder` (form = sub+event+one
+extra field), `content_types` entry, route def/seg/allowlist/page-map (one line each), db
+slot/default/local-store (mirrors boon). Verified by a real **builder-flow** test (drive
+set/set-prop → output validates against the save spec) + the pool + round-trip proofs — not
+injection. So adding a type is genuinely cheaper now; the residue is the field schema + the
+occasional custom field widget, exactly as D22 predicted.
+
 ### NEXT levers (pick per value)
 - (a) the generic **grant-authoring UI** so authors declare "grant a choice from pool X" in a
-  builder (where the N+M maintainability win becomes user-visible);
-- (b) **the draconic-ancestry builder end-to-end** — `register-homebrew-content!` + a
-  `homebrew-draconic-ancestry` spec + route + a `simple-content-builder` form with a breath-weapon
-  `extra-field` + `content_types` entry, gated by a **character round-trip** test (pick ancestry →
-  to-strict → from-strict → choice+mechanics survive) and an `.orcbrew` import test — NOT injection;
+  builder (where the N+M maintainability win becomes user-visible — the biggest remaining lever);
+- (b) **spec-from-field-schema** — generate the `s/keys` spec from the field list, removing the
+  one hand-written row left in the cost table;
 - (c) **cross-silo reuse demo** — point the sorcerer draconic bloodline (`classes.cljc:2280`) at
-  the *same* ancestry pool, so one pool feeds two silos ("built here, called over there").
+  the *same* ancestry pool, so one pool feeds two silos ("built here, called over there");
+- (d) **breath-area field** + the level-gated/variant pins for full FTD coverage.
 
 ### PINS (designed-in-now, built-later — do not let these get refactored away)
 - **Variants** (`_copy` + `_mod`): the `resolved-content` indirection above is the only thing

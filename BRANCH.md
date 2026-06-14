@@ -19,9 +19,14 @@
 > open pool (`content_pools.cljc` + `::races5e/draconic-ancestry-pool`); dragonborn grants
 > from it; a homebrew ancestry inherits full mechanics (resistance + breath weapon). Built-ins
 > unchanged; additive-safe; falsifiable JVM + harness tests (incl. the maintainability proof).
-> (4) **NEXT levers:** the generic grant-authoring **UI** (where N+M becomes user-visible);
-> cross-silo reuse demo (sorcerer bloodline taps the *same* ancestry pool); an `.orcbrew`
-> import fixture. See direction doc v2 §"The spine", §"Maintainability", + the PINS.
+> (4) ✅ DONE (`109b5dd0`) — `simple-content-builder`: collapsed boon+invocation builder FORMS
+> into one (forms are data, not "irreducible"; D22). (5) ✅ DONE (`0aca6113`) — **Draconic
+> Ancestry builder end-to-end**: author in-app → pool → export → import → character round-trip,
+> all gated. Measured cost: 9 files but only 2 required thought (the view's damage-type field +
+> the spec); the rest were 1-line registrations via register-homebrew-content!/simple-content-builder/
+> content_types. (6) **NEXT levers:** generic grant-authoring **UI** (biggest remaining win);
+> spec-from-field-schema; sorcerer cross-silo reuse; breath-area + the level-gated/variant pins.
+> See direction doc v2 §"The spine", §"Maintainability", §"Builder FORMS are data", + the PINS.
 > Goal: **stabilize while adding features — stability and flexibility are the SAME abstraction.**
 
 ## Purpose
