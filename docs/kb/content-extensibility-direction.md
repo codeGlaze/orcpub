@@ -232,24 +232,23 @@ one-liners." The fix: make each layer **generate** its wiring from the registry.
   for a new homebrew type.
 - ✅ **db** (`af68061d`) — the `:homebrew-builder?` types' `default-value` builder-item slots
   generated from the registry's `:builder-item` + `:default`. **No db.cljs edit** for new types.
-- ⏭️ **routes** (NEXT — clean but surgical; do as a focused pass): bidi tree segments, the
-  `dnd-e5-my-content-routes` set, and the `routes.clj` server allowlist are all `route-seg` /
-  `route-kw` data already in the registry → generatable. Plan: (1) break the
-  `content_types → route_map` dep cycle — store `:route-kw` as a **plain keyword literal**, drop
-  the route-map require (registry becomes a pure-data leaf), add a drift-guard test
-  (content_types_test *can* require route_map, asserts each literal == its route-map var);
-  (2) add a `:section` field (`:my-content`/`:spell`/`:monster`/`:encounter`) so the section
-  route-sets generate; (3) `route_map` + `routes.clj` require the now-leaf registry and generate
-  segments/sets/allowlist. Failure modes are **fail-closed** (missing entry → 404, not a
-  security hole) and testable. Surgical because the bidi tree is a deeply-nested map mixing the
-  14 with non-registry routes (combat-tracker, magic-items, character pages) — separate the 14
-  and `merge`.
+- ✅ **routes** (`506c32b3` cycle break, `c5e9aea6` bidi, `58c4de47` set+allowlist) — the
+  registry→route_map dep cycle is broken (`:route-kw` is now a plain keyword literal, registry
+  is a pure-data leaf), and the **bidi tree segments**, the **`dnd-e5-my-content-routes` nav
+  set**, and the **`routes.clj` SPA allowlist** all generate from the registry. A new homebrew
+  type's URL resolves, joins My Content, and is allow-listed **automatically**. Guarded by
+  `content_types_routes_test` (drift: literals == route_map vars; bidi: every URL resolves;
+  set + allowlist membership). `route_map` keeps only the one route-keyword `def` per type
+  (D6 — referenced by symbol in views/core); `routes.clj` needs **no** per-type edit.
 - ⚠️ **core page-map** — NOT a clean win, skip: a builder's view *function* can't be derived
   from data (cljs has no reliable runtime symbol→var resolution), so generating it only *moves*
   a per-type binding (best co-located in a `views/builder-page-views` map next to the forms).
   The view-fn binding is irreducible; put it where the form already is.
 
-**Net after events+db:** adding a homebrew type no longer touches events.cljs or db.cljs.
+**Net after events+db+routes:** adding a homebrew type no longer touches events.cljs, db.cljs,
+or routes.clj, and route_map only needs its one route-keyword `def`. Remaining per-type files:
+the registry entry (the one you should write), the view form (irreducible custom UI), the spec
+(until spec-from-field-schema), the route-keyword def, and the core/views view binding.
 
 ### NEXT levers (pick per value)
 - (a) the generic **grant-authoring UI** so authors declare "grant a choice from pool X" in a

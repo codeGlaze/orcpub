@@ -30,10 +30,11 @@
 > the spec); the rest were 1-line registrations via register-homebrew-content!/simple-content-builder/
 > content_types. (6) ✅ **registry now DRIVES the layers** (the real "fewer files" fix): events
 > (`d2e002b4`) + db (`af68061d`) wiring generated from `content_types` — a new homebrew type no
-> longer touches events.cljs or db.cljs (behavior-preserving, harness-gated). (7) **NEXT:** the
-> **routes** layer (clean but surgical — cycle break + `:section` + generate bidi/sets/allowlist;
-> direction doc §"Foundation"); then grant-authoring UI; the live breath-weapon bug (user
-> deprioritized vs the foundation). See direction doc v2 §"Foundation", §"The spine".
+> longer touches events.cljs or db.cljs (behavior-preserving, harness-gated). (7) ✅ **routes**
+> layer generative (`506c32b3`/`c5e9aea6`/`58c4de47`) — cycle broken, bidi segments + my-content
+> set + SPA allowlist generated from the registry; a new type's URL/nav/allowlist are automatic
+> (route_map keeps only its one route-keyword def, D6). (8) **NEXT:** the live breath-weapon bug;
+> then grant-authoring UI. See direction doc v2 §"Foundation", §"The spine".
 > Goal: **stabilize while adding features — stability and flexibility are the SAME abstraction.**
 
 ## Purpose

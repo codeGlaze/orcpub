@@ -5,7 +5,10 @@
      - subs   (spell_subs.cljs)  — builder-item passthrough subscriptions   [generated]
      - events (events.cljs)      — register-homebrew-content! for :homebrew-builder? entries [generated]
      - db     (db.cljs)          — default-value builder-item draft slots    [generated]
-     - routes (route_map/routes.clj), core page-map                          [still hand-wired]
+     - routes (route_map.cljc)   — bidi segments + my-content nav set         [generated]
+     - routes (routes.clj)       — SPA allowlist (index-page-paths)           [generated]
+     - core page-map (core.cljs) — route -> view fn binding                   [hand-wired: a view
+                                    fn can't be derived from data in cljs (D-note in framework doc)]
    So adding a homebrew type is (increasingly) ONE entry here instead of edits in ~9 files.
 
    SCOPE: the homebrew content types that flow through the `reg-save-homebrew` / plugins-map

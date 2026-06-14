@@ -62,7 +62,7 @@ pure-data leaf — D7) so every other layer can read it without circular deps.
 | **subscriptions** | `spell_subs.cljs` | ✅ generated | `doseq` over registry → `reg-sub` builder-item passthroughs |
 | **events** | `events.cljs` | ✅ generated | `doseq` over `:homebrew-builder?` → `register-homebrew-content!` |
 | **db draft slots** | `db.cljs` | ✅ generated | builder-item `default-value` slots from `:builder-item`+`:default` |
-| **routes** | `route_map.cljc`, `routes.clj` | ⏭️ planned | bidi segs + route-sets + allowlist from `:route-seg`/`:route-kw` (needs cycle break + `:section`) |
+| **routes** | `route_map.cljc`, `routes.clj` | ✅ generated | bidi segs + `my-content` set + SPA allowlist from `:route-seg`/`:route-kw` (registry is now a pure-data leaf; guarded by `content_types_routes_test`). `route_map` keeps only the one route-keyword `def` per type (D6). |
 | **core page-map** | `core.cljs` | ⚠️ won't generate | a view *fn* can't be derived from data in cljs — the route→view binding is irreducible (best co-located with the form) |
 | **spec** | per-type ns | ⏭️ future | could derive from a field-schema; hand-written today |
 | **builder form** | `views.cljs` | ✅ collapsed (not generated) | `simple-content-builder` makes it a one-liner; custom fields via `extra-fields` |
