@@ -1689,23 +1689,32 @@
       :font-weight :bold
       :margin-bottom "8px"}]
 
-    ;; global layout toggle (segmented)
+    ;; global layout toggle: a padded rounded-rect track with independently-rounded
+    ;; chips (no flat-edged active capsule).
     [:.opt-menu-layout-toggle
      {:display :inline-flex
-      :border (str "1px solid " orange)
-      :border-radius "999px"
-      :overflow :hidden}]
+      :padding "4px"
+      :gap "3px"
+      :background "#161d28"
+      :border "1px solid rgba(255,255,255,0.08)"
+      :border-radius "10px"}]
 
     [:.opt-menu-layout-seg
-     {:padding "4px 14px"
+     {:padding "7px 18px"
+      :border-radius "7px"
       :cursor :pointer
       :font-size "13px"
-      :color "rgba(255,255,255,0.7)"}]
+      :font-weight 600
+      :white-space :nowrap
+      :color "#aab3c0"
+      :transition "all 0.12s"}]
+
+    [:.opt-menu-layout-seg:hover
+     {:color "#e7ecf2"}]
 
     [:.opt-menu-layout-seg.active
      {:background orange
-      :color "#191919"
-      :font-weight 600}]
+      :color "#161d27"}]
 
     ;; grid. The min(100%, 210px) guard prevents horizontal overflow when the
     ;; container is narrower than the track min (small phones).
@@ -1776,6 +1785,26 @@
       :background "rgba(255,255,255,0.05)"
       :padding "2px 10px"
       :border-radius "999px"}]
+
+    ;; collapse / expand: clickable header, chevron (right), and the collapsed summary
+    [:.opt-section-head.collapsible
+     {:cursor :pointer}]
+
+    [:.opt-section-chevron
+     {:margin-left :auto
+      :flex "0 0 auto"
+      :font-size "13px"
+      :color "#8893a2"
+      :transition "transform 0.15s"}]
+
+    [:.opt-section-chevron.collapsed
+     {:transform "rotate(-90deg)"}]
+
+    [:.opt-section-summary
+     {:margin-top "2px"
+      :font-size "13px"
+      :color "#b5bdc8"
+      :line-height 1.5}]
 
     ;; "Choose any" wildcard group (the Any N options), a labeled dashed group
     [:.opt-wildcards
@@ -1924,7 +1953,7 @@
      {:width "100%"
       :box-sizing :border-box
       :padding "10px 12px 10px 34px"
-      :border "1px solid rgba(255,255,255,0.12)"
+      :border "1px solid rgba(255,255,255,0.1)"
       :border-radius "8px"
       :background "#11161d"
       :color "#e7ecf2"

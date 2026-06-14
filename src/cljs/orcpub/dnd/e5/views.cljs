@@ -5070,7 +5070,12 @@
     :options []}])
 
 (defn background-tool-proficiencies [background]
-  [omv/parent-section {:title "Tool Proficiencies"}
+  [omv/parent-section
+   {:title "Tool Proficiencies"
+    :collapse-id :bg-tools
+    :summary-labels (->> (concat equip/artisans-tools equip/vehicle-types equip/misc-tools)
+                         (filter #(get-in background [:profs :tool (:key %)]))
+                         (mapv :name))}
    [omv/subsection {:menu-id :bg-tool-artisans :title "Artisan's Tools"
                     :wildcards (tool-choice-wildcards background :artisans-tool)
                     :options (bg-tool-options background equip/artisans-tools)}]
@@ -5086,7 +5091,13 @@
                     :options (bg-tool-options background equip/misc-tools)}]])
 
 (defn background-starting-equipment [background]
-  [omv/parent-section {:title "Starting Equipment"}
+  [omv/parent-section
+   {:title "Starting Equipment"
+    :collapse-id :bg-equipment
+    :summary-labels (->> (concat equip/clothes equip/artisans-tools equip/misc-tools
+                                 equip/holy-symbols equip/misc-equipment)
+                         (filter #(get-in background [:equipment (:key %)]))
+                         (mapv :name))}
    [:div.opt-subsection
     [:div.opt-subsection-title.m-b-10 "Gold"]
     [comps/input-field

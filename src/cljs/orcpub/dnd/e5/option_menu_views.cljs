@@ -44,6 +44,14 @@
 (reg-event-db ::set-menu-query  (fn [db [_ id q]] (assoc-in db [::menu-state id :query] q)))
 (reg-event-db ::set-menu-letter (fn [db [_ id l]] (assoc-in db [::menu-state id :letter] l)))
 
+;; Collapse is a persisted per-section preference (like :menu-layout) — default
+;; expanded, independent per section, survives reload.
+(reg-sub ::collapsed (fn [db [_ id]] (get-in db [:user-data :menu-collapsed id] false)))
+(reg-event-db
+ ::toggle-collapsed
+ [persist-user]
+ (fn [db [_ id]] (update-in db [:user-data :menu-collapsed id] not)))
+
 ;; ---------------------------------------------------------------------------
 ;; Option normalization
 ;; ---------------------------------------------------------------------------
@@ -133,14 +141,31 @@
 (defn- count-line [selected total]
   [:div.opt-menu-count (str (count selected) " of " total " selected")])
 
+(defn summarize-selected
+  "One-line 'Chosen' summary for a collapsed section: the first three labels, then
+   '+N more', or 'Nothing selected yet' when empty."
+  [labels]
+  (cond
+    (empty? labels) "Nothing selected yet"
+    (<= (count labels) 3) (str "Chosen: " (str/join ", " labels))
+    :else (str "Chosen: " (str/join ", " (take 3 labels))
+               "  +" (- (count labels) 3) " more")))
+
 (defn- section-header
-  "Panel header row: optional amber accent tab, the title, a count pill, and Clear."
-  [{:keys [title top-level? count-label show-count? show-clear? clear-fn]}]
+  "Panel header row: optional amber accent tab, the title, a count pill, Clear, and
+   (when collapsible) a chevron. The whole row toggles collapse; Clear stops the
+   click from also toggling."
+  [{:keys [title top-level? count-label show-count? show-clear? clear-fn
+           collapsible? collapsed? on-toggle]}]
   [:div.opt-section-head
+   (when collapsible? {:class "collapsible" :on-click on-toggle})
    (when top-level? [:span.opt-section-accent])
    [:span {:class (if top-level? "opt-section-title" "opt-subsection-title")} title]
    (when show-count? [:span.opt-section-count count-label])
-   (when (and show-clear? clear-fn) [:span.opt-menu-clear {:on-click clear-fn} "Clear"])])
+   (when (and show-clear? clear-fn)
+     [:span.opt-menu-clear {:on-click (fn [e] (.stopPropagation e) (clear-fn))} "Clear"])
+   (when collapsible?
+     [:i.fa.fa-chevron-down.opt-section-chevron {:class (when collapsed? "collapsed")}])])
 
 (defn- wildcard-group
   "The 'Choose any' dashed group (the Any-N options) shown above a panel's list.
@@ -260,11 +285,15 @@
      :wildcards    the 'Choose any' Any-N group shown above the list
      :slot-label   pattern-banner slot word
      :multiselect? default true; gates count/Clear (and the legacy chips tray)
+     :collapsible? when true (and :title set), the header toggles a persisted collapse
+                   that hides the body behind a 'Chosen' summary line
      :on-clear / :cell-fn / :chip-fn / :trailer"
   [{:keys [menu-id title top-level? wildcards slot-label options
-           multiselect? on-clear cell-fn chip-fn trailer]
+           multiselect? collapsible? on-clear cell-fn chip-fn trailer]
     :or   {multiselect? true}}]
-  (let [layout    @(subscribe [::layout])
+  (let [collapsible? (boolean (and title collapsible?))
+        collapsed?   (and collapsible? @(subscribe [::collapsed menu-id]))
+        layout    @(subscribe [::layout])
         query     @(subscribe [::menu-query menu-id])
         cell-fn   (or cell-fn default-cell)
         chip-fn   (or chip-fn (fn [o] (or (:display o) (:label o))))
@@ -292,44 +321,64 @@
                         :show-count? (and multiselect? has-opts?)
                         :count-label (str (count selected) " of " (count options) " selected")
                         :show-clear? (and multiselect? (seq selected))
-                        :clear-fn clear-fn}]
+                        :clear-fn clear-fn
+                        :collapsible? collapsible?
+                        :collapsed? collapsed?
+                        :on-toggle #(dispatch [::toggle-collapsed menu-id])}]
        ;; legacy header (used by builders not yet migrated to the panel look)
        (when multiselect? [count-line selected (count options)]))
-     (when (seq wildcards) [wildcard-group wildcards])
-     (when prefix [pattern-banner prefix slot-label])
-     (when (and has-opts? searchable?) [search-box menu-id])
-     ;; legacy chips tray only in the no-title mode; the panel header carries Clear
-     (when (and (not title) multiselect?) [chips-tray selected chip-fn clear-fn])
-     (when has-opts?
-       (cond
-         (empty? filtered) [:div.opt-menu-empty (str "No options match “" query "”.")]
-         (= layout :pills) [pills-body filtered cell-fn]
-         (= layout :az)    [az-body menu-id annotated filtered cell-fn]
-         :else             [grid-body filtered cell-fn]))
-     (when trailer trailer)]))
+     (if collapsed?
+       [:div.opt-section-summary (summarize-selected (mapv :label selected))]
+       [:div
+        (when (seq wildcards) [wildcard-group wildcards])
+        (when prefix [pattern-banner prefix slot-label])
+        (when (and has-opts? searchable?) [search-box menu-id])
+        ;; legacy chips tray only in the no-title mode; the panel header carries Clear
+        (when (and (not title) multiselect?) [chips-tray selected chip-fn clear-fn])
+        (when has-opts?
+          (cond
+            (empty? filtered) [:div.opt-menu-empty (str "No options match “" query "”.")]
+            (= layout :pills) [pills-body filtered cell-fn]
+            (= layout :az)    [az-body menu-id annotated filtered cell-fn]
+            :else             [grid-body filtered cell-fn]))
+        (when trailer trailer)])]))
 
 ;; ---------------------------------------------------------------------------
 ;; Section containment — cards (top-level) and recessed wells (nested children)
 ;; ---------------------------------------------------------------------------
 
 (defn section-card
-  "A standalone top-level section: an elevated card around one option-menu panel."
+  "A standalone top-level section: an elevated card around one option-menu panel.
+   Collapsible only once it's long enough to be worth collapsing (>= search-min)."
   [opts]
-  [:div.opt-section [option-menu (assoc opts :top-level? true)]])
+  [:div.opt-section
+   [option-menu (assoc opts
+                       :top-level? true
+                       :collapsible? (>= (count (:options opts)) search-min))]])
 
 (defn subsection
-  "A recessed child well around one option-menu panel (nested inside a parent card)."
+  "A recessed child well around one option-menu panel (nested inside a parent card).
+   Children are never independently collapsible — only the parent card collapses."
   [opts]
   [:div.opt-subsection [option-menu (assoc opts :top-level? false)]])
 
 (defn parent-section
   "A parent card with a heading and a stack of recessed child wells nested inside.
    `children` are already-rendered hiccup (use `subsection` for option-menu panels,
-   or any `.opt-subsection` element); `meta` is an optional summary (e.g. count)."
-  [{:keys [title meta]} & children]
-  [:div.opt-section
-   [:div.opt-section-head
-    [:span.opt-section-accent.tall]
-    [:span.opt-section-title title]
-    (when meta [:span.opt-section-count meta])]
-   (into [:div.opt-subsections] children)])
+   or any `.opt-subsection` element). With `:collapse-id` the whole card collapses
+   (incl. children) behind a `summarize-selected` line built from `:summary-labels`;
+   `meta` is an optional summary pill (e.g. count)."
+  [{:keys [title meta collapse-id summary-labels]} & children]
+  (let [collapsed? (and collapse-id @(subscribe [::collapsed collapse-id]))]
+    [:div.opt-section
+     [:div.opt-section-head
+      (when collapse-id
+        {:class "collapsible" :on-click #(dispatch [::toggle-collapsed collapse-id])})
+      [:span.opt-section-accent.tall]
+      [:span.opt-section-title title]
+      (when meta [:span.opt-section-count meta])
+      (when collapse-id
+        [:i.fa.fa-chevron-down.opt-section-chevron {:class (when collapsed? "collapsed")}])]
+     (if collapsed?
+       [:div.opt-section-summary (summarize-selected summary-labels)]
+       (into [:div.opt-subsections] children))]))
