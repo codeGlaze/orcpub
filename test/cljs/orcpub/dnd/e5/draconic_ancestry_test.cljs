@@ -64,3 +64,27 @@
           "same mechanical heft as a built-in: damage resistance + breath-weapon modifier")
       (is (= :amethyst (::t/key amethyst))
           "uses its stored key (stable id), not a name-derived one (D10)"))))
+
+(def gem-style-pack
+  ;; A Fizban-style "gem" ancestry: resistance + breath PLUS extra mechanics declared as a
+  ;; :props map (the same vocabulary homebrew races/feats use). Here, a flying speed.
+  {"Gem Pack"
+   {::e5/draconic-ancestries
+    {:sapphire {:name "Sapphire"
+                :key :sapphire
+                :option-pack "Gem Pack"
+                :breath-weapon {:damage-type :thunder
+                                :area-type :line
+                                :line-width 5
+                                :line-length 30
+                                :save ::char5e/dex}
+                :props {:flying-speed-equals-walking-speed true}}}}})
+
+(deftest richer-ancestry-carries-extra-mechanics-via-props
+  (testing "an ancestry can grant more than resistance+breath — extra :props compile to modifiers"
+    (reset! app-db {:plugins gem-style-pack})
+    (let [opts     (ancestry-options)
+          sapphire (first (filter #(= "Sapphire" (::t/name %)) opts))]
+      (is (some? sapphire))
+      (is (= 3 (count (::t/modifiers sapphire)))
+          "resistance + breath weapon + the :props-declared flying-speed modifier"))))

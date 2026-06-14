@@ -743,16 +743,25 @@
                                            (opt5e/skill-selection 1)
                                            (opt5e/ability-increase-selection char5e/ability-keys 2 true)]})]})]})
 
-(defn draconic-ancestry-option [{:keys [name key breath-weapon]}]
+(defn draconic-ancestry-option [{:keys [name key props breath-weapon]}]
   (t/option-cfg
    ;; Same mechanical heft for built-in and homebrew ancestries: resistance to the breath
    ;; damage type + the breath-weapon value the race's Breath Weapon attack reads. Built-in
    ;; entries carry no :key (so the key derives from name as before — behavior-preserving);
    ;; homebrew entries pass their stored :key through (identity from a stable id, not a
    ;; display name — direction doc D10).
+   ;;
+   ;; Richer ancestries (e.g. Fizban's gem/metallic dragonborn, or homebrew) can carry EXTRA
+   ;; mechanics beyond resistance+breath as a declarative :props map — flying/swimming speed,
+   ;; saving-throw advantage, skill profs, languages, etc. — compiled by the SAME
+   ;; opt5e/plugin-modifiers vocabulary homebrew races/feats already use. Built-in colours
+   ;; have no :props, so they are unchanged. (Level-gated ancestry features — Gem Flight at 5,
+   ;; Chromatic Warding — are NOT yet expressible this way; see the direction doc pins.)
    (cond-> {:name name
-            :modifiers [(mod5e/damage-resistance (:damage-type breath-weapon))
-                        (mod/modifier ?draconic-ancestry-breath-weapon breath-weapon)]}
+            :modifiers (concat
+                        [(mod5e/damage-resistance (:damage-type breath-weapon))
+                         (mod/modifier ?draconic-ancestry-breath-weapon breath-weapon)]
+                        (when props (opt5e/plugin-modifiers props key)))}
      key (assoc :key key))))
 
 (defn dragonborn-option-cfg
