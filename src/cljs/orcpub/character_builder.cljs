@@ -749,6 +749,8 @@
         sorted  (sort-by (juxt ::t/order ::t/name) options)
         opts    (->> sorted
                      (map (fn [option]
+                            ;; one option-selector-data call per option; the card is built
+                            ;; from this same data in cell-fn (no second fetch).
                             (let [data (views-aux/option-selector-data
                                         actual-path selection disable-select-new? homebrew? option)]
                               ;; drop prereq-hidden options so they leave no empty cell
@@ -760,13 +762,21 @@
                                  ;; reuse the option's real select-fn (handles deselect,
                                  ;; prereqs, single-vs-multi) for clicks, chips and Clear
                                  :on-toggle (fn [] ((:select-fn data) #js {:stopPropagation (fn [] nil)}))
+                                 :data data
                                  :option option}))))
                      (remove nil?)
                      vec)
-        cell-fn (fn [o _layout]
-                  [new-option-selector actual-path selection disable-select-new? homebrew?
-                   (:option o)
-                   {:display-name (:display o) :non-standard? (:non-standard? o)}])
+        cell-fn (fn [{:keys [data option display non-standard?]} _layout]
+                  (let [{:keys [help has-named-mods? modifiers-str]} data]
+                    [option-selector-base
+                     (assoc data
+                            :display-name display
+                            :non-standard? non-standard?
+                            :help (when (or help has-named-mods?)
+                                    [:div
+                                     (when has-named-mods? [:div.i modifiers-str])
+                                     [:div {:class (when has-named-mods? "m-t-5")} help]])
+                            :edit-event (::t/edit-event option))]))
         item-adder (make-item-adder selection)]
     [omv/option-menu
      {:menu-id actual-path

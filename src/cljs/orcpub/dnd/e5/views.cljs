@@ -4960,18 +4960,12 @@
       :value (get-in option [:profs proficiency-choice-key :choose] 1)
       :on-change #(dispatch [set-path-prop-event [:profs proficiency-choice-key :choose] (js/parseInt %)])}]]
    [:div.f-s-18.f-w-b.m-b-20 "Options"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:profs proficiency-choice-key :options key])
-          false
-          #(dispatch [toggle-path-prop-event [:profs proficiency-choice-key :options key]])]])
-      proficiency-options))]])
+   [omv/option-menu
+    {:menu-id [:option-proficiency-choice toggle-path-prop-event proficiency-choice-key]
+     :options (omv/checkbox-options
+               proficiency-options
+               (fn [item] (get-in option [:profs proficiency-choice-key :options (:key item)]))
+               (fn [item] (dispatch [toggle-path-prop-event [:profs proficiency-choice-key :options (:key item)]])))}]])
 
 (defn option-weapon-proficiency-choice [option
                                         set-path-prop-event
@@ -5010,90 +5004,58 @@
 (defn option-skill-proficiency [option toggle-event]
   [:div.m-b-20
    [:div.f-s-24.f-w-b.m-b-20 "Skill Proficiencies"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :skill-prof key])
-          false
-          #(dispatch [toggle-event :skill-prof key])]])
-      skills/skills))]])
+   [omv/option-menu
+    {:menu-id [:option-skill-proficiency toggle-event]
+     :options (omv/checkbox-options
+               skills/skills
+               (fn [item] (get-in option [:props :skill-prof (:key item)]))
+               (fn [item] (dispatch [toggle-event :skill-prof (:key item)])))}]])
 
 (defn option-languages [option toggle-map-prop-event]
   (let [languages @(subscribe [::langs/languages])]
     [:div.m-b-20
      [:div.f-s-24.f-w-b.m-b-20 "Languages"]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:span.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            name
-            (get-in option [:props :language key])
-            false
-            #(dispatch [toggle-map-prop-event :language key])]])
-        (sort-by
-         :name
-         languages)))]
-     [:div.pointer.m-t-10
-      [:span.bg-lighter.p-5
-       {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
-       [:i.fa.fa-plus]
-       [:span.orange.underline.m-l-5 "Add Language"]]]]))
+     [omv/option-menu
+      {:menu-id [:option-languages toggle-map-prop-event]
+       :options (omv/checkbox-options
+                 (sort-by :name languages)
+                 (fn [item] (get-in option [:props :language (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event :language (:key item)])))
+       :trailer [:div.pointer.m-t-10
+                 [:span.bg-lighter.p-5
+                  {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
+                  [:i.fa.fa-plus]
+                  [:span.orange.underline.m-l-5 "Add Language"]]]}]]))
 
 (defn option-skill-proficiency-or-expertise [option toggle-event]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-20 "Skill Proficiency or Expertise"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :skill-prof-or-expertise key])
-          false
-          #(dispatch [toggle-event :skill-prof-or-expertise key])]])
-      skills/skills))]])
+   [omv/option-menu
+    {:menu-id [:option-skill-proficiency-or-expertise toggle-event]
+     :options (omv/checkbox-options
+               skills/skills
+               (fn [item] (get-in option [:props :skill-prof-or-expertise (:key item)]))
+               (fn [item] (dispatch [toggle-event :skill-prof-or-expertise (:key item)])))}]])
 
 (defn option-tool-proficiency [option toggle-path-prop-event]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-20 "Tool Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:profs :tool key])
-          false
-          #(dispatch [toggle-path-prop-event [:profs :tool key]])]])
-      equip/tools))]])
+   [omv/option-menu
+    {:menu-id [:option-tool-proficiency toggle-path-prop-event]
+     :options (omv/checkbox-options
+               equip/tools
+               (fn [item] (get-in option [:profs :tool (:key item)]))
+               (fn [item] (dispatch [toggle-path-prop-event [:profs :tool (:key item)]])))}]])
 
 (defn option-tool-proficiency-or-expertise [option toggle-event]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-20 "Tool Proficiency or Expertise"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :tool-prof-or-expertise key])
-          false
-          #(dispatch [toggle-event :tool-prof-or-expertise key])]])
-      equip/tools))]])
+   [omv/option-menu
+    {:menu-id [:option-tool-proficiency-or-expertise toggle-event]
+     :options (omv/checkbox-options
+               equip/tools
+               (fn [item] (get-in option [:props :tool-prof-or-expertise (:key item)]))
+               (fn [item] (dispatch [toggle-event :tool-prof-or-expertise (:key item)])))}]])
 
 (defn background-skill-proficiencies [background]
   [:div.m-b-20
@@ -5167,66 +5129,42 @@
 (defn feat-prereqs [feat]
   [:div.m-b-20
    [:div.f-s-24.f-w-b.m-b-10 "Prerequisites"]
-   [:div.flex.flex-wrap
-    [:div.m-r-20.m-b-10
-     [comps/labeled-checkbox
-      "The ability to cast at least one spell"
-      (get-in feat [:prereqs :spellcasting])
-      false
-      #(dispatch [::feats/toggle-spellcasting-prereq])]]
-    [:div
-     (doall
-      (map
-       (fn [{:keys [name key]}]
-         ^{:key key}
-         [:div.m-r-20.m-b-10
-          [comps/labeled-checkbox
-           (str name " 13 or higher")
-           (get-in feat [:prereqs key])
-           false
-           #(dispatch [::feats/toggle-ability-prereq key])]])
-       opt/abilities))]
-    [:div
-     (doall
-      (map
-       (fn [key]
-         ^{:key key}
-         [:div.m-r-20.m-b-10
-          (let [prop-key key]
-            [comps/labeled-checkbox
-             (str "Proficiency with " (name key) " armor")
-             (get-in feat [:prereqs prop-key])
-             false
-             #(dispatch [::feats/toggle-ability-prereq prop-key])])])
-       armor/armor-types))]
-    [:div
-     (doall
-      (map
-       (fn [{:keys [key name] :as race}]
-         ^{:key key}
-         [:div.m-r-20.m-b-10
-          [comps/labeled-checkbox
-           (str name " race")
-           (get-in feat [:path-prereqs :race key])
-           false
-           #(dispatch [::feats/toggle-path-prereq [:race key]])]])
-       @(subscribe [::races/races])))]]])
+   [:div.m-r-20.m-b-10
+    [comps/labeled-checkbox
+     "The ability to cast at least one spell"
+     (get-in feat [:prereqs :spellcasting])
+     false
+     #(dispatch [::feats/toggle-spellcasting-prereq])]]
+   [omv/option-menu
+    {:menu-id [:feat-prereqs ::feats/toggle-ability-prereq]
+     :options (-> (omv/checkbox-options
+                   (map (fn [{:keys [name key]}]
+                          {:key key :name (str name " 13 or higher")})
+                        opt/abilities)
+                   (fn [item] (get-in feat [:prereqs (:key item)]))
+                   (fn [item] (dispatch [::feats/toggle-ability-prereq (:key item)])))
+                  (into (omv/checkbox-options
+                         (map (fn [key]
+                                {:key key :name (str "Proficiency with " (name key) " armor")})
+                              armor/armor-types)
+                         (fn [item] (get-in feat [:prereqs (:key item)]))
+                         (fn [item] (dispatch [::feats/toggle-ability-prereq (:key item)]))))
+                  (into (omv/checkbox-options
+                         (map (fn [{:keys [key name]}]
+                                {:key key :name (str name " race")})
+                              @(subscribe [::races/races]))
+                         (fn [item] (get-in feat [:path-prereqs :race (:key item)]))
+                         (fn [item] (dispatch [::feats/toggle-path-prereq [:race (:key item)]])))))}]])
 
 (defn feat-ability-increase-options [feat]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Ability Increase Options"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:div.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in feat [:ability-increases key])
-          false
-          #(dispatch [::feats/toggle-feat-ability-increase key])]])
-      opt/abilities))]
+   [omv/option-menu
+    {:menu-id [:feat-ability-increase-options ::feats/toggle-feat-ability-increase]
+     :options (omv/checkbox-options
+               opt/abilities
+               (fn [item] (get-in feat [:ability-increases (:key item)]))
+               (fn [item] (dispatch [::feats/toggle-feat-ability-increase (:key item)])))}]
    [:div.m-r-20.m-b-10
     [comps/labeled-checkbox
      "You also gain proficiency in saving throws with the above chosen abilities"
@@ -5249,77 +5187,64 @@
 (defn feat-skill-proficiency [feat]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Skill or Tool Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :skill-tool-choice]
-           [comps/labeled-checkbox
-            (str "You gain proficiency in " num " skills or tools of your choice")
-            (= num (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw num])])])
-      (range 1 4)))]])
+   (let [kw :skill-tool-choice]
+     [omv/option-menu
+      {:menu-id [:feat-skill-proficiency kw]
+       :options (omv/checkbox-options
+                 (map (fn [num] {:key num
+                                 :name (str "You gain proficiency in " num " skills or tools of your choice")})
+                      (range 1 4))
+                 (fn [item] (= (:key item) (get-in feat [:props kw])))
+                 (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
 
 (defn feat-weapon-proficiency [feat]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Weapon Proficiency"]
-   [:div.flex.flex-wrap
-    [:div.m-r-20.m-b-10
-     (let [kw :improvised-weapons-prof]
-       [comps/labeled-checkbox
-        "You gain proficiency with improvised weapons"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :weapon-prof-choice]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " num " weapons of your choice")
-            (= num (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw num])])])
-      (range 3 5)))]])
+   [:div.m-r-20.m-b-10
+    (let [kw :improvised-weapons-prof]
+      [comps/labeled-checkbox
+       "You gain proficiency with improvised weapons"
+       (get-in feat [:props kw])
+       false
+       #(dispatch [::feats/toggle-feat-prop kw])])]
+   (let [kw :weapon-prof-choice]
+     [omv/option-menu
+      {:menu-id [:feat-weapon-proficiency kw]
+       :options (omv/checkbox-options
+                 (map (fn [num] {:key num
+                                 :name (str "You gain proficiency with " num " weapons of your choice")})
+                      (range 3 5))
+                 (fn [item] (= (:key item) (get-in feat [:props kw])))
+                 (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
 
 (defn option-armor-proficiency [option toggle-map-prop-event]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Armor Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [armor-type]
-        ^{:key armor-type}
-        [:div.m-r-20.m-b-10
-         (let [kw :armor-prof]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))
-            (get-in option [:props kw armor-type])
-            false
-            #(dispatch [toggle-map-prop-event kw armor-type])])])
-      (conj armor/armor-types :shields)))]])
+   (let [kw :armor-prof]
+     [omv/option-menu
+      {:menu-id [:option-armor-proficiency toggle-map-prop-event]
+       :options (omv/checkbox-options
+                 (map (fn [armor-type]
+                        {:key armor-type
+                         :name (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))})
+                      (conj armor/armor-types :shields))
+                 (fn [item] (get-in option [:props kw (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
 
 (defn feat-armor-proficiency [feat]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Armor Proficiency"]
+   (let [kw :armor-prof]
+     [omv/option-menu
+      {:menu-id [:feat-armor-proficiency ::feats/toggle-feat-map-prop]
+       :options (omv/checkbox-options
+                 (map (fn [armor-type]
+                        {:key armor-type
+                         :name (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))})
+                      (conj armor/armor-types :shields))
+                 (fn [item] (get-in feat [:props kw (:key item)]))
+                 (fn [item] (dispatch [::feats/toggle-feat-map-prop kw (:key item)])))}])
    [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [armor-type]
-        ^{:key armor-type}
-        [:div.m-r-20.m-b-10
-         (let [kw :armor-prof]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))
-            (get-in feat [:props kw armor-type])
-            false
-            #(dispatch [::feats/toggle-feat-map-prop kw armor-type])])])
-      (conj armor/armor-types :shields)))
     [:div.m-r-20.m-b-10
      (let [kw :medium-armor-stealth]
        [comps/labeled-checkbox
@@ -5338,19 +5263,15 @@
 (defn option-hps [option toggle-value-prop-event]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Hit Points"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :max-hp-bonus]
-           [comps/labeled-checkbox
-            (str "Your hit point maximum increases by " num " for each of your levels")
-            (= (get-in option [:props kw]) num)
-            false
-            #(dispatch [toggle-value-prop-event kw num])])])
-      (range 1 3)))]])
+   (let [kw :max-hp-bonus]
+     [omv/option-menu
+      {:menu-id [:option-hps toggle-value-prop-event]
+       :options (omv/checkbox-options
+                 (map (fn [num] {:key num
+                                 :name (str "Your hit point maximum increases by " num " for each of your levels")})
+                      (range 1 3))
+                 (fn [item] (= (get-in option [:props kw]) (:key item)))
+                 (fn [item] (dispatch [toggle-value-prop-event kw (:key item)])))}])])
 
 (defn feat-hps [feat]
   (option-hps feat ::feats/toggle-feat-value-prop))
@@ -5358,155 +5279,117 @@
 (defn feat-speed-bonuses [feat]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Speed Bonuses"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :speed]
-           [comps/labeled-checkbox
-            (str "Your speed is increased by " v " ft.")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 5 20 5)))]])
+   (let [kw :speed]
+     [omv/option-menu
+      {:menu-id [:feat-speed-bonuses kw]
+       :options (omv/checkbox-options
+                 (map (fn [v] {:key v
+                               :name (str "Your speed is increased by " v " ft.")})
+                      (range 5 20 5))
+                 (fn [item] (= (:key item) (get-in feat [:props kw])))
+                 (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
 
 (defn feat-initiative-bonuses [feat]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Initiative Bonuses"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :initiative]
-           [comps/labeled-checkbox
-            (str "You gain a +" v " bonus to initiative")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 1 6)))]])
+   (let [kw :initiative]
+     [omv/option-menu
+      {:menu-id [:feat-initiative-bonuses kw]
+       :options (omv/checkbox-options
+                 (map (fn [v] {:key v
+                               :name (str "You gain a +" v " bonus to initiative")})
+                      (range 1 6))
+                 (fn [item] (= (:key item) (get-in feat [:props kw])))
+                 (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
 
 (defn feat-languages [feat]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Languages"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :language-choice]
-           [comps/labeled-checkbox
-            (str "You learn " v " languages of your choice.")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 1 4)))]])
+   (let [kw :language-choice]
+     [omv/option-menu
+      {:menu-id [:feat-languages kw]
+       :options (omv/checkbox-options
+                 (map (fn [v] {:key v
+                               :name (str "You learn " v " languages of your choice.")})
+                      (range 1 4))
+                 (fn [item] (= (:key item) (get-in feat [:props kw])))
+                 (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
 
 (defn option-damage-resistance [option toggle-map-prop-event]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Damage Resistances"]
    (let [kw :damage-resistance]
-     [:div.flex.flex-wrap
-      [:div.m-r-20.m-b-10
-       [comps/labeled-checkbox
-        "Resistance to damage from traps"
-        (get-in option [:props kw :traps])
-        false
-        #(dispatch [toggle-map-prop-event kw :traps])]]
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Resistance to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+     [omv/option-menu
+      {:menu-id [:option-damage-resistance toggle-map-prop-event]
+       :options (omv/checkbox-options
+                 (into [{:key :traps :name "Resistance to damage from traps"}]
+                       (map (fn [damage-type]
+                              {:key damage-type
+                               :name (str "Resistance to " (name damage-type) " damage")})
+                            opt/damage-types))
+                 (fn [item] (get-in option [:props kw (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
 
 (defn option-damage-immunity [option toggle-map-prop-event]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Damage Immunities"]
    (let [kw :damage-immunity]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Immunity to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+     [omv/option-menu
+      {:menu-id [:option-damage-immunity toggle-map-prop-event]
+       :options (omv/checkbox-options
+                 (map (fn [damage-type]
+                        {:key damage-type
+                         :name (str "Immunity to " (name damage-type) " damage")})
+                      opt/damage-types)
+                 (fn [item] (get-in option [:props kw (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
 
 (defn option-damage-vulnerability [option toggle-map-prop-event]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Damage Vulnerabilities"]
    (let [kw :damage-vulnerability]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Vulnerability to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+     [omv/option-menu
+      {:menu-id [:option-damage-vulnerability toggle-map-prop-event]
+       :options (omv/checkbox-options
+                 (map (fn [damage-type]
+                        {:key damage-type
+                         :name (str "Vulnerability to " (name damage-type) " damage")})
+                      opt/damage-types)
+                 (fn [item] (get-in option [:props kw (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
 
 (defn option-condition-immunity [option toggle-map-prop-event]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Condition Immunities"]
    (let [kw :condition-immunity]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Immunity to being " name)
-            (get-in option [:props kw key])
-            false
-            #(dispatch [toggle-map-prop-event kw key])]])
-        opt/conditions))])])
+     [omv/option-menu
+      {:menu-id [:option-condition-immunity toggle-map-prop-event]
+       :options (omv/checkbox-options
+                 (map (fn [{:keys [name key]}]
+                        {:key key
+                         :name (str "Immunity to being " name)})
+                      opt/conditions)
+                 (fn [item] (get-in option [:props kw (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
 
 (defn option-weapon-proficiency [option toggle-map-prop-event]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Weapon Proficiencies"]
    (let [kw :weapon-prof]
-     [:div.flex.flex-wrap
-      (doall
-       (concat
-        (map
-         (fn [weapon-type]
-           ^{:key weapon-type}
-           [:div.m-r-20.m-b-10
-            [comps/labeled-checkbox
-             (str "All " (common/safe-capitalize-kw weapon-type) " Weapons")
-             (get-in option [:props kw weapon-type])
-             false
-             #(dispatch [toggle-map-prop-event kw weapon-type])]])
-         [:simple :martial])
-        (map
-         (fn [{:keys [key name]}]
-           ^{:key key}
-           [:div.m-r-20.m-b-10
-            [comps/labeled-checkbox
-             name
-             (get-in option [:props kw key])
-             false
-             #(dispatch [toggle-map-prop-event kw key])]])
-         @(subscribe [::mi/custom-and-standard-weapons]))))])])
+     [omv/option-menu
+      {:menu-id [:option-weapon-proficiency toggle-map-prop-event]
+       :options (into
+                 (omv/checkbox-options
+                  (map (fn [weapon-type]
+                         {:key weapon-type
+                          :name (str "All " (common/safe-capitalize-kw weapon-type) " Weapons")})
+                       [:simple :martial])
+                  (fn [item] (get-in option [:props kw (:key item)]))
+                  (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))
+                 (omv/checkbox-options
+                  @(subscribe [::mi/custom-and-standard-weapons])
+                  (fn [item] (get-in option [:props kw (:key item)]))
+                  (fn [item] (dispatch [toggle-map-prop-event kw (:key item)]))))}])])
 
 (defn option-traits [option
                      add-trait-event
@@ -5575,18 +5458,15 @@
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Saving Throw Advantage"]
    (let [kw :saving-throw-advantage]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "You have advantage on saving throws against being " name)
-            (get-in option [:props kw key])
-            false
-            #(dispatch [toggle-map-prop-event kw key])]])
-        opt/conditions))])])
+     [omv/option-menu
+      {:menu-id [:option-saving-throw-advantages toggle-map-prop-event]
+       :options (omv/checkbox-options
+                 (map (fn [{:keys [name key]}]
+                        {:key key
+                         :name (str "You have advantage on saving throws against being " name)})
+                      opt/conditions)
+                 (fn [item] (get-in option [:props kw (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))}])])
 
 (defn feat-damage-resistance [feat]
   (option-damage-resistance feat ::feats/toggle-feat-map-prop))
@@ -6826,8 +6706,6 @@
 (defn background-builder []
   (let [background @(subscribe [::bg/builder-item])]
     [:div.p-20.main-text-color
-     [:div.m-b-20.flex.align-items-c.justify-cont-end
-      [omv/layout-toggle]]
      [:div.m-b-20.flex.flex-wrap
       [background-input-field
        "Name"
@@ -8400,7 +8278,9 @@
     {:title "Save to Browser Storage"
      :icon "save"
      :on-click #(dispatch [save-event])}]
-   [builder]])
+   [:div
+    [:div.flex.justify-cont-end.m-b-10 [omv/layout-toggle]]
+    [builder]]])
 
 (defn combat-tracker-page []
   [content-page

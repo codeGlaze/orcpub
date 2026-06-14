@@ -48,6 +48,13 @@
 ;; Option normalization
 ;; ---------------------------------------------------------------------------
 
+;; dominant-prefix/classify are pure over the label vector but rerun on every
+;; render (each keystroke, layout flip, selection toggle). Memoize on the labels
+;; so a menu only recomputes when its option set actually changes. Vectors compare
+;; by value, so a freshly-built but equal labels vector hits the cache.
+(def ^:private memo-prefix (memoize grouping/dominant-prefix))
+(def ^:private memo-classify (memoize grouping/classify))
+
 (defn checkbox-options
   "Turn a seq of `{:keys [name key]}` template items into normalized options for
    `option-menu`. `selected-fn`/`toggle-fn` each receive the original item."
@@ -215,8 +222,8 @@
         chip-fn   (or chip-fn (fn [o] (or (:display o) (:label o))))
         ;; classify FIRST so :display/:non-standard? line up with options, THEN filter
         labels    (mapv :label options)
-        prefix    (grouping/dominant-prefix labels)
-        annotated (mapv merge options (grouping/classify labels prefix))
+        prefix    (memo-prefix labels)
+        annotated (mapv merge options (memo-classify labels prefix))
         q         (str/lower-case (str/trim (or query "")))
         filtered  (if (str/blank? q)
                     annotated
