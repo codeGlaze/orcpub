@@ -1967,15 +1967,19 @@
 
     ;; option cell (default / checkbox). Transparent border on the base keeps the
     ;; row from shifting 1px when the selected/non-standard border appears.
+    ;; align-items flex-start so the box lines up with the FIRST line of a wrapping
+    ;; label (e.g. "Calligrapher's Supplies"); the box gets a 1px nudge to sit on
+    ;; the text baseline of that first line.
     [:.opt-menu-cell
      {:display :flex
-      :align-items :center
+      :align-items :flex-start
       :gap "10px"
       :padding "8px 10px"
       :border "1px solid transparent"
       :border-radius "6px"
       :line-height 1.3
-      :cursor :pointer}]
+      :cursor :pointer}
+     [:.checkbox-box {:margin-top "1px"}]]
 
     [:.opt-menu-cell:hover
      {:background "rgba(255,255,255,0.05)"}]
@@ -1998,7 +2002,7 @@
       :flex "0 0 auto"
       :width "18px"
       :height "18px"
-      :border "1px solid rgba(255,255,255,0.35)"
+      :border "1px solid #5b6576"
       :border-radius "4px"
       :font-size "11px"
       :cursor :pointer
