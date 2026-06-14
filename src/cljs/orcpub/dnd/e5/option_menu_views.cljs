@@ -358,9 +358,14 @@
 
 (defn subsection
   "A recessed child well around one option-menu panel (nested inside a parent card).
-   Children are never independently collapsible — only the parent card collapses."
+   A child is independently collapsible once it's large enough to be worth it
+   (>= search-min options, e.g. Other Equipment), so a big list can be tucked away
+   without collapsing its whole parent. Small children stay open."
   [opts]
-  [:div.opt-subsection [option-menu (assoc opts :top-level? false)]])
+  [:div.opt-subsection
+   [option-menu (assoc opts
+                       :top-level? false
+                       :collapsible? (>= (count (:options opts)) search-min))]])
 
 (defn parent-section
   "A parent card with a heading and a stack of recessed child wells nested inside.
