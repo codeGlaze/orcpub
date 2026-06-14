@@ -24,7 +24,6 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
-            [orcpub.dnd.e5.option-catalog :as catalog]
             [orcpub.dnd.e5.content-types :as ct]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils]
@@ -496,13 +495,13 @@
  ::classes5e/plugin-invocations
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (catalog/plugin-options ::e5/invocations plugins)))
+   (mapcat (comp vals ::e5/invocations) plugins)))
 
 (reg-sub
  ::classes5e/plugin-boons
  :<- [::e5/plugin-vals]
  (fn [plugins _]
-   (catalog/plugin-options ::e5/boons plugins)))
+   (mapcat #(-> % ::e5/boons vals) plugins)))
 
 (def acolyte-bg
   {:name "Acolyte"
@@ -881,13 +880,13 @@
  ::races5e/plugin-subraces-map
  :<- [::races5e/plugin-subraces]
  (fn [plugin-subraces]
-   (catalog/by-parent :race plugin-subraces)))
+   (group-by :race plugin-subraces)))
 
 (reg-sub
  ::classes5e/plugin-subclasses-map
  :<- [::classes5e/plugin-subclasses]
  (fn [plugin-subclasses]
-   (catalog/by-parent :class plugin-subclasses)))
+   (group-by :class plugin-subclasses)))
 
 (defn compare-keys [x y]
   (compare (:key x) (:key y)))
