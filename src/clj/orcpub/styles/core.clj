@@ -1889,8 +1889,10 @@
      {:background "rgba(240,161,0,0.06)"
       :border (str "1px solid " orange)}]
 
-    ;; rounded checkbox box — subtle outline when off, filled amber when on
-    [:.opt-menu-check
+    ;; App-wide checkbox (comps/checkbox): rounded box, amber when checked. The
+    ;; original white-box look is preserved under `.classic-checkboxes` below so a
+    ;; future user-preference toggle can switch back by toggling that root class.
+    [:.checkbox-box
      {:display :inline-flex
       :align-items :center
       :justify-content :center
@@ -1899,12 +1901,32 @@
       :height "18px"
       :border "1px solid rgba(255,255,255,0.35)"
       :border-radius "4px"
-      :font-size "11px"}]
+      :font-size "11px"
+      :cursor :pointer
+      :vertical-align :middle}]
 
-    [:.opt-menu-check.selected
+    [:.checkbox-box.checked
      {:background orange
       :border (str "1px solid " orange)
       :color "#191919"}]
+
+    [:.checkbox-box.disabled
+     {:opacity 0.5}]
+
+    ;; Legacy white-box checkbox — opt in by adding `classic-checkboxes` to the app
+    ;; root (intended for a future user-preference toggle).
+    [:.classic-checkboxes
+     [:.checkbox-box
+      {:width "16px"
+       :height "16px"
+       :background-color :white
+       :border-radius 0
+       :border "none"
+       :box-shadow (str "0 1px 0 0 " orange)
+       :color :black}]
+     [:.checkbox-box.checked
+      {:background-color :white
+       :color :black}]]
 
     ;; empty state
     [:.opt-menu-empty

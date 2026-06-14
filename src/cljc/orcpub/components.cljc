@@ -2,12 +2,17 @@
   (:require [clojure.string :as s]
             #?(:cljs [reagent.core :refer [atom]])))
 
-(defn checkbox [selected? disable?]
-  [:i.fa.fa-check.f-s-14.bg-white.b-color-gray.orange-shadow.pointer.b-1
-   {:class (str (if selected? "black slight-text-shadow" "white transparent")
-                     " "
-                     (when disable?
-                       "opacity-5"))}])
+(defn checkbox
+  "The app-wide checkbox: a rounded box, amber when checked. The original white-box
+   look is preserved as a CSS fallback under the root class `classic-checkboxes`
+   (see styles/core.clj) so a future user preference can switch back by toggling
+   that one class — no markup change needed."
+  [selected? disable?]
+  [:span.checkbox-box
+   {:class (str (when selected? "checked")
+                (when disable? " disabled"))}
+   (when selected?
+     [:i.fa.fa-check])])
 
 (defn labeled-checkbox [label selected? disabled? on-click]
   [:div.flex.pointer
