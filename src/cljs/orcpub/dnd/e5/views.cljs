@@ -5089,12 +5089,13 @@
   [omv/parent-section {:title "Starting Equipment"}
    [:div.opt-subsection
     [:div.opt-subsection-title.m-b-10 "Gold"]
-    [input-builder-field
-     [:span.f-w-b "Gold"]
+    [comps/input-field
+     :input
      (get-in background [:treasure :gp])
      #(dispatch [::bg/set-background-gold %])
      {:class "input h-40"
-      :type :number}]]
+      :type :number
+      :placeholder "e.g. 15 gp"}]]
    [omv/subsection {:menu-id :bg-eq-clothes :title "Clothing"
                     :options (bg-equipment-options background equip/clothes)}]
    [omv/subsection {:menu-id :bg-eq-artisans :title "Artisan's Tools"
