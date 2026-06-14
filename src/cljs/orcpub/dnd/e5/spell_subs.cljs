@@ -25,6 +25,7 @@
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.content-types :as ct]
+            [orcpub.dnd.e5.content-pools :as pools]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils]
             [orcpub.dnd.e5.template-base :as t-base]
@@ -742,13 +743,24 @@
                                            (opt5e/skill-selection 1)
                                            (opt5e/ability-increase-selection char5e/ability-keys 2 true)]})]})]})
 
-(defn draconic-ancestry-option [{:keys [name breath-weapon]}]
+(defn draconic-ancestry-option [{:keys [name key breath-weapon]}]
   (t/option-cfg
-   {:name name
-    :modifiers [(mod5e/damage-resistance (:damage-type breath-weapon))
-                (mod/modifier ?draconic-ancestry-breath-weapon breath-weapon)]}))
+   ;; Same mechanical heft for built-in and homebrew ancestries: resistance to the breath
+   ;; damage type + the breath-weapon value the race's Breath Weapon attack reads. Built-in
+   ;; entries carry no :key (so the key derives from name as before — behavior-preserving);
+   ;; homebrew entries pass their stored :key through (identity from a stable id, not a
+   ;; display name — direction doc D10).
+   (cond-> {:name name
+            :modifiers [(mod5e/damage-resistance (:damage-type breath-weapon))
+                        (mod/modifier ?draconic-ancestry-breath-weapon breath-weapon)]}
+     key (assoc :key key))))
 
-(def dragonborn-option-cfg
+(defn dragonborn-option-cfg
+  "The dragonborn race. Its Draconic Ancestry choice now GRANTS from an open pool
+   (`::races5e/draconic-ancestry-pool` = built-in ++ homebrew) instead of a fixed list, so an
+   orcbrew pack can add a new colour and it inherits the full mechanics. `draconic-ancestries`
+   is that pool, passed in by the `::races5e/races` sub."
+  [draconic-ancestries]
   {:name "Dragonborn"
    :key :dragonborn
    :help "Kin to dragons, dragonborn resemble humanoid dragons, without wings or tail and standing erect. They tend to make excellent warriors."
@@ -778,7 +790,16 @@
                   :tags #{:subrace}
                   :options (map
                             draconic-ancestry-option
-                            opt5e/draconic-ancestries)})]})
+                            draconic-ancestries)})]})
+
+;; The open pool dragonborn grants from: the built-in colours ++ any homebrew ancestries an
+;; orcbrew pack adds under ::e5/draconic-ancestries. Reads through ::e5/plugin-vals (the
+;; single resolved-content seam every plugin pool already uses). Memoized by re-frame.
+(reg-sub
+ ::races5e/draconic-ancestry-pool
+ :<- [::e5/plugin-vals]
+ (fn [plugin-vals _]
+   (pools/pool plugin-vals ::e5/draconic-ancestries opt5e/draconic-ancestries)))
 
 
 (def gnome-option-cfg
@@ -898,7 +919,8 @@
  :<- [::spells5e/spell-lists]
  :<- [::spells5e/spells-map]
  :<- [::langs5e/language-map]
- (fn [[plugin-races subraces-map spell-lists spells-map language-map]]
+ :<- [::races5e/draconic-ancestry-pool]
+ (fn [[plugin-races subraces-map spell-lists spells-map language-map draconic-ancestries]]
    (vec
     (into
      (sorted-set-by compare-keys)
@@ -913,7 +935,7 @@
         (elf-option-cfg spell-lists spells-map language-map)
         halfling-option-cfg
         (human-option-cfg spell-lists spells-map language-map)
-        dragonborn-option-cfg
+        (dragonborn-option-cfg draconic-ancestries)
         gnome-option-cfg
         (half-elf-option-cfg language-map)
         half-orc-option-cfg
