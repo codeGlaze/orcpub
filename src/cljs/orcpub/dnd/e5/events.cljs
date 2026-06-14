@@ -444,18 +444,21 @@
      (if-not cached-template
        {} ;; template not cached yet — skip this cycle, next autosave will retry
        (let [{:keys [:db/id] :as strict} (char5e/to-strict character)
-             built-character (entity/build character cached-template)
-             summary (make-summary built-character)]
+             built-character (entity/build character cached-template)]
+         ;; Gate on abilities BEFORE make-summary: a character missing base abilities
+         ;; crashes make-summary (entity-val on an unbuilt class). Fail fast with the
+         ;; error message instead of crashing. See docs/kb/test-suite-state.md (§2 #4).
          (if (every?
               (fn [ability-kw]
                 (nat-int? (get-in built-character [:base-abilities ability-kw])))
               char5e/ability-keys)
-           {:dispatch [:set-loading true]
-            :http {:method :post
-                   :headers (authorization-headers db)
-                   :url (url-for-route routes/dnd-e5-char-list-route)
-                   :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-                   :on-success [:character-save-success]}}
+           (let [summary (make-summary built-character)]
+             {:dispatch [:set-loading true]
+              :http {:method :post
+                     :headers (authorization-headers db)
+                     :url (url-for-route routes/dnd-e5-char-list-route)
+                     :transit-params (assoc strict :orcpub.entity.strict/summary summary)
+                     :on-success [:character-save-success]}})
            {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))))
 
 ;; Manual save — dispatched from character builder UI with built-char in scope.
@@ -471,22 +474,24 @@
          db' (if needs-name?
                (assoc-in db [:character ::entity/values ::char5e/character-name] rand-name)
                db)
-         {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))
-         summary (cond-> (make-summary built-character)
-                   ;; Override summary name with the generated name
-                   ;; (make-summary produced a descriptive label since entity was blank)
-                   needs-name? (assoc ::char5e/character-name rand-name))]
+         {:keys [:db/id] :as strict} (char5e/to-strict (:character db'))]
+     ;; Gate on abilities BEFORE make-summary (see ::char5e/save-character above):
+     ;; make-summary crashes on a character missing base abilities. Fail fast instead.
      (if (every?
           (fn [ability-kw]
             (nat-int? (get-in built-character [:base-abilities ability-kw])))
           char5e/ability-keys)
-       {:db db'
-        :dispatch [:set-loading true]
-        :http {:method :post
-               :headers (authorization-headers db')
-               :url (url-for-route routes/dnd-e5-char-list-route)
-               :transit-params (assoc strict :orcpub.entity.strict/summary summary)
-               :on-success [:character-save-success]}}
+       (let [summary (cond-> (make-summary built-character)
+                       ;; Override summary name with the generated name
+                       ;; (make-summary produced a descriptive label since entity was blank)
+                       needs-name? (assoc ::char5e/character-name rand-name))]
+         {:db db'
+          :dispatch [:set-loading true]
+          :http {:method :post
+                 :headers (authorization-headers db')
+                 :url (url-for-route routes/dnd-e5-char-list-route)
+                 :transit-params (assoc strict :orcpub.entity.strict/summary summary)
+                 :on-success [:character-save-success]}})
        {:dispatch [:show-error-message "You must provide values for all ability scores"]}))))
 
 (reg-event-fx
