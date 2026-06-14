@@ -4888,43 +4888,32 @@
      [:span.orange.underline.m-l-5 "Add Language"]]]])
 
 (defn tool-choice-checkboxes [background key]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [num]
-       ^{:key num}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         (str "Any " num)
-         (= num (get-in background [:profs :tool-options key]))
-         false
-         #(dispatch [::bg/toggle-choice-tool-prof key num])]])
-     (range 1 4)))])
+  [omv/option-menu
+   {:menu-id [:tool-choice key]
+    :multiselect? false
+    :options (omv/checkbox-options
+              (map (fn [num] {:key num :name (str "Any " num)}) (range 1 4))
+              (fn [item] (= (:key item) (get-in background [:profs :tool-options key])))
+              (fn [item] (dispatch [::bg/toggle-choice-tool-prof key (:key item)])))}])
 
 (defn language-choice-checkboxes [background]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [num]
-       ^{:key num}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         (str "Any " num)
-         (= num (get-in background [:profs :language-options :choose]))
-         false
-         #(dispatch [::bg/toggle-choice-language-prof num])]])
-     (range 1 4)))])
+  [omv/option-menu
+   {:menu-id :language-choice
+    :multiselect? false
+    :options (omv/checkbox-options
+              (map (fn [num] {:key num :name (str "Any " num)}) (range 1 4))
+              (fn [item] (= (:key item) (get-in background [:profs :language-options :choose])))
+              (fn [item] (dispatch [::bg/toggle-choice-language-prof (:key item)])))}])
 
 (defn starting-equipment-choice-checkboxes [background equipment equipment-name]
-  [:div.m-r-20.m-b-10
-   [comps/labeled-checkbox
-    "Any 1"
-    (some
-     (fn [{:keys [name]}]
-       (= name equipment-name))
-     (:equipment-choices background))
-    false
-    #(dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])]])
+  [omv/option-menu
+   {:menu-id [:eq-choice equipment-name]
+    :multiselect? false
+    :options (omv/checkbox-options
+              [{:key :any-1 :name "Any 1"}]
+              (fn [_] (some (fn [{:keys [name]}] (= name equipment-name))
+                            (:equipment-choices background)))
+              (fn [_] (dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])))}])
 
 (defn starting-equipment-checkboxes [menu-id background equipment]
   [omv/option-menu
