@@ -230,6 +230,17 @@ is "exposing a *second* pool in a builder is a ~1-line registration, shown in a 
 isn't trivially cheap, the retooling failed and we STOP. *Rejected:* taking "it'll be easier"
 on faith — it must be measured.
 
+**D22 — Builder FORMS are data; "irreducible per-type work" was a retreat reflex.** Claimed (in
+conversation) that each type needs a bespoke builder form. The code disproved it: `boon-builder`
+and `invocation-builder` were byte-identical forms differing only by a `set-*-prop` keyword.
+Collapsed into `simple-content-builder` (`109b5dd0`). The genuinely irreducible core is small —
+the **field schema** (data) + a reusable widget registry for complex fields + the field→mechanics
+mapping (mostly the existing `:props` vocabulary) — NOT a per-type form. *Process lesson:* the
+"irreducible" framing appeared right after the readability pushback and functioned as a way to
+lower the bar instead of keep hunting efficiencies — the same retreat/toadyism failure mode logged
+in `verification-discipline.md`, recurring in new clothes. Caught by the user; the corrective is to
+treat "this part is irreducible" as a claim that must be proven against the code, not asserted.
+
 **Pins (designed-in, built-later):** variants (D20); new-skill *creation* (adds to the skill
 registry, not a grant — different shape); the class-feature pool (`[:class-feature :X]` —
 richer than flat pools); a declarative cross-type prereq vocabulary (`has-class?`/`level>=`/

@@ -182,6 +182,40 @@ It expands along **three axes**, and the pool model maps cleanly onto where each
 5. Keep vocabulary to **pool/grant**; build from existing `selection-cfg`/`prereq-fn`/
    `modifiers`; intent-revealing call sites. No cryptic DSL.
 
+### Builder FORMS are data, not "irreducible per-type work" (`109b5dd0`)
+A correction worth recording: it was claimed (in conversation) that each content type needs a
+bespoke builder *form* — "irreducible per-type work." The code disproved it. `boon-builder`
+and `invocation-builder` were **byte-identical** forms (Name + Option Source + Description)
+differing only by their `set-*-prop` event keyword; `boon-input-field`/`invocation-input-field`
+were one-line wrappers differing only by that keyword. Collapsed into **`simple-content-builder`
+[item-sub set-prop & [extra-fields]]** — the form is now data; the two builders are one-liners.
+So a "simple" type's form costs **zero** beyond naming its sub + event; a "richer" type costs a
+**field list** (`extra-fields`) + the occasional reusable custom widget. The honest cost table
+for ADDING a type (the real answer to "is this easier?"):
+
+| Layer | Mechanism | Cost |
+|---|---|---|
+| Events | `register-homebrew-content!` | one descriptor |
+| Form | `simple-content-builder` (+ `extra-fields`) | sub+event (simple) / a field list (rich) |
+| Spec | derive from the field schema (not yet built) | TODO — see below |
+| Route / db slot / `content_types` | from one descriptor (partly via `content_types`) | small, mechanical |
+| Game-rule wiring (grant/modifiers) | pool + `:props`/`plugin-modifiers` | the genuine per-type part |
+
+The genuinely irreducible core is small: **the field schema (data) + a reusable widget registry
+for complex fields + the field→mechanics mapping** (mostly the existing `:props` vocabulary). NOT
+a bespoke form per type. (Spec-from-field-schema is the next collapse — a field schema would also
+generate the `s/keys` spec, shrinking the table's one remaining hand-written row.)
+
+### NEXT levers (pick per value)
+- (a) the generic **grant-authoring UI** so authors declare "grant a choice from pool X" in a
+  builder (where the N+M maintainability win becomes user-visible);
+- (b) **the draconic-ancestry builder end-to-end** — `register-homebrew-content!` + a
+  `homebrew-draconic-ancestry` spec + route + a `simple-content-builder` form with a breath-weapon
+  `extra-field` + `content_types` entry, gated by a **character round-trip** test (pick ancestry →
+  to-strict → from-strict → choice+mechanics survive) and an `.orcbrew` import test — NOT injection;
+- (c) **cross-silo reuse demo** — point the sorcerer draconic bloodline (`classes.cljc:2280`) at
+  the *same* ancestry pool, so one pool feeds two silos ("built here, called over there").
+
 ### PINS (designed-in-now, built-later — do not let these get refactored away)
 - **Variants** (`_copy` + `_mod`): the `resolved-content` indirection above is the only thing
   required now. Build `resolve-variants` later; pools/grants stay untouched.
