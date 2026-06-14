@@ -14,12 +14,14 @@
 >
 > **Immediate next steps:** (1) ✅ DONE (`9777ce88`) — reverted `by-parent`/`plugin-options`,
 > deleted `option_catalog`. (2) ✅ DONE (`3980ea1b`) — `register-homebrew-content!` (the
-> **wiring** sub-layer) + boon swapped through it (7 sites → 1); harness-verified. (3) **NEXT:**
-> prove the **pool + grant** spine on one slice end-to-end — `resolved-content` indirection +
-> a pool sub + the grant primitive; route one existing closed cross-link through it
-> behavior-identically (golden/fixture-gated), then add one new open capability
-> (e.g. `:draconic-ancestry` pack-extensible pool dragonborn grants from). See direction doc
-> v2 §"The spine" + the PINS.
+> **wiring** sub-layer) + boon swapped through it (7 sites → 1); harness-verified. (3) ✅ DONE
+> (`acaa131d`) — **first pool+grant slice on real mechanics**: `draconic-ancestries` def → an
+> open pool (`content_pools.cljc` + `::races5e/draconic-ancestry-pool`); dragonborn grants
+> from it; a homebrew ancestry inherits full mechanics (resistance + breath weapon). Built-ins
+> unchanged; additive-safe; falsifiable JVM + harness tests (incl. the maintainability proof).
+> (4) **NEXT levers:** the generic grant-authoring **UI** (where N+M becomes user-visible);
+> cross-silo reuse demo (sorcerer bloodline taps the *same* ancestry pool); an `.orcbrew`
+> import fixture. See direction doc v2 §"The spine", §"Maintainability", + the PINS.
 > Goal: **stabilize while adding features — stability and flexibility are the SAME abstraction.**
 
 ## Purpose

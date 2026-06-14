@@ -140,17 +140,30 @@ offering the `:boon` pool — **no boon↔feat wiring.**
 2. ✅ DONE (`3980ea1b`) — `register-homebrew-content!` HOF (the **wiring** sub-layer:
    save/delete/edit/new + set/set-prop/reset from one descriptor); boon swapped through it
    (7 scattered sites → 1), falsifiable handler tests added. Harness-verified.
-3. **NEXT — prove the POOL/GRANT spine on one slice, end-to-end:**
-   - Introduce the `resolved-content` indirection (identity passthrough today) + the
-     `pool` read (a memoized sub deriving over resolved content) + the `grant` primitive
-     (fixed | choice → `selection-cfg`).
-   - Prove it by routing **one existing closed cross-link** through it *behavior-identically*
-     first (candidate: the custom-race menu, or an existing flat list), gated by the golden +
-     `.orcbrew` fixture tests — nothing about a built character may change.
-   - Then add **one new open capability** on the same primitive (candidate: `:draconic-ancestry`
-     as a pool dragonborn grants from, that a pack can extend with new colors). This is the
-     real test of openness.
-4. Keep vocabulary to **pool/grant**; build from existing `selection-cfg`/`prereq-fn`/
+3. ✅ DONE (`acaa131d`) — **first pool+grant slice, on real mechanical content.**
+   `draconic-ancestries` (a fixed def) → an **open pool** (`::races5e/draconic-ancestry-pool`
+   = built-in colours ++ homebrew ancestries from `::e5/draconic-ancestries`). Dragonborn
+   grants from it; a homebrew ancestry inherits the **full mechanics** (damage resistance +
+   the breath-weapon the race's Breath Weapon attack reads), not a text stub.
+   - New leaf primitive `content_pools.cljc` (`pool` / `homebrew-entries`) — the named form
+     of `(mapcat (comp vals key) plugin-vals)`, reading through `::e5/plugin-vals` (the
+     resolved-content seam; variant resolution slots in there later, no pool change).
+   - Behavior-preserving for built-ins (10 colours, order, keys, modifiers identical).
+   - `::e5/draconic-ancestries` is additive-safe — the `::plugin` spec is open, no spec change.
+   - Falsifiable tests: `content_pools_test.cljc` (JVM) incl. the **maintainability proof**
+     (same primitive serves a second type in one expression); `draconic_ancestry_test.cljs`
+     (harness) — built-ins unchanged + homebrew ancestry appears with 2 modifiers and its key.
+   - **What this slice proved vs not:** the *pool* primitive + one *live* grant end-to-end
+     with mechanics + openness. It did NOT yet build the generic grant-authoring **UI** (the
+     "register a pool → it appears in every builder's grant menu" claim is proven at the
+     primitive level by the test, not yet in a live builder UI). That UI is the next lever.
+4. **NEXT levers** (pick per value): (a) the generic **grant-authoring UI** so authors declare
+   "grant a choice from pool X" in a builder (this is where the N+M maintainability win becomes
+   user-visible); (b) **cross-silo reuse demo** — point the sorcerer draconic bloodline
+   (`classes.cljc:2280`, today uses the raw `draconic-ancestries` list) at the *same* pool, so
+   one pool feeds two silos and homebrew colours show up in both ("built here, called over there");
+   (c) a real `.orcbrew` **fixture** exercising the import path for `::e5/draconic-ancestries`.
+5. Keep vocabulary to **pool/grant**; build from existing `selection-cfg`/`prereq-fn`/
    `modifiers`; intent-revealing call sites. No cryptic DSL.
 
 ### PINS (designed-in-now, built-later — do not let these get refactored away)
