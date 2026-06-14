@@ -2,6 +2,7 @@
   (:require [orcpub.route-map :as route-map]
             [orcpub.user-agent :as user-agent]
             [orcpub.dnd.e5 :as e5]
+            [orcpub.dnd.e5.content-types :as ct]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
@@ -94,10 +95,6 @@
 
 (def default-invocation {})
 
-(def default-boon {})
-
-(def default-draconic-ancestry {})
-
 (def default-selection {:options []})
 
 
@@ -122,7 +119,8 @@
                     :level-modifiers []})
 
 (def default-value
-  {:builder {:character {:tab #{:build :options}}}
+  (merge
+   {:builder {:character {:tab #{:build :options}}}
    :character default-character
    :template t5e/template
    :plugins {"Default Option Source" {}}
@@ -152,8 +150,6 @@
    ::bg5e/builder-item default-background
    ::langs5e/builder-item default-language
    ::class5e/invocation-builder-item default-invocation
-   ::class5e/boon-builder-item default-boon
-   ::race5e/draconic-ancestry-builder-item default-draconic-ancestry
    ::selections5e/builder-item default-selection
    ::feats5e/builder-item default-feat
    ::race5e/builder-item default-race
@@ -161,7 +157,11 @@
    ::class5e/builder-item default-class
    ::class5e/subclass-builder-item default-subclass
    ::char5e/newb-char-data {:answers {}
-                            :tags #{}}})
+                            :tags #{}}}
+   ;; Builder-item draft slots for registry homebrew types — generated from the
+   ;; content-types registry, so a new :homebrew-builder? type needs no db edit.
+   (into {} (map (juxt :builder-item :default))
+         (filter :homebrew-builder? ct/content-types))))
 
 (defn set-item [key value]
   (try
