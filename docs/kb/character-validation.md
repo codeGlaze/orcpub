@@ -33,11 +33,12 @@ any particular implementation.
 
 ## Why it can't be revived verbatim (verified)
 
-The built character is now a **lazy entity-val structure** (the `entity.spec` engine,
-fields pulled via `es/entity-val`), not a flat map. A `spec/keys` over it doesn't fit,
-and a naive whole-structure spec would be awkward and potentially expensive (it'd force
-realization of every field). So the original flat spec can't simply come back — the
-*intent* has to be re-expressed against the current representation.
+The built character is **a map whose derived values are deferred `:entity-fn?` functions**
+(realized via `es/entity-val`), not a flat map of realized values — full detail in
+[built-character-representation.md](built-character-representation.md). A `spec/keys` over
+it doesn't fit, and a naive whole-structure spec would be awkward and potentially expensive
+(it'd force realization of every field). So the original flat spec can't simply come back —
+the *intent* has to be re-expressed against the current representation.
 
 ## Charter — the modern replacement (PROPOSAL)
 

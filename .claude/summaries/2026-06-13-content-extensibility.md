@@ -96,4 +96,14 @@ Notable: `character_test.cljc` references the `::character` spec Larry removed i
 entity refactor (and duplicates the `.clj` test's namespace); the computed/built character
 has no validation spec (the `save-character` null crash is a symptom). Working agreements
 adopted: tests must be falsifiable (no theater); fix bugs on sight unless deep enough for
-their own branch.
+their own branch. Fixed the `save-character` null crash on sight (`42ceaaa8`).
+
+**Load-bearing gotcha captured** (`docs/kb/built-character-representation.md`, anchored in
+code): the built/computed character is a map whose derived values are deferred `:entity-fn?`
+functions read via `entity-val` — NOT a flat map; don't `spec/keys` it. This is why the
+computed character has no spec and why Larry's flat `::character` died.
+
+**Deferred follow-ups — HIGHLIGHT AT BRANCH CLOSE** (also in BRANCH.md): (1) the
+character-validation contract (own branch; charter in `character-validation.md`), and
+(2) getting the cljs tests into CI (own branch; the cljs suite is unrun/rotted). Surface
+both in the final PR/handoff so they aren't lost.

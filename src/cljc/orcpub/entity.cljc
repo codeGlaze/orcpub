@@ -617,7 +617,12 @@
 
 (def memoized-build-aux (memoize build-aux))
 
-(defn build [raw-entity template]
+(defn build
+  "Build a character/entity from a raw entity + template by applying modifiers.
+   NOTE: the result is a map whose DERIVED values are deferred :entity-fn? functions —
+   read them with orcpub.entity-spec/entity-val, not plain get. It is NOT a flat map;
+   don't spec/keys it. See docs/kb/built-character-representation.md."
+  [raw-entity template]
   (build-aux raw-entity template))
 
 (def memoized-make-modifier-map (memoize t/make-modifier-map))

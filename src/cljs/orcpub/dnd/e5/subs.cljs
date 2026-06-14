@@ -304,6 +304,9 @@
  (fn [[selected-plugin-options template] _]
    (built-template template selected-plugin-options)))
 
+;; Returns the BUILT (computed) character: a map whose derived values are deferred
+;; :entity-fn? fns — read with es/entity-val, not plain get. NOT a flat map; don't
+;; spec/keys it. See docs/kb/built-character-representation.md.
 (defn built-character [character built-template]
   (entity/build character built-template))
 

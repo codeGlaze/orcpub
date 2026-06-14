@@ -71,6 +71,20 @@ Note: code is landing on this branch (the only authorized push target). Docs are
 to split-commit to `agents/develop`; production code would normally go on a code branch
 off `develop` — confirm the target before merging.
 
+## Deferred follow-ups — HIGHLIGHT AT BRANCH CLOSE
+
+These are intentionally **not** done on this branch and **must be surfaced when this
+branch is finalized / PR'd** (don't let them vanish into the diff):
+
+1. **Character-validation contract** (own branch). The computed character is the one
+   user-facing representation with no validation; the *intent* and a falsifiable charter
+   are preserved in `docs/kb/character-validation.md`. Implement on its own branch.
+2. **Get the ClojureScript tests into CI** (own branch). CI runs only the JVM gate, so the
+   cljs suite is unrun and has rotted (`docs/kb/test-suite-state.md`). This is the root
+   fix; it also lets future cljs changes be gated instead of hand-verified. Pairs with #1.
+
+When putting a bow on this branch, repeat these two items in the PR description / handoff.
+
 ## Workflow
 This branch is based on the leaner fork line, not `agents/develop`, so file
 references in the docs use the monolithic `views.cljs`/`events.cljs` layout. The docs
@@ -121,6 +135,9 @@ to `docs/kb/README.md` there (not done here — this branch's index differs from
 - `docs/kb/character-validation.md` — preserves the *intent* of validating a character
   (Larry's 2016 test) + the modern, falsifiable replacement charter (own-branch). Capture
   this before retiring the broken `character_test.cljc`.
+- `docs/kb/built-character-representation.md` — **load-bearing gotcha:** the built/computed
+  character is a map of deferred `:entity-fn?` values (read via `entity-val`), NOT a flat
+  map; don't `spec/keys` it. Anchored in code on `entity-val`/`build`/`built-character`.
 - Cross-references: `docs/kb/spa-routing-architecture.md`,
   `entity-options-architecture.md`, `srd-vs-plugin-content.md`,
   `views-builders-split.md`, `docs/issues/homebrew-builders.md` (all on `agents/develop`)
