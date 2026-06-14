@@ -28,6 +28,7 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [character-naming.md](character-naming.md) | Auto-naming: descriptive labels, random name gen, display fallbacks |
 | [env-and-auth.md](env-and-auth.md) | Environment variables, SIGNATURE auth, .env sourcing chain, dev defaults |
 | [views-builders-split.md](views-builders-split.md) | builders.cljs decomposition: 10 domain files, dependency rules, gotchas (class→classes, spell-selector stays shared) |
+| [growable-option-menus.md](growable-option-menus.md) | Multi-select menu redesign: shared option-menu component, global layout toggle (grid/pills/A–Z), the two render-path families + inventory, map-prop/value-choice factories, menu-id rule, headless verify harness |
 | [monolith-decomposition-plan.md](monolith-decomposition-plan.md) | Full decomposition roadmap: tiers, precedence, branching strategy, 31 files assessed |
 | [namespace-architecture.md](namespace-architecture.md) | **START HERE** — full namespace map, dependency flows, entry points, layer boundaries. Read before scanning the repo. |
 | [srd-2024-integration.md](srd-2024-integration.md) | 2024 SRD integration analysis: mix-and-match constraint, overlapping keys, possible approaches, investigation needed |
