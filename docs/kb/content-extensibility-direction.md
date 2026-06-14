@@ -70,8 +70,9 @@ current state is fully bespoke; the common registrar is strictly less duplicatio
 
 ## Next steps (the goal is STABILIZING while adding features, not shaky foundations)
 
-1. **Revert `by-parent`** → `group-by` (undo the one readability regression). Decide on
-   `plugin-options` (keep if it reads clearly, else revert too).
+1. ✅ **DONE** (`9777ce88`) — reverted `by-parent` *and* `plugin-options` (the latter was
+   used in only 2 of ~11 sites — inconsistent), deleted `option_catalog`, subs back to plain
+   `group-by`/`mapcat`. Behavior-preserving; harness-verified.
 2. **Build `register-homebrew-content!`** (composing the existing factories) and **swap one
    existing builder (boon) through it + commit** — gated by the headless cljs harness
    (`cljs-headless-harness.md`).

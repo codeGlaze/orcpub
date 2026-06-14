@@ -166,7 +166,8 @@ not HOFs.
 code, does this go red?"); **fix bugs on sight** unless deep enough for their own branch;
 goal is **stabilize while adding features**, not build on shaky foundations.
 
-**Net for next steps:** revert `by-parent`; build `register-homebrew-content!`; swap **boon**
+**Net for next steps:** ~~revert `by-parent`~~ ✅ done `9777ce88` (also reverted `plugin-options`,
+deleted `option_catalog`); build `register-homebrew-content!`; swap **boon**
 through it + commit (harness-gated); then create a **new** builder end-to-end to measure the
 real effort. Keep `default-value` explicit; don't build the catalog/grant DSL. Authoritative
 plan: [content-extensibility-direction.md](content-extensibility-direction.md).

@@ -9,9 +9,11 @@
 > Verifying cljs in this container: `docs/kb/cljs-headless-harness.md` (rebuild recipe;
 > the harness lives in ephemeral `/tmp`+`target`).
 >
-> **Immediate next steps:** (1) revert `by-parent` → `group-by`; (2) build
-> `register-homebrew-content!` and swap **boon** through it + commit (harness-gated);
-> (3) create a NEW builder end-to-end to measure the real "add a feature" effort.
+> **Immediate next steps:** (1) ✅ DONE (`9777ce88`) — reverted `by-parent` *and*
+> `plugin-options`, deleted `option_catalog`; subs back to `group-by`/`mapcat`. (2) **NEXT:**
+> build `register-homebrew-content!` (a HOF composing the existing `reg-*-homebrew` factories)
+> and swap the **boon** builder through it + commit (harness-gated); (3) create a NEW builder
+> end-to-end to measure the real "add a feature" effort.
 > Goal: **stabilize while adding features, not build on shaky foundations.**
 
 ## Purpose
@@ -19,18 +21,17 @@ Capture the content-extensibility analysis and plan, and implement it in gated p
 (reducing the multi-file cost of adding a content type/builder to the 5e app).
 
 ## ⚓ Re-anchor — what this branch is *founded on* (don't lose the plot)
-**Founding purpose = content extensibility:** the registry + type-addressed catalog/grant
-work to collapse the ~8-file cost of adding content. Core progress: Phases 0–4b done
-(safety net, `option_catalog` seams for subraces/subclasses/boons/invocations, the
-`content_types` registry + builder-item subs). **That is the deliverable.**
+**Founding purpose = content extensibility:** reduce the ~8-file cost of adding a content
+type/builder. After a readability review the approach was **deflated** (see the direction
+doc): no grand registry/DSL — collapse *pure boilerplate* behind clear HOFs, keep readable
+code explicit. What stands: the `content_types` registry (data + audit test) and the
+Phase-4b builder-item subs loop. The thin `option_catalog` wrappers were **reverted** (`9777ce88`).
 
-**Current tangent (semi-related):** verifying the above surfaced pre-existing test-suite
-debt — the rotted cljs suite, the dead `character_test.cljc`, and the import-validation
-failures. We've been triaging that. It connects back: the **headless cljs harness** built
-during the tangent (and the cljs-in-CI item) is what lets us safely *finish* the
-extensibility wiring (4c–4f). So the tangent serves the founding purpose — but the next
-core step is still **Phase 4c onward**, gated by the harness. Don't let the tangent become
-the branch.
+**Current state / next core step:** build **`register-homebrew-content!`** (a clear HOF over
+the existing factories) and prove it by swapping the **boon** builder, then create one NEW
+builder to measure effort. The test-suite triage (rotted cljs suite, dead `character_test.cljc`,
+import fixes) was a tangent that produced the **headless cljs harness** — our means of gating
+cljs work. Don't let the tangent become the branch.
 
 Verification discipline lessons from this session: `docs/kb/verification-discipline.md`.
 
