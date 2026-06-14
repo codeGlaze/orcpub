@@ -4867,26 +4867,19 @@
                         #(dispatch [::bg/toggle-starting-equipment (:key %)])))
 
 (defn language-checkboxes [race languages]
-  [:div
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in race [:languages name])
-          false
-          #(dispatch [::races/toggle-language name])]])
-      (sort-by
-       :name
-       languages)))]
-   [:div.pointer.m-t-10
-    [:span.bg-lighter.p-5
-     {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
-     [:i.fa.fa-plus]
-     [:span.orange.underline.m-l-5 "Add Language"]]]])
+  [omv/section-card
+   {:menu-id :race-languages
+    :title "Languages"
+    :options (omv/checkbox-options
+              (sort-by :name languages)
+              ;; race language selection is keyed by NAME, not key
+              (fn [item] (get-in race [:languages (:name item)]))
+              (fn [item] (dispatch [::races/toggle-language (:name item)])))
+    :trailer [:div.pointer.m-t-10
+              [:span.bg-lighter.p-5
+               {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
+               [:i.fa.fa-plus]
+               [:span.orange.underline.m-l-5 "Add Language"]]]}])
 
 ;; "Choose any N" wildcard rows (single-select among themselves) rendered as the
 ;; dashed group at the top of a panel.
@@ -6481,8 +6474,9 @@
        [textarea-field
         {:value (get race :help)
          :on-change #(dispatch [::races/set-race-prop :help %])}]]
-     [:div.m-b-20.flex.flex-wrap
-      [:div.m-r-5
+     [omv/card "Size & Speed"
+      [:div.flex.flex-wrap
+       [:div.m-r-5
        [labeled-dropdown
         "Size"
         {:items (map
@@ -6523,9 +6517,8 @@
                  value-to-item
                  [0 60 120])
          :value (get race :darkvision)
-         :on-change #(dispatch [::races/set-race-prop :darkvision (js/parseInt %)])}]]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Armor Class"]
+         :on-change #(dispatch [::races/set-race-prop :darkvision (js/parseInt %)])}]]]]
+     [omv/card "Armor Class"
       [:div.flex.flex-wrap
        [comps/labeled-checkbox
         "Without armor your AC becomes 13 + your DEX modifier."
@@ -6538,8 +6531,7 @@
          (get-in race [:props :tortle-ac])
          false
          #(dispatch [::races/toggle-race-prop :tortle-ac])]]]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Ability Score Increases"]
+     [omv/card "Ability Score Increases"
       [:div.flex.flex-wrap
        (doall
         (map
@@ -6559,8 +6551,7 @@
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div.m-b-20
-       [:div.f-s-18.f-w-b.m-b-10 "Languages"]
-       [:div [language-checkboxes race @(subscribe [::langs/languages])]]]
+       [language-checkboxes race @(subscribe [::langs/languages])]]
       [:div.m-b-20
        [:div [option-weapon-proficiency race ::races/toggle-race-map-prop]]]
       [:div.m-b-20

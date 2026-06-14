@@ -369,6 +369,16 @@
                        :top-level? true
                        :collapsible? (>= (count (:options opts)) search-min))]])
 
+(defn card
+  "A flat section card with an amber accent-tab heading wrapping arbitrary content —
+   for form-field sections (dropdowns, inputs) that aren't option menus."
+  [title & body]
+  (into [:div.opt-section
+         [:div.opt-section-head
+          [:span.opt-section-accent]
+          [:span.opt-section-title title]]]
+        body))
+
 (defn subsection
   "A recessed child well around one option-menu panel (nested inside a parent card).
    A child is independently collapsible once it's large enough to be worth it
