@@ -196,3 +196,7 @@ component preview (mount + Playwright screenshot) can show a form renders correc
 - `content-extensibility-compatibility.md` — backward-compat invariants for orcbrew/characters.
 - `cljs-headless-harness.md` — how to run the cljs tests headless.
 - `verification-discipline.md` — testing/honesty lessons (incl. the toadyism failure mode).
+- `homebrew-content-merge.md` — **READ before claiming a content type isn't homebrew-extensible.**
+  The recurring `feat-options` trap (static `*-options` defs are SRD-minimal/`#_`-commented *by
+  design*; homebrew is merged at the `concat` assembly point, not in the static def). Feats ARE
+  extensible; fighting styles genuinely are NOT (no plugin path — the one real gap).
