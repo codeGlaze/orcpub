@@ -15,10 +15,10 @@ vocabulary, give it **cross-silo** reach, and make growing it **cheap/sustainabl
 > `:abilities`, `:profs`/choices, `:selections`, `:traits`. Tracing leaves missed all of that
 > (corrected 4×: feats' spell-choices, subclass `:spell`, the two vocabularies, and now races).
 >
-> **Switching to the right method: trace BACKWARD from each builder form → its assembly fn.**
-> The per-silo COMPILE-PATHS inventory below is accurate per function, but the **synthesis (the
-> cross-silo asymmetry table + "races fixed-only") is UNRELIABLE and being redone** via the
-> builder trace. Verified correction so far:
+> **Switched to the right method: trace BACKWARD from each builder form → its assembly fn.**
+> The per-silo COMPILE-PATHS inventory below is accurate per function, and the cross-silo
+> capability table has now been **REBUILT** from the backward trace (feat/race/subclass verified
+> rich; class/subrace/background still ⏳). Verified corrections:
 > - **Races are NOT fixed-only.** `race-option` compiles `:abilities` (ASI), `:profs` →
 >   `:skill-options`/`:language-options`/`:weapon-proficiency-options` (CHOICES via
 >   `skill-selection`/`language-selection`), `:subraces`, `:traits`, `:spells`, `:selections`,
@@ -116,32 +116,93 @@ vocabulary, give it **cross-silo** reach, and make growing it **cheap/sustainabl
 
 ---
 
-## THE CENTRAL FINDING — cross-silo asymmetry  ⚠️ UNRELIABLE — BEING REDONE
-> This table was built by forward leaf-tracing and is **known wrong in at least the Race column**
-> (races have ASI + prof choices + spells via `race-option`, not "fixed-only"). Do NOT trust it
-> until rebuilt from the backward builder→assembly trace. Kept only to show what's being revised.
+## Backward trace (the CORRECT method) — verified per silo: builder form → assembly fn
+
+For each silo: what the **builder form** exposes, and the **assembly fn** that compiles it.
+
+### Feat — `feat-builder` (views `:5264`) → `feat-option-from-cfg` (`options.cljc:3396`) ✅ rich
+Form sections: name/source/description, **prereqs** (`feat-prereqs`), **ASI** (fixed or choice),
+skill/language/weapon/armor/tool prof, HP, damage-resistance, speed, initiative, misc, and
+**spellcasting** (the magic-initiate/ritual/spell-sniper templates). All compile via
+`feat-option-from-cfg` (`:props`→modifiers + `:props`-choices via `make-feat-selections` +
+`:ability-increases` + `:prereqs`).
+
+### Race — `race-builder` (views `:6219`) → `race-option` (`options.cljc:2210`) ✅ rich
+Form sections: name/source/description, size/speed/flying/swimming/darkvision, AC checkboxes,
+**ASI** (fixed per ability), **prof CHOICES** (`option-skill-proficiency-choice`,
+`option-language-proficiency-choice`, `option-weapon-proficiency-choice`), fixed profs
+(weapon/armor/tool/skill/resistance/immunity/languages), and **spells** (`option-spells`).
+`race-option` compiles `:abilities`, `:profs`→`:skill-options`/`:language-options`/
+`:weapon-proficiency-options` (→ `skill-selection`/`language-selection` CHOICES), `:subraces`,
+`:traits`, `:spells`, `:selections`, `:props`. **Not fixed-only.**
+
+### Subclass — `subclass-builder` (views `:5946`) → `make-levels` (`spell_subs.cljs:382`) ✅ rich
+Form sections: name, **parent class**, source; **spellcasting** UI *gated to
+`#{:fighter :rogue :warlock :cleric :paladin}`* (fighter/rogue 1/3-caster toggle; paladin/cleric/
+warlock fixed-spell editors — convenience for built-in patterns); `option-skill-proficiency-choice`
++ `option-skill-expertise-choice` (CHOICES); **`option-level-modifiers`** (generic, shown for ALL
+subclasses); `option-level-selections` (→ TEXT-trait choices); `option-traits`.
+- **`option-level-modifiers` dropdown (`modifier-values`, views `:5374`) INCLUDES `:spell`** —
+  plus weapon/skill/armor/tool-prof, damage-resist/immunity, saving-throw-adv, num-attacks,
+  flying/swimming-speed. So **a subclass of ANY class (incl. custom) grants spells** via a
+  `:spell` level-modifier (Divine-Soul style). The class-gated spellcasting UI is just convenience.
+
+### Class — `class-builder` (views `:5643`) → `make-levels` + `spellcasting-template` ⏳ TODO trace form
+Compile side is rich (full caster + custom `:spell-list` + level-modifiers + level-selections).
+Form-side trace pending.
+
+### Subrace / Background / simple types (boon/invocation/language/spell/monster/encounter/selection) ⏳ TODO
+
+## SHARPENED duplication finding — grant types live in up to FOUR places
+There are **two grant vocabularies**, and **each is split across UI + compile**:
+
+| Vocab | Compile | UI | Used by |
+|---|---|---|---|
+| **A — `:props`** | `make-feat-modifiers` (`options.cljc:3287`) | `feat-*` / `option-*` form sections | feats, races, subraces |
+| **B — `:level-modifiers`** | `level-modifier` (`spell_subs.cljs:163`) | `modifier-values` dropdown (`views:5374`) | classes, subclasses |
+
+They overlap heavily (weapon/skill/armor prof, resist/immunity, save-adv, fly/swim speed) but
+diverge (A: language, initiative, max-hp, spell-choice templates; B: **`:spell`**, num-attacks,
+tool-prof). **To make one grant type available everywhere you may edit up to four sites**
+(A-compile, A-UI, B-compile, B-UI). That fan-out is the sustainability tax and the "built
+different" feel — unifying to one grant vocabulary (single source → compile + UI) is the prime target.
+
+
+## Cross-silo capability table — REBUILT from the backward builder→assembly trace ✅
 
 The same capability is available in some silos and not others, because each silo runs a different
-subset of compile paths. (✅ verified, ❌ no path, ❓ TODO.)
+subset of compile paths *and* a different builder form. Rows below are verified per silo via the
+backward trace (feat/race/subclass confirmed; class/subrace/background still ⏳).
+(✅ verified present, ❌ no path, ⚠️ partial/limited, ⏳ not yet traced.)
 
-| Capability | Feat | Race/Subrace | Class | Subclass |
+| Capability | Feat | Race | Subclass | Class |
 |---|---|---|---|---|
-| Fixed mechanics (`:props`) | ✅ | ✅ | ✅ | ✅ |
-| Prof/skill **choice** (`make-feat-selections`) | ✅ | ❌ | ❓ | ❌ |
-| Fixed known spell | (via template) | ✅ `:spells` | ✅ `:level-modifiers :spell` | ✅ `:level-modifiers :spell` (any class) |
-| **Spell choice** | ✅ 3 templates | ❌ | ✅ full caster (`:spellcasting`) | ⚠️ class-gated convenience only |
-| ASI (fixed/choice) | ✅ `:ability-increases` | ⚠️ inline-menu only | n/a | n/a |
-| Prereqs | ✅ (limited vocab) | ❓ | ❓ | ❓ |
-| Trackable resource | ❌ | ❌ | ❌ | ❌ |
-| Custom/expanded spell list | ❌ | ❌ | ✅ `:spell-list` | ❓ |
+| Fixed mechanics (`:props` / `:level-modifiers`) | ✅ | ✅ | ✅ | ✅ |
+| Prof/skill **choice** | ✅ `make-feat-selections` | ✅ `race-option` (`skill`/`language`/`weapon-proficiency-options`) | ✅ `option-skill-proficiency-choice`/`-expertise` | ⏳ |
+| Fixed known spell | ✅ via template | ✅ `:spells` | ✅ `:level-modifiers :spell` (any class) | ✅ `:level-modifiers :spell` |
+| **Spell choice** | ✅ 3 templates (magic-novice/ritual/attack) | ⚠️ fixed-only (`option-spells`) | ⚠️ class-gated convenience UI | ✅ full caster (`:spellcasting`) |
+| ASI | ✅ fixed **or** choice (`:ability-increases`) | ✅ fixed per ability (`:abilities`) | n/a | ⏳ |
+| Traits | ✅ | ✅ `:traits` | ✅ `option-traits` | ⏳ |
+| Prereqs | ✅ limited vocab (`feat-prereqs`) | ❓ not in form | ❓ not in form | ⏳ |
+| Trackable resource (Axis B) | ❌ | ❌ | ❌ | ❌ |
+| Custom/expanded spell list | ❌ | ❌ | ⚠️ via `:spellcasting` only | ✅ `:spell-list` |
 
-**Reading:** **feats** are the richest silo (choices, ASI, prereqs, spell templates). **Classes
-and subclasses** can grant fixed spells freely (`:level-modifiers :spell`, any class) and full
-caster spellcasting/custom lists. **Races/subraces** are nearly fixed-only. **Resources** exist
-nowhere as a decision. Two cross-cutting problems: (1) the **choice/ASI/prereq vocabulary is
-feat-only** — *a feat can offer a choice/ASI-option/prereq but a custom race can't*; (2) **two
-parallel grant vocabularies** (`make-feat-modifiers` vs `level-modifier`) overlap but diverge, so
-the same capability is unevenly available. Together these are the "cross-silo dipping" frustration.
+**Reading (corrected):** **feat, race, and subclass are all fairly rich** — each gets fixed
+mechanics, prof/skill **choices**, traits, and at least fixed spells. The asymmetries are narrower
+than the old leaf-trace suggested:
+1. **Spell *choice* is fragmented**, not a general decision: feats have 3 fixed templates, classes
+   have full-caster spellcasting, subclasses have only class-gated convenience UI, races have
+   fixed-only. There is **no general parameterized spell-choice** (pick N from list L, levels a–b)
+   anywhere.
+2. **ASI options (choose-which-to-bump) are feat-only** — race ASI is fixed-per-ability in the form.
+3. **Prereqs are feat-only** (and a limited vocab even there); races/subclasses don't expose them.
+4. **Trackable resources** exist nowhere as a decision.
+5. **Two parallel grant vocabularies** (`make-feat-modifiers`/`:props` vs `level-modifier`/
+   `:level-modifiers`) overlap but diverge, so the *same* fixed mechanic is unevenly reachable and
+   must be added in up to four places (see fan-out table above).
+
+These five — especially the spell-choice fragmentation and the two-vocabulary split — are the
+concrete "cross-silo dipping" frustration, restated precisely.
 
 ## What's genuinely missing (the creator vision → gaps)
 - **A general, cross-silo grant vocabulary**: `make-feat-selections` (choices) is feat-only;
