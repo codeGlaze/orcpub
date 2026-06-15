@@ -7806,7 +7806,12 @@
      [:div.f-w-b.f-s-24.m-b-5 "Import Option Source"]
      [:input {:type "file"
               :accept ".orcbrew"
-              :on-change import-file}]]
+              :on-change import-file}]
+     [:label.flex.align-items-c.m-t-10.pointer
+      [:input {:type "checkbox"
+               :checked (boolean @(subscribe [::e5/strict-import?]))
+               :on-change #(dispatch [::e5/set-strict-import? (.. % -target -checked)])}]
+      [:span.m-l-5 "Strict mode (creators/devs): report missing required fields instead of auto-filling them"]]]
     [my-content]]])
 
 (defn my-account-page []

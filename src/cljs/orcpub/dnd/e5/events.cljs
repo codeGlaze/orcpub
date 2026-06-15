@@ -3825,6 +3825,13 @@
 ;; Import Plugin Events
 ;; ============================================================================
 
+;; Strict-import toggle (creators/devs): when on, import reports missing required fields
+;; instead of low-friction auto-filling them.
+(reg-event-db
+ ::e5/set-strict-import?
+ (fn [db [_ strict?]]
+   (assoc db :strict-import? strict?)))
+
 (reg-event-fx
  ::e5/import-plugin
  (fn [{:keys [db]} [_ plugin-name plugin-text]]
@@ -3832,6 +3839,9 @@
    ;; Pass existing plugins for duplicate key detection
    (let [result (import-val/validate-import plugin-text {:strategy :progressive
                                                          :auto-clean true
+                                                         ;; strict mode (creators/devs) turns OFF
+                                                         ;; the low-friction auto-fill
+                                                         :auto-fill (not (:strict-import? db))
                                                          :existing-plugins (:plugins db)
                                                          :import-source-name plugin-name})
          user-message (import-val/format-import-result result)
@@ -3902,7 +3912,9 @@
                         true
                         (conj [:set-import-log {:name plugin-name
                                                 :changes (:changes result)
-                                                :errors []
+                                                ;; strict mode: surface the unfilled required
+                                                ;; fields as errors so creators see the gaps
+                                                :errors (mapv :description (:strict-unfilled result))
                                                 :skipped-items (:skipped-items result)
                                                 :key-conflicts (:key-conflicts result)
                                                 :key-warnings (:key-warnings result)}]))})

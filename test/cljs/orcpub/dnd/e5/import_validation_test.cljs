@@ -869,3 +869,13 @@
                   {:name "Storm" :option-pack "P"} ; no breath weapon
                   :orcpub.dnd.e5/draconic-ancestries)]
       (is (not (:valid result)) "missing required breath-weapon fields → invalid for export"))))
+
+(deftest strict-mode-detects-but-does-not-auto-fill
+  (testing "auto-fill false (strict) reports missing required fields instead of filling them"
+    (let [edn "{:orcpub.dnd.e5/draconic-ancestries {:storm {:option-pack \"P\" :name \"Storm\"}}}"
+          lenient (import-val/validate-import edn {:auto-fill true :existing-plugins {}})
+          strict  (import-val/validate-import edn {:auto-fill false :existing-plugins {}})]
+      (is (empty? (:strict-unfilled lenient))
+          "default low-friction mode fills, so nothing is reported as unfilled")
+      (is (seq (:strict-unfilled strict))
+          "strict mode reports the unfilled required breath-weapon fields (creators see the gap)"))))

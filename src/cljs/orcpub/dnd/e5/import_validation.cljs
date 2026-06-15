@@ -1310,8 +1310,8 @@
   Returns detailed validation results with user-friendly error messages.
   Includes :changes key with list of all cleaning operations performed.
   Includes :key-conflicts key with duplicate key warnings."
-  [edn-text {:keys [strategy auto-clean existing-plugins import-source-name]
-             :or {strategy :progressive auto-clean true}}]
+  [edn-text {:keys [strategy auto-clean auto-fill existing-plugins import-source-name]
+             :or {strategy :progressive auto-clean true auto-fill true}}]
 
   ;; Step 1: String-level cleaning (syntax fixes only) with tracking
   (let [string-changes (atom [])
@@ -1367,10 +1367,16 @@
                              (clean-data-with-log normalized-data)
                              {:data normalized-data :changes []})
 
-              ;; Step 3.5: Fill missing required fields with dummy data
-              fill-result (if auto-clean
-                            (fill-missing-in-import (:data clean-result))
-                            {:data (:data clean-result) :changes []})
+              ;; Step 3.5: Fill missing required fields with dummy data (low-friction default).
+              ;; STRICT mode (auto-fill false — for creators/devs): DETECT the gaps but do NOT
+              ;; fill them, so they surface (in :strict-unfilled) instead of being papered over.
+              fill-result (cond
+                            (not auto-clean) {:data (:data clean-result) :changes []}
+                            auto-fill        (fill-missing-in-import (:data clean-result))
+                            :else            (let [detected (fill-missing-in-import (:data clean-result))]
+                                               {:data (:data clean-result) ; ORIGINAL — unfilled
+                                                :changes []
+                                                :unfilled (:changes detected)}))
 
               ;; Step 3.75: Dedup selection options (same-name options within selections)
               dedup-result (if auto-clean
@@ -1400,7 +1406,10 @@
           (assoc validation-result
                  :changes all-changes
                  :key-conflicts key-conflicts
-                 :key-warnings key-warnings))
+                 :key-warnings key-warnings
+                 ;; strict mode: the required fields that were left UNFILLED (empty in the
+                 ;; default low-friction mode, since they get auto-filled there)
+                 :strict-unfilled (:unfilled fill-result)))
 
         ;; Parse failed - return detailed error
         {:success false

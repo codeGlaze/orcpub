@@ -43,6 +43,11 @@
    (get db :plugins)))
 
 (reg-sub
+ ::e5/strict-import?
+ (fn [db _]
+   (get db :strict-import?)))
+
+(reg-sub
  ::e5/plugin-vals
  :<- [::e5/plugins]
  (fn [plugins]
