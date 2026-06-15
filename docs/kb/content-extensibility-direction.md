@@ -197,7 +197,7 @@ for ADDING a type (the real answer to "is this easier?"):
 |---|---|---|
 | Events | `register-homebrew-content!` | one descriptor |
 | Form | `simple-content-builder` (+ `extra-fields`) | sub+event (simple) / a field list (rich) |
-| Spec | derive from the field schema (not yet built) | TODO — see below |
+| Spec | `bf/fields->spec` over the field schema (✅ draconic; optional-by-default) | one field schema |
 | Route / db slot / `content_types` | from one descriptor (partly via `content_types`) | small, mechanical |
 | Game-rule wiring (grant/modifiers) | pool + `:props`/`plugin-modifiers` | the genuine per-type part |
 
@@ -260,6 +260,14 @@ the registry entry (the one you should write), the view form (irreducible custom
 - (d) **breath-area field** + the level-gated/variant pins for full FTD coverage.
 
 ### PINS (designed-in-now, built-later — do not let these get refactored away)
+- 🔴 **HIGH PRIORITY — conditional-required field validation (`:required-when`).** `bf/fields->spec`
+  generates the save spec optional-by-default and enforces plain `:required?`, but does NOT yet
+  enforce fields that are required *only given another field's value* — e.g. `line-width`/`line-length`
+  are required when shape = `:line`, `length` is required when shape = `:cone`, and each is
+  meaningless otherwise. Today those are plain-optional in the spec (the form's `:when` only
+  hides/shows them), so a `:line` ancestry with no width currently *validates*. Build a
+  `:required-when (pred)` field key → `bf/fields->spec` adds a `spec/and` predicate enforcing it.
+  Flagged loud in `builder_fields.cljc` too. **Do not let this get lost.**
 - **Variants** (`_copy` + `_mod`): the `resolved-content` indirection above is the only thing
   required now. Build `resolve-variants` later; pools/grants stay untouched.
 - **New skills** (creating a brand-new skill, not granting one): adds to the skill registry

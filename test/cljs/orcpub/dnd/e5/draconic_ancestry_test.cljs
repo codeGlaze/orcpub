@@ -125,15 +125,34 @@
              bw)
           "full breath weapon stored, all values the keywords/numbers the engine expects"))))
 
-(deftest builder-produces-spec-valid-savable-content
-  (testing "set + set-prop build an item that validates against the save spec"
-    (reset! app-db {})
-    (rf/dispatch-sync [::races5e/set-draconic-ancestry {:name "Amethyst" :option-pack "My Pack"}])
-    (rf/dispatch-sync [::races5e/set-draconic-ancestry-prop :breath-weapon {:damage-type :force}])
-    (let [built   (::races5e/draconic-ancestry-builder-item @app-db)
-          ;; reg-save-homebrew assoc's :key = name-to-kw of the name before validating
-          savable (assoc built :key (common/name-to-kw (:name built)))]
-      (is (= {:damage-type :force} (:breath-weapon built))
-          "set-prop wrote the nested breath-weapon the builder's damage-type field sets")
-      (is (spec/valid? ::races5e/homebrew-draconic-ancestry savable)
-          "a builder-produced item is savable (validates against the spec the save gates on)"))))
+;; The spec is now GENERATED from the field schema (races/draconic-ancestry-fields):
+;; name/key/option-pack + the :required? fields must be present; an :enum value must be one of
+;; its options; non-required fields (line-width) may be absent. These tests lock that behavior.
+(def complete-ancestry
+  {:name "Amethyst" :key :amethyst :option-pack "My Pack"
+   :breath-weapon {:damage-type :force :area-type :line :line-width 5 :line-length 30
+                   :save ::char5e/dex}})
+
+(deftest spec-accepts-a-complete-ancestry
+  (testing "a fully-specified ancestry validates"
+    (is (spec/valid? ::races5e/homebrew-draconic-ancestry complete-ancestry))))
+
+(deftest spec-accepts-missing-OPTIONAL-field
+  (testing "an optional field (line-width) may be absent — not everything is required (D9)"
+    (is (spec/valid? ::races5e/homebrew-draconic-ancestry
+                     (update complete-ancestry :breath-weapon dissoc :line-width)))))
+
+(deftest spec-rejects-missing-REQUIRED-field
+  (testing "a required field (area-type) absent → rejected"
+    (is (not (spec/valid? ::races5e/homebrew-draconic-ancestry
+                          (update complete-ancestry :breath-weapon dissoc :area-type))))))
+
+(deftest spec-rejects-bad-enum-value
+  (testing "a damage type outside the ten options → rejected (validation the old spec never did)"
+    (is (not (spec/valid? ::races5e/homebrew-draconic-ancestry
+                          (assoc-in complete-ancestry [:breath-weapon :damage-type] :banana))))))
+
+(deftest spec-still-rejects-missing-name
+  (testing "the universal required fields are unchanged"
+    (is (not (spec/valid? ::races5e/homebrew-draconic-ancestry
+                          (dissoc complete-ancestry :name))))))

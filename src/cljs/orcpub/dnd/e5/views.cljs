@@ -6581,30 +6581,13 @@
 (defn boon-builder []
   (simple-content-builder ::classes/boon-builder-item ::classes/set-boon-prop))
 
-(def draconic-ancestry-fields
-  ;; Declarative field schema for the Draconic Ancestry builder — the full breath weapon, as
-  ;; DATA. Values are stored as the keywords the engine expects (damage type, area shape, save
-  ;; ability), so resistance + the breath-weapon display match the built-in ancestries. All
-  ;; nest under [:breath-weapon …]; dimensions are conditional on the chosen shape.
-  (let [damage-types [:acid :lightning :fire :poison :cold :thunder :force :radiant :necrotic :psychic]
-        line? #(= :line (get-in % [:breath-weapon :area-type]))
-        cone? #(= :cone (get-in % [:breath-weapon :area-type]))]
-    [{:key [:breath-weapon :damage-type] :type :enum :label "Breath Weapon Damage Type"
-      :options (map (fn [dt] {:value dt :title (s/capitalize (name dt))}) damage-types)}
-     {:key [:breath-weapon :area-type] :type :enum :label "Breath Weapon Shape"
-      :options [{:value :line :title "Line"} {:value :cone :title "Cone"}]}
-     {:key [:breath-weapon :line-width] :type :number :label "Line Width (ft.)" :when line?}
-     {:key [:breath-weapon :line-length] :type :number :label "Line Length (ft.)" :when line?}
-     {:key [:breath-weapon :length] :type :number :label "Cone Length (ft.)" :when cone?}
-     {:key [:breath-weapon :save] :type :enum :label "Breath Weapon Save"
-      :options [{:value ::char/dex :title "Dexterity"} {:value ::char/con :title "Constitution"}]}]))
-
 (defn draconic-ancestry-builder []
-  ;; A PRODUCT of the framework: the form is now its declarative field schema, rendered by
-  ;; simple-content-builder. No bespoke field code, and values are correctly typed.
+  ;; A PRODUCT of the framework: the form is the type's declarative field schema (the SAME data
+  ;; that generates the save spec — races/draconic-ancestry-fields), rendered by
+  ;; simple-content-builder. No bespoke field code, correct types, one source of truth.
   (simple-content-builder ::races/draconic-ancestry-builder-item
                           ::races/set-draconic-ancestry-prop
-                          draconic-ancestry-fields))
+                          races/draconic-ancestry-fields))
 
 (defn invocation-builder []
   (simple-content-builder ::classes/invocation-builder-item ::classes/set-invocation-prop))

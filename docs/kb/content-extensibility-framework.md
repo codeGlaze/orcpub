@@ -64,7 +64,7 @@ pure-data leaf — D7) so every other layer can read it without circular deps.
 | **db draft slots** | `db.cljs` | ✅ generated | builder-item `default-value` slots from `:builder-item`+`:default` |
 | **routes** | `route_map.cljc`, `routes.clj` | ✅ generated | bidi segs + `my-content` set + SPA allowlist from `:route-seg`/`:route-kw` (registry is now a pure-data leaf; guarded by `content_types_routes_test`). `route_map` keeps only the one route-keyword `def` per type (D6). |
 | **core page-map** | `core.cljs` | ⚠️ won't generate | a view *fn* can't be derived from data in cljs — the route→view binding is irreducible (best co-located with the form) |
-| **spec** | per-type ns | ⏭️ future | could derive from a field-schema; hand-written today |
+| **spec** | per-type ns | ✅ generated (draconic) | `bf/fields->spec` over the field schema — optional-by-default, required name/key/option-pack + `:required?` fields, enum values validated. 🔴 conditional-required (`:required-when`) NOT yet enforced — high-priority pin. |
 | **builder form** | `views.cljs` | ✅ collapsed (not generated) | `simple-content-builder` makes it a one-liner; custom fields via `extra-fields` |
 
 ### 2c. The wiring HOFs (the trusted thick parts the loops compose)
