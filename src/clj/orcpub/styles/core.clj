@@ -1249,8 +1249,9 @@
      {:display :flex
       :flex-wrap :wrap
       :gap "24px"
-      :align-items :flex-end
-      :margin-bottom "16px"}]
+      ;; bottoms align: each column is label+input, so the Source input lines up with
+      ;; the Name underline (the helper + description live below the row, not in it).
+      :align-items :flex-end}]
 
     ;; basis = the comfortable min, max-width = the cap. So they fill side-by-side at
     ;; tablet widths, cap as a tight pair on wide (whitespace to the right), and stack
@@ -1300,8 +1301,11 @@
 
     [:.builder-source-help
      {:font-size "12px"
-      :color "#9aa4b2"
-      :margin-top "6px"}]
+      :color "#8893a2"
+      :margin-top "7px"}]
+
+    [:.builder-header-desc
+     {:margin-top "16px"}]
 
     ;; the Option Source input gets an amber-tinted border to read as the save target
     [:#plugins-choice

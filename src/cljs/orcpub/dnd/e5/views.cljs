@@ -5462,14 +5462,14 @@
          (sort-by common/lower-case (keys plugins)))))
 
 ;;; Create a datalist element and load the plugin names
-(defn plugin-datalist [label plugin-val dispatch-event] 
+(defn plugin-datalist [label plugin-val dispatch-event & [label-class wrap-class]]
   (let [selected-value (atom (or (:option-pack plugin-val) "")) ;TODO: reframe functions may or may not help handle this more efficiently
         ]
     (fn []
       [:div.flex-grow-1
-       {:class "m-l-5 m-b-20"
+       {:class (or wrap-class "m-l-5 m-b-20")
         :name "option-pack"}
-       [:div.f-w-b.m-b-5 label]
+       [:div {:class (or label-class "f-w-b m-b-5")} label]
        [:input {:type "text"
                 :list "plugins-list"
                 :name "plugins-choice"
@@ -6474,16 +6474,22 @@
                           :invalid " builder-field-invalid"
                           ""))
             :placeholder "Race name"}])]
-       ;; Option Source — the save target
+       ;; Option Source — the save target. Same small-uppercase label as Race Name;
+       ;; drop plugin-datalist's m-b-20 so the column bottom is the input, which aligns
+       ;; with the Name underline under the row's align-items:flex-end.
        [:div.builder-source-col
         [plugin-datalist
-         [:span [:span "Option Source Name"]
+         [:span "Option Source Name"
           [:span.save-target-pill "Save target"]]
          race
-         ::races/set-race-prop]
-        [:div.builder-source-help
-         "Everything you build is saved under this source."]]]
-      [:div
+         ::races/set-race-prop
+         "builder-field-label"
+         ""]]]
+      ;; helper sits BELOW the row (per reference) so it doesn't add height to the
+      ;; source column and break the input/underline bottom-alignment
+      [:div.builder-source-help
+       "Everything you build is saved under this source."]
+      [:div.builder-header-desc
        [:div.builder-field-label "Description"]
        [textarea-field
         {:value (get race :help)
