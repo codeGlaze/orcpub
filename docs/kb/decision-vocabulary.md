@@ -124,6 +124,21 @@ style, the gated UI is just convenience." **That was wrong** (caught by the main
 - **Net:** a subclass can add fixed *innate known spells* (`:spell` modifier) to any base class, but
   **cannot grant a spellcasting progression to a non-caster base class** via the builders.
 
+#### ✅ Confirmed by real community data — the actual Divine Soul `.orcbrew`
+Inspected the community "Xanathar's Guide to Everything" pack (the real Divine Soul the maintainer
+remembered). It validates every point above:
+- The whole 285 KB file has **exactly one** `:spellcasting` map and **one** `:spell-list` — both on a
+  standalone custom **class** keyed `:sorcerer-divine-soul-` (under `:orcpub.dnd.e5/classes`), with
+  `:level-factor 1` (full caster), `:ability ::char/cha`, a `:spells-known` schedule, cantrips, and
+  the merged sorcerer+cleric **custom `:spell-list`**. I.e. they rebuilt sorcerer as a custom class
+  so the class-builder's custom spell-list could carry the expanded list.
+- The "affinities" (Law, etc.) are **subclasses parented to that custom class** (`:class
+  :sorcerer-divine-soul-`). **None** of them carry `:spellcasting`; they only add an innate themed
+  spell via `:level-modifiers [{:type :spell :value {:ability …cha :level 1 :key :bless}}]` + traits.
+- So the community did **not** grant spellcasting via a subclass — they put spellcasting on a custom
+  class and used subclasses for flavor + innate spells. This is the empirical answer to "can a
+  custom base class get spellcasting from a subclass?": no — work around it at the class level.
+
 ### TWO PARALLEL grant vocabularies — overlapping, divergent (the real duplication) ⚠️
 - `make-feat-modifiers` (`:props`) and `level-modifier` (`:level-modifiers :type`) both grant
   mechanics, with overlapping coverage (weapon/skill/armor prof, resist/immunity, save-adv,
