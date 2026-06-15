@@ -10,6 +10,10 @@ invariants, how-to). Read this to understand or extend the framework.
 > layer is generative unless the status table below says ✅. Roadmap lives in
 > `content-extensibility-direction.md`; the *why* behind every decision is in
 > `content-extensibility-decisions.md` (referenced as D1–D22).
+>
+> 📍 **For what each silo can express *today* (the starting point this framework improves on), see
+> [`decision-vocabulary.md`](decision-vocabulary.md)** — every builder form traced backward to its
+> assembly fn, with the cross-silo gaps the "grant" layer below is meant to close.
 
 ---
 

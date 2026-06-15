@@ -694,6 +694,11 @@
    {}
    spells-known))
 
+;; The richest spell path, CLASS-level only. A homebrew class's :spellcasting becomes full/half/
+;; third-caster spellcasting with real spell CHOICES (spells-known-selections) and an optional
+;; custom `:spell-list` (line below assoc's it into spell-lists under class-key). Subclasses/feats/
+;; races cannot reach this — see the "no general parameterized spell-choice" gap in
+;; docs/kb/decision-vocabulary.md.
 (defn spellcasting-template [spell-lists
                              spells-map
                              {:keys [class-key
@@ -1981,6 +1986,9 @@
 
 
 #_:clj-kondo/ignore ;; source param shadows outer source — intentional override
+;; Assembly fn for the SUBRACE silo — mirrors race-option: fixed :abilities, :profs (incl. a
+;; skill-prof CHOICE), :spells (fixed), :traits, and :props mechanics. No spell choice, no prereqs.
+;; See docs/kb/decision-vocabulary.md (backward trace: Subrace).
 (defn subrace-option [race
                       spell-lists
                       spells-map
@@ -2207,6 +2215,11 @@
                               {:name "Two Languages"
                                :selections [(homebrew-language-selection language-map 2 2)]})]})]}))
 
+;; Assembly fn for the RACE silo. NOT fixed-only: compiles :abilities (fixed ASI), :profs →
+;; :skill-options/:language-options/:weapon-proficiency-options (proficiency CHOICES via
+;; skill-selection/language-selection), :subraces, :traits, :spells (fixed known), :selections, and
+;; :props (make-feat-modifiers). Comparable richness to feats minus ASI options/prereqs/spell
+;; choice. See docs/kb/decision-vocabulary.md (backward trace: Race).
 (defn race-option [spell-lists
                    spells-map
                    language-map
@@ -2768,6 +2781,11 @@
                       (conj selections
                             (custom-subclass-spellcasting-selection cls-key))))})))
 
+;; Builds one class level's options (called per level 1..20 from class-option). NOTE the `plugin?`
+;; guard below gates the standard ASI selection, hit-points selection, and per-level modifier — but
+;; `:plugin? true` marks only the hardcoded UA *overlay* templates (templates/ua_*.cljc), NOT
+;; homebrew builder classes (which never set it), so builder classes DO get ASI/hit-points normally.
+;; See docs/kb/decision-vocabulary.md (backward trace: Class — "(not plugin?) gate is not a gap").
 (defn level-option [spell-lists
                     spells-map
                     language-map
@@ -3258,6 +3276,12 @@
               (spell-sniper-option spells-map :warlock "Warlock" ::character/cha spell-lists)
               (spell-sniper-option spells-map :wizard "Wizard" ::character/int spell-lists)]}))
 
+;; `:props` → CHOICES (proficiency/spell-choice selections). This is the choice side of grant
+;; vocabulary A — but it is FEAT-ONLY (only `feat-option-from-cfg` calls it; the race/subrace/
+;; subclass compile paths do not). The spell-choice arms (:ritual-casting/:magic-novice/
+;; :attack-spell) are the only homebrew spell *choices* outside classes, and only as 3 fixed
+;; templates — there is no general "pick N from list L" decision. Making this reachable from every
+;; silo is the prime cross-silo target. See docs/kb/decision-vocabulary.md.
 (defn make-feat-selections [language-map spells-map spell-lists proficiency-weapons k v]
   (when v
     (case k
@@ -3284,6 +3308,11 @@
        (modifier-fn k))))
    m))
 
+;; Grant vocabulary A — `:props` → FIXED mechanics. This `case` is the shared, cross-silo
+;; vocabulary: it runs for feats AND races/subraces/classes/subclasses (despite the "feat" name),
+;; so adding a `case` arm here + a form field reaches every silo. The CHOICE counterpart is
+;; `make-feat-selections` (feat-only). Vocabulary B is `level-modifier` (spell_subs.cljs) — they
+;; overlap but diverge. See docs/kb/decision-vocabulary.md ("grant types live in up to FOUR places").
 (defn make-feat-modifiers [k v option-key]
   (when v
     (case k
@@ -3394,7 +3423,11 @@
 
 
 (defn feat-option-from-cfg
-  "Build a feat option. race-map is threaded from template-selections."
+  "Build a feat option. race-map is threaded from template-selections.
+   Assembly fn for the FEAT silo (richest): compiles :props → fixed mechanics (make-feat-modifiers)
+   AND :props → choices (make-feat-selections), :ability-increases (fixed or choose-which-to-bump),
+   and :prereqs/:path-prereqs (feat-prereqs, a limited vocab). The only silo with ASI *options*,
+   prereqs, and spell-choice templates. See docs/kb/decision-vocabulary.md (backward trace: Feat)."
   [language-map
    spells-map
    spell-lists

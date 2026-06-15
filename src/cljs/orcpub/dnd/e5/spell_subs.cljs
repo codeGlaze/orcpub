@@ -160,6 +160,12 @@
              :edit-event [::races5e/edit-subrace subrace]))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
+;; Grant vocabulary B — `:level-modifiers {:type … :value …}` for CLASSES and SUBCLASSES (no class
+;; gate). Overlaps vocabulary A (make-feat-modifiers, options.cljc) on profs/resist/immunity/
+;; save-adv/speed but diverges: B uniquely has :spell (fixed known spell for ANY class/subclass —
+;; the Divine-Soul pattern), :num-attacks, :tool-prof; A uniquely has :language/:initiative/etc.
+;; The same capability living in two vocabularies (×UI ×compile = four sites) is the prime
+;; sustainability target. See docs/kb/decision-vocabulary.md ("two parallel grant vocabularies").
 (defn level-modifier [class-key {:keys [type value] :as modifier}]
   (case type
     :weapon-prof (mod5e/weapon-proficiency value)
