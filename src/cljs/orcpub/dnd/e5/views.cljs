@@ -6514,6 +6514,34 @@
        {:value (get language :description)
         :on-change #(dispatch [::langs/set-language-prop :description %])}]]]))
 
+(defn render-builder-field
+  "Render one DECLARATIVE builder field from a spec, dispatching set-prop on change. This is
+   what makes a richer builder's form data instead of hand-written hiccup, and it coerces values
+   to the right type (so an :enum stores its keyword, not the dropdown's raw string — the bug
+   that shipped a broken breath weapon). Field spec:
+     :key     a single key or a PATH vector into the item (e.g. [:breath-weapon :damage-type])
+     :type    :enum | :number | :text
+     :label   field label
+     :options (:enum) [{:value <stored value, any type> :title <label>} …]
+     :when    (optional) predicate over the item — render only when true (conditional fields)"
+  [item set-prop {:keys [key type label options] :as field}]
+  (when (or (not (:when field)) ((:when field) item))
+    (let [path (if (sequential? key) key [key])
+          v    (get-in item path)]
+      [:div.m-b-10
+       [:div.f-w-b.m-b-5 label]
+       (case type
+         ;; index-based option values so ANY value type (incl. qualified keywords) round-trips
+         ;; through the string-only <select>
+         :enum   (let [idx (first (keep-indexed (fn [i o] (when (= (:value o) v) i)) options))]
+                   [dropdown {:items (map-indexed (fn [i o] {:value (str i) :title (:title o)}) options)
+                              :value (when idx (str idx))
+                              :on-change #(dispatch [set-prop path (:value (nth options (js/parseInt %)))])}])
+         :number [number-field {:value v
+                                :on-change #(dispatch [set-prop path (when (seq %) (js/parseInt %))])}]
+         ;; :text
+         [comps/input-field :input v #(dispatch [set-prop path %]) {:class-name "input"}])])))
+
 (defn simple-content-builder
   "Generic builder form for a 'simple' homebrew content type: Name + Option Source +
    Description, plus any `extra-fields` (hiccup, rendered after Description) for richer types.
@@ -6546,33 +6574,37 @@
        {:value (get item :description)
         :on-change #(dispatch [set-prop :description %])}]]
      (when (seq extra-fields)
-       (into [:div.w-100-p] extra-fields))]))
+       (into [:div.w-100-p]
+             ;; a field spec (map) is rendered declaratively; raw hiccup (vector) passes through
+             (map (fn [f] (if (map? f) (render-builder-field item set-prop f) f)) extra-fields)))]))
 
 (defn boon-builder []
   (simple-content-builder ::classes/boon-builder-item ::classes/set-boon-prop))
 
-(def draconic-ancestry-damage-types
-  ["acid" "lightning" "fire" "poison" "cold" "thunder" "force" "radiant" "necrotic" "psychic"])
+(def draconic-ancestry-fields
+  ;; Declarative field schema for the Draconic Ancestry builder — the full breath weapon, as
+  ;; DATA. Values are stored as the keywords the engine expects (damage type, area shape, save
+  ;; ability), so resistance + the breath-weapon display match the built-in ancestries. All
+  ;; nest under [:breath-weapon …]; dimensions are conditional on the chosen shape.
+  (let [damage-types [:acid :lightning :fire :poison :cold :thunder :force :radiant :necrotic :psychic]
+        line? #(= :line (get-in % [:breath-weapon :area-type]))
+        cone? #(= :cone (get-in % [:breath-weapon :area-type]))]
+    [{:key [:breath-weapon :damage-type] :type :enum :label "Breath Weapon Damage Type"
+      :options (map (fn [dt] {:value dt :title (s/capitalize (name dt))}) damage-types)}
+     {:key [:breath-weapon :area-type] :type :enum :label "Breath Weapon Shape"
+      :options [{:value :line :title "Line"} {:value :cone :title "Cone"}]}
+     {:key [:breath-weapon :line-width] :type :number :label "Line Width (ft.)" :when line?}
+     {:key [:breath-weapon :line-length] :type :number :label "Line Length (ft.)" :when line?}
+     {:key [:breath-weapon :length] :type :number :label "Cone Length (ft.)" :when cone?}
+     {:key [:breath-weapon :save] :type :enum :label "Breath Weapon Save"
+      :options [{:value ::char/dex :title "Dexterity"} {:value ::char/con :title "Constitution"}]}]))
 
 (defn draconic-ancestry-builder []
-  ;; Mirrors boon-builder: a simple-content-builder (Name + Option Source + Description)
-  ;; PLUS one extra field — a damage-type dropdown that writes into the nested
-  ;; [:breath-weapon :damage-type]. The set-prop handler only sets a single top-level
-  ;; key, so we set the whole :breath-weapon map (merging the existing value).
-  ;; NOTE: breath-area is a future field — only :damage-type is authored here for now.
-  (let [item @(subscribe [::races/draconic-ancestry-builder-item])
-        breath-weapon (get item :breath-weapon)]
-    (simple-content-builder
-     ::races/draconic-ancestry-builder-item
-     ::races/set-draconic-ancestry-prop
-     [[labeled-dropdown
-       "Breath Weapon Damage Type"
-       {:items (map (fn [dt] {:value dt :title (s/capitalize dt)})
-                    draconic-ancestry-damage-types)
-        :value (get breath-weapon :damage-type)
-        :on-change #(dispatch [::races/set-draconic-ancestry-prop
-                               :breath-weapon
-                               (assoc breath-weapon :damage-type %)])}]])))
+  ;; A PRODUCT of the framework: the form is now its declarative field schema, rendered by
+  ;; simple-content-builder. No bespoke field code, and values are correctly typed.
+  (simple-content-builder ::races/draconic-ancestry-builder-item
+                          ::races/set-draconic-ancestry-prop
+                          draconic-ancestry-fields))
 
 (defn invocation-builder []
   (simple-content-builder ::classes/invocation-builder-item ::classes/set-invocation-prop))

@@ -108,6 +108,23 @@
                ::races5e/reset-draconic-ancestry]]
       (is (some? (registrar/get-handler :event e)) (str e " should be registered")))))
 
+(deftest nested-field-set-prop-stores-full-keyword-typed-breath-weapon
+  (testing "the declarative fields write nested [:breath-weapon …] paths with KEYWORD values"
+    ;; This is the breath-weapon fix at the framework level: set-prop takes a path (assoc-in),
+    ;; and enum fields store keywords — so the built breath weapon is complete and correctly
+    ;; typed (was shipping {:damage-type \"thunder\"} with no shape/save — broken display + resistance).
+    (reset! app-db {})
+    (rf/dispatch-sync [::races5e/set-draconic-ancestry {:name "Storm" :option-pack "P"}])
+    (rf/dispatch-sync [::races5e/set-draconic-ancestry-prop [:breath-weapon :damage-type] :thunder])
+    (rf/dispatch-sync [::races5e/set-draconic-ancestry-prop [:breath-weapon :area-type] :line])
+    (rf/dispatch-sync [::races5e/set-draconic-ancestry-prop [:breath-weapon :line-width] 5])
+    (rf/dispatch-sync [::races5e/set-draconic-ancestry-prop [:breath-weapon :line-length] 30])
+    (rf/dispatch-sync [::races5e/set-draconic-ancestry-prop [:breath-weapon :save] ::char5e/dex])
+    (let [bw (:breath-weapon (::races5e/draconic-ancestry-builder-item @app-db))]
+      (is (= {:damage-type :thunder :area-type :line :line-width 5 :line-length 30 :save ::char5e/dex}
+             bw)
+          "full breath weapon stored, all values the keywords/numbers the engine expects"))))
+
 (deftest builder-produces-spec-valid-savable-content
   (testing "set + set-prop build an item that validates against the save spec"
     (reset! app-db {})

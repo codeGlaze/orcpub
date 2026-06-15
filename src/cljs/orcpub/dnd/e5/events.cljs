@@ -4283,7 +4283,10 @@
   (reg-event-db set-event interceptors (fn [_ [_ item]] item))
   (reg-event-db set-prop-event interceptors
                 (fn [item [_ prop-key prop-value]]
-                  (assoc item prop-key prop-value)))
+                  ;; prop-key may be a single key (assoc) or a path vector (assoc-in) so a
+                  ;; declarative builder field can target nested data (e.g. [:breath-weapon
+                  ;; :damage-type]). Backward-compatible: a single keyword behaves as before.
+                  (assoc-in item (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
   (reg-event-fx reset-event (fn [_ _] {:dispatch [set-event default]})))
 
 ;; Derive a homebrew type's event keywords from its builder-item by the uniform naming
