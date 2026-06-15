@@ -1236,11 +1236,24 @@
     [:.builder-header-band
      {:position :relative
       :z-index 5
+      :overflow :hidden
       :margin "-20px -20px 20px"
       :padding "16px clamp(16px,4vw,40px) 16px"
-      :background "linear-gradient(180deg, #222c3a 0%, #1a2230 100%)"
-      :border-bottom "2px solid rgba(240,161,15,0.55)"
-      :box-shadow "0 3px 0 -1px rgba(240,161,15,0.45), 0 16px 30px -14px rgba(0,0,0,0.6)"}]
+      :background "linear-gradient(180deg, #243241 0%, #1b2531 100%)"
+      ;; white hairline + the amber accent line and downward shadow from the box-shadow
+      :border-bottom "1px solid rgba(255,255,255,0.09)"
+      :box-shadow "0 3px 0 -1px rgba(240,161,15,0.45), 0 16px 30px -14px rgba(0,0,0,0.6)"}
+     ;; ambient amber glow in the top-right (behind the content; clipped by overflow)
+     [:&:before
+      {:content "\"\""
+       :position :absolute
+       :z-index -1
+       :top "-70px"
+       :right "-30px"
+       :width "300px"
+       :height "220px"
+       :background "radial-gradient(circle, rgba(240,161,15,0.13), transparent 65%)"
+       :pointer-events :none}]]
 
     ;; Name + Option Source are a form, not a collection — they cap and group (a tight
     ;; pair, left-aligned with breathing room to the right) and wrap to stacked on
@@ -1282,18 +1295,20 @@
      {:outline :none
       :border-bottom "2px solid #f0a100"}]
 
-    ;; SAVE TARGET pill badge next to the Option Source label
+    ;; SAVE TARGET badge — a subtle outlined chip (not a solid block that reads as a
+    ;; second button next to "Save to Browser Storage")
     [:.save-target-pill
      {:display :inline-block
       :vertical-align :middle
       :font-size "10px"
       :font-weight 700
-      :letter-spacing "0.06em"
+      :letter-spacing "0.04em"
       :text-transform :uppercase
-      :color "#161d27"
-      :background "#f0a100"
-      :border-radius "4px"
-      :padding "1px 6px"}]
+      :color "#f0a100"
+      :background "rgba(240,161,15,0.14)"
+      :border "1px solid rgba(240,161,15,0.45)"
+      :border-radius "999px"
+      :padding "1px 8px"}]
 
     ;; ⓘ click-toggle popover (mouse + touch, no hover) for the Option Source helper
     [:.opt-info-wrap
