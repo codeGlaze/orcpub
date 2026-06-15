@@ -106,6 +106,34 @@
           :on-click #(dispatch [::set-layout mode])}
          label]))]))
 
+(defn info-popover
+  "A ⓘ button that toggles a small popover on click — works with mouse AND touch, no
+   hover dependency. The ⓘ toggles; a click/tap anywhere outside dismisses it (a
+   document mousedown listener that ignores clicks within this widget). `text` is the
+   popover body."
+  [_text]
+  (let [open?    (r/atom false)
+        wrap-ref (atom nil)
+        outside? (fn [e] (let [n @wrap-ref] (and n (not (.contains n (.-target e))))))
+        on-doc   (fn [e] (when (outside? e) (reset! open? false)))]
+    (r/create-class
+     {:component-did-mount    (fn [_] (js/document.addEventListener "mousedown" on-doc))
+      :component-will-unmount (fn [_] (js/document.removeEventListener "mousedown" on-doc))
+      :reagent-render
+      (fn [text]
+        [:span.opt-info-wrap
+         {:ref #(reset! wrap-ref %)}
+         [:i.fa.fa-info-circle.opt-info-btn
+          {:role "button"
+           :aria-label "More info"
+           :on-click (fn [e] (.preventDefault e) (.stopPropagation e) (swap! open? not))}]
+         (when @open?
+           ;; clicking the popover (which overlaps the ⓘ) also dismisses it; combined
+           ;; with the outside-click handler, a tap anywhere closes it.
+           [:div.opt-info-popover
+            {:on-click (fn [e] (.stopPropagation e) (reset! open? false))}
+            text])])})))
+
 ;; ---------------------------------------------------------------------------
 ;; Chrome pieces
 ;; ---------------------------------------------------------------------------

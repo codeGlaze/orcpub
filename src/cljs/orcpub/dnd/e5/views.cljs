@@ -6479,16 +6479,17 @@
        ;; with the Name underline under the row's align-items:flex-end.
        [:div.builder-source-col
         [plugin-datalist
-         [:span "Option Source Name"
-          [:span.save-target-pill "Save target"]]
+         ;; one-line label: text + SAVE TARGET badge + ⓘ popover (no always-on helper
+         ;; line, which sat under Name at 1440 and broke column alignment)
+         [:span.builder-source-label
+          "Option Source Name"
+          [:span.save-target-pill "Save target"]
+          [omv/info-popover
+           "Everything you build is saved under this source — name it to group your homebrew."]]
          race
          ::races/set-race-prop
          "builder-field-label"
          ""]]]
-      ;; helper sits BELOW the row (per reference) so it doesn't add height to the
-      ;; source column and break the input/underline bottom-alignment
-      [:div.builder-source-help
-       "Everything you build is saved under this source."]
       [:div.builder-header-desc
        [:div.builder-field-label "Description"]
        [textarea-field

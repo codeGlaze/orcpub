@@ -1264,6 +1264,13 @@
      {:flex "1 1 280px"
       :max-width "440px"}]
 
+    ;; the Option Source label stays on ONE line: text + SAVE TARGET badge + ⓘ inline
+    [:.builder-source-label
+     {:display :inline-flex
+      :align-items :center
+      :gap "8px"
+      :white-space :nowrap}]
+
     ;; large title-style name input: transparent, bottom-border only, amber on focus
     [:.builder-name-input
      {:width "100%"
@@ -1296,13 +1303,42 @@
       :color "#161d27"
       :background "#f0a100"
       :border-radius "4px"
-      :padding "1px 6px"
-      :margin-left "8px"}]
+      :padding "1px 6px"}]
 
-    [:.builder-source-help
-     {:font-size "12px"
-      :color "#8893a2"
-      :margin-top "7px"}]
+    ;; ⓘ click-toggle popover (mouse + touch, no hover) for the Option Source helper
+    [:.opt-info-wrap
+     {:position :relative
+      :display :inline-flex}]
+
+    [:.opt-info-btn
+     {:cursor :pointer
+      :color "#7e8897"
+      :font-size "13px"
+      :line-height 1}]
+
+    [:.opt-info-btn:hover
+     {:color "#e7ecf2"}]
+
+    [:.opt-info-popover
+     {:position :absolute
+      :top "calc(100% + 8px)"
+      :left "0"
+      :z-index 10
+      :width "260px"
+      :max-width "70vw"
+      :background "#11161d"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "8px"
+      :padding "10px 12px"
+      ;; reset the label's uppercase/spacing/colour so the helper reads as body text
+      :text-transform :none
+      :letter-spacing :normal
+      :font-size "12px"
+      :font-weight 400
+      :line-height 1.5
+      :color "#cdd4de"
+      :white-space :normal
+      :box-shadow "0 10px 24px -10px rgba(0,0,0,0.7)"}]
 
     [:.builder-header-desc
      {:margin-top "16px"}]
