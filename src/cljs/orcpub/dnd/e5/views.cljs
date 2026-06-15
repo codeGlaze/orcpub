@@ -5497,6 +5497,60 @@
       ]
        )))
 
+;; ---- Shared builder header band -------------------------------------------------
+;; Every homebrew builder opens with the same chrome: a large title-style Name input,
+;; the Option Source save-target field, and a Description textarea. Pulled out of the
+;; race builder so all of them inherit one band — restyle once, every builder follows.
+
+(def builder-source-label
+  [:span.builder-source-label
+   "Option Source Name"
+   [:span.save-target-pill "Save target"]
+   [omv/info-popover
+    "Everything you build is saved under this source — name it to group your homebrew."]])
+
+(defn builder-name-input
+  "Large title-style Name input for the header band. Carries the shared required-field
+   save cue: amber when empty, red when present-but-invalid (name must start with a
+   letter — flagged live, before any save)."
+  [value prop-event prop & [placeholder]]
+  (let [live-invalid? (and (= prop :name)
+                           (string? value) (not (s/blank? value))
+                           (not (common/starts-with-letter? value)))
+        cue (cond
+              live-invalid? " builder-field-invalid"
+              :else (case (get @(subscribe [:builder-field-errors]) prop)
+                      :missing " builder-field-unfilled"
+                      :invalid " builder-field-invalid"
+                      ""))]
+    [comps/input-field :input value
+     #(do (dispatch [prop-event prop %])
+          (dispatch [:clear-builder-field-error prop]))
+     {:class (str "builder-name-input" cue)
+      :placeholder (or placeholder "Name")
+      :maxLength (:text branding/field-limits)}]))
+
+(defn builder-header
+  "Shared builder header band. Name, source, and description all route through one
+   set-prop event (the generic `set-*-prop` every builder already has). Pass :desc-value
+   to include the Description row; omit it for builders that have no single description
+   (e.g. selection, whose descriptions are per-option). :desc-prop defaults to :help."
+  [{:keys [name-label name-placeholder entity prop-event desc-value desc-prop]
+    :or {desc-prop :help}
+    :as opts}]
+  [:div.builder-header-band
+   [:div.builder-header-row
+    [:div.builder-name-col
+     [:div.builder-field-label (or name-label "Name")]
+     [builder-name-input (get entity :name) prop-event :name name-placeholder]]
+    [:div.builder-source-col
+     [plugin-datalist builder-source-label entity prop-event "builder-field-label" ""]]]
+   (when (contains? opts :desc-value)
+     [:div.builder-header-desc
+      [:div.builder-field-label "Description"]
+      [textarea-field {:value desc-value
+                       :on-change #(dispatch [prop-event desc-prop %])}]])])
+
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])
         plugins @(subscribe [::e5/plugins])]
@@ -6458,43 +6512,12 @@
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
     [:div.p-20.main-text-color
-     [:div.builder-header-band
-      [:div.builder-header-row
-       ;; large title-style Name input (keeps the required-field save cue)
-       [:div.builder-name-col
-        [:div.builder-field-label "Race Name"]
-        (let [name-err (get @(subscribe [:builder-field-errors]) :name)]
-          [comps/input-field :input (get race :name)
-           (fn [v]
-             (dispatch [::races/set-race-prop :name v])
-             (dispatch [:clear-builder-field-error :name]))
-           {:class (str "builder-name-input"
-                        (case name-err
-                          :missing " builder-field-unfilled"
-                          :invalid " builder-field-invalid"
-                          ""))
-            :placeholder "Race name"}])]
-       ;; Option Source — the save target. Same small-uppercase label as Race Name;
-       ;; drop plugin-datalist's m-b-20 so the column bottom is the input, which aligns
-       ;; with the Name underline under the row's align-items:flex-end.
-       [:div.builder-source-col
-        [plugin-datalist
-         ;; one-line label: text + SAVE TARGET badge + ⓘ popover (no always-on helper
-         ;; line, which sat under Name at 1440 and broke column alignment)
-         [:span.builder-source-label
-          "Option Source Name"
-          [:span.save-target-pill "Save target"]
-          [omv/info-popover
-           "Everything you build is saved under this source — name it to group your homebrew."]]
-         race
-         ::races/set-race-prop
-         "builder-field-label"
-         ""]]]
-      [:div.builder-header-desc
-       [:div.builder-field-label "Description"]
-       [textarea-field
-        {:value (get race :help)
-         :on-change #(dispatch [::races/set-race-prop :help %])}]]]
+     [builder-header
+      {:name-label "Race Name"
+       :name-placeholder "Race name"
+       :entity race
+       :prop-event ::races/set-race-prop
+       :desc-value (get race :help)}]
      [omv/layout-control-row]
      [omv/card "Size & Speed"
       [:div.builder-field-grid
@@ -6621,22 +6644,13 @@
 (defn background-builder []
   (let [background @(subscribe [::bg/builder-item])]
     [:div.p-20.main-text-color
-     [:div.m-b-20.flex.flex-wrap
-      [background-input-field
-       "Name"
-       :name
-       background]
-      [plugin-datalist
-       option-source-name-label
-       background
-       ::bg/set-background-prop]
-      ]
-     [:div.m-b-20
-       [:div.f-w-b
-        "Description"]
-       [textarea-field
-        {:value (get background :help)
-         :on-change #(dispatch [::bg/set-background-prop :help %])}]]
+     [builder-header
+      {:name-label "Background Name"
+       :name-placeholder "Background name"
+       :entity background
+       :prop-event ::bg/set-background-prop
+       :desc-value (get background :help)}]
+     [omv/layout-control-row]
      [:div [background-skill-proficiencies background]]
      [:div [background-languages background]]
      [:div [background-tool-proficiencies background]]
@@ -8313,7 +8327,8 @@
   (builder-page "Selection" ::selections/reset-selection ::selections/save-selection selection-builder [title-with-help "Selection Builder" selection-help]))
 
 (defn background-builder-page []
-  (builder-page "Background" ::bg/reset-background ::bg/save-background background-builder))
+  ;; hide-layout? — background renders the layout control row itself, below its header band
+  (builder-page "Background" ::bg/reset-background ::bg/save-background background-builder nil true))
 
 (defn race-builder-page []
   ;; hide-layout? — race renders the layout control row itself, below its header band
