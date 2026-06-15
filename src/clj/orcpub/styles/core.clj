@@ -1237,9 +1237,9 @@
      {:position :relative
       :z-index 5
       :margin "-20px -20px 20px"
-      :padding "20px clamp(16px,4vw,40px) 22px"
+      :padding "16px clamp(16px,4vw,40px) 16px"
       :background "linear-gradient(180deg, #222c3a 0%, #1a2230 100%)"
-      :border-bottom "3px solid #f0a100"
+      :border-bottom "2px solid rgba(240,161,15,0.55)"
       :box-shadow "0 3px 0 -1px rgba(240,161,15,0.45), 0 16px 30px -14px rgba(0,0,0,0.6)"}]
 
     ;; Name + Option Source as equal columns, bottoms aligned; stacks on narrow
@@ -1255,8 +1255,12 @@
      {:width "100%"
       :box-sizing :border-box
       :background :transparent
-      :border :none
-      :border-bottom "2px solid rgba(255,255,255,0.15)"
+      ;; zero the other sides with longhands — a `:border :none` shorthand can emit
+      ;; after :border-bottom (map ordering) and reset it.
+      :border-top :none
+      :border-right :none
+      :border-left :none
+      :border-bottom "2px solid rgba(255,255,255,0.22)"
       :border-radius "0"
       :color "#f3f6fa"
       :font-size "clamp(22px,3vw,30px)"
