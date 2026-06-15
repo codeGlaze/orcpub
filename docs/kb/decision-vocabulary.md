@@ -112,6 +112,15 @@ style, the gated UI is just convenience." **That was wrong** (caught by the main
 - **Divine Soul is not a counterexample:** it's a *sorcerer* subclass, and sorcerer is already a
   full caster, so its expanded list rides on the base class's existing spellcasting. It does not
   demonstrate granting spellcasting to a non-caster.
+- **The gate is in the COMPILE PATH, not just the UI — so an `.orcbrew` cannot bypass it.**
+  ✅ statically verified in `make-levels` (`spell_subs.cljs:392`, the exact fn that compiles
+  imported plugin subclasses via `::classes5e/plugin-subclasses`, `:448`):
+  `add-spellcasting? (and spellcasting (#{:fighter :rogue} class))` (`:396`) — a hand-authored
+  `:spellcasting` map is **ignored** unless `class ∈ #{:fighter :rogue}`; `:paladin-spells` only when
+  `class = :paladin` (`:411`), `:cleric-spells` only `:cleric` (`:424`), `:warlock-spells` only
+  `:warlock` (`:429`). So crafting EDN by hand does not get around the gate; the only ungated spell
+  path remains `:level-modifiers {:type :spell}` (innate known spells). **No runtime test needed —
+  the compile function is the authority and it gates.**
 - **Net:** a subclass can add fixed *innate known spells* (`:spell` modifier) to any base class, but
   **cannot grant a spellcasting progression to a non-caster base class** via the builders.
 
