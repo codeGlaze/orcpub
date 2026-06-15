@@ -73,3 +73,20 @@
                 :else                          problems)))
           []
           fields))
+
+(defn fields->required-entries
+  "Auto-generate import/export `required-fields`-style entries for a schema's :required? fields,
+   so the import/export verification stays SYNCED with the schema (no hand-duplication, no
+   drift — change the schema and import/export follows). Each entry carries the field's type
+   :check-fn and a sensible :dummy, so a missing one fills to keep content loadable — consistent
+   with the existing table's behavior. Keyed by the field's :key (a single key OR a path vector).
+   This covers the TYPE's fields; universal name/key/option-pack stay in the hand table."
+  [fields]
+  (into {}
+        (for [{:keys [key required? type options] :as f} fields
+              :when required?]
+          [key {:check-fn (field-value-pred f)
+                :dummy    (case type
+                            :enum   (:value (first options))
+                            :number 0
+                            "")}])))

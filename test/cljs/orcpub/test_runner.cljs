@@ -8,7 +8,8 @@
             [orcpub.dnd.e5.subs-test]
             [orcpub.dnd.e5.content-reconciliation-test]
             [orcpub.dnd.e5.draconic-ancestry-test]
-            [orcpub.dnd.e5.simple-content-builder-test]))
+            [orcpub.dnd.e5.simple-content-builder-test]
+            [orcpub.dnd.e5.import-validation-test]))
 
 (defn -main []
   (run-tests 'orcpub.dnd.e5.event-utils-test
@@ -17,7 +18,8 @@
              'orcpub.dnd.e5.subs-test
              'orcpub.dnd.e5.content-reconciliation-test
              'orcpub.dnd.e5.draconic-ancestry-test
-             'orcpub.dnd.e5.simple-content-builder-test))
+             'orcpub.dnd.e5.simple-content-builder-test
+             'orcpub.dnd.e5.import-validation-test))
 
 ;; Auto-run when figwheel reloads
 (defn ^:after-load on-reload []

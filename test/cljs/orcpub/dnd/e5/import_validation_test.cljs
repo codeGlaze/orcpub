@@ -840,3 +840,32 @@
         (is (= #{"Alpha" "Beta"} (set (map :name options)))))
       ;; Should have a dedup change logged
       (is (some #(= :dedup-selection-options (:type %)) (:changes result))))))
+;; ============================================================================
+;; Schema-synced required fields (import/export verification kept in sync with
+;; the builder field schema — see field-schemas / builder-fields/fields->required-entries)
+;; ============================================================================
+
+(deftest draconic-required-fields-synced-from-schema
+  (testing "draconic required-fields = crash-table :name + schema breath-weapon fields"
+    (let [rf (get import-val/required-fields :orcpub.dnd.e5/draconic-ancestries)]
+      (is (contains? rf :name) "universal :name from the crash-prevention table")
+      (is (contains? rf [:breath-weapon :damage-type]) "nested schema field synced in")
+      (is (contains? rf [:breath-weapon :area-type]))
+      (is (contains? rf [:breath-weapon :save])))))
+
+(deftest draconic-fill-fills-nested-schema-fields
+  (testing "import fill creates the nested breath-weapon required fields (path-aware assoc-in)"
+    (let [[filled changes] (import-val/fill-missing-fields
+                            {:name "Storm" :option-pack "P"}
+                            :orcpub.dnd.e5/draconic-ancestries)]
+      (is (some? (get-in filled [:breath-weapon :damage-type])) "nested damage-type filled")
+      (is (some? (get-in filled [:breath-weapon :area-type])))
+      (is (some? (get-in filled [:breath-weapon :save])))
+      (is (seq changes) "changes recorded"))))
+
+(deftest draconic-export-flags-missing-schema-field
+  (testing "export validation flags a draconic item missing schema-required breath-weapon fields"
+    (let [result (import-val/validate-item-for-export
+                  {:name "Storm" :option-pack "P"} ; no breath weapon
+                  :orcpub.dnd.e5/draconic-ancestries)]
+      (is (not (:valid result)) "missing required breath-weapon fields → invalid for export"))))
