@@ -6495,9 +6495,9 @@
        [textarea-field
         {:value (get race :help)
          :on-change #(dispatch [::races/set-race-prop :help %])}]]]
+     [omv/layout-control-row]
      [omv/card "Size & Speed"
-      [:div.flex.flex-wrap
-       [:div.m-r-5
+      [:div.builder-field-grid
        [labeled-dropdown
         "Size"
         {:items (map
@@ -6506,39 +6506,35 @@
                     :value (name kw)})
                  ["small" "medium" "large"])
          :value (common/safe-name (get race :size :medium))
-         :on-change #(dispatch [::races/set-race-prop :size (keyword %)])}]]
-      [:div.m-r-5
+         :on-change #(dispatch [::races/set-race-prop :size (keyword %)])}]
        [labeled-dropdown
         "Speed"
         {:items (map
                  value-to-item
                  (range 0 55 5))
          :value (get race :speed)
-         :on-change #(dispatch [::races/set-race-speed %])}]]
-      [:div.m-r-5
+         :on-change #(dispatch [::races/set-race-speed %])}]
        [labeled-dropdown
         "Flying Speed"
         {:items (map
                  value-to-item
                  (range 0 55 5))
          :value (or (get-in race [:props :flying-speed]) 0)
-         :on-change #(dispatch [::races/set-race-value-prop :flying-speed (js/parseInt %)])}]]
-      [:div.m-r-5
+         :on-change #(dispatch [::races/set-race-value-prop :flying-speed (js/parseInt %)])}]
        [labeled-dropdown
         "Swimming Speed"
         {:items (map
                  value-to-item
                  (range 0 55 5))
          :value (or (get-in race [:props :swimming-speed]) 0)
-         :on-change #(dispatch [::races/set-race-value-prop :swimming-speed (js/parseInt %)])}]]
-      [:div.m-r-5
+         :on-change #(dispatch [::races/set-race-value-prop :swimming-speed (js/parseInt %)])}]
        [labeled-dropdown
         "Darkvision"
         {:items (map
                  value-to-item
                  [0 60 120])
          :value (get race :darkvision)
-         :on-change #(dispatch [::races/set-race-prop :darkvision (js/parseInt %)])}]]]]
+         :on-change #(dispatch [::races/set-race-prop :darkvision (js/parseInt %)])}]]]
      [omv/card "Armor Class"
       [:div.flex.flex-wrap
        [comps/labeled-checkbox
@@ -6553,21 +6549,20 @@
          false
          #(dispatch [::races/toggle-race-prop :tortle-ac])]]]]
      [omv/card "Ability Score Increases"
-      [:div.flex.flex-wrap
+      [:div.builder-field-grid
        (doall
         (map
          (fn [{:keys [name key]}]
            ^{:key key}
-           [:div.m-l-5
-            [labeled-dropdown
-             name
-             {:items (map
-                      (fn [bonus]
-                        {:title (common/bonus-str bonus)
-                         :value bonus})
-                      (range -2 3 1))
-              :value (get-in race [:abilities key] 0)
-              :on-change #(dispatch [::races/set-race-ability-increase key %])}]])
+           [labeled-dropdown
+            name
+            {:items (map
+                     (fn [bonus]
+                       {:title (common/bonus-str bonus)
+                        :value bonus})
+                     (range -2 3 1))
+             :value (get-in race [:abilities key] 0)
+             :on-change #(dispatch [::races/set-race-ability-increase key %])}])
          opt/abilities))]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
@@ -8189,7 +8184,7 @@
    :hide-header-message? true])
 
 ;; events are set and passed by the individual pages defined below this
-(defn builder-page [item-title reset-event save-event builder & [title]]
+(defn builder-page [item-title reset-event save-event builder & [title hide-layout?]]
   [content-page
    (or title (str item-title " Builder"))
    [{:title (str "New " item-title)
@@ -8199,8 +8194,11 @@
      :icon "save"
      :on-click #(dispatch [save-event])}]
    [:div
-    ;; match the builders' p-20 side gutters so the toggle lines up with the cards
-    [:div.flex.justify-cont-end.p-l-20.p-r-20.p-t-10 [omv/layout-toggle]]
+    ;; the layout selector belongs to the content, in an anchored control row matching
+    ;; the builders' p-20 gutters. Builders that manage their own placement (race, below
+    ;; its header band) pass hide-layout? and render omv/layout-control-row themselves.
+    (when-not hide-layout?
+      [:div.p-l-20.p-r-20.p-t-10 [omv/layout-control-row]])
     [builder]]])
 
 (defn combat-tracker-page []
@@ -8318,7 +8316,8 @@
   (builder-page "Background" ::bg/reset-background ::bg/save-background background-builder))
 
 (defn race-builder-page []
-  (builder-page "Race" ::races/reset-race ::races/save-race race-builder))
+  ;; hide-layout? — race renders the layout control row itself, below its header band
+  (builder-page "Race" ::races/reset-race ::races/save-race race-builder nil true))
 
 (defn subrace-builder-page []
   (builder-page "Subrace" ::races/reset-subrace ::races/save-subrace subrace-builder))

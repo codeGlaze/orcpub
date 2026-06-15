@@ -1245,24 +1245,14 @@
     ;; Name + Option Source are a form, not a collection — they cap and group (a tight
     ;; pair, left-aligned with breathing room to the right) and wrap to stacked on
     ;; narrow, intrinsically (flex-wrap + per-field max basis), no breakpoint.
+    ;; two equal columns that FILL the width (auto-fit grid; each cell min 300px, so it
+    ;; stacks to one column on narrow). align-items:end aligns the title underline and
+    ;; the boxed Source input at their baselines despite different heights above.
     [:.builder-header-row
-     {:display :flex
-      :flex-wrap :wrap
-      :gap "24px"
-      ;; bottoms align: each column is label+input, so the Source input lines up with
-      ;; the Name underline (the helper + description live below the row, not in it).
-      :align-items :flex-end}]
-
-    ;; basis = the comfortable min, max-width = the cap. So they fill side-by-side at
-    ;; tablet widths, cap as a tight pair on wide (whitespace to the right), and stack
-    ;; only when too narrow to share a line — all from flex, no breakpoint, no overflow.
-    [:.builder-name-col
-     {:flex "1 1 320px"
-      :max-width "560px"}]
-
-    [:.builder-source-col
-     {:flex "1 1 280px"
-      :max-width "440px"}]
+     {:display :grid
+      :grid-template-columns "repeat(auto-fit, minmax(min(100%, 300px), 1fr))"
+      :gap "20px 28px"
+      :align-items :end}]
 
     ;; the Option Source label stays on ONE line: text + SAVE TARGET badge + ⓘ inline
     [:.builder-source-label
@@ -1342,6 +1332,29 @@
 
     [:.builder-header-desc
      {:margin-top "16px"}]
+
+    ;; sparse form sections (Size & Speed, Ability Scores): every field is its own grid
+    ;; cell = label + full-width control, spread across the whole card.
+    [:.builder-field-grid
+     {:display :grid
+      :grid-template-columns "repeat(auto-fit, minmax(150px, 1fr))"
+      :gap "16px"}]
+
+    ;; layout selector lives in an anchored, right-aligned control row that belongs to
+    ;; the menus it controls (not floating in the dead space above the header band).
+    [:.opt-layout-control
+     {:display :flex
+      :align-items :center
+      :justify-content :flex-end
+      :gap "12px"
+      :margin-bottom "16px"}]
+
+    [:.opt-layout-control-label
+     {:font-size "11px"
+      :font-weight 700
+      :letter-spacing "0.07em"
+      :text-transform :uppercase
+      :color "#7e8897"}]
 
     ;; the Option Source input gets an amber-tinted border to read as the save target
     [:#plugins-choice

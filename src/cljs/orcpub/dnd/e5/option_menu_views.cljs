@@ -106,6 +106,14 @@
           :on-click #(dispatch [::set-layout mode])}
          label]))]))
 
+(defn layout-control-row
+  "An anchored, right-aligned control row labelling the global layout selector, placed
+   with the menus it controls."
+  []
+  [:div.opt-layout-control
+   [:span.opt-layout-control-label "Option Layout"]
+   [layout-toggle]])
+
 (defn info-popover
   "A ⓘ button that toggles a small popover on click — works with mouse AND touch, no
    hover dependency. The ⓘ toggles; a click/tap anywhere outside dismisses it (a
