@@ -6691,17 +6691,11 @@
         ;; Check for empty/blank option names
         has-empty? (some #(s/blank? (:name %)) options)]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [selection-input-field
-       "Name"
-       :name
-       selection
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       selection
-       ::selections/set-selection-prop]
-      ]
+     [builder-header
+      {:name-label "Selection Name"
+       :name-placeholder "Selection name"
+       :entity selection
+       :prop-event ::selections/set-selection-prop}]
      [:div
       [:div.flex.justify-cont-s-b
        [:div.f-s-24.f-w-b "Options"]
@@ -6767,65 +6761,35 @@
 (defn language-builder []
   (let [language @(subscribe [::langs/builder-item])]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [language-input-field
-       "Name"
-       :name
-       language
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       language
-       ::langs/set-language-prop]
-      ]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get language :description)
-        :on-change #(dispatch [::langs/set-language-prop :description %])}]]]))
+     [builder-header
+      {:name-label "Language Name"
+       :name-placeholder "Language name"
+       :entity language
+       :prop-event ::langs/set-language-prop
+       :desc-value (get language :description)
+       :desc-prop :description}]]))
 
 (defn boon-builder []
   (let [boon @(subscribe [::classes/boon-builder-item])]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [boon-input-field
-       "Name"
-       :name
-       boon
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       boon
-       ::classes/set-boon-prop]
-      ]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get boon :description)
-        :on-change #(dispatch [::classes/set-boon-prop :description %])}]]]))
+     [builder-header
+      {:name-label "Pact Boon Name"
+       :name-placeholder "Pact boon name"
+       :entity boon
+       :prop-event ::classes/set-boon-prop
+       :desc-value (get boon :description)
+       :desc-prop :description}]]))
 
 (defn invocation-builder []
   (let [invocation @(subscribe [::classes/invocation-builder-item])]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [invocation-input-field
-       "Name"
-       :name
-       invocation
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       invocation
-       ::classes/set-invocation-prop]
-      ]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get invocation :description)
-        :on-change #(dispatch [::classes/set-invocation-prop :description %])}]]]))
+     [builder-header
+      {:name-label "Eldritch Invocation Name"
+       :name-placeholder "Eldritch invocation name"
+       :entity invocation
+       :prop-event ::classes/set-invocation-prop
+       :desc-value (get invocation :description)
+       :desc-prop :description}]]))
 
 (defn monster-builder []
   (let [{:keys [name
