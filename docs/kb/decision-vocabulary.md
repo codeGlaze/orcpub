@@ -6,10 +6,24 @@ decisions into modifiers/selections. What a creator can express is bounded by th
 (input) and the **compile paths** (what data the app knows how to realize). Goal: grow that
 vocabulary, give it **cross-silo** reach, and make growing it **cheap/sustainable**.
 
-> **STATUS: cycles 1–2 done (compile paths, verified). Remaining: builder forms (input side),
-> exact subclass-spell paths, race/subclass prereqs, and synthesis into in-app docs.** Every
-> entry below is checked against code; `TODO`/`?` marks unverified. (Cycle 1 understated feats;
-> this version corrects it.)
+> **STATUS: methodology corrected — see this banner.** Cycles 1–2 traced individual *leaf*
+> compile functions (`plugin-modifiers`, `spell-modifiers`, …) forward. That approach
+> **systematically UNDERSTATES capability**, because the richness lives in the per-silo
+> **assembly functions** — `race-option` (`options.cljc:2210`), `subrace-option` (`:1984`),
+> `make-levels` (`spell_subs.cljs:382`), `feat-option-from-cfg` (`options.cljc:3396`),
+> `template-selections` (`template.cljc:1480`) — which combine many leaf paths *plus* handle
+> `:abilities`, `:profs`/choices, `:selections`, `:traits`. Tracing leaves missed all of that
+> (corrected 4×: feats' spell-choices, subclass `:spell`, the two vocabularies, and now races).
+>
+> **Switching to the right method: trace BACKWARD from each builder form → its assembly fn.**
+> The per-silo COMPILE-PATHS inventory below is accurate per function, but the **synthesis (the
+> cross-silo asymmetry table + "races fixed-only") is UNRELIABLE and being redone** via the
+> builder trace. Verified correction so far:
+> - **Races are NOT fixed-only.** `race-option` compiles `:abilities` (ASI), `:profs` →
+>   `:skill-options`/`:language-options`/`:weapon-proficiency-options` (CHOICES via
+>   `skill-selection`/`language-selection`), `:subraces`, `:traits`, `:spells`, `:selections`,
+>   plus the `:props` modifiers. The race **builder** exposes all of these. So races have
+>   choices + ASI + spells — comparable to feats.
 
 ---
 
@@ -102,7 +116,10 @@ vocabulary, give it **cross-silo** reach, and make growing it **cheap/sustainabl
 
 ---
 
-## THE CENTRAL FINDING — cross-silo asymmetry
+## THE CENTRAL FINDING — cross-silo asymmetry  ⚠️ UNRELIABLE — BEING REDONE
+> This table was built by forward leaf-tracing and is **known wrong in at least the Race column**
+> (races have ASI + prof choices + spells via `race-option`, not "fixed-only"). Do NOT trust it
+> until rebuilt from the backward builder→assembly trace. Kept only to show what's being revised.
 
 The same capability is available in some silos and not others, because each silo runs a different
 subset of compile paths. (✅ verified, ❌ no path, ❓ TODO.)
