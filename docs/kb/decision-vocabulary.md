@@ -147,9 +147,27 @@ subclasses); `option-level-selections` (→ TEXT-trait choices); `option-traits`
   flying/swimming-speed. So **a subclass of ANY class (incl. custom) grants spells** via a
   `:spell` level-modifier (Divine-Soul style). The class-gated spellcasting UI is just convenience.
 
-### Class — `class-builder` (views `:5643`) → `make-levels` + `spellcasting-template` ⏳ TODO trace form
-Compile side is rich (full caster + custom `:spell-list` + level-modifiers + level-selections).
-Form-side trace pending.
+### Class — `class-builder` (views `:5643`) → `level-option` (`options.cljc:2771`) ✅ rich (with a plugin gap)
+Form sections: name/source/description; **hit die** (6/8/10/12); **subclass** pick-level/title/flavor;
+**saving-throw** proficiencies; **ASI levels** (which levels 4–20 grant an increase — a *schedule*,
+not a stat choice); **full spellcasting** — slots y/n, caster fraction (`:level-factor` full/half/
+third), spell list (one of the existing class lists **or Custom**, which opens per-level spell
+checkboxes = a **custom `:spell-list`**), spellcasting ability, cantrip schedule, and a per-level
+"spells this class can choose from" grid (→ real spell **choices** via `spells-known-selections`,
+`options.cljc:647`); `option-skill-proficiency-choice` + `option-skill-expertise-choice` (CHOICES);
+**`option-level-modifiers`** (B vocab, incl `:spell`); `option-level-selections` (TEXT traits);
+`option-traits`. So the class silo is the **richest** — only place with full-caster spellcasting +
+custom spell list.
+- **`(not plugin?)` gate — investigated, NOT a homebrew gap.** In `level-option` the standard
+  **ASI selection**, **hit-points selection**, and per-level `modifiers/level` are gated
+  `(when (not plugin?) …)` (`options.cljc:2817/2819/2833/2841`). I initially read this as a
+  homebrew gap; it is **not**. `:plugin? true` is set **only on hardcoded UA template overlays**
+  (`templates/ua_*.cljc`) — partial add-ons that layer new subclasses/options onto an *existing*
+  class and must not re-emit core scaffolding. A homebrew class from the **builder** never sets
+  `:plugin?` (verified: not in the builder events, export, or `::classes5e/plugin-classes`
+  assembly at `spell_subs.cljs:464`, which only assocs `:plugin-source`/`:modifiers`/`:levels`).
+  So builder classes flow through `class-option`→`level-option` with `plugin?` falsey and **do**
+  get ASI selection + hit points normally. (Lesson reinforced: `:plugin?` ≠ "came from a plugin.")
 
 ### Subrace / Background / simple types (boon/invocation/language/spell/monster/encounter/selection) ⏳ TODO
 
@@ -178,14 +196,14 @@ backward trace (feat/race/subclass confirmed; class/subrace/background still ⏳
 | Capability | Feat | Race | Subclass | Class |
 |---|---|---|---|---|
 | Fixed mechanics (`:props` / `:level-modifiers`) | ✅ | ✅ | ✅ | ✅ |
-| Prof/skill **choice** | ✅ `make-feat-selections` | ✅ `race-option` (`skill`/`language`/`weapon-proficiency-options`) | ✅ `option-skill-proficiency-choice`/`-expertise` | ⏳ |
+| Prof/skill **choice** | ✅ `make-feat-selections` | ✅ `race-option` (`skill`/`language`/`weapon-proficiency-options`) | ✅ `option-skill-proficiency-choice`/`-expertise` | ✅ `option-skill-proficiency-choice`/`-expertise` |
 | Fixed known spell | ✅ via template | ✅ `:spells` | ✅ `:level-modifiers :spell` (any class) | ✅ `:level-modifiers :spell` |
 | **Spell choice** | ✅ 3 templates (magic-novice/ritual/attack) | ⚠️ fixed-only (`option-spells`) | ⚠️ class-gated convenience UI | ✅ full caster (`:spellcasting`) |
-| ASI | ✅ fixed **or** choice (`:ability-increases`) | ✅ fixed per ability (`:abilities`) | n/a | ⏳ |
-| Traits | ✅ | ✅ `:traits` | ✅ `option-traits` | ⏳ |
-| Prereqs | ✅ limited vocab (`feat-prereqs`) | ❓ not in form | ❓ not in form | ⏳ |
+| ASI | ✅ fixed **or** choice (`:ability-increases`) | ✅ fixed per ability (`:abilities`) | n/a | ✅ standard ASI at chosen levels (builder classes are not `:plugin?`) |
+| Traits | ✅ | ✅ `:traits` | ✅ `option-traits` | ✅ `option-traits` |
+| Prereqs | ✅ limited vocab (`feat-prereqs`) | ❓ not in form | ❓ not in form | ❌ not in form |
 | Trackable resource (Axis B) | ❌ | ❌ | ❌ | ❌ |
-| Custom/expanded spell list | ❌ | ❌ | ⚠️ via `:spellcasting` only | ✅ `:spell-list` |
+| Custom/expanded spell list | ❌ | ❌ | ⚠️ via `:spellcasting` only | ✅ `:spell-list` (custom per-level grid) |
 
 **Reading (corrected):** **feat, race, and subclass are all fairly rich** — each gets fixed
 mechanics, prof/skill **choices**, traits, and at least fixed spells. The asymmetries are narrower
