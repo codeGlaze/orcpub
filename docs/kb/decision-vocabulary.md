@@ -13,12 +13,20 @@ vocabulary, give it **cross-silo** reach, and make growing it **cheap/sustainabl
 > `make-levels` (`spell_subs.cljs:382`), `feat-option-from-cfg` (`options.cljc:3396`),
 > `template-selections` (`template.cljc:1480`) — which combine many leaf paths *plus* handle
 > `:abilities`, `:profs`/choices, `:selections`, `:traits`. Tracing leaves missed all of that
-> (corrected 4×: feats' spell-choices, subclass `:spell`, the two vocabularies, and now races).
+> (corrected repeatedly: feats' spell-choices, the two vocabularies, and races).
 >
 > **Switched to the right method: trace BACKWARD from each builder form → its assembly fn.**
 > The per-silo COMPILE-PATHS inventory below is accurate per function, and the cross-silo
-> capability table has now been **REBUILT** from the backward trace (feat/race/subclass verified
-> rich; class/subrace/background still ⏳). Verified corrections:
+> capability table has been **REBUILT** from the backward trace — **all six mechanical silos now
+> traced** (feat/race/subrace/class/subclass/background).
+>
+> ⚠️ **Re-corrected (maintainer caught an overclaim):** an earlier pass claimed a subclass of a
+> custom non-caster class could grant real spellcasting "Divine-Soul style." **Wrong.** The
+> `:spell` level-modifier grants only *innate known spells* (`spells-known`); real slot-based
+> spellcasting via a subclass is **gated** to `#{fighter rogue warlock cleric paladin}` and the
+> custom-subclass spellcasting path is commented out. See the CORRECTION section below.
+>
+> Verified corrections:
 > - **Races are NOT fixed-only.** `race-option` compiles `:abilities` (ASI), `:profs` →
 >   `:skill-options`/`:language-options`/`:weapon-proficiency-options` (CHOICES via
 >   `skill-selection`/`language-selection`), `:subraces`, `:traits`, `:spells`, `:selections`,
@@ -83,17 +91,29 @@ vocabulary, give it **cross-silo** reach, and make growing it **cheap/sustainabl
 - Type vocabulary: `:weapon-prof`, `:num-attacks`, `:damage-resistance`, `:damage-immunity`,
   `:saving-throw-advantage`, `:skill-prof`, `:armor-prof`, `:tool-prof`, `:flying-speed`,
   `:swimming-speed`, `:flying-speed-equals-walking-speed`, **`:spell`** (→ `spells-known`).
-- **CORRECTION:** **any class/subclass — including subclasses of a CUSTOM class — can grant
-  fixed spells** via `:level-modifiers {:type :spell :value {:level :key :ability}}` (e.g. a
-  Divine-Soul-style expanded list = many `:spell` entries). My earlier "subclass of a custom
-  class can't grant spells" was WRONG.
+- **`:spell` grants an INNATE KNOWN SPELL, not spellcasting.** `(:spell …)` calls
+  `mod5e/spells-known` (`modifiers.cljc:260`), which adds one spell to `?spells-known` castable via
+  the chosen ability — the **same mechanism races use for racial spells**. It does **not** grant
+  spell slots or a casting progression. Any class/subclass (incl. custom) can do this, but it's
+  bolt-on innate spells, not "this subclass makes you a caster."
 
-### Subclass spell-granting — the class-gated convenience paths (NOT the only way) ⚠️
-- `make-levels` ALSO offers class-name-gated shortcuts for specific patterns: `:spellcasting`
-  (1/3-caster, only `class ∈ #{:fighter :rogue}`), `:paladin-spells` (paladin), `:cleric-spells`
-  (cleric), `:warlock-spells` (warlock → choice selection). These are *additional* convenience
-  wrappers; the general path is `:level-modifiers :spell` above. (Expanded-CHOICE lists — pick
-  from cleric+sorcerer — likely need `:spellcasting :spell-list` or a selection; `TODO` confirm.)
+### ⚠️ CORRECTION (this doc was wrong before) — subclass spellcasting IS gated
+An earlier version of this doc claimed "a subclass of a custom class can grant spells, Divine-Soul
+style, the gated UI is just convenience." **That was wrong** (caught by the maintainer). The truth:
+- **Real (slot-based) spellcasting via a subclass is GATED** to `#{:fighter :rogue :warlock :cleric
+  :paladin}` in the subclass builder (`views.cljs:5975`). A **custom non-caster base class gets no
+  spellcasting UI at all**, so you cannot make its subclass a real caster through the builder.
+- `make-levels` offers class-name-gated shortcuts behind that UI: `:spellcasting` (1/3-caster, only
+  `class ∈ #{:fighter :rogue}` — Eldritch Knight / Arcane Trickster), `:paladin-spells`,
+  `:cleric-spells` (domain), `:warlock-spells` (expanded list choice).
+- The path that *would* have let a custom subclass grant real spellcasting —
+  `custom-subclass-spellcasting-selection` (adds `spell-slot-factor` + per-level spell selections,
+  `options.cljc:2735`) — is **`#_`-commented out / disabled**.
+- **Divine Soul is not a counterexample:** it's a *sorcerer* subclass, and sorcerer is already a
+  full caster, so its expanded list rides on the base class's existing spellcasting. It does not
+  demonstrate granting spellcasting to a non-caster.
+- **Net:** a subclass can add fixed *innate known spells* (`:spell` modifier) to any base class, but
+  **cannot grant a spellcasting progression to a non-caster base class** via the builders.
 
 ### TWO PARALLEL grant vocabularies — overlapping, divergent (the real duplication) ⚠️
 - `make-feat-modifiers` (`:props`) and `level-modifier` (`:level-modifiers :type`) both grant
@@ -144,8 +164,11 @@ warlock fixed-spell editors — convenience for built-in patterns); `option-skil
 subclasses); `option-level-selections` (→ TEXT-trait choices); `option-traits`.
 - **`option-level-modifiers` dropdown (`modifier-values`, views `:5374`) INCLUDES `:spell`** —
   plus weapon/skill/armor/tool-prof, damage-resist/immunity, saving-throw-adv, num-attacks,
-  flying/swimming-speed. So **a subclass of ANY class (incl. custom) grants spells** via a
-  `:spell` level-modifier (Divine-Soul style). The class-gated spellcasting UI is just convenience.
+  flying/swimming-speed. So a subclass of ANY class can add a fixed **innate known spell** via a
+  `:spell` level-modifier — but that's `spells-known` (racial-style innate spell), **NOT a
+  spellcasting progression**. **Real slot-based spellcasting via a subclass is GATED** to the 5
+  classes above; a custom non-caster base class cannot be made a caster by its subclass through the
+  builder (see the CORRECTION section above — my earlier "just convenience" claim was wrong).
 
 ### Class — `class-builder` (views `:5643`) → `level-option` (`options.cljc:2771`) ✅ rich (with a plugin gap)
 Form sections: name/source/description; **hit die** (6/8/10/12); **subclass** pick-level/title/flavor;
@@ -217,8 +240,9 @@ verified** per silo via the backward trace (builder form → assembly fn).
 |---|---|---|---|---|---|---|
 | Fixed mechanics (`:props`/`:level-modifiers`) | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ profs/equipment only |
 | Prof/skill **choice** | ✅ | ✅ | ✅ skill-prof-choice | ✅ skill-prof/-expertise | ✅ skill-prof/-expertise | ⚠️ language/tool choice only |
-| Fixed known spell | ✅ via template | ✅ `:spells` | ✅ `:spells` | ✅ `:level-modifiers :spell` | ✅ `:level-modifiers :spell` (any class) | ❌ |
-| **Spell choice** | ✅ 3 templates | ⚠️ fixed-only | ⚠️ fixed-only | ✅ full caster | ⚠️ class-gated UI | ❌ |
+| Fixed **innate** known spell (`spells-known`) | ✅ via template | ✅ `:spells` | ✅ `:spells` | ✅ `:level-modifiers :spell` | ✅ `:level-modifiers :spell` (any base class) | ❌ |
+| **Spellcasting progression (slots)** | ❌ | ❌ | ❌ | ✅ full/half/third caster | ⚠️ **gated** to `#{fighter rogue warlock cleric paladin}` — custom non-caster base class **cannot** | n/a |
+| **Spell choice** | ✅ 3 templates | ⚠️ fixed-only | ⚠️ fixed-only | ✅ full caster | ⚠️ class-gated UI only | ❌ |
 | ASI | ✅ fixed **or** choice | ✅ fixed | ✅ fixed | ✅ standard at chosen levels | n/a | ❌ |
 | Traits | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Prereqs | ✅ limited vocab | ❌ not in form | ❌ | ❌ not in form | ❌ not in form | ❌ |
@@ -251,8 +275,13 @@ concrete "cross-silo dipping" frustration, restated precisely.
 - **Unify the two grant vocabularies** (`make-feat-modifiers` ↔ `level-modifier`) so coverage is
   even (a feat could grant `:spell`; a subclass level-modifier could grant `:language`) — prime
   duplication-removal + sustainability target.
-- **A general subclass spell-*choice*** (subclasses can grant *fixed* spells freely now, but
-  *choices* are still the class-gated convenience paths only).
+- **Subclass-granted spellcasting for non-caster base classes.** Subclasses can bolt on fixed
+  *innate* known spells (`:spell` modifier) to any base class, but **cannot grant a real
+  spellcasting progression (slots) to a custom non-caster class** — the spellcasting UI is gated to
+  5 hardcoded classes and the `custom-subclass-spellcasting-selection` path (`options.cljc:2735`,
+  which adds `spell-slot-factor` + per-level spell choices) is **commented out**. Re-enabling /
+  generalizing that disabled path is the concrete fix for "Eldritch-Knight-style caster subclass on
+  a homebrew base class." Subclass spell *choices* likewise remain class-gated convenience only.
 - **Mechanical** homebrew choices (vs `level-selection`'s text-only).
 - **Trackable resources** (Axis B) — no path at all.
 - **Richer prereqs** — level / N-class-levels / alignment (engine likely supports the checks;

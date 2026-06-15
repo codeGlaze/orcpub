@@ -162,8 +162,12 @@
 
 ;; Grant vocabulary B — `:level-modifiers {:type … :value …}` for CLASSES and SUBCLASSES (no class
 ;; gate). Overlaps vocabulary A (make-feat-modifiers, options.cljc) on profs/resist/immunity/
-;; save-adv/speed but diverges: B uniquely has :spell (fixed known spell for ANY class/subclass —
-;; the Divine-Soul pattern), :num-attacks, :tool-prof; A uniquely has :language/:initiative/etc.
+;; save-adv/speed but diverges: B uniquely has :spell, :num-attacks, :tool-prof; A uniquely has
+;; :language/:initiative/etc. NOTE on :spell — it calls mod5e/spells-known, granting an *innate
+;; known spell* (castable via the chosen ability, like a racial spell), NOT a spell-slot
+;; progression. Real slot-based spellcasting comes only from the subclass-builder spellcasting UI,
+;; which is gated to #{:fighter :rogue :warlock :cleric :paladin} (views.cljs ~5975) — a custom
+;; non-caster base class cannot be given spellcasting via a subclass through the builders.
 ;; The same capability living in two vocabularies (×UI ×compile = four sites) is the prime
 ;; sustainability target. See docs/kb/decision-vocabulary.md ("two parallel grant vocabularies").
 (defn level-modifier [class-key {:keys [type value] :as modifier}]
