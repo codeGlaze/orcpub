@@ -251,8 +251,14 @@ the registry entry (the one you should write), the view form (irreducible custom
 (until spec-from-field-schema), the route-keyword def, and the core/views view binding.
 
 ### NEXT levers (pick per value)
-- (a) the generic **grant-authoring UI** so authors declare "grant a choice from pool X" in a
-  builder (where the N+M maintainability win becomes user-visible — the biggest remaining lever);
+- (a) **author-declarable grants** (the biggest remaining lever). Re-scoped after the D17 audit:
+  do NOT build a generic `grant` wrapper — the per-feature `selection-cfg` constructors
+  (`fighting-style-selection`, `feat-selection`) already do "choose from a set" well and carry
+  load-bearing `:ref`/`:tags`. The real work is (i) point those selections' `:options` at an
+  **open pool** (built-in ++ homebrew), and (ii) let an author declare a grant as data that
+  **compiles to the same `selection-cfg`** (preserving `:ref`/`:tags`) + the authoring UI. The
+  code-side constructors stay. NOTE: `content_pools` has `pool` but NO grant compiler yet —
+  draconic hand-wires its grant; that hand-wire is the thing to generalize (carefully).
 - (b) **spec-from-field-schema** — generate the `s/keys` spec from the field list, removing the
   one hand-written row left in the cost table;
 - (c) **cross-silo reuse demo** — point the sorcerer draconic bloodline (`classes.cljc:2280`) at

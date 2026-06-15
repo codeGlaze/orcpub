@@ -172,6 +172,17 @@ not HOFs.
 code, does this go red?"); **fix bugs on sight** unless deep enough for their own branch;
 goal is **stabilize while adding features**, not build on shaky foundations.
 
+**D17 — Audit what each framework piece REPLACES before building it.** For every new
+primitive, first find the existing app code it would replace and ask: does the app already do
+this as well or better? If the "new" thing isn't *thicker* than what it replaces (D12), or it
+risks dropping load-bearing details (`:ref` — where a character stores a choice; `:tags`;
+modifiers), DON'T build it — extend or point at the existing thing instead. *Caught immediately:*
+the proposed generic `grant` primitive would have re-wrapped the perfectly-good per-feature
+`selection-cfg` constructors (`fighting-style-selection`, `feat-selection`) — adding nothing and
+risking dropping their `:ref`. The real gap is narrower: **open pools** feeding those existing
+selections + an **author-declarable grant-spec that compiles down to `selection-cfg`** (preserving
+`:ref`/`:tags`), NOT a wrapper that replaces the constructors.
+
 **Net for next steps:** ~~revert `by-parent`~~ ✅ done `9777ce88`; ~~build
 `register-homebrew-content!`; swap **boon**~~ ✅ done `3980ea1b`. **Now re-centered (Part 4):**
 the next core work is the **pool + grant** composition layer (see direction doc v2 §"The spine"
