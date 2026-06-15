@@ -1242,13 +1242,26 @@
       :border-bottom "2px solid rgba(240,161,15,0.55)"
       :box-shadow "0 3px 0 -1px rgba(240,161,15,0.45), 0 16px 30px -14px rgba(0,0,0,0.6)"}]
 
-    ;; Name + Option Source as equal columns, bottoms aligned; stacks on narrow
+    ;; Name + Option Source are a form, not a collection — they cap and group (a tight
+    ;; pair, left-aligned with breathing room to the right) and wrap to stacked on
+    ;; narrow, intrinsically (flex-wrap + per-field max basis), no breakpoint.
     [:.builder-header-row
-     {:display :grid
-      :grid-template-columns "repeat(auto-fit, minmax(240px, 1fr))"
+     {:display :flex
+      :flex-wrap :wrap
       :gap "24px"
-      :align-items :end
+      :align-items :flex-end
       :margin-bottom "16px"}]
+
+    ;; basis = the comfortable min, max-width = the cap. So they fill side-by-side at
+    ;; tablet widths, cap as a tight pair on wide (whitespace to the right), and stack
+    ;; only when too narrow to share a line — all from flex, no breakpoint, no overflow.
+    [:.builder-name-col
+     {:flex "1 1 320px"
+      :max-width "560px"}]
+
+    [:.builder-source-col
+     {:flex "1 1 280px"
+      :max-width "440px"}]
 
     ;; large title-style name input: transparent, bottom-border only, amber on focus
     [:.builder-name-input
@@ -1834,7 +1847,11 @@
       :border-radius "14px"
       :padding "20px 22px 22px"
       :margin-bottom "18px"
-      :box-shadow "inset 0 1px 0 rgba(255,255,255,0.03)"}]
+      :box-shadow "inset 0 1px 0 rgba(255,255,255,0.03)"}
+     ;; inside a card, let the card padding own the vertical rhythm — drop the legacy
+     ;; field margins so the card hugs its content instead of stranding empty space.
+     [:.field {:margin-top "0"}]
+     [:.input {:margin-top "0"}]]
 
     [:.opt-subsections
      {:display :flex

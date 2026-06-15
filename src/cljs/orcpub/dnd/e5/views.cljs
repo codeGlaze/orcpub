@@ -6461,7 +6461,7 @@
      [:div.builder-header-band
       [:div.builder-header-row
        ;; large title-style Name input (keeps the required-field save cue)
-       [:div
+       [:div.builder-name-col
         [:div.builder-field-label "Race Name"]
         (let [name-err (get @(subscribe [:builder-field-errors]) :name)]
           [comps/input-field :input (get race :name)
@@ -6475,7 +6475,7 @@
                           ""))
             :placeholder "Race name"}])]
        ;; Option Source — the save target
-       [:div
+       [:div.builder-source-col
         [plugin-datalist
          [:span [:span "Option Source Name"]
           [:span.save-target-pill "Save target"]]
