@@ -182,10 +182,14 @@ languages (`language-choice-checkboxes`); tool proficiencies; starting equipment
 The simplest mechanical silo — fixed profs + equipment + traits. No ASI, no spells, no
 level-modifiers, no `:props` mechanics, no prereqs. (Backgrounds in 5e are light by design.)
 
-### Simple types (boon/invocation/language/spell/monster/encounter/selection) ⏳ TODO
-These use `simple-content-builder` / declarative field schemas; most are descriptive (name +
-text) rather than mechanical-grant silos. Trace pending, but expected to be name/description +
-type-specific fields, not part of the cross-silo grant story.
+### Simple types (boon/invocation/language/…) → `simple-content-builder` (views `:6547`) ✅ descriptive
+**Verified:** these use `simple-content-builder` = **Name + Option Source + Description** plus an
+optional list of declarative `extra-fields` (rendered via `render-builder-field`, validated by the
+same `bf/validate-fields` used for import/export). Boons and invocations grant warlock features in
+play, but the homebrew **decision** is name + descriptive text only — no mechanical grant vocabulary
+(consistent with the `level-selection` text-only finding). Spell/monster/encounter/selection are
+their own structured forms (stat blocks / option lists), not part of the cross-silo *grant* story.
+`draconic-ancestry` is the one simple type with a real field schema (`field_schemas.cljc`).
 
 ## SHARPENED duplication finding — grant types live in up to FOUR places
 There are **two grant vocabularies**, and **each is split across UI + compile**:
@@ -267,10 +271,9 @@ Confirmed: prereqs are feat-only (not in race/subclass/class forms); subclass sp
 class-gated UI only (fixed spells via `:level-modifiers :spell` work for any class); the
 `(not plugin?)` gate is not a homebrew gap.
 
-**Remaining:**
-1. Trace the simple/descriptive silos (boon, invocation, language, spell, monster, encounter,
-   selection) — expected non-mechanical, to confirm.
-2. Synthesize into **in-app documentation**: source comments at the key assembly fns
-   (`race-option`, `subrace-option`, `level-option`/`class-option`, `feat-option-from-cfg`,
-   `make-feat-modifiers`/`make-feat-selections`, `level-modifier`, `spellcasting-template`) and a
-   top-level guide cross-linking this KB — the end deliverable.
+**Also done:** simple/descriptive silos confirmed non-mechanical (`simple-content-builder`).
+
+**Remaining (the end deliverable):** synthesize into **in-app documentation** — source comments at
+the key assembly fns (`race-option`, `subrace-option`, `level-option`/`class-option`,
+`feat-option-from-cfg`, `make-feat-modifiers`/`make-feat-selections`, `level-modifier`,
+`spellcasting-template`) cross-linking this KB, plus a top-level guide.
