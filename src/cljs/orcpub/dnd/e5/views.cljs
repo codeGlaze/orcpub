@@ -17,6 +17,7 @@
             [orcpub.dnd.e5.languages :as langs]
             [orcpub.dnd.e5.selections :as selections]
             [orcpub.dnd.e5.races :as races]
+            [orcpub.dnd.e5.builder-fields :as bf]
             [orcpub.dnd.e5.classes :as classes]
             [orcpub.dnd.e5.feats :as feats]
             [orcpub.dnd.e5.units :as units]
@@ -6523,13 +6524,14 @@
      :type    :enum | :number | :text
      :label   field label
      :options (:enum) [{:value <stored value, any type> :title <label>} …]
+     :required? (optional) shows a required marker; enforced by the save spec / validate-fields
      :when    (optional) predicate over the item — render only when true (conditional fields)"
-  [item set-prop {:keys [key type label options] :as field}]
+  [item set-prop {:keys [key type label options required?] :as field}]
   (when (or (not (:when field)) ((:when field) item))
     (let [path (if (sequential? key) key [key])
           v    (get-in item path)]
       [:div.m-b-10
-       [:div.f-w-b.m-b-5 label]
+       [:div.f-w-b.m-b-5 label (when required? [:span.red " *"])]
        (case type
          ;; index-based option values so ANY value type (incl. qualified keywords) round-trips
          ;; through the string-only <select>
@@ -6553,7 +6555,10 @@
                       dropdown). Built from the same field widgets, so a new type's form is a
                       field list, not a bespoke component."
   [item-sub set-prop & [extra-fields]]
-  (let [item @(subscribe [item-sub])]
+  (let [item     @(subscribe [item-sub])
+        ;; live validation over the declarative field specs (maps) — the SAME validate-fields
+        ;; used for import/export verification, so the form and the file agree on what's required
+        problems (bf/validate-fields (filter map? extra-fields) item)]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [builder-input-field
@@ -6576,7 +6581,11 @@
      (when (seq extra-fields)
        (into [:div.w-100-p]
              ;; a field spec (map) is rendered declaratively; raw hiccup (vector) passes through
-             (map (fn [f] (if (map? f) (render-builder-field item set-prop f) f)) extra-fields)))]))
+             (map (fn [f] (if (map? f) (render-builder-field item set-prop f) f)) extra-fields)))
+     (when (seq problems)
+       [:div.w-100-p.m-t-10
+        [:div.f-w-b.red.m-b-5 "Fix before saving:"]
+        (into [:ul] (map (fn [p] [:li.red p]) problems))])]))
 
 (defn boon-builder []
   (simple-content-builder ::classes/boon-builder-item ::classes/set-boon-prop))

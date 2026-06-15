@@ -53,3 +53,23 @@
            (keyword? (:key item))
            (string? (:option-pack item))
            (every? #(% item) checks)))))
+
+(defn validate-fields
+  "Return a vector of human-readable problems for `item` against a field schema (empty = valid).
+   Same rules as fields->spec but LABELED — the single validator for form feedback AND
+   import/export verification, so all three surfaces agree. (Universal name/key/option-pack are
+   handled by the spec / structural validation; this covers the type's own fields.)
+
+   ⚠️ Conditional-required (:required-when) NOT enforced yet — see fields->spec's TODO."
+  [fields item]
+  (reduce (fn [problems {:keys [key label required?] :as f}]
+            (let [path (if (sequential? key) key [key])
+                  v    (get-in item path)
+                  pred (field-value-pred f)
+                  nm   (or label (pr-str key))]
+              (cond
+                (and required? (nil? v))      (conj problems (str nm " is required"))
+                (and (some? v) (not (pred v))) (conj problems (str nm " has an invalid value"))
+                :else                          problems)))
+          []
+          fields))
