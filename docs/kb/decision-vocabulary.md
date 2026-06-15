@@ -64,14 +64,31 @@ vocabulary, give it **cross-silo** reach, and make growing it **cheap/sustainabl
   `:spell-list`** (`:707` — `(assoc spell-lists class-key spell-list)`), so custom/expanded spell
   lists work. This is the richest spell path — but it's **class-level only**.
 
-### Subclass spell-granting — FRAGMENTED, class-name-gated ⚠️ (the bespoke thicket)
-- `spell_subs.cljs:382` (`make-levels`). A homebrew subclass grants spells only via:
-  - `:spellcasting` — **only if parent `class ∈ #{:fighter :rogue}`** (1/3-caster).
-  - `:paladin-spells` — only if `class = :paladin`.
-  - `:cleric-spells` — only if `class = :cleric`.
-  - `:warlock-spells` — only if `class = :warlock` (→ `warlock-subclass-spell-selection`).
-- **A subclass of a *custom* class (or any other built-in) CANNOT grant spells.** Four bespoke
-  paths for one capability, each hardcoded to a built-in class key. Not serialization — gating.
+### `:level-modifiers` → `level-modifier` — SECOND grant vocabulary (classes/subclasses), incl. `:spell` ✅
+- `spell_subs.cljs:163`, run for classes AND subclasses via `make-levels` (`:396`), **no class gate**.
+- Type vocabulary: `:weapon-prof`, `:num-attacks`, `:damage-resistance`, `:damage-immunity`,
+  `:saving-throw-advantage`, `:skill-prof`, `:armor-prof`, `:tool-prof`, `:flying-speed`,
+  `:swimming-speed`, `:flying-speed-equals-walking-speed`, **`:spell`** (→ `spells-known`).
+- **CORRECTION:** **any class/subclass — including subclasses of a CUSTOM class — can grant
+  fixed spells** via `:level-modifiers {:type :spell :value {:level :key :ability}}` (e.g. a
+  Divine-Soul-style expanded list = many `:spell` entries). My earlier "subclass of a custom
+  class can't grant spells" was WRONG.
+
+### Subclass spell-granting — the class-gated convenience paths (NOT the only way) ⚠️
+- `make-levels` ALSO offers class-name-gated shortcuts for specific patterns: `:spellcasting`
+  (1/3-caster, only `class ∈ #{:fighter :rogue}`), `:paladin-spells` (paladin), `:cleric-spells`
+  (cleric), `:warlock-spells` (warlock → choice selection). These are *additional* convenience
+  wrappers; the general path is `:level-modifiers :spell` above. (Expanded-CHOICE lists — pick
+  from cleric+sorcerer — likely need `:spellcasting :spell-list` or a selection; `TODO` confirm.)
+
+### TWO PARALLEL grant vocabularies — overlapping, divergent (the real duplication) ⚠️
+- `make-feat-modifiers` (`:props`) and `level-modifier` (`:level-modifiers :type`) both grant
+  mechanics, with overlapping coverage (weapon/skill/armor prof, resist/immunity, save-adv,
+  fly/swim speed) but **different extras**: `level-modifier` has **`:spell`**, `:num-attacks`,
+  `:tool-prof`; `make-feat-modifiers` has `:language`, `:initiative`, `:max-hp-bonus`, passive
+  senses, the spell-choice templates. So the *same* capability lives in two places with uneven
+  reach — one grants a spell, the other a language, neither both. This drift (rushed dev) is the
+  "built different" inconsistency; unifying the two vocabularies is a prime sustainability target.
 
 ### `:level-selections` → `level-selection` — TEXT-trait choices only ⚠️
 - `spell_subs.cljs:341`. Homebrew class/subclass level-selections resolve a `:type` to a homebrew
@@ -94,18 +111,20 @@ subset of compile paths. (✅ verified, ❌ no path, ❓ TODO.)
 |---|---|---|---|---|
 | Fixed mechanics (`:props`) | ✅ | ✅ | ✅ | ✅ |
 | Prof/skill **choice** (`make-feat-selections`) | ✅ | ❌ | ❓ | ❌ |
-| Fixed known spell | (via template) | ✅ `:spells` | ✅ | ⚠️ gated |
-| **Spell choice** | ✅ 3 templates | ❌ | ✅ full caster | ⚠️ class-gated |
+| Fixed known spell | (via template) | ✅ `:spells` | ✅ `:level-modifiers :spell` | ✅ `:level-modifiers :spell` (any class) |
+| **Spell choice** | ✅ 3 templates | ❌ | ✅ full caster (`:spellcasting`) | ⚠️ class-gated convenience only |
 | ASI (fixed/choice) | ✅ `:ability-increases` | ⚠️ inline-menu only | n/a | n/a |
 | Prereqs | ✅ (limited vocab) | ❓ | ❓ | ❓ |
 | Trackable resource | ❌ | ❌ | ❌ | ❌ |
 | Custom/expanded spell list | ❌ | ❌ | ✅ `:spell-list` | ❓ |
 
-**Reading:** **feats** are the richest silo (choices, ASI, prereqs, spell templates). **Classes**
-own full spellcasting + custom lists. **Races/subraces** are nearly fixed-only. **Subclass spell
-grants** are a hardcoded per-class thicket. **Resources** exist nowhere as a decision. This
-asymmetry — *a feat can offer a choice/ASI-option/prereq but a custom race can't* — is the core
-of the "cross-silo dipping" frustration.
+**Reading:** **feats** are the richest silo (choices, ASI, prereqs, spell templates). **Classes
+and subclasses** can grant fixed spells freely (`:level-modifiers :spell`, any class) and full
+caster spellcasting/custom lists. **Races/subraces** are nearly fixed-only. **Resources** exist
+nowhere as a decision. Two cross-cutting problems: (1) the **choice/ASI/prereq vocabulary is
+feat-only** — *a feat can offer a choice/ASI-option/prereq but a custom race can't*; (2) **two
+parallel grant vocabularies** (`make-feat-modifiers` vs `level-modifier`) overlap but diverge, so
+the same capability is unevenly available. Together these are the "cross-silo dipping" frustration.
 
 ## What's genuinely missing (the creator vision → gaps)
 - **A general, cross-silo grant vocabulary**: `make-feat-selections` (choices) is feat-only;
@@ -113,7 +132,11 @@ of the "cross-silo dipping" frustration.
   vocabulary available to *every* silo, not just feats.
 - **A general parameterized spell-choice** (any list/levels/count/filter) instead of 3 fixed
   templates (feats) + full-caster (classes) + fixed-known (`:spells`).
-- **A general subclass spell-grant** that isn't gated to 4 built-in class keys.
+- **Unify the two grant vocabularies** (`make-feat-modifiers` ↔ `level-modifier`) so coverage is
+  even (a feat could grant `:spell`; a subclass level-modifier could grant `:language`) — prime
+  duplication-removal + sustainability target.
+- **A general subclass spell-*choice*** (subclasses can grant *fixed* spells freely now, but
+  *choices* are still the class-gated convenience paths only).
 - **Mechanical** homebrew choices (vs `level-selection`'s text-only).
 - **Trackable resources** (Axis B) — no path at all.
 - **Richer prereqs** — level / N-class-levels / alignment (engine likely supports the checks;
