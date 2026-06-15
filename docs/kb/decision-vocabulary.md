@@ -169,7 +169,23 @@ custom spell list.
   So builder classes flow through `class-option`→`level-option` with `plugin?` falsey and **do**
   get ASI selection + hit points normally. (Lesson reinforced: `:plugin?` ≠ "came from a plugin.")
 
-### Subrace / Background / simple types (boon/invocation/language/spell/monster/encounter/selection) ⏳ TODO
+### Subrace — `subrace-builder` (views `:6090`) → `subrace-option` (`options.cljc:1984`) ✅ rich (≈ race)
+Form sections: name, **parent race**, source; size/speed/darkvision; **ASI** (fixed per ability,
+−2..+2, shown as race+subrace total); modifiers (`option-hps`, damage-resist/immunity, save-adv,
+weapon/armor/tool/skill prof, **`option-skill-proficiency-choice`** = CHOICE, languages); **spells**
+(`option-spells`, fixed-only); `option-traits`. Essentially the same vocabulary as race: fixed
+mechanics + skill-prof choice + fixed spells + traits + fixed ASI. No spell choice, no prereqs.
+
+### Background — `background-builder` (views `:6368`) → `background-option` (`options.cljc:2456`) ✅ minimal
+Form sections: name/source/description; **fixed** skill proficiencies (checkboxes, no "choose N");
+languages (`language-choice-checkboxes`); tool proficiencies; starting equipment; `option-traits`.
+The simplest mechanical silo — fixed profs + equipment + traits. No ASI, no spells, no
+level-modifiers, no `:props` mechanics, no prereqs. (Backgrounds in 5e are light by design.)
+
+### Simple types (boon/invocation/language/spell/monster/encounter/selection) ⏳ TODO
+These use `simple-content-builder` / declarative field schemas; most are descriptive (name +
+text) rather than mechanical-grant silos. Trace pending, but expected to be name/description +
+type-specific fields, not part of the cross-silo grant story.
 
 ## SHARPENED duplication finding — grant types live in up to FOUR places
 There are **two grant vocabularies**, and **each is split across UI + compile**:
@@ -189,21 +205,21 @@ different" feel — unifying to one grant vocabulary (single source → compile 
 ## Cross-silo capability table — REBUILT from the backward builder→assembly trace ✅
 
 The same capability is available in some silos and not others, because each silo runs a different
-subset of compile paths *and* a different builder form. Rows below are verified per silo via the
-backward trace (feat/race/subclass confirmed; class/subrace/background still ⏳).
-(✅ verified present, ❌ no path, ⚠️ partial/limited, ⏳ not yet traced.)
+subset of compile paths *and* a different builder form. **All six mechanical silos below are now
+verified** per silo via the backward trace (builder form → assembly fn).
+(✅ verified present, ❌ no path, ⚠️ partial/limited.)
 
-| Capability | Feat | Race | Subclass | Class |
-|---|---|---|---|---|
-| Fixed mechanics (`:props` / `:level-modifiers`) | ✅ | ✅ | ✅ | ✅ |
-| Prof/skill **choice** | ✅ `make-feat-selections` | ✅ `race-option` (`skill`/`language`/`weapon-proficiency-options`) | ✅ `option-skill-proficiency-choice`/`-expertise` | ✅ `option-skill-proficiency-choice`/`-expertise` |
-| Fixed known spell | ✅ via template | ✅ `:spells` | ✅ `:level-modifiers :spell` (any class) | ✅ `:level-modifiers :spell` |
-| **Spell choice** | ✅ 3 templates (magic-novice/ritual/attack) | ⚠️ fixed-only (`option-spells`) | ⚠️ class-gated convenience UI | ✅ full caster (`:spellcasting`) |
-| ASI | ✅ fixed **or** choice (`:ability-increases`) | ✅ fixed per ability (`:abilities`) | n/a | ✅ standard ASI at chosen levels (builder classes are not `:plugin?`) |
-| Traits | ✅ | ✅ `:traits` | ✅ `option-traits` | ✅ `option-traits` |
-| Prereqs | ✅ limited vocab (`feat-prereqs`) | ❓ not in form | ❓ not in form | ❌ not in form |
-| Trackable resource (Axis B) | ❌ | ❌ | ❌ | ❌ |
-| Custom/expanded spell list | ❌ | ❌ | ⚠️ via `:spellcasting` only | ✅ `:spell-list` (custom per-level grid) |
+| Capability | Feat | Race | Subrace | Class | Subclass | Background |
+|---|---|---|---|---|---|---|
+| Fixed mechanics (`:props`/`:level-modifiers`) | ✅ | ✅ | ✅ | ✅ | ✅ | ⚠️ profs/equipment only |
+| Prof/skill **choice** | ✅ | ✅ | ✅ skill-prof-choice | ✅ skill-prof/-expertise | ✅ skill-prof/-expertise | ⚠️ language/tool choice only |
+| Fixed known spell | ✅ via template | ✅ `:spells` | ✅ `:spells` | ✅ `:level-modifiers :spell` | ✅ `:level-modifiers :spell` (any class) | ❌ |
+| **Spell choice** | ✅ 3 templates | ⚠️ fixed-only | ⚠️ fixed-only | ✅ full caster | ⚠️ class-gated UI | ❌ |
+| ASI | ✅ fixed **or** choice | ✅ fixed | ✅ fixed | ✅ standard at chosen levels | n/a | ❌ |
+| Traits | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Prereqs | ✅ limited vocab | ❌ not in form | ❌ | ❌ not in form | ❌ not in form | ❌ |
+| Trackable resource (Axis B) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Custom/expanded spell list | ❌ | ❌ | ❌ | ✅ `:spell-list` | ⚠️ via `:spellcasting` | ❌ |
 
 **Reading (corrected):** **feat, race, and subclass are all fairly rich** — each gets fixed
 mechanics, prof/skill **choices**, traits, and at least fixed spells. The asymmetries are narrower
@@ -244,8 +260,17 @@ form field, and it reaches every silo for free. The **choice** side (`make-feat-
 *not* shared — wiring it into races/subraces/subclasses (and generalizing the spell-choice
 templates) is the highest-leverage cross-silo + sustainability work.
 
-## Next cycles
-1. Builder **forms** per silo — what each builder actually lets a creator enter (the input side).
-2. Exact subclass-spell paths + whether a general subclass-spell decision is feasible.
-3. Prereqs in race/subclass silos (feat-only, or broader?).
-4. Synthesize into in-app documentation (`*-options`/builder/compile comments + a top-level guide).
+## Status / next cycles
+**Done (backward trace, verified):** Feat, Race, Subrace, Class, Subclass, Background — builder
+form → assembly fn, plus the cross-silo capability table and the four-place duplication finding.
+Confirmed: prereqs are feat-only (not in race/subclass/class forms); subclass spell *choice* is
+class-gated UI only (fixed spells via `:level-modifiers :spell` work for any class); the
+`(not plugin?)` gate is not a homebrew gap.
+
+**Remaining:**
+1. Trace the simple/descriptive silos (boon, invocation, language, spell, monster, encounter,
+   selection) — expected non-mechanical, to confirm.
+2. Synthesize into **in-app documentation**: source comments at the key assembly fns
+   (`race-option`, `subrace-option`, `level-option`/`class-option`, `feat-option-from-cfg`,
+   `make-feat-modifiers`/`make-feat-selections`, `level-modifier`, `spellcasting-template`) and a
+   top-level guide cross-linking this KB — the end deliverable.
