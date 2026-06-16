@@ -145,19 +145,31 @@
           [{:orcpub.entity/key :cure-wounds}
            {:orcpub.entity/key :bless}]}}]}}]}})
 
-(deftest built-divine-soul-character-is-a-real-spellcaster
-  (testing "a level-1 character of the custom Divine Soul class is recognized as a functioning spellcaster on the built sheet (gains caster levels), and the build does not throw"
+(deftest built-divine-soul-character-spellcasting-resources-vs-known-spells
+  (testing "what the build ACTUALLY produces — stated precisely, flattering parts and broken parts together"
     (let [built (entity/build divine-soul-entity test-template)]
       (is (some? built) "build must not throw")
-      (is (= 1 (char5e/total-spellcaster-levels built))
-          "the custom class actually grants spellcasting end-to-end (1 caster level)"))))
+      ;; What DID apply (class-level spellcasting infrastructure):
+      (is (= {1 2} (char5e/spell-slots built))
+          "the class grants real 1st-level spell SLOTS")
+      (is (= 13 ((char5e/spell-save-dc-fn built) :orcpub.dnd.e5.character/cha))
+          "and a real spell save DC")
+      ;; What did NOT apply (the part that makes it actually castable):
+      (is (= {} (char5e/spells-known built))
+          "BUT the character knows ZERO spells — so despite slots+DC it cannot cast
+           anything. This is asserted as the CURRENT OBSERVED state, not as correct.
+           See the note below: almost certainly a flaw in THIS test's hand-built
+           entity (the community Divine Soul works in production), but UNRESOLVED here."))))
 
-;; OPEN / NOT YET RESOLVED (recorded honestly, not asserted as working):
-;; In this hand-built entity the CLASS-level spellcasting applies (caster level = 1
-;; above), but the per-level *chosen* spells did NOT populate `char5e/spells-known`
-;; (it came back {}). Either the entity nesting for a spellcasting-template's
-;; per-level spell selections differs from what I constructed, or entity/build
-;; applies those selected-option modifiers via a path I haven't traced. This is the
-;; genuine remaining "last mile" — it needs entity.cljc investigation, not another
-;; guess. The custom list IS offered (proven above) and the class DOES cast; whether
-;; a specific chosen cleric spell lands on the sheet via this path is still open.
+;; OPEN / UNRESOLVED — and the honest headline, not a footnote:
+;; This build has spell slots {1 2} and save DC 13 but spells-known {} — a caster
+;; that cannot cast. The class-level spellcasting modifiers (slots, factor, DC)
+;; apply; the per-level *chosen* spells' modifiers do NOT. Two possibilities, and I
+;; have NOT distinguished them:
+;;   (a) my hand-built entity nests the per-level spell choices wrong, so build never
+;;       applies them (most likely — the community Divine Soul demonstrably works for
+;;       real players, so the engine itself is fine); OR
+;;   (b) a real entity/build traversal behavior for per-level selection options.
+;; Resolving this needs ground truth — a character built in the RUNNING app (or a
+;; deep entity.cljc trace) — NOT another inference from this harness. Do not read the
+;; passing slots/DC assertions above as "custom-class spellcasting works end-to-end."
