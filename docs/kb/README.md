@@ -12,6 +12,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 | [decision-vocabulary.md](decision-vocabulary.md) | **Map of the homebrew wiring**: which decision keys each silo's builder emits and which assembly fn compiles them (feat/race/subrace/class/subclass/background). ⚠️ Maps *where data plugs in*, NOT observed runtime behavior or true limits — except the subclass-spellcasting gate, which is confirmed by code **and** a real `.orcbrew`. | Medium — call-graph + symbols verified; behavior/limits mostly NOT exercised |
 | [homebrew-content-merge.md](homebrew-content-merge.md) | The `feat-options` trap: why "X isn't homebrew-extensible" conclusions are usually wrong (merge happens at the concat point, not the static `*-options` def) | High — direct code inspection |
 | [content-extensibility-framework.md](content-extensibility-framework.md) | Canonical reference for the registry-driven content system being built (one entry vs ~9-file edits) | High — code + design |
+| [runtime-toggles-and-conditional-modifiers.md](runtime-toggles-and-conditional-modifiers.md) | How a player toggle (equipped armor / magic items) changes computed sheet stats — the `equipped?`-flag + deferred-modifier mechanism. Feasibility basis for "while active" (rage-style) conditional features. | High — code read, file:line cited |
 
 > Design, handoff, and decision records for the Content Extensibility initiative
 > (the forward-looking, non-verified half) live in [`docs/extensibility/`](../extensibility/README.md).
