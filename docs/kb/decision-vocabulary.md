@@ -1,5 +1,13 @@
 # Homebrew Decision Vocabulary & Compile Paths
 
+> **⚠️ SCOPE / HONESTY: this is a WIRING map, not a behavior study.** It records which decision
+> keys each builder emits and which assembly fn they reach — i.e. *where data plugs in*. A "✅" or
+> "rich" means **a code path exists**, NOT that the resulting mechanic was exercised on a built
+> character; a "❌" means **no path was found in the code I read**, NOT a proven limit. These are
+> different things and I conflated them. The ONE claim taken all the way down to behavior **and**
+> limit (and confirmed against a real `.orcbrew`) is the **subclass-spellcasting gate**. Everything
+> else is reconnaissance pending real verification (run it / read the modifier engine).
+
 **The model:** the app is the **tools + forms + logic** (server-side). An `.orcbrew` stores the
 creator's **decisions** (data), not logic. On import the app's **compile paths** turn those
 decisions into modifiers/selections. What a creator can express is bounded by the **forms**
