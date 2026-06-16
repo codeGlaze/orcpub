@@ -13,6 +13,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 | [homebrew-content-merge.md](homebrew-content-merge.md) | The `feat-options` trap: why "X isn't homebrew-extensible" conclusions are usually wrong (merge happens at the concat point, not the static `*-options` def) | High — direct code inspection |
 | [content-extensibility-framework.md](content-extensibility-framework.md) | Canonical reference for the registry-driven content system being built (one entry vs ~9-file edits) | High — code + design |
 | [runtime-toggles-and-conditional-modifiers.md](runtime-toggles-and-conditional-modifiers.md) | How a player toggle (equipped armor / magic items) changes computed sheet stats — the `equipped?`-flag + deferred-modifier mechanism. Feasibility basis for "while active" (rage-style) conditional features. | High — code read, file:line cited |
+| [armor-class-computation.md](armor-class-computation.md) | How AC is computed (the layered max-of-alternatives + sum-of-bonuses model in `template_base.cljc`), the channels a feature plugs into, and the friction for custom Natural AC / Unarmored Defense. | High — code read, file:line cited; design section flagged |
 
 > Design, handoff, and decision records for the Content Extensibility initiative
 > (the forward-looking, non-verified half) live in [`docs/extensibility/`](../extensibility/README.md).
