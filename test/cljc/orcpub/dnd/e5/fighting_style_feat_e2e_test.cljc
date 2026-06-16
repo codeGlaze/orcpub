@@ -11,7 +11,9 @@
 
    JVM/clojure.test so it runs under the enforced `lein test` gate."
   (:require [clojure.test :refer [deftest testing is]]
+            [orcpub.entity :as entity]
             [orcpub.template :as t]
+            [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.spells :as spells5e]
@@ -56,9 +58,7 @@
         (is (contains? offered "Archery")
             "a BUILT-IN fighting style is offered")
         (is (contains? offered "Tidewalker")
-            "the HOMEBREW fighting style is offered too — the pool is open, cross-bucket as data"))
-      (is (= [:feat :style-adept :fighting-style] (::t/ref fs-sel))
-          "feat-rooted ref — won't collide with a class's fighting style"))))
+            "the HOMEBREW fighting style is offered too — the pool is open, cross-bucket as data")))))
 
 (deftest a-feat-without-the-grant-has-no-fighting-style-selection
   (testing "control: no :fighting-style key → no fighting-style selection (the grant is opt-in data)"
@@ -67,3 +67,51 @@
                (dissoc feat-cfg :fighting-style))]
       (is (not-any? #(= "Fighting Style" (::t/name %)) (::t/selections opt))
           "no grant key, no grant"))))
+
+;; ---------------------------------------------------------------------------
+;; The built-character mile: pick the feat, choose the HOMEBREW style, and read
+;; its mechanic off the derived sheet. (This is where the divine-soul :ref bug
+;; hid — so it's the assertion that actually matters.)
+;; ---------------------------------------------------------------------------
+
+(def test-template
+  (t5e/template
+   (concat
+    (t5e/template-selections
+     nil nil nil
+     weapons5e/weapons-map weapons5e/weapons
+     sl5e/spell-lists spells-map
+     [] [] [] []                          ; no backgrounds/races/classes/feats here
+     language-map)
+    ;; inject the feat (compiled with the built-in ++ homebrew pool) as a direct selection
+    [(t/selection-cfg {:name "Bonus Feat" :key :bonus-feat :tags #{:feats}
+                       :options [(feat-option)] :min 1 :max 1})])))
+
+(def char-entity
+  {:orcpub.entity/options
+   {:ability-scores
+    {:orcpub.entity/key :standard-roll
+     :orcpub.entity/value {:orcpub.dnd.e5.character/str 10 :orcpub.dnd.e5.character/dex 10
+                           :orcpub.dnd.e5.character/con 10 :orcpub.dnd.e5.character/int 10
+                           :orcpub.dnd.e5.character/wis 10 :orcpub.dnd.e5.character/cha 10}}
+    :bonus-feat
+    {:orcpub.entity/key :style-adept
+     :orcpub.entity/options
+     {:fighting-style {:orcpub.entity/key :tidewalker}}}}})
+
+(deftest built-character-gets-the-homebrew-fighting-style-mechanic
+  (testing "a character who takes the feat and picks the HOMEBREW Tidewalker style has its swimming speed on the derived sheet"
+    (let [built (entity/build char-entity test-template)]
+      (is (some? built) "build must not throw")
+      (is (= 30 (char5e/base-swimming-speed built))
+          "the homebrew fighting style's :props mechanic (swimming-speed 30) lands end-to-end"))))
+
+(deftest control-built-in-style-has-no-swim-speed
+  (testing "CONTROL: picking the built-in Archery style instead → swimming speed is NOT 30 (proves the 30 came from Tidewalker, not a default)"
+    (let [built (entity/build
+                 (assoc-in char-entity
+                           [:orcpub.entity/options :bonus-feat :orcpub.entity/options :fighting-style :orcpub.entity/key]
+                           :archery)
+                 test-template)]
+      (is (not= 30 (char5e/base-swimming-speed built))
+          (str "without Tidewalker, swim speed should not be 30 — got " (char5e/base-swimming-speed built))))))

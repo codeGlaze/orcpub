@@ -3446,12 +3446,13 @@
 
 (defn feat-fighting-style-selection
   "A Fighting Style choice GRANTED BY A FEAT, over the given option pool (built-in ++
-   homebrew). Feat-rooted :ref so it never collides with a class's fighting style."
-  [feat-key num options]
+   homebrew). Nests naturally under the feat (no :ref) — matching how the existing
+   feat spell-template sub-selections (magic-initiate-option etc.) are structured, and
+   avoiding the ref/entity-path mismatch that silently drops choices."
+  [_feat-key num options]
   (t/selection-cfg
    {:name "Fighting Style"
     :tags #{:feats}
-    :ref [:feat feat-key :fighting-style]
     :multiselect? true
     :min num
     :max num
