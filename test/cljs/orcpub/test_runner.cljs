@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.subs-test]
             [orcpub.dnd.e5.content-reconciliation-test]
             [orcpub.dnd.e5.draconic-ancestry-test]
+            [orcpub.dnd.e5.dragonborn-ancestry-e2e-test]
             [orcpub.dnd.e5.simple-content-builder-test]
             [orcpub.dnd.e5.import-validation-test]))
 
@@ -18,6 +19,7 @@
              'orcpub.dnd.e5.subs-test
              'orcpub.dnd.e5.content-reconciliation-test
              'orcpub.dnd.e5.draconic-ancestry-test
+             'orcpub.dnd.e5.dragonborn-ancestry-e2e-test
              'orcpub.dnd.e5.simple-content-builder-test
              'orcpub.dnd.e5.import-validation-test))
 
