@@ -3422,6 +3422,42 @@
      props)))
 
 
+;; ─── BRIDGE PROTOTYPE: feat-granted fighting style (pool+grant as DATA) ──────────
+;; Additive/reversible. Mirrors the draconic-ancestry pool+grant pattern for a different
+;; bucket (feats), to test whether that pattern generalizes. To revert: delete this block,
+;; the `:fighting-style` hook in feat-option-from-cfg, the extra arg at its call site
+;; (template.cljc), and the ::feats5e/fighting-style-pool sub (spell_subs.cljs).
+;; Placed here (after plugin-modifiers) so it can compile homebrew styles' :props.
+(defn fighting-style-option
+  "Compile a HOMEBREW fighting style (orcbrew data: name + optional :props + :description)
+   into a fighting-style option — the same shape draconic-ancestry-option uses. Mechanical
+   effects ride the shared :props vocabulary (plugin-modifiers); the description becomes a
+   trait. (Conditional/complex effects like Mariner's need the richer mechanical-feature
+   builder the maintainer flagged — out of scope for this slice.)"
+  [{:keys [name key props description]}]
+  (t/option-cfg
+   (cond-> {:name name
+            :modifiers (concat
+                        (when description
+                          [(modifiers/trait-cfg {:name (str name " Fighting Style")
+                                                 :description description})])
+                        (when props (plugin-modifiers props key)))}
+     key (assoc :key key))))
+
+(defn feat-fighting-style-selection
+  "A Fighting Style choice GRANTED BY A FEAT, over the given option pool (built-in ++
+   homebrew). Feat-rooted :ref so it never collides with a class's fighting style."
+  [feat-key num options]
+  (t/selection-cfg
+   {:name "Fighting Style"
+    :tags #{:feats}
+    :ref [:feat feat-key :fighting-style]
+    :multiselect? true
+    :min num
+    :max num
+    :options options}))
+;; ─── end bridge prototype (part 1) ──────────────────────────────────────────────
+
 (defn feat-option-from-cfg
   "Build a feat option. race-map is threaded from template-selections.
    Assembly fn for the FEAT silo (richest): compiles :props → fixed mechanics (make-feat-modifiers)
@@ -3433,6 +3469,7 @@
    spell-lists
    custom-and-standard-weapons
    race-map
+   fighting-style-pool                    ; ← BRIDGE PROTOTYPE: the fighting-style pool (built-in ++ homebrew)
    {:keys [name
            key
            icon
@@ -3441,7 +3478,8 @@
            path-prereqs
            props
            ability-increases
-           edit-event]}]
+           edit-event
+           fighting-style]}]              ; ← BRIDGE PROTOTYPE: the grant (truthy, or {:choose N})
   (let [feat-mods (feat-modifiers key
                                   name
                                   description
@@ -3452,7 +3490,16 @@
                                          spell-lists
                                          custom-and-standard-weapons
                                          props
-                                         ability-increases)]
+                                         ability-increases)
+        ;; BRIDGE PROTOTYPE: if the feat's DATA grants a fighting style, add the choice over
+        ;; the pool. This is the cross-bucket bridge — a feat tapping the fighting-style bucket
+        ;; as data, the same way dragonborn taps the ancestry pool.
+        feat-selections (cond-> feat-selections
+                          fighting-style
+                          (concat [(feat-fighting-style-selection
+                                    key
+                                    (if (map? fighting-style) (:choose fighting-style 1) 1)
+                                    fighting-style-pool)]))]
     (t/option-cfg
      {:name name
       :key key

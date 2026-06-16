@@ -1542,7 +1542,10 @@
                (opt5e/feat-options spell-lists spells-map)
                (let [race-map (common/map-by-key races)]
                  (map
-                  (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons race-map)
+                  ;; BRIDGE PROTOTYPE: pass the fighting-style pool so a feat can grant a
+                  ;; fighting-style choice. Built-in pool for now; threading the homebrew
+                  ;; ::e5/fighting-styles pool through here is the follow-up wiring step.
+                  (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons race-map opt5e/fighting-style-options)
                   feats)))
      :show-if-zero? true
      :min 0
