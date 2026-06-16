@@ -134,42 +134,48 @@
     :class
     [{:orcpub.entity/key :sorcerer-divine-soul-
       :orcpub.entity/options
-      {:levels
+      {;; Spell/cantrip choices live at the CLASS ROOT, not under :levels — the
+       ;; spell selection carries a :ref [:class class-key sel-key] that re-roots
+       ;; its option path (entity.cljc get-all-selections-aux-2 uses (or ref path)).
+       ;; This is why warlock_test stores spells here too.
+       :sorcerer-divine-soul--cantrips-known
+       [{:orcpub.entity/key :sacred-flame}
+        {:orcpub.entity/key :fire-bolt}]
+       :sorcerer-divine-soul--spells-known
+       [{:orcpub.entity/key :cure-wounds}
+        {:orcpub.entity/key :bless}]
+       :levels
        [{:orcpub.entity/key :level-1
          :orcpub.entity/options
-         {:hit-points {:orcpub.entity/key :average :orcpub.entity/value 4}
-          :sorcerer-divine-soul--cantrips-known
-          [{:orcpub.entity/key :sacred-flame}
-           {:orcpub.entity/key :fire-bolt}]
-          :sorcerer-divine-soul--spells-known
-          [{:orcpub.entity/key :cure-wounds}
-           {:orcpub.entity/key :bless}]}}]}}]}})
+         {:hit-points {:orcpub.entity/key :average :orcpub.entity/value 4}}}]}}]}})
 
-(deftest built-divine-soul-character-spellcasting-resources-vs-known-spells
-  (testing "what the build ACTUALLY produces — stated precisely, flattering parts and broken parts together"
-    (let [built (entity/build divine-soul-entity test-template)]
+(defn known-spell-keys [built]
+  ;; spells-known is {spell-level {[class-name spell-key] entry}}
+  (set (map second (mapcat keys (vals (char5e/spells-known built))))))
+
+(deftest built-divine-soul-character-actually-knows-and-can-cast-cleric-spells
+  (testing "a level-1 character of the custom Divine Soul class KNOWS the chosen cleric spells on the derived sheet — full end-to-end"
+    (let [built (entity/build divine-soul-entity test-template)
+          known (known-spell-keys built)]
       (is (some? built) "build must not throw")
-      ;; What DID apply (class-level spellcasting infrastructure):
+      ;; spellcasting infrastructure
       (is (= {1 2} (char5e/spell-slots built))
-          "the class grants real 1st-level spell SLOTS")
+          "real 1st-level spell slots")
       (is (= 13 ((char5e/spell-save-dc-fn built) :orcpub.dnd.e5.character/cha))
-          "and a real spell save DC")
-      ;; What did NOT apply (the part that makes it actually castable):
-      (is (= {} (char5e/spells-known built))
-          "BUT the character knows ZERO spells — so despite slots+DC it cannot cast
-           anything. This is asserted as the CURRENT OBSERVED state, not as correct.
-           See the note below: almost certainly a flaw in THIS test's hand-built
-           entity (the community Divine Soul works in production), but UNRESOLVED here."))))
+          "real spell save DC (8 + 2 prof + 3 cha)")
+      ;; the spells actually landed
+      (is (contains? known :cure-wounds)
+          "the chosen CLERIC spell cure-wounds is known on the sheet (custom spell-list, end-to-end)")
+      (is (contains? known :bless)
+          "the second cleric spell bless is known too")
+      (is (contains? known :sacred-flame)
+          "the cleric cantrip is known as well"))))
 
-;; OPEN / UNRESOLVED — and the honest headline, not a footnote:
-;; This build has spell slots {1 2} and save DC 13 but spells-known {} — a caster
-;; that cannot cast. The class-level spellcasting modifiers (slots, factor, DC)
-;; apply; the per-level *chosen* spells' modifiers do NOT. Two possibilities, and I
-;; have NOT distinguished them:
-;;   (a) my hand-built entity nests the per-level spell choices wrong, so build never
-;;       applies them (most likely — the community Divine Soul demonstrably works for
-;;       real players, so the engine itself is fine); OR
-;;   (b) a real entity/build traversal behavior for per-level selection options.
-;; Resolving this needs ground truth — a character built in the RUNNING app (or a
-;; deep entity.cljc trace) — NOT another inference from this harness. Do not read the
-;; passing slots/DC assertions above as "custom-class spellcasting works end-to-end."
+;; NOTE — earlier this test wrongly reported spells-known = {} and I flagged it as
+;; an unresolved mystery possibly needing a running server. The actual cause was a
+;; bug in THIS test: the spell selection carries :ref [:class class-key sel-key]
+;; (options.cljc spell-selection), and entity.cljc get-all-selections-aux-2 builds
+;; the option path from (or ref path) — so chosen spells must be stored at the CLASS
+;; ROOT (as above and as warlock_test does), not nested under :levels where the
+;; template physically places the selection. Following that :ref thread in
+;; entity.cljc fixed it; no server was required.
