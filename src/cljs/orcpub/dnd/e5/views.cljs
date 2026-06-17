@@ -1887,7 +1887,7 @@
   ;; hiccup build don't run twice on every render — only the error path pays extra.
   (let [rendered (try (doall (render-coll items)) (catch :default _ ::failed))]
     (if-not (= rendered ::failed)
-      rendered
+      (into [:<>] rendered)
       (let [culprits (isolate-culprit render-coll items)
             culprit? (set culprits)
             survivors (remove culprit? items)]
