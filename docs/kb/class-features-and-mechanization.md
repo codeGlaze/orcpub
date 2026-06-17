@@ -108,6 +108,19 @@ The template is a thin layer over the picker — build the registry + picker, an
 falls out cheaply. "Change/replace a feature" = the alternate-features capability (needs feature
 keys + an addressable feature list; touches saved data only when a swap is chosen).
 
+**Editable references (design the SHAPE now — retrofitting is "working backward"):** a reference
+should be a **map with optional overrides** (`{:feature :second-wind :overrides {:uses 2}}`), and a
+feature a **structured, parameterized record with defaults** (`{:key :second-wind :uses 1
+:heal-die :d10 :scaling …}`); overrides merge onto defaults at compile. This is what lets a custom
+class say "more Second Wind uses" / "Sneak Attack uses d8" / "extra Sneak Attack dice at these
+levels." Crucial coupling: **you can only override a parameter the feature exposes** — Sneak Attack's
+die currently lives in a summary *string*, so overriding it requires structuring the feature first.
+So editable references and mechanizing features (structured fields, not prose) are the same work.
+Design-now = the reference format (`:overrides` map) + structured feature records + a merge step;
+add-later = which overrides the UI exposes and how deep (a param vs editing a scaling table). Keep
+the data shape open to arbitrary overrides; throttle the UI. (Avoid the inverse trap: exposing every
+knob immediately piles up UI + merge/validation edge cases.)
+
 Sequence (to contain regression risk): build a characterization net (snapshot every class's built
 features) → define the feature record + registry → extract incrementally, proving byte-identical
 output per step → then make entries data-addressable and expose to the custom builder + alternates.
