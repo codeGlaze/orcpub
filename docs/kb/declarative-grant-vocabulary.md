@@ -42,20 +42,28 @@ Tested against the actual ways 5e/the app grant spells:
 | Pattern | Vocabulary | Compiles to | Works? |
 |---|---|---|---|
 | Fixed innate spell (always / at a level / with a set ability) | `<grant spell>` + level + ability | `spells-known` | ✅ — `:spells` shape already carries level+ability |
-| Choose N from a list, filtered (level/school/class-list/ritual/attack) | `<select spell (filters)>` | `spell-selection` | ✅ — filters = its existing list/level/restriction params |
+| Choose N from ONE list, filtered (level/school/ritual/attack) | `<select spell (filters)>` | `spell-selection` | ✅ — filters = its existing list/level/restriction params |
 | Cantrips | same, level-0 filter | `spell-selection`/`spells-known` | ✅ |
-| Expanded/merged list (Divine-Soul style) | `<select spell>` with multiple list filters | `spell-selection` | ✅ if filters allow naming >1 list |
+| Magic-Initiate style: pick a CLASS/list, then spells from it | nested/dependent select | `spell-selection` per chosen list | ⚠️ SPECIAL CASE — a two-level dependent choice, not a flat select |
 
-**It simplifies a real overcomplication (VERIFIED).** The feat spell "templates" —
-`magic-initiate-option`, `ritual-caster-option`, `spell-sniper-option` (`options.cljc:722/743/779`)
-— have identical signatures and are each instantiated once per class, ~18 hardcoded option
-constructions. Every one means "choose spells from class-list X with filter F, cast via ability A."
-A single parameterized `<select spell (filters)>` → `spell-selection` subsumes all 18. So the current
-approach is overcomplicating something simpler; the vocabulary is thinner, not heavier.
+**SPECIAL CASE — dependent two-level choice (VERIFIED; corrects an earlier overstatement).**
+I previously claimed the feat spell "templates" were ~18 redundant constructions that a single
+`<select spell>` would subsume. That was wrong. `magic-initiate-selection` (`options.cljc:3244`),
+`ritual-caster-selection`, `spell-sniper-selection` are each ONE selection ("Spell Class") whose
+options are the six caster classes; the user **picks a class**, and that class option then has
+sub-selections to pick cantrips + a level-1 spell from *that class's* list. The six per template are
+the user's class choice — Magic Initiate's actual rule (choose a class, then learn from it), not
+copy-paste. So a flat `<select spell>` does NOT subsume them: this is a **dependent two-level
+choice** (pick a list, then spells from it), which the vocabulary must support as a nested select.
 
-**It also unifies the two divergent fixed-spell data shapes (VERIFIED):** races use `:spells`,
+The only genuine duplication is smaller: the six-class caster table (bard→Cha, cleric→Wis,
+druid→Wis, sorcerer→Cha, warlock→Cha, wizard→Int) is written out in ~4 places
+(`options.cljc:1390/1717/3249` + the ritual/sniper selections) and could be one shared table mapped
+over. That's minor tidiness, not a structural collapse.
+
+**It does unify the two divergent fixed-spell data shapes (VERIFIED):** races use `:spells`,
 classes/subclasses use `:level-modifiers {:type :spell}` — both reach `spells-known`. One `<grant
-spell>` collapses them.
+spell>` collapses those. (This claim stands; the "subsumes 18" claim above did not.)
 
 ## Special cases the vocabulary must NOT absorb (OPEN — confirm scope)
 - **Spellcasting progression** (full/half/third caster: slots + a known-schedule) is NOT a spell
