@@ -66,6 +66,44 @@ can't count — wiring them as a frequency/amount feature would give them a coun
   hit/miss outcome, applying damage to a creature, reactions firing, action economy ("extra action"),
   enforced "once per turn." That's a simulator, not a sheet+roller.
 
+## The code-capture catch — VERIFIED (the thing that makes the registry non-trivial)
+The optimistic registry plan assumes a feature is *data* you can store, filter, and override. It
+isn't, today — a feature is **captured code**, and that changes what the registry's compile step has
+to do.
+- `dependent-trait`, `action`, `bonus-action`, `prop-trait` are **macros** (`modifiers.cljc:308`,
+  `:583`, `:589`, `:299`). They expand the cfg map into a `mods/modifier` form. The cfg map itself is
+  *embedded as a literal in that expansion* — it is not evaluated and handed to a function, it is
+  spliced into code.
+- The cfg fields contain **live entity-spec references and control flow**, not values. Examples from
+  real fighter (`classes.cljc:1075-1101`):
+  - Action Surge uses: `:frequency (units5e/rests (if (>= (?class-level :fighter) 17) 2 1))`
+  - Second Wind heal: `:summary (str "regain 1d10 " (common/mod-str (?class-level :fighter)) " HPs")`
+  - Indomitable uses: `:frequency (units5e/long-rests (mod5e/level-val (?class-level :fighter) {13 2 17 3 :default 1}))`
+- `?class-level` is **not a variable** — it's an entity-spec attribute, defined as
+  `?class-level (fn [class-kw] (get-in ?levels [class-kw :class-level]))` (`template_base.cljc:125`),
+  resolved during `entity/build`. `level-val` (`modifiers.cljc:595`) is a **compile-time macro** that
+  expands a threshold table into a `condp <=` form. So the scaling tables are baked into code at
+  compile time, keyed off a build-time attribute.
+
+**Consequence for the registry.** To make a feature data-addressable you cannot just lift the cfg map
+out — its `:frequency`/`:summary` are code. A `compile-feature` step must translate **data schedules
+→ runtime lookups**:
+- Use-count (the `:frequency :amount`) is the tractable part: replace the hand-written
+  `(if (>= (?class-level …) 17) 2 1)` / `level-val` table with a **data schedule** (`{:default 1 17 2}`)
+  resolved by a *runtime* `level-lookup` fn (the runtime analogue of the `level-val` macro). This is
+  what an editable reference's `:overrides {:uses …}` can then target.
+- Summary **scaling** is the harder sub-problem: Second Wind's "regain 1d10 +N HPs" interpolates the
+  class level into a string. That needs a **template/interpolation layer** (a `:summary-fn` of the
+  resolved level, or a B1 templating mechanism), not a static field. Until that exists, the summary
+  stays a function — which is why "override Sneak Attack's die" (the die lives inside the summary
+  string) is blocked on structuring the feature first.
+
+`level-lookup` reproduces `level-val` exactly: highest threshold ≤ level wins, else `:default`
+(verified against Indomitable's `{13 2 17 3 :default 1}` → 9→1, 13→2, 17→3). See the
+`compile-feature` proof in `test/cljc/orcpub/dnd/e5/class_feature_snapshot_test.clj`, which asserts a
+data-schedule spec reproduces the **real** built fighter's Action Surge / Second Wind frequency at
+levels 5 and 17, and that an `:overrides {:uses …}` changes only the use count.
+
 ## Design direction for centralizing features — DESIGN (not built)
 The maintainer's intuition: move core features out of class declarations, centralize, re-insert. The
 question was "small per-feature pools, or one larger keyed/filterable registry?"
