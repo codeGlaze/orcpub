@@ -65,14 +65,34 @@ over. That's minor tidiness, not a structural collapse.
 classes/subclasses use `:level-modifiers {:type :spell}` — both reach `spells-known`. One `<grant
 spell>` collapses those. (This claim stands; the "subsumes 18" claim above did not.)
 
-## Special cases the vocabulary must NOT absorb (OPEN — confirm scope)
-- **Spellcasting progression** (full/half/third caster: slots + a known-schedule) is NOT a spell
-  grant — it is the casting engine (`:spellcasting` → `spellcasting-template`). The grant/select
-  vocabulary covers individual spell grants/choices, not "this class becomes a caster." Keep
-  separate. **OPEN: I'm scoping progression OUT; confirm.**
-- **Usage qualifiers** ("once per long rest"). `spells-known` has a qualifier slot, but there is no
-  trackable-resource path in the app (verified earlier), so a qualifier would be descriptive text,
-  not an enforced use count. **OPEN: confirm "descriptive, not tracked" is acceptable.**
+## Compound grants — "pick 2 cantrips and a 1st-level spell" (the canonical case)
+A single feat often grants several picks of different kinds. The form is a **repeatable list of
+grant/select rows**, each with its own filters + count. "2 cantrips + 1 first-level spell" =
+`<select spell ×2, level 0>` + `<select spell ×1, level 1>` — which is exactly what
+`magic-initiate-option` builds (two sub-selections). So the builder UI is "add a grant row" N times;
+a compound grant is just multiple rows. The Magic-Initiate "pick a class first" case adds the
+dependent/nested wrinkle on top (pick a list, then the rows draw from it).
+(Note: this is separate from the *condition* combination flag below — compound spell grants are a
+list of select rows; multiple conditions are an AND-list. Both are "a repeatable list" in the form.)
+
+## Scope decisions
+- **Spellcasting progression is OUT of scope** — but note: progression was never requested in this
+  thread (it was my mis-attribution). The vocabulary is for granting *individual* spells as a
+  bonus/reward. Full caster progression stays the existing `:spellcasting` machinery.
+- **Usage qualifiers ("once per long rest") need real plumbing, separately.** VERIFIED: there is no
+  creator-declarable use-count mechanism — `used-resource` is only a label, and magic-item/racial
+  limited-use spells are descriptive text (see spell-granting-across-silos.md). So a qualifier is
+  *descriptive only today*. Doing it properly is a **new tracked-resource layer** (max + current +
+  reset-on-rest), a separate project from the grant vocabulary, not a flag to hand-wave.
+- **Magic items are a real spell source the grant vocabulary should cover.** Today they show spells
+  as `mod5e/action` text, not in `spells-known`. A `<grant spell>` routing to `spells-known` would
+  make them properly visible/castable instead of loose text.
+
+## Backward compatibility (hard requirement)
+Any change to data shapes (e.g. unifying fixed-spell `:spells` vs `:level-modifiers :spell`) MUST
+keep existing homebrew libraries and saved characters working — via a read-shim for the old shape if
+the canonical shape changes. Prefer not churning saved data; if churn is unavoidable, migrate with a
+shim, never break. This applies to every step of the uniform-data-path work.
 
 ## Sequencing (agreed)
 This is a step *out from* organizing the framework, not instead of it. Make the data path uniform
@@ -81,13 +101,16 @@ across every silo's assembly fn — THEN build reusable controls (spell-picker, 
 THEN let the registry generate the builder form from the declaration. Generating UI over the current
 inconsistent data path would hide the inconsistency, not fix it.
 
-## OPEN flags (not yet agreed)
-1. Spellcasting progression is out of scope for grant/select (stays `:spellcasting`).
-2. Usage qualifiers are descriptive, not mechanically tracked.
-3. How the builder form lets a creator add **multiple conditions** — default to an AND-list
-   (simplest, covers most 5e); OR/nested is deferred. This is a Layer-A authoring choice.
-4. Whether to keep the existing `:spells` data shape (with its nested `:value` wrapper) or clean it
-   up when unifying. Leaning keep-it (don't churn saved data), but it's awkward.
+## Status of the earlier flags (updated)
+1. Spellcasting progression — RESOLVED: out of scope (and was my mis-attribution; never requested).
+2. Usage qualifiers — RESOLVED as: descriptive today, and a proper fix is a **separate** tracked-
+   resource project (not part of this vocabulary). VERIFIED there's no creator-declarable use-count.
+3. Compound grants ("2 cantrips + 1 spell") — RESOLVED: a repeatable list of grant/select rows.
+4. Multiple **conditions** — still OPEN: default to an AND-list, defer OR/nested (Layer-A choice).
+5. `:spells` data shape — RESOLVED to a principle: backward compatibility is mandatory; keep the old
+   shape readable (shim) if the canonical shape changes; prefer not churning.
+6. Magic items as a spell source — NEW: covered by `<grant spell>` (today they're `mod5e/action`
+   text, not in `spells-known`).
 
 ## Idiomatic check (Clojure/Reagent)
 Data-driven UI (a render fn over a grant spec) is idiomatic — same pattern as the existing

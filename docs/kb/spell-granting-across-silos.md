@@ -72,6 +72,30 @@ Note for the separate `grant-selection` work: for *spells* the existing choice p
 So spells should route to `spell-selection`, not be reinvented through the generic grant. This is a
 concrete case where the existing specialized primitive is the right target.
 
+## A sixth spell "source": magic items — text-only (VERIFIED)
+Magic items that let you cast a spell ("cast levitate at will", "cast dimension door, once per
+dawn") do NOT add the spell to `spells-known` and do NOT track uses. They compile to a
+`mod5e/action` entry with a text `:summary` (e.g. Boots of Levitation, `magic_items.cljc:752`; 14
+such `mod5e/action` items). VERIFIED: `grep spells-known|spell-options` over `magic_items.cljc`
+returns nothing. So the app is **not mechanically aware** of magic-item spells — they appear as
+descriptive action/trait text and the **player has to remember** them and their usage limits.
+(Caster items like a +1 wand DO apply a mechanical `spell-attack-modifier-bonus`; it's the
+"cast spell X" items that are text-only.) Implication: a real `<grant spell>` routing to
+`spells-known` would surface magic-item spells properly instead of as loose text.
+
+## Usage limits / "once per long rest" — fragmented, not creator-declarable (VERIFIED)
+There is no general, creator-declarable "N uses per rest of X" mechanism. What exists:
+- `mod5e/used-resource` (`modifiers.cljc:16`) only records a label `{:resource-key … :option-name …}`
+  into `?used-resources` — an *association*, not a use counter. It's used by some built-in features
+  (`options.cljc:2042/2293/…`); a homebrew creator can't declare one as data.
+- Racial "once per long rest" spells and magic-item "X/day" are **descriptive text only** (the
+  qualifier on `spells-known` / the item description), not enforced.
+So limited-use handling is split across `used-resource` labels, trait text, and action summaries
+with no unified control — matching the "merges too many things with little control" read. Real
+support is a **new tracked-resource layer** (a max + current + reset-on-rest a creator can declare),
+which is the Axis-B / trackable-resource gap noted in decision-vocabulary.md. NOT-TRACED: where a
+built-in feature's *max* uses are computed (likely the sheet UI vs the modifier layer); flagged.
+
 ## Limitations / open
 - The race `:spells` → sheet path is verified by code but **NOT** verified by a built character. The
   honest next check is a characterization test: a homebrew race with `:spells` → build → assert the
