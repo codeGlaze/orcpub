@@ -23,6 +23,13 @@
 (defn class-opt [opt-fn]
   (opt-fn sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map))
 
+(def all-class-opts
+  [[:barbarian classes5e/barbarian-option] [:bard classes5e/bard-option]
+   [:cleric classes5e/cleric-option] [:fighter classes5e/fighter-option]
+   [:monk classes5e/monk-option] [:paladin classes5e/paladin-option]
+   [:ranger classes5e/ranger-option] [:rogue classes5e/rogue-option]
+   [:sorcerer classes5e/sorcerer-option] [:wizard classes5e/wizard-option]])
+
 (def test-template
   (t5e/template
    (t5e/template-selections
@@ -30,7 +37,7 @@
     weapons5e/weapons-map weapons5e/weapons
     sl5e/spell-lists spells5e/spell-map
     [] []                                  ; backgrounds, races
-    [(class-opt classes5e/fighter-option)]
+    (map (fn [[_ f]] (class-opt f)) all-class-opts)
     [] language-map)))
 
 (def abilities {:orcpub.dnd.e5.character/str 16 :orcpub.dnd.e5.character/dex 14
@@ -70,21 +77,37 @@
      :abilities     (char5e/ability-values built)}))
 
 ;; ---------------------------------------------------------------------------
-;; FIGHTER — baseline (extend with more levels/classes as the net grows)
+;; Baseline @ level 5 for ALL classes — captured from observed built output (dump-all).
+;; This is the regression net: if the feature-name set, num-attacks, or saves change after
+;; the class-feature extraction, the matching class fails. Update only with intent.
+;; (Auto-granted features only; choice-gated ones like Fighting Style/Expertise are absent.)
 ;; ---------------------------------------------------------------------------
-(deftest fighter-level-5-baseline
-  (testing "level-5 fighter: the features + derived facts the extraction must reproduce"
-    (let [s (snapshot :fighter 5)]
-      (println "\n=== SNAPSHOT fighter@5 ===")
-      (println "  features:" (pr-str (sort (:feature-names s))))
-      (doseq [[n sum] (:summaries s)] (println "   -" n "=>" sum))
-      (println "  number-of-attacks:" (:number-of-attacks s) " saves:" (pr-str (:saves s)) "\n")
-      (is (contains? (:feature-names s) "Second Wind"))
-      (is (contains? (:feature-names s) "Action Surge"))
-      (is (= 2 (:number-of-attacks s)) "Extra Attack at level 5 → 2 attacks")
-      (is (= #{:orcpub.dnd.e5.character/str :orcpub.dnd.e5.character/con} (:saves s))
-          "fighter save proficiencies")
-      (is (= 16 (:orcpub.dnd.e5.character/str (:abilities s)))))))
+(def ^:private S :orcpub.dnd.e5.character/str)
+(def ^:private D :orcpub.dnd.e5.character/dex)
+(def ^:private C :orcpub.dnd.e5.character/con)
+(def ^:private I :orcpub.dnd.e5.character/int)
+(def ^:private W :orcpub.dnd.e5.character/wis)
+(def ^:private Ch :orcpub.dnd.e5.character/cha)
+
+(def baseline-5
+  {:barbarian {:attacks 2 :saves #{S C} :features #{"Danger Sense" "Extra Attack" "Fast Movement" "Rage" "Reckless Attack"}}
+   :bard      {:attacks 1 :saves #{D Ch} :features #{"Bardic Inspiration" "Font of Inspiration" "Jack of All Trades" "Song of Rest"}}
+   :cleric    {:attacks 1 :saves #{W Ch} :features #{"Channel Divinity" "Channel Divinity: Turn Undead" "Destroy Undead"}}
+   :fighter   {:attacks 2 :saves #{S C} :features #{"Action Surge" "Second Wind"}}
+   :monk      {:attacks 2 :saves #{S D} :features #{"Deflect Missiles" "Flurry of Blows" "Ki" "Martial Arts" "Patient Defense" "Slow Fall" "Step of the Wind" "Stunning Strike"}}
+   :paladin   {:attacks 2 :saves #{W Ch} :features #{"Channel Divinity" "Divine Health" "Divine Sense" "Divine Smite" "Lay on Hands"}}
+   :ranger    {:attacks 2 :saves #{S D} :features #{"Favored Enemy" "Natural Explorer" "Primeval Awareness"}}
+   :rogue     {:attacks 1 :saves #{D I} :features #{"Cunning Action" "Sneak Attack" "Thieves' Cant" "Uncanny Dodge"}}
+   :sorcerer  {:attacks 1 :saves #{C Ch} :features #{"Flexible Casting" "Sorcery Points"}}
+   :wizard    {:attacks 1 :saves #{W I} :features #{"Arcane Recovery"}}})
+
+(deftest all-classes-level-5-baseline
+  (testing "every class @5 grants exactly its baselined auto-features, num-attacks, and saves"
+    (doseq [[k expected] baseline-5]
+      (let [s (snapshot k 5)]
+        (is (= (:features expected) (:feature-names s)) (str (name k) " feature set"))
+        (is (= (:attacks expected) (:number-of-attacks s)) (str (name k) " number-of-attacks"))
+        (is (= (:saves expected) (:saves s)) (str (name k) " save proficiencies"))))))
 
 (deftest fighter-level-9-baseline
   (testing "level-9 fighter adds Indomitable (a trait); Extra Attack still 2"
@@ -92,3 +115,17 @@
       (is (contains? (:feature-names s) "Indomitable"))
       (is (contains? (:feature-names s) "Second Wind"))
       (is (= 2 (:number-of-attacks s))))))
+
+;; ---------------------------------------------------------------------------
+;; Dump every class @5 to baseline the rest (resilient: one bad class won't kill the run)
+;; ---------------------------------------------------------------------------
+(deftest ^:diagnostic dump-all-classes-5
+  (println "\n=== ALL CLASSES @ level 5 — features / num-attacks / saves ===")
+  (doseq [[k _] all-class-opts]
+    (try
+      (let [s (snapshot k 5)]
+        (println (format "  %-10s attacks=%s saves=%s\n     features=%s"
+                         (name k) (:number-of-attacks s) (pr-str (:saves s))
+                         (pr-str (sort (:feature-names s))))))
+      (catch Throwable e
+        (println (format "  %-10s BUILD ERROR: %s" (name k) (.getMessage e)))))))
