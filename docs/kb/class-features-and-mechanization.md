@@ -83,6 +83,19 @@ Recommendation: **one keyed, filterable feature registry**, not many small pools
 - Registry entries must be **parameterized by class-key** so a feature scales by whatever class grants
   it (today `?class-level :fighter` is hardcoded).
 
+**Distinct features vs scaling (VERIFIED on fighter/rogue) — this shrinks the scope.** A class's
+`:levels` table is mostly *scaling/padding*, not distinct features: ASI levels
+(`:ability-increase-levels`), Extra Attack increments (`num-attacks` 2/3/4), and feature dice growing
+by level (`level-val`, e.g. Sneak Attack). Each class has only ~3–6 genuinely-distinct features
+(fighter: Second Wind, Action Surge, Indomitable, Fighting Style). So:
+- The registry holds the **handful of distinct features per class** (class-tagged), not whole level
+  tables. "A class's standout features" = a **filter** on the registry (`:class :fighter`), not a
+  per-class silo — per-class pools would over-fragment ~3–6 entries.
+- Scaling/padding stays where it is — `:ability-increase-levels` + `level-val` + bare modifiers are
+  fine declarative primitives and don't enter the feature registry.
+- So the migration is ≈ extracting ~3–6 features × ~12 classes (+ subclasses), not rewriting every
+  level table. Smaller and lower-risk than "re-architect every class."
+
 Sequence (to contain regression risk): build a characterization net (snapshot every class's built
 features) → define the feature record + registry → extract incrementally, proving byte-identical
 output per step → then make entries data-addressable and expose to the custom builder + alternates.
