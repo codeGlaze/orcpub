@@ -1,13 +1,12 @@
 (ns orcpub.dnd.e5.fighting-style-feat-e2e-test
-  "BRIDGE EXPERIMENT (maintainer-approved 'fighting style feat'): does the draconic
-   pool+grant pattern generalize to a DIFFERENT bucket — a feat granting a fighting
-   style choice from a built-in ++ homebrew pool, expressed as DATA?
+  "BRIDGE EXPERIMENT — the GENERIC :grant key. A feat (and, via the same hook, any
+   bucket) grants a choice from a named pool with `:grant {:from <pool> :choose N}`,
+   resolved against a grantable-pools registry. Proves the draconic pool+grant pattern
+   generalizes AND that the hook is bucket-agnostic (one mechanism, not per-capability).
 
-   The decisive question is the COMPILE: a homebrew feat whose data says
-   `:fighting-style {:choose 1}` must produce a Fighting Style choice that offers
-   both built-in styles AND a homebrew style. (entity/build applying a chosen
-   option's modifier is already proven elsewhere — draconic/divine-soul tests — so
-   the new thing to prove is the data->grant+pool compile.)
+   Covers the compile (the choice offers built-in + homebrew), the built-character mile
+   (the chosen homebrew style's mechanic lands on the sheet), and bucket-agnosticism (the
+   same helper called for any owner yields the same choice).
 
    JVM/clojure.test so it runs under the enforced `lein test` gate."
   (:require [clojure.test :refer [deftest testing is]]
@@ -35,36 +34,48 @@
     :description "You gain a swimming speed of 30 feet."
     :props {:swimming-speed 30}}))
 
-;; The pool a feat grants from = built-in fighting styles ++ the homebrew one.
-(def pool (concat opt5e/fighting-style-options [homebrew-style]))
+;; The GRANTABLE-POOLS registry: pool-key -> {:name display :options (built-in ++ homebrew)}.
+;; Any bucket consults this with a :grant {:from <pool-key>} — not feat-specific.
+(def grantable-pools
+  {:fighting-styles {:name "Fighting Style"
+                     :options (concat opt5e/fighting-style-options [homebrew-style])}})
 
-;; A HOMEBREW feat whose DATA grants a fighting style choice.
+;; A HOMEBREW feat whose DATA grants a choice from a pool via the GENERIC :grant key.
 (def feat-cfg
   {:name "Style Adept" :key :style-adept
    :description "You gain a fighting style of your choice."
-   :fighting-style {:choose 1}})
+   :grant {:from :fighting-styles :choose 1}})
 
 (defn feat-option []
   (opt5e/feat-option-from-cfg
-   language-map spells-map spell-lists weapons5e/weapons-map race-map pool feat-cfg))
+   language-map spells-map spell-lists weapons5e/weapons-map race-map grantable-pools feat-cfg))
 
-(deftest feat-data-grants-a-fighting-style-choice-from-the-pool
-  (testing "a homebrew feat's :fighting-style data compiles to a Fighting Style choice offering built-in AND homebrew styles"
+(deftest feat-data-grants-a-choice-from-the-pool-via-generic-grant
+  (testing "a feat's generic :grant {:from :fighting-styles} compiles to a choice offering built-in AND homebrew styles"
     (let [opt (feat-option)
           fs-sel (first (filter #(= "Fighting Style" (::t/name %)) (::t/selections opt)))]
       (is (some? fs-sel)
-          "the feat carries a Fighting Style selection (the grant compiled)")
+          "the feat carries the granted selection (the :grant compiled)")
       (let [offered (set (map ::t/name (::t/options fs-sel)))]
         (is (contains? offered "Archery")
             "a BUILT-IN fighting style is offered")
         (is (contains? offered "Tidewalker")
-            "the HOMEBREW fighting style is offered too — the pool is open, cross-bucket as data")))))
+            "the HOMEBREW fighting style is offered too — open pool, cross-bucket as data")))))
 
-(deftest a-feat-without-the-grant-has-no-fighting-style-selection
-  (testing "control: no :fighting-style key → no fighting-style selection (the grant is opt-in data)"
+(deftest grant-is-bucket-agnostic
+  (testing "the SAME grant-selection helper + registry, called for ANY owner, produces the same choice — proving :grant isn't feat-specific (one hook serves every bucket)"
+    (let [sel (opt5e/grant-selection {:from :fighting-styles :choose 1} grantable-pools)
+          offered (set (map ::t/name (::t/options sel)))]
+      (is (= "Fighting Style" (::t/name sel)))
+      (is (contains? offered "Archery"))
+      (is (contains? offered "Tidewalker")
+          "a background/race/subclass would get this identical choice from the same one-line hook"))))
+
+(deftest a-feat-without-the-grant-has-no-granted-selection
+  (testing "control: no :grant key → no granted selection (the grant is opt-in data)"
     (let [opt (opt5e/feat-option-from-cfg
-               language-map spells-map spell-lists weapons5e/weapons-map race-map pool
-               (dissoc feat-cfg :fighting-style))]
+               language-map spells-map spell-lists weapons5e/weapons-map race-map grantable-pools
+               (dissoc feat-cfg :grant))]
       (is (not-any? #(= "Fighting Style" (::t/name %)) (::t/selections opt))
           "no grant key, no grant"))))
 

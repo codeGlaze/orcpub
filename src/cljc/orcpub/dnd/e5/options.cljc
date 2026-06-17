@@ -3425,8 +3425,8 @@
 ;; ─── BRIDGE PROTOTYPE: feat-granted fighting style (pool+grant as DATA) ──────────
 ;; Additive/reversible. Mirrors the draconic-ancestry pool+grant pattern for a different
 ;; bucket (feats), to test whether that pattern generalizes. To revert: delete this block,
-;; the `:fighting-style` hook in feat-option-from-cfg, the extra arg at its call site
-;; (template.cljc), and the ::feats5e/fighting-style-pool sub (spell_subs.cljs).
+;; the `:grant` hook in feat-option-from-cfg, the grantable-pools arg at its call site
+;; (template.cljc), and any ::e5/fighting-styles pool sub (spell_subs.cljs).
 ;; Placed here (after plugin-modifiers) so it can compile homebrew styles' :props.
 (defn fighting-style-option
   "Compile a HOMEBREW fighting style (orcbrew data: name + optional :props + :description)
@@ -3444,19 +3444,22 @@
                         (when props (plugin-modifiers props key)))}
      key (assoc :key key))))
 
-(defn feat-fighting-style-selection
-  "A Fighting Style choice GRANTED BY A FEAT, over the given option pool (built-in ++
-   homebrew). Nests naturally under the feat (no :ref) — matching how the existing
-   feat spell-template sub-selections (magic-initiate-option etc.) are structured, and
-   avoiding the ref/entity-path mismatch that silently drops choices."
-  [_feat-key num options]
-  (t/selection-cfg
-   {:name "Fighting Style"
-    :tags #{:feats}
-    :multiselect? true
-    :min num
-    :max num
-    :options options}))
+(defn grant-selection
+  "GENERIC cross-bucket grant. Given `:grant {:from <pool-key> :choose N}` data and a
+   `grantable-pools` registry ({pool-key {:name … :options [...]}}), produce a choice of N
+   options from that pool. Pool-agnostic AND owner-agnostic — this one hook replaces a
+   per-capability hook like the old feat-fighting-style-selection, so any bucket (feat,
+   background, race, subclass) grants from any pool with the same `:grant` data + this fn.
+   Nests naturally (no :ref), matching the feat spell-template sub-selections."
+  [{:keys [from choose] :or {choose 1}} grantable-pools]
+  (when-let [{:keys [name options]} (get grantable-pools from)]
+    (t/selection-cfg
+     {:name name
+      :tags #{:grant from}
+      :multiselect? true
+      :min choose
+      :max choose
+      :options options})))
 ;; ─── end bridge prototype (part 1) ──────────────────────────────────────────────
 
 (defn feat-option-from-cfg
@@ -3470,7 +3473,7 @@
    spell-lists
    custom-and-standard-weapons
    race-map
-   fighting-style-pool                    ; ← BRIDGE PROTOTYPE: the fighting-style pool (built-in ++ homebrew)
+   grantable-pools                        ; ← BRIDGE PROTOTYPE: registry {pool-key {:name … :options}}
    {:keys [name
            key
            icon
@@ -3480,7 +3483,7 @@
            props
            ability-increases
            edit-event
-           fighting-style]}]              ; ← BRIDGE PROTOTYPE: the grant (truthy, or {:choose N})
+           grant]}]                       ; ← BRIDGE PROTOTYPE: generic grant {:from <pool> :choose N}
   (let [feat-mods (feat-modifiers key
                                   name
                                   description
@@ -3492,15 +3495,12 @@
                                          custom-and-standard-weapons
                                          props
                                          ability-increases)
-        ;; BRIDGE PROTOTYPE: if the feat's DATA grants a fighting style, add the choice over
-        ;; the pool. This is the cross-bucket bridge — a feat tapping the fighting-style bucket
-        ;; as data, the same way dragonborn taps the ancestry pool.
+        ;; BRIDGE PROTOTYPE: a feat's DATA can grant a choice from any pool via the generic
+        ;; :grant key. Same hook every other bucket would use — see grant-selection. The same
+        ;; one line, added to background/race/subclass assembly fns, gives them grants too.
         feat-selections (cond-> feat-selections
-                          fighting-style
-                          (concat [(feat-fighting-style-selection
-                                    key
-                                    (if (map? fighting-style) (:choose fighting-style 1) 1)
-                                    fighting-style-pool)]))]
+                          grant
+                          (concat [(grant-selection grant grantable-pools)]))]
     (t/option-cfg
      {:name name
       :key key
