@@ -65,13 +65,17 @@
 
 (defn snapshot
   "The regression baseline for a built character: the facts the feature EXTRACTION must
-   preserve. Names + summaries across all feature buckets, plus key derived stats."
+   preserve. Names + summaries + frequencies across all feature buckets, plus key derived stats."
   [class-key levels]
   (let [built (entity/build (char-of class-key levels) test-template)
         feats (concat (char5e/traits built) (char5e/actions built)
                       (char5e/bonus-actions built) (char5e/reactions built))]
     {:feature-names (set (keep :name feats))
-     :summaries     (into (sorted-map) (keep (fn [f] (when (:name f) [(:name f) (:summary f)])) feats))
+     ;; per-feature detail: the summary (scaling text) and frequency (uses) the override work targets
+     :details   (into (sorted-map)
+                      (keep (fn [f] (when (:name f)
+                                      [(:name f) {:summary (:summary f) :frequency (:frequency f)}]))
+                            feats))
      :number-of-attacks (char5e/number-of-attacks built)
      :saves         (set (char5e/saving-throws built))
      :abilities     (char5e/ability-values built)}))
@@ -117,6 +121,30 @@
       (is (= 2 (:number-of-attacks s))))))
 
 ;; ---------------------------------------------------------------------------
+;; FIGHTER detail baseline (the Step-2 extraction target) — captures summaries + use-counts
+;; (the :frequency :amount), so a change to Action Surge's uses or Second Wind's scaling FAILS.
+;; This is the depth the extraction of these features must reproduce.
+;; ---------------------------------------------------------------------------
+(defn- feat-detail [class-key levels feature-name]
+  (get-in (snapshot class-key levels) [:details feature-name]))
+
+(deftest fighter-feature-detail-baseline
+  (testing "fighter @5 — Action Surge / Second Wind summary + uses"
+    (is (= {:summary "take an extra action"
+            :frequency {:units :orcpub.dnd.e5.units/rest :amount 1}}
+           (feat-detail :fighter 5 "Action Surge")))
+    (is (= {:summary "regain 1d10 +5 HPs"
+            :frequency {:units :orcpub.dnd.e5.units/rest :amount 1}}
+           (feat-detail :fighter 5 "Second Wind"))))
+  (testing "fighter @17 — Action Surge uses bump to 2; Second Wind heal scales to +17; Indomitable 3/long-rest"
+    (is (= 2 (get-in (feat-detail :fighter 17 "Action Surge") [:frequency :amount]))
+        "Action Surge gains a second use at 17")
+    (is (= "regain 1d10 +17 HPs" (:summary (feat-detail :fighter 17 "Second Wind")))
+        "Second Wind heal scales with level")
+    (is (= {:units :orcpub.dnd.e5.units/long-rest :amount 3}
+           (:frequency (feat-detail :fighter 17 "Indomitable"))))))
+
+;; ---------------------------------------------------------------------------
 ;; Dump every class @5 to baseline the rest (resilient: one bad class won't kill the run)
 ;; ---------------------------------------------------------------------------
 (deftest ^:diagnostic dump-all-classes-5
@@ -129,3 +157,9 @@
                          (pr-str (sort (:feature-names s))))))
       (catch Throwable e
         (println (format "  %-10s BUILD ERROR: %s" (name k) (.getMessage e)))))))
+
+(deftest ^:diagnostic dump-fighter-details
+  (doseq [lvl [5 17]]
+    (println (format "\n=== FIGHTER @ %d — feature details (summary / frequency) ===" lvl))
+    (doseq [[n {:keys [summary frequency]}] (:details (snapshot :fighter lvl))]
+      (println (format "   %-14s freq=%s  | %s" n (pr-str frequency) summary)))))
