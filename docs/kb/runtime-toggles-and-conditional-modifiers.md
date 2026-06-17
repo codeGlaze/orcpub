@@ -66,7 +66,13 @@ build, so it needs no player toggle; the function just inspects the equipped arm
 ## Boundaries (what this does NOT do)
 - **Static modifiers only.** Gating changes *which static modifiers apply*. It does not
   execute triggered/reaction behavior ("when you hit, the target makes a save"). The app
-  computes a sheet; it has no combat runtime to fire a reaction in.
+  computes a sheet and can *roll dice* (see below), but it has no combat *state/turn*
+  resolution to fire a reaction in.
+- **Correction (rolling DOES exist):** an earlier version implied "no roll engine." Wrong —
+  the app has `orcpub.dice` + roll-buttons (attacks/skills/saves, adv/disadv) and computes
+  attack/damage bonuses through `?attack-modifier-fns`/`?damage-bonus-fns`. What's absent is
+  *combat-state/turn resolution* (targets, hit/miss, reactions, action economy), not dice
+  rolling. See `class-features-and-mechanization.md` for the verified roll layer + ceiling.
 - **Play-state vs build-state conditions:** build-state (armor type, ability score,
   class/level) auto-evaluates because the build knows it. Play-state (rage, bloodied,
   positioning) needs a toggle because the sheet has no current-HP / battlefield / turn
