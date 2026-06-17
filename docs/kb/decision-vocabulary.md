@@ -1,45 +1,20 @@
 # Homebrew Decision Vocabulary & Compile Paths
 
-> **⚠️ SCOPE / HONESTY: this is a WIRING map, not a behavior study.** It records which decision
-> keys each builder emits and which assembly fn they reach — i.e. *where data plugs in*. A "✅" or
-> "rich" means **a code path exists**, NOT that the resulting mechanic was exercised on a built
-> character; a "❌" means **no path was found in the code I read**, NOT a proven limit. These are
-> different things and I conflated them. The ONE claim taken all the way down to behavior **and**
-> limit (and confirmed against a real `.orcbrew`) is the **subclass-spellcasting gate**. Everything
-> else is reconnaissance pending real verification (run it / read the modifier engine).
-
 **The model:** the app is the **tools + forms + logic** (server-side). An `.orcbrew` stores the
 creator's **decisions** (data), not logic. On import the app's **compile paths** turn those
-decisions into modifiers/selections. What a creator can express is bounded by the **forms**
-(input) and the **compile paths** (what data the app knows how to realize). Goal: grow that
-vocabulary, give it **cross-silo** reach, and make growing it **cheap/sustainable**.
+decisions into modifiers/selections. What a creator can express is bounded by the **forms** (input)
+and the **compile paths** (what data the app knows how to realize). Goal: grow that vocabulary, give
+it **cross-silo** reach, and make growing it **cheap/sustainable**.
 
-> **STATUS: methodology corrected — see this banner.** Cycles 1–2 traced individual *leaf*
-> compile functions (`plugin-modifiers`, `spell-modifiers`, …) forward. That approach
-> **systematically UNDERSTATES capability**, because the richness lives in the per-silo
-> **assembly functions** — `race-option` (`options.cljc:2210`), `subrace-option` (`:1984`),
-> `make-levels` (`spell_subs.cljs:382`), `feat-option-from-cfg` (`options.cljc:3396`),
-> `template-selections` (`template.cljc:1480`) — which combine many leaf paths *plus* handle
-> `:abilities`, `:profs`/choices, `:selections`, `:traits`. Tracing leaves missed all of that
-> (corrected repeatedly: feats' spell-choices, the two vocabularies, and races).
+> **Scope:** this is a WIRING map — which decision keys each builder emits and which assembly fn they
+> reach. "✅"/"rich" means a code path EXISTS, not that it was exercised on a built character; "❌"
+> means no path was found in the code read, not a proven limit. The one finding taken all the way to
+> behavior (and confirmed against a real `.orcbrew`) is the subclass-spellcasting gate below.
 >
-> **Switched to the right method: trace BACKWARD from each builder form → its assembly fn.**
-> The per-silo COMPILE-PATHS inventory below is accurate per function, and the cross-silo
-> capability table has been **REBUILT** from the backward trace — **all six mechanical silos now
-> traced** (feat/race/subrace/class/subclass/background).
->
-> ⚠️ **Re-corrected (maintainer caught an overclaim):** an earlier pass claimed a subclass of a
-> custom non-caster class could grant real spellcasting "Divine-Soul style." **Wrong.** The
-> `:spell` level-modifier grants only *innate known spells* (`spells-known`); real slot-based
-> spellcasting via a subclass is **gated** to `#{fighter rogue warlock cleric paladin}` and the
-> custom-subclass spellcasting path is commented out. See the CORRECTION section below.
->
-> Verified corrections:
-> - **Races are NOT fixed-only.** `race-option` compiles `:abilities` (ASI), `:profs` →
->   `:skill-options`/`:language-options`/`:weapon-proficiency-options` (CHOICES via
->   `skill-selection`/`language-selection`), `:subraces`, `:traits`, `:spells`, `:selections`,
->   plus the `:props` modifiers. The race **builder** exposes all of these. So races have
->   choices + ASI + spells — comparable to feats.
+> **Deep-dives (canonical homes — this doc summarizes, those verify):** spells →
+> `spell-granting-across-silos.md`; armor class → `armor-class-computation.md`; runtime toggles /
+> conditional effects → `runtime-toggles-and-conditional-modifiers.md`; proposed grant/select
+> builder vocabulary → `declarative-grant-vocabulary.md` (design).
 
 ---
 
@@ -74,15 +49,15 @@ vocabulary, give it **cross-silo** reach, and make growing it **cheap/sustainabl
   a *set* of abilities → an `ability-increase-selection` (CHOICE of which to bump). `:saves?`
   adds save proficiency. So feats express "two stats / a set to choose from."
 - The **inline "Custom" race menu** also offers `homebrew-ability-increase-selection`
-  (`options.cljc:2129/2176`), but a homebrew **race plugin** compiled via `plugin-modifiers`
-  gets only fixed `:props` — `TODO` confirm whether the race *builder* exposes ASI options.
+  (`options.cljc:2129/2176`). Resolved (backward trace below): the race *builder* exposes ASI as
+  **fixed per ability**, not a choose-which-to-bump option — ASI *options* remain feat-only.
 
 ### `:prereqs` / `:path-prereqs` → `feat-prereqs` — FEAT, LIMITED vocab ✅
 - `options.cljc:3195`. Supported prereqs: an **ability** keyword → "≥ 13" (hardcoded threshold),
   `:spellcasting` → can-cast, else **armor proficiency**; `:path-prereqs {:race …}` → must be a
   given race.
-- **GAPS:** no **level**, **N class-levels**, or **alignment** prereqs. And `TODO`: do
-  races/subclasses support prereqs at all, or feats only?
+- **GAPS:** no **level**, **N class-levels**, or **alignment** prereqs. Resolved (backward trace
+  below): prereqs are **feat-only** — not exposed in the race/subrace/class/subclass forms.
 
 ### `:spells` → `spell-modifiers` — FIXED known spells ✅
 - `spell_subs.cljs:124`. Used by races/subraces (`:146/:159`). Compiles to `spells-known`
@@ -307,13 +282,9 @@ concrete "cross-silo dipping" frustration, restated precisely.
 - **Unify the two grant vocabularies** (`make-feat-modifiers` ↔ `level-modifier`) so coverage is
   even (a feat could grant `:spell`; a subclass level-modifier could grant `:language`) — prime
   duplication-removal + sustainability target.
-- **Subclass-granted spellcasting for non-caster base classes.** Subclasses can bolt on fixed
-  *innate* known spells (`:spell` modifier) to any base class, but **cannot grant a real
-  spellcasting progression (slots) to a custom non-caster class** — the spellcasting UI is gated to
-  5 hardcoded classes and the `custom-subclass-spellcasting-selection` path (`options.cljc:2735`,
-  which adds `spell-slot-factor` + per-level spell choices) is **commented out**. Re-enabling /
-  generalizing that disabled path is the concrete fix for "Eldritch-Knight-style caster subclass on
-  a homebrew base class." Subclass spell *choices* likewise remain class-gated convenience only.
+- **Subclass-granted spellcasting for non-caster base classes** — gated; the fix is re-enabling the
+  commented-out `custom-subclass-spellcasting-selection` (`options.cljc:2735`). See the CORRECTION
+  section above for the full finding (don't restate it).
 - **Mechanical** homebrew choices (vs `level-selection`'s text-only).
 - **Trackable resources** (Axis B) — no path at all.
 - **Richer prereqs** — level / N-class-levels / alignment (engine likely supports the checks;
@@ -334,7 +305,10 @@ class-gated UI only (fixed spells via `:level-modifiers :spell` work for any cla
 
 **Also done:** simple/descriptive silos confirmed non-mechanical (`simple-content-builder`).
 
-**Remaining (the end deliverable):** synthesize into **in-app documentation** — source comments at
-the key assembly fns (`race-option`, `subrace-option`, `level-option`/`class-option`,
-`feat-option-from-cfg`, `make-feat-modifiers`/`make-feat-selections`, `level-modifier`,
-`spellcasting-template`) cross-linking this KB, plus a top-level guide.
+**Done:** in-app source comments added at the key assembly fns (`make-feat-modifiers`,
+`make-feat-selections`, `feat-option-from-cfg`, `race-option`, `subrace-option`, `level-option`,
+`level-modifier`, `spellcasting-template`) cross-linking this KB.
+
+**Remaining:** the design/build work tracked in `declarative-grant-vocabulary.md` (uniform
+data-path → reusable controls → generated builder UI), and the behavioral test plan (build
+characters and observe; see that plan) to convert the ✅ "path exists" rows into observed behavior.
