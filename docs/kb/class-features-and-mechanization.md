@@ -96,6 +96,18 @@ by level (`level-val`, e.g. Sneak Attack). Each class has only ~3–6 genuinely-
 - So the migration is ≈ extracting ~3–6 features × ~12 classes (+ subclasses), not rewriting every
   level table. Smaller and lower-risk than "re-architect every class."
 
+**Two builder entry points over the one registry (not either/or):**
+- **Template-from-a-base-class** (the default UX — most homebrew is "an official class, tweaked"):
+  initialize the custom class with the base class's feature **references + scaling/profs**, then edit.
+  Hard rule: copy **references (feature keys), not definitions** — deep-copying definitions
+  reintroduces the two-versions/drift smell; copying references keeps everyone pointed at the one
+  shared feature.
+- **Filterable picker** (the editing tool, needed regardless): browse the registry by filter
+  (class/kind/level) to add, replace, or build from scratch.
+The template is a thin layer over the picker — build the registry + picker, and template-from-base
+falls out cheaply. "Change/replace a feature" = the alternate-features capability (needs feature
+keys + an addressable feature list; touches saved data only when a swap is chosen).
+
 Sequence (to contain regression risk): build a characterization net (snapshot every class's built
 features) → define the feature record + registry → extract incrementally, proving byte-identical
 output per step → then make entries data-addressable and expose to the custom builder + alternates.
