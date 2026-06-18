@@ -183,8 +183,12 @@ saved characters as long as output is identical; only *choosable* alternates put
 saved data.
 
 ## NOT-EXPLORED / to verify before sizing
-- The full per-class feature catalogue (only fighter + rogue read here) — needed to size the migration
-  and find odd cases (ranger/paladin mix spellcasting + features).
+- ~~The full per-class feature catalogue~~ — DONE: all 10 base classes inventoried in
+  `class-feature-catalogue.md`. It confirmed the ~3–6/class sizing (monk/paladin ~10 outliers) and
+  surfaced the odd cases the `compile-feature` slice doesn't yet cover: multi-source use-counts
+  (ability-derived, formula, level), class-wide resource pools (ki/sorcery/Lay-on-Hands),
+  build-context summary interpolation (derived stats + user selections), multi-part features
+  (compile → seq of modifiers), and `?attr` interdependence.
 - Exactly how a *new conditional dice rider* (e.g. "+Nd6 when you have advantage") would attach to a
   roll button in the UI.
 - Whether the combat tracker tracks uses/resources (separate from the sheet).

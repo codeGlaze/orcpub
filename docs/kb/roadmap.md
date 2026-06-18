@@ -33,7 +33,12 @@ Status legend: **DONE** (committed this branch) · **FEASIBLE** (verified the su
   `?attack-modifier-fns`/`?damage-bonus-fns`; fix the USER-REPORTED "stuck as text" rolls.
 
 ## Track C — Class features (the big structural nut; needs F + B1)
-- **C1.** Per-class feature catalogue (part of F) — sizes the registry.
+- **C1.** Per-class feature catalogue — DONE. All 10 base classes read and inventoried in
+  `class-feature-catalogue.md`. Sizing confirmed (~3–6 each; monk/paladin ~10 outliers; sorcerer/wizard
+  ~2–3). Surfaced the odd cases that re-shape B1/B3: multi-source use-counts, class-wide resource pools
+  (ki/sorcery/Lay-on-Hands — their own mechanism), build-context summary interpolation, multi-part
+  features (compile → seq of modifiers), and `?attr` interdependence. Start extraction on the clean
+  classes; defer monk/paladin until the pool + build-context-fill layers exist.
 - **C2. Feature registry + extraction** — DESIGN. Extract the ~3–6 distinct features per class into a
   keyed, filterable registry of structured records, parameterized by class-key; prove byte-identical
   output per step. Pools = filtered views over it. Scaling/padding stays as existing primitives.

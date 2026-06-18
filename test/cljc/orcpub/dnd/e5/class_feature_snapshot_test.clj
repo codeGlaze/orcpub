@@ -204,6 +204,18 @@
 ;; fighter (Action Surge, Second Wind) and rogue (Sneak Attack); a :uses override changes only
 ;; the count; and a :die override changes the rendered summary (3d6 → 3d8) and nothing else.
 ;; A prototype in the test ns, validated against the real build; touches no class source.
+;;
+;; SCOPE — this is a deliberate SLICE, not the whole compiler. The per-class catalogue
+;; (docs/kb/class-feature-catalogue.md, all 10 classes) surfaced cases compile-feature does NOT
+;; yet handle, and that the registry will need before extracting the resource classes:
+;;   - :uses from sources beyond a level schedule — ability-modifier-derived (Bardic = max 1 CHA),
+;;     formula (Lay on Hands = 5*level), or :level itself (ki/sorcery points);
+;;   - class-wide resource POOLS (ki/sorcery/Lay-on-Hands) spent by many features — a separate
+;;     mechanism (roadmap B3), not per-feature :frequency;
+;;   - summaries that interpolate the BUILD CONTEXT (?spell-save-dc, ?ability-bonuses, user
+;;     selections like ?ranger-favored-enemies), not just the feature's own params;
+;;   - multi-part features (Aura of Protection, Martial Arts) -> compile to a SEQ of modifiers.
+;; Fighter/rogue are the clean, self-contained cases; start extraction here, defer monk/paladin.
 ;; ===========================================================================
 
 (defn- deep-merge [a b]
