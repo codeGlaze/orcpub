@@ -1,5 +1,10 @@
 # Branch Context: claude/zen-wright-04xhdz
 
+> **Single plan / status (reconciled):** `docs/kb/roadmap.md` — the one top-level plan covering
+> BOTH the content/pool+grant track (this doc + `content-extensibility-direction.md`) AND the later
+> mechanization / class-feature / spell-slot expansion. Start there. This file remains the branch
+> history + handoff notes; the "Immediate next steps" below are the Phase-1 content-track status.
+
 > **HOW IT WORKS / HOW TO EXTEND:** `docs/kb/content-extensibility-framework.md` — the canonical
 > framework reference (mental model + registry schema + conventions + how-to-add-a-type + pool/
 > grant + invariants), human- AND agent-facing. Read it to use or extend the framework.

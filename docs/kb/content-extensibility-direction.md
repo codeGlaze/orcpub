@@ -1,5 +1,10 @@
 # Content Extensibility — CURRENT DIRECTION (read this first)
 
+> **Scope (reconciled):** this is the canonical detail + decision record for the **content / pool+grant
+> track**. The single top-level branch plan (both this track and the later mechanization/class-feature/
+> spell-slot work) is now **`roadmap.md`** — start there for navigation/status; this doc stays
+> authoritative for *how the content track works and what's decided* (the `D`-numbers).
+
 **Status (v2, re-centered).** This supersedes both the original "sweeping registry +
 catalog/grant DSL" framing AND the over-deflated "just collapse boilerplate, don't build
 catalogs" framing that briefly replaced it. The truth is in the middle and is the spine of

@@ -1,82 +1,109 @@
-# Roadmap: de-siloing content + mechanizing effects
+# Branch plan — the single source (START HERE)
 
-The shape of the initiative, as dependency-ordered layers. Goal: make content extension
-cross-silo and sustainable, and convert "just text" effects into real (sheet + roll) mechanics —
-without parallel copies of logic (the original siloed code smell).
+One reconciled plan for branch `claude/zen-wright-04xhdz`. It replaces the previous split between
+this file and `content-extensibility-direction.md` as competing "start here" docs. The branch ran in
+loops because decisions lived in two parallel trackers; this is the one that supersedes both for
+*navigation and status*. The detail/decision docs below remain authoritative for their own track.
 
-Status legend: **DONE** (committed this branch) · **FEASIBLE** (verified the substrate exists) ·
-**DESIGN** (shape agreed, not built). Each layer is independently valuable and shippable.
+## The arc (two phases — both real, one branch)
+- **Phase 1 — Content extensibility (pool + grant).** The founding purpose: replace bespoke positional
+  cross-type wiring with one open **pool + grant** authoring layer (stability and flexibility are the
+  same abstraction). **Substantially built.** Canonical detail: `content-extensibility-direction.md`
+  (v2, "read this for the content track"); decisions: `content-extensibility-decisions.md` (the
+  `D`-numbers); how-to: `content-extensibility-framework.md`; branch history/handoff: `BRANCH.md`.
+- **Phase 2 — Mechanization, class features, spell slots, AC.** The later expansion (this session):
+  make content cross-silo *and* turn "just text" effects into real sheet/roll mechanics, including the
+  class-feature registry and the spellcasting-progression rework. Mostly design + a foundation net.
 
-## Foundation (gates every refactor)
-- **F. Characterization / regression net** — DESIGN. Snapshot current behavior before touching
-  source: the AC stack, every class's built features, spell-grant paths, and import/export
-  round-trips (the 11-scenario test plan). Plus the **per-class feature catalogue** (each class's
-  distinct features tagged by kind/scaling/already-shared). Pure reading + tests, zero regression
-  risk. **Nothing structural starts until this exists.**
+## Status ledger (anchored to commits; detail in the linked docs)
 
-## Track A — Cross-silo grants (mostly started)
-- **A1.** Generic `:grant {:from <pool> :choose N}` over the existing primitives — DONE for the
-  feat→fighting-style slice; bucket-agnostic, proven on a built character.
-- **A2.** Uniform spell-granting: route `:spells` (fixed) and `:spell-choice` to `spells-known` /
-  `spell-selection` across every silo's assembly fn — FEASIBLE (primitives exist; feat lacks the
-  key today). Wire the homebrew pools through `template-selections`; expose in builders.
-- **A3.** Spell-slot progression as data — DESIGN. Decouple the overloaded `:level-factor` (it drives
-  slot table + multiclass contribution + prepared count at once) into: a bucket of named/explicit slot
-  tables (authored as an absolute per-level grid, presets as seeds), a separately-declared multiclass
-  rule (`:full|:half|:third|:none|:separate`), and the prepared/known count. Unblocks Artificer and
-  homebrew progressions; generalizes warlock pact magic (`:separate` + own pool/recharge, → B3). See
-  spell-slot-progression.md.
+### BUILT — Phase 1 (verified by git + BRANCH.md)
+- `content_types` registry + passthrough-subs loop; `register-homebrew-content!` wiring layer (`3980ea1b`).
+- **First pool+grant slice on real mechanics**: open draconic-ancestry pool, dragonborn grants from it,
+  homebrew ancestry inherits full mechanics (`acaa131d`); richer ancestries via `:props` (`026f8707`).
+- `simple-content-builder` — builder forms are data (`109b5dd0`); draconic-ancestry builder end-to-end,
+  author→pool→export→import→round-trip (`0aca6113`).
+- Registry **drives** events (`d2e002b4`), db (`af68061d`), routes (`506c32b3`/`c5e9aea6`/`58c4de47`).
+- Declarative builder **field-schema** → save-spec + `:required?` form + import/export sync + strict mode
+  (`f32790b1`…`e4614519`).
 
-## Track B — Mechanism layers (app-wide; each lifts text → mechanical)
-- **B1. Structured/parameterized effect & feature records** — DESIGN. Effects/features as data
-  records with named params + defaults (not prose). **Keystone** — editable references, the feature
-  registry, and roll integration all depend on it.
-- **B2. Conditions layer** — DESIGN. build-state (auto) + play-state (toggle), on the verified
-  `equipped?`/deferred-modifier substrate. Powers Mariner-AC, rage-while-active, "+X while Y."
-- **B3. Resource counters as data** — FEASIBLE. The counter exists (`actions-indicators` +
-  `features-used` + `clear-period`); add a data path so a feature can declare uses/pool + period.
-- **B4. Roll integration** — FEASIBLE. Wire structured effect dice/mods into the existing roller via
-  `?attack-modifier-fns`/`?damage-bonus-fns`; fix the USER-REPORTED "stuck as text" rolls.
+### BUILT — Phase 2 (this session)
+- Cross-bucket grant **bridge prototype** `grant-selection` (`c1f54967`, `options.cljc:3447`) + feat→
+  fighting-style e2e (`8c8c0b10`/`a4c34f3c`). **⚠️ see Flagged conflict #1 — this may diverge from D17.**
+- AC characterization test + model doc (`7b7f3b3a`/`68f42e77`, `armor-class-computation.md`).
+- **Class-feature regression net** — all **12** classes baselined + fighter/rogue detail
+  (`cc7cd171`…`b258639e`, `class_feature_snapshot_test.clj`).
+- **`compile-feature` proof** — data spec reproduces real fighter/rogue output; `:die`/`:uses` overrides
+  (`0618ab8c`/`8c65f420`).
+- **Per-class catalogue** (C1, all 12) + **spell-slot-progression** analysis (`b8920f4f`/`355f8cee`,
+  `class-feature-catalogue.md`, `spell-slot-progression.md`).
 
-## Track C — Class features (the big structural nut; needs F + B1)
-- **C1.** Per-class feature catalogue — DONE. All 12 base classes read and inventoried in
-  `class-feature-catalogue.md`. Sizing confirmed (~3–6 each; monk/paladin ~10 outliers; sorcerer/wizard
-  ~2–3). Surfaced the odd cases that re-shape B1/B3: multi-source use-counts, class-wide resource pools
-  (ki/sorcery/Lay-on-Hands — their own mechanism), build-context summary interpolation, multi-part
-  features (compile → seq of modifiers), and `?attr` interdependence. Start extraction on the clean
-  classes; defer monk/paladin until the pool + build-context-fill layers exist.
-- **C2. Feature registry + extraction** — DESIGN. Extract the ~3–6 distinct features per class into a
-  keyed, filterable registry of structured records, parameterized by class-key; prove byte-identical
-  output per step. Pools = filtered views over it. Scaling/padding stays as existing primitives.
-- **C3. Custom-class builder surfaces** — DESIGN. Template-from-a-base-class (copy *references*, not
-  definitions) + a filterable picker; editable references (`:overrides` merged onto defaults);
-  alternate features (replace) and add-feature-to-class. Touches saved data only when a swap is
-  chosen.
+### DECIDED (design settled; don't re-litigate)
+- **Pool + grant is the spine** (`direction.md`). Abstraction earns its keep only if thicker than what
+  it hides + intent-revealing (no cryptic DSL). Maintainability **gate**: register a pool once → grantable
+  in every builder (O(1) to expose; D21).
+- **D17 — audit what a new piece REPLACES before building.** Specifically: **do not build a generic
+  `grant` wrapper**; point the existing per-feature `selection-cfg` constructors at **open pools**,
+  preserving their load-bearing `:ref`/`:tags`. `content_pools/pool` exists; **no grant compiler yet** —
+  the draconic grant is hand-wired and is the thing to generalize carefully.
+- Stable keys, never display names (D10); pools are memoized derived subs, never recomputed (D11);
+  variants get one `resolved-content` seam now, built later (D-pins).
+- **Class features**: one keyed/filterable registry, pools = filtered views; reference = key + `:overrides`;
+  features are macro-captured **code**, so a `compile-feature` step is required; summary = fields + a fill
+  template, not interpolation. (`class-features-and-mechanization.md`.)
+- **Spell slots**: replace the overloaded `:level-factor` with a **bucket of named/explicit slot tables**
+  (authored as an absolute per-level grid, presets as seeds) + a **separately declared multiclass rule**
+  + its own prepared-count; `:separate` (pact) schedules own their pool + recharge.
+  (`spell-slot-progression.md`.)
 
-## Track D — Armor Class (parallel; needs an AC net)
-- **D1. AC contribution-model refactor** — DESIGN. Replace the ad-hoc channels + hardcoded tie-break
-  with one rule (max of base alternatives, each + its applicable bonuses), behind the AC snapshot.
+### OPEN — Phase 1 levers & pins (from `direction.md`)
+- **Grant-authoring UI** — the biggest remaining lever (declare "grant a choice from pool X" in a builder).
+- 🔴 **`:required-when` conditional field validation** (HIGH — flagged in `builder_fields.cljc`).
+- Variants (`_copy`/`_mod`), class-feature pool (`[:class-feature :X]`), declarative cross-type prereq
+  vocabulary, mechanical-effects-for-text-only (boons/ki), level-gated grants in `:props`.
 
-## Top layer
-- **E. Generated builder UI from declarations** — DESIGN. Let the registry generate form elements
-  from grant/feature/condition declarations (the "one step further"). Needs the reusable controls
-  built first; UI throttled while the data shape stays open.
+## Tracks — Phase 2 (the expansion, layered on Phase 1)
+- **A. Cross-silo grants** = the Phase-1 pool/grant track. **Not new work** — defer to `direction.md`/
+  `decisions.md`. The live decision is D17 (open pools behind existing selections, no generic wrapper).
+  - **A2.** Uniform spell-granting (route `:spells`/`:spell-choice` to the primitives across silos) — FEASIBLE.
+  - **A3.** Spell-slot progression as data (bucket of tables + declared multiclass rule) — DESIGN;
+    unblocks Artificer + homebrew tables; pact → `:separate` + own pool (`spell-slot-progression.md`).
+- **B. Mechanism layers** (lift text → mechanical): **B1** structured/parameterized effect & feature
+  records (keystone — `compile-feature` is the proven start); **B2** conditions (build-state auto /
+  play-state toggle, on the verified `equipped?` substrate); **B3** resource counters as data (incl. the
+  ability-derived/pool counts the catalogue found — ki/sorcery/Lay-on-Hands); **B4** roll integration.
+- **C. Class features** (needs B1): **C1** catalogue — DONE (all 12). **C2** registry + extraction (start
+  on clean classes: fighter/rogue, then bard/cleric/wizard; defer monk/paladin/druid; warlock ≈ none).
+  **C3** custom-class builder surfaces (template-from-base + filterable picker; `:overrides`).
+- **D. Armor Class** (needs the AC net, started): **D1** contribution-model refactor.
+- **E. Generated builder UI from declarations** — last; rides a now-uniform substrate.
 
-## Recommended critical path
-1. **F** — build the net (incl. the per-class catalogue). Gates everything; no risk.
-2. **A2** + finish A1's wiring/builder exposure — one complete, shippable cross-silo feature for
-   momentum and to exercise the full data→builder→character→round-trip path.
-3. **B1** (structured records) — the keystone the rest of B and all of C ride on.
-4. **B2–B4** (conditions, counters, roll integration) — app-wide wins, reusable beyond classes.
-5. **C2 → C3** (feature registry, then builder surfaces) — on top of F + B1.
-6. **D1** — in parallel once the AC snapshot exists.
-7. **E** — last; convenience over a now-uniform substrate.
+## Flagged conflicts (need a call — do not silently resolve)
+1. **`grant-selection` (`c1f54967`) vs D17.** My Phase-2 bridge prototype is a *generic* grant compiler
+   with generic `:tags #{:grant from}` and no `:ref`. Phase-1's D17 audit decided **against** a generic
+   wrapper, in favor of pointing existing per-feature selections at open pools while preserving their
+   `:ref`/`:tags`. These are two different approaches to the same goal. **Recommendation:** treat D17 as
+   the standing decision; fold the prototype's intent (cross-bucket reuse) into the open-pool-behind-
+   existing-selections approach, or consciously overturn D17 — but pick one. Until then, don't build more
+   on `grant-selection`.
 
-Dependencies to respect: nothing structural before **F**; **B1** before C and editable references;
-roll integration (**B4**) needs structured records to have params to roll. Everything else can
-parallelize.
+## Doc map (so there's one place to look)
+- **Plan/status (this file).** Branch history/handoff: `BRANCH.md`.
+- **Content track** (canonical): `content-extensibility-direction.md` (v2) · `-decisions.md` (D-log) ·
+  `-framework.md` (how-to) · `-compatibility.md` · `-e2e.md` · `registry-before-after.md`.
+- **History (superseded — read as "what was tried"):** `content-extensibility.md`, `-plan.md`.
+- **Topic detail:** decision-vocabulary · homebrew-content-merge · spell-granting-across-silos ·
+  spell-slot-progression · declarative-grant-vocabulary · class-features-and-mechanization ·
+  class-feature-catalogue · armor-class-computation · runtime-toggles-and-conditional-modifiers ·
+  built-character-representation · character-validation · cljs-headless-harness · test-suite-state ·
+  verification-discipline · datomic-crash-analysis.
 
-## Supporting docs
-decision-vocabulary · spell-granting-across-silos · declarative-grant-vocabulary ·
-runtime-toggles-and-conditional-modifiers · armor-class-computation · class-features-and-mechanization
-· content-extensibility-framework. Each carries its own VERIFIED/DESIGN/SPECULATION flags.
+## Critical path
+1. **Resolve conflict #1** (grant approach) — it gates all further grant work.
+2. **A2** + Phase-1's grant-authoring UI lever — one complete cross-silo feature, exercising the full
+   data→builder→character→round-trip path.
+3. **B1** (structured records) — keystone for the rest of B and all of C.
+4. **B2–B4** — app-wide wins (conditions, counters incl. resource pools, roll integration).
+5. **C2 → C3** — feature registry then builder surfaces (on F + B1).
+6. **A3** (spell-slot bucket) — unblocks Artificer-shaped classes; **D1** in parallel once the AC net is full.
+7. **E** — last.
