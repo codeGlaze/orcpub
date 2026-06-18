@@ -20,6 +20,12 @@ Status legend: **DONE** (committed this branch) · **FEASIBLE** (verified the su
 - **A2.** Uniform spell-granting: route `:spells` (fixed) and `:spell-choice` to `spells-known` /
   `spell-selection` across every silo's assembly fn — FEASIBLE (primitives exist; feat lacks the
   key today). Wire the homebrew pools through `template-selections`; expose in builders.
+- **A3.** Spell-slot progression as data — DESIGN. Decouple the overloaded `:level-factor` (it drives
+  slot table + multiclass contribution + prepared count at once) into: a bucket of named/explicit slot
+  tables (authored as an absolute per-level grid, presets as seeds), a separately-declared multiclass
+  rule (`:full|:half|:third|:none|:separate`), and the prepared/known count. Unblocks Artificer and
+  homebrew progressions; generalizes warlock pact magic (`:separate` + own pool/recharge, → B3). See
+  spell-slot-progression.md.
 
 ## Track B — Mechanism layers (app-wide; each lifts text → mechanical)
 - **B1. Structured/parameterized effect & feature records** — DESIGN. Effects/features as data

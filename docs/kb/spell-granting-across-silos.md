@@ -102,7 +102,8 @@ built-in feature's *max* uses are computed (likely the sheet UI vs the modifier 
   spell is on `char5e/spells-known`. (Same pattern as the dragonborn-ancestry and divine-soul e2e
   tests.)
 - `spells-known` grants an *innate known spell* (castable via the chosen ability), NOT spell slots /
-  a casting progression. Fixed-spell grants are innate, not "you become a caster." (See
-  runtime-toggles / decision-vocabulary docs.)
+  a casting progression. Fixed-spell grants are innate, not "you become a caster." The slot
+  *progression* subsystem (`:level-factor`, the slot tables, multiclass pooling, pact magic, and why
+  Artificer can't be expressed) is its own doc: **spell-slot-progression.md**.
 - Whether `spells-known` behaves identically when reached from a feat (once wired) is **NOT-TESTED**
   — it should, since the primitive is the same, but that's the thing to confirm when wiring it.
