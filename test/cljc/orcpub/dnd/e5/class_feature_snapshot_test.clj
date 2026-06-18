@@ -9,6 +9,7 @@
    Starts with fighter to establish the pattern; extend class-by-class.
    JVM/clojure.test so it runs under the enforced `lein test` gate."
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string :as str]
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
@@ -145,6 +146,15 @@
     (is (= {:units :orcpub.dnd.e5.units/long-rest :amount 3}
            (:frequency (feat-detail :fighter 17 "Indomitable"))))))
 
+(deftest rogue-sneak-attack-detail-baseline
+  (testing "rogue Sneak Attack — exact summary (incl. source typo) + once/turn frequency"
+    (is (= {:summary "3d6 extra damage on attack where you have advantage or another enemy of creature is within 5 ft."
+            :frequency {:units :orcpub.dnd.e5.units/turn :amount 1}}
+           (feat-detail :rogue 5 "Sneak Attack")))
+    (is (= "6d6 extra damage on attack where you have advantage or another enemy of creature is within 5 ft."
+           (:summary (feat-detail :rogue 11 "Sneak Attack")))
+        "dice scale to round-up(level/2)")))
+
 ;; ---------------------------------------------------------------------------
 ;; Dump every class @5 to baseline the rest (resilient: one bad class won't kill the run)
 ;; ---------------------------------------------------------------------------
@@ -166,60 +176,111 @@
       (println (format "   %-14s freq=%s  | %s" n (pr-str frequency) summary)))))
 
 ;; ===========================================================================
-;; STEP 2 — `compile-feature` proof of concept (the data → cfg compiler).
+;; STEP 2 — `compile-feature`: the data → cfg compiler (proof of concept).
 ;;
 ;; The catch (see docs/kb/class-features-and-mechanization.md "code-capture catch"):
-;; a real feature's :frequency/:summary are CODE, not data — e.g. the fighter writes
+;; a real feature's :frequency/:summary are CODE, not data — the fighter writes
 ;;   :frequency (units5e/rests (if (>= (?class-level :fighter) 17) 2 1))
-;; where ?class-level is an entity-spec attr resolved at build time. To make a feature
-;; data-addressable (and overridable), the registry needs a compile step that turns a
-;; DATA schedule into the same cfg the action/bonus-action macros consume.
+;;   :summary   (str "regain 1d10 " (common/mod-str (?class-level :fighter)) " HPs")
+;; and the rogue writes
+;;   :summary   (str (common/round-up (/ (?class-level :rogue) 2)) "d6 extra damage ...")
+;; where ?class-level is an entity-spec attr resolved at build time. To make features
+;; data-addressable AND overridable, a compile step turns a DATA spec + the granting class's
+;; level into the same cfg the action/bonus-action/dependent-trait macros already consume.
 ;;
-;; This proves the USE-COUNT half is tractable: a {:default 1 17 2} schedule reproduces the
-;; REAL built fighter's Action Surge / Second Wind frequency at 5 and 17, and an override
-;; changes only the use count. The summary SCALING half (Second Wind's "+N HPs") still needs
-;; a fn — flagged as the templating sub-problem deferred to B1. Lives in the test ns: it's a
-;; prototype validated against the real build, not production code, and touches no class source.
+;; The DATA shape (corrected from the first sketch):
+;;   - NO class named in the feature. The level is supplied by whoever grants it, so a custom
+;;     class can grant the same feature and feed its own level. (De-siloing's whole point.)
+;;   - :effect is a MAP {:kind ... + params}, not a [kind params] tuple — a tuple can't
+;;     deep-merge its inner params, and override IS a deep-merge. The map makes
+;;     {:overrides {:effect {:die "d8"}}} change one field and nothing else.
+;;   - :text is a fillable template; {name} prints a value, {+name} signs it (via mod-str).
+;;     One rule, because a heal bonus signs ("+5") but a dice count does not ("3d6").
+;;   - scaling lives as DATA: a {level→n} schedule resolved by level-lookup (runtime analogue
+;;     of the level-val macro). Arithmetic scaling (rogue's round-up(level/2)) is expressed as
+;;     the equivalent threshold table; a formula form would compact it (noted, not built).
+;;
+;; Proven below: the compiled use-count, frequency, AND rendered summary match the REAL built
+;; fighter (Action Surge, Second Wind) and rogue (Sneak Attack); a :uses override changes only
+;; the count; and a :die override changes the rendered summary (3d6 → 3d8) and nothing else.
+;; A prototype in the test ns, validated against the real build; touches no class source.
 ;; ===========================================================================
+
+(defn- deep-merge [a b]
+  (merge-with (fn [x y] (if (and (map? x) (map? y)) (deep-merge x y) y)) a b))
 
 (defn level-lookup
   "Runtime analogue of the compile-time `mod5e/level-val` macro: given a level and a
    threshold map {threshold value ... :default v}, return the value for the highest
-   threshold <= level, else :default. This is what lets a use-count live as DATA instead of
-   a hand-written `(if (>= (?class-level ..) 17) 2 1)` or a `level-val` table baked into code."
+   threshold <= level, else :default. Lets a schedule live as DATA instead of a hand-written
+   `(if (>= (?class-level ..) 17) 2 1)` or a `level-val` table baked into code."
   [level mappings]
   (or (some (fn [[t v]] (when (>= level t) v))
             (sort-by key > (dissoc mappings :default)))
       (:default mappings)))
 
+(def ^:private period->units
+  {:rest ::units5e/rest :long-rest ::units5e/long-rest :turn ::units5e/turn})
+
+(defn- resolve-param
+  "A feature param is a literal (\"1d10\", \"d6\"), the keyword :level (the granting class's
+   level), or a {level→n} schedule resolved by level-lookup."
+  [v level]
+  (cond
+    (map? v)      (level-lookup level v)
+    (= :level v)  level
+    :else         v))
+
+(defn- fill
+  "Render a :text template against resolved effect params. {name} prints the value as-is;
+   {+name} signs a number (via mod-str), since a heal bonus reads '+5' but a dice count '3'."
+  [text vals]
+  (str/replace text #"\{(\+?)([\w-]+)\}"
+               (fn [[_ sign k]]
+                 (let [v (get vals (keyword k))]
+                   (if (= sign "+") (common/mod-str v) (str v))))))
+
 (defn compile-feature
-  "Translate a DATA feature spec + the granting class's current level into the exact cfg map
-   the action/bonus-action/dependent-trait macros consume ({:name :frequency :summary ...}).
-   `:overrides` merge onto the spec FIRST, so an editable reference ({:overrides {:uses {:default 5}}})
-   changes only that field. Use-count is pure data (a :uses schedule -> level-lookup); summary
-   scaling still needs a fn (:summary-fn of the resolved level) — the templating sub-problem."
+  "DATA feature spec + the granting class's level -> the exact cfg the action/bonus-action/
+   dependent-trait macros consume ({:name :frequency :summary}). :overrides deep-merge first,
+   so an editable reference ({:overrides {:effect {:die \"d8\"}}}) changes one field only."
   [spec level & [{:keys [overrides]}]]
-  (let [{:keys [name units uses summary summary-fn]} (merge spec overrides)]
-    (cond-> {:name name
-             :frequency (units5e/units units (level-lookup level uses))}
-      summary    (assoc :summary summary)
-      summary-fn (assoc :summary (summary-fn level)))))
+  (let [{:keys [name per uses effect text]} (deep-merge spec overrides)
+        resolved (into {} (for [[k v] (dissoc effect :kind)] [k (resolve-param v level)]))
+        amount   (if (map? uses) (level-lookup level uses) uses)]
+    {:name name
+     :frequency (units5e/units (period->units per) amount)
+     :summary   (fill text resolved)}))
 
 (def action-surge-spec
-  "Fighter Action Surge as DATA. The :uses schedule replaces the hand-written
-   `(if (>= (?class-level :fighter) 17) 2 1)` in classes.cljc:1086."
-  {:name "Action Surge"
-   :units ::units5e/rest
-   :uses  {:default 1, 17 2}
-   :summary "take an extra action"})
+  "Action Surge as DATA. :uses schedule replaces classes.cljc:1086's hand-written if/threshold."
+  {:name   "Action Surge"
+   :action :action
+   :per    :rest
+   :uses   {:default 1, 17 2}
+   :effect {:kind :extra-action}
+   :text   "take an extra action"})
 
 (def second-wind-spec
-  "Fighter Second Wind as DATA. Use-count is data; the heal SCALING stays a :summary-fn —
-   the interpolation (`+N HPs`) is the templating sub-problem the registry doesn't solve yet."
-  {:name "Second Wind"
-   :units ::units5e/rest
-   :uses  {:default 1}
-   :summary-fn (fn [lvl] (str "regain 1d10 " (common/mod-str lvl) " HPs"))})
+  "Second Wind as DATA. The heal die/bonus are now FIELDS (overridable); the summary renders
+   from them — {+bonus} signs the level-sourced bonus."
+  {:name   "Second Wind"
+   :action :bonus-action
+   :per    :rest
+   :uses   1
+   :effect {:kind :heal :dice "1d10" :bonus :level}
+   :text   "regain {dice} {+bonus} HPs"})
+
+(def sneak-attack-spec
+  "Sneak Attack as DATA. The d6 is a FIELD ({:die \"d6\"}); the dice count is the schedule
+   equivalent of round-up(rogue-level/2). Overriding :die regenerates the summary."
+  {:name   "Sneak Attack"
+   :per    :turn
+   :uses   1
+   :effect {:kind :extra-damage
+            :die  "d6"
+            :count {1 1, 3 2, 5 3, 7 4, 9 5, 11 6, 13 7, 15 8, 17 9, 19 10}}
+   :text   "{count}{die} extra damage on attack where you have advantage or another enemy of creature is within 5 ft."})
 
 (deftest level-lookup-reproduces-level-val
   (testing "level-lookup matches the level-val threshold table used by Indomitable {13 2 17 3 :default 1}"
@@ -232,32 +293,42 @@
     (is (= 3 (get-in (feat-detail :fighter 17 "Indomitable") [:frequency :amount]))
         "and the real built fighter agrees at 17")))
 
-(deftest compile-feature-reproduces-action-surge-use-count
-  (testing "the data schedule reproduces the REAL built fighter's Action Surge frequency"
-    (is (= (:frequency (feat-detail :fighter 5 "Action Surge"))
-           (:frequency (compile-feature action-surge-spec 5)))
-        "1 use at level 5")
-    (is (= (:frequency (feat-detail :fighter 17 "Action Surge"))
-           (:frequency (compile-feature action-surge-spec 17)))
-        "2 uses at level 17 — the schedule reproduces the hand-written if/threshold")
-    (is (= "take an extra action" (:summary (compile-feature action-surge-spec 5)))))
-  (testing "an editable-reference override changes ONLY the use count"
+(deftest compile-feature-reproduces-action-surge
+  (testing "the data schedule reproduces the REAL built fighter's Action Surge frequency + summary"
+    (is (= (feat-detail :fighter 5 "Action Surge")
+           (select-keys (compile-feature action-surge-spec 5) [:summary :frequency]))
+        "1 use @5, summary 'take an extra action'")
+    (is (= (feat-detail :fighter 17 "Action Surge")
+           (select-keys (compile-feature action-surge-spec 17) [:summary :frequency]))
+        "2 uses @17 — the schedule reproduces the hand-written if/threshold"))
+  (testing "a :uses override changes ONLY the use count"
     (let [r (compile-feature action-surge-spec 5 {:overrides {:uses {:default 5}}})]
       (is (= 5 (get-in r [:frequency :amount])) "override bumps uses to 5")
       (is (= ::units5e/rest (get-in r [:frequency :units])) "units unchanged")
-      (is (= "take an extra action" (:summary r)) "summary unchanged")
-      (is (= "Action Surge" (:name r)) "name unchanged"))))
+      (is (= "take an extra action" (:summary r)) "summary unchanged"))))
 
-(deftest compile-feature-second-wind-use-count-data-summary-still-fn
-  (testing "use-count compiles from data and matches the real build at 5 and 17"
-    (is (= (:frequency (feat-detail :fighter 5 "Second Wind"))
-           (:frequency (compile-feature second-wind-spec 5))))
-    (is (= (:frequency (feat-detail :fighter 17 "Second Wind"))
-           (:frequency (compile-feature second-wind-spec 17)))))
-  (testing "summary SCALING still needs a fn (the templating sub-problem) — and the fn matches the real build"
-    (is (= (:summary (feat-detail :fighter 5 "Second Wind"))
-           (:summary (compile-feature second-wind-spec 5)))
+(deftest compile-feature-reproduces-second-wind
+  (testing "use-count, frequency AND the level-scaled summary all match the real build"
+    (is (= (feat-detail :fighter 5 "Second Wind")
+           (select-keys (compile-feature second-wind-spec 5) [:summary :frequency]))
         "regain 1d10 +5 HPs @5")
-    (is (= (:summary (feat-detail :fighter 17 "Second Wind"))
-           (:summary (compile-feature second-wind-spec 17)))
+    (is (= (feat-detail :fighter 17 "Second Wind")
+           (select-keys (compile-feature second-wind-spec 17) [:summary :frequency]))
         "regain 1d10 +17 HPs @17")))
+
+(deftest compile-feature-reproduces-sneak-attack-and-die-swap
+  (testing "structured effect reproduces the REAL built rogue's Sneak Attack at 5 and 11"
+    (is (= (feat-detail :rogue 5 "Sneak Attack")
+           (select-keys (compile-feature sneak-attack-spec 5) [:summary :frequency]))
+        "3d6 @5, once per turn")
+    (is (= (feat-detail :rogue 11 "Sneak Attack")
+           (select-keys (compile-feature sneak-attack-spec 11) [:summary :frequency]))
+        "6d6 @11"))
+  (testing "overriding :die regenerates the summary (3d6 -> 3d8) and changes NOTHING else"
+    (let [base (compile-feature sneak-attack-spec 5)
+          swap (compile-feature sneak-attack-spec 5 {:overrides {:effect {:die "d8"}}})]
+      (is (= "3d8 extra damage on attack where you have advantage or another enemy of creature is within 5 ft."
+             (:summary swap))
+          "the die field flows through to the rendered summary")
+      (is (= (:frequency base) (:frequency swap)) "frequency unchanged")
+      (is (not= (:summary base) (:summary swap)) "and it actually differs from the d6 baseline"))))

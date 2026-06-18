@@ -86,23 +86,39 @@ to do.
   compile time, keyed off a build-time attribute.
 
 **Consequence for the registry.** To make a feature data-addressable you cannot just lift the cfg map
-out — its `:frequency`/`:summary` are code. A `compile-feature` step must translate **data schedules
-→ runtime lookups**:
-- Use-count (the `:frequency :amount`) is the tractable part: replace the hand-written
-  `(if (>= (?class-level …) 17) 2 1)` / `level-val` table with a **data schedule** (`{:default 1 17 2}`)
-  resolved by a *runtime* `level-lookup` fn (the runtime analogue of the `level-val` macro). This is
-  what an editable reference's `:overrides {:uses …}` can then target.
-- Summary **scaling** is the harder sub-problem: Second Wind's "regain 1d10 +N HPs" interpolates the
-  class level into a string. That needs a **template/interpolation layer** (a `:summary-fn` of the
-  resolved level, or a B1 templating mechanism), not a static field. Until that exists, the summary
-  stays a function — which is why "override Sneak Attack's die" (the die lives inside the summary
-  string) is blocked on structuring the feature first.
+out — its `:frequency`/`:summary` are code. A `compile-feature` step takes a DATA spec + the granting
+class's level and produces the same cfg the macros consume. Two translations:
+- Scaling → **data schedule + runtime lookup.** Replace the hand-written
+  `(if (>= (?class-level …) 17) 2 1)` / `level-val` table with a `{level→n}` map resolved by a runtime
+  `level-lookup` (the runtime analogue of the `level-val` macro). `level-lookup` reproduces `level-val`
+  exactly: highest threshold ≤ level wins, else `:default` (verified against Indomitable's
+  `{13 2 17 3 :default 1}` → 9→1, 13→2, 17→3). Arithmetic scaling (the rogue's
+  `round-up(level/2)` Sneak-Attack dice) is expressed as the equivalent threshold table; a small
+  formula form would compact it (not built).
+- Summary → **fields + a fill template, not interpolation.** (Corrects an earlier note that called
+  this a separate "templating sub-problem.") The fix isn't templating into a string; it's *storing the
+  overridable numbers as fields* and making the summary a projection of them. The number that scales
+  (Second Wind's heal bonus, Sneak Attack's die) is a field; `:text` is a template
+  (`"regain {dice} {+bonus} HPs"`) where `{name}` prints a value and `{+name}` signs it (one rule, because
+  a heal bonus reads "+5" but a dice count reads "3d6"). So "override Sneak Attack's die" is **not
+  blocked** — it was only blocked while the die lived inside prose; promote it to a `:die` field and the
+  summary regenerates.
 
-`level-lookup` reproduces `level-val` exactly: highest threshold ≤ level wins, else `:default`
-(verified against Indomitable's `{13 2 17 3 :default 1}` → 9→1, 13→2, 17→3). See the
-`compile-feature` proof in `test/cljc/orcpub/dnd/e5/class_feature_snapshot_test.clj`, which asserts a
-data-schedule spec reproduces the **real** built fighter's Action Surge / Second Wind frequency at
-levels 5 and 17, and that an `:overrides {:uses …}` changes only the use count.
+**Data-shape findings forced by the real fighter/rogue cases (not aesthetics):**
+- **No class named in the feature.** A feature must not carry `:class :fighter` — that re-hardcodes the
+  coupling de-siloing removes. The feature takes a `level` at compile time; *whoever grants it supplies
+  the level*, so a custom class can grant the same feature and feed its own level.
+- **`:effect` is a map `{:kind … + params}`, not a `[kind params]` tuple.** Override is a deep-merge,
+  and a tuple can't deep-merge its inner params; a map lets `{:overrides {:effect {:die "d8"}}}` change
+  one field and nothing else.
+- **Editable reference = deep-merge of `:overrides` onto the spec before compile.**
+
+See the `compile-feature` proof in `test/cljc/orcpub/dnd/e5/class_feature_snapshot_test.clj`: a DATA
+spec reproduces the **real built** fighter's Action Surge (use-count 1→2) and Second Wind (heal
++5→+17), and the rogue's Sneak Attack (3d6@5, 6d6@11, once/turn) — frequency **and** rendered summary;
+a `:uses` override changes only the count; a `:die` override regenerates the summary (3d6→3d8) and
+changes nothing else. All asserted equal to the live `entity/build` output, so it's pinned to real
+behavior, not a hand-written expectation.
 
 ## Design direction for centralizing features — DESIGN (not built)
 The maintainer's intuition: move core features out of class declarations, centralize, re-insert. The
