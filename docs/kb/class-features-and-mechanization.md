@@ -10,7 +10,8 @@ un-investigated area; do not take as fact.
 
 ## How a class + its features are structured — VERIFIED (fighter, rogue read)
 - A class is a function → `(opt5e/class-option … cfg)` with a **hand-written cfg map**. There are
-  **10** such class option fns (`classes.cljc`, `defn …-option [spells spells-map …]`).
+  **12** such class option fns (`classes.cljc`, `defn …-option [spells spells-map …]`); warlock's has a
+  longer arity (`… invocations boons`).
 - Features live inline in `:modifiers` (class-wide) or `:levels {N {:modifiers/:selections}}`
   (level-gated). Level-gating is that plain `:levels` map keyed by level number, plus per-trait
   `:level`.
@@ -183,7 +184,7 @@ saved characters as long as output is identical; only *choosable* alternates put
 saved data.
 
 ## NOT-EXPLORED / to verify before sizing
-- ~~The full per-class feature catalogue~~ — DONE: all 10 base classes inventoried in
+- ~~The full per-class feature catalogue~~ — DONE: all 12 base classes inventoried in
   `class-feature-catalogue.md`. It confirmed the ~3–6/class sizing (monk/paladin ~10 outliers) and
   surfaced the odd cases the `compile-feature` slice doesn't yet cover: multi-source use-counts
   (ability-derived, formula, level), class-wide resource pools (ki/sorcery/Lay-on-Hands),

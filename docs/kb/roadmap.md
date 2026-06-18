@@ -33,7 +33,7 @@ Status legend: **DONE** (committed this branch) · **FEASIBLE** (verified the su
   `?attack-modifier-fns`/`?damage-bonus-fns`; fix the USER-REPORTED "stuck as text" rolls.
 
 ## Track C — Class features (the big structural nut; needs F + B1)
-- **C1.** Per-class feature catalogue — DONE. All 10 base classes read and inventoried in
+- **C1.** Per-class feature catalogue — DONE. All 12 base classes read and inventoried in
   `class-feature-catalogue.md`. Sizing confirmed (~3–6 each; monk/paladin ~10 outliers; sorcerer/wizard
   ~2–3). Surfaced the odd cases that re-shape B1/B3: multi-source use-counts, class-wide resource pools
   (ki/sorcery/Lay-on-Hands — their own mechanism), build-context summary interpolation, multi-part

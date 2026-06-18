@@ -22,15 +22,25 @@
 
 (def language-map (common/map-by-key [{:name "Common" :key :common}]))
 
-(defn class-opt [opt-fn]
-  (opt-fn sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map))
+(defn- build-opt
+  "Build a class option fn with the standard 5 args; warlock takes 2 extra (invocations, boons)."
+  [opt-fn & extra]
+  (apply opt-fn sl5e/spell-lists spells5e/spell-map {} language-map weapons5e/weapons-map extra))
 
+;; All 12 base classes (5e). Warlock's option fn has a longer arity (invocations, boons) — [] [] here.
 (def all-class-opts
-  [[:barbarian classes5e/barbarian-option] [:bard classes5e/bard-option]
-   [:cleric classes5e/cleric-option] [:fighter classes5e/fighter-option]
-   [:monk classes5e/monk-option] [:paladin classes5e/paladin-option]
-   [:ranger classes5e/ranger-option] [:rogue classes5e/rogue-option]
-   [:sorcerer classes5e/sorcerer-option] [:wizard classes5e/wizard-option]])
+  [[:barbarian (build-opt classes5e/barbarian-option)]
+   [:bard      (build-opt classes5e/bard-option)]
+   [:cleric    (build-opt classes5e/cleric-option)]
+   [:druid     (build-opt classes5e/druid-option)]
+   [:fighter   (build-opt classes5e/fighter-option)]
+   [:monk      (build-opt classes5e/monk-option)]
+   [:paladin   (build-opt classes5e/paladin-option)]
+   [:ranger    (build-opt classes5e/ranger-option)]
+   [:rogue     (build-opt classes5e/rogue-option)]
+   [:sorcerer  (build-opt classes5e/sorcerer-option)]
+   [:warlock   (build-opt classes5e/warlock-option [] [])]
+   [:wizard    (build-opt classes5e/wizard-option)]])
 
 (def test-template
   (t5e/template
@@ -39,7 +49,7 @@
     weapons5e/weapons-map weapons5e/weapons
     sl5e/spell-lists spells5e/spell-map
     [] []                                  ; backgrounds, races
-    (map (fn [[_ f]] (class-opt f)) all-class-opts)
+    (map second all-class-opts)
     [] language-map)))
 
 (def abilities {:orcpub.dnd.e5.character/str 16 :orcpub.dnd.e5.character/dex 14
@@ -99,12 +109,16 @@
   {:barbarian {:attacks 2 :saves #{S C} :features #{"Danger Sense" "Extra Attack" "Fast Movement" "Rage" "Reckless Attack"}}
    :bard      {:attacks 1 :saves #{D Ch} :features #{"Bardic Inspiration" "Font of Inspiration" "Jack of All Trades" "Song of Rest"}}
    :cleric    {:attacks 1 :saves #{W Ch} :features #{"Channel Divinity" "Channel Divinity: Turn Undead" "Destroy Undead"}}
+   :druid     {:attacks 1 :saves #{I W} :features #{"Druidic" "Wild Shape"}}
    :fighter   {:attacks 2 :saves #{S C} :features #{"Action Surge" "Second Wind"}}
    :monk      {:attacks 2 :saves #{S D} :features #{"Deflect Missiles" "Flurry of Blows" "Ki" "Martial Arts" "Patient Defense" "Slow Fall" "Step of the Wind" "Stunning Strike"}}
    :paladin   {:attacks 2 :saves #{W Ch} :features #{"Channel Divinity" "Divine Health" "Divine Sense" "Divine Smite" "Lay on Hands"}}
    :ranger    {:attacks 2 :saves #{S D} :features #{"Favored Enemy" "Natural Explorer" "Primeval Awareness"}}
    :rogue     {:attacks 1 :saves #{D I} :features #{"Cunning Action" "Sneak Attack" "Thieves' Cant" "Uncanny Dodge"}}
    :sorcerer  {:attacks 1 :saves #{C Ch} :features #{"Flexible Casting" "Sorcery Points"}}
+   ;; warlock is the most choice-driven class: at level 5 every feature (invocations, pact boon,
+   ;; spells) is a SELECTION; the first auto-granted named feature is Mystic Arcanum @ 11.
+   :warlock   {:attacks 1 :saves #{W Ch} :features #{}}
    :wizard    {:attacks 1 :saves #{W I} :features #{"Arcane Recovery"}}})
 
 (deftest all-classes-level-5-baseline
@@ -206,7 +220,7 @@
 ;; A prototype in the test ns, validated against the real build; touches no class source.
 ;;
 ;; SCOPE — this is a deliberate SLICE, not the whole compiler. The per-class catalogue
-;; (docs/kb/class-feature-catalogue.md, all 10 classes) surfaced cases compile-feature does NOT
+;; (docs/kb/class-feature-catalogue.md, all 12 classes) surfaced cases compile-feature does NOT
 ;; yet handle, and that the registry will need before extracting the resource classes:
 ;;   - :uses from sources beyond a level schedule — ability-modifier-derived (Bardic = max 1 CHA),
 ;;     formula (Lay on Hands = 5*level), or :level itself (ki/sorcery points);

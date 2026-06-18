@@ -1,6 +1,6 @@
 # Per-class feature catalogue (roadmap C1)
 
-Sizes the feature registry and surfaces the odd cases, by reading all 10 base-class option fns in
+Sizes the feature registry and surfaces the odd cases, by reading all **12** base-class option fns in
 `src/cljc/orcpub/dnd/e5/classes.cljc`. Everything here is **VERIFIED** (read from code, file:line
 cited) unless marked. Companion to `class-features-and-mechanization.md` (the structure + the
 `compile-feature` proof) and `decision-vocabulary.md` (the wiring).
@@ -11,27 +11,31 @@ dice growth, speed-bonus increments; (b) **choice-gated** features — Fighting 
 Metamagic, Favored Enemy, Hunter's Prey — which are `selections` (pools) already; (c) **spellcasting**,
 a separate declarative `:spellcasting` subsystem (full/half caster via `:level-factor` 1/2).
 
-## The 10 classes (option fn line; distinct auto-features; notable shape)
+## The 12 classes (option fn line; distinct auto-features; notable shape)
 
 | Class | fn | Distinct auto-features (base class) | Notes |
 |---|---|---|---|
 | Barbarian | `:46` | Rage, Extra Attack, Fast Movement, Brutal Critical, Indomitable Might + 5 text traits (Reckless Attack, Danger Sense, Feral Instinct, Relentless Rage, Persistent Rage) | Rage = bonus-action w/ scaling uses **and** scaling damage in summary; Unarmored Defense (AC channel); capstone ability boost @20 |
 | Bard | `:249` | Bardic Inspiration, Jack of All Trades, Song of Rest, Countercharm, Font of Inspiration, Superior Inspiration | spellcaster; Bardic count = **ability-derived**; Jack of All Trades = **multi-part** (skill-fn + initiative mod + trait) |
 | Cleric | `:397` | Channel Divinity (+ Turn Undead), Destroy Undead, Divine Intervention | spellcaster; subclass @ **level 1**; Destroy Undead scaling is **strings** ("1/2"→4); summaries read `?spell-save-dc` |
+| Druid | `:752` | Wild Shape, Druidic + 3 text traits (Timeless Body, Beast Spells, Archdruid) | **lean**; full caster; subclass @ 2; Wild Shape reads `?wild-shape-cr`/`?wild-shape-limitation` attrs (**string- and nil-valued** scaling), duration = **formula** (level/2 hrs) |
 | Fighter | `:1052` | Second Wind, Action Surge, Indomitable, Extra Attack | the proof's worked example; cleanest case |
 | Monk | `:1228` | Martial Arts, Ki, Flurry of Blows, Patient Defense, Step of the Wind, Deflect Missiles, Slow Fall, Stunning Strike, Stillness of Mind, Empty Body + ~6 text traits | **biggest**; **ki pool** (=level) spent as text everywhere; `?martial-arts-die` is a shared attribute; Martial Arts = **multi-part** (attack + bonus-action) |
 | Paladin | `:1425` | Divine Sense, Lay on Hands, Channel Divinity, Divine Smite, Improved Divine Smite, Aura of Protection, Aura of Courage, Cleansing Touch, Divine Health, Extra Attack | half-caster; **Lay on Hands pool** (=5×level); Auras read `?paladin-aura` attr; Aura of Protection = **multi-part** (save mods + trait); frequencies **ability-derived** |
 | Ranger | `:1771` | Favored Enemy, Natural Explorer, Primeval Awareness, Extra Attack, Foe Slayer + 4 text traits | half-caster; Favored Enemy/Natural Explorer summaries interpolate **user selections** (`?ranger-favored-enemies/terrain`) |
 | Rogue | `:1978` | Sneak Attack, Cunning Action, Uncanny Dodge, Thieves' Cant | the proof's second worked example; Sneak Attack scaling = **formula** `round-up(level/2)` |
 | Sorcerer | `:2206` | Sorcery Points, Flexible Casting | **lean**; full caster; **sorcery-point pool** (=level); subclass @ level 1 |
+| Warlock | `:2994` | (none auto-granted before Mystic Arcanum @11); Eldrich Master @20 | **most choice-driven**; pact magic; **longer option-fn arity** (invocations, boons); base levels are *all selections* (invocations, pact boon, mystic arcanum) — almost nothing to extract |
 | Wizard | `:2379` | Arcane Recovery, Spell Mastery, Signature Spells | **lean**; full caster; Arcane Recovery scaling = **formula** `round-up(level/2)`; Spell Mastery/Signature interpolate **selections** |
 
-**Sizing:** most classes sit at the predicted **~3–6 distinct auto-features**, but **monk (~10) and
-paladin (~10) are outliers** and **sorcerer/wizard (~2–3) are lean**. Rough total: ~50–60 base-class
-auto-features (subclasses add comparable shapes). The "~3–6 × 12" estimate in
-class-features-and-mechanization.md was right on average but understates the two resource-heavy
-classes. The migration is still bounded — dozens of features, not whole level tables — but monk's ki
-economy is its own sub-project (see below).
+**Sizing:** most classes sit at the predicted **~3–6 distinct auto-features**, but the spread is wider
+than expected: **monk (~10) and paladin (~10) are outliers**; **druid/sorcerer/wizard (~2–3) are lean**;
+and **warlock is essentially zero** auto-features (everything is a selection — invocations, pact boon,
+arcanum). Rough total: ~50–60 base-class auto-features across the 12 (subclasses add comparable
+shapes). The "~3–6 × 12" estimate in class-features-and-mechanization.md was right on average but
+understates monk/paladin and overstates warlock. The migration is still bounded — dozens of features,
+not whole level tables — but monk's ki economy is its own sub-project (see below), and warlock barely
+participates (its identity lives in selections + pact-magic, not extractable auto-features).
 
 ## Cross-cutting findings — the "odd cases" the registry/compiler must handle
 
@@ -81,9 +85,11 @@ effect-param interpolation. Each is VERIFIED from the classes above.
 
 6. **Features interdepend through spec attributes.** `?martial-arts-die` is *set* by a modifier and
    *read* by the Martial Arts attack (`:1268`/`:1276`); `?paladin-aura` is set once and read by three
-   auras (`:1483`); `?unarmored-defense`/`?unarmored-ac-bonus` couple Unarmored Defense to AC
-   (`:70-78`, `:1262-1267`). Extraction must preserve these attribute writes/reads — a feature isn't
-   always self-contained.
+   auras (`:1483`); `?wild-shape-cr`/`?wild-shape-limitation` are set by level-val modifiers (with
+   string and **nil** values) and read by the Wild Shape summary (`:787-808`);
+   `?unarmored-defense`/`?unarmored-ac-bonus` couple Unarmored Defense to AC (`:70-78`,
+   `:1262-1267`). Extraction must preserve these attribute writes/reads — a feature isn't always
+   self-contained.
 
 7. **Partial extraction precedent already exists.** `opt5e/monk-base-cfg`, `paladin-base-cfg`,
    `ranger-base-cfg` are merged into those class cfgs (`:1235`, `:1432`, `:1778`); `extra-attack-trait`
@@ -104,7 +110,9 @@ effect-param interpolation. Each is VERIFIED from the classes above.
   **a seq of modifiers**, and extraction must keep the `?attr` reads/writes intact — exactly what the
   byte-identical snapshot net guards.
 - Start extraction on the **clean classes** (fighter, rogue, then bard/cleric/wizard) where features
-  are self-contained; **defer monk/paladin** until the pool + build-context-fill mechanisms exist.
+  are self-contained; **defer monk/paladin** until the pool + build-context-fill mechanisms exist, and
+  **defer druid** until the wild-shape attribute pair is modelled. **Warlock needs almost no extraction**
+  — its auto-feature set is empty until Mystic Arcanum @11; its content is selections + pact magic.
 
 ## NOT-EXPLORED (flagged)
 - Subclass feature inventory (only base classes catalogued; subclasses skimmed, not tallied).
