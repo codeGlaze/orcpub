@@ -259,3 +259,63 @@ richer than flat pools); a declarative cross-type prereq vocabulary (`has-class?
 text-only content** (boons/ki/sorcery-points are prose today — authors should attach real
 modifiers/resources; user flagged boons as an enhancement; same Axis-B "declare-as-data"
 family).
+
+## Part 5 — Mechanization, class features, spell slots (the expansion)
+
+*(Numbering note: D17 appears twice above — Part 3 and Part 4 — a pre-existing glitch. Not
+renumbered to avoid breaking references; this part continues at D23.)*
+
+**D23 — This branch is a PROTOTYPE to decide a standard, then converge on it.** The purpose is to
+understand the app fully (by reading code, not assumptions/vibes), **decide** the best shape for each
+mechanism, then **run with it** — slowly upgrading the codebase to that standard and **jettisoning
+anything that doesn't fit**. So open questions (e.g. the grant approach, D29) are expected mid-prototype;
+the deliverable is a decision + convergence, not a permanent fork. Corollary: every decision below is
+provisional until "fully understood," and the loser of a competing-approach decision is removed, not kept.
+
+**D24 — Class features → one keyed, filterable registry; pools are filtered views over it.** Not
+per-feature pools (category mismatch) and not whole level tables. An editable reference is a **key +
+`:overrides`**; a feature is a parameterized record with defaults; overrides deep-merge at compile.
+Scaling/padding (ASI, num-attacks, `level-val`) stays as existing primitives. (`class-features-and-mechanization.md`.)
+
+**D25 — Features are macro-captured CODE, so extraction needs a `compile-feature` step — and the
+summary is fields + a fill template, NOT string interpolation.** `dependent-trait`/`action`/etc. splice
+the cfg (with live `?class-level`/`level-val`) into code at compile time. `compile-feature` translates a
+DATA spec → the same cfg: scaling via a `{level→n}` schedule + a runtime `level-lookup`; the overridable
+numbers (heal die/bonus, sneak die) are **fields**, and `:text` is a template (`{name}` prints, `{+name}`
+signs). **Proven** against the real build — data specs reproduce fighter Action Surge/Second Wind and
+rogue Sneak Attack, with `:uses` and `:die` overrides changing only their field (`compile-feature` proof,
+`class_feature_snapshot_test.clj`). Retracts the earlier "summary scaling is a separate blocked templating
+sub-problem" framing.
+
+**D26 — Per-class catalogue (C1) done for all 12; it re-shapes B1/B3.** Sizing: ~3–6 distinct
+auto-features/class, but monk/paladin ~10, druid/sorcerer/wizard ~2–3, warlock ≈ 0 (all selections). The
+registry/compiler must also handle: use-counts from **non-level sources** (ability-mod, formula, level
+itself); **class-wide resource pools** (ki/sorcery/Lay-on-Hands — their own mechanism, B3, not per-feature
+frequency); summaries that interpolate the **build context** (save DC, ability bonuses, user selections);
+**multi-part features** (compile → a seq of modifiers); **attribute interdependence** (`?martial-arts-die`,
+`?paladin-aura`, `?wild-shape-cr`). Extraction order: clean classes first (fighter/rogue, then
+bard/cleric/wizard); defer monk/paladin/druid; warlock barely participates. (`class-feature-catalogue.md`.)
+
+**D27 — Spell slots: replace the overloaded `:level-factor` with a bucket of tables + a declared
+multiclass rule.** One integer currently drives the solo slot table AND the multiclass contribution
+(`int(level/factor)`) AND the prepared count — which is why Artificer can't be expressed and why
+undocumented factors 4/5/6 exist. Decouple into: (1) a **bucket of named/explicit slot tables**, authored
+as an **absolute per-level grid** (the app converts; presets seed the grid); (2) a **separately-declared
+multiclass rule** (`:full|:half|:third|:none|:separate`); (3) its own prepared/known count. `:separate`
+(pact) schedules own their pool + recharge (→ B3), generalizing warlock's hardcoded branch. (`spell-slot-progression.md`.)
+
+**D28 — Non-SRD content (e.g. Artificer) is never shipped pre-built; it must be user-assembled from
+generic tools, and expressiveness is validated with a SYNTHETIC stand-in, never a copyrighted fixture.**
+The dead `ua_artificer.cljc` is a *capability witness* (the primitives suffice), not a shippable start.
+Same rule as Maneuvers/Mariner. Infusions ≈ a **scaling, swappable, item-granting pool** — the warlock
+invocation pattern (`eldritch-invocation-selection`) generalized + magic-item reuse — so Artificer is a
+forcing function for the pool/grant + B3 + spell-slot work, not a special case.
+
+**D29 — OPEN (the one unresolved decision): the grant approach.** The Phase-2 `grant-selection`
+bridge prototype (`c1f54967`, `options.cljc:3447`) is a **generic** grant compiler (generic `:tags`, no
+`:ref`). The Phase-1 **D17 audit decided against** a generic wrapper — point existing per-feature
+`selection-cfg` constructors at **open pools**, preserving their load-bearing `:ref`/`:tags`; the
+hand-wired draconic grant is the thing to generalize. These are two approaches to one goal. Per D23, this
+must be **decided and converged**, not left forked: pick one, migrate to it, jettison the other. Until
+then, build no further on `grant-selection`. **Recommendation:** D17's open-pool approach (preserves the
+`:ref`/`:tags` the engine relies on); fold the prototype's cross-bucket intent into it.

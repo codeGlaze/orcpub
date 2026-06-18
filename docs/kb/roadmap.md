@@ -39,6 +39,9 @@ loops because decisions lived in two parallel trackers; this is the one that sup
   `class-feature-catalogue.md`, `spell-slot-progression.md`).
 
 ### DECIDED (design settled; don't re-litigate)
+> Canonical log: `content-extensibility-decisions.md` — D1–D22 (content track) and **D23–D29**
+> (this expansion: prototype-then-converge governance, the class-feature registry, `compile-feature`,
+> the catalogue, the spell-slot bucket, non-SRD/synthetic-validation, and the open grant question).
 - **Pool + grant is the spine** (`direction.md`). Abstraction earns its keep only if thicker than what
   it hides + intent-revealing (no cryptic DSL). Maintainability **gate**: register a pool once → grantable
   in every builder (O(1) to expose; D21).
@@ -79,7 +82,7 @@ loops because decisions lived in two parallel trackers; this is the one that sup
 - **E. Generated builder UI from declarations** — last; rides a now-uniform substrate.
 
 ## Flagged conflicts (need a call — do not silently resolve)
-1. **`grant-selection` (`c1f54967`) vs D17.** My Phase-2 bridge prototype is a *generic* grant compiler
+1. **`grant-selection` (`c1f54967`) vs D17 — logged as D29.** My Phase-2 bridge prototype is a *generic* grant compiler
    with generic `:tags #{:grant from}` and no `:ref`. Phase-1's D17 audit decided **against** a generic
    wrapper, in favor of pointing existing per-feature selections at open pools while preserving their
    `:ref`/`:tags`. These are two different approaches to the same goal. **Recommendation:** treat D17 as
