@@ -37,6 +37,21 @@ loops because decisions lived in two parallel trackers; this is the one that sup
   (`0618ab8c`/`8c65f420`).
 - **Per-class catalogue** (C1, all 12) + **spell-slot-progression** analysis (`b8920f4f`/`355f8cee`,
   `class-feature-catalogue.md`, `spell-slot-progression.md`).
+- **Spell-slot computation** characterized (`spell_slot_characterization_test`): full/half/pact singles,
+  two-caster pooling, warlock-not-pooling — confirmed the analysis against the real build.
+- **Grant vocabularies** characterized across both layers: A (cljc) `grant_vocabulary_characterization_test`,
+  B (cljs harness) `grant_vocabulary_cljs_test` — shared `mod5e/*` primitive + B is level-gated (D31).
+- **AC stack** deepened (`ac_characterization_test`): armored dex-cap-by-type + shield, two-unarmored-defense
+  tie-break, tortle/lizardfolk natural-AC duplication; surfaced the `:max-dex-mod`-ignored + cljs-nil-add findings.
+- **.orcbrew round-trip** (`orcbrew_round_trip_test`): EDN export→import is lossless (real fixture + rich class).
+
+> **Round-trip coverage map** (so it isn't re-discovered): EDN serialization fidelity →
+> `orcbrew_round_trip_test` (JVM, new); validate-import parse + clean-pack-unchanged → `import-validation-test`
+> (`test-import-all-or-nothing-valid` asserts `= plugin (:data result)`); auto-clean transforms →
+> same; key-conflict reconciliation → `content-reconciliation-test`; build-after-import (homebrew → character)
+> → `draconic-ancestry-test`/`dragonborn-ancestry-e2e-test`; character strict round-trip + key survival →
+> `extensibility-golden-test`. **Foundation (F) is now essentially complete** — the load-bearing computations
+> and the round-trip are test-backed across both layers.
 
 ### DECIDED (design settled; don't re-litigate)
 > Canonical log: `content-extensibility-decisions.md` — D1–D22 (content track) and **D23–D29**
