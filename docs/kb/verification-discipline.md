@@ -73,7 +73,8 @@ The question "is the upgrade equivalent / better / preserving the good?" is answ
 - **Compare to literally pre-branch** by running the characterization at the merge-base commit
   (`980cc790`): green there = a true baseline; any divergence on the branch is then attributable.
 - **What a behavior test can't compare** (design/maintainability — "one vocabulary vs two,"
-  "fewer files") is compared by (a) the shown chain (so the structural claim is checkable) and
+  or **fewer files *touched per change*** — NOT fewer files in the tree; monoliths are not the
+  goal) is compared by (a) the shown chain (so the structural claim is checkable) and
   (b) a falsifiable *effort* test — e.g. "expose a second pool in ~1 line, shown in a commit"
   (D21). Even "easier to extend" becomes falsifiable, not prose.
 - **Honest limit:** a characterization only protects what it covers. Narrow coverage → silent
