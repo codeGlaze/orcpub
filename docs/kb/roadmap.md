@@ -52,6 +52,13 @@ loops because decisions lived in two parallel trackers; this is the one that sup
 > → `draconic-ancestry-test`/`dragonborn-ancestry-e2e-test`; character strict round-trip + key survival →
 > `extensibility-golden-test`. **Foundation (F) is now essentially complete** — the load-bearing computations
 > and the round-trip are test-backed across both layers.
+>
+> **Import internals (authoritative; live on `agents/develop`, not this fork line):**
+> `docs/ORCBREW_IMPORT_DEEP_DIVE.md` (two-phase cleaning, nil semantics — semantic nils preserved, numeric
+> removed) and `docs/kb/error-handling-import-validation.md` (progressive recovery: invalid items skip +
+> log; reconciliation; export pre-validation). KEY REFINEMENT to the round-trip: it's lossless only for
+> CLEAN EDN; the import *intentionally transforms* malformed/partially-invalid input (cleaning is a
+> feature). Surface these when split-committing docs to `agents/develop`.
 
 ### DECIDED (design settled; don't re-litigate)
 > Canonical log: `content-extensibility-decisions.md` — D1–D22 (content track) and **D23–D29**

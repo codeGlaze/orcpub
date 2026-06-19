@@ -10,6 +10,15 @@
    (draconic-ancestry-test). JVM/.clj so slurp + clojure.edn stay off the cljs path and it runs under
    the `lein test` gate.
 
+   IMPORTANT SCOPE (insight from agents/develop import docs): the round-trip is lossless only for CLEAN,
+   valid EDN. Real-world .orcbrew files are often malformed, and the import path *intentionally
+   transforms* them — two-phase cleaning (string-level: trailing commas, `disabled? nil`; structure-level:
+   selective nil handling where SEMANTIC nils like `:spell-list-kw` are PRESERVED but numeric nils removed)
+   + progressive recovery (invalid items skipped + logged). So a round-trip of malformed/partially-invalid
+   content is deliberately NOT identity — that cleaning is a feature, not a fidelity loss. Authoritative
+   internals live on `agents/develop`: `docs/ORCBREW_IMPORT_DEEP_DIVE.md` (cleaning architecture, nil
+   semantics) and `docs/kb/error-handling-import-validation.md` (progressive recovery, reconciliation).
+
    NOTE on (str m): for a Clojure map, (str m) == (pr-str m) (both emit the print-readable EDN form,
    strings quoted), so using either to mirror export is equivalent."
   (:require [clojure.test :refer [deftest testing is]]
