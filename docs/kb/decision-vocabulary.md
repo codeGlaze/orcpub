@@ -141,10 +141,23 @@ remembered). It validates every point above:
     (`spell_subs.cljs:392`) `(group-by :level …)` places it at that class level ("gain X at level N"). So
     B can express level progression and A cannot. The value-shape difference (A map-of-flags via
     `collect-map-modifiers`; B single value + `:level`) reflects this — it is not arbitrary.
-  - **Better:** factor out ONE shared effect vocabulary (the type→`mod5e/*` arms, once) used by BOTH a
-    flat path and a level-gated path, or generalize to "effect + optional level/condition." NOT collapse
-    to one compiler (loses the gating). (The "vocabulary A/B" labels are this KB's framing, not source
-    comments — those comments were added by this work.)
+  - **Different LAYERS (verified):** A is **cljc** (`options.cljc`); B is **cljs** (`spell_subs.cljs`).
+    So unifying is a cross-layer refactor, not a two-`case` merge: the shared effect vocabulary must live
+    in cljc and be consumed by both the cljc (A) and cljs (B) assembly paths.
+  - **Now TEST-BACKED (both layers), not prose:**
+    - vocab A — `grant_vocabulary_characterization_test.clj` (JVM): `:props :damage-resistance` compiles
+      to the same modifier as `mod5e/damage-resistance`; A's value shape is a map-of-flags that fans out.
+    - vocab B — `grant_vocabulary_cljs_test.cljs` (headless cljs harness): `level-modifier
+      :damage-resistance` compiles to the **same** `mod5e/damage-resistance` modifier (shared primitive,
+      confirmed on the cljs side); `make-levels` places a `:level 3` modifier at level 3 and a `:level 1`
+      at level 1, nothing at level 2 (level-gating confirmed). Run via `lein fig:test` + `/tmp/pw/run-cljs-tests.js`
+      (cljs-headless-harness.md); ns added to `test_runner.cljs`.
+    - the entity-level gating of a `:levels` map (a modifier at level N applies at/after N) is separately
+      pinned under JVM by `class-feature-snapshot-test` (fighter Indomitable @9, absent @5).
+  - **Better:** factor out ONE shared effect vocabulary (the type→`mod5e/*` arms, once, in cljc) used by
+    BOTH a flat path and a level-gated path, or generalize to "effect + optional level/condition." NOT
+    collapse to one compiler (loses the gating). (The "vocabulary A/B" labels are this KB's framing, not
+    source comments — those comments were added by this work.)
 
 ### `:level-selections` → `level-selection` — TEXT-trait choices only ⚠️
 - `spell_subs.cljs:341`. Homebrew class/subclass level-selections resolve a `:type` to a homebrew

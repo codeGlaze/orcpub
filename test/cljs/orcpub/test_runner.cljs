@@ -10,7 +10,8 @@
             [orcpub.dnd.e5.draconic-ancestry-test]
             [orcpub.dnd.e5.dragonborn-ancestry-e2e-test]
             [orcpub.dnd.e5.simple-content-builder-test]
-            [orcpub.dnd.e5.import-validation-test]))
+            [orcpub.dnd.e5.import-validation-test]
+            [orcpub.dnd.e5.grant-vocabulary-cljs-test]))
 
 (defn -main []
   (run-tests 'orcpub.dnd.e5.event-utils-test
@@ -21,7 +22,8 @@
              'orcpub.dnd.e5.draconic-ancestry-test
              'orcpub.dnd.e5.dragonborn-ancestry-e2e-test
              'orcpub.dnd.e5.simple-content-builder-test
-             'orcpub.dnd.e5.import-validation-test))
+             'orcpub.dnd.e5.import-validation-test
+             'orcpub.dnd.e5.grant-vocabulary-cljs-test))
 
 ;; Auto-run when figwheel reloads
 (defn ^:after-load on-reload []

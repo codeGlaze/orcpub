@@ -43,12 +43,10 @@
            (sans-fn (opt5e/plugin-modifiers {:speed 10} :t))))))
 
 ;; ---------------------------------------------------------------------------
-;; SCOPE / honest limit (verified): vocabulary B (`level-modifier` + `make-levels`) lives in
-;; `spell_subs.cljs` (ClojureScript), so its level-gated assembly is NOT reachable from this JVM gate.
-;; - The SHARED-PRIMITIVE half of D31 is pinned above for A; B's arms call the same `mod5e/*` (source).
-;; - The LEVEL-GATING MECHANISM (a modifier placed at level N applies at/after N, not before) is
-;;   already pinned under JVM by class-feature-snapshot-test (fighter Indomitable @9, absent @5).
-;; - What remains cljs-only is vocab B ASSEMBLING homebrew `:level-modifiers` INTO that structure
-;;   (`make-levels` group-by :level). Characterizing that directly needs the headless cljs harness
-;;   (cljs-headless-harness.md) — flagged, not faked.
+;; SCOPE: vocabulary B (`level-modifier` + `make-levels`) lives in `spell_subs.cljs` (ClojureScript), so
+;; its level-gated assembly is not reachable from THIS JVM gate — it is characterized in the cljs harness
+;; instead: see `test/cljs/orcpub/dnd/e5/grant_vocabulary_cljs_test.cljs` (level-modifier shares the same
+;; mod5e/* primitive proven here for A; make-levels places a :level-3 modifier at level 3). The
+;; entity-level gating of a :levels map is separately pinned by class-feature-snapshot-test (Indomitable
+;; @9). So both halves of D31 are test-backed across both layers.
 ;; ---------------------------------------------------------------------------

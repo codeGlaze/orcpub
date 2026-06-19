@@ -375,5 +375,7 @@ rule): `grant_vocabulary_characterization_test.clj` pins, under the JVM gate, th
 compiles to the *same* `mod5e/damage-resistance` modifier B uses (shared primitive) and that A's value
 shape is a map-of-flags. B's arms call the same `mod5e/*` (source-verified, `spell_subs.cljs:177`), and the
 level-gating *mechanism* is already pinned by `class-feature-snapshot-test` (fighter Indomitable @9, absent
-@5); what stays cljs-only — and would need the headless harness to characterize — is B *assembling*
-homebrew `:level-modifiers` into the level structure (`make-levels`).
+@5). B's cljs assembly is now ALSO pinned — `grant_vocabulary_cljs_test.cljs` (run in the headless cljs
+harness) shows `level-modifier` compiles `:damage-resistance` to the same `mod5e/*` modifier and
+`make-levels` places a `:level 3` modifier at level 3 (level 1 at 1, nothing at 2). So both halves of D31
+are test-backed across both layers; nothing here is prose-only anymore.
