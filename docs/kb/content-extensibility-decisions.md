@@ -271,6 +271,11 @@ mechanism, then **run with it** — slowly upgrading the codebase to that standa
 anything that doesn't fit**. So open questions (e.g. the grant approach, D29) are expected mid-prototype;
 the deliverable is a decision + convergence, not a permanent fork. Corollary: every decision below is
 provisional until "fully understood," and the loser of a competing-approach decision is removed, not kept.
+**Clarification (user, 2026-06-19) — don't over-rotate into purge-zealotry.** Parallel/duplicate models
+DURING testing are fine and expected — that's what prototyping is — *as long as each is clearly marked*
+(a comment/flag) so it can be cleaned, updated, or removed later. Cleanup follows a DECISION; it does not
+precede one. Do not delete a model just because another looks like it's winning. "Jettison what doesn't
+fit" is the *end* state after deciding, not an in-flight reflex.
 
 **D24 — Class features → one keyed, filterable registry; pools are filtered views over it.** Not
 per-feature pools (category mismatch) and not whole level tables. An editable reference is a **key +
@@ -316,6 +321,33 @@ bridge prototype (`c1f54967`, `options.cljc:3447`) is a **generic** grant compil
 `:ref`). The Phase-1 **D17 audit decided against** a generic wrapper — point existing per-feature
 `selection-cfg` constructors at **open pools**, preserving their load-bearing `:ref`/`:tags`; the
 hand-wired draconic grant is the thing to generalize. These are two approaches to one goal. Per D23, this
-must be **decided and converged**, not left forked: pick one, migrate to it, jettison the other. Until
-then, build no further on `grant-selection`. **Recommendation:** D17's open-pool approach (preserves the
-`:ref`/`:tags` the engine relies on); fold the prototype's cross-bucket intent into it.
+must be **decided and converged**, not left forked: pick one, migrate to it, jettison the other.
+(Per the D23 clarification, the `grant-selection` prototype can REMAIN as a clearly-marked parallel while
+we test — it already carries "BRIDGE PROTOTYPE" comments — rather than being deleted pre-decision.)
+**Recommendation:** D17's open-pool approach (preserves the `:ref`/`:tags` the engine relies on); fold the
+prototype's cross-bucket intent into it.
+
+**D30 — There is no pre-existing "grant" in the project; "grant" earns its keep only as a thin compiler
+to the existing primitives, not a parallel selection engine.** Verified (callers, not comments): the
+original vocabulary is `mod5e/*` modifiers (fixed grants — D4), `:props`→`plugin-modifiers`→
+`make-feat-modifiers` (declarative fixed mechanics, run for feats/races/subraces/classes/subclasses/
+ancestries via `spell_subs.cljs:144/157/457/491/779`), and `selection-cfg` (choices, carrying load-bearing
+`:ref`/`:tags`). "Grant" is branch-introduced. **Verdict (per D12):** the grant *idea* — a data declaration
+that compiles to a `selection-cfg` over an OPEN pool, preserving `:ref`/`:tags` — is a **beneficial wrapper**
+(thicker: adds openness + author-declarability + filtering that don't exist today). The `grant-selection`
+*implementation as built* (generic `:tags #{:grant from}`, no `:ref`) is **parallel duplication** of
+`selection-cfg`, worse (drops the metadata). Resolution: grant = thin compiler to the existing primitives;
+the value is openness + O(1) authoring + deleting hardcoded vectors, NEVER a second selection engine.
+
+**D31 — The two declarative vocabularies (A `:props`/`make-feat-modifiers`, B `:level-modifiers`/
+`level-modifier`) are accreted duplication, not a useful distinction — consolidate to one.** VERIFIED by
+reading both compilers (decision-vocabulary.md updated): for the ~9 shared keys both emit the *same*
+`mod5e/*` call; the only difference is value SHAPE (A map-of-flags via `collect-map-modifiers`; B single
+value); **B does no level-gating** (`level-modifier` is a plain `case`, structurally identical to A), so
+neither has a capability the other couldn't. Target: one effect vocabulary + one value convention shared by
+every silo; level-gating is a wrapper, not a second compiler. **Same smell, smaller scale: `:lizardfolk-ac`
+and `:tortle-ac`** (`options.cljc:3332/3339`) are two bespoke natural-AC functions where one parameterized
+`:natural-ac` prop arm (base / +dex with cap / +shield) should serve both and delete them. These are the
+model of "better": a parameterized declarative handler that compiles to the existing engine and replaces
+duplicates — not a parallel layer. (Correction logged: an earlier turn cited these AC fns as a *virtuous*
+code-escape-hatch; they are duplication. The escape-hatch principle is real, but these aren't an instance of it.)

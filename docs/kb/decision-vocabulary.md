@@ -130,6 +130,20 @@ remembered). It validates every point above:
   senses, the spell-choice templates. So the *same* capability lives in two places with uneven
   reach — one grants a spell, the other a language, neither both. This drift (rushed dev) is the
   "built different" inconsistency; unifying the two vocabularies is a prime sustainability target.
+- **✅ VERIFIED (read both compilers, 2026-06-19): the divergence is NOT a useful distinction —
+  it's accreted duplication + an input-convention inconsistency.** For the ~9 shared keys both emit
+  the *same* `mod5e/*` call (a difference without a distinction). The one real difference is the
+  value SHAPE, not behavior: A takes a **map-of-flags** and fans out (`collect-map-modifiers`, e.g.
+  `:damage-resistance {:fire true :cold true}`); B takes a **single value**
+  (`{:type :damage-resistance :value :fire}`). Critically, **B does NO level-gating** —
+  `level-modifier` (`spell_subs.cljs:173`) is a plain `(case type → modifier)`, structurally identical
+  to `make-feat-modifiers`; any level-gating comes from *placement* in the class `:levels` map, which A
+  also gets (classes/subclasses already run `:props` through A, `spell_subs.cljs:457/491`). So neither
+  vocabulary has a capability the other couldn't have; the non-overlapping keys are accreted, not
+  principled. **Better:** one effect vocabulary + one value convention shared by every silo; level-gating
+  (if needed) is a wrapper/parameter, not a second compiler. (Note: the "vocabulary A/B" labels are this
+  KB's framing, not source comments — the source comments at `options.cljc:3311`/`spell_subs.cljs:163`
+  were added by this work.)
 
 ### `:level-selections` → `level-selection` — TEXT-trait choices only ⚠️
 - `spell_subs.cljs:341`. Homebrew class/subclass level-selections resolve a `:type` to a homebrew
