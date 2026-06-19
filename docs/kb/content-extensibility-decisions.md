@@ -365,3 +365,15 @@ and `:tortle-ac`** (`options.cljc:3332/3339`) are two bespoke natural-AC functio
 model of "better": a parameterized declarative handler that compiles to the existing engine and replaces
 duplicates — not a parallel layer. (Correction logged: an earlier turn cited these AC fns as a *virtuous*
 code-escape-hatch; they are duplication. The escape-hatch principle is real, but these aren't an instance of it.)
+
+**D31 follow-up (verified, 2026-06-19): the two vocabularies are in DIFFERENT LAYERS, and the shared half
+is now pinned by a test.** Vocab A (`make-feat-modifiers`/`plugin-modifiers`) is **cljc** (`options.cljc`);
+vocab B (`level-modifier`/`make-levels`) is **cljs** (`spell_subs.cljs`). So unifying them isn't a
+two-`case` merge — it's a cross-layer refactor (the shared effect vocabulary would need to live in cljc and
+be consumed by both the cljc and the cljs assembly paths). Test coverage of the claim (per the standing
+rule): `grant_vocabulary_characterization_test.clj` pins, under the JVM gate, that A's `:damage-resistance`
+compiles to the *same* `mod5e/damage-resistance` modifier B uses (shared primitive) and that A's value
+shape is a map-of-flags. B's arms call the same `mod5e/*` (source-verified, `spell_subs.cljs:177`), and the
+level-gating *mechanism* is already pinned by `class-feature-snapshot-test` (fighter Indomitable @9, absent
+@5); what stays cljs-only — and would need the headless harness to characterize — is B *assembling*
+homebrew `:level-modifiers` into the level structure (`make-levels`).
