@@ -3445,21 +3445,29 @@
      key (assoc :key key))))
 
 (defn grant-selection
-  "GENERIC cross-bucket grant. Given `:grant {:from <pool-key> :choose N}` data and a
-   `grantable-pools` registry ({pool-key {:name … :options [...]}}), produce a choice of N
-   options from that pool. Pool-agnostic AND owner-agnostic — this one hook replaces a
-   per-capability hook like the old feat-fighting-style-selection, so any bucket (feat,
-   background, race, subclass) grants from any pool with the same `:grant` data + this fn.
-   Nests naturally (no :ref), matching the feat spell-template sub-selections."
-  [{:keys [from choose] :or {choose 1}} grantable-pools]
+  "GENERIC cross-bucket grant. Given `:grant {:from <pool-key> …}` data and a `grantable-pools`
+   registry ({pool-key {:name … :options [...]}}), produce a choice from that pool. Four modes:
+     {:from p}                 -> ALL entries (choose N, default 1)
+     {:from p :filter #{…}}    -> a FILTERED subset (entries whose ::t/key is in the set)
+     {:from p :key :k}         -> a SPECIFIC entry (a forced single-option choice)
+     (custom entry)            -> the pool already includes homebrew entries, so {:from p} grants them too
+   Pool-agnostic AND owner-agnostic — one hook serves feat/background/race/subrace/class/subclass."
+  [{:keys [from choose key] flt :filter :or {choose 1}} grantable-pools]
   (when-let [{:keys [name options]} (get grantable-pools from)]
-    (t/selection-cfg
-     {:name name
-      :tags #{:grant from}
-      :multiselect? true
-      :min choose
-      :max choose
-      :options options})))
+    (let [opts (cond->> options
+                 flt (filter (fn [o] (contains? flt (::t/key o))))
+                 key (filter (fn [o] (= key (::t/key o)))))
+          n    (if key 1 choose)]
+      ;; NO :ref — a nested grant (inside an owner's :selections) resolves by NESTING; a top-level
+      ;; :ref breaks that addressing (verified: adding one zeroed a feat-granted style's mechanic).
+      ;; Top-level grants (e.g. a class's own fighting-style) carry a :ref via their own constructor.
+      (t/selection-cfg
+       {:name name
+        :tags #{:grant from}
+        :multiselect? true
+        :min n
+        :max n
+        :options opts}))))
 ;; ─── end bridge prototype (part 1) ──────────────────────────────────────────────
 
 (defn feat-option-from-cfg

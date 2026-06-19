@@ -30,6 +30,15 @@ loops because decisions lived in two parallel trackers; this is the one that sup
 ### BUILT — Phase 2 (this session)
 - Cross-bucket grant **bridge prototype** `grant-selection` (`c1f54967`, `options.cljc:3447`) + feat→
   fighting-style e2e (`8c8c0b10`/`a4c34f3c`). **⚠️ see Flagged conflict #1 — this may diverge from D17.**
+- **Grant-matrix proof (in progress) — the 4 modes built + the feat silo proven end-to-end.**
+  `grant-selection` evolved to 4 modes: ALL (`{:from p}`), FILTERED (`:filter #{…}`), SPECIFIC (`:key :k`),
+  CUSTOM (homebrew entry in the pool). `fighting-style-grant-matrix-test` proves all 4 at compile level
+  AND end-to-end on the feat silo (a built character gets the right style's mechanic). **Verified finding:**
+  a NESTED grant must carry NO top-level `:ref` (adding one zeroed a feat-granted style's mechanic — the
+  test caught it); top-level grants (a class's own fighting style) carry a `:ref` via their own constructor.
+  **Remaining for the 6×4 matrix (next increment):** the other 5 silos (background, race, subrace, built-in
+  class, custom class, subclass) — each is the same one-line `:grant` hook + a build test; the compiler is
+  silo-agnostic (already proven bucket-agnostic).
 - AC characterization test + model doc (`7b7f3b3a`/`68f42e77`, `armor-class-computation.md`).
 - **Class-feature regression net** — all **12** classes baselined + fighter/rogue detail
   (`cc7cd171`…`b258639e`, `class_feature_snapshot_test.clj`).
