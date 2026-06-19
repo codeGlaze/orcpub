@@ -14,6 +14,9 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.classes :as classes5e]
+            [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.modifiers :as mod5e]
+            [orcpub.dnd.e5.armor :as armor5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.weapons :as weapons5e]
@@ -82,3 +85,63 @@
           "single-class Barbarian Unarmored Defense: 10 + Dex(2) + Con(3) = 15")
       (is (= 12 (:unarmored (ac-breakdown :fighter)))
           "Fighter has no unarmored defense: 10 + Dex(2) = 12"))))
+
+;; ===========================================================================
+;; DEEPER AC characterization (traced up+down):
+;; - the displayed AC = `?armor-class-with-armor` applied to worn/best armor (subs.cljs:760-786);
+;;   the LOGIC is the cljc fn, so invoking it directly characterizes the model.
+;; - the model (template_base.cljc:79): (apply max base + each ?ac-fn) then + each ?ac-bonus-fn.
+;; JVM-ism (verification-discipline lesson 5): the armored branch does (+ … (::mi5e/magical-ac-bonus
+;; armor) …); non-magical armor has no such key -> nil. cljs treats nil as 0 in (+ ), JVM NPEs, so
+;; armor maps here carry an explicit magical-ac-bonus 0 (the numeric result is identical to cljs).
+;; ===========================================================================
+
+(def ^:private mag0 #:orcpub.dnd.e5.magic-items{:magical-ac-bonus 0})
+(defn- armor-by [k] (merge (first (filter #(= k (:key %)) armor5e/armor)) mag0))
+
+(defn- ac-fn-of [class-key]
+  (char5e/armor-class-with-armor (entity/build (level-1-of class-key) test-template)))
+
+(deftest armored-ac-characterization
+  (testing "Fighter (Dex 14) — the armored branch: base-ac + dex capped BY ARMOR TYPE (not the armor's :max-dex-mod field)"
+    (let [ac (ac-fn-of :fighter)]
+      (is (= 13 (ac (armor-by :leather) nil))    "light: 11 base + full Dex(2)")
+      (is (= 16 (ac (armor-by :scale-mail) nil)) "medium: 14 base + min(2,Dex)")
+      (is (= 16 (ac (armor-by :chain-mail) nil)) "heavy: 16 base + 0 Dex")
+      (is (= 18 (ac (armor-by :chain-mail) {:type :shield})) "heavy + shield(+2)")
+      (is (= 14 (ac nil {:type :shield}))        "no armor + shield: 10 + Dex(2) + 2"))))
+
+(defn- monk-barb-multiclass []
+  {:orcpub.entity/options
+   {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value abilities}
+    :class [{:orcpub.entity/key :monk
+             :orcpub.entity/options {:levels [{:orcpub.entity/key :level-1
+                                               :orcpub.entity/options {:hit-points {:orcpub.entity/key :average :orcpub.entity/value 4}}}]}}
+            {:orcpub.entity/key :barbarian
+             :orcpub.entity/options {:levels [{:orcpub.entity/key :level-1
+                                               :orcpub.entity/options {:hit-points {:orcpub.entity/key :average :orcpub.entity/value 4}}}]}}]}})
+
+(deftest two-unarmored-defenses-tie-break
+  (testing "monk + barbarian both grant Unarmored Defense; the (first ?unarmored-defense) gate picks ONE ability adder"
+    ;; Con 16 (+3) and Wis 16 (+3) are equal here, so the AC is the same number either way; the point
+    ;; is the gate resolves to a single source rather than stacking BOTH (+3+3). 10 + Dex(2) + one(+3) = 15.
+    (let [built (entity/build (monk-barb-multiclass) test-template)
+          ac    ((char5e/armor-class-with-armor built) nil nil)]
+      (is (= 15 ac) "ONE unarmored bonus applies (15), not both stacked (would be 18)"))))
+
+;; Natural-AC vocabulary A (:props) — VERIFIED the tortle/lizardfolk DUPLICATION (D31 / the user's call):
+;; two bespoke arms, each emitting a ?natural-ac-bonus AND its own ?armor-class-with-armor override.
+(defn- props-mod-keys [props]
+  (->> (opt5e/plugin-modifiers props :t) (map :orcpub.modifiers/key) set))
+
+(deftest natural-ac-props-are-duplicated-bespoke
+  (testing ":lizardfolk-ac and :tortle-ac each emit a natural-ac-bonus + an armor-class-with-armor override"
+    (let [liz (props-mod-keys {:lizardfolk-ac true})
+          tor (props-mod-keys {:tortle-ac true})]
+      (is (contains? liz :natural-ac-bonus))
+      (is (contains? liz :armor-class-with-armor))
+      (is (= liz tor) "same shape, two hand-written arms — one parameterized :natural-ac handler should replace both")
+      ;; the natural-ac channel they feed is the SAME one the sorcerer Draconic Bloodline uses
+      ;; (classes.cljc:2270 `(mod/modifier ?natural-ac-bonus 3)`) — verified by source, shared channel.
+      (is (= [:natural-ac-bonus] (map :orcpub.modifiers/key [(mod5e/natural-ac-bonus 3)]))
+          "the shared primitive channel is ?natural-ac-bonus"))))

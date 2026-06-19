@@ -4,6 +4,34 @@ How AC is calculated, the channels a feature can plug into, and what that means 
 custom AC (natural armor, unarmored defense). Markers: **VERIFIED** = read from code,
 file:line cited. **DESIGN** = proposal, not built.
 
+## Verified behavior — TEST-BACKED (`ac_characterization_test.clj`, JVM)
+The model below is pinned by characterization tests (built characters + direct `?armor-class-with-armor`
+invocation), so the numbers are the real ones, not prose:
+- **Unarmored:** fighter 10+Dex(2)=12; monk 10+Dex+Wis=15; barbarian 10+Dex+Con=15.
+- **Armored (fighter, Dex 14):** leather (light) 13 = 11+full Dex; scale mail (medium) 16 = 14+min(2,Dex);
+  chain mail (heavy) 16 = 16+0 Dex; chain mail + shield 18; no-armor + shield 14.
+- **Two Unarmored Defenses (monk + barbarian):** the `(first ?unarmored-defense)` gate applies **one**
+  ability adder (AC 15), it does **not** stack both (which would be 18).
+- **Natural-AC `:props` duplication:** `:lizardfolk-ac` and `:tortle-ac` emit the *same shape* — a
+  `?natural-ac-bonus` + a bespoke `?armor-class-with-armor` override (one parameterized `:natural-ac`
+  handler should replace both); they feed the same `?natural-ac-bonus` channel the sorcerer Draconic
+  Bloodline uses (`classes.cljc:2270`).
+
+**Two findings surfaced by the test (verified):**
+1. **Dex cap is by armor TYPE, not the armor's `:max-dex-mod` field.** `?armor-dex-bonus` keys off
+   `(:type armor)` (light/medium/heavy → full/min-2/0); the `:max-dex-mod` value present on each armor in
+   `armor.cljc` is **ignored** by the AC fn. Consistent for SRD armor (medium=2, heavy=0), but a homebrew
+   armor with a non-standard `:max-dex-mod` would not be honored.
+2. **The armored branch relies on cljs nil-arithmetic.** It does `(+ … (::mi5e/magical-ac-bonus armor) …)`;
+   non-magical armor lacks that key → `nil`. cljs treats `nil` as 0 in `+` (so production is fine); under
+   the JVM that NPEs, so the test supplies an explicit `magical-ac-bonus 0`. A JVM-ism to be aware of
+   (verification-discipline lesson 5).
+
+**The "up" trace (how the displayed AC picks armor) — VERIFIED:** `?armor-class-with-armor` is the logic;
+the cljs sub `::current-armor-class` (`subs.cljs:769`) calls it with the **worn** armor/shield, else falls
+back to `::best-armor-combo` (`:760`) which takes `(max-key :ac …)` over every owned armor×shield combo
+(incl. nil). So the cljc fn is the whole computation; the cljs layer only chooses which armor to feed it.
+
 ## The model — VERIFIED (`template_base.cljc:35-88`)
 AC is computed per equipped armor/shield combination, layered:
 
