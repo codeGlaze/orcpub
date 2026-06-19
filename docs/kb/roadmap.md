@@ -97,9 +97,9 @@ loops because decisions lived in two parallel trackers; this is the one that sup
 - **History (superseded — read as "what was tried"):** `content-extensibility.md`, `-plan.md`.
 - **Topic detail:** decision-vocabulary · homebrew-content-merge · spell-granting-across-silos ·
   spell-slot-progression · declarative-grant-vocabulary · class-features-and-mechanization ·
-  class-feature-catalogue · armor-class-computation · runtime-toggles-and-conditional-modifiers ·
-  built-character-representation · character-validation · cljs-headless-harness · test-suite-state ·
-  verification-discipline · datomic-crash-analysis.
+  class-feature-catalogue · building-a-class-from-builders · armor-class-computation ·
+  runtime-toggles-and-conditional-modifiers · built-character-representation · character-validation ·
+  cljs-headless-harness · test-suite-state · verification-discipline · datomic-crash-analysis.
 
 ## Critical path
 1. **Resolve conflict #1** (grant approach) — it gates all further grant work.
