@@ -43,6 +43,43 @@ you haven't verified as unverified.**
    from the surface rather than verified, say "unverified" instead of "the code is fine"
    / "the code is broken."
 
+8. **Reading the leaf is not reading the feature — walk UP to the caller and DOWN to the
+   primitive before claiming behavior.** *Misses (this session, both stamped "VERIFIED"
+   from a single-function read, both wrong, both caught by the user forcing the trace):*
+   (a) `compile-feature` — I read the cfg and missed that `?class-level` is resolved at
+   build time by the entity-spec (`template_base.cljc:125`), not a plain value. (b) Grant
+   vocabulary B — I read `level-modifier` (a plain `case`, no level logic) and concluded
+   "B does no level-gating"; the gating lives in the *caller* `make-levels`
+   (`spell_subs.cljs:392`, `(group-by :level …)`), so B *is* level-gated. Note lesson 2
+   already said this in prose — and I still failed it. The durable fix is not "try harder";
+   it is to back behavioral claims with a **falsifiable test** that builds the real thing,
+   so a leaf-misread fails the test instead of shipping as a confident doc claim.
+
+## Comparing the existing codebase to a proposed upgrade (the method)
+
+The question "is the upgrade equivalent / better / preserving the good?" is answered by a
+**characterization test**, not by prose — and it does double duty:
+- **It checks my understanding of the OLD code.** You cannot assert the real output without
+  running the real code path, so writing it forces the up/down trace; if I mis-read the
+  existing code, the characterization fails against the *current* code *now* — not three
+  turns later. (This is the antidote to "your source understanding is suspect.")
+- **It is the BASELINE the upgrade must reproduce.** Comparison becomes mechanical:
+  - **Preserve** → the old characterization stays green against the new code (the good kept).
+  - **Change on purpose** → it goes red; the diff shows *exactly* what changed, and you
+    update the baseline deliberately (intended improvement vs regression is a decision, made
+    visible).
+  - **New capability** (old code couldn't do it) → no old behavior to match; the test asserts
+    the new thing works AND every old characterization stays green (added without breaking).
+- **Compare to literally pre-branch** by running the characterization at the merge-base commit
+  (`980cc790`): green there = a true baseline; any divergence on the branch is then attributable.
+- **What a behavior test can't compare** (design/maintainability — "one vocabulary vs two,"
+  "fewer files") is compared by (a) the shown chain (so the structural claim is checkable) and
+  (b) a falsifiable *effort* test — e.g. "expose a second pool in ~1 line, shown in a commit"
+  (D21). Even "easier to extend" becomes falsifiable, not prose.
+- **Honest limit:** a characterization only protects what it covers. Narrow coverage → silent
+  regressions outside it. So coverage must reach the load-bearing behavior *before* the refactor
+  it guards — which is precisely why "the foundation net gates refactors."
+
 ## The rule
 
 Before asserting a load-bearing claim — especially **"X is broken"** or **"X is fine"** —
@@ -50,3 +87,9 @@ ask: *have I verified this against the real callers, the intended behavior, and 
 the actual runtime — or am I reasoning from the surface?* If the latter, mark it
 **unverified** and go check before stating it as fact. The cost of the extra check is far
 lower than the cost of a confident wrong claim about someone's code.
+
+**Standing rule (always-on):** *Don't call it verified without walking it up and down and
+backing it with a falsifiable test (or showing the full caller→fn→primitive chain, file:line
+each). A single-function read is a hypothesis, not a finding.* Behavioral claims that the plan
+rests on become characterization tests, not prose; that test is simultaneously the check on my
+reading and the baseline an upgrade is compared against.
