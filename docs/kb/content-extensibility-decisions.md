@@ -339,13 +339,27 @@ that compiles to a `selection-cfg` over an OPEN pool, preserving `:ref`/`:tags` 
 `selection-cfg`, worse (drops the metadata). Resolution: grant = thin compiler to the existing primitives;
 the value is openness + O(1) authoring + deleting hardcoded vectors, NEVER a second selection engine.
 
-**D31 — The two declarative vocabularies (A `:props`/`make-feat-modifiers`, B `:level-modifiers`/
-`level-modifier`) are accreted duplication, not a useful distinction — consolidate to one.** VERIFIED by
-reading both compilers (decision-vocabulary.md updated): for the ~9 shared keys both emit the *same*
-`mod5e/*` call; the only difference is value SHAPE (A map-of-flags via `collect-map-modifiers`; B single
-value); **B does no level-gating** (`level-modifier` is a plain `case`, structurally identical to A), so
-neither has a capability the other couldn't. Target: one effect vocabulary + one value convention shared by
-every silo; level-gating is a wrapper, not a second compiler. **Same smell, smaller scale: `:lizardfolk-ac`
+**D31 — The two declarative vocabularies share an effect set (real duplication) but differ in
+application mode (a REAL distinction) — factor out the shared effects, keep both modes.**
+⚠️ **Corrected** (this entry first claimed "no useful distinction; B does no level-gating" — WRONG, see
+the methodology note). Traced up+down:
+- **Shared / duplicated:** the ~9 overlapping keys (weapon/skill/armor prof, resist/immunity, save-adv,
+  fly/swim speed) compile to the *same* `mod5e/*` primitive in both `make-feat-modifiers` (A) and
+  `level-modifier` (B) — verified down (both call e.g. `mod5e/damage-resistance`). The effect arms are
+  reimplemented in two `case`s. That redundancy is real.
+- **Distinct / load-bearing:** **application mode.** A (`:props`) is a **flat, unconditional** attribute
+  map ("this content has X"). B (`:level-modifiers`) is a **level-gated list** — each entry carries a
+  `:level`, and `make-levels` (`spell_subs.cljs:392`) `(group-by :level …)` places it at that class level
+  ("gain X at level N"). B can express level progression; A cannot. The value-shape difference
+  (A map-of-flags vs B single-value-with-`:level`) reflects this, it is not arbitrary.
+- **Better target (revised):** ONE shared effect vocabulary (the type→`mod5e/*` arms, defined once) used
+  by BOTH a flat path and a level-gated path — or generalize to "an effect + an optional level/condition."
+  NOT "collapse to one compiler" (that was the wrong conclusion — it would lose the level-gating).
+- *Methodology note (verification-discipline):* I read the leaf compile fn and asserted behavior without
+  tracing the caller that supplies the gating. Reading the leaf is not reading the feature — trace up to
+  the wrapper (here `make-levels`) and down to the primitive before concluding. The user caught this.
+
+**Same smell, smaller scale: `:lizardfolk-ac`
 and `:tortle-ac`** (`options.cljc:3332/3339`) are two bespoke natural-AC functions where one parameterized
 `:natural-ac` prop arm (base / +dex with cap / +shield) should serve both and delete them. These are the
 model of "better": a parameterized declarative handler that compiles to the existing engine and replaces
