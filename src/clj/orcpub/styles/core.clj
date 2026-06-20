@@ -1088,6 +1088,10 @@
      {:font-size (px 18)
       :font-weight :normal}]
 
+    ;; Caret lives in a sibling overlay (.builder-select-caret), NOT here as a
+    ;; background-image. A `background`/`background-color` shorthand on a <select>
+    ;; resets background-image:none and used to silently wipe the caret; the overlay
+    ;; can't be reset by anything set on the select. padding-right clears the overlay.
     [:.builder-option-dropdown
      {:background-color "#11161d"
       :color :white
@@ -1095,19 +1099,28 @@
       :cursor :pointer
       :border "1px solid rgba(255,255,255,0.1)"
       :border-radius "8px"
-      :padding "10px 34px 10px 12px"
+      :padding "10px 32px 10px 12px"
       :font-size "14px"
       :-webkit-appearance :none
       :-moz-appearance :none
-      :appearance :none
-      ;; inline SVG caret (no native arrow once appearance:none). Spaces are %20-encoded
-      ;; so Garden's CSS compression doesn't strip them and break the SVG.
-      :background-image "url(\"data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='12'%20height='8'%3E%3Cpath%20fill='none'%20stroke='%238893a2'%20stroke-width='2'%20d='M1%201l5%205%205-5'/%3E%3C/svg%3E\")"
-      :background-repeat :no-repeat
-      :background-position "right 12px center"}
+      :appearance :none}
 
      [:&:active :&:focus
       {:outline :none}]]
+
+    [:.builder-select-wrap
+     {:position :relative
+      :display :block
+      :width "100%"}]
+
+    [:.builder-select-caret
+     {:position :absolute
+      :right "11px"
+      :top "50%"
+      :transform "translateY(-50%)"
+      :pointer-events :none
+      :color "#8893a2"
+      :display :flex}]
 
     [:.builder-dropdown-item
      {:-webkit-appearance :none

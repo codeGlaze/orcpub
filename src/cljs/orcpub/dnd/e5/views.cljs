@@ -2177,18 +2177,19 @@
                                         {:seen (conj seen v) :result (conj result item)})))
                                   {:seen #{} :result []})
                           :result)]
-    [:select.builder-option.builder-option-dropdown.m-t-0
-     {:value (or value "")
-      :on-change #(on-change (event-value %))}
-     (doall
-      (map-indexed
-       (fn [i {:keys [value title disabled?]}]
-         ^{:key (str i "-" (or value title))}
-         [:option.builder-dropdown-item
-          (cond-> {:value value}
-            disabled? (assoc :disabled true))
-          title])
-       unique-items))]))
+    (comps/builder-select
+     [:select.builder-option.builder-option-dropdown.m-t-0
+      {:value (or value "")
+       :on-change #(on-change (event-value %))}
+      (doall
+       (map-indexed
+        (fn [i {:keys [value title disabled?]}]
+          ^{:key (str i "-" (or value title))}
+          [:option.builder-dropdown-item
+           (cond-> {:value value}
+             disabled? (assoc :disabled true))
+           title])
+        unique-items))])))
 
 (defn labeled-dropdown [label cfg]
   [:div
@@ -4070,22 +4071,23 @@
       [:div.m-l-10.f-w-b
        [:span "Add to Party:"]
        [:div.flex
-        [:select.builder-option.builder-option-dropdown
-         {:on-change (fn [e] (let [value (event-value e)
-                                   id (when (not (s/blank? value))
-                                        (js/parseInt value))]
-                               (when id
-                                 (reset! party-id id))))}
-         [:option.builder-dropdown-item
-          "<new party>"]
-         (doall
-          (map
-           (fn [{:keys [:db/id ::party/name]}]
-             ^{:key id}
-             [:option.builder-dropdown-item
-              {:value id}
-              name])
-           @(subscribe [::party/parties])))]
+        [comps/builder-select
+         [:select.builder-option.builder-option-dropdown
+          {:on-change (fn [e] (let [value (event-value e)
+                                    id (when (not (s/blank? value))
+                                         (js/parseInt value))]
+                                (when id
+                                  (reset! party-id id))))}
+          [:option.builder-dropdown-item
+           "<new party>"]
+          (doall
+           (map
+            (fn [{:keys [:db/id ::party/name]}]
+              ^{:key id}
+              [:option.builder-dropdown-item
+               {:value id}
+               name])
+            @(subscribe [::party/parties])))]]
         [:button.form-button.m-t-5.m-l-5
          {:on-click #(if @party-id
                        (dispatch [::party/add-character-remote @party-id character-id true])
@@ -8350,7 +8352,9 @@
                       :print-spell-card-dc-mod? true})}
          "print"])
       (when (and (= username owner) (seq folders))
-        [:select.form-button.m-l-5.builder-option-dropdown
+        [comps/builder-select
+         {:class "m-l-5" :style {:display "inline-block" :width "auto" :align-self "stretch"}}
+         [:select.form-button.builder-option-dropdown
          {:style {:width "auto" :align-self "stretch" :box-sizing "border-box"}
           :value (or current-folder-id "")
           :on-change (fn [e]
@@ -8364,7 +8368,7 @@
           (map (fn [f]
                  ^{:key (:db/id f)}
                  [:option.builder-dropdown-item {:value (:db/id f)} (::folder/name f)])
-               (sort-by ::folder/name folders)))])
+               (sort-by ::folder/name folders)))]])
       (when (= username owner)
         [:button.form-button.m-l-5
          {:on-click (make-event-handler ::char/show-delete-confirmation id)}

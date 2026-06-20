@@ -210,7 +210,9 @@
         [:div.m-b-5
          {:class (when @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
-          [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
+          [comps/builder-select
+           {:class "flex-grow-1"}
+           [:select.builder-option.builder-option-dropdown.m-t-0
            {:value key
             :on-change (set-class i options-map)}
            (doall
@@ -227,13 +229,15 @@
               ::t/name
               (filter
                (filter-classes key unselected-classes-set)
-               options))))]
+               options))))]]
           (when (::t/help class-template-option)
             [show-info-button expanded?])
           (let [levels-selection (some levels-selection (::t/selections class-template-option))
                 available-levels (::t/options levels-selection)
                 last-level-key (str "level-" (:class-level selected-class))]
-            [:select.builder-option.builder-option-dropdown.m-t-0.m-l-5.w-100
+            [comps/builder-select
+             {:class "m-l-5 w-100"}
+             [:select.builder-option.builder-option-dropdown.m-t-0
              {:value last-level-key
               :on-change
               (set-class-level i)}
@@ -244,7 +248,7 @@
                  [:option.builder-dropdown-item
                   {:value level-key}
                   (inc i)])
-               available-levels))])
+               available-levels))]])
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
          (when @expanded?

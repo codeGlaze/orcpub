@@ -20,6 +20,27 @@
    [checkbox selected? disabled?]
    [:span.m-l-5 label]])
 
+(def select-caret
+  "Overlay caret for builder selects. It's a sibling element, NOT the select's
+   background-image: a `background`/`background-color` shorthand on a <select>
+   resets background-image:none, which silently wiped the old caret. An overlay
+   can't be reset by anything set on the select, so the indicator can't regress."
+  [:span.builder-select-caret
+   [:svg {:width "14" :height "14" :viewBox "0 0 24 24" :fill "none"
+          :stroke "currentColor" :stroke-width "2"
+          :stroke-linecap "round" :stroke-linejoin "round"}
+    [:polyline {:points "6 9 12 15 18 9"}]]])
+
+(defn builder-select
+  "Wrap a complete [:select …] hiccup with the overlay caret. wrap-attrs (a Hiccup
+   attrs map) lands on the .builder-select-wrap span — move any layout classes that
+   used to sit on the select (flex-grow-1, m-l-5, inline-block width) there."
+  ([select] (builder-select {} select))
+  ([wrap-attrs select]
+   [:span.builder-select-wrap wrap-attrs
+    select
+    select-caret]))
+
 (defn selection-item [key name selected?]
   [:option.builder-dropdown-item
    {:value key}
@@ -29,22 +50,23 @@
 (defn selection-adder [values on-change]
   (let [selected-value (atom "")]
     (fn [values on-change]
-      [:select.builder-option.builder-option-dropdown
-       {:value @selected-value
-        :on-change (fn [e]
-                     (let [v (-> e .-target .-value)]
-                       (on-change e)
-                       (reset! selected-value "")))}
-       [:option.builder-dropdown-item
-        {:value ""
-         :disabled true}
-        "<select to add>"]
-       (doall
-        (map
-         (fn [{:keys [key name]}]
-           ^{:key key}
-           [selection-item key name false])
-         values))])))
+      (builder-select
+       [:select.builder-option.builder-option-dropdown
+        {:value @selected-value
+         :on-change (fn [e]
+                      (let [v (-> e .-target .-value)]
+                        (on-change e)
+                        (reset! selected-value "")))}
+        [:option.builder-dropdown-item
+         {:value ""
+          :disabled true}
+         "<select to add>"]
+        (doall
+         (map
+          (fn [{:keys [key name]}]
+            ^{:key key}
+            [selection-item key name false])
+          values))]))))
 
 (defn selection [values on-change selected-value]
   [:select
