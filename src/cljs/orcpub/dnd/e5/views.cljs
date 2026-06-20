@@ -6382,12 +6382,82 @@
           set-spell-value-event
           delete-spell-event]]])
 
+(defn ability-stepper
+  "−n+ stepper for a subrace ability bonus, clamped to [lo hi]."
+  [v lo hi on-change]
+  [:div.ability-stepper
+   [:button.ability-stepper-btn
+    {:disabled (<= v lo)
+     :on-click #(when (> v lo) (on-change (dec v)))}
+    "−"]
+   [:span.ability-stepper-val (common/bonus-str v)]
+   [:button.ability-stepper-btn
+    {:disabled (>= v hi)
+     :on-click #(when (< v hi) (on-change (inc v)))}
+    "+"]])
+
+(defn subrace-ability-scores
+  "Ability Score Increases for the subrace builder. The race bonus is inherited
+   (read-only); the subrace bonus is editable, clamped 0–4. Two views via a
+   Cards/Compact segmented-control on the heading:
+     Cards   — width-filling Race + Subrace = Total equation cards (active = amber).
+     Compact — one +0…+4 select per ability with a Race +N caption and live = total."
+  [subrace race]
+  (let [mode (r/atom :cards)]
+    (fn [subrace race]
+      (let [set-bonus (fn [key v] (dispatch [::races/set-subrace-ability-increase key v]))]
+        [:div.m-b-20
+         [:div.subrace-ability-head
+          [:div.f-s-24.f-w-b "Ability Score Increases"]
+          [omv/segmented-control
+           {:value @mode
+            :options [[:cards "Cards"] [:compact "Compact"]]
+            :on-change #(reset! mode %)}]]
+         (if (= @mode :compact)
+           [:div.builder-field-grid
+            (doall
+             (for [{:keys [name key]} opt/abilities]
+               (let [race-bonus (get-in race [:abilities key] 0)
+                     subrace-bonus (get-in subrace [:abilities key] 0)
+                     total (+ race-bonus subrace-bonus)]
+                 ^{:key key}
+                 [:div.ability-compact
+                  [:div.builder-field-label name]
+                  [dropdown
+                   {:items (map (fn [b] {:title (str "+" b) :value b}) (range 0 5))
+                    :value subrace-bonus
+                    :on-change #(set-bonus key %)}]
+                  [:div.ability-compact-meta
+                   [:span.ability-compact-caption (str "Race " (common/bonus-str race-bonus))]
+                   [:span.ability-compact-total {:class (when (pos? total) "active")}
+                    (str "= " (common/bonus-str total))]]])))]
+           [:div.ability-equation-grid
+            (doall
+             (for [{:keys [name key]} opt/abilities]
+               (let [race-bonus (get-in race [:abilities key] 0)
+                     subrace-bonus (get-in subrace [:abilities key] 0)
+                     total (+ race-bonus subrace-bonus)]
+                 ^{:key key}
+                 [:div.ability-card {:class (when (pos? total) "active")}
+                  [:div.ability-card-name name]
+                  [:div.ability-equation
+                   [:div.ability-term
+                    [:div.ability-term-label "Race"]
+                    [:div.ability-term-val (common/bonus-str race-bonus)]]
+                   [:div.ability-op "+"]
+                   [:div.ability-term
+                    [:div.ability-term-label "Subrace"]
+                    [ability-stepper subrace-bonus 0 4 #(set-bonus key %)]]
+                   [:div.ability-op "="]
+                   [:div.ability-term
+                    [:div.ability-term-label "Total"]
+                    [:div.ability-term-total (common/bonus-str total)]]]])))])]))))
+
 (defn subrace-builder []
   (let [subrace @(subscribe [::races/subrace-builder-item])
         race-key (get subrace :race)
         race @(subscribe [::races/race race-key])
-        races @(subscribe [::races/races])
-        mobile? @(subscribe [:mobile?])]
+        races @(subscribe [::races/races])]
     [:div.p-20.main-text-color
      [:div.flex.flex-wrap
       [:div.m-b-20
@@ -6440,38 +6510,7 @@
          :value (or (get subrace :darkvision)
                     (get race :darkvision))
          :on-change #(dispatch [::races/set-subrace-prop :darkvision (js/parseInt %)])}]]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Ability Score Increases"]
-      [:table.t-a-c
-       [:tbody
-        [:tr.f-w-b
-         [:th.p-2.t-a-l "Ability"]
-         [:th.p-2 "Race Bonus"]
-         [:th.p-2]
-         [:th.p-2 "Subrace Bonus"]
-         [:th.p-2]
-         [:th.p-2 "Total"]]
-        (doall
-         (map
-          (fn [{:keys [name key abbr]}]
-            (let [race-bonus (get-in race [:abilities key] 0)
-                  subrace-bonus (get-in subrace [:abilities key] 0)]
-              ^{:key key}
-              [:tr
-               [:td.p-2.f-w-b.t-a-l (if mobile? abbr name)]
-               [:td.p-2 race-bonus]
-               [:td.p-2 "+"]
-               [:td.p-2 [dropdown
-                         {:items (map
-                                  (fn [bonus]
-                                    {:title (common/bonus-str bonus)
-                                     :value bonus})
-                                  (range -2 3 1))
-                          :value subrace-bonus
-                          :on-change #(dispatch [::races/set-subrace-ability-increase key %])}]]
-               [:td.p-2 "="]
-               [:td.p-2 (+ race-bonus subrace-bonus)]]))
-          opt/abilities))]]]
+     [subrace-ability-scores subrace race]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div [option-hps subrace ::races/toggle-subrace-value-prop]]

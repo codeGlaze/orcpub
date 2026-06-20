@@ -87,24 +87,35 @@
 (def ^:private layouts
   [[:grid "Grid"] [:pills "Pills"] [:az "A–Z"]])
 
+(defn segmented-control
+  "Reusable sliding-thumb segmented control. `options` is [[value label] …]; the amber
+   thumb slides to the active segment. Equal-width columns sized from the option count,
+   so translateX(idx*100%) lands on segment idx — works for any number of segments."
+  [{:keys [value options on-change class]}]
+  (let [n (count options)
+        idx (or (first (keep-indexed (fn [i [v _]] (when (= v value) i)) options)) 0)]
+    [:div.segmented-control
+     {:class class
+      :style {:grid-template-columns (str "repeat(" n ", 1fr)")}}
+     [:div.segmented-control-thumb
+      {:style {:width (str "calc((100% - 8px) / " n ")")
+               :transform (str "translateX(" (* idx 100) "%)")}}]
+     (doall
+      (for [[v label] options]
+        ^{:key v}
+        [:span.segmented-control-seg
+         {:class (when (= v value) "active")
+          :on-click #(on-change v)}
+         label]))]))
+
 (defn layout-toggle
   "Segmented control bound to the GLOBAL layout. Reads/writes shared state, so any
    number of instances stay in sync — place one in each builder header."
   []
-  (let [cur @(subscribe [::layout])
-        idx (get {:grid 0 :pills 1 :az 2} cur 0)]
-    [:div.opt-menu-layout-toggle
-     ;; single amber thumb that slides to the active segment (equal-width columns,
-     ;; so translateX(n*100%) lands on segment n)
-     [:div.opt-menu-layout-thumb
-      {:style {:transform (str "translateX(" (* idx 100) "%)")}}]
-     (doall
-      (for [[mode label] layouts]
-        ^{:key mode}
-        [:span.opt-menu-layout-seg
-         {:class (when (= cur mode) "active")
-          :on-click #(dispatch [::set-layout mode])}
-         label]))]))
+  [segmented-control
+   {:value @(subscribe [::layout])
+    :options layouts
+    :on-change #(dispatch [::set-layout %])}])
 
 (defn layout-control-row
   "An anchored, right-aligned control row labelling the global layout selector, placed

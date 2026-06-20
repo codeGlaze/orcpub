@@ -1384,6 +1384,133 @@
       :text-transform :uppercase
       :color "#7e8897"}]
 
+    ;; Subrace Ability Score Increases — Race + Subrace = Total equation cards (Cards
+    ;; view) and a denser select-per-ability (Compact view). Active ability = amber.
+    [:.subrace-ability-head
+     {:display :flex
+      :align-items :center
+      :justify-content :space-between
+      :flex-wrap :wrap
+      :gap "12px"
+      :margin-bottom "14px"}]
+
+    [:.ability-equation-grid
+     {:display :grid
+      :grid-template-columns "repeat(auto-fit, minmax(min(100%, 230px), 1fr))"
+      :gap "14px"}]
+
+    [:.ability-card
+     {:background "#1b232f"
+      :border "1px solid rgba(255,255,255,0.08)"
+      :border-radius "12px"
+      :padding "14px 16px 16px"
+      :transition "border-color 0.2s ease, box-shadow 0.2s ease"}]
+
+    [:.ability-card.active
+     {:border-color "rgba(240,161,15,0.55)"
+      :box-shadow "0 0 0 1px rgba(240,161,15,0.25), 0 10px 24px -16px rgba(240,161,15,0.5)"}]
+
+    [:.ability-card-name
+     {:font-size "14px"
+      :font-weight 700
+      :color "#f3f6fa"
+      :margin-bottom "12px"}]
+
+    [:.ability-equation
+     {:display :flex
+      :align-items :flex-end
+      :justify-content :space-between
+      :gap "8px"}]
+
+    [:.ability-term
+     {:display :flex
+      :flex-direction :column
+      :align-items :center
+      :gap "6px"
+      :flex "1 1 auto"
+      :min-width 0}]
+
+    [:.ability-term-label
+     {:font-size "10px"
+      :font-weight 700
+      :letter-spacing "0.06em"
+      :text-transform :uppercase
+      :color "#7e8897"}]
+
+    [:.ability-term-val
+     {:font-size "18px"
+      :font-weight 700
+      :color "#aab4c0"}]
+
+    [:.ability-term-total
+     {:font-size "20px"
+      :font-weight 800
+      :color orange}]
+
+    [:.ability-op
+     {:font-size "16px"
+      :font-weight 700
+      :color "#5d6775"
+      :padding-bottom "6px"
+      :flex "0 0 auto"}]
+
+    [:.ability-stepper
+     {:display :flex
+      :align-items :center
+      :gap "8px"}]
+
+    [:.ability-stepper-btn
+     {:width "26px"
+      :height "26px"
+      :border "1px solid rgba(255,255,255,0.14)"
+      :border-radius "7px"
+      :background "#11161d"
+      :color "#e7ecf2"
+      :font-size "16px"
+      :line-height 1
+      :cursor :pointer
+      :display :flex
+      :align-items :center
+      :justify-content :center}]
+
+    [:.ability-stepper-btn:hover
+     {:border-color orange
+      :color orange}]
+
+    [:.ability-stepper-btn:disabled
+     {:opacity 0.35
+      :cursor :default}]
+
+    [:.ability-stepper-val
+     {:min-width "26px"
+      :text-align :center
+      :font-size "18px"
+      :font-weight 700
+      :color "#f3f6fa"}]
+
+    [:.ability-compact
+     {:display :flex
+      :flex-direction :column
+      :gap "4px"}]
+
+    [:.ability-compact-meta
+     {:display :flex
+      :align-items :center
+      :justify-content :space-between
+      :gap "8px"
+      :margin-top "2px"
+      :font-size "11px"}]
+
+    [:.ability-compact-caption
+     {:color "#7e8897"}]
+
+    [:.ability-compact-total
+     {:font-weight 700
+      :color "#aab4c0"}]
+
+    [:.ability-compact-total.active
+     {:color orange}]
+
     ;; the Option Source input gets an amber-tinted border to read as the save target
     [:#plugins-choice
      {:border "1px solid rgba(240,161,15,0.45)"}]
@@ -1867,27 +1994,28 @@
 
     ;; global layout toggle: a track with one amber thumb that slides to the active
     ;; segment (equal-width grid columns).
-    [:.opt-menu-layout-toggle
+    ;; Reusable sliding-thumb segmented control (layout toggle, Cards/Compact toggle,
+    ;; …). grid-template-columns and the thumb width are set inline from the option
+    ;; count, so the same classes serve any number of segments.
+    [:.segmented-control
      {:position :relative
       :display :inline-grid
-      :grid-template-columns "repeat(3, 1fr)"
       :padding "4px"
       :background "#161d28"
       :border "1px solid rgba(255,255,255,0.08)"
       :border-radius "10px"}]
 
-    [:.opt-menu-layout-thumb
+    [:.segmented-control-thumb
      {:position :absolute
       :top "4px"
       :bottom "4px"
       :left "4px"
-      :width "calc((100% - 8px) / 3)"
       :background orange
       :border-radius "7px"
       :z-index 0
       :transition "transform 0.24s cubic-bezier(.4,0,.2,1)"}]
 
-    [:.opt-menu-layout-seg
+    [:.segmented-control-seg
      {:position :relative
       :z-index 1
       :padding "7px 18px"
@@ -1901,10 +2029,10 @@
       :color "rgba(255,255,255,0.7)"
       :transition "color 0.24s ease"}]
 
-    [:.opt-menu-layout-seg.active
+    [:.segmented-control-seg.active
      {:color "#161d27"}]
 
-    [:.opt-menu-layout-seg:hover
+    [:.segmented-control-seg:hover
      {:color "#e7ecf2"}]
 
     ;; grid. The min(100%, 210px) guard prevents horizontal overflow when the
@@ -2025,8 +2153,8 @@
     (at-media {:prefers-reduced-motion :reduce}
               [:.opt-section-body {:transition :none}]
               [:.opt-section-chevron {:transition :none}]
-              [:.opt-menu-layout-thumb {:transition :none}]
-              [:.opt-menu-layout-seg {:transition :none}])
+              [:.segmented-control-thumb {:transition :none}]
+              [:.segmented-control-seg {:transition :none}])
 
     ;; "Choose any" wildcard group (the Any N options), a labeled dashed group
     [:.opt-wildcards
