@@ -8,6 +8,7 @@
    NOTE: built-in Dueling carries a cljs-only condition (@re-frame.db/app-db), so it is only OFFERED
    in compile-level checks here, never selected in a JVM build. JVM/clojure.test."
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string :as str]
             [orcpub.entity :as entity]
             [orcpub.template :as t]
             [orcpub.dnd.e5.template :as t5e]
@@ -50,40 +51,72 @@
 ;; ---------------------------------------------------------------------------
 ;; End-to-end on the FEAT silo: build a character per mode, the chosen style's mechanic lands
 ;; ---------------------------------------------------------------------------
-(defn- feat-of [grant]
+(defn- feat-of [pool grant]
   (opt5e/feat-option-from-cfg language-map spells5e/spell-map sl5e/spell-lists weapons5e/weapons-map {}
-                              pools {:name "Style Adept" :key :style-adept :grant grant}))
+                              pool {:name "Style Adept" :key :style-adept :grant grant}))
 
-(defn- template-of [grant]
+(defn- template-of [pool grant]
   (t5e/template
    (concat
     (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
                              sl5e/spell-lists spells5e/spell-map [] [] [] [] language-map)
     [(t/selection-cfg {:name "Bonus Feat" :key :bonus-feat :tags #{:feats}
-                       :options [(feat-of grant)] :min 1 :max 1})])))
+                       :options [(feat-of pool grant)] :min 1 :max 1})])))
 
 (def ^:private abilities
   {:orcpub.dnd.e5.character/str 10 :orcpub.dnd.e5.character/dex 10 :orcpub.dnd.e5.character/con 10
    :orcpub.dnd.e5.character/int 10 :orcpub.dnd.e5.character/wis 10 :orcpub.dnd.e5.character/cha 10})
 
-(defn- build-with [grant style-key]
+(defn- build-with [pool grant style-key]
   (entity/build
    {:orcpub.entity/options
     {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value abilities}
      :bonus-feat {:orcpub.entity/key :style-adept
                   :orcpub.entity/options {:fighting-style {:orcpub.entity/key style-key}}}}}
-   (template-of grant)))
+   (template-of pool grant)))
 
 (defn- trait-names [built] (set (map :name (char5e/traits built))))
 
 (deftest feat-grants-each-mode-end-to-end
   (testing "ALL — pick any offered style; the custom one's mechanic lands"
-    (is (= 30 (char5e/base-swimming-speed (build-with {:from :fighting-styles} :tidewalker)))))
+    (is (= 30 (char5e/base-swimming-speed (build-with pools {:from :fighting-styles} :tidewalker)))))
   (testing "FILTERED — pick an allowed style; its trait lands"
-    (is (contains? (trait-names (build-with {:from :fighting-styles :filter #{:archery :defense}} :archery))
+    (is (contains? (trait-names (build-with pools {:from :fighting-styles :filter #{:archery :defense}} :archery))
                    "Archery Fighting Style")))
   (testing "SPECIFIC — the single granted built-in style lands"
-    (is (contains? (trait-names (build-with {:from :fighting-styles :key :archery} :archery))
+    (is (contains? (trait-names (build-with pools {:from :fighting-styles :key :archery} :archery))
                    "Archery Fighting Style")))
   (testing "CUSTOM — the homebrew style's mechanic lands"
-    (is (= 30 (char5e/base-swimming-speed (build-with {:from :fighting-styles :key :tidewalker} :tidewalker))))))
+    (is (= 30 (char5e/base-swimming-speed (build-with pools {:from :fighting-styles :key :tidewalker} :tidewalker))))))
+
+;; ---------------------------------------------------------------------------
+;; MANY custom styles — once created, they are reachable by ALL / FILTER / SPECIFIC too
+;; (answers "could I make a hundred custom styles and have them selectable/filterable?").
+;; 20 here stands in for arbitrary N — the pool is plain concat + the filter is by ::t/key,
+;; so it's O(N) and uniform; nothing caps the count. Each needs a distinct key (from its name).
+;; ---------------------------------------------------------------------------
+(def ^:private many-custom
+  (mapv (fn [i]
+          (opt5e/fighting-style-option
+           {:name (str "Custom Style " i) :key (keyword (str "custom-" i))
+            :description (str "Custom number " i ".")
+            :props {:swimming-speed (* 10 i)}}))      ; distinct, readable mechanic per style
+        (range 1 21)))
+
+(def ^:private big-pool
+  {:fighting-styles {:name "Fighting Style"
+                     :options (concat opt5e/fighting-style-options many-custom)}})
+
+(deftest many-custom-styles-are-reachable-by-every-mode
+  (let [offered* (fn [grant] (set (map ::t/name (::t/options (opt5e/grant-selection grant big-pool)))))]
+    (testing "ALL — every one of the 20 customs is offered (plus the built-ins)"
+      (let [o (offered* {:from :fighting-styles})]
+        (is (= 20 (count (filter #(str/starts-with? % "Custom Style ") o))))
+        (is (contains? o "Custom Style 1")) (is (contains? o "Custom Style 20")) (is (contains? o "Archery"))))
+    (testing "FILTERED — a filter over custom keys offers exactly those customs"
+      (is (= #{"Custom Style 3" "Custom Style 7" "Custom Style 15"}
+             (offered* {:from :fighting-styles :filter #{:custom-3 :custom-7 :custom-15}}))))
+    (testing "SPECIFIC — granting one custom by key offers exactly it"
+      (is (= #{"Custom Style 12"} (offered* {:from :fighting-styles :key :custom-12})))))
+  (testing "END-TO-END — a character can pick an arbitrary custom (Custom Style 7) and its mechanic lands"
+    (is (= 70 (char5e/base-swimming-speed (build-with big-pool {:from :fighting-styles} :custom-7))))))
