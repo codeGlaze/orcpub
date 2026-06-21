@@ -177,8 +177,7 @@ the data shape open to arbitrary overrides; throttle the UI. (Avoid the inverse 
 knob immediately piles up UI + merge/validation edge cases.)
 
 Sequence (to contain regression risk): build a characterization net (snapshot every class's built
-features) → define the feature record + registry → extract incrementally, proving byte-identical
-output per step → then make entries data-addressable and expose to the custom builder + alternates.
+features) → define the feature record + registry → extract incrementally, proving the built output comes out unchanged per step → then make entries data-addressable and expose to the custom builder + alternates.
 Backward-compat note: features are auto-granted (not stored choices), so extraction doesn't touch
 saved characters as long as output is identical; only *choosable* alternates put feature keys into
 saved data.

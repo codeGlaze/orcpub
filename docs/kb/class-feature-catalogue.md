@@ -108,7 +108,7 @@ effect-param interpolation. Each is VERIFIED from the classes above.
   (B3 resource counters) deliberately; don't fold it into per-feature frequency.
 - Multi-part features (5) and attribute interdependence (6) mean a registry entry's `:compile` returns
   **a seq of modifiers**, and extraction must keep the `?attr` reads/writes intact — exactly what the
-  byte-identical snapshot net guards.
+  snapshot net guards (it checks the built output comes out unchanged).
 - Start extraction on the **clean classes** (fighter, rogue, then bard/cleric/wizard) where features
   are self-contained; **defer monk/paladin** until the pool + build-context-fill mechanisms exist, and
   **defer druid** until the wild-shape attribute pair is modelled. **Warlock needs almost no extraction**

@@ -6,24 +6,48 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 
 ## Index
 
+> **START HERE:** [roadmap.md](roadmap.md) — the single reconciled branch plan (status ledger, doc map,
+> critical path). Branch history/handoff lives in `BRANCH.md` (repo root).
+
+### Plan & status
+| Document | Topic |
+|----------|-------|
+| [roadmap.md](roadmap.md) | The single branch plan: both phases (content/pool+grant, largely built; mechanization/class-feature/spell-slot expansion), a BUILT/DECIDED/OPEN ledger anchored to commits, flagged conflicts, the full doc map, and the critical path. |
+
+### Content-extensibility track (the pool/grant initiative)
 | Document | Topic | Source quality |
 |----------|-------|---------------|
-| [roadmap.md](roadmap.md) | **START HERE — the single reconciled branch plan.** Both phases (content/pool+grant, now largely built; and the mechanization/class-feature/spell-slot expansion), with a BUILT/DECIDED/OPEN status ledger anchored to commits, the flagged conflicts, the full doc map, and the critical path. Supersedes the old split between this and `content-extensibility-direction.md` as competing entry points. | Index/plan — reconciles + links the verified docs |
-| [datomic-crash-analysis.md](datomic-crash-analysis.md) | Datomic transactor crashes — root cause, frequency, fix options | High — direct log analysis from `logs/datomic.{1,2,3}.log` |
-| [decision-vocabulary.md](decision-vocabulary.md) | **Map of the homebrew wiring**: which decision keys each silo's builder emits and which assembly fn compiles them (feat/race/subrace/class/subclass/background). ⚠️ Maps *where data plugs in*, NOT observed runtime behavior or true limits — except the subclass-spellcasting gate, which is confirmed by code **and** a real `.orcbrew`. | Medium — call-graph + symbols verified; behavior/limits mostly NOT exercised |
-| [homebrew-content-merge.md](homebrew-content-merge.md) | The `feat-options` trap: why "X isn't homebrew-extensible" conclusions are usually wrong (merge happens at the concat point, not the static `*-options` def) | High — direct code inspection |
-| [content-extensibility-framework.md](content-extensibility-framework.md) | Canonical reference for the registry-driven content system being built (one entry vs ~9-file edits) | High — code + design |
-| [runtime-toggles-and-conditional-modifiers.md](runtime-toggles-and-conditional-modifiers.md) | How a player toggle (equipped armor / magic items) changes computed sheet stats — the `equipped?`-flag + deferred-modifier mechanism. Feasibility basis for "while active" (rage-style) conditional features. | High — code read, file:line cited |
-| [armor-class-computation.md](armor-class-computation.md) | How AC is computed (the layered max-of-alternatives + sum-of-bonuses model in `template_base.cljc`), the channels a feature plugs into, and the friction for custom Natural AC / Unarmored Defense. | High — code read, file:line cited; design section flagged |
-| [spell-granting-across-silos.md](spell-granting-across-silos.md) | Why feats/races/classes grant spells differently when they all bottom out at the same primitives (`spells-known`, `spell-selection`). The per-silo wrappers, the gaps (feat = no fixed spell; race = no choice), and the route-one-key-to-the-primitive fix vs the per-silo-wrapper bloat trap. | High — chain traced up+down, file:line cited; built-character paths flagged NOT-TESTED |
-| [spell-slot-progression.md](spell-slot-progression.md) | How spell *slots* (not known spells) are computed: the `:level-factor` integer that's overloaded to drive the slot table **and** the multiclass contribution **and** the prepared count (why Artificer can't be expressed), warlock pact magic vs a normal caster when multiclassing, and the agreed design — a bucket of named/explicit slot tables (authored as an absolute grid) + a separately-declared multiclass rule. | High — slot chain traced, file:line cited; design section flagged DESIGN |
-| [declarative-grant-vocabulary.md](declarative-grant-vocabulary.md) | DESIGN: a builder-UI vocabulary (`<grant spell>` creator-fixed / `<select spell>` user-choice + filters; `<grant X when [conditions]>`) compiling to the existing primitives. Works for flat spell patterns; Magic-Initiate-style is a dependent two-level choice (special case). Unifies the two fixed-spell data shapes. Scope flags (spellcasting progression, qualifiers) OPEN. | Mixed — verified findings + flagged DESIGN/OPEN |
-| [class-features-and-mechanization.md](class-features-and-mechanization.md) | How class features are structured (inline, no key, class-coupled; partial shared-helper extraction), the verified rolling layer (`orcpub.dice` + roll-buttons + bonus-fn attachment) and the mechanization ceiling (rolling in, combat-state/turn resolution out), and the design direction: one keyed/filterable feature registry, pools as filtered views. Includes the `compile-feature` proof (data spec → real fighter/rogue output, with overridable fields). | Mixed — VERIFIED/USER-REPORTED/SPECULATION flagged inline |
-| [class-feature-catalogue.md](class-feature-catalogue.md) | Per-class inventory of all 12 base classes (roadmap C1): distinct auto-features, sizing (~3–6 each; monk/paladin outliers, sorcerer/wizard lean), and the cross-cutting odd cases the registry must handle — multi-source use-counts, class-wide resource pools (ki/sorcery/Lay-on-Hands), build-context summary interpolation, multi-part features, attribute interdependence. | High — all 12 class option fns read, file:line cited |
-| [building-a-class-from-builders.md](building-a-class-from-builders.md) | What a homebrew class can be assembled from today (verified): the `homebrew-class` spec, what `subclass-option`/`spellcasting-template` accept, the invocation/boon pool pattern that Infusions reuse, the `ua_artificer.cljc` capability witness — plus the real gaps (slot progression, infusions-as-pool, ability-derived frequency, companion link). Artificer worked example. | High — code read, file:line cited; gaps flagged |
+| [content-extensibility-direction.md](content-extensibility-direction.md) | **Canonical detail + direction for the content track** (v2 spine): the pool+grant model, the one principle (an abstraction must be thicker than what it hides), the variant forward-compat seam, and the next levers/pins. | Mixed — verified + DESIGN flagged |
+| [content-extensibility-decisions.md](content-extensibility-decisions.md) | The numbered decision log (**D1–D31**) — how each decision was reached, incl. the prototype-then-converge governance (D23), the grant conflict (D29/D30), and the vocabulary/AC duplication findings (D31). | Decision record |
+| [content-extensibility-framework.md](content-extensibility-framework.md) | How-to reference for the registry-driven content system (mental model + schema + add-a-type + invariants). | High — code + design |
+| [content-extensibility-compatibility.md](content-extensibility-compatibility.md) | Inventory of the persisted data formats (saved characters, `.orcbrew`) the refactor must not break — the backward-compat invariants. | High — format inventory |
+| [content-extensibility-e2e.md](content-extensibility-e2e.md) | Live end-to-end verification checklist (what the JVM gate can't cover; for a browser/figwheel run). | Checklist |
+| [registry-before-after.md](registry-before-after.md) | Representative before/after of adding a content type (Pact Boon) — scattered wiring vs the registry-driven path. | High — code |
+| [content-extensibility.md](content-extensibility.md) · [content-extensibility-plan.md](content-extensibility-plan.md) | ⚠️ **HISTORY (superseded)** by the direction doc — read as "what was tried," not the live plan. | Historical |
 
-> Design, handoff, and decision records for the Content Extensibility initiative
-> (the forward-looking, non-verified half) live in [`docs/extensibility/`](../extensibility/README.md).
+### Verified topic / reference
+| Document | Topic | Source quality |
+|----------|-------|---------------|
+| [decision-vocabulary.md](decision-vocabulary.md) | **Map of the homebrew wiring**: which decision keys each silo emits and which assembly fn compiles them. Includes the verified A/B grant-vocabulary comparison (shared primitive, B is level-gated, cljc/cljs layer split). | Medium-High — call-graph verified; key claims now test-backed |
+| [homebrew-content-merge.md](homebrew-content-merge.md) | The `feat-options` trap: why "X isn't homebrew-extensible" conclusions are usually wrong (merge happens at the concat point, not the static `*-options` def). | High — code |
+| [spell-granting-across-silos.md](spell-granting-across-silos.md) | Why feats/races/classes grant spells differently when they bottom out at the same primitives (`spells-known`, `spell-selection`); the per-silo wrappers, the gaps, the route-one-key fix. | High — chain traced; some paths flagged NOT-TESTED |
+| [spell-slot-progression.md](spell-slot-progression.md) | How spell *slots* are computed: the overloaded `:level-factor` (table + multiclass + prepared count; why Artificer can't be expressed), warlock pact vs normal multiclassing, and the bucket-of-tables design. Test-backed (`spell_slot_characterization_test`). | High — traced + tested |
+| [declarative-grant-vocabulary.md](declarative-grant-vocabulary.md) | DESIGN: a builder-UI vocabulary (`<grant spell>` / `<select spell>` + filters) compiling to existing primitives; the Magic-Initiate special case; open scope flags. | Mixed — verified + DESIGN |
+| [class-features-and-mechanization.md](class-features-and-mechanization.md) | How class features are structured (inline, class-coupled, captured code), the rolling layer + mechanization ceiling, the registry/`compile-feature` direction (data spec → real fighter/rogue output, overridable fields). | Mixed — VERIFIED/USER-REPORTED/SPECULATION flagged |
+| [class-feature-catalogue.md](class-feature-catalogue.md) | Per-class inventory of all 12 base classes (C1): distinct auto-features, sizing, and the odd cases the registry must handle (multi-source counts, resource pools, build-context interpolation, multi-part features, attribute interdependence). | High — all 12 read |
+| [building-a-class-from-builders.md](building-a-class-from-builders.md) | What a homebrew class can be assembled from today: the `homebrew-class` spec, what `subclass-option`/`spellcasting-template` accept, the invocation/boon pool pattern, the `ua_artificer` witness, and the real gaps. | High — code |
+| [armor-class-computation.md](armor-class-computation.md) | How AC is computed (max-of-alternatives + sum-of-bonuses), the channels, custom-AC friction. Test-backed (`ac_characterization_test`: armored dex-cap, unarmored tie-break, natural-AC duplication; the `:max-dex-mod`-ignored + cljs-nil-add findings). | High — traced + tested |
+| [runtime-toggles-and-conditional-modifiers.md](runtime-toggles-and-conditional-modifiers.md) | How a player toggle (equipped armor/magic items) changes computed sheet stats — the `equipped?`-flag + deferred-modifier mechanism; basis for "while active" features. | High — code |
+| [built-character-representation.md](built-character-representation.md) | **Load-bearing gotcha:** the built/computed character is a map of deferred `:entity-fn?` values (read via `entity-val`), NOT a flat map — don't `spec/keys` it. | High — code |
+
+### Process & infrastructure
+| Document | Topic |
+|----------|-------|
+| [verification-discipline.md](verification-discipline.md) | Lessons on assumptions/thoroughness + the **standing rule**: don't call it verified without walking it up and down and backing it with a falsifiable test (or the full chain); and how a characterization test doubles as the old-vs-new comparison instrument. |
+| [cljs-headless-harness.md](cljs-headless-harness.md) | How to run the cljs test suite headless in a container (compile `fig:test` → serve `target/test` → Playwright Chromium) — the gate for cljs-only code. |
+| [test-suite-state.md](test-suite-state.md) | Verified record of what the test suites run and gate, the pre-existing cljs failures (classified), and open decisions. |
+| [character-validation.md](character-validation.md) | Preserves the intent of *validating a character* + a falsifiable replacement charter (own-branch). |
+| [datomic-crash-analysis.md](datomic-crash-analysis.md) | Datomic transactor crashes — root cause, frequency, fix options (from direct log analysis). |
 
 ## Contribution rules
 

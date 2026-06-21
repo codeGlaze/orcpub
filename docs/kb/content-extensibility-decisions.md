@@ -243,7 +243,7 @@ on faith — it must be measured.
 
 **D22 — Builder FORMS are data; "irreducible per-type work" was a retreat reflex.** Claimed (in
 conversation) that each type needs a bespoke builder form. The code disproved it: `boon-builder`
-and `invocation-builder` were byte-identical forms differing only by a `set-*-prop` keyword.
+and `invocation-builder` were identical forms differing only by a `set-*-prop` keyword.
 Collapsed into `simple-content-builder` (`109b5dd0`). The genuinely irreducible core is small —
 the **field schema** (data) + a reusable widget registry for complex fields + the field→mechanics
 mapping (mostly the existing `:props` vocabulary) — NOT a per-type form. *Process lesson:* the
