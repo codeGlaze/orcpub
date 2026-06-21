@@ -40,6 +40,10 @@ containing the **plugin** one; distinct keys both survive; a plain `concat` (the
 **both** same-key entries.
 
 ## Notes / boundaries
+- **The import conflict-handling is recent, and its EDGE CASES are explicitly OUT OF SCOPE for this
+  branch.** Significant time has already been spent circling them (partial-conflict resolution, how
+  rename/skip/replace interact, etc.) without a clean answer. This doc records the *behavior* so it
+  stops being re-discovered — it is **not** an invitation to re-chase the edge cases here. Leave them.
 - **Within a single content-type map, keys are already unique** — the `.orcbrew` is EDN, so two entries
   with the same key in one map collapse at parse time (last-wins). `find-duplicate-keys-in-content`
   notes this (`import_validation.cljs:1056`: "Since items is a map, keys are inherently unique within
