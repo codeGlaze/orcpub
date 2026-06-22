@@ -102,6 +102,24 @@ loops because decisions lived in two parallel trackers; this is the one that sup
   - **A2.** Uniform spell-granting (route `:spells`/`:spell-choice` to the primitives across silos) — FEASIBLE.
   - **A3.** Spell-slot progression as data (bucket of tables + declared multiclass rule) — DESIGN;
     unblocks Artificer + homebrew tables; pact → `:separate` + own pool (`spell-slot-progression.md`).
+  - **A4. Parametric `select`-grant: USER-CHOICE floating ASI (any silo)** — DESIGN. The grant layer's
+    other half: a grant that offers the *player* a choice, parametric over ability keys rather than a
+    content pool. The engine primitive **already exists and is proven** — `ability-increase-selection-2`
+    (`options.cljc:225`), used by built-in Variant Human (`spell_subs.cljs:759`) and Half-Elf (`:868`),
+    but hardcoded there; no data path for homebrew. **Must handle FIXED + FLOATING combinations** (the
+    real requirement): a race/feat/background declares a LIST of allotments, each either creator-fixed or
+    user-chosen-from-a-set, composed together. Data shape:
+    ```clojure
+    :ability-increases
+    [{:ability :cha :amount 2}                                   ; FIXED  -> race-ability modifier
+     {:select {:from #{:str :dex :con} :num 1 :amount 1 :different? true}}] ; FLOATING -> ability-increase-selection-2
+    ```
+    e.g. "+2 CHA, +1 to any martial stat" = one fixed + one floating-from-`#{:str :dex :con}`. Named
+    subsets ("martial") are predefined ability groups. Compiles: fixed → a modifier; each `:select` →
+    `ability-increase-selection-2` over its `:from` set. Cross-silo: the same grant lets a feat/background/
+    class hand out floating ASI too (reconcile with the feat-only `:ability-increases` path). Cheaper than
+    the pool-grant work — the hard primitive is built; the gap is exposing it as authorable data + the silo
+    hook + a builder form. **Good candidate for the first full-stack (engine→UI) vertical** (see below).
 - **B. Mechanism layers** (lift text → mechanical): **B1** structured/parameterized effect & feature
   records (keystone — `compile-feature` is the proven start); **B2** conditions (build-state auto /
   play-state toggle, on the verified `equipped?` substrate); **B3** resource counters as data (incl. the
