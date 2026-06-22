@@ -55,3 +55,38 @@ guard — separate, not triaged).
 - The auto-test DOM body lists passing tests too — only the clean reporter (A) gives
   authoritative per-test pass/fail.
 - No backend needed; connection-refused logs are expected and harmless.
+
+## Full-app headless E2E — render and drive the REAL app UI (not the test build)
+
+The recipe above runs the cljs **test** build (test namespaces). To verify the **actual app UI**
+(e.g. a builder form renders and is interactable), drive the **app** build headlessly. **Verified
+feasible in-container** — the SPA boots with no backend and no auth wall, and the real race-builder
+page rendered (incl. a newly-added widget), zero page errors.
+
+**Why it works (no auth gate — verified):** `[:verify-user-session]` is a **no-op when there is no
+token** (`events.cljs:1633`), and the `:route` handler does not gate on auth (the `secure?`/https
+redirect is skipped on `localhost`). Routing is **path-based** off `window.location.pathname`
+(`core.cljs:80`). So an unauthenticated headless load reaches a builder route; backend calls just
+`ERR_CONNECTION_REFUSED` harmlessly.
+
+**Recipe (CLI-only; CI- and Codespace-portable):**
+1. Compile the **app** build: `lein fig:build` (dev, `dev.cljs.edn`) → `resources/public/js/compiled/orcpub.js`.
+2. Host page `/tmp/pw/host.html` (the server-rendered `index.clj` reduced to its essentials):
+   ```html
+   <!DOCTYPE html><html><head><meta charset="utf-8">
+   <link rel="stylesheet" href="/css/compiled/styles.css">
+   <link rel="stylesheet" href="/assets/font-awesome/5.13.1/css/all.min.css"></head>
+   <body><div id="app"></div><script src="/js/compiled/orcpub.js"></script></body></html>
+   ```
+3. Driver `/tmp/pw/drive-app.js`: a node static server rooted at **`resources/public`** with an
+   **SPA fallback** (return `host.html` for any path that isn't a real file, so a deep route URL
+   loads the JS and client-routes); Playwright Chromium then `goto`s the route, waits for `#app` to
+   have content, asserts/screenshots, and captures `pageerror`. Route path = `/pages/dnd/5e/<route-seg>`
+   (e.g. `/pages/dnd/5e/race-builder`; `<route-seg>` is the content-types `:route-seg`).
+4. Run: `cd /tmp/pw && node drive-app.js`. Observed: `RENDERED: true`, `PAGEERRORS: none`, the
+   builder's text present (incl. the floating-ASI widget).
+
+**This makes rendered-UI E2E a single CLI command** — so it runs in CI (results to your phone, no
+desk) or a tunneled Codespace. It is the basis for the deferred "cljs/E2E into CI" item. To drive
+interactions (click "Add floating", pick abilities, build a character, read the sheet) extend the
+Playwright script with `page.click`/`page.selectOption` and assert on the resulting DOM.
