@@ -126,8 +126,14 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     `ability-increase-grant-cljs-test`); layer 3 — the authoring form (`race-ability-increase-choices` in
     views.cljs, fixed/floating rows via the generic `set-race-path-prop`) + proof that driving the REAL
     builder events authors a working floating-ASI race end to end (cljs harness). **Layers 1–4 done**
-    (layer 4 — the player choice — already rendered, same as Variant Human). Remaining: feat-path
-    reconciliation (feats have their own `:ability-increases` param, not via `:props`); round-trip (layer 5).
+    (layer 4 — the player choice — already rendered, same as Variant Human). A **full click-through E2E**
+    (`test/e2e/race-builder-asi.js`) now drives the real form in a headless browser, saves, and asserts the
+    persisted localStorage — and **caught a real bug**: the widget stored raw `<select>` strings
+    (`"cha"`/`"martial"`/`"1"`) instead of the namespaced keyword / ints the model needs (would break
+    `compile-ability-increases`); fixed by coercing each dropdown's output in `race-ability-increase-choices`.
+    Remaining: feat-path reconciliation (feats have their own `:ability-increases` param, not via `:props`);
+    round-trip (layer 5 — `:ability-increases` survives orcbrew export/import + the chosen ability survives
+    character save/load).
 - **B. Mechanism layers** (lift text → mechanical): **B1** structured/parameterized effect & feature
   records (keystone — `compile-feature` is the proven start); **B2** conditions (build-state auto /
   play-state toggle, on the verified `equipped?` substrate); **B3** resource counters as data (incl. the

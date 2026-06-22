@@ -6226,7 +6226,12 @@
         amount-items (map (fn [n] {:title (common/bonus-str n) :value n}) (range 1 4))
         ability-items (map (fn [{:keys [name key]}] {:title name :value key}) opt/abilities)
         group-items [{:title "Any (all six)" :value :any}
-                     {:title "Martial (Str/Dex/Con)" :value :martial}]]
+                     {:title "Martial (Str/Dex/Con)" :value :martial}]
+        ;; <select> on-change yields the rendered string (reagent renders a keyword value via
+        ;; `name`, so ::character/cha -> "cha"). Coerce back to the real value the data model wants.
+        ability-by-str (into {} (map (juxt (comp clojure.core/name :key) :key)) opt/abilities)
+        group-by-str   {"any" :any "martial" :martial}
+        ->amount       (fn [s] (js/parseInt s))]
     [:div.m-b-20
      [:div.f-s-18.f-w-b.m-b-10 "Choice / Floating Ability Increases"]
      (doall
@@ -6238,15 +6243,15 @@
             [:div.flex.align-items-c
              [:span.m-r-5 "Fixed"]
              [labeled-dropdown "Ability" {:items ability-items :value (:ability a)
-                                          :on-change #(set-ai! (assoc-in ais [i :ability] %))}]
+                                          :on-change #(set-ai! (assoc-in ais [i :ability] (ability-by-str %)))}]
              [labeled-dropdown "Amount" {:items amount-items :value (:amount a 1)
-                                         :on-change #(set-ai! (assoc-in ais [i :amount] %))}]]
+                                         :on-change #(set-ai! (assoc-in ais [i :amount] (->amount %)))}]]
             [:div.flex.align-items-c
              [:span.m-r-5 "Floating — choose 1 from"]
              [labeled-dropdown "From" {:items group-items :value (get-in a [:select :from] :any)
-                                       :on-change #(set-ai! (assoc-in ais [i :select :from] %))}]
+                                       :on-change #(set-ai! (assoc-in ais [i :select :from] (group-by-str %)))}]
              [labeled-dropdown "Amount" {:items amount-items :value (get-in a [:select :amount] 1)
-                                         :on-change #(set-ai! (assoc-in ais [i :select :amount] %))}]])
+                                         :on-change #(set-ai! (assoc-in ais [i :select :amount] (->amount %)))}]])
           [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]])
        ais))
      [:button.m-r-5 {:on-click #(set-ai! (conj ais {:ability (-> opt/abilities first :key) :amount 1}))} "Add fixed"]

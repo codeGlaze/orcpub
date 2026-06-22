@@ -87,6 +87,34 @@ redirect is skipped on `localhost`). Routing is **path-based** off `window.locat
    builder's text present (incl. the floating-ASI widget).
 
 **This makes rendered-UI E2E a single CLI command** — so it runs in CI (results to your phone, no
-desk) or a tunneled Codespace. It is the basis for the deferred "cljs/E2E into CI" item. To drive
-interactions (click "Add floating", pick abilities, build a character, read the sheet) extend the
-Playwright script with `page.click`/`page.selectOption` and assert on the resulting DOM.
+desk) or a tunneled Codespace. It is the basis for the deferred "cljs/E2E into CI" item.
+
+### Driving interactions (done — committed as `test/e2e/race-builder-asi.js`)
+
+The render proof above was extended to a full **click-through**: author a floating-ASI homebrew
+race through the real form, click the real Save button, and assert the persisted localStorage. It
+runs with `REPO=<repo> node test/e2e/race-builder-asi.js` (see `test/e2e/README.md`).
+
+**It caught a real bug source review missed:** the race-builder ASI widget stored raw `<select>`
+strings (`"cha"`, `"martial"`, `"1"`) instead of the namespaced keyword / ints the data model
+needs — which would make `compile-ability-increases` → `race-ability` choke on a string and
+`(ability-groups "martial")` return nil (empty option list). The harness/JVM tests dispatch events
+with already-correct values, so **only the browser-driven `<select>` exercised the coercion.** Fix:
+the widget now coerces each dropdown's emitted string via lookup maps (`views.cljs`,
+`race-ability-increase-choices`). This is the concrete payoff of the "90%-without-backend" E2E.
+
+**Interaction gotchas (verified, the hard way — encoded in the script):**
+- `dropdown`/`labeled-dropdown` `:on-change` always yields the **rendered string** (`event-value`
+  = `.target.value`); reagent renders a keyword value via `name`, so `::character/cha` → `"cha"`.
+  Callers MUST coerce (`(keyword …)`, `(js/parseInt …)`, or a string→value lookup) — see how the
+  Size/Speed/Darkvision dropdowns do it.
+- Input index `[1]` on the race-builder page is the **Orcacle search box** (`placeholder="search"`),
+  NOT a form field. Typing into it opens an autofill **suggestions overlay** that intercepts later
+  clicks (this is the "div intercepts pointer events" symptom — not a modal/loading overlay).
+  Target real fields by class/placeholder (`input.input.h-40`, `[placeholder="Default Option Source"]`).
+- "Save to Browser Storage" is in the DOM **twice** (hidden mobile + visible desktop twin); a plain
+  `.first()` grabs the hidden one ("element is not visible"). Use `button:visible`.
+- reagent flushes re-renders **async**; back-to-back `selectOption`s can fire an on-change whose
+  closure still holds the pre-dispatch state and clobbers an earlier pick. Pause (~150ms) between.
+- When in doubt about what the page actually is, **take a screenshot** — it settles "which input/
+  overlay is this" in one shot instead of repeated wrong hypotheses.
