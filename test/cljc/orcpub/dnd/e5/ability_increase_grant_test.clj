@@ -1,0 +1,125 @@
+(ns orcpub.dnd.e5.ability-increase-grant-test
+  "Layer 1 of the floating-ASI vertical (roadmap A4): `compile-ability-increases` turns a DATA
+   allotment list into modifiers (fixed/creator-chosen) + selections (floating/user-chosen), and the
+   combination lands on a built character. Proven bottom-up under the JVM gate before any UI work.
+
+   Allotment data shape:
+     [{:ability :cha :amount 2}                                         ; FIXED  -> race-ability modifier
+      {:select {:from #{:str :dex :con} :num 1 :amount 1 :different? true}}] ; FLOATING -> ability-increase-selection-2
+   Fixed compiles via mod5e/race-ability (-> ?ability-increases); floating via the existing
+   ability-increase-selection-2 with a level-ability-increase modifier-fn (-> ?level-ability-increases);
+   both sum into the final ability (template_base.cljc:97-101). This is the user-choice (`select`) half
+   of the grant layer — the thing Variant Human/Tasha's do that creator-fixed ASI doesn't.
+
+   compile-ability-increases lives here as a proven prototype (like compile-feature); layer 2 wires it
+   into the real race/feat assembly. JVM/clojure.test."
+  (:require [clojure.test :refer [deftest testing is]]
+            [orcpub.entity :as entity]
+            [orcpub.template :as t]
+            [orcpub.dnd.e5.template :as t5e]
+            [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.modifiers :as mod5e]
+            [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.spells :as spells5e]
+            [orcpub.dnd.e5.spell-lists :as sl5e]
+            [orcpub.dnd.e5.weapons :as weapons5e]
+            [orcpub.common :as common]))
+
+(def ^:private S :orcpub.dnd.e5.character/str)
+(def ^:private D :orcpub.dnd.e5.character/dex)
+(def ^:private C :orcpub.dnd.e5.character/con)
+(def ^:private Ch :orcpub.dnd.e5.character/cha)
+
+;; named ability subsets (a creator picks a group, e.g. "martial")
+(def ability-groups {:martial #{S D C}})
+
+(defn compile-ability-increases
+  "DATA allotment list -> {:modifiers [...] :selections [...]}. Each allotment is either FIXED
+   ({:ability :amount}) or FLOATING ({:select {:from :num :amount :different?}}); both compose.
+   `:from` may be an explicit set of ability keys or a named group keyword (e.g. :martial)."
+  [allotments]
+  (reduce
+   (fn [acc allotment]
+     (cond
+       (:ability allotment)
+       (update acc :modifiers into (mod5e/race-ability (:ability allotment) (:amount allotment 1)))
+
+       (:select allotment)
+       (let [{:keys [from num amount different?] :or {num 1 amount 1}} (:select allotment)
+             keys (vec (if (keyword? from) (ability-groups from) from))
+             idx  (count (:selections acc))
+             sel  (assoc (opt5e/ability-increase-selection-2
+                          {:ability-keys keys
+                           :num-increases num
+                           :different? different?
+                           :modifier-fn (fn [k] (mod5e/level-ability-increase k amount))})
+                         ::t/key (keyword (str "floating-asi-" idx)))]
+         (update acc :selections conj sel))
+
+       :else acc))
+   {:modifiers [] :selections []}
+   allotments))
+
+;; "+2 CHA (fixed) and +1 to any martial stat (floating)" — the user's worked example
+(def sample-allotments
+  [{:ability Ch :amount 2}
+   {:select {:from :martial :num 1 :amount 1 :different? true}}])
+
+(defn- origin-option [allotments]
+  (let [{:keys [modifiers selections]} (compile-ability-increases allotments)]
+    (t/option-cfg {:name "Test Origin" :key :test-origin :modifiers modifiers :selections selections})))
+
+(defn- template-with [allotments]
+  (t5e/template
+   (concat
+    (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
+                             sl5e/spell-lists spells5e/spell-map [] [] [] [] (common/map-by-key [{:name "Common" :key :common}]))
+    [(t/selection-cfg {:name "Origin" :key :origin :tags #{:race}
+                       :options [(origin-option allotments)] :min 1 :max 1})])))
+
+(def ^:private base-10 (zipmap char5e/ability-keys (repeat 10)))
+
+(defn- build [allotments chosen-floating]
+  (entity/build
+   {:orcpub.entity/options
+    {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
+     :origin {:orcpub.entity/key :test-origin
+              :orcpub.entity/options (when chosen-floating
+                                       {:floating-asi-0 {:orcpub.entity/key chosen-floating}})}}}
+   (template-with allotments)))
+
+(deftest ^:diagnostic dump-asi
+  (println "\n=== compile-ability-increases (observe) ===")
+  (let [{:keys [modifiers selections]} (compile-ability-increases sample-allotments)]
+    (println "modifier count =" (count modifiers) " selection count =" (count selections))
+    (println "floating selection key =" (::t/key (first selections)))
+    (println "floating offered =" (pr-str (map ::t/key (::t/options (first selections))))))
+  (println "fixed-only abilities =" (pr-str (char5e/ability-values (build [{:ability Ch :amount 2}] nil))))
+  (println "fixed+floating(dex) abilities =" (pr-str (char5e/ability-values (build sample-allotments D)))))
+
+;; ---------------------------------------------------------------------------
+;; Baseline (captured from dump-asi): the compile shape + the fixed/floating combination on a real build
+;; ---------------------------------------------------------------------------
+(deftest compile-shape-and-restriction
+  (let [{:keys [modifiers selections]} (compile-ability-increases sample-allotments)]
+    (is (= 2 (count modifiers)) "fixed +2 CHA compiles to race-ability's two modifiers")
+    (is (= 1 (count selections)) "one floating selection")
+    (testing "the floating choice is RESTRICTED to the named subset (martial = str/dex/con) — not all six"
+      (is (= #{S D C} (set (map ::t/key (::t/options (first selections)))))))))
+
+(deftest fixed-and-floating-compose-on-a-built-character
+  (testing "FIXED alone — +2 CHA applies with no player choice"
+    (let [a (char5e/ability-values (build [{:ability Ch :amount 2}] nil))]
+      (is (= 12 (Ch a))) (is (= 10 (S a)))))
+  (testing "FIXED + FLOATING together — +2 CHA AND a user-chosen +1 (DEX) both land"
+    (let [a (char5e/ability-values (build sample-allotments D))]
+      (is (= 12 (Ch a)) "fixed CHA +2")
+      (is (= 11 (D a))  "floating +1 went to the chosen DEX")
+      (is (= 10 (S a))  "the unchosen martial stat is unchanged")
+      (is (= 10 (C a)))))
+  (testing "the floating +1 follows the USER's choice — CON instead of DEX"
+    (let [a (char5e/ability-values (build sample-allotments C))]
+      (is (= 11 (C a))) (is (= 10 (D a))) (is (= 12 (Ch a)))))
+  (testing "amount is honored — a Tasha's-style floating +2 lands as +2"
+    (let [a (char5e/ability-values (build [{:select {:from #{S D} :num 1 :amount 2}}] S))]
+      (is (= 12 (S a))) (is (= 10 (D a))))))
