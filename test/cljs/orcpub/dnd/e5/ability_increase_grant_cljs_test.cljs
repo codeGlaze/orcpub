@@ -12,8 +12,9 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.races :as races5e]
-            ;; side effects: register the races sub
-            [orcpub.dnd.e5.spell-subs]))
+            ;; side effects: register the races sub + the builder events
+            [orcpub.dnd.e5.spell-subs]
+            [orcpub.dnd.e5.events]))
 
 (defn reset-db! [] (reset! app-db {}) (rf/clear-subscription-cache!))
 (use-fixtures :each {:before reset-db!})
@@ -49,6 +50,26 @@
       ;; minimal race (no :props/spells), so the only modifiers are the fixed race-ability's two
       (is (= 2 (count (:modifiers race)))
           "compile-ability-increases' fixed CHA modifiers were merged into the race's :modifiers"))))
+
+(deftest authoring-via-builder-events-produces-a-working-race
+  (testing "driving the REAL race-builder events (what the form dispatches) authors a working floating-ASI race"
+    (reset! app-db {})
+    (rf/dispatch-sync [::races5e/set-race-prop :name "Tide-Touched"])
+    (rf/dispatch-sync [::races5e/set-race-prop :key :tide-touched])
+    (rf/dispatch-sync [::races5e/set-race-prop :option-pack "P"])
+    (rf/dispatch-sync [::races5e/set-race-path-prop [:ability-increases]
+                       [{:ability Ch :amount 2}
+                        {:select {:from :martial :num 1 :amount 1 :different? true}}]])
+    (let [item (::races5e/builder-item @app-db)]
+      (is (= 2 (count (:ability-increases item))) "the builder events built the allotment list")
+      (is (= :tide-touched (:key item)))
+      ;; feed the authored race through the REAL assembly (as a loaded plugin) — end to end
+      (reset! app-db {:plugins {"P" {::e5/races {:tide-touched item}}}})
+      (let [race (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races])))
+            sel  (first (filter #(= :floating-asi-0 (::t/key %)) (:selections race)))]
+        (is (some? sel) "the authored race carries the floating ASI selection")
+        (is (= #{S D C} (set (map ::t/key (::t/options sel))))
+            "restricted to the martial set, end to end from the builder events")))))
 
 (deftest race-without-ability-increases-is-unaffected
   (testing "additive: a homebrew race with no :ability-increases gets no ASI selection"

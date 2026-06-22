@@ -261,7 +261,8 @@
 
 ;; Named ability subsets a creator can grant a floating increase over (e.g. "+1 to any martial stat").
 (def ability-groups
-  {:martial #{::character/str ::character/dex ::character/con}})
+  {:any     (set character/ability-keys)
+   :martial #{::character/str ::character/dex ::character/con}})
 
 (defn compile-ability-increases
   "USER-CHOICE + creator-FIXED ability increases as DATA (roadmap A4). Turns an allotment list into

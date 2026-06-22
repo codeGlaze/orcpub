@@ -6216,6 +6216,42 @@
               {:title "Reaction"
                :value :reaction}]]]))
 
+(defn race-ability-increase-choices
+  "Authoring UI for a race's :ability-increases — fixed (creator-chosen ability) and floating
+   (user-chosen from a subset) allotments, composed. Each control dispatches the generic
+   set-race-path-prop with the recomputed vector; it compiles via opt5e/compile-ability-increases."
+  [race]
+  (let [ais (vec (:ability-increases race))
+        set-ai! (fn [v] (dispatch [::races/set-race-path-prop [:ability-increases] v]))
+        amount-items (map (fn [n] {:title (common/bonus-str n) :value n}) (range 1 4))
+        ability-items (map (fn [{:keys [name key]}] {:title name :value key}) opt/abilities)
+        group-items [{:title "Any (all six)" :value :any}
+                     {:title "Martial (Str/Dex/Con)" :value :martial}]]
+    [:div.m-b-20
+     [:div.f-s-18.f-w-b.m-b-10 "Choice / Floating Ability Increases"]
+     (doall
+      (map-indexed
+       (fn [i a]
+         ^{:key i}
+         [:div.flex.flex-wrap.align-items-c.m-b-5
+          (if (:ability a)
+            [:div.flex.align-items-c
+             [:span.m-r-5 "Fixed"]
+             [labeled-dropdown "Ability" {:items ability-items :value (:ability a)
+                                          :on-change #(set-ai! (assoc-in ais [i :ability] %))}]
+             [labeled-dropdown "Amount" {:items amount-items :value (:amount a 1)
+                                         :on-change #(set-ai! (assoc-in ais [i :amount] %))}]]
+            [:div.flex.align-items-c
+             [:span.m-r-5 "Floating — choose 1 from"]
+             [labeled-dropdown "From" {:items group-items :value (get-in a [:select :from] :any)
+                                       :on-change #(set-ai! (assoc-in ais [i :select :from] %))}]
+             [labeled-dropdown "Amount" {:items amount-items :value (get-in a [:select :amount] 1)
+                                         :on-change #(set-ai! (assoc-in ais [i :select :amount] %))}]])
+          [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]])
+       ais))
+     [:button.m-r-5 {:on-click #(set-ai! (conj ais {:ability (-> opt/abilities first :key) :amount 1}))} "Add fixed"]
+     [:button {:on-click #(set-ai! (conj ais {:select {:from :martial :num 1 :amount 1 :different? true}}))} "Add floating"]]))
+
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
     [:div.p-20.main-text-color
@@ -6309,7 +6345,8 @@
                       (range -2 3 1))
               :value (get-in race [:abilities key] 0)
               :on-change #(dispatch [::races/set-race-ability-increase key %])}]])
-         opt/abilities))]]
+         opt/abilities))]
+      [race-ability-increase-choices race]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div.m-b-20
