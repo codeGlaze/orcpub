@@ -120,6 +120,11 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     class hand out floating ASI too (reconcile with the feat-only `:ability-increases` path). Cheaper than
     the pool-grant work — the hard primitive is built; the gap is exposing it as authorable data + the silo
     hook + a builder form. **Good candidate for the first full-stack (engine→UI) vertical** (see below).
+    **Progress:** layer 1 — `opt5e/compile-ability-increases` (fixed+floating, named subsets) proven on a
+    built character (JVM, `ability-increase-grant-test`); layer 2 — race + subrace silo wiring
+    (`spell_subs.cljs` plugin-races/subraces) proven through the real `::races5e/races` sub (cljs harness,
+    `ability-increase-grant-cljs-test`). Remaining: feat-path reconciliation (feats have their own
+    `:ability-increases` param, not via `:props`), the authoring form (layer 3, builder UI), round-trip (layer 5).
 - **B. Mechanism layers** (lift text → mechanical): **B1** structured/parameterized effect & feature
   records (keystone — `compile-feature` is the proven start); **B2** conditions (build-state auto /
   play-state toggle, on the verified `equipped?` substrate); **B3** resource counters as data (incl. the

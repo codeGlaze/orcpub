@@ -259,6 +259,43 @@
     :selections [(ability-increase-selection ability-keys num-increases different?)]
     :modifiers [(modifiers/deferred-ability-increases)]}))
 
+;; Named ability subsets a creator can grant a floating increase over (e.g. "+1 to any martial stat").
+(def ability-groups
+  {:martial #{::character/str ::character/dex ::character/con}})
+
+(defn compile-ability-increases
+  "USER-CHOICE + creator-FIXED ability increases as DATA (roadmap A4). Turns an allotment list into
+   {:modifiers [...] :selections [...]}, composing fixed and floating freely:
+     [{:ability :cha :amount 2}                                         ; FIXED  -> race-ability
+      {:select {:from #{:str :dex :con} :num 1 :amount 1 :different? true}}] ; FLOATING -> a player choice
+   `:from` may be an explicit set of ability keys or a named group keyword (e.g. :martial). Fixed
+   compiles via `race-ability` (-> ?ability-increases); each floating `:select` reuses the existing
+   `ability-increase-selection-2` (the Variant-Human primitive) with a `level-ability-increase`
+   modifier-fn for the chosen amount (-> ?level-ability-increases). Distinct keys per floating
+   selection so multiple allotments don't collide. Any silo (race/feat/background) can carry it."
+  [allotments]
+  (reduce
+   (fn [acc allotment]
+     (cond
+       (:ability allotment)
+       (update acc :modifiers into (modifiers/race-ability (:ability allotment) (:amount allotment 1)))
+
+       (:select allotment)
+       (let [{:keys [from num amount different?] :or {num 1 amount 1}} (:select allotment)
+             keys (vec (if (keyword? from) (ability-groups from) from))
+             idx  (count (:selections acc))]
+         (update acc :selections conj
+                 (assoc (ability-increase-selection-2
+                         {:ability-keys keys
+                          :num-increases num
+                          :different? different?
+                          :modifier-fn (fn [k] (modifiers/level-ability-increase k amount))})
+                        ::t/key (keyword (str "floating-asi-" idx)))))
+
+       :else acc))
+   {:modifiers [] :selections []}
+   allotments))
+
 (defn min-ability [ability-kw min-value]
   (fn [c] (>= (ability-kw (character/ability-values c)) min-value)))
 

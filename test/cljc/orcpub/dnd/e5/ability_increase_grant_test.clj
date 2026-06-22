@@ -18,7 +18,6 @@
             [orcpub.template :as t]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.options :as opt5e]
-            [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
@@ -30,35 +29,8 @@
 (def ^:private C :orcpub.dnd.e5.character/con)
 (def ^:private Ch :orcpub.dnd.e5.character/cha)
 
-;; named ability subsets (a creator picks a group, e.g. "martial")
-(def ability-groups {:martial #{S D C}})
-
-(defn compile-ability-increases
-  "DATA allotment list -> {:modifiers [...] :selections [...]}. Each allotment is either FIXED
-   ({:ability :amount}) or FLOATING ({:select {:from :num :amount :different?}}); both compose.
-   `:from` may be an explicit set of ability keys or a named group keyword (e.g. :martial)."
-  [allotments]
-  (reduce
-   (fn [acc allotment]
-     (cond
-       (:ability allotment)
-       (update acc :modifiers into (mod5e/race-ability (:ability allotment) (:amount allotment 1)))
-
-       (:select allotment)
-       (let [{:keys [from num amount different?] :or {num 1 amount 1}} (:select allotment)
-             keys (vec (if (keyword? from) (ability-groups from) from))
-             idx  (count (:selections acc))
-             sel  (assoc (opt5e/ability-increase-selection-2
-                          {:ability-keys keys
-                           :num-increases num
-                           :different? different?
-                           :modifier-fn (fn [k] (mod5e/level-ability-increase k amount))})
-                         ::t/key (keyword (str "floating-asi-" idx)))]
-         (update acc :selections conj sel))
-
-       :else acc))
-   {:modifiers [] :selections []}
-   allotments))
+;; compile-ability-increases now lives in production: opt5e/compile-ability-increases (options.cljc),
+;; so the cljs race/feat assembly can call it (layer 2). This test exercises the production fn.
 
 ;; "+2 CHA (fixed) and +1 to any martial stat (floating)" — the user's worked example
 (def sample-allotments
@@ -66,7 +38,7 @@
    {:select {:from :martial :num 1 :amount 1 :different? true}}])
 
 (defn- origin-option [allotments]
-  (let [{:keys [modifiers selections]} (compile-ability-increases allotments)]
+  (let [{:keys [modifiers selections]} (opt5e/compile-ability-increases allotments)]
     (t/option-cfg {:name "Test Origin" :key :test-origin :modifiers modifiers :selections selections})))
 
 (defn- template-with [allotments]
@@ -90,7 +62,7 @@
 
 (deftest ^:diagnostic dump-asi
   (println "\n=== compile-ability-increases (observe) ===")
-  (let [{:keys [modifiers selections]} (compile-ability-increases sample-allotments)]
+  (let [{:keys [modifiers selections]} (opt5e/compile-ability-increases sample-allotments)]
     (println "modifier count =" (count modifiers) " selection count =" (count selections))
     (println "floating selection key =" (::t/key (first selections)))
     (println "floating offered =" (pr-str (map ::t/key (::t/options (first selections))))))
@@ -101,7 +73,7 @@
 ;; Baseline (captured from dump-asi): the compile shape + the fixed/floating combination on a real build
 ;; ---------------------------------------------------------------------------
 (deftest compile-shape-and-restriction
-  (let [{:keys [modifiers selections]} (compile-ability-increases sample-allotments)]
+  (let [{:keys [modifiers selections]} (opt5e/compile-ability-increases sample-allotments)]
     (is (= 2 (count modifiers)) "fixed +2 CHA compiles to race-ability's two modifiers")
     (is (= 1 (count selections)) "one floating selection")
     (testing "the floating choice is RESTRICTED to the named subset (martial = str/dex/con) — not all six"

@@ -139,12 +139,17 @@
  (fn [plugins _]
    (map
     (fn [race]
-      (assoc race
-             :modifiers
-             (concat (opt5e/plugin-modifiers (:props race)
-                                             (:key race))
-                     (spell-modifiers race (:name race)))
-             :edit-event [::races5e/edit-race race]))
+      ;; A4: a race's :ability-increases data (fixed + floating) compiles to extra modifiers +
+      ;; selections; additive (compile-ability-increases on nil -> empty), so races without it are unchanged.
+      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-increases (:ability-increases race))]
+        (assoc race
+               :modifiers
+               (concat (opt5e/plugin-modifiers (:props race)
+                                               (:key race))
+                       (spell-modifiers race (:name race))
+                       ai-mods)
+               :selections (concat (:selections race) ai-sels)
+               :edit-event [::races5e/edit-race race])))
     (mapcat (comp vals ::e5/races) plugins))))
 
 (reg-sub
@@ -153,11 +158,15 @@
  (fn [plugins _]
    (map
     (fn [subrace]
-      (assoc subrace
-             :modifiers (concat (opt5e/plugin-modifiers (:props subrace)
-                                                        (:key subrace))
-                                (spell-modifiers subrace (:name subrace)))
-             :edit-event [::races5e/edit-subrace subrace]))
+      ;; A4: same :ability-increases hook as races (fixed + floating); additive.
+      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-increases (:ability-increases subrace))]
+        (assoc subrace
+               :modifiers (concat (opt5e/plugin-modifiers (:props subrace)
+                                                          (:key subrace))
+                                  (spell-modifiers subrace (:name subrace))
+                                  ai-mods)
+               :selections (concat (:selections subrace) ai-sels)
+               :edit-event [::races5e/edit-subrace subrace])))
     (mapcat (comp vals ::e5/subraces) plugins))))
 
 ;; Grant vocabulary B — `:level-modifiers {:type … :value …}` for CLASSES and SUBCLASSES (no class
