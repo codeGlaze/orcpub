@@ -293,14 +293,16 @@
                           :modifier-fn (fn [k] (modifiers/level-ability-increase k amount))})
                         ;; KEY NOTE — applies ONLY to floating (:select) choices, NOT fixed (:ability)
                         ;; stats, which are plain modifiers above and always apply. The character
-                        ;; builder's racial ability-increase widget only renders a selection keyed
-                        ;; :asi (the Variant-Human/Half-Elf convention); a different key still compiles
-                        ;; and applies on a built character but does NOT render (verified via headless
-                        ;; UI E2E). So fixed + ONE floating choice (the normal case, incl. a single
-                        ;; :select granting num>1 from a set) renders fully. The first floating choice
-                        ;; takes :asi; a SECOND separate floating choice from a different set (rare —
-                        ;; not a standard 5e pattern) gets a distinct key: it applies but the current
-                        ;; builder renders only the first.
+                        ;; builder collects ability-increase widgets with `(= :asi (::t/key s))`
+                        ;; (character_builder.cljs:1169), so a selection renders ONLY when keyed :asi.
+                        ;; But the entity stores each selection's pick under its key, so TWO floating
+                        ;; choices need DISTINCT keys to both persist — which then fail the :asi filter.
+                        ;; Net (current builder): fixed + ONE floating choice (incl. one :select with
+                        ;; num>1 from a set) renders fully; a SECOND separate floating choice gets a
+                        ;; distinct key and does NOT render. ⚠️ This blocks the STANDARD Tasha's/MotM
+                        ;; "+2 to one, +1 to another" ASI (two floating pools) — see roadmap A4. Real
+                        ;; fix = broaden the character_builder filter to render all the floating
+                        ;; ability-increase selections, not just :asi.
                         ::t/key (if (zero? idx) :asi (keyword (str "floating-asi-" idx))))))
 
        :else acc))
