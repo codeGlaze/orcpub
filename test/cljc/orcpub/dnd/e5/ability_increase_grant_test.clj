@@ -51,14 +51,15 @@
 
 (def ^:private base-10 (zipmap char5e/ability-keys (repeat 10)))
 
+(defn- raw-entity [allotments chosen-floating]
+  {:orcpub.entity/options
+   {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
+    :origin {:orcpub.entity/key :test-origin
+             :orcpub.entity/options (when chosen-floating
+                                      {:floating-asi-0 {:orcpub.entity/key chosen-floating}})}}})
+
 (defn- build [allotments chosen-floating]
-  (entity/build
-   {:orcpub.entity/options
-    {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
-     :origin {:orcpub.entity/key :test-origin
-              :orcpub.entity/options (when chosen-floating
-                                       {:floating-asi-0 {:orcpub.entity/key chosen-floating}})}}}
-   (template-with allotments)))
+  (entity/build (raw-entity allotments chosen-floating) (template-with allotments)))
 
 (deftest ^:diagnostic dump-asi
   (println "\n=== compile-ability-increases (observe) ===")
@@ -95,3 +96,22 @@
   (testing "amount is honored — a Tasha's-style floating +2 lands as +2"
     (let [a (char5e/ability-values (build [{:select {:from #{S D} :num 1 :amount 2}}] S))]
       (is (= 12 (S a))) (is (= 10 (D a))))))
+
+;; ---------------------------------------------------------------------------
+;; Layer 5 (character half): the user's floating choice survives save/load.
+;; A character stores its pick as the chosen option's ::entity/key under the
+;; :floating-asi-0 selection; this proves char5e/to-strict->from-strict (the real
+;; localStorage/server path, db.cljs:171/281) preserves it AND that the rebuilt
+;; character still applies the increase — not just that a key matches.
+;; ---------------------------------------------------------------------------
+(deftest character-floating-choice-survives-save-load
+  (let [loaded (-> (raw-entity sample-allotments D) char5e/to-strict char5e/from-strict)
+        chosen (get-in loaded [:orcpub.entity/options :origin
+                               :orcpub.entity/options :floating-asi-0 :orcpub.entity/key])
+        a      (char5e/ability-values (entity/build loaded (template-with sample-allotments)))]
+    (testing "the chosen ability key round-trips through strict serialization"
+      (is (= D chosen) "the user's floating pick (DEX) survived save/load"))
+    (testing "the rebuilt character still applies fixed + the chosen floating increase"
+      (is (= 11 (D a))  "+1 still on the chosen DEX")
+      (is (= 12 (Ch a)) "fixed +2 CHA still applies")
+      (is (= 10 (C a))  "the unchosen martial stat is unchanged"))))

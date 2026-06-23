@@ -12,6 +12,7 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.races :as races5e]
+            [orcpub.dnd.e5.import-validation :as import-val]
             ;; side effects: register the races sub + the builder events
             [orcpub.dnd.e5.spell-subs]
             [orcpub.dnd.e5.events]))
@@ -78,3 +79,33 @@
       (is (some? race))
       (is (not-any? #(= :floating-asi-0 (::t/key %)) (:selections race))
           "no :ability-increases -> no floating selection (the hook is opt-in)"))))
+
+;; Layer 5 (homebrew half): :ability-increases survives a real orcbrew export -> import.
+;; Export is `(str plugin)` (events.cljs:3650); import is validate-import (parse + normalize +
+;; clean + fill + dedup + structural validation, import_validation.cljs:1301). We round-trip a
+;; SINGLE-plugin shape (one exported pack's content, content-keyed) — the strict path that runs
+;; remove-invalid-items — and assert the arbitrary key is preserved AND still drives the live sub.
+(def asi-race
+  {:name "Tide-Touched" :key :tide-touched :option-pack "ASI Pack"
+   :ability-increases [{:ability Ch :amount 2}
+                       {:select {:from :martial :num 1 :amount 1 :different? true}}]})
+
+(deftest ability-increases-survives-orcbrew-export-import
+  (let [plugin   {::e5/races {:tide-touched asi-race}}     ; one exported pack's content
+        edn      (str plugin)                              ; mirrors export's (str plugin)
+        result   (import-val/validate-import edn {})       ; default strategy/clean/fill, like the real import
+        imported (get-in (:data result) [::e5/races :tide-touched])]
+    (testing "the import succeeds and keeps the (valid) race"
+      (is (:success result))
+      (is (zero? (:skipped-count result)) "a valid race is not dropped by progressive import"))
+    (testing ":ability-increases survives the export->import pipeline verbatim"
+      (is (= (:ability-increases asi-race) (:ability-increases imported))
+          "the arbitrary key (and its qualified keywords / ints) round-trips through (str)->validate-import"))
+    (testing "the imported data still drives the live races sub (floating selection restricted to martial)"
+      (reset! app-db {:plugins {"ASI Pack" (:data result)}})
+      (rf/clear-subscription-cache!)
+      (let [race (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races])))
+            sel  (first (filter #(= :floating-asi-0 (::t/key %)) (:selections race)))]
+        (is (some? sel) "the round-tripped race still compiles the floating ASI selection")
+        (is (= #{S D C} (set (map ::t/key (::t/options sel))))
+            "still restricted to the martial set after export/import")))))

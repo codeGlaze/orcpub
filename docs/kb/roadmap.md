@@ -134,9 +134,16 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     primitive: `dropdown` now takes `:typed?`, round-tripping the item's real `:value` so callers do no
     coercion (D32, `dropdown-value-coercion.md`); the ASI widget uses it and the E2E still passes. That
     resolves the "can we template these elements to prevent the mistake in general?" gate.
-    Remaining: feat-path reconciliation (feats have their own `:ability-increases` param, not via `:props`);
-    round-trip (layer 5 — `:ability-increases` survives orcbrew export/import + the chosen ability survives
-    character save/load).
+    **Layer 5 (round-trip) DONE — both halves test-backed:** (a) a homebrew race's `:ability-increases`
+    survives the real orcbrew export→import (`(str plugin)`→`validate-import`) verbatim AND still drives
+    the live `::races5e/races` sub (cljs harness, `ability-increase-grant-cljs-test`); (b) a character's
+    chosen floating `+1` survives `char5e/to-strict`→`from-strict` (the localStorage/server path) and the
+    rebuilt character still applies it (JVM, `ability-increase-grant-test` — `character-floating-choice-survives-save-load`).
+    Both serialization paths preserve arbitrary/nested keys (export is whole-map EDN; character strict
+    round-trip preserves selection/option keys via `::strict/key`).
+    Remaining for A4: **feat-path reconciliation** — the compile hook is wired for race/subrace only;
+    feats/backgrounds/classes have their own `:ability-increases` param (not via `:props`), so the
+    "any silo" promise isn't delivered yet.
 - **B. Mechanism layers** (lift text → mechanical): **B1** structured/parameterized effect & feature
   records (keystone — `compile-feature` is the proven start); **B2** conditions (build-state auto /
   play-state toggle, on the verified `equipped?` substrate); **B3** resource counters as data (incl. the
