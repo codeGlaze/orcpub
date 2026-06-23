@@ -31,19 +31,32 @@ type, and forgetting was undetectable by source review or the JVM/harness tests 
 events with already-correct values). Only a browser driving the real `<select>` exercises this
 layer — which is exactly how the bug surfaced (`test/e2e/race-builder-asi.js`).
 
-## This was a latent, repo-wide hazard (evidence)
+## This bug class has bitten this branch TWICE (provenance, git-verified)
 
-Census of `dropdown`/`labeled-dropdown` `:on-change` handlers in `views.cljs` (~70 sites):
+This is **not** a newly-discovered hazard in old code — it is a recurring mistake *introduced on this
+branch*, because the first fix was never written down anywhere durable. Established with `git blame`
+and the merge-base (`980cc790`):
 
-- The overwhelming majority manually coerce: `(keyword %)`, `(js/parseInt %)`, `(js/parseFloat %)`.
-  Each is a place the coercion can be omitted (as it was in ASI).
-- **`views.cljs:5781`** (class spellcasting ability) is the *same* qualified-keyword case as the ASI
-  bug, surviving only because someone wrote `(keyword "orcpub.dnd.e5.character" %)` — with the
-  namespace hardcoded. Fragile, and the single most likely next instance of this bug.
-- **`views.cljs:6580`** (the `:enum` builder field) had *already* solved it the robust way, inline,
-  with a comment: *"index-based option values so ANY value type (incl. qualified keywords)
-  round-trips through the string-only `<select>`."* The right technique existed in the codebase —
-  it had just never been lifted into the `dropdown` primitive.
+- **First occurrence — dragonborn breath weapon (this branch).** The `:enum` builder field's
+  index-round-trip (`views.cljs:~6595`, commit `f32790b1`, 2026-06-15, **not** in the merge-base) was
+  written *by a prior session on this branch* to fix exactly this — its own comment says it stores
+  *"the keyword, not the dropdown's raw string — the bug that shipped a broken breath weapon."* So the
+  technique and the lesson already existed **in a code comment**, and nowhere else.
+- **Second occurrence — floating ASI (this branch).** Because that fix lived only in a comment on one
+  field, the ASI widget repeated the identical mistake, and when the old fix was found it was at first
+  mis-described as someone else's pre-existing solution. It was this session's own prior work. **This
+  KB note + D32 exist so the lesson is recorded once, not re-derived a third time.**
+
+The wider population of `dropdown` `:on-change` handlers (~70 in `views.cljs`) that coerce by hand
+(`(keyword %)` / `(js/parseInt %)` / `(js/parseFloat %)`) are **not** presumed-broken — most are
+upstream code that has shipped for years. They show the *pattern* is per-caller and easy to forget,
+not that they are bugs. In particular:
+
+- **`views.cljs:5801`** (class spellcasting ability, `(keyword "orcpub.dnd.e5.character" %)`) — **verified
+  NOT a bug.** `git blame`: Larry, 2017, and present in the merge-base, so ~8 years live in production.
+  `(keyword "orcpub.dnd.e5.character" "cha")` = `::character/cha` — correct. It is the same *shape* as the
+  ASI case but it coerces correctly; the only critique is stylistic (the namespace is hardcoded). It is an
+  **optional** `:typed?` cleanup, not a fix.
 
 ## The fix — `:typed?` (the template that makes the mistake impossible)
 
@@ -66,16 +79,26 @@ the ~70 existing call sites are untouched. The floating-ASI widget is migrated t
 manual lookup maps are deleted; `test/e2e/race-builder-asi.js` still passes (the template produces
 the correct types end to end, with zero coercion in the widget).
 
+## Numbers already have a typed input — `number-field`
+
+For free numeric entry there is no string-coercion problem to begin with: `number-field`
+(`views.cljs:3954`) is an `<input type=number>` that parses internally and calls `:on-change` with a
+real int (or `nil` for empty/non-numeric) — the caller never sees a string. It's already used in the
+monster/magic-item builders. So: free numeric entry → `number-field` (typed for free); a constrained
+numeric *choice* (a fixed small set, e.g. ASI `+1/+2/+3`) → a `:typed?` dropdown (an `<input number>`
+can't constrain to a set). There is no native "numeric `<select>`" — a `<select>` is string-valued by
+the DOM spec, which is the whole reason `:typed?` has to do the index-round-trip.
+
 ## Guard / convergence rule
 
-- **New dropdowns whose `:value`s are not already strings → use `:typed? true`.** Then there is
-  nothing to coerce and nothing to forget. Strings-only dropdowns (e.g. `:size` stored as a name)
-  may stay on the default path.
-- **Convergence target (not yet done):** migrate the existing coercing call sites to `:typed?`,
-  starting with the qualified-keyword ones (`views.cljs:5781`) and folding the bespoke `:enum`
-  index-round-trip (`views.cljs:6580`) onto the primitive. Per the prototype-then-converge rule
-  (D23), that cleanup follows this decision rather than preceding it; it is a marked follow-up, not
-  a blocker.
+- **New dropdowns whose `:value`s are not already strings → use `:typed? true`** (or `number-field`
+  for free numeric entry). Then there is nothing to coerce and nothing to forget. Strings-only
+  dropdowns (e.g. `:size` stored as a name) may stay on the default path.
+- **The existing ~70 coercing call sites are NOT a bug list** — most are upstream and correct
+  (e.g. `views.cljs:5801`, verified above). Migrating them to `:typed?` is optional readability
+  cleanup that removes per-caller coercion (and would let the bespoke `:enum` round-trip,
+  `views.cljs:~6595`, fold onto the primitive). Per the prototype-then-converge rule (D23) it follows
+  this decision rather than preceding it; it is a marked follow-up, not a blocker.
 
 See also: `docs/kb/cljs-headless-harness.md` (the E2E that caught this and the other interaction
 gotchas) and the decision log entry **D32**.

@@ -382,21 +382,26 @@ are test-backed across both layers; nothing here is prose-only anymore.
 
 **D32 — UI dropdowns must round-trip their value TYPE; templated via `:typed?` (verified, 2026-06-23).**
 An HTML `<select>` value is always a string, but `dropdown` (`views.cljs`) handed that raw string to
-each caller's `:on-change`, so ~70 call sites manually re-hydrated the type (`(keyword %)` /
-`(js/parseInt %)` / `(js/parseFloat %)`). Forgetting was silent corruption invisible to source review
-and the JVM/harness tests (those dispatch already-typed values) — it bit the floating-ASI widget, which
-persisted `:ability "cha"` / `:from "martial"` (bare strings) instead of the qualified keyword / keyword
-the model needs, so `compile-ability-increases` got a string and `(ability-groups "martial")` returned
-nil (empty choice list). Only the browser-driven `test/e2e/race-builder-asi.js` exercises this layer; it
-is what surfaced the bug. The robust technique already existed inline at `views.cljs:6580` (the `:enum`
-field: index-based option values → look up `(:value (nth options idx))`, *"so ANY value type incl.
-qualified keywords round-trips"*) — it had just never been lifted into the primitive. **Decision:** add
-`:typed?` to `dropdown`, generalizing that index-round-trip — on-change receives the selected item's
-original `:value` (any type, incl. nil/qualified keyword), so callers do zero coercion. Default path is
-unchanged string passthrough (backward compatible; the ~70 sites untouched). The ASI widget is migrated
-and its manual lookup maps deleted; the E2E still passes, proving the template yields correct types with
-no per-control coercion. This answers the "can we template these elements to prevent the mistake in
-general?" question — yes — and clears the last gate before the floating-ASI round-trip (layer 5).
-**Convergence follow-up (post-decision, per D23):** migrate the existing coercing call sites to
-`:typed?`, starting with the qualified-keyword one (`views.cljs:5781`, namespace currently hardcoded)
-and folding the bespoke `:enum` round-trip onto the primitive. Full write-up: `docs/kb/dropdown-value-coercion.md`.
+each caller's `:on-change`, so a caller must re-hydrate the type (`(keyword %)` / `(js/parseInt %)` /
+`(js/parseFloat %)`). Forgetting is silent corruption invisible to source review and the JVM/harness
+tests (those dispatch already-typed values). **This bug class has now bitten THIS branch twice**
+(git-verified, not presumed): (1) the dragonborn breath weapon — fixed by the `:enum` field's
+index-round-trip (`views.cljs:~6595`, commit `f32790b1`, 2026-06-15, **not** in the merge-base; its
+comment records *"the bug that shipped a broken breath weapon"*); that fix lived **only in a code
+comment**, so (2) the floating-ASI widget repeated it, persisting `:ability "cha"` / `:from "martial"`
+(bare strings), which makes `compile-ability-increases` get a string and `(ability-groups "martial")`
+return nil (empty choice list). Only the browser-driven `test/e2e/race-builder-asi.js` exercises this
+layer; it is what surfaced #2. *Correction logged:* the existing ~70 coercing call sites are **not** a
+bug list — most are upstream and correct; `views.cljs:5801` (spellcasting ability,
+`(keyword "orcpub.dnd.e5.character" %)`, Larry 2017, in the merge-base) was wrongly called "fragile/the
+next instance" from pattern-matching — it coerces correctly and has shipped for ~8 years; the only note
+is the hardcoded namespace. **Decision:** lift the index-round-trip into the primitive — `dropdown`
+gains `:typed?`; on-change then receives the selected item's original `:value` (any type, incl.
+nil/qualified keyword), so callers do zero coercion. Default path is unchanged string passthrough
+(backward compatible; existing sites untouched). The ASI widget is migrated and its manual lookup maps
+deleted; the E2E still passes. (Numbers already have a typed input — `number-field`, an
+`<input type=number>` that returns an int/nil — so this is a `<select>`-only problem.) Answers "can we
+template these elements to prevent the mistake in general?" — yes — and clears the last gate before the
+floating-ASI round-trip (layer 5). **Convergence follow-up (optional, post-decision, per D23):** migrate
+coercing call sites to `:typed?` for readability and fold the bespoke `:enum` round-trip onto the
+primitive — cleanup, not a fix. Full write-up: `docs/kb/dropdown-value-coercion.md`.

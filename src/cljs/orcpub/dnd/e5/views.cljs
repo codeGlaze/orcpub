@@ -1977,12 +1977,10 @@
                                         {:seen (conj seen v) :result (conj result item)})))
                                   {:seen #{} :result []})
                           :result)]
-    ;; A <select>'s value is ALWAYS a string. With the default (string passthrough) the caller's
-    ;; :on-change receives that raw string and MUST coerce it back to the item's real type
-    ;; (keyword, int, qualified keyword, …) — forgetting is silent corruption (see
-    ;; docs/kb/dropdown-value-coercion.md). `:typed? true` removes that obligation: option values
-    ;; become indices, and on-change is handed the selected item's original :value — any type,
-    ;; including nil and qualified keywords — round-tripped for you. New code should prefer it.
+    ;; A <select>'s value is always a string, so the default path's :on-change yields a string the
+    ;; caller must coerce back to the item's type (keyword/int/...). :typed? avoids that: option
+    ;; values are indices and :on-change gets the selected item's original :value, any type incl.
+    ;; nil and qualified keywords. See docs/kb/dropdown-value-coercion.md (D32).
     (if typed?
       (let [idx (first (keep-indexed (fn [i it] (when (= (:value it) value) i)) unique-items))]
         [:select.builder-option.builder-option-dropdown.m-t-0
