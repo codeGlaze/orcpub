@@ -141,9 +141,20 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     both selections compile (`:asi` + `:floating-asi-1`) but only the `:asi` (+2) widget renders, so the
     player can't make the +1 pick. Root cause: `character_builder.cljs:1169` collects ability-increase
     widgets with `(= :asi (::t/key s))`, while the entity needs distinct selection keys to persist two
-    picks — a conflict. **Real fix (TODO): broaden that filter to render all floating ability-increase
-    selections, not just `:asi`** (the increment editors already take a LIST of asi-selections, e.g. race
-    `:asi` + class `:asi` at L4, so this is plausible but touches core builder code and needs UI testing). The E2E now asserts the choice renders
+    picks — a conflict. **⚠️ Broadening that filter is NECESSARY BUT NOT SUFFICIENT — shipping it alone
+    would be wrong.** Traced the enforcement chain: `:1169` → variant editors → `ability-increases-component`
+    (`:841`, renders one widget per selection) → `increase-disabled?` (`:871-875`). The `:different?`
+    uniqueness guard (`:874`, `(and different? (pos? (ability-increases k)))`) uses a **per-selection** count
+    (`:848-850`); the ONLY cross-selection guard is `(>= (total-abilities k) 20)` (`:875`, the hard cap). So
+    two separate floating selections (the "+2/+1" spread) are NOT mutually exclusive — a player could put the
+    +2 AND the +1 on the SAME stat (+3), which Tasha's forbids. (By contrast, "+1 to three different" must be
+    modeled as ONE `:select` with `num 3 :different? true` — one selection, uniqueness correctly enforced by
+    `:874`, renders fine; that case already works.) No built-in needs cross-pool uniqueness — Half-Elf's +2
+    is a FIXED modifier — so the engine never grew it. **Correct fix needs more than the filter:** either
+    (a) cross-selection uniqueness in `ability-increases-component` (sum picks across the *spread's*
+    selections, disable an ability used by any sibling — requires GROUPING a spread's selections so
+    independent grants like race-vs-class ASIs aren't wrongly linked), or (b) a per-ability-max "distribute N
+    points, max M each" widget that models "+2/+1 or +1/+1/+1" as one selection. OPEN DESIGN. The E2E now asserts the choice renders
     ("Improvement: Race - Tide Touched") and the fixed +2 CHA shows in the on-screen grid. *Lesson: data
     being present in a sub is not the same as the builder rendering it — only the rendered UI proves the
     player can actually use it.* A **full click-through E2E**
