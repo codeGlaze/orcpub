@@ -1395,8 +1395,11 @@
       :gap "12px"
       :margin-bottom "14px"}]
 
-    ;; ASI grid lands on 1 / 2 / 3 / 6 columns only (breakpoints, not auto-fit) so the
-    ;; six abilities never leave an orphaned 5+1 row.
+    ;; ASI grid: breakpoints to clean divisors (1 / 2 / 3), NOT auto-fit. With a fixed
+    ;; six cards, auto-fit/minmax strands a 5+1 orphan and squishes the horizontal
+    ;; Race + [stepper] = Total equation below its ~290px min. Capped at 3 (3×2) — the
+    ;; builders cap content at ~1440px, so 6-up would only give ~240px/card. (If content
+    ;; ever uncaps past ~1800px, a repeat(6,1fr) step could be added.)
     [:.ability-grid
      {:display :grid
       :grid-template-columns "1fr"
@@ -1514,12 +1517,10 @@
     [:.ability-compact-total.active
      {:color orange}]
 
-    (at-media {:min-width "600px"}
+    (at-media {:min-width "640px"}
               [:.ability-grid {:grid-template-columns "repeat(2, 1fr)"}])
-    (at-media {:min-width "920px"}
+    (at-media {:min-width "1000px"}
               [:.ability-grid {:grid-template-columns "repeat(3, 1fr)"}])
-    (at-media {:min-width "1640px"}
-              [:.ability-grid {:grid-template-columns "repeat(6, 1fr)"}])
 
     ;; the Option Source input gets an amber-tinted border to read as the save target
     [:#plugins-choice
