@@ -22,7 +22,9 @@
   ([labels] (dominant-prefix labels nil))
   ([labels {:keys [min-words ratio] :or {min-words 4 ratio 0.5}}]
    (let [n (count labels)]
-     (when (>= n 3)
+     ;; n>=2: a pair that shares a 4+ word prefix (min-words) is still boilerplate
+     ;; worth collapsing — e.g. the two "Your hit point maximum increases by N …".
+     (when (>= n 2)
        (let [tokens    (mapv #(str/split % #" ") labels)
              max-w     (apply max (map count tokens))
              threshold (max 2 (int (js/Math.ceil (* n ratio))))]
@@ -43,33 +45,60 @@
                  (recur (inc w) (str best-key " "))   ; try to extend the prefix
                  best)))))))))                          ; longer can only shrink count
 
+(defn dominant-suffix
+  "The trailing wording shared by EVERY label that conforms to `prefix` (starts with
+   it), returned INCLUDING its leading space, or nil. Together with `dominant-prefix`
+   this collapses 'value in the middle' boilerplate by stripping both ends — e.g.
+   'Your hit point maximum increases by N for each of your levels' → keyword 'N'.
+   Always leaves at least one word (the keyword) between the prefix and the suffix."
+  [labels prefix]
+  (when prefix
+    (let [tails (->> labels
+                     (filter #(str/starts-with? % prefix))
+                     (mapv #(str/split (subs % (count prefix)) #" ")))]
+      (when (>= (count tails) 2)
+        (let [max-k (dec (apply min (map count tails)))]   ; keep ≥1 keyword token
+          (loop [k 1, best nil]
+            (if (> k max-k)
+              best
+              (let [suffixes (map #(take-last k %) tails)]
+                (if (apply = suffixes)
+                  (recur (inc k) (str " " (str/join " " (first suffixes))))
+                  best)))))))))
+
 (defn classify
-  "Annotate each label relative to `prefix` (nil = no collapse). Returns a vector
-   of maps:
+  "Annotate each label relative to `prefix`/`suffix` (nil prefix = no collapse).
+   Returns a vector of maps:
      :label          the original full label
-     :display        keyword-only text when it conforms, else the full label
+     :display        keyword-only text when it conforms (prefix and shared suffix
+                     stripped), else the full label
      :conform?       starts with the dominant prefix
      :non-standard?  a prefix exists but THIS label doesn't follow it
      :diverge-at     char index where a non-standard label stops matching the
                      prefix — render [0,diverge-at) muted and the tail highlighted."
-  [labels prefix]
-  (mapv
-   (fn [label]
-     (let [conform?      (boolean (and prefix (str/starts-with? label prefix)))
-           non-standard? (boolean (and prefix (not conform?)))]
-       {:label         label
-        :display       (if conform? (subs label (count prefix)) label)
-        :conform?      conform?
-        :non-standard? non-standard?
-        :diverge-at    (if non-standard?
-                         (let [pl (count prefix) ll (count label)]
-                           (loop [i 0]
-                             (if (and (< i pl) (< i ll)
-                                      (= (.charAt label i) (.charAt prefix i)))
-                               (recur (inc i))
-                               i)))
-                         0)}))
-   labels))
+  ([labels prefix] (classify labels prefix nil))
+  ([labels prefix suffix]
+   (mapv
+    (fn [label]
+      (let [conform?      (boolean (and prefix (str/starts-with? label prefix)))
+            non-standard? (boolean (and prefix (not conform?)))
+            start         (count prefix)
+            end           (if (and conform? suffix (str/ends-with? label suffix))
+                            (- (count label) (count suffix))
+                            (count label))]
+        {:label         label
+         :display       (if conform? (str/trim (subs label start (max start end))) label)
+         :conform?      conform?
+         :non-standard? non-standard?
+         :diverge-at    (if non-standard?
+                          (let [pl (count prefix) ll (count label)]
+                            (loop [i 0]
+                              (if (and (< i pl) (< i ll)
+                                       (= (.charAt label i) (.charAt prefix i)))
+                                (recur (inc i))
+                                i)))
+                          0)}))
+    labels)))
 
 (defn- first-letter [display]
   (let [ch (str/upper-case (str (first display)))]

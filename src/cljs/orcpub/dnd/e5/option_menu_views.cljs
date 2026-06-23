@@ -63,6 +63,7 @@
 ;; for a given list of names and hands it back when that same list returns, so the
 ;; work only happens when a menu's options actually change.
 (def ^:private memo-prefix (memoize grouping/dominant-prefix))
+(def ^:private memo-suffix (memoize grouping/dominant-suffix))
 (def ^:private memo-classify (memoize grouping/classify))
 
 (defn checkbox-options
@@ -157,12 +158,14 @@
 ;; Chrome pieces
 ;; ---------------------------------------------------------------------------
 
-(defn- pattern-banner [prefix slot-label]
+(defn- pattern-banner [prefix slot-label suffix]
   [:div.opt-menu-banner
    [:div.opt-menu-banner-caption "Every option reads"]
    [:div.opt-menu-banner-quote
     (str/trim prefix) " "
-    [:span.opt-menu-banner-slot (or slot-label "keyword")]]])
+    [:span.opt-menu-banner-slot (or slot-label "keyword")]
+    ;; value-in-the-middle boilerplate: show the shared tail after the slot too
+    (when suffix (str " " (str/trim suffix)))]])
 
 (defn- search-box [menu-id]
   [:div.opt-menu-search-wrap
@@ -354,7 +357,8 @@
         ;; classify FIRST so :display/:non-standard? line up with options, THEN filter
         labels    (mapv :label options)
         prefix    (memo-prefix labels)
-        annotated (mapv merge options (memo-classify labels prefix))
+        suffix    (memo-suffix labels prefix)
+        annotated (mapv merge options (memo-classify labels prefix suffix))
         q         (str/lower-case (str/trim (or query "")))
         filtered  (if (str/blank? q)
                     annotated
@@ -391,7 +395,7 @@
       [:div.opt-section-body-inner
        (when header-extra header-extra)
        (when (seq wildcards) [wildcard-group wildcards])
-       (when prefix [pattern-banner prefix slot-label])
+       (when prefix [pattern-banner prefix slot-label suffix])
        (when (and has-opts? searchable?) [search-box menu-id])
        ;; legacy chips tray only in the no-title mode; the panel header carries Clear
        (when (and (not title) multiselect?) [chips-tray selected chip-fn clear-fn])
