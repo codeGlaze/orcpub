@@ -5537,7 +5537,7 @@
    set-prop event (the generic `set-*-prop` every builder already has). Pass :desc-value
    to include the Description row; omit it for builders that have no single description
    (e.g. selection, whose descriptions are per-option). :desc-prop defaults to :help."
-  [{:keys [name-label name-placeholder entity prop-event desc-value desc-prop]
+  [{:keys [name-label name-placeholder entity prop-event desc-value desc-prop extra-cols]
     :or {desc-prop :help}
     :as opts}]
   [:div.builder-header-band
@@ -5545,6 +5545,9 @@
     [:div.builder-name-col
      [:div.builder-field-label (or name-label "Name")]
      [builder-name-input (get entity :name) prop-event :name name-placeholder]]
+    ;; optional extra header column(s) between Name and Source — e.g. subrace's
+    ;; Parent Race dropdown. Each is its own grid cell in the header row.
+    extra-cols
     [:div.builder-source-col
      [plugin-datalist builder-source-label entity prop-event "builder-field-label" ""]]]
    (when (contains? opts :desc-value)
@@ -6392,15 +6395,14 @@
   (let [mode (r/atom :cards)]
     (fn [subrace race]
       (let [set-bonus (fn [key v] (dispatch [::races/set-subrace-ability-increase key v]))]
-        [:div.m-b-20
+        [omv/card "Ability Score Increases"
          [:div.subrace-ability-head
-          [:div.f-s-24.f-w-b "Ability Score Increases"]
           [omv/segmented-control
            {:value @mode
             :options [[:cards "Cards"] [:compact "Compact"]]
             :on-change #(reset! mode %)}]]
          (if (= @mode :compact)
-           [:div.builder-field-grid
+           [:div.ability-grid
             (doall
              (for [{:keys [name key]} opt/abilities]
                (let [race-bonus (get-in race [:abilities key] 0)
@@ -6417,7 +6419,7 @@
                    [:span.ability-compact-caption (str "Race " (common/bonus-str race-bonus))]
                    [:span.ability-compact-total {:class (when (pos? total) "active")}
                     (str "= " (common/bonus-str total))]]])))]
-           [:div.ability-equation-grid
+           [:div.ability-grid
             (doall
              (for [{:keys [name key]} opt/abilities]
                (let [race-bonus (get-in race [:abilities key] 0)
@@ -6445,29 +6447,24 @@
         race @(subscribe [::races/race race-key])
         races @(subscribe [::races/races])]
     [:div.p-20.main-text-color
-     [:div.flex.flex-wrap
-      [:div.m-b-20
-       [subrace-input-field
-        "Name"
-        :name
-        subrace]]
-      [:div.m-l-5.m-b-20
-       [labeled-dropdown
-        "Race"
-        {:items (map
-                 (fn [{:keys [name key]}]
-                   {:title name
-                    :value (clojure.core/name key)})
-                 races)
-         :value (get subrace :race)
-         :on-change #(dispatch [::races/set-subrace-prop :race (keyword %)])}]]
-       [plugin-datalist
-        option-source-name-label
-        subrace
-        ::races/set-subrace-prop]
-      ]
-     [:div.m-b-20.flex.flex-wrap
-      [:div.m-r-5
+     [builder-header
+      {:name-label "Subrace Name"
+       :name-placeholder "Subrace name"
+       :entity subrace
+       :prop-event ::races/set-subrace-prop
+       :extra-cols [:div.builder-source-col
+                    [labeled-dropdown
+                     "Parent Race"
+                     {:items (map
+                              (fn [{:keys [name key]}]
+                                {:title name
+                                 :value (clojure.core/name key)})
+                              races)
+                      :value (get subrace :race)
+                      :on-change #(dispatch [::races/set-subrace-prop :race (keyword %)])}]]}]
+     [omv/layout-control-row]
+     [omv/card "Size & Speed"
+      [:div.builder-field-grid
        [labeled-dropdown
         "Size"
         {:items (map
@@ -6477,8 +6474,7 @@
                  ["small" "medium" "large"])
          :value (name (or (get subrace :size)
                           (get race :size)))
-         :on-change #(dispatch [::races/set-subrace-prop :size (keyword %)])}]]
-      [:div.m-r-5
+         :on-change #(dispatch [::races/set-subrace-prop :size (keyword %)])}]
        [labeled-dropdown
         "Speed"
         {:items (map
@@ -6486,8 +6482,7 @@
                  (range 5 55 5))
          :value (or (get subrace :speed)
                     (get race :speed))
-         :on-change #(dispatch [::races/set-subrace-speed %])}]]
-      [:div.m-r-5
+         :on-change #(dispatch [::races/set-subrace-speed %])}]
        [labeled-dropdown
         "Darkvision"
         {:items (map
@@ -8326,7 +8321,8 @@
   (builder-page "Race" ::races/reset-race ::races/save-race race-builder nil true))
 
 (defn subrace-builder-page []
-  (builder-page "Subrace" ::races/reset-subrace ::races/save-subrace subrace-builder))
+  ;; hide-layout? — subrace renders the layout control row itself, below its header band
+  (builder-page "Subrace" ::races/reset-subrace ::races/save-subrace subrace-builder nil true))
 
 (defn subclass-builder-page []
   (builder-page "Subclass" ::classes/reset-subclass ::classes/save-subclass subclass-builder))

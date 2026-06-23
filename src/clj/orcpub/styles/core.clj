@@ -1386,17 +1386,20 @@
 
     ;; Subrace Ability Score Increases — Race + Subrace = Total equation cards (Cards
     ;; view) and a denser select-per-ability (Compact view). Active ability = amber.
+    ;; toggle row sits right-aligned under the card's accent title
     [:.subrace-ability-head
      {:display :flex
       :align-items :center
-      :justify-content :space-between
+      :justify-content :flex-end
       :flex-wrap :wrap
       :gap "12px"
       :margin-bottom "14px"}]
 
-    [:.ability-equation-grid
+    ;; ASI grid lands on 1 / 2 / 3 / 6 columns only (breakpoints, not auto-fit) so the
+    ;; six abilities never leave an orphaned 5+1 row.
+    [:.ability-grid
      {:display :grid
-      :grid-template-columns "repeat(auto-fit, minmax(min(100%, 230px), 1fr))"
+      :grid-template-columns "1fr"
       :gap "14px"}]
 
     [:.ability-card
@@ -1510,6 +1513,13 @@
 
     [:.ability-compact-total.active
      {:color orange}]
+
+    (at-media {:min-width "600px"}
+              [:.ability-grid {:grid-template-columns "repeat(2, 1fr)"}])
+    (at-media {:min-width "920px"}
+              [:.ability-grid {:grid-template-columns "repeat(3, 1fr)"}])
+    (at-media {:min-width "1640px"}
+              [:.ability-grid {:grid-template-columns "repeat(6, 1fr)"}])
 
     ;; the Option Source input gets an amber-tinted border to read as the save target
     [:#plugins-choice
