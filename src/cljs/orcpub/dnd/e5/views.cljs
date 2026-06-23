@@ -5998,35 +5998,21 @@
        "Subclass Flavor"
        :subclass-help
        class]]
-     [:div.m-b-30
-      [:div.f-s-24.f-w-b.m-b-10 "Saving Throws"]
-      [:div.flex.flex-wrap
-       (doall
-        (map
-         (fn [{:keys [name key]}]
-           ^{:key key}
-           [:div.m-r-20.m-b-10
-            [comps/labeled-checkbox
-             name
-             (get-in class [:profs :save key])
-             false
-             #(dispatch [::classes/toggle-save-prof key])]])
-         opt/abilities))]]
-     [:div.m-b-30
-      [:div.f-s-24.f-w-b.m-b-10 "Ability Increase Levels"]
-      [:div.flex.flex-wrap
-       (let [asi-levels-set (set (:ability-increase-levels class))]
-         (doall
-          (map
-           (fn [level]
-             ^{:key level}
-             [:div.m-r-20.m-b-10
-              [comps/labeled-checkbox
-               level
-               (asi-levels-set level)
-               false
-               #(dispatch [::classes/toggle-ability-increase-level level])]])
-           (range 4 21))))]]
+     [omv/section-card
+      {:menu-id [:class-saving-throws ::classes/toggle-save-prof]
+       :title "Saving Throws"
+       :options (omv/checkbox-options
+                 opt/abilities
+                 (fn [item] (get-in class [:profs :save (:key item)]))
+                 (fn [item] (dispatch [::classes/toggle-save-prof (:key item)])))}]
+     (let [asi-levels-set (set (:ability-increase-levels class))]
+       [omv/section-card
+        {:menu-id [:class-ability-increase-levels ::classes/toggle-ability-increase-level]
+         :title "Ability Increase Levels"
+         :options (omv/checkbox-options
+                   (map (fn [level] {:key level :name (str "Level " level)}) (range 4 21))
+                   (fn [item] (asi-levels-set (:key item)))
+                   (fn [item] (dispatch [::classes/toggle-ability-increase-level (:key item)])))}])
      (let [spellcaster? (boolean (get class :spellcasting))]
        [:div.m-b-30
         [:div.f-s-24.f-w-b.m-b-10 "Spellcasting"]
