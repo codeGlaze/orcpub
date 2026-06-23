@@ -125,8 +125,19 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     (`spell_subs.cljs` plugin-races/subraces) proven through the real `::races5e/races` sub (cljs harness,
     `ability-increase-grant-cljs-test`); layer 3 — the authoring form (`race-ability-increase-choices` in
     views.cljs, fixed/floating rows via the generic `set-race-path-prop`) + proof that driving the REAL
-    builder events authors a working floating-ASI race end to end (cljs harness). **Layers 1–4 done**
-    (layer 4 — the player choice — already rendered, same as Variant Human). A **full click-through E2E**
+    builder events authors a working floating-ASI race end to end (cljs harness). **Layers 1–3 done.**
+    **Layer 4 (the player choice rendering) — was BROKEN for homebrew, now fixed.** The "already rendered,
+    same as Variant Human" assumption was FALSE in the real character builder: a rendered-UI E2E
+    (`test/e2e/export-import-use.js`) showed the floating choice did not appear. Cause: the builder's
+    racial ability-increase widget only renders a selection keyed **`:asi`** (the Variant-Human/Half-Elf
+    convention); `compile-ability-increases` had overridden the key to `:floating-asi-0`, which compiles
+    and applies on a built character (so JVM/harness tests passed) but does NOT render in the builder.
+    Fix: the first floating selection uses `:asi` (renders); additional floating allotments get a distinct
+    key (data-correct + applied, but the current builder renders only the first — a rare case, since one
+    `:select` with `num>1` covers "+1 to N of a set"). The E2E now asserts the choice renders
+    ("Improvement: Race - Tide Touched") and the fixed +2 CHA shows in the on-screen grid. *Lesson: data
+    being present in a sub is not the same as the builder rendering it — only the rendered UI proves the
+    player can actually use it.* A **full click-through E2E**
     (`test/e2e/race-builder-asi.js`) now drives the real form in a headless browser, saves, and asserts the
     persisted localStorage — and **caught a real bug**: the widget stored raw `<select>` strings
     (`"cha"`/`"martial"`/`"1"`) instead of the namespaced keyword / ints the model needs (would break

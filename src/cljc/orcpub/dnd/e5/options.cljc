@@ -291,7 +291,14 @@
                           :num-increases num
                           :different? different?
                           :modifier-fn (fn [k] (modifiers/level-ability-increase k amount))})
-                        ::t/key (keyword (str "floating-asi-" idx)))))
+                        ;; The character builder's racial ability-increase widget only renders a
+                        ;; selection keyed :asi (the Variant-Human/Half-Elf convention). A different
+                        ;; key still compiles and applies on a built character, but the builder will
+                        ;; not show the choice (verified via headless UI E2E). So the FIRST floating
+                        ;; selection takes :asi; any additional ones get a distinct key (data-correct
+                        ;; and applied, but the current builder renders only the first — a rare case,
+                        ;; since one :select with num>1 covers "+1 to N of a set").
+                        ::t/key (if (zero? idx) :asi (keyword (str "floating-asi-" idx))))))
 
        :else acc))
    {:modifiers [] :selections []}

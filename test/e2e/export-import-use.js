@@ -90,10 +90,20 @@ const results=[]; const check=(name,ok)=>{results.push(ok);console.log(`  ${ok?'
   catch(e){ reappeared=false; }
   check('pack visible in My Content after import', reappeared);
 
-  // 5. use the imported content in the character builder
+  // 5. USE the imported content in the rendered character builder: select the race, then confirm
+  //    the floating ASI choice actually RENDERS and the fixed bonus applies (not just a name in a list)
   await pg.goto(`${U}/pages/dnd/5e/character-builder`,{waitUntil:'load',timeout:30000});
   await pg.waitForTimeout(2000);
-  check('imported race "Tide Touched" is selectable in the character builder', /Tide Touched/.test(await pg.locator('#app').innerText()));
+  check('imported race "Tide Touched" is selectable in the builder', /Tide Touched/.test(await pg.locator('#app').innerText()));
+  await pg.locator('#app :text("Tide Touched")').first().click();      // select the race
+  await pg.waitForTimeout(1200);
+  await pg.locator('#app :text("Ability Scores / Feats")').first().click();
+  await pg.waitForTimeout(1500);
+  const abil = await pg.locator('#app').innerText();
+  check('floating ASI choice RENDERS in the builder ("Improvement: Race - Tide Touched")',
+        /Improvement:\s*Race\s*-\s*Tide Touched/.test(abil));
+  // the fixed +2 CHA shows as a racial bonus in the score grid (CHA is the 6th column -> "race | 2")
+  check('fixed +2 CHA applied in the rendered ability grid', /race\s*\|?\s*2/.test(abil.replace(/\n+/g,' ')));
 
   console.log('PAGEERRORS:', errs.join(' | ')||'none');
   const pass=results.every(Boolean) && errs.length===0;

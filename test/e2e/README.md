@@ -33,12 +33,16 @@ Exit 0 = pass.
 
 - **`export-import-use.js`** — the full content round-trip through the real UI: author+save →
   My Content **Export** button (captures the actual `.orcbrew` download) → wipe the pack →
-  **import** via the real `<input type=file>` → confirm the imported race is selectable in the
-  character builder. This is the UI-level proof above the function-level round-trip tests
-  (`ability_increase_grant_test`/`_cljs_test`), which call `(str plugin)`/`validate-import` and
-  `char5e/to-strict` directly. Pins that **import names the pack from the file name** — the
-  download's suggested name (`<pack>.orcbrew`) must be preserved or the pack is re-created under
-  the wrong name.
+  **import** via the real `<input type=file>` → select the imported race in the character builder
+  and assert the floating ASI choice **renders** ("Improvement: Race - Tide Touched") with the
+  fixed +2 CHA applied in the on-screen grid. This is the UI-level proof above the function-level
+  round-trip tests (`ability_increase_grant_test`/`_cljs_test`), which call `(str plugin)`/
+  `validate-import` and `char5e/to-strict` directly. It pins two things only a rendered UI shows:
+  (1) **import names the pack from the file name** — preserve `download.suggestedFilename()`
+  (`<pack>.orcbrew`) or the pack is re-created under the wrong name; (2) the builder's racial
+  ability-increase widget only renders a selection keyed **`:asi`** — a homebrew floating ASI
+  keyed otherwise applies on a built character but does NOT render for the player to choose
+  (the bug this test caught; see roadmap A4).
 
 ## Gotchas these scripts encode (verified)
 

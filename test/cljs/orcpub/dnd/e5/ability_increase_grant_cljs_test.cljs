@@ -43,7 +43,7 @@
   (let [race (homebrew-race)]
     (is (some? race) "the homebrew race appears in the races sub")
     (testing "FLOATING — a user-choice ASI selection, restricted to the martial subset"
-      (let [sel (first (filter #(= :floating-asi-0 (::t/key %)) (:selections race)))]
+      (let [sel (first (filter #(= :asi (::t/key %)) (:selections race)))]
         (is (some? sel) "the floating ASI selection was compiled and merged onto the race")
         (is (= #{S D C} (set (map ::t/key (::t/options sel))))
             "the choice offers only the martial stats — not all six")))
@@ -67,7 +67,7 @@
       ;; feed the authored race through the REAL assembly (as a loaded plugin) — end to end
       (reset! app-db {:plugins {"P" {::e5/races {:tide-touched item}}}})
       (let [race (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races])))
-            sel  (first (filter #(= :floating-asi-0 (::t/key %)) (:selections race)))]
+            sel  (first (filter #(= :asi (::t/key %)) (:selections race)))]
         (is (some? sel) "the authored race carries the floating ASI selection")
         (is (= #{S D C} (set (map ::t/key (::t/options sel))))
             "restricted to the martial set, end to end from the builder events")))))
@@ -77,7 +77,7 @@
     (reset! app-db {:plugins {"P" {::e5/races {:plain {:name "Plain" :key :plain :option-pack "P"}}}}})
     (let [race (first (filter #(= :plain (:key %)) @(rf/subscribe [::races5e/races])))]
       (is (some? race))
-      (is (not-any? #(= :floating-asi-0 (::t/key %)) (:selections race))
+      (is (not-any? #(= :asi (::t/key %)) (:selections race))
           "no :ability-increases -> no floating selection (the hook is opt-in)"))))
 
 ;; Layer 5 (homebrew half): :ability-increases survives a real orcbrew export -> import.
@@ -105,7 +105,7 @@
       (reset! app-db {:plugins {"ASI Pack" (:data result)}})
       (rf/clear-subscription-cache!)
       (let [race (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races])))
-            sel  (first (filter #(= :floating-asi-0 (::t/key %)) (:selections race)))]
+            sel  (first (filter #(= :asi (::t/key %)) (:selections race)))]
         (is (some? sel) "the round-tripped race still compiles the floating ASI selection")
         (is (= #{S D C} (set (map ::t/key (::t/options sel))))
             "still restricted to the martial set after export/import")))))

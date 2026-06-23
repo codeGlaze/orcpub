@@ -56,7 +56,7 @@
    {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
     :origin {:orcpub.entity/key :test-origin
              :orcpub.entity/options (when chosen-floating
-                                      {:floating-asi-0 {:orcpub.entity/key chosen-floating}})}}})
+                                      {:asi {:orcpub.entity/key chosen-floating}})}}})
 
 (defn- build [allotments chosen-floating]
   (entity/build (raw-entity allotments chosen-floating) (template-with allotments)))
@@ -107,7 +107,7 @@
 (deftest character-floating-choice-survives-save-load
   (let [loaded (-> (raw-entity sample-allotments D) char5e/to-strict char5e/from-strict)
         chosen (get-in loaded [:orcpub.entity/options :origin
-                               :orcpub.entity/options :floating-asi-0 :orcpub.entity/key])
+                               :orcpub.entity/options :asi :orcpub.entity/key])
         a      (char5e/ability-values (entity/build loaded (template-with sample-allotments)))]
     (testing "the chosen ability key round-trips through strict serialization"
       (is (= D chosen) "the user's floating pick (DEX) survived save/load"))
