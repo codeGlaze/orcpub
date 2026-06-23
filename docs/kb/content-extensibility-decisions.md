@@ -12,11 +12,55 @@ verified source behavior. See [content-extensibility.md](content-extensibility.m
 > mechanical boilerplate only." `content-extensibility-direction.md` is the authoritative
 > plan; D1–D11 are kept as the record of how we got there.
 >
-> ⚠️ **D17–D20 (Part 4) RE-CENTER.** The deflation over-applied a *local* readability lesson
+> ⚠️ **D17b–D22 (Part 4) RE-CENTER.** The deflation over-applied a *local* readability lesson
 > (kill the unreadable `by-parent` wrapper) to the *capability* (cross-silo composition) and
-> wrongly shelved D3. D17+ restore the capability — an open **pool + grant** layer with
+> wrongly shelved D3. Part 4 restores the capability — an open **pool + grant** layer with
 > filter/gate/prereq and a variant forward-compat seam — with readability kept as a
 > *constraint*, not a ceiling. The direction doc (v2) is authoritative.
+
+---
+
+## Status at a glance
+
+One line per decision so the depth below is navigable. **LIVE** = current standing rule; **DONE** =
+decided and shipped; **OPEN** = unresolved; **REVERSED** = overturned (kept, stubbed, as a "decided
+against" record). Full reasoning is in the body — this is only an index.
+
+| # | Decision (short) | Status |
+|---|---|---|
+| D1 | Split the "8-file" cost into registration vs injection | LIVE |
+| D2 | Layer 1 = data + existing factories, not a macro | DONE (`3980ea1b`) |
+| D3 | Address options by **type**, not parent slot | LIVE (became pool+grant, D19) |
+| D4 | Keep `mod5e/*` modifiers for fixed grants | LIVE |
+| D5 | Migrate subraces first | DONE |
+| D6 | Keep route-keyword `def`s; generate downstream | LIVE |
+| D7 | Registry namespace stays a dependency leaf | LIVE |
+| D8 | Document before coding the spike | DONE (historical) |
+| D9 | Backward compat is non-negotiable; zero-migration | LIVE (constraint) |
+| D10 | Identity from a stable key, never a display name | LIVE |
+| D11 | Catalog reads = layered memoized subs | LIVE |
+| D12 | Readability is the deciding constraint | LIVE |
+| D13 | Deflate Layer 1 to descriptor+HOF; ~~reject catalogs/grants~~ | DONE (deflation) / **REVERSED** (anti-catalog half, by D17b–D19) |
+| D14 | Don't force different kinds into one registrar | LIVE |
+| D15 | HOFs/macros are fine when fed clear inputs | LIVE |
+| D16 | Working agreements (falsifiable tests; fix-on-sight) | LIVE |
+| D17 | Audit what each piece REPLACES; **no generic wrapper** | LIVE (heavily cited) |
+| D17b | Stability and flexibility are the same abstraction | LIVE (was a duplicate "D17") |
+| D18 | The capability gap is in AUTHORING, not the engine | LIVE |
+| D19 | Pool + grant, with graceful optional filtering | LIVE (core direction) |
+| D20 | Variants designed-in now, built later (one indirection) | LIVE (pin) |
+| D21 | Maintainability is a GATE: O(1) to expose a new pool | LIVE (falsifiable) |
+| D22 | Builder forms are data ("irreducible" was a retreat) | DONE (`109b5dd0`) |
+| D23 | This branch is a PROTOTYPE: decide a standard, then converge | LIVE (governing) |
+| D24 | Class features → one keyed, filterable registry | LIVE (design) |
+| D25 | Features are macro-captured code → `compile-feature` (fields+template) | LIVE (proven) |
+| D26 | Per-class catalogue done for all 12; reshapes B1/B3 | DONE (catalogue) |
+| D27 | Spell slots: bucket of tables + declared multiclass rule | LIVE (design) |
+| D28 | Non-SRD never pre-built; validate with synthetic stand-ins | LIVE (rule) |
+| D29 | The grant approach (generic compiler vs open pools) | **OPEN** |
+| D30 | "grant" earns its keep only as a thin compiler, not a 2nd engine | LIVE |
+| D31 | Two vocabularies share effects but differ in application mode | LIVE (test-backed) |
+| D32 | UI dropdowns must round-trip their value type (`:typed?`) | DONE |
 
 ---
 
@@ -140,7 +184,7 @@ inline catalog construction in consumer subs.
 
 ---
 
-## Part 3 — Late decisions (deflation; these supersede D2/D3 in scope)
+## Part 3 — Late decisions (deflation; these scaled back D2/D3 — but were themselves RE-CENTERED by Part 4)
 
 **D12 — Readability is the deciding constraint.** An abstraction earns its keep only when
 it is *thicker* than what it hides AND its interface reveals intent. `by-parent` fails
@@ -154,6 +198,10 @@ duplication (e.g. the identical passthrough subs). Keep readable data — notabl
 `default-value` — **explicit**. *Rejected:* descriptor-drives-everything loops, and the
 catalog/grant **DSL** (more `by-parent`-style indirection; named subs + `selection-cfg`
 already give the cross-aspect capability without new vocabulary).
+> ⚠️ **Half REVERSED.** The boilerplate-deflation half (descriptor + HOF over factories) stands and
+> shipped (`3980ea1b`). The "named subs + `selection-cfg` are *enough*, don't build catalogs/grants"
+> half was overturned by **D17b/D18/D19** — D18 explicitly corrects it ("true of the mechanism, false
+> as a stopping point"). The pool+grant layer IS being built; only a *cryptic DSL* remains rejected.
 
 **D14 — Don't force genuinely-different kinds into one registrar.** Verified 3 buckets:
 6 "basic" types fit verbatim; 6 "richer" via a readable `:builder-features` flag set
@@ -197,7 +245,11 @@ and the PINS). Authoritative plan:
 catalogs." A vision review showed that under-served the branch's *two* equal goals —
 **stability** and **flexibility** — because it shelved the one capability that delivers both.
 
-**D17 — Stability and flexibility are the SAME abstraction.** Today every cross-type link is
+**D17b — Stability and flexibility are the SAME abstraction.** (Numbered D17b, not D17: this is a
+*distinct* decision that collided with the Part 3 D17 due to a historical glitch. The Part 3 D17 — the
+"audit what each piece replaces / no generic wrapper" decision — keeps the bare number because it is
+cited ~30× across the codebase; this one is cited nowhere by number, so it takes the suffix instead of
+renumbering D18–D32.) Today every cross-type link is
 bespoke positional wiring (boons→warlock by arg; custom-race menu a hardcoded vector; styles
 baked per class). That bespoke-ness *is* the ~8-file cost and the fragility. One declarative
 **pool + grant** primitive collapses N×M bespoke wirings to N+M declarations down one tested
@@ -262,8 +314,9 @@ family).
 
 ## Part 5 — Mechanization, class features, spell slots (the expansion)
 
-*(Numbering note: D17 appears twice above — Part 3 and Part 4 — a pre-existing glitch. Not
-renumbered to avoid breaking references; this part continues at D23.)*
+*(Numbering note: the Part 4 duplicate "D17" is now **D17b** (the Part 3 D17 owns the bare number — it
+is the one cited across the codebase). This part continues at D23. D-numbers are stable IDs cited from
+tests/code/other docs, so entries are never renumbered once cited — corrections are stubbed in place.)*
 
 **D23 — This branch is a PROTOTYPE to decide a standard, then converge on it.** The purpose is to
 understand the app fully (by reading code, not assumptions/vibes), **decide** the best shape for each
