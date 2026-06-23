@@ -379,3 +379,24 @@ level-gating *mechanism* is already pinned by `class-feature-snapshot-test` (fig
 harness) shows `level-modifier` compiles `:damage-resistance` to the same `mod5e/*` modifier and
 `make-levels` places a `:level 3` modifier at level 3 (level 1 at 1, nothing at 2). So both halves of D31
 are test-backed across both layers; nothing here is prose-only anymore.
+
+**D32 — UI dropdowns must round-trip their value TYPE; templated via `:typed?` (verified, 2026-06-23).**
+An HTML `<select>` value is always a string, but `dropdown` (`views.cljs`) handed that raw string to
+each caller's `:on-change`, so ~70 call sites manually re-hydrated the type (`(keyword %)` /
+`(js/parseInt %)` / `(js/parseFloat %)`). Forgetting was silent corruption invisible to source review
+and the JVM/harness tests (those dispatch already-typed values) — it bit the floating-ASI widget, which
+persisted `:ability "cha"` / `:from "martial"` (bare strings) instead of the qualified keyword / keyword
+the model needs, so `compile-ability-increases` got a string and `(ability-groups "martial")` returned
+nil (empty choice list). Only the browser-driven `test/e2e/race-builder-asi.js` exercises this layer; it
+is what surfaced the bug. The robust technique already existed inline at `views.cljs:6580` (the `:enum`
+field: index-based option values → look up `(:value (nth options idx))`, *"so ANY value type incl.
+qualified keywords round-trips"*) — it had just never been lifted into the primitive. **Decision:** add
+`:typed?` to `dropdown`, generalizing that index-round-trip — on-change receives the selected item's
+original `:value` (any type, incl. nil/qualified keyword), so callers do zero coercion. Default path is
+unchanged string passthrough (backward compatible; the ~70 sites untouched). The ASI widget is migrated
+and its manual lookup maps deleted; the E2E still passes, proving the template yields correct types with
+no per-control coercion. This answers the "can we template these elements to prevent the mistake in
+general?" question — yes — and clears the last gate before the floating-ASI round-trip (layer 5).
+**Convergence follow-up (post-decision, per D23):** migrate the existing coercing call sites to
+`:typed?`, starting with the qualified-keyword one (`views.cljs:5781`, namespace currently hardcoded)
+and folding the bespoke `:enum` round-trip onto the primitive. Full write-up: `docs/kb/dropdown-value-coercion.md`.

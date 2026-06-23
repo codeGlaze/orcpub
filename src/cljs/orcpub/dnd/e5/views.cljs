@@ -1966,7 +1966,7 @@
                       (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false)]))]])
               spell-slots))])]))))
 
-(defn dropdown [{:keys [items value on-change]}]
+(defn dropdown [{:keys [items value on-change typed?]}]
   ;; Dedup items by :value as a safety net — duplicate option values from
   ;; homebrew plugins can slip through if imported before dedup was added.
   (let [unique-items (->> items
@@ -1977,18 +1977,38 @@
                                         {:seen (conj seen v) :result (conj result item)})))
                                   {:seen #{} :result []})
                           :result)]
-    [:select.builder-option.builder-option-dropdown.m-t-0
-     {:value (or value "")
-      :on-change #(on-change (event-value %))}
-     (doall
-      (map-indexed
-       (fn [i {:keys [value title disabled?]}]
-         ^{:key (str i "-" (or value title))}
-         [:option.builder-dropdown-item
-          (cond-> {:value value}
-            disabled? (assoc :disabled true))
-          title])
-       unique-items))]))
+    ;; A <select>'s value is ALWAYS a string. With the default (string passthrough) the caller's
+    ;; :on-change receives that raw string and MUST coerce it back to the item's real type
+    ;; (keyword, int, qualified keyword, …) — forgetting is silent corruption (see
+    ;; docs/kb/dropdown-value-coercion.md). `:typed? true` removes that obligation: option values
+    ;; become indices, and on-change is handed the selected item's original :value — any type,
+    ;; including nil and qualified keywords — round-tripped for you. New code should prefer it.
+    (if typed?
+      (let [idx (first (keep-indexed (fn [i it] (when (= (:value it) value) i)) unique-items))]
+        [:select.builder-option.builder-option-dropdown.m-t-0
+         {:value (if idx (str idx) "")
+          :on-change #(on-change (:value (nth unique-items (js/parseInt (event-value %)))))}
+         (doall
+          (map-indexed
+           (fn [i {:keys [title disabled?]}]
+             ^{:key i}
+             [:option.builder-dropdown-item
+              (cond-> {:value (str i)}
+                disabled? (assoc :disabled true))
+              title])
+           unique-items))])
+      [:select.builder-option.builder-option-dropdown.m-t-0
+       {:value (or value "")
+        :on-change #(on-change (event-value %))}
+       (doall
+        (map-indexed
+         (fn [i {:keys [value title disabled?]}]
+           ^{:key (str i "-" (or value title))}
+           [:option.builder-dropdown-item
+            (cond-> {:value value}
+              disabled? (assoc :disabled true))
+            title])
+         unique-items))])))
 
 (defn labeled-dropdown [label cfg]
   [:div
@@ -6221,17 +6241,14 @@
    (user-chosen from a subset) allotments, composed. Each control dispatches the generic
    set-race-path-prop with the recomputed vector; it compiles via opt5e/compile-ability-increases."
   [race]
+  ;; All dropdowns here use :typed? — on-change is handed the item's real :value (qualified
+  ;; ability keyword / group keyword / int), so no per-control string coercion is needed.
   (let [ais (vec (:ability-increases race))
         set-ai! (fn [v] (dispatch [::races/set-race-path-prop [:ability-increases] v]))
         amount-items (map (fn [n] {:title (common/bonus-str n) :value n}) (range 1 4))
         ability-items (map (fn [{:keys [name key]}] {:title name :value key}) opt/abilities)
         group-items [{:title "Any (all six)" :value :any}
-                     {:title "Martial (Str/Dex/Con)" :value :martial}]
-        ;; <select> on-change yields the rendered string (reagent renders a keyword value via
-        ;; `name`, so ::character/cha -> "cha"). Coerce back to the real value the data model wants.
-        ability-by-str (into {} (map (juxt (comp clojure.core/name :key) :key)) opt/abilities)
-        group-by-str   {"any" :any "martial" :martial}
-        ->amount       (fn [s] (js/parseInt s))]
+                     {:title "Martial (Str/Dex/Con)" :value :martial}]]
     [:div.m-b-20
      [:div.f-s-18.f-w-b.m-b-10 "Choice / Floating Ability Increases"]
      (doall
@@ -6242,16 +6259,16 @@
           (if (:ability a)
             [:div.flex.align-items-c
              [:span.m-r-5 "Fixed"]
-             [labeled-dropdown "Ability" {:items ability-items :value (:ability a)
-                                          :on-change #(set-ai! (assoc-in ais [i :ability] (ability-by-str %)))}]
-             [labeled-dropdown "Amount" {:items amount-items :value (:amount a 1)
-                                         :on-change #(set-ai! (assoc-in ais [i :amount] (->amount %)))}]]
+             [labeled-dropdown "Ability" {:items ability-items :value (:ability a) :typed? true
+                                          :on-change #(set-ai! (assoc-in ais [i :ability] %))}]
+             [labeled-dropdown "Amount" {:items amount-items :value (:amount a 1) :typed? true
+                                         :on-change #(set-ai! (assoc-in ais [i :amount] %))}]]
             [:div.flex.align-items-c
              [:span.m-r-5 "Floating — choose 1 from"]
-             [labeled-dropdown "From" {:items group-items :value (get-in a [:select :from] :any)
-                                       :on-change #(set-ai! (assoc-in ais [i :select :from] (group-by-str %)))}]
-             [labeled-dropdown "Amount" {:items amount-items :value (get-in a [:select :amount] 1)
-                                         :on-change #(set-ai! (assoc-in ais [i :select :amount] (->amount %)))}]])
+             [labeled-dropdown "From" {:items group-items :value (get-in a [:select :from] :any) :typed? true
+                                       :on-change #(set-ai! (assoc-in ais [i :select :from] %))}]
+             [labeled-dropdown "Amount" {:items amount-items :value (get-in a [:select :amount] 1) :typed? true
+                                         :on-change #(set-ai! (assoc-in ais [i :select :amount] %))}]])
           [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]])
        ais))
      [:button.m-r-5 {:on-click #(set-ai! (conj ais {:ability (-> opt/abilities first :key) :amount 1}))} "Add fixed"]

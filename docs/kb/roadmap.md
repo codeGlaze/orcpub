@@ -130,7 +130,10 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     (`test/e2e/race-builder-asi.js`) now drives the real form in a headless browser, saves, and asserts the
     persisted localStorage — and **caught a real bug**: the widget stored raw `<select>` strings
     (`"cha"`/`"martial"`/`"1"`) instead of the namespaced keyword / ints the model needs (would break
-    `compile-ability-increases`); fixed by coercing each dropdown's output in `race-ability-increase-choices`.
+    `compile-ability-increases`). Root-caused as a repo-wide `<select>` footgun and fixed at the
+    primitive: `dropdown` now takes `:typed?`, round-tripping the item's real `:value` so callers do no
+    coercion (D32, `dropdown-value-coercion.md`); the ASI widget uses it and the E2E still passes. That
+    resolves the "can we template these elements to prevent the mistake in general?" gate.
     Remaining: feat-path reconciliation (feats have their own `:ability-increases` param, not via `:props`);
     round-trip (layer 5 — `:ability-increases` survives orcbrew export/import + the chosen ability survives
     character save/load).

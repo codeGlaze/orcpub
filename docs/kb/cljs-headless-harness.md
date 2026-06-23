@@ -104,10 +104,11 @@ the widget now coerces each dropdown's emitted string via lookup maps (`views.cl
 `race-ability-increase-choices`). This is the concrete payoff of the "90%-without-backend" E2E.
 
 **Interaction gotchas (verified, the hard way — encoded in the script):**
-- `dropdown`/`labeled-dropdown` `:on-change` always yields the **rendered string** (`event-value`
-  = `.target.value`); reagent renders a keyword value via `name`, so `::character/cha` → `"cha"`.
-  Callers MUST coerce (`(keyword …)`, `(js/parseInt …)`, or a string→value lookup) — see how the
-  Size/Speed/Darkvision dropdowns do it.
+- `dropdown`/`labeled-dropdown` on the **default** path yields the **rendered string** (`event-value`
+  = `.target.value`); reagent renders a keyword value via `name`, so `::character/cha` → `"cha"`. Pass
+  **`:typed? true`** and on-change instead receives the item's original `:value` (any type) — no
+  coercion, nothing to forget. New non-string dropdowns should use it. Full story + the repo-wide
+  census: `docs/kb/dropdown-value-coercion.md` (decision D32).
 - Input index `[1]` on the race-builder page is the **Orcacle search box** (`placeholder="search"`),
   NOT a form field. Typing into it opens an autofill **suggestions overlay** that intercepts later
   clicks (this is the "div intercepts pointer events" symptom — not a modal/loading overlay).
