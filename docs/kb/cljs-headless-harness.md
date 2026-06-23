@@ -89,6 +89,18 @@ redirect is skipped on `localhost`). Routing is **path-based** off `window.locat
 **This makes rendered-UI E2E a single CLI command** — so it runs in CI (results to your phone, no
 desk) or a tunneled Codespace. It is the basis for the deferred "cljs/E2E into CI" item.
 
+### Full content round-trip through the real UI (`test/e2e/export-import-use.js`)
+
+Beyond authoring, the whole **export → import → use** loop runs headless with no backend (Blob/saveAs
+and FileReader are client-side): the My Content **Export** button yields a real `.orcbrew` download
+(Playwright `page.on('download')` captures it), the real `<input type=file>` imports it
+(`setInputFiles`), and the imported homebrew race is then selectable in the character builder. Routes:
+My Content is `/dnd/5e/my-content` (the `dnd/` branch — NOT `/pages/...`); the character builder is
+`/pages/dnd/5e/character-builder`. This is the UI-level proof for floating-ASI layer 5, above the
+function-level round-trip tests. **Gotcha it pins:** import names the pack from the *file name*
+(`import-file`: `nm = split(filename, ".orcbrew")`), so preserve `download.suggestedFilename()`
+(`<pack>.orcbrew`) — saving under a different name re-creates the pack under that name.
+
 ### Driving interactions (done — committed as `test/e2e/race-builder-asi.js`)
 
 The render proof above was extended to a full **click-through**: author a floating-ASI homebrew

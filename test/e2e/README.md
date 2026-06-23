@@ -31,6 +31,15 @@ Exit 0 = pass.
   ability keyword, integer amounts, `:from :martial` keyword). Regression guard for the widget
   coercion bug where `<select>` values persisted as raw strings.
 
+- **`export-import-use.js`** — the full content round-trip through the real UI: author+save →
+  My Content **Export** button (captures the actual `.orcbrew` download) → wipe the pack →
+  **import** via the real `<input type=file>` → confirm the imported race is selectable in the
+  character builder. This is the UI-level proof above the function-level round-trip tests
+  (`ability_increase_grant_test`/`_cljs_test`), which call `(str plugin)`/`validate-import` and
+  `char5e/to-strict` directly. Pins that **import names the pack from the file name** — the
+  download's suggested name (`<pack>.orcbrew`) must be preserved or the pack is re-created under
+  the wrong name.
+
 ## Gotchas these scripts encode (verified)
 
 - Input `[1]` is the **Orcacle search box** (`placeholder="search"`); typing there opens an

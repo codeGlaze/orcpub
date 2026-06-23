@@ -140,7 +140,11 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     chosen floating `+1` survives `char5e/to-strict`→`from-strict` (the localStorage/server path) and the
     rebuilt character still applies it (JVM, `ability-increase-grant-test` — `character-floating-choice-survives-save-load`).
     Both serialization paths preserve arbitrary/nested keys (export is whole-map EDN; character strict
-    round-trip preserves selection/option keys via `::strict/key`).
+    round-trip preserves selection/option keys via `::strict/key`). **Also proven through the real UI**
+    (`test/e2e/export-import-use.js`): the My Content Export button produces a real `E2E Pack.orcbrew`
+    download carrying `:ability-increases`, the real `<input type=file>` imports it back, and the
+    imported race is selectable in the character builder. (UI E2E pins a behaviour the function tests
+    don't: import derives the pack name from the file name.)
     Remaining for A4: **feat-path reconciliation** — the compile hook is wired for race/subrace only;
     feats/backgrounds/classes have their own `:ability-increases` param (not via `:props`), so the
     "any silo" promise isn't delivered yet.
