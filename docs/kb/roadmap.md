@@ -134,7 +134,11 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     and applies on a built character (so JVM/harness tests passed) but does NOT render in the builder.
     Fix: the first floating selection uses `:asi` (renders); additional floating allotments get a distinct
     key (data-correct + applied, but the current builder renders only the first — a rare case, since one
-    `:select` with `num>1` covers "+1 to N of a set"). The E2E now asserts the choice renders
+    `:select` with `num>1` covers "+1 to N of a set"). **This limit is ONLY about multiple *floating*
+    choices; fixed stats are plain modifiers and always apply, so `+2 CHA (fixed) + +1 to any martial
+    (floating)` — and any number of fixed stats with one floating choice — renders fully** (exactly what
+    the E2E asserts). Only two separate floating-from-different-sets choices on one race (e.g. "+1 to any
+    martial AND +1 to any mental", not a standard 5e pattern) hit the cap. The E2E now asserts the choice renders
     ("Improvement: Race - Tide Touched") and the fixed +2 CHA shows in the on-screen grid. *Lesson: data
     being present in a sub is not the same as the builder rendering it — only the rendered UI proves the
     player can actually use it.* A **full click-through E2E**

@@ -291,13 +291,16 @@
                           :num-increases num
                           :different? different?
                           :modifier-fn (fn [k] (modifiers/level-ability-increase k amount))})
-                        ;; The character builder's racial ability-increase widget only renders a
-                        ;; selection keyed :asi (the Variant-Human/Half-Elf convention). A different
-                        ;; key still compiles and applies on a built character, but the builder will
-                        ;; not show the choice (verified via headless UI E2E). So the FIRST floating
-                        ;; selection takes :asi; any additional ones get a distinct key (data-correct
-                        ;; and applied, but the current builder renders only the first — a rare case,
-                        ;; since one :select with num>1 covers "+1 to N of a set").
+                        ;; KEY NOTE — applies ONLY to floating (:select) choices, NOT fixed (:ability)
+                        ;; stats, which are plain modifiers above and always apply. The character
+                        ;; builder's racial ability-increase widget only renders a selection keyed
+                        ;; :asi (the Variant-Human/Half-Elf convention); a different key still compiles
+                        ;; and applies on a built character but does NOT render (verified via headless
+                        ;; UI E2E). So fixed + ONE floating choice (the normal case, incl. a single
+                        ;; :select granting num>1 from a set) renders fully. The first floating choice
+                        ;; takes :asi; a SECOND separate floating choice from a different set (rare —
+                        ;; not a standard 5e pattern) gets a distinct key: it applies but the current
+                        ;; builder renders only the first.
                         ::t/key (if (zero? idx) :asi (keyword (str "floating-asi-" idx))))))
 
        :else acc))
