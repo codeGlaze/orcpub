@@ -252,6 +252,30 @@
                                  :different? different?
                                  :modifier-fns modifier-fns}))
 
+(defn bag-ability-increase-selection
+  "Player assigns a fixed BAG of amounts (e.g. [2 1], [3 2 1], [1 1 1]) to DISTINCT abilities from
+   `ability-keys`. Reuses the existing per-option modifier mechanism so storage/compute are unchanged:
+   each option is an (ability, amount) pair carrying its own level-ability-increase. The bag rides on
+   ::t/amounts for the assign-from-bag widget, which enforces one-amount-per-ability (uniqueness) and
+   that each bag amount is placed exactly once (exact shape)."
+  [{:keys [ability-keys amounts]}]
+  (assoc
+   (t/selection-cfg
+    {:name "Ability Score Improvement"
+     :key :asi
+     :min (count amounts)
+     :max (count amounts)
+     :tags #{:ability-scores}
+     :multiselect? true
+     :options (vec
+               (for [a (distinct amounts)
+                     k ability-keys]
+                 (t/option-cfg
+                  {:name (str (:name (abilities-map k)) " " (common/bonus-str a))
+                   :key (keyword (str (clojure.core/name k) "-plus-" a))
+                   :modifiers [(modifiers/level-ability-increase k a)]})))})
+   ::t/amounts (vec amounts)))
+
 (defn ability-increase-option [num-increases different? ability-keys]
   (t/option-cfg
    {:name "Ability Score Improvement"
@@ -282,15 +306,20 @@
        (update acc :modifiers into (modifiers/race-ability (:ability allotment) (:amount allotment 1)))
 
        (:select allotment)
-       (let [{:keys [from num amount different?] :or {num 1 amount 1}} (:select allotment)
+       (let [{:keys [from num amount amounts different?] :or {num 1 amount 1}} (:select allotment)
              keys (vec (if (keyword? from) (ability-groups from) from))
-             idx  (count (:selections acc))]
+             idx  (count (:selections acc))
+             sel  (if (seq amounts)
+                    ;; an exact/uneven spread ("+2/+1", "+3/+2/+1") -> the assign-from-bag widget
+                    (bag-ability-increase-selection {:ability-keys keys :amounts amounts})
+                    ;; uniform "+amount to num different" -> the existing increment widget
+                    (ability-increase-selection-2
+                     {:ability-keys keys
+                      :num-increases num
+                      :different? different?
+                      :modifier-fn (fn [k] (modifiers/level-ability-increase k amount))}))]
          (update acc :selections conj
-                 (assoc (ability-increase-selection-2
-                         {:ability-keys keys
-                          :num-increases num
-                          :different? different?
-                          :modifier-fn (fn [k] (modifiers/level-ability-increase k amount))})
+                 (assoc sel
                         ;; KEY NOTE — applies ONLY to floating (:select) choices, NOT fixed (:ability)
                         ;; stats, which are plain modifiers above and always apply. The character
                         ;; builder collects ability-increase widgets with `(= :asi (::t/key s))`

@@ -104,6 +104,37 @@
 ;; localStorage/server path, db.cljs:171/281) preserves it AND that the rebuilt
 ;; character still applies the increase — not just that a key matches.
 ;; ---------------------------------------------------------------------------
+;; ---------------------------------------------------------------------------
+;; Exact spreads (the "+2/+1", "+3/+2/+1" bag): compile to (ability,amount) options the player
+;; assigns to DISTINCT abilities. Reuses the existing per-option modifier mechanism, so the
+;; compiled output lands on a built character with the right per-ability bonuses. (Uniqueness +
+;; exact composition are enforced by the assign-from-bag widget — exercised in the rendered E2E.)
+;; ---------------------------------------------------------------------------
+(deftest bag-spread-compiles-to-stat-amount-options
+  (let [{:keys [selections]} (opt5e/compile-ability-increases [{:select {:from :martial :amounts [2 1]}}])
+        sel (first selections)]
+    (is (= :asi (::t/key sel)) "one selection, keyed :asi so the builder renders it")
+    (is (= [2 1] (::t/amounts sel)) "carries the bag for the assign-from-bag widget")
+    (is (= 2 (::t/min sel))) (is (= 2 (::t/max sel)))
+    (testing "martial pool (3 stats) x distinct amounts {2,1} -> 6 (stat,amount) options"
+      (is (= 6 (count (::t/options sel))))
+      (is (contains? (set (map ::t/key (::t/options sel))) :str-plus-2))
+      (is (contains? (set (map ::t/key (::t/options sel))) :con-plus-1)))))
+
+(deftest bag-spread-assigns-exact-amounts-to-distinct-abilities
+  (testing "the player assigns the +2 to STR and the +1 to DEX (distinct) -> both land"
+    (let [tmpl (template-with [{:select {:from :any :amounts [2 1]}}])
+          ent  {:orcpub.entity/options
+                {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
+                 :origin {:orcpub.entity/key :test-origin
+                          :orcpub.entity/options {:asi [{:orcpub.entity/key :str-plus-2}
+                                                        {:orcpub.entity/key :dex-plus-1}]}}}}
+          a (char5e/ability-values (entity/build ent tmpl))]
+      (is (= 12 (S a)) "STR got the +2")
+      (is (= 11 (D a)) "DEX got the +1")
+      (is (= 10 (C a)) "an unchosen stat is unchanged")
+      (is (= 10 (Ch a))))))
+
 (deftest character-floating-choice-survives-save-load
   (let [loaded (-> (raw-entity sample-allotments D) char5e/to-strict char5e/from-strict)
         chosen (get-in loaded [:orcpub.entity/options :origin
