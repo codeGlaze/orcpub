@@ -154,7 +154,21 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     (a) cross-selection uniqueness in `ability-increases-component` (sum picks across the *spread's*
     selections, disable an ability used by any sibling — requires GROUPING a spread's selections so
     independent grants like race-vs-class ASIs aren't wrongly linked), or (b) a per-ability-max "distribute N
-    points, max M each" widget that models "+2/+1 or +1/+1/+1" as one selection. OPEN DESIGN. The E2E now asserts the choice renders
+    points, max M each" widget that models "+2/+1 or +1/+1/+1" as one selection.
+    **✅ RESOLVED (better than either option) — exact-spread BAG.** A floating allotment can carry an exact
+    multiset of amounts: `{:select {:from :any :amounts [2 1]}}` (also `[3 2 1]`, `[1 1 1 1 1]`, any custom
+    spread). `compile-ability-increases` routes it to `bag-ability-increase-selection`: ONE `:asi`-keyed
+    selection whose options are (ability, amount) pairs, each carrying its own `level-ability-increase` — so
+    the existing storage/compute is REUSED (no new modifier, no cross-selection bookkeeping). The bag rides on
+    `::t/amounts`; `ability-increases-component` branches to `ability-bag-assigner` (`character_builder.cljs`),
+    rendering one `:typed?`-dropdown picker per amount ("+2 to [stat]", "+1 to [stat]"). Uniqueness falls out
+    for free — a stat chosen in one slot is excluded from the others. Selections without `::t/amounts` (built-in
+    races, class ASI) keep the existing increment UI untouched (no regression, verified: Half-Elf still renders).
+    JVM-proven (`bag-spread-*` deftests: compile + apply on a built character) and rendered-UI-proven
+    (`test/e2e/exact-spread-asi.js`: two slots render, distinct-stat rule enforced, +2 STR / +1 DEX applied on
+    screen). **Remaining:** authoring UI in the race-builder (a creator currently sets `:amounts` only via
+    orcbrew EDN, not the form) and the optional "choose between spreads" (`:spreads [[2 1] [1 1 1]]`) bonus.
+    *Earlier* the E2E asserted the choice renders
     ("Improvement: Race - Tide Touched") and the fixed +2 CHA shows in the on-screen grid. *Lesson: data
     being present in a sub is not the same as the builder rendering it — only the rendered UI proves the
     player can actually use it.* A **full click-through E2E**
