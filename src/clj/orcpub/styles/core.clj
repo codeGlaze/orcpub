@@ -1417,6 +1417,10 @@
       :border "1px solid rgba(255,255,255,0.08)"
       :border-radius "12px"
       :padding "14px 16px 16px"
+      ;; grid items default to min-width:auto (won't shrink below content) — at 6-up the
+      ;; equation's min-content overflows the capped column. min-width:0 lets the track
+      ;; shrink; the equation then wraps (below) instead of spilling out the section.
+      :min-width 0
       :transition "border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease"}]
 
     [:.ability-card.active
@@ -1432,11 +1436,14 @@
 
     ;; cluster the terms centered so Race + [stepper] = Total reads as one equation,
     ;; rather than flinging apart to the card edges at wide widths
+    ;; cluster centered; wrap when the card gets too narrow so the equation degrades to a
+    ;; vertical stack inside the card rather than clipping or overflowing
     [:.ability-equation
      {:display :flex
+      :flex-wrap :wrap
       :align-items :flex-end
       :justify-content :center
-      :gap "14px"}]
+      :gap "10px 14px"}]
 
     [:.ability-term
      {:display :flex
@@ -1531,7 +1538,7 @@
               [:.ability-equation-grid {:grid-template-columns "repeat(2, 1fr)"}])
     (at-media {:min-width "1000px"}
               [:.ability-equation-grid {:grid-template-columns "repeat(3, 1fr)"}])
-    (at-media {:min-width "1800px"}
+    (at-media {:min-width "1640px"}
               [:.ability-equation-grid {:grid-template-columns "repeat(6, 1fr)"}])
 
     (at-media {:min-width "480px"}
