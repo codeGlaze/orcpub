@@ -838,13 +838,60 @@
 (defn ability-value [v]
   [:div.f-s-18.f-w-b v])
 
+(defn ability-bag-assigner
+  "Renders an exact-spread (bag) ability-increase selection: one picker per amount in the bag,
+   each assigning that amount to a DISTINCT ability. Reuses :increase/:decrease-ability-value with
+   the (ability,amount) composite option keys (e.g. :str-plus-2), so storage/compute are unchanged.
+   Enforces one-amount-per-ability — a chosen ability is excluded from the other pickers."
+  [built-template selection ability-keys]
+  (let [character @(subscribe [:character])
+        amounts (::t/amounts selection)
+        path (::entity/path selection)
+        increases-path (entity/get-entity-path built-template character path)
+        chosen-keys (set (map ::entity/key (get-in character increases-path)))
+        composite (fn [k a] (keyword (str (cljs.core/name k) "-plus-" a)))
+        ability-name (fn [k] (:name (opt5e/abilities-map k)))
+        used (set (filter (fn [k] (some (fn [a] (chosen-keys (composite k a))) (distinct amounts))) ability-keys))
+        ancestors-title (views-aux/ancestor-names-string built-template path)
+        num-remaining (- (count amounts) (count chosen-keys))
+        ;; [amount, occurrence-of-that-amount-so-far] per slot, in bag order
+        slots (map-indexed (fn [idx a] [a (count (filter #(= a %) (take idx amounts)))]) amounts)]
+    [:div
+     [:div.flex.justify-cont-s-b.m-t-10.align-items-c
+      [:div.m-l-5.i (str "Improvement: " ancestors-title)]
+      (remaining-component 2 num-remaining)]
+     (doall
+      (map-indexed
+       (fn [si [a occ]]
+         (let [with-a (vec (filter (fn [k] (chosen-keys (composite k a))) ability-keys))
+               current (get with-a occ)
+               opts (filter (fn [k] (or (= k current) (not (used k)))) ability-keys)]
+           ^{:key si}
+           [:div.flex.align-items-c.m-t-5.m-l-5
+            [:div.w-40.f-w-b (common/bonus-str a)]
+            [:div.flex-grow-1
+             [views5e/dropdown
+              {:typed? true
+               :value current
+               :items (cons {:title "— choose —" :value nil}
+                            (map (fn [k] {:title (ability-name k) :value k}) opts))
+               :on-change (fn [new-k]
+                            (when (not= new-k current)
+                              (when current
+                                (dispatch [:decrease-ability-value increases-path (composite current a)]))
+                              (when new-k
+                                (dispatch [:increase-ability-value increases-path (composite new-k a)]))))}]]]))
+       slots))]))
+
 (defn ability-increases-component [built-template asi-selections ability-keys]
   (let [total-abilities @(subscribe [::char5e/abilities])
         character @(subscribe [:character])]
     [:div
      (doall
       (map-indexed
-       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::entity/path] :as selection}]
+       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::t/amounts ::entity/path] :as selection}]
+         (if amounts
+           ^{:key i} [ability-bag-assigner built-template selection ability-keys]
          (let [increases-path (entity/get-entity-path built-template character path)
                selected-options (get-in character increases-path)
                ability-increases (frequencies (map ::entity/key selected-options))
@@ -896,7 +943,7 @@
                                   (fn []
                                     (when (not increase-disabled?)
                                       (dispatch [:increase-ability-value increases-path k]))))}]]]))
-               ability-keys))]]))
+               ability-keys))]])))
        asi-selections))]))
 
 (defn race-abilities-component [ability-keys]
