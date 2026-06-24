@@ -76,6 +76,27 @@ emits the terse pairs. Explicit sets (`#{:wis :con}`) are valid data but current
 orcbrew EDN, not the form. *(Pending: a "choose between spreads" option — offering the player a
 choice among several spreads — and explicit-set authoring in the form.)*
 
+## Backward compatibility (D9)
+
+Verified against the merge-base (released data):
+
+- **Races/subraces never had `:ability-increases`** — it's branch-new, so no released orcbrew pack
+  uses it. `compile-ability-increases` is additive (nil/empty → `{}`), so existing races (built-in
+  `:abilities` map, or homebrew without the field) are unchanged.
+- **`:ability-increases` IS a released FEAT field** — a *set* like `#{:str :con}`, consumed by the
+  feat builder/compile. It is **never** passed to `compile-ability-increases` (only races/subraces
+  at `spell_subs.cljs:144/162` call it; feats route through `::feats5e/plugin-feats`). The names
+  overlap but the consumers don't cross. A defensive guard ignores any non-`[amount pool]` input
+  (a set, an old map, nil) → no-op, so a feat set or pre-convergence data can never be mangled here.
+- **Saved characters are unaffected** — built-in racial ASI (Half-Elf etc.), class ASI, and feat
+  ASI use the unchanged increment widget / mechanisms; the new `ability-bag-assigner` only renders
+  selections carrying `::t/spread`, which only this compile produces.
+- **In-branch churn** (the `{:ability}`/`{:select}` → `[amount pool]` format change, and option-key
+  changes) only affects data created on this unreleased branch — fine per the prototype-then-converge
+  rule (D23).
+- **Future hazard:** the planned feat-path reconciliation (routing feats through this compile) must
+  migrate the feat *set* format to pairs with a back-compat reader, NOT pass the set in raw.
+
 ## Tests
 
 - JVM `test/cljc/.../ability_increase_grant_test.clj` — compile + apply on a built character:

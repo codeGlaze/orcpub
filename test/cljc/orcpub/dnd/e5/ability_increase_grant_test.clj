@@ -91,6 +91,12 @@
       (is (= 12 (W a)) "+2 to chosen WIS") (is (= 11 (Ch a)) "+1 to chosen CHA")
       (is (= 10 (S a))) (is (= 10 (C a))))))
 
+(deftest backward-compat-non-pair-input-is-ignored
+  (testing "anything that isn't an [amount pool] pair degrades to a no-op (overloaded field name / old data)"
+    (doseq [bad [nil [] #{:str :con} [{:ability :cha :amount 2}] [{:select {:from :martial}}]]]
+      (is (= {:modifiers [] :selections []} (opt5e/compile-ability-increases bad))
+          (str "non-pair input compiles to nothing: " (pr-str bad))))))
+
 ;; Layer 5 (character half): the floating pick survives save/load AND still applies on rebuild.
 (deftest character-floating-choice-survives-save-load
   (let [spread [[2 :cha] [1 :martial]]

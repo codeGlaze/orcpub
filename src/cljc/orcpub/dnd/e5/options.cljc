@@ -293,11 +293,15 @@
    options are keyed asi-<idx>-<ability> and carry their own level-ability-increase. Additive: nil/
    empty -> {} (a race without :ability-increases is unchanged). See docs/kb/ability-increase-spreads.md."
   [spread]
-  (let [increments (map-indexed
+  (let [;; Only process [amount pool] PAIRS. Guards backward-compat: the :ability-increases name is
+        ;; also a FEAT field (a set like #{:str :con}, consumed by the feat path, never here) and any
+        ;; pre-convergence branch data — anything not a 2-vector is ignored rather than mangled.
+        pairs (filter #(and (vector? %) (= 2 (count %))) spread)
+        increments (map-indexed
                     (fn [idx [amount pool]]
                       (let [keys (resolve-pool pool)]
                         {:idx idx :amount amount :pool (vec keys) :fixed? (= 1 (count keys))}))
-                    spread)
+                    pairs)
         modifiers  (mapcat (fn [{:keys [amount pool]}] (modifiers/race-ability (first pool) amount))
                            (filter :fixed? increments))
         floating   (remove :fixed? increments)
