@@ -1411,15 +1411,17 @@
       :grid-template-columns "1fr"
       :gap "14px 16px"}]
 
+    ;; darker than the #1b232f section panel so each card recesses (panel > card > input)
     [:.ability-card
-     {:background "#1b232f"
+     {:background "#141b25"
       :border "1px solid rgba(255,255,255,0.08)"
       :border-radius "12px"
       :padding "14px 16px 16px"
-      :transition "border-color 0.2s ease, box-shadow 0.2s ease"}]
+      :transition "border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease"}]
 
     [:.ability-card.active
-     {:border-color "rgba(240,161,15,0.55)"
+     {:background "rgba(240,161,15,0.07)"
+      :border-color "rgba(240,161,15,0.55)"
       :box-shadow "0 0 0 1px rgba(240,161,15,0.25), 0 10px 24px -16px rgba(240,161,15,0.5)"}]
 
     [:.ability-card-name
@@ -1428,18 +1430,20 @@
       :color "#f3f6fa"
       :margin-bottom "12px"}]
 
+    ;; cluster the terms centered so Race + [stepper] = Total reads as one equation,
+    ;; rather than flinging apart to the card edges at wide widths
     [:.ability-equation
      {:display :flex
       :align-items :flex-end
-      :justify-content :space-between
-      :gap "8px"}]
+      :justify-content :center
+      :gap "14px"}]
 
     [:.ability-term
      {:display :flex
       :flex-direction :column
       :align-items :center
       :gap "6px"
-      :flex "1 1 auto"
+      :flex "0 0 auto"
       :min-width 0}]
 
     [:.ability-term-label
@@ -1476,7 +1480,7 @@
       :height "26px"
       :border "1px solid rgba(255,255,255,0.14)"
       :border-radius "7px"
-      :background "#11161d"
+      :background "#0d1218"
       :color "#e7ecf2"
       :font-size "16px"
       :line-height 1
