@@ -91,11 +91,19 @@
       (is (= 12 (W a)) "+2 to chosen WIS") (is (= 11 (Ch a)) "+1 to chosen CHA")
       (is (= 10 (S a))) (is (= 10 (C a))))))
 
-(deftest backward-compat-non-pair-input-is-ignored
-  (testing "anything that isn't an [amount pool] pair degrades to a no-op (overloaded field name / old data)"
-    (doseq [bad [nil [] #{:str :con} [{:ability :cha :amount 2}] [{:select {:from :martial}}]]]
-      (is (= {:modifiers [] :selections []} (opt5e/compile-ability-increases bad))
-          (str "non-pair input compiles to nothing: " (pr-str bad))))))
+(deftest backward-compat-migrates-old-shapes-or-ignores-foreign
+  (testing "foreign/empty input is a no-op (nil, empty, a feat's #{…} set reaching here by mistake)"
+    (doseq [x [nil [] #{:str :con}]]
+      (is (= {:modifiers [] :selections []} (opt5e/compile-ability-increases x))
+          (str "no-op for: " (pr-str x)))))
+  (testing "pre-convergence shapes MIGRATE (shim fixes them) rather than silently dropping"
+    (testing "old fixed {:ability :amount} -> +2 CHA still applies on a built character"
+      (is (= 12 (Ch (abilities [{:ability Ch :amount 2}] nil)))))
+    (testing "old floating {:select :amounts} -> the same one-selection bag"
+      (let [sel (first (:selections (opt5e/compile-ability-increases [{:select {:from :martial :amounts [2 1]}}])))]
+        (is (= 2 (count (::t/spread sel))) "two floating slots, migrated"))))
+  (testing "a bare single pair is tolerated (author forgot the outer brackets)"
+    (is (= 12 (Ch (abilities [2 :cha] nil))))))
 
 ;; Layer 5 (character half): the floating pick survives save/load AND still applies on rebuild.
 (deftest character-floating-choice-survives-save-load
