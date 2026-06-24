@@ -52,12 +52,6 @@
 (defn- abilities [spread picks]
   (char5e/ability-values (entity/build (raw-entity picks) (template-with spread))))
 
-(deftest ^:diagnostic dump-asi
-  (println "\n=== compile-ability-increases [[2 :cha] [1 :martial]] ===")
-  (let [{:keys [modifiers selections]} (opt5e/compile-ability-increases [[2 :cha] [1 :martial]])]
-    (println "modifier count =" (count modifiers) " selection count =" (count selections))
-    (println "floating option keys =" (pr-str (map ::t/key (::t/options (first selections)))))))
-
 (deftest fixed-only-spread-applies-with-no-choice
   (testing "[[2 :str] [1 :con]] — both single-stat (fixed): apply with no player picks, no selection"
     (let [{:keys [selections]} (opt5e/compile-ability-increases [[2 :str] [1 :con]])
