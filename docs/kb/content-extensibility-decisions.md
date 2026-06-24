@@ -61,6 +61,7 @@ against" record). Full reasoning is in the body — this is only an index.
 | D30 | "grant" earns its keep only as a thin compiler, not a 2nd engine | LIVE |
 | D31 | Two vocabularies share effects but differ in application mode | LIVE (test-backed) |
 | D32 | UI dropdowns must round-trip their value type (`:typed?`) | DONE |
+| D33 | Export data = terse encodings + commented source, not self-documenting bytes | LIVE (rule) |
 
 ---
 
@@ -458,3 +459,15 @@ template these elements to prevent the mistake in general?" — yes — and clea
 floating-ASI round-trip (layer 5). **Convergence follow-up (optional, post-decision, per D23):** migrate
 coercing call sites to `:typed?` for readability and fold the bespoke `:enum` round-trip onto the
 primitive — cleanup, not a fix. Full write-up: `docs/kb/dropdown-value-coercion.md`.
+
+**D33 — Data export formats favor TERSE encodings + commented source over self-documenting data
+(verified, 2026-06-24).** Self-documenting data (keyed maps, fully-namespaced keywords) is nice in
+small doses but multiplies in an export format that ships in every content entry — dozens of races/
+subraces in every orcbrew pack. Decision: prefer compact positional/short encodings in the data, and
+put the "what does this mean" in source comments + a KB doc, not in the bytes. First application:
+`:ability-increases` went from `[{:ability :orcpub.dnd.e5.character/cha :amount 2} {:select {:from
+:martial :num 1 :amount 1 :different? true}}]` to `[[2 :cha] [1 :martial]]` — `[amount pool]` pairs
+with short ability keywords namespaced at compile. Smaller than the prior maps and even than the
+built-in `:abilities` map, with the format spec in `docs/kb/ability-increase-spreads.md` and concise
+comments at `compile-ability-increases`/`ability-bag-assigner`. General rule for future content data:
+terse bytes, documented meaning.

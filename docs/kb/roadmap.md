@@ -155,19 +155,21 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     selections, disable an ability used by any sibling — requires GROUPING a spread's selections so
     independent grants like race-vs-class ASIs aren't wrongly linked), or (b) a per-ability-max "distribute N
     points, max M each" widget that models "+2/+1 or +1/+1/+1" as one selection.
-    **✅ RESOLVED (better than either option) — exact-spread BAG.** A floating allotment can carry an exact
-    multiset of amounts: `{:select {:from :any :amounts [2 1]}}` (also `[3 2 1]`, `[1 1 1 1 1]`, any custom
-    spread). `compile-ability-increases` routes it to `bag-ability-increase-selection`: ONE `:asi`-keyed
-    selection whose options are (ability, amount) pairs, each carrying its own `level-ability-increase` — so
-    the existing storage/compute is REUSED (no new modifier, no cross-selection bookkeeping). The bag rides on
-    `::t/amounts`; `ability-increases-component` branches to `ability-bag-assigner` (`character_builder.cljs`),
-    rendering one `:typed?`-dropdown picker per amount ("+2 to [stat]", "+1 to [stat]"). Uniqueness falls out
-    for free — a stat chosen in one slot is excluded from the others. Selections without `::t/amounts` (built-in
-    races, class ASI) keep the existing increment UI untouched (no regression, verified: Half-Elf still renders).
-    JVM-proven (`bag-spread-*` deftests: compile + apply on a built character) and rendered-UI-proven
-    (`test/e2e/exact-spread-asi.js`: two slots render, distinct-stat rule enforced, +2 STR / +1 DEX applied on
-    screen). **Remaining:** authoring UI in the race-builder (a creator currently sets `:amounts` only via
-    orcbrew EDN, not the form) and the optional "choose between spreads" (`:spreads [[2 1] [1 1 1]]`) bonus.
+    **✅ RESOLVED — terse `[amount pool]` SPREAD (full per-increment pools).** `:ability-increases` is one
+    spread: a list of `[amount pool]` pairs, e.g. `[[2 :cha] [1 :martial]]`. A pool is `:any`/`:martial`/
+    `:mental` (groups) | `#{:wis :con}` (set) | a single stat `:con` (= fixed). It covers everything —
+    `[[3 :con] [1 :cha]]`, `[[3 :any] [2 :any] [1 :any]]`, `[[2 #{:wis :con}] [1 #{:str :cha}]]` — with the
+    whole list as the "different abilities" unit. Short keywords are namespaced at compile, so it's smaller
+    than the old maps (D33). `compile-ability-increases`: single-stat → `race-ability` modifiers; multi-stat →
+    one `:asi` selection whose floating slots (`asi-<idx>-<ability>` options) carry the full spread on
+    `::t/spread`. `ability-bag-assigner` (`character_builder.cljs`) renders fixed labels + a picker per
+    floating increment over its OWN pool, with global one-ability-per-spread; built-ins/class-ASI (no
+    `::t/spread`) keep the existing increment UI. The authoring form (`race-ability-increase-choices`) emits
+    the terse pairs (Amount + To = stat/group). Full spec: `docs/kb/ability-increase-spreads.md`. JVM-proven
+    (fixed-only, fixed+floating, multi-floating, per-increment pools, save/load), cljs-harness-proven (sub +
+    orcbrew round-trip), rendered-UI-proven (`test/e2e/exact-spread-asi.js` + the authoring/round-trip E2Es).
+    **Remaining (optional):** "choose between spreads" (offer the player a choice among several spreads) and
+    explicit-set authoring in the form (sets are EDN-only today).
     *Earlier* the E2E asserted the choice renders
     ("Improvement: Race - Tide Touched") and the fixed +2 CHA shows in the on-screen grid. *Lesson: data
     being present in a sub is not the same as the builder rendering it — only the rendered UI proves the
