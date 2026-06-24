@@ -895,6 +895,8 @@
      (doall
       (map-indexed
        (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::t/spread ::entity/path] :as selection}]
+         ;; a :ability-increases spread (carries ::t/spread) renders via the bag assigner; every other
+         ;; ability-increase selection (built-in races, class ASI) keeps the +/- increment UI below.
          (if spread
            ^{:key i} [ability-bag-assigner built-template selection ability-keys]
          (let [increases-path (entity/get-entity-path built-template character path)
