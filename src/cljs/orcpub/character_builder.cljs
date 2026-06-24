@@ -839,54 +839,54 @@
   [:div.f-s-18.f-w-b v])
 
 (defn ability-bag-assigner
-  "Renders an exact-spread (bag) ability-increase selection: one picker per amount in the bag,
-   each assigning that amount to a DISTINCT ability. Reuses :increase/:decrease-ability-value with
-   the (ability,amount) composite option keys (e.g. :str-plus-2), so storage/compute are unchanged.
-   Enforces one-amount-per-ability — a chosen ability is excluded from the other pickers."
-  [built-template selection ability-keys]
+  "Renders one :ability-increases spread (carried on the selection's ::t/spread as a list of
+   {:idx :amount :pool :fixed?}). Single-stat increments show as fixed labels (e.g. \"Strength +2\");
+   multi-stat ones are pickers over that increment's own pool. Every increment lands on a DISTINCT
+   ability — a stat used by any increment (fixed or floating) is excluded from the other pickers.
+   Picks persist via :increase/:decrease-ability-value with the slot's asi-<idx>-<ability> option key,
+   so storage/compute are unchanged."
+  [built-template selection _ability-keys]
   (let [character @(subscribe [:character])
-        amounts (::t/amounts selection)
+        spread (::t/spread selection)
         path (::entity/path selection)
         increases-path (entity/get-entity-path built-template character path)
         chosen-keys (set (map ::entity/key (get-in character increases-path)))
-        composite (fn [k a] (keyword (str (cljs.core/name k) "-plus-" a)))
+        slot-key (fn [idx k] (keyword (str "asi-" idx "-" (cljs.core/name k))))
         ability-name (fn [k] (:name (opt5e/abilities-map k)))
-        ;; the floating POOL is whatever the creator restricted to (`:from`) — derive it from the
-        ;; selection's actual (ability,amount) options, NOT the all-six list the component is handed,
-        ;; so "+2/+1 to any martial" only offers str/dex/con.
-        opt-keys (set (map ::t/key (::t/options selection)))
-        pool (vec (filter (fn [k] (opt-keys (composite k (first (distinct amounts))))) ability-keys))
-        used (set (filter (fn [k] (some (fn [a] (chosen-keys (composite k a))) (distinct amounts))) pool))
+        slot-pick (fn [{:keys [idx pool]}] (some (fn [k] (when (chosen-keys (slot-key idx k)) k)) pool))
+        floating (remove :fixed? spread)
+        ;; one ability per spread: exclude stats taken by fixed increments AND other floating picks
+        used (set (concat (map (comp first :pool) (filter :fixed? spread))
+                          (keep slot-pick floating)))
         ancestors-title (views-aux/ancestor-names-string built-template path)
-        num-remaining (- (count amounts) (count chosen-keys))
-        ;; [amount, occurrence-of-that-amount-so-far] per slot, in bag order
-        slots (map-indexed (fn [idx a] [a (count (filter #(= a %) (take idx amounts)))]) amounts)]
+        num-remaining (- (count floating) (count (keep slot-pick floating)))]
     [:div
      [:div.flex.justify-cont-s-b.m-t-10.align-items-c
       [:div.m-l-5.i (str "Improvement: " ancestors-title)]
       (remaining-component 2 num-remaining)]
      (doall
-      (map-indexed
-       (fn [si [a occ]]
-         (let [with-a (vec (filter (fn [k] (chosen-keys (composite k a))) pool))
-               current (get with-a occ)
-               opts (filter (fn [k] (or (= k current) (not (used k)))) pool)]
-           ^{:key si}
-           [:div.flex.align-items-c.m-t-5.m-l-5
-            [:div.w-40.f-w-b (common/bonus-str a)]
-            [:div.flex-grow-1
-             [views5e/dropdown
-              {:typed? true
-               :value current
-               :items (cons {:title "— choose —" :value nil}
-                            (map (fn [k] {:title (ability-name k) :value k}) opts))
-               :on-change (fn [new-k]
-                            (when (not= new-k current)
-                              (when current
-                                (dispatch [:decrease-ability-value increases-path (composite current a)]))
-                              (when new-k
-                                (dispatch [:increase-ability-value increases-path (composite new-k a)]))))}]]]))
-       slots))]))
+      (map
+       (fn [{:keys [idx amount pool fixed?] :as increment}]
+         ^{:key idx}
+         [:div.flex.align-items-c.m-t-5.m-l-5
+          [:div.w-40.f-w-b (common/bonus-str amount)]
+          (if fixed?
+            [:div.m-l-5 (ability-name (first pool))]
+            (let [current (slot-pick increment)
+                  opts (filter (fn [k] (or (= k current) (not (used k)))) pool)]
+              [:div.flex-grow-1
+               [views5e/dropdown
+                {:typed? true
+                 :value current
+                 :items (cons {:title "— choose —" :value nil}
+                              (map (fn [k] {:title (ability-name k) :value k}) opts))
+                 :on-change (fn [new-k]
+                              (when (not= new-k current)
+                                (when current
+                                  (dispatch [:decrease-ability-value increases-path (slot-key idx current)]))
+                                (when new-k
+                                  (dispatch [:increase-ability-value increases-path (slot-key idx new-k)]))))}]]))])
+       spread))]))
 
 (defn ability-increases-component [built-template asi-selections ability-keys]
   (let [total-abilities @(subscribe [::char5e/abilities])
@@ -894,8 +894,8 @@
     [:div
      (doall
       (map-indexed
-       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::t/amounts ::entity/path] :as selection}]
-         (if amounts
+       (fn [i {:keys [::t/name ::t/key ::t/min ::t/max ::t/options ::t/different? ::t/spread ::entity/path] :as selection}]
+         (if spread
            ^{:key i} [ability-bag-assigner built-template selection ability-keys]
          (let [increases-path (entity/get-entity-path built-template character path)
                selected-options (get-in character increases-path)

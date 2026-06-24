@@ -43,15 +43,15 @@ const results=[]; const check=(name,ok)=>{results.push(ok);console.log(`  ${ok?'
   await pg.waitForSelector('#app input.input.h-40',{timeout:20000});
   await pg.locator('#app input.input.h-40').nth(0).fill('Tide Touched');
   await pg.locator('#app input[placeholder="Default Option Source"]').fill('E2E Pack');
-  await pg.locator('#app button').filter({hasText:'Add fixed'}).first().click();
-  await pg.locator('#app button').filter({hasText:'Add floating'}).first().click();
+  await pg.locator('#app button').filter({hasText:'Add increase'}).first().click();
+  await pg.locator('#app button').filter({hasText:'Add increase'}).first().click();
   await pg.waitForTimeout(300);
-  const rows=pg.locator('#app div.m-b-20').filter({hasText:'Choice / Floating Ability Increases'}).locator('> div.m-b-5');
+  const rows=pg.locator('#app div.m-b-20').filter({hasText:'Ability Score Increases'}).locator('> div.m-b-5');
   const set=async(l,label)=>{await l.selectOption({label});await pg.waitForTimeout(150);};
-  await set(rows.nth(0).locator('select').nth(0),'Charisma');
-  await set(rows.nth(0).locator('select').nth(1),'+2');
-  await set(rows.nth(1).locator('select').nth(0),'Martial (Str/Dex/Con)');
-  await set(rows.nth(1).locator('select').nth(1),'+1');
+  await set(rows.nth(0).locator('select').nth(0),'+2');
+  await set(rows.nth(0).locator('select').nth(1),'Charisma');
+  await set(rows.nth(1).locator('select').nth(0),'+1');
+  await set(rows.nth(1).locator('select').nth(1),'Martial (Str/Dex/Con)');
   await pg.locator('#app button:visible').filter({hasText:'Save to Browser Storage'}).first().click();
   await pg.waitForTimeout(800);
   check('authored pack saved with :ability-increases', /E2E Pack[\s\S]*ability-increases/.test(await lsPlugins(pg)));
@@ -70,8 +70,8 @@ const results=[]; const check=(name,ok)=>{results.push(ok);console.log(`  ${ok?'
   const dlPath=path.join('/tmp', suggested);
   await download.saveAs(dlPath);
   const exportedText=fs.readFileSync(dlPath,'utf8');
-  check('exported .orcbrew has :ability-increases + qualified cha',
-        /ability-increases/.test(exportedText) && /orcpub\.dnd\.e5\.character\/cha/.test(exportedText));
+  check('exported .orcbrew has the terse :ability-increases spread',
+        /:ability-increases/.test(exportedText) && /\[2 :cha\]/.test(exportedText) && /\[1 :martial\]/.test(exportedText));
 
   // 3. wipe the pack
   await pg.evaluate(()=>localStorage.setItem('plugins','{"Default Option Source" {}}'));

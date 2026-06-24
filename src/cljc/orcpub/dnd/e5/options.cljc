@@ -252,30 +252,6 @@
                                  :different? different?
                                  :modifier-fns modifier-fns}))
 
-(defn bag-ability-increase-selection
-  "Player assigns a fixed BAG of amounts (e.g. [2 1], [3 2 1], [1 1 1]) to DISTINCT abilities from
-   `ability-keys`. Reuses the existing per-option modifier mechanism so storage/compute are unchanged:
-   each option is an (ability, amount) pair carrying its own level-ability-increase. The bag rides on
-   ::t/amounts for the assign-from-bag widget, which enforces one-amount-per-ability (uniqueness) and
-   that each bag amount is placed exactly once (exact shape)."
-  [{:keys [ability-keys amounts]}]
-  (assoc
-   (t/selection-cfg
-    {:name "Ability Score Improvement"
-     :key :asi
-     :min (count amounts)
-     :max (count amounts)
-     :tags #{:ability-scores}
-     :multiselect? true
-     :options (vec
-               (for [a (distinct amounts)
-                     k ability-keys]
-                 (t/option-cfg
-                  {:name (str (:name (abilities-map k)) " " (common/bonus-str a))
-                   :key (keyword (str (clojure.core/name k) "-plus-" a))
-                   :modifiers [(modifiers/level-ability-increase k a)]})))})
-   ::t/amounts (vec amounts)))
-
 (defn ability-increase-option [num-increases different? ability-keys]
   (t/option-cfg
    {:name "Ability Score Improvement"
@@ -283,60 +259,67 @@
     :selections [(ability-increase-selection ability-keys num-increases different?)]
     :modifiers [(modifiers/deferred-ability-increases)]}))
 
-;; Named ability subsets a creator can grant a floating increase over (e.g. "+1 to any martial stat").
+;; --- Ability-increase spreads (roadmap A4) ------------------------------------------------------
+;; A race/feat/background's :ability-increases is ONE spread: a terse list of [amount pool] pairs,
+;; e.g. [[2 :cha] [1 :martial]] = "+2 CHA, +1 to any martial stat". The whole list is the unit of
+;; the Tasha's "different abilities" rule — every increment lands on a DISTINCT ability. A pool is
+;;   :any | :martial | :mental (named groups) | #{:wis :con} (explicit set) | :con (single stat = FIXED).
+;; Short ability keywords are namespaced here so authors keep the export compact (rationale +
+;; full format spec: docs/kb/ability-increase-spreads.md).
 (def ability-groups
   {:any     (set character/ability-keys)
-   :martial #{::character/str ::character/dex ::character/con}})
+   :martial #{::character/str ::character/dex ::character/con}
+   :mental  #{::character/int ::character/wis ::character/cha}})
+
+(defn ns-ability
+  "Short ability keyword -> namespaced (:con -> :orcpub.dnd.e5.character/con); idempotent."
+  [k]
+  (keyword "orcpub.dnd.e5.character" (clojure.core/name k)))
+
+(defn resolve-pool
+  "A spread pool -> a set of namespaced ability keys: a named group, an explicit set, or a single stat."
+  [pool]
+  (cond
+    (coll? pool)          (set (map ns-ability pool))
+    (ability-groups pool) (ability-groups pool)
+    :else                 #{(ns-ability pool)}))
 
 (defn compile-ability-increases
-  "USER-CHOICE + creator-FIXED ability increases as DATA (roadmap A4). Turns an allotment list into
-   {:modifiers [...] :selections [...]}, composing fixed and floating freely:
-     [{:ability :cha :amount 2}                                         ; FIXED  -> race-ability
-      {:select {:from #{:str :dex :con} :num 1 :amount 1 :different? true}}] ; FLOATING -> a player choice
-   `:from` may be an explicit set of ability keys or a named group keyword (e.g. :martial). Fixed
-   compiles via `race-ability` (-> ?ability-increases); each floating `:select` reuses the existing
-   `ability-increase-selection-2` (the Variant-Human primitive) with a `level-ability-increase`
-   modifier-fn for the chosen amount (-> ?level-ability-increases). Distinct keys per floating
-   selection so multiple allotments don't collide. Any silo (race/feat/background) can carry it."
-  [allotments]
-  (reduce
-   (fn [acc allotment]
-     (cond
-       (:ability allotment)
-       (update acc :modifiers into (modifiers/race-ability (:ability allotment) (:amount allotment 1)))
-
-       (:select allotment)
-       (let [{:keys [from num amount amounts different?] :or {num 1 amount 1}} (:select allotment)
-             keys (vec (if (keyword? from) (ability-groups from) from))
-             idx  (count (:selections acc))
-             sel  (if (seq amounts)
-                    ;; an exact/uneven spread ("+2/+1", "+3/+2/+1") -> the assign-from-bag widget
-                    (bag-ability-increase-selection {:ability-keys keys :amounts amounts})
-                    ;; uniform "+amount to num different" -> the existing increment widget
-                    (ability-increase-selection-2
-                     {:ability-keys keys
-                      :num-increases num
-                      :different? different?
-                      :modifier-fn (fn [k] (modifiers/level-ability-increase k amount))}))]
-         (update acc :selections conj
-                 (assoc sel
-                        ;; KEY NOTE — applies ONLY to floating (:select) choices, NOT fixed (:ability)
-                        ;; stats, which are plain modifiers above and always apply. The character
-                        ;; builder collects ability-increase widgets with `(= :asi (::t/key s))`
-                        ;; (character_builder.cljs:1169), so a selection renders ONLY when keyed :asi.
-                        ;; But the entity stores each selection's pick under its key, so TWO floating
-                        ;; choices need DISTINCT keys to both persist — which then fail the :asi filter.
-                        ;; Net (current builder): fixed + ONE floating choice (incl. one :select with
-                        ;; num>1 from a set) renders fully; a SECOND separate floating choice gets a
-                        ;; distinct key and does NOT render. ⚠️ This blocks the STANDARD Tasha's/MotM
-                        ;; "+2 to one, +1 to another" ASI (two floating pools) — see roadmap A4. Real
-                        ;; fix = broaden the character_builder filter to render all the floating
-                        ;; ability-increase selections, not just :asi.
-                        ::t/key (if (zero? idx) :asi (keyword (str "floating-asi-" idx))))))
-
-       :else acc))
-   {:modifiers [] :selections []}
-   allotments))
+  "Compile a :ability-increases spread (list of [amount pool] pairs) -> {:modifiers :selections}.
+   Single-stat pools are FIXED (race-ability modifiers, applied always); multi-stat pools are
+   FLOATING — the player assigns each amount to a distinct ability. All floating slots live in ONE
+   :asi selection that carries the full spread on ::t/spread, so the assign-from-bag widget can show
+   the fixed labels, offer each slot its own pool, and enforce one-ability-per-spread. The slot
+   options are keyed asi-<idx>-<ability> and carry their own level-ability-increase. Additive: nil/
+   empty -> {} (a race without :ability-increases is unchanged). See docs/kb/ability-increase-spreads.md."
+  [spread]
+  (let [increments (map-indexed
+                    (fn [idx [amount pool]]
+                      (let [keys (resolve-pool pool)]
+                        {:idx idx :amount amount :pool (vec keys) :fixed? (= 1 (count keys))}))
+                    spread)
+        modifiers  (mapcat (fn [{:keys [amount pool]}] (modifiers/race-ability (first pool) amount))
+                           (filter :fixed? increments))
+        floating   (remove :fixed? increments)
+        slot-opts  (fn [{:keys [idx amount pool]}]
+                     (map (fn [k]
+                            (t/option-cfg
+                             {:name      (str (:name (abilities-map k)) " " (common/bonus-str amount))
+                              :key       (keyword (str "asi-" idx "-" (clojure.core/name k)))
+                              :modifiers [(modifiers/level-ability-increase k amount)]}))
+                          pool))]
+    {:modifiers  (vec modifiers)
+     :selections (if (seq floating)
+                   [(assoc (t/selection-cfg
+                            {:name         "Ability Score Improvement"
+                             :key          :asi
+                             :min          (count floating)
+                             :max          (count floating)
+                             :tags         #{:ability-scores}
+                             :multiselect? true
+                             :options      (vec (mapcat slot-opts floating))})
+                           ::t/spread (vec increments))]
+                   [])}))
 
 (defn min-ability [ability-kw min-value]
   (fn [c] (>= (ability-kw (character/ability-values c)) min-value)))

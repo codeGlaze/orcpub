@@ -19,7 +19,7 @@ const HOST=`<!DOCTYPE html><html><head><meta charset="utf-8">
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.svg':'image/svg+xml','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.map':'application/json'};
 const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.split('?')[0]);const fp=path.join(ROOT,p);fs.readFile(fp,(e,d)=>{if(e){res.setHeader('Content-Type','text/html');res.end(HOST);return;}res.setHeader('Content-Type',mime[path.extname(fp)]||'application/octet-stream');res.end(d);});});
 // :from :martial restricts the floating pool to str/dex/con (also guards pool-restriction)
-const PLUGINS=`{"Default Option Source" {} "Bag Pack" {:orcpub.dnd.e5/races {:bag-touched {:size :medium, :speed 30, :languages #{}, :traits [], :name "Bag Touched", :option-pack "Bag Pack", :key :bag-touched, :ability-increases [{:select {:from :martial, :amounts [2 1]}}]}}}}`;
+const PLUGINS=`{"Default Option Source" {} "Bag Pack" {:orcpub.dnd.e5/races {:bag-touched {:size :medium, :speed 30, :languages #{}, :traits [], :name "Bag Touched", :option-pack "Bag Pack", :key :bag-touched, :ability-increases [[2 :martial] [1 :martial]]}}}}`;
 const errs=[]; const U=`http://localhost:${PORT}`;
 const results=[]; const check=(n,ok,extra)=>{results.push(ok);console.log(`  ${ok?'PASS':'FAIL'}  ${n}${extra?'  '+extra:''}`);};
 const scores=async pg=>{const t=(await pg.locator('#app').innerText()).split('Ability Scores').pop().replace(/\n+/g,' ');

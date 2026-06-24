@@ -1,10 +1,11 @@
 (ns orcpub.dnd.e5.ability-increase-grant-cljs-test
-  "Layer 2 (cljs) of the floating-ASI vertical: the RACE/SUBRACE assembly wires a homebrew
-   entry's :ability-increases data through opt5e/compile-ability-increases. Proven through the
-   REAL ::races5e/races sub (the same harness pattern as draconic-ancestry-test): a homebrew race
-   with a fixed + floating allotment yields a race option carrying the fixed modifiers AND a
-   floating ASI selection restricted to the named subset. (That the compiled output lands on a
-   built character is proven under JVM in ability-increase-grant-test — layer 1.)"
+  "Layer 2 (cljs) of the floating-ASI vertical: the RACE/SUBRACE assembly wires a homebrew entry's
+   :ability-increases SPREAD (terse [amount pool] pairs) through opt5e/compile-ability-increases.
+   Proven through the REAL ::races5e/races sub: a homebrew race with a fixed + floating increment
+   yields a race option carrying the fixed modifiers AND a floating ASI selection (keyed :asi,
+   carrying ::t/spread) restricted to the named pool. (That the compiled output lands on a built
+   character is proven under JVM in ability-increase-grant-test — layer 1.)
+   See docs/kb/ability-increase-spreads.md."
   (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
@@ -23,89 +24,77 @@
 (def S ::char5e/str)
 (def D ::char5e/dex)
 (def C ::char5e/con)
-(def Ch ::char5e/cha)
+;; the floating "+1 martial" increment is at spread index 1 (CHA is index 0), so its slot options
+;; are keyed asi-1-<ability>
+(def martial-slot-1 #{:asi-1-str :asi-1-dex :asi-1-con})
 
-;; a homebrew race that grants "+2 CHA (fixed) and +1 to any martial stat (floating)" as DATA
+;; "+2 CHA (fixed), +1 to any martial stat (floating)" as terse spread data
 (def asi-race-pack
   {"ASI Pack"
    {::e5/races
     {:tide-touched
      {:name "Tide-Touched" :key :tide-touched :option-pack "ASI Pack"
-      :ability-increases [{:ability Ch :amount 2}
-                          {:select {:from :martial :num 1 :amount 1 :different? true}}]}}}})
+      :ability-increases [[2 :cha] [1 :martial]]}}}})
 
-(defn- homebrew-race []
-  (rf/clear-subscription-cache!)
-  (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races]))))
+(defn- floating-sel [race]
+  (first (filter #(= :asi (::t/key %)) (:selections race))))
 
 (deftest race-ability-increases-data-wires-fixed-and-floating
   (reset! app-db {:plugins asi-race-pack})
-  (let [race (homebrew-race)]
+  (let [race (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races])))]
     (is (some? race) "the homebrew race appears in the races sub")
-    (testing "FLOATING — a user-choice ASI selection, restricted to the martial subset"
-      (let [sel (first (filter #(= :asi (::t/key %)) (:selections race)))]
+    (testing "FLOATING — a user-choice ASI slot, restricted to the martial pool"
+      (let [sel (floating-sel race)]
         (is (some? sel) "the floating ASI selection was compiled and merged onto the race")
-        (is (= #{S D C} (set (map ::t/key (::t/options sel))))
-            "the choice offers only the martial stats — not all six")))
+        (is (= 2 (count (::t/spread sel))) "the full spread (fixed + floating) rides on ::t/spread")
+        (is (= martial-slot-1 (set (map ::t/key (::t/options sel))))
+            "the floating slot offers only the martial stats — not all six")))
     (testing "FIXED — the +2 CHA contributes its modifiers to the race"
-      ;; minimal race (no :props/spells), so the only modifiers are the fixed race-ability's two
       (is (= 2 (count (:modifiers race)))
           "compile-ability-increases' fixed CHA modifiers were merged into the race's :modifiers"))))
 
 (deftest authoring-via-builder-events-produces-a-working-race
-  (testing "driving the REAL race-builder events (what the form dispatches) authors a working floating-ASI race"
+  (testing "driving the REAL race-builder events (what the form dispatches) authors a working spread"
     (reset! app-db {})
     (rf/dispatch-sync [::races5e/set-race-prop :name "Tide-Touched"])
     (rf/dispatch-sync [::races5e/set-race-prop :key :tide-touched])
     (rf/dispatch-sync [::races5e/set-race-prop :option-pack "P"])
-    (rf/dispatch-sync [::races5e/set-race-path-prop [:ability-increases]
-                       [{:ability Ch :amount 2}
-                        {:select {:from :martial :num 1 :amount 1 :different? true}}]])
+    (rf/dispatch-sync [::races5e/set-race-path-prop [:ability-increases] [[2 :cha] [1 :martial]]])
     (let [item (::races5e/builder-item @app-db)]
-      (is (= 2 (count (:ability-increases item))) "the builder events built the allotment list")
-      (is (= :tide-touched (:key item)))
-      ;; feed the authored race through the REAL assembly (as a loaded plugin) — end to end
+      (is (= 2 (count (:ability-increases item))) "the builder events built the spread")
       (reset! app-db {:plugins {"P" {::e5/races {:tide-touched item}}}})
-      (let [race (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races])))
-            sel  (first (filter #(= :asi (::t/key %)) (:selections race)))]
-        (is (some? sel) "the authored race carries the floating ASI selection")
-        (is (= #{S D C} (set (map ::t/key (::t/options sel))))
-            "restricted to the martial set, end to end from the builder events")))))
+      (let [sel (floating-sel (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races]))))]
+        (is (= martial-slot-1 (set (map ::t/key (::t/options sel))))
+            "restricted to the martial pool, end to end from the builder events")))))
 
 (deftest race-without-ability-increases-is-unaffected
   (testing "additive: a homebrew race with no :ability-increases gets no ASI selection"
     (reset! app-db {:plugins {"P" {::e5/races {:plain {:name "Plain" :key :plain :option-pack "P"}}}}})
     (let [race (first (filter #(= :plain (:key %)) @(rf/subscribe [::races5e/races])))]
       (is (some? race))
-      (is (not-any? #(= :asi (::t/key %)) (:selections race))
-          "no :ability-increases -> no floating selection (the hook is opt-in)"))))
+      (is (nil? (floating-sel race)) "no :ability-increases -> no floating selection (opt-in)"))))
 
 ;; Layer 5 (homebrew half): :ability-increases survives a real orcbrew export -> import.
-;; Export is `(str plugin)` (events.cljs:3650); import is validate-import (parse + normalize +
-;; clean + fill + dedup + structural validation, import_validation.cljs:1301). We round-trip a
-;; SINGLE-plugin shape (one exported pack's content, content-keyed) — the strict path that runs
-;; remove-invalid-items — and assert the arbitrary key is preserved AND still drives the live sub.
+;; Export is `(str plugin)`; import is validate-import (parse/normalize/clean/fill/dedup/validate).
+;; Round-trip the SINGLE-plugin shape (the strict path that runs remove-invalid-items) and assert the
+;; spread is preserved verbatim AND still drives the live sub.
 (def asi-race
   {:name "Tide-Touched" :key :tide-touched :option-pack "ASI Pack"
-   :ability-increases [{:ability Ch :amount 2}
-                       {:select {:from :martial :num 1 :amount 1 :different? true}}]})
+   :ability-increases [[2 :cha] [1 :martial]]})
 
 (deftest ability-increases-survives-orcbrew-export-import
-  (let [plugin   {::e5/races {:tide-touched asi-race}}     ; one exported pack's content
-        edn      (str plugin)                              ; mirrors export's (str plugin)
-        result   (import-val/validate-import edn {})       ; default strategy/clean/fill, like the real import
+  (let [plugin   {::e5/races {:tide-touched asi-race}}
+        result   (import-val/validate-import (str plugin) {})
         imported (get-in (:data result) [::e5/races :tide-touched])]
     (testing "the import succeeds and keeps the (valid) race"
       (is (:success result))
       (is (zero? (:skipped-count result)) "a valid race is not dropped by progressive import"))
-    (testing ":ability-increases survives the export->import pipeline verbatim"
-      (is (= (:ability-increases asi-race) (:ability-increases imported))
-          "the arbitrary key (and its qualified keywords / ints) round-trips through (str)->validate-import"))
-    (testing "the imported data still drives the live races sub (floating selection restricted to martial)"
+    (testing "the spread survives the export->import pipeline verbatim"
+      (is (= [[2 :cha] [1 :martial]] (:ability-increases imported))
+          "the terse [amount pool] pairs round-trip through (str)->validate-import"))
+    (testing "the imported data still drives the live races sub (floating slot restricted to martial)"
       (reset! app-db {:plugins {"ASI Pack" (:data result)}})
       (rf/clear-subscription-cache!)
-      (let [race (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races])))
-            sel  (first (filter #(= :asi (::t/key %)) (:selections race)))]
-        (is (some? sel) "the round-tripped race still compiles the floating ASI selection")
-        (is (= #{S D C} (set (map ::t/key (::t/options sel))))
-            "still restricted to the martial set after export/import")))))
+      (let [sel (floating-sel (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races]))))]
+        (is (= martial-slot-1 (set (map ::t/key (::t/options sel))))
+            "still restricted to the martial pool after export/import")))))

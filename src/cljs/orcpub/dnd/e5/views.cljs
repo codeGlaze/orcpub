@@ -6235,42 +6235,37 @@
                :value :reaction}]]]))
 
 (defn race-ability-increase-choices
-  "Authoring UI for a race's :ability-increases — fixed (creator-chosen ability) and floating
-   (user-chosen from a subset) allotments, composed. Each control dispatches the generic
-   set-race-path-prop with the recomputed vector; it compiles via opt5e/compile-ability-increases."
+  "Authoring UI for a race's :ability-increases spread — a list of [amount pool] increments. Each row
+   is an Amount + a To target: a single stat is FIXED, a group (Any/Martial/Mental) is the player's
+   choice. All increases land on different abilities. Dropdowns use :typed? so on-change gets the real
+   keyword. Stores short keywords ([2 :cha] [1 :martial]); compile namespaces them. (Explicit sets like
+   #{:wis :con} are valid in the data but authored via EDN, not this form.)"
   [race]
-  ;; All dropdowns here use :typed? — on-change is handed the item's real :value (qualified
-  ;; ability keyword / group keyword / int), so no per-control string coercion is needed.
   (let [ais (vec (:ability-increases race))
         set-ai! (fn [v] (dispatch [::races/set-race-path-prop [:ability-increases] v]))
         amount-items (map (fn [n] {:title (common/bonus-str n) :value n}) (range 1 4))
-        ability-items (map (fn [{:keys [name key]}] {:title name :value key}) opt/abilities)
-        group-items [{:title "Any (all six)" :value :any}
-                     {:title "Martial (Str/Dex/Con)" :value :martial}]]
+        target-items (concat
+                      [{:title "Any (all six)" :value :any}
+                       {:title "Martial (Str/Dex/Con)" :value :martial}
+                       {:title "Mental (Int/Wis/Cha)" :value :mental}]
+                      (map (fn [{:keys [name key]}]
+                             {:title name :value (keyword (clojure.core/name key))})
+                           opt/abilities))]
     [:div.m-b-20
-     [:div.f-s-18.f-w-b.m-b-10 "Choice / Floating Ability Increases"]
+     [:div.f-s-18.f-w-b.m-b-10 "Ability Score Increases"]
+     [:div.f-s-12.i.m-b-10 "A single stat is fixed; a group is the player's choice. All increases go to different abilities."]
      (doall
       (map-indexed
-       (fn [i a]
+       (fn [i [amount pool]]
          ^{:key i}
          [:div.flex.flex-wrap.align-items-c.m-b-5
-          (if (:ability a)
-            [:div.flex.align-items-c
-             [:span.m-r-5 "Fixed"]
-             [labeled-dropdown "Ability" {:items ability-items :value (:ability a) :typed? true
-                                          :on-change #(set-ai! (assoc-in ais [i :ability] %))}]
-             [labeled-dropdown "Amount" {:items amount-items :value (:amount a 1) :typed? true
-                                         :on-change #(set-ai! (assoc-in ais [i :amount] %))}]]
-            [:div.flex.align-items-c
-             [:span.m-r-5 "Floating — choose 1 from"]
-             [labeled-dropdown "From" {:items group-items :value (get-in a [:select :from] :any) :typed? true
-                                       :on-change #(set-ai! (assoc-in ais [i :select :from] %))}]
-             [labeled-dropdown "Amount" {:items amount-items :value (get-in a [:select :amount] 1) :typed? true
-                                         :on-change #(set-ai! (assoc-in ais [i :select :amount] %))}]])
+          [labeled-dropdown "Amount" {:items amount-items :value (or amount 1) :typed? true
+                                      :on-change #(set-ai! (assoc ais i [% pool]))}]
+          [labeled-dropdown "To" {:items target-items :value (or pool :any) :typed? true
+                                  :on-change #(set-ai! (assoc ais i [amount %]))}]
           [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]])
        ais))
-     [:button.m-r-5 {:on-click #(set-ai! (conj ais {:ability (-> opt/abilities first :key) :amount 1}))} "Add fixed"]
-     [:button {:on-click #(set-ai! (conj ais {:select {:from :martial :num 1 :amount 1 :different? true}}))} "Add floating"]]))
+     [:button {:on-click #(set-ai! (conj ais [1 :any]))} "Add increase"]]))
 
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]

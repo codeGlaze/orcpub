@@ -55,19 +55,20 @@ const server = http.createServer((req, res) => {
   await pg.locator('#app input.input.h-40').nth(0).fill('Tide Touched');                 // Name
   await pg.locator('#app input[placeholder="Default Option Source"]').fill('E2E Pack');   // Option source
 
-  await pg.locator('#app button').filter({ hasText: 'Add fixed' }).first().click();
-  await pg.locator('#app button').filter({ hasText: 'Add floating' }).first().click();
+  // Author a spread: "+2 CHA (fixed), +1 to any martial (floating)" via two [amount, To] rows.
+  await pg.locator('#app button').filter({ hasText: 'Add increase' }).first().click();
+  await pg.locator('#app button').filter({ hasText: 'Add increase' }).first().click();
   await pg.waitForTimeout(300);
 
-  const section = pg.locator('#app div.m-b-20').filter({ hasText: 'Choice / Floating Ability Increases' });
+  const section = pg.locator('#app div.m-b-20').filter({ hasText: 'Ability Score Increases' });
   const rows = section.locator('> div.m-b-5');
   // reagent re-renders async after each dispatch; pause so each <select> on-change closure
   // sees the latest :ability-increases vector (otherwise a stale closure clobbers a prior pick).
   const setSel = async (l, label) => { await l.selectOption({ label }); await pg.waitForTimeout(150); };
-  await setSel(rows.nth(0).locator('select').nth(0), 'Charisma');                 // fixed ability
-  await setSel(rows.nth(0).locator('select').nth(1), '+2');                       // fixed amount
-  await setSel(rows.nth(1).locator('select').nth(0), 'Martial (Str/Dex/Con)');   // floating subset
-  await setSel(rows.nth(1).locator('select').nth(1), '+1');                       // floating amount
+  await setSel(rows.nth(0).locator('select').nth(0), '+2');                       // row 0 amount
+  await setSel(rows.nth(0).locator('select').nth(1), 'Charisma');                 // row 0 target (fixed)
+  await setSel(rows.nth(1).locator('select').nth(0), '+1');                       // row 1 amount
+  await setSel(rows.nth(1).locator('select').nth(1), 'Martial (Str/Dex/Con)');   // row 1 target (floating)
   await pg.waitForTimeout(200);
 
   // There are TWO "Save to Browser Storage" buttons in the DOM (responsive: a hidden mobile
@@ -83,13 +84,11 @@ const server = http.createServer((req, res) => {
   console.log('PAGEERRORS:', errs.join(' | ') || 'none');
   let pass = false;
   if (hit) {
-    const v = hit[1], i = v.indexOf('ability-increases'), slice = v.slice(i - 12, i + 220);
+    const v = hit[1], i = v.indexOf('ability-increases'), slice = v.slice(i - 4, i + 60);
     console.log('persisted ASI:', slice);
     const checks = {
-      'fixed CHA is the namespaced keyword': /:ability :orcpub\.dnd\.e5\.character\/cha/.test(slice),
-      'fixed amount is int 2':               /:amount 2\b/.test(slice),
-      'floating :from is keyword :martial':  /:from :martial/.test(slice),
-      'floating amount is int 1':            /:amount 1\b/.test(slice),
+      'fixed +2 CHA as terse pair [2 :cha]':       /\[2 :cha\]/.test(slice),
+      'floating +1 martial as terse pair [1 :martial]': /\[1 :martial\]/.test(slice),
     };
     pass = Object.values(checks).every(Boolean);
     for (const [k, ok] of Object.entries(checks)) console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${k}`);
