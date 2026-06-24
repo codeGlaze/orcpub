@@ -5289,13 +5289,11 @@
                      edit-trait-description-event
                      delete-trait-event
                      & {:keys [edit-trait-level-event types title button-title]}]
-  [:div.m-b-20
-   [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
-    [omv/group-label (or title "Features/Traits")]
-    [:div
-     [:button.form-button.m-l-5
-      {:on-click (make-event-handler add-trait-event)}
-      (or button-title "add feature / trait")]]]
+  [omv/card (or title "Features/Traits")
+   [:div.flex.justify-cont-end.m-b-10
+    [:button.form-button
+     {:on-click (make-event-handler add-trait-event)}
+     (or button-title "add feature / trait")]]
    [:div
     (if (seq (:traits option))
       (doall
@@ -6503,8 +6501,7 @@
         ::races/set-subrace-path-prop
         ::races/toggle-subrace-path-prop]]
       [:div [option-languages subrace ::races/toggle-subrace-map-prop]]]
-     [:div.m-b-20
-      [omv/group-label "Spells"]
+     [omv/card "Spells"
       [option-spells
        subrace
        ::races/set-subrace-spell-level
@@ -6598,12 +6595,12 @@
       race
       ::races/set-race-path-prop
       ::races/toggle-race-path-prop]
-     [omv/group-label "Spells"]
-     [option-spells
-      race
-      ::races/set-race-spell-level
-      ::races/set-race-spell-value
-      ::races/delete-race-spell]
+     [omv/card "Spells"
+      [option-spells
+       race
+       ::races/set-race-spell-level
+       ::races/set-race-spell-value
+       ::races/delete-race-spell]]
      [option-traits
       race
       ::e5/add-race-trait

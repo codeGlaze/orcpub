@@ -1416,7 +1416,9 @@
      {:background "#141b25"
       :border "1px solid rgba(255,255,255,0.08)"
       :border-radius "12px"
-      :padding "14px 16px 16px"
+      ;; tighter horizontal padding gives the 6-up card (~214px) enough room for the
+      ;; equation to stay on one line; it only wraps on genuine deep zoom-out
+      :padding "14px 12px 16px"
       ;; grid items default to min-width:auto (won't shrink below content) — at 6-up the
       ;; equation's min-content overflows the capped column. min-width:0 lets the track
       ;; shrink; the equation then wraps (below) instead of spilling out the section.
@@ -1443,7 +1445,7 @@
       :flex-wrap :wrap
       :align-items :flex-end
       :justify-content :center
-      :gap "10px 14px"}]
+      :gap "6px"}]
 
     [:.ability-term
      {:display :flex
@@ -1461,7 +1463,7 @@
       :color "#7e8897"}]
 
     [:.ability-term-val
-     {:font-size "18px"
+     {:font-size "16px"
       :font-weight 700
       :color "#aab4c0"}]
 
@@ -1480,16 +1482,16 @@
     [:.ability-stepper
      {:display :flex
       :align-items :center
-      :gap "8px"}]
+      :gap "4px"}]
 
     [:.ability-stepper-btn
-     {:width "26px"
-      :height "26px"
+     {:width "24px"
+      :height "24px"
       :border "1px solid rgba(255,255,255,0.14)"
       :border-radius "7px"
       :background "#0d1218"
       :color "#e7ecf2"
-      :font-size "16px"
+      :font-size "15px"
       :line-height 1
       :cursor :pointer
       :display :flex
@@ -1505,9 +1507,9 @@
       :cursor :default}]
 
     [:.ability-stepper-val
-     {:min-width "26px"
+     {:min-width "18px"
       :text-align :center
-      :font-size "18px"
+      :font-size "16px"
       :font-weight 700
       :color "#f3f6fa"}]
 
