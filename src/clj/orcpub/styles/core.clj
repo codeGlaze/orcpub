@@ -1395,15 +1395,21 @@
       :gap "12px"
       :margin-bottom "14px"}]
 
-    ;; ASI grid: breakpoints to clean divisors (1 / 2 / 3), NOT auto-fit. With a fixed
-    ;; six cards, auto-fit/minmax strands a 5+1 orphan and squishes the horizontal
-    ;; Race + [stepper] = Total equation below its ~290px min. Capped at 3 (3×2) — the
-    ;; builders cap content at ~1440px, so 6-up would only give ~240px/card. (If content
-    ;; ever uncaps past ~1800px, a repeat(6,1fr) step could be added.)
-    [:.ability-grid
+    ;; ASI grids: breakpoints to clean divisors, NOT auto-fit (a fixed six items + auto-fit
+    ;; strands a 5+1 orphan). Cards and Compact get different counts — the equation card is
+    ;; wide, the compact dropdown is narrow — so they're separate classes.
+    ;; CARDS — each holds the horizontal Race + [stepper] = Total equation (~300px to
+    ;; breathe): 1 / 2 / 3, 6-up only on ultra-wide (≥1800px).
+    [:.ability-equation-grid
      {:display :grid
       :grid-template-columns "1fr"
       :gap "14px"}]
+    ;; COMPACT — just label + dropdown (~140px): fill the width, all six in one row on a
+    ;; normal wide screen.
+    [:.ability-compact-grid
+     {:display :grid
+      :grid-template-columns "1fr"
+      :gap "14px 16px"}]
 
     [:.ability-card
      {:background "#1b232f"
@@ -1518,9 +1524,18 @@
      {:color orange}]
 
     (at-media {:min-width "640px"}
-              [:.ability-grid {:grid-template-columns "repeat(2, 1fr)"}])
+              [:.ability-equation-grid {:grid-template-columns "repeat(2, 1fr)"}])
     (at-media {:min-width "1000px"}
-              [:.ability-grid {:grid-template-columns "repeat(3, 1fr)"}])
+              [:.ability-equation-grid {:grid-template-columns "repeat(3, 1fr)"}])
+    (at-media {:min-width "1800px"}
+              [:.ability-equation-grid {:grid-template-columns "repeat(6, 1fr)"}])
+
+    (at-media {:min-width "480px"}
+              [:.ability-compact-grid {:grid-template-columns "repeat(2, 1fr)"}])
+    (at-media {:min-width "760px"}
+              [:.ability-compact-grid {:grid-template-columns "repeat(3, 1fr)"}])
+    (at-media {:min-width "1180px"}
+              [:.ability-compact-grid {:grid-template-columns "repeat(6, 1fr)"}])
 
     ;; the Option Source input gets an amber-tinted border to read as the save target
     [:#plugins-choice

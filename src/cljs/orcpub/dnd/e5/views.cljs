@@ -6402,7 +6402,7 @@
             :options [[:cards "Cards"] [:compact "Compact"]]
             :on-change #(reset! mode %)}]]
          (if (= @mode :compact)
-           [:div.ability-grid
+           [:div.ability-compact-grid
             (doall
              (for [{:keys [name key]} opt/abilities]
                (let [race-bonus (get-in race [:abilities key] 0)
@@ -6419,7 +6419,7 @@
                    [:span.ability-compact-caption (str "Race " (common/bonus-str race-bonus))]
                    [:span.ability-compact-total {:class (when (pos? total) "active")}
                     (str "= " (common/bonus-str total))]]])))]
-           [:div.ability-grid
+           [:div.ability-equation-grid
             (doall
              (for [{:keys [name key]} opt/abilities]
                (let [race-bonus (get-in race [:abilities key] 0)
