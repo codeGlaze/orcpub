@@ -851,7 +851,12 @@
         chosen-keys (set (map ::entity/key (get-in character increases-path)))
         composite (fn [k a] (keyword (str (cljs.core/name k) "-plus-" a)))
         ability-name (fn [k] (:name (opt5e/abilities-map k)))
-        used (set (filter (fn [k] (some (fn [a] (chosen-keys (composite k a))) (distinct amounts))) ability-keys))
+        ;; the floating POOL is whatever the creator restricted to (`:from`) — derive it from the
+        ;; selection's actual (ability,amount) options, NOT the all-six list the component is handed,
+        ;; so "+2/+1 to any martial" only offers str/dex/con.
+        opt-keys (set (map ::t/key (::t/options selection)))
+        pool (vec (filter (fn [k] (opt-keys (composite k (first (distinct amounts))))) ability-keys))
+        used (set (filter (fn [k] (some (fn [a] (chosen-keys (composite k a))) (distinct amounts))) pool))
         ancestors-title (views-aux/ancestor-names-string built-template path)
         num-remaining (- (count amounts) (count chosen-keys))
         ;; [amount, occurrence-of-that-amount-so-far] per slot, in bag order
@@ -863,9 +868,9 @@
      (doall
       (map-indexed
        (fn [si [a occ]]
-         (let [with-a (vec (filter (fn [k] (chosen-keys (composite k a))) ability-keys))
+         (let [with-a (vec (filter (fn [k] (chosen-keys (composite k a))) pool))
                current (get with-a occ)
-               opts (filter (fn [k] (or (= k current) (not (used k)))) ability-keys)]
+               opts (filter (fn [k] (or (= k current) (not (used k)))) pool)]
            ^{:key si}
            [:div.flex.align-items-c.m-t-5.m-l-5
             [:div.w-40.f-w-b (common/bonus-str a)]

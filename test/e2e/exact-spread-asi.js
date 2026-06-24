@@ -18,7 +18,8 @@ const HOST=`<!DOCTYPE html><html><head><meta charset="utf-8">
 <body><div id="app"></div><script src="/js/compiled/orcpub.js"></script></body></html>`;
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.svg':'image/svg+xml','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.map':'application/json'};
 const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.split('?')[0]);const fp=path.join(ROOT,p);fs.readFile(fp,(e,d)=>{if(e){res.setHeader('Content-Type','text/html');res.end(HOST);return;}res.setHeader('Content-Type',mime[path.extname(fp)]||'application/octet-stream');res.end(d);});});
-const PLUGINS=`{"Default Option Source" {} "Bag Pack" {:orcpub.dnd.e5/races {:bag-touched {:size :medium, :speed 30, :languages #{}, :traits [], :name "Bag Touched", :option-pack "Bag Pack", :key :bag-touched, :ability-increases [{:select {:from :any, :amounts [2 1]}}]}}}}`;
+// :from :martial restricts the floating pool to str/dex/con (also guards pool-restriction)
+const PLUGINS=`{"Default Option Source" {} "Bag Pack" {:orcpub.dnd.e5/races {:bag-touched {:size :medium, :speed 30, :languages #{}, :traits [], :name "Bag Touched", :option-pack "Bag Pack", :key :bag-touched, :ability-increases [{:select {:from :martial, :amounts [2 1]}}]}}}}`;
 const errs=[]; const U=`http://localhost:${PORT}`;
 const results=[]; const check=(n,ok,extra)=>{results.push(ok);console.log(`  ${ok?'PASS':'FAIL'}  ${n}${extra?'  '+extra:''}`);};
 const scores=async pg=>{const t=(await pg.locator('#app').innerText()).split('Ability Scores').pop().replace(/\n+/g,' ');
@@ -46,6 +47,13 @@ const scores=async pg=>{const t=(await pg.locator('#app').innerText()).split('Ab
   for (let i=0;i<n;i++){ const opts=await allSel.nth(i).locator('option').allInnerTexts(); if(opts.some(o=>/choose/.test(o))) slotIdx.push(i); }
   check('two assign-from-bag slot pickers render', slotIdx.length===2, `(found ${slotIdx.length})`);
   if (slotIdx.length!==2){ console.log('PAGEERRORS:', errs.join(' | ')||'none'); await b.close(); server.close(); process.exit(1); }
+
+  // pool restriction: a :martial bag must offer ONLY str/dex/con (not int/wis/cha)
+  const slot0opts = await allSel.nth(slotIdx[0]).locator('option').allInnerTexts();
+  const offered = slot0opts.filter(o=>!/choose/.test(o));
+  check('floating pool restricted to :martial (str/dex/con only)',
+        offered.length===3 && offered.includes('Strength') && offered.includes('Constitution') && !offered.includes('Charisma'),
+        `(offered: ${offered.join(',')})`);
 
   const before = await scores(pg);                                  // slot order = bag order [2,1]
   await allSel.nth(slotIdx[0]).selectOption({label:'Strength'}); await pg.waitForTimeout(400);
