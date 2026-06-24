@@ -284,33 +284,6 @@
     (ability-groups pool) (ability-groups pool)
     :else                 #{(ns-ability pool)}))
 
-(defn- normalize-increment
-  "One increment, in the current or any pre-convergence shape, -> zero or more [amount pool] pairs."
-  [increment]
-  (cond
-    (and (vector? increment) (= 2 (count increment)) (number? (first increment)))
-    [increment]                                                              ; already [amount pool]
-    (:ability increment)                                                     ; old fixed {:ability :amount}
-    [[(:amount increment 1) (:ability increment)]]
-    (:select increment)                                                      ; old floating {:select …}
-    (let [{:keys [from num amount amounts]} (:select increment)]
-      (if (seq amounts)
-        (mapv (fn [a] [a from]) amounts)
-        (vec (repeat (or num 1) [(or amount 1) from]))))
-    :else []))                                                               ; unrecognized -> ignored
-
-(defn normalize-spread
-  "Coerce :ability-increases into a clean list of [amount pool] pairs, MIGRATING older shapes rather
-   than dropping them: the current pair list, a bare single pair [amount pool], and the pre-convergence
-   {:ability}/{:select} maps all normalize. Truly-unrecognized junk (e.g. a feat's #{…} set reaching
-   here by mistake) is ignored, not thrown — one bad entry can't break import/build."
-  [spread]
-  (cond
-    (nil? spread) []
-    (and (vector? spread) (number? (first spread))) [spread]   ; tolerate a bare single pair
-    (sequential? spread) (vec (mapcat normalize-increment spread))
-    :else []))
-
 (defn compile-ability-increases
   "Compile a :ability-increases spread (list of [amount pool] pairs) -> {:modifiers :selections}.
    Single-stat pools are FIXED (race-ability modifiers, applied always); multi-stat pools are
@@ -320,13 +293,13 @@
    options are keyed asi-<idx>-<ability> and carry their own level-ability-increase. Additive: nil/
    empty -> {} (a race without :ability-increases is unchanged). See docs/kb/ability-increase-spreads.md."
   [spread]
-  (let [;; normalize-spread MIGRATES older shapes to [amount pool] pairs (and ignores foreign data like
-        ;; a feat's #{…} set), so old/hand-edited content is fixed, not silently dropped or thrown.
+  (let [;; skip non-pair entries: the races sub maps this over EVERY homebrew race, so one malformed
+        ;; entry must not break the whole list. nil/no field -> no increments (additive).
         increments (map-indexed
                     (fn [idx [amount pool]]
                       (let [keys (resolve-pool pool)]
                         {:idx idx :amount amount :pool (vec keys) :fixed? (= 1 (count keys))}))
-                    (normalize-spread spread))
+                    (filter vector? spread))
         modifiers  (mapcat (fn [{:keys [amount pool]}] (modifiers/race-ability (first pool) amount))
                            (filter :fixed? increments))
         floating   (remove :fixed? increments)

@@ -87,11 +87,10 @@ Verified against the merge-base (released data):
   feat builder/compile. It is **never** passed to `compile-ability-increases` (only races/subraces
   at `spell_subs.cljs:144/162` call it; feats route through `::feats5e/plugin-feats`). The names
   overlap but the consumers don't cross.
-- **`normalize-spread` is a forgiving migration shim, not a drop.** It MIGRATES pre-convergence shapes
-  to `[amount pool]` pairs (the old `{:ability …}` fixed map, the old `{:select {:from … :amounts/:num
-  …}}` floating map) and tolerates a bare single pair (`[2 :cha]` → `[[2 :cha]]`). Only genuinely
-  unrecognizable input (a feat set, nil, junk) is ignored — and ignored, never thrown, so one bad
-  entry can't break import/build. So old or hand-edited content is *fixed*, not silently lost.
+- **No migration shim** — there's nothing released to migrate (races never had the field, and the
+  `{:ability}`/`{:select}` shapes only ever existed on this branch pre-convergence). `compile` just
+  skips non-`[amount pool]` entries (`filter vector?`) so that one malformed homebrew race can't throw
+  and break the whole race list — that fan-out crash-safety is the only defensiveness needed.
 - **Saved characters are unaffected** — built-in racial ASI (Half-Elf etc.), class ASI, and feat
   ASI use the unchanged increment widget / mechanisms; the new `ability-bag-assigner` only renders
   selections carrying `::t/spread`, which only this compile produces.

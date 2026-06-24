@@ -91,19 +91,12 @@
       (is (= 12 (W a)) "+2 to chosen WIS") (is (= 11 (Ch a)) "+1 to chosen CHA")
       (is (= 10 (S a))) (is (= 10 (C a))))))
 
-(deftest backward-compat-migrates-old-shapes-or-ignores-foreign
-  (testing "foreign/empty input is a no-op (nil, empty, a feat's #{…} set reaching here by mistake)"
-    (doseq [x [nil [] #{:str :con}]]
+(deftest compile-is-crash-safe-at-the-fan-out
+  (testing "nil / no field / a malformed entry compile to nothing (never throw) — the races sub maps
+            this over every homebrew race, so one bad entry can't break the whole list"
+    (doseq [x [nil [] [{:junk true}] [:nonsense]]]
       (is (= {:modifiers [] :selections []} (opt5e/compile-ability-increases x))
-          (str "no-op for: " (pr-str x)))))
-  (testing "pre-convergence shapes MIGRATE (shim fixes them) rather than silently dropping"
-    (testing "old fixed {:ability :amount} -> +2 CHA still applies on a built character"
-      (is (= 12 (Ch (abilities [{:ability Ch :amount 2}] nil)))))
-    (testing "old floating {:select :amounts} -> the same one-selection bag"
-      (let [sel (first (:selections (opt5e/compile-ability-increases [{:select {:from :martial :amounts [2 1]}}])))]
-        (is (= 2 (count (::t/spread sel))) "two floating slots, migrated"))))
-  (testing "a bare single pair is tolerated (author forgot the outer brackets)"
-    (is (= 12 (Ch (abilities [2 :cha] nil))))))
+          (str "no-op for: " (pr-str x))))))
 
 ;; Layer 5 (character half): the floating pick survives save/load AND still applies on rebuild.
 (deftest character-floating-choice-survives-save-load
