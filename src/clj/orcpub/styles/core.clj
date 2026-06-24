@@ -1541,6 +1541,24 @@
     (at-media {:min-width "1180px"}
               [:.ability-compact-grid {:grid-template-columns "repeat(6, 1fr)"}])
 
+    ;; lightweight group label (uppercase eyebrow + hairline rule) for grouping headings
+    ;; that sit above already-carded option-menus — flat, never a card-in-card
+    [:.opt-group-label
+     {:display :flex
+      :align-items :center
+      :gap "12px"
+      :margin "26px 0 14px"
+      :font-size "11px"
+      :font-weight 700
+      :letter-spacing "0.08em"
+      :text-transform :uppercase
+      :color "#7e8897"}
+     [:&:after
+      {:content "\"\""
+       :flex "1 1 auto"
+       :height "1px"
+       :background "rgba(255,255,255,0.09)"}]]
+
     ;; the Option Source input gets an amber-tinted border to read as the save target
     [:#plugins-choice
      {:border "1px solid rgba(240,161,15,0.45)"}]

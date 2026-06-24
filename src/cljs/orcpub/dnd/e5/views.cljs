@@ -4818,26 +4818,8 @@
 (defn encounter-input-field [title prop encounter & [class-names type]]
   (builder-input-field title prop encounter ::encounters/set-encounter-prop class-names type))
 
-(defn language-input-field [title prop language & [class-names]]
-  (builder-input-field title prop language ::langs/set-language-prop class-names))
-
-(defn invocation-input-field [title prop invocation & [class-names]]
-  (builder-input-field title prop invocation ::classes/set-invocation-prop class-names))
-
-(defn boon-input-field [title prop boon & [class-names]]
-  (builder-input-field title prop boon ::classes/set-boon-prop class-names))
-
-(defn selection-input-field [title prop selection & [class-names]]
-  (builder-input-field title prop selection ::selections/set-selection-prop class-names))
-
-(defn background-input-field [title prop bg & [class-names]]
-  (builder-input-field title prop bg ::bg/set-background-prop class-names))
-
-(defn race-input-field [title prop race & [class-names]]
-  (builder-input-field title prop race ::races/set-race-prop class-names))
-
-(defn subrace-input-field [title prop subrace & [class-names]]
-  (builder-input-field title prop subrace ::races/set-subrace-prop class-names))
+;; (race/subrace/background/language/boon/invocation/selection name fields now route
+;; through the shared builder-header; their old *-input-field helpers were removed.)
 
 (defn subclass-input-field [title prop subclass & [class-names]]
   (builder-input-field title prop subclass ::classes/set-subclass-prop class-names))
@@ -5110,7 +5092,7 @@
 
 (defn feat-prereqs [feat]
   [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-10 "Prerequisites"]
+   [omv/group-label "Prerequisites"]
    [:div.m-r-20.m-b-10
     [comps/labeled-checkbox
      "The ability to cast at least one spell"
@@ -5309,7 +5291,7 @@
                      & {:keys [edit-trait-level-event types title button-title]}]
   [:div.m-b-20
    [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
-    [:div.f-s-24.f-w-b.m-b-10 (or title "Features/Traits")]
+    [omv/group-label (or title "Features/Traits")]
     [:div
      [:button.form-button.m-l-5
       {:on-click (make-event-handler add-trait-event)}
@@ -5578,7 +5560,7 @@
         {:value (get feat :description)
          :on-change #(dispatch [::feats/set-feat-prop :description %])}]]]
      [:div [feat-prereqs feat]]
-     [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
+     [omv/group-label "Modifiers"]
      [:div [feat-ability-increase-options feat]]
      [:div [feat-skill-proficiency feat]]
      [:div [feat-languages feat]]
@@ -6018,7 +6000,7 @@
                    (fn [item] (dispatch [::classes/toggle-ability-increase-level (:key item)])))}])
      (let [spellcaster? (boolean (get class :spellcasting))]
        [:div.m-b-30
-        [:div.f-s-24.f-w-b.m-b-10 "Spellcasting"]
+        [omv/group-label "Spellcasting"]
         [:div.flex.flex-wrap.m-b-20
          [labeled-dropdown
           "Does this class have spell slots?"
@@ -6157,7 +6139,7 @@
        ::classes/set-class-path-prop
        ::classes/toggle-class-path-prop]]
      [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
+      [omv/group-label "Modifiers"]
       [option-level-modifiers
        class
        ::e5/add-class-modifier
@@ -6260,7 +6242,7 @@
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
          [:div.m-b-20
-          [:div.f-s-24.f-w-b.m-b-10 "Spellcasting"]
+          [omv/group-label "Spellcasting"]
           (cond
             (#{:fighter :rogue} class-key)
             [:div.flex.flex-wrap
@@ -6293,7 +6275,7 @@
        ::classes/set-subclass-path-prop
        ::classes/toggle-subclass-path-prop]]
      [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
+      [omv/group-label "Modifiers"]
       [option-level-modifiers
        subclass
        ::e5/add-subclass-modifier
@@ -6385,6 +6367,38 @@
      :on-click #(when (< v hi) (on-change (inc v)))}
     "+"]])
 
+(defn value-dropdown
+  "labeled-dropdown over a list of plain numeric values (each is both title and value)."
+  [label values value on-change]
+  [labeled-dropdown label
+   {:items (map value-to-item values)
+    :value value
+    :on-change on-change}])
+
+(defn size-speed-card
+  "Shared Size & Speed section. Renders the Size + Speed pair (Speed range and parent
+   inheritance configurable); `extra` is the builder's remaining dropdowns — Darkvision,
+   plus race's Flying/Swimming — appended into the same field grid, in order.
+     :entity      the builder item
+     :inherit     optional parent entity whose size/speed fall through (subrace -> race)
+     :prop-event  sets :size
+     :speed-event sets speed
+     :speed-range dropdown range (default 0..50 by 5)
+     :extra       seq of extra dropdown hiccup children"
+  [{:keys [entity inherit prop-event speed-event speed-range extra]
+    :or {speed-range (range 0 55 5)}}]
+  (let [inh (fn [k] (or (get entity k) (and inherit (get inherit k))))]
+    [omv/card "Size & Speed"
+     (into
+      [:div.builder-field-grid
+       [labeled-dropdown
+        "Size"
+        {:items (map (fn [kw] {:title (name kw) :value (name kw)}) ["small" "medium" "large"])
+         :value (common/safe-name (or (inh :size) :medium))
+         :on-change #(dispatch [prop-event :size (keyword %)])}]
+       (value-dropdown "Speed" speed-range (inh :speed) #(dispatch [speed-event %]))]
+      extra)]))
+
 (defn subrace-ability-scores
   "Ability Score Increases for the subrace builder. The race bonus is inherited
    (read-only); the subrace bonus is editable, clamped 0–4. Two views via a
@@ -6463,37 +6477,18 @@
                       :value (get subrace :race)
                       :on-change #(dispatch [::races/set-subrace-prop :race (keyword %)])}]]}]
      [omv/layout-control-row]
-     [omv/card "Size & Speed"
-      [:div.builder-field-grid
-       [labeled-dropdown
-        "Size"
-        {:items (map
-                 (fn [kw]
-                   {:title (name kw)
-                    :value (name kw)})
-                 ["small" "medium" "large"])
-         :value (name (or (get subrace :size)
-                          (get race :size)))
-         :on-change #(dispatch [::races/set-subrace-prop :size (keyword %)])}]
-       [labeled-dropdown
-        "Speed"
-        {:items (map
-                 value-to-item
-                 (range 5 55 5))
-         :value (or (get subrace :speed)
-                    (get race :speed))
-         :on-change #(dispatch [::races/set-subrace-speed %])}]
-       [labeled-dropdown
-        "Darkvision"
-        {:items (map
-                 value-to-item
-                 [0 60 120])
-         :value (or (get subrace :darkvision)
-                    (get race :darkvision))
-         :on-change #(dispatch [::races/set-subrace-prop :darkvision (js/parseInt %)])}]]]
+     [size-speed-card
+      {:entity subrace
+       :inherit race
+       :prop-event ::races/set-subrace-prop
+       :speed-event ::races/set-subrace-speed
+       :speed-range (range 5 55 5)
+       :extra [(value-dropdown "Darkvision" [0 60 120]
+                               (or (get subrace :darkvision) (get race :darkvision))
+                               #(dispatch [::races/set-subrace-prop :darkvision (js/parseInt %)]))]}]
      [subrace-ability-scores subrace race]
      [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
+      [omv/group-label "Modifiers"]
       [:div [option-hps subrace ::races/toggle-subrace-value-prop]]
       [:div [option-damage-resistance subrace ::races/toggle-subrace-map-prop]]
       [:div [option-damage-immunity subrace ::races/toggle-subrace-map-prop]]
@@ -6509,7 +6504,7 @@
         ::races/toggle-subrace-path-prop]]
       [:div [option-languages subrace ::races/toggle-subrace-map-prop]]]
      [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Spells"]
+      [omv/group-label "Spells"]
       [option-spells
        subrace
        ::races/set-subrace-spell-level
@@ -6541,45 +6536,19 @@
        :prop-event ::races/set-race-prop
        :desc-value (get race :help)}]
      [omv/layout-control-row]
-     [omv/card "Size & Speed"
-      [:div.builder-field-grid
-       [labeled-dropdown
-        "Size"
-        {:items (map
-                 (fn [kw]
-                   {:title (name kw)
-                    :value (name kw)})
-                 ["small" "medium" "large"])
-         :value (common/safe-name (get race :size :medium))
-         :on-change #(dispatch [::races/set-race-prop :size (keyword %)])}]
-       [labeled-dropdown
-        "Speed"
-        {:items (map
-                 value-to-item
-                 (range 0 55 5))
-         :value (get race :speed)
-         :on-change #(dispatch [::races/set-race-speed %])}]
-       [labeled-dropdown
-        "Flying Speed"
-        {:items (map
-                 value-to-item
-                 (range 0 55 5))
-         :value (or (get-in race [:props :flying-speed]) 0)
-         :on-change #(dispatch [::races/set-race-value-prop :flying-speed (js/parseInt %)])}]
-       [labeled-dropdown
-        "Swimming Speed"
-        {:items (map
-                 value-to-item
-                 (range 0 55 5))
-         :value (or (get-in race [:props :swimming-speed]) 0)
-         :on-change #(dispatch [::races/set-race-value-prop :swimming-speed (js/parseInt %)])}]
-       [labeled-dropdown
-        "Darkvision"
-        {:items (map
-                 value-to-item
-                 [0 60 120])
-         :value (get race :darkvision)
-         :on-change #(dispatch [::races/set-race-prop :darkvision (js/parseInt %)])}]]]
+     [size-speed-card
+      {:entity race
+       :prop-event ::races/set-race-prop
+       :speed-event ::races/set-race-speed
+       :extra [(value-dropdown "Flying Speed" (range 0 55 5)
+                               (or (get-in race [:props :flying-speed]) 0)
+                               #(dispatch [::races/set-race-value-prop :flying-speed (js/parseInt %)]))
+               (value-dropdown "Swimming Speed" (range 0 55 5)
+                               (or (get-in race [:props :swimming-speed]) 0)
+                               #(dispatch [::races/set-race-value-prop :swimming-speed (js/parseInt %)]))
+               (value-dropdown "Darkvision" [0 60 120]
+                               (get race :darkvision)
+                               #(dispatch [::races/set-race-prop :darkvision (js/parseInt %)]))]}]
      [omv/card "Armor Class"
       [:div.flex.flex-wrap
        [comps/labeled-checkbox
@@ -6609,44 +6578,32 @@
              :value (get-in race [:abilities key] 0)
              :on-change #(dispatch [::races/set-race-ability-increase key %])}])
          opt/abilities))]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
-      [:div.m-b-20
-       [language-checkboxes race @(subscribe [::langs/languages])]]
-      [:div.m-b-20
-       [:div [option-weapon-proficiency race ::races/toggle-race-map-prop]]]
-      [:div.m-b-20
-       [:div [option-armor-proficiency race ::races/toggle-race-map-prop]]]
-      [:div.m-b-20
-       [option-tool-proficiency race ::races/toggle-race-path-prop]]
-      [:div.m-b-20
-       [:div [option-damage-resistance race ::races/toggle-race-map-prop]]]
-      [:div.m-b-20
-       [:div [option-damage-immunity race ::races/toggle-race-map-prop]]]
-      [:div.m-b-20
-       [:div [option-skill-proficiency race ::races/toggle-race-map-prop]]]
-      [:div
-       [option-skill-proficiency-choice
-        race
-        ::races/set-race-path-prop
-        ::races/toggle-race-path-prop]]
-      [:div
-       [option-language-proficiency-choice
-        race
-        ::races/set-race-path-prop
-        ::races/toggle-race-path-prop]]
-      [:div
-       [option-weapon-proficiency-choice
-        race
-        ::races/set-race-path-prop
-        ::races/toggle-race-path-prop]]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Spells"]
-      [option-spells
-       race
-       ::races/set-race-spell-level
-       ::races/set-race-spell-value
-       ::races/delete-race-spell]]
+     [omv/group-label "Modifiers"]
+     [language-checkboxes race @(subscribe [::langs/languages])]
+     [option-weapon-proficiency race ::races/toggle-race-map-prop]
+     [option-armor-proficiency race ::races/toggle-race-map-prop]
+     [option-tool-proficiency race ::races/toggle-race-path-prop]
+     [option-damage-resistance race ::races/toggle-race-map-prop]
+     [option-damage-immunity race ::races/toggle-race-map-prop]
+     [option-skill-proficiency race ::races/toggle-race-map-prop]
+     [option-skill-proficiency-choice
+      race
+      ::races/set-race-path-prop
+      ::races/toggle-race-path-prop]
+     [option-language-proficiency-choice
+      race
+      ::races/set-race-path-prop
+      ::races/toggle-race-path-prop]
+     [option-weapon-proficiency-choice
+      race
+      ::races/set-race-path-prop
+      ::races/toggle-race-path-prop]
+     [omv/group-label "Spells"]
+     [option-spells
+      race
+      ::races/set-race-spell-level
+      ::races/set-race-spell-value
+      ::races/delete-race-spell]
      [option-traits
       race
       ::e5/add-race-trait
@@ -7375,7 +7332,7 @@
                (on-monster-num-change monster-count)])]]]
          [:div.m-b-20
           [:div.flex.justify-cont-s-b
-           [:div.f-s-24.f-w-b.m-b-10 "Initiative"]
+           [omv/group-label "Initiative"]
            [:div.flex
             [:button.form-button.m-l-5.m-b-10
              {:on-click #(dispatch [::combat/next-initiative monster-map])}
@@ -7613,7 +7570,7 @@
      [:div.flex.w-100-p.flex-wrap
       [spell-input-field "Casting Time" :casting-time spell "m-b-20"]
       [spell-input-field "Range" :range spell "m-l-5 m-b-20"]]
-     [:div [:h2.f-s-24.f-w-b.m-b-10 "Components"]]
+     [:div [omv/group-label "Components"]]
      [:div.flex.w-100-p.flex-wrap
       [component-checkbox :verbal spell]
       [component-checkbox :somatic spell]

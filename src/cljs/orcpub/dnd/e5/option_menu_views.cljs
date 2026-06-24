@@ -430,6 +430,14 @@
           [:span.opt-section-title title]]]
         body))
 
+(defn group-label
+  "A lightweight, NON-card section label: a small uppercase eyebrow + a hairline rule.
+   For grouping headings that sit above already-carded option-menus (Modifiers, Spells,
+   Spellcasting, …) — keeps the page flat instead of nesting card-in-card. The menus
+   follow it as their own top-level cards."
+  [title]
+  [:div.opt-group-label title])
+
 (defn subsection
   "A recessed child well around one option-menu panel (nested inside a parent card).
    A child is independently collapsible once it's large enough to be worth it
