@@ -102,99 +102,25 @@ loops because decisions lived in two parallel trackers; this is the one that sup
   - **A2.** Uniform spell-granting (route `:spells`/`:spell-choice` to the primitives across silos) — FEASIBLE.
   - **A3.** Spell-slot progression as data (bucket of tables + declared multiclass rule) — DESIGN;
     unblocks Artificer + homebrew tables; pact → `:separate` + own pool (`spell-slot-progression.md`).
-  - **A4. Parametric `select`-grant: USER-CHOICE floating ASI (any silo)** — DESIGN. The grant layer's
-    other half: a grant that offers the *player* a choice, parametric over ability keys rather than a
-    content pool. The engine primitive **already exists and is proven** — `ability-increase-selection-2`
-    (`options.cljc:225`), used by built-in Variant Human (`spell_subs.cljs:759`) and Half-Elf (`:868`),
-    but hardcoded there; no data path for homebrew. **Must handle FIXED + FLOATING combinations** (the
-    real requirement): a race/feat/background declares a LIST of allotments, each either creator-fixed or
-    user-chosen-from-a-set, composed together. Data shape:
+  - **A4. Parametric `select`-grant: USER-CHOICE floating ASI (any silo)** — ✅ DONE (terse spread).
+    A race/subrace declares `:ability-increases` as a list of `[amount pool]` pairs; the whole list is
+    one spread (all increments land on different abilities). Pool = `:any`/`:martial`/`:mental` | a set
+    `#{:wis :con}` | a single stat `:con` (= fixed). Data shape:
     ```clojure
-    :ability-increases
-    [{:ability :cha :amount 2}                                   ; FIXED  -> race-ability modifier
-     {:select {:from #{:str :dex :con} :num 1 :amount 1 :different? true}}] ; FLOATING -> ability-increase-selection-2
+    :ability-increases [[2 :cha] [1 :martial]]   ; +2 CHA (fixed), +1 to any martial stat (player choice)
     ```
-    e.g. "+2 CHA, +1 to any martial stat" = one fixed + one floating-from-`#{:str :dex :con}`. Named
-    subsets ("martial") are predefined ability groups. Compiles: fixed → a modifier; each `:select` →
-    `ability-increase-selection-2` over its `:from` set. Cross-silo: the same grant lets a feat/background/
-    class hand out floating ASI too (reconcile with the feat-only `:ability-increases` path). Cheaper than
-    the pool-grant work — the hard primitive is built; the gap is exposing it as authorable data + the silo
-    hook + a builder form. **Good candidate for the first full-stack (engine→UI) vertical** (see below).
-    **Progress:** layer 1 — `opt5e/compile-ability-increases` (fixed+floating, named subsets) proven on a
-    built character (JVM, `ability-increase-grant-test`); layer 2 — race + subrace silo wiring
-    (`spell_subs.cljs` plugin-races/subraces) proven through the real `::races5e/races` sub (cljs harness,
-    `ability-increase-grant-cljs-test`); layer 3 — the authoring form (`race-ability-increase-choices` in
-    views.cljs, fixed/floating rows via the generic `set-race-path-prop`) + proof that driving the REAL
-    builder events authors a working floating-ASI race end to end (cljs harness). **Layers 1–3 done.**
-    **Layer 4 (the player choice rendering) — was BROKEN for homebrew, now fixed.** The "already rendered,
-    same as Variant Human" assumption was FALSE in the real character builder: a rendered-UI E2E
-    (`test/e2e/export-import-use.js`) showed the floating choice did not appear. Cause: the builder's
-    racial ability-increase widget only renders a selection keyed **`:asi`** (the Variant-Human/Half-Elf
-    convention); `compile-ability-increases` had overridden the key to `:floating-asi-0`, which compiles
-    and applies on a built character (so JVM/harness tests passed) but does NOT render in the builder.
-    Fix: the first floating selection uses `:asi` (renders); additional floating allotments get a distinct
-    key (data-correct + applied, but the current builder renders only the first). **This limit is ONLY
-    about multiple *floating* choices; fixed stats are plain modifiers and always apply, so `+2 CHA
-    (fixed) + +1 to any martial (floating)` — any number of fixed stats with ONE floating choice —
-    renders fully** (what the E2E asserts). ⚠️ **But it DOES block the standard Tasha's/MotM
-    "+2 to one, +1 to another" ASI** (two separate floating pools): verified in the rendered builder —
-    both selections compile (`:asi` + `:floating-asi-1`) but only the `:asi` (+2) widget renders, so the
-    player can't make the +1 pick. Root cause: `character_builder.cljs:1169` collects ability-increase
-    widgets with `(= :asi (::t/key s))`, while the entity needs distinct selection keys to persist two
-    picks — a conflict. **⚠️ Broadening that filter is NECESSARY BUT NOT SUFFICIENT — shipping it alone
-    would be wrong.** Traced the enforcement chain: `:1169` → variant editors → `ability-increases-component`
-    (`:841`, renders one widget per selection) → `increase-disabled?` (`:871-875`). The `:different?`
-    uniqueness guard (`:874`, `(and different? (pos? (ability-increases k)))`) uses a **per-selection** count
-    (`:848-850`); the ONLY cross-selection guard is `(>= (total-abilities k) 20)` (`:875`, the hard cap). So
-    two separate floating selections (the "+2/+1" spread) are NOT mutually exclusive — a player could put the
-    +2 AND the +1 on the SAME stat (+3), which Tasha's forbids. (By contrast, "+1 to three different" must be
-    modeled as ONE `:select` with `num 3 :different? true` — one selection, uniqueness correctly enforced by
-    `:874`, renders fine; that case already works.) No built-in needs cross-pool uniqueness — Half-Elf's +2
-    is a FIXED modifier — so the engine never grew it. **Correct fix needs more than the filter:** either
-    (a) cross-selection uniqueness in `ability-increases-component` (sum picks across the *spread's*
-    selections, disable an ability used by any sibling — requires GROUPING a spread's selections so
-    independent grants like race-vs-class ASIs aren't wrongly linked), or (b) a per-ability-max "distribute N
-    points, max M each" widget that models "+2/+1 or +1/+1/+1" as one selection.
-    **✅ RESOLVED — terse `[amount pool]` SPREAD (full per-increment pools).** `:ability-increases` is one
-    spread: a list of `[amount pool]` pairs, e.g. `[[2 :cha] [1 :martial]]`. A pool is `:any`/`:martial`/
-    `:mental` (groups) | `#{:wis :con}` (set) | a single stat `:con` (= fixed). It covers everything —
-    `[[3 :con] [1 :cha]]`, `[[3 :any] [2 :any] [1 :any]]`, `[[2 #{:wis :con}] [1 #{:str :cha}]]` — with the
-    whole list as the "different abilities" unit. Short keywords are namespaced at compile, so it's smaller
-    than the old maps (D33). `compile-ability-increases`: single-stat → `race-ability` modifiers; multi-stat →
-    one `:asi` selection whose floating slots (`asi-<idx>-<ability>` options) carry the full spread on
-    `::t/spread`. `ability-bag-assigner` (`character_builder.cljs`) renders fixed labels + a picker per
-    floating increment over its OWN pool, with global one-ability-per-spread; built-ins/class-ASI (no
-    `::t/spread`) keep the existing increment UI. The authoring form (`race-ability-increase-choices`) emits
-    the terse pairs (Amount + To = stat/group). Full spec: `docs/kb/ability-increase-spreads.md`. JVM-proven
-    (fixed-only, fixed+floating, multi-floating, per-increment pools, save/load), cljs-harness-proven (sub +
-    orcbrew round-trip), rendered-UI-proven (`test/e2e/exact-spread-asi.js` + the authoring/round-trip E2Es).
-    **Remaining (optional):** "choose between spreads" (offer the player a choice among several spreads) and
-    explicit-set authoring in the form (sets are EDN-only today).
-    *Earlier* the E2E asserted the choice renders
-    ("Improvement: Race - Tide Touched") and the fixed +2 CHA shows in the on-screen grid. *Lesson: data
-    being present in a sub is not the same as the builder rendering it — only the rendered UI proves the
-    player can actually use it.* A **full click-through E2E**
-    (`test/e2e/race-builder-asi.js`) now drives the real form in a headless browser, saves, and asserts the
-    persisted localStorage — and **caught a real bug**: the widget stored raw `<select>` strings
-    (`"cha"`/`"martial"`/`"1"`) instead of the namespaced keyword / ints the model needs (would break
-    `compile-ability-increases`). Root-caused as a repo-wide `<select>` footgun and fixed at the
-    primitive: `dropdown` now takes `:typed?`, round-tripping the item's real `:value` so callers do no
-    coercion (D32, `dropdown-value-coercion.md`); the ASI widget uses it and the E2E still passes. That
-    resolves the "can we template these elements to prevent the mistake in general?" gate.
-    **Layer 5 (round-trip) DONE — both halves test-backed:** (a) a homebrew race's `:ability-increases`
-    survives the real orcbrew export→import (`(str plugin)`→`validate-import`) verbatim AND still drives
-    the live `::races5e/races` sub (cljs harness, `ability-increase-grant-cljs-test`); (b) a character's
-    chosen floating `+1` survives `char5e/to-strict`→`from-strict` (the localStorage/server path) and the
-    rebuilt character still applies it (JVM, `ability-increase-grant-test` — `character-floating-choice-survives-save-load`).
-    Both serialization paths preserve arbitrary/nested keys (export is whole-map EDN; character strict
-    round-trip preserves selection/option keys via `::strict/key`). **Also proven through the real UI**
-    (`test/e2e/export-import-use.js`): the My Content Export button produces a real `E2E Pack.orcbrew`
-    download carrying `:ability-increases`, the real `<input type=file>` imports it back, and the
-    imported race is selectable in the character builder. (UI E2E pins a behaviour the function tests
-    don't: import derives the pack name from the file name.)
-    Remaining for A4: **feat-path reconciliation** — the compile hook is wired for race/subrace only;
-    feats/backgrounds/classes have their own `:ability-increases` param (not via `:props`), so the
-    "any silo" promise isn't delivered yet.
+    Single-stat → fixed `race-ability` modifier; multi-stat → a player-chosen slot in one `:asi`
+    selection. Full spec: `docs/kb/ability-increase-spreads.md`.
+    Built bottom-up and test-backed at every layer: JVM (compile + apply), cljs harness (the
+    `::races5e/races` sub + orcbrew round-trip), and three rendered-UI E2Es (`exact-spread-asi`,
+    `race-builder-asi`, `export-import-use`) covering render + pool-restriction + distinctness, authoring,
+    and the full export→import→use round-trip. Lessons live in their own docs: the `<select>` string
+    footgun → `:typed?` dropdown (D32, `dropdown-value-coercion.md`); "data in a sub ≠ rendered in the
+    builder" (the builder couples ability-increase widgets to `:asi`); terse export data (D33).
+    Backward-compat: races never had `:ability-increases`, so released data is unaffected.
+    **Remaining (optional):** feat-path reconciliation (route feats/backgrounds through the same compile —
+    the cross-silo "any silo" promise; needs a back-compat reader for the existing feat `:ability-increases`
+    *set*); "choose between spreads"; explicit-set authoring in the form.
 - **B. Mechanism layers** (lift text → mechanical): **B1** structured/parameterized effect & feature
   records (keystone — `compile-feature` is the proven start); **B2** conditions (build-state auto /
   play-state toggle, on the verified `equipped?` substrate); **B3** resource counters as data (incl. the
