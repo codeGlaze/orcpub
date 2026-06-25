@@ -132,13 +132,12 @@ loops because decisions lived in two parallel trackers; this is the one that sup
 - **E. Generated builder UI from declarations** — last; rides a now-uniform substrate.
 
 ## Flagged conflicts (need a call — do not silently resolve)
-1. **`grant-selection` (`c1f54967`) vs D17 — logged as D29.** My Phase-2 bridge prototype is a *generic* grant compiler
-   with generic `:tags #{:grant from}` and no `:ref`. Phase-1's D17 audit decided **against** a generic
-   wrapper, in favor of pointing existing per-feature selections at open pools while preserving their
-   `:ref`/`:tags`. These are two different approaches to the same goal. **Recommendation:** treat D17 as
-   the standing decision; fold the prototype's intent (cross-bucket reuse) into the open-pool-behind-
-   existing-selections approach, or consciously overturn D17 — but pick one. Until then, don't build more
-   on `grant-selection`.
+1. **D29 — DECIDED (no longer a conflict).** The real question was bespoke built-ins vs the systematic
+   pool/grant approach. Resolution: **no duplicated functionality — one mechanism per job.** Pool/grant is
+   the standard for new / homebrew / cross-silo capability; stable bespoke constructors stay where they
+   aren't cross-silo and aren't hurting, and migrate only opportunistically (never churn proven code, never
+   add a pool/grant that duplicates a working bespoke path without replacing it). Full text: D29 in
+   `content-extensibility-decisions.md`.
 
 ## Doc map (so there's one place to look)
 - **Plan/status (this file).** Branch history/handoff: `BRANCH.md`.

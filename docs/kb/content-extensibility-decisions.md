@@ -57,7 +57,7 @@ against" record). Full reasoning is in the body — this is only an index.
 | D26 | Per-class catalogue done for all 12; reshapes B1/B3 | DONE (catalogue) |
 | D27 | Spell slots: bucket of tables + declared multiclass rule | LIVE (design) |
 | D28 | Non-SRD never pre-built; validate with synthetic stand-ins | LIVE (rule) |
-| D29 | The grant approach (generic compiler vs open pools) | **OPEN** |
+| D29 | Bespoke vs systematic pool/grant → **no duplicated functionality; one mechanism per job** | DECIDED |
 | D30 | "grant" earns its keep only as a thin compiler, not a 2nd engine | LIVE |
 | D31 | Two vocabularies share effects but differ in application mode | LIVE (test-backed) |
 | D32 | UI dropdowns must round-trip their value type (`:typed?`) | DONE |
@@ -380,6 +380,19 @@ must be **decided and converged**, not left forked: pick one, migrate to it, jet
 we test — it already carries "BRIDGE PROTOTYPE" comments — rather than being deleted pre-decision.)
 **Recommendation:** D17's open-pool approach (preserves the `:ref`/`:tags` the engine relies on); fold the
 prototype's cross-bucket intent into it.
+
+**D29 — RESOLVED (2026-06-25): the governing rule is NO DUPLICATED FUNCTIONALITY — one mechanism per job.**
+The real decision was never "generic `grant-selection` vs per-feature-over-pools, jettison the loser" (a
+narrow slice — both are thin compilers to `selection-cfg` over the same `content-pools/pool`, per D30, so
+neither is a parallel engine to delete). The real decision is **bespoke built-ins (years-stable) vs the
+systematic pool/grant approach**, and the resolution is: **pool/grant is the STANDARD for new / homebrew /
+cross-silo capability; the stable bespoke constructors are KEPT where they aren't cross-silo and aren't
+hurting, and MIGRATED only opportunistically (when a real reason already touches the code) — never a
+big-bang rewrite, never churn for its own sake.** Litmus test for any new pool/grant: would it DUPLICATE a
+working bespoke path without replacing it? If yes, don't — either replace that path or leave it be. Commit
+to the *direction*, not a rewrite. (Squares with D23 "decide a standard, converge" and the stability+
+flexibility north star: flexibility comes from the systematic surface, stability from not touching proven
+code without cause.)
 
 **D30 — There is no pre-existing "grant" in the project; "grant" earns its keep only as a thin compiler
 to the existing primitives, not a parallel selection engine.** Verified (callers, not comments): the
