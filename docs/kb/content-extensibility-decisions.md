@@ -62,6 +62,7 @@ against" record). Full reasoning is in the body — this is only an index.
 | D31 | Two vocabularies share effects but differ in application mode | LIVE (test-backed) |
 | D32 | UI dropdowns must round-trip their value type (`:typed?`) | DONE |
 | D33 | Export data = terse encodings + commented source, not self-documenting bytes | LIVE (rule) |
+| D34 | Deprecate (not delete) superseded proven code: `#_`-strike + date-stamp + remove ~3mo later | LIVE (rule) |
 
 ---
 
@@ -392,7 +393,8 @@ big-bang rewrite, never churn for its own sake.** Litmus test for any new pool/g
 working bespoke path without replacing it? If yes, don't — either replace that path or leave it be. Commit
 to the *direction*, not a rewrite. (Squares with D23 "decide a standard, converge" and the stability+
 flexibility north star: flexibility comes from the systematic surface, stability from not touching proven
-code without cause.)
+code without cause.) **Migration mechanics** — verified (characterization test first) and deprecated, not
+deleted (D34 + `backfill-ledger.md`).
 
 **D30 — There is no pre-existing "grant" in the project; "grant" earns its keep only as a thin compiler
 to the existing primitives, not a parallel selection engine.** Verified (callers, not comments): the
@@ -484,3 +486,25 @@ with short ability keywords namespaced at compile. Smaller than the prior maps a
 built-in `:abilities` map, with the format spec in `docs/kb/ability-increase-spreads.md` and concise
 comments at `compile-ability-increases`/`ability-bag-assigner`. General rule for future content data:
 terse bytes, documented meaning.
+
+**D34 — How we deprecate: `#_`-strike proven code, date-stamp, schedule removal (2026-06-25).** Two
+kinds of removable code, two policies:
+- **Never-released branch scaffolding** (e.g. `normalize-spread`, the bag-v1 helpers) → DELETE outright.
+  No proven behavior, no users, nothing to fall back to.
+- **Proven/released code superseded by a new standard** (a bespoke path a grant pool now does — D29) →
+  DEPRECATE, don't delete. `#_`-discard the form (the repo's existing inert-but-preserved idiom, e.g.
+  `#_(defn maneuver-option …)`; lint-clean since clj-kondo ignores `#_`, and restorable since the form
+  stays intact) under a note:
+  ```clojure
+  ;; DEPRECATED 2026-06-25 — superseded by <X>; behavior pinned by <test>. Remove after 2026-09-25. See backfill-ledger.md.
+  #_(defn the-superseded-thing [...] ...)
+  ```
+- **Removal is DATE-based: deprecation date + ~3 months.** The project is a continuously-deployed
+  `0.1.0-SNAPSHOT` with no release cadence, so there's no version clock to hang removal on; ~3 months
+  means it's been live long enough that real regressions would have surfaced. (Switch to version-based —
+  "N tagged releases later" — if/when release tagging is adopted.) A periodic sweep greps `DEPRECATED`,
+  deletes anything past its date, and clears the ledger row.
+- **Migration gate (with D29):** a bespoke path is deprecated only AFTER a characterization test proves
+  the new standard reproduces its behavior — uniformity without blind regression. Every struck function
+  is tracked in `docs/kb/backfill-ledger.md` (fn · superseded-by · deprecated-on · remove-after ·
+  pinning-test · status); the ledger draining to zero is the "uniform, no surprises" guarantee.
