@@ -43,8 +43,10 @@ ability. So `[[2 :dex] [1 :any]]` will not let the player put the +1 back on DEX
 ## How it compiles (`opt5e/compile-ability-increases`, `options.cljc`)
 
 Input: the spread. Output: `{:modifiers [...] :selections [...]}`, merged onto the content by the
-race/subrace/**background** assembly (`spell_subs.cljs` `plugin-races`/`plugin-subraces`/
-`plugin-backgrounds` — same one-line hook; backgrounds are the 2024-PHB "ASI via origin" silo).
+race/subrace/**background**/**subclass** assembly (`spell_subs.cljs` `plugin-races`/`plugin-subraces`/
+`plugin-backgrounds`/`plugin-subclasses` — the same one-line hook each). Backgrounds are the 2024-PHB
+"ASI via origin"; subclass ASI is non-standard for 5e, so it's authored behind an opt-in toggle (see
+Authoring). (Classes already grant ASIs via their own `:ability-increase-levels` mechanism — left as-is.)
 
 - **Single-stat (fixed)** increments → `mod5e/race-ability` modifiers (applied unconditionally; they
   show in the ability grid's "race" column like any racial ASI).
@@ -72,10 +74,12 @@ Picks persist via `:increase`/`:decrease-ability-value` with the slot's `asi-<id
 ## Authoring
 
 `ability-increase-choices` (`views.cljs`) is the silo-generic authoring widget: it takes the content
-map and a setter, so the race-builder and background-builder share ONE form (no duplication). A spread
+map and a setter, so the race/background/subclass builders share ONE form (no duplication). A spread
 is rows of Amount + To, where To offers the six stats (fixed) and the groups Any/Martial/Mental
 (floating). It emits the terse pairs. Explicit sets (`#{:wis :con}`) are valid data but currently
-authored via orcbrew EDN, not the form. *(Pending: a "choose between spreads" option — offering the player a
+authored via orcbrew EDN, not the form. For non-standard cases (subclass ASI) the widget sits behind
+`optional-builder-section` — a reusable toggle that's collapsed by default (keeps the form uncluttered)
+but opens when content exists; data only persists if you fill it in. *(Pending: a "choose between spreads" option — offering the player a
 choice among several spreads — and explicit-set authoring in the form.)*
 
 ## Backward compatibility (D9)
@@ -87,8 +91,8 @@ Verified against the merge-base (released data):
   `:abilities` map, or homebrew without the field) are unchanged.
 - **`:ability-increases` IS a released FEAT field** — a *set* like `#{:str :con}`, consumed by the
   feat builder/compile. It is **never** passed to `compile-ability-increases` (only races/subraces/
-  backgrounds at `spell_subs.cljs:144/162/104` call it; feats route through `::feats5e/plugin-feats`).
-  The names overlap but the consumers don't cross.
+  backgrounds/subclasses — `plugin-races`/`plugin-subraces`/`plugin-backgrounds`/`plugin-subclasses` —
+  call it; feats route through `::feats5e/plugin-feats`). The names overlap but the consumers don't cross.
 - **No migration shim** — there's nothing released to migrate (races never had the field, and the
   `{:ability}`/`{:select}` shapes only ever existed on this branch pre-convergence). `compile` just
   skips non-`[amount pool]` entries (`filter vector?`) so that one malformed homebrew race can't throw

@@ -118,11 +118,13 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     footgun → `:typed?` dropdown (D32, `dropdown-value-coercion.md`); "data in a sub ≠ rendered in the
     builder" (the builder couples ability-increase widgets to `:asi`); terse export data (D33).
     Backward-compat: races never had `:ability-increases`, so released data is unaffected.
-    Silos wired: race, subrace, **background** (rendered-UI-proven, `test/e2e/background-asi.js`); the
-    authoring widget (`ability-increase-choices`) is silo-generic. **Remaining (optional):** feat-path
-    reconciliation (feats already grant ASI via a *set* `#{:str :con}`; converging them onto the spread
-    needs a back-compat reader — D34/backfill-ledger); subclasses (no ASI today, rare in 5e); "choose
-    between spreads"; explicit-set authoring in the form.
+    Silos wired: race, subrace, **background**, **subclass** (all rendered-UI-proven —
+    `background-asi.js`, `subclass-asi-toggle.js`); the authoring widget (`ability-increase-choices`) is
+    silo-generic. Subclass ASI (non-standard) is authored behind a reusable `optional-builder-section`
+    toggle (collapsed by default → keeps builders uncluttered; the pattern for other opt-in fields).
+    Classes keep their own `:ability-increase-levels` mechanism. **Remaining (optional):** feat-path
+    reconciliation (feats already grant ASI via a *set* `#{:str :con}`; converging them needs a
+    back-compat reader — D34/backfill-ledger); "choose between spreads"; explicit-set authoring.
 - **B. Mechanism layers** (lift text → mechanical): **B1** structured/parameterized effect & feature
   records (keystone — `compile-feature` is the proven start); **B2** conditions (build-state auto /
   play-state toggle, on the verified `equipped?` substrate); **B3** resource counters as data (incl. the
