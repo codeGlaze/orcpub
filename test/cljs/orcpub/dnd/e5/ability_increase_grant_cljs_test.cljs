@@ -13,8 +13,9 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.races :as races5e]
+            [orcpub.dnd.e5.backgrounds :as bg5e]
             [orcpub.dnd.e5.import-validation :as import-val]
-            ;; side effects: register the races sub + the builder events
+            ;; side effects: register the races/backgrounds subs + the builder events
             [orcpub.dnd.e5.spell-subs]
             [orcpub.dnd.e5.events]))
 
@@ -66,6 +67,19 @@
       (let [sel (floating-sel (first (filter #(= :tide-touched (:key %)) @(rf/subscribe [::races5e/races]))))]
         (is (= martial-slot-1 (set (map ::t/key (::t/options sel))))
             "restricted to the martial pool, end to end from the builder events")))))
+
+(deftest background-ability-increases-wires-through-the-sub
+  (testing "a homebrew BACKGROUND's spread flows through ::bg5e/backgrounds (2024 ASI-via-origin)"
+    (reset! app-db {:plugins {"BG Pack" {::e5/backgrounds
+                                         {:tide-born {:name "Tide-Born" :key :tide-born :option-pack "BG Pack"
+                                                      :ability-increases [[2 :cha] [1 :martial]]}}}}})
+    (rf/clear-subscription-cache!)
+    (let [bg  (first (filter #(= :tide-born (:key %)) @(rf/subscribe [::bg5e/backgrounds])))
+          sel (floating-sel bg)]
+      (is (some? bg) "the homebrew background appears in the backgrounds sub")
+      (is (= 2 (count (:modifiers bg))) "fixed +2 CHA modifiers merged onto the background")
+      (is (= martial-slot-1 (set (map ::t/key (::t/options sel))))
+          "the floating slot is wired onto the background, restricted to martial"))))
 
 (deftest race-without-ability-increases-is-unaffected
   (testing "additive: a homebrew race with no :ability-increases gets no ASI selection"

@@ -100,7 +100,13 @@
  (fn [plugins _]
    (map
     (fn [background]
-      (assoc background :edit-event [::bg5e/edit-background background]))
+      ;; A4: a background's :ability-increases spread compiles to modifiers + the :asi selection,
+      ;; additive (nil -> {}). 2024 rules grant the ASI via background; same hook as races/subraces.
+      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-increases (:ability-increases background))]
+        (assoc background
+               :modifiers (concat (:modifiers background) ai-mods)
+               :selections (concat (:selections background) ai-sels)
+               :edit-event [::bg5e/edit-background background])))
     (mapcat (comp vals ::e5/backgrounds) plugins))))
 
 (reg-sub
