@@ -467,10 +467,13 @@
         (when (and (map? subclass) subclass-key)
           ;; Ensure the subclass has its key set (the map key is authoritative)
           (let [subclass-with-key (assoc subclass :key subclass-key)
-                levels (make-levels spell-lists spells-map selection-map subclass-with-key)]
+                levels (make-levels spell-lists spells-map selection-map subclass-with-key)
+                ;; A4 (opt-in): a subclass's :ability-increases spread -> modifiers + the :asi selection
+                ;; (additive; nil -> {}). Non-standard for 5e, so authored behind a builder toggle.
+                {ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-increases (:ability-increases subclass))]
             (assoc subclass-with-key
-                   :modifiers (opt5e/plugin-modifiers (:props subclass)
-                                                      subclass-key)
+                   :modifiers (concat (opt5e/plugin-modifiers (:props subclass) subclass-key) ai-mods)
+                   :selections (concat (:selections subclass) ai-sels)
                    :levels levels
                    :plugin-source source-name
                    :edit-event [::classes5e/edit-subclass subclass-with-key])))

@@ -5961,6 +5961,8 @@
                 (range 2)))]])])
        (range 1 6)))]]])
 
+(declare ability-increase-choices optional-builder-section)
+
 (defn subclass-builder []
   (let [subclass @(subscribe [::classes/subclass-builder-item])
         spell-lists @(subscribe [::spells/spell-lists])
@@ -5990,6 +5992,8 @@
          ::classes/set-subclass-prop
        ]
       ]
+     [optional-builder-section "Ability Score Increases (non-standard)" (seq (:ability-increases subclass))
+      [ability-increase-choices subclass #(dispatch [::classes/set-subclass-prop :ability-increases %])]]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
@@ -6233,6 +6237,20 @@
                :value :b-action}
               {:title "Reaction"
                :value :reaction}]]]))
+
+(defn optional-builder-section
+  "Opt-in builder section: a toggle that reveals `body`. Keeps non-standard fields out of the default
+   form (less clutter); starts OPEN when `has-content?` so editing existing data isn't hidden. The data
+   only persists if `body`'s controls are used, so an unopened/empty section adds nothing to the export."
+  [_label has-content? _body]
+  (let [open? (r/atom (boolean has-content?))]
+    (fn [label _has-content? body]
+      [:div.m-b-20
+       [:div.flex.align-items-c.pointer.m-b-5 {:on-click #(swap! open? not)}
+        [:i.fa.m-r-5 {:class (if @open? "fa-caret-down" "fa-caret-up")}]
+        [:span.f-s-18.f-w-b label]
+        (when-not @open? [:span.m-l-10.f-s-12.i.orange "click to add"])]
+       (when @open? body)])))
 
 (defn ability-increase-choices
   "Authoring UI for an :ability-increases spread — a list of [amount pool] increments. Each row is an

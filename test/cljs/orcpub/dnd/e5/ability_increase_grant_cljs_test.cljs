@@ -14,6 +14,7 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.races :as races5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
+            [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.import-validation :as import-val]
             ;; side effects: register the races/backgrounds subs + the builder events
             [orcpub.dnd.e5.spell-subs]
@@ -80,6 +81,20 @@
       (is (= 2 (count (:modifiers bg))) "fixed +2 CHA modifiers merged onto the background")
       (is (= martial-slot-1 (set (map ::t/key (::t/options sel))))
           "the floating slot is wired onto the background, restricted to martial"))))
+
+(deftest subclass-ability-increases-wires-through-the-sub
+  (testing "an OPT-IN subclass spread flows through ::classes5e/plugin-subclasses (non-standard 5e)"
+    (reset! app-db {:plugins {"SC Pack" {::e5/subclasses
+                                         {:tide-knight {:name "Tide Knight" :key :tide-knight :class :fighter
+                                                        :option-pack "SC Pack"
+                                                        :ability-increases [[2 :cha] [1 :martial]]}}}}})
+    (rf/clear-subscription-cache!)
+    (let [sc  (first (filter #(= :tide-knight (:key %)) @(rf/subscribe [::classes5e/plugin-subclasses])))
+          sel (floating-sel sc)]
+      (is (some? sc) "the homebrew subclass appears in the sub")
+      (is (= 2 (count (:modifiers sc))) "fixed +2 CHA modifiers merged onto the subclass")
+      (is (= martial-slot-1 (set (map ::t/key (::t/options sel))))
+          "the floating slot is wired onto the subclass, restricted to martial"))))
 
 (deftest race-without-ability-increases-is-unaffected
   (testing "additive: a homebrew race with no :ability-increases gets no ASI selection"
