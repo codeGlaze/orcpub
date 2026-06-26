@@ -6234,15 +6234,15 @@
               {:title "Reaction"
                :value :reaction}]]]))
 
-(defn race-ability-increase-choices
-  "Authoring UI for a race's :ability-increases spread — a list of [amount pool] increments. Each row
-   is an Amount + a To target: a single stat is FIXED, a group (Any/Martial/Mental) is the player's
-   choice. All increases land on different abilities. Dropdowns use :typed? so on-change gets the real
-   keyword. Stores short keywords ([2 :cha] [1 :martial]); compile namespaces them. (Explicit sets like
-   #{:wis :con} are valid in the data but authored via EDN, not this form.)"
-  [race]
-  (let [ais (vec (:ability-increases race))
-        set-ai! (fn [v] (dispatch [::races/set-race-path-prop [:ability-increases] v]))
+(defn ability-increase-choices
+  "Authoring UI for an :ability-increases spread — a list of [amount pool] increments. Each row is an
+   Amount + a To target: a single stat is FIXED, a group (Any/Martial/Mental) is the player's choice.
+   All increases land on different abilities. Dropdowns use :typed? so on-change gets the real keyword.
+   Stores short keywords ([2 :cha] [1 :martial]); compile namespaces them. (Explicit sets like
+   #{:wis :con} are valid in the data but authored via EDN, not this form.) Silo-generic: `item` is the
+   content map; `set-ai!` dispatches the new spread back (race/background/… each pass their own setter)."
+  [item set-ai!]
+  (let [ais (vec (:ability-increases item))
         amount-items (map (fn [n] {:title (common/bonus-str n) :value n}) (range 1 4))
         target-items (concat
                       [{:title "Any (all six)" :value :any}
@@ -6361,7 +6361,7 @@
               :value (get-in race [:abilities key] 0)
               :on-change #(dispatch [::races/set-race-ability-increase key %])}]])
          opt/abilities))]
-      [race-ability-increase-choices race]]
+      [ability-increase-choices race #(dispatch [::races/set-race-path-prop [:ability-increases] %])]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div.m-b-20
@@ -6436,6 +6436,7 @@
        [textarea-field
         {:value (get background :help)
          :on-change #(dispatch [::bg/set-background-prop :help %])}]]
+     [:div [ability-increase-choices background #(dispatch [::bg/set-background-prop :ability-increases %])]]
      [:div [background-skill-proficiencies background]]
      [:div [background-languages background]]
      [:div [background-tool-proficiencies background]]
