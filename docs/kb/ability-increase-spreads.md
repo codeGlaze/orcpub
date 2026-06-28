@@ -106,12 +106,26 @@ Verified against the merge-base (released data):
 - **Future hazard:** the planned feat-path reconciliation (routing feats through this compile) must
   migrate the feat *set* format to pairs with a back-compat reader, NOT pass the set in raw.
 
+## Containment across silos (multi-source)
+
+If a race **and** a background (and, with the toggle, a subclass — or a feat) each grant an ASI, each
+stays bound to its own source. Containment is by the **entity path**, not the form: the template nests
+each silo's `:asi` selection under its container's option, `entity/build` stamps `::entity/path` on it,
+and the shared `ability-bag-assigner` reads/writes at *that* path. So programmatic form-generation is
+orthogonal to where a pick lands — the widget always exports to the path of the selection it was handed.
+The source breadcrumb (`views-aux/ancestor-names-string`) is what the UI shows as "Race - Tide" vs
+"Background - Sea-Marked". Distinctness is enforced *within* a spread, not across sources: two different
+containers may each put their +1 on STR, and the two stack (STR 15 → 17). Proven in
+`test/e2e/multi-container-asi.js`.
+
 ## Tests
 
 - JVM `test/cljc/.../ability_increase_grant_test.clj` — compile + apply on a built character:
   fixed-only, fixed+floating, multi-floating, per-increment pools, save/load survival.
 - cljs harness `test/cljs/.../ability_increase_grant_cljs_test.cljs` — the spread flows through the
-  real `::races5e/races` sub; orcbrew export→import preserves it verbatim.
+  real `::races5e/races`/`::bg5e/backgrounds`/`::classes5e/plugin-subclasses` subs; orcbrew
+  export→import preserves it verbatim.
 - E2E `test/e2e/exact-spread-asi.js` — rendered builder: slots render, pool restriction + distinctness
   enforced, amounts applied on screen. `race-builder-asi.js` / `export-import-use.js` — authoring +
-  round-trip through the real UI.
+  round-trip through the real UI. `background-asi.js` / `subclass-asi-toggle.js` — the other silos +
+  the opt-in toggle. `multi-container-asi.js` — two silos' ASIs stay contained and stack (above).
