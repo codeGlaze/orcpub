@@ -117,11 +117,17 @@ Picks persist via `:increase`/`:decrease-ability-value` with the slot's `asi-<id
 `ability-increase-choices` (`views.cljs`) is the silo-generic authoring widget: it takes the content
 map and a setter, so the race/background/subclass builders share ONE form (no duplication). A spread
 is rows of Amount + To, where To offers the six stats (fixed) and the groups Any/Martial/Mental
-(floating). It emits the terse pairs. Explicit sets (`#{:wis :con}`) are valid data but currently
-authored via orcbrew EDN, not the form. For non-standard cases (subclass ASI) the widget sits behind
-`optional-builder-section` — a reusable toggle that's collapsed by default (keeps the form uncluttered)
-but opens when content exists; data only persists if you fill it in. *(Pending: a "choose between spreads" option — offering the player a
-choice among several spreads — and explicit-set authoring in the form.)*
+(floating). Each row also has a **"+ save prof"** checkbox — the opt-in `:save` rider. It emits the
+terse pairs (with a trailing `:save` when ticked). Explicit sets (`#{:wis :con}`) are valid data but
+currently authored via orcbrew EDN, not the form. For non-standard cases (subclass ASI) the widget
+sits behind `optional-builder-section` — a reusable toggle that's collapsed by default (keeps the form
+uncluttered) but opens when content exists; data only persists if you fill it in.
+
+`save-proficiency-choices` (`views.cljs`) is the companion silo-generic widget for the standalone
+`:save-proficiencies` field — rows of "How many" + "From" emitting the terse `[count pool]` entries. It
+sits alongside `ability-increase-choices` in the race/background builders, and inside the same
+non-standard toggle for subclasses. *(Pending: a "choose between spreads" option and explicit-set
+authoring in the form.)*
 
 ## Backward compatibility (D9)
 
@@ -168,14 +174,21 @@ containers may each put their +1 on STR, and the two stack (STR 15 → 17). Prov
 ## Tests
 
 - JVM `test/cljc/.../ability_increase_grant_test.clj` — compile + apply on a built character:
-  fixed-only, fixed+floating, multi-floating, per-increment pools, save/load survival.
+  fixed-only, fixed+floating, multi-floating, per-increment pools, save/load survival; the feat
+  dual-format reader; and the save tools (rider fixed/floating/opt-in, standalone fixed/floating/count,
+  rider+standalone composed) read off the `?saving-throws` set.
 - cljs harness `test/cljs/.../ability_increase_grant_cljs_test.cljs` — the spread flows through the
-  real `::races5e/races`/`::bg5e/backgrounds`/`::classes5e/plugin-subclasses` subs; orcbrew
-  export→import preserves it verbatim.
+  real `::races5e/races`/`::bg5e/backgrounds`/`::classes5e/plugin-subclasses` subs; the standalone
+  `:save-proficiencies` and the `:save` rider wire through the merged `compile-ability-grants` hook;
+  orcbrew export→import preserves it verbatim.
 - E2E `test/e2e/exact-spread-asi.js` — rendered builder: slots render, pool restriction + distinctness
   enforced, amounts applied on screen. `race-builder-asi.js` / `export-import-use.js` — authoring +
   round-trip through the real UI. `background-asi.js` / `subclass-asi-toggle.js` — the other silos +
   the opt-in toggle. `multi-container-asi.js` — two silos' ASIs stay contained and stack (above).
+  `save-grants-authoring.js` — the "+ save prof" toggle and the standalone save widget emit the terse
+  data through the real selects/checkbox. `save-grants-use.js` — in the rendered builder, the rider's
+  save rides the chosen bump (DEX save flips on the pick) and the standalone choice (on the
+  Proficiencies tab) flips the WIS save.
   `multi-container-roundtrip.js` — unbroken chain: a race AND a background are **authored through
   their real builder forms** (driving the `<select>` coercion) into one pack, then survive **export →
   cleared browser (`localStorage.clear()`) → re-import**, both spreads intact, then both render,

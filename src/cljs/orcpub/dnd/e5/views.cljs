@@ -5961,7 +5961,7 @@
                 (range 2)))]])])
        (range 1 6)))]]])
 
-(declare ability-increase-choices optional-builder-section)
+(declare ability-increase-choices save-proficiency-choices optional-builder-section)
 
 (defn subclass-builder []
   (let [subclass @(subscribe [::classes/subclass-builder-item])
@@ -5992,8 +5992,11 @@
          ::classes/set-subclass-prop
        ]
       ]
-     [optional-builder-section "Ability Score Increases (non-standard)" (seq (:ability-increases subclass))
-      [ability-increase-choices subclass #(dispatch [::classes/set-subclass-prop :ability-increases %])]]
+     [optional-builder-section "Ability Score Increases (non-standard)"
+      (or (seq (:ability-increases subclass)) (seq (:save-proficiencies subclass)))
+      [:div
+       [ability-increase-choices subclass #(dispatch [::classes/set-subclass-prop :ability-increases %])]
+       [save-proficiency-choices subclass #(dispatch [::classes/set-subclass-prop :save-proficiencies %])]]]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
@@ -6268,22 +6271,59 @@
                        {:title "Mental (Int/Wis/Cha)" :value :mental}]
                       (map (fn [{:keys [name key]}]
                              {:title name :value (keyword (clojure.core/name key))})
-                           opt/abilities))]
+                           opt/abilities))
+        ;; rebuild an increment preserving the optional :save rider (3rd element)
+        mk (fn [amount pool save?] (if save? [amount pool :save] [amount pool]))]
     [:div.m-b-20
      [:div.f-s-18.f-w-b.m-b-10 "Ability Score Increases"]
      [:div.f-s-12.i.m-b-10 "A single stat is fixed; a group is the player's choice. All increases go to different abilities."]
      (doall
       (map-indexed
-       (fn [i [amount pool]]
-         ^{:key i}
-         [:div.flex.flex-wrap.align-items-c.m-b-5
-          [labeled-dropdown "Amount" {:items amount-items :value (or amount 1) :typed? true
-                                      :on-change #(set-ai! (assoc ais i [% pool]))}]
-          [labeled-dropdown "To" {:items target-items :value (or pool :any) :typed? true
-                                  :on-change #(set-ai! (assoc ais i [amount %]))}]
-          [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]])
+       (fn [i [amount pool save-flag]]
+         (let [save? (= :save save-flag)]
+           ^{:key i}
+           [:div.flex.flex-wrap.align-items-c.m-b-5
+            [labeled-dropdown "Amount" {:items amount-items :value (or amount 1) :typed? true
+                                        :on-change #(set-ai! (assoc ais i (mk % pool save?)))}]
+            [labeled-dropdown "To" {:items target-items :value (or pool :any) :typed? true
+                                    :on-change #(set-ai! (assoc ais i (mk amount % save?)))}]
+            ;; opt-in rider: also grant proficiency in the save for this increment's (fixed/chosen) ability
+            [:span.m-l-5 [comps/labeled-checkbox "+ save prof"
+                          save? false
+                          #(set-ai! (assoc ais i (mk amount pool (not save?))))]]
+            [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]]))
        ais))
      [:button {:on-click #(set-ai! (conj ais [1 :any]))} "Add increase"]]))
+
+(defn save-proficiency-choices
+  "Authoring UI for :save-proficiencies — a list of [count pool] entries, saving-throw proficiencies
+   INDEPENDENT of any ability bump. A single stat grants that fixed save; a group lets the player
+   choose `count` saves from it. Silo-generic like ability-increase-choices (`item` + a setter)."
+  [item set-sp!]
+  (let [sps (vec (:save-proficiencies item))
+        count-items (map (fn [n] {:title (str n) :value n}) (range 1 4))
+        target-items (concat
+                      [{:title "Any (all six)" :value :any}
+                       {:title "Martial (Str/Dex/Con)" :value :martial}
+                       {:title "Mental (Int/Wis/Cha)" :value :mental}]
+                      (map (fn [{:keys [name key]}]
+                             {:title name :value (keyword (clojure.core/name key))})
+                           opt/abilities))]
+    [:div.m-b-20
+     [:div.f-s-18.f-w-b.m-b-10 "Saving Throw Proficiencies"]
+     [:div.f-s-12.i.m-b-10 "A single stat grants that save; a group lets the player choose that many saves from it."]
+     (doall
+      (map-indexed
+       (fn [i [cnt pool]]
+         ^{:key i}
+         [:div.flex.flex-wrap.align-items-c.m-b-5
+          [labeled-dropdown "How many" {:items count-items :value (or cnt 1) :typed? true
+                                        :on-change #(set-sp! (assoc sps i [% pool]))}]
+          [labeled-dropdown "From" {:items target-items :value (or pool :any) :typed? true
+                                    :on-change #(set-sp! (assoc sps i [cnt %]))}]
+          [:button.m-l-5 {:on-click #(set-sp! (common/remove-at-index sps i))} "Remove"]])
+       sps))
+     [:button {:on-click #(set-sp! (conj sps [1 :any]))} "Add save"]]))
 
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
@@ -6379,7 +6419,8 @@
               :value (get-in race [:abilities key] 0)
               :on-change #(dispatch [::races/set-race-ability-increase key %])}]])
          opt/abilities))]
-      [ability-increase-choices race #(dispatch [::races/set-race-path-prop [:ability-increases] %])]]
+      [ability-increase-choices race #(dispatch [::races/set-race-path-prop [:ability-increases] %])]
+      [save-proficiency-choices race #(dispatch [::races/set-race-path-prop [:save-proficiencies] %])]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div.m-b-20
@@ -6455,6 +6496,7 @@
         {:value (get background :help)
          :on-change #(dispatch [::bg/set-background-prop :help %])}]]
      [:div [ability-increase-choices background #(dispatch [::bg/set-background-prop :ability-increases %])]]
+     [:div [save-proficiency-choices background #(dispatch [::bg/set-background-prop :save-proficiencies %])]]
      [:div [background-skill-proficiencies background]]
      [:div [background-languages background]]
      [:div [background-tool-proficiencies background]]
