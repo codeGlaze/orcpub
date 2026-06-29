@@ -35,6 +35,14 @@ characterization tests.
   correctly when several grant one (proven via entity-path containment). Terse on the wire (ships in
   every homebrew pack); self-documenting in source.
 
+- **Feats consume ASI spreads (dual-format reader)**
+  `feat-option-from-cfg` reads `:ability-increases` by shape: a vector is the new cross-silo spread
+  (routed through `compile-ability-increases`, like the other silos), a set is the legacy feat format
+  (`#{:str :con}` + the optional `:saves?` save-proficiency marker). The legacy path is left untouched —
+  released feat data keeps working verbatim, including saves — and homebrew feats can now grant
+  fixed/floating/grouped spreads. (Full convergence onto one mechanism is deferred until the spread can
+  model saves; tracked in the backfill ledger.)
+
 - **Draconic Ancestry homebrew builder** (`0aca6113`)
   End-to-end builder for a homebrew draconic ancestry, built entirely from a field schema.
 

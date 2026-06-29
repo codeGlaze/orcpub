@@ -92,6 +92,79 @@
       (is (= {:modifiers [] :selections []} (opt5e/compile-ability-increases x))
           (str "no-op for: " (pr-str x))))))
 
+;; ─── Feat-path reconciliation (D34): feat-option-from-cfg reads BOTH formats ────────────────────
+;; A feat's :ability-increases is read by SHAPE: a vector is the new cross-silo spread (routed through
+;; compile-ability-increases); a set is the LEGACY feat format (+1 to one stat, optional :saves?
+;; granting a save proficiency). The legacy path must be untouched (no regression); the spread path
+;; is new reach. We drop the feat option's compiled modifiers/selections into the same origin harness
+;; and build a character, so these are behavioral (ability values / save proficiency), not structural.
+(defn- feat-option [ability-increases]
+  (opt5e/feat-option-from-cfg nil nil nil weapons5e/weapons nil nil
+                              {:name "Test Feat" :key :test-feat :description "t"
+                               :ability-increases ability-increases}))
+
+(defn- template-with-feat [ability-increases]
+  (let [opt (feat-option ability-increases)]
+    (t5e/template
+     (concat
+      (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
+                               sl5e/spell-lists spells5e/spell-map [] [] [] [] (common/map-by-key [{:name "Common" :key :common}]))
+      [(t/selection-cfg {:name "Origin" :key :origin :tags #{:race}
+                         ;; key :test-origin to match raw-entity's origin pick (reuses the harness)
+                         :options [(t/option-cfg {:name "Test Feat" :key :test-origin
+                                                  :modifiers (::t/modifiers opt)
+                                                  :selections (::t/selections opt)})]
+                         :min 1 :max 1})]))))
+
+(defn- feat-abilities [ability-increases picks]
+  (char5e/ability-values (entity/build (raw-entity picks) (template-with-feat ability-increases))))
+
+(defn- feat-built [ability-increases picks]
+  (entity/build (raw-entity picks) (template-with-feat ability-increases)))
+
+(deftest feat-legacy-set-fixed-still-applies
+  (testing "LEGACY #{:str} (singleton) → fixed +1 STR, unchanged by the reconciliation"
+    (let [a (feat-abilities #{:orcpub.dnd.e5.character/str} nil)]
+      (is (= 11 (S a)) "feat's +1 still lands on STR")
+      (is (= 10 (C a))))))
+
+(deftest feat-legacy-set-choice-still-offers-a-selection
+  (testing "LEGACY #{:str :con} (multi) → a choose-one :asi selection keyed by ability (not asi-<idx>-)"
+    (let [sel (first (filter #(= :asi (::t/key %)) (::t/selections (feat-option #{:orcpub.dnd.e5.character/str
+                                                                                 :orcpub.dnd.e5.character/con}))))]
+      (is (some? sel) "the multi-ability set yields a selection")
+      (is (= #{:orcpub.dnd.e5.character/str :orcpub.dnd.e5.character/con}
+             (set (map ::t/key (::t/options sel))))
+          "options keyed by the namespaced ability (the legacy shape), not asi-<idx>-<ability>"))
+    (testing "the chosen +1 applies on a built character"
+      (let [a (feat-abilities #{:orcpub.dnd.e5.character/str :orcpub.dnd.e5.character/con}
+                              [:orcpub.dnd.e5.character/con])]
+        (is (= 11 (C a)) "+1 on the chosen CON") (is (= 10 (S a)))))))
+
+(deftest feat-legacy-saves-marker-grants-save-proficiency
+  (testing "LEGACY #{:str :saves?} → fixed +1 STR AND a STR saving-throw proficiency (the spread can't
+            model saves, so this stays on the legacy path)"
+    (let [built (feat-built #{:orcpub.dnd.e5.character/str :saves?} nil)
+          a (char5e/ability-values built)]
+      (is (= 11 (S a)) "+1 STR still applies alongside the save")
+      (is (contains? (set (char5e/saving-throws built)) :orcpub.dnd.e5.character/str)
+          ":saves? granted STR saving-throw proficiency"))))
+
+(deftest feat-new-spread-format-compiles
+  (testing "NEW [[2 :cha] [1 :martial]] on a FEAT → compile-ability-increases path (fixed + floating)"
+    (let [sel (first (filter #(= :asi (::t/key %)) (::t/selections (feat-option [[2 :cha] [1 :martial]]))))]
+      (is (= #{:asi-1-str :asi-1-dex :asi-1-con} (set (map ::t/key (::t/options sel))))
+          "the floating slot is the spread shape (asi-<idx>-<ability>), restricted to martial"))
+    (let [a (feat-abilities [[2 :cha] [1 :martial]] [:asi-1-dex])]
+      (is (= 12 (Ch a)) "fixed +2 CHA from the feat spread")
+      (is (= 11 (D a)) "floating +1 on the chosen DEX"))))
+
+(deftest feat-new-spread-fixed-only-has-no-selection
+  (testing "NEW [[1 :str]] on a feat → fixed +1, no floating selection"
+    (is (empty? (filter #(= :asi (::t/key %)) (::t/selections (feat-option [[1 :str]]))))
+        "single-stat spread is fully fixed -> no :asi selection")
+    (is (= 11 (S (feat-abilities [[1 :str]] nil))) "+1 STR applies")))
+
 ;; Layer 5 (character half): the floating pick survives save/load AND still applies on rebuild.
 (deftest character-floating-choice-survives-save-load
   (let [spread [[2 :cha] [1 :martial]]

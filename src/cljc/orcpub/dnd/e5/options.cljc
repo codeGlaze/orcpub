@@ -3556,17 +3556,32 @@
            ability-increases
            edit-event
            grant]}]                       ; ← BRIDGE PROTOTYPE: generic grant {:from <pool> :choose N}
-  (let [feat-mods (feat-modifiers key
-                                  name
-                                  description
-                                  props
-                                  ability-increases)
-        feat-selections (feat-selections language-map
-                                         spells-map
-                                         spell-lists
-                                         custom-and-standard-weapons
-                                         props
-                                         ability-increases)
+  ;; ASI dual-format reader (D34 feat-path reconciliation): a feat's :ability-increases is read by
+  ;; SHAPE, so the cross-silo spread reaches feats without breaking the released format.
+  ;;   - vector  → the new terse [amount pool] SPREAD → compile-ability-increases (same path as
+  ;;               races/backgrounds/subclasses). Gives feats amounts/groups/multi-increment.
+  ;;   - set     → the LEGACY feat format (#{:str :con}, +1 to one, optional :saves? marker granting a
+  ;;               save proficiency). Left untouched — saves has no spread model, so this is the only
+  ;;               place it lives. Released feat data keeps working verbatim.
+  ;; When the spread path is used, the set-based ASI is suppressed (pass #{}) but feat-modifiers'/
+  ;; feat-selections' OTHER work (props mechanics, the trait, prop choices) still runs.
+  (let [spread? (vector? ability-increases)
+        legacy-ai (if spread? #{} ability-increases)
+        {ai-mods :modifiers ai-sels :selections} (when spread?
+                                                    (compile-ability-increases ability-increases))
+        feat-mods (concat (feat-modifiers key
+                                          name
+                                          description
+                                          props
+                                          legacy-ai)
+                          ai-mods)
+        feat-selections (concat (feat-selections language-map
+                                                 spells-map
+                                                 spell-lists
+                                                 custom-and-standard-weapons
+                                                 props
+                                                 legacy-ai)
+                                ai-sels)
         ;; BRIDGE PROTOTYPE: a feat's DATA can grant a choice from any pool via the generic
         ;; :grant key. Same hook every other bucket would use — see grant-selection. The same
         ;; one line, added to background/race/subclass assembly fns, gives them grants too.

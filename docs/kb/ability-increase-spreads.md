@@ -48,6 +48,13 @@ race/subrace/**background**/**subclass** assembly (`spell_subs.cljs` `plugin-rac
 "ASI via origin"; subclass ASI is non-standard for 5e, so it's authored behind an opt-in toggle (see
 Authoring). (Classes already grant ASIs via their own `:ability-increase-levels` mechanism — left as-is.)
 
+**Feats** also consume the spread, but via a *dual-format reader* in `feat-option-from-cfg`
+(`options.cljc`) rather than the one-line hook — because feats have a released, richer ASI format the
+spread can't fully replace (see Backward compatibility). The feat reader dispatches on shape: a
+`vector` is a spread (→ `compile-ability-increases`, same as the other silos); a `set` is the legacy
+feat format. So a homebrew feat can now grant a fixed/floating/grouped spread, while existing feats are
+untouched.
+
 - **Single-stat (fixed)** increments → `mod5e/race-ability` modifiers (applied unconditionally; they
   show in the ability grid's "race" column like any racial ASI).
 - **Multi-stat (floating)** increments → slots in **one** selection keyed `:asi` (so the character
@@ -89,10 +96,13 @@ Verified against the merge-base (released data):
 - **Races/subraces never had `:ability-increases`** — it's branch-new, so no released orcbrew pack
   uses it. `compile-ability-increases` is additive (nil/empty → `{}`), so existing races (built-in
   `:abilities` map, or homebrew without the field) are unchanged.
-- **`:ability-increases` IS a released FEAT field** — a *set* like `#{:str :con}`, consumed by the
-  feat builder/compile. It is **never** passed to `compile-ability-increases` (only races/subraces/
-  backgrounds/subclasses — `plugin-races`/`plugin-subraces`/`plugin-backgrounds`/`plugin-subclasses` —
-  call it; feats route through `::feats5e/plugin-feats`). The names overlap but the consumers don't cross.
+- **`:ability-increases` IS a released FEAT field** — a *set* like `#{:str :con}` (+1 to one of these,
+  with an optional `:saves?` member granting a save proficiency). The feat assembly
+  (`feat-option-from-cfg`) now reads it by SHAPE: a **set** stays on the legacy path (unchanged — incl.
+  `:saves?`, which the spread can't model); a **vector** is a spread routed through
+  `compile-ability-increases`. So released feat data is never reinterpreted as a spread (the set
+  branch is byte-for-byte the old behavior), and new feats gain the spread's richness. No silent
+  migration — the reader supports both formats side by side.
 - **No migration shim** — there's nothing released to migrate (races never had the field, and the
   `{:ability}`/`{:select}` shapes only ever existed on this branch pre-convergence). `compile` just
   skips non-`[amount pool]` entries (`filter vector?`) so that one malformed homebrew race can't throw
@@ -103,8 +113,11 @@ Verified against the merge-base (released data):
 - **In-branch churn** (the `{:ability}`/`{:select}` → `[amount pool]` format change, and option-key
   changes) only affects data created on this unreleased branch — fine per the prototype-then-converge
   rule (D23).
-- **Future hazard:** the planned feat-path reconciliation (routing feats through this compile) must
-  migrate the feat *set* format to pairs with a back-compat reader, NOT pass the set in raw.
+- **Feat-path reconciliation — DONE** (was a future hazard): feats now reach this compile via the
+  dual-format reader above (set = legacy, vector = spread), not by passing the set in raw. The one
+  thing still legacy-only is `:saves?` — the spread has no save model, so feat ASI authoring keeps its
+  existing set-based widget (with the saves toggle); spread support reaches feats via data/import.
+  Proven in `ability_increase_grant_test` (feat-legacy-* + feat-new-spread-* deftests).
 
 ## Containment across silos (multi-source)
 
