@@ -1,15 +1,11 @@
-// Multi-silo export -> CLEAR browser -> import -> use, through the real UI.
-// multi-container-asi.js proves containment when the pack is injected into localStorage; this proves
-// the EXPORT path emits BOTH silos (race + background) in one .orcbrew, and a genuinely cleared browser
-// (localStorage.clear()) re-imports BOTH and they still render, stay attributed to their own container,
-// and stack. i.e. "exported and re-imported into a fresh browser, are they properly handled?"
-//
-// Steps:
-//   1. seed a pack with a race AND a background, each granting +1 martial  -> localStorage "plugins"
-//   2. My Content: export via the real button, capture the .orcbrew, assert it carries BOTH silos
-//   3. localStorage.clear()  (a machine that never had the pack)
-//   4. import the downloaded file via the real <input type=file>, assert BOTH silos return
-//   5. builder: select race + background, assert BOTH ASI widgets render (attributed) and stack
+// UNBROKEN authored chain: author a race AND a background through their REAL builder forms, export
+// the pack via the real button, fully clear the browser (localStorage.clear()), re-import the .orcbrew
+// via the real file input, then use BOTH in the builder. No seeded localStorage — the data the export
+// round-trips is the data the front-end forms actually produced, so this exercises the authoring
+// <select> coercion, the export, the import, and the multi-silo containment in one chain.
+//   author race form  ─┐
+//                       ├─ same option-pack ─> [Export] ─> [clear] ─> [Import] ─> [use both] -> stack
+//   author bg form   ──┘
 //
 // Run: REPO=/abs/path/to/orcpub node test/e2e/multi-container-roundtrip.js   (exit 0 = pass)
 const { chromium } = require('playwright');
@@ -19,22 +15,42 @@ const ROOT=path.join(REPO,'resources/public'), PORT=Number(process.env.PORT||887
 const HOST=`<!DOCTYPE html><html><head><meta charset="utf-8"><link rel="stylesheet" href="/css/compiled/styles.css"><link rel="stylesheet" href="/assets/font-awesome/5.13.1/css/all.min.css"></head><body><div id="app"></div><script src="/js/compiled/orcpub.js"></script></body></html>`;
 const mime={'.js':'text/javascript','.css':'text/css','.html':'text/html','.png':'image/png','.svg':'image/svg+xml','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.map':'application/json'};
 const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.split('?')[0]);const fp=path.join(ROOT,p);fs.readFile(fp,(e,d)=>{if(e){res.setHeader('Content-Type','text/html');res.end(HOST);return;}res.setHeader('Content-Type',mime[path.extname(fp)]||'application/octet-stream');res.end(d);});});
-const PLUGINS=`{"Default Option Source" {} "RT Pack" {:orcpub.dnd.e5/races {:tide {:name "Tide" :key :tide :option-pack "RT Pack" :size :medium :speed 30 :languages #{} :traits [] :ability-increases [[1 :martial]]}} :orcpub.dnd.e5/backgrounds {:sea {:name "Sea-Marked" :key :sea :option-pack "RT Pack" :ability-increases [[1 :martial]]}}}}`;
 const errs=[]; const U=`http://localhost:${PORT}`;
 const lsPlugins=async pg=>pg.evaluate(()=>localStorage.getItem('plugins')||'');
 const results=[]; const check=(n,ok,x)=>{results.push(ok);console.log(`  ${ok?'PASS':'FAIL'}  ${n}${x?'  '+x:''}`);};
 const scores=async pg=>{const t=(await pg.locator('#app').innerText()).split('Ability Scores').pop().replace(/\n+/g,' ');const m={};for(const a of['STR','DEX','CON','INT','WIS','CHA']){const r=new RegExp(a+'\\s+(\\d+)').exec(t);if(r)m[a]=+r[1];}return m;};
+// author one floating "+1 Martial" increment in whichever builder form is loaded
+const setSel=async(pg,l,label)=>{await l.selectOption({label});await pg.waitForTimeout(150);};
+async function authorMartialPlus1(pg,name){
+  await pg.waitForSelector('#app input.input.h-40',{timeout:20000});
+  await pg.locator('#app input.input.h-40').nth(0).fill(name);                            // Name
+  await pg.locator('#app input[placeholder="Default Option Source"]').fill('RT Pack');    // Option source
+  await pg.locator('#app button').filter({hasText:'Add increase'}).first().click();
+  await pg.waitForTimeout(300);
+  const section=pg.locator('#app div.m-b-20').filter({hasText:'Ability Score Increases'});
+  const row=section.locator('> div.flex.flex-wrap.align-items-c.m-b-5').first();
+  await setSel(pg,row.locator('select').nth(0),'+1');
+  await setSel(pg,row.locator('select').nth(1),'Martial (Str/Dex/Con)');
+  await pg.locator('#app button:visible').filter({hasText:'Save to Browser Storage'}).first().click();
+  await pg.waitForTimeout(800);
+}
 (async()=>{
   await new Promise(r=>server.listen(PORT,r));
   const b=await chromium.launch();const pg=await b.newPage({acceptDownloads:true});
   pg.on('pageerror',e=>errs.push((e.message||e).toString().split('\n')[0]));
   await pg.setViewportSize({width:1280,height:1400});
 
-  // 1. seed the two-silo pack
-  await pg.goto(`${U}/dnd/5e/my-content`,{waitUntil:'load',timeout:30000});
-  await pg.evaluate(p=>localStorage.setItem('plugins',p),PLUGINS);
+  // 1. author BOTH silos through their real forms, same option-pack
+  await pg.goto(`${U}/pages/dnd/5e/race-builder`,{waitUntil:'load',timeout:30000});
+  await authorMartialPlus1(pg,'Tide');
+  await pg.goto(`${U}/pages/dnd/5e/background-builder`,{waitUntil:'load',timeout:30000});
+  await authorMartialPlus1(pg,'Sea-Marked');
+  const authored=await lsPlugins(pg);
+  check('race silo authored through the form into RT Pack', /orcpub\.dnd\.e5\/races[\s\S]*:tide/.test(authored));
+  check('background silo authored through the form into RT Pack', /orcpub\.dnd\.e5\/backgrounds[\s\S]*:sea-marked/.test(authored));
+  check('both authored spreads are the terse [1 :martial] pair', (authored.match(/\[1 :martial\]/g)||[]).length>=2);
 
-  // 2. export via the real button; capture the real download
+  // 2. export the pack via the real button; capture the real download
   await pg.goto(`${U}/dnd/5e/my-content`,{waitUntil:'load',timeout:30000});
   await pg.waitForTimeout(1200);
   await pg.locator('#app .item-list-item').filter({hasText:'RT Pack'}).first().locator('text=expand').first().click();
@@ -48,10 +64,8 @@ const scores=async pg=>{const t=(await pg.locator('#app').innerText()).split('Ab
   const dlPath=path.join('/tmp', suggested);
   await download.saveAs(dlPath);
   const exp=fs.readFileSync(dlPath,'utf8');
-  check('exported .orcbrew carries the RACE silo with its spread',
-        /orcpub\.dnd\.e5\/races/.test(exp) && /:tide/.test(exp));
-  check('exported .orcbrew carries the BACKGROUND silo with its spread',
-        /orcpub\.dnd\.e5\/backgrounds/.test(exp) && /:sea/.test(exp));
+  check('exported .orcbrew carries the RACE silo', /orcpub\.dnd\.e5\/races/.test(exp) && /:tide/.test(exp));
+  check('exported .orcbrew carries the BACKGROUND silo', /orcpub\.dnd\.e5\/backgrounds/.test(exp) && /:sea-marked/.test(exp));
   check('both silos carry the terse [1 :martial] spread', (exp.match(/\[1 :martial\]/g)||[]).length>=2);
 
   // 3. fully clear the browser (a machine that never had the pack)
@@ -65,7 +79,7 @@ const scores=async pg=>{const t=(await pg.locator('#app').innerText()).split('Ab
   await pg.waitForTimeout(1800);
   const ls=await lsPlugins(pg);
   check('import restored the RACE silo', /orcpub\.dnd\.e5\/races[\s\S]*:tide/.test(ls));
-  check('import restored the BACKGROUND silo', /orcpub\.dnd\.e5\/backgrounds[\s\S]*:sea/.test(ls));
+  check('import restored the BACKGROUND silo', /orcpub\.dnd\.e5\/backgrounds[\s\S]*:sea-marked/.test(ls));
   check('both restored spreads are still the terse pairs', (ls.match(/\[1 :martial\]/g)||[]).length>=2);
 
   // 5. USE both in the builder out of the freshly-imported pack
@@ -91,6 +105,6 @@ const scores=async pg=>{const t=(await pg.locator('#app').innerText()).split('Ab
 
   console.log('PAGEERRORS:', errs.join(' | ')||'none');
   const pass=results.every(Boolean)&&!errs.length;
-  console.log(pass?'E2E PASS — multi-silo export -> clear -> import -> use':'E2E FAIL');
+  console.log(pass?'E2E PASS — authored both silos -> export -> clear -> import -> use':'E2E FAIL');
   await b.close();server.close(); process.exitCode=pass?0:1;
 })().catch(e=>{console.error('ERR',e.message);process.exit(1);});

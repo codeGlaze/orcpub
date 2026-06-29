@@ -129,5 +129,8 @@ containers may each put their +1 on STR, and the two stack (STR 15 → 17). Prov
   enforced, amounts applied on screen. `race-builder-asi.js` / `export-import-use.js` — authoring +
   round-trip through the real UI. `background-asi.js` / `subclass-asi-toggle.js` — the other silos +
   the opt-in toggle. `multi-container-asi.js` — two silos' ASIs stay contained and stack (above).
-  `multi-container-roundtrip.js` — a two-silo pack (race + background) survives **export → cleared
-  browser (`localStorage.clear()`) → re-import**, both spreads intact, then both render/attribute/stack.
+  `multi-container-roundtrip.js` — unbroken chain: a race AND a background are **authored through
+  their real builder forms** (driving the `<select>` coercion) into one pack, then survive **export →
+  cleared browser (`localStorage.clear()`) → re-import**, both spreads intact, then both render,
+  attribute to their own container, and stack. No seeded localStorage — the round-tripped data is what
+  the front-end forms actually produced.
