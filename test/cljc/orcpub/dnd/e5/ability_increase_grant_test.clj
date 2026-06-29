@@ -165,6 +165,91 @@
         "single-stat spread is fully fixed -> no :asi selection")
     (is (= 11 (S (feat-abilities [[1 :str]] nil))) "+1 STR applies")))
 
+;; ─── Save proficiencies: the rider (on the spread) + the standalone tool ────────────────────────
+;; Two orthogonal concerns over ONE save primitive (modifiers/saving-throws):
+;;   - rider: [amount pool :save] — the save follows the bump's (fixed or chosen) ability.
+;;   - standalone :save-proficiencies [[count pool]] — saves with no bump (or on different stats).
+;; Both proven by building a character and reading char5e/saving-throws (the ?saving-throws set).
+(defn- origin-with [{:keys [ability-increases save-proficiencies]}]
+  (let [ai (opt5e/compile-ability-increases ability-increases)
+        sp (opt5e/compile-save-proficiencies save-proficiencies)]
+    (t/option-cfg {:name "Test Origin" :key :test-origin
+                   :modifiers (concat (:modifiers ai) (:modifiers sp))
+                   :selections (concat (:selections ai) (:selections sp))})))
+
+(defn- template-saves [cfg]
+  (t5e/template
+   (concat
+    (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
+                             sl5e/spell-lists spells5e/spell-map [] [] [] [] (common/map-by-key [{:name "Common" :key :common}]))
+    [(t/selection-cfg {:name "Origin" :key :origin :tags #{:race}
+                       :options [(origin-with cfg)] :min 1 :max 1})])))
+
+;; picks-map: selection-key -> [option-keys], e.g. {:asi [:asi-0-dex] :save-prof-0 [:save-0-wis]}
+(defn- built-saves [cfg picks-map]
+  (entity/build
+   {:orcpub.entity/options
+    {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
+     :origin {:orcpub.entity/key :test-origin
+              :orcpub.entity/options (into {} (for [[sel ks] picks-map]
+                                                [sel (mapv (fn [k] {:orcpub.entity/key k}) ks)]))}}}
+   (template-saves cfg)))
+
+(defn- saves-of [built] (set (char5e/saving-throws built)))
+
+(deftest save-rider-fixed
+  (testing "[[1 :str :save]] → +1 STR AND a STR save proficiency"
+    (let [b (built-saves {:ability-increases [[1 :str :save]]} {})]
+      (is (= 11 (S (char5e/ability-values b))) "the bump still applies")
+      (is (contains? (saves-of b) S) "the rider granted a STR save"))))
+
+(deftest save-rider-floating-rides-the-choice
+  (testing "[[1 :martial :save]] → the save follows the CHOSEN martial stat, not the others"
+    (let [b (built-saves {:ability-increases [[1 :martial :save]]} {:asi [:asi-0-dex]})]
+      (is (= 11 (D (char5e/ability-values b))) "+1 on chosen DEX")
+      (is (contains? (saves-of b) D) "DEX save granted (rode the choice)")
+      (is (not (contains? (saves-of b) S)) "STR save NOT granted (wasn't the pick)"))))
+
+(deftest save-rider-is-opt-in
+  (testing "[[1 :str]] (no :save) → bump only, NO save (default is bump-only)"
+    (is (empty? (saves-of (built-saves {:ability-increases [[1 :str]]} {}))))))
+
+(deftest standalone-fixed-save-no-bump
+  (testing ":save-proficiencies [[1 :con]] → a CON save, NO ability bump"
+    (let [b (built-saves {:save-proficiencies [[1 :con]]} {})]
+      (is (contains? (saves-of b) C) "fixed CON save granted")
+      (is (= 10 (C (char5e/ability-values b))) "no bump — saves are independent of ASI"))))
+
+(deftest standalone-floating-save-choice
+  (testing ":save-proficiencies [[1 :mental]] → choose 1 mental save (own selection, save-<idx>- keys)"
+    (let [sel (first (:selections (opt5e/compile-save-proficiencies [[1 :mental]])))]
+      (is (= :save-prof-0 (::t/key sel)))
+      (is (= #{:save-0-int :save-0-wis :save-0-cha} (set (map ::t/key (::t/options sel))))
+          "options are the mental pool, keyed save-0-<ability> (distinct from the :asi keys)"))
+    (let [b (built-saves {:save-proficiencies [[1 :mental]]} {:save-prof-0 [:save-0-wis]})]
+      (is (contains? (saves-of b) W) "the chosen WIS save applies"))))
+
+(deftest standalone-save-count
+  (testing ":save-proficiencies [[2 :any]] → ONE selection, choose 2 distinct saves"
+    (let [sel (first (:selections (opt5e/compile-save-proficiencies [[2 :any]])))]
+      (is (= 2 (::t/min sel))) (is (= 2 (::t/max sel)))
+      (is (true? (::t/different? sel)) "the 2 picks must be distinct")
+      (is (= 6 (count (::t/options sel))) "all six abilities offered"))))
+
+(deftest compile-save-proficiencies-crash-safe
+  (testing "nil / empty / junk → {} (additive + fan-out safe, like compile-ability-increases)"
+    (doseq [x [nil [] [:junk] [{:a 1}]]]
+      (is (= {:modifiers [] :selections []} (opt5e/compile-save-proficiencies x))
+          (str "no-op for: " (pr-str x))))))
+
+(deftest rider-and-standalone-compose
+  (testing "a feat can bump+save one stat AND grant an unrelated save: rider + standalone together"
+    (let [b (built-saves {:ability-increases [[1 :str :save]] :save-proficiencies [[1 :wis]]} {})
+          saves (saves-of b)]
+      (is (= 11 (S (char5e/ability-values b))) "+1 STR")
+      (is (contains? saves S) "STR save from the rider")
+      (is (contains? saves W) "WIS save from the standalone tool (a stat that got no bump)"))))
+
 ;; Layer 5 (character half): the floating pick survives save/load AND still applies on rebuild.
 (deftest character-floating-choice-survives-save-load
   (let [spread [[2 :cha] [1 :martial]]

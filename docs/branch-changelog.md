@@ -35,6 +35,15 @@ characterization tests.
   correctly when several grant one (proven via entity-path containment). Terse on the wire (ships in
   every homebrew pack); self-documenting in source.
 
+- **Save-proficiency grants (rider + standalone tool)**
+  Two orthogonal ways to grant saving-throw proficiencies, both compiling to the one save primitive
+  (`modifiers/saving-throws`): a per-increment `:save` rider on the ASI spread
+  (`[[1 :martial :save]]` → +1 to a chosen martial stat *and* its save — the Resilient pattern,
+  opt-in so the default stays bump-only), and a standalone `:save-proficiencies [[count pool]]` field
+  for saves on a different stat than the bump, or with no bump at all (fixed, or "choose N distinct
+  saves from a pool"). Wired into every silo through a single merged hook (`compile-ability-grants`):
+  races, subraces, backgrounds, subclasses, and feats.
+
 - **Feats consume ASI spreads (dual-format reader)**
   `feat-option-from-cfg` reads `:ability-increases` by shape: a vector is the new cross-silo spread
   (routed through `compile-ability-increases`, like the other silos), a set is the legacy feat format

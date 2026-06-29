@@ -40,13 +40,47 @@ ability. So `[[2 :dex] [1 :any]]` will not let the player put the +1 back on DEX
 | +1 mental, +2 martial | `[[1 :mental] [2 :martial]]` |
 | +2 (wis\|con), +1 (str\|cha) | `[[2 #{:wis :con}] [1 #{:str :cha}]]` |
 
+## Save proficiencies
+
+Two orthogonal ways to grant a saving-throw proficiency, both compiling to the one save primitive
+(`modifiers/saving-throws`) — never a parallel engine:
+
+**1. The `:save` rider (coupled to a bump).** An ASI increment may carry a trailing `:save`, meaning
+"also grant proficiency in the save for *this increment's* ability". For a fixed increment that's an
+unconditional save on that stat; for a floating one the save rides whichever ability the player picks.
+This is the Resilient pattern.
+
+```clojure
+:ability-increases [[1 :con :save]]            ; +1 CON and a CON save (fixed)
+:ability-increases [[2 :cha] [1 :martial :save]]  ; +2 CHA; +1 to a chosen martial stat AND its save
+```
+
+The rider is **opt-in** — an increment with no `:save` is bump-only (the default). It can't express a
+save on a *different* stat than the bump, or a save with no bump — that's what the standalone tool is for.
+
+**2. `:save-proficiencies` (the standalone tool).** A terse `[[count pool]]` list — same shape as the
+spread, but the number is **how many saves**, not a bonus. A single-stat pool is a fixed save; a
+multi-stat pool is "choose `count` distinct saves from the pool". Completely independent of any ASI.
+
+| Intent | Data |
+|---|---|
+| a CON save (fixed) | `[[1 :con]]` |
+| choose 1 mental save | `[[1 :mental]]` |
+| choose 2 saves, any | `[[2 :any]]` |
+| a CON save + choose 1 mental save | `[[1 :con] [1 :mental]]` |
+
+Both are compiled by `opt5e/compile-save-proficiencies` / the rider branch of
+`compile-ability-increases`, and merged onto content by `compile-ability-grants` (the single silo hook
+— see below). Cross-entry duplicate saves collapse harmlessly (`?saving-throws` is a set).
+
 ## How it compiles (`opt5e/compile-ability-increases`, `options.cljc`)
 
-Input: the spread. Output: `{:modifiers [...] :selections [...]}`, merged onto the content by the
-race/subrace/**background**/**subclass** assembly (`spell_subs.cljs` `plugin-races`/`plugin-subraces`/
-`plugin-backgrounds`/`plugin-subclasses` — the same one-line hook each). Backgrounds are the 2024-PHB
-"ASI via origin"; subclass ASI is non-standard for 5e, so it's authored behind an opt-in toggle (see
-Authoring). (Classes already grant ASIs via their own `:ability-increase-levels` mechanism — left as-is.)
+Input: the spread. Output: `{:modifiers [...] :selections [...]}`. The race/subrace/**background**/
+**subclass** assemblies (`spell_subs.cljs` `plugin-races`/`plugin-subraces`/`plugin-backgrounds`/
+`plugin-subclasses`) call **`compile-ability-grants`** — the single hook that merges this spread *and*
+the standalone `:save-proficiencies` — one line each. Backgrounds are the 2024-PHB "ASI via origin";
+subclass ASI is non-standard for 5e, so it's authored behind an opt-in toggle (see Authoring).
+(Classes already grant ASIs via their own `:ability-increase-levels` mechanism — left as-is.)
 
 **Feats** also consume the spread, but via a *dual-format reader* in `feat-option-from-cfg`
 (`options.cljc`) rather than the one-line hook — because feats have a released, richer ASI format the

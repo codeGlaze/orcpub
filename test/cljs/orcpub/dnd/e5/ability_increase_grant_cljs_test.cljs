@@ -103,6 +103,41 @@
       (is (some? race))
       (is (nil? (floating-sel race)) "no :ability-increases -> no floating selection (opt-in)"))))
 
+;; Save proficiencies wire through the SAME merged hook (compile-ability-grants) as the ASI spread.
+(defn- save-prof-sel [content]
+  (first (filter #(= :save-prof-0 (::t/key %)) (:selections content))))
+
+(deftest standalone-save-proficiencies-wire-through-the-race-sub
+  (testing "a homebrew race's :save-proficiencies [[1 :mental] [1 :con]] -> a 'choose 1 mental save'
+            selection (idx 0) AND a fixed CON save modifier (idx 1), merged by compile-ability-grants"
+    (reset! app-db {:plugins {"P" {::e5/races
+                                   {:warded {:name "Warded" :key :warded :option-pack "P"
+                                             :size :medium :speed 30 :languages #{} :traits []
+                                             :save-proficiencies [[1 :mental] [1 :con]]}}}}})
+    (rf/clear-subscription-cache!)
+    (let [race (first (filter #(= :warded (:key %)) @(rf/subscribe [::races5e/races])))
+          sel  (save-prof-sel race)]
+      (is (some? race) "the homebrew race appears in the races sub")
+      (is (pos? (count (:modifiers race))) "the fixed CON save contributed a modifier")
+      (is (some? sel) "the floating 'choose a mental save' selection was wired onto the race")
+      (is (= #{:save-0-int :save-0-wis :save-0-cha} (set (map ::t/key (::t/options sel))))
+          "the save choice offers only the mental pool, keyed save-<idx>-<ability>"))))
+
+(deftest save-rider-rides-the-spread-through-the-sub
+  (testing "a race with :ability-increases [[1 :martial :save]] keeps ONE :asi selection whose options
+            each carry a save (the rider compiles inside the spread, not as a separate selection)"
+    (reset! app-db {:plugins {"P" {::e5/races
+                                   {:bulwark {:name "Bulwark" :key :bulwark :option-pack "P"
+                                              :size :medium :speed 30 :languages #{} :traits []
+                                              :ability-increases [[1 :martial :save]]}}}}})
+    (rf/clear-subscription-cache!)
+    (let [race (first (filter #(= :bulwark (:key %)) @(rf/subscribe [::races5e/races])))
+          sel  (floating-sel race)]
+      (is (some? sel) "the rider still produces the single :asi selection")
+      (is (nil? (save-prof-sel race)) "the rider does NOT add a separate save-prof selection")
+      (is (= #{:asi-0-str :asi-0-dex :asi-0-con} (set (map ::t/key (::t/options sel))))
+          "martial pool, keyed asi-0-<ability> (the save rides each option's modifiers)"))))
+
 ;; Layer 5 (homebrew half): :ability-increases survives a real orcbrew export -> import.
 ;; Export is `(str plugin)`; import is validate-import (parse/normalize/clean/fill/dedup/validate).
 ;; Round-trip the SINGLE-plugin shape (the strict path that runs remove-invalid-items) and assert the

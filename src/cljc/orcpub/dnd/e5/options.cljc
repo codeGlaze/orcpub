@@ -291,24 +291,37 @@
    :asi selection that carries the full spread on ::t/spread, so the assign-from-bag widget can show
    the fixed labels, offer each slot its own pool, and enforce one-ability-per-spread. The slot
    options are keyed asi-<idx>-<ability> and carry their own level-ability-increase. Additive: nil/
-   empty -> {} (a race without :ability-increases is unchanged). See docs/kb/ability-increase-spreads.md."
+   empty -> {} (a race without :ability-increases is unchanged).
+
+   SAVE RIDER (opt-in): an increment may carry a trailing :save — [amount pool :save] — meaning 'also
+   grant proficiency in the save for this increment's ability'. Fixed: an unconditional save on that
+   stat; floating: the save rides the CHOSEN option (each slot option also grants its own save). This
+   reuses modifiers/saving-throws; default (no :save) is bump-only. For saves unrelated to a bump (a
+   different stat, or no bump at all), use the standalone :save-proficiencies field instead.
+   See docs/kb/ability-increase-spreads.md."
   [spread]
   (let [;; skip non-pair entries: the races sub maps this over EVERY homebrew race, so one malformed
         ;; entry must not break the whole list. nil/no field -> no increments (additive).
         increments (map-indexed
-                    (fn [idx [amount pool]]
+                    (fn [idx [amount pool :as incr]]
                       (let [keys (resolve-pool pool)]
-                        {:idx idx :amount amount :pool (vec keys) :fixed? (= 1 (count keys))}))
+                        {:idx idx :amount amount :pool (vec keys) :fixed? (= 1 (count keys))
+                         ;; trailing :save = grant a save proficiency on this increment's ability too
+                         :save? (= :save (nth incr 2 nil))}))
                     (filter vector? spread))
-        modifiers  (mapcat (fn [{:keys [amount pool]}] (modifiers/race-ability (first pool) amount))
+        modifiers  (mapcat (fn [{:keys [amount pool save?]}]
+                             (concat (modifiers/race-ability (first pool) amount)
+                                     (when save? [(modifiers/saving-throws nil (first pool))])))
                            (filter :fixed? increments))
         floating   (remove :fixed? increments)
-        slot-opts  (fn [{:keys [idx amount pool]}]
+        slot-opts  (fn [{:keys [idx amount pool save?]}]
                      (map (fn [k]
                             (t/option-cfg
-                             {:name      (str (:name (abilities-map k)) " " (common/bonus-str amount))
+                             {:name      (str (:name (abilities-map k)) " " (common/bonus-str amount)
+                                              (when save? " + save"))
                               :key       (keyword (str "asi-" idx "-" (clojure.core/name k)))
-                              :modifiers [(modifiers/level-ability-increase k amount)]}))
+                              :modifiers (cond-> [(modifiers/level-ability-increase k amount)]
+                                           save? (conj (modifiers/saving-throws nil k)))}))
                           pool))]
     {:modifiers  (vec modifiers)
      :selections (if (seq floating)
@@ -322,6 +335,51 @@
                              :options      (vec (mapcat slot-opts floating))})
                            ::t/spread (vec increments))]
                    [])}))
+
+(defn compile-save-proficiencies
+  "Compile a :save-proficiencies list ([[count pool] ...]) -> {:modifiers :selections}, INDEPENDENT of
+   any ability bump (the separate save tool — for saves on a different stat than a bump, or with no
+   bump at all). Single-stat pool -> a fixed save proficiency; multi-stat pool -> 'choose <count>
+   distinct saves from the pool' (one selection per entry, options keyed save-<idx>-<ability>, each
+   granting modifiers/saving-throws). Same terse [count pool] shape as the ASI spread — here the number
+   is HOW MANY saves, not a bonus. Cross-entry duplicates collapse harmlessly (saving-throws is a set).
+   Additive: nil/empty -> {}. See docs/kb/ability-increase-spreads.md."
+  [save-spread]
+  (let [entries   (map-indexed
+                   (fn [idx [n pool]]
+                     (let [keys (resolve-pool pool)]
+                       {:idx idx :n n :pool (vec keys) :fixed? (= 1 (count keys))}))
+                   (filter vector? save-spread))
+        modifiers (map (fn [{:keys [pool]}] (modifiers/saving-throws nil (first pool)))
+                       (filter :fixed? entries))
+        choices   (remove :fixed? entries)]
+    {:modifiers  (vec modifiers)
+     :selections (vec (for [{:keys [idx n pool]} choices]
+                        (t/selection-cfg
+                         {:name         "Saving Throw Proficiency"
+                          :key          (keyword (str "save-prof-" idx))
+                          :min          n
+                          :max          n
+                          :tags         #{:profs}
+                          :multiselect? true
+                          :different?   true
+                          :options      (vec (map (fn [k]
+                                                     (t/option-cfg
+                                                      {:name      (:name (abilities-map k))
+                                                       :key       (keyword (str "save-" idx "-" (clojure.core/name k)))
+                                                       :modifiers [(modifiers/saving-throws nil k)]}))
+                                                   pool))})))}))
+
+(defn compile-ability-grants
+  "The single hook a silo calls to turn a content entry's ability/save DATA into mechanics: merges the
+   ASI spread (:ability-increases, incl. the :save rider) and the standalone save tool
+   (:save-proficiencies) -> {:modifiers :selections}. Additive (an entry with neither is unchanged).
+   Used by plugin-races/subraces/backgrounds/subclasses and feat-option-from-cfg."
+  [{:keys [ability-increases save-proficiencies]}]
+  (let [ai (compile-ability-increases ability-increases)
+        sp (compile-save-proficiencies save-proficiencies)]
+    {:modifiers  (concat (:modifiers ai) (:modifiers sp))
+     :selections (concat (:selections ai) (:selections sp))}))
 
 (defn min-ability [ability-kw min-value]
   (fn [c] (>= (ability-kw (character/ability-values c)) min-value)))
@@ -3554,6 +3612,7 @@
            path-prereqs
            props
            ability-increases
+           save-proficiencies
            edit-event
            grant]}]                       ; ← BRIDGE PROTOTYPE: generic grant {:from <pool> :choose N}
   ;; ASI dual-format reader (D34 feat-path reconciliation): a feat's :ability-increases is read by
@@ -3565,23 +3624,26 @@
   ;;               place it lives. Released feat data keeps working verbatim.
   ;; When the spread path is used, the set-based ASI is suppressed (pass #{}) but feat-modifiers'/
   ;; feat-selections' OTHER work (props mechanics, the trait, prop choices) still runs.
+  ;; The standalone :save-proficiencies tool (independent of the bump) is wired here too, via the same
+  ;; compile-save-proficiencies the other silos use — so a feat can grant saves with no ASI at all.
   (let [spread? (vector? ability-increases)
         legacy-ai (if spread? #{} ability-increases)
         {ai-mods :modifiers ai-sels :selections} (when spread?
                                                     (compile-ability-increases ability-increases))
+        {sp-mods :modifiers sp-sels :selections} (compile-save-proficiencies save-proficiencies)
         feat-mods (concat (feat-modifiers key
                                           name
                                           description
                                           props
                                           legacy-ai)
-                          ai-mods)
+                          ai-mods sp-mods)
         feat-selections (concat (feat-selections language-map
                                                  spells-map
                                                  spell-lists
                                                  custom-and-standard-weapons
                                                  props
                                                  legacy-ai)
-                                ai-sels)
+                                ai-sels sp-sels)
         ;; BRIDGE PROTOTYPE: a feat's DATA can grant a choice from any pool via the generic
         ;; :grant key. Same hook every other bucket would use — see grant-selection. The same
         ;; one line, added to background/race/subclass assembly fns, gives them grants too.
