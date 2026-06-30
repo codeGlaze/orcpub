@@ -6326,18 +6326,30 @@
        sps))
      [:button {:on-click #(set-sp! (conj sps [1 :any]))} "Add save"]]))
 
+(defn builder-notes
+  "ONE render for a list of authoring problems in a builder form, so every surface shows item-level
+   feedback the same way. Producers stay separate and just hand it a seq of human-readable strings:
+     - simple-content-builder ← bf/validate-fields   (:error)
+     - selection-builder summary ← duplicate/empty-name checks (:error)
+     - save-coverage-notes ← opt/save-coverage-warnings   (:advisory)
+   :severity :error = blocking, 'Fix before saving:' + red list; :advisory = non-blocking, italic ⚠
+   lines. Empty seq → nothing. (Per-row highlighting stays bespoke to the producer — this is summary
+   only.)"
+  [problems & [{:keys [severity] :or {severity :advisory}}]]
+  (when (seq problems)
+    (if (= severity :error)
+      [:div.w-100-p.m-t-10
+       [:div.f-w-b.red.m-b-5 "Fix before saving:"]
+       (into [:ul] (map (fn [p] ^{:key p} [:li.red p]) problems))]
+      [:div.m-b-20
+       (doall (map-indexed (fn [i p] ^{:key i} [:div.f-s-12.i.m-b-5.red "⚠ " p]) problems))])))
+
 (defn save-coverage-notes
   "Authoring-time warn-and-explain: surfaces redundant/overlapping save grants the creator has authored
    on THIS content entry (opt/save-coverage-warnings). Guidance only — duplicates are harmless at
-   runtime (saves are a set); this just flags wasted authoring/picks. Renders nothing when clean."
+   runtime (saves are a set); this just flags wasted authoring/picks. Renders via builder-notes."
   [item]
-  (let [warns (opt/save-coverage-warnings item)]
-    (when (seq warns)
-      [:div.m-b-20
-       (doall
-        (map-indexed
-         (fn [i w] ^{:key i} [:div.f-s-12.i.m-b-5.red "⚠ " w])
-         warns))])))
+  [builder-notes (opt/save-coverage-warnings item) {:severity :advisory}])
 
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
@@ -6570,22 +6582,13 @@
        [:button.form-button
         {:on-click #(dispatch [::selections/add-option])}
         "Add Option"]]
-      ;; Summary warning for duplicate names
-      (when has-dupes?
-        [:div.p-10.m-b-10.red
-         {:style {:background-color "rgba(255,0,0,0.1)"
-                  :border "1px solid red"
-                  :border-radius "4px"}}
-         [:span.f-w-b "Duplicate names found: "]
-         [:span (s/join ", " dupe-names)]
-         [:div.f-s-12 "Each option must have a unique name. Rename duplicates before saving."]])
-      ;; Warning for empty option names
-      (when has-empty?
-        [:div.p-10.m-b-10.red
-         {:style {:background-color "rgba(255,0,0,0.1)"
-                  :border "1px solid red"
-                  :border-radius "4px"}}
-         "One or more options have no name. All options must be named."])
+      ;; Summary feedback via the shared builder-notes; per-row highlighting stays bespoke below.
+      [builder-notes
+       (cond-> []
+         has-dupes? (conj (str "Duplicate names: " (s/join ", " dupe-names)
+                               ". Each option must have a unique name."))
+         has-empty? (conj "One or more options have no name. All options must be named."))
+       {:severity :error}]
       [:div
        (doall
         (map-indexed
@@ -6711,10 +6714,7 @@
        (into [:div.w-100-p]
              ;; a field spec (map) is rendered declaratively; raw hiccup (vector) passes through
              (map (fn [f] (if (map? f) (render-builder-field item set-prop f) f)) extra-fields)))
-     (when (seq problems)
-       [:div.w-100-p.m-t-10
-        [:div.f-w-b.red.m-b-5 "Fix before saving:"]
-        (into [:ul] (map (fn [p] [:li.red p]) problems))])]))
+     [builder-notes problems {:severity :error}]]))
 
 (defn boon-builder []
   (simple-content-builder ::classes/boon-builder-item ::classes/set-boon-prop))

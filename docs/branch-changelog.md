@@ -101,6 +101,12 @@ characterization tests.
   and rendered-UI E2E: authoring, pool restriction, distinctness, multi-silo containment, and a full
   authored → export → cleared-browser → import → use round-trip (`test/e2e/*asi*`).
 
+- **`builder-notes` consolidation** — rule-of-three: three builder surfaces each rendered an
+  item-problem list differently (`simple-content-builder`/`validate-fields`, `selection-builder`'s
+  name checks, save-coverage). Unified the *render* into one `builder-notes [problems {:severity}]`
+  component (producers stay separate; per-row highlighting stays bespoke). Documented in
+  `content-extensibility-direction.md` for discovery.
+
 ### Documentation
 
 - **Decision log + roadmap** (`docs/kb/`) — the canonical D-log (prototype-then-converge, one

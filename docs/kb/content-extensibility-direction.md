@@ -211,6 +211,12 @@ for complex fields + the field→mechanics mapping** (mostly the existing `:prop
 a bespoke form per type. (Spec-from-field-schema is the next collapse — a field schema would also
 generate the `s/keys` spec, shrinking the table's one remaining hand-written row.)
 
+**Reusable builder-UI widgets (`views.cljs`) — reach for these before hand-rolling:**
+- `simple-content-builder` — Name/Source/Description + declared `extra-fields`.
+- `optional-builder-section [label has-content? body]` — collapsed-by-default toggle for non-standard fields.
+- `ability-increase-choices` / `save-proficiency-choices` — silo-generic `(item, setter)` editors for the ASI spread / standalone saves (see `ability-increase-spreads.md`).
+- **`builder-notes [problems {:severity :error|:advisory}]`** — the ONE place item-level feedback is rendered (`:error` = blocking "Fix before saving:" list; `:advisory` = ⚠ guidance). Producers stay separate and hand it a seq of strings (`bf/validate-fields`, selection-builder's name checks, `opt/save-coverage-warnings`); per-row highlighting stays bespoke. Add new builder feedback here, don't re-style.
+
 ### Draconic-ancestry builder — DONE end-to-end (`0aca6113`)
 A user can now author a draconic ancestry in-app; it stores into `::e5/draconic-ancestries`
 (the pool dragonborn grants from), exports, reimports, and a character's choice survives
