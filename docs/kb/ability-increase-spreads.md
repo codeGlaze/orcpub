@@ -73,6 +73,12 @@ Both are compiled by `opt5e/compile-save-proficiencies` / the rider branch of
 `compile-ability-increases`, and merged onto content by `compile-ability-grants` (the single silo hook
 — see below). Cross-entry duplicate saves collapse harmlessly (`?saving-throws` is a set).
 
+**Authoring guidance (warn-and-explain).** Because duplicates collapse silently, the builder calls
+`opt5e/save-coverage-warnings` (pure, over the entry's own data) and shows a note when a creator
+authors redundant/overlapping save coverage: the same stat granted a fixed save twice ("the duplicate
+has no effect"), a fixed save also reachable from a choice pool, or two choice pools that overlap ("a
+player could pick the same save in both and waste one"). Guidance only — it changes no mechanics.
+
 ## How it compiles (`opt5e/compile-ability-increases`, `options.cljc`)
 
 Input: the spread. Output: `{:modifiers [...] :selections [...]}`. The race/subrace/**background**/
@@ -126,8 +132,9 @@ uncluttered) but opens when content exists; data only persists if you fill it in
 `save-proficiency-choices` (`views.cljs`) is the companion silo-generic widget for the standalone
 `:save-proficiencies` field — rows of "How many" + "From" emitting the terse `[count pool]` entries. It
 sits alongside `ability-increase-choices` in the race/background builders, and inside the same
-non-standard toggle for subclasses. *(Pending: a "choose between spreads" option and explicit-set
-authoring in the form.)*
+non-standard toggle for subclasses. Below both, `save-coverage-notes` renders the
+`save-coverage-warnings` guidance (above) so redundant/overlapping save authoring is flagged-and-
+explained as you build. *(Pending: a "choose between spreads" option and explicit-set authoring.)*
 
 ## Backward compatibility (D9)
 
@@ -186,9 +193,10 @@ containers may each put their +1 on STR, and the two stack (STR 15 → 17). Prov
   round-trip through the real UI. `background-asi.js` / `subclass-asi-toggle.js` — the other silos +
   the opt-in toggle. `multi-container-asi.js` — two silos' ASIs stay contained and stack (above).
   `save-grants-authoring.js` — the "+ save prof" toggle and the standalone save widget emit the terse
-  data through the real selects/checkbox. `save-grants-use.js` — in the rendered builder, the rider's
-  save rides the chosen bump (DEX save flips on the pick) and the standalone choice (on the
-  Proficiencies tab) flips the WIS save.
+  data through the real selects/checkbox, and authoring an overlap surfaces the warn-and-explain note.
+  `save-grants-use.js` — in the rendered builder, the rider's save rides the chosen bump (DEX save flips
+  on the pick) and the standalone choice (on the Proficiencies tab) flips the WIS save. The
+  `save-coverage-warnings` helper itself is unit-tested in `ability_increase_grant_test`.
   `multi-container-roundtrip.js` — unbroken chain: a race AND a background are **authored through
   their real builder forms** (driving the `<select>` coercion) into one pack, then survive **export →
   cleared browser (`localStorage.clear()`) → re-import**, both spreads intact, then both render,

@@ -42,7 +42,9 @@ characterization tests.
   opt-in so the default stays bump-only), and a standalone `:save-proficiencies [[count pool]]` field
   for saves on a different stat than the bump, or with no bump at all (fixed, or "choose N distinct
   saves from a pool"). Wired into every silo through a single merged hook (`compile-ability-grants`):
-  races, subraces, backgrounds, subclasses, and feats.
+  races, subraces, backgrounds, subclasses, and feats. Same-stat overlap collapses to one proficiency
+  (set semantics — no double bonus); the builder runs `save-coverage-warnings` over the entry being
+  authored and shows an inline warn-and-explain note for redundant/overlapping save coverage.
 
 - **Feats consume ASI spreads (dual-format reader)**
   `feat-option-from-cfg` reads `:ability-increases` by shape: a vector is the new cross-silo spread

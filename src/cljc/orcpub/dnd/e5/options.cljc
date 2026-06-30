@@ -381,6 +381,39 @@
     {:modifiers  (concat (:modifiers ai) (:modifiers sp))
      :selections (concat (:selections ai) (:selections sp))}))
 
+(defn save-coverage-warnings
+  "Authoring-time guidance ONLY (no mechanical effect): scan a content entry's save grants — the
+   :ability-increases :save riders and the standalone :save-proficiencies — for redundant or
+   overlapping coverage, so the builder form can warn-and-explain. Save proficiencies collapse at
+   runtime (a set), so duplicates are harmless; these notes just flag wasted authoring/picks. Looks at
+   the entry's OWN data only (no class/character context). Returns a vector of strings (empty = clean)."
+  [{:keys [ability-increases save-proficiencies]}]
+  (let [;; every save-GRANTING source, as a set of namespaced ability keys (single = fixed, many = choice)
+        sources (concat (for [[_ pool sv] (filter vector? ability-increases) :when (= :save sv)]
+                          (resolve-pool pool))
+                        (for [[_ pool] (filter vector? save-proficiencies)]
+                          (resolve-pool pool)))
+        nm      (fn [k] (s/upper-case (clojure.core/name k)))
+        fixed   (->> sources (filter #(= 1 (count %))) (map first))      ; fixed save stats
+        choices (->> sources (filter #(> (count %) 1)))                  ; choice pools
+        dup-fixed       (->> (frequencies fixed) (filter #(> (val %) 1)) (map key) distinct)
+        fixed-in-choice (distinct (for [f (distinct fixed) c choices :when (contains? c f)] f))
+        choice-overlap? (boolean (some (fn [[a b]] (seq (sets/intersection a b)))
+                                       (for [i (range (count choices))
+                                             j (range (inc i) (count choices))]
+                                         [(nth choices i) (nth choices j)])))]
+    (cond-> []
+      (seq dup-fixed)
+      (conj (str "The " (s/join ", " (map nm dup-fixed)) " save"
+                 (when (> (count dup-fixed) 1) "s") " "
+                 (if (> (count dup-fixed) 1) "are" "is")
+                 " granted more than once here — the duplicate has no effect."))
+      (seq fixed-in-choice)
+      (conj (str "A player could pick " (s/join ", " (map nm fixed-in-choice))
+                 " from a save choice here, duplicating a save this content already grants outright."))
+      choice-overlap?
+      (conj "Two save choices here draw from overlapping pools — a player could pick the same save in both and waste one."))))
+
 (defn min-ability [ability-kw min-value]
   (fn [c] (>= (ability-kw (character/ability-values c)) min-value)))
 

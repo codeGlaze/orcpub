@@ -64,6 +64,13 @@ const lsPlugins=async pg=>pg.evaluate(()=>localStorage.getItem('plugins')||'');
   check('standalone saves persisted as [[1 :mental]]', /:save-proficiencies \[\[1 :mental\]\]/.test(ls),
         (/:save-proficiencies [^\]]*\]\]/.exec(ls)||['(none)'])[0].slice(0,40));
 
+  // 3) WARN-AND-EXPLAIN: martial save-rider + a mental standalone do NOT overlap (no warning yet).
+  //    Switch the standalone From -> Martial: now both draw from the martial pool -> a warning appears.
+  check('no coverage warning while pools are disjoint (martial vs mental)', !/overlapping pools/.test(await pg.locator('#app').innerText()));
+  await set(spRow.locator('select').nth(1),'Martial (Str/Dex/Con)');
+  await pg.waitForTimeout(300);
+  check('authoring an overlap surfaces the warn-and-explain note', /overlapping pools/.test(await pg.locator('#app').innerText()));
+
   console.log('PAGEERRORS:', errs.join(' | ')||'none');
   const pass=results.every(Boolean)&&errs.length===0;
   console.log(pass?'E2E PASS — save rider + standalone save authoring':'E2E FAIL');

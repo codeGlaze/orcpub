@@ -250,6 +250,36 @@
       (is (contains? saves S) "STR save from the rider")
       (is (contains? saves W) "WIS save from the standalone tool (a stat that got no bump)"))))
 
+;; ─── Authoring-time save-coverage guidance (no mechanics; the builder warns-and-explains) ──────────
+(deftest save-coverage-clean-when-no-overlap
+  (testing "distinct fixed + a non-overlapping choice -> no warnings"
+    (is (empty? (opt5e/save-coverage-warnings
+                 {:ability-increases [[1 :str :save]] :save-proficiencies [[1 :con] [1 :mental]]})))))
+
+(deftest save-coverage-flags-duplicate-fixed
+  (testing "a fixed rider save + a fixed standalone save on the SAME stat -> a redundancy warning"
+    (let [w (opt5e/save-coverage-warnings
+             {:ability-increases [[1 :str :save]] :save-proficiencies [[1 :str]]})]
+      (is (= 1 (count w)))
+      (is (re-find #"STR save is granted more than once" (first w))))))
+
+(deftest save-coverage-flags-fixed-reachable-from-a-choice
+  (testing "a fixed CON save + a choice pool that CONTAINS con -> 'could pick CON and duplicate' note"
+    (let [w (opt5e/save-coverage-warnings
+             {:save-proficiencies [[1 :con] [1 :martial]]})]   ; martial = str/dex/con
+      (is (some #(re-find #"could pick CON" %) w)))))
+
+(deftest save-coverage-flags-overlapping-choice-pools
+  (testing "two choice pools that overlap (rider martial + standalone any) -> overlap note"
+    (let [w (opt5e/save-coverage-warnings
+             {:ability-increases [[1 :martial :save]] :save-proficiencies [[1 :any]]})]
+      (is (some #(re-find #"overlapping pools" %) w)))))
+
+(deftest save-coverage-ignores-non-save-riders
+  (testing "an ASI increment WITHOUT :save is not a save source (no false overlap with a save choice)"
+    (is (empty? (opt5e/save-coverage-warnings
+                 {:ability-increases [[1 :martial]] :save-proficiencies [[1 :wis]]})))))
+
 ;; Layer 5 (character half): the floating pick survives save/load AND still applies on rebuild.
 (deftest character-floating-choice-survives-save-load
   (let [spread [[2 :cha] [1 :martial]]

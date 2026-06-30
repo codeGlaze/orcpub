@@ -5961,7 +5961,7 @@
                 (range 2)))]])])
        (range 1 6)))]]])
 
-(declare ability-increase-choices save-proficiency-choices optional-builder-section)
+(declare ability-increase-choices save-proficiency-choices save-coverage-notes optional-builder-section)
 
 (defn subclass-builder []
   (let [subclass @(subscribe [::classes/subclass-builder-item])
@@ -5996,7 +5996,8 @@
       (or (seq (:ability-increases subclass)) (seq (:save-proficiencies subclass)))
       [:div
        [ability-increase-choices subclass #(dispatch [::classes/set-subclass-prop :ability-increases %])]
-       [save-proficiency-choices subclass #(dispatch [::classes/set-subclass-prop :save-proficiencies %])]]]
+       [save-proficiency-choices subclass #(dispatch [::classes/set-subclass-prop :save-proficiencies %])]
+       [save-coverage-notes subclass]]]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
@@ -6325,6 +6326,19 @@
        sps))
      [:button {:on-click #(set-sp! (conj sps [1 :any]))} "Add save"]]))
 
+(defn save-coverage-notes
+  "Authoring-time warn-and-explain: surfaces redundant/overlapping save grants the creator has authored
+   on THIS content entry (opt/save-coverage-warnings). Guidance only — duplicates are harmless at
+   runtime (saves are a set); this just flags wasted authoring/picks. Renders nothing when clean."
+  [item]
+  (let [warns (opt/save-coverage-warnings item)]
+    (when (seq warns)
+      [:div.m-b-20
+       (doall
+        (map-indexed
+         (fn [i w] ^{:key i} [:div.f-s-12.i.m-b-5.red "⚠ " w])
+         warns))])))
+
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
     [:div.p-20.main-text-color
@@ -6420,7 +6434,8 @@
               :on-change #(dispatch [::races/set-race-ability-increase key %])}]])
          opt/abilities))]
       [ability-increase-choices race #(dispatch [::races/set-race-path-prop [:ability-increases] %])]
-      [save-proficiency-choices race #(dispatch [::races/set-race-path-prop [:save-proficiencies] %])]]
+      [save-proficiency-choices race #(dispatch [::races/set-race-path-prop [:save-proficiencies] %])]
+      [save-coverage-notes race]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div.m-b-20
@@ -6497,6 +6512,7 @@
          :on-change #(dispatch [::bg/set-background-prop :help %])}]]
      [:div [ability-increase-choices background #(dispatch [::bg/set-background-prop :ability-increases %])]]
      [:div [save-proficiency-choices background #(dispatch [::bg/set-background-prop :save-proficiencies %])]]
+     [:div [save-coverage-notes background]]
      [:div [background-skill-proficiencies background]]
      [:div [background-languages background]]
      [:div [background-tool-proficiencies background]]
