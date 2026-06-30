@@ -49,8 +49,9 @@ characterization tests.
   (routed through `compile-ability-increases`, like the other silos), a set is the legacy feat format
   (`#{:str :con}` + the optional `:saves?` save-proficiency marker). The legacy path is left untouched —
   released feat data keeps working verbatim, including saves — and homebrew feats can now grant
-  fixed/floating/grouped spreads. (Full convergence onto one mechanism is deferred until the spread can
-  model saves; tracked in the backfill ledger.)
+  fixed/floating/grouped spreads. (The spread now models saves via the `:save` rider above, so the only
+  remaining step is migrating the *released* feat `:saves?` set onto it — a deliberate data migration
+  tracked in the backfill ledger, not a missing capability.)
 
 - **Draconic Ancestry homebrew builder** (`0aca6113`)
   End-to-end builder for a homebrew draconic ancestry, built entirely from a field schema.

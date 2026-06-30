@@ -118,13 +118,23 @@ loops because decisions lived in two parallel trackers; this is the one that sup
     footgun → `:typed?` dropdown (D32, `dropdown-value-coercion.md`); "data in a sub ≠ rendered in the
     builder" (the builder couples ability-increase widgets to `:asi`); terse export data (D33).
     Backward-compat: races never had `:ability-increases`, so released data is unaffected.
-    Silos wired: race, subrace, **background**, **subclass** (all rendered-UI-proven —
+    Silos wired: race, subrace, **background**, **subclass**, **feat** (all rendered-UI-proven —
     `background-asi.js`, `subclass-asi-toggle.js`); the authoring widget (`ability-increase-choices`) is
     silo-generic. Subclass ASI (non-standard) is authored behind a reusable `optional-builder-section`
     toggle (collapsed by default → keeps builders uncluttered; the pattern for other opt-in fields).
-    Classes keep their own `:ability-increase-levels` mechanism. **Remaining (optional):** feat-path
-    reconciliation (feats already grant ASI via a *set* `#{:str :con}`; converging them needs a
-    back-compat reader — D34/backfill-ledger); "choose between spreads"; explicit-set authoring.
+    Classes keep their own `:ability-increase-levels` mechanism. Multi-silo containment (a race + a
+    background each granting an ASI stay bound to their own source and stack) is proven in
+    `multi-container-asi.js` + `multi-container-roundtrip.js` (export→clear→import→use).
+    **Feat-path reconciliation — DONE:** `feat-option-from-cfg` reads `:ability-increases` by shape — a
+    set is the legacy feat format (`#{:str :con}` + `:saves?`, untouched), a vector is the spread. The
+    one feature the spread can't model is the feat `:saves?` coupling — handled by the save tools below.
+    **Save proficiencies — DONE:** an opt-in `:save` rider on a spread increment (`[1 :martial :save]`,
+    the save rides the chosen ability) + a standalone `:save-proficiencies [[count pool]]` tool (saves
+    independent of any bump); both compile to one `modifiers/saving-throws` primitive, merged into every
+    silo via `compile-ability-grants`. Rendered-proven (`save-grants-authoring.js`, `save-grants-use.js`).
+    Same-stat overlap collapses to one proficiency (set semantics — no double bonus). **Remaining
+    (optional):** "choose between spreads"; explicit-set authoring; migrating the legacy feat `:saves?`
+    set onto the rider (backfill-ledger).
 - **B. Mechanism layers** (lift text → mechanical): **B1** structured/parameterized effect & feature
   records (keystone — `compile-feature` is the proven start); **B2** conditions (build-state auto /
   play-state toggle, on the verified `equipped?` substrate); **B3** resource counters as data (incl. the
