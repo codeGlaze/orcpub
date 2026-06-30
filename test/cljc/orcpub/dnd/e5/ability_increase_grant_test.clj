@@ -276,9 +276,11 @@
       (is (some #(re-find #"overlapping pools" %) w)))))
 
 (deftest save-coverage-ignores-non-save-riders
-  (testing "an ASI increment WITHOUT :save is not a save source (no false overlap with a save choice)"
+  (testing "an ASI increment WITHOUT :save is not a save source: a +1 WIS bump (no :save) alongside a
+            fixed WIS save must NOT read as a duplicate. (If the :save guard regressed, the bump would
+            be counted as a second WIS save and this would warn — so the SAME stat is used on purpose.)"
     (is (empty? (opt5e/save-coverage-warnings
-                 {:ability-increases [[1 :martial]] :save-proficiencies [[1 :wis]]})))))
+                 {:ability-increases [[1 :wis]] :save-proficiencies [[1 :wis]]})))))
 
 ;; Layer 5 (character half): the floating pick survives save/load AND still applies on rebuild.
 (deftest character-floating-choice-survives-save-load
