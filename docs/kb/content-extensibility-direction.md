@@ -212,6 +212,14 @@ a bespoke form per type. (Spec-from-field-schema is the next collapse — a fiel
 generate the `s/keys` spec, shrinking the table's one remaining hand-written row.)
 
 **Reusable builder-UI widgets (`views.cljs`) — reach for these before hand-rolling:**
+- `render-builder-field` — one declarative field → widget, dispatching `set-prop`. Types: `:enum`
+  (index round-trip so qualified kws survive `<select>`), `:number`, `:text`, **`:boolean`**. The
+  `:boolean` toggle is **nil-immune by construction**: it reads `(true? v)` (only literal true = on, so
+  nil/absent/garbage read as off) and writes `bf/toggle-next` (always a real boolean), so no click
+  sequence or malformed prior value can store nil — the `false → nil on repeated clicking` class of
+  bug. Author boolean DATA fields through this, not a hand-rolled checkbox. (Set-membership toggles
+  like the feat `:saves?` marker or the `:save` rider are NOT boolean fields — they store
+  presence/absence, a different shape, and aren't at this risk.)
 - `simple-content-builder` — Name/Source/Description + declared `extra-fields`.
 - `optional-builder-section [label has-content? body]` — collapsed-by-default toggle for non-standard fields.
 - `ability-increase-choices` / `save-proficiency-choices` — silo-generic `(item, setter)` editors for the ASI spread / standalone saves (see `ability-increase-spreads.md`).

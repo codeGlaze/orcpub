@@ -107,6 +107,14 @@ characterization tests.
   component (producers stay separate; per-row highlighting stays bespoke). Documented in
   `content-extensibility-direction.md` for discovery.
 
+- **Nil-immune `:boolean` field type** — generated-UI hardening against the `false → nil on repeated
+  clicking` toggle bug. `render-builder-field` gains a `:boolean` type that reads `(true? v)` and
+  writes `bf/toggle-next` (always a literal boolean — never nil, regardless of prior value or click
+  sequence); `field-value-pred` gains `:boolean → boolean?` so a present non-boolean is rejected by
+  the shared validator. Boolean data fields routed through this can't emit malformed nil by
+  construction. Proven by `builder_fields_test` (toggle-next always boolean; a 50-click hammer never
+  yields nil; the validator rejects stringy/numeric booleans).
+
 ### Documentation
 
 - **Decision log + roadmap** (`docs/kb/`) — the canonical D-log (prototype-then-converge, one
