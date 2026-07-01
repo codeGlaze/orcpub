@@ -213,13 +213,14 @@ generate the `s/keys` spec, shrinking the table's one remaining hand-written row
 
 **Reusable builder-UI widgets (`views.cljs`) — reach for these before hand-rolling:**
 - `render-builder-field` — one declarative field → widget, dispatching `set-prop`. Types: `:enum`
-  (index round-trip so qualified kws survive `<select>`), `:number`, `:text`, **`:boolean`**. The
-  `:boolean` toggle is **nil-immune by construction**: it reads `(true? v)` (only literal true = on, so
-  nil/absent/garbage read as off) and writes `bf/toggle-next` (always a real boolean), so no click
-  sequence or malformed prior value can store nil — the `false → nil on repeated clicking` class of
-  bug. Author boolean DATA fields through this, not a hand-rolled checkbox. (Set-membership toggles
-  like the feat `:saves?` marker or the `:save` rider are NOT boolean fields — they store
-  presence/absence, a different shape, and aren't at this risk.)
+  (index round-trip so qualified kws survive `<select>`), `:number`, `:text`. **A `:boolean` type is
+  pending, not built here on purpose:** toggle nil-safety is owned by `common/toggle-in` /
+  `common/toggle-flag` (path-safe, collection-preserving, self-healing — they fix the real bug: a
+  toggle path landing on a MAP did `(not map)` → `false`, collapsing the collection) + export cleanup
+  via `strip-export-blanks`, on branch `claude/custom-class-source-error-2k5ykd`. When that lands, add
+  `:boolean` here routing THROUGH that helper — do **not** reintroduce a parallel toggle fn. (The
+  feat `:saves?` marker and the `:save` rider are set-membership, not boolean fields, so they're a
+  different shape and not at this risk.)
 - `simple-content-builder` — Name/Source/Description + declared `extra-fields`.
 - `optional-builder-section [label has-content? body]` — collapsed-by-default toggle for non-standard fields.
 - `ability-increase-choices` / `save-proficiency-choices` — silo-generic `(item, setter)` editors for the ASI spread / standalone saves (see `ability-increase-spreads.md`).

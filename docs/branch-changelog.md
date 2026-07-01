@@ -107,13 +107,12 @@ characterization tests.
   component (producers stay separate; per-row highlighting stays bespoke). Documented in
   `content-extensibility-direction.md` for discovery.
 
-- **Nil-immune `:boolean` field type** — generated-UI hardening against the `false → nil on repeated
-  clicking` toggle bug. `render-builder-field` gains a `:boolean` type that reads `(true? v)` and
-  writes `bf/toggle-next` (always a literal boolean — never nil, regardless of prior value or click
-  sequence); `field-value-pred` gains `:boolean → boolean?` so a present non-boolean is rejected by
-  the shared validator. Boolean data fields routed through this can't emit malformed nil by
-  construction. Proven by `builder_fields_test` (toggle-next always boolean; a 50-click hammer never
-  yields nil; the validator rejects stringy/numeric booleans).
+- **Toggle nil-safety — deferred to the shared helper (no parallel mechanism).** The generated-UI
+  `:boolean` field is intentionally NOT built here: toggle nil-safety is owned by `common/toggle-in` /
+  `common/toggle-flag` (+ `strip-export-blanks`) on `claude/custom-class-source-error-2k5ykd`, which
+  fixes the real root cause (a toggle path landing on a map collapsed the collection). A note in
+  `builder_fields.cljc` / `render-builder-field` records that the `:boolean` type is added later
+  routing through that helper.
 
 ### Documentation
 

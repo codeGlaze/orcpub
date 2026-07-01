@@ -22,23 +22,15 @@
    ten) is rejected — validation the old hand-written specs never did."
   [{:keys [type options]}]
   (case type
-    :enum    (set (map :value options))
-    :number  number?
-    :text    string?
-    ;; a present boolean field MUST be a real boolean — catches a nil/absent value that leaked in as
-    ;; though set (the 'false became nil on repeated clicking' class of bug). Off = absent or false.
-    :boolean boolean?
+    :enum   (set (map :value options))
+    :number number?
+    :text   string?
     (constantly true)))
 
-(defn toggle-next
-  "Next value for a boolean toggle. ALWAYS a literal boolean, never nil — this is what designs the
-   'false → nil on repeated clicking' bug out: reads defensively (only literal `true` is 'on', so
-   nil/absent/garbage read as off) and returns `(not …)`, which is always `true`/`false`. So no click
-   sequence, stale read, or malformed prior value can produce nil. Every generated toggle (the
-   render-builder-field :boolean case) writes through this; hand-rolled per-field toggles are what let
-   nil slip in, so route boolean fields through the field schema instead."
-  [v]
-  (not (true? v)))
+;; NOTE: boolean/toggle nil-safety is owned by `common/toggle-in` / `common/toggle-flag` (path-safe,
+;; collection-preserving, self-healing) + `strip-export-blanks`, on branch
+;; claude/custom-class-source-error-2k5ykd. When that lands, add a `:boolean` field type here + in
+;; render-builder-field that ROUTES THROUGH that helper — do NOT reintroduce a parallel toggle fn.
 
 (defn fields->spec
   "Build a save-validation spec (a predicate) from a field schema. The universal

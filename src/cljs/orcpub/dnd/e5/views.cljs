@@ -6653,7 +6653,8 @@
    to the right type (so an :enum stores its keyword, not the dropdown's raw string — the bug
    that shipped a broken breath weapon). Field spec:
      :key     a single key or a PATH vector into the item (e.g. [:breath-weapon :damage-type])
-     :type    :enum | :number | :text | :boolean
+     :type    :enum | :number | :text   (a :boolean type is pending — see builder_fields.cljc note;
+                                          it must route through common/toggle-in, not a parallel fn)
      :label   field label
      :options (:enum) [{:value <stored value, any type> :title <label>} …]
      :required? (optional) shows a required marker; enforced by the save spec / validate-fields
@@ -6673,11 +6674,6 @@
                               :on-change #(dispatch [set-prop path (:value (nth options (js/parseInt %)))])}])
          :number [number-field {:value v
                                 :on-change #(dispatch [set-prop path (when (seq %) (js/parseInt %))])}]
-         ;; nil-immune toggle: read defensively (true? — only literal true is on) and write via
-         ;; bf/toggle-next, which always returns a real boolean. No click sequence or malformed prior
-         ;; value can store nil. This is the ONE place boolean fields are authored — don't hand-roll.
-         :boolean [comps/labeled-checkbox "" (true? v) false   ; label already shown as the field heading
-                   #(dispatch [set-prop path (bf/toggle-next v)])]
          ;; :text
          [comps/input-field :input v #(dispatch [set-prop path %]) {:class-name "input"}])])))
 
