@@ -151,9 +151,12 @@ Verified against the merge-base (released data):
   branch is byte-for-byte the old behavior), and new feats gain the spread's richness. No silent
   migration — the reader supports both formats side by side.
 - **No migration shim** — there's nothing released to migrate (races never had the field, and the
-  `{:ability}`/`{:select}` shapes only ever existed on this branch pre-convergence). `compile` just
-  skips non-`[amount pool]` entries (`filter vector?`) so that one malformed homebrew race can't throw
-  and break the whole race list — that fan-out crash-safety is the only defensiveness needed.
+  `{:ability}`/`{:select}` shapes only ever existed on this branch pre-convergence). `compile` skips
+  junk entries (`pool-entry?`: a vector with a numeric amount and a keyword/collection pool) so that
+  one malformed homebrew entry can't throw and break the whole race/background list at the sub's
+  fan-out. (This tightened from a bare `filter vector?` after a messy-pak E2E surfaced that a nil pool
+  — e.g. `[:bad]` / `[]` — reached `resolve-pool` and NPE'd on `(name nil)`.) That fan-out crash-safety
+  is the only defensiveness needed; a creator sees bad input in the authoring form, not here.
 - **Saved characters are unaffected** — built-in racial ASI (Half-Elf etc.), class ASI, and feat
   ASI use the unchanged increment widget / mechanisms; the new `ability-bag-assigner` only renders
   selections carrying `::t/spread`, which only this compile produces.
@@ -197,6 +200,9 @@ containers may each put their +1 on STR, and the two stack (STR 15 → 17). Prov
   `save-grants-use.js` — in the rendered builder, the rider's save rides the chosen bump (DEX save flips
   on the pick) and the standalone choice (on the Proficiencies tab) flips the WIS save. The
   `save-coverage-warnings` helper itself is unit-tested in `ability_increase_grant_test`.
+  `messy-pak-survives.js` — a homebrew pack with a deliberately-malformed race (junk ASI/save entries)
+  loads and the good race still works, proving one bad entry doesn't crash the pack (guardrail: prove
+  in the real app against realistically-messy content, not happy-path).
   `multi-container-roundtrip.js` — unbroken chain: a race AND a background are **authored through
   their real builder forms** (driving the `<select>` coercion) into one pack, then survive **export →
   cleared browser (`localStorage.clear()`) → re-import**, both spreads intact, then both render,

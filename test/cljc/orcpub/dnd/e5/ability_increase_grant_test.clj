@@ -92,6 +92,16 @@
       (is (= {:modifiers [] :selections []} (opt5e/compile-ability-increases x))
           (str "no-op for: " (pr-str x))))))
 
+(deftest compile-tolerates-messy-entries-around-good-ones
+  (testing "a MESSY pak (junk strings, bad amounts, empty vectors mixed with a valid increment)
+            compiles without throwing and the good increment still survives — guardrail: don't let one
+            bad entry break the list, and don't silently drop the good data around it"
+    (let [{:keys [selections]} (opt5e/compile-ability-increases [[1 :martial :save] "junk" [:bad] []])]
+      (is (some #(= :asi (::t/key %)) selections) "the valid [1 :martial :save] still produced its slot"))
+    (let [sp (opt5e/compile-save-proficiencies [[1 :con] "x" [:bad]])]
+      (is (map? sp) "save-proficiencies compile returns a result rather than throwing")
+      (is (pos? (count (:modifiers sp))) "the valid fixed CON save survived the junk around it"))))
+
 ;; ─── Feat-path reconciliation (D34): feat-option-from-cfg reads BOTH formats ────────────────────
 ;; A feat's :ability-increases is read by SHAPE: a vector is the new cross-silo spread (routed through
 ;; compile-ability-increases); a set is the LEGACY feat format (+1 to one stat, optional :saves?

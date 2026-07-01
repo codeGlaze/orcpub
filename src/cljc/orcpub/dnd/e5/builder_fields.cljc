@@ -27,10 +27,18 @@
     :text   string?
     (constantly true)))
 
-;; NOTE: boolean/toggle nil-safety is owned by `common/toggle-in` / `common/toggle-flag` (path-safe,
-;; collection-preserving, self-healing) + `strip-export-blanks`, on branch
-;; claude/custom-class-source-error-2k5ykd. When that lands, add a `:boolean` field type here + in
-;; render-builder-field that ROUTES THROUGH that helper — do NOT reintroduce a parallel toggle fn.
+;; CONVERGENCE NOTE — boolean/toggle field type (deferred, do NOT build a parallel mechanism).
+;; A hardened toggle needs BOTH halves; each branch built one, so the merged primitive combines them:
+;;   - path-safe traversal + self-heal of a collapsed intermediate  (claude/custom-class-source-error-2k5ykd:
+;;     common/toggle-in / common/toggle-flag) — a toggle whose path lands on a MAP must NOT `(not map)`
+;;     it (collapse); a stray false/nil intermediate heals into a map instead of crashing.
+;;   - defensive leaf read `(not (true? v))` + `:boolean → boolean?` save-validation (this branch,
+;;     backed out here to avoid a parallel fn) — nil/absent/garbage read as OFF; a present non-boolean
+;;     is rejected at save. Collection-preservation alone still reads garbage as "on"; leaf-read alone
+;;     still collapses a map — you need both.
+;; Plus `strip-export-blanks` (theirs) keeps exports terse, and the save ⊆ load guard (theirs: anything
+;; that SAVES must LOAD). When the branches meet: add a `:boolean` type here + in render-builder-field
+;; routing through the ONE combined primitive above — never a fresh toggle fn, never a second validator.
 
 (defn fields->spec
   "Build a save-validation spec (a predicate) from a field schema. The universal

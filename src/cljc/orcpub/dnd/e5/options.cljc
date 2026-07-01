@@ -284,6 +284,18 @@
     (ability-groups pool) (ability-groups pool)
     :else                 #{(ns-ability pool)}))
 
+(defn pool-entry?
+  "Is `e` a well-formed [amount/count pool …] entry — a vector with a NUMERIC first element and a pool
+   that resolve-pool can handle (keyword or collection)? Junk (non-vectors, a missing/non-numeric
+   amount, a nil/number pool) is skipped by the compilers so ONE malformed entry in a homebrew pak
+   can't crash the whole race/background list at the sub's fan-out (resolve-pool on nil would NPE).
+   The entry is un-compilable, not meaningful data — the authoring form is where a creator sees bad
+   input; here the job is fan-out crash-safety."
+  [e]
+  (and (vector? e)
+       (number? (first e))
+       (let [p (second e)] (or (keyword? p) (coll? p)))))
+
 (defn compile-ability-increases
   "Compile a :ability-increases spread (list of [amount pool] pairs) -> {:modifiers :selections}.
    Single-stat pools are FIXED (race-ability modifiers, applied always); multi-stat pools are
@@ -308,7 +320,7 @@
                         {:idx idx :amount amount :pool (vec keys) :fixed? (= 1 (count keys))
                          ;; trailing :save = grant a save proficiency on this increment's ability too
                          :save? (= :save (nth incr 2 nil))}))
-                    (filter vector? spread))
+                    (filter pool-entry? spread))   ; skip junk so one bad entry can't crash the list
         modifiers  (mapcat (fn [{:keys [amount pool save?]}]
                              (concat (modifiers/race-ability (first pool) amount)
                                      (when save? [(modifiers/saving-throws nil (first pool))])))
@@ -362,7 +374,7 @@
                    (fn [idx [n pool]]
                      (let [keys (resolve-pool pool)]
                        {:idx idx :n n :pool (vec keys) :fixed? (= 1 (count keys))}))
-                   (filter vector? save-spread))
+                   (filter pool-entry? save-spread))   ; skip junk (same fan-out crash-safety)
         modifiers (map (fn [{:keys [pool]}] (modifiers/saving-throws nil (first pool)))
                        (filter :fixed? entries))
         choices   (remove :fixed? entries)]

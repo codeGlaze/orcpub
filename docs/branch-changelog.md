@@ -107,6 +107,13 @@ characterization tests.
   component (producers stay separate; per-row highlighting stays bespoke). Documented in
   `content-extensibility-direction.md` for discovery.
 
+- **Fan-out crash-safety for messy paks.** A malformed spread/save entry with a nil pool (`[:bad]`,
+  `[]`) reached `resolve-pool` and NPE'd on `(name nil)` — in the races sub (mapped over every race)
+  that crashed the whole pack. Tightened the compilers' guard from `filter vector?` to `pool-entry?`
+  (numeric amount + keyword/collection pool), so one junk entry is skipped, not fatal. Surfaced by a
+  new `messy-pak-survives.js` E2E (guardrail: prove against realistically-messy content in the real
+  app) + a JVM messy-tolerance test.
+
 - **Toggle nil-safety — deferred to the shared helper (no parallel mechanism).** The generated-UI
   `:boolean` field is intentionally NOT built here: toggle nil-safety is owned by `common/toggle-in` /
   `common/toggle-flag` (+ `strip-export-blanks`) on `claude/custom-class-source-error-2k5ykd`, which
