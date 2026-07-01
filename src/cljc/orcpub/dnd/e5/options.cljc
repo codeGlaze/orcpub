@@ -336,6 +336,19 @@
                            ::t/spread (vec increments))]
                    [])}))
 
+(defn toggle-increment-save
+  "Toggle the opt-in :save rider on ONE ability-increase increment: [amount pool] <-> [amount pool
+   :save]. Rebuilds canonically from amount+pool, so it is idempotent, SELF-HEALING (a malformed longer
+   increment normalizes back to 2/3 elements), and can never yield nil/garbage. This is presence of a
+   keyword in a VECTOR — NOT a boolean flag in a map — a different shape from common/toggle-in (the
+   map-flag toggle helper), so it deliberately does not use it. Backs the ability-increase-choices
+   '+ save prof' checkbox so that toggle is tested, not hand-rolled inline."
+  [increment]
+  (let [[amount pool] increment]
+    (if (= :save (nth increment 2 nil))
+      [amount pool]
+      [amount pool :save])))
+
 (defn compile-save-proficiencies
   "Compile a :save-proficiencies list ([[count pool] ...]) -> {:modifiers :selections}, INDEPENDENT of
    any ability bump (the separate save tool — for saves on a different stat than a bump, or with no

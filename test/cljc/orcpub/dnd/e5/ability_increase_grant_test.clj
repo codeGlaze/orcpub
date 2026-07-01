@@ -250,6 +250,24 @@
       (is (contains? saves S) "STR save from the rider")
       (is (contains? saves W) "WIS save from the standalone tool (a stat that got no bump)"))))
 
+;; ─── The '+ save prof' rider toggle is safe by construction (keyword-in-vector, not a map flag) ─────
+(deftest toggle-increment-save-stays-canonical
+  (testing "toggling the rider only ever yields [amount pool] <-> [amount pool :save]"
+    (is (= [1 :martial :save] (opt5e/toggle-increment-save [1 :martial])))
+    (is (= [1 :martial]       (opt5e/toggle-increment-save [1 :martial :save])))
+    (is (= [2 :cha :save]     (opt5e/toggle-increment-save [2 :cha])))
+    (testing "self-heals a malformed longer increment back to canonical (no crash, no garbage)"
+      (is (= [1 :martial]     (opt5e/toggle-increment-save [1 :martial :save :junk]))))))
+
+(deftest toggle-increment-save-hammer-never-corrupts
+  (testing "50 rapid toggles never lose amount/pool or produce a non-canonical increment (the class of
+            bug the map-flag toggle had — here it can't happen: we rebuild, never (not <collection>))"
+    (loop [inc [1 :martial], n 50]
+      (when (pos? n)
+        (is (contains? #{[1 :martial] [1 :martial :save]} inc) "stays canonical")
+        (is (and (= 1 (first inc)) (= :martial (second inc))) "amount+pool preserved every toggle")
+        (recur (opt5e/toggle-increment-save inc) (dec n))))))
+
 ;; ─── Authoring-time save-coverage guidance (no mechanics; the builder warns-and-explains) ──────────
 (deftest save-coverage-clean-when-no-overlap
   (testing "distinct fixed + a non-overlapping choice -> no warnings"

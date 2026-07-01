@@ -6288,10 +6288,11 @@
                                         :on-change #(set-ai! (assoc ais i (mk % pool save?)))}]
             [labeled-dropdown "To" {:items target-items :value (or pool :any) :typed? true
                                     :on-change #(set-ai! (assoc ais i (mk amount % save?)))}]
-            ;; opt-in rider: also grant proficiency in the save for this increment's (fixed/chosen) ability
+            ;; opt-in rider: also grant proficiency in the save for this increment's (fixed/chosen)
+            ;; ability. Toggle via the tested, self-healing opt/toggle-increment-save (never nil/garbage).
             [:span.m-l-5 [comps/labeled-checkbox "+ save prof"
                           save? false
-                          #(set-ai! (assoc ais i (mk amount pool (not save?))))]]
+                          #(set-ai! (assoc ais i (opt/toggle-increment-save (nth ais i))))]]
             [:button.m-l-5 {:on-click #(set-ai! (common/remove-at-index ais i))} "Remove"]]))
        ais))
      [:button {:on-click #(set-ai! (conj ais [1 :any]))} "Add increase"]]))
