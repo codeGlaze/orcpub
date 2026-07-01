@@ -1,0 +1,31 @@
+{:orcpub.dnd.e5/subraces
+ {:starlit-elf
+  {:key :starlit-elf
+   :name "Starlit Elf"
+   :race :elf
+   :option-pack "Extensibility Test Pack"
+   :abilities {}
+   :traits [{:name "Starlight Step"
+             :description "You can step between patches of dim light over a short distance."}]}}
+
+ :orcpub.dnd.e5/subclasses
+ {:storm-soul
+  {:key :storm-soul
+   :name "Storm Soul"
+   :class :sorcerer
+   :option-pack "Extensibility Test Pack"
+   :level-modifiers [{:level 1 :modifiers []}]}}
+
+ :orcpub.dnd.e5/boons
+ {:pact-of-the-quill
+  {:key :pact-of-the-quill
+   :name "Pact of the Quill"
+   :option-pack "Extensibility Test Pack"
+   :description "Your patron grants you an enchanted quill that records your deeds verbatim."}}
+
+ :orcpub.dnd.e5/invocations
+ {:gaze-of-the-deep
+  {:key :gaze-of-the-deep
+   :name "Gaze of the Deep"
+   :option-pack "Extensibility Test Pack"
+   :description "You can see normally in darkness, both magical and nonmagical, while underwater."}}}

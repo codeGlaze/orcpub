@@ -1,0 +1,20 @@
+# ignore .git and .cache folders
+.git
+.cache
+.idea
+.github
+
+# Secrets — never copy into build context
+.env
+.lein-env
+logs/console.log
+docker-compose*
+test/*
+*.md
+data/*
+log/*
+backups/*
+backup/*
+
+# Datomic Pro distribution (~280MB) — Docker images download their own from S3
+lib/com/datomic/
