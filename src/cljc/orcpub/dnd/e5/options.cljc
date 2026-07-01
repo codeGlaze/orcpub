@@ -290,7 +290,10 @@
    amount, a nil/number pool) is skipped by the compilers so ONE malformed entry in a homebrew pak
    can't crash the whole race/background list at the sub's fan-out (resolve-pool on nil would NPE).
    The entry is un-compilable, not meaningful data — the authoring form is where a creator sees bad
-   input; here the job is fan-out crash-safety."
+   input; here the job is fan-out crash-safety.
+   FOLLOW-UP (harden → surface, guardrail 6): runtime skips silently (correct for a sub's fan-out), but
+   the AUTHORING form should report 'N entries ignored as malformed' (save-coverage-notes is the home).
+   Tracked in docs/kb/data-safety-layers.md."
   [e]
   (and (vector? e)
        (number? (first e))
