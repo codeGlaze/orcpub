@@ -461,12 +461,26 @@
    #(memoized-spell-option spells-map spellcasting-ability class-name % prepend-level? qualifier)
    (sort spells)))
 
-(defn spell-level-title [class-name level]
+(defn spell-level-title
+  "Display title for a class's spell selection at a given level."
+  [class-name level]
   (str class-name (if (and level (zero? level)) " Cantrips Known" (str " Spells Known" (when level (str " " level))))))
 
+(defn spell-selection-key
+  "Identity-derived selection key for a class's spell selection at a given
+   level. Mirrors the shape spell-level-title produces but rooted in
+   :class-key, not :name."
+  [class-key level]
+  (keyword (str (name class-key)
+                (if (and level (zero? level))
+                  "-cantrips-known"
+                  (str "-spells-known" (when level (str "-" level)))))))
+
 (defn spell-selection [spell-lists spells-map {:keys [title class-key level spellcasting-ability class-name num prepend-level? spell-keys options min max exclude-ref? ref]}]
+  ;; Identity (kw) derives from :class-key. :class-name still feeds title
+  ;; for display.
   (let [title (or title (spell-level-title class-name level))
-        kw (common/name-to-kw title)
+        kw (spell-selection-key class-key level)
         ref (or ref (when (not exclude-ref?) [:class class-key kw]))]
      (t/selection-cfg
       {:name title
@@ -629,14 +643,6 @@
      spell-keys)
     spell-keys))
 
-(defn class-key-name [cls-key cls-nm]
-  (if cls-key
-    (name cls-key)
-    (common/name-to-kw cls-nm)))
-
-(defn spell-selection-key [cls-key-nm]
-  (keyword (str cls-key-nm "-spells-known")))
-
 
 (defn spells-known-selections [spell-lists
                                spells-map
@@ -677,17 +683,14 @@
                             filtered-keys)))
                        all-spells))]
          (assoc m cls-lvl
-                [(let [cls-key-nm (class-key-name (:key cls-cfg) (:name cls-cfg))
-                       kw (spell-selection-key cls-key-nm)
-                       cls-nm (:name cls-cfg)]
-                   (spell-selection
-                    spell-lists
-                    spells-map
-                    {:class-key class-key
-                     :class-name cls-nm
-                     :min num
-                     :max (when (not acquire?) num)
-                     :options options}))])))
+                [(spell-selection
+                  spell-lists
+                  spells-map
+                  {:class-key class-key
+                   :class-name (:name cls-cfg)
+                   :min num
+                   :max (when (not acquire?) num)
+                   :options options})])))
    {}
    spells-known))
 
@@ -2867,6 +2870,7 @@
                             help
                             hit-die
                             plugin?
+                            plugin-source
                             profs
                             levels
                             ability-increase-levels
@@ -2904,6 +2908,7 @@
     (t/option-cfg
      {:name name
       :key kw
+      :plugin-source plugin-source
       :help [:div.p-t-5.p-l-10.p-r-10
              (class-help hit-die save-profs weapon-profs armor-profs)
              [:div.m-t-10 help]]

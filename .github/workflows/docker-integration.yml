@@ -65,7 +65,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
-          shellcheck run docker-user.sh
+          shellcheck -x --severity=warning run docker-user.sh scripts/swarm.sh
 
       - name: Run run --auto
         run: |

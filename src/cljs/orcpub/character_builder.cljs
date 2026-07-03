@@ -150,16 +150,17 @@
 (defn character-textarea [entity-values prop-name & [cls-str]]
   [character-field-50000 entity-values prop-name :textarea cls-str])
 
-(defn prereq-failures [option]
-  (remove
-   nil?
-   (map
-    (fn [{:keys [::t/prereq-fn ::t/label] :as prereq}]
-      (if prereq-fn
-        (when (not (prereq-fn))
-          label)
-        (js/console.warn "NO PREREQ_FN" (::t/name option) prereq)))
-    (::t/prereqs option))))
+(defn prereq-failures [option built-char]
+  (when built-char
+    (remove
+     nil?
+     (map
+      (fn [{:keys [::t/prereq-fn ::t/label] :as prereq}]
+        (if prereq-fn
+          (when (not (prereq-fn built-char))
+            label)
+          (js/console.warn "NO PREREQ_FN" (::t/name option) prereq)))
+      (::t/prereqs option)))))
 
 (defn set-class-fn [i options-map]
   (fn [e] (let [new-key (keyword (.. e -target -value))]
@@ -193,12 +194,18 @@
 
 (def levels-selection #(when (= :levels (::t/key %)) %))
 
+(defn class-option-display-name [name plugin-source show-suffix?]
+  (if (and show-suffix? plugin-source)
+    (str name " (" plugin-source ")")
+    name))
+
 (defn class-level-selector []
   (let [expanded? (r/atom false)]
-    (fn [i key selected-class options unselected-classes-set]
+    (fn [i key selected-class options unselected-classes-set built-char]
       (let [options-map (make-options-map options)
             class-template-option (options-map key)
-            path [:class-levels key]]
+            path [:class-levels key]
+            show-suffix? @(subscribe [::subs5e/show-class-source-suffix])]
         [:div.m-b-5
          {:class (when @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
@@ -207,13 +214,14 @@
             :on-change (set-class i options-map)}
            (doall
             (map
-             (fn [{:keys [::t/key ::t/name] :as option}]
-               (let [failed-prereqs (when (pos? i) (prereq-failures option))]
+             (fn [{:keys [::t/key ::t/name ::t/plugin-source] :as option}]
+               (let [failed-prereqs (when (pos? i) (prereq-failures option built-char))]
                  ^{:key key}
                  [:option.builder-dropdown-item
                   {:value key
                    :disabled (seq failed-prereqs)}
-                  (str name (when (seq failed-prereqs) (str " (" (s/join ", " failed-prereqs) ")")))]))
+                  (str (class-option-display-name name plugin-source show-suffix?)
+                       (when (seq failed-prereqs) (str " (" (s/join ", " failed-prereqs) ")")))]))
              (sort-by
               ::t/name
               (filter
@@ -250,7 +258,7 @@
                     s))
                 (::t/selections option))]
     (assoc
-     (select-keys option [::t/key ::t/prereqs ::t/name ::t/help ::t/associated-options])
+     (select-keys option [::t/key ::t/prereqs ::t/name ::t/help ::t/associated-options ::t/plugin-source])
      ::t/selections
      [{::t/key (::t/key levels)
        ::t/options (map select-template-key (::t/options levels))}])))
@@ -269,6 +277,7 @@
   (let [options (::t/options selection)
         built-char @(subscribe [:built-character])
         selected-classes @(subscribe [::char5e/levels])
+        show-suffix? @(subscribe [::subs5e/show-class-source-suffix])
         unselected-classes (remove
                             (set (keys selected-classes))
                             (map ::t/key options))
@@ -280,12 +289,15 @@
                               (entity/meets-prereqs? option built-char)))
                            options)]
     [:div
+     [:div.m-b-5
+      {:on-click #(dispatch [::events5e/toggle-class-source-suffix])}
+      [views5e/labeled-checkbox "Show homebrew source on class names" show-suffix?]]
      [:div
       (doall
        (map-indexed
         (fn [i [key selected-class]]
           ^{:key key}
-          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set])
+          [class-level-selector i key selected-class (map class-level-data options) unselected-classes-set built-char])
         selected-classes))]
      (when (seq remaining-classes)
        [:div.orange.p-5.underline.pointer

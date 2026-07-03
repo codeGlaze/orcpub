@@ -48,6 +48,11 @@
    (get db :registration-form)))
 
 (reg-sub
+ :builder-field-errors
+ (fn [db _]
+   (get db :builder-field-errors #{})))
+
+(reg-sub
  :username-taken?
  (fn [db [_]]
    (get db :username-taken?)))
@@ -1077,6 +1082,11 @@
    (get-in db [:user-data :theme])))
 
 (reg-sub
+ ::show-class-source-suffix
+ (fn [db _]
+   (boolean (get-in db [:user-data :show-class-source-suffix]))))
+
+(reg-sub
  ::mi5e/builder-item
  (fn [db _]
    (::mi5e/builder-item db)))
@@ -1423,6 +1433,16 @@
  :export-warning
  (fn [db _]
    (:export-warning db)))
+
+(reg-sub
+ :export-warning-edits
+ (fn [db _]
+   (get-in db [:export-warning :edits])))
+
+(reg-sub
+ :export-warning-show-as-is?
+ (fn [db _]
+   (get-in db [:export-warning :show-export-as-is?])))
 
 ;; ============================================================================
 ;; Missing Content Detection Subscriptions

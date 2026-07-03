@@ -88,19 +88,28 @@ find_container() {
     container=$(docker compose ps -q orcpub 2>/dev/null || true)
   fi
 
-  # Try Swarm: look for running task of orcpub_orcpub service
+  # Try Swarm: look for running task by service label
+  # Stack name varies (orcpub, dev_dmv, etc.) — match any service containing "orcpub"
   if [ -z "$container" ]; then
-    container=$(docker ps -q --filter "label=com.docker.swarm.service.name=orcpub_orcpub" 2>/dev/null | head -1 || true)
+    container=$(docker ps -q --filter "label=com.docker.swarm.service.name" 2>/dev/null | while read -r cid; do
+      local svc
+      svc=$(docker inspect --format '{{index .Config.Labels "com.docker.swarm.service.name"}}' "$cid" 2>/dev/null || true)
+      if [[ "$svc" == *orcpub* ]] && [[ "$svc" != *datomic* ]]; then
+        echo "$cid"
+        break
+      fi
+    done || true)
   fi
 
-  # Fallback: search by image name
+  # Fallback: search by image name pattern
   if [ -z "$container" ]; then
-    container=$(docker ps -q --filter "ancestor=orcpub-app:latest" 2>/dev/null | head -1 || true)
+    container=$(docker ps -q --filter "ancestor=orcpub-app" 2>/dev/null | head -1 || true)
+    [ -z "$container" ] && container=$(docker ps -q --filter "ancestor=dmv" 2>/dev/null | head -1 || true)
   fi
 
-  # Fallback: search by container name pattern (matches both compose and swarm)
+  # Fallback: search by container name pattern
   if [ -z "$container" ]; then
-    container=$(docker ps -q --filter "name=orcpub" --filter "name=orcpub_orcpub" 2>/dev/null | head -1 || true)
+    container=$(docker ps --format '{{.ID}} {{.Names}}' 2>/dev/null | grep -i 'orcpub' | grep -iv 'datomic' | head -1 | awk '{print $1}' || true)
   fi
 
   echo "$container"
@@ -235,7 +244,7 @@ fi
 
 if [ -z "$CONTAINER" ]; then
   error "Cannot find the orcpub container."
-  error "Make sure the containers are running: docker-compose up -d"
+  error "Make sure the services are running (Compose: docker compose up -d, Swarm: docker stack ps <stack>)"
   exit 1
 fi
 

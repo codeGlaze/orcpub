@@ -1,4 +1,4 @@
-(ns orcpub.dnd.e5.import-validation
+(ns orcpub.dnd.e5.orcbrew-validation
   "Comprehensive validation for orcbrew file import/export.
 
   Provides detailed error messages and progressive validation to help users
@@ -493,15 +493,22 @@
 
 (defn validate-item-for-export
   "Check an item for missing required fields (for export validation).
-   Returns {:valid true} or {:valid false :missing-fields [...] :traits-missing-names N}"
+   Returns {:valid true} or {:valid false :missing-fields [...] :traits-missing-names N
+            :traits-needing-names [{:index N}...]}"
   [item content-type]
   (let [missing-fields (find-missing-fields item content-type)
-        traits-missing (when-let [traits (:traits item)]
-                         (count (filter #(seq (find-missing-trait-fields %)) traits)))]
-    (if (or (seq missing-fields) (and traits-missing (pos? traits-missing)))
+        trait-details (when-let [traits (:traits item)]
+                        (keep-indexed
+                         (fn [idx trait]
+                           (when (seq (find-missing-trait-fields trait))
+                             {:index idx :current-name (:name trait)}))
+                         traits))
+        traits-missing (count trait-details)]
+    (if (or (seq missing-fields) (pos? traits-missing))
       {:valid false
        :missing-fields (mapv :field missing-fields)
-       :traits-missing-names (or traits-missing 0)}
+       :traits-missing-names traits-missing
+       :traits-needing-names (vec trait-details)}
       {:valid true})))
 
 (defn validate-content-group-for-export
@@ -536,35 +543,238 @@
 
 ;; ============================================================================
 ;; Error Message Formatting
+;;
+;; Spec problems are notoriously hard to read in the dev console: predicates
+;; come through as raw compiler forms like
+;;   (cljs.core/fn [v] (cljs.core/or (cljs.core/= v :disabled?) ...))
+;; and the `:in` path uses bare integers (0 = a map entry's key, 1 = its
+;; value) that mean nothing to a human. The helpers below translate problems
+;; into plain English, using the failing spec name (`:via`) and a small table
+;; of known predicates, and surface the offending item's :name/:key instead of
+;; a value blindly chopped at 50 characters.
 ;; ============================================================================
 
+(defn- pred-base-name
+  "Return the bare (namespace-stripped) name of a predicate symbol so matching
+   works regardless of whether it came through as cljs.core/* or clojure.core/*.
+   Handles both a plain symbol (`cljs.core/boolean?`) and a call form whose head
+   is a symbol (`(cljs.core/map? %)`)."
+  [pred]
+  (cond
+    (symbol? pred) (name pred)
+    (and (seq? pred) (symbol? (first pred))) (name (first pred))
+    :else nil))
+
+(def ^:private simple-pred-descriptions
+  "Plain-English descriptions for common core predicates, keyed by bare name."
+  {"boolean?" "must be true or false"
+   "string?" "must be a text string"
+   "map?" "must be a map of values"
+   "vector?" "must be a vector"
+   "number?" "must be a number"
+   "int?" "must be a whole number"
+   "pos-int?" "must be a positive whole number"
+   "nat-int?" "must be zero or a positive whole number"
+   "keyword?" "must be a keyword"
+   "qualified-keyword?" "must be a namespaced keyword (e.g. :orcpub.dnd.e5/spells)"
+   "simple-keyword?" "must be an unqualified keyword"
+   "set?" "must be a set"
+   "coll?" "must be a collection"
+   "seq?" "must be a sequence"
+   "nil?" "must be nil"
+   "ident?" "must be a symbol or keyword"})
+
+(def ^:private spec-descriptions
+  "Plain-English descriptions for orcpub domain specs, keyed by the leaf spec
+   name from a problem's `:via` (the most specific spec that failed)."
+  {"content-keyword" "must be a content-type key like :orcpub.dnd.e5/spells (or :disabled?). Plugin names that are plain strings belong at the multi-plugin top level, not inside a plugin."
+   "option-pack" "must be a text string naming the source/pack"
+   "homebrew-item" "is missing the required :option-pack field"
+   "homebrew-items" "must be a map of content items"
+   "homebrew-spell" "is not a valid spell"
+   "plugin" "must be a valid plugin"
+   "plugins" "must be a valid set of plugins"})
+
+(defn- leaf-spec-name
+  "Return the bare name of the most specific spec from a problem's :via, or nil."
+  [via]
+  (when-let [s (and (seq via) (last via))]
+    (when (qualified-keyword? s) (name s))))
+
+(defn missing-required-key
+  "If the predicate is a `(contains? % :some-key)` check (how spec/keys reports a
+   missing :req-un field), return the missing key. Otherwise nil."
+  [pred]
+  (when (seq? pred)
+    (some (fn [node]
+            (when (and (seq? node)
+                       (= "contains?" (pred-base-name node)))
+              (nth node 2 nil)))
+          (tree-seq seq? seq pred))))
+
+(defn humanize-pred
+  "Translate a spec predicate (plus its :via context) into a human-readable
+   description of what was expected. Falls back to a cleaned predicate name
+   rather than dumping the raw compiler form."
+  [pred via]
+  (let [base-name (pred-base-name pred)
+        leaf (leaf-spec-name via)]
+    (cond
+      ;; spec/keys :req-un failure — the most actionable message
+      (missing-required-key pred)
+      (str "is missing the required field " (missing-required-key pred))
+
+      ;; A concrete core predicate (boolean?, map?, string?, ...) is the most
+      ;; specific thing that failed, so prefer it over the enclosing spec name.
+      (simple-pred-descriptions base-name)
+      (simple-pred-descriptions base-name)
+
+      ;; Named orcpub domain spec (content-keyword, option-pack, ...)
+      (and leaf (spec-descriptions leaf))
+      (spec-descriptions leaf)
+
+      ;; spec/keys form surfaced directly
+      (= "keys" base-name)
+      (str "is missing a required field (expected " (pr-str (rest pred)) ")")
+
+      ;; Last resort: name the check without the noisy compiler form.
+      base-name
+      (str "failed the " base-name " check")
+
+      :else
+      "has an invalid value")))
+
+(defn- truncate-str [s n]
+  (if (> (count s) n) (str (subs s 0 (max 0 (- n 3))) "...") s))
+
+(defn- map-entry-selector?
+  "In a map-of `:in` path, an entry contributes two segments: 0 for the key and
+   1 for the value. These bare ints are navigation noise, not content."
+  [seg]
+  (and (integer? seg) (or (= seg 0) (= seg 1))))
+
+(defn describe-location
+  "Render a spec problem's `:in` path as a readable breadcrumb, dropping the
+   map-entry key/value selector ints and quoting string keys."
+  [in]
+  (if (empty? in)
+    "the top level"
+    (let [targets-key? (= 0 (last in))
+          segs (->> in
+                    (remove map-entry-selector?)
+                    (map (fn [seg]
+                           (cond
+                             (string? seg) (str "\"" seg "\"")
+                             :else (str seg)))))
+          crumb (str/join " > " segs)]
+      (cond
+        (str/blank? crumb) "the top level"
+        targets-key? (str "the key " crumb)
+        :else crumb))))
+
+(defn describe-value
+  "Describe the offending value. For maps, surface :name/:key (or the keys
+   present) so the user can locate the item, instead of chopping raw EDN."
+  [val]
+  (cond
+    (map? val)
+    (let [nm (or (:name val) (:key val))
+          ks (vec (keys val))]
+      (if nm
+        (str "the item " (pr-str nm) " (keys: " (truncate-str (pr-str ks) 80) ")")
+        (str "a map with " (count ks) " key(s): " (truncate-str (pr-str ks) 80))))
+
+    (vector? val)
+    (str "a vector of " (count val) " item(s)")
+
+    :else
+    (truncate-str (pr-str val) 50)))
+
 (defn format-spec-problem
-  "Converts a spec problem into a human-readable error message."
-  [{:keys [path pred val via in]}]
-  (let [location (if (seq in)
-                   (str "at " (str/join " > " (map str in)))
-                   "at root")]
-    (str "  • " location ": "
-         (cond
-           (and (seq? pred) (= 'clojure.core/fn (first pred)))
-           "Invalid value format"
+  "Converts a single spec problem into a human-readable error message."
+  [{:keys [pred val via in]}]
+  (str "  • At " (describe-location in) ": " (humanize-pred pred via)
+       (when (some? val)
+         (str "\n    Got: " (describe-value val)))))
 
-           (and (seq? pred) (= 'clojure.spec.alpha/keys (first pred)))
-           (str "Missing required field: " (second pred))
-
-           :else
-           (str "Failed validation: " pred))
-         (when (some? val)
-           (let [s (pr-str val)]
-             (str "\n    Got: " (if (> (count s) 50) (str (subs s 0 47) "...") s)))))))
+(defn- path-prefix?
+  "True if `pre` is a (proper or equal) prefix of `v`."
+  [pre v]
+  (and (<= (count pre) (count v))
+       (= (seq pre) (seq (take (count pre) v)))))
 
 (defn format-validation-errors
-  "Formats spec validation errors into user-friendly messages."
-  [explain-data]
-  (when explain-data
-    (let [problems (:cljs.spec.alpha/problems explain-data)]
-      (str "Validation errors found:\n"
-           (str/join "\n" (map format-spec-problem problems))))))
+  "Formats spec validation errors into user-friendly messages.
+
+   De-duplicates identical lines, drops the redundant boolean? branch that
+   spec/or emits alongside a more specific failure deeper in the same path, and
+   caps the output so a badly-shaped file can't flood the console."
+  ([explain-data] (format-validation-errors explain-data 40))
+  ([explain-data max-problems]
+   (when explain-data
+     (let [problems (:cljs.spec.alpha/problems explain-data)
+           ;; `:in` paths of the more specific (non-boolean) failures. When a
+           ;; map value fails `(s/or :items ... :bool boolean?)`, spec reports
+           ;; both the deep :items failure and a shallow "must be true or false"
+           ;; twin at the value's path; the latter is just noise, so drop it
+           ;; when a deeper specific failure exists under the same path.
+           specific-paths (keep (fn [{:keys [pred in]}]
+                                  (when (not= "boolean?" (pred-base-name pred)) in))
+                                problems)
+           filtered (remove (fn [{:keys [pred in]}]
+                              (and (= "boolean?" (pred-base-name pred))
+                                   (some #(and (path-prefix? in %)
+                                               (> (count %) (count in)))
+                                         specific-paths)))
+                            problems)
+           lines (distinct (map format-spec-problem filtered))
+           total (count lines)
+           shown (take max-problems lines)
+           remaining (- total max-problems)]
+       (str "Validation errors found (" total "):\n"
+            (str/join "\n" shown)
+            (when (pos? remaining)
+              (str "\n  ... and " remaining " more (showing first " max-problems ")")))))))
+
+(defn- format-missing-fields-issue
+  "Formats one content-type's missing-fields issue into a readable multi-line block."
+  [{:keys [content-type invalid-items]}]
+  (str "  " (name content-type) " (" (count invalid-items) " item"
+       (when (not= 1 (count invalid-items)) "s") "):\n"
+       (str/join "\n"
+                 (for [{:keys [key name missing-fields traits-missing-names]} invalid-items]
+                   (let [label (or name (pr-str key))
+                         parts (cond-> []
+                                 (seq missing-fields)
+                                 (conj (str "missing " (str/join ", " (map pr-str missing-fields))))
+                                 (and traits-missing-names (pos? traits-missing-names))
+                                 (conj (str traits-missing-names " trait(s) without :name")))]
+                     (str "    - " label " [" (str/join "; " parts) "]"))))))
+
+(defn format-export-validation-for-log
+  "Converts the result of `validate-before-export` into a plain string suitable
+   for console.error. Works around cljs advanced-compilation mangling of
+   PersistentVector / PersistentArrayMap class names when they're passed
+   directly to js/console.error (which is why errors show up in DevTools as
+   cryptic single letters like 'M')."
+  [validation]
+  (cond
+    (:has-missing-required-fields validation)
+    (str "Missing required fields:\n"
+         (str/join "\n" (map format-missing-fields-issue
+                             (:missing-fields-issues validation))))
+
+    (string? (:errors validation))
+    (:errors validation)
+
+    (coll? (:errors validation))
+    (str/join "\n" (map str (:errors validation)))
+
+    (nil? (:errors validation))
+    "(no error details available)"
+
+    :else
+    (pr-str (:errors validation))))
 
 ;; ============================================================================
 ;; Parse Error Detection
@@ -711,6 +921,64 @@
   [plugin-data]
   (let [{:keys [plugin]} (fill-missing-in-plugin plugin-data)]
     plugin))
+
+(defn classify-plugins-for-export
+  "Classify plugins for batch export.
+   Returns {:fillable  [{:name :plugin :validation :issues}...]
+            :blockers  [{:name :validation}...]
+            :clean     [{:name :plugin}...]}"
+  [plugins]
+  (reduce-kv
+   (fn [acc plugin-name plugin]
+     (let [v (validate-before-export plugin)]
+       (cond
+         (:valid v)
+         (update acc :clean conj {:name plugin-name :plugin plugin})
+
+         (:has-missing-required-fields v)
+         (update acc :fillable conj {:name plugin-name
+                                     :plugin plugin
+                                     :validation v
+                                     :issues (:missing-fields-issues v)})
+
+         :else
+         (update acc :blockers conj {:name plugin-name :validation v}))))
+   {:fillable [] :blockers [] :clean []}
+   plugins))
+
+(defn apply-user-edits-to-plugin
+  "Apply user-entered values from the export warning modal to a plugin,
+   then fill any remaining gaps with dummy data.
+
+   edits is a map of vector-path → value, e.g.:
+     [\"My Pack\" :orcpub.dnd.e5/spells :fireball :level] → 3
+     [\"My Pack\" :orcpub.dnd.e5/spells :fireball :trait 0 :name] → \"Fire Aura\"
+
+   Only edits whose first element matches plugin-name are applied."
+  [plugin plugin-name edits]
+  (let [;; Apply user edits to the plugin data
+        edited-plugin
+        (reduce-kv
+         (fn [p edit-path value]
+           (let [[pname content-type item-key & field-path] edit-path]
+             (if (and (= pname plugin-name)
+                      (qualified-keyword? content-type)
+                      (some? item-key)
+                      (seq field-path)
+                      (some? value)
+                      (not (and (number? value) (js/isNaN value)))
+                      (not (and (string? value) (str/blank? value))))
+               (if (= :trait (first field-path))
+                 ;; Trait edit: field-path is [:trait idx :name]
+                 (let [[_ idx field] field-path]
+                   (assoc-in p [content-type item-key :traits idx field] value))
+                 ;; Direct field edit: field-path is [:level] or [:name] etc.
+                 (assoc-in p [content-type item-key (first field-path)] value))
+               p)))
+         plugin
+         edits)]
+    ;; Fill any remaining gaps with dummy data
+    (fill-missing-for-export edited-plugin)))
 
 ;; ============================================================================
 ;; Import Strategies

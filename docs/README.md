@@ -15,6 +15,7 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 - [💥 Datomic Crash Analysis](kb/datomic-crash-analysis.md) - Root cause, frequency, fix options
 
 **For Developers:**
+- [ClojureScript Type Tolerance](clojurescript-type-tolerance.md) - What cljs silently tolerates vs. what crashes (and why); the string-op crash pattern behind render black screens
 - [🚨 Error Handling](ERROR_HANDLING.md) - Error handling utilities
 - [🗡️ Language Selection Fix](LANGUAGE_SELECTION_FIX.md) - Ranger favored enemy language corruption (#296)
 - [🐳 Docker User Management](docker-user-management.md) - Verified user setup for Docker deployments

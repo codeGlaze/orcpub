@@ -283,6 +283,182 @@ run_secrets_test() {
 }
 
 # ---------------------------------------------------------------------------
+# Swarm tests — generation, extraction, upgrade, .env.portainer
+# ---------------------------------------------------------------------------
+
+run_swarm_tests() {
+  local label="[swarm] "
+  local tmpdir
+  tmpdir=$(mktemp -d)
+
+  # Create a minimal .env
+  cat > "${tmpdir}/.env" <<'SWARMENV'
+ADMIN_PASSWORD=swarm_admin_test
+DATOMIC_PASSWORD=swarm_datomic_test
+SIGNATURE=swarm_sig_test
+PORT=8890
+ALT_HOST=datomic
+ENCRYPT_CHANNEL=true
+EMAIL_SSL=TRUE
+CSP_POLICY=relaxed
+SWARMENV
+
+  # Source run's helpers (swarm.sh gets sourced by run)
+  SCRIPT_DIR="$tmpdir"
+  SCRIPT_NAME="run"
+  ENV_FILE="${tmpdir}/.env"
+  # Helpers needed by swarm.sh
+  color_green=$'\033[0;32m'
+  color_yellow=$'\033[1;33m'
+  color_red=$'\033[0;31m'
+  color_cyan=$'\033[0;36m'
+  color_magenta=$'\033[0;35m'
+  color_reset=$'\033[0m'
+  color_bold=$'\033[1m'
+  color_dim=$'\033[2m'
+  read_env_val() { grep -m1 "^${1}=" "$2" 2>/dev/null | cut -d= -f2- | tr -d '\r' || true; }
+
+  # Source swarm functions
+  # shellcheck source=../../scripts/swarm.sh
+  . "${PROJECT_ROOT}/scripts/swarm.sh"
+  SWARM_COMPOSE="${tmpdir}/docker-compose.swarm.yaml"
+  SWARM_PORTAINER_ENV="${tmpdir}/.env.portainer"
+
+  # --- Test: Fresh generation ---
+  printf '\n%s--- swarm (fresh) ---%s\n' "$cyan" "$reset"
+
+  generate_swarm_compose "$SWARM_COMPOSE" "false"
+  if [ -f "$SWARM_COMPOSE" ]; then
+    pass "${label}compose generated"
+  else
+    fail "${label}compose not generated"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # File should contain service blocks
+  if grep -q '^  datomic:' "$SWARM_COMPOSE"; then
+    pass "${label}has datomic service"
+  else
+    fail "${label}missing datomic service"
+  fi
+  TESTS=$((TESTS + 1))
+
+  if grep -q '^  orcpub:' "$SWARM_COMPOSE"; then
+    pass "${label}has orcpub service"
+  else
+    fail "${label}missing orcpub service"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # No double braces (regression test for nested ${} expansion bug)
+  if grep -q '}}' "$SWARM_COMPOSE"; then
+    fail "${label}double braces found (expansion bug)"
+  else
+    pass "${label}no double braces"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # Has deploy sections
+  if grep -q 'restart_policy:' "$SWARM_COMPOSE"; then
+    pass "${label}has restart_policy"
+  else
+    fail "${label}missing restart_policy"
+  fi
+  TESTS=$((TESTS + 1))
+
+  if grep -q 'update_config:' "$SWARM_COMPOSE"; then
+    pass "${label}has update_config"
+  else
+    fail "${label}missing update_config"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # --- Test: .env.portainer ---
+  generate_env_portainer "$ENV_FILE" "$SWARM_PORTAINER_ENV"
+  if [ -f "$SWARM_PORTAINER_ENV" ]; then
+    pass "${label}.env.portainer generated"
+  else
+    fail "${label}.env.portainer not generated"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # No comments, no blank lines, no quotes in portainer env
+  if grep -q '^\s*#' "$SWARM_PORTAINER_ENV"; then
+    fail "${label}.env.portainer has comments"
+  else
+    pass "${label}.env.portainer clean (no comments)"
+  fi
+  TESTS=$((TESTS + 1))
+
+  if grep -q '^\s*$' "$SWARM_PORTAINER_ENV"; then
+    fail "${label}.env.portainer has blank lines"
+  else
+    pass "${label}.env.portainer clean (no blanks)"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # --- Test: Extract + roundtrip ---
+  printf '\n%s--- swarm (upgrade roundtrip) ---%s\n' "$cyan" "$reset"
+
+  extract_swarm_config "$SWARM_COMPOSE"
+  if [ $? -eq 0 ]; then
+    pass "${label}extraction succeeded"
+  else
+    fail "${label}extraction failed"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # Backup and regenerate
+  local backup="${SWARM_COMPOSE}.backup"
+  cp "$SWARM_COMPOSE" "$backup"
+  generate_swarm_compose "$SWARM_COMPOSE" "true"
+
+  # Regenerated file should still have services
+  if grep -q '^  datomic:' "$SWARM_COMPOSE" && grep -q '^  orcpub:' "$SWARM_COMPOSE"; then
+    pass "${label}upgrade preserves services"
+  else
+    fail "${label}upgrade lost services"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # --- Test: Upgrade adds new env vars ---
+  # Remove CSP_POLICY from old file, verify it appears in regenerated
+  sed -i '/CSP_POLICY/d' "$backup"
+  extract_swarm_config "$backup"
+  generate_swarm_compose "$SWARM_COMPOSE" "true"
+  if grep -q 'CSP_POLICY:' "$SWARM_COMPOSE"; then
+    pass "${label}upgrade adds new env var (CSP_POLICY)"
+  else
+    fail "${label}upgrade missing new env var (CSP_POLICY)"
+  fi
+  TESTS=$((TESTS + 1))
+
+  # --- Test: activate_swarm_secrets ---
+  printf '\n%s--- swarm (secrets activation) ---%s\n' "$cyan" "$reset"
+
+  # Start with fresh compose
+  generate_swarm_compose "$SWARM_COMPOSE" "false"
+  # Secrets should be commented
+  if grep -q '^# secrets:' "$SWARM_COMPOSE"; then
+    pass "${label}secrets initially commented"
+  else
+    fail "${label}secrets not commented"
+  fi
+  TESTS=$((TESTS + 1))
+
+  activate_swarm_secrets "$SWARM_COMPOSE"
+  # Top-level secrets: should now be uncommented
+  if grep -q '^secrets:' "$SWARM_COMPOSE"; then
+    pass "${label}secrets uncommented after activation"
+  else
+    fail "${label}secrets still commented after activation"
+  fi
+  TESTS=$((TESTS + 1))
+
+  rm -rf "$tmpdir"
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -290,6 +466,8 @@ run_secrets_test() {
 if [ $# -gt 0 ]; then
   if [ "$1" = "secrets" ]; then
     run_secrets_test
+  elif [ "$1" = "swarm" ]; then
+    run_swarm_tests
   else
     fixture="${FIXTURE_DIR}/env-${1}.env"
     if [ ! -f "$fixture" ]; then
@@ -306,6 +484,7 @@ else
     run_fixture "$f"
   done
   run_secrets_test
+  run_swarm_tests
 fi
 
 # Summary
