@@ -107,6 +107,13 @@ characterization tests.
   component (producers stay separate; per-row highlighting stays bespoke). Documented in
   `content-extensibility-direction.md` for discovery.
 
+- **Verified edge cases (deselect + multiple feats).** Deselecting a floating ASI pick (dropdown →
+  "— choose —") cleanly reverts the total AND clears the source-column entry — rendered-verified, no
+  stale state. Two feats each with a floating pool key their slots identically (`asi-0-*`) but, selected
+  together under one Feats multiselect, do NOT collide — each pick applies independently and stacks
+  (entity paths disambiguate); a static-ASI feat applies alongside; all feat ASIs land in "other", never
+  racial (`ability_increase_grant_test/multiple-feats-*`).
+
 - **Bug fix: floating ASI picks were attributed to nothing (orphaned in the level-up bucket).** A
   chosen floating +N applied via `level-ability-increase` → `?level-ability-increases`, which the
   per-source ability breakdown doesn't show — so a picked floating ASI updated the total but appeared
