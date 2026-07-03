@@ -32,12 +32,15 @@ capability **requires** logging the paths it now subsumes.
   Wiring it to `content-pools/pool` (so homebrew fighting-style packs are grantable) is the first real
   pool/grant expansion — and the point at which any bespoke fighting-style / feat-grant path it then
   subsumes becomes a ledger item.
-- **Feat ASI is dual-format, not fully converged.** `feat-option-from-cfg` now reads BOTH the legacy
-  feat set (`#{:str :con}` + `:saves?`) and the cross-silo spread (`[[amount pool]]`), dispatching on
-  shape (`options.cljc`; tests `ability_increase_grant_test/feat-*`). The legacy set path is **kept,
-  not deprecated**, because the spread can't model `:saves?` (a feat granting a save proficiency, e.g.
-  Resilient). Full convergence (one ASI mechanism for feats too) is blocked on **modeling saves in the
-  spread** — until then this is a deliberate two-readers state, not a ledger removal. When saves lands
-  in the spread, the legacy set path + the feat builder's set-based ASI widget become ledger items.
+- **Feat ASI is dual-format, not fully converged.** `feat-option-from-cfg` reads BOTH the legacy feat
+  set (`#{:str :con}` + `:saves?`) and the cross-silo spread (`[[amount pool]]`), dispatching on shape
+  (`options.cljc`; tests `ability_increase_grant_test/feat-*`). The legacy set path is **kept, not
+  deprecated**. Converging it (route the set through `compile-ability-increases`) is now **unblocked on
+  two of three fronts** — the `:save` rider models `:saves?`, and the per-silo `:attribution :general`
+  fix means a feat's fixed +N no longer mis-attributes as racial. The **remaining** blocker is
+  save-compat: the legacy feat choose-selection keys options by the ability (`::char/str`) while the
+  spread keys them `asi-<idx>-<ability>`, so a naive migration drops saved feat picks on reload — it
+  needs a load-time key reconciliation (same pattern as spell-selection reconciliation) + a D34
+  characterization test. Deliberate two-readers state until then; **do this post-merge**, not before.
 
 See: D29 (one mechanism per job), D30 (grant = thin compiler), D34 (deprecation mechanics).

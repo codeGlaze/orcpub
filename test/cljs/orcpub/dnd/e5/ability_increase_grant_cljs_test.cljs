@@ -78,7 +78,9 @@
     (let [bg  (first (filter #(= :tide-born (:key %)) @(rf/subscribe [::bg5e/backgrounds])))
           sel (floating-sel bg)]
       (is (some? bg) "the homebrew background appears in the backgrounds sub")
-      (is (= 2 (count (:modifiers bg))) "fixed +2 CHA modifiers merged onto the background")
+      (is (= 1 (count (:modifiers bg)))
+          "fixed +2 CHA merged as ONE neutral ability modifier (:general attribution — NOT racial; a
+           race would emit 2, the extra being the race-column write)")
       (is (= martial-slot-1 (set (map ::t/key (::t/options sel))))
           "the floating slot is wired onto the background, restricted to martial"))))
 
@@ -92,7 +94,9 @@
     (let [sc  (first (filter #(= :tide-knight (:key %)) @(rf/subscribe [::classes5e/plugin-subclasses])))
           sel (floating-sel sc)]
       (is (some? sc) "the homebrew subclass appears in the sub")
-      (is (= 2 (count (:modifiers sc))) "fixed +2 CHA modifiers merged onto the subclass")
+      (is (= 1 (count (:modifiers sc)))
+          "fixed +2 CHA merged as ONE neutral ability modifier (:general attribution — subclass ASI is
+           not racial)")
       (is (= martial-slot-1 (set (map ::t/key (::t/options sel))))
           "the floating slot is wired onto the subclass, restricted to martial"))))
 

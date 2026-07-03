@@ -95,8 +95,12 @@ spread can't fully replace (see Backward compatibility). The feat reader dispatc
 feat format. So a homebrew feat can now grant a fixed/floating/grouped spread, while existing feats are
 untouched.
 
-- **Single-stat (fixed)** increments → `mod5e/race-ability` modifiers (applied unconditionally; they
-  show in the ability grid's "race" column like any racial ASI).
+- **Single-stat (fixed)** increments → a modifier chosen by the silo's **attribution** (applied
+  unconditionally). This is `compile-ability-grants`' `:attribution` — `:race` (default →
+  `mod5e/race-ability`, the ability grid's "race" column), `:subrace` (→ `subrace-ability`), or
+  `:general` (→ `mod5e/ability`, shown under "other"). **Non-racial silos (background/subclass/feat)
+  MUST pass `:general`**, or their fixed +N is mis-shown as a *racial* increase (it was — the fix). The
+  total is identical either way; only the per-source breakdown column differs.
 - **Multi-stat (floating)** increments → slots in **one** selection keyed `:asi` (so the character
   builder renders it). Each slot's options are the pool's abilities, keyed `asi-<idx>-<ability>`, each
   carrying its own `level-ability-increase`. So storage/compute reuse the existing per-option
