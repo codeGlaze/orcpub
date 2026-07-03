@@ -339,7 +339,11 @@
                              {:name      (str (:name (abilities-map k)) " " (common/bonus-str amount)
                                               (when save? " + save"))
                               :key       (keyword (str "asi-" idx "-" (clojure.core/name k)))
-                              :modifiers (cond-> [(modifiers/level-ability-increase k amount)]
+                              ;; a floating pick, once chosen, IS a fixed increase on the chosen
+                              ;; ability — so it attributes via the SAME fixed-modifier as a fixed
+                              ;; increment (race→race col, subrace→subrace col, else→other), NOT the
+                              ;; level-up bucket. Single-sourcing attribution across fixed & floating.
+                              :modifiers (cond-> (vec (fixed-modifier k amount))
                                            save? (conj (modifiers/saving-throws nil k)))}))
                           pool))]
     {:modifiers  (vec modifiers)

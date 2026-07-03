@@ -107,6 +107,16 @@ characterization tests.
   component (producers stay separate; per-row highlighting stays bespoke). Documented in
   `content-extensibility-direction.md` for discovery.
 
+- **Bug fix: floating ASI picks were attributed to nothing (orphaned in the level-up bucket).** A
+  chosen floating +N applied via `level-ability-increase` → `?level-ability-increases`, which the
+  per-source ability breakdown doesn't show — so a picked floating ASI updated the total but appeared
+  in no column (and a subrace with a floating ASI showed no "subrace" column at all). Root cause: the
+  compiler decided attribution in two places and only the fixed branch was silo-aware. Single-sourced
+  it — floating slot options now apply the same `fixed-modifier` as fixed increments, so a pick lands
+  in its silo's column. Total unchanged; option keys unchanged (no save-compat impact). Proven by
+  `test/e2e/multi-source-floating-attribution.js` (three concurrent floating sources — race/subrace/
+  background — render separately and attribute to their own columns) + a JVM floating-attribution test.
+
 - **Bug fix: per-silo ASI attribution (fixed increments were mis-shown as racial).** The spread
   compiler used `race-ability` for every fixed increment, so a background/subclass/feat fixed +N landed
   in the ability breakdown's "race" column (and cancelled out of "other"). `compile-ability-grants` now

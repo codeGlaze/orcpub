@@ -121,6 +121,36 @@
         (is (zero? (get (char5e/race-ability-increases sub) S 0)))
         (is (= 2 (get (char5e/subrace-ability-increases sub) S 0)))))))
 
+(defn- build-attr-picks [content attribution picks]
+  (let [{:keys [modifiers selections]} (opt5e/compile-ability-grants content {:attribution attribution})]
+    (entity/build (raw-entity picks)
+                  (t5e/template
+                   (concat
+                    (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
+                                             sl5e/spell-lists spells5e/spell-map [] [] [] [] (common/map-by-key [{:name "Common" :key :common}]))
+                    [(t/selection-cfg {:name "Origin" :key :origin :tags #{:race}
+                                       :options [(t/option-cfg {:name "M" :key :test-origin
+                                                                :modifiers modifiers :selections selections})]
+                                       :min 1 :max 1})])))))
+
+(deftest floating-asi-attribution-follows-the-silo-not-the-level-bucket
+  (testing "a CHOSEN floating +1 attributes to the SAME column as a fixed increment would — not the
+            orphaned level bucket (the rendered bug: picked floating showed race 0 / other 0)"
+    (let [;; [[1 :any]] is one floating slot; the player picks STR -> asi-0-str
+          race (build-attr-picks {:ability-increases [[1 :any]]} :race    [:asi-0-str])
+          gen  (build-attr-picks {:ability-increases [[1 :any]]} :general [:asi-0-str])
+          sub  (build-attr-picks {:ability-increases [[1 :any]]} :subrace [:asi-0-str])]
+      (is (= 11 (S (char5e/ability-values race))) "total applied")
+      (is (= 11 (S (char5e/ability-values gen))))
+      (is (= 11 (S (char5e/ability-values sub))))
+      (testing "race floating pick → race column"
+        (is (= 1 (get (char5e/race-ability-increases race) S 0))))
+      (testing "non-racial (:general) floating pick → NOT race (shows under 'other')"
+        (is (zero? (get (char5e/race-ability-increases gen) S 0))))
+      (testing "subrace floating pick → subrace column (so the subrace row now renders)"
+        (is (= 1 (get (char5e/subrace-ability-increases sub) S 0)))
+        (is (zero? (get (char5e/race-ability-increases sub) S 0)))))))
+
 (deftest compile-tolerates-messy-entries-around-good-ones
   (testing "a MESSY pak (junk strings, bad amounts, empty vectors mixed with a valid increment)
             compiles without throwing and the good increment still survives — guardrail: don't let one

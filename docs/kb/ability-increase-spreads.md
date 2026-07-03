@@ -101,8 +101,11 @@ untouched.
   `:general` (→ `mod5e/ability`, shown under "other"). **Non-racial silos (background/subclass/feat)
   MUST pass `:general`**, or their fixed +N is mis-shown as a *racial* increase (it was — the fix). The
   total is identical either way; only the per-source breakdown column differs.
-- **Multi-stat (floating)** increments → slots in **one** selection keyed `:asi` (so the character
-  builder renders it). Each slot's options are the pool's abilities, keyed `asi-<idx>-<ability>`, each
+- **Multi-stat (floating)** increments → slots in **one** selection keyed `:asi`. Each slot option
+  applies the **same `fixed-modifier`** as a fixed increment (single-sourced attribution), so a chosen
+  floating pick lands in its silo's breakdown column (race→race, subrace→subrace, else→"other") — NOT
+  the orphaned level-up bucket, which left picked floating ASIs invisible in the per-source breakdown.
+  Options are keyed `asi-<idx>-<ability>`, each
   carrying its own `level-ability-increase`. So storage/compute reuse the existing per-option
   mechanism — nothing new in the engine.
 - The full spread (fixed + floating) rides on the selection's `::t/spread` so the widget can render
