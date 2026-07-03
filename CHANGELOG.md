@@ -3,6 +3,53 @@
 All notable changes to this project will be documented in this file.
 Format: per-commit entries grouped by category, newest first.
 
+## [refactor/garden-inline-styles]
+
+Converts inline `:style` maps to named Garden CSS classes. No visual change,
+plus a few UI fixes.
+
+### Bug Fixes
+
+- **Header dropdown hidden behind tab icons** (`63da535c`)
+  The character-menu dropdown now renders above the adjacent tab icons and is
+  clickable.
+
+- **Mobile header overflow** (`bbe1f710`)
+  Fixed box-sizing, capped the logo height, and contained the import panel so
+  the top bar fits small screens.
+
+### Enhancements
+
+- **CSS-only menu flyout** (`fcb02f74`)
+  The option flyout uses CSS hover/focus state instead of a Reagent atom.
+
+- **Header polish** (`cbb1f46d`)
+  Ghost buttons, an Orcacle glow accent, and a separator between the header
+  controls.
+
+### Cleanup
+
+- **Inline styles moved to Garden classes**
+  (`6c3b7639`, `72bb7e06`, `1836ad83`, `e6e2ebbb`, `cfd05a76`, `0cc3b2bc`,
+  `36a8f7f6`)
+  Registration, loading, Oracle, character display, spells, header, menu,
+  search, login, columns, inline SVG, debug, inputs, checkboxes, print button,
+  folder dropdown, and the input-error cue. Appearance unchanged.
+
+- **Compiled CSS untracked** (`4c4ed3df`)
+  `resources/public/css/compiled/styles.css` is a `lein garden once` build
+  artifact and is now gitignored.
+
+- **Reconciled with develop** (`e0468567`)
+  Kept develop's builder-field validation (amber for empty, red for duplicate)
+  and export-edit rules alongside this branch's `columns-*` utilities; removed
+  the orphaned `character-display-style` def, replaced by `.character-display`.
+
+### Documentation
+
+- **Stylesheet section comments** (`2c358cd9`)
+  `styles/core.clj` split into labeled sections.
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
