@@ -5961,7 +5961,7 @@
                 (range 2)))]])])
        (range 1 6)))]]])
 
-(declare ability-increase-choices save-proficiency-choices save-coverage-notes optional-builder-section)
+(declare ability-increase-choices save-proficiency-choices ability-save-notes optional-builder-section)
 
 (defn subclass-builder []
   (let [subclass @(subscribe [::classes/subclass-builder-item])
@@ -5997,7 +5997,7 @@
       [:div
        [ability-increase-choices subclass #(dispatch [::classes/set-subclass-prop :ability-increases %])]
        [save-proficiency-choices subclass #(dispatch [::classes/set-subclass-prop :save-proficiencies %])]
-       [save-coverage-notes subclass]]]
+       [ability-save-notes subclass]]]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
@@ -6332,7 +6332,7 @@
    feedback the same way. Producers stay separate and just hand it a seq of human-readable strings:
      - simple-content-builder ← bf/validate-fields   (:error)
      - selection-builder summary ← duplicate/empty-name checks (:error)
-     - save-coverage-notes ← opt/save-coverage-warnings   (:advisory)
+     - ability-save-notes ← opt/ignored-entry-warnings (:error) + opt/save-coverage-warnings (:advisory)
    :severity :error = blocking, 'Fix before saving:' + red list; :advisory = non-blocking, italic ⚠
    lines. Empty seq → nothing. (Per-row highlighting stays bespoke to the producer — this is summary
    only.)"
@@ -6345,12 +6345,17 @@
       [:div.m-b-20
        (doall (map-indexed (fn [i p] ^{:key i} [:div.f-s-12.i.m-b-5.red "⚠ " p]) problems))])))
 
-(defn save-coverage-notes
-  "Authoring-time warn-and-explain: surfaces redundant/overlapping save grants the creator has authored
-   on THIS content entry (opt/save-coverage-warnings). Guidance only — duplicates are harmless at
-   runtime (saves are a set); this just flags wasted authoring/picks. Renders via builder-notes."
+(defn ability-save-notes
+  "Authoring-time notes under the ASI/save widgets for THIS content entry:
+     - :error   — malformed :ability-increases/:save-proficiencies entries that the compilers will
+                  IGNORE (opt/ignored-entry-warnings); surfaces the otherwise-silent drop.
+     - :advisory — redundant/overlapping save coverage (opt/save-coverage-warnings); harmless at
+                  runtime (saves are a set), just flags wasted authoring/picks.
+   Renders nothing when clean."
   [item]
-  [builder-notes (opt/save-coverage-warnings item) {:severity :advisory}])
+  [:div
+   [builder-notes (opt/ignored-entry-warnings item) {:severity :error}]
+   [builder-notes (opt/save-coverage-warnings item) {:severity :advisory}]])
 
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
@@ -6448,7 +6453,7 @@
          opt/abilities))]
       [ability-increase-choices race #(dispatch [::races/set-race-path-prop [:ability-increases] %])]
       [save-proficiency-choices race #(dispatch [::races/set-race-path-prop [:save-proficiencies] %])]
-      [save-coverage-notes race]]
+      [ability-save-notes race]]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [:div.m-b-20
@@ -6525,7 +6530,7 @@
          :on-change #(dispatch [::bg/set-background-prop :help %])}]]
      [:div [ability-increase-choices background #(dispatch [::bg/set-background-prop :ability-increases %])]]
      [:div [save-proficiency-choices background #(dispatch [::bg/set-background-prop :save-proficiencies %])]]
-     [:div [save-coverage-notes background]]
+     [:div [ability-save-notes background]]
      [:div [background-skill-proficiencies background]]
      [:div [background-languages background]]
      [:div [background-tool-proficiencies background]]

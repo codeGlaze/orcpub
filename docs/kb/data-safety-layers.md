@@ -59,13 +59,14 @@ migration. Two cross-cutting invariants sit under all of it:
 
 ## Tracked follow-ups
 
-- **`pool-entry?` should surface, not silently skip (harden → surface).** `compile-ability-increases`
-  / `compile-save-proficiencies` drop malformed `[amount pool]` / `[count pool]` entries silently for
-  fan-out crash-safety (correct — one bad entry can't crash the pack). But a *creator* authoring in the
-  builder gets no signal that an entry was ignored. Climb it from harden to surface: have the authoring
-  form (`save-coverage-notes` is the natural home) report "N ability-increase / save entries were
-  ignored as malformed", ideally naming the index. Runtime stays silent-skip (no per-entry UI in a
-  sub's fan-out); the *authoring* path is where a human sees it. Guardrail 6.
+- **`pool-entry?` surface — DONE (harden → surface).** The compilers still silently skip malformed
+  entries at runtime (correct for a sub's fan-out), but the authoring form now climbs to *surface*:
+  `opt5e/ignored-entry-warnings` counts the `:ability-increases` / `:save-proficiencies` entries a
+  compile would drop, and `ability-save-notes` renders it as a blocking-styled note ("N … entries are
+  malformed and will be IGNORED — each must be [amount pool]") under the ASI/save widgets. So a creator
+  editing imported/hand-edited content sees the drop instead of losing it silently. Proven by
+  `ability_increase_grant_test/ignored-entry-warnings-*` (JVM) + `test/e2e/ignored-entry-note.js` (the
+  builder survives the junk and shows the note). Guardrail 6.
 
 ## See also
 - `ability-increase-spreads.md` — the feature these examples come from (compile crash-safety section).

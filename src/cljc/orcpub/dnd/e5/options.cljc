@@ -432,6 +432,22 @@
     {:modifiers  (concat (:modifiers ai) (:modifiers sp))
      :selections (concat (:selections ai) (:selections sp))}))
 
+(defn ignored-entry-warnings
+  "Authoring-time SURFACE for the harden→surface guardrail: the compilers silently skip malformed
+   :ability-increases / :save-proficiencies entries (pool-entry? — a vector with a numeric amount and a
+   keyword/collection pool) for fan-out crash-safety. That silent drop is correct at runtime but hides
+   data loss from a creator editing imported/hand-edited content. Returns a vector of human-readable
+   strings naming how many entries in each field will be ignored (empty = all entries compile).
+   See docs/kb/data-safety-layers.md (the tracked follow-up)."
+  [{:keys [ability-increases save-proficiencies]}]
+  (let [ignored (fn [field label]
+                  (let [n (count (remove pool-entry? field))]
+                    (when (pos? n)
+                      (str n " " label " entr" (if (= 1 n) "y is" "ies are")
+                           " malformed and will be IGNORED — each must be [amount pool].") )))]
+    (vec (keep identity [(ignored ability-increases "ability-increase")
+                         (ignored save-proficiencies "saving-throw")]))))
+
 (defn save-coverage-warnings
   "Authoring-time guidance ONLY (no mechanical effect): scan a content entry's save grants — the
    :ability-increases :save riders and the standalone :save-proficiencies — for redundant or
