@@ -337,6 +337,37 @@
         (is (and (= 1 (first inc)) (= :martial (second inc))) "amount+pool preserved every toggle")
         (recur (opt5e/toggle-increment-save inc) (dec n))))))
 
+;; ─── Multiple feats with floating pools + a static-ASI feat (do sibling :asi slots collide?) ────────
+(defn- feat-opt [cfg]
+  (opt5e/feat-option-from-cfg nil nil nil weapons5e/weapons nil nil cfg))
+
+(deftest multiple-feats-floating-and-static-stay-separate-and-attribute-to-other
+  (testing "two feats each with a floating ASI both key their slot asi-0-<ability>; selected together
+            under ONE Feats multiselect they must NOT collide — each pick applies independently. Plus a
+            static-ASI feat. All feat ASIs attribute to 'other' (general), never racial."
+    (let [ff1 (feat-opt {:name "FF1" :key :ff1 :ability-increases [[1 :any]]})       ; floating +1
+          ff2 (feat-opt {:name "FF2" :key :ff2 :ability-increases [[1 :any]]})       ; floating +1
+          fs  (feat-opt {:name "FS"  :key :fs  :ability-increases [[2 :con]]})       ; static +2 CON
+          feats-sel (t/selection-cfg {:name "Feats" :key :feats :tags #{:feats}
+                                      :multiselect? true :min 0 :max 99 :options [ff1 ff2 fs]})
+          tmpl (t5e/template
+                (concat
+                 (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
+                                          sl5e/spell-lists spells5e/spell-map [] [] [] [] (common/map-by-key [{:name "Common" :key :common}]))
+                 [feats-sel]))
+          ;; both floating feats pick STR (same slot key asi-0-str, different feat paths); static feat selected
+          ent {:orcpub.entity/options
+               {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
+                :feats [{:orcpub.entity/key :ff1 :orcpub.entity/options {:asi [{:orcpub.entity/key :asi-0-str}]}}
+                        {:orcpub.entity/key :ff2 :orcpub.entity/options {:asi [{:orcpub.entity/key :asi-0-str}]}}
+                        {:orcpub.entity/key :fs}]}}
+          built (entity/build ent tmpl)
+          a (char5e/ability-values built)]
+      (is (= 12 (S a)) "BOTH feats' floating STR picks applied and stacked (10 +1 +1) — no collision")
+      (is (= 12 (C a)) "the static feat's +2 CON applied (10 +2)")
+      (is (zero? (get (char5e/race-ability-increases built) S 0)) "floating feat ASI is NOT racial")
+      (is (zero? (get (char5e/race-ability-increases built) C 0)) "static feat ASI is NOT racial (→ 'other')"))))
+
 ;; ─── Authoring-time save-coverage guidance (no mechanics; the builder warns-and-explains) ──────────
 (deftest save-coverage-clean-when-no-overlap
   (testing "distinct fixed + a non-overlapping choice -> no warnings"
