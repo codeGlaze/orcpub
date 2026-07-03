@@ -107,12 +107,14 @@ characterization tests.
   component (producers stay separate; per-row highlighting stays bespoke). Documented in
   `content-extensibility-direction.md` for discovery.
 
-- **Verified edge cases (deselect + multiple feats).** Deselecting a floating ASI pick (dropdown →
-  "— choose —") cleanly reverts the total AND clears the source-column entry — rendered-verified, no
-  stale state. Two feats each with a floating pool key their slots identically (`asi-0-*`) but, selected
-  together under one Feats multiselect, do NOT collide — each pick applies independently and stacks
-  (entity paths disambiguate); a static-ASI feat applies alongside; all feat ASIs land in "other", never
-  racial (`ability_increase_grant_test/multiple-feats-*`).
+- **Verified edge cases (deselect + multiple feats), rendered.** Deselecting a floating ASI pick
+  (dropdown → "— choose —") cleanly reverts the total AND clears the source-column entry — no stale
+  state. Multiple feats with floating pools: unlocked via the live per-section **Homebrew toggle** (the
+  beer-stein mug — `character_builder.cljs:644`), two floating-ASI feats render as separate breadcrumbed
+  widgets and their picks do NOT collide even though both key their slots `asi-0-*` (each feat's own
+  entity path disambiguates — STR stacks +2+1=+3); a static-ASI feat applies immediately (+2 CON); all
+  feat ASIs land in "other", never racial. E2E `test/e2e/multi-feat-floating.js` + JVM
+  `ability_increase_grant_test/multiple-feats-*`.
 
 - **Bug fix: floating ASI picks were attributed to nothing (orphaned in the level-up bucket).** A
   chosen floating +N applied via `level-ability-increase` → `?level-ability-increases`, which the
