@@ -107,6 +107,12 @@ characterization tests.
   component (producers stay separate; per-row highlighting stays bespoke). Documented in
   `content-extensibility-direction.md` for discovery.
 
+- **Malformed-entry surfacing (harden → surface, guardrail 6).** The compilers silently skip malformed
+  `:ability-increases`/`:save-proficiencies` entries for fan-out crash-safety; the authoring form now
+  *surfaces* it — `opt5e/ignored-entry-warnings` + `ability-save-notes` show "N entries are malformed
+  and will be IGNORED" so a creator editing imported/hand-edited content sees the drop. The builder
+  survives the junk. `ability_increase_grant_test/ignored-entry-warnings-*` + `test/e2e/ignored-entry-note.js`.
+
 - **Verified edge cases (deselect + multiple feats), rendered.** Deselecting a floating ASI pick
   (dropdown → "— choose —") cleanly reverts the total AND clears the source-column entry — no stale
   state. Multiple feats with floating pools: unlocked via the live per-section **Homebrew toggle** (the

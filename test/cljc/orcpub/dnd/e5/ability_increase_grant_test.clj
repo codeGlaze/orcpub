@@ -369,6 +369,20 @@
       (is (zero? (get (char5e/race-ability-increases built) C 0)) "static feat ASI is NOT racial (→ 'other')"))))
 
 ;; ─── Authoring-time save-coverage guidance (no mechanics; the builder warns-and-explains) ──────────
+(deftest ignored-entry-warnings-surface-what-compile-drops
+  (testing "clean data → no warnings"
+    (is (empty? (opt5e/ignored-entry-warnings
+                 {:ability-increases [[2 :cha] [1 :martial]] :save-proficiencies [[1 :con]]}))))
+  (testing "malformed ability-increase entries (junk string, nil pool, empty) are counted + explained"
+    (let [w (opt5e/ignored-entry-warnings {:ability-increases [[1 :str] "junk" [:bad] []]})]
+      (is (= 1 (count w)))
+      (is (re-find #"3 ability-increase entries are malformed and will be IGNORED" (first w)))))
+  (testing "malformed save entries are surfaced too, and singular grammar"
+    (let [w (opt5e/ignored-entry-warnings {:save-proficiencies [[1 :con] "x"]})]
+      (is (re-find #"1 saving-throw entry is malformed" (first w)))))
+  (testing "nil/absent fields → nothing"
+    (is (empty? (opt5e/ignored-entry-warnings {})))))
+
 (deftest save-coverage-clean-when-no-overlap
   (testing "distinct fixed + a non-overlapping choice -> no warnings"
     (is (empty? (opt5e/save-coverage-warnings
