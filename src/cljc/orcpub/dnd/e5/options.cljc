@@ -313,8 +313,12 @@
    stat; floating: the save rides the CHOSEN option (each slot option also grants its own save). This
    reuses modifiers/saving-throws; default (no :save) is bump-only. For saves unrelated to a bump (a
    different stat, or no bump at all), use the standalone :save-proficiencies field instead.
-   See docs/kb/ability-increase-spreads.md."
-  [spread]
+
+   ATTRIBUTION: a FIXED increment is applied via `:fixed-modifier` (default `race-ability`, the RACE
+   column of the ability breakdown). NON-racial silos MUST pass a neutral modifier (see
+   compile-ability-grants :attribution) so a background/subclass/feat fixed +N doesn't masquerade as a
+   RACIAL increase. See docs/kb/ability-increase-spreads.md."
+  [spread & [{:keys [fixed-modifier] :or {fixed-modifier modifiers/race-ability}}]]
   (let [;; skip non-pair entries: the races sub maps this over EVERY homebrew race, so one malformed
         ;; entry must not break the whole list. nil/no field -> no increments (additive).
         increments (map-indexed
@@ -325,7 +329,7 @@
                          :save? (= :save (nth incr 2 nil))}))
                     (filter pool-entry? spread))   ; skip junk so one bad entry can't crash the list
         modifiers  (mapcat (fn [{:keys [amount pool save?]}]
-                             (concat (modifiers/race-ability (first pool) amount)
+                             (concat (fixed-modifier (first pool) amount)
                                      (when save? [(modifiers/saving-throws nil (first pool))])))
                            (filter :fixed? increments))
         floating   (remove :fixed? increments)
@@ -398,13 +402,28 @@
                                                        :modifiers [(modifiers/saving-throws nil k)]}))
                                                    pool))})))}))
 
+(defn general-ability
+  "A FIXED ability increase attributed to NO source column — a plain +N in ?ability-increases, which the
+   ability breakdown shows under 'other'. For non-racial silos (background/subclass/feat) so their fixed
+   ASIs don't masquerade as RACIAL (race-ability also writes ?race-ability-increases = the race column).
+   Returns a vector (same shape as race-ability/subrace-ability)."
+  [ability-kw amount]
+  [(modifiers/ability ability-kw amount)])
+
 (defn compile-ability-grants
   "The single hook a silo calls to turn a content entry's ability/save DATA into mechanics: merges the
    ASI spread (:ability-increases, incl. the :save rider) and the standalone save tool
    (:save-proficiencies) -> {:modifiers :selections}. Additive (an entry with neither is unchanged).
-   Used by plugin-races/subraces/backgrounds/subclasses and feat-option-from-cfg."
-  [{:keys [ability-increases save-proficiencies]}]
-  (let [ai (compile-ability-increases ability-increases)
+   Used by plugin-races/subraces/backgrounds/subclasses and feat-option-from-cfg.
+
+   :attribution controls where a FIXED increment lands in the ability breakdown — :race (default) |
+   :subrace | :general. NON-racial silos MUST pass :general, or their fixed ASI is shown as racial."
+  [{:keys [ability-increases save-proficiencies]} & [{:keys [attribution] :or {attribution :race}}]]
+  (let [fixed-modifier (case attribution
+                         :subrace modifiers/subrace-ability
+                         :general general-ability
+                         modifiers/race-ability)
+        ai (compile-ability-increases ability-increases {:fixed-modifier fixed-modifier})
         sp (compile-save-proficiencies save-proficiencies)]
     {:modifiers  (concat (:modifiers ai) (:modifiers sp))
      :selections (concat (:selections ai) (:selections sp))}))
@@ -3689,8 +3708,11 @@
   ;; compile-save-proficiencies the other silos use — so a feat can grant saves with no ASI at all.
   (let [spread? (vector? ability-increases)
         legacy-ai (if spread? #{} ability-increases)
+        ;; :general attribution — a feat's fixed ASI is NOT racial (shows under 'other', like the legacy
+        ;; feat set path's modifiers/ability), not the race column.
         {ai-mods :modifiers ai-sels :selections} (when spread?
-                                                    (compile-ability-increases ability-increases))
+                                                    (compile-ability-increases ability-increases
+                                                                               {:fixed-modifier general-ability}))
         {sp-mods :modifiers sp-sels :selections} (compile-save-proficiencies save-proficiencies)
         feat-mods (concat (feat-modifiers key
                                           name

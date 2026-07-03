@@ -92,6 +92,35 @@
       (is (= {:modifiers [] :selections []} (opt5e/compile-ability-increases x))
           (str "no-op for: " (pr-str x))))))
 
+(defn- build-attr [content attribution]
+  (let [{:keys [modifiers selections]} (opt5e/compile-ability-grants content {:attribution attribution})]
+    (entity/build (raw-entity nil)
+                  (t5e/template
+                   (concat
+                    (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
+                                             sl5e/spell-lists spells5e/spell-map [] [] [] [] (common/map-by-key [{:name "Common" :key :common}]))
+                    [(t/selection-cfg {:name "Origin" :key :origin :tags #{:race}
+                                       :options [(t/option-cfg {:name "M" :key :test-origin
+                                                                :modifiers modifiers :selections selections})]
+                                       :min 1 :max 1})])))))
+
+(deftest fixed-asi-attribution-is-per-silo
+  (testing "a fixed +2 STR always lands in the TOTAL, but its per-source column depends on the silo —
+            a background/subclass/feat must NOT be shown as a RACIAL increase (regression: it was)"
+    (let [race (build-attr {:ability-increases [[2 :str]]} :race)
+          gen  (build-attr {:ability-increases [[2 :str]]} :general)
+          sub  (build-attr {:ability-increases [[2 :str]]} :subrace)]
+      (is (= 12 (S (char5e/ability-values race))) "race: applied to the total")
+      (is (= 12 (S (char5e/ability-values gen)))  "general: applied to the total")
+      (is (= 12 (S (char5e/ability-values sub)))  "subrace: applied to the total")
+      (testing "RACE silo → the race column"
+        (is (= 2 (get (char5e/race-ability-increases race) S 0))))
+      (testing "non-racial silo (:general, e.g. background/subclass/feat) → NOT the race column"
+        (is (zero? (get (char5e/race-ability-increases gen) S 0)) "the bug this fixes"))
+      (testing "SUBRACE silo → the subrace column, not race"
+        (is (zero? (get (char5e/race-ability-increases sub) S 0)))
+        (is (= 2 (get (char5e/subrace-ability-increases sub) S 0)))))))
+
 (deftest compile-tolerates-messy-entries-around-good-ones
   (testing "a MESSY pak (junk strings, bad amounts, empty vectors mixed with a valid increment)
             compiles without throwing and the good increment still survives — guardrail: don't let one

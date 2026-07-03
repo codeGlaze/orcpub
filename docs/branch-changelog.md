@@ -107,6 +107,14 @@ characterization tests.
   component (producers stay separate; per-row highlighting stays bespoke). Documented in
   `content-extensibility-direction.md` for discovery.
 
+- **Bug fix: per-silo ASI attribution (fixed increments were mis-shown as racial).** The spread
+  compiler used `race-ability` for every fixed increment, so a background/subclass/feat fixed +N landed
+  in the ability breakdown's "race" column (and cancelled out of "other"). `compile-ability-grants` now
+  takes `:attribution` (`:race` default / `:subrace` / `:general`); non-racial silos pass `:general` (a
+  neutral `mod5e/ability`, shown under "other"). Total unaffected; only the source column was wrong.
+  Floating increments were never affected (they use `level-ability-increase`). Caught during the feat-
+  migration review; behavioral test builds a character and checks the race bucket per silo.
+
 - **Fan-out crash-safety for messy paks.** A malformed spread/save entry with a nil pool (`[:bad]`,
   `[]`) reached `resolve-pool` and NPE'd on `(name nil)` — in the races sub (mapped over every race)
   that crashed the whole pack. Tightened the compilers' guard from `filter vector?` to `pool-entry?`

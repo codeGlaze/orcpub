@@ -103,7 +103,7 @@
       ;; A4: a background's ability/save grants (:ability-increases spread incl. the :save rider, +
       ;; standalone :save-proficiencies) compile to modifiers + selections, additive (none -> {}).
       ;; 2024 rules grant the ASI via background; same hook as races/subraces.
-      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants background)]
+      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants background {:attribution :general})]
         (assoc background
                :modifiers (concat (:modifiers background) ai-mods)
                :selections (concat (:selections background) ai-sels)
@@ -167,7 +167,7 @@
    (map
     (fn [subrace]
       ;; A4: same ability/save grants hook as races (ASI spread + :save rider + standalone saves); additive.
-      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants subrace)]
+      (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants subrace {:attribution :subrace})]
         (assoc subrace
                :modifiers (concat (opt5e/plugin-modifiers (:props subrace)
                                                           (:key subrace))
@@ -473,7 +473,7 @@
                 ;; A4 (opt-in): a subclass's ability/save grants (:ability-increases spread + :save rider
                 ;; + standalone :save-proficiencies) -> modifiers + selections (additive; none -> {}).
                 ;; Non-standard for 5e, so authored behind a builder toggle.
-                {ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants subclass)]
+                {ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants subclass {:attribution :general})]
             (assoc subclass-with-key
                    :modifiers (concat (opt5e/plugin-modifiers (:props subclass) subclass-key) ai-mods)
                    :selections (concat (:selections subclass) ai-sels)
