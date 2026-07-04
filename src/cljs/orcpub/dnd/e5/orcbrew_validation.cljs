@@ -9,10 +9,6 @@
             [orcpub.dnd.e5 :as e5]
             [orcpub.common :as common]))
 
-;; =============================================================================
-;; Version: 0.11 - Fix forward reference for is-multi-plugin?
-;; =============================================================================
-
 ;; Forward declarations for functions used before definition
 (declare is-multi-plugin?)
 
@@ -81,11 +77,18 @@
     s))
 
 (defn count-non-ascii
-  "Count remaining non-ASCII characters after normalization.
-   Returns a map of {:count N :chars #{...}} or nil if all ASCII."
+  "Count non-ASCII chars left after normalization so the importer can WARN about
+   content `normalize-text` deliberately keeps (e.g. accented letters — the
+   `unicode-to-ascii` map normalizes typographic punctuation but NOT letters).
+   Returns {:count N :chars #{...}} or nil if all ASCII. No callers yet; kept
+   correct for a future warn-don't-strip wire-up.
+
+   NOTE: cljs has no char type — seq'ing a string yields 1-char STRINGS, and
+   `(int \"é\")` is 0, NOT the code point, so `(> (int %) 127)` silently never
+   fires. Use `.charCodeAt`."
   [s]
   (when (string? s)
-    (let [non-ascii (filter #(> (int %) 127) s)]
+    (let [non-ascii (filter #(> (.charCodeAt % 0) 127) s)]
       (when (seq non-ascii)
         {:count (count non-ascii)
          :chars (set non-ascii)}))))
@@ -411,25 +414,37 @@
        @changes])))
 
 (defn dedup-options-in-item
-  "Dedup options within all selections of a content item.
-   Returns [updated-item changes]."
+  "Dedup options for a content item, handling BOTH shapes → [updated-item changes]:
+   - a top-level homebrew selection whose `:options` live on the item, and
+   - a content item (class/race/…) with a nested `:selections` map, each carrying
+     its own `:options`.
+
+   The first branch closed a gap: dedup used to walk only nested `:selections`, so
+   duplicate options on an actual homebrew Selection went undeduped on import
+   (guarded by test-dedup-options-in-import-full-pipeline)."
   [item]
-  (if-let [selections (:selections item)]
-    (if (map? selections)
-      (let [result (reduce-kv
-                    (fn [acc sel-key sel-data]
-                      (if-let [options (:options sel-data)]
-                        (let [[deduped changes] (dedup-options-in-selection options)]
-                          {:selections (assoc (:selections acc) sel-key
-                                              (assoc sel-data :options deduped))
-                           :changes (into (:changes acc) changes)})
-                        {:selections (assoc (:selections acc) sel-key sel-data)
-                         :changes (:changes acc)}))
-                    {:selections {} :changes []}
-                    selections)]
-        [(assoc item :selections (:selections result)) (:changes result)])
-      [item []])
-    [item []]))
+  (cond
+    ;; Top-level selection item — dedup its own :options.
+    (sequential? (:options item))
+    (let [[deduped changes] (dedup-options-in-selection (:options item))]
+      [(assoc item :options deduped) changes])
+
+    ;; Item with a nested :selections map — dedup each selection's options.
+    (map? (:selections item))
+    (let [result (reduce-kv
+                  (fn [acc sel-key sel-data]
+                    (if-let [options (:options sel-data)]
+                      (let [[deduped changes] (dedup-options-in-selection options)]
+                        {:selections (assoc (:selections acc) sel-key
+                                            (assoc sel-data :options deduped))
+                         :changes (into (:changes acc) changes)})
+                      {:selections (assoc (:selections acc) sel-key sel-data)
+                       :changes (:changes acc)}))
+                  {:selections {} :changes []}
+                  (:selections item))]
+      [(assoc item :selections (:selections result)) (:changes result)])
+
+    :else [item []]))
 
 (defn dedup-options-in-plugin
   "Dedup options in all selections across all content types in a plugin.
@@ -947,17 +962,19 @@
    plugins))
 
 (defn apply-user-edits-to-plugin
-  "Apply user-entered values from the export warning modal to a plugin,
-   then fill any remaining gaps with dummy data.
+  "Apply the user's export-modal edits to a plugin, then dummy-fill remaining gaps
+   into complete/valid content. Used wherever auto-fixed data is needed: the export
+   FILE, the write-back to My Content (so library matches file; placeholders are
+   self-labeling and flagged), and quarantine repair (re-validates first).
 
    edits is a map of vector-path → value, e.g.:
      [\"My Pack\" :orcpub.dnd.e5/spells :fireball :level] → 3
      [\"My Pack\" :orcpub.dnd.e5/spells :fireball :trait 0 :name] → \"Fire Aura\"
 
-   Only edits whose first element matches plugin-name are applied."
+   Only edits whose first element matches plugin-name are applied; blank/NaN
+   values are ignored."
   [plugin plugin-name edits]
-  (let [;; Apply user edits to the plugin data
-        edited-plugin
+  (let [edited-plugin
         (reduce-kv
          (fn [p edit-path value]
            (let [[pname content-type item-key & field-path] edit-path]
@@ -977,7 +994,6 @@
                p)))
          plugin
          edits)]
-    ;; Fill any remaining gaps with dummy data
     (fill-missing-for-export edited-plugin)))
 
 ;; ============================================================================

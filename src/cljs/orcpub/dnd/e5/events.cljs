@@ -4293,7 +4293,25 @@
        (:success result)
        (let [plugin (:data result)
              is-multi-plugin (and (spec/valid? ::e5/plugins plugin)
-                                  (not (spec/valid? ::e5/plugin plugin)))]
+                                  (not (spec/valid? ::e5/plugin plugin)))
+             ;; Normalize to the {source-name source-plugin} shape the boot loader
+             ;; sees. A source with a KEYWORD-TRAP item (name deriving a key not
+             ;; starting with a letter — "9 Lives" -> :9-lives) passes the progressive
+             ;; item check (only needs :option-pack) but its homebrew classes then
+             ;; SILENTLY never appear in the builder. Route only THOSE to the loader's
+             ;; quarantine so the rename/rekey repair UI surfaces them. Other
+             ;; imperfections (missing option-pack, incomplete WIP) are deliberately
+             ;; NOT quarantined — progressive import auto-cleans them and they must
+             ;; still land, keeping the export-draft / re-import hatch working.
+             incoming (if is-multi-plugin plugin {plugin-name plugin})
+             rejected (into {} (filter (fn [[_ p]] (seq (e5/invalid-keyed-items p))) incoming))
+             kept (into {} (remove (fn [[k _]] (contains? rejected k)) incoming))
+             import-log [:set-import-log {:name plugin-name
+                                          :changes (:changes result)
+                                          :errors []
+                                          :skipped-items (:skipped-items result)
+                                          :key-conflicts (:key-conflicts result)
+                                          :key-warnings (:key-warnings result)}]]
 
          ;; Log skipped items if any
          (when (:had-errors result)
@@ -4305,25 +4323,40 @@
                                      (errors->str (:errors item))))
                               (:skipped-items result))))))
 
-         {:dispatch-n (cond-> []
-                        ;; Set the plugins
-                        true
-                        (conj (if is-multi-plugin
-                                [::e5/set-plugins (e5/merge-all-plugins (:plugins db) plugin)]
-                                [::e5/set-plugins (assoc (:plugins db) plugin-name plugin)]))
+         (if (seq rejected)
+           ;; Keyword-trap (or other ::plugin invalidity) — quarantine the bad
+           ;; source(s) via the SAME name-keyed store + reactive panel the loader
+           ;; uses, so the repair UI (rename -> rekey -> restore) surfaces them.
+           ;; Clean sources still land in :plugins.
+           (let [reconciled (e5/reconcile-rejected (get-rejected-plugins) rejected kept)
+                 n (count rejected)]
+             (set-rejected-plugins reconciled)
+             (js/console.warn
+              (str "Quarantined " n " imported source(s) with an invalid item key "
+                   "(name doesn't start with a letter): " (pr-str (vec (keys rejected)))))
+             {:db (update db :quarantined-plugins merge rejected)
+              :dispatch-n (cond-> []
+                            (seq kept)
+                            (conj [::e5/set-plugins (e5/merge-all-plugins (:plugins db) kept)])
+                            true
+                            (conj [:show-error-message
+                                   (str "Imported, but " n " source" (when (> n 1) "s")
+                                        " couldn't be used yet: an item's name starts with a "
+                                        "number or symbol (names become internal keys, which "
+                                        "must start with a letter). It's saved under "
+                                        "“Quarantined” in My Content — rename "
+                                        (if (> n 1) "them" "it") " there to restore "
+                                        (if (> n 1) "them." "it."))])
+                            true (conj import-log))})
 
-                        ;; Show appropriate message
-                        true
-                        (conj [:show-warning-message user-message])
-
-                        ;; Store import log for UI panel
-                        true
-                        (conj [:set-import-log {:name plugin-name
-                                                :changes (:changes result)
-                                                :errors []
-                                                :skipped-items (:skipped-items result)
-                                                :key-conflicts (:key-conflicts result)
-                                                :key-warnings (:key-warnings result)}]))})
+           ;; All sources clean — store normally.
+           {:dispatch-n (cond-> []
+                          true
+                          (conj (if is-multi-plugin
+                                  [::e5/set-plugins (e5/merge-all-plugins (:plugins db) plugin)]
+                                  [::e5/set-plugins (assoc (:plugins db) plugin-name plugin)]))
+                          true (conj [:show-warning-message user-message])
+                          true (conj import-log))}))
 
        ;; Unknown state
        :else
