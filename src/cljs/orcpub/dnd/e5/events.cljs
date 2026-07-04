@@ -49,6 +49,8 @@
                                       subclass->local-store
                                       class->local-store
                                       plugins->local-store
+                                      get-rejected-plugins
+                                      set-rejected-plugins
                                       default-character
                                       default-spell
                                       default-monster
@@ -209,22 +211,33 @@
  [(inject-cofx :local-store-character)
   (inject-cofx :local-store-user)
   (inject-cofx :local-store-magic-item)
+  ;; Restore every homebrew builder's in-progress item (one cofx, driven by
+  ;; db/builder-wip-stores) so WIP survives a refresh in ALL builders, not just class.
+  (inject-cofx :local-store-builder-items)
   (inject-cofx ::e5/plugins)
+  ;; AFTER ::e5/plugins — that cofx reconciles/writes plugins:rejected, and
+  ;; this reads the result into app-db for the reactive repair panel.
+  (inject-cofx ::e5/rejected-plugins)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
               local-store-character
               local-store-user
               local-store-magic-item
+              local-store-builder-items
               ::e5/plugins
+              ::e5/rejected-plugins
               ::combat/tracker-item]} _]
    {:db (if (seq db)
           db
           (cond-> default-value
             plugins (assoc :plugins plugins)
+            (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
             local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
+            ;; Restore in-progress builder WIP (all builders) across refresh.
+            (seq local-store-builder-items) (merge local-store-builder-items)
             tracker-item (assoc ::combat/tracker-item tracker-item)))}))
 
 (defn reset-character [_ _]
@@ -3735,6 +3748,59 @@
  plugins-interceptors
  (fn [_ [_ plugins]]
    plugins))
+
+;; `plugins->local-store` dispatches this when the localStorage write
+;; fails (typically a full quota). The save lives in memory but would vanish on
+;; refresh, so surface it loudly and offer the unvalidated full backup
+;; (`::e5/emergency-export-raw` with nil = whole library) as an immediate out.
+(reg-event-fx
+ ::e5/plugins-save-failed
+ (fn [_ _]
+   {:dispatch [:show-error-message
+               [:div
+                [:div.f-w-b "Couldn't save to browser storage — it may be full."]
+                [:div.m-t-5
+                 "Your latest change is in memory but will be lost on refresh."]
+                [:div.m-t-10
+                 [:span.pointer.underline.f-w-b
+                  {:on-click #(dispatch [::e5/emergency-export-raw nil])}
+                  "Download a full backup now"]]]
+               builder-error-ttl]}))
+
+;; Repair a quarantined source and merge it back into the live library.
+;; rekey-plugin re-derives the map key from the fixed name (the keyword-trap case).
+;; Atomic and PERSISTED (unlike the export auto-fix, which only rewrote the file):
+;; the source lands in :plugins and leaves plugins:rejected together, or — if still
+;; invalid — nothing changes and the user is told why.
+(reg-event-fx
+ ::e5/repair-quarantined-source
+ (fn [{:keys [db]} [_ source-name edits]]
+   (let [rejected (get-rejected-plugins)
+         bad (get rejected source-name)]
+     (cond
+       (nil? bad)
+       {:dispatch [:show-error-message
+                   (str "No quarantined source named \"" source-name "\" to repair.")]}
+
+       :else
+       (let [fixed (-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
+                       (e5/rekey-plugin))]
+         (if (spec/valid? ::e5/plugin fixed)
+           (let [new-plugins (assoc (:plugins db) source-name fixed)]
+             ;; Update both stores together (persist + drop from quarantine) so they
+             ;; never disagree and the change shows immediately, not on the next boot.
+             (plugins->local-store new-plugins)
+             (set-rejected-plugins (dissoc rejected source-name))
+             {:db (-> db
+                      (assoc :plugins new-plugins)
+                      ;; keep the reactive panel in sync with localStorage
+                      (update :quarantined-plugins dissoc source-name))
+              :dispatch [:show-warning-message
+                         (str "\"" source-name "\" repaired and restored to My Content.")]})
+           {:dispatch [:show-error-message
+                       (str "\"" source-name "\" still has problems after the fix — "
+                            "each name must start with a letter and every item needs "
+                            "an option source. Adjust and try again.")]}))))))
 
 ;; ============================================================================
 ;; Export Validation + File Save

@@ -8240,11 +8240,79 @@
           [my-content-item name plugin])
         plugins)))]])
 
+(defn quarantine-source-repair
+  "Repair UI for ONE quarantined source. Shows live-validated name inputs for the
+   keyword-trap items (names that derived an invalid key) and a 'Repair & Restore'
+   action that fixes + re-keys + persists via ::e5/repair-quarantined-source. A
+   raw-export hatch is always offered so broken data can be fixed externally too."
+  [src-name plugin]
+  (let [trapped (e5/invalid-keyed-items plugin)
+        edits (r/atom (into {} (map (fn [{:keys [content-type item-key name]}]
+                                      [[content-type item-key] (or name "")])
+                                    trapped)))]
+    (fn [src-name plugin]
+      (let [current @edits
+            invalid? (fn [v] (not (common/starts-with-letter? (or v ""))))
+            blocked? (or (empty? current) (boolean (some invalid? (vals current))))]
+        [:div.p-10.m-t-10.bg-lighter.b-rad-5
+         [:div.f-w-b.f-s-18.orange src-name]
+         (if (seq trapped)
+           [:div
+            [:div.f-s-12.m-t-5.m-b-5
+             "Couldn't load: a name starts with a number or symbol (names become "
+             "keys, which can't). Fix the name(s) below, then restore:"]
+            (doall
+             (for [{:keys [content-type item-key]} trapped
+                   :let [k [content-type item-key]
+                         v (get current k "")]]
+               ^{:key (str k)}
+               [:div.m-t-5.flex.align-items-c
+                [:input.input {:type "text" :value v
+                               :on-change #(swap! edits assoc k (.. % -target -value))}]
+                (when (invalid? v)
+                  [:span.red.m-l-5.f-s-12 "must start with a letter"])]))]
+           [:div.f-s-12.m-t-5
+            "Couldn't load and can't be auto-repaired here — export it to fix manually."])
+         [:div.m-t-10
+          (when (seq trapped)
+            [:button.form-button.m-r-5
+             {:disabled blocked?
+              :class (when blocked? "disabled")
+              :on-click #(when-not blocked?
+                           (dispatch [::e5/repair-quarantined-source src-name
+                                      (into {} (map (fn [[[ct ik] nm]]
+                                                      [[src-name ct ik :name] nm])
+                                                    @edits))]))}
+             "Repair & Restore"])
+          [:button.form-button
+           {:on-click #(dispatch [::e5/export-quarantined-raw src-name])}
+           "Export raw"]]]))))
+
+(defn quarantine-panel
+  "Surfaces sources the loader quarantined. Preserved, not discarded —
+   the user can repair them back into the library or export the raw data."
+  []
+  (let [quarantined @(subscribe [::e5/quarantined-plugins])]
+    (when (seq quarantined)
+      [:div.p-20.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
+       {:style {:border "2px solid #d94b20"}}
+       [:div.f-w-b.f-s-24.m-b-5
+        [:i.fa.fa-exclamation-triangle.m-r-5]
+        (str (count quarantined) " quarantined source"
+             (when (not= 1 (count quarantined)) "s") " — couldn't load")]
+       [:div.f-s-12
+        "These were preserved (not discarded) so you can repair or export them."]
+       (doall
+        (for [[src-name plugin] quarantined]
+          ^{:key src-name}
+          [quarantine-source-repair src-name plugin]))])))
+
 (defn my-content-page []
   [content-page
    "My Content"
    []
    [:div
+    [quarantine-panel]
     [:div.p-20.bg-lighter.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
      [:div.f-w-b.f-s-24.m-b-5 "Import Option Source"]
      [:input {:type "file"
