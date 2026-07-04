@@ -94,7 +94,20 @@
     {:font-size "48px !important"}]])
 
 (def props
-  [[:.sans
+  [[:.non-standard-badge
+    {:background-color orange
+     :color "#191919"
+     :font-size "10px"
+     :font-weight 700
+     :border-radius "4px"
+     :padding "1px 5px"
+     :letter-spacing "0.03em"
+     :white-space "nowrap"}]
+
+   [:.non-standard-option
+    {:background-color "rgba(240,161,0,0.06)"}]
+
+   [:.sans
     {:font-family font-family}]
    [:.flex
     {:display :flex}]
@@ -1256,17 +1269,39 @@
      {:font-size (px 18)
       :font-weight :normal}]
 
+    ;; Caret lives in a sibling overlay (.builder-select-caret), NOT here as a
+    ;; background-image. A `background`/`background-color` shorthand on a <select>
+    ;; resets background-image:none and used to silently wipe the caret; the overlay
+    ;; can't be reset by anything set on the select. padding-right clears the overlay.
     [:.builder-option-dropdown
-     (merge
-      {:background-color :transparent
-       :width "100%"
-       :cursor :pointer
-       :border "1px solid white"}
-      text-color
-      (handle-browsers :appearance :menulist))
+     {:background-color "#11161d"
+      :color :white
+      :width "100%"
+      :cursor :pointer
+      :border "1px solid rgba(255,255,255,0.1)"
+      :border-radius "8px"
+      :padding "10px 32px 10px 12px"
+      :font-size "14px"
+      :-webkit-appearance :none
+      :-moz-appearance :none
+      :appearance :none}
 
      [:&:active :&:focus
       {:outline :none}]]
+
+    [:.builder-select-wrap
+     {:position :relative
+      :display :block
+      :width "100%"}]
+
+    [:.builder-select-caret
+     {:position :absolute
+      :right "11px"
+      :top "50%"
+      :transform "translateY(-50%)"
+      :pointer-events :none
+      :color "#8893a2"
+      :display :flex}]
 
     [:.builder-dropdown-item
      {:-webkit-appearance :none
@@ -1487,14 +1522,352 @@
     [:.personality-label
      {:font-size "18px"}]
 
+    ;; muted uppercase form-field label (Size, Speed, Strength, the 'Choose' dropdown…)
+    [:.builder-field-label
+     {:font-size "11px"
+      :font-weight 700
+      :letter-spacing "0.07em"
+      :text-transform :uppercase
+      :color "#7e8897"
+      :margin-bottom "5px"}]
+
+    ;; ----- builder identity header band (an app bar, NOT a card) -----
+    ;; full-bleed (breaks out of the builder's p-20), elevated so content scrolls
+    ;; under it, with an amber bottom rule. No radius / no all-around shadow.
+    [:.builder-header-band
+     {:position :relative
+      :z-index 5
+      :overflow :hidden
+      :margin "-20px -20px 20px"
+      :padding "16px clamp(16px,4vw,40px) 16px"
+      :background "linear-gradient(180deg, #243241 0%, #1b2531 100%)"
+      ;; white hairline + the amber accent line and downward shadow from the box-shadow
+      :border-bottom "1px solid rgba(255,255,255,0.09)"
+      :box-shadow "0 3px 0 -1px rgba(240,161,15,0.45), 0 16px 30px -14px rgba(0,0,0,0.6)"}
+     ;; ambient amber glow in the top-right (behind the content; clipped by overflow)
+     [:&:before
+      {:content "\"\""
+       :position :absolute
+       :z-index -1
+       :top "-70px"
+       :right "-30px"
+       :width "300px"
+       :height "220px"
+       :background "radial-gradient(circle, rgba(240,161,15,0.13), transparent 65%)"
+       :pointer-events :none}]]
+
+    ;; Name + Option Source are a form, not a collection — they cap and group (a tight
+    ;; pair, left-aligned with breathing room to the right) and wrap to stacked on
+    ;; narrow, intrinsically (flex-wrap + per-field max basis), no breakpoint.
+    ;; two equal columns that FILL the width (auto-fit grid; each cell min 300px, so it
+    ;; stacks to one column on narrow). align-items:end aligns the title underline and
+    ;; the boxed Source input at their baselines despite different heights above.
+    [:.builder-header-row
+     {:display :grid
+      :grid-template-columns "repeat(auto-fit, minmax(min(100%, 300px), 1fr))"
+      :gap "20px 28px"
+      :align-items :end}]
+
+    ;; the Option Source label stays on ONE line: text + SAVE TARGET badge + ⓘ inline
+    [:.builder-source-label
+     {:display :inline-flex
+      :align-items :center
+      :gap "8px"
+      :white-space :nowrap}]
+
+    ;; large title-style name input: transparent, bottom-border only, amber on focus
+    [:.builder-name-input
+     {:width "100%"
+      :box-sizing :border-box
+      :background :transparent
+      ;; zero the other sides with longhands — a `:border :none` shorthand can emit
+      ;; after :border-bottom (map ordering) and reset it.
+      :border-top :none
+      :border-right :none
+      :border-left :none
+      :border-bottom "2px solid rgba(255,255,255,0.22)"
+      :border-radius "0"
+      :color "#f3f6fa"
+      :font-size "clamp(22px,3vw,30px)"
+      :font-weight 700
+      :padding "4px 2px"}]
+
+    [:.builder-name-input:focus
+     {:outline :none
+      :border-bottom "2px solid #f0a100"}]
+
+    ;; SAVE TARGET badge — a subtle outlined chip (not a solid block that reads as a
+    ;; second button next to "Save to Browser Storage")
+    [:.save-target-pill
+     {:display :inline-block
+      :vertical-align :middle
+      :font-size "10px"
+      :font-weight 700
+      :letter-spacing "0.04em"
+      :text-transform :uppercase
+      :color "#f0a100"
+      :background "rgba(240,161,15,0.14)"
+      :border "1px solid rgba(240,161,15,0.45)"
+      :border-radius "999px"
+      :padding "1px 8px"}]
+
+    ;; ⓘ click-toggle popover (mouse + touch, no hover) for the Option Source helper
+    [:.opt-info-wrap
+     {:position :relative
+      :display :inline-flex}]
+
+    [:.opt-info-btn
+     {:cursor :pointer
+      :color "#7e8897"
+      :font-size "13px"
+      :line-height 1}]
+
+    [:.opt-info-btn:hover
+     {:color "#e7ecf2"}]
+
+    [:.opt-info-popover
+     {:position :absolute
+      :top "calc(100% + 8px)"
+      :left "0"
+      :z-index 10
+      :width "260px"
+      :max-width "70vw"
+      :background "#11161d"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "8px"
+      :padding "10px 12px"
+      ;; reset the label's uppercase/spacing/colour so the helper reads as body text
+      :text-transform :none
+      :letter-spacing :normal
+      :font-size "12px"
+      :font-weight 400
+      :line-height 1.5
+      :color "#cdd4de"
+      :white-space :normal
+      :box-shadow "0 10px 24px -10px rgba(0,0,0,0.7)"}]
+
+    [:.builder-header-desc
+     {:margin-top "16px"}]
+
+    ;; sparse form sections (Size & Speed, Ability Scores): every field is its own grid
+    ;; cell = label + full-width control, spread across the whole card.
+    [:.builder-field-grid
+     {:display :grid
+      :grid-template-columns "repeat(auto-fit, minmax(150px, 1fr))"
+      :gap "16px"}]
+
+    ;; layout selector lives in an anchored, right-aligned control row that belongs to
+    ;; the menus it controls (not floating in the dead space above the header band).
+    [:.opt-layout-control
+     {:display :flex
+      :align-items :center
+      :justify-content :flex-end
+      :gap "12px"
+      :margin-bottom "16px"}]
+
+    [:.opt-layout-control-label
+     {:font-size "11px"
+      :font-weight 700
+      :letter-spacing "0.07em"
+      :text-transform :uppercase
+      :color "#7e8897"}]
+
+    ;; Subrace Ability Score Increases — Race + Subrace = Total equation cards (Cards
+    ;; view) and a denser select-per-ability (Compact view). Active ability = amber.
+    ;; toggle row sits right-aligned under the card's accent title
+    [:.subrace-ability-head
+     {:display :flex
+      :align-items :center
+      :justify-content :flex-end
+      :flex-wrap :wrap
+      :gap "12px"
+      :margin-bottom "14px"}]
+
+    ;; ASI grids: breakpoints to clean divisors, NOT auto-fit (a fixed six items + auto-fit
+    ;; strands a 5+1 orphan). Cards and Compact get different counts — the equation card is
+    ;; wide, the compact dropdown is narrow — so they're separate classes.
+    ;; CARDS — each holds the horizontal Race + [stepper] = Total equation (~300px to
+    ;; breathe): 1 / 2 / 3, 6-up only on ultra-wide (≥1800px).
+    [:.ability-equation-grid
+     {:display :grid
+      :grid-template-columns "1fr"
+      :gap "14px"}]
+    ;; COMPACT — just label + dropdown (~140px): fill the width, all six in one row on a
+    ;; normal wide screen.
+    [:.ability-compact-grid
+     {:display :grid
+      :grid-template-columns "1fr"
+      :gap "14px 16px"}]
+
+    ;; darker than the #1b232f section panel so each card recesses (panel > card > input)
+    [:.ability-card
+     {:background "#141b25"
+      :border "1px solid rgba(255,255,255,0.08)"
+      :border-radius "12px"
+      ;; tighter horizontal padding gives the 6-up card (~214px) enough room for the
+      ;; equation to stay on one line; it only wraps on genuine deep zoom-out
+      :padding "14px 12px 16px"
+      ;; grid items default to min-width:auto (won't shrink below content) — at 6-up the
+      ;; equation's min-content overflows the capped column. min-width:0 lets the track
+      ;; shrink; the equation then wraps (below) instead of spilling out the section.
+      :min-width 0
+      :transition "border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease"}]
+
+    [:.ability-card.active
+     {:background "rgba(240,161,15,0.07)"
+      :border-color "rgba(240,161,15,0.55)"
+      :box-shadow "0 0 0 1px rgba(240,161,15,0.25), 0 10px 24px -16px rgba(240,161,15,0.5)"}]
+
+    [:.ability-card-name
+     {:font-size "14px"
+      :font-weight 700
+      :color "#f3f6fa"
+      :margin-bottom "12px"}]
+
+    ;; cluster the terms centered so Race + [stepper] = Total reads as one equation,
+    ;; rather than flinging apart to the card edges at wide widths
+    ;; cluster centered; wrap when the card gets too narrow so the equation degrades to a
+    ;; vertical stack inside the card rather than clipping or overflowing
+    [:.ability-equation
+     {:display :flex
+      :flex-wrap :wrap
+      :align-items :flex-end
+      :justify-content :center
+      :gap "6px"}]
+
+    [:.ability-term
+     {:display :flex
+      :flex-direction :column
+      :align-items :center
+      :gap "6px"
+      :flex "0 0 auto"
+      :min-width 0}]
+
+    [:.ability-term-label
+     {:font-size "10px"
+      :font-weight 700
+      :letter-spacing "0.06em"
+      :text-transform :uppercase
+      :color "#7e8897"}]
+
+    [:.ability-term-val
+     {:font-size "16px"
+      :font-weight 700
+      :color "#aab4c0"}]
+
+    [:.ability-term-total
+     {:font-size "20px"
+      :font-weight 800
+      :color orange}]
+
+    [:.ability-op
+     {:font-size "16px"
+      :font-weight 700
+      :color "#5d6775"
+      :padding-bottom "6px"
+      :flex "0 0 auto"}]
+
+    [:.ability-stepper
+     {:display :flex
+      :align-items :center
+      :gap "4px"}]
+
+    [:.ability-stepper-btn
+     {:width "24px"
+      :height "24px"
+      :border "1px solid rgba(255,255,255,0.14)"
+      :border-radius "7px"
+      :background "#0d1218"
+      :color "#e7ecf2"
+      :font-size "15px"
+      :line-height 1
+      :cursor :pointer
+      :display :flex
+      :align-items :center
+      :justify-content :center}]
+
+    [:.ability-stepper-btn:hover
+     {:border-color orange
+      :color orange}]
+
+    [:.ability-stepper-btn:disabled
+     {:opacity 0.35
+      :cursor :default}]
+
+    [:.ability-stepper-val
+     {:min-width "18px"
+      :text-align :center
+      :font-size "16px"
+      :font-weight 700
+      :color "#f3f6fa"}]
+
+    [:.ability-compact
+     {:display :flex
+      :flex-direction :column
+      :gap "4px"}]
+
+    [:.ability-compact-meta
+     {:display :flex
+      :align-items :center
+      :justify-content :space-between
+      :gap "8px"
+      :margin-top "2px"
+      :font-size "11px"}]
+
+    [:.ability-compact-caption
+     {:color "#7e8897"}]
+
+    [:.ability-compact-total
+     {:font-weight 700
+      :color "#aab4c0"}]
+
+    [:.ability-compact-total.active
+     {:color orange}]
+
+    (at-media {:min-width "640px"}
+              [:.ability-equation-grid {:grid-template-columns "repeat(2, 1fr)"}])
+    (at-media {:min-width "1000px"}
+              [:.ability-equation-grid {:grid-template-columns "repeat(3, 1fr)"}])
+    (at-media {:min-width "1640px"}
+              [:.ability-equation-grid {:grid-template-columns "repeat(6, 1fr)"}])
+
+    (at-media {:min-width "480px"}
+              [:.ability-compact-grid {:grid-template-columns "repeat(2, 1fr)"}])
+    (at-media {:min-width "760px"}
+              [:.ability-compact-grid {:grid-template-columns "repeat(3, 1fr)"}])
+    (at-media {:min-width "1180px"}
+              [:.ability-compact-grid {:grid-template-columns "repeat(6, 1fr)"}])
+
+    ;; lightweight group label (uppercase eyebrow + hairline rule) for grouping headings
+    ;; that sit above already-carded option-menus — flat, never a card-in-card
+    [:.opt-group-label
+     {:display :flex
+      :align-items :center
+      :gap "12px"
+      :margin "26px 0 14px"
+      :font-size "11px"
+      :font-weight 700
+      :letter-spacing "0.08em"
+      :text-transform :uppercase
+      :color "#7e8897"}
+     [:&:after
+      {:content "\"\""
+       :flex "1 1 auto"
+       :height "1px"
+       :background "rgba(255,255,255,0.09)"}]]
+
+    ;; the Option Source input gets an amber-tinted border to read as the save target
+    [:#plugins-choice
+     {:border "1px solid rgba(240,161,15,0.45)"}]
+
     [:.input
-     {:background-color :transparent
+     {:background-color "#11161d"
       :color :white
-      :border "1px solid white"
-      :border-radius "5px"
+      :border "1px solid rgba(255,255,255,0.1)"
+      :border-radius "8px"
       :margin-top "5px"
       :display :block
-      :padding "10px"
+      :padding "10px 12px"
       :width "100%"
       :box-sizing :border-box
       :font-size "14px"}]
@@ -1959,7 +2332,455 @@
      (handle-browsers :column-count 2)]
 
     [:.columns-3
-     (handle-browsers :column-count 3)]];concat-bracket
+     (handle-browsers :column-count 3)]
+    ;; ----- growable multi-select menus (option-menu-views) -----
+    [:.opt-menu
+     {:margin "5px 0"}]
+
+    [:.opt-menu-title
+     {:font-size "18px"
+      :font-weight :bold
+      :margin-bottom "8px"}]
+
+    ;; global layout toggle: a track with one amber thumb that slides to the active
+    ;; segment (equal-width grid columns).
+    ;; Reusable sliding-thumb segmented control (layout toggle, Cards/Compact toggle,
+    ;; …). grid-template-columns and the thumb width are set inline from the option
+    ;; count, so the same classes serve any number of segments.
+    [:.segmented-control
+     {:position :relative
+      :display :inline-grid
+      :padding "4px"
+      :background "#161d28"
+      :border "1px solid rgba(255,255,255,0.08)"
+      :border-radius "10px"}]
+
+    [:.segmented-control-thumb
+     {:position :absolute
+      :top "4px"
+      :bottom "4px"
+      :left "4px"
+      :background orange
+      :border-radius "7px"
+      :z-index 0
+      :transition "transform 0.24s cubic-bezier(.4,0,.2,1)"}]
+
+    [:.segmented-control-seg
+     {:position :relative
+      :z-index 1
+      :padding "7px 18px"
+      :border :none
+      :background :transparent
+      :cursor :pointer
+      :font-size "13px"
+      :font-weight 600
+      :text-align :center
+      :white-space :nowrap
+      :color "rgba(255,255,255,0.7)"
+      :transition "color 0.24s ease"}]
+
+    [:.segmented-control-seg.active
+     {:color "#161d27"}]
+
+    [:.segmented-control-seg:hover
+     {:color "#e7ecf2"}]
+
+    ;; grid. The min(100%, 210px) guard prevents horizontal overflow when the
+    ;; container is narrower than the track min (small phones).
+    [:.opt-menu-grid
+     {:display :grid
+      :grid-template-columns "repeat(auto-fill, minmax(min(100%, 210px), 1fr))"
+      :align-items :start
+      :gap "4px"}]
+
+    [:.opt-menu-grid-span
+     {:grid-column "1 / -1"}]
+
+    ;; ----- section containment & parent/child nesting -----
+    ;; Top-level section = elevated card; nested child = recessed well inside it.
+    ;; flat surface (no drop shadow) — elevation is reserved for the header band,
+    ;; modals, the stepper, and popovers, so sections don't out-rank the page header.
+    [:.opt-section
+     {:background "#1b232f"
+      :border "1px solid rgba(255,255,255,0.08)"
+      :border-radius "14px"
+      :padding "20px 22px 22px"
+      :margin-bottom "18px"
+      :box-shadow "inset 0 1px 0 rgba(255,255,255,0.03)"}
+     ;; inside a card, let the card padding own the vertical rhythm — drop the legacy
+     ;; field margins so the card hugs its content instead of stranding empty space.
+     [:.field {:margin-top "0"}]
+     [:.input {:margin-top "0"}]]
+
+    [:.opt-subsections
+     {:display :flex
+      :flex-direction :column
+      :gap "12px"
+      :margin-top "2px"}]
+
+    [:.opt-subsection
+     {:background "rgba(0,0,0,0.24)"
+      :border "1px solid rgba(255,255,255,0.05)"
+      :border-radius "10px"
+      :padding "14px 16px 16px"}]
+
+    [:.opt-section-head
+     {:display :flex
+      :align-items :center
+      :flex-wrap :wrap
+      :gap "10px"
+      :margin-bottom "14px"}]
+
+    [:.opt-section-accent
+     {:width "4px"
+      :height "18px"
+      :border-radius "3px"
+      :background orange
+      :flex "0 0 auto"}]
+
+    ;; taller accent on a parent heading
+    [:.opt-section-accent.tall
+     {:height "22px"}]
+
+    [:.opt-section-title
+     {:font-size "clamp(19px, 3vw, 22px)"
+      :font-weight 700
+      :color "#f3f6fa"
+      :letter-spacing "-0.005em"}]
+
+    [:.opt-subsection-title
+     {:font-size "15.5px"
+      :font-weight 700
+      :color "#e3e8ef"
+      :letter-spacing "-0.005em"}]
+
+    [:.opt-section-count
+     {:font-size "12px"
+      :color "#8893a2"
+      :background "rgba(255,255,255,0.05)"
+      :padding "2px 10px"
+      :border-radius "999px"}]
+
+    ;; collapse / expand: clickable header, chevron (right), and the collapsed summary
+    [:.opt-section-head.collapsible
+     {:cursor :pointer}]
+
+    [:.opt-section-chevron
+     {:margin-left :auto
+      :flex "0 0 auto"
+      :font-size "13px"
+      :color "#8893a2"
+      :transition "transform 0.15s"}]
+
+    [:.opt-section-chevron.collapsed
+     {:transform "rotate(-90deg)"}]
+
+    [:.opt-section-summary
+     {:margin-top "2px"
+      :font-size "13px"
+      :color "#b5bdc8"
+      :line-height 1.5}]
+
+    ;; collapse animation: the body stays mounted and reveals via grid-template-rows
+    ;; (1fr -> 0fr). The inner wrapper clips the overflow during the transition.
+    [:.opt-section-body
+     {:display :grid
+      :grid-template-rows "1fr"
+      :transition "grid-template-rows 0.22s ease"}]
+
+    [:.opt-section-body.collapsed
+     {:grid-template-rows "0fr"}]
+
+    ;; very long lists toggle instantly (no height animation) to avoid reflow jank
+    [:.opt-section-body.instant
+     {:transition :none}]
+
+    [:.opt-section-body-inner
+     {:min-height "0"
+      :overflow :hidden}]
+
+    ;; respect prefers-reduced-motion: no slide/reveal animation
+    (at-media {:prefers-reduced-motion :reduce}
+              [:.opt-section-body {:transition :none}]
+              [:.opt-section-chevron {:transition :none}]
+              [:.segmented-control-thumb {:transition :none}]
+              [:.segmented-control-seg {:transition :none}])
+
+    ;; "Choose any" wildcard group (the Any N options), a labeled dashed group
+    [:.opt-wildcards
+     {:display :flex
+      :align-items :center
+      :flex-wrap :wrap
+      :gap "10px"
+      :margin-bottom "12px"}]
+
+    [:.opt-wildcards-label
+     {:font-size "11px"
+      :font-weight 700
+      :letter-spacing "0.07em"
+      :text-transform :uppercase
+      :color "#7e8897"}]
+
+    [:.opt-wildcards-list
+     {:display :flex
+      :flex-wrap :wrap
+      :gap "8px"}]
+
+    [:.opt-wildcard
+     {:display :inline-flex
+      :align-items :center
+      :gap "8px"
+      :padding "6px 12px"
+      :border-radius "8px"
+      :cursor :pointer
+      :font-size "13.5px"
+      :font-weight 600
+      :white-space :nowrap
+      :border "1px dashed rgba(255,255,255,0.28)"
+      :background "rgba(255,255,255,0.015)"
+      :color "#cdd4de"}]
+
+    [:.opt-wildcard.selected
+     {:border (str "1px solid " orange)
+      :background "rgba(240,161,0,0.13)"
+      :color "#f3e7cf"}]
+
+    ;; pills
+    [:.opt-menu-pills
+     {:display :flex
+      :flex-wrap :wrap
+      :gap "8px"}]
+
+    [:.opt-menu-pill
+     {:display :inline-flex
+      :align-items :center
+      :border "1px solid rgba(255,255,255,0.2)"
+      :border-radius "999px"
+      :padding "5px 14px"
+      :cursor :pointer
+      :font-size "13px"
+      :white-space :nowrap
+      :color "rgba(255,255,255,0.85)"}]
+
+    [:.opt-menu-pill.selected
+     {:background orange
+      :border (str "1px solid " orange)
+      :color "#191919"
+      :font-weight 600}]
+
+    [:.opt-menu-pill.non-standard
+     {:border (str "1px dashed " orange)
+      :color orange}]
+
+    ;; A–Z
+    [:.opt-menu-az-bar
+     {:display :flex
+      :flex-wrap :wrap
+      :gap "3px"
+      :margin-bottom "10px"}]
+
+    [:.opt-menu-az-letter
+     {:min-width "24px"
+      :text-align :center
+      :padding "2px 7px"
+      :cursor :pointer
+      :font-size "12px"
+      :font-weight 600
+      :color "rgba(255,255,255,0.55)"
+      :border "1px solid rgba(255,255,255,0.1)"
+      :border-radius "5px"}]
+
+    [:.opt-menu-az-letter.active
+     {:background orange
+      :color "#191919"
+      :border (str "1px solid " orange)}]
+
+    [:.opt-menu-az-group
+     {:margin-bottom "12px"}]
+
+    [:.opt-menu-az-heading
+     {:font-size "12px"
+      :font-weight 700
+      :color orange
+      :letter-spacing "0.08em"
+      :margin-bottom "6px"
+      :border-bottom "1px solid rgba(255,255,255,0.1)"}]
+
+    ;; pattern banner (quoted boilerplate)
+    [:.opt-menu-banner
+     {:margin "5px 0"}]
+
+    [:.opt-menu-banner-caption
+     {:font-size "10px"
+      :font-weight 700
+      :text-transform :uppercase
+      :letter-spacing "0.1em"
+      :opacity 0.7
+      :margin-bottom "5px"}]
+
+    [:.opt-menu-banner-quote
+     {:border-left (str "3px solid " orange)
+      :background "rgba(240,161,0,0.06)"
+      :border-radius "5px"
+      :padding "10px 14px"
+      :font-style :italic
+      :font-size "15px"
+      :line-height 1.6}]
+
+    [:.opt-menu-banner-slot
+     {:border "1px dashed rgba(240,161,0,0.7)"
+      :color orange
+      :font-style :normal
+      :font-weight 600
+      :padding "1px 11px"
+      :border-radius "999px"}]
+
+    ;; search — a recessed dark inset well (darker than the card) with a ⌕ icon
+    [:.opt-menu-search-wrap
+     {:position :relative
+      :margin-bottom "14px"}]
+
+    [:.opt-menu-search-icon
+     {:position :absolute
+      :left "13px"
+      :top "50%"
+      :transform "translateY(-50%)"
+      :color "#5d6776"
+      :font-size "14px"
+      :pointer-events :none}]
+
+    [:.opt-menu-search
+     {:width "100%"
+      :box-sizing :border-box
+      :padding "10px 12px 10px 34px"
+      :border "1px solid rgba(255,255,255,0.1)"
+      :border-radius "8px"
+      :background "#11161d"
+      :color "#e7ecf2"
+      :font-size "14px"}]
+
+    ;; selected chips tray
+    [:.opt-menu-chips
+     {:display :flex
+      :flex-wrap :wrap
+      :align-items :center
+      :gap "7px"
+      :padding-bottom "10px"
+      :margin-bottom "10px"
+      :border-bottom "1px solid rgba(255,255,255,0.07)"}]
+
+    [:.opt-menu-chips-label
+     {:font-size "12px"
+      :text-transform :uppercase
+      :letter-spacing "0.04em"
+      :opacity 0.6}]
+
+    [:.opt-menu-chip
+     {:display :inline-flex
+      :align-items :center
+      :gap "6px"
+      :background "rgba(240,161,0,0.14)"
+      :border (str "1px solid " orange)
+      :color orange
+      :border-radius "999px"
+      :padding "3px 10px"
+      :font-size "13px"
+      :cursor :pointer
+      :white-space :nowrap}]
+
+    [:.opt-menu-chip-x
+     {:font-size "14px"
+      :opacity 0.7}]
+
+    ;; count line (under the title) + Clear (right-aligned inside the chips row)
+    [:.opt-menu-count
+     {:font-size "13px"
+      :opacity 0.7
+      :margin-bottom "8px"}]
+
+    [:.opt-menu-clear
+     {:margin-left :auto
+      :cursor :pointer
+      :color orange
+      :text-decoration :underline
+      :font-size "13px"
+      :white-space :nowrap}]
+
+    ;; option cell (default / checkbox). Transparent border on the base keeps the
+    ;; row from shifting 1px when the selected/non-standard border appears.
+    ;; align-items flex-start so the box lines up with the FIRST line of a wrapping
+    ;; label (e.g. "Calligrapher's Supplies"); the box gets a 1px nudge to sit on
+    ;; the text baseline of that first line.
+    [:.opt-menu-cell
+     {:display :flex
+      :align-items :flex-start
+      :gap "10px"
+      :padding "8px 10px"
+      :border "1px solid transparent"
+      :border-radius "6px"
+      :line-height 1.3
+      :cursor :pointer}
+     [:.checkbox-box {:margin-top "1px"}]]
+
+    [:.opt-menu-cell:hover
+     {:background "rgba(255,255,255,0.05)"}]
+
+    [:.opt-menu-cell.selected
+     {:background "rgba(240,161,0,0.12)"
+      :border (str "1px solid " orange)}]
+
+    [:.opt-menu-cell.non-standard
+     {:background "rgba(240,161,0,0.06)"
+      :border (str "1px solid " orange)}]
+
+    ;; App-wide checkbox (comps/checkbox): rounded box, amber when checked. The
+    ;; original white-box look is preserved under `.classic-checkboxes` below so a
+    ;; future user-preference toggle can switch back by toggling that root class.
+    [:.checkbox-box
+     {:display :inline-flex
+      :align-items :center
+      :justify-content :center
+      :flex "0 0 auto"
+      :width "18px"
+      :height "18px"
+      :border "1px solid #5b6576"
+      :border-radius "4px"
+      :font-size "11px"
+      :cursor :pointer
+      :vertical-align :middle}]
+
+    [:.checkbox-box.checked
+     {:background orange
+      :border (str "1px solid " orange)
+      :color "#191919"}]
+
+    ;; dashed outline for wildcard ("Any N") boxes when unchecked
+    [:.checkbox-box.dashed
+     {:border-style :dashed}]
+
+    [:.checkbox-box.disabled
+     {:opacity 0.5}]
+
+    ;; Legacy white-box checkbox — opt in by adding `classic-checkboxes` to the app
+    ;; root (intended for a future user-preference toggle).
+    [:.classic-checkboxes
+     [:.checkbox-box
+      {:width "16px"
+       :height "16px"
+       :background-color :white
+       :border-radius 0
+       :border "none"
+       :box-shadow (str "0 1px 0 0 " orange)
+       :color :black}]
+     [:.checkbox-box.checked
+      {:background-color :white
+       :color :black}]]
+
+    ;; empty state
+    [:.opt-menu-empty
+     {:padding "16px 4px"
+      :opacity 0.6
+      :font-size "14px"}]];concat-bracket
    margin-lefts
    margin-tops
    widths

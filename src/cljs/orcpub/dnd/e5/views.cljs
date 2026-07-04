@@ -33,6 +33,7 @@
             [orcpub.dnd.e5.combat :as combat]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.skills :as skills]
+            [orcpub.dnd.e5.option-menu-views :as omv]
             [orcpub.dnd.e5.equipment :as equip]
             [orcpub.dnd.e5.weapons :as weapon]
             [orcpub.dnd.e5.armor :as armor]
@@ -1928,22 +1929,23 @@
                                         {:seen (conj seen v) :result (conj result item)})))
                                   {:seen #{} :result []})
                           :result)]
-    [:select.builder-option.builder-option-dropdown.m-t-0
-     {:value (or value "")
-      :on-change #(on-change (event-value %))}
-     (doall
-      (map-indexed
-       (fn [i {:keys [value title disabled?]}]
-         ^{:key (str i "-" (or value title))}
-         [:option.builder-dropdown-item
-          (cond-> {:value value}
-            disabled? (assoc :disabled true))
-          title])
-       unique-items))]))
+    (comps/builder-select
+     [:select.builder-option.builder-option-dropdown.m-t-0
+      {:value (or value "")
+       :on-change #(on-change (event-value %))}
+      (doall
+       (map-indexed
+        (fn [i {:keys [value title disabled?]}]
+          ^{:key (str i "-" (or value title))}
+          [:option.builder-dropdown-item
+           (cond-> {:value value}
+             disabled? (assoc :disabled true))
+           title])
+        unique-items))])))
 
 (defn labeled-dropdown [label cfg]
   [:div
-   [:div.f-w-b.m-b-5 label]
+   [:div.builder-field-label label]
    [dropdown cfg]])
 
 (defn button-roll-fn [message roll]
@@ -3788,22 +3790,23 @@
       [:div.m-l-10.f-w-b
        [:span "Add to Party:"]
        [:div.flex
-        [:select.builder-option.builder-option-dropdown
-         {:on-change (fn [e] (let [value (event-value e)
-                                   id (when (not (s/blank? value))
-                                        (js/parseInt value))]
-                               (when id
-                                 (reset! party-id id))))}
-         [:option.builder-dropdown-item
-          "<new party>"]
-         (doall
-          (map
-           (fn [{:keys [:db/id ::party/name]}]
-             ^{:key id}
-             [:option.builder-dropdown-item
-              {:value id}
-              name])
-           @(subscribe [::party/parties])))]
+        [comps/builder-select
+         [:select.builder-option.builder-option-dropdown
+          {:on-change (fn [e] (let [value (event-value e)
+                                    id (when (not (s/blank? value))
+                                         (js/parseInt value))]
+                                (when id
+                                  (reset! party-id id))))}
+          [:option.builder-dropdown-item
+           "<new party>"]
+          (doall
+           (map
+            (fn [{:keys [:db/id ::party/name]}]
+              ^{:key id}
+              [:option.builder-dropdown-item
+               {:value id}
+               name])
+            @(subscribe [::party/parties])))]]
         [:button.form-button.m-t-5.m-l-5
          {:on-click #(if @party-id
                        (dispatch [::party/add-character-remote @party-id character-id true])
@@ -4391,15 +4394,12 @@
 (defn item-modifier-toggles [title item-kws toggle-event has-sub]
   (base-builder-field
    [:div.f-w-b.m-b-5 title]
-   [:div
-    (doall
-     (map
-      (fn [type-kw]
-        ^{:key type-kw}
-        [:div
-         {:on-click #(dispatch [toggle-event type-kw])}
-         [labeled-checkbox (common/safe-capitalize-kw type-kw) @(subscribe [has-sub type-kw])]])
-      item-kws))]))
+   [omv/option-menu
+    {:menu-id [:item-modifier toggle-event]
+     :options (omv/checkbox-options
+               (map (fn [kw] {:key kw :name (common/safe-capitalize-kw kw)}) item-kws)
+               (fn [item] @(subscribe [has-sub (:key item)]))
+               (fn [item] (dispatch [toggle-event (:key item)])))}]))
 
 (defn item-damage-resistances []
   [item-modifier-toggles
@@ -4527,26 +4527,8 @@
 (defn encounter-input-field [title prop encounter & [class-names type]]
   (builder-input-field title prop encounter ::encounters/set-encounter-prop class-names type))
 
-(defn language-input-field [title prop language & [class-names]]
-  (builder-input-field title prop language ::langs/set-language-prop class-names))
-
-(defn invocation-input-field [title prop invocation & [class-names]]
-  (builder-input-field title prop invocation ::classes/set-invocation-prop class-names))
-
-(defn boon-input-field [title prop boon & [class-names]]
-  (builder-input-field title prop boon ::classes/set-boon-prop class-names))
-
-(defn selection-input-field [title prop selection & [class-names]]
-  (builder-input-field title prop selection ::selections/set-selection-prop class-names))
-
-(defn background-input-field [title prop bg & [class-names]]
-  (builder-input-field title prop bg ::bg/set-background-prop class-names))
-
-(defn race-input-field [title prop race & [class-names]]
-  (builder-input-field title prop race ::races/set-race-prop class-names))
-
-(defn subrace-input-field [title prop subrace & [class-names]]
-  (builder-input-field title prop subrace ::races/set-subrace-prop class-names))
+;; (race/subrace/background/language/boon/invocation/selection name fields now route
+;; through the shared builder-header; their old *-input-field helpers were removed.)
 
 (defn subclass-input-field [title prop subclass & [class-names]]
   (builder-input-field title prop subclass ::classes/set-subclass-prop class-names))
@@ -4565,94 +4547,52 @@
     false
     #(dispatch [::spells/toggle-component component])]])
 
-(defn tool-prof-checkboxes [background tools]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [{:keys [name key]}]
-       ^{:key key}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         name
-         (get-in background [:profs :tool key])
-         false
-         #(dispatch [::bg/toggle-tool-prof key])]])
-     tools))])
+;; Background-builder option/wildcard builders. These return data (option vectors
+;; and wildcard maps) that the section panels below feed into omv/option-menu.
+(defn- bg-tool-options [background tools]
+  (omv/checkbox-options tools
+                        #(get-in background [:profs :tool (:key %)])
+                        #(dispatch [::bg/toggle-tool-prof (:key %)])))
+
+(defn- bg-equipment-options [background equipment]
+  (omv/checkbox-options equipment
+                        #(get-in background [:equipment (:key %)])
+                        #(dispatch [::bg/toggle-starting-equipment (:key %)])))
 
 (defn language-checkboxes [race languages]
-  [:div
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in race [:languages name])
-          false
-          #(dispatch [::races/toggle-language name])]])
-      (sort-by
-       :name
-       languages)))]
-   [:div.pointer.m-t-10
-    [:span.bg-lighter.p-5
-     {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
-     [:i.fa.fa-plus]
-     [:span.orange.underline.m-l-5 "Add Language"]]]])
+  [omv/section-card
+   {:menu-id :race-languages
+    :title "Languages"
+    :options (omv/checkbox-options
+              (sort-by :name languages)
+              ;; race language selection is keyed by NAME, not key
+              (fn [item] (get-in race [:languages (:name item)]))
+              (fn [item] (dispatch [::races/toggle-language (:name item)])))
+    :trailer [:div.pointer.m-t-10
+              [:span.bg-lighter.p-5
+               {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
+               [:i.fa.fa-plus]
+               [:span.orange.underline.m-l-5 "Add Language"]]]}])
 
-(defn tool-choice-checkboxes [background key]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [num]
-       ^{:key num}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         (str "Any " num)
-         (= num (get-in background [:profs :tool-options key]))
-         false
-         #(dispatch [::bg/toggle-choice-tool-prof key num])]])
-     (range 1 4)))])
+;; "Choose any N" wildcard rows (single-select among themselves) rendered as the
+;; dashed group at the top of a panel.
+(defn- tool-choice-wildcards [background key]
+  (map (fn [num] {:key num :name (str "Any " num)
+                  :selected? (= num (get-in background [:profs :tool-options key]))
+                  :on-toggle #(dispatch [::bg/toggle-choice-tool-prof key num])})
+       (range 1 4)))
 
-(defn language-choice-checkboxes [background]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [num]
-       ^{:key num}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         (str "Any " num)
-         (= num (get-in background [:profs :language-options :choose]))
-         false
-         #(dispatch [::bg/toggle-choice-language-prof num])]])
-     (range 1 4)))])
+(defn- language-choice-wildcards [background]
+  (map (fn [num] {:key num :name (str "Any " num)
+                  :selected? (= num (get-in background [:profs :language-options :choose]))
+                  :on-toggle #(dispatch [::bg/toggle-choice-language-prof num])})
+       (range 1 4)))
 
-(defn starting-equipment-choice-checkboxes [background equipment equipment-name]
-  [:div.m-r-20.m-b-10
-   [comps/labeled-checkbox
-    "Any 1"
-    (some
-     (fn [{:keys [name]}]
-       (= name equipment-name))
-     (:equipment-choices background))
-    false
-    #(dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])]])
-
-(defn starting-equipment-checkboxes [background equipment]
-  [:div.flex.flex-wrap
-   (doall
-    (map
-     (fn [{:keys [name key]}]
-       ^{:key key}
-       [:span.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         name
-         (get-in background [:equipment key])
-         false
-         #(dispatch [::bg/toggle-starting-equipment key])]])
-     equipment))])
+(defn- equipment-choice-wildcards [background equipment equipment-name]
+  [{:key :any-1 :name "Any 1"
+    :selected? (boolean (some (fn [{:keys [name]}] (= name equipment-name))
+                              (:equipment-choices background)))
+    :on-toggle #(dispatch [::bg/toggle-starting-equipment-choice equipment equipment-name])}])
 
 (def option-source-name-label
   [:span
@@ -4663,35 +4603,59 @@
     [:span.i "Hodor's Guide to Hodors"]
     [:span ")"]]])
 
+;; Shared shapes for the builder menus below. Renderers with extra parts (a
+;; dropdown, an Add-Language button, mixed option groups) stay hand-written.
+
+(defn map-prop-menu
+  "Multi-select checkbox menu for one builder map-property. A choice is on when
+   [:props kw (:key item)] is truthy; clicking it dispatches
+   [toggle-event kw (:key item)]."
+  [entity toggle-event kw menu-key title items]
+  [omv/section-card
+   {:menu-id [menu-key toggle-event]
+    :title title
+    :options (omv/checkbox-options
+              items
+              (fn [item] (get-in entity [:props kw (:key item)]))
+              (fn [item] (dispatch [toggle-event kw (:key item)])))}])
+
+(defn value-choice-menu
+  "Single-select menu for one numeric builder property: exactly one value at a
+   time. A choice is on when its value equals [:props kw]; clicking dispatches
+   [toggle-event kw value]. multiselect? is off, so there's no chips/count tray."
+  [entity toggle-event kw menu-key title items]
+  [omv/section-card
+   {:menu-id [menu-key toggle-event]
+    :title title
+    :multiselect? false
+    :options (omv/checkbox-options
+              items
+              (fn [item] (= (:key item) (get-in entity [:props kw])))
+              (fn [item] (dispatch [toggle-event kw (:key item)])))}])
+
+(defn- damage-type-items
+  "Damage-type choices labeled with `verb`, e.g. \"Resistance to fire damage\"."
+  [verb]
+  (map (fn [dt] {:key dt :name (str verb " " (name dt) " damage")}) opt/damage-types))
+
 (defn option-proficiency-choice [title
                                  proficiency-choice-key
                                  proficiency-options
                                  option
                                  set-path-prop-event
                                  toggle-path-prop-event]
-  [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 title]
-   [:div.m-b-10
-    [labeled-dropdown
-     "Choose"
-     {:items (map
-              value-to-item
-              (range 1 6))
-      :value (get-in option [:profs proficiency-choice-key :choose] 1)
-      :on-change #(dispatch [set-path-prop-event [:profs proficiency-choice-key :choose] (js/parseInt %)])}]]
-   [:div.f-s-18.f-w-b.m-b-20 "Options"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:profs proficiency-choice-key :options key])
-          false
-          #(dispatch [toggle-path-prop-event [:profs proficiency-choice-key :options key]])]])
-      proficiency-options))]])
+  [omv/section-card
+   {:menu-id [:option-proficiency-choice toggle-path-prop-event proficiency-choice-key]
+    :title title
+    :header-extra [labeled-dropdown
+                   "Choose"
+                   {:items (map value-to-item (range 1 6))
+                    :value (get-in option [:profs proficiency-choice-key :choose] 1)
+                    :on-change #(dispatch [set-path-prop-event [:profs proficiency-choice-key :choose] (js/parseInt %)])}]
+    :options (omv/checkbox-options
+              proficiency-options
+              (fn [item] (get-in option [:profs proficiency-choice-key :options (:key item)]))
+              (fn [item] (dispatch [toggle-path-prop-event [:profs proficiency-choice-key :options (:key item)]])))}])
 
 (defn option-weapon-proficiency-choice [option
                                         set-path-prop-event
@@ -4728,231 +4692,152 @@
            skills/skills))
 
 (defn option-skill-proficiency [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 "Skill Proficiencies"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :skill-prof key])
-          false
-          #(dispatch [toggle-event :skill-prof key])]])
-      skills/skills))]])
+  (map-prop-menu option toggle-event :skill-prof :option-skill-proficiency
+                 "Skill Proficiencies" skills/skills))
 
 (defn option-languages [option toggle-map-prop-event]
   (let [languages @(subscribe [::langs/languages])]
-    [:div.m-b-20
-     [:div.f-s-24.f-w-b.m-b-20 "Languages"]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:span.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            name
-            (get-in option [:props :language key])
-            false
-            #(dispatch [toggle-map-prop-event :language key])]])
-        (sort-by
-         :name
-         languages)))]
-     [:div.pointer.m-t-10
-      [:span.bg-lighter.p-5
-       {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
-       [:i.fa.fa-plus]
-       [:span.orange.underline.m-l-5 "Add Language"]]]]))
+    [omv/section-card
+     {:menu-id [:option-languages toggle-map-prop-event]
+      :title "Languages"
+      :options (omv/checkbox-options
+                (sort-by :name languages)
+                (fn [item] (get-in option [:props :language (:key item)]))
+                (fn [item] (dispatch [toggle-map-prop-event :language (:key item)])))
+      :trailer [:div.pointer.m-t-10
+                [:span.bg-lighter.p-5
+                 {:on-click #(dispatch [:route routes/dnd-e5-language-builder-page-route])}
+                 [:i.fa.fa-plus]
+                 [:span.orange.underline.m-l-5 "Add Language"]]]}]))
 
 (defn option-skill-proficiency-or-expertise [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Skill Proficiency or Expertise"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :skill-prof-or-expertise key])
-          false
-          #(dispatch [toggle-event :skill-prof-or-expertise key])]])
-      skills/skills))]])
+  (map-prop-menu option toggle-event :skill-prof-or-expertise
+                 :option-skill-proficiency-or-expertise
+                 "Skill Proficiency or Expertise" skills/skills))
 
 (defn option-tool-proficiency [option toggle-path-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Tool Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:profs :tool key])
-          false
-          #(dispatch [toggle-path-prop-event [:profs :tool key]])]])
-      equip/tools))]])
+  [omv/section-card
+   {:menu-id [:option-tool-proficiency toggle-path-prop-event]
+    :title "Tool Proficiency"
+    :options (omv/checkbox-options
+              equip/tools
+              (fn [item] (get-in option [:profs :tool (:key item)]))
+              (fn [item] (dispatch [toggle-path-prop-event [:profs :tool (:key item)]])))}])
 
 (defn option-tool-proficiency-or-expertise [option toggle-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-20 "Tool Proficiency or Expertise"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in option [:props :tool-prof-or-expertise key])
-          false
-          #(dispatch [toggle-event :tool-prof-or-expertise key])]])
-      equip/tools))]])
+  (map-prop-menu option toggle-event :tool-prof-or-expertise
+                 :option-tool-proficiency-or-expertise
+                 "Tool Proficiency or Expertise" equip/tools))
 
 (defn background-skill-proficiencies [background]
-  [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 "Skill Proficiencies"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:span.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in background [:profs :skill key])
-          false
-          #(dispatch [::bg/toggle-skill-prof key])]])
-      skills/skills))]])
+  [omv/section-card
+   {:menu-id :bg-skill-prof
+    :title "Skill Proficiencies"
+    :options (omv/checkbox-options
+              skills/skills
+              #(get-in background [:profs :skill (:key %)])
+              #(dispatch [::bg/toggle-skill-prof (:key %)]))}])
 
 (defn background-languages [background]
-  [:div.m-t-20.m-b-20
-   [:div.f-s-24.f-w-b.m-b-20 "Languages"]
-   [:div
-    [language-choice-checkboxes background]]])
+  ;; OrcPub backgrounds only choose a NUMBER of languages, so this is wildcards-only.
+  [omv/section-card
+   {:menu-id :bg-languages
+    :title "Languages"
+    :wildcards (language-choice-wildcards background)
+    :options []}])
 
 (defn background-tool-proficiencies [background]
-  [:div.m-t-20.m-b-20
-   [:div.f-s-24.f-w-b.m-b-10 "Tool Proficiencies"]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Artisans Tools"]
-    [:div
-     [tool-choice-checkboxes background :artisans-tool]]
-    [:div
-     [tool-prof-checkboxes background equip/artisans-tools]]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Musical Instruments"]
-    [tool-choice-checkboxes background :musical-instrument]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Gaming Set"]
-    [tool-choice-checkboxes background :gaming-set]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Vehicles"]
-    [tool-prof-checkboxes background equip/vehicle-types]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Other Tools"]
-    [tool-prof-checkboxes background equip/misc-tools]]])
+  [omv/parent-section
+   {:title "Tool Proficiencies"
+    :collapse-id :bg-tools
+    :summary-labels (->> (concat equip/artisans-tools equip/vehicle-types equip/misc-tools)
+                         (filter #(get-in background [:profs :tool (:key %)]))
+                         (mapv :name))}
+   [omv/subsection {:menu-id :bg-tool-artisans :title "Artisan's Tools"
+                    :wildcards (tool-choice-wildcards background :artisans-tool)
+                    :options (bg-tool-options background equip/artisans-tools)}]
+   [omv/subsection {:menu-id :bg-tool-musical :title "Musical Instruments"
+                    :wildcards (tool-choice-wildcards background :musical-instrument)
+                    :options []}]
+   [omv/subsection {:menu-id :bg-tool-gaming :title "Gaming Set"
+                    :wildcards (tool-choice-wildcards background :gaming-set)
+                    :options []}]
+   [omv/subsection {:menu-id :bg-tool-vehicles :title "Vehicles"
+                    :options (bg-tool-options background equip/vehicle-types)}]
+   [omv/subsection {:menu-id :bg-tool-misc :title "Other Tools"
+                    :options (bg-tool-options background equip/misc-tools)}]])
 
 (defn background-starting-equipment [background]
-  [:div.m-t-20.m-b-20
-   [:div.f-s-24.f-w-b.m-b-10 "Starting Equipment"]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Treasure"]
-    [input-builder-field
-     [:span.f-w-b "Gold"]
+  [omv/parent-section
+   {:title "Starting Equipment"
+    :collapse-id :bg-equipment
+    :summary-labels (->> (concat equip/clothes equip/artisans-tools equip/misc-tools
+                                 equip/holy-symbols equip/misc-equipment)
+                         (filter #(get-in background [:equipment (:key %)]))
+                         (mapv :name))}
+   [:div.opt-subsection
+    [:div.opt-subsection-title.m-b-10 "Gold"]
+    [comps/input-field
+     :input
      (get-in background [:treasure :gp])
      #(dispatch [::bg/set-background-gold %])
      {:class "input h-40"
-      :type :number}]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Clothing"]
-    [:div [starting-equipment-checkboxes background equip/clothes]]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Artisan's Tools"]
-    [:div [starting-equipment-choice-checkboxes background equip/artisans-tools "Artisan's Tools"]]
-    [:div [starting-equipment-checkboxes background equip/artisans-tools]]]
-   [:div.m-b-20
-    [:div.f-s-18.f-w-b.m-b-10 "Musical Instruments"]
-    [starting-equipment-choice-checkboxes background equip/musical-instruments "Musical Instruments"]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Other Tools"]
-    [starting-equipment-checkboxes background equip/misc-tools]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Holy Symbols"]
-    [starting-equipment-checkboxes background equip/holy-symbols]]
-   [:div.m-b-10
-    [:div.f-s-18.f-w-b.m-b-10 "Other Equipment"]
-    [starting-equipment-checkboxes background equip/misc-equipment]]])
+      :type :number
+      :placeholder "e.g. 15 gp"}]]
+   [omv/subsection {:menu-id :bg-eq-clothes :title "Clothing"
+                    :options (bg-equipment-options background equip/clothes)}]
+   [omv/subsection {:menu-id :bg-eq-artisans :title "Artisan's Tools"
+                    :wildcards (equipment-choice-wildcards background equip/artisans-tools "Artisan's Tools")
+                    :options (bg-equipment-options background equip/artisans-tools)}]
+   [omv/subsection {:menu-id :bg-eq-musical :title "Musical Instruments"
+                    :wildcards (equipment-choice-wildcards background equip/musical-instruments "Musical Instruments")
+                    :options []}]
+   [omv/subsection {:menu-id :bg-eq-misc-tools :title "Other Tools"
+                    :options (bg-equipment-options background equip/misc-tools)}]
+   [omv/subsection {:menu-id :bg-eq-holy :title "Holy Symbols"
+                    :options (bg-equipment-options background equip/holy-symbols)}]
+   [omv/subsection {:menu-id :bg-eq-misc :title "Other Equipment"
+                    :options (bg-equipment-options background equip/misc-equipment)}]])
 
 (defn feat-prereqs [feat]
   [:div.m-b-20
-   [:div.f-s-24.f-w-b.m-b-10 "Prerequisites"]
-   [:div.flex.flex-wrap
-    [:div.m-r-20.m-b-10
-     [comps/labeled-checkbox
-      "The ability to cast at least one spell"
-      (get-in feat [:prereqs :spellcasting])
-      false
-      #(dispatch [::feats/toggle-spellcasting-prereq])]]
-    [:div
-     (doall
-      (map
-       (fn [{:keys [name key]}]
-         ^{:key key}
-         [:div.m-r-20.m-b-10
-          [comps/labeled-checkbox
-           (str name " 13 or higher")
-           (get-in feat [:prereqs key])
-           false
-           #(dispatch [::feats/toggle-ability-prereq key])]])
-       opt/abilities))]
-    [:div
-     (doall
-      (map
-       (fn [key]
-         ^{:key key}
-         [:div.m-r-20.m-b-10
-          (let [prop-key key]
-            [comps/labeled-checkbox
-             (str "Proficiency with " (name key) " armor")
-             (get-in feat [:prereqs prop-key])
-             false
-             #(dispatch [::feats/toggle-ability-prereq prop-key])])])
-       armor/armor-types))]
-    [:div
-     (doall
-      (map
-       (fn [{:keys [key name] :as race}]
-         ^{:key key}
-         [:div.m-r-20.m-b-10
-          [comps/labeled-checkbox
-           (str name " race")
-           (get-in feat [:path-prereqs :race key])
-           false
-           #(dispatch [::feats/toggle-path-prereq [:race key]])]])
-       @(subscribe [::races/races])))]]])
+   [omv/group-label "Prerequisites"]
+   [:div.m-r-20.m-b-10
+    [comps/labeled-checkbox
+     "The ability to cast at least one spell"
+     (get-in feat [:prereqs :spellcasting])
+     false
+     #(dispatch [::feats/toggle-spellcasting-prereq])]]
+   [omv/option-menu
+    {:menu-id [:feat-prereqs ::feats/toggle-ability-prereq]
+     :options (-> (omv/checkbox-options
+                   (map (fn [{:keys [name key]}]
+                          {:key key :name (str name " 13 or higher")})
+                        opt/abilities)
+                   (fn [item] (get-in feat [:prereqs (:key item)]))
+                   (fn [item] (dispatch [::feats/toggle-ability-prereq (:key item)])))
+                  (into (omv/checkbox-options
+                         (map (fn [key]
+                                {:key key :name (str "Proficiency with " (name key) " armor")})
+                              armor/armor-types)
+                         (fn [item] (get-in feat [:prereqs (:key item)]))
+                         (fn [item] (dispatch [::feats/toggle-ability-prereq (:key item)]))))
+                  (into (omv/checkbox-options
+                         (map (fn [{:keys [key name]}]
+                                {:key key :name (str name " race")})
+                              @(subscribe [::races/races]))
+                         (fn [item] (get-in feat [:path-prereqs :race (:key item)]))
+                         (fn [item] (dispatch [::feats/toggle-path-prereq [:race (:key item)]])))))}]])
 
 (defn feat-ability-increase-options [feat]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Ability Increase Options"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [{:keys [name key]}]
-        ^{:key key}
-        [:div.m-r-20.m-b-10
-         [comps/labeled-checkbox
-          name
-          (get-in feat [:ability-increases key])
-          false
-          #(dispatch [::feats/toggle-feat-ability-increase key])]])
-      opt/abilities))]
+   [omv/option-menu
+    {:menu-id [:feat-ability-increase-options ::feats/toggle-feat-ability-increase]
+     :options (omv/checkbox-options
+               opt/abilities
+               (fn [item] (get-in feat [:ability-increases (:key item)]))
+               (fn [item] (dispatch [::feats/toggle-feat-ability-increase (:key item)])))}]
    [:div.m-r-20.m-b-10
     [comps/labeled-checkbox
      "You also gain proficiency in saving throws with the above chosen abilities"
@@ -4973,79 +4858,56 @@
                     " You gain proficiency in the saves using the chosen ability.\""))))]])
 
 (defn feat-skill-proficiency [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Skill or Tool Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :skill-tool-choice]
-           [comps/labeled-checkbox
-            (str "You gain proficiency in " num " skills or tools of your choice")
-            (= num (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw num])])])
-      (range 1 4)))]])
+  (value-choice-menu feat ::feats/toggle-feat-value-prop :skill-tool-choice
+                     :feat-skill-proficiency "Skill or Tool Proficiency"
+                     (map (fn [num]
+                            {:key num
+                             :name (str "You gain proficiency in " num " skills or tools of your choice")})
+                          (range 1 4))))
 
 (defn feat-weapon-proficiency [feat]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Weapon Proficiency"]
-   [:div.flex.flex-wrap
-    [:div.m-r-20.m-b-10
-     (let [kw :improvised-weapons-prof]
-       [comps/labeled-checkbox
-        "You gain proficiency with improvised weapons"
-        (get-in feat [:props kw])
-        false
-        #(dispatch [::feats/toggle-feat-prop kw])])]
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :weapon-prof-choice]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " num " weapons of your choice")
-            (= num (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw num])])])
-      (range 3 5)))]])
+   [:div.m-r-20.m-b-10
+    (let [kw :improvised-weapons-prof]
+      [comps/labeled-checkbox
+       "You gain proficiency with improvised weapons"
+       (get-in feat [:props kw])
+       false
+       #(dispatch [::feats/toggle-feat-prop kw])])]
+   (let [kw :weapon-prof-choice]
+     [omv/option-menu
+      {:menu-id [:feat-weapon-proficiency kw]
+       :options (omv/checkbox-options
+                 (map (fn [num] {:key num
+                                 :name (str "You gain proficiency with " num " weapons of your choice")})
+                      (range 3 5))
+                 (fn [item] (= (:key item) (get-in feat [:props kw])))
+                 (fn [item] (dispatch [::feats/toggle-feat-value-prop kw (:key item)])))}])])
 
 (defn option-armor-proficiency [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Armor Proficiency"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [armor-type]
-        ^{:key armor-type}
-        [:div.m-r-20.m-b-10
-         (let [kw :armor-prof]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))
-            (get-in option [:props kw armor-type])
-            false
-            #(dispatch [toggle-map-prop-event kw armor-type])])])
-      (conj armor/armor-types :shields)))]])
+  (map-prop-menu option toggle-map-prop-event :armor-prof :option-armor-proficiency
+                 "Armor Proficiency"
+                 (map (fn [armor-type]
+                        {:key armor-type
+                         :name (str "You gain proficiency with " (name armor-type)
+                                    (when (not= armor-type :shields) " armor"))})
+                      (conj armor/armor-types :shields))))
 
 (defn feat-armor-proficiency [feat]
   [:div.m-b-20
    [:div.f-s-18.f-w-b.m-b-10 "Armor Proficiency"]
+   (let [kw :armor-prof]
+     [omv/option-menu
+      {:menu-id [:feat-armor-proficiency ::feats/toggle-feat-map-prop]
+       :options (omv/checkbox-options
+                 (map (fn [armor-type]
+                        {:key armor-type
+                         :name (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))})
+                      (conj armor/armor-types :shields))
+                 (fn [item] (get-in feat [:props kw (:key item)]))
+                 (fn [item] (dispatch [::feats/toggle-feat-map-prop kw (:key item)])))}])
    [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [armor-type]
-        ^{:key armor-type}
-        [:div.m-r-20.m-b-10
-         (let [kw :armor-prof]
-           [comps/labeled-checkbox
-            (str "You gain proficiency with " (name armor-type) (when (not= armor-type :shields) " armor"))
-            (get-in feat [:props kw armor-type])
-            false
-            #(dispatch [::feats/toggle-feat-map-prop kw armor-type])])])
-      (conj armor/armor-types :shields)))
     [:div.m-r-20.m-b-10
      (let [kw :medium-armor-stealth]
        [comps/labeled-checkbox
@@ -5062,177 +4924,72 @@
         #(dispatch [::feats/toggle-feat-prop kw])])]]])
 
 (defn option-hps [option toggle-value-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Hit Points"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [num]
-        ^{:key num}
-        [:div.m-r-20.m-b-10
-         (let [kw :max-hp-bonus]
-           [comps/labeled-checkbox
-            (str "Your hit point maximum increases by " num " for each of your levels")
-            (= (get-in option [:props kw]) num)
-            false
-            #(dispatch [toggle-value-prop-event kw num])])])
-      (range 1 3)))]])
+  (value-choice-menu option toggle-value-prop-event :max-hp-bonus :option-hps
+                     "Hit Points"
+                     (map (fn [num]
+                            {:key num
+                             :name (str "Your hit point maximum increases by " num " for each of your levels")})
+                          (range 1 3))))
 
 (defn feat-hps [feat]
   (option-hps feat ::feats/toggle-feat-value-prop))
 
 (defn feat-speed-bonuses [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Speed Bonuses"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :speed]
-           [comps/labeled-checkbox
-            (str "Your speed is increased by " v " ft.")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 5 20 5)))]])
+  (value-choice-menu feat ::feats/toggle-feat-value-prop :speed
+                     :feat-speed-bonuses "Speed Bonuses"
+                     (map (fn [v] {:key v :name (str "Your speed is increased by " v " ft.")})
+                          (range 5 20 5))))
 
 (defn feat-initiative-bonuses [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Initiative Bonuses"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :initiative]
-           [comps/labeled-checkbox
-            (str "You gain a +" v " bonus to initiative")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 1 6)))]])
+  (value-choice-menu feat ::feats/toggle-feat-value-prop :initiative
+                     :feat-initiative-bonuses "Initiative Bonuses"
+                     (map (fn [v] {:key v :name (str "You gain a +" v " bonus to initiative")})
+                          (range 1 6))))
 
 (defn feat-languages [feat]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Languages"]
-   [:div.flex.flex-wrap
-    (doall
-     (map
-      (fn [v]
-        ^{:key v}
-        [:div.m-r-20.m-b-10
-         (let [kw :language-choice]
-           [comps/labeled-checkbox
-            (str "You learn " v " languages of your choice.")
-            (= v (get-in feat [:props kw]))
-            false
-            #(dispatch [::feats/toggle-feat-value-prop kw v])])])
-      (range 1 4)))]])
+  (value-choice-menu feat ::feats/toggle-feat-value-prop :language-choice
+                     :feat-languages "Languages"
+                     (map (fn [v] {:key v :name (str "You learn " v " languages of your choice.")})
+                          (range 1 4))))
 
 (defn option-damage-resistance [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Resistances"]
-   (let [kw :damage-resistance]
-     [:div.flex.flex-wrap
-      [:div.m-r-20.m-b-10
-       [comps/labeled-checkbox
-        "Resistance to damage from traps"
-        (get-in option [:props kw :traps])
-        false
-        #(dispatch [toggle-map-prop-event kw :traps])]]
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Resistance to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+  (map-prop-menu option toggle-map-prop-event :damage-resistance :option-damage-resistance
+                 "Damage Resistances"
+                 (into [{:key :traps :name "Resistance to damage from traps"}]
+                       (damage-type-items "Resistance to"))))
 
 (defn option-damage-immunity [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Immunities"]
-   (let [kw :damage-immunity]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Immunity to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+  (map-prop-menu option toggle-map-prop-event :damage-immunity :option-damage-immunity
+                 "Damage Immunities" (damage-type-items "Immunity to")))
 
 (defn option-damage-vulnerability [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Damage Vulnerabilities"]
-   (let [kw :damage-vulnerability]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [damage-type]
-          ^{:key damage-type}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Vulnerability to " (name damage-type) " damage")
-            (get-in option [:props kw damage-type])
-            false
-            #(dispatch [toggle-map-prop-event kw damage-type])]])
-        opt/damage-types))])])
+  (map-prop-menu option toggle-map-prop-event :damage-vulnerability :option-damage-vulnerability
+                 "Damage Vulnerabilities" (damage-type-items "Vulnerability to")))
 
 (defn option-condition-immunity [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Condition Immunities"]
-   (let [kw :condition-immunity]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "Immunity to being " name)
-            (get-in option [:props kw key])
-            false
-            #(dispatch [toggle-map-prop-event kw key])]])
-        opt/conditions))])])
+  (map-prop-menu option toggle-map-prop-event :condition-immunity :option-condition-immunity
+                 "Condition Immunities"
+                 (map (fn [{:keys [name key]}]
+                        {:key key :name (str "Immunity to being " name)})
+                      opt/conditions)))
 
 (defn option-weapon-proficiency [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Weapon Proficiencies"]
-   (let [kw :weapon-prof]
-     [:div.flex.flex-wrap
-      (doall
-       (concat
-        (map
-         (fn [weapon-type]
-           ^{:key weapon-type}
-           [:div.m-r-20.m-b-10
-            [comps/labeled-checkbox
-             (str "All " (common/safe-capitalize-kw weapon-type) " Weapons")
-             (get-in option [:props kw weapon-type])
-             false
-             #(dispatch [toggle-map-prop-event kw weapon-type])]])
-         [:simple :martial])
-        (map
-         (fn [{:keys [key name]}]
-           ^{:key key}
-           [:div.m-r-20.m-b-10
-            [comps/labeled-checkbox
-             name
-             (get-in option [:props kw key])
-             false
-             #(dispatch [toggle-map-prop-event kw key])]])
-         @(subscribe [::mi/custom-and-standard-weapons]))))])])
+  (let [kw :weapon-prof]
+    [omv/section-card
+     {:menu-id [:option-weapon-proficiency toggle-map-prop-event]
+      :title "Weapon Proficiencies"
+      :options (into
+                (omv/checkbox-options
+                 (map (fn [weapon-type]
+                        {:key weapon-type
+                         :name (str "All " (common/safe-capitalize-kw weapon-type) " Weapons")})
+                      [:simple :martial])
+                 (fn [item] (get-in option [:props kw (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)])))
+                (omv/checkbox-options
+                 @(subscribe [::mi/custom-and-standard-weapons])
+                 (fn [item] (get-in option [:props kw (:key item)]))
+                 (fn [item] (dispatch [toggle-map-prop-event kw (:key item)]))))}]))
 
 (defn option-traits [option
                      add-trait-event
@@ -5241,13 +4998,11 @@
                      edit-trait-description-event
                      delete-trait-event
                      & {:keys [edit-trait-level-event types title button-title]}]
-  [:div.m-b-20
-   [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
-    [:div.f-s-24.f-w-b.m-b-10 (or title "Features/Traits")]
-    [:div
-     [:button.form-button.m-l-5
-      {:on-click (make-event-handler add-trait-event)}
-      (or button-title "add feature / trait")]]]
+  [omv/card (or title "Features/Traits")
+   [:div.flex.justify-cont-end.m-b-10
+    [:button.form-button
+     {:on-click (make-event-handler add-trait-event)}
+     (or button-title "add feature / trait")]]
    [:div
     (if (seq (:traits option))
       (doall
@@ -5298,21 +5053,12 @@
        [:span " or on the button above to add one."]])]])
 
 (defn option-saving-throw-advantages [option toggle-map-prop-event]
-  [:div.m-b-20
-   [:div.f-s-18.f-w-b.m-b-10 "Saving Throw Advantage"]
-   (let [kw :saving-throw-advantage]
-     [:div.flex.flex-wrap
-      (doall
-       (map
-        (fn [{:keys [name key]}]
-          ^{:key key}
-          [:div.m-r-20.m-b-10
-           [comps/labeled-checkbox
-            (str "You have advantage on saving throws against being " name)
-            (get-in option [:props kw key])
-            false
-            #(dispatch [toggle-map-prop-event kw key])]])
-        opt/conditions))])])
+  (map-prop-menu option toggle-map-prop-event :saving-throw-advantage
+                 :option-saving-throw-advantages "Saving Throw Advantage"
+                 (map (fn [{:keys [name key]}]
+                        {:key key
+                         :name (str "You have advantage on saving throws against being " name)})
+                      opt/conditions)))
 
 (defn feat-damage-resistance [feat]
   (option-damage-resistance feat ::feats/toggle-feat-map-prop))
@@ -5407,14 +5153,14 @@
          (sort-by common/lower-case (keys plugins)))))
 
 ;;; Create a datalist element and load the plugin names
-(defn plugin-datalist [label plugin-val dispatch-event] 
+(defn plugin-datalist [label plugin-val dispatch-event & [label-class wrap-class]]
   (let [selected-value (atom (or (:option-pack plugin-val) "")) ;TODO: reframe functions may or may not help handle this more efficiently
         ]
     (fn []
       [:div.flex-grow-1
-       {:class "m-l-5 m-b-20"
+       {:class (or wrap-class "m-l-5 m-b-20")
         :name "option-pack"}
-       [:div.f-w-b.m-b-5 label]
+       [:div {:class (or label-class "f-w-b m-b-5")} label]
        [:input {:type "text"
                 :list "plugins-list"
                 :name "plugins-choice"
@@ -5442,6 +5188,63 @@
       ]
        )))
 
+;; ---- Shared builder header band -------------------------------------------------
+;; Every homebrew builder opens with the same chrome: a large title-style Name input,
+;; the Option Source save-target field, and a Description textarea. Pulled out of the
+;; race builder so all of them inherit one band — restyle once, every builder follows.
+
+(def builder-source-label
+  [:span.builder-source-label
+   "Option Source Name"
+   [:span.save-target-pill "Save target"]
+   [omv/info-popover
+    "Everything you build is saved under this source — name it to group your homebrew."]])
+
+(defn builder-name-input
+  "Large title-style Name input for the header band. Carries the shared required-field
+   save cue: amber when empty, red when present-but-invalid (name must start with a
+   letter — flagged live, before any save)."
+  [value prop-event prop & [placeholder]]
+  (let [live-invalid? (and (= prop :name)
+                           (string? value) (not (s/blank? value))
+                           (not (common/starts-with-letter? value)))
+        cue (cond
+              live-invalid? " builder-field-invalid"
+              :else (case (get @(subscribe [:builder-field-errors]) prop)
+                      :missing " builder-field-unfilled"
+                      :invalid " builder-field-invalid"
+                      ""))]
+    [comps/input-field :input value
+     #(do (dispatch [prop-event prop %])
+          (dispatch [:clear-builder-field-error prop]))
+     {:class (str "builder-name-input" cue)
+      :placeholder (or placeholder "Name")
+      :maxLength (:text branding/field-limits)}]))
+
+(defn builder-header
+  "Shared builder header band. Name, source, and description all route through one
+   set-prop event (the generic `set-*-prop` every builder already has). Pass :desc-value
+   to include the Description row; omit it for builders that have no single description
+   (e.g. selection, whose descriptions are per-option). :desc-prop defaults to :help."
+  [{:keys [name-label name-placeholder entity prop-event desc-value desc-prop extra-cols]
+    :or {desc-prop :help}
+    :as opts}]
+  [:div.builder-header-band
+   [:div.builder-header-row
+    [:div.builder-name-col
+     [:div.builder-field-label (or name-label "Name")]
+     [builder-name-input (get entity :name) prop-event :name name-placeholder]]
+    ;; optional extra header column(s) between Name and Source — e.g. subrace's
+    ;; Parent Race dropdown. Each is its own grid cell in the header row.
+    extra-cols
+    [:div.builder-source-col
+     [plugin-datalist builder-source-label entity prop-event "builder-field-label" ""]]]
+   (when (contains? opts :desc-value)
+     [:div.builder-header-desc
+      [:div.builder-field-label "Description"]
+      [textarea-field {:value desc-value
+                       :on-change #(dispatch [prop-event desc-prop %])}]])])
+
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])
         plugins @(subscribe [::e5/plugins])]
@@ -5464,7 +5267,7 @@
         {:value (get feat :description)
          :on-change #(dispatch [::feats/set-feat-prop :description %])}]]]
      [:div [feat-prereqs feat]]
-     [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
+     [omv/group-label "Modifiers"]
      [:div [feat-ability-increase-options feat]]
      [:div [feat-skill-proficiency feat]]
      [:div [feat-languages feat]]
@@ -5887,38 +5690,24 @@
        "Subclass Flavor"
        :subclass-help
        class]]
-     [:div.m-b-30
-      [:div.f-s-24.f-w-b.m-b-10 "Saving Throws"]
-      [:div.flex.flex-wrap
-       (doall
-        (map
-         (fn [{:keys [name key]}]
-           ^{:key key}
-           [:div.m-r-20.m-b-10
-            [comps/labeled-checkbox
-             name
-             (get-in class [:profs :save key])
-             false
-             #(dispatch [::classes/toggle-save-prof key])]])
-         opt/abilities))]]
-     [:div.m-b-30
-      [:div.f-s-24.f-w-b.m-b-10 "Ability Increase Levels"]
-      [:div.flex.flex-wrap
-       (let [asi-levels-set (set (:ability-increase-levels class))]
-         (doall
-          (map
-           (fn [level]
-             ^{:key level}
-             [:div.m-r-20.m-b-10
-              [comps/labeled-checkbox
-               level
-               (asi-levels-set level)
-               false
-               #(dispatch [::classes/toggle-ability-increase-level level])]])
-           (range 4 21))))]]
+     [omv/section-card
+      {:menu-id [:class-saving-throws ::classes/toggle-save-prof]
+       :title "Saving Throws"
+       :options (omv/checkbox-options
+                 opt/abilities
+                 (fn [item] (get-in class [:profs :save (:key item)]))
+                 (fn [item] (dispatch [::classes/toggle-save-prof (:key item)])))}]
+     (let [asi-levels-set (set (:ability-increase-levels class))]
+       [omv/section-card
+        {:menu-id [:class-ability-increase-levels ::classes/toggle-ability-increase-level]
+         :title "Ability Increase Levels"
+         :options (omv/checkbox-options
+                   (map (fn [level] {:key level :name (str "Level " level)}) (range 4 21))
+                   (fn [item] (asi-levels-set (:key item)))
+                   (fn [item] (dispatch [::classes/toggle-ability-increase-level (:key item)])))}])
      (let [spellcaster? (boolean (get class :spellcasting))]
        [:div.m-b-30
-        [:div.f-s-24.f-w-b.m-b-10 "Spellcasting"]
+        [omv/group-label "Spellcasting"]
         [:div.flex.flex-wrap.m-b-20
          [labeled-dropdown
           "Does this class have spell slots?"
@@ -6057,7 +5846,7 @@
        ::classes/set-class-path-prop
        ::classes/toggle-class-path-prop]]
      [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
+      [omv/group-label "Modifiers"]
       [option-level-modifiers
        class
        ::e5/add-class-modifier
@@ -6160,7 +5949,7 @@
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
          [:div.m-b-20
-          [:div.f-s-24.f-w-b.m-b-10 "Spellcasting"]
+          [omv/group-label "Spellcasting"]
           (cond
             (#{:fighter :rogue} class-key)
             [:div.flex.flex-wrap
@@ -6193,7 +5982,7 @@
        ::classes/set-subclass-path-prop
        ::classes/toggle-subclass-path-prop]]
      [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
+      [omv/group-label "Modifiers"]
       [option-level-modifiers
        subclass
        ::e5/add-subclass-modifier
@@ -6271,98 +6060,142 @@
           set-spell-value-event
           delete-spell-event]]])
 
+(defn ability-stepper
+  "−n+ stepper for a subrace ability bonus, clamped to [lo hi]."
+  [v lo hi on-change]
+  [:div.ability-stepper
+   [:button.ability-stepper-btn
+    {:disabled (<= v lo)
+     :on-click #(when (> v lo) (on-change (dec v)))}
+    "−"]
+   [:span.ability-stepper-val (common/bonus-str v)]
+   [:button.ability-stepper-btn
+    {:disabled (>= v hi)
+     :on-click #(when (< v hi) (on-change (inc v)))}
+    "+"]])
+
+(defn value-dropdown
+  "labeled-dropdown over a list of plain numeric values (each is both title and value)."
+  [label values value on-change]
+  [labeled-dropdown label
+   {:items (map value-to-item values)
+    :value value
+    :on-change on-change}])
+
+(defn size-speed-card
+  "Shared Size & Speed section. Renders the Size + Speed pair (Speed range and parent
+   inheritance configurable); `extra` is the builder's remaining dropdowns — Darkvision,
+   plus race's Flying/Swimming — appended into the same field grid, in order.
+     :entity      the builder item
+     :inherit     optional parent entity whose size/speed fall through (subrace -> race)
+     :prop-event  sets :size
+     :speed-event sets speed
+     :speed-range dropdown range (default 0..50 by 5)
+     :extra       seq of extra dropdown hiccup children"
+  [{:keys [entity inherit prop-event speed-event speed-range extra]
+    :or {speed-range (range 0 55 5)}}]
+  (let [inh (fn [k] (or (get entity k) (and inherit (get inherit k))))]
+    [omv/card "Size & Speed"
+     (into
+      [:div.builder-field-grid
+       [labeled-dropdown
+        "Size"
+        {:items (map (fn [kw] {:title (name kw) :value (name kw)}) ["small" "medium" "large"])
+         :value (common/safe-name (or (inh :size) :medium))
+         :on-change #(dispatch [prop-event :size (keyword %)])}]
+       (value-dropdown "Speed" speed-range (inh :speed) #(dispatch [speed-event %]))]
+      extra)]))
+
+(defn subrace-ability-scores
+  "Ability Score Increases for the subrace builder. The race bonus is inherited
+   (read-only); the subrace bonus is editable, clamped 0–4. Two views via a
+   Cards/Compact segmented-control on the heading:
+     Cards   — width-filling Race + Subrace = Total equation cards (active = amber).
+     Compact — one +0…+4 select per ability with a Race +N caption and live = total."
+  [subrace race]
+  (let [mode (r/atom :cards)]
+    (fn [subrace race]
+      (let [set-bonus (fn [key v] (dispatch [::races/set-subrace-ability-increase key v]))]
+        [omv/card "Ability Score Increases"
+         [:div.subrace-ability-head
+          [omv/segmented-control
+           {:value @mode
+            :options [[:cards "Cards"] [:compact "Compact"]]
+            :on-change #(reset! mode %)}]]
+         (if (= @mode :compact)
+           [:div.ability-compact-grid
+            (doall
+             (for [{:keys [name key]} opt/abilities]
+               (let [race-bonus (get-in race [:abilities key] 0)
+                     subrace-bonus (get-in subrace [:abilities key] 0)
+                     total (+ race-bonus subrace-bonus)]
+                 ^{:key key}
+                 [:div.ability-compact
+                  [:div.builder-field-label name]
+                  [dropdown
+                   {:items (map (fn [b] {:title (str "+" b) :value b}) (range 0 5))
+                    :value subrace-bonus
+                    :on-change #(set-bonus key %)}]
+                  [:div.ability-compact-meta
+                   [:span.ability-compact-caption (str "Race " (common/bonus-str race-bonus))]
+                   [:span.ability-compact-total {:class (when (pos? total) "active")}
+                    (str "= " (common/bonus-str total))]]])))]
+           [:div.ability-equation-grid
+            (doall
+             (for [{:keys [name key]} opt/abilities]
+               (let [race-bonus (get-in race [:abilities key] 0)
+                     subrace-bonus (get-in subrace [:abilities key] 0)
+                     total (+ race-bonus subrace-bonus)]
+                 ^{:key key}
+                 [:div.ability-card {:class (when (pos? total) "active")}
+                  [:div.ability-card-name name]
+                  [:div.ability-equation
+                   [:div.ability-term
+                    [:div.ability-term-label "Race"]
+                    [:div.ability-term-val (common/bonus-str race-bonus)]]
+                   [:div.ability-op "+"]
+                   [:div.ability-term
+                    [:div.ability-term-label "Subrace"]
+                    [ability-stepper subrace-bonus 0 4 #(set-bonus key %)]]
+                   [:div.ability-op "="]
+                   [:div.ability-term
+                    [:div.ability-term-label "Total"]
+                    [:div.ability-term-total (common/bonus-str total)]]]])))])]))))
+
 (defn subrace-builder []
   (let [subrace @(subscribe [::races/subrace-builder-item])
         race-key (get subrace :race)
         race @(subscribe [::races/race race-key])
-        races @(subscribe [::races/races])
-        mobile? @(subscribe [:mobile?])]
+        races @(subscribe [::races/races])]
     [:div.p-20.main-text-color
-     [:div.flex.flex-wrap
-      [:div.m-b-20
-       [subrace-input-field
-        "Name"
-        :name
-        subrace]]
-      [:div.m-l-5.m-b-20
-       [labeled-dropdown
-        "Race"
-        {:items (map
-                 (fn [{:keys [name key]}]
-                   {:title name
-                    :value (clojure.core/name key)})
-                 races)
-         :value (get subrace :race)
-         :on-change #(dispatch [::races/set-subrace-prop :race (keyword %)])}]]
-       [plugin-datalist
-        option-source-name-label
-        subrace
-        ::races/set-subrace-prop]
-      ]
-     [:div.m-b-20.flex.flex-wrap
-      [:div.m-r-5
-       [labeled-dropdown
-        "Size"
-        {:items (map
-                 (fn [kw]
-                   {:title (name kw)
-                    :value (name kw)})
-                 ["small" "medium" "large"])
-         :value (name (or (get subrace :size)
-                          (get race :size)))
-         :on-change #(dispatch [::races/set-subrace-prop :size (keyword %)])}]]
-      [:div.m-r-5
-       [labeled-dropdown
-        "Speed"
-        {:items (map
-                 value-to-item
-                 (range 5 55 5))
-         :value (or (get subrace :speed)
-                    (get race :speed))
-         :on-change #(dispatch [::races/set-subrace-speed %])}]]
-      [:div.m-r-5
-       [labeled-dropdown
-        "Darkvision"
-        {:items (map
-                 value-to-item
-                 [0 60 120])
-         :value (or (get subrace :darkvision)
-                    (get race :darkvision))
-         :on-change #(dispatch [::races/set-subrace-prop :darkvision (js/parseInt %)])}]]]
+     [builder-header
+      {:name-label "Subrace Name"
+       :name-placeholder "Subrace name"
+       :entity subrace
+       :prop-event ::races/set-subrace-prop
+       :extra-cols [:div.builder-source-col
+                    [labeled-dropdown
+                     "Parent Race"
+                     {:items (map
+                              (fn [{:keys [name key]}]
+                                {:title name
+                                 :value (clojure.core/name key)})
+                              races)
+                      :value (get subrace :race)
+                      :on-change #(dispatch [::races/set-subrace-prop :race (keyword %)])}]]}]
+     [omv/layout-control-row]
+     [size-speed-card
+      {:entity subrace
+       :inherit race
+       :prop-event ::races/set-subrace-prop
+       :speed-event ::races/set-subrace-speed
+       :speed-range (range 5 55 5)
+       :extra [(value-dropdown "Darkvision" [0 60 120]
+                               (or (get subrace :darkvision) (get race :darkvision))
+                               #(dispatch [::races/set-subrace-prop :darkvision (js/parseInt %)]))]}]
+     [subrace-ability-scores subrace race]
      [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Ability Score Increases"]
-      [:table.t-a-c
-       [:tbody
-        [:tr.f-w-b
-         [:th.p-2.t-a-l "Ability"]
-         [:th.p-2 "Race Bonus"]
-         [:th.p-2]
-         [:th.p-2 "Subrace Bonus"]
-         [:th.p-2]
-         [:th.p-2 "Total"]]
-        (doall
-         (map
-          (fn [{:keys [name key abbr]}]
-            (let [race-bonus (get-in race [:abilities key] 0)
-                  subrace-bonus (get-in subrace [:abilities key] 0)]
-              ^{:key key}
-              [:tr
-               [:td.p-2.f-w-b.t-a-l (if mobile? abbr name)]
-               [:td.p-2 race-bonus]
-               [:td.p-2 "+"]
-               [:td.p-2 [dropdown
-                         {:items (map
-                                  (fn [bonus]
-                                    {:title (common/bonus-str bonus)
-                                     :value bonus})
-                                  (range -2 3 1))
-                          :value subrace-bonus
-                          :on-change #(dispatch [::races/set-subrace-ability-increase key %])}]]
-               [:td.p-2 "="]
-               [:td.p-2 (+ race-bonus subrace-bonus)]]))
-          opt/abilities))]]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
+      [omv/group-label "Modifiers"]
       [:div [option-hps subrace ::races/toggle-subrace-value-prop]]
       [:div [option-damage-resistance subrace ::races/toggle-subrace-map-prop]]
       [:div [option-damage-immunity subrace ::races/toggle-subrace-map-prop]]
@@ -6377,8 +6210,7 @@
         ::races/set-subrace-path-prop
         ::races/toggle-subrace-path-prop]]
       [:div [option-languages subrace ::races/toggle-subrace-map-prop]]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Spells"]
+     [omv/card "Spells"
       [option-spells
        subrace
        ::races/set-subrace-spell-level
@@ -6403,67 +6235,27 @@
 (defn race-builder []
   (let [race @(subscribe [::races/builder-item])]
     [:div.p-20.main-text-color
-     [:div.m-b-20.flex.flex-wrap
-      [race-input-field
-       "Name"
-       :name
-       race]
-      [plugin-datalist
-        option-source-name-label
-        race
-        ::races/set-race-prop]
-      ]
-     [:div.m-b-20
-       [:div.f-w-b
-        "Description"]
-       [textarea-field
-        {:value (get race :help)
-         :on-change #(dispatch [::races/set-race-prop :help %])}]]
-     [:div.m-b-20.flex.flex-wrap
-      [:div.m-r-5
-       [labeled-dropdown
-        "Size"
-        {:items (map
-                 (fn [kw]
-                   {:title (name kw)
-                    :value (name kw)})
-                 ["small" "medium" "large"])
-         :value (common/safe-name (get race :size :medium))
-         :on-change #(dispatch [::races/set-race-prop :size (keyword %)])}]]
-      [:div.m-r-5
-       [labeled-dropdown
-        "Speed"
-        {:items (map
-                 value-to-item
-                 (range 0 55 5))
-         :value (get race :speed)
-         :on-change #(dispatch [::races/set-race-speed %])}]]
-      [:div.m-r-5
-       [labeled-dropdown
-        "Flying Speed"
-        {:items (map
-                 value-to-item
-                 (range 0 55 5))
-         :value (or (get-in race [:props :flying-speed]) 0)
-         :on-change #(dispatch [::races/set-race-value-prop :flying-speed (js/parseInt %)])}]]
-      [:div.m-r-5
-       [labeled-dropdown
-        "Swimming Speed"
-        {:items (map
-                 value-to-item
-                 (range 0 55 5))
-         :value (or (get-in race [:props :swimming-speed]) 0)
-         :on-change #(dispatch [::races/set-race-value-prop :swimming-speed (js/parseInt %)])}]]
-      [:div.m-r-5
-       [labeled-dropdown
-        "Darkvision"
-        {:items (map
-                 value-to-item
-                 [0 60 120])
-         :value (get race :darkvision)
-         :on-change #(dispatch [::races/set-race-prop :darkvision (js/parseInt %)])}]]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Armor Class"]
+     [builder-header
+      {:name-label "Race Name"
+       :name-placeholder "Race name"
+       :entity race
+       :prop-event ::races/set-race-prop
+       :desc-value (get race :help)}]
+     [omv/layout-control-row]
+     [size-speed-card
+      {:entity race
+       :prop-event ::races/set-race-prop
+       :speed-event ::races/set-race-speed
+       :extra [(value-dropdown "Flying Speed" (range 0 55 5)
+                               (or (get-in race [:props :flying-speed]) 0)
+                               #(dispatch [::races/set-race-value-prop :flying-speed (js/parseInt %)]))
+               (value-dropdown "Swimming Speed" (range 0 55 5)
+                               (or (get-in race [:props :swimming-speed]) 0)
+                               #(dispatch [::races/set-race-value-prop :swimming-speed (js/parseInt %)]))
+               (value-dropdown "Darkvision" [0 60 120]
+                               (get race :darkvision)
+                               #(dispatch [::races/set-race-prop :darkvision (js/parseInt %)]))]}]
+     [omv/card "Armor Class"
       [:div.flex.flex-wrap
        [comps/labeled-checkbox
         "Without armor your AC becomes 13 + your DEX modifier."
@@ -6476,58 +6268,43 @@
          (get-in race [:props :tortle-ac])
          false
          #(dispatch [::races/toggle-race-prop :tortle-ac])]]]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Ability Score Increases"]
-      [:div.flex.flex-wrap
+     [omv/card "Ability Score Increases"
+      [:div.builder-field-grid
        (doall
         (map
          (fn [{:keys [name key]}]
            ^{:key key}
-           [:div.m-l-5
-            [labeled-dropdown
-             name
-             {:items (map
-                      (fn [bonus]
-                        {:title (common/bonus-str bonus)
-                         :value bonus})
-                      (range -2 3 1))
-              :value (get-in race [:abilities key] 0)
-              :on-change #(dispatch [::races/set-race-ability-increase key %])}]])
+           [labeled-dropdown
+            name
+            {:items (map
+                     (fn [bonus]
+                       {:title (common/bonus-str bonus)
+                        :value bonus})
+                     (range -2 3 1))
+             :value (get-in race [:abilities key] 0)
+             :on-change #(dispatch [::races/set-race-ability-increase key %])}])
          opt/abilities))]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
-      [:div.m-b-20
-       [:div.f-s-18.f-w-b.m-b-10 "Languages"]
-       [:div [language-checkboxes race @(subscribe [::langs/languages])]]]
-      [:div.m-b-20
-       [:div [option-weapon-proficiency race ::races/toggle-race-map-prop]]]
-      [:div.m-b-20
-       [:div [option-armor-proficiency race ::races/toggle-race-map-prop]]]
-      [:div.m-b-20
-       [option-tool-proficiency race ::races/toggle-race-path-prop]]
-      [:div.m-b-20
-       [:div [option-damage-resistance race ::races/toggle-race-map-prop]]]
-      [:div.m-b-20
-       [:div [option-damage-immunity race ::races/toggle-race-map-prop]]]
-      [:div.m-b-20
-       [:div [option-skill-proficiency race ::races/toggle-race-map-prop]]]
-      [:div
-       [option-skill-proficiency-choice
-        race
-        ::races/set-race-path-prop
-        ::races/toggle-race-path-prop]]
-      [:div
-       [option-language-proficiency-choice
-        race
-        ::races/set-race-path-prop
-        ::races/toggle-race-path-prop]]
-      [:div
-       [option-weapon-proficiency-choice
-        race
-        ::races/set-race-path-prop
-        ::races/toggle-race-path-prop]]]
-     [:div.m-b-20
-      [:div.f-s-24.f-w-b.m-b-10 "Spells"]
+     [omv/group-label "Modifiers"]
+     [language-checkboxes race @(subscribe [::langs/languages])]
+     [option-weapon-proficiency race ::races/toggle-race-map-prop]
+     [option-armor-proficiency race ::races/toggle-race-map-prop]
+     [option-tool-proficiency race ::races/toggle-race-path-prop]
+     [option-damage-resistance race ::races/toggle-race-map-prop]
+     [option-damage-immunity race ::races/toggle-race-map-prop]
+     [option-skill-proficiency race ::races/toggle-race-map-prop]
+     [option-skill-proficiency-choice
+      race
+      ::races/set-race-path-prop
+      ::races/toggle-race-path-prop]
+     [option-language-proficiency-choice
+      race
+      ::races/set-race-path-prop
+      ::races/toggle-race-path-prop]
+     [option-weapon-proficiency-choice
+      race
+      ::races/set-race-path-prop
+      ::races/toggle-race-path-prop]
+     [omv/card "Spells"
       [option-spells
        race
        ::races/set-race-spell-level
@@ -6552,22 +6329,13 @@
 (defn background-builder []
   (let [background @(subscribe [::bg/builder-item])]
     [:div.p-20.main-text-color
-     [:div.m-b-20.flex.flex-wrap
-      [background-input-field
-       "Name"
-       :name
-       background]
-      [plugin-datalist
-       option-source-name-label
-       background
-       ::bg/set-background-prop]
-      ]
-     [:div.m-b-20
-       [:div.f-w-b
-        "Description"]
-       [textarea-field
-        {:value (get background :help)
-         :on-change #(dispatch [::bg/set-background-prop :help %])}]]
+     [builder-header
+      {:name-label "Background Name"
+       :name-placeholder "Background name"
+       :entity background
+       :prop-event ::bg/set-background-prop
+       :desc-value (get background :help)}]
+     [omv/layout-control-row]
      [:div [background-skill-proficiencies background]]
      [:div [background-languages background]]
      [:div [background-tool-proficiencies background]]
@@ -6608,17 +6376,11 @@
         ;; Check for empty/blank option names
         has-empty? (some #(s/blank? (:name %)) options)]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [selection-input-field
-       "Name"
-       :name
-       selection
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       selection
-       ::selections/set-selection-prop]
-      ]
+     [builder-header
+      {:name-label "Selection Name"
+       :name-placeholder "Selection name"
+       :entity selection
+       :prop-event ::selections/set-selection-prop}]
      [:div
       [:div.flex.justify-cont-s-b
        [:div.f-s-24.f-w-b "Options"]
@@ -6678,65 +6440,35 @@
 (defn language-builder []
   (let [language @(subscribe [::langs/builder-item])]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [language-input-field
-       "Name"
-       :name
-       language
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       language
-       ::langs/set-language-prop]
-      ]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get language :description)
-        :on-change #(dispatch [::langs/set-language-prop :description %])}]]]))
+     [builder-header
+      {:name-label "Language Name"
+       :name-placeholder "Language name"
+       :entity language
+       :prop-event ::langs/set-language-prop
+       :desc-value (get language :description)
+       :desc-prop :description}]]))
 
 (defn boon-builder []
   (let [boon @(subscribe [::classes/boon-builder-item])]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [boon-input-field
-       "Name"
-       :name
-       boon
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       boon
-       ::classes/set-boon-prop]
-      ]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get boon :description)
-        :on-change #(dispatch [::classes/set-boon-prop :description %])}]]]))
+     [builder-header
+      {:name-label "Pact Boon Name"
+       :name-placeholder "Pact boon name"
+       :entity boon
+       :prop-event ::classes/set-boon-prop
+       :desc-value (get boon :description)
+       :desc-prop :description}]]))
 
 (defn invocation-builder []
   (let [invocation @(subscribe [::classes/invocation-builder-item])]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [invocation-input-field
-       "Name"
-       :name
-       invocation
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       invocation
-       ::classes/set-invocation-prop]
-      ]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get invocation :description)
-        :on-change #(dispatch [::classes/set-invocation-prop :description %])}]]]))
+     [builder-header
+      {:name-label "Eldritch Invocation Name"
+       :name-placeholder "Eldritch invocation name"
+       :entity invocation
+       :prop-event ::classes/set-invocation-prop
+       :desc-value (get invocation :description)
+       :desc-prop :description}]]))
 
 (defn monster-builder []
   (let [{:keys [name
@@ -7297,7 +7029,7 @@
                (on-monster-num-change monster-count)])]]]
          [:div.m-b-20
           [:div.flex.justify-cont-s-b
-           [:div.f-s-24.f-w-b.m-b-10 "Initiative"]
+           [omv/group-label "Initiative"]
            [:div.flex
             [:button.form-button.m-l-5.m-b-10
              {:on-click #(dispatch [::combat/next-initiative monster-map])}
@@ -7534,7 +7266,7 @@
      [:div.flex.w-100-p.flex-wrap
       [spell-input-field "Casting Time" :casting-time spell "m-b-20"]
       [spell-input-field "Range" :range spell "m-l-5 m-b-20"]]
-     [:div [:h2.f-s-24.f-w-b.m-b-10 "Components"]]
+     [:div [omv/group-label "Components"]]
      [:div.flex.w-100-p.flex-wrap
       [component-checkbox :verbal spell]
       [component-checkbox :somatic spell]
@@ -8101,7 +7833,7 @@
    :hide-header-message? true])
 
 ;; events are set and passed by the individual pages defined below this
-(defn builder-page [item-title reset-event save-event builder & [title]]
+(defn builder-page [item-title reset-event save-event builder & [title hide-layout?]]
   [content-page
    (or title (str item-title " Builder"))
    [{:title (str "New " item-title)
@@ -8110,7 +7842,13 @@
     {:title "Save to Browser Storage"
      :icon "save"
      :on-click #(dispatch [save-event])}]
-   [builder]])
+   [:div
+    ;; the layout selector belongs to the content, in an anchored control row matching
+    ;; the builders' p-20 gutters. Builders that manage their own placement (race, below
+    ;; its header band) pass hide-layout? and render omv/layout-control-row themselves.
+    (when-not hide-layout?
+      [:div.p-l-20.p-r-20.p-t-10 [omv/layout-control-row]])
+    [builder]]])
 
 (defn combat-tracker-page []
   [content-page
@@ -8224,13 +7962,16 @@
   (builder-page "Selection" ::selections/reset-selection ::selections/save-selection selection-builder [title-with-help "Selection Builder" selection-help]))
 
 (defn background-builder-page []
-  (builder-page "Background" ::bg/reset-background ::bg/save-background background-builder))
+  ;; hide-layout? — background renders the layout control row itself, below its header band
+  (builder-page "Background" ::bg/reset-background ::bg/save-background background-builder nil true))
 
 (defn race-builder-page []
-  (builder-page "Race" ::races/reset-race ::races/save-race race-builder))
+  ;; hide-layout? — race renders the layout control row itself, below its header band
+  (builder-page "Race" ::races/reset-race ::races/save-race race-builder nil true))
 
 (defn subrace-builder-page []
-  (builder-page "Subrace" ::races/reset-subrace ::races/save-subrace subrace-builder))
+  ;; hide-layout? — subrace renders the layout control row itself, below its header band
+  (builder-page "Subrace" ::races/reset-subrace ::races/save-subrace subrace-builder nil true))
 
 (defn subclass-builder-page []
   (builder-page "Subclass" ::classes/reset-subclass ::classes/save-subclass subclass-builder))
@@ -8280,7 +8021,9 @@
                       :print-spell-card-dc-mod? true})}
          "print"])
       (when (and (= username owner) (seq folders))
-        [:select.form-button.m-l-5.builder-option-dropdown.folder-dropdown
+        [comps/builder-select
+         {:class "m-l-5" :style {:display "inline-block" :width "auto" :align-self "stretch"}}
+         [:select.form-button.builder-option-dropdown.folder-dropdown
          {:value (or current-folder-id "")
           :on-change (fn [e]
                        (let [val (.-value (.-target e))]
@@ -8293,7 +8036,7 @@
           (map (fn [f]
                  ^{:key (:db/id f)}
                  [:option.builder-dropdown-item {:value (:db/id f)} (::folder/name f)])
-               (sort-by ::folder/name folders)))])
+               (sort-by ::folder/name folders)))]])
       (when (= username owner)
         [:button.form-button.m-l-5
          {:on-click (make-event-handler ::char/show-delete-confirmation id)}

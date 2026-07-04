@@ -32,6 +32,7 @@
             [orcpub.dnd.e5.display :as disp5e]
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.skills :as skill5e]
+            [orcpub.dnd.e5.option-menu-views :as omv]
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
@@ -209,7 +210,9 @@
         [:div.m-b-5
          {:class (when @expanded? "b-1 b-rad-5 p-5")}
          [:div.flex.align-items-c
-          [:select.builder-option.builder-option-dropdown.flex-grow-1.m-t-0
+          [comps/builder-select
+           {:class "flex-grow-1"}
+           [:select.builder-option.builder-option-dropdown.m-t-0
            {:value key
             :on-change (set-class i options-map)}
            (doall
@@ -226,13 +229,15 @@
               ::t/name
               (filter
                (filter-classes key unselected-classes-set)
-               options))))]
+               options))))]]
           (when (::t/help class-template-option)
             [show-info-button expanded?])
           (let [levels-selection (some levels-selection (::t/selections class-template-option))
                 available-levels (::t/options levels-selection)
                 last-level-key (str "level-" (:class-level selected-class))]
-            [:select.builder-option.builder-option-dropdown.m-t-0.m-l-5.w-100
+            [comps/builder-select
+             {:class "m-l-5 w-100"}
+             [:select.builder-option.builder-option-dropdown.m-t-0
              {:value last-level-key
               :on-change
               (set-class-level i)}
@@ -243,7 +248,7 @@
                  [:option.builder-dropdown-item
                   {:value level-key}
                   (inc i)])
-               available-levels))])
+               available-levels))]])
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
          (when @expanded?
@@ -495,12 +500,13 @@
 
 (defn option-selector-base []
   (let [expanded? (r/atom false)]
-    (fn [{:keys [name key help selected? selectable? option-path select-fn content explanation-text icon classes multiselect? disable-checkbox? edit-event]}]
+    (fn [{:keys [name display-name non-standard? key help selected? selectable? option-path select-fn content explanation-text icon classes multiselect? disable-checkbox? edit-event]}]
       [:div.p-10.b-1.b-rad-5.m-5.b-orange
        {:class (s/join " " (conj
                                  (remove nil? [(when selected? "b-w-5")
                                                (when selectable? "pointer hover-shadow")
-                                               (when (not selectable?) "opacity-5")])
+                                               (when (not selectable?) "opacity-5")
+                                               (when non-standard? "b-w-3 non-standard-option")])
                                  classes))
         :on-click select-fn}
        [:div.flex.align-items-c
@@ -508,8 +514,10 @@
          [:div.flex.align-items-c
           (when multiselect?
             [:span.m-r-5 (comps/checkbox selected? disable-checkbox?)])
+          (when non-standard?
+            [:span.non-standard-badge.m-r-5 "≠ NON-STD"])
           (when icon [:div.m-r-5 (views5e/svg-icon icon 24)])
-          [:span.f-w-b.f-s-1.flex-grow-1 name]
+          [:span.f-w-b.f-s-1.flex-grow-1 (or display-name name)]
           (when edit-event
             [:span.orange.underline.pointer
              {:on-click (apply views5e/make-stop-prop-event-handler edit-event)}
@@ -556,7 +564,8 @@
                            selection
                            disable-select-new?
                            homebrew?
-                           option]
+                           option
+                           & [{:keys [display-name non-standard?]}]]
   (let [{:keys [help has-named-mods? modifiers-str failed-prereqs] :as data}
         (views-aux/option-selector-data option-path
                                         selection
@@ -566,6 +575,8 @@
     (when (not-any? ::t/hide-if-fail? failed-prereqs)
       ^{:key (::t/key option)}
       [option-selector-base (assoc data
+                                   :display-name display-name
+                                   :non-standard? non-standard?
                                    :help
                                    (when (or help has-named-mods?)
                                         [:div
@@ -729,44 +740,55 @@
               :else nil))))
 
 (defn default-selection-section-body [actual-path
-                                      {:keys [::t/options] :as selection}
+                                      {:keys [::t/options ::t/multiselect? ::t/ref ::t/min ::t/max]
+                                       :as selection}
                                       disable-select-new?
                                       homebrew?
                                       num-columns]
-  (let [option-selectors
-        (remove
-         nil?
-         (map
-          (fn [option]
-            [new-option-selector
-             actual-path
-             selection
-             disable-select-new?
-             homebrew?
-             option])
-          (sort-by (juxt ::t/order ::t/name) options)))
-        parts (partition-all
-               (common/round-up (/ (count option-selectors)
-                                   num-columns))
-               option-selectors)
+  ;; Delegate layout + chrome to the shared growable-menu component. num-columns is
+  ;; ignored — the global layout toggle (grid/pills/A–Z) drives every menu now.
+  ;; Each option keeps its rich SRD card (rendered by new-option-selector via cell-fn),
+  ;; while the component supplies the banner/search/chips/count from option-grouping.
+  (let [multi?  (boolean (or multiselect? ref (> (or min 0) 1) (nil? max)))
+        sorted  (sort-by (juxt ::t/order ::t/name) options)
+        opts    (->> sorted
+                     (map (fn [option]
+                            ;; one option-selector-data call per option; the card is built
+                            ;; from this same data in cell-fn (no second fetch).
+                            (let [data (views-aux/option-selector-data
+                                        actual-path selection disable-select-new? homebrew? option)]
+                              ;; drop prereq-hidden options so they leave no empty cell
+                              (when (not-any? ::t/hide-if-fail? (:failed-prereqs data))
+                                {:key (::t/key option)
+                                 :label (::t/name option)
+                                 :selected? (:selected? data)
+                                 :selectable? (:selectable? data)
+                                 ;; reuse the option's real select-fn (handles deselect,
+                                 ;; prereqs, single-vs-multi) for clicks, chips and Clear
+                                 :on-toggle (fn [] ((:select-fn data) #js {:stopPropagation (fn [] nil)}))
+                                 :data data
+                                 :option option}))))
+                     (remove nil?)
+                     vec)
+        cell-fn (fn [{:keys [data option display non-standard?]} _layout]
+                  (let [{:keys [help has-named-mods? modifiers-str]} data]
+                    [option-selector-base
+                     (assoc data
+                            :display-name display
+                            :non-standard? non-standard?
+                            :help (when (or help has-named-mods?)
+                                    [:div
+                                     (when has-named-mods? [:div.i modifiers-str])
+                                     [:div {:class (when has-named-mods? "m-t-5")} help]])
+                            :edit-event (::t/edit-event option))]))
         item-adder (make-item-adder selection)]
-    [:div.flex
-     (doall
-      (map-indexed
-       (fn [i part]
-         ^{:key i}
-         [:div.flex-grow-1
-          {:class (str "w-" (int (/ 100 num-columns)) "-p")}
-          [:div
-           (doall
-            (map-indexed
-             (fn [j selector]
-               ^{:key j}
-               [:div selector])
-             part))]
-          (when (and item-adder (= i (dec (count parts))))
-            item-adder)])
-       parts))]))
+    [omv/option-menu
+     {:menu-id actual-path
+      :slot-label (::t/slot-label selection)
+      :multiselect? multi?
+      :options opts
+      :cell-fn cell-fn
+      :trailer (when item-adder item-adder)}]))
 
 (defn selection-section [title
                          built-template
@@ -2174,8 +2196,9 @@
         [:div.flex.justify-cont-s-b.align-items-c.flex-wrap
          [:div
           [missing-content-warning]]
-         [:div.flex
-          [theme-toggle]
+         [:div.flex.align-items-c
+          [omv/layout-toggle]
+          [:div.m-l-10 [theme-toggle]]
           (when character-changed? [:div.red.f-w-b.m-r-10.m-l-10.flex.align-items-c
                                   (views5e/svg-icon "thunder-skull" 24 24)
                                   (when (not mobile?)
