@@ -59,3 +59,13 @@ The UPGRADE_PLAN.md contains inaccuracies discovered during the breaking branch 
 2. **Figwheel port**: Claimed 9500 — always been 3449
 3. **CI Java**: Was Java 8 on upgrade branch — bug, not intentional (fixed to 21)
 4. **Pedestal pin**: 0.7.0 constraint is Jetty 11 vs 12 (figwheel-main compatibility), not a Java version issue
+
+## Contribution rules
+
+Each document should be sourced from direct inspection of code, logs, or authoritative
+references — not speculation.
+
+- Only add findings you can cite directly (log lines, code lines, benchmark results, official docs).
+- If you are reasoning from circumstantial evidence, mark the paragraph **⚠️ UNVALIDATED SPECULATION — [brief rationale]**.
+- Include the date the analysis was done and the artifact(s) it was based on.
+- Do not remove speculation flags — when something is later verified, replace the flag with **✅ VERIFIED — [how]** and update the text.
