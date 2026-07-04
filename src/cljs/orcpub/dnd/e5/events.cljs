@@ -6,6 +6,7 @@
             [orcpub.dice :as dice]
             [orcpub.modifiers :as mod]
             [orcpub.dnd.e5 :as e5]
+            [orcpub.dnd.e5.content-specs :as content-specs]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
@@ -454,7 +455,10 @@
          ;; Since built-template is a no-op (plugin merging commented out),
          ;; we use the cached template directly with entity/build.
          cached-template (get db ::autosave-fx/cached-template)]
-     (if-not cached-template
+     ;; Skip when the template isn't ready — nil OR empty {}. An empty template
+     ;; crashes entity/build (null fn `.call`); `seq` covers both cases.
+     ;; (Guarded by events-test save-character-rejects-missing-abilities.)
+     (if-not (seq cached-template)
        {} ;; template not cached yet — skip this cycle, next autosave will retry
        (let [{:keys [:db/id] :as strict} (char5e/to-strict character)
              built-character (entity/build character cached-template)
@@ -557,6 +561,23 @@
     (or (some (fn [[re msg]] (when (re-find re s) msg)) builder-invalid-reason-rules)
         "is not valid")))
 
+(defn- singularize
+  "Crude singular for a humanized collection name: \"Options\" -> \"Option\"."
+  [s]
+  (if (s/ends-with? s "s") (subs s 0 (dec (count s))) s))
+
+(defn- problem-location
+  "Turn a spec problem's `:in` path into a 1-based human location like \"Option 2\"
+   when it lives inside an indexed collection (e.g. a selection's :options), so the
+   banner can name WHICH nested element failed. nil for a top-level field."
+  [in]
+  (->> (partition 2 1 in)
+       (keep (fn [[a b]]
+               (when (and (keyword? a) (int? b))
+                 (str (singularize (field-label a)) " " (inc b)))))
+       (s/join " ")
+       (#(when (seq %) %))))
+
 (defn spec-field-problems
   "Classify each failing required field from a spec explanation against the
    original (pre-fill) item. Returns one entry per field:
@@ -564,16 +585,27 @@
      {:field k :status :invalid :reason \"...\"}         — present but rejected
    A missing :req-un key is a nested `(fn [%] (contains? % :k))` (found via
    tree-seq); an invalid value is reported with the field at the end of :in.
-   :key maps to :name, since :key is derived from the name."
+   :key maps to :name, since :key is derived from the name.
+
+   A problem inside an indexed collection also carries :location (\"Option 2\") so
+   the message names the nested element instead of a bare \"Name\"."
   [explanation item]
   (when-let [problems (::spec/problems explanation)]
     (->> problems
          (keep (fn [{:keys [pred in]}]
                  (let [missing-key (orcbrew-val/missing-required-key pred)
                        field (let [f (or missing-key (last (filter keyword? in)))]
-                               (when f (if (= f :key) :name f)))]
+                               (when f (if (= f :key) :name f)))
+                       location (problem-location in)]
                    (when field
-                     (let [v (get item field)
+                     ;; resolve the actual offending value via :in so a nested
+                     ;; option's blank-check looks at the option, not the parent.
+                     (let [container (if missing-key
+                                       (get-in item (vec in))
+                                       (get-in item (vec (butlast in))))
+                           v (if (and (not missing-key) (map? container))
+                               (get container field)
+                               (get item field))
                            blank? (or (nil? v)
                                       (and (string? v) (s/blank? v))
                                       ;; a checkbox-group map with nothing checked
@@ -581,15 +613,18 @@
                                       (and (map? v) (seq v)
                                            (every? boolean? (vals v))
                                            (not (some true? (vals v)))))]
-                       (if (or missing-key blank?)
-                         {:field field :status :missing}
-                         {:field field :status :invalid
-                          :reason (builder-invalid-reason pred)}))))))
-         ;; one entry per field; prefer an :invalid report over a :missing one
-         (reduce (fn [acc {:keys [field status] :as p}]
-                   (if (or (not (contains? acc field)) (= status :invalid))
-                     (assoc acc field p)
-                     acc))
+                       (cond-> (if (or missing-key blank?)
+                                 {:field field :status :missing}
+                                 {:field field :status :invalid
+                                  :reason (builder-invalid-reason pred)})
+                         location (assoc :location location)))))))
+         ;; one entry per (location, field); prefer an :invalid report over a
+         ;; :missing one for the same target.
+         (reduce (fn [acc {:keys [field location status] :as p}]
+                   (let [k [location field]]
+                     (if (or (not (contains? acc k)) (= status :invalid))
+                       (assoc acc k p)
+                       acc)))
                  {})
          vals
          vec)))
@@ -607,21 +642,38 @@
 (defn builder-error-hiccup
   "A clear, multi-line save-validation message: the empty fields on one line
    (bold, 'and'-joined) and each invalid field with its reason on its own line,
-   so even a hurried reader sees the distinct problems."
-  [type-name problems]
-  (let [missing (filter #(= :missing (:status %)) problems)
-        invalid (filter #(= :invalid (:status %)) problems)
-        missing-line (when (seq missing)
+   so even a hurried reader sees the distinct problems. When `save-anyway-event`
+   is given, also offers a remediating escape hatch so imperfect work isn't trapped."
+  [type-name problems & [save-anyway-event]]
+  (let [located? :location
+        ;; bold field label, prefixed with its nested location when known
+        ;; ("Option 2 Name") so the reader knows which element to fix.
+        labelled (fn [{:keys [field location]}]
+                   (let [lbl (field-label field)]
+                     [:span.f-w-b (if location (str location " " lbl) lbl)]))
+        ;; top-level missing fields batch onto one "Please fill in ..." line;
+        ;; located ones each get their own line so the location is unambiguous.
+        missing      (filter #(= :missing (:status %)) problems)
+        flat-missing (remove located? missing)
+        located-missing (filter located? missing)
+        invalid      (filter #(= :invalid (:status %)) problems)
+        missing-line (when (seq flat-missing)
                        (into [:div.m-t-5 "Please fill in "]
-                             (conj (and-join (mapv #(vector :span.f-w-b (field-label (:field %)))
-                                                   missing))
-                                   ".")))
-        invalid-lines (for [{:keys [field reason]} invalid]
-                        [:div.m-t-5 [:span.f-w-b (field-label field)] " " reason "."])]
+                             (conj (and-join (mapv labelled flat-missing)) ".")))
+        located-missing-lines (for [p located-missing]
+                                [:div.m-t-5 "Please fill in " (labelled p) "."])
+        invalid-lines (for [p invalid]
+                        [:div.m-t-5 (labelled p) " " (:reason p) "."])]
     (into [:div [:span.f-w-b (str type-name ":")]]
           (cond-> []
             missing-line (conj missing-line)
-            true (into invalid-lines)))))
+            true (into located-missing-lines)
+            true (into invalid-lines)
+            save-anyway-event
+            (conj [:div.m-t-10
+                   [:span.pointer.underline.f-w-b
+                    {:on-click #(dispatch [save-anyway-event])}
+                    "Save anyway with placeholders"]])))))
 
 (def ^:private builder-error-ttl
   "How long the homebrew save-validation banner stays up (ms). Long enough to
@@ -647,52 +699,78 @@
   "Effects for a failed homebrew save: flag the offending fields and show a
    targeted, long-lived banner. Falls back to the static message when no
    specific field can be identified."
-  [type-name explanation item fallback-message]
+  [type-name explanation item fallback-message & [save-anyway-event]]
   (let [problems (spec-field-problems explanation item)]
     (if (seq problems)
       {:dispatch-n [[:set-builder-field-errors (into {} (map (juxt :field :status) problems))]
-                    [:show-error-message (builder-error-hiccup type-name problems) builder-error-ttl]]}
+                    [:show-error-message
+                     (builder-error-hiccup type-name problems save-anyway-event)
+                     builder-error-ttl]]}
       {:dispatch-n [[:set-builder-field-errors {}]
                     [:show-error-message fallback-message builder-error-ttl]]})))
 
 (defn reg-save-homebrew [type-name
                          event-key
                          item-key
-                         spec-key
                          plugin-key
                          error-message]
-  (reg-event-fx
-   event-key
-   (fn [{:keys [db]} _]
-     (let [{:keys [name option-pack] :as item} (item-key db)
-           key (common/name-to-kw name)
-           ;; Normalize text then auto-fill missing required fields
-           normalized-item (orcbrew-val/normalize-text-in-data item)
-           {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
-           item-with-key (assoc filled-item :key key)
-           plugins (:plugins db)
-           explanation (spec/explain-data spec-key item-with-key)]
-       (if (nil? explanation)
-         (let [new-plugins (assoc-in plugins
-                                     [option-pack plugin-key key]
-                                     item-with-key)]
-           {:dispatch-n [[::e5/set-plugins new-plugins]
-                         [:set-builder-field-errors {}]
-                         [:show-warning-message
-                          [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
-                           [:span.text-shadow
-                            (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
-                           [:span.pointer.underline.black
-                            {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
-                            "here"]]
-                          60000]]})
-         (builder-field-error-fx type-name explanation item error-message))))))
+  (let [;; Save spec is derived from the content type via the shared registry, not
+        ;; passed per-call, so save and load can't name different specs and drift.
+        spec-key (content-specs/save-spec-for plugin-key)
+        ;; Companion "save anyway" event, offered from the failure banner.
+        anyway-event-key (keyword (namespace event-key)
+                                  (str (name event-key) "-anyway"))]
+    (reg-event-fx
+     event-key
+     (fn [{:keys [db]} _]
+       (let [{:keys [name option-pack] :as item} (item-key db)
+             key (common/name-to-kw name)
+             ;; Normalize text then auto-fill missing required fields
+             normalized-item (orcbrew-val/normalize-text-in-data item)
+             {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
+             item-with-key (assoc filled-item :key key)
+             plugins (:plugins db)
+             explanation (spec/explain-data spec-key item-with-key)]
+         (if (nil? explanation)
+           (let [new-plugins (assoc-in plugins
+                                       [option-pack plugin-key key]
+                                       item-with-key)]
+             {:dispatch-n [[::e5/set-plugins new-plugins]
+                           [:set-builder-field-errors {}]
+                           [:show-warning-message
+                            [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
+                             [:span.text-shadow
+                              (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
+                             [:span.pointer.underline.black
+                              {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
+                              "here"]]
+                            60000]]})
+           (builder-field-error-fx type-name explanation item error-message anyway-event-key)))))
+
+    ;; Save-anyway: placeholder-fill the blocking fields (option source, name,
+    ;; key) and land the flagged item in My Content. Reuses fill-all-missing-fields;
+    ;; adds only a placeholder option source.
+    (reg-event-fx
+     anyway-event-key
+     (fn [{:keys [db]} _]
+       (let [{:keys [name option-pack] :as item} (item-key db)
+             normalized-item (orcbrew-val/normalize-text-in-data item)
+             {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
+             src (if (s/blank? option-pack) "Unsorted Homebrew" option-pack)
+             key (common/name-to-kw (:name filled-item))
+             item-with-key (assoc filled-item :key key :option-pack src)
+             new-plugins (assoc-in (:plugins db) [src plugin-key key] item-with-key)]
+         {:dispatch-n [[::e5/set-plugins new-plugins]
+                       [:set-builder-field-errors {}]
+                       [:show-warning-message
+                        (str type-name " saved to My Content under \"" src
+                             "\" with placeholders for missing fields. Review it "
+                             "and re-export before sharing.")]]})))))
 
 (reg-save-homebrew
  "Spell"
  ::spells/save-spell
  ::spells/builder-item
- ::spells/homebrew-spell
  ::e5/spells
  "You must specify 'Name', 'Option Source Name', and at select at least one class in 'Class Spell Lists'")
 
@@ -700,7 +778,6 @@
  "Monster"
  ::monsters/save-monster
  ::monsters/builder-item
- ::monsters/homebrew-monster
  ::e5/monsters
  "You must specify 'Name', 'Option Source Name', 'Hit Points Die Count', and 'Hit Points Die'")
 
@@ -708,7 +785,6 @@
  "Encounter"
  ::encounters/save-encounter
  ::encounters/builder-item
- ::encounters/encounter
  ::e5/encounters
  "You must specify 'Name', 'Option Source Name'")
 
@@ -716,7 +792,6 @@
  "Background"
  ::bg5e/save-background
  ::bg5e/builder-item
- ::bg5e/homebrew-background
  ::e5/backgrounds
  "You must specify 'Name', 'Option Source Name'")
 
@@ -724,7 +799,6 @@
  "Language"
  ::langs5e/save-language
  ::langs5e/builder-item
- ::langs5e/homebrew-language
  ::e5/languages
  "You must specify 'Name', 'Option Source Name'")
 
@@ -732,7 +806,6 @@
  "Invocation"
  ::class5e/save-invocation
  ::class5e/invocation-builder-item
- ::class5e/homebrew-invocation
  ::e5/invocations
  "You must specify 'Name', 'Option Source Name'")
 
@@ -740,7 +813,6 @@
  "Boon"
  ::class5e/save-boon
  ::class5e/boon-builder-item
- ::class5e/homebrew-boon
  ::e5/boons
  "You must specify 'Name', 'Option Source Name'")
 
@@ -756,7 +828,7 @@
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
          plugins (:plugins db)
-         explanation (spec/explain-data ::selections5e/homebrew-selection item-with-key)
+         explanation (spec/explain-data (content-specs/save-spec-for ::e5/selections) item-with-key)
          ;; Check for empty option names
          option-names (map :name (:options item))
          empty-names? (some s/blank? option-names)
@@ -784,10 +856,13 @@
                         (s/join ", " dupe-names)
                         ". Each option must have a unique name.")
                    builder-error-ttl]}
-       ;; Spec validation
+       ;; Spec validation — offer "Save anyway" (empty/duplicate option names
+       ;; were already ruled out above, so the only thing left to remediate is the
+       ;; missing name/option-source that fill-all-missing-fields can placeholder).
        (some? explanation)
        (builder-field-error-fx "Selection" explanation item
-                               "You must specify 'Name', 'Option Source Name'")
+                               "You must specify 'Name', 'Option Source Name'"
+                               ::selections5e/save-selection-anyway)
        ;; All good — save
        :else
        (let [new-plugins (assoc-in plugins
@@ -800,15 +875,34 @@
                          [:span.text-shadow
                           "Selection saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking "]
                          [:span.pointer.underline.black
-                          {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
+                          {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
                           "here"]]
                         60000]]})))))
+
+;; Selection is a standalone handler (for its option-name checks), so it doesn't
+;; get reg-save-homebrew's auto-generated -anyway event and needs its own:
+;; placeholder-fill the missing fields and land the flagged selection in My Content.
+(reg-event-fx
+ ::selections5e/save-selection-anyway
+ (fn [{:keys [db]} _]
+   (let [{:keys [option-pack] :as item} (::selections5e/builder-item db)
+         normalized-item (orcbrew-val/normalize-text-in-data item)
+         {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
+         src (if (s/blank? option-pack) "Unsorted Homebrew" option-pack)
+         key (common/name-to-kw (:name filled-item))
+         item-with-key (assoc filled-item :key key :option-pack src)
+         new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
+     {:dispatch-n [[::e5/set-plugins new-plugins]
+                   [:set-builder-field-errors {}]
+                   [:show-warning-message
+                    (str "Selection saved to My Content under \"" src
+                         "\" with placeholders for missing fields. Review it "
+                         "and re-export before sharing.")]]})))
 
 (reg-save-homebrew
  "Feat"
  ::feats5e/save-feat
  ::feats5e/builder-item
- ::feats5e/homebrew-feat
  ::e5/feats
  "You must specify 'Name', 'Option Source Name'")
 
@@ -816,7 +910,6 @@
  "Race"
  ::race5e/save-race
  ::race5e/builder-item
- ::race5e/homebrew-race
  ::e5/races
  "You must specify 'Name', 'Option Source Name'")
 
@@ -824,7 +917,6 @@
  "Subrace"
  ::race5e/save-subrace
  ::race5e/subrace-builder-item
- ::race5e/homebrew-subrace
  ::e5/subraces
  "You must specify 'Name', 'Option Source Name', and 'Race'")
 
@@ -832,7 +924,6 @@
  "Subclass"
  ::class5e/save-subclass
  ::class5e/subclass-builder-item
- ::class5e/homebrew-subclass
  ::e5/subclasses
  "You must specify 'Name', 'Option Source Name', and 'Class'")
 
@@ -840,7 +931,6 @@
  "Class"
  ::class5e/save-class
  ::class5e/builder-item
- ::class5e/homebrew-class
  ::e5/classes
  "You must specify 'Name', 'Option Source Name'")
 
@@ -3928,27 +4018,37 @@
  :export-with-auto-fix
  (fn [{:keys [db]} _]
    (let [{:keys [mode plugins edits pretty-print?]} (:export-warning db)
+         ;; Auto-fix = user edits + dummy-fill for blanks. The same fixed data goes
+         ;; to the file AND back to the library, so My Content matches the export.
+         ;; Placeholders like "[Missing Name]" are self-labeling and flagged in the log.
          fixed-plugins (mapv
                         (fn [{:keys [name plugin]}]
                           {:name name
                            :plugin (orcbrew-val/apply-user-edits-to-plugin
                                     plugin name edits)})
                         plugins)
-         ;; For multi mode, merge fixed plugins back with all plugins
          all-plugins (:plugins db)
+         ;; For multi mode, merge the fixed sources back over all plugins.
          final-data (if (= mode :multi)
-                      (reduce (fn [acc {:keys [name plugin]}]
-                                (assoc acc name plugin))
-                              all-plugins
-                              fixed-plugins)
+                      (reduce (fn [acc {:keys [name plugin]}] (assoc acc name plugin))
+                              all-plugins fixed-plugins)
                       (:plugin (first fixed-plugins)))
+         ;; Library gets the same fixed data as the file (multi: the merged map;
+         ;; single: the fixed plugin under its source name).
+         new-plugins (if (= mode :multi)
+                       final-data
+                       (assoc all-plugins (:name (first fixed-plugins)) final-data))
          filename (if (= mode :multi)
                     "all-content.orcbrew"
                     (str (:name (first fixed-plugins)) ".orcbrew"))
          log-entries (build-export-log-entries
                       plugins "Auto-filled missing fields on export")]
-     (save-orcbrew-blob! filename final-data :pretty-print? pretty-print?)
+     ;; Strip meaningless blanks (false/nil/empty) on normal export.
+     (save-orcbrew-blob! filename (orcbrew-val/strip-export-blanks final-data)
+                         :pretty-print? pretty-print?)
+     (plugins->local-store new-plugins)
      {:db (-> db
+              (assoc :plugins new-plugins)
               (assoc :export-warning {:active? false})
               (assoc :import-log {:panel-shown? true
                                   :import-name (if (= mode :multi)
@@ -3958,7 +4058,9 @@
                                   :errors []
                                   :skipped-items []}))
       :dispatch [:show-warning-message
-                 (str "Exported with auto-fixed fields. See log for details.")]})))
+                 (str "Exported and saved to My Content. Placeholders were filled "
+                      "in for any fields left blank — review them (see the log) and "
+                      "replace before sharing.")]})))
 
 (reg-event-fx
  :export-cancel-with-log
