@@ -1,197 +1,69 @@
-# OrcPub E2E Tests
+# Frontend E2E (backend-free)
 
-Playwright-based end-to-end tests for OrcPub, designed for automated testing with GitHub Codespaces.
+Proves behavior in the **real compiled frontend** — the project's definition of
+done. The app's homebrew/import/export/loader flows are entirely client-side
+(localStorage), so these run with **no backend / no Datomic**.
 
-## Quick Start
-
-### Local Testing (app running locally)
-
+## One-time setup
 ```bash
-# Install dependencies
 cd e2e
 npm install
-npx playwright install chromium
-
-# Run all tests
-npm test
-
-# Run specific scenario
-npm run test:console   # Console errors only
-npm run test:smoke     # UI smoke tests
-npm run test:import    # Import/export tests
+npx playwright install chromium      # browsers are not committed
 ```
 
-### Codespace Testing
-
+## Run
+From the repo root, build the dev frontend once, then drive it:
 ```bash
-# Connect to Codespace and run tests
-./scripts/run-codespace-tests.sh
-
-# With specific options
-./scripts/run-codespace-tests.sh --scenarios console-errors --patch "Fix modal issue"
-
-# Run in headed mode (see browser)
-./scripts/run-codespace-tests.sh --headed
-
-# Skip codespace connection (use local app)
-./scripts/run-codespace-tests.sh --skip-connect
+lein fig:build                       # compiles resources/public/js/compiled/orcpub.js
+node e2e/server.js &                 # backend-free SPA server on http://localhost:8899
+cd e2e && npx playwright test        # scenarios in e2e/scenarios/
 ```
 
-## Test Scenarios
-
-| Scenario | File | Description |
-|----------|------|-------------|
-| `console-errors` | `scenarios/console-errors.spec.ts` | Captures JavaScript errors and warnings |
-| `ui-smoke` | `scenarios/ui-smoke.spec.ts` | Verifies basic UI rendering and navigation |
-| `import-export` | `scenarios/import-export.spec.ts` | Tests .orcbrew file import and data handling |
-
-## Output
-
-Tests generate structured JSON output for automated processing:
-
-- `test-results/agent-report.json` - Structured report for Claude/agents
-- `test-results/results.json` - Standard Playwright JSON report
-- `playwright-report/` - HTML report (run `npx playwright show-report`)
-
-### Agent Report Format
-
-```json
-{
-  "timestamp": "2026-01-17T10:00:00Z",
-  "appUrl": "http://localhost:8890",
-  "patchContext": "Fix modal styling",
-  "summary": {
-    "total": 10,
-    "passed": 9,
-    "failed": 1,
-    "overallStatus": "failed"
-  },
-  "consoleErrors": [...],
-  "blockingIssues": ["Test 'modal closes' failed: timeout"],
-  "recommendations": ["Fix failing tests before proceeding"]
-}
-```
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `APP_URL` | Base URL of the app | `http://localhost:8890` |
-| `PATCH_CONTEXT` | Description of what's being tested | - |
-| `TEST_SCENARIOS` | Comma-separated list of scenarios | `all` |
-| `HEADLESS` | Run in headless mode | `true` |
-
-### Test Config File
-
-Copy `test-config.example.json` to `test-config.json` and customize:
-
-```json
-{
-  "scenarios": ["console-errors", "ui-smoke"],
-  "patchContext": "Fix modal styling issue #123",
-  "appUrl": "http://localhost:8890"
-}
-```
-
-## Writing New Tests
-
-1. Create a new file in `scenarios/` directory
-2. Use the shared utilities from `fixtures/test-utils.ts`
-3. Attach console errors for agent reporting
-
-```typescript
-import { test, expect } from '@playwright/test';
-import { setupConsoleCapture, attachConsoleErrors, waitForAppReady } from '../fixtures/test-utils';
-
-test('my new test', async ({ page }, testInfo) => {
-  const errors = setupConsoleCapture(page);
-
-  await page.goto('/');
-  await waitForAppReady(page);
-
-  // Your test logic here
-
-  await attachConsoleErrors(testInfo, errors);
-});
-```
-
-## Codespace Integration
-
-### Prerequisites
-
-- GitHub CLI (`gh`) installed and authenticated
-- Access to create/use Codespaces
-
-### Manual Connection
-
+## Headless CLJS unit suite
+Runs the existing `orcpub.test-runner` (events/subs/views/validation tests) in
+headless chromium and reports pass/fail:
 ```bash
-# Connect to existing codespace
-./scripts/connect-codespace.sh my-codespace-name
-
-# Or let it find the first available
-./scripts/connect-codespace.sh
+lein fig:test                        # compiles target/test/js
+node e2e/run-cljs-tests.js
 ```
 
-### GitHub Actions
+## Layout
+- `server.js` — serves `resources/public`; SPA-fallback to a minimal index that
+  mounts the dev build (stubs `window.start` so there's no cookie bar).
+- `playwright.config.ts` — chromium, `baseURL` http://localhost:8899.
+- `scenarios/` — one spec per behavior. DoD: each fix has a scenario here.
+- `run-cljs-tests.js` — headless runner for the cljs unit suite.
 
-See `.github/workflows/e2e-tests.yml` for CI integration example.
+## Convention
+Every roadmap phase lands with a scenario in `scenarios/` that **fails on the
+bug and passes on the fix**. Unit/JVM tests are for fast iteration and
+regression; a green scenario here is the proof.
 
-## Troubleshooting
+## Authoring notes / gotchas (learned the hard way)
 
-### "App not accessible"
-
-1. Ensure the app is running: `lein figwheel` or `./start.sh`
-2. Check port 8890 is available: `lsof -i :8890`
-3. For Codespace: verify port forwarding is active
-
-### "Playwright not found"
-
-```bash
-npm install
-npx playwright install chromium
-```
-
-### "Tests timeout"
-
-- Increase timeout in `playwright.config.ts`
-- Check if app is loading slowly (ClojureScript compilation)
-- Try running with `--headed` to see what's happening
-
-### "Console errors in report but tests pass"
-
-Tests only fail on JavaScript errors by default. Warnings are captured but don't fail tests. Review the `agent-report.json` for full details.
-
-## Theme Screenshot Testing
-
-### How Theme Testing Works
-
-The theme toggle is on the character builder page (`/pages/dnd/5e/character-builder`). It shows "Theme: <name> ▾" and clicking it cycles through all themes.
-
-```typescript
-// Navigate once, then click to cycle
-await page.goto('/pages/dnd/5e/character-builder');
-await waitForAppReady(page);
-
-// Click "Theme:" text to cycle to next theme
-await page.getByText('Theme:').click();
-```
-
-### Disabling re-frame-10x
-
-The re-frame-10x devtools panel can interfere with screenshots. Use the `dev-clean` profile:
-
-```bash
-# Build JS without 10x panel
-lein with-profile dev-clean cljsbuild once dev
-
-# Then start server
-PORT=8890 lein run
-```
-
-**Note:** `lein run` serves pre-compiled JS. The 10x panel is baked into the JS build, not the server.
-
-### Screenshot Location
-
-Screenshots are saved to `e2e/screenshots/`.
+- **Header action buttons are duplicated** — once in the main header and once in
+  `#sticky-header`. The sticky copy is NOT `display:none`; it has a real bounding
+  box (so it reports as "visible" and matches `:visible`), but it sits
+  off-screen/covered and is **not clickable**. `.first()` / `:visible` pick it
+  non-deterministically (depends on scroll state — a test can pass once and hang
+  the next). **Always exclude it:**
+  `page.locator('button:has-text("Save to Browser Storage"):not(#sticky-header button)')`.
+- **Routes:** builders live under `/pages/dnd/5e/<x>-builder`; My Content is
+  `/dnd/5e/my-content`. Navigating to a bare segment like `/dnd/5e/class-builder`
+  dispatches `[:route nil]` and renders the **error fallback** (app mounts, but no
+  builder). Get the real href from the menu, don't guess.
+- **Field labels wrap their text in a `<span>`** inside `.personality-label`, so
+  exact-match must target the span:
+  `.field:has(.personality-label span:text-is("Name")) input`.
+- **Downloads** go through FileSaver (`js/saveAs`) and DO fire Playwright
+  `download` events. Capture with
+  `const [d] = await Promise.all([page.waitForEvent('download'), btn.click()])`,
+  then read `await d.path()`. Await the button's `toBeVisible()` first so the
+  builder has settled.
+- **Assert on `localStorage`, not the rendered list**, for content state — My
+  Content rendering may not reactively reflect a save (see roadmap O4), so
+  `localStorage.getItem('plugins')` is the reliable signal that something landed.
+- **cljs/re-frame are reachable from the page** in the dev (`:none`) build (not
+  munged) — handy for seeding state in a pinch, but prefer real UI interactions.
+- **Restart the SPA server before a run** — the backgrounded `node server.js`
+  doesn't always survive between sessions; `curl localhost:8899` to check.

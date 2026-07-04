@@ -1,21 +1,14 @@
 {
   "name": "orcpub-e2e",
-  "version": "1.0.0",
-  "description": "Playwright E2E tests for OrcPub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Backend-free Playwright e2e for the orcpub frontend",
   "scripts": {
+    "serve": "node server.js",
     "test": "playwright test",
-    "test:console": "playwright test scenarios/console-errors.spec.ts",
-    "test:smoke": "playwright test scenarios/ui-smoke.spec.ts",
-    "test:import": "playwright test scenarios/import-export.spec.ts",
-    "test:headed": "playwright test --headed",
-    "test:debug": "playwright test --debug",
-    "report": "playwright show-report",
-    "codespace:connect": "./scripts/connect-codespace.sh",
-    "codespace:test": "./scripts/run-codespace-tests.sh"
+    "cljs": "node run-cljs-tests.js"
   },
   "devDependencies": {
-    "@playwright/test": "^1.40.0",
-    "@types/node": "^20.10.0",
-    "typescript": "^5.3.0"
+    "@playwright/test": "^1.40.0"
   }
 }
