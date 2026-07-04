@@ -5,11 +5,14 @@
             [orcpub.dnd.e5.event-utils-test]
             [orcpub.dnd.e5.compute-test]
             [orcpub.dnd.e5.hunter-evasion-test]
-            ;; CLJS-only re-frame integration tests
+            ;; CLJS-only re-frame integration tests (events-test now also holds
+            ;; the toggle-corruption stress harness)
             [orcpub.dnd.e5.events-test]
             [orcpub.dnd.e5.subs-test]
             [orcpub.dnd.e5.content-reconciliation-test]
             [orcpub.dnd.e5.views-test]
+            ;; storage layer (resilient loader read path)
+            [orcpub.dnd.e5.db-test]
             ;; orcbrew import/export validation
             [orcpub.dnd.e5.orcbrew-validation-test]))
 
@@ -22,6 +25,7 @@
              'orcpub.dnd.e5.subs-test
              'orcpub.dnd.e5.content-reconciliation-test
              'orcpub.dnd.e5.views-test
+             'orcpub.dnd.e5.db-test
              'orcpub.dnd.e5.orcbrew-validation-test))
 
 ;; Auto-run when figwheel reloads
