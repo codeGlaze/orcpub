@@ -8475,15 +8475,23 @@
 
 ;; events are set and passed by the individual pages defined below this
 (defn builder-page [item-title reset-event save-event builder & [title]]
-  [content-page
-   (or title (str item-title " Builder"))
-   [{:title (str "New " item-title)
-     :icon "plus"
-     :on-click #(dispatch [reset-event])}
-    {:title "Save to Browser Storage"
-     :icon "save"
-     :on-click #(dispatch [save-event])}]
-   [builder]])
+  ;; Draft event is derived from save-event (events/draft-event-for) and registered
+  ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
+  (let [export-draft-event (events/draft-event-for save-event)]
+    [content-page
+     (or title (str item-title " Builder"))
+     [{:title (str "New " item-title)
+       :icon "plus"
+       :on-click #(dispatch [reset-event])}
+      {:title "Save to Browser Storage"
+       :icon "save"
+       :on-click #(dispatch [save-event])}
+      ;; Escape hatch: export the in-progress builder-item as a draft .orcbrew with
+      ;; no validation, so imperfect WIP is never trapped.
+      {:title "Export draft"
+       :icon "download"
+       :on-click #(dispatch [export-draft-event])}]
+     [builder]]))
 
 (defn combat-tracker-page []
   [content-page

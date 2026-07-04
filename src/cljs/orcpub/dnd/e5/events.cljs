@@ -3910,16 +3910,74 @@
     (sequential? errors) (s/join "\n\n" (map str errors))
     :else (str errors)))
 
+(defn serialize-orcbrew
+  "Pure serialize of homebrew content to .orcbrew text — no side effects, so it's
+   unit-testable and shared by every export path. pretty-print? is opt-in: pprint
+   inflates 3–5MB files to ~10–20MB and can freeze the UI."
+  [data & {:keys [pretty-print?]}]
+  (if pretty-print?
+    (with-out-str (pprint/pprint data))
+    (str data)))
+
 (defn- save-orcbrew-blob!
-  "Serialize plugin data to a .orcbrew file and trigger download."
+  "Serialize plugin data to a .orcbrew file and trigger download. The only side
+   effect; serialization lives in the pure `serialize-orcbrew`."
   [filename data & {:keys [pretty-print?]}]
-  (let [content (if pretty-print?
-                  (with-out-str (pprint/pprint data))
-                  (str data))
+  (let [content (serialize-orcbrew data :pretty-print? pretty-print?)
         blob (js/Blob.
               (clj->js [content])
               (clj->js {:type "text/plain;charset=utf-8"}))]
     (js/saveAs blob filename)))
+
+(defn reg-export-draft
+  "Register a builder-level 'export draft' event: dump the in-progress builder-item
+   to a .orcbrew with NO validation, so WIP that won't save/export the normal
+   (validated) way can always be rescued. Serialized as a normal single-source
+   plugin {source {content-type {key item}}}, so the draft re-imports like any
+   orcbrew (import then surfaces/fills whatever still needs fixing)."
+  [event-key item-key plugin-key]
+  (reg-event-fx
+   event-key
+   (fn [{:keys [db]} _]
+     (let [{:keys [name option-pack] :as item} (item-key db)]
+       (if (nil? item)
+         {:dispatch [:show-error-message "Nothing in the builder to export yet."]}
+         (let [src      (if (s/blank? option-pack) "Draft Export" option-pack)
+               item-kw  (if (s/blank? name) :draft-item (common/name-to-kw name))
+               plugin   {src {plugin-key {item-kw (assoc item :key item-kw)}}}
+               filename (str (if (s/blank? name) "draft" name) "-draft.orcbrew")]
+           (save-orcbrew-blob! filename plugin)
+           {:dispatch [:show-warning-message
+                       (str "Draft exported to '" filename
+                            "' (unvalidated WIP). Keep it safe; re-import to continue.")]}))))))
+
+(defn draft-event-for
+  "The 'Export draft' event key for a builder's save event (save-event name + a
+   \"-draft\" suffix). Derived, not hand-assigned, so builder-page can wire the
+   button from the save event it already has."
+  [save-event]
+  (keyword (namespace save-event) (str (name save-event) "-draft")))
+
+(def builder-drafts
+  "Every homebrew builder's Export-draft hatch: save event -> [builder-item sub
+   key, content-type it exports under]. The loop below registers a draft event for
+   each; views/builder-page derives the same event via draft-event-for."
+  {::spells/save-spell           [::spells/builder-item ::e5/spells]
+   ::monsters/save-monster       [::monsters/builder-item ::e5/monsters]
+   ::encounters/save-encounter   [::encounters/builder-item ::e5/encounters]
+   ::bg5e/save-background        [::bg5e/builder-item ::e5/backgrounds]
+   ::langs5e/save-language       [::langs5e/builder-item ::e5/languages]
+   ::class5e/save-invocation     [::class5e/invocation-builder-item ::e5/invocations]
+   ::class5e/save-boon           [::class5e/boon-builder-item ::e5/boons]
+   ::selections5e/save-selection [::selections5e/builder-item ::e5/selections]
+   ::feats5e/save-feat           [::feats5e/builder-item ::e5/feats]
+   ::race5e/save-race            [::race5e/builder-item ::e5/races]
+   ::race5e/save-subrace         [::race5e/subrace-builder-item ::e5/subraces]
+   ::class5e/save-subclass       [::class5e/subclass-builder-item ::e5/subclasses]
+   ::class5e/save-class          [::class5e/builder-item ::e5/classes]})
+
+(doseq [[save-event [item-key content-type]] builder-drafts]
+  (reg-export-draft (draft-event-for save-event) item-key content-type))
 
 (defn- log-export-warnings [plugin-name validation]
   (when (seq (:warnings validation))
@@ -3960,16 +4018,54 @@
           {}))
 
       :else
+      ;; Hard spec check failed. Surface a raw, unvalidated escape hatch alongside
+      ;; the error so the user can always get their content out.
       (do
         (js/console.error (str "Export validation failed for \"" plugin-name "\":\n"
                                (orcbrew-val/format-export-validation-for-log validation)))
         {:dispatch [:show-error-message
-                    (str "Cannot export '" plugin-name "' - contains invalid data. Check console for details.")]}))))
+                    [:div
+                     [:div (str "Cannot export '" plugin-name
+                                "' - contains invalid data. Check console for details.")]
+                     [:div.m-t-5
+                      [:span.pointer.underline.f-w-b
+                       {:on-click #(dispatch [::e5/emergency-export-raw plugin-name])}
+                       "Download raw backup instead"]]]]}))))
 
 (reg-event-fx
  ::e5/export-plugin
  (fn [_ [_ name plugin]]
    (validate-and-show-modal-or-export name plugin {})))
+
+(defn select-emergency-export
+  "Pick the filename + data for an emergency raw export: just the named source if
+   it exists in `plugins`, else the whole library. Pure — unit-testable without
+   the DOM/file system."
+  [plugins plugin-name]
+  (if (and plugin-name (contains? plugins plugin-name))
+    [(str plugin-name ".orcbrew") (get plugins plugin-name)]
+    ["orcpub-EMERGENCY-backup.orcbrew" plugins]))
+
+(reg-event-fx
+ ::e5/emergency-export-raw
+ (fn [{:keys [db]} [_ plugin-name]]
+   ;; Raw, unvalidated dump. save-orcbrew-blob! serializes via str/pprint, which
+   ;; can't fail on bad data — the guaranteed escape hatch when validated export refuses.
+   (let [[filename data] (select-emergency-export (:plugins db) plugin-name)]
+     (save-orcbrew-blob! filename data)
+     {:dispatch [:show-warning-message
+                 (str "Raw backup '" filename "' downloaded (unvalidated). "
+                      "Keep it safe.")]})))
+
+;; Raw export of a QUARANTINED source (in :quarantined-plugins, not :plugins, so
+;; ::e5/emergency-export-raw can't reach it). Unvalidated, so the broken data can
+;; always get out to fix externally.
+(reg-event-fx
+ ::e5/export-quarantined-raw
+ (fn [{:keys [db]} [_ source-name]]
+   (when-let [data (get-in db [:quarantined-plugins source-name])]
+     (save-orcbrew-blob! (str source-name ".orcbrew") data))
+   {}))
 
 ;; ============================================================================
 ;; Export Warning Modal Events
