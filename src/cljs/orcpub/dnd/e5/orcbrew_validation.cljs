@@ -1264,6 +1264,46 @@
   (:data (clean-data-with-log data)))
 
 ;; ============================================================================
+;; Export blank-stripping — don't ship meaningless nils/falses/empties.
+;; ============================================================================
+
+(def export-keep-nil-keys
+  "Keys where a nil VALUE is meaningful and must survive export (mirrors the
+   import-side nil-preserve-fields)."
+  #{:spell-list-kw :ability :class-key})
+
+(defn- blank-for-export?
+  "A map entry is a meaningless blank to drop on export when its (already-cleaned)
+   value is nil (and the key isn't keep-nil), false, or an empty collection."
+  [k v]
+  (and (not (contains? export-keep-nil-keys k))
+       (or (nil? v)
+           (false? v)
+           (and (coll? v) (empty? v)))))
+
+(defn strip-export-blanks
+  "Recursively drop meaningless blank MAP VALUES for export (nil, false, empty
+   collection), except keys where nil is meaningful (export-keep-nil-keys).
+   Vector/set elements are cleaned but never dropped positionally, so pairs like
+   `[prof-kw first-class?]` survive. Only removes blanks, never alters a real value
+   (round-trip safe — see export-strip tests). NORMAL exports only; raw/draft stay
+   byte-for-byte untouched."
+  [data]
+  (cond
+    (map? data)
+    (reduce-kv (fn [m k v]
+                 (let [v' (strip-export-blanks v)]
+                   (if (blank-for-export? k v')
+                     m
+                     (assoc m k v'))))
+               {}
+               data)
+    (vector? data) (mapv strip-export-blanks data)
+    (set? data) (into #{} (map strip-export-blanks) data)
+    (seq? data) (doall (map strip-export-blanks data))
+    :else data))
+
+;; ============================================================================
 ;; Duplicate Key Detection
 ;; ============================================================================
 

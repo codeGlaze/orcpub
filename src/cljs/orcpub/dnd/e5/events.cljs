@@ -1507,10 +1507,9 @@
    (event-handlers/add-inventory-item character selection-key item-key)))
 
 (defn toggle-inventory-item-equipped [character [_ selection-key item-index]]
-  (update-in
+  (common/toggle-in
    character
-   [::entity/options selection-key item-index ::entity/value ::char-equip5e/equipped?]
-   not))
+   [::entity/options selection-key item-index ::entity/value ::char-equip5e/equipped?]))
 
 (reg-event-db
  :toggle-inventory-item-equipped
@@ -1518,10 +1517,9 @@
  toggle-inventory-item-equipped)
 
 (defn toggle-custom-inventory-item-equipped [character [_ custom-equipment-key item-index]]
-  (update-in
+  (common/toggle-in
    character
-   [::entity/values custom-equipment-key item-index ::char-equip5e/equipped?]
-   not))
+   [::entity/values custom-equipment-key item-index ::char-equip5e/equipped?]))
 
 (reg-event-db
  :toggle-custom-inventory-item-equipped
@@ -3261,7 +3259,9 @@
  ::feats5e/toggle-feat-prop
  feat-interceptors
  (fn [feat [_ key]]
-   (update-in feat [:props key] not)))
+   ;; toggle-in, not update-in/not: [:props key] may hold a MAP (a sibling skill/
+   ;; save grid) that bare `not` would collapse to false and destroy.
+   (common/toggle-in feat [:props key])))
 
 #_ ;; never dispatched from UI — feat builder uses toggle-feat-prop instead
   (reg-event-db
@@ -3283,7 +3283,7 @@
  ::race5e/toggle-race-prop
  race-interceptors
  (fn [race [_ key]]
-   (update-in race [:props key] not)))
+   (common/toggle-in race [:props key])))
 
 (reg-event-db
  ::race5e/toggle-subrace-value-prop
@@ -3318,25 +3318,27 @@
  ::feats5e/toggle-feat-map-prop
  feat-interceptors
  (fn [feat [_ key value]]
-   (update-in feat [:props key value] not)))
+   (common/toggle-in feat [:props key value])))
 
 (reg-event-db
  ::race5e/toggle-subrace-map-prop
  subrace-interceptors
  (fn [subrace [_ key value]]
-   (update-in subrace [:props key value] not)))
+   (common/toggle-in subrace [:props key value])))
 
 (reg-event-db
  ::monsters/toggle-monster-map-prop
  monster-interceptors
  (fn [monster [_ key value]]
-   (update-in monster [:props key value] not)))
+   (common/toggle-in monster [:props key value])))
 
 (reg-event-db
  ::class5e/toggle-class-path-prop
  class-interceptors
  (fn [class [_ prop-path prop-value]]
-   (update-in class prop-path not)))
+   ;; toggle-in guards against prop-path landing on a map + self-heals a stray
+   ;; false intermediate (corruption).
+   (common/toggle-in class prop-path)))
 
 #_ ;; never dispatched — class builder UI not wired for prof toggles
   (reg-event-db
@@ -3354,25 +3356,25 @@
  ::class5e/toggle-subclass-path-prop
  subclass-interceptors
  (fn [subclass [_ prop-path prop-value]]
-   (update-in subclass prop-path not)))
+   (common/toggle-in subclass prop-path)))
 
 (reg-event-db
  ::race5e/toggle-race-path-prop
  race-interceptors
  (fn [race [_ prop-path prop-value]]
-   (update-in race prop-path not)))
+   (common/toggle-in race prop-path)))
 
 (reg-event-db
  ::race5e/toggle-subrace-path-prop
  subrace-interceptors
  (fn [subrace [_ prop-path prop-value]]
-   (update-in subrace prop-path not)))
+   (common/toggle-in subrace prop-path)))
 
 (reg-event-db
  ::race5e/toggle-race-map-prop
  race-interceptors
  (fn [race [_ key value]]
-   (update-in race [:props key value] not)))
+   (common/toggle-in race [:props key value])))
 
 #_ ;; never dispatched — class builder UI not wired for subclass map-prop toggles
   (reg-event-db
@@ -3419,7 +3421,7 @@
  ::feats5e/toggle-path-prereq
  feat-interceptors
  (fn [feat [_ path]]
-   (update-in feat (cons :path-prereqs path) not)))
+   (common/toggle-in feat (cons :path-prereqs path))))
 
 (reg-event-db
  ::feats5e/toggle-spellcasting-prereq
@@ -3477,7 +3479,7 @@
  ::spells/toggle-component
  spell-interceptors
  (fn [spell [_ component]]
-   (update-in spell [:components component] not)))
+   (common/toggle-in spell [:components component])))
 
 (reg-event-db
  ::bg5e/toggle-skill-prof
@@ -3548,7 +3550,7 @@
  ::spells/toggle-spell-list
  spell-interceptors
  (fn [spell [_ class-key]]
-   (update-in spell [:spell-lists class-key] not)))
+   (common/toggle-in spell [:spell-lists class-key])))
 
 (reg-event-db
  ::spells/set-material-component
@@ -3858,7 +3860,9 @@
       (:valid validation)
       (do
         (log-export-warnings plugin-name validation)
-        (save-orcbrew-blob! (str plugin-name ".orcbrew") plugin
+        ;; Strip meaningless blanks (false/nil/empty) on normal export.
+        (save-orcbrew-blob! (str plugin-name ".orcbrew")
+                            (orcbrew-val/strip-export-blanks plugin)
                             :pretty-print? pretty-print?)
         (if (seq (:warnings validation))
           {:dispatch [:show-warning-message
@@ -4030,7 +4034,9 @@
        ;; Everything is clean
        :else
        (do
-         (save-orcbrew-blob! "all-content.orcbrew" all-plugins)
+         ;; Strip meaningless blanks (false/nil/empty) on normal export.
+         (save-orcbrew-blob! "all-content.orcbrew"
+                             (orcbrew-val/strip-export-blanks all-plugins))
          {})))))
 
 
@@ -4070,24 +4076,15 @@
 (reg-event-fx
  ::e5/toggle-plugin
  (fn [{:keys [db]} [_ name]]
-   {:dispatch [::e5/set-plugins (-> db :plugins (update-in [name :disabled?] not))]}))
+   {:dispatch [::e5/set-plugins (-> db :plugins (common/toggle-in [name :disabled?]))]}))
 
 (reg-event-fx
  ::e5/toggle-plugin-item
  (fn [{:keys [db]} [_ plugin-name type-key key]]
-   {:dispatch [::e5/set-plugins (-> db :plugins (update-in [plugin-name type-key key :disabled?] not))]}))
+   {:dispatch [::e5/set-plugins (-> db :plugins (common/toggle-in [plugin-name type-key key :disabled?]))]}))
 
-(defn clean-plugin-errors
-  "DEPRECATED: Use orcbrew-validation/validate-import instead.
-   Kept for backward compatibility only."
-  [plugin-text]
-  (-> plugin-text
-      (clojure.string/replace #"disabled\?\s+nil" "disabled? false") ; disabled? nil - replace w/disabled? false
-      (clojure.string/replace #"(?m)nil nil, " "") ; nil nil,  - find+remove
-      (clojure.string/replace #":\w+\snil" "") ; :[a-0] nil - find+remove
-      (clojure.string/replace #"\{\"\"\s*\{:orcpub\.dnd\.e5" "{\"Default Option Source\" {:orcpub.dnd.e5")
-      (clojure.string/replace #":option-pack\s*\"\s*\"\s*," ":option-pack \"Default Option Source\",") ;:option-pack "",
-      ))
+;; (Removed dead `clean-plugin-errors` — a raw-EDN string-replace hack with zero
+;;  callers, superseded by `orcbrew-validation/validate-import` (structured cleaning).)
 
 ;; ============================================================================
 ;; Import Log Events
