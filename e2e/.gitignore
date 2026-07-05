@@ -2,3 +2,9 @@ node_modules/
 test-results/
 playwright-report/
 .last-run.json
+
+# Local-only verification against real (copyrighted) paks — never commit.
+scenarios/*-local.spec.ts
+scenarios/megapak-*.spec.ts
+fixtures/megapak.orcbrew
+fixtures/xanathars.orcbrew
