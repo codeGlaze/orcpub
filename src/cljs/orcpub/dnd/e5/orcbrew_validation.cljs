@@ -1584,6 +1584,41 @@
     (find-similar-keys missing-key available)))
 
 ;; ============================================================================
+;; Shared correction pass (import AND export)
+;; ============================================================================
+
+(defn correct-library
+  "Runs the same data-level cleanups the importer runs, but over an entire
+   already-parsed library (multi-plugin map of source-name -> plugin), and
+   detects cross-source key conflicts. This is the single gate both boundaries
+   share: whatever import would fix, export runs too.
+
+   Returns {:data <corrected library>
+            :changes [...]                ; silent fixes applied (for logging)
+            :key-conflicts {:internal-conflicts [...] :external-conflicts [...]}}.
+
+   Note: unlike the import pipeline this does NOT auto-fill missing required
+   fields — on export those are surfaced to the user through the fill-in dialog
+   (classify-plugins-for-export) rather than silently placeholdered."
+  [library]
+  (let [normalized (normalize-text-in-data library)
+        text-normalized? (not= library normalized)
+        clean-result (clean-data-with-log normalized)
+        dedup-result (dedup-options-in-import (:data clean-result))
+        corrected (:data dedup-result)
+        changes (vec (concat (when text-normalized?
+                               [{:type :text-normalization
+                                 :description "Normalized Unicode characters (smart quotes, dashes, etc.) to ASCII"}])
+                             (:changes clean-result)
+                             (:changes dedup-result)))
+        ;; existing-plugins nil -> only within-library (internal) conflicts, which
+        ;; is exactly what would collide when this library is re-imported.
+        key-conflicts (detect-duplicate-keys corrected nil nil)]
+    {:data corrected
+     :changes changes
+     :key-conflicts key-conflicts}))
+
+;; ============================================================================
 ;; Main Validation Entry Point
 ;; ============================================================================
 
@@ -1749,29 +1784,36 @@
    2. All internal references updated (e.g., subclasses pointing to renamed class)"
   [plugin content-type old-key new-key]
   (if-let [content-group (get plugin content-type)]
-    (let [;; Step 1: Rename the key in its content group
-          item (get content-group old-key)
-          updated-group (-> content-group
-                            (dissoc old-key)
-                            (assoc new-key item))
+    ;; Only rename when the item actually exists. A redundant rename (e.g. a key
+    ;; that is BOTH an internal conflict — same key across import sources — and an
+    ;; external one vs existing content generates two renames for it) would
+    ;; otherwise hit an already-moved key and `(assoc new-key nil)`, fabricating a
+    ;; `key -> nil` entry that fails ::plugin and quarantines the whole source.
+    (if-let [item (get content-group old-key)]
+      (let [;; Step 1: Rename the key in its content group
+            updated-group (-> content-group
+                              (dissoc old-key)
+                              (assoc new-key item))
 
-          ;; Step 2: Find content types that reference this type
-          referencing-types (keep (fn [[ct refs]]
-                                    (when (some #(= (val %) content-type) refs)
-                                      [ct (key (first (filter #(= (val %) content-type) refs)))]))
-                                  key-reference-map)
+            ;; Step 2: Find content types that reference this type
+            referencing-types (keep (fn [[ct refs]]
+                                      (when (some #(= (val %) content-type) refs)
+                                        [ct (key (first (filter #(= (val %) content-type) refs)))]))
+                                    key-reference-map)
 
-          ;; Step 3: Update references in those content types
-          updated-plugin (reduce
-                          (fn [p [ref-content-type ref-field]]
-                            (if-let [ref-group (get p ref-content-type)]
-                              (assoc p ref-content-type
-                                     (update-references-in-content-group
-                                      ref-group ref-field old-key new-key))
-                              p))
-                          (assoc plugin content-type updated-group)
-                          referencing-types)]
-      updated-plugin)
+            ;; Step 3: Update references in those content types
+            updated-plugin (reduce
+                            (fn [p [ref-content-type ref-field]]
+                              (if-let [ref-group (get p ref-content-type)]
+                                (assoc p ref-content-type
+                                       (update-references-in-content-group
+                                        ref-group ref-field old-key new-key))
+                                p))
+                            (assoc plugin content-type updated-group)
+                            referencing-types)]
+        updated-plugin)
+      ;; old-key already gone — a no-op, not a nil-clobber.
+      plugin)
     plugin))
 
 (defn rename-key-in-plugins
