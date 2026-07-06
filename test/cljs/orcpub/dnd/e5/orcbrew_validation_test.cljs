@@ -471,6 +471,38 @@
       (is (contains? (get result :orcpub.dnd.e5/classes) :artificer-test))
       (is (= "Artificer" (get-in result [:orcpub.dnd.e5/classes :artificer-test :name]))))))
 
+(deftest test-rename-missing-key-is-noop-not-nil-clobber
+  (testing "REGRESSION: renaming a key that isn't present must NOT fabricate a
+            `new-key -> nil` entry. A key that is BOTH an internal and an external
+            conflict generates two renames for it; the second hits an already-moved
+            key and used to assoc nil, producing a non-map item that fails ::plugin
+            and quarantined the whole source."
+    (let [plugin {:orcpub.dnd.e5/subclasses
+                  {:artillerist {:option-pack "P" :name "Artillerist"}}}
+          ;; :alchemist was already moved away (or never here) — rename is redundant
+          result (orcbrew-val/rename-key-in-plugin
+                  plugin :orcpub.dnd.e5/subclasses :alchemist :alchemist-ua)]
+      (is (= plugin result) "no-op: plugin unchanged")
+      (is (not (contains? (get result :orcpub.dnd.e5/subclasses) :alchemist-ua))
+          "no fabricated key")
+      (is (not (some nil? (vals (get result :orcpub.dnd.e5/subclasses))))
+          "no nil item values")))
+
+  (testing "REGRESSION (batch): a duplicate rename of the same key resolves once
+            and leaves the item a map — never nil."
+    (let [data {"UA - Revisited"
+                {:orcpub.dnd.e5/subclasses
+                 {:alchemist {:option-pack "UA - Revisited" :name "Alchemist"}}}}
+          ;; same (source, from) twice — the overlap an internal+external conflict makes
+          renames [{:source "UA - Revisited" :content-type :orcpub.dnd.e5/subclasses
+                    :from :alchemist :to :alchemist-ua-revisited}
+                   {:source "UA - Revisited" :content-type :orcpub.dnd.e5/subclasses
+                    :from :alchemist :to :alchemist-ua-revisited}]
+          result (orcbrew-val/apply-key-renames data renames)
+          items (get-in result ["UA - Revisited" :orcpub.dnd.e5/subclasses])]
+      (is (map? (:alchemist-ua-revisited items)) "item stays a map, not nil")
+      (is (not (some nil? (vals items))) "no nil item values in the group"))))
+
 (deftest test-rename-key-updates-subclass-references
   (testing "Renaming a class key updates subclass references"
     (let [plugin {:orcpub.dnd.e5/classes
