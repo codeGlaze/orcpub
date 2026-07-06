@@ -1,5 +1,24 @@
 # Changelog
 
+## [Unreleased] — Homebrew conflict-resolution & per-entry salvage (2026-07-06)
+
+### Fixed
+- **"Rename all" resolves duplicate keys in one pass** — a key duplicated across N sources was only renamed in one of them, so the rest kept colliding and the conflict reappeared on every re-import (the 20 → 3 → 1 → 0 crawl); it now renames all-but-one at once (`c037de78`).
+- **Multi-source paks survive an imperfect sub-source** — the multi-plugin check keyed off spec validity, so one flawed sub-source made it wrap the whole pak under a single key and double-nest it into an unloadable shape that quarantined everything; detection is now structural (shape, not validity) (`c037de78`).
+- **Conflict resolution no longer nils out an item** — a key that was both an internal and an external conflict got renamed twice, and the second rename fabricated a `key → nil` entry that failed validation and quarantined its whole source; a redundant rename is now a no-op (`9df1b4ae`).
+- **Import can't report success it won't keep** — the multi-plugin and conflict-resolution paths could claim success on content the next refresh would quarantine; problems are now surfaced at import time against the loader's own floor, not after a reload (`c037de78`, `7782e831`).
+- **"Imported" no longer precedes a failed save** — a quota-failed storage write still showed success and lost the data on refresh; success now fires only after the write actually persists (`c037de78`).
+
+### Added
+- **Per-entry salvage** — one bad entry no longer quarantines its whole source; the source keeps its valid items and only the broken ones are set aside for repair (`957e09ab`, `7782e831`, `c037de78`).
+- **Entry-level repair** — the My Content "needs attention" panel lists each set-aside entry with editable Name + Option-source fields (Fix & Restore per entry, filling gaps with placeholders and re-keying trapped names), plus a Discard action for stale or unwanted ones (`d34007ff`, `c037de78`).
+- **Export runs the same checks as import** — duplicate keys and cleanups are caught on the way out (routed through the conflict/fill dialogs), so an exported file re-imports with no surprises; the raw/pretty-print export stays an unchecked escape hatch (`9df1b4ae`, `c037de78`).
+
+### Changed
+- **Import and export share one correction gate** — a check written once fires at both boundaries, and the exported library is canonicalized so an import → export → re-import round-trip is idempotent (`9df1b4ae`, `c037de78`).
+- **Quarantine granularity is per-entry, not per-source** — backward-compatible with existing whole-source quarantine entries (`957e09ab`, `7782e831`).
+- **Precise quarantine diagnostics** — each set-aside entry logs its exact failing path and predicate instead of a truncated data dump (`c037de78`).
+
 ## [staging/june-bug-patches-01] — June bug-patch bundle (2026-07-05)
 
 ### Fixed
