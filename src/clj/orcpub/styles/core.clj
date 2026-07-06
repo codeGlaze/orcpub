@@ -1983,7 +1983,10 @@
     ;; Prevent horizontal scroll caused by fixed-position elements
     ;; spanning full viewport width when vertical scrollbar is present.
     [:.app
-     {:overflow-x :hidden}]
+     ;; clip (not hidden) blocks horizontal overflow WITHOUT making .app a scroll
+     ;; container — overflow-x:hidden forces overflow-y:auto, which traps position:sticky
+     ;; (the scroll-scrub header would never pin). clip has no scrollport, so sticky works.
+     {:overflow-x :clip}]
 
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
