@@ -1534,12 +1534,23 @@
     ;; ----- builder identity header band (an app bar, NOT a card) -----
     ;; full-bleed (breaks out of the builder's p-20), elevated so content scrolls
     ;; under it, with an amber bottom rule. No radius / no all-around shadow.
+    ;; Scroll-linked scrub: the band pins under the toolbar and progressively condenses as
+    ;; --p goes 0 (expanded) -> 1 (condensed), set on the document root by a scroll handler.
+    ;; calc() interpolates directly (no CSS transition — --p drives it per-frame). var(--p,0)
+    ;; and var(--toolh,75px) carry fallbacks so it renders correctly before the JS runs.
     [:.builder-header-band
-     {:position :relative
-      :z-index 5
+     {:position :sticky
+      ;; Phase 1: pin at viewport top (condensing header). Once a slim persistent builder
+      ;; toolbar exists (theme switcher + New/Save), switch this to var(--toolh) so the band
+      ;; pins under it — the app's #app-header is the full nav (~320px), not that toolbar.
+      :top 0
+      :z-index 20
       :overflow :hidden
       :margin "-20px -20px 20px"
-      :padding "16px clamp(16px,4vw,40px) 16px"
+      :padding-top "calc(24px - 15px * var(--p, 0))"
+      :padding-bottom "calc(26px - 17px * var(--p, 0))"
+      :padding-left "clamp(16px,4vw,40px)"
+      :padding-right "clamp(16px,4vw,40px)"
       :background "linear-gradient(180deg, #243241 0%, #1b2531 100%)"
       ;; white hairline + the amber accent line and downward shadow from the box-shadow
       :border-bottom "1px solid rgba(255,255,255,0.09)"
@@ -1554,7 +1565,14 @@
        :width "300px"
        :height "220px"
        :background "radial-gradient(circle, rgba(240,161,15,0.13), transparent 65%)"
-       :pointer-events :none}]]
+       :pointer-events :none}]
+     ;; captions (Name / Parent Race / Source / Description eyebrows) collapse + fade on
+     ;; scroll — scoped to the band so field labels in Size & Speed etc. never scrub.
+     [:.builder-field-label
+      {:max-height "calc(20px - 20px * var(--p, 0))"
+       :opacity "calc(1 - var(--p, 0) * 1.6)"
+       :margin-bottom "calc(8px - 8px * var(--p, 0))"
+       :overflow :hidden}]]
 
     ;; Name + Option Source are a form, not a collection — they cap and group (a tight
     ;; pair, left-aligned with breathing room to the right) and wrap to stacked on
@@ -1588,7 +1606,8 @@
       :border-bottom "2px solid rgba(255,255,255,0.22)"
       :border-radius "0"
       :color "#f3f6fa"
-      :font-size "clamp(22px,3vw,30px)"
+      ;; title scrubs down ~8px as the header condenses on scroll
+      :font-size "calc(clamp(22px,3vw,30px) - 8px * var(--p, 0))"
       :font-weight 700
       :padding "4px 2px"}]
 

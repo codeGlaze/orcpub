@@ -5221,6 +5221,49 @@
       :placeholder (or placeholder "Name")
       :maxLength (:text branding/field-limits)}]))
 
+(defn install-header-scrub!
+  "Drives the scroll-linked header scrub: sets --p (0 expanded -> 1 condensed) and
+   --toolh (measured toolbar height) on the document root; CSS calc() interpolates.
+   --p is computed directly in the handler — NOT gated behind a requestAnimationFrame
+   flag (a dropped rAF would stick the gate and freeze the scrub). --toolh is retried via
+   rAF until the toolbar has laid out (height > 0) so its fallback isn't clobbered with 0.
+   Returns the scroll handler so the caller can remove it on unmount."
+  []
+  (let [root (.-documentElement js/document)
+        measure-toolh (fn []
+                        (when-let [tb (.getElementById js/document "app-header")]
+                          (let [h (js/Math.round (.-height (.getBoundingClientRect tb)))]
+                            (when (pos? h)
+                              (.setProperty (.-style root) "--toolh" (str h "px"))
+                              true))))
+        set-p (fn [& _]
+                (measure-toolh)
+                (let [p (js/Math.max 0 (js/Math.min 1 (/ (- (.-scrollY js/window) 30) 160)))]
+                  (.setProperty (.-style root) "--p" (str p))))]
+    (.addEventListener js/window "scroll" set-p #js {:passive true})
+    (.addEventListener js/window "resize" set-p)
+    (set-p)
+    (let [tries (atom 0)]
+      (letfn [(remeasure []
+                (when-not (measure-toolh)
+                  (when (< @tries 30)
+                    (swap! tries inc)
+                    (js/requestAnimationFrame remeasure))))]
+        (remeasure)))
+    set-p))
+
+(defn header-scrub
+  "Mounts the scroll-scrub driver (renders nothing); removes its listeners on unmount."
+  []
+  (let [handler (atom nil)]
+    (r/create-class
+     {:component-did-mount (fn [_] (reset! handler (install-header-scrub!)))
+      :component-will-unmount (fn [_]
+                                (when-let [h @handler]
+                                  (.removeEventListener js/window "scroll" h)
+                                  (.removeEventListener js/window "resize" h)))
+      :reagent-render (fn [] nil)})))
+
 (defn builder-header
   "Shared builder header band. Name, source, and description all route through one
    set-prop event (the generic `set-*-prop` every builder already has). Pass :desc-value
@@ -5230,6 +5273,7 @@
     :or {desc-prop :help}
     :as opts}]
   [:div.builder-header-band
+   [header-scrub]
    [:div.builder-header-row
     [:div.builder-name-col
      [:div.builder-field-label (or name-label "Name")]
