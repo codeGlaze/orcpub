@@ -1540,10 +1540,10 @@
     ;; and var(--toolh,75px) carry fallbacks so it renders correctly before the JS runs.
     [:.builder-header-band
      {:position :sticky
-      ;; Phase 1: pin at viewport top (condensing header). Once a slim persistent builder
-      ;; toolbar exists (theme switcher + New/Save), switch this to var(--toolh) so the band
-      ;; pins under it — the app's #app-header is the full nav (~320px), not that toolbar.
-      :top 0
+      ;; pin UNDER the app's sticky-header (the fixed title+Save bar shown on scroll) —
+      ;; --toolh is its measured height (0 when it's hidden near the top). This gives the
+      ;; reference's two-tier sticky header: toolbar (title + Save) over the condensed band.
+      :top "var(--toolh, 0px)"
       :z-index 20
       :overflow :hidden
       :margin "-20px -20px 20px"
@@ -1572,6 +1572,14 @@
       {:max-height "calc(20px - 20px * var(--p, 0))"
        :opacity "calc(1 - var(--p, 0) * 1.6)"
        :margin-bottom "calc(8px - 8px * var(--p, 0))"
+       :overflow :hidden}]
+     ;; the Description textarea collapses too, so the condensed/pinned header is a slim
+     ;; identity strip (just the shrunken Name), not a big empty text box stuck at the top.
+     ;; 200px expanded clears the fixed-height textarea without clipping; -> 0 condensed.
+     [:.builder-header-desc
+      {:max-height "calc(200px - 200px * var(--p, 0))"
+       :opacity "calc(1 - var(--p, 0) * 1.6)"
+       :margin-top "calc(12px - 12px * var(--p, 0))"
        :overflow :hidden}]]
 
     ;; Name + Option Source are a form, not a collection — they cap and group (a tight

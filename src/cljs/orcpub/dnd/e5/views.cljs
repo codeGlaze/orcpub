@@ -5231,11 +5231,13 @@
   []
   (let [root (.-documentElement js/document)
         measure-toolh (fn []
-                        (when-let [tb (.getElementById js/document "app-header")]
-                          (let [h (js/Math.round (.-height (.getBoundingClientRect tb)))]
-                            (when (pos? h)
-                              (.setProperty (.-style root) "--toolh" (str h "px"))
-                              true))))
+                        ;; measure the app's fixed sticky-header (shown on scroll); the band
+                        ;; pins beneath it. 0 when it's hidden near the top of the page.
+                        (let [tb (.getElementById js/document "sticky-header")
+                              shown? (and tb (not= "none" (.-display (.getComputedStyle js/window tb))))
+                              h (if shown? (js/Math.round (.-height (.getBoundingClientRect tb))) 0)]
+                          (.setProperty (.-style root) "--toolh" (str h "px"))
+                          (pos? h)))
         set-p (fn [& _]
                 (measure-toolh)
                 (let [p (js/Math.max 0 (js/Math.min 1 (/ (- (.-scrollY js/window) 30) 160)))]
