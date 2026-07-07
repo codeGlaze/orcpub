@@ -38,6 +38,15 @@
  [persist-user]
  (fn [db [_ layout]] (assoc-in db [:user-data :menu-layout] layout)))
 
+;; Active builder theme (Classic / Dwarven / Arcane) — a persisted user preference like
+;; the menu layout. Drives the header shape, page environment, and glyphs (see themes.cljs).
+(reg-sub ::builder-theme (fn [db _] (get-in db [:user-data :builder-theme] :classic)))
+
+(reg-event-db
+ ::set-builder-theme
+ [persist-user]
+ (fn [db [_ t]] (assoc-in db [:user-data :builder-theme] t)))
+
 (reg-sub ::menu-query  (fn [db [_ id]] (get-in db [::menu-state id :query] "")))
 (reg-sub ::menu-letter (fn [db [_ id]] (get-in db [::menu-state id :letter])))
 

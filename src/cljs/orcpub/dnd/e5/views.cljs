@@ -34,6 +34,7 @@
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.skills :as skills]
             [orcpub.dnd.e5.option-menu-views :as omv]
+            [orcpub.dnd.e5.themes :as themes]
             [orcpub.dnd.e5.equipment :as equip]
             [orcpub.dnd.e5.weapons :as weapon]
             [orcpub.dnd.e5.armor :as armor]
@@ -5275,6 +5276,7 @@
     :or {desc-prop :help}
     :as opts}]
   [:div.builder-header-band
+   {:class (str "shape-" (name (themes/header-shape @(subscribe [::omv/builder-theme]))))}
    [header-scrub]
    [:div.builder-header-row
     [:div.builder-name-col

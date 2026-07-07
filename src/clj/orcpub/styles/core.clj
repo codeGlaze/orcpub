@@ -1551,10 +1551,13 @@
       :padding-bottom "calc(26px - 17px * var(--p, 0))"
       :padding-left "clamp(16px,4vw,40px)"
       :padding-right "clamp(16px,4vw,40px)"
-      :background "linear-gradient(180deg, #243241 0%, #1b2531 100%)"
-      ;; white hairline + the amber accent line and downward shadow from the box-shadow
+      ;; shared band gradient: amber + slate corner glows over the base slate — the two
+      ;; carded shapes (band, socket) share this; recessed swaps to a darker carved fill.
+      :background "radial-gradient(115% 150% at 88% -10%, rgba(240,161,15,0.11), transparent 46%), radial-gradient(90% 130% at 2% -20%, rgba(96,132,170,0.13), transparent 52%), linear-gradient(180deg,#243241 0%,#1b2531 100%)"
+      ;; DEFAULT shape = band: white hairline + amber accent line + downward shadow
       :border-bottom "1px solid rgba(255,255,255,0.09)"
-      :box-shadow "0 3px 0 -1px rgba(240,161,15,0.45), 0 16px 30px -14px rgba(0,0,0,0.6)"}
+      :box-shadow "0 3px 0 -1px rgba(240,161,15,0.45), 0 16px 30px -14px rgba(0,0,0,0.6)"
+      :transition "background .3s ease, box-shadow .3s ease"}
      ;; ambient amber glow in the top-right (behind the content; clipped by overflow)
      [:&:before
       {:content "\"\""
@@ -1581,6 +1584,40 @@
        :opacity "calc(1 - var(--p, 0) * 1.6)"
        :margin-top "calc(12px - 12px * var(--p, 0))"
        :overflow :hidden}]]
+
+    ;; ---- Header shapes (theme-selected via .shape-* on the band; default = band) ----
+    ;; RECESSED: carved into the page — darker fill, top inner-shadow (a sunken well below
+    ;; the toolbar), amber lip at the bottom. Maximally grounded.
+    [:.builder-header-band.shape-recessed
+     {:background "radial-gradient(120% 140% at 88% -20%, rgba(240,161,15,0.08), transparent 48%), linear-gradient(180deg,#12181f 0%,#141b24 100%)"
+      :box-shadow "inset 0 9px 18px -12px rgba(0,0,0,0.8), inset 0 -1px 0 rgba(255,255,255,0.03)"
+      :border-bottom "2px solid rgba(240,161,15,0.5)"}]
+
+    ;; SOCKET: a contained centered panel that scrubs from a ~1400px float toward full-bleed
+    ;; as you scroll (max-width + margins + radius interpolate on --p) — widen from center,
+    ;; never snap margins. Raised object sitting in a dark inset slot (the ::after frame,
+    ;; which fades out as the panel goes full-bleed).
+    [:.builder-header-band.shape-socket
+     ;; Fixed contained width (page shows around it = the floating-panel read). The
+     ;; reference scrubs 1400px→100vw on --p, but that calc needs an 'operator (' term and
+     ;; Garden's compressor strips the space there (breaks the calc); and the app caps
+     ;; content ~1440 so the widen is visually moot anyway. min() has no operator-paren.
+     {:max-width "min(1400px, 100%)"
+      :margin-left :auto
+      :margin-right :auto
+      :margin-top "calc(20px - 20px * var(--p, 0))"
+      :margin-bottom "calc(12px - 12px * var(--p, 0))"
+      :border "1px solid rgba(255,255,255,0.08)"
+      :border-radius "calc(2px - 2px * var(--p, 0))"
+      :box-shadow "0 2px 3px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 9px 20px -10px rgba(0,0,0,0.55)"}
+     [:&:after
+      {:content "\"\""
+       :position :absolute
+       :inset "0"
+       :pointer-events :none
+       :border-radius :inherit
+       :opacity "calc(1 - var(--p, 0) * 2)"
+       :box-shadow "inset 0 0 0 1px rgba(0,0,0,0.4), inset 0 8px 16px -6px rgba(0,0,0,0.65), inset 0 -6px 14px -8px rgba(0,0,0,0.5)"}]]
 
     ;; Name + Option Source are a form, not a collection — they cap and group (a tight
     ;; pair, left-aligned with breathing room to the right) and wrap to stacked on
