@@ -1930,9 +1930,9 @@
                                                :tags #{:class}
                                                :options [(t/option-cfg
                                                           {:name "Evasion"
-                                                           :modifiers [(opt5e/evasion 15 93)
-                                                                       (mod5e/trait-cfg
-                                                                        {:page 93
+                                                           :modifiers [(mod5e/trait-cfg
+                                                                        {:name "Evasion"
+                                                                         :page 93
                                                                          :summary "When you are subjected to an effect, such as a red dragon’s fiery breath or a lightning bolt spell, that allows you to make a Dexterity saving throw to take only half damage, you instead take no damage if you succeed on the saving throw, and only half damage if you fail."})]})
                                                          (t/option-cfg
                                                           {:name "Stand Against the Tide"

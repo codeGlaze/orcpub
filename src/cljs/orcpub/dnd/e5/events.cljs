@@ -6,9 +6,10 @@
             [orcpub.dice :as dice]
             [orcpub.modifiers :as mod]
             [orcpub.dnd.e5 :as e5]
+            [orcpub.dnd.e5.content-specs :as content-specs]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
-            [orcpub.dnd.e5.import-validation :as import-val]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
@@ -52,6 +53,8 @@
                                       subclass->local-store
                                       class->local-store
                                       plugins->local-store
+                                      get-rejected-plugins
+                                      set-rejected-plugins
                                       default-character
                                       default-spell
                                       default-monster
@@ -216,22 +219,33 @@
  [(inject-cofx :local-store-character)
   (inject-cofx :local-store-user)
   (inject-cofx :local-store-magic-item)
+  ;; Restore every homebrew builder's in-progress item (one cofx, driven by
+  ;; db/builder-wip-stores) so WIP survives a refresh in ALL builders, not just class.
+  (inject-cofx :local-store-builder-items)
   (inject-cofx ::e5/plugins)
+  ;; AFTER ::e5/plugins — that cofx reconciles/writes plugins:rejected, and
+  ;; this reads the result into app-db for the reactive repair panel.
+  (inject-cofx ::e5/rejected-plugins)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
               local-store-character
               local-store-user
               local-store-magic-item
+              local-store-builder-items
               ::e5/plugins
+              ::e5/rejected-plugins
               ::combat/tracker-item]} _]
    {:db (if (seq db)
           db
           (cond-> default-value
             plugins (assoc :plugins plugins)
+            (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
             local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
+            ;; Restore in-progress builder WIP (all builders) across refresh.
+            (seq local-store-builder-items) (merge local-store-builder-items)
             tracker-item (assoc ::combat/tracker-item tracker-item)))}))
 
 (defn reset-character [_ _]
@@ -448,7 +462,10 @@
          ;; Since built-template is a no-op (plugin merging commented out),
          ;; we use the cached template directly with entity/build.
          cached-template (get db ::autosave-fx/cached-template)]
-     (if-not cached-template
+     ;; Skip when the template isn't ready — nil OR empty {}. An empty template
+     ;; crashes entity/build (null fn `.call`); `seq` covers both cases.
+     ;; (Guarded by events-test save-character-rejects-missing-abilities.)
+     (if-not (seq cached-template)
        {} ;; template not cached yet — skip this cycle, next autosave will retry
        (let [{:keys [:db/id] :as strict} (char5e/to-strict character)
              built-character (entity/build character cached-template)]
@@ -526,60 +543,246 @@
              :transit-params strict-item
              :on-success [:item-save-success]}})))
 
-(defn spec-error-message
-  "Extract specific field names from a spec explanation to produce a targeted
-   error message. Falls back to the static message if parsing fails."
-  [type-name explanation fallback-message]
-  (if-let [problems (::spec/problems explanation)]
-    (let [contains-syms #{'cljs.core/contains? 'clojure.core/contains?}
-          missing-fields (->> problems
-                              (keep (fn [{:keys [pred]}]
-                                      (when (and (sequential? pred)
-                                                 (contains-syms (first pred)))
-                                        (name (last pred)))))
-                              distinct)]
-      (if (seq missing-fields)
-        (str type-name " is missing required fields: " (s/join ", " missing-fields))
-        fallback-message))
-    fallback-message))
+(def ^:private homebrew-field-labels
+  "User-facing labels for the spec keys that homebrew builders can leave unfilled.
+   :key is derived from :name, so report it as Name."
+  {:name "Name"
+   :key "Name"
+   :option-pack "Option Source Name"
+   :level "Level"
+   :school "School"
+   :spell-lists "Class Spell Lists"
+   :hit-points "Hit Points"
+   :die "Hit Die"
+   :die-count "Hit Dice Count"})
+
+(defn- field-label [field-key]
+  (or (homebrew-field-labels field-key)
+      (s/capitalize (s/replace (name field-key) #"-" " "))))
+
+(def ^:private builder-invalid-reason-rules
+  "Why a present-but-rejected value fails. Matched against the printed predicate
+   form so it is robust to how the form is wrapped (and to advanced-compilation
+   shapes). Lets the banner explain a value that IS filled but isn't acceptable
+   (e.g. a name that starts with a digit) instead of telling the user to 'fill
+   in' a field they already filled."
+  [[#"starts-with-letter" "must start with a letter"]])
+
+(defn- builder-invalid-reason [pred]
+  (let [s (pr-str pred)]
+    (or (some (fn [[re msg]] (when (re-find re s) msg)) builder-invalid-reason-rules)
+        "is not valid")))
+
+(defn- singularize
+  "Crude singular for a humanized collection name: \"Options\" -> \"Option\"."
+  [s]
+  (if (s/ends-with? s "s") (subs s 0 (dec (count s))) s))
+
+(defn- problem-location
+  "Turn a spec problem's `:in` path into a 1-based human location like \"Option 2\"
+   when it lives inside an indexed collection (e.g. a selection's :options), so the
+   banner can name WHICH nested element failed. nil for a top-level field."
+  [in]
+  (->> (partition 2 1 in)
+       (keep (fn [[a b]]
+               (when (and (keyword? a) (int? b))
+                 (str (singularize (field-label a)) " " (inc b)))))
+       (s/join " ")
+       (#(when (seq %) %))))
+
+(defn spec-field-problems
+  "Classify each failing required field from a spec explanation against the
+   original (pre-fill) item. Returns one entry per field:
+     {:field k :status :missing}                       — absent or blank
+     {:field k :status :invalid :reason \"...\"}         — present but rejected
+   A missing :req-un key is a nested `(fn [%] (contains? % :k))` (found via
+   tree-seq); an invalid value is reported with the field at the end of :in.
+   :key maps to :name, since :key is derived from the name.
+
+   A problem inside an indexed collection also carries :location (\"Option 2\") so
+   the message names the nested element instead of a bare \"Name\"."
+  [explanation item]
+  (when-let [problems (::spec/problems explanation)]
+    (->> problems
+         (keep (fn [{:keys [pred in]}]
+                 (let [missing-key (orcbrew-val/missing-required-key pred)
+                       field (let [f (or missing-key (last (filter keyword? in)))]
+                               (when f (if (= f :key) :name f)))
+                       location (problem-location in)]
+                   (when field
+                     ;; resolve the actual offending value via :in so a nested
+                     ;; option's blank-check looks at the option, not the parent.
+                     (let [container (if missing-key
+                                       (get-in item (vec in))
+                                       (get-in item (vec (butlast in))))
+                           v (if (and (not missing-key) (map? container))
+                               (get container field)
+                               (get item field))
+                           blank? (or (nil? v)
+                                      (and (string? v) (s/blank? v))
+                                      ;; a checkbox-group map with nothing checked
+                                      ;; (e.g. spell-lists) reads as "not chosen"
+                                      (and (map? v) (seq v)
+                                           (every? boolean? (vals v))
+                                           (not (some true? (vals v)))))]
+                       (cond-> (if (or missing-key blank?)
+                                 {:field field :status :missing}
+                                 {:field field :status :invalid
+                                  :reason (builder-invalid-reason pred)})
+                         location (assoc :location location)))))))
+         ;; one entry per (location, field); prefer an :invalid report over a
+         ;; :missing one for the same target.
+         (reduce (fn [acc {:keys [field location status] :as p}]
+                   (let [k [location field]]
+                     (if (or (not (contains? acc k)) (= status :invalid))
+                       (assoc acc k p)
+                       acc)))
+                 {})
+         vals
+         vec)))
+
+(defn- and-join
+  "Interpose hiccup items with ', ' / ' and ' so a list reads naturally and two
+   things are clearly two things."
+  [items]
+  (case (count items)
+    0 []
+    1 (vec items)
+    2 [(nth items 0) " and " (nth items 1)]
+    (vec (concat (interpose ", " (butlast items)) [", and " (last items)]))))
+
+(defn builder-error-hiccup
+  "A clear, multi-line save-validation message: the empty fields on one line
+   (bold, 'and'-joined) and each invalid field with its reason on its own line,
+   so even a hurried reader sees the distinct problems. When `save-anyway-event`
+   is given, also offers a remediating escape hatch so imperfect work isn't trapped."
+  [type-name problems & [save-anyway-event]]
+  (let [located? :location
+        ;; bold field label, prefixed with its nested location when known
+        ;; ("Option 2 Name") so the reader knows which element to fix.
+        labelled (fn [{:keys [field location]}]
+                   (let [lbl (field-label field)]
+                     [:span.f-w-b (if location (str location " " lbl) lbl)]))
+        ;; top-level missing fields batch onto one "Please fill in ..." line;
+        ;; located ones each get their own line so the location is unambiguous.
+        missing      (filter #(= :missing (:status %)) problems)
+        flat-missing (remove located? missing)
+        located-missing (filter located? missing)
+        invalid      (filter #(= :invalid (:status %)) problems)
+        missing-line (when (seq flat-missing)
+                       (into [:div.m-t-5 "Please fill in "]
+                             (conj (and-join (mapv labelled flat-missing)) ".")))
+        located-missing-lines (for [p located-missing]
+                                [:div.m-t-5 "Please fill in " (labelled p) "."])
+        invalid-lines (for [p invalid]
+                        [:div.m-t-5 (labelled p) " " (:reason p) "."])]
+    (into [:div [:span.f-w-b (str type-name ":")]]
+          (cond-> []
+            missing-line (conj missing-line)
+            true (into located-missing-lines)
+            true (into invalid-lines)
+            save-anyway-event
+            (conj [:div.m-t-10
+                   [:span.pointer.underline.f-w-b
+                    {:on-click #(dispatch [save-anyway-event])}
+                    "Save anyway with placeholders"]])))))
+
+(def ^:private builder-error-ttl
+  "How long the homebrew save-validation banner stays up (ms). Long enough to
+   read and act on, since the user needs to go fix the flagged fields."
+  45000)
+
+(reg-event-db
+ :set-builder-field-errors
+ ;; Map of required field key -> :missing|:invalid for the last save attempt;
+ ;; builder fields read this to flag themselves (amber for missing, red for
+ ;; invalid). Cleared ({}) on a successful save.
+ (fn [db [_ field->status]]
+   (assoc db :builder-field-errors (or field->status {}))))
+
+(reg-event-db
+ :clear-builder-field-error
+ ;; Editing a flagged field removes its cue immediately, for missing and invalid
+ ;; alike (we can't re-run the spec predicate from the field component).
+ (fn [db [_ field]]
+   (update db :builder-field-errors dissoc field)))
+
+(defn builder-field-error-fx
+  "Effects for a failed homebrew save: flag the offending fields and show a
+   targeted, long-lived banner. Falls back to the static message when no
+   specific field can be identified."
+  [type-name explanation item fallback-message & [save-anyway-event]]
+  (let [problems (spec-field-problems explanation item)]
+    (if (seq problems)
+      {:dispatch-n [[:set-builder-field-errors (into {} (map (juxt :field :status) problems))]
+                    [:show-error-message
+                     (builder-error-hiccup type-name problems save-anyway-event)
+                     builder-error-ttl]]}
+      {:dispatch-n [[:set-builder-field-errors {}]
+                    [:show-error-message fallback-message builder-error-ttl]]})))
 
 (defn reg-save-homebrew [type-name
                          event-key
                          item-key
-                         spec-key
                          plugin-key
                          error-message]
-  (reg-event-fx
-   event-key
-   (fn [{:keys [db]} _]
-     (let [{:keys [name option-pack] :as item} (item-key db)
-           key (common/name-to-kw name)
-           ;; Normalize text then auto-fill missing required fields
-           normalized-item (import-val/normalize-text-in-data item)
-           {filled-item :item} (import-val/fill-all-missing-fields normalized-item plugin-key)
-           item-with-key (assoc filled-item :key key)
-           plugins (:plugins db)
-           explanation (spec/explain-data spec-key item-with-key)]
-       (if (nil? explanation)
-         (let [new-plugins (assoc-in plugins
-                                     [option-pack plugin-key key]
-                                     item-with-key)]
-           {:dispatch-n [[::e5/set-plugins new-plugins]
-                         [:show-warning-message
-                          [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
-                           [:span.text-shadow
-                            (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
-                           [:span.pointer.underline.black
-                            {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
-                            "here"]]
-                          60000]]})
-         {:dispatch [:show-error-message (spec-error-message type-name explanation error-message)]})))))
+  (let [;; Save spec is derived from the content type via the shared registry, not
+        ;; passed per-call, so save and load can't name different specs and drift.
+        spec-key (content-specs/save-spec-for plugin-key)
+        ;; Companion "save anyway" event, offered from the failure banner.
+        anyway-event-key (keyword (namespace event-key)
+                                  (str (name event-key) "-anyway"))]
+    (reg-event-fx
+     event-key
+     (fn [{:keys [db]} _]
+       (let [{:keys [name option-pack] :as item} (item-key db)
+             key (common/name-to-kw name)
+             ;; Normalize text then auto-fill missing required fields
+             normalized-item (orcbrew-val/normalize-text-in-data item)
+             {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
+             item-with-key (assoc filled-item :key key)
+             plugins (:plugins db)
+             explanation (spec/explain-data spec-key item-with-key)]
+         (if (nil? explanation)
+           (let [new-plugins (assoc-in plugins
+                                       [option-pack plugin-key key]
+                                       item-with-key)]
+             {:dispatch-n [[::e5/set-plugins new-plugins]
+                           [:set-builder-field-errors {}]
+                           [:show-warning-message
+                            [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
+                             [:span.text-shadow
+                              (str type-name " saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking ")]
+                             [:span.pointer.underline.black
+                              {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
+                              "here"]]
+                            60000]]})
+           (builder-field-error-fx type-name explanation item error-message anyway-event-key)))))
+
+    ;; Save-anyway: placeholder-fill the blocking fields (option source, name,
+    ;; key) and land the flagged item in My Content. Reuses fill-all-missing-fields;
+    ;; adds only a placeholder option source.
+    (reg-event-fx
+     anyway-event-key
+     (fn [{:keys [db]} _]
+       (let [{:keys [name option-pack] :as item} (item-key db)
+             normalized-item (orcbrew-val/normalize-text-in-data item)
+             {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
+             src (if (s/blank? option-pack) "Unsorted Homebrew" option-pack)
+             key (common/name-to-kw (:name filled-item))
+             item-with-key (assoc filled-item :key key :option-pack src)
+             new-plugins (assoc-in (:plugins db) [src plugin-key key] item-with-key)]
+         {:dispatch-n [[::e5/set-plugins new-plugins]
+                       [:set-builder-field-errors {}]
+                       [:show-warning-message
+                        (str type-name " saved to My Content under \"" src
+                             "\" with placeholders for missing fields. Review it "
+                             "and re-export before sharing.")]]})))))
 
 (reg-save-homebrew
  "Spell"
  ::spells/save-spell
  ::spells/builder-item
- ::spells/homebrew-spell
  ::e5/spells
  "You must specify 'Name', 'Option Source Name', and at select at least one class in 'Class Spell Lists'")
 
@@ -587,7 +790,6 @@
  "Monster"
  ::monsters/save-monster
  ::monsters/builder-item
- ::monsters/homebrew-monster
  ::e5/monsters
  "You must specify 'Name', 'Option Source Name', 'Hit Points Die Count', and 'Hit Points Die'")
 
@@ -595,7 +797,6 @@
  "Encounter"
  ::encounters/save-encounter
  ::encounters/builder-item
- ::encounters/encounter
  ::e5/encounters
  "You must specify 'Name', 'Option Source Name'")
 
@@ -603,7 +804,6 @@
  "Background"
  ::bg5e/save-background
  ::bg5e/builder-item
- ::bg5e/homebrew-background
  ::e5/backgrounds
  "You must specify 'Name', 'Option Source Name'")
 
@@ -611,7 +811,6 @@
  "Language"
  ::langs5e/save-language
  ::langs5e/builder-item
- ::langs5e/homebrew-language
  ::e5/languages
  "You must specify 'Name', 'Option Source Name'")
 
@@ -619,11 +818,11 @@
  "Invocation"
  ::class5e/save-invocation
  ::class5e/invocation-builder-item
- ::class5e/homebrew-invocation
  ::e5/invocations
  "You must specify 'Name', 'Option Source Name'")
 
-;; Boon save handler is registered via register-homebrew-content! (search "Pact Boon").
+;; Boon save handler is registered via register-homebrew-content! (search "Pact Boon"), which now
+;; routes through develop's hardened reg-save-homebrew (registry + Save-anyway). So no explicit reg here.
 
 ;; Selection save handler — standalone instead of reg-save-homebrew to add
 ;; duplicate option name validation. Mirrors reg-save-homebrew logic plus
@@ -633,11 +832,11 @@
  (fn [{:keys [db]} _]
    (let [{:keys [name option-pack] :as item} (::selections5e/builder-item db)
          key (common/name-to-kw name)
-         normalized-item (import-val/normalize-text-in-data item)
-         {filled-item :item} (import-val/fill-all-missing-fields normalized-item ::e5/selections)
+         normalized-item (orcbrew-val/normalize-text-in-data item)
+         {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
          item-with-key (assoc filled-item :key key)
          plugins (:plugins db)
-         explanation (spec/explain-data ::selections5e/homebrew-selection item-with-key)
+         explanation (spec/explain-data (content-specs/save-spec-for ::e5/selections) item-with-key)
          ;; Check for empty option names
          option-names (map :name (:options item))
          empty-names? (some s/blank? option-names)
@@ -656,38 +855,62 @@
        ;; Reject empty option names
        empty-names?
        {:dispatch [:show-error-message
-                   "Cannot save: all options must have names"]}
+                   "Cannot save: all options must have names"
+                   builder-error-ttl]}
        ;; Reject duplicate option names
        (seq dupe-names)
        {:dispatch [:show-error-message
                    (str "Cannot save: duplicate option names: "
                         (s/join ", " dupe-names)
-                        ". Each option must have a unique name.")]}
-       ;; Spec validation
+                        ". Each option must have a unique name.")
+                   builder-error-ttl]}
+       ;; Spec validation — offer "Save anyway" (empty/duplicate option names
+       ;; were already ruled out above, so the only thing left to remediate is the
+       ;; missing name/option-source that fill-all-missing-fields can placeholder).
        (some? explanation)
-       {:dispatch [:show-error-message
-                   (spec-error-message "Selection" explanation
-                                       "You must specify 'Name', 'Option Source Name'")]}
+       (builder-field-error-fx "Selection" explanation item
+                               "You must specify 'Name', 'Option Source Name'"
+                               ::selections5e/save-selection-anyway)
        ;; All good — save
        :else
        (let [new-plugins (assoc-in plugins
                                    [option-pack ::e5/selections key]
                                    item-with-key)]
          {:dispatch-n [[::e5/set-plugins new-plugins]
+                       [:set-builder-field-errors {}]
                        [:show-warning-message
                         [:div [:span.f-w-b.f-s-18.red "IMPORTANT!: "]
                          [:span.text-shadow
                           "Selection saved to your browser which could be lost if you clear your browser history or your browser storage fill up, you MUST export and save the content source by clicking "]
                          [:span.pointer.underline.black
-                          {:on-click #(dispatch [::e5/export-plugin option-pack (str (new-plugins option-pack))])}
+                          {:on-click #(dispatch [::e5/export-plugin option-pack (new-plugins option-pack)])}
                           "here"]]
                         60000]]})))))
+
+;; Selection is a standalone handler (for its option-name checks), so it doesn't
+;; get reg-save-homebrew's auto-generated -anyway event and needs its own:
+;; placeholder-fill the missing fields and land the flagged selection in My Content.
+(reg-event-fx
+ ::selections5e/save-selection-anyway
+ (fn [{:keys [db]} _]
+   (let [{:keys [option-pack] :as item} (::selections5e/builder-item db)
+         normalized-item (orcbrew-val/normalize-text-in-data item)
+         {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
+         src (if (s/blank? option-pack) "Unsorted Homebrew" option-pack)
+         key (common/name-to-kw (:name filled-item))
+         item-with-key (assoc filled-item :key key :option-pack src)
+         new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
+     {:dispatch-n [[::e5/set-plugins new-plugins]
+                   [:set-builder-field-errors {}]
+                   [:show-warning-message
+                    (str "Selection saved to My Content under \"" src
+                         "\" with placeholders for missing fields. Review it "
+                         "and re-export before sharing.")]]})))
 
 (reg-save-homebrew
  "Feat"
  ::feats5e/save-feat
  ::feats5e/builder-item
- ::feats5e/homebrew-feat
  ::e5/feats
  "You must specify 'Name', 'Option Source Name'")
 
@@ -695,7 +918,6 @@
  "Race"
  ::race5e/save-race
  ::race5e/builder-item
- ::race5e/homebrew-race
  ::e5/races
  "You must specify 'Name', 'Option Source Name'")
 
@@ -703,7 +925,6 @@
  "Subrace"
  ::race5e/save-subrace
  ::race5e/subrace-builder-item
- ::race5e/homebrew-subrace
  ::e5/subraces
  "You must specify 'Name', 'Option Source Name', and 'Race'")
 
@@ -711,7 +932,6 @@
  "Subclass"
  ::class5e/save-subclass
  ::class5e/subclass-builder-item
- ::class5e/homebrew-subclass
  ::e5/subclasses
  "You must specify 'Name', 'Option Source Name', and 'Class'")
 
@@ -719,7 +939,6 @@
  "Class"
  ::class5e/save-class
  ::class5e/builder-item
- ::class5e/homebrew-class
  ::e5/classes
  "You must specify 'Name', 'Option Source Name'")
 
@@ -1384,10 +1603,9 @@
    (event-handlers/add-inventory-item character selection-key item-key)))
 
 (defn toggle-inventory-item-equipped [character [_ selection-key item-index]]
-  (update-in
+  (common/toggle-in
    character
-   [::entity/options selection-key item-index ::entity/value ::char-equip5e/equipped?]
-   not))
+   [::entity/options selection-key item-index ::entity/value ::char-equip5e/equipped?]))
 
 (reg-event-db
  :toggle-inventory-item-equipped
@@ -1395,10 +1613,9 @@
  toggle-inventory-item-equipped)
 
 (defn toggle-custom-inventory-item-equipped [character [_ custom-equipment-key item-index]]
-  (update-in
+  (common/toggle-in
    character
-   [::entity/values custom-equipment-key item-index ::char-equip5e/equipped?]
-   not))
+   [::entity/values custom-equipment-key item-index ::char-equip5e/equipped?]))
 
 (reg-event-db
  :toggle-custom-inventory-item-equipped
@@ -3131,7 +3348,9 @@
  ::feats5e/toggle-feat-prop
  feat-interceptors
  (fn [feat [_ key]]
-   (update-in feat [:props key] not)))
+   ;; toggle-in, not update-in/not: [:props key] may hold a MAP (a sibling skill/
+   ;; save grid) that bare `not` would collapse to false and destroy.
+   (common/toggle-in feat [:props key])))
 
 #_ ;; never dispatched from UI — feat builder uses toggle-feat-prop instead
   (reg-event-db
@@ -3153,7 +3372,7 @@
  ::race5e/toggle-race-prop
  race-interceptors
  (fn [race [_ key]]
-   (update-in race [:props key] not)))
+   (common/toggle-in race [:props key])))
 
 (reg-event-db
  ::race5e/toggle-subrace-value-prop
@@ -3188,25 +3407,27 @@
  ::feats5e/toggle-feat-map-prop
  feat-interceptors
  (fn [feat [_ key value]]
-   (update-in feat [:props key value] not)))
+   (common/toggle-in feat [:props key value])))
 
 (reg-event-db
  ::race5e/toggle-subrace-map-prop
  subrace-interceptors
  (fn [subrace [_ key value]]
-   (update-in subrace [:props key value] not)))
+   (common/toggle-in subrace [:props key value])))
 
 (reg-event-db
  ::monsters/toggle-monster-map-prop
  monster-interceptors
  (fn [monster [_ key value]]
-   (update-in monster [:props key value] not)))
+   (common/toggle-in monster [:props key value])))
 
 (reg-event-db
  ::class5e/toggle-class-path-prop
  class-interceptors
  (fn [class [_ prop-path prop-value]]
-   (update-in class prop-path not)))
+   ;; toggle-in guards against prop-path landing on a map + self-heals a stray
+   ;; false intermediate (corruption).
+   (common/toggle-in class prop-path)))
 
 #_ ;; never dispatched — class builder UI not wired for prof toggles
   (reg-event-db
@@ -3224,25 +3445,25 @@
  ::class5e/toggle-subclass-path-prop
  subclass-interceptors
  (fn [subclass [_ prop-path prop-value]]
-   (update-in subclass prop-path not)))
+   (common/toggle-in subclass prop-path)))
 
 (reg-event-db
  ::race5e/toggle-race-path-prop
  race-interceptors
  (fn [race [_ prop-path prop-value]]
-   (update-in race prop-path not)))
+   (common/toggle-in race prop-path)))
 
 (reg-event-db
  ::race5e/toggle-subrace-path-prop
  subrace-interceptors
  (fn [subrace [_ prop-path prop-value]]
-   (update-in subrace prop-path not)))
+   (common/toggle-in subrace prop-path)))
 
 (reg-event-db
  ::race5e/toggle-race-map-prop
  race-interceptors
  (fn [race [_ key value]]
-   (update-in race [:props key value] not)))
+   (common/toggle-in race [:props key value])))
 
 #_ ;; never dispatched — class builder UI not wired for subclass map-prop toggles
   (reg-event-db
@@ -3289,7 +3510,7 @@
  ::feats5e/toggle-path-prereq
  feat-interceptors
  (fn [feat [_ path]]
-   (update-in feat (cons :path-prereqs path) not)))
+   (common/toggle-in feat (cons :path-prereqs path))))
 
 (reg-event-db
  ::feats5e/toggle-spellcasting-prereq
@@ -3347,7 +3568,7 @@
  ::spells/toggle-component
  spell-interceptors
  (fn [spell [_ component]]
-   (update-in spell [:components component] not)))
+   (common/toggle-in spell [:components component])))
 
 (reg-event-db
  ::bg5e/toggle-skill-prof
@@ -3418,7 +3639,7 @@
  ::spells/toggle-spell-list
  spell-interceptors
  (fn [spell [_ class-key]]
-   (update-in spell [:spell-lists class-key] not)))
+   (common/toggle-in spell [:spell-lists class-key])))
 
 (reg-event-db
  ::spells/set-material-component
@@ -3619,113 +3840,401 @@
  (fn [_ [_ plugins]]
    plugins))
 
+;; `plugins->local-store` dispatches this when the localStorage write
+;; fails (typically a full quota). The save lives in memory but would vanish on
+;; refresh, so surface it loudly and offer the unvalidated full backup
+;; (`::e5/emergency-export-raw` with nil = whole library) as an immediate out.
+(reg-event-fx
+ ::e5/plugins-save-failed
+ (fn [_ _]
+   {:dispatch [:show-error-message
+               [:div
+                [:div.f-w-b "Couldn't save to browser storage — it may be full."]
+                [:div.m-t-5
+                 "Your latest change is in memory but will be lost on refresh."]
+                [:div.m-t-10
+                 [:span.pointer.underline.f-w-b
+                  {:on-click #(dispatch [::e5/emergency-export-raw nil])}
+                  "Download a full backup now"]]]
+               builder-error-ttl]}))
+
+;; Repair a quarantined source and merge it back into the live library.
+;; rekey-plugin re-derives the map key from the fixed name (the keyword-trap case).
+;; Atomic and PERSISTED (unlike the export auto-fix, which only rewrote the file):
+;; the source lands in :plugins and leaves plugins:rejected together, or — if still
+;; invalid — nothing changes and the user is told why.
+(reg-event-fx
+ ::e5/repair-quarantined-source
+ (fn [{:keys [db]} [_ source-name edits]]
+   (let [rejected (get-rejected-plugins)
+         bad (get rejected source-name)]
+     (cond
+       (nil? bad)
+       {:dispatch [:show-error-message
+                   (str "No quarantined source named \"" source-name "\" to repair.")]}
+
+       :else
+       (let [fixed (-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
+                       (e5/rekey-plugin))]
+         (if (spec/valid? ::e5/plugin fixed)
+           (let [new-plugins (assoc (:plugins db) source-name fixed)]
+             ;; Update both stores together (persist + drop from quarantine) so they
+             ;; never disagree and the change shows immediately, not on the next boot.
+             (plugins->local-store new-plugins)
+             (set-rejected-plugins (dissoc rejected source-name))
+             {:db (-> db
+                      (assoc :plugins new-plugins)
+                      ;; keep the reactive panel in sync with localStorage
+                      (update :quarantined-plugins dissoc source-name))
+              :dispatch [:show-warning-message
+                         (str "\"" source-name "\" repaired and restored to My Content.")]})
+           {:dispatch [:show-error-message
+                       (str "\"" source-name "\" still has problems after the fix — "
+                            "each name must start with a letter and every item needs "
+                            "an option source. Adjust and try again.")]}))))))
+
+;; ============================================================================
+;; Export Validation + File Save
+;; ============================================================================
+
+(defn errors->str
+  "Normalize a validation result's :errors (which may be a pre-formatted string,
+   a seq of strings, or nil) into a single clean string for console output.
+   Avoids the munging that happens when a CLJS collection is passed straight to
+   js/console.error as a trailing argument."
+  [errors]
+  (cond
+    (nil? errors) ""
+    (string? errors) errors
+    (sequential? errors) (s/join "\n\n" (map str errors))
+    :else (str errors)))
+
+(defn serialize-orcbrew
+  "Pure serialize of homebrew content to .orcbrew text — no side effects, so it's
+   unit-testable and shared by every export path. pretty-print? is opt-in: pprint
+   inflates 3–5MB files to ~10–20MB and can freeze the UI."
+  [data & {:keys [pretty-print?]}]
+  (if pretty-print?
+    (with-out-str (pprint/pprint data))
+    (str data)))
+
+(defn- save-orcbrew-blob!
+  "Serialize plugin data to a .orcbrew file and trigger download. The only side
+   effect; serialization lives in the pure `serialize-orcbrew`."
+  [filename data & {:keys [pretty-print?]}]
+  (let [content (serialize-orcbrew data :pretty-print? pretty-print?)
+        blob (js/Blob.
+              (clj->js [content])
+              (clj->js {:type "text/plain;charset=utf-8"}))]
+    (js/saveAs blob filename)))
+
+(defn reg-export-draft
+  "Register a builder-level 'export draft' event: dump the in-progress builder-item
+   to a .orcbrew with NO validation, so WIP that won't save/export the normal
+   (validated) way can always be rescued. Serialized as a normal single-source
+   plugin {source {content-type {key item}}}, so the draft re-imports like any
+   orcbrew (import then surfaces/fills whatever still needs fixing)."
+  [event-key item-key plugin-key]
+  (reg-event-fx
+   event-key
+   (fn [{:keys [db]} _]
+     (let [{:keys [name option-pack] :as item} (item-key db)]
+       (if (nil? item)
+         {:dispatch [:show-error-message "Nothing in the builder to export yet."]}
+         (let [src      (if (s/blank? option-pack) "Draft Export" option-pack)
+               item-kw  (if (s/blank? name) :draft-item (common/name-to-kw name))
+               plugin   {src {plugin-key {item-kw (assoc item :key item-kw)}}}
+               filename (str (if (s/blank? name) "draft" name) "-draft.orcbrew")]
+           (save-orcbrew-blob! filename plugin)
+           {:dispatch [:show-warning-message
+                       (str "Draft exported to '" filename
+                            "' (unvalidated WIP). Keep it safe; re-import to continue.")]}))))))
+
+(defn draft-event-for
+  "The 'Export draft' event key for a builder's save event (save-event name + a
+   \"-draft\" suffix). Derived, not hand-assigned, so builder-page can wire the
+   button from the save event it already has."
+  [save-event]
+  (keyword (namespace save-event) (str (name save-event) "-draft")))
+
+(def builder-drafts
+  "Every homebrew builder's Export-draft hatch: save event -> [builder-item sub
+   key, content-type it exports under]. The loop below registers a draft event for
+   each; views/builder-page derives the same event via draft-event-for."
+  {::spells/save-spell           [::spells/builder-item ::e5/spells]
+   ::monsters/save-monster       [::monsters/builder-item ::e5/monsters]
+   ::encounters/save-encounter   [::encounters/builder-item ::e5/encounters]
+   ::bg5e/save-background        [::bg5e/builder-item ::e5/backgrounds]
+   ::langs5e/save-language       [::langs5e/builder-item ::e5/languages]
+   ::class5e/save-invocation     [::class5e/invocation-builder-item ::e5/invocations]
+   ::class5e/save-boon           [::class5e/boon-builder-item ::e5/boons]
+   ::selections5e/save-selection [::selections5e/builder-item ::e5/selections]
+   ::feats5e/save-feat           [::feats5e/builder-item ::e5/feats]
+   ::race5e/save-race            [::race5e/builder-item ::e5/races]
+   ::race5e/save-subrace         [::race5e/subrace-builder-item ::e5/subraces]
+   ::class5e/save-subclass       [::class5e/subclass-builder-item ::e5/subclasses]
+   ::class5e/save-class          [::class5e/builder-item ::e5/classes]})
+
+(doseq [[save-event [item-key content-type]] builder-drafts]
+  (reg-export-draft (draft-event-for save-event) item-key content-type))
+
+(defn- log-export-warnings [plugin-name validation]
+  (when (seq (:warnings validation))
+    (js/console.warn
+     (str "Export warnings for \"" plugin-name "\":\n  "
+          (s/join "\n  " (map str (:warnings validation)))))))
+
+(defn- validate-and-show-modal-or-export
+  "Shared validation logic for both export-plugin and export-plugin-pretty-print.
+   Validates the plugin, then either shows the modal (missing fields), exports
+   directly (valid), or shows an error (spec failure)."
+  [plugin-name plugin {:keys [pretty-print?]}]
+  (let [validation (orcbrew-val/validate-before-export plugin)]
+    (cond
+      (:has-missing-required-fields validation)
+      (do
+        (js/console.warn
+         (str "Export: missing required fields in \"" plugin-name "\":\n"
+              (orcbrew-val/format-export-validation-for-log validation)))
+        {:dispatch [:show-export-warning-modal
+                    {:mode :single
+                     :plugins [{:name plugin-name
+                                :plugin plugin
+                                :issues (:missing-fields-issues validation)}]
+                     :warnings (:warnings validation)
+                     :pretty-print? pretty-print?}]})
+
+      (:valid validation)
+      (do
+        (log-export-warnings plugin-name validation)
+        ;; Strip meaningless blanks (false/nil/empty) on normal export.
+        (save-orcbrew-blob! (str plugin-name ".orcbrew")
+                            (orcbrew-val/strip-export-blanks plugin)
+                            :pretty-print? pretty-print?)
+        (if (seq (:warnings validation))
+          {:dispatch [:show-warning-message
+                      (str "Plugin '" plugin-name "' exported with warnings. Check console for details.")]}
+          {}))
+
+      :else
+      ;; Hard spec check failed. Surface a raw, unvalidated escape hatch alongside
+      ;; the error so the user can always get their content out.
+      (do
+        (js/console.error (str "Export validation failed for \"" plugin-name "\":\n"
+                               (orcbrew-val/format-export-validation-for-log validation)))
+        {:dispatch [:show-error-message
+                    [:div
+                     [:div (str "Cannot export '" plugin-name
+                                "' - contains invalid data. Check console for details.")]
+                     [:div.m-t-5
+                      [:span.pointer.underline.f-w-b
+                       {:on-click #(dispatch [::e5/emergency-export-raw plugin-name])}
+                       "Download raw backup instead"]]]]}))))
+
 (reg-event-fx
  ::e5/export-plugin
  (fn [_ [_ name plugin]]
-   ;; Validate before export to catch bugs early
-   (let [validation (import-val/validate-before-export plugin)]
-     (cond
-       ;; Has missing required fields - show modal for user decision
-       (:has-missing-required-fields validation)
-       (do
-         (js/console.warn "Export validation found missing required fields for" name ":")
-         (js/console.warn (clj->js (:missing-fields-issues validation)))
-         {:dispatch [:show-export-warning-modal
-                     {:name name
-                      :plugin plugin
-                      :issues (:missing-fields-issues validation)
-                      :warnings (:warnings validation)}]})
+   (validate-and-show-modal-or-export name plugin {})))
 
-       ;; Valid - proceed with export
-       (:valid validation)
-       (do
-         ;; Log warnings if any
-         (when (seq (:warnings validation))
-           (js/console.warn "Export warnings for" name ":")
-           (doseq [warning (:warnings validation)]
-             (js/console.warn " " warning)))
-
-         ;; Proceed with export
-         (let [blob (js/Blob.
-                     (clj->js [(str plugin)])
-                     (clj->js {:type "text/plain;charset=utf-8"}))]
-           (js/saveAs blob (str name ".orcbrew"))
-           (if (seq (:warnings validation))
-             {:dispatch [:show-warning-message
-                         (str "Plugin '" name "' exported with warnings. Check console for details.")]}
-             {})))
-
-       ;; Other validation failure - don't export
-       :else
-       (do
-         (js/console.error "Export validation failed for" name ":")
-         (js/console.error (:errors validation))
-         {:dispatch [:show-error-message
-                     (str "Cannot export '" name "' - contains invalid data. Check console for details.")]})))))
-
-;; Export warning modal events
-(reg-event-db
- :show-export-warning-modal
- (fn [db [_ {:keys [name plugin issues warnings]}]]
-   (assoc db :export-warning
-          {:active? true
-           :name name
-           :plugin plugin
-           :issues issues
-           :warnings warnings})))
-
-(reg-event-db
- :cancel-export
- (fn [db _]
-   (assoc db :export-warning {:active? false})))
+(defn select-emergency-export
+  "Pick the filename + data for an emergency raw export: just the named source if
+   it exists in `plugins`, else the whole library. Pure — unit-testable without
+   the DOM/file system."
+  [plugins plugin-name]
+  (if (and plugin-name (contains? plugins plugin-name))
+    [(str plugin-name ".orcbrew") (get plugins plugin-name)]
+    ["orcpub-EMERGENCY-backup.orcbrew" plugins]))
 
 (reg-event-fx
- :export-anyway
+ ::e5/emergency-export-raw
+ (fn [{:keys [db]} [_ plugin-name]]
+   ;; Raw, unvalidated dump. save-orcbrew-blob! serializes via str/pprint, which
+   ;; can't fail on bad data — the guaranteed escape hatch when validated export refuses.
+   (let [[filename data] (select-emergency-export (:plugins db) plugin-name)]
+     (save-orcbrew-blob! filename data)
+     {:dispatch [:show-warning-message
+                 (str "Raw backup '" filename "' downloaded (unvalidated). "
+                      "Keep it safe.")]})))
+
+;; Raw export of a QUARANTINED source (in :quarantined-plugins, not :plugins, so
+;; ::e5/emergency-export-raw can't reach it). Unvalidated, so the broken data can
+;; always get out to fix externally.
+(reg-event-fx
+ ::e5/export-quarantined-raw
+ (fn [{:keys [db]} [_ source-name]]
+   (when-let [data (get-in db [:quarantined-plugins source-name])]
+     (save-orcbrew-blob! (str source-name ".orcbrew") data))
+   {}))
+
+;; ============================================================================
+;; Export Warning Modal Events
+;; ============================================================================
+
+(reg-event-db
+ :show-export-warning-modal
+ (fn [db [_ {:keys [mode plugins warnings pretty-print?]}]]
+   (assoc db :export-warning
+          {:active? true
+           :mode (or mode :single)
+           :plugins plugins
+           :warnings warnings
+           :pretty-print? pretty-print?
+           :edits {}
+           :show-export-as-is? false})))
+
+(reg-event-db
+ :update-export-edit
+ (fn [db [_ edit-path value]]
+   (assoc-in db [:export-warning :edits edit-path] value)))
+
+(reg-event-db
+ :remove-export-edit
+ (fn [db [_ edit-path]]
+   (update-in db [:export-warning :edits] dissoc edit-path)))
+
+(reg-event-db
+ :toggle-export-as-is
+ (fn [db _]
+   (update-in db [:export-warning :show-export-as-is?] not)))
+
+(defn- build-export-log-entries
+  "Build slide-out log entries from the modal's plugin issues."
+  [plugins description]
+  [{:type :export-missing-fields
+    :description description
+    :details (vec (mapcat
+                   (fn [{:keys [name issues]}]
+                     (for [{:keys [content-type invalid-items]} issues
+                           item invalid-items]
+                       (assoc item :content-type content-type :plugin name)))
+                   plugins))}])
+
+(reg-event-fx
+ :export-with-auto-fix
  (fn [{:keys [db]} _]
-   (let [{:keys [name plugin]} (:export-warning db)
-         ;; Fill missing fields with dummy data
-         filled-plugin (import-val/fill-missing-for-export plugin)
-         blob (js/Blob.
-               (clj->js [(str filled-plugin)])
-               (clj->js {:type "text/plain;charset=utf-8"}))]
-     (js/saveAs blob (str name ".orcbrew"))
-     {:db (assoc db :export-warning {:active? false})
+   (let [{:keys [mode plugins edits pretty-print?]} (:export-warning db)
+         ;; Auto-fix = user edits + dummy-fill for blanks. The same fixed data goes
+         ;; to the file AND back to the library, so My Content matches the export.
+         ;; Placeholders like "[Missing Name]" are self-labeling and flagged in the log.
+         fixed-plugins (mapv
+                        (fn [{:keys [name plugin]}]
+                          {:name name
+                           :plugin (orcbrew-val/apply-user-edits-to-plugin
+                                    plugin name edits)})
+                        plugins)
+         all-plugins (:plugins db)
+         ;; For multi mode, merge the fixed sources back over all plugins.
+         final-data (if (= mode :multi)
+                      (reduce (fn [acc {:keys [name plugin]}] (assoc acc name plugin))
+                              all-plugins fixed-plugins)
+                      (:plugin (first fixed-plugins)))
+         ;; Library gets the same fixed data as the file (multi: the merged map;
+         ;; single: the fixed plugin under its source name).
+         new-plugins (if (= mode :multi)
+                       final-data
+                       (assoc all-plugins (:name (first fixed-plugins)) final-data))
+         filename (if (= mode :multi)
+                    "all-content.orcbrew"
+                    (str (:name (first fixed-plugins)) ".orcbrew"))
+         log-entries (build-export-log-entries
+                      plugins "Auto-filled missing fields on export")]
+     ;; Strip meaningless blanks (false/nil/empty) on normal export.
+     (save-orcbrew-blob! filename (orcbrew-val/strip-export-blanks final-data)
+                         :pretty-print? pretty-print?)
+     (plugins->local-store new-plugins)
+     {:db (-> db
+              (assoc :plugins new-plugins)
+              (assoc :export-warning {:active? false})
+              (assoc :import-log {:panel-shown? true
+                                  :import-name (if (= mode :multi)
+                                                 "Export (all plugins)"
+                                                 (str "Export: " (:name (first plugins))))
+                                  :changes log-entries
+                                  :errors []
+                                  :skipped-items []}))
       :dispatch [:show-warning-message
-                 (str "Plugin '" name "' exported with placeholder data for missing fields.")]})))
+                 (str "Exported and saved to My Content. Placeholders were filled "
+                      "in for any fields left blank — review them (see the log) and "
+                      "replace before sharing.")]})))
+
+(reg-event-fx
+ :export-cancel-with-log
+ (fn [{:keys [db]} _]
+   (let [{:keys [plugins]} (:export-warning db)
+         log-entries (build-export-log-entries
+                      plugins "Export cancelled — fix these fields manually")]
+     {:db (-> db
+              (assoc :export-warning {:active? false})
+              (assoc :import-log {:panel-shown? true
+                                  :import-name "Export Issues"
+                                  :changes log-entries
+                                  :errors []
+                                  :skipped-items []}))})))
+
+(reg-event-fx
+ :export-as-is
+ (fn [{:keys [db]} _]
+   (let [{:keys [mode plugins pretty-print?]} (:export-warning db)
+         all-plugins (:plugins db)
+         final-data (if (= mode :multi)
+                      (reduce (fn [acc {:keys [name plugin]}]
+                                (assoc acc name plugin))
+                              all-plugins
+                              plugins)
+                      (:plugin (first plugins)))
+         filename (if (= mode :multi)
+                    "all-content.orcbrew"
+                    (str (:name (first plugins)) ".orcbrew"))
+         log-entries (build-export-log-entries
+                      plugins "Exported as-is without fixes")]
+     (save-orcbrew-blob! filename final-data :pretty-print? pretty-print?)
+     {:db (-> db
+              (assoc :export-warning {:active? false})
+              (assoc :import-log {:panel-shown? true
+                                  :import-name (if (= mode :multi)
+                                                 "Export (all plugins)"
+                                                 (str "Export: " (:name (first plugins))))
+                                  :changes log-entries
+                                  :errors []
+                                  :skipped-items []}))})))
 
 ;; Export all homebrew plugins as .orcbrew file.
 (reg-event-fx
  ::e5/export-all-plugins
  (fn [{:keys [db]} _]
    (let [all-plugins (:plugins db)
-         ;; Validate each plugin
-         validations (into {}
-                           (map (fn [[name plugin]]
-                                  [name (import-val/validate-before-export plugin)])
-                                all-plugins))
-         has-errors (some (fn [[_ v]] (not (:valid v))) validations)
-         has-warnings (some (fn [[_ v]] (seq (:warnings v))) validations)]
+         {:keys [fillable blockers clean]}
+         (orcbrew-val/classify-plugins-for-export all-plugins)]
 
-     (when (or has-errors has-warnings)
-       (js/console.warn "Export validation results:")
-       (doseq [[name validation] validations]
-         (when-not (:valid validation)
-           (js/console.error "Plugin" name "has errors:" (:errors validation)))
-         (when (seq (:warnings validation))
-           (js/console.warn "Plugin" name "has warnings:" (:warnings validation)))))
+     ;; Log details for any validation issues
+     (doseq [{:keys [name validation]} (concat fillable blockers)]
+       (js/console.warn
+        (str "Plugin \"" name "\":\n"
+             (orcbrew-val/format-export-validation-for-log validation)))
+       (log-export-warnings name validation))
 
-     (if has-errors
+     (cond
+       ;; Spec-error blockers — can't safely export
+       (seq blockers)
        {:dispatch [:show-error-message
-                   "Cannot export all plugins - some contain invalid data. Check console for details."]}
+                   (str "Cannot export — structural errors in: "
+                        (s/join ", " (map #(str "\"" (:name %) "\"") blockers))
+                        ". Check browser console (F12) for details.")]}
 
-       (let [blob (js/Blob.
-                   (clj->js [(str all-plugins)])
-                   (clj->js {:type "text/plain;charset=utf-8"}))]
-         (js/saveAs blob "all-content.orcbrew")
-         (if has-warnings
-           {:dispatch [:show-warning-message
-                       "All plugins exported with some warnings. Check console for details."]}
-           {}))))))
+       ;; Some plugins have missing required fields — show the modal
+       (seq fillable)
+       {:dispatch [:show-export-warning-modal
+                   {:mode :multi
+                    :plugins (mapv #(select-keys % [:name :plugin :issues]) fillable)
+                    :warnings (vec (mapcat #(get-in % [:validation :warnings]) fillable))}]}
+
+       ;; Everything is clean
+       :else
+       (do
+         ;; Strip meaningless blanks (false/nil/empty) on normal export.
+         (save-orcbrew-blob! "all-content.orcbrew"
+                             (orcbrew-val/strip-export-blanks all-plugins))
+         {})))))
 
 
 (defn clj->json
@@ -3744,11 +4253,8 @@
 (reg-event-fx
  ::e5/export-plugin-pretty-print
  (fn [_ [_ name plugin]]
-   (let [blob (js/Blob.
-               (clj->js [(with-out-str (pprint/pprint plugin))])
-               (clj->js {:type "text/plain;charset=utf-8"}))]
-     (js/saveAs blob (str name ".orcbrew"))
-     {})))
+   (validate-and-show-modal-or-export name plugin {:pretty-print? true})))
+
 ;; Export all homebrew plugins as pretty-printed .orcbrew file.
 (reg-event-fx
  ::e5/export-all-plugins-pretty-print
@@ -3767,24 +4273,15 @@
 (reg-event-fx
  ::e5/toggle-plugin
  (fn [{:keys [db]} [_ name]]
-   {:dispatch [::e5/set-plugins (-> db :plugins (update-in [name :disabled?] not))]}))
+   {:dispatch [::e5/set-plugins (-> db :plugins (common/toggle-in [name :disabled?]))]}))
 
 (reg-event-fx
  ::e5/toggle-plugin-item
  (fn [{:keys [db]} [_ plugin-name type-key key]]
-   {:dispatch [::e5/set-plugins (-> db :plugins (update-in [plugin-name type-key key :disabled?] not))]}))
+   {:dispatch [::e5/set-plugins (-> db :plugins (common/toggle-in [plugin-name type-key key :disabled?]))]}))
 
-(defn clean-plugin-errors
-  "DEPRECATED: Use import-validation/validate-import instead.
-   Kept for backward compatibility only."
-  [plugin-text]
-  (-> plugin-text
-      (clojure.string/replace #"disabled\?\s+nil" "disabled? false") ; disabled? nil - replace w/disabled? false
-      (clojure.string/replace #"(?m)nil nil, " "") ; nil nil,  - find+remove
-      (clojure.string/replace #":\w+\snil" "") ; :[a-0] nil - find+remove
-      (clojure.string/replace #"\{\"\"\s*\{:orcpub\.dnd\.e5" "{\"Default Option Source\" {:orcpub.dnd.e5")
-      (clojure.string/replace #":option-pack\s*\"\s*\"\s*," ":option-pack \"Default Option Source\",") ;:option-pack "",
-      ))
+;; (Removed dead `clean-plugin-errors` — a raw-EDN string-replace hack with zero
+;;  callers, superseded by `orcbrew-validation/validate-import` (structured cleaning).)
 
 ;; ============================================================================
 ;; Import Log Events
@@ -3837,27 +4334,40 @@
  (fn [{:keys [db]} [_ plugin-name plugin-text]]
    ;; Use comprehensive validation with progressive import strategy
    ;; Pass existing plugins for duplicate key detection
-   (let [result (import-val/validate-import plugin-text {:strategy :progressive
+   (let [result (orcbrew-val/validate-import plugin-text {:strategy :progressive
                                                          :auto-clean true
                                                          ;; strict mode (creators/devs) turns OFF
                                                          ;; the low-friction auto-fill
                                                          :auto-fill (not (:strict-import? db))
                                                          :existing-plugins (:plugins db)
                                                          :import-source-name plugin-name})
-         user-message (import-val/format-import-result result)
+         user-message (orcbrew-val/format-import-result result)
          has-conflicts? (or (seq (get-in result [:key-conflicts :internal-conflicts]))
                             (seq (get-in result [:key-conflicts :external-conflicts])))]
 
-     ;; Log detailed results to console for debugging
-     (js/console.log "Import validation result:" (clj->js result))
-     (js/console.log "Key conflicts:" (clj->js (:key-conflicts result)))
-     (js/console.log "Has conflicts?:" has-conflicts?)
+     ;; Log a concise summary to the console for debugging. Dumping the whole
+     ;; result via clj->js buries the useful bits under the entire plugin data,
+     ;; so we surface just the counts and conflict totals here; detailed errors
+     ;; are logged (already formatted) in the branches below.
+     (js/console.log
+      (str "Import \"" plugin-name "\": "
+           (cond
+             (:parse-error result) "parse error"
+             (not (:success result)) "validation failed"
+             :else (str "imported " (or (:imported-count result) 0)
+                        ", skipped " (or (:skipped-count result) 0)))
+           " | changes: " (count (:changes result))
+           " | conflicts: " (+ (count (get-in result [:key-conflicts :internal-conflicts]))
+                               (count (get-in result [:key-conflicts :external-conflicts])))))
 
      (cond
        ;; Parse error - cannot recover
        (:parse-error result)
        (do
-         (js/console.error "Parse error:" (:error result))
+         (js/console.error
+          (str "Parse error: " (:error result)
+               (when (:line result) (str " (line " (:line result) ")"))
+               (when (:hint result) (str "\n" (:hint result)))))
          {:dispatch-n [[:show-error-message user-message]
                        [:set-import-log {:name plugin-name
                                          :changes (:changes result)
@@ -3867,7 +4377,7 @@
        ;; Validation failed completely
        (and (not (:success result)) (:errors result))
        (do
-         (js/console.error "Validation errors:" (clj->js (:errors result)))
+         (js/console.error (str "Validation errors:\n" (errors->str (:errors result))))
          {:dispatch-n [[:show-error-message user-message]
                        [:set-import-log {:name plugin-name
                                          :changes (:changes result)
@@ -3888,36 +4398,72 @@
        (:success result)
        (let [plugin (:data result)
              is-multi-plugin (and (spec/valid? ::e5/plugins plugin)
-                                  (not (spec/valid? ::e5/plugin plugin)))]
+                                  (not (spec/valid? ::e5/plugin plugin)))
+             ;; Normalize to the {source-name source-plugin} shape the boot loader
+             ;; sees. A source with a KEYWORD-TRAP item (name deriving a key not
+             ;; starting with a letter — "9 Lives" -> :9-lives) passes the progressive
+             ;; item check (only needs :option-pack) but its homebrew classes then
+             ;; SILENTLY never appear in the builder. Route only THOSE to the loader's
+             ;; quarantine so the rename/rekey repair UI surfaces them. Other
+             ;; imperfections (missing option-pack, incomplete WIP) are deliberately
+             ;; NOT quarantined — progressive import auto-cleans them and they must
+             ;; still land, keeping the export-draft / re-import hatch working.
+             incoming (if is-multi-plugin plugin {plugin-name plugin})
+             rejected (into {} (filter (fn [[_ p]] (seq (e5/invalid-keyed-items p))) incoming))
+             kept (into {} (remove (fn [[k _]] (contains? rejected k)) incoming))
+             import-log [:set-import-log {:name plugin-name
+                                          :changes (:changes result)
+                                          ;; strict mode: surface unfilled required fields as errors
+                                          :errors (mapv :description (:strict-unfilled result))
+                                          :skipped-items (:skipped-items result)
+                                          :key-conflicts (:key-conflicts result)
+                                          :key-warnings (:key-warnings result)}]]
 
          ;; Log skipped items if any
          (when (:had-errors result)
-           (js/console.warn "Skipped invalid items:")
-           (doseq [item (:skipped-items result)]
-             (js/console.warn "  " (:key item))
-             (js/console.warn "    Errors:" (:errors item))))
+           (js/console.warn
+            (str "Skipped " (count (:skipped-items result)) " invalid item(s):\n"
+                 (s/join "\n\n"
+                         (map (fn [item]
+                                (str "  • " (:key item) "\n"
+                                     (errors->str (:errors item))))
+                              (:skipped-items result))))))
 
-         {:dispatch-n (cond-> []
-                        ;; Set the plugins
-                        true
-                        (conj (if is-multi-plugin
-                                [::e5/set-plugins (e5/merge-all-plugins (:plugins db) plugin)]
-                                [::e5/set-plugins (assoc (:plugins db) plugin-name plugin)]))
+         (if (seq rejected)
+           ;; Keyword-trap (or other ::plugin invalidity) — quarantine the bad
+           ;; source(s) via the SAME name-keyed store + reactive panel the loader
+           ;; uses, so the repair UI (rename -> rekey -> restore) surfaces them.
+           ;; Clean sources still land in :plugins.
+           (let [reconciled (e5/reconcile-rejected (get-rejected-plugins) rejected kept)
+                 n (count rejected)]
+             (set-rejected-plugins reconciled)
+             (js/console.warn
+              (str "Quarantined " n " imported source(s) with an invalid item key "
+                   "(name doesn't start with a letter): " (pr-str (vec (keys rejected)))))
+             {:db (update db :quarantined-plugins merge rejected)
+              :dispatch-n (cond-> []
+                            (seq kept)
+                            (conj [::e5/set-plugins (e5/merge-all-plugins (:plugins db) kept)])
+                            true
+                            (conj [:show-error-message
+                                   (str "Imported, but " n " source" (when (> n 1) "s")
+                                        " couldn't be used yet: an item's name starts with a "
+                                        "number or symbol (names become internal keys, which "
+                                        "must start with a letter). It's saved under "
+                                        "“Quarantined” in My Content — rename "
+                                        (if (> n 1) "them" "it") " there to restore "
+                                        (if (> n 1) "them." "it."))])
+                            true (conj import-log))})
 
-                        ;; Show appropriate message
-                        true
-                        (conj [:show-warning-message user-message])
-
-                        ;; Store import log for UI panel
-                        true
-                        (conj [:set-import-log {:name plugin-name
-                                                :changes (:changes result)
-                                                ;; strict mode: surface the unfilled required
-                                                ;; fields as errors so creators see the gaps
-                                                :errors (mapv :description (:strict-unfilled result))
-                                                :skipped-items (:skipped-items result)
-                                                :key-conflicts (:key-conflicts result)
-                                                :key-warnings (:key-warnings result)}]))})
+           ;; All sources clean — store normally. (import-log carries our strict-mode :strict-unfilled
+           ;; errors + develop's key-conflicts/key-warnings — see the import-log binding above.)
+           {:dispatch-n (cond-> []
+                          true
+                          (conj (if is-multi-plugin
+                                  [::e5/set-plugins (e5/merge-all-plugins (:plugins db) plugin)]
+                                  [::e5/set-plugins (assoc (:plugins db) plugin-name plugin)]))
+                          true (conj [:show-warning-message user-message])
+                          true (conj import-log))}))
 
        ;; Unknown state
        :else
@@ -3927,13 +4473,22 @@
 (reg-event-fx
  ::e5/import-plugin-strict
  (fn [{:keys [db]} [_ plugin-name plugin-text]]
-   (let [result (import-val/validate-import plugin-text {:strategy :strict
+   (let [result (orcbrew-val/validate-import plugin-text {:strategy :strict
                                                          :auto-clean true
                                                          :existing-plugins (:plugins db)
                                                          :import-source-name plugin-name})
-         user-message (import-val/format-import-result result)]
+         user-message (orcbrew-val/format-import-result result)]
 
-     (js/console.log "Strict import validation result:" (clj->js result))
+     ;; Concise, pre-formatted console output (mirrors the progressive import
+     ;; path) instead of dumping the whole result object.
+     (if (:success result)
+       (js/console.log
+        (str "Strict import \"" plugin-name "\": imported "
+             (or (:imported-count result) 0)
+             ", skipped " (or (:skipped-count result) 0)))
+       (js/console.error
+        (str "Strict import \"" plugin-name "\" failed:\n"
+             (errors->str (:errors result)))))
 
      (if (:success result)
        (let [plugin (:data result)]
@@ -3964,7 +4519,7 @@
                      ;; For internal, user picks which source to rename
                      :suggested-renames (mapv (fn [{:keys [source name]}]
                                                 {:source source
-                                                 :new-key (import-val/generate-new-key key source)})
+                                                 :new-key (orcbrew-val/generate-new-key key source)})
                                               sources)})
                   internal-conflicts)
 
@@ -3983,7 +4538,7 @@
                      :existing-source existing-source
                      :existing-name existing-name
                      ;; Suggested rename for the import
-                     :suggested-new-key (import-val/generate-new-key key import-source)})
+                     :suggested-new-key (orcbrew-val/generate-new-key key import-source)})
                   external-conflicts)]
     (vec (concat internal external))))
 
@@ -4060,7 +4615,7 @@
 
          ;; Apply renames to import data
          renamed-data (if (seq renames)
-                        (import-val/apply-key-renames import-data renames)
+                        (orcbrew-val/apply-key-renames import-data renames)
                         import-data)
 
          ;; Check if this is a multi-plugin
@@ -4286,8 +4841,10 @@
            save-event delete-event edit-event new-event
            set-event set-prop-event reset-event
            builder-item spec plugin-key default route interceptors]}]
-  ;; persistence + builder lifecycle — the existing, trusted factories
-  (reg-save-homebrew type-name save-event builder-item spec plugin-key save-error)
+  ;; persistence + builder lifecycle — the existing, trusted factories.
+  ;; (develop's reg-save-homebrew is 5-arg: the save spec is derived from the content-specs registry by
+  ;; plugin-key, not passed per-call — so `spec` from the descriptor is unused here now.)
+  (reg-save-homebrew type-name save-event builder-item plugin-key save-error)
   (reg-delete-homebrew delete-event plugin-key)
   (reg-edit-homebrew edit-event set-event route)
   (reg-new-homebrew new-event set-event default route)

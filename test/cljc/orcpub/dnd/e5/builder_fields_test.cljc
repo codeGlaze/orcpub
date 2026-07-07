@@ -2,6 +2,7 @@
   "Pure tests for the field-schema validators (fields->spec + validate-fields). JVM-runnable.
    These are the SINGLE validators the form, the save spec, and import/export verification share."
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.spec.alpha :as spec]
             [orcpub.dnd.e5.builder-fields :as bf]))
 
 (def fields
@@ -28,8 +29,8 @@
 
 (deftest fields->spec-matches-validate-fields
   (testing "the generated spec agrees with validate-fields on valid/invalid"
-    (let [spec-pred (bf/fields->spec fields)]
-      (is (spec-pred ok-item))
-      (is (not (spec-pred (update ok-item :bw dissoc :damage-type))))   ; missing required
-      (is (not (spec-pred (assoc-in ok-item [:bw :damage-type] :banana))) ) ; bad enum
-      (is (spec-pred (dissoc ok-item :note))))))                        ; missing optional ok
+    (let [s (bf/fields->spec fields)]   ; now a spec (spec/keys + field checks), not a bare predicate
+      (is (spec/valid? s ok-item))
+      (is (not (spec/valid? s (update ok-item :bw dissoc :damage-type))))   ; missing required
+      (is (not (spec/valid? s (assoc-in ok-item [:bw :damage-type] :banana)))) ; bad enum
+      (is (spec/valid? s (dissoc ok-item :note))))))                        ; missing optional ok

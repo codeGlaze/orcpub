@@ -260,6 +260,13 @@
              ;; Composite: includes cljsbuild-config (build definitions) + dev-config
              ;; (deps, devtools overlays). No inline maps — lein warns against those.
              :dev          [:cljsbuild-config :dev-config]
+             ;; Opt-in for WSL2 (and any host reaching the dev server by IP): binds
+             ;; ::http/host to 0.0.0.0 via environ so a Windows browser can reach the
+             ;; WSL VM (localhost forwarding is flaky over WSL2). The default stays
+             ;; loopback for everyone else. Activate per-command, e.g.
+             ;;   lein with-profile +wsl fig:dev
+             ;;   lein with-profile +wsl fig:build
+             :wsl          {:env {:orcpub-http-host "0.0.0.0"}}
              ;; NOTE: :native-dev was for React Native builds (legacy, may be unused)
              :native-dev   {:dependencies [[cider/piggieback "0.5.3"]]
                             :source-paths ["src/cljs" "native/cljs" "src/cljc" "env/dev"]
