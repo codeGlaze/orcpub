@@ -15,7 +15,7 @@
             [orcpub.dnd.e5.races :as races5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
             [orcpub.dnd.e5.classes :as classes5e]
-            [orcpub.dnd.e5.import-validation :as import-val]
+            [orcpub.dnd.e5.orcbrew-validation :as import-val]
             ;; side effects: register the races/backgrounds subs + the builder events
             [orcpub.dnd.e5.spell-subs]
             [orcpub.dnd.e5.events]))

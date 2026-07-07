@@ -14,7 +14,8 @@
 
    Pure/leaf: requires spec only."
   (:require #?(:clj  [clojure.spec.alpha :as spec])
-            #?(:cljs [cljs.spec.alpha :as spec])))
+            #?(:cljs [cljs.spec.alpha :as spec])
+            [orcpub.common :as common]))
 
 (defn field-value-pred
   "Predicate a field's STORED value must satisfy WHEN PRESENT. :enum → the set of its option
@@ -40,6 +41,13 @@
 ;; that SAVES must LOAD). When the branches meet: add a `:boolean` type here + in render-builder-field
 ;; routing through the ONE combined primitive above — never a fresh toggle fn, never a second validator.
 
+;; Universal homebrew fields as NAMED specs so fields->spec composes via spec/keys — its explain-data
+;; then names :name/:key/:option-pack in the :in path (diagnosable banners), matching develop's
+;; per-type specs. :key rejects the keyword-trap ("9 Lives" -> :9-lives).
+(spec/def ::name string?)
+(spec/def ::key (spec/and keyword? common/keyword-starts-with-letter?))
+(spec/def ::option-pack string?)
+
 (defn fields->spec
   "Build a save-validation spec (a predicate) from a field schema. The universal
    name/key/option-pack are required (unchanged from the prior hand-written specs); every other
@@ -60,12 +68,11 @@
                              (boolean (pred v))
                              (not required?)))))
                      fields)]
-    (fn [item]
-      (and (map? item)
-           (string? (:name item))
-           (keyword? (:key item))
-           (string? (:option-pack item))
-           (every? #(% item) checks)))))
+    ;; spec/keys makes name/key/option-pack failures DIAGNOSABLE (explain-data :in names the field);
+    ;; the trailing predicate enforces the declared type fields (nested paths, optional-by-default).
+    (spec/and
+     (spec/keys :req-un [::name ::key ::option-pack])
+     (fn [item] (every? #(% item) checks)))))
 
 (defn validate-fields
   "Return a vector of human-readable problems for `item` against a field schema (empty = valid).

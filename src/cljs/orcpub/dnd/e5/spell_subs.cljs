@@ -42,6 +42,13 @@
  (fn [db _]
    (get db :plugins)))
 
+;; The name-keyed quarantine map ({source-name → bad-source}) loaded at
+;; boot, kept in sync by the repair event. Drives the quarantine repair panel.
+(reg-sub
+ ::e5/quarantined-plugins
+ (fn [db _]
+   (get db :quarantined-plugins)))
+
 (reg-sub
  ::e5/strict-import?
  (fn [db _]

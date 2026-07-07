@@ -3,6 +3,7 @@
             [orcpub.user-agent :as user-agent]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.content-types :as ct]
+            [orcpub.dnd.e5.content-specs :as content-specs]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
@@ -24,7 +25,7 @@
             [cljs.reader :as reader]
             [bidi.bidi :as bidi]
             [cljs-http.client :as http]
-            [cljs.pprint :refer [pprint]]))
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]))
 
 ;; =============================================================================
 ;; Version: 1.01 - Add conflict-resolution state for duplicate key handling
@@ -49,6 +50,9 @@
 (def local-storage-subclass-key "subclass")
 (def local-storage-class-key "class")
 (def local-storage-plugins-key "plugins")
+;; Resilient-loader companion to `plugins`: sources that failed validation on load
+;; are preserved for repair here instead of being silently discarded.
+(def local-storage-plugins-rejected-key "plugins:rejected")
 
 (def default-route route-map/dnd-e5-char-builder-route)
 
@@ -163,10 +167,18 @@
    (into {} (map (juxt :builder-item :default))
          (filter :homebrew-builder? ct/content-types))))
 
-(defn set-item [key value]
+(defn set-item
+  "Write to localStorage. Returns true on success, false if the write failed
+   (e.g. a QuotaExceededError when storage is full). Callers that persist user
+   content should check this — a silent quota failure used to drop the just-saved
+   data on the next refresh with no warning."
+  [key value]
   (try
     (.setItem js/window.localStorage key value)
-    (catch js/Object e (prn "FAILED SETTING LOCALSTORAGE ITEM"))))
+    true
+    (catch js/Object e
+      (prn "FAILED SETTING LOCALSTORAGE ITEM" key)
+      false)))
 
 (defn character->local-store [character]
   (when js/window.localStorage
@@ -243,19 +255,54 @@
   (when js/window.localStorage
     (set-item local-storage-class-key (str class))))
 
+(defn corrupt-slot-key
+  "Companion slot that holds the raw, unparseable contents of `k` for recovery."
+  [k]
+  (str k ":corrupt"))
+
 (defn plugins->local-store [plugins]
   (when js/window.localStorage
-    (set-item local-storage-plugins-key (str plugins))))
+    (let [ok? (set-item local-storage-plugins-key (str plugins))]
+      (when-not ok?
+        ;; A quota-exceeded write would silently drop the just-saved homebrew on
+        ;; the next refresh. Warn and offer a raw backup so in-memory content can
+        ;; be rescued. (No reclaim-and-retry: the only reclaimable slots are the
+        ;; `:corrupt` ones, which hold the ONLY copy of unreadable content.)
+        (re-frame/dispatch [::e5/plugins-save-failed]))
+      ok?)))
 
 (def tab-path [:builder :character :tab])
+
+(def ^:private preserve-on-unreadable-keys
+  "Storage slots that must NEVER be destroyed on a parse failure — the homebrew
+   library and its quarantine companion. A corrupt blob here (e.g. a quota-cut
+   write) is moved to a '<key>:corrupt' slot and cleared from the active slot, so
+   it survives for recovery instead of being deleted. Other slots (character,
+   builder drafts) keep the old remove-on-unreadable behavior."
+  #{local-storage-plugins-key
+    local-storage-plugins-rejected-key})
 
 (defn get-local-storage-item [local-storage-key]
   (when-let [stored-str (when js/window.localStorage
                         (.getItem js/window.localStorage local-storage-key))]
     (try (reader/read-string stored-str)
-         (catch js/Object e (prn "E" e)
-                (js/console.warn "UNREADABLE ITEM FOUND, REMOVING.." local-storage-key stored-str)
-                (.removeItem js/window.localStorage local-storage-key)))))
+         (catch js/Object e
+           (if (contains? preserve-on-unreadable-keys local-storage-key)
+             ;; Preserve unparseable homebrew: copy raw bytes to the :corrupt slot,
+             ;; then clear the active slot so a poison value can't brick boot. Recoverable.
+             (do
+               (js/console.warn
+                "UNREADABLE homebrew storage; preserved raw copy for recovery in"
+                (corrupt-slot-key local-storage-key) "and cleared the active slot."
+                local-storage-key)
+               (set-item (corrupt-slot-key local-storage-key) stored-str)
+               (.removeItem js/window.localStorage local-storage-key)
+               nil)
+             (do
+               (prn "E" e)
+               (js/console.warn "UNREADABLE ITEM FOUND, REMOVING.." local-storage-key stored-str)
+               (.removeItem js/window.localStorage local-storage-key)
+               nil))))))
 
 (defn reg-local-store-cofx [key local-storage-key item-spec & [item-fn]]
   (re-frame/reg-cofx
@@ -269,8 +316,13 @@
                   (item-fn stored-item)
                   stored-item)
                 (do
-                  (js/console.warn "INVALID ITEM FOUND, IGNORING" local-storage-key)
-                  (pprint (spec/explain-data item-spec stored-item)))))))))
+                  ;; Humanize the spec failure instead of pprinting raw problem
+                  ;; forms (which dump cljs.core/* predicate forms to the console).
+                  (js/console.warn
+                   (str "Invalid stored item, ignoring: " local-storage-key "\n"
+                        (orcbrew-val/format-validation-errors
+                         (spec/explain-data item-spec stored-item))))
+                  nil)))))))
 
 (reg-local-store-cofx
  :local-store-character
@@ -302,15 +354,111 @@
  local-storage-magic-item-key
  ::mi5e/internal-magic-item)
 
+;; Refresh safety: restore every homebrew builder's in-progress item on boot (the
+;; persist side is already wired per-builder via ->local-store interceptors; this
+;; table + one cofx drive the restore side from one place). Validated only as
+;; `map?`, not the strict per-type spec — the point is to preserve incomplete drafts.
+(def builder-wip-stores
+  "localStorage key -> the app-db key that builder's in-progress item lives under."
+  {local-storage-class-key      ::class5e/builder-item
+   local-storage-subclass-key   ::class5e/subclass-builder-item
+   local-storage-invocation-key ::class5e/invocation-builder-item
+   local-storage-boon-key       ::class5e/boon-builder-item
+   local-storage-race-key       ::race5e/builder-item
+   local-storage-subrace-key    ::race5e/subrace-builder-item
+   local-storage-spell-key      ::spells5e/builder-item
+   local-storage-monster-key    ::monsters5e/builder-item
+   local-storage-encounter-key  ::encounters5e/builder-item
+   local-storage-background-key ::bg5e/builder-item
+   local-storage-language-key   ::langs5e/builder-item
+   local-storage-selection-key  ::selections5e/builder-item
+   local-storage-feat-key       ::feats5e/builder-item})
+
+(re-frame/reg-cofx
+ :local-store-builder-items
+ (fn [cofx _]
+   (assoc cofx :local-store-builder-items
+          (reduce-kv
+           (fn [acc store-key item-key]
+             (let [v (get-local-storage-item store-key)]
+               (if (map? v) (assoc acc item-key v) acc)))
+           {}
+           builder-wip-stores))))
+
 ;; dead — duplicate of classes.cljc def, never referenced from .cljs code
 #_(def musical-instrument-choice-cfg
   {:name "Musical Instrument"
    :options (zipmap (map :key equip5e/musical-instruments) (repeat 1))})
 
-(reg-local-store-cofx
+(defn get-rejected-plugins
+  "Read the name-keyed quarantine map (`plugins:rejected`), or {} if absent or
+   not a map. Canonical source for quarantined sources."
+  []
+  (let [r (get-local-storage-item local-storage-plugins-rejected-key)]
+    (if (map? r) r {})))
+
+(defn set-rejected-plugins
+  "Persist the name-keyed quarantine map. Removes the key entirely when the map
+   is empty, so a fully-repaired library leaves no stale quarantine entry."
+  [rejected]
+  (when js/window.localStorage
+    (if (seq rejected)
+      (set-item local-storage-plugins-rejected-key (str rejected))
+      (.removeItem js/window.localStorage local-storage-plugins-rejected-key))))
+
+;; Resilient plugins loader. The old all-or-nothing version returned nil — dropping
+;; the ENTIRE library — if any single source failed the ::e5/plugins spec. Instead,
+;; keep the valid sources and quarantine the invalid ones in `plugins:rejected`
+;; (preserved for repair). Registered directly, not via reg-local-store-cofx,
+;; because the salvage/quarantine behavior is plugins-specific.
+(re-frame/reg-cofx
  ::e5/plugins
- local-storage-plugins-key
- ::e5/plugins)
+ (fn [cofx _]
+   (assoc cofx
+          ::e5/plugins
+          (when-let [stored (get-local-storage-item local-storage-plugins-key)]
+            (if (not (map? stored))
+              ;; Parsed but not a map: preserve raw in the :corrupt slot — NOT
+              ;; :rejected, a clean name-keyed map we must not clobber. Load nothing.
+              (do
+                (set-item (corrupt-slot-key local-storage-plugins-key) (str stored))
+                (js/console.warn
+                 (str "Stored plugins were not a map; preserved raw copy in '"
+                      (corrupt-slot-key local-storage-plugins-key)
+                      "'. Loaded no homebrew."))
+                nil)
+
+              ;; It's a map: salvage per source — keep the valid sources and
+              ;; reconcile the name-keyed quarantine map (see reconcile-rejected).
+              (let [{:keys [kept rejected]}
+                    ;; Load acceptance predicate comes from the shared content-specs
+                    ;; registry (the source save & load agree on), not inline — so
+                    ;; the load floor can't drift from what save guarantees.
+                    (e5/salvage-plugins content-specs/valid-for-load? stored)
+                    reconciled (e5/reconcile-rejected
+                                (get-local-storage-item local-storage-plugins-rejected-key)
+                                rejected
+                                kept)]
+                (if (seq reconciled)
+                  (set-item local-storage-plugins-rejected-key (str reconciled))
+                  ;; self-clearing: no quarantined sources left → drop the key
+                  (when js/window.localStorage
+                    (.removeItem js/window.localStorage local-storage-plugins-rejected-key)))
+                (when (seq rejected)
+                  (js/console.warn
+                   (str "Quarantined " (count rejected) " invalid homebrew "
+                        "source(s) (kept the other " (count kept) "). Preserved "
+                        "for repair in '" local-storage-plugins-rejected-key
+                        "': " (pr-str (vec (keys rejected))))))
+                kept))))))
+
+;; Load the name-keyed quarantine map into app-db so the repair UI can
+;; render reactively. Injected AFTER ::e5/plugins in :initialize-db, since that
+;; cofx is what writes/reconciles plugins:rejected during boot.
+(re-frame/reg-cofx
+ ::e5/rejected-plugins
+ (fn [cofx _]
+   (assoc cofx ::e5/rejected-plugins (get-rejected-plugins))))
 
 (reg-local-store-cofx
  ::combat5e/tracker-item
