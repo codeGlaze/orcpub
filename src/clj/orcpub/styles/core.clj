@@ -1725,9 +1725,15 @@
     [:.opt-layout-control
      {:display :flex
       :align-items :center
-      :justify-content :flex-end
+      :justify-content :space-between
+      :flex-wrap :wrap
       :gap "12px"
       :margin-bottom "16px"}]
+
+    [:.opt-layout-control-right
+     {:display :flex
+      :align-items :center
+      :gap "12px"}]
 
     [:.opt-layout-control-label
      {:font-size "11px"
@@ -1735,6 +1741,89 @@
       :letter-spacing "0.07em"
       :text-transform :uppercase
       :color "#7e8897"}]
+
+    ;; ---- Theme switcher (palette dropdown: swatch + label + per-theme note) ----
+    [:.theme-switch
+     {:position :relative}]
+
+    [:.theme-swatch
+     {:width "13px"
+      :height "13px"
+      :border-radius "3px"
+      :flex "0 0 auto"
+      :display :inline-block}]
+
+    [:.theme-switch-btn
+     {:display :inline-flex
+      :align-items :center
+      :gap "8px"
+      :border "1px solid rgba(255,255,255,0.14)"
+      :cursor :pointer
+      :font-family :inherit
+      :font-size "12px"
+      :font-weight 600
+      :color "#cdd4de"
+      :padding "9px 12px"
+      :border-radius "6px"
+      :background "rgba(255,255,255,0.03)"}]
+
+    [:.theme-switch-btn:hover
+     {:border-color "rgba(240,161,15,0.5)"
+      :color "#f0b54a"}]
+
+    [:.theme-switch-chev
+     {:display :inline-flex
+      :transition "transform .15s"}]
+
+    [:.theme-switch-chev.open
+     {:transform "rotate(180deg)"}]
+
+    [:.theme-switch-menu
+     {:position :absolute
+      :top "calc(100% - 6px)"
+      :left 0
+      :z-index 40
+      :width "240px"
+      :background "#0d1218"
+      :border "1px solid rgba(255,255,255,0.14)"
+      :border-radius "10px"
+      :overflow :hidden
+      :box-shadow "0 16px 34px -10px rgba(0,0,0,0.8)"
+      :margin-top "6px"}]
+
+    [:.theme-opt
+     {:display :block
+      :width "100%"
+      :text-align :left
+      :border :none
+      :cursor :pointer
+      :font-family :inherit
+      :background :transparent
+      :padding "10px 12px"}]
+
+    [:.theme-opt:hover
+     {:background "rgba(255,255,255,0.05)"}]
+
+    [:.theme-opt.active
+     {:background "rgba(240,161,15,0.1)"}]
+
+    [:.theme-opt-head
+     {:display :flex
+      :align-items :center
+      :gap "9px"}]
+
+    [:.theme-opt-label
+     {:font-size "13px"
+      :font-weight 700
+      :color "#e7ecf2"}]
+
+    [:.theme-opt-note
+     {:display :block
+      :font-size "11px"
+      :color "#7e8897"
+      :line-height 1.4
+      :margin-top "4px"
+      :padding-left "20px"}]
 
     ;; Subrace Ability Score Increases — Race + Subrace = Total equation cards (Cards
     ;; view) and a denser select-per-ability (Compact view). Active ability = amber.

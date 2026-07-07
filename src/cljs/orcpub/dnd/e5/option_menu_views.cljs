@@ -20,6 +20,7 @@
             [clojure.string :as str]
             [orcpub.components :as comps]
             [orcpub.dnd.e5.db :as db5e]
+            [orcpub.dnd.e5.themes :as themes]
             [orcpub.dnd.e5.option-grouping :as grouping]))
 
 ;; ---------------------------------------------------------------------------
@@ -127,13 +128,57 @@
     :options layouts
     :on-change #(dispatch [::set-layout %])}])
 
+(def ^:private theme-chevron
+  [:svg {:width "12" :height "12" :viewBox "0 0 24 24" :fill "none" :stroke "currentColor"
+         :stroke-width "2.5" :stroke-linecap "round" :stroke-linejoin "round"}
+   [:polyline {:points "6 9 12 15 18 9"}]])
+
+(defn theme-switcher
+  "End-user theme control: a swatch+label button opening a palette dropdown of themes
+   (swatch, label, per-theme note). Sets the persisted ::builder-theme; dismisses on an
+   outside click. A custom button+popover (not a native select) so the swatches and notes
+   render and the menu aligns under the button."
+  []
+  (let [open?    (r/atom false)
+        wrap-ref (atom nil)
+        on-doc   (fn [e] (let [n @wrap-ref]
+                           (when (and n (not (.contains n (.-target e)))) (reset! open? false))))]
+    (r/create-class
+     {:component-did-mount    (fn [_] (js/document.addEventListener "mousedown" on-doc))
+      :component-will-unmount (fn [_] (js/document.removeEventListener "mousedown" on-doc))
+      :reagent-render
+      (fn []
+        (let [current @(subscribe [::builder-theme])
+              cur     (themes/theme current)]
+          [:div.theme-switch {:ref #(reset! wrap-ref %)}
+           [:button.theme-switch-btn
+            {:on-click (fn [e] (.stopPropagation e) (swap! open? not))}
+            [:span.theme-swatch {:style {:background (:swatch cur)}}]
+            [:span.theme-switch-label (:label cur)]
+            [:span.theme-switch-chev {:class (when @open? "open")} theme-chevron]]
+           (when @open?
+             [:div.theme-switch-menu
+              (doall
+               (for [k themes/theme-order]
+                 (let [t (themes/theme k)]
+                   ^{:key k}
+                   [:button.theme-opt {:class (when (= k current) "active")
+                                       :on-click (fn [] (reset! open? false)
+                                                   (dispatch [::set-builder-theme k]))}
+                    [:span.theme-opt-head
+                     [:span.theme-swatch {:style {:background (:swatch t)}}]
+                     [:span.theme-opt-label (:label t)]]
+                    [:span.theme-opt-note (:note t)]])))])]))})))
+
 (defn layout-control-row
-  "An anchored, right-aligned control row labelling the global layout selector, placed
-   with the menus it controls."
+  "An anchored control row: the theme switcher on the left, the global layout selector on
+   the right, placed with the menus/header they control."
   []
   [:div.opt-layout-control
-   [:span.opt-layout-control-label "Option Layout"]
-   [layout-toggle]])
+   [theme-switcher]
+   [:div.opt-layout-control-right
+    [:span.opt-layout-control-label "Option Layout"]
+    [layout-toggle]]])
 
 (defn info-popover
   "A ⓘ button that toggles a small popover on click — works with mouse AND touch, no
