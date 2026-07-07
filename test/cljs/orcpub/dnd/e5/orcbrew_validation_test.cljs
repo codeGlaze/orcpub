@@ -3,6 +3,7 @@
             [cljs.reader :refer [read-string]]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.dnd.e5 :as e5]
+            [orcpub.dnd.e5.content-specs :as content-specs]
             [cljs.spec.alpha :as spec]))
 
 ;; ============================================================================
@@ -514,6 +515,13 @@
       ;; Other subrace should be unchanged
       (is (= :dwarf (get-in result [:orcpub.dnd.e5/subraces :hill-dwarf :race]))))))
 
+;; REGRESSION GUARD for import key-rename + cross-reference rewrite. It was
+;; failing on BROKEN SCAFFOLDING, not a code bug: `apply-key-renames` (and its
+;; only real caller, events.cljs `:apply-conflict-resolutions`) read each rename
+;; as {:source :content-type :from :to}; the test was passing :old-key/:new-key,
+;; so from/to were nil and nothing was renamed. Keys corrected to :from/:to here
+;; — now the guard actually exercises the rename + subclass `:class` ref rewrite.
+;; If this fails again, fix the CODE; the input shape mirrors the live caller.
 (deftest test-apply-key-renames-batch
   (testing "Applying batch of key renames"
     (let [data {"Source A" {:orcpub.dnd.e5/classes
@@ -524,8 +532,8 @@
                             {:artificer {:option-pack "Source B" :name "Artificer B"}}}}
           renames [{:source "Source A"
                     :content-type :orcpub.dnd.e5/classes
-                    :old-key :artificer
-                    :new-key :artificer-source-a}]
+                    :from :artificer
+                    :to :artificer-source-a}]
           result (orcbrew-val/apply-key-renames data renames)]
       ;; Source A's artificer should be renamed
       (is (contains? (get-in result ["Source A" :orcpub.dnd.e5/classes]) :artificer-source-a))
@@ -699,11 +707,11 @@
   (testing "top level when path is empty"
     (is (= "the top level" (orcbrew-val/describe-location []))))
   (testing "trailing 0 (map-entry key selector) reads as 'the key'"
-    (is (= "the key \"Xanathar's Guide\""
-           (orcbrew-val/describe-location ["Xanathar's Guide" 0]))))
+    (is (= "the key \"Sample Source Book\""
+           (orcbrew-val/describe-location ["Sample Source Book" 0]))))
   (testing "trailing 1 (value selector) is dropped, breadcrumb ends at the key"
-    (is (= "\"Xanathar's Guide\" > :orcpub.dnd.e5/subclasses"
-           (orcbrew-val/describe-location ["Xanathar's Guide" 1 :orcpub.dnd.e5/subclasses 1])))))
+    (is (= "\"Sample Source Book\" > :orcpub.dnd.e5/subclasses"
+           (orcbrew-val/describe-location ["Sample Source Book" 1 :orcpub.dnd.e5/subclasses 1])))))
 
 (deftest test-describe-value-surfaces-item-identity
   (testing "maps surface :name instead of chopped EDN"
@@ -717,7 +725,7 @@
 
 (deftest test-format-validation-errors-real-spec
   (testing "end-to-end: a mis-shaped plugin produces readable, non-munged output"
-    (let [bad-plugin {"Xanathar's Guide" {:orcpub.dnd.e5/subclasses
+    (let [bad-plugin {"Sample Source Book" {:orcpub.dnd.e5/subclasses
                                            {:war-magic {:class :wizard}}}}
           explain (spec/explain-data ::e5/plugin bad-plugin)
           msg (orcbrew-val/format-validation-errors explain)]
@@ -766,6 +774,11 @@
     (is (= 42 (orcbrew-val/normalize-text 42)))
     (is (= nil (orcbrew-val/normalize-text nil)))))
 
+;; REGRESSION GUARD — not a stale expectation. count-non-ascii must actually
+;; detect non-ASCII. It long returned nil for ALL input in cljs because
+;; `(int one-char-string)` is 0 (cljs has no char type), so `(> (int %) 127)`
+;; never fired. This guard correctly FAILED until the impl switched to
+;; `.charCodeAt`. Do NOT relax it to match the old (broken) behavior.
 (deftest test-count-non-ascii
   (testing "All-ASCII string returns nil"
     (is (nil? (orcbrew-val/count-non-ascii "hello world"))))
@@ -781,15 +794,21 @@
     (is (nil? (orcbrew-val/count-non-ascii 42)))))
 
 (deftest test-normalize-text-in-data-recursive
-  (testing "Normalizes strings nested in maps and vectors"
+  ;; STALE EXPECTATION corrected. normalize-text normalizes typographic
+  ;; punctuation (smart quotes/apostrophes/dashes \u2014 the curated `unicode-to-ascii`
+  ;; map) but DELIBERATELY does NOT strip accented letters: accents carry meaning,
+  ;; and stripping them silently is data loss. The old `"Caf\u00e9" -> "Cafe"` assertion encoded
+  ;; the opposite, abandoned behavior. Accents are surfaced via count-non-ascii
+  ;; (warn, don't strip), not normalized away here.
+  (testing "Normalizes typographic punctuation but PRESERVES accented letters"
     (let [input {:name "Caf\u00e9"
                  :traits [{:name "Smart\u2019s"
                             :description "Uses \u201cmagic\u201d"}]
                  :level 3}
           result (orcbrew-val/normalize-text-in-data input)]
-      (is (= "Cafe" (:name result)))
-      (is (= "Smart's" (get-in result [:traits 0 :name])))
-      (is (= "Uses \"magic\"" (get-in result [:traits 0 :description])))
+      (is (= "Caf\u00e9" (:name result)) "accented letter preserved (not stripped)")
+      (is (= "Smart's" (get-in result [:traits 0 :name])) "smart apostrophe -> ASCII")
+      (is (= "Uses \"magic\"" (get-in result [:traits 0 :description])) "smart quotes -> ASCII")
       (is (= 3 (:level result))))))
 
 ;; ============================================================================
@@ -912,6 +931,12 @@
       (is (= 2 (count (get-in updated [:selections :companion-choice :options]))))
       (is (= 1 (count changes))))))
 
+;; REGRESSION GUARD that caught a REAL bug (not stale): the full import pipeline
+;; must dedup duplicate options on a top-level homebrew Selection. dedup only
+;; walked options nested under an item's :selections map, so an actual
+;; :orcpub.dnd.e5/selections item's own :options were never deduped. Fixed in
+;; dedup-options-in-item (handles both shapes). If this fails again, the dedup
+;; pipeline regressed — fix the CODE.
 (deftest test-dedup-options-in-import-full-pipeline
   (testing "Full import pipeline deduplicates selection options"
     (let [plugin-edn (str "{:orcpub.dnd.e5/selections"
@@ -1123,3 +1148,108 @@
           result (orcbrew-val/apply-user-edits-to-plugin plugin "P" edits)]
       (is (= "Second Wind"
              (get-in result [:orcpub.dnd.e5/classes :fighter :traits 1 :name]))))))
+;; ============================================================================
+;; strip-export-blanks — don't export meaningless nils/falses/empties.
+;; ============================================================================
+
+(deftest strip-export-blanks-drops-meaningless
+  (testing "drops false / nil / empty-collection map values"
+    (is (= {:a true}
+           (orcbrew-val/strip-export-blanks {:a true :b false :c nil :d [] :e {}}))))
+  (testing "keeps real values (true, numbers, strings, non-empty colls)"
+    (is (= {:a true :n 3 :s "x" :v [1 2]}
+           (orcbrew-val/strip-export-blanks {:a true :n 3 :s "x" :v [1 2]}))))
+  (testing "recurses and drops a map that becomes empty after cleaning"
+    (is (= {:keep true}
+           (orcbrew-val/strip-export-blanks {:keep true :components {:somatic false}})))))
+
+(deftest strip-export-blanks-keeps-meaningful-blanks
+  (testing "keeps nil for the keep-nil keys (nil is a real answer there)"
+    (is (= {:spell-list-kw nil :ability nil :class-key nil}
+           (orcbrew-val/strip-export-blanks {:spell-list-kw nil :ability nil :class-key nil}))))
+  (testing "keeps [prof-kw first-class?] pairs intact (vector elements not dropped)"
+    ;; the multiclass 'first-class-only' rule lives in pairs, NOT {k false} maps
+    (is (= {:armor-profs [[:heavy false] [:medium true]]}
+           (orcbrew-val/strip-export-blanks {:armor-profs [[:heavy false] [:medium true]]})))))
+
+(deftest strip-export-blanks-roundtrip-safe
+  (testing "the toggle false-cruft is removed, real proficiencies kept, still valid"
+    (let [plugin (read-string
+                  (str "{:orcpub.dnd.e5/feats"
+                       " {:lucky {:option-pack \"P\" :name \"Lucky\" :key :lucky"
+                       "          :disabled? false"            ; meaningless -> drop
+                       "          :props {:skill-prof {:athletics true"   ; keep
+                       "                               :stealth false"    ; cruft -> drop
+                       "                               :arcana false}}}}}"))   ; cruft -> drop
+          stripped (orcbrew-val/strip-export-blanks plugin)
+          skills (get-in stripped [:orcpub.dnd.e5/feats :lucky :props :skill-prof])]
+      ;; real proficiency kept, false-cruft gone
+      (is (= {:athletics true} skills) "kept the real prof, dropped the false ones")
+      ;; meaningless :disabled? false removed
+      (is (not (contains? (get-in stripped [:orcpub.dnd.e5/feats :lucky]) :disabled?))
+          "dropped :disabled? false")
+      ;; required real values untouched
+      (is (= "Lucky" (get-in stripped [:orcpub.dnd.e5/feats :lucky :name])))
+      (is (= :lucky (get-in stripped [:orcpub.dnd.e5/feats :lucky :key])))
+      ;; still a valid plugin after stripping
+      (is (spec/valid? :orcpub.dnd.e5/plugin stripped)
+          (str "stripped plugin must stay spec-valid: "
+               (spec/explain-str :orcpub.dnd.e5/plugin stripped))))))
+
+;; ---------------------------------------------------------------------------
+;; Real-content cruft shapes (from the orcbrew catalog survey — 146 files).
+;; Mirrors test/fixtures/cruft-shapes.orcbrew. The two real-world patterns are
+;; false-cruft :spell-lists (every off-class stored as false — e.g. Faiths of the
+;; Forgotten Realms :searing-song) and a {nil nil} stray entry (UA Sidekicks, the
+;; UA Artificer). Proves the whole loop: LOADS without quarantine -> strip cleans
+;; -> both items STILL pass their per-type save spec (nothing meaningful lost).
+;; ---------------------------------------------------------------------------
+
+(def cruft-shapes-edn
+  (str "{:orcpub.dnd.e5/spells"
+       " {:test-cantrip {:name \"Test Cantrip\" :key :test-cantrip"
+       "                 :option-pack \"Cruft Shapes\" :level 0 :school \"evocation\""
+       "                 :spell-lists {:wizard true :cleric true"
+       "                               :bard false :druid false :paladin false"
+       "                               :ranger false :sorcerer false :warlock false}"
+       "                 :ritual false :material false}}"
+       " :orcpub.dnd.e5/classes"
+       " {:test-sidekick {nil nil"
+       "                  :name \"Test Sidekick\" :key :test-sidekick"
+       "                  :option-pack \"Cruft Shapes\" :hit-die 8"
+       "                  :profs {:skill {:athletics true :stealth false :arcana false}}}}}"))
+
+(defn- deep-has? [pred x]
+  (cond (map? x) (or (some pred (keys x)) (some pred (vals x))
+                     (some #(deep-has? pred %) (vals x)))
+        (coll? x) (some #(deep-has? pred %) x)
+        :else (pred x)))
+
+(deftest real-cruft-shapes-load-strip-stay-valid
+  (testing "real false-cruft + {nil nil} shapes: load clean, strip cleans, stay save-valid"
+    (let [plugin  (read-string cruft-shapes-edn)
+          spell-spec (content-specs/save-spec-for :orcpub.dnd.e5/spells)
+          class-spec (content-specs/save-spec-for :orcpub.dnd.e5/classes)]
+      ;; 1. LOADS without false quarantine (the loose floor keeps it)
+      (is (content-specs/valid-for-load? plugin) "real cruft shapes must load, not quarantine")
+      ;; 2. both items are save-valid even WITH the cruft (cruft is in non-req fields)
+      (is (spec/valid? spell-spec (get-in plugin [:orcpub.dnd.e5/spells :test-cantrip])))
+      (is (spec/valid? class-spec (get-in plugin [:orcpub.dnd.e5/classes :test-sidekick])))
+      ;; 3. STRIP removes the cruft
+      (let [stripped (orcbrew-val/strip-export-blanks plugin)
+            spell    (get-in stripped [:orcpub.dnd.e5/spells :test-cantrip])
+            klass    (get-in stripped [:orcpub.dnd.e5/classes :test-sidekick])]
+        (is (= {:wizard true :cleric true} (:spell-lists spell))
+            "false-cruft classes dropped, real trues kept")
+        (is (not (contains? spell :ritual)) "dropped :ritual false")
+        (is (not (contains? klass nil)) "dropped the {nil nil} stray entry")
+        (is (= {:athletics true} (get-in klass [:profs :skill])) "dropped nested false skills")
+        (is (not (deep-has? nil? stripped)) "no nil key/value survives anywhere")
+        (is (not (deep-has? false? stripped)) "no false value survives anywhere")
+        ;; 4. after stripping, both items STILL pass their save spec (nothing lost)
+        (is (spec/valid? spell-spec spell)
+            (str "stripped spell must stay valid: " (spec/explain-str spell-spec spell)))
+        (is (spec/valid? class-spec klass)
+            (str "stripped class must stay valid: " (spec/explain-str class-spec klass)))
+        ;; and the whole plugin re-loads clean
+        (is (content-specs/valid-for-load? stripped) "stripped plugin still load-valid")))))

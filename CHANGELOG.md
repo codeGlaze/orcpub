@@ -1,7 +1,34 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-Format: per-commit entries grouped by category, newest first.
+## [staging/june-bug-patches-01] — June bug-patch bundle (2026-07-05)
+
+### Fixed
+- **Homebrew class source no longer poisons spell-selection keys** — the source label was folded into the class `:name`, so the name-derived selection keys broke whenever it changed and saved spells/cantrips vanished; keys now come from a stable class identity, and orphaned saves repair on load (`9a709c0d`, `fe549631`, `a3e26155`).
+- **Hunter's Evasion no longer blanks the Features tab** — the Superior Hunter's Defense → Evasion trait shipped with no name, and a nil name crashed the feature-name sort; it's now named "Evasion" (`dd65d66a`).
+- **Character sheets no longer go blank** — an unrenderable section shows a recovery message; the rest of the sheet stays usable (`565c33c0`).
+- **The Features tab loads for every character** — fixed a rendering bug that blanked it for all (`2a6fde93`).
+- **A nameless trait no longer crashes the Features tab** — shown as "[Unnamed feature]" instead of throwing on the name sort (`5c3b073f`).
+- **Boolean toggles no longer corrupt data** — they can't wipe an underlying map, and self-heal damage from the old bug (`1e9f27ec`).
+- **Keyword-trap imports no longer silently vanish** — caught on import and routed to repair instead of a class that never appears (`d9b23021`).
+- **Unreadable storage is preserved** for recovery instead of deleted (`eedffc08`).
+- **localStorage quota failures warn and offer a backup** instead of silently dropping the save.
+- **Readable import/export errors** — plain-English console messages instead of garbled output; import dedup is shown as a log line, not raw EDN (`eba28a9c`, `e512dc45`).
+- **Post-save export fixed** — the "export here" link passed a stringified plugin instead of the map (`e3c9a9ee`).
+- **Autosave no longer crashes on a not-ready template** — an empty template reached the builder and threw; now guarded (`e3c9a9ee`).
+- **Import dedup no longer skips a top-level Selection** — de-duplication now covers a Selection at the top level, not just nested options (`d9b23021`).
+- **Non-ASCII name detection works in the browser** — `count-non-ascii` was miscounting under ClojureScript (`d9b23021`).
+
+### Added
+- **Resilient homebrew loading** — a bad source is quarantined for repair (self-clearing once fixed) instead of dropping the whole library, with a My Content panel to rename, re-key, and restore it (`eedffc08`).
+- **Builder escape hatches** — Export draft, refresh-safe WIP restore, "Save anyway" with placeholders, emergency raw export, and Export & Auto-Fix, so imperfect work is never trapped or lost (`eac350d0`, `e3c9a9ee`).
+- **"Show homebrew source on class names" toggle** — without affecting saved spell selections (`8f94a94c`).
+- **Fill-in dialog on export** — supply or auto-fill missing required fields instead of writing a broken file, with live field-level guidance in the builders (`1547cd69`, `22172adb`).
+
+### Changed
+- **Save validation covers every required field** — dropdowns and multi-selects (spell class-lists, monster hit dice, parent class/race), not just text (`e512dc45`).
+- **Save and load share one spec registry** — so they can't drift and wrongly quarantine already-saved content (`ca977e0a`).
+- **Normal exports strip meaningless blank flags** (false/nil/empty); raw, draft, and emergency exports are untouched.
+- **Invalid-key errors are element-specific** instead of a generic "Name" error.
 
 ## [breaking/2026-stack-modernization]
 

@@ -108,3 +108,27 @@
       (is (= 3 (count result)))
       ;; The item with no :name has nil->\"\" so sorts first
       (is (nil? (:name (first result)))))))
+
+(deftest toggle-flag-flips-booleans-but-never-collapses-collections
+  (testing "behaves like `not` for flag values"
+    (is (= true (common/toggle-flag false)))
+    (is (= true (common/toggle-flag nil)))
+    (is (= false (common/toggle-flag true))))
+  (testing "leaves a map/collection UNTOUCHED (the B6 guard — `not` would nuke it to false)"
+    (is (= {:athletics true} (common/toggle-flag {:athletics true})))
+    (is (= [] (common/toggle-flag [])))
+    (is (= {} (common/toggle-flag {})))))
+
+(deftest toggle-in-toggles-heals-and-protects
+  (testing "toggles a leaf flag like toggle-flag"
+    (is (= {:a true} (common/toggle-in {} [:a])))
+    (is (= {:a false} (common/toggle-in {:a true} [:a])))
+    (is (= {:p {:k true}} (common/toggle-in {} [:p :k]))))
+  (testing "leaf that holds a MAP is preserved (no collapse)"
+    (is (= {:p {:skills {:athletics true}}}
+           (common/toggle-in {:p {:skills {:athletics true}}} [:p :skills]))))
+  (testing "SELF-HEAL: a stray false/boolean INTERMEDIATE becomes a fresh map"
+    (is (= {:p {:skills {:stealth true}}}
+           (common/toggle-in {:p {:skills false}} [:p :skills :stealth])))
+    (is (= {:p {:skills {:stealth true}}}
+           (common/toggle-in {:p {:skills true}} [:p :skills :stealth])))))
