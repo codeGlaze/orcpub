@@ -1098,10 +1098,14 @@
 ;; Data-Level Cleaning (after parse) - With Change Tracking
 ;; ============================================================================
 
-;; Fields where nil should be replaced with a default value
+;; Fields where nil should be replaced with a default value. A source-less item
+;; lands in the real built-in "Default Option Source" plugin (db.cljs) rather than
+;; a phantom "Unnamed Content" one, so it's manageable content, not an orphan.
+(def default-option-source "Default Option Source")
+
 (def nil-replace-defaults
   {:disabled? false
-   :option-pack "Unnamed Content"})
+   :option-pack default-option-source})
 
 ;; Fields where nil is semantically meaningful and should be preserved
 ;; NOTE: :spellcasting is NOT preserved because nil means "no spellcasting"
@@ -1206,8 +1210,8 @@
                                       (swap! changes conj {:type :fixed-option-pack
                                                            :path path
                                                            :from ""
-                                                           :to "Unnamed Content"})
-                                      [k "Unnamed Content"])
+                                                           :to default-option-source})
+                                      [k default-option-source])
 
                                     ;; Recurse into nested structures
                                     (map? v)
