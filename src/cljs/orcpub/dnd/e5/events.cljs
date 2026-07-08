@@ -4899,6 +4899,11 @@
    (update db ::char5e/exclude-spell-cards-by-dc-mod? not)))
 
 (reg-event-db
+ ::char5e/toggle-print-card-back-logo
+ (fn [db _]
+   (update db ::char5e/print-card-back-logo? not)))
+
+(reg-event-db
  ::char5e/toggle-large-abilities-print
  (fn [db _]
    (update db ::char5e/print-large-abilities? not)))

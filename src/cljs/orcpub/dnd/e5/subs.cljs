@@ -1327,6 +1327,12 @@
  (fn [db _]
    (-> db ::char5e/exclude-spell-cards-by-dc-mod? not)))
 
+(reg-sub
+ ::char5e/print-card-back-logo?
+ (fn [db _]
+   ;; Positive flag, default off — card backs stay text-only unless opted in.
+   (boolean (::char5e/print-card-back-logo? db))))
+
 
 (reg-sub
  ::char5e/print-character-sheet?
