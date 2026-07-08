@@ -61,3 +61,20 @@
           result (opt/feat-prereqs [::char5e/str] path-prereqs race-map)]
       ;; 1 ability + 1 race
       (is (= 2 (count result))))))
+
+(deftest missing-spell-keys-flags-undefined-refs
+  (testing "returns spell-list keys with no definition in spells-map (dangling
+            imported references), empty when all resolve"
+    (let [spells-map {:fireball {:name "Fireball"} :magic-missile {:name "Magic Missile"}}]
+      ;; :guiding-hand referenced but not defined -> flagged
+      (is (= #{:guiding-hand}
+             (opt/missing-spell-keys {0 #{:magic-missile}
+                                      1 #{:fireball :guiding-hand}}
+                                     spells-map)))
+      ;; everything defined -> empty
+      (is (= #{}
+             (opt/missing-spell-keys {1 #{:fireball :magic-missile}} spells-map)))
+      ;; multiple missing across levels
+      (is (= #{:guiding-hand :sudden-awakening}
+             (opt/missing-spell-keys {0 #{:guiding-hand} 1 #{:fireball :sudden-awakening}}
+                                     spells-map))))))

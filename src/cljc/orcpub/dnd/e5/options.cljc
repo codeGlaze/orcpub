@@ -443,7 +443,13 @@
         ;; source was quarantined), fall back to a name derived from the key so the
         ;; card is identifiable — "Guiding Hand" for :guiding-hand — instead of blank.
         display-name (or name (common/kw-to-name key true))
-        level (or level 0)]
+        level (or level 0)
+        ;; When the spell has no definition, seed an edit-event that opens the spell
+        ;; builder pre-filled with the key + derived name, so a dangling spell can be
+        ;; DEFINED here instead of sitting un-editable.
+        edit-event (or edit-event
+                       (when (nil? name)
+                         [::spells/edit-spell {:key key :name display-name :level level}]))]
     (t/option-cfg
      {:name (if prepend-level? (str level " - " display-name) display-name)
       :key key
@@ -461,6 +467,28 @@
 
 
 (def memoized-spell-option (memoize spell-option))
+
+(defn missing-spell-keys
+  "Spell keys in a class's spell list (a `{level #{keys}}` map) that have no
+   definition in `spells-map` — an imported list names a spell whose definition or
+   source didn't load. Pure; returns a set (empty when everything resolves)."
+  [spell-list-by-level spells-map]
+  (into #{}
+        (for [[_ keyset] spell-list-by-level
+              k keyset
+              :when (nil? (get spells-map k))]
+          k)))
+
+(def ^:private warn-missing-spells!
+  ;; Memoized so a given (class, missing-set) is reported at most once, not on
+  ;; every re-render of the spell selection. cljs-only side effect.
+  (memoize
+   (fn [class-name missing]
+     #?(:cljs (js/console.warn
+               (str "\"" class-name "\" spell list references spells with no loaded "
+                    "definition: " (s/join ", " (map name (sort missing)))
+                    " — shown by a key-derived name; define each via its edit link.")))
+     nil)))
 
 (defn spell-options [spells-map spells spellcasting-ability class-name & [prepend-level? qualifier]]
   (map
@@ -668,6 +696,10 @@
            all-spells (select-keys
                        (or spells (spell-lists (or spell-list-kw class-key)))
                        (keys slots))
+           ;; Raise (once) any spells this list references but that aren't defined,
+           ;; so a dangling import reference is visible, not silent.
+           _ (let [missing (missing-spell-keys all-spells spells-map)]
+               (when (seq missing) (warn-missing-spells! (:name cls-cfg) missing)))
            acquire? (= :acquire known-mode)
            options (flatten
                       (map
