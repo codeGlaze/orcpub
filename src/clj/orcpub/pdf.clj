@@ -525,12 +525,13 @@
                                (- 11.0 y 0.08)
                                (- box-width 0.3)
                                (- box-height 0.2)))
-           ;; Blank back — a large, CENTERED logo (~80% of the card). draw-imagex
-           ;; fits it to the box preserving aspect and centers it, so the tall
-           ;; 22x30 mark isn't squished into a clipped sliver like the front's.
+           ;; Blank back — a large, CENTERED logo (~80% of the card). Uses the
+           ;; hi-res dmv-box-logo.png (1197x628), NOT the front's tiny 22x30
+           ;; card-logo.png, which pixelates and is cropped in-source. draw-imagex
+           ;; fits it to the box preserving aspect and centers it.
            (when logo?
              (draw-imagex cs
-                          (img "public/image/card-logo.png")
+                          (img "public/image/dmv-box-logo.png")
                           (+ x (* box-width 0.1))
                           (+ y (* box-height 0.1))
                           (* box-width 0.8)
