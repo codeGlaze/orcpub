@@ -499,37 +499,42 @@
              y (+ margin-y (* box-height j))
              spell-index (+ i (* j num-boxes-x))
              {:keys [remaining-lines spell-name]} (remaining-lines-vec spell-index)]
-         (when logo?
-           (draw-imagex cs
-                        (img "public/image/card-logo.png")
-                        (+ x 1.9)
-                        (+ y 0.02)
-                        1.0
-                        0.25))
-         (when (seq remaining-lines)
-           (draw-text-to-box cs
-                             spell-name
-                             (:bold fonts)
-                             10
-                             (+ x 0.12)
-                             (- 11.0 y 0.08)
-                             (- box-width 0.3)
-                             0.25)
-           (draw-lines-to-box cs
-                             remaining-lines
-                             (:plain fonts)
-                             8
-                             (+ x 0.12)
-                             (- 11.0 y 0.24)
-                             (- box-height 0.2))
-           (draw-text-to-box cs
-                             "(reverse)"
-                             (:italic fonts)
-                             10
-                             (+ x 0.15 (string-width spell-name (:bold fonts) 10))
-                             (- 11.0 y 0.08)
-                             (- box-width 0.3)
-                             (- box-height 0.2))))))))
+         (if (seq remaining-lines)
+           ;; This card back carries overflow text from the front.
+           (do
+             (draw-text-to-box cs
+                               spell-name
+                               (:bold fonts)
+                               10
+                               (+ x 0.12)
+                               (- 11.0 y 0.08)
+                               (- box-width 0.3)
+                               0.25)
+             (draw-lines-to-box cs
+                               remaining-lines
+                               (:plain fonts)
+                               8
+                               (+ x 0.12)
+                               (- 11.0 y 0.24)
+                               (- box-height 0.2))
+             (draw-text-to-box cs
+                               "(reverse)"
+                               (:italic fonts)
+                               10
+                               (+ x 0.15 (string-width spell-name (:bold fonts) 10))
+                               (- 11.0 y 0.08)
+                               (- box-width 0.3)
+                               (- box-height 0.2)))
+           ;; Blank back — a large, CENTERED logo (~80% of the card). draw-imagex
+           ;; fits it to the box preserving aspect and centers it, so the tall
+           ;; 22x30 mark isn't squished into a clipped sliver like the front's.
+           (when logo?
+             (draw-imagex cs
+                          (img "public/image/card-logo.png")
+                          (+ x (* box-width 0.1))
+                          (+ y (* box-height 0.1))
+                          (* box-width 0.8)
+                          (* box-height 0.8)))))))))
 
 (defn print-spells [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod?]
   (let [num-boxes-x (int (/ 8.5 box-width))
