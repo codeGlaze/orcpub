@@ -1,0 +1,13 @@
+# Batch user file template
+#
+# Copy this file, replace the example users with your own, then run:
+#   cp docker/scripts/users.example.txt users.txt
+#   ./docker-user.sh batch users.txt
+#
+# Format: username  email  password  (whitespace-separated)
+# Lines starting with # and blank lines are skipped.
+# Duplicates are logged and skipped (not treated as errors).
+
+admin    admin@example.com      SecurePass123
+player1  player1@example.com    AnotherPass456
+player2  player2@example.com    YetAnotherPass789
