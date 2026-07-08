@@ -581,7 +581,7 @@
     :weapon-name-2 8
     :weapon-name-3 8}))
 
-(defn add-spell-cards! [doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod?]  (try
+(defn add-spell-cards! [doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? print-card-back-logo?]  (try
     (let [custom-spells-map (common/map-by-key custom-spells)
           spells-map (merge spells/spell-map custom-spells-map)
           flat-spells (-> spells-known vals flatten)
@@ -592,7 +592,12 @@
                               class)
                             key])
                          flat-spells)
-          parts (vec (partition-all 9 flat-spells))]
+          parts (vec (partition-all 9 flat-spells))
+          ;; Load the embedded fonts + build the memoized image embedder ONCE per
+          ;; document, not once per page (print-spells/print-backs used to re-parse
+          ;; 4 TTFs per call, and each card icon was re-decoded+embedded per spell).
+          fonts (pdf/load-fonts doc)
+          img (pdf/make-image-loader doc)]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
         (let [page (PDPage.)]
@@ -612,6 +617,8 @@
                                         (pdf/print-spells
                                          cs
                                          doc
+                                         fonts
+                                         img
                                          2.5
                                          3.5
                                          spells
@@ -620,7 +627,8 @@
                   back-page (PDPage.)]
               (with-open [back-page-cs (PDPageContentStream. doc back-page)]
                 (.addPage doc back-page)
-                (pdf/print-backs back-page-cs doc 2.5 3.5 remaining-desc-lines i)))))))
+                (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
+                                 print-card-back-logo?)))))))
     (catch Exception e (prn "FAILED ADDING SPELLS CARDS!" e))))
 
 (defn character-pdf-2 [req]
@@ -631,7 +639,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? character-name class-level player-name]} fields
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? character-name class-level player-name flatten?]} fields
 
         sheet6 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-6-spells.pdf")
         sheet5 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-5-spells.pdf")
@@ -649,8 +657,6 @@
                                           (find fields :spellcasting-class-1) sheet1
                                           :else sheet0)))
         output (ByteArrayOutputStream.)
-        user-agent (get-in req [:headers "user-agent"])
-        chrome? (re-matches #".*Chrome.*" user-agent)
         filename (cond
                    (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
                    (s/blank? player-name) (str character-name " - " class-level ".pdf")
@@ -659,9 +665,13 @@
     ;; PDFBox 3.x: Loader/loadPDF accepts byte[], File, or RandomAccessRead —
     ;; NOT InputStream. Read the resource stream into a byte array first.
     (with-open [doc (Loader/loadPDF (.readAllBytes input))]
-      (pdf/write-fields! doc fields (not chrome?) font-sizes)
+      ;; Fillable in every browser by default. The old non-Chrome flattening was a
+      ;; workaround for Firefox ignoring NeedAppearances; write-fields! now bakes
+      ;; real appearance streams, so values render everywhere AND the form stays
+      ;; editable. Clients that want a locked/static PDF pass `:flatten? true`.
+      (pdf/write-fields! doc fields (true? flatten?) font-sizes)
       (when (and print-spell-cards? (seq spells-known))
-        (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod?))
+        (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? print-card-back-logo?))
 
       (when (and image-url
                  (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
