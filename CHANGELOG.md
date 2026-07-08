@@ -8,6 +8,7 @@
 - **Conflict resolution no longer nils out an item** — a key that was both an internal and an external conflict got renamed twice, and the second rename fabricated a `key → nil` entry that failed validation and quarantined its whole source; a redundant rename is now a no-op (`9df1b4ae`).
 - **Import can't report success it won't keep** — the multi-plugin and conflict-resolution paths could claim success on content the next refresh would quarantine; problems are now surfaced at import time against the loader's own floor, not after a reload (`c037de78`, `7782e831`).
 - **"Imported" no longer precedes a failed save** — a quota-failed storage write still showed success and lost the data on refresh; success now fires only after the write actually persists (`c037de78`).
+- **Dangling spell references no longer render as blank cards** — a class/subclass spell list can name a spell whose definition or source isn't loaded (imported homebrew that lists a spell but never defines it, or whose source was quarantined); the card now shows a name derived from the key ("Guiding Hand" for `:guiding-hand`) with an edit link that opens the builder pre-filled to define it, and the undefined references are reported once per class instead of silently blanking (`a4dbfe19`, `73e75c9d`).
 
 ### Added
 - **Per-entry salvage** — one bad entry no longer quarantines its whole source; the source keeps its valid items and only the broken ones are set aside for repair (`957e09ab`, `7782e831`, `c037de78`).
@@ -18,6 +19,7 @@
 - **Import and export share one correction gate** — a check written once fires at both boundaries, and the exported library is canonicalized so an import → export → re-import round-trip is idempotent (`9df1b4ae`, `c037de78`).
 - **Quarantine granularity is per-entry, not per-source** — backward-compatible with existing whole-source quarantine entries (`957e09ab`, `7782e831`).
 - **Precise quarantine diagnostics** — each set-aside entry logs its exact failing path and predicate instead of a truncated data dump (`c037de78`).
+- **Source-less imported content lands in "Default Option Source"** — a missing or empty `:option-pack` now fills to the real built-in default plugin instead of a phantom "Unnamed Content" placeholder (`54f4e87d`).
 
 ## [staging/june-bug-patches-01] — June bug-patch bundle (2026-07-05)
 
