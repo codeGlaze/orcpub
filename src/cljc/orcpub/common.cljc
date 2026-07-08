@@ -161,6 +161,28 @@
   (and (keyword? kw)
        (-> kw name starts-with-letter?)))
 
+(defn toggle-flag
+  "Flip a boolean flag, but leave a collection untouched instead of collapsing it.
+   Use in place of bare `not` for builder toggles whose path could land on a MAP:
+   `(not {…})` is `false`, which DESTROYS the map so every child read returns nil
+   (the 'true/false/nil from clicking a lot' corruption)."
+  [v]
+  (if (coll? v) v (not v)))
+
+(defn toggle-in
+  "Toggle a boolean flag at path `ks` in `m` (like `update-in` with `not`), with
+   two safeguards: the LEAF uses `toggle-flag` so it never collapses a map; a
+   non-associative INTERMEDIATE (a stray `false` from the old collapse bug, or an
+   absent slot) is healed to a fresh map instead of crashing on `(assoc false …)`,
+   so a click on a previously-corrupted spot self-heals."
+  [m ks]
+  (let [[k & more] ks]
+    (if (seq more)
+      (let [child (get m k)
+            child (if (associative? child) child {})]   ; heal a collapsed node
+        (assoc m k (toggle-in child more)))
+      (assoc m k (toggle-flag (get m k))))))
+
 (defn remove-at-index [v index]
   (vec
    (keep-indexed

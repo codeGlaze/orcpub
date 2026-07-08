@@ -8252,11 +8252,100 @@
           [my-content-item name plugin])
         plugins)))]])
 
+(defn quarantine-source-repair
+  "Repair UI for ONE source's set-aside ENTRIES. Lists each broken item with
+   editable Name + Option-source fields; 'Fix & Restore' applies the edits, fills
+   any remaining gaps with placeholders, re-keys keyword-trap names, and restores
+   the now-valid entries into the live library (::e5/repair-quarantined-source) —
+   entries that still can't validate stay set aside. Raw-export + discard hatches
+   are always offered."
+  [src-name plugin]
+  (let [entries (vec (for [[ct items] plugin
+                           :when (and (qualified-keyword? ct) (map? items))
+                           [ik item] items]
+                       {:ct ct :ik ik :item item}))
+        edits (r/atom (into {} (mapcat (fn [{:keys [ct ik item]}]
+                                         [[[ct ik :name] (or (:name item) "")]
+                                          [[ct ik :option-pack] (or (:option-pack item) "")]])
+                                       entries)))]
+    (fn [src-name plugin]
+      (let [current @edits]
+        [:div.p-10.m-t-10.bg-lighter.b-rad-5
+         [:div.f-w-b.f-s-18.orange src-name]
+         (if (seq entries)
+           [:div
+            [:div.f-s-12.m-t-5.m-b-5
+             "These entries couldn't load. Give each a name (starting with a letter) "
+             "and an option source, then restore — blanks become placeholders."]
+            (doall
+             (for [{:keys [ct ik]} entries
+                   :let [nk [ct ik :name]
+                         ok [ct ik :option-pack]
+                         nm (get current nk "")]]
+               ^{:key (str ct "/" ik)}
+               [:div.m-t-5.m-b-5
+                [:div.f-s-12.orange (str (name ct) " / " (name ik))]
+                [:div.m-t-5.flex.align-items-c
+                 [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
+                 [:input.input {:type "text" :value nm
+                                :on-change #(swap! edits assoc nk (.. % -target -value))}]
+                 (when-not (common/starts-with-letter? nm)
+                   [:span.red.m-l-5.f-s-12 "must start with a letter"])]
+                [:div.m-t-5.flex.align-items-c
+                 [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Option source"]
+                 [:input.input {:type "text" :value (get current ok "")
+                                :on-change #(swap! edits assoc ok (.. % -target -value))}]]]))]
+           [:div.f-s-12.m-t-5 "No entries to repair."])
+         [:div.m-t-10
+          (when (seq entries)
+            [:button.form-button.m-r-5
+             {:on-click #(dispatch [::e5/repair-quarantined-source src-name
+                                    (into {} (map (fn [[[ct ik field] v]]
+                                                    [[src-name ct ik field] v])
+                                                  @edits))])}
+             "Fix & Restore"])
+          [:button.form-button.m-r-5
+           {:on-click #(dispatch [::e5/export-quarantined-raw src-name])}
+           "Export raw"]
+          ;; Escape hatch for entries that can't be repaired and won't self-clear
+          ;; (e.g. stale ones from an earlier bad import). Confirms — only copy.
+          [:button.form-button
+           {:on-click #(when (js/confirm
+                             (str "Permanently discard the set-aside entries in \""
+                                  src-name "\"? Export raw first if you might want them."))
+                        (dispatch [::e5/discard-quarantined-source src-name]))}
+           "Discard"]]]))))
+
+(defn quarantine-panel
+  "Surfaces the ENTRIES the loader set aside (grouped by their source). The rest of
+   each source loaded normally; these are preserved, not discarded, so you can fix
+   them back into the library or export the raw data."
+  []
+  (let [quarantined @(subscribe [::e5/quarantined-plugins])
+        n-entries (reduce + 0 (for [[_ plugin] quarantined
+                                    [ct items] plugin
+                                    :when (and (qualified-keyword? ct) (map? items))]
+                                (count items)))]
+    (when (seq quarantined)
+      [:div.p-20.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
+       {:style {:border "2px solid #d94b20"}}
+       [:div.f-w-b.f-s-24.m-b-5
+        [:i.fa.fa-exclamation-triangle.m-r-5]
+        (str n-entries " entr" (if (= 1 n-entries) "y" "ies")
+             " couldn't load — needs attention")]
+       [:div.f-s-12
+        "The rest of each source loaded fine. Fix these back in, or export/discard them."]
+       (doall
+        (for [[src-name plugin] quarantined]
+          ^{:key src-name}
+          [quarantine-source-repair src-name plugin]))])))
+
 (defn my-content-page []
   [content-page
    "My Content"
    []
    [:div
+    [quarantine-panel]
     [:div.p-20.bg-lighter.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
      [:div.f-w-b.f-s-24.m-b-5 "Import Option Source"]
      [:input {:type "file"
@@ -8419,15 +8508,23 @@
 
 ;; events are set and passed by the individual pages defined below this
 (defn builder-page [item-title reset-event save-event builder & [title]]
-  [content-page
-   (or title (str item-title " Builder"))
-   [{:title (str "New " item-title)
-     :icon "plus"
-     :on-click #(dispatch [reset-event])}
-    {:title "Save to Browser Storage"
-     :icon "save"
-     :on-click #(dispatch [save-event])}]
-   [builder]])
+  ;; Draft event is derived from save-event (events/draft-event-for) and registered
+  ;; from events/builder-drafts, so the Export-draft hatch needs no per-builder wiring.
+  (let [export-draft-event (events/draft-event-for save-event)]
+    [content-page
+     (or title (str item-title " Builder"))
+     [{:title (str "New " item-title)
+       :icon "plus"
+       :on-click #(dispatch [reset-event])}
+      {:title "Save to Browser Storage"
+       :icon "save"
+       :on-click #(dispatch [save-event])}
+      ;; Escape hatch: export the in-progress builder-item as a draft .orcbrew with
+      ;; no validation, so imperfect WIP is never trapped.
+      {:title "Export draft"
+       :icon "download"
+       :on-click #(dispatch [export-draft-event])}]
+     [builder]]))
 
 (defn combat-tracker-page []
   [content-page

@@ -437,9 +437,15 @@
       (get option-sources source)))
 
 (defn spell-option [spells-map spellcasting-ability class-name key & [prepend-level? qualifier]]
-  (let [{:keys [name level source edit-event] :as spell} (spells-map key)]
+  (let [{:keys [name level source edit-event] :as spell} (spells-map key)
+        ;; When a spell list references a spell whose definition isn't loaded
+        ;; (imported homebrew that lists a spell but never defines it, or whose
+        ;; source was quarantined), fall back to a name derived from the key so the
+        ;; card is identifiable — "Guiding Hand" for :guiding-hand — instead of blank.
+        display-name (or name (common/kw-to-name key true))
+        level (or level 0)]
     (t/option-cfg
-     {:name (if prepend-level? (str level " - " name) name)
+     {:name (if prepend-level? (str level " - " display-name) display-name)
       :key key
       :edit-event edit-event
       :help (spell-help spell)
@@ -668,18 +674,18 @@
                        (fn [[lvl spell-keys]]
                          (let [spell-keys (vec spell-keys)
                                filtered-keys (apply-spell-restriction spells-map spell-keys restriction)]
+                           ;; spell-option derives a display name from the key when a
+                           ;; spell's definition isn't loaded (an imported list names an
+                           ;; undefined/quarantined spell), so the card is identifiable
+                           ;; rather than blank.
                            (map
                             (fn [spell-key]
-                              (let [spell (spells-map spell-key)]
-                                #?@(:cljs
-                                    [(when (nil? spell) (js/console.warn (str "No spell found for key: " spell-key)))
-                                     (when (nil? (:name spell)) (js/console.warn (str "Spell is missing name: " spell-key)))])
-                                (memoized-spell-option
-                                 spells-map
-                                 ability
-                                 (:name cls-cfg)
-                                 spell-key
-                                 true)))
+                              (memoized-spell-option
+                               spells-map
+                               ability
+                               (:name cls-cfg)
+                               spell-key
+                               true))
                             filtered-keys)))
                        all-spells))]
          (assoc m cls-lvl

@@ -1,7 +1,53 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-Format: per-commit entries grouped by category, newest first.
+## [Unreleased] — Homebrew conflict-resolution & per-entry salvage (2026-07-06)
+
+### Fixed
+- **"Rename all" resolves duplicate keys in one pass** — a key duplicated across N sources was only renamed in one of them, so the rest kept colliding and the conflict reappeared on every re-import (the 20 → 3 → 1 → 0 crawl); it now renames all-but-one at once (`c037de78`).
+- **Multi-source paks survive an imperfect sub-source** — the multi-plugin check keyed off spec validity, so one flawed sub-source made it wrap the whole pak under a single key and double-nest it into an unloadable shape that quarantined everything; detection is now structural (shape, not validity) (`c037de78`).
+- **Conflict resolution no longer nils out an item** — a key that was both an internal and an external conflict got renamed twice, and the second rename fabricated a `key → nil` entry that failed validation and quarantined its whole source; a redundant rename is now a no-op (`9df1b4ae`).
+- **Import can't report success it won't keep** — the multi-plugin and conflict-resolution paths could claim success on content the next refresh would quarantine; problems are now surfaced at import time against the loader's own floor, not after a reload (`c037de78`, `7782e831`).
+- **"Imported" no longer precedes a failed save** — a quota-failed storage write still showed success and lost the data on refresh; success now fires only after the write actually persists (`c037de78`).
+
+### Added
+- **Per-entry salvage** — one bad entry no longer quarantines its whole source; the source keeps its valid items and only the broken ones are set aside for repair (`957e09ab`, `7782e831`, `c037de78`).
+- **Entry-level repair** — the My Content "needs attention" panel lists each set-aside entry with editable Name + Option-source fields (Fix & Restore per entry, filling gaps with placeholders and re-keying trapped names), plus a Discard action for stale or unwanted ones (`d34007ff`, `c037de78`).
+- **Export runs the same checks as import** — duplicate keys and cleanups are caught on the way out (routed through the conflict/fill dialogs), so an exported file re-imports with no surprises; the raw/pretty-print export stays an unchecked escape hatch (`9df1b4ae`, `c037de78`).
+
+### Changed
+- **Import and export share one correction gate** — a check written once fires at both boundaries, and the exported library is canonicalized so an import → export → re-import round-trip is idempotent (`9df1b4ae`, `c037de78`).
+- **Quarantine granularity is per-entry, not per-source** — backward-compatible with existing whole-source quarantine entries (`957e09ab`, `7782e831`).
+- **Precise quarantine diagnostics** — each set-aside entry logs its exact failing path and predicate instead of a truncated data dump (`c037de78`).
+
+## [staging/june-bug-patches-01] — June bug-patch bundle (2026-07-05)
+
+### Fixed
+- **Homebrew class source no longer poisons spell-selection keys** — the source label was folded into the class `:name`, so the name-derived selection keys broke whenever it changed and saved spells/cantrips vanished; keys now come from a stable class identity, and orphaned saves repair on load (`9a709c0d`, `fe549631`, `a3e26155`).
+- **Hunter's Evasion no longer blanks the Features tab** — the Superior Hunter's Defense → Evasion trait shipped with no name, and a nil name crashed the feature-name sort; it's now named "Evasion" (`dd65d66a`).
+- **Character sheets no longer go blank** — an unrenderable section shows a recovery message; the rest of the sheet stays usable (`565c33c0`).
+- **The Features tab loads for every character** — fixed a rendering bug that blanked it for all (`2a6fde93`).
+- **A nameless trait no longer crashes the Features tab** — shown as "[Unnamed feature]" instead of throwing on the name sort (`5c3b073f`).
+- **Boolean toggles no longer corrupt data** — they can't wipe an underlying map, and self-heal damage from the old bug (`1e9f27ec`).
+- **Keyword-trap imports no longer silently vanish** — caught on import and routed to repair instead of a class that never appears (`d9b23021`).
+- **Unreadable storage is preserved** for recovery instead of deleted (`eedffc08`).
+- **localStorage quota failures warn and offer a backup** instead of silently dropping the save.
+- **Readable import/export errors** — plain-English console messages instead of garbled output; import dedup is shown as a log line, not raw EDN (`eba28a9c`, `e512dc45`).
+- **Post-save export fixed** — the "export here" link passed a stringified plugin instead of the map (`e3c9a9ee`).
+- **Autosave no longer crashes on a not-ready template** — an empty template reached the builder and threw; now guarded (`e3c9a9ee`).
+- **Import dedup no longer skips a top-level Selection** — de-duplication now covers a Selection at the top level, not just nested options (`d9b23021`).
+- **Non-ASCII name detection works in the browser** — `count-non-ascii` was miscounting under ClojureScript (`d9b23021`).
+
+### Added
+- **Resilient homebrew loading** — a bad source is quarantined for repair (self-clearing once fixed) instead of dropping the whole library, with a My Content panel to rename, re-key, and restore it (`eedffc08`).
+- **Builder escape hatches** — Export draft, refresh-safe WIP restore, "Save anyway" with placeholders, emergency raw export, and Export & Auto-Fix, so imperfect work is never trapped or lost (`eac350d0`, `e3c9a9ee`).
+- **"Show homebrew source on class names" toggle** — without affecting saved spell selections (`8f94a94c`).
+- **Fill-in dialog on export** — supply or auto-fill missing required fields instead of writing a broken file, with live field-level guidance in the builders (`1547cd69`, `22172adb`).
+
+### Changed
+- **Save validation covers every required field** — dropdowns and multi-selects (spell class-lists, monster hit dice, parent class/race), not just text (`e512dc45`).
+- **Save and load share one spec registry** — so they can't drift and wrongly quarantine already-saved content (`ca977e0a`).
+- **Normal exports strip meaningless blank flags** (false/nil/empty); raw, draft, and emergency exports are untouched.
+- **Invalid-key errors are element-specific** instead of a generic "Name" error.
 
 ## [breaking/2026-stack-modernization]
 
