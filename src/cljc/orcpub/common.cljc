@@ -24,6 +24,32 @@
      (keyword ns s)
      (keyword ns (str "unnamed-" (hash s))))))
 
+(def ^:private bare-colon-re
+  ;; Matches EITHER a full "string literal" OR a bare-colon token (the printed
+  ;; form of the empty keyword `:`). Scanning left-to-right, a string literal is
+  ;; consumed whole, so a `:` inside a string is never seen as a bare colon.
+  ;; The lookahead requires the colon to be followed by a delimiter or end, so
+  ;; `:foo`, `::x`, `:ns/foo`, and `#:ns{...}` are all left untouched.
+  #"\"(?:[^\"\\]|\\.)*\"|:(?=[\s,{}\[\]()\";]|$)")
+
+(defn sanitize-edn-colons
+  "SELF-HEAL: return `edn-str` with every bare-colon token (unreadable empty
+   keyword) replaced by a unique placeholder `:unnamed-N`, so an already-corrupt
+   EDN blob (a saved character or localStorage plugins carrying a `:` key) can
+   be read instead of crashing the load with \"A single colon is not a valid
+   keyword.\" String-aware: colons inside \"...\" and all valid keywords are
+   preserved. Returns {:text <sanitized> :count <replacements>}; :count 0 means
+   the input was already clean (do not rewrite it)."
+  [edn-str]
+  (if (string? edn-str)
+    (let [cnt (atom 0)
+          text (s/replace edn-str bare-colon-re
+                          (fn [m] (if (= \" (first m))
+                                    m
+                                    (str ":unnamed-" (swap! cnt inc)))))]
+      {:text text :count @cnt})
+    {:text edn-str :count 0}))
+
 (defn- name-to-kw-aux [name ns]
   (when (string? name)
     (as-> name $

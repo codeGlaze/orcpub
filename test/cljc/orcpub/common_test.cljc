@@ -182,3 +182,45 @@
          (is (= kw (cljs.reader/read-string (pr-str kw))))))
      (testing "control: the bare empty keyword is genuinely unreadable"
        (is (thrown? js/Error (cljs.reader/read-string (pr-str empty-kw)))))))
+
+;; ---------------------------------------------------------------------------
+;; sanitize-edn-colons — self-heal for already-corrupt stored EDN
+;; ---------------------------------------------------------------------------
+
+(deftest sanitize-edn-colons-repairs-bare-colons
+  (testing "bare-colon tokens become unique placeholders; result is readable"
+    (let [{:keys [text count]} (common/sanitize-edn-colons "{: {:a 1}}")]
+      (is (= 1 count))
+      (is (clojure.string/includes? text ":unnamed-1")))
+    (let [{:keys [text count]} (common/sanitize-edn-colons "{:k :}")]
+      (is (= 1 count))
+      (is (clojure.string/includes? text ":unnamed-1")))
+    (let [{:keys [text count]} (common/sanitize-edn-colons "{: 1 : 2}")]
+      (is (= 2 count) "two bad tokens get distinct placeholders (no map-key collision)")
+      (is (clojure.string/includes? text ":unnamed-1"))
+      (is (clojure.string/includes? text ":unnamed-2"))))
+  (testing "already-clean input is untouched (count 0)"
+    (is (= 0 (:count (common/sanitize-edn-colons "{:fighter 1 :orcpub.dnd.e5/x 2}"))))
+    (is (= 0 (:count (common/sanitize-edn-colons "#:orcpub.dnd.e5{:c {:artificer {:key :artificer}}}")))))
+  (testing "colons INSIDE strings are preserved (not mistaken for bad tokens)"
+    (let [in (str "{:desc " (pr-str "Choose one: fire") "}")
+          {:keys [text count]} (common/sanitize-edn-colons in)]
+      (is (= 0 count))
+      (is (clojure.string/includes? text "Choose one: fire"))))
+  (testing "non-string input is returned unchanged"
+    (is (= {:text nil :count 0} (common/sanitize-edn-colons nil)))))
+
+#?(:clj
+   (deftest sanitize-edn-colons-parses-in-clj-reader
+     ;; Prove repaired output is actually READABLE and the original was not.
+     (testing "a bare-colon blob is unreadable but its sanitized form parses"
+       (let [bad "{:orcpub.entity.strict/key :, :name \"x\"}"]
+         (is (thrown? Exception (read-string bad)))
+         (is (map? (read-string (:text (common/sanitize-edn-colons bad)))))))))
+
+#?(:cljs
+   (deftest sanitize-edn-colons-parses-in-cljs-reader
+     (testing "sanitized output round-trips through the cljs reader"
+       (let [bad "{:orcpub.entity.strict/key :, :name \"x\"}"]
+         (is (thrown? js/Error (cljs.reader/read-string bad)))
+         (is (map? (cljs.reader/read-string (:text (common/sanitize-edn-colons bad)))))))))
