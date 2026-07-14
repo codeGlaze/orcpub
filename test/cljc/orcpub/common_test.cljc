@@ -1,5 +1,6 @@
 (ns orcpub.common-test
   (:require [clojure.test :refer [deftest testing is]]
+            #?(:cljs [cljs.reader])
             [orcpub.common :as common]))
 
 ;; ---------------------------------------------------------------------------
@@ -132,3 +133,52 @@
            (common/toggle-in {:p {:skills false}} [:p :skills :stealth])))
     (is (= {:p {:skills {:stealth true}}}
            (common/toggle-in {:p {:skills true}} [:p :skills :stealth])))))
+
+;; ---------------------------------------------------------------------------
+;; safe-keyword / name-to-kw — the empty-keyword guard
+;;
+;; A name that reduces to "" must NEVER become the empty keyword `:`, whose
+;; printed form is a bare colon and is unreadable — a `:` key in stored data
+;; makes read-string throw "A single colon is not a valid keyword." and the
+;; whole load crashes. `(keyword "")` is written constructed, never as a
+;; literal `:`, precisely because a literal `:` would break the reader on this
+;; very test file.
+;; ---------------------------------------------------------------------------
+
+(def ^:private empty-kw (keyword ""))   ; the bad token, never written literally
+
+(deftest safe-keyword-never-returns-empty-keyword
+  (testing "blank / nil / non-string inputs never yield the empty keyword"
+    (is (not= empty-kw (common/safe-keyword "")))
+    (is (not= empty-kw (common/safe-keyword nil)))
+    (is (not= empty-kw (common/safe-keyword "   ")))
+    (is (not= empty-kw (common/safe-keyword 42)))
+    (is (keyword? (common/safe-keyword "")))
+    (is (keyword? (common/safe-keyword nil))))
+  (testing "valid names are passed through unchanged"
+    (is (= :fireball (common/safe-keyword "fireball")))
+    (is (= :orcpub.dnd.e5/x (common/safe-keyword "orcpub.dnd.e5" "x"))))
+  (testing "deterministic for the same input (safe under memoization)"
+    (is (= (common/safe-keyword "") (common/safe-keyword "")))))
+
+(deftest name-to-kw-never-returns-empty-keyword
+  (testing "names that strip to empty never become the empty keyword"
+    ;; "" and apostrophe-only names both reduce to "" in the pipeline
+    (is (not= empty-kw (common/name-to-kw "")))
+    (is (not= empty-kw (common/name-to-kw "'")))
+    (is (not= empty-kw (common/name-to-kw "''"))))
+  (testing "existing (non-blank) keys are unchanged — no data migration risk"
+    (is (= :fireball (common/name-to-kw "Fireball")))
+    (is (= :bobs-item (common/name-to-kw "Bob's Item")))
+    (is (nil? (common/name-to-kw nil)))))
+
+#?(:cljs
+   (deftest name-to-kw-output-survives-the-cljs-reader
+     ;; The real crash is cljs.reader on a bare `:`. Prove the guarded output
+     ;; round-trips, and that a bare empty keyword would NOT (the reader is the
+     ;; gate our fix routes around).
+     (testing "guarded blank name round-trips through the cljs reader"
+       (let [kw (common/name-to-kw "")]
+         (is (= kw (cljs.reader/read-string (pr-str kw))))))
+     (testing "control: the bare empty keyword is genuinely unreadable"
+       (is (thrown? js/Error (cljs.reader/read-string (pr-str empty-kw)))))))

@@ -702,7 +702,9 @@
   (-> name
       s/lower-case
       (s/replace #"\W" "-")
-      keyword))
+      ;; safe-keyword instead of raw keyword: a name that reduces to "" must
+      ;; never become the empty keyword `:` (unreadable, crashes EDN load).
+      common/safe-keyword))
 
 (defn get-option-value-path [template entity path]
   (conj (get-entity-path template entity path) ::value))

@@ -5,6 +5,25 @@
 
 (def dot-char "•")
 
+(defn safe-keyword
+  "Build a keyword from `s`, but NEVER return the empty keyword `:`.
+
+   `(keyword \"\")` prints as a bare `:`, which is not a readable EDN token —
+   when such a key lands in stored data (localStorage plugins, a saved
+   character) the reader throws \"A single colon is not a valid keyword.\" and
+   the whole load crashes. This is the single choke point that makes that
+   structurally impossible: a blank/nil/non-string `s` yields a stable
+   placeholder key (`:unnamed-<hash>`). It is deterministic; note that two
+   inputs that are both blank collapse to the same placeholder (acceptable —
+   the crash is what matters, and blank names should be rejected upstream).
+   Display layers should still surface `[Unnamed feature]` for these; this
+   only guarantees the *key* is a valid, readable keyword."
+  ([s] (safe-keyword nil s))
+  ([ns s]
+   (if (and (string? s) (not (s/blank? s)))
+     (keyword ns s)
+     (keyword ns (str "unnamed-" (hash s))))))
+
 (defn- name-to-kw-aux [name ns]
   (when (string? name)
     (as-> name $
@@ -12,7 +31,7 @@
         (s/replace $ #"'" "")
         (s/replace $ #"\W" "-")
         (s/replace $ #"\-+" "-")
-        (keyword ns $))))
+        (safe-keyword ns $))))
 
 (def memoized-name-to-kw (memoize name-to-kw-aux))
 
