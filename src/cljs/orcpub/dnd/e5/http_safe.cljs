@@ -24,6 +24,14 @@
 
 (def decode-error-key ::decode-error)
 
+(defn decode-failed?
+  "True when a response :body is the marker safe-edn-decode returns for a body it
+   could not decode even after sanitize. Callers should route these to recovery
+   (a clear message / their character list) instead of feeding the marker into
+   from-strict, which would silently build a blank default."
+  [body]
+  (boolean (and (map? body) (get body decode-error-key))))
+
 (defn safe-edn-decode
   "Decode an application/edn response body without ever throwing out of the
    go-loop. Heals a bare-colon empty keyword first, then parses; if it is still

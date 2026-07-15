@@ -520,9 +520,17 @@
                                            :id int-id)))]
               (dispatch [:set-loading false])
               (handle-api-response response
-                #(dispatch [::char5e/set-character
-                            int-id
-                            (char5e/from-strict (:body response))])
+                #(let [body (:body response)]
+                   (if (http/decode-failed? body)
+                     ;; Response was unreadable even after self-heal: don't feed
+                     ;; the marker to from-strict (that silently builds a blank
+                     ;; default). Tell the user plainly and drop them on their
+                     ;; character list, where the summary-based item still renders
+                     ;; and delete works without loading this character.
+                     (do (dispatch [:show-error-message
+                                    "This character couldn’t be loaded — it may be corrupted. Your saved data is safe; you can delete it from your character list."])
+                         (dispatch [:route routes/dnd-e5-char-list-page-route]))
+                     (dispatch [::char5e/set-character int-id (char5e/from-strict body)])))
                 :context (str "fetch character " int-id)))))
       (ra/make-reaction
        (fn []
