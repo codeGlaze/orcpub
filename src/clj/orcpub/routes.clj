@@ -1153,6 +1153,21 @@
                     (Long/parseLong id))]
     (get-character-for-id db parsed-id)))
 
+(defn report-character-problem
+  "User-initiated report that a character failed to load. Auth required. Emails
+   the client-supplied diagnostic (char-id, reader error, raw undecodable data)
+   to the configured support address, cc'ing the reporting user. Rate-limited
+   and gated on email config inside email/send-character-report; returns its
+   {:sent? .. :reason ..} so the client can fall back to the copyable report."
+  [{:keys [db transit-params identity]}]
+  (let [username   (:user identity)
+        user       (find-user-by-username-or-email db username)
+        user-email (:orcpub.user/email user)
+        {:keys [char-id error raw]} transit-params]
+    {:status 200
+     :body   (email/send-character-report
+              {:char-id char-id :user-email user-email :error error :raw raw})}))
+
 (defn get-user [{:keys [db identity]}]
   (let [username (:user identity)
         user (find-user-by-username-or-email db username)]
@@ -1452,6 +1467,8 @@
          :get `character-list}]
        [(route-map/path-for route-map/dnd-e5-char-summary-list-route) ^:interceptors [check-auth]
         {:get `character-summary-list}]
+       [(route-map/path-for route-map/dnd-e5-char-report-route) ^:interceptors [check-auth]
+        {:post `report-character-problem}]
        [(route-map/path-for route-map/dnd-e5-char-route :id ":id") ^:interceptors [check-auth]
         {:delete `delete-character}]
        [(route-map/path-for route-map/dnd-e5-char-route :id ":id")

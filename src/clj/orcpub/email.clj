@@ -388,3 +388,48 @@
             (catch Exception e
               (println "ERROR: Failed to send error notification email:" (.getMessage e))
               nil)))))))
+;; ---------------------------------------------------------------------------
+;; User-initiated "this character won't load" report
+;; ---------------------------------------------------------------------------
+
+(def ^:private report-throttle (atom {}))
+(def ^:private report-throttle-window-ms (* 10 60 1000)) ; one report per user+char / 10 min
+
+(defn send-character-report
+  "Emails a user-submitted 'character could not be loaded' report (id, reader
+   error, raw undecodable data) to the configured support address, cc'ing the
+   reporting user. Returns {:sent? true} on success, else
+   {:sent? false :reason <kw>} — when email isn't configured, no support address
+   is set, the same user+character was reported within the throttle window, or
+   the send failed — so the caller can tell the user to use the copyable report."
+  [{:keys [char-id user-email error raw]}]
+  (let [k   [user-email char-id]
+        now (System/currentTimeMillis)]
+    (cond
+      (not branding/email-configured?)  {:sent? false :reason :email-not-configured}
+      (s/blank? branding/support-email) {:sent? false :reason :no-support-address}
+      (when-let [t (get @report-throttle k)]
+        (< (- now t) report-throttle-window-ms)) {:sent? false :reason :throttled}
+      :else
+      (do
+        (swap! report-throttle assoc k now)
+        (try
+          (let [body   (str "A user reported a character that could not be loaded.\n\n"
+                            "Character ID: " char-id "\n"
+                            "Reported by:  " (or user-email "unknown") "\n"
+                            "Error:        " error "\n\n"
+                            "--- raw character data ---\n" raw)
+                result (postal/send-message
+                        (email-cfg)
+                        (cond-> {:from    (str branding/email-sender-name " <" (emailfrom) ">")
+                                 :to      branding/support-email
+                                 :subject (str branding/app-name " — character load error (id " char-id ")")
+                                 :body    [{:type "text/plain" :content body}]}
+                          (not (s/blank? user-email)) (assoc :cc user-email)))]
+            (if (= :SUCCESS (:error result))
+              {:sent? true}
+              (do (println "WARNING: character report email not sent:" (:error result))
+                  {:sent? false :reason :send-failed})))
+          (catch Exception e
+            (println "ERROR: character report email failed:" (.getMessage e))
+            {:sent? false :reason :exception}))))))

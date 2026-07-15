@@ -4273,8 +4273,22 @@
            [:button.form-button.m-b-5
             {:on-click #(dispatch [:route routes/dnd-e5-char-list-page-route])}
             "My characters"]]
+          ;; Auto-send: only when a support address is configured AND the user is
+          ;; signed in (so we have an account email to cc). Otherwise the copyable
+          ;; report below is the fallback.
+          (when (and (seq branding/support-email) @(subscribe [:username]))
+            (let [status @(subscribe [::char/character-report-status id])]
+              [:div.m-b-15
+               [:button.form-button.m-b-5
+                {:disabled (= status :sending)
+                 :on-click #(dispatch [:report-character-problem id error raw])}
+                (case status
+                  :sending "Sending…"
+                  :sent    "✓ Report sent — thank you"
+                  :failed  "Couldn’t send automatically — copy the report below"
+                  "Email this report to support")]]))
           [:div.m-t-10
-           [:div.m-b-5.f-s-14 "Want help fixing it? Copy this report and send it to support:"]
+           [:div.m-b-5.f-s-14 "Or copy this report and send it to support yourself:"]
            [:button.form-button.f-s-12.m-b-5
             {:on-click (fn []
                          (some-> js/navigator .-clipboard (.writeText report))

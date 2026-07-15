@@ -2402,6 +2402,26 @@
            :on-success [:delete-character-success]}}))
 
 (reg-event-fx
+ :report-character-problem
+ ;; User clicked "email support" on the character-load recovery panel. POST the
+ ;; diagnostic (auth'd); the server gates on email config + rate-limits and
+ ;; returns {:sent? .. :reason ..}, which we reflect in the button.
+ (fn [{:keys [db]} [_ char-id error raw]]
+   {:db (assoc-in db [:character-report-status char-id] :sending)
+    :http {:method :post
+           :auth-token (get-auth-token db)
+           :url (backend-url (routes/path-for routes/dnd-e5-char-report-route))
+           :transit-params {:char-id char-id :error error :raw raw}
+           :on-success [:report-character-result char-id]
+           :on-failure [:report-character-result char-id]}}))
+
+(reg-event-db
+ :report-character-result
+ (fn [db [_ char-id response]]
+   (assoc-in db [:character-report-status char-id]
+             (if (get-in response [:body :sent?]) :sent :failed))))
+
+(reg-event-fx
  :new-character
  (fn [{:keys [db]} _]
    {:db (assoc db :character default-character)

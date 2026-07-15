@@ -562,6 +562,11 @@
    (get-in db [::char5e/character-load-errors (when id (js/parseInt id))])))
 
 (reg-sub
+ ::char5e/character-report-status
+ (fn [db [_ id]]
+   (get-in db [:character-report-status (when id (js/parseInt id))])))
+
+(reg-sub
  ::char5e/character-changed?
  (fn [[_ id]]
    [(subscribe [::char5e/character id])
