@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.subs
-  (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch]]
+  (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch reg-event-db]]
             [orcpub.entity :as entity]
             [orcpub.entity.strict :as se]
             [orcpub.template :as t]
@@ -524,19 +524,31 @@
                    (if (http/decode-failed? body)
                      ;; Response was unreadable even after self-heal: don't feed
                      ;; the marker to from-strict (that silently builds a blank
-                     ;; default). Tell the user plainly and drop them on their
-                     ;; character list, where the summary-based item still renders
-                     ;; and delete works without loading this character.
-                     (do (dispatch [:show-error-message
-                                    "This character couldn’t be loaded — it may be corrupted. Your saved data is safe; you can delete it from your character list."])
-                         (dispatch [:route routes/dnd-e5-char-list-page-route]))
-                     (dispatch [::char5e/set-character int-id (char5e/from-strict body)])))
+                     ;; default character). Flag the load as failed so the
+                     ;; character page renders an in-place recovery panel
+                     ;; (delete / go to list) instead of a blank sheet.
+                     (dispatch [::char5e/set-character-load-error int-id true])
+                     (do (dispatch [::char5e/set-character-load-error int-id false])
+                         (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
                 :context (str "fetch character " int-id)))))
       (ra/make-reaction
        (fn []
          (if int-id
            (get-in @app-db [::char5e/character-map int-id] {})
            (get @app-db :character)))))))
+
+;; Set true when a character's server response could not be decoded even after
+;; self-heal; the character page reads it to show an in-place recovery panel
+;; instead of a blank sheet. Cleared (false) on a subsequent successful load.
+(reg-event-db
+ ::char5e/set-character-load-error
+ (fn [db [_ id error?]]
+   (assoc-in db [::char5e/character-load-errors id] (boolean error?))))
+
+(reg-sub
+ ::char5e/character-load-error?
+ (fn [db [_ id]]
+   (boolean (get-in db [::char5e/character-load-errors (when id (js/parseInt id))]))))
 
 (reg-sub
  ::char5e/character-changed?
