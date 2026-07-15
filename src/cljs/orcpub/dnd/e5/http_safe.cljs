@@ -23,6 +23,8 @@
             [orcpub.common :as common]))
 
 (def decode-error-key ::decode-error)
+(def raw-key   ::raw)     ; the undecodable response body, for the report/diagnostics
+(def error-key ::error)   ; the reader error message
 
 (defn decode-failed?
   "True when a response :body is the marker safe-edn-decode returns for a body it
@@ -43,7 +45,9 @@
     (catch :default e
       (js/console.error
        "orcpub.http-safe: EDN response unreadable even after sanitize —" e)
-      {decode-error-key true})))
+      {decode-error-key true
+       raw-key   raw
+       error-key (some-> e .-message str)})))
 
 (defn wrap-safe-edn-response
   "Like cljs-http.client/wrap-edn-response, but with the resilient decoder."

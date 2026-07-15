@@ -527,8 +527,8 @@
                      ;; default character). Flag the load as failed so the
                      ;; character page renders an in-place recovery panel
                      ;; (delete / go to list) instead of a blank sheet.
-                     (dispatch [::char5e/set-character-load-error int-id true])
-                     (do (dispatch [::char5e/set-character-load-error int-id false])
+                     (dispatch [::char5e/set-character-load-error int-id body])
+                     (do (dispatch [::char5e/set-character-load-error int-id nil])
                          (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
                 :context (str "fetch character " int-id)))))
       (ra/make-reaction
@@ -537,18 +537,29 @@
            (get-in @app-db [::char5e/character-map int-id] {})
            (get @app-db :character)))))))
 
-;; Set true when a character's server response could not be decoded even after
+;; Records that a character's server response could not be decoded even after
 ;; self-heal; the character page reads it to show an in-place recovery panel
-;; instead of a blank sheet. Cleared (false) on a subsequent successful load.
+;; (with a copyable diagnostic report) instead of a blank sheet. `marker` is the
+;; http-safe decode-error map (carries the raw body + reader error); nil clears
+;; it on a subsequent successful load.
 (reg-event-db
  ::char5e/set-character-load-error
- (fn [db [_ id error?]]
-   (assoc-in db [::char5e/character-load-errors id] (boolean error?))))
+ (fn [db [_ id marker]]
+   (if marker
+     (assoc-in db [::char5e/character-load-errors id]
+               {:error (get marker http/error-key)
+                :raw   (get marker http/raw-key)})
+     (update db ::char5e/character-load-errors dissoc id))))
 
 (reg-sub
  ::char5e/character-load-error?
  (fn [db [_ id]]
-   (boolean (get-in db [::char5e/character-load-errors (when id (js/parseInt id))]))))
+   (contains? (::char5e/character-load-errors db) (when id (js/parseInt id)))))
+
+(reg-sub
+ ::char5e/character-load-error-info
+ (fn [db [_ id]]
+   (get-in db [::char5e/character-load-errors (when id (js/parseInt id))])))
 
 (reg-sub
  ::char5e/character-changed?

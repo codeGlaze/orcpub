@@ -4245,24 +4245,45 @@
   "Shown in place of the character sheet when the character's server data could
    not be read even after self-heal. Never a blank sheet, never a dead-end: the
    user's data is safe, and they can delete this character (no build required —
-   :delete-character works from the id alone) or return to their list."
-  [id]
-  [content-page
-   "Character"
-   []
-   [:div.p-20.main-text-color
-    [:div.f-w-b.f-s-24.m-b-10 "This character couldn’t be loaded"]
-    [:div.m-b-15.l-h-19
-     "This character’s data appears to be corrupted and couldn’t be read. "
-     "Your saved data is safe — you can delete this character, or head back to your characters."]
-    [:div.flex.flex-wrap
-     [:button.form-button.m-r-10.m-b-5
-      {:on-click #(do (dispatch [:delete-character id])
-                      (dispatch [:route routes/dnd-e5-char-list-page-route]))}
-      "Delete this character"]
-     [:button.form-button.m-b-5
-      {:on-click #(dispatch [:route routes/dnd-e5-char-list-page-route])}
-      "My characters"]]]])
+   :delete-character works from the id alone) or return to their list. Also
+   offers a copyable diagnostic report the user can send to support themselves,
+   which works even when no support address / auto-send is configured."
+  [_id]
+  (let [copied? (r/atom false)]
+    (fn [id]
+      (let [{:keys [error raw]} @(subscribe [::char/character-load-error-info id])
+            report (str "OrcPub — character could not be loaded\n"
+                        "Character ID: " id "\n"
+                        (when error (str "Error: " error "\n"))
+                        "\n--- raw character data (for support) ---\n"
+                        raw)]
+        [content-page
+         "Character"
+         []
+         [:div.p-20.main-text-color
+          [:div.f-w-b.f-s-24.m-b-10 "This character couldn’t be loaded"]
+          [:div.m-b-15.l-h-19
+           "This character’s data appears to be corrupted and couldn’t be read. "
+           "Your saved data is safe — you can delete this character, or head back to your characters."]
+          [:div.flex.flex-wrap.m-b-15
+           [:button.form-button.m-r-10.m-b-5
+            {:on-click #(do (dispatch [:delete-character id])
+                            (dispatch [:route routes/dnd-e5-char-list-page-route]))}
+            "Delete this character"]
+           [:button.form-button.m-b-5
+            {:on-click #(dispatch [:route routes/dnd-e5-char-list-page-route])}
+            "My characters"]]
+          [:div.m-t-10
+           [:div.m-b-5.f-s-14 "Want help fixing it? Copy this report and send it to support:"]
+           [:button.form-button.f-s-12.m-b-5
+            {:on-click (fn []
+                         (some-> js/navigator .-clipboard (.writeText report))
+                         (reset! copied? true))}
+            (if @copied? "Copied!" "Copy report")]
+           [:pre.f-s-12.m-t-5.wsp-prw
+            {:style {:user-select "text" :max-height "260px" :overflow "auto"
+                     :background "rgba(0,0,0,0.25)" :padding "8px" :border-radius "3px"}}
+            report]]]]))))
 
 (defn character-page []
   (let [expanded? (r/atom false)]
