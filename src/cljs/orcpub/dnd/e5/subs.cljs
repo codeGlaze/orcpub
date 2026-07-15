@@ -29,7 +29,7 @@
             [clojure.string :as s]
             [reagent.ratom :as ra]
             [cljs.core.async :refer [<!]]
-            [cljs-http.client :as http]
+            [orcpub.dnd.e5.http-safe :as http]
             [orcpub.dnd.e5.spell-subs])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 

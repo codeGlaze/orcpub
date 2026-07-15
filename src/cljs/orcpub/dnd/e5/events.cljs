@@ -73,7 +73,7 @@
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
                                    after dispatch ->interceptor]]
             [cljs.spec.alpha :as spec]
-            [cljs-http.client :as http]
+            [orcpub.dnd.e5.http-safe :as http]
             [cljs.core.async :refer [<! timeout]]
             [cljs-time.core :as time]
             [cljs.reader :as reader]
