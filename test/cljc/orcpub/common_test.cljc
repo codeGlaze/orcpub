@@ -243,13 +243,16 @@
                        [1 gen/char]]))
      (def ^:private wild-str (gen/fmap (partial apply str) (gen/vector wild-char 0 40)))
 
-     ;; safe-keyword ALWAYS yields a readable, non-empty keyword for ANY input.
-     (defspec safe-keyword-always-readable-and-non-empty 4000
+     ;; safe-keyword's contract is NON-EMPTY (not readability — it is non-lossy
+     ;; and does not clean chars; readability is name-to-kw's job below). It never
+     ;; returns the empty keyword for ANY input.
+     (defspec safe-keyword-never-empty 4000
        (prop/for-all [s wild-str]
          (let [k (common/safe-keyword s)]
-           (and (keyword? k) (not= empty-kw k) (= k (edn/read-string (pr-str k)))))))
+           (and (keyword? k) (not= empty-kw k)))))
 
-     ;; name-to-kw over arbitrary input: nil (non-string guard) or a readable, non-empty kw.
+     ;; name-to-kw is the char-cleaning derivation: for arbitrary input it yields
+     ;; nil (non-string guard) or a READABLE, non-empty kw.
      (defspec name-to-kw-always-safe 4000
        (prop/for-all [s wild-str]
          (let [k (common/name-to-kw s)]

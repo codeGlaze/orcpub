@@ -6,33 +6,26 @@
 (def dot-char "•")
 
 (defn safe-keyword
-  "Build a keyword from `s` that is ALWAYS a valid, readable, non-empty keyword —
-   the central guard for turning any user string into a key.
+  "Empty-guard floor for building a key: like `(keyword ns s)` but NEVER returns
+   the empty keyword `:`.
 
-   Two failure modes are closed: (1) non-word characters (space, /, \", ;, …)
-   are replaced with \"-\", because `(keyword \"a b\")` builds the unreadable
-   `:a b`; and (2) a blank/nil/non-string `s` yields a stable placeholder
-   `:unnamed-<hash>` instead of the empty keyword.
+   `(keyword \"\")` prints as a bare `:`, which is not a readable EDN token — a
+   `:` key in stored data (localStorage plugins, a saved character) makes the
+   reader throw \"A single colon is not a valid keyword.\" and crashes the load.
+   A blank/nil/non-string `s` yields a stable `:unnamed-<hash>` placeholder
+   instead. It is deterministic; two blank inputs collapse to the same
+   placeholder (acceptable — the crash is what matters).
 
-   `(keyword \"\")` prints as a bare `:`, which is not a readable EDN token —
-   when such a key lands in stored data (localStorage plugins, a saved
-   character) the reader throws \"A single colon is not a valid keyword.\" and
-   the whole load crashes. This is the single choke point that makes that
-   structurally impossible: a blank/nil/non-string `s` yields a stable
-   placeholder key (`:unnamed-<hash>`). It is deterministic; note that two
-   inputs that are both blank collapse to the same placeholder (acceptable —
-   the crash is what matters, and blank names should be rejected upstream).
-   Display layers should still surface `[Unnamed feature]` for these; this
-   only guarantees the *key* is a valid, readable keyword."
+   NON-LOSSY by design: it does NOT clean characters. Deriving a key from
+   free-text (lowercase, strip, `\\W`→`-`, collapse) is `name-to-kw`'s job — this
+   must not duplicate it, and must pass an already-valid key (e.g. a dropdown
+   value) straight through unchanged rather than mangling it. So callers feed it
+   EITHER `name-to-kw`-cleaned input OR an existing key string; it only closes
+   the degenerate empty case."
   ([s] (safe-keyword nil s))
   ([ns s]
    (if (and (string? s) (not (s/blank? s)))
-     ;; Clean to a READABLE keyword: replace non-word chars (space, /, ", ;,
-     ;; etc.) with "-". Without this, raw input like "a b" or "a/b" would build
-     ;; an unreadable keyword (:a b, :a/b/c) that crashes the reader just like
-     ;; the empty case. This is idempotent on already-cleaned input (name-to-kw
-     ;; output), so it changes no existing key — it only rescues RAW input.
-     (keyword ns (s/replace s #"\W" "-"))
+     (keyword ns s)
      (keyword ns (str "unnamed-" (hash s))))))
 
 (def ^:private bare-colon-re
