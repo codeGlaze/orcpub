@@ -6,7 +6,13 @@
 (def dot-char "•")
 
 (defn safe-keyword
-  "Build a keyword from `s`, but NEVER return the empty keyword `:`.
+  "Build a keyword from `s` that is ALWAYS a valid, readable, non-empty keyword —
+   the central guard for turning any user string into a key.
+
+   Two failure modes are closed: (1) non-word characters (space, /, \", ;, …)
+   are replaced with \"-\", because `(keyword \"a b\")` builds the unreadable
+   `:a b`; and (2) a blank/nil/non-string `s` yields a stable placeholder
+   `:unnamed-<hash>` instead of the empty keyword.
 
    `(keyword \"\")` prints as a bare `:`, which is not a readable EDN token —
    when such a key lands in stored data (localStorage plugins, a saved
@@ -21,7 +27,12 @@
   ([s] (safe-keyword nil s))
   ([ns s]
    (if (and (string? s) (not (s/blank? s)))
-     (keyword ns s)
+     ;; Clean to a READABLE keyword: replace non-word chars (space, /, ", ;,
+     ;; etc.) with "-". Without this, raw input like "a b" or "a/b" would build
+     ;; an unreadable keyword (:a b, :a/b/c) that crashes the reader just like
+     ;; the empty case. This is idempotent on already-cleaned input (name-to-kw
+     ;; output), so it changes no existing key — it only rescues RAW input.
+     (keyword ns (s/replace s #"\W" "-"))
      (keyword ns (str "unnamed-" (hash s))))))
 
 (def ^:private bare-colon-re

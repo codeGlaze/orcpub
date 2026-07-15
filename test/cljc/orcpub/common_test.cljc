@@ -224,3 +224,56 @@
        (let [bad "{:orcpub.entity.strict/key :, :name \"x\"}"]
          (is (thrown? js/Error (cljs.reader/read-string bad)))
          (is (map? (cljs.reader/read-string (:text (common/sanitize-edn-colons bad)))))))))
+
+;; ---------------------------------------------------------------------------
+;; Generative (fuzz) coverage — clj-only (keeps test.check off the cljs build).
+;; These assert the *invariants* over adversarial input, not hand-picked cases.
+;; ---------------------------------------------------------------------------
+
+#?(:clj
+   (do
+     (require '[clojure.test.check.clojure-test :refer [defspec]])
+     (require '[clojure.test.check.generators :as gen])
+     (require '[clojure.test.check.properties :as prop])
+     (require '[clojure.edn :as edn])
+
+     (def ^:private wild-char
+       (gen/frequency [[6 gen/char-alphanumeric]
+                       [3 (gen/elements [\space \tab \: \" \\ \, \{ \} \[ \] \( \) \; (char 39) \/ \. \- \_])]
+                       [1 gen/char]]))
+     (def ^:private wild-str (gen/fmap (partial apply str) (gen/vector wild-char 0 40)))
+
+     ;; safe-keyword ALWAYS yields a readable, non-empty keyword for ANY input.
+     (defspec safe-keyword-always-readable-and-non-empty 4000
+       (prop/for-all [s wild-str]
+         (let [k (common/safe-keyword s)]
+           (and (keyword? k) (not= empty-kw k) (= k (edn/read-string (pr-str k)))))))
+
+     ;; name-to-kw over arbitrary input: nil (non-string guard) or a readable, non-empty kw.
+     (defspec name-to-kw-always-safe 4000
+       (prop/for-all [s wild-str]
+         (let [k (common/name-to-kw s)]
+           (or (nil? k)
+               (and (keyword? k) (not= empty-kw k) (= k (edn/read-string (pr-str k))))))))
+
+     ;; safe-keyword is a no-op on already-cleaned (name-to-kw) output — no key churn.
+     (defspec safe-keyword-idempotent-on-name-to-kw 3000
+       (prop/for-all [s wild-str]
+         (let [nk (common/name-to-kw s)]
+           (or (nil? nk) (= nk (common/safe-keyword (name nk)))))))
+
+     ;; sanitize never touches VALID edn (round-trip of arbitrary data stays identical).
+     (def ^:private wild-edn
+       (gen/one-of [gen/small-integer gen/boolean wild-str gen/keyword
+                    (gen/map gen/keyword wild-str) (gen/vector wild-str 0 5)]))
+     (defspec sanitize-leaves-valid-edn-untouched 2000
+       (prop/for-all [d wild-edn]
+         (let [es (pr-str d) {:keys [text count]} (common/sanitize-edn-colons es)]
+           (and (= 0 count) (= text es)))))
+
+     ;; sanitize is idempotent on arbitrary raw strings.
+     (defspec sanitize-idempotent 2000
+       (prop/for-all [s wild-str]
+         (let [{t1 :text} (common/sanitize-edn-colons s)
+               {t2 :text} (common/sanitize-edn-colons t1)]
+           (= t1 t2))))))
