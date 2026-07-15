@@ -135,7 +135,7 @@
            (common/toggle-in {:p {:skills true}} [:p :skills :stealth])))))
 
 ;; ---------------------------------------------------------------------------
-;; safe-keyword / name-to-kw — the empty-keyword guard
+;; name-to-kw — the empty-keyword guard (single choke point)
 ;;
 ;; A name that reduces to "" must NEVER become the empty keyword `:`, whose
 ;; printed form is a bare colon and is unreadable — a `:` key in stored data
@@ -147,26 +147,19 @@
 
 (def ^:private empty-kw (keyword ""))   ; the bad token, never written literally
 
-(deftest safe-keyword-never-returns-empty-keyword
-  (testing "blank / nil / non-string inputs never yield the empty keyword"
-    (is (not= empty-kw (common/safe-keyword "")))
-    (is (not= empty-kw (common/safe-keyword nil)))
-    (is (not= empty-kw (common/safe-keyword "   ")))
-    (is (not= empty-kw (common/safe-keyword 42)))
-    (is (keyword? (common/safe-keyword "")))
-    (is (keyword? (common/safe-keyword nil))))
-  (testing "valid names are passed through unchanged"
-    (is (= :fireball (common/safe-keyword "fireball")))
-    (is (= :orcpub.dnd.e5/x (common/safe-keyword "orcpub.dnd.e5" "x"))))
-  (testing "deterministic for the same input (safe under memoization)"
-    (is (= (common/safe-keyword "") (common/safe-keyword "")))))
-
 (deftest name-to-kw-never-returns-empty-keyword
   (testing "names that strip to empty never become the empty keyword"
-    ;; "" and apostrophe-only names both reduce to "" in the pipeline
+    ;; "" and apostrophe-only names both reduce to "" in the pipeline; the
+    ;; inline guard substitutes a placeholder instead of (keyword "").
     (is (not= empty-kw (common/name-to-kw "")))
     (is (not= empty-kw (common/name-to-kw "'")))
-    (is (not= empty-kw (common/name-to-kw "''"))))
+    (is (not= empty-kw (common/name-to-kw "''")))
+    (is (keyword? (common/name-to-kw ""))))
+  (testing "distinct empties get distinct placeholders (hashed off the original)"
+    ;; guarding off the ORIGINAL name keeps "" / "'" / "''" from colliding
+    (is (= 3 (count (distinct [(common/name-to-kw "")
+                               (common/name-to-kw "'")
+                               (common/name-to-kw "''")])))))
   (testing "existing (non-blank) keys are unchanged — no data migration risk"
     (is (= :fireball (common/name-to-kw "Fireball")))
     (is (= :bobs-item (common/name-to-kw "Bob's Item")))
@@ -243,27 +236,14 @@
                        [1 gen/char]]))
      (def ^:private wild-str (gen/fmap (partial apply str) (gen/vector wild-char 0 40)))
 
-     ;; safe-keyword's contract is NON-EMPTY (not readability — it is non-lossy
-     ;; and does not clean chars; readability is name-to-kw's job below). It never
-     ;; returns the empty keyword for ANY input.
-     (defspec safe-keyword-never-empty 4000
-       (prop/for-all [s wild-str]
-         (let [k (common/safe-keyword s)]
-           (and (keyword? k) (not= empty-kw k)))))
-
-     ;; name-to-kw is the char-cleaning derivation: for arbitrary input it yields
-     ;; nil (non-string guard) or a READABLE, non-empty kw.
+     ;; name-to-kw is THE guarded char-cleaning derivation (the single choke
+     ;; point). For arbitrary input it yields nil (non-string guard) or a
+     ;; READABLE, non-empty keyword — never the bare `:`.
      (defspec name-to-kw-always-safe 4000
        (prop/for-all [s wild-str]
          (let [k (common/name-to-kw s)]
            (or (nil? k)
                (and (keyword? k) (not= empty-kw k) (= k (edn/read-string (pr-str k))))))))
-
-     ;; safe-keyword is a no-op on already-cleaned (name-to-kw) output — no key churn.
-     (defspec safe-keyword-idempotent-on-name-to-kw 3000
-       (prop/for-all [s wild-str]
-         (let [nk (common/name-to-kw s)]
-           (or (nil? nk) (= nk (common/safe-keyword (name nk)))))))
 
      ;; sanitize never touches VALID edn (round-trip of arbitrary data stays identical).
      (def ^:private wild-edn

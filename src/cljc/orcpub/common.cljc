@@ -5,29 +5,6 @@
 
 (def dot-char "•")
 
-(defn safe-keyword
-  "Empty-guard floor for building a key: like `(keyword ns s)` but NEVER returns
-   the empty keyword `:`.
-
-   `(keyword \"\")` prints as a bare `:`, which is not a readable EDN token — a
-   `:` key in stored data (localStorage plugins, a saved character) makes the
-   reader throw \"A single colon is not a valid keyword.\" and crashes the load.
-   A blank/nil/non-string `s` yields a stable `:unnamed-<hash>` placeholder
-   instead. It is deterministic; two blank inputs collapse to the same
-   placeholder (acceptable — the crash is what matters).
-
-   NON-LOSSY by design: it does NOT clean characters. Deriving a key from
-   free-text (lowercase, strip, `\\W`→`-`, collapse) is `name-to-kw`'s job — this
-   must not duplicate it, and must pass an already-valid key (e.g. a dropdown
-   value) straight through unchanged rather than mangling it. So callers feed it
-   EITHER `name-to-kw`-cleaned input OR an existing key string; it only closes
-   the degenerate empty case."
-  ([s] (safe-keyword nil s))
-  ([ns s]
-   (if (and (string? s) (not (s/blank? s)))
-     (keyword ns s)
-     (keyword ns (str "unnamed-" (hash s))))))
-
 (def ^:private bare-colon-re
   ;; Matches EITHER a full "string literal" OR a bare-colon token (the printed
   ;; form of the empty keyword `:`). Scanning left-to-right, a string literal is
@@ -61,7 +38,14 @@
         (s/replace $ #"'" "")
         (s/replace $ #"\W" "-")
         (s/replace $ #"\-+" "-")
-        (safe-keyword ns $))))
+        ;; Never emit the empty keyword `:` — a name that reduced to "" (blank,
+        ;; or apostrophe-only like "'") would build (keyword "") = a bare `:`,
+        ;; an unreadable EDN token that crashes read-string on load. Substitute a
+        ;; stable placeholder keyed off the ORIGINAL name so distinct empties
+        ;; ("" vs "'" vs "''") stay distinct. Only the empty case is touched, so
+        ;; no existing (non-blank) key changes.
+        (if (s/blank? $) (str "unnamed-" (hash name)) $)
+        (keyword ns $))))
 
 (def memoized-name-to-kw (memoize name-to-kw-aux))
 
