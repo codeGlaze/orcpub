@@ -2449,9 +2449,15 @@
 
 (reg-event-db
  :show-error-message
+ ;; Errors are NOT fleeting: they persist until the user dismisses them
+ ;; (the message banner is click/✕-to-close via `hide-message`). An error the
+ ;; user may need to act on must not disappear on a timer. A `ttl` may still be
+ ;; passed to opt a specific error back into auto-dismiss, but the default is
+ ;; sticky-until-dismissed.
  (fn [db [_ message ttl]]
-   (go (<! (timeout (or ttl 5000)))
-       (dispatch [:hide-message]))
+   (when ttl
+     (go (<! (timeout ttl))
+         (dispatch [:hide-message])))
    (assoc db
           :message-shown? true
           :message message
