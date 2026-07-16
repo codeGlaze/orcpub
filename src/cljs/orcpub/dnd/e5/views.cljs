@@ -5307,23 +5307,13 @@
   (let [feat @(subscribe [::feats/builder-item])
         plugins @(subscribe [::e5/plugins])]
     [:div.p-20.main-text-color
-     [:div.m-b-20.flex.flex-wrap
-      [feat-input-field
-       "Name"
-       :name
-       feat]
-      [plugin-datalist 
-         option-source-name-label 
-         feat
-         ::feats/set-feat-prop
-       ]
-       ;"m-l-5 m-b-20"]
-      [:div.w-100-p
-       [:div.f-w-b
-        "Description"]
-       [textarea-field
-        {:value (get feat :description)
-         :on-change #(dispatch [::feats/set-feat-prop :description %])}]]]
+     [builder-header
+      {:name-label "Feat Name"
+       :name-placeholder "Feat name"
+       :entity feat
+       :prop-event ::feats/set-feat-prop
+       :desc-value (get feat :description)
+       :desc-prop :description}]
      [:div [feat-prereqs feat]]
      [omv/group-label "Modifiers"]
      [:div [feat-ability-increase-options feat]]
@@ -5693,23 +5683,12 @@
         class-map @(subscribe [::classes/class-map])
         mobile? @(subscribe [:mobile?])]
     [:div.p-20.main-text-color
-     [:div.flex.flex-wrap
-      [:div.m-b-20.flex-grow-1
-       [class-input-field
-        "Name"
-        :name
-        class]]
-      [plugin-datalist
-       option-source-name-label
-       class
-       ::classes/set-class-prop]
-      ]
-     [:div.m-b-20
-      [:div.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get class :help)
-        :on-change #(dispatch [::classes/set-class-prop :help %])}]]
+     [builder-header
+      {:name-label "Class Name"
+       :name-placeholder "Class name"
+       :entity class
+       :prop-event ::classes/set-class-prop
+       :desc-value (get class :help)}]
      [:div.m-b-20.flex.flex-wrap
       [:div.m-l-5.flex-grow-1
        [labeled-dropdown
@@ -5981,28 +5960,21 @@
         classes @(subscribe [::classes/classes])
         mobile? @(subscribe [:mobile?])]
     [:div.p-20.main-text-color
-     [:div.flex.flex-wrap
-      [:div.m-b-20
-       [subclass-input-field
-        "Name"
-        :name
-        subclass]]
-      [:div.m-l-5.m-b-20
-       [labeled-dropdown
-        "Class"
-        {:items (map
-                 (fn [{:keys [:orcpub.template/name :orcpub.template/key]}]
-                   {:title name
-                    :value (clojure.core/name key)})
-                 classes)
-         :value (get subclass :class)
-         :on-change #(dispatch [::classes/set-subclass-prop :class (keyword %)])}]]
-      [plugin-datalist 
-         option-source-name-label 
-         subclass
-         ::classes/set-subclass-prop
-       ]
-      ]
+     [builder-header
+      {:name-label "Subclass Name"
+       :name-placeholder "Subclass name"
+       :entity subclass
+       :prop-event ::classes/set-subclass-prop
+       :extra-cols [:div.builder-source-col
+                    [labeled-dropdown
+                     "Class"
+                     {:items (map
+                              (fn [{:keys [:orcpub.template/name :orcpub.template/key]}]
+                                {:title name
+                                 :value (clojure.core/name key)})
+                              classes)
+                      :value (get subclass :class)
+                      :on-change #(dispatch [::classes/set-subclass-prop :class (keyword %)])}]]}]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
              spellcasting? (some? spellcasting)]
@@ -6554,17 +6526,11 @@
                 legendary-actions] :as monster}
         @(subscribe [::monsters/builder-item])]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [monster-input-field
-       "Name"
-       :name
-       monster
-       "m-b-20 flex-grow-1"]
-      [plugin-datalist
-       option-source-name-label
-       monster
-       ::monsters/set-monster-prop]
-      ]
+     [builder-header
+      {:name-label "Monster Name"
+       :name-placeholder "Monster name"
+       :entity monster
+       :prop-event ::monsters/set-monster-prop}]
      [:div.flex.w-100-p.flex-wrap
 
       [:div.flex-grow-1.m-b-20.m-l-5
@@ -7249,16 +7215,11 @@
 (defn encounter-builder []
   (let [{:keys [creatures] :as encounter} @(subscribe [::encounters/builder-item])]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [encounter-input-field
-       "Name"
-       :name
-       encounter
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       encounter
-       ::encounters/set-encounter-prop]]
+     [builder-header
+      {:name-label "Encounter Name"
+       :name-placeholder "Encounter name"
+       :entity encounter
+       :prop-event ::encounters/set-encounter-prop}]
      [:div.m-t-20
       [:div.f-s-24.f-w-b "Creatures"]
       [:div
@@ -7274,17 +7235,11 @@
 (defn spell-builder []
   (let [{:keys [:level :school] :as spell} @(subscribe [::spells/builder-item])]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [spell-input-field
-       "Name"
-       :name
-       spell
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       spell
-       ::spells/set-spell-prop]
-      ]
+     [builder-header
+      {:name-label "Spell Name"
+       :name-placeholder "Spell name"
+       :entity spell
+       :prop-event ::spells/set-spell-prop}]
 
      [:div.flex.w-100-p.flex-wrap
       [:div.flex-grow-1.m-b-20
