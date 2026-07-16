@@ -168,7 +168,19 @@
                     [:span.theme-opt-head
                      [:span.theme-swatch {:style {:background (:swatch t)}}]
                      [:span.theme-opt-label (:label t)]]
-                    [:span.theme-opt-note (:note t)]])))])]))})))
+                    [:span.theme-opt-note (:note t)]])))
+              ;; Appearance (light/dark) folded into the same palette — the existing global
+              ;; :theme axis, so one control covers environment theme AND color mode.
+              (let [light? (= "light-theme" @(subscribe [:theme]))]
+                [:div.theme-switch-mode
+                 [:span.theme-switch-mode-label "Appearance"]
+                 [:div.theme-switch-mode-btns
+                  [:button.theme-mode-btn {:class (when-not light? "active")
+                                           :on-click #(when light? (dispatch [:toggle-theme]))}
+                   "Dark"]
+                  [:button.theme-mode-btn {:class (when light? "active")
+                                           :on-click #(when-not light? (dispatch [:toggle-theme]))}
+                   "Light"]]])])]))})))
 
 (def ^:private crest-svg
   ;; the app crest — a constant background rune (lower-left watermark). Literal inline SVG

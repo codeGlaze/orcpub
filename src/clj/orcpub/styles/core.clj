@@ -1916,6 +1916,38 @@
       :margin-top "4px"
       :padding-left "20px"}]
 
+    ;; Appearance (light/dark) row folded into the palette
+    [:.theme-switch-mode
+     {:display :flex
+      :align-items :center
+      :justify-content :space-between
+      :gap "10px"
+      :padding "10px 12px"
+      :border-top "1px solid rgba(255,255,255,0.08)"}]
+    [:.theme-switch-mode-label
+     {:font-size "11px"
+      :font-weight 700
+      :letter-spacing "0.06em"
+      :text-transform :uppercase
+      :color "#7e8897"}]
+    [:.theme-switch-mode-btns
+     {:display :inline-flex
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "6px"
+      :overflow :hidden}]
+    [:.theme-mode-btn
+     {:border :none
+      :cursor :pointer
+      :font-family :inherit
+      :font-size "12px"
+      :font-weight 600
+      :color "#aab3c0"
+      :background :transparent
+      :padding "6px 12px"}]
+    [:.theme-mode-btn.active
+     {:background "rgba(240,161,15,0.15)"
+      :color "#f0b54a"}]
+
     ;; Subrace Ability Score Increases — Race + Subrace = Total equation cards (Cards
     ;; view) and a denser select-per-ability (Compact view). Active ability = amber.
     ;; toggle row sits right-aligned under the card's accent title
