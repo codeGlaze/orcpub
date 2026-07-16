@@ -1333,6 +1333,13 @@
    ;; Positive flag, default off — card backs stay text-only unless opted in.
    (boolean (::char5e/print-card-back-logo? db))))
 
+(reg-sub
+ ::char5e/card-back-logo-black?
+ (fn [db _]
+   ;; Style toggle for the card-back logo: true = solid black, default (false)
+   ;; = grayscale. Only meaningful when print-card-back-logo? is on.
+   (boolean (::char5e/card-back-logo-black? db))))
+
 
 (reg-sub
  ::char5e/print-character-sheet?

@@ -581,7 +581,8 @@
            print-large-abilities?
            print-character-sheet-style?
            print-spell-card-dc-mod?
-           print-card-back-logo?] :as options}
+           print-card-back-logo?
+           card-back-logo-black?] :as options}
    {:keys [spells-map plugin-spells-map language-map
            all-weapons-map all-magic-items-map current-armor-class]}]
   (let [race (char5e/race built-char)
@@ -659,6 +660,7 @@
       :print-character-sheet-style? print-character-sheet-style?
       :print-spell-card-dc-mod? print-spell-card-dc-mod?
       :print-card-back-logo? print-card-back-logo?
+      :card-back-logo-black? card-back-logo-black?
       }
      (attacks-and-spellcasting-fields built-char all-weapons-map)
      (skill-fields built-char)
