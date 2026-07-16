@@ -198,6 +198,17 @@
      (when (:watermark page) [:div.page-fx-watermark crest-svg])
      (when (:grain page)     [:div.page-fx-grain])]))
 
+(defn header-mark
+  "The per-theme header badge — a large faint warm-tinted glyph bleeding off the band's
+   upper-right (clipped by the band's overflow). Reads the active theme's :glyph token;
+   renders nothing when the theme has no glyph (Classic). Pairs with the cool-slate crest
+   watermark (lower-left) so the two read as one glyph system."
+  []
+  (let [g (:glyph (themes/tokens @(subscribe [::builder-theme])))]
+    (when g
+      [:div.header-mark {:style {:color (get themes/glyph-colors g "#f0a100")}}
+       (get themes/glyphs g)])))
+
 (defn layout-control-row
   "An anchored control row: the theme switcher on the left, the global layout selector on
    the right, placed with the menus/header they control."

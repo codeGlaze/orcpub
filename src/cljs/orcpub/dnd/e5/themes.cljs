@@ -52,6 +52,38 @@
 (def glyph-colors
   {:runes "#f0d9a8" :draconic "#f0a100" :arcane "#6f97c4" :sylvan "#8fb98a"})
 
+;; Header-mark glyphs — literal inline SVG (JS-built SVG didn't render through the template
+;; holes). The header mark (upper-right, warm-tinted) is the per-family badge; it reads as a
+;; system against the cool-slate background crest (lower-left). :glyph token selects one.
+(def glyphs
+  {:runes
+   [:svg {:viewBox "0 0 100 100" :width "300" :height "300" :fill "none"
+          :stroke "currentColor" :stroke-width "0.7"}
+    [:circle {:cx 50 :cy 50 :r 46}] [:circle {:cx 50 :cy 50 :r 34}]
+    [:polygon {:points "50,6 88,28 88,72 50,94 12,72 12,28"}]
+    [:polygon {:points "50,16 79,33 79,67 50,84 21,67 21,33"}]
+    [:line {:x1 50 :y1 6 :x2 50 :y2 94}]
+    [:line {:x1 12 :y1 28 :x2 88 :y2 72}]
+    [:line {:x1 88 :y1 28 :x2 12 :y2 72}]]
+   :draconic
+   [:svg {:viewBox "0 0 100 100" :width "300" :height "300" :fill "none"
+          :stroke "currentColor" :stroke-width "0.7" :stroke-linejoin "round"}
+    [:polygon {:points "50,8 86,29 86,71 50,92 14,71 14,29"}]
+    [:polygon {:points "50,8 86,71 14,71"}] [:polygon {:points "50,92 86,29 14,29"}]
+    [:circle {:cx 50 :cy 50 :r 12}]]
+   :arcane
+   [:svg {:viewBox "0 0 100 100" :width "300" :height "300" :fill "none"
+          :stroke "currentColor" :stroke-width "0.7" :stroke-linejoin "round"}
+    [:circle {:cx 50 :cy 50 :r 45}] [:polygon {:points "50,7 93,50 50,93 7,50"}]
+    [:polygon {:points "20,20 80,20 80,80 20,80"}] [:circle {:cx 50 :cy 50 :r 9}]]
+   :sylvan
+   [:svg {:viewBox "0 0 100 100" :width "300" :height "300" :fill "none"
+          :stroke "currentColor" :stroke-width "0.7" :stroke-linecap "round"}
+    [:path {:d "M50 6 C 80 32, 80 68, 50 94 C 20 68, 20 32, 50 6 Z"}]
+    [:line {:x1 50 :y1 12 :x2 50 :y2 88}]
+    [:path {:d "M50 34 C 62 34, 70 42, 72 50"}] [:path {:d "M50 34 C 38 34, 30 42, 28 50"}]
+    [:path {:d "M50 54 C 62 54, 70 62, 72 70"}] [:path {:d "M50 54 C 38 54, 30 62, 28 70"}]]})
+
 (defn theme [k] (get themes k (get themes default-theme)))
 (defn tokens [k] (:tokens (theme k)))
 (defn policy [k] (:policy (theme k)))

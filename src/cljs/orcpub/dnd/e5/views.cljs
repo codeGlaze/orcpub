@@ -5283,6 +5283,7 @@
    [:div.builder-header-band
     {:class (str "shape-" (name (themes/header-shape @(subscribe [::omv/builder-theme]))))}
     [header-scrub]
+    [omv/header-mark]
     [:div.builder-header-row
      [:div.builder-name-col
       [:div.builder-field-label (or name-label "Name")]

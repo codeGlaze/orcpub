@@ -1742,6 +1742,18 @@
       :text-transform :uppercase
       :color "#7e8897"}]
 
+    ;; header mark: the per-theme glyph badge bleeding off the band's upper-right (clipped
+    ;; by the band's overflow); faint, warm-tinted via inline color from the glyph token.
+    [:.header-mark
+     {:position :absolute
+      :top "50%"
+      :right "-40px"
+      :transform "translateY(-50%)"
+      :width "300px"
+      :height "300px"
+      :pointer-events :none
+      :opacity 0.07}]
+
     ;; ---- Page environment: fixed layers behind content (negative z), theme-toggled ----
     ;; ambient replaces the flat body backdrop with a radial; +amber corner glow
     [:.page-fx-ambient
