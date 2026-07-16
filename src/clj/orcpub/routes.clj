@@ -581,7 +581,7 @@
     :weapon-name-2 8
     :weapon-name-3 8}))
 
-(defn add-spell-cards! [doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? print-card-back-logo?]  (try
+(defn add-spell-cards! [doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img]  (try
     (let [custom-spells-map (common/map-by-key custom-spells)
           spells-map (merge spells/spell-map custom-spells-map)
           flat-spells (-> spells-known vals flatten)
@@ -628,7 +628,7 @@
               (with-open [back-page-cs (PDPageContentStream. doc back-page)]
                 (.addPage doc back-page)
                 (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
-                                 print-card-back-logo?)))))))
+                                 logo-img)))))))
     (catch Exception e (prn "FAILED ADDING SPELLS CARDS!" e))))
 
 (defn character-pdf-2 [req]
@@ -639,7 +639,14 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-black? character-name class-level player-name flatten?]} fields
+
+        ;; Resolve the card-back logo to a concrete resource once. nil = off; the
+        ;; black/grayscale choice picks between the two full-bleed 997x997 marks.
+        card-back-logo-img (when print-card-back-logo?
+                             (if card-back-logo-black?
+                               "public/image/dmv-logo-black.png"
+                               "public/image/dmv-logo-bw.png"))
 
         sheet6 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-6-spells.pdf")
         sheet5 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-5-spells.pdf")
@@ -671,7 +678,7 @@
       ;; editable. Clients that want a locked/static PDF pass `:flatten? true`.
       (pdf/write-fields! doc fields (true? flatten?) font-sizes)
       (when (and print-spell-cards? (seq spells-known))
-        (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? print-card-back-logo?))
+        (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img))
 
       (when (and image-url
                  (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)

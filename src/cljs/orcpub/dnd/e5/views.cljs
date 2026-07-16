@@ -4105,7 +4105,8 @@
                      print-large-abilities?
                      print-character-sheet-style?
                      print-spell-card-dc-mod?
-                     print-card-back-logo?]
+                     print-card-back-logo?
+                     card-back-logo-black?]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
@@ -4115,7 +4116,8 @@
                                 :print-large-abilities? print-large-abilities?
                                 :print-character-sheet-style? print-character-sheet-style?
                                 :print-spell-card-dc-mod? print-spell-card-dc-mod?
-                                :print-card-back-logo? print-card-back-logo?})]
+                                :print-card-back-logo? print-card-back-logo?
+                                :card-back-logo-black? card-back-logo-black?})]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4148,6 +4150,7 @@
         print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
         print-spell-card-dc-mod? @(subscribe [::char/print-spell-card-dc-mod?])
         print-card-back-logo? @(subscribe [::char/print-card-back-logo?])
+        card-back-logo-black? @(subscribe [::char/card-back-logo-black?])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
@@ -4202,6 +4205,14 @@
            [labeled-checkbox
             "Print logo on card backs"
             print-card-back-logo?]]]])
+      (when (and print-spell-cards? print-card-back-logo?)
+        [:div.m-b-2.m-l-20
+         [:div.flex
+          [:div
+           {:on-click (make-event-handler ::char/toggle-card-back-logo-black)}
+           [labeled-checkbox
+            "Solid black (else grayscale)"
+            card-back-logo-black?]]]])
       (when has-spells?
         [:div.m-b-10
          [:div.m-b-10
@@ -4228,7 +4239,8 @@
                                       print-large-abilities?
                                       print-character-sheet-style?
                                       print-spell-card-dc-mod?
-                                      print-card-back-logo?)}
+                                      print-card-back-logo?
+                                      card-back-logo-black?)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]

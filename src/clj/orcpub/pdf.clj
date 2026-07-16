@@ -473,7 +473,7 @@
       (s/replace #"Self.*" "Self")
       (s/replace #"feet" "ft")))
 
-(defn print-backs [cs fonts img box-width box-height remaining-lines-vec page-number logo?]
+(defn print-backs [cs fonts img box-width box-height remaining-lines-vec page-number logo-img]
   ;; `img` is the memoized per-document image loader; `logo?` opts each card back
   ;; into showing the card logo (matching the fronts) for double-sided printing.
   ;; When logo? is false NO images are loaded here — the old code decoded+embedded
@@ -525,13 +525,15 @@
                                (- 11.0 y 0.08)
                                (- box-width 0.3)
                                (- box-height 0.2)))
-           ;; Blank back — a large, CENTERED logo (~80% of the card). Uses the
-           ;; hi-res dmv-box-logo.png (1197x628), NOT the front's tiny 22x30
-           ;; card-logo.png, which pixelates and is cropped in-source. draw-imagex
-           ;; fits it to the box preserving aspect and centers it.
-           (when logo?
+           ;; Blank back — a large, CENTERED logo (~80% of the card). logo-img is
+           ;; the resource path chosen by the caller (grayscale or solid-black DMV
+           ;; mark), or nil when the logo is turned off. Both are hi-res, full-bleed
+           ;; 997x997 PNGs, NOT the front's tiny 22x30 card-logo.png (which pixelates
+           ;; and is cropped in-source). draw-imagex fits to the box preserving
+           ;; aspect and centers it.
+           (when logo-img
              (draw-imagex cs
-                          (img "public/image/dmv-box-logo.png")
+                          (img logo-img)
                           (+ x (* box-width 0.1))
                           (+ y (* box-height 0.1))
                           (* box-width 0.8)
