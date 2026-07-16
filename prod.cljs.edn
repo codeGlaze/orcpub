@@ -1,0 +1,17 @@
+;; Figwheel-main build: prod (advanced compilation)
+;; Run with: lein fig:prod
+;; Docker:   lein run -m figwheel.main -- --build-once prod
+;;
+;; This replaces the lein-cljsbuild :prod build. We use figwheel-main for
+;; both dev and prod CLJS compilation because lein-cljsbuild is abandoned
+;; (last release: 1.1.8, April 2020) and its hooks cause a JVM hang in
+;; Docker/CI. See docs/LEIN-UBERJAR-HANG.md
+^{:watch-dirs ["web/cljs" "src/cljc" "src/cljs"]
+  :css-dirs []}
+{:main orcpub.core
+ :output-to "resources/public/js/compiled/orcpub.js"
+ :asset-path "/js/compiled/out"
+ :optimizations :advanced
+ :infer-externs true
+ :externs ["externs.js"]
+ :pretty-print false}

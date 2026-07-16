@@ -1,0 +1,19 @@
+# Fixture: docker-compose.yaml with hardcoded values (no .env templating)
+# Simulates an admin who edited docker-compose.yaml directly instead of using .env
+# Usage: cp this over docker-compose.yaml, remove .env, run --upgrade
+#
+# To test: make sure no .env exists, then:
+#   cp test/docker/fixtures/compose-hardcoded.yaml docker-compose.yaml
+#   ./run --upgrade --auto
+#
+# Expected: script extracts hardcoded values into a new .env, then upgrades it
+services:
+  orcpub:
+    environment:
+      DATOMIC_URL: datomic:free://localhost:4334/orcpub?password=hardcoded123
+      DATOMIC_PASSWORD: hardcoded123
+      SIGNATURE: my-secret-signature-key
+  datomic:
+    environment:
+      ADMIN_PASSWORD: hardcoded-admin-pw
+      DATOMIC_PASSWORD: hardcoded123
