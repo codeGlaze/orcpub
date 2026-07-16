@@ -198,6 +198,36 @@
      (when (:watermark page) [:div.page-fx-watermark crest-svg])
      (when (:grain page)     [:div.page-fx-grain])]))
 
+(defn select-menu
+  "Custom button+popover select — alignment-controllable, unlike a native <select> whose
+   popup is OS-positioned and can't be styled/aligned. `options` is [[value label] …];
+   `on-change` receives the chosen value. Dismisses on an outside click."
+  [_opts]
+  (let [open?    (r/atom false)
+        wrap-ref (atom nil)
+        on-doc   (fn [e] (let [n @wrap-ref]
+                           (when (and n (not (.contains n (.-target e)))) (reset! open? false))))]
+    (r/create-class
+     {:component-did-mount    (fn [_] (js/document.addEventListener "mousedown" on-doc))
+      :component-will-unmount (fn [_] (js/document.removeEventListener "mousedown" on-doc))
+      :reagent-render
+      (fn [{:keys [value options on-change placeholder]}]
+        (let [cur (some (fn [[v l]] (when (= v value) l)) options)]
+          [:div.select-menu {:ref #(reset! wrap-ref %)}
+           [:button.select-menu-btn
+            {:type "button" :on-click (fn [e] (.stopPropagation e) (swap! open? not))}
+            [:span (or cur placeholder "Select…")]
+            [:span.select-menu-chev {:class (when @open? "open")} theme-chevron]]
+           (when @open?
+             [:div.select-menu-pop
+              (doall
+               (for [[v l] options]
+                 ^{:key (str v)}
+                 [:button.select-menu-opt
+                  {:type "button" :class (when (= v value) "active")
+                   :on-click (fn [] (reset! open? false) (on-change v))}
+                  l]))])]))})))
+
 (defn header-mark
   "The per-theme header badge — a large faint warm-tinted glyph bleeding off the band's
    upper-right (clipped by the band's overflow). Reads the active theme's :glyph token;

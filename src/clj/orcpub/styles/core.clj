@@ -1778,6 +1778,61 @@
       :mix-blend-mode :soft-light
       :background-image "url(\"data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%3E%3Cfilter%20id='pn'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23pn)'/%3E%3C/svg%3E\")"}]
 
+    ;; ---- Custom select (button + aligned popover) for form fields where a native
+    ;; <select>'s OS-positioned popup can't be aligned/styled (Parent Race, Class, …) ----
+    [:.select-menu
+     {:position :relative}]
+    [:.select-menu-btn
+     {:width "100%"
+      :display :flex
+      :align-items :center
+      :justify-content :space-between
+      :gap "8px"
+      :background "rgba(0,0,0,0.3)"
+      :border "1px solid rgba(255,255,255,0.12)"
+      :border-radius "8px"
+      :color "#e7ecf2"
+      :font-size "14px"
+      :font-family :inherit
+      :padding "10px 12px"
+      :cursor :pointer}]
+    [:.select-menu-btn:hover
+     {:border-color "rgba(255,255,255,0.2)"}]
+    [:.select-menu-chev
+     {:display :inline-flex
+      :flex "0 0 auto"
+      :transition "transform .15s"}]
+    [:.select-menu-chev.open
+     {:transform "rotate(180deg)"}]
+    [:.select-menu-pop
+     {:position :absolute
+      :top "calc(100% + 4px)"
+      :left 0
+      :right 0
+      :z-index 30
+      :background "#0d1218"
+      :border "1px solid rgba(255,255,255,0.14)"
+      :border-radius "8px"
+      :overflow-y :auto
+      :max-height "320px"
+      :box-shadow "0 14px 30px -8px rgba(0,0,0,0.8)"}]
+    [:.select-menu-opt
+     {:display :block
+      :width "100%"
+      :text-align :left
+      :border :none
+      :cursor :pointer
+      :font-family :inherit
+      :font-size "14px"
+      :color "#e7ecf2"
+      :background :transparent
+      :padding "9px 12px"}]
+    [:.select-menu-opt:hover
+     {:background "rgba(255,255,255,0.06)"}]
+    [:.select-menu-opt.active
+     {:background "rgba(240,161,15,0.14)"
+      :color "#f0b54a"}]
+
     ;; ---- Theme switcher (palette dropdown: swatch + label + per-theme note) ----
     [:.theme-switch
      {:position :relative}]

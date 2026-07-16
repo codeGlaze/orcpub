@@ -5966,14 +5966,11 @@
        :entity subclass
        :prop-event ::classes/set-subclass-prop
        :extra-cols [:div.builder-source-col
-                    [labeled-dropdown
-                     "Class"
-                     {:items (map
-                              (fn [{:keys [:orcpub.template/name :orcpub.template/key]}]
-                                {:title name
-                                 :value (clojure.core/name key)})
-                              classes)
-                      :value (get subclass :class)
+                    [:div.builder-field-label "Class"]
+                    [omv/select-menu
+                     {:value (some-> (get subclass :class) clojure.core/name)
+                      :placeholder "Choose a class…"
+                      :options (map (fn [{:keys [:orcpub.template/name :orcpub.template/key]}] [(clojure.core/name key) name]) classes)
                       :on-change #(dispatch [::classes/set-subclass-prop :class (keyword %)])}]]}]
      (when (#{:fighter :rogue :warlock :cleric :paladin} class-key)
        (let [spellcasting (get subclass :spellcasting)
@@ -6204,14 +6201,11 @@
        :entity subrace
        :prop-event ::races/set-subrace-prop
        :extra-cols [:div.builder-source-col
-                    [labeled-dropdown
-                     "Parent Race"
-                     {:items (map
-                              (fn [{:keys [name key]}]
-                                {:title name
-                                 :value (clojure.core/name key)})
-                              races)
-                      :value (get subrace :race)
+                    [:div.builder-field-label "Parent Race"]
+                    [omv/select-menu
+                     {:value (some-> (get subrace :race) clojure.core/name)
+                      :placeholder "Choose a race…"
+                      :options (map (fn [{:keys [name key]}] [(clojure.core/name key) name]) races)
                       :on-change #(dispatch [::races/set-subrace-prop :race (keyword %)])}]]}]
      [omv/layout-control-row]
      [size-speed-card
