@@ -91,8 +91,9 @@
               "returns the remaining-lines sequence without throwing"))))))
 
 (deftest print-backs-renders-with-optional-logo
-  (testing "print-backs draws the card backs with logo? on and off, both without
-            throwing (logo is opt-in for double-sided printing)"
+  (testing "print-backs draws the card backs given a resolved logo image path (or
+            nil = off), both without throwing (logo is opt-in for double-sided
+            printing; the grayscale/black choice is a caller-resolved resource)"
     (with-open [doc (PDDocument.)]
       (.addPage doc (PDPage.))
       (let [fonts (pdf/load-fonts doc)
@@ -100,9 +101,11 @@
             page (.getPage doc 0)
             lines (vec (repeat 9 {:remaining-lines ["overflow line"] :spell-name "Bolt"}))]
         (with-open [cs (PDPageContentStream. doc page)]
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 true))
-              "logo on")
-          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 false))
+          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-bw.png"))
+              "grayscale logo on")
+          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 "public/image/dmv-logo-black.png"))
+              "solid-black logo on")
+          (is (sequential? (pdf/print-backs cs fonts img 2.5 3.5 lines 0 nil))
               "logo off"))))))
 
 (deftest normalize-text-coerces-to-winansi
