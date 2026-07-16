@@ -5275,23 +5275,28 @@
   [{:keys [name-label name-placeholder entity prop-event desc-value desc-prop extra-cols]
     :or {desc-prop :help}
     :as opts}]
-  [:div.builder-header-band
-   {:class (str "shape-" (name (themes/header-shape @(subscribe [::omv/builder-theme]))))}
-   [header-scrub]
-   [:div.builder-header-row
-    [:div.builder-name-col
-     [:div.builder-field-label (or name-label "Name")]
-     [builder-name-input (get entity :name) prop-event :name name-placeholder]]
-    ;; optional extra header column(s) between Name and Source — e.g. subrace's
-    ;; Parent Race dropdown. Each is its own grid cell in the header row.
-    extra-cols
-    [:div.builder-source-col
-     [plugin-datalist builder-source-label entity prop-event "builder-field-label" ""]]]
-   (when (contains? opts :desc-value)
-     [:div.builder-header-desc
-      [:div.builder-field-label "Description"]
-      [textarea-field {:value desc-value
-                       :on-change #(dispatch [prop-event desc-prop %])}]])])
+  ;; page-environment renders as a SIBLING of the band (not inside it) — the band is a
+  ;; sticky z-index:20 stacking context, and the fixed negative-z page layers must sit
+  ;; behind ALL content, so they can't live inside that context.
+  [:<>
+   [omv/page-environment]
+   [:div.builder-header-band
+    {:class (str "shape-" (name (themes/header-shape @(subscribe [::omv/builder-theme]))))}
+    [header-scrub]
+    [:div.builder-header-row
+     [:div.builder-name-col
+      [:div.builder-field-label (or name-label "Name")]
+      [builder-name-input (get entity :name) prop-event :name name-placeholder]]
+     ;; optional extra header column(s) between Name and Source — e.g. subrace's
+     ;; Parent Race dropdown. Each is its own grid cell in the header row.
+     extra-cols
+     [:div.builder-source-col
+      [plugin-datalist builder-source-label entity prop-event "builder-field-label" ""]]]
+    (when (contains? opts :desc-value)
+      [:div.builder-header-desc
+       [:div.builder-field-label "Description"]
+       [textarea-field {:value desc-value
+                        :on-change #(dispatch [prop-event desc-prop %])}]])]])
 
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])

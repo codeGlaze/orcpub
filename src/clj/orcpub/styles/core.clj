@@ -1742,6 +1742,30 @@
       :text-transform :uppercase
       :color "#7e8897"}]
 
+    ;; ---- Page environment: fixed layers behind content (negative z), theme-toggled ----
+    ;; ambient replaces the flat body backdrop with a radial; +amber corner glow
+    [:.page-fx-ambient
+     {:position :fixed :inset 0 :z-index -2 :pointer-events :none
+      :background "radial-gradient(120% 80% at 50% -10%, #26354a 0%, #1a2434 40%, #0f141d 100%)"}]
+    [:.page-fx-ambient-glow
+     {:position :fixed :inset 0 :z-index -2 :pointer-events :none
+      :background "radial-gradient(50% 40% at 78% 8%, rgba(240,161,15,0.06), transparent 60%)"}]
+    ;; column spine: a lifted content lane with edge hairlines + a broad dark vignette
+    [:.page-fx-spine
+     {:position :fixed :top 0 :bottom 0 :left "50%" :transform "translateX(-50%)"
+      :width "1368px" :max-width "100%" :z-index -1 :pointer-events :none
+      :background "linear-gradient(180deg, rgba(255,255,255,0.018) 0%, rgba(255,255,255,0.006) 55%, rgba(255,255,255,0.013) 100%)"
+      :box-shadow "inset 1px 0 0 rgba(255,255,255,0.07), inset -1px 0 0 rgba(255,255,255,0.07), 0 0 100px 24px rgba(0,0,0,0.42)"}]
+    ;; crest watermark: a large faint constant rune, lower-left (SVG inherits currentColor)
+    [:.page-fx-watermark
+     {:position :fixed :left "-185px" :bottom "-175px" :width "620px" :height "620px"
+      :z-index -1 :pointer-events :none :opacity 0.055 :color "#93a1b3"}]
+    ;; soft-light noise grain (default off). %20-encode spaces so Garden doesn't break the URI.
+    [:.page-fx-grain
+     {:position :fixed :inset 0 :z-index -1 :pointer-events :none :opacity 0.1
+      :mix-blend-mode :soft-light
+      :background-image "url(\"data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='160'%20height='160'%3E%3Cfilter%20id='pn'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.9'%20numOctaves='2'%20stitchTiles='stitch'/%3E%3C/filter%3E%3Crect%20width='100%25'%20height='100%25'%20filter='url(%23pn)'/%3E%3C/svg%3E\")"}]
+
     ;; ---- Theme switcher (palette dropdown: swatch + label + per-theme note) ----
     [:.theme-switch
      {:position :relative}]

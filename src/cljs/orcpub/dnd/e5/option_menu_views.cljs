@@ -170,6 +170,34 @@
                      [:span.theme-opt-label (:label t)]]
                     [:span.theme-opt-note (:note t)]])))])]))})))
 
+(def ^:private crest-svg
+  ;; the app crest — a constant background rune (lower-left watermark). Literal inline SVG
+  ;; (JS-built SVG didn't render through the template holes).
+  [:svg {:viewBox "0 0 100 100" :width "620" :height "620" :fill "none"
+         :stroke "currentColor" :stroke-width "0.5"}
+   [:circle {:cx 50 :cy 50 :r 47}]
+   [:circle {:cx 50 :cy 50 :r 38}]
+   [:circle {:cx 50 :cy 50 :r 26}]
+   [:polygon {:points "50,3 91,26 91,74 50,97 9,74 9,26"}]
+   [:polygon {:points "50,12 83,31 83,69 50,88 17,69 17,31"}]
+   [:line {:x1 50 :y1 3 :x2 50 :y2 97}]
+   [:line {:x1 9 :y1 26 :x2 91 :y2 74}]
+   [:line {:x1 91 :y1 26 :x2 9 :y2 74}]])
+
+(defn page-environment
+  "Stackable page-environment behind the content — fixed, negative-z layers toggled by
+   the active theme's :page tokens: an ambient radial backdrop (+amber glow), the crest
+   watermark (lower-left), a lifted column-spine lane, and soft-light grain. Mechanics are
+   central; a theme just flips which layers are on."
+  []
+  (let [page (themes/page-fx @(subscribe [::builder-theme]))]
+    [:div.page-fx
+     (when (:ambient page)   [:div.page-fx-ambient])
+     (when (:ambient page)   [:div.page-fx-ambient-glow])
+     (when (:spine page)     [:div.page-fx-spine])
+     (when (:watermark page) [:div.page-fx-watermark crest-svg])
+     (when (:grain page)     [:div.page-fx-grain])]))
+
 (defn layout-control-row
   "An anchored control row: the theme switcher on the left, the global layout selector on
    the right, placed with the menus/header they control."
