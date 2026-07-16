@@ -5278,10 +5278,14 @@
   ;; page-environment renders as a SIBLING of the band (not inside it) — the band is a
   ;; sticky z-index:20 stacking context, and the fixed negative-z page layers must sit
   ;; behind ALL content, so they can't live inside that context.
+  (let [theme @(subscribe [::omv/builder-theme])
+        tok   (themes/tokens theme)]
   [:<>
    [omv/page-environment]
    [:div.builder-header-band
-    {:class (str "shape-" (name (themes/header-shape @(subscribe [::omv/builder-theme]))))}
+    ;; --accent recolors the header's accent bits (rule/lip/focus) per theme
+    {:class (str "shape-" (name (:header-shape tok)))
+     :style {"--accent" (:accent tok)}}
     [header-scrub]
     [omv/header-mark]
     [:div.builder-header-row
@@ -5297,7 +5301,7 @@
       [:div.builder-header-desc
        [:div.builder-field-label "Description"]
        [textarea-field {:value desc-value
-                        :on-change #(dispatch [prop-event desc-prop %])}]])]])
+                        :on-change #(dispatch [prop-event desc-prop %])}]])]]))
 
 (defn feat-builder []
   (let [feat @(subscribe [::feats/builder-item])

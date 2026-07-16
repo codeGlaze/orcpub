@@ -1554,9 +1554,9 @@
       ;; shared band gradient: amber + slate corner glows over the base slate — the two
       ;; carded shapes (band, socket) share this; recessed swaps to a darker carved fill.
       :background "radial-gradient(115% 150% at 88% -10%, rgba(240,161,15,0.11), transparent 46%), radial-gradient(90% 130% at 2% -20%, rgba(96,132,170,0.13), transparent 52%), linear-gradient(180deg,#243241 0%,#1b2531 100%)"
-      ;; DEFAULT shape = band: white hairline + amber accent line + downward shadow
+      ;; DEFAULT shape = band: white hairline + accent line + downward shadow
       :border-bottom "1px solid rgba(255,255,255,0.09)"
-      :box-shadow "0 3px 0 -1px rgba(240,161,15,0.45), 0 16px 30px -14px rgba(0,0,0,0.6)"
+      :box-shadow "0 3px 0 -1px var(--accent, #f0a100), 0 16px 30px -14px rgba(0,0,0,0.6)"
       :transition "background .3s ease, box-shadow .3s ease"}
      ;; ambient amber glow in the top-right (behind the content; clipped by overflow)
      [:&:before
@@ -1591,7 +1591,7 @@
     [:.builder-header-band.shape-recessed
      {:background "radial-gradient(120% 140% at 88% -20%, rgba(240,161,15,0.08), transparent 48%), linear-gradient(180deg,#12181f 0%,#141b24 100%)"
       :box-shadow "inset 0 9px 18px -12px rgba(0,0,0,0.8), inset 0 -1px 0 rgba(255,255,255,0.03)"
-      :border-bottom "2px solid rgba(240,161,15,0.5)"}]
+      :border-bottom "2px solid var(--accent, #f0a100)"}]
 
     ;; SOCKET: a contained centered panel that scrubs from a ~1400px float toward full-bleed
     ;; as you scroll (max-width + margins + radius interpolate on --p) — widen from center,
@@ -1658,7 +1658,7 @@
 
     [:.builder-name-input:focus
      {:outline :none
-      :border-bottom "2px solid #f0a100"}]
+      :border-bottom "2px solid var(--accent, #f0a100)"}]
 
     ;; SAVE TARGET badge — a subtle outlined chip (not a solid block that reads as a
     ;; second button next to "Save to Browser Storage")
