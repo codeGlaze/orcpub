@@ -1,6 +1,8 @@
 (ns orcpub.index
   (:require [hiccup.page :refer [html5 include-css]]
             [cheshire.core :as cheshire]
+            [clojure.string :as str]
+            [orcpub.config :as config]
             [orcpub.oauth :as oauth]
             [orcpub.fork.branding :as branding]
             [orcpub.dnd.e5.views-2 :as views-2]
@@ -8,11 +10,26 @@
             [orcpub.fork.integrations :as integrations]
             [environ.core :refer [env]]))
 
-(def homebrew-url
-  "URL to fetch server-hosted .orcbrew plugins from on first load.
-   Set LOAD_HOMEBREW_URL to enable (e.g. \"/homebrew.orcbrew\" or a full URL).
-   When unset, no fetch is attempted — plugins come only from local imports."
-  (env :load-homebrew-url))
+(def site-homebrew
+  "Host-provided default homebrew, read once at startup from SITE_HOMEBREW_DIR
+   (see orcpub.config/read-site-homebrew). Injected into the page so the client
+   can load it as a read-only content layer beneath the user's own homebrew.
+   A `delay` because it does file I/O — computed on first render, then cached.
+   Change the files and restart to refresh (the version hash busts client caches
+   automatically)."
+  (delay (config/read-site-homebrew)))
+
+(defn json-for-script
+  "JSON-encode `x` for safe embedding inside an inline <script> block. Escapes
+   the characters that could break out of the script element or trip a JS parser
+   (`<`, `>`, `&`, and the U+2028/U+2029 line separators)."
+  [x]
+  (-> (cheshire/generate-string x)
+      (str/replace "<" "\\u003c")
+      (str/replace ">" "\\u003e")
+      (str/replace "&" "\\u0026")
+      (str/replace " " "\\u2028")
+      (str/replace " " "\\u2029")))
 
 (defn meta-tag [property content]
   (when content
@@ -160,28 +177,17 @@ html {
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
     (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
     (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
-    (when homebrew-url
-      (script-tag {:nonce nonce}
-       (str "
-        let plugins = localStorage.getItem('plugins');
-        if (plugins === null || plugins === '{}') {
-          fetch('" homebrew-url "')
-            .then(resp => {
-              if (!resp.ok) {
-                throw new Error('Failed to fetch plugins: ' + resp.status);
-              }
-              return resp.text();
-            })
-            .then(text => {
-              if (!text.toUpperCase().includes('NOT FOUND')) {
-                localStorage.setItem('plugins', text);
-                window.location.reload(false);
-              }
-            })
-            .catch(error => {
-              console.error('Error fetching plugins:', error);
-            });
-        }
-       ")))
+    ;; Host-provided default homebrew. The app reads deploy/homebrew/*.orcbrew
+    ;; at startup (SITE_HOMEBREW_DIR) and injects the raw sources plus a version
+    ;; hash here. The client (::e5/site-plugins cofx) validates them through the
+    ;; normal import pipeline and merges them as a read-only layer BENEATH the
+    ;; user's own homebrew — never into the user's stored library. Replaces the
+    ;; old client-side fetch that dumped raw text straight into localStorage.
+    (let [{:keys [version sources]} @site-homebrew]
+      (when (seq sources)
+        (script-tag {:nonce nonce}
+                    (str "window.orcpub_site_content="
+                         (json-for-script {:version version :sources sources})
+                         ";"))))
    ]))
   

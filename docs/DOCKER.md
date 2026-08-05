@@ -211,7 +211,7 @@ These are the variables you'll actually touch. Full reference in
 | `EMAIL_SERVER_URL` | No | *(empty)* | SMTP server. Leave empty to disable email (registration still works, just no verification emails). |
 | `CSP_POLICY` | No | `strict` | Content Security Policy: `strict`, `permissive`, or `none`. |
 | `DEV_MODE` | No | *(empty)* | Set to `true` for CSP Report-Only mode (allows Figwheel hot-reload). |
-| `LOAD_HOMEBREW_URL` | No | *(empty)* | URL to fetch `.orcbrew` plugins on first page load. |
+| `SITE_HOMEBREW_DIR` | No | `/srv/homebrew` | Directory the app reads host-provided `.orcbrew` files from, served to all users as read-only default content (merged beneath each user's own homebrew). Compose mounts `./deploy/homebrew` here. |
 
 `run` generates `DATOMIC_PASSWORD`, `ADMIN_PASSWORD`, and
 `SIGNATURE` automatically. You only need to edit `.env` if you want email or
@@ -370,7 +370,7 @@ Rules of thumb (from Datomic capacity planning docs):
 | `./data` | datomic | Datomic dev storage data files |
 | `./logs` → `/log` | datomic | Transactor log output (host `logs/`, container `/log`) |
 | `./backups` | datomic | Datomic backup destination |
-| `./deploy/homebrew/` | web | User homebrew `.orcbrew` files served by nginx |
+| `./deploy/homebrew/` | orcpub (ro), web | Host-provided default `.orcbrew` files. The app reads them at startup (`SITE_HOMEBREW_DIR`) and serves them to all users as read-only content; also still mounted into nginx for back-compat. |
 | `./deploy/nginx.conf.template` | web | Nginx config template (`envsubst` at startup) |
 | `./deploy/snakeoil.*` | web | Self-signed SSL certificates |
 

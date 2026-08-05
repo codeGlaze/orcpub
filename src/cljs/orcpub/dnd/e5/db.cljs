@@ -52,6 +52,30 @@
 ;; are preserved for repair here instead of being silently discarded.
 (def local-storage-plugins-rejected-key "plugins:rejected")
 
+;; Cache for host-provided (site) homebrew. The parsed/merged site plugins are
+;; kept here keyed by the injected content version, so the (potentially large)
+;; .orcbrew sources are only re-parsed when the self-hoster changes the files.
+;; This is a CACHE of read-only host content — distinct from the user's own
+;; `plugins` store, which the site layer never writes to.
+(def local-storage-site-plugins-key "site-plugins")
+(def local-storage-site-plugins-version-key "site-plugins:version")
+
+(defn get-local-storage-string
+  "Read a raw string from localStorage (no EDN parse). Used for the site-plugins
+   version tag, which is an opaque hash string, not EDN."
+  [k]
+  (when js/window.localStorage
+    (.getItem js/window.localStorage k)))
+
+(defn site-plugins-cache-fresh?
+  "True when the cached site-plugins version matches the injected version (both
+   non-nil). When fresh, the loader reuses the cached parse instead of running
+   validate-import over every source again. Pure — unit-testable."
+  [cached-version injected-version]
+  (boolean (and cached-version
+                injected-version
+                (= cached-version injected-version))))
+
 (def default-route route-map/dnd-e5-char-builder-route)
 
 (defn parse-route []

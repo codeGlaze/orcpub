@@ -33,10 +33,11 @@
 
 (defn compute-sorted-spells
   "Computes sorted spells from db. Replicates the chain:
-   ::e5/plugins -> ::e5/plugin-vals -> ::spells5e/plugin-spells ->
-   ::spells5e/spells -> ::char5e/sorted-spells."
+   ::e5/effective-plugins -> ::e5/plugin-vals -> ::spells5e/plugin-spells ->
+   ::spells5e/spells -> ::char5e/sorted-spells. Uses the effective library
+   (host site-plugins beneath the user's own) so host-provided spells appear."
   [db]
-  (let [plugins (get db :plugins)
+  (let [plugins (e5/merge-all-plugins (:site-plugins db) (:plugins db))
         plugin-vals (compute-plugin-vals plugins)
         plugin-spells (map
                        (fn [spell]

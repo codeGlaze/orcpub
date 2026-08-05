@@ -11,6 +11,7 @@
 
    Requires a real localStorage — runs in the headless chromium cljs suite."
   (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
+            [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.db :as db]))
 
 (defn- clear-storage! []
@@ -79,3 +80,37 @@
         (is (nil? (.getItem js/window.localStorage
                             (db/corrupt-slot-key db/local-storage-plugins-key)))
             "no :corrupt slot created on a clean read")))))
+
+;; --- Site (host-provided) homebrew ----------------------------------------
+;; The version-tag cache decides whether the injected sources need re-parsing.
+;; site-plugins-cache-fresh? is pure — no localStorage needed.
+
+(deftest site-plugins-cache-fresh
+  (testing "fresh only when both versions are present AND equal"
+    (is (true?  (db/site-plugins-cache-fresh? "abc" "abc")))
+    (is (false? (db/site-plugins-cache-fresh? "abc" "def"))
+        "a changed injected version busts the cache")
+    (is (false? (db/site-plugins-cache-fresh? nil "abc"))
+        "no cache yet → not fresh")
+    (is (false? (db/site-plugins-cache-fresh? "abc" nil))
+        "no injected version → not fresh")
+    (is (false? (db/site-plugins-cache-fresh? nil nil))
+        "nothing on either side → not fresh")))
+
+(deftest effective-plugins-merge-order
+  (testing "user homebrew wins over host site content on key collision (merge-all-plugins site user)"
+    (let [site {"Core"      {:orcpub.dnd.e5/spells {:fireball {:name "Fireball (site)" :key :fireball}}}
+                "SiteOnly"  {:orcpub.dnd.e5/races  {:tiefling {:name "Tiefling" :key :tiefling}}}}
+          user {"Core"      {:orcpub.dnd.e5/spells {:fireball {:name "Fireball (mine)" :key :fireball}
+                                                    :sleep    {:name "Sleep" :key :sleep}}}
+                "UserOnly"  {:orcpub.dnd.e5/feats  {:lucky {:name "Lucky" :key :lucky}}}}
+          merged (e5/merge-all-plugins site user)]
+      (is (= "Fireball (mine)"
+             (get-in merged ["Core" :orcpub.dnd.e5/spells :fireball :name]))
+          "the user's version of a colliding item wins")
+      (is (contains? (get-in merged ["Core" :orcpub.dnd.e5/spells]) :sleep)
+          "user-only items in a shared source are kept")
+      (is (contains? merged "SiteOnly")
+          "host-only sources are still present")
+      (is (contains? merged "UserOnly")
+          "user-only sources are still present"))))

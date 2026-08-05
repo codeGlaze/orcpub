@@ -73,6 +73,54 @@
                    "strict")]
     (str/lower-case policy)))
 
+(def default-site-homebrew-dir
+  "Directory the app reads host-provided homebrew (.orcbrew) files from.
+   Overridable via SITE_HOMEBREW_DIR. The default suits local dev (run from
+   the repo root); the Docker image points it at the mounted /srv/homebrew."
+  "deploy/homebrew")
+
+(defn site-homebrew-dir []
+  (or (some-> (env :site-homebrew-dir) not-empty)
+      default-site-homebrew-dir))
+
+(defn- sha1-hex [^String s]
+  (let [md (java.security.MessageDigest/getInstance "SHA-1")]
+    (->> (.digest md (.getBytes s "UTF-8"))
+         (map #(format "%02x" %))
+         (apply str))))
+
+(defn read-site-homebrew
+  "Read every *.orcbrew file in the site homebrew dir (sorted by name so the
+   version hash is stable) and return
+     {:version <sha1-hex or nil> :sources [<raw .orcbrew text> ...]}.
+
+   The raw text is returned unparsed — the client runs each source through the
+   same validate-import pipeline the UI import uses, so any file the site
+   accepts on import works here too. Returns {:version nil :sources []} when the
+   directory is missing or empty (caller then injects nothing). Never throws: a
+   single unreadable file is skipped rather than failing the whole page.
+
+   Zero-arg reads from (site-homebrew-dir); the dir-path arity is for testing."
+  ([] (read-site-homebrew (site-homebrew-dir)))
+  ([dir-path]
+  (let [dir (io/file dir-path)]
+    (if (and (.exists dir) (.isDirectory dir))
+      (let [files   (->> (.listFiles dir)
+                         (filter #(and (.isFile ^java.io.File %)
+                                       (str/ends-with? (.getName ^java.io.File %) ".orcbrew")))
+                         (sort-by #(.getName ^java.io.File %)))
+            sources (vec (keep (fn [f]
+                                 (try
+                                   (not-empty (slurp f))
+                                   (catch Exception e
+                                     (println "WARN: could not read site homebrew file"
+                                              (.getName ^java.io.File f) "-" (.getMessage e))
+                                     nil)))
+                               files))]
+        {:version (when (seq sources) (sha1-hex (str/join "\n" sources)))
+         :sources sources})
+      {:version nil :sources []}))))
+
 (defn dev-mode?
   "Returns true when running in dev mode (DEV_MODE env var is 'true').
    Env vars are strings — (boolean \"false\") is true in Clojure, so we

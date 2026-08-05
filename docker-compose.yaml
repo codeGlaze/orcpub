@@ -54,7 +54,14 @@ services:
       SIGNATURE: ${SIGNATURE:-change-me-to-something-unique}
       CSP_POLICY: ${CSP_POLICY:-strict}
       DEV_MODE: ${DEV_MODE:-}
-      LOAD_HOMEBREW_URL: ${LOAD_HOMEBREW_URL:-}
+      # Host-provided default homebrew. The app reads *.orcbrew files from this
+      # directory at startup and injects them as a read-only content layer for
+      # every user (merged beneath each user's own homebrew). The dir is mounted
+      # from ./deploy/homebrew below. See docs/DOCKER.md.
+      SITE_HOMEBREW_DIR: ${SITE_HOMEBREW_DIR:-/srv/homebrew}
+    volumes:
+      # Read-only: the app only ever reads these files.
+      - ./deploy/homebrew/:/srv/homebrew:ro
     depends_on:
       datomic:
         condition: service_healthy

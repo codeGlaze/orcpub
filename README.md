@@ -370,9 +370,25 @@ for the full guide including disk space planning and troubleshooting.
 
 See [docs/docker-user-management.md](docs/docker-user-management.md) for details.
 
-### Importing Homebrew Content
+### Shipping Default Homebrew Content
 
-Place your `.orcbrew` file at `./deploy/homebrew/homebrew.orcbrew` — it loads automatically when clients connect. All homebrew must be combined into this single file.
+Drop one or more `.orcbrew` files into `./deploy/homebrew/` (an "Export All" from
+the site is the easiest way to produce one). At startup the app reads every
+`*.orcbrew` file there and serves its contents to all users as **read-only
+default content**, merged *beneath* each user's own homebrew — a user's own
+version of any colliding item always wins, and this content never appears in the
+user's "My Content" library, is never exported with their homebrew, and never
+overwrites what they've imported.
+
+Each file is validated through the same import pipeline the site UI uses, so any
+file the site accepts on import works here too. Change the files and restart the
+`orcpub` container to publish an update (a content hash busts client caches
+automatically). The app reads the directory via `SITE_HOMEBREW_DIR`; the compose
+file mounts `./deploy/homebrew` into the container for you.
+
+> Replaces the older `LOAD_HOMEBREW_URL` mechanism, which fetched a single file
+> client-side and wrote its raw text straight into each browser — it required a
+> byte-perfect file and failed silently in several ways.
 
 ### Data Management
 

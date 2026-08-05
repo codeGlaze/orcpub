@@ -31,7 +31,7 @@
             [orcpub.dnd.e5.event-handlers :as event-handlers]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]
             [orcpub.dnd.e5.content-reconciliation :as content-recon]
-            [orcpub.dnd.e5.db :refer [default-value
+            [orcpub.dnd.e5.db :as db :refer [default-value
                                       character->local-store
                                       user->local-store
                                       magic-item->local-store
@@ -70,7 +70,7 @@
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.event-utils :as event-utils]
             [orcpub.dnd.e5.compute :as compute]
-            [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
+            [re-frame.core :refer [reg-event-db reg-event-fx reg-fx reg-cofx inject-cofx path
                                    after dispatch ->interceptor]]
             [cljs.spec.alpha :as spec]
             [cljs-http.client :as http]
@@ -207,6 +207,74 @@
 ;; Delegated to event-utils to break circular dep with subs files.
 (def backend-url event-utils/backend-url)
 
+;; ---------------------------------------------------------------------------
+;; Host-provided (site) homebrew
+;; ---------------------------------------------------------------------------
+;; The server injects `window.orcpub_site_content = {version, sources:[edn...]}`
+;; from deploy/homebrew/*.orcbrew (see orcpub.index). We validate each source
+;; through the SAME import pipeline the UI uses, merge them, and hand the result
+;; to :initialize-db as db `:site-plugins` — a read-only layer merged BENEATH the
+;; user's own homebrew for content only (see the ::e5/effective-plugins sub). The
+;; user's own `:plugins` store is never written to, exported from, or shown this
+;; content. This replaces the old client fetch that dumped raw text into the
+;; user's `plugins` localStorage key.
+
+(defn read-injected-site-content
+  "Return the server-injected site homebrew payload {:version .. :sources ..},
+   or nil when nothing was injected."
+  []
+  (when-let [obj (and (exists? js/window)
+                      (aget js/window "orcpub_site_content"))]
+    (js->clj obj :keywordize-keys true)))
+
+(defn- normalize-site-source
+  "validate-import returns either a full {source-name plugin} map (multi-source,
+   e.g. an Export All file) or a single bare plugin. Normalize to the multi shape
+   the merge/content layer expects, wrapping a lone plugin under a stable name."
+  [data]
+  (if (and (spec/valid? ::e5/plugins data)
+           (not (spec/valid? ::e5/plugin data)))
+    data
+    {"Site Content" data}))
+
+(defn load-site-plugins
+  "Validate + merge the injected site homebrew sources into one {source plugin}
+   map. Cached in localStorage keyed by the injected version hash, so the
+   (possibly large) sources are only re-parsed when the host changes the files.
+   Returns {} when no site content is present. Never throws — a source that fails
+   validation is skipped, not fatal."
+  []
+  (let [{:keys [version sources]} (read-injected-site-content)]
+    (if (empty? sources)
+      {}
+      (let [cached-version (db/get-local-storage-string
+                            db/local-storage-site-plugins-version-key)]
+        (if (db/site-plugins-cache-fresh? cached-version version)
+          (or (db/get-local-storage-item db/local-storage-site-plugins-key) {})
+          (let [merged (reduce
+                        (fn [acc src]
+                          (let [result (orcbrew-val/validate-import
+                                        src {:strategy :progressive :auto-clean true})]
+                            (if (:success result)
+                              (e5/merge-all-plugins acc (normalize-site-source (:data result)))
+                              (do
+                                (js/console.warn
+                                 "Site homebrew source failed validation; skipped."
+                                 (:error result))
+                                acc))))
+                        {}
+                        sources)]
+            (db/set-item db/local-storage-site-plugins-key (str merged))
+            (db/set-item db/local-storage-site-plugins-version-key version)
+            merged))))))
+
+;; Sync cofx — like ::e5/plugins, injected into :initialize-db so db :site-plugins
+;; is hydrated before the first render.
+(reg-cofx
+ ::e5/site-plugins
+ (fn [cofx _]
+   (assoc cofx ::e5/site-plugins (load-site-plugins))))
+
 (reg-event-fx
  :initialize-db
  [(inject-cofx :local-store-character)
@@ -219,6 +287,9 @@
   ;; AFTER ::e5/plugins — that cofx reconciles/writes plugins:rejected, and
   ;; this reads the result into app-db for the reactive repair panel.
   (inject-cofx ::e5/rejected-plugins)
+  ;; Host-provided default homebrew (from the server-injected payload). Loaded
+  ;; into a SEPARATE db key so it never mixes with the user's own library.
+  (inject-cofx ::e5/site-plugins)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -228,11 +299,13 @@
               local-store-builder-items
               ::e5/plugins
               ::e5/rejected-plugins
+              ::e5/site-plugins
               ::combat/tracker-item]} _]
    {:db (if (seq db)
           db
           (cond-> default-value
             plugins (assoc :plugins plugins)
+            (seq site-plugins) (assoc :site-plugins site-plugins)
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
@@ -1429,11 +1502,12 @@
 
 (defn- loaded-class-keys
   "Set of class keys currently known to the system — SRD built-ins plus
-   enabled plugin classes from db :plugins. Same source the class dropdown
-   consumes via ::classes5e/classes."
+   enabled plugin classes from the effective library (host site-plugins beneath
+   the user's own). Same source the class dropdown consumes via
+   ::classes5e/classes, so reconciliation recognizes host-provided classes too."
   [db]
   (into class5e/base-class-keys
-        (for [[_ plugin-data] (:plugins db)
+        (for [[_ plugin-data] (e5/merge-all-plugins (:site-plugins db) (:plugins db))
               :when (and (map? plugin-data) (not (:disabled? plugin-data)))
               [class-key class-data] (::e5/classes plugin-data)
               :when (and (map? class-data) (not (:disabled? class-data)))]

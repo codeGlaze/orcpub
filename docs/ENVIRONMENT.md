@@ -40,7 +40,7 @@ All configuration is managed via a `.env` file at the repository root. Copy `.en
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LOAD_HOMEBREW_URL` | — | URL to fetch server-hosted `.orcbrew` plugins on first load (e.g. `/homebrew.orcbrew`). Unset = no fetch. |
+| `SITE_HOMEBREW_DIR` | `deploy/homebrew` (compose: `/srv/homebrew`) | Directory the app reads host-provided `.orcbrew` files from at startup. Their contents are served to all users as read-only default content, merged beneath each user's own homebrew. Replaces the old `LOAD_HOMEBREW_URL` client fetch. |
 
 ### Security
 
@@ -104,7 +104,7 @@ See [BRANDING-AND-INTEGRATIONS.md](BRANDING-AND-INTEGRATIONS.md) for the full re
 | `src/clj/orcpub/config.clj` | `DATOMIC_URL`, `CSP_POLICY`, `DEV_MODE` |
 | `src/clj/orcpub/system.clj` | `PORT` (via `System/getenv`) |
 | `src/clj/orcpub/routes.clj` | `SIGNATURE`, `EMAIL_*`, `ADMIN_PASSWORD` |
-| `src/clj/orcpub/index.clj` | `LOAD_HOMEBREW_URL` (calls `fork/branding` + `fork/integrations`) |
+| `src/clj/orcpub/index.clj` | `SITE_HOMEBREW_DIR` via `config/read-site-homebrew` (calls `fork/branding` + `fork/integrations`) |
 | `src/clj/orcpub/fork/branding.clj` | `APP_*`, `APP_SOCIAL_*`, `APP_FIELD_LIMIT_*`, `EMAIL_FROM_ADDRESS` |
 | `src/clj/orcpub/fork/integrations.clj` | `MATOMO_URL`, `MATOMO_SITE_ID`, `ADSENSE_CLIENT`, `ADSENSE_SLOT` |
 | `src/clj/orcpub/pedestal.clj` | (reads `fork/integrations` for CSP domain allowlists) |

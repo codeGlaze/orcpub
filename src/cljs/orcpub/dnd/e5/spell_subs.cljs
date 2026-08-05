@@ -40,6 +40,27 @@
  (fn [db _]
    (get db :plugins)))
 
+;; Host-provided default homebrew, loaded at boot from the server-injected
+;; payload (see ::e5/site-plugins cofx). Kept in a SEPARATE db key so it never
+;; touches the user's own library — it is not persisted to, exported from, or
+;; managed alongside `:plugins`. Read-only content the self-hoster ships.
+(reg-sub
+ ::e5/site-plugins
+ (fn [db _]
+   (get db :site-plugins)))
+
+;; The plugins the CONTENT layer should see: host site-plugins underneath the
+;; user's own, user winning on any key collision. Only the content-derivation
+;; subs (plugin-vals, plugins-with-sources) read this — management/export subs
+;; stay on the user-only `::e5/plugins` so site content is never shown as the
+;; user's homebrew nor written back into their store.
+(reg-sub
+ ::e5/effective-plugins
+ :<- [::e5/site-plugins]
+ :<- [::e5/plugins]
+ (fn [[site-plugins user-plugins] _]
+   (e5/merge-all-plugins site-plugins user-plugins)))
+
 ;; The name-keyed quarantine map ({source-name → bad-source}) loaded at
 ;; boot, kept in sync by the repair event. Drives the quarantine repair panel.
 (reg-sub
@@ -49,7 +70,7 @@
 
 (reg-sub
  ::e5/plugin-vals
- :<- [::e5/plugins]
+ :<- [::e5/effective-plugins]
  (fn [plugins]
    ;; Defensive handling: filter out malformed plugin data to prevent
    ;; subscription chain failures that can break the class dropdown
@@ -85,7 +106,7 @@
 ;; This is needed for disambiguation when multiple sources have same-named content.
 (reg-sub
  ::e5/plugins-with-sources
- :<- [::e5/plugins]
+ :<- [::e5/effective-plugins]
  (fn [plugins]
    ;; Returns seq of [source-name plugin-data] pairs
    (keep
