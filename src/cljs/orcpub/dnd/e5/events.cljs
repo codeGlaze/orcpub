@@ -253,15 +253,23 @@
           (or (db/get-local-storage-item db/local-storage-site-plugins-key) {})
           (let [merged (reduce
                         (fn [acc src]
-                          (let [result (orcbrew-val/validate-import
-                                        src {:strategy :progressive :auto-clean true})]
-                            (if (:success result)
-                              (e5/merge-all-plugins acc (normalize-site-source (:data result)))
-                              (do
-                                (js/console.warn
-                                 "Site homebrew source failed validation; skipped."
-                                 (:error result))
-                                acc))))
+                          ;; Each source is isolated: a brew that fails validation
+                          ;; OR throws mid-parse is skipped with a warning, never
+                          ;; fatal. One bad file can't take down the others or boot.
+                          (try
+                            (let [result (orcbrew-val/validate-import
+                                          src {:strategy :progressive :auto-clean true})]
+                              (if (:success result)
+                                (e5/merge-all-plugins acc (normalize-site-source (:data result)))
+                                (do
+                                  (js/console.warn
+                                   "Site homebrew source failed validation; skipped."
+                                   (:error result))
+                                  acc)))
+                            (catch :default e
+                              (js/console.warn
+                               "Site homebrew source threw during load; skipped." e)
+                              acc)))
                         {}
                         sources)]
             (db/set-item db/local-storage-site-plugins-key (str merged))
@@ -273,7 +281,15 @@
 (reg-cofx
  ::e5/site-plugins
  (fn [cofx _]
-   (assoc cofx ::e5/site-plugins (load-site-plugins))))
+   (assoc cofx ::e5/site-plugins
+          ;; Final safety net: site content is a nice-to-have, never a reason the
+          ;; app fails to boot. Any unexpected failure degrades to "no site
+          ;; content" rather than throwing out of :initialize-db.
+          (try
+            (load-site-plugins)
+            (catch :default e
+              (js/console.warn "Site homebrew failed to load; continuing without it." e)
+              {})))))
 
 (reg-event-fx
  :initialize-db
