@@ -581,7 +581,7 @@
     :weapon-name-2 8
     :weapon-name-3 8}))
 
-(defn add-spell-cards! [doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw?]  (try
+(defn add-spell-cards! [doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded?]  (try
     (let [custom-spells-map (common/map-by-key custom-spells)
           spells-map (merge spells/spell-map custom-spells-map)
           flat-spells (-> spells-known vals flatten)
@@ -624,7 +624,8 @@
                                          spells
                                          i
                                          print-spell-card-dc-mod?
-                                         bw?))
+                                         bw?
+                                         bw-faded?))
                   back-page (PDPage.)]
               (with-open [back-page-cs (PDPageContentStream. doc back-page)]
                 (.addPage doc back-page)
@@ -640,11 +641,13 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? character-name class-level player-name flatten?]} fields
 
-        ;; Printer-friendly mode: solid-black spell-card icons + a forced solid-black
-        ;; card-back logo (no color anywhere on the cards).
+        ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
+        ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
+        ;; icon style: default solid black (white-halo labels) vs faded grayscale.
         bw? (true? print-bw?)
+        bw-faded? (true? bw-faded?)
 
         ;; Resolve the card-back logo to a concrete resource once. nil = off.
         ;; Default is the solid-black mark; the faded brand-orange watermark is an
@@ -684,7 +687,7 @@
       ;; editable. Clients that want a locked/static PDF pass `:flatten? true`.
       (pdf/write-fields! doc fields (true? flatten?) font-sizes)
       (when (and print-spell-cards? (seq spells-known))
-        (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw?))
+        (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw? bw-faded?))
 
       (when (and image-url
                  (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
