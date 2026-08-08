@@ -4254,23 +4254,22 @@
               [labeled-checkbox
                "Faded color (else solid black)"
                card-back-logo-faded?]]]])])
-      [:div.flex.justify-cont-end
-       [:button.form-button.p-10.m-l-5
-        {:style (print-button-style print-button-enabled)
-         :on-click (export-pdf-handler built-char
-                                       id
-                                       plugin-data
-                                       print-character-sheet?
-                                       print-spell-cards?
-                                       print-prepared-spells?
-                                       print-large-abilities?
-                                       print-character-sheet-style?
-                                       print-spell-card-dc-mod?
-                                       print-card-back-logo?
-                                       card-back-logo-faded?
-                                       print-bw?
-                                       bw-faded?)}
-        "Create PDF"]]
+      [:button.form-button.p-10.m-l-5
+       {:style (print-button-style print-button-enabled)
+        :on-click (export-pdf-handler built-char
+                                      id
+                                      plugin-data
+                                      print-character-sheet?
+                                      print-spell-cards?
+                                      print-prepared-spells?
+                                      print-large-abilities?
+                                      print-character-sheet-style?
+                                      print-spell-card-dc-mod?
+                                      print-card-back-logo?
+                                      card-back-logo-faded?
+                                      print-bw?
+                                      bw-faded?)}
+       "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
      [:span.orange.underline.pointer.uppercase.m-l-10.f-s-12
