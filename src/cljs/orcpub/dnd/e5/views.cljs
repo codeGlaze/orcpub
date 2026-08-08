@@ -4107,7 +4107,8 @@
                      print-spell-card-dc-mod?
                      print-card-back-logo?
                      card-back-logo-faded?
-                     print-bw?]
+                     print-bw?
+                     bw-faded?]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
@@ -4119,7 +4120,8 @@
                                 :print-spell-card-dc-mod? print-spell-card-dc-mod?
                                 :print-card-back-logo? print-card-back-logo?
                                 :card-back-logo-faded? card-back-logo-faded?
-                                :print-bw? print-bw?})]
+                                :print-bw? print-bw?
+                                :bw-faded? bw-faded?})]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4154,6 +4156,7 @@
         print-card-back-logo? @(subscribe [::char/print-card-back-logo?])
         card-back-logo-faded? @(subscribe [::char/card-back-logo-faded?])
         print-bw? @(subscribe [::char/print-bw?])
+        bw-faded? @(subscribe [::char/bw-faded?])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
@@ -4226,6 +4229,16 @@
            [labeled-checkbox
             "Printer-friendly (black & white)"
             print-bw?]]]
+         ;; Under B&W: default is solid-black icons with white-halo labels;
+         ;; opt into faded grayscale icons for a softer look.
+         (when print-bw?
+           [:div.m-l-20
+            [:div.flex
+             [:div
+              {:on-click (make-event-handler ::char/toggle-bw-faded)}
+              [labeled-checkbox
+               "Faded grayscale icons (else solid black)"
+               bw-faded?]]]])
          [:div.flex
           [:div
            {:on-click (make-event-handler ::char/toggle-print-card-back-logo)}
@@ -4255,7 +4268,8 @@
                                        print-spell-card-dc-mod?
                                        print-card-back-logo?
                                        card-back-logo-faded?
-                                       print-bw?)}
+                                       print-bw?
+                                       bw-faded?)}
         "Create PDF"]]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
