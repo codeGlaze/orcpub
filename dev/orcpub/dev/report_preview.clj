@@ -50,11 +50,15 @@
 (defn -main [& _]
   (println "\n=== character-load report — dev preview (no email sent) ===\n")
   (println "Current branding/config (drives recipient + gate):")
-  (println "  app-name:          " branding/app-name)
-  (println "  email-sender-name: " branding/email-sender-name)
-  (println "  support-email:     " (pr-str branding/support-email)
-           (when (s/blank? branding/support-email) "  <-- EMPTY: reports would be blocked (:no-support-address)"))
-  (println "  email-configured?: " branding/email-configured?)
+  (println "  app-name:            " branding/app-name)
+  (println "  email-sender-name:   " branding/email-sender-name)
+  (println "  APP_SUPPORT_EMAIL:   " (pr-str branding/support-email))
+  (println "  report-recipient:    " (pr-str branding/report-recipient)
+           (cond
+             (s/blank? branding/report-recipient) "  <-- EMPTY: reports blocked (:no-recipient) — set APP_SUPPORT_EMAIL or EMAIL_ERRORS_TO"
+             (not= branding/report-recipient branding/support-email) "  (falling back to EMAIL_ERRORS_TO)"
+             :else "  (from APP_SUPPORT_EMAIL)"))
+  (println "  email-configured?:   " branding/email-configured?)
   (doseq [{:keys [label report]} scenarios]
     (println "\n---------------------------------------------------------------")
     (println "scenario:" label)

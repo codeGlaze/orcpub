@@ -78,6 +78,15 @@
   "Contact email shown on privacy page, error messages, etc. Empty = hidden."
   (or (env :app-support-email) ""))
 
+(def report-recipient
+  "Where user-submitted 'character won't load' reports are emailed. Prefers the
+   public support address (APP_SUPPORT_EMAIL); falls back to the admin error inbox
+   (EMAIL_ERRORS_TO) that the app's error notifications already use — so an operator
+   who has configured error reporting needs no new setting. Empty (neither set) =
+   reports can't send and the UI offers the copyable report instead."
+  (let [support (or (env :app-support-email) "")]
+    (if (seq support) support (or (env :email-errors-to) ""))))
+
 (def help-url
   "URL for the help/FAQ page. Empty string = hidden."
   (or (env :app-help-url) ""))

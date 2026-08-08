@@ -424,7 +424,7 @@
                   "Error:        " error "\n\n"
                   "--- raw character data ---\n" raw*)]
     (cond-> {:from    (str branding/email-sender-name " <" (emailfrom) ">")
-             :to      branding/support-email
+             :to      branding/report-recipient
              :subject (str branding/app-name " — character load error (id " char-id* ")")
              :body    [{:type "text/plain" :content body}]}
       (not (s/blank? user-email*)) (assoc :cc user-email*))))
@@ -436,8 +436,8 @@
   [{:keys [char-id user-email]}]
   (let [now (System/currentTimeMillis)]
     (cond
-      (not branding/email-configured?)  :email-not-configured
-      (s/blank? branding/support-email) :no-support-address
+      (not branding/email-configured?)     :email-not-configured
+      (s/blank? branding/report-recipient) :no-recipient
       (when-let [t (get @report-throttle [user-email char-id])]
         (< (- now t) report-throttle-window-ms)) :throttled
       :else nil)))
