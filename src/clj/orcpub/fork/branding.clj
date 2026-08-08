@@ -84,8 +84,7 @@
    (EMAIL_ERRORS_TO) that the app's error notifications already use — so an operator
    who has configured error reporting needs no new setting. Empty (neither set) =
    reports can't send and the UI offers the copyable report instead."
-  (let [support (or (env :app-support-email) "")]
-    (if (seq support) support (or (env :email-errors-to) ""))))
+  (if (seq support-email) support-email (or (env :email-errors-to) "")))
 
 (def help-url
   "URL for the help/FAQ page. Empty string = hidden."
