@@ -583,7 +583,8 @@
            print-spell-card-dc-mod?
            print-card-back-logo?
            card-back-logo-faded?
-           print-bw?] :as options}
+           print-bw?
+           bw-faded?] :as options}
    {:keys [spells-map plugin-spells-map language-map
            all-weapons-map all-magic-items-map current-armor-class]}]
   (let [race (char5e/race built-char)
@@ -663,6 +664,7 @@
       :print-card-back-logo? print-card-back-logo?
       :card-back-logo-faded? card-back-logo-faded?
       :print-bw? print-bw?
+      :bw-faded? bw-faded?
       }
      (attacks-and-spellcasting-fields built-char all-weapons-map)
      (skill-fields built-char)

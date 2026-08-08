@@ -86,11 +86,14 @@
                                 :components {:verbal true}}
                         :class-nm "Wizard" :dc 13 :attack-bonus 5}]]
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false false))
+                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false false false))
                 "color icons: returns the remaining-lines sequence without throwing")
             (is (sequential?
-                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false true))
-                "bw? true (solid-black -bw icons): renders without throwing")))))))
+                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false true false))
+                "B&W solid: solid-black -bw icons + halo labels, renders without throwing")
+            (is (sequential?
+                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false true true))
+                "B&W faded: grayscale icons (reduced alpha), renders without throwing")))))))
 
 (deftest print-backs-renders-with-optional-logo
   (testing "print-backs draws the card backs given a resolved logo image path (or

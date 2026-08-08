@@ -1348,6 +1348,13 @@
    ;; solid-black card-back logo (no color anywhere). Default off.
    (boolean (::char5e/print-bw? db))))
 
+(reg-sub
+ ::char5e/bw-faded?
+ (fn [db _]
+   ;; B&W icon style: default (false) = solid black with white-halo labels;
+   ;; true = faded grayscale icons. Only meaningful when print-bw? is on.
+   (boolean (::char5e/bw-faded? db))))
+
 
 (reg-sub
  ::char5e/print-character-sheet?
