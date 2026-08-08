@@ -5367,6 +5367,11 @@
    (update db ::char5e/print-bw? not)))
 
 (reg-event-db
+ ::char5e/toggle-bw-faded
+ (fn [db _]
+   (update db ::char5e/bw-faded? not)))
+
+(reg-event-db
  ::char5e/toggle-large-abilities-print
  (fn [db _]
    (update db ::char5e/print-large-abilities? not)))
