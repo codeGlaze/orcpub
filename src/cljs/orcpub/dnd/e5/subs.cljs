@@ -1334,11 +1334,19 @@
    (boolean (::char5e/print-card-back-logo? db))))
 
 (reg-sub
- ::char5e/card-back-logo-black?
+ ::char5e/card-back-logo-faded?
  (fn [db _]
-   ;; Style toggle for the card-back logo: true = solid black, default (false)
-   ;; = grayscale. Only meaningful when print-card-back-logo? is on.
-   (boolean (::char5e/card-back-logo-black? db))))
+   ;; Card-back logo treatment: default (false) = solid black; true = faded
+   ;; brand-orange watermark (color printers). Only meaningful when the logo is
+   ;; on and printer-friendly B&W mode is off.
+   (boolean (::char5e/card-back-logo-faded? db))))
+
+(reg-sub
+ ::char5e/print-bw?
+ (fn [db _]
+   ;; Printer-friendly monochrome: solid-black spell-card icons + forced
+   ;; solid-black card-back logo (no color anywhere). Default off.
+   (boolean (::char5e/print-bw? db))))
 
 
 (reg-sub
