@@ -4293,10 +4293,70 @@
    {}
    vals))
 
+(defn character-load-recovery
+  "Shown in place of the character sheet when the character's server data could
+   not be read even after self-heal. Never a blank sheet, never a dead-end: the
+   user's data is safe, and they can delete this character (no build required —
+   :delete-character works from the id alone) or return to their list. Also
+   offers a copyable diagnostic report the user can send to support themselves,
+   which works even when no support address / auto-send is configured."
+  [_id]
+  (let [copied? (r/atom false)]
+    (fn [id]
+      (let [{:keys [error raw]} @(subscribe [::char/character-load-error-info id])
+            report (str "OrcPub — character could not be loaded\n"
+                        "Character ID: " id "\n"
+                        (when error (str "Error: " error "\n"))
+                        "\n--- raw character data (for support) ---\n"
+                        raw)]
+        [content-page
+         "Character"
+         []
+         [:div.p-20.main-text-color
+          [:div.f-w-b.f-s-24.m-b-10 "This character couldn’t be loaded"]
+          [:div.m-b-15.l-h-19
+           "This character’s data appears to be corrupted and couldn’t be read. "
+           "Your saved data is safe — you can delete this character, or head back to your characters."]
+          [:div.flex.flex-wrap.m-b-15
+           [:button.form-button.m-r-10.m-b-5
+            {:on-click #(do (dispatch [:delete-character id])
+                            (dispatch [:route routes/dnd-e5-char-list-page-route]))}
+            "Delete this character"]
+           [:button.form-button.m-b-5
+            {:on-click #(dispatch [:route routes/dnd-e5-char-list-page-route])}
+            "My characters"]]
+          ;; Auto-send: only when a support address is configured AND the user is
+          ;; signed in (so we have an account email to cc). Otherwise the copyable
+          ;; report below is the fallback.
+          (when (and (seq branding/support-email) @(subscribe [:username]))
+            (let [status @(subscribe [::char/character-report-status id])]
+              [:div.m-b-15
+               [:button.form-button.m-b-5
+                {:disabled (= status :sending)
+                 :on-click #(dispatch [:report-character-problem id error raw])}
+                (case status
+                  :sending "Sending…"
+                  :sent    "✓ Report sent — thank you"
+                  :failed  "Couldn’t send automatically — copy the report below"
+                  "Email this report to support")]]))
+          [:div.m-t-10
+           [:div.m-b-5.f-s-14 "Or copy this report and send it to support yourself:"]
+           [:button.form-button.f-s-12.m-b-5
+            {:on-click (fn []
+                         (some-> js/navigator .-clipboard (.writeText report))
+                         (reset! copied? true))}
+            (if @copied? "Copied!" "Copy report")]
+           [:pre.f-s-12.m-t-5.wsp-prw
+            {:style {:user-select "text" :max-height "260px" :overflow "auto"
+                     :background "rgba(0,0,0,0.25)" :padding "8px" :border-radius "3px"}}
+            report]]]]))))
+
 (defn character-page []
   (let [expanded? (r/atom false)]
     (fn [{:keys [id] :as arg}]
-      (let [id (js/parseInt id)
+      (if @(subscribe [::char/character-load-error? (js/parseInt id)])
+        [character-load-recovery (js/parseInt id)]
+        (let [id (js/parseInt id)
             frame? (= "true" (get-in arg [:query "frame"]))
             {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
             built-template (subs/built-template
@@ -4336,7 +4396,7 @@
                              (when (not (s/ends-with? url "?frame=true"))
                                "?frame=true"))}]]))
           [character-display id true (if (= :mobile device-type) 1 2)]]
-         :frame? frame?]))))
+         :frame? frame?])))))
 
 (defn monster-page [{:keys [key] :as arg}]
   (let [monster @(subscribe [::monsters/monster (keyword key)])]
