@@ -426,9 +426,12 @@
       (str class-nm " Cantrip " school-str)
       (str class-nm " Level " (or level "?") " " school-str))))
 
-(defn draw-spell-field [cs img title value x y]
+(defn draw-spell-field [cs img title value x y bw?]
   (draw-imagex cs
-               (img (str "public/image/" title ".png"))
+               ;; bw? swaps the baked-red icon for its solid-black `-bw` sibling
+               ;; (printer-friendly monochrome). draw-spell-field is the single
+               ;; choke point for all four per-spell icons.
+               (img (str "public/image/" title (when bw? "-bw") ".png"))
                x
                (- 11 y 0.12)
                0.25
@@ -539,7 +542,7 @@
                           (* box-width 0.8)
                           (* box-height 0.8)))))))))
 
-(defn print-spells [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod?]
+(defn print-spells [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod? bw?]
   (let [num-boxes-x (int (/ 8.5 box-width))
         num-boxes-y (int (/ 11.0 box-height))
         total-width (* num-boxes-x box-width)
@@ -604,7 +607,7 @@
                                    (- box-width 0.24)
                                    0.5))
                (draw-imagex cs
-                            (img "public/image/card-logo.png")
+                            (img (str "public/image/card-logo" (when bw? "-bw") ".png"))
                             (+ x 1.9)
                             (+ y 0.02)
                             1.0
@@ -645,14 +648,16 @@
                                            casting-time
                                            #","))))
                                    (+ x 0.12)
-                                   (- 11.0 y 0.45)))
+                                   (- 11.0 y 0.45)
+                                   bw?))
                (when range
                  (draw-spell-field cs
                                    img
                                    "arrow-dunk"
                                    (abbreviate-range range)
                                    (+ x 0.62)
-                                   (- 11.0 y 0.45)))
+                                   (- 11.0 y 0.45)
+                                   bw?))
                (draw-spell-field cs
                                  img
                                  "shiny-purse"
@@ -668,17 +673,19 @@
                                      :somatic "S"
                                      :material "M"})))
                                  (+ x 1.12)
-                                 (- 11.0 y 0.45))
+                                 (- 11.0 y 0.45)
+                                 bw?)
                (when duration
                  (draw-spell-field cs
                                    img
                                    "sands-of-time"
                                    (abbreviate-duration duration)
                                    (+ x 1.62)
-                                   (- 11.0 y 0.45)))
+                                   (- 11.0 y 0.45)
+                                   bw?))
                (when (seq remaining-desc-lines)
                  (draw-imagex cs
-                              (img "public/image/clockwise-rotation.png")
+                              (img (str "public/image/clockwise-rotation" (when bw? "-bw") ".png"))
                               (+ x 2.3)
                               (+ y 3.3)
                               0.15

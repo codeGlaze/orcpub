@@ -4106,7 +4106,8 @@
                      print-character-sheet-style?
                      print-spell-card-dc-mod?
                      print-card-back-logo?
-                     card-back-logo-black?]
+                     card-back-logo-faded?
+                     print-bw?]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
@@ -4117,7 +4118,8 @@
                                 :print-character-sheet-style? print-character-sheet-style?
                                 :print-spell-card-dc-mod? print-spell-card-dc-mod?
                                 :print-card-back-logo? print-card-back-logo?
-                                :card-back-logo-black? card-back-logo-black?})]
+                                :card-back-logo-faded? card-back-logo-faded?
+                                :print-bw? print-bw?})]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4150,7 +4152,8 @@
         print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
         print-spell-card-dc-mod? @(subscribe [::char/print-spell-card-dc-mod?])
         print-card-back-logo? @(subscribe [::char/print-card-back-logo?])
-        card-back-logo-black? @(subscribe [::char/card-back-logo-black?])
+        card-back-logo-faded? @(subscribe [::char/card-back-logo-faded?])
+        print-bw? @(subscribe [::char/print-bw?])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
@@ -4197,22 +4200,6 @@
            [labeled-checkbox
             "Print Spell DC and MOD"
             print-spell-card-dc-mod?]]]])
-      (when print-spell-cards?
-        [:div.m-b-2
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-print-card-back-logo)}
-           [labeled-checkbox
-            "Print logo on card backs"
-            print-card-back-logo?]]]])
-      (when (and print-spell-cards? print-card-back-logo?)
-        [:div.m-b-2.m-l-20
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-card-back-logo-black)}
-           [labeled-checkbox
-            "Solid black (else grayscale)"
-            card-back-logo-black?]]]])
       (when has-spells?
         [:div.m-b-10
          [:div.m-b-10
@@ -4228,20 +4215,48 @@
            [labeled-checkbox
             "Prepared"
             print-prepared-spells?]]]])
-      [:button.form-button.p-10.m-l-5
-       {:style (print-button-style print-button-enabled)
-        :on-click (export-pdf-handler built-char
-                                      id
-                                      plugin-data
-                                      print-character-sheet?
-                                      print-spell-cards?
-                                      print-prepared-spells?
-                                      print-large-abilities?
-                                      print-character-sheet-style?
-                                      print-spell-card-dc-mod?
-                                      print-card-back-logo?
-                                      card-back-logo-black?)}
-       "Create PDF"]
+      ;; Appearance group — cosmetic/output options, set apart from the data
+      ;; options above (layout B). Only meaningful when spell cards are printed.
+      (when print-spell-cards?
+        [:div.m-b-10
+         [:div.m-b-5 [:span.f-w-b "Appearance"]]
+         [:div.flex
+          [:div
+           {:on-click (make-event-handler ::char/toggle-print-bw)}
+           [labeled-checkbox
+            "Printer-friendly (black & white)"
+            print-bw?]]]
+         [:div.flex
+          [:div
+           {:on-click (make-event-handler ::char/toggle-print-card-back-logo)}
+           [labeled-checkbox
+            "Print logo on card backs"
+            print-card-back-logo?]]]
+         ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
+         (when (and print-card-back-logo? (not print-bw?))
+           [:div.m-l-20
+            [:div.flex
+             [:div
+              {:on-click (make-event-handler ::char/toggle-card-back-logo-faded)}
+              [labeled-checkbox
+               "Faded color (else solid black)"
+               card-back-logo-faded?]]]])])
+      [:div.flex.justify-cont-end
+       [:button.form-button.p-10.m-l-5
+        {:style (print-button-style print-button-enabled)
+         :on-click (export-pdf-handler built-char
+                                       id
+                                       plugin-data
+                                       print-character-sheet?
+                                       print-spell-cards?
+                                       print-prepared-spells?
+                                       print-large-abilities?
+                                       print-character-sheet-style?
+                                       print-spell-card-dc-mod?
+                                       print-card-back-logo?
+                                       card-back-logo-faded?
+                                       print-bw?)}
+        "Create PDF"]]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
      [:span.orange.underline.pointer.uppercase.m-l-10.f-s-12
