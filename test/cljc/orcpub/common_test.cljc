@@ -1,3 +1,7 @@
+;; NOTE: `common_test.clj` in this dir shares this namespace and SHADOWS this
+;; file under `lein test` (Clojure loads .clj before .cljc). These deftests run
+;; under the CLJS runner (`lein fig:test`), not `lein test`. See the header
+;; comment in common_test.clj before treating that as a bug.
 (ns orcpub.common-test
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.common :as common]))
