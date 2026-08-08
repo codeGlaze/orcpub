@@ -4904,9 +4904,14 @@
    (update db ::char5e/print-card-back-logo? not)))
 
 (reg-event-db
- ::char5e/toggle-card-back-logo-black
+ ::char5e/toggle-card-back-logo-faded
  (fn [db _]
-   (update db ::char5e/card-back-logo-black? not)))
+   (update db ::char5e/card-back-logo-faded? not)))
+
+(reg-event-db
+ ::char5e/toggle-print-bw
+ (fn [db _]
+   (update db ::char5e/print-bw? not)))
 
 (reg-event-db
  ::char5e/toggle-large-abilities-print
