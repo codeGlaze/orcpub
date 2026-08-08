@@ -82,13 +82,15 @@
             img (pdf/make-image-loader doc)
             page (.getPage doc 0)]
         (with-open [cs (PDPageContentStream. doc page)]
-          (is (sequential?
-               (pdf/print-spells cs doc fonts img 2.5 3.5
-                                 [{:spell {:name "Bolt" :level 1 :school "evocation"
-                                           :components {:verbal true}}
-                                   :class-nm "Wizard" :dc 13 :attack-bonus 5}]
-                                 0 false))
-              "returns the remaining-lines sequence without throwing"))))))
+          (let [spell [{:spell {:name "Bolt" :level 1 :school "evocation"
+                                :components {:verbal true}}
+                        :class-nm "Wizard" :dc 13 :attack-bonus 5}]]
+            (is (sequential?
+                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false false))
+                "color icons: returns the remaining-lines sequence without throwing")
+            (is (sequential?
+                 (pdf/print-spells cs doc fonts img 2.5 3.5 spell 0 false true))
+                "bw? true (solid-black -bw icons): renders without throwing")))))))
 
 (deftest print-backs-renders-with-optional-logo
   (testing "print-backs draws the card backs given a resolved logo image path (or
