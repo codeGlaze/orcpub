@@ -36,6 +36,7 @@
            ;; APPEND adds new drawing/text operators to the end of the page’s existing content stream, preserving everything already on the page.
            (org.apache.pdfbox.pdmodel PDPageContentStream$AppendMode)
            (org.apache.pdfbox.pdmodel.graphics.image JPEGFactory LosslessFactory)
+           (org.apache.pdfbox.pdmodel.graphics.state PDExtendedGraphicsState)
            ;; PDFBox 3.x: Standard14Fonts$FontName is a nested enum class
            ;; In Java: org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName
            ;; In Clojure: use $ to access nested classes
@@ -230,6 +231,19 @@
      (in-to-sz scaled-width)
      (in-to-sz scaled-height))))
 
+(defn draw-imagex-alpha
+  "draw-imagex at a reduced constant opacity (0.0-1.0). Used for the faded
+   grayscale card icons: a black `-bw` icon drawn at ~40% reads as a light
+   backdrop the black label sits over. Isolated in a save/restore so the alpha
+   doesn't leak into later drawing."
+  [cs img x y width height alpha]
+  (let [gs (doto (PDExtendedGraphicsState.)
+             (.setNonStrokingAlphaConstant (float alpha)))]
+    (.saveGraphicsState cs)
+    (.setGraphicsStateParameters cs gs)
+    (draw-imagex cs img x y width height)
+    (.restoreGraphicsState cs)))
+
 (def user-agent "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.22 (KHTML, like Gecko) Chrome/25.0.1364.172")
 
 (defn draw-non-jpg [doc page url x y width height]
@@ -373,6 +387,18 @@
         (set-text-color cs 0 0 0))
       (.endText cs))))
 
+(defn draw-halo-text
+  "Draw text with a white outline (8 offset copies) then black fill, so a black
+   label stays legible on top of a solid-black icon. Used only in printer-friendly
+   B&W mode, where icon and text are both pure black; offsets are in inches."
+  [cs text font font-size x y]
+  (let [d 0.009]
+    (doseq [dx [(- d) 0 d]
+            dy [(- d) 0 d]
+            :when (not (and (zero? dx) (zero? dy)))]
+      (draw-text cs text font font-size (+ x dx) (+ y dy) [1 1 1]))
+    (draw-text cs text font font-size x y [0 0 0])))
+
 (defn draw-text-from-top [cs text font font-size x y & [color]]
   (draw-text cs text font font-size x (- 11.0 y) color))
 
@@ -426,24 +452,23 @@
       (str class-nm " Cantrip " school-str)
       (str class-nm " Level " (or level "?") " " school-str))))
 
-(defn draw-spell-field [cs img title value x y bw?]
-  (draw-imagex cs
-               ;; bw? swaps the baked-red icon for its solid-black `-bw` sibling
-               ;; (printer-friendly monochrome). draw-spell-field is the single
-               ;; choke point for all four per-spell icons.
-               (img (str "public/image/" title (when bw? "-bw") ".png"))
-               x
-               (- 11 y 0.12)
-               0.25
-               0.25)
-  (.setNonStrokingColor cs (float 0) (float 0) (float 0))
-  (draw-text cs
-             value
-             HELVETICA_BOLD_OBLIQUE
-             8
-             x
-             (- y 0.07))
-  (.setNonStrokingColor cs (float 0) (float 0) (float 0)))
+(defn draw-spell-field [cs img title value x y bw? bw-faded?]
+  ;; The label overprints the icon. Three treatments (draw-spell-field is the
+  ;; single choke point for all four per-spell icons):
+  ;;   color (default)  -> baked-red icon, plain black text
+  ;;   B&W solid (A)     -> solid-black `-bw` icon, WHITE-HALO text so it reads
+  ;;   B&W faded (B)     -> `-bw` icon at 40% (light backdrop), plain black text
+  (let [icon (img (str "public/image/" title (when bw? "-bw") ".png"))
+        ix x
+        iy (- 11 y 0.12)]
+    (if (and bw? bw-faded?)
+      (draw-imagex-alpha cs icon ix iy 0.25 0.25 0.4)
+      (draw-imagex cs icon ix iy 0.25 0.25))
+    (if (and bw? (not bw-faded?))
+      (draw-halo-text cs value HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
+      (do (.setNonStrokingColor cs (float 0) (float 0) (float 0))
+          (draw-text cs value HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
+          (.setNonStrokingColor cs (float 0) (float 0) (float 0))))))
 
 (defn abbreviate-times [time]
   (-> time
@@ -542,7 +567,7 @@
                           (* box-width 0.8)
                           (* box-height 0.8)))))))))
 
-(defn print-spells [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod? bw?]
+(defn print-spells [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod? bw? bw-faded?]
   (let [num-boxes-x (int (/ 8.5 box-width))
         num-boxes-y (int (/ 11.0 box-height))
         total-width (* num-boxes-x box-width)
@@ -606,12 +631,10 @@
                                    (- 11.0 y 0.55)
                                    (- box-width 0.24)
                                    0.5))
-               (draw-imagex cs
-                            (img (str "public/image/card-logo" (when bw? "-bw") ".png"))
-                            (+ x 1.9)
-                            (+ y 0.02)
-                            1.0
-                            0.25)
+               (let [card-logo (img (str "public/image/card-logo" (when bw? "-bw") ".png"))]
+                 (if (and bw? bw-faded?)
+                   (draw-imagex-alpha cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25 0.4)
+                   (draw-imagex cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25)))
                (draw-text-to-box cs
                                  spell-name
                                  (:bold fonts)
@@ -649,7 +672,7 @@
                                            #","))))
                                    (+ x 0.12)
                                    (- 11.0 y 0.45)
-                                   bw?))
+                                   bw? bw-faded?))
                (when range
                  (draw-spell-field cs
                                    img
@@ -657,7 +680,7 @@
                                    (abbreviate-range range)
                                    (+ x 0.62)
                                    (- 11.0 y 0.45)
-                                   bw?))
+                                   bw? bw-faded?))
                (draw-spell-field cs
                                  img
                                  "shiny-purse"
@@ -674,7 +697,7 @@
                                      :material "M"})))
                                  (+ x 1.12)
                                  (- 11.0 y 0.45)
-                                 bw?)
+                                 bw? bw-faded?)
                (when duration
                  (draw-spell-field cs
                                    img
@@ -682,14 +705,12 @@
                                    (abbreviate-duration duration)
                                    (+ x 1.62)
                                    (- 11.0 y 0.45)
-                                   bw?))
+                                   bw? bw-faded?))
                (when (seq remaining-desc-lines)
-                 (draw-imagex cs
-                              (img (str "public/image/clockwise-rotation" (when bw? "-bw") ".png"))
-                              (+ x 2.3)
-                              (+ y 3.3)
-                              0.15
-                              0.15))
+                 (let [recharge (img (str "public/image/clockwise-rotation" (when bw? "-bw") ".png"))]
+                   (if (and bw? bw-faded?)
+                     (draw-imagex-alpha cs recharge (+ x 2.3) (+ y 3.3) 0.15 0.15 0.4)
+                     (draw-imagex cs recharge (+ x 2.3) (+ y 3.3) 0.15 0.15))))
                {:remaining-lines remaining-desc-lines
                 :spell-name spell-name}))))))
 
