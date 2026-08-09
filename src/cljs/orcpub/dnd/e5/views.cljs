@@ -2766,7 +2766,9 @@
           [:div
            (t/ability-icon k 24 theme)
            [:div.ability-score-name
-            [:span.f-s-20.uppercase (name k)]]
+            ;; Uppercase the text itself (STR/DEX/…), not just via the .uppercase
+            ;; class — robust without the stylesheet and for screen readers.
+            [:span.f-s-20.uppercase (s/upper-case (name k))]]
            [:div.f-s-24.f-w-b.ability-score (abilities k)]
            [:div.f-s-12.opacity-5.m-b-2.m-t-2 " mod"]
            [:div.f-s-18.ability-score-modifier (roll-button

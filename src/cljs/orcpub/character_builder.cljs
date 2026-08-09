@@ -1020,7 +1020,10 @@
          ^{:key k}
          [:div.m-t-10.t-a-c
           (t5e/ability-icon k 24 theme)
-          [:div.uppercase (name k)]
+          ;; Uppercase the TEXT (not just the .uppercase CSS class) so the ability
+          ;; abbreviation reads as STR/DEX/… — unambiguous vs a var — even without
+          ;; the stylesheet, for screen readers, and on copy-paste.
+          [:div.uppercase (s/upper-case (name k))]
           (ability-subtitle "base")])
        ability-keys))]))
 
