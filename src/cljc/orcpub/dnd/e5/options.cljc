@@ -659,9 +659,21 @@
       (get option-sources source)))
 
 (defn spell-option [spells-map spellcasting-ability class-name key & [prepend-level? qualifier]]
-  (let [{:keys [name level source edit-event] :as spell} (spells-map key)]
+  (let [{:keys [name level source edit-event] :as spell} (spells-map key)
+        ;; When a spell list references a spell whose definition isn't loaded
+        ;; (imported homebrew that lists a spell but never defines it, or whose
+        ;; source was quarantined), fall back to a name derived from the key so the
+        ;; card is identifiable — "Guiding Hand" for :guiding-hand — instead of blank.
+        display-name (or name (common/kw-to-name key true))
+        level (or level 0)
+        ;; When the spell has no definition, seed an edit-event that opens the spell
+        ;; builder pre-filled with the key + derived name, so a dangling spell can be
+        ;; DEFINED here instead of sitting un-editable.
+        edit-event (or edit-event
+                       (when (nil? name)
+                         [::spells/edit-spell {:key key :name display-name :level level}]))]
     (t/option-cfg
-     {:name (if prepend-level? (str level " - " name) name)
+     {:name (if prepend-level? (str level " - " display-name) display-name)
       :key key
       :edit-event edit-event
       :help (spell-help spell)
@@ -677,6 +689,28 @@
 
 
 (def memoized-spell-option (memoize spell-option))
+
+(defn missing-spell-keys
+  "Spell keys in a class's spell list (a `{level #{keys}}` map) that have no
+   definition in `spells-map` — an imported list names a spell whose definition or
+   source didn't load. Pure; returns a set (empty when everything resolves)."
+  [spell-list-by-level spells-map]
+  (into #{}
+        (for [[_ keyset] spell-list-by-level
+              k keyset
+              :when (nil? (get spells-map k))]
+          k)))
+
+(def ^:private warn-missing-spells!
+  ;; Memoized so a given (class, missing-set) is reported at most once, not on
+  ;; every re-render of the spell selection. cljs-only side effect.
+  (memoize
+   (fn [class-name missing]
+     #?(:cljs (js/console.warn
+               (str "\"" class-name "\" spell list references spells with no loaded "
+                    "definition: " (s/join ", " (map name (sort missing)))
+                    " — shown by a key-derived name; define each via its edit link.")))
+     nil)))
 
 (defn spell-options [spells-map spells spellcasting-ability class-name & [prepend-level? qualifier]]
   (map
@@ -884,24 +918,38 @@
            all-spells (select-keys
                        (or spells (spell-lists (or spell-list-kw class-key)))
                        (keys slots))
+           ;; Reconcile pre-2024 wizard-possessive spell keys (e.g.
+           ;; :leomunds-secret-chest) to their current de-named SRD keys
+           ;; (:secret-chest) so imported paks that reference the old names resolve
+           ;; to the real spell. resolve-spell-key is non-destructive: it only
+           ;; remaps a known rename whose target is loaded, so loaded homebrew and
+           ;; genuinely-missing spells are left alone (and still flagged below).
+           all-spells (reduce-kv
+                       (fn [m lvl ks]
+                         (assoc m lvl (into #{} (map #(spells/resolve-spell-key spells-map %)) ks)))
+                       {} all-spells)
+           ;; Raise (once) any spells this list references but that aren't defined,
+           ;; so a dangling import reference is visible, not silent.
+           _ (let [missing (missing-spell-keys all-spells spells-map)]
+               (when (seq missing) (warn-missing-spells! (:name cls-cfg) missing)))
            acquire? (= :acquire known-mode)
            options (flatten
                       (map
                        (fn [[lvl spell-keys]]
                          (let [spell-keys (vec spell-keys)
                                filtered-keys (apply-spell-restriction spells-map spell-keys restriction)]
+                           ;; spell-option derives a display name from the key when a
+                           ;; spell's definition isn't loaded (an imported list names an
+                           ;; undefined/quarantined spell), so the card is identifiable
+                           ;; rather than blank.
                            (map
                             (fn [spell-key]
-                              (let [spell (spells-map spell-key)]
-                                #?@(:cljs
-                                    [(when (nil? spell) (js/console.warn (str "No spell found for key: " spell-key)))
-                                     (when (nil? (:name spell)) (js/console.warn (str "Spell is missing name: " spell-key)))])
-                                (memoized-spell-option
-                                 spells-map
-                                 ability
-                                 (:name cls-cfg)
-                                 spell-key
-                                 true)))
+                              (memoized-spell-option
+                               spells-map
+                               ability
+                               (:name cls-cfg)
+                               spell-key
+                               true))
                             filtered-keys)))
                        all-spells))]
          (assoc m cls-lvl

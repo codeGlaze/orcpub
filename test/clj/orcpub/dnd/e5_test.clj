@@ -453,3 +453,63 @@
     (is (= {:kept {} :rejected {}} (e5/salvage-plugins load-valid-plugin? nil)))
     (is (= {:kept {} :rejected {}} (e5/salvage-plugins load-valid-plugin? "corrupt")))
     (is (= {:kept {} :rejected {}} (e5/salvage-plugins load-valid-plugin? 42)))))
+
+;; ---------------------------------------------------------------------------
+;; Per-ENTRY salvage — one bad entry must NOT quarantine its whole source
+;; ---------------------------------------------------------------------------
+
+(deftest test-salvage-library-items-silos-bad-entries
+  (testing "a bad entry is siloed WITHOUT taking down its source: the source keeps
+            its valid items (kept), only the broken item is rejected"
+    (let [lib {"Src" {:orcpub.dnd.e5/feats
+                      {:good {:option-pack "Src" :name "Good"}
+                       :bad  {:name "Bad"}}}}   ; missing :option-pack
+          {:keys [kept rejected]} (e5/salvage-library-items
+                                   content-specs/valid-item-for-load? lib)]
+      (is (= {:good {:option-pack "Src" :name "Good"}}
+             (get-in kept ["Src" :orcpub.dnd.e5/feats]))
+          "good item stays in the live source")
+      (is (= {:bad {:name "Bad"}}
+             (get-in rejected ["Src" :orcpub.dnd.e5/feats]))
+          "only the bad item is set aside, under the same source/content-type")
+      (is (spec/valid? ::e5/plugin (get kept "Src"))
+          "the kept source is now load-valid"))))
+
+(deftest test-salvage-library-items-all-valid
+  (testing "all-valid library: everything kept, nothing rejected"
+    (let [{:keys [kept rejected]} (e5/salvage-library-items
+                                   content-specs/valid-item-for-load? plugins-1)]
+      (is (= plugins-1 kept))
+      (is (= {} rejected)))))
+
+(deftest test-salvage-plugin-items-keeps-non-content-entries
+  (testing ":disabled? and other non-content-group entries stay with kept"
+    (let [{:keys [kept rejected]}
+          (e5/salvage-plugin-items content-specs/valid-item-for-load?
+                                   {:disabled? true
+                                    :orcpub.dnd.e5/feats {:g {:option-pack "P"}}})]
+      (is (true? (:disabled? kept)))
+      (is (= {} rejected)))))
+
+(deftest test-salvage-library-items-edge-inputs
+  (testing "nil / non-map never throw"
+    (is (= {:kept {} :rejected {}}
+           (e5/salvage-library-items content-specs/valid-item-for-load? nil)))
+    (is (= {:kept {} :rejected {}}
+           (e5/salvage-library-items content-specs/valid-item-for-load? "x")))))
+
+(deftest test-reconcile-rejected-items
+  (testing "merges old + new set-aside entries, prunes any now live in kept"
+    (let [old {"S" {:orcpub.dnd.e5/feats {:a {:name "A"}}}}
+          new {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
+          kept {"S" {:orcpub.dnd.e5/feats {:a {:option-pack "S" :name "A"}}}}] ; :a now live
+      (is (= {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
+             (e5/reconcile-rejected-items old new kept))
+          ":a pruned (now live), :b stays set aside")))
+  (testing "a source whose entries are all pruned disappears"
+    (is (= {} (e5/reconcile-rejected-items
+               {"S" {:orcpub.dnd.e5/feats {:a {:name "A"}}}}
+               {}
+               {"S" {:orcpub.dnd.e5/feats {:a {:option-pack "S" :name "A"}}}}))))
+  (testing "nil inputs never throw"
+    (is (= {} (e5/reconcile-rejected-items nil nil nil)))))

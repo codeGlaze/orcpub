@@ -4125,7 +4125,11 @@
                      print-prepared-spells?
                      print-large-abilities?
                      print-character-sheet-style?
-                     print-spell-card-dc-mod?]
+                     print-spell-card-dc-mod?
+                     print-card-back-logo?
+                     card-back-logo-faded?
+                     print-bw?
+                     bw-faded?]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
@@ -4134,7 +4138,11 @@
                                 :print-prepared-spells? print-prepared-spells?
                                 :print-large-abilities? print-large-abilities?
                                 :print-character-sheet-style? print-character-sheet-style?
-                                :print-spell-card-dc-mod? print-spell-card-dc-mod?})]
+                                :print-spell-card-dc-mod? print-spell-card-dc-mod?
+                                :print-card-back-logo? print-card-back-logo?
+                                :card-back-logo-faded? card-back-logo-faded?
+                                :print-bw? print-bw?
+                                :bw-faded? bw-faded?})]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4166,6 +4174,10 @@
         print-large-abilities? @(subscribe [::char/print-large-abilities?])
         print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
         print-spell-card-dc-mod? @(subscribe [::char/print-spell-card-dc-mod?])
+        print-card-back-logo? @(subscribe [::char/print-card-back-logo?])
+        card-back-logo-faded? @(subscribe [::char/card-back-logo-faded?])
+        print-bw? @(subscribe [::char/print-bw?])
+        bw-faded? @(subscribe [::char/bw-faded?])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
@@ -4227,6 +4239,42 @@
            [labeled-checkbox
             "Prepared"
             print-prepared-spells?]]]])
+      ;; Appearance group — cosmetic/output options, set apart from the data
+      ;; options above (layout B). Only meaningful when spell cards are printed.
+      (when print-spell-cards?
+        [:div.m-b-10
+         [:div.m-b-5 [:span.f-w-b "Appearance"]]
+         [:div.flex
+          [:div
+           {:on-click (make-event-handler ::char/toggle-print-bw)}
+           [labeled-checkbox
+            "Printer-friendly (black & white)"
+            print-bw?]]]
+         ;; Under B&W: default is solid-black icons with white-halo labels;
+         ;; opt into faded grayscale icons for a softer look.
+         (when print-bw?
+           [:div.m-l-20
+            [:div.flex
+             [:div
+              {:on-click (make-event-handler ::char/toggle-bw-faded)}
+              [labeled-checkbox
+               "Faded grayscale icons (else solid black)"
+               bw-faded?]]]])
+         [:div.flex
+          [:div
+           {:on-click (make-event-handler ::char/toggle-print-card-back-logo)}
+           [labeled-checkbox
+            "Print logo on card backs"
+            print-card-back-logo?]]]
+         ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
+         (when (and print-card-back-logo? (not print-bw?))
+           [:div.m-l-20
+            [:div.flex
+             [:div
+              {:on-click (make-event-handler ::char/toggle-card-back-logo-faded)}
+              [labeled-checkbox
+               "Faded color (else solid black)"
+               card-back-logo-faded?]]]])])
       [:button.form-button.p-10.m-l-5
        {:style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char
@@ -4237,7 +4285,11 @@
                                       print-prepared-spells?
                                       print-large-abilities?
                                       print-character-sheet-style?
-                                      print-spell-card-dc-mod?)}
+                                      print-spell-card-dc-mod?
+                                      print-card-back-logo?
+                                      card-back-logo-faded?
+                                      print-bw?
+                                      bw-faded?)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
@@ -4262,10 +4314,70 @@
    {}
    vals))
 
+(defn character-load-recovery
+  "Shown in place of the character sheet when the character's server data could
+   not be read even after self-heal. Never a blank sheet, never a dead-end: the
+   user's data is safe, and they can delete this character (no build required —
+   :delete-character works from the id alone) or return to their list. Also
+   offers a copyable diagnostic report the user can send to support themselves,
+   which works even when no support address / auto-send is configured."
+  [_id]
+  (let [copied? (r/atom false)]
+    (fn [id]
+      (let [{:keys [error raw]} @(subscribe [::char/character-load-error-info id])
+            report (str "OrcPub — character could not be loaded\n"
+                        "Character ID: " id "\n"
+                        (when error (str "Error: " error "\n"))
+                        "\n--- raw character data (for support) ---\n"
+                        raw)]
+        [content-page
+         "Character"
+         []
+         [:div.p-20.main-text-color
+          [:div.f-w-b.f-s-24.m-b-10 "This character couldn’t be loaded"]
+          [:div.m-b-15.l-h-19
+           "This character’s data appears to be corrupted and couldn’t be read. "
+           "Your saved data is safe — you can delete this character, or head back to your characters."]
+          [:div.flex.flex-wrap.m-b-15
+           [:button.form-button.m-r-10.m-b-5
+            {:on-click #(do (dispatch [:delete-character id])
+                            (dispatch [:route routes/dnd-e5-char-list-page-route]))}
+            "Delete this character"]
+           [:button.form-button.m-b-5
+            {:on-click #(dispatch [:route routes/dnd-e5-char-list-page-route])}
+            "My characters"]]
+          ;; Auto-send: only when a support address is configured AND the user is
+          ;; signed in (so we have an account email to cc). Otherwise the copyable
+          ;; report below is the fallback.
+          (when (and (seq branding/support-email) @(subscribe [:username]))
+            (let [status @(subscribe [::char/character-report-status id])]
+              [:div.m-b-15
+               [:button.form-button.m-b-5
+                {:disabled (= status :sending)
+                 :on-click #(dispatch [:report-character-problem id error raw])}
+                (case status
+                  :sending "Sending…"
+                  :sent    "✓ Report sent — thank you"
+                  :failed  "Couldn’t send automatically — copy the report below"
+                  "Email this report to support")]]))
+          [:div.m-t-10
+           [:div.m-b-5.f-s-14 "Or copy this report and send it to support yourself:"]
+           [:button.form-button.f-s-12.m-b-5
+            {:on-click (fn []
+                         (some-> js/navigator .-clipboard (.writeText report))
+                         (reset! copied? true))}
+            (if @copied? "Copied!" "Copy report")]
+           [:pre.f-s-12.m-t-5.wsp-prw
+            {:style {:user-select "text" :max-height "260px" :overflow "auto"
+                     :background "rgba(0,0,0,0.25)" :padding "8px" :border-radius "3px"}}
+            report]]]]))))
+
 (defn character-page []
   (let [expanded? (r/atom false)]
     (fn [{:keys [id] :as arg}]
-      (let [id (js/parseInt id)
+      (if @(subscribe [::char/character-load-error? (js/parseInt id)])
+        [character-load-recovery (js/parseInt id)]
+        (let [id (js/parseInt id)
             frame? (= "true" (get-in arg [:query "frame"]))
             {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
             built-template (subs/built-template
@@ -4305,7 +4417,7 @@
                              (when (not (s/ends-with? url "?frame=true"))
                                "?frame=true"))}]]))
           [character-display id true (if (= :mobile device-type) 1 2)]]
-         :frame? frame?]))))
+         :frame? frame?])))))
 
 (defn monster-page [{:keys [key] :as arg}]
   (let [monster @(subscribe [::monsters/monster (keyword key)])]
@@ -8418,67 +8530,88 @@
         plugins)))]])
 
 (defn quarantine-source-repair
-  "Repair UI for ONE quarantined source. Shows live-validated name inputs for the
-   keyword-trap items (names that derived an invalid key) and a 'Repair & Restore'
-   action that fixes + re-keys + persists via ::e5/repair-quarantined-source. A
-   raw-export hatch is always offered so broken data can be fixed externally too."
+  "Repair UI for ONE source's set-aside ENTRIES. Lists each broken item with
+   editable Name + Option-source fields; 'Fix & Restore' applies the edits, fills
+   any remaining gaps with placeholders, re-keys keyword-trap names, and restores
+   the now-valid entries into the live library (::e5/repair-quarantined-source) —
+   entries that still can't validate stay set aside. Raw-export + discard hatches
+   are always offered."
   [src-name plugin]
-  (let [trapped (e5/invalid-keyed-items plugin)
-        edits (r/atom (into {} (map (fn [{:keys [content-type item-key name]}]
-                                      [[content-type item-key] (or name "")])
-                                    trapped)))]
+  (let [entries (vec (for [[ct items] plugin
+                           :when (and (qualified-keyword? ct) (map? items))
+                           [ik item] items]
+                       {:ct ct :ik ik :item item}))
+        edits (r/atom (into {} (mapcat (fn [{:keys [ct ik item]}]
+                                         [[[ct ik :name] (or (:name item) "")]
+                                          [[ct ik :option-pack] (or (:option-pack item) "")]])
+                                       entries)))]
     (fn [src-name plugin]
-      (let [current @edits
-            invalid? (fn [v] (not (common/starts-with-letter? (or v ""))))
-            blocked? (or (empty? current) (boolean (some invalid? (vals current))))]
+      (let [current @edits]
         [:div.p-10.m-t-10.bg-lighter.b-rad-5
          [:div.f-w-b.f-s-18.orange src-name]
-         (if (seq trapped)
+         (if (seq entries)
            [:div
             [:div.f-s-12.m-t-5.m-b-5
-             "Couldn't load: a name starts with a number or symbol (names become "
-             "keys, which can't). Fix the name(s) below, then restore:"]
+             "These entries couldn't load. Give each a name (starting with a letter) "
+             "and an option source, then restore — blanks become placeholders."]
             (doall
-             (for [{:keys [content-type item-key]} trapped
-                   :let [k [content-type item-key]
-                         v (get current k "")]]
-               ^{:key (str k)}
-               [:div.m-t-5.flex.align-items-c
-                [:input.input {:type "text" :value v
-                               :on-change #(swap! edits assoc k (.. % -target -value))}]
-                (when (invalid? v)
-                  [:span.red.m-l-5.f-s-12 "must start with a letter"])]))]
-           [:div.f-s-12.m-t-5
-            "Couldn't load and can't be auto-repaired here — export it to fix manually."])
+             (for [{:keys [ct ik]} entries
+                   :let [nk [ct ik :name]
+                         ok [ct ik :option-pack]
+                         nm (get current nk "")]]
+               ^{:key (str ct "/" ik)}
+               [:div.m-t-5.m-b-5
+                [:div.f-s-12.orange (str (name ct) " / " (name ik))]
+                [:div.m-t-5.flex.align-items-c
+                 [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
+                 [:input.input {:type "text" :value nm
+                                :on-change #(swap! edits assoc nk (.. % -target -value))}]
+                 (when-not (common/starts-with-letter? nm)
+                   [:span.red.m-l-5.f-s-12 "must start with a letter"])]
+                [:div.m-t-5.flex.align-items-c
+                 [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Option source"]
+                 [:input.input {:type "text" :value (get current ok "")
+                                :on-change #(swap! edits assoc ok (.. % -target -value))}]]]))]
+           [:div.f-s-12.m-t-5 "No entries to repair."])
          [:div.m-t-10
-          (when (seq trapped)
+          (when (seq entries)
             [:button.form-button.m-r-5
-             {:disabled blocked?
-              :class (when blocked? "disabled")
-              :on-click #(when-not blocked?
-                           (dispatch [::e5/repair-quarantined-source src-name
-                                      (into {} (map (fn [[[ct ik] nm]]
-                                                      [[src-name ct ik :name] nm])
-                                                    @edits))]))}
-             "Repair & Restore"])
-          [:button.form-button
+             {:on-click #(dispatch [::e5/repair-quarantined-source src-name
+                                    (into {} (map (fn [[[ct ik field] v]]
+                                                    [[src-name ct ik field] v])
+                                                  @edits))])}
+             "Fix & Restore"])
+          [:button.form-button.m-r-5
            {:on-click #(dispatch [::e5/export-quarantined-raw src-name])}
-           "Export raw"]]]))))
+           "Export raw"]
+          ;; Escape hatch for entries that can't be repaired and won't self-clear
+          ;; (e.g. stale ones from an earlier bad import). Confirms — only copy.
+          [:button.form-button
+           {:on-click #(when (js/confirm
+                             (str "Permanently discard the set-aside entries in \""
+                                  src-name "\"? Export raw first if you might want them."))
+                        (dispatch [::e5/discard-quarantined-source src-name]))}
+           "Discard"]]]))))
 
 (defn quarantine-panel
-  "Surfaces sources the loader quarantined. Preserved, not discarded —
-   the user can repair them back into the library or export the raw data."
+  "Surfaces the ENTRIES the loader set aside (grouped by their source). The rest of
+   each source loaded normally; these are preserved, not discarded, so you can fix
+   them back into the library or export the raw data."
   []
-  (let [quarantined @(subscribe [::e5/quarantined-plugins])]
+  (let [quarantined @(subscribe [::e5/quarantined-plugins])
+        n-entries (reduce + 0 (for [[_ plugin] quarantined
+                                    [ct items] plugin
+                                    :when (and (qualified-keyword? ct) (map? items))]
+                                (count items)))]
     (when (seq quarantined)
       [:div.p-20.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
        {:style {:border "2px solid #d94b20"}}
        [:div.f-w-b.f-s-24.m-b-5
         [:i.fa.fa-exclamation-triangle.m-r-5]
-        (str (count quarantined) " quarantined source"
-             (when (not= 1 (count quarantined)) "s") " — couldn't load")]
+        (str n-entries " entr" (if (= 1 n-entries) "y" "ies")
+             " couldn't load — needs attention")]
        [:div.f-s-12
-        "These were preserved (not discarded) so you can repair or export them."]
+        "The rest of each source loaded fine. Fix these back in, or export/discard them."]
        (doall
         (for [[src-name plugin] quarantined]
           ^{:key src-name}
