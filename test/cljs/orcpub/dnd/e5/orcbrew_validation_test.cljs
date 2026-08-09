@@ -404,9 +404,11 @@
                                              {:strategy :progressive
                                               :auto-clean true})]
       (is (:success result))
-      ;; Empty option-pack should be replaced with "Unnamed Content"
+      ;; Empty option-pack is replaced with the built-in "Default Option Source"
+      ;; (the source-less item lands in the real Default Option Source plugin, not a
+      ;; phantom one — see default-option-source in orcbrew_validation.cljs).
       (let [elf (get-in result [:data "Unnamed Content" :orcpub.dnd.e5/races :elf])]
-        (is (= "Unnamed Content" (:option-pack elf)))))))
+        (is (= "Default Option Source" (:option-pack elf)))))))
 
 ;; ============================================================================
 ;; Duplicate Key Detection Tests
@@ -470,6 +472,38 @@
       (is (not (contains? (get result :orcpub.dnd.e5/classes) :artificer)))
       (is (contains? (get result :orcpub.dnd.e5/classes) :artificer-test))
       (is (= "Artificer" (get-in result [:orcpub.dnd.e5/classes :artificer-test :name]))))))
+
+(deftest test-rename-missing-key-is-noop-not-nil-clobber
+  (testing "REGRESSION: renaming a key that isn't present must NOT fabricate a
+            `new-key -> nil` entry. A key that is BOTH an internal and an external
+            conflict generates two renames for it; the second hits an already-moved
+            key and used to assoc nil, producing a non-map item that fails ::plugin
+            and quarantined the whole source."
+    (let [plugin {:orcpub.dnd.e5/subclasses
+                  {:artillerist {:option-pack "P" :name "Artillerist"}}}
+          ;; :alchemist was already moved away (or never here) — rename is redundant
+          result (orcbrew-val/rename-key-in-plugin
+                  plugin :orcpub.dnd.e5/subclasses :alchemist :alchemist-ua)]
+      (is (= plugin result) "no-op: plugin unchanged")
+      (is (not (contains? (get result :orcpub.dnd.e5/subclasses) :alchemist-ua))
+          "no fabricated key")
+      (is (not (some nil? (vals (get result :orcpub.dnd.e5/subclasses))))
+          "no nil item values")))
+
+  (testing "REGRESSION (batch): a duplicate rename of the same key resolves once
+            and leaves the item a map — never nil."
+    (let [data {"UA - Revisited"
+                {:orcpub.dnd.e5/subclasses
+                 {:alchemist {:option-pack "UA - Revisited" :name "Alchemist"}}}}
+          ;; same (source, from) twice — the overlap an internal+external conflict makes
+          renames [{:source "UA - Revisited" :content-type :orcpub.dnd.e5/subclasses
+                    :from :alchemist :to :alchemist-ua-revisited}
+                   {:source "UA - Revisited" :content-type :orcpub.dnd.e5/subclasses
+                    :from :alchemist :to :alchemist-ua-revisited}]
+          result (orcbrew-val/apply-key-renames data renames)
+          items (get-in result ["UA - Revisited" :orcpub.dnd.e5/subclasses])]
+      (is (map? (:alchemist-ua-revisited items)) "item stays a map, not nil")
+      (is (not (some nil? (vals items))) "no nil item values in the group"))))
 
 (deftest test-rename-key-updates-subclass-references
   (testing "Renaming a class key updates subclass references"
@@ -846,7 +880,7 @@
   (testing "Known nil fields get replaced with sensible defaults"
     (let [input {:option-pack nil :name "Test Spell"}
           result (orcbrew-val/clean-nil-in-map-with-log input)]
-      (is (= "Unnamed Content" (get-in result [:data :option-pack])))
+      (is (= "Default Option Source" (get-in result [:data :option-pack])))
       (is (some #(= :replaced-nil (:type %)) (:changes result))))))
 
 (deftest test-validate-import-mixed-nil-scenarios
@@ -861,8 +895,8 @@
                                               :auto-clean true})]
       (is (:success result))
       (let [wizard (get-in result [:data :orcpub.dnd.e5/classes :wizard])]
-        ;; option-pack nil → "Unnamed Content" (replaced)
-        (is (= "Unnamed Content" (:option-pack wizard)))
+        ;; option-pack nil → "Default Option Source" (replaced)
+        (is (= "Default Option Source" (:option-pack wizard)))
         ;; spell-list-kw nil → preserved (semantic)
         (is (contains? (:spellcasting wizard) :spell-list-kw))
         (is (nil? (get-in wizard [:spellcasting :spell-list-kw])))

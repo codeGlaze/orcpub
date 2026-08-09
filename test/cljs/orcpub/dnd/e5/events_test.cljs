@@ -462,3 +462,33 @@
       (is (= {:stealth true}
              (get-in @app-db [::feats5e/builder-item :props :skill-prof]))
           "healed to a map and the toggle took effect"))))
+
+;; ---------------------------------------------------------------------------
+;; incoming-sources — the multi-plugin wrap decision
+;; ---------------------------------------------------------------------------
+;; REGRESSION: import used to decide "multi-plugin?" by spec VALIDITY, so a
+;; multi-plugin (a MegaPak of many sub-sources) with even one imperfect sub-source
+;; was misjudged single and WRAPPED under the import name — double-nesting it into
+;; a {string {string plugin}} shape ::plugin can never load, quarantining the WHOLE
+;; pak. Detection must be STRUCTURAL (shape), with per-source validity enforced
+;; downstream by salvage-plugins. These lock that.
+
+(deftest incoming-sources-keeps-multi-plugin-flat
+  (testing "a multi-plugin stays flat (keyed by its own sub-source names), even
+            when a sub-source is imperfect — NOT wrapped under the import name"
+    (let [multi {"UA - Feats" {:orcpub.dnd.e5/feats
+                               {:brave {:option-pack "UA - Feats" :name "Brave"}}}
+                 ;; imperfect sub-source (feat missing :option-pack) must not flip
+                 ;; detection to single-plugin and trigger a wrap
+                 "UA - Bad"   {:orcpub.dnd.e5/feats
+                               {:oops {:name "Oops"}}}}]
+      (is (= multi (events/incoming-sources "MegaPak" multi))
+          "returned as-is, not wrapped under \"MegaPak\"")
+      (is (every? string? (keys (events/incoming-sources "MegaPak" multi)))
+          "top-level keys remain the sub-source names (no nesting)"))))
+
+(deftest incoming-sources-wraps-single-plugin
+  (testing "a single plugin (keyword content-type keys) is wrapped under the
+            import name so it becomes a proper {source-name plugin} entry"
+    (let [single {:orcpub.dnd.e5/feats {:brave {:option-pack "P" :name "Brave"}}}]
+      (is (= {"My Pack" single} (events/incoming-sources "My Pack" single))))))
