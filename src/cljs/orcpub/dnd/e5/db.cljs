@@ -1,6 +1,7 @@
 (ns orcpub.dnd.e5.db
   (:require [orcpub.route-map :as route-map]
             [orcpub.user-agent :as user-agent]
+            [orcpub.common :as common]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.content-specs :as content-specs]
             [orcpub.dnd.e5.template :as t5e]
@@ -274,27 +275,48 @@
   #{local-storage-plugins-key
     local-storage-plugins-rejected-key})
 
+(defn- handle-unreadable
+  "Fallback for a parse failure that self-heal could not repair: preserve
+   homebrew slots to their :corrupt companion (recoverable), remove others."
+  [local-storage-key stored-str e]
+  (if (contains? preserve-on-unreadable-keys local-storage-key)
+    ;; Preserve unparseable homebrew: copy raw bytes to the :corrupt slot,
+    ;; then clear the active slot so a poison value can't brick boot. Recoverable.
+    (do
+      (js/console.warn
+       "UNREADABLE homebrew storage; preserved raw copy for recovery in"
+       (corrupt-slot-key local-storage-key) "and cleared the active slot."
+       local-storage-key)
+      (set-item (corrupt-slot-key local-storage-key) stored-str)
+      (.removeItem js/window.localStorage local-storage-key)
+      nil)
+    (do
+      (prn "E" e)
+      (js/console.warn "UNREADABLE ITEM FOUND, REMOVING.." local-storage-key stored-str)
+      (.removeItem js/window.localStorage local-storage-key)
+      nil)))
+
 (defn get-local-storage-item [local-storage-key]
   (when-let [stored-str (when js/window.localStorage
                         (.getItem js/window.localStorage local-storage-key))]
     (try (reader/read-string stored-str)
          (catch js/Object e
-           (if (contains? preserve-on-unreadable-keys local-storage-key)
-             ;; Preserve unparseable homebrew: copy raw bytes to the :corrupt slot,
-             ;; then clear the active slot so a poison value can't brick boot. Recoverable.
-             (do
-               (js/console.warn
-                "UNREADABLE homebrew storage; preserved raw copy for recovery in"
-                (corrupt-slot-key local-storage-key) "and cleared the active slot."
-                local-storage-key)
-               (set-item (corrupt-slot-key local-storage-key) stored-str)
-               (.removeItem js/window.localStorage local-storage-key)
-               nil)
-             (do
-               (prn "E" e)
-               (js/console.warn "UNREADABLE ITEM FOUND, REMOVING.." local-storage-key stored-str)
-               (.removeItem js/window.localStorage local-storage-key)
-               nil))))))
+           ;; SELF-HEAL first: the common corruption is a bare-colon empty
+           ;; keyword (":") from a custom element named "" or "'". Repair it in
+           ;; place, re-save, and load — instead of quarantining/deleting data.
+           (let [{:keys [text count]} (common/sanitize-edn-colons stored-str)]
+             (if (pos? count)
+               (try
+                 (let [healed (reader/read-string text)]
+                   (js/console.warn "REPAIRED" count "invalid empty-keyword key(s) in"
+                                    local-storage-key "- healed in place and re-saved.")
+                   (set-item local-storage-key text)
+                   healed)
+                 ;; sanitize produced something still unreadable -> normal fallback
+                 (catch js/Object _e2
+                   (handle-unreadable local-storage-key stored-str e)))
+               ;; nothing to heal (some other corruption) -> normal fallback
+               (handle-unreadable local-storage-key stored-str e)))))))
 
 (defn reg-local-store-cofx [key local-storage-key item-spec & [item-fn]]
   (re-frame/reg-cofx

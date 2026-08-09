@@ -696,6 +696,16 @@
            all-spells (select-keys
                        (or spells (spell-lists (or spell-list-kw class-key)))
                        (keys slots))
+           ;; Reconcile pre-2024 wizard-possessive spell keys (e.g.
+           ;; :leomunds-secret-chest) to their current de-named SRD keys
+           ;; (:secret-chest) so imported paks that reference the old names resolve
+           ;; to the real spell. resolve-spell-key is non-destructive: it only
+           ;; remaps a known rename whose target is loaded, so loaded homebrew and
+           ;; genuinely-missing spells are left alone (and still flagged below).
+           all-spells (reduce-kv
+                       (fn [m lvl ks]
+                         (assoc m lvl (into #{} (map #(spells/resolve-spell-key spells-map %)) ks)))
+                       {} all-spells)
            ;; Raise (once) any spells this list references but that aren't defined,
            ;; so a dangling import reference is visible, not silent.
            _ (let [missing (missing-spell-keys all-spells spells-map)]

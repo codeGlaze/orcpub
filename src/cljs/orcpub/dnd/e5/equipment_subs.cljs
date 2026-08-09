@@ -21,7 +21,7 @@
                                                                     handle-api-response]]
             [reagent.ratom :as ra]
             [clojure.string :as s]
-            [cljs-http.client :as http]
+            [orcpub.dnd.e5.http-safe :as http]
             [cljs.core.async :refer [<!]])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 

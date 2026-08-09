@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [is deftest testing]]
             [clojure.spec.alpha :as spec]
             [orcpub.dnd.e5.options :as opt]
+            [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.template :as t]
             [orcpub.entity :as entity]))
@@ -78,3 +79,29 @@
       (is (= #{:guiding-hand :sudden-awakening}
              (opt/missing-spell-keys {0 #{:guiding-hand} 1 #{:fireball :sudden-awakening}}
                                      spells-map))))))
+
+(deftest spell-key-alias-targets-all-exist
+  (testing "every spell-key-aliases target resolves to a real spell in spell-map
+            (guards against typos and future SRD data drift)"
+    (doseq [[old-key target] spells/spell-key-aliases]
+      (is (contains? spells/spell-map target)
+          (str old-key " aliases to " target " which is missing from spell-map")))))
+
+(deftest resolve-spell-key-is-non-destructive
+  (testing "resolve-spell-key only remaps a known rename whose target is loaded"
+    (let [spells-map {:secret-chest {:name "Secret Chest"}
+                      :leomunds-secret-chest {:name "Homebrew Secret Chest"}
+                      :fireball {:name "Fireball"}}]
+      ;; loaded homebrew under the old key wins — never overridden
+      (is (= :leomunds-secret-chest
+             (spells/resolve-spell-key spells-map :leomunds-secret-chest)))
+      ;; a loaded, non-aliased key is returned as-is
+      (is (= :fireball (spells/resolve-spell-key spells-map :fireball)))
+      ;; a genuinely unknown key is left alone (stays flagged), not guessed
+      (is (= :made-up-spell (spells/resolve-spell-key spells-map :made-up-spell))))
+    (let [spells-map {:secret-chest {:name "Secret Chest"} :floating-disk {:name "Floating Disk"}}]
+      ;; dangling old-name ref with the target loaded -> remapped to canonical
+      (is (= :secret-chest (spells/resolve-spell-key spells-map :leomunds-secret-chest)))
+      (is (= :floating-disk (spells/resolve-spell-key spells-map :tensers-floating-disk)))
+      ;; a known alias whose target is NOT loaded stays as-is (still flagged)
+      (is (= :bigbys-hand (spells/resolve-spell-key spells-map :bigbys-hand))))))
