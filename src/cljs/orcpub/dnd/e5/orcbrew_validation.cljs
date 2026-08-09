@@ -119,50 +119,50 @@
    :check-fn - Optional predicate; if provided, field fails if (check-fn value) is false
                Default check is just (some? value)"
   {:orcpub.dnd.e5/classes
-   {:name {:dummy "[Missing Name]"}}
+   {:name {:dummy "Missing Name"}}
    ;; :key is auto-derived from :name, not checked here
 
    :orcpub.dnd.e5/subclasses
-   {:name {:dummy "[Missing Subclass Name]"}
+   {:name {:dummy "Missing Subclass Name"}
     :class {:dummy nil}} ; parent class ref, checked specially
 
    :orcpub.dnd.e5/races
-   {:name {:dummy "[Missing Race Name]"}}
+   {:name {:dummy "Missing Race Name"}}
 
    :orcpub.dnd.e5/subraces
-   {:name {:dummy "[Missing Subrace Name]"}
+   {:name {:dummy "Missing Subrace Name"}
     :race {:dummy nil}} ; parent race ref, checked specially
 
    :orcpub.dnd.e5/backgrounds
-   {:name {:dummy "[Missing Background Name]"}}
+   {:name {:dummy "Missing Background Name"}}
 
    :orcpub.dnd.e5/feats
-   {:name {:dummy "[Missing Feat Name]"}}
+   {:name {:dummy "Missing Feat Name"}}
 
    :orcpub.dnd.e5/spells
-   {:name {:dummy "[Missing Spell Name]"}
+   {:name {:dummy "Missing Spell Name"}
     :level {:dummy 0 :check-fn number?}
     :school {:dummy "unknown"}}
 
    :orcpub.dnd.e5/monsters
-   {:name {:dummy "[Missing Monster Name]"}}
+   {:name {:dummy "Missing Monster Name"}}
 
    :orcpub.dnd.e5/invocations
-   {:name {:dummy "[Missing Invocation Name]"}}
+   {:name {:dummy "Missing Invocation Name"}}
 
    :orcpub.dnd.e5/languages
-   {:name {:dummy "[Missing Language Name]"}}
+   {:name {:dummy "Missing Language Name"}}
 
    :orcpub.dnd.e5/selections
-   {:name {:dummy "[Missing Selection Name]"}}
+   {:name {:dummy "Missing Selection Name"}}
 
    :orcpub.dnd.e5/encounters
-   {:name {:dummy "[Missing Encounter Name]"}}})
+   {:name {:dummy "Missing Encounter Name"}}})
 
 (def trait-required-fields
   "Required fields for traits (nested within other content types).
    Traits appear in :traits vectors within classes, races, etc."
-  {:name {:dummy "[Missing Trait Name]"}})
+  {:name {:dummy "Missing Trait Name"}})
 
 (defn field-missing?
   "Check if a required field is missing or invalid.
@@ -240,7 +240,7 @@
 
 (def option-required-fields
   "Required fields for options within selections."
-  {:name {:dummy "[Missing Option Name]"}})
+  {:name {:dummy "Missing Option Name"}})
 
 (defn fill-missing-option-fields
   "Fill missing required fields in an option with placeholder values.
@@ -252,7 +252,7 @@
                    (if (or (nil? (get option field))
                            (and (string? (get option field))
                                 (str/blank? (get option field))))
-                     (conj acc {:field field :dummy (str "[Option " (inc index) "]")})
+                     (conj acc {:field field :dummy (str "Option " (inc index))})
                      acc))
                  []
                  option-required-fields)]
@@ -287,6 +287,35 @@
      :changes {:fields field-changes
                :traits-fixed trait-changes
                :options-fixed options-changes}}))
+
+(defn valid-name?
+  "A name that derives a valid key (starts with a letter)."
+  [nm]
+  (and (string? nm) (common/starts-with-letter? (str/trim nm))))
+
+(defn coerce-name
+  "Trimmed name if it's a valid (letter-starting) name, else the fallback."
+  [nm fallback]
+  (if (valid-name? nm) (str/trim nm) fallback))
+
+(defn sanitize-item-names
+  "Coerce the item's :name — and any nested :traits/:options names — to a valid,
+   letter-starting name (invalid/blank ones become a placeholder), then re-derive
+   the top-level :key from the coerced name. This is what makes 'save anyway'
+   safe: it can never persist a name that yields an invalid/structural key (the
+   keyword-trap class), the way it used to with e.g. \"1@-asdml;\"."
+  [item type-label]
+  (let [coerce-nested (fn [coll]
+                        (if (vector? coll)
+                          (mapv (fn [m] (if (and (map? m) (contains? m :name))
+                                          (update m :name coerce-name "Unnamed")
+                                          m))
+                                coll)
+                          coll))
+        item* (cond-> (update item :name coerce-name (str "Unnamed " type-label))
+                (:traits item)  (update :traits coerce-nested)
+                (:options item) (update :options coerce-nested))]
+    (assoc item* :key (common/name-to-kw (:name item*)))))
 
 (defn fill-missing-in-content-group
   "Fill missing fields for all items in a content group.

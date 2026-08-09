@@ -725,10 +725,12 @@
      (fn [{:keys [db]} _]
        (let [{:keys [name option-pack] :as item} (item-key db)
              key (common/name-to-kw name)
-             ;; Normalize text then auto-fill missing required fields
+             ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
+             ;; filled copy: a blank or invalid required field must block and prompt,
+             ;; never silently save under a placeholder. Placeholder-filling +
+             ;; name-sanitizing is the explicit "save anyway" path only.
              normalized-item (orcbrew-val/normalize-text-in-data item)
-             {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
-             item-with-key (assoc filled-item :key key)
+             item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
              explanation (spec/explain-data spec-key item-with-key)]
          (if (nil? explanation)
@@ -756,10 +758,14 @@
        (let [{:keys [name option-pack] :as item} (item-key db)
              normalized-item (orcbrew-val/normalize-text-in-data item)
              {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
+             ;; Coerce invalid/blank names (top-level + nested) to valid placeholders
+             ;; and re-derive the key, so an invalid name like "1@-asdml;" can NEVER
+             ;; be persisted with a broken key. This is the sanitized output the
+             ;; "save anyway with placeholders" button is supposed to produce.
+             sanitized (orcbrew-val/sanitize-item-names filled-item type-name)
              src (if (s/blank? option-pack) "Unsorted Homebrew" option-pack)
-             key (common/name-to-kw (:name filled-item))
-             item-with-key (assoc filled-item :key key :option-pack src)
-             new-plugins (assoc-in (:plugins db) [src plugin-key key] item-with-key)]
+             item-with-key (assoc sanitized :option-pack src)
+             new-plugins (assoc-in (:plugins db) [src plugin-key (:key item-with-key)] item-with-key)]
          {:dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
                        [:show-warning-message
@@ -4302,11 +4308,19 @@
      (cond
        ;; Spec-error blockers — can't safely export
        (seq blockers)
-       {:dispatch-n (vec (concat persist
-                                 [[:show-error-message
-                                   (str "Cannot export — structural errors in: "
-                                        (s/join ", " (map #(str "\"" (:name %) "\"") blockers))
-                                        ". Check browser console (F12) for details.")]]))}
+       ;; Surface the actual problems IN the UI (per source, per issue) instead of
+       ;; punting the user to the browser console. Uses the same validation data
+       ;; the console log would print; long-lived so it can be read and acted on.
+       {:dispatch-n
+        (vec (concat persist
+                     [[:show-error-message
+                       (into [:div
+                              [:div.f-w-b "Can't export yet — fix these problems first:"]]
+                             (for [{:keys [name validation]} blockers]
+                               (into [:div.m-t-10 [:span.f-w-b (str "\"" name "\":")]]
+                                     (for [err (or (seq (:errors validation)) ["contains invalid data"])]
+                                       [:div.m-l-10 (str "• " err)]))))
+                       60000]]))}
 
        ;; Cross-source duplicate keys — resolve them exactly like an import does
        ;; (rename-all / manual), then resume the export via :mode :export.

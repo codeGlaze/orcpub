@@ -2,6 +2,7 @@
   (:require [cljs.test :refer-macros [deftest testing is]]
             [cljs.reader :refer [read-string]]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
+            [orcpub.common :as common]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.content-specs :as content-specs]
             [cljs.spec.alpha :as spec]))
@@ -593,11 +594,11 @@
 (deftest test-fill-missing-option-fields
   (testing "Empty option gets placeholder name with index"
     (let [[filled changes] (orcbrew-val/fill-missing-option-fields 0 {})]
-      (is (= "[Option 1]" (:name filled)))
+      (is (= "Option 1" (:name filled)))
       (is (= [:name] changes))))
   (testing "Option with blank name gets filled"
     (let [[filled changes] (orcbrew-val/fill-missing-option-fields 2 {:name ""})]
-      (is (= "[Option 3]" (:name filled)))
+      (is (= "Option 3" (:name filled)))
       (is (= [:name] changes))))
   (testing "Option with valid name is unchanged"
     (let [[filled changes] (orcbrew-val/fill-missing-option-fields 0 {:name "Fireball"})]
@@ -605,15 +606,15 @@
       (is (empty? changes))))
   (testing "Option with description but no name gets filled"
     (let [[filled changes] (orcbrew-val/fill-missing-option-fields 4 {:description "A cool option"})]
-      (is (= "[Option 5]" (:name filled)))
+      (is (= "Option 5" (:name filled)))
       (is (= "A cool option" (:description filled)))
       (is (= [:name] changes)))))
 
 (deftest test-fill-options-in-item
   (testing "Item with empty options gets filled"
     (let [[filled count] (orcbrew-val/fill-options-in-item selection-with-empty-options)]
-      (is (= "[Option 1]" (get-in filled [:options 0 :name])))
-      (is (= "[Option 2]" (get-in filled [:options 1 :name])))
+      (is (= "Option 1" (get-in filled [:options 0 :name])))
+      (is (= "Option 2" (get-in filled [:options 1 :name])))
       (is (= "Valid Option" (get-in filled [:options 2 :name])))
       (is (= 2 count))))
   (testing "Item without options is unchanged"
@@ -631,7 +632,7 @@
   (testing "fill-all-missing-fields processes options"
     (let [item {:options [{} {:name "Good"}]}
           result (orcbrew-val/fill-all-missing-fields item :orcpub.dnd.e5/selections)]
-      (is (= "[Option 1]" (get-in result [:item :options 0 :name])))
+      (is (= "Option 1" (get-in result [:item :options 0 :name])))
       (is (= "Good" (get-in result [:item :options 1 :name])))
       (is (= 1 (get-in result [:changes :options-fixed])))))
   (testing "fill-all-missing-fields handles item with no options"
@@ -641,8 +642,8 @@
     (let [item {:traits [{:name "Good Trait"} {}]
                 :options [{} {:name "Good Option"}]}
           result (orcbrew-val/fill-all-missing-fields item :orcpub.dnd.e5/races)]
-      (is (= "[Missing Trait Name]" (get-in result [:item :traits 1 :name])))
-      (is (= "[Option 1]" (get-in result [:item :options 0 :name])))
+      (is (= "Missing Trait Name" (get-in result [:item :traits 1 :name])))
+      (is (= "Option 1" (get-in result [:item :options 0 :name])))
       (is (= 1 (get-in result [:changes :traits-fixed])))
       (is (= 1 (get-in result [:changes :options-fixed]))))))
 
@@ -1157,7 +1158,7 @@
           edits {["P" :orcpub.dnd.e5/spells :my-spell :name] "   "}
           result (orcbrew-val/apply-user-edits-to-plugin plugin "P" edits)]
       ;; Blank rejected, fill-missing fills :name with dummy
-      (is (= "[Missing Spell Name]"
+      (is (= "Missing Spell Name"
              (get-in result [:orcpub.dnd.e5/spells :my-spell :name]))))))
 
 (deftest test-apply-user-edits-nil-rejected
@@ -1166,7 +1167,7 @@
                   {:my-spell {:option-pack "Test" :level 3 :school "evocation"}}}
           edits {["P" :orcpub.dnd.e5/spells :my-spell :name] nil}
           result (orcbrew-val/apply-user-edits-to-plugin plugin "P" edits)]
-      (is (= "[Missing Spell Name]"
+      (is (= "Missing Spell Name"
              (get-in result [:orcpub.dnd.e5/spells :my-spell :name]))))))
 
 (deftest test-apply-user-edits-trait-name
@@ -1285,3 +1286,24 @@
             (str "stripped class must stay valid: " (spec/explain-str class-spec klass)))
         ;; and the whole plugin re-loads clean
         (is (content-specs/valid-for-load? stripped) "stripped plugin still load-valid")))))
+
+(deftest sanitize-item-names-coerces-invalid-names-and-rekeys
+  (testing "an invalid/blank name is replaced with a valid placeholder and re-keyed
+            so save-anyway can never persist a broken key"
+    ;; the reported bug: "1@-asdml;" doesn't start with a letter
+    (let [out (orcbrew-val/sanitize-item-names {:name "1@-asdml;"} "Race")]
+      (is (common/starts-with-letter? (:name out)) "name now starts with a letter")
+      (is (common/keyword-starts-with-letter? (:key out)) "key is valid (starts with a letter)")
+      (is (= "Unnamed Race" (:name out))))
+    (let [out (orcbrew-val/sanitize-item-names {:name "   "} "Spell")]
+      (is (= "Unnamed Spell" (:name out)) "blank/whitespace name -> placeholder"))
+    ;; a valid name is left intact (trimmed) and re-keyed consistently
+    (let [out (orcbrew-val/sanitize-item-names {:name "  Aarakocra  "} "Race")]
+      (is (= "Aarakocra" (:name out)))
+      (is (= :aarakocra (:key out))))
+    ;; nested option/trait names are coerced too
+    (let [out (orcbrew-val/sanitize-item-names
+               {:name "Fighter" :options [{:name "9 Lives"} {:name "Valid Option"}]}
+               "Class")]
+      (is (common/starts-with-letter? (get-in out [:options 0 :name])) "invalid nested name coerced")
+      (is (= "Valid Option" (get-in out [:options 1 :name])) "valid nested name kept"))))
