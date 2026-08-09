@@ -1371,6 +1371,37 @@
    :orcpub.dnd.e5/languages "languages"
    :orcpub.dnd.e5/encounters "encounters"})
 
+(def content-type-singular
+  "Singular, capitalized label per content type, for placeholder names like
+   'Unnamed Race' (sanitize-item-names appends it after 'Unnamed ')."
+  {:orcpub.dnd.e5/classes "Class"       :orcpub.dnd.e5/subclasses "Subclass"
+   :orcpub.dnd.e5/races "Race"          :orcpub.dnd.e5/subraces "Subrace"
+   :orcpub.dnd.e5/backgrounds "Background" :orcpub.dnd.e5/feats "Feat"
+   :orcpub.dnd.e5/spells "Spell"        :orcpub.dnd.e5/monsters "Monster"
+   :orcpub.dnd.e5/invocations "Invocation" :orcpub.dnd.e5/selections "Selection"
+   :orcpub.dnd.e5/languages "Language"  :orcpub.dnd.e5/encounters "Encounter"
+   :orcpub.dnd.e5/boons "Boon"})
+
+(defn coerce-invalid-names
+  "Coerce any present-but-INVALID item name (and nested trait/option names) to a
+   valid letter-leading placeholder, re-keying the item from the fixed name.
+   Blanks are already handled by fill-missing-*; this catches the
+   present-but-invalid case (e.g. \"@@@\") so the recovery panel's 'Fix & Restore'
+   just works in one click instead of forcing the user to hand-type a name."
+  [plugin]
+  (if-not (map? plugin)
+    plugin
+    (reduce-kv
+     (fn [p ct items]
+       (if (and (qualified-keyword? ct) (map? items))
+         (assoc p ct
+                (reduce-kv
+                 (fn [m ik item]
+                   (assoc m ik (sanitize-item-names item (get content-type-singular ct "Item"))))
+                 {} items))
+         (assoc p ct items)))
+     {} plugin)))
+
 (defn find-duplicate-keys-in-content
   "Finds duplicate keys within a single content group.
    Returns a vector of {:key :content-type :sources [...]} for each duplicate."
