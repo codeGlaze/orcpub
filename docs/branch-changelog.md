@@ -160,3 +160,18 @@ characterization tests.
   mechanism per job, terse-export-data, deprecation policy), dependency-ordered roadmap, the
   ability-increase-spreads spec, and a backfill ledger for migrating bespoke paths onto the new
   standard.
+
+### Integration
+
+- **Merged develop (homebrew-data-preservation) and the Summer Patch.** Two upstream integrations:
+  `origin/develop` (PR #29, homebrew-data-preservation) and then `origin/contrib/summer-fixes` (the
+  Summer Patch — character-load self-heal + diagnostic report/email endpoint, single-colon keyword
+  crash guard, per-entry homebrew salvage + quarantine repair UI, source-less content → the built-in
+  Default Option Source, dangling spell-ref surfacing, printer-friendly B&W PDF spell cards,
+  `http_safe.cljs`). One import-path conflict (`events.cljs`): kept our `::e5/set-strict-import?`
+  toggle and their per-entry salvage helpers, and routed the success branch through their
+  `store-imported-sources` gate — a strict superset of our per-source keyword-trap quarantine
+  (`valid-item-for-load?` rejects letter-trap keys per item), with our strict-mode `:strict-unfilled`
+  errors preserved in the import log. Fixed 3 tests that were red on summer-fixes itself (commit
+  `54f4e87d` changed the fill default `"Unnamed Content"` → `"Default Option Source"` but left the
+  assertions stale). Post-merge: JVM 361/2037, cljs 237/684, 0 failures; import round-trip E2E green.
