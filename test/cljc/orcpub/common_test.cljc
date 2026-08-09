@@ -4,6 +4,7 @@
 ;; comment in common_test.clj before treating that as a bug.
 (ns orcpub.common-test
   (:require [clojure.test :refer [deftest testing is]]
+            #?(:cljs [cljs.reader])
             [orcpub.common :as common]))
 
 ;; ---------------------------------------------------------------------------
@@ -136,3 +137,130 @@
            (common/toggle-in {:p {:skills false}} [:p :skills :stealth])))
     (is (= {:p {:skills {:stealth true}}}
            (common/toggle-in {:p {:skills true}} [:p :skills :stealth])))))
+
+;; ---------------------------------------------------------------------------
+;; name-to-kw — the empty-keyword guard (single choke point)
+;;
+;; A name that reduces to "" must NEVER become the empty keyword `:`, whose
+;; printed form is a bare colon and is unreadable — a `:` key in stored data
+;; makes read-string throw "A single colon is not a valid keyword." and the
+;; whole load crashes. `(keyword "")` is written constructed, never as a
+;; literal `:`, precisely because a literal `:` would break the reader on this
+;; very test file.
+;; ---------------------------------------------------------------------------
+
+(def ^:private empty-kw (keyword ""))   ; the bad token, never written literally
+
+(deftest name-to-kw-never-returns-empty-keyword
+  (testing "names that strip to empty never become the empty keyword"
+    ;; "" and apostrophe-only names both reduce to "" in the pipeline; the
+    ;; inline guard substitutes a placeholder instead of (keyword "").
+    (is (not= empty-kw (common/name-to-kw "")))
+    (is (not= empty-kw (common/name-to-kw "'")))
+    (is (not= empty-kw (common/name-to-kw "''")))
+    (is (keyword? (common/name-to-kw ""))))
+  (testing "distinct empties get distinct placeholders (hashed off the original)"
+    ;; guarding off the ORIGINAL name keeps "" / "'" / "''" from colliding
+    (is (= 3 (count (distinct [(common/name-to-kw "")
+                               (common/name-to-kw "'")
+                               (common/name-to-kw "''")])))))
+  (testing "existing (non-blank) keys are unchanged — no data migration risk"
+    (is (= :fireball (common/name-to-kw "Fireball")))
+    (is (= :bobs-item (common/name-to-kw "Bob's Item")))
+    (is (nil? (common/name-to-kw nil)))))
+
+#?(:cljs
+   (deftest name-to-kw-output-survives-the-cljs-reader
+     ;; The real crash is cljs.reader on a bare `:`. Prove the guarded output
+     ;; round-trips, and that a bare empty keyword would NOT (the reader is the
+     ;; gate our fix routes around).
+     (testing "guarded blank name round-trips through the cljs reader"
+       (let [kw (common/name-to-kw "")]
+         (is (= kw (cljs.reader/read-string (pr-str kw))))))
+     (testing "control: the bare empty keyword is genuinely unreadable"
+       (is (thrown? js/Error (cljs.reader/read-string (pr-str empty-kw)))))))
+
+;; ---------------------------------------------------------------------------
+;; sanitize-edn-colons — self-heal for already-corrupt stored EDN
+;; ---------------------------------------------------------------------------
+
+(deftest sanitize-edn-colons-repairs-bare-colons
+  (testing "bare-colon tokens become unique placeholders; result is readable"
+    (let [{:keys [text count]} (common/sanitize-edn-colons "{: {:a 1}}")]
+      (is (= 1 count))
+      (is (clojure.string/includes? text ":unnamed-1")))
+    (let [{:keys [text count]} (common/sanitize-edn-colons "{:k :}")]
+      (is (= 1 count))
+      (is (clojure.string/includes? text ":unnamed-1")))
+    (let [{:keys [text count]} (common/sanitize-edn-colons "{: 1 : 2}")]
+      (is (= 2 count) "two bad tokens get distinct placeholders (no map-key collision)")
+      (is (clojure.string/includes? text ":unnamed-1"))
+      (is (clojure.string/includes? text ":unnamed-2"))))
+  (testing "already-clean input is untouched (count 0)"
+    (is (= 0 (:count (common/sanitize-edn-colons "{:fighter 1 :orcpub.dnd.e5/x 2}"))))
+    (is (= 0 (:count (common/sanitize-edn-colons "#:orcpub.dnd.e5{:c {:artificer {:key :artificer}}}")))))
+  (testing "colons INSIDE strings are preserved (not mistaken for bad tokens)"
+    (let [in (str "{:desc " (pr-str "Choose one: fire") "}")
+          {:keys [text count]} (common/sanitize-edn-colons in)]
+      (is (= 0 count))
+      (is (clojure.string/includes? text "Choose one: fire"))))
+  (testing "non-string input is returned unchanged"
+    (is (= {:text nil :count 0} (common/sanitize-edn-colons nil)))))
+
+#?(:clj
+   (deftest sanitize-edn-colons-parses-in-clj-reader
+     ;; Prove repaired output is actually READABLE and the original was not.
+     (testing "a bare-colon blob is unreadable but its sanitized form parses"
+       (let [bad "{:orcpub.entity.strict/key :, :name \"x\"}"]
+         (is (thrown? Exception (read-string bad)))
+         (is (map? (read-string (:text (common/sanitize-edn-colons bad)))))))))
+
+#?(:cljs
+   (deftest sanitize-edn-colons-parses-in-cljs-reader
+     (testing "sanitized output round-trips through the cljs reader"
+       (let [bad "{:orcpub.entity.strict/key :, :name \"x\"}"]
+         (is (thrown? js/Error (cljs.reader/read-string bad)))
+         (is (map? (cljs.reader/read-string (:text (common/sanitize-edn-colons bad)))))))))
+
+;; ---------------------------------------------------------------------------
+;; Generative (fuzz) coverage — clj-only (keeps test.check off the cljs build).
+;; These assert the *invariants* over adversarial input, not hand-picked cases.
+;; ---------------------------------------------------------------------------
+
+#?(:clj
+   (do
+     (require '[clojure.test.check.clojure-test :refer [defspec]])
+     (require '[clojure.test.check.generators :as gen])
+     (require '[clojure.test.check.properties :as prop])
+     (require '[clojure.edn :as edn])
+
+     (def ^:private wild-char
+       (gen/frequency [[6 gen/char-alphanumeric]
+                       [3 (gen/elements [\space \tab \: \" \\ \, \{ \} \[ \] \( \) \; (char 39) \/ \. \- \_])]
+                       [1 gen/char]]))
+     (def ^:private wild-str (gen/fmap (partial apply str) (gen/vector wild-char 0 40)))
+
+     ;; name-to-kw is THE guarded char-cleaning derivation (the single choke
+     ;; point). For arbitrary input it yields nil (non-string guard) or a
+     ;; READABLE, non-empty keyword — never the bare `:`.
+     (defspec name-to-kw-always-safe 4000
+       (prop/for-all [s wild-str]
+         (let [k (common/name-to-kw s)]
+           (or (nil? k)
+               (and (keyword? k) (not= empty-kw k) (= k (edn/read-string (pr-str k))))))))
+
+     ;; sanitize never touches VALID edn (round-trip of arbitrary data stays identical).
+     (def ^:private wild-edn
+       (gen/one-of [gen/small-integer gen/boolean wild-str gen/keyword
+                    (gen/map gen/keyword wild-str) (gen/vector wild-str 0 5)]))
+     (defspec sanitize-leaves-valid-edn-untouched 2000
+       (prop/for-all [d wild-edn]
+         (let [es (pr-str d) {:keys [text count]} (common/sanitize-edn-colons es)]
+           (and (= 0 count) (= text es)))))
+
+     ;; sanitize is idempotent on arbitrary raw strings.
+     (defspec sanitize-idempotent 2000
+       (prop/for-all [s wild-str]
+         (let [{t1 :text} (common/sanitize-edn-colons s)
+               {t2 :text} (common/sanitize-edn-colons t1)]
+           (= t1 t2))))))

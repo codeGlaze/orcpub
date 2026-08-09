@@ -73,7 +73,7 @@
             [re-frame.core :refer [reg-event-db reg-event-fx reg-fx inject-cofx path
                                    after dispatch ->interceptor]]
             [cljs.spec.alpha :as spec]
-            [cljs-http.client :as http]
+            [orcpub.dnd.e5.http-safe :as http]
             [cljs.core.async :refer [<! timeout]]
             [cljs-time.core :as time]
             [cljs.reader :as reader]
@@ -2402,6 +2402,26 @@
            :on-success [:delete-character-success]}}))
 
 (reg-event-fx
+ :report-character-problem
+ ;; User clicked "email support" on the character-load recovery panel. POST the
+ ;; diagnostic (auth'd); the server gates on email config + rate-limits and
+ ;; returns {:sent? .. :reason ..}, which we reflect in the button.
+ (fn [{:keys [db]} [_ char-id error raw]]
+   {:db (assoc-in db [:character-report-status char-id] :sending)
+    :http {:method :post
+           :auth-token (get-auth-token db)
+           :url (backend-url (routes/path-for routes/dnd-e5-char-report-route))
+           :transit-params {:char-id char-id :error error :raw raw}
+           :on-success [:report-character-result char-id]
+           :on-failure [:report-character-result char-id]}}))
+
+(reg-event-db
+ :report-character-result
+ (fn [db [_ char-id response]]
+   (assoc-in db [:character-report-status char-id]
+             (if (get-in response [:body :sent?]) :sent :failed))))
+
+(reg-event-fx
  :new-character
  (fn [{:keys [db]} _]
    {:db (assoc db :character default-character)
@@ -2449,9 +2469,15 @@
 
 (reg-event-db
  :show-error-message
+ ;; Errors are NOT fleeting: they persist until the user dismisses them
+ ;; (the message banner is click/✕-to-close via `hide-message`). An error the
+ ;; user may need to act on must not disappear on a timer. A `ttl` may still be
+ ;; passed to opt a specific error back into auto-dismiss, but the default is
+ ;; sticky-until-dismissed.
  (fn [db [_ message ttl]]
-   (go (<! (timeout (or ttl 5000)))
-       (dispatch [:hide-message]))
+   (when ttl
+     (go (<! (timeout ttl))
+         (dispatch [:hide-message])))
    (assoc db
           :message-shown? true
           :message message
