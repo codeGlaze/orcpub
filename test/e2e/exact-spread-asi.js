@@ -22,8 +22,10 @@ const server=http.createServer((req,res)=>{const p=decodeURIComponent(req.url.sp
 const PLUGINS=`{"Default Option Source" {} "Bag Pack" {:orcpub.dnd.e5/races {:bag-touched {:size :medium, :speed 30, :languages #{}, :traits [], :name "Bag Touched", :option-pack "Bag Pack", :key :bag-touched, :ability-increases [[2 :martial] [1 :martial]]}}}}`;
 const errs=[]; const U=`http://localhost:${PORT}`;
 const results=[]; const check=(n,ok,extra)=>{results.push(ok);console.log(`  ${ok?'PASS':'FAIL'}  ${n}${extra?'  '+extra:''}`);};
-const scores=async pg=>{const t=(await pg.locator('#app').innerText()).split('Ability Scores').pop().replace(/\n+/g,' ');
-  const m={}; for(const a of ['STR','DEX','CON','INT','WIS','CHA']){const r=new RegExp(a+'\\s+(\\d+)').exec(t); if(r)m[a]=+r[1];} return m;};
+// Ability totals read STRUCTURALLY from the character summary panel: pair each
+// .ability-score-name (STR/DEX/…) with its .ability-score (total) by index. No
+// "STR<space>number" text grep — robust to layout and to a missing stylesheet.
+const scores=async pg=>await pg.evaluate(()=>{const n=[...document.querySelectorAll('.ability-score-name')].map(e=>e.textContent.trim().toUpperCase());const v=[...document.querySelectorAll('.ability-score')].map(e=>+e.textContent.trim());const m={};n.forEach((a,i)=>{if(/^(STR|DEX|CON|INT|WIS|CHA)$/.test(a)&&!(a in m))m[a]=v[i];});return m;});
 (async()=>{
   await new Promise(r=>server.listen(PORT,r));
   const b=await chromium.launch();const pg=await b.newPage();
