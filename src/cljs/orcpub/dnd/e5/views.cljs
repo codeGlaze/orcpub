@@ -8375,8 +8375,8 @@
          (if (seq entries)
            [:div
             [:div.f-s-12.m-t-5.m-b-5
-             "These entries couldn't load. Give each a name (starting with a letter) "
-             "and an option source, then restore — blanks become placeholders."]
+             "These entries couldn't load. Just hit Fix & Restore and each gets a "
+             "valid placeholder name — or set your own name and option source first."]
             (doall
              (for [{:keys [ct ik]} entries
                    :let [nk [ct ik :name]
@@ -8390,7 +8390,8 @@
                  [:input.input {:type "text" :value nm
                                 :on-change #(swap! edits assoc nk (.. % -target -value))}]
                  (when-not (common/starts-with-letter? nm)
-                   [:span.red.m-l-5.f-s-12 "must start with a letter"])]
+                   [:span.m-l-5.f-s-12 {:style {:color "#d9a520"}}
+                    "will be auto-named on restore"])]
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Option source"]
                  [:input.input {:type "text" :value (get current ok "")
