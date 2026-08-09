@@ -10,6 +10,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
+            [orcpub.dnd.e5.share-url :as share-url]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
@@ -1808,6 +1809,14 @@
 (defn make-url [protocol hostname path & [port]]
   (str protocol "://" hostname (when port (str ":" port)) path))
 
+(defn- shared-content-payload
+  "The homebrew-share payload carried in the URL fragment (#c=...), or nil.
+   Only meaningful on a character-page URL someone was given a share link to."
+  []
+  (let [h (or (some-> js/window .-location .-hash) "")]
+    (when (s/starts-with? h "#c=")
+      (not-empty (subs h 3)))))
+
 (reg-event-fx
  :route
  (fn [{:keys [db]} [_ {:keys [handler route-params] :as new-route} {:keys [no-return? skip-path? event secure?] :as options}]]
@@ -1815,7 +1824,11 @@
    (let [{:keys [route route-history]} db
          seq-params (seq route-params)
          flat-params (flatten seq-params)
-         path (apply routes/path-for (or handler new-route) flat-params)]
+         path (apply routes/path-for (or handler new-route) flat-params)
+         ;; Homebrew embedded in a share link loads only on the character page,
+         ;; and only into the ephemeral :shared-plugins overlay (never the library).
+         char-page? (= (or handler new-route) routes/dnd-e5-char-page-route)
+         shared-payload (when char-page? (shared-content-payload))]
      (when (and js/window.location
                 secure?
                 (not= "localhost" js/window.location.hostname))
@@ -1828,6 +1841,10 @@
                            [:close-orcacle]]}
        (not no-return?) (assoc-in [:db :return-route] new-route)
        (not skip-path?) (assoc :path path)
+       ;; Leaving/entering a plain character view clears any prior shared overlay
+       ;; so view-once content never lingers across characters.
+       char-page? (assoc-in [:db :shared-plugins] nil)
+       shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
        event (update :dispatch-n conj event)))))
 
 (reg-event-db
@@ -3925,6 +3942,10 @@
        ;; still-broken ones stay set aside. (Whole-source all-or-nothing before this
        ;; meant one stubborn entry blocked restoring the rest.)
        (let [fixed (-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
+                       ;; Auto-fix present-but-invalid names (e.g. "@@@") to valid
+                       ;; placeholders so 'Fix & Restore' works in one click, not
+                       ;; only after the user hand-types a name.
+                       (orcbrew-val/coerce-invalid-names)
                        (e5/rekey-plugin))
              {kept-items :kept still-bad :rejected}
              (e5/salvage-plugin-items content-specs/valid-item-for-load? fixed)
@@ -4439,6 +4460,46 @@
 ;; ============================================================================
 ;; Import Plugin Events
 ;; ============================================================================
+
+;; ============================================================================
+;; Shared-content loading (viewing a character shared with embedded homebrew)
+;; ============================================================================
+;; A share link may carry the character's homebrew in the URL fragment. On
+;; landing we decode + validate it (share-url/decode-shared applies the
+;; untrusted-input security gates: input cap, decompression-bomb guard, safe
+;; reader, structural whitelist) and load the KEPT items — through the SAME
+;; per-item load-floor spec gate a file import uses — into :shared-plugins: an
+;; EPHEMERAL overlay that renders for this view only and is never written to the
+;; recipient's library.
+
+(reg-fx
+ ::decode-shared!
+ (fn [payload]
+   (-> (share-url/decode-shared payload)
+       (.then (fn [result]
+                (cond
+                  (:error result)
+                  (js/console.warn "Shared content not loaded:" (name (:error result)))
+                  (seq (:bundle result))
+                  (dispatch [::e5/apply-shared-content (:bundle result)])))))))
+
+(reg-event-fx
+ ::e5/load-shared-content
+ (fn [_ [_ payload]]
+   {::decode-shared! payload}))
+
+(reg-event-fx
+ ::e5/apply-shared-content
+ (fn [{:keys [db]} [_ bundle]]
+   ;; Layer 6: run the structurally-whitelisted (but still untrusted) bundle
+   ;; through the same per-item load-floor spec gate a file import uses; keep
+   ;; only what passes, drop the rest silently (it simply won't render).
+   (let [{:keys [kept]} (e5/salvage-library-items content-specs/valid-item-for-load? bundle)]
+     (if (seq kept)
+       {:db (assoc db :shared-plugins kept)
+        :dispatch [:show-message
+                   "This character includes custom content shared through the link. It's loaded for viewing only and is not saved to your library."]}
+       {}))))
 
 (defn incoming-sources
   "Normalize freshly-parsed import data to the flat {source-name plugin} shape the
