@@ -1215,7 +1215,9 @@
                 [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                        off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
                        all-weapons-map (mi/compute-all-weapons-map
-                                        (get @re-frame.db/app-db ::mi/custom-items))]
+                                        ;; include view-once shared custom items so their conditional modifiers apply too
+                                        (concat (get @re-frame.db/app-db ::mi/custom-items)
+                                                (get @re-frame.db/app-db :shared-custom-items)))]
                    (and main-hand-weapon
                         (-> all-weapons-map
                             main-hand-weapon
@@ -1794,7 +1796,9 @@
                               [(let [main-hand-weapon ?orcpub.dnd.e5.character/main-hand-weapon
                                      off-hand-weapon ?orcpub.dnd.e5.character/off-hand-weapon
                                      all-weapons-map (mi/compute-all-weapons-map
-                                                      (get @re-frame.db/app-db ::mi/custom-items))]
+                                                      ;; include view-once shared custom items so their conditional modifiers apply too
+                                        (concat (get @re-frame.db/app-db ::mi/custom-items)
+                                                (get @re-frame.db/app-db :shared-custom-items)))]
                                  (and main-hand-weapon
                                       (-> all-weapons-map
                                           main-hand-weapon
