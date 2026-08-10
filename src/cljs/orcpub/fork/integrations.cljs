@@ -12,6 +12,7 @@
   (:require [reagent.core :as r]
             [re-frame.core :refer [subscribe dispatch]]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.share-bundle :as sb]
             [orcpub.dnd.e5.share-url :as share-url]
             [orcpub.fork.branding :as branding]
@@ -163,18 +164,26 @@
     (fn [id]
       (let [character @(subscribe [:character])
             plugins   @(subscribe [:plugins])
+            raw-items @(subscribe [::mi5e/custom-items])
             char-name @(subscribe [::char5e/character-name id])
             base      (char-url id)]
         ;; Recompute the embedded URL only when inputs change (identical? = O(1)).
         (when (or (not (identical? character (:character @prev)))
-                  (not (identical? plugins (:plugins @prev))))
-          (reset! prev {:character character :plugins plugins})
-          (let [bundle (sb/extract-bundle character plugins)]
-            (if (empty? bundle)
+                  (not (identical? plugins (:plugins @prev)))
+                  (not (identical? raw-items (:raw-items @prev))))
+          (reset! prev {:character character :plugins plugins :raw-items raw-items})
+          (let [plugins-bundle (sb/extract-bundle character plugins)
+                ;; Match by the item's REAL expanded key(s) — via the app's own
+                ;; expand, never a hand-rolled name-to-kw — so keys line up on both
+                ;; sides by construction.
+                items (sb/used-custom-items character (or raw-items [])
+                                            #(mi5e/expand-magic-items [%]))
+                container {:plugins plugins-bundle :custom-items items}]
+            (if (and (empty? plugins-bundle) (empty? items))
               (swap! state assoc :tier :plain :url base)
               (do
                 (swap! state assoc :tier :working :url base)
-                (-> (share-url/build-share-payload bundle)
+                (-> (share-url/build-share-payload container)
                     (.then (fn [{:keys [tier payload]}]
                              (swap! state assoc
                                     :tier tier

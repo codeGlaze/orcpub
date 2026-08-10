@@ -4358,9 +4358,13 @@
    with the viewer's own content (the shared version wins on this sheet, their
    copy is untouched)."
   [id]
-  (when-let [{:keys [count collisions]} @(subscribe [::e5/shared-content-info])]
+  (when-let [{:keys [count item-count collisions]} @(subscribe [::e5/shared-content-info])]
     (let [char-name @(subscribe [::char/character-name id])
-          n-coll (clojure.core/count collisions)]
+          n-coll (clojure.core/count collisions)
+          item-count (or item-count 0)
+          parts (cond-> []
+                  (pos? count)      (conj (str count " homebrew piece" (when (not= 1 count) "s")))
+                  (pos? item-count) (conj (str item-count " custom item" (when (not= 1 item-count) "s"))))]
       [:div.m-b-10.flex.align-items-c.justify-cont-s-b.flex-wrap
        {:style {:padding "12px 16px"
                 :background "rgba(217,165,32,0.09)"
@@ -4370,7 +4374,7 @@
        [:div {:style {:min-width "260px" :flex "1 1 300px"}}
         [:div.f-w-b.f-s-16
          [:i.fa.fa-info-circle.m-r-5.orange]
-         (str "Shared with " count " piece" (when (not= 1 count) "s") " of custom content")]
+         (str "Shared with " (s/join " and " parts) ".")]
         [:div.f-s-12.m-t-5 {:style {:opacity 0.8}}
          "Loaded for viewing only — not saved to your library."]
         (when (pos? n-coll)
@@ -4379,11 +4383,15 @@
                 "here, yours is untouched"
                 (when-let [names (seq (map :name (take 4 collisions)))]
                   (str " (" (s/join ", " names) (when (> n-coll 4) ", …") ")"))
-                ".")])]
+                ".")])
+        (when (pos? item-count)
+          [:div.f-s-12.m-t-5 {:style {:opacity 0.8}}
+           "Custom magic items are shown for this view only (keeping items isn't supported yet)."])]
        [:div.flex.align-items-c {:style {:flex "0 0 auto"}}
-        [:button.form-button.m-r-5
-         {:on-click #(dispatch [::e5/keep-shared-content char-name])}
-         "Keep in my library"]
+        (when (pos? count)
+          [:button.form-button.m-r-5
+           {:on-click #(dispatch [::e5/keep-shared-content char-name])}
+           "Keep homebrew in my library"])
         [:button.form-button
          {:on-click #(dispatch [::e5/dismiss-shared-content])}
          "Dismiss"]]])))
