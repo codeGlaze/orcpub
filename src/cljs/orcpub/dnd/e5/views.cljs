@@ -4351,6 +4351,43 @@
                      :background "rgba(0,0,0,0.25)" :padding "8px" :border-radius "3px"}}
             report]]]]))))
 
+(defn shared-content-banner
+  "Shown when viewing a character whose homebrew arrived embedded in the share
+   link. The content is loaded view-only (:shared-plugins, never persisted); this
+   offers to Keep it in the library, and flags any entries that collide by name
+   with the viewer's own content (the shared version wins on this sheet, their
+   copy is untouched)."
+  [id]
+  (when-let [{:keys [count collisions]} @(subscribe [::e5/shared-content-info])]
+    (let [char-name @(subscribe [::char/character-name id])
+          n-coll (clojure.core/count collisions)]
+      [:div.m-b-10.flex.align-items-c.justify-cont-s-b.flex-wrap
+       {:style {:padding "12px 16px"
+                :background "rgba(217,165,32,0.09)"
+                :border-left "4px solid #d9a520"
+                :border-radius "6px"
+                :gap "12px"}}
+       [:div {:style {:min-width "260px" :flex "1 1 300px"}}
+        [:div.f-w-b.f-s-16
+         [:i.fa.fa-info-circle.m-r-5.orange]
+         (str "Shared with " count " piece" (when (not= 1 count) "s") " of custom content")]
+        [:div.f-s-12.m-t-5 {:style {:opacity 0.8}}
+         "Loaded for viewing only — not saved to your library."]
+        (when (pos? n-coll)
+          [:div.f-s-12.m-t-5 {:style {:color "#d9a520"}}
+           (str n-coll " differ from same-named content you own — the shared version shows "
+                "here, yours is untouched"
+                (when-let [names (seq (map :name (take 4 collisions)))]
+                  (str " (" (s/join ", " names) (when (> n-coll 4) ", …") ")"))
+                ".")])]
+       [:div.flex.align-items-c {:style {:flex "0 0 auto"}}
+        [:button.form-button.m-r-5
+         {:on-click #(dispatch [::e5/keep-shared-content char-name])}
+         "Keep in my library"]
+        [:button.form-button
+         {:on-click #(dispatch [::e5/dismiss-shared-content])}
+         "Dismiss"]]])))
+
 (defn character-page []
   (let [expanded? (r/atom false)]
     (fn [{:keys [id] :as arg}]
@@ -4395,6 +4432,7 @@
                 {:value (str url
                              (when (not (s/ends-with? url "?frame=true"))
                                "?frame=true"))}]]))
+          [shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
          :frame? frame?])))))
 

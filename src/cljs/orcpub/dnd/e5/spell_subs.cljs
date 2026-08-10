@@ -51,6 +51,13 @@
  (fn [db _]
    (get db :shared-plugins)))
 
+;; Summary for the shared-content banner: {:count n :collisions [...]} while a
+;; shared character with embedded homebrew is being viewed, else nil.
+(reg-sub
+ ::e5/shared-content-info
+ (fn [db _]
+   (get db :shared-content-info)))
+
 ;; The name-keyed quarantine map ({source-name → bad-source}) loaded at
 ;; boot, kept in sync by the repair event. Drives the quarantine repair panel.
 (reg-sub
