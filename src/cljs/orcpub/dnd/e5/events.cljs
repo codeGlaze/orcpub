@@ -525,7 +525,17 @@
 (reg-event-fx
  ::mi/save-item
  (fn [{:keys [db]} _]
-   (let [strict-item (mi/from-internal-item (::mi/builder-item db))]
+   (let [item (::mi/builder-item db)
+         ;; The type dropdown shows its first option ("Wondrous Item") even when
+         ;; the item has no type set (a controlled <select> whose value doesn't
+         ;; match any option), so what the user sees IS a default. ::type is
+         ;; optional in the spec, so a never-set type would otherwise save blank
+         ;; and render as e.g. ", very rare". Persist the shown default instead.
+         t (::mi/type item)
+         item (cond-> item
+                (not (and (keyword? t) (not (s/blank? (name t)))))
+                (assoc ::mi/type :wondrous-item))
+         strict-item (mi/from-internal-item item)]
      {:dispatch [:set-loading true]
       :http {:method :post
              :headers (authorization-headers db)
