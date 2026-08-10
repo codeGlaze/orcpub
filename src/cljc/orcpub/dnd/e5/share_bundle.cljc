@@ -224,6 +224,36 @@
 ;; afterward by the same .orcbrew import path a file upload goes through
 ;; (salvage-library-items + per-type spec + sanitize-item-names).
 
+(defn- flatten-by-type
+  "Collapse {source {content-type {key def}}} into {content-type {key def}},
+   merging across sources (later sources win, matching the content-lookup subs)."
+  [plugins]
+  (reduce
+   (fn [acc [_src pdata]]
+     (if (map? pdata)
+       (reduce (fn [acc [ct cmap]]
+                 (if (and (contains? content-types ct) (map? cmap))
+                   (update acc ct merge cmap)
+                   acc))
+               acc pdata)
+       acc))
+   {} plugins))
+
+(defn collisions
+  "Keys present in BOTH the shared content and the recipient's library with a
+   DIFFERENT definition. These are the entries where the shared (view-scoped)
+   version wins on the shared sheet while the recipient's own copy stays
+   untouched — the thing worth telling the recipient about. Returns a seq of
+   {:content-type ct :key k :name display-name}."
+  [shared-plugins library-plugins]
+  (let [shared (flatten-by-type shared-plugins)
+        lib    (flatten-by-type library-plugins)]
+    (for [[ct smap] shared
+          [k sdef]  smap
+          :let [ldef (get-in lib [ct k])]
+          :when (and (some? ldef) (not= ldef sdef))]
+      {:content-type ct :key k :name (or (:name sdef) (name k))})))
+
 (defn whitelist-bundle
   "Drop every part of an untrusted bundle that doesn't match the expected shape.
    Returns {:bundle kept-plugins-shaped-map :dropped count-of-rejected-parts}.

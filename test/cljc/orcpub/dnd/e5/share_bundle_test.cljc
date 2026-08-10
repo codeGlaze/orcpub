@@ -92,3 +92,19 @@
     (is (= {} (:bundle (sb/whitelist-bundle {:not-a-string {:orcpub.dnd.e5/spells {:s {}}}}))))
     (is (= {} (:bundle (sb/whitelist-bundle "not even a map"))))
     (is (= {} (:bundle (sb/whitelist-bundle [1 2 3]))))))
+
+(deftest collisions-flags-differing-shared-keys
+  (let [shared {"Shared" {:orcpub.dnd.e5/spells {:fireball  {:name "Fireball" :level 9}
+                                                 :new-spell {:name "New Spell"}}}}
+        lib    {"Mine"   {:orcpub.dnd.e5/spells {:fireball  {:name "Fireball" :level 3}}}}]
+    (testing "a key in both sides with a DIFFERENT def is a collision"
+      (let [colls (sb/collisions shared lib)]
+        (is (= 1 (count colls)))
+        (is (= :fireball (:key (first colls))))
+        (is (= "Fireball" (:name (first colls))))))
+    (testing "identical defs are NOT collisions"
+      (is (empty? (sb/collisions {"S" {:orcpub.dnd.e5/spells {:fireball {:name "Fireball" :level 3}}}}
+                                 lib))))
+    (testing "keys only on one side are NOT collisions"
+      (is (empty? (sb/collisions {"S" {:orcpub.dnd.e5/spells {:only-shared {:name "X"}}}}
+                                 lib))))))
