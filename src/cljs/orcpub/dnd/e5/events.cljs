@@ -10,6 +10,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
+            [orcpub.dnd.e5.share-bundle :as share-bundle]
             [orcpub.dnd.e5.share-url :as share-url]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
@@ -4488,6 +4489,12 @@
  (fn [_ [_ payload]]
    {::decode-shared! payload}))
 
+(defn- count-plugin-items [pl]
+  (reduce + 0 (for [[_ p] pl
+                    [ct items] p
+                    :when (and (qualified-keyword? ct) (map? items))]
+                (count items))))
+
 (reg-event-fx
  ::e5/apply-shared-content
  (fn [{:keys [db]} [_ bundle]]
@@ -4496,10 +4503,42 @@
    ;; only what passes, drop the rest silently (it simply won't render).
    (let [{:keys [kept]} (e5/salvage-library-items content-specs/valid-item-for-load? bundle)]
      (if (seq kept)
-       {:db (assoc db :shared-plugins kept)
-        :dispatch [:show-message
-                   "This character includes custom content shared through the link. It's loaded for viewing only and is not saved to your library."]}
+       ;; Store overlay + a summary the banner reads (count + any keys that clash
+       ;; with the recipient's own library and differ). No toast — the banner is
+       ;; the persistent, actionable surface (view-only vs Keep).
+       {:db (assoc db
+                   :shared-plugins kept
+                   :shared-content-info {:count (count-plugin-items kept)
+                                         :collisions (vec (share-bundle/collisions kept (:plugins db)))})}
        {}))))
+
+;; Persist the currently-viewed shared content into the recipient's own library,
+;; collapsed under one clearly-labeled source so it can't silently overwrite an
+;; existing same-named source. Colliding keys were surfaced by the banner; the
+;; user is choosing to keep anyway. Clears the overlay once persisted.
+(reg-event-fx
+ ::e5/keep-shared-content
+ (fn [{:keys [db]} [_ character-name]]
+   (let [shared (:shared-plugins db)]
+     (if-not (seq shared)
+       {}
+       (let [source-name (str (if (s/blank? character-name) "Shared" character-name) " (shared)")
+             collapsed {source-name (apply merge-with
+                                           (fn [a b] (if (and (map? a) (map? b)) (merge a b) b))
+                                           (vals shared))}
+             live (e5/merge-all-plugins (:plugins db) collapsed)]
+         (plugins->local-store live)
+         {:db (-> db (assoc :plugins live) (dissoc :shared-plugins :shared-content-info))
+          :dispatch [:show-message
+                     (str "Saved this character's custom content to your library as \""
+                          source-name "\".")]})))))
+
+;; Dismiss the shared-content banner without keeping (content stays view-only for
+;; this session; the overlay itself is cleared on the next character route).
+(reg-event-db
+ ::e5/dismiss-shared-content
+ (fn [db _]
+   (dissoc db :shared-content-info)))
 
 (defn incoming-sources
   "Normalize freshly-parsed import data to the flat {source-name plugin} shape the
