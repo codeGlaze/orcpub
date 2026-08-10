@@ -103,3 +103,11 @@ cljsjs/
 
 # Design handoff reference material (preserved on agents/develop, not committed to code branches)
 design_handoff_character_menus
+
+# Windows "Alternate Data Stream" artifacts, e.g. README.md:Zone.Identifier.
+# Windows attaches these to files downloaded from the internet; WSL/Linux tooling
+# then sees them as real sidecar files and an agent's `git add .` can stage them.
+# The ':' is an illegal path char on Windows/NTFS, so committing one breaks
+# `git checkout` on Windows (core.protectNTFS, exit code 128). Never track them,
+# even inside directories that are otherwise checked in (e.g. design handoffs).
+*:Zone.Identifier
