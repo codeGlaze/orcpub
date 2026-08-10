@@ -93,6 +93,38 @@
     (is (= {} (:bundle (sb/whitelist-bundle "not even a map"))))
     (is (= {} (:bundle (sb/whitelist-bundle [1 2 3]))))))
 
+(deftest used-custom-items-keeps-equipped-raw-items
+  ;; Matching uses the app's OWN expand (injected) to get each item's real key(s)
+  ;; — never a hand-rolled name-to-kw — and keeps a raw item if the character
+  ;; selected ANY of its expanded (subtype) variants.
+  (let [char {::entity/options {:class [{::entity/key :fighter
+                                         ::entity/options {:magic-weapons [{::entity/key :flametongue-sword}]}}]}}
+        raw [{:orcpub.dnd.e5.magic-items/name "Flametongue"}
+             {:orcpub.dnd.e5.magic-items/name "Unused Ring"}]
+        expand-one (fn [it]
+                     (if (= "Flametongue" (:orcpub.dnd.e5.magic-items/name it))
+                       [{:key :flametongue-sword} {:key :flametongue-axe}]
+                       [{:key :unused-ring}]))]
+    (is (= [{:orcpub.dnd.e5.magic-items/name "Flametongue"}]
+           (sb/used-custom-items char raw expand-one)))))
+
+(deftest whitelist-shared-handles-container-and-legacy
+  (testing "container: plugins whitelisted, well-formed raw items kept, bad ones dropped"
+    (let [r (sb/whitelist-shared
+             {:plugins {"S" {:orcpub.dnd.e5/spells {:ok {:name "Ok"}}}}
+              :custom-items [{:orcpub.dnd.e5.magic-items/name "Sword of X"} ;; good
+                             {:orcpub.dnd.e5.magic-items/name "-bad"}       ;; name not letter-leading
+                             {:name "wrong name key"}                        ;; missing ::mi5e/name
+                             "not a map"]})]                                 ;; not a map
+      (is (= {"S" {:orcpub.dnd.e5/spells {:ok {:name "Ok"}}}} (:plugins r)))
+      (is (= 1 (count (:custom-items r))))
+      (is (= "Sword of X" (:orcpub.dnd.e5.magic-items/name (first (:custom-items r)))))
+      (is (= 3 (:dropped r)))))
+  (testing "legacy bare plugins map still decodes (no :custom-items)"
+    (let [r (sb/whitelist-shared {"S" {:orcpub.dnd.e5/spells {:ok {:name "Ok"}}}})]
+      (is (= {"S" {:orcpub.dnd.e5/spells {:ok {:name "Ok"}}}} (:plugins r)))
+      (is (empty? (:custom-items r))))))
+
 (deftest collisions-flags-differing-shared-keys
   (let [shared {"Shared" {:orcpub.dnd.e5/spells {:fireball  {:name "Fireball" :level 9}
                                                  :new-spell {:name "New Spell"}}}}

@@ -141,9 +141,10 @@
 
 (defn decode-shared
   "Decode + structurally validate an untrusted fragment payload. Returns a Promise
-   resolving to {:bundle m :dropped n} on success, or {:error kw} on any failure
-   (:empty :too-large :version :unsupported :parse :decode). Security layers 1-5;
-   layer 6 (content sanitize/spec) is applied when the caller imports :bundle."
+   resolving to {:plugins m :custom-items [...] :dropped n} on success, or
+   {:error kw} on any failure (:empty :too-large :version :unsupported :parse
+   :decode). Security layers 1-5; layer 6 (content sanitize/spec) is applied when
+   the caller imports the result."
   [payload]
   (cond
     (or (nil? payload) (not (string? payload)) (str/blank? payload))
@@ -167,5 +168,5 @@
                  (let [data (safe-read-edn edn-str)]
                    (if (= data ::read-error)
                      {:error :parse}
-                     (sb/whitelist-bundle data)))))
+                     (sb/whitelist-shared data)))))
         (.catch (fn [_] {:error :decode})))))

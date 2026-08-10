@@ -1843,8 +1843,8 @@
        (not no-return?) (assoc-in [:db :return-route] new-route)
        (not skip-path?) (assoc :path path)
        ;; Leaving/entering a plain character view clears any prior shared overlay
-       ;; so view-once content never lingers across characters.
-       char-page? (assoc-in [:db :shared-plugins] nil)
+       ;; so view-once content (homebrew + custom items) never lingers across characters.
+       char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil)
        shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
        event (update :dispatch-n conj event)))))
 
@@ -4481,8 +4481,8 @@
                 (cond
                   (:error result)
                   (js/console.warn "Shared content not loaded:" (name (:error result)))
-                  (seq (:bundle result))
-                  (dispatch [::e5/apply-shared-content (:bundle result)])))))))
+                  (or (seq (:plugins result)) (seq (:custom-items result)))
+                  (dispatch [::e5/apply-shared-content result])))))))
 
 (reg-event-fx
  ::e5/load-shared-content
@@ -4497,18 +4497,25 @@
 
 (reg-event-fx
  ::e5/apply-shared-content
- (fn [{:keys [db]} [_ bundle]]
-   ;; Layer 6: run the structurally-whitelisted (but still untrusted) bundle
-   ;; through the same per-item load-floor spec gate a file import uses; keep
-   ;; only what passes, drop the rest silently (it simply won't render).
-   (let [{:keys [kept]} (e5/salvage-library-items content-specs/valid-item-for-load? bundle)]
-     (if (seq kept)
-       ;; Store overlay + a summary the banner reads (count + any keys that clash
-       ;; with the recipient's own library and differ). No toast — the banner is
-       ;; the persistent, actionable surface (view-only vs Keep).
+ (fn [{:keys [db]} [_ {:keys [plugins custom-items]}]]
+   ;; Layer 6. Homebrew: run through the same per-item load-floor spec gate a file
+   ;; import uses. Custom items: keep only those that EXPAND cleanly (a malformed
+   ;; item would otherwise throw in expand-magic-items and blank the sheet) — this
+   ;; both validates untrusted item data and protects every downstream expand site.
+   (let [{:keys [kept]} (e5/salvage-library-items content-specs/valid-item-for-load? plugins)
+         items (filterv (fn [it]
+                          (try (boolean (seq (mi/expand-magic-items [it])))
+                               (catch :default _ false)))
+                        (or custom-items []))]
+     (if (or (seq kept) (seq items))
+       ;; Store overlays + a summary the banner reads (counts + any homebrew keys
+       ;; that clash with the recipient's own library and differ). No toast — the
+       ;; banner is the persistent, actionable surface (view-only vs Keep).
        {:db (assoc db
                    :shared-plugins kept
+                   :shared-custom-items items
                    :shared-content-info {:count (count-plugin-items kept)
+                                         :item-count (count items)
                                          :collisions (vec (share-bundle/collisions kept (:plugins db)))})}
        {}))))
 

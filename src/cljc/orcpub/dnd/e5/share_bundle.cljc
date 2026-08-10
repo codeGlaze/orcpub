@@ -282,3 +282,43 @@
           acc pdata)))
      {:bundle {} :dropped 0}
      data)))
+
+;; Custom magic items are carried as their RAW server form (as in
+;; ::mi5e/custom-items), so the recipient runs the identical expand pipeline and
+;; the raw list drops straight into every seam that reads custom-items. The raw
+;; name lives under this namespaced key (mi5e/name).
+(def ^:private raw-item-name-key :orcpub.dnd.e5.magic-items/name)
+
+(defn used-custom-items
+  "Raw custom items this character equips. `expand-one` maps a single raw item to
+   its expanded, keyed variant(s) (magic-items/expand-magic-items on a 1-item vec)
+   — injected so this stays pure/cljc-testable. A weapon/armor item expands to
+   several keyed variants (one per subtype); the raw item is kept if the character
+   selected ANY of them. Returns a vector; empty when none."
+  [character raw-items expand-one]
+  (let [used (selected-keys character)]
+    (filterv (fn [raw] (some #(contains? used (:key %)) (expand-one raw))) raw-items)))
+
+(defn whitelist-shared
+  "Fail-closed structural gate for an UNTRUSTED shared payload. Accepts either the
+   container {:plugins {...} :custom-items [...]} or (legacy) a bare plugins map.
+   Returns {:plugins <whitelisted> :custom-items <vec of well-formed raw items>
+   :dropped n}. A custom item is kept only if it's a map with a letter-leading
+   name; its remaining fields are data the builder interprets defensively
+   (safe-read already forbids code; decode caps size)."
+  [data]
+  (let [container? (and (map? data)
+                        (or (contains? data :plugins) (contains? data :custom-items)))
+        plugins-in (if container? (:plugins data) data)
+        items-in   (when container? (:custom-items data))
+        {pb :bundle pd :dropped} (whitelist-bundle plugins-in)
+        items (if (sequential? items-in)
+                (filterv (fn [it]
+                           (and (map? it)
+                                (let [nm (get it raw-item-name-key)]
+                                  (and (string? nm)
+                                       (common/starts-with-letter? (str/trim nm))))))
+                         items-in)
+                [])
+        idropped (if (sequential? items-in) (- (count items-in) (count items)) 0)]
+    {:plugins pb :custom-items items :dropped (+ pd idropped)}))
