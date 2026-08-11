@@ -8020,154 +8020,45 @@
                     "delete"]]])
                items))]])]))))
 
-(defn my-selections [name plugin]
-  [my-content-type
-   name
-   plugin
-   "selection"
-   ::e5/selections
-   "checklist"
-   ::selections/new-selection
-   ::selections/edit-selection
-   ::selections/delete-selection])
+;; One data-driven table for the My Content library, replacing 13 near-identical
+;; wrapper fns. Each entry is a homebrew content type; the table drives BOTH the
+;; rendered category rows (see my-content-item) and the add-content menu, so
+;; "hide empty categories" and "still be able to create the first item of a type
+;; that has none yet" read from the same list. Order here is the display order.
+(def my-content-types
+  [{:type-name "spell"               :type-key ::e5/spells      :icon "spell-book"                        :add-event ::spells/new-spell         :edit-event ::spells/edit-spell         :delete-event ::spells/delete-spell}
+   {:type-name "monster"             :type-key ::e5/monsters    :icon "hydra"                             :add-event ::monsters/new-monster     :edit-event ::monsters/edit-monster     :delete-event ::monsters/delete-monster}
+   {:type-name "encounter"           :type-key ::e5/encounters  :icon "hydra"                             :add-event ::encounters/new-encounter :edit-event ::encounters/edit-encounter :delete-event ::encounters/delete-encounter}
+   {:type-name "background"          :type-key ::e5/backgrounds :icon "ages"                              :add-event ::bg/new-background        :edit-event ::bg/edit-background        :delete-event ::bg/delete-background}
+   {:type-name "race"                :type-key ::e5/races       :icon "woman-elf-face"                    :add-event ::races/new-race           :edit-event ::races/edit-race           :delete-event ::races/delete-race}
+   {:type-name "subrace"             :type-key ::e5/subraces    :icon ["woman-elf-face" "woman-elf-face"] :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
+   {:type-name "class"               :type-key ::e5/classes     :icon "mounted-knight"                    :add-event ::classes/new-class        :edit-event ::classes/edit-class        :delete-event ::classes/delete-class      :plural "classes"}
+   {:type-name "subclass"            :type-key ::e5/subclasses  :icon ["mounted-knight" "mounted-knight"] :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
+   {:type-name "eldritch invocation" :type-key ::e5/invocations :icon "warlock-eye"                       :add-event ::classes/new-invocation   :edit-event ::classes/edit-invocation   :delete-event ::classes/delete-invocation}
+   {:type-name "pact boon"           :type-key ::e5/boons       :icon "cursed-star"                       :add-event ::classes/new-boon         :edit-event ::classes/edit-boon         :delete-event ::classes/delete-boon}
+   {:type-name "feat"                :type-key ::e5/feats       :icon "vitruvian-man"                     :add-event ::feats/new-feat           :edit-event ::feats/edit-feat           :delete-event ::feats/delete-feat}
+   {:type-name "language"            :type-key ::e5/languages   :icon "vitruvian-man"                     :add-event ::langs/new-language       :edit-event ::langs/edit-language       :delete-event ::langs/delete-language}
+   {:type-name "selection"           :type-key ::e5/selections  :icon "checklist"                         :add-event ::selections/new-selection :edit-event ::selections/edit-selection :delete-event ::selections/delete-selection}])
 
-(defn my-spells [name plugin]
-  [my-content-type
-   name
-   plugin
-   "spell"
-   ::e5/spells
-   "spell-book"
-   ::spells/new-spell
-   ::spells/edit-spell
-   ::spells/delete-spell])
-
-(defn my-monsters [name plugin]
-  [my-content-type
-   name
-   plugin
-   "monster"
-   ::e5/monsters
-   "hydra"
-   ::monsters/new-monster
-   ::monsters/edit-monster
-   ::monsters/delete-monster])
-
-(defn my-encounters [name plugin]
-  [my-content-type
-   name
-   plugin
-   "encounter"
-   ::e5/encounters
-   "hydra"
-   ::encounters/new-encounter
-   ::encounters/edit-encounter
-   ::encounters/delete-encounter])
-
-(defn my-backgrounds [name plugin]
-  [my-content-type
-   name
-   plugin
-   "background"
-   ::e5/backgrounds
-   "ages"
-   ::bg/new-background
-   ::bg/edit-background
-   ::bg/delete-background])
-
-(defn my-races [name plugin]
-  [my-content-type
-   name
-   plugin
-   "race"
-   ::e5/races
-   "woman-elf-face"
-   ::races/new-race
-   ::races/edit-race
-   ::races/delete-race])
-
-(defn my-subraces [name plugin]
-  [my-content-type
-   name
-   plugin
-   "subrace"
-   ::e5/subraces
-   ["woman-elf-face"
-    "woman-elf-face"]
-   ::races/new-subrace
-   ::races/edit-subrace
-   ::races/delete-subrace])
-
-
-(defn my-classes [name plugin]
-  [my-content-type
-   name
-   plugin
-   "class"
-   ::e5/classes
-   "mounted-knight"
-   ::classes/new-class
-   ::classes/edit-class
-   ::classes/delete-class
-   "classes"])
-
-
-(defn my-subclasses [name plugin]
-  [my-content-type
-   name
-   plugin
-   "subclass"
-   ::e5/subclasses
-   ["mounted-knight"
-    "mounted-knight"]
-   ::classes/new-subclass
-   ::classes/edit-subclass
-   ::classes/delete-subclass
-   "subclasses"])
-
-(defn my-invocations [name plugin]
-  [my-content-type
-   name
-   plugin
-   "eldritch invocation"
-   ::e5/invocations
-   "warlock-eye"
-   ::classes/new-invocation
-   ::classes/edit-invocation
-   ::classes/delete-invocation])
-
-(defn my-boons [name plugin]
-  [my-content-type
-   name
-   plugin
-   "pact boon"
-   ::e5/boons
-   "cursed-star"
-   ::classes/new-boon
-   ::classes/edit-boon
-   ::classes/delete-boon])
-
-(defn my-feats [name plugin]
-  [my-content-type
-   name
-   plugin
-   "feat"
-   ::e5/feats
-   "vitruvian-man"
-   ::feats/new-feat
-   ::feats/edit-feat
-   ::feats/delete-feat])
-
-(defn my-languages [name plugin]
-  [my-content-type
-   name
-   plugin
-   "language"
-   ::e5/languages
-   "vitruvian-man"
-   ::langs/new-language
-   ::langs/edit-language
-   ::langs/delete-language])
+(defn add-content-menu
+  "Create the first item of a content type this source doesn't have yet. Empty
+   categories are hidden from the list, so this dropdown is the only entry point
+   for them; it lists exactly the types the source is currently missing."
+  [source-name missing-specs]
+  [:div.p-t-10
+   [:select.m-l-5.p-5
+    {:value ""
+     :on-change (fn [e]
+                  (let [v (.. e -target -value)
+                        spec (first (filter #(= v (name (:type-key %))) missing-specs))]
+                    (set! (.. e -target -value) "")
+                    (when spec
+                      (dispatch [(:add-event spec) source-name]))))}
+    [:option {:value ""} "+ add content…"]
+    (doall
+     (for [{:keys [type-name type-key]} missing-specs]
+       ^{:key type-name}
+       [:option {:value (name type-key)} (str "add " type-name)]))]])
 
 (defn my-content-item []
   (let [expanded? (r/atom false)]
@@ -8196,19 +8087,18 @@
             {:on-click (make-event-handler ::e5/delete-plugin name)}
             "delete"]]
           [:div.item-list
-           [my-spells name plugin]
-           [my-monsters name plugin]
-           [my-encounters name plugin]
-           [my-backgrounds name plugin]
-           [my-races name plugin]
-           [my-subraces name plugin]
-           [my-classes name plugin]
-           [my-subclasses name plugin]
-           [my-invocations name plugin]
-           [my-boons name plugin]
-           [my-feats name plugin]
-           [my-languages name plugin]
-           [my-selections name plugin]]])])))
+           ;; Only categories that actually hold content — empty types are hidden
+           ;; (they were previously rendered as noise like "0 monsters"). The types
+           ;; a source is missing are reachable via the add-content menu below, so
+           ;; nothing becomes uncreatable. Both read from my-content-types.
+           (doall
+            (for [{:keys [type-name type-key icon add-event edit-event delete-event plural]} my-content-types
+                  :when (seq (type-key plugin))]
+              ^{:key type-name}
+              [my-content-type name plugin type-name type-key icon add-event edit-event delete-event plural]))
+           (let [missing (remove #(seq ((:type-key %) plugin)) my-content-types)]
+             (when (seq missing)
+               [add-content-menu name missing]))]])])))
 
 (defn my-content []
   [:div.main-text-color
