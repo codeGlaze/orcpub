@@ -52,6 +52,23 @@ containing the **plugin** one; distinct keys both survive; a plain `concat` (the
 - **The override is order-dependent and predictable**, but it is the *runtime combine* order
   (plugin-first), not "last loaded." Two homebrew plugins both overriding the same built-in key would
   collide with each other — that is exactly what the import conflict gate is for.
+- **CORRECTION / footgun (VERIFIED by later trace):** among *plugins* (cross-source, same key), the
+  winner is **NOT predictable**. The combine maps over `(vals plugins)` (`plugin-index` /
+  `::e5/plugin-vals`), so the winning copy is decided by the **hash-iteration order of the
+  source-name strings** — deterministic for a fixed set of source names, but arbitrary and NOT
+  "last-imported" or user-controllable. "Plugin overrides built-in" is predictable; "which plugin wins
+  a plugin-vs-plugin key" is effectively a coin flip. Do not build reliable override behavior on it.
+- **Spell → spell-list is a genuine misbehavior, not clean coexistence.** A spell's class-list
+  membership lives on the spell (`:spell-lists {class-key true}`), and `plugin-spell-lists` reduces
+  over the **non-deduped** spell seq. So a duplicate-key spell (a) gets `conj`-ed once per copy →
+  **duplicate membership entries**, and (b) has its membership **unioned across all copies** — meaning
+  you **cannot narrow** a spell's class access by overriding it, and the spell *data* (single winner)
+  and its *list membership* (union) disagree. No exception; just wrong.
+- **Design direction (see `content-tiers-and-key-resolution.md`):** the clean fix for all of the above
+  is not per-type dedup but a single invariant — **≤1 *enabled* item per key** — enforced by a
+  disable-based resolution (disable one side of a collision rather than relying on implicit last-wins).
+  With only one enabled copy, pools stop duplicating, the spell-list union collapses to one copy, and
+  the nondeterministic winner disappears.
 - **NOT-TRACED here:** how a *saved character* that chose an overridden key resolves after the override
   changes (it should resolve to whatever now holds that key — flagged, not yet tested).
 - This is the tooling that was missing for "where do duplicate-key problems come from": the answer is
