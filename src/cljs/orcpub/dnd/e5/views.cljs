@@ -7968,57 +7968,73 @@
 
 (defn my-content-type []
   (let [expanded? (r/atom false)]
-    (fn [source-name plugin type-name type-key icon add-event edit-event delete-event plural]
-      (let [items (sort (type-key plugin))]
-        [:div.pointer.item-list-item
-         [:div.flex.justify-cont-s-b.align-items-c.p-10
-          {:on-click #(swap! expanded? not)}
-          [:div.flex.align-items-c
-           [:div.h-48.flex.align-items-c
-            (if (vector? icon)
-              (doall
-               (map-indexed
-                (fn [index ico]
-                  ^{:key index}
-                  [svg-icon ico (/ 48 (count icon)) @(subscribe [:theme])])
-                icon))
-              [svg-icon icon 48 @(subscribe [:theme])])]
-           [:span.m-l-10.f-s-24 (let [num (count items)
-                                      final-type-name (if plural
-                                                        (if (not= 1 num) plural type-name)
-                                                        (str type-name (when (not= 1 num) "s")))]
-                                  (str num " " (capitalize-words final-type-name)))]]
-          [:div.orange.pointer
-           [:i.fa.m-r-5
-            {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
-           [:span.underline (if @expanded? "collapse" "expand")]]]
-         (when @expanded?
-           [:div.bg-lighter.p-10
-            [:div.flex.justify-cont-end
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler add-event source-name)}
-              (str "add " type-name)]]
-            [:div
-             (doall
-              (map-indexed
-               (fn [i [key {:keys [name disabled?] :as item}]]
-                 ^{:key key}
-                 [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
-                  [:div.m-r-10.flex.align-items-c.flex-column
-                   {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
-                   [:div.f-s-10 "enabled?"]
-                   [comps/checkbox
-                    (not (get-in plugin [type-key key :disabled?]))
-                    false]]
-                  [:span.flex-grow-1 name]
-                  [:div
-                   [:button.form-button.m-l-5
-                    {:on-click (make-event-handler edit-event item)}
-                    "edit"]
-                   [:button.form-button.m-l-5
-                    {:on-click (make-stop-prop-event-handler delete-event item)}
-                    "delete"]]])
-               items))]])]))))
+    ;; `search` (lower-cased query, "" for none) and `show-disabled?` are threaded
+    ;; from my-content-item so one toolbar filters every category. The category
+    ;; self-hides when nothing matches, so hide-empty, search, and the disabled
+    ;; filter are one decision instead of three.
+    (fn [source-name plugin type-name type-key icon add-event edit-event delete-event plural search show-disabled?]
+      (let [all-items  (sort (type-key plugin))
+            total-n    (count all-items)
+            disabled-n (count (filter (fn [[_ item]] (:disabled? item)) all-items))
+            q          (or search "")
+            visible    (filter (fn [[_ {:keys [name disabled?]}]]
+                                 (and (or show-disabled? (not disabled?))
+                                      (or (= "" q)
+                                          (s/includes? (s/lower-case (str name)) q))))
+                               all-items)]
+        (when (seq visible)
+          [:div.pointer.item-list-item
+           [:div.flex.justify-cont-s-b.align-items-c.p-10
+            {:on-click #(swap! expanded? not)}
+            [:div.flex.align-items-c
+             [:div.h-48.flex.align-items-c
+              (if (vector? icon)
+                (doall
+                 (map-indexed
+                  (fn [index ico]
+                    ^{:key index}
+                    [svg-icon ico (/ 48 (count icon)) @(subscribe [:theme])])
+                  icon))
+                [svg-icon icon 48 @(subscribe [:theme])])]
+             [:span.m-l-10.f-s-24 (let [num total-n
+                                        final-type-name (if plural
+                                                          (if (not= 1 num) plural type-name)
+                                                          (str type-name (when (not= 1 num) "s")))]
+                                    (str num " " (capitalize-words final-type-name)))]
+             (when (pos? disabled-n)
+               [:span.m-l-10.f-s-12.opacity-5 (str "· " disabled-n " disabled")])]
+            [:div.orange.pointer
+             [:i.fa.m-r-5
+              {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+             [:span.underline (if @expanded? "collapse" "expand")]]]
+           (when @expanded?
+             [:div.bg-lighter.p-10
+              [:div.flex.justify-cont-end
+               [:button.form-button.m-l-5
+                {:on-click (make-event-handler add-event source-name)}
+                (str "add " type-name)]]
+              [:div
+               (doall
+                (map-indexed
+                 (fn [i [key {:keys [name disabled?] :as item}]]
+                   ^{:key key}
+                   [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
+                    {:class (when disabled? "opacity-5")}
+                    [:div.m-r-10.flex.align-items-c.flex-column
+                     {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
+                     [:div.f-s-10 "enabled?"]
+                     [comps/checkbox
+                      (not (get-in plugin [type-key key :disabled?]))
+                      false]]
+                    [:span.flex-grow-1 name]
+                    [:div
+                     [:button.form-button.m-l-5
+                      {:on-click (make-event-handler edit-event item)}
+                      "edit"]
+                     [:button.form-button.m-l-5
+                      {:on-click (make-stop-prop-event-handler delete-event item)}
+                      "delete"]]])
+                 visible))]])])))))
 
 ;; One data-driven table for the My Content library, replacing 13 near-identical
 ;; wrapper fns. Each entry is a homebrew content type; the table drives BOTH the
@@ -8060,45 +8076,75 @@
        ^{:key type-name}
        [:option {:value (name type-key)} (str "add " type-name)]))]])
 
+(defn source-disabled-count
+  "Total disabled items across every content type in one source — the number shown
+   on the source's 'show disabled (N)' toggle."
+  [plugin]
+  (reduce + 0
+          (for [[ct items] plugin
+                :when (and (qualified-keyword? ct) (map? items))
+                [_ item] items
+                :when (and (map? item) (:disabled? item))]
+            1)))
+
 (defn my-content-item []
-  (let [expanded? (r/atom false)]
+  (let [expanded?      (r/atom false)
+        search         (r/atom "")
+        show-disabled? (r/atom true)]
     (fn [name plugin]
-      [:div.item-list-item
-       [:div.p-20.pointer.flex.justify-cont-s-b.align-items-c.main-text-color
-        {:on-click #(swap! expanded? not)}
-        [:div.m-r-10.flex.align-items-c.flex-column
-         {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
-         [:div.f-s-10 "enabled?"]
-         [comps/checkbox
-          (not (get plugin :disabled?))
-          false]]
-        [:span.f-s-24.flex-grow-1 name]
-        [:div.orange
-         [:i.fa.m-r-5
-          {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
-         [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
-       (when @expanded?
-         [:div.bg-lighter.p-10
-          [:div.flex.justify-cont-end.uppercase.align-items-c.m-b-10
-           [:button.form-button.m-l-5
-            {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
-            "export"]
-           [:button.form-button.m-l-5
-            {:on-click (make-event-handler ::e5/delete-plugin name)}
-            "delete"]]
-          [:div.item-list
-           ;; Only categories that actually hold content — empty types are hidden
-           ;; (they were previously rendered as noise like "0 monsters"). The types
-           ;; a source is missing are reachable via the add-content menu below, so
-           ;; nothing becomes uncreatable. Both read from my-content-types.
-           (doall
-            (for [{:keys [type-name type-key icon add-event edit-event delete-event plural]} my-content-types
-                  :when (seq (type-key plugin))]
-              ^{:key type-name}
-              [my-content-type name plugin type-name type-key icon add-event edit-event delete-event plural]))
-           (let [missing (remove #(seq ((:type-key %) plugin)) my-content-types)]
-             (when (seq missing)
-               [add-content-menu name missing]))]])])))
+      (let [has-content? (some (fn [{:keys [type-key]}] (seq (type-key plugin))) my-content-types)
+            q            (-> @search s/lower-case s/trim)
+            show?        @show-disabled?]
+        [:div.item-list-item
+         [:div.p-20.pointer.flex.justify-cont-s-b.align-items-c.main-text-color
+          {:on-click #(swap! expanded? not)}
+          [:div.m-r-10.flex.align-items-c.flex-column
+           {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
+           [:div.f-s-10 "enabled?"]
+           [comps/checkbox
+            (not (get plugin :disabled?))
+            false]]
+          [:span.f-s-24.flex-grow-1 name]
+          [:div.orange
+           [:i.fa.m-r-5
+            {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+           [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
+         (when @expanded?
+           [:div.bg-lighter.p-10
+            [:div.flex.justify-cont-end.uppercase.align-items-c.m-b-10
+             [:button.form-button.m-l-5
+              {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
+              "export"]
+             [:button.form-button.m-l-5
+              {:on-click (make-event-handler ::e5/delete-plugin name)}
+              "delete"]]
+            ;; One toolbar filters every category below: a name search and a
+            ;; show-disabled toggle whose (N) is the source's disabled count, so
+            ;; disabled content (which will grow once duplicate-key resolution
+            ;; disables a colliding side) stays discoverable, not buried.
+            (when has-content?
+              [:div.flex.align-items-c.flex-wrap.m-b-10
+               [:input.input.h-40.p-l-10.f-s-14.m-r-10.flex-grow-1
+                {:type "text"
+                 :placeholder "search this source…"
+                 :value @search
+                 :on-change #(reset! search (.. % -target -value))}]
+               (let [dn (source-disabled-count plugin)]
+                 [:div.flex.align-items-c.pointer.f-s-14
+                  {:on-click #(swap! show-disabled? not)}
+                  [comps/checkbox show? false]
+                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]])])
+            [:div.item-list
+             ;; Render every type; each my-content-type self-hides when it has no
+             ;; items matching the search + show-disabled filter (so hide-empty and
+             ;; the filters are one decision). Missing types are offered below.
+             (doall
+              (for [{:keys [type-name type-key icon add-event edit-event delete-event plural]} my-content-types]
+                ^{:key type-name}
+                [my-content-type name plugin type-name type-key icon add-event edit-event delete-event plural q show?]))
+             (let [missing (remove #(seq ((:type-key %) plugin)) my-content-types)]
+               (when (seq missing)
+                 [add-content-menu name missing]))]])]))))
 
 (defn my-content []
   [:div.main-text-color
