@@ -42,8 +42,24 @@ overwhelm tech-illiterate users. Direction under consideration (not yet decided)
   primary + a hidden "export raw" dev hatch) → consistency, not a new pattern.
 - The full panel (steps 2–3) becomes the **advanced / Review** view; power users + mods keep total
   control and analysis.
-- DECISION NEEDED: adopt opinionated-default + opt-in-panel? and is "import risky duplicates
-  disabled" the right safe default?
+- DECISION: adopt opinionated-default + opt-in-panel? → **YES (agreed).** Is "import risky
+  duplicates disabled" the right safe default? → leaning yes, pending the mutual-exclusion UX below.
+
+### Mutual-exclusion UX — when one item is off because its same-key twin is on
+When two items share a key, only one may be enabled (the ≤1-enabled invariant). Make that legible,
+not magic:
+- **Computed, not stored.** A disabled item that has an ENABLED twin sharing its key shows an inline
+  note "off because <twin> (in <source>) is on"; the enabled twin shows "on — its duplicate <this>
+  (in <source>) is off." Only shows when a same-key enabled sibling exists (a real conflict), NOT for
+  plain user-disabled items. Derived at display time — no new storage.
+- **Library-level summary.** A note in the main homebrew / My Content area: "N items are off because
+  a duplicate is on — [review]."
+- **Swap on enable — ordered + explained.** Clicking enable on the off twin turns the on-twin OFF
+  FIRST, a brief visible pause, THEN turns this ON, with a message "Turned off <twin> to turn on
+  <this>." Off-first is deliberate: only-one-on stays true the whole way through, so the
+  random-winner never even flickers (a technical reason that matches the intuitive ordering).
+- DECISION NEEDED: auto-swap with an undoable message (low friction), or a quick "this will turn off
+  <twin> — ok?" confirm first (safer)? Lean auto-swap; maybe confirm only for the risky types.
 
 ## Disable hierarchy (agreed shape, not yet built) — FORMAT-SAFE
 - Levels: **global** (overlay) / **source** (`:disabled?` in plugin data — exists) / **section**
