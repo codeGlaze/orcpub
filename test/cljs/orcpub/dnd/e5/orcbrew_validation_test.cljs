@@ -405,9 +405,9 @@
                                              {:strategy :progressive
                                               :auto-clean true})]
       (is (:success result))
-      ;; Empty option-pack should be replaced with "Unnamed Content"
+      ;; Empty option-pack is replaced with the built-in "Default Option Source".
       (let [elf (get-in result [:data "Unnamed Content" :orcpub.dnd.e5/races :elf])]
-        (is (= "Unnamed Content" (:option-pack elf)))))))
+        (is (= "Default Option Source" (:option-pack elf)))))))
 
 ;; ============================================================================
 ;; Duplicate Key Detection Tests
@@ -878,7 +878,7 @@
   (testing "Known nil fields get replaced with sensible defaults"
     (let [input {:option-pack nil :name "Test Spell"}
           result (orcbrew-val/clean-nil-in-map-with-log input)]
-      (is (= "Unnamed Content" (get-in result [:data :option-pack])))
+      (is (= "Default Option Source" (get-in result [:data :option-pack])))
       (is (some #(= :replaced-nil (:type %)) (:changes result))))))
 
 (deftest test-validate-import-mixed-nil-scenarios
@@ -893,8 +893,8 @@
                                               :auto-clean true})]
       (is (:success result))
       (let [wizard (get-in result [:data :orcpub.dnd.e5/classes :wizard])]
-        ;; option-pack nil → "Unnamed Content" (replaced)
-        (is (= "Unnamed Content" (:option-pack wizard)))
+        ;; option-pack nil → "Default Option Source" (replaced)
+        (is (= "Default Option Source" (:option-pack wizard)))
         ;; spell-list-kw nil → preserved (semantic)
         (is (contains? (:spellcasting wizard) :spell-list-kw))
         (is (nil? (get-in wizard [:spellcasting :spell-list-kw])))
