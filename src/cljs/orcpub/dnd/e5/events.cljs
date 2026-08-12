@@ -4669,12 +4669,19 @@
        ;; Store overlays + a summary the banner reads (counts + any homebrew keys
        ;; that clash with the recipient's own library and differ). No toast — the
        ;; banner is the persistent, actionable surface (view-only vs Keep).
-       {:db (assoc db
-                   :shared-plugins kept
-                   :shared-custom-items items
-                   :shared-content-info {:count (count-plugin-items kept)
-                                         :item-count (count items)
-                                         :collisions (vec (share-bundle/collisions kept (:plugins db)))})}
+       {:db (cond-> (assoc db
+                           :shared-plugins kept
+                           :shared-custom-items items
+                           :shared-content-info {:count (count-plugin-items kept)
+                                                 :item-count (count items)
+                                                 :collisions (vec (share-bundle/collisions kept (:plugins db)))})
+              ;; The overlays arrive asynchronously (decode is a promise), AFTER the
+              ;; initial character build has already run against the empty library —
+              ;; so the sheet first renders WITHOUT the shared homebrew/items (the
+              ;; "paste-twice" bug). Bump a rev on the character so debounced-build-sub
+              ;; sees :character change identity and rebuilds now that the overlays
+              ;; are in place. No-op when no character is loaded yet.
+              (:character db) (update-in [:character :orcpub.fork/shared-rev] (fnil inc 0)))}
        {}))))
 
 ;; Persist the currently-viewed shared content into the recipient's own library,
