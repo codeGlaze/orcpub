@@ -17,13 +17,25 @@
                      (if selected? "fa-dot-circle-o" "fa-circle-o"))}]
     label]])
 
+(def collision-risk-types
+  "Content types where two same-key items COLLAPSE to one at read time and the
+   surviving copy is picked nondeterministically (source-name hash order) — so
+   'keep both' silently yields an unpredictable winner rather than a clean
+   override. For the other (pool/list) types a duplicate merely shows twice,
+   which is harmless. See docs/kb/key-collision-behavior.md."
+  #{:orcpub.dnd.e5/spells   :orcpub.dnd.e5/races      :orcpub.dnd.e5/classes
+    :orcpub.dnd.e5/monsters :orcpub.dnd.e5/encounters :orcpub.dnd.e5/selections})
+
 (defn conflict-resolution-item
   "Renders a single conflict with resolution options."
-  [{:keys [id type key content-type-name sources
+  [{:keys [id type key content-type content-type-name sources
            import-source import-name existing-source existing-name
            suggested-renames suggested-new-key] :as conflict}
    decision]
-  (let [selected-action (:action decision)]
+  (let [selected-action (:action decision)
+        ;; Loud vs quiet: only the collapse types actually misbehave when both
+        ;; copies stay enabled; the rest just duplicate. Match the warning to it.
+        risky?          (contains? collision-risk-types content-type)]
     [:div.conflict-item
 
      ;; Conflict description
@@ -32,6 +44,12 @@
        (str ":" (clojure.core/name key))]
       [:span.conflict-item-type
        (str "(" content-type-name ")")]]
+
+     ;; Severity note — loud only for the types where a same-key duplicate is a
+     ;; real problem (one wins unpredictably), quiet otherwise.
+     (when risky?
+       [:div.f-s-11 {:style {:color "#f0a100" :margin "3px 0 2px"}}
+        "⚠ Two of these can't coexist — the app keeps only one, and which one is unpredictable. Pick which keeps the name."])
 
      (if (= type :internal)
        ;; Internal conflict: same key in multiple sources within import
@@ -77,11 +95,17 @@
          (str ":" (clojure.core/name (or suggested-new-key (-> suggested-renames first :new-key))))]]
        :rename]
 
-      ;; Option: Keep both (override)
+      ;; Option: Keep both. Honest label — for the collapse types this does NOT
+      ;; reliably override (the winner is unpredictable); for the rest both just
+      ;; appear. (A follow-up adds "keep both, turn one off" for a chosen winner.)
       [radio-option
        (= selected-action :keep-both)
        #(dispatch [:set-conflict-decision id {:action :keep-both}])
-       [:span "Keep both (imported will override existing)"]
+       (if risky?
+         [:span "Keep both as-is — "
+          [:span {:style {:color "#f0a100"}}
+           "⚠ not recommended: which one the app uses is unpredictable"]]
+         [:span "Keep both — they'll both appear as separate options"])
        :keep]
 
       ;; Option: Skip
