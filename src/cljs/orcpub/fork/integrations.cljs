@@ -157,7 +157,10 @@
    synchronously when a button is clicked — gesture-safe for the native share
    sheet and the async clipboard alike. Falls back to the plain character URL for
    a vanilla character, while a payload is still encoding, or when the homebrew is
-   too big to fit in a link (:file tier — the recipient then needs the .orcbrew)."
+   too big to fit in a link (:file tier — the recipient then needs the .orcbrew).
+
+   Buttons use a plain .form-button so they sit flush with their siblings in both
+   places they render (the page header and the character-list card row)."
   [id]
   (let [state (r/atom {:tier :plain :url nil :copied? false})
         prev  (atom {})]
@@ -202,7 +205,7 @@
                                         "This character has too much custom content to fit in a link. A plain link was copied — share the .orcbrew file so the recipient gets the homebrew."])
                        nil))]
           [:span.flex.align-items-c
-           [:button.form-button.h-40.m-l-5.m-t-5.m-b-5
+           [:button.form-button.m-l-5
             {:title "Copy a link to this character (custom content included)"
              :disabled working?
              :on-click (fn [_]
@@ -216,7 +219,7 @@
             [:span [:i.fa.f-s-18 {:class (cond copied? "fa-check" working? "fa-spinner" :else "fa-link")}]]
             [:span.m-l-5.header-button-text (cond copied? "Copied!" working? "Preparing…" :else "Copy link")]]
            (when (native-share?)
-             [:button.form-button.h-40.m-l-5.m-t-5.m-b-5
+             [:button.form-button.m-l-5
               {:title "Share this character (custom content included)"
                :disabled working?
                :on-click (fn [_]
