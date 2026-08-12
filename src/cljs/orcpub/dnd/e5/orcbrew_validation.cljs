@@ -119,50 +119,50 @@
    :check-fn - Optional predicate; if provided, field fails if (check-fn value) is false
                Default check is just (some? value)"
   {:orcpub.dnd.e5/classes
-   {:name {:dummy "[Missing Name]"}}
+   {:name {:dummy "Missing Name"}}
    ;; :key is auto-derived from :name, not checked here
 
    :orcpub.dnd.e5/subclasses
-   {:name {:dummy "[Missing Subclass Name]"}
+   {:name {:dummy "Missing Subclass Name"}
     :class {:dummy nil}} ; parent class ref, checked specially
 
    :orcpub.dnd.e5/races
-   {:name {:dummy "[Missing Race Name]"}}
+   {:name {:dummy "Missing Race Name"}}
 
    :orcpub.dnd.e5/subraces
-   {:name {:dummy "[Missing Subrace Name]"}
+   {:name {:dummy "Missing Subrace Name"}
     :race {:dummy nil}} ; parent race ref, checked specially
 
    :orcpub.dnd.e5/backgrounds
-   {:name {:dummy "[Missing Background Name]"}}
+   {:name {:dummy "Missing Background Name"}}
 
    :orcpub.dnd.e5/feats
-   {:name {:dummy "[Missing Feat Name]"}}
+   {:name {:dummy "Missing Feat Name"}}
 
    :orcpub.dnd.e5/spells
-   {:name {:dummy "[Missing Spell Name]"}
+   {:name {:dummy "Missing Spell Name"}
     :level {:dummy 0 :check-fn number?}
     :school {:dummy "unknown"}}
 
    :orcpub.dnd.e5/monsters
-   {:name {:dummy "[Missing Monster Name]"}}
+   {:name {:dummy "Missing Monster Name"}}
 
    :orcpub.dnd.e5/invocations
-   {:name {:dummy "[Missing Invocation Name]"}}
+   {:name {:dummy "Missing Invocation Name"}}
 
    :orcpub.dnd.e5/languages
-   {:name {:dummy "[Missing Language Name]"}}
+   {:name {:dummy "Missing Language Name"}}
 
    :orcpub.dnd.e5/selections
-   {:name {:dummy "[Missing Selection Name]"}}
+   {:name {:dummy "Missing Selection Name"}}
 
    :orcpub.dnd.e5/encounters
-   {:name {:dummy "[Missing Encounter Name]"}}})
+   {:name {:dummy "Missing Encounter Name"}}})
 
 (def trait-required-fields
   "Required fields for traits (nested within other content types).
    Traits appear in :traits vectors within classes, races, etc."
-  {:name {:dummy "[Missing Trait Name]"}})
+  {:name {:dummy "Missing Trait Name"}})
 
 (defn field-missing?
   "Check if a required field is missing or invalid.
@@ -240,7 +240,7 @@
 
 (def option-required-fields
   "Required fields for options within selections."
-  {:name {:dummy "[Missing Option Name]"}})
+  {:name {:dummy "Missing Option Name"}})
 
 (defn fill-missing-option-fields
   "Fill missing required fields in an option with placeholder values.
@@ -252,7 +252,7 @@
                    (if (or (nil? (get option field))
                            (and (string? (get option field))
                                 (str/blank? (get option field))))
-                     (conj acc {:field field :dummy (str "[Option " (inc index) "]")})
+                     (conj acc {:field field :dummy (str "Option " (inc index))})
                      acc))
                  []
                  option-required-fields)]
@@ -287,6 +287,35 @@
      :changes {:fields field-changes
                :traits-fixed trait-changes
                :options-fixed options-changes}}))
+
+(defn valid-name?
+  "A name that derives a valid key (starts with a letter)."
+  [nm]
+  (and (string? nm) (common/starts-with-letter? (str/trim nm))))
+
+(defn coerce-name
+  "Trimmed name if it's a valid (letter-starting) name, else the fallback."
+  [nm fallback]
+  (if (valid-name? nm) (str/trim nm) fallback))
+
+(defn sanitize-item-names
+  "Coerce the item's :name — and any nested :traits/:options names — to a valid,
+   letter-starting name (invalid/blank ones become a placeholder), then re-derive
+   the top-level :key from the coerced name. This is what makes 'save anyway'
+   safe: it can never persist a name that yields an invalid/structural key (the
+   keyword-trap class), the way it used to with e.g. \"1@-asdml;\"."
+  [item type-label]
+  (let [coerce-nested (fn [coll]
+                        (if (vector? coll)
+                          (mapv (fn [m] (if (and (map? m) (contains? m :name))
+                                          (update m :name coerce-name "Unnamed")
+                                          m))
+                                coll)
+                          coll))
+        item* (cond-> (update item :name coerce-name (str "Unnamed " type-label))
+                (:traits item)  (update :traits coerce-nested)
+                (:options item) (update :options coerce-nested))]
+    (assoc item* :key (common/name-to-kw (:name item*)))))
 
 (defn fill-missing-in-content-group
   "Fill missing fields for all items in a content group.
@@ -1098,10 +1127,14 @@
 ;; Data-Level Cleaning (after parse) - With Change Tracking
 ;; ============================================================================
 
-;; Fields where nil should be replaced with a default value
+;; Fields where nil should be replaced with a default value. A source-less item
+;; lands in the real built-in "Default Option Source" plugin (db.cljs) rather than
+;; a phantom "Unnamed Content" one, so it's manageable content, not an orphan.
+(def default-option-source "Default Option Source")
+
 (def nil-replace-defaults
   {:disabled? false
-   :option-pack "Unnamed Content"})
+   :option-pack default-option-source})
 
 ;; Fields where nil is semantically meaningful and should be preserved
 ;; NOTE: :spellcasting is NOT preserved because nil means "no spellcasting"
@@ -1206,8 +1239,8 @@
                                       (swap! changes conj {:type :fixed-option-pack
                                                            :path path
                                                            :from ""
-                                                           :to "Unnamed Content"})
-                                      [k "Unnamed Content"])
+                                                           :to default-option-source})
+                                      [k default-option-source])
 
                                     ;; Recurse into nested structures
                                     (map? v)
@@ -1337,6 +1370,37 @@
    :orcpub.dnd.e5/selections "selections"
    :orcpub.dnd.e5/languages "languages"
    :orcpub.dnd.e5/encounters "encounters"})
+
+(def content-type-singular
+  "Singular, capitalized label per content type, for placeholder names like
+   'Unnamed Race' (sanitize-item-names appends it after 'Unnamed ')."
+  {:orcpub.dnd.e5/classes "Class"       :orcpub.dnd.e5/subclasses "Subclass"
+   :orcpub.dnd.e5/races "Race"          :orcpub.dnd.e5/subraces "Subrace"
+   :orcpub.dnd.e5/backgrounds "Background" :orcpub.dnd.e5/feats "Feat"
+   :orcpub.dnd.e5/spells "Spell"        :orcpub.dnd.e5/monsters "Monster"
+   :orcpub.dnd.e5/invocations "Invocation" :orcpub.dnd.e5/selections "Selection"
+   :orcpub.dnd.e5/languages "Language"  :orcpub.dnd.e5/encounters "Encounter"
+   :orcpub.dnd.e5/boons "Boon"})
+
+(defn coerce-invalid-names
+  "Coerce any present-but-INVALID item name (and nested trait/option names) to a
+   valid letter-leading placeholder, re-keying the item from the fixed name.
+   Blanks are already handled by fill-missing-*; this catches the
+   present-but-invalid case (e.g. \"@@@\") so the recovery panel's 'Fix & Restore'
+   just works in one click instead of forcing the user to hand-type a name."
+  [plugin]
+  (if-not (map? plugin)
+    plugin
+    (reduce-kv
+     (fn [p ct items]
+       (if (and (qualified-keyword? ct) (map? items))
+         (assoc p ct
+                (reduce-kv
+                 (fn [m ik item]
+                   (assoc m ik (sanitize-item-names item (get content-type-singular ct "Item"))))
+                 {} items))
+         (assoc p ct items)))
+     {} plugin)))
 
 (defn find-duplicate-keys-in-content
   "Finds duplicate keys within a single content group.
@@ -1584,6 +1648,41 @@
     (find-similar-keys missing-key available)))
 
 ;; ============================================================================
+;; Shared correction pass (import AND export)
+;; ============================================================================
+
+(defn correct-library
+  "Runs the same data-level cleanups the importer runs, but over an entire
+   already-parsed library (multi-plugin map of source-name -> plugin), and
+   detects cross-source key conflicts. This is the single gate both boundaries
+   share: whatever import would fix, export runs too.
+
+   Returns {:data <corrected library>
+            :changes [...]                ; silent fixes applied (for logging)
+            :key-conflicts {:internal-conflicts [...] :external-conflicts [...]}}.
+
+   Note: unlike the import pipeline this does NOT auto-fill missing required
+   fields — on export those are surfaced to the user through the fill-in dialog
+   (classify-plugins-for-export) rather than silently placeholdered."
+  [library]
+  (let [normalized (normalize-text-in-data library)
+        text-normalized? (not= library normalized)
+        clean-result (clean-data-with-log normalized)
+        dedup-result (dedup-options-in-import (:data clean-result))
+        corrected (:data dedup-result)
+        changes (vec (concat (when text-normalized?
+                               [{:type :text-normalization
+                                 :description "Normalized Unicode characters (smart quotes, dashes, etc.) to ASCII"}])
+                             (:changes clean-result)
+                             (:changes dedup-result)))
+        ;; existing-plugins nil -> only within-library (internal) conflicts, which
+        ;; is exactly what would collide when this library is re-imported.
+        key-conflicts (detect-duplicate-keys corrected nil nil)]
+    {:data corrected
+     :changes changes
+     :key-conflicts key-conflicts}))
+
+;; ============================================================================
 ;; Main Validation Entry Point
 ;; ============================================================================
 
@@ -1749,29 +1848,36 @@
    2. All internal references updated (e.g., subclasses pointing to renamed class)"
   [plugin content-type old-key new-key]
   (if-let [content-group (get plugin content-type)]
-    (let [;; Step 1: Rename the key in its content group
-          item (get content-group old-key)
-          updated-group (-> content-group
-                            (dissoc old-key)
-                            (assoc new-key item))
+    ;; Only rename when the item actually exists. A redundant rename (e.g. a key
+    ;; that is BOTH an internal conflict — same key across import sources — and an
+    ;; external one vs existing content generates two renames for it) would
+    ;; otherwise hit an already-moved key and `(assoc new-key nil)`, fabricating a
+    ;; `key -> nil` entry that fails ::plugin and quarantines the whole source.
+    (if-let [item (get content-group old-key)]
+      (let [;; Step 1: Rename the key in its content group
+            updated-group (-> content-group
+                              (dissoc old-key)
+                              (assoc new-key item))
 
-          ;; Step 2: Find content types that reference this type
-          referencing-types (keep (fn [[ct refs]]
-                                    (when (some #(= (val %) content-type) refs)
-                                      [ct (key (first (filter #(= (val %) content-type) refs)))]))
-                                  key-reference-map)
+            ;; Step 2: Find content types that reference this type
+            referencing-types (keep (fn [[ct refs]]
+                                      (when (some #(= (val %) content-type) refs)
+                                        [ct (key (first (filter #(= (val %) content-type) refs)))]))
+                                    key-reference-map)
 
-          ;; Step 3: Update references in those content types
-          updated-plugin (reduce
-                          (fn [p [ref-content-type ref-field]]
-                            (if-let [ref-group (get p ref-content-type)]
-                              (assoc p ref-content-type
-                                     (update-references-in-content-group
-                                      ref-group ref-field old-key new-key))
-                              p))
-                          (assoc plugin content-type updated-group)
-                          referencing-types)]
-      updated-plugin)
+            ;; Step 3: Update references in those content types
+            updated-plugin (reduce
+                            (fn [p [ref-content-type ref-field]]
+                              (if-let [ref-group (get p ref-content-type)]
+                                (assoc p ref-content-type
+                                       (update-references-in-content-group
+                                        ref-group ref-field old-key new-key))
+                                p))
+                            (assoc plugin content-type updated-group)
+                            referencing-types)]
+        updated-plugin)
+      ;; old-key already gone — a no-op, not a nil-clobber.
+      plugin)
     plugin))
 
 (defn rename-key-in-plugins
