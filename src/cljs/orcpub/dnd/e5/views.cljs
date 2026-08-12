@@ -9267,7 +9267,9 @@
           [:div.posn-rel.m-r-5.m-b-5
            [:input.input
             {:placeholder "Search by name..."
-             :style       {:width "200px"}
+             ;; Align with the filter buttons: same height (9px pad + 1px border ==
+             ;; the buttons' 10px pad) and no top-margin offset from .input.
+             :style       {:width "200px" :margin-top 0 :padding "9px 10px" :font-size "12px"}
              :value       name-filter
              :on-change   #(dispatch [::char/set-char-name-filter (.. % -target -value)])}]
            (when (not (s/blank? name-filter))
