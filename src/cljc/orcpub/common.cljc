@@ -289,29 +289,28 @@
                   ord
                   (when-let [w (ordinal->words n)]
                     (str (title-number-phrase w) (nth ord 2)))
-                  ;; cardinal: only when the digits are a standalone token
-                  ;; (next char is whitespace, end, or a non-alphanumeric)
-                  (re-find #"^($|\s|[^a-zA-Z0-9])" tail)
+                  ;; cardinal: only when the digits are a standalone token —
+                  ;; followed by whitespace or the end of the string. Anything
+                  ;; else glued on ("3d6", "5e", or junk like "1@-asdml;") is NOT
+                  ;; a "N word" name, so we decline and let it become "Unnamed".
+                  (re-find #"^(\s|$)" tail)
                   (when-let [w (cardinal->words n)]
                     (str (title-number-phrase w) tail))
-                  ;; else glued to a letter ("3d6", "5e") — not ours to touch
                   :else nil)))))))))
 
 (defn repair-name-lead
-  "Best-effort coerce `name` to a valid, letter-leading name — least-destructive
-   first: (1) leading number -> word (preserves intent), else (2) strip leading
-   non-letters. Returns the repaired name, or nil when nothing usable remains
-   (all-symbol names, or an out-of-range number with no letters after it) — the
-   caller then falls back to a placeholder like \"Unnamed <Type>\". Purely a
-   SUGGESTION; the caller still checks the derived key for collisions."
+  "Best-effort coerce `name` to a valid, letter-leading name by translating a
+   leading NUMBER to its word form (\"9 Lives\" -> \"Nine Lives\"). Returns the
+   repaired name, an already-valid name unchanged, or nil when it can't be
+   salvaged this way (symbol-leading or out-of-range) — the caller then falls
+   back to a placeholder like \"Unnamed <Type>\". Deliberately conservative:
+   symbol-led junk (\"@@@\", \"1@-asdml;\") is left for the placeholder rather
+   than salvaged into more junk. Purely a SUGGESTION; the caller still checks the
+   derived key for collisions."
   [name]
   (when (string? name)
     (let [t (s/trim name)]
-      (cond
-        (starts-with-letter? t) t
-        (lead-number->words t)  (lead-number->words t)
-        :else (let [stripped (s/trim (s/replace t #"^[^a-zA-Z]+" ""))]
-                (when (starts-with-letter? stripped) stripped))))))
+      (if (starts-with-letter? t) t (lead-number->words t)))))
 
 (defn toggle-flag
   "Flip a boolean flag, but leave a collection untouched instead of collapsing it.

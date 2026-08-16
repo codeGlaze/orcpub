@@ -294,9 +294,12 @@
   (and (string? nm) (common/starts-with-letter? (str/trim nm))))
 
 (defn coerce-name
-  "Trimmed name if it's a valid (letter-starting) name, else the fallback."
+  "A valid (letter-leading) name is returned trimmed; a leading-NUMBER name is
+   salvaged to its word form (\"9 Lives\" -> \"Nine Lives\") via
+   common/repair-name-lead; anything that can't be salvaged that way becomes the
+   fallback placeholder."
   [nm fallback]
-  (if (valid-name? nm) (str/trim nm) fallback))
+  (or (common/repair-name-lead nm) fallback))
 
 (defn sanitize-item-names
   "Coerce the item's :name — and any nested :traits/:options names — to a valid,

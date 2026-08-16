@@ -3939,7 +3939,7 @@
 ;; invalid — nothing changes and the user is told why.
 (reg-event-fx
  ::e5/repair-quarantined-source
- (fn [{:keys [db]} [_ source-name edits]]
+ (fn [{:keys [db]} [_ source-name edits auto?]]
    (let [rejected (get-rejected-plugins)
          bad (get rejected source-name)]
      (cond
@@ -3948,16 +3948,16 @@
                    (str "No quarantined source named \"" source-name "\" to repair.")]}
 
        :else
-       ;; Apply the user's edits, dummy-fill remaining gaps, re-key any keyword-trap
-       ;; items — then salvage PER ENTRY: valid entries rejoin the live source, the
-       ;; still-broken ones stay set aside. (Whole-source all-or-nothing before this
-       ;; meant one stubborn entry blocked restoring the rest.)
-       (let [fixed (-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
-                       ;; Auto-fix present-but-invalid names (e.g. "@@@") to valid
-                       ;; placeholders so 'Fix & Restore' works in one click, not
-                       ;; only after the user hand-types a name.
-                       (orcbrew-val/coerce-invalid-names)
-                       (e5/rekey-plugin))
+       ;; Apply the user's edits, re-key, then salvage PER ENTRY: valid entries
+       ;; rejoin the live source, the still-broken ones stay set aside.
+       ;; auto? gates the auto-naming: the MANUAL path (Restore) applies only the
+       ;; user's typed names — an entry that's still invalid stays quarantined
+       ;; (quarantine's job). The AUTO path (Auto-name & Restore) additionally runs
+       ;; coerce-invalid-names, which salvages a leading number to its word form
+       ;; ("9 Lives" -> "Nine Lives") and only falls to "Unnamed <Type>" for junk.
+       (let [fixed (cond-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
+                     auto? (orcbrew-val/coerce-invalid-names)
+                     true  (e5/rekey-plugin))
              {kept-items :kept still-bad :rejected}
              (e5/salvage-plugin-items content-specs/valid-item-for-load? fixed)
              new-rejected (if (seq still-bad)
