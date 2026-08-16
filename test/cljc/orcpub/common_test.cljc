@@ -320,17 +320,18 @@
     (is (nil? (common/lead-number->words "@@@Bob")) "symbol-leading, not numeric")))
 
 (deftest repair-name-lead-chain
-  (testing "least-destructive: number->word, else strip, else nil (caller -> placeholder)"
+  (testing "number->word only; symbol-led junk declines (caller -> placeholder)"
     (is (= "Bob" (common/repair-name-lead "Bob")) "already valid, unchanged")
     (is (= "Nine Lives" (common/repair-name-lead "9 Lives")) "number -> word")
     (is (= "Second Wind" (common/repair-name-lead "2nd Wind")) "ordinal -> word")
     (is (= "Three Hundred" (common/repair-name-lead "300")))
-    (is (= "Bob" (common/repair-name-lead "@@@Bob")) "strip leading symbols")
+    (is (nil? (common/repair-name-lead "@@@Bob")) "symbol-led -> nil (placeholder, not salvage)")
     (is (nil? (common/repair-name-lead "@@@")) "nothing usable -> nil")
-    (is (nil? (common/repair-name-lead "2020")) "out-of-range number, no letters -> nil")
+    (is (nil? (common/repair-name-lead "1@-asdml;")) "number glued to junk -> nil (not 'One@-…')")
+    (is (nil? (common/repair-name-lead "2020")) "out-of-range number -> nil")
     (is (= "Nine Lives" (common/repair-name-lead "  9 Lives  ")) "trims"))
   (testing "every non-nil repair derives a valid letter-leading key"
-    (doseq [nm ["9 Lives" "2nd Wind" "@@@Bob" "300" "13th Warrior" "Bob"]]
+    (doseq [nm ["9 Lives" "2nd Wind" "300" "13th Warrior" "Bob"]]
       (let [r (common/repair-name-lead nm)]
         (is (common/keyword-starts-with-letter? (common/name-to-kw r))
             (str nm " -> " (pr-str r) " must key-validate"))))))

@@ -8357,8 +8357,10 @@
          (if (seq entries)
            [:div
             [:div.f-s-12.m-t-5.m-b-5
-             "These entries couldn't load. Just hit Fix & Restore and each gets a "
-             "valid placeholder name — or set your own name and option source first."]
+             "These entries couldn't load. Type a valid Name (and Option source) and hit "
+             "Restore — or hit Auto-name & Restore to let the app name them: a leading "
+             "number becomes a word (“9 Lives” → “Nine Lives”); un-salvageable junk "
+             "becomes a placeholder."]
             (doall
              (for [{:keys [ct ik]} entries
                    :let [nk [ct ik :name]
@@ -8371,33 +8373,61 @@
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
                  [:input.input {:type "text" :value nm
                                 :on-change #(swap! edits assoc nk (.. % -target -value))}]
+                 ;; Preview what Auto-name would do to this entry: salvage a
+                 ;; leading number to a real name (orange, keeps intent), or —
+                 ;; when unsalvageable — replace it with a placeholder (amber).
                  (when-not (common/starts-with-letter? nm)
-                   [:span.m-l-5.f-s-12 {:style {:color "#d9a520"}}
-                    "will be auto-named on restore"])]
+                   (if-let [salvage (common/repair-name-lead nm)]
+                     [:span.m-l-5.f-s-12.orange (str "→ Auto-name: “" salvage "”")]
+                     [:span.m-l-5.f-s-12 {:style {:color "#d9a520"}}
+                      "→ Auto-name replaces this with a placeholder (Unnamed …)"]))]
                 [:div.m-t-5.flex.align-items-c
                  [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Option source"]
                  [:input.input {:type "text" :value (get current ok "")
                                 :on-change #(swap! edits assoc ok (.. % -target -value))}]]]))]
            [:div.f-s-12.m-t-5 "No entries to repair."])
-         [:div.m-t-10
-          (when (seq entries)
+         (let [edit-map (into {} (map (fn [[[ct ik field] v]]
+                                        [[src-name ct ik field] v])
+                                      @edits))
+               ;; Does auto-naming REPLACE a name (vs salvage it)? True when an
+               ;; entry's current name is invalid AND repair-name-lead can't
+               ;; salvage it — it'd get an "Unnamed …" placeholder. Tints the Auto
+               ;; button as destructive in that case.
+               any-replace? (boolean
+                             (some (fn [{:keys [ct ik]}]
+                                     (let [nm (get current [ct ik :name] "")]
+                                       (and (not (common/starts-with-letter? nm))
+                                            (nil? (common/repair-name-lead nm)))))
+                                   entries))]
+           [:div.m-t-10
+            ;; Manual: restore with the names you typed; anything still invalid
+            ;; stays quarantined (no silent auto-naming).
+            (when (seq entries)
+              [:button.form-button.m-r-5
+               {:on-click #(dispatch [::e5/repair-quarantined-source src-name edit-map false])}
+               "Restore"])
+            ;; Auto: salvage a leading number to a word ("9 Lives" -> "Nine Lives")
+            ;; else a placeholder. Amber when it will replace rather than salvage.
+            (when (seq entries)
+              [:button.form-button.m-r-5
+               ;; destructive tint: override .form-button's amber gradient with a
+               ;; red-orange one in the panel's own attention hue (#d94b20, the
+               ;; border color above) — distinct from the default action buttons,
+               ;; but part of this panel's palette rather than a foreign color.
+               (cond-> {:on-click #(dispatch [::e5/repair-quarantined-source src-name edit-map true])}
+                 any-replace? (assoc :style {:background-image "linear-gradient(to bottom, #e0602c, #d94b20)"}))
+               "Auto-name & Restore"])
             [:button.form-button.m-r-5
-             {:on-click #(dispatch [::e5/repair-quarantined-source src-name
-                                    (into {} (map (fn [[[ct ik field] v]]
-                                                    [[src-name ct ik field] v])
-                                                  @edits))])}
-             "Fix & Restore"])
-          [:button.form-button.m-r-5
-           {:on-click #(dispatch [::e5/export-quarantined-raw src-name])}
-           "Export raw"]
-          ;; Escape hatch for entries that can't be repaired and won't self-clear
-          ;; (e.g. stale ones from an earlier bad import). Confirms — only copy.
-          [:button.form-button
-           {:on-click #(when (js/confirm
-                             (str "Permanently discard the set-aside entries in \""
-                                  src-name "\"? Export raw first if you might want them."))
-                        (dispatch [::e5/discard-quarantined-source src-name]))}
-           "Discard"]]]))))
+             {:on-click #(dispatch [::e5/export-quarantined-raw src-name])}
+             "Export raw"]
+            ;; Escape hatch for entries that can't be repaired and won't self-clear
+            ;; (e.g. stale ones from an earlier bad import). Confirms — only copy.
+            [:button.form-button
+             {:on-click #(when (js/confirm
+                               (str "Permanently discard the set-aside entries in \""
+                                    src-name "\"? Export raw first if you might want them."))
+                          (dispatch [::e5/discard-quarantined-source src-name]))}
+             "Discard"]])]))))
 
 (defn quarantine-panel
   "Surfaces the ENTRIES the loader set aside (grouped by their source). The rest of

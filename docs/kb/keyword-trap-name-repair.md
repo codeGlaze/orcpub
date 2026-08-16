@@ -21,9 +21,14 @@ This work replaces that with a least-destructive, opt-in repair.
 1. **Already valid** (letter-leading) → unchanged.
 2. **Leading number → word** — `lead-number->words`: "9 Lives" → "Nine Lives",
    "2nd Wind" → "Second Wind", "100 Hands" → "One Hundred Hands". Preserves intent.
-3. **Leading symbols → strip** — "@@@Bob" → "Bob".
-4. **Nothing usable** (all symbols "@@@", or an out-of-range number with no letters
-   "2020") → returns `nil`; the caller falls back to a placeholder ("Unnamed <Type>").
+3. **Can't salvage this way** → returns `nil`; the caller falls back to a
+   placeholder ("Unnamed <Type>"). Deliberately conservative: only a *clean
+   leading number* is translated. Symbol-led junk ("@@@", "1@-asdml;") and
+   out-of-range numbers ("2020") are NOT stripped/mangled into more junk — they
+   become "Unnamed <Type>", and the user can hand-type a real name via the manual
+   Restore path. (A leading-symbol *strip* step was considered and dropped: it
+   salvaged real junk like "1@-asdml;" into "asdml;", against the "quarantine what
+   you can't cleanly heal" intent.)
 
 The result is a **suggestion**: the repair panel pre-fills it, the user accepts or
 edits, and the caller still checks the derived key for **collisions** with other
