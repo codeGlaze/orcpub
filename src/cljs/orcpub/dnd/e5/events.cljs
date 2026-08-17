@@ -4890,6 +4890,28 @@
                   []
                   conflicts)
 
+         ;; keep-both-disable: keep both copies of the key but turn the LOSER off,
+         ;; so exactly one is enabled (a deterministic winner instead of the
+         ;; nondeterministic "keep both as-is"). The loser is either the existing
+         ;; item (in :plugins) or the imported one (in the incoming data).
+         disable-targets (fn [side]
+                           (keep (fn [{:keys [id key content-type import-source existing-source]}]
+                                   (let [d (get decisions id)]
+                                     (when (and (= :keep-both-disable (:action d))
+                                                (= side (:disable d)))
+                                       [(case side
+                                          :existing existing-source
+                                          :import   (or import-source import-name))
+                                        content-type key])))
+                                 conflicts))
+         existing-disables (disable-targets :existing)
+         import-disables   (disable-targets :import)
+         set-disabled (fn [plugins paths]
+                        (reduce (fn [p [src ct k]]
+                                  (cond-> p (get-in p [src ct k])
+                                          (assoc-in [src ct k :disabled?] true)))
+                                plugins paths))
+
          ;; Apply renames to import data
          renamed-data (if (seq renames)
                         (orcbrew-val/apply-key-renames import-data renames)
@@ -4900,10 +4922,10 @@
          ;; and surfaced here — not hidden until the next refresh. Export mode
          ;; replaces the whole library and resumes the export instead.
          ;; incoming-sources keeps a multi-plugin flat (never wrapped/double-nested).
-         incoming (incoming-sources import-name renamed-data)
+         incoming (set-disabled (incoming-sources import-name renamed-data) import-disables)
          {:keys [merged quarantine message]}
          (when-not export-mode?
-           (store-imported-sources (:plugins db) incoming))
+           (store-imported-sources (set-disabled (:plugins db) existing-disables) incoming))
          success-msg (str "✅ Import successful"
                           (when (seq renames)
                             (str "\n\nRenamed " (count renames)

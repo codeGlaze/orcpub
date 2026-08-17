@@ -33,6 +33,7 @@
            suggested-renames suggested-new-key] :as conflict}
    decision]
   (let [selected-action (:action decision)
+        disable-side    (:disable decision)   ; for :keep-both-disable
         ;; Loud vs quiet: only the collapse types actually misbehave when both
         ;; copies stay enabled; the rest just duplicate. Match the warning to it.
         risky?          (contains? collision-risk-types content-type)]
@@ -107,6 +108,24 @@
            "⚠ not recommended: which one the app uses is unpredictable"]]
          [:span "Keep both — they'll both appear as separate options"])
        :keep]
+
+      ;; Options: keep both, turn ONE off — a deterministic winner (only for the
+      ;; external existing-vs-import case; the internal/peer case is a follow-up).
+      ;; For the collapse types this is the resolution to steer toward.
+      (when (= type :external)
+        [:div
+         [radio-option
+          (and (= :keep-both-disable selected-action) (= :import disable-side))
+          #(dispatch [:set-conflict-decision id {:action :keep-both-disable :disable :import}])
+          [:span "Keep both — use your existing one, turn the import "
+           [:strong "off"] " (leave it disabled in My Content)"]
+          :rename]
+         [radio-option
+          (and (= :keep-both-disable selected-action) (= :existing disable-side))
+          #(dispatch [:set-conflict-decision id {:action :keep-both-disable :disable :existing}])
+          [:span "Keep both — use the import, turn your existing one "
+           [:strong "off"]]
+          :rename]])
 
       ;; Option: Skip
       [radio-option
