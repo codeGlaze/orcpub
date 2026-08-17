@@ -1857,10 +1857,12 @@
     ;; otherwise hit an already-moved key and `(assoc new-key nil)`, fabricating a
     ;; `key -> nil` entry that fails ::plugin and quarantines the whole source.
     (if-let [item (get content-group old-key)]
-      (let [;; Step 1: Rename the key in its content group
+      (let [;; Step 1: Rename the key in its content group. Update the item's OWN
+            ;; :key field too — the content subs (map-by-key) key by :key, so a
+            ;; stale :key would re-collide at read time and undo the rename.
             updated-group (-> content-group
                               (dissoc old-key)
-                              (assoc new-key item))
+                              (assoc new-key (assoc item :key new-key)))
 
             ;; Step 2: Find content types that reference this type
             referencing-types (keep (fn [[ct refs]]

@@ -4791,8 +4791,10 @@
                      :import-name import-name
                      :existing-source existing-source
                      :existing-name existing-name
-                     ;; Suggested rename for the import
-                     :suggested-new-key (orcbrew-val/generate-new-key key import-source)})
+                     ;; Suggested rename for the import (keep existing as base)…
+                     :suggested-new-key (orcbrew-val/generate-new-key key import-source)
+                     ;; …and for the EXISTING one (keep import as base — step 2).
+                     :suggested-existing-key (orcbrew-val/generate-new-key key existing-source)})
                   external-conflicts)]
     (vec (concat internal external))))
 
@@ -4906,6 +4908,16 @@
                                  conflicts))
          existing-disables (disable-targets :existing)
          import-disables   (disable-targets :import)
+         ;; rename-existing: keep the imported item's key as base and rename the
+         ;; EXISTING one instead (the moderator's "decide what stays base"). Scoped
+         ;; to the existing item's source in :plugins; references are rewritten by
+         ;; apply-key-renames (subclass->class etc.).
+         existing-renames (vec (keep (fn [{:keys [id key content-type existing-source]}]
+                                       (let [d (get decisions id)]
+                                         (when (= :rename-existing (:action d))
+                                           {:source existing-source :content-type content-type
+                                            :from key :to (:new-key d)})))
+                                     conflicts))
          set-disabled (fn [plugins paths]
                         (reduce (fn [p [src ct k]]
                                   (cond-> p (get-in p [src ct k])
@@ -4923,9 +4935,14 @@
          ;; replaces the whole library and resumes the export instead.
          ;; incoming-sources keeps a multi-plugin flat (never wrapped/double-nested).
          incoming (set-disabled (incoming-sources import-name renamed-data) import-disables)
+         ;; existing side: rename the chosen existing items, then disable any
+         ;; keep-both-disable losers, then use that as the store base.
+         existing-base (-> (:plugins db)
+                           (orcbrew-val/apply-key-renames existing-renames)
+                           (set-disabled existing-disables))
          {:keys [merged quarantine message]}
          (when-not export-mode?
-           (store-imported-sources (set-disabled (:plugins db) existing-disables) incoming))
+           (store-imported-sources existing-base incoming))
          success-msg (str "✅ Import successful"
                           (when (seq renames)
                             (str "\n\nRenamed " (count renames)
