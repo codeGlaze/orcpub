@@ -8307,6 +8307,11 @@
 (defn my-content []
   [:div.main-text-color
    [:div.flex.justify-cont-end
+    ;; Surface keys duplicated across already-loaded sources (the import popup
+    ;; only fires on import) and resolve them in the same conflict modal.
+    [:button.form-button.m-r-10.m-b-10
+     {:on-click (make-event-handler ::e5/check-content-conflicts)}
+     "Check for conflicts"]
     [:button.form-button.m-r-10.m-b-10
      {:on-click (make-event-handler ::char/show-delete-plugin-confirmation)}
      "Delete All"]

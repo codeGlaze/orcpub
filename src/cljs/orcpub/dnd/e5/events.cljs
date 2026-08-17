@@ -4814,6 +4814,25 @@
              ;; resumes the export that triggered the resolution.
              :mode (or mode :import)}))))
 
+(reg-event-fx
+ ::e5/check-content-conflicts
+ (fn [{:keys [db]} _]
+   ;; "Check my content" — reuse the export analysis (correct-library) to find keys
+   ;; duplicated ACROSS already-loaded sources, then open the SAME conflict modal
+   ;; (library mode) to resolve them. The import popup only fires on import, so a
+   ;; pre-existing cross-source clash (and its nondeterministic winner) is otherwise
+   ;; invisible until now.
+   (let [{:keys [key-conflicts]} (orcbrew-val/correct-library (:plugins db))
+         internal (:internal-conflicts key-conflicts)]
+     (if (seq internal)
+       {:dispatch [:start-conflict-resolution
+                   {:import-name "your content"
+                    :import-data (:plugins db)
+                    :conflicts {:internal-conflicts internal :external-conflicts []}
+                    :mode :library}]}
+       {:dispatch [:show-warning-message
+                   "No key conflicts found — every key is unique across your sources."]}))))
+
 (reg-event-db
  :set-conflict-decision
  (fn [db [_ conflict-id decision]]
@@ -4858,6 +4877,10 @@
    (let [{:keys [import-name import-data conflicts decisions validation-result mode]}
          (:conflict-resolution db)
          export-mode? (= mode :export)
+         ;; :library resolves conflicts WITHIN already-loaded content (the "check my
+         ;; content" button). import-data is the current :plugins; renames apply to
+         ;; it and the whole library is replaced, like export mode (no import merge).
+         library-mode? (= mode :library)
 
          ;; Build list of renames from decisions
          renames (reduce
@@ -4941,7 +4964,7 @@
                            (orcbrew-val/apply-key-renames existing-renames)
                            (set-disabled existing-disables))
          {:keys [merged quarantine message]}
-         (when-not export-mode?
+         (when-not (or export-mode? library-mode?)
            (store-imported-sources existing-base incoming))
          success-msg (str "✅ Import successful"
                           (when (seq renames)
@@ -4966,11 +4989,16 @@
         ;; resumes the export; import mode persists the kept (valid) items via
         ;; store-plugins, whose on-success ("✅ Import successful") only fires if
         ;; the write actually stuck and nothing was set aside.
-        (if export-mode?
+        (if (or export-mode? library-mode?)
           [::e5/set-plugins renamed-data]
           (when merged
             [::e5/store-plugins merged
              (when-not message [:show-warning-message success-msg])]))
+
+        (when library-mode?
+          [:show-warning-message
+           (str "✅ Resolved " (count renames) " key conflict"
+                (when (not= 1 (count renames)) "s") " in your content.")])
 
         ;; Export-mode resolution message (import mode reports via store-plugins);
         ;; plus the set-aside notice if any entry was quarantined.

@@ -34,6 +34,7 @@
    decision]
   (let [selected-action (:action decision)
         disable-side    (:disable decision)   ; for :keep-both-disable
+        keeper          (:keeper decision)    ; for internal: which source keeps the key
         ;; Loud vs quiet: only the collapse types actually misbehave when both
         ;; copies stay enabled; the rest just duplicate. Match the warning to it.
         risky?          (contains? collision-risk-types content-type)]
@@ -56,7 +57,7 @@
        ;; Internal conflict: same key in multiple sources within import
        [:div
         [:div.f-s-12.conflict-item-desc
-         "This key appears in multiple sources within the import file:"]
+         "This key appears in multiple sources:"]
         [:div.conflict-item-detail
          (for [{:keys [source name]} sources]
            ^{:key source}
@@ -82,19 +83,35 @@
      [:div.conflict-options
       [:div.conflict-options-label "Choose resolution:"]
 
-      ;; Option: Rename import
-      [radio-option
-       (= selected-action :rename-import)
-       #(dispatch [:set-conflict-decision id
-                   {:action :rename-import
-                    :source (or import-source (-> sources first :source))
-                    :new-key (or suggested-new-key
-                                 (-> suggested-renames first :new-key))}])
-       [:span
-        [:span "Rename imported key to: "]
-        [:code.conflict-code
-         (str ":" (clojure.core/name (or suggested-new-key (-> suggested-renames first :new-key))))]]
-       :rename]
+      ;; Rename option(s). EXTERNAL: rename the single import (existing stays base).
+      ;; INTERNAL (all within one import): pick which SOURCE keeps the key; the
+      ;; others get renamed — the "who stays base" choice for the peer case.
+      (if (= type :internal)
+        [:div
+         (for [{:keys [source]} sources]
+           ^{:key source}
+           [radio-option
+            (and (= :rename-import selected-action) (= source keeper))
+            #(dispatch [:set-conflict-decision id
+                        {:action :rename-import
+                         :keeper source
+                         :renames (vec (remove (fn [r] (= source (:source r))) suggested-renames))}])
+            [:span "Keep " [:strong source] "'s "
+             [:code.conflict-code (str ":" (clojure.core/name key))]
+             " — rename the other source(s)"]
+            :rename])]
+        [radio-option
+         (= selected-action :rename-import)
+         #(dispatch [:set-conflict-decision id
+                     {:action :rename-import
+                      :source (or import-source (-> sources first :source))
+                      :new-key (or suggested-new-key
+                                   (-> suggested-renames first :new-key))}])
+         [:span
+          [:span "Rename imported key to: "]
+          [:code.conflict-code
+           (str ":" (clojure.core/name (or suggested-new-key (-> suggested-renames first :new-key))))]]
+         :rename])
 
       ;; Option: rename the EXISTING one instead, so the import keeps the name and
       ;; becomes base — the moderator's "decide what stays base". External only
@@ -148,12 +165,13 @@
       [radio-option
        (= selected-action :skip)
        #(dispatch [:set-conflict-decision id {:action :skip}])
-       [:span "Skip this item (don't import)"]
+       [:span "Skip this one (leave it as-is)"]
        :skip]]]))
 
 (defn conflict-resolution-modal []
   (let [resolution @(subscribe [:conflict-resolution])
-        {:keys [active? import-name conflicts decisions]} resolution
+        {:keys [active? import-name conflicts decisions mode]} resolution
+        library? (= mode :library)   ; resolving already-loaded content, not an import
         all-decided? (every? #(contains? decisions (:id %)) conflicts)]
     (when active?
       [:div.conflict-backdrop
@@ -165,9 +183,10 @@
           [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon]
           [:span.f-s-18.f-w-b.conflict-title "Key Conflicts Detected"]]
          [:div.f-s-12.conflict-subtitle
-          (str "Importing: " import-name)]
+          (str (if library? "In: " "Importing: ") import-name)]
          [:div.f-s-12.conflict-count
-          (str (count conflicts) " conflict(s) need resolution before import can continue.")]]
+          (str (count conflicts) " conflict(s) need resolution"
+               (if library? "." " before import can continue."))]]
 
         ;; Conflict list
         [:div.conflict-modal-body
@@ -179,7 +198,7 @@
         [:div.conflict-modal-footer
          [:span.link-button
           {:on-click #(dispatch [:cancel-conflict-resolution])}
-          "Cancel Import"]
+          (if library? "Cancel" "Cancel Import")]
          [:button.form-button
           {:on-click #(dispatch [:rename-all-conflicts])}
           "Rename All"]
@@ -189,7 +208,7 @@
            :on-click #(when all-decided?
                        (dispatch [:apply-conflict-resolutions]))}
           (if all-decided?
-            "Apply & Import"
+            (if library? "Apply" "Apply & Import")
             (str "Resolve All (" (count decisions) "/" (count conflicts) ")"))]]]])))
 
 ;; ============================================================================
