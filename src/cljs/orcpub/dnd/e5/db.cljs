@@ -52,6 +52,11 @@
 ;; Resilient-loader companion to `plugins`: sources that failed validation on load
 ;; are preserved for repair here instead of being silently discarded.
 (def local-storage-plugins-rejected-key "plugins:rejected")
+;; Local "view" overlay for the disable hierarchy: a global "disable all homebrew"
+;; flag and a set of section-disabled [source content-type] pairs. Kept OUT of the
+;; plugin/.orcbrew data (zero format/spec change; never travels with an export) —
+;; it's a per-device preference, so it lives in its own slot.
+(def local-storage-disable-overlay-key "disable-overlay")
 
 (def default-route route-map/dnd-e5-char-builder-route)
 
@@ -264,6 +269,10 @@
         (re-frame/dispatch [::e5/plugins-save-failed]))
       ok?)))
 
+(defn disable-overlay->local-store [overlay]
+  (when js/window.localStorage
+    (set-item local-storage-disable-overlay-key (str overlay))))
+
 (def tab-path [:builder :character :tab])
 
 (def ^:private preserve-on-unreadable-keys
@@ -367,6 +376,14 @@
  :local-store-magic-item
  local-storage-magic-item-key
  ::mi5e/internal-magic-item)
+
+;; Disable-overlay (global + section view preference). Validated loosely as a map
+;; so an older/emptier shape can't brick boot; the sub tolerates missing keys.
+(spec/def ::disable-overlay map?)
+(reg-local-store-cofx
+ ::e5/disable-overlay
+ local-storage-disable-overlay-key
+ ::disable-overlay)
 
 ;; Refresh safety: restore every homebrew builder's in-progress item on boot (the
 ;; persist side is already wired per-builder via ->local-store interceptors; this

@@ -95,24 +95,10 @@ otherwise stubbornly persist.
 **KB doc:** [docs/kb/library-management-and-conflicts.md](kb/library-management-and-conflicts.md)
 
 The My Content library, duplicate-key resolution, disabled-reason badges, the
-mutual-exclusion UX, and the opinionated (summary-first) import are built and on
-`feature/content-library-management` (see the KB doc for how they work). These are
-the not-yet-built follow-ups, roughly in dependency order.
-
-### Disable hierarchy — FORMAT-SAFE
-
-Four disable levels: **global** (overlay) / **source** (`:disabled?` in plugin
-data — exists) / **section** (new) / **item** (`:disabled?` — exists). Global +
-section live in a **local overlay store** (db/localStorage), NOT in the plugin /
-`.orcbrew` data, so there is zero format/spec change and existing libraries are
-untouched; `plugin-vals` ORs all four when filtering, and descendants of a
-disabled ancestor render dimmed (effective/inherited state).
-
-- Trade-off: section/global disable is a local "view" preference and does NOT
-  travel with exported packs (source/item disable still do).
-- Constraint: section-disable must NOT be stored inside the content-type map — a
-  `:disabled?` there fails the `::plugin` spec (value must be an item) and would
-  quarantine the whole source.
+mutual-exclusion UX, the opinionated (summary-first) import, and the four-level
+disable hierarchy are built and on `feature/content-library-management` (see the
+KB doc for how they work). These are the not-yet-built follow-ups, roughly in
+dependency order.
 
 ### Move / copy content between sources
 

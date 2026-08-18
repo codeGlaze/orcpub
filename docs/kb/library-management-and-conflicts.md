@@ -127,6 +127,41 @@ plugins — nothing new is stored:
   is automatic (no confirm gate) — the toast plus the recomputed notes make it
   self-evident (`enabled-twin-paths`).
 
+## Disable hierarchy
+
+Content can be turned off at four levels, checked as an OR — an item is hidden
+from the builder if **any** level disables it:
+
+| Level | Stored where | Travels with export? |
+|-------|--------------|----------------------|
+| global | `:disable-overlay :global?` (local) | no |
+| source | `:disabled?` in plugin data | yes |
+| section (a content-type within a source) | `:disable-overlay :sections` (local) | no |
+| item | `:disabled?` in plugin data | yes |
+
+The two new levels — **global** ("disable all homebrew") and **section**
+("disable all spells in My Pack") — live in a **local overlay store**
+(`:disable-overlay` in app-db, persisted to its own `disable-overlay`
+localStorage slot), never inside the plugin/`.orcbrew` data. That keeps them a
+zero-cost, per-device *view* preference: no format or spec change, existing
+libraries are untouched, and a section/global disable does **not** travel with an
+exported pack (source and item disable still do, because they're in the data).
+
+> A section disable must not be written into the content-type map as a
+> `:disabled?` key — the value under a content type must be an item, so a stray
+> flag there fails the `::plugin` spec and quarantines the whole source. That's
+> exactly why section state lives in the overlay, keyed by `[source content-type]`.
+
+The overlay is applied at the same chokepoint as the data-level flags —
+`process-plugin-vals` / `compute-plugin-vals` (and `process-plugins-with-sources`,
+which feeds the class/subclass dropdowns) — so every downstream `plugin-*` sub
+respects it automatically. `:global?` short-circuits to nothing; a `:sections`
+pair drops that content type from that source. The overlay applies to the user's
+own library only, never to view-once shared content. My Content shows the
+effective (inherited) state: a section reads off — dimmed, "· section off" — when
+its own flag or the global toggle is off. Toggled via
+`::e5/toggle-global-disable` and `::e5/toggle-section-disable`.
+
 ## Where the code lives
 
 - `orcpub.dnd.e5.orcbrew-validation` — the canonical `collision-risk-types` set;
@@ -134,8 +169,13 @@ plugins — nothing new is stored:
   `apply-key-renames`; and the mutual-exclusion helpers `collision-twin-index`,
   `twin-note`, `enabled-twin-paths`, `mutual-exclusion-off-count`.
 - `orcpub.dnd.e5.events` — `::e5/toggle-plugin`, `::e5/toggle-plugin-item`
-  (swap-aware), the `:apply-conflict-resolutions` / `:start-conflict-resolution`
-  flow, and `::e5/check-content-conflicts`.
+  (swap-aware), `::e5/toggle-global-disable`, `::e5/toggle-section-disable`, the
+  `:apply-conflict-resolutions` / `:start-conflict-resolution` flow, and
+  `::e5/check-content-conflicts`.
+- `orcpub.dnd.e5.spell-subs` — `::e5/plugin-vals`, `::e5/plugins-with-sources`,
+  and the overlay subs (`::e5/disable-overlay`, `::e5/global-disabled?`,
+  `::e5/section-disabled?`); `orcpub.dnd.e5.db` — the `disable-overlay`
+  localStorage slot, writer, and boot cofx.
 - `orcpub.dnd.e5.views` — My Content UI: `my-content`, `my-content-item`,
   `my-content-type`, `source-disabled-counts`, the per-row twin note, and the
   library banner.

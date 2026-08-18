@@ -68,63 +68,108 @@
 (defn- process-plugin-vals
   "Filter out malformed/disabled plugin data so a bad entry can't break the
    subscription chain (e.g. the class dropdown). Returns a seq of clean
-   {content-type {key def}} maps."
-  [plugins]
-  (keep
-   (fn [p]
-     (try
-       (when (map? p)
-         (into
-          {}
-          (keep
-           (fn [[type-k type-m]]
-             (when (and type-k (or (nil? type-m) (map? type-m)))
-               [type-k
-                (if (map? type-m)
-                  (into
-                   {}
-                   (keep
-                    (fn [[k v]]
-                      ;; Only include if v is a map and not disabled
-                      (when (and (map? v) (not (:disabled? v)))
-                        [k v]))
-                    type-m))
-                  type-m)]))
-           p)))
-       (catch js/Error e
-         (js/console.warn "Skipping malformed plugin data:" (pr-str p) e)
-         nil)))
-   (filter (fn [p] (and (map? p) (not (:disabled? p))))
-           (vals plugins))))
+   {content-type {key def}} maps.
+
+   `overlay` (optional) applies the two LOCAL disable levels on top of the data
+   levels: :global? drops everything, and :sections drops a whole [source
+   content-type] pair. It's ORed with the source/item :disabled? flags, so an
+   item is hidden if ANY of the four levels turns it off. Passing nil (the shared
+   path) applies only the data levels."
+  ([plugins] (process-plugin-vals plugins nil))
+  ([plugins overlay]
+   (if (:global? overlay)
+     []
+     (let [sections (:sections overlay #{})]
+       (keep
+        (fn [[source-name p]]
+          (try
+            (when (and (map? p) (not (:disabled? p)))
+              (into
+               {}
+               (keep
+                (fn [[type-k type-m]]
+                  (when (and type-k
+                             (or (nil? type-m) (map? type-m))
+                             (not (contains? sections [source-name type-k])))
+                    [type-k
+                     (if (map? type-m)
+                       (into
+                        {}
+                        (keep
+                         (fn [[k v]]
+                           ;; Only include if v is a map and not disabled
+                           (when (and (map? v) (not (:disabled? v)))
+                             [k v]))
+                         type-m))
+                       type-m)]))
+                p)))
+            (catch js/Error e
+              (js/console.warn "Skipping malformed plugin data:" (pr-str p) e)
+              nil)))
+        plugins)))))
+
+(reg-sub
+ ::e5/disable-overlay
+ (fn [db _]
+   (get db :disable-overlay)))
+
+(reg-sub
+ ::e5/global-disabled?
+ :<- [::e5/disable-overlay]
+ (fn [overlay _]
+   (boolean (:global? overlay))))
+
+;; Is this [source content-type] section turned off in the local overlay? Used to
+;; render the section toggle and to dim a section's items (inherited state).
+(reg-sub
+ ::e5/section-disabled?
+ :<- [::e5/disable-overlay]
+ (fn [overlay [_ source type-key]]
+   (contains? (:sections overlay #{}) [source type-key])))
 
 (reg-sub
  ::e5/plugin-vals
  :<- [::e5/plugins]
  :<- [::e5/shared-plugins]
- (fn [[plugins shared] _]
-   ;; Shared (view-once) content is appended LAST so it wins key collisions
-   ;; against the recipient's own library for the shared view only.
-   (concat (process-plugin-vals plugins)
+ :<- [::e5/disable-overlay]
+ (fn [[plugins shared overlay] _]
+   ;; The disable overlay is a preference over the user's OWN library, so it
+   ;; applies to `plugins` only — shared (view-once) content is never hidden by
+   ;; the recipient's global/section toggles. Shared is appended LAST so it wins
+   ;; key collisions against the recipient's own library for the shared view only.
+   (concat (process-plugin-vals plugins overlay)
            (process-plugin-vals shared))))
 
 ;; Subscription that preserves source names when extracting content from plugins.
 ;; This is needed for disambiguation when multiple sources have same-named content.
-(defn- process-plugins-with-sources [plugins]
+(defn- process-plugins-with-sources
   ;; Returns seq of [source-name plugin-data] pairs, skipping disabled/malformed.
-  (keep
-   (fn [[source-name plugin-data]]
-     (when (and (map? plugin-data) (not (:disabled? plugin-data)))
-       [source-name plugin-data]))
-   plugins))
+  ;; Applies the same disable overlay as process-plugin-vals: :global? drops
+  ;; everything and a section pair drops that content-type from the source, so the
+  ;; class/subclass dropdowns hide exactly what the rest of the builder hides.
+  ([plugins] (process-plugins-with-sources plugins nil))
+  ([plugins overlay]
+   (if (:global? overlay)
+     []
+     (let [sections (:sections overlay #{})]
+       (keep
+        (fn [[source-name plugin-data]]
+          (when (and (map? plugin-data) (not (:disabled? plugin-data)))
+            [source-name
+             (into {} (remove (fn [[type-k _]]
+                                (contains? sections [source-name type-k]))
+                              plugin-data))]))
+        plugins)))))
 
 (reg-sub
  ::e5/plugins-with-sources
  :<- [::e5/plugins]
  :<- [::e5/shared-plugins]
- (fn [[plugins shared] _]
+ :<- [::e5/disable-overlay]
+ (fn [[plugins shared overlay] _]
    ;; Shared (view-once) sources appended LAST so they win key collisions for
-   ;; the shared view only.
-   (concat (process-plugins-with-sources plugins)
+   ;; the shared view only; the overlay applies to the user's own library only.
+   (concat (process-plugins-with-sources plugins overlay)
            (process-plugins-with-sources shared))))
 
 (reg-sub

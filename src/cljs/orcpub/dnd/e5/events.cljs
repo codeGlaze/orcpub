@@ -52,6 +52,7 @@
                                       subclass->local-store
                                       class->local-store
                                       plugins->local-store
+                                      disable-overlay->local-store
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       default-character
@@ -144,6 +145,9 @@
 
 (def plugins->local-store-interceptor (after plugins->local-store))
 
+(def disable-overlay->local-store-interceptor
+  (after (fn [db] (disable-overlay->local-store (:disable-overlay db)))))
+
 (def set-changed (->interceptor
                   :id :set-changed
                   :before (fn [context]
@@ -221,6 +225,7 @@
   ;; AFTER ::e5/plugins — that cofx reconciles/writes plugins:rejected, and
   ;; this reads the result into app-db for the reactive repair panel.
   (inject-cofx ::e5/rejected-plugins)
+  (inject-cofx ::e5/disable-overlay)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -230,12 +235,14 @@
               local-store-builder-items
               ::e5/plugins
               ::e5/rejected-plugins
+              ::e5/disable-overlay
               ::combat/tracker-item]} _]
    {:db (if (seq db)
           db
           (cond-> default-value
             plugins (assoc :plugins plugins)
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
+            (seq disable-overlay) (assoc :disable-overlay disable-overlay)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
             local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
@@ -4459,6 +4466,30 @@
                              " so \"" this-name "\" (" plugin-name ") is the one that's on.")
                         6000]]})
        {:dispatch [::e5/set-plugins after-swap]}))))
+
+;; ── Disable hierarchy: the two LOCAL-OVERLAY levels ─────────────────────────
+;; source + item disable live in the plugin data (toggle-plugin / -item above).
+;; global + section are a per-device VIEW preference kept in :disable-overlay,
+;; never written into the .orcbrew data — so they cost no format/spec change and
+;; don't travel with an export. `plugin-vals` ORs all four when filtering.
+
+(reg-event-db
+ ::e5/toggle-global-disable
+ [disable-overlay->local-store-interceptor]
+ (fn [db _]
+   (update-in db [:disable-overlay :global?] not)))
+
+(reg-event-db
+ ::e5/toggle-section-disable
+ [disable-overlay->local-store-interceptor]
+ ;; Turn a whole [source content-type] section off/on (e.g. all spells in "My
+ ;; Pack"). Stored as a set of pairs so it's compact and order-free.
+ (fn [db [_ source type-key]]
+   (update-in db [:disable-overlay :sections]
+              (fn [s]
+                (let [s (or s #{})
+                      pair [source type-key]]
+                  (if (contains? s pair) (disj s pair) (conj s pair)))))))
 
 ;; (Removed dead `clean-plugin-errors` — a raw-EDN string-replace hack with zero
 ;;  callers, superseded by `orcbrew-validation/validate-import` (structured cleaning).)

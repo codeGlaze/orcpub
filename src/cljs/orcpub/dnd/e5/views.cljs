@@ -8146,11 +8146,29 @@
                                           (s/includes? (s/lower-case (str name)) q))))
                                all-items)]
         (when (seq visible)
+         (let [section-off? @(subscribe [::e5/section-disabled? source-name type-key])
+               global-off?  @(subscribe [::e5/global-disabled?])
+               ;; effective/inherited: a section reads off if it's off itself OR an
+               ;; ancestor (the global toggle) is off. Only the section's OWN flag
+               ;; is user-editable here; the global part is shown, not toggled.
+               eff-off?     (or section-off? global-off?)]
           [:div.pointer.item-list-item
            [:div.flex.justify-cont-s-b.align-items-c.p-10
             {:on-click #(swap! expanded? not)}
             [:div.flex.align-items-c
+             ;; Section enable/disable (a whole content-type in this source). Dim +
+             ;; disabled when global is off, since the section is off by inheritance.
+             [:div.m-r-10.flex.align-items-c.flex-column
+              {:class (when global-off? "opacity-5")
+               ;; When global is off the section can't be individually re-enabled
+               ;; (its ancestor overrides it) — swallow the click without toggling.
+               :on-click (if global-off?
+                           (fn [e] (.stopPropagation e))
+                           (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key))}
+              [:div.f-s-10 "enabled?"]
+              [comps/checkbox (not eff-off?) global-off?]]
              [:div.h-48.flex.align-items-c
+              {:class (when eff-off? "opacity-5")}
               (if (vector? icon)
                 (doall
                  (map-indexed
@@ -8159,11 +8177,16 @@
                     [svg-icon ico (/ 48 (count icon)) @(subscribe [:theme])])
                   icon))
                 [svg-icon icon 48 @(subscribe [:theme])])]
-             [:span.m-l-10.f-s-24 (let [num total-n
-                                        final-type-name (if plural
-                                                          (if (not= 1 num) plural type-name)
-                                                          (str type-name (when (not= 1 num) "s")))]
-                                    (str num " " (capitalize-words final-type-name)))]
+             [:span.m-l-10.f-s-24 {:class (when eff-off? "opacity-5")}
+              (let [num total-n
+                    final-type-name (if plural
+                                      (if (not= 1 num) plural type-name)
+                                      (str type-name (when (not= 1 num) "s")))]
+                (str num " " (capitalize-words final-type-name)))]
+             (when (and section-off? (not global-off?))
+               [:span.m-l-10.f-s-12.b-color-gray "· section off"])
+             (when global-off?
+               [:span.m-l-10.f-s-12.b-color-gray "· all homebrew off"])
              (when (pos? disabled-n)
                [:span.m-l-10.f-s-12.opacity-5 (str "· " disabled-n " disabled")])]
             [:div.orange.pointer
@@ -8207,7 +8230,7 @@
                      [:button.form-button.m-l-5
                       {:on-click (make-stop-prop-event-handler delete-event item)}
                       "delete"]]]))
-                 visible))]])])))))
+                 visible))]])]))))))
 
 ;; One data-driven table for the My Content library, replacing 13 near-identical
 ;; wrapper fns. Each entry is a homebrew content type; the table drives BOTH the
@@ -8383,6 +8406,21 @@
         [:span.link-button.pointer
          {:on-click (make-event-handler ::e5/check-content-conflicts)}
          "review"]]))
+   ;; Disable-hierarchy master switch (a local view preference, not stored in any
+   ;; .orcbrew): turning it off hides ALL homebrew from the builder at once while
+   ;; leaving every source saved. Section (per content-type) and source/item
+   ;; toggles live further down; this is the top of that hierarchy.
+   (let [global-off? @(subscribe [::e5/global-disabled?])]
+     [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
+      [:div.flex.align-items-c.pointer
+       {:on-click (make-event-handler ::e5/toggle-global-disable)}
+       [comps/checkbox (not global-off?) false]
+       [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
+      (if global-off?
+        [:span.f-s-12.b-color-gray
+         "Off — your sources stay saved but won't appear in the builder."]
+        [:span.f-s-12.opacity-5
+         "On — turn off to hide every source from the builder at once."])])
    [:div.item-list
     (let [plugins (sort @(subscribe [::e5/plugins]))]
       (doall
