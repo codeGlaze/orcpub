@@ -3,6 +3,7 @@
    Handles import key conflicts and missing-field warnings during orcbrew export."
   (:require [re-frame.core :refer [subscribe dispatch]]
             [clojure.string :as s]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.dnd.e5.views.import-log :as import-log]))
 
 (defn- radio-option
@@ -17,14 +18,8 @@
                      (if selected? "fa-dot-circle-o" "fa-circle-o"))}]
     label]])
 
-(def collision-risk-types
-  "Content types where two same-key items COLLAPSE to one at read time and the
-   surviving copy is picked nondeterministically (source-name hash order) — so
-   'keep both' silently yields an unpredictable winner rather than a clean
-   override. For the other (pool/list) types a duplicate merely shows twice,
-   which is harmless. See docs/kb/key-collision-behavior.md."
-  #{:orcpub.dnd.e5/spells   :orcpub.dnd.e5/races      :orcpub.dnd.e5/classes
-    :orcpub.dnd.e5/monsters :orcpub.dnd.e5/encounters :orcpub.dnd.e5/selections})
+;; Canonical set now lives in orcbrew-validation (events + views both read it).
+(def collision-risk-types orcbrew-val/collision-risk-types)
 
 (defn conflict-resolution-item
   "Renders a single conflict with resolution options."

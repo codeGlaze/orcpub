@@ -4427,8 +4427,38 @@
 
 (reg-event-fx
  ::e5/toggle-plugin-item
+ ;; Enabling a collision-risk item enforces the ≤1-enabled invariant: any live
+ ;; same-key twin in another source is turned OFF first (deterministic winner
+ ;; never flickers), then this one turns on, with a plain-language swap message.
+ ;; A user toggle also clears :disabled-reason on this item — once you choose,
+ ;; the app's earlier compat-disable no longer applies (benign from here on).
  (fn [{:keys [db]} [_ plugin-name type-key key]]
-   {:dispatch [::e5/set-plugins (-> db :plugins (common/toggle-in [plugin-name type-key key :disabled?]))]}))
+   (let [plugins        (:plugins db)
+         currently-off? (boolean (get-in plugins [plugin-name type-key key :disabled?]))
+         this-name      (get-in plugins [plugin-name type-key key :name])
+         twins          (when currently-off?
+                          (seq (orcbrew-val/enabled-twin-paths plugins plugin-name type-key key)))
+         after-toggle   (-> plugins
+                            (common/toggle-in [plugin-name type-key key :disabled?])
+                            (update-in [plugin-name type-key key] dissoc :disabled-reason))
+         after-swap     (reduce (fn [p [s ct k]]
+                                  (-> p
+                                      (assoc-in [s ct k :disabled?] true)
+                                      (assoc-in [s ct k :disabled-reason] :compat)))
+                                after-toggle twins)]
+     (if twins
+       (let [[ts tct tk] (first twins)
+             twin-name   (get-in plugins [ts tct tk :name])
+             more        (dec (count twins))]
+         {:dispatch-n [[::e5/set-plugins after-swap]
+                       [:show-message
+                        ;; name + source, because same-key twins usually share a
+                        ;; name — "Fireball (Pack A)" reads unambiguously.
+                        (str "Turned off \"" twin-name "\" (" ts ")"
+                             (when (pos? more) (str " and " more " other" (when (> more 1) "s")))
+                             " so \"" this-name "\" (" plugin-name ") is the one that's on.")
+                        6000]]})
+       {:dispatch [::e5/set-plugins after-swap]}))))
 
 ;; (Removed dead `clean-plugin-errors` — a raw-EDN string-replace hack with zero
 ;;  callers, superseded by `orcbrew-validation/validate-import` (structured cleaning).)

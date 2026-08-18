@@ -1473,6 +1473,94 @@
    []
    keys-by-type))
 
+;; ============================================================================
+;; Collision-risk types + mutual-exclusion (same-key twins across sources)
+;; ============================================================================
+
+(def collision-risk-types
+  "Content types where two same-key items COLLAPSE to one at read time and the
+   surviving copy is picked nondeterministically (source-name hash order). Only
+   these can mutually exclude — leaving both enabled yields an unpredictable
+   winner, so duplicate-key resolution turns the loser off (deterministic).
+   For the other (pool/list) types a duplicate merely shows twice, harmlessly.
+   Canonical home; the conflict modal and events both read it from here.
+   See docs/kb/key-collision-behavior.md."
+  #{:orcpub.dnd.e5/spells   :orcpub.dnd.e5/races      :orcpub.dnd.e5/classes
+    :orcpub.dnd.e5/monsters :orcpub.dnd.e5/encounters :orcpub.dnd.e5/selections})
+
+(defn collision-twin-index
+  "Index the whole library for same-key items in collision-risk types that live
+   in MORE THAN ONE source. Key = [content-type item-key]; value = vector of
+   {:source :name :disabled?}. A group with >1 entry is a real mutual-exclusion
+   set (only one may be enabled). Derived at display time — nothing stored."
+  [plugins]
+  (->> (for [[source plugin] plugins
+             :when (map? plugin)
+             [ct items] plugin
+             :when (and (contains? collision-risk-types ct) (map? items))
+             [k item] items
+             :when (map? item)]
+         [[ct k] {:source source
+                  :name (:name item)
+                  :disabled? (boolean (:disabled? item))}])
+       (reduce (fn [acc [gk entry]] (update acc gk (fnil conj []) entry)) {})
+       (into {} (filter (fn [[_ entries]] (< 1 (count entries)))))))
+
+(defn twin-note
+  "Describe one item's mutual-exclusion relationship with its same-key twins, or
+   nil when there is no cross-source collision to explain. Given the twin index
+   and the item's [source content-type key] + its disabled? flag, returns:
+     {:kind :off :twin-name .. :twin-source ..}  this item is OFF, a twin is ON
+     {:kind :on  :twin-name .. :twin-source ..}  this item is ON, a twin is OFF
+   Only fires for a genuine conflict (an ENABLED same-key sibling elsewhere for
+   the off case; a DISABLED one for the on case) — never for plain user-disables
+   with no live twin."
+  [twin-idx source content-type key disabled?]
+  (when-let [entries (get twin-idx [content-type key])]
+    (let [others (remove #(= source (:source %)) entries)]
+      (cond
+        (and disabled? (some (comp not :disabled?) others))
+        (let [on (first (remove :disabled? others))]
+          {:kind :off :twin-name (:name on) :twin-source (:source on)})
+
+        (and (not disabled?) (some :disabled? others))
+        (let [off (first (filter :disabled? others))]
+          {:kind :on :twin-name (:name off) :twin-source (:source off)})))))
+
+(defn enabled-twin-paths
+  "Paths [source content-type key] of every ENABLED same-key twin of the given
+   item, in OTHER sources — the items swap-on-enable must turn off first so the
+   ≤1-enabled invariant holds. Empty when the item isn't in a collision-risk
+   type or has no live twin."
+  [plugins source content-type key]
+  (when (contains? collision-risk-types content-type)
+    (for [[src plugin] plugins
+          :when (and (not= src source) (map? plugin))
+          :let [item (get-in plugin [content-type key])]
+          :when (and (map? item) (not (:disabled? item)))]
+      [src content-type key])))
+
+(defn mutual-exclusion-off-count
+  "How many items are OFF only because a same-key twin is ON — the number behind
+   the library-level 'N items are off because a duplicate is on' summary. Derived
+   from the twin index; nothing stored."
+  [plugins]
+  (let [twin-idx (collision-twin-index plugins)]
+    (reduce (fn [n [source plugin]]
+              (if (map? plugin)
+                (reduce (fn [m [ct items]]
+                          (if (and (contains? collision-risk-types ct) (map? items))
+                            (reduce (fn [c [k item]]
+                                      (if (and (map? item)
+                                               (= :off (:kind (twin-note twin-idx source ct k
+                                                                         (boolean (:disabled? item))))))
+                                        (inc c) c))
+                                    m items)
+                            m))
+                        n plugin)
+                n))
+            0 plugins)))
+
 (defn detect-duplicate-keys
   "Detects duplicate keys in imported data and against existing plugins.
 

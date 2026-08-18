@@ -14,20 +14,20 @@ nothing in flight is lost. Full design rationale lives in `content-tiers-and-key
   (spells/races/classes/monsters/encounters/selections) where the winner is nondeterministic, quiet
   for the *pool* types where a duplicate merely shows twice; plus honest "keep both" labeling
   (was mislabeled "imported will override existing"). — `5be9b135`
-
-## In flight — duplicate-key resolution (steps 2–3 re-open the deliberately-parked edge cases)
-- **Step 2 — pick which side keeps the key.** Today you can only rename the *import*; the existing
-  item always stays base. Add "rename the existing one instead" (mod's "decide what stays base"),
-  and handle the *internal/peer* case (all one import, nothing loaded → nothing is base → user picks;
-  default keeper = first source alphabetically, overridable). Touches the decision model + apply
-  logic (rename an EXISTING plugin item, not just import-data).
-- **Step 3 — "keep both, turn one off."** Import the loser with `:disabled?` set so a chosen winner
-  is deterministic (reuses the disable mechanism). Replaces plain "keep both" for risky types.
-- **"Check my content for conflicts" button** in My Content — reuses export's existing analysis
-  (`correct-library` / `detect-duplicate-keys`) on demand, because the import popup never re-checks
-  already-loaded libraries (where the random winner is silently in effect today).
-- Open Qs: internal keeper default (first-alphabetical, override) — OK'd in principle; off-state for
-  "keep both, turn one off" on import = loser imported with `:disabled?` (clean).
+- **Duplicate-key resolution — step 3, "keep both, turn one off."** Import the loser with
+  `:disabled?` set (+ `:disabled-reason :compat`) so a chosen winner is deterministic; replaces plain
+  "keep both" for the risky/collapse types. — `3d54a3b0`
+- **Duplicate-key resolution — step 2, "rename the EXISTING one."** You can now keep the import's key
+  and rename the already-loaded item instead of always renaming the newcomer; also fixes a stale
+  `:key` field on rename that let a renamed item re-collide. — `68ac5ccb`
+- **Internal keeper-picker + "Check my content for conflicts."** Handles the all-one-import / peer
+  case (nothing loaded is base → user picks the keeper, default = first source alphabetically), and
+  adds a My Content button that runs the same `correct-library` analysis on demand — the import popup
+  never re-checks already-loaded libraries, where a random winner is silently in effect. — `c0054275`
+- **Library-header disabled badges, color-coded by reason.** A pill next to each source name: blue
+  "N off" for user-disabled (benign), amber "N off · compatibility" for items app-disabled to resolve
+  a conflict (`:disabled-reason :compat`). Soft tinted pills by default, a `prefers-contrast` solid
+  variant, and a light-theme re-tone. — `258bbb35`
 
 ## OPEN — UX direction (novice vs power user)  ← ACTIVE DISCUSSION
 Concern: the conflict panel + the growing library controls are great for devs/mods but can
@@ -45,21 +45,26 @@ overwhelm tech-illiterate users. Direction under consideration (not yet decided)
 - DECISION: adopt opinionated-default + opt-in-panel? → **YES (agreed).** Is "import risky
   duplicates disabled" the right safe default? → leaning yes, pending the mutual-exclusion UX below.
 
-### Mutual-exclusion UX — when one item is off because its same-key twin is on
-When two items share a key, only one may be enabled (the ≤1-enabled invariant). Make that legible,
-not magic:
-- **Computed, not stored.** A disabled item that has an ENABLED twin sharing its key shows an inline
-  note "off because <twin> (in <source>) is on"; the enabled twin shows "on — its duplicate <this>
-  (in <source>) is off." Only shows when a same-key enabled sibling exists (a real conflict), NOT for
-  plain user-disabled items. Derived at display time — no new storage.
-- **Library-level summary.** A note in the main homebrew / My Content area: "N items are off because
-  a duplicate is on — [review]."
-- **Swap on enable — ordered + explained.** Clicking enable on the off twin turns the on-twin OFF
-  FIRST, a brief visible pause, THEN turns this ON, with a message "Turned off <twin> to turn on
-  <this>." Off-first is deliberate: only-one-on stays true the whole way through, so the
-  random-winner never even flickers (a technical reason that matches the intuitive ordering).
-- DECISION NEEDED: auto-swap with an undoable message (low friction), or a quick "this will turn off
-  <twin> — ok?" confirm first (safer)? Lean auto-swap; maybe confirm only for the risky types.
+### Mutual-exclusion UX — when one item is off because its same-key twin is on — ✅ SHIPPED `<pending>`
+When two items share a key, only one may be enabled (the ≤1-enabled invariant). Now made legible,
+not magic. All three parts landed; the whole thing is COMPUTED from a `collision-twin-index` over the
+live plugins (canonical `collision-risk-types` + `twin-note` / `enabled-twin-paths` /
+`mutual-exclusion-off-count` now live in `orcbrew-validation`, read by both events and views):
+- **Computed, not stored.** A disabled item with an ENABLED same-key twin shows an inline note
+  `off — "<twin>" in <source> is on`; the enabled winner shows `on — duplicate "<this>" in <source>
+  is off`. Only fires for a genuine cross-source collision in a collision-risk type, never for a plain
+  user-disable with no live twin. Derived at display time — no new storage.
+- **Library-level summary.** A banner at the top of My Content: `N items off because a duplicate is
+  on — [review]`; the review link opens the same conflict modal (`::e5/check-content-conflicts`).
+- **Swap on enable — ordered + explained.** `::e5/toggle-plugin-item` is now exclusivity-aware:
+  enabling a collision-risk item turns its live same-key twins OFF FIRST (marked `:disabled-reason
+  :compat` → amber badge), THEN turns this ON, in one atomic `set-plugins`, with a success toast
+  `Turned off "<twin>" (<src>) so "<this>" (<src>) is the one that's on.` Off-first keeps only-one-on
+  true throughout, so the random winner never flickers. A user toggle also clears this item's
+  `:disabled-reason` (once you choose, the app's earlier compat-disable no longer applies).
+- DECISION (was: auto-swap vs confirm) → **auto-swap with an explanatory toast.** Low friction,
+  matches the intuitive ordering; the toast + the recomputed notes make the swap self-evident, and the
+  off item is one click from being restored, so no confirm gate was warranted.
 
 ## Disable hierarchy (agreed shape, not yet built) — FORMAT-SAFE
 - Levels: **global** (overlay) / **source** (`:disabled?` in plugin data — exists) / **section**

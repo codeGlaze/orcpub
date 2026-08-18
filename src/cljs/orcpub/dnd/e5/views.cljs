@@ -42,6 +42,7 @@
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.fork.integrations :as integrations]
             [orcpub.fork.branding :as branding]
             [orcpub.fork.splash :as splash]
@@ -8134,6 +8135,10 @@
       (let [all-items  (sort (type-key plugin))
             total-n    (count all-items)
             disabled-n (count (filter (fn [[_ item]] (:disabled? item)) all-items))
+            ;; Cross-source same-key collisions, computed at display time so a
+            ;; disabled item can say WHY it's off (its twin elsewhere is on) and
+            ;; the enabled winner can point at its silenced duplicate.
+            twin-idx   (orcbrew-val/collision-twin-index @(subscribe [::e5/plugins]))
             q          (or search "")
             visible    (filter (fn [[_ {:keys [name disabled?]}]]
                                  (and (or show-disabled? (not disabled?))
@@ -8175,6 +8180,7 @@
                (doall
                 (map-indexed
                  (fn [i [key {:keys [name disabled?] :as item}]]
+                   (let [note (orcbrew-val/twin-note twin-idx source-name type-key key disabled?)]
                    ^{:key key}
                    [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
                     {:class (when disabled? "opacity-5")}
@@ -8184,14 +8190,23 @@
                      [comps/checkbox
                       (not (get-in plugin [type-key key :disabled?]))
                       false]]
-                    [:span.flex-grow-1 name]
+                    ;; name + (when there's a same-key twin) a small plain note
+                    ;; about the mutual-exclusion, so "off" never looks arbitrary.
+                    [:div.flex-grow-1
+                     [:span name]
+                     (when note
+                       [:div.f-s-12.opacity-7
+                        {:class (if (= :off (:kind note)) "b-color-gray" "")}
+                        (if (= :off (:kind note))
+                          (str "off — \"" (:twin-name note) "\" in " (:twin-source note) " is on")
+                          (str "on — duplicate \"" (:twin-name note) "\" in " (:twin-source note) " is off"))])]
                     [:div
                      [:button.form-button.m-l-5
                       {:on-click (make-event-handler edit-event item)}
                       "edit"]
                      [:button.form-button.m-l-5
                       {:on-click (make-stop-prop-event-handler delete-event item)}
-                      "delete"]]])
+                      "delete"]]]))
                  visible))]])])))))
 
 ;; One data-driven table for the My Content library, replacing 13 near-identical
@@ -8355,6 +8370,19 @@
          [:span.link-button
           {:on-click (make-event-handler ::char/delete-all-plugins)}
           "delete"]]]])]
+   ;; Library-level mutual-exclusion summary: when duplicate keys have forced
+   ;; one side off, say so once at the top with a link into the conflict modal,
+   ;; so the silenced items are explained in aggregate — not just per-row.
+   (let [off-n (orcbrew-val/mutual-exclusion-off-count @(subscribe [::e5/plugins]))]
+     (when (pos? off-n)
+       [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
+        [:span.f-s-14
+         [:i.fa.fa-random.m-r-5.opacity-7]
+         (str off-n " item" (when (> off-n 1) "s")
+              " off because a duplicate is on")]
+        [:span.link-button.pointer
+         {:on-click (make-event-handler ::e5/check-content-conflicts)}
+         "review"]]))
    [:div.item-list
     (let [plugins (sort @(subscribe [::e5/plugins]))]
       (doall
