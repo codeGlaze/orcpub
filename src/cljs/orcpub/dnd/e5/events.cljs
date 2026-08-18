@@ -4491,6 +4491,60 @@
                       pair [source type-key]]
                   (if (contains? s pair) (disj s pair) (conj s pair)))))))
 
+;; ── Move / copy content between sources ─────────────────────────────────────
+;; A single ephemeral selection set (of [source content-type key]) drives BOTH
+;; single and bulk: single is a selection of one, bulk is a selection of many.
+;; Not persisted — it's a transient editing gesture, cleared after the action.
+
+(reg-event-db
+ ::e5/toggle-select-mode
+ (fn [db _]
+   (let [on? (not (:content-select-mode? db))]
+     (-> db
+         (assoc :content-select-mode? on?)
+         ;; leaving select mode drops any half-made selection
+         (cond-> (not on?) (dissoc :content-selection))))))
+
+(reg-event-db
+ ::e5/toggle-content-selection
+ (fn [db [_ source type-key key]]
+   (update db :content-selection
+           (fn [s]
+             (let [s (or s #{})
+                   sel [source type-key key]]
+               (if (contains? s sel) (disj s sel) (conj s sel)))))))
+
+(reg-event-db
+ ::e5/clear-content-selection
+ (fn [db _]
+   (dissoc db :content-selection)))
+
+(reg-event-fx
+ ::e5/relocate-selected
+ ;; Move or copy every selected item to `target`. Reuses the pure relocate-content
+ ;; (clash-free key placement) and reports what happened in one message, then exits
+ ;; select mode. Goes through set-plugins, so it persists like any other edit.
+ (fn [{:keys [db]} [_ target op]]
+   (let [selections (vec (:content-selection db))]
+     (if (empty? selections)
+       {:dispatch [:show-warning-message "Nothing selected to move."]}
+       (let [{:keys [plugins placed renamed missing]}
+             (orcbrew-val/relocate-content (:plugins db) selections target op)
+             verb    (if (= op :copy) "Copied" "Moved")
+             ren-n   (count renamed)
+             msg (str verb " " placed " item" (when (not= 1 placed) "s")
+                      " to \"" target "\""
+                      (when (pos? ren-n)
+                        (str " (renamed " ren-n
+                             (if (= op :copy) " to keep the original" " to avoid a name clash")
+                             ")"))
+                      (when (pos? missing)
+                        (str " — " missing " could not be found and " (if (= 1 missing) "was" "were") " skipped"))
+                      ".")]
+         {:db (-> db (dissoc :content-selection) (assoc :content-select-mode? false))
+          :dispatch-n [[::e5/set-plugins plugins]
+                       [:show-message msg 6000]]})))))
+
 ;; (Removed dead `clean-plugin-errors` — a raw-EDN string-replace hack with zero
 ;;  callers, superseded by `orcbrew-validation/validate-import` (structured cleaning).)
 

@@ -1907,6 +1907,54 @@
   (let [source-slug (name (common/name-to-kw source-name))]
     (keyword (str (name original-key) "-" source-slug))))
 
+(defn- unique-key
+  "A key not already present in `existing-map`, starting from `base` and appending
+   -2, -3, … only if needed. Keeps generated keys distinct when several items land
+   in the same target in one pass."
+  [base existing-map]
+  (if-not (contains? existing-map base)
+    base
+    (loop [n 2]
+      (let [k (keyword (str (name base) "-" n))]
+        (if (contains? existing-map k) (recur (inc n)) k)))))
+
+(defn relocate-content
+  "Move or copy selected homebrew items to a target source. `selections` is a seq
+   of [source content-type key]; `op` is :move or :copy. Returns
+   {:plugins <new> :placed n :renamed [{:from :to :ct}] :missing n}.
+
+   Single vs bulk is just the length of `selections` — one mechanism for both.
+
+   Policy — predictable and clobber-free:
+   • MOVE relocates the item with its key preserved, UNLESS the target already
+     holds that key (then it gets a fresh unique key so nothing is overwritten).
+     Moving an item to the source it already lives in is a no-op.
+   • COPY always mints a fresh unique key — a copy is a new, independent variant,
+     which also avoids creating a nondeterministic same-key twin of the original.
+   The placed item's :key and :option-pack are retagged to its new home. Selections
+   are applied in order against the accumulating result, so keys minted earlier in
+   the batch are accounted for when uniquifying later ones."
+  [plugins selections target op]
+  (let [copy? (= op :copy)]
+    (reduce
+     (fn [{:keys [plugins] :as acc} [src ct k]]
+       (let [item (get-in plugins [src ct k])]
+         (cond
+           (nil? item)                       (update acc :missing inc)
+           (and (not copy?) (= src target))  (update acc :placed inc) ; already home
+           :else
+           (let [target-map (get-in plugins [target ct])
+                 new-key    (if (or copy? (contains? target-map k))
+                              (unique-key (generate-new-key k target) target-map)
+                              k)
+                 new-item   (assoc item :key new-key :option-pack target)
+                 p1         (assoc-in plugins [target ct new-key] new-item)
+                 p2         (if copy? p1 (update-in p1 [src ct] dissoc k))]
+             (cond-> (-> acc (assoc :plugins p2) (update :placed inc))
+               (not= new-key k) (update :renamed conj {:from k :to new-key :ct ct}))))))
+     {:plugins plugins :renamed [] :placed 0 :missing 0}
+     selections)))
+
 (defn update-references-in-item
   "Update references to a renamed key within a single item.
    reference-field: the field in this item that may reference the old key

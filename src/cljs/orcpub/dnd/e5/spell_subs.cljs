@@ -127,6 +127,29 @@
  (fn [overlay [_ source type-key]]
    (contains? (:sections overlay #{}) [source type-key])))
 
+;; ── Move/copy selection state ───────────────────────────────────────────────
+(reg-sub
+ ::e5/content-select-mode?
+ (fn [db _]
+   (boolean (:content-select-mode? db))))
+
+(reg-sub
+ ::e5/content-selection
+ (fn [db _]
+   (get db :content-selection #{})))
+
+(reg-sub
+ ::e5/content-selected?
+ :<- [::e5/content-selection]
+ (fn [selection [_ source type-key key]]
+   (contains? selection [source type-key key])))
+
+(reg-sub
+ ::e5/content-selection-count
+ :<- [::e5/content-selection]
+ (fn [selection _]
+   (count selection)))
+
 (reg-sub
  ::e5/plugin-vals
  :<- [::e5/plugins]

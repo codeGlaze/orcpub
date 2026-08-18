@@ -8139,6 +8139,7 @@
             ;; disabled item can say WHY it's off (its twin elsewhere is on) and
             ;; the enabled winner can point at its silenced duplicate.
             twin-idx   (orcbrew-val/collision-twin-index @(subscribe [::e5/plugins]))
+            select-mode? @(subscribe [::e5/content-select-mode?])
             q          (or search "")
             visible    (filter (fn [[_ {:keys [name disabled?]}]]
                                  (and (or show-disabled? (not disabled?))
@@ -8207,6 +8208,15 @@
                    ^{:key key}
                    [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
                     {:class (when disabled? "opacity-5")}
+                    ;; select checkbox (move/copy mode) — one mechanism for single
+                    ;; and bulk; ticking N items then Move/Copy relocates them all.
+                    (when select-mode?
+                      [:div.m-r-10.flex.align-items-c.flex-column
+                       {:on-click (make-stop-prop-event-handler ::e5/toggle-content-selection source-name type-key key)}
+                       [:div.f-s-10 "select"]
+                       [comps/checkbox
+                        @(subscribe [::e5/content-selected? source-name type-key key])
+                        false]])
                     [:div.m-r-10.flex.align-items-c.flex-column
                      {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
                      [:div.f-s-10 "enabled?"]
@@ -8367,9 +8377,48 @@
                (when (seq missing)
                  [add-content-menu name missing]))]])]))))
 
+(defn relocate-bar
+  "Bulk action bar for move/copy. Shown while in select mode: pick a target source
+   and Move or Copy every selected item there. Single vs bulk is just how many are
+   ticked — the same bar drives both."
+  []
+  (let [target (r/atom nil)]
+    (fn []
+      (let [n       @(subscribe [::e5/content-selection-count])
+            sources (sort (keys @(subscribe [::e5/plugins])))
+            tgt     (or @target (first sources))
+            none?   (zero? n)]
+        [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.flex-wrap
+         [:span.f-w-b.f-s-16.m-r-10 (str n " selected")]
+         [:span.m-r-5.f-s-14 "to"]
+         [:select.m-r-10.p-5.f-s-14
+          {:value (str tgt)
+           :on-change #(reset! target (.. % -target -value))}
+          (doall (for [s sources] ^{:key s} [:option {:value s} s]))]
+         [:button.form-button.m-r-5
+          {:class (when none? "disabled") :disabled none?
+           :on-click #(dispatch [::e5/relocate-selected tgt :move])}
+          "Move here"]
+         [:button.form-button.m-r-10
+          {:class (when none? "disabled") :disabled none?
+           :on-click #(dispatch [::e5/relocate-selected tgt :copy])}
+          "Copy here"]
+         (when-not none?
+           [:span.link-button.pointer.m-r-10
+            {:on-click (make-event-handler ::e5/clear-content-selection)}
+            "clear"])
+         [:span.link-button.pointer
+          {:on-click (make-event-handler ::e5/toggle-select-mode)}
+          "done"]]))))
+
 (defn my-content []
   [:div.main-text-color
    [:div.flex.justify-cont-end
+    ;; Move/copy content between sources: flip on selection checkboxes, tick one
+    ;; (single) or many (bulk), then Move/Copy them to a chosen source.
+    [:button.form-button.m-r-10.m-b-10
+     {:on-click (make-event-handler ::e5/toggle-select-mode)}
+     (if @(subscribe [::e5/content-select-mode?]) "Exit select" "Move / copy")]
     ;; Surface keys duplicated across already-loaded sources (the import popup
     ;; only fires on import) and resolve them in the same conflict modal.
     [:button.form-button.m-r-10.m-b-10
@@ -8381,6 +8430,8 @@
     [:button.form-button.m-r-10.m-b-10
      {:on-click (make-event-handler ::e5/export-all-plugins)}
      "Export All"]]
+   (when @(subscribe [::e5/content-select-mode?])
+     [relocate-bar])
    [:div.flex.justify-cont-end
     (when @(subscribe [::char/delete-plugin-confirmation-shown?])
       [:div.p-20.flex.justify-cont-end

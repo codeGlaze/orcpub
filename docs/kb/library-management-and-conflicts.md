@@ -162,14 +162,40 @@ effective (inherited) state: a section reads off — dimmed, "· section off" �
 its own flag or the global toggle is off. Toggled via
 `::e5/toggle-global-disable` and `::e5/toggle-section-disable`.
 
+## Move / copy content between sources
+
+Items can be relocated between sources — single or bulk through **one** mechanism:
+a "Move / copy" mode reveals a `select` checkbox on every item; ticking one is
+single, ticking many is bulk. A bar then Moves or Copies the whole selection to a
+chosen target source. The selection (`:content-selection`, a set of `[source
+content-type key]`) is ephemeral UI state, cleared after the action.
+
+`relocate-content` (pure) applies a predictable, clobber-free policy:
+
+- **Move** relocates the item with its key preserved, *unless* the target already
+  holds that key — then it's given a fresh unique key so nothing is overwritten.
+  Moving an item to the source it already lives in is a no-op.
+- **Copy** always mints a fresh unique key: a copy is a new, independent variant,
+  which also avoids creating a nondeterministic same-key twin of the original.
+
+The placed item's `:key` and `:option-pack` are retagged to its new home, and the
+batch is applied in order so keys minted earlier are accounted for when
+uniquifying later ones. A stale selection (item no longer present) is counted and
+skipped, never a crash. The result reports what happened in one message
+("Moved 3 items to X (renamed 1 to avoid a name clash)"). References are by global
+key, so a moved item still resolves its cross-source references without rewriting.
+
 ## Where the code lives
 
 - `orcpub.dnd.e5.orcbrew-validation` — the canonical `collision-risk-types` set;
   `detect-duplicate-keys`, `correct-library`, `generate-new-key`,
-  `apply-key-renames`; and the mutual-exclusion helpers `collision-twin-index`,
-  `twin-note`, `enabled-twin-paths`, `mutual-exclusion-off-count`.
+  `apply-key-renames`, `relocate-content` (move/copy); and the mutual-exclusion
+  helpers `collision-twin-index`, `twin-note`, `enabled-twin-paths`,
+  `mutual-exclusion-off-count`.
 - `orcpub.dnd.e5.events` — `::e5/toggle-plugin`, `::e5/toggle-plugin-item`
   (swap-aware), `::e5/toggle-global-disable`, `::e5/toggle-section-disable`, the
+  move/copy selection events (`::e5/toggle-select-mode`,
+  `::e5/toggle-content-selection`, `::e5/relocate-selected`), the
   `:apply-conflict-resolutions` / `:start-conflict-resolution` flow, and
   `::e5/check-content-conflicts`.
 - `orcpub.dnd.e5.spell-subs` — `::e5/plugin-vals`, `::e5/plugins-with-sources`,

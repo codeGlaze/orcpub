@@ -95,16 +95,10 @@ otherwise stubbornly persist.
 **KB doc:** [docs/kb/library-management-and-conflicts.md](kb/library-management-and-conflicts.md)
 
 The My Content library, duplicate-key resolution, disabled-reason badges, the
-mutual-exclusion UX, the opinionated (summary-first) import, and the four-level
-disable hierarchy are built and on `feature/content-library-management` (see the
-KB doc for how they work). These are the not-yet-built follow-ups, roughly in
-dependency order.
-
-### Move / copy content between sources
-
-Let a user move or copy an item from one source to another. Reuses
-`detect-duplicate-keys` / `apply-key-renames` to handle any key collision the
-move creates.
+mutual-exclusion UX, the opinionated (summary-first) import, the four-level
+disable hierarchy, and move/copy content between sources are built and on
+`feature/content-library-management` (see the KB doc for how they work). These are
+the not-yet-built follow-ups, roughly in dependency order.
 
 ### Example / demo content tier
 

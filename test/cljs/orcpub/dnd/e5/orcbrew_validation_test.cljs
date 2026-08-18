@@ -1309,3 +1309,63 @@
                "Class")]
       (is (common/starts-with-letter? (get-in out [:options 0 :name])) "invalid nested name coerced")
       (is (= "Valid Option" (get-in out [:options 1 :name])) "valid nested name kept"))))
+
+;; ============================================================================
+;; relocate-content — move / copy content between sources (single + bulk)
+;; ============================================================================
+
+(def relocate-plugins
+  {"A" {::e5/spells {:fireball {:name "Fireball" :key :fireball :option-pack "A"}
+                     :zap      {:name "Zap" :key :zap :option-pack "A"}}}
+   "B" {::e5/spells {:ice {:name "Ice" :key :ice :option-pack "B"}}}})
+
+(deftest relocate-move-single-preserves-key
+  (let [{:keys [plugins placed renamed]}
+        (orcbrew-val/relocate-content relocate-plugins [["A" ::e5/spells :fireball]] "B" :move)]
+    (is (= 1 placed))
+    (is (empty? renamed) "no clash → key preserved")
+    (is (nil? (get-in plugins ["A" ::e5/spells :fireball])) "removed from source")
+    (is (= "B" (get-in plugins ["B" ::e5/spells :fireball :option-pack])) "retagged to target")
+    (is (= :fireball (get-in plugins ["B" ::e5/spells :fireball :key])))))
+
+(deftest relocate-move-bulk
+  (let [{:keys [plugins placed]}
+        (orcbrew-val/relocate-content relocate-plugins
+                                      [["A" ::e5/spells :fireball] ["A" ::e5/spells :zap]] "B" :move)]
+    (is (= 2 placed))
+    (is (empty? (get-in plugins ["A" ::e5/spells])) "both left A")
+    (is (= #{:ice :fireball :zap} (set (keys (get-in plugins ["B" ::e5/spells])))))))
+
+(deftest relocate-move-clash-renames-not-clobbers
+  ;; B already has :ice; moving A's own :ice must not overwrite B's.
+  (let [plugins* (assoc-in relocate-plugins ["A" ::e5/spells :ice]
+                           {:name "Frost" :key :ice :option-pack "A"})
+        {:keys [plugins renamed]}
+        (orcbrew-val/relocate-content plugins* [["A" ::e5/spells :ice]] "B" :move)
+        new-key (:to (first renamed))]
+    (is (= 1 (count renamed)) "clash forced a rename")
+    (is (= "Ice" (get-in plugins ["B" ::e5/spells :ice :name])) "B's original ice untouched")
+    (is (= "Frost" (get-in plugins ["B" ::e5/spells new-key :name])) "moved item kept under a fresh key")))
+
+(deftest relocate-copy-mints-fresh-key-and-keeps-original
+  (let [{:keys [plugins placed renamed]}
+        (orcbrew-val/relocate-content relocate-plugins [["A" ::e5/spells :fireball]] "B" :copy)
+        new-key (:to (first renamed))]
+    (is (= 1 placed))
+    (is (= 1 (count renamed)) "copy always renames")
+    (is (some? (get-in plugins ["A" ::e5/spells :fireball])) "original stays in A")
+    (is (not= :fireball new-key) "copy got a distinct key")
+    (is (= "Fireball" (get-in plugins ["B" ::e5/spells new-key :name])))))
+
+(deftest relocate-move-to-own-source-is-noop
+  (let [{:keys [plugins placed renamed]}
+        (orcbrew-val/relocate-content relocate-plugins [["A" ::e5/spells :fireball]] "A" :move)]
+    (is (= 1 placed))
+    (is (empty? renamed))
+    (is (= relocate-plugins plugins) "moving to the same source changes nothing")))
+
+(deftest relocate-missing-selection-skipped
+  (let [{:keys [placed missing]}
+        (orcbrew-val/relocate-content relocate-plugins [["A" ::e5/spells :ghost]] "B" :move)]
+    (is (= 0 placed))
+    (is (= 1 missing) "a stale selection is counted and skipped, not crashed")))
