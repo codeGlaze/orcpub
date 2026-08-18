@@ -85,3 +85,73 @@ otherwise stubbornly persist.
 - `src/cljs/orcpub/dnd/e5/db.cljs` — `reg-local-store-cofx` (line ~252)
 - `src/cljs/orcpub/dnd/e5/events.cljs` — `set-combat-path-prop` nil guard
 - All `*->local-store` serializers use `(str data)` / `reader/read-string`
+
+---
+
+## Content-library management — remaining work
+
+**Status:** Open
+**Severity:** Low — enhancements; the shipped resolution already removes the data bug
+**KB doc:** [docs/kb/library-management-and-conflicts.md](kb/library-management-and-conflicts.md)
+
+The My Content library, duplicate-key resolution, disabled-reason badges, and the
+mutual-exclusion UX are built and on `feature/content-library-management` (see the
+KB doc for how they work). These are the not-yet-built follow-ups, roughly in
+dependency order.
+
+### Opinionated / UX-first import (unblocked)
+
+The conflict modal is powerful but can overwhelm non-technical users. Make it
+**opt-in, not a mandatory gate**: on import, auto-resolve with a severity-driven
+safe default (risky clash → import the newcomer disabled, existing content
+untouched and deterministic; harmless clash → keep both), then show a one-line
+plain-language summary + a "Review / change" link that opens the full modal. This
+mirrors the existing export-warning modal ("Export & Auto-Fix" primary + a hidden
+"export raw" hatch), so it's a consistent pattern, not a new one. The full modal
+becomes the advanced / Review view; power users and mods keep total control. The
+mutual-exclusion UX it depended on is now shipped, so this is ready to build.
+
+### Disable hierarchy — FORMAT-SAFE
+
+Four disable levels: **global** (overlay) / **source** (`:disabled?` in plugin
+data — exists) / **section** (new) / **item** (`:disabled?` — exists). Global +
+section live in a **local overlay store** (db/localStorage), NOT in the plugin /
+`.orcbrew` data, so there is zero format/spec change and existing libraries are
+untouched; `plugin-vals` ORs all four when filtering, and descendants of a
+disabled ancestor render dimmed (effective/inherited state).
+
+- Trade-off: section/global disable is a local "view" preference and does NOT
+  travel with exported packs (source/item disable still do).
+- Constraint: section-disable must NOT be stored inside the content-type map — a
+  `:disabled?` there fails the `::plugin` spec (value must be an item) and would
+  quarantine the whole source.
+
+### Move / copy content between sources
+
+Let a user move or copy an item from one source to another. Reuses
+`detect-duplicate-keys` / `apply-key-renames` to handle any key collision the
+move creates.
+
+### Example / demo content tier
+
+A read-only example/demo tier of content, with a per-account version marker and
+copy-on-edit graduation (editing an example copies it into the user's own library
+so upstream updates never clobber their edits).
+
+### Also parked (with reasons — do not lose)
+
+- **Account backup/restore** of libraries + prefs: blocked NOT by code (the
+  `share_url` codec already does gzip + fail-closed decode) but by **legal**
+  (hosting user-uploaded, often copyrighted content), **database/scale** (3–5 MB ×
+  every user), and standing **admin resistance**. If ever entertained: server-side
+  at-rest/transport encryption, NOT end-to-end (lost key → lost backup); and
+  backup-restore (last-write-wins) *before* multi-device sync (sync needs conflict
+  resolution).
+- **Compress localStorage plugins** with the existing gzip codec to fit more under
+  the ~5 MB browser ceiling — no cloud, no legal exposure. Caveats: makes stored
+  content opaque to inspection, and a hard cap is still needed (compression moves
+  the ceiling, doesn't remove it).
+- **Native `<select>` → custom popover**: the add-content menu uses a native
+  select; adopt `port/redesign-on-refactor`'s Phase 7 custom-select popover when
+  branches converge (NOT a cheap early crib — it's coupled to that branch's
+  theme-token infrastructure).
