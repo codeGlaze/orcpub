@@ -8245,6 +8245,22 @@
                 :when (and (map? item) (:disabled? item))]
             1)))
 
+(defn source-disabled-counts
+  "A source's disabled items split by REASON: {:compat n :benign n}. Compat = the
+   app turned it off to resolve a duplicate (:disabled-reason :compat); benign =
+   you turned it off. Drives the amber-vs-blue library-header badge."
+  [plugin]
+  (reduce (fn [acc [ct items]]
+            (if (and (qualified-keyword? ct) (map? items))
+              (reduce (fn [a [_ item]]
+                        (cond
+                          (not (and (map? item) (:disabled? item)))  a
+                          (= :compat (:disabled-reason item))         (update a :compat inc)
+                          :else                                       (update a :benign inc)))
+                      acc items)
+              acc))
+          {:compat 0 :benign 0} plugin))
+
 (defn my-content-item []
   (let [expanded?      (r/atom false)
         search         (r/atom "")
@@ -8262,7 +8278,16 @@
            [comps/checkbox
             (not (get plugin :disabled?))
             false]]
-          [:span.f-s-24.flex-grow-1 name]
+          [:div.flex-grow-1.flex.align-items-c
+           [:span.f-s-24 name]
+           ;; disabled badge(s), colored by reason — amber (app/compat) shown first
+           ;; since it's the one worth noticing; blue (you turned it off) is benign.
+           (let [{:keys [compat benign]} (source-disabled-counts plugin)]
+             [:span
+              (when (pos? compat)
+                [:span.lib-badge.lib-badge-compat [:span.lib-dot] (str compat " off · compatibility")])
+              (when (pos? benign)
+                [:span.lib-badge.lib-badge-benign [:span.lib-dot] (str benign " off")])])]
           [:div.orange
            [:i.fa.m-r-5
             {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]

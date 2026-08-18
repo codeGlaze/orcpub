@@ -4944,7 +4944,11 @@
          set-disabled (fn [plugins paths]
                         (reduce (fn [p [src ct k]]
                                   (cond-> p (get-in p [src ct k])
-                                          (assoc-in [src ct k :disabled?] true)))
+                                          (->
+                                           (assoc-in [src ct k :disabled?] true)
+                                           ;; mark WHY it's off, so the library badge
+                                           ;; can read blue (you) vs amber (compat).
+                                           (assoc-in [src ct k :disabled-reason] :compat))))
                                 plugins paths))
 
          ;; Apply renames to import data

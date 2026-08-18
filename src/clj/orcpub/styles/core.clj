@@ -1149,6 +1149,38 @@
       :cursor :pointer
       :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}]
 
+    ;; ── Library-header "disabled" badges ─────────────────────────────────────
+    ;; A small pill on a collapsed library row showing how many items are OFF,
+    ;; colored by REASON (not a blanket warning): blue = you turned it off
+    ;; (benign), amber = the app turned it off for compatibility (kept one of a
+    ;; duplicate). The pill's tinted fill carries the contrast, so calm hues stay
+    ;; legible. Light-mode re-tone lives under .app.light-theme below; and
+    ;; prefers-contrast: more swaps to solid high-contrast fills automatically.
+    [:.lib-badge
+     {:display "inline-flex"
+      :align-items :center
+      :gap "5px"
+      :font-size "12px"
+      :font-weight 600
+      :padding "3px 10px"
+      :border-radius "999px"
+      :line-height 1
+      :margin-left "10px"
+      :vertical-align :middle}
+     [:.lib-dot {:width "6px" :height "6px" :border-radius "50%"}]]
+    [:.lib-badge-benign
+     {:background-color "rgba(110,168,220,0.18)" :color "#9ec7ea"}
+     [:.lib-dot {:background-color "#6ea8dc"}]]
+    [:.lib-badge-compat
+     {:background-color "rgba(217,165,32,0.20)" :color "#e5c169"}
+     [:.lib-dot {:background-color "#d9a520"}]]
+    (at-media {:prefers-contrast "more"}
+              [:.lib-badge-benign {:background-color "#6ea8dc" :color "#0b1a29"}]
+              [:.lib-badge-compat {:background-color "#d9a520" :color "#241a00"}]
+              [:.app.light-theme
+               [:.lib-badge-benign {:background-color "#33658A" :color "#ffffff"}]
+               [:.lib-badge-compat {:background-color "#8a5a00" :color "#ffffff"}]])
+
     [:.roll-button
      {:color :white
       :min-width "68px"
@@ -1359,6 +1391,16 @@
 
      [:.b-color-gray
       {:border-color "rgba(0,0,0,0.3)"}]
+
+     ;; light-mode badge re-tone: deeper text on a pale tint (bright amber on
+     ;; white is unreadable, so compat uses a deep brown-amber). Blue ties to the
+     ;; light accent (#33658A). Same meaning, values inverted for the light bg.
+     [:.lib-badge-benign
+      {:background-color "rgba(51,101,138,0.14)" :color "#2b567a"}
+      [:.lib-dot {:background-color "#33658A"}]]
+     [:.lib-badge-compat
+      {:background-color "rgba(180,120,0,0.16)" :color "#8a5a00"}
+      [:.lib-dot {:background-color "#b47800"}]]
 
      [:.builder-option-dropdown
       (merge
