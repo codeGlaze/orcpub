@@ -1495,8 +1495,14 @@
       :gap "12px"}]
 
     [:.conflict-modal-body
+     ;; The modal chrome is always dark (#1a1e28) in both themes, so give the body
+     ;; an explicit light default — otherwise plain text (e.g. the opinionated
+     ;; import summary) inherits the app's dark text color and reads dark-on-dark.
+     ;; The advanced conflict cards set their own colors, so this only lifts text
+     ;; that would otherwise be illegible.
      {:padding "16px 20px"
       :overflow-y :auto
+      :color "rgba(255,255,255,0.85)"
       :flex 1}]
 
     ;; Header elements
