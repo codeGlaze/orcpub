@@ -77,6 +77,27 @@ The **internal keeper-picker** handles the all-one-import case: nothing is
 already loaded, so nothing is "base" — the user picks which source keeps the key
 (default = first source alphabetically, overridable).
 
+### Opinionated default (import) vs. the advanced panel
+
+An import doesn't open cold on the full per-conflict panel — that overwhelms a
+non-technical user. Instead every conflict is **pre-resolved with a safe,
+deterministic default** (`opinionated-default-decision`), and the modal opens on
+a plain-language **summary** view with a one-click **Import**:
+
+- internal + risky → keep the first source's key, rename the peers (both kept,
+  enabled, distinct keys — nothing turned off);
+- external + risky → import the newcomer OFF (existing content is the untouched,
+  deterministic winner);
+- anything harmless → keep both.
+
+A **"Review / change"** link flips to the advanced panel (every option, per
+conflict) and **"‹ Back to summary"** returns; the summary recomputes from the
+live decisions, so it stays accurate after edits. Nothing is written until the
+user clicks Import/Apply. This mirrors the export-warning modal's opinionated
+"Auto-Fix primary + raw hatch" pattern. Library and export resolutions are
+deliberate power actions, so they skip the summary and open straight to advanced
+(`:view :advanced`, no pre-fill).
+
 Because the import popup only fires *on import*, already-loaded libraries can
 still hold a silent nondeterministic winner. The **"Check for conflicts"** button
 in My Content (`::e5/check-content-conflicts`) runs the same `correct-library`

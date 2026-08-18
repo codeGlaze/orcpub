@@ -163,48 +163,130 @@
        [:span "Skip this one (leave it as-is)"]
        :skip]]]))
 
+(defn- summary-line
+  "One plain-language recap row in the opinionated summary, with an icon."
+  [icon color text]
+  [:div.flex.align-items-c {:style {:margin "6px 0"}}
+   [:i.fa.m-r-5 {:class icon :style {:color color :width "16px"}}]
+   [:span.f-s-14 text]])
+
+(defn opinionated-summary
+  "Plain-language recap of what the safe defaults did, grouped by outcome. Reads
+   the live decisions, so it stays accurate if the user tweaks a few in Review and
+   comes back. Each line maps to a default from opinionated-default-decision."
+  [conflicts decisions]
+  (let [ds       (map #(get decisions (:id %)) conflicts)
+        n-off    (count (filter #(and (= :keep-both-disable (:action %)) (= :import (:disable %))) ds))
+        n-onx    (count (filter #(and (= :keep-both-disable (:action %)) (= :existing (:disable %))) ds))
+        n-rename (count (filter #(= :rename-import (:action %)) ds))
+        n-rex    (count (filter #(= :rename-existing (:action %)) ds))
+        n-both   (count (filter #(= :keep-both (:action %)) ds))
+        n-skip   (count (filter #(= :skip (:action %)) ds))
+        plur     (fn [n] (when (not= 1 n) "s"))]
+    [:div
+     (when (pos? n-off)
+       [summary-line "fa-power-off" "#d9a520"
+        (str n-off " item" (plur n-off) " already exist" (when (= 1 n-off) "s")
+             " in your library — the imported cop" (if (= 1 n-off) "y is" "ies are")
+             " turned off so nothing changes (shown as \"compatibility\" in My Content).")])
+     (when (pos? n-rename)
+       [summary-line "fa-i-cursor" "#6ea8dc"
+        (str n-rename " duplicate key" (plur n-rename) " renamed so both copies are kept.")])
+     (when (pos? n-both)
+       [summary-line "fa-clone" "#8fbf8f"
+        (str n-both " harmless duplicate" (plur n-both) " kept alongside your content.")])
+     (when (pos? n-rex)
+       [summary-line "fa-i-cursor" "#6ea8dc"
+        (str n-rex " existing item" (plur n-rex) " renamed to let the import keep the name.")])
+     (when (pos? n-onx)
+       [summary-line "fa-power-off" "#d9a520"
+        (str "Your existing " n-onx " item" (plur n-onx) " turned off in favor of the import.")])
+     (when (pos? n-skip)
+       [summary-line "fa-ban" "#c98a8a"
+        (str n-skip " item" (plur n-skip) " skipped (not imported).")])]))
+
+(defn- conflict-resolution-simple
+  "The opinionated default view: a plain-language summary of the safe auto-
+   resolution + a one-click Import, with 'Review / change' into the advanced
+   per-conflict panel. Mirrors the export-warning modal's opinionated pattern."
+  [import-name conflicts decisions]
+  [:div.conflict-modal
+   [:div.conflict-modal-header
+    [:div.flex.align-items-c
+     [:i.fa.fa-magic.m-r-5.conflict-title-icon]
+     [:span.f-s-18.f-w-b.conflict-title "Ready to import"]]
+    [:div.f-s-12.conflict-subtitle (str "Importing: " import-name)]
+    [:div.f-s-12.conflict-count
+     (str (count conflicts) " key conflict" (when (not= 1 (count conflicts)) "s")
+          " — resolved safely so nothing you already have is overwritten.")]]
+
+   [:div.conflict-modal-body
+    [opinionated-summary conflicts decisions]]
+
+   [:div.conflict-modal-footer
+    [:span.link-button
+     {:on-click #(dispatch [:cancel-conflict-resolution])}
+     "Cancel Import"]
+    [:button.form-button
+     {:on-click #(dispatch [:set-conflict-view :advanced])}
+     "Review / change"]
+    [:button.form-button
+     {:on-click #(dispatch [:apply-conflict-resolutions])}
+     "Import"]]])
+
+(defn- conflict-resolution-advanced
+  "The full per-conflict panel — every option exposed for power users and mods.
+   Reached via 'Review / change' from the summary, or opened directly for library/
+   export resolutions."
+  [import-name conflicts decisions library? simple-available?]
+  (let [all-decided? (every? #(contains? decisions (:id %)) conflicts)]
+    [:div.conflict-modal
+     [:div.conflict-modal-header
+      [:div.flex.align-items-c
+       [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon]
+       [:span.f-s-18.f-w-b.conflict-title "Key Conflicts Detected"]]
+      [:div.f-s-12.conflict-subtitle
+       (str (if library? "In: " "Importing: ") import-name)]
+      [:div.f-s-12.conflict-count
+       (str (count conflicts) " conflict(s) need resolution"
+            (if library? "." " before import can continue."))]]
+
+     [:div.conflict-modal-body
+      (for [conflict conflicts]
+        ^{:key (:id conflict)}
+        [conflict-resolution-item conflict (get decisions (:id conflict))])]
+
+     [:div.conflict-modal-footer
+      ;; Back to the plain summary — only when we came from it (a real import).
+      (when simple-available?
+        [:span.link-button
+         {:on-click #(dispatch [:set-conflict-view :simple])}
+         "‹ Back to summary"])
+      [:span.link-button
+       {:on-click #(dispatch [:cancel-conflict-resolution])}
+       (if library? "Cancel" "Cancel Import")]
+      [:button.form-button
+       {:on-click #(dispatch [:rename-all-conflicts])}
+       "Rename All"]
+      [:button.form-button
+       {:class (when-not all-decided? "disabled")
+        :disabled (not all-decided?)
+        :on-click #(when all-decided?
+                     (dispatch [:apply-conflict-resolutions]))}
+       (if all-decided?
+         (if library? "Apply" "Apply & Import")
+         (str "Resolve All (" (count decisions) "/" (count conflicts) ")"))]]]))
+
 (defn conflict-resolution-modal []
   (let [resolution @(subscribe [:conflict-resolution])
-        {:keys [active? import-name conflicts decisions mode]} resolution
+        {:keys [active? import-name conflicts decisions mode view]} resolution
         library? (= mode :library)   ; resolving already-loaded content, not an import
-        all-decided? (every? #(contains? decisions (:id %)) conflicts)]
+        import?  (= mode :import)]
     (when active?
       [:div.conflict-backdrop
-       [:div.conflict-modal
-
-        ;; Header
-        [:div.conflict-modal-header
-         [:div.flex.align-items-c
-          [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon]
-          [:span.f-s-18.f-w-b.conflict-title "Key Conflicts Detected"]]
-         [:div.f-s-12.conflict-subtitle
-          (str (if library? "In: " "Importing: ") import-name)]
-         [:div.f-s-12.conflict-count
-          (str (count conflicts) " conflict(s) need resolution"
-               (if library? "." " before import can continue."))]]
-
-        ;; Conflict list
-        [:div.conflict-modal-body
-         (for [conflict conflicts]
-           ^{:key (:id conflict)}
-           [conflict-resolution-item conflict (get decisions (:id conflict))])]
-
-        ;; Footer with buttons
-        [:div.conflict-modal-footer
-         [:span.link-button
-          {:on-click #(dispatch [:cancel-conflict-resolution])}
-          (if library? "Cancel" "Cancel Import")]
-         [:button.form-button
-          {:on-click #(dispatch [:rename-all-conflicts])}
-          "Rename All"]
-         [:button.form-button
-          {:class (when-not all-decided? "disabled")
-           :disabled (not all-decided?)
-           :on-click #(when all-decided?
-                       (dispatch [:apply-conflict-resolutions]))}
-          (if all-decided?
-            (if library? "Apply" "Apply & Import")
-            (str "Resolve All (" (count decisions) "/" (count conflicts) ")"))]]]])))
+       (if (= :simple view)
+         [conflict-resolution-simple import-name conflicts decisions]
+         [conflict-resolution-advanced import-name conflicts decisions library? import?])])))
 
 ;; ============================================================================
 ;; Export Warning Modal — inline editing for missing required fields

@@ -94,22 +94,10 @@ otherwise stubbornly persist.
 **Severity:** Low — enhancements; the shipped resolution already removes the data bug
 **KB doc:** [docs/kb/library-management-and-conflicts.md](kb/library-management-and-conflicts.md)
 
-The My Content library, duplicate-key resolution, disabled-reason badges, and the
-mutual-exclusion UX are built and on `feature/content-library-management` (see the
-KB doc for how they work). These are the not-yet-built follow-ups, roughly in
-dependency order.
-
-### Opinionated / UX-first import (unblocked)
-
-The conflict modal is powerful but can overwhelm non-technical users. Make it
-**opt-in, not a mandatory gate**: on import, auto-resolve with a severity-driven
-safe default (risky clash → import the newcomer disabled, existing content
-untouched and deterministic; harmless clash → keep both), then show a one-line
-plain-language summary + a "Review / change" link that opens the full modal. This
-mirrors the existing export-warning modal ("Export & Auto-Fix" primary + a hidden
-"export raw" hatch), so it's a consistent pattern, not a new one. The full modal
-becomes the advanced / Review view; power users and mods keep total control. The
-mutual-exclusion UX it depended on is now shipped, so this is ready to build.
+The My Content library, duplicate-key resolution, disabled-reason badges, the
+mutual-exclusion UX, and the opinionated (summary-first) import are built and on
+`feature/content-library-management` (see the KB doc for how they work). These are
+the not-yet-built follow-ups, roughly in dependency order.
 
 ### Disable hierarchy — FORMAT-SAFE
 

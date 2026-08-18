@@ -4828,21 +4828,63 @@
                   external-conflicts)]
     (vec (concat internal external))))
 
+(defn opinionated-default-decision
+  "The safe, deterministic default for ONE conflict — what the opinionated import
+   pre-applies so a novice can one-click Import (power users open Review to change
+   any of them). Risky (collapse) clashes are made deterministic; harmless (pool)
+   clashes keep both:
+   - internal + risky   → keep the first source's key, rename the peers (both kept,
+                          enabled, distinct keys — nothing turned off).
+   - external + risky   → import the newcomer OFF (existing content untouched, the
+                          existing copy stays the deterministic winner).
+   - anything harmless  → keep both (a duplicate in a pool type is fine)."
+  [{:keys [type content-type import-source sources suggested-renames] :as conflict}]
+  (let [risky? (contains? orcbrew-val/collision-risk-types content-type)]
+    (cond
+      (= type :internal)
+      (if risky?
+        {:action :rename-import
+         :keeper (-> sources first :source)
+         :renames (vec (rest suggested-renames))}
+        {:action :keep-both})
+
+      risky?
+      {:action :keep-both-disable :disable :import}
+
+      :else
+      {:action :keep-both})))
+
 (reg-event-db
  :start-conflict-resolution
  (fn [db [_ {:keys [import-name import-data conflicts validation-result mode]}]]
-   (let [conflict-list (build-conflict-list conflicts import-name)]
+   (let [conflict-list (build-conflict-list conflicts import-name)
+         resolved-mode (or mode :import)
+         import?       (= resolved-mode :import)
+         ;; Opinionated default: pre-resolve every conflict with the safe choice so
+         ;; the modal opens on a plain-language SUMMARY with a one-click Import;
+         ;; "Review / change" flips to the advanced per-conflict panel. Only for a
+         ;; real import — library/export resolutions are deliberate power actions,
+         ;; so they open straight to the advanced view with no pre-fill.
+         default-decisions (when import?
+                             (into {} (map (juxt :id opinionated-default-decision)
+                                           conflict-list)))]
      (assoc db :conflict-resolution
             {:active? true
              :import-name import-name
              :import-data import-data
              :conflicts conflict-list
-             :decisions {}
+             :decisions (or default-decisions {})
              :validation-result validation-result
+             :view (if import? :simple :advanced)
              ;; :import (default) merges the resolved delta into the library;
              ;; :export replaces the library with the resolved version and then
              ;; resumes the export that triggered the resolution.
-             :mode (or mode :import)}))))
+             :mode resolved-mode}))))
+
+(reg-event-db
+ :set-conflict-view
+ (fn [db [_ view]]
+   (assoc-in db [:conflict-resolution :view] view)))
 
 (reg-event-fx
  ::e5/check-content-conflicts
