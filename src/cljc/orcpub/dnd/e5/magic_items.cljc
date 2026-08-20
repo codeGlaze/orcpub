@@ -26,6 +26,7 @@
 (spec/def ::modifiers (spec/coll-of ::mod/mod-cfg))
 (spec/def ::subtypes (spec/coll-of keyword?))
 (spec/def ::attunement (spec/coll-of keyword?))
+(spec/def ::magical? boolean?)
 
 (def name-key ::name)
 (def item-type-key ::type)
@@ -37,6 +38,7 @@
 (def subtypes-key ::subtypes)
 (def attunement-key ::attunement)
 (def modifiers-key ::modifiers)
+(def magical-key ::magical?)
 
 (spec/def ::magic-item
   (spec/keys :req [::name]
@@ -48,7 +50,8 @@
                    ::magical-damage-bonus
                    ::owner
                    ::subtypes
-                   ::attunement]))
+                   ::attunement
+                   ::magical?]))
 
 (spec/def ::internal-magic-item
   (spec/keys :opt [::name
@@ -57,7 +60,142 @@
                    ::description
                    ::magical-attack-bonus
                    ::magical-damage-bonus
-                   ::attunement]))
+                   ::attunement
+                   ::magical?]))
+
+;; ============================================================================
+;; Magical vs. mundane classification
+;;
+;; Every user-built item has always been stored in the same list and rendered
+;; through the magic-item pipeline, so a homemade length of rope and a +3
+;; vorpal sword both showed up as magic items. ::magical? records the answer
+;; explicitly. It is a NEW attribute: items saved before it existed simply do
+;; not have it, and nothing about them is rewritten or discarded to introduce
+;; it. Those items are classified from the evidence already in them, and the
+;; guess is only ever persisted as an additional assertion.
+;;
+;; classify is the single source of truth. Read it through magical? /
+;; mundane? / unreviewed? rather than touching ::magical? directly, so legacy
+;; items keep behaving consistently everywhere.
+;; ============================================================================
+
+(def magical-only-types
+  "Item types that have no mundane form in 5e — owning one means it is magical."
+  #{:ring :wand :rod :scroll :potion})
+
+(def magical-rarities
+  "Rarities that only a magic item can carry.
+
+   :common is deliberately absent: it is the item builder's default value, so
+   a stored :common tells us the user accepted the default, not that they
+   judged the item magical."
+  #{:uncommon :rare :very-rare :legendary :varies})
+
+(def mundane-capable-types
+  "Types a user plausibly picks for ordinary gear.
+
+   :wondrous-item is absent on purpose — it is the builder's default type, so
+   it is evidence of nothing either way.
+
+   ::armor is the namespaced value the item builder's Type dropdown has always
+   written for \"Armor\" (a long-standing typo — the rest of the code compares
+   against a bare :armor). Stored items really do carry it, so classification
+   has to recognise it; it is listed here rather than rewritten, because
+   changing a stored ::type would move the item to a different equipment
+   selection and orphan every character that already picked it."
+  #{:weapon :armor ::armor :other})
+
+(defn- nonzero-bonus?
+  [item k]
+  (let [v (get item k)]
+    (and (number? v) (not (zero? v)))))
+
+(defn magic-evidence
+  "Reasons this item looks magical, as a vector of keywords. Empty means the
+   item carries no magical signal at all. Pure — reads, never writes."
+  [{:keys [::type ::rarity ::attunement ::modifiers] :as item}]
+  (cond-> []
+    (seq attunement)                            (conj :attunement)
+    (seq modifiers)                             (conj :modifiers)
+    (nonzero-bonus? item ::magical-attack-bonus) (conj :attack-bonus)
+    (nonzero-bonus? item ::magical-damage-bonus) (conj :damage-bonus)
+    (nonzero-bonus? item ::magical-ac-bonus)     (conj :ac-bonus)
+    (magical-only-types type)                   (conj :type)
+    (magical-rarities rarity)                    (conj :rarity)))
+
+(defn classify
+  "Three-valued classification of an item:
+
+     :magical    — the user said so, or the item carries magical mechanics
+     :mundane    — the user said so, or it is ordinary gear with no magic in it
+     :unreviewed — legacy item with nothing to go on either way
+
+   :unreviewed exists so we never have to invent an answer. Callers treat it
+   the way the app has always treated custom items (as magical), and the item
+   builder asks its owner to confirm, which is what turns it into a stored
+   ::magical? and retires the guess."
+  [{:keys [::type ::rarity ::owner] :as item}]
+  (cond
+    (contains? item ::magical?)   (if (::magical? item) :magical :mundane)
+    ;; Only user-built items are in question. The built-in list IS the magic
+    ;; item list, so an entry from it is magical by definition and must never
+    ;; be talked out of that by an inference rule. (Every built-in item also
+    ;; classifies :magical on evidence today — this makes that a guarantee
+    ;; rather than a coincidence that the next SRD addition could break.)
+    (nil? owner)                  :magical
+    (seq (magic-evidence item))   :magical
+    ;; No magical signal anywhere AND the user chose a type that ordinary gear
+    ;; actually comes in. A custom "Bastard Sword" or "Boiled Leather" lands
+    ;; here — this is the case the whole change exists to fix.
+    (and (mundane-capable-types type)
+         (or (nil? rarity) (= :common rarity))) :mundane
+    :else                                       :unreviewed))
+
+(defn magical?
+  "Should this item be treated as a magic item? Unreviewed legacy items answer
+   yes, which is exactly what the app did before ::magical? existed — so no
+   existing item changes behaviour until someone actually classifies it."
+  [item]
+  (not= :mundane (classify item)))
+
+(defn mundane?
+  [item]
+  (= :mundane (classify item)))
+
+(defn unreviewed?
+  "True for a legacy item we could not classify from evidence. Used to prompt
+   the owner rather than to decide anything."
+  [item]
+  (= :unreviewed (classify item)))
+
+(defn ensure-classified
+  "Stamp the resolved classification onto an item that has no explicit flag.
+
+   This is the heal: it only ever ADDS ::magical?, and only with the value the
+   item was already being treated as, so stamping it changes no behaviour. An
+   item that already carries the flag is returned untouched.
+
+   `unreviewed-value` decides what to do with an item we cannot classify from
+   evidence. Pass nothing to leave those alone (the bulk backfill does this —
+   an unreviewed item keeps prompting until a human answers); pass true/false
+   to resolve them too (the item builder does this, because the human is right
+   there looking at the item)."
+  ([item] (ensure-classified item nil))
+  ([item unreviewed-value]
+   (let [classification (classify item)]
+     (cond
+       (contains? item ::magical?) item
+       (= :magical classification) (assoc item ::magical? true)
+       (= :mundane classification) (assoc item ::magical? false)
+       (some? unreviewed-value)    (assoc item ::magical? (boolean unreviewed-value))
+       :else                       item))))
+
+(defn resolve-classification
+  "Resolve an item to an explicit stored flag using exactly the value the app
+   is already treating it as, so saving an item retires its legacy guess
+   without changing how the item behaves."
+  [item]
+  (ensure-classified item (magical? item)))
 
 (def toggle-mod-keys
   #{:damage-resistance
@@ -223,6 +361,9 @@
                     ::magical-attack-bonus
                     ::magical-ac-bonus
                     ::modifiers
+                    ;; ::magical? must be whitelisted here or the save path
+                    ;; silently drops it and the item reverts to unreviewed.
+                    ::magical?
                     ::weapons5e/type
                     ::weapons5e/damage-type
                     ::weapons5e/damage-die-count

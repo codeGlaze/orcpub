@@ -6,7 +6,8 @@
   All operations include error handling with clear error messages."
   (:require [com.stuartsierra.component :as component]
             [datomic.api :as d]
-            [orcpub.db.schema :as schema]))
+            [orcpub.db.schema :as schema]
+            [orcpub.db.item-classification :as item-classification]))
 
 (defrecord DatomicComponent [uri conn]
   component/Lifecycle
@@ -31,6 +32,10 @@
           (try
             @(d/transact connection schema/all-schemas)
             (println "Successfully initialized database schema")
+            ;; Additive and idempotent — see orcpub.db.item-classification.
+            ;; It runs after the schema so the attribute it writes exists, and
+            ;; it swallows its own failures so it can never block startup.
+            (item-classification/backfill! connection)
             (catch Exception e
               (throw (ex-info "Failed to initialize database schema. The database may be in an inconsistent state."
                               {:error :schema-initialization-failed

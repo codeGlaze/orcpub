@@ -372,6 +372,12 @@
     :name
     (sequence
      (comp
+      ;; A legacy-only option is one this list no longer owns — a custom item
+      ;; that has since been reclassified and is now offered in its proper
+      ;; list. It stays in the template so characters that already picked it
+      ;; keep building, but offering it again here would just recreate the
+      ;; mess this list is being cleaned up from.
+      (remove ::t/legacy-only?)
       (remove
        (inventory-option-selected? selected-keys))
       (map
@@ -1546,22 +1552,26 @@
     :icon "backpack"
     :tags #{:equipment :starting-equipment}
     :ui-fns (letfn [(select-selection [v] (select-keys v [:selection]))]
+              ;; The *-map subs here only resolve display names for items the
+              ;; character already holds, so the homebrew-inclusive maps are
+              ;; used: a custom item marked mundane is added under Weapons /
+              ;; Armor / Equipment and must not render as a nameless row.
               [{:key :weapons
                 :hide-homebrew? true
-                :ui-fn (fn [v] [inventory-selector [::equip5e/weapons-map] 70 (select-selection v)])}
+                :ui-fn (fn [v] [inventory-selector [::mi5e/all-weapons-map] 70 (select-selection v)])}
                {:key :magic-weapons
                 :hide-homebrew? true
                 :ui-fn (fn [v] [inventory-selector [::mi5e/magic-weapon-map] 70 (select-selection v)])}
                {:key :armor
                 :hide-homebrew? true
-                :ui-fn (fn [v] [inventory-selector [::equip5e/armor-map] 70 (select-selection v)])}
+                :ui-fn (fn [v] [inventory-selector [::mi5e/all-armor-map] 70 (select-selection v)])}
                {:key :magic-armor
                 :hide-homebrew? true
                 :ui-fn (fn [v] [inventory-selector [::mi5e/magic-armor-map] 70 (select-selection v)])}
                {:key :equipment
                 :hide-homebrew? true
                 :ui-fn (fn [v]
-                         [inventory-selector [::equip5e/equipment-map] 70 (select-selection v) ::char5e/custom-equipment])}
+                         [inventory-selector [::mi5e/all-equipment-map] 70 (select-selection v) ::char5e/custom-equipment])}
                {:key :other-magic-items
                 :hide-homebrew? true
                 :ui-fn (fn [v] [inventory-selector [::mi5e/other-magic-items-map] 70 (select-selection v)])}

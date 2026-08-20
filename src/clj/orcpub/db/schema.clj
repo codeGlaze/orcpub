@@ -373,7 +373,18 @@
     [::mod/key
      ::mod/keyword-arg
      ::mi5e/type
-     ::mi5e/rarity])))
+     ::mi5e/rarity])
+   ;; Whether the item is a magic item at all. Added long after custom items
+   ;; shipped, so most stored items have no value for it and are classified
+   ;; from their other attributes instead — see mi5e/classify. Purely
+   ;; additive: nothing is retracted to introduce it.
+   ;;
+   ;; Deliberately NOT :db/noHistory, unlike its neighbours: part of this
+   ;; attribute's value is backfilled from an inference, and history is what
+   ;; makes a wrong inference auditable and reversible rather than permanent.
+   (map
+    bool-prop
+    [::mi5e/magical?])))
 
 (def weapon-schema
   (concat

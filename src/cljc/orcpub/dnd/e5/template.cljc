@@ -1259,7 +1259,13 @@
     :tags #{:equipment}
     :options options}))
 
-(defn inventory-selection [item-type-name icon items modifier-fn & [converter]]
+(defn inventory-selection
+  "A selection over ordinary (non-magical) gear.
+
+   extra-options are pre-built option-cfgs contributed by custom items their
+   owner marked mundane, appended so homemade ordinary gear shows up here
+   rather than among the magic items."
+  [item-type-name icon items modifier-fn & [converter extra-options]]
   (t/selection-cfg
    {:name item-type-name
     :min 0
@@ -1271,17 +1277,19 @@
                    {::entity/key key
                     ::entity/value 1})
     :tags #{:equipment}
-    :options (map
-              (fn [item]
-                (let [{:keys [name key description page source]} (if converter (converter item) item)]
-                  (t/option-cfg
-                   {:name name
-                    :key key
-                    :help (when (or description
-                                  page)
-                            (inventory-help description page source))
-                    :modifiers [(modifier-fn key item)]})))
-              items)}))
+    :options (concat
+              (map
+               (fn [item]
+                 (let [{:keys [name key description page source]} (if converter (converter item) item)]
+                   (t/option-cfg
+                    {:name name
+                     :key key
+                     :help (when (or description
+                                   page)
+                             (inventory-help description page source))
+                     :modifiers [(modifier-fn key item)]})))
+               items)
+              extra-options)}))
 
 ;; dead — all amazon affiliate frame defs are #_ discarded
 #_(defn amazon-frame [link]
@@ -1488,7 +1496,11 @@
                            races
                            classes
                            feats
-                           language-map]
+                           language-map
+                           ;; {:weapons [...] :armor [...] :equipment [...]} —
+                           ;; options for custom items marked mundane. Trailing
+                           ;; and optional so older callers keep working.
+                           & [mundane-item-options]]
   [#_optional-content-selection
    (t/selection-cfg
     {:name "Base Ability Scores"
@@ -1555,11 +1567,11 @@
      :sequential? false
      :options classes})
    (inventory-selection "Treasure" "cash" equip5e/treasure mod5e/deferred-treasure)
-   (inventory-selection "Weapons" "plain-dagger" weapon5e/weapons mod5e/deferred-weapon)
+   (inventory-selection "Weapons" "plain-dagger" weapon5e/weapons mod5e/deferred-weapon nil (:weapons mundane-item-options))
    (magic-item-selection "Magic Weapons" "lightning-bow" magic-weapon-options mod5e/deferred-magic-weapon magic-item-details)
-   (inventory-selection "Armor" "breastplate" armor5e/armor mod5e/deferred-armor)
+   (inventory-selection "Armor" "breastplate" armor5e/armor mod5e/deferred-armor nil (:armor mundane-item-options))
    (magic-item-selection "Magic Armor" "magic-shield" magic-armor-options mod5e/deferred-magic-armor magic-item-details)
-   (inventory-selection "Equipment" "backpack" equip5e/equipment mod5e/deferred-equipment)
+   (inventory-selection "Equipment" "backpack" equip5e/equipment mod5e/deferred-equipment nil (:equipment mundane-item-options))
    (magic-item-selection "Other Magic Items" "orb-wand" other-magic-item-options mod5e/deferred-magic-item magic-item-details)])
 
 (defn template [selections]
