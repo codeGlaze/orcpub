@@ -8219,8 +8219,13 @@
                        [:i.fa.fa-check]]
                       [:span.flex-grow-1 name]]
                      ;; NORMAL MODE: enable toggle + name (+ twin note) + edit/delete.
+                     ;; An UNRESOLVED conflict (:conflict) gets a red rail so the
+                     ;; offending entry is easy to spot from the health banner.
                      [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
-                      {:class (when disabled? "opacity-5")}
+                      {:class (when disabled? "opacity-5")
+                       :style (when (= :conflict (:kind note))
+                                {:box-shadow "inset 3px 0 0 #e5637a"
+                                 :padding-left "8px"})}
                       [:div.m-r-10.flex.align-items-c.flex-column
                        {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
                        [:div.f-s-10 "enabled?"]
@@ -8232,10 +8237,14 @@
                       [:div.flex-grow-1
                        [:span name]
                        (when note
-                         [:div.f-s-12.opacity-7
-                          {:class (if (= :off (:kind note)) "b-color-gray" "")}
-                          (if (= :off (:kind note))
-                            (str "off — \"" (:twin-name note) "\" in " (:twin-source note) " is on")
+                         [:div.f-s-12
+                          {:class (when (= :off (:kind note)) "b-color-gray")
+                           :style (when (= :conflict (:kind note)) {:color "#e5637a"})}
+                          (when (= :conflict (:kind note))
+                            [:i.fa.fa-exclamation-triangle.m-r-5])
+                          (case (:kind note)
+                            :conflict (str "conflict — also enabled in " (:twin-source note))
+                            :off (str "off — \"" (:twin-name note) "\" in " (:twin-source note) " is on")
                             (str "on — duplicate \"" (:twin-name note) "\" in " (:twin-source note) " is off"))])]
                       [:div
                        [:button.form-button.m-l-5
@@ -8320,7 +8329,11 @@
     (fn [name plugin]
       (let [has-content? (some (fn [{:keys [type-key]}] (seq (type-key plugin))) my-content-types)
             q            (-> @search s/lower-case s/trim)
-            show?        @show-disabled?]
+            show?        @show-disabled?
+            ;; does this source hold an item in an unresolved key conflict? (flags
+            ;; the row so the health banner's "resolve" has somewhere to point)
+            conflict?    (contains? (orcbrew-val/unresolved-conflict-sources
+                                     @(subscribe [::e5/plugins])) name)]
         [:div.item-list-item
          [:div.p-20.pointer.flex.justify-cont-s-b.align-items-c.main-text-color
           {:on-click #(swap! expanded? not)}
@@ -8336,6 +8349,9 @@
            ;; since it's the one worth noticing; blue (you turned it off) is benign.
            (let [{:keys [compat benign]} (source-disabled-counts plugin)]
              [:span
+              (when conflict?
+                [:span.lib-badge {:style {:background-color "rgba(229,99,122,0.18)" :color "#e5637a"}}
+                 [:i.fa.fa-exclamation-triangle.m-r-5] "conflict"])
               (when (pos? compat)
                 [:span.lib-badge.lib-badge-compat [:span.lib-dot] (str compat " off · compatibility")])
               (when (pos? benign)
@@ -8479,17 +8495,28 @@
    ;; line, not a toolbar button: it appears only when there's an UNRESOLVED
    ;; conflict (two+ copies of a key still enabled → nondeterministic winner),
    ;; and collapses to nothing when the library is clean.
-   (let [unresolved (orcbrew-val/unresolved-collision-count @(subscribe [::e5/plugins]))]
-     (when (pos? unresolved)
-       [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
+   (let [conflicts (orcbrew-val/unresolved-collisions @(subscribe [::e5/plugins]))
+         n (count conflicts)]
+     (when (pos? n)
+       [:div.p-10.m-b-10.bg-lighter.b-rad-5
         {:style {:border-left "3px solid #e5637a"}}
-        [:span.f-s-14
-         [:i.fa.fa-exclamation-triangle.m-r-5 {:style {:color "#e5637a"}}]
-         (str unresolved " key conflict" (when (> unresolved 1) "s")
-              " across your sources — the app can't tell which copy to use")]
-        [:span.link-button.pointer
-         {:on-click (make-event-handler ::e5/check-content-conflicts)}
-         "resolve"]]))
+        [:div.flex.align-items-c.justify-cont-s-b
+         [:span.f-s-14
+          [:i.fa.fa-exclamation-triangle.m-r-5 {:style {:color "#e5637a"}}]
+          (str n " key conflict" (when (> n 1) "s")
+               " — the app can't tell which copy to use")]
+         [:span.link-button.pointer
+          {:on-click (make-event-handler ::e5/check-content-conflicts)}
+          "resolve"]]
+        ;; name the offenders so you know where to look (and the library rows
+        ;; below are tinted to match)
+        [:div.f-s-12.opacity-7.m-t-5
+         (doall
+          (for [{:keys [key sources]} (take 6 conflicts)]
+            ^{:key (str key)}
+            [:div [:code.orange (str ":" (name key))]
+             " — enabled in " (s/join ", " sources)]))
+         (when (> n 6) [:div (str "…and " (- n 6) " more")])]]))
    ;; Library-level mutual-exclusion summary: when duplicate keys have forced
    ;; one side off, say so once at the top with a link into the conflict modal,
    ;; so the silenced items are explained in aggregate — not just per-row.
@@ -8508,15 +8535,16 @@
    ;; leaving every source saved. Section (per content-type) and source/item
    ;; toggles live further down; this is the top of that hierarchy.
    (let [global-off? @(subscribe [::e5/global-disabled?])]
-     [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
+     [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c
       [:div.flex.align-items-c.pointer
        {:on-click (make-event-handler ::e5/toggle-global-disable)}
        [comps/checkbox (not global-off?) false]
        [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
+      ;; explainer sits right beside the toggle, not floated to the far edge
       (if global-off?
-        [:span.f-s-12.b-color-gray
+        [:span.m-l-15.f-s-12.b-color-gray
          "Off — your sources stay saved but won't appear in the builder."]
-        [:span.f-s-12.opacity-5
+        [:span.m-l-15.f-s-12.opacity-5
          "On — turn off to hide every source from the builder at once."])])
    [:div.item-list
     (let [plugins (sort @(subscribe [::e5/plugins]))]

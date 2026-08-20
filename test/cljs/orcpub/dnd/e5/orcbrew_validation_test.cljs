@@ -1383,3 +1383,18 @@
     (is (= 0 (orcbrew-val/unresolved-collision-count
               {"A" {::e5/feats {:tough {:name "Tough" :key :tough}}}
                "B" {::e5/feats {:tough {:name "Tough" :key :tough}}}})))))
+
+(deftest unresolved-collisions-names-key-and-sources
+  (let [plugins {"Pack A" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}
+                 "Pack B" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}}
+        [c] (orcbrew-val/unresolved-collisions plugins)]
+    (is (= :fireball (:key c)))
+    (is (= #{"Pack A" "Pack B"} (set (:sources c))) "names the enabled sources")
+    (is (= #{"Pack A" "Pack B"} (orcbrew-val/unresolved-conflict-sources plugins)))))
+
+(deftest twin-note-flags-unresolved-conflict
+  (let [plugins {"Pack A" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}
+                 "Pack B" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}}
+        idx (orcbrew-val/collision-twin-index plugins)]
+    (is (= :conflict (:kind (orcbrew-val/twin-note idx "Pack A" ::e5/spells :fireball false)))
+        "both enabled → :conflict, not nil")))

@@ -1510,15 +1510,21 @@
   "Describe one item's mutual-exclusion relationship with its same-key twins, or
    nil when there is no cross-source collision to explain. Given the twin index
    and the item's [source content-type key] + its disabled? flag, returns:
+     {:kind :conflict :twin-name .. :twin-source ..} this item is ON and ANOTHER
+                                                      copy is ALSO on (unresolved —
+                                                      the app can't tell which wins)
      {:kind :off :twin-name .. :twin-source ..}  this item is OFF, a twin is ON
      {:kind :on  :twin-name .. :twin-source ..}  this item is ON, a twin is OFF
-   Only fires for a genuine conflict (an ENABLED same-key sibling elsewhere for
-   the off case; a DISABLED one for the on case) — never for plain user-disables
-   with no live twin."
+   Never fires for plain user-disables with no live twin."
   [twin-idx source content-type key disabled?]
   (when-let [entries (get twin-idx [content-type key])]
     (let [others (remove #(= source (:source %)) entries)]
       (cond
+        ;; UNRESOLVED: two enabled copies at once — the actionable conflict.
+        (and (not disabled?) (some (comp not :disabled?) others))
+        (let [on (first (remove :disabled? others))]
+          {:kind :conflict :twin-name (:name on) :twin-source (:source on)})
+
         (and disabled? (some (comp not :disabled?) others))
         (let [on (first (remove :disabled? others))]
           {:kind :off :twin-name (:name on) :twin-source (:source on)})
@@ -1526,6 +1532,26 @@
         (and (not disabled?) (some :disabled? others))
         (let [off (first (filter :disabled? others))]
           {:kind :on :twin-name (:name off) :twin-source (:source off)})))))
+
+(defn unresolved-collisions
+  "Details of each UNRESOLVED collision group (2+ enabled copies of one key), for
+   naming the conflict and tinting the offenders. Returns
+   [{:content-type ct :key k :name <item name> :sources [enabled source names]} …]."
+  [plugins]
+  (->> (collision-twin-index plugins)
+       (keep (fn [[[ct k] entries]]
+               (let [on (remove :disabled? entries)]
+                 (when (>= (count on) 2)
+                   {:content-type ct :key k
+                    :name (:name (first on))
+                    :sources (mapv :source on)}))))
+       vec))
+
+(defn unresolved-conflict-sources
+  "Set of source names that hold at least one item in an unresolved conflict —
+   used to flag the offending library rows."
+  [plugins]
+  (into #{} (mapcat :sources (unresolved-collisions plugins))))
 
 (defn enabled-twin-paths
   "Paths [source content-type key] of every ENABLED same-key twin of the given
