@@ -1214,10 +1214,11 @@
      {:position :relative
       :display :flex
       :flex-wrap :nowrap
-      :justify-content :flex-end
+      :justify-content :space-between   ; content action left · library actions right
       :align-items :center
       :gap "10px"
-      :margin-right "10px"}]
+      :margin "0 10px"}]
+    [:.mc-right {:display :flex :align-items :center :gap "10px"}]
     [:.mc-btn
      {:color :white
       :font-weight 600

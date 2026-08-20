@@ -8441,21 +8441,23 @@
 (defn my-content []
   (let [select-mode? @(subscribe [::e5/content-select-mode?])]
    [:div.main-text-color
-    ;; One tidy right-aligned toolbar: icon+label amber buttons (Export nudged),
-    ;; a hairline divider, then the quiet red Delete guard. Labels collapse to
-    ;; icon-only in priority order (Delete first, Export last) when width tightens.
+    ;; Toolbar in two zones: a CONTENT action on the left (Move/copy — it operates
+    ;; on your items) and the LIBRARY actions on the right (Export = primary, the
+    ;; quiet red Delete guard, and a de-emphasized "check for conflicts" link — a
+    ;; rare diagnostic). Labels collapse to icon-only in priority order when tight.
     [:div.mc-toolbar.m-b-10
      [:button.mc-btn.b-move
       {:title "Move / copy" :on-click (make-event-handler ::e5/toggle-select-mode)}
       [:i.fa.fa-exchange-alt] [:span.mc-lbl (if select-mode? "Exit select" "Move / copy")]]
-     [:button.mc-btn.b-check
-      {:title "Check for conflicts" :on-click (make-event-handler ::e5/check-content-conflicts)}
-      [:i.fa.fa-clipboard-check] [:span.mc-lbl "Check for conflicts"]]
-     [:button.mc-btn.mc-primary.b-export
-      {:title "Export All" :on-click (make-event-handler ::e5/export-all-plugins)}
-      [:i.fa.fa-download] [:span.mc-lbl "Export All"]]
-     [:span.mc-divider]
-     [delete-all-control]]
+     [:div.mc-right
+      [:span.link-button.pointer.f-s-12
+       {:on-click (make-event-handler ::e5/check-content-conflicts)}
+       "Check for conflicts"]
+      [:button.mc-btn.mc-primary.b-export
+       {:title "Export All" :on-click (make-event-handler ::e5/export-all-plugins)}
+       [:i.fa.fa-download] [:span.mc-lbl "Export All"]]
+      [:span.mc-divider]
+      [delete-all-control]]]
     (when select-mode?
       [relocate-bar])
     ;; are-you-sure bar, opens UNDERNEATH the toolbar (never reflows the row);
