@@ -1561,6 +1561,18 @@
                 n))
             0 plugins)))
 
+(defn unresolved-collision-count
+  "How many same-key collision groups are still UNRESOLVED — i.e. two or more
+   copies of one key are enabled at once, so the surviving item is picked
+   nondeterministically. This is the actionable 'run a health check' number:
+   zero means every cross-source duplicate already has a deterministic winner
+   (all but one turned off). Reuses the twin index, so it's cheap."
+  [plugins]
+  (->> (collision-twin-index plugins)
+       vals
+       (filter (fn [entries] (>= (count (remove :disabled? entries)) 2)))
+       count))
+
 (defn detect-duplicate-keys
   "Detects duplicate keys in imported data and against existing plugins.
 

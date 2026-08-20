@@ -8442,17 +8442,14 @@
   (let [select-mode? @(subscribe [::e5/content-select-mode?])]
    [:div.main-text-color
     ;; Toolbar in two zones: a CONTENT action on the left (Move/copy — it operates
-    ;; on your items) and the LIBRARY actions on the right (Export = primary, the
-    ;; quiet red Delete guard, and a de-emphasized "check for conflicts" link — a
-    ;; rare diagnostic). Labels collapse to icon-only in priority order when tight.
+    ;; on your items) and the whole-LIBRARY actions on the right (Export = primary,
+    ;; the quiet red Delete guard). Conflict-checking is NOT here — it's a passive
+    ;; health status below, surfaced only when there's something to fix.
     [:div.mc-toolbar.m-b-10
      [:button.mc-btn.b-move
       {:title "Move / copy" :on-click (make-event-handler ::e5/toggle-select-mode)}
       [:i.fa.fa-exchange-alt] [:span.mc-lbl (if select-mode? "Exit select" "Move / copy")]]
      [:div.mc-right
-      [:span.link-button.pointer.f-s-12
-       {:on-click (make-event-handler ::e5/check-content-conflicts)}
-       "Check for conflicts"]
       [:button.mc-btn.mc-primary.b-export
        {:title "Export All" :on-click (make-event-handler ::e5/export-all-plugins)}
        [:i.fa.fa-download] [:span.mc-lbl "Export All"]]
@@ -8478,6 +8475,21 @@
          [:button.form-button.mc-del
           {:on-click (make-event-handler ::char/delete-all-plugins)}
           "Delete all " n " source" (when (not= 1 n) "s")]]))
+   ;; Library-health status — the "check for conflicts" diagnostic as a PASSIVE
+   ;; line, not a toolbar button: it appears only when there's an UNRESOLVED
+   ;; conflict (two+ copies of a key still enabled → nondeterministic winner),
+   ;; and collapses to nothing when the library is clean.
+   (let [unresolved (orcbrew-val/unresolved-collision-count @(subscribe [::e5/plugins]))]
+     (when (pos? unresolved)
+       [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
+        {:style {:border-left "3px solid #e5637a"}}
+        [:span.f-s-14
+         [:i.fa.fa-exclamation-triangle.m-r-5 {:style {:color "#e5637a"}}]
+         (str unresolved " key conflict" (when (> unresolved 1) "s")
+              " across your sources — the app can't tell which copy to use")]
+        [:span.link-button.pointer
+         {:on-click (make-event-handler ::e5/check-content-conflicts)}
+         "resolve"]]))
    ;; Library-level mutual-exclusion summary: when duplicate keys have forced
    ;; one side off, say so once at the top with a link into the conflict modal,
    ;; so the silenced items are explained in aggregate — not just per-row.

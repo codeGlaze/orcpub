@@ -1369,3 +1369,17 @@
         (orcbrew-val/relocate-content relocate-plugins [["A" ::e5/spells :ghost]] "B" :move)]
     (is (= 0 placed))
     (is (= 1 missing) "a stale selection is counted and skipped, not crashed")))
+
+(deftest unresolved-collision-count-only-counts-both-enabled
+  (testing "two enabled copies of one key across sources = 1 unresolved"
+    (is (= 1 (orcbrew-val/unresolved-collision-count
+              {"A" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}
+               "B" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}}))))
+  (testing "one side disabled → deterministic winner → resolved → 0"
+    (is (= 0 (orcbrew-val/unresolved-collision-count
+              {"A" {::e5/spells {:fireball {:name "Fireball" :key :fireball}}}
+               "B" {::e5/spells {:fireball {:name "Fireball" :key :fireball :disabled? true}}}}))))
+  (testing "pool-type duplicate (feats) is harmless, never a conflict"
+    (is (= 0 (orcbrew-val/unresolved-collision-count
+              {"A" {::e5/feats {:tough {:name "Tough" :key :tough}}}
+               "B" {::e5/feats {:tough {:name "Tough" :key :tough}}}})))))
