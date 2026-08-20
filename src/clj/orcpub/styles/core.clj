@@ -1207,6 +1207,89 @@
     [:.form-button.disabled:hover
      {:box-shadow :none}]
 
+    ;; ── My Content toolbar + delete guard + move/copy select mode ──────────
+    ;; One tidy right-aligned row; icon+label buttons that collapse to icon-only
+    ;; in PRIORITY order (Delete first, Export last) as width tightens.
+    [:.mc-toolbar
+     {:position :relative
+      :display :flex
+      :flex-wrap :nowrap
+      :justify-content :flex-end
+      :align-items :center
+      :gap "10px"
+      :margin-right "10px"}]
+    [:.mc-btn
+     {:color :white
+      :font-weight 600
+      :font-size "12px"
+      :border :none
+      :border-radius "5px"
+      :text-transform :uppercase
+      :padding "10px 15px"
+      :cursor :pointer
+      :white-space :nowrap
+      :display :inline-flex
+      :align-items :center
+      :gap "7px"
+      :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}
+     [:.fa {:font-size "13px"}]]
+    [:.mc-btn:hover {:box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}]
+    ;; Export = primary: a subtle ring so the most-relied-on action leads.
+    [:.mc-primary {:box-shadow "0 0 0 2px rgba(241,162,15,0.35)"}]
+    [:.mc-primary:hover {:box-shadow "0 0 0 2px rgba(241,162,15,0.5), 0 2px 6px 0 rgba(0,0,0,0.5)"}]
+    ;; hairline divider between the safe cluster and the destructive guard
+    [:.mc-divider
+     {:width "1px" :align-self :stretch :min-height "26px"
+      :background-color "rgba(255,255,255,0.15)" :margin "0 5px"}]
+
+    ;; Delete: a quiet, slightly-transparent red guard that unfurls
+    [:.mc-guard-wrap {:position :relative :display :inline-flex}]
+    [:.mc-guard
+     {:display :inline-flex :align-items :center :gap "7px"
+      :background-color "rgba(154,3,30,0.26)"
+      :border "1px solid rgba(154,3,30,0.55)"
+      :color "#ef8592" :border-radius "5px" :padding "10px 14px"
+      :cursor :pointer :font-weight 600 :font-size "12px"
+      :text-transform :uppercase :white-space :nowrap}
+     [:.fa {:font-size "13px"}]]
+    [:.mc-guard:hover {:background-color "rgba(154,3,30,0.45)" :color :white}]
+    ;; the full button lifts OUT of the bar (absolute) — the row never reflows
+    [:.mc-liftpop
+     {:position :absolute :right "0" :bottom "calc(100% + 9px)"
+      :display :flex :align-items :center :gap "10px"
+      :background-color "#1a1013" :border "1px solid rgba(154,3,30,0.6)"
+      :border-radius "7px" :padding "8px 10px" :white-space :nowrap
+      :box-shadow "0 14px 34px rgba(0,0,0,0.55)" :z-index 20}]
+    ;; solid-red form-button variant (palette red #9a031e)
+    [:.mc-del {:background-image "linear-gradient(to bottom, #b3122a, #9a031e)"}]
+    ;; the are-you-sure bar, opens UNDERNEATH the toolbar
+    [:.mc-confirmbar
+     {:display :flex :align-items :center :gap "12px" :flex-wrap :wrap
+      :margin-top "12px" :padding "12px 14px"
+      :background-color "#1a1013" :border "1px solid rgba(154,3,30,0.55)"
+      :border-radius "6px"}]
+
+    ;; Move/copy select mode: round selector (distinct from the square enable)
+    ;; + whole-row tap.
+    [:.mc-selrow {:cursor :pointer :border-radius "4px"}]
+    [:.mc-selrow:hover {:background-color "rgba(255,255,255,0.03)"}]
+    [:.mc-selrow.selected
+     {:background-color "rgba(240,161,0,0.09)" :box-shadow "inset 3px 0 0 #f0a100"}]
+    [:.mc-selcircle
+     {:width "22px" :height "22px" :border-radius "50%"
+      :border "2px solid #6b7788" :display :inline-flex
+      :align-items :center :justify-content :center :flex "0 0 auto"}
+     [:.fa {:font-size "11px" :color "#101720" :opacity 0}]]
+    [:.mc-selcircle.on {:background-color "#f0a100" :border-color "#f0a100"}
+     [:.fa {:opacity 1}]]
+
+    ;; priority collapse — hide labels one at a time as the viewport narrows,
+    ;; Delete first (rare + red = unmistakable), Export last (most relied-on).
+    (at-media {:max-width "1000px"} [:.mc-toolbar [:.b-delete [:.mc-lbl {:display :none}]]])
+    (at-media {:max-width "860px"}  [:.mc-toolbar [:.b-check  [:.mc-lbl {:display :none}]]])
+    (at-media {:max-width "740px"}  [:.mc-toolbar [:.b-move   [:.mc-lbl {:display :none}]]])
+    (at-media {:max-width "600px"}  [:.mc-toolbar [:.b-export [:.mc-lbl {:display :none}]]])
+
     [:.link-button
      {:color button-color
       :border :none

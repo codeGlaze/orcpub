@@ -8204,42 +8204,46 @@
                (doall
                 (map-indexed
                  (fn [i [key {:keys [name disabled?] :as item}]]
-                   (let [note (orcbrew-val/twin-note twin-idx source-name type-key key disabled?)]
+                   (let [note (orcbrew-val/twin-note twin-idx source-name type-key key disabled?)
+                         selected? (and select-mode?
+                                        @(subscribe [::e5/content-selected? source-name type-key key]))]
                    ^{:key key}
-                   [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
-                    {:class (when disabled? "opacity-5")}
-                    ;; select checkbox (move/copy mode) — one mechanism for single
-                    ;; and bulk; ticking N items then Move/Copy relocates them all.
-                    (when select-mode?
+                   (if select-mode?
+                     ;; SELECT MODE: enable/edit/delete step aside; a round selector
+                     ;; (distinct from the square enable) + the whole row is the tap
+                     ;; target. Selected rows tint + get an amber rail.
+                     [:div.p-t-10.p-b-10.f-w-b.flex.align-items-c.mc-selrow
+                      {:class (when selected? "selected")
+                       :on-click (make-event-handler ::e5/toggle-content-selection source-name type-key key)}
+                      [:span.mc-selcircle.m-r-10 {:class (when selected? "on")}
+                       [:i.fa.fa-check]]
+                      [:span.flex-grow-1 name]]
+                     ;; NORMAL MODE: enable toggle + name (+ twin note) + edit/delete.
+                     [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
+                      {:class (when disabled? "opacity-5")}
                       [:div.m-r-10.flex.align-items-c.flex-column
-                       {:on-click (make-stop-prop-event-handler ::e5/toggle-content-selection source-name type-key key)}
-                       [:div.f-s-10 "select"]
+                       {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
+                       [:div.f-s-10 "enabled?"]
                        [comps/checkbox
-                        @(subscribe [::e5/content-selected? source-name type-key key])
-                        false]])
-                    [:div.m-r-10.flex.align-items-c.flex-column
-                     {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
-                     [:div.f-s-10 "enabled?"]
-                     [comps/checkbox
-                      (not (get-in plugin [type-key key :disabled?]))
-                      false]]
-                    ;; name + (when there's a same-key twin) a small plain note
-                    ;; about the mutual-exclusion, so "off" never looks arbitrary.
-                    [:div.flex-grow-1
-                     [:span name]
-                     (when note
-                       [:div.f-s-12.opacity-7
-                        {:class (if (= :off (:kind note)) "b-color-gray" "")}
-                        (if (= :off (:kind note))
-                          (str "off — \"" (:twin-name note) "\" in " (:twin-source note) " is on")
-                          (str "on — duplicate \"" (:twin-name note) "\" in " (:twin-source note) " is off"))])]
-                    [:div
-                     [:button.form-button.m-l-5
-                      {:on-click (make-event-handler edit-event item)}
-                      "edit"]
-                     [:button.form-button.m-l-5
-                      {:on-click (make-stop-prop-event-handler delete-event item)}
-                      "delete"]]]))
+                        (not (get-in plugin [type-key key :disabled?]))
+                        false]]
+                      ;; name + (when there's a same-key twin) a small plain note
+                      ;; about the mutual-exclusion, so "off" never looks arbitrary.
+                      [:div.flex-grow-1
+                       [:span name]
+                       (when note
+                         [:div.f-s-12.opacity-7
+                          {:class (if (= :off (:kind note)) "b-color-gray" "")}
+                          (if (= :off (:kind note))
+                            (str "off — \"" (:twin-name note) "\" in " (:twin-source note) " is on")
+                            (str "on — duplicate \"" (:twin-name note) "\" in " (:twin-source note) " is off"))])]
+                      [:div
+                       [:button.form-button.m-l-5
+                        {:on-click (make-event-handler edit-event item)}
+                        "edit"]
+                       [:button.form-button.m-l-5
+                        {:on-click (make-stop-prop-event-handler delete-event item)}
+                        "delete"]]])))
                  visible))]])]))))))
 
 ;; One data-driven table for the My Content library, replacing 13 near-identical
@@ -8411,39 +8415,67 @@
           {:on-click (make-event-handler ::e5/toggle-select-mode)}
           "done"]]))))
 
+(defn delete-all-control
+  "Delete-all as a 3-step guard: a quiet red 'Delete…' guard unfurls the full red
+   button (which lifts OUT of the bar so the toolbar never reflows), and clicking
+   that opens the are-you-sure bar underneath (rendered by my-content). `armed` is
+   the local unfurl state; the confirm itself lives in db so the bar can span the
+   full width below."
+  []
+  (let [armed (r/atom false)]
+    (fn []
+      [:span.mc-guard-wrap
+       [:button.mc-guard.b-delete
+        {:title "Delete all sources" :on-click #(reset! armed true)}
+        [:i.fa.fa-trash] [:span.mc-lbl "Delete…"]]
+       (when @armed
+         [:div.mc-liftpop
+          [:button.form-button.mc-del
+           {:on-click #(do (reset! armed false)
+                           (dispatch [::char/show-delete-plugin-confirmation]))}
+           [:i.fa.fa-trash.m-r-5] "Delete all sources"]
+          [:span.link-button.pointer
+           {:on-click #(reset! armed false)}
+           "cancel"]])])))
+
 (defn my-content []
-  [:div.main-text-color
-   [:div.flex.justify-cont-end
-    ;; Move/copy content between sources: flip on selection checkboxes, tick one
-    ;; (single) or many (bulk), then Move/Copy them to a chosen source.
-    [:button.form-button.m-r-10.m-b-10
-     {:on-click (make-event-handler ::e5/toggle-select-mode)}
-     (if @(subscribe [::e5/content-select-mode?]) "Exit select" "Move / copy")]
-    ;; Surface keys duplicated across already-loaded sources (the import popup
-    ;; only fires on import) and resolve them in the same conflict modal.
-    [:button.form-button.m-r-10.m-b-10
-     {:on-click (make-event-handler ::e5/check-content-conflicts)}
-     "Check for conflicts"]
-    [:button.form-button.m-r-10.m-b-10
-     {:on-click (make-event-handler ::char/show-delete-plugin-confirmation)}
-     "Delete All"]
-    [:button.form-button.m-r-10.m-b-10
-     {:on-click (make-event-handler ::e5/export-all-plugins)}
-     "Export All"]]
-   (when @(subscribe [::e5/content-select-mode?])
-     [relocate-bar])
-   [:div.flex.justify-cont-end
+  (let [select-mode? @(subscribe [::e5/content-select-mode?])]
+   [:div.main-text-color
+    ;; One tidy right-aligned toolbar: icon+label amber buttons (Export nudged),
+    ;; a hairline divider, then the quiet red Delete guard. Labels collapse to
+    ;; icon-only in priority order (Delete first, Export last) when width tightens.
+    [:div.mc-toolbar.m-b-10
+     [:button.mc-btn.b-move
+      {:title "Move / copy" :on-click (make-event-handler ::e5/toggle-select-mode)}
+      [:i.fa.fa-exchange-alt] [:span.mc-lbl (if select-mode? "Exit select" "Move / copy")]]
+     [:button.mc-btn.b-check
+      {:title "Check for conflicts" :on-click (make-event-handler ::e5/check-content-conflicts)}
+      [:i.fa.fa-clipboard-check] [:span.mc-lbl "Check for conflicts"]]
+     [:button.mc-btn.mc-primary.b-export
+      {:title "Export All" :on-click (make-event-handler ::e5/export-all-plugins)}
+      [:i.fa.fa-download] [:span.mc-lbl "Export All"]]
+     [:span.mc-divider]
+     [delete-all-control]]
+    (when select-mode?
+      [relocate-bar])
+    ;; are-you-sure bar, opens UNDERNEATH the toolbar (never reflows the row);
+    ;; carries the source count + an "Export a backup first" off-ramp.
     (when @(subscribe [::char/delete-plugin-confirmation-shown?])
-      [:div.p-20.flex.justify-cont-end
-       [:div
-        [:div.m-b-10 "Are you sure you want to delete ALL Option sources?"]
-        [:div.flex
+      (let [n (count @(subscribe [::e5/plugins]))]
+        [:div.mc-confirmbar
+         [:i.fa.fa-exclamation-triangle {:style {:color "#e5637a"}}]
+         [:span.f-s-14 "Delete all " [:strong n] " source" (when (not= 1 n) "s")
+          "? This can't be undone."]
+         [:div.flex-grow-1]
          [:button.form-button
+          {:on-click (make-event-handler ::e5/export-all-plugins)}
+          [:i.fa.fa-download.m-r-5] "Export a backup first"]
+         [:span.link-button.pointer.m-r-5
           {:on-click (make-event-handler ::char/hide-delete-plugin-confirmation)}
-          "cancel"]
-         [:span.link-button
+          "Cancel"]
+         [:button.form-button.mc-del
           {:on-click (make-event-handler ::char/delete-all-plugins)}
-          "delete"]]]])]
+          "Delete all " n " source" (when (not= 1 n) "s")]]))
    ;; Library-level mutual-exclusion summary: when duplicate keys have forced
    ;; one side off, say so once at the top with a link into the conflict modal,
    ;; so the silenced items are explained in aggregate — not just per-row.
@@ -8479,7 +8511,7 @@
         (fn [[name plugin]]
           ^{:key name}
           [my-content-item name plugin])
-        plugins)))]])
+        plugins)))]]))
 
 (defn quarantine-source-repair
   "Repair UI for ONE source's set-aside ENTRIES. Lists each broken item with
