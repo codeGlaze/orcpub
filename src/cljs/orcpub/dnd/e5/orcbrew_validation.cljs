@@ -993,6 +993,19 @@
    {:fillable [] :blockers [] :clean []}
    plugins))
 
+(defn library-export-issue-counts
+  "Reuse classify-plugins-for-export to count export-readiness problems across the
+   whole library, for the passive health status:
+     :missing = items missing a required field (fillable → a resolvable warning)
+     :blocked = sources with a spec error that can't export at all (→ broken)
+   No new detection — the exact checks the export flow already runs."
+  [plugins]
+  (let [{:keys [fillable blockers]} (classify-plugins-for-export plugins)]
+    {:missing (reduce + 0 (for [{:keys [issues]} fillable
+                                {:keys [invalid-items]} issues]
+                            (count invalid-items)))
+     :blocked (count blockers)}))
+
 (defn apply-user-edits-to-plugin
   "Apply the user's export-modal edits to a plugin, then dummy-fill remaining gaps
    into complete/valid content. Used wherever auto-fixed data is needed: the export

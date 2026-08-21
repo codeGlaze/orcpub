@@ -8442,6 +8442,7 @@
   (let [plugins   @(subscribe [::e5/plugins])
         conflicts (orcbrew-val/unresolved-collisions plugins)
         cn        (count conflicts)
+        {:keys [missing blocked]} (orcbrew-val/library-export-issue-counts plugins)
         ;; each line: {:sev :warn|:broken :n :msg :detail [..] :more :act-label :act}
         lines (cond-> []
                 (pos? cn)
@@ -8452,7 +8453,17 @@
                                        (str ":" (name key) " in " (s/join ", " sources)))
                                      (take 4 conflicts))
                        :more (max 0 (- cn 4))
-                       :act-label "resolve" :act ::e5/check-content-conflicts}))
+                       :act-label "resolve" :act ::e5/check-content-conflicts})
+                (pos? missing)
+                (conj {:sev :warn :n missing
+                       :msg (str missing " item" (when (> missing 1) "s")
+                                 " missing a required field — won't export until fixed")
+                       :act-label "fix" :act ::e5/export-all-plugins})
+                (pos? blocked)
+                (conj {:sev :broken :n blocked
+                       :msg (str blocked " source" (when (> blocked 1) "s")
+                                 " can't export — invalid data")
+                       :act-label "review" :act ::e5/export-all-plugins}))
         total (reduce + 0 (map :n lines))]
     (when (seq lines)
       ^{:key total}
