@@ -190,6 +190,65 @@
        (some? unreviewed-value)    (assoc item ::magical? (boolean unreviewed-value))
        :else                       item))))
 
+(def magical-property-keys
+  "Attributes that only mean anything on a magic item.
+
+   ::rarity is NOT here on purpose. It is inert — nothing reads it for
+   mechanics — and leaving it in place means a user who unticks Magic Item and
+   changes their mind gets their rarity back."
+  [::attunement
+   ::modifiers
+   ::internal-modifiers
+   ::magical-attack-bonus
+   ::magical-damage-bonus
+   ::magical-ac-bonus])
+
+(defn- recorded?
+  [v]
+  (cond
+    (number? v) (not (zero? v))
+    (coll? v)   (boolean (seq v))
+    :else       (some? v)))
+
+(defn magical-properties
+  "Just the magical mechanics actually recorded on this item, as a map.
+
+   Empty for an item that has none — which is every item classification calls
+   :mundane on its own, since the absence of these is exactly what makes it
+   mundane. It is only ever non-empty when a person ticked Mundane on an item
+   that already had magic in it."
+  [item]
+  (into {}
+        (keep (fn [k]
+                (let [v (get item k)]
+                  (when (recorded? v) [k v]))))
+        magical-property-keys))
+
+(defn has-magical-properties?
+  [item]
+  (boolean (seq (magical-properties item))))
+
+(defn without-magical-properties
+  [item]
+  (apply dissoc item magical-property-keys))
+
+(defn effective-item
+  "The item as the rest of the app should treat it.
+
+   A mundane item's magical mechanics are suppressed: an item cannot be
+   ordinary gear and still hand out attunement, resistances and a +1 to hit.
+   Suppressed, though — not deleted. The stored item keeps everything, so
+   re-ticking Magic Item in the builder brings it all back, and a mis-click
+   costs nothing.
+
+   Use this everywhere an item becomes modifiers or is displayed. Do NOT use
+   it on the path that feeds the item builder, or editing an item would save
+   back the stripped version and make the suppression permanent."
+  [item]
+  (if (mundane? item)
+    (without-magical-properties item)
+    item))
+
 (defn resolve-classification
   "Resolve an item to an explicit stored flag using exactly the value the app
    is already treating it as, so saving an item retires its legacy guess

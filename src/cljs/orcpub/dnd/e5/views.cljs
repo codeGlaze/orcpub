@@ -7928,6 +7928,20 @@
   )
   )
 
+(def ^:private magical-property-label
+  {::mi/attunement "attunement"
+   ::mi/modifiers "modifiers"
+   ::mi/internal-modifiers "modifiers"
+   ::mi/magical-attack-bonus "an attack bonus"
+   ::mi/magical-damage-bonus "a damage bonus"
+   ::mi/magical-ac-bonus "an AC bonus"})
+
+(defn magical-property-labels
+  "Plain-English names for the magical mechanics an item still carries, so the
+   notice says what would be lost rather than just that something would be."
+  [item]
+  (distinct (keep magical-property-label (keys (mi/magical-properties item)))))
+
 (defn item-magical-selector
   "Magic-item / mundane-item switch.
 
@@ -7959,13 +7973,32 @@
          "Listed under Magic Weapons, Magic Armor and Other Magic Items."
 
          :else
-         "Ordinary gear. Listed under Weapons, Armor and Equipment instead of with the magic items.")]])))
+         "Ordinary gear. Listed under Weapons, Armor and Equipment instead of with the magic items. Rarity, attunement and magical bonuses don't apply, so they're hidden below.")]
+      ;; Unticking Magic Item hides the magical fields but must never quietly
+      ;; delete what is in them — that would make a mis-click destructive. The
+      ;; values stay on the item and come straight back if it is ticked again;
+      ;; removing them for good takes a deliberate second click.
+      (when (and (not magical?) (mi/has-magical-properties? item))
+        [:div.m-t-10.p-10.b-1.b-rad-5.b-orange
+         [:div.f-s-14
+          (str "This item still has magical properties recorded: "
+               (s/join ", " (magical-property-labels item))
+               ".")]
+         [:div.f-s-12.i.opacity-5.m-t-5
+          "They are kept, but not applied while this is a mundane item. Tick Magic item to get them back."]
+         [:div.flex.justify-cont-end.m-t-5
+          [:button.form-button
+           {:on-click (make-event-handler ::mi/clear-magical-properties)}
+           "remove them for good"]]])])))
 
 (defn item-builder []
   (let [{:keys [::mi/name ::mi/type ::mi/rarity ::mi/description ::mi/attunement] :as item}
         @(subscribe [::mi/builder-item])
         item-types @(subscribe [::mi/item-types])
-        item-rarities @(subscribe [::mi/rarities])]
+        item-rarities @(subscribe [::mi/rarities])
+        ;; An unreviewed legacy item counts as magical here, so its fields stay
+        ;; visible and editable until someone actually answers the question.
+        magical? (mi/magical? item)]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [:div.flex-grow-1.m-b-20.warntip
@@ -7991,30 +8024,42 @@
                    item-types)
            :value type
            :on-change #(dispatch [::mi/set-item-type %])}]])]
-      [:div.flex-grow-1.m-l-5
-       (base-builder-field
-        "Rarity"
-        [:div.m-t-5
-         [dropdown
-          {:items (map
-                   (fn [rarity]
-                     {:value rarity
-                      :title (clojure.core/name rarity)})
-                   item-rarities)
-           :value rarity
-           :on-change #(dispatch [::mi/set-item-rarity %])}]])]]
+      ;; Rarity describes a magic item. Nothing reads it for a mundane one, and
+      ;; leaving it on screen invites people to grade their rope as "common
+      ;; magic" — which is the confusion this whole change is about.
+      (when magical?
+        [:div.flex-grow-1.m-l-5
+         (base-builder-field
+          "Rarity"
+          [:div.m-t-5
+           [dropdown
+            {:items (map
+                     (fn [rarity]
+                       {:value rarity
+                        :title (clojure.core/name rarity)})
+                     item-rarities)
+             :value rarity
+             :on-change #(dispatch [::mi/set-item-rarity %])}]])])]
      [:div.m-b-20
       [item-magical-selector item]]
      [:div.m-b-40 (base-builder-field "Description" [textarea-field
                                                      {:value description
                                                       :on-change #(dispatch [::mi/set-item-description %])}])]
+     ;; Base armor / base weapon stay for BOTH kinds. Damage dice, AC and
+     ;; weapon properties are what an ordinary sword or breastplate is made of
+     ;; — hiding them would make a custom mundane weapon impossible to define.
      (when (= :armor type)
        [:div.m-b-40 [base-armor-selector]])
      (when (= :weapon type)
        [:div.m-b-40 [base-weapon-selector]])
-     [:div.m-b-40
-      [attunement-selector attunement]]
-     [item-bonuses item]]))
+     ;; Everything past here is magic: attunement, the magical bonuses, and the
+     ;; ability / save / speed / resistance / immunity grids. A mundane item
+     ;; grants none of it, so it is not offered.
+     (when magical?
+       [:div
+        [:div.m-b-40
+         [attunement-selector attunement]]
+        [item-bonuses item]])]))
 
 (defn import-file [e]
   (let [reader (js/FileReader.)

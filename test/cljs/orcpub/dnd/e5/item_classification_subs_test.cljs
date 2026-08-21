@@ -91,6 +91,39 @@
   (testing "and the magic item map does too, for characters that stored it there"
     (is (some? (get @(rf/subscribe [::mi5e/all-magic-items-map]) :bastard-sword)))))
 
+(def ^:private demoted-item
+  "A magic item whose owner has since ticked Mundane. Only a human can create
+   this shape — classification never calls an item with magical mechanics
+   mundane on its own."
+  {::mi5e/name "Retired Blade" ::mi5e/type :weapon ::mi5e/rarity :rare
+   ::mi5e/magical? false
+   ::mi5e/attunement #{:any}
+   ::mi5e/magical-attack-bonus 1
+   ::mi5e/owner "kaylee"})
+
+(deftest mundane-items-do-not-carry-magic-into-the-app
+  (with-items! [demoted-item])
+  (testing "the effective view has the magical mechanics suppressed"
+    (let [effective (first @(rf/subscribe [::mi5e/effective-custom-items]))]
+      (is (some? effective))
+      (is (not (mi5e/has-magical-properties? effective)))
+      (is (= "Retired Blade" (::mi5e/name effective)))))
+  (testing "and so does the weapon map the attack table reads"
+    (let [weapon (get @(rf/subscribe [::mi5e/all-weapons-map]) :retired-blade)]
+      (is (some? weapon) "the weapon itself must still resolve")
+      (is (nil? (::mi5e/magical-attack-bonus weapon))))))
+
+(deftest the-edit-path-still-sees-the-whole-item
+  (with-items! [demoted-item])
+  (testing "opening the item in the builder must load it exactly as stored"
+    ;; If this ever reads the effective view, unticking Magic item once would
+    ;; make the suppression permanent on the next save.
+    (let [raw (first (vals @(rf/subscribe [::mi5e/custom-item-map])))]
+      (is (some? raw))
+      (is (mi5e/has-magical-properties? raw))
+      (is (= 1 (::mi5e/magical-attack-bonus raw)))
+      (is (= #{:any} (::mi5e/attunement raw))))))
+
 (deftest no-custom-items-is-not-a-special-case
   (with-items! [])
   (is (empty? @(rf/subscribe [::mi5e/mundane-weapon-options])))

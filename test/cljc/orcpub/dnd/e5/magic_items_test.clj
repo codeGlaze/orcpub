@@ -510,3 +510,93 @@
     (is (spec/valid? ::mi/magic-item {::mi/name "Rope" ::mi/magical? false}))
     (is (spec/valid? ::mi/magic-item {::mi/name "Wand" ::mi/magical? true}))
     (is (not (spec/valid? ::mi/magic-item {::mi/name "Rope" ::mi/magical? "no"})))))
+
+;; ---------------------------------------------------------------------------
+;; Suppressing magical mechanics on a mundane item
+;;
+;; Unticking "Magic item" hides the magical fields and stops them applying. It
+;; must never delete them: a checkbox that destroys data on a mis-click is a
+;; worse bug than the one being fixed.
+;; ---------------------------------------------------------------------------
+
+(def ^:private enchanted-blade
+  (custom {::mi/name "Rimefang"
+           ::mi/type :weapon
+           ::mi/rarity :rare
+           ::mi/attunement #{:any}
+           ::mi/magical-attack-bonus 1
+           ::mi/magical-damage-bonus 2
+           ::mi/magical-ac-bonus 0
+           ::mi/modifiers [{::mod/key :damage-resistance
+                            ::mod/args [{::mod/keyword-arg :cold}]}]
+           ::mi/description "Cold to the touch."}))
+
+(deftest magical-properties-reports-only-what-is-recorded
+  (let [props (mi/magical-properties enchanted-blade)]
+    (is (= #{::mi/attunement ::mi/modifiers
+             ::mi/magical-attack-bonus ::mi/magical-damage-bonus}
+           (set (keys props)))
+        "a zero AC bonus is the builder's empty state, not a recorded property"))
+  (testing "ordinary gear has none"
+    (is (not (mi/has-magical-properties?
+              (custom {::mi/name "Club" ::mi/type :weapon}))))
+    (is (not (mi/has-magical-properties?
+              (custom {::mi/name "Club" ::mi/type :weapon
+                       ::mi/attunement #{} ::mi/modifiers []}))))))
+
+(deftest effective-item-suppresses-magic-on-a-mundane-item
+  (let [mundane (assoc enchanted-blade ::mi/magical? false)
+        effective (mi/effective-item mundane)]
+    (testing "no magical mechanics survive into what the app builds from"
+      (is (not (mi/has-magical-properties? effective)))
+      (doseq [k mi/magical-property-keys]
+        (is (not (contains? effective k)) (str k " must not apply"))))
+    (testing "everything else is untouched"
+      (is (= "Rimefang" (::mi/name effective)))
+      (is (= :weapon (::mi/type effective)))
+      (is (= "Cold to the touch." (::mi/description effective)))
+      (is (= :rare (::mi/rarity effective))
+          "rarity is inert, so it rides along and comes back if re-ticked"))
+    (testing "and it stays mundane after stripping, so this is stable"
+      (is (mi/mundane? effective))
+      (is (= effective (mi/effective-item effective))))))
+
+(deftest effective-item-leaves-magic-items-alone
+  (testing "an explicitly magical item passes through untouched"
+    (is (identical? enchanted-blade (mi/effective-item enchanted-blade))))
+  (testing "so does an unreviewed legacy item — it is still treated as magical"
+    (let [legacy (custom {::mi/name "Old Trinket"
+                          ::mi/type :wondrous-item
+                          ::mi/rarity :common
+                          ::mi/attunement #{:any}})]
+      (is (identical? legacy (mi/effective-item legacy))))))
+
+(deftest suppression-is-not-deletion
+  (testing "the stored item keeps everything, so re-ticking restores it"
+    ;; effective-item is a read-time view. Nothing writes it back.
+    (let [stored (assoc enchanted-blade ::mi/magical? false)]
+      (mi/effective-item stored)
+      (is (mi/has-magical-properties? stored))
+      (let [re-ticked (assoc stored ::mi/magical? true)]
+        (is (= (dissoc enchanted-blade ::mi/magical?)
+               (dissoc (mi/effective-item re-ticked) ::mi/magical?))
+            "ticking Magic item again brings back exactly what was there")))))
+
+(deftest clearing-is-explicit-and-total
+  (testing "without-magical-properties is the deliberate destructive version"
+    (let [cleared (mi/without-magical-properties enchanted-blade)]
+      (is (not (mi/has-magical-properties? cleared)))
+      (is (= "Rimefang" (::mi/name cleared)))
+      (is (= "Cold to the touch." (::mi/description cleared))))))
+
+(deftest a-confidently-mundane-item-never-has-anything-to-suppress
+  (testing "the backfill can only ever mark evidence-free items mundane"
+    ;; This is why the automatic path cannot suppress anyone's mechanics: an
+    ;; item classify calls :mundane on its own has no magical properties by
+    ;; definition. Only a human ticking the box can create that situation.
+    (doseq [item [(custom {::mi/name "Rope" ::mi/type :other ::mi/rarity :common})
+                  (custom {::mi/name "Club" ::mi/type :weapon})
+                  (custom {::mi/name "Leather" ::mi/type ::mi/armor})]]
+      (is (mi/mundane? item))
+      (is (not (mi/has-magical-properties? item)))
+      (is (= item (mi/effective-item item))))))

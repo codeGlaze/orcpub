@@ -58,7 +58,10 @@
    ::mi5e/custom-items -> ::mi5e/expanded-custom-items -> ::char5e/sorted-items."
   [db]
   (let [custom-items (get db ::mi/custom-items [])
-        expanded (mi/expand-magic-items custom-items)]
+        ;; effective-item, matching the ::char5e/sorted-items subscription:
+        ;; a mundane item's magical mechanics are suppressed for every reader
+        ;; except the item builder's edit path.
+        expanded (map mi/effective-item (mi/expand-magic-items custom-items))]
     (concat expanded @sorted-static-items)))
 
 (defn filter-by-name-xform
