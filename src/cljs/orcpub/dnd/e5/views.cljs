@@ -8224,7 +8224,7 @@
                      [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
                       {:class (when disabled? "opacity-5")
                        :style (when (= :conflict (:kind note))
-                                {:box-shadow "inset 3px 0 0 #e5637a"
+                                {:box-shadow "inset 3px 0 0 #ffd21a"
                                  :padding-left "8px"})}
                       [:div.m-r-10.flex.align-items-c.flex-column
                        {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
@@ -8239,7 +8239,7 @@
                        (when note
                          [:div.f-s-12
                           {:class (when (= :off (:kind note)) "b-color-gray")
-                           :style (when (= :conflict (:kind note)) {:color "#e5637a"})}
+                           :style (when (= :conflict (:kind note)) {:color "#ffd21a"})}
                           (when (= :conflict (:kind note))
                             [:i.fa.fa-exclamation-triangle.m-r-5])
                           (case (:kind note)
@@ -8350,7 +8350,7 @@
            (let [{:keys [compat benign]} (source-disabled-counts plugin)]
              [:span
               (when conflict?
-                [:span.lib-badge {:style {:background-color "rgba(229,99,122,0.18)" :color "#e5637a"}}
+                [:span.lib-badge {:style {:background-color "rgba(255,210,26,0.16)" :color "#ffd21a"}}
                  [:i.fa.fa-exclamation-triangle.m-r-5] "conflict"])
               (when (pos? compat)
                 [:span.lib-badge.lib-badge-compat [:span.lib-dot] (str compat " off · compatibility")])
@@ -8431,6 +8431,48 @@
           {:on-click (make-event-handler ::e5/toggle-select-mode)}
           "done"]]))))
 
+(defn library-health-status
+  "Passive library-health card — appears only when something needs attention, and
+   collapses to nothing when clean. One fixed card, a line per problem TYPE with a
+   count (never per-item, so a big mess can't flood the page); each line routes into
+   the existing resolver. Warning-yellow for resolvable, red reserved for broken.
+   Re-keyed on the total so the one-time flash fires on appearance and on any change.
+   Reuses the existing detectors — no new detection/resolution logic here."
+  []
+  (let [plugins   @(subscribe [::e5/plugins])
+        conflicts (orcbrew-val/unresolved-collisions plugins)
+        cn        (count conflicts)
+        ;; each line: {:sev :warn|:broken :n :msg :detail [..] :more :act-label :act}
+        lines (cond-> []
+                (pos? cn)
+                (conj {:sev :warn :n cn
+                       :msg (str cn " key conflict" (when (> cn 1) "s")
+                                 " — the app can't tell which copy to use")
+                       :detail (mapv (fn [{:keys [key sources]}]
+                                       (str ":" (name key) " in " (s/join ", " sources)))
+                                     (take 4 conflicts))
+                       :more (max 0 (- cn 4))
+                       :act-label "resolve" :act ::e5/check-content-conflicts}))
+        total (reduce + 0 (map :n lines))]
+    (when (seq lines)
+      ^{:key total}
+      [:div.health-card.health-flash.m-b-10
+       (doall
+        (for [{:keys [sev n msg detail more act-label act]} lines]
+          ^{:key act-label}
+          [:div.health-row {:class (when (= sev :broken) "health-broken")}
+           [:span.health-rail]
+           [:span.health-ico [:i.fa.fa-exclamation-triangle]]
+           [:span.health-msg
+            [:strong msg]
+            (when (seq detail)
+              [:div.f-s-12.opacity-7.m-t-2
+               (s/join " · " detail)
+               (when (pos? more) (str " · +" more " more"))])]
+           [:span.health-act
+            {:on-click (make-event-handler act)}
+            act-label]]))])))
+
 (defn delete-all-control
   "Delete-all as a 3-step guard: a quiet red 'Delete…' guard unfurls the full red
    button (which lifts OUT of the bar so the toolbar never reflows), and clicking
@@ -8491,32 +8533,10 @@
          [:button.form-button.mc-del
           {:on-click (make-event-handler ::char/delete-all-plugins)}
           "Delete all " n " source" (when (not= 1 n) "s")]]))
-   ;; Library-health status — the "check for conflicts" diagnostic as a PASSIVE
-   ;; line, not a toolbar button: it appears only when there's an UNRESOLVED
-   ;; conflict (two+ copies of a key still enabled → nondeterministic winner),
-   ;; and collapses to nothing when the library is clean.
-   (let [conflicts (orcbrew-val/unresolved-collisions @(subscribe [::e5/plugins]))
-         n (count conflicts)]
-     (when (pos? n)
-       [:div.p-10.m-b-10.bg-lighter.b-rad-5
-        {:style {:border-left "3px solid #e5637a"}}
-        [:div.flex.align-items-c.justify-cont-s-b
-         [:span.f-s-14
-          [:i.fa.fa-exclamation-triangle.m-r-5 {:style {:color "#e5637a"}}]
-          (str n " key conflict" (when (> n 1) "s")
-               " — the app can't tell which copy to use")]
-         [:span.link-button.pointer
-          {:on-click (make-event-handler ::e5/check-content-conflicts)}
-          "resolve"]]
-        ;; name the offenders so you know where to look (and the library rows
-        ;; below are tinted to match)
-        [:div.f-s-12.opacity-7.m-t-5
-         (doall
-          (for [{:keys [key sources]} (take 6 conflicts)]
-            ^{:key (str key)}
-            [:div [:code.orange (str ":" (name key))]
-             " — enabled in " (s/join ", " sources)]))
-         (when (> n 6) [:div (str "…and " (- n 6) " more")])]]))
+   ;; Library-health status — the passive card (conflicts now; missing-fields
+   ;; next). Appears only when something needs attention, flashes on change,
+   ;; collapses to nothing when clean. Reuses the existing detectors + resolvers.
+   [library-health-status]
    ;; Library-level mutual-exclusion summary: when duplicate keys have forced
    ;; one side off, say so once at the top with a link into the conflict modal,
    ;; so the silenced items are explained in aggregate — not just per-row.
