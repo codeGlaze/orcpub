@@ -185,28 +185,85 @@ skipped, never a crash. The result reports what happened in one message
 ("Moved 3 items to X (renamed 1 to avoid a name clash)"). References are by global
 key, so a moved item still resolves its cross-source references without rewriting.
 
+## Health status — surfacing problems without a screen of red
+
+Problems are surfaced by one passive card (`library-health-status`), not a button
+the user has to press. It appears **only when something needs attention** and
+collapses to nothing when the library is clean. The design rules exist so a big
+mess can't flood the page:
+
+- **One card, one line per problem *type* with a count** — never one line per
+  item. Ten conflicts read as "10 key conflicts", not ten rows. Each line routes
+  into the existing resolver (`::e5/check-content-conflicts` for conflicts,
+  `::e5/export-all-plugins` for missing-field / export-blocker fixes) — the card
+  detects and directs; it owns no new resolution logic.
+- **A severity vocabulary, used everywhere** so a problem looks the same wherever
+  it shows up:
+  - **warning-yellow** (`#ffd21a`, `styles/core.clj` `warning-yellow`) — an
+    *attention* item that's resolvable: unresolved key conflicts, missing required
+    fields. Also tints the offending library rows and the conflict-modal title so
+    a person who clicks a yellow banner lands in a modal speaking the same yellow.
+  - **red** (`#e5637a`, `broken-red`) — *broken*: a source that can't export
+    because its data is invalid. Reserved, so red always means "actually broken."
+  - brand-**orange** (`#f0a100`) stays the ambient/structural accent — the
+    confident "Ready to import" summary is orange because it's *resolved*, not
+    flagged.
+  A one-time flash (`health-pulse`, reduced-motion-guarded) fires when the card
+  appears or its numbers change, so a new problem is noticed without a persistent
+  siren.
+
+**Where it shows, and dismissal.** The card is rendered centrally by
+`content-page`, so it appears on every D&D content view — people aren't surprised
+by a problem only the My Content page knew about. Behavior by surface:
+
+| Surface | Shows? | Dismissable? |
+|---------|--------|--------------|
+| My Content (the content hub) | always | no — the hub always owns its problems |
+| any other content view (spells, monsters, the builder, …) | yes | yes — a `×` |
+| the character list | never | — (not a content-management surface) |
+
+Dismissal is remembered against a **signature** of the current problem set
+(`hash` of the sorted conflict keys + the missing/blocked counts), persisted to a
+`health-dismissed` localStorage slot. So a dismissal sticks for *that* set of
+problems and the card re-surfaces the moment the set changes — a fixed-then-
+differently-broken library speaks up again rather than staying silent.
+
+**Cost.** The detectors walk the whole library, and several My Content components
+need them, so they are exposed as **memoized re-frame subscriptions** keyed on
+`::e5/plugins` (`::e5/collision-twin-index`, `::e5/library-health`,
+`::e5/mutual-exclusion-off-count`) — never called raw in a render body. re-frame
+caches each reaction, so a walk runs **once per plugins change** and is shared
+across every row, section, and page, instead of being rebuilt per component on
+every re-render (which, before this, meant dozens of full-library walks on a
+single search keystroke).
+
 ## Where the code lives
 
 - `orcpub.dnd.e5.orcbrew-validation` — the canonical `collision-risk-types` set;
   `detect-duplicate-keys`, `correct-library`, `generate-new-key`,
-  `apply-key-renames`, `relocate-content` (move/copy); and the mutual-exclusion
+  `apply-key-renames`, `relocate-content` (move/copy); the mutual-exclusion
   helpers `collision-twin-index`, `twin-note`, `enabled-twin-paths`,
-  `mutual-exclusion-off-count`.
+  `mutual-exclusion-off-count`; and the health detectors `unresolved-collisions`,
+  `unresolved-conflict-sources`, `library-export-issue-counts`,
+  `classify-plugins-for-export`.
 - `orcpub.dnd.e5.events` — `::e5/toggle-plugin`, `::e5/toggle-plugin-item`
   (swap-aware), `::e5/toggle-global-disable`, `::e5/toggle-section-disable`, the
   move/copy selection events (`::e5/toggle-select-mode`,
   `::e5/toggle-content-selection`, `::e5/relocate-selected`), the
-  `:apply-conflict-resolutions` / `:start-conflict-resolution` flow, and
-  `::e5/check-content-conflicts`.
-- `orcpub.dnd.e5.spell-subs` — `::e5/plugin-vals`, `::e5/plugins-with-sources`,
-  and the overlay subs (`::e5/disable-overlay`, `::e5/global-disabled?`,
-  `::e5/section-disabled?`); `orcpub.dnd.e5.db` — the `disable-overlay`
-  localStorage slot, writer, and boot cofx.
+  `:apply-conflict-resolutions` (including `drop-skipped-imports`) /
+  `:start-conflict-resolution` flow, `::e5/check-content-conflicts`, and
+  `::e5/dismiss-health`.
+- `orcpub.dnd.e5.spell-subs` — `::e5/plugin-vals`, `::e5/plugins-with-sources`;
+  the overlay subs (`::e5/disable-overlay`, `::e5/global-disabled?`,
+  `::e5/section-disabled?`); the memoized health subs (`::e5/collision-twin-index`,
+  `::e5/library-health`, `::e5/mutual-exclusion-off-count`); and
+  `::e5/health-dismissed`. `orcpub.dnd.e5.db` — the `disable-overlay` and
+  `health-dismissed` localStorage slots, writers, and boot cofx.
 - `orcpub.dnd.e5.views` — My Content UI: `my-content`, `my-content-item`,
-  `my-content-type`, `source-disabled-counts`, the per-row twin note, and the
-  library banner.
+  `my-content-type`, `source-disabled-counts`, the per-row twin note, the library
+  banner, and `library-health-status` (rendered by `content-page`).
 - `orcpub.dnd.e5.views.conflict-resolution` — the conflict modal and the export
-  warning modal.
+  warning modal (both aligned to the warning-yellow severity vocabulary).
 
 ## Related
 

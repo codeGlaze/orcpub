@@ -1289,7 +1289,6 @@
     ;; priority collapse — hide labels one at a time as the viewport narrows,
     ;; Delete first (rare + red = unmistakable), Export last (most relied-on).
     (at-media {:max-width "1000px"} [:.mc-toolbar [:.b-delete [:.mc-lbl {:display :none}]]])
-    (at-media {:max-width "860px"}  [:.mc-toolbar [:.b-check  [:.mc-lbl {:display :none}]]])
     (at-media {:max-width "740px"}  [:.mc-toolbar [:.b-move   [:.mc-lbl {:display :none}]]])
     (at-media {:max-width "600px"}  [:.mc-toolbar [:.b-export [:.mc-lbl {:display :none}]]])
 

@@ -459,3 +459,66 @@
             import name so it becomes a proper {source-name plugin} entry"
     (let [single {:orcpub.dnd.e5/feats {:brave {:option-pack "P" :name "Brave"}}}]
       (is (= {"My Pack" single} (events/incoming-sources "My Pack" single))))))
+
+;; ---------------------------------------------------------------------------
+;; drop-skipped-imports — REGRESSION: "Skip this one" must actually skip.
+;; The bug was that a :skip decision was a no-op, so the colliding item still
+;; imported enabled — the exact nondeterministic twin the modal promised to avoid.
+;; ---------------------------------------------------------------------------
+
+(deftest drop-skipped-imports-removes-the-skipped-external-item
+  (testing "an external conflict marked :skip is dropped from incoming; its
+            non-conflicting sibling survives"
+    (let [incoming   {"NewPack" {:orcpub.dnd.e5/spells
+                                 {:fireball  {:name "Fireball"  :option-pack "NewPack"}
+                                  :frostbite {:name "Frostbite" :option-pack "NewPack"}}}}
+          conflicts  [{:id "external-0" :type :external :key :fireball
+                       :content-type :orcpub.dnd.e5/spells :import-source "NewPack"}]
+          decisions  {"external-0" {:action :skip}}
+          result     (events/drop-skipped-imports incoming conflicts decisions "NewPack")]
+      (is (nil? (get-in result ["NewPack" :orcpub.dnd.e5/spells :fireball]))
+          "the skipped item is gone")
+      (is (some? (get-in result ["NewPack" :orcpub.dnd.e5/spells :frostbite]))
+          "the sibling still imports"))))
+
+(deftest drop-skipped-imports-prunes-a-fully-skipped-source
+  (testing "skipping the only item collapses the empty content-type and source
+            so it can't import as a shell"
+    (let [incoming  {"Solo" {:orcpub.dnd.e5/spells
+                             {:fireball {:name "Fireball" :option-pack "Solo"}}}}
+          conflicts [{:id "external-0" :type :external :key :fireball
+                      :content-type :orcpub.dnd.e5/spells :import-source "Solo"}]
+          result    (events/drop-skipped-imports incoming conflicts
+                                                 {"external-0" {:action :skip}} "Solo")]
+      (is (= {} result) "nothing left to import"))))
+
+(deftest drop-skipped-imports-single-plugin-falls-back-to-import-name
+  (testing "when import-source is nil on the target (single-plugin wrap), the
+            source key falls back to import-name — matching incoming-sources"
+    (let [incoming  {"My Pack" {:orcpub.dnd.e5/spells
+                               {:fireball {:name "Fireball"}}}}
+          ;; single-plugin external conflicts still carry the import-source
+          conflicts [{:id "external-0" :type :external :key :fireball
+                      :content-type :orcpub.dnd.e5/spells :import-source "My Pack"}]
+          result    (events/drop-skipped-imports incoming conflicts
+                                                 {"external-0" {:action :skip}} "My Pack")]
+      (is (= {} result)))))
+
+(deftest drop-skipped-imports-leaves-non-skip-and-internal-alone
+  (testing "non-:skip decisions and internal conflicts (no import-source) are
+            never removed"
+    (let [incoming  {"P" {:orcpub.dnd.e5/spells {:fireball {:name "Fireball"}}}}
+          ;; keep-both decision — must not drop
+          keep-both (events/drop-skipped-imports
+                     incoming
+                     [{:id "e0" :type :external :key :fireball
+                       :content-type :orcpub.dnd.e5/spells :import-source "P"}]
+                     {"e0" {:action :keep-both}} "P")
+          ;; internal conflict marked :skip — no import-source, so left as-is
+          internal  (events/drop-skipped-imports
+                     incoming
+                     [{:id "i0" :type :internal :key :fireball
+                       :content-type :orcpub.dnd.e5/spells}]
+                     {"i0" {:action :skip}} "P")]
+      (is (= incoming keep-both) "keep-both leaves the item")
+      (is (= incoming internal) "internal skip is a no-op (nothing to defer to)"))))

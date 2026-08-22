@@ -5044,6 +5044,32 @@
            :decisions {}
            :validation-result nil})))
 
+(defn drop-skipped-imports
+  "Remove the items the user chose to SKIP from the normalized incoming sources.
+   'Skip' means leave the EXISTING copy as-is and do NOT import the colliding
+   newcomer, so the imported item is dropped entirely (the bug this fixes was
+   that it was still merged in enabled, producing the exact nondeterministic
+   twin the modal promised to avoid). External conflicts only — an internal
+   same-key clash (two copies within the import) has no existing side to defer
+   to, so 'skip' leaves it as-is. Single-plugin imports wrap under import-name,
+   so fall back to it — the same source-keying the disable paths use. Prunes a
+   content-type or source that empties out so a fully-skipped source can't
+   import as a shell."
+  [incoming conflicts decisions import-name]
+  (let [targets (keep (fn [{:keys [id key content-type import-source]}]
+                        (when (and (= :skip (:action (get decisions id)))
+                                   import-source)
+                          [(or import-source import-name) content-type key]))
+                      conflicts)]
+    (reduce (fn [p [src ct k]]
+              (if (get-in p [src ct k])
+                (let [p (update-in p [src ct] dissoc k)
+                      p (if (empty? (get-in p [src ct])) (update p src dissoc ct) p)
+                      p (if (empty? (get p src)) (dissoc p src) p)]
+                  p)
+                p))
+            incoming targets)))
+
 (reg-event-fx
  :apply-conflict-resolutions
  (fn [{:keys [db]} _]
@@ -5078,9 +5104,10 @@
                                      :from key
                                      :to (:new-key decision)}))
 
-                        ;; Skip this item (don't import it)
+                        ;; Skip: no rename here — the item is dropped from the
+                        ;; incoming data below via skip-targets/remove-skipped.
                         (= :skip (:action decision))
-                        acc  ; Will handle removal separately
+                        acc
 
                         ;; Keep both (no rename - allows override)
                         :else
@@ -5134,7 +5161,9 @@
          ;; and surfaced here — not hidden until the next refresh. Export mode
          ;; replaces the whole library and resumes the export instead.
          ;; incoming-sources keeps a multi-plugin flat (never wrapped/double-nested).
-         incoming (set-disabled (incoming-sources import-name renamed-data) import-disables)
+         incoming (-> (incoming-sources import-name renamed-data)
+                      (drop-skipped-imports conflicts decisions import-name)
+                      (set-disabled import-disables))
          ;; existing side: rename the chosen existing items, then disable any
          ;; keep-both-disable losers, then use that as the store base.
          existing-base (-> (:plugins db)

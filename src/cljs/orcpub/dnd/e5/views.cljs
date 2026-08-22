@@ -8150,7 +8150,7 @@
             ;; Cross-source same-key collisions, computed at display time so a
             ;; disabled item can say WHY it's off (its twin elsewhere is on) and
             ;; the enabled winner can point at its silenced duplicate.
-            twin-idx   (orcbrew-val/collision-twin-index @(subscribe [::e5/plugins]))
+            twin-idx   @(subscribe [::e5/collision-twin-index])
             select-mode? @(subscribe [::e5/content-select-mode?])
             q          (or search "")
             visible    (filter (fn [[_ {:keys [name disabled?]}]]
@@ -8343,9 +8343,9 @@
             q            (-> @search s/lower-case s/trim)
             show?        @show-disabled?
             ;; does this source hold an item in an unresolved key conflict? (flags
-            ;; the row so the health banner's "resolve" has somewhere to point)
-            conflict?    (contains? (orcbrew-val/unresolved-conflict-sources
-                                     @(subscribe [::e5/plugins])) name)]
+            ;; the row so the health banner's "resolve" has somewhere to point).
+            ;; Reads the memoized set so every row shares one library walk.
+            conflict?    (contains? (:conflict-sources @(subscribe [::e5/library-health])) name)]
         [:div.item-list-item
          [:div.p-20.pointer.flex.justify-cont-s-b.align-items-c.main-text-color
           {:on-click #(swap! expanded? not)}
@@ -8451,10 +8451,8 @@
    Re-keyed on the total so the one-time flash fires on appearance and on any change.
    Reuses the existing detectors — no new detection/resolution logic here."
   [always?]
-  (let [plugins   @(subscribe [::e5/plugins])
-        conflicts (orcbrew-val/unresolved-collisions plugins)
+  (let [{:keys [conflicts missing blocked]} @(subscribe [::e5/library-health])
         cn        (count conflicts)
-        {:keys [missing blocked]} (orcbrew-val/library-export-issue-counts plugins)
         ;; each line: {:sev :warn|:broken :n :msg :detail [..] :more :act-label :act}
         lines (cond-> []
                 (pos? cn)
@@ -8570,7 +8568,7 @@
    ;; Library-level mutual-exclusion summary: when duplicate keys have forced
    ;; one side off, say so once at the top with a link into the conflict modal,
    ;; so the silenced items are explained in aggregate — not just per-row.
-   (let [off-n (orcbrew-val/mutual-exclusion-off-count @(subscribe [::e5/plugins]))]
+   (let [off-n @(subscribe [::e5/mutual-exclusion-off-count])]
      (when (pos? off-n)
        [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
         [:span.f-s-14

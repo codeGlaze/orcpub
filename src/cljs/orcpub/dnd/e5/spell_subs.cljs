@@ -24,6 +24,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils]
             [orcpub.dnd.e5.template-base :as t-base]
@@ -39,6 +40,50 @@
  ::e5/plugins
  (fn [db _]
    (get db :plugins)))
+
+;; ---------------------------------------------------------------------------
+;; Memoized library-health detectors.
+;;
+;; These walk the WHOLE library (every source × content-type × item), and the
+;; My Content views call them from several places — the twin index alone was
+;; being rebuilt once per content-type section per source, i.e. dozens of full
+;; walks on every render (and every search keystroke). As re-frame reactions
+;; keyed on ::e5/plugins they compute once per plugins change and share that one
+;; result across every row, section, and page, instead of recomputing in each
+;; component's render body. Keep them here (not inline in views) so the caching
+;; is structural, not something a future caller can accidentally bypass.
+;; ---------------------------------------------------------------------------
+
+;; Cross-source same-key index for the collision-risk types — backs the
+;; per-item twin notes (why an item is off / which duplicate it silences).
+(reg-sub
+ ::e5/collision-twin-index
+ :<- [::e5/plugins]
+ (fn [plugins _]
+   (orcbrew-val/collision-twin-index plugins)))
+
+;; One derived summary for the health card and the library-row conflict flag:
+;; the unresolved conflicts (2+ enabled copies of a key), the set of source
+;; names that hold one, and the export issue counts (missing required fields /
+;; blocked-invalid sources). All the health UI reads this single sub.
+(reg-sub
+ ::e5/library-health
+ :<- [::e5/plugins]
+ (fn [plugins _]
+   (let [conflicts (orcbrew-val/unresolved-collisions plugins)
+         counts    (orcbrew-val/library-export-issue-counts plugins)]
+     {:conflicts        conflicts
+      :conflict-sources (into #{} (mapcat :sources conflicts))
+      :missing          (:missing counts)
+      :blocked          (:blocked counts)})))
+
+;; How many items are off ONLY because a same-key twin is on — the library-level
+;; "N items are off because a duplicate is on" summary line.
+(reg-sub
+ ::e5/mutual-exclusion-off-count
+ :<- [::e5/plugins]
+ (fn [plugins _]
+   (orcbrew-val/mutual-exclusion-off-count plugins)))
 
 ;; Ephemeral overlay for a SHARED character being viewed: content that arrived
 ;; embedded in a share link (view-once) lives here, NOT in :plugins, so it is

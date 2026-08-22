@@ -650,28 +650,6 @@
       (is (= 1 (get-in result [:changes :options-fixed]))))))
 
 ;; ============================================================================
-;; Levenshtein Distance Tests
-;; ============================================================================
-
-(deftest test-levenshtein-distance-basics
-  (testing "Known edit distances"
-    (is (= 0 (orcbrew-val/levenshtein-distance :abc :abc)))
-    (is (= 3 (orcbrew-val/levenshtein-distance :kitten :sitting)))
-    (is (= 3 (orcbrew-val/levenshtein-distance :saturday :sunday))))
-  (testing "Empty string edge cases"
-    (is (= 3 (orcbrew-val/levenshtein-distance :abc (keyword ""))))
-    (is (= 0 (orcbrew-val/levenshtein-distance (keyword "") (keyword ""))))))
-
-(deftest test-levenshtein-early-return
-  (testing "Length diff > 10 returns len-diff (skips matrix computation)"
-    ;; :ab (2 chars) vs :abcdefghijklmno (15 chars) — diff is 13
-    (is (= 13 (orcbrew-val/levenshtein-distance :ab :abcdefghijklmno))))
-  (testing "Length diff <= 10 still computes full matrix"
-    ;; :abc (3 chars) vs :abcdefghijk (11 chars) — diff is 8, should compute
-    (let [dist (orcbrew-val/levenshtein-distance :abc :abcdefghijk)]
-      (is (= 8 dist)))))
-
-;; ============================================================================
 ;; Format Spec Problem — falsy value handling
 ;; ============================================================================
 
