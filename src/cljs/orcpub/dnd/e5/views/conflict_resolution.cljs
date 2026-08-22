@@ -45,8 +45,9 @@
      ;; Severity note — loud only for the types where a same-key duplicate is a
      ;; real problem (one wins unpredictably), quiet otherwise.
      (when risky?
-       [:div.f-s-11 {:style {:color "#f0a100" :margin "3px 0 2px"}}
-        "⚠ Two of these can't coexist — the app keeps only one, and which one is unpredictable. Pick which keeps the name."])
+       [:div.conflict-warn-note.f-s-11
+        [:i.fa.fa-exclamation-triangle]
+        "Two of these can't coexist — the app keeps only one, and which one is unpredictable. Pick which keeps the name."])
 
      (if (= type :internal)
        ;; Internal conflict: same key in multiple sources within import
@@ -133,8 +134,9 @@
        #(dispatch [:set-conflict-decision id {:action :keep-both}])
        (if risky?
          [:span "Keep both as-is — "
-          [:span {:style {:color "#f0a100"}}
-           "⚠ not recommended: which one the app uses is unpredictable"]]
+          [:span {:style {:color "#ffd21a"}}
+           [:i.fa.fa-exclamation-triangle.m-r-5]
+           "not recommended: which one the app uses is unpredictable"]]
          [:span "Keep both — they'll both appear as separate options"])
        :keep]
 
@@ -243,8 +245,8 @@
     [:div.conflict-modal
      [:div.conflict-modal-header
       [:div.flex.align-items-c
-       [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon]
-       [:span.f-s-18.f-w-b.conflict-title "Key Conflicts Detected"]]
+       [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon.warn]
+       [:span.f-s-18.f-w-b.conflict-title.warn "Key Conflicts Detected"]]
       [:div.f-s-12.conflict-subtitle
        (str (if library? "In: " "Importing: ") import-name)]
       [:div.f-s-12.conflict-count
@@ -441,8 +443,8 @@
         ;; Header
         [:div.conflict-modal-header
          [:div.flex.align-items-c
-          [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon]
-          [:span.f-s-18.f-w-b.conflict-title "Missing Required Fields"]]
+          [:i.fa.fa-exclamation-triangle.m-r-5.conflict-title-icon.warn]
+          [:span.f-s-18.f-w-b.conflict-title.warn "Missing Required Fields"]]
          [:div.f-s-12.conflict-subtitle
           (if multi?
             (str "Exporting: " (count plugins) " plugin"
@@ -496,7 +498,7 @@
            :disabled (not all-filled?)
            :class (when-not all-filled? "disabled")}
           (if all-filled?
-            "Export & Auto-Fix"
+            [:span [:i.fa.fa-download.m-r-5] "Export & Auto-Fix"]
             (str "Fill required fields ("
                  filled-dropdowns "/" total-dropdowns ")"))]]]])))
 

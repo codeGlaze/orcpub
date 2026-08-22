@@ -11,6 +11,8 @@
 (def green "#70a800")
 (def cyan "#47eaf8")      ; import log, conflict rename option
 (def purple "#8b7ec8")    ; conflict skip option
+(def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
+(def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
 
 (def container-style
   {:display :flex
@@ -1312,17 +1314,17 @@
     [:.health-flash {:animation "health-pulse 1.15s ease-out 2"}]
     [:.health-row
      {:display :flex :align-items :center :gap "10px" :padding "12px 14px 12px 0"}]
-    [:.health-rail {:width "4px" :align-self :stretch :flex "0 0 auto" :background-color "#ffd21a"}]
-    [:.health-ico {:flex "0 0 auto" :width "20px" :text-align :center :color "#ffd21a"}]
+    [:.health-rail {:width "4px" :align-self :stretch :flex "0 0 auto" :background-color warning-yellow}]
+    [:.health-ico {:flex "0 0 auto" :width "20px" :text-align :center :color warning-yellow}]
     [:.health-msg {:flex 1 :font-size "14px"}]
     [:.health-act
-     {:color "#ffd21a" :text-transform :uppercase :font-weight 600 :font-size "12px"
+     {:color warning-yellow :text-transform :uppercase :font-weight 600 :font-size "12px"
       :text-decoration :underline :cursor :pointer :white-space :nowrap :padding-left "8px"}]
     ;; broken tier = red (reserved)
     [:.health-broken
-     [:.health-rail {:background-color "#e5637a"}]
-     [:.health-ico {:color "#e5637a"}]
-     [:.health-act {:color "#e5637a"}]]
+     [:.health-rail {:background-color broken-red}]
+     [:.health-ico {:color broken-red}]
+     [:.health-act {:color broken-red}]]
     (at-media {:prefers-reduced-motion "reduce"} [:.health-flash {:animation :none}])
 
     [:.link-button
@@ -1631,6 +1633,20 @@
     [:.conflict-title
      {:color orange}]
 
+    ;; Attention-severity header (unresolved conflicts / missing fields) — speaks
+    ;; the same warning-yellow language as the My Content health card, so the modal
+    ;; that resolves an issue matches the banner that surfaced it. The confident
+    ;; "Ready to import" summary stays brand-orange (it's resolved, not flagged).
+    [:.conflict-title-icon.warn {:color warning-yellow}]
+    [:.conflict-title.warn {:color warning-yellow}]
+
+    ;; Inline "these can't coexist" note — FA triangle + yellow, matching the card.
+    [:.conflict-warn-note
+     {:color warning-yellow
+      :font-size "11px"
+      :margin "3px 0 2px"}
+     [:i.fa {:margin-right "5px"}]]
+
     [:.conflict-subtitle
      {:color "rgba(255,255,255,0.5)"
       :margin-top "4px"}]
@@ -1639,20 +1655,21 @@
      {:color "rgba(255,255,255,0.5)"
       :margin-top "8px"}]
 
-    ;; Conflict card
+    ;; Conflict card — an unresolved conflict is an attention item, so its rail and
+    ;; key carry the same warning-yellow used by the health card and library tint.
     [:.conflict-item
      {:background "rgba(255,255,255,0.07)"
       :border-radius "0 5px 5px 0"
       :padding "12px"
       :margin-bottom "8px"
       :border "1px solid rgba(255,255,255,0.12)"
-      :border-left (str "3px solid " orange)}]
+      :border-left (str "3px solid " warning-yellow)}]
 
     [:.conflict-item-header
      {:margin-bottom "10px"}]
 
     [:.conflict-item-key
-     {:color orange}]
+     {:color warning-yellow}]
 
     [:.conflict-item-type
      {:color "rgba(255,255,255,0.7)"
