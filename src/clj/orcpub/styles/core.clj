@@ -1175,6 +1175,34 @@
     [:.form-button.disabled:hover
      {:box-shadow :none}]
 
+    ;; ── Library health status ─────────────────────────────────────────────
+    ;; Passive card that appears only when something needs attention. Warm
+    ;; escalation: warning-yellow for resolvable (conflicts, missing fields),
+    ;; red reserved for broken. One --accent drives the rail, icon and action
+    ;; link so it reads as a single object; a one-time flash fires on appearance
+    ;; and whenever the count changes (the card is re-keyed on count).
+    (at-keyframes "health-pulse"
+                  [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.55)"}]
+                  [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
+                  [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0)"}])
+    [:.health-card
+     {:background-color "#171d27" :border-radius "6px" :overflow :hidden :margin-bottom "10px"}]
+    [:.health-flash {:animation "health-pulse 1.15s ease-out 2"}]
+    [:.health-row
+     {:display :flex :align-items :center :gap "10px" :padding "12px 14px 12px 0"}]
+    [:.health-rail {:width "4px" :align-self :stretch :flex "0 0 auto" :background-color "#ffd21a"}]
+    [:.health-ico {:flex "0 0 auto" :width "20px" :text-align :center :color "#ffd21a"}]
+    [:.health-msg {:flex 1 :font-size "14px"}]
+    [:.health-act
+     {:color "#ffd21a" :text-transform :uppercase :font-weight 600 :font-size "12px"
+      :text-decoration :underline :cursor :pointer :white-space :nowrap :padding-left "8px"}]
+    ;; broken tier = red (reserved)
+    [:.health-broken
+     [:.health-rail {:background-color "#e5637a"}]
+     [:.health-ico {:color "#e5637a"}]
+     [:.health-act {:color "#e5637a"}]]
+    (at-media {:prefers-reduced-motion "reduce"} [:.health-flash {:animation :none}])
+
     [:.link-button
      {:color button-color
       :border :none

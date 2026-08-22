@@ -7978,18 +7978,26 @@
       ;; delete what is in them — that would make a mis-click destructive. The
       ;; values stay on the item and come straight back if it is ticked again;
       ;; removing them for good takes a deliberate second click.
+      ;;
+      ;; Uses the library-health card primitives: a passive notice that appears
+      ;; only when something needs attention, at the warning tier (resolvable —
+      ;; red is reserved for broken). Same treatment as the My Content library
+      ;; health lines, so an "attention, not an error" signal looks the same
+      ;; wherever it turns up.
       (when (and (not magical?) (mi/has-magical-properties? item))
-        [:div.m-t-10.p-10.b-1.b-rad-5.b-orange
-         [:div.f-s-14
-          (str "This item still has magical properties recorded: "
-               (s/join ", " (magical-property-labels item))
-               ".")]
-         [:div.f-s-12.i.opacity-5.m-t-5
-          "They are kept, but not applied while this is a mundane item. Tick Magic item to get them back."]
-         [:div.flex.justify-cont-end.m-t-5
-          [:button.form-button
+        [:div.health-card.health-flash.m-t-10
+         [:div.health-row
+          [:span.health-rail]
+          [:span.health-ico [:i.fa.fa-exclamation-triangle]]
+          [:span.health-msg
+           [:strong (str "Magical properties kept but not applied: "
+                         (s/join ", " (magical-property-labels item))
+                         ".")]
+           [:div.f-s-12.opacity-7.m-t-2
+            "Tick Magic item to get them back."]]
+          [:span.health-act
            {:on-click (make-event-handler ::mi/clear-magical-properties)}
-           "remove them for good"]]])])))
+           "remove for good"]]])])))
 
 (defn item-builder []
   (let [{:keys [::mi/name ::mi/type ::mi/rarity ::mi/description ::mi/attunement] :as item}
