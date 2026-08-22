@@ -24,6 +24,11 @@
   which is the only thing that retires the guess.
 
 ### Changed
+- **Magic Item? is a dropdown, alongside Type and Rarity** — it was a checkbox
+  labelled "Magic Item?" whose caption read "Mundane item", so the question and
+  the answer contradicted each other. Now it answers its own label: Yes /
+  No — mundane, plus a "Not set" option that only appears while an item is
+  still unclassified and disappears once someone chooses.
 - **The item builder only offers magical fields to magic items** — rarity,
   attunement, magical attack/damage/AC bonuses and the ability, save, speed,
   resistance and immunity grids appear only when Magic Item? is ticked. Name,
@@ -33,9 +38,10 @@
   magical properties stop applying but stay on the item, and a notice names
   what is being held ("attunement, modifiers, an attack bonus"). Ticking the
   box again brings them all back; removing them for good takes a deliberate
-  second click. The notice uses the `health-card` primitives from
-  `feature/content-library-management` at the warning tier, so an
-  "attention, not an error" signal looks the same wherever it appears. Nothing on the automatic path can reach this state: an item
+  second click. That notice, and the "not recorded yet" one, use the
+  `health-card` primitives from `feature/content-library-management` at the
+  warning tier, so an "attention, not an error" signal looks the same wherever
+  it appears — replacing near-invisible `opacity-5` italic hints. Nothing on the automatic path can reach this state: an item
   classification calls mundane on its own has no magical properties by
   definition.
 - **Reclassified items stay resolvable where characters already stored them** —

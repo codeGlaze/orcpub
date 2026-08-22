@@ -2942,15 +2942,16 @@
    (mi/without-magical-properties item)))
 
 (reg-event-db
- ::mi/toggle-item-magical?
+ ::mi/set-item-kind
  item-interceptors
- (fn [item _]
-   ;; Toggle from what the item is currently being TREATED as, not from the
-   ;; raw key. A legacy item has no ::mi/magical? at all and is displayed as
-   ;; magical, so `(update item ::mi/magical? not)` would flip nil to true and
-   ;; record agreement the user never expressed. Always write an explicit
-   ;; boolean — that is what retires the guess.
-   (assoc item ::mi/magical? (not (mi/magical? item)))))
+ (fn [item [_ kind]]
+   ;; Always writes an EXPLICIT boolean — that is what retires a legacy item's
+   ;; guess. "unreviewed" removes the key again rather than storing a third
+   ;; value, so an unclassified item stays exactly as unclassified as it was.
+   (case kind
+     "magical" (assoc item ::mi/magical? true)
+     "mundane" (assoc item ::mi/magical? false)
+     (dissoc item ::mi/magical?))))
 
 (reg-event-db
  ::spells/set-spell-prop
