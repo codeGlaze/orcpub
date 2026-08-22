@@ -53,6 +53,7 @@
                                       class->local-store
                                       plugins->local-store
                                       disable-overlay->local-store
+                                      health-dismissed->local-store
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       default-character
@@ -148,6 +149,9 @@
 (def disable-overlay->local-store-interceptor
   (after (fn [db] (disable-overlay->local-store (:disable-overlay db)))))
 
+(def health-dismissed->local-store-interceptor
+  (after (fn [db] (health-dismissed->local-store (:health-dismissed db)))))
+
 (def set-changed (->interceptor
                   :id :set-changed
                   :before (fn [context]
@@ -226,6 +230,7 @@
   ;; this reads the result into app-db for the reactive repair panel.
   (inject-cofx ::e5/rejected-plugins)
   (inject-cofx ::e5/disable-overlay)
+  (inject-cofx ::e5/health-dismissed)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -236,6 +241,7 @@
               ::e5/plugins
               ::e5/rejected-plugins
               ::e5/disable-overlay
+              ::e5/health-dismissed
               ::combat/tracker-item]} _]
    {:db (if (seq db)
           db
@@ -243,6 +249,7 @@
             plugins (assoc :plugins plugins)
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             (seq disable-overlay) (assoc :disable-overlay disable-overlay)
+            (some? health-dismissed) (assoc :health-dismissed health-dismissed)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
             local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
@@ -4478,6 +4485,15 @@
  [disable-overlay->local-store-interceptor]
  (fn [db _]
    (update-in db [:disable-overlay :global?] not)))
+
+;; Dismiss the library-health heads-up for the CURRENT problem set (its signature).
+;; It stays hidden until the set changes (new sig) — and never on My Content, which
+;; ignores dismissal so the hub always surfaces what needs fixing.
+(reg-event-db
+ ::e5/dismiss-health
+ [health-dismissed->local-store-interceptor]
+ (fn [db [_ sig]]
+   (assoc db :health-dismissed sig)))
 
 (reg-event-db
  ::e5/toggle-section-disable

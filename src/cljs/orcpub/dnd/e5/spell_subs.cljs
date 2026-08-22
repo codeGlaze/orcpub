@@ -114,6 +114,11 @@
    (get db :disable-overlay)))
 
 (reg-sub
+ ::e5/health-dismissed
+ (fn [db _]
+   (get db :health-dismissed)))
+
+(reg-sub
  ::e5/global-disabled?
  :<- [::e5/disable-overlay]
  (fn [overlay _]

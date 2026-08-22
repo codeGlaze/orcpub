@@ -1504,6 +1504,8 @@
   ;; Note: no `:>` or `js/React.createElement`.  
   [:div {:dangerouslySetInnerHTML #js {:__html html}}])
 
+(declare library-health-status)
+
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
   ;; Plain atom (not r/atom) mirrors the :orcacle-open? subscription value
   ;; for the scroll handler, which runs as a DOM event listener outside
@@ -1581,7 +1583,17 @@
               [integrations/content-slot @(subscribe [:user-tier])]
 
               [:div#app-main.container
-               [:div.content.w-100-p content]]
+               [:div.content.w-100-p
+                ;; Library-health status — shown on every content page (it self-
+                ;; hides when clean), so a conflict/missing-field is never a
+                ;; surprise on one page and invisible on another. Excludes the
+                ;; character list (no homebrew content there). On My Content it
+                ;; ALWAYS shows (the hub); elsewhere it's dismissable.
+                (let [handler (:handler @(subscribe [:route]))]
+                  (when-not (= handler routes/dnd-e5-char-list-page-route)
+                    [library-health-status
+                     (= handler routes/dnd-e5-my-content-route)]))
+                content]]
 
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
@@ -8438,7 +8450,7 @@
    the existing resolver. Warning-yellow for resolvable, red reserved for broken.
    Re-keyed on the total so the one-time flash fires on appearance and on any change.
    Reuses the existing detectors — no new detection/resolution logic here."
-  []
+  [always?]
   (let [plugins   @(subscribe [::e5/plugins])
         conflicts (orcbrew-val/unresolved-collisions plugins)
         cn        (count conflicts)
@@ -8464,10 +8476,19 @@
                        :msg (str blocked " source" (when (> blocked 1) "s")
                                  " can't export — invalid data")
                        :act-label "review" :act ::e5/export-all-plugins}))
-        total (reduce + 0 (map :n lines))]
-    (when (seq lines)
+        total (reduce + 0 (map :n lines))
+        ;; signature of the CURRENT problem set — dismissal is remembered against
+        ;; this, so the card re-appears the moment the problems change.
+        sig (hash [(vec (sort (map (comp str :key) conflicts))) missing blocked])
+        dismissed @(subscribe [::e5/health-dismissed])]
+    ;; My Content (always?) ignores dismissal — the hub always surfaces problems.
+    (when (and (seq lines) (or always? (not= sig dismissed)))
       ^{:key total}
       [:div.health-card.health-flash.m-b-10
+       (when-not always?
+         [:span.health-x {:title "Dismiss until it changes"
+                          :on-click (make-event-handler ::e5/dismiss-health sig)}
+          [:i.fa.fa-times]])
        (doall
         (for [{:keys [sev n msg detail more act-label act]} lines]
           ^{:key act-label}
@@ -8544,10 +8565,8 @@
          [:button.form-button.mc-del
           {:on-click (make-event-handler ::char/delete-all-plugins)}
           "Delete all " n " source" (when (not= 1 n) "s")]]))
-   ;; Library-health status — the passive card (conflicts now; missing-fields
-   ;; next). Appears only when something needs attention, flashes on change,
-   ;; collapses to nothing when clean. Reuses the existing detectors + resolvers.
-   [library-health-status]
+   ;; (Library-health status is rendered by content-page at the top of every
+   ;; content page — always-on here on the My Content hub, dismissable elsewhere.)
    ;; Library-level mutual-exclusion summary: when duplicate keys have forced
    ;; one side off, say so once at the top with a link into the conflict modal,
    ;; so the silenced items are explained in aggregate — not just per-row.

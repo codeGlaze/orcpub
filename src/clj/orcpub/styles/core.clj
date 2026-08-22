@@ -1302,7 +1302,13 @@
                   [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
                   [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0)"}])
     [:.health-card
-     {:background-color "#171d27" :border-radius "6px" :overflow :hidden :margin-bottom "10px"}]
+     {:background-color "#171d27" :border-radius "6px" :overflow :hidden :margin-bottom "10px"
+      :position :relative}]
+    ;; dismiss × (never on My Content) — a quiet control in the corner
+    [:.health-x
+     {:position :absolute :top "6px" :right "10px" :cursor :pointer
+      :color "rgba(255,255,255,0.35)" :font-size "13px" :z-index 1}]
+    [:.health-x:hover {:color "rgba(255,255,255,0.75)"}]
     [:.health-flash {:animation "health-pulse 1.15s ease-out 2"}]
     [:.health-row
      {:display :flex :align-items :center :gap "10px" :padding "12px 14px 12px 0"}]
