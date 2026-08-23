@@ -1315,6 +1315,24 @@
                            (:changes step2)
                            (:changes step3)))}))
 
+;; Keep original functions for backwards compatibility
+;; INVESTIGATE 2026-08-23: pre-existing before this branch (af228f12); a
+;; content-library code sweep found no callers of these bare wrappers anywhere
+;; (all live callers use the *-with-log variants above). Left pending a
+;; dedicated housekeeping pass to confirm the "backwards compatibility" note
+;; still applies before removing.
+(defn clean-nil-in-map [m]
+  (:data (clean-nil-in-map-with-log m)))
+
+(defn fix-empty-option-pack [data]
+  (:data (fix-empty-option-pack-with-log data)))
+
+(defn rename-empty-plugin-key [data]
+  (:data (rename-empty-plugin-key-with-log data)))
+
+(defn clean-data [data]
+  (:data (clean-data-with-log data)))
+
 ;; ============================================================================
 ;; Export blank-stripping — don't ship meaningless nils/falses/empties.
 ;; ============================================================================
@@ -1404,6 +1422,23 @@
                  {} items))
          (assoc p ct items)))
      {} plugin)))
+
+;; INVESTIGATE 2026-08-23: pre-existing before this branch (af228f12); a
+;; content-library code sweep found no callers anywhere in the repo. Left in
+;; place pending a dedicated housekeeping pass to confirm and remove — not
+;; deleted here to keep this feature branch's scope focused.
+(defn find-duplicate-keys-in-content
+  "Finds duplicate keys within a single content group.
+   Returns a vector of {:key :content-type :sources [...]} for each duplicate."
+  [content-type items source-name]
+  ;; Since items is a map, keys are inherently unique within it.
+  ;; But we track them for cross-source comparison.
+  (mapv (fn [[k v]]
+          {:key k
+           :content-type content-type
+           :source source-name
+           :name (or (:name v) (common/kw-to-name k))})
+        items))
 
 (defn collect-all-keys-from-plugin
   "Collects all content keys from a single plugin.
@@ -1646,6 +1681,126 @@
                         "\"" import-name "\" from " import-source
                         " vs \"" existing-name "\" from " existing-source)})
         external-conflicts)))
+
+;; ============================================================================
+;; Fuzzy Key Matching
+;; ============================================================================
+;; INVESTIGATE 2026-08-23: this whole cluster is pre-existing before this branch
+;; (af228f12) and a content-library code sweep found no callers — its entry point
+;; suggest-key-matches is unused, and the live "did you mean" matcher is
+;; key-similarity/find-similar-content in orcpub.dnd.e5.content-reconciliation,
+;; which appears to have superseded it. Left in place pending a dedicated
+;; housekeeping pass to confirm and remove (with its Levenshtein tests) rather
+;; than widening this feature branch's scope.
+
+(defn levenshtein-distance
+  "Calculate the Levenshtein edit distance between two strings.
+   Used for fuzzy matching similar key names."
+  [s1 s2]
+  (let [s1 (name s1)
+        s2 (name s2)
+        len1 (count s1)
+        len2 (count s2)
+        len-diff (Math/abs (- len1 len2))]
+    (cond
+      (zero? len1) len2
+      (zero? len2) len1
+      ;; Early return: if lengths differ by more than 10, edit distance is at
+      ;; least len-diff and the normalized similarity score will be very low.
+      ;; Skip the expensive O(n*m) matrix computation.
+      (> len-diff 10) len-diff
+      :else
+      (let [;; Create distance matrix
+            matrix (vec (for [i (range (inc len1))]
+                          (vec (for [j (range (inc len2))]
+                                 (cond
+                                   (zero? i) j
+                                   (zero? j) i
+                                   :else 0)))))]
+        ;; Fill in the matrix
+        (loop [i 1
+               m matrix]
+          (if (> i len1)
+            (get-in m [len1 len2])
+            (recur (inc i)
+                   (loop [j 1
+                          m2 m]
+                     (if (> j len2)
+                       m2
+                       (let [cost (if (= (nth s1 (dec i)) (nth s2 (dec j))) 0 1)
+                             val (min (inc (get-in m2 [(dec i) j]))        ; deletion
+                                      (inc (get-in m2 [i (dec j)]))        ; insertion
+                                      (+ cost (get-in m2 [(dec i) (dec j)])))] ; substitution
+                         (recur (inc j)
+                                (assoc-in m2 [i j] val))))))))))))
+
+(defn key-similarity-score
+  "Calculate a similarity score between two keys.
+   Higher score = more similar. Returns {:score :reason}."
+  [missing-key candidate-key]
+  (let [missing-str (name missing-key)
+        candidate-str (name candidate-key)
+        missing-lower (str/lower-case missing-str)
+        candidate-lower (str/lower-case candidate-str)]
+    (cond
+      ;; Exact match (shouldn't happen, but handle it)
+      (= missing-key candidate-key)
+      {:score 100 :reason :exact}
+
+      ;; Candidate starts with missing key (e.g., :mystic matches :mystic-kibbles-tasty)
+      (str/starts-with? candidate-lower missing-lower)
+      {:score (- 90 (- (count candidate-str) (count missing-str)))
+       :reason :prefix-match}
+
+      ;; Missing key starts with candidate (less likely but possible)
+      (str/starts-with? missing-lower candidate-lower)
+      {:score (- 80 (- (count missing-str) (count candidate-str)))
+       :reason :candidate-prefix}
+
+      ;; Same display name after kw-to-name conversion
+      (= (common/kw-to-name missing-key) (common/kw-to-name candidate-key))
+      {:score 85 :reason :same-display-name}
+
+      ;; Levenshtein distance - closer names score higher
+      :else
+      (let [distance (levenshtein-distance missing-str candidate-str)
+            max-len (max (count missing-str) (count candidate-str))
+            ;; Normalize: 0 distance = score 70, max distance = score 0
+            normalized (if (zero? max-len)
+                         0
+                         (int (* 70 (- 1 (/ distance max-len)))))]
+        {:score (max 0 normalized)
+         :reason :levenshtein}))))
+
+(defn find-similar-keys
+  "Find keys similar to the missing key from available keys.
+   Returns sorted vector of {:key :score :reason :source :name} maps.
+   Only returns matches with score >= min-score (default 30)."
+  ([missing-key available-keys-info]
+   (find-similar-keys missing-key available-keys-info 30))
+  ([missing-key available-keys-info min-score]
+   (let [matches (->> available-keys-info
+                      (map (fn [{:keys [key source name] :as info}]
+                             (let [{:keys [score reason]} (key-similarity-score missing-key key)]
+                               (assoc info :score score :reason reason))))
+                      (filter #(>= (:score %) min-score))
+                      (sort-by :score >)
+                      (take 5))] ; Return top 5 matches
+     (vec matches))))
+
+(defn build-key-lookup-index
+  "Build an index of all available keys from loaded plugins.
+   Returns {:content-type [{:key :source :name} ...]}."
+  [plugins]
+  (collect-all-keys-from-plugins plugins))
+
+(defn suggest-key-matches
+  "Given a missing key and content type, find suggestions from loaded plugins.
+   Returns vector of suggestions or empty vector if no good matches."
+  [missing-key content-type plugins]
+  (let [index (build-key-lookup-index plugins)
+        available (get index content-type [])]
+    (find-similar-keys missing-key available)))
 
 ;; ============================================================================
 ;; Shared correction pass (import AND export)
