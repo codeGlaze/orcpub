@@ -522,3 +522,16 @@
                      {"i0" {:action :skip}} "P")]
       (is (= incoming keep-both) "keep-both leaves the item")
       (is (= incoming internal) "internal skip is a no-op (nothing to defer to)"))))
+
+;; ---------------------------------------------------------------------------
+;; :route — REGRESSION: an unmatched URL makes match-route return nil, so
+;; [:route nil ...] gets dispatched. The handler used to compute path-for on the
+;; nil route and throw an ex-info; it must now no-op and leave the route intact.
+;; ---------------------------------------------------------------------------
+
+(deftest route-nil-is-a-no-op-not-a-crash
+  (testing "[:route nil ...] preserves the current route and throws nothing"
+    (reset! app-db {:route :some-existing-route})
+    (rf/dispatch-sync [:route nil {:skip-path? true}])
+    (is (= :some-existing-route (:route @app-db))
+        "current route kept — no clobber, no exception at path-for")))

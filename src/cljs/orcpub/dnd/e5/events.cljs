@@ -1845,32 +1845,39 @@
 (reg-event-fx
  :route
  (fn [{:keys [db]} [_ {:keys [handler route-params] :as new-route} {:keys [no-return? skip-path? event secure?] :as options}]]
-   (integrations/track-page-view! new-route)
-   (let [{:keys [route route-history]} db
-         seq-params (seq route-params)
-         flat-params (flatten seq-params)
-         path (apply routes/path-for (or handler new-route) flat-params)
-         ;; Homebrew embedded in a share link loads only on the character page,
-         ;; and only into the ephemeral :shared-plugins overlay (never the library).
-         char-page? (= (or handler new-route) routes/dnd-e5-char-page-route)
-         shared-payload (when char-page? (shared-content-payload))]
-     (when (and js/window.location
-                secure?
-                (not= "localhost" js/window.location.hostname))
-       (set! js/window.location.href (make-url "https"
-                                               js/window.location.hostname
-                                               path
-                                               js/window.location.port)))
-     (cond-> {:db (assoc db :route new-route)
-              :dispatch-n [[:hide-message]
-                           [:close-orcacle]]}
-       (not no-return?) (assoc-in [:db :return-route] new-route)
-       (not skip-path?) (assoc :path path)
-       ;; Leaving/entering a plain character view clears any prior shared overlay
-       ;; so view-once content (homebrew + custom items) never lingers across characters.
-       char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil)
-       shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
-       event (update :dispatch-n conj event)))))
+   ;; An unmatched URL makes bidi/match-route return nil, so [:route nil ...] can
+   ;; be dispatched (a typo'd or stale link, or a path the app doesn't serve).
+   ;; Ignore it instead of crashing at path-for on a nil route — the current
+   ;; route is left in place, same net effect as before minus the thrown error.
+   (if (nil? new-route)
+     {}
+     (do
+       (integrations/track-page-view! new-route)
+       (let [{:keys [route route-history]} db
+             seq-params (seq route-params)
+             flat-params (flatten seq-params)
+             path (apply routes/path-for (or handler new-route) flat-params)
+             ;; Homebrew embedded in a share link loads only on the character page,
+             ;; and only into the ephemeral :shared-plugins overlay (never the library).
+             char-page? (= (or handler new-route) routes/dnd-e5-char-page-route)
+             shared-payload (when char-page? (shared-content-payload))]
+         (when (and js/window.location
+                    secure?
+                    (not= "localhost" js/window.location.hostname))
+           (set! js/window.location.href (make-url "https"
+                                                   js/window.location.hostname
+                                                   path
+                                                   js/window.location.port)))
+         (cond-> {:db (assoc db :route new-route)
+                  :dispatch-n [[:hide-message]
+                               [:close-orcacle]]}
+           (not no-return?) (assoc-in [:db :return-route] new-route)
+           (not skip-path?) (assoc :path path)
+           ;; Leaving/entering a plain character view clears any prior shared overlay
+           ;; so view-once content (homebrew + custom items) never lingers across characters.
+           char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil)
+           shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
+           event (update :dispatch-n conj event)))))))
 
 (reg-event-db
  :set-user-data
