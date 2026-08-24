@@ -69,6 +69,18 @@ loops because decisions lived in two parallel trackers; this is the one that sup
 > CLEAN EDN; the import *intentionally transforms* malformed/partially-invalid input (cleaning is a
 > feature). Surface these when split-committing docs to `agents/develop`.
 
+### BUILT — Content-library management (parallel branch `feature/content-library-management`, PR #30)
+Split off from this branch because it applies to **both** `develop` and this refactor line (it needs no
+feat-pool rewrites). The My Content homebrew manager: duplicate-key **conflict resolution** (opinionated
+summary-first + advanced per-conflict panel), the four-level **disable hierarchy**
+(global/source/section/item, the two local levels in an overlay store — never in `.orcbrew` data),
+**move/copy** between sources (clobber-free key policy), and a passive **health-status** card (one line
+per problem *type*, warning-yellow for attention / red for broken; always-on on the hub, dismissable
+elsewhere). Also a Skip-conflict bugfix and a nil-route handler fix. 230 CLJS tests; e2e-verified.
+Detail: `docs/kb/library-management-and-conflicts.md`. **In review against `develop` (PR #30);** to be
+integrated into this refactor branch (timing under discussion — cleanest once PR #30 lands on `develop`,
+then merge `develop` in, since the shared files here have diverged for the feat work).
+
 ### DECIDED (design settled; don't re-litigate)
 > Canonical log: `content-extensibility-decisions.md` — D1–D22 (content track) and **D23–D29**
 > (this expansion: prototype-then-converge governance, the class-feature registry, `compile-feature`,
@@ -165,11 +177,14 @@ loops because decisions lived in two parallel trackers; this is the one that sup
   cljs-headless-harness · test-suite-state · verification-discipline · datomic-crash-analysis.
 
 ## Critical path
-1. **Resolve conflict #1** (grant approach) — it gates all further grant work.
-2. **A2** + Phase-1's grant-authoring UI lever — one complete cross-silo feature, exercising the full
-   data→builder→character→round-trip path.
-3. **B1** (structured records) — keystone for the rest of B and all of C.
-4. **B2–B4** — app-wide wins (conditions, counters incl. resource pools, roll integration).
-5. **C2 → C3** — feature registry then builder surfaces (on F + B1).
-6. **A3** (spell-slot bucket) — unblocks Artificer-shaped classes; **D1** in parallel once the AC net is full.
-7. **E** — last.
+> Conflict #1 (grant approach) is **RESOLVED (D29)** — one mechanism per job, open pools behind
+> existing selections, no generic wrapper. It no longer gates anything; grant work is unblocked.
+1. **A2** + Phase-1's grant-authoring UI lever — one complete cross-silo feature, exercising the full
+   data→builder→character→round-trip path. (The proven, smaller sub-step: finish the grant-matrix by
+   wiring the next silo — background/race/subrace/class/subclass — each a one-line `:grant` hook + a
+   build test, extending the feat silo already proven end-to-end.)
+2. **B1** (structured records) — keystone for the rest of B and all of C.
+3. **B2–B4** — app-wide wins (conditions, counters incl. resource pools, roll integration).
+4. **C2 → C3** — feature registry then builder surfaces (on F + B1).
+5. **A3** (spell-slot bucket) — unblocks Artificer-shaped classes; **D1** in parallel once the AC net is full.
+6. **E** — last.
