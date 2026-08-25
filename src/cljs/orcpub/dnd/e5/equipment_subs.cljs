@@ -215,6 +215,23 @@
 ;; every existing lookup (attack table, AC, sheet) keeps resolving.
 
 (reg-sub
+ ::mi5e/items-holding-magic
+ :<- [::mi5e/expanded-custom-items]
+ (fn [custom-items _]
+   ;; Keys ONLY, on purpose. The character sheet looks items up through the
+   ;; effective map, which has already had a mundane item's mechanics stripped,
+   ;; so it cannot tell "plain gear" from "gear with magic switched off" —
+   ;; this is the missing bit. Returning a set of keys rather than the raw items
+   ;; means the suspended mechanics still have no route back into anything that
+   ;; builds modifiers; the sheet can only learn THAT an item is holding some,
+   ;; never what they are.
+   (into #{}
+         (comp (filter #(and (mi5e/mundane? %) (mi5e/has-magical-properties? %)))
+               (map :key)
+               (filter some?))
+         custom-items)))
+
+(reg-sub
  ::mi5e/mundane-custom-items
  :<- [::mi5e/effective-custom-items]
  (fn [custom-items _]
