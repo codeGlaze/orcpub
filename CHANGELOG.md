@@ -44,6 +44,12 @@
   it appears — replacing near-invisible `opacity-5` italic hints. Nothing on the automatic path can reach this state: an item
   classification calls mundane on its own has no magical properties by
   definition.
+- **My Items marks an item that is holding magic in reserve** — a small
+  "magic set aside" line, with the held properties named in a native hover
+  title. No new CSS, no absolutely-positioned tooltip and no click handler of
+  its own: the row already expands to the item's details and edit button.
+- **A mundane item no longer claims "(requires attunement)"** in its subtitle —
+  its attunement is suspended along with the rest of its magic.
 - **Reclassified items stay resolvable where characters already stored them** —
   a custom item that becomes mundane remains a valid option in the magic-item
   selections, hidden from the picker but still building. Dropping the option
