@@ -10,6 +10,7 @@
             [orcpub.dnd.e5.events-test]
             [orcpub.dnd.e5.subs-test]
             [orcpub.dnd.e5.item-classification-subs-test]
+            [orcpub.dnd.e5.item-flow-test]
             [orcpub.dnd.e5.content-reconciliation-test]
             [orcpub.dnd.e5.views-test]
             ;; storage layer (resilient loader read path)
@@ -25,6 +26,7 @@
              'orcpub.dnd.e5.events-test
              'orcpub.dnd.e5.subs-test
              'orcpub.dnd.e5.item-classification-subs-test
+             'orcpub.dnd.e5.item-flow-test
              'orcpub.dnd.e5.content-reconciliation-test
              'orcpub.dnd.e5.views-test
              'orcpub.dnd.e5.db-test

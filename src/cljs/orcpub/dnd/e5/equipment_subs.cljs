@@ -30,19 +30,35 @@
   (delay (sort-by mi5e/name-key mi5e/magic-items))
   )
 
+(defn fetch-custom-items!
+  "GET the signed-in user's items into ::mi5e/custom-items.
+
+   Extracted from the subscription below so it has a caller other than
+   subscription lifecycle. The raw sub only runs its handler on a cache MISS,
+   so the fetch fired at most once per subscription — and never at all if the
+   chain was first dereferenced before sign-in, which is why a freshly
+   logged-in session could show empty equipment pickers until a page reload.
+   ::mi5e/fetch-custom-items lets sign-in ask for them explicitly."
+  [db]
+  (go (dispatch [:set-loading true])
+      (let [response (<! (http/get (url-for-route routes/dnd-e5-items-route)
+                                   {:headers (auth-headers db)}))]
+        (dispatch [:set-loading false])
+        (handle-api-response response
+          #(dispatch [::mi5e/set-custom-items (:body response)])
+          :on-401 (fn [])
+          :context "fetch custom items"))))
+
+(defn signed-in?
+  [db]
+  (boolean (and (:user-data db) (:token (:user-data db)))))
+
 (if js/window.location
   (reg-sub-raw
    ::mi5e/custom-items
    (fn [app-db [_ user-data]]
-     (when (and (:user-data @app-db) (:token (:user-data @app-db)))
-       (go (dispatch [:set-loading true])
-           (let [response (<! (http/get (url-for-route routes/dnd-e5-items-route)
-                                        {:headers (auth-headers @app-db)}))]
-             (dispatch [:set-loading false])
-             (handle-api-response response
-               #(dispatch [::mi5e/set-custom-items (:body response)])
-               :on-401 (fn [])
-               :context "fetch custom items"))))
+     (when (signed-in? @app-db)
+       (fetch-custom-items! @app-db))
      (ra/make-reaction
       (fn [] (get @app-db ::mi5e/custom-items [])))))
   (reg-sub
