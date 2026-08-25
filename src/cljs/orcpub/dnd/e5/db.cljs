@@ -62,6 +62,19 @@
 
 (def default-character (char5e/set-class t5e/character :barbarian 0 (class5e/barbarian-option nil nil nil nil nil)))
 
+(def default-item
+  "A brand new custom item.
+
+   ::mi5e/magical? is recorded EXPLICITLY, not left to be inferred. The item
+   builder's Magic Item? dropdown offers \"Not set\" only while an item is
+   unclassified — that option exists for the decade of items saved before the
+   field did, and a new item must never land there asking a question it has
+   already answered. Magic item is the default because that is what the item
+   builder has always produced."
+  {::mi5e/type :wondrous-item
+   ::mi5e/rarity :common
+   ::mi5e/magical? true})
+
 (def default-spell {:level 0
                     :school "abjuration"
                     :spell-lists {:bard true

@@ -429,3 +429,79 @@
       (is (= {:stealth true}
              (get-in @app-db [::feats5e/builder-item :props :skill-prof]))
           "healed to a map and the toggle took effect"))))
+
+;; ---------------------------------------------------------------------------
+;; ::mi/set-item-kind  (reg-event-db) — the Magic Item? dropdown
+;;
+;; Two properties the UI depends on:
+;;   * a NEW item is never "Not set" — that option exists for legacy items only
+;;   * choosing a kind writes an explicit boolean and touches nothing else
+;; ---------------------------------------------------------------------------
+
+(def ^:private enchanted-builder-item
+  {::mi/name "Rimefang"
+   ::mi/type :weapon
+   ::mi/rarity :rare
+   ::mi/owner "kaylee"
+   ::mi/magical? true
+   ::mi/attunement #{:any}
+   ::mi/magical-attack-bonus 1
+   ::mi/internal-modifiers {:damage-resistance {:cold true}}})
+
+(deftest a-new-item-is-never-unreviewed
+  (testing "the new-item default records a real answer, so the dropdown has no
+            reason to offer \"Not set\" on a brand new item"
+    ;; "Not set" is offered only when mi/unreviewed? is true. If a new item
+    ;; landed there, every item anyone created would start life asking a
+    ;; question it had already answered.
+    (is (contains? db/default-item ::mi/magical?))
+    (is (true? (::mi/magical? db/default-item)))
+    (is (not (mi/unreviewed? db/default-item)))
+    (is (mi/magical? db/default-item)))
+  (testing "and ::mi/set-item puts exactly that in the builder"
+    (rf/dispatch-sync [::mi/set-item db/default-item])
+    (is (not (mi/unreviewed? (::mi/builder-item @app-db))))))
+
+(deftest a-legacy-item-with-no-evidence-is-unreviewed
+  (testing "which is exactly when the dropdown shows \"Not set\""
+    (let [legacy {::mi/name "Old Trinket" ::mi/type :wondrous-item
+                  ::mi/rarity :common ::mi/owner "kaylee"}]
+      (is (mi/unreviewed? legacy))
+      (is (= :unreviewed (mi/classify legacy))))))
+
+(deftest set-item-kind-writes-an-explicit-boolean
+  (testing "mundane"
+    (reset! app-db {::mi/builder-item enchanted-builder-item})
+    (rf/dispatch-sync [::mi/set-item-kind "mundane"])
+    (is (false? (::mi/magical? (::mi/builder-item @app-db)))))
+  (testing "magical"
+    (reset! app-db {::mi/builder-item (assoc enchanted-builder-item ::mi/magical? false)})
+    (rf/dispatch-sync [::mi/set-item-kind "magical"])
+    (is (true? (::mi/magical? (::mi/builder-item @app-db)))))
+  (testing "anything else clears the key rather than storing a third value"
+    (reset! app-db {::mi/builder-item enchanted-builder-item})
+    (rf/dispatch-sync [::mi/set-item-kind "unreviewed"])
+    (is (not (contains? (::mi/builder-item @app-db) ::mi/magical?)))))
+
+(deftest choosing-mundane-keeps-every-magical-property
+  (testing "the switch classifies; it never edits the item's mechanics"
+    (reset! app-db {::mi/builder-item enchanted-builder-item})
+    (rf/dispatch-sync [::mi/set-item-kind "mundane"])
+    (let [item (::mi/builder-item @app-db)]
+      (is (mi/has-magical-properties? item))
+      (is (= #{:any} (::mi/attunement item)))
+      (is (= 1 (::mi/magical-attack-bonus item)))
+      (is (= {:cold true} (get-in item [::mi/internal-modifiers :damage-resistance])))
+      (testing "and switching back changes nothing but the flag"
+        (rf/dispatch-sync [::mi/set-item-kind "magical"])
+        (is (= enchanted-builder-item (::mi/builder-item @app-db)))))))
+
+(deftest clear-magical-properties-is-the-only-thing-that-removes-them
+  (testing "it strips the mechanics and leaves the item otherwise intact"
+    (reset! app-db {::mi/builder-item (assoc enchanted-builder-item ::mi/magical? false)})
+    (rf/dispatch-sync [::mi/clear-magical-properties])
+    (let [item (::mi/builder-item @app-db)]
+      (is (not (mi/has-magical-properties? item)))
+      (is (= "Rimefang" (::mi/name item)))
+      (is (= :weapon (::mi/type item)))
+      (is (false? (::mi/magical? item)) "still mundane — the answer is unchanged"))))
