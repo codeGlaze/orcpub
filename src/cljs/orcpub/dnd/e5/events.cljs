@@ -789,7 +789,7 @@
              ;; be persisted with a broken key. This is the sanitized output the
              ;; "save anyway with placeholders" button is supposed to produce.
              sanitized (orcbrew-val/sanitize-item-names filled-item type-name)
-             src (if (s/blank? option-pack) "Unsorted Homebrew" option-pack)
+             src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
              item-with-key (assoc sanitized :option-pack src)
              new-plugins (assoc-in (:plugins db) [src plugin-key (:key item-with-key)] item-with-key)]
          {:dispatch-n [[::e5/set-plugins new-plugins]
@@ -920,7 +920,7 @@
    (let [{:keys [option-pack] :as item} (::selections5e/builder-item db)
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
-         src (if (s/blank? option-pack) "Unsorted Homebrew" option-pack)
+         src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
          key (common/name-to-kw (:name filled-item))
          item-with-key (assoc filled-item :key key :option-pack src)
          new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
