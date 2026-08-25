@@ -4695,11 +4695,32 @@
  (fn [db _]
    (dissoc db :shared-content-info)))
 
+(defn single-plugin-source
+  "The source name a bare single-plugin's items already declare (their shared
+   :option-pack), or nil when they disagree or carry none. A single-source export
+   writes BARE content with no embedded source key, so its source identity lives
+   only in the filename — which the browser mangles to \"Name (1).orcbrew\" on a
+   repeat download, spawning a duplicate \"Name 1\" source on re-import. The items
+   still carry the true source in :option-pack, so recover it from the DATA."
+  [data]
+  (let [packs (distinct
+               (for [[_ items] data
+                     :when (map? items)
+                     [_ item] items
+                     :when (map? item)
+                     :let [p (:option-pack item)]
+                     :when (and (string? p) (not (s/blank? p)))]
+                 p))]
+    (when (= 1 (count packs))
+      (first packs))))
+
 (defn incoming-sources
   "Normalize freshly-parsed import data to the flat {source-name plugin} shape the
    store expects. A multi-plugin (STRUCTURAL detection — string top-level keys, via
    orcbrew-val/is-multi-plugin?) is returned AS-IS; a single plugin is wrapped under
-   `import-name`.
+   the source its items declare (:option-pack), falling back to `import-name` (the
+   filename) only when the items don't agree on one — so a browser-numbered
+   re-import lands back in its real source instead of a duplicate.
 
    Structural detection (not spec validity) is load-bearing: a multi-plugin with
    even ONE imperfect sub-source must not be misjudged single and wrapped, which
@@ -4709,7 +4730,7 @@
   [import-name data]
   (if (orcbrew-val/is-multi-plugin? data)
     data
-    {import-name data}))
+    {(or (single-plugin-source data) import-name) data}))
 
 ;; Freshly-imported sources are stored the SAME way the boot loader reads them, at
 ;; PER-ENTRY granularity: each source keeps its valid items (the live library) and

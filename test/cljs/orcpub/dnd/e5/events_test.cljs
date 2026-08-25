@@ -455,9 +455,15 @@
           "top-level keys remain the sub-source names (no nesting)"))))
 
 (deftest incoming-sources-wraps-single-plugin
-  (testing "a single plugin (keyword content-type keys) is wrapped under the
-            import name so it becomes a proper {source-name plugin} entry"
+  (testing "a single plugin wraps under the source its items DECLARE (:option-pack),
+            falling back to the import (filename) name only when they don't agree —
+            so a browser-numbered re-import lands in its real source, not a duplicate"
+    ;; items agree on :option-pack -> that is the source, even though the filename
+    ;; ('My Pack') differs. This is what prevents the 'Name 1' duplicate.
     (let [single {:orcpub.dnd.e5/feats {:brave {:option-pack "P" :name "Brave"}}}]
+      (is (= {"P" single} (events/incoming-sources "My Pack" single))))
+    ;; no usable :option-pack on the items -> fall back to the import name
+    (let [single {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]
       (is (= {"My Pack" single} (events/incoming-sources "My Pack" single))))))
 
 ;; ---------------------------------------------------------------------------
@@ -535,3 +541,27 @@
     (rf/dispatch-sync [:route nil {:skip-path? true}])
     (is (= :some-existing-route (:route @app-db))
         "current route kept — no clobber, no exception at path-for")))
+
+;; ---------------------------------------------------------------------------
+;; Single-source re-import must use the CONTENT's source, not the filename.
+;; A single-source export writes BARE content (no embedded source name); the
+;; browser numbers repeat downloads ("Name (1).orcbrew"); import derives the
+;; source from the filename -> a duplicate "Name 1" bucket. The items still
+;; carry the true source in :option-pack, so we should recover it from there.
+;; ---------------------------------------------------------------------------
+
+(deftest single-source-reimport-uses-content-source-not-filename
+  (testing "a filename-numbered re-import of a single-source export must NOT spawn a duplicate bucket"
+    (let [source "Default Option Source"
+          spell  {:name "Fireball" :key :fireball :level 3 :school "evocation" :option-pack source}
+          ;; what export-plugin writes to .orcbrew: BARE single-plugin, no source wrapper
+          exported-single {:orcpub.dnd.e5/spells {:fireball spell}}
+          ;; the library we're importing back into
+          existing {source {:orcpub.dnd.e5/spells {:fireball spell}}}
+          ;; browser saved the 2nd download as "Default Option Source 1.orcbrew"
+          filename-name "Default Option Source 1"
+          incoming (events/incoming-sources filename-name exported-single)
+          merged   (e5/merge-all-plugins existing incoming)]
+      (is (= [source] (vec (keys merged)))
+          (str "expected ONE bucket; got " (pr-str (vec (keys merged)))
+               " — filename-numbered re-import spawned a duplicate source")))))
