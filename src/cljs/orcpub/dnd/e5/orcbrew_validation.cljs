@@ -1282,8 +1282,17 @@
      {:data data :changes []})))
 
 (defn rename-empty-plugin-key-with-log
-  "Renames empty string plugin key to a unique name, tracking changes.
-   Returns {:data <cleaned> :changes [...]}"
+  "Renames a blank top-level SOURCE key (\"\") to a unique fallback name, tracking
+   changes. Returns {:data <cleaned> :changes [...]}.
+
+   DELIBERATE — do NOT collapse this into the Default Option Source. A blank
+   top-level key means a whole source arrived with no name (malformed / hand-edited
+   / a bad export), which is a DIFFERENT case from source-less ITEMS (a blank
+   :option-pack, which IS filled to `default-option-source` elsewhere). Nameless
+   sources are parked in a DISTINCT \"Unnamed Content\" bucket on purpose, so a user
+   can FIND and fix them in My Content instead of having them silently absorbed into
+   the default. Multiple nameless sources get numbered (\"Unnamed Content 2\", …) so
+   one never overwrites another."
   [data]
   (if (and (map? data) (contains? data ""))
     (let [base-name "Unnamed Content"
