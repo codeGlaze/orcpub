@@ -585,3 +585,21 @@
     (let [single {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]   ; no :option-pack
       (is (= {"Default Option Source" single}
              (events/incoming-sources "Default Option Source (1)" single))))))
+
+(deftest source-name-mismatch-cases
+  (testing "prompt only on a meaningful filename-vs-content-source disagreement"
+    (let [data {:orcpub.dnd.e5/feats {:brave {:option-pack "Bob's Homebrew" :name "Brave"}}}]
+      ;; meaningful mismatch -> prompt payload
+      (is (= {:filename-name "Cool Stuff" :content-name "Bob's Homebrew"}
+             (events/source-name-mismatch "Cool Stuff" data)))
+      ;; filename equals content source (case/space-insensitive) -> no prompt
+      (is (nil? (events/source-name-mismatch "  bob's homebrew " data)))
+      ;; filename is only a browser dedup variant -> no prompt
+      (is (nil? (events/source-name-mismatch "Bob's Homebrew (1)" data)))
+      ;; generic / intentless filenames -> no prompt
+      (is (nil? (events/source-name-mismatch "orcbrew" data)))
+      (is (nil? (events/source-name-mismatch "download" data)))
+      (is (nil? (events/source-name-mismatch "42" data))))
+    ;; content declares no source -> nothing to disagree with -> no prompt
+    (let [data {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]
+      (is (nil? (events/source-name-mismatch "Whatever" data))))))

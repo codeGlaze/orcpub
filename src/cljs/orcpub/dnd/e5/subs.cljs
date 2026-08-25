@@ -1475,6 +1475,11 @@
    (:conflict-resolution db)))
 
 (reg-sub
+ :source-name-choice
+ (fn [db _]
+   (:source-name-choice db)))
+
+(reg-sub
  :conflict-resolution-active?
  (fn [db _]
    (get-in db [:conflict-resolution :active?])))

@@ -502,6 +502,39 @@
             (str "Fill required fields ("
                  filled-dropdowns "/" total-dropdowns ")"))]]]])))
 
+(defn source-name-choice-modal
+  "Asks which source name a single-source import should land under when the file's
+   name meaningfully differs from the source its content declares (:option-pack).
+   'Keep' (the content's source) is the safe default; 'Rename' honors the filename."
+  []
+  (let [{:keys [active? filename-name content-name]} @(subscribe [:source-name-choice])]
+    (when active?
+      [:div.conflict-backdrop
+       [:div.conflict-modal
+        [:div.conflict-modal-header
+         [:div.flex.align-items-c
+          [:i.fa.fa-i-cursor.m-r-5.conflict-title-icon]
+          [:span.f-s-18.f-w-b.conflict-title "Which source name?"]]
+         [:div.f-s-12.conflict-subtitle
+          "This file's name differs from the source its content came from."]]
+        [:div.conflict-modal-body
+         [:div.f-s-14
+          "The file is named "
+          [:strong.conflict-source-import filename-name]
+          ", but its content belongs to source "
+          [:strong.conflict-source-existing content-name] "."]
+         [:div.f-s-14.m-t-10 "Import it under which name?"]]
+        [:div.conflict-modal-footer
+         [:span.link-button
+          {:on-click #(dispatch [:cancel-source-name-choice])}
+          "Cancel"]
+         [:button.form-button
+          {:on-click #(dispatch [:resolve-source-name filename-name])}
+          (str "Rename to “" filename-name "”")]
+         [:button.form-button
+          {:on-click #(dispatch [:resolve-source-name content-name])}
+          (str "Keep “" content-name "”")]]]])))
+
 (defn import-log-overlay
   "Composite component rendering all import/export overlay UI.
    Mount this once in the app root."
@@ -510,4 +543,5 @@
    [import-log/import-log-button]
    [import-log/import-log-panel]
    [conflict-resolution-modal]
-   [export-warning-modal]])
+   [export-warning-modal]
+   [source-name-choice-modal]])

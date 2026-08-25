@@ -4735,6 +4735,38 @@
       (if (s/blank? stripped) s stripped))
     s))
 
+(def ^:private generic-import-names
+  ;; Filenames that carry no source intent — never worth prompting about; the
+  ;; content's declared source just wins silently.
+  #{"orcbrew" "import" "imported content" "download" "downloads" "untitled"
+    "new" "data" "file" "content" "homebrew" "export" "backup" "orcpub"})
+
+(defn- generic-import-name?
+  "True when a filename-derived name carries no meaningful source intent — blank, a
+   known generic word, or a bare number / hash-ish token."
+  [s]
+  (let [t (s/lower-case (s/trim (str s)))]
+    (or (s/blank? t)
+        (contains? generic-import-names t)
+        (boolean (re-matches #"[-0-9a-f]{6,}" t))
+        (boolean (re-matches #"\d+" t)))))
+
+(defn source-name-mismatch
+  "When a SINGLE-source import's filename-derived name meaningfully disagrees with
+   the source its content declares (:option-pack), returns {:filename-name ..
+   :content-name ..} so the UI can ask which the user meant. Returns nil — meaning
+   'just use the content's source, no prompt' — when they already match (case/space
+   insensitively), the filename is only a dedup variant (\"Pack (1)\"), or the
+   filename is generic. Multi-source imports never reach here (they carry their own
+   source keys)."
+  [import-name data]
+  (when-let [content-name (single-plugin-source data)]
+    (let [fname (str import-name)]
+      (when (and (not (generic-import-name? fname))
+                 (not= (s/lower-case (s/trim fname)) (s/lower-case content-name))
+                 (not= (strip-dedup-suffix fname) content-name))
+        {:filename-name fname :content-name content-name}))))
+
 (defn incoming-sources
   "Normalize freshly-parsed import data to the flat {source-name plugin} shape the
    store expects. A multi-plugin (STRUCTURAL detection — string top-level keys, via
@@ -4797,6 +4829,28 @@
                      " couldn't be loaded and " (if (= 1 n-items) "was" "were")
                      " set aside in “My Content”. The rest imported fine; open it "
                      "there to fix or discard " (if (= 1 n-items) "it." "them.")))}))
+
+(defn store-single-import
+  "Store a validated import (`incoming`, the flat {source plugin} shape) through the
+   shared quarantine gate and return the {:db :dispatch-n} the import handler yields.
+   Shared by the direct import path and the source-name-choice resolution so the two
+   can't drift. `log-name` labels the import log; `result` carries the validation
+   changes/skips; `user-message` is the success notice."
+  [db incoming log-name result user-message]
+  (let [import-log [:set-import-log {:name log-name
+                                     :changes (:changes result)
+                                     :errors []
+                                     :skipped-items (:skipped-items result)
+                                     :key-conflicts (:key-conflicts result)
+                                     :key-warnings (:key-warnings result)}]
+        {:keys [merged quarantine message]} (store-imported-sources (:plugins db) incoming)]
+    {:db (assoc db :quarantined-plugins quarantine)
+     :dispatch-n (remove nil?
+                   [(when merged
+                      [::e5/store-plugins merged
+                       (when-not message [:show-warning-message user-message])])
+                    (when message [:show-warning-message message])
+                    import-log])}))
 
 (reg-event-fx
  ::e5/import-plugin
@@ -4862,23 +4916,8 @@
 
        ;; Progressive import succeeded (may have skipped some items)
        (:success result)
-       (let [plugin (:data result)
-             ;; Normalize to the flat {source-name plugin} shape (never wrapping a
-             ;; multi-plugin — see incoming-sources), then store through the shared
-             ;; gate so any source that would be quarantined on the next reload (a
-             ;; keyword-trap item, or any other ::plugin invalidity) is quarantined
-             ;; NOW and surfaced in the repair UI — not after a refresh.
-             incoming (incoming-sources plugin-name plugin)
-             import-log [:set-import-log {:name plugin-name
-                                          :changes (:changes result)
-                                          :errors []
-                                          :skipped-items (:skipped-items result)
-                                          :key-conflicts (:key-conflicts result)
-                                          :key-warnings (:key-warnings result)}]
-             {:keys [merged quarantine message]}
-             (store-imported-sources (:plugins db) incoming)]
-
-         ;; Log skipped items if any
+       (let [plugin (:data result)]
+         ;; Log skipped items if any — regardless of which store path we take.
          (when (:had-errors result)
            (js/console.warn
             (str "Skipped " (count (:skipped-items result)) " invalid item(s):\n"
@@ -4887,21 +4926,49 @@
                                 (str "  • " (:key item) "\n"
                                      (errors->str (:errors item))))
                               (:skipped-items result))))))
-
-         {:db (assoc db :quarantined-plugins quarantine)
-          :dispatch-n (remove nil?
-                        [;; Persist the kept (valid) items; the "✅ imported" message
-                         ;; is store-plugins' on-success, so it only shows if the write
-                         ;; stuck (and only when nothing was set aside).
-                         (when merged
-                           [::e5/store-plugins merged
-                            (when-not message [:show-warning-message user-message])])
-                         (when message [:show-warning-message message])
-                         import-log])})
+         (if-let [choice (and (not (orcbrew-val/is-multi-plugin? plugin))
+                              (source-name-mismatch plugin-name plugin))]
+           ;; The filename and the content's declared source meaningfully differ —
+           ;; ask which name to import under instead of silently choosing (renaming
+           ;; the file to re-home content becomes a deliberate, confirmed action).
+           {:dispatch [:show-source-name-choice
+                       (assoc choice
+                              :import-data plugin
+                              :result result
+                              :user-message user-message)]}
+           ;; No prompt: single plugins land under their declared source (or the
+           ;; dedup-stripped filename); multi-plugins keep their own source keys.
+           ;; store-single-import runs the shared quarantine gate so a would-be-
+           ;; rejected item is set aside NOW, not after a refresh.
+           (store-single-import db (incoming-sources plugin-name plugin)
+                                plugin-name result user-message)))
 
        ;; Unknown state
        :else
        {:dispatch [:show-error-message "Unknown import error. Check console for details."]}))))
+
+;; ── Source-name choice (single-source import filename vs content source) ──────
+;; When a single-source import's filename meaningfully differs from the source its
+;; content declares, import-plugin parks the pending data here and shows a modal so
+;; the user picks which name to import under, rather than the app silently choosing.
+(reg-event-db
+ :show-source-name-choice
+ (fn [db [_ payload]]
+   (assoc db :source-name-choice (assoc payload :active? true))))
+
+(reg-event-fx
+ :resolve-source-name
+ (fn [{:keys [db]} [_ chosen-name]]
+   (let [{:keys [import-data result user-message]} (:source-name-choice db)
+         db' (assoc db :source-name-choice nil)]
+     ;; import-data is the bare single-plugin, so {chosen-name data} is the flat
+     ;; {source plugin} shape store-single-import expects.
+     (store-single-import db' {chosen-name import-data} chosen-name result user-message))))
+
+(reg-event-db
+ :cancel-source-name-choice
+ (fn [db _]
+   (assoc db :source-name-choice nil)))
 
 ;; Add a strict import option for users who want all-or-nothing behavior
 (reg-event-fx
