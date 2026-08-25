@@ -565,3 +565,23 @@
       (is (= [source] (vec (keys merged)))
           (str "expected ONE bucket; got " (pr-str (vec (keys merged)))
                " — filename-numbered re-import spawned a duplicate source")))))
+
+(deftest strip-dedup-suffix-cases
+  (testing "trailing OS/browser dedup markers are stripped; real names survive"
+    (is (= "Pack" (events/strip-dedup-suffix "Pack (1)")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack 2")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack - Copy")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack copy 3")))
+    ;; a real name ending in a number with NO space before it survives
+    (is (= "Homebrew v2" (events/strip-dedup-suffix "Homebrew v2")))
+    ;; strips only the dedup marker, keeps the meaningful "v2"
+    (is (= "Homebrew v2" (events/strip-dedup-suffix "Homebrew v2 (1)")))
+    (is (= "My Cool Pack" (events/strip-dedup-suffix "My Cool Pack")))
+    (is (= "2" (events/strip-dedup-suffix "2")))))
+
+(deftest incoming-sources-strips-dedup-suffix-in-fallback
+  (testing "a numbered single-source file with NO :option-pack lands in the base
+            source (dedup suffix stripped), not a numbered duplicate"
+    (let [single {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]   ; no :option-pack
+      (is (= {"Default Option Source" single}
+             (events/incoming-sources "Default Option Source (1)" single))))))

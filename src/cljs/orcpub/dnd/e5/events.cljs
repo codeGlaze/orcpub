@@ -4714,6 +4714,27 @@
     (when (= 1 (count packs))
       (first packs))))
 
+(def ^:private dedup-suffix-re
+  ;; One trailing OS/browser file-dedup marker left on the NAME (extension already
+  ;; stripped) by a repeat download or copy: " (2)", " - Copy", " copy 3", or a
+  ;; bare " 2". Case-insensitive. Each branch carries its own leading whitespace so
+  ;; the bare-number branch needs a SPACE (won't chew "Homebrew v2" down to "v").
+  ;; Real exports carry :option-pack, so this only runs as the fallback below.
+  #"(?i)(?:\s*\(\d+\)|\s+-?\s*copy(?:\s*\(?\d+\)?)?|\s+\d+)$")
+
+(defn strip-dedup-suffix
+  "Drop ONE trailing dedup marker from a filename-derived source name so a
+   re-imported single-source file WITHOUT a usable :option-pack still lands in its
+   original source instead of a numbered duplicate ('Pack (1)' -> 'Pack'). Only the
+   fallback path uses this — when the items declare a source, that always wins.
+   Never strips to empty. Trade-off: a legitimate name ending in a number (e.g. a
+   real 'Pack 2') is collapsed too, but only in this no-:option-pack corner."
+  [s]
+  (if (string? s)
+    (let [stripped (s/trim (s/replace s dedup-suffix-re ""))]
+      (if (s/blank? stripped) s stripped))
+    s))
+
 (defn incoming-sources
   "Normalize freshly-parsed import data to the flat {source-name plugin} shape the
    store expects. A multi-plugin (STRUCTURAL detection — string top-level keys, via
@@ -4730,7 +4751,7 @@
   [import-name data]
   (if (orcbrew-val/is-multi-plugin? data)
     data
-    {(or (single-plugin-source data) import-name) data}))
+    {(or (single-plugin-source data) (strip-dedup-suffix import-name)) data}))
 
 ;; Freshly-imported sources are stored the SAME way the boot loader reads them, at
 ;; PER-ENTRY granularity: each source keeps its valid items (the live library) and
