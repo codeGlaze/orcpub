@@ -124,14 +124,19 @@ Cut from `integration`. `refactor/content-extensibility` forks from the same
 base (`e632297`) and touches this area, so cutting from the common base lets
 the fix merge into both.
 
+## Checked and NOT a bug
+
+- `::mi5e/armor` in the item builder's Type dropdown looks like it should
+  break `(= :armor type)`, but does not. Reagent serialises a keyword
+  attribute value with `name`, so the option reaches the DOM as `"armor"` and
+  `set-item-type`'s `(keyword "armor")` gives back a bare `:armor`. Verified
+  end to end by driving the real `<select>` in a browser: the stored type is
+  `:armor`, the Base Armor selector renders, and the item lands in the Magic
+  Armor picker and `all-armor-map`. The namespaced keyword is cosmetically
+  odd and worth tidying, but it is not a defect.
+
 ## Related, not covered here
 
-- `::mi5e/armor` vs `:armor` — the item builder's Type dropdown writes a
-  namespaced keyword that `(= :armor type)` never matches, so custom armor
-  never gets base-armor selection or AC. Same family (a stored value that no
-  longer means what the code expects), separate fix, needs its own migration
-  because changing a stored `::type` moves the item between equipment
-  selections.
 - `::char5e/characters`, `::party5e/parties` and `::folder5e/folders` share the
   auth-gated subscription pattern fixed for items on
   `fix/custom-item-classification`, and so share that bug: sign in without a
