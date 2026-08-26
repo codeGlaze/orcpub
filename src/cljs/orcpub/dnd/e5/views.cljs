@@ -7942,50 +7942,61 @@
   [item]
   (distinct (keep magical-property-label (keys (mi/magical-properties item)))))
 
-(defn item-magical-selector
-  "Magic-item / mundane-item switch.
+(def ^:private item-kind-options
+  "Magic item vs ordinary gear, as a dropdown so it sits with Type and Rarity
+   and answers its own label. It was a checkbox, which read as the nonsense
+   \"Magic Item? [ ] Mundane item\" — a question and a state fighting each other."
+  [{:value "magical" :title "Yes"}
+   {:value "mundane" :title "No — mundane"}])
+
+(def ^:private not-set-kind-option
+  "Offered only while an item is still unclassified, so the dropdown can show
+   the truth instead of implying someone already answered. It disappears once
+   they do."
+  {:value "unreviewed" :title "Not set"})
+
+(defn item-kind-selector
+  "The Magic Item? field.
 
    Custom items used to have no way to say which they were, so every homemade
-   rope and lantern was filed alongside the +3 vorpal swords. Items saved
-   before this switch existed carry no answer; they are shown as whatever
-   mi/classify makes of them, and are still treated as magical when it cannot
-   tell — so nothing changes under anyone's feet. Flipping the switch (or just
-   re-saving the item) records a real answer and retires the guess."
+   rope was filed alongside the +3 vorpal swords. Items saved before this
+   existed carry no answer: they show as \"Not set\" and are still treated as
+   magical, so nothing changes under anyone's feet until they choose."
   [item]
-  (let [magical? (mi/magical? item)
-        unreviewed? (mi/unreviewed? item)]
-    (base-builder-field
-     "Magic Item?"
-     [:div
-      [:div.flex.align-items-c.m-t-5.pointer
-       {:on-click (make-event-handler ::mi/toggle-item-magical?)}
-       (comps/checkbox magical? false)
-       [:span.f-w-b.m-l-5
-        (if magical?
-          "Magic item"
-          "Mundane item")]]
-      [:div.f-s-12.i.opacity-5.m-t-5
-       (cond
-         unreviewed?
-         "This item was saved before items recorded this, so we are treating it as magical for now. Tick or untick to say for certain — it only has to be done once."
+  (base-builder-field
+   "Magic Item?"
+   [:div.m-t-5
+    [dropdown
+     {:items (cond->> item-kind-options
+               (mi/unreviewed? item) (cons not-set-kind-option))
+      :value (name (mi/classify item))
+      :on-change #(dispatch [::mi/set-item-kind %])}]]))
 
-         magical?
-         "Listed under Magic Weapons, Magic Armor and Other Magic Items."
+(defn item-kind-notice
+  "Passive notices about the item's classification, in the library-health card:
+   it appears only when something needs attention, at the warning tier
+   (resolvable — red is reserved for broken), so an \"attention, not an error\"
+   signal looks the same here as in the My Content library.
 
-         :else
-         "Ordinary gear. Listed under Weapons, Armor and Equipment instead of with the magic items. Rarity, attunement and magical bonuses don't apply, so they're hidden below.")]
-      ;; Unticking Magic Item hides the magical fields but must never quietly
-      ;; delete what is in them — that would make a mis-click destructive. The
-      ;; values stay on the item and come straight back if it is ticked again;
-      ;; removing them for good takes a deliberate second click.
-      ;;
-      ;; Uses the library-health card primitives: a passive notice that appears
-      ;; only when something needs attention, at the warning tier (resolvable —
-      ;; red is reserved for broken). Same treatment as the My Content library
-      ;; health lines, so an "attention, not an error" signal looks the same
-      ;; wherever it turns up.
-      (when (and (not magical?) (mi/has-magical-properties? item))
-        [:div.health-card.health-flash.m-t-10
+   The two states are mutually exclusive: unreviewed implies magical, and the
+   held-properties line only shows on a mundane item."
+  [item]
+  (let [unreviewed? (mi/unreviewed? item)
+        holding? (and (mi/mundane? item) (mi/has-magical-properties? item))]
+    (when (or unreviewed? holding?)
+      [:div.health-card.health-flash.m-b-20
+       (if unreviewed?
+         [:div.health-row
+          [:span.health-rail]
+          [:span.health-ico [:i.fa.fa-exclamation-triangle]]
+          [:span.health-msg
+           [:strong "Not recorded whether this is a magic item."]
+           [:div.f-s-12.opacity-7.m-t-2
+            "It is being treated as one. Answer Magic Item? above and it is settled for good."]]]
+         ;; Choosing "No" hides the magical fields but must never quietly empty
+         ;; them — a mis-click would be more destructive than the bug this all
+         ;; fixes. The values stay on the item and come straight back; removing
+         ;; them for good takes a deliberate second click.
          [:div.health-row
           [:span.health-rail]
           [:span.health-ico [:i.fa.fa-exclamation-triangle]]
@@ -7994,10 +8005,10 @@
                          (s/join ", " (magical-property-labels item))
                          ".")]
            [:div.f-s-12.opacity-7.m-t-2
-            "Tick Magic item to get them back."]]
+            "Set Magic Item? back to Yes to get them back."]]
           [:span.health-act
            {:on-click (make-event-handler ::mi/clear-magical-properties)}
-           "remove for good"]]])])))
+           "remove for good"]])])))
 
 (defn item-builder []
   (let [{:keys [::mi/name ::mi/type ::mi/rarity ::mi/description ::mi/attunement] :as item}
@@ -8032,9 +8043,12 @@
                    item-types)
            :value type
            :on-change #(dispatch [::mi/set-item-type %])}]])]
+      [:div.flex-grow-1.m-l-5
+       [item-kind-selector item]]
       ;; Rarity describes a magic item. Nothing reads it for a mundane one, and
       ;; leaving it on screen invites people to grade their rope as "common
-      ;; magic" — which is the confusion this whole change is about.
+      ;; magic" — which is the confusion this whole change is about. It is last
+      ;; in the row so appearing and disappearing never reflows its neighbours.
       (when magical?
         [:div.flex-grow-1.m-l-5
          (base-builder-field
@@ -8048,8 +8062,7 @@
                      item-rarities)
              :value rarity
              :on-change #(dispatch [::mi/set-item-rarity %])}]])])]
-     [:div.m-b-20
-      [item-magical-selector item]]
+     [item-kind-notice item]
      [:div.m-b-40 (base-builder-field "Description" [textarea-field
                                                      {:value description
                                                       :on-change #(dispatch [::mi/set-item-description %])}])]
