@@ -695,8 +695,9 @@
         The backfill <b>does not guess</b>. Items it can’t place from evidence
         are left alone entirely — they keep behaving as magic items and the
         builder asks their owner instead. And unlike its neighbouring
-        attributes, <code>::mi/magical?</code> deliberately keeps Datomic
-        history, so a backfilled inference stays auditable and reversible.
+        attributes, <code>::mi/magical?</code> is <code>:db/noHistory</code> too —
+        item history is storage nobody asked for, so the backfill's safety comes
+        from refusing to guess rather than from being able to undo one.
       </p>
     </div>
   </section>

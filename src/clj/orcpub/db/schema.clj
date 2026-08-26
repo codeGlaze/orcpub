@@ -379,11 +379,13 @@
    ;; from their other attributes instead — see mi5e/classify. Purely
    ;; additive: nothing is retracted to introduce it.
    ;;
-   ;; Deliberately NOT :db/noHistory, unlike its neighbours: part of this
-   ;; attribute's value is backfilled from an inference, and history is what
-   ;; makes a wrong inference auditable and reversible rather than permanent.
+   ;; :db/noHistory like every other item attribute. Retaining history here was
+   ;; considered — a backfilled inference is the one item value the server
+   ;; guessed at, so tracing it has some appeal — and rejected: item history is
+   ;; storage nobody asked for, and the description field it would sit beside
+   ;; has no server-side length bound at all.
    (map
-    bool-prop
+    bool-prop-no-history
     [::mi5e/magical?])))
 
 (def weapon-schema

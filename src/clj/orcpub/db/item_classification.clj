@@ -20,8 +20,9 @@
      instead. Silence is a better outcome than a confident wrong answer that
      nobody knows to go back and check.
 
-   Because ::magical? keeps history (see orcpub.db.schema), even a backfilled
-   value can be traced and rolled back later."
+   A backfilled value is not separately traceable — ::magical? is :db/noHistory
+   like every other item attribute — which is why the backfill refuses to guess
+   in the first place rather than relying on being able to undo a bad guess."
   (:require [datomic.api :as d]
             [orcpub.dnd.e5.magic-items :as mi5e]))
 

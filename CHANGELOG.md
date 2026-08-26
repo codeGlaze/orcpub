@@ -73,8 +73,10 @@
   selections, hidden from the picker but still building. Dropping the option
   would have orphaned every character that picked it back when all custom items
   were magical, silently removing their gear from their sheet.
-- **`::magical?` keeps Datomic history**, unlike its neighbouring item
-  attributes, so a backfilled inference stays auditable and reversible.
+- **`::magical?` is `:db/noHistory`**, like every other item attribute. Keeping
+  history for it was considered and rejected — item history is storage nobody
+  asked for. The backfill's safety comes from refusing to guess, not from being
+  able to undo a guess.
 
 ## [staging/june-bug-patches-01] — June bug-patch bundle (2026-07-05)
 
