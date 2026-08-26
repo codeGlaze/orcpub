@@ -62,6 +62,31 @@ global.window.document = global.document;
 global.localStorage = localStorage;
 global.navigator = global.window.navigator;
 global.self = global.window;
+// Closure's XhrIo instantiates XMLHttpRequest eagerly. Any subscription that
+// reaches a real fetch during the suite would otherwise throw
+// "XMLHttpRequest is not defined" and kill the run. This inert stand-in lets
+// the request be "sent" and simply never respond — tests that care about HTTP
+// stub cljs-http directly.
+global.XMLHttpRequest = function XMLHttpRequest() {
+  this.readyState = 0;
+  this.status = 0;
+  this.responseText = '';
+  this.open = noop;
+  this.send = noop;
+  this.abort = noop;
+  this.setRequestHeader = noop;
+  this.getAllResponseHeaders = () => '';
+  this.getResponseHeader = () => null;
+  this.addEventListener = noop;
+  this.removeEventListener = noop;
+};
+global.XMLHttpRequest.prototype = {};
+global.window.XMLHttpRequest = global.XMLHttpRequest;
+
+// Routing code calls history.pushState on navigation.
+global.history = { pushState: noop, replaceState: noop, back: noop, go: noop };
+global.window.history = global.history;
+
 global.HTMLElement = function () {};
 global.Blob = function () {};
 global.URL = { createObjectURL: () => 'blob:', revokeObjectURL: noop };
@@ -87,7 +112,28 @@ if (!bundle) {
 
 require(path.resolve(bundle));
 
-// The bundle can leave async work queued (a subscription firing an XHR that
-// nothing here implements). Tests have already reported by now, so exit on the
-// result rather than waiting for a quiet event loop.
-process.exit(failed ? 1 : 0);
+// cljs.test/async tests report long after the bundle finishes loading, so
+// exiting here would miss them AND everything queued behind them — and exit 0
+// while reporting nothing. Wait for the end-of-run signal that
+// test_runner.cljs sets, and treat never receiving it as a failure rather than
+// a pass.
+const TIMEOUT_MS = 120000;
+const started = Date.now();
+
+const finish = () => {
+  const signalled = globalThis.__cljsTestsDone === true;
+  if (!signalled) {
+    console.error(
+      `\nTIMED OUT after ${TIMEOUT_MS / 1000}s waiting for the test run to ` +
+      'finish. An async test probably never called done().');
+    process.exit(1);
+  }
+  process.exit(globalThis.__cljsTestsFailed || failed ? 1 : 0);
+};
+
+const poll = () => {
+  if (globalThis.__cljsTestsDone === true) return finish();
+  if (Date.now() - started > TIMEOUT_MS) return finish();
+  setTimeout(poll, 25);
+};
+poll();
