@@ -3219,6 +3219,21 @@
    (svg-icon icon 32)
    [:span.m-l-5.f-w-b.f-s-18 title]])
 
+(defn magic-set-aside-note
+  "Sheet marker for an item whose owner has magic switched off on it.
+
+   Lives in a Details cell, which is already a wrapping text column, so there
+   is nothing to mis-position and no click handler of its own — the weapons row
+   is already a click target and this must not fight it. Answers the question
+   someone actually asks at their sheet: why is my +1 not applying?"
+  [item-key]
+  (let [holding-magic @(subscribe [::mi/items-holding-magic])]
+    (when (contains? holding-magic item-key)
+      [:div.f-s-12.opacity-7.m-t-2
+       {:title "This is one of your own items, set to mundane. Its magical properties are kept but switched off, so nothing here gets them. Open it under My Items to restore or remove them."}
+       [:i.fa.fa-magic.orange.m-r-5]
+       "magic set aside"])))
+
 (defn weapons-section-2 []
   (let [expanded-details (r/atom {})]
     (fn [id]
@@ -3290,21 +3305,6 @@
                        [:i.fa.m-l-5
                         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))
               all-weapons))]]]]))))
-
-(defn magic-set-aside-note
-  "Sheet marker for an item whose owner has magic switched off on it.
-
-   Lives in a Details cell, which is already a wrapping text column, so there
-   is nothing to mis-position and no click handler of its own — the weapons row
-   is already a click target and this must not fight it. Answers the question
-   someone actually asks at their sheet: why is my +1 not applying?"
-  [item-key]
-  (let [holding-magic @(subscribe [::mi/items-holding-magic])]
-    (when (contains? holding-magic item-key)
-      [:div.f-s-12.opacity-7.m-t-2
-       {:title "This is one of your own items, set to mundane. Its magical properties are kept but switched off, so nothing here gets them. Open it under My Items to restore or remove them."}
-       [:i.fa.fa-magic.orange.m-r-5]
-       "magic set aside"])))
 
 (defn mundane-cfg?
   "True when this inventory entry resolves to a custom item its owner has
