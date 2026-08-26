@@ -523,7 +523,18 @@
 (reg-event-fx
  ::mi/save-item
  (fn [{:keys [db]} _]
-   (let [strict-item (mi/from-internal-item (::mi/builder-item db))]
+   ;; resolve-classification stamps ::magical? on a legacy item that never had
+   ;; it, using the value the item is already being treated as. Saving an item
+   ;; is therefore enough to retire its guess — the heal costs the user nothing
+   ;; and changes nothing about the item.
+   ;;
+   ;; It runs BEFORE from-internal-item, on the item that still carries
+   ;; ::mi/owner: classification reads owner to tell user-built items from
+   ;; built-in ones, and from-internal-item drops it (the server re-stamps it
+   ;; on save). Resolving after serializing would classify every item as
+   ;; built-in and stamp them all magical.
+   (let [strict-item (mi/from-internal-item
+                      (mi/resolve-classification (::mi/builder-item db)))]
      {:dispatch [:set-loading true]
       :http {:method :post
              :headers (authorization-headers db)
@@ -2922,6 +2933,17 @@
    (assoc item ::mi/name item-name)))
 
 (reg-event-db
+ ::mi/toggle-item-magical?
+ item-interceptors
+ (fn [item _]
+   ;; Toggle from what the item is currently being TREATED as, not from the
+   ;; raw key. A legacy item has no ::mi/magical? at all and is displayed as
+   ;; magical, so `(update item ::mi/magical? not)` would flip nil to true and
+   ;; record agreement the user never expressed. Always write an explicit
+   ;; boolean — that is what retires the guess.
+   (assoc item ::mi/magical? (not (mi/magical? item)))))
+
+(reg-event-db
  ::spells/set-spell-prop
  spell-interceptors
  (fn [spell [_ prop-key prop-value]]
@@ -4726,8 +4748,13 @@
  ::mi/reset-item
  (fn [_ _]
    {:dispatch [::mi/set-item
+               ;; ::mi/magical? true, explicitly: a brand new item must not
+               ;; start life in the "we had to guess" state that legacy items
+               ;; are in. Magic item is the default because that is what the
+               ;; item builder has always produced.
                {::mi/type :wondrous-item
-                ::mi/rarity :common}]}))
+                ::mi/rarity :common
+                ::mi/magical? true}]}))
 
 (reg-event-fx
  ::spells/reset-spell

@@ -522,6 +522,30 @@
                   true)]
     (item-fn item-cfg)))
 
+;; Custom items the user has marked mundane. They belong in the ordinary
+;; ?weapons / ?armor / ?equipment buckets rather than the magic ones, but they
+;; still go through deferred-magic-item-fn so that any modifiers attached to
+;; them keep applying when equipped — "not magical" is a statement about where
+;; the item is listed, not a licence to drop mechanics the user entered.
+
+(defn deferred-custom-weapon [weapon-kw weapon]
+  (mods/deferred-modifier
+    ?weapons
+    (deferred-magic-item-fn #(mods/map-mod ?weapons weapon-kw (equipment-cfg %)) weapon)
+    1))
+
+(defn deferred-custom-armor [armor-kw armor]
+  (mods/deferred-modifier
+    ?armor
+    (deferred-magic-item-fn (fn [cfg] (mods/map-mod ?armor armor-kw (equipment-cfg cfg))) armor)
+    1))
+
+(defn deferred-custom-equipment [item-kw item]
+  (mods/deferred-modifier
+    ?equipment
+    (deferred-magic-item-fn (fn [cfg] (mods/map-mod ?equipment item-kw (equipment-cfg cfg))) item)
+    1))
+
 (defn deferred-magic-item [item-kw item]
   (mods/deferred-modifier
     ?magic-items

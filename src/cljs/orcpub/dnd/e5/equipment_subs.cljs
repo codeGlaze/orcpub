@@ -138,35 +138,111 @@
  (fn [magic-weapons _]
    (map-by-key-or-id magic-weapons)))
 
-(defn magic-item-options [modifier-fn nm]
+(defn item-option-cfg
+  "Build one inventory option from an item.
+
+   legacy-only? options stay resolvable but are not offered in the picker —
+   see orcpub.template/option-cfg."
+  [modifier-fn legacy-only? {:keys [:db/id
+                                    ::mi5e/name
+                                    key
+                                    ::mi5e/description
+                                    ::mi5e/page
+                                    ::mi5e/modifiers
+                                    ::mi5e/source] :as item}]
+  (let [item-key (or key (keyword (str "id-" id)))
+        full-item (update item
+                          ::mi5e/modifiers
+                          mod5e/build-modifiers)]
+    (t/option-cfg
+     {:name (or (:name item) name)
+      :key item-key
+      :legacy-only? legacy-only?
+      :help (when (or description
+                      page)
+              (t5e/inventory-help description page source))
+      :modifiers [(modifier-fn
+                   item-key
+                   full-item)]})))
+
+(defn magic-item-options
+  "Options for one of the Magic Weapons / Magic Armor / Other Magic Items
+   selections.
+
+   Custom items the user has since marked mundane are STILL listed here, as
+   legacy-only options. Dropping them would orphan every character that picked
+   one back when every custom item was filed as magical: the character's saved
+   reference would no longer match an option, the item's modifiers would stop
+   applying, and it would vanish from the sheet. Keeping the option resolvable
+   costs nothing and loses nobody's gear; it just stops being offered."
+  [modifier-fn nm]
   (fn [items _]
     (map
-     (fn [{:keys [:db/id
-                  ::mi5e/name
-                  key
-                  ::mi5e/description
-                  ::mi5e/page
-                  ::mi5e/modifiers
-                  ::mi5e/source] :as item}]
-       (let [item-key (or key (keyword (str "id-" id)))
-             full-item (update item
-                               ::mi5e/modifiers
-                               mod5e/build-modifiers)]
-         (t/option-cfg
-          {:name (or (:name item) name)
-           :key item-key
-           :help (when (or description
-                         page)
-                   (t5e/inventory-help description page source))
-           :modifiers [(modifier-fn
-                        item-key
-                        full-item)]})))
+     (fn [item]
+       (item-option-cfg modifier-fn (mi5e/mundane? item) item))
+     items)))
+
+(defn mundane-item-options
+  "Options contributed to the ordinary Weapons / Armor / Equipment selections
+   by custom items their owner has marked mundane."
+  [modifier-fn]
+  (fn [items _]
+    (map
+     (fn [item]
+       (item-option-cfg modifier-fn false item))
      items)))
 
 (reg-sub
  ::mi5e/magic-weapon-options
  :<- [::mi5e/magic-weapons]
  (magic-item-options mod5e/deferred-magic-weapon "Magic Weapon"))
+
+;; --- mundane custom items -------------------------------------------------
+;; Custom items marked mundane also feed the ordinary equipment selections, so
+;; a homemade sword can be added under Weapons instead of Magic Weapons. Note
+;; these subscriptions ADD options; nothing is taken out of the magic maps, so
+;; every existing lookup (attack table, AC, sheet) keeps resolving.
+
+(reg-sub
+ ::mi5e/mundane-custom-items
+ :<- [::mi5e/expanded-custom-items]
+ (fn [custom-items _]
+   (filter mi5e/mundane? custom-items)))
+
+(reg-sub
+ ::mi5e/mundane-custom-weapons
+ :<- [::mi5e/mundane-custom-items]
+ (fn [mundane-items _]
+   ;; magic-weapon-xform / magic-armor-xform / other-magic-items-xform are
+   ;; plain ::mi5e/type filters despite their names.
+   (sequence mi5e/magic-weapon-xform mundane-items)))
+
+(reg-sub
+ ::mi5e/mundane-custom-armor
+ :<- [::mi5e/mundane-custom-items]
+ (fn [mundane-items _]
+   (sequence mi5e/magic-armor-xform mundane-items)))
+
+(reg-sub
+ ::mi5e/mundane-custom-gear
+ :<- [::mi5e/mundane-custom-items]
+ (fn [mundane-items _]
+   (sequence mi5e/other-magic-items-xform mundane-items)))
+
+(reg-sub
+ ::mi5e/mundane-weapon-options
+ :<- [::mi5e/mundane-custom-weapons]
+ (mundane-item-options mod5e/deferred-custom-weapon))
+
+(reg-sub
+ ::mi5e/mundane-armor-options
+ :<- [::mi5e/mundane-custom-armor]
+ (mundane-item-options mod5e/deferred-custom-armor))
+
+(reg-sub
+ ::mi5e/mundane-equipment-options
+ :<- [::mi5e/mundane-custom-gear]
+ (mundane-item-options mod5e/deferred-custom-equipment))
 
 (reg-sub
  ::mi5e/magic-armor-options
@@ -281,6 +357,15 @@
  (fn [_ _] equipment5e/equipment-map))
 
 (reg-sub
+ ::mi5e/all-equipment-map
+ :<- [::mi5e/other-magic-items-map]
+ (fn [other-magic-items-map _]
+   ;; Name lookup for the Equipment section. Includes custom items so a
+   ;; homemade lantern shows its name there instead of a blank row; a superset
+   ;; is harmless because this only resolves keys the character already holds.
+   (merge equipment5e/equipment-map other-magic-items-map)))
+
+(reg-sub
  ::equipment5e/treasure-map
  (fn [_ _] equipment5e/treasure-map))
 
@@ -293,6 +378,9 @@
  :<- [::mi5e/other-magic-item-options]
  :<- [::mi5e/all-weapons-map]
  :<- [::mi5e/custom-and-standard-weapons]
+ :<- [::mi5e/mundane-weapon-options]
+ :<- [::mi5e/mundane-armor-options]
+ :<- [::mi5e/mundane-equipment-options]
  :<- [::spells5e/spell-lists]
  :<- [::spells5e/spells-map]
  :<- [::bg5e/backgrounds]
@@ -305,6 +393,9 @@
        other-magic-item-options
        weapons-map
        custom-and-standard-weapons
+       mundane-weapon-options
+       mundane-armor-options
+       mundane-equipment-options
        spell-lists
        spells-map
        backgrounds
@@ -323,7 +414,10 @@
                             races
                             classes
                             feats
-                            language-map)))
+                            language-map
+                            {:weapons mundane-weapon-options
+                             :armor mundane-armor-options
+                             :equipment mundane-equipment-options})))
 
 (reg-sub
  ::char5e/template

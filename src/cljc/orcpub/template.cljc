@@ -71,8 +71,14 @@
    ::prereq-fn func
    ::hide-if-fail? hide-if-fail?})
 
-(defn option-cfg [{:keys [:db/id name key help selections modifiers associated-options prereqs order ui-fn icon select-fn edit-event plugin-source] :as cfg}]
+(defn option-cfg [{:keys [:db/id name key help selections modifiers associated-options prereqs order ui-fn icon select-fn edit-event plugin-source legacy-only?] :as cfg}]
   {::id id
+   ;; legacy-only? keeps an option resolvable without offering it any more.
+   ;; A character that already picked it still builds normally (entity/build
+   ;; walks the same options), but the "add item" pickers hide it, so a
+   ;; reclassified item can move to its proper list without orphaning the
+   ;; characters that chose it where it used to live.
+   ::legacy-only? (boolean legacy-only?)
    ::name name
    ::key (or key (common/name-to-kw name))
    ::help help

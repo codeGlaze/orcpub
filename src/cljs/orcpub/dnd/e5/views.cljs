@@ -1177,21 +1177,29 @@
 
 (defn item-summary [{:keys [::mi/owner ::mi/name ::mi/type ::mi/item-subtype ::mi/rarity ::mi/attunement] :as item}]
   (when item
-    [:div.p-b-20.flex.align-items-c
-     (when owner
-       [:div.m-r-5 [svg-icon "beer-stein" 24]])
-     [:div
-      [:span.f-s-24.f-w-b (or (:name item) name)]
-      [:div.f-s-16.i.f-w-b.opacity-5
-       (str (when type (common/safe-capitalize-kw type))
-            (when (keyword? item-subtype)
-              (str " (" (common/safe-capitalize-kw item-subtype) ")"))
-            ", "
-            (if (string? rarity)
-              rarity
-              (common/kw-to-name rarity))
-            (when attunement
-              (requires-attunement attunement)))]]]))
+    (let [classification (mi/classify item)]
+      [:div.p-b-20.flex.align-items-c
+       (when owner
+         [:div.m-r-5 [svg-icon "beer-stein" 24]])
+       [:div
+        [:span.f-s-24.f-w-b (or (:name item) name)]
+        [:div.f-s-16.i.f-w-b.opacity-5
+         (str (when type (common/safe-capitalize-kw type))
+              (when (keyword? item-subtype)
+                (str " (" (common/safe-capitalize-kw item-subtype) ")"))
+              ", "
+              ;; Rarity is a magic-item property; a mundane item says so
+              ;; instead of claiming to be "common" magic.
+              (if (= :mundane classification)
+                "mundane"
+                (if (string? rarity)
+                  rarity
+                  (common/kw-to-name rarity)))
+              (when attunement
+                (requires-attunement attunement)))]
+        (when (= :unreviewed classification)
+          [:div.f-s-12.i.opacity-5
+           "magical or mundane not set — open this item to say which"])]])))
 
 (defn item-details [{:keys [::mi/summary ::mi/description ::mi/attunment]} single-column?]
   (when (or summary description)
@@ -3237,6 +3245,15 @@
                         {:class (if expanded? "fa-caret-up" "fa-caret-down")}]]]])))
               all-weapons))]]]]))))
 
+(defn mundane-cfg?
+  "True when this inventory entry resolves to a custom item its owner has
+   classified as mundane. Used to file it with ordinary gear no matter which
+   bucket the character stored it in — every custom item used to land in a
+   magic bucket, and rewriting those characters to fix the listing would risk
+   their data for a cosmetic problem."
+  [item-map [item-kw _cfg]]
+  (boolean (some-> (item-map item-kw) mi/mundane?)))
+
 (defn magic-item-rows [expanded-details magic-item-cfgs magic-weapon-cfgs magic-armor-cfgs]
   (let [magic-item-map @(subscribe [::mi/all-magic-items-map])
         mobile? @(subscribe [:mobile?])]
@@ -3261,10 +3278,15 @@
              [:td.p-10
               {:col-span 3}
               [item-component item true true]]])]))
-     (merge
-      magic-item-cfgs
-      magic-weapon-cfgs
-      magic-armor-cfgs))))
+     ;; Mundane custom items drop out here and are listed under Other
+     ;; Equipment instead. An item we cannot resolve at all is left in — a
+     ;; missing row is the one outcome worth avoiding.
+     (remove
+      (partial mundane-cfg? magic-item-map)
+      (merge
+       magic-item-cfgs
+       magic-weapon-cfgs
+       magic-armor-cfgs)))))
 
 (defn magic-items-section-2 []
   (let [expanded-details (r/atom {})]
@@ -3300,8 +3322,18 @@
   (let [expanded-details (r/atom {})]
     (fn [id]
       (let [mobile? @(subscribe [:mobile?])
+            magic-item-map @(subscribe [::mi/all-magic-items-map])
+            ;; Custom items marked mundane that the character stored in a magic
+            ;; bucket — every custom item went there before items could say
+            ;; which they were. They are listed here, where they belong, rather
+            ;; than moved on the character.
+            mundane-magic-bucket-cfgs (into
+                                       {}
+                                       (filter (partial mundane-cfg? magic-item-map))
+                                       @(subscribe [::char/magic-items id]))
             equipment-cfgs (merge
                             @(subscribe [::char/equipment id])
+                            mundane-magic-bucket-cfgs
                             (zipmap (range) @(subscribe [::char/custom-equipment id])))]
         [:div
          [:div.flex.align-items-c
@@ -3320,12 +3352,14 @@
              (map
               (fn [[item-kw item-cfg]]
                 (let [item-name (::char-equip/name item-cfg)
-                      {:keys [name cost weight] :as item} (equip/equipment-map item-kw)
+                      {:keys [name cost weight] :as item} (or (equip/equipment-map item-kw)
+                                                              ;; custom mundane gear isn't in the SRD map
+                                                              (magic-item-map item-kw))
                       ;;expanded? (@expanded-details item-kw)
                       ]
                   ^{:key item-kw}
                   [:tr.item
-                   [:td.p-10.f-w-b (or (:name item) item-name)]
+                   [:td.p-10.f-w-b (or (:name item) (::mi/name item) item-name)]
                    [:td.p-10 (::char-equip/quantity item-cfg)]
                    [:td.p-10
                     [:div
@@ -7894,6 +7928,39 @@
   )
   )
 
+(defn item-magical-selector
+  "Magic-item / mundane-item switch.
+
+   Custom items used to have no way to say which they were, so every homemade
+   rope and lantern was filed alongside the +3 vorpal swords. Items saved
+   before this switch existed carry no answer; they are shown as whatever
+   mi/classify makes of them, and are still treated as magical when it cannot
+   tell — so nothing changes under anyone's feet. Flipping the switch (or just
+   re-saving the item) records a real answer and retires the guess."
+  [item]
+  (let [magical? (mi/magical? item)
+        unreviewed? (mi/unreviewed? item)]
+    (base-builder-field
+     "Magic Item?"
+     [:div
+      [:div.flex.align-items-c.m-t-5.pointer
+       {:on-click (make-event-handler ::mi/toggle-item-magical?)}
+       (comps/checkbox magical? false)
+       [:span.f-w-b.m-l-5
+        (if magical?
+          "Magic item"
+          "Mundane item")]]
+      [:div.f-s-12.i.opacity-5.m-t-5
+       (cond
+         unreviewed?
+         "This item was saved before items recorded this, so we are treating it as magical for now. Tick or untick to say for certain — it only has to be done once."
+
+         magical?
+         "Listed under Magic Weapons, Magic Armor and Other Magic Items."
+
+         :else
+         "Ordinary gear. Listed under Weapons, Armor and Equipment instead of with the magic items.")]])))
+
 (defn item-builder []
   (let [{:keys [::mi/name ::mi/type ::mi/rarity ::mi/description ::mi/attunement] :as item}
         @(subscribe [::mi/builder-item])
@@ -7936,6 +8003,8 @@
                    item-rarities)
            :value rarity
            :on-change #(dispatch [::mi/set-item-rarity %])}]])]]
+     [:div.m-b-20
+      [item-magical-selector item]]
      [:div.m-b-40 (base-builder-field "Description" [textarea-field
                                                      {:value description
                                                       :on-change #(dispatch [::mi/set-item-description %])}])]

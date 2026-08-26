@@ -1,5 +1,6 @@
 (ns orcpub.dnd.e5.magic-items-test
   (:require [clojure.test :refer [testing deftest is]]
+            [clojure.spec.alpha :as spec]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.character :as char]
             [orcpub.dnd.e5.weapons :as weapons5e]
@@ -314,3 +315,198 @@
           "special? must survive serialization")
       (is (true? (::weapons5e/loading? serialized))
           "loading? must survive serialization"))))
+
+;; ---------------------------------------------------------------------------
+;; Magical vs. mundane classification
+;;
+;; The guarantee these tests exist to protect: an item saved before ::magical?
+;; existed keeps behaving exactly as it did, and nothing about it is rewritten
+;; or dropped in the course of classifying it.
+;; ---------------------------------------------------------------------------
+
+(defn- custom
+  "A user-built item. Real custom items always carry ::mi/owner — the server
+   stamps it on save — and classification reads it to tell them apart from the
+   built-in magic item list, so the fixtures carry it too."
+  [item]
+  (merge {::mi/owner "kaylee"} item))
+
+(deftest built-in-items-are-magical-by-definition
+  (testing "the shipped list IS the magic item list, whatever an item looks like"
+    ;; Without this, an SRD item whose mechanics live only in its prose could be
+    ;; inferred mundane and quietly dropped out of the magic item sections.
+    (is (= :magical (mi/classify {::mi/name "Plain Looking Blade"
+                                  ::mi/type :weapon
+                                  ::mi/rarity :common}))))
+  (testing "every item actually shipped classifies as magical"
+    (is (every? #(= :magical (mi/classify %)) mi/magic-items))))
+
+(deftest explicit-flag-always-wins
+  (testing "a stored true is honoured even with no magical evidence at all"
+    (let [item (custom {::mi/name "Plain Looking Sword"
+                        ::mi/type :weapon
+                        ::mi/rarity :common
+                        ::mi/magical? true})]
+      (is (= :magical (mi/classify item)))
+      (is (mi/magical? item))
+      (is (not (mi/mundane? item)))))
+  (testing "a stored false is honoured even when the item looks magical"
+    ;; A user who calls their attunement-requiring, stat-boosting heirloom
+    ;; mundane is allowed to be wrong. Inference never overrides them.
+    (let [item (custom {::mi/name "Family Heirloom"
+                        ::mi/type :ring
+                        ::mi/rarity :legendary
+                        ::mi/attunement #{:any}
+                        ::mi/magical? false})]
+      (is (= :mundane (mi/classify item)))
+      (is (mi/mundane? item))
+      (is (not (mi/magical? item)))))
+  (testing "and a stored false is honoured on a built-in item too"
+    (is (= :mundane (mi/classify {::mi/name "Shipped Rope" ::mi/magical? false})))))
+
+(deftest infers-magical-from-evidence
+  (testing "attunement"
+    (is (= :magical (mi/classify (custom {::mi/name "Band"
+                                          ::mi/type :other
+                                          ::mi/attunement #{:any}})))))
+  (testing "modifiers"
+    (is (= :magical (mi/classify (custom {::mi/name "Boots"
+                                          ::mi/type :other
+                                          ::mi/modifiers [{::mod/key :speed}]})))))
+  (testing "attack bonus"
+    (is (= :magical (mi/classify (custom {::mi/name "Sword"
+                                          ::mi/type :weapon
+                                          ::mi/magical-attack-bonus 1})))))
+  (testing "damage bonus"
+    (is (= :magical (mi/classify (custom {::mi/name "Sword"
+                                          ::mi/type :weapon
+                                          ::mi/magical-damage-bonus 2})))))
+  (testing "AC bonus"
+    (is (= :magical (mi/classify (custom {::mi/name "Plate"
+                                          ::mi/type :armor
+                                          ::mi/magical-ac-bonus 1})))))
+  (testing "a type that has no mundane form"
+    (doseq [t [:ring :wand :rod :scroll :potion]]
+      (is (= :magical (mi/classify (custom {::mi/name "Thing" ::mi/type t})))
+          (str t " has no mundane form"))))
+  (testing "a rarity only a magic item can carry"
+    (doseq [r [:uncommon :rare :very-rare :legendary :varies]]
+      (is (= :magical (mi/classify (custom {::mi/name "Thing"
+                                            ::mi/type :weapon
+                                            ::mi/rarity r})))
+          (str r " implies a magic item")))))
+
+(deftest zero-bonuses-are-not-evidence
+  (testing "an explicit 0 bonus is the builder's empty state, not a magic bonus"
+    (is (= :mundane (mi/classify (custom {::mi/name "Club"
+                                          ::mi/type :weapon
+                                          ::mi/rarity :common
+                                          ::mi/magical-attack-bonus 0
+                                          ::mi/magical-damage-bonus 0
+                                          ::mi/magical-ac-bonus 0}))))))
+
+(deftest empty-collections-are-not-evidence
+  (is (= :mundane (mi/classify (custom {::mi/name "Rope"
+                                        ::mi/type :other
+                                        ::mi/rarity :common
+                                        ::mi/attunement #{}
+                                        ::mi/modifiers []})))))
+
+(deftest infers-mundane-for-ordinary-gear
+  (testing "the case the whole change exists to fix"
+    (doseq [t [:weapon :armor :other]]
+      (is (= :mundane (mi/classify (custom {::mi/name "Homemade Thing"
+                                            ::mi/type t
+                                            ::mi/rarity :common})))
+          (str t " with no magic in it is ordinary gear"))))
+  (testing "no rarity recorded at all is still ordinary gear"
+    (is (= :mundane (mi/classify (custom {::mi/name "Bastard Sword"
+                                          ::mi/type :weapon})))))
+  (testing "the item builder's long-standing namespaced armor type is recognised"
+    ;; The Type dropdown writes ::mi/armor for "Armor" rather than :armor.
+    ;; Stored items carry it, so classification has to know about it.
+    (is (= :mundane (mi/classify (custom {::mi/name "Boiled Leather"
+                                          ::mi/type ::mi/armor
+                                          ::mi/rarity :common}))))))
+
+(deftest ambiguous-legacy-items-are-left-unreviewed
+  (testing "the item builder's default shape tells us nothing either way"
+    (let [item (custom {::mi/name "Some Old Item"
+                        ::mi/type :wondrous-item
+                        ::mi/rarity :common})]
+      (is (= :unreviewed (mi/classify item)))
+      (is (mi/unreviewed? item))))
+  (testing "an unreviewed item is still TREATED as magical"
+    ;; This is the behaviour-preservation guarantee: until someone says
+    ;; otherwise, an unclassifiable legacy item acts exactly as it always has.
+    (let [item (custom {::mi/name "Some Old Item"
+                        ::mi/type :wondrous-item
+                        ::mi/rarity :common})]
+      (is (mi/magical? item))
+      (is (not (mi/mundane? item))))))
+
+(deftest ensure-classified-only-ever-adds
+  (testing "an item that already has the flag is returned untouched"
+    (let [item (custom {::mi/name "Thing" ::mi/type :weapon ::mi/magical? true})]
+      (is (identical? item (mi/ensure-classified item)))
+      (is (identical? item (mi/ensure-classified item false)))))
+  (testing "a confidently classified item gets the flag it was already acting on"
+    (is (true? (::mi/magical? (mi/ensure-classified
+                               (custom {::mi/name "Wand" ::mi/type :wand})))))
+    (is (false? (::mi/magical? (mi/ensure-classified
+                                (custom {::mi/name "Club" ::mi/type :weapon}))))))
+  (testing "an unreviewed item is left alone unless a fallback is supplied"
+    (let [item (custom {::mi/name "Old" ::mi/type :wondrous-item ::mi/rarity :common})]
+      (is (not (contains? (mi/ensure-classified item) ::mi/magical?)))
+      (is (true? (::mi/magical? (mi/ensure-classified item true))))
+      (is (false? (::mi/magical? (mi/ensure-classified item false))))))
+  (testing "no other attribute is disturbed"
+    (let [item (custom {::mi/name "Old" ::mi/type :wondrous-item ::mi/rarity :common
+                        ::mi/description "grandfathered"
+                        :db/id 4242})]
+      (is (= item (dissoc (mi/ensure-classified item true) ::mi/magical?))))))
+
+(deftest resolve-classification-preserves-behaviour
+  (testing "stamps exactly what the item was already being treated as"
+    (doseq [item [(custom {::mi/name "Old" ::mi/type :wondrous-item ::mi/rarity :common})
+                  (custom {::mi/name "Club" ::mi/type :weapon})
+                  (custom {::mi/name "Wand" ::mi/type :wand})]]
+      (is (= (mi/magical? item)
+             (::mi/magical? (mi/resolve-classification item)))
+          "resolving must not change what the item is")))
+  (testing "resolving is idempotent"
+    (let [once (mi/resolve-classification (custom {::mi/name "Old" ::mi/type :wondrous-item}))]
+      (is (= once (mi/resolve-classification once))))))
+
+(deftest magical-flag-survives-the-save-path
+  (testing "from-internal-item must not drop a mundane classification"
+    ;; from-internal-item whitelists keys, so an un-whitelisted ::magical?
+    ;; would be silently discarded and the item would revert to unreviewed on
+    ;; every single save.
+    (let [serialized (mi/from-internal-item (custom {::mi/name "Rope"
+                                                     ::mi/type :other
+                                                     ::mi/magical? false}))]
+      (is (contains? serialized ::mi/magical?))
+      (is (false? (::mi/magical? serialized)))))
+  (testing "and must not drop a magical classification"
+    (let [serialized (mi/from-internal-item (custom {::mi/name "Wand of Wonder"
+                                                     ::mi/type :wand
+                                                     ::mi/magical? true}))]
+      (is (true? (::mi/magical? serialized)))))
+  (testing "resolving BEFORE serializing is what keeps the answer right"
+    ;; from-internal-item drops ::mi/owner, and classification needs it to know
+    ;; the item is user-built. Resolve first, serialize second — the other order
+    ;; would stamp every mundane item magical on save.
+    (let [mundane (custom {::mi/name "Bastard Sword" ::mi/type :weapon})]
+      (is (false? (::mi/magical? (mi/from-internal-item
+                                  (mi/resolve-classification mundane)))))))
+  (testing "an item with no flag still serializes without one"
+    (is (not (contains? (mi/from-internal-item
+                         (custom {::mi/name "Old" ::mi/type :wondrous-item}))
+                        ::mi/magical?)))))
+
+(deftest classification-flag-is-a-valid-magic-item
+  (testing "the save-path spec accepts both values"
+    (is (spec/valid? ::mi/magic-item {::mi/name "Rope" ::mi/magical? false}))
+    (is (spec/valid? ::mi/magic-item {::mi/name "Wand" ::mi/magical? true}))
+    (is (not (spec/valid? ::mi/magic-item {::mi/name "Rope" ::mi/magical? "no"})))))

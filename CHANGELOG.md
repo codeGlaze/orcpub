@@ -1,5 +1,37 @@
 # Changelog
 
+## [fix/custom-item-classification] — Custom items know whether they're magical
+
+### Fixed
+- **Custom mundane items are no longer filed as magic items** — every user-built
+  item went into the same list and through the same magic-item pipeline, so a
+  homemade length of rope sat in "Other Magic Items" next to the vorpal swords.
+  Items now record whether they are magical, and mundane ones are offered under
+  Weapons / Armor / Equipment and listed with ordinary gear on the sheet.
+
+### Added
+- **`::magical?` on items, with a Magic Item? switch in the item builder** — a
+  new attribute, so no existing item is rewritten to introduce it.
+- **Self-healing classification for existing items** —
+  `magic-items/classify` works the answer out from what an item already
+  contains (attunement, modifiers, bonuses, type, rarity), and an idempotent,
+  additive Datomic backfill records it on startup for the items it can be sure
+  about. Nothing is retracted and no existing attribute is touched. Saving an
+  item from the builder also records its answer.
+- **An explicit "we don't know" state** — an item with nothing to go on either
+  way is left alone rather than guessed at. It keeps behaving exactly as it
+  always has (as a magic item) and its owner is asked in the item builder,
+  which is the only thing that retires the guess.
+
+### Changed
+- **Reclassified items stay resolvable where characters already stored them** —
+  a custom item that becomes mundane remains a valid option in the magic-item
+  selections, hidden from the picker but still building. Dropping the option
+  would have orphaned every character that picked it back when all custom items
+  were magical, silently removing their gear from their sheet.
+- **`::magical?` keeps Datomic history**, unlike its neighbouring item
+  attributes, so a backfilled inference stays auditable and reversible.
+
 ## [staging/june-bug-patches-01] — June bug-patch bundle (2026-07-05)
 
 ### Fixed
