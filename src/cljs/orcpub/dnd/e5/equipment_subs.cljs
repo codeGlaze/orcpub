@@ -56,11 +56,22 @@
  (fn [custom-items _]
    (mi5e/expand-magic-items custom-items)))
 
+;; The EDIT path. Deliberately reads the raw expansion, not the effective
+;; one: the item builder must load an item exactly as stored, or unticking
+;; Magic Item once would make the suppression permanent on the next save.
 (reg-sub
  ::mi5e/custom-item-map
  :<- [::mi5e/expanded-custom-items]
  (fn [custom-items _]
    (common/map-by-id custom-items)))
+
+;; Everything else. A mundane item's magical mechanics are suppressed here,
+;; once, so no downstream consumer has to remember to do it.
+(reg-sub
+ ::mi5e/effective-custom-items
+ :<- [::mi5e/expanded-custom-items]
+ (fn [custom-items _]
+   (map mi5e/effective-item custom-items)))
 
 (reg-sub
  ::mi5e/custom-item
@@ -70,7 +81,7 @@
 
 (reg-sub
  ::char5e/sorted-items
- :<- [::mi5e/expanded-custom-items]
+ :<- [::mi5e/effective-custom-items]
  (fn [custom-items _]
    (concat
     custom-items
@@ -78,7 +89,7 @@
 
 (reg-sub
  ::mi5e/custom-weapons
- :<- [::mi5e/expanded-custom-items]
+ :<- [::mi5e/effective-custom-items]
  (fn [custom-items _]
    (sequence
     mi5e/magic-weapon-xform
@@ -205,7 +216,7 @@
 
 (reg-sub
  ::mi5e/mundane-custom-items
- :<- [::mi5e/expanded-custom-items]
+ :<- [::mi5e/effective-custom-items]
  (fn [custom-items _]
    (filter mi5e/mundane? custom-items)))
 

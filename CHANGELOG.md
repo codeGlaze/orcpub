@@ -24,6 +24,18 @@
   which is the only thing that retires the guess.
 
 ### Changed
+- **The item builder only offers magical fields to magic items** — rarity,
+  attunement, magical attack/damage/AC bonuses and the ability, save, speed,
+  resistance and immunity grids appear only when Magic Item? is ticked. Name,
+  type, description and the base weapon / base armor stats stay for both, since
+  that is what an ordinary sword or breastplate is made of.
+- **Unticking Magic Item hides and suspends, it does not delete** — an item's
+  magical properties stop applying but stay on the item, and a notice names
+  what is being held ("attunement, modifiers, an attack bonus"). Ticking the
+  box again brings them all back; removing them for good takes a deliberate
+  second click. Nothing on the automatic path can reach this state: an item
+  classification calls mundane on its own has no magical properties by
+  definition.
 - **Reclassified items stay resolvable where characters already stored them** —
   a custom item that becomes mundane remains a valid option in the magic-item
   selections, hidden from the picker but still building. Dropping the option

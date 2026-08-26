@@ -2933,6 +2933,15 @@
    (assoc item ::mi/name item-name)))
 
 (reg-event-db
+ ::mi/clear-magical-properties
+ item-interceptors
+ (fn [item _]
+   ;; The deliberate, explicit version of what unticking Magic item does NOT
+   ;; do. Only reachable from the "remove them for good" button, which is only
+   ;; shown once the item is already marked mundane.
+   (mi/without-magical-properties item)))
+
+(reg-event-db
  ::mi/toggle-item-magical?
  item-interceptors
  (fn [item _]
