@@ -1,0 +1,6 @@
+^{:watch-dirs []}
+{:main          orcpub.test-runner
+ :target        :nodejs
+ :output-to     "target/test-node/test.js"
+ :output-dir    "target/test-node/out"
+ :optimizations :none}
