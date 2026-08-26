@@ -8005,7 +8005,7 @@
                          (s/join ", " (magical-property-labels item))
                          ".")]
            [:div.f-s-12.opacity-7.m-t-2
-            "Set Magic Item? back to Yes to get them back."]]
+            "No character using this item gets them. Set Magic Item? back to Yes to restore."]]
           [:span.health-act
            {:on-click (make-event-handler ::mi/clear-magical-properties)}
            "remove for good"]])])))
