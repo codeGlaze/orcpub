@@ -1175,6 +1175,33 @@
             attunement) "or")))
    ")"))
 
+(def ^:private magical-property-label
+  {::mi/attunement "attunement"
+   ::mi/modifiers "modifiers"
+   ::mi/internal-modifiers "modifiers"
+   ::mi/magical-attack-bonus "an attack bonus"
+   ::mi/magical-damage-bonus "a damage bonus"
+   ::mi/magical-ac-bonus "an AC bonus"})
+
+(defn magical-property-labels
+  "Plain-English names for the magical mechanics an item still carries, so the
+   notice says what would be lost rather than just that something would be."
+  [item]
+  (distinct (keep magical-property-label (keys (mi/magical-properties item)))))
+
+(def ^:private item-kind-options
+  "Magic item vs ordinary gear, as a dropdown so it sits with Type and Rarity
+   and answers its own label. It was a checkbox, which read as the nonsense
+   \"Magic Item? [ ] Mundane item\" — a question and a state fighting each other."
+  [{:value "magical" :title "Yes"}
+   {:value "mundane" :title "No — mundane"}])
+
+(def ^:private not-set-kind-option
+  "Offered only while an item is still unclassified, so the dropdown can show
+   the truth instead of implying someone already answered. It disappears once
+   they do."
+  {:value "unreviewed" :title "Not set"})
+
 (defn item-summary [{:keys [::mi/owner ::mi/name ::mi/type ::mi/item-subtype ::mi/rarity ::mi/attunement] :as item}]
   (when item
     (let [classification (mi/classify item)]
@@ -1195,11 +1222,29 @@
                 (if (string? rarity)
                   rarity
                   (common/kw-to-name rarity)))
-              (when attunement
+              ;; Not on a mundane item: its attunement is suspended along with
+              ;; the rest of its magic, so "mundane (requires attunement)" would
+              ;; be claiming something that is switched off. The "magic set
+              ;; aside" line below names attunement among what is being held.
+              (when (and attunement (not= :mundane classification))
                 (requires-attunement attunement)))]
+        ;; Small adornments, one line each, in the same flow as the subtitle —
+        ;; no absolutely-positioned tooltip, no click handler of their own. The
+        ;; row is already a click target that expands to the item's details and
+        ;; its edit button, so these only have to SAY something; the existing
+        ;; interaction is what acts on it. Hover detail rides on the native
+        ;; title attribute, which costs no CSS and cannot mis-position.
         (when (= :unreviewed classification)
-          [:div.f-s-12.i.opacity-5
-           "magical or mundane not set — open this item to say which"])]])))
+          [:div.f-s-12.i.opacity-7
+           "magical or mundane not set — open this item to say which"])
+        (when (and (= :mundane classification)
+                   (mi/has-magical-properties? item))
+          [:div.f-s-12.opacity-7
+           {:title (str "Magical properties kept but not applied: "
+                        (s/join ", " (magical-property-labels item))
+                        ". Open this item to restore or remove them.")}
+           [:i.fa.fa-magic.orange.m-r-5]
+           "magic set aside"])]])))
 
 (defn item-details [{:keys [::mi/summary ::mi/description ::mi/attunment]} single-column?]
   (when (or summary description)
@@ -7927,33 +7972,6 @@
   messages]
   )
   )
-
-(def ^:private magical-property-label
-  {::mi/attunement "attunement"
-   ::mi/modifiers "modifiers"
-   ::mi/internal-modifiers "modifiers"
-   ::mi/magical-attack-bonus "an attack bonus"
-   ::mi/magical-damage-bonus "a damage bonus"
-   ::mi/magical-ac-bonus "an AC bonus"})
-
-(defn magical-property-labels
-  "Plain-English names for the magical mechanics an item still carries, so the
-   notice says what would be lost rather than just that something would be."
-  [item]
-  (distinct (keep magical-property-label (keys (mi/magical-properties item)))))
-
-(def ^:private item-kind-options
-  "Magic item vs ordinary gear, as a dropdown so it sits with Type and Rarity
-   and answers its own label. It was a checkbox, which read as the nonsense
-   \"Magic Item? [ ] Mundane item\" — a question and a state fighting each other."
-  [{:value "magical" :title "Yes"}
-   {:value "mundane" :title "No — mundane"}])
-
-(def ^:private not-set-kind-option
-  "Offered only while an item is still unclassified, so the dropdown can show
-   the truth instead of implying someone already answered. It disappears once
-   they do."
-  {:value "unreviewed" :title "Not set"})
 
 (defn item-kind-selector
   "The Magic Item? field.
