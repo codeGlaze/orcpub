@@ -600,3 +600,70 @@
       (is (mi/mundane? item))
       (is (not (mi/has-magical-properties? item)))
       (is (= item (mi/effective-item item))))))
+
+;; ---------------------------------------------------------------------------
+;; How long are suspended properties kept?
+;;
+;; The answer has to be "until the owner says otherwise", with no expiry and no
+;; event that quietly drops them — otherwise the UI's promise ("kept, not
+;; applied") becomes a lie at some later date. There is exactly one write path
+;; for an item (the item builder's save), so these tests pin that path.
+;; ---------------------------------------------------------------------------
+
+(defn- save-round-trip
+  "What the item builder actually does: resolve the classification, serialize
+   for the API, and read the stored result back into the builder."
+  [builder-item]
+  (mi/to-internal-item
+   (mi/from-internal-item (mi/resolve-classification builder-item))))
+
+(deftest every-magical-property-survives-the-save-path
+  (testing "each key is whitelisted in from-internal-item"
+    ;; from-internal-item drops anything not on its whitelist. If a magical
+    ;; property is ever added without being whitelisted, it would vanish on the
+    ;; next save and "kept, not applied" would silently stop being true.
+    (let [saved (mi/from-internal-item
+                 (mi/to-internal-item (assoc enchanted-blade ::mi/magical? false)))]
+      (doseq [k mi/magical-property-keys]
+        ;; ::internal-modifiers is the builder's working shape; it is carried
+        ;; by ::modifiers on the stored side.
+        (when (not= k ::mi/internal-modifiers)
+          (is (contains? saved k)
+              (str k " must survive a save on a mundane item"))))
+      (is (mi/has-magical-properties? saved)))))
+
+(deftest suspended-properties-survive-repeated-saves
+  (testing "they are still there after ten open-and-save cycles"
+    ;; No decay, no drift: the answer to \"how long are they kept\" is
+    ;; \"indefinitely\", and re-saving is what would erode them if anything did.
+    (let [mundane (mi/to-internal-item (assoc enchanted-blade ::mi/magical? false))
+          final (nth (iterate save-round-trip mundane) 10)]
+      (is (mi/mundane? final))
+      (is (mi/has-magical-properties? final))
+      (is (= #{:any} (::mi/attunement final)))
+      (is (= 1 (::mi/magical-attack-bonus final)))
+      (is (= 2 (::mi/magical-damage-bonus final)))
+      (is (seq (get-in final [::mi/internal-modifiers :damage-resistance]))))))
+
+(deftest switching-back-restores-everything
+  (testing "mundane → magical returns the item to exactly where it started"
+    (let [started (mi/to-internal-item enchanted-blade)
+          there-and-back (-> started
+                             (assoc ::mi/magical? false)
+                             save-round-trip
+                             (assoc ::mi/magical? true)
+                             save-round-trip)]
+      (is (mi/magical? there-and-back))
+      (is (= (dissoc started ::mi/magical? ::mi/owner)
+             (dissoc there-and-back ::mi/magical? ::mi/owner))))))
+
+(deftest only-an-explicit-clear-removes-them
+  (testing "nothing but without-magical-properties takes them away"
+    (let [mundane (assoc enchanted-blade ::mi/magical? false)]
+      (is (mi/has-magical-properties? (mi/resolve-classification mundane)))
+      (is (mi/has-magical-properties? (mi/ensure-classified mundane)))
+      (is (mi/has-magical-properties? (save-round-trip (mi/to-internal-item mundane))))
+      ;; effective-item hides them from the app, but it is a read-time view —
+      ;; it is never what gets saved.
+      (is (not (mi/has-magical-properties? (mi/effective-item mundane))))
+      (is (not (mi/has-magical-properties? (mi/without-magical-properties mundane)))))))

@@ -53,6 +53,7 @@
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       default-character
+                                      default-item
                                       default-spell
                                       default-monster
                                       default-encounter
@@ -4757,14 +4758,7 @@
 (reg-event-fx
  ::mi/reset-item
  (fn [_ _]
-   {:dispatch [::mi/set-item
-               ;; ::mi/magical? true, explicitly: a brand new item must not
-               ;; start life in the "we had to guess" state that legacy items
-               ;; are in. Magic item is the default because that is what the
-               ;; item builder has always produced.
-               {::mi/type :wondrous-item
-                ::mi/rarity :common
-                ::mi/magical? true}]}))
+   {:dispatch [::mi/set-item default-item]}))
 
 (reg-event-fx
  ::spells/reset-spell
