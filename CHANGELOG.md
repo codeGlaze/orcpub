@@ -3,6 +3,18 @@
 ## [fix/custom-item-classification] — Custom items know whether they're magical
 
 ### Fixed
+- **An item saved without touching a menu is no longer saved blank** — the Type
+  and Rarity dropdowns show a value even when the item has none (a controlled
+  `<select>` whose value matches no option still renders one), so items saved
+  without opening those menus stored nothing and came back rendering as
+  ", very rare" with a missing type. Saving now records what the builder was
+  showing. Rarity is only filled for magic items, since it isn't shown for
+  mundane ones.
+- **Items no longer need a page refresh after signing in** — the subscription
+  that loads them only fetches on a cache miss, so if anything read the chain
+  while signed out (the equipment pickers do), it cached an empty list and no
+  fetch fired again for the whole session. Signing in now asks for them
+  directly.
 - **Custom mundane items are no longer filed as magic items** — every user-built
   item went into the same list and through the same magic-item pipeline, so a
   homemade length of rope sat in "Other Magic Items" next to the vorpal swords.

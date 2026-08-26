@@ -249,6 +249,33 @@
     (without-magical-properties item)
     item))
 
+(defn- usable-keyword?
+  [v]
+  (and (keyword? v) (not (s/blank? (name v)))))
+
+(defn with-displayed-defaults
+  "Fill in the values the item builder was SHOWING but never stored.
+
+   A controlled <select> whose value matches none of its options still renders
+   an option — so an item with no ::type looks like a Wondrous Item and one
+   with no ::rarity looks Common, and the user has no way to tell the value
+   isn't set. Saving used to record the nothing rather than the something they
+   were looking at, and the item came back rendering as \", very rare\" with a
+   blank type.
+
+   Only fills a field the builder actually shows. Rarity is hidden for a
+   mundane item, so a mundane item is never given one — filling in a displayed
+   default must not fabricate a value nobody was offered."
+  [item]
+  (cond-> item
+    (not (usable-keyword? (::type item)))
+    (assoc ::type :wondrous-item)
+
+    ;; After the ::type fill, so magical? classifies against the real type.
+    (and (not (usable-keyword? (::rarity item)))
+         (magical? item))
+    (assoc ::rarity :common)))
+
 (defn resolve-classification
   "Resolve an item to an explicit stored flag using exactly the value the app
    is already treating it as, so saving an item retires its legacy guess

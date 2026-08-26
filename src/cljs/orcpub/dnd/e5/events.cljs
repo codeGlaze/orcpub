@@ -21,6 +21,10 @@
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
+            ;; One-way: equipment-subs does not require events. Needed for the
+            ;; extracted item fetch, so sign-in can ask for items directly
+            ;; instead of relying on subscription lifecycle.
+            [orcpub.dnd.e5.equipment-subs :as equipment-subs]
             [orcpub.dnd.e5.character.random :as char-rand5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
@@ -534,8 +538,12 @@
    ;; built-in ones, and from-internal-item drops it (the server re-stamps it
    ;; on save). Resolving after serializing would classify every item as
    ;; built-in and stamp them all magical.
+   ;; with-displayed-defaults first: record what the dropdowns were SHOWING
+   ;; but never stored, so an item saved without touching a menu is not saved
+   ;; blank. Then resolve-classification, which reads ::mi/type.
    (let [strict-item (mi/from-internal-item
-                      (mi/resolve-classification (::mi/builder-item db)))]
+                      (mi/resolve-classification
+                       (mi/with-displayed-defaults (::mi/builder-item db))))]
      {:dispatch [:set-loading true]
       :http {:method :post
              :headers (authorization-headers db)
@@ -2037,14 +2045,27 @@
 
 (def login-url (backend-url "/login"))
 
+(defn login-success
+  "Named so it can be tested directly — re-frame does not expose registered
+   handlers, and this one has real logic worth pinning."
+  [{:keys [db]} [_ backtrack? response]]
+  (let [db (update db :user-data merge (-> response :body))]
+    {:db db
+     ;; Ask for the user's content now that there is a token. The subscription
+     ;; that normally fetches items only does so when its HANDLER runs, which
+     ;; is on a cache miss — so if anything dereferenced the chain while signed
+     ;; out (the equipment pickers do exactly that), it cached an empty list
+     ;; and no fetch ever fired for the rest of the session. That is the "my
+     ;; items only show up after I refresh the page" report.
+     :dispatch-n [[::mi/fetch-custom-items]
+                  [:route (or
+                           (:return-route db)
+                           routes/dnd-e5-char-builder-route)]]}))
+
 (reg-event-fx
  :login-success
  [user->local-store-interceptor]
- (fn [{:keys [db]} [_ backtrack? response]]
-   {:db (update db :user-data merge (-> response :body))
-    :dispatch [:route (or
-                       (:return-route db)
-                       routes/dnd-e5-char-builder-route)]}))
+ login-success)
 
 (defn show-old-account-message []
   [:show-login-message [:div  "There is no account for the email or username, please double-check it. Usernames and passwords are case sensitive, email addresses are not. You can also try to " [:a {:href (routes/path-for routes/register-page-route)} "register"] "."]])
@@ -2277,6 +2298,13 @@
    (assoc db
           ::char5e/characters characters
           ::char5e/summary-map (common/map-by-id characters))))
+
+(reg-event-fx
+ ::mi/fetch-custom-items
+ (fn [{:keys [db]} _]
+   (when (equipment-subs/signed-in? db)
+     (equipment-subs/fetch-custom-items! db))
+   {}))
 
 (reg-event-db
  ::mi/set-custom-items
