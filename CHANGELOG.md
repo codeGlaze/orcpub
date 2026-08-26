@@ -44,6 +44,12 @@
   it appears — replacing near-invisible `opacity-5` italic hints. Nothing on the automatic path can reach this state: an item
   classification calls mundane on its own has no magical properties by
   definition.
+- **The character sheet marks an item holding magic in reserve** — a "magic
+  set aside" line in the Details column of the Weapons and Other Equipment
+  tables, answering "why is my +1 not applying?" where the question is
+  actually asked. The sheet resolves items through the effective (stripped)
+  map, so a keys-only `::mi/items-holding-magic` subscription tells it THAT an
+  item holds magic without giving the suspended mechanics a route back in.
 - **My Items marks an item that is holding magic in reserve** — a small
   "magic set aside" line, with the held properties named in a native hover
   title. No new CSS, no absolutely-positioned tooltip and no click handler of

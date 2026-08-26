@@ -12,6 +12,7 @@
             [re-frame.db :refer [app-db]]
             [orcpub.template :as t]
             [orcpub.dnd.e5.magic-items :as mi5e]
+            [orcpub.dnd.e5.views :as views]
             ;; Side effect: registers the equipment subscriptions
             [orcpub.dnd.e5.equipment-subs]))
 
@@ -129,3 +130,45 @@
   (is (empty? @(rf/subscribe [::mi5e/mundane-weapon-options])))
   (is (empty? @(rf/subscribe [::mi5e/mundane-armor-options])))
   (is (empty? @(rf/subscribe [::mi5e/mundane-equipment-options]))))
+
+;; ---------------------------------------------------------------------------
+;; The character-sheet marker
+;;
+;; The sheet resolves items through the EFFECTIVE map, which has already had a
+;; mundane item's mechanics stripped — so from the sheet's side, "plain gear"
+;; and "gear with its magic switched off" look identical. ::items-holding-magic
+;; is the one thing that tells them apart, and it hands over keys only.
+;; ---------------------------------------------------------------------------
+
+(deftest items-holding-magic-names-only-the-ones-in-reserve
+  (with-items! [homemade-sword flame-tongue legacy-trinket demoted-item])
+  (let [held @(rf/subscribe [::mi5e/items-holding-magic])]
+    (is (= #{:retired-blade} held)
+        "a mundane item with magic on it — and nothing else")
+    (testing "keys only, never the items"
+      ;; Returning raw items here would hand the suspended mechanics a route
+      ;; back into the app. The sheet may learn THAT magic is held, never what.
+      (is (every? keyword? held)))))
+
+(deftest the-sheet-marker-appears-only-where-it-should
+  (with-items! [homemade-sword demoted-item])
+  (testing "an item holding magic in reserve gets the note"
+    (let [note (views/magic-set-aside-note :retired-blade)]
+      (is (some? note))
+      (is (some #(and (string? %) (= "magic set aside" %))
+                (tree-seq coll? seq note)))))
+  (testing "genuinely plain gear gets nothing"
+    (is (nil? (views/magic-set-aside-note :bastard-sword))))
+  (testing "an item the character has that is not a custom item at all"
+    (is (nil? (views/magic-set-aside-note :longsword))))
+  (testing "and a nil key is not a match"
+    (is (nil? (views/magic-set-aside-note nil)))))
+
+(deftest the-marker-clears-when-the-magic-is-removed
+  (testing "clearing the properties retires the marker"
+    (with-items! [(dissoc demoted-item ::mi5e/attunement ::mi5e/magical-attack-bonus)])
+    (is (empty? @(rf/subscribe [::mi5e/items-holding-magic])))
+    (is (nil? (views/magic-set-aside-note :retired-blade))))
+  (testing "and so does switching the item back to magical"
+    (with-items! [(assoc demoted-item ::mi5e/magical? true)])
+    (is (empty? @(rf/subscribe [::mi5e/items-holding-magic])))))
