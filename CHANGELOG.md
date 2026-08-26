@@ -33,7 +33,9 @@
   magical properties stop applying but stay on the item, and a notice names
   what is being held ("attunement, modifiers, an attack bonus"). Ticking the
   box again brings them all back; removing them for good takes a deliberate
-  second click. Nothing on the automatic path can reach this state: an item
+  second click. The notice uses the `health-card` primitives from
+  `feature/content-library-management` at the warning tier, so an
+  "attention, not an error" signal looks the same wherever it appears. Nothing on the automatic path can reach this state: an item
   classification calls mundane on its own has no magical properties by
   definition.
 - **Reclassified items stay resolvable where characters already stored them** —
