@@ -9,6 +9,10 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 
 ## [Summer Patch] — 2026 (character-load resilience, homebrew salvage & library management, PDF printing)
 
+### Highlights
+
+The **My Content** homebrew library is now manageable — see, organize, disable, move, and de-conflict your content, with imports and exports that no longer spawn silent duplicates or false warnings. Characters that used to blank-screen on a bad load now recover in place, and printable spell cards and card backs read cleanly in black and white.
+
 ### Fixed
 
 Character loading & display
@@ -17,7 +21,8 @@ Character loading & display
 - **Character sheets no longer go blank** — an unrenderable section shows a recovery message; the rest of the sheet stays usable (`565c33c0`).
 - **The Features tab loads for every character**, a nameless trait shows "[Unnamed feature]" instead of crashing the name sort, and Hunter's Evasion is named (`2a6fde93`, `5c3b073f`, `dd65d66a`).
 - **Homebrew class source no longer poisons spell-selection keys** — the source label was folded into the class `:name`, so saved spells/cantrips vanished when it changed; keys now come from a stable class identity, and orphaned saves repair on load (`9a709c0d`, `fe549631`, `a3e26155`).
-- **Boolean toggles no longer corrupt data** and self-heal old damage (`1e9f27ec`); **non-ASCII name detection works in the browser** (`d9b23021`).
+- **Boolean toggles no longer corrupt data** and self-heal old damage (`1e9f27ec`).
+- **Non-ASCII name detection works in the browser** (`d9b23021`).
 - **Inline "Custom" content isn't flagged as missing** — a character built with the built-in Custom option no longer triggers a false "Missing Content" warning; the `:custom`/`:none` inline sentinels are recognized as present, not homebrew keys to resolve (`124faa9a`).
 
 Homebrew import / export / salvage
@@ -27,7 +32,9 @@ Homebrew import / export / salvage
 - **Import can't report success it won't keep** — problems surface at import time against the loader's floor, and success fires only after the write persists (`c037de78`, `7782e831`).
 - **Dangling spell references render** with a key-derived name + edit link instead of a blank card, reported once per class (`a4dbfe19`, `73e75c9d`).
 - **Old-name spells in imported paks resolve** — 17 pre-2024 wizard-possessive keys (Leomund's, Tasha's, Bigby's…) map to their current SRD keys; loaded homebrew is never overridden (`cf1f4f1c`).
-- **Keyword-trap imports are caught and routed to repair** instead of silently vanishing (`d9b23021`); **unreadable storage is preserved** for recovery, not deleted (`eedffc08`); **quota-failed saves warn and offer a backup**.
+- **Keyword-trap imports are caught and routed to repair** instead of silently vanishing (`d9b23021`).
+- **Unreadable storage is preserved** for recovery, not deleted (`eedffc08`).
+- **Quota-failed saves warn and offer a backup**.
 - **Readable import/export errors** — plain-English console messages, dedup shown as a log line (`eba28a9c`, `e512dc45`); **post-save export** and **autosave-on-empty-template** crashes fixed (`e3c9a9ee`).
 
 ### Added
@@ -36,7 +43,10 @@ Homebrew resilience & repair
 - **Per-entry salvage** — one bad entry no longer quarantines its whole source; valid items stay, broken ones are set aside for repair (`957e09ab`, `7782e831`, `c037de78`).
 - **Entry-level repair panel** in My Content — editable Name + Option-source per set-aside entry, Fix & Restore, and Discard (`d34007ff`, `c037de78`).
 - **Export runs the same checks as import** — duplicates/cleanups caught on the way out; raw/pretty export stays an unchecked escape hatch (`9df1b4ae`, `c037de78`).
-- **Resilient homebrew loading** with a My Content repair panel (`eedffc08`); **builder escape hatches** — draft export, refresh-safe WIP restore, "Save anyway" with placeholders, emergency raw export, Export & Auto-Fix (`eac350d0`, `e3c9a9ee`); **"Show homebrew source on class names" toggle** (`8f94a94c`); **fill-in dialog on export** with live field guidance (`1547cd69`, `22172adb`).
+- **Resilient homebrew loading** with a My Content repair panel (`eedffc08`).
+- **Builder escape hatches** — draft export, refresh-safe WIP restore, "Save anyway" with placeholders, emergency raw export, and Export & Auto-Fix (`eac350d0`, `e3c9a9ee`).
+- **"Show homebrew source on class names" toggle** (`8f94a94c`).
+- **Fill-in dialog on export** with live field guidance (`1547cd69`, `22172adb`).
 
 PDF & printing
 - **Card-back logo** — "Print logo on card backs" under a new Appearance section; the mark redrawn to print legibly (solid black, filled letters), with a faded-color option for color printers (`e8e560a3`, `99e20389`, `d0f2bfd8`).
@@ -49,7 +59,10 @@ Support
 - **Import and export share one correction gate**, and the exported library is canonicalized so import → export → re-import is idempotent (`9df1b4ae`, `c037de78`).
 - **Quarantine granularity is per-entry**, backward-compatible with whole-source entries, with precise per-entry diagnostics (`957e09ab`, `7782e831`, `c037de78`).
 - **Source-less imported content lands in the real "Default Option Source"** instead of a phantom placeholder (`54f4e87d`).
-- **Save validation covers every required field** — dropdowns and multi-selects too (`e512dc45`); **save and load share one spec registry** so they can't drift (`ca977e0a`); normal exports strip meaningless blank flags; invalid-key errors are element-specific.
+- **Save validation covers every required field** — dropdowns and multi-selects too (`e512dc45`).
+- **Save and load share one spec registry** so they can't drift (`ca977e0a`).
+- **Normal exports strip meaningless blank flags.**
+- **Invalid-key errors are element-specific.**
 - **PDF form appearances are baked on generation** — filled fields render consistently across all PDF viewers instead of only in Acrobat, and spell-card generation is more efficient (`45d106b4`).
 
 ### Homebrew library management (My Content)
