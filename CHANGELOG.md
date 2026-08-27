@@ -1,5 +1,12 @@
 # Changelog
 
+All notable changes are documented here, newest release first. Format: [Keep a Changelog](https://keepachangelog.com).
+House style and the branch → release fold: [`docs/branch-changelog.template.md`](docs/branch-changelog.template.md).
+
+<!-- Editing this file: one change per bullet under ### Added / ### Fixed / ### Changed; succinct and
+     plain; no AI-jargon; end each with (`shorthash`). No prose intros under a heading. A ### Highlights
+     block (≤3 sentences, labeled) is allowed only for an impactful release — see the template. -->
+
 ## [Summer Patch] — 2026 (character-load resilience, homebrew salvage & library management, PDF printing)
 
 ### Fixed

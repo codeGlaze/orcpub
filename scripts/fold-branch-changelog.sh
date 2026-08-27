@@ -38,7 +38,9 @@ fi
 
 # Build the folded block from the branch changelog:
 #   - strip the HTML comment block and the top-level "# ..." title
-#   - drop the "## Why this branch exists" header (keep its paragraph as the intro)
+#   - drop "## Why this branch exists" AND its body (reviewer context; never reaches
+#     CHANGELOG.md). A "## Highlights" section, if the branch earned one, is a normal
+#     "## Section" and survives as "**Highlights**".
 #   - demote every other "## Section" to "**Section**"
 #   - wrap it all under "### <block-title>"
 BLOCK="$(mktemp)"
@@ -47,7 +49,9 @@ BLOCK="$(mktemp)"
   echo
   awk '
     /<!--/ { inc=1 } inc { if (/-->/) inc=0; next }              # skip HTML comment
-    /^## Why this branch exists[[:space:]]*$/ { next }            # drop the Why header
+    /^## Why this branch exists[[:space:]]*$/ { skipwhy=1; next } # drop the Why header AND
+    skipwhy && /^(## |### )/ { skipwhy=0 }                        #   its body, up to the next
+    skipwhy { next }                                             #   section (any "---" too)
     /^## / { sub(/^## /, ""); print "**" $0 "**"; next }          # demote section headers
     /^# /  { next }                                               # drop the doc title
     { print }

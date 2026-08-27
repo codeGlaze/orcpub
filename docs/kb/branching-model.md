@@ -53,20 +53,28 @@ as a standing structure.
 
 ## Changelogs — fold at merge-to-integration
 
-Every feature/fix branch keeps a `docs/branch-changelog.md` (its intent + staged
-entries in the root `CHANGELOG.md` prose style) while in flight. **When the branch
-merges into `integration`, fold those entries into the root `CHANGELOG.md`'s current
-in-progress release section (e.g. `[Summer Patch]`) and delete the branch changelog
-— it's consumed.** That keeps root `CHANGELOG.md` a live reflection of what the
-in-flight release contains, which is exactly the pending-release diff on
-`integration`. The merge brings the branch-changelog *file*, but folding its entries
-into root `CHANGELOG.md` is a **deliberate step**, not automatic — don't skip it.
+Every feature/fix branch keeps a `docs/branch-changelog.md` while in flight. Start it
+by copying **[`docs/branch-changelog.template.md`](../branch-changelog.template.md)** —
+that file is the single source of truth for the house style (bullet rules + when a
+`## Highlights` is earned); it travels with every branch so no one has to hunt for the
+rules here. **When the branch merges into `integration`, fold its entries into the
+current in-progress release section of root `CHANGELOG.md` (e.g. `[Summer Patch]`) and
+delete the branch changelog — it's consumed.** That keeps root `CHANGELOG.md` a live
+reflection of the pending-release diff on `integration`. Folding is a **deliberate
+step**, not automatic — don't skip it.
+
+Two sections get special fold treatment:
+- **`## Why this branch exists`** is reviewer context — **stripped at fold**, never
+  reaches `CHANGELOG.md`.
+- **`## Highlights`** (≤3 sentences, only when the branch is an impactful new capability
+  or behavioral shift — not a bugfix bundle) is **kept**. Decide whether the branch
+  earns one *before* opening the PR / claiming it done; the PR checklist asks for it.
 
 Automation:
-- **`scripts/fold-branch-changelog.sh "<release>"`** does the mechanical fold — it
-  inserts the branch changelog's entries into the `## [<release>]` section as a
-  labeled block and `git rm`s the branch changelog. Review + commit after; editorial
-  curation (release name, prose) stays yours.
+- **`scripts/fold-branch-changelog.sh "<release>"`** does the mechanical fold — strips
+  the guidance + Why, keeps Highlights, demotes `## Section` → `**Section**`, inserts a
+  labeled block into `## [<release>]`, and `git rm`s the branch changelog. Review +
+  commit after; editorial curation stays yours.
 - The **`changelog-guard` CI workflow** fails a push to `integration`/`develop` that
   still contains `docs/branch-changelog.md` — the backstop if the fold gets skipped.
 
