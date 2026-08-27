@@ -2,10 +2,6 @@
 
 ## [Summer Patch] — 2026 (character-load resilience, homebrew salvage & library management, PDF printing)
 
-Consolidates the June bug-patch bundle, the homebrew conflict-resolution/salvage
-work, the My Content library-management overhaul, and the summer additions (PDF
-printing, character-load recovery, spell-key reconciliation) into one release.
-
 ### Fixed
 
 Character loading & display
@@ -50,8 +46,6 @@ Support
 - **PDF form appearances are baked on generation** — filled fields render consistently across all PDF viewers instead of only in Acrobat, and spell-card generation is more efficient (`45d106b4`).
 
 ### Homebrew library management (My Content)
-
-The My Content library becomes manageable and resilient — see, organize, disable, move, and de-conflict homebrew, with imports/exports that stop producing silent duplicates or false warnings.
 
 **Added**
 - **Move / copy content between sources** — one select-mode mechanism for single or bulk; clobber-free key policy (move keeps the key unless taken; copy always mints a fresh one) (`903f44cb`).
