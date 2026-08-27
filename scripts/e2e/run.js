@@ -166,13 +166,60 @@ async function signedOutSavePrompt(p) {
         `name field is ${JSON.stringify(nameValue)}`);
 }
 
+async function magicalPropertiesField(p) {
+  console.log('\nMagical Properties is its own field, gated behind Magic Item?');
+  await login(p);
+  await newItem(p, 'Moon-Touched Sword', 'weapon');
+
+  // base-builder-field puts the label in the grandparent of the textarea.
+  const labelled = async () => await p.evaluate(() =>
+    [...document.querySelectorAll('textarea')].map(t =>
+      (t.parentElement.parentElement.innerText || '').trim().split('\n')[0]));
+
+  let labels = await labelled();
+  check('the field is offered on a magic item',
+        labels.some(l => /Magical Properties/i.test(l)), JSON.stringify(labels));
+  check('Description is still separate',
+        labels.some(l => /^Description$/i.test(l)), JSON.stringify(labels));
+
+  await (await kindSelect(p)).selectOption('mundane');
+  await p.waitForTimeout(600);
+  labels = await labelled();
+  check('and hidden on a mundane one',
+        !labels.some(l => /Magical Properties/i.test(l)), JSON.stringify(labels));
+
+  await (await kindSelect(p)).selectOption('magical');
+  await p.waitForTimeout(600);
+
+  // Type into it and save; the whitelist in from-internal-item is the thing
+  // most likely to silently drop a newly added attribute.
+  const ta = p.locator('textarea').nth(1);
+  await ta.fill('Sheds dim light in a 5-foot radius.');
+  await p.waitForTimeout(400);
+  await clickButton(p, /^SAVE/i);
+  await p.waitForTimeout(3000);
+
+  // Re-open the item from My Items rather than reading app-db: this is the
+  // whole point, since from-internal-item's whitelist silently drops any
+  // attribute missing from it and the round trip is where that shows up.
+  await p.goto(BASE + '/pages/dnd/5e/magic-items', { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(3500);
+  await p.getByText('Moon-Touched Sword', { exact: false }).first().click();
+  await p.waitForTimeout(3000);
+  const shown = await p.locator('body').innerText();
+  check('the prose survived the save round trip',
+        /Sheds dim light in a 5-foot radius/.test(shown));
+  check('and renders under its own label', /Magical Properties\./.test(shown));
+}
+
 // --------------------------------------------------------------------------
 
 (async () => {
   const fs = require('fs');
   fs.mkdirSync(SHOTS, { recursive: true });
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
-  const cases = [customItemOverridesSrd, removeForGoodActuallyRemoves, signedOutSavePrompt];
+  const cases = [customItemOverridesSrd, removeForGoodActuallyRemoves, signedOutSavePrompt,
+                 magicalPropertiesField];
   for (const c of cases) {
     const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     try {

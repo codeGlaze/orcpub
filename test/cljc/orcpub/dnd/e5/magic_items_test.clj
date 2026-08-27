@@ -551,11 +551,12 @@
            ::mi/magical-ac-bonus 0
            ::mi/modifiers [{::mod/key :damage-resistance
                             ::mod/args [{::mod/keyword-arg :cold}]}]
-           ::mi/description "Cold to the touch."}))
+           ::mi/description "Cold to the touch."
+           ::mi/magical-properties "Frost creeps along the blade when drawn."}))
 
 (deftest magical-properties-reports-only-what-is-recorded
   (let [props (mi/magical-properties enchanted-blade)]
-    (is (= #{::mi/attunement ::mi/modifiers
+    (is (= #{::mi/attunement ::mi/modifiers ::mi/magical-properties
              ::mi/magical-attack-bonus ::mi/magical-damage-bonus}
            (set (keys props)))
         "a zero AC bonus is the builder's empty state, not a recorded property"))
@@ -689,3 +690,49 @@
       ;; it is never what gets saved.
       (is (not (mi/has-magical-properties? (mi/effective-item mundane))))
       (is (not (mi/has-magical-properties? (mi/without-magical-properties mundane)))))))
+
+;; ---------------------------------------------------------------------------
+;; Magical Properties
+;;
+;; Prose about what the magic DOES, stored apart from ::description so the two
+;; can be told apart. Plenty of 5e magic items -- Moon-Touched Sword being the
+;; stock example -- carry no mechanical bonus at all and live entirely here.
+;; ---------------------------------------------------------------------------
+
+(deftest magical-properties-survive-the-save-round-trip
+  (testing "the field is whitelisted, so a save does not silently drop it"
+    ;; from-internal-item's select-keys is a whitelist: an attribute missing
+    ;; from it vanishes on every save. ::magical? was already caught by this
+    ;; once on this branch.
+    (let [item {::mi/name "Moon-Touched Sword"
+                ::mi/type :weapon
+                ::mi/rarity :common
+                ::mi/magical? true
+                ::mi/magical-properties "Sheds dim light in a 5-foot radius."
+                ::mi/owner "kaylee"}]
+      (is (= "Sheds dim light in a 5-foot radius."
+             (::mi/magical-properties (mi/from-internal-item item)))))))
+
+(deftest magical-properties-are-suspended-with-the-rest-of-the-magic
+  (testing "marking an item mundane switches the prose off along with the bonuses"
+    (let [item {::mi/name "Moon-Touched Sword"
+                ::mi/type :weapon
+                ::mi/magical? false
+                ::mi/magical-properties "Sheds dim light in a 5-foot radius."
+                ::mi/owner "kaylee"}]
+      (is (mi/has-magical-properties? item)
+          "the prose alone counts as magic held in reserve")
+      (is (nil? (::mi/magical-properties (mi/effective-item item)))
+          "and nothing downstream sees it while the item is mundane")
+      (testing "but the stored item keeps it, so the switch is reversible"
+        (is (= "Sheds dim light in a 5-foot radius."
+               (::mi/magical-properties item)))))))
+
+(deftest an-item-whose-only-magic-is-prose-is-still-valid
+  (testing "no mechanical bonus is required for a magic item to be well-formed"
+    (is (spec/valid? ::mi/magic-item
+                     {::mi/name "Moon-Touched Sword"
+                      ::mi/type :weapon
+                      ::mi/rarity :common
+                      ::mi/magical? true
+                      ::mi/magical-properties "Sheds dim light."}))))

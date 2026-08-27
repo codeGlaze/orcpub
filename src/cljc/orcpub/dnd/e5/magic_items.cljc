@@ -21,6 +21,13 @@
 (spec/def ::type (spec/and keyword? common/keyword-starts-with-letter?))
 (spec/def ::rarity keyword?)
 (spec/def ::description string?)
+;; Prose describing what the item's magic DOES, kept apart from ::description
+;; so the two are distinguishable. A description is what the object is like
+;; ("my father's blade, notched from the siege"); magical properties are what
+;; it does ("sheds dim light in a 5-foot radius"). Plenty of 5e magic items --
+;; a Moon-Touched Sword being the standard example -- carry no mechanical
+;; bonus at all and live entirely in this field.
+(spec/def ::magical-properties string?)
 (spec/def ::magical-attack-bonus int?)
 (spec/def ::magical-damage-bonus int?)
 (spec/def ::modifiers (spec/coll-of ::mod/mod-cfg))
@@ -45,6 +52,7 @@
              :opt [::type
                    ::rarity
                    ::description
+                   ::magical-properties
                    ::modifiers
                    ::magical-attack-bonus
                    ::magical-damage-bonus
@@ -201,6 +209,7 @@
    mechanics — and leaving it in place means a user who unticks Magic Item and
    changes their mind gets their rarity back."
   [::attunement
+   ::magical-properties
    ::modifiers
    ::internal-modifiers
    ::magical-attack-bonus
@@ -247,6 +256,7 @@
    :db/id diff already retracts it. ::internal-modifiers is client-only and
    never stored."
   [::attunement
+   ::magical-properties
    ::magical-attack-bonus
    ::magical-damage-bonus
    ::magical-ac-bonus])
@@ -464,6 +474,7 @@
                     ::subtypes
                     ::rarity
                     ::description
+                    ::magical-properties
                     ;::attunementb ;typo?
                     ::attunement
                     ::magical-damage-bonus

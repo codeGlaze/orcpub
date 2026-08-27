@@ -3718,6 +3718,12 @@
    (assoc item ::mi/description item-description)))
 
 (reg-event-db
+ ::mi/set-item-magical-properties
+ item-interceptors
+ (fn [item [_ v]]
+   (assoc item ::mi/magical-properties v)))
+
+(reg-event-db
  ::mi/set-item-type
  item-interceptors
  (fn [item [_ item-type-str]]

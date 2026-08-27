@@ -1246,9 +1246,20 @@
            [:i.fa.fa-magic.orange.m-r-5]
            "magic set aside"])]])))
 
-(defn item-details [{:keys [::mi/summary ::mi/description ::mi/attunment]} single-column?]
-  (when (or summary description)
-    (paragraphs (or summary description) single-column?)))
+(defn item-details [{:keys [::mi/summary ::mi/description ::mi/magical-properties
+                            ::mi/attunment]}
+                    single-column?]
+  ;; Description and Magical Properties are stored apart so they can be told
+  ;; apart; here they are shown together, magic last and labelled, so a reader
+  ;; sees what the object is and then what it does.
+  (when (or summary description (seq magical-properties))
+    [:div
+     (when (or summary description)
+       (paragraphs (or summary description) single-column?))
+     (when (seq magical-properties)
+       [:div.m-t-5
+        [:span.f-w-b "Magical Properties. "]
+        (paragraphs magical-properties single-column?)])]))
 
 (defn item-component [item & [hide-summary? single-column?]]
   [:div.m-l-10.l-h-19
@@ -4450,13 +4461,14 @@
 (defn input-builder-field [name value on-change attrs]
   [builder-field :input name value on-change attrs])
 
-(defn textarea-field [{:keys [value on-change]}]
+(defn textarea-field [{:keys [value on-change placeholder]}]
   [comps/input-field
    :textarea
    value
    on-change
-   {:class-name "input"
-    :maxLength (:notes branding/field-limits)}])
+   (cond-> {:class-name "input"
+            :maxLength (:notes branding/field-limits)}
+     placeholder (assoc :placeholder placeholder))])
 
 (defn number-field [{:keys [value on-change]}]
   [comps/input-field
@@ -8046,7 +8058,8 @@
            "remove for good"]])])))
 
 (defn item-builder []
-  (let [{:keys [::mi/name ::mi/type ::mi/rarity ::mi/description ::mi/attunement] :as item}
+  (let [{:keys [::mi/name ::mi/type ::mi/rarity ::mi/description ::mi/attunement
+                ::mi/magical-properties] :as item}
         @(subscribe [::mi/builder-item])
         item-types @(subscribe [::mi/item-types])
         item-rarities @(subscribe [::mi/rarities])
@@ -8101,6 +8114,20 @@
      [:div.m-b-40 (base-builder-field "Description" [textarea-field
                                                      {:value description
                                                       :on-change #(dispatch [::mi/set-item-description %])}])]
+     ;; Magical Properties is prose about what the magic DOES, kept separate
+     ;; from Description, which is what the object is like. Plenty of magic
+     ;; items -- a Moon-Touched Sword is the stock example -- have no
+     ;; mechanical bonus at all and live entirely here, so an item with this
+     ;; filled in and nothing else is still a magic item. Gated behind Magic
+     ;; Item? with the rest of the magical half.
+     (when magical?
+       [:div.m-b-40
+        (base-builder-field
+         "Magical Properties"
+         [textarea-field
+          {:value magical-properties
+           :placeholder "What the magic does — e.g. sheds dim light in a 5-foot radius."
+           :on-change #(dispatch [::mi/set-item-magical-properties %])}])])
      ;; Base armor / base weapon stay for BOTH kinds. Damage dice, AC and
      ;; weapon properties are what an ordinary sword or breastplate is made of
      ;; — hiding them would make a custom mundane weapon impossible to define.

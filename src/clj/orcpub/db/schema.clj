@@ -353,6 +353,7 @@
     [::mi5e/name
      ::mi5e/owner
      ::mi5e/description
+     ::mi5e/magical-properties
      ::mi5e/string-arg])
    (map
     many-ref-no-history

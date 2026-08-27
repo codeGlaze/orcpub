@@ -95,3 +95,37 @@
     (is (str/includes? (rendered-text row) "magical or mundane not set"))
     (testing "and does not also claim magic is set aside — there is none"
       (is (not (str/includes? (rendered-text row) "magic set aside"))))))
+
+;; ---------------------------------------------------------------------------
+;; item-details shows both kinds of prose
+;;
+;; Description and Magical Properties are stored apart so they can be told
+;; apart. Displaying them has to keep BOTH -- an earlier version of this render
+;; returned only one branch, which would have hidden a description the moment
+;; an item gained magical prose.
+;; ---------------------------------------------------------------------------
+
+(defn- rendered-strings [hiccup]
+  (filter string? (tree-seq coll? seq hiccup)))
+
+(deftest item-details-renders-description-and-magical-properties
+  (let [out (views/item-details
+             {::mi/description "A plain-looking longsword."
+              ::mi/magical-properties "Sheds dim light in a 5-foot radius."}
+             true)
+        strs (rendered-strings out)]
+    (testing "both survive to the output"
+      (is (some #(re-find #"plain-looking longsword" %) strs))
+      (is (some #(re-find #"Sheds dim light" %) strs)))
+    (testing "and the magical half is labelled"
+      (is (some #(= "Magical Properties. " %) strs)))))
+
+(deftest item-details-with-only-a-description-is-unchanged
+  (let [strs (rendered-strings
+              (views/item-details {::mi/description "Just a rope."} true))]
+    (is (some #(re-find #"Just a rope" %) strs))
+    (is (not-any? #(= "Magical Properties. " %) strs)
+        "no empty label for an item with no magical prose")))
+
+(deftest item-details-with-nothing-renders-nothing
+  (is (nil? (views/item-details {} true))))
