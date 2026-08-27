@@ -103,3 +103,12 @@ cljsjs/
 
 # Design handoff reference material (preserved on agents/develop, not committed to code branches)
 design_handoff_character_menus
+
+# Generated clojure-CLI cljs build artifact (regenerated from project.clj; lein/figwheel-main is canonical)
+/deps.edn
+
+# Deploy-injected static vendor assets (font-awesome, etc.). index.clj references
+# /assets/... at runtime, but these binaries are provided at deploy time and are
+# not part of the source tree. A local copy may exist to render the screenshot
+# harness faithfully; never commit the vendored fonts/CSS.
+/resources/public/assets/
