@@ -412,6 +412,28 @@
                                         ::mi/attunement #{}
                                         ::mi/modifiers []})))))
 
+(deftest modifiers-count-as-evidence-in-either-shape
+  (testing "the builder's internal shape is classified the same as the wire shape"
+    ;; to-internal-item unconditionally moves ::modifiers to
+    ;; ::internal-modifiers, and the builder ALWAYS holds the internal shape.
+    ;; Reading only ::modifiers meant a user could add a modifier, switch Type
+    ;; to Weapon, and watch the item silently classify itself mundane --
+    ;; discarding the grid they had just filled in.
+    (let [wire (custom {::mi/name "Strongarm Blade"
+                        ::mi/type :weapon
+                        ::mi/rarity :common
+                        ::mi/modifiers [{::mod/key :ability
+                                         ::mod/args [{::mod/keyword-arg ::char/str}
+                                                     {::mod/int-arg 1}]}]})
+          internal (mi/to-internal-item wire)]
+      (is (not (contains? internal ::mi/modifiers))
+          "precondition: the internal shape really has moved the key")
+      (is (seq (::mi/internal-modifiers internal))
+          "precondition: the modifiers survived the move")
+      (is (= :magical (mi/classify wire)))
+      (is (= :magical (mi/classify internal))
+          "the same item must not change classification by changing shape"))))
+
 (deftest infers-mundane-for-ordinary-gear
   (testing "the case the whole change exists to fix"
     (doseq [t [:weapon :armor :other]]

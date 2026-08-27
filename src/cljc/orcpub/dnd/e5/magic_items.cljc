@@ -113,10 +113,14 @@
 (defn magic-evidence
   "Reasons this item looks magical, as a vector of keywords. Empty means the
    item carries no magical signal at all. Pure — reads, never writes."
-  [{:keys [::type ::rarity ::attunement ::modifiers] :as item}]
+  [{:keys [::type ::rarity ::attunement ::modifiers ::internal-modifiers] :as item}]
   (cond-> []
     (seq attunement)                            (conj :attunement)
-    (seq modifiers)                             (conj :modifiers)
+    ;; Both shapes count. to-internal-item unconditionally moves ::modifiers to
+    ;; ::internal-modifiers, and the item builder ALWAYS holds the internal
+    ;; shape -- so reading only ::modifiers made every classification in the
+    ;; builder blind to modifiers the user had just entered.
+    (or (seq modifiers) (seq internal-modifiers)) (conj :modifiers)
     (nonzero-bonus? item ::magical-attack-bonus) (conj :attack-bonus)
     (nonzero-bonus? item ::magical-damage-bonus) (conj :damage-bonus)
     (nonzero-bonus? item ::magical-ac-bonus)     (conj :ac-bonus)
