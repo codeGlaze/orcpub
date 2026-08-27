@@ -51,6 +51,17 @@ release frozen for final QA while new work continues — so the frozen one takes
 bug fixes on its own branch while `integration` keeps moving. Reach for it then, not
 as a standing structure.
 
+## Changelogs — fold at merge-to-integration
+
+Every feature/fix branch keeps a `docs/branch-changelog.md` (its intent + staged
+entries in the root `CHANGELOG.md` prose style) while in flight. **When the branch
+merges into `integration`, fold those entries into the root `CHANGELOG.md`'s current
+in-progress release section (e.g. `[Summer Patch]`) and delete the branch changelog
+— it's consumed.** That keeps root `CHANGELOG.md` a live reflection of what the
+in-flight release contains, which is exactly the pending-release diff on
+`integration`. The merge brings the branch-changelog *file*, but folding its entries
+into root `CHANGELOG.md` is a **deliberate step**, not automatic — don't skip it.
+
 ## Authorship — required, no exceptions
 
 Every commit must be authored **and** committed as `codeGlaze <github@codeglaze.com>`.
