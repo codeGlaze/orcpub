@@ -1,10 +1,10 @@
 # Changelog
 
-## [Summer Patch] — 2026 (character-load resilience, homebrew salvage, PDF printing)
+## [Summer Patch] — 2026 (character-load resilience, homebrew salvage & library management, PDF printing)
 
 Consolidates the June bug-patch bundle, the homebrew conflict-resolution/salvage
-work, and the summer additions (PDF printing, character-load recovery, spell-key
-reconciliation) into one release.
+work, the My Content library-management overhaul, and the summer additions (PDF
+printing, character-load recovery, spell-key reconciliation) into one release.
 
 ### Fixed
 
@@ -15,6 +15,7 @@ Character loading & display
 - **The Features tab loads for every character**, a nameless trait shows "[Unnamed feature]" instead of crashing the name sort, and Hunter's Evasion is named (`2a6fde93`, `5c3b073f`, `dd65d66a`).
 - **Homebrew class source no longer poisons spell-selection keys** — the source label was folded into the class `:name`, so saved spells/cantrips vanished when it changed; keys now come from a stable class identity, and orphaned saves repair on load (`9a709c0d`, `fe549631`, `a3e26155`).
 - **Boolean toggles no longer corrupt data** and self-heal old damage (`1e9f27ec`); **non-ASCII name detection works in the browser** (`d9b23021`).
+- **Inline "Custom" content isn't flagged as missing** — a character built with the built-in Custom option no longer triggers a false "Missing Content" warning; the `:custom`/`:none` inline sentinels are recognized as present, not homebrew keys to resolve (`124faa9a`).
 
 Homebrew import / export / salvage
 - **"Rename all" resolves duplicate keys in one pass** instead of the 20 → 3 → 1 → 0 re-import crawl (`c037de78`).
@@ -46,6 +47,7 @@ Support
 - **Quarantine granularity is per-entry**, backward-compatible with whole-source entries, with precise per-entry diagnostics (`957e09ab`, `7782e831`, `c037de78`).
 - **Source-less imported content lands in the real "Default Option Source"** instead of a phantom placeholder (`54f4e87d`).
 - **Save validation covers every required field** — dropdowns and multi-selects too (`e512dc45`); **save and load share one spec registry** so they can't drift (`ca977e0a`); normal exports strip meaningless blank flags; invalid-key errors are element-specific.
+- **PDF form appearances are baked on generation** — filled fields render consistently across all PDF viewers instead of only in Acrobat, and spell-card generation is more efficient (`45d106b4`).
 
 ### Homebrew library management (My Content)
 
