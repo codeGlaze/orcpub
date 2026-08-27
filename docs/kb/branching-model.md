@@ -62,6 +62,14 @@ in-flight release contains, which is exactly the pending-release diff on
 `integration`. The merge brings the branch-changelog *file*, but folding its entries
 into root `CHANGELOG.md` is a **deliberate step**, not automatic — don't skip it.
 
+Automation:
+- **`scripts/fold-branch-changelog.sh "<release>"`** does the mechanical fold — it
+  inserts the branch changelog's entries into the `## [<release>]` section as a
+  labeled block and `git rm`s the branch changelog. Review + commit after; editorial
+  curation (release name, prose) stays yours.
+- The **`changelog-guard` CI workflow** fails a push to `integration`/`develop` that
+  still contains `docs/branch-changelog.md` — the backstop if the fold gets skipped.
+
 ## Authorship — required, no exceptions
 
 Every commit must be authored **and** committed as `codeGlaze <github@codeglaze.com>`.
