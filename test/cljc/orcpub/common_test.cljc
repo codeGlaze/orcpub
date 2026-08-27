@@ -264,3 +264,74 @@
          (let [{t1 :text} (common/sanitize-edn-colons s)
                {t2 :text} (common/sanitize-edn-colons t1)]
            (= t1 t2))))))
+
+;; ---------------------------------------------------------------------------
+;; Number-word translation + name repair (for keyword-trap recovery)
+;; ---------------------------------------------------------------------------
+
+(deftest cardinal->words-covers-the-range
+  (testing "cardinals compose correctly, and decline outside 0..999"
+    (is (= "zero" (common/cardinal->words 0)))
+    (is (= "nine" (common/cardinal->words 9)))
+    (is (= "nineteen" (common/cardinal->words 19)))
+    (is (= "twenty" (common/cardinal->words 20)))
+    (is (= "forty-seven" (common/cardinal->words 47)))
+    (is (= "one hundred" (common/cardinal->words 100)))
+    (is (= "one hundred one" (common/cardinal->words 101)))
+    (is (= "three hundred" (common/cardinal->words 300)))
+    (is (= "nine hundred ninety-nine" (common/cardinal->words 999)))
+    (is (nil? (common/cardinal->words 1000)) "above the range declines")
+    (is (nil? (common/cardinal->words -1)))))
+
+(deftest ordinal->words-ordinalizes-the-final-atom
+  (testing "irregular stems + composed ordinals"
+    (is (= "first" (common/ordinal->words 1)))
+    (is (= "second" (common/ordinal->words 2)))
+    (is (= "third" (common/ordinal->words 3)))
+    (is (= "fifth" (common/ordinal->words 5)))
+    (is (= "ninth" (common/ordinal->words 9)))
+    (is (= "thirteenth" (common/ordinal->words 13)))
+    (is (= "twentieth" (common/ordinal->words 20)))
+    (is (= "twenty-first" (common/ordinal->words 21)))
+    (is (= "one hundredth" (common/ordinal->words 100)))
+    (is (nil? (common/ordinal->words 1000)))))
+
+(deftest lead-number->words-cardinal-and-ordinal
+  (testing "translates a leading number, preserving the rest of the name"
+    (is (= "Nine Lives" (common/lead-number->words "9 Lives")))
+    (is (= "Twenty Sided" (common/lead-number->words "20 Sided")))
+    (is (= "Forty-seven Ronin" (common/lead-number->words "47 Ronin")))
+    (is (= "One Hundred Hands" (common/lead-number->words "100 Hands")))
+    (is (= "One Hundred One Damnations" (common/lead-number->words "101 Damnations")))
+    (is (= "Second Wind" (common/lead-number->words "2nd Wind")))
+    (is (= "First Strike" (common/lead-number->words "1st Strike")))
+    (is (= "Thirteenth Warrior" (common/lead-number->words "13th Warrior")))
+    (is (= "Twenty-first Century" (common/lead-number->words "21st Century")))
+    ;; leading whitespace is tolerated (left-trimmed to find the number); the
+    ;; caller (repair-name-lead) is what fully trims — see its test below.
+    (is (= "Nine Lives" (common/lead-number->words "  9 Lives")))))
+
+(deftest lead-number->words-declines-non-name-numbers
+  (testing "bails (nil) on out-of-range, dice/version tokens, and non-numeric leads"
+    (is (nil? (common/lead-number->words "2020 Vision")) "above cap = a year, not a word")
+    (is (nil? (common/lead-number->words "3d6 Damage")) "dice notation, not a number word")
+    (is (nil? (common/lead-number->words "5e Feat")) "glued to a letter")
+    (is (nil? (common/lead-number->words "Bob")) "already letter-leading")
+    (is (nil? (common/lead-number->words "@@@Bob")) "symbol-leading, not numeric")))
+
+(deftest repair-name-lead-chain
+  (testing "number->word only; symbol-led junk declines (caller -> placeholder)"
+    (is (= "Bob" (common/repair-name-lead "Bob")) "already valid, unchanged")
+    (is (= "Nine Lives" (common/repair-name-lead "9 Lives")) "number -> word")
+    (is (= "Second Wind" (common/repair-name-lead "2nd Wind")) "ordinal -> word")
+    (is (= "Three Hundred" (common/repair-name-lead "300")))
+    (is (nil? (common/repair-name-lead "@@@Bob")) "symbol-led -> nil (placeholder, not salvage)")
+    (is (nil? (common/repair-name-lead "@@@")) "nothing usable -> nil")
+    (is (nil? (common/repair-name-lead "1@-asdml;")) "number glued to junk -> nil (not 'One@-…')")
+    (is (nil? (common/repair-name-lead "2020")) "out-of-range number -> nil")
+    (is (= "Nine Lives" (common/repair-name-lead "  9 Lives  ")) "trims"))
+  (testing "every non-nil repair derives a valid letter-leading key"
+    (doseq [nm ["9 Lives" "2nd Wind" "300" "13th Warrior" "Bob"]]
+      (let [r (common/repair-name-lead nm)]
+        (is (common/keyword-starts-with-letter? (common/name-to-kw r))
+            (str nm " -> " (pr-str r) " must key-validate"))))))

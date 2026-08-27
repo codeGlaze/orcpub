@@ -123,42 +123,42 @@
    :check-fn - Optional predicate; if provided, field fails if (check-fn value) is false
                Default check is just (some? value)"
   {:orcpub.dnd.e5/classes
-   {:name {:dummy "[Missing Name]"}}
+   {:name {:dummy "Missing Name"}}
    ;; :key is auto-derived from :name, not checked here
 
    :orcpub.dnd.e5/subclasses
-   {:name {:dummy "[Missing Subclass Name]"}
+   {:name {:dummy "Missing Subclass Name"}
     :class {:dummy nil}} ; parent class ref, checked specially
 
    :orcpub.dnd.e5/races
-   {:name {:dummy "[Missing Race Name]"}}
+   {:name {:dummy "Missing Race Name"}}
 
    :orcpub.dnd.e5/subraces
-   {:name {:dummy "[Missing Subrace Name]"}
+   {:name {:dummy "Missing Subrace Name"}
     :race {:dummy nil}} ; parent race ref, checked specially
 
    :orcpub.dnd.e5/backgrounds
-   {:name {:dummy "[Missing Background Name]"}}
+   {:name {:dummy "Missing Background Name"}}
 
    :orcpub.dnd.e5/feats
-   {:name {:dummy "[Missing Feat Name]"}}
+   {:name {:dummy "Missing Feat Name"}}
 
    :orcpub.dnd.e5/spells
-   {:name {:dummy "[Missing Spell Name]"}
+   {:name {:dummy "Missing Spell Name"}
     :level {:dummy 0 :check-fn number?}
     :school {:dummy "unknown"}}
 
    :orcpub.dnd.e5/monsters
-   {:name {:dummy "[Missing Monster Name]"}}
+   {:name {:dummy "Missing Monster Name"}}
 
    :orcpub.dnd.e5/invocations
-   {:name {:dummy "[Missing Invocation Name]"}}
+   {:name {:dummy "Missing Invocation Name"}}
 
    :orcpub.dnd.e5/languages
-   {:name {:dummy "[Missing Language Name]"}}
+   {:name {:dummy "Missing Language Name"}}
 
    :orcpub.dnd.e5/selections
-   {:name {:dummy "[Missing Selection Name]"}}
+   {:name {:dummy "Missing Selection Name"}}
 
    :orcpub.dnd.e5/encounters
    {:name {:dummy "[Missing Encounter Name]"}}
@@ -181,7 +181,7 @@
 (def trait-required-fields
   "Required fields for traits (nested within other content types).
    Traits appear in :traits vectors within classes, races, etc."
-  {:name {:dummy "[Missing Trait Name]"}})
+  {:name {:dummy "Missing Trait Name"}})
 
 (defn field-missing?
   "Check if a required field is missing or invalid.
@@ -261,7 +261,7 @@
 
 (def option-required-fields
   "Required fields for options within selections."
-  {:name {:dummy "[Missing Option Name]"}})
+  {:name {:dummy "Missing Option Name"}})
 
 (defn fill-missing-option-fields
   "Fill missing required fields in an option with placeholder values.
@@ -273,7 +273,7 @@
                    (if (or (nil? (get option field))
                            (and (string? (get option field))
                                 (str/blank? (get option field))))
-                     (conj acc {:field field :dummy (str "[Option " (inc index) "]")})
+                     (conj acc {:field field :dummy (str "Option " (inc index))})
                      acc))
                  []
                  option-required-fields)]
@@ -308,6 +308,33 @@
      :changes {:fields field-changes
                :traits-fixed trait-changes
                :options-fixed options-changes}}))
+
+(defn coerce-name
+  "A valid (letter-leading) name is returned trimmed; a leading-NUMBER name is
+   salvaged to its word form (\"9 Lives\" -> \"Nine Lives\") via
+   common/repair-name-lead; anything that can't be salvaged that way becomes the
+   fallback placeholder."
+  [nm fallback]
+  (or (common/repair-name-lead nm) fallback))
+
+(defn sanitize-item-names
+  "Coerce the item's :name — and any nested :traits/:options names — to a valid,
+   letter-starting name (invalid/blank ones become a placeholder), then re-derive
+   the top-level :key from the coerced name. This is what makes 'save anyway'
+   safe: it can never persist a name that yields an invalid/structural key (the
+   keyword-trap class), the way it used to with e.g. \"1@-asdml;\"."
+  [item type-label]
+  (let [coerce-nested (fn [coll]
+                        (if (vector? coll)
+                          (mapv (fn [m] (if (and (map? m) (contains? m :name))
+                                          (update m :name coerce-name "Unnamed")
+                                          m))
+                                coll)
+                          coll))
+        item* (cond-> (update item :name coerce-name (str "Unnamed " type-label))
+                (:traits item)  (update :traits coerce-nested)
+                (:options item) (update :options coerce-nested))]
+    (assoc item* :key (common/name-to-kw (:name item*)))))
 
 (defn fill-missing-in-content-group
   "Fill missing fields for all items in a content group.
@@ -695,6 +722,11 @@
   [in]
   (if (empty? in)
     "the top level"
+    ;; A trailing 0 means the spec problem is about a map KEY itself (0 = key,
+    ;; 1 = value in map-of navigation), so we prefix the crumb with "the key".
+    ;; Known limitation: a genuine vector index of 0/1 is also treated as entry
+    ;; navigation and dropped — acceptable since this is console-only wording and
+    ;; `:in` alone can't tell a vector index from a map-entry selector.
     (let [targets-key? (= 0 (last in))
           segs (->> in
                     (remove map-entry-selector?)
@@ -982,6 +1014,19 @@
    {:fillable [] :blockers [] :clean []}
    plugins))
 
+(defn library-export-issue-counts
+  "Reuse classify-plugins-for-export to count export-readiness problems across the
+   whole library, for the passive health status:
+     :missing = items missing a required field (fillable → a resolvable warning)
+     :blocked = sources with a spec error that can't export at all (→ broken)
+   No new detection — the exact checks the export flow already runs."
+  [plugins]
+  (let [{:keys [fillable blockers]} (classify-plugins-for-export plugins)]
+    {:missing (reduce + 0 (for [{:keys [issues]} fillable
+                                {:keys [invalid-items]} issues]
+                            (count invalid-items)))
+     :blocked (count blockers)}))
+
 (defn apply-user-edits-to-plugin
   "Apply the user's export-modal edits to a plugin, then dummy-fill remaining gaps
    into complete/valid content. Used wherever auto-fixed data is needed: the export
@@ -1258,8 +1303,17 @@
      {:data data :changes []})))
 
 (defn rename-empty-plugin-key-with-log
-  "Renames empty string plugin key to a unique name, tracking changes.
-   Returns {:data <cleaned> :changes [...]}"
+  "Renames a blank top-level SOURCE key (\"\") to a unique fallback name, tracking
+   changes. Returns {:data <cleaned> :changes [...]}.
+
+   DELIBERATE — do NOT collapse this into the Default Option Source. A blank
+   top-level key means a whole source arrived with no name (malformed / hand-edited
+   / a bad export), which is a DIFFERENT case from source-less ITEMS (a blank
+   :option-pack, which IS filled to `default-option-source` elsewhere). Nameless
+   sources are parked in a DISTINCT \"Unnamed Content\" bucket on purpose, so a user
+   can FIND and fix them in My Content instead of having them silently absorbed into
+   the default. Multiple nameless sources get numbered (\"Unnamed Content 2\", …) so
+   one never overwrites another."
   [data]
   (if (and (map? data) (contains? data ""))
     (let [base-name "Unnamed Content"
@@ -1292,6 +1346,11 @@
                            (:changes step3)))}))
 
 ;; Keep original functions for backwards compatibility
+;; INVESTIGATE 2026-08-23: pre-existing before this branch (af228f12); a
+;; content-library code sweep found no callers of these bare wrappers anywhere
+;; (all live callers use the *-with-log variants above). Left pending a
+;; dedicated housekeeping pass to confirm the "backwards compatibility" note
+;; still applies before removing.
 (defn clean-nil-in-map [m]
   (:data (clean-nil-in-map-with-log m)))
 
@@ -1363,6 +1422,41 @@
    :orcpub.dnd.e5/languages "languages"
    :orcpub.dnd.e5/encounters "encounters"})
 
+(def content-type-singular
+  "Singular, capitalized label per content type, for placeholder names like
+   'Unnamed Race' (sanitize-item-names appends it after 'Unnamed ')."
+  {:orcpub.dnd.e5/classes "Class"       :orcpub.dnd.e5/subclasses "Subclass"
+   :orcpub.dnd.e5/races "Race"          :orcpub.dnd.e5/subraces "Subrace"
+   :orcpub.dnd.e5/backgrounds "Background" :orcpub.dnd.e5/feats "Feat"
+   :orcpub.dnd.e5/spells "Spell"        :orcpub.dnd.e5/monsters "Monster"
+   :orcpub.dnd.e5/invocations "Invocation" :orcpub.dnd.e5/selections "Selection"
+   :orcpub.dnd.e5/languages "Language"  :orcpub.dnd.e5/encounters "Encounter"
+   :orcpub.dnd.e5/boons "Boon"})
+
+(defn coerce-invalid-names
+  "Coerce any present-but-INVALID item name (and nested trait/option names) to a
+   valid letter-leading placeholder, re-keying the item from the fixed name.
+   Blanks are already handled by fill-missing-*; this catches the
+   present-but-invalid case (e.g. \"@@@\") so the recovery panel's 'Fix & Restore'
+   just works in one click instead of forcing the user to hand-type a name."
+  [plugin]
+  (if-not (map? plugin)
+    plugin
+    (reduce-kv
+     (fn [p ct items]
+       (if (and (qualified-keyword? ct) (map? items))
+         (assoc p ct
+                (reduce-kv
+                 (fn [m ik item]
+                   (assoc m ik (sanitize-item-names item (get content-type-singular ct "Item"))))
+                 {} items))
+         (assoc p ct items)))
+     {} plugin)))
+
+;; INVESTIGATE 2026-08-23: pre-existing before this branch (af228f12); a
+;; content-library code sweep found no callers anywhere in the repo. Left in
+;; place pending a dedicated housekeeping pass to confirm and remove — not
+;; deleted here to keep this feature branch's scope focused.
 (defn find-duplicate-keys-in-content
   "Finds duplicate keys within a single content group.
    Returns a vector of {:key :content-type :sources [...]} for each duplicate."
@@ -1431,6 +1525,129 @@
    []
    keys-by-type))
 
+;; ============================================================================
+;; Collision-risk types + mutual-exclusion (same-key twins across sources)
+;; ============================================================================
+
+(def collision-risk-types
+  "Content types where two same-key items COLLAPSE to one at read time and the
+   surviving copy is picked nondeterministically (source-name hash order). Only
+   these can mutually exclude — leaving both enabled yields an unpredictable
+   winner, so duplicate-key resolution turns the loser off (deterministic).
+   For the other (pool/list) types a duplicate merely shows twice, harmlessly.
+   Canonical home; the conflict modal and events both read it from here.
+   See docs/kb/key-collision-behavior.md."
+  #{:orcpub.dnd.e5/spells   :orcpub.dnd.e5/races      :orcpub.dnd.e5/classes
+    :orcpub.dnd.e5/monsters :orcpub.dnd.e5/encounters :orcpub.dnd.e5/selections})
+
+(defn collision-twin-index
+  "Index the whole library for same-key items in collision-risk types that live
+   in MORE THAN ONE source. Key = [content-type item-key]; value = vector of
+   {:source :name :disabled?}. A group with >1 entry is a real mutual-exclusion
+   set (only one may be enabled). Derived at display time — nothing stored."
+  [plugins]
+  (->> (for [[source plugin] plugins
+             :when (map? plugin)
+             [ct items] plugin
+             :when (and (contains? collision-risk-types ct) (map? items))
+             [k item] items
+             :when (map? item)]
+         [[ct k] {:source source
+                  :name (:name item)
+                  :disabled? (boolean (:disabled? item))}])
+       (reduce (fn [acc [gk entry]] (update acc gk (fnil conj []) entry)) {})
+       (into {} (filter (fn [[_ entries]] (< 1 (count entries)))))))
+
+(defn twin-note
+  "Describe one item's mutual-exclusion relationship with its same-key twins, or
+   nil when there is no cross-source collision to explain. Given the twin index
+   and the item's [source content-type key] + its disabled? flag, returns:
+     {:kind :conflict :twin-name .. :twin-source ..} this item is ON and ANOTHER
+                                                      copy is ALSO on (unresolved —
+                                                      the app can't tell which wins)
+     {:kind :off :twin-name .. :twin-source ..}  this item is OFF, a twin is ON
+     {:kind :on  :twin-name .. :twin-source ..}  this item is ON, a twin is OFF
+   Never fires for plain user-disables with no live twin."
+  [twin-idx source content-type key disabled?]
+  (when-let [entries (get twin-idx [content-type key])]
+    (let [others (remove #(= source (:source %)) entries)]
+      (cond
+        ;; UNRESOLVED: two enabled copies at once — the actionable conflict.
+        (and (not disabled?) (some (comp not :disabled?) others))
+        (let [on (first (remove :disabled? others))]
+          {:kind :conflict :twin-name (:name on) :twin-source (:source on)})
+
+        (and disabled? (some (comp not :disabled?) others))
+        (let [on (first (remove :disabled? others))]
+          {:kind :off :twin-name (:name on) :twin-source (:source on)})
+
+        (and (not disabled?) (some :disabled? others))
+        (let [off (first (filter :disabled? others))]
+          {:kind :on :twin-name (:name off) :twin-source (:source off)})))))
+
+(defn unresolved-collisions
+  "Details of each UNRESOLVED collision group (2+ enabled copies of one key), for
+   naming the conflict and tinting the offenders. Returns
+   [{:content-type ct :key k :name <item name> :sources [enabled source names]} …]."
+  [plugins]
+  (->> (collision-twin-index plugins)
+       (keep (fn [[[ct k] entries]]
+               (let [on (remove :disabled? entries)]
+                 (when (>= (count on) 2)
+                   {:content-type ct :key k
+                    :name (:name (first on))
+                    :sources (mapv :source on)}))))
+       vec))
+
+(defn unresolved-conflict-sources
+  "Set of source names that hold at least one item in an unresolved conflict —
+   used to flag the offending library rows."
+  [plugins]
+  (into #{} (mapcat :sources (unresolved-collisions plugins))))
+
+(defn enabled-twin-paths
+  "Paths [source content-type key] of every ENABLED same-key twin of the given
+   item, in OTHER sources — the items swap-on-enable must turn off first so the
+   ≤1-enabled invariant holds. Empty when the item isn't in a collision-risk
+   type or has no live twin."
+  [plugins source content-type key]
+  (when (contains? collision-risk-types content-type)
+    (for [[src plugin] plugins
+          :when (and (not= src source) (map? plugin))
+          :let [item (get-in plugin [content-type key])]
+          :when (and (map? item) (not (:disabled? item)))]
+      [src content-type key])))
+
+(defn mutual-exclusion-off-count
+  "How many items are OFF only because a same-key twin is ON — the number behind
+   the library-level 'N items are off because a duplicate is on' summary. Derived
+   from the twin index; nothing stored."
+  [plugins]
+  (let [twin-idx (collision-twin-index plugins)]
+    (reduce (fn [n [source plugin]]
+              (if (map? plugin)
+                (reduce (fn [m [ct items]]
+                          (if (and (contains? collision-risk-types ct) (map? items))
+                            (reduce (fn [c [k item]]
+                                      (if (and (map? item)
+                                               (= :off (:kind (twin-note twin-idx source ct k
+                                                                         (boolean (:disabled? item))))))
+                                        (inc c) c))
+                                    m items)
+                            m))
+                        n plugin)
+                n))
+            0 plugins)))
+
+(defn unresolved-collision-count
+  "How many same-key collision groups are still UNRESOLVED — i.e. two or more
+   copies of one key are enabled at once, so the surviving item is picked
+   nondeterministically. Zero means every cross-source duplicate already has a
+   deterministic winner (all but one turned off). Just the length of
+   unresolved-collisions, so the 'which groups' and 'how many' answers can't drift."
+  [plugins]
+  (count (unresolved-collisions plugins)))
+
 (defn detect-duplicate-keys
   "Detects duplicate keys in imported data and against existing plugins.
 
@@ -1498,6 +1715,13 @@
 ;; ============================================================================
 ;; Fuzzy Key Matching
 ;; ============================================================================
+;; INVESTIGATE 2026-08-23: this whole cluster is pre-existing before this branch
+;; (af228f12) and a content-library code sweep found no callers — its entry point
+;; suggest-key-matches is unused, and the live "did you mean" matcher is
+;; key-similarity/find-similar-content in orcpub.dnd.e5.content-reconciliation,
+;; which appears to have superseded it. Left in place pending a dedicated
+;; housekeeping pass to confirm and remove (with its Levenshtein tests) rather
+;; than widening this feature branch's scope.
 
 (defn levenshtein-distance
   "Calculate the Levenshtein edit distance between two strings.
@@ -1786,6 +2010,54 @@
   (let [source-slug (name (common/name-to-kw source-name))]
     (keyword (str (name original-key) "-" source-slug))))
 
+(defn- unique-key
+  "A key not already present in `existing-map`, starting from `base` and appending
+   -2, -3, … only if needed. Keeps generated keys distinct when several items land
+   in the same target in one pass."
+  [base existing-map]
+  (if-not (contains? existing-map base)
+    base
+    (loop [n 2]
+      (let [k (keyword (str (name base) "-" n))]
+        (if (contains? existing-map k) (recur (inc n)) k)))))
+
+(defn relocate-content
+  "Move or copy selected homebrew items to a target source. `selections` is a seq
+   of [source content-type key]; `op` is :move or :copy. Returns
+   {:plugins <new> :placed n :renamed [{:from :to :ct}] :missing n}.
+
+   Single vs bulk is just the length of `selections` — one mechanism for both.
+
+   Policy — predictable and clobber-free:
+   • MOVE relocates the item with its key preserved, UNLESS the target already
+     holds that key (then it gets a fresh unique key so nothing is overwritten).
+     Moving an item to the source it already lives in is a no-op.
+   • COPY always mints a fresh unique key — a copy is a new, independent variant,
+     which also avoids creating a nondeterministic same-key twin of the original.
+   The placed item's :key and :option-pack are retagged to its new home. Selections
+   are applied in order against the accumulating result, so keys minted earlier in
+   the batch are accounted for when uniquifying later ones."
+  [plugins selections target op]
+  (let [copy? (= op :copy)]
+    (reduce
+     (fn [{:keys [plugins] :as acc} [src ct k]]
+       (let [item (get-in plugins [src ct k])]
+         (cond
+           (nil? item)                       (update acc :missing inc)
+           (and (not copy?) (= src target))  (update acc :placed inc) ; already home
+           :else
+           (let [target-map (get-in plugins [target ct])
+                 new-key    (if (or copy? (contains? target-map k))
+                              (unique-key (generate-new-key k target) target-map)
+                              k)
+                 new-item   (assoc item :key new-key :option-pack target)
+                 p1         (assoc-in plugins [target ct new-key] new-item)
+                 p2         (if copy? p1 (update-in p1 [src ct] dissoc k))]
+             (cond-> (-> acc (assoc :plugins p2) (update :placed inc))
+               (not= new-key k) (update :renamed conj {:from k :to new-key :ct ct}))))))
+     {:plugins plugins :renamed [] :placed 0 :missing 0}
+     selections)))
+
 (defn update-references-in-item
   "Update references to a renamed key within a single item.
    reference-field: the field in this item that may reference the old key
@@ -1824,10 +2096,12 @@
     ;; otherwise hit an already-moved key and `(assoc new-key nil)`, fabricating a
     ;; `key -> nil` entry that fails ::plugin and quarantines the whole source.
     (if-let [item (get content-group old-key)]
-      (let [;; Step 1: Rename the key in its content group
+      (let [;; Step 1: Rename the key in its content group. Update the item's OWN
+            ;; :key field too — the content subs (map-by-key) key by :key, so a
+            ;; stale :key would re-collide at read time and undo the rename.
             updated-group (-> content-group
                               (dissoc old-key)
-                              (assoc new-key item))
+                              (assoc new-key (assoc item :key new-key)))
 
             ;; Step 2: Find content types that reference this type
             referencing-types (keep (fn [[ct refs]]

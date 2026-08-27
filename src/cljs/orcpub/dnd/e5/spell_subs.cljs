@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.content-types :as ct]
             [orcpub.dnd.e5.content-pools :as pools]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils]
             [orcpub.dnd.e5.template-base :as t-base]
@@ -42,6 +43,68 @@
  (fn [db _]
    (get db :plugins)))
 
+;; ---------------------------------------------------------------------------
+;; Memoized library-health detectors.
+;;
+;; These walk the WHOLE library (every source × content-type × item), and the
+;; My Content views call them from several places — the twin index alone was
+;; being rebuilt once per content-type section per source, i.e. dozens of full
+;; walks on every render (and every search keystroke). As re-frame reactions
+;; keyed on ::e5/plugins they compute once per plugins change and share that one
+;; result across every row, section, and page, instead of recomputing in each
+;; component's render body. Keep them here (not inline in views) so the caching
+;; is structural, not something a future caller can accidentally bypass.
+;; ---------------------------------------------------------------------------
+
+;; Cross-source same-key index for the collision-risk types — backs the
+;; per-item twin notes (why an item is off / which duplicate it silences).
+(reg-sub
+ ::e5/collision-twin-index
+ :<- [::e5/plugins]
+ (fn [plugins _]
+   (orcbrew-val/collision-twin-index plugins)))
+
+;; One derived summary for the health card and the library-row conflict flag:
+;; the unresolved conflicts (2+ enabled copies of a key), the set of source
+;; names that hold one, and the export issue counts (missing required fields /
+;; blocked-invalid sources). All the health UI reads this single sub.
+(reg-sub
+ ::e5/library-health
+ :<- [::e5/plugins]
+ (fn [plugins _]
+   (let [conflicts (orcbrew-val/unresolved-collisions plugins)
+         counts    (orcbrew-val/library-export-issue-counts plugins)]
+     {:conflicts        conflicts
+      :conflict-sources (into #{} (mapcat :sources conflicts))
+      :missing          (:missing counts)
+      :blocked          (:blocked counts)})))
+
+;; How many items are off ONLY because a same-key twin is on — the library-level
+;; "N items are off because a duplicate is on" summary line.
+(reg-sub
+ ::e5/mutual-exclusion-off-count
+ :<- [::e5/plugins]
+ (fn [plugins _]
+   (orcbrew-val/mutual-exclusion-off-count plugins)))
+
+;; Ephemeral overlay for a SHARED character being viewed: content that arrived
+;; embedded in a share link (view-once) lives here, NOT in :plugins, so it is
+;; never persisted to the recipient's library and vanishes on reload without the
+;; link. The content-lookup subs below fold it in (last, so it wins key
+;; collisions for the shared view); the library manager / export read :plugins
+;; directly and never see it. See orcpub.dnd.e5.share-url / share-bundle.
+(reg-sub
+ ::e5/shared-plugins
+ (fn [db _]
+   (get db :shared-plugins)))
+
+;; Summary for the shared-content banner: {:count n :collisions [...]} while a
+;; shared character with embedded homebrew is being viewed, else nil.
+(reg-sub
+ ::e5/shared-content-info
+ (fn [db _]
+   (get db :shared-content-info)))
+
 ;; The name-keyed quarantine map ({source-name → bad-source}) loaded at
 ;; boot, kept in sync by the repair event. Drives the quarantine repair panel.
 (reg-sub
@@ -54,52 +117,140 @@
  (fn [db _]
    (get db :strict-import?)))
 
-(reg-sub
- ::e5/plugin-vals
- :<- [::e5/plugins]
- (fn [plugins]
-   ;; Defensive handling: filter out malformed plugin data to prevent
-   ;; subscription chain failures that can break the class dropdown
-   (let [result (keep
-                 (fn [p]
-                   (try
-                     (when (map? p)
+(defn- process-plugin-vals
+  "Filter out malformed/disabled plugin data so a bad entry can't break the
+   subscription chain (e.g. the class dropdown). Returns a seq of clean
+   {content-type {key def}} maps.
+
+   `overlay` (optional) applies the two LOCAL disable levels on top of the data
+   levels: :global? drops everything, and :sections drops a whole [source
+   content-type] pair. It's ORed with the source/item :disabled? flags, so an
+   item is hidden if ANY of the four levels turns it off. Passing nil (the shared
+   path) applies only the data levels."
+  ([plugins] (process-plugin-vals plugins nil))
+  ([plugins overlay]
+   (if (:global? overlay)
+     []
+     (let [sections (:sections overlay #{})]
+       (keep
+        (fn [[source-name p]]
+          (try
+            (when (and (map? p) (not (:disabled? p)))
+              (into
+               {}
+               (keep
+                (fn [[type-k type-m]]
+                  (when (and type-k
+                             (or (nil? type-m) (map? type-m))
+                             (not (contains? sections [source-name type-k])))
+                    [type-k
+                     (if (map? type-m)
                        (into
                         {}
                         (keep
-                         (fn [[type-k type-m]]
-                           (when (and type-k (or (nil? type-m) (map? type-m)))
-                             [type-k
-                              (if (map? type-m)
-                                (into
-                                 {}
-                                 (keep
-                                  (fn [[k v]]
-                                    ;; Only include if v is a map and not disabled
-                                    (when (and (map? v) (not (:disabled? v)))
-                                      [k v]))
-                                  type-m))
-                                type-m)]))
-                         p)))
-                     (catch js/Error e
-                       (js/console.warn "Skipping malformed plugin data:" (pr-str p) e)
-                       nil)))
-                 (filter (fn [p] (and (map? p) (not (:disabled? p))))
-                         (vals plugins)))]
-     result)))
+                         (fn [[k v]]
+                           ;; Only include if v is a map and not disabled
+                           (when (and (map? v) (not (:disabled? v)))
+                             [k v]))
+                         type-m))
+                       type-m)]))
+                p)))
+            (catch js/Error e
+              (js/console.warn "Skipping malformed plugin data:" (pr-str p) e)
+              nil)))
+        plugins)))))
+
+(reg-sub
+ ::e5/disable-overlay
+ (fn [db _]
+   (get db :disable-overlay)))
+
+(reg-sub
+ ::e5/health-dismissed
+ (fn [db _]
+   (get db :health-dismissed)))
+
+(reg-sub
+ ::e5/global-disabled?
+ :<- [::e5/disable-overlay]
+ (fn [overlay _]
+   (boolean (:global? overlay))))
+
+;; Is this [source content-type] section turned off in the local overlay? Used to
+;; render the section toggle and to dim a section's items (inherited state).
+(reg-sub
+ ::e5/section-disabled?
+ :<- [::e5/disable-overlay]
+ (fn [overlay [_ source type-key]]
+   (contains? (:sections overlay #{}) [source type-key])))
+
+;; ── Move/copy selection state ───────────────────────────────────────────────
+(reg-sub
+ ::e5/content-select-mode?
+ (fn [db _]
+   (boolean (:content-select-mode? db))))
+
+(reg-sub
+ ::e5/content-selection
+ (fn [db _]
+   (get db :content-selection #{})))
+
+(reg-sub
+ ::e5/content-selected?
+ :<- [::e5/content-selection]
+ (fn [selection [_ source type-key key]]
+   (contains? selection [source type-key key])))
+
+(reg-sub
+ ::e5/content-selection-count
+ :<- [::e5/content-selection]
+ (fn [selection _]
+   (count selection)))
+
+(reg-sub
+ ::e5/plugin-vals
+ :<- [::e5/plugins]
+ :<- [::e5/shared-plugins]
+ :<- [::e5/disable-overlay]
+ (fn [[plugins shared overlay] _]
+   ;; The disable overlay is a preference over the user's OWN library, so it
+   ;; applies to `plugins` only — shared (view-once) content is never hidden by
+   ;; the recipient's global/section toggles. Shared is appended LAST so it wins
+   ;; key collisions against the recipient's own library for the shared view only.
+   (concat (process-plugin-vals plugins overlay)
+           (process-plugin-vals shared))))
 
 ;; Subscription that preserves source names when extracting content from plugins.
 ;; This is needed for disambiguation when multiple sources have same-named content.
+(defn- process-plugins-with-sources
+  ;; Returns seq of [source-name plugin-data] pairs, skipping disabled/malformed.
+  ;; Applies the same disable overlay as process-plugin-vals: :global? drops
+  ;; everything and a section pair drops that content-type from the source, so the
+  ;; class/subclass dropdowns hide exactly what the rest of the builder hides.
+  ([plugins] (process-plugins-with-sources plugins nil))
+  ([plugins overlay]
+   (if (:global? overlay)
+     []
+     (let [sections (:sections overlay #{})]
+       (keep
+        (fn [[source-name plugin-data]]
+          (when (and (map? plugin-data) (not (:disabled? plugin-data)))
+            [source-name
+             (into {} (remove (fn [[type-k _]]
+                                (contains? sections [source-name type-k]))
+                              plugin-data))]))
+        plugins)))))
+
 (reg-sub
  ::e5/plugins-with-sources
  :<- [::e5/plugins]
- (fn [plugins]
-   ;; Returns seq of [source-name plugin-data] pairs
-   (keep
-    (fn [[source-name plugin-data]]
-      (when (and (map? plugin-data) (not (:disabled? plugin-data)))
-        [source-name plugin-data]))
-    plugins)))
+ :<- [::e5/shared-plugins]
+ :<- [::e5/disable-overlay]
+ (fn [[plugins shared overlay] _]
+   ;; Shared (view-once) sources appended LAST so they win key collisions for
+   ;; the shared view only; the overlay applies to the user's own library only.
+   (concat (process-plugins-with-sources plugins overlay)
+           (process-plugins-with-sources shared))))
 
 (reg-sub
  ::bg5e/plugin-backgrounds

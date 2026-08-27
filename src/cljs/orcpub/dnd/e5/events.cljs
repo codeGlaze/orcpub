@@ -10,6 +10,8 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
+            [orcpub.dnd.e5.share-bundle :as share-bundle]
+            [orcpub.dnd.e5.share-url :as share-url]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
@@ -53,6 +55,8 @@
                                       subclass->local-store
                                       class->local-store
                                       plugins->local-store
+                                      disable-overlay->local-store
+                                      health-dismissed->local-store
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       default-character
@@ -146,6 +150,12 @@
 
 (def plugins->local-store-interceptor (after plugins->local-store))
 
+(def disable-overlay->local-store-interceptor
+  (after (fn [db] (disable-overlay->local-store (:disable-overlay db)))))
+
+(def health-dismissed->local-store-interceptor
+  (after (fn [db] (health-dismissed->local-store (:health-dismissed db)))))
+
 (def set-changed (->interceptor
                   :id :set-changed
                   :before (fn [context]
@@ -226,6 +236,8 @@
   ;; AFTER ::e5/plugins — that cofx reconciles/writes plugins:rejected, and
   ;; this reads the result into app-db for the reactive repair panel.
   (inject-cofx ::e5/rejected-plugins)
+  (inject-cofx ::e5/disable-overlay)
+  (inject-cofx ::e5/health-dismissed)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -235,12 +247,16 @@
               local-store-builder-items
               ::e5/plugins
               ::e5/rejected-plugins
+              ::e5/disable-overlay
+              ::e5/health-dismissed
               ::combat/tracker-item]} _]
    {:db (if (seq db)
           db
           (cond-> default-value
             plugins (assoc :plugins plugins)
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
+            (seq disable-overlay) (assoc :disable-overlay disable-overlay)
+            (some? health-dismissed) (assoc :health-dismissed health-dismissed)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
             local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
@@ -535,7 +551,17 @@
 (reg-event-fx
  ::mi/save-item
  (fn [{:keys [db]} _]
-   (let [strict-item (mi/from-internal-item (::mi/builder-item db))]
+   (let [item (::mi/builder-item db)
+         ;; The type dropdown shows its first option ("Wondrous Item") even when
+         ;; the item has no type set (a controlled <select> whose value doesn't
+         ;; match any option), so what the user sees IS a default. ::type is
+         ;; optional in the spec, so a never-set type would otherwise save blank
+         ;; and render as e.g. ", very rare". Persist the shown default instead.
+         t (::mi/type item)
+         item (cond-> item
+                (not (and (keyword? t) (not (s/blank? (name t)))))
+                (assoc ::mi/type :wondrous-item))
+         strict-item (mi/from-internal-item item)]
      {:dispatch [:set-loading true]
       :http {:method :post
              :headers (authorization-headers db)
@@ -737,10 +763,12 @@
      (fn [{:keys [db]} _]
        (let [{:keys [name option-pack] :as item} (item-key db)
              key (common/name-to-kw name)
-             ;; Normalize text then auto-fill missing required fields
+             ;; Validate the user's ACTUAL input (normalized), NOT a placeholder-
+             ;; filled copy: a blank or invalid required field must block and prompt,
+             ;; never silently save under a placeholder. Placeholder-filling +
+             ;; name-sanitizing is the explicit "save anyway" path only.
              normalized-item (orcbrew-val/normalize-text-in-data item)
-             {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
-             item-with-key (assoc filled-item :key key)
+             item-with-key (assoc normalized-item :key key)
              plugins (:plugins db)
              explanation (spec/explain-data spec-key item-with-key)]
          (if (nil? explanation)
@@ -768,10 +796,14 @@
        (let [{:keys [name option-pack] :as item} (item-key db)
              normalized-item (orcbrew-val/normalize-text-in-data item)
              {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item plugin-key)
-             src (if (s/blank? option-pack) "Unsorted Homebrew" option-pack)
-             key (common/name-to-kw (:name filled-item))
-             item-with-key (assoc filled-item :key key :option-pack src)
-             new-plugins (assoc-in (:plugins db) [src plugin-key key] item-with-key)]
+             ;; Coerce invalid/blank names (top-level + nested) to valid placeholders
+             ;; and re-derive the key, so an invalid name like "1@-asdml;" can NEVER
+             ;; be persisted with a broken key. This is the sanitized output the
+             ;; "save anyway with placeholders" button is supposed to produce.
+             sanitized (orcbrew-val/sanitize-item-names filled-item type-name)
+             src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
+             item-with-key (assoc sanitized :option-pack src)
+             new-plugins (assoc-in (:plugins db) [src plugin-key (:key item-with-key)] item-with-key)]
          {:dispatch-n [[::e5/set-plugins new-plugins]
                        [:set-builder-field-errors {}]
                        [:show-warning-message
@@ -896,7 +928,7 @@
    (let [{:keys [option-pack] :as item} (::selections5e/builder-item db)
          normalized-item (orcbrew-val/normalize-text-in-data item)
          {filled-item :item} (orcbrew-val/fill-all-missing-fields normalized-item ::e5/selections)
-         src (if (s/blank? option-pack) "Unsorted Homebrew" option-pack)
+         src (if (s/blank? option-pack) orcbrew-val/default-option-source option-pack)
          key (common/name-to-kw (:name filled-item))
          item-with-key (assoc filled-item :key key :option-pack src)
          new-plugins (assoc-in (:plugins db) [src ::e5/selections key] item-with-key)]
@@ -1808,27 +1840,50 @@
 (defn make-url [protocol hostname path & [port]]
   (str protocol "://" hostname (when port (str ":" port)) path))
 
+(defn- shared-content-payload
+  "The homebrew-share payload carried in the URL fragment (#c=...), or nil.
+   Only meaningful on a character-page URL someone was given a share link to."
+  []
+  (let [h (or (some-> js/window .-location .-hash) "")]
+    (when (s/starts-with? h "#c=")
+      (not-empty (subs h 3)))))
+
 (reg-event-fx
  :route
  (fn [{:keys [db]} [_ {:keys [handler route-params] :as new-route} {:keys [no-return? skip-path? event secure?] :as options}]]
-   (integrations/track-page-view! new-route)
-   (let [{:keys [route route-history]} db
-         seq-params (seq route-params)
-         flat-params (flatten seq-params)
-         path (apply routes/path-for (or handler new-route) flat-params)]
-     (when (and js/window.location
-                secure?
-                (not= "localhost" js/window.location.hostname))
-       (set! js/window.location.href (make-url "https"
-                                               js/window.location.hostname
-                                               path
-                                               js/window.location.port)))
-     (cond-> {:db (assoc db :route new-route)
-              :dispatch-n [[:hide-message]
-                           [:close-orcacle]]}
-       (not no-return?) (assoc-in [:db :return-route] new-route)
-       (not skip-path?) (assoc :path path)
-       event (update :dispatch-n conj event)))))
+   ;; An unmatched URL makes bidi/match-route return nil, so [:route nil ...] can
+   ;; be dispatched (a typo'd or stale link, or a path the app doesn't serve).
+   ;; Ignore it instead of crashing at path-for on a nil route — the current
+   ;; route is left in place, same net effect as before minus the thrown error.
+   (if (nil? new-route)
+     {}
+     (do
+       (integrations/track-page-view! new-route)
+       (let [{:keys [route route-history]} db
+             seq-params (seq route-params)
+             flat-params (flatten seq-params)
+             path (apply routes/path-for (or handler new-route) flat-params)
+             ;; Homebrew embedded in a share link loads only on the character page,
+             ;; and only into the ephemeral :shared-plugins overlay (never the library).
+             char-page? (= (or handler new-route) routes/dnd-e5-char-page-route)
+             shared-payload (when char-page? (shared-content-payload))]
+         (when (and js/window.location
+                    secure?
+                    (not= "localhost" js/window.location.hostname))
+           (set! js/window.location.href (make-url "https"
+                                                   js/window.location.hostname
+                                                   path
+                                                   js/window.location.port)))
+         (cond-> {:db (assoc db :route new-route)
+                  :dispatch-n [[:hide-message]
+                               [:close-orcacle]]}
+           (not no-return?) (assoc-in [:db :return-route] new-route)
+           (not skip-path?) (assoc :path path)
+           ;; Leaving/entering a plain character view clears any prior shared overlay
+           ;; so view-once content (homebrew + custom items) never lingers across characters.
+           char-page? (update :db assoc :shared-plugins nil :shared-custom-items nil)
+           shared-payload (update :dispatch-n conj [::e5/load-shared-content shared-payload])
+           event (update :dispatch-n conj event)))))))
 
 (reg-event-db
  :set-user-data
@@ -1940,6 +1995,16 @@
            dissoc
            ::char5e/faction-image-url-failed)))
 
+;; ── INLINE "Custom" options (mechanism A) ────────────────────────────────────
+;; These :set-custom-* events are the LIGHTWEIGHT, per-character path: picking
+;; "Custom" in a race/subrace/background/subclass dropdown. They write only a
+;; typed NAME (::entity/value) onto the character (key stays the :custom sentinel
+;; from name-to-kw "Custom"); they save NOTHING to a store and export to no
+;; .orcbrew. Do NOT confuse with the FULL BUILDERS (mechanism B, reg-save-homebrew
+;; ~line 712) whose ::bg5e/save-background etc. persist a real, keyed, exportable
+;; entry into :plugins. The inline/builder split looks parallel but isn't — see
+;; docs/kb/custom-content-lifecycle.md. (The :custom sentinel is why the
+;; missing-content reconciler must skip it — it resolves inline, not from a store.)
 (reg-event-db
  :set-custom-race
  character-interceptors
@@ -3904,7 +3969,7 @@
 ;; invalid — nothing changes and the user is told why.
 (reg-event-fx
  ::e5/repair-quarantined-source
- (fn [{:keys [db]} [_ source-name edits]]
+ (fn [{:keys [db]} [_ source-name edits auto?]]
    (let [rejected (get-rejected-plugins)
          bad (get rejected source-name)]
      (cond
@@ -3913,12 +3978,16 @@
                    (str "No quarantined source named \"" source-name "\" to repair.")]}
 
        :else
-       ;; Apply the user's edits, dummy-fill remaining gaps, re-key any keyword-trap
-       ;; items — then salvage PER ENTRY: valid entries rejoin the live source, the
-       ;; still-broken ones stay set aside. (Whole-source all-or-nothing before this
-       ;; meant one stubborn entry blocked restoring the rest.)
-       (let [fixed (-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
-                       (e5/rekey-plugin))
+       ;; Apply the user's edits, re-key, then salvage PER ENTRY: valid entries
+       ;; rejoin the live source, the still-broken ones stay set aside.
+       ;; auto? gates the auto-naming: the MANUAL path (Restore) applies only the
+       ;; user's typed names — an entry that's still invalid stays quarantined
+       ;; (quarantine's job). The AUTO path (Auto-name & Restore) additionally runs
+       ;; coerce-invalid-names, which salvages a leading number to its word form
+       ;; ("9 Lives" -> "Nine Lives") and only falls to "Unnamed <Type>" for junk.
+       (let [fixed (cond-> (orcbrew-val/apply-user-edits-to-plugin bad source-name (or edits {}))
+                     auto? (orcbrew-val/coerce-invalid-names)
+                     true  (e5/rekey-plugin))
              {kept-items :kept still-bad :rejected}
              (e5/salvage-plugin-items content-specs/valid-item-for-load? fixed)
              new-rejected (if (seq still-bad)
@@ -4301,11 +4370,19 @@
      (cond
        ;; Spec-error blockers — can't safely export
        (seq blockers)
-       {:dispatch-n (vec (concat persist
-                                 [[:show-error-message
-                                   (str "Cannot export — structural errors in: "
-                                        (s/join ", " (map #(str "\"" (:name %) "\"") blockers))
-                                        ". Check browser console (F12) for details.")]]))}
+       ;; Surface the actual problems IN the UI (per source, per issue) instead of
+       ;; punting the user to the browser console. Uses the same validation data
+       ;; the console log would print; long-lived so it can be read and acted on.
+       {:dispatch-n
+        (vec (concat persist
+                     [[:show-error-message
+                       (into [:div
+                              [:div.f-w-b "Can't export yet — fix these problems first:"]]
+                             (for [{:keys [name validation]} blockers]
+                               (into [:div.m-t-10 [:span.f-w-b (str "\"" name "\":")]]
+                                     (for [err (or (seq (:errors validation)) ["contains invalid data"])]
+                                       [:div.m-l-10 (str "• " err)]))))
+                       60000]]))}
 
        ;; Cross-source duplicate keys — resolve them exactly like an import does
        ;; (rename-all / manual), then resume the export via :mode :export.
@@ -4380,8 +4457,125 @@
 
 (reg-event-fx
  ::e5/toggle-plugin-item
+ ;; Enabling a collision-risk item enforces the ≤1-enabled invariant: any live
+ ;; same-key twin in another source is turned OFF first (deterministic winner
+ ;; never flickers), then this one turns on, with a plain-language swap message.
+ ;; A user toggle also clears :disabled-reason on this item — once you choose,
+ ;; the app's earlier compat-disable no longer applies (benign from here on).
  (fn [{:keys [db]} [_ plugin-name type-key key]]
-   {:dispatch [::e5/set-plugins (-> db :plugins (common/toggle-in [plugin-name type-key key :disabled?]))]}))
+   (let [plugins        (:plugins db)
+         currently-off? (boolean (get-in plugins [plugin-name type-key key :disabled?]))
+         this-name      (get-in plugins [plugin-name type-key key :name])
+         twins          (when currently-off?
+                          (seq (orcbrew-val/enabled-twin-paths plugins plugin-name type-key key)))
+         after-toggle   (-> plugins
+                            (common/toggle-in [plugin-name type-key key :disabled?])
+                            (update-in [plugin-name type-key key] dissoc :disabled-reason))
+         after-swap     (reduce (fn [p [s ct k]]
+                                  (-> p
+                                      (assoc-in [s ct k :disabled?] true)
+                                      (assoc-in [s ct k :disabled-reason] :compat)))
+                                after-toggle twins)]
+     (if twins
+       (let [[ts tct tk] (first twins)
+             twin-name   (get-in plugins [ts tct tk :name])
+             more        (dec (count twins))]
+         {:dispatch-n [[::e5/set-plugins after-swap]
+                       [:show-message
+                        ;; name + source, because same-key twins usually share a
+                        ;; name — "Fireball (Pack A)" reads unambiguously.
+                        (str "Turned off \"" twin-name "\" (" ts ")"
+                             (when (pos? more) (str " and " more " other" (when (> more 1) "s")))
+                             " so \"" this-name "\" (" plugin-name ") is the one that's on.")
+                        6000]]})
+       {:dispatch [::e5/set-plugins after-swap]}))))
+
+;; ── Disable hierarchy: the two LOCAL-OVERLAY levels ─────────────────────────
+;; source + item disable live in the plugin data (toggle-plugin / -item above).
+;; global + section are a per-device VIEW preference kept in :disable-overlay,
+;; never written into the .orcbrew data — so they cost no format/spec change and
+;; don't travel with an export. `plugin-vals` ORs all four when filtering.
+
+(reg-event-db
+ ::e5/toggle-global-disable
+ [disable-overlay->local-store-interceptor]
+ (fn [db _]
+   (update-in db [:disable-overlay :global?] not)))
+
+;; Dismiss the library-health heads-up for the CURRENT problem set (its signature).
+;; It stays hidden until the set changes (new sig) — and never on My Content, which
+;; ignores dismissal so the hub always surfaces what needs fixing.
+(reg-event-db
+ ::e5/dismiss-health
+ [health-dismissed->local-store-interceptor]
+ (fn [db [_ sig]]
+   (assoc db :health-dismissed sig)))
+
+(reg-event-db
+ ::e5/toggle-section-disable
+ [disable-overlay->local-store-interceptor]
+ ;; Turn a whole [source content-type] section off/on (e.g. all spells in "My
+ ;; Pack"). Stored as a set of pairs so it's compact and order-free.
+ (fn [db [_ source type-key]]
+   (update-in db [:disable-overlay :sections]
+              (fn [s]
+                (let [s (or s #{})
+                      pair [source type-key]]
+                  (if (contains? s pair) (disj s pair) (conj s pair)))))))
+
+;; ── Move / copy content between sources ─────────────────────────────────────
+;; A single ephemeral selection set (of [source content-type key]) drives BOTH
+;; single and bulk: single is a selection of one, bulk is a selection of many.
+;; Not persisted — it's a transient editing gesture, cleared after the action.
+
+(reg-event-db
+ ::e5/toggle-select-mode
+ (fn [db _]
+   (let [on? (not (:content-select-mode? db))]
+     (-> db
+         (assoc :content-select-mode? on?)
+         ;; leaving select mode drops any half-made selection
+         (cond-> (not on?) (dissoc :content-selection))))))
+
+(reg-event-db
+ ::e5/toggle-content-selection
+ (fn [db [_ source type-key key]]
+   (update db :content-selection
+           (fn [s]
+             (let [s (or s #{})
+                   sel [source type-key key]]
+               (if (contains? s sel) (disj s sel) (conj s sel)))))))
+
+(reg-event-db
+ ::e5/clear-content-selection
+ (fn [db _]
+   (dissoc db :content-selection)))
+
+(reg-event-fx
+ ::e5/relocate-selected
+ ;; Move or copy every selected item to `target`. Reuses the pure relocate-content
+ ;; (clash-free key placement) and reports what happened in one message, then exits
+ ;; select mode. Goes through set-plugins, so it persists like any other edit.
+ (fn [{:keys [db]} [_ target op]]
+   (let [selections (vec (:content-selection db))]
+     (if (empty? selections)
+       {:dispatch [:show-warning-message "Nothing selected to move."]}
+       (let [{:keys [plugins placed renamed missing]}
+             (orcbrew-val/relocate-content (:plugins db) selections target op)
+             verb    (if (= op :copy) "Copied" "Moved")
+             ren-n   (count renamed)
+             msg (str verb " " placed " item" (when (not= 1 placed) "s")
+                      " to \"" target "\""
+                      (when (pos? ren-n)
+                        (str " (renamed " ren-n
+                             (if (= op :copy) " to keep the original" " to avoid a name clash")
+                             ")"))
+                      (when (pos? missing)
+                        (str " — " missing " could not be found and " (if (= 1 missing) "was" "were") " skipped"))
+                      ".")]
+         {:db (-> db (dissoc :content-selection) (assoc :content-select-mode? false))
+          :dispatch-n [[::e5/set-plugins plugins]
+                       [:show-message msg 6000]]})))))
 
 ;; (Removed dead `clean-plugin-errors` — a raw-EDN string-replace hack with zero
 ;;  callers, superseded by `orcbrew-validation/validate-import` (structured cleaning).)
@@ -4432,11 +4626,170 @@
  (fn [db [_ strict?]]
    (assoc db :strict-import? strict?)))
 
+;; ============================================================================
+;; Shared-content loading (viewing a character shared with embedded homebrew)
+;; ============================================================================
+;; A share link may carry the character's homebrew in the URL fragment. On
+;; landing we decode + validate it (share-url/decode-shared applies the
+;; untrusted-input security gates: input cap, decompression-bomb guard, safe
+;; reader, structural whitelist) and load the KEPT items — through the SAME
+;; per-item load-floor spec gate a file import uses — into :shared-plugins: an
+;; EPHEMERAL overlay that renders for this view only and is never written to the
+;; recipient's library.
+
+(reg-fx
+ ::decode-shared!
+ (fn [payload]
+   (-> (share-url/decode-shared payload)
+       (.then (fn [result]
+                (cond
+                  (:error result)
+                  (js/console.warn "Shared content not loaded:" (name (:error result)))
+                  (or (seq (:plugins result)) (seq (:custom-items result)))
+                  (dispatch [::e5/apply-shared-content result])))))))
+
+(reg-event-fx
+ ::e5/load-shared-content
+ (fn [_ [_ payload]]
+   {::decode-shared! payload}))
+
+(defn- count-plugin-items [pl]
+  (reduce + 0 (for [[_ p] pl
+                    [ct items] p
+                    :when (and (qualified-keyword? ct) (map? items))]
+                (count items))))
+
+(reg-event-fx
+ ::e5/apply-shared-content
+ (fn [{:keys [db]} [_ {:keys [plugins custom-items]}]]
+   ;; Layer 6. Homebrew: run through the same per-item load-floor spec gate a file
+   ;; import uses. Custom items: keep only those that EXPAND cleanly (a malformed
+   ;; item would otherwise throw in expand-magic-items and blank the sheet) — this
+   ;; both validates untrusted item data and protects every downstream expand site.
+   (let [{:keys [kept]} (e5/salvage-library-items content-specs/valid-item-for-load? plugins)
+         items (filterv (fn [it]
+                          (try (boolean (seq (mi/expand-magic-items [it])))
+                               (catch :default _ false)))
+                        (or custom-items []))]
+     (if (or (seq kept) (seq items))
+       ;; Store overlays + a summary the banner reads (counts + any homebrew keys
+       ;; that clash with the recipient's own library and differ). No toast — the
+       ;; banner is the persistent, actionable surface (view-only vs Keep).
+       {:db (assoc db
+                   :shared-plugins kept
+                   :shared-custom-items items
+                   :shared-content-info {:count (count-plugin-items kept)
+                                         :item-count (count items)
+                                         :collisions (vec (share-bundle/collisions kept (:plugins db)))})}
+       {}))))
+
+;; Persist the currently-viewed shared content into the recipient's own library,
+;; collapsed under one clearly-labeled source so it can't silently overwrite an
+;; existing same-named source. Colliding keys were surfaced by the banner; the
+;; user is choosing to keep anyway. Clears the overlay once persisted.
+(reg-event-fx
+ ::e5/keep-shared-content
+ (fn [{:keys [db]} [_ character-name]]
+   (let [shared (:shared-plugins db)]
+     (if-not (seq shared)
+       {}
+       (let [source-name (str (if (s/blank? character-name) "Shared" character-name) " (shared)")
+             collapsed {source-name (apply merge-with
+                                           (fn [a b] (if (and (map? a) (map? b)) (merge a b) b))
+                                           (vals shared))}
+             live (e5/merge-all-plugins (:plugins db) collapsed)]
+         (plugins->local-store live)
+         {:db (-> db (assoc :plugins live) (dissoc :shared-plugins :shared-content-info))
+          :dispatch [:show-message
+                     (str "Saved this character's custom content to your library as \""
+                          source-name "\".")]})))))
+
+;; Dismiss the shared-content banner without keeping (content stays view-only for
+;; this session; the overlay itself is cleared on the next character route).
+(reg-event-db
+ ::e5/dismiss-shared-content
+ (fn [db _]
+   (dissoc db :shared-content-info)))
+
+(defn single-plugin-source
+  "The source name a bare single-plugin's items already declare (their shared
+   :option-pack), or nil when they disagree or carry none. A single-source export
+   writes BARE content with no embedded source key, so its source identity lives
+   only in the filename — which the browser mangles to \"Name (1).orcbrew\" on a
+   repeat download, spawning a duplicate \"Name 1\" source on re-import. The items
+   still carry the true source in :option-pack, so recover it from the DATA."
+  [data]
+  (let [packs (distinct
+               (for [[_ items] data
+                     :when (map? items)
+                     [_ item] items
+                     :when (map? item)
+                     :let [p (:option-pack item)]
+                     :when (and (string? p) (not (s/blank? p)))]
+                 p))]
+    (when (= 1 (count packs))
+      (first packs))))
+
+(def ^:private dedup-suffix-re
+  ;; One trailing OS/browser file-dedup marker left on the NAME (extension already
+  ;; stripped) by a repeat download or copy: " (2)", " - Copy", " copy 3", or a
+  ;; bare " 2". Case-insensitive. Each branch carries its own leading whitespace so
+  ;; the bare-number branch needs a SPACE (won't chew "Homebrew v2" down to "v").
+  ;; Real exports carry :option-pack, so this only runs as the fallback below.
+  #"(?i)(?:\s*\(\d+\)|\s+-?\s*copy(?:\s*\(?\d+\)?)?|\s+\d+)$")
+
+(defn strip-dedup-suffix
+  "Drop ONE trailing dedup marker from a filename-derived source name so a
+   re-imported single-source file WITHOUT a usable :option-pack still lands in its
+   original source instead of a numbered duplicate ('Pack (1)' -> 'Pack'). Only the
+   fallback path uses this — when the items declare a source, that always wins.
+   Never strips to empty. Trade-off: a legitimate name ending in a number (e.g. a
+   real 'Pack 2') is collapsed too, but only in this no-:option-pack corner."
+  [s]
+  (if (string? s)
+    (let [stripped (s/trim (s/replace s dedup-suffix-re ""))]
+      (if (s/blank? stripped) s stripped))
+    s))
+
+(def ^:private generic-import-names
+  ;; Filenames that carry no source intent — never worth prompting about; the
+  ;; content's declared source just wins silently.
+  #{"orcbrew" "import" "imported content" "download" "downloads" "untitled"
+    "new" "data" "file" "content" "homebrew" "export" "backup" "orcpub"})
+
+(defn- generic-import-name?
+  "True when a filename-derived name carries no meaningful source intent — blank, a
+   known generic word, or a bare number / hash-ish token."
+  [s]
+  (let [t (s/lower-case (s/trim (str s)))]
+    (or (s/blank? t)
+        (contains? generic-import-names t)
+        (boolean (re-matches #"[-0-9a-f]{6,}" t))
+        (boolean (re-matches #"\d+" t)))))
+
+(defn source-name-mismatch
+  "When a SINGLE-source import's filename-derived name meaningfully disagrees with
+   the source its content declares (:option-pack), returns {:filename-name ..
+   :content-name ..} so the UI can ask which the user meant. Returns nil — meaning
+   'just use the content's source, no prompt' — when they already match (case/space
+   insensitively), the filename is only a dedup variant (\"Pack (1)\"), or the
+   filename is generic. Multi-source imports never reach here (they carry their own
+   source keys)."
+  [import-name data]
+  (when-let [content-name (single-plugin-source data)]
+    (let [fname (str import-name)]
+      (when (and (not (generic-import-name? fname))
+                 (not= (s/lower-case (s/trim fname)) (s/lower-case content-name))
+                 (not= (strip-dedup-suffix fname) content-name))
+        {:filename-name fname :content-name content-name}))))
+
 (defn incoming-sources
   "Normalize freshly-parsed import data to the flat {source-name plugin} shape the
    store expects. A multi-plugin (STRUCTURAL detection — string top-level keys, via
    orcbrew-val/is-multi-plugin?) is returned AS-IS; a single plugin is wrapped under
-   `import-name`.
+   the source its items declare (:option-pack), falling back to `import-name` (the
+   filename) only when the items don't agree on one — so a browser-numbered
+   re-import lands back in its real source instead of a duplicate.
 
    Structural detection (not spec validity) is load-bearing: a multi-plugin with
    even ONE imperfect sub-source must not be misjudged single and wrapped, which
@@ -4446,7 +4799,7 @@
   [import-name data]
   (if (orcbrew-val/is-multi-plugin? data)
     data
-    {import-name data}))
+    {(or (single-plugin-source data) (strip-dedup-suffix import-name)) data}))
 
 ;; Freshly-imported sources are stored the SAME way the boot loader reads them, at
 ;; PER-ENTRY granularity: each source keeps its valid items (the live library) and
@@ -4492,6 +4845,30 @@
                      " couldn't be loaded and " (if (= 1 n-items) "was" "were")
                      " set aside in “My Content”. The rest imported fine; open it "
                      "there to fix or discard " (if (= 1 n-items) "it." "them.")))}))
+
+(defn store-single-import
+  "Store a validated import (`incoming`, the flat {source plugin} shape) through the
+   shared quarantine gate and return the {:db :dispatch-n} the import handler yields.
+   Shared by the direct import path and the source-name-choice resolution so the two
+   can't drift. `log-name` labels the import log; `result` carries the validation
+   changes/skips; `user-message` is the success notice."
+  [db incoming log-name result user-message]
+  (let [import-log [:set-import-log {:name log-name
+                                     :changes (:changes result)
+                                     ;; strict mode surfaces unfilled required fields as errors
+                                     ;; (empty when strict-import is off / no :strict-unfilled)
+                                     :errors (mapv :description (:strict-unfilled result))
+                                     :skipped-items (:skipped-items result)
+                                     :key-conflicts (:key-conflicts result)
+                                     :key-warnings (:key-warnings result)}]
+        {:keys [merged quarantine message]} (store-imported-sources (:plugins db) incoming)]
+    {:db (assoc db :quarantined-plugins quarantine)
+     :dispatch-n (remove nil?
+                   [(when merged
+                      [::e5/store-plugins merged
+                       (when-not message [:show-warning-message user-message])])
+                    (when message [:show-warning-message message])
+                    import-log])}))
 
 (reg-event-fx
  ::e5/import-plugin
@@ -4560,24 +4937,8 @@
 
        ;; Progressive import succeeded (may have skipped some items)
        (:success result)
-       (let [plugin (:data result)
-             ;; Normalize to the flat {source-name plugin} shape (never wrapping a
-             ;; multi-plugin — see incoming-sources), then store through the shared
-             ;; gate so any source that would be quarantined on the next reload (a
-             ;; keyword-trap item, or any other ::plugin invalidity) is quarantined
-             ;; NOW and surfaced in the repair UI — not after a refresh.
-             incoming (incoming-sources plugin-name plugin)
-             import-log [:set-import-log {:name plugin-name
-                                          :changes (:changes result)
-                                          ;; strict mode: surface unfilled required fields as errors
-                                          :errors (mapv :description (:strict-unfilled result))
-                                          :skipped-items (:skipped-items result)
-                                          :key-conflicts (:key-conflicts result)
-                                          :key-warnings (:key-warnings result)}]
-             {:keys [merged quarantine message]}
-             (store-imported-sources (:plugins db) incoming)]
-
-         ;; Log skipped items if any
+       (let [plugin (:data result)]
+         ;; Log skipped items if any — regardless of which store path we take.
          (when (:had-errors result)
            (js/console.warn
             (str "Skipped " (count (:skipped-items result)) " invalid item(s):\n"
@@ -4586,26 +4947,49 @@
                                 (str "  • " (:key item) "\n"
                                      (errors->str (:errors item))))
                               (:skipped-items result))))))
-
-         ;; Store through the shared per-entry salvage gate (store-imported-sources):
-         ;; valid items land live via ::e5/store-plugins; any invalid entry (keyword-trap
-         ;; key or other ::plugin invalidity) is quarantined per-entry and surfaced in the
-         ;; repair UI. This supersedes our older per-SOURCE keyword-trap quarantine — the
-         ;; strict-mode :strict-unfilled errors still ride along in import-log (bound above).
-         {:db (assoc db :quarantined-plugins quarantine)
-          :dispatch-n (remove nil?
-                        [;; Persist the kept (valid) items; the "✅ imported" message
-                         ;; is store-plugins' on-success, so it only shows if the write
-                         ;; stuck (and only when nothing was set aside).
-                         (when merged
-                           [::e5/store-plugins merged
-                            (when-not message [:show-warning-message user-message])])
-                         (when message [:show-warning-message message])
-                         import-log])})
+         (if-let [choice (and (not (orcbrew-val/is-multi-plugin? plugin))
+                              (source-name-mismatch plugin-name plugin))]
+           ;; The filename and the content's declared source meaningfully differ —
+           ;; ask which name to import under instead of silently choosing (renaming
+           ;; the file to re-home content becomes a deliberate, confirmed action).
+           {:dispatch [:show-source-name-choice
+                       (assoc choice
+                              :import-data plugin
+                              :result result
+                              :user-message user-message)]}
+           ;; No prompt: single plugins land under their declared source (or the
+           ;; dedup-stripped filename); multi-plugins keep their own source keys.
+           ;; store-single-import runs the shared quarantine gate so a would-be-
+           ;; rejected item is set aside NOW, not after a refresh.
+           (store-single-import db (incoming-sources plugin-name plugin)
+                                plugin-name result user-message)))
 
        ;; Unknown state
        :else
        {:dispatch [:show-error-message "Unknown import error. Check console for details."]}))))
+
+;; ── Source-name choice (single-source import filename vs content source) ──────
+;; When a single-source import's filename meaningfully differs from the source its
+;; content declares, import-plugin parks the pending data here and shows a modal so
+;; the user picks which name to import under, rather than the app silently choosing.
+(reg-event-db
+ :show-source-name-choice
+ (fn [db [_ payload]]
+   (assoc db :source-name-choice (assoc payload :active? true))))
+
+(reg-event-fx
+ :resolve-source-name
+ (fn [{:keys [db]} [_ chosen-name]]
+   (let [{:keys [import-data result user-message]} (:source-name-choice db)
+         db' (assoc db :source-name-choice nil)]
+     ;; import-data is the bare single-plugin, so {chosen-name data} is the flat
+     ;; {source plugin} shape store-single-import expects.
+     (store-single-import db' {chosen-name import-data} chosen-name result user-message))))
+
+(reg-event-db
+ :cancel-source-name-choice
+ (fn [db _]
+   (assoc db :source-name-choice nil)))
 
 ;; Add a strict import option for users who want all-or-nothing behavior
 (reg-event-fx
@@ -4675,26 +5059,89 @@
                      :import-name import-name
                      :existing-source existing-source
                      :existing-name existing-name
-                     ;; Suggested rename for the import
-                     :suggested-new-key (orcbrew-val/generate-new-key key import-source)})
+                     ;; Suggested rename for the import (keep existing as base)…
+                     :suggested-new-key (orcbrew-val/generate-new-key key import-source)
+                     ;; …and for the EXISTING one (keep import as base — step 2).
+                     :suggested-existing-key (orcbrew-val/generate-new-key key existing-source)})
                   external-conflicts)]
     (vec (concat internal external))))
+
+(defn opinionated-default-decision
+  "The safe, deterministic default for ONE conflict — what the opinionated import
+   pre-applies so a novice can one-click Import (power users open Review to change
+   any of them). Risky (collapse) clashes are made deterministic; harmless (pool)
+   clashes keep both:
+   - internal + risky   → keep the first source's key, rename the peers (both kept,
+                          enabled, distinct keys — nothing turned off).
+   - external + risky   → import the newcomer OFF (existing content untouched, the
+                          existing copy stays the deterministic winner).
+   - anything harmless  → keep both (a duplicate in a pool type is fine)."
+  [{:keys [type content-type import-source sources suggested-renames] :as conflict}]
+  (let [risky? (contains? orcbrew-val/collision-risk-types content-type)]
+    (cond
+      (= type :internal)
+      (if risky?
+        {:action :rename-import
+         :keeper (-> sources first :source)
+         :renames (vec (rest suggested-renames))}
+        {:action :keep-both})
+
+      risky?
+      {:action :keep-both-disable :disable :import}
+
+      :else
+      {:action :keep-both})))
 
 (reg-event-db
  :start-conflict-resolution
  (fn [db [_ {:keys [import-name import-data conflicts validation-result mode]}]]
-   (let [conflict-list (build-conflict-list conflicts import-name)]
+   (let [conflict-list (build-conflict-list conflicts import-name)
+         resolved-mode (or mode :import)
+         import?       (= resolved-mode :import)
+         ;; Opinionated default: pre-resolve every conflict with the safe choice so
+         ;; the modal opens on a plain-language SUMMARY with a one-click Import;
+         ;; "Review / change" flips to the advanced per-conflict panel. Only for a
+         ;; real import — library/export resolutions are deliberate power actions,
+         ;; so they open straight to the advanced view with no pre-fill.
+         default-decisions (when import?
+                             (into {} (map (juxt :id opinionated-default-decision)
+                                           conflict-list)))]
      (assoc db :conflict-resolution
             {:active? true
              :import-name import-name
              :import-data import-data
              :conflicts conflict-list
-             :decisions {}
+             :decisions (or default-decisions {})
              :validation-result validation-result
+             :view (if import? :simple :advanced)
              ;; :import (default) merges the resolved delta into the library;
              ;; :export replaces the library with the resolved version and then
              ;; resumes the export that triggered the resolution.
-             :mode (or mode :import)}))))
+             :mode resolved-mode}))))
+
+(reg-event-db
+ :set-conflict-view
+ (fn [db [_ view]]
+   (assoc-in db [:conflict-resolution :view] view)))
+
+(reg-event-fx
+ ::e5/check-content-conflicts
+ (fn [{:keys [db]} _]
+   ;; "Check my content" — reuse the export analysis (correct-library) to find keys
+   ;; duplicated ACROSS already-loaded sources, then open the SAME conflict modal
+   ;; (library mode) to resolve them. The import popup only fires on import, so a
+   ;; pre-existing cross-source clash (and its nondeterministic winner) is otherwise
+   ;; invisible until now.
+   (let [{:keys [key-conflicts]} (orcbrew-val/correct-library (:plugins db))
+         internal (:internal-conflicts key-conflicts)]
+     (if (seq internal)
+       {:dispatch [:start-conflict-resolution
+                   {:import-name "your content"
+                    :import-data (:plugins db)
+                    :conflicts {:internal-conflicts internal :external-conflicts []}
+                    :mode :library}]}
+       {:dispatch [:show-warning-message
+                   "No key conflicts found — every key is unique across your sources."]}))))
 
 (reg-event-db
  :set-conflict-decision
@@ -4734,12 +5181,42 @@
            :decisions {}
            :validation-result nil})))
 
+(defn drop-skipped-imports
+  "Remove the items the user chose to SKIP from the normalized incoming sources.
+   'Skip' means leave the EXISTING copy as-is and do NOT import the colliding
+   newcomer, so the imported item is dropped entirely (the bug this fixes was
+   that it was still merged in enabled, producing the exact nondeterministic
+   twin the modal promised to avoid). External conflicts only — an internal
+   same-key clash (two copies within the import) has no existing side to defer
+   to, so 'skip' leaves it as-is. Single-plugin imports wrap under import-name,
+   so fall back to it — the same source-keying the disable paths use. Prunes a
+   content-type or source that empties out so a fully-skipped source can't
+   import as a shell."
+  [incoming conflicts decisions import-name]
+  (let [targets (keep (fn [{:keys [id key content-type import-source]}]
+                        (when (and (= :skip (:action (get decisions id)))
+                                   import-source)
+                          [(or import-source import-name) content-type key]))
+                      conflicts)]
+    (reduce (fn [p [src ct k]]
+              (if (get-in p [src ct k])
+                (let [p (update-in p [src ct] dissoc k)
+                      p (if (empty? (get-in p [src ct])) (update p src dissoc ct) p)
+                      p (if (empty? (get p src)) (dissoc p src) p)]
+                  p)
+                p))
+            incoming targets)))
+
 (reg-event-fx
  :apply-conflict-resolutions
  (fn [{:keys [db]} _]
    (let [{:keys [import-name import-data conflicts decisions validation-result mode]}
          (:conflict-resolution db)
          export-mode? (= mode :export)
+         ;; :library resolves conflicts WITHIN already-loaded content (the "check my
+         ;; content" button). import-data is the current :plugins; renames apply to
+         ;; it and the whole library is replaced, like export mode (no import merge).
+         library-mode? (= mode :library)
 
          ;; Build list of renames from decisions
          renames (reduce
@@ -4764,15 +5241,52 @@
                                      :from key
                                      :to (:new-key decision)}))
 
-                        ;; Skip this item (don't import it)
+                        ;; Skip: no rename here — the item is dropped from the
+                        ;; incoming data below via skip-targets/remove-skipped.
                         (= :skip (:action decision))
-                        acc  ; Will handle removal separately
+                        acc
 
                         ;; Keep both (no rename - allows override)
                         :else
                         acc)))
                   []
                   conflicts)
+
+         ;; keep-both-disable: keep both copies of the key but turn the LOSER off,
+         ;; so exactly one is enabled (a deterministic winner instead of the
+         ;; nondeterministic "keep both as-is"). The loser is either the existing
+         ;; item (in :plugins) or the imported one (in the incoming data).
+         disable-targets (fn [side]
+                           (keep (fn [{:keys [id key content-type import-source existing-source]}]
+                                   (let [d (get decisions id)]
+                                     (when (and (= :keep-both-disable (:action d))
+                                                (= side (:disable d)))
+                                       [(case side
+                                          :existing existing-source
+                                          :import   (or import-source import-name))
+                                        content-type key])))
+                                 conflicts))
+         existing-disables (disable-targets :existing)
+         import-disables   (disable-targets :import)
+         ;; rename-existing: keep the imported item's key as base and rename the
+         ;; EXISTING one instead (the moderator's "decide what stays base"). Scoped
+         ;; to the existing item's source in :plugins; references are rewritten by
+         ;; apply-key-renames (subclass->class etc.).
+         existing-renames (vec (keep (fn [{:keys [id key content-type existing-source]}]
+                                       (let [d (get decisions id)]
+                                         (when (= :rename-existing (:action d))
+                                           {:source existing-source :content-type content-type
+                                            :from key :to (:new-key d)})))
+                                     conflicts))
+         set-disabled (fn [plugins paths]
+                        (reduce (fn [p [src ct k]]
+                                  (cond-> p (get-in p [src ct k])
+                                          (->
+                                           (assoc-in [src ct k :disabled?] true)
+                                           ;; mark WHY it's off, so the library badge
+                                           ;; can read blue (you) vs amber (compat).
+                                           (assoc-in [src ct k :disabled-reason] :compat))))
+                                plugins paths))
 
          ;; Apply renames to import data
          renamed-data (if (seq renames)
@@ -4784,10 +5298,17 @@
          ;; and surfaced here — not hidden until the next refresh. Export mode
          ;; replaces the whole library and resumes the export instead.
          ;; incoming-sources keeps a multi-plugin flat (never wrapped/double-nested).
-         incoming (incoming-sources import-name renamed-data)
+         incoming (-> (incoming-sources import-name renamed-data)
+                      (drop-skipped-imports conflicts decisions import-name)
+                      (set-disabled import-disables))
+         ;; existing side: rename the chosen existing items, then disable any
+         ;; keep-both-disable losers, then use that as the store base.
+         existing-base (-> (:plugins db)
+                           (orcbrew-val/apply-key-renames existing-renames)
+                           (set-disabled existing-disables))
          {:keys [merged quarantine message]}
-         (when-not export-mode?
-           (store-imported-sources (:plugins db) incoming))
+         (when-not (or export-mode? library-mode?)
+           (store-imported-sources existing-base incoming))
          success-msg (str "✅ Import successful"
                           (when (seq renames)
                             (str "\n\nRenamed " (count renames)
@@ -4811,11 +5332,16 @@
         ;; resumes the export; import mode persists the kept (valid) items via
         ;; store-plugins, whose on-success ("✅ Import successful") only fires if
         ;; the write actually stuck and nothing was set aside.
-        (if export-mode?
+        (if (or export-mode? library-mode?)
           [::e5/set-plugins renamed-data]
           (when merged
             [::e5/store-plugins merged
              (when-not message [:show-warning-message success-msg])]))
+
+        (when library-mode?
+          [:show-warning-message
+           (str "✅ Resolved " (count renames) " key conflict"
+                (when (not= 1 (count renames)) "s") " in your content.")])
 
         ;; Export-mode resolution message (import mode reports via store-plugins);
         ;; plus the set-aside notice if any entry was quarantined.
