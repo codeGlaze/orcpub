@@ -85,3 +85,41 @@ otherwise stubbornly persist.
 - `src/cljs/orcpub/dnd/e5/db.cljs` — `reg-local-store-cofx` (line ~252)
 - `src/cljs/orcpub/dnd/e5/events.cljs` — `set-combat-path-prop` nil guard
 - All `*->local-store` serializers use `(str data)` / `reader/read-string`
+
+---
+
+## Content-library management — remaining work
+
+**Status:** Open
+**Severity:** Low — enhancements; the shipped resolution already removes the data bug
+**KB doc:** [docs/kb/library-management-and-conflicts.md](kb/library-management-and-conflicts.md)
+
+The My Content library, duplicate-key resolution, disabled-reason badges, the
+mutual-exclusion UX, the opinionated (summary-first) import, the four-level
+disable hierarchy, and move/copy content between sources are built and on
+`feature/content-library-management` (see the KB doc for how they work). These are
+the not-yet-built follow-ups, roughly in dependency order.
+
+### Example / demo content tier
+
+A read-only example/demo tier of content, with a per-account version marker and
+copy-on-edit graduation (editing an example copies it into the user's own library
+so upstream updates never clobber their edits).
+
+### Also parked (with reasons — do not lose)
+
+- **Account backup/restore** of libraries + prefs: blocked NOT by code (the
+  `share_url` codec already does gzip + fail-closed decode) but by **legal**
+  (hosting user-uploaded, often copyrighted content), **database/scale** (3–5 MB ×
+  every user), and standing **admin resistance**. If ever entertained: server-side
+  at-rest/transport encryption, NOT end-to-end (lost key → lost backup); and
+  backup-restore (last-write-wins) *before* multi-device sync (sync needs conflict
+  resolution).
+- **Compress localStorage plugins** with the existing gzip codec to fit more under
+  the ~5 MB browser ceiling — no cloud, no legal exposure. Caveats: makes stored
+  content opaque to inspection, and a hard cap is still needed (compression moves
+  the ceiling, doesn't remove it).
+- **Native `<select>` → custom popover**: the add-content menu uses a native
+  select; adopt `port/redesign-on-refactor`'s Phase 7 custom-select popover when
+  branches converge (NOT a cheap early crib — it's coupled to that branch's
+  theme-token infrastructure).

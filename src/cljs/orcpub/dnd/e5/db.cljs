@@ -54,6 +54,15 @@
 ;; Resilient-loader companion to `plugins`: sources that failed validation on load
 ;; are preserved for repair here instead of being silently discarded.
 (def local-storage-plugins-rejected-key "plugins:rejected")
+;; Local "view" overlay for the disable hierarchy: a global "disable all homebrew"
+;; flag and a set of section-disabled [source content-type] pairs. Kept OUT of the
+;; plugin/.orcbrew data (zero format/spec change; never travels with an export) —
+;; it's a per-device preference, so it lives in its own slot.
+(def local-storage-disable-overlay-key "disable-overlay")
+;; Which library-health issue-signature the user last dismissed. Kept per-device
+;; so a dismissed heads-up stays hidden across reloads — but only until the set of
+;; problems changes (the signature changes), and never on the My Content hub.
+(def local-storage-health-dismissed-key "health-dismissed")
 
 (def default-route route-map/dnd-e5-char-builder-route)
 
@@ -272,6 +281,14 @@
         (re-frame/dispatch [::e5/plugins-save-failed]))
       ok?)))
 
+(defn disable-overlay->local-store [overlay]
+  (when js/window.localStorage
+    (set-item local-storage-disable-overlay-key (str overlay))))
+
+(defn health-dismissed->local-store [sig]
+  (when js/window.localStorage
+    (set-item local-storage-health-dismissed-key (str sig))))
+
 (def tab-path [:builder :character :tab])
 
 (def ^:private preserve-on-unreadable-keys
@@ -375,6 +392,21 @@
  :local-store-magic-item
  local-storage-magic-item-key
  ::mi5e/internal-magic-item)
+
+;; Disable-overlay (global + section view preference). Validated loosely as a map
+;; so an older/emptier shape can't brick boot; the sub tolerates missing keys.
+(spec/def ::disable-overlay map?)
+(reg-local-store-cofx
+ ::e5/disable-overlay
+ local-storage-disable-overlay-key
+ ::disable-overlay)
+
+;; Dismissed health-signature — a number (hash of the current problem set).
+(spec/def ::health-dismissed number?)
+(reg-local-store-cofx
+ ::e5/health-dismissed
+ local-storage-health-dismissed-key
+ ::health-dismissed)
 
 ;; Refresh safety: restore every homebrew builder's in-progress item on boot (the
 ;; persist side is already wired per-builder via ->local-store interceptors; this
