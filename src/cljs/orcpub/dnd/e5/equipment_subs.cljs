@@ -324,9 +324,10 @@
  ::mi5e/all-armor-map
  :<- [::mi5e/magic-armor-map]
  (fn [magic-armor-map]
+   ;; Homebrew wins over SRD -- see ::mi5e/all-weapons-map.
    (merge
-    magic-armor-map
-    armor5e/armor-map)))
+    armor5e/armor-map
+    magic-armor-map)))
 
 (reg-sub
  ::mi5e/other-magic-items-map
@@ -348,9 +349,15 @@
  ::mi5e/all-weapons-map
  :<- [::mi5e/magic-weapon-map]
  (fn [magic-weapons-map]
+   ;; Homebrew wins over SRD, the same way a plugin class supplants the
+   ;; built-in one. This map used to merge the other way while
+   ;; ::mi5e/all-equipment-map merged this way, so which copy of a
+   ;; same-named item you got depended on which map the caller happened to
+   ;; read -- the sheet could show SRD stats while applying custom
+   ;; modifiers. One direction, everywhere.
    (merge
-    magic-weapons-map
-    weapon5e/weapons-map)))
+    weapon5e/weapons-map
+    magic-weapons-map)))
 
 (reg-sub
  ::mi5e/all-magic-items-map

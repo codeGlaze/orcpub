@@ -1,0 +1,7 @@
+^{:watch-dirs []}
+{:main          orcpub.override-demo
+ :output-to     "target/demo/demo.js"
+ :output-dir    "target/demo/out"
+ :asset-path    "out"
+ :optimizations :simple
+ :pretty-print  false}

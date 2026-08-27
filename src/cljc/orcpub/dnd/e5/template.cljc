@@ -1259,6 +1259,31 @@
     :tags #{:equipment}
     :options options}))
 
+(defn overriding-options
+  "Fold homebrew option-cfgs over built-in ones so that a custom item REPLACES
+   the standard item of the same key rather than sitting beside it.
+
+   This is the same contract plugin classes already have — see the
+   ::classes5e/classes subscription, which inserts plugin classes into a
+   sorted-set keyed on ::t/key ahead of the base classes so a homebrew Fighter
+   supplants the built-in one. Overriding built-in content by name is a feature
+   people rely on; what it must not do is produce two identically named rows
+   that resolve unpredictably.
+
+   A replaced option keeps the built-in's position in the list, so a custom
+   Longsword stays where Longsword has always been rather than jumping to the
+   top. Custom items with no built-in counterpart are appended."
+  [built-in custom]
+  (let [custom-by-key (into {} (map (juxt ::t/key identity)) custom)
+        built-in-keys (into #{} (map ::t/key) built-in)]
+    (concat
+     (map (fn [option]
+            (if-let [replacement (custom-by-key (::t/key option))]
+              (assoc replacement ::t/overrides-built-in? true)
+              option))
+          built-in)
+     (remove (comp built-in-keys ::t/key) custom))))
+
 (defn inventory-selection
   "A selection over ordinary (non-magical) gear.
 
@@ -1277,7 +1302,7 @@
                    {::entity/key key
                     ::entity/value 1})
     :tags #{:equipment}
-    :options (concat
+    :options (overriding-options
               (map
                (fn [item]
                  (let [{:keys [name key description page source]} (if converter (converter item) item)]

@@ -3333,7 +3333,9 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
         all-items (concat expanded magic-items)
         all-magic-weapons (sequence magic-weapon-xform all-items)
         magic-weapon-lookup (common/map-by-key all-magic-weapons)]
-    (merge magic-weapon-lookup weapons5e/weapons-map)))
+    ;; Homebrew wins over SRD, matching the ::mi5e/all-weapons-map
+    ;; subscription. Both used to merge the other way round.
+    (merge weapons5e/weapons-map magic-weapon-lookup)))
 
 (def all-weapons-map
   "Static weapons map (no custom items). Use compute-all-weapons-map

@@ -13,6 +13,9 @@
             [orcpub.template :as t]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.views :as views]
+            [orcpub.dnd.e5.template :as t5e]
+            [orcpub.dnd.e5.weapons :as weapon5e]
+            [orcpub.dnd.e5.modifiers :as mod5e]
             ;; Side effect: registers the equipment subscriptions
             [orcpub.dnd.e5.equipment-subs]))
 
@@ -172,3 +175,72 @@
   (testing "and so does switching the item back to magical"
     (with-items! [(assoc demoted-item ::mi5e/magical? true)])
     (is (empty? @(rf/subscribe [::mi5e/items-holding-magic])))))
+
+;; ---------------------------------------------------------------------------
+;; Overriding built-in gear
+;;
+;; Naming a custom item after SRD gear is something people do deliberately —
+;; it is how homebrew already supplants built-in classes (see the
+;; ::classes5e/classes subscription). What it must not do is leave two rows
+;; with the same name whose winner depends on which map the reader consulted.
+;; ---------------------------------------------------------------------------
+
+(def ^:private homebrew-longsword
+  {::mi5e/name "Longsword" ::mi5e/type :weapon ::mi5e/rarity :common
+   ::mi5e/magical? false ::mi5e/owner "kaylee"})
+
+(deftest a-custom-item-replaces-the-srd-entry-rather-than-joining-it
+  (with-items! [homebrew-longsword])
+  (let [options (t5e/inventory-selection "Weapons" "plain-dagger" weapon5e/weapons
+                                       mod5e/deferred-weapon nil
+                                       @(rf/subscribe [::mi5e/mundane-weapon-options]))
+        longswords (filter #(= :longsword (::t/key %))
+                           (::t/options options))]
+    (testing "exactly one Longsword is offered, not two"
+      (is (= 1 (count longswords))))
+    (testing "and it is the custom one, flagged as an override"
+      (is (true? (::t/overrides-built-in? (first longswords)))))))
+
+(deftest overriding-keeps-the-built-in-position-and-appends-genuinely-new-gear
+  (with-items! [homebrew-longsword homemade-lantern])
+  (let [weapon-keys (map ::t/key
+                         (::t/options
+                          (t5e/inventory-selection "Weapons" "plain-dagger" weapon5e/weapons
+                                                 mod5e/deferred-weapon nil
+                                                 @(rf/subscribe [::mi5e/mundane-weapon-options]))))
+        srd-keys (map (comp ::t/key) (::t/options
+                                      (t5e/inventory-selection "Weapons" "plain-dagger" weapon5e/weapons
+                                                             mod5e/deferred-weapon nil [])))]
+    (testing "replacing an entry does not move it or change the list length"
+      (is (= (vec srd-keys) (vec weapon-keys))))))
+
+(deftest a-custom-item-with-no-srd-counterpart-is-simply-added
+  (with-items! [homemade-sword])
+  (let [keys* (set (map ::t/key
+                        (::t/options
+                         (t5e/inventory-selection "Weapons" "plain-dagger" weapon5e/weapons
+                                                mod5e/deferred-weapon nil
+                                                @(rf/subscribe [::mi5e/mundane-weapon-options])))))]
+    (is (contains? keys* :bastard-sword))
+    (testing "and is not flagged as overriding anything"
+      (is (not-any? ::t/overrides-built-in?
+                    (filter #(= :bastard-sword (::t/key %))
+                            (::t/options
+                             (t5e/inventory-selection "Weapons" "plain-dagger" weapon5e/weapons
+                                                    mod5e/deferred-weapon nil
+                                                    @(rf/subscribe [::mi5e/mundane-weapon-options])))))))))
+
+(deftest every-lookup-map-agrees-on-who-wins
+  (testing "custom wins in weapons, armor and equipment alike"
+    ;; These three used to disagree: weapons and armor merged SRD last, while
+    ;; equipment merged custom last. A sheet could therefore render the SRD
+    ;; name while applying the custom item's modifiers.
+    (with-items! [homebrew-longsword])
+    (is (= "kaylee" (::mi5e/owner (get @(rf/subscribe [::mi5e/all-weapons-map]) :longsword)))
+        "the custom Longsword is the one the weapons map resolves")
+    ;; :armor bare, not ::mi5e/armor -- the Type dropdown serialises its
+    ;; keyword through name, so what actually lands in storage is :armor.
+    (with-items! [{::mi5e/name "Chain Mail" ::mi5e/type :armor
+                   ::mi5e/rarity :common ::mi5e/magical? false ::mi5e/owner "kaylee"}])
+    (is (= "kaylee" (::mi5e/owner (get @(rf/subscribe [::mi5e/all-armor-map]) :chain-mail)))
+        "and likewise for armor")))

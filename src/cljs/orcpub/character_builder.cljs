@@ -361,8 +361,15 @@
 
 (def inventory-option-selected? (memoize inventory-option-selected-fn))
 
-(defn name-and-key [{:keys [:db/id ::t/name ::t/key]}]
-  {:name name
+(defn name-and-key [{:keys [:db/id ::t/name ::t/key ::t/overrides-built-in?]}]
+  ;; An option flagged ::t/overrides-built-in? is a custom item standing in
+  ;; place of the SRD entry it shares a key with. Say so in the label: the two
+  ;; used to appear as identical rows and picking either was a coin flip, so
+  ;; the point of the suffix is that there is now exactly one row and you can
+  ;; tell which one it is. The key is untouched -- only the display text.
+  {:name (if overrides-built-in?
+           (str name " (your version)")
+           name)
    :key (or key id)})
 
 ;;; selection creator for character builder
