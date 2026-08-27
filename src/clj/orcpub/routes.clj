@@ -801,7 +801,30 @@
        db
        username))
 
-(defn update-entity [conn username entity owner-prop]
+(defn clearing-retractions
+  "Retraction datoms for attributes the stored entity carries and the incoming
+   one omits.
+
+   update-entity's retractions come from the :db/id diff, so they only reach
+   nested component entities. A scalar left out of the transacted map asserts
+   nothing and retracts nothing -- which meant a field the user cleared could
+   not actually be cleared, and came back on the next pull. Callers name the
+   attributes they consider clearable; everything else keeps the old
+   never-retract behaviour.
+
+   Cardinality-many attributes need one retraction per value, hence the
+   flattening."
+  [current entity attrs]
+  (for [a attrs
+        :let [stored (get current a)]
+        :when (and (some? stored) (not (contains? entity a)))
+        v (if (coll? stored) stored [stored])]
+    [:db/retract (:db/id current) a v]))
+
+(defn update-entity
+  ([conn username entity owner-prop]
+   (update-entity conn username entity owner-prop nil))
+  ([conn username entity owner-prop clearable-attrs]
   (try
     (let [id (:db/id entity)
           current (d/pull (d/db conn) '[*] id)
@@ -818,7 +841,8 @@
               remove-ids (sets/difference new-ids current-ids)
               with-ids-removed (entity/remove-specific-ids entity remove-ids)
               new-entity (assoc with-ids-removed owner-prop username)
-              result @(d/transact conn (concat retractions [new-entity]))]
+              cleared (clearing-retractions current entity clearable-attrs)
+              result @(d/transact conn (concat retractions cleared [new-entity]))]
           (d/pull (d/db conn) '[*] id))
         (throw (ex-info "Not user entity"
                         {:error :not-user-entity}))))
@@ -830,13 +854,16 @@
                       {:error :entity-update-failed
                        :username username
                        :entity-id (:db/id entity)}
-                      e)))))
+                      e))))))
 
-(defn save-entity [conn username e owner-prop]
-  (let [without-empty-fields (entity/remove-empty-fields e)]
-    (if (:db/id without-empty-fields)
-      (update-entity conn username without-empty-fields owner-prop)
-      (create-entity conn username without-empty-fields owner-prop))))
+(defn save-entity
+  ([conn username e owner-prop]
+   (save-entity conn username e owner-prop nil))
+  ([conn username e owner-prop clearable-attrs]
+   (let [without-empty-fields (entity/remove-empty-fields e)]
+     (if (:db/id without-empty-fields)
+       (update-entity conn username without-empty-fields owner-prop clearable-attrs)
+       (create-entity conn username without-empty-fields owner-prop)))))
 
 (defn owns-entity? [db username entity-id]
   (let [user (find-user-by-username db username)
@@ -969,7 +996,11 @@
   (if-let [data (spec/explain-data ::mi5e/magic-item transit-params)]
     {:status 400 :body data}
     (let [username (:user identity)
-          result (save-entity conn username transit-params ::mi5e/owner)]
+          ;; Items pass their clearable attributes so that "remove for good"
+          ;; can actually remove: without these retractions the magical
+          ;; properties stay in the database and come back in the response.
+          result (save-entity conn username transit-params ::mi5e/owner
+                              mi5e/clearable-attributes)]
       {:status 200
        :body result})))
 

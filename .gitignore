@@ -103,3 +103,4 @@ cljsjs/
 
 # Design handoff reference material (preserved on agents/develop, not committed to code branches)
 design_handoff_character_menus
+/scripts/e2e/node_modules/

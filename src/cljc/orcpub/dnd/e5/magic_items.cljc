@@ -232,6 +232,25 @@
   [item]
   (boolean (seq (magical-properties item))))
 
+(def clearable-attributes
+  "Stored item attributes a save is allowed to CLEAR by omitting them.
+
+   Datomic does not retract an attribute just because it is missing from the
+   transacted map -- an absent scalar asserts nothing and retracts nothing, so
+   the stored value survives. update-entity derives its retractions from the
+   :db/id diff, which covers nested component entities (::modifiers) and
+   nothing else. Without an explicit retraction, \"remove for good\" removed
+   the properties from the builder, saved, and got them straight back in the
+   response.
+
+   ::modifiers is deliberately absent: it is a component ref and the existing
+   :db/id diff already retracts it. ::internal-modifiers is client-only and
+   never stored."
+  [::attunement
+   ::magical-attack-bonus
+   ::magical-damage-bonus
+   ::magical-ac-bonus])
+
 (defn without-magical-properties
   [item]
   (apply dissoc item magical-property-keys))

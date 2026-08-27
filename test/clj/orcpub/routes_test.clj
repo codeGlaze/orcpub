@@ -355,3 +355,71 @@
             body (routes/user-body db user)]
         (is (true? (:send-updates? body))
             "user-body should include send-updates? field")))))
+
+;; ---------------------------------------------------------------------------
+;; Clearing an attribute has to actually clear it
+;;
+;; Datomic retracts nothing for an attribute simply missing from the transacted
+;; map, and update-entity's own retractions come from the :db/id diff, which
+;; only reaches nested component entities. So "remove for good" dissoc'd the
+;; magical properties, saved, and got them back in the response -- the values
+;; had never left the database.
+;; ---------------------------------------------------------------------------
+
+(defn- magical-item []
+  {::mi/name "Retired Blade"
+   ::mi/type :weapon
+   ::mi/rarity :rare
+   ::mi/magical? true
+   ::mi/attunement #{:any}
+   ::mi/magical-attack-bonus 1
+   ::mi/magical-damage-bonus 2
+   ::mi/magical-ac-bonus 3})
+
+(deftest removing-magical-properties-for-good-actually-removes-them
+  (with-conn conn
+    (let [c (dm/fork-conn conn)]
+      @(d/transact c schema/all-schemas)
+      @(d/transact c [{:orcpub.user/username "kaylee"
+                       :orcpub.user/email "kaylee@example.com"}])
+      (let [saved (routes/save-entity c "kaylee" (magical-item) ::mi/owner
+                                      mi/clearable-attributes)]
+        (testing "the properties are stored in the first place"
+          (is (= 1 (::mi/magical-attack-bonus saved)))
+          (is (= #{:any} (set (::mi/attunement saved)))))
+
+        (testing "saving the item without them takes them out of the database"
+          ;; Exactly what ::mi/clear-magical-properties produces: the keys are
+          ;; dissoc'd, not emptied.
+          (let [cleared (routes/save-entity
+                         c "kaylee"
+                         (assoc (mi/without-magical-properties (magical-item))
+                                :db/id (:db/id saved))
+                         ::mi/owner mi/clearable-attributes)]
+            (is (nil? (::mi/magical-attack-bonus cleared)))
+            (is (nil? (::mi/magical-damage-bonus cleared)))
+            (is (nil? (::mi/magical-ac-bonus cleared)))
+            (is (empty? (::mi/attunement cleared)))
+            (testing "and the item itself survives"
+              (is (= "Retired Blade" (::mi/name cleared))))
+            (testing "so a fresh read agrees -- the response is not just filtered"
+              (let [pulled (d/pull (d/db c) '[*] (:db/id saved))]
+                (is (nil? (::mi/magical-attack-bonus pulled)))
+                (is (empty? (::mi/attunement pulled)))))))))))
+
+(deftest an-omitted-attribute-is-still-kept-when-it-is-not-clearable
+  (testing "the never-retract default is unchanged for everything else"
+    ;; Only attributes a caller names are clearable. Without this, any partial
+    ;; save would silently wipe the fields it happened not to include.
+    (with-conn conn
+      (let [c (dm/fork-conn conn)]
+        @(d/transact c schema/all-schemas)
+        @(d/transact c [{:orcpub.user/username "kaylee"
+                         :orcpub.user/email "kaylee@example.com"}])
+        (let [saved (routes/save-entity c "kaylee" (magical-item) ::mi/owner nil)
+              resaved (routes/save-entity
+                       c "kaylee"
+                       {:db/id (:db/id saved) ::mi/name "Retired Blade"}
+                       ::mi/owner nil)]
+          (is (= 1 (::mi/magical-attack-bonus resaved))
+              "no clearable attrs passed, so nothing is retracted"))))))
