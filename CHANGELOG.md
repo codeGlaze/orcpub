@@ -73,6 +73,7 @@ The My Content library becomes manageable and resilient — see, organize, disab
 - **Stale `:key` after a rename** — the item's own `:key` is rewritten so a double rename is a no-op (`0c30a022`).
 - **Recovery panel "Fix & Restore" auto-names invalid entries** in one click (`5e196348`, `898478b0`).
 - **One home for source-less content** — folded the stray "Unsorted Homebrew" default into "Default Option Source"; "Unnamed Content" stays separate on purpose (nameless sources, for findability) (`a5d18e2f`, `b5ba38d0`).
+- **Shared-character links render on first load** — decoded homebrew overlays now force a rebuild so the sheet paints immediately instead of only after a manual refresh (`9db84754`).
 
 **Changed / internal**
 - **Health detectors are memoized subscriptions** — one library walk per plugins change instead of dozens per render (`47b57793`).
@@ -80,6 +81,7 @@ The My Content library becomes manageable and resilient — see, organize, disab
 - **Dead-code sweep** — removed verified-dead helpers; pre-existing dead code restored with dated investigation markers (`47b57793`, `874d57d5`).
 - **Data-driven library list** — empty content-type categories hide; the list is derived (`e3023cd3`).
 - **Gitignore deploy-injected static assets** (font-awesome) (`d8331619`).
+- **Share buttons and the character-list filter sit flush with their toolbars** — plain form-button styling, header/list variants, and an aligned name-filter input (`4ef95b74`, `e5dbf8da`, `a48db2b5`).
 
 ## [breaking/2026-stack-modernization]
 
