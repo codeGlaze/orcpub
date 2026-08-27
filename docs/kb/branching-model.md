@@ -32,6 +32,25 @@ Cut them off the **common base** (`integration` / `develop`), not off the refact
 branch — so they merge cleanly into both. (This is why the content-library and
 import fixes live on a branch based near `develop`.)
 
+## Releases are tags, not branches
+
+A named release ("Summer Patch", "Fall Feature Update") is **not a branch** — it's
+the set of changes sitting on `integration` that haven't been promoted to `develop`
+yet. Its identity is two things:
+
+- a **`[Name]` section in `CHANGELOG.md`** (accumulated as work lands), and
+- a **git tag** cut when it deploys.
+
+To ship a release: merge `integration → develop`, `git tag <release>` (e.g.
+`summer-patch`), deploy. The tag is the permanent, immutable marker; `integration`
+then keeps collecting the next release. So "the Summer Patch" is simply **whatever is
+on `integration` but not yet on `develop`** — no separate branch to manage.
+
+**Only** cut a `release/<name>` branch when you need **two trains at once** — a
+release frozen for final QA while new work continues — so the frozen one takes only
+bug fixes on its own branch while `integration` keeps moving. Reach for it then, not
+as a standing structure.
+
 ## Authorship — required, no exceptions
 
 Every commit must be authored **and** committed as `codeGlaze <github@codeglaze.com>`.
