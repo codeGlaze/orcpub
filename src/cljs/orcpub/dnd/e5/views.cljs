@@ -8725,13 +8725,29 @@
   )
 
 (defn item-builder-buttons [item-key item]
+  ;; Items are NOT browser storage. builder-page's "Save to Browser Storage"
+  ;; is accurate for the spell/monster/race builders, whose content lives in
+  ;; localStorage as a homebrew plugin -- this button was copied from there,
+  ;; but ::mi/save-item POSTs to /dnd/5e/items and the item lives in the
+  ;; database against your account. Saying "browser storage" promised local
+  ;; persistence the item never had.
+  ;;
+  ;; Signed out it was worse than inaccurate: the POST came back 401 and
+  ;; bounced you to the login page mid-edit. Ask for the login first instead
+  ;; of sending a request that cannot succeed.
   (let [owner? (get-owner? item-key)
+        signed-in? (boolean @(subscribe [:username]))
         base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
-                      {:title "Save to Browser Storage"
-                       :icon "save"
-                       :on-click #(dispatch [::mi/save-item])}]
+                      (if signed-in?
+                        {:title "Save to My Items"
+                         :icon "save"
+                         :on-click #(dispatch [::mi/save-item])}
+                        {:title "Log In to Save"
+                         :icon "save"
+                         :on-click #(dispatch [:route routes/login-page-route
+                                               {:secure? true}])})]
         ]
     (if (and item-key owner?) ;Show if we have an item key and the user owns it
       (conj base-buttons {:title "Delete"
