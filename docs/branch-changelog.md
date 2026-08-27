@@ -4,11 +4,18 @@
 
 ## [content-extensibility + ability-score-increase-spreads]
 
-Make homebrew content extensible and cross-silo: turn "just text" into real mechanics through one
-shared abstraction instead of per-silo bespoke code. Two themes — a declarative content-builder
-framework (field-schemas + a pool/grant primitive) and a concrete cross-silo feature built on it
-(ability-score-increase spreads) — plus homebrew-source surfacing and a foundation of
-characterization tests.
+<!-- Why this branch exists (reviewer context — drop at fold): make homebrew content extensible and
+     cross-silo — turn "just text" into real mechanics through one shared abstraction instead of
+     per-silo bespoke code. Two themes: a declarative content-builder framework (field-schemas + a
+     pool/grant primitive) and a concrete feature built on it (ability-score-increase spreads), plus
+     homebrew-source surfacing and a foundation of characterization tests. -->
+
+### Highlights
+
+Homebrew content can now carry real mechanics instead of being inert text: a content type declares
+its fields once, and the builder form, save, and import checks all follow from that one declaration.
+A homebrew feat can grant a fighting style, and 2024-style ability-score-increase spreads (+2 to one
+ability, +1 to another) work across races, backgrounds, and subclasses the way official content does.
 
 ### Features
 
