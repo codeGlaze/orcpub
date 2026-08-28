@@ -1,5 +1,5 @@
 # Guard: a branch changelog must be FOLDED into CHANGELOG.md (and removed) before
-# landing on integration or develop. See docs/kb/branching-model.md.
+# landing on integration or develop. See docs/CONTRIBUTING.md.
 #
 # Runs on push (the post-merge backstop): if a merge landed on integration/develop
 # without folding its docs/branch-changelog.md, this goes red — run

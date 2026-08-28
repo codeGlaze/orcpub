@@ -1,4 +1,4 @@
-# Branching, authorship & commit conventions
+# Contributing — branching, changelog & commit conventions
 
 The workflow for this fork. Read before committing or opening a PR.
 
@@ -54,7 +54,7 @@ as a standing structure.
 ## Changelogs — fold at merge-to-integration
 
 Every feature/fix branch keeps a `docs/branch-changelog.md` while in flight. Start it
-by copying **[`docs/branch-changelog.template.md`](../branch-changelog.template.md)** —
+by copying **[`docs/branch-changelog.template.md`](branch-changelog.template.md)** —
 that file is the single source of truth for the house style (bullet rules + when a
 `## Highlights` is earned); it travels with every branch so no one has to hunt for the
 rules here. **When the branch merges into `integration`, fold its entries into the
@@ -125,9 +125,15 @@ deliberate history rewrite you were explicitly asked to do (e.g. an author scrub
 - Mirror the repo's PR template (`.github/PULL_REQUEST_TEMPLATE.md`); fill its sections
   from the diff. Keep the body free of any AI mention.
 
-## Where these KB docs live
+## Where the docs live
 
-The canonical KB lives on **`agents/develop`**. Docs authored on a feature branch (this
-one included) are **moved/consolidated to `agents/develop` when the branch is ready to
-PR** — so this file, `custom-content-lifecycle.md`, and the rest travel there at that
-point rather than landing in the fork line's history piecemeal.
+This guide, the changelog files, and the tooling that enforces them — `CHANGELOG.md`,
+`branch-changelog.template.md`, `scripts/fold-branch-changelog.sh`, the `pre-push` hook,
+and the `changelog-guard` workflow — live on the **main flow** (`integration` → `develop`).
+They're what a contributor follows and what CI runs, so they stay here.
+
+Deeper reference knowledge — how a subsystem or a past investigation works
+(`docs/kb/custom-content-lifecycle.md`, `keyword-trap-name-repair.md`,
+`library-management-and-conflicts.md`, and the like) — is **consolidated to
+`agents/develop`** when a branch is ready to PR, rather than landing in the fork line's
+history piecemeal.
