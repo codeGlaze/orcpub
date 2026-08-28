@@ -10,14 +10,26 @@
 status=0
 zero="0000000000000000000000000000000000000000"
 
+# Current in-progress release = the first "## [Name]" in CHANGELOG.md, so the
+# suggested fold command is copy-pasteable. Falls back to a placeholder.
+release="$(grep -m1 -oE '^## \[[^]]+\]' CHANGELOG.md 2>/dev/null | sed -E 's/^## \[(.+)\]$/\1/')"
+release="${release:-<release>}"
+
 while read -r _local_ref local_sha remote_ref _remote_sha; do
   [ "$local_sha" = "$zero" ] && continue                    # branch deletion — skip
   case "$remote_ref" in
     refs/heads/integration|refs/heads/develop|refs/heads/main)
       if git cat-file -e "${local_sha}:docs/branch-changelog.md" 2>/dev/null; then
         target="${remote_ref#refs/heads/}"
-        echo "pre-push: un-folded docs/branch-changelog.md on the commit bound for '${target}'." >&2
-        echo "          Fold it first:  scripts/fold-branch-changelog.sh \"<release>\"  — then commit and re-push." >&2
+        echo "" >&2
+        echo "  pre-push blocked: docs/branch-changelog.md is still un-folded on the commit" >&2
+        echo "  bound for '${target}'. Fold it into CHANGELOG.md, then commit and re-push:" >&2
+        echo "" >&2
+        echo "      scripts/fold-branch-changelog.sh \"${release}\"" >&2
+        echo "" >&2
+        echo "  (Decide whether this branch earned a '## Highlights' before folding —" >&2
+        echo "   see docs/branch-changelog.template.md. To bypass once: git push --no-verify.)" >&2
+        echo "" >&2
         status=1
       fi
       ;;
