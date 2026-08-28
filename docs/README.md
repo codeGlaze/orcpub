@@ -57,7 +57,9 @@ Guides for developers and power users working with OrcPub's homebrew content sys
 
 **Gotcha:** Two different "key" concepts exist: language `:key` (data keyword like `:aquan`) and option `::entity/key` (derived from display name via `name-to-kw`). The fallback must produce names that round-trip correctly through `key-to-name` / `name-to-kw`.
 
-> [LANGUAGE_SELECTION_FIX.md](LANGUAGE_SELECTION_FIX.md)
+→ [LANGUAGE_SELECTION_FIX.md](LANGUAGE_SELECTION_FIX.md)
+
+### Why Centralized Error Handling?
 
 **Problem:** Inconsistent error handling across codebase. Some code logged, some didn't. User messages inconsistent.
 
