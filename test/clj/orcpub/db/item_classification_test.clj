@@ -11,7 +11,15 @@
   {:db/id 1 ::mi5e/name "Wand of Sparks" ::mi5e/type :wand ::mi5e/owner "kaylee"})
 
 (def ^:private rope
-  {:db/id 2 ::mi5e/name "Silk Rope" ::mi5e/type :other ::mi5e/rarity :common ::mi5e/owner "kaylee"})
+  ;; No rarity at all: mundane gear has none in 5e, and that absence is what
+  ;; the mundane inference now requires.
+  {:db/id 2 ::mi5e/name "Silk Rope" ::mi5e/type :other ::mi5e/owner "kaylee"})
+
+(def ^:private common-trinket
+  ;; A weapon with :common and nothing else. This used to be inferred mundane;
+  ;; a Moon-Touched Sword has exactly this shape, so it goes to its owner now.
+  {:db/id 5 ::mi5e/name "Glimmering Blade" ::mi5e/type :weapon
+   ::mi5e/rarity :common ::mi5e/owner "kaylee"})
 
 (def ^:private ambiguous
   {:db/id 3 ::mi5e/name "Old Trinket" ::mi5e/type :wondrous-item ::mi5e/rarity :common ::mi5e/owner "kaylee"})
@@ -82,3 +90,10 @@
               (str (::mi5e/name item) " must keep behaving the same"))
           (is (= (mi5e/magical? item)
                  (mi5e/magical? (merge item (select-keys datom [::mi5e/magical?]))))))))))
+
+(deftest a-common-item-with-no-evidence-is-left-for-its-owner
+  (testing "the backfill does not resolve a rarity it cannot read"
+    (is (empty? (ic/classification-tx [common-trinket])))
+    (let [report (ic/backfill-report [common-trinket])]
+      (is (= 0 (:classified report)))
+      (is (= 1 (:left-unreviewed report))))))

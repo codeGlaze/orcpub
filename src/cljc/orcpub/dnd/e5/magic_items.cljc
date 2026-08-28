@@ -183,11 +183,27 @@
     ;; rather than a coincidence that the next SRD addition could break.)
     (nil? owner)                  :magical
     (seq (magic-evidence item))   :magical
-    ;; No magical signal anywhere AND the user chose a type that ordinary gear
-    ;; actually comes in. A custom "Bastard Sword" or "Boiled Leather" lands
-    ;; here — this is the case the whole change exists to fix.
+    ;; No magical signal anywhere, no rarity at all, AND the user chose a type
+    ;; that ordinary gear actually comes in. A custom "Bastard Sword" or
+    ;; "Boiled Leather" lands here — this is the case the whole change exists
+    ;; to fix.
+    ;;
+    ;; A stored :common used to satisfy this too, and that was wrong twice
+    ;; over. Rarity is a magic-item property in 5e — mundane gear has none at
+    ;; all — so a rarity of any kind is not evidence of an ordinary object.
+    ;; And :common is a genuine magic rarity: a Moon-Touched Sword is a common
+    ;; magic weapon whose entire effect is that it glows, carrying no
+    ;; attunement and no bonus, so it presents to this function exactly as
+    ;; plain gear does. It was also the item builder's default before this
+    ;; branch, which makes it noise rather than a signal in either direction —
+    ;; which is why it is absent from magical-rarities too.
+    ;;
+    ;; So these items go to :unreviewed and their owner is asked. That is what
+    ;; the third state is for, and it heals fewer items on its own than the
+    ;; old rule did — deliberately. Being asked is recoverable; being told
+    ;; your magic sword is ordinary gear, in your own voice, is not.
     (and (mundane-capable-types type)
-         (or (nil? rarity) (= :common rarity))) :mundane
+         (nil? rarity)) :mundane
     :else                                       :unreviewed))
 
 (defn magical?

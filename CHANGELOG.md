@@ -30,6 +30,14 @@
   additive Datomic backfill records it on startup for the items it can be sure
   about. Nothing is retracted and no existing attribute is touched. Saving an
   item from the builder also records its answer.
+- **A rarity of `common` decides nothing** — mundane gear has no rarity at all
+  in 5e, and `common` is both a genuine magic rarity (a Moon-Touched Sword is a
+  common magic weapon whose whole effect is that it glows, with no attunement
+  and no bonus) and the item builder's old default. It is noise in both
+  directions, so an evidence-free item carrying it goes to its owner rather
+  than being inferred either way. Fewer items heal on their own as a result,
+  deliberately: being asked is recoverable, being told your magic sword is
+  ordinary gear — in your own voice — is not.
 - **An explicit "we don't know" state** — an item with nothing to go on either
   way is left alone rather than guessed at. It keeps behaving exactly as it
   always has (as a magic item) and its owner is asked in the item builder,

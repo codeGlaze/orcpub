@@ -400,7 +400,6 @@
   (testing "an explicit 0 bonus is the builder's empty state, not a magic bonus"
     (is (= :mundane (mi/classify (custom {::mi/name "Club"
                                           ::mi/type :weapon
-                                          ::mi/rarity :common
                                           ::mi/magical-attack-bonus 0
                                           ::mi/magical-damage-bonus 0
                                           ::mi/magical-ac-bonus 0}))))))
@@ -408,7 +407,6 @@
 (deftest empty-collections-are-not-evidence
   (is (= :mundane (mi/classify (custom {::mi/name "Rope"
                                         ::mi/type :other
-                                        ::mi/rarity :common
                                         ::mi/attunement #{}
                                         ::mi/modifiers []})))))
 
@@ -438,8 +436,7 @@
   (testing "the case the whole change exists to fix"
     (doseq [t [:weapon :armor :other]]
       (is (= :mundane (mi/classify (custom {::mi/name "Homemade Thing"
-                                            ::mi/type t
-                                            ::mi/rarity :common})))
+                                            ::mi/type t})))
           (str t " with no magic in it is ordinary gear"))))
   (testing "no rarity recorded at all is still ordinary gear"
     (is (= :mundane (mi/classify (custom {::mi/name "Bastard Sword"
@@ -448,8 +445,7 @@
     ;; The Type dropdown writes ::mi/armor for "Armor" rather than :armor.
     ;; Stored items carry it, so classification has to know about it.
     (is (= :mundane (mi/classify (custom {::mi/name "Boiled Leather"
-                                          ::mi/type ::mi/armor
-                                          ::mi/rarity :common}))))))
+                                          ::mi/type ::mi/armor}))))))
 
 (deftest ambiguous-legacy-items-are-left-unreviewed
   (testing "the item builder's default shape tells us nothing either way"
@@ -617,7 +613,7 @@
     ;; This is why the automatic path cannot suppress anyone's mechanics: an
     ;; item classify calls :mundane on its own has no magical properties by
     ;; definition. Only a human ticking the box can create that situation.
-    (doseq [item [(custom {::mi/name "Rope" ::mi/type :other ::mi/rarity :common})
+    (doseq [item [(custom {::mi/name "Rope" ::mi/type :other})
                   (custom {::mi/name "Club" ::mi/type :weapon})
                   (custom {::mi/name "Leather" ::mi/type ::mi/armor})]]
       (is (mi/mundane? item))
@@ -787,3 +783,41 @@
                       ::mi/magical? true
                       ::mi/description "A plain-looking longsword."
                       ::mi/magical-properties "Sheds dim light in a 5-foot radius."}))))
+
+;; ---------------------------------------------------------------------------
+;; :common carries no information
+;;
+;; Rarity is a magic-item property in 5e -- mundane gear has none -- so a
+;; rarity of any kind is not evidence of an ordinary object. And :common is a
+;; real magic rarity: a Moon-Touched Sword is a common magic weapon whose whole
+;; effect is that it glows, with no attunement and no bonus, so it reaches
+;; classify looking exactly like plain gear. It was also the builder's default
+;; before this branch. Noise in both directions, so it decides nothing.
+;; ---------------------------------------------------------------------------
+
+(deftest common-rarity-decides-nothing-on-its-own
+  (testing "an evidence-free item with :common is asked about, not guessed at"
+    (doseq [t [:weapon :armor :other]]
+      (is (= :unreviewed (mi/classify (custom {::mi/name "Old Thing"
+                                               ::mi/type t
+                                               ::mi/rarity :common})))
+          (str t " with :common and nothing else must go to its owner"))))
+
+  (testing "a Moon-Touched Sword is not talked out of being magical"
+    ;; The published item: common, a weapon, no attunement, no bonus, magic
+    ;; entirely in prose. The old rule called this ordinary gear.
+    (is (= :unreviewed
+           (mi/classify (custom {::mi/name "Moon-Touched Sword"
+                                 ::mi/type :weapon
+                                 ::mi/rarity :common}))))
+    (is (mi/magical? (custom {::mi/name "Moon-Touched Sword"
+                              ::mi/type :weapon
+                              ::mi/rarity :common}))
+        "and unreviewed still behaves as magical, exactly as before"))
+
+  (testing "with no rarity at all it is still ordinary gear"
+    (is (= :mundane (mi/classify (custom {::mi/name "Bastard Sword"
+                                          ::mi/type :weapon})))))
+
+  (testing "and :common is not evidence of magic either"
+    (is (not (contains? mi/magical-rarities :common)))))
