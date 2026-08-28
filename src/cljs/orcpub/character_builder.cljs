@@ -1776,12 +1776,6 @@
 (defn set-image-url [v]
   (dispatch [:set-image-url v]))
 
-(defn set-random-portrait
-  "Dispatch random portrait generation. Passes built-char so the handler
-   can read race off it without subscribing outside reactive context."
-  [built-char]
-  (dispatch [::char5e/set-random-portrait built-char]))
-
 (defn set-faction-image-url [v]
   (dispatch [:set-faction-image-url v]))
 
@@ -1863,13 +1857,7 @@
                       :on-load (when image-url-failed image-loaded)}])
       [:div.flex-grow-1
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
-       [:div.flex.align-items-c
-        [:div.flex-grow-1
-         [character-input entity-values ::char5e/image-url nil set-image-url]]
-        [:button.form-button.p-10.m-t-5.m-l-5
-         {:on-click #(set-random-portrait built-char)
-          :title "Randomize portrait"}
-         [:i.fa.fa-random.main-text-color.f-s-16]]]
+       [character-input entity-values ::char5e/image-url nil set-image-url]
        (when image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
      [:div.field

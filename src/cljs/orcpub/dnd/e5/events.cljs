@@ -22,7 +22,6 @@
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.character.random :as char-rand5e]
-            [orcpub.dnd.e5.character.portrait :as char-portrait5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.encounters :as encounters]
@@ -1507,16 +1506,6 @@
  (fn [_ [_ built-char]]
    {:dispatch [:update-value-field ::char5e/character-name
                (generate-random-name built-char)]}))
-
-;; Roll a fresh DiceBear seed each click; race is read off built-char so
-;; the style flatters the character (elf → lorelei, dwarf → big-ears, ...).
-(reg-event-fx
- ::char5e/set-random-portrait
- (fn [_ [_ built-char]]
-   {:dispatch [:set-image-url
-               (char-portrait5e/random-portrait-url
-                (char-portrait5e/random-seed)
-                (char5e/race built-char))]}))
 (reg-event-db
  :select-option
  character-interceptors
