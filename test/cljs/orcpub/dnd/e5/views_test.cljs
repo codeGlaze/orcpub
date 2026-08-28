@@ -8,7 +8,10 @@
    drives the diagnostics — blank-feature-name? — is tested directly."
   (:require [cljs.test :refer-macros [deftest testing is]]
             [clojure.string :as str]
+            [re-frame.core :as rf]
+            [re-frame.db :refer [app-db]]
             [orcpub.dnd.e5.magic-items :as mi]
+            [orcpub.dnd.e5.equipment-subs]
             [orcpub.dnd.e5.views :as views]))
 
 (deftest blank-feature-name?-test
@@ -129,3 +132,38 @@
 
 (deftest item-details-with-nothing-renders-nothing
   (is (nil? (views/item-details {} true))))
+
+;; ---------------------------------------------------------------------------
+;; The same marker, on the shape the My Items list actually passes
+;;
+;; The list renders EFFECTIVE items, whose suspended mechanics have already
+;; been stripped — so asking the item itself always answers no, and this
+;; adornment never appeared there at all. It now reads the same
+;; ::items-holding-magic subscription the character sheet uses.
+;; ---------------------------------------------------------------------------
+
+(deftest item-summary-marks-an-effective-item-using-the-subscription
+  (let [raw {::mi/name "Rimefang" ::mi/type :weapon ::mi/owner "kaylee"
+             ::mi/magical? false ::mi/attunement #{:any}
+             ::mi/magical-attack-bonus 1}]
+    (reset! app-db {::mi/custom-items [raw]})
+    (rf/clear-subscription-cache!)
+    (let [effective (assoc (mi/effective-item raw) :key :rimefang)]
+      (testing "precondition: the stripped item cannot answer for itself"
+        (is (not (mi/has-magical-properties? effective))))
+      (testing "the marker still appears, via the subscription"
+        (is (str/includes? (rendered-text (views/item-summary effective))
+                           "magic set aside")))
+      (testing "and its hover text is general rather than empty"
+        (let [t (str/join " " (titles (views/item-summary effective)))]
+          (is (str/includes? t "kept but not applied"))
+          (is (not (str/includes? t ": .")) "no empty list of properties"))))))
+
+(deftest item-summary-leaves-plain-gear-alone
+  (let [plain {::mi/name "Plain Dagger" ::mi/type :weapon ::mi/owner "kaylee"
+               ::mi/magical? false}]
+    (reset! app-db {::mi/custom-items [plain]})
+    (rf/clear-subscription-cache!)
+    (is (not (str/includes? (rendered-text (views/item-summary (assoc plain :key :plain-dagger)))
+                            "magic set aside"))
+        "an item with no suspended magic must not be adorned")))

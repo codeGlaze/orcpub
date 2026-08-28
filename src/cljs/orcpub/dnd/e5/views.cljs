@@ -1202,9 +1202,22 @@
    they do."
   {:value "unreviewed" :title "Not set"})
 
-(defn item-summary [{:keys [::mi/owner ::mi/name ::mi/type ::mi/item-subtype ::mi/rarity ::mi/attunement] :as item}]
+(defn item-summary [{:keys [::mi/owner ::mi/name ::mi/type ::mi/item-subtype
+                            ::mi/rarity ::mi/attunement :key] :as item}]
   (when item
-    (let [classification (mi/classify item)]
+    (let [classification (mi/classify item)
+          ;; Two shapes reach this component. The My Items list hands over the
+          ;; EFFECTIVE item, which has already had its suspended mechanics
+          ;; stripped, so asking the item itself always answers no -- which is
+          ;; why this adornment never appeared there. ::items-holding-magic is
+          ;; the sheet's answer to the same problem: it reads the raw expansion
+          ;; and returns keys only, so the suspended mechanics still have no
+          ;; route back into anything that builds modifiers.
+          ;;
+          ;; The single-item page hands over the raw item, which has no need of
+          ;; the subscription -- hence both checks.
+          holding-magic? (or (mi/has-magical-properties? item)
+                             (contains? @(subscribe [::mi/items-holding-magic]) key))]
       [:div.p-b-20.flex.align-items-c
        (when owner
          [:div.m-r-5 [svg-icon "beer-stein" 24]])
@@ -1237,12 +1250,21 @@
         (when (= :unreviewed classification)
           [:div.f-s-12.i.opacity-7
            "magical or mundane not set — open this item to say which"])
-        (when (and (= :mundane classification)
-                   (mi/has-magical-properties? item))
+        (when (and (= :mundane classification) holding-magic?)
           [:div.f-s-12.opacity-7
-           {:title (str "Magical properties kept but not applied: "
-                        (s/join ", " (magical-property-labels item))
-                        ". Open this item to restore or remove them.")}
+           ;; Name the properties when they are actually in hand -- the item's
+           ;; own page passes the raw item, so it keeps the detailed hover it
+           ;; has always had. In the list they have already been stripped by
+           ;; effective-item, so listing them would print an empty tail; there
+           ;; the wording stays general and the row is one click from the page
+           ;; that spells it out.
+           {:title (if (mi/has-magical-properties? item)
+                     (str "Magical properties kept but not applied: "
+                          (s/join ", " (magical-property-labels item))
+                          ". Open this item to restore or remove them.")
+                     (str "Magical properties are kept but not applied, so no "
+                          "character using this item gets them. Open it to "
+                          "restore or remove them."))}
            [:i.fa.fa-magic.orange.m-r-5]
            "magic set aside"])]])))
 

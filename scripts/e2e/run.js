@@ -166,6 +166,27 @@ async function signedOutSavePrompt(p) {
         `name field is ${JSON.stringify(nameValue)}`);
 }
 
+async function suspendedMagicIsMarkedEverywhere(p) {
+  console.log('\nan item holding suspended magic says so in the item list');
+  await login(p);
+  await newItem(p, 'Retired Blade', 'weapon');
+  await p.locator('input.input[type="number"]').first().fill('2');
+  await p.waitForTimeout(400);
+  await (await kindSelect(p)).selectOption('mundane');
+  await p.waitForTimeout(700);
+  await clickButton(p, /^SAVE/i);
+  await p.waitForTimeout(3000);
+
+  await p.goto(BASE + '/pages/dnd/5e/magic-items', { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(3500);
+  const list = await p.locator('body').innerText();
+  // The list renders effective items, whose mechanics are already stripped --
+  // so this only works via the ::items-holding-magic subscription. It silently
+  // rendered nothing for the whole life of the branch before that.
+  check('the My Items row is marked', /magic set aside/.test(list));
+  check('and still reads as mundane', /Weapon, mundane/.test(list));
+}
+
 async function magicalPropertiesField(p) {
   console.log('\nMagical Properties is its own field, gated behind Magic Item?');
   await login(p);
@@ -303,7 +324,8 @@ async function itemTextReachesTheCharacterSheet(p) {
   fs.mkdirSync(SHOTS, { recursive: true });
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const cases = [customItemOverridesSrd, removeForGoodActuallyRemoves, signedOutSavePrompt,
-                 magicalPropertiesField, itemTextReachesTheCharacterSheet];
+                 magicalPropertiesField, itemTextReachesTheCharacterSheet,
+                 suspendedMagicIsMarkedEverywhere];
   for (const c of cases) {
     const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     try {
