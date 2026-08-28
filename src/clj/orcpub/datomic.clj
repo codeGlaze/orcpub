@@ -34,7 +34,10 @@
             (println "Successfully initialized database schema")
             ;; Additive and idempotent — see orcpub.db.item-classification.
             ;; It runs after the schema so the attribute it writes exists, and
-            ;; it swallows its own failures so it can never block startup.
+            ;; it catches Throwable rather than Exception so that even an
+            ;; OutOfMemoryError on a large corpus is swallowed there instead of
+            ;; escaping into the catch below, which would rethrow it as
+            ;; :schema-initialization-failed and stop the server booting.
             (item-classification/backfill! connection)
             (catch Exception e
               (throw (ex-info "Failed to initialize database schema. The database may be in an inconsistent state."

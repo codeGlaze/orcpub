@@ -37,9 +37,25 @@
    Ownership is the marker for a user-built item — routes/save-item stamps
    ::mi5e/owner on save, and the static SRD items live in code, not the db."
   [db]
+  ;; Pull only what classify reads, not [*]. This query materialises every
+  ;; unclassified item in one seq before anything is written, and [*] drags
+  ;; each item's description and its nested modifier entities along with it --
+  ;; a decade of content, in peer heap, inside component/start. The chunking
+  ;; below is on the write side and does nothing about that.
+  ;;
+  ;; :unreviewed items never gain the attribute, so this runs on every boot
+  ;; forever, not just the first.
   (map
    first
-   (d/q '[:find (pull ?e [*])
+   (d/q '[:find (pull ?e [:db/id
+                          :orcpub.dnd.e5.magic-items/type
+                          :orcpub.dnd.e5.magic-items/rarity
+                          :orcpub.dnd.e5.magic-items/owner
+                          :orcpub.dnd.e5.magic-items/attunement
+                          :orcpub.dnd.e5.magic-items/magical-attack-bonus
+                          :orcpub.dnd.e5.magic-items/magical-damage-bonus
+                          :orcpub.dnd.e5.magic-items/magical-ac-bonus
+                          {:orcpub.dnd.e5.magic-items/modifiers [:db/id]}])
           :where
           [?e :orcpub.dnd.e5.magic-items/owner _]
           (not [?e :orcpub.dnd.e5.magic-items/magical? _])]
@@ -99,7 +115,13 @@
                          (:mundane report)
                          (:left-unreviewed report))))
       (dissoc report :tx))
-    (catch Exception e
+    ;; Throwable, not Exception. This runs inside component/start, and the
+    ;; failure most likely on a large corpus -- OutOfMemoryError from
+    ;; materialising the query above -- is an Error. Catching only Exception
+    ;; let it escape into datomic/start, which rethrows it as
+    ;; :schema-initialization-failed, so a backfill that is meant to be
+    ;; optional would stop the server booting at all.
+    (catch Throwable t
       (println "WARNING: custom item classification backfill failed, items keep their existing behaviour:"
-               (.getMessage e))
-      {:error (.getMessage e)})))
+               (.getMessage t))
+      {:error (.getMessage t)})))

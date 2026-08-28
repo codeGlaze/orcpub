@@ -3160,10 +3160,13 @@
                        :as weapon}
                       damage-modifier-fn]
   [:div.m-t-10.i
-   (weapon-details-field "Type" (common/safe-name type))
-   (if magical-damage-type
-     (weapon-details-field "Damage Type" (common/safe-name magical-damage-type))
-     (weapon-details-field "Damage Type" (common/safe-name damage-type)))
+   ;; A custom weapon saved without picking a base weapon carries neither of
+   ;; these. Unguarded, safe-name warned on every render and the row printed a
+   ;; labelled blank -- "Type:" with nothing after it. Say nothing instead.
+   (when type
+     (weapon-details-field "Type" (common/safe-name type)))
+   (when-let [dt (or magical-damage-type damage-type)]
+     (weapon-details-field "Damage Type" (common/safe-name dt)))
    (when magical-damage-bonus
      (weapon-details-field "Magical Damage Bonus" magical-damage-bonus))
    (when magical-attack-bonus

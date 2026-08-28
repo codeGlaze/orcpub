@@ -523,10 +523,19 @@
     (item-fn item-cfg)))
 
 ;; Custom items the user has marked mundane. They belong in the ordinary
-;; ?weapons / ?armor / ?equipment buckets rather than the magic ones, but they
-;; still go through deferred-magic-item-fn so that any modifiers attached to
-;; them keep applying when equipped — "not magical" is a statement about where
-;; the item is listed, not a licence to drop mechanics the user entered.
+;; ?weapons / ?armor / ?equipment buckets rather than the magic ones.
+;;
+;; They reach here through deferred-magic-item-fn, but with nothing magical
+;; left to apply: the ::mi/mundane-* subscriptions derive from
+;; ::mi/effective-custom-items, which has already run without-magical-properties
+;; over them, so ::mi/modifiers is gone by the time the destructure below looks
+;; for it. That is the intent -- an item cannot be ordinary gear and still hand
+;; out a resistance and a +1 to hit -- and it is suppression, not deletion: the
+;; stored item keeps everything, and re-ticking Magic Item restores it.
+;;
+;; This comment used to claim the opposite, that the modifiers kept applying.
+;; Anyone acting on that would have "fixed" the working code by feeding raw
+;; items to these subs, switching every suspended bonus back on at once.
 
 (defn deferred-custom-weapon [weapon-kw weapon]
   (mods/deferred-modifier

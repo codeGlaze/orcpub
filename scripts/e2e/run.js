@@ -22,6 +22,41 @@ const check = (name, ok, detail) => {
   if (!ok) failures++;
 };
 
+// Console surveillance. Every page in every case reports what it logged, so a
+// warning nobody would otherwise read becomes a failure. Noise the app does not
+// control is filtered: the fonts.googleapis.com stylesheet cannot load in this
+// sandbox, and the cookie-consent script is third-party.
+const IGNORED = [
+  /fonts\.googleapis\.com/,
+  /fonts\.gstatic\.com/,
+  /cookieconsent/i,
+  /favicon/i,
+  // The console logs blocked sub-resources without naming them, so this line
+  // cannot be attributed. The requestfailed handler above sees the same event
+  // WITH its URL and is the authoritative check -- a reset against our own
+  // server still fails there.
+  /^Failed to load resource: net::ERR_CONNECTION_RESET$/,
+];
+const noise = t => IGNORED.some(re => re.test(t));
+
+const watchConsole = (page, label) => {
+  const found = [];
+  page.on('pageerror', e => found.push(`[${label}] pageerror: ${e && e.message}`));
+  page.on('console', m => {
+    const type = m.type();
+    if (type !== 'error' && type !== 'warning') return;
+    const text = m.text();
+    if (!noise(text)) found.push(`[${label}] console.${type}: ${text}`);
+  });
+  page.on('requestfailed', r => {
+    const url = r.url();
+    if (!noise(url)) {
+      found.push(`[${label}] requestfailed: ${r.method()} ${url} :: ${(r.failure() || {}).errorText}`);
+    }
+  });
+  return found;
+};
+
 const buttonLabels = async p => {
   const b = p.locator('button.form-button:visible');
   const n = await b.count();
@@ -128,17 +163,18 @@ async function removeForGoodActuallyRemoves(p) {
   await clickButton(p, /^SAVE/i);
   await p.waitForTimeout(3000);
 
-  // Re-read from the server, not from the page's own state.
-  const stored = await p.evaluate(async () => {
-    const r = await fetch('/dnd/5e/items', {
-      headers: { Accept: 'application/transit+json' },
-    });
-    return r.status === 200 ? await r.text() : 'status ' + r.status;
-  });
-  const mentionsBonus = /magical-attack-bonus|magical-damage-bonus/.test(stored)
-                        && /Retired Blade/.test(stored);
-  check('the server no longer holds the magical bonuses', !mentionsBonus,
-        stored.slice(0, 160));
+  // Re-open the item from the list. An in-page fetch of /dnd/5e/items carries
+  // no token and comes back 401, so testing against its body asserted nothing
+  // -- the check passed on the error string. Reading the reloaded builder goes
+  // through the same path a user does.
+  await p.goto(BASE + '/pages/dnd/5e/magic-items', { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(3500);
+  await p.getByText('Retired Blade', { exact: false }).first().click();
+  await p.waitForTimeout(3000);
+  const reopened = await p.locator('body').innerText();
+  check('the suspended-properties notice is gone after removing them',
+        !/Magical properties kept but not applied/i.test(reopened));
+  check('and the item itself survived', /Retired Blade/.test(reopened));
 }
 
 async function signedOutSavePrompt(p) {
@@ -340,8 +376,11 @@ async function itemTextReachesTheCharacterSheet(p) {
   const cases = [customItemOverridesSrd, removeForGoodActuallyRemoves, signedOutSavePrompt,
                  magicalPropertiesField, itemTextReachesTheCharacterSheet,
                  suspendedMagicIsMarkedEverywhere];
+  const consoleFindings = [];
   for (const c of cases) {
     const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    // signedOutSavePrompt never logs in; the rest do. Both states are covered.
+    const found = watchConsole(p, c.name);
     try {
       await c(p);
     } catch (e) {
@@ -350,8 +389,17 @@ async function itemTextReachesTheCharacterSheet(p) {
       await p.screenshot({ path: `${SHOTS}/${c.name}-error.png` }).catch(() => {});
     }
     await p.close();
+    consoleFindings.push(...found);
   }
   await browser.close();
+
+  console.log('\nthe console stays clean, signed in and signed out');
+  const unique = [...new Set(consoleFindings)];
+  check('no errors or warnings from the app', unique.length === 0);
+  if (unique.length) {
+    for (const line of unique.slice(0, 25)) console.log('       ' + line);
+    if (unique.length > 25) console.log(`       ... and ${unique.length - 25} more`);
+  }
   console.log(`\n${failures === 0 ? 'all checks passed' : failures + ' check(s) failed'}`);
   process.exit(failures === 0 ? 0 : 1);
 })();

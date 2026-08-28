@@ -4,6 +4,9 @@
    down the properties that make that true: additive only, idempotent, and
    silent where it isn't sure."
   (:require [clojure.test :refer [deftest testing is]]
+            [datomic.api :as d]
+            [datomock.core :as dm]
+            [orcpub.db.schema :as schema]
             [orcpub.db.item-classification :as ic]
             [orcpub.dnd.e5.magic-items :as mi5e]))
 
@@ -97,3 +100,33 @@
     (let [report (ic/backfill-report [common-trinket])]
       (is (= 0 (:classified report)))
       (is (= 1 (:left-unreviewed report))))))
+
+(deftest backfill-swallows-an-error-not-just-an-exception
+  (testing "an OutOfMemoryError cannot escape into component/start"
+    ;; backfill! runs inside the Datomic component's start. Its own query
+    ;; materialises every unclassified item at once, so on a large corpus the
+    ;; realistic failure is an Error rather than an Exception -- and datomic/start
+    ;; rethrows anything that escapes as :schema-initialization-failed, which
+    ;; stops the server booting. An optional heal must never do that.
+    (let [conn (dm/mock-conn)]
+      @(d/transact conn schema/all-schemas)
+      (with-redefs [ic/unclassified-items
+                    (fn [_] (throw (OutOfMemoryError. "simulated heap exhaustion")))]
+        (let [result (ic/backfill! conn)]
+          (is (map? result) "it returns rather than throwing")
+          (is (= "simulated heap exhaustion" (:error result))))))))
+
+(deftest backfill-pulls-only-what-classification-reads
+  (testing "the query does not drag descriptions and modifier bodies into heap"
+    ;; A pull of [*] over every unclassified item is the thing most likely to
+    ;; exhaust memory here, and nothing downstream reads those attributes.
+    (let [pattern (-> #'ic/unclassified-items meta :doc)]
+      (is (some? pattern)))
+    (let [src (slurp "src/clj/orcpub/db/item_classification.clj")
+          query-region (subs src
+                             (.indexOf src "defn unclassified-items")
+                             (.indexOf src "defn classification-tx"))]
+      (is (not (.contains query-region "(pull ?e [*])"))
+          "unclassified-items must not pull [*]")
+      (is (.contains query-region "magic-items/rarity")
+          "but must still pull what classify reads"))))
