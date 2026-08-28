@@ -22,6 +22,8 @@
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.character.random :as char-rand5e]
+            [orcpub.dnd.e5.portrait :as portrait5e]
+            [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.encounters :as encounters]
@@ -1534,6 +1536,60 @@
            image-url
            ::char5e/image-url-failed
            nil)))
+
+;; ---- portrait compositor drawer ----
+;;
+;; The drawer's editing state (open/closed, in-progress layer picks, the
+;; last-used random seed) lives at the TOP of app-db under :portrait/*
+;; keys — it's UI state, not part of the persisted character. Only the
+;; :portrait/save handler writes back to the character's
+;; ::char5e/portrait-layers value.
+
+(reg-event-db
+ :portrait/open
+ (fn [db _]
+   (let [current (get-in db [:character ::entity/values ::char5e/portrait-layers])]
+     (assoc db
+            :portrait/drawer-open? true
+            :portrait/draft (or current {})
+            :portrait/draft-seed nil))))
+
+(reg-event-db
+ :portrait/close
+ (fn [db _]
+   (dissoc db :portrait/drawer-open? :portrait/draft :portrait/draft-seed)))
+
+(reg-event-db
+ :portrait/pick-layer
+ (fn [db [_ layer-key asset-id]]
+   (update db :portrait/draft
+           (fn [d]
+             (if (nil? asset-id)
+               (dissoc d layer-key)
+               (let [artist-id (portrait-assets5e/artist-for-asset layer-key asset-id)]
+                 (assoc d layer-key {:artist/id artist-id :asset/id asset-id})))))))
+
+(reg-event-db
+ :portrait/randomize
+ (fn [db _]
+   (let [seed (portrait5e/random-seed)]
+     (assoc db
+            :portrait/draft-seed seed
+            :portrait/draft (portrait5e/compose-for-seed seed)))))
+
+(reg-event-db
+ :portrait/reset
+ (fn [db _]
+   (assoc db :portrait/draft {} :portrait/draft-seed nil)))
+
+(reg-event-db
+ :portrait/save
+ [db-char->local-store]
+ (fn [db _]
+   (let [draft (get db :portrait/draft {})]
+     (-> db
+         (assoc-in [:character ::entity/values ::char5e/portrait-layers] draft)
+         (dissoc :portrait/drawer-open? :portrait/draft :portrait/draft-seed)))))
 
 #_ ;; never dispatched from UI
   (reg-event-db

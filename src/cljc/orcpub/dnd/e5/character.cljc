@@ -681,6 +681,9 @@
 (defn image-url [built-char]
   (get-prop built-char ::image-url))
 
+(defn portrait-layers [built-char]
+  (get-prop built-char ::portrait-layers))
+
 (defn faction-image-url [built-char]
   (get-prop built-char ::faction-image-url))
 

@@ -24,6 +24,7 @@
             [orcpub.dnd.e5.folder :as folder]
             [orcpub.dnd.e5.character.random :as char-random]
             [orcpub.dnd.e5.character.equipment :as char-equip]
+            [orcpub.dnd.e5.portrait :as portrait]
             [orcpub.registration :as registration]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.magic-items :as mi]
@@ -1666,6 +1667,7 @@
 
 (defn character-summary-2 [{:keys [::char/character-name
                                    ::char/image-url
+                                   ::char/portrait-layers
                                    ::char/race-name
                                    ::char/subrace-name
                                    ::char/age
@@ -1687,8 +1689,17 @@
         display-name (when include-name? (character-display-name summary))]
     [:div.flex.justify-cont-s-b.w-100-p.align-items-c
      [:div.flex.align-items-c.align-items-t
-      (when image-url
-        [:img.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:src image-url }])
+      ;; portrait-layers wins over image-url when both are present; falls back
+      ;; to the pasted URL, then to nothing (existing behavior).
+      (cond
+        (seq portrait-layers)
+        [:div.m-r-20.m-t-10.m-b-10.image-character-thumbnail
+         {:style {:position "relative" :width "100px" :height "125px" :flex-shrink 0}}
+         [portrait/composite portrait-layers
+          {:style {:position "absolute" :inset 0 :width "100%" :height "100%"}}]]
+
+        image-url
+        [:img.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:src image-url}])
       [:div.flex.character-summary.m-t-20.m-b-20
        (when display-name [:span.m-r-20.m-b-5
                                                [:span.character-name display-name]
@@ -1733,6 +1744,7 @@
         eyes @(subscribe [::char/eyes id])
         skin @(subscribe [::char/skin id])
         image-url @(subscribe [::char/image-url id])
+        portrait-layers @(subscribe [::char/portrait-layers id])
         race @(subscribe [::char/race id])
         subrace @(subscribe [::char/subrace id])
         levels @(subscribe [::char/levels id])
@@ -1750,6 +1762,7 @@
       ::char/eyes eyes
       ::char/skin skin
       ::char/image-url image-url
+      ::char/portrait-layers portrait-layers
       ::char/race-name race
       ::char/subrace-name subrace
       ::char/alignment alignment

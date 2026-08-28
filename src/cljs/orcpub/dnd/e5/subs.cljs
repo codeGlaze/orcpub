@@ -80,6 +80,19 @@
  (fn [db [_]]
    (get db :temp-email)))
 
+;; ---- portrait compositor drawer state (top-level app-db) ----
+(reg-sub
+ :portrait/drawer-open?
+ (fn [db _] (boolean (get db :portrait/drawer-open?))))
+
+(reg-sub
+ :portrait/draft
+ (fn [db _] (get db :portrait/draft {})))
+
+(reg-sub
+ :portrait/draft-seed
+ (fn [db _] (get db :portrait/draft-seed)))
+
 (reg-sub
  :locked
  (fn [db [_ path]]
@@ -707,6 +720,7 @@
    ::char5e/actions char5e/actions
    ::char5e/image-url char5e/image-url
    ::char5e/image-url-failed char5e/image-url-failed
+   ::char5e/portrait-layers char5e/portrait-layers
    ::char5e/faction-image-url char5e/faction-image-url
    ::char5e/faction-image-url-failed char5e/faction-image-url-failed
    ::char5e/personality-trait-1 char5e/personality-trait-1
