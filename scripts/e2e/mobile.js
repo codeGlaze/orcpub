@@ -19,6 +19,13 @@ require('fs').mkdirSync(D, { recursive: true });
   const ctx = await br.newContext({ ...devices['iPhone 13'] });
   const p = await ctx.newPage();
 
+  // See scripts/e2e/run.js: serve the web fonts locally rather than letting
+  // them fail in the sandbox. Harness only; the app is unchanged.
+  await p.route(/fonts\.googleapis\.com/, r =>
+    r.fulfill({ status: 200, contentType: 'text/css', body: '/* stubbed */' }));
+  await p.route(/fonts\.gstatic\.com/, r =>
+    r.fulfill({ status: 200, contentType: 'font/woff2', body: '' }));
+
   await p.goto(B + '/pages/login-page', { waitUntil: 'domcontentloaded' });
   await p.waitForSelector('input');
   await p.locator('input').nth(0).fill('kaylee');

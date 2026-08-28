@@ -27,17 +27,24 @@ const check = (name, ok, detail) => {
 // control is filtered: the fonts.googleapis.com stylesheet cannot load in this
 // sandbox, and the cookie-consent script is third-party.
 const IGNORED = [
-  /fonts\.googleapis\.com/,
-  /fonts\.gstatic\.com/,
   /cookieconsent/i,
   /favicon/i,
-  // The console logs blocked sub-resources without naming them, so this line
-  // cannot be attributed. The requestfailed handler above sees the same event
-  // WITH its URL and is the authoritative check -- a reset against our own
-  // server still fails there.
-  /^Failed to load resource: net::ERR_CONNECTION_RESET$/,
 ];
 const noise = t => IGNORED.some(re => re.test(t));
+
+// Serve the web fonts locally instead of ignoring their failure. The sandbox
+// cannot reach fonts.googleapis.com, and filtering the resulting console noise
+// meant filtering a line Chromium logs WITHOUT a URL -- which would have hidden
+// a genuine connection reset against our own server too. Fulfilling the request
+// removes the noise at its source and leaves the console check honest.
+//
+// Test-harness only: nothing here changes what the app requests.
+const shimFonts = async (page) => {
+  await page.route(/fonts\.googleapis\.com/, route =>
+    route.fulfill({ status: 200, contentType: 'text/css', body: '/* stubbed */' }));
+  await page.route(/fonts\.gstatic\.com/, route =>
+    route.fulfill({ status: 200, contentType: 'font/woff2', body: '' }));
+};
 
 const watchConsole = (page, label) => {
   const found = [];
@@ -381,6 +388,7 @@ async function itemTextReachesTheCharacterSheet(p) {
     const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     // signedOutSavePrompt never logs in; the rest do. Both states are covered.
     const found = watchConsole(p, c.name);
+    await shimFonts(p);
     try {
       await c(p);
     } catch (e) {
