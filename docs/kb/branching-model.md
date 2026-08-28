@@ -51,6 +51,37 @@ release frozen for final QA while new work continues — so the frozen one takes
 bug fixes on its own branch while `integration` keeps moving. Reach for it then, not
 as a standing structure.
 
+## Changelogs — fold at merge-to-integration
+
+Every feature/fix branch keeps a `docs/branch-changelog.md` while in flight. Start it
+by copying **[`docs/branch-changelog.template.md`](../branch-changelog.template.md)** —
+that file is the single source of truth for the house style (bullet rules + when a
+`## Highlights` is earned); it travels with every branch so no one has to hunt for the
+rules here. **When the branch merges into `integration`, fold its entries into the
+current in-progress release section of root `CHANGELOG.md` (e.g. `[Summer Patch]`) and
+delete the branch changelog — it's consumed.** That keeps root `CHANGELOG.md` a live
+reflection of the pending-release diff on `integration`. Folding is a **deliberate
+step**, not automatic — don't skip it.
+
+Two sections get special fold treatment:
+- **`## Why this branch exists`** is reviewer context — **stripped at fold**, never
+  reaches `CHANGELOG.md`.
+- **`## Highlights`** (≤3 sentences, only when the branch is an impactful new capability
+  or behavioral shift — not a bugfix bundle) is **kept**. Decide whether the branch
+  earns one *before* opening the PR / claiming it done; the PR checklist asks for it.
+
+Automation:
+- **`scripts/fold-branch-changelog.sh "<release>"`** does the mechanical fold — strips
+  the guidance + Why, keeps Highlights, demotes `## Section` → `**Section**`, inserts a
+  labeled block into `## [<release>]`, and `git rm`s the branch changelog. Review +
+  commit after; editorial curation stays yours.
+- The **`changelog-guard` CI workflow** fails a push to `integration`/`develop` that
+  still contains `docs/branch-changelog.md` — the unskippable backstop if the fold gets
+  skipped.
+- **`scripts/setup-hooks.sh`** (run once per clone) enables a local **`pre-push`** guard
+  (`.githooks/pre-push`) that mirrors the CI check — a fail-fast reminder before the push
+  leaves your machine. It only reminds; the fold stays a deliberate manual step.
+
 ## Authorship — required, no exceptions
 
 Every commit must be authored **and** committed as `codeGlaze <github@codeglaze.com>`.
