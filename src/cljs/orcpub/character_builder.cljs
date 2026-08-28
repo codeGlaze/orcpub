@@ -30,6 +30,7 @@
             [orcpub.dnd.e5.armor :as armor5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.display :as disp5e]
+            [orcpub.dnd.e5.portrait :as portrait5e]
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.events :as events5e]
@@ -1859,7 +1860,8 @@
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
        (when image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
+         [:div.red.m-t-5 "Image failed to load, please check the URL"])
+       [portrait5e/launcher-button]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -2126,7 +2128,9 @@
                              (not= db/default-character character))]
     (when print-enabled? (print-char built-char))
     (when (not character-changed?) (js/window.scrollTo 0,0)) ;//Force a scroll to top of page only if we are not editing.
-    [views5e/content-page
+    [:<>
+     [portrait5e/drawer]
+     [views5e/content-page
      "Character Builder"
      (into
       (if character-id
@@ -2183,4 +2187,4 @@
       [:div.flex.justify-cont-c.p-b-40
        [:div.f-s-14.main-text-color.content
         [:div.flex.w-100-p
-         [builder-columns]]]]]]))
+         [builder-columns]]]]]]]))
