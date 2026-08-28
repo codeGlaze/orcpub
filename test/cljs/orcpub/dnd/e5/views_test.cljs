@@ -50,6 +50,32 @@
   [form]
   (keep :title (filter map? (hiccup-seq form))))
 
+(defn- visible-text
+  "Strings that actually render as children, skipping attribute maps.
+
+   rendered-text collects every string in the tree, which includes the value of
+   a :title attribute — fine for asking whether something is present anywhere,
+   useless for asking whether it is SHOWN, since hover text would count."
+  [form]
+  (cond
+    (string? form) [form]
+    (vector? form) (mapcat visible-text (remove map? form))
+    (seq? form)    (mapcat visible-text form)
+    :else          []))
+
+(defn- marker-opts
+  "The options item-summary passes to the shared magic-set-aside marker, or
+   ::absent when the row does not carry one. The marker is a component, so its
+   text is not in the hiccup until it renders — what a row CAN be asked is
+   whether it included the marker and with what detail."
+  [form]
+  (or (some (fn [node]
+              (when (and (vector? node)
+                         (= views/magic-set-aside-marker (first node)))
+                (or (second node) {})))
+            (filter vector? (hiccup-seq form)))
+      ::absent))
+
 (def ^:private base-item
   {::mi/name "Rimefang" ::mi/type :weapon ::mi/owner "kaylee"})
 
@@ -59,14 +85,13 @@
                     ::mi/magical? false
                     ::mi/attunement #{:any}
                     ::mi/magical-attack-bonus 1))]
-    (testing "the row says so in its own text, not only on hover"
-      ;; Icon-only would be invisible to anyone on a touch device, where there
-      ;; is no hover at all.
-      (is (str/includes? (rendered-text row) "magic set aside")))
-    (testing "and the hover detail names what is being held"
-      (let [t (str/join " " (titles row))]
-        (is (str/includes? t "attunement"))
-        (is (str/includes? t "an attack bonus"))))
+    (testing "the row carries the marker"
+      (is (not= ::absent (marker-opts row))))
+    (testing "and hands it detail naming what is being held"
+      (let [d (:detail (marker-opts row))]
+        (is (some? d))
+        (is (str/includes? d "attunement"))
+        (is (str/includes? d "an attack bonus"))))
     (testing "the subtitle reads mundane and does not claim attunement"
       ;; "mundane (requires attunement)" would advertise a requirement that is
       ;; switched off — the same question-vs-state contradiction the Magic
@@ -152,18 +177,65 @@
       (testing "precondition: the stripped item cannot answer for itself"
         (is (not (mi/has-magical-properties? effective))))
       (testing "the marker still appears, via the subscription"
-        (is (str/includes? (rendered-text (views/item-summary effective))
-                           "magic set aside")))
-      (testing "and its hover text is general rather than empty"
-        (let [t (str/join " " (titles (views/item-summary effective)))]
-          (is (str/includes? t "kept but not applied"))
-          (is (not (str/includes? t ": .")) "no empty list of properties"))))))
+        (is (not= ::absent (marker-opts (views/item-summary effective)))))
+      (testing "with no detail, so the general wording is used"
+        ;; Passing a detail built from a stripped item would print
+        ;; "kept but not applied: ." with an empty list.
+        (is (nil? (:detail (marker-opts (views/item-summary effective)))))))))
 
 (deftest item-summary-leaves-plain-gear-alone
   (let [plain {::mi/name "Plain Dagger" ::mi/type :weapon ::mi/owner "kaylee"
                ::mi/magical? false}]
     (reset! app-db {::mi/custom-items [plain]})
     (rf/clear-subscription-cache!)
-    (is (not (str/includes? (rendered-text (views/item-summary (assoc plain :key :plain-dagger)))
-                            "magic set aside"))
+    (is (= ::absent (marker-opts (views/item-summary (assoc plain :key :plain-dagger))))
         "an item with no suspended magic must not be adorned")))
+
+;; ---------------------------------------------------------------------------
+;; The marker's own explainer
+;;
+;; A title attribute is hover-only and a phone has no hover, so the line named
+;; a condition it could never explain there. It opens on tap now, which means
+;; there are two states to get right rather than one.
+;; ---------------------------------------------------------------------------
+
+(deftest magic-set-aside-closed-shows-only-the-line
+  (let [out (views/magic-set-aside-content false identity)
+        text (str/join " " (visible-text out))]
+    (is (str/includes? text "magic set aside"))
+    (testing "the explanation is not shown until asked for"
+      (is (not (str/includes? text "switched off"))))
+    (testing "but is still available on hover for a pointer"
+      (is (some #(str/includes? % "switched off") (titles out))))
+    (testing "and it advertises itself as expandable"
+      (is (some #(= "false" (:aria-expanded %))
+                (filter map? (hiccup-seq out)))))))
+
+(deftest magic-set-aside-open-shows-the-explanation
+  (let [out (views/magic-set-aside-content true identity)
+        text (str/join " " (visible-text out))]
+    (is (str/includes? text "magic set aside"))
+    (is (str/includes? text "switched off")
+        "tapping it must actually say what it means")
+    (is (some #(= "true" (:aria-expanded %)) (filter map? (hiccup-seq out))))))
+
+(deftest magic-set-aside-open-prefers-the-detail-it-was-given
+  (let [text (str/join " " (visible-text
+                            (views/magic-set-aside-content
+                             true identity
+                             {:detail "Magical properties kept: an attack bonus."})))]
+    (is (str/includes? text "an attack bonus"))
+    (is (not (str/includes? text "Open it under My Items"))
+        "the specific detail replaces the general wording rather than joining it")))
+
+(deftest magic-set-aside-toggle-does-not-reach-the-row-underneath
+  (testing "the click is stopped before it toggles whatever contains it"
+    ;; Both hosts -- a weapons row on the sheet and a My Items row -- are click
+    ;; targets themselves. Without stopPropagation, asking what the marker
+    ;; means would also expand or collapse the row.
+    (let [stopped (atom false)
+          marker ((views/magic-set-aside-marker))
+          handler (some :on-click (filter map? (hiccup-seq marker)))]
+      (is (some? handler))
+      (handler #js {:stopPropagation #(reset! stopped true)})
+      (is @stopped))))

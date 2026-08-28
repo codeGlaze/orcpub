@@ -158,7 +158,10 @@
   (testing "an item holding magic in reserve gets the note"
     (let [note (views/magic-set-aside-note :retired-blade)]
       (is (some? note))
-      (is (some #(and (string? %) (= "magic set aside" %))
+      ;; The note renders the shared marker component; its text only exists
+      ;; once that renders, so what is checked here is that the sheet reaches
+      ;; for it at all. The marker's own wording is covered in views-test.
+      (is (some #(and (vector? %) (= views/magic-set-aside-marker (first %)))
                 (tree-seq coll? seq note)))))
   (testing "genuinely plain gear gets nothing"
     (is (nil? (views/magic-set-aside-note :bastard-sword))))

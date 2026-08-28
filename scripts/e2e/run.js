@@ -185,6 +185,20 @@ async function suspendedMagicIsMarkedEverywhere(p) {
   // rendered nothing for the whole life of the branch before that.
   check('the My Items row is marked', /magic set aside/.test(list));
   check('and still reads as mundane', /Weapon, mundane/.test(list));
+
+  // A title attribute does nothing on a touch screen, so the marker has to be
+  // able to explain itself on tap.
+  check('the explanation is not shown until asked for',
+        !/switched off/.test(list));
+  await p.getByText('magic set aside').first().click();
+  await p.waitForTimeout(900);
+  const opened = await p.locator('body').innerText();
+  check('tapping the marker explains it', /switched off/.test(opened));
+
+  // The row underneath is itself a click target; opening the explainer must
+  // not also expand it.
+  check('and does not expand the item row',
+        !/Base Weapon|REMOVE FOR GOOD/.test(opened));
 }
 
 async function magicalPropertiesField(p) {

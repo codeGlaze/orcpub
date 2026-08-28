@@ -1209,6 +1209,47 @@
    they do."
   {:value "unreviewed" :title "Not set"})
 
+(def magic-set-aside-explainer
+  (str "This is one of your own items, set to mundane. Its magical properties "
+       "are kept but switched off, so no character using it gets them. Open it "
+       "under My Items to restore or remove them."))
+
+(defn magic-set-aside-content
+  "The marker's hiccup for a given open/closed state. Split out from the
+   component that owns the state so both states can be tested without a DOM."
+  [open? on-toggle & [{:keys [detail]}]]
+  [:div
+   [:div.f-s-12.opacity-7.pointer
+    {;; title is hover-only, and a touch screen has no hover -- so on a phone
+     ;; this line named a condition it could never explain. Tapping opens the
+     ;; explanation inline.
+     :title magic-set-aside-explainer
+     :role "button"
+     :aria-expanded (str open?)
+     :on-click on-toggle}
+    [:i.fa.fa-magic.orange.m-r-5]
+    [:span.underline "magic set aside"]
+    [:i.fa.f-s-10.m-l-5 {:class (if open? "fa-caret-up" "fa-caret-down")}]]
+   (when open?
+     [:div.f-s-12.opacity-7.i.m-t-2.m-l-20
+      {:on-click on-toggle}
+      (or detail magic-set-aside-explainer)])])
+
+(defn magic-set-aside-marker
+  "\"magic set aside\", with an explainer that opens on tap as well as hover.
+
+   stopPropagation is the load-bearing part: both places this appears -- a
+   weapons row on the character sheet and a row in My Items -- are themselves
+   click targets that expand something else. Without it, asking what the marker
+   means would also toggle the row underneath it."
+  []
+  (let [open? (r/atom false)]
+    (fn [& [opts]]
+      (magic-set-aside-content
+       @open?
+       (fn [e] (.stopPropagation e) (swap! open? not))
+       opts))))
+
 (defn item-summary [{:keys [::mi/owner ::mi/name ::mi/type ::mi/item-subtype
                             ::mi/rarity ::mi/attunement :key] :as item}]
   (when item
@@ -1258,22 +1299,16 @@
           [:div.f-s-12.i.opacity-7
            "magical or mundane not set — open this item to say which"])
         (when (and (= :mundane classification) holding-magic?)
-          [:div.f-s-12.opacity-7
-           ;; Name the properties when they are actually in hand -- the item's
-           ;; own page passes the raw item, so it keeps the detailed hover it
-           ;; has always had. In the list they have already been stripped by
-           ;; effective-item, so listing them would print an empty tail; there
-           ;; the wording stays general and the row is one click from the page
-           ;; that spells it out.
-           {:title (if (mi/has-magical-properties? item)
-                     (str "Magical properties kept but not applied: "
-                          (s/join ", " (magical-property-labels item))
-                          ". Open this item to restore or remove them.")
-                     (str "Magical properties are kept but not applied, so no "
-                          "character using this item gets them. Open it to "
-                          "restore or remove them."))}
-           [:i.fa.fa-magic.orange.m-r-5]
-           "magic set aside"])]])))
+          ;; Name the properties when they are actually in hand -- the item's
+          ;; own page passes the raw item, so it keeps the detail it has always
+          ;; had. In the list they have already been stripped by effective-item,
+          ;; so listing them would print an empty tail and the general wording
+          ;; is used instead.
+          [magic-set-aside-marker
+           (when (mi/has-magical-properties? item)
+             {:detail (str "Magical properties kept but not applied: "
+                           (s/join ", " (magical-property-labels item))
+                           ". Open this item to restore or remove them.")})])]])))
 
 (defn item-details [{:keys [::mi/summary ::mi/description ::mi/magical-properties
                             ::mi/attunment]}
@@ -3269,10 +3304,8 @@
   [item-key]
   (let [holding-magic @(subscribe [::mi/items-holding-magic])]
     (when (contains? holding-magic item-key)
-      [:div.f-s-12.opacity-7.m-t-2
-       {:title "This is one of your own items, set to mundane. Its magical properties are kept but switched off, so nothing here gets them. Open it under My Items to restore or remove them."}
-       [:i.fa.fa-magic.orange.m-r-5]
-       "magic set aside"])))
+      [:div.m-t-2
+       [magic-set-aside-marker]])))
 
 (defn weapons-section-2 []
   (let [expanded-details (r/atom {})]
