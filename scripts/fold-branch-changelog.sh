@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fold docs/branch-changelog.md into a release section of the root CHANGELOG.md,
-# then remove it. Run this at merge-to-integration time (see docs/kb/branching-model.md).
+# then remove it. Run this at merge-to-integration time (see docs/CONTRIBUTING.md).
 #
 # Usage:
 #   scripts/fold-branch-changelog.sh "<release-section>" ["<block-title>"]
