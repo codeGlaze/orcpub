@@ -1041,10 +1041,17 @@
               cfg
               {:key i})
             ^{:key i}
-            [:button.form-button.h-40.m-l-5.m-t-5.m-b-5
+            [:button.form-button.header-button.h-40.m-l-5.m-t-5.m-b-5
              {:on-click on-click
               :class class-name
-              :style style}
+              :style style
+              ;; The label is hidden on narrow screens, which left these as
+              ;; bare glyphs with no hover to fall back on — and one of them
+              ;; discards the item you are editing. title gives a pointer user
+              ;; the name; aria-label gives it to a screen reader, which
+              ;; otherwise announces the button with no name at all.
+              :title title
+              :aria-label title}
              [:span
               [:i.fa.f-s-18
                (when icon {:class (str "fa-" icon)})]]

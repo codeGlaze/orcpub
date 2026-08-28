@@ -818,8 +818,25 @@
      {:width "100%"}]
     #_[:.options-column
        {:width "100%"}]
-    [:.header-button-text :.header-links
-     {:display :none}])
+    ;; The labels used to be hidden outright here, which left the header as a
+    ;; row of unlabelled glyphs on a phone — no text, and no hover to fall back
+    ;; on. They are stacked under the icon instead: every button keeps a name,
+    ;; one tap is still one action, and nothing has to be discovered by
+    ;; pressing it to find out. .header-links stays hidden; those are
+    ;; navigation, duplicated in the menu.
+    [:.header-links
+     {:display :none}]
+    [:.header-button
+     {:flex-direction :column
+      :height :auto
+      :padding "4px 8px"
+      :line-height 1.1}]
+    [:.header-button-text
+     {:display :block
+      :margin-left 0
+      :margin-top (px 2)
+      :font-size (px 9)
+      :letter-spacing "0.02em"}])
 
     #_(at-media
      xs-query
