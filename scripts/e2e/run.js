@@ -212,6 +212,90 @@ async function magicalPropertiesField(p) {
   check('and renders under its own label', /Magical Properties\./.test(shown));
 }
 
+async function itemTextReachesTheCharacterSheet(p) {
+  console.log('\nan equipped item carries its prose onto the character sheet');
+  await login(p);
+
+  // 1. Build and save a magic item whose magic is entirely prose.
+  await newItem(p, 'Moon-Touched Sword', 'weapon');
+  await p.locator('textarea').nth(0).fill('A plain-looking longsword.');
+  await p.locator('textarea').nth(1).fill('Sheds dim light in a 5-foot radius.');
+  await p.waitForTimeout(400);
+  await clickButton(p, /^SAVE/i);
+  await p.waitForTimeout(3000);
+
+  // 2. Equip it on a character.
+  await p.goto(BASE + '/pages/dnd/5e/character-builder', { waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(4500);
+  await p.getByText('Equipment', { exact: true }).first().click();
+  await p.waitForTimeout(2500);
+
+  // Use Playwright's selectOption rather than setting selectedIndex and
+  // dispatching a synthetic event: React tracks the value through its own
+  // property descriptor, so a hand-fired 'change' updates the DOM without the
+  // app ever hearing about it -- the option appears chosen and nothing is
+  // actually equipped.
+  const sels = p.locator('select.builder-option-dropdown');
+  const count = await sels.count();
+  let picked = null;
+  for (let i = 0; i < count; i++) {
+    const labels = await sels.nth(i).evaluate(e => [...e.options].map(o => o.textContent.trim()));
+    const match = labels.find(t => /^Moon-Touched Sword/.test(t));
+    if (match) {
+      await sels.nth(i).selectOption({ label: match });
+      picked = match;
+      break;
+    }
+  }
+  check('the item is offered in a picker', picked !== null, String(picked));
+  await p.waitForTimeout(2500);
+  const equipped = await p.locator('body').innerText();
+  check('and selecting it adds it to the character',
+        /Moon-Touched Sword/.test(equipped));
+
+  // 3. The sheet's magic-item rows expand to show the prose.
+  const expandAndRead = async () => {
+    // The sheet's tabs render lowercase in the DOM and are uppercased by CSS,
+    // so match on the class and the real text, not on what the screen shows.
+    await p.evaluate(() => {
+      const tab = [...document.querySelectorAll('div.uppercase')]
+        .find(e => e.textContent.trim().toLowerCase() === 'equipment');
+      if (tab) tab.click();
+    });
+    await p.waitForTimeout(1500);
+    // The item shows up twice: in the Weapons table (weapon stats) and under
+    // Other Magic Items, which is the row that renders item-details. Expand
+    // both rather than guessing which index is which.
+    const rows = p.locator('tr', { hasText: 'Moon-Touched Sword' });
+    const rc = await rows.count();
+    for (let i = 0; i < rc; i++) {
+      try { await rows.nth(i).click({ timeout: 5000 }); await p.waitForTimeout(900); }
+      catch (e) { /* a row that will not expand is not this check's business */ }
+    }
+    return await p.locator('body').innerText();
+  };
+
+  let sheet = await expandAndRead();
+  check('the sheet shows the description', /plain-looking longsword/.test(sheet));
+  check('the sheet shows the magical properties', /Sheds dim light/.test(sheet));
+  check('under its own label', /Magical Properties\./.test(sheet));
+  await p.screenshot({ path: `${SHOTS}/sheet-before-save.png`, fullPage: true });
+
+  // 4. Save the character, leave, come back.
+  await clickButton(p, /SAVE NEW CHARACTER|SAVE CHARACTER/i);
+  await p.waitForTimeout(4000);
+
+  // 5. Reload the page from scratch. Nothing survives in memory, so what comes
+  //    back has been through the database and the character load path.
+  await p.reload({ waitUntil: 'domcontentloaded' });
+  await p.waitForTimeout(5000);
+  const reloaded = await expandAndRead();
+  check('the reloaded character still has the item', /Moon-Touched Sword/.test(reloaded));
+  check('and still shows the description', /plain-looking longsword/.test(reloaded));
+  check('and still shows the magical properties', /Sheds dim light/.test(reloaded));
+  await p.screenshot({ path: `${SHOTS}/sheet-after-reload.png`, fullPage: true });
+}
+
 // --------------------------------------------------------------------------
 
 (async () => {
@@ -219,7 +303,7 @@ async function magicalPropertiesField(p) {
   fs.mkdirSync(SHOTS, { recursive: true });
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const cases = [customItemOverridesSrd, removeForGoodActuallyRemoves, signedOutSavePrompt,
-                 magicalPropertiesField];
+                 magicalPropertiesField, itemTextReachesTheCharacterSheet];
   for (const c of cases) {
     const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     try {

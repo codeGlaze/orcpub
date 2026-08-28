@@ -736,3 +736,54 @@
                       ::mi/rarity :common
                       ::mi/magical? true
                       ::mi/magical-properties "Sheds dim light."}))))
+
+;; ---------------------------------------------------------------------------
+;; Length bounds
+;;
+;; Items live in the database rather than in an .orcbrew file the owner keeps,
+;; so an unbounded text field is a route for pushing arbitrary bytes into
+;; storage. The bounds sit above the client's own caps on purpose: one that
+;; merely matched the UI would reject content the UI allowed to be created
+;; before the cap existed, stranding an owner who could no longer save.
+;; ---------------------------------------------------------------------------
+
+(defn- item-of-length [k n]
+  {::mi/name "Longwinded Blade"
+   ::mi/type :weapon
+   ::mi/magical? true
+   k (apply str (repeat n "x"))})
+
+(deftest prose-fields-are-bounded
+  (doseq [k [::mi/description ::mi/magical-properties]]
+    (testing (str k " accepts ordinary prose")
+      (is (spec/valid? ::mi/magic-item (item-of-length k 5000))))
+    (testing (str k " accepts content up to the ceiling")
+      (is (spec/valid? ::mi/magic-item (item-of-length k mi/max-prose-length))))
+    (testing (str k " rejects a payload past it")
+      (is (not (spec/valid? ::mi/magic-item
+                            (item-of-length k (inc mi/max-prose-length))))))))
+
+(deftest the-bound-is-above-the-clients-own-cap
+  (testing "so nothing the textarea allowed can be rejected on save"
+    ;; branding/field-limits caps the textareas at 50,000. If the server bound
+    ;; ever drops below that, the UI can produce an item it cannot save.
+    (is (> mi/max-prose-length 50000))))
+
+(deftest names-are-bounded
+  (is (spec/valid? ::mi/magic-item {::mi/name (apply str (repeat 200 "a"))}))
+  (is (spec/valid? ::mi/magic-item
+                   {::mi/name (apply str "a" (repeat (dec mi/max-name-length) "a"))}))
+  (is (not (spec/valid? ::mi/magic-item
+                        {::mi/name (apply str (repeat (inc mi/max-name-length) "a"))})))
+  (testing "the existing starts-with-letter rule still applies"
+    (is (not (spec/valid? ::mi/magic-item {::mi/name "9 Lives"})))))
+
+(deftest an-ordinary-item-is-unaffected
+  (testing "the bounds do not disturb normal content"
+    (is (spec/valid? ::mi/magic-item
+                     {::mi/name "Moon-Touched Sword"
+                      ::mi/type :weapon
+                      ::mi/rarity :common
+                      ::mi/magical? true
+                      ::mi/description "A plain-looking longsword."
+                      ::mi/magical-properties "Sheds dim light in a 5-foot radius."}))))

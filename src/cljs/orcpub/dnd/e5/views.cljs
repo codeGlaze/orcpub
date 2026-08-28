@@ -8073,7 +8073,10 @@
           "Item Name" ;:name
           name
           #(dispatch [::mi/set-item-name %])
-          {:class "input h-40"}]
+          ;; The name input had no ceiling at all. The server bound is the real
+          ;; defence; this just stops the UI producing something it will reject.
+          {:class "input h-40"
+           :maxLength mi/max-name-length}]
        (when (seq name) 
          (valid-wel name))
        #_(when-let [messages (validate-name name)]

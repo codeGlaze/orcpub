@@ -15,19 +15,46 @@
             [clojure.set :refer [intersection difference]])
   #?(:cljs (:require-macros [orcpub.dnd.e5.modifiers :as mod5e])))
 
+;; Length bounds. Items are stored in the database, not in an .orcbrew file
+;; the user keeps, so an unbounded field is a way to push arbitrary bytes into
+;; storage: the item spec had no length constraint at all, and neither the Item
+;; Name input nor (before these were added) the server placed any ceiling on
+;; what a crafted POST could send.
+;;
+;; The numbers sit deliberately ABOVE the client's own caps rather than level
+;; with them. A bound that merely matched the UI would reject content the UI
+;; itself allowed to be created before the cap existed -- stranding an owner
+;; who could no longer save their own item. The headroom costs nothing as a
+;; defence, since what these stop is megabytes, not paragraphs.
+(def max-name-length
+  "Generous for a name; the longest published 5e item name is well under 100."
+  500)
+
+(def max-prose-length
+  "Above the client's 50,000 textarea cap, with room for anything written
+   before that cap existed."
+  65536)
+
+(defn bounded-string
+  "A string spec with a ceiling on its length."
+  [max-length]
+  (spec/and string? #(<= (count %) max-length)))
+
 ;(spec/def ::name string?)
-(spec/def ::name (spec/and string? common/starts-with-letter?))
+(spec/def ::name (spec/and string?
+                           common/starts-with-letter?
+                           #(<= (count %) max-name-length)))
 ;(spec/def ::type keyword?)
 (spec/def ::type (spec/and keyword? common/keyword-starts-with-letter?))
 (spec/def ::rarity keyword?)
-(spec/def ::description string?)
+(spec/def ::description (bounded-string max-prose-length))
 ;; Prose describing what the item's magic DOES, kept apart from ::description
 ;; so the two are distinguishable. A description is what the object is like
 ;; ("my father's blade, notched from the siege"); magical properties are what
 ;; it does ("sheds dim light in a 5-foot radius"). Plenty of 5e magic items --
 ;; a Moon-Touched Sword being the standard example -- carry no mechanical
 ;; bonus at all and live entirely in this field.
-(spec/def ::magical-properties string?)
+(spec/def ::magical-properties (bounded-string max-prose-length))
 (spec/def ::magical-attack-bonus int?)
 (spec/def ::magical-damage-bonus int?)
 (spec/def ::modifiers (spec/coll-of ::mod/mod-cfg))
