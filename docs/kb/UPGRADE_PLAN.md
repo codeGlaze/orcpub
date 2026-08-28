@@ -39,7 +39,7 @@ Longer answer: Datomic Free 0.9.5697 does NOT work on Java 21 due to SSL/TLS inc
 - Transactor must be started via `./scripts/start.sh datomic` or the dev menu
 - First-time setup runs `.devcontainer/post-create.sh` which downloads and installs Datomic Pro
 
-**See:** [docs/DATOMIC_JAVA21_TEST_RESULTS.md](docs/DATOMIC_JAVA21_TEST_RESULTS.md) for compatibility test details.
+**See:** [DATOMIC_JAVA21_TEST_RESULTS.md](DATOMIC_JAVA21_TEST_RESULTS.md) for compatibility test details.
 
 ---
 
@@ -450,7 +450,7 @@ Java 21 enforces stricter SSL/TLS defaults that are incompatible with Datomic Fr
 
 **Migration to Datomic Pro is required** to use Java 21. Datomic Pro is now free under Apache 2.0 license and supports Java 11, 17, and 21.
 
-**See:** [`docs/DATOMIC_JAVA21_TEST_RESULTS.md`](docs/DATOMIC_JAVA21_TEST_RESULTS.md) for complete test details.
+**See:** [`DATOMIC_JAVA21_TEST_RESULTS.md`](DATOMIC_JAVA21_TEST_RESULTS.md) for complete test details.
 
 ---
 

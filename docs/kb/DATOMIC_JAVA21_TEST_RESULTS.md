@@ -181,7 +181,7 @@ AMQ119007: Cannot connect to server(s). Tried with all available servers.
 4. Update transactor startup scripts
 5. Test peer connections
 
-**See:** [`UPGRADE_PLAN.md`](../UPGRADE_PLAN.md) for detailed migration plan.
+**See:** [`UPGRADE_PLAN.md`](UPGRADE_PLAN.md) for detailed migration plan.
 
 ### Option 2: Stay on Java 11
 
