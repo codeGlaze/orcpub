@@ -76,7 +76,11 @@ Automation:
   labeled block into `## [<release>]`, and `git rm`s the branch changelog. Review +
   commit after; editorial curation stays yours.
 - The **`changelog-guard` CI workflow** fails a push to `integration`/`develop` that
-  still contains `docs/branch-changelog.md` — the backstop if the fold gets skipped.
+  still contains `docs/branch-changelog.md` — the unskippable backstop if the fold gets
+  skipped.
+- **`scripts/setup-hooks.sh`** (run once per clone) enables a local **`pre-push`** guard
+  (`.githooks/pre-push`) that mirrors the CI check — a fail-fast reminder before the push
+  leaves your machine. It only reminds; the fold stays a deliberate manual step.
 
 ## Authorship — required, no exceptions
 

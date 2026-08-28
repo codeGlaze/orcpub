@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# pre-push guard (reminder, not an auto-fold): refuse to push a commit that still
+# carries docs/branch-changelog.md onto integration / develop / main. Mirrors
+# .github/workflows/changelog-guard.yml so a forgotten fold is caught locally
+# instead of on CI. The fold itself stays a deliberate manual step:
+#   scripts/fold-branch-changelog.sh "<release>"    (then commit, then push)
+#
+# Activate once per clone:  scripts/setup-hooks.sh   (or: git config core.hooksPath .githooks)
+
+status=0
+zero="0000000000000000000000000000000000000000"
+
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue                    # branch deletion — skip
+  case "$remote_ref" in
+    refs/heads/integration|refs/heads/develop|refs/heads/main)
+      if git cat-file -e "${local_sha}:docs/branch-changelog.md" 2>/dev/null; then
+        target="${remote_ref#refs/heads/}"
+        echo "pre-push: un-folded docs/branch-changelog.md on the commit bound for '${target}'." >&2
+        echo "          Fold it first:  scripts/fold-branch-changelog.sh \"<release>\"  — then commit and re-push." >&2
+        status=1
+      fi
+      ;;
+  esac
+done
+
+exit $status
