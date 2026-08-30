@@ -46,6 +46,7 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [spell-selection-source-fix.md](spell-selection-source-fix.md) | Cantrip/spell-selection source-poisoning fix (`fix-cantrips-selection-bug` branch): feature changes, the select-keys toggle gap, reconciler plugin-scope, BOM non-issue, e2e-verified remediation |
 | [lein-uberjar-hang.md](lein-uberjar-hang.md) | lein compile hang: Datomic Peer non-daemon threads, timeout workaround, build profile fix |
 | [docker-testing-guide.md](docker-testing-guide.md) | Docker testing: 46-test suite, manual smoke tests, every gotcha (H2 lock-in, env -u, ports, transit, piped input, jq nulls) |
+| [class-builder-extraction-plan.md](class-builder-extraction-plan.md) | Plan for the first incremental view decomposition: extract the class builder from the views.cljs monolith (reuses views-builders-split rules; the anti-views-extraction cadence) |
 
 ## Human-Facing Docs (Copies)
 
