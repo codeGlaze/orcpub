@@ -690,7 +690,13 @@
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw? bw-faded?))
 
       (when (and image-url
-                 (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
+                 ;; The scheme list here used to include ftp and file, and
+                 ;; nothing restricted the host. pdf/safe-image-url? is the
+                 ;; real check now -- it resolves the host and refuses private,
+                 ;; loopback and link-local addresses -- but this stays as a
+                 ;; cheap first pass so a malformed URL never reaches it.
+                 (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
+                 (pdf/safe-image-url? image-url)
                  (not image-url-failed))
         (case print-character-sheet-style?
           1 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
@@ -698,7 +704,9 @@
           3 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
           4 (pdf/draw-image! doc (pdf/get-page doc 0) image-url 0.50 0.85 2.35 3.15)))
       (when (and faction-image-url
-                 (re-matches #"^(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
+                 ;; Same tightening as the character image above.
+                 (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
+                 (pdf/safe-image-url? faction-image-url)
                  (not faction-image-url-failed))
         (case print-character-sheet-style?
           1 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)

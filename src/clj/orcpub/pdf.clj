@@ -246,14 +246,122 @@
 
 (def user-agent "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.22 (KHTML, like Gecko) Chrome/25.0.1364.172")
 
+(def ^:private max-image-bytes
+  "The 128k the character builder has always advertised next to the Image URL
+   field. It was label text and nothing enforced it."
+  (* 128 1024))
+
+(def ^:private max-image-pixels
+  "Width x height ceiling, checked from the header BEFORE any pixels are
+   decoded.
+
+   A byte cap alone does not bound memory: a 69-byte PNG can declare
+   25000x25000 in its IHDR, and ImageIO/read would allocate 2.5GB honouring it.
+   Reading dimensions costs only the header."
+  (* 2000 2000))
+
+(defn- private-address?
+  "Addresses no user-supplied URL has any business reaching."
+  [^java.net.InetAddress addr]
+  (or (.isLoopbackAddress addr)
+      (.isAnyLocalAddress addr)
+      (.isLinkLocalAddress addr)     ; 169.254/16 — cloud instance metadata
+      (.isSiteLocalAddress addr)     ; 10/8, 172.16/12, 192.168/16
+      (.isMulticastAddress addr)))
+
+(defn safe-image-url?
+  "Whether the server may fetch this URL.
+
+   The route's own filter allowed file:// and ftp:// and placed no restriction
+   on the host, so a character image of
+   http://169.254.169.254/latest/meta-data/ made the PDF exporter fetch cloud
+   instance metadata, and file:///etc/passwd made it open local files. Neither
+   needs the response to be rendered: whether the fetch succeeds, fails or
+   times out is itself the signal.
+
+   Returns false rather than throwing so a bad URL is skipped like an image
+   that failed to load, which is a state the sheet already handles."
+  [url]
+  (try
+    (let [u (java.net.URL. url)
+          protocol (.getProtocol u)]
+      (and (contains? #{"http" "https"} protocol)
+           (let [addrs (java.net.InetAddress/getAllByName (.getHost u))]
+             (and (seq addrs)
+                  ;; every resolved address, not just the first: a hostname can
+                  ;; answer with both a public and a private address.
+                  (not-any? private-address? addrs)))))
+    (catch Exception _ false)))
+
+(defn- open-image-stream
+  "Opens url with redirects disabled and the response size bounded.
+
+   Redirects are off because they defeat any host check: a permitted host that
+   offers an open redirect would otherwise hand the fetch straight to a private
+   address."
+  [url]
+  (let [^java.net.HttpURLConnection conn (.openConnection (java.net.URL. url))]
+    (doto conn
+      (.setInstanceFollowRedirects false)
+      (.setRequestProperty "User-Agent" user-agent)
+      (.setConnectTimeout 10000)
+      (.setReadTimeout 10000))
+    (let [status (.getResponseCode conn)]
+      (when-not (<= 200 status 299)
+        (throw (ex-info (str "Image URL returned " status)
+                        {:error :image-load-failed :url url :status status})))
+      (let [len (.getContentLengthLong conn)]
+        (when (> len max-image-bytes)
+          (throw (ex-info "Image is larger than the 128k limit"
+                          {:error :image-too-large :url url :bytes len}))))
+      (.getInputStream conn))))
+
+(defn- within-pixel-budget?
+  "Reads the image header only and answers whether decoding it is safe."
+  [^bytes data]
+  (with-open [iis (ImageIO/createImageInputStream (java.io.ByteArrayInputStream. data))]
+    (let [readers (ImageIO/getImageReaders iis)]
+      (if-not (.hasNext readers)
+        false
+        (let [r (.next readers)]
+          (try
+            (.setInput r iis true true)
+            (<= (* (.getWidth r 0) (.getHeight r 0)) max-image-pixels)
+            (finally (.dispose r))))))))
+
+(defn- read-bounded-bytes
+  "All of the stream, refusing to exceed max-image-bytes."
+  [^java.io.InputStream in]
+  (let [out (java.io.ByteArrayOutputStream.)
+        buf (byte-array 8192)]
+    (loop [total 0]
+      (let [n (.read in buf)]
+        (cond
+          (neg? n) (.toByteArray out)
+          (> (+ total n) max-image-bytes)
+          (throw (ex-info "Image is larger than the 128k limit"
+                          {:error :image-too-large :bytes (+ total n)}))
+          :else (do (.write out buf 0 n) (recur (+ total n))))))))
+
+(defn safe-image-bytes
+  "Fetch url and return its bytes, or throw. Every limit is applied before any
+   pixel buffer is allocated."
+  [url]
+  (when-not (safe-image-url? url)
+    (throw (ex-info "Image URL is not permitted"
+                    {:error :image-url-not-permitted :url url})))
+  (let [data (with-open [in (open-image-stream url)]
+               (read-bounded-bytes in))]
+    (when-not (within-pixel-budget? data)
+      (throw (ex-info "Image dimensions exceed the limit"
+                      {:error :image-too-large-dimensions :url url})))
+    data))
+
 (defn draw-non-jpg [doc page url x y width height]
   (try
     (with-open [c-stream (content-stream doc page)]
-      (let [connection (doto (.openConnection (URL. url))
-                         (.setRequestProperty "User-Agent" user-agent)
-                         (.setConnectTimeout 10000)
-                         (.setReadTimeout 10000))
-            buff-image (ImageIO/read (.getInputStream connection))]
+      (let [buff-image (ImageIO/read (java.io.ByteArrayInputStream.
+                                      (safe-image-bytes url)))]
         (when (nil? buff-image)
           (throw (ex-info "Unable to read image from URL"
                           {:error :invalid-image-format
@@ -279,12 +387,7 @@
 (defn draw-jpg [doc page url x y width height]
   (try
     (with-open [c-stream (content-stream doc page)
-                image-stream (.getInputStream
-                               (doto
-                                 (.openConnection (URL. url))
-                                 (.setRequestProperty "User-Agent" user-agent)
-                                 (.setConnectTimeout 10000)
-                                 (.setReadTimeout 10000)))]
+                image-stream (java.io.ByteArrayInputStream. (safe-image-bytes url))]
       (let [img (JPEGFactory/createFromStream doc image-stream)]
         (draw-imagex c-stream img x y width height)))
     (catch java.net.SocketTimeoutException e
