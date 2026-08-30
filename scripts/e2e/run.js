@@ -104,12 +104,21 @@ const kindSelect = async p => {
   throw new Error('no Magic Item? dropdown found');
 };
 
-const newItem = async (p, name, type) => {
+const newItem = async (p, name, type, { chooseSubtype = true } = {}) => {
   await p.goto(BASE + '/pages/dnd/5e/magic-item-builder', { waitUntil: 'domcontentloaded' });
   await p.waitForSelector('select.builder-option');
   await p.locator('input.input.h-40').first().fill(name);
   await p.locator('select.builder-option').first().selectOption(type);
   await p.waitForTimeout(500);
+  // A weapon or armour item is not saveable until a type is chosen, so every
+  // case that goes on to save one has to make that choice the way a user
+  // would. Before the save was gated, these flows were quietly building items
+  // with no damage die and no proficiency category -- the exact shape the gate
+  // now refuses.
+  if (chooseSubtype && (type === 'weapon' || type === 'armor')) {
+    await p.getByText('Custom', { exact: true }).first().click();
+    await p.waitForTimeout(700);
+  }
 };
 
 // --------------------------------------------------------------------------
@@ -121,8 +130,20 @@ async function customItemOverridesSrd(p) {
   await (await kindSelect(p)).selectOption('mundane');
   await p.waitForTimeout(500);
 
-  const visible = await p.locator('select.builder-option').count();
-  check('mundane hides the magical-only fields', visible < 4, `${visible} selects still shown`);
+  // Name the fields rather than counting selects: the Base Weapon Details block
+  // legitimately adds four of its own, so a count is a proxy that breaks for
+  // reasons that have nothing to do with what is being tested.
+  const labels = await p.evaluate(() =>
+    [...document.querySelectorAll('select.builder-option')].map(sel => {
+      const box = sel.closest('div');
+      return (box && box.parentElement && box.parentElement.innerText || '')
+        .trim().split('\n')[0];
+    }));
+  check('mundane hides Rarity', !labels.some(l => /^Rarity$/i.test(l)),
+        JSON.stringify(labels));
+  const bodyText = await p.locator('body').innerText();
+  check('and hides the magical property fields',
+        !/Requires Attunement|Magical Attack Bonus/i.test(bodyText));
 
   await clickButton(p, /^SAVE/i);
   await p.waitForTimeout(3000);
@@ -207,6 +228,45 @@ async function signedOutSavePrompt(p) {
   const nameValue = await p.locator('input.input.h-40').first().inputValue();
   check('the in-progress item survives the bounce', nameValue === 'Work In Progress',
         `name field is ${JSON.stringify(nameValue)}`);
+}
+
+async function anIncompleteWeaponCannotBeSaved(p) {
+  console.log('\na weapon with no type chosen cannot be saved');
+  await login(p);
+  await newItem(p, 'Untyped Blade', 'weapon', { chooseSubtype: false });
+
+  // The header is rendered twice -- a sticky copy and the in-content one --
+  // so an unqualified .first() picks the hidden sticky button and every click
+  // times out instead of testing anything.
+  const saveBtn = () =>
+    p.locator('button.header-button[aria-label^="Save" i]:visible').first();
+
+  const posts = [];
+  p.on('response', r => {
+    if (r.request().method() === 'POST' && /\/items/.test(r.url())) posts.push(r.status());
+  });
+
+  const cls = await saveBtn().getAttribute('class');
+  check('the save button is disabled', /disabled/.test(cls || ''), String(cls));
+  const body = await p.locator('body').innerText();
+  check('and says what is missing', /Choose a Weapon Type/.test(body));
+
+  // .form-button.disabled sets pointer-events:none, so this is refused by the
+  // browser rather than only by the handler.
+  try { await saveBtn().click({ timeout: 4000 }); } catch (e) { /* expected */ }
+  await p.waitForTimeout(1500);
+  check('clicking it sends nothing', posts.length === 0, JSON.stringify(posts));
+
+  // One click on the same screen fixes it.
+  await p.getByText('Custom', { exact: true }).first().click();
+  await p.waitForTimeout(900);
+  check('choosing a type enables the save',
+        !/disabled/.test(await saveBtn().getAttribute('class') || ''));
+  check('and clears the notice',
+        !/Choose a Weapon Type/.test(await p.locator('body').innerText()));
+  await saveBtn().click();
+  await p.waitForTimeout(3000);
+  check('and the item saves', posts.includes(200), JSON.stringify(posts));
 }
 
 async function suspendedMagicIsMarkedEverywhere(p) {
@@ -382,7 +442,7 @@ async function itemTextReachesTheCharacterSheet(p) {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const cases = [customItemOverridesSrd, removeForGoodActuallyRemoves, signedOutSavePrompt,
                  magicalPropertiesField, itemTextReachesTheCharacterSheet,
-                 suspendedMagicIsMarkedEverywhere];
+                 suspendedMagicIsMarkedEverywhere, anIncompleteWeaponCannotBeSaved];
   const consoleFindings = [];
   for (const c of cases) {
     const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });

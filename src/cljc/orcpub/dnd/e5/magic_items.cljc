@@ -329,6 +329,41 @@
   [v]
   (and (keyword? v) (not (s/blank? (name v)))))
 
+(defn incomplete-reasons
+  "Why this item is not ready to be saved, as sentences for its owner.
+
+   A weapon or armour item with no type chosen carries none of the fields the
+   rest of the app reads from it: no damage die, so the sheet renders a die
+   with no size (\"d+2\"); no :simple/:martial category, so proficiency can
+   never match; no damage type, so resistances and immunities cannot apply.
+   Nothing downstream can recover from that, and nothing guessed here would be
+   right -- simple versus martial is the owner's call, not ours.
+
+   Ticking any Weapon Type or Armor Type fixes it in one click, and the choice
+   is on the same screen as the message, so refusing the save costs nothing and
+   stops a broken item reaching a character sheet. Empty means ready."
+  [{:keys [::type ::name ::subtypes]}]
+  (cond-> []
+    (s/blank? (str name))
+    (conj "Give the item a name.")
+
+    (and (#{:weapon} type) (empty? subtypes))
+    (conj (str "Choose a Weapon Type. Without one the item has no damage die, "
+               "no proficiency category and no damage type."))
+
+    (and (#{:armor ::armor} type) (empty? subtypes))
+    ;; Armour fails more quietly than a weapon: base-ac has a destructuring
+    ;; default of 10 at the render site, so the sheet shows a plausible number
+    ;; rather than nonsense. Quietly wrong is the worse of the two -- nobody
+    ;; notices their breastplate is worth nothing -- so it is asked for too.
+    (conj (str "Choose an Armor Type. Without one the item has no base AC of "
+               "its own and a character wearing it is treated as unarmoured."))))
+
+(defn ready-to-save?
+  "Nothing left to answer before this item can be stored."
+  [item]
+  (empty? (incomplete-reasons item)))
+
 (defn with-displayed-defaults
   "Fill in the values the item builder was SHOWING but never stored.
 

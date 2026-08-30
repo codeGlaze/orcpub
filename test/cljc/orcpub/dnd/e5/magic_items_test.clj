@@ -821,3 +821,51 @@
 
   (testing "and :common is not evidence of magic either"
     (is (not (contains? mi/magical-rarities :common)))))
+
+;; ---------------------------------------------------------------------------
+;; What must be answered before an item can be saved
+;;
+;; A weapon or armour item with no type chosen carries none of the fields the
+;; app reads from it, and the sheet renders a damage die with no size. The fix
+;; is one click on the same screen, so the save waits rather than storing
+;; something broken.
+;; ---------------------------------------------------------------------------
+
+(deftest a-weapon-needs-a-weapon-type
+  (let [reasons (mi/incomplete-reasons {::mi/name "Untyped Blade" ::mi/type :weapon})]
+    (is (= 1 (count reasons)))
+    (is (re-find #"Weapon Type" (first reasons)))
+    (is (not (mi/ready-to-save? {::mi/name "Untyped Blade" ::mi/type :weapon}))))
+  (testing "and is ready once one is chosen"
+    (is (mi/ready-to-save? {::mi/name "Untyped Blade"
+                            ::mi/type :weapon
+                            ::mi/subtypes #{:other}}))))
+
+(deftest armor-needs-an-armor-type
+  ;; Armour degrades more quietly than a weapon -- base-ac defaults to 10 at
+  ;; the render site, so a typeless breastplate shows a believable number and
+  ;; is worth nothing. That is asked for on the same grounds: quietly wrong is
+  ;; harder to notice than visibly broken.
+  (doseq [t [:armor ::mi/armor]]
+    (is (not (mi/ready-to-save? {::mi/name "Untyped Mail" ::mi/type t}))
+        (str t " with no subtype is not ready"))
+    (is (mi/ready-to-save? {::mi/name "Untyped Mail" ::mi/type t
+                            ::mi/subtypes #{:chain-mail}}))))
+
+(deftest other-item-types-need-no-subtype
+  (testing "a wondrous item, ring or potion has no type list to choose from"
+    (doseq [t [:wondrous-item :ring :wand :rod :scroll :potion :other]]
+      (is (mi/ready-to-save? {::mi/name "Odd Trinket" ::mi/type t})
+          (str t " must not be blocked")))))
+
+(deftest an-item-needs-a-name
+  (is (not (mi/ready-to-save? {::mi/type :wondrous-item})))
+  (is (not (mi/ready-to-save? {::mi/name "   " ::mi/type :wondrous-item})))
+  (testing "the message says so plainly"
+    (is (re-find #"name" (first (mi/incomplete-reasons {::mi/type :wondrous-item}))))))
+
+(deftest a-complete-item-is-ready
+  (is (mi/ready-to-save? {::mi/name "Moon-Touched Sword"
+                          ::mi/type :weapon
+                          ::mi/subtypes #{:longsword}
+                          ::mi/magical? true})))

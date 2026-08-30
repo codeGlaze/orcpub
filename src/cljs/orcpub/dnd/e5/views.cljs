@@ -8819,6 +8819,21 @@
    )
   )
 
+(defn item-incomplete-notice
+  "What is still missing, shown next to the disabled Save button."
+  [reasons]
+  (when (seq reasons)
+    [:div.health-card.m-t-10
+     (doall
+      (map-indexed
+       (fn [i reason]
+         ^{:key i}
+         [:div.health-row
+          [:span.health-rail]
+          [:span.health-ico [:i.fa.fa-exclamation-triangle]]
+          [:span.health-msg reason]])
+       reasons))]))
+
 (defn item-builder-buttons [item-key item]
   ;; Items are NOT browser storage. builder-page's "Save to Browser Storage"
   ;; is accurate for the spell/monster/race builders, whose content lives in
@@ -8832,17 +8847,33 @@
   ;; of sending a request that cannot succeed.
   (let [owner? (get-owner? item-key)
         signed-in? (boolean @(subscribe [:username]))
+        ;; A weapon or armour item with no type chosen has no damage die, no
+        ;; proficiency category and no base AC, and renders nonsense on a sheet
+        ;; ("d+2"). The fix is one click on the same screen, so the save is
+        ;; refused rather than storing something broken. There is no autosave
+        ;; here, so nothing is lost by waiting.
+        reasons (mi/incomplete-reasons @(subscribe [::mi/builder-item]))
+        ready? (empty? reasons)
         base-buttons [{:title "New Item"
                        :icon "plus"
                        :on-click #(dispatch [::mi/reset-item])}
-                      (if signed-in?
-                        {:title "Save to My Items"
-                         :icon "save"
-                         :on-click #(dispatch [::mi/save-item])}
+                      (cond
+                        (not signed-in?)
                         {:title "Log In to Save"
                          :icon "save"
                          :on-click #(dispatch [:route routes/login-page-route
-                                               {:secure? true}])})]
+                                               {:secure? true}])}
+
+                        ready?
+                        {:title "Save to My Items"
+                         :icon "save"
+                         :on-click #(dispatch [::mi/save-item])}
+
+                        :else
+                        {:title "Save to My Items"
+                         :icon "save"
+                         :class-name "disabled opacity-5 hover-no-shadow"
+                         :on-click identity})]
         ]
     (if (and item-key owner?) ;Show if we have an item key and the user owns it
       (conj base-buttons {:title "Delete"
@@ -8859,9 +8890,11 @@
     [content-page
      "Item Builder"
      buttons
-     [deletion-modal-with
-      item-builder
-      item-key]
+     [:div
+      [item-incomplete-notice (mi/incomplete-reasons @item)]
+      [deletion-modal-with
+       item-builder
+       item-key]]
      ]))
 
 (defn spell-builder-page []
