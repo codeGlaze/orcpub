@@ -916,3 +916,31 @@
     (let [one {::mi/name "Blade" ::mi/type :weapon ::mi/subtypes #{:longsword}}]
       (is (= #{:longsword :shortsword}
              (::mi/subtypes (mi/apply-subtype-toggle one :shortsword)))))))
+
+;; ---------------------------------------------------------------------------
+;; The cue map and the notice come from one source
+;; ---------------------------------------------------------------------------
+
+(deftest incomplete-fields-matches-incomplete-reasons
+  (testing "a field is flagged exactly when there is a reason to flag it"
+    ;; Two views of the same answer: the reasons are read, the fields are
+    ;; coloured. If they could disagree, the builder would highlight a field it
+    ;; had nothing to say about, or say something about a field it left plain.
+    (doseq [item [{}
+                  {::mi/type :weapon}
+                  {::mi/name "Blade" ::mi/type :weapon}
+                  {::mi/name "Blade" ::mi/type :weapon ::mi/subtypes #{:other}}
+                  {::mi/name "Mail" ::mi/type :armor}
+                  {::mi/name "Trinket" ::mi/type :wondrous-item}]]
+      (is (= (empty? (mi/incomplete-reasons item))
+             (empty? (mi/incomplete-fields item)))
+          (str "disagreement for " (pr-str item))))))
+
+(deftest incomplete-fields-uses-the-status-the-cue-expects
+  (is (= {:name :missing} (mi/incomplete-fields {::mi/type :wondrous-item})))
+  (is (= {:subtypes :missing}
+         (mi/incomplete-fields {::mi/name "Blade" ::mi/type :weapon})))
+  (is (= {:name :missing :subtypes :missing}
+         (mi/incomplete-fields {::mi/type :weapon})))
+  (is (= {} (mi/incomplete-fields {::mi/name "Blade" ::mi/type :weapon
+                                   ::mi/subtypes #{:other}}))))

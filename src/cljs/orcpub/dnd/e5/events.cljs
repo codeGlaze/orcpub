@@ -158,7 +158,31 @@
                              ->local-store])
 
 
-(def item-interceptors [(path ::mi/builder-item)
+(def flag-incomplete-item-fields
+  "Keeps :builder-field-errors in step with the item being built, so the item
+   builder uses the same amber/red cue mechanism as the homebrew builders
+   rather than a look of its own.
+
+   Those builders populate the map from a spec explanation on a FAILED save.
+   The item builder cannot: its save is refused while the item is incomplete,
+   so the failure never happens and the map would never be filled. Recomputing
+   after every change gives the same cue, live, from the same map --
+   builder-field-cue and :clear-builder-field-error work unchanged.
+
+   Placed FIRST so its :after runs last: interceptor :after chains run in
+   reverse, and this needs the full db that (path ::mi/builder-item) restores."
+  (->interceptor
+   :id :flag-incomplete-item-fields
+   :after (fn [context]
+            (if-let [db (or (get-in context [:effects :db])
+                            (get-in context [:coeffects :db]))]
+              (assoc-in context [:effects :db]
+                        (assoc db :builder-field-errors
+                               (mi/incomplete-fields (::mi/builder-item db))))
+              context))))
+
+(def item-interceptors [flag-incomplete-item-fields
+                        (path ::mi/builder-item)
                         magic-item->local-store-interceptor])
 
 (def spell-interceptors [(path ::spells/builder-item)

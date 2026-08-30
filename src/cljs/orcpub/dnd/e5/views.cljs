@@ -4593,6 +4593,19 @@
                 :key :evil}]
               opt/alignments)))])]]])]))
 
+(defn builder-field-cue
+  "Cue class for a required field (or a set of related keys) rendered by a
+   component other than the text inputs — reads the same :builder-field-errors
+   map. Red if any related key is invalid, amber if any is missing."
+  [field-or-keys]
+  (let [errors @(subscribe [:builder-field-errors])
+        ks (if (coll? field-or-keys) field-or-keys [field-or-keys])
+        statuses (keep #(get errors %) ks)]
+    (cond
+      (some #{:invalid} statuses) " builder-field-invalid"
+      (some #{:missing} statuses) " builder-field-unfilled"
+      :else "")))
+
 (defn base-armor-selector []
   (let [mobile? @(subscribe [:mobile?])]
     [:div.m-b-20
@@ -4602,8 +4615,9 @@
       [:div.flex-grow-1
        (base-builder-field
         [:div.f-w-b.m-b-5
-         {:class (when (empty? (::mi/subtypes @(subscribe [::mi/builder-item])))
-                   "builder-field-unfilled")}
+         ;; Same cue the other builders use for an unanswered required field,
+         ;; read from the same :builder-field-errors map.
+         {:class (builder-field-cue :subtypes)}
          "Armor Type"]
         [:div
          {:style (if mobile?
@@ -4642,8 +4656,9 @@
       [:div.flex-grow-1
        (base-builder-field
         [:div.f-w-b.m-b-5
-         {:class (when (empty? (::mi/subtypes @(subscribe [::mi/builder-item])))
-                   "builder-field-unfilled")}
+         ;; Same cue the other builders use for an unanswered required field,
+         ;; read from the same :builder-field-errors map.
+         {:class (builder-field-cue :subtypes)}
          "Weapon Type"]
         [:div
          {:style (if mobile?
@@ -4940,19 +4955,6 @@
      [item-damage-immunities]]
     [:div.flex-grow-1
      [item-condition-immunities]]]])
-
-(defn builder-field-cue
-  "Cue class for a required field (or a set of related keys) rendered by a
-   component other than the text inputs — reads the same :builder-field-errors
-   map. Red if any related key is invalid, amber if any is missing."
-  [field-or-keys]
-  (let [errors @(subscribe [:builder-field-errors])
-        ks (if (coll? field-or-keys) field-or-keys [field-or-keys])
-        statuses (keep #(get errors %) ks)]
-    (cond
-      (some #{:invalid} statuses) " builder-field-invalid"
-      (some #{:missing} statuses) " builder-field-unfilled"
-      :else "")))
 
 (defn builder-input-field [title prop item prop-event & [class-names type]]
   ;; Flag a required field that failed the last save: amber if it was empty,
@@ -8146,7 +8148,9 @@
           #(dispatch [::mi/set-item-name %])
           ;; The name input had no ceiling at all. The server bound is the real
           ;; defence; this just stops the UI producing something it will reject.
-          {:class "input h-40"
+          ;; The cue class flags it amber while it is empty, from the same map
+          ;; the Weapon Type heading reads.
+          {:class (str "input h-40" (builder-field-cue :name))
            :maxLength mi/max-name-length}]
        (when (seq name) 
          (valid-wel name))

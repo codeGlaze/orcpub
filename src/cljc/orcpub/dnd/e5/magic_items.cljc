@@ -359,6 +359,21 @@
     (conj (str "Choose an Armor Type. Without one the item has no base AC of "
                "its own and a character wearing it is treated as unarmoured."))))
 
+(defn incomplete-fields
+  "Required fields that have not been answered, as the {field -> :missing} map
+   :builder-field-errors takes.
+
+   Same source of truth as incomplete-reasons -- the reasons are what the user
+   reads, this is what the fields colour themselves from -- so the notice and
+   the highlight can never disagree about what is outstanding."
+  [{:keys [::type ::name ::subtypes]}]
+  (cond-> {}
+    (s/blank? (str name))
+    (assoc :name :missing)
+
+    (and (#{:weapon :armor ::armor} type) (empty? subtypes))
+    (assoc :subtypes :missing)))
+
 (defn ready-to-save?
   "Nothing left to answer before this item can be stored."
   [item]
