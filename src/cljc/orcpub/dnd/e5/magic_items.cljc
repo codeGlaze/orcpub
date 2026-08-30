@@ -41,9 +41,8 @@
   (spec/and string? #(<= (count %) max-length)))
 
 ;(spec/def ::name string?)
-(spec/def ::name (spec/and string?
-                           common/starts-with-letter?
-                           #(<= (count %) max-name-length)))
+(spec/def ::name (spec/and (bounded-string max-name-length)
+                           common/starts-with-letter?))
 ;(spec/def ::type keyword?)
 (spec/def ::type (spec/and keyword? common/keyword-starts-with-letter?))
 (spec/def ::rarity keyword?)
