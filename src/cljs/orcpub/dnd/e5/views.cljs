@@ -6370,9 +6370,10 @@
 (defn- default-grant-item [kind] (some-> (grant-vocab kind) first :value keyword))
 
 (def ^:private subchoice-froms
-  [{:title "Any simple weapon"   :value "simple"}
-   {:title "Any martial weapon"  :value "martial"}
-   {:title "Any weapon"          :value "any-weapon"}
+  [{:title "Any simple weapon"        :value "simple"}
+   {:title "Any simple melee weapon"  :value "simple-melee"}
+   {:title "Any martial weapon"       :value "martial"}
+   {:title "Any weapon"               :value "any-weapon"}
    {:title "A holy symbol"       :value "holy-symbol"}
    {:title "An arcane focus"     :value "arcane-focus"}
    {:title "A druidic focus"     :value "druidic-focus"}
@@ -6513,7 +6514,7 @@
       [:div {:style {:width "220px"}}
        [dropdown {:items (cons {:title "— choose —" :value ""}
                                (map (fn [k] {:title (s/capitalize (name k)) :value (name k)})
-                                    (sort (keys srd-equip/srd-class-equipment))))
+                                    (sort srd-equip/srd-class-keys)))
                   :value ""
                   :on-change (fn [v] (when-not (s/blank? v)
                                        (dispatch [::classes/fill-starting-equipment (keyword v)])))}]]]

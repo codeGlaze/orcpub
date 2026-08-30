@@ -2526,14 +2526,16 @@
     (new-starting-equipment-selection
      class-kw
      {:name (or name (case from :simple "Simple Weapon" :martial "Martial Weapon"
-                       :any-weapon "Weapon" (:name chooser "Choose one")))
+                       :simple-melee "Simple Melee Weapon" :any-weapon "Weapon"
+                       (:name chooser "Choose one")))
       :min 1 :max 1
       :options (cond
-                 (= from :simple)     (simple-weapon-options 1 (vals weapon-map))
-                 (= from :martial)    (martial-weapon-options 1 (vals weapon-map))
-                 (= from :any-weapon) (weapon-options (vals weapon-map) 1)
-                 chooser              (mapv #(equipment-option class-kw [(:key %) 1]) (:items chooser))
-                 :else                [])})))
+                 (= from :simple)       (simple-weapon-options 1 (vals weapon-map))
+                 (= from :martial)      (martial-weapon-options 1 (vals weapon-map))
+                 (= from :simple-melee) (simple-melee-weapon-options 1 (vals weapon-map))
+                 (= from :any-weapon)   (weapon-options (vals weapon-map) 1)
+                 chooser                (mapv #(equipment-option class-kw [(:key %) 1]) (:items chooser))
+                 :else                  [])})))
 
 ;; One option -> an option-cfg carrying its bundle (:grants -> :modifiers) and any
 ;; nested picks (:choose -> :selections).

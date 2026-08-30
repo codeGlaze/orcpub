@@ -116,9 +116,11 @@
 ;; item or a dropped/added option).
 ;; ---------------------------------------------------------------------------
 
+;; top-level starting-equipment choice groups (direct children); nested sub-choice
+;; selections are an internal representation detail, not part of the equivalence.
 (defn- se-selections [built]
-  (filter #(and (map? %) (some-> (:orcpub.template/name %) (str/starts-with? "Starting Equipment:")))
-          (collect map? built)))
+  (filter #(contains? (:orcpub.template/tags %) :starting-equipment)
+          (:orcpub.template/selections built)))
 
 ;; Pool/chooser keys ("any martial weapon", "an arcane focus", …) are selection
 ;; identifiers, not grantable items — a nested selection derives a name-key from them
@@ -138,23 +140,22 @@
 
 (defn- live-class-option [class-kw]
   ;; call <class>-option in classes.cljc with inert spell/subclass/language args; the
-  ;; equipment portion of the built option doesn't depend on them.
+  ;; equipment portion of the built option doesn't depend on them. (warlock takes 2 extra.)
   (let [f (ns-resolve 'orcpub.dnd.e5.classes (symbol (str (name class-kw) "-option")))]
-    (f {} {} {} {} weapons/weapons-map)))
+    (if (= :warlock class-kw)
+      (f {} {} {} {} weapons/weapons-map {} {})
+      (f {} {} {} {} weapons/weapons-map))))
 
 (defn- signature-of [equip]
   (equipment-signature (opt/class-option {} {} {} {} weapons/weapons-map
                                          (merge {:name "Probe" :key :probe :hit-die 8} equip))))
 
-(deftest srd-equipment-extraction-matches-live
-  (doseq [class-kw (keys srd/srd-class-equipment)]
-    (let [live (equipment-signature (live-class-option class-kw))]
-      ;; the raw table entry compiles to the same equipment as the live class
-      (is (= live (signature-of (srd/srd-class-equipment class-kw)))
-          (str class-kw " — raw table matches live"))
-      ;; and the builder-ready form (shorthand unified to :equipment-selections) matches
-      ;; live too, EXCEPT selection names (unifying can rename a menu) — so item-keys +
-      ;; fixed grants must be identical.
-      (let [b (signature-of (srd/builder-equipment class-kw))]
-        (is (= (:fixed live) (:fixed b))                       (str class-kw " — builder-form fixed grants match live"))
-        (is (= (:choice-item-keys live) (:choice-item-keys b)) (str class-kw " — builder-form item keys match live"))))))
+(deftest srd-equipment-decompile-matches-live
+  ;; builder-equipment DECOMPILES each live class into serializable :equipment-selections;
+  ;; recompiling that must reproduce the live class's equipment (round-trip), for all 12.
+  (doseq [class-kw srd/srd-class-keys]
+    (let [live (equipment-signature (live-class-option class-kw))
+          b    (signature-of (srd/builder-equipment class-kw))]
+      (is (= (:fixed live) (:fixed b))                       (str class-kw " — fixed grants round-trip"))
+      (is (= (:selection-names live) (:selection-names b))   (str class-kw " — selection names round-trip"))
+      (is (= (:choice-item-keys live) (:choice-item-keys b)) (str class-kw " — item keys round-trip")))))

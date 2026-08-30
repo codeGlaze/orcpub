@@ -1,117 +1,126 @@
 (ns orcpub.dnd.e5.srd-starting-equipment
-  "SRD classes' starting equipment expressed as serializable data (the shorthand +
-   :equipment-selections form from options.cljc), so the class builder can 'start from'
-   an SRD class. The live class definitions in classes.cljc remain the ground truth;
-   orcpub.starting-equipment-test asserts each entry here compiles (via class-option) to
-   the same equipment the live class produces. Keys, once shipped, are frozen (a wrong
-   key is fixed with a shim, never a rename) — see docs/kb/starting-equipment-override-ledger.md."
-  (:require [orcpub.dnd.e5.weapons :as weapons]
+  "'Start from an SRD class': derive a class's starting equipment as serializable data
+   (fixed grants + :equipment-selections) DIRECTLY from the live class definition — no
+   hand-transcribed copy. class-option's built output holds the equipment as fixed
+   associated-options plus choice selections whose grants live in modifier fns; we read
+   the fixed ones as data and recover choice grants by APPLYING each modifier fn (exactly
+   how the app applies them to a character). Verified by a decompile->recompile round-trip
+   against the live class in orcpub.starting-equipment-test."
+  (:require [clojure.string :as str]
+            [orcpub.dnd.e5.classes :as classes]
+            [orcpub.dnd.e5.weapons :as weapons]
             [orcpub.dnd.e5.armor :as armor]
             [orcpub.dnd.e5.equipment :as equipment]))
 
-(def srd-class-equipment
-  {;; Pure-shorthand classes — copied verbatim from their -option fns (classes.cljc).
-   :barbarian
-   {:weapons {:javelin 4}
-    :equipment {:explorers-pack 1}
-    :weapon-choices [{:name "Martial Weapon" :options {:greataxe 1 :martial 1}}
-                     {:name "Simple Weapon"  :options {:handaxe 2 :simple 1}}]}
+;; class-kw -> a thunk building the live class option with inert spell/subclass/language
+;; args (the equipment portion doesn't depend on them). Warlock takes two extra args.
+(def ^:private class-option-thunks
+  (let [wm weapons/weapons-map]
+    {:barbarian #(classes/barbarian-option {} {} {} {} wm)
+     :bard      #(classes/bard-option      {} {} {} {} wm)
+     :cleric    #(classes/cleric-option    {} {} {} {} wm)
+     :druid     #(classes/druid-option     {} {} {} {} wm)
+     :fighter   #(classes/fighter-option   {} {} {} {} wm)
+     :monk      #(classes/monk-option      {} {} {} {} wm)
+     :paladin   #(classes/paladin-option   {} {} {} {} wm)
+     :ranger    #(classes/ranger-option    {} {} {} {} wm)
+     :rogue     #(classes/rogue-option     {} {} {} {} wm)
+     :sorcerer  #(classes/sorcerer-option  {} {} {} {} wm)
+     :warlock   #(classes/warlock-option   {} {} {} {} wm {} {})
+     :wizard    #(classes/wizard-option    {} {} {} {} wm)}))
 
-   :monk
-   {:weapons {:dart 10}
-    :equipment-choices [{:name "Equipment Pack" :options {:dungeoneers-pack 1 :explorers-pack 1}}]
-    :weapon-choices    [{:name "Weapon"         :options {:shortsword 1 :simple 1}}]}
+(def ^:private bucket->kind {:weapons :weapon :armor :armor :equipment :equipment})
 
-   ;; Shorthand + one :selections group.
-   :rogue
-   {:armor {:leather 1}
-    :weapons {:dagger 2}
-    :equipment {:thieves-tools 1}
-    :weapon-choices    [{:name "Melee Weapon"   :options {:rapier 1 :shortsword 1}}]
-    :equipment-choices [{:name "Equipment Pack" :options {:burglars-pack 1 :dungeoneers-pack 1 :explorers-pack 1}}]
-    :equipment-selections
-    [{:name "Additional Weapon"
-      :options [{:name "Shortbow, Quiver, 20 Arrows"
-                 :grants [{:kind :weapon :key :shortbow :qty 5}    ; :shortbow 5 verbatim from live rogue-option
-                          {:kind :equipment :key :quiver :qty 1}
-                          {:kind :equipment :key :arrow :qty 20}]}
-                {:name "Shortsword" :grants [{:kind :weapon :key :shortsword :qty 1}]}]}]}
+;; item-key sets for the "pick one of a pool" sub-choices, so a nested selection whose
+;; options are exactly a pool is recovered as {:from <pool>} instead of listing members.
+(def ^:private pool-key-sets
+  (delay
+   {:simple             (set (map :key (weapons/simple-weapons (vals weapons/weapons-map))))
+    :martial            (set (map :key (weapons/martial-weapons (vals weapons/weapons-map))))
+    :simple-melee       (set (map :key (filter #(and (= :simple (:orcpub.dnd.e5.weapons/type %))
+                                                     (:orcpub.dnd.e5.weapons/melee? %))
+                                                (vals weapons/weapons-map))))
+    :any-weapon         (set (keys weapons/weapons-map))
+    :holy-symbol        (set (map :key equipment/holy-symbols))
+    :arcane-focus       (set (map :key equipment/arcane-focuses))
+    :druidic-focus      (set (map :key equipment/druidic-focuses))
+    :musical-instrument (set (map :key equipment/musical-instruments))
+    :pack               (set (map :key equipment/packs))}))
 
-   :wizard
-   {:equipment {:spellbook 1}
-    :equipment-choices [{:name "Equipment Pack"        :options {:scholars-pack 1 :explorers-pack 1}}
-                        {:name "Spellcasting Equipment" :options {:component-pouch 1 :arcane-focus 1}}]
-    :weapon-choices    [{:name "Melee Weapon"          :options {:quarterstaff 1 :dagger 1}}]}
+(defn- modifier->grants [m]
+  "Apply the modifier's fn to {} and read the {bucket {item-key {quantity}}} it produces."
+  (let [bucket  (:orcpub.modifiers/key m)
+        kind    (bucket->kind bucket)
+        applied (when (and kind (fn? (:orcpub.modifiers/fn m)))
+                  (try ((:orcpub.modifiers/fn m) {}) (catch #?(:clj Throwable :cljs :default) _ nil)))]
+    (for [[k v] (get applied bucket)]
+      {:kind kind :key k
+       :qty (get v :orcpub.dnd.e5.character.equipment/quantity 1)})))
 
-   ;; :selections class — transcribed from fighter-option (classes.cljc:1106-1151) into the
-   ;; serializable form: bundle options (:grants) and nested weapon picks (:choose).
-   :fighter
-   {:equipment-selections
-    [{:name "Armor"
-      :options [{:name "Chain Mail" :grants [{:kind :armor :key :chain-mail :qty 1}]}
-                {:name "Leather Armor, Longbow, 20 Arrows"
-                 :grants [{:kind :armor :key :leather :qty 1}
-                          {:kind :weapon :key :longbow :qty 1}
-                          {:kind :equipment :key :arrow :qty 20}]}]}
-     {:name "Weapons"
-      :options [{:name "Martial Weapon and Shield"
-                 :grants [{:kind :armor :key :shield :qty 1}]
-                 :choose [{:from :martial}]}
-                {:name "Two Martial Weapons"
-                 :choose [{:name "Martial Weapon 1" :from :martial}
-                          {:name "Martial Weapon 2" :from :martial}]}]}
-     {:name "Additional Weapons"
-      :options [{:name "Light Crossbow and 20 Bolts"
-                 :grants [{:kind :weapon :key :crossbow-light :qty 1}
-                          {:kind :equipment :key :crossbow-bolt :qty 20}]}
-                {:name "Two Handaxes"
-                 :grants [{:kind :weapon :key :handaxe :qty 2}]}]}
-     ;; Fighter also has a shorthand :equipment-choices pack — folded in as a group.
-     {:name "Equipment Pack"
-      :options [{:name "Dungeoneer's Pack" :grants [{:kind :equipment :key :dungeoneers-pack :qty 1}]}
-                {:name "Explorer's Pack"   :grants [{:kind :equipment :key :explorers-pack :qty 1}]}]}]}})
+(defn- real-options [sel]
+  (remove #(= "<none>" (:orcpub.template/name %)) (:orcpub.template/options sel)))
 
-;; --- Builder-ready form -----------------------------------------------------
-;; The fill-in ("start from a class") hands the builder ONE editable form: fixed
-;; grants as-is, and every choice — shorthand :*-choices and any :equipment-selections
-;; — unified into :equipment-selections. A menu option keyed by a "chooser" (a weapon
-;; class or a grouped-equipment key) becomes a :choose sub-choice, not a fixed grant, so
-;; it expands to a pick the same way the shorthand did. Verified against the live class.
+(defn- strip-prefix [nm]
+  (if (and (string? nm) (str/starts-with? nm "Starting Equipment: "))
+    (subs nm (count "Starting Equipment: ")) nm))
 
-(def ^:private choice-key->kind
-  {:weapon-choices :weapon :armor-choices :armor :equipment-choices :equipment})
+(defn- nested->from [nested]
+  "Recognise a nested sub-selection as a named pool (:martial, :arcane-focus, …)."
+  (let [keys (set (mapcat #(map :key (mapcat modifier->grants (:orcpub.template/modifiers %)))
+                          (real-options nested)))]
+    (some (fn [[from ks]] (when (= ks keys) from)) @pool-key-sets)))
 
-;; item-keys that mean "pick one of a pool" rather than "grant this item"
-(def ^:private chooser-labels
-  {:simple "Any Simple Weapon" :martial "Any Martial Weapon"
-   :holy-symbol "A Holy Symbol" :arcane-focus "An Arcane Focus" :druidic-focus "A Druidic Focus"
-   :musical-instrument "A Musical Instrument" :pack "An Equipment Pack"})
+(defn- option->data [opt]
+  (let [grants (vec (mapcat modifier->grants (:orcpub.template/modifiers opt)))
+        subs   (->> (:orcpub.template/selections opt)
+                    (keep (fn [nested]
+                            (when-let [from (nested->from nested)]
+                              {:name (strip-prefix (:orcpub.template/name nested)) :from from})))
+                    vec)]
+    (cond-> {:name (:orcpub.template/name opt)}
+      (seq grants) (assoc :grants grants)
+      (seq subs)   (assoc :choose subs))))
 
-(defn- item-name [k]
-  (or (get-in weapons/weapons-map [k :name])
-      (get-in armor/armor-map [k :name])
-      (get-in equipment/equipment-map [k :name])
-      (name k)))
+(defn- starting-equipment-selection? [sel]
+  (and (map? sel) (contains? (:orcpub.template/tags sel) :starting-equipment)))
 
-(defn- shorthand-choice->group [kind {:keys [name options]}]
-  {:name (or name "")
-   :options (vec (for [[k q] options]
-                   (if-let [label (chooser-labels k)]
-                     {:name label :choose [{:from k}]}
-                     {:name (item-name k) :grants [{:kind kind :key k :qty q}]})))})
+(defn- decompile-fixed [built]
+  "associated-options carrying the class-starting-equipment flag -> {:weapons {k q} …}."
+  (reduce
+   (fn [acc entry]
+     (reduce-kv
+      (fn [acc bucket items]
+        (reduce (fn [acc {k :orcpub.entity/key v :orcpub.entity/value}]
+                  (if (:orcpub.dnd.e5.character.equipment/class-starting-equipment? v)
+                    (assoc-in acc [bucket k]
+                              (:orcpub.dnd.e5.character.equipment/quantity v 1))
+                    acc))
+                acc items))
+      acc entry))
+   {} (:orcpub.template/associated-options built)))
+
+(defn- decompile-selections [built]
+  "top-level starting-equipment selections -> [{:name … :options [{…}]}]."
+  (->> (:orcpub.template/selections built)
+       (filter starting-equipment-selection?)
+       (mapv (fn [sel]
+               {:name    (strip-prefix (:orcpub.template/name sel))
+                :options (mapv option->data (real-options sel))}))))
 
 (defn builder-equipment
-  "The class's starting equipment in the builder's editable form (fixed grants +
-   unified :equipment-selections). nil if the class isn't in the table."
+  "The SRD class's starting equipment in the builder's editable form (fixed grants +
+   :equipment-selections), derived from the live class. nil for an unknown class."
   [class-kw]
-  (when-let [{:keys [weapons armor equipment equipment-selections] :as e}
-             (srd-class-equipment class-kw)]
-    (let [from-shorthand (vec (for [[ck kind] choice-key->kind
-                                    grp (get e ck) :when (seq (:options grp))]
-                                (shorthand-choice->group kind grp)))
-          groups (into (vec equipment-selections) from-shorthand)]
+  (when-let [thunk (get class-option-thunks class-kw)]
+    (let [built  (thunk)
+          fixed  (decompile-fixed built)
+          groups (decompile-selections built)]
       (cond-> {}
-        weapons        (assoc :weapons weapons)
-        armor          (assoc :armor armor)
-        equipment      (assoc :equipment equipment)
-        (seq groups)   (assoc :equipment-selections groups)))))
+        (:weapons fixed)   (assoc :weapons (:weapons fixed))
+        (:armor fixed)     (assoc :armor (:armor fixed))
+        (:equipment fixed) (assoc :equipment (:equipment fixed))
+        (seq groups)       (assoc :equipment-selections groups)))))
+
+(def srd-class-keys
+  "The SRD classes offered by 'start from a class'."
+  [:barbarian :bard :cleric :druid :fighter :monk :paladin :ranger :rogue :sorcerer :warlock :wizard])
