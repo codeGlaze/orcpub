@@ -766,7 +766,11 @@
     "item"
     (:body response)
     item
-    "Your item could not be saved. Check the highlighted fields and try again.")))
+    ;; Names the fields, matching the wording the homebrew savers use
+    ;; ("You must specify 'Name', 'Option Source Name', ...") rather than
+    ;; inventing a vaguer sentence for this one screen.
+    (str "You must specify 'Item Name', and a 'Weapon Type' or 'Armor Type' "
+         "for a weapon or armour item."))))
 
 (defn reg-save-homebrew [type-name
                          event-key
