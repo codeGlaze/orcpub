@@ -3727,9 +3727,15 @@
  ::mi/set-item-type
  item-interceptors
  (fn [item [_ item-type-str]]
+   ;; Subtypes are cleared because they belong to the old type. with-default-
+   ;; subtype then seeds Custom for a weapon or armour item, so the Base
+   ;; Weapon / Base Armor block is never left with nothing ticked -- that state
+   ;; produced an item with no damage die and no proficiency category, and the
+   ;; only signal was a "d+2" on a character sheet later.
    (-> item
        (assoc ::mi/type (keyword item-type-str))
-       (dissoc ::mi/subtypes))))
+       (dissoc ::mi/subtypes)
+       mi/with-default-subtype)))
 
 (reg-event-db
  ::mi/set-item-weapon-type

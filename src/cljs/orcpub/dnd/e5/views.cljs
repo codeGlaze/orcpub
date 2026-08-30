@@ -4601,7 +4601,10 @@
      [:div.flex.flex-wrap
       [:div.flex-grow-1
        (base-builder-field
-        [:div.f-w-b.m-b-5 "Armor Type"]
+        [:div.f-w-b.m-b-5
+         {:class (when (empty? (::mi/subtypes @(subscribe [::mi/builder-item])))
+                   "builder-field-unfilled")}
+         "Armor Type"]
         [:div
          {:style (if mobile?
                    two-columns-style
@@ -4638,7 +4641,10 @@
      [:div.flex.flex-wrap
       [:div.flex-grow-1
        (base-builder-field
-        [:div.f-w-b.m-b-5 "Weapon Type"]
+        [:div.f-w-b.m-b-5
+         {:class (when (empty? (::mi/subtypes @(subscribe [::mi/builder-item])))
+                   "builder-field-unfilled")}
+         "Weapon Type"]
         [:div
          {:style (if mobile?
                    two-columns-style

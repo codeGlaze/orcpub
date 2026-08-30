@@ -230,10 +230,10 @@ async function signedOutSavePrompt(p) {
         `name field is ${JSON.stringify(nameValue)}`);
 }
 
-async function anIncompleteWeaponCannotBeSaved(p) {
-  console.log('\na weapon with no type chosen cannot be saved');
+async function aWeaponAlwaysHasAType(p) {
+  console.log('\na weapon item always has a type, and cannot be left without one');
   await login(p);
-  await newItem(p, 'Untyped Blade', 'weapon', { chooseSubtype: false });
+  await newItem(p, 'Typed Blade', 'weapon', { chooseSubtype: false });
 
   // The header is rendered twice -- a sticky copy and the in-content one --
   // so an unqualified .first() picks the hidden sticky button and every click
@@ -246,24 +246,33 @@ async function anIncompleteWeaponCannotBeSaved(p) {
     if (r.request().method() === 'POST' && /\/items/.test(r.url())) posts.push(r.status());
   });
 
-  const cls = await saveBtn().getAttribute('class');
-  check('the save button is disabled', /disabled/.test(cls || ''), String(cls));
-  const body = await p.locator('body').innerText();
-  check('and says what is missing', /Choose a Weapon Type/.test(body));
+  // Choosing Type = weapon now seeds Custom, so the empty state is not
+  // reachable by simply picking a type any more.
+  // comps/checkbox is an <i class="fa fa-check ...">, ticked when it carries
+  // "black" and unticked when it carries "transparent" -- there is no <input>
+  // and no checked attribute to look for.
+  const ticked = await p.evaluate(() => {
+    const label = [...document.querySelectorAll('span')]
+      .find(e => e.textContent.trim() === 'Custom');
+    if (!label) return 'no Custom label found';
+    const box = label.parentElement.querySelector('i.fa-check');
+    if (!box) return 'no checkbox beside it';
+    return box.className.includes('black') && !box.className.includes('transparent');
+  });
+  check('picking weapon seeds a type', ticked === true, String(ticked));
+  check('so the save is available immediately',
+        !/disabled/.test(await saveBtn().getAttribute('class') || ''));
+  check('and no unfilled cue is shown',
+        !/Choose a Weapon Type/.test(await p.locator('body').innerText()));
 
-  // .form-button.disabled sets pointer-events:none, so this is refused by the
-  // browser rather than only by the handler.
-  try { await saveBtn().click({ timeout: 4000 }); } catch (e) { /* expected */ }
-  await p.waitForTimeout(1500);
-  check('clicking it sends nothing', posts.length === 0, JSON.stringify(posts));
-
-  // One click on the same screen fixes it.
+  // The other way into the empty state was unticking the last box.
   await p.getByText('Custom', { exact: true }).first().click();
   await p.waitForTimeout(900);
-  check('choosing a type enables the save',
-        !/disabled/.test(await saveBtn().getAttribute('class') || ''));
-  check('and clears the notice',
+  check('unticking the only type leaves it in place',
         !/Choose a Weapon Type/.test(await p.locator('body').innerText()));
+  check('and the save stays available',
+        !/disabled/.test(await saveBtn().getAttribute('class') || ''));
+
   await saveBtn().click();
   await p.waitForTimeout(3000);
   check('and the item saves', posts.includes(200), JSON.stringify(posts));
@@ -442,7 +451,7 @@ async function itemTextReachesTheCharacterSheet(p) {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const cases = [customItemOverridesSrd, removeForGoodActuallyRemoves, signedOutSavePrompt,
                  magicalPropertiesField, itemTextReachesTheCharacterSheet,
-                 suspendedMagicIsMarkedEverywhere, anIncompleteWeaponCannotBeSaved];
+                 suspendedMagicIsMarkedEverywhere, aWeaponAlwaysHasAType];
   const consoleFindings = [];
   for (const c of cases) {
     const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });

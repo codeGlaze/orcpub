@@ -3551,5 +3551,29 @@ The boots regain 2 hours of flying capability for every 12 hours they aren’t i
                 (fn [s]
                   (let [clean (disj (or s #{}) :other :all)]
                     (if (get clean type)
-                      (disj clean type)
+                      ;; Never empty. A weapon or armour item with no type has
+                      ;; no damage die, no proficiency category and no base AC
+                      ;; of its own -- there is no reason anyone would want
+                      ;; that, and unticking the last box was the only way to
+                      ;; reach it once one had been chosen.
+                      (let [without (disj clean type)]
+                        (if (empty? without) clean without))
                       (conj clean type))))))))
+
+(defn with-default-subtype
+  "A weapon or armour item always has a type chosen.
+
+   Picking Type = weapon used to leave Base Weapon entirely unticked, and the
+   item was saveable in that state: no damage die, so the sheet printed a die
+   with no size; no :simple/:martial category, so proficiency never matched.
+   Custom is the honest default because it is the one option that does not
+   claim the item is something it is not -- and apply-subtype-toggle seeds real
+   values (1d4, simple, bludgeoning) for it, all of them visible and editable
+   on the same screen.
+
+   Only fills an EMPTY selection, so it never overrides a choice."
+  [{:keys [::type ::subtypes] :as item}]
+  (if (and (#{:weapon :armor ::armor} type) (empty? subtypes))
+    (apply-subtype-toggle item :other)
+    item))
+

@@ -255,10 +255,17 @@
   (testing "adds a named subtype"
     (let [result (mi/apply-subtype-toggle {} :sword)]
       (is (= #{:sword} (::mi/subtypes result)))))
-  (testing "toggles off an existing subtype"
-    (let [item {::mi/subtypes #{:sword}}
-          result (mi/apply-subtype-toggle item :sword)]
-      (is (= #{} (::mi/subtypes result)))))
+  (testing "toggles off an existing subtype, unless it is the last one"
+    ;; This used to yield #{}. An item with no subtype has no damage die, no
+    ;; proficiency category and no base AC of its own, and unticking the last
+    ;; box was the only route back into that state once a type had been
+    ;; chosen -- with no signal until a "d+2" turned up on a character sheet.
+    (let [two {::mi/subtypes #{:sword :axe}}]
+      (is (= #{:axe} (::mi/subtypes (mi/apply-subtype-toggle two :sword)))
+          "one of several still comes off"))
+    (let [one {::mi/subtypes #{:sword}}]
+      (is (= #{:sword} (::mi/subtypes (mi/apply-subtype-toggle one :sword)))
+          "the last one stays")))
   (testing "clears :other/:all when toggling a named subtype"
     (let [item {::mi/subtypes #{:other}}
           result (mi/apply-subtype-toggle item :sword)]
@@ -869,3 +876,43 @@
                           ::mi/type :weapon
                           ::mi/subtypes #{:longsword}
                           ::mi/magical? true})))
+
+;; ---------------------------------------------------------------------------
+;; A weapon or armour item always has a type
+;; ---------------------------------------------------------------------------
+
+(deftest choosing-weapon-as-the-type-seeds-a-usable-base
+  (let [item (mi/with-default-subtype {::mi/name "Fresh Blade" ::mi/type :weapon})]
+    (is (= #{:other} (::mi/subtypes item)) "Custom is the default")
+    (testing "and it carries real values, not an empty shell"
+      (is (= 1 (:orcpub.dnd.e5.weapons/damage-die-count item)))
+      (is (= 4 (:orcpub.dnd.e5.weapons/damage-die item)))
+      (is (= :simple (:orcpub.dnd.e5.weapons/type item)))
+      (is (= :bludgeoning (:orcpub.dnd.e5.weapons/damage-type item))))
+    (testing "so it is immediately saveable"
+      (is (mi/ready-to-save? item)))))
+
+(deftest a-default-never-overrides-a-real-choice
+  (let [chosen {::mi/name "Blade" ::mi/type :weapon ::mi/subtypes #{:longsword}}]
+    (is (= #{:longsword} (::mi/subtypes (mi/with-default-subtype chosen))))))
+
+(deftest types-with-no-list-to-choose-from-are-left-alone
+  (doseq [t [:wondrous-item :ring :potion :other]]
+    (is (nil? (::mi/subtypes (mi/with-default-subtype {::mi/name "Trinket" ::mi/type t})))
+        (str t " has no subtype list, so nothing is seeded"))))
+
+(deftest the-last-weapon-type-cannot-be-unticked
+  (testing "unticking the only choice leaves it in place"
+    ;; This was the one way back into the broken state once a type had been
+    ;; chosen: untick the last box and the item silently loses its damage die.
+    (let [one {::mi/name "Blade" ::mi/type :weapon ::mi/subtypes #{:longsword}}]
+      (is (= #{:longsword} (::mi/subtypes (mi/apply-subtype-toggle one :longsword))))))
+  (testing "but one of several can still be removed"
+    (let [two {::mi/name "Blade" ::mi/type :weapon
+               ::mi/subtypes #{:longsword :shortsword}}]
+      (is (= #{:shortsword}
+             (::mi/subtypes (mi/apply-subtype-toggle two :longsword))))))
+  (testing "and a different one can still be added"
+    (let [one {::mi/name "Blade" ::mi/type :weapon ::mi/subtypes #{:longsword}}]
+      (is (= #{:longsword :shortsword}
+             (::mi/subtypes (mi/apply-subtype-toggle one :shortsword)))))))
