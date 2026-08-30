@@ -2,7 +2,9 @@
   "The PDF exporter fetches a URL the user supplied, from the server, on an
    unauthenticated endpoint. These pin the limits that make that safe."
   (:require [clojure.test :refer [deftest testing is]]
-            [orcpub.pdf :as pdf]))
+            [orcpub.pdf :as pdf]
+            [orcpub.routes]
+            [clojure.java.io]))
 
 (deftest only-http-and-https-are-fetchable
   (testing "schemes the route's own filter used to allow"
@@ -65,3 +67,22 @@
     (let [within? #'orcpub.pdf/within-pixel-budget?]
       (is (true? (within? (.toByteArray out)))
           "400x600 is well inside the budget"))))
+
+(deftest only-styles-with-a-template-are-accepted
+  (testing "the ids that have a file on disk"
+    ;; resources/fillable-char-sheetstyle-N-*.pdf exists for N in 1..4.
+    (is (= #{1 2 3 4} orcpub.routes/valid-sheet-styles))
+    (doseq [n orcpub.routes/valid-sheet-styles]
+      (is (some? (clojure.java.io/resource
+                  (str "fillable-char-sheetstyle-" n "-0-spells.pdf")))
+          (str "style " n " must have a template")))))
+
+(deftest the-fallback-style-has-a-template
+  (testing "so an absent or bogus style cannot produce a missing resource"
+    ;; A missing field used to yield "fillable-char-sheetstyle--0-spells.pdf",
+    ;; io/resource nil, and an NPE -- a 500 anyone could trigger by omitting a
+    ;; field on an unauthenticated endpoint.
+    (is (contains? orcpub.routes/valid-sheet-styles orcpub.routes/default-sheet-style))
+    (is (some? (clojure.java.io/resource
+                (str "fillable-char-sheetstyle-"
+                     orcpub.routes/default-sheet-style "-0-spells.pdf"))))))

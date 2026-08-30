@@ -633,6 +633,12 @@
                                  logo-img)))))))
     (catch Exception e (prn "FAILED ADDING SPELLS CARDS!" e))))
 
+(def valid-sheet-styles
+  "Style ids with a template on disk: resources/fillable-char-sheetstyle-N-*.pdf"
+  #{1 2 3 4})
+
+(def default-sheet-style 1)
+
 (defn character-pdf-2 [req]
   (let [fields (try
                  (-> req :form-params :body edn/read-string)
@@ -657,6 +663,16 @@
                                "public/image/dmv-mark-faded-orange.png"
                                "public/image/dmv-mark-black.png"))
 
+        ;; The style id is interpolated into a resource name. It arrives from an
+        ;; unauthenticated POST and was used verbatim: a missing field produced
+        ;; "fillable-char-sheetstyle--0-spells.pdf", io/resource returned nil,
+        ;; and .openStream on nil threw -- a 500 anyone could trigger by
+        ;; omitting a field. Only the four ids with templates on disk are
+        ;; accepted; anything else falls back to the first.
+        print-character-sheet-style? (if (contains? valid-sheet-styles
+                                                    print-character-sheet-style?)
+                                       print-character-sheet-style?
+                                       default-sheet-style)
         sheet6 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-6-spells.pdf")
         sheet5 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-5-spells.pdf")
         sheet4 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-4-spells.pdf")
