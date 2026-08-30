@@ -90,9 +90,17 @@ Note: the entity keyword namespace is **`orcpub.entity`** (`:orcpub.entity/key`)
 
 ## Builder UI (where it slots in)
 
-`class-builder` is hand-written hiccup (`views.cljs:6289-6554`), reading
-`::classes/builder-item` and dispatching per-field events (`set-class-prop` /
-`set-class-path-prop`, `events.cljs:3387`/`3262`). It has **no** equipment (or
-weapon/armor-proficiency) section today. A "Starting Equipment" section slots after
-skills (~`views.cljs:6521`), writing the shorthand keys above. `default-class`
-(`db.cljs:130`) gains the (empty) equipment keys.
+`class-builder` is hand-written hiccup (`views.cljs`), reading `::classes/builder-item`
+and dispatching per-field events (`set-class-prop` / `set-class-path-prop`,
+`events.cljs:3387`/`3262`). It had **no** equipment (or weapon/armor-proficiency)
+section.
+
+**Implemented** (`feat/starting-equipment`): a `starting-equipment-section` in
+`views.cljs` (fixed-grant blocks + typed choice-group blocks, picking from
+`weapons-map`/`armor-map`/`equipment-map`) that writes the shorthand keys above through
+one setter, `::class5e/set-equipment` (`events.cljs`), which drops a key when its
+map/vector is emptied so exports stay clean. `default-class` is left untouched (absent
+keys read as empty). Regression coverage: `test/clj/orcpub/starting_equipment_test.clj`
+(consumption + EDN round-trip) and the `set-equipment` cases in
+`test/cljs/orcpub/dnd/e5/events_test.cljs`. Still open: import/export validation that
+referenced item keys exist in the vocab (catches hand-edited typos).

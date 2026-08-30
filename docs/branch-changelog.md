@@ -16,10 +16,19 @@ way an official one does — and it round-trips through save/import/export.
 
 ## Highlights
 
-<!-- Decide at PR time (likely earns one — a new authoring capability the UI didn't
-     have). Draft ≤3 sentences, user-facing, once the work lands. -->
+Homebrew classes can now define their **starting equipment** from the builder UI —
+fixed items and "player chooses one" groups — instead of only through hand-edited
+`.orcbrew` files. It writes the same shape the SRD classes use, so the equipment
+applies on the character sheet and round-trips through save, export, and import.
 
 ## Added
+
+- **Starting Equipment section in the class builder** — a homebrew class can grant fixed
+  items (`:weapons`/`:armor`/`:equipment`) and typed choice groups (`:*-choices`), picked
+  from the real weapon/armor/equipment vocabulary (including "any simple/martial weapon").
+  Writes the shorthand keys `class-option` already consumes, so it applies to a character
+  with no new wiring and round-trips through save/export; empty categories are dropped so
+  exports stay clean (`a4f13086`).
 
 ## Fixed
 
