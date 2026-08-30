@@ -7,8 +7,13 @@
   (:require [clojure.test :refer [deftest is]]
             [clojure.walk :as walk]
             [clojure.edn :as edn]
+            [clojure.string :as str]
             [orcpub.dnd.e5.options :as opt]
-            [orcpub.dnd.e5.weapons :as weapons]))
+            [orcpub.dnd.e5.weapons :as weapons]
+            [orcpub.dnd.e5.armor :as armor]
+            [orcpub.dnd.e5.equipment :as equip]
+            [orcpub.dnd.e5.classes :as classes]
+            [orcpub.dnd.e5.srd-starting-equipment :as srd]))
 
 (defn- collect [pred x]
   (let [found (atom [])]
@@ -102,3 +107,38 @@
         "class + starting equipment is EDN-serializable and unchanged by round-trip")
     (is (= 4 (get equip :javelin))        "fixed weapon still granted after round-trip")
     (is (= 1 (get equip :explorers-pack)) "fixed equipment still granted after round-trip")))
+
+;; ---------------------------------------------------------------------------
+;; SRD equipment extraction: the srd-class-equipment data table must compile to
+;; the same equipment the LIVE class produces (the live class is ground truth).
+;; Signature = fixed grants (exact qty) + starting-equipment selection names +
+;; the set of item-keys referenced anywhere in those selections (catches a wrong
+;; item or a dropped/added option).
+;; ---------------------------------------------------------------------------
+
+(defn- se-selections [built]
+  (filter #(and (map? %) (some-> (:orcpub.template/name %) (str/starts-with? "Starting Equipment:")))
+          (collect map? built)))
+
+(defn- item-key? [k]
+  (boolean (or (get weapons/weapons-map k) (get armor/armor-map k) (get equip/equipment-map k))))
+
+(defn- equipment-signature [built]
+  {:fixed            (equip-quantities built)
+   :selection-names  (set (map :orcpub.template/name (se-selections built)))
+   :choice-item-keys (set (filter item-key? (mapcat #(collect keyword? %) (se-selections built))))})
+
+(defn- live-class-option [class-kw]
+  (case class-kw
+    :wizard  (classes/wizard-option  {} {} {} {} weapons/weapons-map)
+    :fighter (classes/fighter-option {} {} {} {} weapons/weapons-map)))
+
+(deftest srd-equipment-extraction-matches-live
+  (doseq [class-kw (keys srd/srd-class-equipment)]
+    (let [live (equipment-signature (live-class-option class-kw))
+          extd (equipment-signature (opt/class-option {} {} {} {} weapons/weapons-map
+                                       (merge {:name "Probe" :key class-kw :hit-die 8}
+                                              (srd/srd-class-equipment class-kw))))]
+      (is (= (:fixed live) (:fixed extd))                       (str class-kw " — fixed grants match live"))
+      (is (= (:selection-names live) (:selection-names extd))   (str class-kw " — selection names match live"))
+      (is (= (:choice-item-keys live) (:choice-item-keys extd)) (str class-kw " — referenced item keys match live")))))
