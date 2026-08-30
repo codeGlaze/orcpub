@@ -83,7 +83,9 @@ Note: the entity keyword namespace is **`orcpub.entity`** (`:orcpub.entity/key`)
   automatically.
 - The class spec `::classes/homebrew-class` (`classes.cljc:21`) only *requires*
   `:name :key :option-pack` and permits arbitrary extra keys — so the equipment keys need
-  **no spec change** to save/load. Validation metadata (`orcbrew_validation.cljs:121`)
+  **no spec change** to save/load. (Note: `:option-pack` really is required on import — a
+  class without it is legitimately *skipped*; `reg-save-homebrew` supplies it from the
+  Option Source field. Surfaced by the round-trip test below.) Validation metadata (`orcbrew_validation.cljs:121`)
   only knows `:name`. Optional hardening: validate that referenced item keys exist in
   `weapons-map`/`armor-map`/`equipment-map` (catch a `:longsord` typo), surfaced through
   the existing import/export validation.
@@ -101,6 +103,10 @@ section.
 one setter, `::class5e/set-equipment` (`events.cljs`), which drops a key when its
 map/vector is emptied so exports stay clean. `default-class` is left untouched (absent
 keys read as empty). Regression coverage: `test/clj/orcpub/starting_equipment_test.clj`
-(consumption + EDN round-trip) and the `set-equipment` cases in
-`test/cljs/orcpub/dnd/e5/events_test.cljs`. Still open: import/export validation that
-referenced item keys exist in the vocab (catches hand-edited typos).
+(consumption + EDN round-trip), the `set-equipment` cases in
+`test/cljs/orcpub/dnd/e5/events_test.cljs`, and
+`test/cljs/orcpub/dnd/e5/starting_equipment_roundtrip_test.cljs` — a full `.orcbrew`
+export (`strip-export-blanks` + text) → real import (`validate-import`) → re-apply
+(`class-option`) across fixed-only, choice + pseudo-key, and mixed multi-group configs.
+Still open: import/export validation that referenced item keys exist in the vocab
+(catches hand-edited typos).
