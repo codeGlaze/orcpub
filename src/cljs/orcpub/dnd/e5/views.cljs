@@ -6432,9 +6432,13 @@
 (defn- equipment-option-block [_sels _gi _oi init-option]
   (let [expanded? (r/atom (s/blank? (:name init-option)))]
     (fn [sels gi oi {:keys [name grants choose] :as option}]
-      [:div.b-rad-5.p-10.m-b-5 {:style {:border "1px solid #555" :background "rgba(255,255,255,0.03)"}}
-       [:div.flex.m-b-5 {:style {:align-items "center"}}
-        [:span.pointer.m-r-5 {:on-click #(swap! expanded? not)} (if @expanded? "▾" "▸")]
+      [:div.b-rad-5.m-b-3 {:style {:border-left "3px solid #6b7280"
+                                   :background "rgba(255,255,255,0.03)" :padding "5px 10px"}}
+       [:div.flex.align-items-c
+        [:i.fa.pointer {:class (if @expanded? "fa-chevron-down" "fa-chevron-right")
+                        :style {:font-size "12px" :color "rgba(255,255,255,0.35)"
+                                :margin-right "8px" :width "12px"}
+                        :on-click #(swap! expanded? not)}]
         (if @expanded?
           [:input.input.h-40.flex-grow-1
            {:type "text" :placeholder "Option label (e.g. \"Chain Mail\")"
@@ -6448,7 +6452,7 @@
          {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (common/remove-at-index (vec v) oi))))}
          "remove"]]
        (when @expanded?
-         [:div.m-l-10
+         [:div.m-l-10.m-t-5
           [:div.i.f-s-14.m-b-2 "Grants (all of these):"]
           (doall (map-indexed (fn [ri g] ^{:key ri} [equipment-grant-row sels gi oi ri g]) grants))
           [:button.form-button.m-t-5
