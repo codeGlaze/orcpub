@@ -347,6 +347,13 @@
     (s/blank? (str name))
     (conj "Give the item a name.")
 
+    ;; ::name requires starts-with-letter?, so a name beginning with a digit or
+    ;; a symbol is rejected by the spec on save. Without this the builder let
+    ;; it through and the only feedback was an opaque 400 from the server.
+    (and (not (s/blank? (str name)))
+         (not (common/starts-with-letter? (str name))))
+    (conj "The name has to start with a letter.")
+
     (and (#{:weapon} type) (empty? subtypes))
     (conj (str "Choose a Weapon Type. Without one the item has no damage die, "
                "no proficiency category and no damage type."))
@@ -370,6 +377,12 @@
   (cond-> {}
     (s/blank? (str name))
     (assoc :name :missing)
+
+    ;; :invalid rather than :missing -- the field HAS a value, it is just one
+    ;; the spec will not take. That is the distinction the red/amber cue draws.
+    (and (not (s/blank? (str name)))
+         (not (common/starts-with-letter? (str name))))
+    (assoc :name :invalid)
 
     (and (#{:weapon :armor ::armor} type) (empty? subtypes))
     (assoc :subtypes :missing)))

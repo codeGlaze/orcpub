@@ -230,6 +230,75 @@ async function signedOutSavePrompt(p) {
         `name field is ${JSON.stringify(nameValue)}`);
 }
 
+async function mistakesAreFlaggedAndRecoverable(p) {
+  console.log('\nmistakes are flagged as you make them, and clear as you fix them');
+  await login(p);
+
+  const saveBtn = () =>
+    p.locator('button.header-button[aria-label^="Save" i]:visible').first();
+  const saveDisabled = async () =>
+    /disabled/.test(await saveBtn().getAttribute('class') || '');
+  // The cue is a class on the field, amber for missing and red for invalid.
+  const nameCue = async () => {
+    const cls = await p.locator('input.input.h-40').first().getAttribute('class');
+    if (/builder-field-invalid/.test(cls || '')) return 'invalid';
+    if (/builder-field-unfilled/.test(cls || '')) return 'unfilled';
+    return 'none';
+  };
+  const notice = async () => await p.locator('body').innerText();
+
+  await p.goto(BASE + '/pages/dnd/5e/magic-item-builder', { waitUntil: 'domcontentloaded' });
+  await p.waitForSelector('select.builder-option');
+  // NEW ITEM: the builder keeps editing whatever was loaded, so without this a
+  // previous case's item is what gets tested.
+  await clickButton(p, /NEW ITEM/i);
+  await p.waitForTimeout(1200);
+
+  // 1. A brand new item has no name yet.
+  check('an unnamed item cannot be saved', await saveDisabled());
+  check('the name field is flagged as unfilled', (await nameCue()) === 'unfilled',
+        await nameCue());
+  check('and the notice says what to do', /Give the item a name/.test(await notice()));
+
+  // 2. Make it worse: a name the spec will reject.
+  await p.locator('input.input.h-40').first().fill('9 Lives');
+  await p.waitForTimeout(900);
+  check('a name starting with a digit is still blocked', await saveDisabled());
+  check('flagged invalid rather than unfilled', (await nameCue()) === 'invalid',
+        await nameCue());
+  // Match the notice's own wording, not "Name must start with a letter" --
+  // that is the pre-existing valid-wel warning, which is present either way.
+  // Without this distinction the check passed even with the rule removed.
+  check('and the notice explains why',
+        /has to start with a letter/.test(await notice()));
+
+  // 3. Fix it.
+  await p.locator('input.input.h-40').first().fill('Nine Lives');
+  await p.waitForTimeout(900);
+  check('correcting the name clears the flag', (await nameCue()) === 'none',
+        await nameCue());
+  check('the notice goes away', !/start with a letter|Give the item a name/.test(await notice()));
+  check('and the save becomes available', !(await saveDisabled()));
+
+  // 4. Break it again, the other way, to prove the cue is live and not one-shot.
+  await p.locator('input.input.h-40').first().fill('');
+  await p.waitForTimeout(900);
+  check('emptying the name blocks it again', await saveDisabled());
+  check('and flags it unfilled again', (await nameCue()) === 'unfilled', await nameCue());
+
+  // 5. Fix and save for real.
+  await p.locator('input.input.h-40').first().fill('Nine Lives');
+  await p.waitForTimeout(900);
+  const posts = [];
+  p.on('response', r => {
+    if (r.request().method() === 'POST' && /\/items/.test(r.url())) posts.push(r.status());
+  });
+  await saveBtn().click();
+  await p.waitForTimeout(3000);
+  check('the corrected item saves', posts.includes(200), JSON.stringify(posts));
+  check('and the server did not reject it', !posts.includes(400), JSON.stringify(posts));
+}
+
 async function aWeaponAlwaysHasAType(p) {
   console.log('\na weapon item always has a type, and cannot be left without one');
   await login(p);
@@ -451,7 +520,7 @@ async function itemTextReachesTheCharacterSheet(p) {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
   const cases = [customItemOverridesSrd, removeForGoodActuallyRemoves, signedOutSavePrompt,
                  magicalPropertiesField, itemTextReachesTheCharacterSheet,
-                 suspendedMagicIsMarkedEverywhere, aWeaponAlwaysHasAType];
+                 suspendedMagicIsMarkedEverywhere, aWeaponAlwaysHasAType, mistakesAreFlaggedAndRecoverable];
   const consoleFindings = [];
   for (const c of cases) {
     const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });

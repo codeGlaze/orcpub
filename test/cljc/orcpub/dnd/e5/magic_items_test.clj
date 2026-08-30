@@ -944,3 +944,17 @@
          (mi/incomplete-fields {::mi/type :weapon})))
   (is (= {} (mi/incomplete-fields {::mi/name "Blade" ::mi/type :weapon
                                    ::mi/subtypes #{:other}}))))
+
+(deftest a-name-that-the-spec-will-reject-is-caught-in-the-builder
+  (testing "a name not starting with a letter blocks the save"
+    ;; ::mi/name requires starts-with-letter?. Without this the builder let it
+    ;; through and the only feedback was an opaque 400 from the server.
+    (let [item {::mi/name "9 Lives" ::mi/type :wondrous-item}]
+      (is (not (mi/ready-to-save? item)))
+      (is (re-find #"start with a letter" (first (mi/incomplete-reasons item))))
+      (testing "flagged invalid, not missing — the field has a value"
+        (is (= {:name :invalid} (mi/incomplete-fields item))))
+      (testing "and the spec agrees it would have been rejected"
+        (is (not (spec/valid? ::mi/magic-item item))))))
+  (testing "correcting it clears the block"
+    (is (mi/ready-to-save? {::mi/name "Nine Lives" ::mi/type :wondrous-item}))))
