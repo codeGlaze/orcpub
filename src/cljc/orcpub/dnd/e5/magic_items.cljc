@@ -27,8 +27,15 @@
 ;; who could no longer save their own item. The headroom costs nothing as a
 ;; defence, since what these stop is megabytes, not paragraphs.
 (def max-name-length
-  "Generous for a name; the longest published 5e item name is well under 100."
-  500)
+  "A name is a name. The longest published 5e item name is under 60 characters
+   and \"Adamantine Armor, Chain Shirt\" is 28, so this is already several times
+   the longest realistic case.
+
+   It was 500 while nothing explained a rejection. That is no longer a reason
+   to keep it loose: over-length is caught in the builder with a message
+   naming the count and the limit, and anything that still reaches the server
+   comes back as a flagged field rather than a generic failure."
+  100)
 
 (def max-prose-length
   "Above the client's 50,000 textarea cap, with room for anything written
@@ -353,6 +360,13 @@
          (not (common/starts-with-letter? (str name))))
     (conj "The name has to start with a letter.")
 
+    ;; Says the actual number and the actual limit. A legacy name over the
+    ;; bound is the one case where someone hits this without having just typed
+    ;; it, so the message has to be enough to act on without guessing.
+    (> (count (str name)) max-name-length)
+    (conj (str "The name is " (count (str name)) " characters. The limit is "
+               max-name-length " — shorten it to save."))
+
     (and (#{:weapon} type) (empty? subtypes))
     (conj (str "Choose a Weapon Type. Without one the item has no damage die, "
                "no proficiency category and no damage type."))
@@ -381,6 +395,9 @@
     ;; the spec will not take. That is the distinction the red/amber cue draws.
     (and (not (s/blank? (str name)))
          (not (common/starts-with-letter? (str name))))
+    (assoc :name :invalid)
+
+    (> (count (str name)) max-name-length)
     (assoc :name :invalid)
 
     (and (#{:weapon :armor ::armor} type) (empty? subtypes))

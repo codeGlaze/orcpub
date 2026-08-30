@@ -286,7 +286,22 @@ async function mistakesAreFlaggedAndRecoverable(p) {
   check('emptying the name blocks it again', await saveDisabled());
   check('and flags it unfilled again', (await nameCue()) === 'unfilled', await nameCue());
 
-  // 5. Fix and save for real.
+  // 5. Length: the input carries maxLength, so typing cannot exceed the bound
+  //    at all -- the browser truncates. That is the protection for anything
+  //    typed, and it is what this can check.
+  //
+  //    The over-length STATE is only reachable from a legacy value saved
+  //    before the bound existed, which cannot be created here because the
+  //    server now rejects it too. That path is covered by unit tests over
+  //    incomplete-reasons, which assert the message names the count and the
+  //    limit.
+  await p.locator('input.input.h-40').first().fill('A'.repeat(140));
+  await p.waitForTimeout(900);
+  const held = await p.locator('input.input.h-40').first().inputValue();
+  check('the name field stops at the limit', held.length === 100, `held ${held.length}`);
+  check('and a name that fits is still saveable', !(await saveDisabled()));
+
+  // 6. Fix and save for real.
   await p.locator('input.input.h-40').first().fill('Nine Lives');
   await p.waitForTimeout(900);
   const posts = [];

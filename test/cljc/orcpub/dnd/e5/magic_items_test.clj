@@ -773,9 +773,14 @@
     (is (> mi/max-prose-length 50000))))
 
 (deftest names-are-bounded
-  (is (spec/valid? ::mi/magic-item {::mi/name (apply str (repeat 200 "a"))}))
+  ;; Expressed against the constant, not a literal. This test asserted a
+  ;; 200-character name was fine, which was true only while the bound was 500.
   (is (spec/valid? ::mi/magic-item
-                   {::mi/name (apply str "a" (repeat (dec mi/max-name-length) "a"))}))
+                   {::mi/name (apply str "a" (repeat (- mi/max-name-length 20) "a"))})
+      "a comfortably ordinary name")
+  (is (spec/valid? ::mi/magic-item
+                   {::mi/name (apply str "a" (repeat (dec mi/max-name-length) "a"))})
+      "exactly at the limit")
   (is (not (spec/valid? ::mi/magic-item
                         {::mi/name (apply str (repeat (inc mi/max-name-length) "a"))})))
   (testing "the existing starts-with-letter rule still applies"
@@ -958,3 +963,34 @@
         (is (not (spec/valid? ::mi/magic-item item))))))
   (testing "correcting it clears the block"
     (is (mi/ready-to-save? {::mi/name "Nine Lives" ::mi/type :wondrous-item}))))
+
+(deftest an-over-long-name-is-explained-not-just-rejected
+  (testing "the builder catches it, with the numbers in the message"
+    ;; A legacy name over the bound is the one case someone hits without having
+    ;; just typed it, so the message has to be actionable on its own.
+    (let [long-name (apply str "A" (repeat mi/max-name-length "a"))
+          item {::mi/name long-name ::mi/type :wondrous-item}]
+      (is (> (count long-name) mi/max-name-length))
+      (is (not (mi/ready-to-save? item)))
+      (let [reason (first (filter #(re-find #"characters" %)
+                                  (mi/incomplete-reasons item)))]
+        (is (some? reason) "a reason mentioning the length is present")
+        (is (re-find (re-pattern (str (count long-name))) reason)
+            "it names the actual length")
+        (is (re-find (re-pattern (str mi/max-name-length)) reason)
+            "and the limit"))
+      (testing "flagged invalid — the field has a value, it is just too long"
+        (is (= {:name :invalid} (mi/incomplete-fields item))))
+      (testing "and the spec agrees, so the server would reject it too"
+        (is (not (spec/valid? ::mi/magic-item item))))))
+  (testing "a name at the limit is fine"
+    (is (mi/ready-to-save?
+         {::mi/name (apply str "A" (repeat (dec mi/max-name-length) "a"))
+          ::mi/type :wondrous-item}))))
+
+(deftest the-name-bound-is-proportionate
+  (testing "long enough for any real name, short enough to mean something"
+    (is (<= 60 mi/max-name-length 150))
+    (is (spec/valid? ::mi/magic-item
+                     {::mi/name "Adamantine Armor, Chain Shirt"
+                      ::mi/type :armor ::mi/subtypes #{:chain-mail}}))))

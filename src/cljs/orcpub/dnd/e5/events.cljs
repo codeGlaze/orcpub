@@ -573,6 +573,7 @@
              :headers (authorization-headers db)
              :url (url-for-route routes/dnd-e5-items-route)
              :transit-params strict-item
+             :on-failure [::mi/save-item-failed strict-item]
              :on-success [:item-save-success]}})))
 
 (def ^:private homebrew-field-labels
@@ -752,6 +753,20 @@
                      builder-error-ttl]]}
       {:dispatch-n [[:set-builder-field-errors {}]
                     [:show-error-message fallback-message builder-error-ttl]]})))
+
+(reg-event-fx
+ ::mi/save-item-failed
+ ;; Without this the :http effect falls back to show-generic-error, so a
+ ;; rejected save told the user "something went wrong" and nothing about which
+ ;; field or why. save-item posts against ::mi5e/magic-item, so a rejection
+ ;; carries a spec explanation -- the same shape the homebrew builders already
+ ;; turn into flagged fields and a targeted message.
+ (fn [_ [_ item response]]
+   (builder-field-error-fx
+    "item"
+    (:body response)
+    item
+    "Your item could not be saved. Check the highlighted fields and try again.")))
 
 (defn reg-save-homebrew [type-name
                          event-key
