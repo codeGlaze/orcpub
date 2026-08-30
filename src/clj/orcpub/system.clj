@@ -9,6 +9,14 @@
             [environ.core :as environ])
   (:import (org.eclipse.jetty.server.handler.gzip GzipHandler)))
 
+(def max-form-content-size
+  "Ceiling on a request body, in bytes.
+
+   Generous for a character spec -- the largest observed PDF request is well
+   under this -- while leaving headroom for a character image sent as bytes
+   instead of a URL."
+  (* 2 1024 1024))
+
 (def dev-service-map-overrides
   {::http/port 8890
    ;; Bind to loopback in dev. Override per-machine with ORCPUB_HTTP_HOST (e.g.
@@ -53,6 +61,17 @@
    ::http/container-options {:context-configurator (fn [c]
                                                      (let [gzip-handler (GzipHandler.)]
                                                        (.setGzipHandler c gzip-handler)
+                                                       ;; Cap what a request body may be before it reaches
+                                                       ;; a handler. /character.pdf is unauthenticated and
+                                                       ;; parses its body with edn/read-string, and a 50MB
+                                                       ;; POST was neither rejected nor completed -- the
+                                                       ;; connection simply stayed open. 2MB is generous for
+                                                       ;; a character spec and leaves room for an image
+                                                       ;; supplied as bytes rather than a URL.
+                                                       (.setMaxFormContentSize c max-form-content-size)
+                                                       ;; A body with an absurd number of distinct keys is
+                                                       ;; the other shape of the same attack.
+                                                       (.setMaxFormKeys c 200)
                                                        c))}})
 
 (defn system [env]
