@@ -20,6 +20,7 @@
             [orcpub.dnd.e5.feats :as feats5e]
             [orcpub.dnd.e5.races :as race5e]
             [orcpub.dnd.e5.classes :as class5e]
+            [orcpub.dnd.e5.srd-starting-equipment :as srd-equip]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
@@ -3413,6 +3414,19 @@
    (-> class
        (assoc :equipment-selections new-selections)
        (dissoc :weapon-choices :armor-choices :equipment-choices))))
+
+;; "Start from an SRD class": replace the class's starting equipment with the chosen
+;; SRD class's, in the builder's editable form (srd-equip/builder-equipment, verified
+;; against the live class by orcpub.starting-equipment-test).
+(def ^:private equipment-keys
+  [:weapons :armor :equipment :weapon-choices :armor-choices :equipment-choices :equipment-selections])
+
+(reg-event-db
+ ::class5e/fill-starting-equipment
+ class-interceptors
+ (fn [class [_ class-kw]]
+   (merge (apply dissoc class equipment-keys)
+          (srd-equip/builder-equipment class-kw))))
 
 (reg-event-db
  ::class5e/toggle-class-spell-list

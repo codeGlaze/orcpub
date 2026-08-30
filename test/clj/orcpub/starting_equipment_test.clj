@@ -120,8 +120,16 @@
   (filter #(and (map? %) (some-> (:orcpub.template/name %) (str/starts-with? "Starting Equipment:")))
           (collect map? built)))
 
+;; Pool/chooser keys ("any martial weapon", "an arcane focus", …) are selection
+;; identifiers, not grantable items — a nested selection derives a name-key from them
+;; that can collide with a real item key, so exclude them from the item-key signature.
+(def ^:private chooser-keys
+  #{:simple :martial :any-weapon
+    :holy-symbol :arcane-focus :druidic-focus :musical-instrument :pack :artisans-tool :gaming-set})
+
 (defn- item-key? [k]
-  (boolean (or (get weapons/weapons-map k) (get armor/armor-map k) (get equip/equipment-map k))))
+  (boolean (and (not (chooser-keys k))
+                (or (get weapons/weapons-map k) (get armor/armor-map k) (get equip/equipment-map k)))))
 
 (defn- equipment-signature [built]
   {:fixed            (equip-quantities built)
@@ -129,16 +137,24 @@
    :choice-item-keys (set (filter item-key? (mapcat #(collect keyword? %) (se-selections built))))})
 
 (defn- live-class-option [class-kw]
-  (case class-kw
-    :wizard  (classes/wizard-option  {} {} {} {} weapons/weapons-map)
-    :fighter (classes/fighter-option {} {} {} {} weapons/weapons-map)))
+  ;; call <class>-option in classes.cljc with inert spell/subclass/language args; the
+  ;; equipment portion of the built option doesn't depend on them.
+  (let [f (ns-resolve 'orcpub.dnd.e5.classes (symbol (str (name class-kw) "-option")))]
+    (f {} {} {} {} weapons/weapons-map)))
+
+(defn- signature-of [equip]
+  (equipment-signature (opt/class-option {} {} {} {} weapons/weapons-map
+                                         (merge {:name "Probe" :key :probe :hit-die 8} equip))))
 
 (deftest srd-equipment-extraction-matches-live
   (doseq [class-kw (keys srd/srd-class-equipment)]
-    (let [live (equipment-signature (live-class-option class-kw))
-          extd (equipment-signature (opt/class-option {} {} {} {} weapons/weapons-map
-                                       (merge {:name "Probe" :key class-kw :hit-die 8}
-                                              (srd/srd-class-equipment class-kw))))]
-      (is (= (:fixed live) (:fixed extd))                       (str class-kw " — fixed grants match live"))
-      (is (= (:selection-names live) (:selection-names extd))   (str class-kw " — selection names match live"))
-      (is (= (:choice-item-keys live) (:choice-item-keys extd)) (str class-kw " — referenced item keys match live")))))
+    (let [live (equipment-signature (live-class-option class-kw))]
+      ;; the raw table entry compiles to the same equipment as the live class
+      (is (= live (signature-of (srd/srd-class-equipment class-kw)))
+          (str class-kw " — raw table matches live"))
+      ;; and the builder-ready form (shorthand unified to :equipment-selections) matches
+      ;; live too, EXCEPT selection names (unifying can rename a menu) — so item-keys +
+      ;; fixed grants must be identical.
+      (let [b (signature-of (srd/builder-equipment class-kw))]
+        (is (= (:fixed live) (:fixed b))                       (str class-kw " — builder-form fixed grants match live"))
+        (is (= (:choice-item-keys live) (:choice-item-keys b)) (str class-kw " — builder-form item keys match live"))))))

@@ -36,6 +36,7 @@
             [orcpub.dnd.e5.equipment :as equip]
             [orcpub.dnd.e5.weapons :as weapon]
             [orcpub.dnd.e5.armor :as armor]
+            [orcpub.dnd.e5.srd-starting-equipment :as srd-equip]
             [orcpub.dnd.e5.display :as disp]
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
@@ -6507,6 +6508,15 @@
      [:div.f-s-24.f-w-b.m-b-10 "Starting Equipment"]
      [:div.i.f-s-14.m-b-10
       "Granted when a character takes this as their first class. Fixed items are always granted; each choice group lets the player pick one option — and an option can grant several items and/or a sub-choice (any simple/martial weapon, a holy symbol, an arcane/druidic focus, an instrument, a pack), so \"(a) chain mail, or (b) leather + a longbow + 20 arrows\" and \"a martial weapon and a shield\" are all expressible here. Click an option to expand or collapse it."]
+     [:div.flex.m-b-10 {:style {:align-items "center"}}
+      [:span.i.f-s-14.m-r-5 "Start from an SRD class:"]
+      [:div {:style {:width "220px"}}
+       [dropdown {:items (cons {:title "— choose —" :value ""}
+                               (map (fn [k] {:title (s/capitalize (name k)) :value (name k)})
+                                    (sort (keys srd-equip/srd-class-equipment))))
+                  :value ""
+                  :on-change (fn [v] (when-not (s/blank? v)
+                                       (dispatch [::classes/fill-starting-equipment (keyword v)])))}]]]
      [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
      (doall (for [cat starting-equipment-categories]
               ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
