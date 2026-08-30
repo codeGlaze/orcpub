@@ -95,7 +95,10 @@
                                     :options [{:name "A holy symbol" :choose [{:from :holy-symbol}]}]}]})
         strings (set (collect string? result))]
     (is (contains? strings "Starting Equipment: Focus"))
-    (is (contains? strings "Starting Equipment: Holy Symbol")
+    ;; The nested grouped-equipment pick mirrors the live equipment-option: named for the
+    ;; group with NO "Starting Equipment: " prefix (so a class filled from an SRD class
+    ;; reproduces the SRD's own nested selection name).
+    (is (contains? strings "Holy Symbol")
         "equipment-group sub-choice compiled to a pick among holy symbols")))
 
 (deftest edn-round-trip-then-consumed
@@ -116,11 +119,36 @@
 ;; item or a dropped/added option).
 ;; ---------------------------------------------------------------------------
 
-;; top-level starting-equipment choice groups (direct children); nested sub-choice
-;; selections are an internal representation detail, not part of the equivalence.
+;; top-level starting-equipment choice groups (direct children).
 (defn- se-selections [built]
   (filter #(contains? (:orcpub.template/tags %) :starting-equipment)
           (:orcpub.template/selections built)))
+
+;; EVERY starting-equipment selection name, nested sub-choices included. A nested
+;; selection's name is user-visible and feeds its minted key, so a rename there is a
+;; real divergence — not an "internal detail". (Comparing only top-level names hid a
+;; "Starting Equipment: " prefix the recompiler added to grouped-focus picks.)
+(defn- se-selection-names [built]
+  (set (map :orcpub.template/name
+            (collect #(and (map? %) (contains? (:orcpub.template/tags %) :starting-equipment))
+                     built))))
+
+;; item-key -> total quantity granted by CHOICE-option modifiers, recovered by applying
+;; each modifier fn (the app's own mechanism). :choice-item-keys is a set and ignores
+;; counts, so without this a dropped/mangled qty on a choice grant — e.g. Fighter's
+;; "longbow + 20 arrows", where the 20 lives in a choice option, not a fixed grant —
+;; slips through unnoticed.
+(defn- choice-grant-qtys [built]
+  (reduce
+   (fn [acc m]
+     (reduce (fn [a [k v]]
+               (update a k (fnil + 0) (get v :orcpub.dnd.e5.character.equipment/quantity 1)))
+             acc
+             (get ((:orcpub.modifiers/fn m) {}) (:orcpub.modifiers/key m))))
+   {}
+   (collect #(and (map? %) (fn? (:orcpub.modifiers/fn %))
+                  (#{:weapons :armor :equipment} (:orcpub.modifiers/key %)))
+            (se-selections built))))
 
 ;; Pool/chooser keys ("any martial weapon", "an arcane focus", …) are selection
 ;; identifiers, not grantable items — a nested selection derives a name-key from them
@@ -135,8 +163,9 @@
 
 (defn- equipment-signature [built]
   {:fixed            (equip-quantities built)
-   :selection-names  (set (map :orcpub.template/name (se-selections built)))
-   :choice-item-keys (set (filter item-key? (mapcat #(collect keyword? %) (se-selections built))))})
+   :selection-names  (se-selection-names built)
+   :choice-item-keys (set (filter item-key? (mapcat #(collect keyword? %) (se-selections built))))
+   :choice-qtys      (choice-grant-qtys built)})
 
 (defn- live-class-option [class-kw]
   ;; call <class>-option in classes.cljc with inert spell/subclass/language args; the
@@ -158,4 +187,5 @@
           b    (signature-of (srd/builder-equipment class-kw))]
       (is (= (:fixed live) (:fixed b))                       (str class-kw " — fixed grants round-trip"))
       (is (= (:selection-names live) (:selection-names b))   (str class-kw " — selection names round-trip"))
-      (is (= (:choice-item-keys live) (:choice-item-keys b)) (str class-kw " — item keys round-trip")))))
+      (is (= (:choice-item-keys live) (:choice-item-keys b)) (str class-kw " — item keys round-trip"))
+      (is (= (:choice-qtys live) (:choice-qtys b))           (str class-kw " — choice grant quantities round-trip")))))

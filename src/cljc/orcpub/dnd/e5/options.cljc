@@ -2522,19 +2522,29 @@
 ;; (:holy-symbol/:arcane-focus/:druidic-focus/:musical-instrument/:pack), which expands
 ;; to a pick among that group's members (equipment-option handles pack-contents, etc.).
 (defn- equipment-subchoice->selection [class-kw weapon-map {:keys [name from]}]
-  (let [chooser (equipment-group-choosers from)]
+  (if-let [chooser (equipment-group-choosers from)]
+    ;; Grouped-equipment pick (focus / holy symbol / instrument / pack). Mirror the live
+    ;; equipment-option EXACTLY: a plain starting-equipment selection named for the group,
+    ;; WITHOUT the "Starting Equipment: " prefix and WITHOUT a "<none>" opt-out — so a class
+    ;; filled from an SRD class reproduces the SRD's own nested selection verbatim (its name
+    ;; also feeds the selection's minted key, which must stay stable).
+    (t/selection-cfg
+     {:name (or name (:name chooser))
+      :tags #{:equipment :starting-equipment}
+      :options (mapv #(equipment-option class-kw [(:key %) 1]) (:items chooser))
+      :prereq-fn (first-class? class-kw)})
+    ;; Weapon-class pick. Live builds these through new-starting-equipment-selection, so
+    ;; keep the prefix (and the "<none>" it appends) to match.
     (new-starting-equipment-selection
      class-kw
      {:name (or name (case from :simple "Simple Weapon" :martial "Martial Weapon"
-                       :simple-melee "Simple Melee Weapon" :any-weapon "Weapon"
-                       (:name chooser "Choose one")))
+                       :simple-melee "Simple Melee Weapon" :any-weapon "Weapon" "Choose one"))
       :min 1 :max 1
       :options (cond
                  (= from :simple)       (simple-weapon-options 1 (vals weapon-map))
                  (= from :martial)      (martial-weapon-options 1 (vals weapon-map))
                  (= from :simple-melee) (simple-melee-weapon-options 1 (vals weapon-map))
                  (= from :any-weapon)   (weapon-options (vals weapon-map) 1)
-                 chooser                (mapv #(equipment-option class-kw [(:key %) 1]) (:items chooser))
                  :else                  [])})))
 
 ;; One option -> an option-cfg carrying its bundle (:grants -> :modifiers) and any
