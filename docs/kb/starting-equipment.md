@@ -107,6 +107,10 @@ keys read as empty). Regression coverage: `test/clj/orcpub/starting_equipment_te
 `test/cljs/orcpub/dnd/e5/events_test.cljs`, and
 `test/cljs/orcpub/dnd/e5/starting_equipment_roundtrip_test.cljs` — a full `.orcbrew`
 export (`strip-export-blanks` + text) → real import (`validate-import`) → re-apply
-(`class-option`) across fixed-only, choice + pseudo-key, and mixed multi-group configs.
+(`class-option`) across fixed-only, choice + pseudo-key, and mixed multi-group configs;
+and `test/browser/starting_equipment_browser_e2e.js` — a headless-chromium drive of the
+real app: renders the section, clicks the equipment buttons, saves, captures a real
+`.orcbrew` **download**, and re-imports that file into a fresh library (also exercises
+the source-name-choice modal).
 Still open: import/export validation that referenced item keys exist in the vocab
 (catches hand-edited typos).
