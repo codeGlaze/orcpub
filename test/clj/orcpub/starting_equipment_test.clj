@@ -80,6 +80,19 @@
     (is (contains? strings "Starting Equipment: Martial Weapon")
         ":choose produced a nested martial-weapon selection")))
 
+(deftest equipment-group-subchoice-compiles
+  ;; A sub-choice over a grouped-equipment key (holy symbol / focus / instrument / pack)
+  ;; expands to a pick among the group's members — the full SRD sub-choice vocabulary.
+  (let [result (opt/class-option {} {} {} {} weapons/weapons-map
+                                 {:name "Cleric-like" :key :cleric-like :hit-die 8
+                                  :equipment-selections
+                                  [{:name "Focus"
+                                    :options [{:name "A holy symbol" :choose [{:from :holy-symbol}]}]}]})
+        strings (set (collect string? result))]
+    (is (contains? strings "Starting Equipment: Focus"))
+    (is (contains? strings "Starting Equipment: Holy Symbol")
+        "equipment-group sub-choice compiled to a pick among holy symbols")))
+
 (deftest edn-round-trip-then-consumed
   ;; The UI writes plain data (no fn-valued modifiers), so the class survives the
   ;; .orcbrew save/export/import round-trip (EDN) unchanged AND still applies.

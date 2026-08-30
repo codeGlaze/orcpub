@@ -2499,6 +2499,8 @@
 ;;     :options [{:name "A martial weapon and a shield"
 ;;                :grants [{:kind :armor :key :shield}]
 ;;                :choose [{:name "Martial Weapon" :from :martial}]}]}]
+;; One fixed grant ({:kind :key :qty}) -> the matching modifier that drops the item
+;; onto the character's ?weapons/?armor/?equipment.
 (defn- equipment-grant->modifier [{:keys [kind key qty] :or {qty 1}}]
   (case kind
     :weapon    (modifiers/weapon key qty)
@@ -2506,24 +2508,43 @@
     :equipment (modifiers/equipment key qty)
     nil))
 
-(defn- equipment-subchoice->selection [class-kw weapon-map {:keys [name from]}]
-  (new-starting-equipment-selection
-   class-kw
-   {:name (or name (case from :simple "Simple Weapon" :martial "Martial Weapon"
-                     :any-weapon "Weapon" "Choose one"))
-    :min 1 :max 1
-    :options (case from
-               :simple     (simple-weapon-options 1 (vals weapon-map))
-               :martial    (martial-weapon-options 1 (vals weapon-map))
-               :any-weapon (weapon-options (vals weapon-map) 1)
-               [])}))
+;; The grouped-equipment sub-choices, pointing at the un-shadowed member lists
+;; (equipment-map shadows these grouped keys with plain items via its zipmap merge).
+(def ^:private equipment-group-choosers
+  {:holy-symbol        {:name "Holy Symbol"        :items equipment/holy-symbols}
+   :arcane-focus       {:name "Arcane Focus"       :items equipment/arcane-focuses}
+   :druidic-focus      {:name "Druidic Focus"      :items equipment/druidic-focuses}
+   :musical-instrument {:name "Musical Instrument" :items equipment/musical-instruments}
+   :pack               {:name "Equipment Pack"     :items equipment/packs}})
 
+;; One sub-choice ({:from ...}) -> a nested "pick one" selection. :from is either a
+;; weapon class (:simple/:martial/:any-weapon) or a grouped-equipment key
+;; (:holy-symbol/:arcane-focus/:druidic-focus/:musical-instrument/:pack), which expands
+;; to a pick among that group's members (equipment-option handles pack-contents, etc.).
+(defn- equipment-subchoice->selection [class-kw weapon-map {:keys [name from]}]
+  (let [chooser (equipment-group-choosers from)]
+    (new-starting-equipment-selection
+     class-kw
+     {:name (or name (case from :simple "Simple Weapon" :martial "Martial Weapon"
+                       :any-weapon "Weapon" (:name chooser "Choose one")))
+      :min 1 :max 1
+      :options (cond
+                 (= from :simple)     (simple-weapon-options 1 (vals weapon-map))
+                 (= from :martial)    (martial-weapon-options 1 (vals weapon-map))
+                 (= from :any-weapon) (weapon-options (vals weapon-map) 1)
+                 chooser              (mapv #(equipment-option class-kw [(:key %) 1]) (:items chooser))
+                 :else                [])})))
+
+;; One option -> an option-cfg carrying its bundle (:grants -> :modifiers) and any
+;; nested picks (:choose -> :selections).
 (defn- equipment-selection-option [class-kw weapon-map {:keys [name grants choose]}]
   (t/option-cfg
    (cond-> {:name name}
      (seq grants) (assoc :modifiers (vec (keep equipment-grant->modifier grants)))
      (seq choose) (assoc :selections (mapv #(equipment-subchoice->selection class-kw weapon-map %) choose)))))
 
+;; A whole :equipment-selections vector -> the starting-equipment selections class-option
+;; splices into a class. This is the serializable twin of the SRD's hand-built form.
 (defn class-equipment-selections [equipment-selections class-kw weapon-map]
   (mapv (fn [{:keys [name options]}]
           (new-starting-equipment-selection

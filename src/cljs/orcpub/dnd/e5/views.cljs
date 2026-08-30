@@ -6369,9 +6369,14 @@
 (defn- default-grant-item [kind] (some-> (grant-vocab kind) first :value keyword))
 
 (def ^:private subchoice-froms
-  [{:title "Any simple weapon" :value "simple"}
-   {:title "Any martial weapon" :value "martial"}
-   {:title "Any weapon"         :value "any-weapon"}])
+  [{:title "Any simple weapon"   :value "simple"}
+   {:title "Any martial weapon"  :value "martial"}
+   {:title "Any weapon"          :value "any-weapon"}
+   {:title "A holy symbol"       :value "holy-symbol"}
+   {:title "An arcane focus"     :value "arcane-focus"}
+   {:title "A druidic focus"     :value "druidic-focus"}
+   {:title "A musical instrument" :value "musical-instrument"}
+   {:title "An equipment pack"   :value "pack"}])
 
 (defn- equipment-item-name [k]
   (or (get {:simple "Any simple weapon" :martial "Any martial weapon"} k)
@@ -6380,8 +6385,12 @@
       (get-in equip/equipment-map [k :name])
       (name k)))
 
+;; Every edit rebuilds the whole :equipment-selections vector in the view and writes it
+;; through the one setter; set-equipment drops the key when the vector empties.
 (defn- put-selections [sels] (dispatch [::classes/set-equipment :equipment-selections sels]))
 
+;; One grant row: category (weapon/armor/equipment) + item + qty. Changing the category
+;; resets the item to that category's first entry.
 (defn- equipment-grant-row [sels gi oi ri {:keys [kind key qty]}]
   (let [kind (or kind :weapon) gp [gi :options oi :grants ri]]
     [:div.flex.m-b-5 {:style {:align-items "center"}}
@@ -6396,6 +6405,7 @@
      [equipment-qty-input qty (fn [n] (put-selections (assoc-in sels (conj gp :qty) n)))]
      [:button.form-button {:on-click #(put-selections (update-in sels [gi :options oi :grants] (fn [v] (common/remove-at-index (vec v) ri))))} "remove"]]))
 
+;; One sub-choice row: the "player also picks" pool (a weapon class or an equipment group).
 (defn- equipment-subchoice-row [sels gi oi ci {:keys [from]}]
   [:div.flex.m-b-5 {:style {:align-items "center"}}
    [:div.flex-grow-1
@@ -6403,23 +6413,54 @@
                :on-change (fn [v] (put-selections (assoc-in sels [gi :options oi :choose ci :from] (keyword v))))}]]
    [:button.form-button {:on-click #(put-selections (update-in sels [gi :options oi :choose] (fn [v] (common/remove-at-index (vec v) ci))))} "remove"]])
 
-(defn- equipment-option-block [sels gi oi {:keys [name grants choose]}]
-  (let [op [gi :options oi]]
-    [:div.b-rad-5.p-10.m-b-5 {:style {:border "1px solid #555" :background "rgba(255,255,255,0.03)"}}
-     [:div.flex.m-b-5 {:style {:align-items "center"}}
-      [:input.input.h-40.flex-grow-1
-       {:type "text" :placeholder "Option label (e.g. \"Chain Mail\" or \"Leather, Longbow, 20 Arrows\")"
-        :value (or name "")
-        :on-change #(put-selections (assoc-in sels (conj op :name) (event-value %)))}]
-      [:button.form-button.m-l-5 {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (common/remove-at-index (vec v) oi))))} "remove option"]]
-     [:div.m-l-10
-      [:div.i.f-s-14.m-b-2 "Grants (all of these):"]
-      (doall (map-indexed (fn [ri g] ^{:key ri} [equipment-grant-row sels gi oi ri g]) grants))
-      [:button.form-button.m-t-2 {:on-click #(put-selections (update-in sels (conj op :grants) (fn [v] (conj (vec v) {:kind :weapon :key (default-grant-item :weapon) :qty 1}))))} "+ Add item"]
-      [:div.i.f-s-14.m-t-8.m-b-2 "…and the player also picks (optional):"]
-      (doall (map-indexed (fn [ci c] ^{:key ci} [equipment-subchoice-row sels gi oi ci c]) choose))
-      [:button.form-button.m-t-2 {:on-click #(put-selections (update-in sels (conj op :choose) (fn [v] (conj (vec v) {:from :martial}))))} "+ Add weapon sub-choice"]]]))
+;; A collapsed option shows this one-line summary of what it grants, so the
+;; group -> option -> grants nesting stays scannable; you expand only to edit.
+(defn- option-summary [{:keys [grants choose]}]
+  (let [gs (map (fn [{:keys [key qty]}]
+                  (str (equipment-item-name key) (when (> (or qty 1) 1) (str " ×" qty))))
+                grants)
+        cs (map (fn [{:keys [from]}]
+                  (or (some #(when (= (name (or from :martial)) (:value %)) (s/lower-case (:title %)))
+                            subchoice-froms)
+                      "a choice"))
+                choose)]
+    (s/join ", " (concat gs cs))))
 
+;; One option in a choice group. Form-2: local collapse state (new/empty options open
+;; for editing; filled ones collapse to their summary). Expanded, it edits the bundle
+;; (:grants) and any nested picks (:choose).
+(defn- equipment-option-block [_sels _gi _oi init-option]
+  (let [expanded? (r/atom (s/blank? (:name init-option)))]
+    (fn [sels gi oi {:keys [name grants choose] :as option}]
+      [:div.b-rad-5.p-10.m-b-5 {:style {:border "1px solid #555" :background "rgba(255,255,255,0.03)"}}
+       [:div.flex.m-b-5 {:style {:align-items "center"}}
+        [:span.pointer.m-r-5 {:on-click #(swap! expanded? not)} (if @expanded? "▾" "▸")]
+        (if @expanded?
+          [:input.input.h-40.flex-grow-1
+           {:type "text" :placeholder "Option label (e.g. \"Chain Mail\")"
+            :value (or name "")
+            :on-change #(put-selections (assoc-in sels [gi :options oi :name] (event-value %)))}]
+          [:div.flex-grow-1.pointer {:on-click #(reset! expanded? true)}
+           [:span.f-w-b (if (s/blank? name) "(unnamed option)" name)]
+           (let [sm (option-summary option)]
+             (when (seq sm) [:span.i.f-s-14.m-l-10 {:style {:opacity 0.65}} (str "— " sm)]))])
+        [:button.form-button.m-l-5
+         {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (common/remove-at-index (vec v) oi))))}
+         "remove"]]
+       (when @expanded?
+         [:div.m-l-10
+          [:div.i.f-s-14.m-b-2 "Grants (all of these):"]
+          (doall (map-indexed (fn [ri g] ^{:key ri} [equipment-grant-row sels gi oi ri g]) grants))
+          [:button.form-button.m-t-5
+           {:on-click #(put-selections (update-in sels [gi :options oi :grants] (fn [v] (conj (vec v) {:kind :weapon :key (default-grant-item :weapon) :qty 1}))))}
+           "+ Add item"]
+          [:div.i.f-s-14.m-t-5.m-b-2 "…and the player also picks (optional):"]
+          (doall (map-indexed (fn [ci c] ^{:key ci} [equipment-subchoice-row sels gi oi ci c]) choose))
+          [:button.form-button.m-t-5
+           {:on-click #(put-selections (update-in sels [gi :options oi :choose] (fn [v] (conj (vec v) {:from :martial}))))}
+           "+ Add sub-choice"]])])))
+
+;; One choice group: a name + its options (the player picks one option at creation).
 (defn- equipment-selection-group [sels gi {:keys [name options]}]
   [:div.b-rad-5.p-10.m-b-10 {:style {:border "1px solid #888"}}
    [:div.flex.m-b-5 {:style {:align-items "center"}}
@@ -6433,6 +6474,7 @@
     (doall (map-indexed (fn [oi o] ^{:key oi} [equipment-option-block sels gi oi o]) options))
     [:button.form-button.m-t-2 {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (conj (vec v) {:name "" :grants [{:kind :weapon :key (default-grant-item :weapon) :qty 1}]}))))} "+ Add option"]]])
 
+;; The choices editor: the class's :equipment-selections groups + an add-group button.
 (defn- rich-equipment-choices [class]
   (let [sels (vec (:equipment-selections class))]
     [:div
@@ -6460,7 +6502,7 @@
     [:div.m-b-30
      [:div.f-s-24.f-w-b.m-b-10 "Starting Equipment"]
      [:div.i.f-s-14.m-b-10
-      "Granted when a character takes this as their first class. Fixed items are always granted; each choice group lets the player pick one option — and an option can grant several items and/or a weapon sub-choice, so \"(a) chain mail, or (b) leather + a longbow + 20 arrows\" and \"a martial weapon and a shield\" are all expressible here."]
+      "Granted when a character takes this as their first class. Fixed items are always granted; each choice group lets the player pick one option — and an option can grant several items and/or a sub-choice (any simple/martial weapon, a holy symbol, an arcane/druidic focus, an instrument, a pack), so \"(a) chain mail, or (b) leather + a longbow + 20 arrows\" and \"a martial weapon and a shield\" are all expressible here. Click an option to expand or collapse it."]
      [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
      (doall (for [cat starting-equipment-categories]
               ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
