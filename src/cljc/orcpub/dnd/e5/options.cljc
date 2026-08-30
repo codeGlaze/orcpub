@@ -2484,6 +2484,53 @@
 (defn class-equipment-options [equipment-choices class-kw]
   (class-options class-kw (partial equipment-option class-kw) equipment-choices "Select equipment to start your adventuring career with."))
 
+;; Rich starting-equipment choice groups — the full SRD form as serializable data.
+;; Unlike the shorthand :*-choices (one item per option), an option here can grant a
+;; BUNDLE of items (:grants) and/or offer a nested sub-choice (:choose), e.g. Fighter's
+;; "(a) chain mail, or (b) leather + longbow + 20 arrows" and "a martial weapon + shield".
+;; Shape on the class map:
+;;   :equipment-selections
+;;   [{:name "Armor"
+;;     :options [{:name "Chain Mail" :grants [{:kind :armor :key :chain-mail}]}
+;;               {:name "Leather, Longbow, 20 Arrows"
+;;                :grants [{:kind :armor :key :leather} {:kind :weapon :key :longbow}
+;;                         {:kind :equipment :key :arrow :qty 20}]}]}
+;;    {:name "Weapon"
+;;     :options [{:name "A martial weapon and a shield"
+;;                :grants [{:kind :armor :key :shield}]
+;;                :choose [{:name "Martial Weapon" :from :martial}]}]}]
+(defn- equipment-grant->modifier [{:keys [kind key qty] :or {qty 1}}]
+  (case kind
+    :weapon    (modifiers/weapon key qty)
+    :armor     (modifiers/armor key qty)
+    :equipment (modifiers/equipment key qty)
+    nil))
+
+(defn- equipment-subchoice->selection [class-kw weapon-map {:keys [name from]}]
+  (new-starting-equipment-selection
+   class-kw
+   {:name (or name "Choose one")
+    :min 1 :max 1
+    :options (case from
+               :simple     (simple-weapon-options 1 (vals weapon-map))
+               :martial    (martial-weapon-options 1 (vals weapon-map))
+               :any-weapon (weapon-options (vals weapon-map) 1)
+               [])}))
+
+(defn- equipment-selection-option [class-kw weapon-map {:keys [name grants choose]}]
+  (t/option-cfg
+   (cond-> {:name name}
+     (seq grants) (assoc :modifiers (vec (keep equipment-grant->modifier grants)))
+     (seq choose) (assoc :selections (mapv #(equipment-subchoice->selection class-kw weapon-map %) choose)))))
+
+(defn class-equipment-selections [equipment-selections class-kw weapon-map]
+  (mapv (fn [{:keys [name options]}]
+          (new-starting-equipment-selection
+           class-kw
+           {:name name
+            :options (mapv #(equipment-selection-option class-kw weapon-map %) options)}))
+        equipment-selections))
+
 (defn background-skills-cfg [background-nm skill-kws]
   {:modifiers (map
                (fn [skill-kw]
@@ -2936,6 +2983,7 @@
                             weapons
                             equipment
                             equipment-choices
+                            equipment-selections
                             armor
                             armor-choices
                             spellcasting
@@ -2977,6 +3025,7 @@
                     (when weapon-choices (class-weapon-options weapon-choices kw weapon-map))
                     (when armor-choices (class-armor-options armor-choices kw))
                     (when equipment-choices (class-equipment-options equipment-choices kw))
+                    (when equipment-selections (class-equipment-selections equipment-selections kw weapon-map))
                     (when skill-options
                       [(class-skill-selection skill-options :skill-proficiency first-class?)])
                     (when (seq skill-expertise-kws)

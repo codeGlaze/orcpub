@@ -47,6 +47,39 @@
     (is (contains? selection-names "Starting Equipment: Martial Weapon")
         ":weapon-choices produced a starting-equipment selection")))
 
+(deftest rich-equipment-selections-are-consumed
+  ;; The full SRD form as serializable data: an option can grant a BUNDLE of items
+  ;; and/or offer a nested sub-choice (Fighter's "(a) chain mail, or (b) leather +
+  ;; longbow + 20 arrows" and "a martial weapon and a shield").
+  (let [class-map {:name "Bundle Class" :key :bundle-class :hit-die 10
+                   :equipment-selections
+                   [{:name "Armor"
+                     :options [{:name "Chain Mail" :grants [{:kind :armor :key :chain-mail}]}
+                               {:name "Leather Armor, Longbow, 20 Arrows"
+                                :grants [{:kind :armor :key :leather}
+                                         {:kind :weapon :key :longbow}
+                                         {:kind :equipment :key :arrow :qty 20}]}]}
+                    {:name "Weapon"
+                     :options [{:name "A martial weapon and a shield"
+                                :grants [{:kind :armor :key :shield}]
+                                :choose [{:name "Martial Weapon" :from :martial}]}]}]}
+        result (opt/class-option {} {} {} {} weapons/weapons-map class-map)
+        strings (set (collect string? result))
+        ;; the bundle option, by its namespaced name key
+        bundle-opt (first (collect #(and (map? %)
+                                         (= "Leather Armor, Longbow, 20 Arrows"
+                                            (:orcpub.template/name %)))
+                                   result))]
+    ;; both top-level choice groups compiled to starting-equipment selections
+    (is (contains? strings "Starting Equipment: Armor"))
+    (is (contains? strings "Starting Equipment: Weapon"))
+    ;; the bundle option exists and carries all THREE grants as modifiers
+    (is (= 3 (count (:orcpub.template/modifiers bundle-opt)))
+        "bundle option grants leather + longbow + 20 arrows")
+    ;; the nested sub-choice ("choose a martial weapon") compiled to its own selection
+    (is (contains? strings "Starting Equipment: Martial Weapon")
+        ":choose produced a nested martial-weapon selection")))
+
 (deftest edn-round-trip-then-consumed
   ;; The UI writes plain data (no fn-valued modifiers), so the class survives the
   ;; .orcbrew save/export/import round-trip (EDN) unchanged AND still applies.
