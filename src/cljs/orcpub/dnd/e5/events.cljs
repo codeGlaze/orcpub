@@ -3403,6 +3403,17 @@
      (dissoc class k)
      (assoc class k v))))
 
+;; One-click migration of legacy shorthand :*-choices into the richer, editable
+;; :equipment-selections form (both are consumed by class-option; this just makes
+;; imported simple choices editable in the builder).
+(reg-event-db
+ ::class5e/migrate-equipment-choices
+ class-interceptors
+ (fn [class [_ new-selections]]
+   (-> class
+       (assoc :equipment-selections new-selections)
+       (dissoc :weapon-choices :armor-choices :equipment-choices))))
+
 (reg-event-db
  ::class5e/toggle-class-spell-list
  class-interceptors

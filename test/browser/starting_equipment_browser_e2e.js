@@ -82,10 +82,11 @@ const check = (name, ok, detail='') => { results.push({ok}); console.log(`${ok?'
     const weapons1 = await dbAt(page, '[:orcpub.dnd.e5.classes/builder-item :weapons]');
     check('clicking "+ Add Weapons" adds a fixed weapon to app-db', weapons1 && weapons1 !== 'nil' && weapons1 !== '{}', `:weapons = ${weapons1}`);
 
-    await page.getByRole('button', { name: '+ Add Weapons choice group' }).first().click();
+    await page.getByRole('button', { name: '+ Add choice group' }).first().click();
     await page.waitForTimeout(200);
-    const wc = await dbAt(page, '[:orcpub.dnd.e5.classes/builder-item :weapon-choices]');
-    check('clicking "+ Add Weapons choice group" adds a choice group', wc && wc.includes(':options'), `:weapon-choices = ${wc}`);
+    const sels = await dbAt(page, '[:orcpub.dnd.e5.classes/builder-item :equipment-selections]');
+    check('clicking "+ Add choice group" adds a rich selection group (option with a grant)',
+      sels && sels.includes(':grants'), `:equipment-selections = ${sels}`);
 
     await page.evaluate(() => { window.__d('[:orcpub.dnd.e5.classes/set-class-prop :name "Browser Test Class"]');
                                 window.__d('[:orcpub.dnd.e5.classes/set-class-prop :option-pack "Browser Test Source"]');

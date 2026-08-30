@@ -11,7 +11,8 @@
             [orcpub.dnd.e5.weapons :as weapons]))
 
 (def ^:private equipment-keys
-  [:weapons :armor :equipment :weapon-choices :armor-choices :equipment-choices])
+  [:weapons :armor :equipment :weapon-choices :armor-choices :equipment-choices
+   :equipment-selections])
 
 (defn- orcbrew-roundtrip
   "content-map -> strip blanks -> .orcbrew text -> import processor -> :data"
@@ -85,6 +86,27 @@
                                      :options {:handaxe 2 :simple 1}}]})]
     (is (contains? (selection-names imported) "Starting Equipment: Any Martial Weapon"))
     (is (contains? (selection-names imported) "Starting Equipment: Two Handaxes or a Simple Weapon"))))
+
+(deftest rich-bundle-selections-round-trip
+  ;; The full SRD form (bundle options + nested sub-choice) survives export/import
+  ;; and still compiles to the right selections.
+  (let [imported (check-roundtrip
+                  {:equipment-selections
+                   [{:name "Armor"
+                     :options [{:name "Chain Mail" :grants [{:kind :armor :key :chain-mail :qty 1}]}
+                               {:name "Leather, Longbow, 20 Arrows"
+                                :grants [{:kind :armor :key :leather :qty 1}
+                                         {:kind :weapon :key :longbow :qty 1}
+                                         {:kind :equipment :key :arrow :qty 20}]}]}
+                    {:name "Weapon"
+                     :options [{:name "A martial weapon and a shield"
+                                :grants [{:kind :armor :key :shield :qty 1}]
+                                :choose [{:from :martial}]}]}]})
+        names (selection-names imported)]
+    (is (contains? names "Starting Equipment: Armor"))
+    (is (contains? names "Starting Equipment: Weapon"))
+    (is (contains? names "Starting Equipment: Martial Weapon")
+        "nested sub-choice survived the round-trip and compiled")))
 
 (deftest mixed-multi-group-round-trips
   (let [imported (check-roundtrip

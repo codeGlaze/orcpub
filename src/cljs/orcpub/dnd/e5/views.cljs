@@ -6354,63 +6354,125 @@
                     (dispatch [::classes/set-equipment fixed (assoc items k 1)]))}
       (str "+ Add " label)]]))
 
-(defn- choice-equipment-block [class {:keys [label fixed choice]}]
-  (let [groups (vec (get class choice))
-        vocab  (equipment-vocab-items fixed)]
-    [:div.m-b-10
-     (doall
-      (map-indexed
-       (fn [idx group]
-         (let [grp-name (:name group)
-               options  (:options group)]
-           ^{:key idx}
-           [:div.b-rad-5.p-10.m-b-10 {:style {:border "1px solid #888"}}
-            [:div.flex.m-b-5 {:style {:align-items "center"}}
-             [:input.input.h-40.flex-grow-1
-              {:type "text"
-               :placeholder (str label " choice name (e.g. \"Any Martial Weapon\")")
-               :value (or grp-name "")
-               :on-change #(dispatch [::classes/set-equipment choice
-                                      (assoc-in groups [idx :name] (event-value %))])}]
-             [:button.form-button.m-l-5
-              {:on-click #(dispatch [::classes/set-equipment choice (common/remove-at-index groups idx)])}
-              "remove group"]]
-            [:div.m-l-10
-             [:div.i.f-s-14.m-b-5 "Options (player picks one):"]
-             (doall
-              (for [[item-key qty] options]
-                ^{:key (str item-key)}
-                [:div.flex.m-b-5 {:style {:align-items "center"}}
-                 [:div.flex-grow-1
-                  [equipment-item-dropdown vocab item-key
-                   (fn [new-k] (dispatch [::classes/set-equipment choice
-                                          (update-in groups [idx :options]
-                                                     (fn [o] (-> o (dissoc item-key) (assoc new-k qty))))]))]]
-                 [equipment-qty-input qty
-                  (fn [n] (dispatch [::classes/set-equipment choice (assoc-in groups [idx :options item-key] n)]))]
-                 [:button.form-button
-                  {:on-click #(dispatch [::classes/set-equipment choice (update-in groups [idx :options] dissoc item-key)])}
-                  "remove"]]))
-             [:button.form-button.m-t-5
-              {:on-click #(when-let [k (first-absent-equipment-item vocab (set (keys options)))]
-                            (dispatch [::classes/set-equipment choice (assoc-in groups [idx :options k] 1)]))}
-              "+ Add option"]]]))
-       groups))
+;; ---- Rich equipment choices (:equipment-selections) ------------------------
+;; A choice group -> options; each option grants a BUNDLE of items and/or a nested
+;; weapon sub-choice. This is the full SRD form (Fighter's "(a) chain mail, or
+;; (b) leather + longbow + 20 arrows", "a martial weapon and a shield"); it subsumes
+;; the simple one-item-per-option case. Consumed by opt5e/class-equipment-selections.
+
+(def ^:private grant-kinds
+  [{:label "Weapon" :kind :weapon} {:label "Armor" :kind :armor} {:label "Equipment" :kind :equipment}])
+
+(defn- grant-vocab [kind]
+  (equipment-vocab-items (case kind :weapon :weapons :armor :armor :equipment :equipment)))
+
+(defn- default-grant-item [kind] (some-> (grant-vocab kind) first :value keyword))
+
+(def ^:private subchoice-froms
+  [{:title "Any simple weapon" :value "simple"}
+   {:title "Any martial weapon" :value "martial"}
+   {:title "Any weapon"         :value "any-weapon"}])
+
+(defn- equipment-item-name [k]
+  (or (get {:simple "Any simple weapon" :martial "Any martial weapon"} k)
+      (get-in weapon/weapons-map [k :name])
+      (get-in armor/armor-map [k :name])
+      (get-in equip/equipment-map [k :name])
+      (name k)))
+
+(defn- put-selections [sels] (dispatch [::classes/set-equipment :equipment-selections sels]))
+
+(defn- equipment-grant-row [sels gi oi ri {:keys [kind key qty]}]
+  (let [kind (or kind :weapon) gp [gi :options oi :grants ri]]
+    [:div.flex.m-b-5 {:style {:align-items "center"}}
+     [:div.w-150.m-r-5
+      [dropdown {:items (map (fn [{:keys [label kind]}] {:title label :value (name kind)}) grant-kinds)
+                 :value (name kind)
+                 :on-change (fn [k] (let [nk (keyword k)]
+                                      (put-selections (assoc-in sels gp {:kind nk :key (default-grant-item nk) :qty (or qty 1)}))))}]]
+     [:div.flex-grow-1
+      [dropdown {:items (grant-vocab kind) :value (some-> key name)
+                 :on-change (fn [k] (put-selections (assoc-in sels (conj gp :key) (keyword k))))}]]
+     [equipment-qty-input qty (fn [n] (put-selections (assoc-in sels (conj gp :qty) n)))]
+     [:button.form-button {:on-click #(put-selections (update-in sels [gi :options oi :grants] (fn [v] (common/remove-at-index (vec v) ri))))} "remove"]]))
+
+(defn- equipment-subchoice-row [sels gi oi ci {:keys [from]}]
+  [:div.flex.m-b-5 {:style {:align-items "center"}}
+   [:div.flex-grow-1
+    [dropdown {:items subchoice-froms :value (some-> (or from :martial) name)
+               :on-change (fn [v] (put-selections (assoc-in sels [gi :options oi :choose ci :from] (keyword v))))}]]
+   [:button.form-button {:on-click #(put-selections (update-in sels [gi :options oi :choose] (fn [v] (common/remove-at-index (vec v) ci))))} "remove"]])
+
+(defn- equipment-option-block [sels gi oi {:keys [name grants choose]}]
+  (let [op [gi :options oi]]
+    [:div.b-rad-5.p-10.m-b-5 {:style {:border "1px solid #555" :background "rgba(255,255,255,0.03)"}}
+     [:div.flex.m-b-5 {:style {:align-items "center"}}
+      [:input.input.h-40.flex-grow-1
+       {:type "text" :placeholder "Option label (e.g. \"Chain Mail\" or \"Leather, Longbow, 20 Arrows\")"
+        :value (or name "")
+        :on-change #(put-selections (assoc-in sels (conj op :name) (event-value %)))}]
+      [:button.form-button.m-l-5 {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (common/remove-at-index (vec v) oi))))} "remove option"]]
+     [:div.m-l-10
+      [:div.i.f-s-14.m-b-2 "Grants (all of these):"]
+      (doall (map-indexed (fn [ri g] ^{:key ri} [equipment-grant-row sels gi oi ri g]) grants))
+      [:button.form-button.m-t-2 {:on-click #(put-selections (update-in sels (conj op :grants) (fn [v] (conj (vec v) {:kind :weapon :key (default-grant-item :weapon) :qty 1}))))} "+ Add item"]
+      [:div.i.f-s-14.m-t-8.m-b-2 "…and the player also picks (optional):"]
+      (doall (map-indexed (fn [ci c] ^{:key ci} [equipment-subchoice-row sels gi oi ci c]) choose))
+      [:button.form-button.m-t-2 {:on-click #(put-selections (update-in sels (conj op :choose) (fn [v] (conj (vec v) {:from :martial}))))} "+ Add weapon sub-choice"]]]))
+
+(defn- equipment-selection-group [sels gi {:keys [name options]}]
+  [:div.b-rad-5.p-10.m-b-10 {:style {:border "1px solid #888"}}
+   [:div.flex.m-b-5 {:style {:align-items "center"}}
+    [:input.input.h-40.flex-grow-1
+     {:type "text" :placeholder "Choice group name (e.g. \"Armor\" or \"Primary Weapon\")"
+      :value (or name "")
+      :on-change #(put-selections (assoc-in sels [gi :name] (event-value %)))}]
+    [:button.form-button.m-l-5 {:on-click #(put-selections (common/remove-at-index sels gi))} "remove group"]]
+   [:div.m-l-10
+    [:div.i.f-s-14.m-b-5 "Options (player picks one):"]
+    (doall (map-indexed (fn [oi o] ^{:key oi} [equipment-option-block sels gi oi o]) options))
+    [:button.form-button.m-t-2 {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (conj (vec v) {:name "" :grants [{:kind :weapon :key (default-grant-item :weapon) :qty 1}]}))))} "+ Add option"]]])
+
+(defn- rich-equipment-choices [class]
+  (let [sels (vec (:equipment-selections class))]
+    [:div
+     (doall (map-indexed (fn [gi g] ^{:key gi} [equipment-selection-group sels gi g]) sels))
      [:button.form-button
-      {:on-click #(dispatch [::classes/set-equipment choice (conj groups {:name "" :options {}})])}
-      (str "+ Add " label " choice group")]]))
+      {:on-click #(put-selections (conj sels {:name "" :options [{:name "" :grants [{:kind :weapon :key (default-grant-item :weapon) :qty 1}]}]}))}
+      "+ Add choice group"]]))
+
+;; Convert legacy/imported shorthand :*-choices into editable :equipment-selections
+;; (lossless — each single-item option becomes an option with one grant).
+(defn- legacy-choices->selections [class]
+  (vec
+   (for [{:keys [choice]} starting-equipment-categories
+         {:keys [name options]} (get class choice)
+         :when (seq options)]
+     {:name (or name "")
+      :options (vec (for [[k q] options]
+                      {:name (equipment-item-name k)
+                       :grants [{:kind (case choice :weapon-choices :weapon
+                                         :armor-choices :armor :equipment-choices :equipment)
+                                 :key k :qty q}]}))})))
 
 (defn starting-equipment-section [class]
-  [:div.m-b-30
-   [:div.f-s-24.f-w-b.m-b-10 "Starting Equipment"]
-   [:div.i.f-s-14.m-b-10
-    "Granted when a character takes this as their first class. Fixed items are always granted; each choice group lets the player pick one option. Complex \"(a) X, or (b) Y and Z\" bundles aren't supported here — edit the .orcbrew file directly for those."]
-   [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
-   (doall (for [cat starting-equipment-categories]
-            ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
-   [:div.f-w-b.f-s-18.m-t-15.m-b-5 "Choices (player picks one per group)"]
-   (doall (for [cat starting-equipment-categories]
-            ^{:key (:choice cat)} [choice-equipment-block class cat]))])
+  (let [legacy? (some #(seq (get class (:choice %))) starting-equipment-categories)]
+    [:div.m-b-30
+     [:div.f-s-24.f-w-b.m-b-10 "Starting Equipment"]
+     [:div.i.f-s-14.m-b-10
+      "Granted when a character takes this as their first class. Fixed items are always granted; each choice group lets the player pick one option — and an option can grant several items and/or a weapon sub-choice, so \"(a) chain mail, or (b) leather + a longbow + 20 arrows\" and \"a martial weapon and a shield\" are all expressible here."]
+     [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
+     (doall (for [cat starting-equipment-categories]
+              ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
+     [:div.f-w-b.f-s-18.m-t-15.m-b-5 "Choices (player picks one per group)"]
+     (when legacy?
+       [:div.bg-light.p-5.m-b-5.b-rad-5
+        [:span.i.f-s-14 "This class has simple choices from an older format. "]
+        [:button.form-button.m-l-5
+         {:on-click #(dispatch [::classes/migrate-equipment-choices
+                                (into (vec (:equipment-selections class)) (legacy-choices->selections class))])}
+         "Convert to editable form"]])
+     [rich-equipment-choices class]]))
 
 (defn class-builder []
   (let [class @(subscribe [::classes/builder-item])

@@ -34,13 +34,28 @@ edits use for the common cases.
 - **Weapon pseudo-keys** `:simple` / `:martial` mean "any simple/martial weapon" and
   expand to a nested sub-selection (`options.cljc:2423`).
 
-### 2. Hand-built `:selections` — NOT a UI target
-The fully-expressive "(a) chain mail or (b) leather + longbow + 20 arrows" form
-(Fighter, `classes.cljc:1106-1151`) uses `opt5e/new-starting-equipment-selection` with
-**function-valued** `:modifiers` (`mod5e/armor`, `mod5e/weapon`, …). These do not
-serialize to `.orcbrew`, so they cannot come from a builder UI safely. Even SRD
-hand-codes them. **Out of scope for the builder** — note it in the UI as "advanced,
-edit the file directly."
+### 2. The full "(a) or (b)+(c)" form — serializable, and IS a UI target
+The SRD *source* hand-builds this with `opt5e/new-starting-equipment-selection` and
+function calls (`mod5e/armor`, `mod5e/weapon`, …) — Fighter, `classes.cljc:1106-1151`.
+That's the SRD's *code* representation; do not confuse it with "can't be data." The same
+**semantics** are fully serializable via the `:equipment-selections` key (added on
+`feat/starting-equipment`):
+```clojure
+:equipment-selections
+[{:name "Armor"
+  :options [{:name "Chain Mail" :grants [{:kind :armor :key :chain-mail :qty 1}]}
+            {:name "Leather, Longbow, 20 Arrows"
+             :grants [{:kind :armor :key :leather} {:kind :weapon :key :longbow}
+                      {:kind :equipment :key :arrow :qty 20}]}]}
+ {:name "Weapon"
+  :options [{:name "A martial weapon and a shield"
+             :grants [{:kind :armor :key :shield}]
+             :choose [{:from :martial}]}]}]
+```
+`opt5e/class-equipment-selections` (`options.cljc`) compiles this to the exact
+`new-starting-equipment-selection` structure the SRD uses — an option carries multiple
+`:grants` (a bundle) and/or nested `:choose` sub-selections. So the complex form is
+authorable in the UI and round-trips through `.orcbrew`; nothing is out of scope.
 
 ## How consumption works (what to expect on the character)
 
@@ -98,10 +113,12 @@ and dispatching per-field events (`set-class-prop` / `set-class-path-prop`,
 section.
 
 **Implemented** (`feat/starting-equipment`): a `starting-equipment-section` in
-`views.cljs` (fixed-grant blocks + typed choice-group blocks, picking from
-`weapons-map`/`armor-map`/`equipment-map`) that writes the shorthand keys above through
-one setter, `::class5e/set-equipment` (`events.cljs`), which drops a key when its
-map/vector is emptied so exports stay clean. `default-class` is left untouched (absent
+`views.cljs` — fixed-grant blocks (writing `:weapons`/`:armor`/`:equipment`) plus a
+**rich choices** builder (group → option → one-or-more grants + optional weapon
+sub-choice) writing `:equipment-selections`. Both go through one setter,
+`::class5e/set-equipment` (`events.cljs`), which drops a key when its map/vector empties
+so exports stay clean; `::class5e/migrate-equipment-choices` one-click-converts legacy
+shorthand `:*-choices` into the editable rich form. `default-class` is left untouched (absent
 keys read as empty). Regression coverage: `test/clj/orcpub/starting_equipment_test.clj`
 (consumption + EDN round-trip), the `set-equipment` cases in
 `test/cljs/orcpub/dnd/e5/events_test.cljs`, and

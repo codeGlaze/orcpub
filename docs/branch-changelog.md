@@ -16,19 +16,23 @@ way an official one does — and it round-trips through save/import/export.
 
 ## Highlights
 
-Homebrew classes can now define their **starting equipment** from the builder UI —
-fixed items and "player chooses one" groups — instead of only through hand-edited
-`.orcbrew` files. It writes the same shape the SRD classes use, so the equipment
-applies on the character sheet and round-trips through save, export, and import.
+Homebrew classes can now define their **starting equipment** from the builder UI — the
+**full SRD form**, not just the easy half. Fixed items, plus choice groups where each
+option can grant a **bundle** of items and/or a **nested weapon sub-choice**, so
+"(a) chain mail, or (b) leather + a longbow + 20 arrows" and "a martial weapon and a
+shield" are all buildable without hand-editing `.orcbrew`. It applies on the character
+sheet and round-trips through save, export, and import.
 
 ## Added
 
 - **Starting Equipment section in the class builder** — a homebrew class can grant fixed
-  items (`:weapons`/`:armor`/`:equipment`) and typed choice groups (`:*-choices`), picked
-  from the real weapon/armor/equipment vocabulary (including "any simple/martial weapon").
-  Writes the shorthand keys `class-option` already consumes, so it applies to a character
-  with no new wiring and round-trips through save/export; empty categories are dropped so
-  exports stay clean (`a4f13086`).
+  items (`:weapons`/`:armor`/`:equipment`) and rich choice groups. Each choice option is a
+  label + one-or-more item grants (from the real weapon/armor/equipment vocabulary) + an
+  optional "any simple/martial weapon" sub-choice — i.e. the full SRD equipment form
+  (bundles and nested picks), via a serializable `:equipment-selections` shape that
+  `class-option` compiles to the same structure the SRD classes use. Applies with no new
+  engine path, round-trips through save/export/import, and imported legacy simple choices
+  convert to the editable form in one click (`a4f13086`, `5a5f65a8`).
 
 ## Fixed
 

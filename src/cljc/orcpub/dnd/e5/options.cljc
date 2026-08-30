@@ -2509,7 +2509,8 @@
 (defn- equipment-subchoice->selection [class-kw weapon-map {:keys [name from]}]
   (new-starting-equipment-selection
    class-kw
-   {:name (or name "Choose one")
+   {:name (or name (case from :simple "Simple Weapon" :martial "Martial Weapon"
+                     :any-weapon "Weapon" "Choose one"))
     :min 1 :max 1
     :options (case from
                :simple     (simple-weapon-options 1 (vals weapon-map))
