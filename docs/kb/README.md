@@ -47,6 +47,7 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [lein-uberjar-hang.md](lein-uberjar-hang.md) | lein compile hang: Datomic Peer non-daemon threads, timeout workaround, build profile fix |
 | [docker-testing-guide.md](docker-testing-guide.md) | Docker testing: 46-test suite, manual smoke tests, every gotcha (H2 lock-in, env -u, ports, transit, piped input, jq nulls) |
 | [class-builder-extraction-plan.md](class-builder-extraction-plan.md) | Plan for the first incremental view decomposition: extract the class builder from the views.cljs monolith (reuses views-builders-split rules; the anti-views-extraction cadence) |
+| [starting-equipment-override-ledger.md](starting-equipment-override-ledger.md) | Design: template + ledger override for starting equipment — stable-key addressing (not names), add/replace(=remove) ops, SRD-key freeze, derived-diff, edge cases |
 
 ## Human-Facing Docs (Copies)
 
