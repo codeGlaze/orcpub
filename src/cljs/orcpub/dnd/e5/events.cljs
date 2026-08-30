@@ -3390,6 +3390,19 @@
  (fn [class [_ prop-key prop-value]]
    (assoc class prop-key prop-value)))
 
+;; Starting-equipment setter shared by the fixed-grant maps (:weapons/:armor/
+;; :equipment, {item-key qty}) and the choice vectors (:weapon-choices/
+;; :armor-choices/:equipment-choices, [{:name .. :options {item-key qty}}]).
+;; The whole map/vector is rebuilt in the view and set here; an empty value drops
+;; the key entirely so exports don't carry blank equipment keys.
+(reg-event-db
+ ::class5e/set-equipment
+ class-interceptors
+ (fn [class [_ k v]]
+   (if (empty? v)
+     (dissoc class k)
+     (assoc class k v))))
+
 (reg-event-db
  ::class5e/toggle-class-spell-list
  class-interceptors

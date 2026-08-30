@@ -6286,6 +6286,132 @@
      edit-selection-level-event
      delete-selection-event]]])
 
+;; ---- Starting equipment (homebrew class builder) ---------------------------
+;; The class map carries the same shorthand keys the SRD classes use, consumed by
+;; opt5e/class-option with no extra wiring (see docs/kb/starting-equipment.md):
+;;   fixed grants  -> :weapons / :armor / :equipment  {item-key qty}
+;;   choice groups -> :weapon-choices / :armor-choices / :equipment-choices
+;;                    [{:name .. :options {item-key qty}}]
+;; The fully hand-built "(a) X or (b) Y and Z" :selections form is intentionally
+;; not offered here — it carries fn-valued modifiers that don't serialize.
+
+(def starting-equipment-categories
+  [{:label "Weapons"   :fixed :weapons   :choice :weapon-choices}
+   {:label "Armor"     :fixed :armor     :choice :armor-choices}
+   {:label "Equipment" :fixed :equipment :choice :equipment-choices}])
+
+(defn- equipment-vocab-items [fixed-key]
+  (let [m (case fixed-key
+            :weapons   weapon/weapons-map
+            :armor     armor/armor-map
+            :equipment equip/equipment-map)
+        base (->> m
+                  (keep (fn [[k v]] (when (:name v) {:title (:name v) :value (name k)})))
+                  (sort-by :title))]
+    (if (= :weapons fixed-key)
+      (concat [{:title "Any simple weapon"  :value "simple"}
+               {:title "Any martial weapon" :value "martial"}]
+              base)
+      base)))
+
+(defn- first-absent-equipment-item [vocab present-keys]
+  (some (fn [{:keys [value]}]
+          (let [k (keyword value)]
+            (when-not (contains? present-keys k) k)))
+        vocab))
+
+(defn- equipment-qty-input [qty on-change]
+  [:input.input.h-40.w-60.m-l-5.m-r-5
+   {:type "number" :min 1 :value (or qty 1)
+    :on-change #(let [n (js/parseInt (event-value %))]
+                  (on-change (if (js/isNaN n) 1 (max 1 n))))}])
+
+(defn- equipment-item-dropdown [vocab item-key on-pick]
+  [dropdown {:items vocab
+             :value (name item-key)
+             :on-change #(on-pick (keyword %))}])
+
+(defn- fixed-equipment-block [class {:keys [label fixed]}]
+  (let [items (get class fixed)
+        vocab (equipment-vocab-items fixed)]
+    [:div.m-b-10
+     [:div.f-w-b.m-b-5 label]
+     (doall
+      (for [[item-key qty] items]
+        ^{:key (str item-key)}
+        [:div.flex.m-b-5 {:style {:align-items "center"}}
+         [:div.flex-grow-1
+          [equipment-item-dropdown vocab item-key
+           (fn [new-k] (dispatch [::classes/set-equipment fixed
+                                  (-> items (dissoc item-key) (assoc new-k qty))]))]]
+         [equipment-qty-input qty
+          (fn [n] (dispatch [::classes/set-equipment fixed (assoc items item-key n)]))]
+         [:button.form-button
+          {:on-click #(dispatch [::classes/set-equipment fixed (dissoc items item-key)])}
+          "remove"]]))
+     [:button.form-button.m-t-5
+      {:on-click #(when-let [k (first-absent-equipment-item vocab (set (keys items)))]
+                    (dispatch [::classes/set-equipment fixed (assoc items k 1)]))}
+      (str "+ Add " label)]]))
+
+(defn- choice-equipment-block [class {:keys [label fixed choice]}]
+  (let [groups (vec (get class choice))
+        vocab  (equipment-vocab-items fixed)]
+    [:div.m-b-10
+     (doall
+      (map-indexed
+       (fn [idx group]
+         (let [grp-name (:name group)
+               options  (:options group)]
+           ^{:key idx}
+           [:div.b-rad-5.p-10.m-b-10 {:style {:border "1px solid #888"}}
+            [:div.flex.m-b-5 {:style {:align-items "center"}}
+             [:input.input.h-40.flex-grow-1
+              {:type "text"
+               :placeholder (str label " choice name (e.g. \"Any Martial Weapon\")")
+               :value (or grp-name "")
+               :on-change #(dispatch [::classes/set-equipment choice
+                                      (assoc-in groups [idx :name] (event-value %))])}]
+             [:button.form-button.m-l-5
+              {:on-click #(dispatch [::classes/set-equipment choice (common/remove-at-index groups idx)])}
+              "remove group"]]
+            [:div.m-l-10
+             [:div.i.f-s-14.m-b-5 "Options (player picks one):"]
+             (doall
+              (for [[item-key qty] options]
+                ^{:key (str item-key)}
+                [:div.flex.m-b-5 {:style {:align-items "center"}}
+                 [:div.flex-grow-1
+                  [equipment-item-dropdown vocab item-key
+                   (fn [new-k] (dispatch [::classes/set-equipment choice
+                                          (update-in groups [idx :options]
+                                                     (fn [o] (-> o (dissoc item-key) (assoc new-k qty))))]))]]
+                 [equipment-qty-input qty
+                  (fn [n] (dispatch [::classes/set-equipment choice (assoc-in groups [idx :options item-key] n)]))]
+                 [:button.form-button
+                  {:on-click #(dispatch [::classes/set-equipment choice (update-in groups [idx :options] dissoc item-key)])}
+                  "remove"]]))
+             [:button.form-button.m-t-5
+              {:on-click #(when-let [k (first-absent-equipment-item vocab (set (keys options)))]
+                            (dispatch [::classes/set-equipment choice (assoc-in groups [idx :options k] 1)]))}
+              "+ Add option"]]]))
+       groups))
+     [:button.form-button
+      {:on-click #(dispatch [::classes/set-equipment choice (conj groups {:name "" :options {}})])}
+      (str "+ Add " label " choice group")]]))
+
+(defn starting-equipment-section [class]
+  [:div.m-b-30
+   [:div.f-s-24.f-w-b.m-b-10 "Starting Equipment"]
+   [:div.i.f-s-14.m-b-10
+    "Granted when a character takes this as their first class. Fixed items are always granted; each choice group lets the player pick one option. Complex \"(a) X, or (b) Y and Z\" bundles aren't supported here — edit the .orcbrew file directly for those."]
+   [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
+   (doall (for [cat starting-equipment-categories]
+            ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
+   [:div.f-w-b.f-s-18.m-t-15.m-b-5 "Choices (player picks one per group)"]
+   (doall (for [cat starting-equipment-categories]
+            ^{:key (:choice cat)} [choice-equipment-block class cat]))])
+
 (defn class-builder []
   (let [class @(subscribe [::classes/builder-item])
         spell-lists @(subscribe [::spells/spell-lists])
@@ -6518,6 +6644,7 @@
        class
        ::classes/set-class-path-prop
        ::classes/toggle-class-path-prop]]
+     [starting-equipment-section class]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [option-level-modifiers

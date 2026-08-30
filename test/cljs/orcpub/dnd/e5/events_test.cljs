@@ -603,3 +603,24 @@
     ;; content declares no source -> nothing to disagree with -> no prompt
     (let [data {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]
       (is (nil? (events/source-name-mismatch "Whatever" data))))))
+
+;; ---------------------------------------------------------------------------
+;; Starting-equipment setter (class builder)
+;; ---------------------------------------------------------------------------
+
+(deftest set-equipment-writes-and-cleans-keys
+  (testing "fixed-grant map is set on the builder-item"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapons {:javelin 4}])
+    (is (= {:javelin 4} (get-in @app-db [::classes5e/builder-item :weapons]))))
+  (testing "choice vector is set on the builder-item"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapon-choices
+                       [{:name "Martial Weapon" :options {:greataxe 1 :martial 1}}]])
+    (is (= [{:name "Martial Weapon" :options {:greataxe 1 :martial 1}}]
+           (get-in @app-db [::classes5e/builder-item :weapon-choices]))))
+  (testing "an empty value drops the key entirely (no blank export)"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq :weapons {:javelin 4}}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapons {}])
+    (is (not (contains? (::classes5e/builder-item @app-db) :weapons))
+        ":weapons removed when emptied")))
