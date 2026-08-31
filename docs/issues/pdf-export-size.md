@@ -458,25 +458,32 @@ New from this file: the ability boxes are inverted from their names as well.
 `cha` holds the MODIFIER (the large box) and `cha-mod` holds the SCORE (the small
 circle). The fixtures had these backwards and are now corrected.
 
-### NEW BUG, visible in production: every negative number renders as a box
+### RETRACTED: negatives are NOT broken in production
 
-Nedda's Charisma modifier prints as a missing-glyph box rather than "-1", as do
-Deception, Intimidation, Persuasion, and the "- " bullets in the attacks block.
+An earlier revision of this section claimed every negative number on a live
+sheet rendered as a missing-glyph box. That was wrong, and the error was mine.
 
-The stored value is fine -- plain ASCII, U+002D U+0031. The fault is in the baked
-appearance stream:
+The facts that hold: the stored value is plain ASCII (U+002D U+0031), and the
+baked appearance stream encodes the hyphen as octal 255 (0xAD) where this
+branch's output encodes 0x2D. Both are legitimate -- WinAnsiEncoding lists
+"hyphen" at BOTH codes, and PDFBox's name-to-code reverse lookup returns 0xAD.
 
-    LIVE:   (\2551) Tj     <- octal 255 = 0xAD
-    BRANCH: (-1) Tj         <- plain 0x2D
+What does NOT hold: that users see a box. A screenshot from a real PDF viewer
+shows the hyphen rendering correctly. The tofu appeared only in PDFBox's OWN
+renderer, which is what every screenshot in this document is produced with. I
+reported a limitation of the measuring instrument as a defect in the thing being
+measured -- with the bytes in front of me showing 0xAD is a valid hyphen.
 
-WinAnsiEncoding lists "hyphen" at BOTH 0x2D and 0xAD, and PDFBox's name-to-code
-reverse lookup returns 0xAD. Renderers treat 0xAD as a SOFT hyphen -- an
-invisible break opportunity -- so it draws as nothing or as tofu.
+The one thing arguably visible in a real viewer is slightly wider spacing after
+the minus ("- 1" rather than "-1"). Whether that is worth changing is a
+judgement call, not a bug, and this document has already been wrong twice by
+escalating cosmetic observations into defects.
 
-Output from the current branch bakes 0x2D and renders correctly, verified by
-generating the same field through pdf/write-fields! and dumping both streams. So
-this is already fixed here; it is worth knowing it was ever broken, because it
-affects every negative modifier on every sheet the live site has produced.
+Standing lesson, the third instance of it here: PDFBox renders are fine for
+comparing two PDFBox renders (the prune verification below is unaffected --
+same renderer on both sides, so a real difference would still show). They are
+NOT evidence about what a user sees. Glyph-level and layout claims need a real
+viewer before they go in this file.
 
 The clipping bug could NOT be tested against this file -- her modifiers top out
 at +7, below the +10 threshold. The fixture evidence stands alone on that one.
