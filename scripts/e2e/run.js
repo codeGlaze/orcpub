@@ -83,15 +83,15 @@ async function shot(page, name) {
   const context = await browser.newContext({ acceptDownloads: true });
   const page = await context.newPage();
   record(page, problems, 'signed out');
-  // The browser posts the field map to a new tab and the PDF is handed to the
-  // viewer, so playwright cannot read the response body. Keep the payload the
-  // client built and re-issue it to inspect the bytes -- the map under test is
-  // still the one pdf-spec/make-spec produced in the page.
-  let postedBody = null;
-  context.on('request', req => {
-    if (req.method() === 'POST' && req.url().includes('character.pdf')) {
-      postedBody = req.postData();
-    }
+  // Chromium hands a PDF response to its internal viewer, so response.body()
+  // returns the viewer's wrapper HTML (about 345 bytes) rather than the
+  // document. Intercepting the route runs the page's own request and yields the
+  // real bytes before the viewer takes them.
+  let pdfBytes = null;
+  await context.route('**/character.pdf', async route => {
+    const res = await route.fetch();
+    pdfBytes = await res.body();
+    await route.fulfill({ response: res });
   });
   page.on('response', async res => {
     if (!res.url().includes('character.pdf')) return;
@@ -156,14 +156,10 @@ async function shot(page, name) {
     check(response.status() === 200, `the export answers 200 (got ${response.status()})`);
     check(/pdf/.test(response.headers()['content-type'] || ''),
           `the response is a PDF (${response.headers()['content-type']})`);
-    check(postedBody !== null && postedBody.length > 500,
-          'the client posted a populated field map');
 
-    const refetch = await context.request.post(`${BASE}/character.pdf`, {
-      headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      data: postedBody,
-    });
-    const bytes = await refetch.body();
+    await page.waitForTimeout(1500);
+    check(pdfBytes !== null, 'the export was intercepted');
+    const bytes = pdfBytes || Buffer.alloc(0);
     const pdfPath = path.join(OUT, 'character.pdf');
     fs.writeFileSync(pdfPath, bytes);
     console.log(`  received ${Math.round(bytes.length / 1024)} KB`);

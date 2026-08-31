@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Browser end-to-end checks against a real server and a real database.
 #
-#   ./scripts/e2e/run.sh
+#   ./scripts/e2e/run.sh [script.js]      (defaults to run.js)
 #
 # Boots the app on an in-memory Datomic, seeds a verified user, drives
 # Chromium through scripts/e2e/run.js, then tears the server down.
@@ -50,4 +50,4 @@ if grep -q BindException "$LOG" 2>/dev/null; then
   exit 1
 fi
 
-E2E_BASE="http://localhost:${PORT}" node scripts/e2e/run.js
+E2E_BASE="http://localhost:${PORT}" node "scripts/e2e/${1:-run.js}"
