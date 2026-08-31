@@ -19,7 +19,8 @@
   (:require [orcpub.pdf :as pdf]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.spell-lists :as sl]
-            [clojure.java.io :as io])
+            [clojure.java.io :as io]
+            [clojure.string :as str])
   (:import (org.apache.pdfbox Loader)
            (java.io FileOutputStream)))
 
@@ -167,18 +168,104 @@
          "tracked apart from the shared slots. Caster level 15 for slots; no class above 5th, so "
          "nothing above 3rd level can be prepared.")}})
 
+
+;; ─── Fixture 3: eight spellcasting classes, twenty levels ──────────────────
+;;
+;; bard 2 / cleric 2 / druid 2 / paladin 4 / ranger 4 / sorcerer 2 / warlock 2 /
+;; wizard 2. The template provides SIX spellcasting sections (-1 through -6), so
+;; two of these eight have nowhere to print. write-fields! skips names it cannot
+;; find without saying anything, so they vanish silently -- which is the point of
+;; this fixture. build! reports what it dropped.
+;;
+;; Caster level for shared slots is 14: five full casters at 2 (=10) plus two
+;; half casters at 4 (=2 each). Warlock pact magic is separate. But no class is
+;; above 4th level, so NOTHING above 1st level can be prepared, while slots run
+;; to 7th. An extreme version of the multiclass shape in fixture 2.
+
+(def ^:private wide-slots {1 4, 2 3, 3 3, 4 3, 5 2, 6 1, 7 1})
+
+(defn- caster [name-str list ability dc attack slots]
+  {:name-str name-str :list list :ability ability :dc dc :attack attack
+   :max-spell-level 1 :slots slots})
+
+(def ^:private multi-8
+  {:file "target/sample-eight.pdf"
+   :template "fillable-char-sheetstyle-1-6-spells.pdf"
+   :casters [(caster "Bard 2 (College of Lore)"        :bard     "Charisma"     14 "+6" wide-slots)
+             (caster "Cleric 2 (Life Domain)"          :cleric   "Wisdom"       13 "+5" wide-slots)
+             (caster "Druid 2 (Circle of the Land)"    :druid    "Wisdom"       13 "+5" wide-slots)
+             (caster "Paladin 4 (Oath of Devotion)"    :paladin  "Charisma"     14 "+6" wide-slots)
+             (caster "Ranger 4 (Hunter)"               :ranger   "Wisdom"       13 "+5" wide-slots)
+             (caster "Sorcerer 2 (Wild Magic)"         :sorcerer "Charisma"     14 "+6" wide-slots)
+             (caster "Warlock 2 (Fiend, Pact of Blade)" :warlock "Charisma"     14 "+6" {1 2})
+             (caster "Wizard 2 (School of Abjuration)" :wizard   "Intelligence" 13 "+5" wide-slots)]
+   :fields
+   {:character-name "Wren Sixpence" :character-name-2 "Wren Sixpence"
+    :class-level "Brd2/Clr2/Drd2/Pal4/Rgr4/Sor2/Wlk2/Wiz2"
+    :background "Guild Artisan" :player-name "fixture" :race "Human (Variant)"
+    :alignment "Chaotic Good" :xp "355,000"
+    :str "12" :str-mod "+1" :dex "13" :dex-mod "+1" :con "14" :con-mod "+2"
+    :int "12" :int-mod "+1" :wis "14" :wis-mod "+2" :cha "16" :cha-mod "+3"
+    :str-save "+1" :dex-save "+1" :con-save "+2"
+    :int-save "+1" :wis-save "+8" :cha-save "+9"
+    :wis-save-check true :cha-save-check true
+    :ac "16" :initiative "+1" :speed "30 ft." :hp-max "134" :hp-current "134"
+    :hp-temp "0" :hd "2d8/2d8/2d8/4d10/4d10/2d6/2d8/2d6" :prof-bonus "+6"
+    :passive "12" :inspiration "1"
+    :religion "+7" :religion-check true :nature "+8" :nature-check true
+    :persuasion "+9" :persuasion-check true :performance "+9" :performance-check true
+    :arcana "+7" :medicine "+8" :insight "+8" :survival "+8" :history "+1"
+    :age "29" :height "5'6\"" :weight "142 lb."
+    :eyes "Hazel" :skin "Weathered" :hair "Brown, in need of a cut"
+    :weapon-name-1 "Longsword" :weapon-attack-bonus-1 "+7" :weapon-damage-1 "1d8+1 slashing"
+    :weapon-name-2 "Shortbow" :weapon-attack-bonus-2 "+7" :weapon-damage-2 "1d6+1 piercing"
+    :weapon-name-3 "Eldritch Blast" :weapon-attack-bonus-3 "+9" :weapon-damage-3 "1d10 force"
+    :gp "88" :sp "120" :cp "340" :ep "0" :pp "0"
+    :personality-traits "Has never finished anything and is cheerful about it."
+    :ideals "There is no wrong door. There are only doors you have not tried."
+    :bonds "Eight oaths, orders and pacts, all technically still in force."
+    :flaws "Cannot pass a training hall without enrolling."
+    :backstory (str "Started as an apprentice bookbinder and kept meeting people who were "
+                    "better at something. Signed with every one of them. Answers to eight "
+                    "teachers, none of whom know about the other seven.")
+    :allies "Everyone, briefly. Eight organisations each believe Wren is theirs."
+    :other-profs "Common, Elvish, Dwarvish, Sylvan, Infernal, Druidic, Celestial. Bookbinder's tools."
+    :features-and-traits (str "Bardic Inspiration d6. Cutting Words. Channel Divinity. Preserve Life. "
+                              "Wild Shape. Natural Recovery. Divine Smite. Aura of Protection. "
+                              "Sacred Weapon. Favored Enemy. Natural Explorer. Colossus Slayer. "
+                              "Font of Magic. Wild Magic Surge. Pact of the Blade. Arcane Ward.")
+    :equipment "Longsword, shortbow, shield, holy symbol, druidic focus, component pouch, spellbook, lute."
+    :treasure "Cloak of Protection, Pearl of Power, a drawer of unfinished apprentice tokens"
+    :attacks-and-spellcasting
+    (str "Eight spellcasting classes; the sheet has room for six. Caster level 14 for shared "
+         "slots, but no class above 4th, so nothing above 1st level can be prepared.")}})
+
+(defn- dropped-names
+  "Names in `fields` that the template has no field for. write-fields! skips
+   these in silence, so a fixture has to look for them deliberately."
+  [doc fields]
+  (let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (sort (remove #(some? (.getField form (name %))) (keys fields)))))
+
 (defn- build! [{:keys [file template casters fields]}]
   (let [all (merge fields (spellcasting-fields casters))
         out (io/file file)]
     (io/make-parents out)
     (with-open [doc (Loader/loadPDF (.readAllBytes (.openStream (io/resource template))))]
-      (pdf/write-fields! doc all false {})
-      (with-open [o (FileOutputStream. out)] (.save doc o)))
-    (println (format "wrote %-28s %d fields, %d pages of spells, %d KB"
-                     (.getPath out) (count all) (count casters) (quot (.length out) 1024)))))
+      (let [dropped (dropped-names doc all)]
+        (pdf/write-fields! doc all false {})
+        (with-open [o (FileOutputStream. out)] (.save doc o))
+        (println (format "wrote %-28s %d fields, %d casters, %d KB"
+                         (.getPath out) (count all) (count casters) (quot (.length out) 1024)))
+        (when (seq dropped)
+          (println (format "  !! %d values had no field and were silently dropped:"
+                           (count dropped)))
+          (doseq [row (partition-all 5 dropped)]
+            (println "     " (str/join ", " (map name row)))))))))
 
 (defn -main [& _]
   (build! wizard-20)
-  (build! multi-20))
+  (build! multi-20)
+  (build! multi-8))
 
 (-main)

@@ -341,3 +341,38 @@ One thing that LOOKS wrong on this sheet but is correct: slots at 4th through
 8th level with no spells listed beneath them. Caster level is 15 for slot
 purposes, but no single class is above 5th, so nothing above 3rd level can be
 prepared. Do not "fix" that.
+
+### Third fixture: eight spellcasting classes (the real edge case)
+
+target/sample-eight.pdf is bard 2 / cleric 2 / druid 2 / paladin 4 / ranger 4 /
+sorcerer 2 / warlock 2 / wizard 2 -- twenty levels across eight casting classes.
+
+**The sheet has room for six.** The template provides spellcasting sections -1
+through -6, and routes.clj tops out at sheet6. Classes seven and eight have
+nowhere to print, and write-fields! drops names it cannot find in silence, so
+they simply are not there. On this character that is 50 values gone: both
+classes' names, abilities, save DCs, attack bonuses, every slot and every spell.
+A player prints their character and two of their eight classes are missing, with
+nothing on the page or in the logs to say why.
+
+This is bug 4 (the silent skip) and the six-class template ceiling landing
+together, and it is the strongest argument for fixing the silent skip first. The
+fixture now reports dropped names itself -- build! diffs the field map against
+the template before writing -- which is exactly the check write-fields! should
+be doing at runtime.
+
+Worth noting the same reporting immediately caught spells-3-11 on the other two
+fixtures without anyone looking for it.
+
+Two more things this character surfaced:
+
+- **Page 9 of every six-caster export is blank.** The sheet6 template ends with
+  an empty FEATURES & TRAITS continuation page -- a label in the corner and
+  nothing else. It has no filled fields and ships in every multi-caster PDF.
+- **Long class strings shrink rather than clip.** "Brd2/Clr2/Drd2/Pal4/Rgr4/
+  Sor2/Wlk2/Wiz2" renders visibly smaller than neighbouring fields but intact.
+  That is the right failure mode, and worth preserving if the modifier boxes get
+  fixed to auto-size.
+
+No modifier on this character reaches +10, and nothing clips -- consistent with
+the +10 threshold recorded above.
