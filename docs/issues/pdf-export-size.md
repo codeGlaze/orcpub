@@ -184,3 +184,35 @@ both styles -- one object serves pages 3-8 -- so there is no duplication to fix.
 passes it through; nothing in the UI ever sets it. Flattening style 1 gives
 1,236 KB -> 252 KB but produces a non-editable PDF, so it belongs as an option
 rather than a default — people reasonably want to keep editing their sheet.
+
+## Correction: this is a style 1 problem, and style 1 is the only public style
+
+Two facts change the scope of everything above.
+
+**Only style 1 has orphans.** Checked all four families, fewest and most spell
+pages:
+
+    style 1, 0 spell pages    1931 widgets   1810 orphaned   94%
+    style 1, 6 spell pages    1931 widgets    526 orphaned   27%
+    style 2, 0 / 6            120 / 1404              0       0%
+    style 3, 0 / 6            112 /  844              0       0%
+    style 4, 0 / 6            129 /  807              0       0%
+
+Styles 2-4 scale their field count with page count, which is what a correctly
+built variant looks like. Style 1 carries all 1931 widgets in every variant no
+matter how many pages it has.
+
+**Only style 1 is reachable.** integrations/sheet-styles returns a single entry
+("Original 5e Character sheet", value 1). Styles 2-4 are fork overrides gated by
+user tier; the assets ship in the repo but the dropdown never offers them.
+
+So the fix is 7 files, not 28, and the runtime prune in write-fields! only has
+to handle style 1 -- where it removes up to 94% of the widgets. The style 3
+CMYK->RGB saving noted above is real but unreachable in the open app, and the
+style 4 RGB-for-gray one likewise. Leave both recorded, do neither first.
+
+Note also that routes.clj accepts valid-sheet-styles #{1 2 3 4} while the UI
+offers only 1. A hand-crafted request can select a non-public style. These are
+static assets in the repo, so this is not a disclosure issue, but the server
+being deliberately broader than the client is worth knowing rather than
+rediscovering.
