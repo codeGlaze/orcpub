@@ -265,10 +265,11 @@
     (io/make-parents out)
     (with-open [doc (Loader/loadPDF (.readAllBytes
                                       (.openStream (io/resource template))))]
-      ;; write-fields! returns the names the template had no field for, and logs
-      ;; them. The fixture used to diff the map itself; that check now lives in
-      ;; the exporter where every caller benefits.
-      (let [dropped (pdf/write-fields! doc all false {})]
+      ;; Mirrors the export path in routes.clj: pages for classes past the sixth,
+      ;; then overflow spill, then write.
+      (pdf/add-missing-spell-pages! doc all)
+      (let [all (pdf/spill-overflow! doc all)
+            dropped (pdf/write-fields! doc all false {})]
         (with-open [o (FileOutputStream. out)] (.save doc o))
         (println (format "wrote %-28s %d fields, %d casters, %d KB%s"
                          (.getPath out) (count all) (count casters)

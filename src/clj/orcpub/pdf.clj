@@ -140,6 +140,19 @@
               annotation (.getAnnotations page)]
           (System/identityHashCode (.getCOSObject annotation)))))
 
+(defn- clone-page
+  "A new page sharing `src`'s content stream and resources. Referencing rather
+   than copying keeps added pages to their field structure: six clones of a
+   421 KB page add about 1 KB."
+  [^PDPage src]
+  (let [src-dict (.getCOSObject src)
+        dict (COSDictionary.)]
+    (.setItem dict COSName/TYPE COSName/PAGE)
+    (doseq [k [COSName/CONTENTS COSName/RESOURCES COSName/MEDIA_BOX COSName/ROTATE]]
+      (when-let [v (.getDictionaryObject src-dict k)]
+        (.setItem dict k v)))
+    (PDPage. dict)))
+
 (defn prune-orphan-widgets!
   "Removes widgets with no page, then fields left with no widgets. Returns the
    number of widgets removed.
@@ -169,6 +182,110 @@
       @removed)
     0))
 
+
+
+;; ─── Spellcasting class pages ─────────────────────────────────────────────────
+
+(defn- spell-page-for-suffix
+  "The page carrying spellcasting-class-<n>, or nil."
+  [doc n]
+  (let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (when-let [field (some-> form (.getField (str "spellcasting-class-" n)))]
+      (let [widgets (into #{} (map #(System/identityHashCode (.getCOSObject %))
+                                   (.getWidgets field)))]
+        (first (for [page (.getPages doc)
+                     annotation (.getAnnotations page)
+                     :when (contains? widgets (System/identityHashCode
+                                               (.getCOSObject annotation)))]
+                 page))))))
+
+(defn- renumber-suffix
+  "spells-3-4-6 -> spells-3-4-7 for from 6, to 7.
+
+   A name without the class suffix -- the template's anonymous \"Check Box N\"
+   fields -- gets the suffix appended instead. Every field on a copied page needs
+   a name of its own: same-named fields are one field with one value, so leaving
+   these alone would make a checkbox tick on two pages at once."
+  [field-name from to]
+  (if (s/ends-with? field-name (str "-" from))
+    (str (subs field-name 0 (- (count field-name) (count (str from)))) to)
+    (str field-name "-" to)))
+
+(defn add-spell-page!
+  "Appends a spellcasting page for class `to`, copied from the page for class
+   `from` with every field renamed to the new suffix. Returns the field count, or
+   nil when there is no page for `from`.
+
+   The copy shares the source's content stream, so it costs field structure only."
+  [doc from to]
+  (when-let [template (spell-page-for-suffix doc from)]
+    (let [form (.getAcroForm (.getDocumentCatalog doc))
+          on-template (into #{} (map #(System/identityHashCode (.getCOSObject %))
+                                     (.getAnnotations template)))
+          page (clone-page template)
+          new-fields
+          (doall
+           (for [field (vec (.getFields form))
+                 :let [widget (first (filter #(contains? on-template
+                                                         (System/identityHashCode
+                                                          (.getCOSObject %)))
+                                             (.getWidgets field)))]
+                 :when (and widget (instance? PDTerminalField field))]
+             (let [copy (if (instance? PDCheckBox field)
+                          (PDCheckBox. form)
+                          (PDTextField. form))
+                   new-widget (PDAnnotationWidget.)]
+               (.setPartialName copy (renumber-suffix (.getFullyQualifiedName field) from to))
+               ;; Geometry and styling only. /AP must NOT be copied: an
+               ;; appearance stream is a shared COS object, so the copy and its
+               ;; source would render from the same baked visual and writing one
+               ;; class's spells would rewrite the other's page. write-fields!
+               ;; generates a fresh appearance from the value instead.
+               (doseq [k [COSName/RECT COSName/DA COSName/MK COSName/F COSName/FT]]
+                 (when-let [v (.getDictionaryObject (.getCOSObject widget) k)]
+                   (.setItem (.getCOSObject new-widget) k v)))
+               (.setPage new-widget page)
+               (.setWidgets copy (java.util.ArrayList. [new-widget]))
+               copy)))]
+      (.addPage doc page)
+      (.setAnnotations page (java.util.ArrayList. (mapv #(first (.getWidgets %)) new-fields)))
+      (.setFields form (java.util.ArrayList. (concat (vec (.getFields form)) new-fields)))
+      (count new-fields))))
+
+(defn- highest-spell-page
+  "The largest N for which the document has a spellcasting-class-N page. 0 when
+   the template has no spell pages, as on the non-caster sheet."
+  [doc]
+  (reduce (fn [best n] (if (spell-page-for-suffix doc n) n best))
+          0
+          (range 1 21)))
+
+(defn add-missing-spell-pages!
+  "Appends a spellcasting page for every class in `fields` beyond the ones the
+   template carries. Returns the number of pages added.
+
+   Templates provide a fixed set of spellcasting sections -- six at most, fewer on
+   the variants for characters with fewer casting classes -- while pdf_spec emits
+   one per class with no limit. Without this the extra classes are dropped
+   outright: write-fields! has nowhere to put their names, slots or spells.
+
+   Prunes orphaned widgets first, which is required rather than tidy: a variant
+   cut down from the nine-page master still carries the FIELDS of the pages that
+   were deleted, so spellcasting-class-4 and its spells exist with no page. Those
+   names have to be freed before pages claiming them can be added, or the new
+   fields collide with the ghosts and share their values."
+  [doc fields]
+  (prune-orphan-widgets! doc)
+  (let [wanted (->> (keys fields)
+                    (keep #(second (re-matches #"spellcasting-class-(\d+)" (name %))))
+                    (map #(Integer/parseInt %))
+                    (reduce max 0))
+        source (highest-spell-page doc)]
+    (if (zero? source)
+      0
+      (count (for [n (range (inc source) (inc wanted))
+                   :when (add-spell-page! doc source n)]
+               n)))))
 
 (defn write-fields!
   "Populate an AcroForm in `doc` from the `fields` map, optionally flattening.
@@ -607,19 +724,6 @@
                      :when (contains? widgets (System/identityHashCode
                                                (.getCOSObject annotation)))]
                  page))))))
-
-(defn- clone-page
-  "A new page sharing `src`'s content stream and resources. Referencing rather
-   than copying keeps added pages to their field structure: six clones of a
-   421 KB page add about 1 KB."
-  [^PDPage src]
-  (let [src-dict (.getCOSObject src)
-        dict (COSDictionary.)]
-    (.setItem dict COSName/TYPE COSName/PAGE)
-    (doseq [k [COSName/CONTENTS COSName/RESOURCES COSName/MEDIA_BOX COSName/ROTATE]]
-      (when-let [v (.getDictionaryObject src-dict k)]
-        (.setItem dict k v)))
-    (PDPage. dict)))
 
 (defn- add-overflow-page!
   "Appends a copy of the continuation page holding `text` under field `field-name`.

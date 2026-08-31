@@ -698,7 +698,11 @@
       ;; workaround for Firefox ignoring NeedAppearances; write-fields! now bakes
       ;; real appearance streams, so values render everywhere AND the form stays
       ;; editable. Clients that want a locked/static PDF pass `:flatten? true`.
-      (pdf/write-fields! doc fields (true? flatten?) font-sizes)
+      ;; Both run before write-fields! so the fields they create or trim exist by
+      ;; the time values are written.
+      (pdf/add-missing-spell-pages! doc fields)
+      (let [fields (pdf/spill-overflow! doc fields)]
+        (pdf/write-fields! doc fields (true? flatten?) font-sizes))
       (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw? bw-faded?))
 

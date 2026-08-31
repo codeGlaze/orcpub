@@ -321,3 +321,70 @@
           (is (every? #(str/includes? written %)
                       (distinct (str/split long-bonds #"\s+")))
               "no word of the input is missing from the finished document"))))))
+
+(deftest generated-spell-pages-carry-classes-past-the-sixth
+  (testing "The templates provide six spellcasting sections. pdf_spec emits one per
+            class with no limit, so a seventh or eighth class had nowhere to go and
+            write-fields! dropped it -- 50 values on an eight-class character."
+    (with-open [doc (style-1-template)]
+      (let [fields (into {:character-name "Eight Classes"}
+                         (for [n (range 1 9)
+                               [k v] [[(str "spellcasting-class-" n) (str "Class " n)]
+                                      [(str "spells-1-1-" n) (str "Spell of class " n)]]]
+                           [(keyword k) v]))
+            before (.getNumberOfPages doc)
+            added (pdf/add-missing-spell-pages! doc fields)
+            dropped (pdf/write-fields! doc fields false {})]
+        ;; This template carries one spell page, so a character with eight
+        ;; casting classes needs seven more.
+        (is (= 7 added) "a page for every class the template lacks")
+        (is (= (+ before 7) (.getNumberOfPages doc)))
+        (is (empty? dropped) "nothing is dropped once the pages exist")
+        (let [form (.getAcroForm (.getDocumentCatalog doc))]
+          (doseq [n [7 8]]
+            (is (= (str "Class " n)
+                   (str (.getValueAsString (.getField form (str "spellcasting-class-" n)))))
+                (str "class " n " has its own field carrying its own value"))))))))
+
+(deftest generated-pages-introduce-no-duplicate-names
+  (testing "Fields sharing a name are one field with one value, so a copied page
+            whose fields keep their original names would mirror the page it came
+            from. The stock templates already ship duplicate 'Check Box N' names;
+            this pins that generation adds none of its own."
+    (with-open [doc (style-1-template)]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            names-before (frequencies (map #(.getFullyQualifiedName %) (all-fields form)))
+            _ (pdf/add-missing-spell-pages!
+               doc {:spellcasting-class-7 "Seven" :spellcasting-class-8 "Eight"})
+            names-after (frequencies (map #(.getFullyQualifiedName %) (all-fields form)))
+            worsened (for [[nm n] names-after
+                           :let [was (get names-before nm 0)]
+                           :when (and (> n 1) (> n was))]
+                       nm)]
+        (is (empty? worsened)
+            (str "generation must not create or worsen a duplicate name: "
+                 (vec (take 5 worsened))))))))
+
+(deftest generated-pages-do-not-share-appearance-streams
+  (testing "An appearance stream is a shared COS object. Copying /AP onto a
+            generated widget makes it and its source render from the same baked
+            visual, so writing one class's values rewrites the other's page --
+            a Wizard page printed under the Sorcerer heading."
+    (with-open [doc (style-1-template)]
+      (let [fields {:spellcasting-class-1 "Source Class"
+                    :spellcasting-class-2 "Copied Class"
+                    :spells-1-1-1 "Source Spell"
+                    :spells-1-1-2 "Copied Spell"}]
+        (pdf/add-missing-spell-pages! doc fields)
+        (pdf/write-fields! doc fields false {})
+        (let [form (.getAcroForm (.getDocumentCatalog doc))
+              stream-of (fn [nm]
+                          (some-> (.getField form nm) .getWidgets first
+                                  .getAppearance .getNormalAppearance
+                                  .getAppearanceStream .getCOSObject
+                                  System/identityHashCode))]
+          (is (not= (stream-of "spells-1-1-1") (stream-of "spells-1-1-2"))
+              "each page draws from its own appearance stream")
+          (is (= "Source Spell" (str (.getValueAsString (.getField form "spells-1-1-1")))))
+          (is (= "Copied Spell" (str (.getValueAsString (.getField form "spells-1-1-2"))))
+              "values stay on their own page"))))))
