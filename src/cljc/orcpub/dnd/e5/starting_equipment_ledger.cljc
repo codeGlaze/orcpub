@@ -13,9 +13,12 @@
    form is the plain :equipment-selections the existing class-option functions already consume
    (this namespace adds no new runtime shape). Resolution is inherently fail-soft — a delta
    entry that doesn't line up with the base is simply appended or ignored, never a crash.
-   See docs/kb/starting-equipment-override-ledger.md.")
+   See docs/kb/starting-equipment-override-ledger.md."
+  (:require [orcpub.dnd.e5.srd-starting-equipment :as srd]))
 
 (def ^:private buckets [:weapons :armor :equipment])
+(def ^:private full-equipment-keys (conj buckets :equipment-selections))
+(def ^:private legacy-choice-keys [:weapon-choices :armor-choices :equipment-choices])
 
 ;; ---------------------------------------------------------------------------
 ;; derive: (base, edited) -> minimal delta {:fixed {:set :del} :groups {:set :del}}
@@ -86,3 +89,36 @@
       (:armor fixed')     (assoc :armor (:armor fixed'))
       (:equipment fixed') (assoc :equipment (:equipment fixed'))
       (seq groups')       (assoc :equipment-selections groups'))))
+
+;; ---------------------------------------------------------------------------
+;; Whole-class transforms — the serialization boundary. The delta lives ONLY in exported
+;; files: everything live (app-db, localStorage, the builder) holds the full form, so the
+;; consumption path is untouched. collapse-class runs on export, expand-class on import.
+;; ---------------------------------------------------------------------------
+
+(defn collapse-class
+  "Export: a class filled from an SRD base (carrying :starting-equipment-base) has its full
+   equipment replaced by a compact {:starting-equipment {:base <kw> …delta}}. Left unchanged
+   (and the internal base marker dropped) if there's no base, the base is unknown, or the
+   class still uses the legacy :*-choices shorthand (which the delta doesn't model)."
+  [class]
+  (let [base-kw (:starting-equipment-base class)
+        base    (when base-kw (srd/builder-equipment base-kw))]
+    (if (and base (not-any? #(contains? class %) legacy-choice-keys))
+      (let [delta (derive-delta base (select-keys class full-equipment-keys))]
+        (-> (apply dissoc class :starting-equipment-base full-equipment-keys)
+            (assoc :starting-equipment (assoc delta :base base-kw))))
+      (dissoc class :starting-equipment-base))))
+
+(defn expand-class
+  "Import/load: a class carrying {:starting-equipment {:base <kw> …delta}} is resolved back to
+   full equipment keys, with the base recorded as :starting-equipment-base so it round-trips
+   and the UI can show what it's based on. Unknown base -> left as-is (never drop equipment)."
+  [class]
+  (if-let [{:keys [base] :as se} (:starting-equipment class)]
+    (if-let [base-eq (and base (srd/builder-equipment base))]
+      (-> (dissoc class :starting-equipment)
+          (merge (resolve-delta base-eq (dissoc se :base)))
+          (assoc :starting-equipment-base base))
+      class)
+    class))

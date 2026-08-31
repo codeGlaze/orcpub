@@ -90,3 +90,47 @@
       (is (seq delta) "a real edit produces a non-empty delta")
       ;; the delta touches one added weapon + one renamed group, not the whole selections vector
       (is (= {:dagger 1} (get-in delta [:fixed :set :weapons]))))))
+
+;; ---------------------------------------------------------------------------
+;; Whole-class serialization boundary: collapse on export, expand on import.
+;; ---------------------------------------------------------------------------
+
+(deftest class-collapse-expand-round-trip
+  (testing "a filled+edited class collapses to base+delta and expands back to the full form"
+    (let [fighter (srd/builder-equipment :fighter)
+          class   (merge {:name "Battle Sage" :key :battle-sage :hit-die 10
+                          :starting-equipment-base :fighter}
+                         fighter
+                         {:weapons (assoc (:weapons fighter) :dagger 1)}) ; one tweak
+          collapsed (ledger/collapse-class class)
+          expanded  (ledger/expand-class collapsed)]
+      ;; exported form: compact delta + base, none of the full equipment keys, no internal marker
+      (is (= :fighter (get-in collapsed [:starting-equipment :base])))
+      (is (nil? (:equipment-selections collapsed)) "full selections not written to the file")
+      (is (nil? (:starting-equipment-base collapsed)) "internal marker not leaked to the file")
+      (is (contains? (get-in collapsed [:starting-equipment :fixed :set :weapons]) :dagger))
+      ;; expand restores the full equipment + base marker; unrelated fields survive both ways
+      (is (= (norm (select-keys class [:weapons :armor :equipment :equipment-selections]))
+             (norm (select-keys expanded [:weapons :armor :equipment :equipment-selections]))))
+      (is (= :fighter (:starting-equipment-base expanded)))
+      (is (= "Battle Sage" (:name expanded)) "unrelated fields preserved")
+      (is (nil? (:starting-equipment expanded)) "delta key consumed on expand"))))
+
+(deftest collapse-expand-noops
+  (testing "no base marker -> collapse is a no-op"
+    (is (= {:name "X" :weapons {:club 1}}
+           (ledger/collapse-class {:name "X" :weapons {:club 1}}))))
+  (testing "no :starting-equipment key -> expand is a no-op"
+    (is (= {:name "X" :weapons {:club 1}}
+           (ledger/expand-class {:name "X" :weapons {:club 1}}))))
+  (testing "unknown base -> expand leaves the class untouched, never drops equipment"
+    (let [c {:name "X" :starting-equipment {:base :not-a-class :fixed {:set {:weapons {:club 1}}}}}]
+      (is (= c (ledger/expand-class c))))))
+
+(deftest collapse-skips-legacy-shorthand
+  (testing "a class still using legacy :*-choices is left in full form (delta doesn't model it)"
+    (let [out (ledger/collapse-class {:name "L" :starting-equipment-base :fighter
+                                      :weapon-choices [{:name "W" :options {:club 1}}]})]
+      (is (nil? (:starting-equipment out)) "not collapsed")
+      (is (= [{:name "W" :options {:club 1}}] (:weapon-choices out)) "legacy shorthand kept intact")
+      (is (nil? (:starting-equipment-base out)) "internal marker dropped"))))
