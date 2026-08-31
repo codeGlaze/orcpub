@@ -243,10 +243,9 @@
         (is (> h 600.0) "and most of a page tall")))))
 
 (deftest documented-word-budgets-still-hold
-  (testing "docs/kb/pdf-form-techniques.md publishes a word budget per box at 7pt.
-            If a template is ever re-cut those numbers go stale silently, so pin
-            them here. Tolerance is loose -- this catches a box changing size, not
-            a word of drift."
+  (testing "Pins how much text each box holds at pdf/min-font-size, so re-cutting
+            a template cannot silently change capacity. Tolerance is a factor of
+            two: this catches a box resized, not a word of wrap drift."
     (with-open [doc (style-1-template)]
       (let [form (.getAcroForm (.getDocumentCatalog doc))
             ;; ~5 characters plus a space, the average the budgets assume

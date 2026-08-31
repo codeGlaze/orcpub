@@ -87,11 +87,6 @@
           (>= 3)))
 
 (defn multiple-ip-attempts-to-same-account? [username]
-  ;; The call parens were missing, so this evaluated three expressions and
-  ;; returned the last -- the atom's map, which is truthy even when empty.
-  ;; It always answered "yes". Unused so far, so nothing was locked out, but it
-  ;; would have failed closed the moment anyone wired it up. clj-kondo had been
-  ;; reporting it as two "Unused value" warnings.
   (multiple-ip-attempts-to-same-account-aux
    username
    @failed-login-attempts-by-username))

@@ -23,9 +23,7 @@
 
    PDFBox 3.x: fonts are constructed rather than static fields, `Loader/loadPDF`
    replaces `PDDocument/load`, and `PDPageContentStream$AppendMode` replaces the
-   old boolean flags.
-
-   Measurements and background: docs/kb/pdf-form-techniques.md"
+   old boolean flags."
   (:require [clojure.string :as s]
             [clojure.stacktrace :as strace]
             [clojure.java.io :as io]
@@ -47,8 +45,7 @@
            (javax.imageio ImageIO)
            (java.net URL HttpURLConnection)))
 
-;; The Base 14 fonts, present in every PDF reader. Constructed once at load time
-;; because PDFBox 3.x replaced the old static fields with constructor + enum.
+;; The Base 14 fonts, present in every PDF reader. Constructed once at load time.
 (def HELVETICA
   "Standard Helvetica font (regular weight, upright)"
   (PDType1Font. Standard14Fonts$FontName/HELVETICA))

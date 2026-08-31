@@ -663,12 +663,9 @@
                                "public/image/dmv-mark-faded-orange.png"
                                "public/image/dmv-mark-black.png"))
 
-        ;; The style id is interpolated into a resource name. It arrives from an
-        ;; unauthenticated POST and was used verbatim: a missing field produced
-        ;; "fillable-char-sheetstyle--0-spells.pdf", io/resource returned nil,
-        ;; and .openStream on nil threw -- a 500 anyone could trigger by
-        ;; omitting a field. Only the four ids with templates on disk are
-        ;; accepted; anything else falls back to the first.
+        ;; The id is interpolated into a resource name, so an unrecognised value
+        ;; resolves to a missing resource and throws. Restrict it to ids with a
+        ;; template on disk; see valid-sheet-styles.
         print-character-sheet-style? (if (contains? valid-sheet-styles
                                                     print-character-sheet-style?)
                                        print-character-sheet-style?
@@ -706,11 +703,9 @@
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw? bw-faded?))
 
       (when (and image-url
-                 ;; The scheme list here used to include ftp and file, and
-                 ;; nothing restricted the host. pdf/safe-image-url? is the
-                 ;; real check now -- it resolves the host and refuses private,
-                 ;; loopback and link-local addresses -- but this stays as a
-                 ;; cheap first pass so a malformed URL never reaches it.
+                 ;; Cheap scheme filter ahead of pdf/safe-image-url?, which does
+                 ;; the real check: it resolves the host and refuses private,
+                 ;; loopback and link-local addresses.
                  (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
                  (pdf/safe-image-url? image-url)
                  (not image-url-failed))
@@ -720,7 +715,7 @@
           3 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
           4 (pdf/draw-image! doc (pdf/get-page doc 0) image-url 0.50 0.85 2.35 3.15)))
       (when (and faction-image-url
-                 ;; Same tightening as the character image above.
+                 ;; Same scheme and host checks as the character image above.
                  (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
                  (pdf/safe-image-url? faction-image-url)
                  (not faction-image-url-failed))

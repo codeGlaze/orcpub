@@ -43,7 +43,8 @@
 ;; the app does, or the fixture tests a layout no real character produces.
 
 ;; How many spell-name rows the style 1 spell page provides at each level.
-;; Level 3 offers 13 boxes but skips spells-3-11 -- see docs/issues/pdf-export-size.md.
+;; Level 3 offers 13 boxes but has no spells-3-11 field; write-fields! reports it
+;; as unplaceable on every run.
 (def ^:private rows {0 8, 1 12, 2 13, 3 13, 4 13, 5 9, 6 9, 7 9, 8 7, 9 7})
 
 (defn- spell-name [k]
