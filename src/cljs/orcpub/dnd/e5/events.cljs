@@ -3432,6 +3432,14 @@
           (srd-equip/builder-equipment class-kw)
           {:starting-equipment-base class-kw})))
 
+;; "Detach": forget the SRD base so export writes the equipment in full instead of as a delta.
+;; The equipment itself (the full form the builder holds) is untouched — only the link drops.
+(reg-event-db
+ ::class5e/detach-starting-equipment-base
+ class-interceptors
+ (fn [class _]
+   (dissoc class :starting-equipment-base)))
+
 (reg-event-db
  ::class5e/toggle-class-spell-list
  class-interceptors

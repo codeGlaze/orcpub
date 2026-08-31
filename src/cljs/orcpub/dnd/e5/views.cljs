@@ -6518,6 +6518,13 @@
                   :value ""
                   :on-change (fn [v] (when-not (s/blank? v)
                                        (dispatch [::classes/fill-starting-equipment (keyword v)])))}]]]
+     (when-let [base (:starting-equipment-base class)]
+       [:div.flex.m-b-10.bg-light.p-5.b-rad-5 {:style {:align-items "center"}}
+        [:span.i.f-s-14.m-r-5
+         (str "Based on the " (s/capitalize (name base)) " class — only your changes are saved on export.")]
+        [:button.form-button.m-l-5
+         {:on-click #(dispatch [::classes/detach-starting-equipment-base])}
+         "Detach (save full copy)"]])
      [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
      (doall (for [cat starting-equipment-categories]
               ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
