@@ -76,7 +76,10 @@
    ip
    @failed-login-attempts-by-ip))
 
-(defn multiple-ip-attempts-to-same-account-aux [username attempts-by-username]
+(defn multiple-ip-attempts-to-same-account-aux
+  "True when `username` has failed logins from 3+ distinct IPs in the last minute.
+   Returns nil, not false, when the username has no recorded attempts."
+  [username attempts-by-username]
   (some-> username
           attempts-by-username
           ;; Filter attempts newer than 1 minute ago.
@@ -86,6 +89,9 @@
           count
           (>= 3)))
 
+;; NOTE unused: nothing calls this. Its sibling too-many-attempts-for-username?
+;; is wired into the login handler in routes.clj; this one is not, so a fault in
+;; it fails open silently and no test of the wiring would catch it.
 (defn multiple-ip-attempts-to-same-account? [username]
   (multiple-ip-attempts-to-same-account-aux
    username
