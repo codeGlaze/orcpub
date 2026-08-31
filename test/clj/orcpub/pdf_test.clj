@@ -271,3 +271,54 @@
             (is (< (* 0.5 documented) actual (* 2.0 documented))
                 (str field-name " holds ~" actual " words at " pdf/min-font-size
                      "pt; the KB documents ~" documented))))))))
+
+(deftest split-lines-terminates-on-an-unfittable-word
+  (testing "A word wider than the box gets its own line. Retrying it against an
+            empty current-line never consumes it, so this loops forever and grows
+            `lines` without bound. Reachable from /character.pdf, which is
+            unauthenticated: draw-text-to-box renders custom spell names into a
+            roughly two-inch card box."
+    (let [result (future (pdf/split-lines "supercalifragilisticexpialidocious tail"
+                                          pdf/HELVETICA 8.0 0.2))
+          value (deref result 5000 ::timed-out)]
+      (when (= ::timed-out value) (future-cancel result))
+      (is (not= ::timed-out value) "split-lines must terminate")
+      (is (= ["supercalifragilisticexpialidocious" "tail"] value)
+          "the oversized word takes a line of its own and the rest continues"))))
+
+(deftest fit-text-preserves-hard-line-breaks
+  (testing "Line breaks carry meaning: traits-fields in pdf_spec separates its
+            Actions/Reactions sections with them, and spill headings sit on their
+            own line. Wrapping must not flatten them."
+    (let [text "FIRST\nalpha beta\n\nSECOND\ndelta"]
+      (testing "kept intact when everything fits"
+        (is (= text (:head (pdf/fit-text text 300.0 60.0)))))
+      (testing "kept on both sides of a split"
+        (let [{:keys [head tail]} (pdf/fit-text text 300.0 12.0)]
+          (is (some? tail))
+          (is (str/includes? (str head tail) "\n")
+              "breaks survive rather than being joined with spaces"))))))
+
+(deftest spill-overflow-moves-the-excess-and-keeps-everything
+  (testing "Values too long for their box are trimmed to what fits at
+            pdf/min-font-size and the remainder is written to appended pages.
+            Without this the field auto-sizes down to 4pt and then clips, so the
+            sheet goes unreadable before it loses anything."
+    (with-open [doc (style-1-template)]
+      (let [long-bonds (str/join " " (repeat 120 "obligation"))
+            fields {:character-name "Spill Test"
+                    :ideals "Short enough to stay put."
+                    :bonds long-bonds}
+            before (.getNumberOfPages doc)
+            trimmed (pdf/spill-overflow! doc fields)]
+        (is (> (.getNumberOfPages doc) before) "a continuation page was appended")
+        (is (= (:ideals fields) (:ideals trimmed)) "a value that fits is untouched")
+        (is (< (count (:bonds trimmed)) (count long-bonds)) "the long value was trimmed")
+        (pdf/write-fields! doc trimmed false {})
+        (let [form (.getAcroForm (.getDocumentCatalog doc))
+              written (str/join " " (map #(str (.getValueAsString %)) (all-fields form)))]
+          (is (str/includes? written "BONDS")
+              "the spilled section is labelled on the continuation page")
+          (is (every? #(str/includes? written %)
+                      (distinct (str/split long-bonds #"\s+")))
+              "no word of the input is missing from the finished document"))))))

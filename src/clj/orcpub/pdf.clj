@@ -34,7 +34,7 @@
             [clj-http.client :as client])
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField PDTerminalField)
            (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget)
-           (org.apache.pdfbox.cos COSName)
+           (org.apache.pdfbox.cos COSName COSDictionary)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
            ;; APPEND appends operators to a page's existing content stream, so
            ;; template artwork survives. The alternative overwrites it.
@@ -168,6 +168,7 @@
       (.setFields form (java.util.ArrayList. kept))
       @removed)
     0))
+
 
 (defn write-fields!
   "Populate an AcroForm in `doc` from the `fields` map, optionally flattening.
@@ -483,9 +484,16 @@
         (let [line-with-word (str current-line (when current-line " ") next-word)
               new-width (string-width line-with-word font font-size)]
           (if (> new-width width)
-            (recur (conj lines current-line)
-                   nil
-                   current-words)
+            (if current-line
+              (recur (conj lines current-line)
+                     nil
+                     current-words)
+              ;; A single word wider than the box takes its own line. Retrying it
+              ;; against an empty current-line would never consume it, so the word
+              ;; has to be taken here or the loop never terminates.
+              (recur (conj lines next-word)
+                     nil
+                     remaining-words))
             (recur lines
                    line-with-word
                    remaining-words)))
@@ -525,18 +533,145 @@
    Returns {:head fitting-text :tail remainder-or-nil :lines line-count}. Callers
    place :head in the field and :tail on a continuation page.
 
-   Wraps with `split-lines`, whose width is in inches; `width` is converted here."
+   Line breaks in `text` are hard breaks and are preserved on both sides of the
+   split; `traits-fields` in pdf_spec separates its sections with them. Wrapping
+   within a paragraph uses `split-lines`, whose width is in inches.
+
+   A single word too wide for the box still occupies its own line, so text always
+   makes progress and callers cannot loop forever."
   ([text width height] (fit-text text width height min-font-size))
   ([text width height size]
-   (if (s/blank? (str text))
-     {:head "" :tail nil :lines 0}
-     (let [lines (vec (split-lines (str text) HELVETICA size (/ width 72.0)))
-           per-box (max 1 (int (Math/floor (/ height (* size line-height-factor)))))]
-       (if (<= (count lines) per-box)
-         {:head (s/join " " lines) :tail nil :lines (count lines)}
-         {:head (s/join " " (take per-box lines))
-          :tail (s/join " " (drop per-box lines))
-          :lines per-box})))))
+   (let [paragraphs (s/split-lines (str text))
+         wrap (fn [p] (if (s/blank? p)
+                        [""]
+                        (vec (split-lines p HELVETICA size (/ width 72.0)))))
+         per-box (max 1 (int (Math/floor (/ height (* size line-height-factor)))))]
+     (if (s/blank? (str text))
+       {:head "" :tail nil :lines 0}
+       (loop [[p & more] paragraphs, kept [], used 0]
+         (cond
+           (nil? p)
+           {:head (s/join "\n" kept) :tail nil :lines used}
+
+           :else
+           (let [lines (wrap p)
+                 room (- per-box used)]
+             (cond
+               ;; whole paragraph fits
+               (<= (count lines) room)
+               (recur more (conj kept p) (+ used (count lines)))
+
+               ;; nothing left: this paragraph and the rest spill
+               (zero? room)
+               {:head (s/join "\n" kept)
+                :tail (s/join "\n" (cons p more))
+                :lines used}
+
+               ;; split inside the paragraph
+               :else
+               {:head (s/join "\n" (conj kept (s/join " " (take room lines))))
+                :tail (s/join "\n" (cons (s/join " " (drop room lines)) more))
+                :lines per-box}))))))))
+
+;; ─── Overflow pages ───────────────────────────────────────────────────────────
+
+(def overflow-labels
+  "Fields whose value spills to a continuation page when it will not fit at
+   min-font-size, and the heading the spilled part appears under. Order sets the
+   order of the spilled sections."
+  [[:personality-traits       "PERSONALITY TRAITS"]
+   [:ideals                   "IDEALS"]
+   [:bonds                    "BONDS"]
+   [:flaws                    "FLAWS"]
+   [:attacks-and-spellcasting "ATTACKS & SPELLCASTING"]
+   [:other-profs              "OTHER PROFICIENCIES & LANGUAGES"]
+   [:features-and-traits      "EQUIPMENT"]
+   [:treasure                 "TREASURE"]
+   [:backstory                "CHARACTER BACKSTORY"]
+   [:features-and-traits-2    "FEATURES & TRAITS"]])
+
+(defn- continuation-page
+  "The page carrying features-and-traits-2, used as the template for spill pages.
+   nil when the template has no such field."
+  [doc]
+  (let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (when-let [field (some-> form (.getField "features-and-traits-2"))]
+      (let [widgets (into #{} (map #(System/identityHashCode (.getCOSObject %))
+                                   (.getWidgets field)))]
+        (first (for [page (.getPages doc)
+                     annotation (.getAnnotations page)
+                     :when (contains? widgets (System/identityHashCode
+                                               (.getCOSObject annotation)))]
+                 page))))))
+
+(defn- clone-page
+  "A new page sharing `src`'s content stream and resources. Referencing rather
+   than copying keeps added pages to their field structure: six clones of a
+   421 KB page add about 1 KB."
+  [^PDPage src]
+  (let [src-dict (.getCOSObject src)
+        dict (COSDictionary.)]
+    (.setItem dict COSName/TYPE COSName/PAGE)
+    (doseq [k [COSName/CONTENTS COSName/RESOURCES COSName/MEDIA_BOX COSName/ROTATE]]
+      (when-let [v (.getDictionaryObject src-dict k)]
+        (.setItem dict k v)))
+    (PDPage. dict)))
+
+(defn- add-overflow-page!
+  "Appends a copy of the continuation page holding `text` under field `field-name`.
+   The name must be unique: fields sharing a name share one value."
+  [doc ^PDPage template field-name text]
+  (let [form (.getAcroForm (.getDocumentCatalog doc))
+        source-widget (first (.getAnnotations template))
+        page (clone-page template)
+        field (PDTextField. form)
+        widget (PDAnnotationWidget.)]
+    (.addPage doc page)
+    (doseq [k [COSName/RECT COSName/DA COSName/MK COSName/F COSName/FT]]
+      (when-let [v (.getDictionaryObject (.getCOSObject source-widget) k)]
+        (.setItem (.getCOSObject widget) k v)))
+    (.setPartialName field field-name)
+    (.setMultiline field true)
+    (.setPage widget page)
+    (.setWidgets field (java.util.ArrayList. [widget]))
+    (.setAnnotations page (java.util.ArrayList. [widget]))
+    (.setFields form (java.util.ArrayList. (conj (vec (.getFields form)) field)))
+    (.setValue field (normalize-text text))
+    page))
+
+(defn spill-overflow!
+  "Trims values in `fields` that will not fit their box at min-font-size, moving
+   the remainder onto appended continuation pages. Returns the trimmed map.
+
+   Without this a long value is not cropped: the field auto-sizes, shrinking to
+   4pt before it clips, so the sheet becomes unreadable rather than visibly full.
+
+   Sections are gathered into one stream and paginated together so a few
+   overflowing boxes cost one page rather than one page each."
+  [doc fields]
+  (let [form (.getAcroForm (.getDocumentCatalog doc))
+        template (continuation-page doc)
+        [trimmed sections]
+        (reduce (fn [[acc sections] [k label]]
+                  (let [value (get acc k)
+                        field (some-> form (.getField (name k)))
+                        box (some->> field (widget-box doc))]
+                    (if (or (s/blank? (str value)) (nil? box))
+                      [acc sections]
+                      (let [{:keys [head tail]} (apply fit-text (str value) box)]
+                        (if tail
+                          [(assoc acc k head) (conj sections (str label "\n" tail))]
+                          [acc sections])))))
+                [fields []] overflow-labels)]
+    (when (and template (seq sections))
+      (let [box (let [r (.getRectangle (first (.getAnnotations template)))]
+                  [(- (.getWidth r) 4.0) (- (.getHeight r) 4.0)])]
+        (loop [remaining (s/join "\n\n" sections), n 1]
+          (when-not (s/blank? remaining)
+            (let [{:keys [head tail]} (apply fit-text remaining box)]
+              (add-overflow-page! doc template (str "overflow-" n) head)
+              (recur (or tail "") (inc n)))))))
+    trimmed))
 
 (defn draw-lines-to-box [cs lines font font-size x y height]
   (let [leading (* font-size 1.1)
