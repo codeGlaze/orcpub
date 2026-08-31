@@ -36,9 +36,11 @@
             [orcpub.dnd.e5.equipment :as equip]
             [orcpub.dnd.e5.weapons :as weapon]
             [orcpub.dnd.e5.armor :as armor]
+            [orcpub.dnd.e5.srd-starting-equipment :as srd-equip]
             [orcpub.dnd.e5.display :as disp]
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
@@ -654,16 +656,6 @@
            :on-click (make-event-handler :re-verify @params)}
           "RESEND"]]]))))
 
-(defn message [message-type message-text close-handler]
-  [:div.pointer.f-w-b ;;.h-0.opacity-0.fade-out
-   {:on-click close-handler}
-   [:div.message
-    {:class (case message-type
-              :error "bg-red"
-              :warning "bg-orange"
-              "bg-green")}
-    [:span message-text]
-    [:i.fa.fa-times]]])
 
 (defn hide-login-message []
   (dispatch [:hide-login-message]))
@@ -693,7 +685,7 @@
              :on-change (partial set-value params :email)}]
            (when @(subscribe [:login-message-shown?])
              [:div.m-t-5.p-r-5.p-l-5
-              [message
+              [notifications/message
                :error
                @(subscribe [:login-message])
                hide-login-message]])
@@ -749,7 +741,7 @@
                         :messages (when different? ["Passwords do not match"])
                         :on-change (fn [e] (swap! params assoc :verify-password (event-value e)))}]
            (when @(subscribe [:login-message-shown?])
-             [:div.m-t-5.p-r-5.p-l-5 [message
+             [:div.m-t-5.p-r-5.p-l-5 [notifications/message
                                       :error
                                       @(subscribe [:login-message])
                                       hide-login-message]])
@@ -972,7 +964,7 @@
                         :type :password
                         :on-change #(swap! params assoc :password (event-value %))}]
            (when login-message-shown?
-             [:div.m-t-5.p-r-5.p-l-5 [message
+             [:div.m-t-5.p-r-5.p-l-5 [notifications/message
                                       :error
                                       login-message
                                       hide-login-message]])
@@ -1068,7 +1060,7 @@
        [:div.bg-light.m-b-10 @(subscribe [::char/options-component])])
      (when @(subscribe [:message-shown?])
        [:div.p-b-10.p-r-10.p-l-10.white
-        [message
+        [notifications/message
          @(subscribe [:message-type])
          @(subscribe [:message])
          hide-message]])]))
@@ -3996,19 +3988,19 @@
                                       (isolate-culprit-selection character template has-nameless-feature?))
                                     (catch :default _ nil)))))
               label (when culprit (culprit-selection-label (::entity/options character) culprit))]
-          [:div.p-10.m-b-10.f-s-14.l-h-19
-           {:style {:border "1px solid #e9a227"
-                    :border-radius "5px"
-                    :background "rgba(233,162,39,0.12)"}}
-           [:div.f-w-b.m-b-5 "⚠ A feature on this character is missing its name"]
-           (if (and label (not (s/blank? label)))
-             [:div.m-b-5 "We traced it to this choice: "
-              [:span.f-w-600 label] ". Re-pick it in the builder so the feature has a name."]
-             [:div.m-b-5 "Open the character in the builder and re-select the option that grants it so it has a proper name."])
-           (when character
-             [:button.form-button.m-t-5
-              {:on-click #(dispatch [:edit-character character])}
-              "Open in the builder"])])))))
+          ;; A fail-soft component (its detection cluster stays here), rendered through the
+          ;; shared notifications/callout so it matches the other banners.
+          [notifications/callout
+           {:icon "fa-exclamation-triangle orange"
+            :text [:div.l-h-19
+                   [:div.f-w-b.m-b-5 "A feature on this character is missing its name"]
+                   (if (and label (not (s/blank? label)))
+                     [:div "We traced it to this choice: "
+                      [:span.f-w-600 label] ". Re-pick it in the builder so the feature has a name."]
+                     [:div "Open the character in the builder and re-select the option that grants it so it has a proper name."])]
+            :actions (when character
+                       [{:label "Open in the builder"
+                         :on-click #(dispatch [:edit-character character])}])}])))))
 
 (defn character-display []
   (let [show-selections? (r/atom false)]
@@ -4364,50 +4356,7 @@
                      :background "rgba(0,0,0,0.25)" :padding "8px" :border-radius "3px"}}
             report]]]]))))
 
-(defn shared-content-banner
-  "Shown when viewing a character whose homebrew arrived embedded in the share
-   link. The content is loaded view-only (:shared-plugins, never persisted); this
-   offers to Keep it in the library, and flags any entries that collide by name
-   with the viewer's own content (the shared version wins on this sheet, their
-   copy is untouched)."
-  [id]
-  (when-let [{:keys [count item-count collisions]} @(subscribe [::e5/shared-content-info])]
-    (let [char-name @(subscribe [::char/character-name id])
-          n-coll (clojure.core/count collisions)
-          item-count (or item-count 0)
-          parts (cond-> []
-                  (pos? count)      (conj (str count " homebrew piece" (when (not= 1 count) "s")))
-                  (pos? item-count) (conj (str item-count " custom item" (when (not= 1 item-count) "s"))))]
-      [:div.m-b-10.flex.align-items-c.justify-cont-s-b.flex-wrap
-       {:style {:padding "12px 16px"
-                :background "rgba(217,165,32,0.09)"
-                :border-left "4px solid #d9a520"
-                :border-radius "6px"
-                :gap "12px"}}
-       [:div {:style {:min-width "260px" :flex "1 1 300px"}}
-        [:div.f-w-b.f-s-16
-         [:i.fa.fa-info-circle.m-r-5.orange]
-         (str "Shared with " (s/join " and " parts) ".")]
-        [:div.f-s-12.m-t-5 {:style {:opacity 0.8}}
-         "Loaded for viewing only — not saved to your library."]
-        (when (pos? n-coll)
-          [:div.f-s-12.m-t-5 {:style {:color "#d9a520"}}
-           (str n-coll " differ from same-named content you own — the shared version shows "
-                "here, yours is untouched"
-                (when-let [names (seq (map :name (take 4 collisions)))]
-                  (str " (" (s/join ", " names) (when (> n-coll 4) ", …") ")"))
-                ".")])
-        (when (pos? item-count)
-          [:div.f-s-12.m-t-5 {:style {:opacity 0.8}}
-           "Custom magic items are shown for this view only (keeping items isn't supported yet)."])]
-       [:div.flex.align-items-c {:style {:flex "0 0 auto"}}
-        (when (pos? count)
-          [:button.form-button.m-r-5
-           {:on-click #(dispatch [::e5/keep-shared-content char-name])}
-           "Keep homebrew in my library"])
-        [:button.form-button
-         {:on-click #(dispatch [::e5/dismiss-shared-content])}
-         "Dismiss"]]])))
+;; shared-content-banner lives in orcpub.dnd.e5.views.notifications (rendered via callout).
 
 (defn character-page []
   (let [expanded? (r/atom false)]
@@ -4453,7 +4402,7 @@
                 {:value (str url
                              (when (not (s/ends-with? url "?frame=true"))
                                "?frame=true"))}]]))
-          [shared-content-banner id]
+          [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
          :frame? frame?])))))
 
@@ -6286,6 +6235,256 @@
      edit-selection-level-event
      delete-selection-event]]])
 
+;; ---- Starting equipment (homebrew class builder) ---------------------------
+;; The class map carries the same shorthand keys the SRD classes use, consumed by
+;; opt5e/class-option with no extra wiring (see docs/kb/starting-equipment.md):
+;;   fixed grants  -> :weapons / :armor / :equipment  {item-key qty}
+;;   choice groups -> :weapon-choices / :armor-choices / :equipment-choices
+;;                    [{:name .. :options {item-key qty}}]
+;; The fully hand-built "(a) X or (b) Y and Z" :selections form is intentionally
+;; not offered here — it carries fn-valued modifiers that don't serialize.
+
+(def starting-equipment-categories
+  [{:label "Weapons"   :fixed :weapons   :choice :weapon-choices}
+   {:label "Armor"     :fixed :armor     :choice :armor-choices}
+   {:label "Equipment" :fixed :equipment :choice :equipment-choices}])
+
+(defn- equipment-vocab-items [fixed-key]
+  (let [m (case fixed-key
+            :weapons   weapon/weapons-map
+            :armor     armor/armor-map
+            :equipment equip/equipment-map)
+        base (->> m
+                  (keep (fn [[k v]] (when (:name v) {:title (:name v) :value (name k)})))
+                  (sort-by :title))]
+    (if (= :weapons fixed-key)
+      (concat [{:title "Any simple weapon"  :value "simple"}
+               {:title "Any martial weapon" :value "martial"}]
+              base)
+      base)))
+
+(defn- first-absent-equipment-item [vocab present-keys]
+  (some (fn [{:keys [value]}]
+          (let [k (keyword value)]
+            (when-not (contains? present-keys k) k)))
+        vocab))
+
+(defn- equipment-qty-input [qty on-change]
+  [:input.input.h-40.w-60.m-l-5.m-r-5
+   {:type "number" :min 1 :value (or qty 1)
+    :on-change #(let [n (js/parseInt (event-value %))]
+                  (on-change (if (js/isNaN n) 1 (max 1 n))))}])
+
+(defn- equipment-item-dropdown [vocab item-key on-pick]
+  [dropdown {:items vocab
+             :value (name item-key)
+             :on-change #(on-pick (keyword %))}])
+
+(defn- fixed-equipment-block [class {:keys [label fixed]}]
+  (let [items (get class fixed)
+        vocab (equipment-vocab-items fixed)]
+    [:div.m-b-10
+     [:div.f-w-b.m-b-5 label]
+     (doall
+      (for [[item-key qty] items]
+        ^{:key (str item-key)}
+        [:div.flex.m-b-5 {:style {:align-items "center"}}
+         [:div.flex-grow-1
+          [equipment-item-dropdown vocab item-key
+           (fn [new-k] (dispatch [::classes/set-equipment fixed
+                                  (-> items (dissoc item-key) (assoc new-k qty))]))]]
+         [equipment-qty-input qty
+          (fn [n] (dispatch [::classes/set-equipment fixed (assoc items item-key n)]))]
+         [:button.form-button
+          {:on-click #(dispatch [::classes/set-equipment fixed (dissoc items item-key)])}
+          "remove"]]))
+     [:button.form-button.m-t-5
+      {:on-click #(when-let [k (first-absent-equipment-item vocab (set (keys items)))]
+                    (dispatch [::classes/set-equipment fixed (assoc items k 1)]))}
+      (str "+ Add " label)]]))
+
+;; ---- Rich equipment choices (:equipment-selections) ------------------------
+;; A choice group -> options; each option grants a BUNDLE of items and/or a nested
+;; weapon sub-choice. This is the full SRD form (Fighter's "(a) chain mail, or
+;; (b) leather + longbow + 20 arrows", "a martial weapon and a shield"); it subsumes
+;; the simple one-item-per-option case. Consumed by opt5e/class-equipment-selections.
+
+(def ^:private grant-kinds
+  [{:label "Weapon" :kind :weapon} {:label "Armor" :kind :armor} {:label "Equipment" :kind :equipment}])
+
+(defn- grant-vocab [kind]
+  (equipment-vocab-items (case kind :weapon :weapons :armor :armor :equipment :equipment)))
+
+(defn- default-grant-item [kind] (some-> (grant-vocab kind) first :value keyword))
+
+(def ^:private subchoice-froms
+  [{:title "Any simple weapon"        :value "simple"}
+   {:title "Any simple melee weapon"  :value "simple-melee"}
+   {:title "Any martial weapon"       :value "martial"}
+   {:title "Any weapon"               :value "any-weapon"}
+   {:title "A holy symbol"       :value "holy-symbol"}
+   {:title "An arcane focus"     :value "arcane-focus"}
+   {:title "A druidic focus"     :value "druidic-focus"}
+   {:title "A musical instrument" :value "musical-instrument"}
+   {:title "An equipment pack"   :value "pack"}])
+
+(defn- equipment-item-name [k]
+  (or (get {:simple "Any simple weapon" :martial "Any martial weapon"} k)
+      (get-in weapon/weapons-map [k :name])
+      (get-in armor/armor-map [k :name])
+      (get-in equip/equipment-map [k :name])
+      (name k)))
+
+;; Every edit rebuilds the whole :equipment-selections vector in the view and writes it
+;; through the one setter; set-equipment drops the key when the vector empties.
+(defn- put-selections [sels] (dispatch [::classes/set-equipment :equipment-selections sels]))
+
+;; One grant row: category (weapon/armor/equipment) + item + qty. Changing the category
+;; resets the item to that category's first entry.
+(defn- equipment-grant-row [sels gi oi ri {:keys [kind key qty]}]
+  (let [kind (or kind :weapon) gp [gi :options oi :grants ri]]
+    [:div.flex.m-b-5 {:style {:align-items "center"}}
+     [:div.w-150.m-r-5
+      [dropdown {:items (map (fn [{:keys [label kind]}] {:title label :value (name kind)}) grant-kinds)
+                 :value (name kind)
+                 :on-change (fn [k] (let [nk (keyword k)]
+                                      (put-selections (assoc-in sels gp {:kind nk :key (default-grant-item nk) :qty (or qty 1)}))))}]]
+     [:div.flex-grow-1
+      [dropdown {:items (grant-vocab kind) :value (some-> key name)
+                 :on-change (fn [k] (put-selections (assoc-in sels (conj gp :key) (keyword k))))}]]
+     [equipment-qty-input qty (fn [n] (put-selections (assoc-in sels (conj gp :qty) n)))]
+     [:button.form-button {:on-click #(put-selections (update-in sels [gi :options oi :grants] (fn [v] (common/remove-at-index (vec v) ri))))} "remove"]]))
+
+;; One sub-choice row: the "player also picks" pool (a weapon class or an equipment group).
+(defn- equipment-subchoice-row [sels gi oi ci {:keys [from]}]
+  [:div.flex.m-b-5 {:style {:align-items "center"}}
+   [:div.flex-grow-1
+    [dropdown {:items subchoice-froms :value (some-> (or from :martial) name)
+               :on-change (fn [v] (put-selections (assoc-in sels [gi :options oi :choose ci :from] (keyword v))))}]]
+   [:button.form-button {:on-click #(put-selections (update-in sels [gi :options oi :choose] (fn [v] (common/remove-at-index (vec v) ci))))} "remove"]])
+
+;; A collapsed option shows this one-line summary of what it grants, so the
+;; group -> option -> grants nesting stays scannable; you expand only to edit.
+(defn- option-summary [{:keys [grants choose]}]
+  (let [gs (map (fn [{:keys [key qty]}]
+                  (str (equipment-item-name key) (when (> (or qty 1) 1) (str " ×" qty))))
+                grants)
+        cs (map (fn [{:keys [from]}]
+                  (or (some #(when (= (name (or from :martial)) (:value %)) (s/lower-case (:title %)))
+                            subchoice-froms)
+                      "a choice"))
+                choose)]
+    (s/join ", " (concat gs cs))))
+
+;; One option in a choice group. Form-2: local collapse state (new/empty options open
+;; for editing; filled ones collapse to their summary). Expanded, it edits the bundle
+;; (:grants) and any nested picks (:choose).
+(defn- equipment-option-block [_sels _gi _oi init-option]
+  (let [expanded? (r/atom (s/blank? (:name init-option)))]
+    (fn [sels gi oi {:keys [name grants choose] :as option}]
+      [:div.b-rad-5.m-b-3 {:style {:border-left "3px solid #6b7280"
+                                   :background "rgba(255,255,255,0.03)" :padding "5px 10px"}}
+       [:div.flex.align-items-c
+        [:i.fa.pointer {:class (if @expanded? "fa-chevron-down" "fa-chevron-right")
+                        :style {:font-size "12px" :color "rgba(255,255,255,0.35)"
+                                :margin-right "8px" :width "12px"}
+                        :on-click #(swap! expanded? not)}]
+        (if @expanded?
+          [:input.input.h-40.flex-grow-1
+           {:type "text" :placeholder "Option label (e.g. \"Chain Mail\")"
+            :value (or name "")
+            :on-change #(put-selections (assoc-in sels [gi :options oi :name] (event-value %)))}]
+          [:div.flex-grow-1.pointer {:on-click #(reset! expanded? true)}
+           [:span.f-w-b (if (s/blank? name) "(unnamed option)" name)]
+           (let [sm (option-summary option)]
+             (when (seq sm) [:span.i.f-s-14.m-l-10 {:style {:opacity 0.65}} (str "— " sm)]))])
+        [:button.form-button.m-l-5
+         {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (common/remove-at-index (vec v) oi))))}
+         "remove"]]
+       (when @expanded?
+         [:div.m-l-10.m-t-5
+          [:div.i.f-s-14.m-b-2 "Grants (all of these):"]
+          (doall (map-indexed (fn [ri g] ^{:key ri} [equipment-grant-row sels gi oi ri g]) grants))
+          [:button.form-button.m-t-5
+           {:on-click #(put-selections (update-in sels [gi :options oi :grants] (fn [v] (conj (vec v) {:kind :weapon :key (default-grant-item :weapon) :qty 1}))))}
+           "+ Add item"]
+          [:div.i.f-s-14.m-t-5.m-b-2 "…and the player also picks (optional):"]
+          (doall (map-indexed (fn [ci c] ^{:key ci} [equipment-subchoice-row sels gi oi ci c]) choose))
+          [:button.form-button.m-t-5
+           {:on-click #(put-selections (update-in sels [gi :options oi :choose] (fn [v] (conj (vec v) {:from :martial}))))}
+           "+ Add sub-choice"]])])))
+
+;; One choice group: a name + its options (the player picks one option at creation).
+(defn- equipment-selection-group [sels gi {:keys [name options]}]
+  [:div.b-rad-5.p-10.m-b-10 {:style {:border "1px solid #888"}}
+   [:div.flex.m-b-5 {:style {:align-items "center"}}
+    [:input.input.h-40.flex-grow-1
+     {:type "text" :placeholder "Choice group name (e.g. \"Armor\" or \"Primary Weapon\")"
+      :value (or name "")
+      :on-change #(put-selections (assoc-in sels [gi :name] (event-value %)))}]
+    [:button.form-button.m-l-5 {:on-click #(put-selections (common/remove-at-index sels gi))} "remove group"]]
+   [:div.m-l-10
+    [:div.i.f-s-14.m-b-5 "Options (player picks one):"]
+    (doall (map-indexed (fn [oi o] ^{:key oi} [equipment-option-block sels gi oi o]) options))
+    [:button.form-button.m-t-2 {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (conj (vec v) {:name "" :grants [{:kind :weapon :key (default-grant-item :weapon) :qty 1}]}))))} "+ Add option"]]])
+
+;; The choices editor: the class's :equipment-selections groups + an add-group button.
+(defn- rich-equipment-choices [class]
+  (let [sels (vec (:equipment-selections class))]
+    [:div
+     (doall (map-indexed (fn [gi g] ^{:key gi} [equipment-selection-group sels gi g]) sels))
+     [:button.form-button
+      {:on-click #(put-selections (conj sels {:name "" :options [{:name "" :grants [{:kind :weapon :key (default-grant-item :weapon) :qty 1}]}]}))}
+      "+ Add choice group"]]))
+
+;; Convert legacy/imported shorthand :*-choices into editable :equipment-selections
+;; (lossless — each single-item option becomes an option with one grant).
+(defn- legacy-choices->selections [class]
+  (vec
+   (for [{:keys [choice]} starting-equipment-categories
+         {:keys [name options]} (get class choice)
+         :when (seq options)]
+     {:name (or name "")
+      :options (vec (for [[k q] options]
+                      {:name (equipment-item-name k)
+                       :grants [{:kind (case choice :weapon-choices :weapon
+                                         :armor-choices :armor :equipment-choices :equipment)
+                                 :key k :qty q}]}))})))
+
+(defn starting-equipment-section [class]
+  (let [legacy? (some #(seq (get class (:choice %))) starting-equipment-categories)]
+    [:div.m-b-30
+     [:div.f-s-24.f-w-b.m-b-10 "Starting Equipment"]
+     [:div.i.f-s-14.m-b-10
+      "Granted when a character takes this as their first class. Fixed items are always granted; each choice group lets the player pick one option — and an option can grant several items and/or a sub-choice (any simple/martial weapon, a holy symbol, an arcane/druidic focus, an instrument, a pack), so \"(a) chain mail, or (b) leather + a longbow + 20 arrows\" and \"a martial weapon and a shield\" are all expressible here. Click an option to expand or collapse it."]
+     [:div.flex.m-b-10 {:style {:align-items "center"}}
+      [:span.i.f-s-14.m-r-5 "Start from an SRD class:"]
+      [:div {:style {:width "220px"}}
+       [dropdown {:items (cons {:title "— choose —" :value ""}
+                               (map (fn [k] {:title (s/capitalize (name k)) :value (name k)})
+                                    (sort srd-equip/srd-class-keys)))
+                  :value ""
+                  :on-change (fn [v] (when-not (s/blank? v)
+                                       (dispatch [::classes/fill-starting-equipment (keyword v)])))}]]]
+     (when-let [base (:starting-equipment-base class)]
+       [notifications/callout
+        {:icon "fa-info-circle orange"
+         :text (str "Based on the " (s/capitalize (name base)) " class — only your changes are saved on export.")
+         :actions [{:label "Detach (save full copy)"
+                    :on-click #(dispatch [::classes/detach-starting-equipment-base])}]}])
+     [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
+     (doall (for [cat starting-equipment-categories]
+              ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
+     [:div.f-w-b.f-s-18.m-t-15.m-b-5 "Choices (player picks one per group)"]
+     (when legacy?
+       [notifications/callout
+        {:icon "fa-info-circle orange"
+         :text "This class has simple choices from an older format."
+         :actions [{:label "Convert to editable form"
+                    :on-click #(dispatch [::classes/migrate-equipment-choices
+                                          (into (vec (:equipment-selections class)) (legacy-choices->selections class))])}]}])
+     [rich-equipment-choices class]]))
+
 (defn class-builder []
   (let [class @(subscribe [::classes/builder-item])
         spell-lists @(subscribe [::spells/spell-lists])
@@ -6518,6 +6717,7 @@
        class
        ::classes/set-class-path-prop
        ::classes/toggle-class-path-prop]]
+     [starting-equipment-section class]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [option-level-modifiers

@@ -24,6 +24,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.equipment :as equipment5e]
             [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.starting-equipment-ledger :as sel]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
             [orcpub.dnd.e5.event-utils]
@@ -625,7 +626,9 @@
     (fn [[source-name class-key class]]
       (try
         (when (and (map? class) class-key)
-          (let [class-with-key (assoc class :key class-key)
+          ;; Defensive: if any ingestion path ever left a base+delta starting-equipment in the
+          ;; library, expand it here so class-option gets the full form (no-op otherwise).
+          (let [class-with-key (assoc (sel/expand-class class) :key class-key)
                 levels (make-levels spell-lists spells-map selection-map class-with-key)]
             (assoc class-with-key
                    :plugin-source source-name
