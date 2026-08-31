@@ -13,8 +13,8 @@ build plan.
    50 values on the eight-class fixture, with no error.
 3. `write-fields!` skips names the template lacks, in silence. That is how 2 and
    4 went unnoticed for years, and how styles 2-4 shipped without `backstory`.
-4. Text longer than its box is cropped by the appearance stream's clip, with no
-   warning. `ideals`, `bonds` and `flaws` hold about 14 words each.
+4. Text longer than its box is silently shrunk toward a 4pt floor and only then
+   cropped. A few sentences in "Bonds" already drops below 7pt. Nothing warns.
 5. Any modifier of three characters (+10 or worse than -9) is cropped.
 
 ## Order of work
@@ -47,23 +47,31 @@ capacity without rendering anything.
 
 Must measure the ON-PAGE widget. Every field has two; the first is the orphan.
 
-### 4. Overflow for the small page 1 boxes
+### 4. Overflow driven by a minimum font size
 
-`ideals`, `bonds`, `flaws`, `personality-traits`, `attacks-and-spellcasting`.
-These cannot grow — the layout is fixed art.
+The fields AUTO-SIZE (see the KB). They do not crop at a fixed word count; they
+shrink to a 4pt floor and only then start losing text. So the cutoff is a
+minimum legible size, not a character limit.
 
-Proposal, in order: shrink the font toward a floor (8pt down to 6pt buys roughly
-a third more), and if it still does not fit, keep what fits, append a marker, and
-spill the remainder onto the continuation page under a heading naming the field.
+    (fit-text s widget {:min-font-size 7})
+      => {:head "what fits at >=7pt" :tail "the rest" :font-size 7.0}
 
-Open question for review: is a shrink-then-spill acceptable, or is truncating
-with a visible "(continued on p.N)" marker better? Silently cropping is the one
-option that is not acceptable, since that is today's behaviour.
+Budgets at 7pt: ideals/bonds/flaws 25 words, personality-traits 44,
+attacks-and-spellcasting 127, other-profs 147, equipment 447, backstory 987,
+features-and-traits-2 3369.
+
+Small page 1 boxes cannot grow -- the artwork is fixed -- so their `tail` spills
+to a continuation page under a heading naming the field, with a marker in the box
+pointing at it. Large boxes spill to another continuation page of their own.
+
+Open question for review: what floor? 7pt is comfortable in print, 6pt is small
+but readable and buys roughly 60% more before spilling. 7pt is the safer default
+and the one assumed here.
 
 ### 5. Continuation pages that grow
 
-`features-and-traits-2` holds ~1476 words and a real level 20 wizard used 10% of
-it, so this is not urgent — but it is the same mechanism as step 6 and costs
+`features-and-traits-2` holds ~3369 words at 7pt and a real level 20 wizard used
+about a tenth of that, so this is not urgent — but it is the same mechanism as step 6 and costs
 little once that exists. Generate `features-and-traits-3`, `-4` as `fit-text`
 reports a remainder.
 

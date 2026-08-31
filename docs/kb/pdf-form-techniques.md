@@ -57,31 +57,48 @@ orphans behind. Filter each field's widget list, then drop fields left with none
 Measured on a production export: 1407 fields / 2679 KB down to 333 fields /
 1313 KB, a 51% cut, with all 248 valued fields present and unchanged.
 
-## Text capacity, and what overflow actually does
+## Text capacity: fields AUTO-SIZE, so the cutoff is legibility
 
-Overflowing text is NOT lost and NOT truncated. PDFBox writes every wrapped line
-into the appearance stream; the stream's own clip rectangle (`re W n`) then hides
-whatever falls outside the box. The value stays complete in the PDF, the ink is
-generated, and the excess is cropped with no warning.
+The default (fillable) export does NOT use the sizes in `routes.clj/font-sizes`.
+Those are consulted only when flattening -- `write-fields!` says so, and it
+checks out: 20 words into `features-and-traits-2` with `{:features-and-traits-2 8}`
+still bakes at 12pt. The template's `/Helv 0 Tf` means auto-size, and PDFBox
+shrinks the text to fit the box.
 
-Capacities at the 8pt these fields use, measuring only widgets that are on a page
-(every field has two widgets — one live, one orphan — so measuring the first one
-gives the wrong box):
+So text is not cropped at some fixed word count. It SHRINKS:
 
-| field | box | lines | ~words |
-|---|---|---|---|
-| `features-and-traits-2` | 573 x 755 | 81 | ~1476 |
-| `backstory` | 354 x 369 | 39 | ~437 |
-| `features-and-traits` (equipment list) | 165 x 370 | 39 | ~199 |
-| `treasure` | 164 x 370 | 39 | ~199 |
-| `other-profs` | 166 x 129 | 13 | ~66 |
-| `attacks-and-spellcasting` | 166 x 114 | 11 | ~56 |
-| `personality-traits` | 153 x 49 | 4 | ~19 |
-| `ideals` / `bonds` / `flaws` | 153 x 35 | 3 | ~14 |
+    features-and-traits-2:   600w -> 11pt    1200w -> 8pt
+                            2400w ->  5pt    4800w -> 4pt    9600w -> 4pt
+    bonds / ideals:            5w -> 10pt      15w -> 6pt      40w -> 4pt
 
-The continuation page is not the pressure point — a real level 20 wizard used
-1398 of its ~13000 characters. The small page 1 boxes are: two sentences in
-"Bonds" overflows at about 14 words and is cropped silently.
+**Auto-size floors at 4.0 pt.** It will not go below that, so past the 4pt point
+the text clips as well. The real failure mode is therefore worse than plain
+cropping: the sheet silently becomes illegible first, then starts losing text.
+
+That is why an overflow cutoff has to be a MINIMUM FONT SIZE, not a character
+count. Word budgets before each box drops below a floor, measured by binary
+search on the baked appearance stream:
+
+| field | words @ >=7pt | words @ >=6pt |
+|---|---|---|
+| `ideals` / `bonds` / `flaws` | 25 | 42 |
+| `personality-traits` | 44 | 63 |
+| `attacks-and-spellcasting` | 127 | 169 |
+| `other-profs` | 147 | 204 |
+| `features-and-traits` (equipment list) | 447 | 593 |
+| `treasure` | 447 | 593 |
+| `backstory` | 987 | 1339 |
+| `features-and-traits-2` | 3369 | >=4000 |
+
+7pt is comfortable in print; 6pt is small but readable; 5pt and below is not
+worth printing. Pick the floor, then spill whatever does not fit at that size.
+
+Budgets must be COMPUTED from the widget box at runtime, not hardcoded from this
+table -- the table is for orientation and for catching drift in tests.
+
+A production level 20 wizard used 1398 characters of `features-and-traits-2`,
+about a tenth of its budget. The pressure is on the small page 1 boxes: two or
+three sentences in "Bonds" already pushes below 7pt.
 
 ## Modifier boxes clip at three characters
 
