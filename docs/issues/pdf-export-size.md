@@ -249,3 +249,44 @@ What survives from all of the above is one narrow change: prune widgets that
 belong to no page, at export time, in write-fields!. That only ever removes
 fields with nowhere to draw, so it cannot drop a value the way these templates
 do. Everything else here is a note, not a plan.
+
+## Generating spell pages on demand (spiked, works)
+
+Rather than pruning ghost fields, remove the reason they exist. routes.clj picks
+one of seven pre-baked variants per style (sheet0..sheet6) by counting
+spellcasting classes. Instead: ship a base plus ONE spell-page master, clone the
+master as many times as the character needs, and build that page's fields in
+code with the names pdf_spec already emits.
+
+Spiked end to end against the real assets. What holds:
+
+- A page clones by making a new page dictionary that REFERENCES the source
+  /Contents, /Resources and /MediaBox. No pixel data copied: the master alone is
+  421 KB, master plus six shared clones is 422 KB.
+- Fields can be built per cloned page with arbitrary names, filled, and they
+  render. Verified by filling a level-1 spell slot on a CLONED page and
+  rendering it. About 12 KB of field structure per extra page.
+- Clean masters can be cut from the existing assets using the orphan bug itself:
+  delete every page but the one you want, then prune the fields left behind.
+  Yields a 1-page 214-field spell master and a 2-page 118-field base, both with
+  zero orphans.
+
+Traps found, all of them load-bearing:
+
+- Splitter DROPS THE ACROFORM. An isolated page comes out with zero fields. Do
+  not use it to cut a page out.
+- PDFMergerUtility duplicates the background image per merged copy (base plus 3
+  spell pages ballooned to 1804 KB, larger than the original 9-page file) AND
+  renames colliding fields, turning spells-1-1 into spells-1-1-1. Every name
+  pdf_spec writes would silently stop matching. Do not use it either.
+- Orphan pruning MUST work at the widget level, not the field level. Keeping a
+  field because any one of its widgets is live left 101 orphans, since some
+  fields own widgets across several pages. Filter each field's widget list and
+  drop fields left with none.
+
+Payoff: seven files per style become two, ghost fields stop existing rather than
+being pruned after the fact, and the six-spellcasting-class ceiling goes away --
+extra pages cost about 12 KB each.
+
+Not yet done: wiring this into routes.clj in place of the sheet0..sheet6 cond,
+and generating the per-page field names for pages beyond the sixth.
