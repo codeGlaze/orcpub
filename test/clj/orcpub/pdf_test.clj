@@ -431,3 +431,24 @@
               (is (some? field) (str (name k) " still resolves by name"))
               (is (= v (str (.getValueAsString field)))
                   (str (name k) " kept its value")))))))))
+
+(deftest checkboxes-get-names-that-say-what-they-are
+  (testing "The templates name every checkbox 'Check Box N', which says nothing and
+            collides across pages. Each spell row's tick is renamed after the row it
+            sits beside, and the death-save block after its two labelled rows."
+    (with-open [doc (six-caster-template)]
+      (pdf/write-fields! doc {:character-name "Named Boxes"} false {})
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            names (map #(.getFullyQualifiedName %) (all-fields form))]
+        (is (empty? (filter #(re-matches #"(?i)check box \d+" %) names))
+            "no anonymous checkbox survives")
+        (is (some #{"prepared-1-1-1"} names)
+            "a spell row's tick is named after that row")
+        (is (= #{"death-save-success-1" "death-save-success-2" "death-save-success-3"
+                 "death-save-failure-1" "death-save-failure-2" "death-save-failure-3"}
+               (set (filter #(str/starts-with? % "death-save-") names))))
+        (testing "and each is independently settable"
+          (.setValue (.getField form "death-save-success-1") "Yes")
+          (is (= "Yes" (str (.getValueAsString (.getField form "death-save-success-1")))))
+          (is (= "Off" (str (.getValueAsString (.getField form "death-save-failure-1"))))
+              "ticking a success does not tick a failure"))))))

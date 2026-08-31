@@ -287,6 +287,89 @@
                    :when (add-spell-page! doc source n)]
                n)))))
 
+(defn name-prepared-checkboxes!
+  "Renames the templates' anonymous \"Check Box N\" fields after the spell row each
+   one sits beside, so Check Box 25 becomes prepared-1-1-1 next to spells-1-1-1.
+   Returns the number renamed.
+
+   The pairing is geometric: a row's checkbox sits about 8pt to its left on the
+   same baseline, which is unambiguous — the next row is 14pt away vertically.
+   Rows without a checkbox (cantrips, which are always prepared) simply have no
+   match and are left alone.
+
+   Safe because pdf_spec writes to none of these names; they are ticked by hand
+   after download. Run before disambiguate-duplicate-fields! so these get a
+   meaningful name rather than a numeric suffix."
+  [doc]
+  (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (let [fields (vec (.getFields form))
+          widget-boxes (fn [page]
+                         (let [on-page (into #{} (map #(System/identityHashCode (.getCOSObject %))
+                                                      (.getAnnotations page)))]
+                           (for [field fields
+                                 widget (.getWidgets field)
+                                 :when (contains? on-page (System/identityHashCode
+                                                           (.getCOSObject widget)))
+                                 :let [r (.getRectangle widget)]]
+                             {:field field
+                              :name (.getFullyQualifiedName field)
+                              :x (.getLowerLeftX r)
+                              :y (.getLowerLeftY r)})))
+          taken (volatile! (into #{} (map #(.getFullyQualifiedName %) fields)))]
+      (reduce
+       (fn [renamed page]
+         (let [entries (widget-boxes page)
+               boxes (filter #(re-matches #"(?i)check box \d+" (:name %)) entries)
+               rows (filter #(re-matches #"spells-\d+-\d+-\d+" (:name %)) entries)]
+           (+ renamed
+              (count
+               (for [box boxes
+                     :let [row (->> rows
+                                    (filter #(and (< 0 (- (:x %) (:x box)) 20)
+                                                  (< (Math/abs (- (:y %) (:y box))) 6)))
+                                    first)
+                           candidate (when row (str "prepared-" (subs (:name row) (count "spells-"))))]
+                     :when (and candidate (not (contains? @taken candidate)))]
+                 (do (vswap! taken conj candidate)
+                     (.setPartialName (:field box) candidate)
+                     candidate))))))
+       0
+       (.getPages doc)))
+    0))
+
+(defn name-death-save-checkboxes!
+  "Names the death-save ticks on the character page, which carry no spell row to
+   take a name from. Returns the number renamed.
+
+   Applies only when exactly six anonymous checkboxes remain on a page in two rows
+   of three, which is the death-save block: successes above failures, each row
+   left to right. Verified by ticking the upper row and rendering. Any other
+   arrangement is left alone rather than guessed at."
+  [doc]
+  (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (let [fields (vec (.getFields form))]
+      (reduce
+       (fn [renamed page]
+         (let [on-page (into #{} (map #(System/identityHashCode (.getCOSObject %))
+                                      (.getAnnotations page)))
+               boxes (for [field fields
+                           :when (re-matches #"(?i)check box \d+" (.getFullyQualifiedName field))
+                           widget (.getWidgets field)
+                           :when (contains? on-page (System/identityHashCode
+                                                     (.getCOSObject widget)))
+                           :let [r (.getRectangle widget)]]
+                       {:field field :x (.getLowerLeftX r) :y (.getLowerLeftY r)})
+               rows (->> boxes (group-by #(Math/round (double (:y %)))) sort reverse (map second))]
+           (if (and (= 6 (count boxes)) (= 2 (count rows)) (every? #(= 3 (count %)) rows))
+             (do (doseq [[label row] (map vector ["success" "failure"] rows)
+                         [i box] (map-indexed vector (sort-by :x row))]
+                   (.setPartialName (:field box) (str "death-save-" label "-" (inc i))))
+                 (+ renamed 6))
+             renamed)))
+       0
+       (.getPages doc)))
+    0))
+
 (defn disambiguate-duplicate-fields!
   "Gives each field its own name where several share one. Returns the number
    renamed.
@@ -380,7 +463,11 @@
         (do (fix-widget-page-refs! doc)
             (.flatten form))
         (do (prune-orphan-widgets! doc)
-            ;; After pruning, so orphans about to be removed are not renamed.
+            ;; Ordering matters: prune first so orphans due for removal are not
+            ;; renamed, then name what can be named, then fall back to numeric
+            ;; suffixes for whatever still collides.
+            (name-prepared-checkboxes! doc)
+            (name-death-save-checkboxes! doc)
             (disambiguate-duplicate-fields! doc)))
       unplaceable)))
 
