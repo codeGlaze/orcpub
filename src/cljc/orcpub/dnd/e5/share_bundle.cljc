@@ -4,10 +4,9 @@
    the shared link\" feature).
 
    Pure data functions — no re-frame, no DOM — so the core unit-tests under
-   `lein test`. See docs/kb/share-bundle-dependency-extraction.md (agents/develop)
-   for the full data-model map this implements.
+   `lein test`.
 
-   Strategy (validated by the dependency-surface spike):
+   Strategy:
      1. DIRECT   — sweep every ::entity/key the character selected
         (entity/flatten-options) and keep those that exist in the plugins map.
      2. CLOSURE  — follow the shallow (<=2 hop) reference edges homebrew defs

@@ -1989,16 +1989,15 @@
            dissoc
            ::char5e/faction-image-url-failed)))
 
-;; ── INLINE "Custom" options (mechanism A) ────────────────────────────────────
-;; These :set-custom-* events are the LIGHTWEIGHT, per-character path: picking
-;; "Custom" in a race/subrace/background/subclass dropdown. They write only a
-;; typed NAME (::entity/value) onto the character (key stays the :custom sentinel
-;; from name-to-kw "Custom"); they save NOTHING to a store and export to no
-;; .orcbrew. Do NOT confuse with the FULL BUILDERS (mechanism B, reg-save-homebrew
-;; ~line 712) whose ::bg5e/save-background etc. persist a real, keyed, exportable
-;; entry into :plugins. The inline/builder split looks parallel but isn't — see
-;; docs/kb/custom-content-lifecycle.md. (The :custom sentinel is why the
-;; missing-content reconciler must skip it — it resolves inline, not from a store.)
+;; ── Inline "Custom" options ──────────────────────────────────────────────────
+;; The :set-custom-* events write a typed name to ::entity/value on the character
+;; and nothing else: no store entry, no .orcbrew export. The key stays the :custom
+;; sentinel name-to-kw returns for "Custom", which is why the missing-content
+;; reconciler skips it — it resolves inline rather than from a store.
+;;
+;; Separate from the homebrew builders registered by reg-save-homebrew
+;; (::bg5e/save-background and siblings), which persist a keyed, exportable entry
+;; into :plugins.
 (reg-event-db
  :set-custom-race
  character-interceptors
