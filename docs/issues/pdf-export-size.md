@@ -485,5 +485,24 @@ same renderer on both sides, so a real difference would still show). They are
 NOT evidence about what a user sees. Glyph-level and layout claims need a real
 viewer before they go in this file.
 
-The clipping bug could NOT be tested against this file -- her modifiers top out
-at +7, below the +10 threshold. The fixture evidence stands alone on that one.
+### The clipping bug, re-verified without a renderer
+
+Given the retraction above, the "+10 clips" claim was re-checked by measurement
+rather than by looking at pixels. The appearance stream carries its own clip
+rectangle (an "re W n" operator), so this is what EVERY viewer draws, not a
+PDFBox artifact:
+
+    clip rectangle width                 12.4 pt
+    "+7" / "-1" at 8 pt Helvetica         9.1 pt   fits
+    "+11"      at 8 pt Helvetica         13.6 pt   CLIPS
+
+So the bug is real, and the threshold is not "+10" as such -- it is any
+THREE-CHARACTER modifier, which means +10 and above or -10 and below. Confirmed
+on int-save, arcana, history and investigation in the fixture.
+
+Every field on the production sheet fits because none of Nedda's modifiers
+exceeds +9. The bug needs a high-level character to show up, which is exactly
+why the fixtures exist.
+
+(Her modifiers top out at +7, so the production file neither confirms nor
+refutes it on its own; the measurement above is what settles it.)
