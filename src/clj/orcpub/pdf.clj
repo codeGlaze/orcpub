@@ -2,18 +2,17 @@
   "Builds character sheets, spell cards and monster stat blocks by filling the
    AcroForm templates in resources/.
 
-   Four things about these templates surprise everyone who works on them. All are
-   measured, with reproductions, in docs/kb/pdf-form-techniques.md.
+   Four properties of these templates are worth knowing before changing anything
+   here. Measurements and reproductions: docs/kb/pdf-form-techniques.md.
 
    1. Fields AUTO-SIZE. The templates' default appearance is `/Helv 0 Tf`, where 0
       means shrink-to-fit, so an overlong value is not cropped -- it gets smaller,
       down to a 4pt floor, and only then clips. A wordy field yields a sheet that
-      is illegible before it starts losing text. `fit-text` is the cutoff.
+      is illegible before it loses any text. `fit-text` decides where to stop.
 
    2. Most widgets belong to no page. The style 1 variants were cut from a nine-page
       master by DELETING pages, which drops the page but leaves the FIELDS in the
-      AcroForm: 1596 of 1931 widgets on a real export, and most of its bytes.
-      `prune-orphan-widgets!` removes them, losslessly.
+      AcroForm. `prune-orphan-widgets!` removes them; it runs on every export.
 
    3. Field names lie about their contents. `features-and-traits` holds the EQUIPPED
       ITEM LIST; the real features live in `features-and-traits-2` on the
@@ -136,10 +135,9 @@
 
 ;; ─── Orphaned widgets ────────────────────────────────────────────────────────
 ;;
-;; See note 2 in the namespace docstring for where these come from. Dropping them
-;; is lossless: a widget on no page can neither render nor be filled. Measured on
-;; a production export, 1407 fields / 2679 KB became 333 / 1313 KB with every one
-;; of the 248 valued fields unchanged and no page differing by a pixel.
+;; A widget on no page can neither render nor be filled, so removing it cannot
+;; lose anything. On these templates that is most of the form, and most of the
+;; file size.
 
 (defn- on-page-widgets
   "The set of annotation COS objects actually reachable from some page."
@@ -192,14 +190,11 @@
    resources) so values render AND print in every viewer — not just ones that honor
    NeedAppearances (Firefox's print path does not).
 
-   RETURNS the sorted seq of field names the template had no field for, and logs
-   them. These used to be skipped in silence, which is how several faults went
-   unnoticed for years: styles 2-4 ship without a `backstory` field so every
-   character's backstory vanished from those sheets, `spells-3-11` is missing from
-   style 1 so a wizard with a full third-level list quietly loses one, and a
-   character with more than six spellcasting classes loses two of them entirely
-   (50 values on an eight-class build). Every one of those is a silent skip.
-   Callers that care should check the return value; nobody could check nil."
+   Returns the names in `fields` the template has no field for, sorted, and logs
+   them. A template missing a field is common and not always an error -- styles
+   2-4 have no `backstory`, style 1 has no `spells-3-11`, and none has a seventh
+   spellcasting class -- so the value is dropped rather than thrown on. Check the
+   return value if the caller needs to know."
   [doc fields flatten? font-sizes]
   (let [catalog (.getDocumentCatalog doc)
         form (.getAcroForm catalog)
@@ -514,10 +509,9 @@
 ;; See note 1 in the namespace docstring: these fields shrink rather than crop, so
 ;; the cutoff is a minimum readable size, not a character count.
 ;;
-;; Word budgets at 7pt, measured: ideals/bonds/flaws 25, personality-traits 44,
-;; attacks-and-spellcasting 127, other-profs 147, equipment list 447, backstory
-;; 987, features-and-traits-2 3369. Callers should compute from the widget rather
-;; than hardcode these; they are here for orientation.
+;; Compute budgets from the widget via `widget-box`; do not hardcode them. The
+;; per-field figures live in docs/kb/pdf-form-techniques.md for orientation, and
+;; a test asserts them so drift is caught.
 
 (def min-font-size
   "Smallest point size worth printing. 6pt is small but readable; below 5pt is not

@@ -241,3 +241,34 @@
             [w h] (pdf/widget-box doc field)]
         (is (> w 400.0) "the continuation box is most of a page wide")
         (is (> h 600.0) "and most of a page tall")))))
+
+(deftest documented-word-budgets-still-hold
+  (testing "docs/kb/pdf-form-techniques.md publishes a word budget per box at 7pt.
+            If a template is ever re-cut those numbers go stale silently, so pin
+            them here. Tolerance is loose -- this catches a box changing size, not
+            a word of drift."
+    (with-open [doc (style-1-template)]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            ;; ~5 characters plus a space, the average the budgets assume
+            words (fn [n] (str/join " " (repeat n "spells")))
+            budget (fn [field-name]
+                     (let [[w h] (pdf/widget-box doc (.getField form field-name))]
+                       ;; largest n that still fits whole
+                       (loop [lo 1 hi 6000]
+                         (if (>= (inc lo) hi)
+                           lo
+                           (let [mid (quot (+ lo hi) 2)]
+                             (if (nil? (:tail (pdf/fit-text (words mid) w h)))
+                               (recur mid hi)
+                               (recur lo mid)))))))]
+        (doseq [[field-name documented] {"bonds" 25
+                                         "ideals" 25
+                                         "flaws" 25
+                                         "personality-traits" 44
+                                         "attacks-and-spellcasting" 127
+                                         "other-profs" 147
+                                         "backstory" 987}]
+          (let [actual (budget field-name)]
+            (is (< (* 0.5 documented) actual (* 2.0 documented))
+                (str field-name " holds ~" actual " words at " pdf/min-font-size
+                     "pt; the KB documents ~" documented))))))))
