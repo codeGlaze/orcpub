@@ -1,11 +1,24 @@
 # Starting-equipment override ledger — design
 
+> **What shipped (supersedes the addressing decision below).** The feature is built, but
+> **keyless** — not with the minted group/option keys this doc argues for. Addressing is by
+> identifiers that already exist: fixed grants diff by **item-key**; a **touched choice group
+> is stored whole**, matched by its existing `:name` (the nested OR-menus are rare to edit and
+> not worth a sub-diff). No `name-to-kw`, no minted `:key`. The delta is a pure on-disk
+> encoding — `{:starting-equipment {:base <kw> :fixed {:set :del} :groups {:set :del}}}` —
+> that lives ONLY in exported files: everything live holds the full form, so the consumption
+> path is untouched. Engine: `starting_equipment_ledger.cljc` (`derive-delta`/`resolve-delta`,
+> `collapse-class`/`expand-class`); full write-up in `starting-equipment.md`
+> ("Start from an SRD class + the override delta"). The minted-key design below was the
+> earlier plan; it's kept as the record of the design space and why the shipped form is
+> simpler (a stable id per group/option was the machinery we set out to avoid). The
+> **"SRD bases are frozen"** and **name-fidelity** sections still hold and are load-bearing.
+
 **Purpose.** Design for "start from a class, keep it, record only the diff": a homebrew
 class references an SRD class's starting equipment as a base and stores a small **ledger**
 of changes, instead of a full copy. Captures the shapes involved, the addressing decision,
-and the error handling. **Design doc — not yet implemented.** Companion to
-`starting-equipment.md` (the serializable `:equipment-selections`
-form this builds on).
+and the error handling. Companion to `starting-equipment.md` (the serializable
+`:equipment-selections` form this builds on).
 
 ## The shape (what a ledger addresses)
 
