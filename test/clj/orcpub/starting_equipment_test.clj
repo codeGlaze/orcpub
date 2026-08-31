@@ -189,3 +189,51 @@
       (is (= (:selection-names live) (:selection-names b))   (str class-kw " — selection names round-trip"))
       (is (= (:choice-item-keys live) (:choice-item-keys b)) (str class-kw " — item keys round-trip"))
       (is (= (:choice-qtys live) (:choice-qtys b))           (str class-kw " — choice grant quantities round-trip")))))
+
+;; ---------------------------------------------------------------------------
+;; Precaution: a nested sub-choice that ISN'T one of the named pools must not vanish.
+;; No SRD class hits this today (all sub-choices are pools), so these guard a future
+;; SRD change or a homebrew fed through the decompiler — a precaution that never fires
+;; for the shipped 12, but is here if it's ever needed.
+;; ---------------------------------------------------------------------------
+
+(deftest enumerated-subchoice-round-trips
+  ;; "pick one of these two specific bundles" is not a pool — it must be ENUMERATED
+  ;; option-by-option, and compile -> decompile -> recompile must be stable.
+  (let [seed {:name "Enum Class" :key :enum-class :hit-die 8}
+        class-map (merge seed
+                   {:equipment-selections
+                    [{:name "Gear"
+                      :options [{:name "A bundle and a pick"
+                                 :grants [{:kind :armor :key :shield}]
+                                 :choose [{:name "Odd Pick"
+                                           :options [{:name "Club" :grants [{:kind :weapon :key :club}]}
+                                                     {:name "Dagger and Torch"
+                                                      :grants [{:kind :weapon :key :dagger}
+                                                               {:kind :equipment :key :torch :qty 1}]}]}]}]}]})
+        built1 (opt/class-option {} {} {} {} weapons/weapons-map class-map)
+        data2  (srd/decompile built1)
+        built2 (opt/class-option {} {} {} {} weapons/weapons-map (merge seed data2))]
+    ;; the non-pool sub-choice survived decompile, carried explicitly (not dropped, not a :from)
+    (is (some #(and (= "Odd Pick" (:name %)) (seq (:options %)) (nil? (:from %)))
+              (mapcat :choose (mapcat :options (:equipment-selections data2))))
+        "non-pool nested sub-choice enumerated, not dropped")
+    ;; and the whole thing round-trips to the same built signature
+    (is (= (equipment-signature built1) (equipment-signature built2))
+        "enumerated sub-choice round-trips compile->decompile->compile")))
+
+(deftest undecompilable-subchoice-throws
+  ;; The backstop: a starting-equipment sub-choice with no representable options at all is
+  ;; surfaced loudly with context, never silently dropped.
+  (is (thrown-with-msg?
+       clojure.lang.ExceptionInfo #"Undecompilable"
+       (srd/decompile
+        {:orcpub.template/selections
+         [{:orcpub.template/name "Starting Equipment: Void"
+           :orcpub.template/tags #{:starting-equipment}
+           :orcpub.template/options
+           [{:orcpub.template/name "Pick"
+             :orcpub.template/selections
+             [{:orcpub.template/name "Empty Sub"
+               :orcpub.template/tags #{:starting-equipment}
+               :orcpub.template/options [{:orcpub.template/name "<none>"}]}]}]}]}))))

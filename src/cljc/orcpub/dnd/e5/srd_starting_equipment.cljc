@@ -70,19 +70,35 @@
                           (real-options nested)))]
     (some (fn [[from ks]] (when (= ks keys) from)) @pool-key-sets)))
 
-(defn- option->data [opt]
-  (let [grants (vec (mapcat modifier->grants (:orcpub.template/modifiers opt)))
-        subs   (->> (:orcpub.template/selections opt)
-                    (keep (fn [nested]
-                            (when-let [from (nested->from nested)]
-                              {:name (strip-prefix (:orcpub.template/name nested)) :from from})))
-                    vec)]
-    (cond-> {:name (:orcpub.template/name opt)}
-      (seq grants) (assoc :grants grants)
-      (seq subs)   (assoc :choose subs))))
+(declare option->data)
+
+(defn- nested->choose [nested]
+  "One nested sub-selection -> a :choose entry. A selection whose options are exactly a
+   known pool collapses to {:from <pool>}; anything else is ENUMERATED option-by-option
+   ({:name … :options […]}) rather than dropped — so a sub-choice we don't recognise as a
+   pool (a future/homebrew 'pick one of these three specific items') still round-trips
+   instead of silently vanishing. Only a selection with no representable options at all is
+   genuinely undecompilable, and that throws with context rather than losing equipment."
+  (if-let [from (nested->from nested)]
+    {:name (strip-prefix (:orcpub.template/name nested)) :from from}
+    (let [opts (mapv option->data (real-options nested))]
+      (if (seq opts)
+        {:name (:orcpub.template/name nested) :options opts}
+        (throw (ex-info "Undecompilable starting-equipment sub-choice: not a known pool and no enumerable options"
+                        {:selection (:orcpub.template/name nested)}))))))
 
 (defn- starting-equipment-selection? [sel]
   (and (map? sel) (contains? (:orcpub.template/tags sel) :starting-equipment)))
+
+(defn- option->data [opt]
+  (let [grants (vec (mapcat modifier->grants (:orcpub.template/modifiers opt)))
+        ;; only equipment sub-choices; an unrelated nested selection is not equipment, so
+        ;; skipping it here is correct, not data loss (and must not reach nested->choose).
+        subs   (mapv nested->choose
+                     (filter starting-equipment-selection? (:orcpub.template/selections opt)))]
+    (cond-> {:name (:orcpub.template/name opt)}
+      (seq grants) (assoc :grants grants)
+      (seq subs)   (assoc :choose subs))))
 
 (defn- decompile-fixed [built]
   "associated-options carrying the class-starting-equipment flag -> {:weapons {k q} …}."
@@ -107,19 +123,25 @@
                {:name    (strip-prefix (:orcpub.template/name sel))
                 :options (mapv option->data (real-options sel))}))))
 
+(defn decompile
+  "A built class-option's starting equipment in the builder's editable form (fixed grants +
+   :equipment-selections). Public so the round-trip can be exercised on any built option,
+   not only the SRD thunks."
+  [built]
+  (let [fixed  (decompile-fixed built)
+        groups (decompile-selections built)]
+    (cond-> {}
+      (:weapons fixed)   (assoc :weapons (:weapons fixed))
+      (:armor fixed)     (assoc :armor (:armor fixed))
+      (:equipment fixed) (assoc :equipment (:equipment fixed))
+      (seq groups)       (assoc :equipment-selections groups))))
+
 (defn builder-equipment
-  "The SRD class's starting equipment in the builder's editable form (fixed grants +
-   :equipment-selections), derived from the live class. nil for an unknown class."
+  "The SRD class's starting equipment in the builder's editable form, derived from the live
+   class. nil for an unknown class."
   [class-kw]
   (when-let [thunk (get class-option-thunks class-kw)]
-    (let [built  (thunk)
-          fixed  (decompile-fixed built)
-          groups (decompile-selections built)]
-      (cond-> {}
-        (:weapons fixed)   (assoc :weapons (:weapons fixed))
-        (:armor fixed)     (assoc :armor (:armor fixed))
-        (:equipment fixed) (assoc :equipment (:equipment fixed))
-        (seq groups)       (assoc :equipment-selections groups)))))
+    (decompile (thunk))))
 
 (def srd-class-keys
   "The SRD classes offered by 'start from a class'."

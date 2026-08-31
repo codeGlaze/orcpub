@@ -2521,20 +2521,37 @@
 ;; weapon class (:simple/:martial/:any-weapon) or a grouped-equipment key
 ;; (:holy-symbol/:arcane-focus/:druidic-focus/:musical-instrument/:pack), which expands
 ;; to a pick among that group's members (equipment-option handles pack-contents, etc.).
-(defn- equipment-subchoice->selection [class-kw weapon-map {:keys [name from]}]
-  (if-let [chooser (equipment-group-choosers from)]
+(declare equipment-selection-option)
+
+(defn- equipment-subchoice->selection [class-kw weapon-map {:keys [name from options]}]
+  (cond
+    ;; Explicit enumerated pick — a nested selection listed option-by-option. The general
+    ;; fallback for a sub-choice that isn't one of the named pools (e.g. "pick one of these
+    ;; three specific items"). Built like a grouped pick — plain selection, name verbatim,
+    ;; no prefix / no "<none>" — so it round-trips exactly.
+    (seq options)
+    (t/selection-cfg
+     {:name name
+      :tags #{:equipment :starting-equipment}
+      :options (mapv #(equipment-selection-option class-kw weapon-map %) options)
+      :prereq-fn (first-class? class-kw)})
+
     ;; Grouped-equipment pick (focus / holy symbol / instrument / pack). Mirror the live
     ;; equipment-option EXACTLY: a plain starting-equipment selection named for the group,
     ;; WITHOUT the "Starting Equipment: " prefix and WITHOUT a "<none>" opt-out — so a class
     ;; filled from an SRD class reproduces the SRD's own nested selection verbatim (its name
     ;; also feeds the selection's minted key, which must stay stable).
-    (t/selection-cfg
-     {:name (or name (:name chooser))
-      :tags #{:equipment :starting-equipment}
-      :options (mapv #(equipment-option class-kw [(:key %) 1]) (:items chooser))
-      :prereq-fn (first-class? class-kw)})
+    (equipment-group-choosers from)
+    (let [chooser (equipment-group-choosers from)]
+      (t/selection-cfg
+       {:name (or name (:name chooser))
+        :tags #{:equipment :starting-equipment}
+        :options (mapv #(equipment-option class-kw [(:key %) 1]) (:items chooser))
+        :prereq-fn (first-class? class-kw)}))
+
     ;; Weapon-class pick. Live builds these through new-starting-equipment-selection, so
     ;; keep the prefix (and the "<none>" it appends) to match.
+    :else
     (new-starting-equipment-selection
      class-kw
      {:name (or name (case from :simple "Simple Weapon" :martial "Martial Weapon"
