@@ -639,6 +639,17 @@
 
 (def default-sheet-style 1)
 
+(def ^:private pdf-option-keys
+  "Keys the client sends alongside the field values to steer the export. They name
+   no field, so they are removed before write-fields!, which reports whatever it
+   cannot place and would otherwise flag every one of these on every request."
+  #{:image-url :image-url-failed :faction-image-url :faction-image-url-failed
+    :spells-known :custom-spells :spell-save-dcs :spell-attack-mods
+    :print-character-sheet? :print-spell-cards? :print-character-sheet-style?
+    :print-spell-card-dc-mod? :print-card-back-logo? :card-back-logo-faded?
+    :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
+    :flatten?})
+
 (defn character-pdf-2 [req]
   (let [fields (try
                  (-> req :form-params :body edn/read-string)
@@ -700,9 +711,9 @@
       ;; editable. Clients that want a locked/static PDF pass `:flatten? true`.
       ;; Both run before write-fields! so the fields they create or trim exist by
       ;; the time values are written.
-      (pdf/add-missing-spell-pages! doc fields)
-      (let [fields (pdf/spill-overflow! doc fields)]
-        (pdf/write-fields! doc fields (true? flatten?) font-sizes))
+      (let [fields (apply dissoc fields pdf-option-keys)]
+        (pdf/add-missing-spell-pages! doc fields)
+        (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes))
       (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw? bw-faded?))
 
