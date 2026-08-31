@@ -6,8 +6,11 @@
             [orcpub.pdf :as pdf])
   (:import (org.apache.pdfbox Loader)
            (org.apache.pdfbox.cos COSName)
-           (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream)
-           (org.apache.pdfbox.pdmodel.interactive.form PDTextField)))
+           (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream PDResources)
+           (org.apache.pdfbox.pdmodel.common PDRectangle)
+           (org.apache.pdfbox.pdmodel.font PDType1Font Standard14Fonts$FontName)
+           (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget)
+           (org.apache.pdfbox.pdmodel.interactive.form PDAcroForm PDTextField)))
 
 (defn- all-fields [form]
   (iterator-seq (.iterator (.getFieldTree form))))
@@ -157,51 +160,72 @@
   (with-open [in (.openStream (io/resource "fillable-char-sheetstyle-1-6-spells.pdf"))]
     (Loader/loadPDF (.readAllBytes in))))
 
-(defn- valued-fields
-  "{fully-qualified-name value} for every field currently holding something."
-  [form]
-  (into {} (for [f (all-fields form)
-                 :let [v (str (.getValueAsString f))]
-                 :when (not (str/blank? v))]
-             [(.getFullyQualifiedName f) v])))
+(defn- dirty-doc
+  "A two-page document with an orphaned widget and a duplicated field name, the
+   two faults dev/prepare_templates.clj removes from the shipped templates."
+  []
+  (let [doc (PDDocument.)
+        page-one (PDPage.) page-two (PDPage.)
+        form (PDAcroForm. doc)
+        res (PDResources.)
+        mk (fn [nm page]
+             (let [field (PDTextField. form)
+                   widget (PDAnnotationWidget.)]
+               (.setPartialName field nm)
+               (.setRectangle widget (PDRectangle. 50 700 100 20))
+               (when page
+                 (.setPage widget page)
+                 (.setAnnotations page (java.util.ArrayList.
+                                        (conj (vec (.getAnnotations page)) widget))))
+               (.setWidgets field (java.util.ArrayList. [widget]))
+               field))]
+    (.addPage doc page-one)
+    (.addPage doc page-two)
+    (.put res (COSName/getPDFName "Helv") (PDType1Font. Standard14Fonts$FontName/HELVETICA))
+    (.setDefaultResources form res)
+    (.setDefaultAppearance form "/Helv 10 Tf 0 g")
+    (.setAcroForm (.getDocumentCatalog doc) form)
+    (.setFields form (java.util.ArrayList.
+                      [(mk "on-a-page" page-one)
+                       (mk "shared" page-one)
+                       (mk "shared" page-two)
+                       (mk "orphan" nil)]))
+    doc))
+
+(deftest shipped-templates-are-already-clean
+  (testing "dev/prepare_templates.clj bakes the static cleanups into resources/, so
+            the export path does not repeat them on every request. This asserts the
+            result, and fails if a template is replaced without being prepared."
+    (doseq [variant (range 0 7)]
+      (with-open [in (.openStream (io/resource (str "fillable-char-sheetstyle-1-"
+                                                    variant "-spells.pdf")))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (let [form (.getAcroForm (.getDocumentCatalog doc))
+              names (map #(.getFullyQualifiedName %) (all-fields form))]
+          (is (empty? (for [f (all-fields form)
+                            w (.getWidgets f)
+                            :when (nil? (.getPage w))]
+                        f))
+              (str variant "-spells still has a widget belonging to no page"))
+          (is (empty? (->> names frequencies (filter (fn [[_ n]] (> n 1))) (map key)))
+              (str variant "-spells still has duplicate field names"))
+          (is (empty? (filter #(re-matches #"(?i)check box \d+" %) names))
+              (str variant "-spells still has an anonymous checkbox")))))))
 
 (deftest prune-orphan-widgets-loses-nothing
-  (testing "Pruning drops only widgets that belong to no page, so no value can be
-            lost. The style 1 templates were cut from a 9-page master by DELETING
-            pages, which leaves the fields behind -- about 1600 of 1900 widgets on
-            a real export, and most of the download.
-
-            Values are set through the PDFBox API rather than write-fields! here,
-            because write-fields! now prunes for us and there would be nothing
-            left to remove."
-    (with-open [doc (style-1-template)]
+  (testing "Pruning drops only widgets belonging to no page, so no value can be
+            lost. Uses a document made dirty on purpose, since the shipped
+            templates are prepared."
+    (with-open [doc (dirty-doc)]
       (let [form (.getAcroForm (.getDocumentCatalog doc))]
-        (doseq [[nm v] {"character-name" "Prune Test"
-                        "class-level" "Wizard 20"
-                        "backstory" "A sentence that must survive."}]
-          (.setValue (.getField form nm) v))
-        (let [before (valued-fields form)
-              removed (pdf/prune-orphan-widgets! doc)
-              after (valued-fields form)]
-          (is (pos? removed) "the template really does carry orphaned widgets")
-          (is (= before after)
-              "every value present before the prune is present and unchanged after")
-          (is (seq before) "the fixture actually set some values to compare"))))))
-
-(deftest write-fields-prunes-orphans-when-not-flattening
-  (testing "The exporter prunes on the way out, so a normal fillable export does
-            not ship widgets that belong to no page. On a production sheet this is
-            the difference between 2679 KB and 1313 KB."
-    (with-open [doc (style-1-template)]
-      (pdf/write-fields! doc {:character-name "Pruned On Export"} false {})
-      (let [form (.getAcroForm (.getDocumentCatalog doc))]
-        (is (empty? (for [f (all-fields form)
-                          w (.getWidgets f)
-                          :when (nil? (.getPage w))]
-                      f))
-            "no field is left holding a widget that belongs to no page")
-        (is (some? (.getField form "character-name"))
-            "and the fields that ARE on a page survive")))))
+        (.setValue (.getField form "on-a-page") "keep me")
+        (let [removed (pdf/prune-orphan-widgets! doc)
+              names (set (map #(.getFullyQualifiedName %) (all-fields form)))]
+          (is (pos? removed) "the orphan's widget was removed")
+          (is (not (contains? names "orphan")) "and the field it left empty went too")
+          (is (contains? names "on-a-page") "a field on a page survives")
+          (is (= "keep me" (str (.getValueAsString (.getField form "on-a-page"))))
+              "with its value untouched"))))))
 
 (deftest write-fields-reports-names-it-cannot-place
   (testing "REGRESSION: unknown names used to be skipped in silence, which is how
@@ -398,24 +422,22 @@
               "values stay on their own page"))))))
 
 (deftest duplicate-field-names-are-made-unique
-  (testing "Fields sharing a fully-qualified name are one field with one value, so
-            the prepared-spell box for a given slot is shared across every
-            spellcasting class's page, and getField can only reach one of them.
-            The style 1 templates ship 103 such names."
-    (with-open [doc (six-caster-template)]
+  (testing "Fields sharing a fully-qualified name are one field with one value, and
+            getField can reach only one of them."
+    (with-open [doc (dirty-doc)]
       (let [form (.getAcroForm (.getDocumentCatalog doc))
             duplicate-count #(->> (all-fields form)
                                   (map (fn [f] (.getFullyQualifiedName f)))
                                   frequencies
                                   (filter (fn [[_ n]] (> n 1)))
                                   count)]
-        (is (pos? (duplicate-count)) "the template really does ship duplicates")
-        (pdf/prune-orphan-widgets! doc)
-        (is (pos? (duplicate-count))
-            "and they survive pruning here, being spread across the six spell pages")
-        (let [renamed (pdf/disambiguate-duplicate-fields! doc)]
-          (is (pos? renamed))
-          (is (zero? (duplicate-count)) "every field ends up with its own name"))))))
+        (is (= 1 (duplicate-count)) "the fixture has one duplicated name")
+        (is (pos? (pdf/disambiguate-duplicate-fields! doc)))
+        (is (zero? (duplicate-count)) "every field ends up with its own name")
+        (is (some? (.getField form "shared"))
+            "the first of the group keeps the original name")
+        (is (some? (.getField form "shared-2"))
+            "and the second becomes addressable in its own right")))))
 
 (deftest disambiguation-leaves-exported-names-alone
   (testing "The first field of a group keeps the original name, and pdf_spec writes

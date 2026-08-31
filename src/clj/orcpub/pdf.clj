@@ -269,23 +269,23 @@
    one per class with no limit. Without this the extra classes are dropped
    outright: write-fields! has nowhere to put their names, slots or spells.
 
-   Prunes orphaned widgets first, which is required rather than tidy: a variant
-   cut down from the nine-page master still carries the FIELDS of the pages that
-   were deleted, so spellcasting-class-4 and its spells exist with no page. Those
-   names have to be freed before pages claiming them can be added, or the new
-   fields collide with the ghosts and share their values."
+   Prunes orphaned widgets before adding anything, which is required rather than
+   tidy: a template that has not been through dev/prepare_templates.clj still
+   carries the FIELDS of its deleted pages, so spellcasting-class-4 and its spells
+   exist with no page, and a page claiming those names would collide with the
+   ghosts and share their values."
   [doc fields]
-  (prune-orphan-widgets! doc)
   (let [wanted (->> (keys fields)
                     (keep #(second (re-matches #"spellcasting-class-(\d+)" (name %))))
                     (map #(Integer/parseInt %))
                     (reduce max 0))
-        source (highest-spell-page doc)]
-    (if (zero? source)
+        source (when (pos? wanted) (highest-spell-page doc))]
+    (if (or (nil? source) (zero? source) (<= wanted source))
       0
-      (count (for [n (range (inc source) (inc wanted))
-                   :when (add-spell-page! doc source n)]
-               n)))))
+      (do (prune-orphan-widgets! doc)
+          (count (for [n (range (inc source) (inc wanted))
+                       :when (add-spell-page! doc source n)]
+                   n))))))
 
 (defn name-prepared-checkboxes!
   "Renames the templates' anonymous \"Check Box N\" fields after the spell row each
@@ -457,18 +457,9 @@
                (instance? PDTextField field) (normalize-text v)
                :else nil))))
         (catch Exception e (prn "failed writing field: " k v (strace/print-stack-trace e)))))
-      ;; Pruned after writing so no value lands in a field about to be removed.
-      ;; Flattening consumes the form, so it prunes nothing.
-      (if flatten?
-        (do (fix-widget-page-refs! doc)
-            (.flatten form))
-        (do (prune-orphan-widgets! doc)
-            ;; Ordering matters: prune first so orphans due for removal are not
-            ;; renamed, then name what can be named, then fall back to numeric
-            ;; suffixes for whatever still collides.
-            (name-prepared-checkboxes! doc)
-            (name-death-save-checkboxes! doc)
-            (disambiguate-duplicate-fields! doc)))
+      (when flatten?
+        (fix-widget-page-refs! doc)
+        (.flatten form))
       unplaceable)))
 
 (defn content-stream
