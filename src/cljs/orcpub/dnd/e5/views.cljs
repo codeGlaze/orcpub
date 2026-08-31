@@ -6519,10 +6519,13 @@
                   :on-change (fn [v] (when-not (s/blank? v)
                                        (dispatch [::classes/fill-starting-equipment (keyword v)])))}]]]
      (when-let [base (:starting-equipment-base class)]
-       [:div.flex.m-b-10.bg-light.p-5.b-rad-5 {:style {:align-items "center"}}
-        [:span.i.f-s-14.m-r-5
+       ;; Persistent contextual callout — the app's .bg-warning box + fa-info-circle/.orange
+       ;; idiom (as shared-content-banner / the library health status), not a bespoke box.
+       [:div.bg-warning.p-10.m-b-10.flex.align-items-c {:style {:gap "8px"}}
+        [:i.fa.fa-info-circle.orange]
+        [:span.f-s-14.flex-grow-1
          (str "Based on the " (s/capitalize (name base)) " class — only your changes are saved on export.")]
-        [:button.form-button.m-l-5
+        [:button.form-button
          {:on-click #(dispatch [::classes/detach-starting-equipment-base])}
          "Detach (save full copy)"]])
      [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
