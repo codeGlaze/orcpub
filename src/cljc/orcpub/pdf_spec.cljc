@@ -407,8 +407,15 @@
      (flatten
       (map-indexed
        (fn [i {:keys [ability classes spells]}]
+         ;; A class whose list outgrows one page takes another, and both would
+         ;; otherwise be headed with the bare class name and carry the same slot
+         ;; totals -- two identical "SLOTS EXPENDED" rows for one set of slots,
+         ;; with nothing saying which page follows which.
          (let [suffix (str "-" (inc i))
-               class-header {(keyword (str "spellcasting-class" suffix)) (s/join ", " classes)}]
+               continued? (some #(= classes (:classes %)) (take i spell-pages))
+               class-header {(keyword (str "spellcasting-class" suffix))
+                             (cond-> (s/join ", " classes)
+                               continued? (str " (continued)"))}]
            [(if ability
               (merge
                class-header
@@ -430,8 +437,11 @@
                           qualifier (:qualifier spell)]
                       (str spell-name (when qualifier (str " (" qualifier ")"))))})
                  spells)
-                {(keyword (str "spell-slots-" level suffix))
-                 (spell-slots level)}))
+                ;; Slots belong to the class, not the page, so only the first
+                ;; page of a class carries them.
+                (when-not continued?
+                  {(keyword (str "spell-slots-" level suffix))
+                   (spell-slots level)})))
              spells)]))
        spell-pages)))))
 
