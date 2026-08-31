@@ -81,6 +81,67 @@ structural orphan-only prune differs by zero on all three pages.
 Any future work here must tick the boxes and render every page before claiming
 a prune is safe.
 
+
+## How the orphans got there, and the better fix
+
+Widget counts across the style-1 family, distinguishing "missing the /P
+back-pointer" from "not in any page's annotation list at all":
+
+    template   widgets   no /P   on-a-page   TRUE orphans
+    0-spells      1931    1810         121           1810
+    1-spells      1931    1596         335           1596
+    ...                                               ...
+    6-spells      1931     526        1405            526
+
+The two columns are identical, so every widget missing /P really is absent from
+every page. Exactly 214 widgets attach per spell page present -- the page's full
+complement of spell name fields, prepared checkboxes and slot fields.
+
+That linear pattern is the signature of how the variants were made: one 9-page
+master form, saved repeatedly with pages deleted. Deleting a page removes the
+page and its annotations but leaves the fields in the AcroForm, orphaning 214
+widgets each time. Nothing is "riding on one page" -- they are on no page.
+
+pdf/fix-widget-page-refs! is a related but different workaround. It walks
+pages -> annotations and sets /P on widgets that ARE on a page but lack the
+back-pointer. It cannot see these, because they are not in any page's
+annotation list. Anyone reading that function should not assume it covers this.
+
+### Prune at export, not in the assets
+
+The templates are static, but the exported PDF is built at runtime by
+write-fields!. Dropping fields whose widgets are all page-less THERE gets every
+user a smaller download with no asset migration, no risk to the source files,
+and no 28-file regeneration to verify. It is a code change in one function
+rather than an art pipeline.
+
+The asset-side fix -- rebuilding variants by page EXTRACTION rather than page
+deletion -- is the real cure, but it is a much bigger job and the runtime prune
+makes it optional rather than urgent.
+
+## Style 3 is in colour, and is stored in CMYK
+
+Style 3 is NOT black and white -- blue gradients, gold accents, a coloured
+crest. Grayscale would destroy it; an earlier note in this document suggesting
+otherwise would have been wrong. 9.78% of sampled pixels carry real colour.
+
+It is stored as DeviceCMYK at 8 bits per component: four channels, for a
+document that is viewed on screen and printed on home printers. Converting the
+page-1 image to RGB, losslessly:
+
+    original CMYK 8bpc (Flate)    684 KB
+    as RGB PNG                    335 KB   (51% smaller, lossless)
+    as RGB JPEG q=0.92            243 KB   (64%)
+    as RGB JPEG q=0.85            199 KB   (71%)
+
+RGB PNG halves it with no quality question at all -- it drops a channel the
+display path never uses. The JPEG options trade quality for more and should not
+be taken without someone looking at a printed sheet.
+
+Style 4 pages 1-2 are already DeviceRGB JPEG and pages 3-8 DeviceGray PNG, so
+it does not have the CMYK problem. Images ARE shared across repeated pages in
+both styles -- one object serves pages 3-8 -- so there is no duplication to fix.
+
 ## Not investigated
 
   * Whether pruning breaks a user who duplicates a spell page by hand in
