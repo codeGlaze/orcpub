@@ -517,3 +517,48 @@ why the fixtures exist.
 
 (Her modifiers top out at +7, so the production file neither confirms nor
 refutes it on its own; the measurement above is what settles it.)
+
+## Answered: yes, pages can be generated on demand with unique field names
+
+dev/on_demand_pages.clj is a working proof of concept (not wired in). It builds
+a 2-page base plus EIGHT spellcasting class pages from a single master page:
+
+    10 pages, 1830 fields, ZERO duplicate names, 757 KB
+
+against today's six-class template at 9 pages, 1407 fields, 1596 orphans and
+about 1.2 MB. More classes, more pages, fewer bytes, no ghosts. Class 8 -- which
+cannot exist on the current sheet at all -- renders correctly with its own
+fields.
+
+Why unique naming is the crux, and not a detail: in PDF, fields sharing a fully
+qualified name ARE THE SAME FIELD and share one value. Tick a checkbox on one
+page and its same-named twin ticks on another. Any generated page therefore has
+to mint its own names, which is what the rename step does and why the output has
+no duplicates.
+
+That constraint also explains where the orphans came from. The template carries
+hundreds of uniquely-numbered "Check Box NNNN" fields; someone needed
+per-page-unique names for overflow pages, pre-made them, then produced the
+variants by DELETING pages -- and deleting a page leaves its fields in the
+AcroForm. The ghosts are the residue of solving exactly this problem by hand.
+
+The same mechanism covers every overflow case raised:
+
+- more spellcasting classes than the sheet has sections (proven above)
+- more spell pages as a caster levels up and outgrows the rows
+- features-and-traits-3, -4 ... when traits outgrow the single continuation page
+
+Remaining work before it could ship: decide where generation sits relative to
+the sheet0..sheet6 selection in routes.clj, and teach pdf_spec to emit names
+past the sixth class.
+
+## Correction: the 0xAD hyphen is an upstream PDFBox bug, since fixed
+
+An earlier note here guessed the cause was a last-write-wins name-to-code table
+where 0xAD (173) overwrote 0x2D (45). Tested, and wrong: this PDFBox version maps
+"hyphen" to code 45 only -- there is no 173 entry to win.
+
+The live file's 0xAD therefore comes from an OLDER PDFBox whose WinAnsiEncoding
+still carried the PDF spec's duplicate hyphen at 0xAD. It is an upstream bug that
+has since been fixed, so this branch gets 0x2D from the version bump rather than
+from anything in our code. Do not credit the branch with fixing it.
