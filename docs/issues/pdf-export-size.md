@@ -413,3 +413,70 @@ clipping, the silent skip in write-fields!, and the six-class ceiling that drops
 One small live oddity, not a bug as such: pdf_spec emits no :equipment key, so
 the page 1 text field of that name is never filled. Its box shows the coin
 fields only. Probably deliberate; noted so the next person does not "fix" it.
+
+## Checked against a real export from the live site
+
+A production PDF (level 20 evocation wizard, 16 pages by PDFBox -- note the
+upload banner claimed 27) settles several things measured only in fixtures here.
+
+### The ghost fields do ship, and they are most of the file
+
+    1931 widgets, 1596 orphaned   -- an exact match for the 1-spells measurement
+
+And the size is NOT the artwork. Images are 329 KB of a 2679 KB file: one
+800x1200 portrait at 275 KB plus 212 tiny 32x32 spell-card icons at 60 KB total.
+The other 2.35 MB -- 88 percent of the download -- is the AcroForm.
+
+Pruning page-less widgets from this exact file:
+
+    before  1407 fields  2679 KB
+    after    333 fields  1313 KB     51 percent smaller
+
+Verified safe three ways, not just by eye: zero differing pixels across all 16
+pages at 72 DPI; 248 fields carry a value before AND after with none lost and
+none changed; and no surviving field has an off-page widget. The 668 dropped
+names were all valueless. Pixel comparison alone would NOT have been enough --
+that is the check that missed the death-save checkboxes earlier in this
+document -- so the value diff is the one that matters.
+
+This makes the runtime prune the single largest size lever, not a tidying job.
+
+### Confirmed: spells-3-11-1 really is absent in production
+
+Reading the live file's fields directly: spells-3-1-1 through spells-3-10-1 and
+spells-3-12-1 onward exist; spells-3-11-1 returns no field. This character has
+only five third-level spells so it does not bite her, but the gap is real in the
+wild, not a quirk of the local assets.
+
+### Confirmed: the field-name mapping, and the ability boxes are inverted too
+
+features-and-traits on the live sheet contains "Backpack / Bag of Sand / Book /
+Clothes, common / Elven Chain / Incense x5..." -- the equipment list, exactly as
+the retraction above says. features-and-traits-2 holds the real traits.
+
+New from this file: the ability boxes are inverted from their names as well.
+`cha` holds the MODIFIER (the large box) and `cha-mod` holds the SCORE (the small
+circle). The fixtures had these backwards and are now corrected.
+
+### NEW BUG, visible in production: every negative number renders as a box
+
+Nedda's Charisma modifier prints as a missing-glyph box rather than "-1", as do
+Deception, Intimidation, Persuasion, and the "- " bullets in the attacks block.
+
+The stored value is fine -- plain ASCII, U+002D U+0031. The fault is in the baked
+appearance stream:
+
+    LIVE:   (\2551) Tj     <- octal 255 = 0xAD
+    BRANCH: (-1) Tj         <- plain 0x2D
+
+WinAnsiEncoding lists "hyphen" at BOTH 0x2D and 0xAD, and PDFBox's name-to-code
+reverse lookup returns 0xAD. Renderers treat 0xAD as a SOFT hyphen -- an
+invisible break opportunity -- so it draws as nothing or as tofu.
+
+Output from the current branch bakes 0x2D and renders correctly, verified by
+generating the same field through pdf/write-fields! and dumping both streams. So
+this is already fixed here; it is worth knowing it was ever broken, because it
+affects every negative modifier on every sheet the live site has produced.
+
+The clipping bug could NOT be tested against this file -- her modifiers top out
+at +7, below the +10 threshold. The fixture evidence stands alone on that one.

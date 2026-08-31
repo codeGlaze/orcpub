@@ -35,6 +35,11 @@
 ;;   equipment              <- nothing. pdf_spec never emits this key; the box
 ;;                             it sits in carries the coin fields only.
 ;;
+;;
+;; Same trap in the ability boxes: `cha` holds the MODIFIER (the big box) and
+;; `cha-mod` holds the SCORE (the small circle). Verified against a production
+;; export, not inferred.
+;;
 ;; See pdf_spec/equipment-fields and pdf_spec/traits-fields. Fill these the way
 ;; the app does, or the fixture tests a layout no real character produces.
 
@@ -86,8 +91,8 @@
    {:character-name "Ysolde Vantreaux" :character-name-2 "Ysolde Vantreaux"
     :class-level "Wizard 20 (School of Evocation)" :background "Sage"
     :player-name "fixture" :race "High Elf" :alignment "Neutral Good" :xp "355,000"
-    :str "8"  :str-mod "-1" :dex "14" :dex-mod "+2" :con "16" :con-mod "+3"
-    :int "20" :int-mod "+5" :wis "13" :wis-mod "+1" :cha "10" :cha-mod "+0"
+    :str "-1" :str-mod "8" :dex "+2" :dex-mod "14" :con "+3" :con-mod "16"
+    :int "+5" :int-mod "20" :wis "+1" :wis-mod "13" :cha "+0" :cha-mod "10"
     :str-save "-1" :dex-save "+2" :con-save "+3"
     :int-save "+11" :wis-save "+7" :cha-save "+0"
     :int-save-check true :wis-save-check true
@@ -146,8 +151,8 @@
    {:character-name "Corvin Ashgrave" :character-name-2 "Corvin Ashgrave"
     :class-level "Warlock 5 / Sorcerer 5 / Wizard 5 / Cleric 5" :background "Charlatan"
     :player-name "fixture" :race "Half-Elf" :alignment "Chaotic Neutral" :xp "355,000"
-    :str "10" :str-mod "+0" :dex "14" :dex-mod "+2" :con "14" :con-mod "+2"
-    :int "16" :int-mod "+3" :wis "14" :wis-mod "+2" :cha "18" :cha-mod "+4"
+    :str "+0" :str-mod "10" :dex "+2" :dex-mod "14" :con "+2" :con-mod "14"
+    :int "+3" :int-mod "16" :wis "+2" :wis-mod "14" :cha "+4" :cha-mod "18"
     :str-save "+0" :dex-save "+2" :con-save "+2"
     :int-save "+7" :wis-save "+6" :cha-save "+10"
     :int-save-check true :wis-save-check true :cha-save-check true
@@ -218,8 +223,8 @@
     :class-level "Brd2/Clr2/Drd2/Pal4/Rgr4/Sor2/Wlk2/Wiz2"
     :background "Guild Artisan" :player-name "fixture" :race "Human (Variant)"
     :alignment "Chaotic Good" :xp "355,000"
-    :str "12" :str-mod "+1" :dex "13" :dex-mod "+1" :con "14" :con-mod "+2"
-    :int "12" :int-mod "+1" :wis "14" :wis-mod "+2" :cha "16" :cha-mod "+3"
+    :str "+1" :str-mod "12" :dex "+1" :dex-mod "13" :con "+2" :con-mod "14"
+    :int "+1" :int-mod "12" :wis "+2" :wis-mod "14" :cha "+3" :cha-mod "16"
     :str-save "+1" :dex-save "+1" :con-save "+2"
     :int-save "+1" :wis-save "+8" :cha-save "+9"
     :wis-save-check true :cha-save-check true
