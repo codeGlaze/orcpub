@@ -149,6 +149,14 @@
   (with-open [in (.openStream (io/resource "fillable-char-sheetstyle-1-1-spells.pdf"))]
     (Loader/loadPDF (.readAllBytes in))))
 
+(defn- six-caster-template
+  "The widest style 1 variant. Its duplicate names survive pruning because every
+   copy sits on one of the six spell pages; on narrower variants the copies are
+   orphans and pruning alone removes them."
+  []
+  (with-open [in (.openStream (io/resource "fillable-char-sheetstyle-1-6-spells.pdf"))]
+    (Loader/loadPDF (.readAllBytes in))))
+
 (defn- valued-fields
   "{fully-qualified-name value} for every field currently holding something."
   [form]
@@ -388,3 +396,38 @@
           (is (= "Source Spell" (str (.getValueAsString (.getField form "spells-1-1-1")))))
           (is (= "Copied Spell" (str (.getValueAsString (.getField form "spells-1-1-2"))))
               "values stay on their own page"))))))
+
+(deftest duplicate-field-names-are-made-unique
+  (testing "Fields sharing a fully-qualified name are one field with one value, so
+            the prepared-spell box for a given slot is shared across every
+            spellcasting class's page, and getField can only reach one of them.
+            The style 1 templates ship 103 such names."
+    (with-open [doc (six-caster-template)]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            duplicate-count #(->> (all-fields form)
+                                  (map (fn [f] (.getFullyQualifiedName f)))
+                                  frequencies
+                                  (filter (fn [[_ n]] (> n 1)))
+                                  count)]
+        (is (pos? (duplicate-count)) "the template really does ship duplicates")
+        (pdf/prune-orphan-widgets! doc)
+        (is (pos? (duplicate-count))
+            "and they survive pruning here, being spread across the six spell pages")
+        (let [renamed (pdf/disambiguate-duplicate-fields! doc)]
+          (is (pos? renamed))
+          (is (zero? (duplicate-count)) "every field ends up with its own name"))))))
+
+(deftest disambiguation-leaves-exported-names-alone
+  (testing "The first field of a group keeps the original name, and pdf_spec writes
+            to none of the duplicated names, so the export path is unaffected."
+    (with-open [doc (style-1-template)]
+      (let [values {:character-name "Named Field"
+                    :spells-1-1-1 "Magic Missile"
+                    :features-and-traits-2 "Traits text"}]
+        (pdf/write-fields! doc values false {})
+        (let [form (.getAcroForm (.getDocumentCatalog doc))]
+          (doseq [[k v] values]
+            (let [field (.getField form (name k))]
+              (is (some? field) (str (name k) " still resolves by name"))
+              (is (= v (str (.getValueAsString field)))
+                  (str (name k) " kept its value")))))))))

@@ -287,6 +287,40 @@
                    :when (add-spell-page! doc source n)]
                n)))))
 
+(defn disambiguate-duplicate-fields!
+  "Gives each field its own name where several share one. Returns the number
+   renamed.
+
+   Fields sharing a fully-qualified name are ONE field with one value, so ticking a
+   prepared-spell box on one class's spell page ticks the same box on every other
+   class's page. The style 1 templates ship 103 such names: 92 anonymous
+   \"Check Box N\" fields repeated across the six spell pages, the SlotsRemaining
+   bubbles, and the two image placeholders.
+
+   The first field in each group keeps the original name so anything addressing it
+   by name still resolves; the rest take a numeric suffix. Safe for the export
+   path because pdf_spec writes to none of the duplicated names — they are filled
+   by hand after download."
+  [doc]
+  (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (let [fields (vec (.getFields form))
+          taken (volatile! (into #{} (map #(.getFullyQualifiedName %) fields)))
+          unique-name (fn [base]
+                        (loop [n 2]
+                          (let [candidate (str base "-" n)]
+                            (if (contains? @taken candidate)
+                              (recur (inc n))
+                              (do (vswap! taken conj candidate) candidate)))))]
+      (reduce (fn [renamed [_ group]]
+                (if (< (count group) 2)
+                  renamed
+                  (do (doseq [field (rest group)]
+                        (.setPartialName field (unique-name (.getFullyQualifiedName field))))
+                      (+ renamed (dec (count group))))))
+              0
+              (group-by #(.getFullyQualifiedName %) fields)))
+    0))
+
 (defn write-fields!
   "Populate an AcroForm in `doc` from the `fields` map, optionally flattening.
 
@@ -345,7 +379,9 @@
       (if flatten?
         (do (fix-widget-page-refs! doc)
             (.flatten form))
-        (prune-orphan-widgets! doc))
+        (do (prune-orphan-widgets! doc)
+            ;; After pruning, so orphans about to be removed are not renamed.
+            (disambiguate-duplicate-fields! doc)))
       unplaceable)))
 
 (defn content-stream
