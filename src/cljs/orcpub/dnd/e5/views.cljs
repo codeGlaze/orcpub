@@ -6521,6 +6521,8 @@
      (when-let [base (:starting-equipment-base class)]
        ;; Persistent contextual callout — the app's .bg-warning box + fa-info-circle/.orange
        ;; idiom (as shared-content-banner / the library health status), not a bespoke box.
+       ;; Severity vocabulary: docs/kb/library-management-and-conflicts.md. The base marker
+       ;; and delta format: docs/kb/starting-equipment.md.
        [:div.bg-warning.p-10.m-b-10.flex.align-items-c {:style {:gap "8px"}}
         [:i.fa.fa-info-circle.orange]
         [:span.f-s-14.flex-grow-1
@@ -6533,9 +6535,13 @@
               ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
      [:div.f-w-b.f-s-18.m-t-15.m-b-5 "Choices (player picks one per group)"]
      (when legacy?
-       [:div.bg-light.p-5.m-b-5.b-rad-5
-        [:span.i.f-s-14 "This class has simple choices from an older format. "]
-        [:button.form-button.m-l-5
+       ;; Persistent contextual callout — same .bg-warning system as the "Based on" banner
+       ;; above and shared-content-banner / library health status. Severity vocabulary:
+       ;; docs/kb/library-management-and-conflicts.md.
+       [:div.bg-warning.p-10.m-b-10.flex.align-items-c {:style {:gap "8px"}}
+        [:i.fa.fa-info-circle.orange]
+        [:span.f-s-14.flex-grow-1 "This class has simple choices from an older format."]
+        [:button.form-button
          {:on-click #(dispatch [::classes/migrate-equipment-choices
                                 (into (vec (:equipment-selections class)) (legacy-choices->selections class))])}
          "Convert to editable form"]])

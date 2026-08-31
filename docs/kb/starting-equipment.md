@@ -131,3 +131,56 @@ real app: renders the section, clicks the equipment buttons, saves, captures a r
 the source-name-choice modal).
 Still open: import/export validation that referenced item keys exist in the vocab
 (catches hand-edited typos).
+
+## Start from an SRD class + the override delta
+
+"Start from an SRD class" fills the builder with an SRD class's equipment, and — if the
+user only tweaks it — the export stores just the **delta from that base** instead of a full
+copy.
+
+- **Deriving the base.** `srd_starting_equipment.cljc` `builder-equipment` **decompiles** a
+  live class into the editable full form by reading its built `class-option` output and
+  recovering each choice grant by *applying the modifier fn* (no hand-transcribed table).
+  Round-trip-verified against all 12 SRD classes in `starting_equipment_test.clj`.
+- **The base marker.** Filling from a class stamps `:starting-equipment-base <class-kw>` on
+  the class map (`::class5e/fill-starting-equipment`, `events.cljs`). It's a live-only
+  breadcrumb; the builder keeps editing the plain full form.
+
+### On-disk delta format (data integrity)
+
+The delta is a **pure on-disk encoding — it exists ONLY in exported files.** Everything live
+(app-db, localStorage, the builder) holds the full `:weapons`/`:armor`/`:equipment`/
+`:equipment-selections` form the existing functions consume, so the consumption path is
+untouched. A collapsed class carries:
+
+```
+:starting-equipment {:base <srd-class-kw>
+                     :fixed  {:set {<bucket> {<item-key> qty}}   ; added / qty-changed items
+                              :del {<bucket> #{<item-key>}}}      ; removed items
+                     :groups {:set {<group-name> <whole-group>}  ; a TOUCHED choice group, stored whole
+                              :del #{<group-name>}}}              ; removed group names
+```
+
+Addressing is by identifiers that **already exist** — item keys for fixed grants, `:name`
+for choice groups — so there are **no minted keys**. A touched choice group is stored whole
+(the nested OR-menus are rarely edited and not worth a sub-diff). See
+`starting_equipment_ledger.cljc` (`derive-delta` / `resolve-delta`) and
+`docs/kb/starting-equipment-override-ledger.md` for the design and rejected alternatives.
+
+- **Collapse on export / expand on import.** `sel/collapse-class` runs at the single
+  serialize funnel (`save-orcbrew-blob!`) plus the two direct-blob export bypasses;
+  `sel/expand-class` runs at both ingestion points (`store-imported-sources`,
+  `apply-shared-content`) **before** the load-floor spec gate, and defensively at the
+  `::classes5e/plugin-classes` consumption sub — so the library only ever holds full form
+  and a missed ingestion path can't silently drop equipment.
+- **Fail-soft.** An unknown `:base`, or a delta entry that doesn't line up with the base,
+  leaves the class untouched / appends rather than dropping equipment or crashing.
+- **UI.** When a base is set, `starting-equipment-section` shows a `.bg-warning` callout
+  ("Based on the &lt;Class&gt; class …") with a **Detach** button
+  (`::class5e/detach-starting-equipment-base`) that drops the link so export writes the
+  equipment in full; the equipment itself is untouched.
+- **Coverage.** `test/clj/orcpub/starting_equipment_ledger_test.clj` (derive/resolve
+  round-trip over every edit kind + whole-class collapse/expand + fail-soft) and
+  `test/browser/starting_equipment_ledger_e2e.js` (live runtime: fill → collapse to a
+  delta-only file → `validate-import` accepts → expand restores the full equipment → the
+  banner + Detach behave).
