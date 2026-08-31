@@ -1,24 +1,32 @@
 (ns orcpub.pdf
-  "PDF generation utilities for character sheets, spell cards, and monster stat blocks.
-   
-   ## PDFBox 3.x Migration Notes (January 2026)
-   
-   This namespace was updated from PDFBox 2.x to 3.x. Key API changes:
-   
-   1. **Standard fonts** - In PDFBox 2.x, fonts were static fields like `PDType1Font/HELVETICA`.
-      In PDFBox 3.x, you must create font instances using the `Standard14Fonts$FontName` enum:
-      ```clojure
-      ;; Old (2.x): PDType1Font/HELVETICA
-      ;; New (3.x): (PDType1Font. Standard14Fonts$FontName/HELVETICA)
-      ```
-      We define these as module-level constants (HELVETICA, HELVETICA_BOLD, etc.) for convenience.
-   
-   2. **Loading PDFs** - In PDFBox 2.x, use `PDDocument/load`. In 3.x, use `Loader/loadPDF`.
-      See routes.clj for this change.
-   
-   3. **Java interop syntax** - The `$` in `Standard14Fonts$FontName` is Clojure's way of
-      accessing a Java nested/inner class. `Standard14Fonts.FontName` in Java becomes
-      `Standard14Fonts$FontName` in Clojure imports."
+  "Builds character sheets, spell cards and monster stat blocks by filling the
+   AcroForm templates in resources/.
+
+   Four things about these templates surprise everyone who works on them. All are
+   measured, with reproductions, in docs/kb/pdf-form-techniques.md.
+
+   1. Fields AUTO-SIZE. The templates' default appearance is `/Helv 0 Tf`, where 0
+      means shrink-to-fit, so an overlong value is not cropped -- it gets smaller,
+      down to a 4pt floor, and only then clips. A wordy field yields a sheet that
+      is illegible before it starts losing text. `fit-text` is the cutoff.
+
+   2. Most widgets belong to no page. The style 1 variants were cut from a nine-page
+      master by DELETING pages, which drops the page but leaves the FIELDS in the
+      AcroForm: 1596 of 1931 widgets on a real export, and most of its bytes.
+      `prune-orphan-widgets!` removes them, losslessly.
+
+   3. Field names lie about their contents. `features-and-traits` holds the EQUIPPED
+      ITEM LIST; the real features live in `features-and-traits-2` on the
+      continuation page; `cha` is the modifier while `cha-mod` is the score; and
+      `equipment` is never written at all. Read pdf_spec before trusting a name.
+
+   4. Fields sharing a name ARE one field and share one value -- tick a checkbox on
+      one page and its twin ticks on another. Anything generating repeated pages
+      must mint unique names.
+
+   PDFBox 3.x notes: standard fonts are constructed rather than static fields (see
+   the constants below), `Loader/loadPDF` replaces `PDDocument/load`, and
+   `PDPageContentStream$AppendMode` replaces the old boolean flags."
   (:require [clojure.string :as s]
             [clojure.stacktrace :as strace]
             [clojure.java.io :as io]
@@ -31,31 +39,17 @@
            (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget)
            (org.apache.pdfbox.cos COSName)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
-           ;; PDFBox 3.x: AppendMode enum replaces boolean flags in PDPageContentStream constructor
-           ;; Use APPEND when adding content to existing pages (templates)
-           ;; APPEND adds new drawing/text operators to the end of the page’s existing content stream, preserving everything already on the page.
+           ;; APPEND appends operators to a page's existing content stream, so
+           ;; template artwork survives. The alternative overwrites it.
            (org.apache.pdfbox.pdmodel PDPageContentStream$AppendMode)
            (org.apache.pdfbox.pdmodel.graphics.image JPEGFactory LosslessFactory)
            (org.apache.pdfbox.pdmodel.graphics.state PDExtendedGraphicsState)
-           ;; PDFBox 3.x: Standard14Fonts$FontName is a nested enum class
-           ;; In Java: org.apache.pdfbox.pdmodel.font.Standard14Fonts.FontName
-           ;; In Clojure: use $ to access nested classes
            (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font Standard14Fonts$FontName)
            (javax.imageio ImageIO)
-           (java.net URL)))
+           (java.net URL HttpURLConnection)))
 
-;; =============================================================================
-;; Standard PDF Fonts (PDFBox 3.x)
-;; =============================================================================
-;;
-;; PDFBox 3.x changed how standard fonts are accessed:
-;;   - OLD (2.x): PDType1Font/HELVETICA (static field)
-;;   - NEW (3.x): (PDType1Font. Standard14Fonts$FontName/HELVETICA) (constructor + enum)
-;;
-;; We create these constants at load time so the rest of the code can use them
-;; like the old static fields. These are the standard "Base 14" PDF fonts that
-;; are guaranteed to be available in all PDF readers.
-;;
+;; The Base 14 fonts, present in every PDF reader. Constructed once at load time
+;; because PDFBox 3.x replaced the old static fields with constructor + enum.
 (def HELVETICA
   "Standard Helvetica font (regular weight, upright)"
   (PDType1Font. Standard14Fonts$FontName/HELVETICA))
@@ -142,19 +136,10 @@
 
 ;; ─── Orphaned widgets ────────────────────────────────────────────────────────
 ;;
-;; The style 1 templates were made by taking a nine-page master and deleting
-;; pages for each variant. Deleting a page removes the page and its annotations
-;; but leaves the FIELDS in the AcroForm, so a widget can survive pointing at no
-;; page at all. On a real level 20 export that is 1596 of 1931 widgets, and
-;; roughly 88% of a 2.6 MB download -- the artwork is only 329 KB of it.
-;;
-;; Such a widget can never be drawn or filled, so dropping it is lossless.
-;; Measured on a production export: 1407 fields / 2679 KB -> 333 / 1313 KB, all
-;; 248 valued fields present and unchanged, no page differing by a pixel.
-;;
-;; NOTE this is deliberately per-WIDGET. Several fields own widgets on more than
-;; one page; keeping a whole field because any one widget is live leaves the
-;; rest orphaned (that mistake left 101 behind). See docs/kb/pdf-form-techniques.md.
+;; See note 2 in the namespace docstring for where these come from. Dropping them
+;; is lossless: a widget on no page can neither render nor be filled. Measured on
+;; a production export, 1407 fields / 2679 KB became 333 / 1313 KB with every one
+;; of the 248 valued fields unchanged and no page differing by a pixel.
 
 (defn- on-page-widgets
   "The set of annotation COS objects actually reachable from some page."
@@ -165,9 +150,11 @@
           (System/identityHashCode (.getCOSObject annotation)))))
 
 (defn prune-orphan-widgets!
-  "Drop widgets that belong to no page, then fields left with no widgets.
-   Returns the number of widgets removed. Lossless: an off-page widget cannot
-   render or be filled."
+  "Drop widgets that belong to no page, then fields left with none. Returns the
+   count removed.
+
+   Per-WIDGET, not per-field: several fields own widgets on more than one page, so
+   keeping a whole field because any one widget is live leaves the rest orphaned."
   [doc]
   (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
     (let [live (on-page-widgets doc)
@@ -180,7 +167,8 @@
                            (cond
                              (empty? good) acc
                              (= (count good) (count widgets)) (conj acc field)
-                             ;; Only terminal fields own widgets directly.
+                             ;; Only terminal fields own widgets; non-terminal ones
+                             ;; are containers and are left as they are.
                              (instance? PDTerminalField field)
                              (do (.setWidgets field (java.util.ArrayList. good))
                                  (conj acc field))
@@ -353,7 +341,7 @@
    that failed to load, which is a state the sheet already handles."
   [url]
   (try
-    (let [u (java.net.URL. url)
+    (let [u (URL. url)
           protocol (.getProtocol u)]
       (and (contains? #{"http" "https"} protocol)
            (let [addrs (java.net.InetAddress/getAllByName (.getHost u))]
@@ -370,7 +358,7 @@
    offers an open redirect would otherwise hand the fetch straight to a private
    address."
   [url]
-  (let [^java.net.HttpURLConnection conn (.openConnection (java.net.URL. url))]
+  (let [^HttpURLConnection conn (.openConnection (URL. url))]
     (doto conn
       (.setInstanceFollowRedirects false)
       (.setRequestProperty "User-Agent" user-agent)
@@ -521,23 +509,20 @@
           (conj lines current-line)
           lines)))))
 
-;; ─── Fitting text to a box ───────────────────────────────────────────────────
+;; ─── Fitting text to a box ────────────────────────────────────────────────────
 ;;
-;; These fields AUTO-SIZE. The template default appearance is `/Helv 0 Tf`, and
-;; 0 means "shrink to fit", so an overlong value is NOT cropped at some fixed
-;; length -- it gets smaller. PDFBox stops shrinking at 4pt and only then starts
-;; clipping, so a wordy field produces a sheet that is illegible before it starts
-;; losing text, with nothing to warn about either.
+;; See note 1 in the namespace docstring: these fields shrink rather than crop, so
+;; the cutoff is a minimum readable size, not a character count.
 ;;
-;; The cutoff therefore has to be a minimum readable size, not a character count.
-;; Measured budgets at 7pt: ideals/bonds/flaws 25 words, personality-traits 44,
+;; Word budgets at 7pt, measured: ideals/bonds/flaws 25, personality-traits 44,
 ;; attacks-and-spellcasting 127, other-profs 147, equipment list 447, backstory
-;; 987, features-and-traits-2 3369. See docs/kb/pdf-form-techniques.md.
+;; 987, features-and-traits-2 3369. Callers should compute from the widget rather
+;; than hardcode these; they are here for orientation.
 
 (def min-font-size
-  "Smallest point size worth printing. 7pt is comfortable, 6pt is small but
-   readable, below 5pt is not worth the ink. Text that would need less than this
-   spills to a continuation page rather than shrinking further."
+  "Smallest point size worth printing. 6pt is small but readable; below 5pt is not
+   worth the ink. Text needing less than this spills to a continuation page rather
+   than shrinking further."
   7.0)
 
 (def ^:private line-height-factor
@@ -545,12 +530,11 @@
   1.1)
 
 (defn widget-box
-  "The drawable [width height] of `field`, in POINTS, or nil if it has none.
+  "The drawable [width height] of `field` in POINTS, or nil if it has no on-page
+   widget.
 
-   Measures a widget that is actually on a page. Every field in these templates
-   carries two widgets and the FIRST is the orphaned one, so the obvious
-   `(first (.getWidgets field))` measures the wrong box -- that mistake produced
-   a capacity table off by a factor of six."
+   Must pick a widget that is on a page: these fields carry two and the FIRST is
+   the orphan, so `(first (.getWidgets field))` measures the wrong box."
   [doc field]
   (let [live (on-page-widgets doc)]
     (when-let [w (first (filter #(contains? live (System/identityHashCode (.getCOSObject %)))
