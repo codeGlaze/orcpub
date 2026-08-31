@@ -458,32 +458,43 @@ New from this file: the ability boxes are inverted from their names as well.
 `cha` holds the MODIFIER (the large box) and `cha-mod` holds the SCORE (the small
 circle). The fixtures had these backwards and are now corrected.
 
-### RETRACTED: negatives are NOT broken in production
+### The hyphen encoding: neither a non-issue nor "every negative is a box"
 
-An earlier revision of this section claimed every negative number on a live
-sheet rendered as a missing-glyph box. That was wrong, and the error was mine.
+This section went wrong twice -- first claiming every negative renders as tofu,
+then over-correcting to "my renderer's fault, nothing to fix". Both were wrong.
+The calibrated version:
 
-The facts that hold: the stored value is plain ASCII (U+002D U+0031), and the
-baked appearance stream encodes the hyphen as octal 255 (0xAD) where this
-branch's output encodes 0x2D. Both are legitimate -- WinAnsiEncoding lists
-"hyphen" at BOTH codes, and PDFBox's name-to-code reverse lookup returns 0xAD.
+The stored value is plain ASCII (U+002D U+0031). The baked appearance stream
+encodes the hyphen as octal 255 (0xAD) where this branch's output encodes 0x2D.
+WinAnsiEncoding lists "hyphen" at BOTH codes and PDFBox's name-to-code reverse
+lookup returns 0xAD, so production is technically within spec.
 
-What does NOT hold: that users see a box. A screenshot from a real PDF viewer
-shows the hyphen rendering correctly. The tofu appeared only in PDFBox's OWN
-renderer, which is what every screenshot in this document is produced with. I
-reported a limitation of the measuring instrument as a defect in the thing being
-measured -- with the bytes in front of me showing 0xAD is a valid hyphen.
+But 0xAD is the SOFT HYPHEN slot, and treating it as an invisible break
+opportunity is reasonable behaviour. Two consumers demonstrably break on it:
 
-The one thing arguably visible in a real viewer is slightly wider spacing after
-the minus ("- 1" rather than "-1"). Whether that is worth changing is a
-judgement call, not a bug, and this document has already been wrong twice by
-escalating cosmetic observations into defects.
+1. **PDFBox's renderer does not draw it.** Every screenshot in this document is
+   produced with that renderer, which is how the false alarm started -- but a
+   renderer declining to draw it is still a renderer declining to draw it.
+2. **Flattened text extraction loses the sign.** Flatten the production PDF and
+   pull the text out and the stat block reads:
 
-Standing lesson, the third instance of it here: PDFBox renders are fine for
-comparing two PDFBox renders (the prune verification below is unaffected --
-same renderer on both sides, so a real difference would still show). They are
-NOT evidence about what a user sees. Glyph-level and layout claims need a real
-viewer before they go in this file.
+       +1 +2 +1 +7 +6 <U+00AD>1 +8 +6 +3 <U+00AD>1 +1 0
+
+   Eight soft hyphens where minus signs belong. Anyone copying a character into
+   another tool, or reading it with a screen reader, gets a number that has lost
+   its sign. Branch output: zero.
+
+A real PDF viewer DOES draw it (confirmed by screenshot), with slightly wider
+spacing than a normal hyphen -- "- 1" against "+8". So the user-visible damage in
+a normal viewing path is cosmetic at most, and the alarm was unjustified.
+
+Conclusion: 0x2D costs nothing, breaks neither consumer, and removes a class of
+renderer disagreement. This branch already emits it; production does not. Worth
+fixing there, framed as compatibility rather than as a visible defect.
+
+One thing checked and found NOT to be evidence either way: unflattened text
+extraction. PDFTextStripper does not read widget appearance streams, so form
+values do not appear in extracted text at all until the form is flattened.
 
 ### The clipping bug, re-verified without a renderer
 
