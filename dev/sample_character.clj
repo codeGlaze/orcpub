@@ -24,6 +24,20 @@
   (:import (org.apache.pdfbox Loader)
            (java.io FileOutputStream)))
 
+;; A trap worth knowing before editing the field maps below. The template's
+;; field NAMES do not describe what the app puts in them:
+;;
+;;   features-and-traits    <- the EQUIPPED item list  (prints under EQUIPMENT)
+;;   treasure               <- unequipped items and valuables (page 2)
+;;   features-and-traits-2  <- the actual features, actions and reactions,
+;;                             on the continuation page (prints under
+;;                             FEATURES & TRAITS)
+;;   equipment              <- nothing. pdf_spec never emits this key; the box
+;;                             it sits in carries the coin fields only.
+;;
+;; See pdf_spec/equipment-fields and pdf_spec/traits-fields. Fill these the way
+;; the app does, or the fixture tests a layout no real character produces.
+
 ;; How many spell-name rows the style 1 spell page provides at each level.
 ;; Level 3 offers 13 boxes but skips spells-3-11 -- see docs/issues/pdf-export-size.md.
 (def ^:private rows {0 8, 1 12, 2 13, 3 13, 4 13, 5 9, 6 9, 7 9, 8 7, 9 7})
@@ -96,9 +110,9 @@
                     "Finished her training alone, on stolen notes.")
     :allies "The Candlewrights; Archivist Bell; a copper dragon who resents owing her a favour."
     :other-profs "Common, Elvish, Draconic, Celestial, Deep Speech. Calligrapher's supplies."
-    :features-and-traits (str "Arcane Recovery. Evocation Savant. Sculpt Spells. Potent Cantrip. "
+    :features-and-traits-2 (str "Arcane Recovery. Evocation Savant. Sculpt Spells. Potent Cantrip. "
                               "Empowered Evocation. Overchannel. Spell Mastery. Signature Spells.")
-    :equipment "Quarterstaff, dagger, component pouch, scholar's pack, spellbook, bedroll, ink and pens."
+    :features-and-traits "Quarterstaff, dagger, component pouch, scholar's pack, spellbook, bedroll, ink and pens."
     :treasure "Ring of Spell Storing, Wand of the War Mage +2, Robe of the Archmagi, Ioun Stone (Mastery)"
     :attacks-and-spellcasting "Evocation save DC 19. Overchannel 1/long rest."}})
 
@@ -157,11 +171,11 @@
                     "him and none of them have compared notes yet.")
     :allies "The Ashgrave estate (in probate); a cleric of Oghma who wants his notes burned."
     :other-profs "Common, Elvish, Infernal, Deep Speech, Celestial. Forgery kit, playing cards."
-    :features-and-traits (str "Pact Magic (2 slots, 3rd level, short rest). Awakened Mind. "
+    :features-and-traits-2 (str "Pact Magic (2 slots, 3rd level, short rest). Awakened Mind. "
                               "Entropic Ward. Book of Ancient Secrets. Font of Magic (5 points). "
                               "Twinned and Quickened Spell. Arcane Recovery. Portent (2 dice). "
                               "Channel Divinity 1/rest. Knowledge of the Ages. Fey Ancestry.")
-    :equipment "Component pouch, Book of Shadows, spellbook, holy symbol, forgery kit, three unmatched rings."
+    :features-and-traits "Component pouch, Book of Shadows, spellbook, holy symbol, forgery kit, three unmatched rings."
     :treasure "Rod of the Pact Keeper +1, Pearl of Power, Cloak of Protection"
     :attacks-and-spellcasting
     (str "Four spell lists, three save DCs. Pact slots (2 x 3rd) recharge on a short rest and are "
@@ -230,11 +244,11 @@
                     "teachers, none of whom know about the other seven.")
     :allies "Everyone, briefly. Eight organisations each believe Wren is theirs."
     :other-profs "Common, Elvish, Dwarvish, Sylvan, Infernal, Druidic, Celestial. Bookbinder's tools."
-    :features-and-traits (str "Bardic Inspiration d6. Cutting Words. Channel Divinity. Preserve Life. "
+    :features-and-traits-2 (str "Bardic Inspiration d6. Cutting Words. Channel Divinity. Preserve Life. "
                               "Wild Shape. Natural Recovery. Divine Smite. Aura of Protection. "
                               "Sacred Weapon. Favored Enemy. Natural Explorer. Colossus Slayer. "
                               "Font of Magic. Wild Magic Surge. Pact of the Blade. Arcane Ward.")
-    :equipment "Longsword, shortbow, shield, holy symbol, druidic focus, component pouch, spellbook, lute."
+    :features-and-traits "Longsword, shortbow, shield, holy symbol, druidic focus, component pouch, spellbook, lute."
     :treasure "Cloak of Protection, Pearl of Power, a drawer of unfinished apprentice tokens"
     :attacks-and-spellcasting
     (str "Eight spellcasting classes; the sheet has room for six. Caster level 14 for shared "

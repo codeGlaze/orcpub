@@ -376,3 +376,40 @@ Two more things this character surfaced:
 
 No modifier on this character reaches +10, and nothing clips -- consistent with
 the +10 threshold recorded above.
+
+## Retraction: two of the reported bugs were fixture errors
+
+Corrected after reading pdf_spec instead of trusting the template's field names.
+The names do not describe their contents:
+
+    features-and-traits    <- the EQUIPPED item list      (prints under EQUIPMENT)
+    treasure               <- unequipped items, valuables (page 2)
+    features-and-traits-2  <- the real features, actions and reactions, on the
+                              continuation page           (prints under FEATURES & TRAITS)
+    equipment              <- nothing. pdf_spec never emits this key; the box it
+                              sits in carries the coin fields only.
+
+See pdf_spec/equipment-fields and pdf_spec/traits-fields.
+
+**RETRACTED -- "page 1 fields sit one box off from the printed labels."** They do
+not. `features-and-traits` receives the equipment list and prints under
+EQUIPMENT, which is correct. The fixture put features text into it and the
+render looked mislabelled. The labels were right the whole time; the field NAME
+is the misleading part.
+
+**RETRACTED -- "page 9 of every six-caster export is blank."** It is not.
+features-and-traits-2 is emitted by pdf_spec (line 143), given a font size in
+routes.clj (line 575), and present on a real page in all seven style 1
+templates. Page 9 was blank because the fixture never set that key.
+
+Both mistakes have the same cause: reading the field names and inferring
+behaviour rather than reading the code that fills them. The fixtures now set
+these keys the way the app does, and carry a comment naming the trap.
+
+Still standing, unaffected by this: spells-3-11 missing, the +10 modifier
+clipping, the silent skip in write-fields!, and the six-class ceiling that drops
+50 values on an eight-class character.
+
+One small live oddity, not a bug as such: pdf_spec emits no :equipment key, so
+the page 1 text field of that name is never filled. Its box shows the coin
+fields only. Probably deliberate; noted so the next person does not "fix" it.
