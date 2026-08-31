@@ -119,11 +119,39 @@ The asset-side fix -- rebuilding variants by page EXTRACTION rather than page
 deletion -- is the real cure, but it is a much bigger job and the runtime prune
 makes it optional rather than urgent.
 
-## Style 3 is in colour, and is stored in CMYK
+## Which styles are actually in colour
 
-Style 3 is NOT black and white -- blue gradients, gold accents, a coloured
-crest. Grayscale would destroy it; an earlier note in this document suggesting
-otherwise would have been wrong. 9.78% of sampled pixels carry real colour.
+Measured per-pixel chroma (max channel minus min) on a rendered page 1 of each:
+
+    style       coloured px     max chroma
+    1                 0.00%              3
+    2                 0.00%              3
+    3                 8.10%            192
+    4                 0.00%              4
+
+Max chroma of 3-4 out of 255 is render noise. Styles 1, 2 and 4 are genuinely
+black and white. Style 3 -- the official WotC sheet with the teal/gold ram crest
+-- is the only one with real colour, and only ~8% of its pixels.
+
+Template sizes:
+
+    style 1   1.21 MB
+    style 2   0.24 MB
+    style 3   1.62 MB
+    style 4   2.55 MB
+
+### Style 4 is the biggest lever
+
+Style 4 ("Cthulhu Mythos Sagas") is the largest file and is visually grayscale,
+yet pages 1-2 are stored as DeviceRGB JPEG -- three channels carrying identical
+values. DeviceGray is lossless by inspection here and should take roughly a
+third off. No quality argument to have.
+
+### Style 3 is the one real colour sheet, stored in CMYK
+
+Grayscale would destroy style 3 specifically -- but ONLY style 3. An earlier
+revision of this document said the same of style 4, which is wrong: style 4 has
+no colour at all.
 
 It is stored as DeviceCMYK at 8 bits per component: four channels, for a
 document that is viewed on screen and printed on home printers. Converting the
@@ -138,8 +166,8 @@ RGB PNG halves it with no quality question at all -- it drops a channel the
 display path never uses. The JPEG options trade quality for more and should not
 be taken without someone looking at a printed sheet.
 
-Style 4 pages 1-2 are already DeviceRGB JPEG and pages 3-8 DeviceGray PNG, so
-it does not have the CMYK problem. Images ARE shared across repeated pages in
+Style 4 does not have the CMYK problem, but has the RGB-for-gray one above.
+Images ARE shared across repeated pages in
 both styles -- one object serves pages 3-8 -- so there is no duplication to fix.
 
 ## Not investigated
