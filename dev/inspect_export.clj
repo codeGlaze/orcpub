@@ -18,8 +18,9 @@
                    (if detail (str " - " detail) "")))
   ok?)
 
-(defn -main [& [path]]
-  (let [file (File. (or path "/tmp/e2e-pdf/character.pdf"))]
+(defn -main [& [path min-pages]]
+  (let [file (File. (or path "/tmp/e2e-pdf/character.pdf"))
+        wanted (when min-pages (Integer/parseInt min-pages))]
     (when-not (.exists file)
       (println "  FAIL  no exported PDF at" (.getPath file))
       (System/exit 1))
@@ -35,7 +36,10 @@
             duplicates (->> names frequencies (filter #(> (val %) 1)) (map key))
             anonymous (filter #(re-matches #"(?i)check box \d+" %) names)
             results
-            [(report (pos? (.getNumberOfPages doc)) "the sheet has pages"
+            [(report (>= (.getNumberOfPages doc) (or wanted 1))
+                     (if wanted
+                       (str "the sheet has at least " wanted " pages")
+                       "the sheet has pages")
                      (str (.getNumberOfPages doc)))
              (report (some? form) "the form survived" nil)
              (report (> (count valued) 40) "fields carry the character's values"

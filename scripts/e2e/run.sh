@@ -54,12 +54,20 @@ E2E_BASE="http://localhost:${PORT}" node "scripts/e2e/${1:-run.js}"
 NODE_RC=$?
 
 # The browser cannot read PDF field names -- they sit in compressed object
-# streams -- so the exported file is inspected here, where PDFBox is available.
-PDF="${E2E_OUT:-/tmp/e2e-pdf}/character.pdf"
-if [ "$NODE_RC" -eq 0 ] && [ -f "$PDF" ]; then
-  echo
-  echo "Inspecting the exported PDF..."
-  lein with-profile init-db run -m clojure.main dev/inspect_export.clj "$PDF" 2>&1 \
-    | grep -Ev "JAVA_TOOL|^WARNING|WARN " || NODE_RC=1
+# streams -- so each exported file is inspected here, where PDFBox is available.
+OUT="${E2E_OUT:-/tmp/e2e-pdf}"
+if [ "$NODE_RC" -eq 0 ]; then
+  for pdf in "$OUT"/*.pdf; do
+    [ -f "$pdf" ] || continue
+    # run.js leaves the expected page count beside each PDF.
+    MIN_PAGES=""
+    [ -f "${pdf%.pdf}.min-pages" ] && MIN_PAGES=$(cat "${pdf%.pdf}.min-pages")
+    echo
+    echo "Inspecting $(basename "$pdf")..."
+    if ! lein with-profile init-db run -m clojure.main dev/inspect_export.clj \
+           "$pdf" $MIN_PAGES 2>&1 | grep -Ev "JAVA_TOOL|^WARNING|WARN "; then
+      NODE_RC=1
+    fi
+  done
 fi
 exit "$NODE_RC"
