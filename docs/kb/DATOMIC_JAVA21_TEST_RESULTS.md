@@ -1,5 +1,12 @@
 # Datomic Free + Java 21 Compatibility Test Results
 
+> **RESOLVED — this documents a historical problem, not the current state.** The project
+> moved to **Datomic Pro 1.0.7482** (`[com.datomic/peer "1.0.7482"]` in project.clj), which
+> is Java-21-compatible, exactly as this doc recommended. The findings below apply to the
+> *old* Datomic **Free 0.9.5703**. Today the full stack boots on Java 21 with no transactor:
+> `lein e2e-server` (in-memory `datomic:mem://orcpub`) serves the app on :8890 — see CLAUDE.md.
+> Do not conclude from this doc that Datomic can't run here; it runs fine.
+
 **Date:** January 6, 2026  
 **Test Environment:** GitHub Codespace (Alpine Linux 3.22.2)  
 **Java Version:** OpenJDK 21.0.9 (Alpine)  
