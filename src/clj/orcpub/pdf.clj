@@ -505,8 +505,12 @@
 
 (def min-font-size
   "Point size below which text is spilled to a continuation page rather than
-   scaled down further. Auto-sizing alone would shrink to 4pt and then clip."
-  7.0)
+   scaled down further. Auto-sizing alone would shrink to 4pt and then clip.
+
+   8pt rather than 7pt costs nothing where it matters: the short boxes hold 3
+   lines (ideals, bonds, flaws) or 5 (personality-traits) at either size, and only
+   the full-page boxes give up about 12%."
+  8.0)
 
 (def ^:private line-height-factor
   "Leading as a multiple of font size. Matches draw-lines-to-box."
