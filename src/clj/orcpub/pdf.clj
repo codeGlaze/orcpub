@@ -130,6 +130,14 @@
     (.setPage annotation page)))
 
 
+(defn string-width
+  "Width of `text` in INCHES at `font-size`, not points: the raw glyph width is
+   divided by 72. Callers working in points must convert."
+  [text ^PDFont font font-size]
+  (if text
+    (/ (* (/ (.getStringWidth font (if (keyword? text) (common/safe-name text) text)) 1000.0) font-size) 72)
+    0))
+
 ;; ─── Orphaned widgets ────────────────────────────────────────────────────────
 
 (defn- on-page-widgets
@@ -404,6 +412,44 @@
               (group-by #(.getFullyQualifiedName %) fields)))
     0))
 
+(def ^:private min-single-line-size
+  "Floor for shrinking a single-line field. Below this a modifier is unreadable,
+   and a value that still does not fit is left to clip rather than vanish."
+  5.0)
+
+(defn- baked-font-size
+  "The point size in a widget's generated appearance stream, or nil."
+  [widget]
+  (some-> widget .getAppearance .getNormalAppearance .getAppearanceStream
+          .getCOSObject
+          (as-> stream
+                (with-open [in (.createInputStream stream)]
+                  (let [text (String. (.readAllBytes in) "ISO-8859-1")]
+                    (when-let [m (re-find #"/\S+ ([\d.]+) Tf" text)]
+                      (Double/parseDouble (second m))))))))
+
+(defn- shrink-single-line-to-fit!
+  "Rewrites a single-line field at a smaller size when its value is wider than its
+   box, and returns the size used, or nil when nothing was needed.
+
+   PDFBox sizes a single-line field by HEIGHT alone, so the skill and save boxes
+   settle on 8pt whatever they hold. Those are 14.4pt wide with a 12.4pt clip, and
+   \"+11\" is 13.6pt at 8pt: every modifier of +10 or worse loses its last
+   character, which a level 20 caster reaches in its own casting stat."
+  [field widget value]
+  (let [rect (.getRectangle widget)
+        ;; The generated appearance clips at "1 1 w h re", so 1pt each side.
+        available (- (.getWidth rect) 2.0)
+        size (baked-font-size widget)
+        width (when size (* 72.0 (string-width value HELVETICA size)))]
+    (when (and size width (> width available))
+      ;; 2% under the exact fit: sizing to the millimetre lands a hair over once
+      ;; the size is rounded into the appearance stream.
+      (let [fitted (max min-single-line-size (* size 0.98 (/ available width)))]
+        (.setDefaultAppearance field (str "/Helv " fitted " Tf 0 g"))
+        (.setValue field value)
+        fitted))))
+
 (defn write-fields!
   "Populate an AcroForm in `doc` from the `fields` map, optionally flattening.
 
@@ -450,12 +496,21 @@
             ;; rewrite the DA to the caller's size first.
             (when (and flatten? (font-sizes k) (instance? PDTextField field))
               (.setDefaultAppearance field (str "/Helv " " " (font-sizes k) " Tf 0 0 0 rg")))
-            (.setValue
-             field
-             (cond
-               (instance? PDCheckBox field) (if v "Yes" "Off")
-               (instance? PDTextField field) (normalize-text v)
-               :else nil))))
+            (let [text (when (instance? PDTextField field) (normalize-text v))]
+              (.setValue
+               field
+               (cond
+                 (instance? PDCheckBox field) (if v "Yes" "Off")
+                 (instance? PDTextField field) text
+                 :else nil))
+              ;; Only single-line fields need this; multiline ones already shrink
+              ;; to fit, and fit-text splits them before they get too small.
+              (when (and text
+                         (instance? PDTextField field)
+                         (not (.isMultiline field))
+                         (not (s/blank? text)))
+                (doseq [widget (.getWidgets field)]
+                  (shrink-single-line-to-fit! field widget text))))))
         (catch Exception e (prn "failed writing field: " k v (strace/print-stack-trace e)))))
       (when flatten?
         (fix-widget-page-refs! doc)
@@ -700,11 +755,6 @@
 
 (defn get-page [doc index]
   (.getPage doc index))
-
-(defn string-width [text ^PDFont font font-size]
-  (if text
-    (/ (* (/ (.getStringWidth font (if (keyword? text) (common/safe-name text) text)) 1000.0) font-size) 72)
-    0))
 
 (defn split-lines [text ^PDFont font font-size width]
   (let [words (s/split text #"\s")]

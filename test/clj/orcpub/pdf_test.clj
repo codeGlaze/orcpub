@@ -474,3 +474,41 @@
           (is (= "Yes" (str (.getValueAsString (.getField form "death-save-success-1")))))
           (is (= "Off" (str (.getValueAsString (.getField form "death-save-failure-1"))))
               "ticking a success does not tick a failure"))))))
+
+(defn- baked-size
+  "Point size in a field's generated appearance stream."
+  [form field-name]
+  (let [widget (first (.getWidgets (.getField form field-name)))
+        stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))]
+    (with-open [in (.createInputStream (.getCOSObject stream))]
+      (let [text (String. (.readAllBytes in) "ISO-8859-1")]
+        (Double/parseDouble (second (re-find #"/\S+ ([\d.]+) Tf" text)))))))
+
+(deftest wide-values-shrink-instead-of-clipping
+  (testing "PDFBox sizes a single-line field by height alone, so the skill and save
+            boxes settle on 8pt whatever they hold. They are 14.4pt wide with a
+            12.4pt clip and '+11' is 13.6pt at 8pt, so every modifier of +10 or
+            worse lost its last character."
+    (with-open [doc (style-1-template)]
+      (pdf/write-fields! doc {:int-save "+7" :wis-save "+11" :cha-save "+100"} false {})
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            fits? (fn [nm value]
+                    (let [size (baked-size form nm)
+                          widget (first (.getWidgets (.getField form nm)))
+                          available (- (.getWidth (.getRectangle widget)) 2.0)]
+                      (<= (* 72.0 (pdf/string-width value pdf/HELVETICA size)) available)))]
+        (is (= 8.0 (baked-size form "int-save"))
+            "a value that already fits is left at the size PDFBox chose")
+        (is (< (baked-size form "wis-save") 8.0) "a wide value is shrunk")
+        (is (fits? "wis-save" "+11") "and now fits its box")
+        (is (fits? "cha-save" "+100") "as does a three-digit modifier")))))
+
+(deftest multiline-fields-are-not-shrunk
+  (testing "Multiline fields already scale to fit, and fit-text spills them before
+            they get too small, so the single-line shrink must leave them alone."
+    (with-open [doc (style-1-template)]
+      (pdf/write-fields! doc {:backstory (str/join " " (repeat 40 "sentence"))} false {})
+      (let [form (.getAcroForm (.getDocumentCatalog doc))]
+        (is (.isMultiline (.getField form "backstory")))
+        (is (>= (baked-size form "backstory") 6.0)
+            "left to its own auto-sizing rather than forced smaller")))))
