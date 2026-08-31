@@ -216,3 +216,36 @@ offers only 1. A hand-crafted request can select a non-public style. These are
 static assets in the repo, so this is not a disclosure issue, but the server
 being deliberately broader than the client is worth knowing rather than
 rediscovering.
+
+## Correction again: styles 2-4 are lean because they are INCOMPLETE
+
+The previous section called styles 2-4 "correctly built" because their field
+count scales with page count. That reasoning was wrong, and backwards in the way
+that matters. Comparing field NAMES rather than counts (ignoring the anonymous
+"Check Box N" fields):
+
+- Style 4 has no `backstory` field and no `equipment` field. pdf_spec.cljc emits
+  both. write-fields! looks fields up by exact name and skips misses with a bare
+  `(when field ...)` -- no warning, no error. A user on style 4 fills in their
+  backstory and equipment, exports, and the PDF comes back without them, silently.
+- Styles 2 and 3 lack `cantrips-6/7/8` and a set of `spells-N-M` names, so
+  high-level casters lose spells off the export the same way.
+
+These are absences, not renames. Style 4's extra field names are things like
+Notes, other, Conditions and Insanities, Pronouns, Carry Capacity -- none of
+which the code writes to. And a rename the code does not know about behaves
+identically to a missing field, since the lookup is by exact name.
+
+So: style 1 is bloated but COMPLETE. Styles 2-4 are lean because they drop data.
+Do not treat them as the model for rebuilding style 1 -- rebuilding style 1 by
+page extraction to look like them would mean rebuilding it to lose data.
+
+This is a live bug for whoever can select those styles (fork/premium tiers).
+Worth its own issue: either fill the missing fields into the templates, or have
+write-fields! report names it could not place instead of skipping in silence.
+The silent skip is what let this sit unnoticed.
+
+What survives from all of the above is one narrow change: prune widgets that
+belong to no page, at export time, in write-fields!. That only ever removes
+fields with nowhere to draw, so it cannot drop a value the way these templates
+do. Everything else here is a note, not a plan.
