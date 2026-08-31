@@ -9,10 +9,13 @@
 | `lein test` | JVM (Clojure) | `test/clj/` + `test/cljc/` | 123 tests, 332 assertions |
 | `lein fig:test` | CLJS → browser | `test/cljs/` + transitive `.cljc` | Compiles only; runs in browser |
 | `lein fig:build` | CLJS compilation | Source only, no tests | N/A |
+| `./scripts/e2e/run.sh [script.js]` | Chromium (playwright) | `scripts/e2e/` against a real server | See "Browser checks" below |
 
 ### What `lein fig:test` Actually Does
 
-Compiles `test.cljs.edn` to `target/test/js/test.js`. Tests auto-run when opened in a browser (via `:auto-testing true`). There is **no headless runner** — no doo, no karma, no node. The CLJS tests exist to be run interactively or eventually via doo.
+Compiles `test.cljs.edn` to `target/test/js/test.js`. Tests auto-run when opened in a browser (via `:auto-testing true`). There is **no headless runner for `test/cljs/`** — no doo, no karma. Those tests are run interactively.
+
+Separately, `scripts/e2e/` drives the real app in Chromium through playwright. It does not run `test/cljs/`; it exercises the running product. See "Browser checks" below.
 
 ### Directory Layout
 
@@ -147,3 +150,91 @@ event_utils.cljc (src/cljc/)     compute.cljc (src/cljc/)
 (is (= 2 (count result)))
 (is (= ["Fire Bolt" "Fireball"] (mapv :name result)))
 ```
+
+## Browser checks (`scripts/e2e/`)
+
+```
+./scripts/e2e/run.sh            # runs scripts/e2e/run.js
+./scripts/e2e/run.sh mine.js    # runs scripts/e2e/mine.js
+```
+
+`run.sh` boots the app on `datomic:mem://` with a seeded verified user, waits for
+it, runs the script, then tears the server down. The in-memory database only
+exists inside the JVM that made it, which is why `dev/e2e_boot.clj` starts the
+server *and* seeds the user in one process rather than shelling out.
+
+Requires the compiled bundle. `run.sh` builds it with `lein fig:prod` on first
+run; that takes several minutes, so build it before you start iterating.
+
+### Traps that cost real time
+
+**The server leaks and the next run silently tests it.** `lein` forks a JVM, so
+killing the wrapper leaves the child holding the port. The next run then fails to
+bind and drives the *stale* server — old code, no error, wrong answers. `run.sh`
+now uses `setsid` and kills the process group, and aborts if it sees
+`BindException` in the log. If results contradict a change you just made, check
+that first: `curl -sf localhost:8890/` before starting should fail.
+
+**The bundled Chromium may not match playwright's expected build.** Playwright
+wants a version under `/opt/pw-browsers` that may not be there and refuses to
+launch. Pass `executablePath` explicitly — the scripts look for
+`/opt/pw-browsers/chromium-1194/chrome-linux/chrome` and fall back.
+
+**Most controls have hidden duplicates.** The mobile layout renders its own copy,
+so `locator(...).first()` frequently lands on something invisible and the click
+times out. Walk the matches and take the first where `isVisible()`.
+
+**The sticky header intercepts clicks.** Playwright scrolls the target into view,
+straight under the fixed header. Centre it first
+(`el.scrollIntoView({block:'center'})`) and fall back to `click({force:true})`.
+
+**No outbound network in the sandbox.** `fonts.googleapis.com` fails and shows up
+as a console error. That is the environment, not the app — filter it, and say so
+in the filter, or a real failure gets filtered next to it.
+
+### Getting a PDF back out of the browser
+
+`response.body()` does **not** give you the PDF. Chromium hands a PDF response to
+its internal viewer, and the body playwright can see is the viewer's wrapper:
+
+```
+345 bytes: <!doctype html><html><body ...><embed name='D5C38E62...'></body></html>
+```
+
+Intercept the route instead. This runs the page's own request and yields the real
+bytes before the viewer takes them:
+
+```js
+let pdfBytes = null;
+await context.route('**/character.pdf', async route => {
+  const res = await route.fetch();
+  pdfBytes = await res.body();
+  await route.fulfill({ response: res });
+});
+```
+
+That returned the full 284,675-byte document where `response.body()` returned 345.
+Re-posting the captured payload through `context.request.post` also works, but it
+is a second request and tests a replay rather than what the page actually did.
+
+Field names inside a PDF sit in compressed object streams, so they cannot be
+grepped from the bytes in node. Assert structure in `test/clj/orcpub/pdf_test.clj`
+where PDFBox is available; in the browser, assert status, content type, size and
+that the bytes start with `%PDF-`.
+
+### The export flow, as the UI actually works
+
+Worth knowing before writing a script against it:
+
+- The builder is at `/pages/dnd/5e/character-builder`, not `/character-builder`.
+- A cookie banner ("Got it!") covers the lower controls until dismissed.
+- **"Export"** opens the PDF options panel — it is not the `.orcbrew` export.
+- **"Create PDF" is disabled until a sheet is chosen** in the "Select Character
+  sheet" dropdown. `print-button-enabled` in `views.cljs` gates on it.
+- The form targets `_blank` and the route answers `Content-Disposition: inline`,
+  so the PDF opens in a new tab. There is **no download event** to wait for.
+
+### Console output
+
+Collect `console`, `pageerror` and `requestfailed` throughout and fail the run on
+any error or warning. Signed out, the builder and export produce none.

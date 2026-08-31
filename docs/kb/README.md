@@ -15,7 +15,7 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [DEPENDENCY_VALIDATION.md](DEPENDENCY_VALIDATION.md) | Jackson/Guava dependency validation report |
 | [UPGRADE_DEPENDENCIES.md](UPGRADE_DEPENDENCIES.md) | Dependency upgrade rationale and compatibility notes |
 | [re-frame-subscribe-refactor.md](re-frame-subscribe-refactor.md) | Subscribe-outside-reactive-context: all 12 fixes, subscription chain analysis, track! risks |
-| [testing-infrastructure.md](testing-infrastructure.md) | Test runners, re-frame testing truths, .cljc gotchas, namespace architecture, test patterns |
+| [testing-infrastructure.md](testing-infrastructure.md) | Test runners, re-frame testing truths, .cljc gotchas, namespace architecture, test patterns — plus browser checks under `scripts/e2e/`: how to run them, the stale-server trap, and why `response.body()` returns the PDF viewer wrapper instead of the PDF |
 | [error-handling-import-validation.md](error-handling-import-validation.md) | Feature branch history: orcbrew validation, handle-api-response HOF, views decomposition, review findings, Clojure gotchas |
 | [subscribe-diagnosis-techniques.md](subscribe-diagnosis-techniques.md) | How to diagnose subscribe-outside-reactive warnings: preload patching, monkey-patching, stack trace reading |
 | [subscribe-refactor-phase2.md](subscribe-refactor-phase2.md) | Phase 2 subscribe fixes: options.cljc, pdf_spec.cljc, equipment_subs, views.cljs |
