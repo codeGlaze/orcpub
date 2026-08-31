@@ -2,6 +2,7 @@
   ;; explicit :refer to avoid namespace pollution from :refer :all
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [orcpub.pdf :as pdf])
   (:import (org.apache.pdfbox Loader)
            (org.apache.pdfbox.cos COSName)
@@ -141,3 +142,102 @@
                 (.endText)))
             true))
       (.close doc))))
+
+;; ─── Orphaned widgets, overflow, and the silent skip ─────────────────────────
+
+(defn- style-1-template []
+  (with-open [in (.openStream (io/resource "fillable-char-sheetstyle-1-1-spells.pdf"))]
+    (Loader/loadPDF (.readAllBytes in))))
+
+(defn- valued-fields
+  "{fully-qualified-name value} for every field currently holding something."
+  [form]
+  (into {} (for [f (all-fields form)
+                 :let [v (str (.getValueAsString f))]
+                 :when (not (str/blank? v))]
+             [(.getFullyQualifiedName f) v])))
+
+(deftest prune-orphan-widgets-loses-nothing
+  (testing "Pruning drops only widgets that belong to no page, so no value can be
+            lost. The style 1 templates were cut from a 9-page master by DELETING
+            pages, which leaves the fields behind -- about 1600 of 1900 widgets on
+            a real export, and most of the download.
+
+            Values are set through the PDFBox API rather than write-fields! here,
+            because write-fields! now prunes for us and there would be nothing
+            left to remove."
+    (with-open [doc (style-1-template)]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))]
+        (doseq [[nm v] {"character-name" "Prune Test"
+                        "class-level" "Wizard 20"
+                        "backstory" "A sentence that must survive."}]
+          (.setValue (.getField form nm) v))
+        (let [before (valued-fields form)
+              removed (pdf/prune-orphan-widgets! doc)
+              after (valued-fields form)]
+          (is (pos? removed) "the template really does carry orphaned widgets")
+          (is (= before after)
+              "every value present before the prune is present and unchanged after")
+          (is (seq before) "the fixture actually set some values to compare"))))))
+
+(deftest write-fields-prunes-orphans-when-not-flattening
+  (testing "The exporter prunes on the way out, so a normal fillable export does
+            not ship widgets that belong to no page. On a production sheet this is
+            the difference between 2679 KB and 1313 KB."
+    (with-open [doc (style-1-template)]
+      (pdf/write-fields! doc {:character-name "Pruned On Export"} false {})
+      (let [form (.getAcroForm (.getDocumentCatalog doc))]
+        (is (empty? (for [f (all-fields form)
+                          w (.getWidgets f)
+                          :when (nil? (.getPage w))]
+                      f))
+            "no field is left holding a widget that belongs to no page")
+        (is (some? (.getField form "character-name"))
+            "and the fields that ARE on a page survive")))))
+
+(deftest write-fields-reports-names-it-cannot-place
+  (testing "REGRESSION: unknown names used to be skipped in silence, which is how
+            styles 2-4 shipped with no `backstory` field and how a character with
+            more than six spellcasting classes loses two of them with no error."
+    (with-open [doc (style-1-template)]
+      (let [dropped (pdf/write-fields! doc {:character-name "Real Field"
+                                            :spells-3-11-1 "missing from style 1"
+                                            :spellcasting-class-7 "past the ceiling"}
+                                       false {})]
+        (is (= ["spellcasting-class-7" "spells-3-11-1"] dropped)
+            "returns the unplaceable names, sorted, and not the ones that landed")))))
+
+(deftest fit-text-splits-on-a-legible-size
+  (testing "These fields auto-size, so an overlong value shrinks toward a 4pt floor
+            and only then clips -- illegible before it loses anything. fit-text is
+            the cutoff: what fits at min-font-size stays, the rest spills."
+    (let [;; roughly the bonds/ideals/flaws box
+          w 149.0 h 31.0]
+      (testing "short text fits whole"
+        (let [{:keys [head tail]} (pdf/fit-text "Owes a patron he has never seen." w h)]
+          (is (nil? tail))
+          (is (= "Owes a patron he has never seen." head))))
+      (testing "long text splits, and nothing is lost between head and tail"
+        (let [words (str/join " " (map #(str "w" %) (range 200)))
+              {:keys [head tail]} (pdf/fit-text words w h)]
+          (is (some? tail) "200 words cannot fit a three-line box at 7pt")
+          (is (= words (str/join " " [head tail]))
+              "head and tail together reproduce the input exactly")))
+      (testing "blank and nil are handled without blowing up"
+        (is (= {:head "" :tail nil :lines 0} (pdf/fit-text "" w h)))
+        (is (= {:head "" :tail nil :lines 0} (pdf/fit-text nil w h))))
+      (testing "a bigger box holds more of the same text"
+        (let [words (str/join " " (map #(str "w" %) (range 200)))
+              small (pdf/fit-text words w h)
+              large (pdf/fit-text words 350.0 300.0)]
+          (is (> (count (:head large)) (count (:head small)))))))))
+
+(deftest widget-box-measures-the-on-page-widget
+  (testing "Every field in these templates carries two widgets and the FIRST is the
+            orphan, so measuring (first (.getWidgets f)) gives the wrong box."
+    (with-open [doc (style-1-template)]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            field (.getField form "features-and-traits-2")
+            [w h] (pdf/widget-box doc field)]
+        (is (> w 400.0) "the continuation box is most of a page wide")
+        (is (> h 600.0) "and most of a page tall")))))

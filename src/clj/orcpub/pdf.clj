@@ -27,7 +27,7 @@
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
-  (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField)
+  (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField PDTerminalField)
            (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget)
            (org.apache.pdfbox.cos COSName)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
@@ -139,11 +139,62 @@
                      (nil? (.getPage annotation)))]
     (.setPage annotation page)))
 
+
+;; ─── Orphaned widgets ────────────────────────────────────────────────────────
+;;
+;; The style 1 templates were made by taking a nine-page master and deleting
+;; pages for each variant. Deleting a page removes the page and its annotations
+;; but leaves the FIELDS in the AcroForm, so a widget can survive pointing at no
+;; page at all. On a real level 20 export that is 1596 of 1931 widgets, and
+;; roughly 88% of a 2.6 MB download -- the artwork is only 329 KB of it.
+;;
+;; Such a widget can never be drawn or filled, so dropping it is lossless.
+;; Measured on a production export: 1407 fields / 2679 KB -> 333 / 1313 KB, all
+;; 248 valued fields present and unchanged, no page differing by a pixel.
+;;
+;; NOTE this is deliberately per-WIDGET. Several fields own widgets on more than
+;; one page; keeping a whole field because any one widget is live leaves the
+;; rest orphaned (that mistake left 101 behind). See docs/kb/pdf-form-techniques.md.
+
+(defn- on-page-widgets
+  "The set of annotation COS objects actually reachable from some page."
+  [doc]
+  (into #{}
+        (for [page (.getPages doc)
+              annotation (.getAnnotations page)]
+          (System/identityHashCode (.getCOSObject annotation)))))
+
+(defn prune-orphan-widgets!
+  "Drop widgets that belong to no page, then fields left with no widgets.
+   Returns the number of widgets removed. Lossless: an off-page widget cannot
+   render or be filled."
+  [doc]
+  (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (let [live (on-page-widgets doc)
+          live? (fn [w] (contains? live (System/identityHashCode (.getCOSObject w))))
+          removed (atom 0)
+          kept (reduce (fn [acc field]
+                         (let [widgets (vec (.getWidgets field))
+                               good (filterv live? widgets)]
+                           (swap! removed + (- (count widgets) (count good)))
+                           (cond
+                             (empty? good) acc
+                             (= (count good) (count widgets)) (conj acc field)
+                             ;; Only terminal fields own widgets directly.
+                             (instance? PDTerminalField field)
+                             (do (.setWidgets field (java.util.ArrayList. good))
+                                 (conj acc field))
+                             :else (conj acc field))))
+                       [] (vec (.getFields form)))]
+      (.setFields form (java.util.ArrayList. kept))
+      @removed)
+    0))
+
 (defn write-fields!
   "Populate an AcroForm in `doc` from the `fields` map, optionally flattening.
 
    - `fields`     {field-name-keyword value}. Checkboxes take truthy/falsey; text
-                  fields take any value (normalized to WinAnsi). Unknown fields skipped.
+                  fields take any value (normalized to WinAnsi).
    - `flatten?`   truthy => bake appearances into page content and remove the
                   interactive form (locked PDF). Falsey => stays fillable.
    - `font-sizes` {field-name-keyword pt-size}, consulted ONLY when flattening —
@@ -151,7 +202,16 @@
 
    Bakes real appearance streams (NeedAppearances false + /Helv in the default
    resources) so values render AND print in every viewer — not just ones that honor
-   NeedAppearances (Firefox's print path does not). Side effects only; returns nil."
+   NeedAppearances (Firefox's print path does not).
+
+   RETURNS the sorted seq of field names the template had no field for, and logs
+   them. These used to be skipped in silence, which is how several faults went
+   unnoticed for years: styles 2-4 ship without a `backstory` field so every
+   character's backstory vanished from those sheets, `spells-3-11` is missing from
+   style 1 so a wizard with a full third-level list quietly loses one, and a
+   character with more than six spellcasting classes loses two of them entirely
+   (50 values on an eight-class build). Every one of those is a silent skip.
+   Callers that care should check the return value; nobody could check nil."
   [doc fields flatten? font-sizes]
   (let [catalog (.getDocumentCatalog doc)
         form (.getAcroForm catalog)
@@ -168,7 +228,11 @@
     (.setDefaultResources form res)
     ;; Bake appearances ourselves rather than deferring to the viewer.
     (.setNeedAppearances form false)
-    (doseq [[k v] fields]
+    (let [unplaceable (sort (map name (remove #(some? (.getField form (name %))) (keys fields))))]
+      (when (seq unplaceable)
+        (println (format "pdf/write-fields!: %d value(s) had no field in this template and were dropped: %s"
+                         (count unplaceable) (s/join ", " unplaceable))))
+      (doseq [[k v] fields]
       (try
         (let [field (.getField form (name k))]
           (when field
@@ -184,9 +248,15 @@
                (instance? PDTextField field) (normalize-text v)
                :else nil))))
         (catch Exception e (prn "failed writing field: " k v (strace/print-stack-trace e)))))
-    (when flatten?
-      (fix-widget-page-refs! doc)
-      (.flatten form))))
+      ;; Drop widgets that belong to no page. Done AFTER writing so a value is
+      ;; never written into a field that is about to disappear, and skipped when
+      ;; flattening because .flatten consumes the form anyway. Halves the file on
+      ;; a real export; see prune-orphan-widgets!.
+      (if flatten?
+        (do (fix-widget-page-refs! doc)
+            (.flatten form))
+        (prune-orphan-widgets! doc))
+      unplaceable)))
 
 (defn content-stream
   "Create a PDPageContentStream for appending content to an existing page.
@@ -450,6 +520,66 @@
         (if current-line
           (conj lines current-line)
           lines)))))
+
+;; ─── Fitting text to a box ───────────────────────────────────────────────────
+;;
+;; These fields AUTO-SIZE. The template default appearance is `/Helv 0 Tf`, and
+;; 0 means "shrink to fit", so an overlong value is NOT cropped at some fixed
+;; length -- it gets smaller. PDFBox stops shrinking at 4pt and only then starts
+;; clipping, so a wordy field produces a sheet that is illegible before it starts
+;; losing text, with nothing to warn about either.
+;;
+;; The cutoff therefore has to be a minimum readable size, not a character count.
+;; Measured budgets at 7pt: ideals/bonds/flaws 25 words, personality-traits 44,
+;; attacks-and-spellcasting 127, other-profs 147, equipment list 447, backstory
+;; 987, features-and-traits-2 3369. See docs/kb/pdf-form-techniques.md.
+
+(def min-font-size
+  "Smallest point size worth printing. 7pt is comfortable, 6pt is small but
+   readable, below 5pt is not worth the ink. Text that would need less than this
+   spills to a continuation page rather than shrinking further."
+  7.0)
+
+(def ^:private line-height-factor
+  "Leading as a multiple of font size, matching draw-lines-to-box."
+  1.1)
+
+(defn widget-box
+  "The drawable [width height] of `field`, in POINTS, or nil if it has none.
+
+   Measures a widget that is actually on a page. Every field in these templates
+   carries two widgets and the FIRST is the orphaned one, so the obvious
+   `(first (.getWidgets field))` measures the wrong box -- that mistake produced
+   a capacity table off by a factor of six."
+  [doc field]
+  (let [live (on-page-widgets doc)]
+    (when-let [w (first (filter #(contains? live (System/identityHashCode (.getCOSObject %)))
+                                (.getWidgets field)))]
+      (let [r (.getRectangle w)]
+        ;; 2pt inset per side, matching the appearance stream's padding.
+        [(- (.getWidth r) 4.0) (- (.getHeight r) 4.0)]))))
+
+(defn fit-text
+  "Split `text` into what fits in a `width` x `height` point box at `size`, and
+   what does not.
+
+   Returns {:head <fits> :tail <remainder, nil when it all fits> :lines <count>}.
+   Callers spill :tail onto a continuation page instead of letting the field
+   auto-shrink below min-font-size.
+
+   Wrapping reuses split-lines, whose width argument is in INCHES because
+   string-width divides by 72 -- hence the conversion here."
+  ([text width height] (fit-text text width height min-font-size))
+  ([text width height size]
+   (if (s/blank? (str text))
+     {:head "" :tail nil :lines 0}
+     (let [lines (vec (split-lines (str text) HELVETICA size (/ width 72.0)))
+           per-box (max 1 (int (Math/floor (/ height (* size line-height-factor)))))]
+       (if (<= (count lines) per-box)
+         {:head (s/join " " lines) :tail nil :lines (count lines)}
+         {:head (s/join " " (take per-box lines))
+          :tail (s/join " " (drop per-box lines))
+          :lines per-box})))))
 
 (defn draw-lines-to-box [cs lines font font-size x y height]
   (let [leading (* font-size 1.1)

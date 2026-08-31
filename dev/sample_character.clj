@@ -19,8 +19,7 @@
   (:require [orcpub.pdf :as pdf]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.spell-lists :as sl]
-            [clojure.java.io :as io]
-            [clojure.string :as str])
+            [clojure.java.io :as io])
   (:import (org.apache.pdfbox Loader)
            (java.io FileOutputStream)))
 
@@ -259,28 +258,23 @@
     (str "Eight spellcasting classes; the sheet has room for six. Caster level 14 for shared "
          "slots, but no class above 4th, so nothing above 1st level can be prepared.")}})
 
-(defn- dropped-names
-  "Names in `fields` that the template has no field for. write-fields! skips
-   these in silence, so a fixture has to look for them deliberately."
-  [doc fields]
-  (let [form (.getAcroForm (.getDocumentCatalog doc))]
-    (sort (remove #(some? (.getField form (name %))) (keys fields)))))
-
 (defn- build! [{:keys [file template casters fields]}]
   (let [all (merge fields (spellcasting-fields casters))
         out (io/file file)]
     (io/make-parents out)
-    (with-open [doc (Loader/loadPDF (.readAllBytes (.openStream (io/resource template))))]
-      (let [dropped (dropped-names doc all)]
-        (pdf/write-fields! doc all false {})
+    (with-open [doc (Loader/loadPDF (.readAllBytes
+                                      (.openStream (io/resource template))))]
+      ;; write-fields! returns the names the template had no field for, and logs
+      ;; them. The fixture used to diff the map itself; that check now lives in
+      ;; the exporter where every caller benefits.
+      (let [dropped (pdf/write-fields! doc all false {})]
         (with-open [o (FileOutputStream. out)] (.save doc o))
-        (println (format "wrote %-28s %d fields, %d casters, %d KB"
-                         (.getPath out) (count all) (count casters) (quot (.length out) 1024)))
-        (when (seq dropped)
-          (println (format "  !! %d values had no field and were silently dropped:"
-                           (count dropped)))
-          (doseq [row (partition-all 5 dropped)]
-            (println "     " (str/join ", " (map name row)))))))))
+        (println (format "wrote %-28s %d fields, %d casters, %d KB%s"
+                         (.getPath out) (count all) (count casters)
+                         (quot (.length out) 1024)
+                         (if (seq dropped)
+                           (format "  [%d value(s) had no field]" (count dropped))
+                           "")))))))
 
 (defn -main [& _]
   (build! wizard-20)
