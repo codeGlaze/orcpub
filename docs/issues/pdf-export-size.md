@@ -313,9 +313,31 @@ three bugs immediately, none of them visible on a blank page:
    empty line with a bullet. Styles 2 and 4 have the field. A wizard with 13
    third-level spells silently loses one.
 
-3. **Save-modifier boxes are too small for two-digit bonuses.** `int-save` is a
-   14.4 x 8.6 pt widget; "+11" clips. Any character with a +10 or better save --
-   every level 20 caster in their casting stat -- prints a truncated number.
+3. **Modifier boxes are too small for two digits.** The widgets are 14.4 x 8.6 pt
+   and anything reaching "+10" clips -- "+11" renders as "+1" plus a fragment.
+   This is NOT limited to saves: the second fixture (a face-caster) clips
+   Deception, Persuasion AND the Charisma save on one sheet. Any modifier of +10
+   or better is affected, which is routine at high level and unavoidable for a
+   level 20 caster in their own casting stat.
 
 Keep using this fixture for template work. Blank-form comparisons are how the
 earlier mistakes in this document happened.
+
+### Second fixture: four spellcasting classes
+
+target/sample-multi.pdf is warlock 5 / sorcerer 5 / wizard 5 / cleric 5. One
+spellcasting class only ever exercises the "-1" field suffix; this one exercises
+-1 through -4 and the sheet4 template, which nothing else here touches.
+
+It reproduces all three bugs above independently, and widens the third from
+saves to every modifier.
+
+What it confirms works: the four-class string fits CLASS & LEVEL by auto-sizing,
+hit dice wrap to two lines, warlock pact slots stay separate from shared slots
+(3rd level only, 1st and 2nd correctly blank), and long subclass names in the
+spellcasting-class header auto-size rather than clip.
+
+One thing that LOOKS wrong on this sheet but is correct: slots at 4th through
+8th level with no spells listed beneath them. Caster level is 15 for slot
+purposes, but no single class is above 5th, so nothing above 3rd level can be
+prepared. Do not "fix" that.
