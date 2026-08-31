@@ -1,31 +1,31 @@
 (ns orcpub.pdf
-  "Builds character sheets, spell cards and monster stat blocks by filling the
-   AcroForm templates in resources/.
+  "Fills the AcroForm character sheet templates in resources/, and draws spell
+   cards and monster stat blocks.
 
-   Four properties of these templates are worth knowing before changing anything
-   here. Measurements and reproductions: docs/kb/pdf-form-techniques.md.
+   Template behaviour that affects callers:
 
-   1. Fields AUTO-SIZE. The templates' default appearance is `/Helv 0 Tf`, where 0
-      means shrink-to-fit, so an overlong value is not cropped -- it gets smaller,
-      down to a 4pt floor, and only then clips. A wordy field yields a sheet that
-      is illegible before it loses any text. `fit-text` decides where to stop.
+   - Text fields auto-size. Their default appearance is `/Helv 0 Tf`, so PDFBox
+     scales text down to fit, stops at 4pt, and clips beyond that. `fit-text`
+     splits text at `min-font-size` instead.
+   - Many widgets have no page. `prune-orphan-widgets!` removes them on every
+     non-flattened export; `widget-box` ignores them when measuring.
+   - Fields sharing a name share one value, so repeated pages need unique names.
+   - Field names do not describe their contents:
 
-   2. Most widgets belong to no page. The style 1 variants were cut from a nine-page
-      master by DELETING pages, which drops the page but leaves the FIELDS in the
-      AcroForm. `prune-orphan-widgets!` removes them; it runs on every export.
+       features-and-traits     equipped item list
+       features-and-traits-2   features, actions, reactions
+       treasure                unequipped items and valuables
+       equipment               unused; pdf_spec emits no such key
+       cha                     ability modifier
+       cha-mod                 ability score
 
-   3. Field names lie about their contents. `features-and-traits` holds the EQUIPPED
-      ITEM LIST; the real features live in `features-and-traits-2` on the
-      continuation page; `cha` is the modifier while `cha-mod` is the score; and
-      `equipment` is never written at all. Read pdf_spec before trusting a name.
+     pdf_spec/equipment-fields and pdf_spec/traits-fields build these maps.
 
-   4. Fields sharing a name ARE one field and share one value -- tick a checkbox on
-      one page and its twin ticks on another. Anything generating repeated pages
-      must mint unique names.
+   PDFBox 3.x: fonts are constructed rather than static fields, `Loader/loadPDF`
+   replaces `PDDocument/load`, and `PDPageContentStream$AppendMode` replaces the
+   old boolean flags.
 
-   PDFBox 3.x notes: standard fonts are constructed rather than static fields (see
-   the constants below), `Loader/loadPDF` replaces `PDDocument/load`, and
-   `PDPageContentStream$AppendMode` replaces the old boolean flags."
+   Measurements and background: docs/kb/pdf-form-techniques.md"
   (:require [clojure.string :as s]
             [clojure.stacktrace :as strace]
             [clojure.java.io :as io]
@@ -134,13 +134,9 @@
 
 
 ;; ─── Orphaned widgets ────────────────────────────────────────────────────────
-;;
-;; A widget on no page can neither render nor be filled, so removing it cannot
-;; lose anything. On these templates that is most of the form, and most of the
-;; file size.
 
 (defn- on-page-widgets
-  "The set of annotation COS objects actually reachable from some page."
+  "Identity hashes of the annotation COS objects reachable from any page."
   [doc]
   (into #{}
         (for [page (.getPages doc)
@@ -148,11 +144,11 @@
           (System/identityHashCode (.getCOSObject annotation)))))
 
 (defn prune-orphan-widgets!
-  "Drop widgets that belong to no page, then fields left with none. Returns the
-   count removed.
+  "Removes widgets with no page, then fields left with no widgets. Returns the
+   number of widgets removed.
 
-   Per-WIDGET, not per-field: several fields own widgets on more than one page, so
-   keeping a whole field because any one widget is live leaves the rest orphaned."
+   Filters each field's widget list rather than keeping or dropping whole fields:
+   a field may own widgets on several pages."
   [doc]
   (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
     (let [live (on-page-widgets doc)
@@ -190,11 +186,9 @@
    resources) so values render AND print in every viewer — not just ones that honor
    NeedAppearances (Firefox's print path does not).
 
-   Returns the names in `fields` the template has no field for, sorted, and logs
-   them. A template missing a field is common and not always an error -- styles
-   2-4 have no `backstory`, style 1 has no `spells-3-11`, and none has a seventh
-   spellcasting class -- so the value is dropped rather than thrown on. Check the
-   return value if the caller needs to know."
+   Returns the sorted names in `fields` that the template has no field for, and
+   logs them; those values are dropped. Templates vary in which fields they
+   define, so this is reported rather than thrown."
   [doc fields flatten? font-sizes]
   (let [catalog (.getDocumentCatalog doc)
         form (.getAcroForm catalog)
@@ -231,10 +225,8 @@
                (instance? PDTextField field) (normalize-text v)
                :else nil))))
         (catch Exception e (prn "failed writing field: " k v (strace/print-stack-trace e)))))
-      ;; Drop widgets that belong to no page. Done AFTER writing so a value is
-      ;; never written into a field that is about to disappear, and skipped when
-      ;; flattening because .flatten consumes the form anyway. Halves the file on
-      ;; a real export; see prune-orphan-widgets!.
+      ;; Pruned after writing so no value lands in a field about to be removed.
+      ;; Flattening consumes the form, so it prunes nothing.
       (if flatten?
         (do (fix-widget-page-refs! doc)
             (.flatten form))
@@ -505,30 +497,22 @@
           lines)))))
 
 ;; ─── Fitting text to a box ────────────────────────────────────────────────────
-;;
-;; See note 1 in the namespace docstring: these fields shrink rather than crop, so
-;; the cutoff is a minimum readable size, not a character count.
-;;
-;; Compute budgets from the widget via `widget-box`; do not hardcode them. The
-;; per-field figures live in docs/kb/pdf-form-techniques.md for orientation, and
-;; a test asserts them so drift is caught.
 
 (def min-font-size
-  "Smallest point size worth printing. 6pt is small but readable; below 5pt is not
-   worth the ink. Text needing less than this spills to a continuation page rather
-   than shrinking further."
+  "Point size below which text is spilled to a continuation page rather than
+   scaled down further. Auto-sizing alone would shrink to 4pt and then clip."
   7.0)
 
 (def ^:private line-height-factor
-  "Leading as a multiple of font size, matching draw-lines-to-box."
+  "Leading as a multiple of font size. Matches draw-lines-to-box."
   1.1)
 
 (defn widget-box
-  "The drawable [width height] of `field` in POINTS, or nil if it has no on-page
-   widget.
+  "Drawable [width height] of `field` in points, or nil if it has no on-page
+   widget. Insets 2pt per side to match the appearance stream's padding.
 
-   Must pick a widget that is on a page: these fields carry two and the FIRST is
-   the orphan, so `(first (.getWidgets field))` measures the wrong box."
+   Measures an on-page widget: fields here carry several, and the first is
+   typically orphaned."
   [doc field]
   (let [live (on-page-widgets doc)]
     (when-let [w (first (filter #(contains? live (System/identityHashCode (.getCOSObject %)))
@@ -538,15 +522,13 @@
         [(- (.getWidth r) 4.0) (- (.getHeight r) 4.0)]))))
 
 (defn fit-text
-  "Split `text` into what fits in a `width` x `height` point box at `size`, and
-   what does not.
+  "Splits `text` at the last line fitting a `width` x `height` point box at `size`,
+   defaulting to `min-font-size`.
 
-   Returns {:head <fits> :tail <remainder, nil when it all fits> :lines <count>}.
-   Callers spill :tail onto a continuation page instead of letting the field
-   auto-shrink below min-font-size.
+   Returns {:head fitting-text :tail remainder-or-nil :lines line-count}. Callers
+   place :head in the field and :tail on a continuation page.
 
-   Wrapping reuses split-lines, whose width argument is in INCHES because
-   string-width divides by 72 -- hence the conversion here."
+   Wraps with `split-lines`, whose width is in inches; `width` is converted here."
   ([text width height] (fit-text text width height min-font-size))
   ([text width height size]
    (if (s/blank? (str text))
