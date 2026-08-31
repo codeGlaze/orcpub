@@ -3988,19 +3988,19 @@
                                       (isolate-culprit-selection character template has-nameless-feature?))
                                     (catch :default _ nil)))))
               label (when culprit (culprit-selection-label (::entity/options character) culprit))]
-          [:div.p-10.m-b-10.f-s-14.l-h-19
-           {:style {:border "1px solid #e9a227"
-                    :border-radius "5px"
-                    :background "rgba(233,162,39,0.12)"}}
-           [:div.f-w-b.m-b-5 "⚠ A feature on this character is missing its name"]
-           (if (and label (not (s/blank? label)))
-             [:div.m-b-5 "We traced it to this choice: "
-              [:span.f-w-600 label] ". Re-pick it in the builder so the feature has a name."]
-             [:div.m-b-5 "Open the character in the builder and re-select the option that grants it so it has a proper name."])
-           (when character
-             [:button.form-button.m-t-5
-              {:on-click #(dispatch [:edit-character character])}
-              "Open in the builder"])])))))
+          ;; A fail-soft component (its detection cluster stays here), rendered through the
+          ;; shared notifications/callout so it matches the other banners.
+          [notifications/callout
+           {:icon "fa-exclamation-triangle orange"
+            :text [:div.l-h-19
+                   [:div.f-w-b.m-b-5 "A feature on this character is missing its name"]
+                   (if (and label (not (s/blank? label)))
+                     [:div "We traced it to this choice: "
+                      [:span.f-w-600 label] ". Re-pick it in the builder so the feature has a name."]
+                     [:div "Open the character in the builder and re-select the option that grants it so it has a proper name."])]
+            :actions (when character
+                       [{:label "Open in the builder"
+                         :on-click #(dispatch [:edit-character character])}])}])))))
 
 (defn character-display []
   (let [show-selections? (r/atom false)]
@@ -4356,50 +4356,7 @@
                      :background "rgba(0,0,0,0.25)" :padding "8px" :border-radius "3px"}}
             report]]]]))))
 
-(defn shared-content-banner
-  "Shown when viewing a character whose homebrew arrived embedded in the share
-   link. The content is loaded view-only (:shared-plugins, never persisted); this
-   offers to Keep it in the library, and flags any entries that collide by name
-   with the viewer's own content (the shared version wins on this sheet, their
-   copy is untouched)."
-  [id]
-  (when-let [{:keys [count item-count collisions]} @(subscribe [::e5/shared-content-info])]
-    (let [char-name @(subscribe [::char/character-name id])
-          n-coll (clojure.core/count collisions)
-          item-count (or item-count 0)
-          parts (cond-> []
-                  (pos? count)      (conj (str count " homebrew piece" (when (not= 1 count) "s")))
-                  (pos? item-count) (conj (str item-count " custom item" (when (not= 1 item-count) "s"))))]
-      [:div.m-b-10.flex.align-items-c.justify-cont-s-b.flex-wrap
-       {:style {:padding "12px 16px"
-                :background "rgba(217,165,32,0.09)"
-                :border-left "4px solid #d9a520"
-                :border-radius "6px"
-                :gap "12px"}}
-       [:div {:style {:min-width "260px" :flex "1 1 300px"}}
-        [:div.f-w-b.f-s-16
-         [:i.fa.fa-info-circle.m-r-5.orange]
-         (str "Shared with " (s/join " and " parts) ".")]
-        [:div.f-s-12.m-t-5 {:style {:opacity 0.8}}
-         "Loaded for viewing only — not saved to your library."]
-        (when (pos? n-coll)
-          [:div.f-s-12.m-t-5 {:style {:color "#d9a520"}}
-           (str n-coll " differ from same-named content you own — the shared version shows "
-                "here, yours is untouched"
-                (when-let [names (seq (map :name (take 4 collisions)))]
-                  (str " (" (s/join ", " names) (when (> n-coll 4) ", …") ")"))
-                ".")])
-        (when (pos? item-count)
-          [:div.f-s-12.m-t-5 {:style {:opacity 0.8}}
-           "Custom magic items are shown for this view only (keeping items isn't supported yet)."])]
-       [:div.flex.align-items-c {:style {:flex "0 0 auto"}}
-        (when (pos? count)
-          [:button.form-button.m-r-5
-           {:on-click #(dispatch [::e5/keep-shared-content char-name])}
-           "Keep homebrew in my library"])
-        [:button.form-button
-         {:on-click #(dispatch [::e5/dismiss-shared-content])}
-         "Dismiss"]]])))
+;; shared-content-banner lives in orcpub.dnd.e5.views.notifications (rendered via callout).
 
 (defn character-page []
   (let [expanded? (r/atom false)]
@@ -4445,7 +4402,7 @@
                 {:value (str url
                              (when (not (s/ends-with? url "?frame=true"))
                                "?frame=true"))}]]))
-          [shared-content-banner id]
+          [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
          :frame? frame?])))))
 
