@@ -47,6 +47,30 @@ bites, a spec that will reject the data. Drop a *why* when it's history or self-
 ;; I chose .bg-warning here instead of a custom box because it matches the other banners …
 ```
 
+### Past tense goes, present tense stays
+
+Stripping narration must not strip a live warning. The line between a journal entry and a
+warning is **tense**, not topic — both can sit in the same comment, describing the same bug.
+
+```clojure
+;; drop — past tense, the bug is fixed and git holds the story:
+;; The call parens were missing, so this returned the atom's map, which is truthy even when
+;; empty. It always answered "yes". clj-kondo flagged it as two "Unused value" warnings.
+
+;; keep — present tense, still true, and the reason that bug survived unnoticed:
+;; NOTE unused: nothing calls this. Its sibling too-many-attempts-for-username? is wired
+;; into the login handler in routes.clj; this one is not, so a fault in it fails open
+;; silently and no test of the wiring would catch it.
+```
+
+Ask whether the sentence describes something a reader will still hit. *"This was broken
+because X"* is history — delete it. *"This is unwired and fails open"* is an operating
+hazard, and warning about it is exactly what a comment is for.
+
+The same test applies to measurements and results. *"Cut the file from 2679 KB to 1313 KB"*
+belongs in the commit message; *"a widget on no page can neither render nor be filled"* is
+the constraint that stops someone reintroducing the problem.
+
 - Plain sentences. Name the **real symbol / class / file** the reader should look at
   (`.bg-warning` in `styles/core.clj`, `expand-class`), and lean on grep + go-to-definition.
 - **No decorative markers or coined jargon.** No `!`/symbol prefixes, no invented
@@ -73,6 +97,7 @@ so don't reach for it when a name or a namespace would do.
 
 - Docstring on non-obvious public forms; skip trivial ones. Concise prose, no JSDoc.
 - Inline *why* only when it's a constraint that keeps the code working.
+- Past tense out, present tense in — deleting narration must not delete a live warning.
 - Plain language; name real symbols/files; no markers, no coined abbreviations.
 - No KB-doc links in code.
 - Relate scattered code by names and namespaces first; codetags for their categories; a
