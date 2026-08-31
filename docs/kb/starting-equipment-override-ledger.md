@@ -44,15 +44,38 @@ name-matching, immune to reorder.
 
 ## SRD bases are frozen forever
 
-The base is an SRD class's equipment, which must first be **extracted from the SRD's
-hand-built `:selections` (function-valued) into serializable `:equipment-selections`** with
-minted keys (shared prerequisite with the "start from a class" fill-in). **Once minted,
-those SRD group/option keys are permanent.** Renaming or renumbering them silently rewrites
-what every dependent character's ledger resolves to — the same class of breakage that made
-past key typos permanent: they were papered over with redirect **shims**
+The base is an SRD class's equipment, which must first exist as serializable
+`:equipment-selections` with minted keys (shared prerequisite with the "start from a class"
+fill-in). **This extraction is now implemented** (on `feat/starting-equipment`):
+`srd_starting_equipment.cljc`'s `builder-equipment` **decompiles** the live class — it
+reads the built `class-option`'s fixed grants as data and recovers each choice grant by
+*applying the modifier fn* — so the base is derived from the one live definition, with no
+hand-transcribed copy to drift. A decompile→recompile round-trip against every live class
+(`orcpub.starting-equipment-test`) is the guard that the derived base equals what the class
+actually produces.
+
+**Once minted, those SRD group/option keys are permanent.** Renaming or renumbering them
+silently rewrites what every dependent character's ledger resolves to — the same class of
+breakage that made past key typos permanent: they were papered over with redirect **shims**
 ([LANGUAGE_SELECTION_FIX.md](../LANGUAGE_SELECTION_FIX.md); the pre-2024 wizard-possessive
 spell-key map in `spell_subs.cljs`), never fixed by renaming. Treat SRD equipment keys the
 same: fix a bad key with a shim, never a rename.
+
+### Name fidelity is a key-stability prerequisite
+
+Because a group/option/sub-choice **key is minted from its name** (`name-to-kw`), the
+decompiler must reproduce the SRD's own names *verbatim* — a rename is a silent key change.
+One real instance was caught and fixed: the recompiler was routing every sub-choice through
+`new-starting-equipment-selection`, which prepends `"Starting Equipment: "` and appends a
+`<none>` option, so a grouped focus the live class names `"Arcane Focus"` came back as
+`"Starting Equipment: Arcane Focus"` — a different minted key. The fix branches the
+recompiler: grouped-equipment picks mirror the live `equipment-option` exactly (name
+verbatim, no prefix, no `<none>`); weapon-class picks keep the prefixed builder, which is
+what live uses for *them*. The round-trip test now compares **every** nested selection name
+(not just top-level) and the **quantities** on choice grants, so a future rename or a
+dropped count fails the build rather than silently shifting keys. A non-pool sub-choice is
+**enumerated** rather than dropped, and a truly undecompilable one throws — a starting
+equipment must never silently vanish from a derived base.
 
 ## The op set (tiny)
 
@@ -74,7 +97,9 @@ minted keys).
 2. **`:choose` duplicates** — two `{:from :martial}` in one option; address by index.
 3. **Quantity-only change** — same key, new `:qty` → a `:replace` of that grant.
 4. **Base must exist as data** — SRD `:selections` extracted to `:equipment-selections`
-   with frozen keys; a ledger against an un-extracted base is impossible.
+   with frozen keys; a ledger against an un-extracted base is impossible. **Done:**
+   `builder-equipment` decompiles the live class (see "SRD bases are frozen forever"),
+   round-trip-verified against all 12 classes.
 5. **Ledger op targets a key absent from the resolved base** (base drifted, or a stale
    ledger) — **skip and surface a warning**, never silently drop or crash.
 6. **Reorder** — free with key-addressing; positions are irrelevant.
