@@ -40,6 +40,7 @@
             [orcpub.dnd.e5.display :as disp]
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
@@ -655,16 +656,6 @@
            :on-click (make-event-handler :re-verify @params)}
           "RESEND"]]]))))
 
-(defn message [message-type message-text close-handler]
-  [:div.pointer.f-w-b ;;.h-0.opacity-0.fade-out
-   {:on-click close-handler}
-   [:div.message
-    {:class (case message-type
-              :error "bg-red"
-              :warning "bg-orange"
-              "bg-green")}
-    [:span message-text]
-    [:i.fa.fa-times]]])
 
 (defn hide-login-message []
   (dispatch [:hide-login-message]))
@@ -694,7 +685,7 @@
              :on-change (partial set-value params :email)}]
            (when @(subscribe [:login-message-shown?])
              [:div.m-t-5.p-r-5.p-l-5
-              [message
+              [notifications/message
                :error
                @(subscribe [:login-message])
                hide-login-message]])
@@ -750,7 +741,7 @@
                         :messages (when different? ["Passwords do not match"])
                         :on-change (fn [e] (swap! params assoc :verify-password (event-value e)))}]
            (when @(subscribe [:login-message-shown?])
-             [:div.m-t-5.p-r-5.p-l-5 [message
+             [:div.m-t-5.p-r-5.p-l-5 [notifications/message
                                       :error
                                       @(subscribe [:login-message])
                                       hide-login-message]])
@@ -973,7 +964,7 @@
                         :type :password
                         :on-change #(swap! params assoc :password (event-value %))}]
            (when login-message-shown?
-             [:div.m-t-5.p-r-5.p-l-5 [message
+             [:div.m-t-5.p-r-5.p-l-5 [notifications/message
                                       :error
                                       login-message
                                       hide-login-message]])
@@ -1069,7 +1060,7 @@
        [:div.bg-light.m-b-10 @(subscribe [::char/options-component])])
      (when @(subscribe [:message-shown?])
        [:div.p-b-10.p-r-10.p-l-10.white
-        [message
+        [notifications/message
          @(subscribe [:message-type])
          @(subscribe [:message])
          hide-message]])]))
@@ -6519,32 +6510,22 @@
                   :on-change (fn [v] (when-not (s/blank? v)
                                        (dispatch [::classes/fill-starting-equipment (keyword v)])))}]]]
      (when-let [base (:starting-equipment-base class)]
-       ;; Persistent contextual callout — the app's .bg-warning box + fa-info-circle/.orange
-       ;; idiom (as shared-content-banner / the library health status), not a bespoke box.
-       ;; Severity vocabulary: docs/kb/library-management-and-conflicts.md. The base marker
-       ;; and delta format: docs/kb/starting-equipment.md.
-       [:div.bg-warning.p-10.m-b-10.flex.align-items-c {:style {:gap "8px"}}
-        [:i.fa.fa-info-circle.orange]
-        [:span.f-s-14.flex-grow-1
-         (str "Based on the " (s/capitalize (name base)) " class — only your changes are saved on export.")]
-        [:button.form-button
-         {:on-click #(dispatch [::classes/detach-starting-equipment-base])}
-         "Detach (save full copy)"]])
+       [notifications/callout
+        {:icon "fa-info-circle orange"
+         :text (str "Based on the " (s/capitalize (name base)) " class — only your changes are saved on export.")
+         :actions [{:label "Detach (save full copy)"
+                    :on-click #(dispatch [::classes/detach-starting-equipment-base])}]}])
      [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
      (doall (for [cat starting-equipment-categories]
               ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
      [:div.f-w-b.f-s-18.m-t-15.m-b-5 "Choices (player picks one per group)"]
      (when legacy?
-       ;; Persistent contextual callout — same .bg-warning system as the "Based on" banner
-       ;; above and shared-content-banner / library health status. Severity vocabulary:
-       ;; docs/kb/library-management-and-conflicts.md.
-       [:div.bg-warning.p-10.m-b-10.flex.align-items-c {:style {:gap "8px"}}
-        [:i.fa.fa-info-circle.orange]
-        [:span.f-s-14.flex-grow-1 "This class has simple choices from an older format."]
-        [:button.form-button
-         {:on-click #(dispatch [::classes/migrate-equipment-choices
-                                (into (vec (:equipment-selections class)) (legacy-choices->selections class))])}
-         "Convert to editable form"]])
+       [notifications/callout
+        {:icon "fa-info-circle orange"
+         :text "This class has simple choices from an older format."
+         :actions [{:label "Convert to editable form"
+                    :on-click #(dispatch [::classes/migrate-equipment-choices
+                                          (into (vec (:equipment-selections class)) (legacy-choices->selections class))])}]}])
      [rich-equipment-choices class]]))
 
 (defn class-builder []

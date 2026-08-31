@@ -1,19 +1,15 @@
 (ns orcpub.dnd.e5.starting-equipment-ledger
-  "Express a homebrew class's starting equipment as an SRD base plus a small delta, so a user
-   who just tweaks a class doesn't save a full copy. Addressing is by identifiers that ALREADY
-   exist in the data — no minted keys:
+  "Stores a homebrew class's starting equipment as an SRD base class plus the changes made to
+   it, instead of a full copy. Items match by identifiers already in the data — no invented
+   keys: fixed grants (:weapons/:armor/:equipment, {item-key qty}) match by item key (changed
+   or added in :fixed :set, removed in :fixed :del); choice groups (:equipment-selections)
+   match by their :name, and a group the user changed is stored whole in :groups :set (the
+   nested choice menus are rarely edited and not worth a finer diff), removed group names in
+   :groups :del.
 
-     - fixed grants  (:weapons/:armor/:equipment, {item-key qty}) diff by ITEM KEY: changed
-       or added items in :fixed :set, removed items in :fixed :del.
-     - choice groups (:equipment-selections) match by their existing :name; a group the user
-       TOUCHED is stored WHOLE in :groups :set (the nested OR-menus are rare to edit and not
-       worth a sub-diff), a removed group's name goes in :groups :del.
-
-   resolve-delta applies a delta over the resolved base to get the full form back; that full
-   form is the plain :equipment-selections the existing class-option functions already consume
-   (this namespace adds no new runtime shape). Resolution is inherently fail-soft — a delta
-   entry that doesn't line up with the base is simply appended or ignored, never a crash.
-   See docs/kb/starting-equipment-override-ledger.md."
+   resolve-delta turns a base plus its changes back into the plain :equipment-selections the
+   existing class-option functions consume — this namespace adds no new runtime shape. A change
+   that doesn't line up with the base is appended or ignored, never a crash."
   (:require [orcpub.dnd.e5.srd-starting-equipment :as srd]))
 
 (def ^:private buckets [:weapons :armor :equipment])
