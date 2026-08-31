@@ -290,3 +290,32 @@ extra pages cost about 12 KB each.
 
 Not yet done: wiring this into routes.clj in place of the sheet0..sheet6 cond,
 and generating the per-page field names for pages beyond the sixth.
+
+## Test with a sheet that has data on it
+
+dev/sample_character.clj builds a level 20 evoker with every spell level filled
+from the real wizard list and writes it through pdf/write-fields!:
+
+    lein with-profile init-db run -m clojure.main dev/sample_character.clj
+
+Rendering an EMPTY form proves almost nothing -- it was rendering empty forms
+that hid the death-save checkboxes earlier in this work. Filling one turned up
+three bugs immediately, none of them visible on a blank page:
+
+1. **Page 1 fields sit one box off from the printed labels.** The tall right
+   column is the field `features-and-traits`, and the artwork beneath it reads
+   EQUIPMENT. The middle box holds `equipment`, printed as TREASURE. So a
+   character's features and traits print under a heading that says EQUIPMENT.
+   This is on style 1, the default and only public sheet.
+
+2. **`spells-3-11-1` does not exist in style 1.** The level 3 column offers 13
+   rows but the template skips the 11th, leaving a dead row that renders as an
+   empty line with a bullet. Styles 2 and 4 have the field. A wizard with 13
+   third-level spells silently loses one.
+
+3. **Save-modifier boxes are too small for two-digit bonuses.** `int-save` is a
+   14.4 x 8.6 pt widget; "+11" clips. Any character with a +10 or better save --
+   every level 20 caster in their casting stat -- prints a truncated number.
+
+Keep using this fixture for template work. Blank-form comparisons are how the
+earlier mistakes in this document happened.
