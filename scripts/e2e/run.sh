@@ -51,3 +51,15 @@ if grep -q BindException "$LOG" 2>/dev/null; then
 fi
 
 E2E_BASE="http://localhost:${PORT}" node "scripts/e2e/${1:-run.js}"
+NODE_RC=$?
+
+# The browser cannot read PDF field names -- they sit in compressed object
+# streams -- so the exported file is inspected here, where PDFBox is available.
+PDF="${E2E_OUT:-/tmp/e2e-pdf}/character.pdf"
+if [ "$NODE_RC" -eq 0 ] && [ -f "$PDF" ]; then
+  echo
+  echo "Inspecting the exported PDF..."
+  lein with-profile init-db run -m clojure.main dev/inspect_export.clj "$PDF" 2>&1 \
+    | grep -Ev "JAVA_TOOL|^WARNING|WARN " || NODE_RC=1
+fi
+exit "$NODE_RC"
