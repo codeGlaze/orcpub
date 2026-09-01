@@ -1,5 +1,20 @@
 # TODO — Tracked Issues
 
+## 📌 PINNED — new content-format extension (HIGH PRIORITY, blocks the new format)
+
+The content-extensibility refactor produces content **older builds can't read**, and old
+builds fail opaquely. The fix is a **new file extension** for the new format (keeps it out
+of old file pickers) plus an in-file compat tag for new builds. **The extension NAME is an
+open decision — being polled with the community + other developers.**
+
+- Candidates: **`.orcbrewx`** (leading), `.orcbrewed`, `.orcgrog`.
+- Placeholder until decided: the token `<NEW_EXT>` (standing in as `.orcbrewx`), referenced
+  from one constant so the final name is a one-place swap.
+- Full design (extension + `:orcbrew/format-version` + `:orcbrew/requires` compat tag +
+  the open conversion-tag question): **[docs/kb/orcbrew-format-versioning.md](kb/orcbrew-format-versioning.md)**.
+
+---
+
 ## localStorage corrupt data persistence
 
 **Status:** Open
