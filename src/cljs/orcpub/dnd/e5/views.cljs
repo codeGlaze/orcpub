@@ -8773,6 +8773,21 @@
          "Off — your sources stay saved but won't appear in the builder."]
         [:span.m-l-15.f-s-12.opacity-5
          "On — turn off to hide every source from the builder at once."])])
+   ;; App-shipped example content: a per-device toggle to hide the demo pack from
+   ;; the builder. Only shown when a pack actually loaded. The pack is not part of
+   ;; the user's library — it reloads from the bundled file every boot.
+   (when @(subscribe [::e5/demo-available?])
+     (let [demo-hidden? @(subscribe [::e5/demo-hidden?])]
+       [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c
+        [:div.flex.align-items-c.pointer
+         {:on-click (make-event-handler ::e5/toggle-demo-hidden)}
+         [comps/checkbox (not demo-hidden?) false]
+         [:span.m-l-10.f-s-16.f-w-b "Demo content"]]
+        (if demo-hidden?
+          [:span.m-l-15.f-s-12.b-color-gray
+           "Off — the example content is hidden from the builder."]
+          [:span.m-l-15.f-s-12.opacity-5
+           "On — example content you can try. Turn off to hide it."])]))
    [:div.item-list
     (let [plugins (sort @(subscribe [::e5/plugins]))]
       (doall

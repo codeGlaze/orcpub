@@ -58,6 +58,7 @@
                                       plugins->local-store
                                       disable-overlay->local-store
                                       health-dismissed->local-store
+                                      demo-hidden->local-store
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       default-character
@@ -157,6 +158,9 @@
 (def health-dismissed->local-store-interceptor
   (after (fn [db] (health-dismissed->local-store (:health-dismissed db)))))
 
+(def demo-hidden->local-store-interceptor
+  (after (fn [db] (demo-hidden->local-store (:demo-hidden? db)))))
+
 (def set-changed (->interceptor
                   :id :set-changed
                   :before (fn [context]
@@ -239,6 +243,7 @@
   (inject-cofx ::e5/rejected-plugins)
   (inject-cofx ::e5/disable-overlay)
   (inject-cofx ::e5/health-dismissed)
+  (inject-cofx ::e5/demo-hidden)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -250,6 +255,7 @@
               ::e5/rejected-plugins
               ::e5/disable-overlay
               ::e5/health-dismissed
+              ::e5/demo-hidden
               ::combat/tracker-item]} _]
    {:db (if (seq db)
           db
@@ -258,6 +264,7 @@
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             (seq disable-overlay) (assoc :disable-overlay disable-overlay)
             (some? health-dismissed) (assoc :health-dismissed health-dismissed)
+            (some? demo-hidden) (assoc :demo-hidden? demo-hidden)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
             local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
@@ -4502,6 +4509,15 @@
  [health-dismissed->local-store-interceptor]
  (fn [db [_ sig]]
    (assoc db :health-dismissed sig)))
+
+;; Show/hide the app-shipped demo pack. Persisted per-device; the content-lookup
+;; subs read :demo-hidden? via ::e5/demo-plugins, so flipping it here hides the
+;; pack everywhere it's folded in.
+(reg-event-db
+ ::e5/toggle-demo-hidden
+ [demo-hidden->local-store-interceptor]
+ (fn [db _]
+   (update db :demo-hidden? not)))
 
 (reg-event-db
  ::e5/toggle-section-disable
