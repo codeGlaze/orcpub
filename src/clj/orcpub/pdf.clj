@@ -33,7 +33,10 @@
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField PDTerminalField)
-           (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget)
+           (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget
+                                                              PDAppearanceCharacteristicsDictionary)
+           (org.apache.pdfbox.pdmodel.graphics.color PDColor PDDeviceRGB)
+           (org.apache.pdfbox.pdmodel.common PDRectangle)
            (org.apache.pdfbox.cos COSName COSDictionary)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
            ;; APPEND appends operators to a page's existing content stream, so
@@ -857,6 +860,77 @@
                {:head (s/join "\n" (conj kept (s/join " " (take room lines))))
                 :tail (s/join "\n" (cons (s/join " " (drop room lines)) more))
                 :lines per-box}))))))))
+
+
+;; ─── Relabelling a spell level box ────────────────────────────────────────────
+;;
+;; Each spell level's rows live in a box whose level number is printed ARTWORK,
+;; not a field, so the boxes are bound to their levels by the page itself. That
+;; is why a class with more 1st-level spells than the twelve rows of the level 1
+;; box spills to another page while levels 4-9 sit empty -- on a level 5 cleric
+;; that is 13 spells moved for want of 59 rows that were right there.
+;;
+;; A field with a background fill can cover the printed numeral, letting a box be
+;; re-pointed at another level. The hexagon's centre carries a light bevel, so a
+;; small patch there hides the numeral without touching the outline or the grey
+;; edging around it.
+
+(def ^:private hexagon-offset
+  "Where a level's hexagon sits relative to its SLOTS TOTAL box, and how big it
+   is, in points. Measured on the style 1 spell page, where the hexagon abuts the
+   left edge of the slots box at every one of the nine levels."
+  {:dx -21.0 :dy -6.0 :width 22.0 :height 34.0})
+
+(defn spell-level-numeral-box
+  "The rectangle covering the printed level numeral for `level` in the
+   spellcasting section `suffix`, or nil when that level has no slots box.
+
+   Derived from the slots box rather than hardcoded, so it follows the artwork if
+   the page is re-cut. Insets to the hexagon's bevelled centre: covering the whole
+   hexagon would clip the grey edging and read as a patch."
+  [doc level suffix]
+  (let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (when-let [field (some-> form (.getField (str "spell-slots-" level "-" suffix)))]
+      (when-let [box (widget-box doc field)]
+        (let [widget (first (filter #(some? (.getPage %)) (.getWidgets field)))
+              r (.getRectangle widget)
+              {:keys [dx dy]} hexagon-offset]
+          [(+ (.getLowerLeftX r) dx 5.5)
+           (+ (.getLowerLeftY r) dy 9.0)
+           11.0
+           16.0])))))
+
+(defn relabel-spell-level!
+  "Covers the printed level numeral for `level` in section `suffix` with `label`.
+   Returns the field added, or nil when the level has no box on this template.
+
+   The numerals are printed heavy, so the label is drawn in bold to match."
+  [doc level suffix label]
+  (when-let [[x y w h] (spell-level-numeral-box doc level suffix)]
+    (let [form (.getAcroForm (.getDocumentCatalog doc))
+          resources (.getDefaultResources form)
+          field (PDTextField. form)
+          widget (PDAnnotationWidget.)
+          characteristics (PDAppearanceCharacteristicsDictionary. (COSDictionary.))
+          page (.getPage (first (.getWidgets (.getField form (str "spell-slots-" level "-" suffix)))))]
+      (when (nil? (.getFont resources (COSName/getPDFName "HelvB")))
+        (.put resources (COSName/getPDFName "HelvB")
+              (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD)))
+      (.setDefaultResources form resources)
+      (.setPartialName field (str "spell-level-label-" level "-" suffix))
+      (.setRectangle widget (PDRectangle. x y w h))
+      (.setBackground characteristics
+                      (PDColor. (float-array [1 1 1]) (PDDeviceRGB/INSTANCE)))
+      (.setAppearanceCharacteristics widget characteristics)
+      (.setPage widget page)
+      (.setWidgets field (java.util.ArrayList. [widget]))
+      (.setAnnotations page (java.util.ArrayList.
+                             (conj (vec (.getAnnotations page)) widget)))
+      (.setFields form (java.util.ArrayList. (conj (vec (.getFields form)) field)))
+      (.setDefaultAppearance field "/HelvB 13 Tf 0 g")
+      (.setQ field 1)
+      (.setValue field (str label))
+      field)))
 
 ;; ─── Overflow pages ───────────────────────────────────────────────────────────
 

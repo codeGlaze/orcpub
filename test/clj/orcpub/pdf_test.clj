@@ -512,3 +512,30 @@
         (is (.isMultiline (.getField form "backstory")))
         (is (>= (baked-size form "backstory") 6.0)
             "left to its own auto-sizing rather than forced smaller")))))
+
+(deftest a-spell-level-box-can-be-relabelled
+  (testing "A level's rows live in a box whose number is printed artwork, so the
+            box is bound to that level by the page. A field with a background fill
+            covers the numeral, which is what would let a spare box take a level
+            whose own box is full -- a level 5 cleric spills 13 spells while 59
+            rows sit empty in the levels it cannot reach."
+    (with-open [doc (style-1-template)]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))]
+        (testing "the numeral box is derived from the slots box, not hardcoded"
+          (doseq [level (range 1 10)]
+            (let [[x y w h] (pdf/spell-level-numeral-box doc level 1)
+                  slots (.getRectangle (first (.getWidgets
+                                               (.getField form (str "spell-slots-" level "-1")))))]
+              (is (< x (.getLowerLeftX slots))
+                  (str "level " level "'s numeral sits left of its slots box"))
+              (is (and (< 8 w 14) (< 12 h 20))
+                  (str "level " level "'s patch covers the numeral, not the hexagon")))))
+
+        (testing "relabelling adds an addressable field carrying the new number"
+          (let [field (pdf/relabel-spell-level! doc 3 1 "1")]
+            (is (some? field))
+            (is (= "1" (str (.getValueAsString
+                             (.getField form "spell-level-label-3-1")))))))
+
+        (testing "a level with no box on this template is left alone"
+          (is (nil? (pdf/spell-level-numeral-box doc 12 1))))))))
