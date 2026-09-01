@@ -878,8 +878,13 @@
 (def ^:private hexagon-offset
   "Where a level's hexagon sits relative to its SLOTS TOTAL box, and how big it
    is, in points. Measured on the style 1 spell page, where the hexagon abuts the
-   left edge of the slots box at every one of the nine levels."
-  {:dx -21.0 :dy -6.0 :width 19.0 :height 37.5})
+   left edge of the slots box at every one of the nine levels.
+
+   Check these against the artwork with the :outline? option to
+   relabel-spell-level! before trusting them on another style -- a wrong offset
+   looks fine in a normal render and only shows as a sliver of the printed shape
+   left uncovered."
+  {:dx -21.0 :dy -7.5 :width 19.0 :height 37.0})
 
 (def ^:private hexagon-path
   "The hexagon's corners as fractions of its bounding box, traced from the
@@ -897,8 +902,12 @@
   "An appearance stream drawing a hexagon-shaped patch with `label` centred in it.
 
    The patch is the hexagon's own shape scaled about its centre, so it sits inside
-   the printed outline instead of cutting a rectangle out of it."
-  [doc width height label]
+   the printed outline instead of cutting a rectangle out of it.
+
+   `outline?` strokes the path magenta, which is how the offsets above were
+   checked: a misplaced patch is invisible in a normal render but obvious against
+   the printed hexagon once its edge is drawn."
+  [doc width height label outline?]
   (let [stream (PDAppearanceStream. doc)
         resources (PDResources.)
         font (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD)
@@ -915,10 +924,10 @@
     (.put resources (COSName/getPDFName "HelvB") font)
     (with-open [out (.createOutputStream (.getCOSObject stream))]
       (.write out (.getBytes
-                   (str "1 1 1 rg\n"
+                   (str (if outline? "1 1 1 rg 1 0 1 RG 0.4 w\n" "1 1 1 rg\n")
                         (format "%.2f %.2f m\n" sx sy)
                         (s/join (for [[x y] rest-points] (format "%.2f %.2f l\n" x y)))
-                        "h f\n"
+                        (if outline? "h B\n" "h f\n")
                         "BT\n/HelvB " size " Tf\n0 g\n"
                         (format "%.2f %.2f Td\n" (- cx (/ text-width 2.0)) (- cy 4.5))
                         "(" label ") Tj\nET\n")
@@ -944,8 +953,13 @@
   "Covers the printed level numeral for `level` in section `suffix` with `label`.
    Returns the field added, or nil when the level has no box on this template.
 
-   The numerals are printed heavy, so the label is drawn in bold to match."
-  [doc level suffix label]
+   The numerals are printed heavy, so the label is drawn in bold to match.
+
+   `opts` takes :outline?, which strokes the patch magenta so its placement can be
+   checked against the artwork. Use it when fitting these offsets to a style whose
+   spell page has not been measured."
+  ([doc level suffix label] (relabel-spell-level! doc level suffix label nil))
+  ([doc level suffix label {:keys [outline?]}]
   (when-let [[x y w h] (spell-level-numeral-box doc level suffix)]
     (let [form (.getAcroForm (.getDocumentCatalog doc))
           resources (.getDefaultResources form)
@@ -971,10 +985,11 @@
       ;; is a label rather than something to fill in.
       (.setValue field (str label))
       (let [appearance (PDAppearanceDictionary.)]
-        (.setNormalAppearance appearance (hexagon-appearance doc w h (str label)))
+        (.setNormalAppearance appearance
+                              (hexagon-appearance doc w h (str label) outline?))
         (.setAppearance widget appearance))
       (.setReadOnly field true)
-      field)))
+      field))))
 
 ;; ─── Overflow pages ───────────────────────────────────────────────────────────
 
