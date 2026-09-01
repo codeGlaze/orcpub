@@ -1183,6 +1183,38 @@
                [:.lib-badge-benign {:background-color "#33658A" :color "#ffffff"}]
                [:.lib-badge-compat {:background-color "#8a5a00" :color "#ffffff"}]])
 
+    ;; Demo/example content tier: a pinned, teal-tinted source row in My Content
+    ;; plus the On/Off switch that hides the pack. Teal marks it as app-shipped
+    ;; example content, distinct from the user's own homebrew sources.
+    [:.demo-source
+     {:border-left "3px solid #1aa8a0"
+      :background-color "rgba(26,168,160,0.08)"}]
+    [:.demo-badge
+     {:background-color "rgba(26,168,160,0.20)" :color "#7fd6cf"}
+     [:.lib-dot {:background-color "#1aa8a0"}]]
+    [:.pretty-toggle
+     {:position :relative
+      :display :inline-flex
+      :flex-shrink 0
+      :width "46px"
+      :height "24px"
+      :border-radius "999px"
+      :background-color "rgba(255,255,255,0.25)"
+      :transition "background-color 0.15s ease"}
+     [:.pretty-toggle-knob
+      {:position :absolute
+       :top "2px"
+       :left "2px"
+       :width "20px"
+       :height "20px"
+       :border-radius "50%"
+       :background-color "#ffffff"
+       :box-shadow "0 1px 2px rgba(0,0,0,0.4)"
+       :transition "left 0.15s ease"}]]
+    [:.pretty-toggle.on
+     {:background-color "#1aa8a0"}
+     [:.pretty-toggle-knob {:left "24px"}]]
+
     [:.roll-button
      {:color :white
       :min-width "68px"

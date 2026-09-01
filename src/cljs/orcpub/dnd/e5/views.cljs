@@ -8513,6 +8513,43 @@
               acc))
           {:compat 0 :benign 0} plugin))
 
+(defn demo-content-source
+  "The app-shipped demo pack rendered as a pinned, teal-tinted source row with an
+   On/Off toggle (the hide switch). Read-only: it's example content, not part of
+   the user's library, so it has no enable checkbox, delete, or per-item controls."
+  []
+  (let [expanded? (r/atom false)]
+    (fn []
+      (let [hidden? @(subscribe [::e5/demo-hidden?])
+            raw     @(subscribe [::e5/demo-plugins-raw])
+            src     (ffirst raw)
+            plugin  (get raw src)]
+        [:div.item-list-item.demo-source
+         [:div.p-20.flex.justify-cont-s-b.align-items-c.main-text-color
+          [:div.flex.align-items-c
+           [:div.pretty-toggle.pointer
+            {:class (when-not hidden? "on")
+             :on-click (make-event-handler ::e5/toggle-demo-hidden)}
+            [:div.pretty-toggle-knob]]
+           [:span.m-l-15.f-s-24 (or src "Demo Content")]
+           [:span.lib-badge.demo-badge [:span.lib-dot] "example"]]
+          [:div.orange.pointer
+           {:on-click #(swap! expanded? not)}
+           [:i.fa.m-r-5 {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+           [:span.underline (if @expanded? "collapse" "expand")]]]
+         (when @expanded?
+           [:div.bg-lighter.p-10
+            (doall
+             (for [[ct items] plugin
+                   :when (and (qualified-keyword? ct) (map? items) (seq items))]
+               ^{:key (str ct)}
+               [:div.m-b-10
+                [:div.f-s-12.uppercase.opacity-5.m-b-5 (name ct)]
+                (doall
+                 (for [[k item] items]
+                   ^{:key (str k)}
+                   [:div.f-s-16 (:name item)]))]))])]))))
+
 (defn my-content-item []
   (let [expanded?      (r/atom false)
         search         (r/atom "")
@@ -8773,22 +8810,12 @@
          "Off — your sources stay saved but won't appear in the builder."]
         [:span.m-l-15.f-s-12.opacity-5
          "On — turn off to hide every source from the builder at once."])])
-   ;; App-shipped example content: a per-device toggle to hide the demo pack from
-   ;; the builder. Only shown when a pack actually loaded. The pack is not part of
-   ;; the user's library — it reloads from the bundled file every boot.
-   (when @(subscribe [::e5/demo-available?])
-     (let [demo-hidden? @(subscribe [::e5/demo-hidden?])]
-       [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c
-        [:div.flex.align-items-c.pointer
-         {:on-click (make-event-handler ::e5/toggle-demo-hidden)}
-         [comps/checkbox (not demo-hidden?) false]
-         [:span.m-l-10.f-s-16.f-w-b "Demo content"]]
-        (if demo-hidden?
-          [:span.m-l-15.f-s-12.b-color-gray
-           "Off — the example content is hidden from the builder."]
-          [:span.m-l-15.f-s-12.opacity-5
-           "On — example content you can try. Turn off to hide it."])]))
    [:div.item-list
+    ;; App-shipped example content, pinned above the user's own sources and tinted
+    ;; teal to mark it as the example tier. It is not part of the user's library
+    ;; (it reloads from the bundled file each boot) so it renders separately.
+    (when @(subscribe [::e5/demo-available?])
+      [demo-content-source])
     (let [plugins (sort @(subscribe [::e5/plugins]))]
       (doall
        (map
