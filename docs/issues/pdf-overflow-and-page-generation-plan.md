@@ -353,6 +353,51 @@ Pact Magic is a real defect and is written up in
 Spellcasting table, so a Cleric 3 / Warlock 2 shows 2 first-level slots where the
 character has 4 plus 2 pact.
 
+
+#### Flagging concentration, components and casting time on the row
+
+Everything needed is already on the spell, though not always as its own field:
+
+    :duration      "Concentration, up to 1 minute"   -> concentration
+    :ritual        true
+    :casting-time  "1 bonus action" / "1 reaction, ..." / "1 action" / "10 minutes"
+    :components    {:verbal true :somatic true :material true
+                    :material-component "diamonds worth 300 gp, which the spell consumes"}
+
+Concentration has no field of its own; it is the start of `:duration`. A costly
+material is a `\d+ gp` in the prose of `:material-component`.
+
+How much of the list each flag touches, of 319 spells:
+
+    concentration          126   39%
+    longer casting time     59   18%
+    costly material (gp)    52   16%
+    ritual                  29    9%
+    bonus action            14    4%
+    reaction                 4    1%
+
+Cost, with the annotation appended as `C  R  BA  V S M(300gp)`: **none of the 319
+rows overflow.** The widest is `Instant Summons   R  1 minute  V S M(1,000gp)` at
+136.6pt of the 154 available; typical rows land between 44 and 67pt. Rendered at
+print size in `target/mock-annotated.png`.
+
+Worth doing, but not all of it is worth the same. Ranked by what changes a
+decision at the table:
+
+- **Concentration** is the one to have. It touches 39% of spells and is the only
+  flag that makes two spells mutually exclusive.
+- **A costly material** stops the spell happening at all if it is not in the pack,
+  and the gp figure is the part worth printing, not the prose.
+- **Bonus action and reaction** change what else can be done that turn. Only 5%
+  of spells between them, so they cost almost nothing to carry.
+- **Plain V S M** with no cost is the least useful and the widest, being on
+  nearly everything. It is the part to make optional if any of it is.
+
+One constraint on presentation: a spell row is a single text field with one
+default appearance, so the annotation cannot be greyed or set smaller than the
+name. It is one string at one size. Any visual separation has to come from
+punctuation or spacing.
+
 ### 9. Styles 2, 3 and 4 — a later branch
 
 Everything measured for the relabelling is style 1 only: `printed-slot-labels`,
