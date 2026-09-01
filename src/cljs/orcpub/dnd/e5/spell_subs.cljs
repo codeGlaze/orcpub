@@ -114,6 +114,13 @@
    (when-not (:demo-hidden? db)
      (get db :demo-plugins))))
 
+;; Did a demo pack actually load? Independent of the hide flag, so the hide toggle
+;; renders only when there's something to hide.
+(reg-sub
+ ::e5/demo-available?
+ (fn [db _]
+   (boolean (seq (get db :demo-plugins)))))
+
 ;; Summary for the shared-content banner: {:count n :collisions [...]} while a
 ;; shared character with embedded homebrew is being viewed, else nil.
 (reg-sub

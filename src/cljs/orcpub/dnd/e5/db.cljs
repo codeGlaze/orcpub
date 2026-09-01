@@ -63,6 +63,10 @@
 ;; so a dismissed heads-up stays hidden across reloads — but only until the set of
 ;; problems changes (the signature changes), and never on the My Content hub.
 (def local-storage-health-dismissed-key "health-dismissed")
+;; Whether the user has hidden the app-shipped demo pack — a per-device view
+;; preference like the disable overlay, kept in its own slot and never in plugin
+;; data. The demo pack itself always reloads from the bundled file on boot.
+(def local-storage-demo-hidden-key "demo-hidden")
 
 (def default-route route-map/dnd-e5-char-builder-route)
 
@@ -293,6 +297,10 @@
   (when js/window.localStorage
     (set-item local-storage-health-dismissed-key (str sig))))
 
+(defn demo-hidden->local-store [hidden?]
+  (when js/window.localStorage
+    (set-item local-storage-demo-hidden-key (str (boolean hidden?)))))
+
 (def tab-path [:builder :character :tab])
 
 (def ^:private preserve-on-unreadable-keys
@@ -411,6 +419,13 @@
  ::e5/health-dismissed
  local-storage-health-dismissed-key
  ::health-dismissed)
+
+;; Whether the demo pack is hidden — a boolean per-device preference.
+(spec/def ::demo-hidden boolean?)
+(reg-local-store-cofx
+ ::e5/demo-hidden
+ local-storage-demo-hidden-key
+ ::demo-hidden)
 
 ;; Refresh safety: restore every homebrew builder's in-progress item on boot (the
 ;; persist side is already wired per-builder via ->local-store interceptors; this
