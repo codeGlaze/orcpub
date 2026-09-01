@@ -80,7 +80,9 @@ the not-yet-built follow-ups, roughly in dependency order.
 
 A read-only example/demo tier of content, with a per-account version marker and
 copy-on-edit graduation (editing an example copies it into the user's own library
-so upstream updates never clobber their edits).
+so upstream updates never clobber their edits). **Design notes + decided approach
+(copy-on-edit + provenance, not a diff) and the separate "variant rules" idea:**
+[docs/kb/demo-content-tier.md](kb/demo-content-tier.md).
 
 ### Also parked (with reasons — do not lose)
 
