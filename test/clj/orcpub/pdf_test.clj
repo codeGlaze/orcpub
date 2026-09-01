@@ -515,27 +515,41 @@
 
 (deftest a-spell-level-box-can-be-relabelled
   (testing "A level's rows live in a box whose number is printed artwork, so the
-            box is bound to that level by the page. A field with a background fill
-            covers the numeral, which is what would let a spare box take a level
-            whose own box is full -- a level 5 cleric spills 13 spells while 59
-            rows sit empty in the levels it cannot reach."
+            box is bound to that level by the page. Covering the numeral is what
+            would let a spare box take a level whose own box is full -- a level 5
+            cleric spills 13 spells while 59 rows sit empty in levels it cannot
+            reach."
     (with-open [doc (style-1-template)]
       (let [form (.getAcroForm (.getDocumentCatalog doc))]
-        (testing "the numeral box is derived from the slots box, not hardcoded"
+        (testing "the hexagon is located from the slots box, not hardcoded"
           (doseq [level (range 1 10)]
             (let [[x y w h] (pdf/spell-level-numeral-box doc level 1)
                   slots (.getRectangle (first (.getWidgets
                                                (.getField form (str "spell-slots-" level "-1")))))]
               (is (< x (.getLowerLeftX slots))
-                  (str "level " level "'s numeral sits left of its slots box"))
-              (is (and (< 8 w 14) (< 12 h 20))
-                  (str "level " level "'s patch covers the numeral, not the hexagon")))))
+                  (str "level " level "'s hexagon sits left of its slots box"))
+              (is (< (+ x w) (+ (.getLowerLeftX slots) 2))
+                  (str "level " level "'s hexagon abuts the slots box"))
+              (is (and (< 15 w 24) (< 32 h 42))
+                  (str "level " level "'s hexagon is about 19 x 37 points")))))
 
         (testing "relabelling adds an addressable field carrying the new number"
           (let [field (pdf/relabel-spell-level! doc 3 1 "1")]
             (is (some? field))
             (is (= "1" (str (.getValueAsString
                              (.getField form "spell-level-label-3-1")))))))
+
+        (testing "the patch is drawn as the hexagon's own shape, not a rectangle"
+          (let [widget (first (.getWidgets (.getField form "spell-level-label-3-1")))
+                stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))
+                ops (with-open [in (.createInputStream (.getCOSObject stream))]
+                      (String. (.readAllBytes in) "ISO-8859-1"))]
+            (is (= 5 (count (re-seq #"\bl\n" ops)))
+                "five lineto operators close a six-cornered path")
+            (is (str/includes? ops " f\n") "and the path is filled")
+            (is (not (str/includes? ops " re\n"))
+                "no rectangle is drawn -- a square patch would cut through the
+                 printed outline and the grey bevel around the numeral")))
 
         (testing "a level with no box on this template is left alone"
           (is (nil? (pdf/spell-level-numeral-box doc 12 1))))))))

@@ -34,8 +34,8 @@
             [clj-http.client :as client])
   (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField PDTerminalField)
            (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget
-                                                              PDAppearanceCharacteristicsDictionary)
-           (org.apache.pdfbox.pdmodel.graphics.color PDColor PDDeviceRGB)
+                                                              PDAppearanceDictionary
+                                                              PDAppearanceStream)
            (org.apache.pdfbox.pdmodel.common PDRectangle)
            (org.apache.pdfbox.cos COSName COSDictionary)
            (org.apache.pdfbox.pdmodel PDPage PDDocument PDPageContentStream PDResources)
@@ -879,26 +879,66 @@
   "Where a level's hexagon sits relative to its SLOTS TOTAL box, and how big it
    is, in points. Measured on the style 1 spell page, where the hexagon abuts the
    left edge of the slots box at every one of the nine levels."
-  {:dx -21.0 :dy -6.0 :width 22.0 :height 34.0})
+  {:dx -21.0 :dy -6.0 :width 19.0 :height 37.5})
+
+(def ^:private hexagon-path
+  "The hexagon's corners as fractions of its bounding box, traced from the
+   rendered artwork at 1200 dpi rather than assumed. It is not symmetric: the left
+   edge is vertical, the points sit near it at about 0.3 across, and the right
+   side bulges out. A symmetric hexagon leaves visible wedges where it misses."
+  [[0.30 1.00] [1.00 0.65] [1.00 0.33] [0.30 0.00] [0.00 0.16] [0.00 0.83]])
+
+(def ^:private numeral-patch-scale
+  "How much of the hexagon the patch covers. Enough to hide the numeral, small
+   enough to leave the outline and the grey bevel around it untouched."
+  0.62)
+
+(defn- hexagon-appearance
+  "An appearance stream drawing a hexagon-shaped patch with `label` centred in it.
+
+   The patch is the hexagon's own shape scaled about its centre, so it sits inside
+   the printed outline instead of cutting a rectangle out of it."
+  [doc width height label]
+  (let [stream (PDAppearanceStream. doc)
+        resources (PDResources.)
+        font (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD)
+        size 13.0
+        cx (/ width 2.0)
+        cy (/ height 2.0)
+        point (fn [[fx fy]]
+                [(+ cx (* numeral-patch-scale (- (* fx width) cx)))
+                 (+ cy (* numeral-patch-scale (- (* fy height) cy)))])
+        [[sx sy] & rest-points] (map point hexagon-path)
+        text-width (* size (/ (.getStringWidth font label) 1000.0))]
+    (.setResources stream resources)
+    (.setBBox stream (PDRectangle. 0 0 width height))
+    (.put resources (COSName/getPDFName "HelvB") font)
+    (with-open [out (.createOutputStream (.getCOSObject stream))]
+      (.write out (.getBytes
+                   (str "1 1 1 rg\n"
+                        (format "%.2f %.2f m\n" sx sy)
+                        (s/join (for [[x y] rest-points] (format "%.2f %.2f l\n" x y)))
+                        "h f\n"
+                        "BT\n/HelvB " size " Tf\n0 g\n"
+                        (format "%.2f %.2f Td\n" (- cx (/ text-width 2.0)) (- cy 4.5))
+                        "(" label ") Tj\nET\n")
+                   "ISO-8859-1")))
+    stream))
 
 (defn spell-level-numeral-box
-  "The rectangle covering the printed level numeral for `level` in the
-   spellcasting section `suffix`, or nil when that level has no slots box.
+  "The hexagon carrying the printed level numeral for `level` in the spellcasting
+   section `suffix`, as [x y width height], or nil when that level has no slots
+   box.
 
    Derived from the slots box rather than hardcoded, so it follows the artwork if
-   the page is re-cut. Insets to the hexagon's bevelled centre: covering the whole
-   hexagon would clip the grey edging and read as a patch."
+   the page is re-cut."
   [doc level suffix]
   (let [form (.getAcroForm (.getDocumentCatalog doc))]
     (when-let [field (some-> form (.getField (str "spell-slots-" level "-" suffix)))]
-      (when-let [box (widget-box doc field)]
-        (let [widget (first (filter #(some? (.getPage %)) (.getWidgets field)))
-              r (.getRectangle widget)
-              {:keys [dx dy]} hexagon-offset]
-          [(+ (.getLowerLeftX r) dx 5.5)
-           (+ (.getLowerLeftY r) dy 9.0)
-           11.0
-           16.0])))))
+      (when-let [widget (first (filter #(some? (.getPage %)) (.getWidgets field)))]
+        (let [r (.getRectangle widget)
+              {:keys [dx dy width height]} hexagon-offset]
+          [(+ (.getLowerLeftX r) dx) (+ (.getLowerLeftY r) dy) width height])))))
 
 (defn relabel-spell-level!
   "Covers the printed level numeral for `level` in section `suffix` with `label`.
@@ -911,7 +951,6 @@
           resources (.getDefaultResources form)
           field (PDTextField. form)
           widget (PDAnnotationWidget.)
-          characteristics (PDAppearanceCharacteristicsDictionary. (COSDictionary.))
           page (.getPage (first (.getWidgets (.getField form (str "spell-slots-" level "-" suffix)))))]
       (when (nil? (.getFont resources (COSName/getPDFName "HelvB")))
         (.put resources (COSName/getPDFName "HelvB")
@@ -919,9 +958,6 @@
       (.setDefaultResources form resources)
       (.setPartialName field (str "spell-level-label-" level "-" suffix))
       (.setRectangle widget (PDRectangle. x y w h))
-      (.setBackground characteristics
-                      (PDColor. (float-array [1 1 1]) (PDDeviceRGB/INSTANCE)))
-      (.setAppearanceCharacteristics widget characteristics)
       (.setPage widget page)
       (.setWidgets field (java.util.ArrayList. [widget]))
       (.setAnnotations page (java.util.ArrayList.
@@ -929,7 +965,15 @@
       (.setFields form (java.util.ArrayList. (conj (vec (.getFields form)) field)))
       (.setDefaultAppearance field "/HelvB 13 Tf 0 g")
       (.setQ field 1)
+      ;; The value goes on first: setValue makes PDFBox generate its own
+      ;; appearance, which would otherwise be appended after this one and draw the
+      ;; numeral a second time. Read-only stops a viewer regenerating it, and this
+      ;; is a label rather than something to fill in.
       (.setValue field (str label))
+      (let [appearance (PDAppearanceDictionary.)]
+        (.setNormalAppearance appearance (hexagon-appearance doc w h (str label)))
+        (.setAppearance widget appearance))
+      (.setReadOnly field true)
       field)))
 
 ;; ─── Overflow pages ───────────────────────────────────────────────────────────
