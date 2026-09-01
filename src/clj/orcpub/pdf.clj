@@ -1006,6 +1006,88 @@
       (.setReadOnly field true)
       field))))
 
+(defn- slot-labels-appearance
+  "A white patch carrying the SLOTS TOTAL and SLOTS EXPENDED labels in the same
+   grey the printed ones use, for a box whose bar has neither."
+  [doc width height]
+  (let [stream (PDAppearanceStream. doc)
+        resources (PDResources.)
+        font (PDType1Font. Standard14Fonts$FontName/HELVETICA)]
+    (.setResources stream resources)
+    (.setBBox stream (PDRectangle. 0 0 width height))
+    (.put resources (COSName/getPDFName "Helv") font)
+    (with-open [out (.createOutputStream (.getCOSObject stream))]
+      (.write out (.getBytes
+                   (str "1 1 1 rg\n"
+                        (format "0 0 %.2f %.2f re f\n" width height)
+                        ;; side by side, as they read on the level bars, rather
+                        ;; than stacked -- and inside the box, since text running
+                        ;; past the BBox is clipped rather than overflowing
+                        "BT\n/Helv 4 Tf\n0.55 g\n"
+                        "1 5 Td\n(SLOTS TOTAL) Tj\nET\n"
+                        "BT\n/Helv 4 Tf\n0.55 g\n"
+                        (format "%.1f 5 Td\n" (* width 0.42))
+                        "(SLOTS EXPENDED) Tj\nET\n")
+                   "ISO-8859-1")))
+    stream))
+
+
+;; ─── Reusing the cantrips box ─────────────────────────────────────────────────
+;;
+;; The cantrips box is eight more rows, and cantrips only need printing once, so
+;; on a continuation page it is dead space. It can carry a spell level like any
+;; other box, but it needs more than a new numeral: it has no slots field to
+;; locate it by, its bar reads CANTRIPS, and it has no SLOTS TOTAL / SLOTS
+;; EXPENDED labels because cantrips do not use slots.
+
+(def ^:private cantrips-box
+  "Geometry of the cantrips box on the style 1 spell page, in points. Traced from
+   the artwork: unlike the level boxes there is no spell-slots field to derive it
+   from. Its hexagon shares the left column's x with levels 1 and 2, and its y
+   matches level 3 at the top of the middle column, the columns being aligned."
+  {:hexagon [30.9 617.5 19.0 37.0]
+   ;; Wide enough for both slot labels side by side, not just to hide the word:
+   ;; the printed CANTRIPS runs x 112.5 to 142.5, the bar's interior to about 200.
+   :word [106.0 628.0 92.0 14.0]
+   :bar [52.0 628.0 150.0 16.0]})         ; the bar it sits in
+
+(defn reuse-cantrips-box!
+  "Turns the cantrips box into a spell level box carrying `label`: renumbers the
+   hexagon, hides the word CANTRIPS, and writes the slot labels the level boxes
+   have. Returns the fields added.
+
+   The labels are drawn rather than reproduced from the artwork -- the level bars
+   have shaped slot art this does not attempt. On a continuation page the box is
+   otherwise wasted, and eight rows are worth more than a matching bar."
+  [doc suffix label]
+  (let [form (.getAcroForm (.getDocumentCatalog doc))
+        page (some-> form (.getField (str "spells-0-1-" suffix))
+                     .getWidgets first .getPage)
+        {:keys [hexagon word]} cantrips-box
+        [hx hy hw hh] hexagon
+        [wx wy ww wh] word]
+    (when page
+      (let [add (fn [nm [x y w h] draw]
+                  (let [field (PDTextField. form)
+                        widget (PDAnnotationWidget.)
+                        appearance (PDAppearanceDictionary.)]
+                    (.setPartialName field nm)
+                    (.setRectangle widget (PDRectangle. x y w h))
+                    (.setPage widget page)
+                    (.setWidgets field (java.util.ArrayList. [widget]))
+                    (.setAnnotations page (java.util.ArrayList.
+                                           (conj (vec (.getAnnotations page)) widget)))
+                    (.setFields form (java.util.ArrayList.
+                                      (conj (vec (.getFields form)) field)))
+                    (.setNormalAppearance appearance (draw w h))
+                    (.setAppearance widget appearance)
+                    (.setReadOnly field true)
+                    field))]
+        [(add (str "spell-level-label-0-" suffix) hexagon
+              (fn [w h] (hexagon-appearance doc w h (str label) false nil)))
+         (add (str "cantrips-slot-labels-" suffix) [wx wy ww wh]
+              (fn [w h] (slot-labels-appearance doc w h)))]))))
+
 ;; ─── Overflow pages ───────────────────────────────────────────────────────────
 
 (def overflow-labels

@@ -553,3 +553,38 @@
 
         (testing "a level with no box on this template is left alone"
           (is (nil? (pdf/spell-level-numeral-box doc 12 1))))))))
+
+(deftest the-cantrips-box-can-take-a-spell-level
+  (testing "Cantrips only print once, so on a continuation page the cantrips box
+            is eight dead rows. Reusing it needs more than a numeral: it has no
+            spell-slots field to locate it by, its bar reads CANTRIPS, and it has
+            no slot labels because cantrips do not use slots."
+    (with-open [doc (style-1-template)]
+      (let [added (pdf/reuse-cantrips-box! doc 1 "1")
+            form (.getAcroForm (.getDocumentCatalog doc))]
+        (is (= 2 (count added)) "a renumbered hexagon and a relabelled bar")
+        (is (some? (.getField form "spell-level-label-0-1")))
+        (is (some? (.getField form "cantrips-slot-labels-1")))
+
+        (testing "the bar patch carries both labels, and they fit inside it"
+          (let [widget (first (.getWidgets (.getField form "cantrips-slot-labels-1")))
+                stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))
+                ops (with-open [in (.createInputStream (.getCOSObject stream))]
+                      (String. (.readAllBytes in) "ISO-8859-1"))
+                width (.getWidth (.getRectangle widget))]
+            (is (str/includes? ops "(SLOTS TOTAL)"))
+            (is (str/includes? ops "(SLOTS EXPENDED)"))
+            ;; text running past the BBox is clipped, not overflowed, which is how
+            ;; the first attempt lost the last letter of SLOTS EXPENDED
+            ;; getStringWidth is in thousandths of an em, so size x raw/1000 is
+            ;; already points -- no further conversion
+            (let [longest (* 4.0 (/ (.getStringWidth pdf/HELVETICA "SLOTS EXPENDED") 1000.0))]
+              (is (< (+ (* width 0.42) longest) width)
+                  "the rightmost label ends inside the patch"))))
+
+        (testing "it sits over the cantrips rows, not another box"
+          (let [widget (first (.getWidgets (.getField form "spell-level-label-0-1")))
+                row (first (.getWidgets (.getField form "spells-0-1-1")))]
+            (is (> (.getLowerLeftY (.getRectangle widget))
+                   (.getLowerLeftY (.getRectangle row)))
+                "the hexagon is above the first cantrip row")))))))
