@@ -38,12 +38,12 @@ const noise = [
 const SCENARIOS = [
   { name: 'barbarian',  classes: [['Barbarian', '20']], spells: 0, minPages: 3,
     note: 'no spellcasting, so no spell pages' },
-  { name: 'wizard-20',  classes: [['Wizard', '20']], spells: 10, minPages: 4,
-    note: 'one caster with spells chosen at every level' },
+  { name: 'wizard-20',  classes: [['Wizard', '20']], spells: 8, minPages: 4,
+    note: 'one caster, spells spread across its list so several level boxes fill' },
   { name: 'multiclass', classes: [['Wizard', '5'], ['Cleric', '5'], ['Sorcerer', '5']],
-    spells: 12, minPages: 6, abilities: true,
-    note: 'three casting classes: several spell pages, and a class whose list ' +
-          'outgrows one page takes another' },
+    spells: 3, minPages: 6, abilities: true,
+    note: 'three casting classes, each picked from its own block: a spellcasting ' +
+          'section per caster, and a class whose list outgrows one page takes another' },
 ];
 
 function record(page, sink, label) {
@@ -59,6 +59,28 @@ function record(page, sink, label) {
     if (noise.some(re => re.test(req.url()))) return;
     sink.push(`${label}: request failed: ${req.url()} (${req.failure()?.errorText})`);
   });
+}
+
+// The builder re-renders on every change and shows no loading indicator, so the
+// only signal that a change has landed is the DOM going quiet. Waiting for that
+// beats a fixed sleep both ways: it returns as soon as the render finishes, and
+// it still waits on a machine slower than the sleep was tuned for.
+async function settle(page, quiet = 300, cap = 8000) {
+  await page.evaluate(([quiet, cap]) => new Promise(resolve => {
+    let timer = setTimeout(done, quiet);
+    const ceiling = setTimeout(done, cap);
+    const observer = new MutationObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(done, quiet);
+    });
+    function done() {
+      clearTimeout(timer);
+      clearTimeout(ceiling);
+      observer.disconnect();
+      resolve();
+    }
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+  }), [quiet, cap]).catch(() => {});
 }
 
 // Several nodes carry the same label and some are hidden -- the mobile layout
@@ -120,14 +142,27 @@ async function classifySelects(page) {
   return { classSelects, levelSelects };
 }
 
+// classifySelects reads the DOM as it stands, and a click that adds a class row
+// only produces its selects a render later -- a quiet DOM is not enough, because
+// re-frame leaves a gap before it re-renders. Poll for the selects themselves.
+async function waitForSelects(page, wanted, timeout = 15000) {
+  const deadline = Date.now() + timeout;
+  let sets = await classifySelects(page);
+  while (!wanted(sets) && Date.now() < deadline) {
+    await page.waitForTimeout(150);
+    sets = await classifySelects(page);
+  }
+  return sets;
+}
+
 // Multiclassing into a caster requires the relevant mental score at 13, and the
 // default array leaves WIS at 10 and CHA at 8 -- so every caster is refused.
 // Manual Entry exposes the six base scores as editable inputs.
 async function raiseAbilities(page, check) {
   check(await openBuilderTab(page, 'Ability Scores'), 'the builder has an Ability Scores step');
-  await page.waitForTimeout(1500);
+  await settle(page);
   check(await clickVisible(page, 'text=Manual Entry'), 'abilities can be entered by hand');
-  await page.waitForTimeout(1500);
+  await settle(page);
 
   // The first six number inputs are the base scores, in STR DEX CON INT WIS CHA
   // order; the rest are the computed totals and are read-only.
@@ -141,23 +176,23 @@ async function raiseAbilities(page, check) {
     await page.waitForTimeout(200);
   }
   check(set === 6, `set ${set} ability scores to 15`);
-  await page.waitForTimeout(1000);
+  await settle(page);
 }
 
 async function setClasses(page, classes, check) {
   await openBuilderTab(page, 'Class / Level');
-  await page.waitForTimeout(1200);
+  await settle(page);
 
   for (let i = 0; i < classes.length; i++) {
     if (i > 0) {
       // Adds the first class not already taken; its dropdown is then re-pointed.
       const added = await clickVisible(page, 'text=Add Levels in Another Class');
       check(added, `added a slot for class ${i + 1}`);
-      await page.waitForTimeout(1500);
     }
     const [className, level] = classes[i];
-    let { classSelects, levelSelects } = await classifySelects(page);
+    let { classSelects } = await waitForSelects(page, s => s.classSelects.length > i);
     check(classSelects.length > i, `class ${i + 1} has a class dropdown`);
+    if (classSelects.length <= i) return;
 
     // Multiclass options carry their prerequisite in the label -- "Cleric
     // (Requires WIS 13 or higher)" -- so match on the leading class name.
@@ -168,41 +203,78 @@ async function setClasses(page, classes, check) {
           `${className} is offered for class ${i + 1}` +
           (optionIndex >= 0 ? '' : ` (offered: ${classOptions.join(', ')})`));
     await classSelects[i].selectOption({ index: optionIndex, timeout: 10000 });
-    await page.waitForTimeout(1200);
 
-    // Re-read: changing the class re-renders the row and its level dropdown.
-    ({ levelSelects } = await classifySelects(page));
+    // Changing the class re-renders the row and its level dropdown.
+    const { levelSelects } = await waitForSelects(page, s => s.levelSelects.length > i);
     check(levelSelects.length > i, `class ${i + 1} has a level dropdown`);
+    if (levelSelects.length <= i) return;
     const levelOptions = (await levelSelects[i].locator('option').allTextContents())
       .map(o => o.trim());
     check(levelOptions.includes(level),
           `level ${level} is offered for class ${i + 1}` +
           (levelOptions.includes(level) ? '' : ` (offered up to ${levelOptions.slice(-1)})`));
     await levelSelects[i].selectOption({ label: level, timeout: 10000 });
-    await page.waitForTimeout(1200);
+    await settle(page);
   }
 }
 
-// Spell rows are not real checkboxes -- the square is styled markup -- so the
-// row label is what gets clicked. Its class distinguishes it from, say, the
-// "Light Theme" toggle, which a text match on "Light" would otherwise hit.
-async function selectSpells(page, wanted, check) {
-  check(await openBuilderTab(page, 'Spells'), 'the builder has a Spells step');
-  await page.waitForTimeout(2000);
-  await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(800);
+// Every caster gets its own "<Class> Cantrips Known" / "<Class> Spells Known"
+// block, each a div.p-5.m-b-20.m-b-0-last holding one heading and its rows.
+// Walking the page top-down fills only the blocks it reaches first, which leaves
+// later casters with no spells -- and pdf_spec emits a spellcasting section only
+// for a class that HAS spells, so those casters get no page at all. Picking from
+// each block is what makes a multiclass sheet carry one section per caster.
+//
+// Spell rows are not real checkboxes -- the square is styled markup -- so the row
+// label is what gets clicked. Its class distinguishes it from, say, the "Light
+// Theme" toggle, which a text match on "Light" would otherwise hit.
+async function blockTitles(page) {
+  return page.evaluate(() =>
+    Array.from(document.querySelectorAll('span.m-l-5.f-s-18.f-w-b.flex-grow-1'))
+         .map(el => el.textContent.trim()));
+}
 
-  const rows = page.locator('span.f-w-b.f-s-1.flex-grow-1');
-  const available = await rows.count();
-  let selected = 0;
-  for (let i = 0; i < available && selected < wanted; i++) {
-    const row = rows.nth(i);
-    if (!(await row.isVisible())) continue;
-    await row.click({ timeout: 4000 }).catch(() => {});
-    selected += 1;
-    await page.waitForTimeout(250);
+// Picks one row from the named block, skipping labels already taken. Addressing
+// the block by its heading rather than by index survives the re-render each
+// selection causes, which reorders and re-length the lists.
+// `spread` walks the list end to end instead of taking the first few, so the
+// higher spell levels get chosen too and more than one level box is filled.
+async function pickInBlock(page, title, taken, spread) {
+  return page.evaluate(([title, taken, spread]) => {
+    const head = Array.from(document.querySelectorAll('span.m-l-5.f-s-18.f-w-b.flex-grow-1'))
+      .find(h => h.textContent.trim() === title);
+    if (!head) return null;
+    const block = head.parentElement.parentElement;
+    const rows = Array.from(block.querySelectorAll('span.f-w-b.f-s-1.flex-grow-1'))
+      .filter(r => !taken.includes(r.textContent.trim()));
+    if (!rows.length) return null;
+    const row = rows[Math.min(rows.length - 1, Math.floor(spread * rows.length))];
+    const label = row.textContent.trim();
+    row.click();
+    return label;
+  }, [title, taken, spread]);
+}
+
+async function selectSpells(page, perBlock, check) {
+  check(await openBuilderTab(page, 'Spells'), 'the builder has a Spells step');
+  await settle(page);
+
+  const titles = await blockTitles(page);
+  check(titles.length > 0, `the Spells step offers ${titles.length} block(s)`);
+
+  const filled = [];
+  for (const title of titles) {
+    const taken = [];
+    for (let i = 0; i < perBlock; i++) {
+      const label = await pickInBlock(page, title, taken, i / perBlock);
+      if (!label) break;
+      taken.push(label);
+      await settle(page, 150, 3000);
+    }
+    filled.push(`${title.replace(' Known', '')} ${taken.length}`);
   }
-  check(selected >= wanted, `chose ${selected} spells of ${wanted} wanted`);
+  check(filled.every(f => !f.endsWith(' 0')),
+        `chose spells in every block - ${filled.join(', ')}`);
 }
 
 async function exportPdf(page, context, check) {
@@ -218,7 +290,7 @@ async function exportPdf(page, context, check) {
   await context.route('**/character.pdf', handler);
 
   check(await clickVisible(page, 'text=Export'), 'the builder offers an Export control');
-  await page.waitForTimeout(1800);
+  await settle(page);
 
   // "Create PDF" stays disabled until a sheet is chosen: print-button-enabled in
   // views.cljs gates on print-character-sheet-style? being set.
@@ -241,10 +313,22 @@ async function exportPdf(page, context, check) {
     createPdf.click({ timeout: 10000 }).catch(() => createPdf.click({ force: true })),
   ]);
   check(response.status() === 200, `the export answers 200 (got ${response.status()})`);
-  await page.waitForTimeout(1500);
+  // the route handler fills pdfBytes on its own schedule, which the response
+  // event does not wait for -- so wait for the bytes, not for a duration
+  for (let i = 0; i < 200 && pdfBytes === null; i++) await page.waitForTimeout(50);
   await context.unroute('**/character.pdf', handler);
   return pdfBytes;
 }
+
+// Exported so a throwaway probe script can drive the builder the same way this
+// does, rather than keeping its own copy that drifts. run.sh takes a script name,
+// so a probe is `./scripts/e2e/run.sh probe.js`.
+module.exports = { settle, firstVisible, clickVisible, openBuilderTab,
+                   classifySelects, waitForSelects, raiseAbilities, setClasses, selectSpells,
+                   blockTitles, pickInBlock,
+                   exportPdf, SCENARIOS, BASE, OUT, EXECUTABLE };
+
+if (require.main !== module) return;
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
@@ -270,7 +354,7 @@ async function exportPdf(page, context, check) {
     try {
       await page.goto(`${BASE}/pages/dnd/5e/character-builder`,
                       { waitUntil: 'networkidle', timeout: 60000 });
-      await page.waitForTimeout(2500);
+      await settle(page);
       await clickVisible(page, 'text=Got it!');   // cookie banner covers the controls
 
       if (scenario.abilities) await raiseAbilities(page, check);
