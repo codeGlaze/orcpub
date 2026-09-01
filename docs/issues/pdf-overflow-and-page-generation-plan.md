@@ -304,6 +304,55 @@ does not show on its row is its **source**, which currently only reaches the
 heading. Putting the source there too is a change to one `str` in `pdf_spec`,
 and the measurement above says the row has the width for it.
 
+
+#### What 5e actually keeps separate, and where the sheet does not
+
+The grouping should follow the rules rather than the layout, and the rules split
+three ways (PHB p.164, Multiclassing):
+
+- **Spells known and prepared are per class.** "You determine what spells you know
+  and can prepare for each class individually, as if you were a single-classed
+  member of that class." A Cleric 5 / Druid 5 prepares WIS mod + 5 cleric spells
+  from the cleric list, and WIS mod + 5 druid spells from the druid list. Two
+  lists, two budgets.
+- **Spell slots are one pool** shared across every Spellcasting class, from the
+  combined caster-level table.
+- **Pact Magic is a separate pool**, usable on Spellcasting spells and vice versa.
+
+`pdf_spec` groups a section by `:ability`, which crosses the first of those. Both
+a Cleric and a Druid cast off WIS, so they land in one section and their lists
+interleave alphabetically. Verified by calling `make-pages` directly:
+
+    section  ability wis   heading: Cleric, Druid
+      level 1
+        Bless             (Cleric, not printed)
+        Cure Wounds       (Cleric, not printed)
+        Entangle          (Druid, not printed)
+        Faerie Fire       (Druid, not printed)
+        Goodberry         (Druid, not printed)
+        Guiding Bolt      (Cleric, not printed)
+        ...
+
+The row is built as `spell-name` plus `(qualifier)`; `:class` is carried on every
+spell but never reaches the page. A player cannot tell which list a spell came
+from, and it decides which preparation budget it counts against.
+
+Ability is the right grouping for the **header** -- save DC and attack bonus are
+per ability, so one header serves both classes. It is the wrong grouping for the
+**rows**. So the section can stay as it is, and the fix is at the box: a run of
+boxes per class, labelled, which is the column shape already chosen above. That
+lines up: three abilities, three columns, and each class's list kept whole.
+
+Slots are the character's, not the class's -- which contradicts the comment now
+in `spell-page-fields` saying "slots belong to the class". They are repeated per
+section today, harmless while every section shows the same combined pool, but the
+reasoning should be corrected when this is next touched.
+
+Pact Magic is a real defect and is written up in
+`docs/issues/pact-magic-slots-overwrite.md`: the pact schedule is merged over the
+Spellcasting table, so a Cleric 3 / Warlock 2 shows 2 first-level slots where the
+character has 4 plus 2 pact.
+
 ### 9. Styles 2, 3 and 4 — a later branch
 
 Everything measured for the relabelling is style 1 only: `printed-slot-labels`,
