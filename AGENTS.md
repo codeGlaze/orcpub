@@ -11,27 +11,26 @@
 
 | Branch | Protection Level | Rule |
 |--------|-----------------|------|
-| `develop` | **OWNER ONLY** | NEVER merge or push. Only the repo owner touches this branch. |
-| `modernize-stack` | **PR REQUIRED** | All changes require a Pull Request with owner approval. No direct pushes. No overrides. |
-| `upgrade/*` | **OPEN** | Agents may work freely in these branches. |
+| `develop` | **OWNER ONLY** | Production. Live since spring and iterated on continuously. NEVER merge or push. |
 | `integration` | **PR REQUIRED** | The developer mainline `develop` is released from. Work merges here by PR, never by direct push. |
 | `fix/*`, `feature/*`, `docs/*` | **OPEN** | Cut from `integration` and merged back into it. Agents may push to these. |
 
+The `modernize-stack` and `upgrade/*` branches were the stack upgrade, finished
+in February. Nothing is cut from them now.
+
 ### Agent Workflow Rules
 
-1. NEVER merge or push directly to `develop`
-2. NEVER merge or push directly to `modernize-stack`
-3. Work in `upgrade/*` branches
-4. Create Pull Requests for review — do not merge them yourself
-5. Branch new features from `upgrade/security-jackson-guava`
-6. Act on a proven, safe, non-destructive improvement rather than reporting it as
+1. NEVER merge or push directly to `develop` — it is production
+2. Cut work from `integration`, and merge it back there by Pull Request
+3. Create Pull Requests for review — do not merge them yourself
+4. Act on a proven, safe, non-destructive improvement rather than reporting it as
    something the owner should decide. If it is measured, reversible and serves
    the task in hand, do it and say what was done. Needing a different branch is
    not by itself a reason to ask; a protected branch is.
 
    Still ask for: a design or scope decision, anything destructive, and anything
    outward-facing — a pull request, a release, a push to a protected branch.
-7. Raise a problem found outside the immediate change, then fix it. "Not mine" is
+5. Raise a problem found outside the immediate change, then fix it. "Not mine" is
    not a reason to leave a broken thing broken.
 
 ---
