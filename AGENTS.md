@@ -14,6 +14,8 @@
 | `develop` | **OWNER ONLY** | NEVER merge or push. Only the repo owner touches this branch. |
 | `modernize-stack` | **PR REQUIRED** | All changes require a Pull Request with owner approval. No direct pushes. No overrides. |
 | `upgrade/*` | **OPEN** | Agents may work freely in these branches. |
+| `integration` | **PR REQUIRED** | The developer mainline `develop` is released from. Work merges here by PR, never by direct push. |
+| `fix/*`, `feature/*`, `docs/*` | **OPEN** | Cut from `integration` and merged back into it. Agents may push to these. |
 
 ### Agent Workflow Rules
 
@@ -22,6 +24,15 @@
 3. Work in `upgrade/*` branches
 4. Create Pull Requests for review — do not merge them yourself
 5. Branch new features from `upgrade/security-jackson-guava`
+6. Act on a proven, safe, non-destructive improvement rather than reporting it as
+   something the owner should decide. If it is measured, reversible and serves
+   the task in hand, do it and say what was done. Needing a different branch is
+   not by itself a reason to ask; a protected branch is.
+
+   Still ask for: a design or scope decision, anything destructive, and anything
+   outward-facing — a pull request, a release, a push to a protected branch.
+7. Raise a problem found outside the immediate change, then fix it. "Not mine" is
+   not a reason to leave a broken thing broken.
 
 ---
 
