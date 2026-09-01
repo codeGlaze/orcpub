@@ -691,3 +691,27 @@
                             (filter #(str/starts-with? % "unique-")))]
             (is (= (count values) (count (distinct values)))
                 "a repeated value means two fields are showing the same thing")))))))
+
+(deftest no-baked-template-has-a-field-on-two-pages
+  (testing "A field is one value however many widgets show it, so a widget on two
+            spell pages ticks or fills both at once. dev/prepare_templates.clj
+            splits those, and this asserts the committed resources came out of it
+            -- a template re-cut or replaced without a re-bake fails here rather
+            than shipping a sheet where one class mirrors another."
+    (doseq [style (range 1 5)
+            spells (range 0 7)
+            :let [resource (io/resource (str "fillable-char-sheetstyle-"
+                                             style "-" spells "-spells.pdf"))]
+            :when resource]
+      (with-open [doc (Loader/loadPDF (.readAllBytes (.openStream resource)))]
+        (let [form (.getAcroForm (.getDocumentCatalog doc))
+              pages (into {} (map-indexed (fn [i p] [p (inc i)]) (.getPages doc)))
+              spanning (for [field (iterator-seq (.iterator (.getFieldTree form)))
+                             :let [on (into #{} (keep #(pages (.getPage %))
+                                                      (.getWidgets field)))]
+                             :when (> (count on) 1)]
+                         (str (.getFullyQualifiedName field) " on pages "
+                              (str/join "," (sort on))))]
+          (is (empty? spanning)
+              (str "style " style " with " spells " spell page(s): "
+                   (str/join "; " (take 3 spanning)))))))))

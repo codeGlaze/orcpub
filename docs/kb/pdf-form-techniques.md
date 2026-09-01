@@ -147,3 +147,82 @@ so copied values lose their sign.
 This is an upstream PDFBox bug that has since been fixed. The current version
 maps "hyphen" to 45 only, so the correct byte comes from the version, not from
 anything in this repo's code.
+
+## A field with widgets on two pages is the same rule, hidden
+
+The name rule above has a second form that is easy to miss, because nothing about
+the field names looks wrong: **one field can own widgets on several pages.** It
+is still one field with one value, so it shows the same value in both places.
+
+The style 1 six-caster template ships 101 of these — 92 prepared ticks and the
+nine SLOTS EXPENDED blanks, shared between the first two classes' spell pages. A
+Wizard's prepared spells appeared on the Cleric's page and their expended slots
+were literally the same field.
+
+`split-fields-across-pages!` gives each page its own field. Two constraints keep
+it working:
+
+- **It must run before the naming passes.** They name a field after the row
+  beside one of its widgets and then skip it, since it no longer looks unnamed —
+  so a spanning field keeps the first page's name and goes on mirroring. That
+  ordering is why `dev/prepare_templates.clj` lists its steps in a fixed order.
+- **The passes that recognise template names must accept the split's suffix.**
+  The split names its copies `Check Box 25-p2`. A pattern matching only
+  `Check Box 25` sees that as already named and leaves it anonymous — which is
+  exactly how class 2's ticks were missed on the first attempt. `unnamed-checkbox?`
+  and `unnamed-slots-expended?` in `pdf.clj` are the shared predicates; the same
+  pattern is in `dev/inspect_export.clj` as `still-unnamed`.
+
+The invariant is worth asserting rather than remembering: no field should carry
+widgets on more than one page. `dev/inspect_export.clj` checks it on every
+exported sheet, and `pdf_test.clj` checks it on the templates.
+
+## Place a patch by measuring the artwork, not by eye
+
+Anything drawn over the sheet has a printed counterpart to match, and guessing at
+it is wasted work — every value can be read out of the PDF:
+
+- **Positions and font size**: `PDFTextStripper`, overriding `writeString` to
+  collect each `TextPosition`'s `getXDirAdj` / `getYDirAdj` / `getFontSizeInPt`.
+- **Colour**: render at high DPI and sample the pixels. At 300 DPI antialiasing
+  still tints the darkest pixel; at 1200 the flat value is unambiguous.
+- **Distances between repeated blocks**: take them from printed landmarks rather
+  than tracing. The spell level numerals give the box-to-box offset exactly.
+
+Worked example, the SLOTS TOTAL / SLOTS EXPENDED line the reused cantrips box
+needs. The page prints it once, above level 1, and the other level boxes are read
+from that one line by position:
+
+    SLOTS TOTAL     x  50.83   baseline 483.17   size 5.00
+    SLOTS EXPENDED  x 127.71   baseline 483.17   grey 0.59  (renders [150 151 151])
+
+    level 1 numeral baseline 463.99
+    level 3 numeral baseline 631.72   <- top of the middle column, level with cantrips
+    cantrips box is therefore 167.73pt higher
+
+Placed by eye first, that line came out at 4pt in grey 0.55 on a baseline a point
+low. Measured, it lands on 50.83 / 127.71 / 650.90 at 5pt exactly. Those numbers
+are `printed-slot-labels` and `cantrips-box-rise` in `pdf.clj`, and the test
+asserts them by flattening the result and reading the text back.
+
+Derive rather than hardcode where a field already gives you the geometry:
+`cantrips-hexagon-box` is whatever `spell-level-numeral-box` measures for level 1,
+raised by the same offset, so it tracks the artwork if the page is re-cut.
+
+## How many spellcasting sections a sheet carries
+
+The stock templates come in seven sizes, `-0-spells` through `-6-spells`, and the
+number is how many spellcasting sections the file has — **not** a class list. The
+trailing number on a field name is the section index: `prepared-1-1-4` is level 1,
+row 1, section 4. `routes.clj` picks the smallest file that fits by looking for
+the highest `spellcasting-class-N` key `pdf_spec` emitted.
+
+Six is the largest file, and characters go past it. `add-missing-spell-pages!`
+clones a page per class beyond what the template carries, so the ceiling is the
+character, not the sheet. The eight-class fixture in `dev/sample_character.clj`
+exports eight sections over eight pages — 11 pages in all, no shared names, no
+orphans, nothing mirroring.
+
+A class whose spells outgrow one page takes another, marked `(continued)` in its
+heading by `pdf_spec`, and slots are written only on a class's first page so the
+continuation does not repeat them.

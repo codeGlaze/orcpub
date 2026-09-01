@@ -3,8 +3,11 @@
 
      lein with-profile init-db run -m clojure.main dev/prepare_templates.clj
 
-   Four transforms are pure functions of the template, so doing them per request
-   repeated identical work on every export. They are applied here once instead:
+   These transforms are pure functions of the template, so doing them per request
+   repeated identical work on every export. They are applied here once instead,
+   in this order -- the naming passes recognise a field by the name the template
+   gave it, and the split hands its copies a suffixed version of that name, so a
+   split that ran afterwards would leave its copies unnamed:
 
      pdf/prune-orphan-widgets!        drop widgets belonging to no page
      pdf/split-fields-across-pages!   one field per page, so nothing mirrors
