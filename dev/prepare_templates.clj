@@ -7,6 +7,7 @@
    repeated identical work on every export. They are applied here once instead:
 
      pdf/prune-orphan-widgets!        drop widgets belonging to no page
+     pdf/split-fields-across-pages!   one field per page, so nothing mirrors
      pdf/name-prepared-checkboxes!    Check Box 25 -> prepared-1-1-1
      pdf/name-death-save-checkboxes!  the six ticks on the character page
      pdf/disambiguate-duplicate-fields!  anything still sharing a name
@@ -31,13 +32,17 @@
   (let [names (field-names doc)]
     {:fields (count names)
      :duplicates (->> names frequencies (filter #(> (val %) 1)) count)
-     :anonymous (count (filter #(re-matches #"(?i)check box \d+" %) names))}))
+     ;; the split suffixes its copies, so an unnamed one can read "Check Box 25-p2"
+     :anonymous (count (filter #(re-matches #"(?i)check box \d+(-p\d+)?" %) names))}))
 
 (defn- prepare! [^File file]
   (let [before-bytes (.length file)]
     (with-open [doc (Loader/loadPDF (.readAllBytes (io/input-stream file)))]
       (let [before (stats doc)
             removed (pdf/prune-orphan-widgets! doc)
+            ;; before naming: a field whose widgets sit on two pages would keep
+            ;; the first page's name and mirror onto the second
+            split (pdf/split-fields-across-pages! doc)
             named (+ (pdf/name-prepared-checkboxes! doc)
                      (pdf/name-death-save-checkboxes! doc))
             disambiguated (pdf/disambiguate-duplicate-fields! doc)
@@ -53,8 +58,8 @@
                          (:fields before) (:fields after)
                          (quot before-bytes 1024) (quot (.length file) 1024)
                          (if changed?
-                           (format "pruned %d, named %d, renamed %d"
-                                   removed named disambiguated)
+                           (format "pruned %d, split %d, named %d, renamed %d"
+                                   removed split named disambiguated)
                            "already clean")))
         ;; Duplicates are a correctness problem -- same name, one shared value --
         ;; so they must all be gone. Anonymous names are only unhelpful, and the

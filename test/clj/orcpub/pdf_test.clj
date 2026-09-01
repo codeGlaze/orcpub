@@ -562,8 +562,10 @@
     (with-open [doc (style-1-template)]
       (let [added (pdf/reuse-cantrips-box! doc 1 "1")
             form (.getAcroForm (.getDocumentCatalog doc))]
-        (is (= 2 (count added)) "a renumbered hexagon and a relabelled bar")
+        (is (= 3 (count added))
+            "a renumbered hexagon, a cover over CANTRIPS, and the slot labels")
         (is (some? (.getField form "spell-level-label-0-1")))
+        (is (some? (.getField form "cantrips-word-cover-1")))
         (is (some? (.getField form "cantrips-slot-labels-1")))
 
         (testing "the bar patch carries both labels, and they fit inside it"
@@ -574,6 +576,9 @@
                 width (.getWidth (.getRectangle widget))]
             (is (str/includes? ops "(SLOTS TOTAL)"))
             (is (str/includes? ops "(SLOTS EXPENDED)"))
+            (is (not (str/includes? ops "re f"))
+                "no fill: the labels sit above the bar on the page, like the
+                 printed ones above level 1, not over printed art")
             ;; text running past the BBox is clipped, not overflowed, which is how
             ;; the first attempt lost the last letter of SLOTS EXPENDED
             ;; getStringWidth is in thousandths of an em, so size x raw/1000 is
@@ -588,3 +593,78 @@
             (is (> (.getLowerLeftY (.getRectangle widget))
                    (.getLowerLeftY (.getRectangle row)))
                 "the hexagon is above the first cantrip row")))))))
+
+(defn- drawn-text
+  "The strings a field's generated appearance actually shows."
+  [form field-name]
+  (let [widget (first (.getWidgets (.getField form field-name)))
+        stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))]
+    (with-open [in (.createInputStream (.getCOSObject stream))]
+      (map second (re-seq #"\(([^)]*)\)\s*Tj" (String. (.readAllBytes in) "ISO-8859-1"))))))
+
+(deftest slot-totals-and-expended-reach-the-page
+  (testing "SLOTS TOTAL is spell-slots-<level>-<class> and SLOTS EXPENDED is a
+            free-text field beside it. Both are written by the exporter, so both
+            must survive to the appearance stream, not merely be stored."
+    (with-open [doc (style-1-template)]
+      (pdf/write-fields! doc {:spell-slots-1-1 "4"
+                              (keyword "SlotsRemaining 19") "XX"
+                              :spell-slots-2-1 "3"} false {})
+      (let [form (.getAcroForm (.getDocumentCatalog doc))]
+        (is (= "4" (str (.getValueAsString (.getField form "spell-slots-1-1")))))
+        (is (some #{"4"} (drawn-text form "spell-slots-1-1"))
+            "the slot total is drawn, not just stored")
+        (is (some #{"XX"} (drawn-text form "SlotsRemaining 19"))
+            "the expended field is drawn too")
+        (is (= "3" (str (.getValueAsString (.getField form "spell-slots-2-1"))))
+            "and each level keeps its own total")))))
+
+(deftest checkboxes-tick-independently
+  (testing "Every checkbox was named 'Check Box N' and many shared a name, so
+            ticking one ticked its twins. After naming they must be independent."
+    (with-open [doc (six-caster-template)]
+      (pdf/write-fields! doc {:prepared-1-1-1 true
+                              :prepared-1-2-1 false
+                              :prepared-1-1-2 false
+                              :death-save-success-1 true
+                              :death-save-failure-1 false}
+                         false {})
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            value (fn [nm] (str (.getValueAsString (.getField form nm))))]
+        (is (= "Yes" (value "prepared-1-1-1")) "the box asked for is ticked")
+        (is (= "Off" (value "prepared-1-2-1")) "its neighbour on the same page is not")
+        (is (= "Off" (value "prepared-1-1-2"))
+            "and neither is the same slot on another class's page")
+        (is (= "Yes" (value "death-save-success-1")))
+        (is (= "Off" (value "death-save-failure-1"))
+            "a success does not tick a failure")))))
+
+(deftest nothing-mirrors-by-accident
+  (testing "Fields sharing a name share one value, which is right only when it is
+            meant. Writes a distinct value to every text field on a spell page and
+            reads them all back: anything that mirrors shows up as a field holding
+            a value meant for another."
+    (with-open [doc (six-caster-template)]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            targets (->> (all-fields form)
+                         (filter #(instance? PDTextField %))
+                         (map #(.getFullyQualifiedName %))
+                         (filter #(re-find #"^spells-\d+-\d+-\d+$" %))
+                         sort
+                         (take 60))
+            written (into {} (map-indexed (fn [i nm] [nm (str "unique-" i)]) targets))]
+        (pdf/write-fields! doc (into {} (map (fn [[k v]] [(keyword k) v]) written)) false {})
+        (let [wrong (for [[nm expected] written
+                          :let [actual (str (.getValueAsString (.getField form nm)))]
+                          :when (not= expected actual)]
+                      [nm expected actual])]
+          (is (empty? wrong)
+              (str "fields holding a value written to a different field: "
+                   (vec (take 5 wrong)))))
+        (testing "and every value landed somewhere exactly once"
+          (let [values (->> (all-fields form)
+                            (filter #(instance? PDTextField %))
+                            (map #(str (.getValueAsString %)))
+                            (filter #(str/starts-with? % "unique-")))]
+            (is (= (count values) (count (distinct values)))
+                "a repeated value means two fields are showing the same thing")))))))

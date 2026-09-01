@@ -298,6 +298,63 @@
                        :when (add-spell-page! doc source n)]
                    n))))))
 
+(defn- unnamed-checkbox?
+  "The templates call every checkbox \"Check Box N\". split-fields-across-pages!
+   suffixes its copies, so those must match too or they stay unnamed -- which is
+   how class 2's prepared ticks were missed."
+  [field-name]
+  (boolean (re-matches #"(?i)check box \d+(-p\d+)?" field-name)))
+
+(defn split-fields-across-pages!
+  "Splits any field whose widgets sit on more than one page into one field per
+   page. Returns the number of fields added.
+
+   A field is one value however many widgets show it, so a checkbox with a widget
+   on two spell pages ticks on both at once. The style 1 six-caster template ships
+   101 of these: the prepared ticks and the SLOTS EXPENDED fields are shared
+   between the first two classes' pages, so a Wizard and a Cleric would mirror
+   each other.
+
+   Must run before the naming passes. They name a field after the row beside one
+   of its widgets and then skip it, since it no longer looks unnamed -- so a
+   spanning field would keep the first page's name and go on mirroring."
+  [doc]
+  (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (let [page-index (into {} (for [i (range (.getNumberOfPages doc))
+                                    annotation (.getAnnotations (.getPage doc i))]
+                                [(System/identityHashCode (.getCOSObject annotation)) i]))
+          page-of #(page-index (System/identityHashCode (.getCOSObject %)))
+          taken (volatile! (into #{} (map #(.getFullyQualifiedName %) (.getFields form))))
+          unique (fn [base]
+                   (loop [n 2]
+                     (let [candidate (str base "-p" n)]
+                       (if (contains? @taken candidate)
+                         (recur (inc n))
+                         (do (vswap! taken conj candidate) candidate)))))
+          added (atom [])]
+      (doseq [field (vec (.getFields form))
+              :when (instance? PDTerminalField field)
+              :let [groups (group-by page-of (vec (.getWidgets field)))]
+              :when (> (count groups) 1)]
+        (let [[keep-page & other-pages] (sort-by #(or % -1) (keys groups))]
+          ;; the field keeps the widgets from its first page
+          (.setWidgets field (java.util.ArrayList. (get groups keep-page)))
+          (doseq [page other-pages]
+            (let [copy (if (instance? PDCheckBox field)
+                         (PDCheckBox. form)
+                         (PDTextField. form))]
+              (.setPartialName copy (unique (.getFullyQualifiedName field)))
+              ;; Only text fields carry a default appearance; a checkbox takes its
+              ;; look from the widget's appearance states, which move with it.
+              (when (instance? PDTextField field)
+                (when-let [da (.getDefaultAppearance field)]
+                  (.setDefaultAppearance copy da)))
+              (.setWidgets copy (java.util.ArrayList. (get groups page)))
+              (swap! added conj copy)))))
+      (.setFields form (java.util.ArrayList. (concat (vec (.getFields form)) @added)))
+      (count @added))
+    0))
+
 (defn name-prepared-checkboxes!
   "Renames the templates' anonymous \"Check Box N\" fields after the spell row each
    one sits beside, so Check Box 25 becomes prepared-1-1-1 next to spells-1-1-1.
@@ -330,7 +387,7 @@
       (reduce
        (fn [renamed page]
          (let [entries (widget-boxes page)
-               boxes (filter #(re-matches #"(?i)check box \d+" (:name %)) entries)
+               boxes (filter #(unnamed-checkbox? (:name %)) entries)
                rows (filter #(re-matches #"spells-\d+-\d+-\d+" (:name %)) entries)]
            (+ renamed
               (count
@@ -364,7 +421,7 @@
          (let [on-page (into #{} (map #(System/identityHashCode (.getCOSObject %))
                                       (.getAnnotations page)))
                boxes (for [field fields
-                           :when (re-matches #"(?i)check box \d+" (.getFullyQualifiedName field))
+                           :when (unnamed-checkbox? (.getFullyQualifiedName field))
                            widget (.getWidgets field)
                            :when (contains? on-page (System/identityHashCode
                                                      (.getCOSObject widget)))
@@ -1006,9 +1063,21 @@
       (.setReadOnly field true)
       field))))
 
+(defn- blank-appearance
+  "A plain white patch, for hiding printed text."
+  [doc width height]
+  (let [stream (PDAppearanceStream. doc)]
+    (.setResources stream (PDResources.))
+    (.setBBox stream (PDRectangle. 0 0 width height))
+    (with-open [out (.createOutputStream (.getCOSObject stream))]
+      (.write out (.getBytes (format "1 1 1 rg\n0 0 %.2f %.2f re f\n" width height)
+                             "ISO-8859-1")))
+    stream))
+
 (defn- slot-labels-appearance
-  "A white patch carrying the SLOTS TOTAL and SLOTS EXPENDED labels in the same
-   grey the printed ones use, for a box whose bar has neither."
+  "The SLOTS TOTAL and SLOTS EXPENDED labels in the grey the printed ones use,
+   spaced as they are above level 1: the first at the bar's left edge, the second
+   about half the bar's width along."
   [doc width height]
   (let [stream (PDAppearanceStream. doc)
         resources (PDResources.)
@@ -1018,15 +1087,13 @@
     (.put resources (COSName/getPDFName "Helv") font)
     (with-open [out (.createOutputStream (.getCOSObject stream))]
       (.write out (.getBytes
-                   (str "1 1 1 rg\n"
-                        (format "0 0 %.2f %.2f re f\n" width height)
-                        ;; side by side, as they read on the level bars, rather
-                        ;; than stacked -- and inside the box, since text running
-                        ;; past the BBox is clipped rather than overflowing
+                   ;; No fill: this sits on the page above the bar, not over
+                   ;; printed art. Text running past the BBox is clipped rather
+                   ;; than overflowing, so both labels must end inside it.
+                   (str "BT\n/Helv 4 Tf\n0.55 g\n"
+                        "2 1.5 Td\n(SLOTS TOTAL) Tj\nET\n"
                         "BT\n/Helv 4 Tf\n0.55 g\n"
-                        "1 5 Td\n(SLOTS TOTAL) Tj\nET\n"
-                        "BT\n/Helv 4 Tf\n0.55 g\n"
-                        (format "%.1f 5 Td\n" (* width 0.42))
+                        (format "%.1f 1.5 Td\n" (* width 0.51))
                         "(SLOTS EXPENDED) Tj\nET\n")
                    "ISO-8859-1")))
     stream))
@@ -1046,10 +1113,13 @@
    from. Its hexagon shares the left column's x with levels 1 and 2, and its y
    matches level 3 at the top of the middle column, the columns being aligned."
   {:hexagon [30.9 617.5 19.0 37.0]
-   ;; Wide enough for both slot labels side by side, not just to hide the word:
-   ;; the printed CANTRIPS runs x 112.5 to 142.5, the bar's interior to about 200.
-   :word [106.0 628.0 92.0 14.0]
-   :bar [52.0 628.0 150.0 16.0]})         ; the bar it sits in
+   ;; The printed word CANTRIPS runs x 112.5 to 142.5 inside the bar.
+   :word [108.0 629.0 40.0 13.0]
+   ;; The slot labels belong ABOVE the bar, where the printed ones sit above
+   ;; level 1: that line runs y 482 to 487 with the bar top at 478.3, SLOTS TOTAL
+   ;; aligned to the slots box's left edge and SLOTS EXPENDED 76.6pt right of it.
+   ;; The cantrips bar top is 645.9, so its label line is 649.6 up.
+   :labels [50.0 648.5 152.0 7.0]})
 
 (defn reuse-cantrips-box!
   "Turns the cantrips box into a spell level box carrying `label`: renumbers the
@@ -1063,9 +1133,7 @@
   (let [form (.getAcroForm (.getDocumentCatalog doc))
         page (some-> form (.getField (str "spells-0-1-" suffix))
                      .getWidgets first .getPage)
-        {:keys [hexagon word]} cantrips-box
-        [hx hy hw hh] hexagon
-        [wx wy ww wh] word]
+        {:keys [hexagon word labels]} cantrips-box]
     (when page
       (let [add (fn [nm [x y w h] draw]
                   (let [field (PDTextField. form)
@@ -1085,7 +1153,10 @@
                     field))]
         [(add (str "spell-level-label-0-" suffix) hexagon
               (fn [w h] (hexagon-appearance doc w h (str label) false nil)))
-         (add (str "cantrips-slot-labels-" suffix) [wx wy ww wh]
+         ;; a plain white patch over the printed word
+         (add (str "cantrips-word-cover-" suffix) word
+              (fn [w h] (blank-appearance doc w h)))
+         (add (str "cantrips-slot-labels-" suffix) labels
               (fn [w h] (slot-labels-appearance doc w h)))]))))
 
 ;; ─── Overflow pages ───────────────────────────────────────────────────────────
