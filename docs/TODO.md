@@ -1,45 +1,5 @@
 # TODO — Tracked Issues
 
-## Datomic transactor crashes — investigate Postgres migration
-
-**Status:** Open  
-**Severity:** Critical — transactor crashing 3–5× per day, 2–3 min downtime each  
-**Reported:** 2026-02-26  
-**KB doc:** [docs/kb/datomic-crash-analysis.md](kb/datomic-crash-analysis.md)
-
-### Summary
-
-The Datomic transactor is self-terminating multiple times daily with
-`"Critical failure, cannot continue: Heartbeat failed"`. Root cause is H2
-write-lock contention during memoryIndex flushes starving the heartbeat thread.
-`writeConcurrency=4` amplifies the problem — H2 cannot parallelize writes.
-
-### Immediate mitigation (low risk, config only)
-
-Set `datomic.writeConcurrency=1` in the transactor properties file. See KB doc
-for caveats.
-
-### Permanent fix
-
-Migrate from Datomic Free + H2 to Datomic Pro + PostgreSQL. Datomic Pro is
-free under Apache 2.0 (see `docs/migration/datomic-pro.md` — peer migration
-already done). What remains is the **storage backend migration**:
-
-1. Provision PostgreSQL (Docker service or managed)
-2. Run Datomic's SQL init scripts (`bin/sql/postgres-*.sql`)
-3. Export data from H2 transactor with `bin/datomic backup-db`
-4. Restore into Postgres transactor with `bin/datomic restore-db`
-5. Update transactor properties: `storage-class=sql`, JDBC params
-6. Update Docker Compose to add Postgres service and remove H2 volume
-
-### Related
-
-- `docker/datomic/` — transactor container and config templates
-- `docs/migration/datomic-pro.md` — peer library already migrated to Pro
-- `docs/kb/datomic-crash-analysis.md` — full root cause analysis with log evidence
-
----
-
 ## localStorage corrupt data persistence
 
 **Status:** Open
@@ -48,11 +8,26 @@ already done). What remains is the **storage backend migration**:
 
 ### Problem
 
-When `reg-local-store-cofx` reads localStorage data that fails spec validation,
-it logs a warning and ignores the data — but never removes it. The corrupt data
-persists across reloads, producing `INVALID ITEM FOUND, IGNORING` on every page
-load. If the user never interacts with the affected feature (to trigger an
-overwrite), the corrupt data stays indefinitely.
+**Narrowed (2026-09).** The *unreadable / parse-failure* case is now handled:
+`get-local-storage-item` self-heals a bare-colon empty keyword in place and
+re-saves, and `handle-unreadable` copies homebrew to a `:corrupt` companion slot
+(recoverable) before clearing the active slot, hard-deleting only throwaway keys.
+
+What remains is the **parses-fine-but-fails-spec** case: when `reg-local-store-cofx`
+reads data that reads back OK but doesn't match its spec, it logs "Invalid stored
+item, ignoring" and drops it for the session — but never removes it, so the warning
+fires on every reload and the value can't self-correct until something overwrites
+that key.
+
+**Constraint — do not just `removeItem`.** The affected keys hold real user data:
+an in-progress character, user prefs, and the class / subclass / invocation / boon /
+magic-item **builder drafts**. Given the homebrew-consistency work on localStorage, a
+fix must follow the parse path's model — **quarantine homebrew to a `:corrupt` slot,
+and delete only genuinely throwaway keys.** A blind delete would lose a homebrew
+draft, which is exactly what that work protects.
+
+(The old combat-tracker `assoc-in`-on-nil corruption vector below is a separate,
+already-partially-fixed thread — kept for reference.)
 
 Known corruption vector: `assoc-in` on `nil` builds maps with integer keys
 instead of vectors. Example from combat tracker:
@@ -82,7 +57,8 @@ otherwise stubbornly persist.
 
 ### Related
 
-- `src/cljs/orcpub/dnd/e5/db.cljs` — `reg-local-store-cofx` (line ~252)
+- `src/cljs/orcpub/dnd/e5/db.cljs` — `get-local-storage-item` / `handle-unreadable` /
+  `reg-local-store-cofx` (line ~303–360)
 - `src/cljs/orcpub/dnd/e5/events.cljs` — `set-combat-path-prop` nil guard
 - All `*->local-store` serializers use `(str data)` / `reader/read-string`
 
