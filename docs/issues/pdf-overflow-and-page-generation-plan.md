@@ -190,17 +190,40 @@ and a sheet has ten boxes:
     a box per class-level, 10 a sheet       2 pages
     packed by rows, 100 rows a sheet        2 pages   (floor; ignores box fit)
 
-A column per class takes five pages off that with no packing algorithm at all --
-it is a fixed assignment, not a search. Going from three pages to two needs real
-bin-packing against the uneven row counts. That is the whole of the extra
-complexity, and it buys one page on the worst case in the SRD.
+Correction to the third line: "a column per class" assumed one class per column,
+which is not the constraint. What matters to a player is not hunting for their
+Warlock list, and that is protected by never splitting a class across columns --
+a column can hold several classes as long as each is a contiguous run of boxes
+within one. First-fit under that rule puts the eight-class fixture on **2 pages**:
+
+    page 1   left    Bard, Paladin        page 2   left    Sorcerer
+             middle  Cleric, Ranger                middle  Warlock
+             right   Druid                         right   Wizard
+
+So the simple rule reaches the same 2 pages the general packer does, and gets
+there without a search: walk the classes, put each in the first column with room.
+
+The columns are unequal, and both limits bind:
+
+    left    boxes 0,1,2    3 boxes, 33 rows
+    middle  boxes 3,4,5    3 boxes, 35 rows
+    right   boxes 6,7,8,9  4 boxes, 32 rows
+
+A class needing four spell levels only fits the right column. On page 1 above it
+is rows that fill the columns, not boxes -- Bard 20 + Paladin 11 leaves 2 of 33.
+
+That fixture is the worst case for rows because it fills every row of every level
+it touches; a real character picks far fewer, so real sheets pack tighter than
+this.
 
 #### Three shapes, mocked up on the real sheet
 
-- **A column per class** (`target/mock-columns.png`). Cleric, Paladin and Ranger
-  on one sheet, each column headed by its class in the empty band above the bar,
-  each box renumbered by `relabel-spell-level!` to the level it actually holds.
-  Three pages become one.
+- **Classes down columns, never split** (`target/mock-columns.png`). Cleric,
+  Paladin and Ranger on one sheet, each column headed by its class in the empty
+  band above the bar, each box renumbered by `relabel-spell-level!` to the level
+  it actually holds. This is the chosen shape: a player finds a class by looking
+  down one column rather than flipping pages, which is the cost that actually
+  matters. A column takes more than one class when they fit.
 - **Two classes in one box** (`target/mock-inbox.png`). A rule across the rows,
   then the second class, its own save DC, and a box for slots left. Costs one row
   of twelve. For the case where a class has one short list and a whole box is
