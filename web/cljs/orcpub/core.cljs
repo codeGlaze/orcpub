@@ -2,6 +2,7 @@
   (:require [orcpub.character-builder :as ch]
             [orcpub.dnd.e5.subs]
             [orcpub.dnd.e5.equipment-subs]
+            [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.events :as events]
             [orcpub.dnd.e5.autosave-fx :as autosave-fx]
             [orcpub.dnd.e5.views :as views]
@@ -29,6 +30,10 @@
 ;; Init template cache after all subscription handlers are registered.
 ;; Must be called here (not self-initializing) so equipment-subs has loaded.
 (autosave-fx/init-template-cache!)
+
+;; Fetch the app-shipped demo/example content pack into its own overlay slot.
+;; Async: it loads through the real import path and never blocks boot.
+(dispatch [::e5/load-demo-content])
 
 (def pages
   {nil views-2/splash-page

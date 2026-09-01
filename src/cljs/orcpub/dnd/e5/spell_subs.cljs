@@ -98,6 +98,22 @@
  (fn [db _]
    (get db :shared-plugins)))
 
+;; App-shipped example content, fetched at boot into :demo-plugins. The
+;; content-lookup subs fold it in (FIRST, so a user's own content wins a key
+;; collision) so it's usable in the builder, while export / the library manager
+;; read :plugins and never see it. Returns nothing while the pack is hidden by the
+;; user's top-of-My-Content toggle, so nothing else has to check the flag.
+(reg-sub
+ ::e5/demo-hidden?
+ (fn [db _]
+   (boolean (:demo-hidden? db))))
+
+(reg-sub
+ ::e5/demo-plugins
+ (fn [db _]
+   (when-not (:demo-hidden? db)
+     (get db :demo-plugins))))
+
 ;; Summary for the shared-content banner: {:count n :collisions [...]} while a
 ;; shared character with embedded homebrew is being viewed, else nil.
 (reg-sub
@@ -212,12 +228,15 @@
  :<- [::e5/plugins]
  :<- [::e5/shared-plugins]
  :<- [::e5/disable-overlay]
- (fn [[plugins shared overlay] _]
+ :<- [::e5/demo-plugins]
+ (fn [[plugins shared overlay demo] _]
    ;; The disable overlay is a preference over the user's OWN library, so it
-   ;; applies to `plugins` only — shared (view-once) content is never hidden by
-   ;; the recipient's global/section toggles. Shared is appended LAST so it wins
-   ;; key collisions against the recipient's own library for the shared view only.
-   (concat (process-plugin-vals plugins overlay)
+   ;; applies to `plugins` only — demo (app-shipped) and shared (view-once) content
+   ;; are never hidden by the recipient's global/section toggles. Demo is appended
+   ;; FIRST so the user's own library wins a key collision against it; shared is
+   ;; appended LAST so it wins for the shared view only.
+   (concat (process-plugin-vals demo)
+           (process-plugin-vals plugins overlay)
            (process-plugin-vals shared))))
 
 ;; Subscription that preserves source names when extracting content from plugins.
@@ -246,10 +265,13 @@
  :<- [::e5/plugins]
  :<- [::e5/shared-plugins]
  :<- [::e5/disable-overlay]
- (fn [[plugins shared overlay] _]
-   ;; Shared (view-once) sources appended LAST so they win key collisions for
-   ;; the shared view only; the overlay applies to the user's own library only.
-   (concat (process-plugins-with-sources plugins overlay)
+ :<- [::e5/demo-plugins]
+ (fn [[plugins shared overlay demo] _]
+   ;; Demo (app-shipped) sources appended FIRST so the user's own library wins a
+   ;; key collision; shared (view-once) sources appended LAST so they win for the
+   ;; shared view only. The overlay applies to the user's own library only.
+   (concat (process-plugins-with-sources demo)
+           (process-plugins-with-sources plugins overlay)
            (process-plugins-with-sources shared))))
 
 (reg-sub
