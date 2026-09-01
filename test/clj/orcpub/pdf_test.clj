@@ -568,24 +568,47 @@
         (is (some? (.getField form "cantrips-word-cover-1")))
         (is (some? (.getField form "cantrips-slot-labels-1")))
 
-        (testing "the bar patch carries both labels, and they fit inside it"
+        (testing "the labels land on the printed line, raised to the cantrips box"
           (let [widget (first (.getWidgets (.getField form "cantrips-slot-labels-1")))
                 stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))
                 ops (with-open [in (.createInputStream (.getCOSObject stream))]
                       (String. (.readAllBytes in) "ISO-8859-1"))
-                width (.getWidth (.getRectangle widget))]
+                rect (.getRectangle widget)
+                ;; the appearance draws in its own space, so page position is the
+                ;; widget's lower-left corner plus the Td offset
+                page-x (fn [n] (+ (.getLowerLeftX rect)
+                                  (Double/parseDouble (nth (re-find (re-pattern (str "([\\d.]+) ([\\d.]+) Td\\n\\(" n "\\)")) ops) 1))))
+                page-y (+ (.getLowerLeftY rect)
+                          (Double/parseDouble (second (re-find #"[\d.]+ ([\d.]+) Td" ops))))
+                size (Double/parseDouble (second (re-find #"/Helv ([\d.]+) Tf" ops)))
+                close? (fn [a b] (< (Math/abs (- a b)) 0.05))]
             (is (str/includes? ops "(SLOTS TOTAL)"))
             (is (str/includes? ops "(SLOTS EXPENDED)"))
             (is (not (str/includes? ops "re f"))
-                "no fill: the labels sit above the bar on the page, like the
+                "no fill: the labels sit on blank page above the bar, like the
                  printed ones above level 1, not over printed art")
+            ;; measured off the artwork: the page prints this line once, above
+            ;; level 1, at x 50.83 and 127.71 on baseline 483.17 at 5pt, and the
+            ;; cantrips box is 167.73pt higher
+            (is (close? size 5.0) "same size as the printed labels")
+            (is (close? (page-x "SLOTS TOTAL") 50.83))
+            (is (close? (page-x "SLOTS EXPENDED") 127.71))
+            (is (close? page-y (+ 483.17 167.73)))
             ;; text running past the BBox is clipped, not overflowed, which is how
-            ;; the first attempt lost the last letter of SLOTS EXPENDED
+            ;; the first attempt lost the last letter of SLOTS EXPENDED.
             ;; getStringWidth is in thousandths of an em, so size x raw/1000 is
             ;; already points -- no further conversion
-            (let [longest (* 4.0 (/ (.getStringWidth pdf/HELVETICA "SLOTS EXPENDED") 1000.0))]
-              (is (< (+ (* width 0.42) longest) width)
+            (let [longest (* size (/ (.getStringWidth pdf/HELVETICA "SLOTS EXPENDED") 1000.0))]
+              (is (<= (+ (- (page-x "SLOTS EXPENDED") (.getLowerLeftX rect)) longest)
+                      (.getWidth rect))
                   "the rightmost label ends inside the patch"))))
+
+        (testing "the hexagon is level 1's, raised to the cantrips box"
+          (let [hexagon (.getRectangle (first (.getWidgets (.getField form "spell-level-label-0-1"))))
+                level-1 (pdf/spell-level-numeral-box doc 1 "1")]
+            (is (< (Math/abs (- (.getLowerLeftX hexagon) (first level-1))) 0.05)
+                "same column as level 1")
+            (is (< (Math/abs (- (.getLowerLeftY hexagon) (+ (second level-1) 167.73))) 0.05))))
 
         (testing "it sits over the cantrips rows, not another box"
           (let [widget (first (.getWidgets (.getField form "spell-level-label-0-1")))
@@ -608,14 +631,14 @@
             must survive to the appearance stream, not merely be stored."
     (with-open [doc (style-1-template)]
       (pdf/write-fields! doc {:spell-slots-1-1 "4"
-                              (keyword "SlotsRemaining 19") "XX"
+                              :slots-expended-1-1 "2"
                               :spell-slots-2-1 "3"} false {})
       (let [form (.getAcroForm (.getDocumentCatalog doc))]
         (is (= "4" (str (.getValueAsString (.getField form "spell-slots-1-1")))))
         (is (some #{"4"} (drawn-text form "spell-slots-1-1"))
             "the slot total is drawn, not just stored")
-        (is (some #{"XX"} (drawn-text form "SlotsRemaining 19"))
-            "the expended field is drawn too")
+        (is (some #{"2"} (drawn-text form "slots-expended-1-1"))
+            "the expended blank beside it is drawn too")
         (is (= "3" (str (.getValueAsString (.getField form "spell-slots-2-1"))))
             "and each level keeps its own total")))))
 

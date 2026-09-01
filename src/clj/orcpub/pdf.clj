@@ -355,6 +355,64 @@
       (count @added))
     0))
 
+(defn- unnamed-slots-expended?
+  "The templates call the blank beside each SLOTS TOTAL box \"SlotsRemaining N\".
+   split-fields-across-pages! suffixes its copies, so those must match too."
+  [field-name]
+  (boolean (re-matches #"(?i)slotsremaining \d+(-p\d+)?" field-name)))
+
+(defn name-slots-expended!
+  "Renames the templates' \"SlotsRemaining N\" blanks after the level box each one
+   sits beside, so SlotsRemaining 19 becomes slots-expended-1-1 next to
+   spell-slots-1-1. Returns the number renamed.
+
+   The pairing is geometric and exact: the blank shares its level box's baseline
+   and sits immediately to its right, and the nine levels are far apart
+   vertically. The name is the only link -- the two are separate fields with no
+   reference between them.
+
+   Nothing writes these; the sheet leaves them blank for the player to fill in
+   after download. Run before disambiguate-duplicate-fields! so the split copies
+   get a level rather than a numeric suffix."
+  [doc]
+  (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (let [fields (vec (.getFields form))
+          widget-boxes (fn [page]
+                         (let [on-page (into #{} (map #(System/identityHashCode (.getCOSObject %))
+                                                      (.getAnnotations page)))]
+                           (for [field fields
+                                 widget (.getWidgets field)
+                                 :when (contains? on-page (System/identityHashCode
+                                                           (.getCOSObject widget)))
+                                 :let [r (.getRectangle widget)]]
+                             {:field field
+                              :name (.getFullyQualifiedName field)
+                              :x (.getLowerLeftX r)
+                              :y (.getLowerLeftY r)})))
+          taken (volatile! (into #{} (map #(.getFullyQualifiedName %) fields)))]
+      (reduce
+       (fn [renamed page]
+         (let [entries (widget-boxes page)
+               blanks (filter #(unnamed-slots-expended? (:name %)) entries)
+               totals (filter #(re-matches #"spell-slots-\d+-\d+" (:name %)) entries)]
+           (+ renamed
+              (count
+               (for [blank blanks
+                     :let [total (->> totals
+                                      (filter #(and (< 0 (- (:x blank) (:x %)) 80)
+                                                    (< (Math/abs (- (:y %) (:y blank))) 3)))
+                                      first)
+                           candidate (when total
+                                       (str "slots-expended-"
+                                            (subs (:name total) (count "spell-slots-"))))]
+                     :when (and candidate (not (contains? @taken candidate)))]
+                 (do (vswap! taken conj candidate)
+                     (.setPartialName (:field blank) candidate)
+                     candidate))))))
+       0
+       (.getPages doc)))
+    0))
+
 (defn name-prepared-checkboxes!
   "Renames the templates' anonymous \"Check Box N\" fields after the spell row each
    one sits beside, so Check Box 25 becomes prepared-1-1-1 next to spells-1-1-1.
@@ -1074,32 +1132,72 @@
                              "ISO-8859-1")))
     stream))
 
+(def ^:private printed-slot-labels
+  "The SLOTS TOTAL / SLOTS EXPENDED line on the style 1 spell page, in page
+   coordinates, measured off the artwork with PDFTextStripper and the rendered
+   pixels. The page prints the line once, above the level 1 bar; every other
+   level box is read from that one line by position.
+
+   :grey is the flat value the artwork uses, which renders [150 151 151]."
+  {:size 5.0
+   :grey 0.59
+   :baseline 483.17
+   :total-x 50.83
+   :expended-x 127.71
+   :end-x 173.80})
+
+(def ^:private cantrips-box-rise
+  "How far the cantrips box sits above the level 1 box, in points. The printed
+   numerals give it exactly: level 1 at baseline 463.99, and level 3 -- top of
+   the middle column, level with the cantrips box -- at 631.72."
+  167.73)
+
+(def ^:private label-padding
+  "Slack between the labels and their appearance BBox, which clips: a glyph
+   flush to the edge loses its last pixel column."
+  1.0)
+
+(defn- cantrips-slot-labels-box
+  "Rect for the slot labels above a reused cantrips bar: the printed level 1 line
+   raised by cantrips-box-rise."
+  []
+  (let [{:keys [size baseline total-x end-x]} printed-slot-labels]
+    [(- total-x label-padding)
+     (- (+ baseline cantrips-box-rise) label-padding)
+     (+ (- end-x total-x) (* 2 label-padding))
+     (+ size (* 2 label-padding))]))
+
 (defn- slot-labels-appearance
-  "The SLOTS TOTAL and SLOTS EXPENDED labels in the grey the printed ones use,
-   spaced as they are above level 1: the first at the bar's left edge, the second
-   about half the bar's width along."
-  [doc width height]
-  (let [stream (PDAppearanceStream. doc)
+  "The SLOTS TOTAL and SLOTS EXPENDED labels in the size, grey and x positions
+   printed-slot-labels measured off the printed pair above level 1.
+
+   `origin-x` and `origin-y` are the widget's lower-left corner: the appearance
+   stream's own coordinates start there, so the page positions are written as
+   offsets from it."
+  [doc origin-x origin-y width height]
+  (let [{:keys [size grey baseline total-x expended-x]} printed-slot-labels
+        stream (PDAppearanceStream. doc)
         resources (PDResources.)
-        font (PDType1Font. Standard14Fonts$FontName/HELVETICA)]
+        font (PDType1Font. Standard14Fonts$FontName/HELVETICA)
+        text-y (- (+ baseline cantrips-box-rise) origin-y)]
     (.setResources stream resources)
     (.setBBox stream (PDRectangle. 0 0 width height))
     (.put resources (COSName/getPDFName "Helv") font)
     (with-open [out (.createOutputStream (.getCOSObject stream))]
       (.write out (.getBytes
-                   ;; No fill: this sits on the page above the bar, not over
-                   ;; printed art. Text running past the BBox is clipped rather
-                   ;; than overflowing, so both labels must end inside it.
-                   (str "BT\n/Helv 4 Tf\n0.55 g\n"
-                        "2 1.5 Td\n(SLOTS TOTAL) Tj\nET\n"
-                        "BT\n/Helv 4 Tf\n0.55 g\n"
-                        (format "%.1f 1.5 Td\n" (* width 0.51))
+                   ;; No fill: the labels sit on blank page above the bar, the
+                   ;; way the printed ones do above level 1.
+                   (str (format "BT\n/Helv %.1f Tf\n%.2f g\n" size grey)
+                        (format "%.2f %.2f Td\n" (- total-x origin-x) text-y)
+                        "(SLOTS TOTAL) Tj\nET\n"
+                        (format "BT\n/Helv %.1f Tf\n%.2f g\n" size grey)
+                        (format "%.2f %.2f Td\n" (- expended-x origin-x) text-y)
                         "(SLOTS EXPENDED) Tj\nET\n")
                    "ISO-8859-1")))
     stream))
 
 
-;; ─── Reusing the cantrips box ─────────────────────────────────────────────────
+;; ─── Reusing the cantrips box ─────────────────────────────────────────
 ;;
 ;; The cantrips box is eight more rows, and cantrips only need printing once, so
 ;; on a continuation page it is dead space. It can carry a spell level like any
@@ -1107,19 +1205,18 @@
 ;; locate it by, its bar reads CANTRIPS, and it has no SLOTS TOTAL / SLOTS
 ;; EXPENDED labels because cantrips do not use slots.
 
-(def ^:private cantrips-box
-  "Geometry of the cantrips box on the style 1 spell page, in points. Traced from
-   the artwork: unlike the level boxes there is no spell-slots field to derive it
-   from. Its hexagon shares the left column's x with levels 1 and 2, and its y
-   matches level 3 at the top of the middle column, the columns being aligned."
-  {:hexagon [30.9 617.5 19.0 37.0]
-   ;; The printed word CANTRIPS runs x 112.5 to 142.5 inside the bar.
-   :word [108.0 629.0 40.0 13.0]
-   ;; The slot labels belong ABOVE the bar, where the printed ones sit above
-   ;; level 1: that line runs y 482 to 487 with the bar top at 478.3, SLOTS TOTAL
-   ;; aligned to the slots box's left edge and SLOTS EXPENDED 76.6pt right of it.
-   ;; The cantrips bar top is 645.9, so its label line is 649.6 up.
-   :labels [50.0 648.5 152.0 7.0]})
+(def ^:private cantrips-word-cover
+  "Rect of a patch over the printed word CANTRIPS, which runs x 112.5 to 142.5
+   inside the bar."
+  [108.0 629.0 40.0 13.0])
+
+(defn- cantrips-hexagon-box
+  "The cantrips bar's hexagon, as [x y width height]. The cantrips box has no
+   slots field for spell-level-numeral-box to measure from, so it is level 1's
+   hexagon raised by cantrips-box-rise."
+  [doc suffix]
+  (when-let [[x y w h] (spell-level-numeral-box doc 1 suffix)]
+    [x (+ y cantrips-box-rise) w h]))
 
 (defn reuse-cantrips-box!
   "Turns the cantrips box into a spell level box carrying `label`: renumbers the
@@ -1133,8 +1230,9 @@
   (let [form (.getAcroForm (.getDocumentCatalog doc))
         page (some-> form (.getField (str "spells-0-1-" suffix))
                      .getWidgets first .getPage)
-        {:keys [hexagon word labels]} cantrips-box]
-    (when page
+        hexagon (cantrips-hexagon-box doc suffix)
+        labels (cantrips-slot-labels-box)]
+    (when (and page hexagon)
       (let [add (fn [nm [x y w h] draw]
                   (let [field (PDTextField. form)
                         widget (PDAnnotationWidget.)
@@ -1147,17 +1245,17 @@
                                            (conj (vec (.getAnnotations page)) widget)))
                     (.setFields form (java.util.ArrayList.
                                       (conj (vec (.getFields form)) field)))
-                    (.setNormalAppearance appearance (draw w h))
+                    (.setNormalAppearance appearance (draw x y w h))
                     (.setAppearance widget appearance)
                     (.setReadOnly field true)
                     field))]
         [(add (str "spell-level-label-0-" suffix) hexagon
-              (fn [w h] (hexagon-appearance doc w h (str label) false nil)))
+              (fn [_ _ w h] (hexagon-appearance doc w h (str label) false nil)))
          ;; a plain white patch over the printed word
-         (add (str "cantrips-word-cover-" suffix) word
-              (fn [w h] (blank-appearance doc w h)))
+         (add (str "cantrips-word-cover-" suffix) cantrips-word-cover
+              (fn [_ _ w h] (blank-appearance doc w h)))
          (add (str "cantrips-slot-labels-" suffix) labels
-              (fn [w h] (slot-labels-appearance doc w h)))]))))
+              (fn [x y w h] (slot-labels-appearance doc x y w h)))]))))
 
 ;; ─── Overflow pages ───────────────────────────────────────────────────────────
 

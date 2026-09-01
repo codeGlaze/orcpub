@@ -9,6 +9,7 @@
      pdf/prune-orphan-widgets!        drop widgets belonging to no page
      pdf/split-fields-across-pages!   one field per page, so nothing mirrors
      pdf/name-prepared-checkboxes!    Check Box 25 -> prepared-1-1-1
+     pdf/name-slots-expended!         SlotsRemaining 19 -> slots-expended-1-1
      pdf/name-death-save-checkboxes!  the six ticks on the character page
      pdf/disambiguate-duplicate-fields!  anything still sharing a name
 
@@ -44,6 +45,7 @@
             ;; the first page's name and mirror onto the second
             split (pdf/split-fields-across-pages! doc)
             named (+ (pdf/name-prepared-checkboxes! doc)
+                     (pdf/name-slots-expended! doc)
                      (pdf/name-death-save-checkboxes! doc))
             disambiguated (pdf/disambiguate-duplicate-fields! doc)
             after (stats doc)
