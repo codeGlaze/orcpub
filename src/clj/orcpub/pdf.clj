@@ -894,9 +894,22 @@
   [[0.30 1.00] [1.00 0.65] [1.00 0.33] [0.30 0.00] [0.00 0.16] [0.00 0.83]])
 
 (def ^:private numeral-patch-scale
-  "How much of the hexagon the patch covers. Enough to hide the numeral, small
-   enough to leave the outline and the grey bevel around it untouched."
-  0.62)
+  "How much of the hexagon the patch covers.
+
+   The shape does not have to match the artwork; it has to stay inside the white
+   centre. Overshooting eats the grey bevel, which is what shows. Measured by
+   rendering at 300 dpi and counting bevel pixels the patch changes against
+   numeral pixels it fails to cover:
+
+     scale   bevel eaten   numeral left
+      0.62        ~5050              0
+      0.50         ~170              0
+      0.46            ~0             0
+      0.30            ~0        visible
+
+   0.46 is the widest that covers the numeral without touching the bevel. Above
+   it the patch reads as a pale notch in the hexagon's shading."
+  0.46)
 
 (defn- hexagon-appearance
   "An appearance stream drawing a hexagon-shaped patch with `label` centred in it.
@@ -907,16 +920,17 @@
    `outline?` strokes the path magenta, which is how the offsets above were
    checked: a misplaced patch is invisible in a normal render but obvious against
    the printed hexagon once its edge is drawn."
-  [doc width height label outline?]
+  [doc width height label outline? scale]
   (let [stream (PDAppearanceStream. doc)
         resources (PDResources.)
         font (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD)
         size 13.0
         cx (/ width 2.0)
         cy (/ height 2.0)
+        scale (or scale numeral-patch-scale)
         point (fn [[fx fy]]
-                [(+ cx (* numeral-patch-scale (- (* fx width) cx)))
-                 (+ cy (* numeral-patch-scale (- (* fy height) cy)))])
+                [(+ cx (* scale (- (* fx width) cx)))
+                 (+ cy (* scale (- (* fy height) cy)))])
         [[sx sy] & rest-points] (map point hexagon-path)
         text-width (* size (/ (.getStringWidth font label) 1000.0))]
     (.setResources stream resources)
@@ -956,10 +970,11 @@
    The numerals are printed heavy, so the label is drawn in bold to match.
 
    `opts` takes :outline?, which strokes the patch magenta so its placement can be
-   checked against the artwork. Use it when fitting these offsets to a style whose
-   spell page has not been measured."
+   checked against the artwork, and :scale, which overrides how much of the
+   hexagon it covers. Both are for fitting these numbers to a style whose spell
+   page has not been measured."
   ([doc level suffix label] (relabel-spell-level! doc level suffix label nil))
-  ([doc level suffix label {:keys [outline?]}]
+  ([doc level suffix label {:keys [outline? scale]}]
   (when-let [[x y w h] (spell-level-numeral-box doc level suffix)]
     (let [form (.getAcroForm (.getDocumentCatalog doc))
           resources (.getDefaultResources form)
@@ -986,7 +1001,7 @@
       (.setValue field (str label))
       (let [appearance (PDAppearanceDictionary.)]
         (.setNormalAppearance appearance
-                              (hexagon-appearance doc w h (str label) outline?))
+                              (hexagon-appearance doc w h (str label) outline? scale))
         (.setAppearance widget appearance))
       (.setReadOnly field true)
       field))))
