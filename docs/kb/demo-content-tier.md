@@ -43,6 +43,26 @@ Ship app-provided **example content** users can see and try, with two properties
 - Contrast: starting equipment's base was a **frozen SRD class**, so a delta was viable there.
   Different situation.
 
+## Status — Phase 1 built and verified
+
+The MVP is on `feature/demo-content-tier`, verified against the real server (in-memory
+Datomic) and a real browser (Playwright):
+
+- Shared serializer in `orcpub.dnd.e5.orcbrew-format` (cljc); the recipe
+  (`orcpub.dnd.e5.demo-content`) + emitter (`orcpub.build.demo-emit`, `lein gen-demo`) +
+  the committed `resources/public/demo/demo-content.orcbrew` + a golden test that fails the
+  build if the file is stale (confirmed it exits nonzero when the file is edited).
+- `:demo-plugins` slot loaded at boot through the real import path, folded into the two
+  content-lookup subs, served via an explicit `/demo/*` route. Browser check: the pack
+  reaches app-db and the pool; the file returns HTTP 200.
+- Hide toggle at the top of My Content, persisted per-device. Browser check: it flips and
+  survives a reload (localStorage `demo-hidden`).
+
+Deferred: (a) the emit-time verify covers load floor + save spec + round-trip but not yet a
+headless character build — the real import is exercised at boot instead; (b) the browser
+assertion belongs in the shared `e2e/` suite (on `testing/develop`) when branches converge,
+not a bespoke test here; (c) Phase 3 (copy-on-edit) and the format-versioning track below.
+
 ## Build mechanism (settled)
 
 The demo pack is a **generated, committed artifact** — the same pattern the compiled CSS
