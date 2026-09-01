@@ -8525,19 +8525,23 @@
             src     (ffirst raw)
             plugin  (get raw src)]
         [:div.item-list-item.demo-source
-         [:div.p-20.flex.justify-cont-s-b.align-items-c.main-text-color
+         {:class (when hidden? "off")}
+         [:div.demo-source-row.flex.justify-cont-s-b.align-items-c.main-text-color
           [:div.flex.align-items-c
            [:div.pretty-toggle.pointer
             {:class (when-not hidden? "on")
              :on-click (make-event-handler ::e5/toggle-demo-hidden)}
             [:div.pretty-toggle-knob]]
-           [:span.m-l-15.f-s-24 (or src "Demo Content")]
+           [:span.m-l-15 {:class (if hidden? "f-s-16" "f-s-24")}
+            (or src "Demo Content")]
            [:span.lib-badge.demo-badge [:span.lib-dot] "example"]]
-          [:div.orange.pointer
-           {:on-click #(swap! expanded? not)}
-           [:i.fa.m-r-5 {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
-           [:span.underline (if @expanded? "collapse" "expand")]]]
-         (when @expanded?
+          ;; Expand is only offered while on — the off row shrinks to a slim bar.
+          (when-not hidden?
+            [:div.orange.pointer
+             {:on-click #(swap! expanded? not)}
+             [:i.fa.m-r-5 {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+             [:span.underline (if @expanded? "collapse" "expand")]])]
+         (when (and @expanded? (not hidden?))
            [:div.bg-lighter.p-10
             (doall
              (for [[ct items] plugin

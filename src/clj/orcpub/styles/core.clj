@@ -1188,7 +1188,22 @@
     ;; example content, distinct from the user's own homebrew sources.
     [:.demo-source
      {:border-left "3px solid #1aa8a0"
-      :background-color "rgba(26,168,160,0.08)"}]
+      :background-color "rgba(26,168,160,0.08)"
+      :transition "opacity 0.15s ease, margin 0.15s ease, background-color 0.15s ease"}
+     [:.demo-source-row {:padding "20px"}]]
+    ;; Off: the row recedes — grey instead of teal, dimmed, shrunk to about the
+    ;; toggle's height, and inset a little so it reads as parked, not active.
+    [:.demo-source.off
+     {:border-left-color "#6b6b6b"
+      :background-color "rgba(255,255,255,0.03)"
+      :opacity 0.55
+      :margin "6px 12px"
+      :border-radius "8px"
+      :border-bottom 0}
+     [:.demo-source-row {:padding "4px 12px"}]
+     [:.demo-badge
+      {:background-color "rgba(255,255,255,0.10)" :color "#b8b8b8"}
+      [:.lib-dot {:background-color "#8a8a8a"}]]]
     [:.demo-badge
      {:background-color "rgba(26,168,160,0.20)" :color "#7fd6cf"}
      [:.lib-dot {:background-color "#1aa8a0"}]]
