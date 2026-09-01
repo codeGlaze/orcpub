@@ -228,3 +228,28 @@ orphans, nothing mirroring.
 A class whose spells outgrow one page takes another, marked `(continued)` in its
 heading by `pdf_spec`, and slots are written only on a class's first page so the
 continuation does not repeat them.
+
+## Spell rows are sized by height, so they are wider than they look
+
+A spell row is 157.95 x 9.94pt and its text auto-sizes. The binding constraint is
+the height: every row lands at **6.4173pt** regardless of content, and at that
+size the row holds far more than it appears to.
+
+    longest name in the SRD                              29 chars    85.6pt
+    + a short source, "(Life)"                           36 chars   102.0pt
+    + a full source, "(Life Domain)"                     43 chars   125.9pt
+    + an unreasonable one, "(Circle of the Land: ...)"   61 chars   175.5pt   over
+
+None of the 319 spell names overflow the row with a realistic source suffix
+appended. Do not reason about spell-row capacity from the 8pt overflow floor:
+that floor governs the prose fields in `overflow-labels`, and a spell row never
+reaches it.
+
+The scarce resource on a spell page is rows, not width. A sheet has 100 of them,
+spread unevenly:
+
+    level    0   1   2   3   4   5   6   7   8   9
+    rows     8  12  13  13  13   9   9   9   7   7
+
+Anything that moves a level into another level's box has to check the
+destination's row count, not just that it is free.

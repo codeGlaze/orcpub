@@ -135,17 +135,39 @@ they want answering before any of it is built:
 - **Which spells belong on the sheet at all?** Only the ones the player chose, or
   also the ones granted for free — by class, subclass, background, race or
   subrace? A Cleric already gets its whole domain list; a Sorcerer does not.
-- **If granted spells are included, does the sheet say where each came from?** A
-  parenthesised source beside the name costs row width, which is the scarce
-  resource, and the rows are narrow already.
+- **If granted spells are included, does the sheet say where each came from?**
+  Measured, and row width is not the obstacle it looks like. A spell row is
+  157.95 x 9.94pt and the text auto-sizes to the HEIGHT, landing at 6.42pt, where
+  the longest name in the SRD -- Protection from Evil and Good -- uses 85.6pt,
+  just over half the row. Appending "(Life Domain)" reaches 125.9pt and still
+  fits: none of the 319 spell names overflow with a realistic source suffix.
+  Only something like "(Circle of the Land: Underdark)" does, at 175.5pt.
+
+  So a parenthesised source is close to free, and the question is whether it
+  reads well rather than whether it fits. `target/mock-source.png` shows the
+  cases side by side at real size.
 - **Can two classes share a page?** Two small lists — a Paladin's and a Ranger's
   at low level, say — could sit in one sheet's boxes rather than taking one page
   each. That needs a per-box class label rather than a per-page one, since the
   page heading currently names a single class.
+
+  The room for that label already exists: the band above every level bar is
+  empty except level 1's, which carries the printed SLOTS TOTAL / SLOTS EXPENDED
+  legend and still has clear space to its right. A class name set there in the
+  legend's own grey costs no rows and no width. Combined with
+  `relabel-spell-level!`, which renumbers a box to the level it actually holds,
+  a Cleric and a Paladin fit on one sheet with each box saying whose it is and
+  what level it is. Mocked up in `target/mock-shared.png`.
 - **What does a box mean once packed?** Today a box is a level. If two levels
   share a page, or two classes share a sheet, the numeral and the slot totals
   have to say which class as well as which level, or a player reading the printed
   sheet cannot tell whose slots those are.
+
+- **How much room is there to pack into?** A sheet has 100 spell rows, spread
+  8 / 12 / 13 / 13 / 13 / 9 / 9 / 9 / 7 / 7 across levels 0 to 9. Rows, not
+  width, are the scarce resource, and they are unevenly distributed: a level 9
+  box holds 7. A packer that moves a level into another box has to check the
+  destination is big enough, not just free.
 
 The last one is the constraint the others hang off: a box carries a level, and a
 page carries a class. Packing across classes breaks the second, and that is a
