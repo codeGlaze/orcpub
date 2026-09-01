@@ -1435,6 +1435,11 @@
 
 (def get-image get-file)
 
+;; The app-shipped demo-content pack (resources/public/demo/*), fetched at boot.
+;; Explicit route like the other asset prefixes — routing here is prefix-based
+;; with no general resource catch-all, so a new prefix needs its own entry.
+(def get-demo get-file)
+
 (def get-favicon get-file)
 
 (def webjars-root "META-INF/resources/webjars/")
@@ -1457,6 +1462,7 @@
        ["/css/*" {:get `get-css}]
        ["/assets/*" {:get `get-webjar}]
        ["/image/*" {:get `get-image}]
+       ["/demo/*" {:get `get-demo}]
        ["/favicon/*" {:get `get-favicon}]
        [(route-map/path-for route-map/register-route)
         {:post `register}]

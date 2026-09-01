@@ -138,6 +138,10 @@
    :character default-character
    :template t5e/template
    :plugins {"Default Option Source" {}}
+   ;; App-shipped example content, fetched at boot into its own slot so the
+   ;; content-lookup subs can fold it in for building while export and the library
+   ;; manager (which read :plugins) never see it. See ::e5/load-demo-content.
+   :demo-plugins {}
    :locked-components #{}
    :route (parse-route)
    :route-history (list default-route)

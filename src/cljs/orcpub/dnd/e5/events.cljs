@@ -4675,6 +4675,43 @@
                                          :collisions (vec (share-bundle/collisions kept (:plugins db)))})}
        {}))))
 
+;; ============================================================================
+;; Demo content pack (app-shipped example content)
+;; ============================================================================
+;; The bundled pack is fetched at boot and loaded through the SAME pure validate +
+;; per-item load-floor path a file import uses — so loading it exercises the real
+;; import pipeline — into :demo-plugins, an overlay the content-lookup subs fold in
+;; but export / the library manager never read. It is never persisted to
+;; localStorage: the file is the source of truth and reloads every boot.
+
+(def demo-content-url "/demo/demo-content.orcbrew")
+
+(reg-fx
+ ::fetch-demo-content!
+ (fn [url]
+   (go (let [response (<! (http/get url))]
+         (when (and (= 200 (:status response)) (string? (:body response)))
+           (dispatch [::e5/demo-content-loaded (:body response)]))))))
+
+(reg-event-fx
+ ::e5/load-demo-content
+ (fn [_ _]
+   {::fetch-demo-content! demo-content-url}))
+
+(reg-event-db
+ ::e5/demo-content-loaded
+ (fn [db [_ text]]
+   (let [result (orcbrew-val/validate-import text {:strategy :progressive
+                                                   :auto-clean true
+                                                   :auto-fill true})]
+     (if (:success result)
+       (let [{:keys [kept]} (e5/salvage-library-items
+                             content-specs/valid-item-for-load? (:data result))]
+         (assoc db :demo-plugins kept))
+       (do (js/console.warn "Demo content not loaded:"
+                            (orcbrew-val/format-import-result result))
+           db)))))
+
 ;; Persist the currently-viewed shared content into the recipient's own library,
 ;; collapsed under one clearly-labeled source so it can't silently overwrite an
 ;; existing same-named source. Colliding keys were surfaced by the banner; the
