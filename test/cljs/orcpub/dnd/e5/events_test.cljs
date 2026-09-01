@@ -19,7 +19,6 @@
    this by requiring orcpub.dnd.e5.events, which has side effects
    (reg-event-db, reg-event-fx calls at load time)."
   (:require [cljs.test :refer-macros [deftest testing is use-fixtures]]
-            [cljs.reader :as reader]
             [re-frame.core :as rf]
             [re-frame.db :refer [app-db]]
             [re-frame.registrar :as registrar]
@@ -258,26 +257,8 @@
       (is (= ["orcpub-EMERGENCY-backup.orcbrew" broken]
              (events/select-emergency-export broken nil))))))
 
-;; ---------------------------------------------------------------------------
-;; serialize-orcbrew (pure serialization, split from the saveAs side effect)
-;; ---------------------------------------------------------------------------
-
-(def ^:private sample-content
-  {:orcpub.dnd.e5/classes {:artificer {:name "Artificer" :option-pack "Pack"}}})
-
-(deftest serialize-orcbrew-compact-roundtrips
-  (testing "compact output is readable EDN that round-trips to the same data"
-    (let [s (events/serialize-orcbrew sample-content)]
-      (is (string? s))
-      (is (= sample-content (reader/read-string s))))))
-
-(deftest serialize-orcbrew-pretty-differs-but-same-data
-  (testing "pretty-print is multi-line and larger, but the same data round-trips"
-    (let [compact (events/serialize-orcbrew sample-content)
-          pretty  (events/serialize-orcbrew sample-content :pretty-print? true)]
-      (is (not= compact pretty))
-      (is (re-find #"\n" pretty) "pretty output spans multiple lines")
-      (is (= sample-content (reader/read-string pretty))))))
+;; serialize-orcbrew moved to orcpub.dnd.e5.orcbrew-format (shared with the JVM
+;; demo emitter); its round-trip tests live in orcbrew-format-test.
 
 ;; ---------------------------------------------------------------------------
 ;; spec-field-problems — nested-element diagnosability

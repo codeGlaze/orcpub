@@ -7,6 +7,7 @@
             [orcpub.modifiers :as mod]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.content-specs :as content-specs]
+            [orcpub.dnd.e5.orcbrew-format :as orcbrew-format]
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.common :as common5e]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
@@ -4048,20 +4049,11 @@
     (sequential? errors) (s/join "\n\n" (map str errors))
     :else (str errors)))
 
-(defn serialize-orcbrew
-  "Pure serialize of homebrew content to .orcbrew text — no side effects, so it's
-   unit-testable and shared by every export path. pretty-print? is opt-in: pprint
-   inflates 3–5MB files to ~10–20MB and can freeze the UI."
-  [data & {:keys [pretty-print?]}]
-  (if pretty-print?
-    (with-out-str (pprint/pprint data))
-    (str data)))
-
 (defn- save-orcbrew-blob!
   "Serialize plugin data to a .orcbrew file and trigger download. The only side
-   effect; serialization lives in the pure `serialize-orcbrew`."
+   effect; serialization lives in the pure `orcbrew-format/serialize-orcbrew`."
   [filename data & {:keys [pretty-print?]}]
-  (let [content (serialize-orcbrew data :pretty-print? pretty-print?)
+  (let [content (orcbrew-format/serialize-orcbrew data :pretty-print? pretty-print?)
         blob (js/Blob.
               (clj->js [content])
               (clj->js {:type "text/plain;charset=utf-8"}))]
