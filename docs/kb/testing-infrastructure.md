@@ -166,6 +166,11 @@ server *and* seeds the user in one process rather than shelling out.
 Requires the compiled bundle. `run.sh` builds it with `lein fig:prod` on first
 run; that takes several minutes, so build it before you start iterating.
 
+Fixed sleeps dominate the runtime of a script like this — they came to 19.5
+seconds per scenario before being replaced by the waits described below, which
+took the full three-scenario run from 2m51s to 2m15s while adding checks. Reach
+for a condition first, quiet second, a duration never.
+
 ### Traps that cost real time
 
 **The server leaks and the next run silently tests it.** `lein` forks a JVM, so
@@ -187,6 +192,40 @@ times out. Walk the matches and take the first where `isVisible()`.
 **The sticky header intercepts clicks.** Playwright scrolls the target into view,
 straight under the fixed header. Centre it first
 (`el.scrollIntoView({block:'center'})`) and fall back to `click({force:true})`.
+
+**A quiet DOM does not mean the render happened.** Waiting on a MutationObserver
+going quiet is a good default where there is nothing specific to wait for, but
+re-frame leaves a gap between the event and the re-render, and the observer fires
+in that gap. Replacing the fixed sleeps in `setClasses` with a quiet-DOM wait
+broke it: class 3's dropdown had not been rendered yet and the run reported the
+character had no third class. Where there IS something to wait for, poll for that
+instead — `waitForSelects` in `run.js` re-reads the selects until the one it
+needs exists. Quiet is a fallback, not the tool.
+
+**A response event does not mean your handler has run.** `waitForEvent('response')`
+resolves when the response arrives, not when the `context.route` handler that
+captures the body has finished. The sleep that used to follow it was really
+waiting for the bytes, so wait for the bytes:
+
+```js
+for (let i = 0; i < 200 && pdfBytes === null; i++) await page.waitForTimeout(50);
+```
+
+**A probe script with its own copy of the helpers will lie to you.** A throwaway
+script written to answer "does the Wizard have a spell selector?" carried its own
+slightly wrong `setClasses`, silently set only one of three classes, and reported
+that two whole classes had no selection block. They did. `run.js` exports its
+helpers (`module.exports` guarded by `require.main !== module`) so a probe drives
+the builder through the same code: `./scripts/e2e/run.sh probe.js`.
+
+**Walking the page top-down under-tests a form with repeated sections.** The
+Spells step gives every caster its own block, and choosing spells by clicking the
+first N visible rows only ever fills the blocks nearest the top. `pdf_spec` emits
+a spellcasting section only for a class that HAS spells, so the later casters got
+no page and the multiclass scenario silently exercised two classes while claiming
+three. Address each block by its heading — indices shift under the re-render each
+selection causes — and spread the picks across each list so more than the first
+few spell levels get used.
 
 **No outbound network in the sandbox.** `fonts.googleapis.com` fails and shows up
 as a console error. That is the environment, not the app — filter it, and say so
@@ -218,9 +257,17 @@ Re-posting the captured payload through `context.request.post` also works, but i
 is a second request and tests a replay rather than what the page actually did.
 
 Field names inside a PDF sit in compressed object streams, so they cannot be
-grepped from the bytes in node. Assert structure in `test/clj/orcpub/pdf_test.clj`
-where PDFBox is available; in the browser, assert status, content type, size and
-that the bytes start with `%PDF-`.
+grepped from the bytes in node. In the browser, assert status, content type, size
+and that the bytes start with `%PDF-`; assert structure where PDFBox is.
+
+`run.sh` does that second half itself: after the browser run it passes every
+captured PDF to `dev/inspect_export.clj`, which checks the invariants an export
+has to hold to — no orphaned widgets, no shared names, no field carrying widgets
+on two pages, every spellcasting section named, a class's later pages marked
+`(continued)`, slots only on a class's first page. `run.js` writes the expected
+page count to a `.min-pages` file beside each PDF so the inspector can assert it
+too. Add a check there rather than in the browser script whenever the question is
+about the document instead of the page.
 
 ### The export flow, as the UI actually works
 
