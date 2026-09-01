@@ -241,6 +241,69 @@ Two details that only appear once it is on the page:
   numeral**. A Paladin column with an empty box numbered 4 reads as Paladin level
   4 spells. Unused boxes need blanking or relabelling, not just leaving.
 
+
+#### Where a page should break, and two corrections
+
+**A section is a spellcasting ability, not a class.** `make-pages` in `pdf_spec`
+groups by `:ability` and collects every class sharing it into `ability-classes`,
+which is what the page heading lists. There are three casting abilities, so a
+character has **at most three spell sections, ever**:
+
+    INT  wizard
+    WIS  cleric, druid, ranger
+    CHA  bard, paladin, sorcerer, warlock
+
+The earlier "eight classes, eight pages" figure was wrong. It came from
+`dev/sample_character.clj`, which writes eight suffixes directly and bypasses
+`pdf_spec`. Through the real pipeline those eight classes make three sections.
+Three sections against three columns is not a coincidence worth designing around,
+but it does mean the column work is bounded and small.
+
+**`pdf_spec/level-max-spells` is already the box row capacity** -- the same
+`{0 8, 1 12, 2 13, ...}` measured off the artwork here. The two were derived
+independently and agree.
+
+The current rule splits each level into chunks of its own box and takes the worst
+level's chunk count as the page count. It breaks on **one crowded level**, so a
+section with a fat level 1 and thin everything else spends whole pages carrying
+level 1 leftovers while nine boxes sit empty:
+
+    cleric 20, whole preparable list      105 spells    now 2   packed 2
+    druid 20, whole preparable list       106 spells    now 2   packed 2
+    wizard 20, whole list                 204 spells    now 3   packed 3
+    paladin 20 / ranger 20                 31 / 37      now 1   packed 1
+
+    wizard book, 27 at level 1, 4 elsewhere 59 spells   now 3   packed 1
+    bard, 20 at level 1, nothing over 3     35 spells   now 2   packed 1
+    the eight-class character, by ability   88 spells   now 6   packed 3
+
+Where a section's spells genuinely exceed a sheet, the current rule is already
+optimal -- a Cleric 20's 105 spells need two pages however they are arranged. It
+wastes only on the lopsided shapes, which is where the complaint comes from.
+
+**The rule to adopt: break when the section's rows exceed the sheet, not when one
+level exceeds its box.** Fill boxes in level order; when a level outgrows its own
+box, spill into the next free box, relabelled to that level; start a page only
+when no box on the page has room. Single class, multiclass and granted spells all
+fall out of that one rule, because they are all just rows in an ability's section.
+
+#### Granted spells are already modelled
+
+`mod5e/spells-known` takes `[level spell-key spellcasting-ability class &
+[min-level qualifier class-key]]`, so a spell granted by a feat, background or
+boon already carries:
+
+- an **ability**, which decides the section it lands in;
+- a **class**, used as a source label -- a skill feat grants with `"Arcanist"` --
+  which reaches `ability-classes` and so the page heading;
+- a **qualifier**, `"at will"` or `"once per long rest"`.
+
+And `pdf_spec` already prints the qualifier beside the name as `(qualifier)`.
+So the row-level marking asked about above partly exists: what a granted spell
+does not show on its row is its **source**, which currently only reaches the
+heading. Putting the source there too is a change to one `str` in `pdf_spec`,
+and the measurement above says the row has the width for it.
+
 ### 9. Styles 2, 3 and 4 — a later branch
 
 Everything measured for the relabelling is style 1 only: `printed-slot-labels`,
