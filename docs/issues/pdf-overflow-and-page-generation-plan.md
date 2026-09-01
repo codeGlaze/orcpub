@@ -393,10 +393,40 @@ decision at the table:
 - **Plain V S M** with no cost is the least useful and the widest, being on
   nearly everything. It is the part to make optional if any of it is.
 
-One constraint on presentation: a spell row is a single text field with one
-default appearance, so the annotation cannot be greyed or set smaller than the
-name. It is one string at one size. Any visual separation has to come from
-punctuation or spacing.
+#### Inline flags do not scan, and the fix is alignment rather than spacing
+
+Appending the flags to the name -- `Bless   C  V S M` -- fits, but it does not
+work. `C` is the same visual class as the letters beside it: single capital, same
+weight, same spacing. Finding a letter among other letters is a serial search, so
+the eye has to read every row. Shape, weight, size and position are found in
+parallel; alphanumeric identity is not. Equal spacing makes it worse by grouping
+`C` with the components rather than separating it from them.
+
+More whitespace does not fix a serial search. A fixed column does, by turning
+"read each row" into one vertical sweep.
+
+The geometry allows it. At the 6.42pt the rows draw at, spell names run:
+
+    min 8.6pt   median 37.1pt   90th 56.0pt   99th 73.8pt   max 85.6pt
+
+so the longest name ends at x 127.9 in a row spanning x 40.32 to 198.27. A
+concentration column at x+98 and a components column at x+110 clear the longest
+name by 10pt, and the widest component string -- `V S M 25,000gp` at 46.0pt --
+fits the remainder.
+
+Three variants rendered at print size in `target/mock-scan.png`: inline as
+proposed, a bold `C` in a fixed column, and a filled square in a fixed column.
+Both aligned versions are found in one sweep; the inline one is not. The bold `C`
+is the one to take, because the square needs a legend and reads like another
+checkbox next to the prepared column.
+
+Correcting what was written above: the annotation does NOT have to match the
+name's size and colour. That is only true while it lives in the same text field.
+Drawn separately -- or written into its own field -- it takes its own size,
+weight and grey, which is what lets the components recede to 5.6pt grey while the
+name stays 6.42pt black and the concentration mark stays 7pt bold. The mock draws
+them, since they are computed values a player never edits, and drawing costs no
+form fields where a field per column per row would add roughly 200 per page.
 
 ### 9. Styles 2, 3 and 4 — a later branch
 
