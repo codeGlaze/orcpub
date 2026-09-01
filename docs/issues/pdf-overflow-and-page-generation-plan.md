@@ -173,6 +173,51 @@ The last one is the constraint the others hang off: a box carries a level, and a
 page carries a class. Packing across classes breaks the second, and that is a
 larger change than packing levels within one class.
 
+
+#### What each option is worth, measured
+
+The eight-class fixture in `dev/sample_character.clj` is the case that wastes the
+most paper. Its eight classes hold spells at only 14 class-levels between them,
+and a sheet has ten boxes:
+
+    Bard 2      levels 0,1      Paladin 4   level 1
+    Cleric 2    levels 0,1      Ranger 4    level 1
+    Druid 2     levels 0,1      Sorcerer 2  levels 0,1
+    Warlock 2   levels 0,1      Wizard 2    levels 0,1
+
+    today, a page per class                 8 pages
+    a column per class, 3 columns a sheet   3 pages
+    a box per class-level, 10 a sheet       2 pages
+    packed by rows, 100 rows a sheet        2 pages   (floor; ignores box fit)
+
+A column per class takes five pages off that with no packing algorithm at all --
+it is a fixed assignment, not a search. Going from three pages to two needs real
+bin-packing against the uneven row counts. That is the whole of the extra
+complexity, and it buys one page on the worst case in the SRD.
+
+#### Three shapes, mocked up on the real sheet
+
+- **A column per class** (`target/mock-columns.png`). Cleric, Paladin and Ranger
+  on one sheet, each column headed by its class in the empty band above the bar,
+  each box renumbered by `relabel-spell-level!` to the level it actually holds.
+  Three pages become one.
+- **Two classes in one box** (`target/mock-inbox.png`). A rule across the rows,
+  then the second class, its own save DC, and a box for slots left. Costs one row
+  of twelve. For the case where a class has one short list and a whole box is
+  more than it needs.
+- **A source beside each granted spell** (`target/mock-source.png`). Free on
+  width, as measured above.
+
+#### What mocking them up turned up
+
+Two details that only appear once it is on the page:
+
+- The divider row is a heading, not a spell, so **its prepared checkbox has to
+  go**. Left in place it invites a tick against a class name.
+- In a shared column, the boxes a class does not use **still carry their printed
+  numeral**. A Paladin column with an empty box numbered 4 reads as Paladin level
+  4 spells. Unused boxes need blanking or relabelling, not just leaving.
+
 ### 9. Styles 2, 3 and 4 — a later branch
 
 Everything measured for the relabelling is style 1 only: `printed-slot-labels`,
