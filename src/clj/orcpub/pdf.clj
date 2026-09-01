@@ -1121,17 +1121,6 @@
       (.setReadOnly field true)
       field))))
 
-(defn- blank-appearance
-  "A plain white patch, for hiding printed text."
-  [doc width height]
-  (let [stream (PDAppearanceStream. doc)]
-    (.setResources stream (PDResources.))
-    (.setBBox stream (PDRectangle. 0 0 width height))
-    (with-open [out (.createOutputStream (.getCOSObject stream))]
-      (.write out (.getBytes (format "1 1 1 rg\n0 0 %.2f %.2f re f\n" width height)
-                             "ISO-8859-1")))
-    stream))
-
 (def ^:private printed-slot-labels
   "The SLOTS TOTAL / SLOTS EXPENDED line on the style 1 spell page, in page
    coordinates, measured off the artwork with PDFTextStripper and the rendered
@@ -1205,10 +1194,59 @@
 ;; locate it by, its bar reads CANTRIPS, and it has no SLOTS TOTAL / SLOTS
 ;; EXPENDED labels because cantrips do not use slots.
 
-(def ^:private cantrips-word-cover
-  "Rect of a patch over the printed word CANTRIPS, which runs x 112.5 to 142.5
-   inside the bar."
-  [108.0 629.0 40.0 13.0])
+(def ^:private cantrips-bar
+  "Where the cantrips bar differs from a level bar, in page coordinates.
+
+   A level bar divides SLOTS TOTAL from SLOTS EXPENDED at x 93-102, in the gap
+   between the two fields. The cantrips bar's divider is at x 51-59 instead,
+   right after the hexagon, leaving one long compartment where a level bar has
+   two -- and that compartment reads CANTRIPS, printed x 112-142.
+
+   Covering x 50.5 to 148 takes the stray divider and the word together. The
+   patch runs the full height between the bar's inner rules -- they sit at
+   y 625.5-625.9 and 645.4-645.9, flat from x 62 on -- so it clears the divider's
+   sloped ends where they meet those rules without painting over the rules
+   themselves. Stopping short of them leaves two visible stubs."
+  {:patch-from 50.5
+   :patch-to 148.0
+   :interior-y 625.9
+   :interior-height 19.5
+   :divider-x 97.5})
+
+(defn- bar-patch-appearance
+  "Paints the patch white and strokes the divider a level bar has, at `divider-x`
+   measured from the patch's left edge. 0.6pt matches the bar's own rules."
+  [doc width height divider-x]
+  (let [stream (PDAppearanceStream. doc)]
+    (.setResources stream (PDResources.))
+    (.setBBox stream (PDRectangle. 0 0 width height))
+    (with-open [out (.createOutputStream (.getCOSObject stream))]
+      (.write out (.getBytes (format "1 1 1 rg\n0 0 %.2f %.2f re f\n0 G\n0.6 w\n%.2f 0 m\n%.2f %.2f l\nS\n"
+                                     width height divider-x divider-x height)
+                             "ISO-8859-1")))
+    stream))
+
+(defn- cantrips-slot-boxes
+  "The two slot inputs for a reused cantrips bar, as [total expended] rects:
+   level 1's SLOTS TOTAL and SLOTS EXPENDED boxes raised by cantrips-box-rise.
+   nil when either is missing.
+
+   Taken from the live fields rather than written down, so the inputs land either
+   side of the drawn divider the way level 1's land either side of its printed
+   one."
+  [doc suffix]
+  (let [form (.getAcroForm (.getDocumentCatalog doc))
+        raised (fn [nm]
+                 (when-let [field (.getField form nm)]
+                   (when-let [widget (first (filter #(some? (.getPage %))
+                                                    (.getWidgets field)))]
+                     (let [r (.getRectangle widget)]
+                       {:rect [(.getLowerLeftX r) (+ (.getLowerLeftY r) cantrips-box-rise)
+                               (.getWidth r) (.getHeight r)]
+                        :quadding (.getQ field)}))))]
+    (when-let [total (raised (str "spell-slots-1-" suffix))]
+      (when-let [expended (raised (str "slots-expended-1-" suffix))]
+        [total expended]))))
 
 (defn- cantrips-hexagon-box
   "The cantrips bar's hexagon, as [x y width height]. The cantrips box has no
@@ -1220,42 +1258,61 @@
 
 (defn reuse-cantrips-box!
   "Turns the cantrips box into a spell level box carrying `label`: renumbers the
-   hexagon, hides the word CANTRIPS, and writes the slot labels the level boxes
-   have. Returns the fields added.
+   hexagon, makes the bar read like a level bar, and gives it the slot labels and
+   the two slot inputs a level box has. Returns the fields added.
 
-   The labels are drawn rather than reproduced from the artwork -- the level bars
-   have shaped slot art this does not attempt. On a continuation page the box is
-   otherwise wasted, and eight rows are worth more than a matching bar."
+   The bar is patched rather than redrawn -- the level bars have shaped slot art
+   this does not attempt, and a plain divider between two boxes is enough to read.
+   On a continuation page the box is otherwise wasted, and eight rows are worth
+   more than a matching bar.
+
+   The inputs are named for the box, not for `label`: the level's own box is still
+   on the page under spell-slots-<label>-<suffix>, and two fields cannot share a
+   name without sharing a value."
   [doc suffix label]
   (let [form (.getAcroForm (.getDocumentCatalog doc))
         page (some-> form (.getField (str "spells-0-1-" suffix))
                      .getWidgets first .getPage)
         hexagon (cantrips-hexagon-box doc suffix)
-        labels (cantrips-slot-labels-box)]
-    (when (and page hexagon)
-      (let [add (fn [nm [x y w h] draw]
+        slots (cantrips-slot-boxes doc suffix)
+        {:keys [patch-from patch-to interior-y interior-height divider-x]} cantrips-bar]
+    (when (and page hexagon slots)
+      (let [attach (fn [field [x y w h]]
+                     (let [widget (PDAnnotationWidget.)]
+                       (.setRectangle widget (PDRectangle. x y w h))
+                       (.setPage widget page)
+                       (.setWidgets field (java.util.ArrayList. [widget]))
+                       (.setAnnotations page (java.util.ArrayList.
+                                              (conj (vec (.getAnnotations page)) widget)))
+                       (.setFields form (java.util.ArrayList.
+                                         (conj (vec (.getFields form)) field)))
+                       widget))
+            art (fn [nm [x y w h :as rect] draw]
                   (let [field (PDTextField. form)
-                        widget (PDAnnotationWidget.)
                         appearance (PDAppearanceDictionary.)]
                     (.setPartialName field nm)
-                    (.setRectangle widget (PDRectangle. x y w h))
-                    (.setPage widget page)
-                    (.setWidgets field (java.util.ArrayList. [widget]))
-                    (.setAnnotations page (java.util.ArrayList.
-                                           (conj (vec (.getAnnotations page)) widget)))
-                    (.setFields form (java.util.ArrayList.
-                                      (conj (vec (.getFields form)) field)))
-                    (.setNormalAppearance appearance (draw x y w h))
-                    (.setAppearance widget appearance)
+                    (let [widget (attach field rect)]
+                      (.setNormalAppearance appearance (draw x y w h))
+                      (.setAppearance widget appearance))
                     (.setReadOnly field true)
-                    field))]
-        [(add (str "spell-level-label-0-" suffix) hexagon
+                    field))
+            input (fn [nm {:keys [rect quadding]}]
+                    (let [field (PDTextField. form)]
+                      (.setPartialName field nm)
+                      (.setDefaultAppearance field (.getDefaultAppearance form))
+                      (.setQ field quadding)
+                      (attach field rect)
+                      field))
+            [total expended] slots]
+        [(art (str "spell-level-label-0-" suffix) hexagon
               (fn [_ _ w h] (hexagon-appearance doc w h (str label) false nil)))
-         ;; a plain white patch over the printed word
-         (add (str "cantrips-word-cover-" suffix) cantrips-word-cover
-              (fn [_ _ w h] (blank-appearance doc w h)))
-         (add (str "cantrips-slot-labels-" suffix) labels
-              (fn [x y w h] (slot-labels-appearance doc x y w h)))]))))
+         (art (str "cantrips-bar-patch-" suffix)
+              [patch-from interior-y (- patch-to patch-from) interior-height]
+              (fn [x _ w h] (bar-patch-appearance doc w h (- divider-x x))))
+         (art (str "cantrips-slot-labels-" suffix) (cantrips-slot-labels-box)
+              (fn [x y w h] (slot-labels-appearance doc x y w h)))
+         (input (str "cantrips-slots-total-" suffix) total)
+         (input (str "cantrips-slots-expended-" suffix) expended)]))))
 
 ;; ─── Overflow pages ───────────────────────────────────────────────────────────
 

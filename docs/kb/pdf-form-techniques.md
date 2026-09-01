@@ -2,7 +2,9 @@
 
 Everything here was measured against the real templates in `resources/` and a
 production export. Numbers are reproducible with `dev/sample_character.clj` and
-`dev/on_demand_pages.clj`.
+`dev/on_demand_pages.clj`. The page-generation spike there is superseded by
+`pdf/add-missing-spell-pages!`, which does this in production; it is kept because
+it is the smallest readable demonstration of the cloning technique.
 
 Background on how the current exporter got into its present state is in
 `docs/issues/pdf-export-size.md`; this file is the how-to.

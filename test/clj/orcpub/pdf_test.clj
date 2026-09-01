@@ -562,11 +562,47 @@
     (with-open [doc (style-1-template)]
       (let [added (pdf/reuse-cantrips-box! doc 1 "1")
             form (.getAcroForm (.getDocumentCatalog doc))]
-        (is (= 3 (count added))
-            "a renumbered hexagon, a cover over CANTRIPS, and the slot labels")
+        (is (= 5 (count added))
+            "a renumbered hexagon, a patched bar, the slot labels, and two inputs")
         (is (some? (.getField form "spell-level-label-0-1")))
-        (is (some? (.getField form "cantrips-word-cover-1")))
+        (is (some? (.getField form "cantrips-bar-patch-1")))
         (is (some? (.getField form "cantrips-slot-labels-1")))
+
+        (testing "the bar gets the two inputs its labels name, either side of a
+                  divider drawn where a level bar has one"
+          (let [total (.getField form "cantrips-slots-total-1")
+                expended (.getField form "cantrips-slots-expended-1")
+                rect-of #(.getRectangle (first (.getWidgets %)))
+                patch (rect-of (.getField form "cantrips-bar-patch-1"))
+                ops (with-open [in (.createInputStream
+                                    (.getCOSObject
+                                     (.getAppearanceStream
+                                      (.getNormalAppearance
+                                       (.getAppearance (first (.getWidgets (.getField form "cantrips-bar-patch-1")))))))) ]
+                      (String. (.readAllBytes in) "ISO-8859-1"))]
+            (is (and total expended) "both inputs exist")
+            (is (not (.isReadOnly total)) "and the player can type in them")
+            (is (not (.isReadOnly expended)))
+            (is (< (+ (.getLowerLeftX (rect-of total)) (.getWidth (rect-of total)))
+                   97.5
+                   (.getLowerLeftX (rect-of expended)))
+                "the divider at x 97.5 falls in the gap between them")
+            ;; the patch covers the cantrips bar's own divider at x 51-59 and the
+            ;; printed word at 112-142, and must stay inside the bar's rules
+            (is (< (.getLowerLeftX patch) 51.0))
+            (is (> (+ (.getLowerLeftX patch) (.getWidth patch)) 142.0))
+            ;; the bar's inner rules occupy y 625.5-625.9 and 645.4-645.9, so the
+            ;; patch has to fill exactly between them: short of either and the
+            ;; old divider's sloped ends are left behind as stubs, over either
+            ;; and the rule itself is painted out
+            ;; rects are floats, so the bounds land a ten-thousandth out; the
+            ;; rules are 0.4pt thick, well clear of that
+            (let [slack 0.01]
+              (is (and (>= (.getLowerLeftY patch) (- 625.9 slack))
+                       (<= (+ (.getLowerLeftY patch) (.getHeight patch))
+                           (+ 645.4 slack)))
+                  "between the bar's inner rules, covering all of the gap"))
+            (is (str/includes? ops " l\nS") "the divider is stroked")))
 
         (testing "the labels land on the printed line, raised to the cantrips box"
           (let [widget (first (.getWidgets (.getField form "cantrips-slot-labels-1")))

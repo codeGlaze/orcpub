@@ -38,7 +38,8 @@ continuation page instead of shrinking past legibility.
   (`dd1bf01`).
 - A spare spell level box can be relabelled to carry a different level, the
   cantrips box included, so continuation pages reuse boxes the character does not
-  need (`fb663ae`, `6201cff`, `331a167`, `cab51a0`).
+  need. The reused cantrips bar gets the level numeral, the slot labels and the
+  two slot inputs a level bar has (`fb663ae`, `6201cff`, `331a167`, `cab51a0`).
 - The export is covered by a browser check that drives the real builder and
   asserts the resulting PDF's structure (`29fd42c`, `f9ca6ae`, `dfb0d07`,
   `10ec0dc`, `bc9ba8a`).

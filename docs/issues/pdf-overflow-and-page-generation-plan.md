@@ -110,3 +110,55 @@ code-only and matches behaviour the sheet already has elsewhere.
   class, four classes, eight classes) each build with zero dropped names.
 - A long-text fixture that overflows every small box, to prove spill works.
 - Compare against `docs/kb/pdf-form-techniques.md` capacities so drift is caught.
+
+---
+
+## Done, and what is left
+
+Items 1 through 7 shipped on `fix/pdf-endpoint-hardening`, plus two that were not
+in the original plan: a field carrying widgets on two pages was found to mirror
+one class's ticks and expended slots onto another's page, and a spell level box
+can be relabelled so a spare one — the cantrips box included — can carry a
+different level.
+
+### 8. Spell level packing — designed, not built
+
+The mechanism works: `reuse-cantrips-box!` and `relabel-spell-level!` will put
+any level in any box, with the numeral, the slot labels and two slot inputs.
+What decides *which* level goes in which box does not exist. `pdf_spec` still
+emits one level per box, so a character with three level 1 spells and two level 2s
+spends two pages on five spells.
+
+Packing raises questions about what a spell list on a printed sheet is for, and
+they want answering before any of it is built:
+
+- **Which spells belong on the sheet at all?** Only the ones the player chose, or
+  also the ones granted for free — by class, subclass, background, race or
+  subrace? A Cleric already gets its whole domain list; a Sorcerer does not.
+- **If granted spells are included, does the sheet say where each came from?** A
+  parenthesised source beside the name costs row width, which is the scarce
+  resource, and the rows are narrow already.
+- **Can two classes share a page?** Two small lists — a Paladin's and a Ranger's
+  at low level, say — could sit in one sheet's boxes rather than taking one page
+  each. That needs a per-box class label rather than a per-page one, since the
+  page heading currently names a single class.
+- **What does a box mean once packed?** Today a box is a level. If two levels
+  share a page, or two classes share a sheet, the numeral and the slot totals
+  have to say which class as well as which level, or a player reading the printed
+  sheet cannot tell whose slots those are.
+
+The last one is the constraint the others hang off: a box carries a level, and a
+page carries a class. Packing across classes breaks the second, and that is a
+larger change than packing levels within one class.
+
+### 9. Styles 2, 3 and 4 — a later branch
+
+Everything measured for the relabelling is style 1 only: `printed-slot-labels`,
+`cantrips-box-rise`, `cantrips-bar` and `hexagon-offset` in `pdf.clj` are that
+sheet's artwork. The other three styles need their own numbers.
+
+The method is written down in `docs/kb/pdf-form-techniques.md` under "Place a
+patch by measuring the artwork" — PDFTextStripper for positions and size, a high
+DPI render for colour, printed landmarks for the offsets between blocks — so this
+is measurement rather than design. Style 1 is the only public sheet, which is why
+it went first.
