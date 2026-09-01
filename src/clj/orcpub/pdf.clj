@@ -920,17 +920,17 @@
    `outline?` strokes the path magenta, which is how the offsets above were
    checked: a misplaced patch is invisible in a normal render but obvious against
    the printed hexagon once its edge is drawn."
-  [doc width height label outline? scale]
+  [doc width height label outline? patch-scale]
   (let [stream (PDAppearanceStream. doc)
         resources (PDResources.)
         font (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD)
         size 13.0
         cx (/ width 2.0)
         cy (/ height 2.0)
-        scale (or scale numeral-patch-scale)
+        factor (or patch-scale numeral-patch-scale)
         point (fn [[fx fy]]
-                [(+ cx (* scale (- (* fx width) cx)))
-                 (+ cy (* scale (- (* fy height) cy)))])
+                [(+ cx (* factor (- (* fx width) cx)))
+                 (+ cy (* factor (- (* fy height) cy)))])
         [[sx sy] & rest-points] (map point hexagon-path)
         text-width (* size (/ (.getStringWidth font label) 1000.0))]
     (.setResources stream resources)
@@ -974,7 +974,7 @@
    hexagon it covers. Both are for fitting these numbers to a style whose spell
    page has not been measured."
   ([doc level suffix label] (relabel-spell-level! doc level suffix label nil))
-  ([doc level suffix label {:keys [outline? scale]}]
+  ([doc level suffix label {patch-scale :scale :keys [outline?]}]
   (when-let [[x y w h] (spell-level-numeral-box doc level suffix)]
     (let [form (.getAcroForm (.getDocumentCatalog doc))
           resources (.getDefaultResources form)
@@ -1001,7 +1001,7 @@
       (.setValue field (str label))
       (let [appearance (PDAppearanceDictionary.)]
         (.setNormalAppearance appearance
-                              (hexagon-appearance doc w h (str label) outline? scale))
+                              (hexagon-appearance doc w h (str label) outline? patch-scale))
         (.setAppearance widget appearance))
       (.setReadOnly field true)
       field))))
