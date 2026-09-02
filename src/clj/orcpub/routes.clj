@@ -681,21 +681,20 @@
                                                     print-character-sheet-style?)
                                        print-character-sheet-style?
                                        default-sheet-style)
-        sheet6 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-6-spells.pdf")
-        sheet5 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-5-spells.pdf")
-        sheet4 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-4-spells.pdf")
-        sheet3 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-3-spells.pdf")
-        sheet2 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-2-spells.pdf")
-        sheet1 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-1-spells.pdf")
-        sheet0 (str "fillable-char-sheetstyle-" print-character-sheet-style? "-0-spells.pdf")
-        input (.openStream (io/resource (cond
-                                          (find fields :spellcasting-class-6) sheet6
-                                          (find fields :spellcasting-class-5) sheet5
-                                          (find fields :spellcasting-class-4) sheet4
-                                          (find fields :spellcasting-class-3) sheet3
-                                          (find fields :spellcasting-class-2) sheet2
-                                          (find fields :spellcasting-class-1) sheet1
-                                          :else sheet0)))
+        ;; (2026-09) One master per style, grown to the character's shape, rather
+        ;; than one of seven pre-cut files. pdf/sheet-masters carries the reasoning
+        ;; and the measurements.
+        casters (->> (keys fields)
+                     (keep #(second (re-matches #"spellcasting-class-(\d+)" (name %))))
+                     (map #(Integer/parseInt %))
+                     (reduce max 0))
+        {:keys [file marks without-casters]} (get pdf/sheet-masters
+                                                  print-character-sheet-style?)
+        ;; A style that marks only its last page loses the mark with its spell
+        ;; pages, so a character who casts nothing opens the variant that marks
+        ;; the background page instead.
+        no-casters? (and (zero? casters) (some? without-casters))
+        input (.openStream (io/resource (if no-casters? without-casters file)))
         output (ByteArrayOutputStream.)
         filename (cond
                    (and (s/blank? player-name) (s/blank? character-name)) "character.pdf"
@@ -712,6 +711,8 @@
       ;; Both run before write-fields! so the fields they create or trim exist by
       ;; the time values are written.
       (let [fields (apply dissoc fields pdf-option-keys)]
+        (pdf/grow-spell-sections! doc casters (if no-casters? :all marks))
+        (pdf/prune-orphan-widgets! doc)
         (pdf/add-missing-spell-pages! doc fields)
         (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes))
       (when (and print-spell-cards? (seq spells-known))

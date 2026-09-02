@@ -16,7 +16,7 @@
   (iterator-seq (.iterator (.getFieldTree form))))
 
 (defn- load-template []
-  (with-open [in (.openStream (io/resource "fillable-char-sheetstyle-2-0-spells.pdf"))]
+  (with-open [in (.openStream (io/resource "fillable-char-sheetstyle-2-1-spells.pdf"))]
     (Loader/loadPDF (.readAllBytes in))))
 
 (deftest write-fields-generates-appearances
@@ -153,12 +153,14 @@
     (Loader/loadPDF (.readAllBytes in))))
 
 (defn- six-caster-template
-  "The widest style 1 variant. Its duplicate names survive pruning because every
-   copy sits on one of the six spell pages; on narrower variants the copies are
-   orphans and pruning alone removes them."
+  "Style 1 grown to its widest, six spellcasting sections. Built rather than
+   loaded: only the masters in pdf/sheet-masters ship, and this is what the
+   export makes of style 1 for a character with six casting classes."
   []
-  (with-open [in (.openStream (io/resource "fillable-char-sheetstyle-1-6-spells.pdf"))]
-    (Loader/loadPDF (.readAllBytes in))))
+  (let [doc (with-open [in (.openStream (io/resource "fillable-char-sheetstyle-1-1-spells.pdf"))]
+              (Loader/loadPDF (.readAllBytes in)))]
+    (pdf/grow-spell-sections! doc 6 :all)
+    doc))
 
 (defn- dirty-doc
   "A two-page document with an orphaned widget and a duplicated field name, the
@@ -196,9 +198,9 @@
   (testing "dev/prepare_templates.clj bakes the static cleanups into resources/, so
             the export path does not repeat them on every request. This asserts the
             result, and fails if a template is replaced without being prepared."
-    (doseq [variant (range 0 7)]
-      (with-open [in (.openStream (io/resource (str "fillable-char-sheetstyle-1-"
-                                                    variant "-spells.pdf")))
+    (doseq [{:keys [file without-casters]} (vals pdf/sheet-masters)
+            variant (remove nil? [file without-casters])]
+      (with-open [in (.openStream (io/resource variant))
                   doc (Loader/loadPDF (.readAllBytes in))]
         (let [form (.getAcroForm (.getDocumentCatalog doc))
               names (map #(.getFullyQualifiedName %) (all-fields form))]
@@ -206,11 +208,18 @@
                             w (.getWidgets f)
                             :when (nil? (.getPage w))]
                         f))
-              (str variant "-spells still has a widget belonging to no page"))
+              (str variant " still has a widget belonging to no page"))
           (is (empty? (->> names frequencies (filter (fn [[_ n]] (> n 1))) (map key)))
-              (str variant "-spells still has duplicate field names"))
-          (is (empty? (filter #(re-matches #"(?i)check box \d+" %) names))
-              (str variant "-spells still has an anonymous checkbox")))))))
+              (str variant " still has duplicate field names"))
+          ;; Only style 1 is asserted here. The naming pass pairs a checkbox with
+          ;; the spell row beside it using style 1's geometry, so the other
+          ;; styles keep a few "Check Box N" names; dev/prepare_templates.clj
+          ;; reports the count rather than treating it as a failure. Duplicates
+          ;; and orphans above are required of every master, an anonymous name is
+          ;; only unhelpful.
+          (when (re-find #"style-1-" variant)
+            (is (empty? (filter #(re-matches #"(?i)check box \d+" %) names))
+                (str variant " still has an anonymous checkbox"))))))))
 
 (deftest prune-orphan-widgets-loses-nothing
   (testing "Pruning drops only widgets belonging to no page, so no value can be

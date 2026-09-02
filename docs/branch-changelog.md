@@ -1,78 +1,41 @@
-# Branch changelog — `fix/pdf-endpoint-hardening`
+# Branch changelog — `feature/one-template-per-style`
 
 ## Why this branch exists
 
-`/character.pdf` is reachable without signing in, and it took an image URL it
-would fetch, a sheet style id it interpolated straight into a resource path, and
-a request body of any size. Those are fixed here.
+`resources/` shipped seven PDF templates per sheet style, one for each spell-page
+count, cut from a master by deleting pages. Each carried its own copy of that
+style's artwork: 32.7 MB of images across the 28 files against 13.2 MB of
+distinct pixels, with style 3 storing the same image twenty times.
 
-Working in the exporter then surfaced how much of the sheet was wrong once a
-character outgrew one page. Spell pages stopped at whatever the template carried,
-long text shrank until it was unreadable rather than continuing anywhere, and
-fields shared names across pages — which in a PDF form means they share a value,
-so one class's prepared spells and expended slots appeared on another's page.
-That is the bulk of the diff.
-
-The template preparation moved out of the request path along the way: the
-cleanups are pure functions of the template, so they are baked into `resources/`
-by `dev/prepare_templates.clj` and committed, rather than recomputed on every
-export.
+This ships one master per style and grows it to the character instead.
 
 ## Highlights
 
-Character sheets now hold a whole character. Spell pages are generated for as
-many casting classes as the character has rather than stopping at the six the
-artwork ships, a class whose spells outgrow a page continues onto another marked
-`(continued)`, and long personality, ideal and backstory text spills onto a
-continuation page instead of shrinking past legibility.
+Character sheets are generated from one template per style rather than chosen
+from seven pre-cut files. The templates in `resources/` fall from 44.3 MB to 8.6
+MB, and exports shrink with them — a six-caster style 1 sheet from 565 KB to 328,
+the eight-class fixture from 638 KB to 424.
 
 ## Added
 
-- Spellcasting pages are generated for classes beyond the last one the template
-  carries, so an eight-class character gets eight sections instead of six
-  (`7b51381`).
-- Text too long for its box spills onto a continuation page under a heading,
-  instead of shrinking until it cannot be read (`439f445`).
-- A class whose spells run past one page continues onto another, marked
-  `(continued)` in its heading, with its slot totals left on the first page only
-  (`dd1bf01`).
-- A spare spell level box can be relabelled to carry a different level, the
-  cantrips box included, so continuation pages reuse boxes the character does not
-  need. The reused cantrips bar gets the level numeral, the slot labels and the
-  two slot inputs a level bar has (`fb663ae`, `6201cff`, `331a167`, `cab51a0`).
-- The export is covered by a browser check that drives the real builder and
-  asserts the resulting PDF's structure (`29fd42c`, `f9ca6ae`, `dfb0d07`,
-  `10ec0dc`, `bc9ba8a`).
+- `pdf/sheet-masters` names the file each style grows from and where that style's
+  artwork carries its attribution, and `pdf/grow-spell-sections!` reshapes an
+  opened master to the number of spellcasting sections a character needs
+  (`a78aaaf`).
 
 ## Fixed
 
-- The exporter no longer fetches whatever image URL it is handed (`d1bb764`).
-- The sheet style id is validated against the styles on disk rather than
-  interpolated into a resource path (`23eb07c`).
-- Request bodies are capped, and a rate-limit predicate that always returned true
-  now answers correctly (`a12e28e`).
-- A custom spell name wider than its box hung the export. Reachable without
-  signing in (`439f445`).
-- Ticking a spell prepared on one class's spell page no longer ticks it on
-  another's, and the two classes no longer share one SLOTS EXPENDED value. 101
-  fields on the widest template had widgets on two pages, which in a PDF form is
-  one field showing one value twice (`e371c19`).
-- Every form field has its own name; none are left sharing one (`0296d84`).
-- A three-character ability modifier no longer clips against the edge of its box
-  (`581513a`).
-- Values with no matching field in the chosen template were dropped silently and
-  are now reported (`fe2a3e9`).
+- A character with more casting classes than its template held got the features
+  and traits page wedged between its spell pages: generated pages were appended
+  to the end of the document rather than placed after the last spell page. The
+  eight-class fixture shipped as spell pages 3–8, features at 9, then spell pages
+  10 and 11 (`de9a746`).
 
 ## Changed
 
-- Template cleanups are baked into `resources/` by `dev/prepare_templates.clj`
-  instead of running on every request. A production export drops from 1407 fields
-  and 2679 KB to 333 fields and 1313 KB with every filled value intact
-  (`f956c69`, `fe2a3e9`).
-- Checkboxes are named for what they do — `prepared-1-1-1` beside `spells-1-1-1`,
-  and the death saves — rather than `Check Box 25` (`94fa2fc`).
-- The blanks beside each SLOTS TOTAL box are named `slots-expended-<level>-<class>`
-  rather than `SlotsRemaining 19`, so the field a player types into says what it
-  is (`eb1d542`).
-- The overflow cutoff is a font size rather than a character count: text shrinks
-  to 8pt and spills below that (`fa83619`).
+- The 28 templates are now 5: one per style, plus a no-caster variant for style 4,
+  whose licence line sits on its last page and so would vanish with its spell
+  pages. 44.3 MB to 8.6 MB.
+- Exports are smaller at every caster count above one, by 49 KB to 671 KB
+  depending on style. A character with no spellcasting is 2 KB to 212 KB larger,
+  because removing a page does not remove the resources it referenced.

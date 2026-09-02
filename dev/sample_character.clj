@@ -134,7 +134,8 @@
 
 (def ^:private multi-20
   {:file "target/sample-multi.pdf"
-   :template "fillable-char-sheetstyle-1-4-spells.pdf"
+   :template "fillable-char-sheetstyle-1-1-spells.pdf"
+   :grow-to 4
    :casters [{:name-str "Warlock 5 (Great Old One, Pact of the Tome)" :list :warlock
               :ability "Charisma" :dc 16 :attack "+8" :max-spell-level 3
               :slots pact-slots}
@@ -209,7 +210,8 @@
 
 (def ^:private multi-8
   {:file "target/sample-eight.pdf"
-   :template "fillable-char-sheetstyle-1-6-spells.pdf"
+   :template "fillable-char-sheetstyle-1-1-spells.pdf"
+   :grow-to 6
    :casters [(caster "Bard 2 (College of Lore)"        :bard     "Charisma"     14 "+6" wide-slots)
              (caster "Cleric 2 (Life Domain)"          :cleric   "Wisdom"       13 "+5" wide-slots)
              (caster "Druid 2 (Circle of the Land)"    :druid    "Wisdom"       13 "+5" wide-slots)
@@ -259,14 +261,15 @@
     (str "Eight spellcasting classes; the sheet has room for six. Caster level 14 for shared "
          "slots, but no class above 4th, so nothing above 1st level can be prepared.")}})
 
-(defn- build! [{:keys [file template casters fields]}]
+(defn- build! [{:keys [file template grow-to casters fields]}]
   (let [all (merge fields (spellcasting-fields casters))
         out (io/file file)]
     (io/make-parents out)
     (with-open [doc (Loader/loadPDF (.readAllBytes
                                       (.openStream (io/resource template))))]
-      ;; Mirrors the export path in routes.clj: pages for classes past the sixth,
-      ;; then overflow spill, then write.
+      ;; Mirrors the export path in routes.clj: grow the master to the shape the
+      ;; character needs, pages for classes past that, then overflow, then write.
+      (when grow-to (pdf/grow-spell-sections! doc grow-to :all))
       (pdf/add-missing-spell-pages! doc all)
       (let [all (pdf/spill-overflow! doc all)
             dropped (pdf/write-fields! doc all false {})]

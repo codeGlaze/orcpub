@@ -69,13 +69,18 @@
           "400x600 is well inside the budget"))))
 
 (deftest only-styles-with-a-template-are-accepted
-  (testing "the ids that have a file on disk"
-    ;; resources/fillable-char-sheetstyle-N-*.pdf exists for N in 1..4.
+  (testing "the ids that have a master on disk"
+    ;; (2026-09) Each style ships one master, grown per character, rather than
+    ;; seven pre-cut variants. pdf/sheet-masters is the list.
     (is (= #{1 2 3 4} orcpub.routes/valid-sheet-styles))
-    (doseq [n orcpub.routes/valid-sheet-styles]
-      (is (some? (clojure.java.io/resource
-                  (str "fillable-char-sheetstyle-" n "-0-spells.pdf")))
-          (str "style " n " must have a template")))))
+    (doseq [n orcpub.routes/valid-sheet-styles
+            :let [{:keys [file without-casters]} (get orcpub.pdf/sheet-masters n)]]
+      (is (some? file) (str "style " n " must name a master"))
+      (is (some? (clojure.java.io/resource file))
+          (str "style " n "'s master must be on disk: " file))
+      (when without-casters
+        (is (some? (clojure.java.io/resource without-casters))
+            (str "style " n "'s no-caster variant must be on disk: " without-casters))))))
 
 (deftest the-fallback-style-has-a-template
   (testing "so an absent or bogus style cannot produce a missing resource"
@@ -84,5 +89,5 @@
     ;; field on an unauthenticated endpoint.
     (is (contains? orcpub.routes/valid-sheet-styles orcpub.routes/default-sheet-style))
     (is (some? (clojure.java.io/resource
-                (str "fillable-char-sheetstyle-"
-                     orcpub.routes/default-sheet-style "-0-spells.pdf"))))))
+                (:file (get orcpub.pdf/sheet-masters
+                            orcpub.routes/default-sheet-style)))))))

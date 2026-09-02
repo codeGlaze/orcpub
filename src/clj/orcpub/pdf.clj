@@ -277,6 +277,107 @@
       (.setFields form (java.util.ArrayList. (concat (vec (.getFields form)) new-fields)))
       (count new-fields))))
 
+
+;; ─── Generating a sheet from a master ─────────────────────────────────────────
+;;
+;; (2026-09, a second pass over the templates.) The first pass baked the static
+;; cleanups into resources/ -- see dev/prepare_templates.clj -- but left seven
+;; variants of every style on disk, one per spell-page count. Each carries its
+;; own copy of that style's artwork: across the 28 files that is 32.7 MB of
+;; images against 13.2 MB of distinct pixels. The wider variants are generated
+;; here instead, from one master per style.
+;;
+;; Two measurements shaped this and are easy to undo by accident.
+;;
+;; Grow a narrow master rather than trimming the widest one. Trimming makes every
+;; export bigger -- style 1's one-caster sheet went from 276 KB to 654 -- because
+;; removing pages removes no shared resource. Growing shrinks them: six casters
+;; on style 1 lands at 328 KB against the 565 KB file that ships today.
+;;
+;; And the master is the smallest file holding every distinct PAGE KIND, not the
+;; narrowest file. Style 4 prints its licence line on its last page only, so the
+;; single spell page in its one-spell file is the marked one and cloning that
+;; repeats the line on every page. Its two-spell file holds a plain page and a
+;; marked one, which is why sheet-masters names it.
+
+(def sheet-masters
+  "The file each style grows from, and where that style's artwork carries its
+   attribution.
+
+   :marks describes what the style's own pages do, not a preference. A footer
+   drawn into a page's content stream can be spread by cloning a marked page but
+   never removed from one, so an :all style has no plain spell page to offer.
+
+   :without-casters covers a style whose attribution would vanish along with its
+   spell pages: style 4's marked page IS a spell page, so a character who casts
+   nothing needs the variant that marks the background page instead."
+  {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all}
+   2 {:file "fillable-char-sheetstyle-2-1-spells.pdf" :marks :all}
+   3 {:file "fillable-char-sheetstyle-3-1-spells.pdf" :marks :none}
+   4 {:file "fillable-char-sheetstyle-4-2-spells.pdf" :marks :last
+      :without-casters "fillable-char-sheetstyle-4-0-spells.pdf"}})
+
+(defn- fields-on-page
+  "Every terminal field with a widget on `page`."
+  [doc page]
+  (let [form (.getAcroForm (.getDocumentCatalog doc))
+        here (into #{} (map #(System/identityHashCode (.getCOSObject %))
+                            (.getAnnotations page)))]
+    (vec (for [field (iterator-seq (.iterator (.getFieldTree form)))
+               :when (instance? PDTerminalField field)
+               :when (some #(contains? here (System/identityHashCode (.getCOSObject %)))
+                           (.getWidgets field))]
+           field))))
+
+(defn- renumber-page-section!
+  "Renames every field on `page` from spellcasting section `from` to `to`."
+  [doc page from to]
+  (when (not= from to)
+    (doseq [field (fields-on-page doc page)]
+      (.setPartialName field (renumber-suffix (.getFullyQualifiedName field) from to)))))
+
+(defn- spell-sections
+  "The document's spellcasting sections as [n page], lowest first."
+  [doc]
+  (sort-by first
+           (for [n (range 1 20)
+                 :let [page (spell-page-for-suffix doc n)]
+                 :when page]
+             [n page])))
+
+(defn grow-spell-sections!
+  "Reshapes an opened master to hold exactly `wanted` spellcasting sections,
+   numbered 1 upward in page order. Returns the number of pages added.
+
+   `marks` comes from sheet-masters. Under :last the master's second section is
+   the marked page and is moved to the final section, so the licence line lands
+   where the printed sheet puts it instead of on every clone."
+  [doc wanted marks]
+  (let [sections (vec (spell-sections doc))
+        marked-last? (and (= marks :last) (> (count sections) 1))
+        [plain-n plain-page] (first sections)
+        [marked-n marked-page] (when marked-last? (last sections))]
+    (cond
+      (zero? wanted)
+      (do (doseq [[_ page] sections] (.removePage doc page)) 0)
+
+      marked-last?
+      (do
+        ;; The marked page moves to its final section BEFORE any clone is made:
+        ;; it sits at section 2 in the master, which is the first section a clone
+        ;; would claim, and two fields of one name are one field with one value.
+        (renumber-page-section! doc marked-page marked-n wanted)
+        (if (= wanted 1)
+          (do (.removePage doc plain-page) 0)
+          (let [clones (- wanted 2)]
+            (dotimes [i clones] (add-spell-page! doc plain-n (+ i 2)))
+            clones)))
+
+      :else
+      (let [clones (dec wanted)]
+        (dotimes [i clones] (add-spell-page! doc plain-n (+ i 2)))
+        clones))))
+
 (defn- highest-spell-page
   "The largest N for which the document has a spellcasting-class-N page. 0 when
    the template has no spell pages, as on the non-caster sheet."
