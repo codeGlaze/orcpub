@@ -452,34 +452,39 @@ are downsampling from 300 DPI or re-encoding to JPEG, both of which change how
 the sheet prints.
 
 
-## Growing a master costs CPU and allocation, not just file size (2026-09)
+## Growing a master costs CPU and garbage, not resident memory (2026-09)
 
-Opening one master per style and growing it beats shipping seven pre-cut files on
-disk and on the size of what a player downloads. It is worse on time and on
-garbage. Six spellcasting sections, warmed, allocation measured as
-`totalMemory - freeMemory` and so including garbage rather than live set:
+Opening one master per style and growing it beats shipping seven pre-cut files,
+on disk and on the size of what a player downloads. It costs more time and much
+more garbage. Measure both separately -- `totalMemory - freeMemory` around an
+operation answers neither question, since it counts allocation that has not been
+collected yet and misses allocation that has. Use
+`ThreadMXBean.getThreadAllocatedBytes` for churn, and a settled heap with the
+document still referenced for what is actually held.
 
-    style 1   was: open the 6-spell file    324 ms   +6.0 MB   565 KB out
-              now: grow the 1-spell master  657 ms  +101.0 MB  328 KB out
+    six casters, style 1
+      was: open the pre-cut file    churn  75.6 MB   retained  9.5 MB   565 KB out
+      now: grow the master          churn 228.0 MB   retained  5.3 MB   328 KB out
 
-    style 4   was: open the 6-spell file    410 ms  +11.0 MB  4959 KB out
-              now: grow the 2-spell master  708 ms  +22.6 MB  4476 KB out
+An export **holds** very little -- 3.2 MB for a non-caster, 3.6 for one caster,
+5.3 for six on style 1, 16.3 for six on style 4, whose master carries 4.4 MB of
+images. Concurrency is bounded by that, not by the churn.
 
-Roughly twice the wall clock, and on style 1 an order of magnitude more
-allocation, to hand back a file 42% smaller.
+What it **generates** is the cost: 26 MB for a non-caster, 43 for one caster, 228
+for six. Three times what opening a pre-cut file cost, to hand back a file 42%
+smaller. That is GC pressure and throughput, not footprint.
 
-The cost is in the growing, not the parsing. Per export:
+Time follows the same shape:
 
-    no casters    grow  26-69 ms    heap  +7-15 MB
-    one caster    grow  53-111 ms   heap +15-46 MB
-    six casters   grow 319-719 ms   heap +36-120 MB
+    no casters    grow  26-69 ms
+    one caster    grow  53-111 ms
+    six casters   grow 321 ms (was 719 before add-spell-pages! batched the scan)
 
-So the common shapes are cheap and the outlier is expensive: `add-spell-page!`
-copies every field on the page it clones, and rebuilds the form's whole field
-list and the page's annotation list on each call, which is quadratic across
-clones. That is where to look if six-caster exports ever matter enough.
+The remaining cost is PDFBox building 214 field and widget objects for each
+generated page -- 1070 of each for six sections. Getting past that means copying
+COS dictionaries directly rather than going through PDField and PDAnnotationWidget,
+which is a different kind of change from batching the scan.
 
 Nothing here is affected by how MANY templates ship. One file is opened per
-request and the rest are never touched; the count only changes the jar. What the
-count does change is the first read of each file, 87-338 ms cold against 2-14 ms
-warm, so fewer files means more of them stay in the page cache.
+request and the rest are never touched; the count only changes the jar. What it
+does change is the first read of each file, 87-338 ms cold against 2-14 ms warm.
