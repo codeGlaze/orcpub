@@ -1,0 +1,110 @@
+(ns orcpub.dnd.e5.demo-content-build-test
+  "The demo pack's job #2: it doubles as a built-in test that its content actually
+   works in a built character, not just that it loads. This builds a real character
+   that USES a demo item and reads the result off the derived sheet — the same
+   entity/build path the app runs, on the JVM under `lein test`.
+
+   It pulls the content straight from orcpub.dnd.e5.demo-content/plugins (the source
+   the bundled pack is generated from), so growing the pack grows the coverage.
+   Mirrors the plugin merge the app does in spell_subs.cljs (plugin spells fold into
+   the spells map and their :spell-lists fold into the class spell lists) so the
+   build sees exactly what a user's builder would. Copy of the divine_soul e2e
+   pattern."
+  (:require [clojure.test :refer [deftest testing is]]
+            [orcpub.entity :as entity]
+            [orcpub.dnd.e5 :as e5]
+            [orcpub.dnd.e5.demo-content :as demo]
+            [orcpub.dnd.e5.template :as t5e]
+            [orcpub.dnd.e5.classes :as classes5e]
+            [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.spells :as spells5e]
+            [orcpub.dnd.e5.spell-lists :as sl5e]
+            [orcpub.dnd.e5.weapons :as weapons5e]
+            [orcpub.common :as common]))
+
+(def demo-spells
+  "The demo pack's spells, {key spell}, taken from the recipe."
+  (get-in demo/plugins [demo/source-name ::e5/spells]))
+
+;; --- reproduce the app's pure plugin-spell merge (spell_subs.cljs) ---
+
+(def spells-map
+  ;; ::spells5e/spells-map — plugin spells assoc'd into the spell map by key.
+  (reduce-kv (fn [m k spell] (assoc m (or (:key spell) k) spell))
+             spells5e/spell-map
+             demo-spells))
+
+(def spell-lists
+  ;; ::spells5e/spell-lists merged with ::spells5e/plugin-spell-lists: each demo
+  ;; spell's :spell-lists {class true} folds its key into [class level] of the list.
+  (let [plugin-lists (reduce (fn [lists {:keys [key level spell-lists]}]
+                               (reduce-kv (fn [l k v]
+                                            (if v (update-in l [k level] conj key) l))
+                                          lists
+                                          spell-lists))
+                             {}
+                             (vals demo-spells))]
+    (merge-with (fn [& ls] (apply merge-with concat ls))
+                sl5e/spell-lists
+                plugin-lists)))
+
+(def language-map (common/map-by-key [{:name "Common" :key :common}]))
+
+(def wizard-option
+  (classes5e/wizard-option spell-lists spells-map {} language-map weapons5e/weapons-map))
+
+(def test-template
+  (t5e/template
+   (t5e/template-selections
+    nil nil nil
+    weapons5e/weapons-map weapons5e/weapons
+    spell-lists spells-map
+    []                 ; backgrounds
+    []                 ; races
+    [wizard-option]    ; classes
+    []                 ; feats
+    language-map)))
+
+;; A level-1 wizard who takes the demo cantrip. Cantrip/spell choices live at the
+;; class root (their selection carries a :ref that re-roots the path — see the
+;; divine_soul test note), not under :levels.
+(def wizard-entity
+  {:orcpub.entity/options
+   {:ability-scores
+    {:orcpub.entity/key :standard-roll
+     :orcpub.entity/value {:orcpub.dnd.e5.character/str 10
+                           :orcpub.dnd.e5.character/dex 10
+                           :orcpub.dnd.e5.character/con 10
+                           :orcpub.dnd.e5.character/int 16
+                           :orcpub.dnd.e5.character/wis 10
+                           :orcpub.dnd.e5.character/cha 10}}
+    :class
+    [{:orcpub.entity/key :wizard
+      :orcpub.entity/options
+      {:wizard-cantrips-known
+       [{:orcpub.entity/key :demo-spark}
+        {:orcpub.entity/key :fire-bolt}
+        {:orcpub.entity/key :light}]
+       :levels
+       [{:orcpub.entity/key :level-1
+         :orcpub.entity/options
+         {:hit-points {:orcpub.entity/key :average :orcpub.entity/value 6}}}]}}]}})
+
+(defn known-spell-keys [built]
+  ;; spells-known is {spell-level {[class-name spell-key] entry}}; cantrips are level 0.
+  (set (map second (mapcat keys (vals (char5e/spells-known built))))))
+
+(deftest demo-cantrip-is-offered-to-a-wizard
+  (testing "the demo spell folds into the wizard cantrip list — it can't be known if it isn't offered"
+    (is (contains? (set (get-in spell-lists [:wizard 0])) :demo-spark)
+        "demo-spark is on the wizard level-0 (cantrip) list after the plugin merge")
+    (is (not (contains? (set (get-in sl5e/spell-lists [:wizard 0])) :demo-spark))
+        "and it is NOT in the base SRD list — so it came from the demo pack, not SRD")))
+
+(deftest built-wizard-knows-the-demo-cantrip
+  (testing "a level-1 wizard who picks the demo cantrip actually knows it on the derived sheet — full build, JVM"
+    (let [built (entity/build wizard-entity test-template)
+          known (known-spell-keys built)]
+      (is (some? built) "build must not throw")
+      (is (contains? known :demo-spark)
+          "the demo cantrip is known on the built character — the pack produces a working character"))))
