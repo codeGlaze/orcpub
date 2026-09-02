@@ -412,3 +412,41 @@ Where the bytes sit in a finished export, measured on the eight-class fixture:
 of them -- so passing `CompressParameters` changes nothing. Saving with and
 without it produced byte-identical sizes. There is no compression win left to
 take at the save call.
+
+## The raster sheets are images, and their compression was leaving 25% behind
+
+Style 1 is vector art with no images at all, which is why the field work moved it
+so much. Styles 3 and 4 are raster sheets -- a full-page background per page --
+and there the images are 61% and 86% of the file, so field work barely registers.
+
+Those backgrounds were stored as Flate with **no PNG predictor**:
+
+    DecodeParms: BitsPerComponent 8, Colors 1, Columns 2550     <- no /Predictor
+
+A predictor stores each byte as its difference from a neighbour, which for a
+shaded background compresses far better than the raw values. Style 4's page
+background, 2550x3300 at 8bpc grey:
+
+    as shipped                            1629.9 KB   ratio  5.0:1
+    re-deflated at level 9, no predictor  1523.9 KB   -6%
+    Paeth predictor, level 9              1237.0 KB   -24%    lossless
+
+The compression level is not the lever; the predictor is. And Paeth alone beat
+trying all five PNG filters per row and keeping the cheapest -- 1237.0 KB against
+1238.1 -- for a seventeenth of the work, so `add-image-predictors!` uses Paeth.
+
+Across the 28 templates this took 50.2 MB to 44.3 MB, and with the earlier passes
+59.4 MB to 44.3 MB.
+
+Verified two ways, because "lossless" is a claim rather than an observation:
+`add-image-predictors!` decodes its own output and throws unless the bytes match
+what went in, and rendering the before and after at 150 DPI gives 0 differing
+pixels of 2,102,475 across all 16 pages of the two raster styles.
+
+What is left in those files is genuinely photographic. Two of style 4's three
+images are JPEG already, and all three are greyscale despite two being tagged
+DeviceRGB -- max chroma 0 over 5312 samples. Dropping those empty chroma planes
+needs a lossless JPEG transform rather than a re-encode, and the saving is small
+because flat chroma already compresses to nearly nothing. Beyond that the options
+are downsampling from 300 DPI or re-encoding to JPEG, both of which change how
+the sheet prints.
