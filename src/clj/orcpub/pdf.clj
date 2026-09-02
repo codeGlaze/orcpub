@@ -32,7 +32,8 @@
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
-  (:import (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField PDTerminalField)
+  (:import (org.apache.pdfbox.pdmodel.graphics.image PDImageXObject)
+           (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField PDTerminalField)
            (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget
                                                               PDAppearanceDictionary
                                                               PDAppearanceStream)
@@ -352,6 +353,36 @@
            (.setAppearance widget master)
            (vswap! cache assoc key (.getAppearance widget))))))
     0))
+
+(defn share-duplicate-images!
+  "Points every page at a single copy of each image it uses more than once.
+   Returns the number of references redirected.
+
+   Styles 3 and 4 are raster sheets -- a full-page background per page rather
+   than vector art -- and style 3 ships the same 192 KB image twice in every
+   template. An image XObject is immutable reference data, so two byte-identical
+   ones are interchangeable in a way two text-field appearances are not.
+
+   Matched on the raw encoded bytes, so a re-encoding of the same picture is left
+   alone rather than assumed equivalent."
+  [doc]
+  (let [seen (volatile! {})
+        redirected (volatile! 0)]
+    (doseq [page (.getPages doc)
+            :let [res (.getResources page)]
+            :when res
+            nm (vec (.getXObjectNames res))
+            :let [x (try (.getXObject res nm) (catch Exception _ nil))]
+            :when (instance? PDImageXObject x)]
+      (let [bytes (with-open [in (.createRawInputStream (.getCOSObject x))]
+                    (.readAllBytes in))
+            digest (vec (.digest (java.security.MessageDigest/getInstance "SHA-256") bytes))]
+        (if-let [master (get @seen digest)]
+          (when-not (identical? (.getCOSObject master) (.getCOSObject x))
+            (.put res nm master)
+            (vswap! redirected inc))
+          (vswap! seen assoc digest x))))
+    @redirected))
 
 (defn split-fields-across-pages!
   "Splits any field whose widgets sit on more than one page into one field per
