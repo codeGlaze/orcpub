@@ -452,39 +452,41 @@ are downsampling from 300 DPI or re-encoding to JPEG, both of which change how
 the sheet prints.
 
 
-## Growing a master costs CPU and garbage, not resident memory (2026-09)
+## What a character sheet export costs (2026-09)
 
-Opening one master per style and growing it beats shipping seven pre-cut files,
-on disk and on the size of what a player downloads. It costs more time and much
-more garbage. Measure both separately -- `totalMemory - freeMemory` around an
-operation answers neither question, since it counts allocation that has not been
-collected yet and misses allocation that has. Use
-`ThreadMXBean.getThreadAllocatedBytes` for churn, and a settled heap with the
-document still referenced for what is actually held.
+Measure churn and residency separately. `totalMemory - freeMemory` around an
+operation answers neither, since it counts allocation not yet collected and
+misses allocation already collected. Use
+`ThreadMXBean.getThreadAllocatedBytes` for churn and a settled heap with the
+document still referenced for what is held.
 
-    six casters, style 1
-      was: open the pre-cut file    churn  75.6 MB   retained  9.5 MB   565 KB out
-      now: grow the master          churn 228.0 MB   retained  5.3 MB   328 KB out
+**Residency is small.** An export holds 3.2 MB for a non-caster, 3.6 for one
+caster, 5.3 for six on style 1, and 16.3 for six on style 4, whose master carries
+4.4 MB of images. Concurrency is bounded by this.
 
-An export **holds** very little -- 3.2 MB for a non-caster, 3.6 for one caster,
-5.3 for six on style 1, 16.3 for six on style 4, whose master carries 4.4 MB of
-images. Concurrency is bounded by that, not by the churn.
+**Churn is the cost, and it is large in absolute terms**, for a complete export
+with the character's fields written, as production does:
 
-What it **generates** is the cost: 26 MB for a non-caster, 43 for one caster, 228
-for six. Three times what opening a pre-cut file cost, to hand back a file 42%
-smaller. That is GC pressure and throughput, not footprint.
+    casters       pre-cut file      grown master
+    0                 33.0 MB           34.0 MB
+    1                 72.1 MB           81.3 MB
+    2                129.1 MB          159.6 MB
+    3                201.7 MB          252.3 MB
+    6                499.2 MB          607.7 MB
 
-Time follows the same shape:
+Half a gigabyte of garbage for a 400 KB sheet, and most of it predates the
+generation work: `write-fields!` builds an appearance stream for every filled
+field and dominates the total. Generating pages adds 0 to 22%, weighted to the
+rare shapes -- a non-caster is unchanged and one caster costs 9 MB more.
 
-    no casters    grow  26-69 ms
-    one caster    grow  53-111 ms
-    six casters   grow 321 ms (was 719 before add-spell-pages! batched the scan)
+Two things made that worse before measurement caught them:
 
-The remaining cost is PDFBox building 214 field and widget objects for each
-generated page -- 1070 of each for six sections. Getting past that means copying
-COS dictionaries directly rather than going through PDField and PDAnnotationWidget,
-which is a different kind of change from batching the scan.
+- A `prune-orphan-widgets!` on the request path. The masters are pruned at bake
+  time and growing only adds pages, so it scanned the whole form on every export
+  to find nothing. Removing it took a non-caster from 64.2 MB to 57.5.
+- `spell-sections` asked `spell-page-for-suffix` for each n in turn, walking every
+  page's annotations once per n -- nineteen scans to find nothing on a sheet with
+  no spell pages. One pass over the form instead.
 
-Nothing here is affected by how MANY templates ship. One file is opened per
-request and the rest are never touched; the count only changes the jar. What it
-does change is the first read of each file, 87-338 ms cold against 2-14 ms warm.
+If sustained load is the concern, `write-fields!` is where the remaining
+half-gigabyte is, not page generation.

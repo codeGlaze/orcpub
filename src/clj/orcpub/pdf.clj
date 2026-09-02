@@ -409,13 +409,22 @@
       (.setPartialName field (renumber-suffix (.getFullyQualifiedName field) from to)))))
 
 (defn- spell-sections
-  "The document's spellcasting sections as [n page], lowest first."
+  "The document's spellcasting sections as [n page], lowest first.
+
+   One pass over the form. Asking spell-page-for-suffix for each n in turn walks
+   every page's annotations once per n, which for a sheet with no spell pages at
+   all was nineteen scans to find nothing."
   [doc]
-  (sort-by first
-           (for [n (range 1 20)
-                 :let [page (spell-page-for-suffix doc n)]
-                 :when page]
-             [n page])))
+  (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (sort-by first
+             (for [field (iterator-seq (.iterator (.getFieldTree form)))
+                   :let [matched (re-matches #"spellcasting-class-(\d+)"
+                                             (.getFullyQualifiedName field))]
+                   :when matched
+                   :let [page (some-> (first (.getWidgets field)) .getPage)]
+                   :when page]
+               [(Integer/parseInt (second matched)) page]))
+    []))
 
 (defn grow-spell-sections!
   "Reshapes an opened master to hold exactly `wanted` spellcasting sections,

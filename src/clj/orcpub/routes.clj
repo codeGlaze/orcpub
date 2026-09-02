@@ -712,8 +712,12 @@
       ;; Both run before write-fields! so the fields they create or trim exist by
       ;; the time values are written.
       (let [fields (apply dissoc fields pdf-option-keys)]
+        ;; No prune here. The masters are pruned by dev/prepare_templates.clj and
+        ;; growing only adds pages, so there is nothing to find -- it was a full
+        ;; scan of the form on every export for no result, and doubled the churn
+        ;; of a non-caster sheet. add-missing-spell-pages! still prunes on the
+        ;; branch where it generates pages, in case it meets an unbaked template.
         (pdf/grow-spell-sections! doc casters (if no-casters? :all marks))
-        (pdf/prune-orphan-widgets! doc)
         (pdf/add-missing-spell-pages! doc fields)
         (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes))
       (when (and print-spell-cards? (seq spells-known))
