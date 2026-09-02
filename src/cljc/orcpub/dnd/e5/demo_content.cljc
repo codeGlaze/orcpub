@@ -8,7 +8,8 @@
    test that the feature exports, imports, and builds. Every item must carry
    :option-pack (the load floor) and satisfy its content type's save spec. See
    docs/kb/demo-content-tier.md."
-  (:require [orcpub.dnd.e5 :as e5]))
+  (:require [orcpub.dnd.e5 :as e5]
+            [orcpub.dnd.e5.spells :as spells]))
 
 (def source-name
   "The source the demo pack's content is filed under in the content library."
@@ -33,4 +34,21 @@
     {:demo-traveler
      {:key :demo-traveler
       :name "Demo: Traveler"
+      :option-pack source-name}}
+    ::e5/spells
+    {:demo-spark
+     {:key :demo-spark
+      :name "Demo: Spark"
+      :school spells/evocation
+      :level 0
+      :casting-time "1 action"
+      :range "30 feet"
+      :duration "Instantaneous"
+      :components {:verbal true :somatic true}
+      :description (str "You fling a mote of teal light at a creature or object "
+                        "within range. Make a ranged spell attack against the "
+                        "target. On a hit, it takes 1d8 radiant damage. The "
+                        "damage increases by 1d8 at 5th level (2d8), 11th level "
+                        "(3d8), and 17th level (4d8).")
+      :spell-lists {:wizard true :sorcerer true}
       :option-pack source-name}}}})
