@@ -58,10 +58,19 @@ Datomic) and a real browser (Playwright):
 - Hide toggle at the top of My Content, persisted per-device. Browser check: it flips and
   survives a reload (localStorage `demo-hidden`).
 
-Deferred: (a) the emit-time verify covers load floor + save spec + round-trip but not yet a
-headless character build — the real import is exercised at boot instead; (b) the browser
-assertion belongs in the shared `e2e/` suite (on `testing/develop`) when branches converge,
-not a bespoke test here; (c) Phase 3 (copy-on-edit) and the format-versioning track below.
+The pack now carries real content (a castable homebrew cantrip, "Demo: Spark") verified two
+ways: the emitter checks load floor + save spec + round-trip at build time, and a JVM test
+(`demo_content_build_test.cljc`) builds a real level-1 wizard who takes the demo cantrip and
+asserts it lands on the derived sheet through the real `entity/build` — the demo pack's
+second job (prove content works, not just loads) made mechanical. It pulls content straight
+from `demo-content/plugins` and merges it the way `spell_subs` does, so growing the pack
+grows the coverage. Copy that test's pattern to cover each new content type as it's added.
+
+Deferred: (a) the character-build verify lives as a `lein test`, not inside the emitter —
+the enforced test gate already runs it in CI, so the emitter stays lean (generate + cheap
+validity); (b) the browser assertion belongs in the shared `e2e/` suite (on `testing/develop`)
+when branches converge, not a bespoke test here; (c) Phase 3 (copy-on-edit) and the
+format-versioning track below.
 
 ## Build mechanism (settled)
 
