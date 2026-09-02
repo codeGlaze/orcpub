@@ -44,7 +44,11 @@ build test; that's the pattern to copy here.
 
 ---
 
-## localStorage corrupt data persistence
+## 📌 PINNED — localStorage corrupt data persistence (HANDS OFF until deliberately scheduled)
+
+**Do not touch this without explicit intent.** It sits in the homebrew-consistency-sensitive
+storage path; a careless change risks the exact homebrew-draft loss the surrounding work
+protects against. Pinned so it isn't casually "cleaned up" — schedule it deliberately.
 
 **Status:** Open
 **Severity:** Medium
