@@ -1,0 +1,32 @@
+# Guard: a branch changelog must be FOLDED into CHANGELOG.md (and removed) before
+# landing on integration or develop. See docs/CONTRIBUTING.md.
+#
+# Runs on push (the post-merge backstop): if a merge landed on integration/develop
+# without folding its docs/branch-changelog.md, this goes red — run
+# scripts/fold-branch-changelog.sh, commit, and push again. Not run on
+# pull_request, since the branch changelog legitimately lives on the feature branch
+# until it is folded at merge time.
+
+name: Changelog guard
+
+on:
+  push:
+    branches: [integration, develop, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  branch-changelog-folded:
+    name: Branch changelog folded
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: A branch changelog must be folded before landing here
+        run: |
+          if [ -f docs/branch-changelog.md ]; then
+            echo "::error file=docs/branch-changelog.md::An un-folded branch changelog is present on $GITHUB_REF_NAME. Fold it into CHANGELOG.md and remove it before landing — run: scripts/fold-branch-changelog.sh \"<release>\""
+            exit 1
+          fi
+          echo "OK — no un-folded branch changelog on $GITHUB_REF_NAME."

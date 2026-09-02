@@ -1,0 +1,127 @@
+name: Docker Releases
+
+# 1️⃣ Trigger on tag pushes and manual dispatches
+on:
+  push:
+    tags:
+      - '*'                     # e.g. 1.0, 2.3.4.4
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name to build (e.g., 1.2.3.4)"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+      # --------------------------------------------------------------------
+      #  Get the version string – works for both push and dispatch
+      # --------------------------------------------------------------------
+      - name: Get Version
+        id: get_version
+        run: |
+          if [[ -n "${{ github.event.inputs.tag }}" ]]; then
+            VERSION="${{ github.event.inputs.tag }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+
+      # --------------------------------------------------------------------
+      # Checkout the repo (HTTPS – no SSH key needed)
+      # --------------------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.tag && format('refs/tags/{0}', github.event.inputs.tag) || github.ref }}
+
+      # --------------------------------------------------------------------
+      # Update version/date in src/cljs/orcpub/ver.cljc
+      # --------------------------------------------------------------------
+      - name: Update src/cljs/orcpub/ver.cljc
+        run: |
+          sed -i 's/defn version \[\] ".*"/defn version [] "${{ steps.get_version.outputs.VERSION }}"/' src/cljs/orcpub/ver.cljc
+          sed -i 's/defn date \[\] ".*"/defn date [] "$(date +%m-%d-%Y)"/' src/cljs/orcpub/ver.cljc
+          cat src/cljs/orcpub/ver.cljc
+
+      # --------------------------------------------------------------------
+      # Docker: login, QEMU, Buildx
+      # --------------------------------------------------------------------
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # --------------------------------------------------------------------
+      # Build & push the “latest” image for orcpub
+      # --------------------------------------------------------------------
+      - name: Build and push latest orcpub
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          target: app
+          platforms: linux/amd64
+          push: true
+          tags: orcpub/orcpub:latest
+
+      # --------------------------------------------------------------------
+      # Build & push the versioned image for orcpub
+      # --------------------------------------------------------------------
+      - name: Build and push ${{ steps.get_version.outputs.VERSION }} orcpub
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          target: app
+          platforms: linux/amd64
+          push: true
+          tags: orcpub/orcpub:release-${{ steps.get_version.outputs.VERSION }}
+
+      # --------------------------------------------------------------------
+      # Build & push the “latest” image for datomic
+      # --------------------------------------------------------------------
+      - name: Build and push latest datomic
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          target: transactor
+          platforms: linux/amd64
+          push: true
+          tags: orcpub/datomic:latest
+
+      # --------------------------------------------------------------------
+      #  Build & push the versioned image for datomic
+      # --------------------------------------------------------------------
+      - name: Build and push ${{ steps.get_version.outputs.VERSION }} datomic
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          target: transactor
+          platforms: linux/amd64
+          push: true
+          tags: orcpub/datomic:release-${{ steps.get_version.outputs.VERSION }}
+
+      # --------------------------------------------------------------------
+      #  Commit the updated version file back to *develop*
+      # --------------------------------------------------------------------
+      - name: Commit updated ver.cljc
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git fetch --all
+          git checkout develop || git checkout -b develop
+          git add src/cljs/orcpub/ver.cljc
+          git commit -m "Update version to ${{ steps.get_version.outputs.VERSION }}"
+          git push
