@@ -468,6 +468,29 @@ nearly free because the copy references the master's `/Contents`, `/Resources`
 and `/MediaBox` rather than duplicating them -- measured at 421 KB for a master
 and 422 KB for the master plus six clones.
 
+**The layouts were checked before proposing this**, since the four styles are
+laid out differently and sharing a master across them would be wrong. Sharing is
+per style, and within a style the seven variants are the same sheet:
+
+    page 1 rendered and compared against the 6-spell variant, per style
+
+    style 2   every variant pixel-identical
+    style 3   every variant pixel-identical
+    style 1   identical but for 392 px (1-spell) and 44 px (3-spell)
+    style 4   every variant differs, 0-spell by 45,907 px
+
+The style 4 and style 1 differences are encoding, not design. Rendering style 4's
+0-, 1- and 6-spell page 1 side by side shows the same Cthulhu Mythos sheet in all
+three; its backgrounds are DCTDecode, so each variant carries a separately
+encoded JPEG of the same art and the differences are speckle along every edge.
+Styles 2 and 3 come out identical because their images are lossless Flate, which
+re-encodes deterministically. Style 1's 392 pixels sit entirely in one region
+around the EQUIPMENT box and, cropped at 300 DPI, the two are indistinguishable
+-- scattered along the outline and glyph edges, which is coordinate precision in
+the content stream.
+
+So a master per style is sound, and a master across styles would not be.
+
 Not done here, because it is a change to what ships and to how `routes.clj`
 chooses a template, not a change inside one. The selection would go from picking
 one of seven files by caster count to always loading the one-spell-page master
