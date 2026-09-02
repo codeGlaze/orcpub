@@ -510,6 +510,22 @@ export in flight -- nothing per user who is not exporting at that instant, and
 nothing resembling the churn figure. Headroom buys speed rather than capacity:
 those eight threads take 110 ms an export at 256 MB, 163 at 128 and 232 at 96.
 
+Concurrency is capped by the container, not by the number of people clicking.
+Pedestal sizes Jetty's pool at `(max 50 (needed-pool-size))`, which is 50 until
+about sixteen cores, so at most 50 exports are ever in flight and the rest queue.
+The floor rises with that, sublinearly:
+
+    concurrent exports    heap floor    per export
+     8                        96 MB        7.6 MB
+    32                       384 MB       10.9 MB
+    50                       448 MB        8.3 MB
+
+A thousand people exporting at once is therefore a queue, not a memory problem.
+On four cores with a 1 GB heap, a thousand exports drain in 28.9 s for one
+casting class, 46.7 for two and 73.3 for six -- 13.6 to 34.6 sheets a second.
+Budget for the request bodies too: the handler caps a body at 2 MB, so 50 in
+flight can hold 100 MB before parsing. 1 GB is comfortable for the whole path.
+
 ### Most of it was work already done (2026-09)
 
 Four places asked a question they had already answered, or asked before knowing
