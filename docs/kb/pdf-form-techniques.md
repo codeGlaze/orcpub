@@ -253,3 +253,27 @@ spread unevenly:
 
 Anything that moves a level into another level's box has to check the
 destination's row count, not just that it is free.
+
+## Computed marks: draw them, do not add fields
+
+Anything the exporter derives and the player never edits -- a concentration
+flag, component letters, a class label, a relabelled level numeral -- can either
+be a read-only form field or content drawn onto the page. Drawing is two orders
+of magnitude cheaper.
+
+Measured on the six-caster template with all six spell pages filled, 594 rows
+annotated with a concentration mark and a component string:
+
+    names only, as today          1161.7 KB   1403 fields
+    annotations drawn             1168.3 KB   1403 fields    +6.6 KB   +0.6%
+    annotations as form fields    1550.8 KB   2591 fields   +389.1 KB  +33%
+
+Per annotated row that is 11 bytes drawn against 671 bytes as fields. A field
+costs a field dictionary, a widget dictionary, an appearance stream and an entry
+in the page's annotations array; drawn text is a few operators appended to a
+content stream the page already has.
+
+Use a field only where the value has to be editable, addressable by name from
+`pdf_spec`, or both. `reuse-cantrips-box!` uses read-only fields for its hexagon
+and bar patch because they are few -- three per reused box -- and being
+addressable makes them removable. At the scale of one per spell row, draw.

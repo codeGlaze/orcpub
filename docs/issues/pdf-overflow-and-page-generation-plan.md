@@ -425,8 +425,18 @@ name's size and colour. That is only true while it lives in the same text field.
 Drawn separately -- or written into its own field -- it takes its own size,
 weight and grey, which is what lets the components recede to 5.6pt grey while the
 name stays 6.42pt black and the concentration mark stays 7pt bold. The mock draws
-them, since they are computed values a player never edits, and drawing costs no
-form fields where a field per column per row would add roughly 200 per page.
+them, since they are computed values a player never edits.
+
+Drawing is also what keeps the file from growing back. Measured on the
+six-caster template with all six spell pages filled and 594 rows annotated:
+
+    names only, as today          1161.7 KB   1403 fields
+    annotations drawn             1168.3 KB   1403 fields    +6.6 KB   +0.6%
+    annotations as form fields    1550.8 KB   2591 fields   +389.1 KB  +33%
+
+11 bytes a row drawn against 671 as fields. This branch took a production export
+from 2679 KB to 1313 KB by pruning orphaned widgets; adding a field per column
+per row would give a third of that back.
 
 ### 9. Styles 2, 3 and 4 — a later branch
 
