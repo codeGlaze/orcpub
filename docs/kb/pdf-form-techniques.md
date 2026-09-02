@@ -504,6 +504,12 @@ What churn costs is CPU, not capacity. The same 200 exports take 362 ms each in
 a 64 MB heap and 543 ms in 48 MB: give the collector room and the garbage is
 nearly free, starve it and the export slows by half.
 
+Heap sizing follows from that. Eight threads each exporting a six-caster sheet
+run in 96 MB and fail at 80, so the cost is about 35 MB fixed plus 8 MB per
+export in flight -- nothing per user who is not exporting at that instant, and
+nothing resembling the churn figure. Headroom buys speed rather than capacity:
+those eight threads take 110 ms an export at 256 MB, 163 at 128 and 232 at 96.
+
 ### Most of it was work already done (2026-09)
 
 Four places asked a question they had already answered, or asked before knowing
