@@ -369,6 +369,43 @@ almost nothing, or almost no duplicates of something. On top of that the little
 that is available is the unsafe kind, since editing a shared text appearance
 rewrites it for every field pointing at it.
 
+### What a field actually weighs
+
+An empty field is not the expensive thing, and the intuition that it must be is
+worth correcting with the numbers. Strip every field and widget from the style 1
+six-caster template and re-save to see what the page art alone weighs:
+
+    original, before this branch   1409.9 KB   353.2 KB artwork   1056.7 KB form
+                                   1407 fields, 1931 widgets  ->  769 bytes each
+
+    after pruning and tick sharing  564.9 KB   350.4 KB artwork    214.5 KB form
+                                   1403 fields, 1405 widgets  ->  157 bytes each
+
+The artwork is a constant 350 KB in both -- embedded fonts and the vector paths of
+the printed sheet -- and it is the single largest thing in the file at 62% of the
+current template. It is not compressible without changing how the sheet looks.
+
+A field costs 157 bytes now: a name, a rectangle, a page reference, a default
+appearance string, and an entry in its page's annotation array, all inside a
+compressed object stream. That is close to irreducible for something that has to
+be named, positioned and fillable. An *empty* one's appearance stream is `q Q` --
+four bytes.
+
+The 769 bytes a field used to cost was not the field. It was 1931 widgets for
+1407 fields, half of them orphaned, each dragging its own appearance stream. What
+looked like "fields are expensive" was really duplication:
+
+    prune orphaned widgets          1931 widgets -> 1405
+    share identical tick appearances 582 streams -> 14
+
+Where the bytes sit in a finished export, measured on the eight-class fixture:
+
+    page content (the artwork)  272.6 KB  42.7%
+    object streams (the dicts)  131.4 KB  20.6%
+    appearance streams           39.6 KB   6.2%
+    embedded fonts               15.2 KB   2.4%
+    object framing and xref     179.4 KB  28.1%
+
 ### PDFBox 3 already compresses
 
 `PDDocument.save(file)` writes object streams by default -- the output carries 60
