@@ -54,6 +54,25 @@ bites, a spec that will reject the data. Drop a *why* when it's history or self-
 - **No links to KB docs from code comments.** KB docs live on a different branch and get
   reorganized; a code comment pointing at one is a dead link. Point at code instead.
 
+## Density earns length — but only in genuinely confusing cases
+
+The default is concise (above). The exception: a mechanism that is genuinely hard to suss out
+— a non-obvious invariant, a subtle distinction between two similar-looking paths, a footgun
+that has already bitten — earns a slightly longer comment or docstring, **so long as the extra
+length is all detail.** Pack in the load-bearing facts: the rule, why it holds, and the
+concrete symptom of getting it wrong. Nothing else.
+
+This is not licence to ramble. Every added sentence must either stop someone breaking the code
+or save them re-deriving a hard-won conclusion; a sentence that is backstory, justification, or
+narration still gets cut. Length for *density*, never for storytelling.
+
+```clojure
+;; A class's OWN fighting-style choice keeps its :ref [:class class-kw :fighting-style] — that
+;; is where the character stores the pick. A CROSS-SILO grant (a feat granting a style) must
+;; carry NO top-level :ref: it re-roots the option path and zeroes the granted style's mechanic
+;; (a build test caught exactly this). Same pool, two selection shapes — don't unify them.
+```
+
 ## Relating scattered code
 
 When related code can't sit in one namespace, the strongest tools — in order — are:
@@ -73,6 +92,8 @@ so don't reach for it when a name or a namespace would do.
 
 - Docstring on non-obvious public forms; skip trivial ones. Concise prose, no JSDoc.
 - Inline *why* only when it's a constraint that keeps the code working.
+- Concise by default; a genuinely confusing mechanism earns extra length only for added detail
+  (the invariant + why + the failure symptom), never narration.
 - Plain language; name real symbols/files; no markers, no coined abbreviations.
 - No KB-doc links in code.
 - Relate scattered code by names and namespaces first; codetags for their categories; a
