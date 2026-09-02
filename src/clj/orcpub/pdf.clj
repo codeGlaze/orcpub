@@ -7,8 +7,11 @@
    - Text fields auto-size. Their default appearance is `/Helv 0 Tf`, so PDFBox
      scales text down to fit, stops at 4pt, and clips beyond that. `fit-text`
      splits text at `min-font-size` instead.
-   - Many widgets have no page. `prune-orphan-widgets!` removes them on every
-     non-flattened export; `widget-box` ignores them when measuring.
+   - Widgets with no page came with the templates, and `dev/prepare_templates.clj`
+     has already removed them from everything in `resources/`. Nothing prunes at
+     export time except `add-missing-spell-pages!`, and only on the branch where
+     it is about to generate pages, in case it is handed an unbaked template.
+     `widget-box` ignores pageless widgets when measuring.
    - Fields sharing a name share one value, so repeated pages need unique names.
    - Field names do not describe their contents:
 
