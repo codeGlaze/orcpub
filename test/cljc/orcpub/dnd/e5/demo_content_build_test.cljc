@@ -12,9 +12,11 @@
    pattern."
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.entity :as entity]
+            [orcpub.template :as t]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.demo-content :as demo]
             [orcpub.dnd.e5.template :as t5e]
+            [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.spells :as spells5e]
@@ -108,3 +110,47 @@
       (is (some? built) "build must not throw")
       (is (contains? known :demo-spark)
           "the demo cantrip is known on the built character — the pack produces a working character"))))
+
+;; --- the demo feat: exercises the ability-increase spread (fixed + floating) ---
+
+(def CON :orcpub.dnd.e5.character/con)
+(def DEX :orcpub.dnd.e5.character/dex)
+
+(def demo-feat-cfg (get-in demo/plugins [demo/source-name ::e5/feats :demo-tough]))
+
+(def demo-feat-option
+  (opt5e/feat-option-from-cfg language-map spells-map spell-lists
+                              weapons5e/weapons-map {} {} demo-feat-cfg))
+
+(def feat-template
+  (t5e/template
+   (concat
+    (t5e/template-selections
+     nil nil nil weapons5e/weapons-map weapons5e/weapons
+     spell-lists spells-map [] [] [] [] language-map)
+    ;; the demo feat as a direct feat selection
+    [(t/selection-cfg {:name "Bonus Feat" :key :bonus-feat :tags #{:feats}
+                       :options [demo-feat-option] :min 1 :max 1})])))
+
+;; A character who takes the demo feat and puts its floating +1 on DEX. The feat's
+;; spread is [[1 :con] [1 :any]]: increment 0 is fixed CON, increment 1 floats
+;; (options keyed asi-1-<ability>).
+(def feat-entity
+  {:orcpub.entity/options
+   {:ability-scores
+    {:orcpub.entity/key :standard-roll
+     :orcpub.entity/value (zipmap char5e/ability-keys (repeat 10))}
+    :bonus-feat
+    {:orcpub.entity/key :demo-tough
+     :orcpub.entity/options {:asi [{:orcpub.entity/key :asi-1-dex}]}}}})
+
+(deftest built-character-gets-the-demo-feat-ability-increases
+  (testing "a character who takes the demo feat has its fixed +1 CON AND the chosen floating +1 on the derived sheet"
+    (let [built (entity/build feat-entity feat-template)
+          a (char5e/ability-values built)]
+      (is (some? built) "build must not throw")
+      (is (= 11 (get a CON)) "fixed +1 CON from the demo feat's spread")
+      (is (= 11 (get a DEX)) "the floating +1 the player assigned to DEX")
+      ;; feat ASIs are non-racial ('other' column), never racial
+      (is (zero? (get (char5e/race-ability-increases built) CON 0))
+          "the feat's CON increase is not attributed as racial"))))
