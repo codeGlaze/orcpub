@@ -690,9 +690,10 @@
                      (reduce max 0))
         {:keys [file marks without-casters]} (get pdf/sheet-masters
                                                   print-character-sheet-style?)
-        ;; A style that marks only its last page loses the mark with its spell
-        ;; pages, so a character who casts nothing opens the variant that marks
-        ;; the background page instead.
+        ;; A character who casts nothing opens the variant that has no spell page
+        ;; rather than one with its spell page taken out: removing a page leaves
+        ;; the resources it referenced behind, and for style 4 it would take the
+        ;; licence line with it.
         no-casters? (and (zero? casters) (some? without-casters))
         input (.openStream (io/resource (if no-casters? without-casters file)))
         output (ByteArrayOutputStream.)

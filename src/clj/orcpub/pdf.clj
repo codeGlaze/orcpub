@@ -308,12 +308,22 @@
    drawn into a page's content stream can be spread by cloning a marked page but
    never removed from one, so an :all style has no plain spell page to offer.
 
-   :without-casters covers a style whose attribution would vanish along with its
-   spell pages: style 4's marked page IS a spell page, so a character who casts
-   nothing needs the variant that marks the background page instead."
-  {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all}
-   2 {:file "fillable-char-sheetstyle-2-1-spells.pdf" :marks :all}
-   3 {:file "fillable-char-sheetstyle-3-1-spells.pdf" :marks :none}
+   :without-casters is the variant with no spell page at all, opened for a
+   character who casts nothing. Every style has one, so this only ever ADDS pages
+   to a master and never removes any. Removing was tried and is worse twice over:
+   a removed page takes its fields but leaves the resources it referenced, so
+   style 2's non-caster sheet came out 453 KB against the 241 KB of the file that
+   already has no spell page. Shipping four more files costs 1.2 MB of the 44.3
+   this replaces.
+
+   It also covers style 4, whose marked page IS a spell page: without this its
+   licence line would vanish along with the spell pages."
+  {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all
+      :without-casters "fillable-char-sheetstyle-1-0-spells.pdf"}
+   2 {:file "fillable-char-sheetstyle-2-1-spells.pdf" :marks :all
+      :without-casters "fillable-char-sheetstyle-2-0-spells.pdf"}
+   3 {:file "fillable-char-sheetstyle-3-1-spells.pdf" :marks :none
+      :without-casters "fillable-char-sheetstyle-3-0-spells.pdf"}
    4 {:file "fillable-char-sheetstyle-4-2-spells.pdf" :marks :last
       :without-casters "fillable-char-sheetstyle-4-0-spells.pdf"}})
 
@@ -358,8 +368,8 @@
         [plain-n plain-page] (first sections)
         [marked-n marked-page] (when marked-last? (last sections))]
     (cond
-      (zero? wanted)
-      (do (doseq [[_ page] sections] (.removePage doc page)) 0)
+      ;; The caller opens :without-casters for this, so there is nothing to strip.
+      (zero? wanted) 0
 
       marked-last?
       (do

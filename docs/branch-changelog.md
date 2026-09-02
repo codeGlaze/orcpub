@@ -33,9 +33,8 @@ the eight-class fixture from 638 KB to 424.
 
 ## Changed
 
-- The 28 templates are now 5: one per style, plus a no-caster variant for style 4,
-  whose licence line sits on its last page and so would vanish with its spell
-  pages. 44.3 MB to 8.6 MB.
+- The 28 templates are now 8: for each style, one to grow from and one with no
+  spell page for a character who casts nothing. 44.3 MB to 9.7 MB.
 - Exports are smaller at every caster count above one, by 49 KB to 671 KB
-  depending on style. A character with no spellcasting is 2 KB to 212 KB larger,
-  because removing a page does not remove the resources it referenced.
+  depending on style, and a character with no spellcasting gets a file the same
+  size as before.
