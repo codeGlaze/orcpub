@@ -450,3 +450,36 @@ needs a lossless JPEG transform rather than a re-encode, and the saving is small
 because flat chroma already compresses to nearly nothing. Beyond that the options
 are downsampling from 300 DPI or re-encoding to JPEG, both of which change how
 the sheet prints.
+
+
+## Growing a master costs CPU and allocation, not just file size (2026-09)
+
+Opening one master per style and growing it beats shipping seven pre-cut files on
+disk and on the size of what a player downloads. It is worse on time and on
+garbage. Six spellcasting sections, warmed, allocation measured as
+`totalMemory - freeMemory` and so including garbage rather than live set:
+
+    style 1   was: open the 6-spell file    324 ms   +6.0 MB   565 KB out
+              now: grow the 1-spell master  657 ms  +101.0 MB  328 KB out
+
+    style 4   was: open the 6-spell file    410 ms  +11.0 MB  4959 KB out
+              now: grow the 2-spell master  708 ms  +22.6 MB  4476 KB out
+
+Roughly twice the wall clock, and on style 1 an order of magnitude more
+allocation, to hand back a file 42% smaller.
+
+The cost is in the growing, not the parsing. Per export:
+
+    no casters    grow  26-69 ms    heap  +7-15 MB
+    one caster    grow  53-111 ms   heap +15-46 MB
+    six casters   grow 319-719 ms   heap +36-120 MB
+
+So the common shapes are cheap and the outlier is expensive: `add-spell-page!`
+copies every field on the page it clones, and rebuilds the form's whole field
+list and the page's annotation list on each call, which is quadratic across
+clones. That is where to look if six-caster exports ever matter enough.
+
+Nothing here is affected by how MANY templates ship. One file is opened per
+request and the rest are never touched; the count only changes the jar. What the
+count does change is the first read of each file, 87-338 ms cold against 2-14 ms
+warm, so fewer files means more of them stay in the page cache.
