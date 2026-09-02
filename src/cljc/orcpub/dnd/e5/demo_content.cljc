@@ -29,7 +29,12 @@
     {:demo-tough
      {:key :demo-tough
       :name "Demo: Tough"
-      :option-pack source-name}}
+      :option-pack source-name
+      :description (str "You are hardier than most: increase your Constitution "
+                        "by 1, and one ability score of your choice by 1.")
+      ;; Exercises the ability-increase spread: [amount pool] pairs — a fixed +1
+      ;; CON plus one floating +1 the player assigns. See ability-increase-spreads.
+      :ability-increases [[1 :con] [1 :any]]}}
     ::e5/backgrounds
     {:demo-traveler
      {:key :demo-traveler
