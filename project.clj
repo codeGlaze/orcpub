@@ -130,7 +130,8 @@
 
   ;; NOTE: Garden compilation removed from global :prep-tasks for faster REPL startup.
   ;; CSS is compiled via: ./menu start garden, lein garden once, or automatically in uberjar build.
-  ;; The compiled CSS is checked into resources/public/css/compiled/styles.css
+  ;; The compiled styles.css is generated (gitignored, not tracked) — run one of the
+  ;; above after a fresh clone or a style change, or the app renders unstyled.
 
   ;; CLJS production builds use figwheel-main (prod.cljs.edn / fig:prod alias).
   ;; lein-cljsbuild has been fully removed — see docs/LEIN-UBERJAR-HANG.md
