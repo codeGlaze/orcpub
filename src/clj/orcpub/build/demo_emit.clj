@@ -50,10 +50,13 @@
     plugins))
 
 (defn rendered
-  "The exact text the committed demo file should contain: the verified pack
-   serialized. Pure — the golden test compares this to the file on disk."
+  "The exact text the committed demo file should contain: the verified pack,
+   format-stamped (the pack uses non-backward-compatible features, so this wraps it
+   in the v2 envelope), serialized. Pure — the golden test compares this to the
+   file on disk, and the app unwraps it on import."
   []
-  (orcbrew-format/serialize-orcbrew (verify! demo/plugins)))
+  (orcbrew-format/serialize-orcbrew
+   (orcbrew-format/stamp (verify! demo/plugins))))
 
 (defn emit!
   "Verify and write the demo pack to `path` (default output-path). Returns the path."
