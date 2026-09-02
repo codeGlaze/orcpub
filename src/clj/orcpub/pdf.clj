@@ -305,6 +305,54 @@
   [field-name]
   (boolean (re-matches #"(?i)check box \d+(-p\d+)?" field-name)))
 
+(defn- appearance-fingerprint
+  "The bytes a widget's appearance actually draws, keyed by state name, plus its
+   box size. Two widgets with equal fingerprints render identically, so one can
+   stand in for the other."
+  [widget]
+  (when-let [normal (some-> widget .getAppearance .getNormalAppearance)]
+    (let [r (.getRectangle widget)
+          states (if (.isSubDictionary normal)
+                   (into (sorted-map)
+                         (for [[k v] (.getSubDictionary normal)]
+                           [(str k) (with-open [in (.createInputStream (.getCOSObject v))]
+                                      (vec (.readAllBytes in)))]))
+                   {"" (with-open [in (.createInputStream
+                                       (.getCOSObject (.getAppearanceStream normal)))]
+                         (vec (.readAllBytes in)))})]
+      [(Math/round (.getWidth r)) (Math/round (.getHeight r)) states])))
+
+(defn share-checkbox-appearances!
+  "Points every checkbox widget that draws the same thing at one shared appearance
+   dictionary. Returns the number of widgets redirected.
+
+   The templates carry a separate appearance stream per checkbox -- 582 on the
+   style 1 six-caster sheet, drawing four distinct things between them -- and each
+   is a compressed stream object. Collapsing them halves the file.
+
+   Safe for checkboxes and NOT for text fields. A checkbox's appearance is chosen
+   by its state, so ticking one selects a different entry in the shared dictionary
+   and leaves the stream alone. A text field's appearance encodes its VALUE, and
+   PDFBox rewrites that stream in place when the value changes, so sharing one
+   between text fields makes an edit to either rewrite both.
+
+   Fields are matched on what their appearance draws, not on their size, so two
+   boxes that merely happen to share a rectangle keep their own artwork."
+  [doc]
+  (if-let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (let [cache (volatile! {})]
+      (count
+       (for [field (iterator-seq (.iterator (.getFieldTree form)))
+             :when (instance? PDCheckBox field)
+             widget (.getWidgets field)
+             :let [key (appearance-fingerprint widget)]
+             :when key
+             :let [master (get @cache key)]]
+         (if master
+           (.setAppearance widget master)
+           (vswap! cache assoc key (.getAppearance widget))))))
+    0))
+
 (defn split-fields-across-pages!
   "Splits any field whose widgets sit on more than one page into one field per
    page. Returns the number of fields added.

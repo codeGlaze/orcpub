@@ -15,6 +15,7 @@
      pdf/name-slots-expended!         SlotsRemaining 19 -> slots-expended-1-1
      pdf/name-death-save-checkboxes!  the six ticks on the character page
      pdf/disambiguate-duplicate-fields!  anything still sharing a name
+     pdf/share-checkbox-appearances!  one appearance for every identical tick
 
    The per-character passes stay at runtime, since they depend on the character:
    pdf/add-missing-spell-pages! and pdf/spill-overflow!.
@@ -51,6 +52,9 @@
                      (pdf/name-slots-expended! doc)
                      (pdf/name-death-save-checkboxes! doc))
             disambiguated (pdf/disambiguate-duplicate-fields! doc)
+            ;; last: the split creates checkboxes of its own, and they should
+            ;; share too
+            shared (pdf/share-checkbox-appearances! doc)
             after (stats doc)
             ;; Compared rather than inferred from the return values: a field
             ;; carrying no widgets at all is dropped without any widget being
@@ -63,8 +67,8 @@
                          (:fields before) (:fields after)
                          (quot before-bytes 1024) (quot (.length file) 1024)
                          (if changed?
-                           (format "pruned %d, split %d, named %d, renamed %d"
-                                   removed split named disambiguated)
+                           (format "pruned %d, split %d, named %d, renamed %d, ticks shared %d"
+                                   removed split named disambiguated shared)
                            "already clean")))
         ;; Duplicates are a correctness problem -- same name, one shared value --
         ;; so they must all be gone. Anonymous names are only unhelpful, and the
