@@ -490,3 +490,44 @@ Two things made that worse before measurement caught them:
 
 If sustained load is the concern, `write-fields!` is where the remaining
 half-gigabyte is, not page generation.
+
+### Churn is not footprint, and the difference is worth proving (2026-09)
+
+The numbers above are bytes passed through the allocator, not bytes held. Said
+without that qualifier they sound like a server requirement, and they are not.
+Two hundred six-caster exports back to back, 322 filled fields each, complete in
+a **48 MB** heap and fail at 40 MB. The live heap before any export is 35 MB --
+the runtime, the loaded classes, the template bytes -- so the working set of the
+worst export the sheet supports is roughly 8 to 13 MB.
+
+What churn costs is CPU, not capacity. The same 200 exports take 362 ms each in
+a 64 MB heap and 543 ms in 48 MB: give the collector room and the garbage is
+nearly free, starve it and the export slows by half.
+
+### Most of it was work already done (2026-09)
+
+Four places asked a question they had already answered, or asked before knowing
+whether the answer was wanted. Fixing them took a six-caster style 1 export from
+607 MB to 162, and one casting class -- what most characters are -- from 77 to 51.
+
+- `PDAcroForm.getField` walks the field tree. `write-fields!` called it twice per
+  value, once to report names the template has no field for and once to write:
+  284 values against 1403 fields, twice. Index the tree once. 294 MB to 39 MB.
+- `spill-overflow!` located each prose field and measured its widget box before
+  testing whether the value was blank, and found the continuation page whether or
+  not anything spilled. Most sheets leave all ten empty. 113 MB to nothing.
+- A cloned spell page re-read its source's five widget entries once per clone.
+  `getDictionaryObject` returns the same COS object every call, so the clones
+  shared those entries already and the repeat bought nothing. 131 MB of 165.
+- The clone-loop setup ran when the loop would not, which is the one-class case,
+  and `grow-spell-sections!` scanned for spell sections before returning 0 for a
+  character who casts nothing.
+
+### The floor is PDFBox's writer
+
+What is left is not ours. Opening the 244 KB non-caster master costs 1.8 MB and
+writing fifteen fields costs 1.7, but saving allocates 19.6 MB -- eighty times
+the file it produces. `CompressParameters/NO_COMPRESSION` is worse on both counts,
+25.7 MB for a 704 KB file, so the default object-stream save is already the cheap
+option. Short of replacing `COSWriter`, roughly 20 MB per export is the price of
+saving a PDF with this library.
