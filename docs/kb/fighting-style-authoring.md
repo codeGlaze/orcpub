@@ -1,71 +1,70 @@
-# Homebrew fighting-style authoring — finish the wiring
+# Homebrew fighting-style authoring
 
 **Branch:** `feature/fighting-style-authoring`, cut from `refactor/content-extensibility`.
-**Status:** **Phase A (integration) DONE** — a pack can author a `::e5/fighting-styles`
-item, it folds into the open pool (built-in ++ homebrew) via
-`::classes5e/fighting-style-pool`, and a feat's `:grant {:from :fighting-styles}` offers it;
-the pool is threaded into `template.cljc` (13-arity `template-selections`, defaulting to
-built-in for the 12-arg callers) from `equipment_subs`. Spec via
-`classes/homebrew-fighting-style` (field-schema) + `content_specs` + `field_schemas`;
-classifier marks the type v2. Demo item `Demo: Tidewarden` + build tests assert the
-homebrew style's mechanic lands on a built character. **Phase B (in-app builder UI for
-authoring) remains** — the registry `:homebrew-builder?` entry, builder view, and the
-hand-wired `core.cljs` route→view binding (see below).
 
-## What we've been doing (context)
+**Status.** The **feat-grant** half is wired: a pack authors a `::e5/fighting-styles` item → it
+folds into an open pool → a feat's `:grant {:from :fighting-styles}` offers it. This is the
+"first real pool/grant expansion" the backfill-ledger watch-list scheduled — the hardcoded
+`{:fighting-styles {… opt5e/fighting-style-options}}` block in `template.cljc` now draws from
+`::classes5e/fighting-style-pool` (built-in ++ homebrew). Spec via `classes/homebrew-fighting-style`
+(field-schema) + `content_specs` + `field_schemas`; classifier marks the type v2; demo item
+`Demo: Tidewarden` + build tests. The **class-selection** half (a homebrew style appearing when a
+Fighter/Paladin/Ranger picks their own fighting style) is DECIDED and in progress — below. Phase B
+(in-app builder UI) remains.
 
-While building the **demo-content tier** (on `feature/demo-content-tier` — a bundled example
-`.orcbrew` that loads at boot and doubles as a built-in test for the refactor's content
-features), we inventoried the new content-authoring features and found the fighting-style one
-is **half-finished**:
+## The divvying rule (decided) — which classes can take a homebrew style
 
-- The generic `:grant {:from :fighting-styles :choose N}` primitive on a feat **works** — a feat
-  can grant a choice of a **built-in** fighting style, and the demo pack's `Demo: Versatile`
-  feat covers that with a passing build test.
-- But a pack **cannot author a NEW fighting style**. That half was left as an explicit follow-up.
+A style declares `:classes #{:fighter :paladin …}` → eligible for exactly those. **Absent
+`:classes` → eligible for all** fighting-style classes (the fallback). Built-in styles keep their
+existing per-class key whitelist (Fighter all; Paladin/Ranger their sets) UNCHANGED (D29 — don't
+churn proven behavior). So class C's choice = *(built-in filtered by C's whitelist)* ++
+*(homebrew where no `:classes`, or C ∈ `:classes`)*. Field precedent: magic items already carry a
+`:classes` class-restriction field.
 
-Everything else the refactor added (ASI spreads, the `:save` rider, standalone
-`:save-proficiencies`, the `:props` mechanics vocabulary, homebrew draconic ancestries) IS wired
-for plugin content and is covered by demo items + build tests on the demo branch.
+## Verified findings — don't re-derive these
 
-## The gap (evidence)
+- **The extension hook is `opt5e/fighting-style-selection-2 [class-kw num options]`.** It takes an
+  arbitrary options list, and EVERY fighting-style choice funnels through it — the built-in
+  `fighting-style-selection`, the feat grant, and the class path all build their options and hand
+  them here. Extend fighting styles by widening the options passed in, never by forking this.
+- **Mariner is the old worked example** — `ua_base.cljc:690`, the `#_`-commented `mariner-class-option`.
+  The pre-refactor way to add a UA style was a per-class `class-option` variant calling
+  `fighting-style-selection-2` with a custom `[Mariner]` list. The pool + `:classes` eligibility
+  SUBSUMES that (a homebrew Mariner just declares `:classes #{:fighter :paladin :ranger}`); reusing
+  the per-variant shape would be a regression.
+- **Conditional fighting styles ARE engine-expressible.** Mariner's "+1 AC only while unarmored / no
+  shield" is `mod5e/ac-bonus-fn` with a predicate (`ua_base.cljc:701`). So the "`:props` covers only
+  flat mechanics" limit is a DECLARATIVE-vocabulary gap, not an engine one: a bounded `:props` key
+  compiling to `mod5e/ac-bonus-fn` would let authors write Mariner-class styles. (Same shape as the
+  built-in Dueling's cljs-only condition.) Deferred unless prioritized.
+- **The `:ref` distinction (a footgun a test caught).** A class's OWN fighting-style selection is
+  top-level and MUST keep `:ref [:class class-kw :fighting-style]` — that's where the character
+  stores the pick. A CROSS-SILO grant (a feat granting a style) carries NO top-level `:ref`: it
+  re-roots the option path and zeroes the granted style's mechanic. Same pool, two selection shapes
+  — don't unify them. (roadmap "verified finding"; D30.)
 
-- **No `::e5/fighting-styles` plugin key** anywhere — no content-type entry, no save spec, no
-  `plugin-fighting-styles` merge sub. Nowhere to put a homebrew style; nothing merges it.
-- **`template.cljc` (the feat grantable-pools registry)** hard-codes the pool to built-in styles
-  only: `{:fighting-styles {:name "Fighting Style" :options opt5e/fighting-style-options}}`, with
-  the in-code comment calling it a **"BRIDGE PROTOTYPE"** and threading the homebrew pool **"the
-  follow-up wiring step."**
-- **`opt5e/fighting-style-option`** exists and is unit-tested (`fighting_style_feat_e2e_test.cljc`,
-  `fighting_style_grant_matrix_test.cljc`) but only via hand-built pools — it never reaches plugin
-  content.
+## Where it maps in the design record
 
-## The plan — copy the draconic-ancestry pool pattern
+The feat grant is the grant-matrix track (`grant-selection`, 4 modes ALL/FILTERED/SPECIFIC/CUSTOM;
+`fighting_style_grant_matrix_test`), a **thin compiler** to `selection-cfg` (D30), the standard for
+cross-silo grants (D29). The class path is D17(i): point the EXISTING constructor's `:options` at
+the open pool, keeping `:ref`/`:tags` — NOT `grant-selection` (it drops the `:ref` the class needs).
+Migration is D34-disciplined: characterize current per-class output first
+(`fighting_style_class_characterization_test`), then thread the pool's homebrew entries through
+`fighting-style-selection`'s vestigial `additional-options` param for Fighter/Paladin/Ranger, keep
+green, tick the backfill-ledger watch-list item.
 
-Homebrew draconic ancestries are the working template for exactly this shape (an open pool =
-built-in ++ homebrew, granted from a choice). Mirror it:
+## Phase B — in-app builder (remaining)
 
-1. **Content type + spec.** Add `::e5/fighting-styles` to the content-types registry and a
-   `homebrew-fighting-style` save spec (a field-schema via `bf/fields->spec`, like draconic
-   ancestry — a fighting style is essentially name/key/option-pack + a `:props` mechanic or
-   modifiers). Register it in `content_specs/save-specs`.
-2. **Pool sub.** Add a `fighting-style-pool` sub backed by `::e5/plugin-vals` (built-in
-   `opt5e/fighting-style-options` ++ `(mapcat (comp vals ::e5/fighting-styles) plugins)` mapped
-   through `opt5e/fighting-style-option`), mirroring `::races5e/draconic-ancestry-pool`.
-3. **Thread the pool into the feat registry.** Replace the hard-coded built-in-only registry in
-   `template.cljc` (the "BRIDGE PROTOTYPE" block) so the feat's `grantable-pools`
-   `:fighting-styles` `:options` come from the pool sub (built-in ++ homebrew). This is the
-   "follow-up wiring step" the comment names.
-4. **Demo item + test.** Once wired, add a `::e5/fighting-styles` item to the demo pack (on
-   `feature/demo-content-tier`) and a build test that a feat granting it lands the style's
-   mechanic on a built character.
+The registry `:homebrew-builder?` entry in `content_types.cljc` (generates events/db/routes), the
+builder view + the hand-wired `core.cljs` route→view binding, and the route-keyword def. Mirror the
+draconic-ancestry builder trio.
 
 ## References
 
-- Working pattern to copy: `src/cljs/orcpub/dnd/e5/spell_subs.cljs` — `draconic-ancestry-option`,
-  `dragonborn-option-cfg`, `::races5e/draconic-ancestry-pool`.
-- The hard-coded registry to replace: `src/cljc/orcpub/dnd/e5/template.cljc` (the "BRIDGE
-  PROTOTYPE" grantable-pools block).
-- The unwired option builder: `opt5e/fighting-style-option` / `opt5e/fighting-style-options`.
-- Demo-tier context + the build-test pattern: `docs/kb/demo-content-tier.md` and
-  `test/cljc/orcpub/dnd/e5/demo_content_build_test.cljc` (on the demo branch).
+- Hook: `opt5e/fighting-style-selection-2` / `fighting-style-selection` (`options.cljc`).
+- Old worked example: `ua_base.cljc:690` (Mariner, `#_`-commented).
+- Pool: `::classes5e/fighting-style-pool` (`spell_subs.cljs`), `content_pools/pool`.
+- Grant compiler: `opt5e/grant-selection` + `fighting_style_grant_matrix_test.cljc`.
+- Decisions: D17 (no generic wrapper; point constructors at pools), D29 (one mechanism per job),
+  D30 (grant = thin compiler), D34 + `backfill-ledger.md` (migration discipline).
