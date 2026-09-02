@@ -228,6 +228,16 @@
     (str (subs field-name 0 (- (count field-name) (count (str from)))) to)
     (str field-name "-" to)))
 
+(def ^:private widget-entries
+  "Widget dictionary entries a cloned spell-page field takes from its source:
+   geometry and styling only.
+
+   /AP is deliberately absent. An appearance stream is a shared COS object, so a
+   clone carrying its source's /AP would render from the same baked visual and
+   writing one class's spells would rewrite the other's page. write-fields!
+   generates a fresh appearance from the value instead."
+  [COSName/RECT COSName/DA COSName/MK COSName/F COSName/FT])
+
 (defn add-spell-pages!
   "Copies the page for class `from` once per entry in `to-suffixes`, renaming
    every field to that suffix. Returns the number of pages added.
@@ -240,39 +250,43 @@
    are found once here and the form's list rebuilt once at the end: 321 ms and
    44 MB for the same six sections."
   [doc from to-suffixes]
-  (if-let [template (spell-page-for-suffix doc from)]
+  ;; A character with one casting class asks for no clones, and that is the common
+  ;; case. Everything below -- finding the page, indexing its annotations, scanning
+  ;; the form for its 214 fields -- is setup for a loop that would not run.
+  (if-let [template (and (seq to-suffixes) (spell-page-for-suffix doc from))]
     (let [form (.getAcroForm (.getDocumentCatalog doc))
           on-template (into #{} (map #(System/identityHashCode (.getCOSObject %))
                                      (.getAnnotations template)))
+          ;; Name and widget entries are read once per source field, not once per
+          ;; clone. getDictionaryObject returns the same COS object every time, so
+          ;; the clones shared these entries already; asking five times only cost
+          ;; more -- 131 MB of the 165 MB growing to six sections allocated.
           sources (vec (for [field (vec (.getFields form))
                              :let [widget (first (filter #(contains? on-template
                                                                      (System/identityHashCode
                                                                       (.getCOSObject %)))
                                                          (.getWidgets field)))]
                              :when (and widget (instance? PDTerminalField field))]
-                         [field widget]))
+                         [field
+                          (.getFullyQualifiedName field)
+                          (vec (for [k widget-entries
+                                     :let [v (.getDictionaryObject (.getCOSObject widget) k)]
+                                     :when v]
+                                 [k v]))]))
           pages (.getPages doc)
           made (doall
                 (for [to to-suffixes]
                   (let [page (clone-page template)
                         new-fields
                         (doall
-                         (for [[field widget] sources]
+                         (for [[field fq-name entries] sources]
                            (let [copy (if (instance? PDCheckBox field)
                                         (PDCheckBox. form)
                                         (PDTextField. form))
                                  new-widget (PDAnnotationWidget.)]
-                             (.setPartialName copy (renumber-suffix
-                                                    (.getFullyQualifiedName field) from to))
-                             ;; Geometry and styling only. /AP must NOT be copied:
-                             ;; an appearance stream is a shared COS object, so the
-                             ;; copy and its source would render from the same baked
-                             ;; visual and writing one class's spells would rewrite
-                             ;; the other's page. write-fields! generates a fresh
-                             ;; appearance from the value instead.
-                             (doseq [k [COSName/RECT COSName/DA COSName/MK COSName/F COSName/FT]]
-                               (when-let [v (.getDictionaryObject (.getCOSObject widget) k)]
-                                 (.setItem (.getCOSObject new-widget) k v)))
+                             (.setPartialName copy (renumber-suffix fq-name from to))
+                             (doseq [[k v] entries]
+                               (.setItem (.getCOSObject new-widget) k v))
                              (.setPage new-widget page)
                              (.setWidgets copy (java.util.ArrayList. [new-widget]))
                              copy)))]
@@ -315,12 +329,7 @@
                           (PDTextField. form))
                    new-widget (PDAnnotationWidget.)]
                (.setPartialName copy (renumber-suffix (.getFullyQualifiedName field) from to))
-               ;; Geometry and styling only. /AP must NOT be copied: an
-               ;; appearance stream is a shared COS object, so the copy and its
-               ;; source would render from the same baked visual and writing one
-               ;; class's spells would rewrite the other's page. write-fields!
-               ;; generates a fresh appearance from the value instead.
-               (doseq [k [COSName/RECT COSName/DA COSName/MK COSName/F COSName/FT]]
+               (doseq [k widget-entries]
                  (when-let [v (.getDictionaryObject (.getCOSObject widget) k)]
                    (.setItem (.getCOSObject new-widget) k v)))
                (.setPage new-widget page)
@@ -434,26 +443,28 @@
    the marked page and is moved to the final section, so the licence line lands
    where the printed sheet puts it instead of on every clone."
   [doc wanted marks]
-  (let [sections (vec (spell-sections doc))
-        marked-last? (and (= marks :last) (> (count sections) 1))
-        [plain-n plain-page] (first sections)
-        [marked-n marked-page] (when marked-last? (last sections))]
-    (cond
-      ;; The caller opens :without-casters for this, so there is nothing to strip.
-      (zero? wanted) 0
+  ;; A character who casts nothing is opened from :without-casters, which has no
+  ;; spell page to grow. Answering that before the let keeps the form untouched:
+  ;; spell-sections walks every page's annotations, and there is nothing to find.
+  (if (zero? wanted)
+    0
+    (let [sections (vec (spell-sections doc))
+          marked-last? (and (= marks :last) (> (count sections) 1))
+          [plain-n plain-page] (first sections)
+          [marked-n marked-page] (when marked-last? (last sections))]
+      (cond
+        marked-last?
+        (do
+          ;; The marked page moves to its final section BEFORE any clone is made:
+          ;; it sits at section 2 in the master, which is the first section a clone
+          ;; would claim, and two fields of one name are one field with one value.
+          (renumber-page-section! doc marked-page marked-n wanted)
+          (if (= wanted 1)
+            (do (.removePage doc plain-page) 0)
+            (add-spell-pages! doc plain-n (range 2 wanted))))
 
-      marked-last?
-      (do
-        ;; The marked page moves to its final section BEFORE any clone is made:
-        ;; it sits at section 2 in the master, which is the first section a clone
-        ;; would claim, and two fields of one name are one field with one value.
-        (renumber-page-section! doc marked-page marked-n wanted)
-        (if (= wanted 1)
-          (do (.removePage doc plain-page) 0)
-          (add-spell-pages! doc plain-n (range 2 wanted))))
-
-      :else
-      (add-spell-pages! doc plain-n (range 2 (inc wanted))))))
+        :else
+        (add-spell-pages! doc plain-n (range 2 (inc wanted)))))))
 
 (defn- highest-spell-page
   "The largest N for which the document has a spellcasting-class-N page. 0 when
@@ -956,13 +967,23 @@
     (.setDefaultResources form res)
     ;; Bake appearances ourselves rather than deferring to the viewer.
     (.setNeedAppearances form false)
-    (let [unplaceable (sort (map name (remove #(some? (.getField form (name %))) (keys fields))))]
+    ;; (2026-09) One index rather than a lookup per value. PDAcroForm.getField
+    ;; walks the field tree on every call, and this asked it twice for each name
+    ;; -- once to report the unplaceable ones and once to write. On a six-caster
+    ;; sheet that is 284 names against 1403 fields, twice, and it dominated the
+    ;; export: 294 MB of the 607 MB a full sheet allocated.
+    (let [by-name (persistent!
+                   (reduce (fn [m field]
+                             (assoc! m (.getFullyQualifiedName field) field))
+                           (transient {})
+                           (iterator-seq (.iterator (.getFieldTree form)))))
+          unplaceable (sort (map name (remove #(contains? by-name (name %)) (keys fields))))]
       (when (seq unplaceable)
         (println (format "pdf/write-fields!: %d value(s) had no field in this template and were dropped: %s"
                          (count unplaceable) (s/join ", " unplaceable))))
       (doseq [[k v] fields]
       (try
-        (let [field (.getField form (name k))]
+        (let [field (get by-name (name k))]
           (when field
             ;; font-sizes gated on flatten?: interactive forms keep the template's
             ;; `/Helv 0 Tf` auto-sizing; flattening bakes a concrete size, so we
@@ -1710,7 +1731,7 @@
         field (PDTextField. form)
         widget (PDAnnotationWidget.)]
     (.addPage doc page)
-    (doseq [k [COSName/RECT COSName/DA COSName/MK COSName/F COSName/FT]]
+    (doseq [k widget-entries]
       (when-let [v (.getDictionaryObject (.getCOSObject source-widget) k)]
         (.setItem (.getCOSObject widget) k v)))
     (.setPartialName field field-name)
@@ -1733,20 +1754,23 @@
    overflowing boxes cost one page rather than one page each."
   [doc fields]
   (let [form (.getAcroForm (.getDocumentCatalog doc))
-        template (continuation-page doc)
         [trimmed sections]
+        ;; (2026-09) The blank test comes first: getField walks the field tree and
+        ;; widget-box walks the pages, and a sheet leaves most of these empty. Doing
+        ;; them before knowing there is a value cost more than the fitting did.
         (reduce (fn [[acc sections] [k label]]
-                  (let [value (get acc k)
-                        field (some-> form (.getField (name k)))
-                        box (some->> field (widget-box doc))]
-                    (if (or (s/blank? (str value)) (nil? box))
+                  (let [value (str (get acc k))]
+                    (if (s/blank? value)
                       [acc sections]
-                      (let [{:keys [head tail]} (apply fit-text (str value) box)]
+                      (let [box (some->> (.getField form (name k)) (widget-box doc))
+                            {:keys [head tail]} (when box (apply fit-text value box))]
                         (if tail
                           [(assoc acc k head) (conj sections (str label "\n" tail))]
                           [acc sections])))))
                 [fields []] overflow-labels)]
-    (when (and template (seq sections))
+    ;; Likewise the continuation page: finding it means matching its widget against
+    ;; every annotation on every page, and nothing needs it unless something spilled.
+    (when-let [template (when (seq sections) (continuation-page doc))]
       (let [box (let [r (.getRectangle (first (.getAnnotations template)))]
                   [(- (.getWidth r) 4.0) (- (.getHeight r) 4.0)])]
         (loop [remaining (s/join "\n\n" sections), n 1]
