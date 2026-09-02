@@ -519,10 +519,32 @@ make the rest would drop that line from the document altogether, and cloning the
 -- would stamp it on every page instead. Neither is acceptable for a licence
 attribution.
 
-A master per style is still sound, but generation has to know which page carries
-the attribution for that style and place exactly one, at the end. That is a
-requirement of the feature, not a detail to notice afterwards, and it needs
-checking against the styles 2 and 3 footers too before anything is built.
+A master per style is still sound, but generation has to place exactly one
+attribution, at the end, per that style's convention.
+
+The attribution does not have to be redrawn. The attributed page already exists
+in the template, so a master keeps two spell pages -- a plain one to clone and
+the real attributed one to finish with -- and the licence line stays the original
+artwork rather than something reproduced.
+
+Proved on style 4, the hardest case. A four-page master (character, background,
+plain spell page, attributed spell page), then four clones of the plain page
+inserted before the attributed one:
+
+    8 pages, attribution on page 8 only, as the original
+    artwork identical on all 8 pages, 0 differing pixels at 100 DPI
+
+The clone copies `/Contents`, `/Resources`, `/MediaBox` and `/Rotate` and nothing
+else, so a cloned page arrives without form widgets and renders 6836 px lighter
+until they are added -- the prepared checkboxes are what those pixels are.
+Creating the widgets is `add-spell-page!`'s existing job, not a new problem.
+
+**The saving is not in making the master smaller.** A four-page master is 4891.6
+KB against the eight-page template's 4958.6 -- only 67 KB less, because the pages
+of one template already share their images, so dropping four spell pages drops no
+image. The saving is shipping one file per style instead of seven:
+
+    style 4   seven files 29.7 MB   one master 4.9 MB
 
 Not done here, because it is a change to what ships and to how `routes.clj`
 chooses a template, not a change inside one. The selection would go from picking
