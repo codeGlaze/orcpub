@@ -307,10 +307,27 @@ fields that differ is the bug that once printed one spellcasting class's data
 under another's heading -- both widgets then show whichever content the shared
 stream holds.
 
-One risk remains for editable fields: a viewer that regenerates an appearance in
-place, rather than writing a fresh stream for the field being edited, would
-change every field sharing it. Computed marks are read-only, so this cannot
-arise for them; do not share appearances across fields a user can type into.
+**Shared appearances break editing, demonstrated.** Setting a new value on one of
+six fields sharing a stream rewrote that stream in place, so all six then drew
+the new text:
+
+    before   spells-6-2-6-m = "V S M 500gp"   spells-6-2-4-m = "V S M 500gp"
+    after    spells-6-2-6-m draws "EDITED"    spells-6-2-4-m draws "EDITED"
+
+PDFBox does this itself, so it is not a question of how some third-party viewer
+behaves -- our own code corrupts the neighbours if it re-writes a shared field.
+
+The obvious answer, marking the fields read-only, is not free: read-only means the
+player cannot change the value, and the sheet's whole point is that it stays
+fillable in every browser (see the comment in `routes.clj` about not flattening).
+Trading a fillable field for 300 KB is a bad trade on a character sheet.
+
+Which is why drawing wins twice over for computed marks. Drawn text is page
+content, not a form control: it needs no field, cannot be corrupted by an edit
+elsewhere, and leaves the neighbouring spell-name field fully editable. Sharing
+appearances is only worth reaching for when a value must be addressable by name
+AND is genuinely never rewritten -- a narrow case, and one where drawing is
+usually available instead.
 
 ### PDFBox 3 already compresses
 
