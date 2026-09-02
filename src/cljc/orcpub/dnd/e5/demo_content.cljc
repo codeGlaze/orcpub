@@ -68,6 +68,19 @@
       :props {:speed 30
               :swimming-speed 30
               :damage-resistance {:fire true}}}}
+    ::e5/draconic-ancestries
+    {:demo-tidal
+     {:key :demo-tidal
+      :name "Demo: Tidal"
+      :option-pack source-name
+      ;; Exercises the open draconic-ancestry pool: a dragonborn can pick this
+      ;; homebrew colour and inherit resistance + the breath-weapon attack. The
+      ;; spec is generated from a field-schema (bf/fields->spec).
+      :breath-weapon {:damage-type :cold
+                      :area-type :line
+                      :line-width 5
+                      :line-length 30
+                      :save :orcpub.dnd.e5.character/dex}}}
     ::e5/spells
     {:demo-spark
      {:key :demo-spark

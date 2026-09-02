@@ -15,6 +15,35 @@ open decision — being polled with the community + other developers.**
 
 ---
 
+## Homebrew fighting-style authoring — never wired (refactor follow-up)
+
+**Status:** Open — a deliberate loose end left mid-refactor.
+
+The generic `:grant {:from :fighting-styles :choose N}` primitive works for a feat granting a
+**built-in** style, but a pack **cannot author a new fighting style** — that half was never
+wired:
+
+- No `::e5/fighting-styles` plugin key, no content-type entry, no save spec, no
+  `plugin-fighting-styles` merge sub.
+- `template.cljc:1545-1550` hard-codes the feat's grantable pool to built-in styles only,
+  with the in-code comment calling it a **"BRIDGE PROTOTYPE"** and threading the homebrew pool
+  **"the follow-up wiring step."**
+- `opt5e/fighting-style-option` exists and is unit-tested (`fighting_style_feat_e2e_test.cljc`,
+  `fighting_style_grant_matrix_test.cljc`) but only via hand-built pools — it reaches no plugin
+  content.
+
+To finish (the shape the draconic-ancestry pool already follows): add the `::e5/fighting-styles`
+content type + field-schema/spec, a `::e5/plugin-vals`-backed pool sub (built-in ++ homebrew),
+thread that pool into `template.cljc` where the feat registry is built, then add a demo fighting
+style to the pack with a build test. Being done on a branch cut from
+`refactor/content-extensibility`.
+
+By contrast, **homebrew draconic ancestries ARE fully wired** (`::e5/draconic-ancestries` +
+`::races5e/draconic-ancestry-pool`) — the demo pack ships one (`:demo-tidal`) with a passing
+build test; that's the pattern to copy here.
+
+---
+
 ## localStorage corrupt data persistence
 
 **Status:** Open

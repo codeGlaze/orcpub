@@ -13,6 +13,7 @@
             [orcpub.entity :as entity]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.dnd.e5.demo-content :as demo]
             ;; side effects: register all the subs the full template depends on
             [orcpub.dnd.e5.events]
             [orcpub.dnd.e5.spell-subs]
@@ -68,3 +69,39 @@
             "the Breath Weapon attack appears on the built character")
         (is (= :force (:damage-type breath))
             "and it uses the homebrew ancestry's damage type")))))
+
+;; The bundled DEMO pack's draconic ancestry, built the same way: proves the pack's
+;; :demo-tidal colour flows through the open pool onto a real dragonborn. Sourced
+;; from orcpub.dnd.e5.demo-content/plugins so it tracks the shipped pack.
+(def demo-dragonborn-entity
+  {:orcpub.entity/options
+   {:race {:orcpub.entity/key :dragonborn
+           :orcpub.entity/options
+           {:draconic-ancestry {:orcpub.entity/key :demo-tidal}}}
+    :ability-scores
+    {:orcpub.entity/key :standard-roll
+     :orcpub.entity/value {:orcpub.dnd.e5.character/str 14
+                           :orcpub.dnd.e5.character/dex 10
+                           :orcpub.dnd.e5.character/con 14
+                           :orcpub.dnd.e5.character/int 10
+                           :orcpub.dnd.e5.character/wis 10
+                           :orcpub.dnd.e5.character/cha 12}}}})
+
+(defn build-demo []
+  ;; The pack lives in :demo-plugins in the running app; the content-lookup subs
+  ;; fold it in exactly like :plugins, so the template offers the demo ancestry.
+  (reset! app-db {:demo-plugins demo/plugins})
+  (rf/clear-subscription-cache!)
+  (let [template @(rf/subscribe [:orcpub.dnd.e5.character/template])]
+    (entity/build demo-dragonborn-entity template)))
+
+(deftest demo-pack-draconic-ancestry-lands-on-the-built-character
+  (testing "the shipped demo pack's draconic ancestry (Demo: Tidal, cold) grants resistance + breath weapon to a built dragonborn"
+    (let [built (build-demo)]
+      (is (some? built) "build must not throw")
+      (is (some #(= :cold (:value %)) (char5e/damage-resistances built))
+          "cold resistance from the demo ancestry lands on the character")
+      (let [breath (first (filter #(= "Breath Weapon" (:name %)) (char5e/attacks built)))]
+        (is (some? breath) "the Breath Weapon attack appears")
+        (is (= :cold (:damage-type breath))
+            "and it uses the demo ancestry's cold damage type")))))
