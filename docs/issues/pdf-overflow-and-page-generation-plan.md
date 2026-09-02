@@ -489,7 +489,40 @@ around the EQUIPMENT box and, cropped at 300 DPI, the two are indistinguishable
 -- scattered along the outline and glyph edges, which is coordinate precision in
 the content stream.
 
-So a master per style is sound, and a master across styles would not be.
+**Page 1 is the wrong page to check this on**, and checking only it was the first
+mistake. The variants differ by how many SPELL pages they carry, so the spell
+pages are what a cloning scheme would copy. Comparing every spell page of the
+6-spell variant against its first spell page:
+
+    style 1   page 4 differs by 1396 px, the rest identical
+    style 4   page 8 differs by 628 px, the rest identical
+
+Style 1's is precision noise -- the two pages are the same layout down to the
+numerals and the Wizards footer, with the differences scattered across the whole
+page rather than gathered anywhere.
+
+Style 4's is not. Its last spell page carries a licence line the others do not:
+
+    dungeonmastersvault.com by permission - Petersen Games LLC 2021
+
+Where that line sits differs by style, and it is the real constraint on
+generating pages:
+
+    style 1, 2   on every page except the last
+    style 3      absent entirely
+    style 4      on the LAST page only -- page 2 of the 0-spell, page 8 of the 6-spell
+
+So for style 4 the structure is not "N identical spell pages". It is N-1 plain
+spell pages plus one carrying an attribution. Cloning its first spell page to
+make the rest would drop that line from the document altogether, and cloning the
+1-spell master -- whose only spell page is also its last, and so carries the line
+-- would stamp it on every page instead. Neither is acceptable for a licence
+attribution.
+
+A master per style is still sound, but generation has to know which page carries
+the attribution for that style and place exactly one, at the end. That is a
+requirement of the feature, not a detail to notice afterwards, and it needs
+checking against the styles 2 and 3 footers too before anything is built.
 
 Not done here, because it is a change to what ships and to how `routes.clj`
 chooses a template, not a change inside one. The selection would go from picking
