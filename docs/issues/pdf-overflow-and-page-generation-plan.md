@@ -438,6 +438,47 @@ six-caster template with all six spell pages filled and 594 rows annotated:
 from 2679 KB to 1313 KB by pruning orphaned widgets; adding a field per column
 per row would give a third of that back.
 
+
+### 10. Ship one template per style, not seven
+
+The 44.3 MB of templates in `resources/` is not 44 MB of artwork. Hashing every
+image across all 28 files:
+
+    436 image objects, 74 distinct
+    32.7 MB stored, 13.2 MB of unique pixels
+
+    style 2   396 objects,  62 distinct   4.6x duplication
+    style 3    20 objects,   3 distinct   6.8x duplication
+    style 4    20 objects,   9 distinct   2.2x duplication
+
+The variants were cut from a master by deleting pages, so each of a style's seven
+files carries its own copy of the base sheet's artwork. Style 3 ships three
+distinct images twenty times.
+
+Shipping one master per style and generating the rest:
+
+    style 1   2.7 MB -> 0.3      style 3    8.7 MB -> 1.0
+    style 2   3.2 MB -> 0.4      style 4   29.7 MB -> 4.2
+
+    44.3 MB -> 5.9 MB, 86% less
+
+The machinery exists and is in production: `add-missing-spell-pages!` already
+clones a spell page for every class past the template's last, and cloning is
+nearly free because the copy references the master's `/Contents`, `/Resources`
+and `/MediaBox` rather than duplicating them -- measured at 421 KB for a master
+and 422 KB for the master plus six clones.
+
+Not done here, because it is a change to what ships and to how `routes.clj`
+chooses a template, not a change inside one. The selection would go from picking
+one of seven files by caster count to always loading the one-spell-page master
+and cloning up, with a character that casts nothing needing its spell page
+removed rather than added. That makes every multi-caster export depend on the
+cloning path, which today only carries the cases past six classes. It wants its
+own branch and its own before-and-after render comparison per style.
+
+Worth keeping in proportion: this is deployment size -- the container and the
+uberjar. A player downloads one sheet, and those are 250 to 640 KB.
+
 ### 9. Styles 2, 3 and 4 — a later branch
 
 Everything measured for the relabelling is style 1 only: `printed-slot-labels`,
