@@ -264,7 +264,15 @@
                (.setPage new-widget page)
                (.setWidgets copy (java.util.ArrayList. [new-widget]))
                copy)))]
-      (.addPage doc page)
+      ;; After the last spell page, not at the end of the document: styles 1 and 2
+      ;; carry a features and traits page after their spell pages, and appending
+      ;; put the generated pages behind it.
+      (let [pages (.getPages doc)
+            after (some (fn [p] (when (> (.indexOf pages p) (.indexOf pages template)) p))
+                        (vec pages))]
+        (if after
+          (.insertBefore pages page after)
+          (.addPage doc page)))
       (.setAnnotations page (java.util.ArrayList. (mapv #(first (.getWidgets %)) new-fields)))
       (.setFields form (java.util.ArrayList. (concat (vec (.getFields form)) new-fields)))
       (count new-fields))))

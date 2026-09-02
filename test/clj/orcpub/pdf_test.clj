@@ -751,3 +751,35 @@
           (is (empty? spanning)
               (str "style " style " with " spells " spell page(s): "
                    (str/join "; " (take 3 spanning)))))))))
+
+(deftest generated-spell-pages-stay-with-the-other-spell-pages
+  (testing "Styles 1 and 2 carry a features and traits page after their spell
+            pages. add-spell-page! appended, so a character with more casting
+            classes than the template holds got that page wedged between its
+            spell pages -- the eight-class fixture had spell pages 3-8, features
+            at 9, then spell pages 10 and 11."
+    (with-open [doc (six-caster-template)]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            page-no (fn [field]
+                      (let [pages (into {} (map-indexed (fn [i p] [p (inc i)]) (.getPages doc)))]
+                        (some->> (.getWidgets field) (keep #(pages (.getPage %))) first)))
+            pages-of (fn [pattern]
+                       (into (sorted-set)
+                             (for [f (iterator-seq (.iterator (.getFieldTree form)))
+                                   :when (re-matches pattern (.getFullyQualifiedName f))
+                                   :let [n (page-no f)] :when n]
+                               n)))
+            ;; the unsuffixed features-and-traits is the equipment list on the
+            ;; character page; -2 is the features page itself
+            before (pages-of #"features-and-traits-2")]
+        (is (seq before) "the template has a features page to be displaced")
+        (pdf/add-spell-page! doc "1" "9")
+        (let [spells (pages-of #"spells-\d+-\d+-\d+")
+              features (pages-of #"features-and-traits-2")]
+          (is (= (inc (apply min before)) (apply min features))
+              "inserting one page ahead of it moves it down exactly one")
+          (is (< (apply max spells) (apply min features))
+              (str "every spell page comes before the features page; spells were "
+                   (pr-str spells) " and features " (pr-str features)))
+          (is (= (.getNumberOfPages doc) (apply min features))
+              "and it is still the last page"))))))
