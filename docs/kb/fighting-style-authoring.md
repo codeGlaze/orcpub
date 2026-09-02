@@ -1,7 +1,16 @@
 # Homebrew fighting-style authoring — finish the wiring
 
 **Branch:** `feature/fighting-style-authoring`, cut from `refactor/content-extensibility`.
-**Status:** planning / not started — this note captures the context so it isn't lost.
+**Status:** **Phase A (integration) DONE** — a pack can author a `::e5/fighting-styles`
+item, it folds into the open pool (built-in ++ homebrew) via
+`::classes5e/fighting-style-pool`, and a feat's `:grant {:from :fighting-styles}` offers it;
+the pool is threaded into `template.cljc` (13-arity `template-selections`, defaulting to
+built-in for the 12-arg callers) from `equipment_subs`. Spec via
+`classes/homebrew-fighting-style` (field-schema) + `content_specs` + `field_schemas`;
+classifier marks the type v2. Demo item `Demo: Tidewarden` + build tests assert the
+homebrew style's mechanic lands on a built character. **Phase B (in-app builder UI for
+authoring) remains** — the registry `:homebrew-builder?` entry, builder view, and the
+hand-wired `core.cljs` route→view binding (see below).
 
 ## What we've been doing (context)
 

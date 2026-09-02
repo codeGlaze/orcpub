@@ -13,6 +13,7 @@
             [orcpub.dnd.e5.spells :as spells5e]
             [orcpub.dnd.e5.spell-lists :as sl5e]
             [orcpub.dnd.e5.template-base :as t-base]
+            [orcpub.dnd.e5.builder-fields :as bf]
             [clojure.string :as s]))
 
 (spec/def ::name (spec/and string? common/starts-with-letter?))
@@ -26,6 +27,14 @@
 (spec/def ::homebrew-invocation (spec/keys :req-un [::name ::key ::option-pack]))
 
 (spec/def ::homebrew-boon (spec/keys :req-un [::name ::key ::option-pack]))
+
+;; Fighting-style FIELD SCHEMA — the single source for both the builder form and
+;; the save spec. A style is name/key/option-pack (base) + an optional description;
+;; its mechanic rides the shared :props vocabulary (validated by the loose load
+;; floor, like homebrew races/feats), so the strict schema stays light.
+(def fighting-style-fields
+  [{:key :description :type :string :label "Description"}])
+(spec/def ::homebrew-fighting-style (bf/fields->spec fighting-style-fields))
 
 (def base-class-keys
   "SRD built-in class keys. Source-code constants; never rename, never collide.

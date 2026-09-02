@@ -1040,6 +1040,20 @@
  (fn [plugin-vals _]
    (pools/pool plugin-vals ::e5/draconic-ancestries opt5e/draconic-ancestries)))
 
+;; The open fighting-style pool a feat's :grant {:from :fighting-styles} draws from:
+;; the built-in styles ++ any homebrew styles an orcbrew pack adds under
+;; ::e5/fighting-styles. Unlike the draconic pool, the built-ins are ALREADY option
+;; cfgs (opt5e/fighting-style-options) while homebrew arrive as raw data, so the
+;; constructor is mapped over the homebrew entries only, then concatenated built-in
+;; first. Reads through ::e5/plugin-vals like every plugin pool.
+(reg-sub
+ ::classes5e/fighting-style-pool
+ :<- [::e5/plugin-vals]
+ (fn [plugin-vals _]
+   (concat opt5e/fighting-style-options
+           (map opt5e/fighting-style-option
+                (pools/homebrew-entries plugin-vals ::e5/fighting-styles)))))
+
 
 (def gnome-option-cfg
   {:name "Gnome"

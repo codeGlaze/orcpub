@@ -48,7 +48,8 @@
 
 (def incompatible-content-types
   "Whole content types old builds don't know — any content under these is v2."
-  #{:orcpub.dnd.e5/draconic-ancestries})
+  #{:orcpub.dnd.e5/draconic-ancestries
+    :orcpub.dnd.e5/fighting-styles})
 
 (defn- item-features
   "The non-backward-compatible feature markers a single content ITEM carries."

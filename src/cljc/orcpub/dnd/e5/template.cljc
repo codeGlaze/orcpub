@@ -1477,18 +1477,31 @@
     {:value @(subscribe [:custom-race-name])
      :on-change (fn [e] (dispatch [:set-custom-race (.. e -target -value)]))}]])
 
-(defn template-selections [magic-weapon-options
-                           magic-armor-options
-                           other-magic-item-options
-                           weapon-map
-                           custom-and-standard-weapons
-                           spell-lists
-                           spells-map
-                           backgrounds
-                           races
-                           classes
-                           feats
-                           language-map]
+(defn template-selections
+  ;; 12-arity: default the feat's fighting-style pool to the built-in styles,
+  ;; preserving every existing caller and today's behavior. The production sub
+  ;; passes the homebrew-inclusive pool (built-in ++ ::e5/fighting-styles) via the
+  ;; 13-arity below — see ::classes5e/fighting-style-pool.
+  ([magic-weapon-options magic-armor-options other-magic-item-options weapon-map
+    custom-and-standard-weapons spell-lists spells-map backgrounds races classes
+    feats language-map]
+   (template-selections magic-weapon-options magic-armor-options
+                        other-magic-item-options weapon-map custom-and-standard-weapons
+                        spell-lists spells-map backgrounds races classes feats
+                        language-map opt5e/fighting-style-options))
+  ([magic-weapon-options
+    magic-armor-options
+    other-magic-item-options
+    weapon-map
+    custom-and-standard-weapons
+    spell-lists
+    spells-map
+    backgrounds
+    races
+    classes
+    feats
+    language-map
+    fighting-style-pool]
   [#_optional-content-selection
    (t/selection-cfg
     {:name "Base Ability Scores"
@@ -1542,12 +1555,13 @@
                (opt5e/feat-options spell-lists spells-map)
                (let [race-map (common/map-by-key races)]
                  (map
-                  ;; BRIDGE PROTOTYPE: pass the grantable-pools registry so a feat's :grant
-                  ;; {:from <pool> :choose N} data can offer a choice from any pool. Built-in
-                  ;; fighting styles for now; threading the homebrew ::e5/fighting-styles pool
-                  ;; (and other pools) into this registry is the follow-up wiring step.
+                  ;; Pass the grantable-pools registry so a feat's :grant {:from <pool>
+                  ;; :choose N} data offers a choice from that pool. The fighting-style
+                  ;; pool is threaded in (built-in ++ homebrew ::e5/fighting-styles) from
+                  ;; ::classes5e/fighting-style-pool via the sub, so a feat can grant a
+                  ;; pack-authored style, not just the built-in ones.
                   (partial opt5e/feat-option-from-cfg language-map spells-map spell-lists custom-and-standard-weapons race-map
-                           {:fighting-styles {:name "Fighting Style" :options opt5e/fighting-style-options}})
+                           {:fighting-styles {:name "Fighting Style" :options fighting-style-pool}})
                   feats)))
      :show-if-zero? true
      :min 0
@@ -1565,7 +1579,7 @@
    (inventory-selection "Armor" "breastplate" armor5e/armor mod5e/deferred-armor)
    (magic-item-selection "Magic Armor" "magic-shield" magic-armor-options mod5e/deferred-magic-armor magic-item-details)
    (inventory-selection "Equipment" "backpack" equip5e/equipment mod5e/deferred-equipment)
-   (magic-item-selection "Other Magic Items" "orb-wand" other-magic-item-options mod5e/deferred-magic-item magic-item-details)])
+   (magic-item-selection "Other Magic Items" "orb-wand" other-magic-item-options mod5e/deferred-magic-item magic-item-details)]))
 
 (defn template [selections]
   {::t/base t-base/template-base

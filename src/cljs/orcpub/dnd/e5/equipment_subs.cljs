@@ -319,6 +319,7 @@
  :<- [::classes5e/classes]
  :<- [::feats5e/feats]
  :<- [::langs5e/language-map]
+ :<- [::classes5e/fighting-style-pool]
  (fn [[magic-weapon-options
        magic-armor-options
        other-magic-item-options
@@ -330,7 +331,8 @@
        races
        classes
        feats
-       language-map] _]
+       language-map
+       fighting-style-pool] _]
    (t5e/template-selections magic-weapon-options
                             magic-armor-options
                             other-magic-item-options
@@ -342,7 +344,8 @@
                             races
                             classes
                             feats
-                            language-map)))
+                            language-map
+                            fighting-style-pool)))
 
 (reg-sub
  ::char5e/template
