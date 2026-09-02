@@ -329,6 +329,46 @@ appearances is only worth reaching for when a value must be addressable by name
 AND is genuinely never rewritten -- a narrow case, and one where drawing is
 usually available instead.
 
+### Why the same trick barely helps text fields
+
+Two widgets share an appearance only when they draw the *same bytes*. Matching
+size and position is neither necessary nor sufficient -- the stream holds the
+glyphs, so a field's appearance is a function of its value.
+
+That is the whole difference, and it shows up in the bytes. Measured on two real
+exports:
+
+    eight-class sheet
+      checkboxes    582 streams   47.0 KB  ->   2.4 KB   saves 44.6 KB  (95%)
+      text fields   869 streams   39.0 KB  ->  22.6 KB   saves 16.4 KB  (42%)
+
+    single-class wizard
+      checkboxes    122 streams   13.5 KB  ->   2.4 KB   saves 11.1 KB  (82%)
+      text fields   209 streams   24.2 KB  ->  22.9 KB   saves  1.4 KB  ( 6%)
+
+A checkbox draws one of about fourteen things -- a circle, ticked or not, at a
+few sizes -- and each is a real vector path. Many duplicates of something big, so
+nearly all of it collapses.
+
+A text field draws its own text. The wizard sheet has 187 filled text fields
+carrying **175 distinct values**: almost nothing repeats, because a field that
+repeats its neighbour's value is a field with nothing to say. The eight-class
+sheet does better only because eight casters draw on overlapping spell lists.
+
+And the duplicates that do exist are mostly the empty ones. Of the eight-class
+sheet's 869 text appearances, 577 are empty and account for **2.3 KB between
+them** -- `q Q` is four bytes, so collapsing 577 of them saves nothing worth
+having. The bytes live in the 292 filled streams, and 163 of those are unique.
+
+So the rule is not "same geometry, share". It is:
+
+    saving = number of duplicates x size of the thing duplicated
+
+Checkboxes score on both terms. Text fields score on neither: many duplicates of
+almost nothing, or almost no duplicates of something. On top of that the little
+that is available is the unsafe kind, since editing a shared text appearance
+rewrites it for every field pointing at it.
+
 ### PDFBox 3 already compresses
 
 `PDDocument.save(file)` writes object streams by default -- the output carries 60
