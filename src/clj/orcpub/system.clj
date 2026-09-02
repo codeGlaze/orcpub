@@ -62,7 +62,7 @@
    ;; Pedestal's own default is 50 until roughly sixteen cores, which is well
    ;; under what a large host can carry; ORCPUB_HTTP_MAX_THREADS raises it, and
    ;; unset leaves Pedestal to decide. Exports are bounded separately -- see
-   ;; docs/operations/pdf-export-capacity.md.
+   ;; docs/PDF-EXPORT-CAPACITY.md.
    ::http/container-options (cond-> {:context-configurator (fn [c]
                                                      (let [gzip-handler (GzipHandler.)]
                                                        (.setGzipHandler c gzip-handler)

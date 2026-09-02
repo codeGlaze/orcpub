@@ -45,3 +45,14 @@ the eight-class fixture from 638 KB to 424.
   objects every time. A six-caster sheet allocates 162 MB rather than 607, a
   single-casting-class one 51 MB rather than 77, and a character who casts
   nothing no longer scans the pages for spell sections at all.
+
+## Added (capacity)
+
+- `ORCPUB_HTTP_MAX_THREADS`, `ORCPUB_PDF_CONCURRENCY` and
+  `ORCPUB_PDF_QUEUE_TIMEOUT_MS` let the operator size the export stack for the
+  host. Sheet generation is bounded separately from the HTTP pool, so a rush of
+  exports no longer competes with logins and saves for the same workers, and an
+  export that cannot get a slot is answered 503 with a measured `Retry-After`
+  rather than held open until the browser gives up.
+- `docs/PDF-EXPORT-CAPACITY.md` documents what an export costs, what the numbers
+  mean, and how to size the settings, with the measurements behind them.
