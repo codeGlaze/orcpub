@@ -81,6 +81,17 @@ The question "is the upgrade equivalent / better / preserving the good?" is answ
   regressions outside it. So coverage must reach the load-bearing behavior *before* the refactor
   it guards — which is precisely why "the foundation net gates refactors."
 
+## Search the dead/old code too, not just the live surface
+
+"Is X extensible?" / "How was X done before?" is not answered by the live `*-options` def or
+`develop` alone. Old and dead worked examples live as `#_`-commented forms — notably in
+`src/cljc/orcpub/dnd/e5/templates/ua_*.cljc` (the pre-refactor UA content). Twice this session a
+fighting-style claim was made without checking there: first "fighting styles aren't extensible"
+(the concat pattern was just at a different assembly point), then "no old fighting-style pipeline
+exists" (Mariner is in `ua_base.cljc:690`, `#_`-commented). Before concluding a mechanism is
+absent, grep the whole tree including `templates/` and `#_`-struck forms — the answer is often in
+the dead code.
+
 ## The rule
 
 Before asserting a load-bearing claim — especially **"X is broken"** or **"X is fine"** —
