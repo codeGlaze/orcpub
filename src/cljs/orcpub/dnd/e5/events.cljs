@@ -20,6 +20,8 @@
             [orcpub.dnd.e5.feats :as feats5e]
             [orcpub.dnd.e5.races :as race5e]
             [orcpub.dnd.e5.classes :as class5e]
+            [orcpub.dnd.e5.srd-starting-equipment :as srd-equip]
+            [orcpub.dnd.e5.starting-equipment-ledger :as sel]
             [orcpub.dnd.e5.units :as units5e]
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
@@ -3389,6 +3391,54 @@
  (fn [class [_ prop-key prop-value]]
    (assoc class prop-key prop-value)))
 
+;; Starting-equipment setter shared by the fixed-grant maps (:weapons/:armor/
+;; :equipment, {item-key qty}) and the choice vectors (:weapon-choices/
+;; :armor-choices/:equipment-choices, [{:name .. :options {item-key qty}}]).
+;; The whole map/vector is rebuilt in the view and set here; an empty value drops
+;; the key entirely so exports don't carry blank equipment keys.
+(reg-event-db
+ ::class5e/set-equipment
+ class-interceptors
+ (fn [class [_ k v]]
+   (if (empty? v)
+     (dissoc class k)
+     (assoc class k v))))
+
+;; One-click migration of legacy shorthand :*-choices into the richer, editable
+;; :equipment-selections form (both are consumed by class-option; this just makes
+;; imported simple choices editable in the builder).
+(reg-event-db
+ ::class5e/migrate-equipment-choices
+ class-interceptors
+ (fn [class [_ new-selections]]
+   (-> class
+       (assoc :equipment-selections new-selections)
+       (dissoc :weapon-choices :armor-choices :equipment-choices))))
+
+;; "Start from an SRD class": replace the class's starting equipment with the chosen
+;; SRD class's, in the builder's editable form (srd-equip/builder-equipment, verified
+;; against the live class by orcpub.starting-equipment-test).
+(def ^:private equipment-keys
+  [:weapons :armor :equipment :weapon-choices :armor-choices :equipment-choices :equipment-selections])
+
+(reg-event-db
+ ::class5e/fill-starting-equipment
+ class-interceptors
+ (fn [class [_ class-kw]]
+   ;; Record the SRD base so export can store just the delta from it (sel/collapse-class);
+   ;; the working data stays the full form the builder edits.
+   (merge (apply dissoc class equipment-keys)
+          (srd-equip/builder-equipment class-kw)
+          {:starting-equipment-base class-kw})))
+
+;; "Detach": forget the SRD base so export writes the equipment in full instead of as a delta.
+;; The equipment itself (the full form the builder holds) is untouched — only the link drops.
+(reg-event-db
+ ::class5e/detach-starting-equipment-base
+ class-interceptors
+ (fn [class _]
+   (dissoc class :starting-equipment-base)))
+
 (reg-event-db
  ::class5e/toggle-class-spell-list
  class-interceptors
@@ -4048,6 +4098,24 @@
     (sequential? errors) (s/join "\n\n" (map str errors))
     :else (str errors)))
 
+(defn map-plugin-classes
+  "Apply `f` to every class map inside plugin data shaped {source {content-type {key item}}}.
+   Guarded: non-map data, sources without a ::e5/classes map, and non-map items pass through
+   untouched — safe on the emergency/raw export path too. The starting-equipment delta is a
+   pure on-disk encoding: collapse-class runs here on the way out, expand-class on the way in."
+  [f data]
+  (if (map? data)
+    (reduce-kv
+     (fn [m src cts]
+       (assoc m src
+              (if (and (map? cts) (map? (::e5/classes cts)))
+                (update cts ::e5/classes
+                        (fn [classes]
+                          (reduce-kv (fn [cs k c] (assoc cs k (if (map? c) (f c) c))) {} classes)))
+                cts)))
+     {} data)
+    data))
+
 (defn serialize-orcbrew
   "Pure serialize of homebrew content to .orcbrew text — no side effects, so it's
    unit-testable and shared by every export path. pretty-print? is opt-in: pprint
@@ -4061,7 +4129,8 @@
   "Serialize plugin data to a .orcbrew file and trigger download. The only side
    effect; serialization lives in the pure `serialize-orcbrew`."
   [filename data & {:keys [pretty-print?]}]
-  (let [content (serialize-orcbrew data :pretty-print? pretty-print?)
+  (let [content (serialize-orcbrew (map-plugin-classes sel/collapse-class data)
+                                   :pretty-print? pretty-print?)
         blob (js/Blob.
               (clj->js [content])
               (clj->js {:type "text/plain;charset=utf-8"}))]
@@ -4425,7 +4494,7 @@
  ::e5/save-to-json
  (fn [_ [_ name plugin]]
    (let [blob (js/Blob.
-               (clj->js [(clj->json plugin)])
+               (clj->js [(clj->json (map-plugin-classes sel/collapse-class plugin))])
                (clj->js {:type "application/json;charset=utf-8"}))]
      (js/saveAs blob (str name ".json"))
      {})))
@@ -4440,7 +4509,7 @@
  ::e5/export-all-plugins-pretty-print
  (fn [{:keys [db]} _]
    (let [blob (js/Blob.
-               (clj->js [(with-out-str (pprint/pprint (:plugins db)))])
+               (clj->js [(with-out-str (pprint/pprint (map-plugin-classes sel/collapse-class (:plugins db))))])
                (clj->js {:type "text/plain;charset=utf-8"}))]
      (js/saveAs blob "all-content.orcbrew")
      {})))
@@ -4659,7 +4728,8 @@
    ;; import uses. Custom items: keep only those that EXPAND cleanly (a malformed
    ;; item would otherwise throw in expand-magic-items and blank the sheet) — this
    ;; both validates untrusted item data and protects every downstream expand site.
-   (let [{:keys [kept]} (e5/salvage-library-items content-specs/valid-item-for-load? plugins)
+   (let [plugins (map-plugin-classes sel/expand-class plugins) ; base+delta -> full, before the load gate
+         {:keys [kept]} (e5/salvage-library-items content-specs/valid-item-for-load? plugins)
          items (filterv (fn [it]
                           (try (boolean (seq (mi/expand-magic-items [it])))
                                (catch :default _ false)))
@@ -4815,7 +4885,10 @@
    nothing kept); `quarantine` is the reconciled {source partial-plugin} map of
    set-aside entries (also persisted here); message is the notice (nil if none)."
   [existing incoming]
-  (let [{:keys [kept rejected]} (e5/salvage-library-items
+  (let [;; Expand any base+delta starting-equipment back to the full form BEFORE salvage/merge,
+        ;; so the delta encoding never lives past import — the library only ever holds full form.
+        incoming (map-plugin-classes sel/expand-class incoming)
+        {:keys [kept rejected]} (e5/salvage-library-items
                                  content-specs/valid-item-for-load? incoming)
         live (e5/merge-all-plugins existing kept)
         ;; Merge set-aside entries into the quarantine, pruning anything now live so

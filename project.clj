@@ -201,6 +201,10 @@
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
             "rebuild-modules" ["run" "-m" "user" "--rebuild-modules"]
+            ;; Boot the FULL app (Pedestal + in-memory Datomic) on :8890 for browser e2e —
+            ;; no transactor, no external DB. Run `lein e2e-server`, then drive Playwright
+            ;; against http://localhost:8890 through the real UI. See test/browser/README.md.
+            "e2e-server" ["with-profile" "+e2e" "run"]
             ;; --fail-level error: exit 0 on warnings, exit 1 only on errors.
             ;; trampoline re-execs in a fresh JVM so System/exit propagates
             ;; (without it, lein suppresses the exit code).
@@ -212,6 +216,10 @@
   :profiles {;; Minimal profile to run dev/ command-line tools (e.g. report-preview)
              ;; with base runtime deps but WITHOUT the heavy cljs/devtools :dev-config.
              :tools {:source-paths ["dev"]}
+             ;; In-memory Datomic for local/e2e runs — the full stack boots with no
+             ;; transactor and no external DB. Used by the `e2e-server` alias; environ
+             ;; feeds :datomic-url to orcpub.config/get-datomic-uri.
+             :e2e {:env {:datomic-url "datomic:mem://orcpub"}}
              ;; Legacy cljsbuild build configs — retained for lein figwheel (legacy
              ;; dev server) and reference. lein-cljsbuild PLUGIN has been removed;
              ;; prod CLJS builds now use figwheel-main (prod.cljs.edn / fig:prod).
