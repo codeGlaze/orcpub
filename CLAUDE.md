@@ -3,6 +3,46 @@
 
 ## Claude-Specific Settings
 
+### Commit signing — Verified badge as codeGlaze
+
+Commits should show GitHub's green **Verified** badge under the **codeGlaze** identity, not
+Anthropic's. This needs setup **per environment** — the signing key is ephemeral, so
+regenerate it in each new container.
+
+Why it isn't automatic: the remote environment signs by default with Claude Code Remote's
+key (via `/tmp/code-sign`, `gpg.format=ssh`), registered to `noreply@anthropic.com`. A
+commit authored as codeGlaze but signed with that key shows **Unverified** (identity
+mismatch). `ssh-keygen` is **not installed**, so the SSH route can't be redirected — use
+**GPG** (installed) instead.
+
+```bash
+# 1. generate a per-environment GPG signing key for codeGlaze
+gpg --batch --pinentry-mode loopback --passphrase '' \
+  --quick-generate-key 'codeGlaze <github@codeglaze.com>' ed25519 sign never
+
+# 2. point this repo's git at it (openpgp, not the env ssh signer)
+KEYID=$(gpg --list-secret-keys --with-colons github@codeglaze.com | awk -F: '/^fpr:/{print $10; exit}')
+git config gpg.format openpgp
+git config user.signingkey "$KEYID"
+git config user.name  codeGlaze
+git config user.email github@codeglaze.com
+git config commit.gpgsign true
+
+# 3. hand the user the public key to add on GitHub (Settings > SSH and GPG keys > New GPG key)
+gpg --armor --export github@codeglaze.com
+```
+
+Notes:
+- `github@codeglaze.com` must be a **verified email** on the codeGlaze GitHub account, or the
+  badge stays Unverified even with a good signature (fall back to the GitHub `noreply` email).
+- The Stop hook (`~/.claude/stop-hook-git-check.sh`) is hardcoded to want
+  `noreply@anthropic.com`, so it keeps calling codeGlaze commits "Unverified" — that's the
+  hook being wrong; GitHub's badge is the real signal. **Do not** reset the author to
+  Anthropic. The harness restores the hook if edited; `git config commit.gpgsign false`
+  silences its attribution block but disables signing (losing the badge), so prefer to just
+  ignore the message.
+- Commits already made unsigned or with the env key stay Unverified; don't rewrite history.
+
 ## E2E Testing
 
 ### Running Tests
