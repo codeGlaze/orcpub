@@ -48,7 +48,7 @@ continuation page instead of shrinking past legibility.
 
 - The exporter no longer fetches whatever image URL it is handed (`d1bb764`).
 - The sheet style id is validated against the styles on disk rather than
-  interpolated into a resource path (`23ef685`).
+  interpolated into a resource path (`23eb07c`).
 - Request bodies are capped, and a rate-limit predicate that always returned true
   now answers correctly (`a12e28e`).
 - A custom spell name wider than its box hung the export. Reachable without
