@@ -557,6 +557,44 @@ own branch and its own before-and-after render comparison per style.
 Worth keeping in proportion: this is deployment size -- the container and the
 uberjar. A player downloads one sheet, and those are 250 to 640 KB.
 
+
+#### Which file to use as each style's master
+
+Not the narrowest file, but the smallest one containing every distinct *page kind*
+that style needs. Style 4 marks only its last page, so its 1-spell file's single
+spell page is the marked one and cloning it repeats the mark. Its 2-spell file
+carries both kinds:
+
+    style 4 master = the 2-spell file, 4454.7 KB
+      page 1 character   page 2 background   page 3 spell   page 4 spell + attribution
+
+    grown to six spell sections -> 8 pages, 4454.8 KB, attribution on page 8 only
+    the shipped 6-spell file is 4958.6 KB
+
+So the original convention comes out exactly right, 500 KB smaller than what
+ships, with no attribution stamped or reproduced. Styles 1, 2 and 3 need only
+their 1-spell file, since every spell page they have is alike.
+
+#### Attribution placement as a setting
+
+Worth having, and mostly achievable by choosing which page kind to clone where
+rather than by drawing anything:
+
+    :all           clone the marked page          styles 1, 2 already; style 4 possible
+    :last          clone plain, finish marked     style 4's own convention
+    :first         marked first, then plain       possible wherever both kinds exist
+    :every-other   alternate the two kinds        same
+
+The limit is that a footer baked into a page's content stream **cannot be
+removed**, only added. So a style offers whichever placements its page kinds
+allow: style 4 has both a plain and a marked spell page and can do any of them;
+styles 1 and 2 have only marked pages, so `:all` is the only setting they can
+honour; style 3 has no attribution to place.
+
+Anything beyond that -- marking a page whose artwork lacks it -- means drawing the
+footer, which for style 4 is 4pt CartaMarinaBold at x 24.9, y 12.1, an embedded
+subset already present in the document and reusable rather than re-embedded.
+
 ### 9. Styles 2, 3 and 4 — a later branch
 
 Everything measured for the relabelling is style 1 only: `printed-slot-labels`,
