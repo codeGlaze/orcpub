@@ -47,8 +47,9 @@
       :name "Demo: Versatile"
       :option-pack source-name
       :description "You adopt a fighting style of your choice."
-      ;; Exercises the generic :grant primitive — a choice from a named pool. On
-      ;; the app path a feat grants from the built-in fighting styles.
+      ;; Exercises the generic :grant primitive from the fighting-style pool —
+      ;; built-in ++ homebrew, so it offers the demo style below alongside the SRD
+      ;; ones.
       :grant {:from :fighting-styles :choose 1}}}
     ::e5/backgrounds
     {:demo-traveler
@@ -88,6 +89,18 @@
                       :line-width 5
                       :line-length 30
                       :save :orcpub.dnd.e5.character/dex}}}
+    ::e5/fighting-styles
+    {:demo-tidewarden
+     {:key :demo-tidewarden
+      :name "Demo: Tidewarden"
+      :option-pack source-name
+      :description (str "While you are not wearing heavy armor, you have a swimming "
+                        "speed of 30 feet.")
+      ;; Exercises homebrew fighting-style AUTHORING: a pack adds a style under
+      ;; ::e5/fighting-styles, it folds into the fighting-style pool, and the
+      ;; Demo: Versatile feat's :grant offers it. Its mechanic rides the shared
+      ;; :props vocabulary.
+      :props {:swimming-speed 30}}}
     ::e5/spells
     {:demo-spark
      {:key :demo-spark

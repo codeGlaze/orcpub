@@ -235,10 +235,18 @@
       (is (zero? (get (char5e/race-ability-increases built) CON 0))
           "a background ASI is :general, never racial"))))
 
-;; --- the demo feat's generic :grant from the built-in fighting-styles pool ---
+;; --- the demo feat's :grant from the fighting-style pool (built-in ++ homebrew) ---
+
+;; Mirrors ::classes5e/fighting-style-pool: the built-in style cfgs ++ the pack's
+;; homebrew styles mapped through the constructor. This is what the app now threads
+;; into the feat's grantable-pools (template.cljc), so the feat offers pack styles.
+(def fighting-style-pool
+  (concat opt5e/fighting-style-options
+          (map opt5e/fighting-style-option
+               (vals (get-in demo/plugins [demo/source-name ::e5/fighting-styles])))))
 
 (def grantable-pools
-  {:fighting-styles {:name "Fighting Style" :options opt5e/fighting-style-options}})
+  {:fighting-styles {:name "Fighting Style" :options fighting-style-pool}})
 
 (def demo-grant-feat-cfg (get-in demo/plugins [demo/source-name ::e5/feats :demo-versatile]))
 
@@ -260,12 +268,27 @@
     :bonus-feat {:orcpub.entity/key :demo-versatile
                  :orcpub.entity/options {:fighting-style {:orcpub.entity/key :archery}}}}})
 
-(deftest demo-feat-grant-offers-the-pool-and-builds
-  (testing "the feat's :grant compiles to a choice offering the built-in fighting styles, and a character who takes the feat and picks one builds"
+(deftest demo-feat-grant-offers-both-built-in-and-homebrew-and-builds
+  (testing "the feat's :grant offers the built-in styles AND the pack's homebrew style"
     (let [fs-sel (first (filter #(= "Fighting Style" (::t/name %))
-                                (::t/selections demo-grant-feat-option)))]
+                                (::t/selections demo-grant-feat-option)))
+          offered (set (map ::t/name (::t/options fs-sel)))]
       (is (some? fs-sel) "the feat carries the granted Fighting Style selection")
-      (is (contains? (set (map ::t/name (::t/options fs-sel))) "Archery")
-          "the grant offers the built-in Archery style (the app-wired pool)"))
+      (is (contains? offered "Archery") "a built-in style is offered")
+      (is (contains? offered "Demo: Tidewarden")
+          "the pack's HOMEBREW style is offered too — the follow-up wiring is done"))
     (is (some? (entity/build grant-entity grant-template))
-        "a character who takes the feat and picks Archery builds without throwing")))
+        "a character who takes the feat and picks a built-in style builds without throwing")))
+
+(def grant-homebrew-style-entity
+  {:orcpub.entity/options
+   {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
+    :bonus-feat {:orcpub.entity/key :demo-versatile
+                 :orcpub.entity/options {:fighting-style {:orcpub.entity/key :demo-tidewarden}}}}})
+
+(deftest built-character-gets-the-homebrew-fighting-style-mechanic
+  (testing "a character who takes the feat and picks the pack's homebrew style has its mechanic on the derived sheet"
+    (let [built (entity/build grant-homebrew-style-entity grant-template)]
+      (is (some? built) "build must not throw")
+      (is (= 30 (char5e/base-swimming-speed built))
+          "the homebrew style's :props swimming-speed lands end-to-end (authoring works)"))))
