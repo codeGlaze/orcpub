@@ -4058,9 +4058,13 @@
 
 (defn- save-orcbrew-blob!
   "Serialize plugin data to a .orcbrew file and trigger download. The only side
-   effect; serialization lives in the pure `orcbrew-format/serialize-orcbrew`."
+   effect; serialization lives in the pure `orcbrew-format/serialize-orcbrew`.
+   `stamp` wraps the data in the v2 format envelope IFF it uses non-backward-
+   compatible features (a no-op for plain v1 content), so an old build can't
+   silently mis-load a new-format export."
   [filename data & {:keys [pretty-print?]}]
-  (let [content (orcbrew-format/serialize-orcbrew data :pretty-print? pretty-print?)
+  (let [content (orcbrew-format/serialize-orcbrew
+                 (orcbrew-format/stamp data) :pretty-print? pretty-print?)
         blob (js/Blob.
               (clj->js [content])
               (clj->js {:type "text/plain;charset=utf-8"}))]
@@ -4434,12 +4438,14 @@
  (fn [_ [_ name plugin]]
    (validate-and-show-modal-or-export name plugin {:pretty-print? true})))
 
-;; Export all homebrew plugins as pretty-printed .orcbrew file.
+;; Export all homebrew plugins as pretty-printed .orcbrew file. Stamped like every
+;; other export so new-format content is tagged v2 (a no-op for plain v1 content).
 (reg-event-fx
  ::e5/export-all-plugins-pretty-print
  (fn [{:keys [db]} _]
    (let [blob (js/Blob.
-               (clj->js [(with-out-str (pprint/pprint (:plugins db)))])
+               (clj->js [(with-out-str
+                           (pprint/pprint (orcbrew-format/stamp (:plugins db))))])
                (clj->js {:type "text/plain;charset=utf-8"}))]
      (js/saveAs blob "all-content.orcbrew")
      {})))

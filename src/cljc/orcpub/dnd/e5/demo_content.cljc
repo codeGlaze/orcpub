@@ -15,11 +15,10 @@
   "The source the demo pack's content is filed under in the content library."
   "Demo Content")
 
-(def requires
-  "The :orcbrew/requires compat tag for this pack — the features / minimum build it
-   needs. Empty while the pack is still old-format compatible; add entries as it
-   starts using features older builds can't read."
-  [])
+;; The pack's format version + :orcbrew/requires are computed automatically from
+;; its content by orcbrew-format/stamp at emit time (the pack uses
+;; non-backward-compatible features, so it stamps as v2) — no manual tag to keep in
+;; sync.
 
 (def plugins
   "The demo pack as a plugin map {source {content-type {key item}}}, the same shape

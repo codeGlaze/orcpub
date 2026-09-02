@@ -1,8 +1,34 @@
 # orcbrew format versioning + the new file extension
 
-**Status: open decision, HIGH PRIORITY.** The extension *name* is being polled with the
-community and other developers. Everything else here is decided. Design-in-progress on
-`feature/demo-content-tier`; surfaced by the demo tier but applies to **all** content.
+**Status: in-file mechanism IMPLEMENTED (on `feature/demo-content-tier`); the user-facing
+EXTENSION is the only part still blocked on the community name poll.**
+
+Implemented model — the version is a **compatibility class of the content**, not a build date:
+
+- **v1 = fully backward compatible.** Ships as a **plain** file (no tag, no wrapper); old
+  builds read it unchanged.
+- **v2 = contains any non-backward-compatible feature.** Wrapped in an envelope
+  `{:orcbrew/format-version 2 :orcbrew/requires [...features...] :orcbrew/content <plugin map>}`.
+  The wrapper's keyword keys break an old build's "every top-level key is a source name" parse,
+  so old builds bounce off it — the intended gate for incompatible content. A file's version is
+  **classified from its content** by `orcbrew-format/detect-incompatible-features` (conservative:
+  over-tag rather than under-tag), so nothing has to be tagged by hand.
+
+Wiring (all in `orcpub.dnd.e5.orcbrew-format`): `stamp` (export — wraps v2, no-op for v1),
+`compat-check` + `unwrap` (import — refuses a version beyond `supported-format-version`,
+otherwise unwraps). Hooked into `save-orcbrew-blob!` + the pretty-print export, `validate-import`
+(covers file import, share, and the demo boot-load), and the demo-pack emitter. Verified by
+`orcbrew_format_test` + the real-app boot-load of the (now v2) demo pack.
+
+**Still blocked (the extension NAME):** a distinct file extension for v2 files, to keep them out
+of old builds' file *pickers*. Until it's named, v2 files keep `.orcbrew` — the envelope still
+makes an old build *fail to load* rather than corrupt. When the name lands it's a one-line swap
+on `orcbrew-format/new-extension`.
+
+---
+
+Original design notes (the extension *name* is being polled with the community and other
+developers; everything else here is decided and now implemented per above):
 
 ## Why this exists
 
