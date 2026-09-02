@@ -34,12 +34,40 @@
                         "by 1, and one ability score of your choice by 1.")
       ;; Exercises the ability-increase spread: [amount pool] pairs — a fixed +1
       ;; CON plus one floating +1 the player assigns. See ability-increase-spreads.
-      :ability-increases [[1 :con] [1 :any]]}}
+      :ability-increases [[1 :con] [1 :any]]}
+     :demo-versatile
+     {:key :demo-versatile
+      :name "Demo: Versatile"
+      :option-pack source-name
+      :description "You adopt a fighting style of your choice."
+      ;; Exercises the generic :grant primitive — a choice from a named pool. On
+      ;; the app path a feat grants from the built-in fighting styles.
+      :grant {:from :fighting-styles :choose 1}}}
     ::e5/backgrounds
     {:demo-traveler
      {:key :demo-traveler
       :name "Demo: Traveler"
-      :option-pack source-name}}
+      :option-pack source-name
+      :description (str "A life on the road toughened you: increase your "
+                        "Constitution by 1 and gain proficiency in Constitution "
+                        "saving throws.")
+      ;; Exercises the :save rider on an ability-increase increment (the +1 also
+      ;; grants that ability's save), attributed to the background (:general) silo.
+      :ability-increases [[1 :con :save]]}}
+    ::e5/races
+    {:demo-tideborn
+     {:key :demo-tideborn
+      :name "Demo: Tideborn"
+      :option-pack source-name
+      :description (str "Folk of the tidal deeps — quick and hardy, at home in "
+                        "the water and warded against flame.")
+      ;; Exercises the ASI spread on the RACE silo (race-column attribution),
+      ;; standalone save proficiencies, and the :props mechanics vocabulary.
+      :ability-increases [[2 :dex] [1 :any]]
+      :save-proficiencies [[1 :con]]
+      :props {:speed 30
+              :swimming-speed 30
+              :damage-resistance {:fire true}}}}
     ::e5/spells
     {:demo-spark
      {:key :demo-spark

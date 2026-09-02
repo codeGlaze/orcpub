@@ -154,3 +154,118 @@
       ;; feat ASIs are non-racial ('other' column), never racial
       (is (zero? (get (char5e/race-ability-increases built) CON 0))
           "the feat's CON increase is not attributed as racial"))))
+
+;; --- the demo race: ASI spread (race silo) + save proficiencies + :props ---
+
+(def STR :orcpub.dnd.e5.character/str)
+(def FIRE :fire)
+(def base-10 (zipmap char5e/ability-keys (repeat 10)))
+
+(def demo-race-cfg (get-in demo/plugins [demo/source-name ::e5/races :demo-tideborn]))
+
+;; Compile the race exactly as ::races5e/plugin-races does: ability/save grants via
+;; compile-ability-grants (default :race attribution) + :props via plugin-modifiers.
+(def demo-race-option
+  (let [{ai-mods :modifiers ai-sels :selections} (opt5e/compile-ability-grants demo-race-cfg)]
+    (t/option-cfg {:name (:name demo-race-cfg) :key (:key demo-race-cfg)
+                   :modifiers (concat (opt5e/plugin-modifiers (:props demo-race-cfg) (:key demo-race-cfg))
+                                      ai-mods)
+                   :selections ai-sels})))
+
+(def race-template
+  (t5e/template
+   (concat
+    (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
+                             spell-lists spells-map [] [] [] [] language-map)
+    [(t/selection-cfg {:name "Race" :key :race :tags #{:race}
+                       :options [demo-race-option] :min 1 :max 1})])))
+
+;; Spread [[2 :dex] [1 :any]]: idx 0 fixed +2 DEX; idx 1 floats -> asi-1-<ability>, put on STR.
+(def race-entity
+  {:orcpub.entity/options
+   {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
+    :race {:orcpub.entity/key :demo-tideborn
+           :orcpub.entity/options {:asi [{:orcpub.entity/key :asi-1-str}]}}}})
+
+(deftest built-character-gets-the-demo-race-grants
+  (testing "a character of the demo race has its spread ASI (race column), the standalone CON save, the fire resistance, and the swim speed on the derived sheet"
+    (let [built (entity/build race-entity race-template)
+          a (char5e/ability-values built)]
+      (is (some? built) "build must not throw")
+      (is (= 12 (get a DEX)) "fixed +2 DEX from the race spread")
+      (is (= 11 (get a STR)) "the floating +1 put on STR")
+      (is (= 2 (get (char5e/race-ability-increases built) DEX 0))
+          "the fixed +2 DEX is attributed to the RACE column")
+      (is (contains? (set (char5e/saving-throws built)) CON)
+          "the standalone :save-proficiencies granted a CON save")
+      (is (contains? (set (map :value (char5e/damage-resistances built))) FIRE)
+          "the :props damage-resistance granted fire resistance")
+      (is (= 30 (char5e/base-swimming-speed built))
+          "the :props swimming-speed lands"))))
+
+;; --- the demo background: :save rider, attributed to :general (not racial) ---
+
+(def demo-bg-cfg (get-in demo/plugins [demo/source-name ::e5/backgrounds :demo-traveler]))
+
+(def demo-bg-option
+  (let [{m :modifiers s :selections} (opt5e/compile-ability-grants demo-bg-cfg {:attribution :general})]
+    (t/option-cfg {:name (:name demo-bg-cfg) :key (:key demo-bg-cfg) :modifiers m :selections s})))
+
+(def bg-template
+  (t5e/template
+   (concat
+    (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
+                             spell-lists spells-map [] [] [] [] language-map)
+    [(t/selection-cfg {:name "Background" :key :background :tags #{:background}
+                       :options [demo-bg-option] :min 1 :max 1})])))
+
+(def bg-entity
+  {:orcpub.entity/options
+   {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
+    :background {:orcpub.entity/key :demo-traveler}}})
+
+(deftest built-character-gets-the-demo-background-save-rider
+  (testing "the background's [[1 :con :save]] applies +1 CON AND a CON save — attributed to :general, so it is NOT a racial increase"
+    (let [built (entity/build bg-entity bg-template)
+          a (char5e/ability-values built)]
+      (is (some? built) "build must not throw")
+      (is (= 11 (get a CON)) "fixed +1 CON from the rider increment")
+      (is (contains? (set (char5e/saving-throws built)) CON)
+          "the :save rider granted the CON save")
+      (is (zero? (get (char5e/race-ability-increases built) CON 0))
+          "a background ASI is :general, never racial"))))
+
+;; --- the demo feat's generic :grant from the built-in fighting-styles pool ---
+
+(def grantable-pools
+  {:fighting-styles {:name "Fighting Style" :options opt5e/fighting-style-options}})
+
+(def demo-grant-feat-cfg (get-in demo/plugins [demo/source-name ::e5/feats :demo-versatile]))
+
+(def demo-grant-feat-option
+  (opt5e/feat-option-from-cfg language-map spells-map spell-lists
+                              weapons5e/weapons-map {} grantable-pools demo-grant-feat-cfg))
+
+(def grant-template
+  (t5e/template
+   (concat
+    (t5e/template-selections nil nil nil weapons5e/weapons-map weapons5e/weapons
+                             spell-lists spells-map [] [] [] [] language-map)
+    [(t/selection-cfg {:name "Bonus Feat" :key :bonus-feat :tags #{:feats}
+                       :options [demo-grant-feat-option] :min 1 :max 1})])))
+
+(def grant-entity
+  {:orcpub.entity/options
+   {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value base-10}
+    :bonus-feat {:orcpub.entity/key :demo-versatile
+                 :orcpub.entity/options {:fighting-style {:orcpub.entity/key :archery}}}}})
+
+(deftest demo-feat-grant-offers-the-pool-and-builds
+  (testing "the feat's :grant compiles to a choice offering the built-in fighting styles, and a character who takes the feat and picks one builds"
+    (let [fs-sel (first (filter #(= "Fighting Style" (::t/name %))
+                                (::t/selections demo-grant-feat-option)))]
+      (is (some? fs-sel) "the feat carries the granted Fighting Style selection")
+      (is (contains? (set (map ::t/name (::t/options fs-sel))) "Archery")
+          "the grant offers the built-in Archery style (the app-wired pool)"))
+    (is (some? (entity/build grant-entity grant-template))
+        "a character who takes the feat and picks Archery builds without throwing")))
