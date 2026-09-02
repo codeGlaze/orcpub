@@ -56,7 +56,8 @@
    file on disk, and the app unwraps it on import."
   []
   (orcbrew-format/serialize-orcbrew
-   (orcbrew-format/stamp (verify! demo/plugins))))
+   (orcbrew-format/stamp (verify! demo/plugins)
+                         {:orcbrew/content-version demo/version})))
 
 (defn emit!
   "Verify and write the demo pack to `path` (default output-path). Returns the path."

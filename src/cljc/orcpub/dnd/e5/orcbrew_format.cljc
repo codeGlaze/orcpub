@@ -102,17 +102,23 @@
   "Wrap `content` in the version envelope IFF it contains an incompatible feature;
    otherwise return it unchanged (plain v1). Idempotent — an already-stamped
    envelope passes through. Every export path can call this safely: plain content
-   stays plain, so backward-compatible files are never needlessly gated."
-  [content]
-  (cond
-    (envelope? content) content
-    :else
-    (let [features (detect-incompatible-features content)]
-      (if (seq features)
-        {:orcbrew/format-version current-format-version
-         :orcbrew/requires (vec features)
-         :orcbrew/content content}
-        content))))
+   stays plain, so backward-compatible files are never needlessly gated.
+
+   `envelope-meta` (2-arity) merges extra fields into the envelope, e.g.
+   `{:orcbrew/content-version 1}` — the CONTENT's own revision number (see
+   `content-version`), distinct from the format version. Only carried when the
+   content is v2 (there's an envelope to hang it on)."
+  ([content] (stamp content nil))
+  ([content envelope-meta]
+   (if (envelope? content)
+     content
+     (let [features (detect-incompatible-features content)]
+       (if (seq features)
+         (merge {:orcbrew/format-version current-format-version
+                 :orcbrew/requires (vec features)
+                 :orcbrew/content content}
+                envelope-meta)
+         content)))))
 
 (defn unwrap
   "The plugin map inside a v2 envelope, or `data` unchanged when it's a plain file."
@@ -124,6 +130,16 @@
    (un-enveloped) file."
   [data]
   (if (envelope? data) (:orcbrew/format-version data) 1))
+
+(defn content-version
+  "The content's OWN revision number, read from a stamped envelope's
+   `:orcbrew/content-version` (nil when absent or on a plain file). Distinct from
+   the FORMAT version: this tracks a content pack's revisions — e.g. the demo pack's
+   release number, for copy-on-edit provenance / graduation — not the file-format
+   compatibility class. Read it from the raw parsed file BEFORE `unwrap` discards
+   the envelope."
+  [data]
+  (when (envelope? data) (:orcbrew/content-version data)))
 
 (defn compat-check
   "Decide whether this build can import `data`. Returns {:ok? true} for a plain
