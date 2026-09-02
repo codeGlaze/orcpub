@@ -38,3 +38,10 @@ the eight-class fixture from 638 KB to 424.
 - Exports are smaller at every caster count above one, by 49 KB to 671 KB
   depending on style, and a character with no spellcasting gets a file the same
   size as before.
+- Generating a sheet repeats less work. Values were looked up in the form twice
+  each and the lookup walks the whole field tree; the prose fields were located
+  and measured before checking whether they held anything; a cloned spell page
+  re-read its source's widget entries once per clone, which returns the same
+  objects every time. A six-caster sheet allocates 162 MB rather than 607, a
+  single-casting-class one 51 MB rather than 77, and a character who casts
+  nothing no longer scans the pages for spell sections at all.
