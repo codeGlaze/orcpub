@@ -277,3 +277,44 @@ Use a field only where the value has to be editable, addressable by name from
 `pdf_spec`, or both. `reuse-cantrips-box!` uses read-only fields for its hexagon
 and bar patch because they are few -- three per reused box -- and being
 addressable makes them removable. At the scale of one per spell row, draw.
+
+### If fields are unavoidable, share the appearance streams
+
+The cost of a field is not its dictionary. Measured on the same 594 rows, with
+1188 annotation fields added:
+
+    fields, as created            1550.3 KB
+    field dictionary merged
+      with its widget             1531.3 KB    -19 KB
+    appearance streams shared     1245.4 KB   -305 KB
+
+Merging the field and widget dictionaries -- legal for a single-widget field, per
+PDF 32000-1 12.7.3.1 -- saves almost nothing. The weight is in the generated
+appearance stream, one per field.
+
+Those repeat heavily. The 1200 annotation values across the sheet are only **20
+distinct strings**, so 1200 appearance streams can be 20. Point every widget
+showing the same value in the same size box at one stream:
+
+    key = [value, widget width, widget height]
+
+The stream's coordinates are local to its own BBox, so two widgets of equal size
+showing equal text are genuinely interchangeable. Flattening both versions and
+extracting the text gives identical output, line for line.
+
+The key must include the geometry, not just the value. Sharing an `/AP` between
+fields that differ is the bug that once printed one spellcasting class's data
+under another's heading -- both widgets then show whichever content the shared
+stream holds.
+
+One risk remains for editable fields: a viewer that regenerates an appearance in
+place, rather than writing a fresh stream for the field being edited, would
+change every field sharing it. Computed marks are read-only, so this cannot
+arise for them; do not share appearances across fields a user can type into.
+
+### PDFBox 3 already compresses
+
+`PDDocument.save(file)` writes object streams by default -- the output carries 60
+of them -- so passing `CompressParameters` changes nothing. Saving with and
+without it produced byte-identical sizes. There is no compression win left to
+take at the save call.
