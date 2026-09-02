@@ -35,6 +35,7 @@
             [orcpub.email :as email]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
+            [orcpub.config :as config]
             [orcpub.registration :as registration]
             [orcpub.entity.strict :as se]
             [orcpub.entity :as entity]
@@ -650,7 +651,77 @@
     :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
     :flatten?})
 
-(defn character-pdf-2 [req]
+(def ^:private export-slots
+  "Permits for sheet generation, one per concurrent export.
+
+   Held for the PDF work only, not for the whole request, so parsing and the
+   response write stay outside it. Fair ordering: without it a thread can be
+   starved indefinitely under sustained load, which is exactly the traffic this
+   exists for. Sized by ORCPUB_PDF_CONCURRENCY; see orcpub.config."
+  (delay (java.util.concurrent.Semaphore. (config/get-pdf-concurrency) true)))
+
+(def ^:private exports-waiting
+  "Requests currently queued for a slot, for the Retry-After estimate and for
+   anything that wants to report load."
+  (java.util.concurrent.atomic.AtomicInteger. 0))
+
+(def ^:private export-millis
+  "Exponentially weighted mean duration of a completed export, for the
+   Retry-After estimate. Seeded at a plausible 250 ms and converges on the real
+   figure within a few exports, so the estimate tracks the host and the shape of
+   sheet people are actually asking for rather than a number guessed here."
+  (java.util.concurrent.atomic.AtomicLong. 250))
+
+(defn export-queue-depth
+  "How many export requests are waiting for a slot right now."
+  []
+  (.get exports-waiting))
+
+(defn- record-export-millis!
+  [ms]
+  (.set export-millis (long (+ (* 0.8 (.get export-millis)) (* 0.2 ms)))))
+
+(defn- retry-after-seconds
+  "Whole seconds to tell a turned-away client to wait: the queue ahead of it
+   divided by how fast the slots are draining it. Never zero -- Retry-After takes
+   no fraction and a zero sends the client straight back into the same queue --
+   and capped so a spike cannot tell someone to come back in an hour."
+  [waiting]
+  (-> (/ (* waiting (.get export-millis))
+         (* 1000.0 (config/get-pdf-concurrency)))
+      Math/ceil int (max 1) (min 30)))
+
+(defn- with-export-slot
+  "Runs `f` holding one export slot, or answers 503 if none frees up within the
+   configured wait.
+
+   Bounding the work rather than the request keeps memory predictable: an export
+   in flight holds roughly 11 MB, so the ceiling is a number an operator can set
+   against the heap. Saying so with a Retry-After beats holding the connection
+   until the browser times out with nothing to show for it."
+  [f]
+  (let [waiting (.incrementAndGet exports-waiting)]
+    (try
+      (if (.tryAcquire ^java.util.concurrent.Semaphore @export-slots
+                       (config/get-pdf-queue-timeout-ms)
+                       java.util.concurrent.TimeUnit/MILLISECONDS)
+        (let [start (System/nanoTime)]
+          (try
+            (f)
+            (finally
+              (record-export-millis! (/ (- (System/nanoTime) start) 1e6))
+              (.release ^java.util.concurrent.Semaphore @export-slots))))
+        (let [retry (retry-after-seconds waiting)]
+          (println (format "pdf: no export slot within %d ms, %d waiting"
+                           (config/get-pdf-queue-timeout-ms) waiting))
+          {:status 503
+           :headers {"Retry-After" (str retry)
+                     "Content-Type" "text/plain"}
+           :body (str "The server is generating a lot of character sheets right now. "
+                      "Try again in a few seconds.")}))
+      (finally (.decrementAndGet exports-waiting)))))
+
+(defn- generate-character-pdf [req]
   (let [fields (try
                  (-> req :form-params :body edn/read-string)
                  (catch Exception e
@@ -750,6 +821,9 @@
       {:status 200
        :headers {"Content-Disposition" (str "inline; filename=\"" filename "\"")}
        :body (ByteArrayInputStream. a)})))
+
+(defn character-pdf-2 [req]
+  (with-export-slot #(generate-character-pdf req)))
 
 (defn html-response
   [html & [response]]

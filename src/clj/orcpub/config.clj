@@ -73,6 +73,58 @@
                    "strict")]
     (str/lower-case policy)))
 
+(defn- positive-int-env
+  "Reads `names` in order and returns the first that parses as a positive
+   integer, else `default`. A value that is present but unparseable or
+   non-positive is ignored and reported, so a typo falls back to the default
+   rather than failing the boot or silently meaning zero."
+  [names default]
+  (or (some (fn [n]
+              (when-let [raw (not-empty (or (env (keyword (str/lower-case (str/replace n "_" "-"))))
+                                            (System/getenv n)))]
+                (let [v (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil))]
+                  (if (and v (pos? v))
+                    v
+                    (do (println (format "config: %s=%s is not a positive integer; using %d"
+                                         n raw default))
+                        nil)))))
+            names)
+      default))
+
+(def ^:private available-processors
+  (delay (.availableProcessors (Runtime/getRuntime))))
+
+(defn get-http-max-threads
+  "Size of Jetty's worker pool, from ORCPUB_HTTP_MAX_THREADS.
+
+   nil leaves Pedestal's own default, which is `(max 50 ...)` and stays at 50
+   until roughly sixteen cores. This caps how many requests of any kind are in
+   flight; the rest queue in the accept backlog."
+  []
+  (positive-int-env ["ORCPUB_HTTP_MAX_THREADS"] nil))
+
+(defn get-pdf-concurrency
+  "How many character sheets may be generated at once, from ORCPUB_PDF_CONCURRENCY.
+
+   Bounded separately from the HTTP pool so a rush of exports cannot take the
+   whole site down with it: requests past this limit wait for a slot, and the
+   pages, logins and saves keep their own workers.
+
+   Sizing: an export in flight holds roughly 11 MB of heap, so the ceiling is
+   about (usable heap - 100 MB) / 11 MB. Throughput is bounded by cores, not by
+   this number -- raising it past what the cores can chew through lengthens the
+   queue without shortening the wait. Defaults to twice the core count, minimum
+   eight."
+  []
+  (positive-int-env ["ORCPUB_PDF_CONCURRENCY"] (max 8 (* 2 @available-processors))))
+
+(defn get-pdf-queue-timeout-ms
+  "How long an export waits for a slot before the server says it is busy, from
+   ORCPUB_PDF_QUEUE_TIMEOUT_MS. Past this the request is answered 503 with a
+   Retry-After rather than held open until the browser gives up."
+  []
+  (positive-int-env ["ORCPUB_PDF_QUEUE_TIMEOUT_MS"] 30000))
+
 (defn dev-mode?
   "Returns true when running in dev mode (DEV_MODE env var is 'true').
    Env vars are strings — (boolean \"false\") is true in Clojure, so we

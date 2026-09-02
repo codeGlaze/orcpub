@@ -58,7 +58,12 @@
    ;; CSP configured via CSP_POLICY env var (strict|permissive|none)
    ;; See orcpub.config for details
    ::http/secure-headers (config/get-secure-headers-config)
-   ::http/container-options {:context-configurator (fn [c]
+   ;; Jetty's worker pool caps how many requests of any kind are in flight.
+   ;; Pedestal's own default is 50 until roughly sixteen cores, which is well
+   ;; under what a large host can carry; ORCPUB_HTTP_MAX_THREADS raises it, and
+   ;; unset leaves Pedestal to decide. Exports are bounded separately -- see
+   ;; docs/operations/pdf-export-capacity.md.
+   ::http/container-options (cond-> {:context-configurator (fn [c]
                                                      (let [gzip-handler (GzipHandler.)]
                                                        (.setGzipHandler c gzip-handler)
                                                        ;; Cap what a request body may be before it reaches
@@ -72,7 +77,9 @@
                                                        ;; A body with an absurd number of distinct keys is
                                                        ;; the other shape of the same attack.
                                                        (.setMaxFormKeys c 200)
-                                                       c))}})
+                                                       c))}
+                              (config/get-http-max-threads)
+                              (assoc :max-threads (config/get-http-max-threads)))})
 
 (defn system [env]
   (component/system-map
