@@ -15,10 +15,18 @@
   "The source the demo pack's content is filed under in the content library."
   "Demo Content")
 
-;; The pack's format version + :orcbrew/requires are computed automatically from
+;; The pack's FORMAT version + :orcbrew/requires are computed automatically from
 ;; its content by orcbrew-format/stamp at emit time (the pack uses
 ;; non-backward-compatible features, so it stamps as v2) — no manual tag to keep in
 ;; sync.
+
+(def version
+  "The demo pack's own CONTENT revision — bump this whenever the pack's content
+   changes. Stamped into the file as :orcbrew/content-version; reserved for
+   copy-on-edit provenance / graduation (Phase 3), where a user's copy records
+   which demo release it came from. Distinct from the format (v1/v2) version.
+   In place now so how it's captured/used stays open to change."
+  1)
 
 (def plugins
   "The demo pack as a plugin map {source {content-type {key item}}}, the same shape
