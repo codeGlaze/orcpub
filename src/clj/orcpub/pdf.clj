@@ -2400,6 +2400,78 @@
     (diamond! cs x y mid dy 0.032 false)
     (.setLineWidth cs (float 1))))
 
+(defn- draw-centred-text!
+  "Draws `text` centred on `cx`, measuring the string rather than guessing how
+   wide it sets. Halving a hardcoded width puts it near the middle and no nearer,
+   and the miss moves with the font and the size."
+  [cs text font size cx baseline]
+  (draw-text cs text font size (- cx (/ (string-width text font size) 2)) baseline))
+
+(def card-layout
+  "Where everything sits on a 2.5 x 3.5in item card.
+
+   `:down` values are inches from the card's TOP edge, `:up` values from its
+   BOTTOM. Declared in one place rather than spelled out at each draw site, so the
+   vertical rhythm can be measured -- dev/measure_item_card.clj reports the gap
+   between every pair -- instead of adjusted a sixteenth at a time by eye."
+  {:down {:frame 0.09
+          :rail 0.245
+          :name-three-line 0.32
+          :name-two-line 0.36
+          :name-one-line 0.46
+          :name-height 0.56
+          :name-floor 10.5
+          :subtitle 1.00
+          :badge 0.985
+          :rule 1.22
+          :rule-under 1.255
+          :charge-label 1.39
+          :charge-marks 1.55
+          :charge-under 1.71
+          :body 1.32
+          :body-charged 1.79}
+   :up   {:ornament 0.185
+          :clause 0.60
+          :continued 0.70
+          :continued-bare 0.30}
+   ;; What the body must stop short of, by which of the foot pieces are drawn.
+   :body-stops {[true true] 0.80      ; a note and a clause
+                [true false] 0.40     ; a note alone
+                [false true] 0.68     ; a clause alone
+                [false false] 0.28}})
+
+(defn- draw-attunement-badge!
+  "A boxed A at the right of the subtitle line, for an item needing attunement.
+
+   The foot says who may attune; this says THAT it must be, at the top where the
+   rarity is, because that is the pair of facts anyone sorting a handful of cards
+   is actually looking for. A letter rather than an invented glyph: there is no
+   artwork for it, and a letter cannot be misread as decoration."
+  [cs x y w dy]
+  (let [bw 0.155 bh 0.145
+        left (- w 0.28 bw)
+        c 0.035]
+    (.setLineWidth cs (float 0.7))
+    (polyline! cs x y [[(+ left c) dy] [(- (+ left bw) c) dy]
+                       [(+ left bw) (+ dy c)] [(+ left bw) (- (+ dy bh) c)]
+                       [(- (+ left bw) c) (+ dy bh)] [(+ left c) (+ dy bh)]
+                       [left (- (+ dy bh) c)] [left (+ dy c)]]
+               true)
+    (draw-centred-text! cs "A" HELVETICA_BOLD 7
+                        (+ x left (/ bw 2))
+                        (- 11 y dy bh -0.036))
+    (.setLineWidth cs (float 1))))
+
+(defn- draw-centred-lines!
+  "Wraps `text` to `width` and centres each line on `cx`, returning what did not
+   fit. draw-text-to-box only sets flush left."
+  [cs text font size cx top width max-lines]
+  (let [lines (split-lines text font size width)
+        leading (/ (* size 1.1) 72)]
+    (doseq [[i line] (map-indexed vector (take max-lines lines))]
+      (draw-centred-text! cs line font size cx (- top (* leading (inc i)))))
+    (drop max-lines lines)))
+
 (defn- draw-card-frame!
   "The card's border, plus whatever decoration its rarity has earned.
 
@@ -2414,13 +2486,6 @@
     (when-let [rank (rarity-rank rarity)]
       (draw-flourish! cs x y w h m c family rank))
     (.setLineWidth cs (float 1))))
-
-(defn- draw-centred-text!
-  "Draws `text` centred on `cx`, measuring the string rather than guessing how
-   wide it sets. Halving a hardcoded width puts it near the middle and no nearer,
-   and the miss moves with the font and the size."
-  [cs text font size cx baseline]
-  (draw-text cs text font size (- cx (/ (string-width text font size) 2)) baseline))
 
 (def ^:private tickable-charges
   "The most circles a card can carry in one row and a hand can sensibly tick.
@@ -2443,13 +2508,13 @@
    the one thing on the card anybody touches mid-game, and under the description
    it arrived last and cramped: name, then what the thing is, then what you have
    left to spend, then what it does."
-  [cs x y w n cy]
+  [cs x y w n cy label-y]
   (.setLineWidth cs (float 0.8))
   (if (<= n tickable-charges)
     (let [r 0.052
           gap 0.145
           cx (- (/ w 2) (/ (* gap (dec n)) 2))]
-      (draw-centred-text! cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2)) (- 11 y cy -0.13))
+      (draw-centred-text! cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2)) (- 11 y label-y))
       (doseq [i (range n)]
         (circle! cs x y (+ cx (* gap i)) cy r)))
     ;; The rule and the total are centred as one group, not the rule alone: the
@@ -2459,7 +2524,7 @@
           gap 0.05
           group (+ rule-w gap (string-width total HELVETICA 7))
           left (- (/ w 2) (/ group 2))]
-      (draw-centred-text! cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2)) (- 11 y cy -0.155))
+      (draw-centred-text! cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2)) (- 11 y label-y))
       (polyline! cs x y [[left cy] [(+ left rule-w) cy]] false)
       (draw-text cs total HELVETICA 7 (+ x left rule-w gap) (- 11 y cy -0.015))))
   (.setLineWidth cs (float 1)))
@@ -2514,82 +2579,92 @@
                         "")
                clause (attunement-phrase attunement attunement-details)
                charges (item-charges description)
-               ;; The body stops short of the foot when something is drawn there.
-               ;; The clause gets two lines' worth: the longest -- a bard, cleric,
-               ;; druid, sorcerer, warlock, or wizard -- is 2.7in against 2.1in of
-               ;; card, and shrinking it to fit one line lands at 5pt.
-               base-bottom (if clause 0.58 0.32)
-               ;; Whether the description will spill is worked out before it is
-               ;; drawn, so the note saying so has room reserved rather than being
-               ;; squeezed in afterwards. Measuring against the smaller box is
-               ;; safe: anything that overflows it overflows the reserved one too.
+               {:keys [down up body-stops]} card-layout
+               ;; The charge band sits between the header rule and the body, so
+               ;; the description starts lower when there is one and reclaims the
+               ;; room when there is not.
+               body-top (if charges (:body-charged down) (:body down))
+               ;; Whether the description spills is settled before it is drawn, so
+               ;; the note saying so has reserved room rather than being squeezed
+               ;; in afterwards. Measured against the box WITHOUT the note: adding
+               ;; it only shrinks the box, so anything that overflowed still does.
                body-lines (count (split-lines body (:plain fonts) 8 (- box-width 0.4)))
                capacity (fn [h] (int (dec (/ (* 72 h) (* 8 1.1)))))
-               spills? (> body-lines (capacity (- box-height 1.24 base-bottom)))
-               body-bottom (if spills? (+ base-bottom 0.15) base-bottom)
-               ;; The charge band sits between the header rule and the body, with
-               ;; a hairline under it, so the description starts lower when there
-               ;; is one and reclaims the room when there is not.
-               body-top (if charges 1.72 1.24)]
+               spills? (> body-lines
+                          (capacity (- box-height body-top (body-stops [false (some? clause)]))))
+               body-bottom (body-stops [spills? (some? clause)])]
            (draw-card-frame! cs x y box-width box-height rarity flourish)
-           (draw-rarity-rail! cs x y box-width rarity 0.245)
-           (draw-foot-ornament! cs x y box-width (- box-height 0.185))
-           ;; The name sits below the rail, clear of it and of the cut corner, and
-           ;; runs two lines: a third of the items are longer than one at this
-           ;; size, and a clipped name is a card you cannot find in a stack.
-           ;; The name block always reserves two lines, so the rule sits at the
-           ;; same height on every card and a stack cuts square. A one-line name
-           ;; is dropped into the middle of that block rather than left sitting on
-           ;; top of an empty line.
-           ;; The name is indented further than the rest of the card. It is the
-           ;; only line set large, and the extra air either side is what stops it
-           ;; reading as a wide block of type rather than a title.
-           ;; The name block is two lines at whatever size fits them. Dropping a
-           ;; step of type keeps the whole of "Amulet of Proof against Detection
-           ;; and Location"; holding the size loses the half that identifies it.
+           (draw-rarity-rail! cs x y box-width rarity (:rail down))
+           (draw-foot-ornament! cs x y box-width (- box-height (:ornament up)))
+           (when clause
+             (draw-attunement-badge! cs x y box-width (:badge down)))
+           ;; The name is indented further than anything else and set larger, so
+           ;; it reads as a title rather than a wide block of type. It gets two
+           ;; lines at whatever size fits them: holding the size loses the end of
+           ;; "Amulet of Proof against Detection and Location", and a card nobody
+           ;; can find in a stack has failed at its only job. The block reserves
+           ;; both lines whatever size it lands on, so the rule under the header
+           ;; falls level across a sheet and a stack cuts square; a one-line name
+           ;; is dropped into the middle of it rather than left on top of a gap.
+           ;; Shrinking stops at :name-floor and the name takes a third line
+           ;; instead. Without a floor "Instrument of the Bards, Anstruth Harp of
+           ;; Deepest Sorrow" set itself at 8.5pt to hold two lines -- smaller
+           ;; than the description under it, which is not a title any more.
            (let [face (name-face fonts)
                  width (- box-width 0.56)
                  lines-at (fn [pt] (count (split-lines item-name face pt width)))
-                 size (or (first (filter #(<= (lines-at %) 2)
-                                         (take-while pos? (iterate #(- % 0.75) name-size))))
-                          name-size)
-                 name-lines (lines-at size)]
+                 fits? (fn [pt] (let [n (lines-at pt)]
+                                  (and (<= n 3)
+                                       (<= (* n (/ (* pt 1.1) 72)) (:name-height down)))))
+                 size (or (first (filter fits?
+                                         (take-while #(>= % (:name-floor down))
+                                                     (iterate #(- % 0.5) name-size))))
+                          (:name-floor down))
+                 top (condp = (lines-at size)
+                       1 (:name-one-line down)
+                       2 (:name-two-line down)
+                       (:name-three-line down))]
              (.setCharacterSpacing cs (float name-tracking))
              (draw-text-to-box cs item-name face size
-                               (+ x 0.28) (- 11.0 y (if (> name-lines 1) 0.36 0.46))
-                               width 0.56)
+                               (+ x 0.28) (- 11.0 y top) width (:name-height down))
              (.setCharacterSpacing cs (float 0)))
+           ;; The subtitle stops short of the badge so the two never meet.
            (draw-text-to-box cs (magic-item-subtitle item) (:italic fonts) 7.5
-                             (+ x 0.2) (- 11.0 y 0.96) (- box-width 0.4) 0.2)
+                             (+ x 0.2) (- 11.0 y (:subtitle down))
+                             (- box-width (if clause 0.68 0.4)) 0.2)
            ;; A rule and a hairline under it: the header carries two kinds of
            ;; information, so it closes with more than the body's plain divisions.
            (.setLineWidth cs (float 0.9))
-           (polyline! cs x y [[0.2 1.13] [(- box-width 0.2) 1.13]] false)
+           (polyline! cs x y [[0.2 (:rule down)] [(- box-width 0.2) (:rule down)]] false)
            (.setLineWidth cs (float 0.35))
-           (polyline! cs x y [[0.2 1.165] [(- box-width 0.2) 1.165]] false)
+           (polyline! cs x y [[0.2 (:rule-under down)] [(- box-width 0.2) (:rule-under down)]] false)
            (.setLineWidth cs (float 1))
            (when charges
-             (draw-charge-track! cs x y box-width charges 1.47)
+             (draw-charge-track! cs x y box-width charges (:charge-marks down) (:charge-label down))
              (.setLineWidth cs (float 0.35))
-             (polyline! cs x y [[0.2 1.62] [(- box-width 0.2) 1.62]] false)
+             (polyline! cs x y [[0.2 (:charge-under down)] [(- box-width 0.2) (:charge-under down)]] false)
              (.setLineWidth cs (float 1)))
            (let [remaining-desc-lines
                  (draw-text-to-box cs body (:plain fonts) 8
                                    (+ x 0.2) (- 11.0 y body-top)
                                    (- box-width 0.4)
                                    (- box-height body-top body-bottom))]
+             ;; Centred, like the ornament under it and the note above it. Flush
+             ;; left it was the only thing at the foot on its own axis.
              (when clause
-               (draw-text-to-box cs clause (:italic fonts) 6.8
-                                 (+ x 0.2) (- 11.0 y (- box-height 0.50))
-                                 (- box-width 0.4) 0.24))
-             ;; A word rather than the recharge icon. At the bottom right the icon
-             ;; sat on the corner diamond and its arms, and every other spot down
-             ;; there belongs to the clause or the ornament -- and an arrow does
-             ;; not say what it means anyway.
+               (draw-centred-lines! cs clause (:italic fonts) 6.8
+                                    (+ x (/ box-width 2))
+                                    (- 11.0 y (- box-height (:clause up)))
+                                    (- box-width 0.4) 2))
+             ;; A phrase rather than the recharge icon. At the bottom right the
+             ;; icon sat on the corner diamond and its arms, every other spot down
+             ;; there belongs to the clause or the ornament, and an arrow does not
+             ;; say what it means anyway.
              (when (seq remaining-desc-lines)
                (draw-centred-text! cs "continued on the back" (:italic fonts) 6.2
                                    (+ x (/ box-width 2))
-                                   (- 11 y (- box-height base-bottom 0.02))))
+                                   (- 11 y (- box-height
+                                              (if clause (:continued up) (:continued-bare up))))))
              {:remaining-lines remaining-desc-lines
               :spell-name item-name}))))))))
 

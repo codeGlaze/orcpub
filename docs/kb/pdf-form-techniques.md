@@ -796,3 +796,47 @@ Three more from looking at it at print size:
   centred under the description, in room reserved before the text is drawn --
   whether it will spill is worked out first, by measuring the lines against the
   box, rather than discovered afterwards with nowhere to put the notice.
+
+## Measure the card, do not look at it (2026-09)
+
+`pdf/card-layout` holds every vertical position on the item card in one map --
+`:down` from the top edge, `:up` from the bottom -- and
+`dev/measure_item_card.clj` builds the worst card the layout can be asked for and
+reports the clear space between each pair of elements. A sixteenth of an inch is
+invisible on a screen and obvious in the hand, so the numbers find what the eye
+does not, and once rather than one card at a time.
+
+The worst case is deliberate: the longest name, the longest attunement list in
+the data (bard, cleric, druid, sorcerer, warlock or wizard), a charge track, a
+legendary frame with all its cornerwork, and a description long enough to run
+onto the back. Nothing hides behind an easy case.
+
+**Measure ink, not anchors.** The first version of that report compared the y a
+box is anchored at, and read fine while the card looked cramped. Text is set a
+leading BELOW its anchor and runs downward, so the anchor itself is empty; ink
+reaches roughly seven tenths of the size above a baseline and two tenths below.
+Comparing anchors also invented an overlap that was not there, between the
+subtitle and the attunement badge, which share a row rather than stacking.
+
+Two real faults came out of it:
+
+- **The name shrank to 8.5pt**, smaller than the 8pt description under it, which
+  is not a title any more. Shrinking to fit two lines had no floor. It stops at
+  `:name-floor` now and takes a third line instead.
+- **The header had 0.04in gaps** either side of the subtitle once a name ran to
+  three lines. The whole header rhythm moved down rather than one gap being
+  shaved, which is the difference between a layout and a pile of adjustments.
+
+## The attunement badge, and centring the foot (2026-09)
+
+A boxed **A** sits at the right of the subtitle line when an item needs
+attunement. The foot says WHO may attune; the badge says THAT it must be, next to
+the rarity, which is the pair anyone sorting a handful of cards is looking for. A
+letter, not an invented glyph: there is no artwork for it, and a letter cannot be
+mistaken for decoration. The subtitle's own box is narrowed when the badge is
+present so the two can never meet.
+
+The clause at the foot is centred. Everything else down there -- the ornament, the
+continuation note -- is on the card's axis, and flush left it was the only thing
+that was not. `draw-text-to-box` only sets flush left, so wrapped centred captions
+need their lines split and placed individually.
