@@ -595,11 +595,39 @@ Anything beyond that -- marking a page whose artwork lacks it -- means drawing t
 footer, which for style 4 is 4pt CartaMarinaBold at x 24.9, y 12.1, an embedded
 subset already present in the document and reusable rather than re-embedded.
 
+### 8b. Packing belongs in the browser (2026-09)
+
+Where the packing decision runs was left open above. It should run client-side, and
+not only because it is cheaper.
+
+The server receives a flat map of field names to values. It does not know what a
+spell level is, how many a character knows, or which class granted what -- packing
+server-side means giving it a domain layer it does not have. The builder already
+computes all of it.
+
+So the browser decides which level goes in which box, emits the field map to match,
+and sends a small instruction list alongside it:
+
+    {:relabel [{:section 1 :box 0 :label "3"} ...]}
+
+The server applies `relabel-spell-level!` and `reuse-cantrips-box!` per instruction
+and needs nothing else. Those instructions are caller-supplied, so section, box and
+label all need bounds-checking before use -- the same hole as the sheet style id,
+which reached a resource path before it was validated.
+
 ### 9. Styles 2, 3 and 4 — a later branch
 
-Everything measured for the relabelling is style 1 only: `printed-slot-labels`,
-`cantrips-box-rise`, `cantrips-bar` and `hexagon-offset` in `pdf.clj` are that
-sheet's artwork. The other three styles need their own numbers.
+Worth separating, because half of this work did cover all four styles. Masters,
+growing to a caster count, the no-caster variants and the attribution marks handle
+styles 1 to 4 today -- `pdf/sheet-masters` names all four.
+
+What is style 1 only is the RELABELLING: `printed-slot-labels`, `cantrips-box-rise`,
+`cantrips-bar` and `hexagon-offset` in `pdf.clj` are that sheet's artwork, single
+values with no style dimension. The other three styles need their own numbers.
+
+Note also that nothing in production calls `relabel-spell-level!` or
+`reuse-cantrips-box!` yet -- grep finds them only in tests. The mechanism works and
+waits on item 8 to decide when to use it.
 
 The method is written down in `docs/kb/pdf-form-techniques.md` under "Place a
 patch by measuring the artwork" — PDFTextStripper for positions and size, a high

@@ -553,3 +553,98 @@ the file it produces. `CompressParameters/NO_COMPRESSION` is worse on both count
 25.7 MB for a 704 KB file, so the default object-stream save is already the cheap
 option. Short of replacing `COSWriter`, roughly 20 MB per export is the price of
 saving a PDF with this library.
+
+## Bound the work, not the request (2026-09)
+
+Sheet generation takes a permit from a semaphore sized by `ORCPUB_PDF_CONCURRENCY`;
+the HTTP pool is separate and larger. Two decisions are worth keeping.
+
+**The permit covers the PDF work only.** Parsing the body and writing the response
+sit outside it. Holding it across the whole request would tie the limit to network
+speed as well as to generation, and a slow client would occupy a slot it was not
+using.
+
+**Bounding the work rather than the pool keeps the rest of the site alive.** If
+exports could take every Jetty worker, a rush of them would take logins and saves
+down with them. Sized against the heap, an export in flight holds roughly 11 MB,
+so the ceiling is a number an operator can actually compute. Throughput is bounded
+by cores, though, so raising the limit past what the cores can chew through
+lengthens the queue without shortening anyone's wait.
+
+The semaphore is fair. Without fairness a thread can be starved indefinitely under
+sustained load, which is exactly the traffic the limit exists for.
+
+Release it in a `finally`. A failed export that keeps its permit bleeds capacity
+away one error at a time, and the loss is invisible until the site stops serving.
+There is a test for it.
+
+## The 503 is the page they are looking at (2026-09)
+
+The export is a form POST with `target="_blank"`, so a turned-away request does not
+come back to JavaScript that could retry it -- the response *renders*, in the tab
+where the sheet would have appeared. That makes the response itself the place to
+put the retry: a page carrying the original request body in a hidden field, a
+countdown, and a resubmit. Nothing in the builder changed, and how a finished sheet
+arrives did not change either.
+
+Three things this needs that are easy to miss:
+
+- **Escape the reflected body.** It is caller-supplied and lands in an attribute.
+  The page renders through `hiccup2`, which escapes content and attributes;
+  `hiccup.page`, which the privacy and terms pages use, does not.
+- **Nonce the script.** The app runs strict CSP with per-request nonces. The
+  request carries `:csp-nonce`, and the interceptor builds the header from it on
+  every response, so the busy page's inline script must carry that nonce or it is
+  blocked with no error.
+- **Jitter the countdown.** A crowd turned away together comes back together
+  otherwise, onto a server that is already saturated. 25% either way is enough.
+
+Retry state travels in a hidden field, so it is caller-supplied too: anything that
+is not a plain non-negative number counts as a first try rather than buying extra
+attempts.
+
+Keep the status at 503. A browser logs `Failed to load resource: 503` in its
+console for each turned-away attempt, which looks like a defect and is not -- it is
+the browser reporting an HTTP status, and `200` would lie to caches, crawlers and
+every non-browser client.
+
+## Styling a page served outside the app (2026-09)
+
+The busy page and the privacy and terms pages are server-rendered into a tab where
+the builder's markup and scripts are absent. They still belong to the site, so they
+link `/css/style.css` and `/css/compiled/styles.css` and use the site's classes --
+`.app-header-bar` for the header, `.form-button` for buttons.
+
+Their own rules go in `orcpub.styles.core` with everything else. A `<style>` block
+in the response is a page the stylesheet cannot restyle, and it drifts the first
+time the site's colours change.
+
+Two traps, both found the hard way:
+
+- `text-color` is a style map, `{:color :white}`, not a colour value. Passing it
+  where a colour belongs compiles to `color-color: white`, which is invalid and
+  silently dropped. Merge it: `(merge text-color {:font-size "24px"})`.
+- The app is dark -- `#080A0D` under a fixed `linear-gradient(182deg, #313A4D,
+  #080A0D)`, panels at `#1a1e28`, white type, orange accents. A page built on white
+  reads as a stranger even when every other detail is right. Open the app and look
+  before choosing colours.
+
+## Magic items hold enough to print as cards (2026-09)
+
+Checked against the spell-card layout, which is the closest existing thing:
+
+    items                        805
+    with a rarity                805
+    needing attunement           427
+    with a description           798   (7 have none: a data gap, not a bug)
+    description length, median   142 characters
+    spell text, median           656 characters
+
+Descriptions are a quarter the length of spell text, so the card layout has room to
+spare and the existing spill-to-the-back behaviour would rarely be needed.
+
+Found while counting: `caster-bonus-item` wrote its description under
+`::decription`. Nothing reads that key -- `views.cljs` destructures
+`::mi/description` everywhere it shows an item -- so three Wand of the War Mage
+entries carried a description nobody could see. A misspelled Clojure keyword is
+still a valid keyword, so nothing complains; only counting the items exposed it.
