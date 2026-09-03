@@ -730,6 +730,14 @@ Each is a ladder: whatever a common gets, a legendary gets that and more. Famili
 that merely differ per rank read as five unrelated cards; families that accumulate
 read as one card with a rank.
 
+`:diamonds` is what ships. Its first attempt separated rare from very rare by
+filling the corner marks and legendary by adding one small mark at the foot, and
+neither step could be seen from a foot away. **Fill against outline is close to
+invisible at card size; count, reach and weight are not.** The steps are now a
+second rule, then small corner marks, then larger ones with strokes running out
+along the edges, then a heavy outer border. Every step adds mass rather than
+restating the last one in a different way.
+
 The legendary mark in `:diamonds` sits at the FOOT. At the head it lands on the
 rarity rail, which is the thing actually carrying the rank -- two marks in one
 place, neither reading. The foot was empty and already had an ornament to grow.

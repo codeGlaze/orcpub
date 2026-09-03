@@ -2285,13 +2285,24 @@
       (polyline! cs x y [[(+ cx (* sx len)) cy] [cx cy] [cx (+ cy (* sy len))]] false))))
 
 (defn- corner-diamonds!
-  "A diamond at each corner of an inset rectangle."
-  [cs x y w h m inset r filled?]
+  "A diamond at each corner of an inset rectangle.
+
+   With `arms?`, two short strokes run from each diamond along the frame edges,
+   which turns four marks into four cornerpieces. Adding reach rather than another
+   mark is what separates the ranks at card size: filled against outlined is close
+   to invisible from a foot away, mass is not."
+  [cs x y w h m inset r filled? arms?]
   (let [a (+ m inset)
         rt (- w m inset)
-        b (- h m inset)]
-    (doseq [[dx dy] [[a a] [rt a] [a b] [rt b]]]
-      (diamond! cs x y dx dy r filled?))))
+        b (- h m inset)
+        arm 0.135]
+    (doseq [[dx dy sx sy] [[a a 1 1] [rt a -1 1] [a b 1 -1] [rt b -1 -1]]]
+      (diamond! cs x y dx dy r filled?)
+      (when arms?
+        (polyline! cs x y [[(+ dx (* sx (+ r 0.022))) dy]
+                           [(+ dx (* sx (+ r arm))) dy]] false)
+        (polyline! cs x y [[dx (+ dy (* sy (+ r 0.022)))]
+                           [dx (+ dy (* sy (+ r arm)))]] false)))))
 
 (def card-flourishes
   "The decoration families a card frame can escalate through, weakest rank first.
@@ -2327,17 +2338,25 @@
           (.setLineWidth cs (float 0.9))
           (corner-brackets! cs x y w h m 0.155 0.11)))
 
+    ;; Each step adds mass rather than restating the last one in another way:
+    ;; a second rule, then cornerpieces, then reach and weight on them, then a
+    ;; heavy outer border. Ranks 3, 4 and 5 have to separate at arm's length.
     :diamonds
     (do (when (>= rank 2)
           (.setLineWidth cs (float 0.45))
           (chamfered-frame! cs x y w h (+ m 0.042) (- c 0.042)))
-        (when (>= rank 3)
+        (when (= rank 3)
           (.setLineWidth cs (float 0.7))
-          (corner-diamonds! cs x y w h m 0.105 0.035 (>= rank 4)))
+          (corner-diamonds! cs x y w h m 0.105 0.036 false false))
+        (when (>= rank 4)
+          (.setLineWidth cs (float 0.9))
+          (corner-diamonds! cs x y w h m 0.105 0.049 true true))
         ;; The legendary's mark goes at the FOOT. At the head it lands on the
         ;; rarity rail, which is the thing actually carrying the rank.
         (when (>= rank 5)
-          (.setLineWidth cs (float 0.8))
+          (.setLineWidth cs (float 2.1))
+          (chamfered-frame! cs x y w h (- m 0.036) c)
+          (.setLineWidth cs (float 0.9))
           (diamond! cs x y (/ w 2) (- h m 0.052) 0.062 true)))
     nil))
 
