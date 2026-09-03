@@ -772,3 +772,20 @@ Two things at the foot of the card, both found by rendering it:
   wizard", as the books set it. One per name is wrong and runs past the frame.
   Even set correctly the longest clause is 2.7in against 2.1in of card, so it
   wraps to two lines at 6.8pt rather than shrinking to the 5pt that would fit one.
+
+Three more from looking at it at print size:
+
+- **The name is indented further than everything else on the card**, and set at
+  13pt. It is the only line set large, and without the extra air either side it
+  reads as a wide block of type rather than a title.
+- **It shrinks a step at a time until it fits two lines.** Holding the size loses
+  the half of "Amulet of Proof against Detection and Location" that identifies
+  it, and a card you cannot find in a stack has failed at its only job. The block
+  still reserves two lines whatever the size, so the header rule stays level
+  across a sheet.
+- **The overflow marker is a phrase, not an icon.** At the bottom right the
+  recharge glyph sat on the corner diamond and its arms, and every other spot down
+  there belongs to the clause or the foot ornament. "continued on the back" is
+  centred under the description, in room reserved before the text is drawn --
+  whether it will spill is worked out first, by measuring the lines against the
+  box, rather than discovered afterwards with nowhere to put the notice.
