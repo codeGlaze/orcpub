@@ -646,6 +646,32 @@ The default should follow the build rather than being asked for every time:
 So: a default computed from the build, and an override in the PDF options
 alongside the existing print choices.
 
+### 8d. The browser can wrap text exactly, and will need to (2026-09)
+
+Packing has to answer how many rows a list takes and whether a description fits,
+which is the same question the server answers when it wraps text. The browser can
+answer it identically, and this was checked rather than assumed:
+
+- `string-width` is `getStringWidth / 1000 * size`, a plain sum of per-glyph
+  ADVANCE widths. No kerning, no ligatures, no shaping.
+- `split-lines` is a greedy word wrap on whitespace.
+- Every description, spell and item name in the data uses **84 distinct
+  characters**. A table of their advance widths is about 0.5 KB per face.
+- Summing that table against PDFBox over 300 real descriptions: **0 mismatches**.
+
+So wrapping is arithmetic over a small table, not a font rendering problem, and
+the browser reproduces the server's line breaks exactly rather than approximately.
+
+Do NOT build this for speed. Wrapping is 2.5% of an export -- 6.9ms of 275.7ms
+for a sheet and eight item cards -- and shipping a width table to save that alone
+is not worth the second implementation to keep in step. Build it as part of
+packing, where the browser needs the answer for its own decisions and pre-wrapped
+lines come along for nothing.
+
+If it is built, ship the table from the same TTFs the server loads, so the two
+cannot drift; a hand-maintained copy of the numbers is how the line breaks would
+quietly stop matching.
+
 ### 9. Styles 2, 3 and 4 — a later branch
 
 Worth separating, because half of this work did cover all four styles. Masters,
