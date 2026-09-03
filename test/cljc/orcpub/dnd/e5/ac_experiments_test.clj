@@ -58,6 +58,7 @@
 (def mithril-plate {:base-ac 16 :type :heavy :max-dex 2})       ; heavy AC, but ALLOWS a Dex bonus
 (def magic-leather {:base-ac 11 :type :light ::magic 1})        ; non-standard: +1 magical armor
 (def air-elemental {:base-ac 15 :type :medium :add-abilities [:wis]})  ; adds Wis mod to AC
+(def magic-studded {:base-ac 12 :type :light ::magic 3})       ; +3 magic — bound to THIS armor only
 
 ;; ---- candidate A: naive Cartesian ------------------------------------------
 ;; Evaluate every method for every (armor, shield) combo. Simple; can't be fooled by a wrong
@@ -103,7 +104,11 @@
    {:name "standard heavy: no Dex"          :methods [base-method]                         :bonuses [] :armors [chain]         :shields [] :expected 16}
    {:name "custom heavy ALLOWS Dex"         :methods [base-method]                         :bonuses [] :armors [mithril-plate] :shields [] :expected 18}
    {:name "custom magical armor"            :methods [base-method]                         :bonuses [] :armors [magic-leather] :shields [] :expected 14}
-   {:name "air-elemental: armor adds Wis"   :methods [base-method]                         :bonuses [] :armors [air-elemental] :shields [] :expected 20}])
+   {:name "air-elemental: armor adds Wis"   :methods [base-method]                         :bonuses [] :armors [air-elemental] :shields [] :expected 20}
+   ;; armor-bound magic must NOT leak: a homebrew unarmored AC of 20, plus a +3 magic studded.
+   ;; Unarmored the +3 is absent (20); wearing the studded it's 12+2+3=17. Best = 20. If the
+   ;; armor magic leaked to the unarmored value it would be 23. Expected 20 proves no leak.
+   {:name "armor magic stays with its armor":methods [base-method (unarmored-method 8)]     :bonuses [] :armors [magic-studded] :shields [] :expected 20}])
 
 (deftest candidates-satisfy-the-shared-spec
   (doseq [[cand-name f] candidates]
