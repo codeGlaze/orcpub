@@ -698,6 +698,12 @@ Two things earn their space:
   the Manuals and Tomes whose *words are charged with magic*, which is a turn of
   phrase; the word alone must never be enough to draw one.
 
+  The track sits in its own band between the header rule and a hairline, not at
+  the foot. At the foot it arrived after the prose and got squeezed between the
+  description and the attunement line -- last in the reading order and cramped,
+  for the one thing on the card anybody touches mid-game. The order that works is
+  name, what the thing is, what you have left to spend, what it does.
+
   Past twelve the track becomes a rule to write the remaining count on, over the
   total. Capping the PARSE at twelve instead -- the first attempt -- drew nothing
   at all for the Staff of the Magi, the Staff of Power, the Cube of Force and the

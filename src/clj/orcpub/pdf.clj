@@ -2430,24 +2430,28 @@
    Up to `tickable-charges` that is a circle each. Past it -- a Staff of the Magi
    has fifty -- it is a rule to write the remaining count on, over the total,
    because nobody ticks fifty boxes at a table. Capping the parse instead would
-   have drawn nothing at all for exactly the items that most need tracking."
-  [cs x y w h n]
-  (let [cy (- h 0.5)]
-    (.setLineWidth cs (float 0.8))
-    (if (<= n tickable-charges)
-      (let [r 0.052
-            gap 0.145
-            cx (- (/ w 2) (/ (* gap (dec n)) 2))]
-        (draw-text cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2) -0.19) (- 11 y cy -0.13))
-        (doseq [i (range n)]
-          (circle! cs x y (+ cx (* gap i)) cy r)))
-      (let [total (str "/ " n)
-            rule-w 0.62
-            left (- (/ w 2) (/ rule-w 2) 0.16)]
-        (draw-text cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2) -0.19) (- 11 y cy -0.155))
-        (polyline! cs x y [[left cy] [(+ left rule-w) cy]] false)
-        (draw-text cs total HELVETICA 7 (+ x left rule-w 0.05) (- 11 y cy -0.015))))
-    (.setLineWidth cs (float 1))))
+   have drawn nothing at all for exactly the items that most need tracking.
+
+   Drawn at `cy`, in its own band under the header rather than at the foot. It is
+   the one thing on the card anybody touches mid-game, and under the description
+   it arrived last and cramped: name, then what the thing is, then what you have
+   left to spend, then what it does."
+  [cs x y w n cy]
+  (.setLineWidth cs (float 0.8))
+  (if (<= n tickable-charges)
+    (let [r 0.052
+          gap 0.145
+          cx (- (/ w 2) (/ (* gap (dec n)) 2))]
+      (draw-text cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2) -0.19) (- 11 y cy -0.13))
+      (doseq [i (range n)]
+        (circle! cs x y (+ cx (* gap i)) cy r)))
+    (let [total (str "/ " n)
+          rule-w 0.62
+          left (- (/ w 2) (/ rule-w 2) 0.16)]
+      (draw-text cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2) -0.19) (- 11 y cy -0.155))
+      (polyline! cs x y [[left cy] [(+ left rule-w) cy]] false)
+      (draw-text cs total HELVETICA 7 (+ x left rule-w 0.05) (- 11 y cy -0.015))))
+  (.setLineWidth cs (float 1)))
 
 (defn print-items
   "Draws one page of magic item cards, and returns what did not fit for the backs.
@@ -2503,7 +2507,11 @@
                ;; The clause gets two lines' worth: the longest -- a bard, cleric,
                ;; druid, sorcerer, warlock, or wizard -- is 2.7in against 2.1in of
                ;; card, and shrinking it to fit one line lands at 5pt.
-               body-bottom (cond charges 0.82 clause 0.58 :else 0.32)]
+               body-bottom (if clause 0.58 0.32)
+               ;; The charge band sits between the header rule and the body, with
+               ;; a hairline under it, so the description starts lower when there
+               ;; is one and reclaims the room when there is not.
+               body-top (if charges 1.72 1.24)]
            (draw-card-frame! cs x y box-width box-height rarity flourish)
            (draw-rarity-rail! cs x y box-width rarity 0.245)
            (draw-foot-ornament! cs x y box-width (- box-height 0.185))
@@ -2530,17 +2538,20 @@
            (.setLineWidth cs (float 0.35))
            (polyline! cs x y [[0.2 1.165] [(- box-width 0.2) 1.165]] false)
            (.setLineWidth cs (float 1))
+           (when charges
+             (draw-charge-track! cs x y box-width charges 1.47)
+             (.setLineWidth cs (float 0.35))
+             (polyline! cs x y [[0.2 1.62] [(- box-width 0.2) 1.62]] false)
+             (.setLineWidth cs (float 1)))
            (let [remaining-desc-lines
                  (draw-text-to-box cs body (:plain fonts) 8
-                                   (+ x 0.2) (- 11.0 y 1.24)
+                                   (+ x 0.2) (- 11.0 y body-top)
                                    (- box-width 0.4)
-                                   (- box-height 1.24 body-bottom))]
+                                   (- box-height body-top body-bottom))]
              (when clause
                (draw-text-to-box cs clause (:italic fonts) 6.8
                                  (+ x 0.2) (- 11.0 y (- box-height 0.50))
                                  (- box-width 0.4) 0.24))
-             (when charges
-               (draw-charge-track! cs x y box-width box-height charges))
              (when (seq remaining-desc-lines)
                (let [recharge (img (str "public/image/clockwise-rotation" (when bw? "-bw") ".png"))]
                  (if (and bw? bw-faded?)
