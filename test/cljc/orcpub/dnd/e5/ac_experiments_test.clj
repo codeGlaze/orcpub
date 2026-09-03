@@ -29,11 +29,19 @@
     (min md dex)
     (case (:type armor) :light dex :medium (min 2 dex) :heavy 0)))
 
+(def ability-mods {:dex dex :wis 3 :con 3})        ; test ability modifiers (Dex 14, Wis/Con 16)
+
 (def base-method                                   ; the SRD base: worn armor, else 10+Dex (item-dependent)
   {:item? true
    :fn (fn [armor _]
          (if armor
-           (+ (:base-ac armor) (armor-dex armor) (get armor ::magic 0))  ; base + capped Dex + magic
+           (+ (:base-ac armor)
+              (armor-dex armor)
+              (get armor ::magic 0)
+              ;; ENUMERATED custom-armor property: armor that grants EXTRA ability mods to AC
+              ;; ("armor of the air elemental": :add-abilities [:wis]). One field the worn-armor
+              ;; method reads — expressible, but not automatic (the method must know the property).
+              (reduce + 0 (keep ability-mods (:add-abilities armor))))
            (+ 10 dex)))})
 
 (defn unarmored-method [n]                          ; "AC = 10 + Dex + n" while unarmored (item-independent)
@@ -49,6 +57,7 @@
 ;; ---- custom homebrew armor (the friend's weird-materials supplement) --------
 (def mithril-plate {:base-ac 16 :type :heavy :max-dex 2})       ; heavy AC, but ALLOWS a Dex bonus
 (def magic-leather {:base-ac 11 :type :light ::magic 1})        ; non-standard: +1 magical armor
+(def air-elemental {:base-ac 15 :type :medium :add-abilities [:wis]})  ; adds Wis mod to AC
 
 ;; ---- candidate A: naive Cartesian ------------------------------------------
 ;; Evaluate every method for every (armor, shield) combo. Simple; can't be fooled by a wrong
@@ -93,7 +102,8 @@
    ;; custom-armor axis — the worn-armor method reading the item's own fields:
    {:name "standard heavy: no Dex"          :methods [base-method]                         :bonuses [] :armors [chain]         :shields [] :expected 16}
    {:name "custom heavy ALLOWS Dex"         :methods [base-method]                         :bonuses [] :armors [mithril-plate] :shields [] :expected 18}
-   {:name "custom magical armor"            :methods [base-method]                         :bonuses [] :armors [magic-leather] :shields [] :expected 14}])
+   {:name "custom magical armor"            :methods [base-method]                         :bonuses [] :armors [magic-leather] :shields [] :expected 14}
+   {:name "air-elemental: armor adds Wis"   :methods [base-method]                         :bonuses [] :armors [air-elemental] :shields [] :expected 20}])
 
 (deftest candidates-satisfy-the-shared-spec
   (doseq [[cand-name f] candidates]
