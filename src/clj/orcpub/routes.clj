@@ -693,24 +693,20 @@
       Math/ceil int (max 1) (min 30)))
 
 (def ^:private busy-page-css
+  "Layout for the busy card only. Colour, type and the header bar come from the
+   site stylesheets; these rules just centre the card and are harmless if those
+   stylesheets have not been built, so the page still reads either way."
   "
-  :root { color-scheme: light dark; --bg:#f4f6f8; --fg:#16222e; --muted:#566674;
-          --card:#fff; --line:#cfd8e0; --accent:#2b5d8a; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#10171e; --fg:#e3eaf0; --muted:#9aab8; --card:#18212a;
-            --line:#2e3b47; --accent:#6fa6d8; } }
-  * { box-sizing:border-box; }
-  body { margin:0; min-height:100vh; display:flex; align-items:center;
-         justify-content:center; background:var(--bg); color:var(--fg);
-         font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; padding:1.5rem; }
-  main { background:var(--card); border:1px solid var(--line); border-radius:6px;
-         padding:2rem 2.25rem; max-width:32rem; }
-  h1 { font-size:1.35rem; margin:0 0 .75rem; letter-spacing:-.01em; }
-  p { margin:0 0 .85rem; color:var(--muted); }
-  #countdown { color:var(--fg); font-variant-numeric:tabular-nums; }
-  button { font:inherit; font-weight:600; color:#fff; background:var(--accent);
-           border:0; border-radius:4px; padding:.6rem 1.15rem; cursor:pointer; }
-  button:focus-visible { outline:2px solid var(--fg); outline-offset:2px; }
+  .busy-wrap { display:flex; justify-content:center; padding:3rem 1.25rem; }
+  .busy-card { max-width:34rem; width:100%; background:#fff; border-radius:6px;
+               padding:2rem 2.25rem; box-shadow:0 2px 10px rgba(0,0,0,.15); }
+  .busy-card h1 { margin:0 0 .75rem; font-size:1.5rem; color:#2c3445; }
+  .busy-card p { margin:0 0 .9rem; color:#495366; font-size:1rem; line-height:1.6; }
+  .busy-card #countdown { color:#2c3445; font-weight:600; font-variant-numeric:tabular-nums; }
+  .busy-card button { font:inherit; font-weight:700; color:#fff; background:#f0a100;
+                      border:0; border-radius:4px; padding:.65rem 1.3rem; cursor:pointer; }
+  .busy-card button:hover { background:#d99100; }
+  .busy-card button:focus-visible { outline:3px solid #2c3445; outline-offset:2px; }
   ")
 
 (def ^:private busy-page-js
@@ -738,7 +734,13 @@
    is looking at -- the retry lives here rather than in the app, and carries the
    original request body forward in a hidden field so the resubmission is the
    same export. `attempt` counts retries already spent; past `max-retries` the
-   page stops retrying itself and waits to be clicked."
+   page stops retrying itself and waits to be clicked.
+
+   Rendered through hiccup2, which escapes content and attributes, because the
+   request body is caller-supplied and is reflected into a hidden field. It wears
+   the site header and stylesheets the way the privacy and terms pages do: the
+   app's own CSS and JS are not loaded in this tab, so nothing here can rely on
+   them beyond the stylesheet links."
   [{:keys [body attempt max-retries retry-seconds nonce action]}]
   (let [auto? (< attempt max-retries)]
     (str
@@ -748,22 +750,29 @@
        [:head
         [:meta {:charset "utf-8"}]
         [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
-        [:title "Busy right now"]
+        [:title (str "Busy right now - " branding/app-name)]
+        [:link {:rel "stylesheet" :type "text/css" :href "/css/style.css"}]
+        [:link {:rel "stylesheet" :type "text/css" :href "/css/compiled/styles.css"}]
         [:style (h/raw busy-page-css)]]
-       [:body
-        [:main
-         [:h1 "Lots of sheets are being made right now"]
-         (if auto?
-           [:p "Your character sheet is queued. This page will keep trying on its own."]
-           [:p "We tried " max-retries " times and could not get through. "
-            "The rush should pass shortly."])
-         (when auto?
-           [:p#countdown {:data-seconds (str retry-seconds)}
-            "Trying again in " (str retry-seconds) " seconds."])
-         [:form#retry-form {:method "POST" :action action}
-          [:input {:type "hidden" :name "body" :value body}]
-          [:input {:type "hidden" :name "retry" :value (str (inc attempt))}]
-          [:button {:type "submit"} (if auto? "Try now" "Try again")]]]
+       [:body.sans
+        [:div.app-header-bar.container {:style "background-color:#2c3445"}
+         [:div.content
+          [:div.flex.justify-cont-s-b.align-items-c.w-100-p.p-l-20.p-r-20
+           [:a {:href "/"} [:img.h-72.pointer {:src branding/logo-path :alt branding/app-name}]]]]]
+        [:div.busy-wrap
+         [:div.busy-card
+          [:h1 "Lots of sheets are being made right now"]
+          (if auto?
+            [:p "Your character sheet is queued. This page will keep trying on its own."]
+            [:p "We tried " (str max-retries) " times and could not get through. "
+             "The rush should pass shortly."])
+          (when auto?
+            [:p#countdown {:data-seconds (str retry-seconds)}
+             "Trying again in " (str retry-seconds) " seconds."])
+          [:form#retry-form {:method "POST" :action action}
+           [:input {:type "hidden" :name "body" :value body}]
+           [:input {:type "hidden" :name "retry" :value (str (inc attempt))}]
+           [:button {:type "submit"} (if auto? "Try now" "Try again")]]]]
         (when auto? [:script {:nonce nonce} (h/raw busy-page-js)])]]))))
 
 (defn- attempt-count

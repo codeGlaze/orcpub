@@ -60,4 +60,7 @@ the eight-class fixture from 638 KB to 424.
   measured interval with jitter and carrying the original request forward, then
   hands over to a button after `ORCPUB_PDF_MAX_RETRIES` attempts. The export is a
   form POST into a new tab, so this needed no change to the builder and none to
-  how a finished sheet arrives.
+  how a finished sheet arrives. The page carries the site header, logo and
+  stylesheets, as the privacy and terms pages do.
+- `lein e2e-server-busy` runs the e2e server with an export queue small enough to
+  reach by hand, for seeing the busy page on a dev machine.

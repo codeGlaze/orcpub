@@ -155,12 +155,36 @@ wait they would abandon anyway, not to retry forever. The counter is read back f
 the page's own hidden field, and a hand-edited value counts as a first try rather
 than buying extra attempts.
 
-Measured with the limit set to 1 and a 250 ms wait: twenty simultaneous exports
-produced two sheets and eighteen busy pages carrying `Retry-After` values of 1 to 5
-seconds. At the defaults, the same twenty all returned sheets. Driven in a real
-browser, a turned-away export showed the busy page, resubmitted itself unattended,
-and delivered the sheet once the rush passed — see
-`test/browser/export_busy_retry_e2e.js`.
+The page wears the site header, logo and stylesheets, the way the privacy and
+terms pages do. It cannot rely on anything more than that: the builder's own CSS
+and JavaScript are not loaded in this tab, so the page is self-sufficient apart
+from those stylesheet links, and still reads if they have not been built.
+
+### Seeing it on a dev machine
+
+The default limits are too generous to reach by hand, so there is a profile that
+shrinks them — one sheet at a time, a quarter-second wait for a slot, two
+self-retries:
+
+```
+lein e2e-server-busy
+```
+
+Then click Export in the builder twice in quick succession, or drive the whole
+thing:
+
+```
+node test/browser/export_busy_retry_e2e.js
+```
+
+That test goes through the real UI — Export, pick a sheet style, Create PDF —
+while holding every export slot, and checks that the new tab lands on the busy
+page, carries the site header, retries itself unattended, stops at the limit, and
+delivers the sheet once the rush passes.
+
+Measured with those limits: twenty simultaneous exports produced two sheets and
+eighteen busy pages carrying `Retry-After` values of 1 to 5 seconds. At the
+defaults, the same twenty all returned sheets.
 
 One thing to expect: a browser logs `Failed to load resource: 503` in its console
 for each turned-away attempt. That is the browser reporting an HTTP status, not a
