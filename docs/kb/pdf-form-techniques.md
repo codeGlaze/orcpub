@@ -648,3 +648,16 @@ Found while counting: `caster-bonus-item` wrote its description under
 `::mi/description` everywhere it shows an item -- so three Wand of the War Mage
 entries carried a description nobody could see. A misspelled Clojure keyword is
 still a valid keyword, so nothing complains; only counting the items exposed it.
+
+## Verify card pages in a browser, not in PDFBox (2026-09)
+
+PDFBox's own renderer cannot rasterise the embedded Vollkorn faces the cards use
+-- `PDType0Font/load` with Identity-H encoding -- and draws them as mojibake. The
+icons and the layout come out correctly, so the page looks like a text encoding
+bug in the card code. It is not: the same page opened in a browser is perfect.
+
+Save the document and open it in Chromium. Rendering a card page with
+`PDFRenderer` will send you hunting for a bug that is not there. Saving and
+reloading first does not help either -- it is the renderer, not the font subset.
+
+The spell card path has always been this way; nothing about it is new.

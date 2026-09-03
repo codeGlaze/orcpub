@@ -5975,6 +5975,14 @@
  (fn [db _]
    (update db ::char5e/exclude-spell-cards-print? not)))
 
+;; Magic item cards are opt-IN, so the flag names what to include rather than
+;; what to exclude: a character with twenty items would otherwise gain ten pages
+;; without asking for them.
+(reg-event-db
+ ::char5e/toggle-magic-item-cards-print
+ (fn [db _]
+   (update db ::char5e/include-magic-item-cards? not)))
+
 #_ ;; never dispatched — print UI not wired
   (reg-event-db
    ::char5e/toggle-spell-cards-by-level

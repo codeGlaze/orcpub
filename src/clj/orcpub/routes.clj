@@ -635,6 +635,33 @@
                                  logo-img)))))))
     (catch Exception e (prn "FAILED ADDING SPELLS CARDS!" e))))
 
+(defn add-magic-item-cards!
+  "Appends card pages for `magic-items`, nine to a sheet, each with its back.
+
+   The same layout as the spell cards, and the same failure posture: a card page
+   that throws must not cost the character their sheet, so this logs and returns
+   rather than propagating."
+  [doc magic-items logo-img bw? bw-faded?]
+  (try
+    (let [parts (vec (partition-all 9 magic-items))
+          ;; Fonts and the image embedder are built once per document. Per page
+          ;; they would re-parse four TTFs and re-embed every icon.
+          fonts (pdf/load-fonts doc)
+          img (pdf/make-image-loader doc)]
+      (doseq [i (range (count parts))
+              :let [part (parts i)]]
+        (let [page (PDPage.)]
+          (.addPage doc page)
+          (with-open [cs (PDPageContentStream. doc page)]
+            (let [remaining-desc-lines (vec (pdf/print-items cs doc fonts img 2.5 3.5
+                                                             part i bw? bw-faded?))
+                  back-page (PDPage.)]
+              (with-open [back-page-cs (PDPageContentStream. doc back-page)]
+                (.addPage doc back-page)
+                (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
+                                 logo-img)))))))
+    (catch Exception e (println "pdf: failed adding magic item cards" e))))
+
 (def valid-sheet-styles
   "Style ids with a template on disk: resources/fillable-char-sheetstyle-N-*.pdf"
   #{1 2 3 4})
@@ -650,6 +677,7 @@
     :print-character-sheet? :print-spell-cards? :print-character-sheet-style?
     :print-spell-card-dc-mod? :print-card-back-logo? :card-back-logo-faded?
     :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
+    :magic-items-known :print-magic-item-cards?
     :flatten?})
 
 (def ^:private export-slots
@@ -810,7 +838,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? character-name class-level player-name flatten?]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -874,6 +902,9 @@
         (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes))
       (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw? bw-faded?))
+
+      (when (and print-magic-item-cards? (seq magic-items-known))
+        (add-magic-item-cards! doc magic-items-known card-back-logo-img bw? bw-faded?))
 
       (when (and image-url
                  ;; Cheap scheme filter ahead of pdf/safe-image-url?, which does

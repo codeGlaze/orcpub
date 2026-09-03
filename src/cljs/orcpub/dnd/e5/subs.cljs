@@ -1359,6 +1359,11 @@
    (-> db ::char5e/exclude-spell-cards-print? not)))
 
 (reg-sub
+ ::char5e/print-magic-item-cards?
+ (fn [db _]
+   (boolean (::char5e/include-magic-item-cards? db))))
+
+(reg-sub
  ::char5e/print-spell-card-dc-mod?
  (fn [db _]
    (-> db ::char5e/exclude-spell-cards-by-dc-mod? not)))

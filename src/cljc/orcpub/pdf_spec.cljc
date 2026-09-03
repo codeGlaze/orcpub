@@ -334,6 +334,34 @@
                          (range 10))})))
      page-map)))
 
+(defn magic-item-card-info
+  "The magic items a character carries, in the shape the card printer needs.
+
+   Every magic item, equipped or not: a card is a reference you fan through, and
+   an item left in the bag is exactly the one whose wording you have forgotten.
+   Only the fields a card draws are sent -- the full entries carry modifier
+   functions and weapon statistics that would bloat the request for nothing."
+  [built-char all-magic-items-map]
+  (let [item-map (merge mi5e/magic-item-map all-magic-items-map)
+        carried (merge (es/entity-val built-char :magic-items)
+                       (es/entity-val built-char :magic-armor)
+                       (es/entity-val built-char :magic-weapons))]
+    (->> (keys carried)
+         (keep item-map)
+         (map #(select-keys % [:name
+                               ::mi5e/name
+                               ::mi5e/type
+                               ::mi5e/subtype
+                               ::mi5e/rarity
+                               ::mi5e/attunement
+                               ::mi5e/attunement-details
+                               ::mi5e/description
+                               ::mi5e/summary
+                               ::mi5e/page
+                               ::mi5e/source]))
+         (sort-by #(or (:name %) (::mi5e/name %)))
+         vec)))
+
 (defn make-spell-card-info [spells-known
                             save-dc-fn
                             attack-mod-fn
@@ -594,7 +622,8 @@
            print-card-back-logo?
            card-back-logo-faded?
            print-bw?
-           bw-faded?] :as options}
+           bw-faded?
+           print-magic-item-cards?] :as options}
    {:keys [spells-map plugin-spells-map language-map
            all-weapons-map all-magic-items-map current-armor-class]}]
   (let [race (char5e/race built-char)
@@ -675,6 +704,9 @@
       :card-back-logo-faded? card-back-logo-faded?
       :print-bw? print-bw?
       :bw-faded? bw-faded?
+      :print-magic-item-cards? print-magic-item-cards?
+      :magic-items-known (when print-magic-item-cards?
+                           (magic-item-card-info built-char all-magic-items-map))
       }
      (attacks-and-spellcasting-fields built-char all-weapons-map)
      (skill-fields built-char)

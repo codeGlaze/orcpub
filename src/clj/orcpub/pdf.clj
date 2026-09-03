@@ -31,6 +31,7 @@
             [clojure.stacktrace :as strace]
             [clojure.java.io :as io]
             [orcpub.common :as common]
+            [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.display :as dis5e]
             [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.options :as options]
@@ -2145,6 +2146,108 @@
                      (draw-imagex cs recharge (+ x 2.3) (+ y 3.3) 0.15 0.15))))
                {:remaining-lines remaining-desc-lines
                 :spell-name spell-name}))))))
+
+(def ^:private alignment-attunement
+  "Attunement keywords that name an alignment rather than a class or a race. The
+   books phrase these differently: a creature OF good alignment, not a good."
+  #{:good :evil :lawful :chaotic :neutral})
+
+(defn attunement-phrase
+  "The parenthesised attunement clause a magic item carries in the books, or nil
+   when the item needs none.
+
+   `attunement` is a vector of keywords: [:any] for anyone, otherwise the classes,
+   races or alignments that may attune. `details` overrides it, for the handful of
+   items whose condition is a sentence rather than a list."
+  [attunement details]
+  (cond
+    (seq details) (str "(" details ")")
+    (empty? attunement) nil
+    (= [:any] (vec attunement)) "(requires attunement)"
+    :else
+    (let [names (map (fn [k]
+                       (if (alignment-attunement k)
+                         (str "a creature of " (name k) " alignment")
+                         (str "a " (common/kw-to-name k))))
+                     attunement)]
+      (str "(requires attunement by "
+           (case (count names)
+             1 (first names)
+             2 (s/join " or " names)
+             (str (s/join ", " (butlast names)) ", or " (last names)))
+           ")"))))
+
+(defn magic-item-subtitle
+  "The italic line under a magic item's name: what kind of thing it is, how rare
+   it is, and whether it needs attunement -- the same order the books use."
+  [{:keys [::mi/type ::mi/subtype ::mi/rarity ::mi/attunement ::mi/attunement-details]}]
+  (let [kind (when type
+               ;; Capitalised, and only the first word: the books write "Wondrous
+               ;; item, rare", not "Wondrous Item".
+               (s/capitalize
+                (str (common/kw-to-name type)
+                     (when subtype (str " (" (common/kw-to-name subtype) ")")))))
+        rare (when rarity
+               (if (= :varies rarity)
+                 "rarity varies"
+                 (s/lower-case (common/kw-to-name rarity))))
+        ;; The attunement clause follows a space, not a comma -- "very rare
+        ;; (requires attunement)" is how it is set on the page.
+        clause (attunement-phrase attunement attunement-details)]
+    (s/join " " (remove s/blank?
+                        [(s/join ", " (remove s/blank? [kind rare]))
+                         clause]))))
+
+(defn print-items
+  "Draws one page of magic item cards, and returns what did not fit for the backs.
+
+   Same grid, box and overflow handling as print-spells. Items carry no icon row:
+   there is no artwork for rarity or attunement, and the books put all of it in one
+   italic line under the name anyway, which costs nothing in black and white. That
+   line's absence gives the description the half inch the spell icons would use."
+  [cs document fonts img box-width box-height items page-number bw? bw-faded?]
+  (let [num-boxes-x (int (/ 8.5 box-width))
+        num-boxes-y (int (/ 11.0 box-height))
+        margin-x (/ (- 8.5 (* num-boxes-x box-width)) 2)
+        margin-y (/ (- 11.0 (* num-boxes-y box-height)) 2)]
+    (draw-grid cs box-width box-height)
+    (draw-text cs (str "Page " (inc page-number)) (:italic fonts) 8 0.12 (- 11 0.15))
+    (doall
+     (for [j (range num-boxes-y)
+           i (range (dec num-boxes-x) -1 -1)
+           :let [item-index (+ i (* j num-boxes-x))]]
+       (when-let [item (get (vec items) item-index)]
+         (let [x (+ margin-x (* box-width i))
+               y (+ margin-y (* box-height j))
+               item-name (or (:name item) (::mi/name item) "(Unknown Item)")
+               {:keys [::mi/description ::mi/summary ::mi/page ::mi/source]} item
+               body (or description
+                        (when summary
+                          (str summary " (see "
+                               (if source (s/upper-case (name source)) "DMG")
+                               " " page " for more details)"))
+                        "")
+               remaining-desc-lines
+               (draw-text-to-box cs body (:plain fonts) 8
+                                 (+ x 0.12)
+                                 (- 11.0 y 0.62)
+                                 (- box-width 0.24)
+                                 (- box-height 0.67))]
+           (let [card-logo (img (str "public/image/card-logo" (when bw? "-bw") ".png"))]
+             (if (and bw? bw-faded?)
+               (draw-imagex-alpha cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25 0.4)
+               (draw-imagex cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25)))
+           (draw-text-to-box cs item-name (:bold fonts) 10
+                             (+ x 0.12) (- 11.0 y) (- box-width 0.3) 0.2)
+           (draw-text-to-box cs (magic-item-subtitle item) (:italic fonts) 8
+                             (+ x 0.12) (- 11.0 y 0.19) (- box-width 0.24) 0.4)
+           (when (seq remaining-desc-lines)
+             (let [recharge (img (str "public/image/clockwise-rotation" (when bw? "-bw") ".png"))]
+               (if (and bw? bw-faded?)
+                 (draw-imagex-alpha cs recharge (+ x 2.3) (+ y 3.3) 0.15 0.15 0.4)
+                 (draw-imagex cs recharge (+ x 2.3) (+ y 3.3) 0.15 0.15))))
+           {:remaining-lines remaining-desc-lines
+            :spell-name item-name}))))))
 
 #_{:clj-kondo/ignore [:unused-private-var]}
 (defn- create-monsters-pdf

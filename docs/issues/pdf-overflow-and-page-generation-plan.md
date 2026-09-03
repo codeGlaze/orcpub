@@ -615,6 +615,36 @@ and needs nothing else. Those instructions are caller-supplied, so section, box 
 label all need bounds-checking before use -- the same hole as the sheet style id,
 which reached a resource path before it was validated.
 
+### 8c. Packing is a choice, not one layout (2026-09)
+
+Because packing runs in the builder it costs nothing to offer several ways to
+organise a list, and the right one differs by character. The shapes worth having:
+
+- **One level per box.** What ships today. Predictable, and wasteful for a
+  character with three level 1 spells and two level 2s.
+- **Packed.** Fill boxes in order regardless of level, relabelling as it goes.
+  Fewest pages.
+- **One page per class.** Today's multiclass behaviour, and what a player wants
+  when two lists are both long.
+- **Classes sharing a page.** Two short lists side by side, each labelled. The
+  case that started this.
+
+The default should follow the build rather than being asked for every time:
+
+- A prepared caster with a large list -- Wizard, Cleric, Druid -- wants prepared
+  spells, not the whole list. A known caster -- Sorcerer, Warlock, Bard -- has
+  nothing to hide, so everything.
+- Domain, circle and oath spells are always prepared and do not count against the
+  limit. They belong on the sheet but want distinguishing from chosen spells.
+- **Pact Magic must not merge with the others.** A Warlock's slots are a separate
+  pool at a separate level; packing its spells in with a Wizard's would put them
+  under the wrong slot count. This is the one hard constraint, not a preference.
+- A single-class caster below about level 5 already fits one page, so packing
+  gains nothing and should not be the default there. A multiclass gains the most.
+
+So: a default computed from the build, and an override in the PDF options
+alongside the existing print choices.
+
 ### 9. Styles 2, 3 and 4 — a later branch
 
 Worth separating, because half of this work did cover all four styles. Masters,

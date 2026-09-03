@@ -4113,7 +4113,8 @@
                      print-card-back-logo?
                      card-back-logo-faded?
                      print-bw?
-                     bw-faded?]
+                     bw-faded?
+                     print-magic-item-cards?]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
@@ -4126,7 +4127,8 @@
                                 :print-card-back-logo? print-card-back-logo?
                                 :card-back-logo-faded? card-back-logo-faded?
                                 :print-bw? print-bw?
-                                :bw-faded? bw-faded?})]
+                                :bw-faded? bw-faded?
+                                :print-magic-item-cards? print-magic-item-cards?})]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4154,6 +4156,7 @@
 (defn print-options [id built-char]
   (let [print-character-sheet? @(subscribe [::char/print-character-sheet?])
         print-spell-cards? @(subscribe [::char/print-spell-cards?])
+        print-magic-item-cards? @(subscribe [::char/print-magic-item-cards?])
         print-prepared-spells? @(subscribe [::char/print-prepared-spells?])
         print-large-abilities? @(subscribe [::char/print-large-abilities?])
         print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
@@ -4208,6 +4211,13 @@
            [labeled-checkbox
             "Print Spell DC and MOD"
             print-spell-card-dc-mod?]]]])
+      [:div.m-b-2
+       [:div.flex
+        [:div
+         {:on-click (make-event-handler ::char/toggle-magic-item-cards-print)}
+         [labeled-checkbox
+          "Print Magic Item Cards"
+          print-magic-item-cards?]]]]
       (when has-spells?
         [:div.m-b-10
          [:div.m-b-10
@@ -4273,7 +4283,8 @@
                                       print-card-back-logo?
                                       card-back-logo-faded?
                                       print-bw?
-                                      bw-faded?)}
+                                      bw-faded?
+                                      print-magic-item-cards?)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
