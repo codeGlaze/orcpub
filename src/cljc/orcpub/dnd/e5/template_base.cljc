@@ -57,10 +57,18 @@
                            0)))
     ?shield-ac-bonus (fn [shield]
                        (+ 2 (or (::mi5e/magical-ac-bonus shield) 0)))
-    ?unarmored-armor-class (+ ?base-armor-class ?unarmored-ac-bonus ?ac-bonus)
+    ;; Unarmored-defense (Con/Wis) and natural-armor (?natural-ac-bonus) are competing
+    ;; "AC = 10 + Dex + X" bases — take the BETTER, never both. ?base-armor-class already
+    ;; drops natural when unarmored wins; these must drop unarmored when natural wins, or a
+    ;; character with both (e.g. Draconic Sorcerer / Barbarian, Lizardfolk Barbarian) STACKS
+    ;; them. The two `if`s are the two halves of one symmetric max.
+    ?unarmored-armor-class (+ ?base-armor-class
+                             (if (> ?unarmored-ac-bonus ?natural-ac-bonus) ?unarmored-ac-bonus 0)
+                             ?ac-bonus)
     ?unarmored-with-shield-armor-class (fn [shield]
                                          (+ ?base-armor-class
-                                            ?unarmored-with-shield-ac-bonus
+                                            (if (> ?unarmored-with-shield-ac-bonus ?natural-ac-bonus)
+                                              ?unarmored-with-shield-ac-bonus 0)
                                             ?ac-bonus
                                             (?shield-ac-bonus shield)))
     ?dual-wield-weapon? weapon5e/light-melee-weapon?
