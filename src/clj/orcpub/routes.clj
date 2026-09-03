@@ -46,6 +46,7 @@
             [orcpub.routes.party :as party]
             [orcpub.routes.folder :as folder]
             [hiccup.page :as page]
+            [hiccup2.core :as h]
             [environ.core :as environ]
             [clojure.set :as sets]
             [ring.middleware.head :as head]
@@ -691,6 +692,89 @@
          (* 1000.0 (config/get-pdf-concurrency)))
       Math/ceil int (max 1) (min 30)))
 
+(def ^:private busy-page-css
+  "
+  :root { color-scheme: light dark; --bg:#f4f6f8; --fg:#16222e; --muted:#566674;
+          --card:#fff; --line:#cfd8e0; --accent:#2b5d8a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#10171e; --fg:#e3eaf0; --muted:#9aab8; --card:#18212a;
+            --line:#2e3b47; --accent:#6fa6d8; } }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:flex; align-items:center;
+         justify-content:center; background:var(--bg); color:var(--fg);
+         font:16px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; padding:1.5rem; }
+  main { background:var(--card); border:1px solid var(--line); border-radius:6px;
+         padding:2rem 2.25rem; max-width:32rem; }
+  h1 { font-size:1.35rem; margin:0 0 .75rem; letter-spacing:-.01em; }
+  p { margin:0 0 .85rem; color:var(--muted); }
+  #countdown { color:var(--fg); font-variant-numeric:tabular-nums; }
+  button { font:inherit; font-weight:600; color:#fff; background:var(--accent);
+           border:0; border-radius:4px; padding:.6rem 1.15rem; cursor:pointer; }
+  button:focus-visible { outline:2px solid var(--fg); outline-offset:2px; }
+  ")
+
+(def ^:private busy-page-js
+  "(function(){
+     var el = document.getElementById('countdown');
+     var form = document.getElementById('retry-form');
+     if (!el || !form) { return; }
+     var base = parseInt(el.getAttribute('data-seconds'), 10);
+     if (!base || base < 1) { base = 3; }
+     /* Jitter so a crowd turned away together does not come back together. */
+     var left = Math.max(1, Math.round(base * (0.75 + Math.random() * 0.5)));
+     (function tick(){
+       if (left <= 0) { el.textContent = 'Starting your sheet now.'; form.submit(); return; }
+       el.textContent = left === 1 ? 'Trying again in 1 second.'
+                                   : 'Trying again in ' + left + ' seconds.';
+       left -= 1;
+       setTimeout(tick, 1000);
+     })();
+   })();")
+
+(defn- busy-page
+  "The page a turned-away export lands on.
+
+   The export is a form POST into a new tab, so this response IS what the person
+   is looking at -- the retry lives here rather than in the app, and carries the
+   original request body forward in a hidden field so the resubmission is the
+   same export. `attempt` counts retries already spent; past `max-retries` the
+   page stops retrying itself and waits to be clicked."
+  [{:keys [body attempt max-retries retry-seconds nonce action]}]
+  (let [auto? (< attempt max-retries)]
+    (str
+     "<!DOCTYPE html>"
+     (h/html
+      [:html {:lang "en"}
+       [:head
+        [:meta {:charset "utf-8"}]
+        [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
+        [:title "Busy right now"]
+        [:style (h/raw busy-page-css)]]
+       [:body
+        [:main
+         [:h1 "Lots of sheets are being made right now"]
+         (if auto?
+           [:p "Your character sheet is queued. This page will keep trying on its own."]
+           [:p "We tried " max-retries " times and could not get through. "
+            "The rush should pass shortly."])
+         (when auto?
+           [:p#countdown {:data-seconds (str retry-seconds)}
+            "Trying again in " (str retry-seconds) " seconds."])
+         [:form#retry-form {:method "POST" :action action}
+          [:input {:type "hidden" :name "body" :value body}]
+          [:input {:type "hidden" :name "retry" :value (str (inc attempt))}]
+          [:button {:type "submit"} (if auto? "Try now" "Try again")]]]
+        (when auto? [:script {:nonce nonce} (h/raw busy-page-js)])]]))))
+
+(defn- attempt-count
+  "Retries already spent, from the hidden field the busy page posts back. Anything
+   that is not a non-negative number counts as a first try, so a hand-edited value
+   cannot buy extra attempts."
+  [req]
+  (let [raw (get-in req [:form-params :retry])
+        n (try (Integer/parseInt (str raw)) (catch Exception _ 0))]
+    (if (and (nat-int? n) (<= n 1000)) n 0)))
+
 (defn- with-export-slot
   "Runs `f` holding one export slot, or answers 503 if none frees up within the
    configured wait.
@@ -699,7 +783,7 @@
    in flight holds roughly 11 MB, so the ceiling is a number an operator can set
    against the heap. Saying so with a Retry-After beats holding the connection
    until the browser times out with nothing to show for it."
-  [f]
+  [req f]
   (let [waiting (.incrementAndGet exports-waiting)]
     (try
       (if (.tryAcquire ^java.util.concurrent.Semaphore @export-slots
@@ -711,14 +795,19 @@
             (finally
               (record-export-millis! (/ (- (System/nanoTime) start) 1e6))
               (.release ^java.util.concurrent.Semaphore @export-slots))))
-        (let [retry (retry-after-seconds waiting)]
-          (println (format "pdf: no export slot within %d ms, %d waiting"
-                           (config/get-pdf-queue-timeout-ms) waiting))
+        (let [retry (retry-after-seconds waiting)
+              attempt (attempt-count req)]
+          (println (format "pdf: no export slot within %d ms, %d waiting, attempt %d"
+                           (config/get-pdf-queue-timeout-ms) waiting attempt))
           {:status 503
            :headers {"Retry-After" (str retry)
-                     "Content-Type" "text/plain"}
-           :body (str "The server is generating a lot of character sheets right now. "
-                      "Try again in a few seconds.")}))
+                     "Content-Type" "text/html; charset=utf-8"}
+           :body (busy-page {:body (get-in req [:form-params :body])
+                             :attempt attempt
+                             :max-retries (config/get-pdf-max-retries)
+                             :retry-seconds retry
+                             :nonce (:csp-nonce req)
+                             :action (or (:uri req) "/character.pdf")})}))
       (finally (.decrementAndGet exports-waiting)))))
 
 (defn- generate-character-pdf [req]
@@ -823,7 +912,7 @@
        :body (ByteArrayInputStream. a)})))
 
 (defn character-pdf-2 [req]
-  (with-export-slot #(generate-character-pdf req)))
+  (with-export-slot req #(generate-character-pdf req)))
 
 (defn html-response
   [html & [response]]

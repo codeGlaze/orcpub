@@ -56,3 +56,8 @@ the eight-class fixture from 638 KB to 424.
   rather than held open until the browser gives up.
 - `docs/PDF-EXPORT-CAPACITY.md` documents what an export costs, what the numbers
   mean, and how to size the settings, with the measurements behind them.
+- A turned-away export gets a busy page that retries itself, counting down a
+  measured interval with jitter and carrying the original request forward, then
+  hands over to a button after `ORCPUB_PDF_MAX_RETRIES` attempts. The export is a
+  form POST into a new tab, so this needed no change to the builder and none to
+  how a finished sheet arrives.

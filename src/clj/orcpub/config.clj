@@ -118,6 +118,16 @@
   []
   (positive-int-env ["ORCPUB_PDF_CONCURRENCY"] (max 8 (* 2 @available-processors))))
 
+(defn get-pdf-max-retries
+  "How many times the busy page retries itself before it waits for the person,
+   from ORCPUB_PDF_MAX_RETRIES.
+
+   Three covers the queue draining in the realistic case. The elapsed ceiling
+   matters more than the count, and the page enforces one as well: the point is
+   to spare someone a wait they would abandon anyway, not to retry forever."
+  []
+  (positive-int-env ["ORCPUB_PDF_MAX_RETRIES"] 3))
+
 (defn get-pdf-queue-timeout-ms
   "How long an export waits for a slot before the server says it is busy, from
    ORCPUB_PDF_QUEUE_TIMEOUT_MS. Past this the request is answered 503 with a

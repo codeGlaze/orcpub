@@ -109,6 +109,7 @@ mean zero.
 | `ORCPUB_HTTP_MAX_THREADS` | Pedestal's, which is 50 until ~16 cores | Jetty's worker pool: requests of any kind in flight. |
 | `ORCPUB_PDF_CONCURRENCY` | `max(8, 2 x cores)` | Sheets generated at once. |
 | `ORCPUB_PDF_QUEUE_TIMEOUT_MS` | `30000` | How long an export waits for a slot before the server says it is busy. |
+| `ORCPUB_PDF_MAX_RETRIES` | `3` | How many times the busy page retries itself before waiting for a click. |
 
 ### Sizing them
 
@@ -133,17 +134,38 @@ the HTTP pool, or exports will simply queue a level higher up.
 ## What people see when it is saturated
 
 An export that cannot get a slot within `ORCPUB_PDF_QUEUE_TIMEOUT_MS` is answered
-`503` with a `Retry-After` header, rather than held open until the browser gives
-up with nothing to show for it.
+`503` with a small page saying the server is busy — and that page **retries itself**.
 
-The `Retry-After` is measured rather than guessed: the server keeps a weighted
-mean of how long recent exports actually took, divides it into the queue ahead of
-the caller, and floors the result at one second and caps it at thirty. So it
-tracks your host and the sheets people are really asking for.
+The export is a plain form POST into a new tab, so the 503 response is the page
+the person is already looking at. The retry lives there rather than in the app:
+the page carries the original request body forward in a hidden field, counts down,
+and resubmits. After `ORCPUB_PDF_MAX_RETRIES` it stops and waits to be clicked.
+Nothing in the character builder changed, and how the finished PDF arrives is
+untouched.
 
-With the limit set to 1 and a 250 ms wait, twenty simultaneous exports produced
-two sheets and eighteen refusals carrying `Retry-After` values of 1 to 5 seconds.
-At the defaults, the same twenty all returned sheets.
+The countdown is measured rather than guessed. The server keeps a weighted mean of
+how long recent exports actually took, divides it into the queue ahead of the
+caller, floors the result at one second and caps it at thirty — so it tracks your
+host and the sheets people are really asking for. The page then applies ±25%
+jitter, so a crowd turned away together does not come back in the same instant.
+
+The retry count is deliberately small. The queue drains in under thirty seconds in
+the realistic case, so three attempts covers it; the point is to spare someone a
+wait they would abandon anyway, not to retry forever. The counter is read back from
+the page's own hidden field, and a hand-edited value counts as a first try rather
+than buying extra attempts.
+
+Measured with the limit set to 1 and a 250 ms wait: twenty simultaneous exports
+produced two sheets and eighteen busy pages carrying `Retry-After` values of 1 to 5
+seconds. At the defaults, the same twenty all returned sheets. Driven in a real
+browser, a turned-away export showed the busy page, resubmitted itself unattended,
+and delivered the sheet once the rush passed — see
+`test/browser/export_busy_retry_e2e.js`.
+
+One thing to expect: a browser logs `Failed to load resource: 503` in its console
+for each turned-away attempt. That is the browser reporting an HTTP status, not a
+script error, and it is the correct status to send — a `200` would lie to caches,
+crawlers and any non-browser client.
 
 ## Reproducing the measurements
 
