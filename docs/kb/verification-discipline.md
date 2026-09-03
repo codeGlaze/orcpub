@@ -92,6 +92,21 @@ exists" (Mariner is in `ua_base.cljc:690`, `#_`-commented). Before concluding a 
 absent, grep the whole tree including `templates/` and `#_`-struck forms — the answer is often in
 the dead code.
 
+## A green (or red) number proves nothing if the FIXTURE doesn't match real content
+
+A test builds synthetic inputs; if the synthetic path differs from how real content works, the
+number characterizes the fixture, not the engine. *Miss (this session):* I reported an "A3 bug" —
+two natural-armor sources stacking to 18 — from a test whose synthetic classes used the cum-sum
+constructor `mod5e/natural-ac-bonus`. But ALL real content sets `?natural-ac-bonus` via
+`mod/modifier` (a SET; `es/modifier` replaces, doesn't accumulate). With the fixture switched to the
+real SET mechanism the "bug" vanished (15, no stacking) — there was nothing to fix. The user caught
+it ("is that even in integration, or something you introduced?"). The tell I ignored: I checked the
+output number without checking the MECHANISM that produced the input — which constructor, SET vs
+cum-sum. Before calling a characterized number a bug, confirm the fixture uses the SAME modifier
+primitives real content uses; grep who actually writes the channel in `src/`. (Companion to the
+"same name, different registries" lesson — here it was "same channel, two accumulation semantics,
+one live and one a trap.")
+
 ## The rule
 
 Before asserting a load-bearing claim — especially **"X is broken"** or **"X is fine"** —
