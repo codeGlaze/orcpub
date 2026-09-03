@@ -692,23 +692,6 @@
          (* 1000.0 (config/get-pdf-concurrency)))
       Math/ceil int (max 1) (min 30)))
 
-(def ^:private busy-page-css
-  "Layout for the busy card only. Colour, type and the header bar come from the
-   site stylesheets; these rules just centre the card and are harmless if those
-   stylesheets have not been built, so the page still reads either way."
-  "
-  .busy-wrap { display:flex; justify-content:center; padding:3rem 1.25rem; }
-  .busy-card { max-width:34rem; width:100%; background:#fff; border-radius:6px;
-               padding:2rem 2.25rem; box-shadow:0 2px 10px rgba(0,0,0,.15); }
-  .busy-card h1 { margin:0 0 .75rem; font-size:1.5rem; color:#2c3445; }
-  .busy-card p { margin:0 0 .9rem; color:#495366; font-size:1rem; line-height:1.6; }
-  .busy-card #countdown { color:#2c3445; font-weight:600; font-variant-numeric:tabular-nums; }
-  .busy-card button { font:inherit; font-weight:700; color:#fff; background:#f0a100;
-                      border:0; border-radius:4px; padding:.65rem 1.3rem; cursor:pointer; }
-  .busy-card button:hover { background:#d99100; }
-  .busy-card button:focus-visible { outline:3px solid #2c3445; outline-offset:2px; }
-  ")
-
 (def ^:private busy-page-js
   "(function(){
      var el = document.getElementById('countdown');
@@ -738,9 +721,10 @@
 
    Rendered through hiccup2, which escapes content and attributes, because the
    request body is caller-supplied and is reflected into a hidden field. It wears
-   the site header and stylesheets the way the privacy and terms pages do: the
-   app's own CSS and JS are not loaded in this tab, so nothing here can rely on
-   them beyond the stylesheet links."
+   the site header and stylesheets the way the privacy and terms pages do; its
+   own rules live in orcpub.styles.core with the rest of the stylesheet. The
+   builder's markup and scripts are absent in this tab, so the page uses plain
+   card classes rather than app layout classes."
   [{:keys [body attempt max-retries retry-seconds nonce action]}]
   (let [auto? (< attempt max-retries)]
     (str
@@ -752,8 +736,7 @@
         [:meta {:name "viewport" :content "width=device-width, initial-scale=1"}]
         [:title (str "Busy right now - " branding/app-name)]
         [:link {:rel "stylesheet" :type "text/css" :href "/css/style.css"}]
-        [:link {:rel "stylesheet" :type "text/css" :href "/css/compiled/styles.css"}]
-        [:style (h/raw busy-page-css)]]
+        [:link {:rel "stylesheet" :type "text/css" :href "/css/compiled/styles.css"}]]
        [:body.sans
         [:div.app-header-bar.container {:style "background-color:#2c3445"}
          [:div.content
@@ -767,12 +750,12 @@
             [:p "We tried " (str max-retries) " times and could not get through. "
              "The rush should pass shortly."])
           (when auto?
-            [:p#countdown {:data-seconds (str retry-seconds)}
+            [:p#countdown.busy-countdown {:data-seconds (str retry-seconds)}
              "Trying again in " (str retry-seconds) " seconds."])
           [:form#retry-form {:method "POST" :action action}
            [:input {:type "hidden" :name "body" :value body}]
            [:input {:type "hidden" :name "retry" :value (str (inc attempt))}]
-           [:button {:type "submit"} (if auto? "Try now" "Try again")]]]]
+           [:button.form-button {:type "submit"} (if auto? "Try now" "Try again")]]]]
         (when auto? [:script {:nonce nonce} (h/raw busy-page-js)])]]))))
 
 (defn- attempt-count

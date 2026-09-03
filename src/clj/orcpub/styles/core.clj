@@ -1847,7 +1847,40 @@
       :font-size "11px"
       :text-decoration :underline
       :cursor :pointer
-      :margin-left "4px"}]];concat-bracket
+      :margin-left "4px"}]
+
+    ;; ── Export busy page ─────────────────────────────────────────────────────
+    ;; The page a character sheet export lands on when every export slot is busy.
+    ;; It is served into the download tab, where the builder's own markup is
+    ;; absent, so it styles a plain card rather than reusing app layout classes.
+    ;; The button is the site's .form-button and needs nothing here.
+    [:.busy-wrap
+     {:display :flex
+      :justify-content :center
+      :padding "48px 20px"}]
+
+    [:.busy-card
+     {:max-width "540px"
+      :width "100%"
+      :background-color :white
+      :border-radius "5px"
+      :padding "32px 36px"
+      :box-shadow "0 2px 10px rgba(0,0,0,0.15)"}
+     [:h1
+      {:margin "0 0 12px"
+       :font-size "24px"
+       :color text-color}]
+     [:p
+      {:margin "0 0 14px"
+       :font-size "16px"
+       :line-height "1.6"
+       :color "#495366"}]
+     ;; The countdown is the one line that changes as the page waits, so it is
+     ;; set apart from the explanatory text around it.
+     [:.busy-countdown
+      {:color text-color
+       :font-weight 600
+       :font-variant-numeric :tabular-nums}]]];concat-bracket
    margin-lefts
    margin-tops
    widths

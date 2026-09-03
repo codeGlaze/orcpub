@@ -7,6 +7,8 @@
 //   lein e2e-server-busy          # one sheet at a time, 250ms wait, 2 retries
 //   node test/browser/export_busy_retry_e2e.js
 //
+// Set ORCPUB_SHOT=path.png to save a picture of the busy page.
+//
 // Exits non-zero on the first failed check.
 
 const { chromium } = require('playwright');
@@ -29,8 +31,18 @@ async function visible(locator) {
 }
 
 // Hold every export slot until `until`, so an export arriving now is turned away.
+// The load uses a six-caster sheet on purpose: a trivial one finishes in ~90ms
+// and frees its slot between requests, which lets the export under test slip
+// through and the run fail for no real reason.
 function saturate(until) {
-  const spec = '{:character-name "Load" :class-level "X"}';
+  const spec = '{' + [
+    ':character-name "Load"', ':class-level "X"',
+    ...[1, 2, 3, 4, 5, 6].map(i => `:spellcasting-class-${i} "Wizard"`),
+    ...[1, 2, 3, 4, 5, 6].flatMap(i =>
+      [0, 1, 2, 3].flatMap(lvl =>
+        Array.from({ length: 12 }, (_, j) =>
+          `:spells-${lvl}-${j + 1}-${i} "Protection from Energy"`)))
+  ].join(' ') + '}';
   const one = async () => {
     while (Date.now() < until) {
       await fetch(BASE + '/character.pdf', {
@@ -40,7 +52,7 @@ function saturate(until) {
       }).catch(() => {});
     }
   };
-  return Promise.all([one(), one(), one(), one(), one(), one()]);
+  return Promise.all(Array.from({ length: 8 }, one));
 }
 
 (async () => {
@@ -93,6 +105,8 @@ function saturate(until) {
 
   check('it wears the site header and logo',
         (await tab.locator('.app-header-bar img').count()) === 1);
+
+  if (process.env.ORCPUB_SHOT) await tab.screenshot({ path: process.env.ORCPUB_SHOT, fullPage: true });
 
   const sheets = await tab.evaluate(() =>
     [...document.styleSheets].map(s => s.href).filter(Boolean)

@@ -156,9 +156,10 @@ the page's own hidden field, and a hand-edited value counts as a first try rathe
 than buying extra attempts.
 
 The page wears the site header, logo and stylesheets, the way the privacy and
-terms pages do. It cannot rely on anything more than that: the builder's own CSS
-and JavaScript are not loaded in this tab, so the page is self-sufficient apart
-from those stylesheet links, and still reads if they have not been built.
+terms pages do, and its button is the site's own `.form-button`. Its rules live
+in `orcpub.styles.core` with the rest of the stylesheet, so `lein garden once`
+has to have run for it to look right. The builder's markup and scripts are absent
+in this tab, so the page uses plain card classes rather than app layout ones.
 
 ### Seeing it on a dev machine
 
