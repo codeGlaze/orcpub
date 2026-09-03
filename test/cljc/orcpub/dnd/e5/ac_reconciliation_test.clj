@@ -100,28 +100,25 @@
     (is (= 12 (unarmored-ac :fighter))   "Fighter: 10 + Dex(2)")))
 
 ;; ===========================================================================
-;; SECTION 2 — SUSPECTED LATENT BUG: natural-armor + unarmored-defense stacking
+;; SECTION 2 — FIXED: natural-armor + unarmored-defense no longer stack
 ;; ===========================================================================
-;; The pairwise tie-break (template_base.cljc:38-41) only ZEROES natural when unarmored
-;; wins; it never zeroes unarmored when natural wins (unarmored-ac-bonus is added
-;; unconditionally in ?unarmored-armor-class). So natural >= unarmored should STACK.
+;; History (kept so the fix is legible): ?base-armor-class (template_base.cljc:38-41) only
+;; ZEROED natural when unarmored won the tie-break; it never zeroed unarmored when natural
+;; won, because unarmored-ac-bonus was added UNCONDITIONALLY in ?unarmored-armor-class.
+;; So natural >= unarmored STACKED. Confirmed by build: Barbarian (Con 3) + NatArmor
+;; (natural 3) came out 18; RAW is max(13+Dex, 10+Dex+Con) = 15.
 ;;
-;;   Barbarian (Con +3 -> unarmored-ac-bonus 3) + NatArmor (natural-ac-bonus 3):
-;;     tie-break (> 3 3) = false -> base adds natural 3 = 10+2+3 = 15
-;;     ?unarmored-armor-class = 15 + Con(3) = 18
-;;   RAW-correct: max(13+Dex, 10+Dex+Con) = max(15, 15) = 15.
-;;
-;; This deftest PINS whatever the code actually returns (printed below), so the fix is
-;; a visible diff. It is NOT asserting the RAW-correct value yet.
+;; FIX (fix/ac-unarmored-natural-stacking, off integration): the unarmored addition is now
+;; conditional too — the two `if`s are the two halves of one symmetric max. Cherry-picked
+;; here from that neutral branch; must also land on refactor/content-extensibility and
+;; contrib/summer-fixes (Summer Patch). This assertion is the visible 18 -> 15 diff.
 
-(deftest natural-plus-unarmored-current-behavior
-  (testing "CHARACTERIZE (not endorse) natural-armor + unarmored-defense on one character"
+(deftest natural-plus-unarmored-no-stacking
+  (testing "natural-armor + unarmored-defense take the BETTER, never both (18 -> 15 after the fix)"
     (let [ac (unarmored-ac :barbarian :nat-armor-)]
-      (println (format "\n[AC-BUG PROBE] Barbarian + NatArmor unarmored AC = %s  (RAW-correct = 15)\n" ac))
-      ;; assertion filled in from the actual run below:
-      (is (integer? ac) "builds and produces a number")
-      (is (= 18 ac)
-          "PINNED CURRENT BEHAVIOR: natural(3) and unarmored(Con 3) STACK -> 18, not the RAW-correct 15 (latent bug)"))))
+      (println (format "\n[AC-FIX PROBE] Barbarian + NatArmor unarmored AC = %s  (RAW-correct = 15)\n" ac))
+      (is (= 15 ac)
+          "FIXED: natural(3) and unarmored(Con 3) no longer stack; max(13+Dex, 10+Dex+Con) = 15"))))
 
 ;; ===========================================================================
 ;; SECTION 3 — PROPOSED efficient rewrite (assertions added AS DEVISED)
