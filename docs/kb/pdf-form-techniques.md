@@ -661,3 +661,39 @@ Save the document and open it in Chromium. Rendering a card page with
 reloading first does not help either -- it is the renderer, not the font subset.
 
 The spell card path has always been this way; nothing about it is new.
+
+## Drawing a card, and what a generated one owes nothing to a template (2026-09)
+
+The magic item card is drawn, not composed from images: a chamfered border, rarity
+diamonds, the rule under the header and the charge track are all path operators in
+the content stream. That is real vector -- sharp at any size, correct in black and
+white, and close to free in the file. There is no arc operator in a PDF stream, so
+circles are four cubic curves with control points at 0.5523 of the radius.
+
+Card coordinates run DOWN from the page top. `in-to-coord-y` is `72 * (11 - y)`,
+which is why `draw-imagex` takes `(+ y 0.02)` for the top of a card while
+`draw-text-to-box`, which is page-bottom referenced, takes `(- 11.0 y)` for the
+same place. Mixing the two up puts art and text at opposite ends of the page.
+
+**A generated card is not a blank one.** Every printable card template in
+circulation spends its face on labelled slots -- NAME, TYPE, RARITY, CHARGES,
+ATTUNED yes/no -- because a person has to write in them. This card already knows
+all of it, so those slots would be dead space. The room goes to the description,
+which is the part anyone rereads at the table, and the facts are set as text:
+kind and rarity under the name, attunement in italic at the foot, and only when
+the item needs it.
+
+Two things earn their space:
+
+- **Rarity as ranked diamonds**, five along the top edge, filled to the item's
+  rank. Fanned through, a deck sorts itself; no amount of setting the word in type
+  does that. `:varies` draws none rather than inventing a rank.
+- **A charge track sized to the item.** The count comes off the description --
+  the data has no charge field, it is prose -- and a die expression takes its
+  maximum so the best roll still has a circle. An item with no charges draws no
+  circles: an empty row is furniture, and marking charges is the reason to have
+  the card in your hand.
+
+Three collisions worth knowing, all found by rendering rather than reasoning: the
+title has to stop clear of the diamonds, the body has to stop clear of the CHARGES
+label, and the overflow mark belongs at the foot because the head is taken.

@@ -51,3 +51,27 @@
       (is (every? string? subtitles))
       (is (every? #(not (re-find #"null|clojure\.lang|\{" %)) subtitles)
           "no keyword or object leaked into the text"))))
+
+(deftest charges-are-read-off-the-item-text
+  (testing "a plain count"
+    (is (= 3 (pdf/item-charges "This gem has 3 charges. As an action...")))
+    (is (= 7 (pdf/item-charges "The staff has 7 charges."))))
+  (testing "a die expression takes its maximum, so the best roll still has a circle"
+    (is (= 9 (pdf/item-charges "The sword has 1d8 + 1 charges.")))
+    (is (= 8 (pdf/item-charges "It has 1d8 charges."))))
+  (testing "line breaks in the description do not hide the number"
+    (is (= 4 (pdf/item-charges "The wand\nhas 4 charges and regains them at dawn."))))
+  (testing "nothing to track draws nothing"
+    (is (nil? (pdf/item-charges nil)))
+    (is (nil? (pdf/item-charges "You gain a +2 bonus to attack rolls.")))
+    (is (nil? (pdf/item-charges "It has 3 charge levels"))
+        "'charges' must be the word, not a prefix"))
+  (testing "a row too long for a card is left undrawn rather than overflowing it"
+    (is (nil? (pdf/item-charges "The artifact has 50 charges.")))
+    (is (= 12 (pdf/item-charges "It has 12 charges.")))))
+
+(deftest charge-parsing-survives-every-shipped-item
+  (testing "no description throws, and every count fits the card"
+    (let [counts (keep #(pdf/item-charges (::mi/description %)) (vals mi/magic-item-map))]
+      (is (seq counts) "some items do have charges")
+      (is (every? #(<= 1 % 12) counts)))))

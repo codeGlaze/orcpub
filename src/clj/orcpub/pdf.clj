@@ -2147,6 +2147,75 @@
                {:remaining-lines remaining-desc-lines
                 :spell-name spell-name}))))))
 
+(def ^:private bezier-k
+  "Control-point offset that turns four cubic curves into a circle, to within a
+   fifth of a percent. There is no arc operator in a PDF content stream."
+  0.5522847)
+
+(defn- card-pt
+  "A point `dx` right and `dy` DOWN from the top-left of the card at (x, y), in
+   PDF page units. Card coordinates run downward from the page top, page units run
+   up from the page bottom."
+  [x y dx dy]
+  [(float (* 72 (+ x dx))) (float (* 72 (- 11 (+ y dy))))])
+
+(defn- polyline!
+  "Strokes, and optionally closes, a path through card-relative points."
+  [cs x y points close?]
+  (let [[[px py] & rest-pts] (map (fn [[dx dy]] (card-pt x y dx dy)) points)]
+    (.moveTo cs px py)
+    (doseq [[qx qy] rest-pts] (.lineTo cs qx qy))
+    (if close? (.closeAndStroke cs) (.stroke cs))))
+
+(defn- diamond!
+  "A small diamond of radius `r` centred at (dx, dy) on the card. Filled ones mark
+   the item's rarity rank, outlined ones the ranks above it."
+  [cs x y dx dy r filled?]
+  (let [pts [[dx (- dy r)] [(+ dx r) dy] [dx (+ dy r)] [(- dx r) dy]]
+        [[px py] & rest-pts] (map (fn [[a b]] (card-pt x y a b)) pts)]
+    (.moveTo cs px py)
+    (doseq [[qx qy] rest-pts] (.lineTo cs qx qy))
+    (.closePath cs)
+    (if filled? (.fill cs) (.stroke cs))))
+
+(defn- circle!
+  "An outlined circle of radius `r` centred at (dx, dy) on the card."
+  [cs x y dx dy r]
+  (let [k (* r bezier-k)
+        [cx cy] (card-pt x y dx dy)
+        rr (* 72 r) kk (* 72 k)]
+    (.moveTo cs (float (+ cx rr)) cy)
+    (.curveTo cs (float (+ cx rr)) (float (+ cy kk)) (float (+ cx kk)) (float (+ cy rr)) cx (float (+ cy rr)))
+    (.curveTo cs (float (- cx kk)) (float (+ cy rr)) (float (- cx rr)) (float (+ cy kk)) (float (- cx rr)) cy)
+    (.curveTo cs (float (- cx rr)) (float (- cy kk)) (float (- cx kk)) (float (- cy rr)) cx (float (- cy rr)))
+    (.curveTo cs (float (+ cx kk)) (float (- cy rr)) (float (+ cx rr)) (float (- cy kk)) (float (+ cx rr)) cy)
+    (.closeAndStroke cs)))
+
+(def ^:private rarity-rank
+  "How the rarities order, for the diamonds along the top edge. :varies has no
+   rank and draws none -- an item whose rarity depends on the table cannot be
+   ranked against one that does not."
+  {:common 1 :uncommon 2 :rare 3 :very-rare 4 :legendary 5})
+
+(defn item-charges
+  "How many charges the item's own text says it has, or nil.
+
+   Reads the number off the description rather than a field, because the data has
+   no charge count -- it is prose. A die expression takes its maximum, so the
+   tracker has a circle for the best roll: `1d8 + 1 charges` gives nine. Anything
+   past twelve is left alone; a card cannot show a row that long and an item with
+   that many is tracking something else."
+  [description]
+  (when description
+    (let [flat (s/replace description #"\s+" " ")]
+      (when-let [[_ dice faces plus fixed]
+                 (re-find #"(?i)\b(?:(\d+)d(\d+)(?:\s*\+\s*(\d+))?|(\d+))\s+charges\b" flat)]
+        (let [n (if fixed
+                  (parse-long fixed)
+                  (+ (* (parse-long dice) (parse-long faces))
+                     (if plus (parse-long plus) 0)))]
+          (when (<= 1 n 12) n))))))
+
 (def ^:private alignment-attunement
   "Attunement keywords that name an alignment rather than a class or a race. The
    books phrase these differently: a creature OF good alignment, not a good."
@@ -2198,13 +2267,58 @@
                         [(s/join ", " (remove s/blank? [kind rare]))
                          clause]))))
 
+(defn- draw-card-frame!
+  "The card's chamfered border, and the rarity diamonds along its top edge.
+
+   Ranked diamonds rather than a word alone: fanned through, a deck sorts itself
+   by how many are filled, which no amount of setting the rarity in type will do.
+   :varies draws none, so an unrankable item does not claim a rank."
+  [cs x y w h rarity]
+  (let [m 0.09          ; frame inset from the card edge
+        c 0.17          ; corner chamfer
+        r (- w m)
+        b (- h m)]
+    (.setLineWidth cs (float 1.1))
+    (polyline! cs x y [[(+ m c) m] [(- r c) m] [r (+ m c)] [r (- b c)]
+                       [(- r c) b] [(+ m c) b] [m (- b c)] [m (+ m c)]]
+               true)
+    (when-let [rank (rarity-rank rarity)]
+      (.setLineWidth cs (float 0.6))
+      (doseq [i (range 5)]
+        (diamond! cs x y (- r 0.16 (* i 0.115)) (+ m 0.115) 0.037 (< i rank))))
+    (.setLineWidth cs (float 1))))
+
+(defn- draw-charge-track!
+  "A circle per charge, along the bottom of the card.
+
+   Drawn only when the item's text names a number: empty circles on an item with
+   nothing to spend are furniture, and the reason to print a card at all is that
+   it is the thing you mark during play."
+  [cs x y w h n]
+  (let [r 0.052
+        gap 0.145
+        total (* gap (dec n))
+        cx (- (/ w 2) (/ total 2))
+        cy (- h 0.5)]
+    (.setLineWidth cs (float 0.8))
+    (draw-text cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2) -0.19) (- 11 y cy -0.13))
+    (doseq [i (range n)]
+      (circle! cs x y (+ cx (* gap i)) cy r))
+    (.setLineWidth cs (float 1))))
+
 (defn print-items
   "Draws one page of magic item cards, and returns what did not fit for the backs.
 
-   Same grid, box and overflow handling as print-spells. Items carry no icon row:
-   there is no artwork for rarity or attunement, and the books put all of it in one
-   italic line under the name anyway, which costs nothing in black and white. That
-   line's absence gives the description the half inch the spell icons would use."
+   Same grid, box and overflow handling as print-spells, and everything drawn here
+   is vector: a chamfered frame, rarity diamonds, a rule under the header and a
+   charge track. Nothing is rasterised, so the cards stay sharp at any size and
+   cost the file almost nothing.
+
+   The layout differs from a blank card template on purpose. A template spends its
+   room on labelled slots to write into; this card already knows the name, the
+   kind, the rarity and the attunement, so that room goes to the description --
+   the part a player actually rereads at the table. Attunement sits at the foot,
+   out of the header, and only when the item needs it."
   [cs document fonts img box-width box-height items page-number bw? bw-faded?]
   (let [num-boxes-x (int (/ 8.5 box-width))
         num-boxes-y (int (/ 11.0 box-height))
@@ -2220,34 +2334,45 @@
          (let [x (+ margin-x (* box-width i))
                y (+ margin-y (* box-height j))
                item-name (or (:name item) (::mi/name item) "(Unknown Item)")
-               {:keys [::mi/description ::mi/summary ::mi/page ::mi/source]} item
+               {:keys [::mi/description ::mi/summary ::mi/page ::mi/source
+                       ::mi/rarity ::mi/attunement ::mi/attunement-details]} item
                body (or description
                         (when summary
                           (str summary " (see "
                                (if source (s/upper-case (name source)) "DMG")
                                " " page " for more details)"))
                         "")
-               remaining-desc-lines
-               (draw-text-to-box cs body (:plain fonts) 8
-                                 (+ x 0.12)
-                                 (- 11.0 y 0.62)
-                                 (- box-width 0.24)
-                                 (- box-height 0.67))]
-           (let [card-logo (img (str "public/image/card-logo" (when bw? "-bw") ".png"))]
-             (if (and bw? bw-faded?)
-               (draw-imagex-alpha cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25 0.4)
-               (draw-imagex cs card-logo (+ x 1.9) (+ y 0.02) 1.0 0.25)))
-           (draw-text-to-box cs item-name (:bold fonts) 10
-                             (+ x 0.12) (- 11.0 y) (- box-width 0.3) 0.2)
-           (draw-text-to-box cs (magic-item-subtitle item) (:italic fonts) 8
-                             (+ x 0.12) (- 11.0 y 0.19) (- box-width 0.24) 0.4)
-           (when (seq remaining-desc-lines)
-             (let [recharge (img (str "public/image/clockwise-rotation" (when bw? "-bw") ".png"))]
-               (if (and bw? bw-faded?)
-                 (draw-imagex-alpha cs recharge (+ x 2.3) (+ y 3.3) 0.15 0.15 0.4)
-                 (draw-imagex cs recharge (+ x 2.3) (+ y 3.3) 0.15 0.15))))
-           {:remaining-lines remaining-desc-lines
-            :spell-name item-name}))))))
+               clause (attunement-phrase attunement attunement-details)
+               charges (item-charges description)
+               ;; The body stops short of the foot when something is drawn there.
+               body-bottom (cond charges 0.78 clause 0.34 :else 0.20)]
+           (draw-card-frame! cs x y box-width box-height rarity)
+           ;; Two lines for the name: a third of the items are longer than one
+           ;; line at this size, and a clipped name is a card you cannot find.
+           (draw-text-to-box cs item-name (:bold fonts) 10.5
+                             (+ x 0.2) (- 11.0 y 0.12) (- box-width 1.0) 0.42)
+           (draw-text-to-box cs (magic-item-subtitle item) (:italic fonts) 7.5
+                             (+ x 0.2) (- 11.0 y 0.56) (- box-width 0.4) 0.2)
+           (.setLineWidth cs (float 0.9))
+           (polyline! cs x y [[0.2 0.78] [(- box-width 0.2) 0.78]] false)
+           (.setLineWidth cs (float 1))
+           (let [remaining-desc-lines
+                 (draw-text-to-box cs body (:plain fonts) 8
+                                   (+ x 0.2) (- 11.0 y 0.86)
+                                   (- box-width 0.4)
+                                   (- box-height 0.86 body-bottom))]
+             (when clause
+               (draw-text cs clause (:italic fonts) 7
+                          (+ x 0.2) (- 11 y (- box-height 0.235))))
+             (when charges
+               (draw-charge-track! cs x y box-width box-height charges))
+             (when (seq remaining-desc-lines)
+               (let [recharge (img (str "public/image/clockwise-rotation" (when bw? "-bw") ".png"))]
+                 (if (and bw? bw-faded?)
+                   (draw-imagex-alpha cs recharge (+ x (- box-width 0.32)) (+ y (- box-height 0.32)) 0.13 0.13 0.4)
+                   (draw-imagex cs recharge (+ x (- box-width 0.32)) (+ y (- box-height 0.32)) 0.13 0.13))))
+             {:remaining-lines remaining-desc-lines
+              :spell-name item-name})))))))
 
 #_{:clj-kondo/ignore [:unused-private-var]}
 (defn- create-monsters-pdf
