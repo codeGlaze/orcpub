@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.template :as t5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.classes :as classes5e]
+            [orcpub.dnd.e5.armor-class :as ac]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.spells :as spells5e]
@@ -138,12 +139,43 @@
           "PINNED: ?natural-ac-bonus is cum-sum, so two natural(3) sources STACK to +6 -> 18; RAW-correct is max = 15"))))
 
 ;; ===========================================================================
-;; SECTION 3 — PROPOSED efficient rewrite (assertions added AS DEVISED)
+;; SECTION 3 — PROPOSED reconciler (orcpub.dnd.e5.armor-class/reconcile-ac)
 ;; ===========================================================================
-;; When the reconciler is rewritten, its assertions go here. Rules:
-;;   * every SECTION 1 number must reproduce exactly (no silent regression), and
-;;   * SECTION 2 should FLIP to 15 on purpose — that flip IS the bug fix, called out here.
-;; (empty until the rewrite lands)
+;; Pure-fn unit tests on the REAL core (not a toy): a method returns its 'AC = ...' value or
+;; 0 when it doesn't apply; the BEST method wins (max); bonuses are SUMMED onto the winner.
+;; These iterate in microseconds. The SECTION 1/2 build tests are the integration proof that
+;; this fn is actually wired into a real character (added when template_base calls it).
+;;
+;; Method/bonus stand-ins use Dex 14 (+2), so "10 + Dex" = 12, "16 + Dex" = 18, etc.
+
+(deftest reconcile-methods-take-the-max                                    ; B1
+  (testing "competing methods reconcile by max — best rises, nothing stacks"
+    (let [base   (fn [_ _] 12)     ; SRD unarmored 10 + Dex(2)
+          hb-nat (fn [_ _] 18)]    ; homebrew natural armor 16 + Dex(2)
+      (is (= 18 (ac/reconcile-ac {:methods [base hb-nat]} nil nil))
+          "homebrew method beats the base and wins")
+      (is (= 12 (ac/reconcile-ac {:methods [base (fn [_ _] 0)]} nil nil))
+          "a non-applicable method (returns 0) never drags the winner down"))))
+
+(deftest reconcile-bonuses-reach-the-winning-method                        ; B2 (the universals fix)
+  (testing "bonuses are summed ONTO the winning method — not trapped in the base"
+    (let [base   (fn [_ _] 12)
+          hb-nat (fn [_ _] 18)     ; wins the max
+          ring   (fn [_ _] 1)      ; Ring of Protection — a universal ?magical-ac-bonus
+          shield (fn [_ _] 2)]     ; shield — a universal
+      (is (= 19 (ac/reconcile-ac {:methods [base hb-nat] :bonuses [ring]} nil nil))
+          "ring reaches the WINNING homebrew method (old engine dropped it: buried in base)")
+      (is (= 21 (ac/reconcile-ac {:methods [base hb-nat] :bonuses [ring shield]} nil nil))
+          "multiple universals all land on the winner"))))
+
+(deftest reconcile-floor-is-a-constant-method                              ; B4 (Barkskin)
+  (testing "a floor/set-AC is just a constant method — max gives 'at least N' for free"
+    (let [worn  (fn [_ _] 13)      ; light armor 11 + Dex(2)
+          floor (fn [_ _] 16)]     ; Barkskin: AC can't be less than 16
+      (is (= 16 (ac/reconcile-ac {:methods [worn floor]} nil nil))
+          "floored up to 16 when the real AC is lower")
+      (is (= 18 (ac/reconcile-ac {:methods [(fn [_ _] 18) floor]} nil nil))
+          "and NOT capped: 18 > 16 stays 18"))))
 
 ;; ===========================================================================
 ;; SECTION 4 — BACKWARD-COMPAT SHIMS (deprecated public homebrew vars)
