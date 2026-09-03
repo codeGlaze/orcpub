@@ -907,11 +907,30 @@ The same 45 cards:
 |---|---|
 | 32px PNG | 80,026 bytes |
 | vector, path re-emitted per card | 208,365 bytes |
-| vector, one shared form | 87,922 bytes |
+| vector, one shared form | 85,756 bytes |
 
-**+10% over the rasters** for art that no longer has a resolution. That is the
+**+7% over the rasters** for art that no longer has a resolution. That is the
 honest cost: a form carries its geometry once, but a few kilobytes of curves is
 still more than a few hundred bytes of 32px PNG.
+
+It lands only where cards are printed. A character sheet with no card pages draws
+no icons and is **byte-identical** before and after -- checked on both
+`dev/sample_character.clj` fixtures.
+
+The last 2.5% of that came from precision. Every digit of every coordinate is a
+byte in the file, and the geometry is the entire cost of vector over raster, so
+form coordinates are written to one decimal place:
+
+| coordinates | 45 cards | vs rasters |
+|---|---|---|
+| full float | 87,922 | +9.9% |
+| one decimal | 85,756 | +7.2% |
+| integer | 83,944 | +4.9% |
+
+A tenth of a 512-unit box is 1/5120 of the icon -- a third of a 600 DPI dot at the
+0.25in a card draws, and still under a dot at an inch. Integer rounding is a
+further 2 KB but is about one dot at an inch, so it is left on the table rather
+than capping how large an icon can usefully be drawn.
 
 ### Colour belongs at the draw site
 

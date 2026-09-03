@@ -249,6 +249,17 @@
   (some-> (io/resource (str "public/image/" icon-name ".svg"))
           slurp last-svg-path svg-path-ops))
 
+(defn- round-unit
+  "A form coordinate, at one decimal place.
+
+   Every digit written is a byte in the file, and the geometry is the whole cost
+   of a vector icon over a raster one -- trimming to a tenth of a unit takes about
+   2.5% off a card-heavy export. A tenth of a 512-unit box is 1/5120 of the icon:
+   at the 0.25in a card draws one that is a third of a 600 DPI dot, and it stays
+   under a dot even at an inch."
+  [v]
+  (float (/ (Math/round (* 10.0 (double v))) 10.0)))
+
 (defn svg-form
   "An icon's paths as a Form XObject in a `svg-view`-unit box, y already flipped
    so the form's own space is upright.
@@ -264,7 +275,7 @@
     (.setBBox form (PDRectangle. 0 0 (float svg-view) (float svg-view)))
     (.setResources form (PDResources.))
     (with-open [cs (PDPageContentStream. doc form)]
-      (emit-svg-path! cs ops float (fn [v] (float (- svg-view v)))))
+      (emit-svg-path! cs ops round-unit (fn [v] (round-unit (- svg-view v)))))
     form))
 
 (defn make-image-loader
