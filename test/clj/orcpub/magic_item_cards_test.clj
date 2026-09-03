@@ -13,10 +13,10 @@
     (is (= "(requires attunement)" (pdf/attunement-phrase [:any] nil))))
   (testing "one class"
     (is (= "(requires attunement by a warlock)" (pdf/attunement-phrase [:warlock] nil))))
-  (testing "two are joined with or, three or more with a serial comma"
-    (is (= "(requires attunement by a sorcerer or a wizard)"
+  (testing "the article goes on the first name only, as the books set it"
+    (is (= "(requires attunement by a sorcerer or wizard)"
            (pdf/attunement-phrase [:sorcerer :wizard] nil)))
-    (is (= "(requires attunement by a bard, a cleric, or a druid)"
+    (is (= "(requires attunement by a bard, cleric, or druid)"
            (pdf/attunement-phrase [:bard :cleric :druid] nil))))
   (testing "an alignment is a creature of that alignment, not 'a good'"
     (is (= "(requires attunement by a creature of good alignment)"
@@ -25,12 +25,17 @@
     (is (= "(requires attunement outdoors at night)"
            (pdf/attunement-phrase [:any] "requires attunement outdoors at night")))))
 
-(deftest the-subtitle-names-kind-rarity-and-attunement
+(deftest the-subtitle-names-kind-and-rarity
   (testing "in that order, comma separated"
-    (is (= "Weapon, very rare (requires attunement)"
+    (is (= "Weapon, very rare"
+           (pdf/magic-item-subtitle {::mi/type :weapon
+                                     ::mi/rarity :very-rare}))))
+  (testing "attunement is left to the foot of the card, not repeated here"
+    (is (= "Weapon, very rare"
            (pdf/magic-item-subtitle {::mi/type :weapon
                                      ::mi/rarity :very-rare
-                                     ::mi/attunement [:any]}))))
+                                     ::mi/attunement [:sorcerer :warlock :wizard]}))
+        "the long clause clipped this line, and the card already prints it below"))
   (testing "a subtype is parenthesised after the kind"
     (is (= "Weapon (sword), rare"
            (pdf/magic-item-subtitle {::mi/type :weapon
@@ -66,12 +71,22 @@
     (is (nil? (pdf/item-charges "You gain a +2 bonus to attack rolls.")))
     (is (nil? (pdf/item-charges "It has 3 charge levels"))
         "'charges' must be the word, not a prefix"))
-  (testing "a row too long for a card is left undrawn rather than overflowing it"
-    (is (nil? (pdf/item-charges "The artifact has 50 charges.")))
-    (is (= 12 (pdf/item-charges "It has 12 charges.")))))
+  (testing "a big pool is still read; the card writes it rather than ticking it"
+    (is (= 50 (pdf/item-charges "The staff has 50 charges.")))
+    (is (= 12 (pdf/item-charges "It has 12 charges."))))
+  (testing "past 99 is parse noise, not a charge pool"
+    (is (nil? (pdf/item-charges "It has 500 charges.")))))
 
 (deftest charge-parsing-survives-every-shipped-item
-  (testing "no description throws, and every count fits the card"
+  (testing "no description throws, and every count is a plausible pool"
     (let [counts (keep #(pdf/item-charges (::mi/description %)) (vals mi/magic-item-map))]
       (is (seq counts) "some items do have charges")
-      (is (every? #(<= 1 % 12) counts)))))
+      (is (every? #(<= 1 % 99) counts))
+      (is (= 55 (count counts))
+          "the five staves and cubes with big pools are read, not skipped")))
+  (testing "'charged with magic' is a turn of phrase, not a charge pool"
+    (let [tomes (->> (vals mi/magic-item-map)
+                     (filter #(re-find #"words are charged with magic"
+                                       (str (::mi/description %)))))]
+      (is (seq tomes))
+      (is (every? #(nil? (pdf/item-charges (::mi/description %))) tomes)))))

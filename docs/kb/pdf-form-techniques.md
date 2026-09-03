@@ -694,6 +694,17 @@ Two things earn their space:
   circles: an empty row is furniture, and marking charges is the reason to have
   the card in your hand.
 
+  Sixty-four items say "charge". Fifty-five get a track. The nine that do not are
+  the Manuals and Tomes whose *words are charged with magic*, which is a turn of
+  phrase; the word alone must never be enough to draw one.
+
+  Past twelve the track becomes a rule to write the remaining count on, over the
+  total. Capping the PARSE at twelve instead -- the first attempt -- drew nothing
+  at all for the Staff of the Magi, the Staff of Power, the Cube of Force and the
+  Gem of Brightness, which are precisely the items whose charges anyone tracks. A
+  card cannot show fifty circles, but nobody ticks fifty boxes either: they write
+  a number, so the card gives them somewhere to write it.
+
 Three collisions worth knowing, all found by rendering rather than reasoning: the
 title has to stop clear of the diamonds, the body has to stop clear of the CHARGES
 label, and the overflow mark belongs at the foot because the head is taken.
@@ -746,3 +757,12 @@ The name is 12pt with a little letter spacing, not 10pt plain. A card title has 
 carry across a table; at 10 it read as a heading on a page instead. `print-items`
 takes the face, size and tracking as options for the same reason the flourish is
 an option: so alternatives can be rendered side by side.
+
+Two things at the foot of the card, both found by rendering it:
+
+- **The attunement clause was being printed twice**, in the subtitle and at the
+  foot, and the subtitle copy clipped mid-phrase. It belongs at the foot only.
+- **The article goes on the first name alone** -- "by a sorcerer, warlock, or
+  wizard", as the books set it. One per name is wrong and runs past the frame.
+  Even set correctly the longest clause is 2.7in against 2.1in of card, so it
+  wraps to two lines at 6.8pt rather than shrinking to the 5pt that would fit one.

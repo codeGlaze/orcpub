@@ -2202,9 +2202,11 @@
 
    Reads the number off the description rather than a field, because the data has
    no charge count -- it is prose. A die expression takes its maximum, so the
-   tracker has a circle for the best roll: `1d8 + 1 charges` gives nine. Anything
-   past twelve is left alone; a card cannot show a row that long and an item with
-   that many is tracking something else."
+   tracker has a circle for the best roll: `1d8 + 1 charges` gives nine.
+
+   Anything past 99 is parse noise rather than a charge pool. Note what is NOT
+   matched: the Manuals and Tomes whose words are \"charged with magic\" have no
+   charges, and the word alone must not be enough to draw a tracker."
   [description]
   (when description
     (let [flat (s/replace description #"\s+" " ")]
@@ -2214,7 +2216,7 @@
                   (parse-long fixed)
                   (+ (* (parse-long dice) (parse-long faces))
                      (if plus (parse-long plus) 0)))]
-          (when (<= 1 n 12) n))))))
+          (when (<= 1 n 99) n))))))
 
 (def ^:private alignment-attunement
   "Attunement keywords that name an alignment rather than a class or a race. The
@@ -2234,22 +2236,29 @@
     (empty? attunement) nil
     (= [:any] (vec attunement)) "(requires attunement)"
     :else
+    ;; The article goes on the first name only -- "by a sorcerer, warlock, or
+    ;; wizard", as the books set it. One per name is both wrong and wide enough to
+    ;; run past the card's frame at the foot.
     (let [names (map (fn [k]
                        (if (alignment-attunement k)
-                         (str "a creature of " (name k) " alignment")
-                         (str "a " (common/kw-to-name k))))
-                     attunement)]
-      (str "(requires attunement by "
-           (case (count names)
-             1 (first names)
-             2 (s/join " or " names)
-             (str (s/join ", " (butlast names)) ", or " (last names)))
-           ")"))))
+                         (str "creature of " (name k) " alignment")
+                         (common/kw-to-name k)))
+                     attunement)
+          listed (case (count names)
+                   1 (first names)
+                   2 (s/join " or " names)
+                   (str (s/join ", " (butlast names)) ", or " (last names)))]
+      (str "(requires attunement by a " listed ")"))))
 
 (defn magic-item-subtitle
-  "The italic line under a magic item's name: what kind of thing it is, how rare
-   it is, and whether it needs attunement -- the same order the books use."
-  [{:keys [::mi/type ::mi/subtype ::mi/rarity ::mi/attunement ::mi/attunement-details]}]
+  "The italic line under a magic item's name: what kind of thing it is and how
+   rare, in the order the books use.
+
+   The attunement clause is deliberately NOT here. The card prints it at the foot,
+   and a line carrying both was not only saying it twice -- \"requires attunement
+   by a sorcerer, warlock, or wizard\" does not fit one line, so the subtitle
+   clipped mid-phrase on exactly the items whose condition matters most."
+  [{:keys [::mi/type ::mi/subtype ::mi/rarity]}]
   (let [kind (when type
                ;; Capitalised, and only the first word: the books write "Wondrous
                ;; item, rare", not "Wondrous Item".
@@ -2260,12 +2269,8 @@
                (if (= :varies rarity)
                  "rarity varies"
                  (s/lower-case (common/kw-to-name rarity))))
-        ;; The attunement clause follows a space, not a comma -- "very rare
-        ;; (requires attunement)" is how it is set on the page.
-        clause (attunement-phrase attunement attunement-details)]
-    (s/join " " (remove s/blank?
-                        [(s/join ", " (remove s/blank? [kind rare]))
-                         clause]))))
+        ]
+    (s/join ", " (remove s/blank? [kind rare]))))
 
 (defn- chamfered-frame!
   "A rectangle with its corners cut, inset `m` from the card edge."
@@ -2410,22 +2415,38 @@
       (draw-flourish! cs x y w h m c family rank))
     (.setLineWidth cs (float 1))))
 
+(def ^:private tickable-charges
+  "The most circles a card can carry in one row and a hand can sensibly tick.
+   Past this the tracker becomes a number to write instead."
+  12)
+
 (defn- draw-charge-track!
-  "A circle per charge, along the bottom of the card.
+  "Somewhere to track charges, along the bottom of the card.
 
    Drawn only when the item's text names a number: empty circles on an item with
    nothing to spend are furniture, and the reason to print a card at all is that
-   it is the thing you mark during play."
+   it is the thing you mark during play.
+
+   Up to `tickable-charges` that is a circle each. Past it -- a Staff of the Magi
+   has fifty -- it is a rule to write the remaining count on, over the total,
+   because nobody ticks fifty boxes at a table. Capping the parse instead would
+   have drawn nothing at all for exactly the items that most need tracking."
   [cs x y w h n]
-  (let [r 0.052
-        gap 0.145
-        total (* gap (dec n))
-        cx (- (/ w 2) (/ total 2))
-        cy (- h 0.5)]
+  (let [cy (- h 0.5)]
     (.setLineWidth cs (float 0.8))
-    (draw-text cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2) -0.19) (- 11 y cy -0.13))
-    (doseq [i (range n)]
-      (circle! cs x y (+ cx (* gap i)) cy r))
+    (if (<= n tickable-charges)
+      (let [r 0.052
+            gap 0.145
+            cx (- (/ w 2) (/ (* gap (dec n)) 2))]
+        (draw-text cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2) -0.19) (- 11 y cy -0.13))
+        (doseq [i (range n)]
+          (circle! cs x y (+ cx (* gap i)) cy r)))
+      (let [total (str "/ " n)
+            rule-w 0.62
+            left (- (/ w 2) (/ rule-w 2) 0.16)]
+        (draw-text cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2) -0.19) (- 11 y cy -0.155))
+        (polyline! cs x y [[left cy] [(+ left rule-w) cy]] false)
+        (draw-text cs total HELVETICA 7 (+ x left rule-w 0.05) (- 11 y cy -0.015))))
     (.setLineWidth cs (float 1))))
 
 (defn print-items
@@ -2479,7 +2500,10 @@
                clause (attunement-phrase attunement attunement-details)
                charges (item-charges description)
                ;; The body stops short of the foot when something is drawn there.
-               body-bottom (cond charges 0.82 clause 0.46 :else 0.32)]
+               ;; The clause gets two lines' worth: the longest -- a bard, cleric,
+               ;; druid, sorcerer, warlock, or wizard -- is 2.7in against 2.1in of
+               ;; card, and shrinking it to fit one line lands at 5pt.
+               body-bottom (cond charges 0.82 clause 0.58 :else 0.32)]
            (draw-card-frame! cs x y box-width box-height rarity flourish)
            (draw-rarity-rail! cs x y box-width rarity 0.245)
            (draw-foot-ornament! cs x y box-width (- box-height 0.185))
@@ -2512,8 +2536,9 @@
                                    (- box-width 0.4)
                                    (- box-height 1.24 body-bottom))]
              (when clause
-               (draw-text cs clause (:italic fonts) 7
-                          (+ x 0.2) (- 11 y (- box-height 0.34))))
+               (draw-text-to-box cs clause (:italic fonts) 6.8
+                                 (+ x 0.2) (- 11.0 y (- box-height 0.50))
+                                 (- box-width 0.4) 0.24))
              (when charges
                (draw-charge-track! cs x y box-width box-height charges))
              (when (seq remaining-desc-lines)
