@@ -27,6 +27,7 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.classes :as classes5e]
             [orcpub.dnd.e5.armor-class :as ac]
+            [orcpub.modifiers :as mod]
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.spells :as spells5e]
@@ -49,12 +50,14 @@
 ;; Lets us put natural-ac + unarmored-defense on ONE character with built-in mechanics,
 ;; without the Draconic subclass+ancestry selection ceremony.
 (defn natural-armor-class
-  "Synthetic class granting ?natural-ac-bonus `val` (the Draconic-Bloodline mechanism),
-   so we can put natural armor on any build without the subclass/ancestry ceremony."
+  "Synthetic class granting ?natural-ac-bonus `val` via the SAME mechanism all real content
+   uses — `mod/modifier` (a SET, classes.cljc:2279 / options.cljc:3607,3614), NOT the cum-sum
+   constructor. This matters: two SET sources last-win (no stacking); an earlier version of
+   this fixture used mod5e/natural-ac-bonus (cum-sum) and manufactured a fake 'A3 stacking bug'."
   [key val]
   {:name (name key) :key key :hit-die 8 :ability-increase-levels [4 8 12 16 19]
    :subclass-title "Origin" :subclass-level 3 :subclasses [] :profs {}
-   :modifiers [(mod5e/natural-ac-bonus val)]})
+   :modifiers [(mod/modifier ?natural-ac-bonus val)]})
 
 (def natural-armor-class-full (natural-armor-class :nat-armor- 3))
 (def natural-armor-class-b    (natural-armor-class :nat-armor-b- 3))  ; a SECOND natural source
@@ -124,19 +127,21 @@
           "FIXED: natural(3) and unarmored(Con 3) no longer stack; max(13+Dex, 10+Dex+Con) = 15"))))
 
 ;; ---------------------------------------------------------------------------
-;; A3 — multiple natural-armor sources must reconcile by MAX, not sum. Two natural
-;; armors ("your AC = 13 + Dex") are both base-setting; you take the better, not 13+13-10.
-;; ?natural-ac-bonus is a cum-sum channel, so two sources ADD (3+3=6) -> 10+Dex+6. This
-;; PROBES whether that stacking happens today; the value is pinned from the actual run.
+;; A3 — two natural-armor sources do NOT stack. IMPORTANT CORRECTION: an earlier version of
+;; this test claimed they stacked to 18 — that was a FIXTURE ARTIFACT. The synthetic classes
+;; used the cum-sum constructor (mod5e/natural-ac-bonus), which sums; but ALL real content sets
+;; ?natural-ac-bonus with mod/modifier — a SET (es/modifier replaces, does not accumulate). With
+;; the fixture now matching real content, two SET sources last-win (3) -> 10+Dex+3 = 15. There is
+;; NO natural-stacking bug in integration; nothing to patch. (Residual, barely reachable: two
+;; natural sources of DIFFERENT value last-win rather than max — no built-in combo produces it,
+;; and the methods-in-max refactor makes it correct for free. Not a shipping issue.)
 ;; ---------------------------------------------------------------------------
-(deftest two-natural-sources-current-behavior
-  (testing "two natural-armor sources on one character (probe: max vs sum)"
+(deftest two-natural-sources-do-not-stack
+  (testing "two natural-armor sources via the REAL set mechanism don't stack"
     (let [ac (unarmored-ac :nat-armor- :nat-armor-b-)]
-      (println (format "\n[A3 PROBE] two natural(3) sources unarmored AC = %s  (RAW-correct = 15, i.e. max not sum)\n" ac))
-      (is (integer? ac) "builds")
-      ;; assertion pinned from the run below (documents current behavior; flip if it's a bug we fix):
-      (is (= 18 ac)
-          "PINNED: ?natural-ac-bonus is cum-sum, so two natural(3) sources STACK to +6 -> 18; RAW-correct is max = 15"))))
+      (println (format "\n[A3] two natural(3) SET sources unarmored AC = %s  (no stacking)\n" ac))
+      (is (= 15 ac)
+          "two SET natural(3) sources -> 3 (last-wins), 10+Dex(2)+3 = 15; they do NOT sum to 18"))))
 
 ;; ===========================================================================
 ;; SECTION 3 — PROPOSED reconciler (orcpub.dnd.e5.armor-class/reconcile-ac)
