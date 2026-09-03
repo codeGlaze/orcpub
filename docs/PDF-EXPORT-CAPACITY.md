@@ -236,3 +236,21 @@ Note that the section count is derived in TWO places -- the handler and
 `add-missing-spell-pages!` -- and clamping only the handler left the endpoint
 exactly as vulnerable. That was caught by firing the request at a running server
 rather than reasoning about the code.
+
+**So the ceiling is applied to the request, not to the generators.**
+`routes/bound-request` runs once on the parsed body before any part of the export
+sees it, and does two things: a `spellcasting-class-N` name past the section
+ceiling is dropped outright, and every collection is truncated to the card
+ceiling. Because the field never arrives, no downstream reader can derive a number
+too large however many of them there are -- which is the failure the first fix
+walked into.
+
+The point is that it holds for code nobody has written yet. A feature added later
+that reads a list out of the request, or counts `spellcasting-class-N` names, is
+bounded without being wired up. `export_capacity_test` proves this the only way
+worth proving it: it disables every per-site clamp and checks the request is still
+bounded, so if the boundary ever regresses the test fails rather than the
+generators quietly covering for it.
+
+The per-site clamps stay as defence in depth. They are no longer what is doing
+the work.

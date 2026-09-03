@@ -583,6 +583,54 @@
     :weapon-name-2 8
     :weapon-name-3 8}))
 
+(defn- bound-collection
+  "At most `n` entries, whether `v` is a list or a map of lists.
+
+   A map is capped across ALL its values, not per key: spells-known is keyed by
+   class, so a per-key cap would let thirteen classes carry the limit each."
+  [n v]
+  (cond
+    (map? v) (first (reduce (fn [[m left] [k xs]]
+                              (if (sequential? xs)
+                                [(assoc m k (take left xs)) (max 0 (- left (count xs)))]
+                                [(assoc m k xs) left]))
+                            [{} n] v))
+    (sequential? v) (take n v)
+    :else v))
+
+(defn bound-request
+  "Caps everything caller-supplied before any part of the export sees it.
+
+   This is the ceiling that does not have to be remembered. Both rules act on the
+   REQUEST rather than on a generator, so a feature added later that reads a
+   collection out of the body, or counts spellcasting-class-N field names, is
+   bounded without anyone wiring it up:
+
+   - A `spellcasting-class-N` name past the section ceiling is dropped outright.
+     The count was derived in two places -- the handler and add-missing-spell-pages!
+     -- and clamping only one left the endpoint just as open. Nothing downstream
+     can see a number too large if the field never arrives.
+   - Every collection is truncated to the card ceiling. Cards are nine to a page
+     and the caller says how many, so an uncapped list is an uncapped page count.
+
+   Generators keep their own clamps as well. This is the one that catches what
+   nobody thought to clamp."
+  [fields]
+  (let [max-sections (config/get-pdf-max-caster-sections)
+        max-cards (config/get-pdf-max-cards)
+        past-ceiling? (fn [k]
+                        (when-let [[_ n] (re-matches #"spellcasting-class-(\d+)" (name k))]
+                          (> (or (parse-long n) 0) max-sections)))
+        dropped (count (filter past-ceiling? (keys fields)))]
+    (when (pos? dropped)
+      (println (format "pdf: dropped %d spellcasting-class field(s) past section %d"
+                       dropped max-sections)))
+    (reduce-kv (fn [m k v]
+                 (if (past-ceiling? k)
+                   m
+                   (assoc m k (bound-collection max-cards v))))
+               {} fields)))
+
 (defn- bound-cards
   "At most ORCPUB_PDF_MAX_CARDS of `cards`, reporting when it truncates.
 
@@ -854,7 +902,7 @@
 
 (defn- generate-character-pdf [req]
   (let [fields (try
-                 (-> req :form-params :body edn/read-string)
+                 (-> req :form-params :body edn/read-string bound-request)
                  (catch Exception e
                    (throw (ex-info "Invalid character data format. Unable to parse PDF request."
                                    {:error :invalid-pdf-data}

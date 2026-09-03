@@ -118,3 +118,54 @@
         "a level 20 wizard's spellbook is about 44 spells")
     (is (>= (config/get-pdf-max-caster-sections) 13)
         "thirteen is every class in the game")))
+
+(def ^:private bound-request #'routes/bound-request)
+
+(deftest the-boundary-bounds-what-nobody-clamped
+  (testing "a spellcasting-class field past the ceiling never reaches the export"
+    (let [ceiling (config/get-pdf-max-caster-sections)
+          bounded (bound-request {:character-name "T"
+                                  :spellcasting-class-1 "Wizard"
+                                  (keyword (str "spellcasting-class-" (inc ceiling))) "Wizard"
+                                  :spellcasting-class-9999 "Wizard"})]
+      (is (contains? bounded :spellcasting-class-1))
+      (is (not (contains? bounded :spellcasting-class-9999))
+          "the field is dropped, so neither the handler nor add-missing-spell-pages!
+           can derive a number too large -- the reason the first fix missed one")
+      (is (= "T" (:character-name bounded)) "ordinary fields pass through")))
+
+  (testing "any collection is capped, including one nobody has written yet"
+    (let [limit (config/get-pdf-max-cards)
+          bounded (bound-request {:some-future-option (repeat (* 5 limit) {:key :x})})]
+      (is (= limit (count (:some-future-option bounded)))
+          "a feature added later that reads a list is bounded without being wired up")))
+
+  (testing "a map of lists is capped across all of it, not per key"
+    (let [limit (config/get-pdf-max-cards)
+          bounded (bound-request {:spells-known {:wizard (repeat limit {:key :x})
+                                                 :cleric (repeat limit {:key :y})
+                                                 :bard   (repeat limit {:key :z})}}) ]
+      (is (= limit (reduce + (map count (vals (:spells-known bounded)))))
+          "capping per class would let thirteen classes carry the limit each")))
+
+  (testing "scalars and nil are untouched"
+    (is (= {:a 1 :b "x" :c nil :d true}
+           (bound-request {:a 1 :b "x" :c nil :d true})))))
+
+(deftest the-boundary-holds-without-the-per-site-clamps
+  (testing "with every generator clamp disabled, the request alone is still bounded"
+    ;; The per-site clamps stay in the code as defence in depth. This proves they
+    ;; are not what is doing the work -- if the boundary regresses, this fails even
+    ;; though the generators would quietly cover for it.
+    (with-redefs [config/get-pdf-max-cards (constantly 25)
+                  config/get-pdf-max-caster-sections (constantly 6)]
+      (let [bounded (bound-request
+                     (merge {:spells-known {:wizard (repeat 5000 {:key :acid-arrow})}
+                             :magic-items-known (repeat 5000 {:name "x"})}
+                            (into {} (for [n (range 1 200)]
+                                       [(keyword (str "spellcasting-class-" n)) "Wizard"]))))]
+        (is (= 25 (count (:magic-items-known bounded))))
+        (is (= 25 (reduce + (map count (vals (:spells-known bounded))))))
+        (is (= 6 (count (filter #(re-matches #"spellcasting-class-\d+" (name %))
+                                (keys bounded))))
+            "only the sections within the ceiling survive parsing")))))
