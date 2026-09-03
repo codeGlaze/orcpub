@@ -177,6 +177,28 @@
       (is (= 18 (ac/reconcile-ac {:methods [(fn [_ _] 18) floor]} nil nil))
           "and NOT capped: 18 > 16 stays 18"))))
 
+(deftest reconcile-unarmored-method-excludes-when-armored                  ; method contract
+  (testing "a method opts OUT by returning 0 for a context it doesn't apply to"
+    (let [armored   (fn [armor _] (if armor 16 0))    ; e.g. scale mail 14 + capped Dex 2
+          unarmored (fn [armor _] (if armor 0 15))]   ; 10 + Dex + Con, only while no armor
+      (is (= 16 (ac/reconcile-ac {:methods [armored unarmored]} :scale nil))
+          "armored context -> armored method wins, unarmored excludes itself")
+      (is (= 15 (ac/reconcile-ac {:methods [armored unarmored]} nil nil))
+          "no-armor context -> unarmored method wins, armored excludes itself"))))
+
+(deftest reconcile-shield-permission-is-self-exclusion                     ; B5
+  (testing "per-method shield permission = whether the method returns 0 when a shield is held"
+    (let [base   (fn [_ _] 12)                          ; plain 10 + Dex(2)
+          barb   (fn [_ _] 15)                          ; shield-OK: value regardless of shield
+          monk   (fn [_ shield] (if shield 0 15))       ; shield-FORBIDDEN: 0 when a shield is held
+          shield (fn [_ s] (if s 2 0))]                 ; the shield bonus (a universal)
+      (is (= 17 (ac/reconcile-ac {:methods [base barb] :bonuses [shield]} nil :s))
+          "Barbarian keeps its method with a shield: 15 + 2 = 17")
+      (is (= 14 (ac/reconcile-ac {:methods [base monk] :bonuses [shield]} nil :s))
+          "Monk self-excludes with a shield -> base(12) wins + shield(2) = 14 (loses Wis, per RAW)")
+      (is (= 15 (ac/reconcile-ac {:methods [base monk] :bonuses [shield]} nil nil))
+          "no shield -> Monk method(15) wins"))))
+
 ;; ===========================================================================
 ;; SECTION 4 — BACKWARD-COMPAT SHIMS (deprecated public homebrew vars)
 ;; ===========================================================================
