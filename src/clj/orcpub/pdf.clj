@@ -51,6 +51,7 @@
            (org.apache.pdfbox.pdmodel PDPageContentStream$AppendMode)
            (org.apache.pdfbox.pdmodel.graphics.image JPEGFactory LosslessFactory)
            (org.apache.pdfbox.pdmodel.graphics.state PDExtendedGraphicsState)
+           (org.apache.pdfbox.util Matrix)
            (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font Standard14Fonts$FontName)
            (javax.imageio ImageIO)
            (java.net URL HttpURLConnection)))
@@ -87,17 +88,202 @@
      :bold        "Vollkorn-Bold.ttf"
      :bold-italic "Vollkorn-BoldItalic.ttf"}))
 
+(def ^:private svg-token
+  #"([MmLlHhVvCcSsQqTtAaZz])|(-?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?)")
+
+(defn- svg-tokens
+  "The `d` attribute as an alternating stream of command keywords and numbers."
+  [d]
+  (for [[_ cmd num] (re-seq svg-token d)]
+    (if cmd (keyword cmd) (Double/parseDouble num))))
+
+(defn- arc-points
+  "An elliptical arc sampled as points. SVG's A takes radii, a rotation and two
+   flags; PDF has no arc operator, and the exact bezier decomposition is a page of
+   trigonometry for a curve that spans a few points on an icon, so it is sampled."
+  [x0 y0 rx ry rot large? sweep? x1 y1]
+  (let [phi (Math/toRadians rot)
+        cos-p (Math/cos phi) sin-p (Math/sin phi)
+        dx2 (/ (- x0 x1) 2.0) dy2 (/ (- y0 y1) 2.0)
+        tx (+ (* cos-p dx2) (* sin-p dy2))
+        ty (- (* cos-p dy2) (* sin-p dx2))
+        rx (Math/abs rx) ry (Math/abs ry)
+        ;; A radius too small to span the endpoints is scaled up, per the spec.
+        lam (+ (/ (* tx tx) (* rx rx)) (/ (* ty ty) (* ry ry)))
+        [rx ry] (if (> lam 1) [(* rx (Math/sqrt lam)) (* ry (Math/sqrt lam))] [rx ry])
+        num (- (* rx rx ry ry) (* rx rx ty ty) (* ry ry tx tx))
+        den (+ (* rx rx ty ty) (* ry ry tx tx))
+        co (* (if (= large? sweep?) -1 1) (Math/sqrt (max 0.0 (/ num den))))
+        cx' (* co (/ (* rx ty) ry))
+        cy' (* co (- (/ (* ry tx) rx)))
+        cx (+ (* cos-p cx') (- (* sin-p cy')) (/ (+ x0 x1) 2.0))
+        cy (+ (* sin-p cx') (* cos-p cy') (/ (+ y0 y1) 2.0))
+        ang (fn [ux uy vx vy]
+              (let [d (/ (+ (* ux vx) (* uy vy))
+                         (* (Math/hypot ux uy) (Math/hypot vx vy)))
+                    a (Math/acos (max -1.0 (min 1.0 d)))]
+                (if (neg? (- (* ux vy) (* uy vx))) (- a) a)))
+        th1 (ang 1 0 (/ (- tx cx') rx) (/ (- ty cy') ry))
+        dth (let [d (ang (/ (- tx cx') rx) (/ (- ty cy') ry)
+                         (/ (- (- tx) cx') rx) (/ (- (- ty) cy') ry))]
+              (cond (and (not sweep?) (pos? d)) (- d (* 2 Math/PI))
+                    (and sweep? (neg? d)) (+ d (* 2 Math/PI))
+                    :else d))
+        steps (max 6 (int (* 24 (/ (Math/abs dth) Math/PI))))]
+    (for [i (range 1 (inc steps))
+          :let [t (+ th1 (* dth (/ i (double steps))))
+                ex (* rx (Math/cos t)) ey (* ry (Math/sin t))]]
+      [(+ cx (* cos-p ex) (- (* sin-p ey)))
+       (+ cy (* sin-p ex) (* cos-p ey))])))
+
+(defn svg-path-ops
+  "Parses an SVG `d` attribute into [:move x y], [:line x y] and
+   [:curve x1 y1 x2 y2 x y] in the SVG's own coordinates, plus [:close].
+
+   Covers the commands game-icons.net glyphs use -- M L H V C S Q T A Z and their
+   relative forms -- including the rule that coordinate pairs after an M continue
+   as implicit L. Quadratics are raised to cubics, which PDF has; arcs are sampled,
+   which PDF does not."
+  [d]
+  (loop [[t & more :as ts] (svg-tokens d)
+         cmd nil, cx 0.0, cy 0.0, sx 0.0, sy 0.0
+         prev-c nil, prev-q nil, out []]
+    (if (nil? t)
+      out
+      (let [[cmd ts] (if (keyword? t) [t more] [cmd ts])
+            rel? (and cmd (Character/isLowerCase (first (name cmd))))
+            n (fn [i] (nth ts i))
+            ax (fn [v] (if rel? (+ cx v) v))
+            ay (fn [v] (if rel? (+ cy v) v))]
+        (case (if cmd (keyword (s/upper-case (name cmd))) :none)
+          :M (let [x (ax (n 0)) y (ay (n 1))]
+               (recur (drop 2 ts) (if rel? :l :L) x y x y nil nil
+                      (conj out [:move x y])))
+          :L (let [x (ax (n 0)) y (ay (n 1))]
+               (recur (drop 2 ts) cmd x y sx sy nil nil (conj out [:line x y])))
+          :H (let [x (ax (n 0))]
+               (recur (drop 1 ts) cmd x cy sx sy nil nil (conj out [:line x cy])))
+          :V (let [y (ay (n 0))]
+               (recur (drop 1 ts) cmd cx y sx sy nil nil (conj out [:line cx y])))
+          :C (let [x1 (ax (n 0)) y1 (ay (n 1)) x2 (ax (n 2)) y2 (ay (n 3))
+                   x (ax (n 4)) y (ay (n 5))]
+               (recur (drop 6 ts) cmd x y sx sy [x2 y2] nil
+                      (conj out [:curve x1 y1 x2 y2 x y])))
+          ;; S and T take their first control point by reflecting the previous
+          ;; one through the current point; with no previous curve it is the
+          ;; current point itself.
+          :S (let [[px py] (or prev-c [cx cy])
+                   x1 (- (* 2 cx) px) y1 (- (* 2 cy) py)
+                   x2 (ax (n 0)) y2 (ay (n 1)) x (ax (n 2)) y (ay (n 3))]
+               (recur (drop 4 ts) cmd x y sx sy [x2 y2] nil
+                      (conj out [:curve x1 y1 x2 y2 x y])))
+          :Q (let [qx (ax (n 0)) qy (ay (n 1)) x (ax (n 2)) y (ay (n 3))]
+               (recur (drop 4 ts) cmd x y sx sy nil [qx qy]
+                      (conj out [:curve (+ cx (* 2/3 (- qx cx))) (+ cy (* 2/3 (- qy cy)))
+                                 (+ x (* 2/3 (- qx x))) (+ y (* 2/3 (- qy y))) x y])))
+          :T (let [[px py] (or prev-q [cx cy])
+                   qx (- (* 2 cx) px) qy (- (* 2 cy) py)
+                   x (ax (n 0)) y (ay (n 1))]
+               (recur (drop 2 ts) cmd x y sx sy nil [qx qy]
+                      (conj out [:curve (+ cx (* 2/3 (- qx cx))) (+ cy (* 2/3 (- qy cy)))
+                                 (+ x (* 2/3 (- qx x))) (+ y (* 2/3 (- qy y))) x y])))
+          :A (let [x (ax (n 5)) y (ay (n 6))
+                   pts (arc-points cx cy (n 0) (n 1) (n 2)
+                                   (not (zero? (n 3))) (not (zero? (n 4))) x y)]
+               (recur (drop 7 ts) cmd x y sx sy nil nil
+                      (into out (map (fn [[px py]] [:line px py]) pts))))
+          :Z (recur ts cmd sx sy sx sy nil nil (conj out [:close]))
+          (recur more cmd cx cy sx sy prev-c prev-q out))))))
+
+(defn- emit-svg-path!
+  "Writes `ops` from svg-path-ops as PDF path operators, mapping SVG coordinates
+   through `px` and `py`.
+
+   game-icons.net glyphs are one filled path with holes, which is exactly what the
+   nonzero winding rule of `fill` produces."
+  [cs ops px py]
+  (doseq [op ops]
+    (case (first op)
+      :move  (.moveTo cs (px (nth op 1)) (py (nth op 2)))
+      :line  (.lineTo cs (px (nth op 1)) (py (nth op 2)))
+      :curve (.curveTo cs (px (nth op 1)) (py (nth op 2))
+                       (px (nth op 3)) (py (nth op 4))
+                       (px (nth op 5)) (py (nth op 6)))
+      :close (.closePath cs)
+      nil))
+  (.fill cs))
+
+(def ^:private svg-view
+  "game-icons.net glyphs are all drawn in a 512x512 viewBox."
+  512.0)
+
+(defn draw-svg-path!
+  "Fills `ops` straight into a `size`-inch box whose top-left is (x, y) on the
+   page, scaling from a `view` square viewBox.
+
+   SVG counts y downward from the top of its box and PDF counts it upward from the
+   bottom of the page, hence the flip. This writes the whole path into the page's
+   content stream; anything drawn more than once should go through the image
+   loader instead, which writes it once for the document."
+  [cs ops x y size view]
+  (emit-svg-path! cs ops
+                  (fn [v] (float (* 72 (+ x (* size (/ v view))))))
+                  (fn [v] (float (* 72 (- 11 y (* size (/ v view))))))))
+
+(defn last-svg-path
+  "The `d` of the LAST <path> in an SVG document.
+
+   game-icons.net wraps each glyph in a square background path that is present but
+   transparent; filling it would black out the icon, so the glyph is the last one.
+
+   Attribute values are matched in either quote style: the colour icons in this
+   repo were saved with double quotes and the `black/` set with single."
+  [svg]
+  (when-let [m (last (re-seq #"<path\b[^>]*\sd\s*=\s*(?:\"([^\"]*)\"|'([^']*)')" svg))]
+    (or (nth m 1) (nth m 2))))
+
+(defn load-svg-icon
+  "The drawable path operations of an icon in resources/public/image, or nil if
+   that icon was never vendored as an SVG."
+  [icon-name]
+  (some-> (io/resource (str "public/image/" icon-name ".svg"))
+          slurp last-svg-path svg-path-ops))
+
+(defn svg-form
+  "An icon's paths as a Form XObject in a `svg-view`-unit box, y already flipped
+   so the form's own space is upright.
+
+   A form is written into the file ONCE and referenced wherever it is drawn.
+   Emitting the path at each draw site instead costs about 2.8 KB per card, which
+   on a 45-card spellbook more than doubles the file.
+
+   The form sets no colour of its own, so the fill colour and alpha in force at
+   each draw site apply to it."
+  [doc ops]
+  (let [form (PDAppearanceStream. doc)]
+    (.setBBox form (PDRectangle. 0 0 (float svg-view) (float svg-view)))
+    (.setResources form (PDResources.))
+    (with-open [cs (PDPageContentStream. doc form)]
+      (emit-svg-path! cs ops float (fn [v] (float (- svg-view v)))))
+    form))
+
 (defn make-image-loader
-  "Returns a memoized (resource-path -> PDImageXObject) embedder scoped to ONE
-   document. The card icons and logo are drawn dozens of times across a spellbook;
-   without this, each use re-decodes the PNG and embeds a DUPLICATE image object —
-   wasting CPU + transient memory per embed and bloating the file. Memoized so each
-   distinct image is decoded and embedded exactly once, then referenced thereafter."
+  "Returns a memoized (resource-path -> XObject) embedder scoped to ONE document:
+   a PDImageXObject for a raster path, a form (see svg-form) for a `.svg` one.
+
+   The card icons and logo are drawn dozens of times across a spellbook; without
+   this, each use re-decodes the source and embeds a DUPLICATE object — wasting
+   CPU + transient memory per embed and bloating the file. Memoized so each
+   distinct resource is embedded exactly once, then referenced thereafter. That
+   matters as much for vector as for raster: an icon's paths run to a few kilobytes
+   and every card would otherwise carry its own copy."
   [doc]
   (memoize
    (fn [resource-path]
-     (with-open [s (io/input-stream (io/resource resource-path))]
-       (LosslessFactory/createFromImage doc (ImageIO/read s))))))
+     (if (s/ends-with? resource-path ".svg")
+       (svg-form doc (svg-path-ops (last-svg-path (slurp (io/resource resource-path)))))
+       (with-open [in (io/input-stream (io/resource resource-path))]
+         (LosslessFactory/createFromImage doc (ImageIO/read in)))))))
 
 (defn- normalize-text
   "Coerce a string into the WinAnsiEncoding subset PDFBox 3.x can render.
@@ -1075,6 +1261,43 @@
     (draw-imagex cs img x y width height)
     (.restoreGraphicsState cs)))
 
+(def icon-red
+  "The red the card icons were baked at, as [r g b alpha]. The PNGs carry #910000
+   at half opacity; filling the vector with the same two values composites
+   identically over whatever is beneath it."
+  [0.5686 0.0 0.0 0.5])
+
+(defn draw-svg-icon!
+  "Draws a named icon into a `size`-inch box, filled in `color` at `alpha`.
+
+   Takes draw-imagex's coordinates: `y` is inches from the page TOP to the box's
+   top edge. (draw-imagex reaches that by way of a bottom-left PDF origin, so it
+   reads as though it counted from the bottom. It does not.)
+
+   The icon is a form shared across the document, placed by a transform rather
+   than re-emitted, so a page of nine cards costs nine references. Colour and alpha
+   are set inside a save/restore, both because the form inherits them and so
+   neither leaks into the label drawn over the icon.
+
+   Falls back to the PNG of the same name when no SVG was vendored, which ignores
+   `color` because the PNG's colour is baked in."
+  [cs img icon-name x y size [r g b] alpha]
+  (if (io/resource (str "public/image/" icon-name ".svg"))
+    ;; The form is a svg-view-unit square; this maps that square onto `size` inches.
+    (let [unit (float (/ (* 72 size) svg-view))]
+      (.saveGraphicsState cs)
+      (when (< alpha 1)
+        (.setGraphicsStateParameters
+         cs (doto (PDExtendedGraphicsState.)
+              (.setNonStrokingAlphaConstant (float alpha)))))
+      (.setNonStrokingColor cs (float r) (float g) (float b))
+      (.transform cs (Matrix. unit 0 0 unit
+                              (float (* 72 x)) (float (* 72 (- 11 y size)))))
+      (.drawForm cs (img (str "public/image/" icon-name ".svg")))
+      (.restoreGraphicsState cs))
+    (draw-imagex-alpha cs (img (str "public/image/" icon-name ".png"))
+                       x y size size alpha)))
+
 (def user-agent "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.22 (KHTML, like Gecko) Chrome/25.0.1364.172")
 
 (def ^:private max-image-bytes
@@ -1895,15 +2118,16 @@
 (defn draw-spell-field [cs img title value x y bw? bw-faded?]
   ;; The label overprints the icon. Three treatments (draw-spell-field is the
   ;; single choke point for all four per-spell icons):
-  ;;   color (default)  -> baked-red icon, plain black text
-  ;;   B&W solid (A)     -> solid-black `-bw` icon, WHITE-HALO text so it reads
-  ;;   B&W faded (B)     -> `-bw` icon at 40% (light backdrop), plain black text
-  (let [icon (img (str "public/image/" title (when bw? "-bw") ".png"))
-        ix x
-        iy (- 11 y 0.12)]
-    (if (and bw? bw-faded?)
-      (draw-imagex-alpha cs icon ix iy 0.25 0.25 0.4)
-      (draw-imagex cs icon ix iy 0.25 0.25))
+  ;;   color (default)  -> icon in icon-red, plain black text
+  ;;   B&W solid (A)     -> solid-black icon, WHITE-HALO text so it reads
+  ;;   B&W faded (B)     -> black icon at 40% (light backdrop), plain black text
+  ;; One vector source covers all three, so the `-bw` PNGs -- a second copy of the
+  ;; same art, recoloured -- are no longer read.
+  (let [iy (- 11 y 0.12)
+        [color alpha] (cond (and bw? bw-faded?) [[0 0 0] 0.4]
+                            bw?                 [[0 0 0] 1.0]
+                            :else               [(vec (take 3 icon-red)) (last icon-red)])]
+    (draw-svg-icon! cs img title x iy 0.25 color alpha)
     (if (and bw? (not bw-faded?))
       (draw-halo-text cs value HELVETICA_BOLD_OBLIQUE 8 x (- y 0.07))
       (do (.setNonStrokingColor cs (float 0) (float 0) (float 0))
@@ -2147,10 +2371,8 @@
                                    (- 11.0 y 0.45)
                                    bw? bw-faded?))
                (when (seq remaining-desc-lines)
-                 (let [recharge (img (str "public/image/clockwise-rotation" (when bw? "-bw") ".png"))]
-                   (if (and bw? bw-faded?)
-                     (draw-imagex-alpha cs recharge (+ x 2.3) (+ y 3.3) 0.15 0.15 0.4)
-                     (draw-imagex cs recharge (+ x 2.3) (+ y 3.3) 0.15 0.15))))
+                 (draw-svg-icon! cs img "clockwise-rotation" (+ x 2.3) (+ y 3.3) 0.15
+                                 [0 0 0] (if (and bw? bw-faded?) 0.4 1.0)))
                {:remaining-lines remaining-desc-lines
                 :spell-name spell-name}))))))
 

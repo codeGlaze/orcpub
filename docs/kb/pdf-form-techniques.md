@@ -863,3 +863,68 @@ takes them pre-split. That took a page of eighteen items from 669 ms to 280 ms.
 
 Do not bother memoising the name-fitting loop. Six passes over a short string are
 0.39 ms, which is noise beside one pass over a description.
+
+## Card icons are SVG paths, not 32px rasters (2026-09)
+
+The four per-spell icons and the recharge mark were 32px PNGs. At the 0.25in they
+are drawn, a 600 DPI printer is asked for about 150 device pixels from a 32 pixel
+source, so they arrived soft. `orcpub.pdf/svg-path-ops` parses the `d` attribute of
+the SVG the same icons came from and `draw-svg-icon!` fills it.
+
+**The art is the library's, not an approximation of it.** An earlier attempt drew
+the shapes freehand out of circles and lines and looked nothing like them. The
+icons were already vendored as SVG -- 307 of them -- and the four the cards needed
+came from the same free set as the rest; there was never a reason to redraw
+anything. `dev/svg_icon_proof.clj` renders an icon as vector beside its raster at
+the sizes a card uses, which is how to check a conversion rather than trusting it.
+
+### What the parser covers
+
+`M L H V C S Q T A Z` and their relative forms. Two are conversions rather than
+translations: PDF has no quadratic operator, so `Q`/`T` are raised to the
+equivalent cubic (exact); and PDF has no arc operator, so `A` is sampled into line
+segments (not exact, but the error is far below a printer dot at icon scale).
+`svg_path_test` covers each command, and then parses **every** SVG in `resources/`
+as a net -- so an icon added later that uses something unhandled fails on the file
+instead of in a silently blank card.
+
+That net earned itself immediately: the extractor matched only double-quoted
+attributes, and the whole `black/` set is saved with single quotes. Every one of
+those 148 icons would have parsed to nothing.
+
+### Draw it once per document, not once per card
+
+The first working version wrote the path into the page's content stream at each
+draw site. Correct, and it grew a 45-card spellbook from 80 KB to 208 KB -- **+160%**,
+about 2.8 KB per card, because four icons of geometry were repeated on all 45.
+
+The fix is the same one the rasters already had: embed each icon **once** as a Form
+XObject and reference it. `make-image-loader` now returns a form for a `.svg` path
+and an image for a raster one, so it memoises both and every call site is unchanged.
+The same 45 cards:
+
+| icons | file |
+|---|---|
+| 32px PNG | 80,026 bytes |
+| vector, path re-emitted per card | 208,365 bytes |
+| vector, one shared form | 87,922 bytes |
+
+**+10% over the rasters** for art that no longer has a resolution. That is the
+honest cost: a form carries its geometry once, but a few kilobytes of curves is
+still more than a few hundred bytes of 32px PNG.
+
+### Colour belongs at the draw site
+
+A form that sets no colour inherits the fill colour and alpha in force where it is
+drawn. The three sheet styles -- red, solid black, 40% black -- are therefore one
+path filled three ways, and the `-bw` PNG duplicates that existed only to carry a
+second colour are gone. `icon-red` records what the rasters were baked at
+(`#910000` at half opacity) so the recolouring composites identically.
+
+Two coordinate traps, both worth stating because neither reads the way it looks:
+
+- `draw-imagex`'s `y` is inches from the page **top** to the image's top edge. It
+  computes that through a bottom-left PDF origin, so it reads as though it counted
+  from the bottom. Converting for it puts the icon off the page.
+- The form's own space is 512 units with y **up**, so the SVG's downward y is
+  flipped when the form is built, not when it is placed.
