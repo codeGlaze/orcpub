@@ -2274,6 +2274,73 @@
                      [(- w m c) (- h m)] [(+ m c) (- h m)] [m (- h m c)] [m (+ m c)]]
              true))
 
+(defn- corner-brackets!
+  "A right-angled bracket inside each corner, `len` long, `inset` in from the
+   frame. Reads as cornerwork rather than a second border, because it stops."
+  [cs x y w h m inset len]
+  (let [a (+ m inset)
+        r (- w m inset)
+        b (- h m inset)]
+    (doseq [[cx cy sx sy] [[a a 1 1] [r a -1 1] [a b 1 -1] [r b -1 -1]]]
+      (polyline! cs x y [[(+ cx (* sx len)) cy] [cx cy] [cx (+ cy (* sy len))]] false))))
+
+(defn- corner-diamonds!
+  "A diamond at each corner of an inset rectangle."
+  [cs x y w h m inset r filled?]
+  (let [a (+ m inset)
+        rt (- w m inset)
+        b (- h m inset)]
+    (doseq [[dx dy] [[a a] [rt a] [a b] [rt b]]]
+      (diamond! cs x y dx dy r filled?))))
+
+(def card-flourishes
+  "The decoration families a card frame can escalate through, weakest rank first.
+
+   Each is a ladder of five: whatever a common gets, a legendary gets that and
+   more, so the treatments compare against each other rather than merely differ.
+   The eye should reach the rare items before it reads a word."
+  [:nested :brackets :diamonds])
+
+(defn- draw-flourish!
+  "Draws `family`'s decoration for a rarity of `rank`, 1 to 5."
+  [cs x y w h m c family rank]
+  (case family
+    :nested
+    (do (when (>= rank 2)
+          (.setLineWidth cs (float 0.45))
+          (chamfered-frame! cs x y w h (+ m 0.042) (- c 0.042)))
+        (when (>= rank 4)
+          (.setLineWidth cs (float 0.35))
+          (chamfered-frame! cs x y w h (+ m 0.075) (- c 0.075)))
+        (when (>= rank 5)
+          (.setLineWidth cs (float 1.9))
+          (chamfered-frame! cs x y w h (- m 0.035) c)))
+
+    :brackets
+    (do (when (>= rank 2)
+          (.setLineWidth cs (float 0.45))
+          (chamfered-frame! cs x y w h (+ m 0.042) (- c 0.042)))
+        (when (>= rank 3)
+          (.setLineWidth cs (float 0.9))
+          (corner-brackets! cs x y w h m 0.095 (if (>= rank 4) 0.20 0.12)))
+        (when (>= rank 5)
+          (.setLineWidth cs (float 0.9))
+          (corner-brackets! cs x y w h m 0.155 0.11)))
+
+    :diamonds
+    (do (when (>= rank 2)
+          (.setLineWidth cs (float 0.45))
+          (chamfered-frame! cs x y w h (+ m 0.042) (- c 0.042)))
+        (when (>= rank 3)
+          (.setLineWidth cs (float 0.7))
+          (corner-diamonds! cs x y w h m 0.105 0.035 (>= rank 4)))
+        ;; The legendary's mark goes at the FOOT. At the head it lands on the
+        ;; rarity rail, which is the thing actually carrying the rank.
+        (when (>= rank 5)
+          (.setLineWidth cs (float 0.8))
+          (diamond! cs x y (/ w 2) (- h m 0.052) 0.062 true)))
+    nil))
+
 (defn- draw-rarity-rail!
   "The rank marks on their own rule across the top of the card.
 
@@ -2310,19 +2377,18 @@
     (.setLineWidth cs (float 1))))
 
 (defn- draw-card-frame!
-  "The card's border, and a second one inside it for a legendary.
+  "The card's border, plus whatever decoration its rarity has earned.
 
-   The doubled rule is the flair a rank of five earns: the diamonds say which
-   rarity, but a legendary should be obvious across a table without counting
-   anything."
-  [cs x y w h rarity]
+   The border escalates as well as the rank marks do. The marks say which rarity
+   to anyone who counts them; the frame is what carries across a table to someone
+   who does not."
+  [cs x y w h rarity family]
   (let [m 0.09
         c 0.17]
     (.setLineWidth cs (float 1.1))
     (chamfered-frame! cs x y w h m c)
-    (when (= :legendary rarity)
-      (.setLineWidth cs (float 0.45))
-      (chamfered-frame! cs x y w h (+ m 0.042) (- c 0.042)))
+    (when-let [rank (rarity-rank rarity)]
+      (draw-flourish! cs x y w h m c family rank))
     (.setLineWidth cs (float 1))))
 
 (defn- draw-charge-track!
@@ -2355,9 +2421,21 @@
    room on labelled slots to write into; this card already knows the name, the
    kind, the rarity and the attunement, so that room goes to the description --
    the part a player actually rereads at the table. Attunement sits at the foot,
-   out of the header, and only when the item needs it."
-  [cs document fonts img box-width box-height items page-number bw? bw-faded?]
-  (let [num-boxes-x (int (/ 8.5 box-width))
+   out of the header, and only when the item needs it.
+
+   `opts` selects the look, so alternatives can be rendered side by side rather
+   than argued about: `:flourish` is one of card-flourishes, `:name-face` a key
+   into `fonts` or a font, `:name-size` points, `:name-tracking` extra spacing
+   between letters."
+  ([cs document fonts img box-width box-height items page-number bw? bw-faded?]
+   (print-items cs document fonts img box-width box-height items page-number
+                bw? bw-faded? nil))
+  ([cs document fonts img box-width box-height items page-number bw? bw-faded? opts]
+  (let [{:keys [flourish name-size name-tracking]
+         :or {flourish :diamonds name-size 12 name-tracking 0.15}} opts
+        name-face (fn [fs] (let [f (:name-face opts :bold)]
+                             (if (keyword? f) (get fs f) f)))
+        num-boxes-x (int (/ 8.5 box-width))
         num-boxes-y (int (/ 11.0 box-height))
         margin-x (/ (- 8.5 (* num-boxes-x box-width)) 2)
         margin-y (/ (- 11.0 (* num-boxes-y box-height)) 2)]
@@ -2383,7 +2461,7 @@
                charges (item-charges description)
                ;; The body stops short of the foot when something is drawn there.
                body-bottom (cond charges 0.82 clause 0.46 :else 0.32)]
-           (draw-card-frame! cs x y box-width box-height rarity)
+           (draw-card-frame! cs x y box-width box-height rarity flourish)
            (draw-rarity-rail! cs x y box-width rarity 0.245)
            (draw-foot-ornament! cs x y box-width (- box-height 0.185))
            ;; The name sits below the rail, clear of it and of the cut corner, and
@@ -2393,10 +2471,13 @@
            ;; same height on every card and a stack cuts square. A one-line name
            ;; is dropped into the middle of that block rather than left sitting on
            ;; top of an empty line.
-           (let [name-lines (count (split-lines item-name (:bold fonts) 10 (- box-width 0.4)))]
-             (draw-text-to-box cs item-name (:bold fonts) 10
-                               (+ x 0.2) (- 11.0 y (if (> name-lines 1) 0.40 0.485))
-                               (- box-width 0.4) 0.48))
+           (let [face (name-face fonts)
+                 name-lines (count (split-lines item-name face name-size (- box-width 0.4)))]
+             (.setCharacterSpacing cs (float name-tracking))
+             (draw-text-to-box cs item-name face name-size
+                               (+ x 0.2) (- 11.0 y (if (> name-lines 1) 0.38 0.475))
+                               (- box-width 0.4) 0.52)
+             (.setCharacterSpacing cs (float 0)))
            (draw-text-to-box cs (magic-item-subtitle item) (:italic fonts) 7.5
                              (+ x 0.2) (- 11.0 y 0.96) (- box-width 0.4) 0.2)
            ;; A rule and a hairline under it: the header carries two kinds of
@@ -2422,7 +2503,7 @@
                    (draw-imagex-alpha cs recharge (+ x (- box-width 0.32)) (+ y (- box-height 0.32)) 0.13 0.13 0.4)
                    (draw-imagex cs recharge (+ x (- box-width 0.32)) (+ y (- box-height 0.32)) 0.13 0.13))))
              {:remaining-lines remaining-desc-lines
-              :spell-name item-name})))))))
+              :spell-name item-name}))))))))
 
 #_{:clj-kondo/ignore [:unused-private-var]}
 (defn- create-monsters-pdf

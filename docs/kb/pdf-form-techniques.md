@@ -712,3 +712,29 @@ sitting on top of the empty line, which is otherwise a visible hole.
 Rarity gets a second treatment beyond the count: a legendary is drawn with a
 hairline frame inside the border. The diamonds say which rank, but the rank that
 matters should be obvious across a table without anyone counting.
+
+## Frame decoration is a ladder, not a set (2026-09)
+
+The card frame escalates with rarity alongside the rank marks, because the marks
+answer "which rank" to someone who counts and the frame answers "is this worth
+picking up" to someone across the table who does not.
+
+Three families are implemented, and `dev/compare_item_cards.clj` renders all of
+them across the five ranks so they can be looked at rather than argued about:
+
+    :nested     more rules inside the border, and a heavy outer one at legendary
+    :brackets   right-angled cornerwork, growing then doubling
+    :diamonds   corner diamonds, outlined then filled, plus a mark at the foot
+
+Each is a ladder: whatever a common gets, a legendary gets that and more. Families
+that merely differ per rank read as five unrelated cards; families that accumulate
+read as one card with a rank.
+
+The legendary mark in `:diamonds` sits at the FOOT. At the head it lands on the
+rarity rail, which is the thing actually carrying the rank -- two marks in one
+place, neither reading. The foot was empty and already had an ornament to grow.
+
+The name is 12pt with a little letter spacing, not 10pt plain. A card title has to
+carry across a table; at 10 it read as a heading on a page instead. `print-items`
+takes the face, size and tracking as options for the same reason the flourish is
+an option: so alternatives can be rendered side by side.
