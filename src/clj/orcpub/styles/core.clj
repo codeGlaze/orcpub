@@ -1849,38 +1849,48 @@
       :cursor :pointer
       :margin-left "4px"}]
 
-    ;; ── Export busy page ─────────────────────────────────────────────────────
+    ;; ── Export busy page ────────────────────────────────────────────────────
     ;; The page a character sheet export lands on when every export slot is busy.
-    ;; It is served into the download tab, where the builder's own markup is
-    ;; absent, so it styles a plain card rather than reusing app layout classes.
-    ;; The button is the site's .form-button and needs nothing here.
+    ;; It is served into the download tab, where the builder's markup and scripts
+    ;; are absent, so it restates the app's ground and panel rather than reusing
+    ;; app layout classes. Colours are the app's own: the #app gradient, the
+    ;; #1a1e28 panel, and .form-button for the button.
+    [:.busy-body
+     {:margin 0
+      :min-height "100vh"
+      :background-color "#080A0D"
+      :background-image "linear-gradient(182deg, #313A4D, #080A0D)"
+      :background-attachment :fixed}]
+
     [:.busy-wrap
      {:display :flex
       :justify-content :center
-      :padding "48px 20px"}]
+      :padding "56px 20px"}]
 
     [:.busy-card
-     {:max-width "540px"
+     {:max-width "560px"
       :width "100%"
-      :background-color :white
+      :background-color "#1a1e28"
       :border-radius "5px"
       :padding "32px 36px"
-      :box-shadow "0 2px 10px rgba(0,0,0,0.15)"}
+      :box-shadow "0 2px 16px rgba(0,0,0,0.45)"}
      [:h1
-      {:margin "0 0 12px"
-       :font-size "24px"
-       :color text-color}]
+      (merge text-color
+             {:margin "0 0 14px"
+              :font-size "24px"
+              :font-weight 600})]
      [:p
-      {:margin "0 0 14px"
+      {:margin "0 0 16px"
        :font-size "16px"
        :line-height "1.6"
-       :color "#495366"}]
-     ;; The countdown is the one line that changes as the page waits, so it is
-     ;; set apart from the explanatory text around it.
+       :color "rgba(255,255,255,0.7)"}]
+     ;; The countdown is the one line that changes while the page waits, so it
+     ;; sits at full strength against the muted text around it.
      [:.busy-countdown
-      {:color text-color
-       :font-weight 600
-       :font-variant-numeric :tabular-nums}]]];concat-bracket
+      (merge text-color
+             {:font-weight 600
+              :font-variant-numeric :tabular-nums})]]
+];concat-bracket
    margin-lefts
    margin-tops
    widths

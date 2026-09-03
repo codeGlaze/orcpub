@@ -737,7 +737,7 @@
         [:title (str "Busy right now - " branding/app-name)]
         [:link {:rel "stylesheet" :type "text/css" :href "/css/style.css"}]
         [:link {:rel "stylesheet" :type "text/css" :href "/css/compiled/styles.css"}]]
-       [:body.sans
+       [:body.sans.busy-body
         [:div.app-header-bar.container {:style "background-color:#2c3445"}
          [:div.content
           [:div.flex.justify-cont-s-b.align-items-c.w-100-p.p-l-20.p-r-20

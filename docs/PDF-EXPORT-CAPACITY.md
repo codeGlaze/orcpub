@@ -155,11 +155,12 @@ wait they would abandon anyway, not to retry forever. The counter is read back f
 the page's own hidden field, and a hand-edited value counts as a first try rather
 than buying extra attempts.
 
-The page wears the site header, logo and stylesheets, the way the privacy and
-terms pages do, and its button is the site's own `.form-button`. Its rules live
-in `orcpub.styles.core` with the rest of the stylesheet, so `lein garden once`
-has to have run for it to look right. The builder's markup and scripts are absent
-in this tab, so the page uses plain card classes rather than app layout ones.
+The page looks like the rest of the site: the app's fixed gradient ground, its
+`#1a1e28` panel, white type, the header bar with the logo, and `.form-button` for
+the button. Its rules live in `orcpub.styles.core` with the rest of the
+stylesheet, so `lein garden once` has to have run for it to look right. The
+builder's markup and scripts are absent in this tab, so the page restates the
+ground and panel rather than reusing app layout classes.
 
 ### Seeing it on a dev machine
 
