@@ -20,11 +20,20 @@
 (def dex 2) ; Dex 14 (+2), matching the reconciliation spec
 
 ;; ---- reusable pieces --------------------------------------------------------
+(defn armor-dex
+  "Dex contribution from worn armor. Honors the armor's OWN :max-dex cap when present (custom
+   material: 'heavy armor that still allows a Dex bonus'), else the type default. This is the
+   single seam where custom-armor properties enter AC — reading the item, not hardcoding :type."
+  [armor]
+  (if-let [md (:max-dex armor)]
+    (min md dex)
+    (case (:type armor) :light dex :medium (min 2 dex) :heavy 0)))
+
 (def base-method                                   ; the SRD base: worn armor, else 10+Dex (item-dependent)
   {:item? true
    :fn (fn [armor _]
          (if armor
-           (+ (:base-ac armor) (case (:type armor) :light dex :medium (min 2 dex) :heavy 0))
+           (+ (:base-ac armor) (armor-dex armor) (get armor ::magic 0))  ; base + capped Dex + magic
            (+ 10 dex)))})
 
 (defn unarmored-method [n]                          ; "AC = 10 + Dex + n" while unarmored (item-independent)
@@ -37,6 +46,9 @@
 (def leather {:base-ac 11 :type :light})
 (def scale   {:base-ac 14 :type :medium})
 (def chain   {:base-ac 16 :type :heavy})
+;; ---- custom homebrew armor (the friend's weird-materials supplement) --------
+(def mithril-plate {:base-ac 16 :type :heavy :max-dex 2})       ; heavy AC, but ALLOWS a Dex bonus
+(def magic-leather {:base-ac 11 :type :light ::magic 1})        ; non-standard: +1 magical armor
 
 ;; ---- candidate A: naive Cartesian ------------------------------------------
 ;; Evaluate every method for every (armor, shield) combo. Simple; can't be fooled by a wrong
@@ -77,7 +89,11 @@
    {:name "floor lifts a low AC"            :methods [base-method floor-16]                :bonuses [] :armors [leather] :shields [] :expected 16}
    {:name "floor doesn't cap a high AC"     :methods [base-method (unarmored-method 8) floor-16] :bonuses [] :armors [] :shields [] :expected 20}
    {:name "homebrew method wins + ring"     :methods [base-method (unarmored-method 8)]    :bonuses [ring-1] :armors [chain] :shields [] :expected 21}
-   {:name "shield adds to the winner"       :methods [base-method (unarmored-method 3)]    :bonuses [(shield-bonus)] :armors [] :shields [{:shield true}] :expected 17}])
+   {:name "shield adds to the winner"       :methods [base-method (unarmored-method 3)]    :bonuses [(shield-bonus)] :armors [] :shields [{:shield true}] :expected 17}
+   ;; custom-armor axis — the worn-armor method reading the item's own fields:
+   {:name "standard heavy: no Dex"          :methods [base-method]                         :bonuses [] :armors [chain]         :shields [] :expected 16}
+   {:name "custom heavy ALLOWS Dex"         :methods [base-method]                         :bonuses [] :armors [mithril-plate] :shields [] :expected 18}
+   {:name "custom magical armor"            :methods [base-method]                         :bonuses [] :armors [magic-leather] :shields [] :expected 14}])
 
 (deftest candidates-satisfy-the-shared-spec
   (doseq [[cand-name f] candidates]
