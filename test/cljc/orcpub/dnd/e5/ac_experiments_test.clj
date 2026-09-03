@@ -108,7 +108,14 @@
    ;; armor-bound magic must NOT leak: a homebrew unarmored AC of 20, plus a +3 magic studded.
    ;; Unarmored the +3 is absent (20); wearing the studded it's 12+2+3=17. Best = 20. If the
    ;; armor magic leaked to the unarmored value it would be 23. Expected 20 proves no leak.
-   {:name "armor magic stays with its armor":methods [base-method (unarmored-method 8)]     :bonuses [] :armors [magic-studded] :shields [] :expected 20}])
+   {:name "armor magic stays with its armor":methods [base-method (unarmored-method 8)]     :bonuses [] :armors [magic-studded] :shields [] :expected 20}
+   ;; owning leather +1/+2/+3: the +3 (11 + Dex 2 + 3 = 16) must surface as the best pick.
+   {:name "best magic armor surfaces (+3)"  :methods [base-method]
+    :bonuses [] :shields []
+    :armors [{:base-ac 11 :type :light ::magic 1}    ; 14
+             {:base-ac 11 :type :light ::magic 2}    ; 15
+             {:base-ac 11 :type :light ::magic 3}]   ; 16  <- winner
+    :expected 16}])
 
 (deftest candidates-satisfy-the-shared-spec
   (doseq [[cand-name f] candidates]
