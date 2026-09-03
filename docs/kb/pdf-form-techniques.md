@@ -2,7 +2,7 @@
 
 Everything here was measured against the real templates in `resources/` and a
 production export. Numbers are reproducible with `dev/sample_character.clj` and
-`dev/on_demand_pages.clj`. The page-generation spike there is superseded by
+`orcpub.pdf`. The page-generation spike this began as is superseded by
 `pdf/add-missing-spell-pages!`, which does this in production; it is kept because
 it is the smallest readable demonstration of the cloning technique.
 
@@ -31,7 +31,7 @@ Build a new page dictionary that REFERENCES the source's `/Contents`,
     master + 6 clones      422 KB
 
 One kilobyte for six pages. Then create fresh widgets per clone and rename each
-field. See `add-class-page!` in `dev/on_demand_pages.clj`.
+field. See `add-spell-pages!` in `orcpub.pdf`.
 
 Result on the hardest case — eight spellcasting classes, which the current sheet
 cannot represent at all:
@@ -840,3 +840,26 @@ The clause at the foot is centred. Everything else down there -- the ornament, t
 continuation note -- is on the card's axis, and flush left it was the only thing
 that was not. `draw-text-to-box` only sets flush left, so wrapped centred captions
 need their lines split and placed individually.
+
+## What a card page costs (2026-09)
+
+Per card, on the four-core host, fonts and the image embedder loaded once per
+page as both card printers do:
+
+    9 spell cards   20.2 ms   6.92 MB each
+    9 item cards    13.9 ms   3.94 MB each
+
+Item cards come in under the spell cards that already ship, which is the bar
+worth measuring against. On an export they add about 30 MB and 100 ms for a
+character carrying a handful of items, against 30 MB for the sheet alone -- real,
+bounded, and opt-in.
+
+**`split-lines` is the expensive call.** Wrapping a 1300 character description
+measures every word against the font: 4 ms and 2 MB. The first cut of the item
+card ran it twice for the same text, once to count the lines and decide whether
+the description would spill, and again inside `draw-text-to-box` to draw them.
+Keep the lines from the first split and hand them to `draw-lines-to-box`, which
+takes them pre-split. That took a page of eighteen items from 669 ms to 280 ms.
+
+Do not bother memoising the name-fitting loop. Six passes over a short string are
+0.39 ms, which is noise beside one pass over a description.

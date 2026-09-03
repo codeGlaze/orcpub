@@ -520,7 +520,8 @@ refutes it on its own; the measurement above is what settles it.)
 
 ## Answered: yes, pages can be generated on demand with unique field names
 
-dev/on_demand_pages.clj is a working proof of concept (not wired in). It builds
+The scheme was first proven by a spike, since removed and superseded by
+`pdf/add-spell-pages!` and `pdf/grow-spell-sections!`. It built
 a 2-page base plus EIGHT spellcasting class pages from a single master page:
 
     10 pages, 1830 fields, ZERO duplicate names, 757 KB

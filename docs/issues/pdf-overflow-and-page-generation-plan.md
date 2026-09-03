@@ -80,7 +80,8 @@ reports a remainder.
 Replace the `sheet0..sheet6` cond in `routes.clj` with: load a base, add one
 spell page per spellcasting class, each with uniquely-named fields.
 
-Proven end to end in `dev/on_demand_pages.clj` — eight classes, zero duplicate
+Proven end to end by a spike, now removed and superseded by
+`pdf/add-spell-pages!` — eight classes, zero duplicate
 names, 757 KB, smaller than today's six-class file. Also removes the ceiling in
 step 2 of the problem list and makes the pre-baked variants redundant.
 

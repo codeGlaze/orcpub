@@ -2588,9 +2588,14 @@
                ;; the note saying so has reserved room rather than being squeezed
                ;; in afterwards. Measured against the box WITHOUT the note: adding
                ;; it only shrinks the box, so anything that overflowed still does.
-               body-lines (count (split-lines body (:plain fonts) 8 (- box-width 0.4)))
+               ;;
+               ;; The LINES are kept, not just their count. Splitting a 1300
+               ;; character description measures every word against the font and
+               ;; costs 4ms and 2MB; doing it once to decide and again inside
+               ;; draw-text-to-box to draw threw half of that away on every card.
+               body-lines (split-lines body (:plain fonts) 8 (- box-width 0.4))
                capacity (fn [h] (int (dec (/ (* 72 h) (* 8 1.1)))))
-               spills? (> body-lines
+               spills? (> (count body-lines)
                           (capacity (- box-height body-top (body-stops [false (some? clause)]))))
                body-bottom (body-stops [spills? (some? clause)])]
            (draw-card-frame! cs x y box-width box-height rarity flourish)
@@ -2645,10 +2650,9 @@
              (polyline! cs x y [[0.2 (:charge-under down)] [(- box-width 0.2) (:charge-under down)]] false)
              (.setLineWidth cs (float 1)))
            (let [remaining-desc-lines
-                 (draw-text-to-box cs body (:plain fonts) 8
-                                   (+ x 0.2) (- 11.0 y body-top)
-                                   (- box-width 0.4)
-                                   (- box-height body-top body-bottom))]
+                 (draw-lines-to-box cs body-lines (:plain fonts) 8
+                                    (+ x 0.2) (- 11.0 y body-top)
+                                    (- box-height body-top body-bottom))]
              ;; Centred, like the ornament under it and the note above it. Flush
              ;; left it was the only thing at the foot on its own axis.
              (when clause
