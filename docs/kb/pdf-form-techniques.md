@@ -697,3 +697,18 @@ Two things earn their space:
 Three collisions worth knowing, all found by rendering rather than reasoning: the
 title has to stop clear of the diamonds, the body has to stop clear of the CHARGES
 label, and the overflow mark belongs at the foot because the head is taken.
+
+The rank marks went on their own rule across the top rather than beside the name.
+At the name's shoulder the two compete and neither reads first, and the name is
+pushed against the cut corner. On its own row the rail also reads as ornament,
+which is what lets a second one at the foot -- one unfilled diamond between two
+hairlines -- close the card without claiming to mean anything.
+
+The name block always reserves two lines even for a name that needs one, so the
+rule under the header falls at the same height on every card and a printed sheet
+cuts square. A one-line name is dropped into the middle of that block instead of
+sitting on top of the empty line, which is otherwise a visible hole.
+
+Rarity gets a second treatment beyond the count: a legendary is drawn with a
+hairline frame inside the border. The diamonds say which rank, but the rank that
+matters should be obvious across a table without anyone counting.

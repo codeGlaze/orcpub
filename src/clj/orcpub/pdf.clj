@@ -2267,25 +2267,62 @@
                         [(s/join ", " (remove s/blank? [kind rare]))
                          clause]))))
 
-(defn- draw-card-frame!
-  "The card's chamfered border, and the rarity diamonds along its top edge.
+(defn- chamfered-frame!
+  "A rectangle with its corners cut, inset `m` from the card edge."
+  [cs x y w h m c]
+  (polyline! cs x y [[(+ m c) m] [(- w m c) m] [(- w m) (+ m c)] [(- w m) (- h m c)]
+                     [(- w m c) (- h m)] [(+ m c) (- h m)] [m (- h m c)] [m (+ m c)]]
+             true))
 
-   Ranked diamonds rather than a word alone: fanned through, a deck sorts itself
-   by how many are filled, which no amount of setting the rarity in type will do.
-   :varies draws none, so an unrankable item does not claim a rank."
+(defn- draw-rarity-rail!
+  "The rank marks on their own rule across the top of the card.
+
+   Diamonds filled to the item's rank, centred, with a hairline running out to
+   each side. On its own row rather than beside the name: at the name's shoulder
+   the two compete, and neither reads first. Fanned through a deck the filled
+   count sorts the cards, which setting the word in type does not do.
+
+   :varies has no rank, so the rail is drawn plain -- an item whose rarity depends
+   on the table is not ranked against one that does not."
+  [cs x y w rarity dy]
+  (let [rank (rarity-rank rarity)
+        span 0.115
+        half (/ (* span 4) 2)
+        mid (/ w 2)]
+    (.setLineWidth cs (float 0.5))
+    (polyline! cs x y [[0.28 dy] [(- mid half 0.09) dy]] false)
+    (polyline! cs x y [[(+ mid half 0.09) dy] [(- w 0.28) dy]] false)
+    (.setLineWidth cs (float 0.6))
+    (doseq [i (range 5)]
+      (diamond! cs x y (+ (- mid half) (* i span)) dy 0.038 (< i (or rank 0))))
+    (.setLineWidth cs (float 1))))
+
+(defn- draw-foot-ornament!
+  "A single diamond between two hairlines, closing the card the way the rarity
+   rail opens it. Purely a frame: it carries nothing, which is why it is one mark
+   and not five."
+  [cs x y w dy]
+  (let [mid (/ w 2)]
+    (.setLineWidth cs (float 0.5))
+    (polyline! cs x y [[0.5 dy] [(- mid 0.085) dy]] false)
+    (polyline! cs x y [[(+ mid 0.085) dy] [(- w 0.5) dy]] false)
+    (diamond! cs x y mid dy 0.032 false)
+    (.setLineWidth cs (float 1))))
+
+(defn- draw-card-frame!
+  "The card's border, and a second one inside it for a legendary.
+
+   The doubled rule is the flair a rank of five earns: the diamonds say which
+   rarity, but a legendary should be obvious across a table without counting
+   anything."
   [cs x y w h rarity]
-  (let [m 0.09          ; frame inset from the card edge
-        c 0.17          ; corner chamfer
-        r (- w m)
-        b (- h m)]
+  (let [m 0.09
+        c 0.17]
     (.setLineWidth cs (float 1.1))
-    (polyline! cs x y [[(+ m c) m] [(- r c) m] [r (+ m c)] [r (- b c)]
-                       [(- r c) b] [(+ m c) b] [m (- b c)] [m (+ m c)]]
-               true)
-    (when-let [rank (rarity-rank rarity)]
-      (.setLineWidth cs (float 0.6))
-      (doseq [i (range 5)]
-        (diamond! cs x y (- r 0.16 (* i 0.115)) (+ m 0.115) 0.037 (< i rank))))
+    (chamfered-frame! cs x y w h m c)
+    (when (= :legendary rarity)
+      (.setLineWidth cs (float 0.45))
+      (chamfered-frame! cs x y w h (+ m 0.042) (- c 0.042)))
     (.setLineWidth cs (float 1))))
 
 (defn- draw-charge-track!
@@ -2345,25 +2382,38 @@
                clause (attunement-phrase attunement attunement-details)
                charges (item-charges description)
                ;; The body stops short of the foot when something is drawn there.
-               body-bottom (cond charges 0.78 clause 0.34 :else 0.20)]
+               body-bottom (cond charges 0.82 clause 0.46 :else 0.32)]
            (draw-card-frame! cs x y box-width box-height rarity)
-           ;; Two lines for the name: a third of the items are longer than one
-           ;; line at this size, and a clipped name is a card you cannot find.
-           (draw-text-to-box cs item-name (:bold fonts) 10.5
-                             (+ x 0.2) (- 11.0 y 0.12) (- box-width 1.0) 0.42)
+           (draw-rarity-rail! cs x y box-width rarity 0.245)
+           (draw-foot-ornament! cs x y box-width (- box-height 0.185))
+           ;; The name sits below the rail, clear of it and of the cut corner, and
+           ;; runs two lines: a third of the items are longer than one at this
+           ;; size, and a clipped name is a card you cannot find in a stack.
+           ;; The name block always reserves two lines, so the rule sits at the
+           ;; same height on every card and a stack cuts square. A one-line name
+           ;; is dropped into the middle of that block rather than left sitting on
+           ;; top of an empty line.
+           (let [name-lines (count (split-lines item-name (:bold fonts) 10 (- box-width 0.4)))]
+             (draw-text-to-box cs item-name (:bold fonts) 10
+                               (+ x 0.2) (- 11.0 y (if (> name-lines 1) 0.40 0.485))
+                               (- box-width 0.4) 0.48))
            (draw-text-to-box cs (magic-item-subtitle item) (:italic fonts) 7.5
-                             (+ x 0.2) (- 11.0 y 0.56) (- box-width 0.4) 0.2)
+                             (+ x 0.2) (- 11.0 y 0.96) (- box-width 0.4) 0.2)
+           ;; A rule and a hairline under it: the header carries two kinds of
+           ;; information, so it closes with more than the body's plain divisions.
            (.setLineWidth cs (float 0.9))
-           (polyline! cs x y [[0.2 0.78] [(- box-width 0.2) 0.78]] false)
+           (polyline! cs x y [[0.2 1.13] [(- box-width 0.2) 1.13]] false)
+           (.setLineWidth cs (float 0.35))
+           (polyline! cs x y [[0.2 1.165] [(- box-width 0.2) 1.165]] false)
            (.setLineWidth cs (float 1))
            (let [remaining-desc-lines
                  (draw-text-to-box cs body (:plain fonts) 8
-                                   (+ x 0.2) (- 11.0 y 0.86)
+                                   (+ x 0.2) (- 11.0 y 1.24)
                                    (- box-width 0.4)
-                                   (- box-height 0.86 body-bottom))]
+                                   (- box-height 1.24 body-bottom))]
              (when clause
                (draw-text cs clause (:italic fonts) 7
-                          (+ x 0.2) (- 11 y (- box-height 0.235))))
+                          (+ x 0.2) (- 11 y (- box-height 0.34))))
              (when charges
                (draw-charge-track! cs x y box-width box-height charges))
              (when (seq remaining-desc-lines)
