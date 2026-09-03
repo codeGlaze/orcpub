@@ -47,16 +47,16 @@
 ;; — class-root :modifiers, exactly where Barbarian puts its unarmored-defense mods.
 ;; Lets us put natural-ac + unarmored-defense on ONE character with built-in mechanics,
 ;; without the Draconic subclass+ancestry selection ceremony.
-(def natural-armor-class-full
-  {:name "NatArmor"
-   :key :nat-armor-
-   :hit-die 8
-   :ability-increase-levels [4 8 12 16 19]
-   :subclass-title "Origin"
-   :subclass-level 3
-   :subclasses []
-   :profs {}
-   :modifiers [(mod5e/natural-ac-bonus 3)]})
+(defn natural-armor-class
+  "Synthetic class granting ?natural-ac-bonus `val` (the Draconic-Bloodline mechanism),
+   so we can put natural armor on any build without the subclass/ancestry ceremony."
+  [key val]
+  {:name (name key) :key key :hit-die 8 :ability-increase-levels [4 8 12 16 19]
+   :subclass-title "Origin" :subclass-level 3 :subclasses [] :profs {}
+   :modifiers [(mod5e/natural-ac-bonus val)]})
+
+(def natural-armor-class-full (natural-armor-class :nat-armor- 3))
+(def natural-armor-class-b    (natural-armor-class :nat-armor-b- 3))  ; a SECOND natural source
 
 (def test-template
   (t5e/template
@@ -69,7 +69,9 @@
      (class-opt classes5e/barbarian-option)
      (class-opt classes5e/fighter-option)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
-                         weapons5e/weapons-map natural-armor-class-full)]
+                         weapons5e/weapons-map natural-armor-class-full)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map natural-armor-class-b)]
     [] language-map)))
 
 ;; str10 dex14(+2) con16(+3) int10 wis16(+3) cha10 — same as ac_characterization_test
@@ -119,6 +121,21 @@
       (println (format "\n[AC-FIX PROBE] Barbarian + NatArmor unarmored AC = %s  (RAW-correct = 15)\n" ac))
       (is (= 15 ac)
           "FIXED: natural(3) and unarmored(Con 3) no longer stack; max(13+Dex, 10+Dex+Con) = 15"))))
+
+;; ---------------------------------------------------------------------------
+;; A3 — multiple natural-armor sources must reconcile by MAX, not sum. Two natural
+;; armors ("your AC = 13 + Dex") are both base-setting; you take the better, not 13+13-10.
+;; ?natural-ac-bonus is a cum-sum channel, so two sources ADD (3+3=6) -> 10+Dex+6. This
+;; PROBES whether that stacking happens today; the value is pinned from the actual run.
+;; ---------------------------------------------------------------------------
+(deftest two-natural-sources-current-behavior
+  (testing "two natural-armor sources on one character (probe: max vs sum)"
+    (let [ac (unarmored-ac :nat-armor- :nat-armor-b-)]
+      (println (format "\n[A3 PROBE] two natural(3) sources unarmored AC = %s  (RAW-correct = 15, i.e. max not sum)\n" ac))
+      (is (integer? ac) "builds")
+      ;; assertion pinned from the run below (documents current behavior; flip if it's a bug we fix):
+      (is (= 18 ac)
+          "PINNED: ?natural-ac-bonus is cum-sum, so two natural(3) sources STACK to +6 -> 18; RAW-correct is max = 15"))))
 
 ;; ===========================================================================
 ;; SECTION 3 — PROPOSED efficient rewrite (assertions added AS DEVISED)
