@@ -488,17 +488,24 @@
    tidy: a template that has not been through dev/prepare_templates.clj still
    carries the FIELDS of its deleted pages, so spellcasting-class-4 and its spells
    exist with no page, and a page claiming those names would collide with the
-   ghosts and share their values."
-  [doc fields]
+   ghosts and share their values.
+
+   `max-sections` is a ceiling on how many this will generate, and callers taking
+   `fields` from a request must pass one. The count comes from the field NAMES, so
+   a single \"spellcasting-class-9999\" asks for thousands of cloned pages at about
+   14 MB each -- an out of memory error from a request of a few dozen bytes."
+  ([doc fields] (add-missing-spell-pages! doc fields Integer/MAX_VALUE))
+  ([doc fields max-sections]
   (let [wanted (->> (keys fields)
                     (keep #(second (re-matches #"spellcasting-class-(\d+)" (name %))))
-                    (map #(Integer/parseInt %))
-                    (reduce max 0))
+                    (keep #(try (Integer/parseInt %) (catch Exception _ nil)))
+                    (reduce max 0)
+                    (min max-sections))
         source (when (pos? wanted) (highest-spell-page doc))]
     (if (or (nil? source) (zero? source) (<= wanted source))
       0
       (do (prune-orphan-widgets! doc)
-          (add-spell-pages! doc source (range (inc source) (inc wanted)))))))
+          (add-spell-pages! doc source (range (inc source) (inc wanted))))))))
 
 (defn- unnamed-checkbox?
   "The templates call every checkbox \"Check Box N\". split-fields-across-pages!

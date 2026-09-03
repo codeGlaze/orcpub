@@ -110,6 +110,8 @@ mean zero.
 | `ORCPUB_PDF_CONCURRENCY` | `max(8, 2 x cores)` | Sheets generated at once. |
 | `ORCPUB_PDF_QUEUE_TIMEOUT_MS` | `30000` | How long an export waits for a slot before the server says it is busy. |
 | `ORCPUB_PDF_MAX_RETRIES` | `3` | How many times the busy page retries itself before waiting for a click. |
+| `ORCPUB_PDF_MAX_CASTER_SECTIONS` | `13` | Most spellcasting sections one sheet may be grown to. Thirteen is every class in the game. |
+| `ORCPUB_PDF_MAX_CARDS` | `200` | Most cards of one kind a single export prints. A level 20 wizard's spellbook is about 44. |
 
 ### Sizing them
 
@@ -212,3 +214,25 @@ answers neither churn nor footprint.
 
 Deeper notes on where the cost sits inside the PDF code — and what was removed to
 get here — are in `docs/kb/pdf-form-techniques.md`.
+
+## What bounds the work one request can buy
+
+The queue limits how many exports run at once and how long a request waits for a
+slot. Neither limits how long a slot is HELD, so the work inside one export has to
+be bounded too. Two inputs decide it and both come from the caller:
+
+- **The spellcasting section count** is the largest N in any `spellcasting-class-N`
+  field NAME. Unbounded, a body of a few dozen bytes asked for thousands of cloned
+  pages at about 14 MB each: measured, `spellcasting-class-9999` ran for 310
+  seconds and died with an out of memory error. Clamped by
+  `ORCPUB_PDF_MAX_CASTER_SECTIONS`, the same request answers 200 in 0.8 s.
+- **The card count** is however many spells or items the caller lists, nine to a
+  page. A 2 MB body holds about 60,000 spell entries -- some 13,000 pages, a
+  quarter of an hour with a slot held throughout. Clamped by
+  `ORCPUB_PDF_MAX_CARDS`; a request for 4,000 now answers in 2.2 s and logs that
+  it printed the first 200.
+
+Note that the section count is derived in TWO places -- the handler and
+`add-missing-spell-pages!` -- and clamping only the handler left the endpoint
+exactly as vulnerable. That was caught by firing the request at a running server
+rather than reasoning about the code.

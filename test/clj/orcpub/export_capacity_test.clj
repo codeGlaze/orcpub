@@ -104,3 +104,17 @@
                            :action "/character.pdf"})]
       (is (not (.contains html "<script>alert(1)</script>")))
       (is (.contains html "&lt;script&gt;")))))
+
+(def ^:private bound-cards #'routes/bound-cards)
+
+(deftest a-request-cannot-buy-unbounded-work
+  (testing "cards are capped, however many the caller asks for"
+    (let [limit (config/get-pdf-max-cards)]
+      (is (= limit (count (bound-cards "spell" (repeat (* 10 limit) {:key :acid-arrow})))))
+      (is (= 3 (count (bound-cards "spell" (repeat 3 {:key :acid-arrow}))))
+          "a real character is nowhere near the cap and passes through untouched")))
+  (testing "the cap is generous enough for any real character"
+    (is (>= (config/get-pdf-max-cards) 100)
+        "a level 20 wizard's spellbook is about 44 spells")
+    (is (>= (config/get-pdf-max-caster-sections) 13)
+        "thirteen is every class in the game")))

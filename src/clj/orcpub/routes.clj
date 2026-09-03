@@ -583,10 +583,27 @@
     :weapon-name-2 8
     :weapon-name-3 8}))
 
+(defn- bound-cards
+  "At most ORCPUB_PDF_MAX_CARDS of `cards`, reporting when it truncates.
+
+   Nine cards to a page and the caller decides how many, so an export is otherwise
+   only as bounded as the request body: 2 MB of spell keys is some 13,000 pages
+   and a quarter of an hour with an export slot held the whole time. The queue
+   timeout bounds how long a request WAITS for a slot, not how long it keeps one."
+  [kind cards]
+  (let [limit (config/get-pdf-max-cards)
+        n (count cards)]
+    (when (> n limit)
+      (println (format "pdf: %d %s cards requested, printing the first %d"
+                       n kind limit)))
+    (take limit cards)))
+
 (defn add-spell-cards! [doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded?]  (try
     (let [custom-spells-map (common/map-by-key custom-spells)
           spells-map (merge spells/spell-map custom-spells-map)
-          flat-spells (-> spells-known vals flatten)
+          ;; Bound the CARDS, not the classes: spells-known is keyed by class, so
+          ;; capping it would keep the first few classes whole and drop the rest.
+          flat-spells (bound-cards "spell" (-> spells-known vals flatten))
           sorted-spells (sort-by
                          (fn [{:keys [class key]}]
                            [(if (keyword? class)
@@ -609,11 +626,15 @@
                           (comp
                            (filter (fn [spell] (spells-map (:key spell))))
                            (map
+                            ;; The DC and attack maps come from the request and may
+                            ;; be absent. Calling nil threw an NPE that the catch
+                            ;; below swallowed, so every card vanished and the
+                            ;; export looked like it had simply ignored the option.
                             (fn [{:keys [key class]}]
                               {:spell (spells-map key)
                                :class-nm class
-                               :dc (spell-save-dcs class)
-                               :attack-bonus (spell-attack-mods class)})))
+                               :dc (get spell-save-dcs class)
+                               :attack-bonus (get spell-attack-mods class)})))
                           part)
                   remaining-desc-lines (vec
                                         (pdf/print-spells
@@ -633,7 +654,8 @@
                 (.addPage doc back-page)
                 (pdf/print-backs back-page-cs fonts img 2.5 3.5 remaining-desc-lines i
                                  logo-img)))))))
-    (catch Exception e (prn "FAILED ADDING SPELLS CARDS!" e))))
+    (catch Exception e
+      (println "pdf: failed adding spell cards -" (.getMessage e)))))
 
 (defn add-magic-item-cards!
   "Appends card pages for `magic-items`, nine to a sheet, each with its back.
@@ -643,7 +665,7 @@
    rather than propagating."
   [doc magic-items logo-img bw? bw-faded?]
   (try
-    (let [parts (vec (partition-all 9 magic-items))
+    (let [parts (vec (partition-all 9 (bound-cards "magic item" magic-items)))
           ;; Fonts and the image embedder are built once per document. Per page
           ;; they would re-parse four TTFs and re-embed every icon.
           fonts (pdf/load-fonts doc)
@@ -864,10 +886,14 @@
         ;; (2026-09) One master per style, grown to the character's shape, rather
         ;; than one of seven pre-cut files. pdf/sheet-masters carries the reasoning
         ;; and the measurements.
-        casters (->> (keys fields)
-                     (keep #(second (re-matches #"spellcasting-class-(\d+)" (name %))))
-                     (map #(Integer/parseInt %))
-                     (reduce max 0))
+        ;; Clamped: the count comes from the field NAMES the caller sent, so
+        ;; "spellcasting-class-9999" would otherwise ask for 9,998 cloned pages at
+        ;; roughly 14 MB each, from a body of a few dozen bytes.
+        requested-casters (->> (keys fields)
+                               (keep #(second (re-matches #"spellcasting-class-(\d+)" (name %))))
+                               (keep #(try (Integer/parseInt %) (catch Exception _ nil)))
+                               (reduce max 0))
+        casters (min requested-casters (config/get-pdf-max-caster-sections))
         {:keys [file marks without-casters]} (get pdf/sheet-masters
                                                   print-character-sheet-style?)
         ;; A character who casts nothing opens the variant that has no spell page
@@ -898,7 +924,7 @@
         ;; of a non-caster sheet. add-missing-spell-pages! still prunes on the
         ;; branch where it generates pages, in case it meets an unbaked template.
         (pdf/grow-spell-sections! doc casters (if no-casters? :all marks))
-        (pdf/add-missing-spell-pages! doc fields)
+        (pdf/add-missing-spell-pages! doc fields (config/get-pdf-max-caster-sections))
         (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes))
       (when (and print-spell-cards? (seq spells-known))
         (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw? bw-faded?))

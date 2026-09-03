@@ -118,6 +118,27 @@
   []
   (positive-int-env ["ORCPUB_PDF_CONCURRENCY"] (max 8 (* 2 @available-processors))))
 
+(defn get-pdf-max-caster-sections
+  "Most spellcasting sections one sheet may be grown to, from
+   ORCPUB_PDF_MAX_CASTER_SECTIONS.
+
+   The caster count comes from the field NAMES in the request -- the largest N in
+   spellcasting-class-N -- so without a ceiling a body of a few dozen bytes can
+   ask for thousands of cloned pages at about 14 MB each. Thirteen is every class
+   in the game, which no character can exceed."
+  []
+  (positive-int-env ["ORCPUB_PDF_MAX_CASTER_SECTIONS"] 13))
+
+(defn get-pdf-max-cards
+  "Most cards of one kind a single export will print, from ORCPUB_PDF_MAX_CARDS.
+
+   Nine to a page, and the caller says how many: a 2 MB body holds about 60,000
+   spell entries, which is 13,000 pages and a quarter of an hour holding an export
+   slot. Two hundred is far past a real character -- a level 20 wizard's spellbook
+   is about 44 -- and bounds the work a request can buy."
+  []
+  (positive-int-env ["ORCPUB_PDF_MAX_CARDS"] 200))
+
 (defn get-pdf-max-retries
   "How many times the busy page retries itself before it waits for the person,
    from ORCPUB_PDF_MAX_RETRIES.
