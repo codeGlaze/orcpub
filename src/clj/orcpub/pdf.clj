@@ -2415,6 +2415,13 @@
       (draw-flourish! cs x y w h m c family rank))
     (.setLineWidth cs (float 1))))
 
+(defn- draw-centred-text!
+  "Draws `text` centred on `cx`, measuring the string rather than guessing how
+   wide it sets. Halving a hardcoded width puts it near the middle and no nearer,
+   and the miss moves with the font and the size."
+  [cs text font size cx baseline]
+  (draw-text cs text font size (- cx (/ (string-width text font size) 2)) baseline))
+
 (def ^:private tickable-charges
   "The most circles a card can carry in one row and a hand can sensibly tick.
    Past this the tracker becomes a number to write instead."
@@ -2442,15 +2449,19 @@
     (let [r 0.052
           gap 0.145
           cx (- (/ w 2) (/ (* gap (dec n)) 2))]
-      (draw-text cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2) -0.19) (- 11 y cy -0.13))
+      (draw-centred-text! cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2)) (- 11 y cy -0.13))
       (doseq [i (range n)]
         (circle! cs x y (+ cx (* gap i)) cy r)))
+    ;; The rule and the total are centred as one group, not the rule alone: the
+    ;; total hangs off its right end and pulls the pair off centre otherwise.
     (let [total (str "/ " n)
           rule-w 0.62
-          left (- (/ w 2) (/ rule-w 2) 0.16)]
-      (draw-text cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2) -0.19) (- 11 y cy -0.155))
+          gap 0.05
+          group (+ rule-w gap (string-width total HELVETICA 7))
+          left (- (/ w 2) (/ group 2))]
+      (draw-centred-text! cs "CHARGES" HELVETICA 5.5 (+ x (/ w 2)) (- 11 y cy -0.155))
       (polyline! cs x y [[left cy] [(+ left rule-w) cy]] false)
-      (draw-text cs total HELVETICA 7 (+ x left rule-w 0.05) (- 11 y cy -0.015))))
+      (draw-text cs total HELVETICA 7 (+ x left rule-w gap) (- 11 y cy -0.015))))
   (.setLineWidth cs (float 1)))
 
 (defn print-items
@@ -2576,9 +2587,9 @@
              ;; there belongs to the clause or the ornament -- and an arrow does
              ;; not say what it means anyway.
              (when (seq remaining-desc-lines)
-               (draw-text cs "continued on the back" (:italic fonts) 6.2
-                          (+ x (/ (- box-width 1.02) 2))
-                          (- 11 y (- box-height base-bottom 0.02))))
+               (draw-centred-text! cs "continued on the back" (:italic fonts) 6.2
+                                   (+ x (/ box-width 2))
+                                   (- 11 y (- box-height base-bottom 0.02))))
              {:remaining-lines remaining-desc-lines
               :spell-name item-name}))))))))
 

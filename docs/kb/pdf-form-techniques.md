@@ -783,6 +783,13 @@ Three more from looking at it at print size:
   it, and a card you cannot find in a stack has failed at its only job. The block
   still reserves two lines whatever the size, so the header rule stays level
   across a sheet.
+- **Centre by measuring the string, never by halving a guessed width.** Both the
+  charge label and the continuation line were positioned with a hardcoded number
+  standing in for how wide the text sets. That lands near the middle and no
+  nearer, and the miss moves with the font and the size. `string-width` returns
+  INCHES, not points, which is its own trap. Where a rule and a label sit side by
+  side, centre the pair as one group: centring the rule alone leaves the label
+  hanging off its end and pulls the whole thing off axis.
 - **The overflow marker is a phrase, not an icon.** At the bottom right the
   recharge glyph sat on the corner diamond and its arms, and every other spot down
   there belongs to the clause or the foot ornament. "continued on the back" is
