@@ -932,6 +932,26 @@ A tenth of a 512-unit box is 1/5120 of the icon -- a third of a 600 DPI dot at t
 further 2 KB but is about one dot at an inch, so it is left on the table rather
 than capping how large an icon can usefully be drawn.
 
+### The whole cost, on all four axes
+
+Icons as the only variable, 45 cards over 5 pages, 20 runs after warmup:
+
+| | rasters | vector | |
+|---|---|---|---|
+| file | 80,026 B | 85,756 B | +7.2% |
+| time | 561 ms | 571 ms | +1.8% |
+| churn | 251.1 MB | 262.9 MB | +4.7% |
+
+Parsing four path strings and building four forms costs about what decoding four
+PNGs through ImageIO did, so the time and memory difference is close to noise; the
+file is where it actually shows. And all of it is confined to card pages -- an
+ordinary sheet exports byte-identical.
+
+Worth stating plainly, because the first cut of this got it wrong: the +160% version
+looked finished and rendered correctly. Nothing about the output said it had trebled
+the file. Draw-once-per-document is not an optimisation to reach for afterwards, it
+is the shape the feature has to be built in.
+
 ### Colour belongs at the draw site
 
 A form that sets no colour inherits the fill colour and alpha in force where it is
