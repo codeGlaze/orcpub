@@ -7,6 +7,23 @@ covers the refactor: what has landed, what the design is, and what we got wrong 
 - **IN THE APP** — live code the running application executes.
 - **NOT WIRED** — exists in the repo with passing tests, but nothing in `src/` calls it.
 
+## Ledger
+
+Newest first. Each entry is one commit; sections below carry the detail. Reversals stay here even
+when the section they came from has been rewritten — the section says what is true now, this says
+what we believed and when.
+
+| commit | what changed | reversed anything? |
+|---|---|---|
+| `8ab0a8f6` | renamed `:cant-wear-armor` → `:armor-gives-no-ac`; roadmapped the real restriction | yes — the name claimed a rule it does not implement |
+| `ca0314b9` | split `:tortle-ac` into calculation + AC suppression; fixed the degenerate Bracers test | yes — see Corrections, "a limitation that wasn't" |
+| `77acb74f` | characterized `:tortle-ac` (17/19/17-in-plate) | no. **This commit shipped with no doc entry — the one gap in the trail** |
+| `7df2e618` | `:lizardfolk-ac` compiles to the universal shape; parity sweep 2 → 0 | no |
+| `e1894a46` | shield + character magic moved into `?ac-bonus-fns`; sweep 7 → 2; 4 pins flipped | no |
+| `a09ba395` | documented the three mechanisms for one job | no |
+| `0abc1f53` | pinned the Bracers no-shield clause; named the two kinds of magic | yes — "the with-shield channel is redundant" |
+| `73de3a03` | symmetric `:shield?`/`:armor?` tags | no |
+
 ## The approach, and why it changed
 
 An earlier plan was to build a replacement reconciler (`orcpub.dnd.e5.armor-class`) and wire it in
@@ -371,19 +388,62 @@ should be made tri-state to match before the vocabulary is published.
 
 ## Remaining
 
-- **FIRST: move the shield's +2 and `?magical-ac-bonus` out of the base and into `?ac-bonus-fns`**,
-  so they land on whichever calculation wins. Until this happens, authored calculations silently
-  lose both (pinned at 15 in each case). This also removes the reason
-  `?unarmored-with-shield-ac-bonus` exists, and it is a prerequisite for the shims below.
-- Make `:shield?` tri-state, matching `:armor?`.
-- Move unarmored defense, Monk, and natural armor onto `ac-formula`; delete the pairwise `if`.
-- Effective-cap combination, with a Medium Armor Master + custom-cap test.
-- Shims for `:lizardfolk-ac`, `:tortle-ac`, `?natural-ac-bonus`, `?unarmored-ac-bonus`,
-  `?unarmored-with-shield-ac-bonus` (D9 zero-migration; `#_`-strike + date + ledger row per D34).
-- **Delete `orcpub.dnd.e5.armor-class`.** It duplicates a live mechanism and nothing calls it; by
-  D34 that is never-released scaffolding, so it goes rather than being deprecated. Its tests move to
-  the real engine — they encode good cases (bonuses reaching the winner, floors as constant
-  calculations, shield permission as opt-out).
+Reconciled against what has actually shipped. (An earlier version of this list still carried three
+items that had already landed — the "LANDED" sections were appended without pruning here.)
+
+**Done:** shield + character magic into `?ac-bonus-fns` · tri-state `:shield?`/`:armor?` ·
+`:lizardfolk-ac` and `:tortle-ac` on the universal shape · parity sweep at 0.
+
+**Open, in order:**
+
+1. **Effective Dex cap.** Combine the type default, the armor's own `:max-dex-mod`, and anything
+   that raises it. Currently pinned at the buggy 16 for `custom-heavy`; needs a Medium Armor Master
+   + custom-cap test, since reading `:max-dex-mod` naively silently disables MAM.
+2. **Built-ins onto `ac-formula`.** Barbarian, Monk, Draconic natural armor. Deletes the pairwise
+   `if` in `?base-armor-class` and the tie-break in `?unarmored-armor-class`.
+3. **Retire the scalar channels** — `?natural-ac-bonus`, `?unarmored-ac-bonus`,
+   `?unarmored-with-shield-ac-bonus` (D9 zero-migration; `#_`-strike + date + ledger row per D34).
+   Note Bracers of Defense enforces its "no shield" clause by *not writing* the with-shield
+   channel, so this cannot be a mechanical rename.
+4. **Extract the AC namespace** — see below.
+
+### Channel count is going the wrong way
+
+The design collapses toward two lists, `?ac-fns` and `?ac-bonus-fns`. `template_base.cljc` today
+holds eleven AC attributes:
+
+```
+?ac-fns  ?ac-bonus-fns                                    the 2 the design wants
+?ac-bonus  ?armored-ac-bonus  ?unarmored-ac-bonus         7 legacy scalars
+?unarmored-with-shield-ac-bonus  ?natural-ac-bonus
+?magical-ac-bonus  ?shield-ac-bonus
+?armor-ac-suppressed?                                     added by this refactor
+```
+
+`?armor-ac-suppressed?` is not a duplicate — nothing else expresses it — but it is a new scalar in a
+refactor whose point is removing scalars, and it is **avoidable**. In the target shape
+(`:armor-formula` / `:other-formulas` / `:bonuses`) "worn armor gives no AC" is simply *omitting the
+armor formula*; no flag exists. It should disappear when step 4 lands. Recorded so it is not
+mistaken for a permanent part of the design.
+
+### REVISED: extract the AC namespace instead of deleting it
+
+`orcpub.dnd.e5.armor-class` was slated for **deletion** under D34 — never-released scaffolding that
+duplicates a live mechanism. That call assumed AC would stay in `template_base`. It should not:
+breaking up the monoliths is a branch goal, and AC is the best-understood candidate now that it is
+characterized and the sweep is at 0.
+
+So the namespace is **wired rather than deleted**, and `template_base` keeps thin `?`-attribute
+declarations that delegate into it. There is precedent in the same file —
+`?dual-wield-weapon? weapon5e/light-melee-weapon?` already delegates to another namespace.
+
+Constraint worth stating: `?`-attributes are entity-spec macros and only work inside
+`es/make-entity`, so the *declarations* must stay in `template_base`. What moves is the arithmetic.
+That is the D30 shape — a thin compiler over a real engine — not a parallel engine.
+
+Size check, so the target is not overstated: `template_base.cljc` is 339 lines and AC is ~60 of
+them. The extraction is worth doing for structure, not line count. The actual monolith on this
+branch is `options.cljc` at 3938 lines.
 
 ## Corrections
 
@@ -397,6 +457,18 @@ should be made tri-state to match before the vocabulary is published.
 - **A design claim that was wrong:** an earlier version of this doc said "the shield's own +2 needs
   no tag — it is a bonus." It is not a bonus in the current engine; it is computed inside the base,
   so a winning calculation loses it. Caught by the step-3 tests rather than by reading.
+- **A limitation that wasn't:** this doc argued at length that `:tortle-ac` could not be moved onto
+  the universal mechanism, because reproducing it needs a *ceiling* on AC and `?ac-fns` is a `max`,
+  which raises floors only. The conclusion was "left as-is until equipment restrictions exist."
+  Wrong framing, not wrong arithmetic. The ceiling was never the rule — it was a stand-in for "a
+  tortle can't wear armor." Expressed as its AC consequence instead (*worn armor contributes
+  nothing*) it composes with `max` and needs no ceiling. Prompted by the observation that
+  `:tortle-ac` is a generic prop any homebrew author can take, so a species limitation should not
+  ride along with it. **Process failure:** the superseded section was overwritten in place rather
+  than corrected here, so the reasoning was briefly unrecoverable. That is what this section is for.
+- **An overstatement:** the split above was described as "modelling the restriction honestly." It
+  models the AC consequence. See `:armor-gives-no-ac` — it does not prevent equipping armor and
+  does not touch `?armor-stealth-disadvantage?`.
 - **A reachability claim that was wrong:** Lizardfolk was described as a built-in playable race. The
   race definition at `template.cljc:274` is `#_`-commented along with every other non-SRD race. The
   reachable path is the `:lizardfolk-ac` homebrew prop, which is what the characterization uses.
