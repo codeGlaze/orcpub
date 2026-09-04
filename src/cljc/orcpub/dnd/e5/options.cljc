@@ -3663,12 +3663,19 @@
       :lizardfolk-ac (when v
                        (into [(mods/modifier ?natural-ac-bonus 3)]
                              (ac-calculation-modifiers {:ac 13 :abilities [:dex]})))
+      ;; Kept for saved content (D9), now split into the two things it was welding together:
+      ;; a flat natural-AC calculation, and a species restriction. The old form replaced
+      ;; ?armor-class-with-armor with (+ 17 shield) so worn armor could never beat 17 — a ceiling
+      ;; standing in for "a tortle can't wear armor", because the app had no way to say that.
+      ;; It does now, and the two halves are separately authorable: anyone can take the flat AC
+      ;; without the restriction, and a DM can hand a player the restriction-free version.
+      ;; The ?natural-ac-bonus 7 the old form wrote alongside was inert (the replacement never
+      ;; consulted ?base-armor-class), so it is gone rather than carried forward.
       :tortle-ac (when v
-                   [(mods/modifier ?natural-ac-bonus 7)
-                    (mods/modifier ?armor-class-with-armor
-                                  (fn [armor & [shield]]
-                                    (+ 17
-                                       (if shield (?shield-ac-bonus shield) 0))))])
+                   (conj (vec (ac-calculation-modifiers {:ac 17 :abilities []}))
+                         (modifiers/cant-wear-armor)))
+      ;; The restriction on its own, for authors who want it without the flat 17.
+      :cant-wear-armor (when v [(modifiers/cant-wear-armor)])
       :language (collect-map-modifiers
                  v
                  #(modifiers/language %))

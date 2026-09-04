@@ -120,3 +120,24 @@ backing it with a falsifiable test (or showing the full caller→fn→primitive 
 each). A single-function read is a hypothesis, not a finding.* Behavioral claims that the plan
 rests on become characterization tests, not prose; that test is simultaneously the check on my
 reading and the baseline an upgrade is compared against.
+
+## A test whose contributors share a magnitude proves nothing
+
+Bracers of Defense (+2, no armor and no shield) was "verified" against a plain shield (+2):
+
+```
+unarmored        14   ; 10 + Dex(2) + bracers(2)
+unarmored+shield 14   ; 10 + Dex(2) + shield(2)
+```
+
+Two 14s, and the second was read as "the bracers were correctly excluded". It is equally
+consistent with the bracers applying and the shield being dropped, or with both applying and
+something else vanishing. The assertion cannot attribute the number to a cause.
+
+Two fixes, use both: **vary the magnitudes** so each contributor is identifiable (a +1 shield
+contributes 3, so the answer is 15 if excluded and 17 if not), and **assert the delta** against the
+same character without the feature rather than the absolute total. The delta is what the feature
+actually claims.
+
+Applies past AC: whenever a test pins one number produced by summing several sources, check that no
+two of them are equal before believing it.

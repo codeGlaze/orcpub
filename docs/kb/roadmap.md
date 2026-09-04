@@ -196,3 +196,16 @@ then merge `develop` in, since the shared files here have diverged for the feat 
 4. **C2 → C3** — feature registry then builder surfaces (on F + B1).
 5. **A3** (spell-slot bucket) — unblocks Artificer-shaped classes; **D1** in parallel once the AC net is full.
 6. **E** — last.
+
+### 🟡 MEDIUM — builder support for `:cant-wear-armor`
+
+`{:cant-wear-armor true}` is authorable in `:props` and reaches every silo that carries them, and
+`:tortle-ac` is built from it. Missing:
+
+- no builder page exposes it, so it can only be authored by hand
+- the equipment UI does not stop a restricted character from equipping armor — the armor just
+  stops contributing to AC
+
+Both wanted: the restriction should be selectable when building a species, and overridable when a
+DM and player want an armor-wearing tortle. See the AC refactor doc for why it is a restriction
+rather than an AC ceiling.

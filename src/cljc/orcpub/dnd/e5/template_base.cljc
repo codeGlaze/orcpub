@@ -70,8 +70,14 @@
                                               ?unarmored-with-shield-ac-bonus 0)
                                             ?ac-bonus))
     ?dual-wield-weapon? weapon5e/light-melee-weapon?
+    ;; "You can't wear armor" (a tortle's shell, a construct chassis). A RESTRICTION, not an AC
+    ;; rule: worn armor simply contributes nothing, so the character is treated as unarmored no
+    ;; matter what is equipped. Deliberately not a cap on AC — ?ac-fns is a max and can raise a
+    ;; floor but not impose a ceiling, and a ceiling would be the wrong model anyway.
+    ?armor-ac-suppressed? false
     ?armor-class-with-armor-base (fn [armor & [shield]]
-                                   (cond (and (nil? armor)
+                                   (let [armor (when-not ?armor-ac-suppressed? armor)]
+                                     (cond (and (nil? armor)
                                               (nil? shield)) ?unarmored-armor-class
                                          (nil? armor) (?unarmored-with-shield-armor-class shield)
                                          ;; Flattened nested (+ ...) — semantically equivalent
@@ -79,7 +85,7 @@
                                                   (or ?armored-ac-bonus 0)
                                                   (:base-ac armor)
                                                   (::mi5e/magical-ac-bonus armor)
-                                                  ?ac-bonus)))
+                                                  ?ac-bonus))))
     ?armor-class-with-armor (fn [armor & [shield]]
                               (let [max-ac (apply max
                                                   (?armor-class-with-armor-base armor shield)
