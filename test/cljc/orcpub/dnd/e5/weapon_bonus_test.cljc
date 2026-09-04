@@ -133,7 +133,9 @@
             {:keys [type options label]} fields
             :when (= :enum type)]
       (is (nil? (:value (first options)))
-          (str label ": the first option must be the nil / either-way one")))))
+          (str label ": the first option must be the nil / \"Both\" one"))
+      (is (= "Both" (:title (first options)))
+          (str label ": the unset state is labelled \"Both\"")))))
 
 (deftest field-paths-match-what-the-compiler-reads
   (testing "the same drift risk as the AC fields: a field writing a path the compiler ignores looks

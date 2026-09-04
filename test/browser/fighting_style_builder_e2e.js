@@ -106,7 +106,7 @@ async function controlFor(page, labelText) {
   // have, because a select with no matching value shows its first option.
   if (afterArmorTag) {
     const opts = await afterArmorTag.evaluate(el => [...el.options].map(o => o.textContent.trim()));
-    check('Armor tag offers an explicit "either way" first', /either way/i.test(opts[0] || ''),
+    check('Armor tag offers an explicit "Both" first', /^both$/i.test((opts[0] || '').trim()),
           `options: ${JSON.stringify(opts)}`);
     const selected = await afterArmorTag.evaluate(el => el.selectedIndex);
     check('and it is what shows while the tag is unset', selected === 0, `selectedIndex=${selected}`);
