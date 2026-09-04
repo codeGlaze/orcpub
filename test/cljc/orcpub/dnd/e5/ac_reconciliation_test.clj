@@ -476,12 +476,11 @@
       (is (= 17 with-)
           "FIXED. natural armor 15 + a flat +2 that stacks on the winner.
 
-           Was 15 on this branch: our own 6c46f8f2 (stop unarmored-defense and natural-armor
-           stacking) zeroes the whole ?unarmored-ac-bonus channel when natural wins the tie-break,
-           and Bracers' flat +2 was sitting in that channel. Correct for its target case (Barbarian
-           + Draconic), wrong for flat bonuses. agents/develop returns 17 here, so this was a
-           regression introduced by the refactor family, not a shipped defect — verified by running
-           this test against that branch's template_base.
+           A REAL SHIPPED DEFECT, not one this branch introduced: origin/integration returns 15
+           here too — verified by running this test against that branch's template_base. The
+           tie-break in ?unarmored-armor-class zeroes the whole ?unarmored-ac-bonus channel when
+           natural armor wins, and Bracers' flat +2 was sitting in that channel. Correct for its
+           target case (Barbarian + Draconic stacked to 18 when RAW is 15), wrong for flat bonuses.
 
            mod5e/unarmored-ac-bonus now emits an ?ac-bonus-fns entry stating both clauses, which is
            also the first channel the trim retires."))))
