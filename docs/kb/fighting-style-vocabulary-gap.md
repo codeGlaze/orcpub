@@ -118,3 +118,27 @@ prop serves all of them.
 4. **Blindsight prop.** One style, trivial next to darkvision.
 5. **Cantrip grants with a casting ability.** Three styles, but needs pool work.
 6. **Damage-die manipulation.** One style, and the only one needing real engine work. Defer.
+
+## What driving the real app caught
+
+None of this was visible from the JVM suite or a clean cljs compile — all of it came from
+`test/browser/fighting_style_builder_e2e.js` against `lein e2e-server`.
+
+1. **Every `:number` field in every declarative builder was broken.** `number-field` already parses
+   its input to an int, and `render-builder-field` then called `(when (seq %) (js/parseInt %))` on
+   it — `(seq 1)` throws `1 is not ISeqable`. Typing a digit threw inside the handler so the value
+   never reached app-db, while the input still *showed* it via `input-field`'s local buffer.
+   Clearing worked, since `(seq nil)` is nil. **Pre-existing and shipped** — reproduced on the
+   draconic ancestry builder, which is released content.
+
+2. **A three-state value in a two-option dropdown lied.** A `<select>` with no matching value
+   renders its first option, so an unset tag *displayed* "Only while wearing armor". Every tag field
+   now offers an explicit `Either way` as the first option.
+
+3. **`nil` would have inverted a condition.** Once that option exists, a stored blank reaches
+   `weapons/matches?` as `nil`, which its `(boolean want)` coerced to `false` — silently turning
+   "either way" into "must NOT have this property". The AC compiler's `ac-applies?` already handled
+   nil correctly; `matches?` did not.
+
+The third only existed because of the second, and neither would have appeared without looking at a
+screenshot of the rendered form.

@@ -462,7 +462,11 @@
   match, so old content with a tag this build does not know still applies its bonus."
   [tags weapon]
   (every? (fn [[tag want]]
-            (if-let [flag (tag->flag tag)]
-              (= (boolean want) (boolean (get weapon flag)))
-              true))
+            (cond
+              ;; nil = the third state, "either way". It reaches here when a builder dropdown
+              ;; stores an explicit blank; without this it would coerce to false and silently
+              ;; invert into "must NOT have this property".
+              (nil? want) true
+              (tag->flag tag) (= (boolean want) (boolean (get weapon (tag->flag tag))))
+              :else true))
           tags))

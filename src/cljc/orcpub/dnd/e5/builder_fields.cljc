@@ -62,10 +62,12 @@
   (let [has-bonus? #(get-in % [:props :ac-bonus :ac-bonus])]
     [{:key [:props :ac-bonus :ac-bonus] :type :number :label "AC Bonus"}
      {:key [:props :ac-bonus :armor?] :type :enum :label "Armor requirement" :when has-bonus?
-      :options [{:value true  :title "Only while wearing armor"}
+      :options [{:value nil   :title "Either way"}
+                {:value true  :title "Only while wearing armor"}
                 {:value false :title "Only while NOT wearing armor"}]}
      {:key [:props :ac-bonus :shield?] :type :enum :label "Shield requirement" :when has-bonus?
-      :options [{:value true  :title "Only while wielding a shield"}
+      :options [{:value nil   :title "Either way"}
+                {:value true  :title "Only while wielding a shield"}
                 {:value false :title "Only while NOT wielding a shield"}]}]))
 
 (defn- weapon-tag-field
@@ -74,7 +76,10 @@
   [prop-key tag label yes no]
   {:key [:props prop-key tag] :type :enum :label label
    :when #(get-in % [:props prop-key :bonus])
-   :options [{:value true :title yes} {:value false :title no}]})
+   ;; An explicit nil option FIRST. A <select> with no matching value shows its first option, so
+   ;; without this the form displays "Only while wearing armor" for a field that is actually unset —
+   ;; it would lie about a three-state value in a two-option control.
+   :options [{:value nil :title "Either way"} {:value true :title yes} {:value false :title no}]})
 
 (defn- weapon-bonus-fields
   "Fields for one conditional weapon bonus: the number, then the tags that gate it. The tags are

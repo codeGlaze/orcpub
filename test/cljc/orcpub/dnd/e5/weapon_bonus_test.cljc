@@ -48,7 +48,13 @@
     (is (not (weapons5e/matches? {:melee? true :thrown? true :two-handed? true} handaxe))))
   (testing "an unknown tag is ignored rather than failing the match, so content authored against a
             newer build still applies its bonus here"
-    (is (weapons5e/matches? {:melee? true :sentient? true} longsword))))
+    (is (weapons5e/matches? {:melee? true :sentient? true} longsword)))
+  (testing "an explicit nil is the THIRD state, not false. A builder dropdown storing a blank must
+            mean 'either way' — coercing it to false would silently invert the condition into
+            'must NOT have this property'."
+    (is (weapons5e/matches? {:melee? nil} longsword))
+    (is (weapons5e/matches? {:melee? nil} longbow))
+    (is (weapons5e/matches? {:thrown? nil :melee? true} longsword))))
 
 ;; ── the props, as published fighting styles ──────────────────────────────────────────────────
 ;; Measured through the real engine as a DELTA: build the weapon's modifier with and without the
@@ -118,6 +124,16 @@
     (is (= (weapons5e/matches? {:finesse? false} {::weapons5e/melee? true})
            (weapons5e/matches? {:finesse? false} {::weapons5e/melee? true ::weapons5e/finesse? false}))
         "absent and explicit-false must match identically")))
+
+(deftest tag-dropdowns-offer-an-explicit-either-way
+  (testing "a <select> with no matching value renders its FIRST option, so a two-option control for
+            a three-state value would display a restriction the item does not have. Every tag field
+            must offer nil explicitly, and it must come first."
+    (doseq [fields [bf/ac-bonus-fields bf/attack-bonus-fields bf/damage-bonus-fields]
+            {:keys [type options label]} fields
+            :when (= :enum type)]
+      (is (nil? (:value (first options)))
+          (str label ": the first option must be the nil / either-way one")))))
 
 (deftest field-paths-match-what-the-compiler-reads
   (testing "the same drift risk as the AC fields: a field writing a path the compiler ignores looks

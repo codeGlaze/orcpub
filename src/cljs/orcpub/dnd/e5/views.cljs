@@ -7528,8 +7528,14 @@
                    [dropdown {:items (map-indexed (fn [i o] {:value (str i) :title (:title o)}) options)
                               :value (when idx (str idx))
                               :on-change #(dispatch [set-prop path (:value (nth options (js/parseInt %)))])}])
+         ;; number-field has ALREADY parsed: it hands us an int, or nil when the box is cleared.
+         ;; This used to re-parse with (when (seq %) (js/parseInt %)), and (seq 1) throws
+         ;; "1 is not ISeqable" — so typing a digit threw inside the handler and the value never
+         ;; reached app-db, while the input still SHOWED it via input-field's local buffer. Clearing
+         ;; worked, since (seq nil) is nil. Broken for every :number field in every declarative
+         ;; builder, draconic ancestry included; caught by driving the real app.
          :number [number-field {:value v
-                                :on-change #(dispatch [set-prop path (when (seq %) (js/parseInt %))])}]
+                                :on-change #(dispatch [set-prop path %])}]
          ;; :text
          [comps/input-field :input v #(dispatch [set-prop path %]) {:class-name "input"}])])))
 
