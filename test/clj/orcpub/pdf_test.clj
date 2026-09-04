@@ -1052,9 +1052,51 @@
       (let [{:keys [file]} (get pdf/sheet-masters style)]
         (with-open [in (.openStream (io/resource file))
                     doc (Loader/loadPDF (.readAllBytes in))]
-          (let [dropped (set (pdf/write-fields! doc (filled-to-capacity style) false {}))
+          (let [fields (pdf/merge-style-fields style (filled-to-capacity style))
+                dropped (set (pdf/write-fields! doc fields false {}))
                 declared (get pdf/unsupported-fields style #{})]
             (is (= declared dropped)
                 (str "style " style
                      "\n  declared unsupported: " (pr-str (sort declared))
                      "\n  actually dropped:     " (pr-str (sort dropped))))))))))
+
+(deftest merge-style-fields-folds-sections-into-one-box
+  (testing "a style with no shared box passes its fields through untouched"
+    (let [fields {:backstory "b" :allies "a" :character-name "n"}]
+      (is (= fields (pdf/merge-style-fields 1 fields)))))
+
+  (testing "style 4's backstory and allies become one headed Notes value"
+    (let [out (pdf/merge-style-fields 4 {:backstory "Raised at sea."
+                                         :allies "The Candlewrights."
+                                         :character-name "Ysolde"})]
+      (is (= "BACKSTORY\nRaised at sea.\n\nALLIES & ORGANIZATIONS\nThe Candlewrights."
+             (:Notes out)))
+      (is (= "Ysolde" (:character-name out)) "other fields are left alone")
+      (is (not (contains? out :backstory)) "the sources are consumed")
+      (is (not (contains? out :allies)))))
+
+  (testing "sections keep their declared order whatever order the fields arrive in"
+    (is (= (:Notes (pdf/merge-style-fields 4 {:allies "A" :backstory "B"}))
+           (:Notes (pdf/merge-style-fields 4 {:backstory "B" :allies "A"})))))
+
+  (testing "an empty section contributes no heading"
+    (let [out (pdf/merge-style-fields 4 {:backstory "Only this." :allies "   "})]
+      (is (= "BACKSTORY\nOnly this." (:Notes out))
+          "a blank allies must not print a bare ALLIES heading")))
+
+  (testing "nothing to merge leaves the box unwritten rather than blank-headed"
+    (let [out (pdf/merge-style-fields 4 {:backstory "" :allies nil :character-name "n"})]
+      (is (not (contains? out :Notes)))
+      (is (= {:character-name "n"} out))))
+
+  (testing "the merged value is what actually lands in the template"
+    (let [{:keys [file]} (get pdf/sheet-masters 4)]
+      (with-open [in (.openStream (io/resource file))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (let [fields (pdf/merge-style-fields 4 {:backstory "Raised at sea."
+                                                :allies "The Candlewrights."})
+              dropped (pdf/write-fields! doc fields false {})
+              form (.getAcroForm (.getDocumentCatalog doc))]
+          (is (empty? dropped) "neither value is dropped once merged")
+          (is (str/includes? (str (.getValueAsString (.getField form "Notes")))
+                             "ALLIES & ORGANIZATIONS")))))))

@@ -646,14 +646,45 @@
 
    Style 4 is the Cthulhu Mythos sheet and is laid out differently rather than
    incompletely: it carries \"Conditions and Insanities\" where the others carry
-   inspiration, and has no allies or backstory box at all -- its second page
-   offers one general Notes box instead.
+   an inspiration box, so inspiration has nowhere to go at all. Its backstory and
+   allies are not here -- see merged-fields, which puts them in its Notes box.
 
    These are DECLARED so the export can be checked against them: a test fills
    every style and asserts the values write-fields! could not place are exactly
    this set, so a newly missing field fails the build instead of printing an
    empty box. Adding a field to a template means deleting its name from here."
-  {4 #{"allies" "backstory" "inspiration"}})
+  {4 #{"inspiration"}})
+
+(def merged-fields
+  "Values a style prints together in one box, by style: target field -> the
+   headed sections that go into it, in order.
+
+   Style 4 has no allies or backstory box and one general Notes box, so the two
+   are written into it under headings rather than dropped. Notes is multiline and
+   263x252pt against the 354x369 and 176x219 boxes style 1 gives the same two
+   values, so a long backstory shrinks to fit and a very long one clips at the
+   4pt floor -- which loses the tail of a paragraph rather than all of both."
+  {4 {:Notes [["BACKSTORY" :backstory]
+              ["ALLIES & ORGANIZATIONS" :allies]]}})
+
+(defn merge-style-fields
+  "Folds the values `style` has no box of its own for into the box it shares.
+
+   Runs before spill-overflow! so the merged text is measured and shrunk as one
+   value. A section with nothing in it contributes no heading, and a target whose
+   sections are all empty is not written at all, so the box stays blank rather
+   than printing bare headings."
+  [style fields]
+  (reduce
+   (fn [acc [target sections]]
+     (let [parts (for [[heading k] sections
+                       :let [v (get acc k)]
+                       :when (not (s/blank? (str v)))]
+                   (str heading "\n" v))]
+       (cond-> (apply dissoc acc (map second sections))
+         (seq parts) (assoc target (s/join "\n\n" parts)))))
+   fields
+   (get merged-fields style)))
 
 (defn- fields-on-page
   "Every terminal field with a widget on `page`."

@@ -974,7 +974,10 @@
         ;; branch where it generates pages, in case it meets an unbaked template.
         (pdf/grow-spell-sections! doc casters (if no-casters? :all marks))
         (pdf/add-missing-spell-pages! doc fields (config/get-pdf-max-caster-sections))
-        (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes))
+        ;; Merge before spilling, so a style's shared box is measured as the one
+        ;; value it prints rather than as its parts.
+        (let [fields (pdf/merge-style-fields print-character-sheet-style? fields)]
+          (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes)))
       ;; After the pages exist, so clones are stamped too, and before the card
       ;; pages are appended -- those carry the line on their backs already.
       (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))

@@ -97,9 +97,17 @@ the eight-class fixture from 638 KB to 424.
   equality, so a stale declaration fails too once its template gains the field.
 - Every indexed field family must run 1..n with no gap, and no two fields in a
   master may share a name.
-- `pdf/unsupported-fields` records what a style genuinely cannot print: style 4
-  is the Cthulhu Mythos sheet and has no allies, backstory or inspiration box —
-  it carries "Conditions and Insanities" and one general Notes box instead.
+- `pdf/unsupported-fields` records what a style genuinely cannot print. Style 4
+  is the Cthulhu Mythos sheet and carries "Conditions and Insanities" where the
+  others carry inspiration, so inspiration is all that is left in it.
+
+- Style 4 has no allies or backstory box, and one general Notes box. Both values
+  are written into it under headings rather than dropped
+  (`pdf/merged-fields`). Notes is 263×252pt against the 354×369 and 176×219 the
+  other styles give those two, so a long backstory shrinks to fit and a very long
+  one clips at the 4pt floor — the tail of a paragraph rather than both entries.
+  An empty section prints no heading, and a character with neither leaves the box
+  blank rather than printing bare headings.
 
 ## Added (cards)
 

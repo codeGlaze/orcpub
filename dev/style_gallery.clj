@@ -12,7 +12,7 @@
 ;; field on style 4 every run.
 ;;
 ;; Goes through the same calls as routes.clj in the same order, so what comes out
-;; is what a download gives: grow, add pages, spill, write, stamp.
+;; is what a download gives: grow, add pages, merge, spill, write, stamp.
 
 (load-file "dev/sample_character.clj")
 
@@ -58,7 +58,8 @@
     (with-open [doc (Loader/loadPDF (.readAllBytes (.openStream (io/resource file))))]
       (pdf/grow-spell-sections! doc 1 :all)
       (pdf/add-missing-spell-pages! doc all)
-      (let [dropped (pdf/write-fields! doc (pdf/spill-overflow! doc all) false {})]
+      (let [all (pdf/merge-style-fields style all)
+            dropped (pdf/write-fields! doc (pdf/spill-overflow! doc all) false {})]
         (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
         (with-open [o (FileOutputStream. out)] (.save doc o))
         (printf "style %d: %d pages, %d fields, %d KB%s%n"
