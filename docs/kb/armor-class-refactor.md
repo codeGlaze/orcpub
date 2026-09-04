@@ -46,7 +46,7 @@ has moved out to `orcpub.dnd.e5.armor-class`.
 | kept | why |
 |---|---|
 | `?ac-fns`, `?ac-bonus-fns` | the two channels the design is built on |
-| `?armor-dex-bonus`, `?shield-ac-bonus`, `?max-medium-armor-bonus` | parameters, not channels — inputs the engine reads |
+| `?armor-dex-bonus`, `?shield-ac-bonus`, `?armor-dex-caps` | parameters, not channels — inputs the engine reads |
 | `?armor-class-with-armor`, `?armor-class` | the outputs; `?armor-class` is the bare unarmored display value read by the sheet and the PDF |
 | `?armor-class-with-armor-base` | the worn-armor value, split out so `?armor-ac-suppressed?` can drop it |
 | `?armor-ac-suppressed?` | the `:armor-gives-no-ac` flag |
@@ -334,11 +334,19 @@ ability AC uses, and the Dex cap. They stay as named channels, which is what the
 
 **Trap — reading `:max-dex-mod` naively disables Medium Armor Master.** All 6 medium armors carry
 `:max-dex-mod 2` and all 4 heavy carry `0`, matching the type defaults (verified in `armor.cljc`;
-light carries none). But MAM raises the cap to 3 by setting `?max-medium-armor-bonus`
-(`options.cljc:1461`) while the armor still says 2. An implementation preferring the armor's own
-field would read 2 and silently break the feat. The effective cap must combine the type default, the
-armor's own limit, and any raising effect. The characterization pins 16 → 17 with MAM so this fails
-loudly if someone gets it wrong.
+light carries none). But MAM raises the cap while the armor still says 2. An implementation
+preferring the armor's own field would read 2 and silently break the feat. The effective cap
+combines the type default, the armor's own limit, and any raising effect, taking the most permissive
+— the characterization pins 16 → 17 with MAM so this fails loudly if someone gets it wrong.
+
+**LANDED, and generalised past medium.** The cap used to be a lone `?max-medium-armor-bonus` scalar,
+which encoded "only medium armor has a raisable cap" — true of Medium Armor Master, not of the rule.
+It is now `?armor-dex-caps {:light nil :medium 2 :heavy 0}`, a per-type map, with
+`mod5e/armor-dex-cap` and an `{:armor-dex-cap {:medium 3}}` prop raising any entry. Raises only: an
+already-uncapped type stays uncapped and a lower value is ignored, so a raise can never accidentally
+impose a limit. MAM is now one instance of a general rule, a heavy-armor equivalent is expressible
+for the first time, and an unknown armor type caps at 0 rather than defaulting to uncapped.
+`:medium-armor-max-dex-3` is kept as a prop key (D9) and compiles to the general form.
 
 ## Custom armor
 
