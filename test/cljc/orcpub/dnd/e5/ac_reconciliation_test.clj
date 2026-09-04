@@ -89,6 +89,9 @@
 ;; construct-style: plating that only helps while the shield is deployed. Nothing in SRD does this;
 ;; the vocabulary must express it regardless — homebrew flexibility is the point.
 (def p-shieldonly (props-class :p-shonly- {:ac {:ac 16 :abilities [] :shield? true}}))
+;; Bracers of Defense: "+2 to AC if you are wearing no armor and using no shield" — shipped as
+;; (mod5e/unarmored-ac-bonus 2), i.e. it writes ONLY the no-shield channel.
+(def bracers-class (feat-class :bracers- [(mod5e/unarmored-ac-bonus 2)]))
 (def p-bonus    (props-class :p-bonus- {:ac-bonus {:ac-bonus 1}}))
 (def p-armorbon (props-class :p-abon-  {:ac-bonus {:ac-bonus 1 :armor? true}}))
 
@@ -131,6 +134,8 @@
                          weapons5e/weapons-map ring-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map p-shieldonly)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map bracers-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map p-bonus)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
@@ -363,6 +368,33 @@
               b ((apply ac-fn-for abilities new) armor shld)]
         :when (not= a b)]
     (format "  %-36s %-18s old=%-3s authored=%-3s" label ctx a b)))
+
+(deftest bracers-no-shield-clause-holds-via-channel-omission
+  (testing "Bracers of Defense: '+2 if wearing no armor AND using no shield'. It writes only
+            ?unarmored-ac-bonus, never ?unarmored-with-shield-ac-bonus — the omission IS the
+            no-shield clause. So the with-shield channel is load-bearing even though only
+            Barbarian writes it; collapsing the two naively would make Bracers apply with a shield."
+    (is (= 14 ((ac-fn-for abilities :fighter :bracers-) nil nil))
+        "no armor, no shield: 10 + Dex(2) + bracers(2) = 14")
+    (is (= 14 ((ac-fn-for abilities :fighter :bracers-) nil shield))
+        "shield held: bracers EXCLUDED, so 10 + Dex(2) + shield(2) = 14")
+    (is (= 13 ((ac-fn-for abilities :fighter :bracers-) leather nil))
+        "armor worn: bracers excluded, plain leather 11 + Dex(2) = 13")))
+
+(deftest diagnostic-tables
+  (testing "DIAGNOSTIC (no assertions): numbers for two open questions"
+    (println "\n[Q1] Bracers of Defense — does the no-shield clause actually hold?")
+    (doseq [[ctx a sh] contexts]
+      (println (format "     %-18s %s" ctx ((ac-fn-for abilities :fighter :bracers-) a sh))))
+    (println "\n[Q2] natural armor: :armor? false  vs  no :armor? tag  vs  the shipped prop")
+    (println (format "     %-18s %-10s %-10s %s" "context" "armor?false" "no-tag" "prop"))
+    (doseq [[ctx a sh] contexts]
+      (println (format "     %-18s %-10s %-10s %s" ctx
+                       ((ac-fn-for abilities :fighter :p-nat-) a sh)
+                       ((ac-fn-for abilities :fighter :p-natany-) a sh)
+                       ((ac-fn-for abilities :fighter :liz-) a sh))))
+    (println "")
+    (is true)))
 
 (deftest migration-parity-sweep
   (testing "every old mechanism vs its authored replacement, across every equipment state"
