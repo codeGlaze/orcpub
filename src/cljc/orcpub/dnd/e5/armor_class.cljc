@@ -1,19 +1,30 @@
 (ns orcpub.dnd.e5.armor-class
-  "Armor Class. Two things contribute, combined differently:
-     FORMULA — a whole 'your AC = ...' calculation (worn armor, unarmored defense, natural armor,
-       a Barkskin floor, homebrew). Mutually exclusive: the best one wins (max). One that doesn't
-       apply in the situation returns 0.
-     BONUS — a flat +N stacked on the winning formula (shield, Ring of Protection, Defense style).
-   AC = best formula + sum of bonuses. Bonuses land on the winner, not on a particular formula.
+  "Armor Class calculation. NOT YET WIRED INTO THE APP — the live AC code is still
+  template_base.cljc (?armor-class-with-armor). Nothing in src/ requires this namespace; it is
+  currently exercised only by ac_reconciliation_test and ac_experiments_test.
 
-   Formulas split by how they behave as you swap armor: the ARMOR formula's value depends on which
-   armor is worn; the OTHER formulas (unarmored defense, natural armor, floors, homebrew) do not.
-   Each is (fn [armor shield] -> number); armor/shield may be nil. Pure — template_base supplies the
-   formulas and bonuses, and homebrew AC compiles to the same shape, so there's one reconciler.")
+  Two things contribute to AC, combined differently:
+    FORMULA — a whole 'your AC = ...' calculation: worn armor, unarmored defense, natural armor,
+      a Barkskin floor, homebrew. Mutually exclusive — the best one wins (max).
+    BONUS — a flat +N added on top of whichever formula won: shield, Ring of Protection,
+      Defense fighting style.
+  So: AC = best formula + sum of bonuses.
+
+  Both are (fn [armor shield] -> number); armor and shield may be nil. A formula or bonus that
+  does not apply in the situation returns 0 (an unarmored formula while armor is worn, a
+  shield-forbidding formula while a shield is held). 0 is therefore the 'no contribution' value,
+  and it works as the seed for both max and +, since no real AC is zero or negative.
+
+  Formulas are supplied in two groups, because they behave differently as you change armor:
+    :armor-formula  — AC from the armor being worn. Its value depends on WHICH armor.
+    :other-formulas — everything else. Their value must NOT depend on which armor is worn; they
+                      may check whether armor is present, but must not read its fields. best-ac
+                      relies on this (see below) and a formula that breaks the rule will return a
+                      wrong number or throw.")
 
 (defn reconcile-ac
-  "AC for one equipped (armor, shield): best formula + sum of bonuses.
-   config — :armor-formula (or nil), :other-formulas, :bonuses (see ns). Inapplicable formula/bonus → 0."
+  "AC for one specific equipped (armor, shield): best formula + sum of bonuses.
+  config — {:armor-formula f-or-nil, :other-formulas [f ...], :bonuses [f ...]} (see ns)."
   [{:keys [armor-formula other-formulas bonuses]} armor shield]
   (let [formulas (cond->> other-formulas armor-formula (cons armor-formula))
         run      #(% armor shield)]
@@ -21,16 +32,17 @@
        (reduce +   0 (map run bonuses)))))
 
 (defn best-ac
-  "Best AC across the armor + shields the character owns (they wear whatever gives the most) — the
-   number the sheet shows. Runs inside a memoized subscription, so it fires only when AC-relevant
-   state changes, not per render.
+  "Highest AC the character can reach with the armor and shields they own, trying every
+  combination (including wearing nothing). Same result as calling reconcile-ac on every
+  combination and taking the max.
 
-   Only the armor formula's value depends on which armor is worn, so the other formulas' best is
-   found once per (wearing-armor?, shield) instead of once per owned armor. config as reconcile-ac."
+  It avoids repeated work: only :armor-formula changes from one armor to the next, so the best
+  of :other-formulas is computed once per (is-armor-worn?, shield) pair rather than once per
+  owned armor. That is why other-formulas may not read armor fields — they are evaluated with
+  ::worn, a placeholder that is merely non-nil, standing in for 'some armor'."
   [{:keys [armor-formula other-formulas bonuses]} armors shields]
-  (let [armors  (cons nil armors)     ; include the "no armor" option
-        shields (cons nil shields)    ; include the "no shield" option
-        ;; ::worn stands for any armor — the other formulas only ask whether armor is worn, not which.
+  (let [armors  (cons nil armors)     ; nil = the "wear nothing" option
+        shields (cons nil shields)    ; nil = the "no shield" option
         best-other (into {} (for [worn?  [true false]
                                   shield shields]
                               [[worn? shield]
