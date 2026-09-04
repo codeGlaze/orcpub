@@ -1057,6 +1057,20 @@ one, so `the-guard-does-not-over-block` pins the other direction: public v4 and 
 literals, addresses one step outside each blocked range (`172.32.0.1`,
 `100.128.0.1`), and both transition wrappers around a public address.
 
+### The byte cap did not bound TIME
+
+`setReadTimeout` bounds each **read**, not the transfer. A server that answers
+every read promptly and just sends very little never trips it: measured, a handler
+dribbling one byte every 300ms delivered 40 bytes over **12.0 seconds** with no
+timeout firing. Scaled to the 128 KB cap in 8 KB reads that is minutes, and an
+export slot is held for every second of it.
+
+This is the same shape as the unbounded request work above -- a limit on how MUCH,
+with no limit on how LONG -- and it wanted the same answer:
+`image-transfer-deadline-ms` is wall clock across the whole body, checked before
+each read, so the ceiling is the deadline plus one read timeout. The trickle test
+gives up in 1.2s where it previously ran to completion.
+
 ### Still open: the resolve/connect gap
 
 `safe-image-url?` resolves the host and judges the answer. `open-image-stream`

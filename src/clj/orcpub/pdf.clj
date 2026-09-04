@@ -1437,19 +1437,37 @@
             (<= (* (.getWidth r 0) (.getHeight r 0)) max-image-pixels)
             (finally (.dispose r))))))))
 
+(def ^:private image-transfer-deadline-ms
+  "Total wall clock allowed for pulling one image body.
+
+   setReadTimeout bounds each READ, not the transfer. A server that sends a byte
+   just before each timeout would expire holds the connection for the timeout
+   times the number of reads -- 128 KB in 8 KB reads is sixteen of them, so 160
+   seconds -- and holds an export slot for every one of them. Bounding the bytes
+   without bounding the time leaves the same hole the request clamp closed."
+  20000)
+
 (defn- read-bounded-bytes
-  "All of the stream, refusing to exceed max-image-bytes."
-  [^java.io.InputStream in]
-  (let [out (java.io.ByteArrayOutputStream.)
-        buf (byte-array 8192)]
-    (loop [total 0]
-      (let [n (.read in buf)]
-        (cond
-          (neg? n) (.toByteArray out)
-          (> (+ total n) max-image-bytes)
-          (throw (ex-info "Image is larger than the 128k limit"
-                          {:error :image-too-large :bytes (+ total n)}))
-          :else (do (.write out buf 0 n) (recur (+ total n))))))))
+  "All of the stream, refusing to exceed max-image-bytes or the deadline.
+
+   The clock is checked before each read, so the true ceiling is the deadline plus
+   one read timeout; that is bounded, which is the property that matters."
+  ([in] (read-bounded-bytes in image-transfer-deadline-ms))
+  ([^java.io.InputStream in deadline-ms]
+   (let [out (java.io.ByteArrayOutputStream.)
+         buf (byte-array 8192)
+         deadline (+ (System/currentTimeMillis) deadline-ms)]
+     (loop [total 0]
+       (when (> (System/currentTimeMillis) deadline)
+         (throw (ex-info "Image took too long to transfer"
+                         {:error :image-transfer-timeout :bytes total})))
+       (let [n (.read in buf)]
+         (cond
+           (neg? n) (.toByteArray out)
+           (> (+ total n) max-image-bytes)
+           (throw (ex-info "Image is larger than the 128k limit"
+                           {:error :image-too-large :bytes (+ total n)}))
+           :else (do (.write out buf 0 n) (recur (+ total n)))))))))
 
 (defn safe-image-bytes
   "Fetch url and return its bytes, or throw. Every limit is applied before any

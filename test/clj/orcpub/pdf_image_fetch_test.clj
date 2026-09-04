@@ -63,6 +63,19 @@
                                  (respond e 302 nil -1))))
       (.createContext "/not-found" (handler #(respond % 404 (.getBytes "nope") chunked)))
       (.createContext "/html" (handler #(respond % 200 (.getBytes "<html>admin</html>") chunked)))
+      ;; Sends a byte at a time, slowly, forever-ish. Every individual read
+      ;; returns well inside the read timeout, so only a total deadline stops it.
+      (.createContext "/trickle"
+                      (handler (fn [e]
+                                 (.sendResponseHeaders e 200 (long chunked))
+                                 (try
+                                   (with-open [os (.getResponseBody e)]
+                                     (dotimes [_ 40]
+                                       (.write os (int 65))
+                                       (.flush os)
+                                       (Thread/sleep 300)))
+                                   (catch Exception _ nil)
+                                   (finally (.close e))))))
       (.setExecutor nil)
       (.start))
     (reset! server s)
@@ -110,6 +123,21 @@
 (deftest an-error-status-is-refused
   (testing "a 404 body is not fed to the image decoder"
     (is (thrown? clojure.lang.ExceptionInfo (open-image-stream (str *base* "/not-found"))))))
+
+(deftest a-slow-trickle-cannot-hold-the-connection-open
+  ;; The byte cap does not bound TIME. Each read here lands well inside the read
+  ;; timeout, so without a total deadline this holds an export slot for as long
+  ;; as the server cares to keep dribbling.
+  (testing "a total deadline ends it, even though no single read times out"
+    (with-open [in (open-image-stream (str *base* "/trickle"))]
+      (let [started (System/currentTimeMillis)
+            e (try (read-bounded-bytes in 1000) nil
+                   (catch clojure.lang.ExceptionInfo e e))
+            elapsed (- (System/currentTimeMillis) started)]
+        (is (some? e) "the transfer must not be allowed to run on")
+        (is (= :image-transfer-timeout (:error (ex-data e))))
+        (is (< elapsed 6000)
+            (str "gave up after " elapsed "ms, well before the server finished"))))))
 
 (deftest a-page-served-with-200-is-not-an-image
   (testing "what a successful SSRF would actually return"
