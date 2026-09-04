@@ -223,17 +223,16 @@
            16 + 0 = 16. Honouring the field would make this 18; that flip is the visible diff.")
       (is (= 18 heavy) "plain plate: 18 + 0 Dex"))))
 
-(deftest magical-ac-bonus-reaches-the-prop-but-not-an-authored-calculation
-  (testing "the ?magical-ac-bonus scalar lives inside the base, so the prop picks it up and an
-            authored calculation does not — a real gap the shim must not walk into"
+(deftest character-magic-reaches-every-calculation
+  (testing "a Ring of Protection must add to whichever calculation wins, prop or authored"
     (let [prop     ((ac-fn-for abilities :fighter :liz- :ring-) nil nil)
           authored ((ac-fn-for abilities :fighter :p-natany- :ring-) nil nil)]
-      (is (= 16 prop)
-          "the prop reads ?base-armor-class, which includes ?magical-ac-bonus: 13 + Dex(2) + 1")
-      (is (= 15 authored)
-          "CURRENT GAP: an authored calculation is a bare value, so the +1 is lost. Deprecating
-           :lizardfolk-ac in favour of the authored form BEFORE moving ?magical-ac-bonus into
-           ?ac-bonus-fns would silently drop ring/cloak bonuses. Order matters."))))
+      ;; FLIPPED 2026-09: was pinned at prop 16 / authored 15. ?magical-ac-bonus used to live
+      ;; inside ?base-armor-class, so only calculations that read the base picked it up and an
+      ;; authored calculation — a bare value — silently lost the ring. It is now an entry in
+      ;; ?ac-bonus-fns, summed onto the winner, so both forms get it.
+      (is (= 16 prop)     "13 + Dex(2) + ring(1)")
+      (is (= 16 authored) "same number by the same route — no longer a migration hazard"))))
 
 (deftest natural-armor-applies-while-armored-and-the-authored-form-matches
   (testing ":lizardfolk-ac keeps applying when armor IS worn, taking the better — and an authored
@@ -299,22 +298,22 @@
         "no shield: 10 + Dex(2) + Wis(3) = 15")
     (is (= 14 ((ac-fn-for abilities :fighter :p-monk-) nil shield))
         "with a shield it is disqualified, so 10 + Dex(2) + shield(2) = 14 — NOT 15")
-    ;; KNOWN GAP, pinned deliberately. The rules answer is 17 (10 + Dex + Con + shield), but the
-    ;; shield's +2 is added INSIDE ?armor-class-with-armor-base (template_base.cljc:73,80), not in
-    ;; the ?ac-bonus-fns channel. So a calculation that beats the base loses the shield: this
-    ;; calculation gives 15, the with-shield base gives 14, and max picks 15. That is also why
-    ;; ?unarmored-with-shield-ac-bonus exists — it is the only way to get Con into the with-shield
-    ;; base branch. Moving the shield into the bonus channel flips this to 17 and leaves every
-    ;; other pinned number unchanged (base drops to 12, +2 shield bonus = 14 as before).
-    (is (= 15 ((ac-fn-for abilities :fighter :p-barb-) nil shield))
-        "CURRENT: 15, not the rules' 17 — the shield is part of the base, so a winning calculation loses it")))
+    ;; FLIPPED 2026-09: was pinned at 15. The shield's +2 used to be added inside
+    ;; ?armor-class-with-armor-base, so a calculation that beat the base lost it (15 vs the
+    ;; with-shield base's 14, max picks 15). The shield is now an ?ac-bonus-fns entry, summed
+    ;; onto the winner. Note the Monk assertion above is unchanged at 14: Monk never wrote
+    ;; ?unarmored-with-shield-ac-bonus, so its base is 10 + Dex = 12 and the shield adds 2.
+    (is (= 17 ((ac-fn-for abilities :fighter :p-barb-) nil shield))
+        "10 + Dex(2) + Con(3) + shield(2) — the rules answer")))
 
 (deftest authored-shield-required-is-expressible
   (testing ":shield? true = only while wielding a shield — the construct/golem shape"
     (is (= 12 ((ac-fn-for abilities :fighter :p-shonly-) nil nil))
         "no shield: the calculation does not apply, so plain 10 + Dex(2)")
-    (is (= 16 ((ac-fn-for abilities :fighter :p-shonly-) nil shield))
-        "shield held: the calculation applies and its 16 beats 10 + Dex + shield = 14")))
+    ;; FLIPPED 2026-09 with the shield move: 16 was the calculation alone, which used to
+    ;; swallow the shield. The shield is a bonus now, so it stacks onto the winner.
+    (is (= 18 ((ac-fn-for abilities :fighter :p-shonly-) nil shield))
+        "shield held: the calculation (16) wins and the shield adds its 2")))
 
 (deftest authored-abilities-sum
   (testing ":abilities adds every listed modifier (Barbarian takes Dex AND Con)"
@@ -404,13 +403,14 @@
       (doseq [d divergences] (println d))
       (println "")
       ;; Pinned at the KNOWN set. Any new divergence fails here rather than being found by hand.
-      ;; All 7 have the same two causes, and ONE change fixes every one of them: move the shield
-      ;; and ?magical-ac-bonus out of ?armor-class-with-armor-base into ?ac-bonus-fns.
-      ;;   shield trapped in the base   -> 3 cases (natural armor +shield x2, Barbarian +shield)
-      ;;   magical scalar in the base   -> 4 cases (2 of them compounding with the shield)
-      ;; After that move each authored form should equal its old mechanism and this drops to 0.
-      ;; Monk already matches in every context, which is why it appears nowhere below.
-      (is (= 7 (count divergences))
+      ;; WAS 7, NOW 2 (2026-09): moving the shield and ?magical-ac-bonus out of
+      ;; ?armor-class-with-armor-base into ?ac-bonus-fns closed 5 of them.
+      ;; The 2 that remain are the reverse of the old problem and share one cause: :lizardfolk-ac
+      ;; OVERRIDES ?armor-class-with-armor with its own hardcoded sum built on ?base-armor-class.
+      ;; That sum used to carry character magic; now it does not, so the PROP loses the ring
+      ;; while the authored form keeps it (old=15, authored=16). Rewriting the override to defer
+      ;; to ?armor-class-with-armor — the shim this migration needs anyway — closes both.
+      (is (= 2 (count divergences))
           "known divergences only — see the printed list. A change in this count is either a new
            regression or a hazard fixed, and must be updated deliberately"))))
 

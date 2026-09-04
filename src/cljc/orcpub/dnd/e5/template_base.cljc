@@ -37,8 +37,7 @@
    {?armor-class (+ 10 (?ability-bonuses ::char5e/dex))
     ?base-armor-class (+ 10 (?ability-bonuses ::char5e/dex)
                          ;; Checks whether barbarian unarmored bonus exists (or is higher) than natural AC/Draconic Bloodline AC
-                         (if (> ?unarmored-ac-bonus ?natural-ac-bonus ) 0 ?natural-ac-bonus)
-                         ?magical-ac-bonus)
+                         (if (> ?unarmored-ac-bonus ?natural-ac-bonus ) 0 ?natural-ac-bonus))
     ?levels {}
     ?ac-bonus 0
     ?natural-ac-bonus 0
@@ -69,21 +68,18 @@
                                          (+ ?base-armor-class
                                             (if (> ?unarmored-with-shield-ac-bonus ?natural-ac-bonus)
                                               ?unarmored-with-shield-ac-bonus 0)
-                                            ?ac-bonus
-                                            (?shield-ac-bonus shield)))
+                                            ?ac-bonus))
     ?dual-wield-weapon? weapon5e/light-melee-weapon?
     ?armor-class-with-armor-base (fn [armor & [shield]]
                                    (cond (and (nil? armor)
                                               (nil? shield)) ?unarmored-armor-class
                                          (nil? armor) (?unarmored-with-shield-armor-class shield)
                                          ;; Flattened nested (+ ...) — semantically equivalent
-                                         :else (+ (if shield (?shield-ac-bonus shield) 0)
-                                                  (?armor-dex-bonus armor)
+                                         :else (+ (?armor-dex-bonus armor)
                                                   (or ?armored-ac-bonus 0)
                                                   (:base-ac armor)
                                                   (::mi5e/magical-ac-bonus armor)
-                                                  ?ac-bonus
-                                                  ?magical-ac-bonus)))
+                                                  ?ac-bonus)))
     ?armor-class-with-armor (fn [armor & [shield]]
                               (let [max-ac (apply max
                                                   (?armor-class-with-armor-base armor shield)
@@ -92,7 +88,8 @@
                                 (apply +
                                        max-ac
                                        bonuses)))
-    ?ac-bonus-fns []
+    ?ac-bonus-fns [(fn [_ shield] (if shield (?shield-ac-bonus shield) 0))
+                   (fn [_ _] ?magical-ac-bonus)]
     ?ac-fns []
     ?abilities (reduce
                 (fn [m k]
