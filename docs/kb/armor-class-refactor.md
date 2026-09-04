@@ -122,6 +122,45 @@ adds your Wisdom modifier") is one more property it knows about, or a bonus cond
 equipped armor — not automatic. Armor properties that don't touch AC (mithral suppressing stealth
 disadvantage and Strength requirements) are handled elsewhere.
 
+## Two kinds of magic — name them differently
+
+Agents keep conflating these, and the app invites it by giving them near-identical names:
+
+| in-house term | app field | scope |
+|---|---|---|
+| **item magic** | `::mi5e/magical-ac-bonus`, a field ON an armor or shield | applies only while that item is used; a +2 plate's bonus is gone the moment you take it off |
+| **character magic** | `?magical-ac-bonus`, a scalar on the character | applies to whatever calculation wins; Ring and Cloak of Protection |
+
+Use those two terms. Unqualified "magic bonus" is what produced several wrong claims in this work.
+
+**Magic gated on armor/shield state exists, and is currently implemented by channel omission.**
+Bracers of Defense — "+2 to AC if you are wearing no armor and using no shield" — is shipped as
+`(mod5e/unarmored-ac-bonus 2)`. It writes the no-shield channel and *not*
+`?unarmored-with-shield-ac-bonus`, and that omission is the entire "no shield" clause. Verified:
+14 unarmored, 14 with a shield (bracers excluded), 13 in leather.
+
+So `?unarmored-with-shield-ac-bonus` is **load-bearing even though only Barbarian writes it** — an
+earlier note in this doc called it redundant on that basis, which was wrong. Collapsing the two
+channels without care would make Bracers apply with a shield. In the authored vocabulary Bracers is
+`{:ac-bonus 2 :armor? false :shield? false}`, which the symmetric three-state tags express directly.
+
+## Natural armor: which `:armor?` tag, measured
+
+The rules text has two sentences — "when you aren't wearing armor, your AC is 13 + Dex" *and* "you
+can use your natural armor if the armor you wear would leave you with a lower AC." The app
+implements both. Measured (Dex +2):
+
+| context | `:armor? false` | no `:armor?` tag | shipped prop |
+|---|---|---|---|
+| unarmored | 15 | 15 | 15 |
+| leather | **13** | **15** | **15** |
+| plate | 18 | 18 | 18 |
+| unarmored + shield | 15 | 15 | **17** |
+
+`:armor? false` drops a Lizardfolk in leather from 15 to 13 — it implements only the first sentence.
+**No `:armor?` tag** is the faithful migration. (The remaining shield divergence is the separate
+shield-in-the-base issue, not a disagreement about the tag.)
+
 ## Traced: what `:lizardfolk-ac` actually computes
 
 Recorded in full so this never has to be re-derived. The prop (`options.cljc`) emits two modifiers:
