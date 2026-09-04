@@ -567,6 +567,17 @@
 (defmacro ac-bonus-fn [bonus-fn]
   `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
 
+(defmacro ac-formula
+  "Register a whole 'your AC = ...' calculation: unarmored defense, natural armor, a Barkskin-style
+  floor, or homebrew. `formula-fn` is (fn [armor shield] -> number); return 0 when the calculation
+  does not apply (e.g. it needs no armor and armor is worn, or it forbids shields and one is held).
+
+  ?armor-class-with-armor takes the MAX of the worn-armor value and every formula registered here,
+  so calculations compete and the best one wins — they never stack. Flat +N effects belong in
+  ac-bonus-fn instead: those are summed onto whichever calculation won."
+  [formula-fn]
+  `(mods/vec-mod ~'?ac-fns ~formula-fn))
+
 (defn unarmored-defense [cls]
   (mods/vec-mod ?unarmored-defense cls))
 

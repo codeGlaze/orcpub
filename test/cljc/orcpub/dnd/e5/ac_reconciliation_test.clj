@@ -66,6 +66,14 @@
 ;; The live homebrew natural-armor prop, exactly as a homebrew race would carry it.
 (def lizardfolk-prop-class (feat-class :liz- (vec (opt5e/plugin-modifiers {:lizardfolk-ac true} :liz-))))
 
+;; Step 2 of the refactor: mod5e/ac-formula opens ?ac-fns, which had no writers at all.
+;; A homebrew "your AC = 19 while unarmored" calculation, registered the way homebrew would.
+(def homebrew-ac-class
+  (feat-class :hb-ac- [(mod5e/ac-formula (fn [armor _shield] (if armor 0 19)))]))
+;; A flat +1 that should land on whichever calculation wins.
+(def hb-bonus-class
+  (feat-class :hb-bonus- [(mod5e/ac-bonus-fn (fn [_armor _shield] 1))]))
+
 (def natural-armor-class-full (natural-armor-class :nat-armor- 3))
 (def natural-armor-class-b    (natural-armor-class :nat-armor-b- 3))  ; a SECOND natural source
 
@@ -86,7 +94,11 @@
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map mam-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
-                         weapons5e/weapons-map lizardfolk-prop-class)]
+                         weapons5e/weapons-map lizardfolk-prop-class)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map homebrew-ac-class)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map hb-bonus-class)]
     [] language-map)))
 
 ;; str10 dex14(+2) con16(+3) int10 wis16(+3) cha10 — same as ac_characterization_test
@@ -174,6 +186,28 @@
     (let [ac ((ac-fn-for abilities :barbarian :liz-) nil nil)]
       (is (= 15 ac)
           "the reachable homebrew shape: natural 13+Dex vs 10+Dex+Con, take the better = 15"))))
+
+
+;; ---------------------------------------------------------------------------
+;; SECTION 1c — homebrew AC, via the new mod5e/ac-formula constructor. Before this,
+;; ?ac-fns had no writers anywhere in src/, so no content could add an AC calculation at
+;; all; the only way was to replace ?armor-class-with-armor wholesale (:lizardfolk-ac,
+;; :tortle-ac). These build real characters through the live engine.
+;; ---------------------------------------------------------------------------
+
+(deftest homebrew-ac-formula-competes-in-the-live-engine
+  (testing "a homebrew 'AC = 19 unarmored' calculation beats the 10 + Dex default"
+    (is (= 12 ((ac-fn-for abilities :fighter) nil nil))
+        "control: Fighter alone is 10 + Dex(2)")
+    (is (= 19 ((ac-fn-for abilities :fighter :hb-ac-) nil nil))
+        "the homebrew calculation wins the max")
+    (is (= 18 ((ac-fn-for abilities :fighter :hb-ac-) plate nil))
+        "wearing plate, the unarmored calculation returns 0 and plate's 18 wins — no stacking")))
+
+(deftest bonuses-land-on-a-winning-homebrew-formula
+  (testing "a flat bonus applies to the homebrew calculation that won, not just to the base"
+    (is (= 20 ((ac-fn-for abilities :fighter :hb-ac- :hb-bonus-) nil nil))
+        "19 from the homebrew calculation + 1 bonus = 20")))
 
 ;; ===========================================================================
 ;; SECTION 2 — FIXED: natural-armor + unarmored-defense no longer stack
