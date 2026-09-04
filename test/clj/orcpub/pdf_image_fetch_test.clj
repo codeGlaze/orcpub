@@ -212,9 +212,13 @@
            (finally (.close ^java.io.InputStream in) (some-> cm .close))))))
 
 (deftest the-pin-refuses-any-host-it-was-not-given
-  (testing "a route to another host cannot be resolved on this client"
-    ;; No DNS is consulted, so this holds with or without a network.
-    (let [cm (pinned-connection-manager "pinned.invalid" loopback)]
+  (testing "a route to another host cannot be resolved, and says which"
+    ;; No DNS is consulted, so this holds with or without a network. The refusal
+    ;; is RECORDED as well as thrown: DnsResolver has to throw
+    ;; UnknownHostException, which by the time clj-http has wrapped it is
+    ;; indistinguishable from a host that simply does not resolve.
+    (let [refused (atom nil)
+          cm (pinned-connection-manager "pinned.invalid" loopback refused)]
       (try
         (is (thrown? Exception
                      (clj-http.client/get "http://somewhere-else.invalid/x.png"
@@ -222,4 +226,32 @@
                                            :throw-exceptions false
                                            :socket-timeout 2000
                                            :connection-timeout 2000})))
+        (is (= "somewhere-else.invalid" @refused)
+            "open-image-stream reads this to tell a pin mismatch from a DNS failure")
         (finally (.close cm))))))
+
+(deftest a-pin-mismatch-is-explained-once
+  ;; It means every image fetch is failing, not one bad URL, so it needs saying
+  ;; loudly -- and exactly once, or a busy server buries it in its own repeats.
+  (let [reported #'pdf/pin-mismatch-reported
+        report! #'pdf/report-pin-mismatch!
+        say (fn [] (with-out-str (report! "proxy.internal")))]
+    (reset! @reported false)
+    (let [first-time (say) second-time (say)]
+      (testing "the first occurrence explains the cause and where to read more"
+        (is (re-find #"EVERY character image" first-time))
+        (is (re-find #"proxy.internal" first-time))
+        (is (re-find #"CHARACTER-IMAGE-FETCH" first-time)))
+      (testing "later ones say nothing"
+        (is (= "" second-time))))
+    (reset! @reported false)))
+
+(deftest the-egress-path-is-reportable
+  (testing "which path is live can be read as data and printed at boot"
+    (let [{:keys [pinning?] :as status} (pdf/image-egress-status)]
+      (is (contains? status :pinning?))
+      (is (contains? status :proxy))
+      (is (= pinning? (nil? (:proxy status)))
+          "pinning is on exactly when no proxy handles external https")
+      (is (re-find (if pinning? #"ACTIVE" #"OFF")
+                   (with-out-str (pdf/report-image-egress!)))))))

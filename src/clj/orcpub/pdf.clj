@@ -1427,7 +1427,7 @@
    - The hostname must stay in the URL, so the socket factories below do their
      ordinary certificate and hostname checks. Addressing the IP directly with a
      Host header needs those checks overridden, which is the larger hole."
-  ^BasicHttpClientConnectionManager [host addrs]
+  ^BasicHttpClientConnectionManager [host addrs refused]
   (let [pinned (into-array java.net.InetAddress addrs)]
     (BasicHttpClientConnectionManager.
      (-> (RegistryBuilder/create)
@@ -1440,7 +1440,11 @@
          (if (= h host)
            pinned
            ;; Redirects are refused, so no other host should ever be routed here.
-           (throw (UnknownHostException. (str "not the pinned host: " h)))))))))
+           ;; Recorded rather than only thrown: DnsResolver must throw
+           ;; UnknownHostException, which is indistinguishable from ordinary DNS
+           ;; failure by the time clj-http has wrapped it.
+           (do (reset! refused h)
+               (throw (UnknownHostException. (str "not the pinned host: " h))))))))))
 
 (defn- proxied?
   "Whether the JVM's proxy settings route this URL through a proxy.
@@ -1452,8 +1456,59 @@
    Reads the same ProxySelector as clj-http's route planner, so the two cannot
    disagree about whether a proxy applies."
   [url]
-  (boolean (some #(not= java.net.Proxy$Type/DIRECT (.type ^java.net.Proxy %))
-                 (.select (java.net.ProxySelector/getDefault) (java.net.URI. url)))))
+  (boolean
+   (try
+     ;; Built from the parts rather than the raw string: ProxySelector only reads
+     ;; scheme, host and port, and this constructor escapes, so a URL that URI's
+     ;; string constructor would reject cannot make this throw.
+     (let [u (URL. url)
+           uri (java.net.URI. (.getProtocol u) nil (.getHost u) (.getPort u) nil nil nil)]
+       (some #(not= java.net.Proxy$Type/DIRECT (.type ^java.net.Proxy %))
+             (.select (java.net.ProxySelector/getDefault) uri)))
+     (catch Exception _ false))))
+
+(defn image-egress-status
+  "How image fetches will leave this host: {:pinning? bool :proxy str-or-nil}.
+
+   Probes a representative external https URL, so it reflects nonProxyHosts."
+  []
+  (let [probe "https://example.com/probe.png"
+        via (first (remove #(= java.net.Proxy$Type/DIRECT (.type ^java.net.Proxy %))
+                           (try (.select (java.net.ProxySelector/getDefault)
+                                         (java.net.URI. probe))
+                                (catch Exception _ nil))))]
+    {:pinning? (not (proxied? probe))
+     :proxy (some-> via str)}))
+
+(defn report-image-egress!
+  "Prints how image fetches leave this host, once, at boot.
+
+   Which of the two paths is live is otherwise invisible until an export fails,
+   and the two fail very differently."
+  []
+  (let [{:keys [pinning?] :as status} (image-egress-status)]
+    (println (if pinning?
+               "pdf/image-fetch: DNS pinning ACTIVE (no proxy configured for external https)"
+               (str "pdf/image-fetch: DNS pinning OFF -- " (:proxy status)
+                    " will resolve and fetch; it is the egress control point")))))
+
+(def ^:private pin-mismatch-reported
+  "The explanation below is printed once, not once per export."
+  (atom false))
+
+(defn- report-pin-mismatch!
+  "Says what a pin mismatch means, because it means EVERY image fetch is failing.
+
+   Reached when the client asked to resolve a host the fetch was not pinned to,
+   which means a proxy is routing the connection but ProxySelector did not report
+   one -- so proxied? stepped aside where it should not have."
+  [host]
+  (when (compare-and-set! pin-mismatch-reported false true)
+    (println (str "pdf/image-fetch: EVERY character image will fail to load. The "
+                  "connection tried to resolve \"" host "\", which is not the host "
+                  "the fetch was pinned to -- something is routing it elsewhere "
+                  "while the JVM reports no proxy. Set the standard proxy "
+                  "properties so it is detected. See docs/CHARACTER-IMAGE-FETCH.md"))))
 
 (defn- open-image-stream
   "Opens `url` against `addrs`, with redirects disabled and the size bounded.
@@ -1465,8 +1520,9 @@
 
    Returns [stream connection-manager-or-nil]; the caller closes both."
   [url addrs]
-  (let [cm (when-not (proxied? url)
-             (pinned-connection-manager (.getHost (URL. url)) addrs))]
+  (let [refused (atom nil)
+        cm (when-not (proxied? url)
+             (pinned-connection-manager (.getHost (URL. url)) addrs refused))]
     (try
       (let [resp (client/get url (cond-> {:as :stream
                                           :redirect-strategy :none
@@ -1489,7 +1545,11 @@
         [(:body resp) cm])
       (catch Exception e
         (some-> cm .close)
-        (throw e)))))
+        (if-let [host @refused]
+          (do (report-pin-mismatch! host)
+              (throw (ex-info "Image fetch was routed to a host it was not pinned to"
+                              {:error :image-pin-mismatch :url url :routed-to host} e)))
+          (throw e))))))
 
 (defn- within-pixel-budget?
   "Reads the image header only and answers whether decoding it is safe."

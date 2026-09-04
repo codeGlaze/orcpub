@@ -6,6 +6,7 @@
             [orcpub.routes :as routes]
             [orcpub.datomic :as datomic]
             [orcpub.config :as config]
+            [orcpub.pdf :as pdf]
             [environ.core :as environ])
   (:import (org.eclipse.jetty.server.handler.gzip GzipHandler)))
 
@@ -82,6 +83,9 @@
                               (assoc :max-threads (config/get-http-max-threads)))})
 
 (defn system [env]
+  ;; Which image-fetch egress path is live is invisible until an export fails,
+  ;; and the two fail very differently. One line at boot says which.
+  (pdf/report-image-egress!)
   (component/system-map
     :conn
     (datomic/new-datomic

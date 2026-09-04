@@ -30,10 +30,28 @@ thing to grep for.
 | Portrait missing, big dimensions | `:image-too-large-dimensions` | Over 2000×2000, refused from the header before decoding. |
 | Portrait missing, slow host | `:image-transfer-timeout` | The body took more than 20s. |
 | Portrait missing, unreadable file | `:invalid-image-format` | Not an image, or a format ImageIO cannot read. |
-| **Every HTTPS image fails**, log says `not the pinned host` | — | **See "Egress proxies" below.** The DNS pin engaged where it should have stepped aside. |
+| **Every** image fails, log shouts `EVERY character image will fail to load` | `:image-pin-mismatch` | Something is routing the connection elsewhere while the JVM reports no proxy, so the pin engaged where it should have stepped aside. **See "Egress proxies" below.** |
 
 That last row is the one to remember. It is not a per-image failure — it is every
-image, everywhere, at once, and it means the proxy detection did not fire.
+image, everywhere, at once. It is printed **once** per process, in full, naming the
+host it was routed to and pointing back here, so it cannot drown in its own repeats
+on a busy server.
+
+## The line to look for at boot
+
+Every start prints which of the two egress paths is live, before Jetty comes up:
+
+```
+pdf/image-fetch: DNS pinning ACTIVE (no proxy configured for external https)
+```
+```
+pdf/image-fetch: DNS pinning OFF -- HTTP @ proxy.internal:3128 will resolve and fetch; it is the egress control point
+```
+
+**If that says OFF and you configured no proxy, or ACTIVE on a host that has one,
+stop there** — the mismatch is the cause of whatever comes next. The same thing is
+readable as data: `(orcpub.pdf/image-egress-status)` returns
+`{:pinning? bool :proxy str-or-nil}`.
 
 ## The limits, in one place
 
@@ -133,6 +151,7 @@ is no allowlist or exception mechanism.
 ```
 lein repl
 (require '[orcpub.pdf :as pdf])
+(pdf/image-egress-status)                                  ;; which path is live?
 (pdf/safe-image-url? "https://example.com/portrait.png")   ;; may we fetch it?
 (count (pdf/safe-image-bytes "https://example.com/portrait.png"))  ;; try it
 ```
