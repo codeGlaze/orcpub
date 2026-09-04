@@ -381,6 +381,27 @@ Any EDN written from a `lein run` here must bind `*print-length*` and `*print-le
 `nil` first. This also broke the first attempt at validating the fixture round-trip, which
 looked like corrupt content in the fixture and was not.
 
+**A real import parks on the conflict-resolution modal, and a probe that only polls app-db
+reads that as failure.** A pack whose keys overlap existing content makes the app log
+`Import "<name>": imported 1352, skipped 0 | changes: 11 | conflicts: 20` and then open a
+modal — *"20 key conflicts, resolved safely... 13 duplicate keys renamed"* — with
+`Cancel Import / Review / change / Import`. Nothing commits until a button is clicked, so
+the plugin count in `app-db` never moves and a polling probe waits forever. **Three long
+runs were lost to this**, and one of them produced a wrong claim to the repo owner that
+their pack did not import; it imports fine, because a person clicks the button.
+
+`CLAUDE.md` warns about precisely this — "a static-file server + `dispatch_sync` can't
+surface an import-conflict modal, and it misled a previous pass into a false 'modal is
+unmounted' conclusion". It had already burned someone once. What finally exposed it was
+logging **all** console output instead of filtering to `pageerror`: the app had been
+printing what it was doing the whole time, and the listener was narrowed to the wrong level.
+
+Two follow-on traps in fixing it: a *fixed* sleep before clicking is not enough (a larger
+pack parses slower, so the click finds no button and the run still fails), and the generated
+`pak-c*` packs suffixed every entry key so they had zero conflicts and imported silently —
+which is exactly why the problem looked specific to the owner's file rather than to the
+probe. `test/browser/lib/orcbrew-import.js` now races both outcomes until one lands.
+
 **String-slicing the fixture to clone it was wrong twice over:** a regex count of
 `:orcpub.dnd.e5/<type>` found 2 content-bearing sources when there are 5, and the
 hand-rolled brace matcher mis-split the top level. Reading the EDN properly on the JVM

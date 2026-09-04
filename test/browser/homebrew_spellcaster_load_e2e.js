@@ -24,6 +24,7 @@
 // that does not persist measures a builder with no homebrew in it. Keep packs under ~2.5 MB.
 
 const fs=require('fs'),path=require('path');const {chromium}=require('playwright');
+const { importPack } = require('./lib/orcbrew-import');
 function findChrome(){const b=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';try{const d=fs.readdirSync(b).filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).sort().pop();if(d){const p=path.join(b,d,'chrome-linux','chrome');if(fs.existsSync(p))return p;}}catch(_){}return undefined;}
 
 // Instrument BEFORE the builder page ever renders, via an init script, so the FIRST
@@ -69,8 +70,8 @@ window.__spyReady = false;
     try{
       await page.goto('http://localhost:8890/dnd/5e/my-content',{waitUntil:'networkidle',timeout:300000});
       await page.waitForTimeout(4000);
-      await page.setInputFiles('input[type=file]', path.resolve(pak));
-      await page.waitForFunction(()=>document.body.innerText.includes('Spellcaster Pack'),null,{timeout:900000,polling:500});
+      const r = await importPack(page, path.resolve(pak));
+      if (!r.ok) throw new Error(`import did not complete (plugins=${r.count}, modal clicked=${r.viaModal})`);
       await page.waitForTimeout(3000);
       // confirm it actually persisted (quota) before believing anything downstream
       const persisted=await page.evaluate(()=>{let kb=0;try{for(let i=0;i<localStorage.length;i++)kb+=(localStorage.key(i).length+(localStorage.getItem(localStorage.key(i))||'').length);}catch(e){}return Math.round(kb/1024);});

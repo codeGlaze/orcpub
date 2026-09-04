@@ -40,7 +40,14 @@ re-frame events. Routing via the app's own router is fine for navigation.
 - `homebrew_render_split_e2e.js` — CPU-profiles a real race click and splits it into the
   rebuild path vs the render path, so the two can be told apart as homebrew grows.
 
-Both homebrew probes are perf instruments, not pass/fail tests — they print numbers.
+All three homebrew probes import through `lib/orcbrew-import.js`, which drives the
+**conflict-resolution modal**. A real pack with overlapping keys makes the app open that
+modal and wait; a probe that only polls app-db sees the plugin count stay put and wrongly
+concludes the import failed. Three long runs were lost to exactly that. A fixed sleep before
+clicking is not enough either — a bigger pack parses slower and the click finds no button —
+so the helper races both outcomes until one lands.
+
+The homebrew probes are perf instruments, not pass/fail tests — they print numbers.
 `:optimizations :none` makes LOAD-time numbers from the dev build meaningless; only their
 runtime numbers are usable. See `docs/kb/perf-homebrew-builder-loop.md`.
 
