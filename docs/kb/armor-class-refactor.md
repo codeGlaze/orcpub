@@ -517,13 +517,30 @@ Reconciled against what has actually shipped. (An earlier version of this list s
 items that had already landed — the "LANDED" sections were appended without pruning here.)
 
 **Done:** shield + character magic into `?ac-bonus-fns` · tri-state `:shield?`/`:armor?` ·
-`:lizardfolk-ac` and `:tortle-ac` on the universal shape · parity sweep at 0.
+`:lizardfolk-ac` and `:tortle-ac` on the universal shape · parity sweep at 0 · effective Dex cap.
+
+### LANDED: the effective Dex cap
+
+`?armor-dex-bonus` capped Dex purely by `:type` and ignored the armor's own `:max-dex-mod` — a
+field the character sheet *displays* ("Max DEX AC Bonus", `views.cljs:3116`) but the engine never
+read. The effective cap is now the **more permissive** of the two:
+
+| source | light | medium | heavy |
+|---|---|---|---|
+| type | none | `?max-medium-armor-bonus` | 0 |
+| item | `:max-dex-mod` when present | | |
+
+Taking the max is the whole point. Every shipped medium armor prints `:max-dex-mod 2` and every
+heavy prints `0`, so reading the item's field *alone* would cap scale mail at 2 and silently
+disable Medium Armor Master, which raises the medium cap to 3. Taking the max keeps the feat
+working and lets a custom item be more generous than its type — heavy that still allows a Dex
+bonus is now expressible, and `custom-heavy` flips from 16 to 18.
+
+No shipped number changes: only medium (6 items) and heavy (4) declare the field, and each declares
+exactly its type default.
 
 **Open, in order:**
 
-1. **Effective Dex cap.** Combine the type default, the armor's own `:max-dex-mod`, and anything
-   that raises it. Currently pinned at the buggy 16 for `custom-heavy`; needs a Medium Armor Master
-   + custom-cap test, since reading `:max-dex-mod` naively silently disables MAM.
 2. **Built-ins onto `ac-formula`.** Barbarian, Monk, Draconic natural armor. Deletes the pairwise
    `if` in `?base-armor-class` and the tie-break in `?unarmored-armor-class`.
 3. **Retire the scalar channels** — `?natural-ac-bonus`, `?unarmored-ac-bonus`,

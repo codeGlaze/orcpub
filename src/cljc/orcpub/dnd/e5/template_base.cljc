@@ -48,12 +48,27 @@
     ?magical-ac-bonus 0
     ?armor-stealth-disadvantage? (fn [armor]
                                    (:stealth-disadvantage? armor))
+    ;; How much Dex this armor lets you add. Two independent sources of a cap, and the EFFECTIVE
+    ;; cap is the more permissive of them:
+    ;;   TYPE  — light none, medium ?max-medium-armor-bonus, heavy 0. Medium reads the attribute
+    ;;           rather than a literal so Medium Armor Master can raise it to 3.
+    ;;   ARMOR — the item's own :max-dex-mod. Every shipped medium says 2 and every heavy says 0,
+    ;;           so honoring it changes no existing number; it exists for custom "weird material"
+    ;;           armor, e.g. heavy that still allows a Dex bonus.
+    ;; Taking the max is what keeps the two from cancelling: reading :max-dex-mod alone would let
+    ;; scale mail's printed 2 silently undo Medium Armor Master's 3.
     ?armor-dex-bonus (fn [armor]
-                       (let [dex-bonus (?ability-bonuses ::char5e/dex)]
-                         (case (:type armor)
-                           :light dex-bonus
-                           :medium (min ?max-medium-armor-bonus dex-bonus)
-                           0)))
+                       (let [dex (?ability-bonuses ::char5e/dex)
+                             type-cap (case (:type armor)
+                                        :light nil
+                                        :medium ?max-medium-armor-bonus
+                                        0)
+                             own-cap (:max-dex-mod armor)
+                             cap (cond
+                                   (nil? own-cap) type-cap
+                                   (nil? type-cap) own-cap
+                                   :else (max type-cap own-cap))]
+                         (if (nil? cap) dex (min cap dex))))
     ?shield-ac-bonus (fn [shield]
                        (+ 2 (or (::mi5e/magical-ac-bonus shield) 0)))
     ;; Unarmored-defense (Con/Wis) and natural-armor (?natural-ac-bonus) are competing

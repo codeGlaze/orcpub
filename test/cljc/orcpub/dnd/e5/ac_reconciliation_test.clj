@@ -233,9 +233,11 @@
   (testing "heavy armor carrying :max-dex-mod 2 — does the engine read the field today?"
     (let [custom ((ac-fn-for abilities :fighter) custom-heavy nil)
           heavy  ((ac-fn-for abilities :fighter) plate nil)]
-      (is (= 16 custom)
-          "CURRENT: the armor's own :max-dex-mod is IGNORED — heavy is capped at 0 by :type, so
-           16 + 0 = 16. Honouring the field would make this 18; that flip is the visible diff.")
+      ;; FLIPPED 2026-09: was pinned at 16. ?armor-dex-bonus now takes the more permissive of the
+      ;; type cap and the armor's own :max-dex-mod, so custom heavy that declares a Dex allowance
+      ;; gets it.
+      (is (= 18 custom)
+          "16 + min(:max-dex-mod 2, Dex 2) = 18 — the armor's own cap beats heavy's default 0")
       (is (= 18 heavy) "plain plate: 18 + 0 Dex"))))
 
 (deftest character-magic-reaches-every-calculation
@@ -484,6 +486,28 @@
 
            mod5e/unarmored-ac-bonus now emits an ?ac-bonus-fns entry stating both clauses, which is
            also the first channel the trim retires."))))
+
+(deftest effective-dex-cap-combines-type-armor-and-features
+  (testing "the cap is the MORE PERMISSIVE of the armor type's and the armor's own, so a feature
+            that raises the type cap is never undone by the item's printed number, and a custom
+            item that allows more than its type is never held back by the type"
+    ;; dex16 (+3) throughout, so a cap of 3 is distinguishable from a cap of 2. At Dex 14 the
+    ;; feat's 3 and the armor's 2 both clamp to 2 and the test would prove nothing.
+    (let [plain (ac-fn-for dex16-abilities :fighter)
+          mam   (ac-fn-for dex16-abilities :fighter :mam-)]      ; Medium Armor Master: medium cap 3
+      (testing "shipped armor is unchanged — every medium says :max-dex-mod 2, every heavy 0"
+        (is (= 16 (plain scale-mail nil)) "scale 14 + min(2, Dex 3) = 16 — capped at the armor's 2")
+        (is (= 18 (plain plate nil))      "plate 18 + 0")
+        (is (= 14 (plain leather nil))    "light is uncapped: 11 + Dex 3"))
+      (testing "Medium Armor Master raises the medium cap and the armor's printed 2 does not veto it"
+        (is (= 17 (mam scale-mail nil))
+            "scale 14 + min(max(MAM 3, armor's 2), Dex 3) = 17. Reading :max-dex-mod alone would
+             cap at 2 and silently disable the feat."))
+      (testing "custom armor may allow MORE than its type does"
+        (is (= 18 (plain custom-heavy nil))
+            "heavy's default is 0, the item declares 2: 16 + min(2, Dex 3) = 18"))
+      (testing "and a feature does not leak across types"
+        (is (= 18 (mam plate nil)) "MAM raises MEDIUM only — plate is still 18 + 0")))))
 
 (deftest migration-parity-sweep
   (testing "every old mechanism vs its authored replacement, across every equipment state"
