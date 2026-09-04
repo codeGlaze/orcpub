@@ -5,6 +5,10 @@
 
 Three answers, in order of how much they matter:
 
+0. **Loaded-but-unlooked-at homebrew costs real, retained memory, and opening the builder
+   is a multi-second freeze.** The real uploaded pack more than doubles the heap (30.9 ->
+   67.6 MB) and turns a 217 ms block into 731 ms. Add spellcasters and it keeps going, to
+   122.7 MB and a **2.15-second unbroken main-thread block**. See *Memory and freezes*.
 1. **There is a hard ceiling on how much homebrew can exist at all.** Homebrew is persisted
    to `localStorage`, which browsers cap at ~5 MB per origin. A 2.9 MB library saves and
    reloads fine; a 5.9 MB one fails the write, and the content is gone on the next page
@@ -171,6 +175,55 @@ cheapest thing here to make lazy and the largest single share of the spell work.
 Not attempted yet. It needs a characterization test first — `:help` is part of the option
 map that the template walker traverses, so deferring it must not change option identity,
 ordering, or anything `entity/build` reads.
+
+## Memory and freezes, measured
+
+Heap is `usedSize` after a forced GC via CDP, so it is retained, not transient. The freeze
+column is the **longest single unbroken main-thread task** from `PerformanceObserver`
+longtask entries — a total spread over many tasks is invisible to a user; one long task is
+the thing that reads as a hang. Everything below happens without ever opening the Spells
+tab.
+
+| pack | caster classes | heap | vs clean | builder open | race | subrace | class | level |
+|---|---|---|---|---|---|---|---|---|
+| clean library | 1 | 30.9 MB | 1.00x | 217 ms | 54 | 67 | 87 | 68 |
+| the real uploaded pack | 2 | **67.6 MB** | 2.19x | **731 ms** | 79 | 102 | 138 | 110 |
+| + 8x casters | 18 | 74.5 MB | 2.41x | 901 ms | 101 | 74 | 145 | 112 |
+| + 32x casters | 66 | 95.2 MB | 3.08x | 1374 ms | 84 | 83 | 262 | 120 |
+| + 64x casters | 130 | **122.7 MB** | **3.97x** | **2150 ms** | 100 | 74 | **433** | 111 |
+
+Marginal cost of one more homebrew spellcasting class, over 18 -> 130:
+
+```
+heap          0.43 MB      retained, after GC
+builder open  11.15 ms     added to a single blocking task
+class select   2.57 ms
+```
+
+### What this says
+
+**Memory is real and retained.** Loading the pack alone costs +36.7 MB, and it is held for
+the life of the page — `memoized-spell-option` is a `memoize` with no eviction, keyed on
+class name, so every option object it ever builds stays live. At 130 caster classes the tab
+holds ~4x what an empty library needs, for content the user has not looked at.
+
+**Opening the builder is the freeze.** 217 ms clean is already a stutter; 731 ms with the
+real pack and 2.15 s at 130 casters are hangs, in one unbroken task, with no yield for the
+browser to paint. This is the template build described above — every class's every level,
+every spell option, every detail panel — on the critical path before the Race tab can draw.
+
+**Race and subrace are NOT where the freeze is.** They roughly double (54-67 -> 74-102 ms)
+and then stay flat as casters are added: noticeable, not a hang. **Class selection is the
+one that scales** — 87 -> 138 -> 262 -> 433 ms, a 5x growth driven purely by caster count.
+So of "race / subrace / class", the reported symptom is concentrated in opening the builder
+and in the class picker, not in race selection.
+
+**Dev-build caveat, and why it does not rescue the numbers.** These come from the
+`:optimizations :none` build, which inflates CPU roughly uniformly (it is a magnifier for
+execution shape, and pure noise for the load waterfall, which is why the cold-load figure
+was discarded). Even allowing a generous 3-5x production speedup, a 2.15 s block lands at
+400-700 ms and a 433 ms class selection at 90-150 ms — still a hang and still a stutter.
+Heap is not CPU and does not scale down that way: the retained structure is the same.
 
 ## Spells on the Race tab
 
