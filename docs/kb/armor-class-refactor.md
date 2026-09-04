@@ -100,10 +100,47 @@ all plain functions, which is the real payoff: `armor_class_test` checks the eng
 no entity and no character template (25 assertions), leaving `ac_reconciliation_test` to prove the
 same rules survive content and the entity spec.
 
-`best-ac` is still in the file and still **NOT WIRED**. It needs the two-group
-(item-dependent/item-independent) config that the wired engine deliberately does not use — that
-split buys real work-saving on stacked characters but carries a footgun `ac_experiments_test`
-demonstrates. Open question, not a decision.
+### DECIDED: bucketing rejected, `best-ac` deleted
+
+The outer loop — `::char5e/best-armor-combo`, "best AC across every owned armor and shield" — stays
+naive. Measured, not argued (`ac_outer_loop_analysis_test`):
+
+| scenario | naive | bucketed | |
+|---|---|---|---|
+| typical (2 armor, 1 shield, 2 calcs) | 0.022 ms | 0.033 ms | **0.64x — slower** |
+| kitted (5 armor, 2 shields, 6 calcs) | 0.067 ms | 0.099 ms | **0.68x — slower** |
+| adversarial (8 armor, 2 shields, 21 calcs) | 0.125 ms | 0.105 ms | 1.19x |
+| absurd (20 armor, 3 shields, 40 calcs) | 0.500 ms | 0.276 ms | 1.81x |
+| absurd ×2 (40 armor, 4 shields, 80 calcs) | 1.901 ms | 0.632 ms | 3.01x |
+
+(JVM; the app runs this in JS, so the ratio transfers and the absolute numbers do not. The last row
+is recorded here rather than run every suite — it dominated the runtime.)
+
+Bucketing scales genuinely well, but **the crossover is above any realistic character** and it is
+slower below it: building the state map costs more than the evaluations it saves until roughly 8
+armors and 20 calculations. And this runs inside a memoized `reg-sub` that only recomputes when
+equipment or AC state changes, so even the adversarial case saves ~0.02 ms per recompute.
+
+Three things settled it beyond the timings:
+
+- **`best-ac` could not serve the call site anyway.** It returns a number; `views.cljs:3537,3550`
+  read `(-> best-armor-combo :armor :key)` and `:shield :key` to preselect the equipment dropdowns.
+  Adopting it meant rewriting it.
+- **The footgun is real and silent-ish.** A calculation that reads the worn armor's fields, placed
+  in the item-independent group, is evaluated against a `::worn` placeholder — a wrong number or a
+  `NullPointerException`. Nothing in the shape prevents it; it is on the author. Pinned in the
+  analysis test.
+- **The original evidence measured the wrong thing.** The earlier "396 vs 102 formula evaluations"
+  benchmark was accurate about counts, and counts turned out to be a poor proxy for cost.
+
+`best-ac` and the old unwired `reconcile-ac` are deleted (D34), along with `ac_experiments_test`.
+Coverage was carried over, not dropped: outer-loop correctness (best magic armor surfaces, item
+magic never leaks to a combination not wearing that item, shields searched and reported) is now in
+`ac_outer_loop_analysis_test`, and single-combo arithmetic is in `armor_class_test`.
+
+**A measurement mistake worth remembering:** the first run of this benchmark had no JIT warmup and
+produced 0.82x / 1.96x / 1.10x — non-monotonic, which should have been an immediate tell rather
+than something to report. Warmup made it monotonic.
 
 ### The Bracers fix is portable to `integration` on its own
 

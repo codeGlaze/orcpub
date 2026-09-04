@@ -161,3 +161,20 @@ Two failures, both cheap to avoid:
 The empirical method itself was right: swap in the other branch's file, run the one test, read the
 number. It just ran against the wrong file. Running it against two branches would have shown the
 disagreement immediately, since `agents/develop` and `origin/integration` do not agree here.
+
+## Benchmark rules: warm up, and measure cost not proxies
+
+Two failures in one afternoon, on the same benchmark:
+
+1. **No JIT warmup.** The first run reported 0.82x / 1.96x / 1.10x across three scenarios of
+   increasing size. A non-monotonic curve over a monotonic workload is a measurement artifact, not
+   a finding — the first scenario measured was paying for compilation. With warmup it read
+   0.64x / 0.68x / 1.19x, monotonic and believable, and the conclusion reversed.
+2. **Counting operations instead of timing them.** An earlier benchmark counted formula
+   evaluations, found 396 vs 102, and concluded the optimisation was worthwhile. The counts were
+   right. But the optimisation allocates a state map, and that costs more than the evaluations it
+   saves until the input is far larger than anything real — so the version doing 4x the work is
+   *faster* at realistic sizes.
+
+Also: always locate the crossover. "Faster at size N" is not a result; "slower below ~8 armors,
+faster above, and the app never exceeds 3" is.

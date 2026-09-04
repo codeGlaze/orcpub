@@ -24,13 +24,10 @@
     ITEM magic  — ::magical-ac-bonus ON a worn armor or shield. Part of that item's own value.
     CHARACTER magic — Ring/Cloak of Protection. A bonus on the winner, registered like any other.
 
-  ---------------------------------------------------------------------------------------------
-  NOT WIRED: best-ac at the bottom of this file. It is an outer-loop optimisation for
-  subs.cljs's \"best AC across every owned armor/shield\" search, and it needs a different config
-  shape (calculations split into item-dependent and item-independent groups). That split buys real
-  work-saving on stacked characters but carries a footgun — a calculation placed in the wrong group
-  returns a wrong number or throws, which ac_experiments_test demonstrates. Left unadopted pending
-  a decision; the wired engine above deliberately uses ONE list."
+  ONE LIST, deliberately. A bucketed variant that splits calculations into item-dependent and
+  item-independent groups was measured and rejected — it is SLOWER at realistic character sizes and
+  only pays off past ~8 armors with ~20 calculations, while requiring authors to group correctly or
+  get a wrong number. See ac_outer_loop_analysis_test."
 )
 
 (def ^:private magical-ac-bonus :orcpub.dnd.e5.magic-items/magical-ac-bonus)
@@ -75,37 +72,3 @@
   [armor-value calculations bonuses armor shield]
   (+ (reduce max armor-value (map #(% armor shield) calculations))
      (reduce +   0           (map #(% armor shield) bonuses))))
-
-;; ── NOT WIRED (see the ns docstring) ─────────────────────────────────────────
-
-(defn reconcile-ac
-  "AC for one specific equipped (armor, shield): best formula + sum of bonuses.
-  config — {:armor-formula f-or-nil, :other-formulas [f ...], :bonuses [f ...]} (see ns)."
-  [{:keys [armor-formula other-formulas bonuses]} armor shield]
-  (let [formulas (cond->> other-formulas armor-formula (cons armor-formula))
-        run      #(% armor shield)]
-    (+ (reduce max 0 (map run formulas))
-       (reduce +   0 (map run bonuses)))))
-
-(defn best-ac
-  "Highest AC the character can reach with the armor and shields they own, trying every
-  combination (including wearing nothing). Same result as calling reconcile-ac on every
-  combination and taking the max.
-
-  It avoids repeated work: only :armor-formula changes from one armor to the next, so the best
-  of :other-formulas is computed once per (is-armor-worn?, shield) pair rather than once per
-  owned armor. That is why other-formulas may not read armor fields — they are evaluated with
-  ::worn, a placeholder that is merely non-nil, standing in for 'some armor'."
-  [{:keys [armor-formula other-formulas bonuses]} armors shields]
-  (let [armors  (cons nil armors)     ; nil = the "wear nothing" option
-        shields (cons nil shields)    ; nil = the "no shield" option
-        best-other (into {} (for [worn?  [true false]
-                                  shield shields]
-                              [[worn? shield]
-                               (reduce max 0 (map #(% (when worn? ::worn) shield) other-formulas))]))]
-    (reduce max 0
-            (for [armor  armors
-                  shield shields]
-              (+ (max (best-other [(some? armor) shield])
-                      (if armor-formula (armor-formula armor shield) 0))
-                 (reduce + 0 (map #(% armor shield) bonuses)))))))
