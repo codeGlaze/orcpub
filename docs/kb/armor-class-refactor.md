@@ -122,6 +122,42 @@ adds your Wisdom modifier") is one more property it knows about, or a bonus cond
 equipped armor — not automatic. Armor properties that don't touch AC (mithral suppressing stealth
 disadvantage and Strength requirements) are handled elsewhere.
 
+## LANDED: shield and character magic moved into `?ac-bonus-fns`
+
+`?armor-class-with-armor` is `max(base, ?ac-fns…) + sum(?ac-bonus-fns…)`. Two things that are
+bonuses by nature were living inside `base` instead:
+
+- the shield's `+2` — added in `?unarmored-with-shield-armor-class` and in the armored branch
+- `?magical-ac-bonus` (character magic — Ring/Cloak of Protection) — added in `?base-armor-class`
+  and again in the armored branch
+
+Because they sat inside the term `max` chooses between, any calculation that *beat* the base
+silently lost them. Both are now entries in `?ac-bonus-fns`, so they are summed onto whichever
+calculation wins. Six lines added, nine removed.
+
+Measured over the full suite (419 tests / 2224 assertions): nothing outside the AC characterization
+net changed. Inside it, four pinned numbers flipped, all toward the rules:
+
+| case | was | now | rules |
+|---|---|---|---|
+| authored Barbarian shape + shield | 15 | **17** | 17 |
+| authored `:shield? true` construct + shield | 16 | **18** | 18 |
+| authored natural armor + Ring of Protection | 15 | **16** | 16 |
+| parity sweep divergences | 7 | **2** | 0 |
+
+**What did NOT change, and why it was the real risk:** Monk + shield is still 14. Monk loses
+Unarmored Defense with a shield by never writing `?unarmored-with-shield-ac-bonus` — the same
+omission mechanism as Bracers of Defense. Pulling the shield out of the base leaves that untouched:
+Monk's base is `10 + Dex = 12` and the shield adds 2. Bracers is likewise still 14 with a shield.
+Both were checked, not assumed.
+
+**The 2 remaining divergences are the reverse of the old problem.** `:lizardfolk-ac` overrides
+`?armor-class-with-armor` with its own hardcoded sum built on `?base-armor-class`. That sum used to
+carry character magic; now it does not, so the *prop* loses a Ring of Protection while the authored
+form keeps it (old 15, authored 16, in leather and leather+shield). Rewriting the override to defer
+to `?armor-class-with-armor` — the shim this migration needs regardless — closes both. This is the
+next step, and the sweep drops to 0 when it lands.
+
 ## Two kinds of magic — name them differently
 
 Agents keep conflating these, and the app invites it by giving them near-identical names:
@@ -179,11 +215,11 @@ implements both. Measured (Dex +2):
 | unarmored | 15 | 15 | 15 |
 | leather | **13** | **15** | **15** |
 | plate | 18 | 18 | 18 |
-| unarmored + shield | 15 | 15 | **17** |
+| unarmored + shield | 17 | 17 | 17 |
 
 `:armor? false` drops a Lizardfolk in leather from 15 to 13 — it implements only the first sentence.
-**No `:armor?` tag** is the faithful migration. (The remaining shield divergence is the separate
-shield-in-the-base issue, not a disagreement about the tag.)
+**No `:armor?` tag** is the faithful migration. (The `+ shield` row read 15/15/17 before the shield
+move below; that gap was the shield being trapped in the base, not a disagreement about the tag.)
 
 ## Traced: what `:lizardfolk-ac` actually computes
 
