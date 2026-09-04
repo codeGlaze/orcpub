@@ -1241,3 +1241,34 @@
         (let [{:keys [label size]} (fit nm 35.0)]
           (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0)
               (str nm " -> " label)))))))
+
+(deftest packing-is-refused-on-a-style-whose-numerals-are-not-measured
+  ;; relabel-spell-level! covers the printed level numeral with a patch cut to
+  ;; hexagon-path, traced off style 1. The styles do not merely offset that shape,
+  ;; they draw a different one -- the numeral sits at dx -14.4 from its slots box
+  ;; on style 1, -12.4 on 2, -28.0 on 3 and -23.0 on 4, and style 3 rings its
+  ;; numerals where style 4 uses a small hexagon. A packed page rendered on 2, 3
+  ;; and 4 showed both numbers, the old beside the new: "3 0", "4 1", "7 2".
+  (testing "only style 1 is measured"
+    (is (pdf/packing-supported? 1))
+    (doseq [style [2 3 4]]
+      (is (not (pdf/packing-supported? style)) (str "style " style))))
+  (testing "an unmeasured style applies no relabel rather than printing a lie"
+    (doseq [style [2 3 4]]
+      (let [{:keys [file marks]} (get pdf/sheet-masters style)]
+        (with-open [in (.openStream (io/resource file))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (pdf/grow-spell-sections! doc 1 marks)
+          (let [[applied refused]
+                (pdf/apply-relabel-instructions!
+                 doc [{:section 1 :box 5 :label "2"}] 1 style)]
+            (is (zero? applied) (str "style " style))
+            (is (= 1 refused)))))))
+  (testing "and style 1 still applies them"
+    (let [{:keys [file marks]} (get pdf/sheet-masters 1)]
+      (with-open [in (.openStream (io/resource file))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (pdf/grow-spell-sections! doc 1 marks)
+        (let [[applied _] (pdf/apply-relabel-instructions!
+                           doc [{:section 1 :box 5 :label "2"}] 1 1)]
+          (is (= 1 applied)))))))

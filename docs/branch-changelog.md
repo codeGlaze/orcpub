@@ -164,6 +164,21 @@ the eight-class fixture from 638 KB to 424.
   with no cantrips starts at a level box whose slot inputs the player writes in,
   so it gets none and the section header names it.
 
+- Each class's spellcasting ability, save DC and attack bonus print ABOVE its
+  column's bar. The sheet gives a section ONE such triple and a packed page holds
+  several classes whose numbers differ, so the triple is left empty there and
+  filled only when a page holds a single class. Sharing the bar with the class
+  name did not work: the pair came to 96pt in a 92.8pt compartment, so fitting one
+  shrank the other and "Sorcerer" printed as "Sorce…".
+- Packing is refused on styles 2, 3 and 4. `relabel-spell-level!` covers the
+  printed numeral with a patch cut to `hexagon-path`, traced off style 1 — and the
+  styles do not merely offset that shape, they draw a different one. Measured: the
+  numeral sits at dx −14.4 from its slots box on style 1, −12.4 on 2, −28.0 on 3
+  and −23.0 on 4, and style 3 rings its numerals where style 4 uses a small
+  hexagon. Rendering a packed page on each showed both numbers, the old beside the
+  new: "3 0", "4 1", "7 2". `:packing?` in `sheet-masters` marks the one style
+  whose numerals have been measured.
+
 ## Added (guards)
 
 - A full character is written to every style and the values `write-fields!` could

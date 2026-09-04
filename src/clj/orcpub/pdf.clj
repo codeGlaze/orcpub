@@ -612,6 +612,19 @@
    Petersen Games LLC 2021\". stamp-site-line! leaves those pages alone rather than
    printing it twice.
 
+   :packing? says the style's printed level numeral has been MEASURED, and so
+   whether a packed layout may be used on it. relabel-spell-level! covers that
+   numeral with a patch cut to hexagon-path, which was traced off style 1 at 1200
+   dpi -- and the styles do not merely offset it, they draw a different shape. The
+   printed numeral sits at dx -14.4 from its slots box on style 1, -12.4 on 2,
+   -28.0 on 3 and -23.0 on 4, and style 3 rings its numerals where style 4 uses a
+   small hexagon. Rendering a packed page on 2, 3 and 4 showed both numbers, the
+   old one beside the new: \"3 0\", \"4 1\", \"7 2\".
+
+   Only style 1 is measured. A packed layout asked for on another style falls back
+   to a page per class, which is correct if not as tight -- rather than printing a
+   sheet whose level numbers lie.
+
    :site-line is where stamp-site-line! puts that line, in inches from the page's
    bottom-left corner, and is MEASURED off rendered pages -- see
    dev/scan_site_line.clj, with a test holding the result.
@@ -627,7 +640,7 @@
    x is shared; the heights are not. Styles 1 and 2 sit at 0.13 to clear that bar,
    which leaves about 0.03in of headroom before the frame above, and styles 3 and
    4 sit lower at 0.06 where their own artwork stops."
-  {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all
+  {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all :packing? true
       :without-casters "fillable-char-sheetstyle-1-0-spells.pdf"
       :site-line [0.95 0.13]}
    2 {:file "fillable-char-sheetstyle-2-1-spells.pdf" :marks :all
@@ -2640,6 +2653,12 @@
         (or (nil? label)
             (and (string? label) (re-matches #"\d" label))))))
 
+(defn packing-supported?
+  "Whether `style`'s level numerals can be relabelled, and so whether a packed
+   layout may be printed on it. See :packing? in sheet-masters."
+  [style]
+  (boolean (:packing? (get sheet-masters style))))
+
 (defn apply-relabel-instructions!
   "Renumbers the boxes `instructions` names. Returns [applied refused].
 
@@ -2649,8 +2668,12 @@
 
    Box 0 is the cantrips box and is not a level box -- it has no slot inputs or
    labels until reuse-cantrips-box! gives it some -- so it takes the other path."
-  [doc instructions sections]
-  (let [wanted (take (* sections max-relabels-per-section) (filter map? instructions))
+  ([doc instructions sections] (apply-relabel-instructions! doc instructions sections 1))
+  ([doc instructions sections style]
+  (let [wanted (if (packing-supported? style)
+                 (take (* sections max-relabels-per-section) (filter map? instructions))
+                 ;; An unmeasured style would print the new number beside the old.
+                 [])
         {ok true bad false} (group-by #(valid-relabel? % sections) wanted)]
     (doseq [{:keys [section box label]} ok]
       (try
@@ -2659,7 +2682,7 @@
           (relabel-spell-level! doc box section (or label "")))
         (catch Exception e
           (println "pdf: relabel failed for box" box "section" section "-" (.getMessage e)))))
-    [(count ok) (+ (count bad) (max 0 (- (count (filter map? instructions)) (count wanted))))]))
+    [(count ok) (+ (count bad) (max 0 (- (count (filter map? instructions)) (count wanted))))])))
 
 (def ^:private cantrips-label
   "What the narrow compartment of a packed cantrips bar says."
@@ -2762,7 +2785,8 @@
 
    Box 0 additionally has CANTRIPS printed into its artwork, in the middle of the
    bar where the class name now goes, so that word is covered before drawing."
-  [doc box suffix label]
+  ([doc box suffix label] (draw-column-heading! doc box suffix label nil))
+  ([doc box suffix label {:keys [ability dc attack]}]
   (when-let [{:keys [narrow wide]} (bar-compartments doc box suffix)]
     (when-let [[hx hy hw hh] (if (zero? box)
                              (cantrips-hexagon-box doc suffix)
@@ -2772,7 +2796,6 @@
                          .getWidgets first .getPage)
             [nx nw] narrow
             [wx ww] wide
-            {:keys [label size]} (fit-heading label (- ww 6.0))
             middle (+ hy (/ hh 2.0))]
         (when page
           (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
@@ -2805,11 +2828,36 @@
                             72.0)
                          (/ (+ middle (* -0.36 csize)) 72.0)
                          [0.45 0.45 0.45]))
-            (let [lw (* 72 (string-width label HELVETICA_BOLD size))]
+            ;; The class name and, beside it, the numbers the section's own
+            ;; ability/DC/attack boxes cannot carry once a page holds more than
+            ;; one class. Centred together so the pair reads as one heading.
+            (let [stats (->> [(when ability
+                                (s/upper-case (subs (str ability) 0
+                                                    (min 3 (count (str ability))))))
+                              (when dc (str "DC " dc))
+                              (when attack (str attack))]
+                             (remove nil?)
+                             (s/join "  "))
+                  ;; ABOVE the bar, not inside it. Sharing the compartment with
+                  ;; the class name left neither readable: the pair came to 96pt
+                  ;; in a 92.8pt compartment, so fitting one shrank the other and
+                  ;; "Sorcerer" came out as "Sorce...".
+                  small 7.0
+                  {label :label size :size} (fit-heading label (- ww 6.0))
+                  lw (* 72 (string-width label HELVETICA_BOLD size))
+                  start (+ wx (/ (- ww lw) 2.0))]
               (draw-text cs label HELVETICA_BOLD size
-                         (/ (+ wx (/ (- ww lw) 2.0)) 72.0)
+                         (/ start 72.0)
                          (/ (+ middle (* -0.36 size)) 72.0)
-                         [0.15 0.15 0.15]))))))))
+                         [0.15 0.15 0.15])
+              (when-not (s/blank? stats)
+                (let [sw (* 72 (string-width stats HELVETICA small))]
+                  (draw-text cs stats HELVETICA small
+                             (/ (+ wx (/ (- ww sw) 2.0)) 72.0)
+                             ;; Clear of the bar's upper rule, which sits 9.75
+                             ;; above its middle.
+                             (/ (+ middle 14.5) 72.0)
+                             [0.35 0.35 0.35])))))))))))
 
 (defn stamp-site-line!
   "Prints the site line in the bottom-left corner of every page that lacks one.

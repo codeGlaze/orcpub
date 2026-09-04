@@ -292,9 +292,15 @@
      ;; with. A class with no cantrips -- a Paladin, a Ranger -- starts at a level
      ;; box whose slot inputs the player writes in, so it gets no heading and the
      ;; section header is all that names it.
+     ;; The save DC and attack bonus travel with the heading rather than as
+     ;; section fields. The sheet gives a section ONE ability/DC/attack triple,
+     ;; and a packed page holds several classes whose numbers differ, so filling
+     ;; it would print one class's DC over everyone's list.
      :headings (vec (for [{:keys [class level box section]} placements
-                          :when (zero? level)]
-                      {:class class :box box :section section}))
+                          :when (zero? level)
+                          :let [k (get by-class class)]]
+                      {:class class :box box :section section
+                       :ability (:ability k) :dc (:dc k) :attack (:attack k)}))
      :fields
      (into {}
            (concat
@@ -305,6 +311,20 @@
                   :when (seq names)]
               [(keyword (str "spellcasting-class-" (section-of index)))
                (s/join ", " names)])
+            ;; A page holding ONE class is unambiguous, so its triple is filled
+            ;; the way an unpacked sheet fills it.
+            (apply concat
+                   (for [[index page] (map-indexed vector pages)
+                         :let [names (distinct (for [col page e (:placed col)] (:class e)))]
+                         :when (= 1 (count names))
+                         :let [k (get by-class (first names))
+                               n (section-of index)]]
+                     (cond-> []
+                       (:ability k) (conj [(keyword (str "spellcasting-ability-" n))
+                                           (:ability k)])
+                       (:dc k) (conj [(keyword (str "spell-save-dc-" n)) (str (:dc k))])
+                       (:attack k) (conj [(keyword (str "spell-attack-bonus-" n))
+                                          (:attack k)]))))
             ;; The names, into the box the packer chose rather than the box that
             ;; shares the level's number.
             (for [{:keys [class level box section rows offset]} placements
