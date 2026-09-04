@@ -9,6 +9,16 @@
 // Races the two legitimate outcomes instead of assuming either: the import may land
 // straight away, or it may park on the modal. A FIXED sleep before clicking is not enough —
 // a bigger pack takes longer to parse, and the click then finds no button.
+// Preferred: suppress the banner before it ever renders. Set this on the CONTEXT (via
+// addInitScript) before the first navigation and no test has to think about it again.
+// cookies.js honours localStorage 'orcpub:no-cookie-banner' and ?no-cookie-banner=1.
+async function suppressCookieBanner(context) {
+  return context.addInitScript(() => {
+    try { localStorage.setItem('orcpub:no-cookie-banner', '1'); } catch (e) {}
+  });
+}
+
+// Fallback for a page that was already loaded without the flag.
 async function dismissCookieBanner(page) {
   for (const label of ['Got it!', 'Got it', 'Accept', 'I agree']) {
     const b = page.locator(`button:has-text("${label}"), a:has-text("${label}")`).last();
@@ -79,4 +89,4 @@ async function importPack(page, absPath, { timeout = 300000 } = {}) {
   })).catch(e => ({ evalErr: String(e).slice(0, 100) }));
   return { ok: false, viaModal: clicked, count: await pluginCount(), diag, lastClickErr };
 }
-module.exports = { importPack, dismissCookieBanner };
+module.exports = { importPack, dismissCookieBanner, suppressCookieBanner };

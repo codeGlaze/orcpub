@@ -40,6 +40,14 @@ re-frame events. Routing via the app's own router is fine for navigation.
 - `homebrew_render_split_e2e.js` — CPU-profiles a real race click and splits it into the
   rebuild path vs the render path, so the two can be told apart as homebrew grows.
 
+**The cookie banner is position-fixed at the bottom of the page and overlays whatever is
+under it** — including the import conflict modal's buttons, which makes a click fail with
+"subtree intercepts pointer events" and look like an app bug. `cookies.js` now takes an
+explicit opt-out: set `localStorage['orcpub:no-cookie-banner'] = '1'` before the first
+navigation (`suppressCookieBanner(context)` in `lib/orcbrew-import.js` does exactly that),
+or append `?no-cookie-banner=1` when driving a browser by hand. Prefer suppressing it over
+dismissing it — a dismissal is one more thing to get wrong on every new page.
+
 All three homebrew probes import through `lib/orcbrew-import.js`, which drives the
 **conflict-resolution modal**. A real pack with overlapping keys makes the app open that
 modal and wait; a probe that only polls app-db sees the plugin count stay put and wrongly

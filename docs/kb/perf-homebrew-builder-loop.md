@@ -476,8 +476,13 @@ three lines:
 
 The **cookie-consent banner** is fixed to the bottom of the page and sits over the conflict
 modal's buttons. A forced click does not help either — the banner still receives the event.
-The helper dismisses the banner first, as a user would, and the import then completes
-(`Applying conflict resolutions: {renames: Array(17)}`).
+
+Fixed at the source rather than worked around: `resources/public/js/cookies.js` now takes an
+explicit opt-out, `localStorage['orcpub:no-cookie-banner'] = '1'` (or `?no-cookie-banner=1`
+when driving by hand), checked before the banner is built. Verified in a real browser —
+control still shows the banner, both opt-out forms suppress it. Harnesses call
+`suppressCookieBanner(context)` before the first navigation; `dismissCookieBanner(page)`
+remains as a fallback for an already-loaded page.
 
 Three separate obstacles stood between a headless harness and a real `.orcbrew` import — the
 conflict modal, the actionability wait, and the banner occluding the button — and each was
