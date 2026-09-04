@@ -2661,6 +2661,37 @@
           (println "pdf: relabel failed for box" box "section" section "-" (.getMessage e)))))
     [(count ok) (+ (count bad) (max 0 (- (count (filter map? instructions)) (count wanted))))]))
 
+(defn draw-column-heading!
+  "Writes `label` in the bar of box `box` in section `suffix`, beside its numeral.
+
+   For saying which class a packed column belongs to. The bar is the only place
+   with room: scanning for a clear band ABOVE each box found one above two of the
+   ten, and the sheet is dense everywhere else.
+
+   Only ever called for a box holding CANTRIPS. A cantrips box has no slots, so
+   the compartment the bar gives a level box for SLOTS TOTAL and SLOTS EXPENDED is
+   dead space there -- on box 0 it reads CANTRIPS from x 112, leaving x 55 to 110
+   empty, and on a level box reused for cantrips the two slot inputs are empty and
+   meaningless. Writing over a level box's live slot input would take space the
+   player writes in, which is why this is not general."
+  [doc box suffix label]
+  (when-let [[hx hy _ hh] (if (zero? box)
+                            (cantrips-hexagon-box doc suffix)
+                            (spell-level-numeral-box doc box suffix))]
+    (let [page (some-> (.getAcroForm (.getDocumentCatalog doc))
+                       (.getField (str "spells-" box "-1-" suffix))
+                       .getWidgets first .getPage)]
+      (when page
+        (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
+                                             true true)]
+          (draw-text cs label HELVETICA_BOLD 7.0
+                     ;; A cantrips bar puts its divider right after the hexagon,
+                     ;; at x 51-59 where a level bar's is at 93-102, so box 0 has
+                     ;; to clear the divider and not merely the hexagon.
+                     (/ (+ hx (if (zero? box) 31.0 27.0)) 72.0)
+                     (/ (+ hy (/ hh 2.0) -2.5) 72.0)
+                     [0.25 0.25 0.25]))))))
+
 (defn stamp-site-line!
   "Prints the site line in the bottom-left corner of every page that lacks one.
 

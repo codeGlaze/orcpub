@@ -677,7 +677,43 @@ an ability.
 
 The ability grouping is the thing to replace, not to preserve.
 
-#### The per-column class heading has nowhere to go, measured (2026-09)
+#### A Warlock gets the first column, always (2026-09)
+
+A 5e Warlock casts every spell at its highest slot level. It therefore needs ONE
+level box however high it climbs -- the numeral is relabelled as the character
+levels rather than a new box being taken -- plus a cantrips box.
+
+So the first column is reserved for a pact caster: box 0 for cantrips, box 1 for
+the level it casts at, and box 2 only because a level 20 Warlock knows 15 spells
+against box 1's 12 rows. The rest of the sheet goes to casters whose slots come
+from the shared table.
+
+This is simpler than fitting a Warlock like any other class AND it is what keeps
+its slot pool separate: the boxes it holds carry their own `spell-slots` fields.
+The spill carries an offset, so the continuation prints the rest of the list
+rather than repeating it, and only the box a level starts in carries the total --
+a continuation is the same pool, and printing it twice reads as two sets of slots.
+
+#### The per-column class heading goes in the cantrips bar (2026-09)
+
+Resolved, and the earlier note that there was nowhere to put it was looking in
+the wrong place. It scanned for a clear band ABOVE each box and found one above
+two of the ten, which is true and beside the point.
+
+The bar of a CANTRIPS box is free. A cantrips box has no slots, so the
+compartment a level bar gives to SLOTS TOTAL and SLOTS EXPENDED is dead space
+there: on box 0 the bar reads CANTRIPS from x 112, leaving x 62 to 110 empty, and
+on a level box reused for cantrips the two slot inputs are empty and meaningless.
+
+So the class name is drawn there, on the box its column starts with. Box 0 needs
+a wider offset than the rest -- a cantrips bar puts its divider right after the
+hexagon at x 51-59, where a level bar's sits at 93-102.
+
+A class with no cantrips at all -- a Paladin, a Ranger -- starts at a level box
+whose slot inputs the player writes in, so it gets no heading and the section
+header is what names it.
+
+#### The old note: the heading has nowhere to go (superseded)
 
 8c wants each column headed with the class it holds, so a reader can tell whose
 list is whose. The artwork does not have room for it.

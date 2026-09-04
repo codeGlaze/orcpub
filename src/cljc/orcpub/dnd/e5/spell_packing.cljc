@@ -120,6 +120,50 @@
            :placed (vec (filter #(contains? (set column) (:box %)) entries))})
         columns))
 
+(def pact-column
+  "The column a pact caster is given: boxes 0, 1 and 2.
+
+   A 5e Warlock casts every spell at its highest slot level, so it needs ONE
+   level box however high it climbs -- the numeral is relabelled as the character
+   levels rather than a new box being used. Cantrips take box 0 and the spell list
+   takes box 1, spilling into box 2 only because a level 20 Warlock knows 15
+   spells against box 1's 12 rows.
+
+   Reserving the first column rather than fitting it like any other class is what
+   keeps its slot count off everything else: the boxes it holds carry its own
+   spell-slots fields, and the rest of the sheet is left to casters whose slots
+   come from the shared table."
+  0)
+
+(defn- place-pact
+  "Lays a pact caster across the first column: cantrips, then the one level it
+   casts at, spilling into the third box when the list outgrows the second."
+  [style {:keys [class levels]}]
+  (let [rows (style-rows style)
+        boxes (nth columns pact-column)
+        cantrips (get levels 0)
+        [cast-level cast-rows] (first (sort-by key (dissoc levels 0)))]
+    (vec
+     (concat
+      (when (and cantrips (pos? cantrips))
+        [{:class class :level 0 :box 0 :rows (min cantrips (nth rows 0))
+          :capacity (nth rows 0)}])
+      (when cast-level
+        (let [first-box (nth boxes 1)
+              second-box (nth boxes 2)
+              head (min cast-rows (nth rows first-box))
+              tail (- cast-rows head)]
+          (cond-> [{:class class :level cast-level :box first-box :rows head
+                    :offset 0 :capacity (nth rows first-box)}]
+            (pos? tail)
+            ;; The continuation carries the REST of the same list, so it starts
+            ;; where the first box stopped. Without the offset both boxes print
+            ;; the list from the top and the second is a duplicate.
+            (conj {:class class :level cast-level :box second-box
+                   :rows (min tail (nth rows second-box))
+                   :offset head
+                   :capacity (nth rows second-box)}))))))))
+
 (defn pack
   "Assigns `classes` to boxes: first fit by column, never splitting a class.
 
@@ -137,7 +181,14 @@
   (->>
    (reduce
     (fn [pages klass]
-     (if (> (count (:levels klass)) widest-column)
+     (if (:pact? klass)
+       ;; The first column, always, and never shared. A pact caster's slots are a
+       ;; separate pool at a separate level, so a box of its own is what keeps
+       ;; them off the classes beside it.
+       (let [entries (place-pact style klass)
+             pages (if (seq pages) pages [(empty-page style)])]
+         (update-in pages [0 pact-column] update :placed into entries))
+       (if (> (count (:levels klass)) widest-column)
        (if-let [entries (spread-across-page style klass)]
          (conj pages (add-spread-page style klass entries))
          pages)
@@ -155,9 +206,10 @@
            (let [fresh (empty-page style)
                  ci (first (keep-indexed #(when (assign %2 style klass) %1) fresh))]
              (cond-> (conj pages fresh)
-               ci (update-in [(count pages) ci] place style klass)))))))
+               ci (update-in [(count pages) ci] place style klass))))))))
     [(empty-page style)]
-    classes)
+    ;; Pact casters first, so the column is theirs before anything else is fitted.
+    (concat (filter :pact? classes) (remove :pact? classes)))
    ;; The seed page, and any a spread class stepped over, hold nothing.
    (filterv (fn [page] (some (comp seq :placed) page)))))
 
@@ -222,8 +274,11 @@
    numeral itself."
   [style classes]
   (let [by-class (into {} (map (juxt :class identity)) classes)
-        counted (mapv (fn [{:keys [class levels]}]
+        ;; :pact? has to survive into what pack sees, or the pact caster is fitted
+        ;; like any other class and loses its reserved column.
+        counted (mapv (fn [{:keys [class levels pact?]}]
                         {:class class
+                         :pact? pact?
                          :levels (into {} (map (fn [[lvl names]] [lvl (count names)])) levels)})
                       classes)
         pages (pack style counted)
@@ -233,6 +288,13 @@
                      (assoc entry :section (section-of index)))]
     {:pages (count pages)
      :relabels (relabel-instructions pages)
+     ;; Where to write each class's name: the cantrips box its column starts
+     ;; with. A class with no cantrips -- a Paladin, a Ranger -- starts at a level
+     ;; box whose slot inputs the player writes in, so it gets no heading and the
+     ;; section header is all that names it.
+     :headings (vec (for [{:keys [class level box section]} placements
+                          :when (zero? level)]
+                      {:class class :box box :section section}))
      :fields
      (into {}
            (concat
@@ -245,15 +307,22 @@
                (s/join ", " names)])
             ;; The names, into the box the packer chose rather than the box that
             ;; shares the level's number.
-            (for [{:keys [class level box section]} placements
-                  [row nm] (map-indexed vector (get-in by-class [class :levels level]))]
+            (for [{:keys [class level box section rows offset]} placements
+                  :let [all (vec (get-in by-class [class :levels level]))
+                        from (or offset 0)
+                        mine (subvec all (min from (count all))
+                                     (min (+ from (or rows (count all))) (count all)))]
+                  [row nm] (map-indexed vector mine)]
               [(keyword (str "spells-" box "-" (inc row) "-" section)) nm])
             ;; The slot total belongs to the class that holds the box, at the
             ;; level it is holding -- not to the level the box is printed with.
             ;; Box 0 is the cantrips box and has no slots until reuse-cantrips-box!
             ;; gives it some.
-            (for [{:keys [class level box section]} placements
-                  :when (pos? box)
+            ;; Only the box a level STARTS in carries the slot total: a
+            ;; continuation is the same pool, and printing it twice reads as two
+            ;; sets of slots for one level.
+            (for [{:keys [class level box section offset]} placements
+                  :when (and (pos? box) (zero? (or offset 0)))
                   :let [n (get-in by-class [class :slots level])]
                   :when n]
               [(keyword (str "spell-slots-" box "-" section)) (str n)])))}))

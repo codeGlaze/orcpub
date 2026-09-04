@@ -213,3 +213,70 @@
                 :when m]
           (is (<= 0 (parse-int (nth m 1)) 9) (str k))
           (is (<= 1 (parse-int (nth m 3)) pages) (str k)))))))
+
+(def ^:private pact-party
+  "A Warlock beside two ordinary casters. The Warlock is listed LAST on purpose:
+   its column is reserved, not first-come."
+  [{:class "Sorcerer" :levels {0 ["Fire Bolt"] 1 ["Shield"] 2 ["Mirror Image"]}
+    :slots {1 4 2 3}}
+   {:class "Warlock" :pact? true
+    :levels {0 ["Eldritch Blast" "Mage Hand"]
+             5 (mapv #(str "Pact " %) (range 15))}
+    :slots {5 2}}])
+
+(deftest a-pact-caster-is-given-the-first-column
+  ;; A 5e Warlock casts everything at its highest slot level, so it needs one
+  ;; level box however high it climbs -- the numeral is relabelled as it levels.
+  ;; Reserving the first column keeps its slot pool off the classes beside it.
+  (let [{:keys [fields relabels]} (pk/packed-fields 1 pact-party)]
+    (testing "cantrips in box 0 and the cast level in box 1, whatever the input order"
+      (is (= "Eldritch Blast" (:spells-0-1-1 fields)))
+      (is (= "Pact 0" (:spells-1-1-1 fields))))
+    (testing "the box is renumbered to the level it casts at, not left reading 1"
+      (is (some #(= {:section 1 :box 1 :label "5"} %) relabels)))
+    (testing "and the other class is pushed out of that column"
+      (is (= "Fire Bolt" (:spells-3-1-1 fields)))
+      (is (= "Shield" (:spells-4-1-1 fields))))))
+
+(deftest a-pact-list-too-long-for-one-box-spills-without-repeating
+  ;; A level 20 Warlock knows 15 spells against box 1's 12 rows. Both boxes hold
+  ;; the same level, so without an offset each printed the list from the top and
+  ;; the second box was a duplicate of the first.
+  (let [{:keys [fields relabels]} (pk/packed-fields 1 pact-party)]
+    (testing "the first box takes what it holds"
+      (is (= "Pact 0" (:spells-1-1-1 fields)))
+      (is (= "Pact 11" (:spells-1-12-1 fields)) "twelve rows, ending at index 11")
+      (is (nil? (:spells-1-13-1 fields)) "nothing past the box's capacity"))
+    (testing "the spill continues where it stopped"
+      (is (= "Pact 12" (:spells-2-1-1 fields)))
+      (is (= "Pact 14" (:spells-2-3-1 fields)))
+      (is (nil? (:spells-2-4-1 fields)) "and ends with the list"))
+    (testing "the continuation is renumbered to the same level"
+      (is (some #(= {:section 1 :box 2 :label "5"} %) relabels)))
+    (testing "every spell appears exactly once"
+      (let [printed (for [[k v] fields
+                          :when (re-matches #"spells-[12]-\d+-1" (name k))]
+                      v)]
+        (is (= 15 (count printed)))
+        (is (= 15 (count (distinct printed))))))))
+
+(deftest only-the-box-a-level-starts-in-carries-its-slots
+  ;; A continuation is the same pool. Printing the total twice reads as two sets
+  ;; of slots for one level.
+  (let [{:keys [fields]} (pk/packed-fields 1 pact-party)]
+    (is (= "2" (:spell-slots-1-1 fields)) "the Warlock's own pact slots")
+    (is (nil? (:spell-slots-2-1 fields)) "not repeated on the spill")
+    (is (= "4" (:spell-slots-4-1 fields)) "and the Sorcerer's are its own")))
+
+(deftest headings-name-the-class-holding-each-column
+  ;; The bar of a cantrips box is the only place with room -- see the plan. A
+  ;; class with no cantrips starts at a level box whose slot inputs the player
+  ;; writes in, so it gets none and the section header names it.
+  (let [{:keys [headings]} (pk/packed-fields 1 pact-party)]
+    (is (= #{"Warlock" "Sorcerer"} (set (map :class headings))))
+    (is (every? #(zero? (mod (:box %) 3)) headings)
+        "a heading only ever sits on a box that starts a column"))
+  (testing "a class without cantrips gets no heading"
+    (let [{:keys [headings]} (pk/packed-fields 1 [{:class "Paladin" :levels {1 ["Bless"]}
+                                                   :slots {1 4}}])]
+      (is (empty? headings)))))

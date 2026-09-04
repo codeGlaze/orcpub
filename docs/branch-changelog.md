@@ -139,11 +139,16 @@ the eight-class fixture from 638 KB to 424.
   counts — Warlock 2, Sorcerer 4/3, Paladin 4/3, Bard 4 on one page. Grouping by
   ability, as today, merges a Warlock and a Sorcerer into one CHA section and
   writes every box the character-wide total.
-- Not yet the default, and the reason is measured: the artwork has no room for a
-  per-column class heading. Scanning at 200 dpi for a clear band above each box
-  found one above two of the ten; the wide band beside each numeral is the SLOTS
-  EXPENDED input. The section header lists the classes in column order instead,
-  which does not survive two classes sharing a column.
+- A pact caster is given the first column outright: cantrips in box 0, the one
+  level it casts at in box 1 — renumbered as the character levels rather than
+  taking a new box — spilling into box 2 only because a level 20 Warlock knows 15
+  spells against box 1's 12 rows. That is both simpler than fitting it like any
+  other class and what keeps its slot pool off the classes beside it.
+- Each column is headed with the class holding it, drawn in the bar of the
+  cantrips box it starts with. A cantrips box has no slots, so the compartment a
+  level bar gives to SLOTS TOTAL and SLOTS EXPENDED is dead space there. A class
+  with no cantrips starts at a level box whose slot inputs the player writes in,
+  so it gets none and the section header names it.
 
 ## Added (guards)
 
