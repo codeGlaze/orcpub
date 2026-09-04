@@ -577,6 +577,8 @@
              :route routes/dnd-e5-boon-builder-page-route}
             {:name "Draconic Ancestry Builder"
              :route routes/dnd-e5-draconic-ancestry-builder-page-route}
+            {:name "Fighting Style Builder"
+             :route routes/dnd-e5-fighting-style-builder-page-route}
             {:name "Selection Builder"
              :route routes/dnd-e5-selection-builder-page-route}]]]]]]))
 
@@ -7585,6 +7587,13 @@
 (defn invocation-builder []
   (simple-content-builder ::classes/invocation-builder-item ::classes/set-invocation-prop))
 
+(defn fighting-style-builder []
+  ;; No extra-fields: classes/fighting-style-fields is only :description, which
+  ;; simple-content-builder already renders. The style's MECHANIC rides the shared :props
+  ;; vocabulary rather than bespoke fields, so the form is name + source + description.
+  (simple-content-builder ::classes/fighting-style-builder-item
+                          ::classes/set-fighting-style-prop))
+
 (defn monster-builder []
   (let [{:keys [name
                 key
@@ -9463,6 +9472,10 @@
 
 (defn subclass-builder-page []
   (builder-page "Subclass" ::classes/reset-subclass ::classes/save-subclass subclass-builder))
+
+(defn fighting-style-builder-page []
+  (builder-page "Fighting Style" ::classes/reset-fighting-style ::classes/save-fighting-style
+                fighting-style-builder))
 
 (defn class-builder-page []
   (builder-page "Class" ::classes/reset-class ::classes/save-class class-builder))

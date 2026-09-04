@@ -40,3 +40,16 @@
       (doseq [{:keys [id route-kw]} ct/content-types]
         (is (contains? allowed route-kw)
             (str id " (" route-kw ") must be allow-listed in index-page-paths"))))))
+
+;; The page-map (web/cljs/orcpub/core.cljs) binds a route to a VIEW FN, and it is the one part of
+;; the wiring the registry cannot generate — a view fn is not derivable from data in cljs (D-note in
+;; the framework doc). So a type can be fully registered, route resolvably, and still land on a
+;; blank page. Read as TEXT because this is clj and the page-map is cljs; same tactic as
+;; builder-items-match-the-subs, which guards a cljs loop from the JVM.
+(deftest every-registered-builder-route-is-bound-to-a-view
+  (let [core (slurp "web/cljs/orcpub/core.cljs")]
+    (doseq [{:keys [id route-seg]} ct/content-types]
+      (let [var-name (str "dnd-e5-" route-seg "-page-route")]
+        (is (re-find (re-pattern (str "routes/" var-name "\\s+views")) core)
+            (str id ": web/cljs/orcpub/core.cljs must bind routes/" var-name
+                 " to a view fn, or the builder page renders blank"))))))

@@ -111,10 +111,12 @@ then merge `develop` in, since the shared files here have diverged for the feat 
   my-content nav entry and the SPA allowlist path; `route_map` gained
   `dnd-e5-fighting-style-builder-page-route` for the drift guard, and both the `content_types_test`
   counts and the separate hand-maintained keyword-audit table in `e5_test` were updated.
-- 🔴 **Fighting-style BUILDER PAGE** (HIGH — the remaining half). Everything above is data-driven,
-  but the route-to-view binding in `views_2.cljc` is hand-wired by design: a view fn can't be
-  derived from data in cljs (D-note in the framework doc). Until that lands, the route resolves and
-  the type saves, but there is no page to author one on.
+- ✅ **Fighting-style BUILDER PAGE** — DONE 2026-09-04. `fighting-style-builder` (the generic
+  `simple-content-builder`, no extra fields — the style's mechanic rides `:props`, so the form is
+  name + source + description), `fighting-style-builder-page`, the My Content nav entry, and the
+  page-map binding in `web/cljs/orcpub/core.cljs`. That last one is the only piece the registry
+  cannot generate, and it is now guarded: `every-registered-builder-route-is-bound-to-a-view`
+  fails if a registered type has no view bound.
 - Variants (`_copy`/`_mod`), class-feature pool (`[:class-feature :X]`), declarative cross-type prereq
   vocabulary, mechanical-effects-for-text-only (boons/ki), level-gated grants in `:props`.
 
