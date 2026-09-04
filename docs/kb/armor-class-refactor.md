@@ -122,6 +122,38 @@ adds your Wisdom modifier") is one more property it knows about, or a bonus cond
 equipped armor — not automatic. Armor properties that don't touch AC (mithral suppressing stealth
 disadvantage and Strength requirements) are handled elsewhere.
 
+## LANDED: `:lizardfolk-ac` compiles to the universal shape — parity sweep at 0
+
+`:lizardfolk-ac` used to write `?natural-ac-bonus 3` **and** replace `?armor-class-with-armor` with
+a hand-written `max(?base-armor-class + shield, <the old fn>)`. It now emits the universal
+`{:ac 13 :abilities [:dex]}` through `ac-calculation-modifiers` — the same compiler a homebrew
+author's `:props` goes through. `?ac-fns` already *is* that max, and shield and character magic are
+now summed onto the winner rather than baked into the replacement's hardcoded sum.
+
+`?natural-ac-bonus 3` is still written, so the no-stacking tie-break against unarmored defense in
+`?base-armor-class` (template_base.cljc:39) still sees it.
+
+**Parity sweep: 7 → 2 → 0.** Every old mechanism now returns exactly what its authored replacement
+returns, in all 4 pairs × 7 equipment states. Deprecating the old forms cannot change a saved
+character's AC. That assertion is pinned at 0 and must stay there — a non-zero count is a
+regression, not a number to update.
+
+### `:tortle-ac` stays bespoke, on purpose
+
+It is not a sibling of `:lizardfolk-ac`. Characterized across six equipment states: **17 unarmored,
+19 with a shield, and 17 even in plate** — it replaces the AC function outright, so worn armor can
+never beat it, and the `?natural-ac-bonus 7` it writes alongside is inert.
+
+`?ac-fns` is a `max`: it can raise a floor, it cannot impose a ceiling. So the universal shape
+cannot reproduce Tortle without changing plate from 17 to 18.
+
+The right fix is not an AC ceiling. The rules reason is *"a tortle can't wear light, medium, or
+heavy armor"* — an **equipment restriction**, not an AC rule. Forcing 17 is the original author's
+workaround for the app having no way to say that. Adding a ceiling channel to the AC vocabulary
+would encode the workaround instead of the rule, and would be a third mechanism for a job
+`?ac-fns` already covers (D29). Left as-is until equipment restrictions exist; the characterization
+pins hold the current numbers in place meanwhile.
+
 ## LANDED: shield and character magic moved into `?ac-bonus-fns`
 
 `?armor-class-with-armor` is `max(base, ?ac-fns…) + sum(?ac-bonus-fns…)`. Two things that are
