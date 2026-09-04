@@ -2851,13 +2851,17 @@
                          (/ (+ middle (* -0.36 size)) 72.0)
                          [0.15 0.15 0.15])
               (when-not (s/blank? stats)
-                (let [sw (* 72 (string-width stats HELVETICA small))]
-                  (draw-text cs stats HELVETICA small
+                ;; Bold and near-black. These are numbers a player reads mid-turn
+                ;; -- the save DC of the spell they are casting and what they add
+                ;; to hit -- so they are set like the class name rather than like
+                ;; the CANTRIPS caption, which is a label nobody needs to find.
+                (let [sw (* 72 (string-width stats HELVETICA_BOLD small))]
+                  (draw-text cs stats HELVETICA_BOLD small
                              (/ (+ wx (/ (- ww sw) 2.0)) 72.0)
                              ;; Clear of the bar's upper rule, which sits 9.75
                              ;; above its middle.
                              (/ (+ middle 14.5) 72.0)
-                             [0.35 0.35 0.35])))))))))))
+                             [0.1 0.1 0.1])))))))))))
 
 (defn stamp-site-line!
   "Prints the site line in the bottom-left corner of every page that lacks one.

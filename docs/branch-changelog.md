@@ -165,7 +165,8 @@ the eight-class fixture from 638 KB to 424.
   so it gets none and the section header names it.
 
 - Each class's spellcasting ability, save DC and attack bonus print ABOVE its
-  column's bar. The sheet gives a section ONE such triple and a packed page holds
+  column's bar, bold and near-black — numbers a player reads mid-turn, set like
+  the class name rather than like the CANTRIPS caption beside it. The sheet gives a section ONE such triple and a packed page holds
   several classes whose numbers differ, so the triple is left empty there and
   filled only when a page holds a single class. Sharing the bar with the class
   name did not work: the pair came to 96pt in a 92.8pt compartment, so fitting one
