@@ -138,6 +138,33 @@ Coverage was carried over, not dropped: outer-loop correctness (best magic armor
 magic never leaks to a combination not wearing that item, shields searched and reported) is now in
 `ac_outer_loop_analysis_test`, and single-combo arithmetic is in `armor_class_test`.
 
+### Two things the rejection does NOT mean
+
+**It does not affect competing calculations.** A lizardfolk barbarian/monk carries three "your
+AC = ..." calculations at once. Those resolve by `max` over `?ac-fns` inside
+`?armor-class-with-armor` — the *inner* reconciler, which `best-ac` was never part of. Measured
+with unequal ability mods so each calculation is identifiable (Dex +2, Con +4, Wis +1):
+
+| | |
+|---|---|
+| unarmored | **16** — Barbarian's 10+2+4 beats lizardfolk's 15 and Monk's 13. Not their sum, 44 |
+| + shield | **18** — Monk self-excludes, Barbarian does not, and the shield is a bonus on the winner |
+| leather | **15** — lizardfolk substitutes for worse worn armor; both Unarmored Defenses stay out |
+| plate | **18** — the worn armor wins outright |
+
+**Toggling loadouts is not the bottleneck.** Equipping armor changes the character entity, so the
+entity REBUILD runs before the AC search does. Measured on a 12-armor, 2-shield wardrobe — 39
+combinations:
+
+| | |
+|---|---|
+| character rebuild (what equipping triggers) | **16.6 ms** |
+| AC search across all 39 combinations | **0.73 ms** |
+| the search as a share of one toggle | **4.4%** |
+
+Bucketing would, at best, take ~40% off that 0.73 ms — about **1.5% of a toggle**, on a wardrobe
+larger than any real character's. Pinned in `loadout-toggling-is-dominated-by-the-character-rebuild`.
+
 **A measurement mistake worth remembering:** the first run of this benchmark had no JIT warmup and
 produced 0.82x / 1.96x / 1.10x — non-monotonic, which should have been an immediate tell rather
 than something to report. Warmup made it monotonic.

@@ -511,6 +511,61 @@
       (testing "and a feature does not leak across types"
         (is (= 18 (mam plate nil)) "MAM raises MEDIUM only — plate is still 18 + 0")))))
 
+(deftest many-competing-calculations-on-one-character
+  (testing "a lizardfolk barbarian/monk carries THREE 'your AC = ...' calculations at once. They
+            compete; the best wins; none of them stack. Ability mods are deliberately unequal so
+            each calculation yields a different number and the winner is identifiable."
+    ;; Dex 14 (+2), Con 18 (+4), Wis 12 (+1)
+    ;;   unarmored base    10 + 2       = 12
+    ;;   monk UD           10 + 2 + 1   = 13
+    ;;   lizardfolk armor  13 + 2       = 15
+    ;;   barbarian UD      10 + 2 + 4   = 16   <- best
+    (let [abils (assoc abilities :orcpub.dnd.e5.character/con 18
+                                 :orcpub.dnd.e5.character/wis 12)
+          ac    (ac-fn-for abils :barbarian :monk :liz-)]
+      (is (= 16 (ac nil nil))
+          "the BEST of three competing calculations, not the first and not their sum (which
+           would be 44). This is ?ac-fns + max, the inner reconciler — nothing to do with the
+           outer best-armor-combo search.")
+      (is (= 18 (ac nil shield))
+          "shield held: the Monk's calculation self-excludes, the Barbarian's does not, and the
+           shield is a BONUS so it lands on the winner: 16 + 2")
+      (is (= 18 (ac plate nil))
+          "in plate: both Unarmored Defenses return 0, lizardfolk's 15 loses to plate's 18, and
+           plate allows no Dex — so the worn armor simply wins at 18")
+      (is (= 15 (ac leather nil))
+          "in leather: lizardfolk natural armor (15) beats leather's 13, because its rules text
+           lets it substitute for worse worn armor. The Unarmored Defenses stay out."))))
+
+(defn- bench [f warm n]
+  (dotimes [_ warm] (f))
+  (->> (repeatedly 3 #(let [t (System/nanoTime)] (dotimes [_ n] (f)) (/ (- (System/nanoTime) t) 1e6 n)))
+       (reduce min)))
+
+(deftest loadout-toggling-is-dominated-by-the-character-rebuild
+  (testing "toggling armor on and off re-runs the AC search over every owned combination. That
+            search is a small fraction of what the toggle already costs: equipping changes the
+            character entity, so the entity REBUILD happens first and dwarfs it. This is why the
+            outer loop stays naive — see ac_outer_loop_analysis_test for the bucketing numbers."
+    (let [ac-fn    (ac-fn-for abilities :barbarian :monk :liz-)
+          wardrobe (mapv (fn [i] {:base-ac (+ 11 (mod i 6)) :type :medium :max-dex-mod 2
+                                  :orcpub.dnd.e5.magic-items/magical-ac-bonus (mod i 3)})
+                         (range 12))
+          shields  [shield magic-shield]
+          search   #(apply max-key :ac
+                           (for [a (cons nil wardrobe) sh (cons nil shields)]
+                             {:ac (ac-fn a sh) :armor a :shield sh}))
+          t-build  (bench #(ac-fn-for abilities :barbarian :monk :liz-) 3 8)
+          t-search (bench search 200 300)]
+      (println (format "\n[LOADOUT] character rebuild %.2f ms | AC search over 12 armors x 2 shields (39 combos) %.2f ms | search is %.1f%% of a toggle\n"
+                       t-build t-search (* 100 (/ t-search t-build))))
+      (is (= 39 (count (for [a (cons nil wardrobe) sh (cons nil shields)] [a sh])))
+          "every combination is searched, including wearing nothing")
+      (is (< t-search t-build)
+          "the search is cheaper than the rebuild it rides along with — a generous bound, since
+           the measured ratio is a few percent. Asserted loosely on purpose: a tight timing
+           assertion would be flaky, and the number is printed above for inspection."))))
+
 (deftest migration-parity-sweep
   (testing "every old mechanism vs its authored replacement, across every equipment state"
     (let [divergences (sweep-divergences)]
