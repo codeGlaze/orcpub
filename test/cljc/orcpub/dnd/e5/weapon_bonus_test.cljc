@@ -18,6 +18,8 @@
 (def longsword{::weapons5e/melee? true})
 (def greatsword {::weapons5e/melee? true ::weapons5e/two-handed? true})
 (def rapier   {::weapons5e/melee? true ::weapons5e/finesse? true})
+;; Thrown is NOT a synonym for melee — Dart and Net are thrown AND ranged. See weapon-data-model.md.
+(def dart     {::weapons5e/ranged? true ::weapons5e/thrown true})
 
 (deftest matches-is-three-state
   (testing "true requires the property"
@@ -79,7 +81,9 @@
     (let [thrown {:bonus 2 :thrown? true}]
       (is (= 2 (bonus-for :damage-bonus thrown handaxe)))
       (is (= 0 (bonus-for :damage-bonus thrown longsword)))
-      (is (= 0 (bonus-for :damage-bonus thrown longbow)) "ranged but not thrown"))))
+      (is (= 0 (bonus-for :damage-bonus thrown longbow)) "ranged but not thrown")
+      (is (= 2 (bonus-for :damage-bonus thrown dart))
+          "a RANGED thrown weapon still qualifies — the condition is thrown, not melee-and-thrown"))))
 
 (deftest untagged-bonus-applies-to-everything
   (testing "no tags = every weapon, which is what a plain '+1 to damage' feature wants"
@@ -98,6 +102,22 @@
     (doseq [w weapons5e/weapons]
       (let [m (boolean (::weapons5e/melee? w)) r (boolean (::weapons5e/ranged? w))]
         (is (not= m r) (str (:name w) " must be exactly one of melee/ranged, got melee=" m " ranged=" r))))))
+
+(deftest weapon-data-invariants
+  (testing "invariants the vocabulary and engine lean on — see weapon-data-model.md"
+    (is (empty? (filter #(and (::weapons5e/ammunition? %) (not (::weapons5e/ranged? %)))
+                        weapons5e/weapons))
+        "ammunition weapons are ranged")
+    (is (empty? (filter #(and (::weapons5e/versatile %) (::weapons5e/two-handed? %))
+                        weapons5e/weapons))
+        "versatile means one-handed WITH a two-handed option, so the two are exclusive")))
+
+(deftest absent-and-explicit-false-flags-behave-alike
+  (testing "most flags are present-or-absent, but Longsword declares ::finesse? false and
+            Firearm, Hand declares ::two-handed? false. A predicate must not distinguish them."
+    (is (= (weapons5e/matches? {:finesse? false} {::weapons5e/melee? true})
+           (weapons5e/matches? {:finesse? false} {::weapons5e/melee? true ::weapons5e/finesse? false}))
+        "absent and explicit-false must match identically")))
 
 (deftest field-paths-match-what-the-compiler-reads
   (testing "the same drift risk as the AC fields: a field writing a path the compiler ignores looks
