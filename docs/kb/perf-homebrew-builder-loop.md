@@ -13,7 +13,13 @@ Three answers, in order of how much they matter:
    `kahn-sort` was **76–86% of `entity/build` at every homebrew size**. Porting the
    `perf/entity-build` fix takes the rebuild from 27–32 ms to 5–7 ms and a real race click
    from 157–221 ms to 87–112 ms of CPU.
-3. **Spells ARE built into the builder when you are nowhere near the Spells tab, and that
+3. **Most of the spell work is detail panels nobody has opened.** 78% of building a spell
+   option is `spell-help` — a hiccup tree of school/casting time/range/duration/components
+   plus the whole description split into paragraphs — built eagerly for every spell. And
+   `memoized-spell-option` is keyed on the **class name**, so each spell gets its own copy
+   per class whose list contains it: at 130 classes that is 41,470 option objects holding
+   2.39 million hiccup nodes. See *The detail panels* below.
+4. **Spells ARE built into the builder when you are nowhere near the Spells tab, and that
    is the seconds-scale cost.** On the Race tab, before Spells has ever been opened, a
    library of 128 homebrew spellcasting classes constructs **4064 spell selections**, and
    ~1.5 s of the ~3.0 s of busy JS before the Race page is usable is spell machinery. It is
@@ -111,6 +117,60 @@ function eagerly constructs ~20 levels of spell selections per spellcasting subc
 it is the strongest structural candidate for "reads too much, especially spells". This JVM
 sweep does not exercise it. Treat the flat curve as covering the non-spellcasting case
 only, until the browser numbers on the real fixture come in.
+
+## The detail panels: state nobody asked for
+
+`spell-option` (`options.cljc:439`) calls `(spell-help spell)` unconditionally. `spell-help`
+(`options.cljc:406`) builds a hiccup tree — school, casting time, range, duration, a joined
+components string — and then splits the spell's whole description on newlines into a `[:p]`
+per paragraph, inside a `doall`. None of that is read until someone opens the spell.
+
+Measured over the SRD list (319 spells), timed the way the code actually runs — a whole
+list at once, warmed, min of 5:
+
+```
+spell-option  x319    6.14 ms     19.3 us per option
+  spell-help  x319    4.82 ms     15.1 us of it        -> 78% is the detail panel
+```
+
+### The per-class multiplier
+
+`memoized-spell-option` is memoized on `(spells-map, ability, class-name, key, ...)`. The
+**class name is part of the cache key**, so the same spell is rebuilt — with its own full
+detail panel — once for every class whose spell list contains it.
+
+| classes | option objects | hiccup nodes in `:help` | build time |
+|---|---|---|---|
+| 1 | 319 | 18,404 | 6.4 ms |
+| 8 | 2,552 | 147,232 | 50.8 ms |
+| 32 | 10,208 | 588,928 | 208 ms |
+| 64 | 20,416 | 1,177,856 | 451 ms |
+| 130 | 41,470 | **2,392,520** | 860 ms |
+
+130 classes is the size of the caster-duplicated variant of the uploaded pack. Clean linear
+growth in both time and structure.
+
+The description text is duplicated too, not shared: `spell-help` uses `s/split`, which
+allocates fresh substrings per paragraph per class.
+
+**What these numbers are and are not.** The node counts are real allocated structure. A
+serialized `pr-str` size was also computed (50.6 MB at 130 classes) but is **not** a heap
+measurement and is not quoted as one — it overstates what the JVM holds, and CLJS constants
+differ again. The node count is the honest figure. Nothing here has been measured in the
+browser yet; the JVM shows the shape, not the runtime cost in the app.
+
+### Why this is the promising cut
+
+The other candidates (lazy class levels, gating on character level) run into the fact that
+the template is built once and shared across edits, so making it depend on the character
+trades a one-time cost for a per-change one. This one has no such tension: `:help` is
+display-only, read exclusively when a user opens a spell, and could be a thunk or derived at
+render time without changing which selections exist or what any modifier computes. It is the
+cheapest thing here to make lazy and the largest single share of the spell work.
+
+Not attempted yet. It needs a characterization test first — `:help` is part of the option
+map that the template walker traverses, so deferring it must not change option identity,
+ordering, or anything `entity/build` reads.
 
 ## Spells on the Race tab
 
