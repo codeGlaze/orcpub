@@ -3588,16 +3588,21 @@
    :int ::character/int :wis ::character/wis :cha ::character/cha})
 
 (defn- ac-applies?
-  "Do this calculation's conditions hold for the equipped armor and shield?
+  "Do this calculation's conditions hold for the equipped armor and shield? Both tags work the same
+  way, so there is one rule to remember:
 
-  :armor?  false = only while NOT wearing armor, true = only while wearing it, absent = either.
-  :shield? false = DISQUALIFIED while a shield is held — not 'skip the shield bonus'. A Monk with
-           a shield loses Unarmored Defense entirely (14, not 15); the other reading gets that
-           wrong. Absent or true = usable with a shield, and the shield's own bonus lands on it
-           anyway because bonuses are summed onto whichever calculation wins."
+    false  = only when that item is NOT equipped
+    true   = only when it IS equipped
+    absent = either way
+
+  So :shield? false DISQUALIFIES the calculation while a shield is held rather than merely skipping
+  the shield's bonus — a Monk holding a shield loses Unarmored Defense entirely (14, not 15). And
+  :shield? true expresses the opposite, 'only while wielding a shield', which a construct-style
+  homebrew feature wants. No built-in content uses that today; the vocabulary supports it because
+  homebrew flexibility is the point, not because SRD needs it."
   [{:keys [armor? shield?]} armor shield]
-  (and (or (nil? armor?) (= armor? (some? armor)))
-       (not (and (false? shield?) shield))))
+  (and (or (nil? armor?)  (= armor?  (some? armor)))
+       (or (nil? shield?) (= shield? (some? shield)))))
 
 (defn ac-calculation-modifiers
   "Compile an authored AC calculation — {:ac N :abilities [...] :armor? b :shield? b} — into a
