@@ -82,6 +82,43 @@ Applied to the rest:
 
 Each strike gets `#_` + date + a ledger row (D34); each lands only with the sweep still at 0.
 
+### The Bracers fix is portable to `integration` on its own
+
+The defect is shipped, so the fix is worth having there without waiting for the refactor. **Verified
+against `origin/integration`'s own AC engine**, not reasoned about: swap in that branch's
+`template_base.cljc`, apply only the constructor change, run the tests — natural armor + Bracers
+goes 15 → 17, and all seven Bracers-clause assertions pass, including the no-shield delta.
+
+It needs nothing this branch added. Integration already wires `?ac-bonus-fns` into
+`?armor-class-with-armor` (upstream PR #156) and already defines the `ac-bonus-fn` macro over
+`mods/vec-mod` (`modifiers.cljc:567`). The shield still living inside the base there does not
+matter, because the predicate returns 0 whenever a shield is held.
+
+The whole patch — `modifiers.cljc:561-562`, one function, no other callers, no engine change:
+
+```clojure
+;; before
+(defn unarmored-ac-bonus [bonus]
+  (mods/cum-sum-mod ?unarmored-ac-bonus bonus))
+
+;; after
+(defn unarmored-ac-bonus
+  "A flat bonus while wearing no armor and using no shield — Bracers of Defense. A BONUS, so it
+  stacks onto whichever AC calculation wins.
+
+  It used to write ?unarmored-ac-bonus, expressing \"no shield\" by NOT also writing
+  ?unarmored-with-shield-ac-bonus. That put a flat bonus in a channel that also carries Barbarian's
+  and Monk's ability modifiers, which compete as calculations and are zeroed by the tie-break
+  against ?natural-ac-bonus. A natural-armor character therefore lost the bonus entirely — AC 15
+  instead of 17."
+  [bonus]
+  (mods/vec-mod ?ac-bonus-fns (fn [armor shield] (if (or armor shield) 0 bonus))))
+```
+
+Scope on integration: `mod5e/unarmored-ac-bonus` has exactly one caller there, Bracers of Defense
+(`magic_items.cljc`). Barbarian and Monk write `?unarmored-ac-bonus` directly via
+`mod/cum-sum-mod`, so they are untouched and the tie-break they depend on is unchanged.
+
 ### Hazard to characterize BEFORE trimming `?unarmored-ac-bonus`
 
 That one scalar carries **two different meanings**. Barbarian and Monk write an *ability modifier*
