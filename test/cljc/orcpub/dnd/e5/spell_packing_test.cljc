@@ -276,7 +276,43 @@
     (is (= #{"Warlock" "Sorcerer"} (set (map :class headings))))
     (is (every? #(zero? (mod (:box %) 3)) headings)
         "a heading only ever sits on a box that starts a column"))
-  (testing "a class without cantrips gets no heading"
+  (testing "a class without cantrips is headed too, on the level box it starts at"
+    ;; It used to get none, which left its column unnamed on a packed page.
+    (let [{:keys [headings]} (pk/packed-fields 1 [{:class "Warlock" :pact? true
+                                                   :levels {0 ["a"] 1 ["b"]} :slots {1 2}}
+                                                  {:class "Paladin" :levels {1 ["Bless"]}
+                                                   :slots {1 4}}])
+          paladin (first (filter #(= "Paladin" (:class %)) headings))]
+      (is (some? paladin))
+      (is (not (:cantrips? paladin))
+          "its bar carries live slot inputs, so room has to be made")))
+  (testing "box 0 counts as free whatever level it holds"
+    ;; It has no slot inputs at all until reuse-cantrips-box! adds them, so a lone
+    ;; Paladin packed into it needs nothing moved.
     (let [{:keys [headings]} (pk/packed-fields 1 [{:class "Paladin" :levels {1 ["Bless"]}
                                                    :slots {1 4}}])]
-      (is (empty? headings)))))
+      (is (= 0 (:box (first headings))))
+      (is (:cantrips? (first headings))))))
+
+(deftest every-class-gets-a-heading-including-those-without-cantrips
+  ;; A heading sits on the FIRST box of a class's run. A class with cantrips
+  ;; starts at a cantrips box, whose bar is free. A Paladin or Ranger has none and
+  ;; starts at a level box carrying live slot inputs -- it was left with no name on
+  ;; its column at all, which on a packed page is a column nobody can identify.
+  (let [{:keys [headings]}
+        (pk/packed-fields 1 [{:class "Warlock" :pact? true
+                              :levels {0 ["a"] 5 ["c"]} :slots {5 2}}
+                             {:class "Paladin" :levels {1 ["Bless"] 2 ["Aid"]}
+                              :slots {1 4 2 3}}
+                             {:class "Bard" :levels {0 ["x"] 1 ["y"]} :slots {1 4}}])
+        by-class (into {} (map (juxt :class identity)) headings)]
+    (testing "one per class, none missing"
+      (is (= #{"Warlock" "Paladin" "Bard"} (set (map :class headings)))))
+    (testing "flagged by whether its box holds cantrips"
+      (is (:cantrips? (get by-class "Warlock")))
+      (is (:cantrips? (get by-class "Bard")))
+      (is (not (:cantrips? (get by-class "Paladin")))
+          "a Paladin's first box is a level box, and its bar has live inputs"))
+    (testing "each sits on the lowest box its class holds"
+      (is (= 0 (:box (get by-class "Warlock"))))
+      (is (= 3 (:box (get by-class "Paladin")))))))

@@ -296,10 +296,26 @@
      ;; section fields. The sheet gives a section ONE ability/DC/attack triple,
      ;; and a packed page holds several classes whose numbers differ, so filling
      ;; it would print one class's DC over everyone's list.
-     :headings (vec (for [{:keys [class level box section]} placements
-                          :when (zero? level)
-                          :let [k (get by-class class)]]
-                      {:class class :box box :section section
+     ;; One heading a class, on the FIRST box of its run. A class with cantrips
+     ;; starts at a cantrips box, whose bar is free because the box has no slots.
+     ;; A Paladin or Ranger has no cantrips and starts at a level box, whose bar
+     ;; carries live slot inputs -- so it is flagged, and the drawing side makes
+     ;; room there rather than skipping it and leaving the column unnamed.
+     :headings (vec (for [[class entries] (group-by :class placements)
+                          :let [first-box (apply min (map :box entries))
+                                {:keys [section level]} (first (filter #(= first-box (:box %))
+                                                                       entries))
+                                box first-box
+                                k (get by-class class)]]
+                      {:class class :box first-box :section section
+                       ;; True when the bar is FREE, which is what the drawing
+                       ;; side needs to know. A box holding cantrips has no slots;
+                       ;; so does box 0, whatever level it ends up holding, since
+                       ;; it has no slot inputs until reuse-cantrips-box! adds
+                       ;; them. A lone Paladin packs into box 0 and would
+                       ;; otherwise be treated as needing room made in a bar that
+                       ;; has nothing in it.
+                       :cantrips? (or (zero? box) (zero? level))
                        :ability (:ability k) :dc (:dc k) :attack (:attack k)}))
      :fields
      (into {}

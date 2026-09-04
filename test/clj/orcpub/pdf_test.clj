@@ -1272,3 +1272,29 @@
         (let [[applied _] (pdf/apply-relabel-instructions!
                            doc [{:section 1 :box 5 :label "2"}] 1 1)]
           (is (= 1 applied)))))))
+
+(deftest a-level-bar-makes-room-for-a-class-name-beside-its-slots
+  ;; The one bar that has to carry both a heading and an input the player writes
+  ;; in. Every other heading sits on a cantrips box, whose slot inputs mean
+  ;; nothing and can be drawn over.
+  (testing "SLOTS EXPENDED gives up its left edge and keeps its right"
+    (with-open [in (.openStream (io/resource (:file (get pdf/sheet-masters 1))))
+                doc (Loader/loadPDF (.readAllBytes in))]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            widget (first (.getWidgets (.getField form "slots-expended-6-1")))
+            before (.getRectangle widget)
+            right (+ (.getLowerLeftX before) (.getWidth before))]
+        (#'pdf/shrink-slots-expended! doc 6 1 (+ (.getLowerLeftX before) 40.0))
+        (let [after (.getRectangle widget)]
+          (is (= (+ 40.0 (.getLowerLeftX before)) (double (.getLowerLeftX after))))
+          (is (< (Math/abs (- right (+ (.getLowerLeftX after) (.getWidth after)))) 0.01)
+              "the right edge does not move")
+          (is (pos? (.getWidth after)) "and something is left to write in")))))
+  (testing "an x that would leave no room is refused rather than collapsing it"
+    (with-open [in (.openStream (io/resource (:file (get pdf/sheet-masters 1))))
+                doc (Loader/loadPDF (.readAllBytes in))]
+      (let [form (.getAcroForm (.getDocumentCatalog doc))
+            widget (first (.getWidgets (.getField form "slots-expended-6-1")))
+            before (.getWidth (.getRectangle widget))]
+        (#'pdf/shrink-slots-expended! doc 6 1 9999.0)
+        (is (= before (.getWidth (.getRectangle widget))))))))

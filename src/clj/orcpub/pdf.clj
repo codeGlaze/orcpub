@@ -2772,6 +2772,24 @@
         (when wide
           {:narrow narrow :wide wide})))))
 
+(defn- shrink-slots-expended!
+  "Moves the SLOTS EXPENDED input's left edge to `x`, so a class name can sit
+   beside it in the same compartment.
+
+   Only for the first box of a class that has no cantrips. Its bar is the only
+   one that must carry both a heading and a live input the player writes in --
+   every other heading sits on a cantrips box, whose slot inputs are meaningless
+   and can simply be drawn over."
+  [doc box suffix x]
+  (when-let [field (some-> (.getAcroForm (.getDocumentCatalog doc))
+                           (.getField (str "slots-expended-" box "-" suffix)))]
+    (when-let [widget (first (.getWidgets field))]
+      (let [r (.getRectangle widget)
+            right (+ (.getLowerLeftX r) (.getWidth r))]
+        (when (< x (- right 12.0))
+          (.setRectangle widget (PDRectangle. (float x) (.getLowerLeftY r)
+                                              (float (- right x)) (.getHeight r))))))))
+
 (defn draw-column-heading!
   "Labels a packed cantrips box: CANTRIPS in the narrow compartment, `label` --
    the class holding the column -- centred in the wide one.
@@ -2786,7 +2804,8 @@
    Box 0 additionally has CANTRIPS printed into its artwork, in the middle of the
    bar where the class name now goes, so that word is covered before drawing."
   ([doc box suffix label] (draw-column-heading! doc box suffix label nil))
-  ([doc box suffix label {:keys [ability dc attack]}]
+  ([doc box suffix label {:keys [ability dc attack cantrips?]
+                          :or {cantrips? true}}]
   (when-let [{:keys [narrow wide]} (bar-compartments doc box suffix)]
     (when-let [[hx hy hw hh] (if (zero? box)
                              (cantrips-hexagon-box doc suffix)
@@ -2808,7 +2827,8 @@
               (.addRect cs (float wx) (float (- middle 9.0)) (float ww) (float 18.0))
               (.fill cs)
               (.setNonStrokingColor cs (float 0) (float 0) (float 0)))
-            (let [;; Shrunk only if a style's narrow compartment cannot take the
+            (when cantrips?
+             (let [;; Shrunk only if a style's narrow compartment cannot take the
                   ;; word at its padded position.
                   {csize :size ctext :label}
                   (let [room (- nw cantrips-label-pad 2.0)
@@ -2827,7 +2847,7 @@
                                cantrips-label-pad)
                             72.0)
                          (/ (+ middle (* -0.36 csize)) 72.0)
-                         [0.45 0.45 0.45]))
+                         [0.45 0.45 0.45])))
             ;; The class name and, beside it, the numbers the section's own
             ;; ability/DC/attack boxes cannot carry once a page holds more than
             ;; one class. Centred together so the pair reads as one heading.
@@ -2843,9 +2863,17 @@
                   ;; in a 92.8pt compartment, so fitting one shrank the other and
                   ;; "Sorcerer" came out as "Sorce...".
                   small 7.0
-                  {label :label size :size} (fit-heading label (- ww 6.0))
+                  ;; A cantrips bar gives the whole wide compartment to the name.
+                  ;; A level bar has to keep its SLOTS EXPENDED input, so the name
+                  ;; takes the left of that compartment and the input is moved to
+                  ;; the right of it -- the alternative being a column with no
+                  ;; name on it at all, which is what a Paladin had.
+                  room (if cantrips? (- ww 6.0) (* ww 0.5))
+                  {label :label size :size} (fit-heading label room)
                   lw (* 72 (string-width label HELVETICA_BOLD size))
-                  start (+ wx (/ (- ww lw) 2.0))]
+                  start (if cantrips? (+ wx (/ (- ww lw) 2.0)) (+ wx 4.0))]
+              (when-not cantrips?
+                (shrink-slots-expended! doc box suffix (+ wx lw 10.0)))
               (draw-text cs label HELVETICA_BOLD size
                          (/ start 72.0)
                          (/ (+ middle (* -0.36 size)) 72.0)
