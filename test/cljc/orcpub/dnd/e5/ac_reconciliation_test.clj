@@ -65,6 +65,9 @@
 (def mam-class (feat-class :mam- [opt5e/medium-armor-master-max-bonus]))
 ;; The live homebrew natural-armor prop, exactly as a homebrew race would carry it.
 (def lizardfolk-prop-class (feat-class :liz- (vec (opt5e/plugin-modifiers {:lizardfolk-ac true} :liz-))))
+;; The other bespoke natural-armor prop. It behaves differently from :lizardfolk-ac — it REPLACES
+;; ?armor-class-with-armor outright instead of taking a max against it — so it needs its own pins.
+(def tortle-prop-class     (feat-class :tor- (vec (opt5e/plugin-modifiers {:tortle-ac true} :tor-))))
 
 ;; Step 2 of the refactor: mod5e/ac-formula opens ?ac-fns, which had no writers at all.
 ;; A homebrew "your AC = 19 while unarmored" calculation, registered the way homebrew would.
@@ -116,6 +119,8 @@
                          weapons5e/weapons-map mam-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map lizardfolk-prop-class)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map tortle-prop-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map homebrew-ac-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
@@ -394,6 +399,23 @@
                        ((ac-fn-for abilities :fighter :liz-) a sh))))
     (println "")
     (is true)))
+
+(deftest tortle-ac-prop-characterization
+  (testing "CHARACTERIZATION of :tortle-ac as shipped — pinning what IS, before the shim.
+            Unlike :lizardfolk-ac it does not take a max against ?armor-class-with-armor; it
+            REPLACES the function with (+ 17 shield), so worn armor cannot beat it and Dex never
+            applies. That matches the rules ('base AC 17, your Dex modifier does not affect this
+            number') but it also means the ?natural-ac-bonus 7 it writes alongside is inert here —
+            the replacement never consults ?base-armor-class."
+    (doseq [[ctx armor shld expected]
+            [["unarmored"        nil        nil    17]
+             ["unarmored+shield" nil        shield 19]
+             ["leather"          leather    nil    17]   ; armor is ignored entirely
+             ["leather+shield"   leather    shield 19]
+             ["plate"            plate      nil    17]   ; even plate's 18 cannot win
+             ["plate+shield"     plate      shield 19]]]
+      (is (= expected ((ac-fn-for abilities :fighter :tor-) armor shld))
+          (str ":tortle-ac / " ctx)))))
 
 (deftest migration-parity-sweep
   (testing "every old mechanism vs its authored replacement, across every equipment state"
