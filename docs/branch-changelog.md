@@ -127,6 +127,16 @@ the eight-class fixture from 638 KB to 424.
   share the master's stream, so writing into it would have printed the line once
   per clone on every one of them.
 
+- An export's two images are fetched concurrently, before either is drawn. Each
+  allows 10s to connect, 10s on the socket and a 20s transfer deadline, and the
+  fetch happens holding an export slot — so drawn one after the other, two slow
+  images occupied a slot for up to 80s. Started together they cost one image's
+  worst case rather than two.
+- The route no longer calls `safe-image-url?` before fetching. `safe-image-bytes`
+  validates on its own, and ITS resolved addresses are the ones the connection is
+  pinned to, so the earlier call only resolved the host a second time. The cheap
+  scheme regex stays: it refuses `file://` and `ftp://` with no lookup at all.
+
 ## Added (capacity)
 
 - `ORCPUB_HTTP_MAX_THREADS`, `ORCPUB_PDF_CONCURRENCY` and

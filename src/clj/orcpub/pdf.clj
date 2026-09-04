@@ -1730,6 +1730,51 @@
                        :url url}
                       e)))))
 
+(defn draw-image-bytes!
+  "Draws already-fetched image `data` at `x`,`y`.
+
+   Split from draw-image! so an export can fetch its images before it draws any
+   of them: fetching is where the seconds go, drawing is arithmetic. `jpg?`
+   decides the embedding -- JPEG bytes go into the file as they are, and anything
+   else is decoded and re-encoded losslessly, which is the only way PDFBox will
+   take it."
+  [doc page data jpg? x y width height]
+  (try
+    (with-open [c-stream (content-stream doc page)]
+      (if jpg?
+        (with-open [in (java.io.ByteArrayInputStream. data)]
+          (draw-imagex c-stream (JPEGFactory/createFromStream doc in) x y width height))
+        (let [buff (ImageIO/read (java.io.ByteArrayInputStream. data))]
+          (when (nil? buff)
+            (throw (ex-info "Unable to read image" {:error :invalid-image-format})))
+          (draw-imagex c-stream (LosslessFactory/createFromImage doc buff)
+                       x y width height))))
+    (catch Exception e
+      (println "ERROR: Failed to draw image for PDF:" (.getMessage e))
+      nil)))
+
+(defn jpeg-url?
+  "Whether `url` names a JPEG, and so whether its bytes embed without re-encoding."
+  [url]
+  (let [lower (s/lower-case (str url))]
+    (or (s/ends-with? lower "jpg") (s/ends-with? lower "jpeg"))))
+
+(defn fetch-image
+  "Fetches `url` and returns {:data bytes :jpg? bool}, or nil if it cannot be had.
+
+   Returns nil rather than throwing for the same reason safe-image-url? does: a
+   picture that will not load is a state the sheet already handles, and it must
+   not cost the character their sheet. Validation happens here, in
+   safe-image-bytes, whose resolved addresses are the ones the fetch is pinned
+   to -- so a caller does NOT need to call safe-image-url? first, and a caller
+   that does resolves the host twice."
+  [url]
+  (try
+    {:data (safe-image-bytes url) :jpg? (jpeg-url? url)}
+    (catch Exception e
+      (println "pdf: image unavailable -" (.getMessage e) "-" url)
+      nil)))
+
 (defn draw-image! [doc page url x y width height]
   (let [lower-case-url (s/lower-case url)
         jpg? (or (s/ends-with? lower-case-url "jpg")

@@ -997,28 +997,40 @@
           (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
                                  bw? bw-faded?)))
 
-      (when (and image-url
-                 ;; Cheap scheme filter ahead of pdf/safe-image-url?, which does
-                 ;; the real check: it resolves the host and refuses private,
-                 ;; loopback and link-local addresses.
-                 (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" image-url)
-                 (pdf/safe-image-url? image-url)
-                 (not image-url-failed))
-        (case print-character-sheet-style?
-          1 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
-          2 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
-          3 (pdf/draw-image! doc (pdf/get-page doc 1) image-url 0.45 1.75 2.35 3.15)
-          4 (pdf/draw-image! doc (pdf/get-page doc 0) image-url 0.50 0.85 2.35 3.15)))
-      (when (and faction-image-url
-                 ;; Same scheme and host checks as the character image above.
-                 (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]" faction-image-url)
-                 (pdf/safe-image-url? faction-image-url)
-                 (not faction-image-url-failed))
-        (case print-character-sheet-style?
-          1 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)
-          2 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.4 1.905 1.52)
-          3 (pdf/draw-image! doc (pdf/get-page doc 1) faction-image-url 5.88 2.0 1.905 1.52)
-          4 nil))
+      ;; Both images are fetched BEFORE either is drawn, and concurrently.
+      ;;
+      ;; Fetching is where an export's seconds go -- 10s to connect, 10s on the
+      ;; socket and a 20s transfer deadline apiece -- and it happens holding an
+      ;; export slot. Drawn one after the other, two slow images held a slot for
+      ;; up to 80s while nothing else could use it; started together they cost
+      ;; one image's worst case rather than two.
+      ;;
+      ;; No pdf/safe-image-url? here. pdf/fetch-image validates through
+      ;; safe-image-bytes, whose resolved addresses are the ones the connection
+      ;; is pinned to; calling it first only resolved the host a second time.
+      ;; The regex stays -- it costs nothing and refuses file:// and ftp://
+      ;; without a lookup at all.
+      (let [wanted (fn [url failed?]
+                     (and url (not failed?)
+                          (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]"
+                                      url)
+                          url))
+            portrait (some-> (wanted image-url image-url-failed)
+                             (as-> u (future (pdf/fetch-image u))))
+            faction (some-> (wanted faction-image-url faction-image-url-failed)
+                            (as-> u (future (pdf/fetch-image u))))]
+        (when-let [{:keys [data jpg?]} (some-> portrait deref)]
+          (case print-character-sheet-style?
+            1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+            2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+            3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)
+            4 (pdf/draw-image-bytes! doc (pdf/get-page doc 0) data jpg? 0.50 0.85 2.35 3.15)))
+        (when-let [{:keys [data jpg?]} (some-> faction deref)]
+          (case print-character-sheet-style?
+            1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
+            2 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.4 1.905 1.52)
+            3 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 5.88 2.0 1.905 1.52)
+            4 nil)))
       (.save doc output))
     (let [a (.toByteArray output)]
       {:status 200

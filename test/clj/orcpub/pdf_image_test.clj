@@ -144,3 +144,33 @@
     (is (some? (clojure.java.io/resource
                 (:file (get orcpub.pdf/sheet-masters
                             orcpub.routes/default-sheet-style)))))))
+
+;; ─── Fetching, and what a caller has to do first ─────────────────────────────
+
+(deftest fetch-image-answers-nil-rather-than-throwing
+  ;; A picture that will not load must not cost the character their sheet: the
+  ;; export draws what it got and carries on. Every one of these is refused by
+  ;; validated-addresses inside safe-image-bytes, which is the check the fetch is
+  ;; then pinned to -- so a caller does not need safe-image-url? first, and one
+  ;; that calls it resolves the host twice.
+  (testing "a URL the guard refuses comes back as nil"
+    (doseq [url ["file:///etc/passwd"
+                 "ftp://example.com/x.png"
+                 "http://169.254.169.254/latest/meta-data/"
+                 "http://127.0.0.1:8890/portrait.png"
+                 "http://10.0.0.1/x.png"]]
+      (is (nil? (pdf/fetch-image url)) url))))
+
+(deftest jpeg-urls-embed-without-re-encoding
+  ;; JPEG bytes go into the file as they are; anything else is decoded and
+  ;; re-encoded losslessly because PDFBox will not take it otherwise. This is the
+  ;; flag that picks between them, so it decides whether a portrait is recompressed.
+  (testing "the extension decides, case-insensitively"
+    (is (pdf/jpeg-url? "https://example.com/a.jpg"))
+    (is (pdf/jpeg-url? "https://example.com/a.JPEG"))
+    (is (pdf/jpeg-url? "https://example.com/A.Jpg"))
+    (is (not (pdf/jpeg-url? "https://example.com/a.png")))
+    (is (not (pdf/jpeg-url? "https://example.com/a.gif")))
+    (is (not (pdf/jpeg-url? "https://example.com/jpg/a.png"))
+        "the path, not a directory that happens to be called jpg")
+    (is (not (pdf/jpeg-url? nil)))))
