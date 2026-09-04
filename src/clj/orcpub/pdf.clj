@@ -59,6 +59,7 @@
            (org.apache.http.conn.ssl SSLConnectionSocketFactory)
            (java.net UnknownHostException)
            (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font Standard14Fonts$FontName)
+           (org.apache.pdfbox.text PDFTextStripper)
            (javax.imageio ImageIO)
            (java.net URL)))
 
@@ -604,7 +605,12 @@
    this replaces.
 
    It also covers style 4, whose marked page IS a spell page: without this its
-   licence line would vanish along with the spell pages."
+   licence line would vanish along with the spell pages.
+
+   :prints-site-line? marks a style whose artwork already carries the site name --
+   only style 4, whose footer reads \"dungeonmastersvault.com by permission -
+   Petersen Games LLC 2021\". stamp-site-line! leaves those alone rather than
+   printing it twice."
   {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all
       :without-casters "fillable-char-sheetstyle-1-0-spells.pdf"}
    2 {:file "fillable-char-sheetstyle-2-1-spells.pdf" :marks :all
@@ -612,7 +618,8 @@
    3 {:file "fillable-char-sheetstyle-3-1-spells.pdf" :marks :none
       :without-casters "fillable-char-sheetstyle-3-0-spells.pdf"}
    4 {:file "fillable-char-sheetstyle-4-1-spells.pdf" :marks :all
-      :without-casters "fillable-char-sheetstyle-4-0-spells.pdf"}})
+      :without-casters "fillable-char-sheetstyle-4-0-spells.pdf"
+      :prints-site-line? true}})
 
 (defn- fields-on-page
   "Every terminal field with a widget on `page`."
@@ -2398,6 +2405,43 @@
                (+ x (/ (- box-width width) 2))
                (- 11.0 y (- box-height 0.16))
                [0.45 0.45 0.45])))
+
+(defn- page-prints-site-line?
+  "Whether `index` already shows the site name in its own artwork.
+
+   Reads the page's text rather than its content stream bytes: style 4 sets its
+   footer in a Type0 subset, so the glyphs are hex codes and the literal string
+   appears nowhere in the stream."
+  [doc index]
+  (let [stripper (doto (PDFTextStripper.)
+                   (.setStartPage (inc index))
+                   (.setEndPage (inc index)))]
+    (s/includes? (s/replace (.getText stripper doc) #"\s+" " ") site-stamp)))
+
+(defn stamp-site-line!
+  "Prints the site line in the bottom-left corner of every page that lacks one.
+
+   Bottom LEFT because that corner is free on every style: the Wizards of the
+   Coast notice styles 1 and 2 carry runs from x 173 to x 437, style 3 has nothing
+   below y 18, and style 4 prints its own from x 23 to x 149. x 22.7pt and a
+   baseline 12.4pt off the foot are style 4's own footer position, so a stamped
+   page and a page whose artwork prints it put the line in the same place.
+
+   `prints-own?` says the style's artwork carries the line on SOME of its pages --
+   style 4, and only on its spell pages, leaving the rest to be stamped. It gates
+   the per-page text scan so the styles that never print their own do not pay for
+   it.
+
+   Appends a content stream per page rather than editing the page's own. Cloned
+   spell pages SHARE the master's content stream, so writing into it would print
+   the line once per clone on every one of them; PDFBox's append mode leaves the
+   shared stream alone and gives each page its own small addition."
+  [doc prints-own?]
+  (doseq [[index page] (map-indexed vector (vec (.getPages doc)))
+          :when (not (and prints-own? (page-prints-site-line? doc index)))]
+    (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
+                                         true true)]
+      (draw-text cs site-stamp HELVETICA site-stamp-size 0.315 0.172 [0.45 0.45 0.45]))))
 
 (defn print-backs [cs fonts img box-width box-height remaining-lines-vec page-number logo-img]
   ;; `img` is the memoized per-document image loader; `logo?` opts each card back

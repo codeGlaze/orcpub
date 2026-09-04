@@ -835,3 +835,58 @@
                 (str label ": no two sections share a page"))
             (is (every? #(has-text-block? (nth pages %)) indexes)
                 (str label ": every spell page carries the attribution footer"))))))))
+
+;; ─── The site line on sheets ─────────────────────────────────────────────────
+
+(defn- page-text [doc index]
+  (let [stripper (doto (org.apache.pdfbox.text.PDFTextStripper.)
+                   (.setStartPage (inc index))
+                   (.setEndPage (inc index)))]
+    (str/replace (.getText stripper doc) #"\s+" " ")))
+
+(deftest site-line-once-on-every-sheet-page
+  (testing "every page of every style carries the site line exactly once.
+
+            Style 4's artwork prints its own on its spell pages, so those must be
+            left alone rather than stamped a second time in the same corner; the
+            pages it does NOT print it on still get one."
+    (doseq [style [1 2 3 4]
+            casters [0 1 3]]
+      (let [{:keys [file marks without-casters prints-site-line?]}
+            (get pdf/sheet-masters style)
+            source (if (zero? casters) without-casters file)]
+        (with-open [in (.openStream (io/resource source))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (pdf/grow-spell-sections! doc casters (if (zero? casters) :all marks))
+          (pdf/stamp-site-line! doc (boolean prints-site-line?))
+          (doseq [i (range (.getNumberOfPages doc))]
+            (is (= 1 (count (re-seq (re-pattern pdf/site-stamp) (page-text doc i))))
+                (str "style " style ", " casters " caster(s), page " (inc i)))))))))
+
+(deftest site-line-clears-the-wizards-notice
+  ;; Styles 1 and 2 carry the Wizards of the Coast photocopy notice along the foot
+  ;; of the page. The site line shares that baseline, so it goes in the corner to
+  ;; the left of it; overlapping the notice would obscure a copyright line.
+  (testing "the stamp sits left of the notice, not over it"
+    (doseq [style [1 2]]
+      (let [{:keys [file marks]} (get pdf/sheet-masters style)]
+        (with-open [in (.openStream (io/resource file))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (pdf/stamp-site-line! doc false)
+          (let [positions (atom [])
+                stripper (proxy [org.apache.pdfbox.text.PDFTextStripper] []
+                           (writeString [text ps]
+                             (doseq [p ps]
+                               (swap! positions conj {:ch (.getUnicode p)
+                                                      :x (.getXDirAdj p)
+                                                      :y (.getYDirAdj p)}))))]
+            (.setStartPage stripper 1)
+            (.setEndPage stripper 1)
+            (.getText stripper doc)
+            (let [foot (filter #(> (:y %) 770) @positions)
+                  stamp (filter #(< (:x %) 100) foot)
+                  notice (filter #(>= (:x %) 100) foot)]
+              (is (seq stamp) (str "style " style ": a stamp in the bottom-left corner"))
+              (is (seq notice) (str "style " style ": the notice is still there"))
+              (is (< (apply max (map :x stamp)) (apply min (map :x notice)))
+                  (str "style " style ": the stamp ends before the notice begins")))))))))
