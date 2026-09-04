@@ -1,0 +1,185 @@
+(ns orcpub.dnd.e5.spell-packing
+  "Which spell level goes in which box of a printed spell page.
+
+   A sheet's boxes are fixed: ten of them, in three columns, each holding a
+   different number of rows. Today one box carries one level of one class, so a
+   character with three level 1 spells and two level 2s spends two pages on five
+   spells, and eight casting classes spend eight pages.
+
+   This decides the assignment instead. It runs in the BUILDER -- the server sees
+   a flat map of field names and knows nothing about classes or levels -- and the
+   result travels to the export as field values plus a small list of relabel
+   instructions the server applies with pdf/relabel-spell-level!.")
+
+(def sheet-geometry
+  "Rows each level box holds, by sheet style, level 0 through 9.
+
+   Measured off the masters in resources/ rather than assumed: styles 1, 2 and 3
+   are identical at 100 rows, and style 4 differs by exactly one -- its cantrip
+   box holds 7 rather than 8."
+  {1 [8 12 13 13 13 9 9 9 7 7]
+   2 [8 12 13 13 13 9 9 9 7 7]
+   3 [8 12 13 13 13 9 9 9 7 7]
+   4 [7 12 13 13 13 9 9 9 7 7]})
+
+(def columns
+  "The boxes in each column, top to bottom. The same on every style; only the row
+   counts differ, which is why the fitting arithmetic is per style and the shape
+   is not."
+  [[0 1 2] [3 4 5] [6 7 8 9]])
+
+(defn column-capacity
+  "Boxes and rows a column offers on `style`."
+  [style column]
+  (let [rows (get sheet-geometry style (get sheet-geometry 1))]
+    {:boxes (count column)
+     :rows (reduce + (map #(nth rows %) column))}))
+
+(defn- empty-page
+  "A page's three columns, each with everything still free."
+  [style]
+  (mapv (fn [column] {:column column :placed []}) columns))
+
+(defn- style-rows [style]
+  (get sheet-geometry style (get sheet-geometry 1)))
+
+(defn- assign
+  "The boxes `klass` would occupy in `col`, or nil if it does not fit.
+
+   Each level is checked against the SPECIFIC box it would land in. Column totals
+   are not enough and using them is the obvious way to get this wrong: the boxes
+   are unequal, so a twelve-row level 1 list does not fit a nine-row box however
+   many rows the column has left over.
+
+   The class stays contiguous and in level order -- that is what lets a player read
+   one down a column -- but it may start at any free box, not only the next one. A
+   cantrip list too long for box 0 can begin at box 1 instead, and skipping a box
+   costs nothing since an unused box has to be blanked either way."
+  [col style {:keys [class levels]}]
+  (let [rows (style-rows style)
+        taken (set (map :box (:placed col)))
+        free (remove taken (:column col))
+        wanted (sort-by key levels)
+        n (count wanted)
+        runs (partition n 1 free)]
+    (first
+     (keep (fn [run]
+             (let [pairs (map vector run wanted)]
+               (when (every? (fn [[box [_ need]]] (<= need (nth rows box))) pairs)
+                 (mapv (fn [[box [level need]]]
+                         {:class class :level level :box box :rows need
+                          :capacity (nth rows box)})
+                       pairs))))
+           runs))))
+
+(defn- place
+  "Puts `klass` in `col` at the boxes `assign` chose."
+  [col style klass]
+  (if-let [entries (assign col style klass)]
+    (update col :placed into entries)
+    col))
+
+(def ^:private widest-column
+  "Boxes in the largest column. A class needing more than this cannot be held by
+   any single column."
+  (apply max (map count columns)))
+
+(defn- spread-across-page
+  "Lays one class across a whole page's boxes in order, checking each level fits
+   the box it lands in.
+
+   For a class with more levels than any column holds. Keeping it in one column is
+   what stops several classes interleaving and becoming hard to read; a class that
+   fills the sheet on its own has nothing to be confused with, and this is how the
+   sheet already reads today."
+  [style {:keys [class levels]}]
+  (let [rows (style-rows style)
+        wanted (sort-by key levels)
+        all-boxes (apply concat columns)]
+    (when (<= (count wanted) (count all-boxes))
+      (let [pairs (map vector all-boxes wanted)]
+        (when (every? (fn [[box [_ need]]] (<= need (nth rows box))) pairs)
+          (mapv (fn [[box [level need]]]
+                  {:class class :level level :box box :rows need
+                   :capacity (nth rows box)})
+                pairs))))))
+
+(defn- add-spread-page
+  "A page carrying one class laid across all three columns."
+  [style klass entries]
+  (mapv (fn [column]
+          {:column column
+           :placed (vec (filter #(contains? (set column) (:box %)) entries))})
+        columns))
+
+(defn pack
+  "Assigns `classes` to boxes: first fit by column, never splitting a class.
+
+   `classes` is `[{:class label :levels {level row-count}} ...]` in the order they
+   should read. Returns a vector of pages, each a vector of three columns carrying
+   `:placed` entries of `{:class :level :box :rows :capacity}`.
+
+   Keeping a class within one column is what makes the result worth reading: a
+   player finds their list by looking down one column rather than hunting across a
+   page, and a column takes more than one class when they fit. A class with more
+   levels than any column holds is the exception -- it gets a page laid out the way
+   the sheet already reads, since with nothing beside it there is nothing to
+   confuse it with."
+  [style classes]
+  (->>
+   (reduce
+    (fn [pages klass]
+     (if (> (count (:levels klass)) widest-column)
+       (if-let [entries (spread-across-page style klass)]
+         (conj pages (add-spread-page style klass entries))
+         pages)
+       (let [;; The first column the class actually fits, scanning pages in order
+             ;; then columns left to right.
+             hit (first (for [[pi page] (map-indexed vector pages)
+                              [ci col] (map-indexed vector page)
+                              :when (assign col style klass)]
+                          [pi ci]))]
+         (if hit
+           (update-in pages hit place style klass)
+           ;; Nothing open anywhere: start a page. A class too big for any column
+           ;; on an empty page cannot be placed at all, and is dropped rather than
+           ;; silently overflowing a box.
+           (let [fresh (empty-page style)
+                 ci (first (keep-indexed #(when (assign %2 style klass) %1) fresh))]
+             (cond-> (conj pages fresh)
+               ci (update-in [(count pages) ci] place style klass)))))))
+    [(empty-page style)]
+    classes)
+   ;; The seed page, and any a spread class stepped over, hold nothing.
+   (filterv (fn [page] (some (comp seq :placed) page)))))
+
+(defn relabel-instructions
+  "The boxes whose printed numeral no longer matches what they hold.
+
+   Two kinds, both of which read as a lie if left alone: a box carrying a level
+   other than its own needs renumbering, and a box a class did not use still
+   carries its printed numeral, so an unused box 4 in a Paladin column reads as
+   Paladin level 4 spells.
+
+   Caller-supplied by the time the server sees them, so section, box and label are
+   bounds-checked there before use -- the same hole as the sheet style id."
+  [pages]
+  (vec (for [[section page] (map-indexed vector pages)
+             col page
+             :let [used (set (map :box (:placed col)))]
+             box (:column col)
+             :let [held (first (filter #(= box (:box %)) (:placed col)))]
+             :when (or (nil? held) (not= box (:level held)))]
+         {:section section
+          :box box
+          :label (when held (str (:level held)))})))
+
+(defn page-count [pages] (count pages))
+
+(defn utilisation
+  "Rows used against rows offered, for judging whether packing earned its keep."
+  [style pages]
+  (let [used (reduce + (for [page pages col page e (:placed col)] (:rows e)))
+        offered (* (count pages)
+                   (reduce + (map #(:rows (column-capacity style %)) columns)))]
+    {:pages (count pages) :rows-used used :rows-offered offered}))
