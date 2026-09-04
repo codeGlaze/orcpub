@@ -424,17 +424,13 @@
                        (count divergences) (count migration-pairs) (count contexts)))
       (doseq [d divergences] (println d))
       (println "")
-      ;; Pinned at the KNOWN set. Any new divergence fails here rather than being found by hand.
-      ;; WAS 7, NOW 2 (2026-09): moving the shield and ?magical-ac-bonus out of
-      ;; ?armor-class-with-armor-base into ?ac-bonus-fns closed 5 of them.
-      ;; The 2 that remain are the reverse of the old problem and share one cause: :lizardfolk-ac
-      ;; OVERRIDES ?armor-class-with-armor with its own hardcoded sum built on ?base-armor-class.
-      ;; That sum used to carry character magic; now it does not, so the PROP loses the ring
-      ;; while the authored form keeps it (old=15, authored=16). Rewriting the override to defer
-      ;; to ?armor-class-with-armor — the shim this migration needs anyway — closes both.
-      (is (= 2 (count divergences))
-          "known divergences only — see the printed list. A change in this count is either a new
-           regression or a hazard fixed, and must be updated deliberately"))))
+      ;; 7 -> 2 -> 0 (2026-09). Moving the shield and ?magical-ac-bonus into ?ac-bonus-fns closed
+      ;; 5; compiling :lizardfolk-ac down to the universal :ac shape closed the last 2. Every old
+      ;; mechanism now returns exactly what its authored replacement returns, in every equipment
+      ;; state, so deprecating the old forms cannot change a saved character's AC.
+      ;; This must STAY 0. A non-zero count is a regression, not a number to update.
+      (is (= 0 (count divergences))
+          "every old mechanism must equal its authored replacement in every equipment state"))))
 
 ;; ===========================================================================
 ;; SECTION 2 — FIXED: natural-armor + unarmored-defense no longer stack

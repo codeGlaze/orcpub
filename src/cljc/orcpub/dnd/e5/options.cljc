@@ -3652,13 +3652,17 @@
       :flying-speed-equals-walking-speed [(modifiers/flying-speed-equal-to-walking)]
       :swimming-speed [(modifiers/swimming-speed-override v)]
       :saving-throw-advantage-traps [(modifiers/saving-throw-advantage [:traps])]
+      ;; Kept for saved content (D9) but no longer bespoke: it compiles to the universal :ac
+      ;; shape, {:ac 13 :abilities [:dex]} with no :armor? tag. That reproduces both sentences of
+      ;; the rule — 13 + Dex while unarmored, and still available while armored so it wins when
+      ;; the worn armor would be worse. It used to REPLACE ?armor-class-with-armor with its own
+      ;; max; ?ac-fns already is that max, and shield/character-magic are summed onto the winner
+      ;; rather than baked into the replacement's hardcoded sum.
+      ;; ?natural-ac-bonus is still written so the no-stacking tie-break against unarmored defense
+      ;; in ?base-armor-class (template_base.cljc:39) still sees it.
       :lizardfolk-ac (when v
-                       [(mods/modifier ?natural-ac-bonus 3)
-                        (mods/modifier ?armor-class-with-armor
-                                      (fn [armor & [shield]]
-                                        (max (+ ?base-armor-class
-                                                (if shield (?shield-ac-bonus shield) 0))
-                                             (?armor-class-with-armor armor shield))))])
+                       (into [(mods/modifier ?natural-ac-bonus 3)]
+                             (ac-calculation-modifiers {:ac 13 :abilities [:dex]})))
       :tortle-ac (when v
                    [(mods/modifier ?natural-ac-bonus 7)
                     (mods/modifier ?armor-class-with-armor
