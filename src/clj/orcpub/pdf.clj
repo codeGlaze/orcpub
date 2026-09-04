@@ -2661,6 +2661,48 @@
           (println "pdf: relabel failed for box" box "section" section "-" (.getMessage e)))))
     [(count ok) (+ (count bad) (max 0 (- (count (filter map? instructions)) (count wanted))))]))
 
+(def ^:private heading-target-size
+  "The size a column heading is drawn at when the bar has room for it.
+
+   A heading, not a caption: the rows beneath it set at 6.4 to 8.8pt, so 7pt made
+   the class name read as another label rather than as the thing naming the
+   column."
+  9.5)
+
+(def ^:private heading-floor-size
+  "Below this a heading stops reading as one, so a longer name is shortened
+   instead of shrunk further."
+  6.0)
+
+(defn- heading-size
+  "The largest size at or below heading-target-size that fits `label` in `width`,
+   floored at heading-floor-size."
+  [label width]
+  (let [natural (* 72 (string-width label HELVETICA_BOLD heading-target-size))]
+    (if (<= natural width)
+      heading-target-size
+      (max heading-floor-size (* heading-target-size (/ width natural))))))
+
+(defn- fit-heading
+  "`label` and the size to draw it at, both trimmed to `width`.
+
+   Class names are not a fixed length -- Bard against Eldritch Knight -- and the
+   compartment is. Shrinking alone does not solve it: at the 6pt floor \"Eldritch
+   Knight\" still measures 43pt against a level box's 35pt compartment, and would
+   print straight through the bar's divider. So a name that will not fit even
+   floored is shortened to what does, with an ellipsis saying so."
+  [label width]
+  (let [size (heading-size label width)]
+    (if (<= (* 72 (string-width label HELVETICA_BOLD size)) width)
+      {:label label :size size}
+      (loop [n (dec (count label))]
+        (let [candidate (str (s/trimr (subs label 0 (max 0 n))) "\u2026")]
+          (cond
+            (<= n 1) {:label "\u2026" :size size}
+            (<= (* 72 (string-width candidate HELVETICA_BOLD size)) width)
+            {:label candidate :size size}
+            :else (recur (dec n))))))))
+
 (defn draw-column-heading!
   "Writes `label` in the bar of box `box` in section `suffix`, beside its numeral.
 
@@ -2680,17 +2722,25 @@
                             (spell-level-numeral-box doc box suffix))]
     (let [page (some-> (.getAcroForm (.getDocumentCatalog doc))
                        (.getField (str "spells-" box "-1-" suffix))
-                       .getWidgets first .getPage)]
+                       .getWidgets first .getPage)
+          ;; A cantrips bar puts its divider right after the hexagon, at x 51-59
+          ;; where a level bar's is at 93-102, so box 0 starts clear of the
+          ;; divider rather than merely of the hexagon.
+          x (+ hx (if (zero? box) 31.0 27.0))
+          ;; What the compartment gives, measured from the hexagon rather than
+          ;; guessed. Box 0: its divider ends at hx+28 and the printed CANTRIPS
+          ;; starts at hx+81, so 31..81. A level box: its divider runs hx+62 to
+          ;; hx+71, so 27..62 -- less than half what box 0 has, which is why a
+          ;; single width ran Sorcerer straight through the divider.
+          available (- (+ hx (if (zero? box) 81.0 62.0)) x)
+          {label :label size :size} (fit-heading label available)]
       (when page
         (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
                                              true true)]
-          (draw-text cs label HELVETICA_BOLD 7.0
-                     ;; A cantrips bar puts its divider right after the hexagon,
-                     ;; at x 51-59 where a level bar's is at 93-102, so box 0 has
-                     ;; to clear the divider and not merely the hexagon.
-                     (/ (+ hx (if (zero? box) 31.0 27.0)) 72.0)
-                     (/ (+ hy (/ hh 2.0) -2.5) 72.0)
-                     [0.25 0.25 0.25]))))))
+          (draw-text cs label HELVETICA_BOLD size
+                     (/ x 72.0)
+                     (/ (+ hy (/ hh 2.0) (* -0.36 size)) 72.0)
+                     [0.15 0.15 0.15]))))))
 
 (defn stamp-site-line!
   "Prints the site line in the bottom-left corner of every page that lacks one.

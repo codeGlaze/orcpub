@@ -1213,3 +1213,31 @@
             [applied refused] (pdf/apply-relabel-instructions! doc flood 1)]
         (is (= 10 applied) "capped at the ten level boxes a page has")
         (is (= 4990 refused))))))
+
+(deftest a-column-heading-is-sized-to-the-room-it-has
+  ;; Class names are not a fixed length -- Bard against Eldritch Knight -- and the
+  ;; compartment is. A single size either wastes the room or runs the name through
+  ;; the bar's divider, which is what 9.5pt in a level box's 35pt compartment did.
+  (let [size #'pdf/heading-size]
+    (testing "a name that fits is drawn at the target size"
+      (is (= 9.5 (size "Bard" 60.0))))
+    (testing "a name too wide is scaled down"
+      (is (< (size "Eldritch Knight" 35.0) 9.5)))
+    (testing "and never below the floor, where it stops reading as a heading"
+      (is (= 6.0 (size "A Very Long Homebrew Class Name Indeed" 10.0)))))
+  (let [fit #'pdf/fit-heading]
+    (testing "a name that fits is left alone"
+      (is (= {:label "Bard" :size 9.5} (fit "Bard" 60.0))))
+    (testing "a name too long even at the floor is shortened, not overflowed"
+      ;; At 6pt "Eldritch Knight" still measures 43pt against a level box's 35,
+      ;; so shrinking alone would print it through the bar's divider.
+      (let [{:keys [label size]} (fit "Eldritch Knight" 35.0)]
+        (is (not= "Eldritch Knight" label))
+        (is (clojure.string/ends-with? label "\u2026"))
+        (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0))))
+    (testing "every real class name fits a level box's compartment"
+      (doseq [nm ["Bard" "Cleric" "Druid" "Paladin" "Ranger" "Sorcerer" "Warlock"
+                  "Wizard" "Arcane Trickster" "Eldritch Knight"]]
+        (let [{:keys [label size]} (fit nm 35.0)]
+          (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0)
+              (str nm " -> " label)))))))
