@@ -411,6 +411,28 @@ report what the page actually showed, rather than theorising about the harness**
 now dumps every button with its text and visibility, plus any conflict or error text, on
 give-up.
 
+Which then showed the button was visible, enabled and stable the whole time — so
+"is it visible?" was the wrong question. The right one, **"can it receive a click?"**, was
+already being answered in Playwright's own call log, which the helper was truncating to
+three lines:
+
+```
+<div id="poper" class="window banner bottom"> from <div id="cookie-policy-popup">
+  subtree intercepts pointer events
+```
+
+The **cookie-consent banner** is fixed to the bottom of the page and sits over the conflict
+modal's buttons. A forced click does not help either — the banner still receives the event.
+The helper dismisses the banner first, as a user would, and the import then completes
+(`Applying conflict resolutions: {renames: Array(17)}`).
+
+Three separate obstacles stood between a headless harness and a real `.orcbrew` import — the
+conflict modal, the actionability wait, and the banner occluding the button — and each was
+found one at a time, each costing a run. **The generalisable lesson: when a harness stalls,
+widen every diagnostic channel at once (all console levels, the full tool call log, the
+page's own DOM state) before forming a single hypothesis.** Every round of "theorise, patch,
+re-run" here cost more than one round of "capture everything" would have.
+
 **String-slicing the fixture to clone it was wrong twice over:** a regex count of
 `:orcpub.dnd.e5/<type>` found 2 content-bearing sources when there are 5, and the
 hand-rolled brace matcher mis-split the top level. Reading the EDN properly on the JVM
