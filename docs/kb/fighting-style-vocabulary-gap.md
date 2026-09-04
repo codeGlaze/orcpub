@@ -50,6 +50,34 @@ when not equipped, `true` = only when equipped, absent = either way). Generalisi
 idea to weapons — property, handedness, offhand — covers conditions 1, 2 and 5 above with one
 vocabulary rather than a key per style.
 
+## This is SHARED vocabulary work, not fighting-style work
+
+Every prop added here lands in **seven silos at once**, because they all compile the same `:props`
+map through `plugin-modifiers` → `make-feat-modifiers`. Verified by tracing each call site:
+
+| silo | entry point |
+|---|---|
+| homebrew races | `spell_subs.cljs` `::races5e/plugin-races` |
+| homebrew subraces | `spell_subs.cljs` `::races5e/plugin-subraces` |
+| homebrew classes | `spell_subs.cljs` `::classes5e/plugin-classes` |
+| homebrew subclasses | `spell_subs.cljs` `::classes5e/plugin-subclasses` |
+| draconic ancestries | `spell_subs.cljs` `draconic-ancestry-option` |
+| feats | `options.cljc` `feat-option-from-cfg` |
+| fighting styles | `options.cljc` `fighting-style-option` |
+
+So `:attack-bonus` with a weapon predicate is not "an Archery feature". It is *"+N to attack under
+condition X"* for a race, a subclass, a feat, or a fighting style — authored identically in all of
+them. The same held for `:ac-bonus`: it was built for the AC refactor and Defense gets it free.
+
+The planned rules-override layer (`rules-override-layer.md`) should ride this vocabulary too rather
+than inventing its own — a DM granting "+1 AC to everyone at this table" wants the prop that
+already exists, not a parallel one.
+
+**Consequence for prioritising:** the value of each prop is roughly 7×, and the cost of getting the
+*shape* wrong is also 7×. That argues for the generalised weapon predicate over a key per style,
+and it argues for doing this before more builder pages — a new builder page serves one silo, a new
+prop serves all of them.
+
 ## Order of work, cheapest first
 
 1. **Expose `:ac-bonus` in `fighting-style-fields`.** Pure markup; makes Defense authorable with no

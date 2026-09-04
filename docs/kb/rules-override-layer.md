@@ -49,6 +49,18 @@ Candidates, DM's pick:
 - Some entries are **permissions** (may do X), not numeric effects. See the note below on why that
   distinction matters mechanically.
 
+## It should ride the shared `:props` vocabulary
+
+Not invent its own. `:props` already compiles into seven silos (races, subraces, classes,
+subclasses, ancestries, feats, fighting styles) through one function — see
+`fighting-style-vocabulary-gap.md`. A DM granting "+1 AC to everyone at this table" wants the
+`:ac-bonus` prop that already exists; a grant of "+2 to ranged attacks" wants the same
+`:attack-bonus` prop a homebrew Archery style would use.
+
+What this layer adds is not new mechanics vocabulary — it is **scope and provenance**: who granted
+it, to whom (a character, or every character in a campaign), and the ledger of what has been
+granted. The effects themselves should already be expressible.
+
 ## The mechanical hook that already exists
 
 The mug icon (`homebrew-override.md`) waives **selection** rules per selection path, and nothing

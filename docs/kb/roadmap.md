@@ -259,3 +259,19 @@ channel.
 Fixed on the refactor branch and **verified to work standalone against `origin/integration`'s own
 AC engine**. One function, `modifiers.cljc:561-562`, one caller, no engine change — the exact diff
 is in `armor-class-refactor.md`. Worth cherry-picking rather than waiting for the refactor to land.
+
+### 🔴 HIGH — shared `:props` vocabulary: weapon predicate + attack/damage/reaction props
+
+Motivated by fighting styles but **not fighting-style work**. `:props` compiles into seven silos
+(races, subraces, classes, subclasses, draconic ancestries, feats, fighting styles) through one
+function, so each prop added lands in all of them — and the rules-override layer should ride it
+too rather than inventing its own vocabulary.
+
+Measured against real content in `fighting-style-vocabulary-gap.md`: 1 of 14 published fighting
+styles is expressible today, while the ENGINE already has hooks for 8. The gap is vocabulary, the
+same position AC was in.
+
+Highest-leverage piece is a **wielding predicate** generalising AC's three-state `:armor?`/`:shield?`
+tags to weapons (property, handedness, offhand, empty-handed) — half the corpus conditions on
+equipment state, and one predicate vocabulary covers three shape families instead of a key per
+style. Get the shape right: the cost of getting it wrong is also 7×.
