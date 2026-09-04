@@ -86,6 +86,9 @@
 (def p-nat-any  (props-class :p-natany- {:ac {:ac 13 :abilities [:dex]}}))  ; no :armor? = either
 ;; a Ring/Cloak of Protection-style +1: the ?magical-ac-bonus scalar, which lives INSIDE the base
 (def ring-class (feat-class :ring- [(mod/cum-sum-mod ?magical-ac-bonus 1)]))
+;; construct-style: plating that only helps while the shield is deployed. Nothing in SRD does this;
+;; the vocabulary must express it regardless — homebrew flexibility is the point.
+(def p-shieldonly (props-class :p-shonly- {:ac {:ac 16 :abilities [] :shield? true}}))
 (def p-bonus    (props-class :p-bonus- {:ac-bonus {:ac-bonus 1}}))
 (def p-armorbon (props-class :p-abon-  {:ac-bonus {:ac-bonus 1 :armor? true}}))
 
@@ -126,6 +129,8 @@
                          weapons5e/weapons-map p-nat-any)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map ring-class)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-shieldonly)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map p-bonus)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
@@ -298,6 +303,13 @@
     ;; other pinned number unchanged (base drops to 12, +2 shield bonus = 14 as before).
     (is (= 15 ((ac-fn-for abilities :fighter :p-barb-) nil shield))
         "CURRENT: 15, not the rules' 17 — the shield is part of the base, so a winning calculation loses it")))
+
+(deftest authored-shield-required-is-expressible
+  (testing ":shield? true = only while wielding a shield — the construct/golem shape"
+    (is (= 12 ((ac-fn-for abilities :fighter :p-shonly-) nil nil))
+        "no shield: the calculation does not apply, so plain 10 + Dex(2)")
+    (is (= 16 ((ac-fn-for abilities :fighter :p-shonly-) nil shield))
+        "shield held: the calculation applies and its 16 beats 10 + Dex + shield = 14")))
 
 (deftest authored-abilities-sum
   (testing ":abilities adds every listed modifier (Barbarian takes Dex AND Con)"

@@ -77,8 +77,11 @@ per case:
 - `:ac` entries compete (`max`); `:ac-bonus` entries sum onto the winner.
 - **`:armor?`** — `false` = only when armor is *not* worn; `true` = only when it *is*; **absent =
   either**. Three states via boolean-plus-absent.
-- **`:shield?`** — `false` = **disqualified** while a shield is held. Not "omit the shield bonus":
-  the characterization shows Monk with a shield is 14, and the omit reading would give 15.
+- **`:shield?`** — the same three states as `:armor?`. `false` = **disqualified** while a shield is
+  held (not "omit the shield bonus" — Monk with a shield is 14, and the omit reading gives 15);
+  `true` = only *while* wielding one, which a construct-style homebrew wants; absent = either. No
+  built-in content uses `true`; the vocabulary supports it because homebrew flexibility is the goal,
+  and "no current content needs it" is not a reason to leave a shape inexpressible.
 - **`:abilities`** sums. "Whichever is better" is two competing `:ac` entries, no extra syntax.
 
 **The shield is not currently a bonus, and that matters.** Its +2 is added *inside*
@@ -118,6 +121,49 @@ The armor calculation reads a fixed set of properties, so a novel armor→AC int
 adds your Wisdom modifier") is one more property it knows about, or a bonus conditioned on the
 equipped armor — not automatic. Armor properties that don't touch AC (mithral suppressing stealth
 disadvantage and Strength requirements) are handled elsewhere.
+
+## Traced: what `:lizardfolk-ac` actually computes
+
+Recorded in full so this never has to be re-derived. The prop (`options.cljc`) emits two modifiers:
+
+```clojure
+(mods/modifier ?natural-ac-bonus 3)                       ; 1. set the scalar
+(mods/modifier ?armor-class-with-armor                    ; 2. REPLACE the reconciler with:
+  (fn [armor & [shield]]
+    (max (+ ?base-armor-class (if shield (?shield-ac-bonus shield) 0))
+         (?armor-class-with-armor armor shield))))        ;    ... vs whatever it was before
+```
+
+`?base-armor-class` is `10 + Dex + (natural, via the tie-break) + ?magical-ac-bonus`. With natural 3
+and no unarmored defense present, the tie-break contributes the 3, so it is `13 + Dex + magical`.
+
+**So the prop computes `max(13 + Dex + magical + shield, whatever you would otherwise have)`.** It is
+a *complete* alternative AC — magic scalar and shield already folded in — compared against everything
+else. That single expression accounts for every measured number (Dex +2):
+
+| context | `13 + Dex + magic + shield` | otherwise | result |
+|---|---|---|---|
+| unarmored | 15 | 12 | **15** |
+| unarmored + shield | 17 | 14 | **17** |
+| leather | 15 | 13 | **15** |
+| leather + shield | 17 | 15 | **17** |
+| plate | 15 | 18 | **18** |
+| + ring, unarmored | 16 | 13 | **16** |
+| + ring, unarmored + shield | 18 | 15 | **18** |
+
+Two things follow, and they are the whole of it:
+
+1. **Natural armor applies whether or not armor is worn.** It competes with the worn value and the
+   better wins — hence 15 in leather, 18 in plate. The authored form therefore carries **no
+   `:armor?` tag**. Tagging it `:armor? false` would zero it while armored and regress leather to 13.
+2. **The authored form `{:ac 13 :abilities [:dex]}` computes `13 + Dex` and nothing else** — 15. It
+   omits the magic scalar and the shield *because in the new model those are bonuses applied to the
+   winning calculation*, and they are not bonuses yet. That single difference explains all 7 sweep
+   divergences; it is not a disagreement about what natural armor means.
+
+Once the shield and `?magical-ac-bonus` move into `?ac-bonus-fns`, the authored calculation plus
+those bonuses reconstructs the prop's number exactly (15 + 1 magic + 2 shield = 18, matching the old
+18), and the sweep goes to zero.
 
 ## What the migration must not drop
 
