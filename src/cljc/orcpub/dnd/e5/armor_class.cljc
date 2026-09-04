@@ -15,21 +15,28 @@
 
    In one line:   AC = (best applicable FORMULA) + (sum of applicable BONUSES).
 
-   A formula or bonus is a plain function (fn [armor shield] -> number), evaluated for a given
-   equipped armor + shield (either may be nil). This namespace is pure and knows nothing about the
-   app: template_base feeds it the character's formulas and bonuses, and homebrew AC compiles down
-   to the same two lists — so there is ONE reconciler, not a special path per source.")
+   The formulas split into two groups, because they behave differently as you swap armor:
+     - the ARMOR formula: the AC you get from the armor you're wearing (base AC + capped Dex +
+       the armor's own magic). This is the ONLY formula whose value changes with which armor.
+     - the OTHER formulas: every other way to get AC (unarmored defense, natural armor, floors,
+       homebrew). These give the same number no matter which armor is in your pack.
+
+   A formula or bonus is a plain function (fn [armor shield] -> number); armor and shield may be
+   nil. This namespace is pure — template_base feeds it the character's formulas and bonuses, and
+   homebrew AC compiles down to the same shape, so there is ONE reconciler, not a path per source.")
 
 (defn reconcile-ac
   "The AC for ONE specific equipped (armor, shield): the best formula, plus every bonus.
 
-   config = {:formulas [(fn [armor shield] n) ...]   ; the 'your AC = ...' calculations (max wins)
-             :bonuses  [(fn [armor shield] n) ...]}  ; the '+N' additions (summed onto the winner)
+   config = {:armor-formula  (fn [armor shield] n)     ; AC from the worn armor (may be nil, e.g. unarmored builds)
+             :other-formulas [(fn [armor shield] n) …] ; unarmored defense, natural armor, floors, homebrew
+             :bonuses        [(fn [armor shield] n) …]} ; flat +N additions, summed onto the winner
 
-   Callers always include the built-in worn-armor formula, so the result is never below 10. A
-   formula/bonus that doesn't apply in this situation returns 0 and thus contributes nothing."
-  [{:keys [formulas bonuses]} armor shield]
-  (let [in-situation (fn [f] (f armor shield))                 ; run one formula/bonus for this armor+shield
+   A formula/bonus that doesn't apply in this situation returns 0, so only the ones that fit compete."
+  [{:keys [armor-formula other-formulas bonuses]} armor shield]
+  (let [in-situation (fn [f] (f armor shield))          ; run one formula/bonus for this armor+shield
+        formulas     (cond->> other-formulas
+                       armor-formula (cons armor-formula)) ; the armor formula competes alongside the others
         best-formula (reduce max 0 (map in-situation formulas)) ; the highest AC any formula gives here
         total-bonus  (reduce +   0 (map in-situation bonuses))] ; every applicable bonus, added up
     (+ best-formula total-bonus)))
@@ -39,40 +46,34 @@
    most. This is what the character sheet shows.
 
    It is equivalent to running reconcile-ac for every (armor, shield) pair and taking the max, but
-   it skips the wasted work: most formulas ('unarmored 13 + Dex', a floor, a homebrew AC) don't
-   care WHICH armor is in your pack, only whether you're wearing any at all. Those armor-blind
-   formulas are worked out ONCE per (wearing-armor?, shield) situation, instead of re-run for every
-   owned armor. Only formulas flagged :reads-armor? (in practice just the built-in worn-armor
-   formula) are tried against each armor.
+   it skips the wasted work: only the ARMOR formula changes with which armor you wear. The OTHER
+   formulas ('unarmored 13 + Dex', a floor, a homebrew AC) give the same number no matter what's in
+   your pack, so their best is worked out ONCE per (wearing-armor?, shield) situation instead of
+   being re-run for every owned armor.
 
-   config = {:formulas [{:reads-armor? bool  :fn (fn [armor shield] n)} ...]
-             :bonuses  [(fn [armor shield] n) ...]}
+   config = {:armor-formula (fn [armor shield] n)  :other-formulas [(fn …) …]  :bonuses [(fn …) …]}
 
    Example — a monk who owns 8 armors but fights unarmored: '10 + Dex + Wis' is computed once, not
-   eight times; only the worn-armor formula is evaluated against each of the 8 armors."
-  [{:keys [formulas bonuses]} armors shields]
-  (let [armor-blind (remove :reads-armor? formulas)  ; formulas that ignore which armor is worn
-        armor-aware (filter :reads-armor? formulas)  ; the worn-armor formula(s) that read the item
-        armor-opts  (cons nil armors)                ; each owned armor, plus the "no armor" option
-        shield-opts (cons nil shields)               ; each owned shield, plus the "no shield" option
+   eight times; only the armor formula is evaluated against each of the 8 armors."
+  [{:keys [armor-formula other-formulas bonuses]} armors shields]
+  (let [armor-options  (cons nil armors)     ; each owned armor, plus the "no armor" option
+        shield-options (cons nil shields)     ; each owned shield, plus the "no shield" option
 
-        ;; The armor-blind formulas can only change value with two things: are we wearing armor at
-        ;; all, and which shield. Pre-compute their best AC for each such situation ONCE. ::worn is a
-        ;; stand-in armor — these formulas only test "is armor present", they never read its fields.
-        best-armor-blind
-        (into {}
-              (for [wearing? [true false]
-                    shield   shield-opts]
-                (let [armor (when wearing? ::worn)]
-                  [[wearing? shield]
-                   (reduce max 0 (map #((:fn %) armor shield) armor-blind))])))]
+        ;; The other formulas only change with two things: are we wearing armor at all, and which
+        ;; shield. Work out their best AC for each such situation ONCE. ::worn is a stand-in for "some
+        ;; armor" — the other formulas only ask "am I wearing armor?", they never look at which one.
+        best-of-others
+        (into {} (for [wearing? [true false]
+                       shield   shield-options]
+                   [[wearing? shield]
+                    (reduce max 0 (map #(% (when wearing? ::worn) shield) other-formulas))]))]
 
-    ;; Try every real (armor, shield). For each: the better of {the pre-computed armor-blind best}
-    ;; and {the worn-armor formula for THIS specific armor}, plus the bonuses for this combination.
+    ;; Try every real (armor, shield). For each: the better of {the best of the other formulas} and
+    ;; {the armor formula for THIS specific armor}, plus the bonuses for this combination.
     (reduce max 0
-            (for [armor  armor-opts
-                  shield shield-opts]
-              (let [blind (best-armor-blind [(some? armor) shield])
-                    aware (reduce max 0 (map #((:fn %) armor shield) armor-aware))
-                    bonus (reduce +   0 (map #(% armor shield) bonuses))]
-                (+ (max blind aware) bonus))))))
+            (for [armor  armor-options
+                  shield shield-options]
+              (let [others (best-of-others [(some? armor) shield])
+                    worn   (if armor-formula (armor-formula armor shield) 0)
+                    bonus  (reduce + 0 (map #(% armor shield) bonuses))]
+                (+ (max others worn) bonus))))))

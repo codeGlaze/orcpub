@@ -157,9 +157,9 @@
   (testing "competing formulas reconcile by max — best rises, nothing stacks"
     (let [base   (fn [_ _] 12)     ; SRD unarmored 10 + Dex(2)
           hb-nat (fn [_ _] 18)]    ; homebrew natural armor 16 + Dex(2)
-      (is (= 18 (ac/reconcile-ac {:formulas [base hb-nat]} nil nil))
+      (is (= 18 (ac/reconcile-ac {:other-formulas [base hb-nat]} nil nil))
           "homebrew formula beats the base and wins")
-      (is (= 12 (ac/reconcile-ac {:formulas [base (fn [_ _] 0)]} nil nil))
+      (is (= 12 (ac/reconcile-ac {:other-formulas [base (fn [_ _] 0)]} nil nil))
           "a non-applicable formula (returns 0) never drags the winner down"))))
 
 (deftest reconcile-bonuses-reach-the-winning-formula                        ; B2 (the universals fix)
@@ -168,27 +168,27 @@
           hb-nat (fn [_ _] 18)     ; wins the max
           ring   (fn [_ _] 1)      ; Ring of Protection — a universal ?magical-ac-bonus
           shield (fn [_ _] 2)]     ; shield — a universal
-      (is (= 19 (ac/reconcile-ac {:formulas [base hb-nat] :bonuses [ring]} nil nil))
+      (is (= 19 (ac/reconcile-ac {:other-formulas [base hb-nat] :bonuses [ring]} nil nil))
           "ring reaches the WINNING homebrew formula (old engine dropped it: buried in base)")
-      (is (= 21 (ac/reconcile-ac {:formulas [base hb-nat] :bonuses [ring shield]} nil nil))
+      (is (= 21 (ac/reconcile-ac {:other-formulas [base hb-nat] :bonuses [ring shield]} nil nil))
           "multiple universals all land on the winner"))))
 
 (deftest reconcile-floor-is-a-constant-formula                              ; B4 (Barkskin)
   (testing "a floor/set-AC is just a constant formula — max gives 'at least N' for free"
     (let [worn  (fn [_ _] 13)      ; light armor 11 + Dex(2)
           floor (fn [_ _] 16)]     ; Barkskin: AC can't be less than 16
-      (is (= 16 (ac/reconcile-ac {:formulas [worn floor]} nil nil))
+      (is (= 16 (ac/reconcile-ac {:other-formulas [worn floor]} nil nil))
           "floored up to 16 when the real AC is lower")
-      (is (= 18 (ac/reconcile-ac {:formulas [(fn [_ _] 18) floor]} nil nil))
+      (is (= 18 (ac/reconcile-ac {:other-formulas [(fn [_ _] 18) floor]} nil nil))
           "and NOT capped: 18 > 16 stays 18"))))
 
 (deftest reconcile-unarmored-formula-excludes-when-armored                  ; formula contract
   (testing "a formula opts OUT by returning 0 for a context it doesn't apply to"
     (let [armored   (fn [armor _] (if armor 16 0))    ; e.g. scale mail 14 + capped Dex 2
           unarmored (fn [armor _] (if armor 0 15))]   ; 10 + Dex + Con, only while no armor
-      (is (= 16 (ac/reconcile-ac {:formulas [armored unarmored]} :scale nil))
+      (is (= 16 (ac/reconcile-ac {:other-formulas [armored unarmored]} :scale nil))
           "armored context -> armored formula wins, unarmored excludes itself")
-      (is (= 15 (ac/reconcile-ac {:formulas [armored unarmored]} nil nil))
+      (is (= 15 (ac/reconcile-ac {:other-formulas [armored unarmored]} nil nil))
           "no-armor context -> unarmored formula wins, armored excludes itself"))))
 
 (deftest reconcile-shield-permission-is-self-exclusion                     ; B5
@@ -197,11 +197,11 @@
           barb   (fn [_ _] 15)                          ; shield-OK: value regardless of shield
           monk   (fn [_ shield] (if shield 0 15))       ; shield-FORBIDDEN: 0 when a shield is held
           shield (fn [_ s] (if s 2 0))]                 ; the shield bonus (a universal)
-      (is (= 17 (ac/reconcile-ac {:formulas [base barb] :bonuses [shield]} nil :s))
+      (is (= 17 (ac/reconcile-ac {:other-formulas [base barb] :bonuses [shield]} nil :s))
           "Barbarian keeps its formula with a shield: 15 + 2 = 17")
-      (is (= 14 (ac/reconcile-ac {:formulas [base monk] :bonuses [shield]} nil :s))
+      (is (= 14 (ac/reconcile-ac {:other-formulas [base monk] :bonuses [shield]} nil :s))
           "Monk self-excludes with a shield -> base(12) wins + shield(2) = 14 (loses Wis, per RAW)")
-      (is (= 15 (ac/reconcile-ac {:formulas [base monk] :bonuses [shield]} nil nil))
+      (is (= 15 (ac/reconcile-ac {:other-formulas [base monk] :bonuses [shield]} nil nil))
           "no shield -> Monk formula(15) wins"))))
 
 ;; ===========================================================================
