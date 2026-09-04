@@ -216,3 +216,19 @@ Needed:
 
 `:tortle-ac` becomes that restriction plus the flat calculation once it exists; until then it is
 the flat calculation plus `:armor-gives-no-ac`, which reproduces the shipped AC exactly.
+
+### 🟡 MEDIUM — extract `orcpub.dnd.e5.armor-class` and wire it
+
+Revises the earlier decision to DELETE that namespace under D34. That call assumed AC stays in
+`template_base`; breaking up monoliths says otherwise, and AC is the best-understood candidate now
+that it is characterized with the parity sweep at 0.
+
+`template_base` keeps thin `?`-attribute declarations delegating into the namespace — the
+declarations must stay, since `?`-attributes are entity-spec macros valid only inside
+`es/make-entity`. Precedent in the same file: `?dual-wield-weapon? weapon5e/light-melee-weapon?`.
+
+Expected to also remove `?armor-ac-suppressed?`: in the target `:armor-formula` / `:other-formulas`
+/ `:bonuses` shape, "worn armor gives no AC" is just omitting the armor formula.
+
+Not a line-count win — `template_base.cljc` is 339 lines, AC ~60. The monolith is `options.cljc`
+(3938 lines), which is a separate and larger job.
