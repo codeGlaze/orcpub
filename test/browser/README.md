@@ -31,5 +31,14 @@ re-frame events. Routing via the app's own router is fine for navigation.
 - `notification_flows_e2e.js` — message toasts render red/orange/green via `views.notifications`.
 - `notifications_acceptance_e2e.js` — toasts, confirmation dialog, callout, shared-content-banner.
 - `starting_equipment_browser_e2e.js` — the starting-equipment builder round-trip.
+- `homebrew_rebuild_scaling_e2e.js` — microbenchmarks the character-rebuild internals as
+  homebrew volume grows (real `.orcbrew` upload through the page's own file input). Needs
+  packs from `dev/scale_orcbrew_pack.clj`.
+- `homebrew_render_split_e2e.js` — CPU-profiles a real race click and splits it into the
+  rebuild path vs the render path, so the two can be told apart as homebrew grows.
+
+Both homebrew probes are perf instruments, not pass/fail tests — they print numbers.
+`:optimizations :none` makes LOAD-time numbers from the dev build meaningless; only their
+runtime numbers are usable. See `docs/kb/perf-homebrew-builder-loop.md`.
 
 Some of these still boot a static server (an older pattern being migrated to `lein e2e-server`).
