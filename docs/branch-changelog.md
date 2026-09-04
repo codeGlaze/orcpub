@@ -147,7 +147,10 @@ the eight-class fixture from 638 KB to 424.
 - Each column is headed with the class holding it, in the bar of the cantrips box
   it starts with: CANTRIPS small in the narrow compartment a level bar gives SLOTS
   TOTAL, and the class name at 11pt bold centred in the wide one it gives SLOTS
-  EXPENDED. A cantrips box has no slots, so both are free there — which is why
+  EXPENDED. The label is padded from whatever bounds it on that bar rather than
+  from the compartment: a level bar's simply opens at its SLOTS TOTAL field, while
+  box 0's puts a divider at x 51-59 right where that compartment begins, so one
+  number gave box 0 two points of clearance and a level box nine. A cantrips box has no slots, so both are free there — which is why
   this is only ever done for a box holding cantrips, never one whose slot inputs
   the player writes in.
 - The compartments are read off the live fields rather than written down, so they

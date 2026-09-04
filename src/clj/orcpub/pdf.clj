@@ -2665,7 +2665,18 @@
   "What the narrow compartment of a packed cantrips bar says."
   "CANTRIPS")
 
-(def ^:private cantrips-label-size 5.5)
+(def ^:private cantrips-label-size 6.5)
+
+(def ^:private cantrips-label-pad
+  "Points of clear space to the left of the CANTRIPS label.
+
+   Measured from whatever bounds the word on that bar, which is not the same thing
+   on both kinds of box: a level bar's narrow compartment simply opens at its
+   SLOTS TOTAL field, while box 0's bar puts a divider at x 51-59, right where the
+   compartment borrowed from level 1 begins. Padding from the compartment alone
+   left box 0's word two points off its divider while a level box's sat in nine
+   points of open bar -- the same number, and visibly different."
+  9.0)
 
 (def ^:private heading-target-size
   "The size a column heading is drawn at when the bar has room for it.
@@ -2774,15 +2785,25 @@
               (.addRect cs (float wx) (float (- middle 9.0)) (float ww) (float 18.0))
               (.fill cs)
               (.setNonStrokingColor cs (float 0) (float 0) (float 0)))
-            (let [cw (* 72 (string-width cantrips-label HELVETICA_BOLD cantrips-label-size))
-                  ;; Centred in the narrow compartment, but never further left
-                  ;; than clear of the hexagon: box 0's bar puts its own divider
-                  ;; at x 51-59 where a level bar has none, and the borrowed
-                  ;; compartment starts before it.
-                  cx (max (+ hx hw 10.0) (+ nx (/ (- nw cw) 2.0)))]
-              (draw-text cs cantrips-label HELVETICA_BOLD cantrips-label-size
-                         (/ cx 72.0)
-                         (/ (+ middle (* -0.36 cantrips-label-size)) 72.0)
+            (let [;; Shrunk only if a style's narrow compartment cannot take the
+                  ;; word at its padded position.
+                  {csize :size ctext :label}
+                  (let [room (- nw cantrips-label-pad 2.0)
+                        natural (* 72 (string-width cantrips-label HELVETICA_BOLD
+                                                    cantrips-label-size))]
+                    (if (<= natural room)
+                      {:size cantrips-label-size :label cantrips-label}
+                      {:size (max 4.5 (* cantrips-label-size (/ room natural)))
+                       :label cantrips-label}))]
+              (draw-text cs ctext HELVETICA_BOLD csize
+                         (/ (+ (if (zero? box)
+                                 ;; Past box 0's own divider, which ends about
+                                 ;; nine points beyond the hexagon.
+                                 (+ hx hw 9.0)
+                                 nx)
+                               cantrips-label-pad)
+                            72.0)
+                         (/ (+ middle (* -0.36 csize)) 72.0)
                          [0.45 0.45 0.45]))
             (let [lw (* 72 (string-width label HELVETICA_BOLD size))]
               (draw-text cs label HELVETICA_BOLD size
