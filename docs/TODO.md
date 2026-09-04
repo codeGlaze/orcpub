@@ -130,7 +130,8 @@ so upstream updates never clobber their edits).
 **Severity:** Medium — a broken feature for users, and the last unauthenticated
 outbound fetch the server makes  
 **Reported:** 2026-09-04  
-**KB doc:** [docs/kb/pdf-form-techniques.md](kb/pdf-form-techniques.md) (image guard sections)
+**KB doc:** [docs/kb/pdf-form-techniques.md](kb/pdf-form-techniques.md) (image guard sections)  
+**Runbook:** [docs/CHARACTER-IMAGE-FETCH.md](CHARACTER-IMAGE-FETCH.md)
 
 ### Summary
 

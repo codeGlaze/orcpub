@@ -1073,6 +1073,9 @@ gives up in 1.2s where it previously ran to completion.
 
 ### Closing the resolve/connect gap
 
+*Operator-facing version of all this, with the symptom table:
+`docs/CHARACTER-IMAGE-FETCH.md`.*
+
 `safe-image-url?` resolved the host and judged the answer; the connection then
 resolved it **again**. A DNS server the attacker controls answers public for the
 check and private for the fetch, so the address that was validated is not the
