@@ -130,6 +130,21 @@ the eight-class fixture from 638 KB to 424.
   holds 13. It reads `spell-packing/sheet-geometry` now, so the counts have one
   home and a test ties them to the templates.
 
+- `spell-packing/packed-fields` turns a packing into the field map the export
+  writes: each class holds its own contiguous run of boxes in one column, so
+  **four short lists fit one page** where today they take four. Rendered proof in
+  `target/packed-demo.pdf`.
+- This is also what separates a Warlock's Pact Magic. Every level box carries its
+  own `spell-slots` field, so a class holding its own column carries its own slot
+  counts — Warlock 2, Sorcerer 4/3, Paladin 4/3, Bard 4 on one page. Grouping by
+  ability, as today, merges a Warlock and a Sorcerer into one CHA section and
+  writes every box the character-wide total.
+- Not yet the default, and the reason is measured: the artwork has no room for a
+  per-column class heading. Scanning at 200 dpi for a clear band above each box
+  found one above two of the ten; the wide band beside each numeral is the SLOTS
+  EXPENDED input. The section header lists the classes in column order instead,
+  which does not survive two classes sharing a column.
+
 ## Added (guards)
 
 - A full character is written to every style and the values `write-fields!` could

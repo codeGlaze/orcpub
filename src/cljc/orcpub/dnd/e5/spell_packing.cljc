@@ -9,7 +9,8 @@
    This decides the assignment instead. It runs in the BUILDER -- the server sees
    a flat map of field names and knows nothing about classes or levels -- and the
    result travels to the export as field values plus a small list of relabel
-   instructions the server applies with pdf/relabel-spell-level!.")
+   instructions the server applies with pdf/relabel-spell-level!."
+  (:require [clojure.string :as s]))
 
 (def sheet-geometry
   "Rows each level box holds, by sheet style, level 0 through 9.
@@ -193,3 +194,66 @@
         offered (* (count pages)
                    (reduce + (map #(:rows (column-capacity style %)) columns)))]
     {:pages (count pages) :rows-used used :rows-offered offered}))
+
+;; ─── From a packing to the fields the export writes ──────────────────────────
+
+(defn- section-of
+  "1-based section number for a page index, matching every field-name suffix."
+  [index]
+  (inc index))
+
+(defn packed-fields
+  "The field map a packing produces.
+
+   `classes` is what pack was given, plus what to print:
+
+       [{:class \"Wizard\" :levels {0 [\"Fire Bolt\" ...] 1 [...]}
+         :slots {1 4, 2 3}} ...]
+
+   `:levels` holds the spell NAMES, and their counts are what pack fits.
+   `:slots` is that class's own slot totals by level -- which is the point of
+   packing by class rather than by ability. Each of the nine level boxes carries
+   its own spell-slots field, so a class holding its own column carries its own
+   slot counts in those boxes, and a Warlock's Pact Magic stops being averaged
+   into whatever else shares its casting ability.
+
+   Returns {:fields :relabels :pages}. `:relabels` is the instruction list the
+   server bounds-checks and applies; the browser cannot renumber a printed
+   numeral itself."
+  [style classes]
+  (let [by-class (into {} (map (juxt :class identity)) classes)
+        counted (mapv (fn [{:keys [class levels]}]
+                        {:class class
+                         :levels (into {} (map (fn [[lvl names]] [lvl (count names)])) levels)})
+                      classes)
+        pages (pack style counted)
+        placements (for [[index page] (map-indexed vector pages)
+                         col page
+                         entry (:placed col)]
+                     (assoc entry :section (section-of index)))]
+    {:pages (count pages)
+     :relabels (relabel-instructions pages)
+     :fields
+     (into {}
+           (concat
+            ;; One header a page. The template carries one class name per
+            ;; section, so two classes sharing a page share the band above it.
+            (for [[index page] (map-indexed vector pages)
+                  :let [names (distinct (for [col page e (:placed col)] (:class e)))]
+                  :when (seq names)]
+              [(keyword (str "spellcasting-class-" (section-of index)))
+               (s/join ", " names)])
+            ;; The names, into the box the packer chose rather than the box that
+            ;; shares the level's number.
+            (for [{:keys [class level box section]} placements
+                  [row nm] (map-indexed vector (get-in by-class [class :levels level]))]
+              [(keyword (str "spells-" box "-" (inc row) "-" section)) nm])
+            ;; The slot total belongs to the class that holds the box, at the
+            ;; level it is holding -- not to the level the box is printed with.
+            ;; Box 0 is the cantrips box and has no slots until reuse-cantrips-box!
+            ;; gives it some.
+            (for [{:keys [class level box section]} placements
+                  :when (pos? box)
+                  :let [n (get-in by-class [class :slots level])]
+                  :when n]
+              [(keyword (str "spell-slots-" box "-" section)) (str n)])))}))

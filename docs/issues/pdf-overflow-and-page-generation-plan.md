@@ -648,29 +648,59 @@ The default should follow the build rather than being asked for every time:
 So: a default computed from the build, and an override in the PDF options
 alongside the existing print choices.
 
-### 8e. Packing is blocked on Pact Magic, measured (2026-09)
+### 8e. Pact Magic is what packing FIXES, not what blocks it (2026-09)
 
-The hard constraint in 8c turns out to be violated ALREADY, before any packing.
+An earlier reading of this said packing was blocked on Pact Magic. That was
+wrong, and wrong in a way worth recording, because it nearly stopped the feature.
 
-`pdf_spec/make-page-map` groups a character's spells by `:ability`, not by class.
-A Warlock and a Sorcerer are both CHA, so they land in one section and print
-under one slot row -- and that row comes from the character-wide
-`char5e/spell-slots`. A Warlock's Pact Magic is a separate pool at a separate
-level, so those spells are already printed under the wrong slot count.
+The claim was that packing merges lists into fewer boxes and so would deepen the
+pact problem. It rested on the slot total being per SECTION. It is not: each of
+the nine level boxes carries its own `spell-slots-LEVEL-SUFFIX` field. Measured on
+the masters -- style 1 has `spell-slots-1-1` through `spell-slots-9-1`, nine
+fields, one a box, and style 4 the same.
 
-Packing makes this worse rather than better, because it merges lists into fewer
-boxes. So it must not be turned on until a pact caster can be held in its own
-section.
+So what is actually true:
 
-That needs a per-CLASS pact flag, and there is none: `char5e/pact-magic?` is a
-property of the whole character, and nothing in `classes.cljc` or the modifiers
-marks a class as a pact caster. Grouping on a hardcoded set naming Warlock would
-work for the SRD and quietly mislabel any homebrew pact class, which is the same
-shape of mistake as the hardcoded row counts in 8f.
+- **Today** `make-page-map` groups by `:ability`, so a Warlock and a Sorcerer are
+  merged into one CHA section, and every box in it is written the character-wide
+  `(spell-slots level)`. The pact pool is invisible on the sheet already.
+- **Packed by class**, a class holds its own contiguous run of boxes in one
+  column, and each of those boxes has its own slot field. The browser writes THAT
+  class's slot counts into them. A Warlock in its own column shows its own pact
+  slots at its own level.
 
-So the order is: model pact magic per class, split the sections on it, THEN
-enable packing. A test in spell_packing_test records the current grouping so the
-day it changes is visible.
+Packing by class is therefore the mechanism that separates the pools, and the
+per-column class heading in 8c is what says which column belongs to whom. No
+per-class pact flag is needed for it: the packer already keeps a class whole and
+in one column, and a class is what the builder groups by before it ever reaches
+an ability.
+
+The ability grouping is the thing to replace, not to preserve.
+
+#### The per-column class heading has nowhere to go, measured (2026-09)
+
+8c wants each column headed with the class it holds, so a reader can tell whose
+list is whose. The artwork does not have room for it.
+
+Scanned at 200 dpi for an ink-free band 1.6in wide and 0.11in tall above each
+box's numeral hexagon, on style 1 section 1:
+
+    box 1   clear 0.32in above
+    box 6   clear 0.22in above
+    boxes 2, 3, 4, 5, 7, 8, 9   no clear band at any offset up to 0.4in
+
+So eight of the ten boxes have nothing above them. The wide band beside each
+numeral is the SLOTS EXPENDED input, which the player writes in, so a heading
+cannot go there either.
+
+What ships instead: the section header lists the classes in COLUMN ORDER, so
+"Warlock, Sorcerer, Paladin, Bard" reads left to right against the columns. That
+is weaker than a heading per column -- it does not survive two classes sharing a
+column, which the packer allows -- and it is why packed layouts are opt-in rather
+than the default.
+
+Resolving it properly means artwork: a band above each column, or a heading slot
+in each box's bar. That is a change to the templates, not to the code.
 
 ### 8f. The row counts had three copies (2026-09)
 
