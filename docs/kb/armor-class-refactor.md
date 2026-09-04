@@ -46,7 +46,7 @@ was an undercount from a partial grep.) Sorted by what they actually are:
 | **channels** content writes into | `?ac-fns`, `?ac-bonus-fns` | the props compiler + constructors |
 | | `?ac-bonus` | **none — dead** |
 | | `?armored-ac-bonus` | 1 · Defense fighting style |
-| | `?unarmored-ac-bonus` | 3 · Barbarian, Monk, Bracers of Defense |
+| | `?unarmored-ac-bonus` | 2 · Barbarian, Monk (Bracers moved off it — see below) |
 | | `?unarmored-with-shield-ac-bonus` | 1 · Barbarian |
 | | `?natural-ac-bonus` | 2 · Draconic Sorcerer, `:lizardfolk-ac` |
 | | `?magical-ac-bonus` | magic items, via `mod5e` |
@@ -76,7 +76,7 @@ Applied to the rest:
 | `?ac-bonus` | none needed — **delete outright**, no writers, never released with any | — |
 | `?armored-ac-bonus` | seed `?ac-bonus-fns` with `(fn [armor _] (if armor ?armored-ac-bonus 0))` | Defense style → `{:ac-bonus 1 :armor? true}` |
 | `?natural-ac-bonus` | seed `?ac-fns` with a `10 + Dex + N` formula when N > 0 | Draconic → `ac-formula`; the pairwise tie-break dies with it, `max` does that job |
-| `?unarmored-ac-bonus` | **not a mechanical rename — see hazard below** | Barbarian/Monk → `ac-formula`; Bracers → `{:ac-bonus 2 :armor? false :shield? false}` |
+| `?unarmored-ac-bonus` | **DONE for Bracers** (regression fix, below); remaining writers are calculations | Barbarian/Monk → `ac-formula` |
 | `?unarmored-with-shield-ac-bonus` | subsumed once `:shield?` tags carry the meaning | Barbarian writes one formula, not two scalars |
 | `?armor-ac-suppressed?` | none — deleted when worn armor becomes an ordinary `?ac-fns` entry, since "no AC from armor" is then *register no armor formula* | — |
 
@@ -89,15 +89,26 @@ that participates in the base as a competing calculation (`10 + Dex + Con`), sub
 tie-break against `?natural-ac-bonus`. Bracers of Defense writes a *flat +2* that ought to be a
 bonus stacking on whatever wins.
 
-**CONFIRMED, and it is a live bug.** Measured: a natural-armor(3) character is AC 15 unarmored, and
-**still 15 with Bracers of Defense equipped — delta 0.** Natural(3) beats unarmored(2) in the
-tie-break, which zeroes the whole unarmored channel and takes the bracers with it. RAW is 17:
-natural armor gives 15 and a flat +2 stacks on it. Pinned in
-`bracers-plus-natural-armor-the-overloaded-channel`.
+**CONFIRMED, FIXED, and it was OURS.** A natural-armor(3) character was AC 15 unarmored and still
+15 with Bracers of Defense equipped — delta 0, the +2 silently dropped. RAW is 17.
 
-It flips to 17 when Bracers becomes `{:ac-bonus 2 :armor? false :shield? false}` and lands in
-`?ac-bonus-fns`. This is why the trim cannot be a rename — and it is the first real defect the
-channel audit has turned up rather than a latent hazard.
+Not a shipped defect. Measured against both branches by running the same test with each branch's
+`template_base`:
+
+| | natural armor 3 + Bracers |
+|---|---|
+| `agents/develop` (integration) | **17** — correct |
+| this refactor branch, before the fix | **15** — regression |
+
+Cause: our own `6c46f8f2` ("stop unarmored-defense and natural-armor from stacking") zeroes the
+whole `?unarmored-ac-bonus` channel when natural wins the tie-break. Correct for its target case
+(Barbarian + Draconic stacked to 18 when RAW is 15), wrong for flat bonuses that legitimately stack.
+The overload is what made one fix break the other case.
+
+Fixed by moving `mod5e/unarmored-ac-bonus` to `?ac-bonus-fns` with both clauses stated
+(`(if (or armor shield) 0 bonus)`). That constructor had exactly one caller — Bracers — because
+Barbarian and Monk write the scalar directly, so the fix is narrow and is also the trim's first
+retired channel. Guarded by `bracers-plus-natural-armor-the-overloaded-channel`.
 
 ## The approach, and why it changed
 

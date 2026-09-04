@@ -462,7 +462,7 @@
             (str "composed vs welded / " ctx))))))
 
 (deftest bracers-plus-natural-armor-the-overloaded-channel
-  (testing "CHARACTERIZATION. ?unarmored-ac-bonus carries two different meanings: Barbarian and
+  (testing "REGRESSION GUARD. ?unarmored-ac-bonus carried two different meanings: Barbarian and
             Monk write an ABILITY MODIFIER that competes as a calculation (subject to the tie-break
             against ?natural-ac-bonus), while Bracers of Defense writes a FLAT +2 that ought to be
             a bonus stacking on whatever wins. Both land in the same scalar and go through the same
@@ -473,12 +473,18 @@
       (println (format "\n[OVERLOAD] natural armor 3, unarmored: %d without bracers, %d with (delta %d)"
                        without- with- (- with- without-)))
       (is (= 15 without-) "natural armor: 10 + Dex(2) + 3")
-      (is (= 15 with-)
-          "PINNED BUG: the bracers' +2 is DROPPED. natural(3) beats unarmored(2) in the tie-break,
-           which zeroes the whole unarmored channel — bracers included. RAW is 17: natural armor
-           gives 15 and a flat +2 bonus stacks on it. Fixing this is the point of splitting the
-           overloaded channel; the number flips to 17 when Bracers becomes
-           {:ac-bonus 2 :armor? false :shield? false} and lands in ?ac-bonus-fns."))))
+      (is (= 17 with-)
+          "FIXED. natural armor 15 + a flat +2 that stacks on the winner.
+
+           Was 15 on this branch: our own 6c46f8f2 (stop unarmored-defense and natural-armor
+           stacking) zeroes the whole ?unarmored-ac-bonus channel when natural wins the tie-break,
+           and Bracers' flat +2 was sitting in that channel. Correct for its target case (Barbarian
+           + Draconic), wrong for flat bonuses. agents/develop returns 17 here, so this was a
+           regression introduced by the refactor family, not a shipped defect — verified by running
+           this test against that branch's template_base.
+
+           mod5e/unarmored-ac-bonus now emits an ?ac-bonus-fns entry stating both clauses, which is
+           also the first channel the trim retires."))))
 
 (deftest migration-parity-sweep
   (testing "every old mechanism vs its authored replacement, across every equipment state"

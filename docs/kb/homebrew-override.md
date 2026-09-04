@@ -46,3 +46,14 @@ this switch is their override. Worked example: "a tortle can't wear armor" (see 
 as an equipment-selection restriction, a DM and player can flip the mug and build an armor-wearing
 tortle. Built as an AC computation — which is what `:armor-gives-no-ac` is today — there is no way
 to override it short of authoring different content.
+
+## Proposed extension: per-item overrides
+
+Today the switch attaches to a **selection**. It would be more useful attached to **individual
+items** too — e.g. overriding the restriction on equipping armor for a character whose armor AC is
+suppressed, and similar item-level rules.
+
+This is the same mechanism (`::entity/homebrew-paths` is already keyed by path and already
+persists), extended to equipment paths, plus enforcement points on the equipment side that consult
+it. See `rules-override-layer.md` — a per-item override is the manual form of what that layer would
+grant systematically.

@@ -235,3 +235,12 @@ carries a documented footgun (a misgrouped formula returns a wrong number or thr
 
 Not a line-count win — `template_base.cljc` is 339 lines, AC ~60. The monolith is `options.cljc`
 (3938 lines), which is a separate and larger job.
+
+### 🔵 FUTURE (cross-branch) — a rules-override layer
+
+DM-issued a-la-carte grants and permissions above the content silos: an extra feat at an arbitrary
+point, a feat for the whole party at level 1, "a tortle can wear armor", "this character is size
+Large". A ledger, not content — and not expressible as feats. **"Boon" is unavailable**: epic and DM
+boons are real 5e constructs and the app already ships `homebrew-boon`. Full writeup, naming
+candidates and design constraints in `rules-override-layer.md`. Survives branches — do not drop it
+when this refactor merges.
