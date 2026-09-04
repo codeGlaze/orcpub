@@ -144,6 +144,30 @@ earlier note in this doc called it redundant on that basis, which was wrong. Col
 channels without care would make Bracers apply with a shield. In the authored vocabulary Bracers is
 `{:ac-bonus 2 :armor? false :shield? false}`, which the symmetric three-state tags express directly.
 
+## Three mechanisms for one job (the D29 problem, concretely)
+
+"A bonus that applies only in certain armor/shield states" is implemented three different ways in
+shipped content:
+
+| item / feature | gate | mechanism |
+|---|---|---|
+| Robe of the Archmagi | no armor (a shield is fine) | `(ac-bonus-fn (fn [armor shield] (if (nil? armor) 5 0)))` — a predicate inside the fn |
+| Bracers of Defense | no armor **and** no shield | writes `?unarmored-ac-bonus` and not the with-shield channel — omission |
+| Defense fighting style | only while wearing armor | `(armored-ac-bonus 1)` — a dedicated channel, summed only in the armor branch |
+| Ioun Stone of Protection | none | `(ac-bonus-fn (fn [_ _] 1))` |
+
+Nothing in the content overrides or replaces a shield's contribution.
+
+The Robe's predicate form is the general one — the other two are special cases of it.
+`{:ac-bonus N :armor? … :shield? …}` compiles to that predicate, so all three collapse to one
+mechanism without any of them changing behavior. `?armored-ac-bonus` has exactly one writer
+(Defense) and `?unarmored-ac-bonus` two (Barbarian, Monk) plus Bracers.
+
+**Dead data found in passing:** Staff of Power sets `::magical-ac-bonus 2` on an item whose
+`::type` is `:weapon`. AC reads that field only off `armor` (template_base.cljc:84) and `shield`
+(:59) — never a weapon. The staff's real +2 comes from its own `ac-bonus-fn`. Harmless, but it is
+the kind of thing that makes an unqualified "magic bonus" ambiguous.
+
 ## Natural armor: which `:armor?` tag, measured
 
 The rules text has two sentences — "when you aren't wearing armor, your AC is 13 + Dex" *and* "you
