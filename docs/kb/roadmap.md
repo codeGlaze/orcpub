@@ -105,6 +105,14 @@ then merge `develop` in, since the shared files here have diverged for the feat 
 ### OPEN — Phase 1 levers & pins (from `direction.md`)
 - **Grant-authoring UI** — the biggest remaining lever (declare "grant a choice from pool X" in a builder).
 - 🔴 **`:required-when` conditional field validation** (HIGH — flagged in `builder_fields.cljc`).
+- 🔴 **Fighting styles: registry drift makes `lein test` RED** (HIGH — a failing suite hides real
+  regressions). `::classes/homebrew-fighting-style` is registered for saving in
+  `content-specs/save-specs` (`content_specs.cljc:47`) but has **no `content-types` entry**, so
+  `e5-test/audit-specs-match-the-registry` fails. Fighting styles can be saved yet have no builder
+  page, route, or local-storage wiring — the deferred Phase B of the fighting-style work. Fix is
+  either the registry entry (`:builder-item :spec :plugin-key :route-kw :route-seg
+  :local-storage-key`) plus its builder view, or pull the spec back out of `save-specs` until Phase B
+  lands. Verified pre-existing 2026-09-04 by stashing unrelated changes and re-running.
 - Variants (`_copy`/`_mod`), class-feature pool (`[:class-feature :X]`), declarative cross-type prereq
   vocabulary, mechanical-effects-for-text-only (boons/ki), level-gated grants in `:props`.
 
