@@ -1071,18 +1071,41 @@ with no limit on how LONG -- and it wanted the same answer:
 each read, so the ceiling is the deadline plus one read timeout. The trickle test
 gives up in 1.2s where it previously ran to completion.
 
-### Still open: the resolve/connect gap
+### Closing the resolve/connect gap
 
-`safe-image-url?` resolves the host and judges the answer. `open-image-stream`
-then opens a connection, which resolves **again**. A DNS server the attacker
-controls can answer public for the first and private for the second.
+`safe-image-url?` resolved the host and judged the answer; the connection then
+resolved it **again**. A DNS server the attacker controls answers public for the
+check and private for the fetch, so the address that was validated is not the
+address that was talked to. That is DNS rebinding, and no amount of care in the
+address predicates fixes it.
 
-The JVM's positive DNS cache narrows the window and the payoff is small — redirects
-are off, and the response has to parse as an image under 2000x2000 and 128 KB to
-reach the page at all, so it is blind at best. It is still a real gap, and the
-honest fix is to resolve ONCE and pin: `clj-http` is already a dependency and
-already required here, and Apache HttpClient takes a custom `DnsResolver`, so the
-validated addresses can be handed to the connection directly while the hostname —
-and therefore TLS verification — stays intact. Hand-rolling that on
-`HttpsURLConnection` means overriding hostname verification, and a botched TLS
-override is a worse hole than the one it closes.
+The fix is to resolve ONCE and hand that answer to the connection.
+`validated-addresses` is now the single resolution, and
+`pinned-connection-manager` gives the client a `DnsResolver` returning exactly
+those addresses for that host, and throwing for anything else.
+
+Three things about the shape, each a wrong turn avoided or taken:
+
+- **The pin belongs on the connection MANAGER, not on `HttpClientBuilder`.**
+  `setDnsResolver` there is documented as overridden by `setConnectionManager`,
+  and clj-http always sets one -- so pinning on the builder compiles, runs, and
+  does nothing.
+- **Do not rewrite the URL to the IP and send a `Host:` header.** It is the
+  obvious shortcut and it breaks certificate validation; repairing that means
+  overriding hostname verification, a far worse hole than the one being closed.
+  Pinning the resolver keeps the hostname in the URL, so the default socket
+  factories do ordinary certificate and hostname checks.
+- **A proxy makes the pin impossible, and pinning anyway breaks everything.**
+  Behind a proxy the client connects to the PROXY, so the resolver is asked for
+  the proxy's host and refuses it. Measured: with `https.proxyHost` set, every
+  HTTPS image failed with `not the pinned host: 127.0.0.1` -- a total outage of
+  the feature for any deployment behind an egress proxy. No unit test showed it;
+  it took fetching a real URL. `proxied?` asks the same `ProxySelector` that
+  clj-http's route planner uses, and skips the pin when one applies. That is
+  correct as well as necessary: a proxy resolves names itself and is the egress
+  control point.
+
+The tests carry a guard of their own. Since the pin is skipped when proxied, a
+proxied fixture URL would leave every transport test quietly exercising the
+unpinned path and still passing; one assertion pins that loopback is not proxied,
+so the suite fails rather than lies.

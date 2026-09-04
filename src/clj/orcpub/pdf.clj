@@ -52,9 +52,15 @@
            (org.apache.pdfbox.pdmodel.graphics.image JPEGFactory LosslessFactory)
            (org.apache.pdfbox.pdmodel.graphics.state PDExtendedGraphicsState)
            (org.apache.pdfbox.util Matrix)
+           (org.apache.http.conn DnsResolver)
+           (org.apache.http.impl.conn BasicHttpClientConnectionManager)
+           (org.apache.http.config RegistryBuilder)
+           (org.apache.http.conn.socket PlainConnectionSocketFactory)
+           (org.apache.http.conn.ssl SSLConnectionSocketFactory)
+           (java.net UnknownHostException)
            (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font Standard14Fonts$FontName)
            (javax.imageio ImageIO)
-           (java.net URL HttpURLConnection)))
+           (java.net URL)))
 
 ;; The Base 14 fonts, present in every PDF reader. Constructed once at load time.
 (def HELVETICA
@@ -1377,6 +1383,22 @@
                  (boolean (some-> (embedded-v4 b) private-address?)))
           false))))
 
+(defn validated-addresses
+  "Every address `url`'s host resolves to, or nil if the URL may not be fetched.
+
+   This is the ONE resolution the fetch is allowed. Handing the answer to the
+   connection is what makes the check meaningful -- see pinned-connection-manager."
+  [url]
+  (try
+    (let [u (URL. url)]
+      (when (contains? #{"http" "https"} (.getProtocol u))
+        (let [addrs (seq (java.net.InetAddress/getAllByName (.getHost u)))]
+          ;; every resolved address, not just the first: a hostname can answer
+          ;; with both a public and a private address.
+          (when (and addrs (not-any? private-address? addrs))
+            (vec addrs)))))
+    (catch Exception _ nil)))
+
 (defn safe-image-url?
   "Whether the server may fetch this URL.
 
@@ -1390,39 +1412,92 @@
    Returns false rather than throwing so a bad URL is skipped like an image
    that failed to load, which is a state the sheet already handles."
   [url]
-  (try
-    (let [u (URL. url)
-          protocol (.getProtocol u)]
-      (and (contains? #{"http" "https"} protocol)
-           (let [addrs (java.net.InetAddress/getAllByName (.getHost u))]
-             (and (seq addrs)
-                  ;; every resolved address, not just the first: a hostname can
-                  ;; answer with both a public and a private address.
-                  (not-any? private-address? addrs)))))
-    (catch Exception _ false)))
+  (some? (validated-addresses url)))
+
+(defn- pinned-connection-manager
+  "A connection manager that resolves `host` to `addrs` and nothing else.
+
+   Without this, the guard is decorative: safe-image-url? resolves the host and
+   judges the answer, then the connection resolves it AGAIN, so a DNS server the
+   attacker controls answers public for the check and private for the fetch. The
+   address that was validated is not the address that was talked to.
+
+   The pin belongs on the connection MANAGER, not on HttpClientBuilder: its
+   setDnsResolver is documented as overridden by setConnectionManager, and
+   clj-http always sets one, so pinning there would be silently ignored.
+
+   The hostname stays in the URL, so the default socket factories below do
+   ordinary certificate and hostname verification. That is the whole reason to pin
+   the resolver rather than rewrite the URL to an IP and send a Host header: that
+   shortcut breaks certificate validation, and repairing it means overriding
+   hostname verification, which is a far worse hole than the one being closed."
+  ^BasicHttpClientConnectionManager [host addrs]
+  (let [pinned (into-array java.net.InetAddress addrs)]
+    (BasicHttpClientConnectionManager.
+     (-> (RegistryBuilder/create)
+         (.register "http" (PlainConnectionSocketFactory/getSocketFactory))
+         (.register "https" (SSLConnectionSocketFactory/getSocketFactory))
+         (.build))
+     nil nil
+     (reify DnsResolver
+       (resolve [_ h]
+         (if (= h host)
+           pinned
+           ;; Nothing else should ever be looked up on this client. A redirect is
+           ;; already refused, so reaching here at all means something rewrote the
+           ;; route.
+           (throw (UnknownHostException. (str "not the pinned host: " h)))))))))
+
+(defn- proxied?
+  "Whether the JVM's proxy settings route this URL through a proxy.
+
+   Behind a proxy the client connects to the PROXY, so the resolver is asked for
+   the proxy's host and a pin on the target host both fails and is beside the
+   point: the proxy does the name resolution, and the proxy is the egress control
+   point. Detected rather than assumed -- pinning unconditionally makes a
+   deployment behind a proxy fetch no images at all, which is how this was found.
+
+   Uses the same ProxySelector that clj-http's SystemDefaultRoutePlanner uses, so
+   the two cannot disagree about whether a proxy applies."
+  [url]
+  (boolean (some #(not= java.net.Proxy$Type/DIRECT (.type ^java.net.Proxy %))
+                 (.select (java.net.ProxySelector/getDefault) (java.net.URI. url)))))
 
 (defn- open-image-stream
-  "Opens url with redirects disabled and the response size bounded.
+  "Opens `url` against `addrs`, with redirects disabled and the size bounded.
 
    Redirects are off because they defeat any host check: a permitted host that
    offers an open redirect would otherwise hand the fetch straight to a private
-   address."
-  [url]
-  (let [^HttpURLConnection conn (.openConnection (URL. url))]
-    (doto conn
-      (.setInstanceFollowRedirects false)
-      (.setRequestProperty "User-Agent" user-agent)
-      (.setConnectTimeout 10000)
-      (.setReadTimeout 10000))
-    (let [status (.getResponseCode conn)]
-      (when-not (<= 200 status 299)
-        (throw (ex-info (str "Image URL returned " status)
-                        {:error :image-load-failed :url url :status status})))
-      (let [len (.getContentLengthLong conn)]
-        (when (> len max-image-bytes)
-          (throw (ex-info "Image is larger than the 128k limit"
-                          {:error :image-too-large :url url :bytes len}))))
-      (.getInputStream conn))))
+   address. Taking `addrs` rather than resolving again is what closes the gap
+   between checking an address and connecting to it.
+
+   Returns [stream connection-manager-or-nil]; the caller closes both."
+  [url addrs]
+  (let [cm (when-not (proxied? url)
+             (pinned-connection-manager (.getHost (URL. url)) addrs))]
+    (try
+      (let [resp (client/get url (cond-> {:as :stream
+                                          :redirect-strategy :none
+                                          :throw-exceptions false
+                                          :decompress-body false
+                                          :socket-timeout 10000
+                                          :connection-timeout 10000
+                                          :headers {"User-Agent" user-agent}}
+                                   cm (assoc :connection-manager cm)))
+            status (:status resp)]
+        (when-not (<= 200 status 299)
+          (some-> ^java.io.InputStream (:body resp) .close)
+          (throw (ex-info (str "Image URL returned " status)
+                          {:error :image-load-failed :url url :status status})))
+        (let [len (some-> (get-in resp [:headers "content-length"]) Long/parseLong)]
+          (when (and len (> len max-image-bytes))
+            (some-> ^java.io.InputStream (:body resp) .close)
+            (throw (ex-info "Image is larger than the 128k limit"
+                            {:error :image-too-large :url url :bytes len}))))
+        [(:body resp) cm])
+      (catch Exception e
+        (some-> cm .close)
+        (throw e)))))
 
 (defn- within-pixel-budget?
   "Reads the image header only and answers whether decoding it is safe."
@@ -1473,11 +1548,12 @@
   "Fetch url and return its bytes, or throw. Every limit is applied before any
    pixel buffer is allocated."
   [url]
-  (when-not (safe-image-url? url)
-    (throw (ex-info "Image URL is not permitted"
-                    {:error :image-url-not-permitted :url url})))
-  (let [data (with-open [in (open-image-stream url)]
-               (read-bounded-bytes in))]
+  (let [addrs (or (validated-addresses url)
+                  (throw (ex-info "Image URL is not permitted"
+                                  {:error :image-url-not-permitted :url url})))
+        [in cm] (open-image-stream url addrs)
+        data (try (read-bounded-bytes in)
+                  (finally (.close ^java.io.InputStream in) (some-> cm .close)))]
     (when-not (within-pixel-budget? data)
       (throw (ex-info "Image dimensions exceed the limit"
                       {:error :image-too-large-dimensions :url url})))

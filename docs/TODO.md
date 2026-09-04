@@ -178,7 +178,7 @@ URLs rather than assuming — but the design degrades either way.
 ### Consequences
 
 - The server fetch stops being the default path. The SSRF surface — and the
-  resolve/connect gap below — shrinks to a rarely-hit fallback, or disappears.
+  SSRF surface shrinks to a rarely-hit fallback, or disappears.
 - Do this on its own branch cut from `integration` **after**
   `feature/one-template-per-style` lands. Both touch
   `routes/generate-character-pdf`, and that branch is already 118 commits.
@@ -196,16 +196,6 @@ that hole.
 **Severity:** Low — none is a live defect  
 **Reported:** 2026-09-04
 
-- **The resolve/connect gap.** `safe-image-url?` resolves and judges the answer;
-  the connection then resolves again, so DNS an attacker controls can answer
-  public once and private once. Redirects are off and the response must parse as
-  an image under 2000x2000 and 128 KB, so it is blind at best. The fix is to
-  resolve once and pin: `clj-http` is already a dependency and already required in
-  `pdf.clj`, and Apache HttpClient takes a custom `DnsResolver`, so validated
-  addresses reach the connection while the hostname — and TLS verification — stays
-  intact. Do NOT hand-roll this on `HttpsURLConnection`: that means overriding
-  hostname verification, which is a worse hole than the one it closes. **Blocked
-  on the decision above** — if the browser sends bytes, this path may not survive.
 - **Total slot hold on images.** Worst case is now about 40s per image (10s
   connect + 20s transfer + one read timeout), so 80s for a character with a
   portrait and a faction image. Bounded, but possibly still generous.

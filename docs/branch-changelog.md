@@ -123,3 +123,17 @@ the eight-class fixture from 638 KB to 424.
   the byte cap against a body with no declared length, the refusal to follow a
   redirect, the transfer deadline against a trickling server, and what the pixel
   budget does with a page served as a 200.
+
+## Fixed (hardening, cont.)
+
+- The image fetch resolves the host once and connects to that answer. It used to
+  resolve for the check and again for the connection, so DNS an attacker controls
+  could answer public for the first and private for the second — the address
+  validated was not the address talked to. The pin sits on the connection manager,
+  because `HttpClientBuilder.setDnsResolver` is overridden by
+  `setConnectionManager` and clj-http always sets one. The hostname stays in the
+  URL, so certificate and hostname verification are unchanged; rewriting the URL
+  to an IP would have meant overriding hostname verification, a worse hole than
+  the one being closed. Behind an egress proxy the client connects to the proxy,
+  so the pin cannot apply and is skipped — pinning unconditionally failed every
+  HTTPS fetch with `not the pinned host`, which only a real fetch revealed.

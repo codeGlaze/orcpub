@@ -11,7 +11,8 @@
    test that could only reach them together would prove neither."
   ;; explicit :refer to avoid namespace pollution from :refer :all
   (:require [clojure.test :refer [deftest is testing use-fixtures]]
-            [orcpub.pdf :as pdf])
+            [orcpub.pdf :as pdf]
+            [clj-http.client])
   (:import (com.sun.net.httpserver HttpServer HttpHandler)
            (java.net InetSocketAddress)
            (javax.imageio ImageIO)
@@ -19,6 +20,24 @@
            (java.io ByteArrayOutputStream)))
 
 (def ^:private open-image-stream #'pdf/open-image-stream)
+(def ^:private pinned-connection-manager #'pdf/pinned-connection-manager)
+(def ^:private proxied? #'pdf/proxied?)
+
+(def ^:private loopback
+  "The fixture server's address, supplied explicitly.
+
+   validated-addresses refuses loopback, which is correct and is why these tests
+   hand open-image-stream the address list directly. That split is the point: the
+   address guard decides WHETHER to fetch, the pin decides WHERE, and each is
+   tested on its own."
+  [(java.net.InetAddress/getByName "127.0.0.1")])
+
+(defn- fetch
+  "open-image-stream against the fixture server, applying `f` to the body."
+  [url f]
+  (let [[in cm] (open-image-stream url loopback)]
+    (try (f in)
+         (finally (.close ^java.io.InputStream in) (some-> cm .close)))))
 (def ^:private read-bounded-bytes #'pdf/read-bounded-bytes)
 (def ^:private within-pixel-budget? #'pdf/within-pixel-budget?)
 
@@ -90,56 +109,90 @@
 
 (deftest an-ordinary-image-is-fetched
   (testing "the guard does not break the normal case"
-    (with-open [in (open-image-stream (str *base* "/ok"))]
-      (let [data (read-bounded-bytes in)]
-        (is (pos? (count data)))
-        (is (true? (within-pixel-budget? data)))))))
+    (fetch (str *base* "/ok")
+           (fn [in] (let [data (read-bounded-bytes in)]
+                      (is (pos? (count data)))
+                      (is (true? (within-pixel-budget? data))))))))
 
 (deftest an-oversized-body-is-refused-from-its-header
   (testing "a truthful Content-Length over the cap is rejected before any read"
-    (is (thrown? clojure.lang.ExceptionInfo (open-image-stream (str *base* "/too-big"))))))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (open-image-stream (str *base* "/too-big") loopback)))))
 
 (deftest a-body-with-no-declared-length-is-still-bounded
   ;; The header check is an optimisation, not the limit. A chunked response
   ;; carries no Content-Length at all, so only the streaming cap stands between
   ;; the export and however much the server feels like sending.
   (testing "200 KB sent chunked still stops at the cap"
-    (with-open [in (open-image-stream (str *base* "/undeclared-length"))]
-      (let [e (try (read-bounded-bytes in) nil (catch clojure.lang.ExceptionInfo e e))]
-        (is (some? e) "the stream must not be read to completion")
-        (is (= :image-too-large (:error (ex-data e))))
-        (is (<= (:bytes (ex-data e)) (+ cap 8192))
-            "it stops at the cap, not after buffering everything")))))
+    (fetch (str *base* "/undeclared-length")
+           (fn [in]
+             (let [e (try (read-bounded-bytes in) nil
+                          (catch clojure.lang.ExceptionInfo e e))]
+               (is (some? e) "the stream must not be read to completion")
+               (is (= :image-too-large (:error (ex-data e))))
+               (is (<= (:bytes (ex-data e)) (+ cap 8192))
+                   "it stops at the cap, not after buffering everything"))))))
 
 (deftest a-redirect-is-not-followed
   ;; Redirects defeat the address check: the host that was validated is not the
   ;; host that answers. This one points at instance metadata.
   (testing "a 302 is an error, not a hop"
-    (let [e (try (open-image-stream (str *base* "/redirect")) nil
+    (let [e (try (open-image-stream (str *base* "/redirect") loopback) nil
                  (catch clojure.lang.ExceptionInfo e e))]
       (is (some? e))
       (is (= 302 (:status (ex-data e)))))))
 
 (deftest an-error-status-is-refused
   (testing "a 404 body is not fed to the image decoder"
-    (is (thrown? clojure.lang.ExceptionInfo (open-image-stream (str *base* "/not-found"))))))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (open-image-stream (str *base* "/not-found") loopback)))))
 
 (deftest a-slow-trickle-cannot-hold-the-connection-open
   ;; The byte cap does not bound TIME. Each read here lands well inside the read
   ;; timeout, so without a total deadline this holds an export slot for as long
   ;; as the server cares to keep dribbling.
   (testing "a total deadline ends it, even though no single read times out"
-    (with-open [in (open-image-stream (str *base* "/trickle"))]
-      (let [started (System/currentTimeMillis)
-            e (try (read-bounded-bytes in 1000) nil
-                   (catch clojure.lang.ExceptionInfo e e))
-            elapsed (- (System/currentTimeMillis) started)]
-        (is (some? e) "the transfer must not be allowed to run on")
-        (is (= :image-transfer-timeout (:error (ex-data e))))
-        (is (< elapsed 6000)
-            (str "gave up after " elapsed "ms, well before the server finished"))))))
+    (fetch (str *base* "/trickle")
+           (fn [in]
+             (let [started (System/currentTimeMillis)
+                   e (try (read-bounded-bytes in 1000) nil
+                          (catch clojure.lang.ExceptionInfo e e))
+                   elapsed (- (System/currentTimeMillis) started)]
+               (is (some? e) "the transfer must not be allowed to run on")
+               (is (= :image-transfer-timeout (:error (ex-data e))))
+               (is (< elapsed 6000)
+                   (str "gave up after " elapsed "ms, before the server finished")))))))
 
 (deftest a-page-served-with-200-is-not-an-image
   (testing "what a successful SSRF would actually return"
-    (with-open [in (open-image-stream (str *base* "/html"))]
-      (is (false? (within-pixel-budget? (read-bounded-bytes in)))))))
+    (fetch (str *base* "/html")
+           (fn [in] (is (false? (within-pixel-budget? (read-bounded-bytes in))))))))
+
+(deftest these-tests-exercise-the-pinned-path
+  ;; open-image-stream skips the pin when a proxy applies, because a proxy does
+  ;; its own name resolution. If the fixture URL were ever proxied, every test
+  ;; below would quietly be testing the UNPINNED path and still pass.
+  (is (false? (proxied? (str *base* "/ok")))
+      "loopback must not be proxied, or these tests prove nothing about the pin"))
+
+(deftest the-connection-uses-the-addresses-that-were-checked
+  ;; The whole point of the pin. safe-image-url? resolves and judges; without
+  ;; handing that answer to the connection, the connection resolves AGAIN and a
+  ;; hostile DNS server can answer differently the second time.
+  (testing "the fetch goes to the address it was given, not to whatever DNS says"
+    ;; validated-addresses refuses loopback outright, so a fetch that reaches the
+    ;; fixture server at all proves the supplied address was used.
+    (fetch (str *base* "/ok") (fn [in] (is (pos? (count (read-bounded-bytes in))))))))
+
+(deftest the-pin-refuses-any-host-it-was-not-given
+  (testing "a route to another host cannot be resolved on this client"
+    ;; No DNS is consulted, so this holds with or without a network.
+    (let [cm (pinned-connection-manager "pinned.invalid" loopback)]
+      (try
+        (is (thrown? Exception
+                     (clj-http.client/get "http://somewhere-else.invalid/x.png"
+                                          {:connection-manager cm
+                                           :throw-exceptions false
+                                           :socket-timeout 2000
+                                           :connection-timeout 2000})))
+        (finally (.close cm))))))
