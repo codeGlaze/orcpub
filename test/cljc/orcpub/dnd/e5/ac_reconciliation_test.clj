@@ -83,6 +83,9 @@
 (def p-monk     (props-class :p-monk-  {:ac {:ac 10 :abilities [:dex :wis] :armor? false :shield? false}}))
 (def p-barb     (props-class :p-barb-  {:ac {:ac 10 :abilities [:dex :con] :armor? false}}))
 (def p-floor    (props-class :p-floor- {:ac {:ac 16 :abilities []}}))            ; no :armor? = either
+(def p-nat-any  (props-class :p-natany- {:ac {:ac 13 :abilities [:dex]}}))  ; no :armor? = either
+;; a Ring/Cloak of Protection-style +1: the ?magical-ac-bonus scalar, which lives INSIDE the base
+(def ring-class (feat-class :ring- [(mod/cum-sum-mod ?magical-ac-bonus 1)]))
 (def p-bonus    (props-class :p-bonus- {:ac-bonus {:ac-bonus 1}}))
 (def p-armorbon (props-class :p-abon-  {:ac-bonus {:ac-bonus 1 :armor? true}}))
 
@@ -119,6 +122,10 @@
                          weapons5e/weapons-map p-barb)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map p-floor)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-nat-any)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map ring-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map p-bonus)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
@@ -205,6 +212,33 @@
           "CURRENT: the armor's own :max-dex-mod is IGNORED — heavy is capped at 0 by :type, so
            16 + 0 = 16. Honouring the field would make this 18; that flip is the visible diff.")
       (is (= 18 heavy) "plain plate: 18 + 0 Dex"))))
+
+(deftest magical-ac-bonus-reaches-the-prop-but-not-an-authored-calculation
+  (testing "the ?magical-ac-bonus scalar lives inside the base, so the prop picks it up and an
+            authored calculation does not — a real gap the shim must not walk into"
+    (let [prop     ((ac-fn-for abilities :fighter :liz- :ring-) nil nil)
+          authored ((ac-fn-for abilities :fighter :p-natany- :ring-) nil nil)]
+      (is (= 16 prop)
+          "the prop reads ?base-armor-class, which includes ?magical-ac-bonus: 13 + Dex(2) + 1")
+      (is (= 15 authored)
+          "CURRENT GAP: an authored calculation is a bare value, so the +1 is lost. Deprecating
+           :lizardfolk-ac in favour of the authored form BEFORE moving ?magical-ac-bonus into
+           ?ac-bonus-fns would silently drop ring/cloak bonuses. Order matters."))))
+
+(deftest natural-armor-applies-while-armored-and-the-authored-form-matches
+  (testing ":lizardfolk-ac keeps applying when armor IS worn, taking the better — and an authored
+            {:ac 13 :abilities [:dex]} with NO :armor? tag reproduces it exactly.
+
+            This is the migration-equivalence check. Tagging natural armor :armor? false would
+            return 0 while armored and regress leather from 15 to 13."
+    (is (= 15 ((ac-fn-for abilities :fighter :liz-) leather nil))
+        "prop, leather: natural 13+Dex(2) beats leather's 13")
+    (is (= 18 ((ac-fn-for abilities :fighter :liz-) plate nil))
+        "prop, plate: plate's 18 beats natural 15")
+    (is (= 15 ((ac-fn-for abilities :fighter :p-natany-) leather nil))
+        "authored form, leather: same 15")
+    (is (= 18 ((ac-fn-for abilities :fighter :p-natany-) plate nil))
+        "authored form, plate: same 18")))
 
 (deftest homebrew-natural-armor-prop-on-a-barbarian
   (testing "the live :lizardfolk-ac prop (13 + Dex) on a Barbarian — the reachable stacking shape"

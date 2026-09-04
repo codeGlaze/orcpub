@@ -67,7 +67,7 @@ per case:
 ```clojure
 {:ac 10 :abilities [:dex :con] :armor? false}                 ; Barbarian unarmored defense
 {:ac 10 :abilities [:dex :wis] :armor? false :shield? false}  ; Monk
-{:ac 13 :abilities [:dex]      :armor? false}                 ; natural armor / Mage Armor
+{:ac 13 :abilities [:dex]}                                    ; natural armor — NO :armor? tag (see below)
 {:ac 17 :abilities []          :armor? false}                 ; Tortle
 {:ac 16 :abilities []}                                        ; Barkskin floor — applies either way
 {:ac-bonus 1 :armor? true}                                    ; Defense fighting style
@@ -119,14 +119,39 @@ adds your Wisdom modifier") is one more property it knows about, or a bonus cond
 equipped armor — not automatic. Armor properties that don't touch AC (mithral suppressing stealth
 disadvantage and Strength requirements) are handled elsewhere.
 
+## What the migration must not drop
+
+Two behaviours of the existing props are easy to lose, both found by testing rather than reading:
+
+- **Natural armor applies while armored.** `:lizardfolk-ac` maxes against the worn value, so a
+  character in leather shows **15** (natural 13+Dex), not leather's 13. Tagging it `:armor? false`
+  would return 0 while armored and regress that to 13. The correct authored form carries **no
+  `:armor?` tag**, and reproduces the prop exactly (15 with leather, 18 with plate — both pinned).
+- **The magical scalar reaches the prop but not an authored calculation.** With a +1 Ring-style
+  `?magical-ac-bonus`, the prop gives **16** and the authored form gives **15**, because the prop
+  reads `?base-armor-class` (which includes the scalar) while an authored calculation is a bare
+  value. Both pinned.
+
+**So the order is fixed:** move the shield and `?magical-ac-bonus` into `?ac-bonus-fns` *before*
+deprecating the props. Doing it the other way round silently drops shields and ring/cloak bonuses
+from every natural-armor character.
+
+### A gap in the tag set
+
+`:armor?` has three states (must not wear / must wear / either) but `:shield?` has only two
+(disqualified with a shield / usable with one). "Only while wielding a shield" is not expressible.
+No current content needs it — the sole writer of `?unarmored-with-shield-ac-bonus` is Barbarian,
+which also writes the no-shield channel — but a homebrew author would reach for it, so `:shield?`
+should be made tri-state to match before the vocabulary is published.
+
 ## Remaining
 
-- **Move the shield's +2 out of the base and into `?ac-bonus-fns`**, so it lands on whichever
-  calculation wins. Without this, authored calculations silently lose the shield (pinned at 15
-  above). This also removes the reason `?unarmored-with-shield-ac-bonus` exists.
+- **FIRST: move the shield's +2 and `?magical-ac-bonus` out of the base and into `?ac-bonus-fns`**,
+  so they land on whichever calculation wins. Until this happens, authored calculations silently
+  lose both (pinned at 15 in each case). This also removes the reason
+  `?unarmored-with-shield-ac-bonus` exists, and it is a prerequisite for the shims below.
+- Make `:shield?` tri-state, matching `:armor?`.
 - Move unarmored defense, Monk, and natural armor onto `ac-formula`; delete the pairwise `if`.
-- Move `?magical-ac-bonus` (currently written in two places inside the base) to a bonus, so it lands
-  on the winner.
 - Effective-cap combination, with a Medium Armor Master + custom-cap test.
 - Shims for `:lizardfolk-ac`, `:tortle-ac`, `?natural-ac-bonus`, `?unarmored-ac-bonus`,
   `?unarmored-with-shield-ac-bonus` (D9 zero-migration; `#_`-strike + date + ledger row per D34).
