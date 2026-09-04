@@ -73,6 +73,15 @@ the eight-class fixture from 638 KB to 424.
   single-casting-class one 51 MB rather than 77, and a character who casts
   nothing no longer scans the pages for spell sections at all.
 
+## Added (cards)
+
+- Spell and magic item card backs carry `dungeonmastersvault.com`, centred at the
+  foot of every card. The backs were chosen over the fronts because they cost no
+  card content: a blank back leaves the bottom tenth clear below the mark, and the
+  fronts are filled to the edge by spell text that would have to give up a line.
+  The text a back carries over from its front is laid out to a box shortened by
+  the strip the stamp sits in, so a card filled to overflow still clears it.
+
 ## Added (capacity)
 
 - `ORCPUB_HTTP_MAX_THREADS`, `ORCPUB_PDF_CONCURRENCY` and

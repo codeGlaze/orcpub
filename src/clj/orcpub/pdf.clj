@@ -2363,6 +2363,42 @@
       (s/replace #"Self.*" "Self")
       (s/replace #"feet" "ft")))
 
+(def site-stamp
+  "The site line printed on card backs."
+  "dungeonmastersvault.com")
+
+(def ^:private site-stamp-size 6)
+
+(def ^:private site-stamp-strip
+  "Inches reserved at the foot of a card for the site line.
+
+   Sized so the last line of overflow text clears the stamp by about an eighth of
+   an inch. draw-lines-to-box takes `(dec (/ (* 72 height) leading))` lines, and
+   `take` given a fraction rounds UP -- a box shortened by 0.22 computed 24.2 and
+   laid down 25 lines, whose descenders sat on the stamp."
+  0.35)
+
+(defn- draw-site-stamp!
+  "Centres the site line just above a card's bottom edge.
+
+   `x` and `y` are the card's top-left in the grid's own terms: x from the page
+   left, y from the page TOP, both in inches. draw-text wants a baseline measured
+   from the page BOTTOM, which is the flip every caller in here does by hand.
+
+   Grey rather than black so it reads as a mark on the card and not as part of the
+   card's text, and it stays grey in B&W mode -- greyscale is what that mode is
+   for."
+  [cs fonts x y box-width box-height]
+  (let [font (:plain fonts)
+        width (string-width site-stamp font site-stamp-size)]
+    (draw-text cs
+               site-stamp
+               font
+               site-stamp-size
+               (+ x (/ (- box-width width) 2))
+               (- 11.0 y (- box-height 0.16))
+               [0.45 0.45 0.45])))
+
 (defn print-backs [cs fonts img box-width box-height remaining-lines-vec page-number logo-img]
   ;; `img` is the memoized per-document image loader; `logo?` opts each card back
   ;; into showing the card logo (matching the fronts) for double-sided printing.
@@ -2400,13 +2436,16 @@
                                (- 11.0 y 0.08)
                                (- box-width 0.3)
                                0.25)
+             ;; The card's own box, less the strip the stamp sits in:
+             ;; draw-lines-to-box fills its height to the last line that fits, so
+             ;; overflow text prints over the stamp unless the room is taken away.
              (draw-lines-to-box cs
                                remaining-lines
                                (:plain fonts)
                                8
                                (+ x 0.12)
                                (- 11.0 y 0.24)
-                               (- box-height 0.2))
+                               (- box-height 0.2 site-stamp-strip))
              (draw-text-to-box cs
                                "(reverse)"
                                (:italic fonts)
@@ -2427,7 +2466,11 @@
                           (+ x (* box-width 0.1))
                           (+ y (* box-height 0.1))
                           (* box-width 0.8)
-                          (* box-height 0.8)))))))))
+                          (* box-height 0.8))))
+         ;; Every back, whichever branch drew it. The blank one leaves the bottom
+         ;; tenth of the card clear below the mark, and the overflow one reserves
+         ;; the same strip above.
+         (draw-site-stamp! cs fonts x y box-width box-height))))))
 
 (defn print-spells [cs document fonts img box-width box-height spells page-number print-spell-card-dc-mod? bw? bw-faded?]
   (let [num-boxes-x (int (/ 8.5 box-width))

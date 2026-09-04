@@ -105,3 +105,80 @@
                 one (render-cards #{:spells})]
       (is (= (image-count one) (image-count both))
           "adding a second kind of card must not add a second copy of the logo"))))
+
+;; ─── The site stamp on card backs ────────────────────────────────────────────
+
+(defn- glyphs
+  "Every glyph on `page-index` as {:ch :x :y}, y measured from the page top."
+  [doc page-index]
+  (let [out (atom [])
+        stripper (proxy [org.apache.pdfbox.text.PDFTextStripper] []
+                   (writeString [text positions]
+                     (doseq [p positions]
+                       (swap! out conj {:ch (.getUnicode p)
+                                        :x (.getXDirAdj p)
+                                        :y (.getYDirAdj p)}))))]
+    (.setStartPage stripper (inc page-index))
+    (.setEndPage stripper (inc page-index))
+    (.getText stripper doc)
+    @out))
+
+(defn- back-page-with-full-overflow
+  "Card pages whose every back takes the overflow branch at full height."
+  []
+  (let [blurb (str/join " " (repeat 400 "The spell surges with overwhelming arcane force."))
+        customs (vec (for [i (range 9)]
+                       {:key (keyword (str "stress-" i))
+                        :name (str "Stress Spell " i)
+                        :level 3 :school "evocation" :description blurb
+                        :casting-time "1 action" :range "60 feet" :duration "1 minute"
+                        :components {:verbal true :somatic true}}))
+        spells-known {:wizard (vec (for [c customs] {:key (:key c) :class "Wizard"}))}
+        out (ByteArrayOutputStream.)]
+    (with-open [doc (PDDocument.)]
+      (let [fonts (pdf/load-fonts doc)
+            img (pdf/make-image-loader doc)]
+        (routes/add-spell-cards! doc fonts img spells-known {"Wizard" 15} {"Wizard" 7}
+                                 customs false card-back-logo false false))
+      (.save doc out))
+    (Loader/loadPDF (.toByteArray out))))
+
+(deftest site-stamp-on-every-card-back
+  (testing "each of the nine card backs carries the site line"
+    (with-open [doc (render-cards #{:spells})]
+      (let [text (str/join (map :ch (glyphs doc 1)))]
+        (is (= 9 (count (re-seq (re-pattern pdf/site-stamp) text)))
+            "one stamp per card on the back page"))))
+  (testing "and the item cards' backs too, which share print-backs"
+    (with-open [doc (render-cards #{:items})]
+      (let [text (str/join (map :ch (glyphs doc 1)))]
+        (is (= 9 (count (re-seq (re-pattern pdf/site-stamp) text))))))))
+
+(deftest overflow-text-clears-the-site-stamp
+  ;; REGRESSION: draw-lines-to-box fills its box to the last line that fits, and
+  ;; `take` given a fractional count rounds UP -- so a strip of 0.22 in computed
+  ;; 24.2 lines, laid down 25, and the descenders sat on the stamp. The reserved
+  ;; strip has to be big enough that the last line clears it at full overflow.
+  (testing "a back filled to overflow does not print over its stamp"
+    (with-open [doc (back-page-with-full-overflow)]
+      (let [all (glyphs doc 1)
+            ;; Group by card. Three columns of 2.5in and three rows of 3.5in at 72
+            ;; units to the inch, offset by the margins print-backs centres the
+            ;; grid with: (8.5 - 7.5)/2 across and (11 - 10.5)/2 down.
+            box-of (fn [{:keys [x y]}]
+                     [(int (/ (- x (* 72 0.5)) (* 72 2.5)))
+                      (int (/ (- y (* 72 0.25)) (* 72 3.5)))])
+            stamp-chars (set pdf/site-stamp)]
+        (doseq [[box gs] (group-by box-of all)
+                ;; The page header sits above the grid and is not a card.
+                :when (<= 0 (second box) 2)]
+          (let [;; The stamp is the lowest run on the card; body text is what sits
+                ;; above it. Split on the stamp's own baseline.
+                bottom (apply max (map :y gs))
+                stamp (filter #(> (:y %) (- bottom 2)) gs)
+                body (remove #(> (:y %) (- bottom 2)) gs)]
+            (is (= pdf/site-stamp (str/join (map :ch (sort-by :x stamp))))
+                (str "box " box " ends with the stamp"))
+            (when (seq body)
+              (is (> (- bottom (apply max (map :y body))) 6.0)
+                  (str "box " box ": body text clears the stamp by at least 6pt")))))))))
