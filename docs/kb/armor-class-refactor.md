@@ -7,23 +7,97 @@ covers the refactor: what has landed, what the design is, and what we got wrong 
 - **IN THE APP** — live code the running application executes.
 - **NOT WIRED** — exists in the repo with passing tests, but nothing in `src/` calls it.
 
-## Ledger
+## Current state — read this first
 
-Newest first. Each entry is one commit; sections below carry the detail. Reversals stay here even
-when the section they came from has been rewritten — the section says what is true now, this says
-what we believed and when.
+**The model:** `AC = max(worn-armor value, every registered formula) + sum(every registered bonus)`.
+Formulas compete, bonuses stack onto the winner. `?ac-fns` holds the formulas, `?ac-bonus-fns` the
+bonuses. Both are upstream (PR #156); this refactor gave them constructors and migrated content onto
+them.
 
-| commit | what changed | reversed anything? |
+**Authoring, one shape for everything** (reaches races, subraces, classes, subclasses, feats,
+ancestries via `:props` → `plugin-modifiers` → `make-feat-modifiers`):
+
+```clojure
+{:ac       {:ac 13 :abilities [:dex] :armor? false :shield? false}}  ; a competing calculation
+{:ac-bonus {:ac-bonus 1 :armor? true}}                               ; a flat bonus on the winner
+{:armor-gives-no-ac true}                                            ; worn armor stops counting
+```
+`:armor?`/`:shield?` are three-state: `false` = only when NOT equipped, `true` = only when equipped,
+absent = either way.
+
+**Verification:** the migration parity sweep (`ac_reconciliation_test`) compares every old mechanism
+against its authored replacement across 7 equipment states. **It is pinned at 0 and must stay there.**
+
+**Overrides:** the mug icon in the character builder waives *selection* rules per selection, never
+computed values — see `homebrew-override.md`. Restrictions built as selection constraints are
+player-overridable for free; ones built as computations are not.
+
+**Known limits:** `:armor-gives-no-ac` is not "you can't wear armor" — see the roadmap.
+`?armor-ac-suppressed?` is debt, not design (below). `:tortle-ac`'s ceiling behaviour is preserved
+but only as an AC consequence.
+
+## The channel trim — before, after, and shims
+
+The AC surface in `template_base.cljc` is **18 attributes**. (An earlier note here said eleven; that
+was an undercount from a partial grep.) Sorted by what they actually are:
+
+| kind | attributes | live writers |
 |---|---|---|
-| `a950898c`+ | traced attribution for the AC model; corrected the claim that the two-group split is what deletes `?armor-ac-suppressed?` | yes — see Attribution |
-| `8ab0a8f6` | renamed `:cant-wear-armor` → `:armor-gives-no-ac`; roadmapped the real restriction | yes — the name claimed a rule it does not implement |
-| `ca0314b9` | split `:tortle-ac` into calculation + AC suppression; fixed the degenerate Bracers test | yes — see Corrections, "a limitation that wasn't" |
-| `77acb74f` | characterized `:tortle-ac` (17/19/17-in-plate) | no. **This commit shipped with no doc entry — the one gap in the trail** |
-| `7df2e618` | `:lizardfolk-ac` compiles to the universal shape; parity sweep 2 → 0 | no |
-| `e1894a46` | shield + character magic moved into `?ac-bonus-fns`; sweep 7 → 2; 4 pins flipped | no |
-| `a09ba395` | documented the three mechanisms for one job | no |
-| `0abc1f53` | pinned the Bracers no-shield clause; named the two kinds of magic | yes — "the with-shield channel is redundant" |
-| `73de3a03` | symmetric `:shield?`/`:armor?` tags | no |
+| **channels** content writes into | `?ac-fns`, `?ac-bonus-fns` | the props compiler + constructors |
+| | `?ac-bonus` | **none — dead** |
+| | `?armored-ac-bonus` | 1 · Defense fighting style |
+| | `?unarmored-ac-bonus` | 3 · Barbarian, Monk, Bracers of Defense |
+| | `?unarmored-with-shield-ac-bonus` | 1 · Barbarian |
+| | `?natural-ac-bonus` | 2 · Draconic Sorcerer, `:lizardfolk-ac` |
+| | `?magical-ac-bonus` | magic items, via `mod5e` |
+| **parameters** (inputs, not channels) | `?armor-dex-bonus`, `?shield-ac-bonus`, `?max-medium-armor-bonus` | MAM writes the last |
+| **flag** | `?armor-ac-suppressed?` | `armor-gives-no-ac` |
+| **derived** | `?base-armor-class`, `?unarmored-armor-class`, `?unarmored-with-shield-armor-class`, `?armor-class-with-armor-base`, `?armor-class-with-armor`, `?armor-class` | — |
+
+**After: 18 → 7.** Two channels, three parameters (they are inputs and stay), and two outputs
+(`?armor-class-with-armor`, `?armor-class`). The five legacy channels, the dead one, the flag, and
+the three intermediate derived values all go.
+
+### The shim pattern, already proven
+
+Shims do not rewrite content. The legacy attribute stays declared, and the new engine **reads it
+through a seeded entry**, so anything still writing to it keeps working. This already shipped for
+two of them:
+
+```clojure
+?ac-bonus-fns [(fn [_ shield] (if shield (?shield-ac-bonus shield) 0))   ; shield, was in the base
+               (fn [_ _] ?magical-ac-bonus)]                             ; character magic, was in the base
+```
+
+Applied to the rest:
+
+| channel | shim | then |
+|---|---|---|
+| `?ac-bonus` | none needed — **delete outright**, no writers, never released with any | — |
+| `?armored-ac-bonus` | seed `?ac-bonus-fns` with `(fn [armor _] (if armor ?armored-ac-bonus 0))` | Defense style → `{:ac-bonus 1 :armor? true}` |
+| `?natural-ac-bonus` | seed `?ac-fns` with a `10 + Dex + N` formula when N > 0 | Draconic → `ac-formula`; the pairwise tie-break dies with it, `max` does that job |
+| `?unarmored-ac-bonus` | **not a mechanical rename — see hazard below** | Barbarian/Monk → `ac-formula`; Bracers → `{:ac-bonus 2 :armor? false :shield? false}` |
+| `?unarmored-with-shield-ac-bonus` | subsumed once `:shield?` tags carry the meaning | Barbarian writes one formula, not two scalars |
+| `?armor-ac-suppressed?` | none — deleted when worn armor becomes an ordinary `?ac-fns` entry, since "no AC from armor" is then *register no armor formula* | — |
+
+Each strike gets `#_` + date + a ledger row (D34); each lands only with the sweep still at 0.
+
+### Hazard to characterize BEFORE trimming `?unarmored-ac-bonus`
+
+That one scalar carries **two different meanings**. Barbarian and Monk write an *ability modifier*
+that participates in the base as a competing calculation (`10 + Dex + Con`), subject to the
+tie-break against `?natural-ac-bonus`. Bracers of Defense writes a *flat +2* that ought to be a
+bonus stacking on whatever wins.
+
+**CONFIRMED, and it is a live bug.** Measured: a natural-armor(3) character is AC 15 unarmored, and
+**still 15 with Bracers of Defense equipped — delta 0.** Natural(3) beats unarmored(2) in the
+tie-break, which zeroes the whole unarmored channel and takes the bracers with it. RAW is 17:
+natural armor gives 15 and a flat +2 stacks on it. Pinned in
+`bracers-plus-natural-armor-the-overloaded-channel`.
+
+It flips to 17 when Bracers becomes `{:ac-bonus 2 :armor? false :shield? false}` and lands in
+`?ac-bonus-fns`. This is why the trim cannot be a rename — and it is the first real defect the
+channel audit has turned up rather than a latent hazard.
 
 ## The approach, and why it changed
 
@@ -474,6 +548,31 @@ That is the D30 shape — a thin compiler over a real engine — not a parallel 
 Size check, so the target is not overstated: `template_base.cljc` is 339 lines and AC is ~60 of
 them. The extraction is worth doing for structure, not line count. The actual monolith on this
 branch is `options.cljc` at 3938 lines.
+
+---
+
+# History
+
+Everything below is the audit trail: what was believed and
+when, and what reversed it. Current truth is at the top of this file.
+
+## Ledger
+
+Newest first. Each entry is one commit; sections below carry the detail. Reversals stay here even
+when the section they came from has been rewritten — the section says what is true now, this says
+what we believed and when.
+
+| commit | what changed | reversed anything? |
+|---|---|---|
+| `a950898c`+ | traced attribution for the AC model; corrected the claim that the two-group split is what deletes `?armor-ac-suppressed?` | yes — see Attribution |
+| `8ab0a8f6` | renamed `:cant-wear-armor` → `:armor-gives-no-ac`; roadmapped the real restriction | yes — the name claimed a rule it does not implement |
+| `ca0314b9` | split `:tortle-ac` into calculation + AC suppression; fixed the degenerate Bracers test | yes — see Corrections, "a limitation that wasn't" |
+| `77acb74f` | characterized `:tortle-ac` (17/19/17-in-plate) | no. **This commit shipped with no doc entry — the one gap in the trail** |
+| `7df2e618` | `:lizardfolk-ac` compiles to the universal shape; parity sweep 2 → 0 | no |
+| `e1894a46` | shield + character magic moved into `?ac-bonus-fns`; sweep 7 → 2; 4 pins flipped | no |
+| `a09ba395` | documented the three mechanisms for one job | no |
+| `0abc1f53` | pinned the Bracers no-shield clause; named the two kinds of magic | yes — "the with-shield channel is redundant" |
+| `73de3a03` | symmetric `:shield?`/`:armor?` tags | no |
 
 ## Corrections
 

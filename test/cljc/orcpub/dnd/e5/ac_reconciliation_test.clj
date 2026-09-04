@@ -461,6 +461,25 @@
                ((ac-fn-for abilities :fighter :p-flat17- :p-noarm-) armor shld))
             (str "composed vs welded / " ctx))))))
 
+(deftest bracers-plus-natural-armor-the-overloaded-channel
+  (testing "CHARACTERIZATION. ?unarmored-ac-bonus carries two different meanings: Barbarian and
+            Monk write an ABILITY MODIFIER that competes as a calculation (subject to the tie-break
+            against ?natural-ac-bonus), while Bracers of Defense writes a FLAT +2 that ought to be
+            a bonus stacking on whatever wins. Both land in the same scalar and go through the same
+            tie-break, so pinning what that actually does to a natural-armor character carrying
+            bracers — before the channel is trimmed."
+    (let [with-    ((ac-fn-for abilities :fighter :nat-armor- :bracers-) nil nil)
+          without- ((ac-fn-for abilities :fighter :nat-armor-) nil nil)]
+      (println (format "\n[OVERLOAD] natural armor 3, unarmored: %d without bracers, %d with (delta %d)"
+                       without- with- (- with- without-)))
+      (is (= 15 without-) "natural armor: 10 + Dex(2) + 3")
+      (is (= 15 with-)
+          "PINNED BUG: the bracers' +2 is DROPPED. natural(3) beats unarmored(2) in the tie-break,
+           which zeroes the whole unarmored channel — bracers included. RAW is 17: natural armor
+           gives 15 and a flat +2 bonus stacks on it. Fixing this is the point of splitting the
+           overloaded channel; the number flips to 17 when Bracers becomes
+           {:ac-bonus 2 :armor? false :shield? false} and lands in ?ac-bonus-fns."))))
+
 (deftest migration-parity-sweep
   (testing "every old mechanism vs its authored replacement, across every equipment state"
     (let [divergences (sweep-divergences)]

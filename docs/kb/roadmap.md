@@ -208,9 +208,10 @@ template_base.cljc:49) while getting none of its AC.
 Needed:
 
 - an authorable restriction distinct from the AC suppression, selectable when building a species
-- a decision on how it manifests when armor *is* equipped — **prevent** it, **warn** and keep
-  computing, or **ignore** it as today. The DM-override case argues against hard prevention: a DM
-  and player should be able to build an armor-wearing tortle deliberately.
+- build it as an **equipment-selection constraint, not a computed AC rule**. The mug icon
+  (`homebrew-override.md`) waives selection rules per selection but never touches computed values,
+  so a selection constraint is player-overridable for free — which is exactly the DM-override case.
+  `:armor-gives-no-ac` is a computation and therefore cannot be overridden from the builder at all.
 - whichever is chosen, the other armor-derived effects must agree with it rather than splitting
   the way they do now
 
