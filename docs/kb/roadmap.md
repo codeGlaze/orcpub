@@ -218,7 +218,7 @@ Needed:
 `:tortle-ac` becomes that restriction plus the flat calculation once it exists; until then it is
 the flat calculation plus `:armor-gives-no-ac`, which reproduces the shipped AC exactly.
 
-### 🟡 MEDIUM — extract `orcpub.dnd.e5.armor-class` and wire it
+### ✅ DONE — extract `orcpub.dnd.e5.armor-class` and wire it
 
 Revises the earlier decision to DELETE that namespace under D34. That call assumed AC stays in
 `template_base`; breaking up monoliths says otherwise, and AC is the best-understood candidate now

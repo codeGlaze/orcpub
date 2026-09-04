@@ -36,51 +36,74 @@ player-overridable for free; ones built as computations are not.
 `?armor-ac-suppressed?` is debt, not design (below). `:tortle-ac`'s ceiling behaviour is preserved
 but only as an AC consequence.
 
-## The channel trim — before, after, and shims
+## The channel trim — DONE. 18 attributes → 10
 
-The AC surface in `template_base.cljc` is **18 attributes**. (An earlier note here said eleven; that
-was an undercount from a partial grep.) Sorted by what they actually are:
+The AC surface in `template_base.cljc` was 18 `?`-attributes. It is now **10**, and the arithmetic
+has moved out to `orcpub.dnd.e5.armor-class`.
 
-| kind | attributes | live writers |
+**What is left, and why each one earns its place:**
+
+| kept | why |
+|---|---|
+| `?ac-fns`, `?ac-bonus-fns` | the two channels the design is built on |
+| `?armor-dex-bonus`, `?shield-ac-bonus`, `?max-medium-armor-bonus` | parameters, not channels — inputs the engine reads |
+| `?armor-class-with-armor`, `?armor-class` | the outputs; `?armor-class` is the bare unarmored display value read by the sheet and the PDF |
+| `?armor-class-with-armor-base` | the worn-armor value, split out so `?armor-ac-suppressed?` can drop it |
+| `?armor-ac-suppressed?` | the `:armor-gives-no-ac` flag |
+| `?natural-ac-bonus` | **deprecated shim**, see below |
+
+**Retired:** `?ac-bonus` (zero writers, ever) · `?unarmored-ac-bonus` ·
+`?unarmored-with-shield-ac-bonus` · `?armored-ac-bonus` · `?magical-ac-bonus` ·
+`?unarmored-defense` · `?base-armor-class` · `?unarmored-armor-class` ·
+`?unarmored-with-shield-armor-class` — plus the symmetric natural-vs-unarmored tie-break, both
+halves.
+
+**A claim in this doc that was wrong:** that the target shape would delete `?armor-ac-suppressed?`.
+It does not. Making worn armor an ordinary calculation still leaves the question of how to *not*
+register it for a given character, and a flag is how the entity spec answers that. The flag stays;
+the earlier note said otherwise.
+
+**Target was 7, delivered 10.** The three over: the deprecated shim (deliberate), the flag (above),
+and `?armor-class-with-armor-base` (the seam the flag acts on).
+
+### How the built-ins moved
+
+| feature | was | now |
 |---|---|---|
-| **channels** content writes into | `?ac-fns`, `?ac-bonus-fns` | the props compiler + constructors |
-| | `?ac-bonus` | **none — dead** |
-| | `?armored-ac-bonus` | 1 · Defense fighting style |
-| | `?unarmored-ac-bonus` | 2 · Barbarian, Monk (Bracers moved off it — see below) |
-| | `?unarmored-with-shield-ac-bonus` | 1 · Barbarian |
-| | `?natural-ac-bonus` | 2 · Draconic Sorcerer, `:lizardfolk-ac` |
-| | `?magical-ac-bonus` | magic items, via `mod5e` |
-| **parameters** (inputs, not channels) | `?armor-dex-bonus`, `?shield-ac-bonus`, `?max-medium-armor-bonus` | MAM writes the last |
-| **flag** | `?armor-ac-suppressed?` | `armor-gives-no-ac` |
-| **derived** | `?base-armor-class`, `?unarmored-armor-class`, `?unarmored-with-shield-armor-class`, `?armor-class-with-armor-base`, `?armor-class-with-armor`, `?armor-class` | — |
+| Barbarian | a `?unarmored-defense` tag + **two** gated cum-sum scalars | one `ac-formula`: `(if armor 0 (+ 10 dex con))` |
+| Monk | the tag + one gated scalar, "no shield" implied by not writing the with-shield channel | one `ac-formula` stating `(or armor shield)` outright |
+| Draconic Bloodline | `(mod/modifier ?natural-ac-bonus 3)` | one `ac-formula`: `(if armor 0 (+ 13 dex))` |
+| Defense fighting style | owned `?armored-ac-bonus` | a predicated `?ac-bonus-fns` entry |
+| Bracers of Defense | wrote the unarmored channel, "no shield" by omission | a predicated `?ac-bonus-fns` entry |
+| Ring/Cloak of Protection | `?magical-ac-bonus` scalar inside the base | a `?ac-bonus-fns` entry |
 
-**After: 18 → 7.** Two channels, three parameters (they are inputs and stay), and two outputs
-(`?armor-class-with-armor`, `?armor-class`). The five legacy channels, the dead one, the flag, and
-the three intermediate derived values all go.
+The `?unarmored-defense` tag existed **only** to arbitrate between Barbarian and Monk on a
+multiclass. `?ac-fns` already takes the best calculation by `max`, so there was nothing left to
+arbitrate — and a monk/barbarian now gets the *better* of the two rather than whichever the vector
+happened to list first.
 
-### The shim pattern, already proven
+### The one shim: `?natural-ac-bonus`
 
-Shims do not rewrite content. The legacy attribute stays declared, and the new engine **reads it
-through a seeded entry**, so anything still writing to it keeps working. This already shipped for
-two of them:
+Kept declared and adapted into `?ac-fns` by a seeded entry. Nothing in this repo writes it any
+more. It stays because `bracers_ac_test` on `integration` writes it, and that branch has no
+`ac-formula` to write instead — deleting it here would break that test on every merge. The shim
+costs one formula (D9).
 
-```clojure
-?ac-bonus-fns [(fn [_ shield] (if shield (?shield-ac-bonus shield) 0))   ; shield, was in the base
-               (fn [_ _] ?magical-ac-bonus)]                             ; character magic, was in the base
-```
+## LANDED: the AC engine moved to `orcpub.dnd.e5.armor-class`
 
-Applied to the rest:
+Reverses the earlier D34 call to delete that namespace. `?`-attributes are entity-spec macros valid
+only inside `es/make-entity`, so the **declarations** stay in `template_base`; the **arithmetic**
+moved. `template_base`'s AC block is now 38 lines of delegation.
 
-| channel | shim | then |
-|---|---|---|
-| `?ac-bonus` | none needed — **delete outright**, no writers, never released with any | — |
-| `?armored-ac-bonus` | seed `?ac-bonus-fns` with `(fn [armor _] (if armor ?armored-ac-bonus 0))` | Defense style → `{:ac-bonus 1 :armor? true}` |
-| `?natural-ac-bonus` | seed `?ac-fns` with a `10 + Dex + N` formula when N > 0 | Draconic → `ac-formula`; the pairwise tie-break dies with it, `max` does that job |
-| `?unarmored-ac-bonus` | **DONE for Bracers** (regression fix, below); remaining writers are calculations | Barbarian/Monk → `ac-formula` |
-| `?unarmored-with-shield-ac-bonus` | subsumed once `:shield?` tags carry the meaning | Barbarian writes one formula, not two scalars |
-| `?armor-ac-suppressed?` | none — deleted when worn armor becomes an ordinary `?ac-fns` entry, since "no AC from armor" is then *register no armor formula* | — |
+The namespace holds `dex-cap`, `armor-dex-bonus`, `shield-bonus`, `worn-armor-ac` and `reconcile` —
+all plain functions, which is the real payoff: `armor_class_test` checks the engine directly with
+no entity and no character template (25 assertions), leaving `ac_reconciliation_test` to prove the
+same rules survive content and the entity spec.
 
-Each strike gets `#_` + date + a ledger row (D34); each lands only with the sweep still at 0.
+`best-ac` is still in the file and still **NOT WIRED**. It needs the two-group
+(item-dependent/item-independent) config that the wired engine deliberately does not use — that
+split buys real work-saving on stacked characters but carries a footgun `ac_experiments_test`
+demonstrates. Open question, not a decision.
 
 ### The Bracers fix is portable to `integration` on its own
 
@@ -513,41 +536,17 @@ should be made tri-state to match before the vocabulary is published.
 
 ## Remaining
 
-Reconciled against what has actually shipped. (An earlier version of this list still carried three
-items that had already landed — the "LANDED" sections were appended without pruning here.)
+All four planned items have landed: effective Dex cap · built-ins onto `ac-formula` · the channel
+trim · the namespace extraction. What is left is not AC-engine work:
 
-**Done:** shield + character magic into `?ac-bonus-fns` · tri-state `:shield?`/`:armor?` ·
-`:lizardfolk-ac` and `:tortle-ac` on the universal shape · parity sweep at 0 · effective Dex cap.
-
-### LANDED: the effective Dex cap
-
-`?armor-dex-bonus` capped Dex purely by `:type` and ignored the armor's own `:max-dex-mod` — a
-field the character sheet *displays* ("Max DEX AC Bonus", `views.cljs:3116`) but the engine never
-read. The effective cap is now the **more permissive** of the two:
-
-| source | light | medium | heavy |
-|---|---|---|---|
-| type | none | `?max-medium-armor-bonus` | 0 |
-| item | `:max-dex-mod` when present | | |
-
-Taking the max is the whole point. Every shipped medium armor prints `:max-dex-mod 2` and every
-heavy prints `0`, so reading the item's field *alone* would cap scale mail at 2 and silently
-disable Medium Armor Master, which raises the medium cap to 3. Taking the max keeps the feat
-working and lets a custom item be more generous than its type — heavy that still allows a Dex
-bonus is now expressible, and `custom-heavy` flips from 16 to 18.
-
-No shipped number changes: only medium (6 items) and heavy (4) declare the field, and each declares
-exactly its type default.
-
-**Open, in order:**
-
-2. **Built-ins onto `ac-formula`.** Barbarian, Monk, Draconic natural armor. Deletes the pairwise
-   `if` in `?base-armor-class` and the tie-break in `?unarmored-armor-class`.
-3. **Retire the scalar channels** — `?natural-ac-bonus`, `?unarmored-ac-bonus`,
-   `?unarmored-with-shield-ac-bonus` (D9 zero-migration; `#_`-strike + date + ledger row per D34).
-   Note Bracers of Defense enforces its "no shield" clause by *not writing* the with-shield
-   channel, so this cannot be a mechanical rename.
-4. **Extract the AC namespace** — see below.
+- **The pre-existing red test.** `audit-specs-match-the-registry` — `homebrew-fighting-style` is in
+  `content-specs/save-specs` with no `content-types` entry. Predates this work; it is the
+  fighting-style registry entry, tracked in the roadmap.
+- **`best-ac` is still unwired**, and whether to adopt its bucketing is an open question, not a
+  decision. See the namespace section above.
+- **Backlog carried in the roadmap:** a real "can't wear armor" restriction as a selection
+  constraint · per-item mug override · the rules-override layer · moving `map-plugin-classes` to
+  CLJC.
 
 ### Channel count is going the wrong way
 
@@ -631,6 +630,7 @@ what we believed and when.
 
 | commit | what changed | reversed anything? |
 |---|---|---|
+| (this batch) | effective Dex cap; built-ins onto `ac-formula`; channel trim 18 → 10; AC engine extracted to its own namespace | yes — the D34 "delete `armor-class`" call, and the claim that the target shape deletes `?armor-ac-suppressed?` |
 | `a950898c`+ | traced attribution for the AC model; corrected the claim that the two-group split is what deletes `?armor-ac-suppressed?` | yes — see Attribution |
 | `8ab0a8f6` | renamed `:cant-wear-armor` → `:armor-gives-no-ac`; roadmapped the real restriction | yes — the name claimed a rule it does not implement |
 | `ca0314b9` | split `:tortle-ac` into calculation + AC suppression; fixed the degenerate Bracers test | yes — see Corrections, "a limitation that wasn't" |
@@ -653,6 +653,11 @@ what we believed and when.
 - **A design claim that was wrong:** an earlier version of this doc said "the shield's own +2 needs
   no tag — it is a bonus." It is not a bonus in the current engine; it is computed inside the base,
   so a winning calculation loses it. Caught by the step-3 tests rather than by reading.
+- **A prediction that was wrong:** this doc said the target shape would delete
+  `?armor-ac-suppressed?` — "worn armor gives no AC is just omitting the armor formula, no flag
+  needed". Making worn armor an ordinary calculation does not answer *how* it is left unregistered
+  for one character; the entity spec's defaults are static, so a flag is still how that is
+  expressed. The flag stays.
 - **A correction that was itself wrong:** the Bracers/natural-armor defect was reported as shipped,
   then retracted as a regression this branch introduced, then confirmed shipped after all. The
   retraction compared against `agents/develop`, assumed to be the integration branch on the strength
