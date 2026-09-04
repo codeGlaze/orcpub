@@ -31,5 +31,9 @@ re-frame events. Routing via the app's own router is fine for navigation.
 - `notification_flows_e2e.js` — message toasts render red/orange/green via `views.notifications`.
 - `notifications_acceptance_e2e.js` — toasts, confirmation dialog, callout, shared-content-banner.
 - `starting_equipment_browser_e2e.js` — the starting-equipment builder round-trip.
+- `kahn_sort_order_equivalence_e2e.js` — pins `entity/kahn-sort`'s node ORDER against the
+  pre-rewrite implementation *in the cljs runtime*. `lein test` cannot cover this: cljs sets
+  of <= 8 elements iterate in insertion order, the JVM's never do, and that order picks the
+  next node. Re-run it whenever `kahn-sort` changes — see `docs/kb/perf-entity-build.md`.
 
 Some of these still boot a static server (an older pattern being migrated to `lein e2e-server`).
