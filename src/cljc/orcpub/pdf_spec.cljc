@@ -413,6 +413,63 @@
       :spells-known filtered-spells-known}
      flat-spells)))
 
+(defn packing-classes
+  "The per-class lists spell-packing/packed-fields takes.
+
+   `spells-known` is keyed by LEVEL, each value spell-key -> config carrying the
+   :class that granted it, so this regroups it the other way up. That regrouping
+   is the point: the shipped layout groups by :ability instead, which puts a
+   Warlock and a Sorcerer in one section under one slot row.
+
+   Slots follow 5e rather than the grouping. Every non-pact caster draws on the
+   SHARED table -- a multiclass has one pool from combined caster levels, not one
+   each -- and a pact caster gets its own, which is what :pact? marks.
+
+   A pact caster's whole list is reported at the single level it casts at, its
+   highest pact slot, because that is how a Warlock casts: not a list per level."
+  [spells-known spells-map shared-slots pact-slots save-dc-fn attack-mod-fn]
+  (let [by-class (reduce-kv
+                  (fn [acc level cfgs]
+                    (reduce (fn [a cfg]
+                              (update-in a [(:class cfg) level] (fnil conj []) cfg))
+                            acc
+                            (vals cfgs)))
+                  {}
+                  spells-known)
+        pact-level (when (seq pact-slots) (apply max (keys pact-slots)))]
+    (vec
+     (for [[class levels] (sort-by key by-class)
+           :let [pact? (and pact-level
+                            (some #(= :warlock (common/name-to-kw (str (:class %))))
+                                  (mapcat val levels)))
+                 ability (:ability (first (mapcat val levels)))
+                 named (fn [cfgs]
+                         (mapv (fn [cfg]
+                                 (let [d (get spells-map (:key cfg))]
+                                   (or (:name d)
+                                       (when (:key cfg) (name (:key cfg)))
+                                       "(Unknown Spell)")))
+                               cfgs))
+                 ;; A Warlock's spells all sit at its pact level; everyone else's
+                 ;; stay at the level they were learned.
+                 levels (if pact?
+                          (let [cantrips (get levels 0)
+                                at-pact (mapcat val (dissoc levels 0))]
+                            (cond-> {}
+                              (seq cantrips) (assoc 0 (named cantrips))
+                              (seq at-pact) (assoc pact-level (named at-pact))))
+                          (into {} (map (fn [[lvl cfgs]] [lvl (named cfgs)])) levels))]]
+       (cond-> {:class class
+                :levels levels
+                :slots (if pact? pact-slots shared-slots)
+                ;; The ABBREVIATION -- "CHA" -- because this heads a column in a
+                ;; bar, not the section box that reads SPELLCASTING ABILITY and
+                ;; wants the full word.
+                :ability (when ability (:abbr (opt5e/abilities-map ability)))}
+         pact? (assoc :pact? true)
+         ability (assoc :dc (save-dc-fn ability)
+                        :attack (common/bonus-str (attack-mod-fn ability))))))))
+
 (defn spell-page-fields [spells
                          spell-slots
                          save-dc-fn
@@ -480,7 +537,42 @@
              spells)]))
        spell-pages)))))
 
-(defn spellcasting-fields [built-char print-prepared-spells? spells-map plugin-spells-map style]
+(defn default-spell-layout
+  "Which layout suits this character, before any override.
+
+   Packed when there is more than one casting class AND the style's numerals can
+   be relabelled. A single caster already reads down its own page and gains
+   nothing from packing, so the tighter layout is not forced on the common case.
+
+   A style whose numerals have not been measured is not offered it at all: a
+   packed page there prints the old level number beside the new."
+  [classes style]
+  (if (and (> (count classes) 1) (packing/packing-supported? style))
+    :packed
+    :per-class))
+
+(defn packed-spellcasting-fields
+  "The field map, relabel list and column headings for a packed layout."
+  [classes style]
+  (let [{:keys [fields relabels headings]} (packing/packed-fields style classes)]
+    (assoc fields
+           :spell-relabels relabels
+           :spell-headings headings)))
+
+(defn spellcasting-fields
+  "The spell page fields, in whichever layout `spell-layout` asks for.
+
+   :per-class is what ships -- a section per casting ability, which is why a
+   Warlock and a Sorcerer share one today. :packed gives each class its own run of
+   boxes in one column, which is what lets a pact caster carry its own slots.
+
+   nil asks for the default, computed from the build rather than from a
+   preference: packed only when there is more than one casting class and the style
+   can be relabelled."
+  ([built-char print-prepared-spells? spells-map plugin-spells-map style]
+   (spellcasting-fields built-char print-prepared-spells? spells-map plugin-spells-map
+                        style nil))
+  ([built-char print-prepared-spells? spells-map plugin-spells-map style spell-layout]
   (let [spell-attack-modifier-fn (char5e/spell-attack-modifier-fn built-char)
         spell-save-dc-fn (char5e/spell-save-dc-fn built-char)
         spell-slots (char5e/spell-slots built-char)
@@ -489,18 +581,26 @@
         sorted-spells-known (into {}
                                   (map (fn [[id datum]]
                                          [id (into (sorted-map) datum)]))
-                                  (char5e/spells-known built-char))]
-
-    (spell-page-fields sorted-spells-known
-                       spell-slots
-                       spell-save-dc-fn
-                       spell-attack-modifier-fn
-                       print-prepared-spells?
-                       prepares-spells
-                       prepared-spells-by-class
-                       spells-map
-                       plugin-spells-map
-                       style)))
+                                  (char5e/spells-known built-char))
+        classes (packing-classes sorted-spells-known
+                                 spells-map
+                                 (or (char5e/shared-spell-slots built-char) {})
+                                 (or (char5e/pact-spell-slots built-char) {})
+                                 spell-save-dc-fn
+                                 spell-attack-modifier-fn)
+        layout (or spell-layout (default-spell-layout classes style))]
+    (if (and (= :packed layout) (packing/packing-supported? style) (seq classes))
+      (packed-spellcasting-fields classes style)
+      (spell-page-fields sorted-spells-known
+                         spell-slots
+                         spell-save-dc-fn
+                         spell-attack-modifier-fn
+                         print-prepared-spells?
+                         prepares-spells
+                         prepared-spells-by-class
+                         spells-map
+                         plugin-spells-map
+                         style)))))
 
 (defn profs-paragraph [profs prof-map title]
   (when (seq profs)
@@ -631,7 +731,8 @@
            card-back-logo-faded?
            print-bw?
            bw-faded?
-           print-magic-item-cards?] :as options}
+           print-magic-item-cards?
+           spell-layout] :as options}
    {:keys [spells-map plugin-spells-map language-map
            all-weapons-map all-magic-items-map current-armor-class]}]
   (let [race (char5e/race built-char)
@@ -729,4 +830,4 @@
      (traits-fields built-char)
      (equipment-fields built-char all-magic-items-map)
      (spellcasting-fields built-char print-prepared-spells? spells-map plugin-spells-map
-                          print-character-sheet-style?))))
+                          print-character-sheet-style? spell-layout))))

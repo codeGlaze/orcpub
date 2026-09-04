@@ -316,3 +316,60 @@
     (testing "each sits on the lowest box its class holds"
       (is (= 0 (:box (get by-class "Warlock"))))
       (is (= 3 (:box (get by-class "Paladin")))))))
+
+;; ─── The builder's side: turning spells-known into per-class lists ───────────
+
+(def ^:private cha :orcpub.dnd.e5.character/cha)
+
+(def ^:private warlock-sorcerer-known
+  "spells-known as the builder holds it: keyed by LEVEL, each value spell-key ->
+   config carrying the class that granted it."
+  {0 {:eldritch-blast {:key :eldritch-blast :ability cha :class "Warlock"}
+      :fire-bolt      {:key :fire-bolt :ability cha :class "Sorcerer"}}
+   1 {:hex    {:key :hex :ability cha :class "Warlock"}
+      :shield {:key :shield :ability cha :class "Sorcerer"}}
+   2 {:invisibility {:key :invisibility :ability cha :class "Warlock"}
+      :blur         {:key :blur :ability cha :class "Sorcerer"}}})
+
+(deftest spells-are-regrouped-by-class-not-by-ability
+  ;; The shipped layout groups by :ability, which is why a Warlock and a Sorcerer
+  ;; share one CHA section under one slot row.
+  (let [classes (spec/packing-classes warlock-sorcerer-known {} {1 4 2 3} {3 2}
+                                      (constantly 15) (constantly 7))
+        by-class (into {} (map (juxt :class identity)) classes)]
+    (is (= #{"Warlock" "Sorcerer"} (set (keys by-class))))
+    (testing "a pact caster is flagged and carries the PACT slots"
+      (is (:pact? (get by-class "Warlock")))
+      (is (= {3 2} (:slots (get by-class "Warlock")))))
+    (testing "everyone else draws on the shared table"
+      (is (not (:pact? (get by-class "Sorcerer"))))
+      (is (= {1 4 2 3} (:slots (get by-class "Sorcerer")))))
+    (testing "the ability is the abbreviation, since it heads a column"
+      (is (= "CHA" (:ability (get by-class "Warlock")))))))
+
+(deftest a-pact-caster-reports-one-level-because-that-is-how-it-casts
+  ;; A Warlock casts every spell at its highest pact slot, so its list is reported
+  ;; at that one level rather than spread across the levels the spells were
+  ;; learned at -- which is what lets it hold a single box however high it climbs.
+  (let [classes (spec/packing-classes warlock-sorcerer-known {} {1 4 2 3} {3 2}
+                                      (constantly 15) (constantly 7))
+        warlock (first (filter :pact? classes))
+        sorcerer (first (remove :pact? classes))]
+    (is (= #{0 3} (set (keys (:levels warlock))))
+        "cantrips, and everything else at the pact level")
+    (is (= 2 (count (get-in warlock [:levels 3])))
+        "the 1st and 2nd level spells both sit there")
+    (is (= #{0 1 2} (set (keys (:levels sorcerer))))
+        "an ordinary caster keeps the levels it learned at")))
+
+(deftest the-default-layout-follows-the-build
+  (let [classes (spec/packing-classes warlock-sorcerer-known {} {1 4} {3 2}
+                                      (constantly 15) (constantly 7))]
+    (testing "more than one casting class, on a style that can be relabelled"
+      (is (= :packed (spec/default-spell-layout classes 1))))
+    (testing "a single caster already reads down its own page"
+      (is (= :per-class (spec/default-spell-layout [(first classes)] 1))))
+    (testing "and a style whose numerals are unmeasured is never offered it"
+      (doseq [style [2 3 4]]
+        (is (= :per-class (spec/default-spell-layout classes style))
+            (str "style " style))))))

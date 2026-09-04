@@ -2851,9 +2851,7 @@
             ;; The class name and, beside it, the numbers the section's own
             ;; ability/DC/attack boxes cannot carry once a page holds more than
             ;; one class. Centred together so the pair reads as one heading.
-            (let [stats (->> [(when ability
-                                (s/upper-case (subs (str ability) 0
-                                                    (min 3 (count (str ability))))))
+            (let [stats (->> [(when ability (s/upper-case (str ability)))
                               (when dc (str "DC " dc))
                               (when attack (str attack))]
                              (remove nil?)

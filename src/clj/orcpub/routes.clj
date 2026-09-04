@@ -749,7 +749,7 @@
     :print-character-sheet? :print-spell-cards? :print-character-sheet-style?
     :print-spell-card-dc-mod? :print-card-back-logo? :card-back-logo-faded?
     :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
-    :print-spell-annotations? :spell-relabels
+    :print-spell-annotations? :spell-relabels :spell-headings :spell-layout
     :magic-items-known :print-magic-item-cards?
     :flatten?})
 
@@ -921,7 +921,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten?]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -998,7 +998,8 @@
           ;; this document actually grew, since it arrives from the client.
           (when (seq spell-relabels)
             (let [[applied refused]
-                  (pdf/apply-relabel-instructions! doc spell-relabels casters)]
+                  (pdf/apply-relabel-instructions! doc spell-relabels casters
+                                                   print-character-sheet-style?)]
               (when (pos? refused)
                 (println (format "pdf: refused %d of %d relabel instruction(s)"
                                  refused (+ applied refused))))))
@@ -1006,7 +1007,15 @@
             (pdf/reserve-annotation-columns! doc))
           (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes)
           (when print-spell-annotations?
-            (pdf/annotate-spell-rows! doc spell-annotation))))
+            (pdf/annotate-spell-rows! doc spell-annotation))
+          ;; After the values, so a heading is drawn over a finished bar. Names
+          ;; each packed column with the class holding it; caller-supplied, so the
+          ;; box and section are checked the way the relabels are.
+          (doseq [{:keys [box section class] :as heading} spell-headings
+                  :when (and (integer? box) (<= 0 box 9)
+                             (integer? section) (<= 1 section casters)
+                             (string? class) (<= 1 (count class) 60))]
+            (pdf/draw-column-heading! doc box section class heading))))
       ;; After the pages exist, so clones are stamped too, and before the card
       ;; pages are appended -- those carry the line on their backs already.
       (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))

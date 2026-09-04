@@ -183,6 +183,28 @@ the eight-class fixture from 638 KB to 424.
   new: "3 0", "4 1", "7 2". `:packing?` in `sheet-masters` marks the one style
   whose numerals have been measured.
 
+## Added (packing, builder half)
+
+- `pdf_spec/packing-classes` regroups `spells-known` — which is keyed by LEVEL —
+  into the per-class lists the packer takes. That regrouping is the point: the
+  shipped layout groups by `:ability`, which is why a Warlock and a Sorcerer share
+  one CHA section.
+- **Pact Magic is separated in the character model.** `?spell-slots` was
+  `(merge-with + <shared table> <pact schedule>)`, so a Warlock/Sorcerer's pact
+  slots were ADDED to the shared ones and printed as one inflated number — on the
+  normal sheet, today, not only when packed. `?shared-spell-slots` and
+  `?pact-spell-slots` are kept apart now, with `spell-slots` still their sum for
+  everything that reads it. 5e gives a multiclass one shared table from combined
+  caster levels, so shared is right for everyone except a pact caster.
+- A pact caster's whole list is reported at its highest pact slot level, because
+  that is how a Warlock casts — which is what lets it hold one box however high it
+  climbs.
+- `:spell-layout` picks `:packed` or `:per-class`; the default is computed from
+  the build — packed only when there is more than one casting class AND the style's
+  numerals can be relabelled. A single caster already reads down its own page.
+- The export accepts `:spell-headings` alongside `:spell-relabels`, bounds-checked
+  the same way.
+
 ## Added (guards)
 
 - A full character is written to every style and the values `write-fields!` could
