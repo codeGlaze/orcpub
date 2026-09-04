@@ -142,3 +142,17 @@ None of this was visible from the JVM suite or a clean cljs compile — all of i
 
 The third only existed because of the second, and neither would have appeared without looking at a
 screenshot of the rendered form.
+
+## Verified end to end in the real app
+
+`homebrew_roundtrip_e2e.js` — 14/14 against `lein e2e-server`:
+
+1. A fighting style authored **through the UI** (typed name, source, AC bonus, attack bonus, and the
+   armor tag) produces `{:props {:ac-bonus {:ac-bonus 1 :armor? true} :attack-bonus {:bonus 2}}}`.
+2. It **saves** into `:plugins` with those props intact.
+3. A draconic ancestry with a **numeric** breath weapon saves as `:line-width 5` — the regression
+   case for the `render-builder-field` double-parse, proven in the app rather than by reading.
+4. **Export** yields a real `.orcbrew` download carrying both, props and numbers included.
+5. **Re-import** into a clean browser context restores both, verified absent beforehand.
+
+So the vocabulary is not just compiled — it survives the whole authoring lifecycle.
