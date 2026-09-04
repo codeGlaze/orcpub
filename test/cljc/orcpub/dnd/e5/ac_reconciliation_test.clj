@@ -565,65 +565,11 @@
           "two SET natural(3) sources -> 3 (last-wins), 10+Dex(2)+3 = 15; they do NOT sum to 18"))))
 
 ;; ===========================================================================
-;; SECTION 3 — PROPOSED reconciler (orcpub.dnd.e5.armor-class/reconcile-ac)
+;; SECTION 3 — retired 2026-09
 ;; ===========================================================================
-;; Unit tests on the real replacement functions (not a stand-in copy): a formula returns its
-;; 'AC = ...' value, or 0 when it doesn't apply; the best formula wins (max); bonuses are summed
-;; onto the winner. These use plain functions, so they do NOT show the app behaving correctly —
-;; nothing calls armor-class yet. SECTION 1 is what covers app behaviour.
-;;
-;; Formula/bonus stand-ins use Dex 14 (+2), so "10 + Dex" = 12, "16 + Dex" = 18, etc.
-
-(deftest reconcile-formulas-take-the-max
-  (testing "competing formulas reconcile by max — best rises, nothing stacks"
-    (let [base   (fn [_ _] 12)     ; SRD unarmored 10 + Dex(2)
-          hb-nat (fn [_ _] 18)]    ; homebrew natural armor 16 + Dex(2)
-      (is (= 18 (ac/reconcile-ac {:other-formulas [base hb-nat]} nil nil))
-          "homebrew formula beats the base and wins")
-      (is (= 12 (ac/reconcile-ac {:other-formulas [base (fn [_ _] 0)]} nil nil))
-          "a non-applicable formula (returns 0) never drags the winner down"))))
-
-(deftest reconcile-bonuses-reach-the-winning-formula   ; a bonus must not be lost when a formula beats the base
-  (testing "bonuses are summed ONTO the winning formula — not trapped in the base"
-    (let [base   (fn [_ _] 12)
-          hb-nat (fn [_ _] 18)     ; wins the max
-          ring   (fn [_ _] 1)      ; Ring of Protection — applies whatever formula wins
-          shield (fn [_ _] 2)]     ; shield — applies whatever formula wins
-      (is (= 19 (ac/reconcile-ac {:other-formulas [base hb-nat] :bonuses [ring]} nil nil))
-          "ring reaches the WINNING homebrew formula (old engine dropped it: buried in base)")
-      (is (= 21 (ac/reconcile-ac {:other-formulas [base hb-nat] :bonuses [ring shield]} nil nil))
-          "several bonuses all land on the winner"))))
-
-(deftest reconcile-floor-is-a-constant-formula        ; e.g. Barkskin
-  (testing "a floor/set-AC is just a constant formula — max gives 'at least N' for free"
-    (let [worn  (fn [_ _] 13)      ; light armor 11 + Dex(2)
-          floor (fn [_ _] 16)]     ; Barkskin: AC can't be less than 16
-      (is (= 16 (ac/reconcile-ac {:other-formulas [worn floor]} nil nil))
-          "floored up to 16 when the real AC is lower")
-      (is (= 18 (ac/reconcile-ac {:other-formulas [(fn [_ _] 18) floor]} nil nil))
-          "and NOT capped: 18 > 16 stays 18"))))
-
-(deftest reconcile-unarmored-formula-excludes-when-armored
-  (testing "a formula opts OUT by returning 0 for a context it doesn't apply to"
-    (let [armored   (fn [armor _] (if armor 16 0))    ; e.g. scale mail 14 + capped Dex 2
-          unarmored (fn [armor _] (if armor 0 15))]   ; 10 + Dex + Con, only while no armor
-      (is (= 16 (ac/reconcile-ac {:other-formulas [armored unarmored]} :scale nil))
-          "armored context -> armored formula wins, unarmored excludes itself")
-      (is (= 15 (ac/reconcile-ac {:other-formulas [armored unarmored]} nil nil))
-          "no-armor context -> unarmored formula wins, armored excludes itself"))))
-
-(deftest reconcile-shield-permission-is-self-exclusion
-  (testing "per-formula shield permission = whether the formula returns 0 when a shield is held"
-    (let [base   (fn [_ _] 12)                          ; plain 10 + Dex(2)
-          barb   (fn [_ _] 15)                          ; shield-OK: value regardless of shield
-          monk   (fn [_ shield] (if shield 0 15))       ; shield-FORBIDDEN: 0 when a shield is held
-          shield (fn [_ s] (if s 2 0))]                 ; the shield bonus
-      (is (= 17 (ac/reconcile-ac {:other-formulas [base barb] :bonuses [shield]} nil :s))
-          "Barbarian keeps its formula with a shield: 15 + 2 = 17")
-      (is (= 14 (ac/reconcile-ac {:other-formulas [base monk] :bonuses [shield]} nil :s))
-          "Monk self-excludes with a shield -> base(12) wins + shield(2) = 14 (loses Wis, per RAW)")
-      (is (= 15 (ac/reconcile-ac {:other-formulas [base monk] :bonuses [shield]} nil nil))
-          "no shield -> Monk formula(15) wins"))))
+;; Unit tests on the reconciler as a plain function moved to armor_class_test, which
+;; exercises the WIRED engine (armor-class/reconcile) rather than the unwired draft this
+;; section tested. The outer-loop cases moved to ac_outer_loop_analysis_test.
 
 ;; ===========================================================================
 ;; SECTION 4 — BACKWARD-COMPAT SHIMS (deprecated public homebrew vars)
