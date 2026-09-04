@@ -25,6 +25,59 @@
     (is (not (pdf/safe-image-url? "http://172.16.0.1/")))
     (is (not (pdf/safe-image-url? "http://[::1]/")))))
 
+(deftest modern-private-ipv6-is-refused
+  (testing "fc00::/7, the range an internal IPv6 network actually uses"
+    ;; InetAddress.isSiteLocalAddress only knows fec0::/10, deprecated in 2004,
+    ;; so relying on it alone let every real private IPv6 address through.
+    (is (not (pdf/safe-image-url? "http://[fd00::1]/")))
+    (is (not (pdf/safe-image-url? "http://[fc00::1]/")))
+    (is (not (pdf/safe-image-url? "http://[fdff:ffff::1]/"))))
+  (testing "and the ranges it does know still are"
+    (is (not (pdf/safe-image-url? "http://[fe80::1]/")))
+    (is (not (pdf/safe-image-url? "http://[fec0::1]/")))))
+
+(deftest a-v4-address-wrapped-in-a-v6-one-is-unwrapped
+  (testing "NAT64: on a network running it, 64:ff9b::7f00:1 IS 127.0.0.1"
+    (is (not (pdf/safe-image-url? "http://[64:ff9b::7f00:1]/")))
+    (is (not (pdf/safe-image-url? "http://[64:ff9b::a00:1]/"))))
+  (testing "6to4: 2002:7f00:1:: carries the same address"
+    (is (not (pdf/safe-image-url? "http://[2002:7f00:1::1]/"))))
+  (testing "the mapped form java normalises for us"
+    (is (not (pdf/safe-image-url? "http://[::ffff:127.0.0.1]/")))
+    (is (not (pdf/safe-image-url? "http://[::ffff:10.0.0.1]/")))))
+
+(deftest reserved-ipv4-blocks-are-refused
+  (testing "carrier-grade NAT, where cloud providers put internal services"
+    (is (not (pdf/safe-image-url? "http://100.64.0.1/")))
+    (is (not (pdf/safe-image-url? "http://100.127.255.254/"))))
+  (testing "the other blocks that are not routable public internet"
+    (is (not (pdf/safe-image-url? "http://0.0.0.5/")) "0.0.0.0/8")
+    (is (not (pdf/safe-image-url? "http://240.0.0.1/")) "240.0.0.0/4")
+    (is (not (pdf/safe-image-url? "http://255.255.255.255/")) "broadcast")
+    (is (not (pdf/safe-image-url? "http://192.0.0.1/")) "192.0.0.0/24")
+    (is (not (pdf/safe-image-url? "http://198.18.0.1/")) "198.18.0.0/15")))
+
+(deftest the-guard-does-not-over-block
+  ;; A deny list that refuses ordinary addresses is a broken feature, not a safe
+  ;; one. These are all public and must stay fetchable.
+  (testing "public IPv4 and IPv6 literals"
+    (doseq [h ["8.8.8.8" "1.1.1.1" "93.184.216.34"
+               "[2606:4700:4700::1111]" "[2001:4860:4860::8888]"]]
+      (is (pdf/safe-image-url? (str "http://" h "/portrait.png")) h)))
+  (testing "addresses just outside a blocked range"
+    (is (pdf/safe-image-url? "http://172.32.0.1/x.png") "just past 172.16/12")
+    (is (pdf/safe-image-url? "http://100.128.0.1/x.png") "just past 100.64/10"))
+  (testing "a transition wrapper carrying a PUBLIC address is fine"
+    ;; The wrapper is not the problem; what is inside it is.
+    (is (pdf/safe-image-url? "http://[64:ff9b::808:808]/x.png") "NAT64 of 8.8.8.8")
+    (is (pdf/safe-image-url? "http://[2002:0808:0808::1]/x.png") "6to4 of 8.8.8.8")))
+
+(deftest a-response-that-is-not-an-image-is-refused
+  (testing "an SSRF that got through would return a page, not a picture"
+    (let [within? #'orcpub.pdf/within-pixel-budget?]
+      (is (false? (within? (.getBytes "<html><body>internal admin</body></html>"))))
+      (is (false? (within? (byte-array 0)))))))
+
 (deftest a-decimal-encoded-loopback-is-still-loopback
   (testing "127.0.0.1 written as an integer resolves the same"
     ;; A textual check on the host string would miss this; resolving does not.

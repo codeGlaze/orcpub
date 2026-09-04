@@ -1325,14 +1325,57 @@
    Reading dimensions costs only the header."
   (* 2000 2000))
 
+(defn- reserved-v4?
+  "IPv4 blocks that are not routable public internet, beyond the ones
+   InetAddress already has a predicate for."
+  [o0 o1]
+  (or (zero? o0)                        ; 0.0.0.0/8, "this network"
+      (and (= 100 o0) (<= 64 o1 127))   ; 100.64.0.0/10, carrier-grade NAT
+      (and (= 192 o0) (zero? o1))       ; 192.0.0.0/24 IETF, 192.0.2.0/24 TEST-NET
+      (and (= 198 o0) (<= 18 o1 19))    ; 198.18.0.0/15, benchmarking
+      (>= o0 240)))                     ; 240.0.0.0/4 reserved, incl. broadcast
+
+(defn- embedded-v4
+  "The IPv4 address carried inside an IPv6 one, or nil.
+
+   Two transition mechanisms wrap a v4 address in a v6 one: 64:ff9b::/96 (NAT64)
+   and 2002::/16 (6to4). On a network running either, 64:ff9b::7f00:1 and
+   2002:7f00:1:: both reach 127.0.0.1, so the wrapper has to come off before the
+   address can be judged."
+  [^bytes b]
+  (let [o (fn [i] (bit-and (aget b i) 0xff))
+        v4 (fn [from] (java.net.InetAddress/getByAddress
+                       (byte-array (map #(aget b %) (range from (+ from 4))))))]
+    (cond
+      (and (= 0 (o 0)) (= 0x64 (o 1)) (= 0xff (o 2)) (= 0x9b (o 3))
+           (every? zero? (map o (range 4 12))))
+      (v4 12)
+
+      (and (= 0x20 (o 0)) (= 0x02 (o 1)))
+      (v4 2))))
+
 (defn- private-address?
-  "Addresses no user-supplied URL has any business reaching."
+  "Addresses no user-supplied URL has any business reaching.
+
+   InetAddress has a predicate for most of them. Three it does not, all confirmed
+   reachable through this guard before they were added here:
+
+   - fc00::/7, the unique local addresses an internal IPv6 network actually uses.
+     isSiteLocalAddress only knows fec0::/10, deprecated in 2004.
+   - 100.64.0.0/10 and the other reserved IPv4 blocks in reserved-v4?.
+   - the v4-in-v6 wrappers embedded-v4 unpacks."
   [^java.net.InetAddress addr]
-  (or (.isLoopbackAddress addr)
-      (.isAnyLocalAddress addr)
-      (.isLinkLocalAddress addr)     ; 169.254/16 — cloud instance metadata
-      (.isSiteLocalAddress addr)     ; 10/8, 172.16/12, 192.168/16
-      (.isMulticastAddress addr)))
+  (let [b (.getAddress addr)]
+    (or (.isLoopbackAddress addr)
+        (.isAnyLocalAddress addr)
+        (.isLinkLocalAddress addr)     ; 169.254/16 — cloud instance metadata
+        (.isSiteLocalAddress addr)     ; 10/8, 172.16/12, 192.168/16, fec0::/10
+        (.isMulticastAddress addr)
+        (case (alength b)
+          4 (reserved-v4? (bit-and (aget b 0) 0xff) (bit-and (aget b 1) 0xff))
+          16 (or (= 0xfc (bit-and (bit-and (aget b 0) 0xff) 0xfe)) ; fc00::/7
+                 (boolean (some-> (embedded-v4 b) private-address?)))
+          false))))
 
 (defn safe-image-url?
   "Whether the server may fetch this URL.

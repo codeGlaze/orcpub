@@ -1026,3 +1026,49 @@ removing it.
 `card_export_test` pins both halves by counting what a saved document actually
 contains, with the subset prefix stripped (PDFBox tags each subset `ABCDEF+`, so
 two copies of one face look like two different fonts until it comes off).
+
+## The image guard's blind spots were the addresses Java has no predicate for (2026-09)
+
+`/character.pdf` is unauthenticated and fetches a URL the caller supplies, so
+`safe-image-url?` is the whole perimeter. It was already doing the hard parts:
+scheme allowlist, EVERY resolved address checked rather than the first, redirects
+disabled, a streaming byte cap so a lying Content-Length cannot beat it, and a
+pixel budget read from the header before any buffer is allocated.
+
+What it missed was arithmetic, not architecture. It leaned on
+`InetAddress`'s own predicates, and those do not cover:
+
+| reachable before | why the predicates missed it |
+|---|---|
+| `fd00::1`, `fc00::1` | `isSiteLocalAddress` knows only `fec0::/10`, deprecated in 2004. `fc00::/7` is what a real private IPv6 network uses. |
+| `64:ff9b::7f00:1` | NAT64. On a network running it, this IS `127.0.0.1`. |
+| `2002:7f00:1::1` | 6to4, same trick with a different prefix. |
+| `100.64.0.1` | `100.64.0.0/10`, carrier-grade NAT — where cloud providers put internal services. |
+| `0.0.0.5`, `240.0.0.1`, `255.255.255.255` | `0.0.0.0/8` and `240.0.0.0/4`; only the single address `0.0.0.0` was caught, by `isAnyLocalAddress`. |
+
+The v4-in-v6 wrappers are the interesting ones: the address is not private by any
+test you can apply to the 16 bytes as a whole, because the private address is
+*inside* it. `embedded-v4` takes the wrapper off and judges what it finds, so a
+wrapper carrying a PUBLIC address stays fetchable — `64:ff9b::808:808` is 8.8.8.8
+and is allowed.
+
+A deny list that refuses ordinary addresses is a broken feature rather than a safe
+one, so `the-guard-does-not-over-block` pins the other direction: public v4 and v6
+literals, addresses one step outside each blocked range (`172.32.0.1`,
+`100.128.0.1`), and both transition wrappers around a public address.
+
+### Still open: the resolve/connect gap
+
+`safe-image-url?` resolves the host and judges the answer. `open-image-stream`
+then opens a connection, which resolves **again**. A DNS server the attacker
+controls can answer public for the first and private for the second.
+
+The JVM's positive DNS cache narrows the window and the payoff is small — redirects
+are off, and the response has to parse as an image under 2000x2000 and 128 KB to
+reach the page at all, so it is blind at best. It is still a real gap, and the
+honest fix is to resolve ONCE and pin: `clj-http` is already a dependency and
+already required here, and Apache HttpClient takes a custom `DnsResolver`, so the
+validated addresses can be handed to the connection directly while the hostname —
+and therefore TLS verification — stays intact. Hand-rolling that on
+`HttpsURLConnection` means overriding hostname verification, and a botched TLS
+override is a worse hole than the one it closes.
