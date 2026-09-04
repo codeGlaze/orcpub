@@ -1,0 +1,65 @@
+# What a fighting-style builder must express — measured against real content
+
+Gap analysis against the published fighting styles (24 printings, **14 distinct styles**, PHB /
+XPHB / TCE / AU, via the 5etools data mirror). The question: what does an author need to say, and
+what can our `:props` vocabulary say today?
+
+**1 of 14 is expressible right now.** But the *engine* already has hooks for 8 of them — the gap is
+the authored vocabulary, not the machinery. That is exactly the position AC was in: `?ac-fns`
+existed with no constructor and no writers.
+
+| style | mechanical shape | engine hook | authorable |
+|---|---|---|---|
+| **Defense** | +N AC while wearing armor | `?ac-bonus-fns` | ✅ `{:ac-bonus {:ac-bonus 1 :armor? true}}` |
+| Archery | +N attack, ranged weapons | `?ranged-attack-bonus` ✅ | ❌ |
+| Dueling | +N damage, melee, one-handed, no other weapon | `?melee-damage-bonus-fns` ✅ | ❌ |
+| Thrown Weapon Fighting | +N damage with the Thrown property | `?ranged-damage-bonus-fns` ✅ | ❌ |
+| Two-Weapon Fighting | add ability mod to the offhand attack's damage | `?dual-wield-weapon?` partial | ❌ |
+| Protection | Reaction; requires a shield | `mod5e/reaction` ✅ | ❌ |
+| Interception | Reaction; reduce damage 1d10 + prof | `mod5e/reaction` ✅ | ❌ |
+| Blind Fighting | grants Blindsight 10 ft | `mod5e/darkvision` precedent | ❌ |
+| Superior Technique | choose 1 from the maneuver pool | `:grant {:from … :choose N}` ✅ | ⚠️ needs a maneuver pool |
+| Blessed Warrior | 2 cleric cantrips; Cha casts them | partial | ❌ |
+| Druidic Warrior | 2 druid cantrips; Wis casts them | partial | ❌ |
+| Arcane Warrior (AU) | 2 wizard cantrips; *choose* the casting ability | partial | ❌ |
+| Unarmed Fighting | unarmed strike damage becomes 1d6+Str (d8 if empty-handed) | `?martial-arts-die` precedent | ❌ |
+| Great Weapon Fighting | treat 1s and 2s on damage dice as 3 | **none** | ❌ |
+
+## The shapes, grouped
+
+1. **Conditional attack / damage bonuses** (Archery, Dueling, Thrown Weapon) — the engine channels
+   exist and only the compiler is missing. The condition is the interesting half: *ranged*, *melee
+   one-handed with no other weapon*, *has the Thrown property*.
+2. **Reactions** (Protection, Interception) — `mod5e/reaction` already renders these on the sheet;
+   Protection additionally gates on holding a shield.
+3. **Grants from a pool** (Superior Technique, and the three cantrip styles) — `:grant` exists as a
+   generic cross-bucket grant (`options.cljc:3883`). The cantrip styles need more: a spell-list
+   pool AND setting the spellcasting ability for what they grant.
+4. **Senses** (Blind Fighting) — a `darkvision` constructor exists; blindsight is the same shape.
+5. **Replacing a damage expression** (Unarmed Fighting) — `?martial-arts-die` is the precedent.
+6. **Damage-die manipulation** (Great Weapon Fighting) — the genuinely hard one. Nothing hooks the
+   individual damage dice, so this needs new engine work, not just vocabulary.
+
+## The recurring need: a WIELDING predicate
+
+Half the corpus conditions on equipment state — *while wearing armor*, *while holding a shield*,
+*one-handed with no other weapon*, *two-handed*, *a weapon with property X*, *empty-handed*.
+
+AC already solved its slice of this with three-state tags (`:armor?` / `:shield?`: `false` = only
+when not equipped, `true` = only when equipped, absent = either way). Generalising that same tag
+idea to weapons — property, handedness, offhand — covers conditions 1, 2 and 5 above with one
+vocabulary rather than a key per style.
+
+## Order of work, cheapest first
+
+1. **Expose `:ac-bonus` in `fighting-style-fields`.** Pure markup; makes Defense authorable with no
+   new code.
+2. **`:attack-bonus` and `:damage-bonus` props** with a weapon predicate. Covers Archery, Dueling
+   and Thrown Weapon — three styles, and the channels already exist.
+3. **`:reaction` / `:trait` props.** Covers Protection and Interception, and every "it's just text
+   on the sheet" homebrew style. Worth noting how low the real bar is: of the 6 PHB styles, three
+   (Dueling, Great Weapon Fighting, Two-Weapon Fighting) ship as trait text with **no mechanical
+   implementation at all**, so a description field already matches shipped behaviour for them.
+4. **Blindsight prop.** One style, trivial next to darkvision.
+5. **Cantrip grants with a casting ability.** Three styles, but needs pool work.
+6. **Damage-die manipulation.** One style, and the only one needing real engine work. Defer.
