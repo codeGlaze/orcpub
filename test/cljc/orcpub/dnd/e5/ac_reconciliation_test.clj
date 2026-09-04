@@ -134,7 +134,7 @@
 ;; the fixture now matching real content, two SET sources last-win (3) -> 10+Dex+3 = 15. There is
 ;; NO natural-stacking bug in integration; nothing to patch. (Residual, barely reachable: two
 ;; natural sources of DIFFERENT value last-win rather than max — no built-in combo produces it,
-;; and the methods-in-max refactor makes it correct for free. Not a shipping issue.)
+;; and the formulas-in-max refactor makes it correct for free. Not a shipping issue.)
 ;; ---------------------------------------------------------------------------
 (deftest two-natural-sources-do-not-stack
   (testing "two natural-armor sources via the REAL set mechanism don't stack"
@@ -146,63 +146,63 @@
 ;; ===========================================================================
 ;; SECTION 3 — PROPOSED reconciler (orcpub.dnd.e5.armor-class/reconcile-ac)
 ;; ===========================================================================
-;; Pure-fn unit tests on the REAL core (not a toy): a method returns its 'AC = ...' value or
-;; 0 when it doesn't apply; the BEST method wins (max); bonuses are SUMMED onto the winner.
+;; Pure-fn unit tests on the REAL core (not a toy): a formula returns its 'AC = ...' value or
+;; 0 when it doesn't apply; the BEST formula wins (max); bonuses are SUMMED onto the winner.
 ;; These iterate in microseconds. The SECTION 1/2 build tests are the integration proof that
 ;; this fn is actually wired into a real character (added when template_base calls it).
 ;;
-;; Method/bonus stand-ins use Dex 14 (+2), so "10 + Dex" = 12, "16 + Dex" = 18, etc.
+;; Formula/bonus stand-ins use Dex 14 (+2), so "10 + Dex" = 12, "16 + Dex" = 18, etc.
 
-(deftest reconcile-methods-take-the-max                                    ; B1
-  (testing "competing methods reconcile by max — best rises, nothing stacks"
+(deftest reconcile-formulas-take-the-max                                    ; B1
+  (testing "competing formulas reconcile by max — best rises, nothing stacks"
     (let [base   (fn [_ _] 12)     ; SRD unarmored 10 + Dex(2)
           hb-nat (fn [_ _] 18)]    ; homebrew natural armor 16 + Dex(2)
-      (is (= 18 (ac/reconcile-ac {:methods [base hb-nat]} nil nil))
-          "homebrew method beats the base and wins")
-      (is (= 12 (ac/reconcile-ac {:methods [base (fn [_ _] 0)]} nil nil))
-          "a non-applicable method (returns 0) never drags the winner down"))))
+      (is (= 18 (ac/reconcile-ac {:formulas [base hb-nat]} nil nil))
+          "homebrew formula beats the base and wins")
+      (is (= 12 (ac/reconcile-ac {:formulas [base (fn [_ _] 0)]} nil nil))
+          "a non-applicable formula (returns 0) never drags the winner down"))))
 
-(deftest reconcile-bonuses-reach-the-winning-method                        ; B2 (the universals fix)
-  (testing "bonuses are summed ONTO the winning method — not trapped in the base"
+(deftest reconcile-bonuses-reach-the-winning-formula                        ; B2 (the universals fix)
+  (testing "bonuses are summed ONTO the winning formula — not trapped in the base"
     (let [base   (fn [_ _] 12)
           hb-nat (fn [_ _] 18)     ; wins the max
           ring   (fn [_ _] 1)      ; Ring of Protection — a universal ?magical-ac-bonus
           shield (fn [_ _] 2)]     ; shield — a universal
-      (is (= 19 (ac/reconcile-ac {:methods [base hb-nat] :bonuses [ring]} nil nil))
-          "ring reaches the WINNING homebrew method (old engine dropped it: buried in base)")
-      (is (= 21 (ac/reconcile-ac {:methods [base hb-nat] :bonuses [ring shield]} nil nil))
+      (is (= 19 (ac/reconcile-ac {:formulas [base hb-nat] :bonuses [ring]} nil nil))
+          "ring reaches the WINNING homebrew formula (old engine dropped it: buried in base)")
+      (is (= 21 (ac/reconcile-ac {:formulas [base hb-nat] :bonuses [ring shield]} nil nil))
           "multiple universals all land on the winner"))))
 
-(deftest reconcile-floor-is-a-constant-method                              ; B4 (Barkskin)
-  (testing "a floor/set-AC is just a constant method — max gives 'at least N' for free"
+(deftest reconcile-floor-is-a-constant-formula                              ; B4 (Barkskin)
+  (testing "a floor/set-AC is just a constant formula — max gives 'at least N' for free"
     (let [worn  (fn [_ _] 13)      ; light armor 11 + Dex(2)
           floor (fn [_ _] 16)]     ; Barkskin: AC can't be less than 16
-      (is (= 16 (ac/reconcile-ac {:methods [worn floor]} nil nil))
+      (is (= 16 (ac/reconcile-ac {:formulas [worn floor]} nil nil))
           "floored up to 16 when the real AC is lower")
-      (is (= 18 (ac/reconcile-ac {:methods [(fn [_ _] 18) floor]} nil nil))
+      (is (= 18 (ac/reconcile-ac {:formulas [(fn [_ _] 18) floor]} nil nil))
           "and NOT capped: 18 > 16 stays 18"))))
 
-(deftest reconcile-unarmored-method-excludes-when-armored                  ; method contract
-  (testing "a method opts OUT by returning 0 for a context it doesn't apply to"
+(deftest reconcile-unarmored-formula-excludes-when-armored                  ; formula contract
+  (testing "a formula opts OUT by returning 0 for a context it doesn't apply to"
     (let [armored   (fn [armor _] (if armor 16 0))    ; e.g. scale mail 14 + capped Dex 2
           unarmored (fn [armor _] (if armor 0 15))]   ; 10 + Dex + Con, only while no armor
-      (is (= 16 (ac/reconcile-ac {:methods [armored unarmored]} :scale nil))
-          "armored context -> armored method wins, unarmored excludes itself")
-      (is (= 15 (ac/reconcile-ac {:methods [armored unarmored]} nil nil))
-          "no-armor context -> unarmored method wins, armored excludes itself"))))
+      (is (= 16 (ac/reconcile-ac {:formulas [armored unarmored]} :scale nil))
+          "armored context -> armored formula wins, unarmored excludes itself")
+      (is (= 15 (ac/reconcile-ac {:formulas [armored unarmored]} nil nil))
+          "no-armor context -> unarmored formula wins, armored excludes itself"))))
 
 (deftest reconcile-shield-permission-is-self-exclusion                     ; B5
-  (testing "per-method shield permission = whether the method returns 0 when a shield is held"
+  (testing "per-formula shield permission = whether the formula returns 0 when a shield is held"
     (let [base   (fn [_ _] 12)                          ; plain 10 + Dex(2)
           barb   (fn [_ _] 15)                          ; shield-OK: value regardless of shield
           monk   (fn [_ shield] (if shield 0 15))       ; shield-FORBIDDEN: 0 when a shield is held
           shield (fn [_ s] (if s 2 0))]                 ; the shield bonus (a universal)
-      (is (= 17 (ac/reconcile-ac {:methods [base barb] :bonuses [shield]} nil :s))
-          "Barbarian keeps its method with a shield: 15 + 2 = 17")
-      (is (= 14 (ac/reconcile-ac {:methods [base monk] :bonuses [shield]} nil :s))
+      (is (= 17 (ac/reconcile-ac {:formulas [base barb] :bonuses [shield]} nil :s))
+          "Barbarian keeps its formula with a shield: 15 + 2 = 17")
+      (is (= 14 (ac/reconcile-ac {:formulas [base monk] :bonuses [shield]} nil :s))
           "Monk self-excludes with a shield -> base(12) wins + shield(2) = 14 (loses Wis, per RAW)")
-      (is (= 15 (ac/reconcile-ac {:methods [base monk] :bonuses [shield]} nil nil))
-          "no shield -> Monk method(15) wins"))))
+      (is (= 15 (ac/reconcile-ac {:formulas [base monk] :bonuses [shield]} nil nil))
+          "no shield -> Monk formula(15) wins"))))
 
 ;; ===========================================================================
 ;; SECTION 4 — BACKWARD-COMPAT SHIMS (deprecated public homebrew vars)
