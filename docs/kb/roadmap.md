@@ -227,8 +227,10 @@ that it is characterized with the parity sweep at 0.
 declarations must stay, since `?`-attributes are entity-spec macros valid only inside
 `es/make-entity`. Precedent in the same file: `?dual-wield-weapon? weapon5e/light-melee-weapon?`.
 
-Expected to also remove `?armor-ac-suppressed?`: in the target `:armor-formula` / `:other-formulas`
-/ `:bonuses` shape, "worn armor gives no AC" is just omitting the armor formula.
+Expected to also remove `?armor-ac-suppressed?`, by making worn armor a formula like any other:
+"worn armor gives no AC" becomes *register no armor formula*. That needs one list, not the
+`:armor-formula` / `:other-formulas` grouping, whose only purpose is `best-ac` bucketing and which
+carries a documented footgun (a misgrouped formula returns a wrong number or throws).
 
 Not a line-count win — `template_base.cljc` is 339 lines, AC ~60. The monolith is `options.cljc`
 (3938 lines), which is a separate and larger job.

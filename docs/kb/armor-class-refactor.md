@@ -15,6 +15,7 @@ what we believed and when.
 
 | commit | what changed | reversed anything? |
 |---|---|---|
+| `a950898c`+ | traced attribution for the AC model; corrected the claim that the two-group split is what deletes `?armor-ac-suppressed?` | yes — see Attribution |
 | `8ab0a8f6` | renamed `:cant-wear-armor` → `:armor-gives-no-ac`; roadmapped the real restriction | yes — the name claimed a rule it does not implement |
 | `ca0314b9` | split `:tortle-ac` into calculation + AC suppression; fixed the degenerate Bracers test | yes — see Corrections, "a limitation that wasn't" |
 | `77acb74f` | characterized `:tortle-ac` (17/19/17-in-plate) | no. **This commit shipped with no doc entry — the one gap in the trail** |
@@ -425,6 +426,35 @@ refactor whose point is removing scalars, and it is **avoidable**. In the target
 (`:armor-formula` / `:other-formulas` / `:bonuses`) "worn armor gives no AC" is simply *omitting the
 armor formula*; no flag exists. It should disappear when step 4 lands. Recorded so it is not
 mistaken for a permanent part of the design.
+
+### Attribution, since this refactor keeps circling the same model
+
+Traced, because "whose design is this" kept being answered from memory:
+
+- **`?ac-fns` and `?ac-bonus-fns` are upstream** — they entered `template_base` via PR #156
+  (bewlay), not from any agent work on this branch. `max(base, formulas) + sum(bonuses)` was
+  already the app's model. It was dead code: no constructor, no writers.
+- **`orcpub.dnd.e5.armor-class` is the earlier agent's**, created 2026-09-03. It extracts that
+  model into a namespace and adds `best-ac` bucketing.
+- **This refactor** gave `?ac-fns` a constructor, moved shield and character magic into the bonus
+  channel, migrated the bespoke props onto it, and characterized the lot.
+
+So the convergence is on upstream's model, which both agents read the same way. What is genuinely
+the earlier agent's and worth taking is one idea: **worn armor is itself a formula, not a
+privileged base.** That is what removes `?armor-ac-suppressed?` — register no armor formula and
+armor contributes nothing.
+
+The criticisms of that work were about verification, not design, and they stand: docstrings made
+present-tense claims about code nothing called, and the fixtures used the cum-sum constructor where
+all real content uses `mod/modifier`, so a green suite proved nothing. D17 was about sequencing —
+do not swap the live reconciler wholesale — not about the destination.
+
+**Correction to a claim made in this doc's own reasoning:** that `?armor-ac-suppressed?` is deleted
+by "the target shape (`:armor-formula` / `:other-formulas` / `:bonuses`)". The flag is deleted by
+*armor being a formula*, which needs **one** list. The two-group split is a performance structure
+for `best-ac` only, and it carries a footgun the earlier agent's own test documents
+(`hardening-armor-reading-formula-in-wrong-group`: a formula placed in the wrong group returns a
+wrong number or throws). Adopt the idea; do not inherit the grouping by default.
 
 ### REVISED: extract the AC namespace instead of deleting it
 
