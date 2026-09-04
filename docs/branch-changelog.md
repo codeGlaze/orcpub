@@ -144,13 +144,17 @@ the eight-class fixture from 638 KB to 424.
   taking a new box — spilling into box 2 only because a level 20 Warlock knows 15
   spells against box 1's 12 rows. That is both simpler than fitting it like any
   other class and what keeps its slot pool off the classes beside it.
-- Each column is headed with the class holding it, at 9.5pt bold, drawn in the
-  bar of the cantrips box it starts with. Sized to the compartment it sits in:
-  box 0 offers 50pt before the printed CANTRIPS, a level box reused for cantrips
-  only 35pt before the bar's divider, so a single size ran "Sorcerer" straight
-  through it. A name too long even at the 6pt floor is shortened with an
-  ellipsis rather than overflowed — at 6pt "Eldritch Knight" still measures 43pt
-  against 35. A cantrips box has no slots, so the compartment a
+- Each column is headed with the class holding it, at 11pt bold, drawn in the bar
+  of the cantrips box it starts with — the class name takes the bar and CANTRIPS
+  is set small at the far end, rather than the other way round. Everything between
+  is dead space for a box holding cantrips and is painted over: box 0's printed
+  CANTRIPS, and a level box's printed divider and the two slot compartments beyond
+  it, which a cantrips box has no slots to fill. Before that the heading was a
+  third the size on a level box, and empty SLOTS TOTAL and SLOTS EXPENDED boxes
+  printed over a level with neither.
+- A name too long even at the 6pt floor is shortened with an ellipsis rather than
+  overflowed — at 6pt "Eldritch Knight" still measures 43pt against a level box's
+  35 and would print through the divider. A cantrips box has no slots, so the compartment a
   level bar gives to SLOTS TOTAL and SLOTS EXPENDED is dead space there. A class
   with no cantrips starts at a level box whose slot inputs the player writes in,
   so it gets none and the section header names it.

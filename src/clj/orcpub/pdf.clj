@@ -2661,13 +2661,17 @@
           (println "pdf: relabel failed for box" box "section" section "-" (.getMessage e)))))
     [(count ok) (+ (count bad) (max 0 (- (count (filter map? instructions)) (count wanted))))]))
 
+(def ^:private cantrips-label
+  "What box 0's bar says once the class name has taken its room."
+  "CANTRIPS")
+
 (def ^:private heading-target-size
   "The size a column heading is drawn at when the bar has room for it.
 
    A heading, not a caption: the rows beneath it set at 6.4 to 8.8pt, so 7pt made
    the class name read as another label rather than as the thing naming the
    column."
-  9.5)
+  11.0)
 
 (def ^:private heading-floor-size
   "Below this a heading stops reading as one, so a longer name is shortened
@@ -2728,19 +2732,45 @@
           ;; divider rather than merely of the hexagon.
           x (+ hx (if (zero? box) 31.0 27.0))
           ;; What the compartment gives, measured from the hexagon rather than
-          ;; guessed. Box 0: its divider ends at hx+28 and the printed CANTRIPS
-          ;; starts at hx+81, so 31..81. A level box: its divider runs hx+62 to
-          ;; hx+71, so 27..62 -- less than half what box 0 has, which is why a
-          ;; single width ran Sorcerer straight through the divider.
-          available (- (+ hx (if (zero? box) 81.0 62.0)) x)
+          ;; guessed.
+          ;;
+          ;; The class name takes the bar out to hx+92 whichever kind of box this
+          ;; is, and CANTRIPS is set small at the far end.
+          ;;
+          ;; Everything in between is dead space for a box holding cantrips and is
+          ;; painted over: box 0's printed CANTRIPS at hx+81, and a level box's
+          ;; printed divider at hx+62 with the two slot compartments beyond it,
+          ;; which a cantrips box has no slots to put in. Leaving them made the
+          ;; heading a third the size on a level box and printed empty SLOTS TOTAL
+          ;; and SLOTS EXPENDED boxes over a level that has neither.
+          available (- (+ hx 92.0) x)
           {label :label size :size} (fit-heading label available)]
       (when page
         (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
                                              true true)]
-          (draw-text cs label HELVETICA_BOLD size
-                     (/ x 72.0)
-                     (/ (+ hy (/ hh 2.0) (* -0.36 size)) 72.0)
-                     [0.15 0.15 0.15]))))))
+          (let [baseline (+ hy (/ hh 2.0) (* -0.36 size))
+                ;; From just past the hexagon on a level box, so its divider goes
+                ;; too; box 0's own divider sits left of this and is left alone.
+                patch-x (+ hx (if (zero? box) 79.0 55.0))]
+            ;; White rather than a patch field: this is page content, and a field
+            ;; here would be one more widget on every packed sheet.
+            (.setNonStrokingColor cs (float 1) (float 1) (float 1))
+            ;; The bar's interior is 19.5pt between its rules, where the hexagon
+            ;; is 37 tall. Patching to the hexagon's height painted over the rules
+            ;; above and below and left the bar looking cut.
+            (.addRect cs (float patch-x) (float (+ hy (/ hh 2.0) -9.0))
+                      (float (- (+ hx 117.0) patch-x)) (float 18.0))
+            (.fill cs)
+            (.setNonStrokingColor cs (float 0) (float 0) (float 0))
+            (let [small 5.5
+                  w (* 72 (string-width cantrips-label HELVETICA_BOLD small))]
+              (draw-text cs cantrips-label HELVETICA_BOLD small
+                         (/ (- (+ hx 115.0) w) 72.0)
+                         (/ (+ hy (/ hh 2.0) (* -0.36 small)) 72.0)
+                         [0.45 0.45 0.45]))
+            (draw-text cs label HELVETICA_BOLD size
+                       (/ x 72.0) (/ baseline 72.0)
+                       [0.15 0.15 0.15])))))))
 
 (defn stamp-site-line!
   "Prints the site line in the bottom-left corner of every page that lacks one.

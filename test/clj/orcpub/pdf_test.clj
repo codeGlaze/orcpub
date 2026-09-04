@@ -1220,14 +1220,14 @@
   ;; the bar's divider, which is what 9.5pt in a level box's 35pt compartment did.
   (let [size #'pdf/heading-size]
     (testing "a name that fits is drawn at the target size"
-      (is (= 9.5 (size "Bard" 60.0))))
+      (is (= @#'pdf/heading-target-size (size "Bard" 60.0))))
     (testing "a name too wide is scaled down"
-      (is (< (size "Eldritch Knight" 35.0) 9.5)))
+      (is (< (size "Eldritch Knight" 35.0) @#'pdf/heading-target-size)))
     (testing "and never below the floor, where it stops reading as a heading"
       (is (= 6.0 (size "A Very Long Homebrew Class Name Indeed" 10.0)))))
   (let [fit #'pdf/fit-heading]
     (testing "a name that fits is left alone"
-      (is (= {:label "Bard" :size 9.5} (fit "Bard" 60.0))))
+      (is (= {:label "Bard" :size @#'pdf/heading-target-size} (fit "Bard" 60.0))))
     (testing "a name too long even at the floor is shortened, not overflowed"
       ;; At 6pt "Eldritch Knight" still measures 43pt against a level box's 35,
       ;; so shrinking alone would print it through the bar's divider.
