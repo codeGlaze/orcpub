@@ -12,7 +12,7 @@ existed with no constructor and no writers.
 | style | mechanical shape | engine hook | authorable |
 |---|---|---|---|
 | **Defense** | +N AC while wearing armor | `?ac-bonus-fns` | ✅ `{:ac-bonus {:ac-bonus 1 :armor? true}}` |
-| Archery | +N attack, ranged weapons | `?attack-modifier-fns` ✅ | ✅ `{:attack-bonus {:bonus 2 :melee? false}}` |
+| Archery | +N attack, ranged weapons | `?attack-modifier-fns` ✅ | ✅ `{:attack-bonus {:bonus 2 :ranged? true}}` |
 | Dueling | +N damage, melee, one-handed, no other weapon | ⚠️ needs wielding context in the fn signature | ❌ |
 | Thrown Weapon Fighting | +N damage with the Thrown property | `?damage-bonus-fns` ✅ | ✅ `{:damage-bonus {:bonus 2 :thrown? true}}` |
 | Two-Weapon Fighting | add ability mod to the offhand attack's damage | `?dual-wield-weapon?` partial | ❌ |
@@ -40,6 +40,17 @@ existed with no constructor and no writers.
 5. **Replacing a damage expression** (Unarmed Fighting) — `?martial-arts-die` is the precedent.
 6. **Damage-die manipulation** (Great Weapon Fighting) — the genuinely hard one. Nothing hooks the
    individual damage dice, so this needs new engine work, not just vocabulary.
+
+### `:ranged?` is a real flag, not the negation of `:melee?`
+
+An earlier version of this work used `{:melee? false}` for Archery, on the claim that the data
+models only `::melee?`. Wrong: `::ranged?` is carried by 12 weapons and maintained consistently —
+**every shipped weapon declares exactly one of the two, never both, never neither** (pinned by
+`weapons-declare-exactly-one-of-melee-or-ranged`).
+
+That makes the two tags interchangeable for SRD content but NOT for homebrew, which is not bound by
+the invariant. A homebrew weapon declaring neither flag *passes* `{:melee? false}` and would collect
+an Archery bonus it should not. Prefer the positive tag.
 
 ## The recurring need: a WIELDING predicate
 
@@ -87,13 +98,14 @@ prop serves all of them.
    with no new code. The three-state tags are `:enum` fields with boolean values — `builder_fields`
    explicitly defers a `:boolean` type and says not to build a parallel mechanism.
 2. ✅ **DONE — `:attack-bonus` / `:damage-bonus` with a weapon predicate.** `weapons/matches?` is
-   the three-state tag predicate (`:melee? :thrown? :finesse? :light? :two-handed?`), same shape as
-   AC's `:armor?`/`:shield?`. Both props ride the GENERAL channels (`?attack-modifier-fns`,
+   the three-state tag predicate, same shape as AC's `:armor?`/`:shield?`, over every weapon flag
+   the data carries: `:melee? :ranged? :thrown? :finesse? :light? :heavy? :two-handed? :versatile?
+   :reach? :loading? :ammunition? :special?`. Both props ride the GENERAL channels (`?attack-modifier-fns`,
    `?damage-bonus-fns`), which retires the question the old comment on `damage-bonus-fn` left open:
    with a predicate, `?melee-damage-bonus-fns` and `?ranged-damage-bonus-fns` have nothing left to
    do, and both were already commented out of the engine.
 
-   **Covers TWO styles, not three.** Archery `{:bonus 2 :melee? false}` and Thrown Weapon
+   **Covers TWO styles, not three.** Archery `{:bonus 2 :ranged? true}` and Thrown Weapon
    `{:bonus 2 :thrown? true}` — both verified end to end through the engine. **Dueling is NOT
    expressible** and neither is Two-Weapon Fighting: the engine hands these fns one argument, the
    weapon, so they cannot see whether it is the off-hand attack or what else is being wielded.

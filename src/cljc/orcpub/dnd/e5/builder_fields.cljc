@@ -81,14 +81,18 @@
   three-state — pick a value to require or forbid the property, leave blank for either way."
   [prop-key number-label]
   (into [{:key [:props prop-key :bonus] :type :number :label number-label}]
-        [(weapon-tag-field prop-key :melee?      "Reach"    "Melee weapons only"  "Ranged weapons only")
+        ;; The predicate supports every weapon flag (weapons/tag->flag); the form exposes the ones
+        ;; authors actually reach for. The rest stay hand-authorable in an .orcbrew file.
+        [(weapon-tag-field prop-key :melee?      "Melee"    "Melee weapons only"  "Exclude melee")
+         (weapon-tag-field prop-key :ranged?     "Ranged"   "Ranged weapons only" "Exclude ranged")
+         (weapon-tag-field prop-key :heavy?      "Heavy"    "Heavy weapons only"  "Exclude heavy")
          (weapon-tag-field prop-key :thrown?     "Thrown"   "Thrown weapons only" "Non-thrown only")
          (weapon-tag-field prop-key :finesse?    "Finesse"  "Finesse weapons only" "Non-finesse only")
          (weapon-tag-field prop-key :light?      "Light"    "Light weapons only"   "Non-light only")
          (weapon-tag-field prop-key :two-handed? "Handedness" "Two-handed only"    "One-handed only")]))
 
 (def attack-bonus-fields
-  "Authors {:attack-bonus {:bonus N <tags>}} — Archery is {:bonus 2 :melee? false}."
+  "Authors {:attack-bonus {:bonus N <tags>}} — Archery is {:bonus 2 :ranged? true}."
   (weapon-bonus-fields :attack-bonus "Attack Bonus"))
 
 (def damage-bonus-fields

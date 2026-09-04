@@ -573,7 +573,7 @@
 ;; "the extra attack" (Two-Weapon Fighting) are NOT expressible without widening that signature.
 
 (defn attack-bonus
-  "A bonus to attack rolls with weapons matching `tags` — Archery is (attack-bonus 2 {:melee? false})."
+  "A bonus to attack rolls with weapons matching `tags` — Archery is (attack-bonus 2 {:ranged? true})."
   [bonus tags]
   (mods/vec-mod ?attack-modifier-fns
                 (fn [weapon] (if (weapons5e/matches? tags weapon) bonus 0))))

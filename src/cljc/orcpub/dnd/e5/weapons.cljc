@@ -439,9 +439,16 @@
 
 (def tag->flag
   "Authored tag -> the weapon field it tests. The tags are the authoring vocabulary and the fields
-  are storage; keeping the map explicit means renaming one never silently breaks the other."
-  {:melee? ::melee? :thrown? ::thrown :finesse? ::finesse?
-   :light? ::light? :two-handed? ::two-handed?})
+  are storage; keeping the map explicit means renaming one never silently breaks the other.
+
+  :melee? and :ranged? are BOTH real fields, not aliases — every weapon carries exactly one of them
+  (pinned by weapons-declare-exactly-one-of-melee-or-ranged). Prefer the positive tag: {:ranged?
+  true} says what it means, and a homebrew weapon that declares neither flag correctly fails it,
+  where {:melee? false} would wrongly match."
+  {:melee? ::melee?       :ranged? ::ranged?     :thrown? ::thrown
+   :finesse? ::finesse?   :light? ::light?       :heavy? ::heavy?
+   :two-handed? ::two-handed? :versatile? ::versatile :reach? ::reach
+   :loading? ::loading?   :ammunition? ::ammunition? :special? ::special?})
 
 (defn matches?
   "Does `weapon` satisfy every tag in `tags`? THREE-state, matching the AC vocabulary's

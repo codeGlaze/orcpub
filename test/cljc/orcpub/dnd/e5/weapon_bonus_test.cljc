@@ -13,7 +13,7 @@
             [orcpub.modifiers :as mods]
             [orcpub.entity-spec :as es]))
 
-(def longbow  {::weapons5e/melee? false})
+(def longbow  {::weapons5e/ranged? true})
 (def handaxe  {::weapons5e/melee? true  ::weapons5e/thrown true ::weapons5e/light? true})
 (def longsword{::weapons5e/melee? true})
 (def greatsword {::weapons5e/melee? true ::weapons5e/two-handed? true})
@@ -23,9 +23,18 @@
   (testing "true requires the property"
     (is (weapons5e/matches? {:melee? true} longsword))
     (is (not (weapons5e/matches? {:melee? true} longbow))))
-  (testing "false FORBIDS it — this is how 'ranged' is said, since the data models only ::melee?"
+  (testing "false FORBIDS it"
     (is (weapons5e/matches? {:melee? false} longbow))
     (is (not (weapons5e/matches? {:melee? false} longsword))))
+  (testing ":ranged? is a REAL field, not the negation of :melee? — prefer the positive tag"
+    (is (weapons5e/matches? {:ranged? true} longbow))
+    (is (not (weapons5e/matches? {:ranged? true} longsword)))
+    (let [homebrew-with-neither {:name "Odd"}]
+      (is (weapons5e/matches? {:melee? false} homebrew-with-neither)
+          "a weapon declaring NEITHER flag passes :melee? false — which is why that tag is the
+           wrong way to say ranged")
+      (is (not (weapons5e/matches? {:ranged? true} homebrew-with-neither))
+          "and correctly fails :ranged? true")))
   (testing "absent means either way"
     (is (weapons5e/matches? {} longbow))
     (is (weapons5e/matches? {} longsword)))
@@ -61,7 +70,7 @@
 
 (deftest archery-is-authorable
   (testing "Archery: +2 to attack rolls with ranged weapons"
-    (let [archery {:bonus 2 :melee? false}]
+    (let [archery {:bonus 2 :ranged? true}]
       (is (= 2 (bonus-for :attack-bonus archery longbow)))
       (is (= 0 (bonus-for :attack-bonus archery longsword)) "melee weapons get nothing"))))
 
@@ -80,6 +89,15 @@
 (deftest a-bonus-with-no-number-produces-no-modifier
   (testing "tags without a bonus are meaningless and must not emit a modifier"
     (is (nil? (opt5e/make-feat-modifiers :attack-bonus {:melee? true} :test)))))
+
+(deftest weapons-declare-exactly-one-of-melee-or-ranged
+  (testing "every shipped weapon carries exactly one of ::melee? / ::ranged?. The engine relies on
+            it (?weapon-attack-modifier treats not-melee as ranged), and it is what makes the two
+            tags interchangeable for SRD content — homebrew is not bound by it, which is why the
+            positive tag is the safe one to author."
+    (doseq [w weapons5e/weapons]
+      (let [m (boolean (::weapons5e/melee? w)) r (boolean (::weapons5e/ranged? w))]
+        (is (not= m r) (str (:name w) " must be exactly one of melee/ranged, got melee=" m " ranged=" r))))))
 
 (deftest field-paths-match-what-the-compiler-reads
   (testing "the same drift risk as the AC fields: a field writing a path the compiler ignores looks

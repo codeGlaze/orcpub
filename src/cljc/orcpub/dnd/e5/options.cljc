@@ -3749,7 +3749,7 @@
       :medium-armor-max-dex-3 [medium-armor-master-max-bonus]
       ;; Conditional weapon bonuses. The tag map is the same three-state vocabulary as :ac-bonus's
       ;; :armor?/:shield?, read by weapons/matches?:
-      ;;   {:attack-bonus {:bonus 2 :melee? false}}  — Archery
+      ;;   {:attack-bonus {:bonus 2 :ranged? true}}   — Archery
       ;;   {:damage-bonus {:bonus 2 :thrown? true}}  — Thrown Weapon Fighting
       :attack-bonus (when (:bonus v)
                       [(modifiers/attack-bonus (:bonus v) (dissoc v :bonus))])
