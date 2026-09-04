@@ -501,8 +501,15 @@
           ;; and 2 carry a features and traits page after their spell pages.
           anchor-page (some (fn [p] (when (> (.indexOf pages p) (.indexOf pages template)) p))
                             (vec pages))]
-      (doseq [[page _] made]
-        (if anchor-page (.insertBefore pages page anchor-page) (.addPage doc page)))
+      ;; Both branches insert. PDPageTree.add walks the whole object graph looking
+      ;; for a cycle, and these masters nest deeply enough through the AcroForm
+      ;; that the walk overflows the stack -- so a style whose spell page is LAST
+      ;; (3 and 4) threw StackOverflowError at two or more casters while styles 1
+      ;; and 2, which have a page to insert before, were fine. insertAfter does no
+      ;; such walk.
+      (if anchor-page
+        (doseq [[page _] made] (.insertBefore pages page anchor-page))
+        (reduce (fn [prev [page _]] (.insertAfter pages page prev) page) template made))
       (.setFields form (java.util.ArrayList.
                         (concat (vec (.getFields form)) (mapcat second made))))
       (count made))
@@ -569,11 +576,16 @@
 ;; removing pages removes no shared resource. Growing shrinks them: six casters
 ;; on style 1 lands at 328 KB against the 565 KB file that ships today.
 ;;
-;; And the master is the smallest file holding every distinct PAGE KIND, not the
-;; narrowest file. Style 4 prints its licence line on its last page only, so the
-;; single spell page in its one-spell file is the marked one and cloning that
-;; repeats the line on every page. Its two-spell file holds a plain page and a
-;; marked one, which is why sheet-masters names it.
+;; Every style's master is a ONE-spell-page file. Style 4's shipped two, because
+;; its licence footer was read as baked into the artwork -- and a baked footer can
+;; be spread by cloning but never removed, so a last-page-only style needed a
+;; plain page to clone and a marked page to end on.
+;;
+;; It is not baked. Both of those pages referenced the same background XObject and
+;; the marked one was the plain one plus an appended BT/ET block, so keeping the
+;; marked page alone gives a master whose clones all carry the footer, like every
+;; other style. dev/style4_one_spell_page.clj is what built it and records what
+;; removing the page took.
 
 (def sheet-masters
   "The file each style grows from, and where that style's artwork carries its
@@ -599,7 +611,7 @@
       :without-casters "fillable-char-sheetstyle-2-0-spells.pdf"}
    3 {:file "fillable-char-sheetstyle-3-1-spells.pdf" :marks :none
       :without-casters "fillable-char-sheetstyle-3-0-spells.pdf"}
-   4 {:file "fillable-char-sheetstyle-4-2-spells.pdf" :marks :last
+   4 {:file "fillable-char-sheetstyle-4-1-spells.pdf" :marks :all
       :without-casters "fillable-char-sheetstyle-4-0-spells.pdf"}})
 
 (defn- fields-on-page
@@ -643,32 +655,18 @@
   "Reshapes an opened master to hold exactly `wanted` spellcasting sections,
    numbered 1 upward in page order. Returns the number of pages added.
 
-   `marks` comes from sheet-masters. Under :last the master's second section is
-   the marked page and is moved to the final section, so the licence line lands
-   where the printed sheet puts it instead of on every clone."
-  [doc wanted marks]
+   Every master holds one spell page, so this only ever clones it. `marks` is
+   accepted because callers read it from sheet-masters alongside :file, and is not
+   consulted: an attribution footer lives in the page's content stream and so is
+   carried by every clone whatever the style."
+  [doc wanted _marks]
   ;; A character who casts nothing is opened from :without-casters, which has no
   ;; spell page to grow. Answering that before the let keeps the form untouched:
   ;; spell-sections walks every page's annotations, and there is nothing to find.
   (if (zero? wanted)
     0
-    (let [sections (vec (spell-sections doc))
-          marked-last? (and (= marks :last) (> (count sections) 1))
-          [plain-n plain-page] (first sections)
-          [marked-n marked-page] (when marked-last? (last sections))]
-      (cond
-        marked-last?
-        (do
-          ;; The marked page moves to its final section BEFORE any clone is made:
-          ;; it sits at section 2 in the master, which is the first section a clone
-          ;; would claim, and two fields of one name are one field with one value.
-          (renumber-page-section! doc marked-page marked-n wanted)
-          (if (= wanted 1)
-            (do (.removePage doc plain-page) 0)
-            (add-spell-pages! doc plain-n (range 2 wanted))))
-
-        :else
-        (add-spell-pages! doc plain-n (range 2 (inc wanted)))))))
+    (let [[first-n _] (first (spell-sections doc))]
+      (add-spell-pages! doc first-n (range 2 (inc wanted))))))
 
 (defn- highest-spell-page
   "The largest N for which the document has a spellcasting-class-N page. 0 when

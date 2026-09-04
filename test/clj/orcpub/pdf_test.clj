@@ -792,3 +792,46 @@
                    (pr-str spells) " and features " (pr-str features)))
           (is (= (.getNumberOfPages doc) (apply min features))
               "and it is still the last page"))))))
+
+;; ─── Growing every master ────────────────────────────────────────────────────
+
+(defn- spell-page-indexes
+  "Page index of each spellcasting section, section order."
+  [doc]
+  (let [pages (vec (.getPages doc))]
+    (mapv (fn [[_ page]] (.indexOf pages page)) (#'pdf/spell-sections doc))))
+
+(defn- has-text-block?
+  "Whether the page draws text of its own -- how a style's attribution footer
+   shows up, since it is an appended BT/ET block in the content stream."
+  [page]
+  (let [b (java.io.ByteArrayOutputStream.)]
+    (with-open [in (.getContents page)] (.transferTo in b))
+    (str/includes? (String. (.toByteArray b) "ISO-8859-1") "BT")))
+
+(deftest every-master-grows-to-any-caster-count
+  (testing "REGRESSION: every style grows to N spellcasting sections, numbered 1..N
+            in page order, with the attribution footer on each.
+
+            Styles 3 and 4 keep their spell page LAST, so add-spell-pages! has no
+            page to insert before and used to fall back to PDPageTree.add. That
+            walks the whole object graph checking for a cycle and overflows the
+            stack on these masters, so both styles threw StackOverflowError at two
+            or more casting classes while styles 1 and 2 passed."
+    (doseq [style [1 2 3 4]
+            casters [1 2 3 6]]
+      (let [{:keys [file marks]} (get pdf/sheet-masters style)]
+        (with-open [in (.openStream (io/resource file))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (pdf/grow-spell-sections! doc casters marks)
+          (let [pages (vec (.getPages doc))
+                indexes (spell-page-indexes doc)
+                label (str "style " style ", " casters " caster(s)")]
+            (is (= casters (count indexes))
+                (str label ": one section per casting class"))
+            (is (= indexes (sort indexes))
+                (str label ": sections run in page order"))
+            (is (apply distinct? -1 indexes)
+                (str label ": no two sections share a page"))
+            (is (every? #(has-text-block? (nth pages %)) indexes)
+                (str label ": every spell page carries the attribution footer"))))))))

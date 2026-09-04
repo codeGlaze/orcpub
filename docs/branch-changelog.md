@@ -30,11 +30,38 @@ the eight-class fixture from 638 KB to 424.
   to the end of the document rather than placed after the last spell page. The
   eight-class fixture shipped as spell pages 3–8, features at 9, then spell pages
   10 and 11 (`de9a746`).
+- Styles 3 and 4 threw `StackOverflowError` for any character with two or more
+  casting classes, so those sheets could not be exported at all. Both keep their
+  spell page LAST, leaving no page to insert a clone before, and the fallback was
+  `PDPageTree.add` — which walks the whole object graph checking for a cycle and
+  runs out of stack on these masters. Clones now go in with `insertAfter`, which
+  does no such walk. Styles 1 and 2 have a features and traits page after their
+  spell pages and were never affected, which is why this survived.
 
 ## Changed
 
 - The 28 templates are now 8: for each style, one to grow from and one with no
   spell page for a character who casts nothing. 44.3 MB to 9.7 MB.
+- Style 4 grows from a ONE-spell-page master like every other style. Its master
+  was the two-spell-page file, on the reading that its licence footer was baked
+  into the artwork — and a baked footer can be spread by cloning but never
+  removed, so a last-page-only style needed a plain page to clone and a marked
+  page to end on. It is not baked: both pages referenced the same background
+  XObject and the marked page was the plain page plus an appended BT/ET block, so
+  keeping the marked page alone gives clones that all carry the footer. The
+  retired file leaves resources/ 4.5 MB lighter, and the surviving page renders
+  byte-identically.
+- That page's footer block is four operators rather than six: `0 i` sets flatness
+  tolerance, which applies to path curves and not to glyph fills, and `/GS2 gs`
+  is the page default, differing from GS0 only in stroke adjustment.
+- Style 4's structure tree came off with the dropped page. The tree reaches a
+  page through each element's `/Pg`, so the page survived removal from the page
+  tree while 242 elements still named it; pruning just those reached 27 of them,
+  because `/K` is a dictionary, an array, an integer MCID or a reference by turns
+  and ParentTree and ClassMap need handling too. Removing the tree took the file
+  from 2622 objects to 1301. The cost is style 4's accessibility tagging — styles
+  1 and 2 keep theirs, style 3 never had any — and restoring it means writing the
+  pruner properly.
 - Exports are smaller at every caster count above one, by 49 KB to 671 KB
   depending on style, and a character with no spellcasting gets a file the same
   size as before.

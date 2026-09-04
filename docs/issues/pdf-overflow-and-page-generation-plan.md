@@ -581,20 +581,22 @@ their 1-spell file, since every spell page they have is alike.
 Worth having, and mostly achievable by choosing which page kind to clone where
 rather than by drawing anything:
 
-    :all           clone the marked page          styles 1, 2 already; style 4 possible
-    :last          clone plain, finish marked     style 4's own convention
-    :first         marked first, then plain       possible wherever both kinds exist
+    :all           clone the marked page          every style with a footer
+    :last          clone plain, finish marked     needs a plain page to clone
+    :first         marked first, then plain       same
     :every-other   alternate the two kinds        same
 
 The limit is that a footer baked into a page's content stream **cannot be
-removed**, only added. So a style offers whichever placements its page kinds
-allow: style 4 has both a plain and a marked spell page and can do any of them;
-styles 1 and 2 have only marked pages, so `:all` is the only setting they can
-honour; style 3 has no attribution to place.
+removed**, only added, so a placement other than `:all` needs a PLAIN spell page
+to clone -- and as of the one-page-per-style masters, no style ships one. Style 4
+did, in the 2-spell file that was its master until the marked page was proved to
+be the plain page plus an appended BT/ET block; that file is retired.
 
-Anything beyond that -- marking a page whose artwork lacks it -- means drawing the
-footer, which for style 4 is 4pt CartaMarinaBold at x 24.9, y 12.1, an embedded
-subset already present in the document and reusable rather than re-embedded.
+So every style is `:all` today, and the other placements mean DRAWING the footer
+rather than shipping a second page kind. For style 4 that is 4pt CartaMarinaBold
+at x 24.9, y 12.1, an embedded subset already present in the document and
+reusable rather than re-embedded -- which is cheaper than the 4.5 MB a second
+master costs, and is the route to take if the setting is built.
 
 ### 8b. Packing belongs in the browser (2026-09)
 
