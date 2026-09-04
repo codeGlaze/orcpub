@@ -89,21 +89,23 @@ that participates in the base as a competing calculation (`10 + Dex + Con`), sub
 tie-break against `?natural-ac-bonus`. Bracers of Defense writes a *flat +2* that ought to be a
 bonus stacking on whatever wins.
 
-**CONFIRMED, FIXED, and it was OURS.** A natural-armor(3) character was AC 15 unarmored and still
-15 with Bracers of Defense equipped — delta 0, the +2 silently dropped. RAW is 17.
+**CONFIRMED and FIXED. It is live on `origin/integration`** — a real shipped defect, not something
+this branch introduced. A natural-armor(3) character is AC 15 unarmored and still 15 with Bracers of
+Defense equipped: delta 0, the +2 silently dropped. RAW is 17.
 
-Not a shipped defect. Measured against both branches by running the same test with each branch's
-`template_base`:
+Measured by running the same test against each branch's `template_base`:
 
-| | natural armor 3 + Bracers |
-|---|---|
-| `agents/develop` (integration) | **17** — correct |
-| this refactor branch, before the fix | **15** — regression |
+| branch | natural armor 3 + Bracers | |
+|---|---|---|
+| **`origin/integration`** — the baseline | **15** | bug present |
+| this branch, before the fix | 15 | inherited |
+| this branch, after the fix | **17** | correct |
+| `origin/agents/develop` | 17 | a divergent lineage without the tie-break — **not** the baseline |
 
-Cause: our own `6c46f8f2` ("stop unarmored-defense and natural-armor from stacking") zeroes the
-whole `?unarmored-ac-bonus` channel when natural wins the tie-break. Correct for its target case
-(Barbarian + Draconic stacked to 18 when RAW is 15), wrong for flat bonuses that legitimately stack.
-The overload is what made one fix break the other case.
+Cause: the tie-break in `?unarmored-armor-class` zeroes the whole `?unarmored-ac-bonus` channel when
+natural armor wins. Correct for its target case (Barbarian + Draconic stacked to 18 when RAW is 15),
+wrong for flat bonuses that legitimately stack. The overloaded channel is what makes one correct fix
+break the other case.
 
 Fixed by moving `mod5e/unarmored-ac-bonus` to `?ac-bonus-fns` with both clauses stated
 (`(if (or armor shield) 0 bonus)`). That constructor had exactly one caller — Bracers — because
@@ -597,6 +599,13 @@ what we believed and when.
 - **A design claim that was wrong:** an earlier version of this doc said "the shield's own +2 needs
   no tag — it is a bonus." It is not a bonus in the current engine; it is computed inside the base,
   so a winning calculation loses it. Caught by the step-3 tests rather than by reading.
+- **A correction that was itself wrong:** the Bracers/natural-armor defect was reported as shipped,
+  then retracted as a regression this branch introduced, then confirmed shipped after all. The
+  retraction compared against `agents/develop`, assumed to be the integration branch on the strength
+  of its name; the baseline is `origin/integration`, which has the defect. Compounded by trusting
+  `git merge-base --is-ancestor`, which answers "is this commit an ancestor" and not "does this
+  branch have this change" — the tie-break had reached integration under a different SHA. Lesson in
+  `verification-discipline.md`.
 - **A limitation that wasn't:** this doc argued at length that `:tortle-ac` could not be moved onto
   the universal mechanism, because reproducing it needs a *ceiling* on AC and `?ac-fns` is a `max`,
   which raises floors only. The conclusion was "left as-is until equipment restrictions exist."

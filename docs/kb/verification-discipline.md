@@ -141,3 +141,23 @@ actually claims.
 
 Applies past AC: whenever a test pins one number produced by summing several sources, check that no
 two of them are equal before believing it.
+
+## A comparison is only as good as its baseline — verify the baseline by CONTENT
+
+The Bracers/natural-armor defect was called shipped, then retracted as "our own regression, siloed
+to the refactor branch", then un-retracted. It is shipped. The retraction came from comparing
+against `agents/develop` — assumed to be the integration branch because the name looked right. The
+integration branch is `origin/integration`, and it has the defect.
+
+Two failures, both cheap to avoid:
+
+1. **The baseline was assumed, not checked.** One `git branch -r` would have shown
+   `origin/integration` sitting there. Never name a comparison baseline from a branch's name.
+2. **`git merge-base --is-ancestor <sha> <branch>` said "no" and that was believed.** The commit had
+   reached integration under a different SHA (merge or cherry-pick). Ancestry answers "is this
+   commit an ancestor", never "does this branch have this change". **Compare the content** — read
+   the file on the target branch, or run the test against it.
+
+The empirical method itself was right: swap in the other branch's file, run the one test, read the
+number. It just ran against the wrong file. Running it against two branches would have shown the
+disagreement immediately, since `agents/develop` and `origin/integration` do not agree here.
