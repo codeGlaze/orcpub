@@ -95,6 +95,9 @@
 ;; Bracers of Defense: "+2 to AC if you are wearing no armor and using no shield" — shipped as
 ;; (mod5e/unarmored-ac-bonus 2), i.e. it writes ONLY the no-shield channel.
 (def bracers-class (feat-class :bracers- [(mod5e/unarmored-ac-bonus 2)]))
+;; The two halves :tortle-ac used to weld together, separately authorable.
+(def p-flat17   (props-class :p-flat17- {:ac {:ac 17 :abilities []}}))   ; flat natural AC, no restriction
+(def p-noarmor  (props-class :p-noarm-  {:cant-wear-armor true}))        ; the restriction, no AC
 (def p-bonus    (props-class :p-bonus- {:ac-bonus {:ac-bonus 1}}))
 (def p-armorbon (props-class :p-abon-  {:ac-bonus {:ac-bonus 1 :armor? true}}))
 
@@ -121,6 +124,10 @@
                          weapons5e/weapons-map lizardfolk-prop-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map tortle-prop-class)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-flat17)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-noarmor)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map homebrew-ac-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
@@ -200,6 +207,9 @@
 (def custom-heavy {:base-ac 16 :type :heavy :max-dex-mod 2
                    :orcpub.dnd.e5.magic-items/magical-ac-bonus 0})
 (def shield {:type :shield})
+;; A +1 shield, so the shield contributes 3 rather than 2. Needed wherever a test must tell the
+;; shield's contribution APART from some other +2 — with a plain shield the arithmetic collides.
+(def magic-shield {:type :shield :orcpub.dnd.e5.magic-items/magical-ac-bonus 1})
 
 (deftest shield-interactions-with-unarmored-defense
   (testing "Monk cannot use Unarmored Defense with a shield; Barbarian can"
@@ -377,13 +387,22 @@
   (testing "Bracers of Defense: '+2 if wearing no armor AND using no shield'. It writes only
             ?unarmored-ac-bonus, never ?unarmored-with-shield-ac-bonus — the omission IS the
             no-shield clause. So the with-shield channel is load-bearing even though only
-            Barbarian writes it; collapsing the two naively would make Bracers apply with a shield."
-    (is (= 14 ((ac-fn-for abilities :fighter :bracers-) nil nil))
-        "no armor, no shield: 10 + Dex(2) + bracers(2) = 14")
-    (is (= 14 ((ac-fn-for abilities :fighter :bracers-) nil shield))
-        "shield held: bracers EXCLUDED, so 10 + Dex(2) + shield(2) = 14")
-    (is (= 13 ((ac-fn-for abilities :fighter :bracers-) leather nil))
-        "armor worn: bracers excluded, plain leather 11 + Dex(2) = 13")))
+            Barbarian writes it; collapsing the two naively would make Bracers apply with a shield.
+
+            Measured as the DELTA against the same character without the bracers. Absolute numbers
+            cannot prove this: with a plain shield the bracers' +2 and the shield's +2 are the same
+            number, so 14 with a shield is equally consistent with the bracers applying and the
+            shield being dropped. A +1 shield (contributing 3) breaks that tie."
+    (let [with-    (fn [a s] ((ac-fn-for abilities :fighter :bracers-) a s))
+          without- (fn [a s] ((ac-fn-for abilities :fighter) a s))
+          delta    (fn [a s] (- (with- a s) (without- a s)))]
+      (is (= 12 (without- nil nil))         "control, unarmored: 10 + Dex(2)")
+      (is (= 15 (without- nil magic-shield)) "control, +1 shield: 10 + Dex(2) + 3")
+      (is (= 13 (without- leather nil))     "control, leather: 11 + Dex(2)")
+      (is (= 2 (delta nil nil))          "unarmored, no shield: the bracers apply, +2")
+      (is (= 0 (delta nil magic-shield)) "shield held: the bracers do NOT apply — 15, not 17")
+      (is (= 0 (delta leather nil))      "armor worn: the bracers do NOT apply")
+      (is (= 0 (delta plate magic-shield)) "neither clause satisfied"))))
 
 (deftest diagnostic-tables
   (testing "DIAGNOSTIC (no assertions): numbers for two open questions"
@@ -416,6 +435,26 @@
              ["plate+shield"     plate      shield 19]]]
       (is (= expected ((ac-fn-for abilities :fighter :tor-) armor shld))
           (str ":tortle-ac / " ctx)))))
+
+(deftest tortle-decomposes-into-a-calculation-and-a-restriction
+  (testing ":tortle-ac welded two separable things together: a flat natural AC, and \"you can't
+            wear armor\". Each half must stand alone, and composing them must reproduce the
+            welded prop exactly — that equivalence is what makes the split safe."
+    (testing "the flat AC alone — armor is still allowed, so good armor can beat it"
+      (is (= 17 ((ac-fn-for abilities :fighter :p-flat17-) nil nil))   "flat 17, Dex ignored")
+      (is (= 17 ((ac-fn-for abilities :fighter :p-flat17-) leather nil)) "leather's 13 loses")
+      (is (= 18 ((ac-fn-for abilities :fighter :p-flat17-) plate nil))
+          "plate's 18 WINS — the whole point of not baking in a ceiling"))
+    (testing "the restriction alone — no AC of its own, worn armor just stops counting"
+      (is (= 12 ((ac-fn-for abilities :fighter :p-noarm-) nil nil))  "10 + Dex(2)")
+      (is (= 12 ((ac-fn-for abilities :fighter :p-noarm-) plate nil)) "plate contributes nothing")
+      (is (= 14 ((ac-fn-for abilities :fighter :p-noarm-) plate shield))
+          "the shield still counts — it is not armor"))
+    (testing "composed, they equal the shipped :tortle-ac in every equipment state"
+      (doseq [[ctx armor shld] contexts]
+        (is (= ((ac-fn-for abilities :fighter :tor-) armor shld)
+               ((ac-fn-for abilities :fighter :p-flat17- :p-noarm-) armor shld))
+            (str "composed vs welded / " ctx))))))
 
 (deftest migration-parity-sweep
   (testing "every old mechanism vs its authored replacement, across every equipment state"
