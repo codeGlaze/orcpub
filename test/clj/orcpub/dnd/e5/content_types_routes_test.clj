@@ -6,7 +6,8 @@
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.dnd.e5.content-types :as ct]
             [orcpub.route-map :as route-map]
-            [orcpub.routes :as routes]))
+            [orcpub.routes :as routes]
+            [orcpub.dnd.e5.page-map]))
 
 (deftest route-kw-literals-match-route-map-vars
   (testing "each registry :route-kw equals route_map's dnd-e5-<route-seg>-page-route var"
@@ -41,15 +42,30 @@
         (is (contains? allowed route-kw)
             (str id " (" route-kw ") must be allow-listed in index-page-paths"))))))
 
-;; The page-map (web/cljs/orcpub/core.cljs) binds a route to a VIEW FN, and it is the one part of
-;; the wiring the registry cannot generate — a view fn is not derivable from data in cljs (D-note in
-;; the framework doc). So a type can be fully registered, route resolvably, and still land on a
-;; blank page. Read as TEXT because this is clj and the page-map is cljs; same tactic as
-;; builder-items-match-the-subs, which guards a cljs loop from the JVM.
-(deftest every-registered-builder-route-is-bound-to-a-view
-  (let [core (slurp "web/cljs/orcpub/core.cljs")]
+;; The page-map is now GENERATED from this registry by orcpub.dnd.e5.page-map/builder-pages, a
+;; compile-time macro (see that ns for why "a view fn can't be derived from data in cljs" was only
+;; half true). A registry entry whose view fn is missing is a COMPILE error in core.cljs, which is
+;; a stronger guard than any test here — this just pins the shape the macro emits.
+(deftest builder-pages-macro-covers-every-registered-type
+  (let [m (macroexpand-1 '(orcpub.dnd.e5.page-map/builder-pages))]
+    (testing "one binding per registry entry, keyed by :route-kw"
+      (is (= (set (map :route-kw ct/content-types)) (set (keys m))))
+      (is (= (count ct/content-types) (count m))))
+    (testing "each value is the conventionally-named view fn for that :route-seg"
+      (doseq [{:keys [route-kw route-seg]} ct/content-types]
+        (is (= (symbol "orcpub.dnd.e5.views" (str route-seg "-page")) (get m route-kw))
+            (str route-kw " must bind to views/" route-seg "-page"))))))
+
+;; The macro emits `views/<route-seg>-page` whether or not that fn exists — cljs reports an
+;; undeclared var as a WARNING, and the build still succeeds (verified by adding a bogus registry
+;; entry and compiling). So the hard guard lives here: read views.cljs as text from the JVM, the
+;; same tactic builder-items-match-the-subs uses for a cljs loop we can't run in CI.
+(deftest every-registered-type-has-a-builder-page-view
+  (let [views (slurp "src/cljs/orcpub/dnd/e5/views.cljs")]
     (doseq [{:keys [id route-seg]} ct/content-types]
-      (let [var-name (str "dnd-e5-" route-seg "-page-route")]
-        (is (re-find (re-pattern (str "routes/" var-name "\\s+views")) core)
-            (str id ": web/cljs/orcpub/core.cljs must bind routes/" var-name
-                 " to a view fn, or the builder page renders blank"))))))
+      (let [fn-name (str route-seg "-page")
+            ;; boolean, not the match: an `is` on re-find prints the ENTIRE file as `actual`
+            found?  (boolean (re-find (re-pattern (str "\\(defn\\s+" fn-name "\\s")) views))]
+        (is found?
+            (str id ": views.cljs must define (defn " fn-name " ...) — the page-map macro emits a"
+                 " reference to it, and a missing one is only a cljs warning, not an error"))))))

@@ -67,7 +67,7 @@ pure-data leaf — D7) so every other layer can read it without circular deps.
 | **events** | `events.cljs` | ✅ generated | `doseq` over `:homebrew-builder?` → `register-homebrew-content!` |
 | **db draft slots** | `db.cljs` | ✅ generated | builder-item `default-value` slots from `:builder-item`+`:default` |
 | **routes** | `route_map.cljc`, `routes.clj` | ✅ generated | bidi segs + `my-content` set + SPA allowlist from `:route-seg`/`:route-kw` (registry is now a pure-data leaf; guarded by `content_types_routes_test`). `route_map` keeps only the one route-keyword `def` per type (D6). |
-| **core page-map** | `core.cljs` | ⚠️ won't generate | a view *fn* can't be derived from data in cljs — the route→view binding is irreducible (best co-located with the form) |
+| **core page-map** | `core.cljs` | ✅ generated | `orcpub.dnd.e5.page-map/builder-pages`, a COMPILE-TIME macro over the registry emitting `views/<route-seg>-page`. Previously listed here as "won't generate — irreducible"; that was wrong (see below) |
 | **spec** | per-type ns | ✅ generated (draconic) | `bf/fields->spec` over the field schema — optional-by-default, required name/key/option-pack + `:required?` fields, enum values validated. 🔴 conditional-required (`:required-when`) NOT yet enforced — high-priority pin. |
 | **builder form** | `views.cljs` | ✅ collapsed (not generated) | `simple-content-builder` makes it a one-liner; custom fields via `extra-fields` |
 
@@ -100,8 +100,8 @@ pure-data leaf — D7) so every other layer can read it without circular deps.
 3. **Builder form** in `views.cljs` — `(defn <type>-builder [] (simple-content-builder <item-sub>
    <set-prop> [extra-fields…]))` + `(defn <type>-builder-page [] (builder-page "..." <reset>
    <save> <type>-builder))`; add the my-content menu entry.
-4. **Routes** (until the routes pass lands): `route_map.cljc` (def + route-set + bidi seg),
-   `routes.clj` (allowlist), `core.cljs` (route→page).
+4. **Routes**: one route-keyword `def` in `route_map.cljc` (D6). The bidi seg, route sets, SPA
+   allowlist and the `core.cljs` route→page binding are all generated.
 5. **Game-rule wiring** — if the type is *granted* by other content, register a **pool** and a
    **grant** (§3); if it stands alone in its own list, nothing more.
 6. **Update `content_types_test`** count + builder-item set.
@@ -109,6 +109,21 @@ pure-data leaf — D7) so every other layer can read it without circular deps.
 
 > The irreducible per-type work is the **field schema** (the form's custom fields), the **spec**,
 > and **how it plugs into game rules**. Everything else is generated or a one-liner (D22).
+
+**The page-map was NOT irreducible — corrected 2026-09-04.** This table said "won't generate — a
+view *fn* can't be derived from data in cljs". That conflates deriving a fn from data at RUNTIME
+(genuinely impossible, cljs has no `resolve`) with emitting the symbol at COMPILE TIME (routine).
+All 15 registry entries already bound exactly `views/<route-seg>-page`, so the map was fully
+derivable; `orcpub.dnd.e5.page-map/builder-pages` now generates it. Step 4 of §2e drops `core.cljs`.
+
+D22 warns about exactly this — "irreducible" is a claim to be proven against the code, not
+asserted — and it happened again, in the same table that records D22's own lesson.
+
+**What it does NOT buy:** a registry entry whose view fn is missing is a cljs *warning*
+(`Use of undeclared Var …`), not an error — verified by adding a bogus entry and building; the
+build still succeeded. So the hard guard is a test, not the compiler:
+`every-registered-type-has-a-builder-page-view` reads `views.cljs` from the JVM and fails if the
+`defn` is absent.
 
 ---
 
