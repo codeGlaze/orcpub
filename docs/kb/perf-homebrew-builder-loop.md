@@ -13,9 +13,12 @@ Three answers, in order of how much they matter:
    `kahn-sort` was **76–86% of `entity/build` at every homebrew size**. Porting the
    `perf/entity-build` fix takes the rebuild from 27–32 ms to 5–7 ms and a real race click
    from 157–221 ms to 87–112 ms of CPU.
-3. **With that gone, the "reads too much" cost is what's left and it is real** — but it is
-   ~5 ms, not ~30. `collect-modifiers-2` is now 63–73% of the rebuild and is the piece that
-   actually grows with homebrew.
+3. **Spells ARE built into the builder when you are nowhere near the Spells tab, and that
+   is the seconds-scale cost.** On the Race tab, before Spells has ever been opened, a
+   library of 128 homebrew spellcasting classes constructs **4064 spell selections**, and
+   ~1.5 s of the ~3.0 s of busy JS before the Race page is usable is spell machinery. It is
+   linear in caster count (~13 ms per homebrew spellcaster) and is re-paid on **every** load
+   of the builder. See *Spells on the Race tab* below.
 
 The report: with a lot of homebrew loaded, selecting race / subrace / class / subclass
 slows down and can freeze the browser, and the suspicion is the core loop reading far too
@@ -108,6 +111,94 @@ function eagerly constructs ~20 levels of spell selections per spellcasting subc
 it is the strongest structural candidate for "reads too much, especially spells". This JVM
 sweep does not exercise it. Treat the flat curve as covering the non-spellcasting case
 only, until the browser numbers on the real fixture come in.
+
+## Spells on the Race tab
+
+**The report was right.** Every homebrew spellcasting class has its full spell machinery
+constructed when the builder's template is built — which happens before the Race page can
+render, on every page load, whether or not Spells is ever opened.
+
+Fixture: `dev/spellcaster_pack.clj` clones the *real* spellcasting class out of
+`test-pak.orcbrew` — a full `:spellcasting` map with `:level-factor`, `:known-mode`,
+`:spells-known`, `:cantrips-known` and a 285-entry `:spell-list` across levels 0–9 — so the
+shape is real homebrew, not something invented. Each clone's spell list points at that
+pack's own custom spells. Packs are kept under 2.8 MB so they clear the storage ceiling.
+
+Measured on the **first render of the Race page**, with the Spells tab never opened.
+Instrumentation is installed before the page renders, because the template is built once and
+cached — measure it late and you measure nothing.
+
+| homebrew casters | busy JS | `class-option` | `spell-selection` | `spells-known-selections` | `make-levels` | `spellcaster-subclass-levels` |
+|---|---|---|---|---|---|---|
+| 1 | 1166 ms | 13x 49 ms | **127x** 10 ms | 13x 42 ms | 2x 4 ms | 2x 4 ms |
+| 8 | 1436 ms | 20x 104 ms | **344x** 28 ms | 20x 94 ms | 16x 22 ms | 16x 19 ms |
+| 32 | 1832 ms | 44x 183 ms | **1088x** 79 ms | 44x 166 ms | 64x 70 ms | 64x 64 ms |
+| 64 | 2225 ms | 76x 291 ms | **2080x** 145 ms | 76x 261 ms | 128x 136 ms | 128x 128 ms |
+| 128 | 2972 ms | 140x 540 ms | **4064x** 249 ms | 140x 495 ms | 256x 237 ms | 256x 218 ms |
+
+`class-option` call counts are exactly 12 SRD + N homebrew, confirming every homebrew caster
+is built. Growth is linear: **~13 ms of busy JS per homebrew spellcaster**, of which the
+spell-shaped work (`class-option` + `spells-known-selections` + `make-levels` +
+`spellcaster-subclass-levels` + `spell-selection`) is roughly half. Extrapolating the
+measured slope, 500 casters is ~6 s and 1000 is ~13 s before the Race page is usable.
+
+### It is all built up front, for levels the character will never reach
+
+The character in these runs is **level 1, single class**. Selecting a class and then setting
+level 5 — real dropdowns — produced **zero** further `spell-selection` or `class-option`
+calls:
+
+```
+spell-128:  race Half-Orc     wall 38ms   classOpt -   spellSel -   tmplSel -   build 2x32ms
+            tab Class/Level   wall 59ms   classOpt -   spellSel -   tmplSel -   build -
+            class -> Wizard   wall 12ms   classOpt -   spellSel -   tmplSel -   build 2x75ms
+            level -> 5        wall 12ms   classOpt -   spellSel -   tmplSel -   build 2x39ms
+```
+
+Zero calls when the level changes means the level-5 spell selections already existed while
+the character was level 1. Every level of every homebrew caster is constructed eagerly, up
+front, before the first tab is drawn.
+
+### Where it happens
+
+`::char5e/template-selections` (`equipment_subs.cljs:309`) takes `spells-map` and
+`spell-lists` and builds the whole builder template. Its `::classes5e/classes` input comes
+from `::classes5e/plugin-classes` (`spell_subs.cljs:619`), which calls `make-levels`
+(`spell_subs.cljs:534`) for **every** plugin class, and `::classes5e/plugin-subclasses`
+(`spell_subs.cljs:587`) does the same for every plugin subclass. `make-levels` reaches
+`spellcaster-subclass-levels` (`spell_subs.cljs:445`) and `opt5e/class-option`
+(`options.cljc:3013`) builds `spells-known-selections` (`options.cljc:681`) and
+`spell-selection` (`options.cljc:513`) across the whole level range.
+
+Nothing in that chain is gated on the character's level, on the class being selected, or on
+the Spells tab being open.
+
+### Correction: an earlier conclusion in this document was wrong
+
+An earlier section here reported that "template construction does NOT blow up with
+class/subclass count", from a JVM sweep that stayed sub-millisecond and flat out to 64
+homebrew classes. That sweep's synthetic classes carried **no `:spellcasting`**, so none of
+the machinery above ever ran. The caveat was recorded at the time, and it turned out to be
+the whole finding: the non-spellcasting path really is flat, and the spellcasting path is
+where the seconds are. The JVM numbers stand for what they measured and are kept below; they
+do not describe a library with spellcasters in it.
+
+This is the `verification-discipline.md` fixture lesson again — a green number proves nothing
+if the fixture does not match real content. `test-pak.orcbrew` does contain one real
+spellcasting class (`:sorcerer-divine-soul-`, 285 spell refs) and two spellcasting
+subclasses; checking that first would have pointed here sooner.
+
+### What would fix it
+
+Not measured, so stated as candidates, not conclusions:
+
+- **Build a class's levels lazily.** `make-levels` runs for every plugin class at template
+  time. Only the classes the character has actually taken need levels, and only up to the
+  level it has reached.
+- **Gate on level.** Even for a selected class, spell selections above the character's
+  current level are constructed and never read.
+- **Do not re-pay it per page load.** The template is cached within a session but rebuilt
+  from scratch on every navigation into the builder.
 
 ## The hard ceiling: homebrew that cannot be saved
 
@@ -211,11 +302,9 @@ meaningless. The independent render cost is the React reconcile/commit column, w
    any of the above, but it changes the subscription's semantics and needs its own test.
 3. **Import cost**, which is linear and a foreground freeze: 1303 / 2135 / 2844 / 5276 ms
    for 0.75 / 1.5 / 3.0 / 5.9 MB.
-4. **Spells specifically.** `spellcaster-subclass-levels` (`spell_subs.cljs:445`) eagerly
-   builds ~20 levels of spell selections per spellcasting subclass, at template-build time,
-   for a level-1 character. The JVM sweep below does not exercise it and the browser sweep
-   did not isolate it. Still unmeasured, still the best structural candidate for a
-   content-shaped blowup that these fixtures may not represent.
+4. ~~Spells specifically~~ — **now measured, and it is the big one.** See *Spells on the
+   Race tab* above. This outranks items 1–3 by an order of magnitude: milliseconds of
+   rebuild versus seconds of template construction.
 
 ## Dead ends (recorded so they are not repeated)
 

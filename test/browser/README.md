@@ -34,6 +34,9 @@ re-frame events. Routing via the app's own router is fine for navigation.
 - `homebrew_rebuild_scaling_e2e.js` — microbenchmarks the character-rebuild internals as
   homebrew volume grows (real `.orcbrew` upload through the page's own file input). Needs
   packs from `dev/scale_orcbrew_pack.clj`.
+- `homebrew_spellcaster_load_e2e.js` — how much spell machinery gets built for homebrew
+  spellcasting classes when you are on the Race tab and have not opened Spells. Needs packs
+  from `dev/spellcaster_pack.clj`.
 - `homebrew_render_split_e2e.js` — CPU-profiles a real race click and splits it into the
   rebuild path vs the render path, so the two can be told apart as homebrew grows.
 
