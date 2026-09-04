@@ -472,8 +472,12 @@
     (let [equipment-mod (equipment-mod-fn cfg)]
       (if (::char-equip/equipped? cfg)
         (let [mods (concat [equipment-mod]
+                           ;; CHARACTER magic (Ring/Cloak of Protection): applies to whichever AC
+                           ;; calculation wins, so it is a bonus. Distinct from ITEM magic, the
+                           ;; ::magical-ac-bonus field on a worn armor or shield, which is part of
+                           ;; that item's own value.
                            (when (and include-magic-bonus? magical-ac-bonus)
-                             [(mods/cum-sum-mod ?magical-ac-bonus magical-ac-bonus)])
+                             [(mods/vec-mod ?ac-bonus-fns (fn [_ _] magical-ac-bonus))])
                            modifiers)]
           mods)
         equipment-mod))))

@@ -87,8 +87,10 @@
 (def p-barb     (props-class :p-barb-  {:ac {:ac 10 :abilities [:dex :con] :armor? false}}))
 (def p-floor    (props-class :p-floor- {:ac {:ac 16 :abilities []}}))            ; no :armor? = either
 (def p-nat-any  (props-class :p-natany- {:ac {:ac 13 :abilities [:dex]}}))  ; no :armor? = either
-;; a Ring/Cloak of Protection-style +1: the ?magical-ac-bonus scalar, which lives INSIDE the base
-(def ring-class (feat-class :ring- [(mod/cum-sum-mod ?magical-ac-bonus 1)]))
+;; A Ring/Cloak of Protection: CHARACTER magic, +1 to AC however it is calculated. Emitted the way
+;; deferred-magic-item-fn emits it — a ?ac-bonus-fns entry. It used to write a ?magical-ac-bonus
+;; scalar that lived inside the base, which is why a winning calculation used to lose it.
+(def ring-class (feat-class :ring- [(mod5e/ac-bonus-fn (fn [_ _] 1))]))
 ;; construct-style: plating that only helps while the shield is deployed. Nothing in SRD does this;
 ;; the vocabulary must express it regardless — homebrew flexibility is the point.
 (def p-shieldonly (props-class :p-shonly- {:ac {:ac 16 :abilities [] :shield? true}}))

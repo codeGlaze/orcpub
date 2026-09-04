@@ -8,6 +8,7 @@
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.weapons :as weapon5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
+            [orcpub.dnd.e5.armor-class :as ac]
             [orcpub.dnd.e5.character.equipment :as char-equip5e]))
 
 (def warlock-spell-slot-schedule
@@ -35,10 +36,6 @@
 (def template-base
   (es/make-entity
    {?armor-class (+ 10 (?ability-bonuses ::char5e/dex))
-    ;; Unarmored AC with nothing else applying. Every "your AC = ..." feature — Unarmored Defense,
-    ;; natural armor, homebrew — is a calculation in ?ac-fns that competes with this by max, so
-    ;; there is nothing to arbitrate here any more.
-    ?base-armor-class (+ 10 (?ability-bonuses ::char5e/dex))
     ?levels {}
     ;; DEPRECATED 2026-09 — kept as a compatibility channel, not part of the design. Natural armor
     ;; is a calculation now (mod5e/ac-formula); nothing in this repo writes this any more. It stays
@@ -46,7 +43,6 @@
     ;; once no branch writes it — see the AC refactor doc's ledger.
     ?natural-ac-bonus 0
     ?max-medium-armor-bonus 2
-    ?magical-ac-bonus 0
     ?armor-stealth-disadvantage? (fn [armor]
                                    (:stealth-disadvantage? armor))
     ;; How much Dex this armor lets you add. Two independent sources of a cap, and the EFFECTIVE
@@ -59,42 +55,27 @@
     ;; Taking the max is what keeps the two from cancelling: reading :max-dex-mod alone would let
     ;; scale mail's printed 2 silently undo Medium Armor Master's 3.
     ?armor-dex-bonus (fn [armor]
-                       (let [dex (?ability-bonuses ::char5e/dex)
-                             type-cap (case (:type armor)
-                                        :light nil
-                                        :medium ?max-medium-armor-bonus
-                                        0)
-                             own-cap (:max-dex-mod armor)
-                             cap (cond
-                                   (nil? own-cap) type-cap
-                                   (nil? type-cap) own-cap
-                                   :else (max type-cap own-cap))]
-                         (if (nil? cap) dex (min cap dex))))
-    ?shield-ac-bonus (fn [shield]
-                       (+ 2 (or (::mi5e/magical-ac-bonus shield) 0)))
+                       (ac/armor-dex-bonus (?ability-bonuses ::char5e/dex)
+                                           ?max-medium-armor-bonus
+                                           armor))
+    ?shield-ac-bonus (fn [shield] (ac/shield-bonus shield))
     ?dual-wield-weapon? weapon5e/light-melee-weapon?
     ;; "You can't wear armor" (a tortle's shell, a construct chassis). A RESTRICTION, not an AC
     ;; rule: worn armor simply contributes nothing, so the character is treated as unarmored no
     ;; matter what is equipped. Deliberately not a cap on AC — ?ac-fns is a max and can raise a
     ;; floor but not impose a ceiling, and a ceiling would be the wrong model anyway.
     ?armor-ac-suppressed? false
-    ?armor-class-with-armor-base (fn [armor & [shield]]
-                                   (let [armor (when-not ?armor-ac-suppressed? armor)]
-                                     (if (nil? armor)
-                                       ?base-armor-class
-                                       (+ (:base-ac armor)
-                                          (?armor-dex-bonus armor)
-                                          (::mi5e/magical-ac-bonus armor)))))
+    ?armor-class-with-armor-base (fn [armor & [_shield]]
+                                   (ac/worn-armor-ac (?ability-bonuses ::char5e/dex)
+                                                     ?max-medium-armor-bonus
+                                                     (when-not ?armor-ac-suppressed? armor)))
     ?armor-class-with-armor (fn [armor & [shield]]
-                              (let [max-ac (apply max
-                                                  (?armor-class-with-armor-base armor shield)
-                                                  (map #(% armor shield) ?ac-fns))
-                                    bonuses (map #(% armor shield) ?ac-bonus-fns)]
-                                (apply +
-                                       max-ac
-                                       bonuses)))
-    ?ac-bonus-fns [(fn [_ shield] (if shield (?shield-ac-bonus shield) 0))
-                   (fn [_ _] ?magical-ac-bonus)]
+                              (ac/reconcile (?armor-class-with-armor-base armor shield)
+                                            ?ac-fns
+                                            ?ac-bonus-fns
+                                            armor
+                                            shield))
+    ?ac-bonus-fns [(fn [_ shield] (if shield (?shield-ac-bonus shield) 0))]
     ;; Seeded with the ?natural-ac-bonus compatibility adapter (see above). Content-registered
     ;; calculations from mod5e/ac-formula are appended to this.
     ?ac-fns [(fn [_armor _shield]

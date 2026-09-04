@@ -1,35 +1,82 @@
 (ns orcpub.dnd.e5.armor-class
-  "Armor Class calculation. NOT YET WIRED INTO THE APP — the live AC code is still
-  template_base.cljc (?armor-class-with-armor). Nothing in src/ requires this namespace; it is
-  currently exercised only by ac_reconciliation_test and ac_experiments_test.
+  "The Armor Class engine. `template_base` declares the ?-attributes — they are entity-spec macros
+  and only work inside es/make-entity — and delegates the arithmetic here.
 
-  Two things contribute to AC, combined differently:
-    FORMULA — a whole 'your AC = ...' calculation: worn armor, unarmored defense, natural armor,
-      a Barkskin floor, homebrew. Mutually exclusive — the best one wins (max).
-    BONUS — a flat +N added on top of whichever formula won: shield, Ring of Protection,
-      Defense fighting style.
-  So: AC = best formula + sum of bonuses.
+  THE MODEL
+    AC = max(worn-armor value, every registered calculation) + sum(every registered bonus)
 
-  Both are (fn [armor shield] -> number); armor and shield may be nil. A formula or bonus that
-  does not apply in the situation returns 0 (an unarmored formula while armor is worn, a
-  shield-forbidding formula while a shield is held). 0 is therefore the 'no contribution' value,
-  and it works as the seed for both max and +, since no real AC is zero or negative.
+  A CALCULATION is a whole \"your AC = ...\": Unarmored Defense, natural armor, a Barkskin floor,
+  homebrew. They compete; the best one wins; they never stack. Content registers them with
+  mod5e/ac-formula, which appends to ?ac-fns.
 
-  Formulas are supplied in two groups, because they behave differently as you change armor:
-    :armor-formula  — AC from the armor being worn. Its value depends on WHICH armor.
-    :other-formulas — everything else. Their value must NOT depend on which armor is worn; they
-                      may check whether armor is present, but must not read its fields. best-ac
-                      relies on this (see below) and a formula that breaks the rule will return a
-                      wrong number or throw.
+  A BONUS is a flat +N that applies to whichever calculation won: a shield, Ring of Protection,
+  the Defense fighting style. Content registers them with mod5e/ac-bonus-fn, which appends to
+  ?ac-bonus-fns.
 
-  INTENDED WIRING (none of this is built yet — recorded so the shape is clear):
-    - template_base would supply :armor-formula, :other-formulas and :bonuses, replacing the
-      scalar accumulators it uses today.
-    - best-ac would replace the ::best-armor-combo subscription (subs.cljs:801). That sub is
-      memoized, so once wired, AC would recompute when AC-relevant state changes rather than on
-      every render.
-    - homebrew AC would compile down to these same two groups, so homebrew and built-in content
-      would go through one reconciler instead of the several the app has now.")
+  Both are (fn [armor shield] -> number), either may be nil, and a contributor that does not apply
+  in the situation returns 0. That makes 0 the \"no contribution\" value for both max and +, which
+  is safe because no real AC is zero or negative.
+
+  Deciding which one a feature is: does it replace how AC is computed, or add to the result?
+  \"Your AC equals 13 + Dex\" is a calculation. \"+1 to AC\" is a bonus.
+
+  TWO KINDS OF MAGIC, which the names below keep apart:
+    ITEM magic  — ::magical-ac-bonus ON a worn armor or shield. Part of that item's own value.
+    CHARACTER magic — Ring/Cloak of Protection. A bonus on the winner, registered like any other.
+
+  ---------------------------------------------------------------------------------------------
+  NOT WIRED: best-ac at the bottom of this file. It is an outer-loop optimisation for
+  subs.cljs's \"best AC across every owned armor/shield\" search, and it needs a different config
+  shape (calculations split into item-dependent and item-independent groups). That split buys real
+  work-saving on stacked characters but carries a footgun — a calculation placed in the wrong group
+  returns a wrong number or throws, which ac_experiments_test demonstrates. Left unadopted pending
+  a decision; the wired engine above deliberately uses ONE list."
+)
+
+(def ^:private magical-ac-bonus :orcpub.dnd.e5.magic-items/magical-ac-bonus)
+
+(defn dex-cap
+  "The most Dex this armor allows, or nil for no limit. The MORE PERMISSIVE of what the armor TYPE
+  allows and what the item itself declares in :max-dex-mod.
+
+  Taking the max is load-bearing. Every shipped medium armor prints :max-dex-mod 2 and every heavy
+  prints 0, so reading the item's field alone would cap scale mail at 2 and silently disable Medium
+  Armor Master, which raises the medium cap to 3 via `max-medium`. Taking the max keeps the feat
+  working and still lets a custom item be more generous than its type — heavy that allows a Dex
+  bonus is expressible."
+  [max-medium armor]
+  (let [type-cap (case (:type armor) :light nil :medium max-medium 0)
+        own-cap  (:max-dex-mod armor)]
+    (cond (nil? own-cap)  type-cap
+          (nil? type-cap) own-cap
+          :else           (max type-cap own-cap))))
+
+(defn armor-dex-bonus
+  "How much of `dex` this armor lets you add."
+  [dex max-medium armor]
+  (if-let [cap (dex-cap max-medium armor)] (min cap dex) dex))
+
+(defn shield-bonus
+  "A shield's contribution: its flat 2 plus its own ITEM magic."
+  [shield]
+  (+ 2 (or (magical-ac-bonus shield) 0)))
+
+(defn worn-armor-ac
+  "AC from the armor being worn — base, the Dex it allows, and its own ITEM magic. `nil` armor is
+  the unarmored value, 10 + Dex."
+  [dex max-medium armor]
+  (if armor
+    (+ (:base-ac armor) (armor-dex-bonus dex max-medium armor) (magical-ac-bonus armor))
+    (+ 10 dex)))
+
+(defn reconcile
+  "AC for one specific equipped (armor, shield): the best calculation, plus every bonus.
+  `armor-value` is the worn-armor number, which competes with `calculations` like any other."
+  [armor-value calculations bonuses armor shield]
+  (+ (reduce max armor-value (map #(% armor shield) calculations))
+     (reduce +   0           (map #(% armor shield) bonuses))))
+
+;; ── NOT WIRED (see the ns docstring) ─────────────────────────────────────────
 
 (defn reconcile-ac
   "AC for one specific equipped (armor, shield): best formula + sum of bonuses.
