@@ -254,3 +254,32 @@ generators quietly covering for it.
 
 The per-site clamps stay as defence in depth. They are no longer what is doing
 the work.
+
+## Character images and your deployment
+
+A character's portrait is a URL, and the **server** fetches it while building the
+sheet. That is the only outbound request the app makes to an address a visitor
+chose, so it is bounded on every axis: http and https only, private and reserved
+addresses refused, redirects not followed, 128 KB, 2000x2000, and 20 seconds of
+transfer. The host is resolved **once** and the connection is made to that answer,
+so a name that resolves differently the second time cannot be used to slip past
+the address check.
+
+Three deployment questions that follow from it:
+
+- **Behind nginx?** Yes, and nothing to configure. `deploy/nginx.conf.template`
+  is an inbound reverse proxy; the image fetch is outbound and never passes
+  through it.
+- **In Docker?** The first resolution uses the container's own DNS, so Docker's
+  embedded resolver works normally. Note that `10/8`, `172.16/12` and `192.168/16`
+  are refused, so a character image URL cannot be pointed at another container on
+  the compose network. That is deliberate, and it is the same rule that stops it
+  reaching your database or the cloud metadata endpoint.
+- **Behind an egress proxy?** Also nothing to configure. If the JVM is started
+  with `https.proxyHost` (or the usual proxy properties), the app detects it and
+  lets the proxy do the resolving, because it is then the egress control point.
+  The shipped compose files set no proxy, so the resolve-once path is what runs by
+  default.
+
+If you deliberately want the server to reach an internal image host, there is no
+allowlist for it today — the refusal is by address range, with no exceptions.

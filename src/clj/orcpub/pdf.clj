@@ -1415,22 +1415,18 @@
   (some? (validated-addresses url)))
 
 (defn- pinned-connection-manager
-  "A connection manager that resolves `host` to `addrs` and nothing else.
+  "A connection manager that resolves `host` to `addrs` and nothing else, so the
+   connection goes to the address validated-addresses checked rather than to a
+   second lookup that may answer differently.
 
-   Without this, the guard is decorative: safe-image-url? resolves the host and
-   judges the answer, then the connection resolves it AGAIN, so a DNS server the
-   attacker controls answers public for the check and private for the fetch. The
-   address that was validated is not the address that was talked to.
+   Two constraints hold this shape:
 
-   The pin belongs on the connection MANAGER, not on HttpClientBuilder: its
-   setDnsResolver is documented as overridden by setConnectionManager, and
-   clj-http always sets one, so pinning there would be silently ignored.
-
-   The hostname stays in the URL, so the default socket factories below do
-   ordinary certificate and hostname verification. That is the whole reason to pin
-   the resolver rather than rewrite the URL to an IP and send a Host header: that
-   shortcut breaks certificate validation, and repairing it means overriding
-   hostname verification, which is a far worse hole than the one being closed."
+   - The resolver must go on the connection MANAGER. HttpClientBuilder's
+     setDnsResolver is documented as overridden by setConnectionManager, and
+     clj-http always sets one, so pinning there is silently ignored.
+   - The hostname must stay in the URL, so the socket factories below do their
+     ordinary certificate and hostname checks. Addressing the IP directly with a
+     Host header needs those checks overridden, which is the larger hole."
   ^BasicHttpClientConnectionManager [host addrs]
   (let [pinned (into-array java.net.InetAddress addrs)]
     (BasicHttpClientConnectionManager.
@@ -1443,22 +1439,18 @@
        (resolve [_ h]
          (if (= h host)
            pinned
-           ;; Nothing else should ever be looked up on this client. A redirect is
-           ;; already refused, so reaching here at all means something rewrote the
-           ;; route.
+           ;; Redirects are refused, so no other host should ever be routed here.
            (throw (UnknownHostException. (str "not the pinned host: " h)))))))))
 
 (defn- proxied?
   "Whether the JVM's proxy settings route this URL through a proxy.
 
-   Behind a proxy the client connects to the PROXY, so the resolver is asked for
-   the proxy's host and a pin on the target host both fails and is beside the
-   point: the proxy does the name resolution, and the proxy is the egress control
-   point. Detected rather than assumed -- pinning unconditionally makes a
-   deployment behind a proxy fetch no images at all, which is how this was found.
+   Behind one the client connects to the PROXY, so the resolver is asked for the
+   proxy's host and a pin on the target host refuses it -- every HTTPS fetch fails.
+   The pin is also pointless there, since the proxy does the resolving.
 
-   Uses the same ProxySelector that clj-http's SystemDefaultRoutePlanner uses, so
-   the two cannot disagree about whether a proxy applies."
+   Reads the same ProxySelector as clj-http's route planner, so the two cannot
+   disagree about whether a proxy applies."
   [url]
   (boolean (some #(not= java.net.Proxy$Type/DIRECT (.type ^java.net.Proxy %))
                  (.select (java.net.ProxySelector/getDefault) (java.net.URI. url)))))

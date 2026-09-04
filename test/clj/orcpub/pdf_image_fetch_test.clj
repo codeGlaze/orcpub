@@ -107,6 +107,11 @@
 
 (use-fixtures :once with-server)
 
+(defn- port
+  "The fixture server's port, for the tests that build their own URLs."
+  []
+  (.getPort (java.net.URL. *base*)))
+
 (deftest an-ordinary-image-is-fetched
   (testing "the guard does not break the normal case"
     (fetch (str *base* "/ok")
@@ -183,6 +188,28 @@
     ;; validated-addresses refuses loopback outright, so a fetch that reaches the
     ;; fixture server at all proves the supplied address was used.
     (fetch (str *base* "/ok") (fn [in] (is (pos? (count (read-bounded-bytes in))))))))
+
+(deftest the-pin-is-consulted-for-a-real-hostname
+  ;; Every other test here asks for an IP literal. Production asks for a hostname,
+  ;; and that is the path the pin exists for, so it needs exercising as one.
+  (testing "a hostname resolves through the pin and reaches the server"
+    (let [addrs (vec (java.net.InetAddress/getAllByName "localhost"))
+          url (str "http://localhost:" (port) "/ok")
+          [in cm] (open-image-stream url addrs)]
+      (try (is (pos? (count (read-bounded-bytes in))))
+           (finally (.close ^java.io.InputStream in) (some-> cm .close))))))
+
+(deftest the-pin-overrides-what-dns-would-say
+  ;; The rebinding defence itself. The URL names a host that resolves to a public
+  ;; address; the pin says 127.0.0.1. Reaching the fixture server proves the
+  ;; connection used the address it was HANDED rather than resolving the name --
+  ;; which is exactly what a second lookup would have got wrong.
+  (testing "the connection goes to the pinned address, not the host's own"
+    (let [url (str "http://example.com:" (port) "/ok")
+          [in cm] (open-image-stream url loopback)]
+      (try (is (pos? (count (read-bounded-bytes in)))
+               "reached the local fixture despite the URL naming example.com")
+           (finally (.close ^java.io.InputStream in) (some-> cm .close))))))
 
 (deftest the-pin-refuses-any-host-it-was-not-given
   (testing "a route to another host cannot be resolved on this client"
