@@ -68,6 +68,33 @@
       :options [{:value true  :title "Only while wielding a shield"}
                 {:value false :title "Only while NOT wielding a shield"}]}]))
 
+(defn- weapon-tag-field
+  "One three-state weapon tag as an :enum field. Shown only once a bonus has been entered, since a
+  tag on no bonus means nothing."
+  [prop-key tag label yes no]
+  {:key [:props prop-key tag] :type :enum :label label
+   :when #(get-in % [:props prop-key :bonus])
+   :options [{:value true :title yes} {:value false :title no}]})
+
+(defn- weapon-bonus-fields
+  "Fields for one conditional weapon bonus: the number, then the tags that gate it. The tags are
+  three-state — pick a value to require or forbid the property, leave blank for either way."
+  [prop-key number-label]
+  (into [{:key [:props prop-key :bonus] :type :number :label number-label}]
+        [(weapon-tag-field prop-key :melee?      "Reach"    "Melee weapons only"  "Ranged weapons only")
+         (weapon-tag-field prop-key :thrown?     "Thrown"   "Thrown weapons only" "Non-thrown only")
+         (weapon-tag-field prop-key :finesse?    "Finesse"  "Finesse weapons only" "Non-finesse only")
+         (weapon-tag-field prop-key :light?      "Light"    "Light weapons only"   "Non-light only")
+         (weapon-tag-field prop-key :two-handed? "Handedness" "Two-handed only"    "One-handed only")]))
+
+(def attack-bonus-fields
+  "Authors {:attack-bonus {:bonus N <tags>}} — Archery is {:bonus 2 :melee? false}."
+  (weapon-bonus-fields :attack-bonus "Attack Bonus"))
+
+(def damage-bonus-fields
+  "Authors {:damage-bonus {:bonus N <tags>}} — Thrown Weapon Fighting is {:bonus 2 :thrown? true}."
+  (weapon-bonus-fields :damage-bonus "Damage Bonus"))
+
 (defn fields->spec
   "Build a save-validation spec (a predicate) from a field schema. The universal
    name/key/option-pack are required (unchanged from the prior hand-written specs); every other

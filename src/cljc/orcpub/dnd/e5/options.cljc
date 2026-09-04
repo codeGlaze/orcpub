@@ -3747,6 +3747,14 @@
       :passive-perception-5 [(modifiers/passive-perception 5)]
       ;; Kept for saved content (D9); it is the general :armor-dex-cap prop underneath.
       :medium-armor-max-dex-3 [medium-armor-master-max-bonus]
+      ;; Conditional weapon bonuses. The tag map is the same three-state vocabulary as :ac-bonus's
+      ;; :armor?/:shield?, read by weapons/matches?:
+      ;;   {:attack-bonus {:bonus 2 :melee? false}}  — Archery
+      ;;   {:damage-bonus {:bonus 2 :thrown? true}}  — Thrown Weapon Fighting
+      :attack-bonus (when (:bonus v)
+                      [(modifiers/attack-bonus (:bonus v) (dissoc v :bonus))])
+      :damage-bonus (when (:bonus v)
+                      [(modifiers/damage-bonus (:bonus v) (dissoc v :bonus))])
       ;; General form: {:armor-dex-cap {:medium 3 :heavy 2}} raises whichever types it names.
       :armor-dex-cap (mapv (fn [[armor-type cap]] (modifiers/armor-dex-cap armor-type cap)) v)
       :medium-armor-stealth [medium-armor-master-stealth]

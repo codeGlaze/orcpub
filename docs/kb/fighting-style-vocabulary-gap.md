@@ -4,16 +4,17 @@ Gap analysis against the published fighting styles (24 printings, **14 distinct 
 XPHB / TCE / AU, via the 5etools data mirror). The question: what does an author need to say, and
 what can our `:props` vocabulary say today?
 
-**1 of 14 is expressible right now.** But the *engine* already has hooks for 8 of them — the gap is
+**3 of 14 are expressible now** (Defense, Archery, Thrown Weapon Fighting); it was 1 when this was
+written. But the *engine* already has hooks for 8 of them — the gap is
 the authored vocabulary, not the machinery. That is exactly the position AC was in: `?ac-fns`
 existed with no constructor and no writers.
 
 | style | mechanical shape | engine hook | authorable |
 |---|---|---|---|
 | **Defense** | +N AC while wearing armor | `?ac-bonus-fns` | ✅ `{:ac-bonus {:ac-bonus 1 :armor? true}}` |
-| Archery | +N attack, ranged weapons | `?ranged-attack-bonus` ✅ | ❌ |
-| Dueling | +N damage, melee, one-handed, no other weapon | `?melee-damage-bonus-fns` ✅ | ❌ |
-| Thrown Weapon Fighting | +N damage with the Thrown property | `?ranged-damage-bonus-fns` ✅ | ❌ |
+| Archery | +N attack, ranged weapons | `?attack-modifier-fns` ✅ | ✅ `{:attack-bonus {:bonus 2 :melee? false}}` |
+| Dueling | +N damage, melee, one-handed, no other weapon | ⚠️ needs wielding context in the fn signature | ❌ |
+| Thrown Weapon Fighting | +N damage with the Thrown property | `?damage-bonus-fns` ✅ | ✅ `{:damage-bonus {:bonus 2 :thrown? true}}` |
 | Two-Weapon Fighting | add ability mod to the offhand attack's damage | `?dual-wield-weapon?` partial | ❌ |
 | Protection | Reaction; requires a shield | `mod5e/reaction` ✅ | ❌ |
 | Interception | Reaction; reduce damage 1d10 + prof | `mod5e/reaction` ✅ | ❌ |
@@ -85,8 +86,19 @@ prop serves all of them.
    ANY silo's `extra-fields` unchanged. Defense is now authorable as `{:ac-bonus 1 :armor? true}`
    with no new code. The three-state tags are `:enum` fields with boolean values — `builder_fields`
    explicitly defers a `:boolean` type and says not to build a parallel mechanism.
-2. **`:attack-bonus` and `:damage-bonus` props** with a weapon predicate. Covers Archery, Dueling
-   and Thrown Weapon — three styles, and the channels already exist.
+2. ✅ **DONE — `:attack-bonus` / `:damage-bonus` with a weapon predicate.** `weapons/matches?` is
+   the three-state tag predicate (`:melee? :thrown? :finesse? :light? :two-handed?`), same shape as
+   AC's `:armor?`/`:shield?`. Both props ride the GENERAL channels (`?attack-modifier-fns`,
+   `?damage-bonus-fns`), which retires the question the old comment on `damage-bonus-fn` left open:
+   with a predicate, `?melee-damage-bonus-fns` and `?ranged-damage-bonus-fns` have nothing left to
+   do, and both were already commented out of the engine.
+
+   **Covers TWO styles, not three.** Archery `{:bonus 2 :melee? false}` and Thrown Weapon
+   `{:bonus 2 :thrown? true}` — both verified end to end through the engine. **Dueling is NOT
+   expressible** and neither is Two-Weapon Fighting: the engine hands these fns one argument, the
+   weapon, so they cannot see whether it is the off-hand attack or what else is being wielded.
+   "No other weapons" and "the extra attack" need that signature widened. An earlier note here said
+   three styles; it is two until then.
 3. **`:reaction` / `:trait` props.** Covers Protection and Interception, and every "it's just text
    on the sheet" homebrew style. Worth noting how low the real bar is: of the 6 PHB styles, three
    (Dueling, Great Weapon Fighting, Two-Weapon Fighting) ship as trait text with **no mechanical

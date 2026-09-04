@@ -436,3 +436,26 @@
 
 (defn one-handed-weapon? [{:keys [::two-handed?]}]
   (not two-handed?))
+
+(def tag->flag
+  "Authored tag -> the weapon field it tests. The tags are the authoring vocabulary and the fields
+  are storage; keeping the map explicit means renaming one never silently breaks the other."
+  {:melee? ::melee? :thrown? ::thrown :finesse? ::finesse?
+   :light? ::light? :two-handed? ::two-handed?})
+
+(defn matches?
+  "Does `weapon` satisfy every tag in `tags`? THREE-state, matching the AC vocabulary's
+  :armor?/:shield?:
+      true    only weapons that have it
+      false   only weapons that do NOT
+      absent  either way
+
+  So {:melee? false} is 'ranged' — the data models only ::melee?, and inventing a :ranged? alias
+  would be two ways to say one thing. Unknown tags are ignored rather than silently failing the
+  match, so old content with a tag this build does not know still applies its bonus."
+  [tags weapon]
+  (every? (fn [[tag want]]
+            (if-let [flag (tag->flag tag)]
+              (= (boolean want) (boolean (get weapon flag)))
+              true))
+          tags))

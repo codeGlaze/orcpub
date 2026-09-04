@@ -7593,7 +7593,9 @@
   ;; vocabulary and can be dropped into any other builder's extra-fields unchanged.
   (simple-content-builder ::classes/fighting-style-builder-item
                           ::classes/set-fighting-style-prop
-                          bf/ac-bonus-fields))
+                          (concat bf/ac-bonus-fields
+                                  bf/attack-bonus-fields
+                                  bf/damage-bonus-fields)))
 
 (defn monster-builder []
   (let [{:keys [name

@@ -7,7 +7,8 @@
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.character.equipment :as char-equip]
             [orcpub.dnd.e5.skills :as skill5e]
-            [orcpub.dnd.e5.armor-class :as ac5e])
+            [orcpub.dnd.e5.armor-class :as ac5e]
+            [orcpub.dnd.e5.weapons :as weapons5e])
   #?(:cljs (:require-macros [orcpub.entity-spec :as es]
                             [orcpub.modifiers :as mods])))
 
@@ -559,6 +560,30 @@
 
 (defn melee-damage-bonus-fn [bonus-fn]
   (mods/vec-mod ?melee-damage-bonus-fns bonus-fn))
+
+;; ── Conditional weapon bonuses ────────────────────────────────────────────────────────────────
+;; Both take the same three-state tag map as the AC vocabulary, read by weapons/matches?. They use
+;; the GENERAL channels rather than the melee/ranged-specific ones, which is what the note on
+;; damage-bonus-fn above already suspected was right: with a predicate, ?melee-damage-bonus-fns and
+;; ?ranged-damage-bonus-fns have nothing left to do. (?ranged-damage-bonus-fns never had anything —
+;; both are commented out of the engine at template_base.cljc:223.)
+;;
+;; LIMIT, deliberate: the engine hands these fns ONE argument, the weapon. They cannot see whether
+;; it is the off-hand attack or what else is being wielded, so "no other weapons" (Dueling) and
+;; "the extra attack" (Two-Weapon Fighting) are NOT expressible without widening that signature.
+
+(defn attack-bonus
+  "A bonus to attack rolls with weapons matching `tags` — Archery is (attack-bonus 2 {:melee? false})."
+  [bonus tags]
+  (mods/vec-mod ?attack-modifier-fns
+                (fn [weapon] (if (weapons5e/matches? tags weapon) bonus 0))))
+
+(defn damage-bonus
+  "A bonus to damage rolls with weapons matching `tags` — Thrown Weapon Fighting is
+  (damage-bonus 2 {:thrown? true})."
+  [bonus tags]
+  (mods/vec-mod ?damage-bonus-fns
+                (fn [weapon] (if (weapons5e/matches? tags weapon) bonus 0))))
 
 (defn armored-ac-bonus
   "A flat bonus that applies only while wearing armor — the Defense fighting style. A BONUS, so it
