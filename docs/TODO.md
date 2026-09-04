@@ -123,3 +123,95 @@ so upstream updates never clobber their edits).
   select; adopt `port/redesign-on-refactor`'s Phase 7 custom-select popover when
   branches converge (NOT a cheap early crib — it's coupled to that branch's
   theme-token infrastructure).
+
+## Route character images through the browser instead of fetching them server-side
+
+**Status:** Open — nothing built  
+**Severity:** Medium — a broken feature for users, and the last unauthenticated
+outbound fetch the server makes  
+**Reported:** 2026-09-04  
+**KB doc:** [docs/kb/pdf-form-techniques.md](kb/pdf-form-techniques.md) (image guard sections)
+
+### Summary
+
+A character's portrait is stored as a URL and fetched **by the server** at export
+time. Hosts that block hotlinking block it on Referer and datacenter IP, so the
+browser's own request succeeds and the server's does not: the thumbnail shows in
+the builder and the PDF comes out blank. The server fetch is also the only place
+the app makes an outbound request to a caller-supplied address, which is why
+`safe-image-url?` and its tests exist at all.
+
+### What exists
+
+Nothing sends image bytes to the server, on any branch. Two adjacent pieces:
+
+- `claude/image-poisoning-spa-1dkpva` — a standalone SPA under `image-shield/`,
+  four files, wired to nothing. It contains working browser-side resize and
+  recompress: `createObjectURL` → `drawImage` → `getImageData` → `toBlob`.
+- `claude/character-portrait-generator-hOutO` — paper-doll compositor, v1 MVP.
+  Stores the layer CHOICES on the character, produces no bytes. **It cannot reach
+  the PDF at all**: the export understands only `image-url`, so a character with a
+  composited portrait exports with no picture. This work unblocks that branch.
+
+### The constraint, and why it does not block the feature
+
+A cross-origin image with no `Access-Control-Allow-Origin` cannot be read by the
+browser — `fetch` in no-cors mode gives an opaque response and `<img>` + canvas
+taints. That is a real browser boundary.
+
+It does not settle the question, because the two populations barely overlap.
+Hotlink bans are Referer- and IP-based; CORS headers are a separate decision, and
+image CDNs built for embedding generally send them. Worth measuring against real
+URLs rather than assuming — but the design degrades either way.
+
+### Plan
+
+1. Browser tries `fetch(url)` → bytes.
+2. Failing that, `<img crossOrigin="anonymous">` → canvas → blob. Different
+   failure modes, cheap to try.
+3. Failing both, say the host will not allow it and offer **upload**, which always
+   works. Lift the resize/recompress out of `image-shield/app.js` into cljs.
+4. Send the bytes with the export POST. The 128 KB image cap fits well inside the
+   2 MB body cap. Server skips the fetch entirely when bytes are present.
+5. Then decide whether the server fetch still earns its keep as a fallback.
+
+### Consequences
+
+- The server fetch stops being the default path. The SSRF surface — and the
+  resolve/connect gap below — shrinks to a rarely-hit fallback, or disappears.
+- Do this on its own branch cut from `integration` **after**
+  `feature/one-template-per-style` lands. Both touch
+  `routes/generate-character-pdf`, and that branch is already 118 commits.
+
+### Merge hazard
+
+`claude/character-portrait-generator-hOutO` is cut from an older base and still
+carries `#"^(https?|ftp|file)://…"` in `routes.clj` — the regex that allowed
+`file:///etc/passwd`. Merged after the hardening without a rebase, it reintroduces
+that hole.
+
+## PDF export follow-ups
+
+**Status:** Open  
+**Severity:** Low — none is a live defect  
+**Reported:** 2026-09-04
+
+- **The resolve/connect gap.** `safe-image-url?` resolves and judges the answer;
+  the connection then resolves again, so DNS an attacker controls can answer
+  public once and private once. Redirects are off and the response must parse as
+  an image under 2000x2000 and 128 KB, so it is blind at best. The fix is to
+  resolve once and pin: `clj-http` is already a dependency and already required in
+  `pdf.clj`, and Apache HttpClient takes a custom `DnsResolver`, so validated
+  addresses reach the connection while the hostname — and TLS verification — stays
+  intact. Do NOT hand-roll this on `HttpsURLConnection`: that means overriding
+  hostname verification, which is a worse hole than the one it closes. **Blocked
+  on the decision above** — if the browser sends bytes, this path may not survive.
+- **Total slot hold on images.** Worst case is now about 40s per image (10s
+  connect + 20s transfer + one read timeout), so 80s for a character with a
+  portrait and a faction image. Bounded, but possibly still generous.
+- **`safe-image-url?` runs twice per image** — once in the route and once inside
+  `safe-image-bytes`. Three DNS lookups per image, and it widens the gap above.
+- **`create-monsters-pdf` is dead.** Private, zero callers, writes to a temp file.
+  Scrub it or finish the feature.
+- **Not audited:** whether a fetched portrait is re-encoded or downscaled to its
+  drawn size. Bounded at 128 KB so the exposure is small.
