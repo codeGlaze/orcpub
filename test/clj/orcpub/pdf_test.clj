@@ -852,41 +852,63 @@
             pages it does NOT print it on still get one."
     (doseq [style [1 2 3 4]
             casters [0 1 3]]
-      (let [{:keys [file marks without-casters prints-site-line?]}
+      (let [{:keys [file marks without-casters site-line prints-site-line?]}
             (get pdf/sheet-masters style)
             source (if (zero? casters) without-casters file)]
         (with-open [in (.openStream (io/resource source))
                     doc (Loader/loadPDF (.readAllBytes in))]
           (pdf/grow-spell-sections! doc casters (if (zero? casters) :all marks))
-          (pdf/stamp-site-line! doc (boolean prints-site-line?))
+          (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
           (doseq [i (range (.getNumberOfPages doc))]
             (is (= 1 (count (re-seq (re-pattern pdf/site-stamp) (page-text doc i))))
                 (str "style " style ", " casters " caster(s), page " (inc i)))))))))
 
-(deftest site-line-clears-the-wizards-notice
-  ;; Styles 1 and 2 carry the Wizards of the Coast photocopy notice along the foot
-  ;; of the page. The site line shares that baseline, so it goes in the corner to
-  ;; the left of it; overlapping the notice would obscure a copyright line.
-  (testing "the stamp sits left of the notice, not over it"
-    (doseq [style [1 2]]
-      (let [{:keys [file marks]} (get pdf/sheet-masters style)]
-        (with-open [in (.openStream (io/resource file))
-                    doc (Loader/loadPDF (.readAllBytes in))]
-          (pdf/stamp-site-line! doc false)
-          (let [positions (atom [])
-                stripper (proxy [org.apache.pdfbox.text.PDFTextStripper] []
-                           (writeString [text ps]
-                             (doseq [p ps]
-                               (swap! positions conj {:ch (.getUnicode p)
-                                                      :x (.getXDirAdj p)
-                                                      :y (.getYDirAdj p)}))))]
-            (.setStartPage stripper 1)
-            (.setEndPage stripper 1)
-            (.getText stripper doc)
-            (let [foot (filter #(> (:y %) 770) @positions)
-                  stamp (filter #(< (:x %) 100) foot)
-                  notice (filter #(>= (:x %) 100) foot)]
-              (is (seq stamp) (str "style " style ": a stamp in the bottom-left corner"))
-              (is (seq notice) (str "style " style ": the notice is still there"))
-              (is (< (apply max (map :x stamp)) (apply min (map :x notice)))
-                  (str "style " style ": the stamp ends before the notice begins")))))))))
+(defn- ink-free?
+  "Whether the stamp-sized box at `x`,`y` inches from the page's bottom-left is
+   free of ink on `index`, rendered at 150 dpi."
+  [doc index x y]
+  ;; 300, not 150: at 150 the bar under the foot of styles 1 and 2's last page
+  ;; reads as white and the check passes on a page that visibly overprints.
+  (let [dpi 300.0
+        img (.renderImageWithDPI (org.apache.pdfbox.rendering.PDFRenderer. doc)
+                                 index (float dpi))
+        w (pdf/string-width pdf/site-stamp pdf/HELVETICA 6)
+        h (/ 8.0 72)
+        height (.getHeight img)
+        x0 (int (* x dpi))
+        x1 (int (* (+ x w) dpi))
+        ;; Inches up from the page foot, into rows down from the image top.
+        y-top (int (- height (* (+ y h) dpi)))
+        y-bottom (int (- height (* y dpi)))]
+    (every? (fn [py]
+              (every? (fn [px]
+                        (let [p (.getRGB img px py)]
+                          (and (> (bit-and (bit-shift-right p 16) 0xff) 244)
+                               (> (bit-and (bit-shift-right p 8) 0xff) 244)
+                               (> (bit-and p 0xff) 244))))
+                      (range x0 x1)))
+            (range y-top y-bottom))))
+
+(deftest site-line-lands-on-blank-paper
+  ;; REGRESSION: the positions were first picked from where each page's lowest
+  ;; TEXT sat, which is all PDFTextStripper reports -- page artwork is invisible
+  ;; to it. Every style shared one spot and the line printed through the corner
+  ;; flourish on the last page of styles 1 and 2 and through the frame on style
+  ;; 4. Ink is what matters, so this renders the page and counts pixels.
+  (testing "every page the stamp goes on is blank where it goes"
+    (doseq [style [1 2 3 4]
+            :let [{:keys [file without-casters marks site-line prints-site-line?]}
+                  (get pdf/sheet-masters style)
+                  [x y] site-line]
+            [source casters] [[file 3] [without-casters 0]]]
+      (with-open [in (.openStream (io/resource source))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (pdf/grow-spell-sections! doc casters (if (zero? casters) :all marks))
+        (doseq [i (range (.getNumberOfPages doc))
+                ;; A page printing its own footer is skipped at export, and its
+                ;; own line is the ink that would fail this.
+                :when (not (and prints-site-line?
+                                (#'pdf/page-prints-site-line? doc i)))]
+          (is (ink-free? doc i x y)
+              (str "style " style ", " casters " caster(s), page " (inc i)
+                   ": artwork at " (pr-str site-line))))))))

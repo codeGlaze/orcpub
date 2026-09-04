@@ -943,7 +943,7 @@
                                (keep #(try (Integer/parseInt %) (catch Exception _ nil)))
                                (reduce max 0))
         casters (min requested-casters (config/get-pdf-max-caster-sections))
-        {:keys [file marks without-casters prints-site-line?]}
+        {:keys [file marks without-casters site-line prints-site-line?]}
         (get pdf/sheet-masters print-character-sheet-style?)
         ;; A character who casts nothing opens the variant that has no spell page
         ;; rather than one with its spell page taken out: removing a page leaves
@@ -977,7 +977,7 @@
         (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes))
       ;; After the pages exist, so clones are stamped too, and before the card
       ;; pages are appended -- those carry the line on their backs already.
-      (pdf/stamp-site-line! doc (boolean prints-site-line?))
+      (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
       ;; One set of fonts and one image embedder for the whole document. Both are
       ;; per-document: a second load-fonts embeds a second subset of every face,
       ;; and a second loader re-embeds the 998x998 card-back mark. Built only when

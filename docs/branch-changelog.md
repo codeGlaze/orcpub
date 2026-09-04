@@ -82,13 +82,11 @@ the eight-class fixture from 638 KB to 424.
   The text a back carries over from its front is laid out to a box shortened by
   the strip the stamp sits in, so a card filled to overflow still clears it.
 
-- Character sheets carry the same line in the bottom-left corner of every page.
-  That corner is free on all four styles: the Wizards of the Coast photocopy
-  notice styles 1 and 2 print runs from x 173 to x 437, style 3 has nothing below
-  y 18, and style 4's own footer runs from x 23 to x 149 -- so the stamp uses
-  style 4's position and a page that prints its own is skipped rather than
-  stamped over. The skip is per PAGE, not per style: style 4 prints the line on
-  its spell pages only, and its other pages are stamped like any other.
+- Character sheets carry the same line along the foot of every page, at a
+  position measured per style off RENDERED pages (`dev/scan_site_line.clj`) and
+  held by a test. A page that prints its own line is skipped rather than stamped
+  over, and the skip is per PAGE, not per style: style 4 prints the line on its
+  spell pages only, and its other pages are stamped like any other.
 - Each stamped page gets its own appended content stream. Cloned spell pages
   share the master's stream, so writing into it would have printed the line once
   per clone on every one of them.

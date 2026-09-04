@@ -609,16 +609,36 @@
 
    :prints-site-line? marks a style whose artwork already carries the site name --
    only style 4, whose footer reads \"dungeonmastersvault.com by permission -
-   Petersen Games LLC 2021\". stamp-site-line! leaves those alone rather than
-   printing it twice."
+   Petersen Games LLC 2021\". stamp-site-line! leaves those pages alone rather than
+   printing it twice.
+
+   :site-line is where stamp-site-line! puts that line, in inches from the page's
+   bottom-left corner, and is MEASURED off rendered pages -- see
+   dev/scan_site_line.clj, with a test holding the result.
+
+   Reasoning about it from the page text does not work and was tried: every style
+   got one position picked from where its lowest TEXT sat, which is all
+   PDFTextStripper reports, and the line came down through the corner flourish on
+   the last page of styles 1 and 2 and through the frame on style 4. Nor is a
+   coarse render enough -- at 150 dpi the second attempt looked clear and at 300
+   the footer band of that same last page turned out to be a solid bar under the
+   whole width of it.
+
+   x is shared; the heights are not. Styles 1 and 2 sit at 0.13 to clear that bar,
+   which leaves about 0.03in of headroom before the frame above, and styles 3 and
+   4 sit lower at 0.06 where their own artwork stops."
   {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all
-      :without-casters "fillable-char-sheetstyle-1-0-spells.pdf"}
+      :without-casters "fillable-char-sheetstyle-1-0-spells.pdf"
+      :site-line [0.95 0.13]}
    2 {:file "fillable-char-sheetstyle-2-1-spells.pdf" :marks :all
-      :without-casters "fillable-char-sheetstyle-2-0-spells.pdf"}
+      :without-casters "fillable-char-sheetstyle-2-0-spells.pdf"
+      :site-line [0.95 0.13]}
    3 {:file "fillable-char-sheetstyle-3-1-spells.pdf" :marks :none
-      :without-casters "fillable-char-sheetstyle-3-0-spells.pdf"}
+      :without-casters "fillable-char-sheetstyle-3-0-spells.pdf"
+      :site-line [0.95 0.06]}
    4 {:file "fillable-char-sheetstyle-4-1-spells.pdf" :marks :all
       :without-casters "fillable-char-sheetstyle-4-0-spells.pdf"
+      :site-line [0.95 0.06]
       :prints-site-line? true}})
 
 (defn- fields-on-page
@@ -2421,11 +2441,10 @@
 (defn stamp-site-line!
   "Prints the site line in the bottom-left corner of every page that lacks one.
 
-   Bottom LEFT because that corner is free on every style: the Wizards of the
-   Coast notice styles 1 and 2 carry runs from x 173 to x 437, style 3 has nothing
-   below y 18, and style 4 prints its own from x 23 to x 149. x 22.7pt and a
-   baseline 12.4pt off the foot are style 4's own footer position, so a stamped
-   page and a page whose artwork prints it put the line in the same place.
+   `position` is the style's :site-line from sheet-masters. It is not one shared
+   spot: the corner carries a flourish on the last page of styles 1 and 2, a panel
+   border on style 3's first page and a frame on style 4's, so each style has the
+   position that clears all of its own pages.
 
    `prints-own?` says the style's artwork carries the line on SOME of its pages --
    style 4, and only on its spell pages, leaving the rest to be stamped. It gates
@@ -2436,12 +2455,12 @@
    spell pages SHARE the master's content stream, so writing into it would print
    the line once per clone on every one of them; PDFBox's append mode leaves the
    shared stream alone and gives each page its own small addition."
-  [doc prints-own?]
+  [doc [x y] prints-own?]
   (doseq [[index page] (map-indexed vector (vec (.getPages doc)))
           :when (not (and prints-own? (page-prints-site-line? doc index)))]
     (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
                                          true true)]
-      (draw-text cs site-stamp HELVETICA site-stamp-size 0.315 0.172 [0.45 0.45 0.45]))))
+      (draw-text cs site-stamp HELVETICA site-stamp-size x y [0.45 0.45 0.45]))))
 
 (defn print-backs [cs fonts img box-width box-height remaining-lines-vec page-number logo-img]
   ;; `img` is the memoized per-document image loader; `logo?` opts each card back
