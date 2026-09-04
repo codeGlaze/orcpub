@@ -3664,18 +3664,23 @@
                        (into [(mods/modifier ?natural-ac-bonus 3)]
                              (ac-calculation-modifiers {:ac 13 :abilities [:dex]})))
       ;; Kept for saved content (D9), now split into the two things it was welding together:
-      ;; a flat natural-AC calculation, and a species restriction. The old form replaced
+      ;; a flat natural-AC calculation, and "worn armor gives no AC". The old form replaced
       ;; ?armor-class-with-armor with (+ 17 shield) so worn armor could never beat 17 — a ceiling
-      ;; standing in for "a tortle can't wear armor", because the app had no way to say that.
-      ;; It does now, and the two halves are separately authorable: anyone can take the flat AC
-      ;; without the restriction, and a DM can hand a player the restriction-free version.
+      ;; standing in for "a tortle can't wear armor". The split reproduces that AC behaviour
+      ;; exactly while making both halves separately authorable: a high flat natural AC without
+      ;; the suppression, or an armor-wearing tortle, are each one prop.
+      ;; It is NOT the rules restriction. Nothing prevents equipping armor, and everything else
+      ;; armor causes still applies. Building the actual restriction is roadmapped.
       ;; The ?natural-ac-bonus 7 the old form wrote alongside was inert (the replacement never
       ;; consulted ?base-armor-class), so it is gone rather than carried forward.
       :tortle-ac (when v
                    (conj (vec (ac-calculation-modifiers {:ac 17 :abilities []}))
-                         (modifiers/cant-wear-armor)))
-      ;; The restriction on its own, for authors who want it without the flat 17.
-      :cant-wear-armor (when v [(modifiers/cant-wear-armor)])
+                         (modifiers/armor-gives-no-ac)))
+      ;; The AC half on its own, for authors who want it without the flat 17. Named for what it
+      ;; does: worn armor stops counting toward AC. It does not prevent equipping armor, and does
+      ;; not suppress anything else armor causes (stealth disadvantage still applies). A real
+      ;; "you can't wear armor" restriction is roadmapped.
+      :armor-gives-no-ac (when v [(modifiers/armor-gives-no-ac)])
       :language (collect-map-modifiers
                  v
                  #(modifiers/language %))

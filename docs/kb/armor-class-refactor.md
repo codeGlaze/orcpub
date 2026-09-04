@@ -138,46 +138,53 @@ returns, in all 4 pairs × 7 equipment states. Deprecating the old forms cannot 
 character's AC. That assertion is pinned at 0 and must stay there — a non-zero count is a
 regression, not a number to update.
 
-### `:tortle-ac` split into a calculation and a restriction
+### `:tortle-ac` split into a calculation and an AC suppression
 
 It was never a sibling of `:lizardfolk-ac`. It welded two separable things together:
 
 - **a flat natural AC** — `{:ac 17 :abilities []}`, which any author might want
-- **"you can't wear armor"** — the tortle's shell
+- **"worn armor gives no AC"** — the AC consequence of the tortle's shell
 
 The old form expressed the second by replacing `?armor-class-with-armor` with `(+ 17 shield)`, so
 worn armor could never beat 17. That is a **ceiling**, and `?ac-fns` is a `max` — it raises a floor,
 it cannot impose one. The ceiling was a workaround for the app having no way to state the
 restriction.
 
-Modelled honestly, the restriction is not a cap on AC at all: **worn armor contributes nothing to
-this character.** That composes with `max` instead of fighting it, and needs no new AC concept —
-just `?armor-ac-suppressed?`, which routes the armored branch of `?armor-class-with-armor-base`
-back to the unarmored one. Authored as `{:cant-wear-armor true}`; constructor
-`mod5e/cant-wear-armor`.
+Expressed as what it does to AC, no ceiling is needed: **worn armor contributes nothing.** That
+composes with `max` instead of fighting it, and needs no new AC concept — just
+`?armor-ac-suppressed?`, which routes the armored branch of `?armor-class-with-armor-base` back to
+the unarmored one. Authored as `{:armor-gives-no-ac true}`; constructor `mod5e/armor-gives-no-ac`.
 
-So `:tortle-ac` is now `{:ac 17 :abilities []}` + `(cant-wear-armor)`, and the two halves are
+**The name claims only the AC effect, deliberately.** This is not "you can't wear armor": nothing
+prevents equipping armor, and everything else derived from worn armor still applies — notably
+`?armor-stealth-disadvantage?` (template_base.cljc:49), so a flagged character in plate takes
+plate's stealth disadvantage while getting none of its AC, and the equipment UI still shows the
+plate worn. The old ceiling had exactly the same gap, so the split does not widen it; but an
+earlier draft of this doc called the split "modelling the restriction honestly", which overstated
+it. The real restriction is unbuilt and roadmapped.
+
+So `:tortle-ac` is now `{:ac 17 :abilities []}` + `(armor-gives-no-ac)`, and the two halves are
 independently authorable — which is the point. Someone who just wants a high flat natural AC takes
-the calculation and skips the restriction; a DM who wants an armor-wearing tortle omits it. The
+the calculation and skips the suppression; a DM who wants an armor-wearing tortle omits it. The
 `?natural-ac-bonus 7` the old form wrote alongside was inert (the replacement never consulted
 `?base-armor-class`), so it is gone rather than carried forward.
 
 Verified by equivalence rather than argument — composed equals welded in all 7 equipment states,
 and each half stands alone:
 
-| | flat AC only | restriction only | composed | old `:tortle-ac` |
+| | flat AC only | suppression only | composed | old `:tortle-ac` |
 |---|---|---|---|---|
 | unarmored | 17 | 12 | 17 | 17 |
 | plate | **18** | **12** | 17 | 17 |
 | plate + shield | 20 | 14 | 19 | 19 |
 
 The `plate` row is the whole argument: with no ceiling baked in, good armor can win (18) — and the
-restriction alone drops plate to 12 while leaving the shield counting, because a shield is not
+suppression alone drops plate to 12 while leaving the shield counting, because a shield is not
 armor.
 
-**Still missing: the builder.** `:cant-wear-armor` is authorable data and reaches every silo
-carrying `:props`, but no builder page exposes it yet, and nothing stops a restricted character
-from equipping armor in the UI — it just stops counting. Tracked in the roadmap.
+**Still missing: the actual restriction, and a builder for it.** `:armor-gives-no-ac` is authorable
+data reaching every silo that carries `:props`, but it is one consequence of a rule, not the rule.
+Tracked in the roadmap.
 
 ## LANDED: shield and character magic moved into `?ac-bonus-fns`
 

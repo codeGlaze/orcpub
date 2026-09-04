@@ -578,11 +578,16 @@
   [formula-fn]
   `(mods/vec-mod ~'?ac-fns ~formula-fn))
 
-(defn cant-wear-armor
-  "\"You can't wear armor\" — a tortle's shell, a construct chassis. Worn armor contributes nothing,
-  so the character is treated as unarmored whatever they equip. A restriction on equipment, NOT a
-  cap on AC: it composes with ac-formula's max instead of fighting it, and an unrestricted author
-  who just wants a high flat natural AC uses ac-formula alone and skips this."
+(defn armor-gives-no-ac
+  "Worn armor contributes nothing to AC — the character is treated as unarmored for AC purposes
+  whatever they equip. Composes with ac-formula's max instead of imposing a ceiling on it.
+
+  Named for exactly what it does. It is NOT \"you can't wear armor\": it does not stop anything
+  being equipped, and everything else derived from worn armor still applies — notably
+  ?armor-stealth-disadvantage?, so a character with this flag still takes plate's stealth
+  disadvantage while getting none of its AC. The real restriction is unbuilt; see the roadmap.
+
+  An author who just wants a high flat natural AC uses ac-formula alone and skips this."
   []
   (mods/modifier ?armor-ac-suppressed? true))
 

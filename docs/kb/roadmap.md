@@ -197,15 +197,22 @@ then merge `develop` in, since the shared files here have diverged for the feat 
 5. **A3** (spell-slot bucket) — unblocks Artificer-shaped classes; **D1** in parallel once the AC net is full.
 6. **E** — last.
 
-### 🟡 MEDIUM — builder support for `:cant-wear-armor`
+### 🟡 MEDIUM — a real "can't wear armor" restriction
 
-`{:cant-wear-armor true}` is authorable in `:props` and reaches every silo that carries them, and
-`:tortle-ac` is built from it. Missing:
+`:armor-gives-no-ac` (AC refactor) covers one consequence of the rule: worn armor stops counting
+toward AC. It is named for exactly that and claims nothing more. The rule itself — *"a tortle can't
+wear light, medium, or heavy armor"* — is not modelled. Today a flagged character can equip plate,
+shows it equipped, and takes its stealth disadvantage (`?armor-stealth-disadvantage?`,
+template_base.cljc:49) while getting none of its AC.
 
-- no builder page exposes it, so it can only be authored by hand
-- the equipment UI does not stop a restricted character from equipping armor — the armor just
-  stops contributing to AC
+Needed:
 
-Both wanted: the restriction should be selectable when building a species, and overridable when a
-DM and player want an armor-wearing tortle. See the AC refactor doc for why it is a restriction
-rather than an AC ceiling.
+- an authorable restriction distinct from the AC suppression, selectable when building a species
+- a decision on how it manifests when armor *is* equipped — **prevent** it, **warn** and keep
+  computing, or **ignore** it as today. The DM-override case argues against hard prevention: a DM
+  and player should be able to build an armor-wearing tortle deliberately.
+- whichever is chosen, the other armor-derived effects must agree with it rather than splitting
+  the way they do now
+
+`:tortle-ac` becomes that restriction plus the flat calculation once it exists; until then it is
+the flat calculation plus `:armor-gives-no-ac`, which reproduces the shipped AC exactly.

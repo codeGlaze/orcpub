@@ -97,7 +97,7 @@
 (def bracers-class (feat-class :bracers- [(mod5e/unarmored-ac-bonus 2)]))
 ;; The two halves :tortle-ac used to weld together, separately authorable.
 (def p-flat17   (props-class :p-flat17- {:ac {:ac 17 :abilities []}}))   ; flat natural AC, no restriction
-(def p-noarmor  (props-class :p-noarm-  {:cant-wear-armor true}))        ; the restriction, no AC
+(def p-noarmor  (props-class :p-noarm-  {:armor-gives-no-ac true}))      ; worn armor stops counting
 (def p-bonus    (props-class :p-bonus- {:ac-bonus {:ac-bonus 1}}))
 (def p-armorbon (props-class :p-abon-  {:ac-bonus {:ac-bonus 1 :armor? true}}))
 
@@ -437,15 +437,20 @@
           (str ":tortle-ac / " ctx)))))
 
 (deftest tortle-decomposes-into-a-calculation-and-a-restriction
-  (testing ":tortle-ac welded two separable things together: a flat natural AC, and \"you can't
-            wear armor\". Each half must stand alone, and composing them must reproduce the
-            welded prop exactly — that equivalence is what makes the split safe."
+  (testing ":tortle-ac welded two separable things together: a flat natural AC, and \"worn armor
+            gives no AC\". Each half must stand alone, and composing them must reproduce the welded
+            prop exactly — that equivalence is what makes the split safe.
+
+            The second half is the AC consequence of a tortle's shell, not the rules restriction:
+            nothing here prevents equipping armor, and armor's other effects (stealth
+            disadvantage) still apply. The old ceiling had the same gap; the split does not
+            widen it."
     (testing "the flat AC alone — armor is still allowed, so good armor can beat it"
       (is (= 17 ((ac-fn-for abilities :fighter :p-flat17-) nil nil))   "flat 17, Dex ignored")
       (is (= 17 ((ac-fn-for abilities :fighter :p-flat17-) leather nil)) "leather's 13 loses")
       (is (= 18 ((ac-fn-for abilities :fighter :p-flat17-) plate nil))
           "plate's 18 WINS — the whole point of not baking in a ceiling"))
-    (testing "the restriction alone — no AC of its own, worn armor just stops counting"
+    (testing "suppression alone — no AC of its own, worn armor just stops counting"
       (is (= 12 ((ac-fn-for abilities :fighter :p-noarm-) nil nil))  "10 + Dex(2)")
       (is (= 12 ((ac-fn-for abilities :fighter :p-noarm-) plate nil)) "plate contributes nothing")
       (is (= 14 ((ac-fn-for abilities :fighter :p-noarm-) plate shield))
