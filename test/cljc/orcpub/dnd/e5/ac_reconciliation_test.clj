@@ -54,6 +54,18 @@
    :subclass-title "Origin" :subclass-level 3 :subclasses [] :profs {}
    :modifiers [(mod/modifier ?natural-ac-bonus val)]})
 
+(defn feat-class
+  "Synthetic class carrying arbitrary modifiers, so a feat/prop effect can be put on a build."
+  [key modifiers]
+  {:name (name key) :key key :hit-die 8 :ability-increase-levels [4 8 12 16 19]
+   :subclass-title "Origin" :subclass-level 3 :subclasses [] :profs {}
+   :modifiers modifiers})
+
+;; Medium Armor Master raises the medium Dex cap to 3 (options.cljc:1461).
+(def mam-class (feat-class :mam- [opt5e/medium-armor-master-max-bonus]))
+;; The live homebrew natural-armor prop, exactly as a homebrew race would carry it.
+(def lizardfolk-prop-class (feat-class :liz- (vec (opt5e/plugin-modifiers {:lizardfolk-ac true} :liz-))))
+
 (def natural-armor-class-full (natural-armor-class :nat-armor- 3))
 (def natural-armor-class-b    (natural-armor-class :nat-armor-b- 3))  ; a SECOND natural source
 
@@ -70,7 +82,11 @@
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map natural-armor-class-full)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
-                         weapons5e/weapons-map natural-armor-class-b)]
+                         weapons5e/weapons-map natural-armor-class-b)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map mam-class)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map lizardfolk-prop-class)]
     [] language-map)))
 
 ;; str10 dex14(+2) con16(+3) int10 wis16(+3) cha10 — same as ac_characterization_test
@@ -99,6 +115,65 @@
     (is (= 15 (unarmored-ac :monk))      "Monk: 10 + Dex(2) + Wis(3)")
     (is (= 15 (unarmored-ac :barbarian)) "Barbarian: 10 + Dex(2) + Con(3)")
     (is (= 12 (unarmored-ac :fighter))   "Fighter: 10 + Dex(2)")))
+
+;; ---------------------------------------------------------------------------
+;; SECTION 1b — the interactions a reconciler rewrite must preserve. These are the
+;; cases where the current engine's behaviour is easy to break by accident, so they are
+;; pinned from real character builds BEFORE any refactor. Probes print the live numbers.
+;; ---------------------------------------------------------------------------
+
+(def dex16-abilities (assoc abilities :orcpub.dnd.e5.character/dex 16))  ; +3, so a cap of 3 is visible
+
+(defn entity-with [abils class-keys]
+  {:orcpub.entity/options
+   {:ability-scores {:orcpub.entity/key :standard-roll :orcpub.entity/value abils}
+    :class (mapv level-1 class-keys)}})
+
+(defn ac-fn-for [abils & class-keys]
+  (char5e/armor-class-with-armor (entity/build (entity-with abils class-keys) test-template)))
+
+;; Real armor carries an explicit magical-ac-bonus 0: the armored branch does
+;; (+ ... (::mi5e/magical-ac-bonus armor) ...), which is nil on non-magical armor — fine in
+;; cljs (nil is 0 in +) but an NPE on the JVM. Same workaround as ac_characterization_test.
+(def scale-mail {:base-ac 14 :type :medium :orcpub.dnd.e5.magic-items/magical-ac-bonus 0})
+(def plate      {:base-ac 18 :type :heavy  :orcpub.dnd.e5.magic-items/magical-ac-bonus 0})
+;; custom "weird material": heavy AC that declares its own Dex allowance
+(def custom-heavy {:base-ac 16 :type :heavy :max-dex-mod 2
+                   :orcpub.dnd.e5.magic-items/magical-ac-bonus 0})
+(def shield {:type :shield})
+
+(deftest shield-interactions-with-unarmored-defense
+  (testing "Monk cannot use Unarmored Defense with a shield; Barbarian can"
+    (let [monk ((ac-fn-for abilities :monk) nil shield)
+          barb ((ac-fn-for abilities :barbarian) nil shield)]
+      (is (= 14 monk)
+          "Monk holding a shield cannot use Unarmored Defense: 10 + Dex(2) + shield(2) = 14 (NOT 15)")
+      (is (= 17 barb)
+          "Barbarian may use a shield with Unarmored Defense: 10 + Dex(2) + Con(3) + shield(2) = 17"))))
+
+(deftest medium-armor-master-raises-the-dex-cap
+  (testing "Dex 16 (+3) in scale mail: cap 2 normally, 3 with Medium Armor Master"
+    (let [plain ((ac-fn-for dex16-abilities :fighter) scale-mail nil)
+          mam   ((ac-fn-for dex16-abilities :fighter :mam-) scale-mail nil)]
+      (is (= 16 plain) "scale mail 14 + min(cap 2, Dex 3) = 16")
+      (is (= 17 mam)
+          "Medium Armor Master raises the cap to 3: 14 + min(3, Dex 3) = 17. A rewrite that reads
+           the armor's own :max-dex-mod (2) INSTEAD of this channel would silently give 16."))))
+
+(deftest custom-armor-declaring-its-own-dex-cap
+  (testing "heavy armor carrying :max-dex-mod 2 — does the engine read the field today?"
+    (let [custom ((ac-fn-for abilities :fighter) custom-heavy nil)
+          heavy  ((ac-fn-for abilities :fighter) plate nil)]
+      (is (= 16 custom)
+          "CURRENT: the armor's own :max-dex-mod is IGNORED — heavy is capped at 0 by :type, so
+           16 + 0 = 16. Honouring the field would make this 18; that flip is the visible diff.")
+      (is (= 18 heavy) "plain plate: 18 + 0 Dex"))))
+
+(deftest homebrew-natural-armor-prop-on-a-barbarian
+  (testing "the live :lizardfolk-ac prop (13 + Dex) on a Barbarian — the reachable stacking shape"
+    (let [ac ((ac-fn-for abilities :barbarian :liz-) nil nil)]
+      (is (= 15 ac)
+          "the reachable homebrew shape: natural 13+Dex vs 10+Dex+Con, take the better = 15"))))
 
 ;; ===========================================================================
 ;; SECTION 2 — FIXED: natural-armor + unarmored-defense no longer stack
