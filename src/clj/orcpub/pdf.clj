@@ -641,6 +641,20 @@
       :site-line [0.95 0.06]
       :prints-site-line? true}})
 
+(def unsupported-fields
+  "Values a style's sheet has nowhere to print, by style.
+
+   Style 4 is the Cthulhu Mythos sheet and is laid out differently rather than
+   incompletely: it carries \"Conditions and Insanities\" where the others carry
+   inspiration, and has no allies or backstory box at all -- its second page
+   offers one general Notes box instead.
+
+   These are DECLARED so the export can be checked against them: a test fills
+   every style and asserts the values write-fields! could not place are exactly
+   this set, so a newly missing field fails the build instead of printing an
+   empty box. Adding a field to a template means deleting its name from here."
+  {4 #{"allies" "backstory" "inspiration"}})
+
 (defn- fields-on-page
   "Every terminal field with a widget on `page`."
   [doc page]

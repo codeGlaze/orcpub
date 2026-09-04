@@ -30,6 +30,22 @@ the eight-class fixture from 638 KB to 424.
   to the end of the document rather than placed after the last spell page. The
   eight-class fixture shipped as spell pages 3–8, features at 9, then spell pages
   10 and 11 (`de9a746`).
+- Spells vanished off printed sheets. `pdf_spec` emits `spells-LEVEL-ROW-1`
+  counting from 1 with no gaps, and three templates numbered their fields with
+  one: styles 1 and 3 ran level 3 as 1–10, 12, 13, 14, so **Glyph of Warding**
+  was dropped from every wizard's sheet and the last row printed blank; style 4
+  ran level 2 as 1–6 then 9–13, losing **Continual Flame** and **Darkness**
+  mid-list. Style 1's PREPARED ticks carried the same numbering, so a prepared
+  level 3 spell printed unticked. `dev/fix_spell_row_fields.clj` renumbers them.
+- Style 3 printed an empty HIT DICE box on every sheet — the box is drawn, the
+  `hd` field was never there. Style 4's second-page name box was likewise always
+  empty: it calls the field `character-name-p2` where the export writes
+  `character-name-2`. `dev/fix_missing_char_fields.clj` adds the one and renames
+  the other.
+- `spell-packing/sheet-geometry` claimed capacity the templates did not have —
+  13 rows at style 4's level 2 where only 11 could be filled — and undercounted
+  its level 1 at 12 where it holds 13. It is the field count now, with a test
+  tying it to the templates.
 - Styles 3 and 4 threw `StackOverflowError` for any character with two or more
   casting classes, so those sheets could not be exported at all. Both keep their
   spell page LAST, leaving no page to insert a clone before, and the fallback was
@@ -72,6 +88,18 @@ the eight-class fixture from 638 KB to 424.
   objects every time. A six-caster sheet allocates 162 MB rather than 607, a
   single-casting-class one 51 MB rather than 77, and a character who casts
   nothing no longer scans the pages for spell sections at all.
+
+## Added (guards)
+
+- A full character is written to every style and the values `write-fields!` could
+  not place must match `pdf/unsupported-fields` exactly. That report had always
+  been returned and never checked, which is how the losses above shipped. Exact
+  equality, so a stale declaration fails too once its template gains the field.
+- Every indexed field family must run 1..n with no gap, and no two fields in a
+  master may share a name.
+- `pdf/unsupported-fields` records what a style genuinely cannot print: style 4
+  is the Cthulhu Mythos sheet and has no allies, backstory or inspiration box —
+  it carries "Conditions and Insanities" and one general Notes box instead.
 
 ## Added (cards)
 

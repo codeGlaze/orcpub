@@ -14,13 +14,20 @@
 (def sheet-geometry
   "Rows each level box holds, by sheet style, level 0 through 9.
 
-   Measured off the masters in resources/ rather than assumed: styles 1, 2 and 3
-   are identical at 100 rows, and style 4 differs by exactly one -- its cantrip
-   box holds 7 rather than 8."
+   The count of FIELDS in the box, not of printed rows, because a row with no
+   field behind it cannot be filled: whatever is placed there is reported
+   unplaceable and dropped. The two are equal today and a test keeps them so.
+
+   Counted off the masters in resources/, and wrong twice when they were not.
+   Styles 1 and 3 were recorded as holding 13 at level 3, which they printed but
+   could not fill -- their fields were numbered 1-10, 12, 13, 14, so spells-3-11
+   went nowhere. Style 4 was recorded with 12 at level 1 where it has 13, and 13
+   at level 2 where it had 11. dev/fix_spell_row_fields.clj repaired the
+   templates; these are the counts that survived it."
   {1 [8 12 13 13 13 9 9 9 7 7]
    2 [8 12 13 13 13 9 9 9 7 7]
    3 [8 12 13 13 13 9 9 9 7 7]
-   4 [7 12 13 13 13 9 9 9 7 7]})
+   4 [7 13 13 13 13 9 9 9 7 7]})
 
 (def columns
   "The boxes in each column, top to bottom. The same on every style; only the row

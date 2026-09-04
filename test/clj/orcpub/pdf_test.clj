@@ -3,7 +3,8 @@
   (:require [clojure.test :refer [deftest is testing]]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [orcpub.pdf :as pdf])
+            [orcpub.pdf :as pdf]
+            [orcpub.dnd.e5.spell-packing :as packing])
   (:import (org.apache.pdfbox Loader)
            (org.apache.pdfbox.cos COSName)
            (org.apache.pdfbox.pdmodel PDDocument PDPage PDPageContentStream PDResources)
@@ -238,14 +239,19 @@
 
 (deftest write-fields-reports-names-it-cannot-place
   (testing "REGRESSION: unknown names used to be skipped in silence, which is how
-            styles 2-4 shipped with no `backstory` field and how a character with
-            more than six spellcasting classes loses two of them with no error."
+            style 4 shipped with no `backstory` field and how a character with
+            more than six spellcasting classes loses two of them with no error.
+
+            spells-3-14-1 is the example because it is the name style 1's level 3
+            box used to end on: thirteen fields numbered 1-10, 12, 13, 14, so
+            spells-3-11 fell in the gap and 14 was never written. The box is
+            numbered 1..13 now, which leaves 14 genuinely absent."
     (with-open [doc (style-1-template)]
       (let [dropped (pdf/write-fields! doc {:character-name "Real Field"
-                                            :spells-3-11-1 "missing from style 1"
+                                            :spells-3-14-1 "past the last row"
                                             :spellcasting-class-7 "past the ceiling"}
                                        false {})]
-        (is (= ["spellcasting-class-7" "spells-3-11-1"] dropped)
+        (is (= ["spellcasting-class-7" "spells-3-14-1"] dropped)
             "returns the unplaceable names, sorted, and not the ones that landed")))))
 
 (deftest fit-text-splits-on-a-legible-size
@@ -912,3 +918,143 @@
           (is (ink-free? doc i x y)
               (str "style " style ", " casters " caster(s), page " (inc i)
                    ": artwork at " (pr-str site-line))))))))
+
+;; ─── Spell row capacity ──────────────────────────────────────────────────────
+
+(defn- field-names [doc]
+  (map #(str (.getFullyQualifiedName %))
+       (iterator-seq (.iterator (.getFieldTree (.getAcroForm (.getDocumentCatalog doc)))))))
+
+(defn- indexed-families
+  "Row numbers of every NAME-LEVEL-ROW-1 field, keyed by [family level].
+
+   Covers spells, the prepared ticks beside them and slots-expended together:
+   they are numbered by the same convention and were broken by the same mistake."
+  [doc]
+  (->> (for [n (field-names doc)
+             :let [m (re-matches #"([a-z-]+)-(\d+)-(\d+)-1" n)]
+             :when m]
+         [[(nth m 1) (Integer/parseInt (nth m 2))] (Integer/parseInt (nth m 3))])
+       (group-by first)
+       (reduce-kv (fn [acc k pairs] (assoc acc k (sort (map second pairs)))) {})))
+
+(defn- spell-row-fields
+  "spells-LEVEL-ROW-1 field numbers present in `doc`, grouped by level."
+  [doc]
+  (reduce-kv (fn [acc [family level] rows]
+               (if (= family "spells") (assoc acc level rows) acc))
+             {}
+             (indexed-families doc)))
+
+(deftest indexed-rows-are-numbered-without-gaps
+  ;; REGRESSION: pdf_spec emits NAME-LEVEL-ROW-1 counting from 1 with no gaps, so
+  ;; a template whose field numbers skip one drops the value at the gap and leaves
+  ;; its highest row blank. Styles 1 and 3 numbered level 3 as 1-10, 12, 13, 14 --
+  ;; thirteen fields for thirteen printed rows, but Glyph of Warding vanished off
+  ;; every wizard's sheet. Style 1's PREPARED ticks beside those rows carried the
+  ;; same numbering, so a prepared spell printed unticked. Style 4's level 2 ran
+  ;; 1-6 then 9-13, losing two spells mid-list.
+  (testing "every indexed family runs 1..n with nothing missing"
+    (doseq [style [1 2 3 4]]
+      (let [{:keys [file]} (get pdf/sheet-masters style)]
+        (with-open [in (.openStream (io/resource file))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (doseq [[[family level] numbers] (sort (indexed-families doc))]
+            (is (= (vec numbers) (vec (range 1 (inc (count numbers)))))
+                (str "style " style " " family " level " level
+                     ": fields are " (vec numbers)))))))))
+
+(deftest no-two-fields-share-a-name
+  ;; Two fields of one name are one field with one value, so the second row prints
+  ;; blank however carefully it was placed. This is what a re-run of the migration
+  ;; that renumbered those rows produced: the renames shift a run down by one, so
+  ;; a second pass renamed the next field into the name just vacated.
+  (testing "field names are unique within a master"
+    (doseq [style [1 2 3 4]]
+      (let [{:keys [file]} (get pdf/sheet-masters style)]
+        (with-open [in (.openStream (io/resource file))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (let [dupes (->> (field-names doc) frequencies (filter #(> (val %) 1)) (into {}))]
+            (is (empty? dupes) (str "style " style ": " (pr-str dupes)))))))))
+
+(deftest sheet-geometry-matches-the-templates
+  ;; The packer decides what fits from sheet-geometry. If it claims more rows than
+  ;; the box has fields, it packs spells into a box that cannot print them.
+  (testing "spell-packing/sheet-geometry is the templates' real capacity"
+    (doseq [style [1 2 3 4]]
+      (let [{:keys [file]} (get pdf/sheet-masters style)]
+        (with-open [in (.openStream (io/resource file))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (let [actual (spell-row-fields doc)]
+            (doseq [[level rows] (map-indexed vector (get packing/sheet-geometry style))]
+              (is (= rows (count (get actual level)))
+                  (str "style " style " level " level
+                       ": geometry says " rows
+                       ", template has " (count (get actual level)))))))))))
+
+(def ^:private character-fields
+  "One value per non-spell field the app writes to a sheet.
+
+   A literal list rather than the template's own names, so it says what the EXPORT
+   emits: reading the names off the template under test would make every template
+   pass itself, which is the check that was missing."
+  {:character-name "Ysolde Vantreaux" :character-name-2 "Ysolde Vantreaux"
+   :class-level "Wizard 20" :background "Sage" :player-name "fixture"
+   :race "High Elf" :alignment "Neutral Good" :xp "355,000"
+   :str "-1" :str-mod "8" :dex "+2" :dex-mod "14" :con "+3" :con-mod "16"
+   :int "+5" :int-mod "20" :wis "+1" :wis-mod "13" :cha "+0" :cha-mod "10"
+   :str-save "-1" :dex-save "+2" :con-save "+3"
+   :int-save "+11" :wis-save "+7" :cha-save "+0"
+   :ac "15" :initiative "+2" :speed "30 ft." :hp-max "122" :hp-current "122"
+   :hp-temp "0" :hd "20d6" :prof-bonus "+6" :passive "11" :inspiration "1"
+   :arcana "+11" :history "+11" :investigation "+11" :insight "+7"
+   :perception "+1" :medicine "+1" :nature "+5" :religion "+5"
+   :age "241" :height "5'11\"" :weight "134 lb."
+   :eyes "Pale grey" :skin "Fair" :hair "Silver, braided"
+   :weapon-name-1 "Quarterstaff" :weapon-attack-bonus-1 "+5" :weapon-damage-1 "1d6+3"
+   :gp "1,240" :pp "60" :cp "0" :sp "0" :ep "0"
+   :personality-traits "Speaks to books as though they can hear her."
+   :ideals "Knowledge withheld is knowledge wasted."
+   :bonds "The Vantreaux archive burned."
+   :flaws "Assumes she is the smartest person in the room."
+   :backstory "Apprenticed at eleven to a conjurer."
+   :allies "The Candlewrights; Archivist Bell."
+   :other-profs "Common, Elvish, Draconic."
+   :features-and-traits "Quarterstaff, dagger, spellbook."
+   :features-and-traits-2 "Arcane Recovery. Evocation Savant."
+   :treasure "Robe of the Archmagi"
+   :attacks-and-spellcasting "Evocation save DC 19."
+   :spellcasting-class-1 "Wizard" :spellcasting-ability-1 "Intelligence"
+   :spell-save-dc-1 "19" :spell-attack-bonus-1 "+11"})
+
+(defn- filled-to-capacity
+  "Every value a full character puts on `style`: the character block, a slot row,
+   and every spell row the style's geometry says it has."
+  [style]
+  (merge character-fields
+         (into {} (for [level (range 1 10)]
+                    [(keyword (str "spell-slots-" level "-1")) "4"]))
+         (into {} (for [[level rows] (map-indexed vector (get packing/sheet-geometry style))
+                        row (range 1 (inc rows))]
+                    [(keyword (format "spells-%d-%d-1" level row))
+                     (format "L%dR%d" level row)]))))
+
+(deftest nothing-a-full-character-carries-is-silently-dropped
+  ;; THE GUARD. write-fields! returns what it could not place, and until this test
+  ;; nothing looked at it: styles 1 and 3 dropped a level 3 spell, style 4 dropped
+  ;; two level 2 spells plus its second-page name, and style 3 printed an empty
+  ;; HIT DICE box, on every export, in silence.
+  ;;
+  ;; Exact equality, not a subset. A new drop fails here, and so does a stale
+  ;; entry in pdf/unsupported-fields once its template gains the field.
+  (testing "a fully populated character loses only what the style cannot print"
+    (doseq [style [1 2 3 4]]
+      (let [{:keys [file]} (get pdf/sheet-masters style)]
+        (with-open [in (.openStream (io/resource file))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (let [dropped (set (pdf/write-fields! doc (filled-to-capacity style) false {}))
+                declared (get pdf/unsupported-fields style #{})]
+            (is (= declared dropped)
+                (str "style " style
+                     "\n  declared unsupported: " (pr-str (sort declared))
+                     "\n  actually dropped:     " (pr-str (sort dropped))))))))))

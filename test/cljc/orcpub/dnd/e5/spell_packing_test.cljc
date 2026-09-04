@@ -64,10 +64,15 @@
                                  :levels {0 5 1 6 2 5 3 4 4 3 5 2}}]))))))
 
 (deftest style-4-has-its-own-arithmetic
-  (testing "its cantrip box holds 7 rows, not 8"
+  (testing "it splits its rows differently, not more meanly"
+    ;; One fewer cantrip and one more 1st level. The totals matching is the point:
+    ;; style 4 was recorded as holding 99 because its level 1 box was counted as
+    ;; 12 when it has 13 fields, so the packer believed a row less than it had.
     (is (= 7 (first (get pk/sheet-geometry 4))))
     (is (= 8 (first (get pk/sheet-geometry 1))))
-    (is (= 99 (reduce + (get pk/sheet-geometry 4))))
+    (is (= 13 (second (get pk/sheet-geometry 4))))
+    (is (= 12 (second (get pk/sheet-geometry 1))))
+    (is (= 100 (reduce + (get pk/sheet-geometry 4))))
     (is (= 100 (reduce + (get pk/sheet-geometry 1)))))
   (testing "so a full 8-cantrip list cannot use box 0 there, and starts lower"
     (let [placed (entries (pk/pack 4 [{:class "Bard 2" :levels {0 8 1 12}}]))
