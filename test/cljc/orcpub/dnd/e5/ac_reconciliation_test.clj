@@ -1,26 +1,21 @@
 (ns orcpub.dnd.e5.ac-reconciliation-test
-  "SINGLE SOURCE OF TRUTH for AC reconciliation across the refactor. Structure:
+  "Tests for AC reconciliation, in four parts:
 
-   SECTION 1 — BASELINE: fixtures + the CURRENT behavior, pinned. Characterization
-     style: pin what the code ACTUALLY does today, including any bug (pin what IS,
-     not what SHOULD be), so a deliberate fix shows up as a visible diff.
-   SECTION 2 — SUSPECTED LATENT BUG: natural-armor + unarmored-defense stacking.
-   SECTION 3 — PROPOSED efficient rewrite: assertions added AS DEVISED. Each must
-     reproduce SECTION 1 exactly, OR flip a pinned bug on purpose (with the diff called out).
-   SECTION 4 — BACKWARD-COMPAT SHIMS: if a public-facing (homebrew) var/key is
-     deprecated, an assertion here proves the OLD form still produces the right AC.
+   SECTION 1 — BASELINE: builds real characters and pins the AC the LIVE engine
+     (template_base.cljc) produces today. Guards against regression if the reconciler is
+     replaced.
+   SECTION 2 — natural-armor + unarmored-defense. This WAS a real stacking bug (18 where the
+     rules give 15); fixed on integration with a symmetric tie-break and pinned here at 15.
+     Also records that two natural-armor sources do NOT stack — an earlier claim that they
+     did was a fixture artifact (see verification-discipline.md).
+   SECTION 3 — unit tests for the REPLACEMENT reconciler, orcpub.dnd.e5.armor-class, which is
+     NOT wired into the app yet. Pure functions, so they run without the character-build
+     machinery. Passing here says nothing about app behaviour; SECTION 1 covers that.
+   SECTION 4 — placeholder for backward-compat shims, should a public homebrew AC key
+     (:lizardfolk-ac, :tortle-ac, :two-weapon-ac-1, :medium-armor-max-dex-3) be deprecated.
+     Empty until that happens.
 
-   JVM/clojure.test so it runs under the enforced `lein test` gate.
-
-   Original reconciliation code being pinned (template_base.cljc:35-88):
-     ?base-armor-class = 10 + Dex
-                         + (if (> ?unarmored-ac-bonus ?natural-ac-bonus) 0 ?natural-ac-bonus) ; PAIRWISE tie-break
-                         + ?magical-ac-bonus
-     ?unarmored-armor-class = ?base-armor-class + ?unarmored-ac-bonus + ?ac-bonus
-     ?armor-class-with-armor = (apply max base + each ?ac-fn) + (sum each ?ac-bonus-fn)
-   Public-facing homebrew AC vars (candidates for deprecate-with-shim):
-     :lizardfolk-ac  :tortle-ac  :two-weapon-ac-1  :medium-armor-max-dex-3  (options.cljc make-feat-modifiers)
-     and the ?-channels ?natural-ac-bonus / ?unarmored-ac-bonus / ?armored-ac-bonus / ?ac-bonus-fns / ?ac-fns."
+   JVM/clojure.test so it runs under the enforced `lein test` gate."
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.template :as t5e]
@@ -127,7 +122,7 @@
           "FIXED: natural(3) and unarmored(Con 3) no longer stack; max(13+Dex, 10+Dex+Con) = 15"))))
 
 ;; ---------------------------------------------------------------------------
-;; A3 — two natural-armor sources do NOT stack. IMPORTANT CORRECTION: an earlier version of
+;; Two natural-armor sources do NOT stack. CORRECTION: an earlier version of
 ;; this test claimed they stacked to 18 — that was a FIXTURE ARTIFACT. The synthetic classes
 ;; used the cum-sum constructor (mod5e/natural-ac-bonus), which sums; but ALL real content sets
 ;; ?natural-ac-bonus with mod/modifier — a SET (es/modifier replaces, does not accumulate). With
@@ -146,14 +141,14 @@
 ;; ===========================================================================
 ;; SECTION 3 — PROPOSED reconciler (orcpub.dnd.e5.armor-class/reconcile-ac)
 ;; ===========================================================================
-;; Pure-fn unit tests on the REAL core (not a toy): a formula returns its 'AC = ...' value or
-;; 0 when it doesn't apply; the BEST formula wins (max); bonuses are SUMMED onto the winner.
-;; These iterate in microseconds. The SECTION 1/2 build tests are the integration proof that
-;; this fn is actually wired into a real character (added when template_base calls it).
+;; Unit tests on the real replacement functions (not a stand-in copy): a formula returns its
+;; 'AC = ...' value, or 0 when it doesn't apply; the best formula wins (max); bonuses are summed
+;; onto the winner. These use plain functions, so they do NOT show the app behaving correctly —
+;; nothing calls armor-class yet. SECTION 1 is what covers app behaviour.
 ;;
 ;; Formula/bonus stand-ins use Dex 14 (+2), so "10 + Dex" = 12, "16 + Dex" = 18, etc.
 
-(deftest reconcile-formulas-take-the-max                                    ; B1
+(deftest reconcile-formulas-take-the-max
   (testing "competing formulas reconcile by max — best rises, nothing stacks"
     (let [base   (fn [_ _] 12)     ; SRD unarmored 10 + Dex(2)
           hb-nat (fn [_ _] 18)]    ; homebrew natural armor 16 + Dex(2)
@@ -162,18 +157,18 @@
       (is (= 12 (ac/reconcile-ac {:other-formulas [base (fn [_ _] 0)]} nil nil))
           "a non-applicable formula (returns 0) never drags the winner down"))))
 
-(deftest reconcile-bonuses-reach-the-winning-formula                        ; B2 (the universals fix)
+(deftest reconcile-bonuses-reach-the-winning-formula   ; a bonus must not be lost when a formula beats the base
   (testing "bonuses are summed ONTO the winning formula — not trapped in the base"
     (let [base   (fn [_ _] 12)
           hb-nat (fn [_ _] 18)     ; wins the max
-          ring   (fn [_ _] 1)      ; Ring of Protection — a universal ?magical-ac-bonus
-          shield (fn [_ _] 2)]     ; shield — a universal
+          ring   (fn [_ _] 1)      ; Ring of Protection — applies whatever formula wins
+          shield (fn [_ _] 2)]     ; shield — applies whatever formula wins
       (is (= 19 (ac/reconcile-ac {:other-formulas [base hb-nat] :bonuses [ring]} nil nil))
           "ring reaches the WINNING homebrew formula (old engine dropped it: buried in base)")
       (is (= 21 (ac/reconcile-ac {:other-formulas [base hb-nat] :bonuses [ring shield]} nil nil))
-          "multiple universals all land on the winner"))))
+          "several bonuses all land on the winner"))))
 
-(deftest reconcile-floor-is-a-constant-formula                              ; B4 (Barkskin)
+(deftest reconcile-floor-is-a-constant-formula        ; e.g. Barkskin
   (testing "a floor/set-AC is just a constant formula — max gives 'at least N' for free"
     (let [worn  (fn [_ _] 13)      ; light armor 11 + Dex(2)
           floor (fn [_ _] 16)]     ; Barkskin: AC can't be less than 16
@@ -182,7 +177,7 @@
       (is (= 18 (ac/reconcile-ac {:other-formulas [(fn [_ _] 18) floor]} nil nil))
           "and NOT capped: 18 > 16 stays 18"))))
 
-(deftest reconcile-unarmored-formula-excludes-when-armored                  ; formula contract
+(deftest reconcile-unarmored-formula-excludes-when-armored
   (testing "a formula opts OUT by returning 0 for a context it doesn't apply to"
     (let [armored   (fn [armor _] (if armor 16 0))    ; e.g. scale mail 14 + capped Dex 2
           unarmored (fn [armor _] (if armor 0 15))]   ; 10 + Dex + Con, only while no armor
@@ -191,12 +186,12 @@
       (is (= 15 (ac/reconcile-ac {:other-formulas [armored unarmored]} nil nil))
           "no-armor context -> unarmored formula wins, armored excludes itself"))))
 
-(deftest reconcile-shield-permission-is-self-exclusion                     ; B5
+(deftest reconcile-shield-permission-is-self-exclusion
   (testing "per-formula shield permission = whether the formula returns 0 when a shield is held"
     (let [base   (fn [_ _] 12)                          ; plain 10 + Dex(2)
           barb   (fn [_ _] 15)                          ; shield-OK: value regardless of shield
           monk   (fn [_ shield] (if shield 0 15))       ; shield-FORBIDDEN: 0 when a shield is held
-          shield (fn [_ s] (if s 2 0))]                 ; the shield bonus (a universal)
+          shield (fn [_ s] (if s 2 0))]                 ; the shield bonus
       (is (= 17 (ac/reconcile-ac {:other-formulas [base barb] :bonuses [shield]} nil :s))
           "Barbarian keeps its formula with a shield: 15 + 2 = 17")
       (is (= 14 (ac/reconcile-ac {:other-formulas [base monk] :bonuses [shield]} nil :s))

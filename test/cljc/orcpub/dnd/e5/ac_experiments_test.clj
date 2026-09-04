@@ -1,9 +1,9 @@
 (ns orcpub.dnd.e5.ac-experiments-test
   "Comparison harness for the OUTER AC reconciler ('best AC across owned armor/shield'). The
-   shipping implementation is orcpub.dnd.e5.armor-class/best-ac (which works out the other formulas
-   once instead of per armor). This file keeps a NAIVE brute-force implementation as a reference
-   ORACLE, checks the two agree on a shared spec, measures the efficiency difference, and documents
-   the one tradeoff.
+   implementation being proved out is orcpub.dnd.e5.armor-class/best-ac — NOT yet wired into the app
+   (it works out the other formulas once instead of per armor). This file keeps a NAIVE brute-force
+   implementation as a reference ORACLE, checks the two agree on a shared spec, measures the
+   efficiency difference, and documents the one tradeoff.
 
    Vocabulary (matches armor-class): the ARMOR formula is the AC from the worn armor (the only one
    that changes per armor); the OTHER formulas (unarmored defense, natural armor, floors, homebrew)
@@ -19,7 +19,12 @@
 (defn armor-dex
   "Dex contribution from worn armor. Honors the armor's OWN :max-dex cap when present (custom
    material: 'heavy armor that still allows a Dex bonus'), else the type default — the single
-   seam where custom-armor properties enter AC."
+   seam where custom-armor properties enter AC.
+
+   NOT SAFE TO COPY INTO THE APP AS-IS. Preferring the armor's cap over the type default would
+   break Medium Armor Master, which raises the medium cap to 3 by setting ?max-medium-armor-bonus
+   (options.cljc:1461) while the armor itself still says :max-dex-mod 2. The real version has to
+   combine the armor's limit with anything that raises it. See docs/kb/armor-class-refactor.md."
   [armor]
   (if-let [md (:max-dex armor)]
     (min md dex)
@@ -38,7 +43,7 @@
   (fn [armor _] (if armor 0 (+ 10 dex n))))
 
 (defn floor [n] (fn [_ _] n))                      ; Barkskin-style floor: a constant OTHER formula
-(def ring-1 (fn [_ _] 1))                          ; universal +1 (Ring of Protection)
+(def ring-1 (fn [_ _] 1))                          ; +1 regardless of armor (Ring of Protection)
 (defn shield-bonus [] (fn [_ shield] (if shield 2 0)))
 
 (def leather {:base-ac 11 :type :light})
