@@ -134,7 +134,7 @@
 ;; RESOLVED 2026-09 — neither one overrides ?armor-class-with-armor any more.
 ;;   :lizardfolk-ac compiles to the universal :ac shape, {:ac 13 :abilities [:dex]}.
 ;;   :tortle-ac was two things welded together and is now both of them: {:ac 17 :abilities []}
-;;   plus (cant-wear-armor). Its old (+ 17 shield) replacement was a CEILING standing in for
+;;   plus (armor-gives-no-ac). Its old (+ 17 shield) replacement was a CEILING standing in for
 ;;   "a tortle can't wear armor" — the app had no way to say that, so it faked it by making
 ;;   armor unable to win. Modelled honestly the restriction is not a cap on AC at all; worn armor
 ;;   simply contributes nothing, which composes with ?ac-fns' max instead of fighting it.
