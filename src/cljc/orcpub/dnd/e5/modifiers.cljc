@@ -555,8 +555,12 @@
 (defn melee-damage-bonus-fn [bonus-fn]
   (mods/vec-mod ?melee-damage-bonus-fns bonus-fn))
 
-(defn armored-ac-bonus [bonus]
-  (mods/cum-sum-mod ?armored-ac-bonus bonus))
+(defn armored-ac-bonus
+  "A flat bonus that applies only while wearing armor — the Defense fighting style. A BONUS, so it
+  stacks onto whichever AC calculation wins. Was a dedicated ?armored-ac-bonus channel summed only
+  in the worn-armor branch; the predicate says the same thing without a channel."
+  [bonus]
+  (mods/vec-mod ?ac-bonus-fns (fn [armor _shield] (if armor bonus 0))))
 
 (defn unarmored-ac-bonus
   "A flat bonus that applies only while wearing no armor and using no shield — Bracers of Defense.
@@ -569,9 +573,6 @@
   entirely (15 instead of 17). Now it goes to ?ac-bonus-fns and states both clauses directly."
   [bonus]
   (mods/vec-mod ?ac-bonus-fns (fn [armor shield] (if (or armor shield) 0 bonus))))
-
-(defn natural-ac-bonus [bonus]
-  (mods/cum-sum-mod ?natural-ac-bonus bonus))
 
 (defmacro ac-bonus-fn [bonus-fn]
   `(mods/vec-mod ~'?ac-bonus-fns ~bonus-fn))
@@ -599,9 +600,6 @@
   An author who just wants a high flat natural AC uses ac-formula alone and skips this."
   []
   (mods/modifier ?armor-ac-suppressed? true))
-
-(defn unarmored-defense [cls]
-  (mods/vec-mod ?unarmored-defense cls))
 
 (defmacro attack [atk]
   `(mods/modifier ~'?attacks

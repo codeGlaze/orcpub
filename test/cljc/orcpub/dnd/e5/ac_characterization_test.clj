@@ -150,13 +150,16 @@
           tor (props-mod-keys {:tortle-ac true})]
       (is (contains? liz :ac-fns)
           "a competing calculation registered on ?ac-fns, not an override of the AC function")
-      (is (contains? liz :natural-ac-bonus)
-          "still written, so the no-stacking tie-break in ?base-armor-class still sees it")
+      (is (= #{:ac-fns} liz)
+          "FLIPPED 2026-09: the ?natural-ac-bonus write is gone too. It only ever fed the
+           no-stacking tie-break in ?base-armor-class, and that tie-break is gone — ?ac-fns takes
+           the best calculation by max, so there is nothing left to arbitrate.")
       (is (= #{:ac-fns :armor-ac-suppressed?} tor)
           ":tortle-ac is exactly its two halves: the flat calculation, and the restriction")
       (is (empty? (filter #{:armor-class-with-armor} (concat liz tor)))
           "FLIPPED: neither hand-written override survives")
-      ;; the natural-ac channel they feed is the SAME one the sorcerer Draconic Bloodline uses
-      ;; (classes.cljc:2270 `(mod/modifier ?natural-ac-bonus 3)`) — verified by source, shared channel.
-      (is (= [:natural-ac-bonus] (map :orcpub.modifiers/key [(mod5e/natural-ac-bonus 3)]))
-          "the shared primitive channel is ?natural-ac-bonus"))))
+      ;; Draconic Bloodline used to share the ?natural-ac-bonus channel with these props. It now
+      ;; registers its own calculation instead, so the shared channel — and its constructor — are
+      ;; gone. ?ac-fns is the one place every "your AC = ..." feature lands.
+      (is (= :ac-fns (:orcpub.modifiers/key (mod5e/ac-formula (fn [_ _] 0))))
+          "the shared primitive is now ?ac-fns"))))

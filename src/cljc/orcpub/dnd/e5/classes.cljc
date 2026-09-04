@@ -76,15 +76,14 @@
                                 :simple 1}}]
     :weapons {:javelin 4}
     :equipment {:explorers-pack 1}
-    :modifiers [(mod/vec-mod ?unarmored-defense :barbarian)
-                (mod/cum-sum-mod ?unarmored-ac-bonus (?ability-bonuses ::char5e/con)
-                                 nil
-                                 nil
-                                 [(= :barbarian (first ?unarmored-defense))])
-                (mod/cum-sum-mod ?unarmored-with-shield-ac-bonus (?ability-bonuses ::char5e/con)
-                                 nil
-                                 nil
-                                 [(= :barbarian (first ?unarmored-defense))])
+    ;; Unarmored Defense. One calculation instead of a tag plus two gated scalars: ?ac-fns already
+    ;; takes the best calculation, so nothing needs to arbitrate. A shield is allowed (unlike the
+    ;; Monk's), and it lands as a bonus on top of whichever calculation wins.
+    :modifiers [(mod5e/ac-formula
+                 (fn [armor _shield]
+                   (if armor
+                     0
+                     (+ 10 (?ability-bonuses ::char5e/dex) (?ability-bonuses ::char5e/con)))))
                 (mod5e/bonus-action
                  {:name "Rage"
                   :page 48
@@ -1268,12 +1267,13 @@
                                 (if (monk-weapon? weapon)
                                   (get ?ability-bonuses ::char5e/dex)
                                   0)))
-                 (mod/vec-mod ?unarmored-defense :monk)
-                 (mod/cum-sum-mod ?unarmored-ac-bonus
-                                  (?ability-bonuses ::char5e/wis)
-                                  nil
-                                  nil
-                                  [(= :monk (first ?unarmored-defense))])
+                 ;; Unarmored Defense. States "no armor and no shield" directly, where it used to
+                 ;; be implied by writing ?unarmored-ac-bonus and not the with-shield channel.
+                 (mod5e/ac-formula
+                  (fn [armor shield]
+                    (if (or armor shield)
+                      0
+                      (+ 10 (?ability-bonuses ::char5e/dex) (?ability-bonuses ::char5e/wis)))))
                  (mod/modifier ?martial-arts-die (mod5e/level-val
                                                   (?class-level :monk)
                                                   {5 6
@@ -2276,7 +2276,13 @@
                   :modifiers [(mod/map-mod ?class-hit-point-level-bonus
                                            :sorcerer
                                            1)
-                              (mod/modifier ?natural-ac-bonus 3)
+                              ;; Draconic Resilience: "while you aren't wearing armor, your AC
+                              ;; equals 13 + your Dexterity modifier". Unlike the lizardfolk-style
+                              ;; natural armor it has no clause letting it substitute for worse
+                              ;; worn armor, so it self-excludes when armor is worn.
+                              (mod5e/ac-formula
+                               (fn [armor _shield]
+                                 (if armor 0 (+ 13 (?ability-bonuses ::char5e/dex)))))
                               (mod5e/language :draconic)]
                   :selections [(t/selection-cfg
                                 {:name "Draconic Ancestry Type"

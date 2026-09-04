@@ -3758,11 +3758,7 @@
       ;; the worn armor would be worse. It used to REPLACE ?armor-class-with-armor with its own
       ;; max; ?ac-fns already is that max, and shield/character-magic are summed onto the winner
       ;; rather than baked into the replacement's hardcoded sum.
-      ;; ?natural-ac-bonus is still written so the no-stacking tie-break against unarmored defense
-      ;; in ?base-armor-class (template_base.cljc:39) still sees it.
-      :lizardfolk-ac (when v
-                       (into [(mods/modifier ?natural-ac-bonus 3)]
-                             (ac-calculation-modifiers {:ac 13 :abilities [:dex]})))
+      :lizardfolk-ac (when v (vec (ac-calculation-modifiers {:ac 13 :abilities [:dex]})))
       ;; Kept for saved content (D9), now split into the two things it was welding together:
       ;; a flat natural-AC calculation, and "worn armor gives no AC". The old form replaced
       ;; ?armor-class-with-armor with (+ 17 shield) so worn armor could never beat 17 — a ceiling
