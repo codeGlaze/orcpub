@@ -967,3 +967,62 @@ Two coordinate traps, both worth stating because neither reads the way it looks:
   from the bottom. Converting for it puts the icon off the page.
 - The form's own space is 512 units with y **up**, so the SVG's downward y is
   flipped when the form is built, not when it is placed.
+
+## Where the bytes actually are, on all three surfaces (2026-09)
+
+Measured by walking the COS objects of a saved file and bucketing each stream by
+what it is. Worth doing before optimising anything, because the intuition is
+wrong: on the cards the icons and artwork are a rounding error and the FONTS are
+half the file.
+
+| | sheet (4pp) | spell cards (5pp) | item cards (5pp) |
+|---|---|---|---|
+| total | 312,755 | 85,756 | 50,540 |
+| embedded font programs | 6.1% | **46.7%** | **52.6%** |
+| page content streams | 44.1% | 34.6% | 38.1% |
+| form xobjects | 8.9% | 7.5% | -- |
+| images | -- | 0.5% | -- |
+| structure (xref, field dicts) | 36.5% | 8.1% | 6.2% |
+
+The two are different documents with different problems:
+
+- **A sheet** is template artwork (its content streams) plus the AcroForm. The
+  artwork is already predictor-encoded and de-duplicated by
+  `dev/prepare_templates.clj`, and the 36.5% of structure is field dictionaries --
+  see "What a field actually weighs" above. Fonts barely register because form
+  values set few distinct glyphs.
+- **A card page** is text. Spell and item descriptions touch most of the alphabet,
+  so the Vollkorn subsets are large and there is little else on the page. PDFBox
+  already subsets, and already drops a face the document never sets: four are
+  loaded and three are embedded, because nothing on a card is bold-italic.
+
+So on the cards there is no artwork win left to find. There was a much better one.
+
+### Assets are per DOCUMENT, and the card functions each built their own
+
+`add-spell-cards!` and `add-magic-item-cards!` each called `load-fonts` and
+`make-image-loader` themselves. Each is per-document: `load-fonts` embeds its own
+subset of every face, and a loader memoises against its own map. A sheet printing
+BOTH kinds of card therefore carried **two complete copies of Vollkorn and two
+copies of the 998x998 card-back mark**:
+
+| | before | after |
+|---|---|---|
+| embedded font programs | 63,757 | 38,474 |
+| images | 60,248 | 30,357 |
+| file | 166,221 | 107,773 |
+
+**35% of the file, from one document holding two of everything.** Both now come
+from `generate-character-pdf`, built once and passed in, and only when a card page
+is actually coming -- a plain sheet needs neither.
+
+Note what did NOT find this. Every per-function comment said "once per document",
+and each was true of its own function; the bug lived in the space between two
+functions that were each locally correct. Nor would `share-duplicate-images!` have
+found it, because that runs at template-prep time and never sees a generated card
+page -- and running it at export would have papered over the cause rather than
+removing it.
+
+`card_export_test` pins both halves by counting what a saved document actually
+contains, with the subset prefix stripped (PDFBox tags each subset `ABCDEF+`, so
+two copies of one face look like two different fonts until it comes off).

@@ -646,7 +646,15 @@
                        n kind limit)))
     (take limit cards)))
 
-(defn add-spell-cards! [doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded?]  (try
+(defn add-spell-cards!
+  "Appends spell card pages, nine to a sheet, each with its back.
+
+   `fonts` and `img` belong to the caller because they are per-DOCUMENT: each
+   load-fonts embeds its own subset of every face used, so building a set here and
+   another in add-magic-item-cards! puts two complete copies of Vollkorn in a
+   character sheet that prints both kinds of card."
+  [doc fonts img spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? logo-img bw? bw-faded?]
+  (try
     (let [custom-spells-map (common/map-by-key custom-spells)
           spells-map (merge spells/spell-map custom-spells-map)
           ;; Bound the CARDS, not the classes: spells-known is keyed by class, so
@@ -659,12 +667,7 @@
                               class)
                             key])
                          flat-spells)
-          parts (vec (partition-all 9 flat-spells))
-          ;; Load the embedded fonts + build the memoized image embedder ONCE per
-          ;; document, not once per page (print-spells/print-backs used to re-parse
-          ;; 4 TTFs per call, and each card icon was re-decoded+embedded per spell).
-          fonts (pdf/load-fonts doc)
-          img (pdf/make-image-loader doc)]
+          parts (vec (partition-all 9 flat-spells))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
         (let [page (PDPage.)]
@@ -710,14 +713,12 @@
 
    The same layout as the spell cards, and the same failure posture: a card page
    that throws must not cost the character their sheet, so this logs and returns
-   rather than propagating."
-  [doc magic-items logo-img bw? bw-faded?]
+   rather than propagating.
+
+   `fonts` and `img` are the caller's, for the reason given on add-spell-cards!."
+  [doc fonts img magic-items logo-img bw? bw-faded?]
   (try
-    (let [parts (vec (partition-all 9 (bound-cards "magic item" magic-items)))
-          ;; Fonts and the image embedder are built once per document. Per page
-          ;; they would re-parse four TTFs and re-embed every icon.
-          fonts (pdf/load-fonts doc)
-          img (pdf/make-image-loader doc)]
+    (let [parts (vec (partition-all 9 (bound-cards "magic item" magic-items)))]
       (doseq [i (range (count parts))
               :let [part (parts i)]]
         (let [page (PDPage.)]
@@ -974,11 +975,21 @@
         (pdf/grow-spell-sections! doc casters (if no-casters? :all marks))
         (pdf/add-missing-spell-pages! doc fields (config/get-pdf-max-caster-sections))
         (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes))
-      (when (and print-spell-cards? (seq spells-known))
-        (add-spell-cards! doc spells-known spell-save-dcs spell-attack-mods custom-spells print-spell-card-dc-mod? card-back-logo-img bw? bw-faded?))
-
-      (when (and print-magic-item-cards? (seq magic-items-known))
-        (add-magic-item-cards! doc magic-items-known card-back-logo-img bw? bw-faded?))
+      ;; One set of fonts and one image embedder for the whole document. Both are
+      ;; per-document: a second load-fonts embeds a second subset of every face,
+      ;; and a second loader re-embeds the 998x998 card-back mark. Built only when
+      ;; a card page is actually coming, since a plain sheet needs neither.
+      (let [spell-cards? (and print-spell-cards? (seq spells-known))
+            item-cards? (and print-magic-item-cards? (seq magic-items-known))
+            fonts (when (or spell-cards? item-cards?) (pdf/load-fonts doc))
+            img (when (or spell-cards? item-cards?) (pdf/make-image-loader doc))]
+        (when spell-cards?
+          (add-spell-cards! doc fonts img spells-known spell-save-dcs spell-attack-mods
+                            custom-spells print-spell-card-dc-mod? card-back-logo-img
+                            bw? bw-faded?))
+        (when item-cards?
+          (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
+                                 bw? bw-faded?)))
 
       (when (and image-url
                  ;; Cheap scheme filter ahead of pdf/safe-image-url?, which does
