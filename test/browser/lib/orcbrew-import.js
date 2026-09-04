@@ -33,6 +33,16 @@ async function importPack(page, absPath, { timeout = 300000 } = {}) {
     }
     await page.waitForTimeout(1000);
   }
-  return { ok: false, viaModal: clicked, count: await pluginCount() };
+  // Failure must SAY what it saw. Guessing at why a click did not land has cost several
+  // runs already; capture the page's own state instead.
+  const diag = await page.evaluate(() => ({
+    buttons: [...document.querySelectorAll('button')].map(b => ({
+      t: b.innerText.trim().slice(0, 30),
+      vis: !!(b.offsetWidth || b.offsetHeight || b.getClientRects().length)
+    })).slice(0, 20),
+    conflictText: (document.body.innerText.match(/conflict[\s\S]{0,160}/i) || [''])[0].replace(/\n+/g, ' | '),
+    errText: (document.body.innerText.match(/(error|fail|invalid|could ?n.t)[\s\S]{0,140}/i) || [''])[0].replace(/\n+/g, ' | ')
+  })).catch(e => ({ evalErr: String(e).slice(0, 100) }));
+  return { ok: false, viaModal: clicked, count: await pluginCount(), diag };
 }
 module.exports = { importPack };

@@ -400,7 +400,16 @@ Two follow-on traps in fixing it: a *fixed* sleep before clicking is not enough 
 pack parses slower, so the click finds no button and the run still fails), and the generated
 `pak-c*` packs suffixed every entry key so they had zero conflicts and imported silently —
 which is exactly why the problem looked specific to the owner's file rather than to the
-probe. `test/browser/lib/orcbrew-import.js` now races both outcomes until one lands.
+probe. `test/browser/lib/orcbrew-import.js` races both outcomes until one lands.
+
+That helper then failed *again* on packs a standalone diagnostic had imported minutes
+earlier, reporting only `plugins=1, modal clicked=false`. Several more runs went into
+reasoning about why the click had not landed — precedence, visibility checks, context setup
+— each guess costing a full run and none of them right. The lesson is the one that cracked
+the modal in the first place and was not carried forward: **when a harness fails, make it
+report what the page actually showed, rather than theorising about the harness**. The helper
+now dumps every button with its text and visibility, plus any conflict or error text, on
+give-up.
 
 **String-slicing the fixture to clone it was wrong twice over:** a regex count of
 `:orcpub.dnd.e5/<type>` found 2 content-bearing sources when there are 5, and the
