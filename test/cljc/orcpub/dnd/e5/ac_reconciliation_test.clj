@@ -319,6 +319,57 @@
     (is (= 19 ((ac-fn-for abilities :fighter :p-abon-) plate nil))
         ":armor? true and wearing plate — 18 + 1 = 19")))
 
+
+;; ===========================================================================
+;; SECTION 1e — MIGRATION PARITY SWEEP
+;; ===========================================================================
+;; Every mechanism being replaced, against its authored replacement, across every equipment
+;; state, compared in ONE run. Any divergence is a migration hazard: it means deprecating the
+;; old form would change a real character's AC. Divergences are printed together rather than
+;; discovered one at a time.
+
+(def contexts
+  [["unarmored"        nil     nil]
+   ["unarmored+shield" nil     shield]
+   ["leather"          leather nil]
+   ["leather+shield"   leather shield]
+   ["scale"            scale-mail nil]
+   ["plate"            plate   nil]
+   ["plate+shield"     plate   shield]])
+
+;; [label, classes using the OLD mechanism, classes using the AUTHORED replacement]
+(def migration-pairs
+  [["natural armor 13+Dex"        [:liz-]        [:p-natany-]]
+   ["natural armor + magic ring"  [:liz- :ring-] [:p-natany- :ring-]]
+   ["unarmored defense (Con)"     [:barbarian]   [:p-barb-]]
+   ["unarmored defense (Wis, no shield)" [:monk] [:p-monk-]]])
+
+(defn- sweep-divergences []
+  (for [[label old new] migration-pairs
+        [ctx armor shld] contexts
+        :let [a ((apply ac-fn-for abilities old) armor shld)
+              b ((apply ac-fn-for abilities new) armor shld)]
+        :when (not= a b)]
+    (format "  %-36s %-18s old=%-3s authored=%-3s" label ctx a b)))
+
+(deftest migration-parity-sweep
+  (testing "every old mechanism vs its authored replacement, across every equipment state"
+    (let [divergences (sweep-divergences)]
+      (println (format "\n[PARITY SWEEP] %d divergence(s) across %d pairs x %d contexts:"
+                       (count divergences) (count migration-pairs) (count contexts)))
+      (doseq [d divergences] (println d))
+      (println "")
+      ;; Pinned at the KNOWN set. Any new divergence fails here rather than being found by hand.
+      ;; All 7 have the same two causes, and ONE change fixes every one of them: move the shield
+      ;; and ?magical-ac-bonus out of ?armor-class-with-armor-base into ?ac-bonus-fns.
+      ;;   shield trapped in the base   -> 3 cases (natural armor +shield x2, Barbarian +shield)
+      ;;   magical scalar in the base   -> 4 cases (2 of them compounding with the shield)
+      ;; After that move each authored form should equal its old mechanism and this drops to 0.
+      ;; Monk already matches in every context, which is why it appears nowhere below.
+      (is (= 7 (count divergences))
+          "known divergences only — see the printed list. A change in this count is either a new
+           regression or a hazard fixed, and must be updated deliberately"))))
+
 ;; ===========================================================================
 ;; SECTION 2 — FIXED: natural-armor + unarmored-defense no longer stack
 ;; ===========================================================================
