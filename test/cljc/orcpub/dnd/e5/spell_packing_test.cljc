@@ -3,7 +3,8 @@
   ;; explicit :refer to avoid namespace pollution from :refer :all
   (:require #?(:clj [clojure.test :refer [deftest is testing]]
                :cljs [cljs.test :refer-macros [deftest is testing]])
-            [orcpub.dnd.e5.spell-packing :as pk]))
+            [orcpub.dnd.e5.spell-packing :as pk]
+            [orcpub.pdf-spec :as spec]))
 
 (def ^:private full
   "The eight-class fixture, every row of every level it touches filled. The worst
@@ -99,3 +100,45 @@
     (is (not (contains? sections 0)) "section 0 is not a thing")
     (is (every? #(<= 1 % (count pages)) sections)
         (str "sections " (sort sections) " against " (count pages) " page(s)"))))
+
+(deftest sheet-geometry-is-the-only-copy-of-the-row-counts
+  ;; pdf_spec carried its own level-max-spells -- style 1's numbers -- and split
+  ;; a character's spells by them whatever style was being exported. A style 4
+  ;; sheet was handed 8 cantrips for a box with 7 fields and lost one, and 12
+  ;; first-level spells for a box that holds 13.
+  (testing "pdf_spec asks the geometry, per style"
+    (doseq [style [1 2 3 4]]
+      (let [rows (spec/level-max-spells style)]
+        (is (= (get pk/sheet-geometry style)
+               (mapv #(get rows %) (range 10)))
+            (str "style " style)))))
+  (testing "style 4 differs, which is the whole reason this must not be hardcoded"
+    (is (= 7 (get (spec/level-max-spells 4) 0)))
+    (is (= 8 (get (spec/level-max-spells 1) 0)))
+    (is (= 13 (get (spec/level-max-spells 4) 1)))
+    (is (= 12 (get (spec/level-max-spells 1) 1))))
+  (testing "an unknown style falls back to style 1, as the server does"
+    (is (= (spec/level-max-spells 1) (spec/level-max-spells 99)))
+    (is (= (spec/level-max-spells 1) (spec/level-max-spells nil)))))
+
+(deftest classes-sharing-an-ability-share-a-section
+  ;; Not an endorsement -- a record of what the export does today, because it is
+  ;; the constraint packing has to satisfy before it can be turned on.
+  ;;
+  ;; make-page-map groups by :ability, so a Warlock and a Sorcerer both land in
+  ;; the :cha section and print under ONE slot row, taken from the character-wide
+  ;; spell-slots. A Warlock's Pact Magic is a separate pool at a separate level,
+  ;; so those spells are already printed under the wrong slot count.
+  ;;
+  ;; Packing would make it worse rather than better: it merges lists into fewer
+  ;; boxes, so it must not be enabled until a pact caster can be kept in its own
+  ;; section. That needs a per-CLASS pact flag, which does not exist -- character
+  ;; has pact-magic? for the whole character and nothing per class.
+  (let [known {0 {:eldritch-blast {:key :eldritch-blast :ability :cha :class "Warlock"}
+                  :fire-bolt      {:key :fire-bolt :ability :cha :class "Sorcerer"}
+                  :mage-hand      {:key :mage-hand :ability :int :class "Wizard"}}}
+        pages (spec/make-pages known false nil nil {} 1)
+        cha (first (filter #(= :cha (:ability %)) pages))]
+    (is (= 2 (count pages)) "one section per ability, not per class")
+    (is (= #{"Sorcerer" "Warlock"} (:classes cha))
+        "a pact caster shares a section with another class of the same ability")))

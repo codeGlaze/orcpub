@@ -14,6 +14,7 @@
             [orcpub.dnd.e5.equipment :as equip5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.skills :as skill5e]
+            [orcpub.dnd.e5.spell-packing :as packing]
 ))
 
 (defn entity-vals [built-char kws]
@@ -249,17 +250,19 @@
 
 
 
-(def level-max-spells
-  {0 8
-   1 12
-   2 13
-   3 13
-   4 13
-   5 9
-   6 9
-   7 9
-   8 7
-   9 7})
+(defn level-max-spells
+  "Rows the chosen sheet style prints at each spell level.
+
+   Reads spell-packing/sheet-geometry rather than carrying its own copy. It DID
+   carry one, style 1's, and used it whatever style was being exported -- so a
+   style 4 sheet was handed 8 cantrips for a box with 7 fields and lost one, and
+   was handed 12 first-level spells for a box that holds 13.
+
+   Falls back to style 1 for an unrecognised id, matching the server, which
+   clamps an unknown style to the default rather than failing the export."
+  [style]
+  (let [rows (get packing/sheet-geometry style (get packing/sheet-geometry 1))]
+    (into {} (map-indexed vector rows))))
 
 (defn filter-prepared [spell-cfgs
                        lvl
@@ -303,7 +306,8 @@
                   print-prepared-spells
                   prepares-spells
                   prepared-spells-by-class
-                  spells-map]
+                  spells-map
+                  style]
   (let [page-map (make-page-map spells
                                 print-prepared-spells
                                 prepares-spells
@@ -319,7 +323,8 @@
                                levels))
              split-levels (common/map-vals
                            (fn [level spells]
-                             (vec (partition-all (level-max-spells (or level 0)) spells)))
+                             (vec (partition-all (get (level-max-spells style) (or level 0))
+                                                 spells)))
                            levels)
              num-pages (apply max
                               (map (fn [[level parts]]
@@ -416,12 +421,14 @@
                          prepares-spells
                          prepared-spells-by-class
                          spells-map
-                         plugin-spells-map]
+                         plugin-spells-map
+                         style]
   (let [spell-pages (make-pages spells
                                 print-prepared-spells?
                                 prepares-spells
                                 prepared-spells-by-class
-                                spells-map)]
+                                spells-map
+                                style)]
     (apply
      merge
      (make-spell-card-info spells
@@ -473,7 +480,7 @@
              spells)]))
        spell-pages)))))
 
-(defn spellcasting-fields [built-char print-prepared-spells? spells-map plugin-spells-map]
+(defn spellcasting-fields [built-char print-prepared-spells? spells-map plugin-spells-map style]
   (let [spell-attack-modifier-fn (char5e/spell-attack-modifier-fn built-char)
         spell-save-dc-fn (char5e/spell-save-dc-fn built-char)
         spell-slots (char5e/spell-slots built-char)
@@ -492,7 +499,8 @@
                        prepares-spells
                        prepared-spells-by-class
                        spells-map
-                       plugin-spells-map)))
+                       plugin-spells-map
+                       style)))
 
 (defn profs-paragraph [profs prof-map title]
   (when (seq profs)
@@ -720,4 +728,5 @@
       char5e/ability-keys)
      (traits-fields built-char)
      (equipment-fields built-char all-magic-items-map)
-     (spellcasting-fields built-char print-prepared-spells? spells-map plugin-spells-map))))
+     (spellcasting-fields built-char print-prepared-spells? spells-map plugin-spells-map
+                          print-character-sheet-style?))))

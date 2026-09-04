@@ -648,6 +648,38 @@ The default should follow the build rather than being asked for every time:
 So: a default computed from the build, and an override in the PDF options
 alongside the existing print choices.
 
+### 8e. Packing is blocked on Pact Magic, measured (2026-09)
+
+The hard constraint in 8c turns out to be violated ALREADY, before any packing.
+
+`pdf_spec/make-page-map` groups a character's spells by `:ability`, not by class.
+A Warlock and a Sorcerer are both CHA, so they land in one section and print
+under one slot row -- and that row comes from the character-wide
+`char5e/spell-slots`. A Warlock's Pact Magic is a separate pool at a separate
+level, so those spells are already printed under the wrong slot count.
+
+Packing makes this worse rather than better, because it merges lists into fewer
+boxes. So it must not be turned on until a pact caster can be held in its own
+section.
+
+That needs a per-CLASS pact flag, and there is none: `char5e/pact-magic?` is a
+property of the whole character, and nothing in `classes.cljc` or the modifiers
+marks a class as a pact caster. Grouping on a hardcoded set naming Warlock would
+work for the SRD and quietly mislabel any homebrew pact class, which is the same
+shape of mistake as the hardcoded row counts in 8f.
+
+So the order is: model pact magic per class, split the sections on it, THEN
+enable packing. A test in spell_packing_test records the current grouping so the
+day it changes is visible.
+
+### 8f. The row counts had three copies (2026-09)
+
+`pdf_spec` carried its own `level-max-spells` -- style 1's numbers -- and split a
+character's spells by them whatever style was being exported. A style 4 sheet was
+handed 8 cantrips for a box with 7 fields and lost one to the unplaceable report,
+and 12 first-level spells for a box that holds 13. It now reads
+`spell-packing/sheet-geometry`, which a test ties to the templates themselves.
+
 ### 8d. The browser can wrap text exactly, and will need to (2026-09)
 
 Packing has to answer how many rows a list takes and whether a description fits,

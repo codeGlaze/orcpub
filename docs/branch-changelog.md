@@ -124,6 +124,12 @@ the eight-class fixture from 638 KB to 424.
   every field name carries a 1-based suffix — so the instructions named a section
   no template has.
 
+- `pdf_spec` split a character's spells by a hardcoded copy of style 1's row
+  counts, whatever style was being exported: a style 4 sheet was handed 8 cantrips
+  for a box with 7 fields and lost one, and 12 first-level spells for a box that
+  holds 13. It reads `spell-packing/sheet-geometry` now, so the counts have one
+  home and a test ties them to the templates.
+
 ## Added (guards)
 
 - A full character is written to every style and the values `write-fields!` could
