@@ -157,11 +157,18 @@
    synchronously when a button is clicked — gesture-safe for the native share
    sheet and the async clipboard alike. Falls back to the plain character URL for
    a vanilla character, while a payload is still encoding, or when the homebrew is
-   too big to fit in a link (:file tier — the recipient then needs the .orcbrew)."
-  [id]
+   too big to fit in a link (:file tier — the recipient then needs the .orcbrew).
+
+   `variant` styles the buttons to sit flush with their siblings in each context —
+   the app renders header and list buttons differently:
+     :header — tall header buttons (.h-40, icon at .f-s-18, label hidden at xs
+               via .header-button-text) matching the page-header action row.
+     :list   — compact card-row buttons (.m-r-5, small inline icon) matching the
+               character-list sibling buttons."
+  [id variant]
   (let [state (r/atom {:tier :plain :url nil :copied? false})
         prev  (atom {})]
-    (fn [id]
+    (fn [id variant]
       (let [character @(subscribe [:character])
             plugins   @(subscribe [:plugins])
             raw-items @(subscribe [::mi5e/custom-items])
@@ -200,42 +207,49 @@
                                         "Link copied. It's a long link — some apps (Discord, SMS) can cut it off; if the recipient sees missing content, send them the .orcbrew file instead."])
                        :file (dispatch [:show-message
                                         "This character has too much custom content to fit in a link. A plain link was copied — share the .orcbrew file so the recipient gets the homebrew."])
-                       nil))]
-          [:span.flex.align-items-c
-           [:button.form-button.h-40.m-l-5.m-t-5.m-b-5
-            {:title "Copy a link to this character (custom content included)"
-             :disabled working?
-             :on-click (fn [_]
-                         (copy-to-clipboard!
-                          url
-                          (fn [ok]
-                            (when ok
-                              (swap! state assoc :copied? true)
-                              (note)
-                              (js/setTimeout #(swap! state assoc :copied? false) 1800)))))}
-            [:span [:i.fa.f-s-18 {:class (cond copied? "fa-check" working? "fa-spinner" :else "fa-link")}]]
-            [:span.m-l-5.header-button-text (cond copied? "Copied!" working? "Preparing…" :else "Copy link")]]
+                       nil))
+              ;; One button, styled for the context. :header wraps the icon/label in
+              ;; spans (the label collapses at xs via .header-button-text); :list is a
+              ;; compact button with a small inline icon so it matches the card row.
+              btn (fn [icon label title on-click]
+                    (if (= variant :header)
+                      [:button.form-button.h-40.m-l-5.m-t-5.m-b-5
+                       {:title title :disabled working? :on-click on-click}
+                       [:span [:i.fa.f-s-18 {:class icon}]]
+                       [:span.m-l-5.header-button-text label]]
+                      [:button.form-button.m-r-5
+                       {:title title :disabled working? :on-click on-click}
+                       [:i.fa.m-r-5 {:class icon}] label]))]
+          [:<>
+           (btn (cond copied? "fa-check" working? "fa-spinner" :else "fa-link")
+                (cond copied? "Copied!" working? "Preparing…" :else "Copy link")
+                "Copy a link to this character (custom content included)"
+                (fn [_]
+                  (copy-to-clipboard!
+                   url
+                   (fn [ok]
+                     (when ok
+                       (swap! state assoc :copied? true)
+                       (note)
+                       (js/setTimeout #(swap! state assoc :copied? false) 1800))))))
            (when (native-share?)
-             [:button.form-button.h-40.m-l-5.m-t-5.m-b-5
-              {:title "Share this character (custom content included)"
-               :disabled working?
-               :on-click (fn [_]
-                           (-> (.share js/navigator
-                                       #js {:title (str (or char-name "D&D character") " — " branding/app-name)
-                                            :url url})
-                               (.then (fn [_] (note)))
-                               ;; user-cancelled / permission rejections are expected — swallow.
-                               (.catch (fn [_] nil))))}
-              [:span [:i.fa.f-s-18.fa-share-alt]]
-              [:span.m-l-5.header-button-text "Share"]])])))))
+             (btn "fa-share-alt" "Share"
+                  "Share this character (custom content included)"
+                  (fn [_]
+                    (-> (.share js/navigator
+                                #js {:title (str (or char-name "D&D character") " — " branding/app-name)
+                                     :url url})
+                        (.then (fn [_] (note)))
+                        ;; user-cancelled / permission rejections are expected — swallow.
+                        (.catch (fn [_] nil))))))])))))
 
 (defn share-links
   "Header share cluster (Copy link + native Share) carrying the character's
    homebrew embedded in the link. Returned as a single button-cfg element."
   [id _character-name]
-  [[share-controls id]])
+  [[share-controls id :header]])
 
 (defn share-link-www
   "Single-element share cluster for the character-sheet header."
   [id]
-  [share-controls id])
+  [share-controls id :list])
