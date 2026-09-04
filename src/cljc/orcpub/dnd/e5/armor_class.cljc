@@ -20,7 +20,16 @@
     :other-formulas — everything else. Their value must NOT depend on which armor is worn; they
                       may check whether armor is present, but must not read its fields. best-ac
                       relies on this (see below) and a formula that breaks the rule will return a
-                      wrong number or throw.")
+                      wrong number or throw.
+
+  INTENDED WIRING (none of this is built yet — recorded so the shape is clear):
+    - template_base would supply :armor-formula, :other-formulas and :bonuses, replacing the
+      scalar accumulators it uses today.
+    - best-ac would replace the ::best-armor-combo subscription (subs.cljs:801). That sub is
+      memoized, so once wired, AC would recompute when AC-relevant state changes rather than on
+      every render.
+    - homebrew AC would compile down to these same two groups, so homebrew and built-in content
+      would go through one reconciler instead of the several the app has now.")
 
 (defn reconcile-ac
   "AC for one specific equipped (armor, shield): best formula + sum of bonuses.
