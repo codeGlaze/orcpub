@@ -1,7 +1,21 @@
 # Homebrew volume and the core builder loop
 
 **Branch:** `perf/homebrew-builder-loop`, cut from `origin/integration` at `0b4d499a`.
-**Status: measurement in progress. Nothing changed in `src/` yet.**
+**Status: measured, and one fix ported in.**
+
+Three answers, in order of how much they matter:
+
+1. **There is a hard ceiling on how much homebrew can exist at all.** Homebrew is persisted
+   to `localStorage`, which browsers cap at ~5 MB per origin. A 2.9 MB library saves and
+   reloads fine; a 5.9 MB one fails the write, and the content is gone on the next page
+   load. The app handles this correctly and says so — this is a capacity limit, not a bug.
+2. **The core loop was dominated by a quadratic topological sort, not by reading content.**
+   `kahn-sort` was **76–86% of `entity/build` at every homebrew size**. Porting the
+   `perf/entity-build` fix takes the rebuild from 27–32 ms to 5–7 ms and a real race click
+   from 157–221 ms to 87–112 ms of CPU.
+3. **With that gone, the "reads too much" cost is what's left and it is real** — but it is
+   ~5 ms, not ~30. `collect-modifiers-2` is now 63–73% of the rebuild and is the piece that
+   actually grows with homebrew.
 
 The report: with a lot of homebrew loaded, selecting race / subrace / class / subclass
 slows down and can freeze the browser, and the suspicion is the core loop reading far too
@@ -64,18 +78,10 @@ per click.
 
 ### The per-click character rebuild barely notices homebrew
 
-`entity/build` runs **twice** per race click (a leading-edge build plus a trailing one
-500 ms later — the debounce at `subs.cljs:325` watches both `char-sub` and `tmpl-sub`).
-Click-triggered medians across packs came out flat and non-monotonic — 29.8 / 43.0 / 35.6 /
-38.7 ms for clean / 750 KB / 1.5 MB / 3.0 MB — i.e. noise, not signal, so they are not a
-result. What *is* solid from the same runs: the dependency graph `kahn-sort` receives stays
-at **115 nodes at every pack size**. Homebrew does not grow it.
-
-That matters, because in the CPU profile the rebuild is still dominated by `kahn-sort` /
-`no-incoming` — the same O(V·(V+E)) topological sort found on `perf/entity-build`
-(`docs/kb/perf-entity-build.md`). On integration, 6 real race clicks spent 531 ms in
-`kahn_sort` of 681 ms in `entity.build`. **That fix is not on this branch** and is the
-first thing to port; it is worth ~5x on the rebuild and is independent of homebrew.
+Superseded by the measured tables above. The short version: homebrew volume moves
+`entity/build` by ~20% across a 4x content increase, the dependency graph stays the same
+size, and the rebuild was dominated by `kahn-sort` at every size. That fix has now been
+ported here.
 
 ### Template construction does NOT blow up with class/subclass count (JVM)
 
@@ -103,15 +109,113 @@ it is the strongest structural candidate for "reads too much, especially spells"
 sweep does not exercise it. Treat the flat curve as covering the non-spellcasting case
 only, until the browser numbers on the real fixture come in.
 
-### A structural candidate, not yet measured
+## The hard ceiling: homebrew that cannot be saved
 
-`collect-modifiers-2` (`entity.cljc:541`) builds `make-template-option-map` over **every
-option of every active selection**, then reads it at only `(count flat-options)` paths — on
-a small character that was 360 map entries built to serve ~10 lookups. Option paths are
-`(conj (vec (or ref path)) key)`, so a flat option's path already decomposes into
-selection-path + key; indexing selections by their ref-or-path would make those lookups
-direct instead of materialising the whole map. Whether this actually matters depends on
-how much of the option map is homebrew, which the pending microbenchmark measures.
+Plugins are written to `localStorage` as EDN text (`db.cljs:265`). Browsers cap that at
+roughly 5 MB per origin. Imported through the real file input, then navigated away from
+and back:
+
+| pack | after import (app-db) | after navigating to the builder | localStorage |
+|---|---|---|---|
+| 0.7 MB | 6 sources, 166 spells | 166 spells | 750 KB |
+| 1.5 MB | 11 sources, 332 spells | 332 spells | 1501 KB |
+| 2.9 MB | 21 sources, 664 spells | 664 spells | 3001 KB |
+| 5.9 MB | 41 sources, 1328 spells | **0 spells, 0 sources** | **0 KB** |
+
+At 5.9 MB the write throws, and everything the user just imported is gone on the next page
+load. **This is handled, not silent** — an earlier draft of this document said "silently
+lost" before checking, which was wrong. `set-item` returns false (`db.cljs:176`),
+`plugins->local-store` dispatches `::e5/plugins-save-failed`, and the user sees:
+
+> Couldn't save to browser storage — it may be full. Your latest change is in memory but
+> will be lost on refresh. Download a full backup now
+
+The import log still reads "Import completed cleanly" alongside it, because that log is
+about parse problems, not storage.
+
+The cliff is somewhere between 2.9 MB and 5.9 MB and was not bisected. What matters is that
+it exists and is a browser limit, so no amount of optimisation moves it — only storing the
+library somewhere other than `localStorage` would.
+
+**This voids the 5.9 MB rows in the tables below.** Those runs measured a builder with no
+homebrew loaded at all, which is why their numbers dropped back to the clean-library values
+and their option-map entry counts returned to exactly the clean figure. Reading that as
+"flat at 5.9 MB" would have been a false result; the tell was a count that went back to its
+baseline instead of continuing to grow.
+
+## Where a character change actually spends its time
+
+Warmed microbenchmarks (min of 5 reps x 20 iterations) on the **live** character and
+template of a real app that really imported the pack, after really clicking a race card.
+Click-triggered timings were tried first and discarded: they came out non-monotonic across
+pack sizes (29.8 / 43.0 / 35.6 / 38.7 ms), because the debounce, rendering and GC swamp the
+signal.
+
+**Before the port — integration as it stands:**
+
+| pack | `entity/build` | collect-mods | get-all-sels | option-map | **kahn-sort** | apply-mods | option-map entries |
+|---|---|---|---|---|---|---|---|
+| clean | 27.11 | 3.63 | 1.61 | 1.78 | **20.72** | 0.09 | 1110 |
+| 0.7 MB | 29.90 | 4.28 | 1.81 | 2.23 | **23.19** | 0.10 | 1216 |
+| 1.5 MB | 31.60 | 4.60 | 1.82 | 2.44 | **27.76** | 0.11 | 1292 |
+| 2.9 MB | 32.41 | 5.13 | 2.27 | 2.66 | **25.04** | 0.09 | 1444 |
+
+`kahn-sort` is 76–86% of the rebuild at every size. Homebrew volume moves `entity/build` by
+only ~20% across a 4x content increase — and the dependency graph it sorts stays at **114
+nodes at every pack size**. Homebrew does not grow the graph; it is simply that the graph
+was always expensive to sort.
+
+**After porting the `kahn-sort` fix (`docs/kb/perf-entity-build.md`):**
+
+| pack | `entity/build` | collect-mods | get-all-sels | option-map | kahn-sort | option-map entries |
+|---|---|---|---|---|---|---|
+| clean | **5.07** | 3.24 | 1.29 | 1.74 | 0.93 | 1110 |
+| 0.7 MB | **6.44** | 4.28 | 1.64 | 2.34 | 1.13 | 1216 |
+| 1.5 MB | **6.87** | 5.03 | 1.94 | 2.49 | 1.04 | 1292 |
+| 2.9 MB | **6.95** | 5.10 | 2.26 | 2.73 | 1.01 | 1444 |
+
+4.6–5.3x on the rebuild, at every homebrew size. And the picture inverts: `collect-modifiers-2`
+is now 63–73% of the rebuild, and it is the piece that grows with content — 3.24 to 5.10 ms
+from clean to 2.9 MB. **The quadratic sort was masking the over-reading.**
+
+### Per real race click (CPU profile, 6 clicks)
+
+| pack | busy/click | | `entity/build` | kahn | collect | React reconcile+commit | cards rendered |
+|---|---|---|---|---|---|---|---|
+| clean | 157 -> **87** | ms | 90 -> 25 | 72 -> 5 | 15 -> 16 | 25 -> 24 | 24 |
+| 0.7 MB | 191 -> **105** | ms | 105 -> 30 | 80 -> 6 | 21 -> 20 | 29 -> 27 | 27 |
+| 2.9 MB | 221 -> **112** | ms | 121 -> 36 | 90 -> 7 | 27 -> 26 | 41 -> 33 | 36 |
+
+Each click still costs two builds — the debounce at `subs.cljs:325` watches both `char-sub`
+and `tmpl-sub`, so one watch fires the leading edge and the other schedules a trailing build
+500 ms later.
+
+**A trap in reading these:** `entity/build` runs *inside* a reagent reaction, so its samples
+sit under `reagent$` frames. The "render" bucket therefore **contains** the build bucket and
+the two must not be added or compared as rivals. An earlier note here claimed render (926 ms)
+was larger than build (681 ms) and therefore the bigger problem; that comparison was
+meaningless. The independent render cost is the React reconcile/commit column, which is
+24–33 ms per click and grows with the number of option cards.
+
+## What is left, in priority order
+
+1. **`collect-modifiers-2` builds far more than it reads.** `make-template-option-map`
+   (`entity.cljc:561`) materialises an entry for **every option of every active selection**
+   — 1110 entries on a clean library, 1444 at 2.9 MB — and `collect-modifiers-2` then reads
+   it at only `(count flat-options)` paths, which is ~32 here. Option paths are
+   `(conj (vec (or ref path)) key)`, so a flat option's path already decomposes into
+   selection-path + key: indexing selections by their ref-or-path would make those lookups
+   direct and skip building the map. Worth ~2–3 ms of a 5–7 ms rebuild, doubled per click.
+   This is the closest thing found to the original "reading way too much" suspicion.
+2. **The double build per change.** Identified, not fixed — halving it is worth as much as
+   any of the above, but it changes the subscription's semantics and needs its own test.
+3. **Import cost**, which is linear and a foreground freeze: 1303 / 2135 / 2844 / 5276 ms
+   for 0.75 / 1.5 / 3.0 / 5.9 MB.
+4. **Spells specifically.** `spellcaster-subclass-levels` (`spell_subs.cljs:445`) eagerly
+   builds ~20 levels of spell selections per spellcasting subclass, at template-build time,
+   for a level-1 character. The JVM sweep below does not exercise it and the browser sweep
+   did not isolate it. Still unmeasured, still the best structural candidate for a
+   content-shaped blowup that these fixtures may not represent.
 
 ## Dead ends (recorded so they are not repeated)
 
@@ -133,14 +237,18 @@ looked like corrupt content in the fixture and was not.
 hand-rolled brace matcher mis-split the top level. Reading the EDN properly on the JVM
 found the real shape immediately. Do not parse this format with regexes.
 
-## Still open
+## The port, and how it was checked here
 
-- The warmed microbenchmark sweep of the rebuild internals across pack sizes
-  (`build`, `collect-modifiers-2`, `get-all-selections-aux-2`,
-  `make-template-option-map`, `kahn-sort`) — click-triggered timing was too noisy.
-- The render/rebuild split per click as homebrew grows. In an early profile
-  `reagent` render (926 ms over 6 clicks) was *larger* than `entity.build` (681 ms), which
-  points at the option cards being rendered for every homebrew race/subrace, not at the
-  rebuild.
-- Whether the freeze is reproducible at 6 MB / 12 MB, and where.
-- The spells path specifically, with real spellcasting homebrew.
+`kahn-sort` and its two helpers were spliced in from `perf/entity-build` — the topo-sort
+section only, not the whole file, so nothing unrelated to it came across. The order pin
+(`test/cljc/orcpub/entity_build_perf_test.clj`) was rewritten to build its own fixture from
+SRD classes so it does not depend on a test namespace that exists only on that branch.
+
+| check | result |
+|---|---|
+| `lein test` on unmodified integration (with the pin present) | 304 tests, **0 failures** — so the pin's embedded reference *is* integration's implementation |
+| `lein test` with the fix | 304 tests, **0 failures** |
+| order pin: real build graph + 500 DAGs + 300 cyclic + degenerate, JVM | identical |
+| the same 808 graphs re-run in the browser (cljs sets ≤8 iterate in insertion order; the JVM cannot see this class of bug) | **0 mismatches** |
+| live build graph in the running app | identical |
+| `kahn-sort` in the browser | 20.70 ms -> 0.843 ms (24.6x) |
