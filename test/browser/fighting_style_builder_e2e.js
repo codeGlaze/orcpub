@@ -52,13 +52,14 @@ async function controlFor(page, labelText) {
   fs.mkdirSync(SHOTS, { recursive: true });
   const browser = await chromium.launch({ executablePath: findChrome() });
   const page = await browser.newPage({ viewport: { width: 1400, height: 1100 } });
-  // JS errors only. External CDN fetches (Google Fonts) fail in a sandboxed environment and say
-  // nothing about the app.
+  // Fonts are self-hosted (docs/kb/fonts.md), so the app fetches NOTHING from a third party and a
+  // failed request is a real defect. No filtering — that was only needed while Open Sans came from
+  // a CDN the sandbox blocked.
   const errors = [];
+  const failedRequests = [];
   page.on('pageerror', e => errors.push(String(e)));
-  page.on('console', m => {
-    if (m.type() === 'error' && !/ERR_(CONNECTION|NAME|INTERNET)/.test(m.text())) errors.push(m.text());
-  });
+  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('requestfailed', r => failedRequests.push(`${r.url()} (${r.failure() && r.failure().errorText})`));
 
   await page.goto(`${BASE}/pages/dnd/5e/fighting-style-builder`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(2500);
@@ -67,6 +68,13 @@ async function controlFor(page, labelText) {
   check('page renders (macro-generated route→view binding)', /Fighting Style/i.test(body),
         `body starts: ${body.trim().slice(0, 70)}`);
   check('no uncaught JS errors on load', errors.length === 0, errors.slice(0, 2).join(' | '));
+  check('no failed requests — nothing is fetched from a third party',
+        failedRequests.length === 0, failedRequests.slice(0, 2).join(' | '));
+  const fontOk = await page.evaluate(async () => {
+    try { await document.fonts.ready; return [...document.fonts].some(f => /Open Sans/.test(f.family)); }
+    catch (_) { return false; }
+  });
+  check('Open Sans loaded from local /fonts', fontOk);
 
   await page.screenshot({ path: path.join(SHOTS, 'fs-builder-empty.png'), fullPage: true });
 

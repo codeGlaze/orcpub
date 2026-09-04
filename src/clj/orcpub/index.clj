@@ -158,7 +158,10 @@ html {
     (script-tag {:src "/js/compiled/orcpub.js" :nonce nonce})
     (script-tag {:src "/js/cookies.js" :nonce nonce})
     (include-css "/assets/font-awesome/5.13.1/css/all.min.css")
-    (include-css "https://fonts.googleapis.com/css?family=Open+Sans")
+    ;; Self-hosted — see resources/public/css/open-sans.css and docs/kb/fonts.md. Was a
+    ;; fonts.googleapis.com link; that is a third-party dependency, leaks visitor IPs, and fails
+    ;; outright in a sandboxed browser.
+    (include-css "/css/open-sans.css")
     (script-tag {:nonce nonce} " window.start.init({Palette:\"palette7\",Mode:\"banner bottom\",})")
     (when homebrew-url
       (script-tag {:nonce nonce}

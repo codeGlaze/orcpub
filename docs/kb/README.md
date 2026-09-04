@@ -62,3 +62,4 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 - Include the date the analysis was done and the artifact(s) it was based on.
 - Do not remove speculation flags — if something is later verified, replace the flag with a **✅ VERIFIED — [how]** marker and update the text.
 - `weapon-data-model.md` — every field on a weapon, the traps (absent-vs-false flags, three fields missing their `?`, maps that look like flags), and the invariants the AC/attack vocabulary leans on.
+- `fonts.md` — Open Sans is self-hosted, not CDN-linked: what is checked in, how to regenerate, and why CSP no longer allows the font hosts.

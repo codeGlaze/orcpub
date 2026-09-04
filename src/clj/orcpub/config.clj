@@ -59,9 +59,11 @@
   "CSP that allows same-origin scripts without strict-dynamic.
    Compatible with traditional <script src> tags. Less secure than strict mode."
   {:default-src "'self'"
-   :script-src "'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com"
-   :style-src "'self' 'unsafe-inline' https://fonts.googleapis.com"
-   :font-src "'self' https://fonts.gstatic.com"
+   ;; No font CDN hosts: Open Sans is self-hosted (docs/kb/fonts.md), so nothing loads from
+   ;; fonts.googleapis.com or fonts.gstatic.com any more.
+   :script-src "'self' 'unsafe-inline' 'unsafe-eval'"
+   :style-src "'self' 'unsafe-inline'"
+   :font-src "'self'"
    :img-src "'self' data: https:"
    :object-src "'none'"})
 
