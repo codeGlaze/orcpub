@@ -749,7 +749,7 @@
     :print-character-sheet? :print-spell-cards? :print-character-sheet-style?
     :print-spell-card-dc-mod? :print-card-back-logo? :card-back-logo-faded?
     :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
-    :print-spell-annotations?
+    :print-spell-annotations? :spell-relabels
     :magic-items-known :print-magic-item-cards?
     :flatten?})
 
@@ -921,7 +921,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels character-name class-level player-name flatten?]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -992,6 +992,16 @@
           ;; Narrowing the rows must happen before the values are written: the
           ;; rows auto-size, so this is what makes a long name shrink to clear the
           ;; annotation columns rather than run under them.
+          ;; The packing decision is made in the builder, which knows what a
+          ;; spell level is; the server is handed a flat field map and this small
+          ;; instruction list, and applies it. Bounds-checked against the sections
+          ;; this document actually grew, since it arrives from the client.
+          (when (seq spell-relabels)
+            (let [[applied refused]
+                  (pdf/apply-relabel-instructions! doc spell-relabels casters)]
+              (when (pos? refused)
+                (println (format "pdf: refused %d of %d relabel instruction(s)"
+                                 refused (+ applied refused))))))
           (when print-spell-annotations?
             (pdf/reserve-annotation-columns! doc))
           (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes)

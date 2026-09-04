@@ -107,6 +107,23 @@ the eight-class fixture from 638 KB to 424.
   reaction, and plain V S M is on nearly every spell, so it is the widest to print
   and the least worth reading.
 
+## Added (packing, server half)
+
+- The export accepts `:spell-relabels`, the small instruction list the browser
+  sends alongside the field map when it has packed a character's spells into
+  boxes other than their own numeral. The server applies `relabel-spell-level!`
+  and `reuse-cantrips-box!` per instruction and needs nothing else — it never has
+  to know what a spell level is.
+- Bounds-checked, because it comes from the client and reaches field names and a
+  drawn label: section must name a page the document actually grew, box must be
+  one of the ten, and label a single digit or nil. Malformed instructions are
+  refused and counted rather than thrown on, so a client sending something this
+  server does not understand cannot cost the character their sheet. The list is
+  capped at ten boxes a section.
+- `relabel-instructions` counted sections from ZERO off `map-indexed`, while
+  every field name carries a 1-based suffix — so the instructions named a section
+  no template has.
+
 ## Added (guards)
 
 - A full character is written to every style and the values `write-fields!` could

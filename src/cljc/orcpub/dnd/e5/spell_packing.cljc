@@ -168,16 +168,19 @@
    carries its printed numeral, so an unused box 4 in a Paladin column reads as
    Paladin level 4 spells.
 
+   `:section` counts from ONE, matching the suffix every field name carries --
+   spells-3-1-1 and spell-slots-1-1 are section 1. It came off map-indexed and so
+   counted from zero, which named a section no template has.
+
    Caller-supplied by the time the server sees them, so section, box and label are
    bounds-checked there before use -- the same hole as the sheet style id."
   [pages]
-  (vec (for [[section page] (map-indexed vector pages)
+  (vec (for [[index page] (map-indexed vector pages)
              col page
-             :let [used (set (map :box (:placed col)))]
              box (:column col)
              :let [held (first (filter #(= box (:box %)) (:placed col)))]
              :when (or (nil? held) (not= box (:level held)))]
-         {:section section
+         {:section (inc index)
           :box box
           :label (when held (str (:level held)))})))
 

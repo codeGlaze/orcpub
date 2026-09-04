@@ -1156,3 +1156,60 @@
                     (is (<= (* 72 (pdf/string-width v pdf/HELVETICA size))
                             (.getWidth r))
                         (str "style " style " " n " \"" v "\" at " size "pt"))))))))))))
+
+;; ─── Relabel instructions from the browser ───────────────────────────────────
+
+(deftest relabel-instructions-are-bounds-checked
+  ;; These arrive from the client, which is where the packing decision is made,
+  ;; and reach field names and a drawn label. The sheet style id was the same
+  ;; shape of input and reached a resource path before anyone validated it.
+  (testing "a well-formed instruction for a section the document has"
+    (is (pdf/valid-relabel? {:section 1 :box 0 :label "3"} 3))
+    (is (pdf/valid-relabel? {:section 3 :box 9 :label "9"} 3))
+    (is (pdf/valid-relabel? {:section 1 :box 4 :label nil} 3)
+        "nil blanks a box nothing uses"))
+  (testing "a section the document does not have"
+    (is (not (pdf/valid-relabel? {:section 0 :box 1 :label "1"} 3))
+        "sections count from one, matching the suffix on every field name")
+    (is (not (pdf/valid-relabel? {:section 4 :box 1 :label "1"} 3)))
+    (is (not (pdf/valid-relabel? {:section -1 :box 1 :label "1"} 3))))
+  (testing "a box that is not one of the ten"
+    (is (not (pdf/valid-relabel? {:section 1 :box 10 :label "1"} 3)))
+    (is (not (pdf/valid-relabel? {:section 1 :box -1 :label "1"} 3))))
+  (testing "a label that is not a single digit"
+    (is (not (pdf/valid-relabel? {:section 1 :box 1 :label "12"} 3)))
+    (is (not (pdf/valid-relabel? {:section 1 :box 1 :label "x"} 3)))
+    (is (not (pdf/valid-relabel? {:section 1 :box 1 :label "/Helv 99 Tf"} 3)))
+    (is (not (pdf/valid-relabel? {:section 1 :box 1 :label 3} 3))))
+  (testing "wrong types where numbers belong"
+    (is (not (pdf/valid-relabel? {:section "1" :box 1 :label "1"} 3)))
+    (is (not (pdf/valid-relabel? {:section 1 :box "1" :label "1"} 3)))
+    (is (not (pdf/valid-relabel? {} 3)))))
+
+(deftest a-bad-instruction-list-does-not-cost-the-sheet
+  (testing "junk is refused and counted, and the good ones still apply"
+    (with-open [in (.openStream (io/resource (:file (get pdf/sheet-masters 1))))
+                doc (Loader/loadPDF (.readAllBytes in))]
+      (pdf/grow-spell-sections! doc 2 :all)
+      (let [[applied refused]
+            (pdf/apply-relabel-instructions!
+             doc
+             [{:section 1 :box 5 :label "2"}
+              {:section 9 :box 1 :label "1"}
+              {:section 1 :box 99 :label "1"}
+              {:section 1 :box 1 :label "not-a-digit"}
+              "not even a map"
+              nil]
+             2)]
+        (is (= 1 applied))
+        (is (= 3 refused) "the three malformed maps; non-maps are not instructions")))))
+
+(deftest relabelling-is-capped-so-a-huge-list-cannot-run-away
+  (testing "no more than ten boxes a section are ever applied"
+    (with-open [in (.openStream (io/resource (:file (get pdf/sheet-masters 1))))
+                doc (Loader/loadPDF (.readAllBytes in))]
+      (pdf/grow-spell-sections! doc 1 :all)
+      (let [flood (repeat 5000 {:section 1 :box 5 :label "2"})
+            [applied refused] (pdf/apply-relabel-instructions! doc flood 1)]
+        (is (= 10 applied) "capped at the ten level boxes a page has")
+        (is (= 4990 refused))))))

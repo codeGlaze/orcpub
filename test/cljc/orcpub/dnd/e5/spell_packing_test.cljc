@@ -88,3 +88,14 @@
             (str "box " box " holds level " level " and would read as " box))))
     (testing "a box nothing uses is blanked rather than left reading as a level"
       (is (some #(nil? (:label %)) instructions)))))
+
+(deftest relabel-sections-count-from-one
+  ;; Every field name carries a 1-based section suffix -- spells-3-1-1,
+  ;; spell-slots-1-1 -- and these instructions name a section to relabel. They
+  ;; came off map-indexed and so counted from zero, naming a section no template
+  ;; has and silently relabelling nothing.
+  (let [pages (pk/pack 1 realistic)
+        sections (set (map :section (pk/relabel-instructions pages)))]
+    (is (not (contains? sections 0)) "section 0 is not a thing")
+    (is (every? #(<= 1 % (count pages)) sections)
+        (str "sections " (sort sections) " against " (count pages) " page(s)"))))

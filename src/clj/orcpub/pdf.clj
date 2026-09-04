@@ -2614,6 +2614,53 @@
                            base-y
                            [grey grey grey])))))))))
 
+(def ^:private max-relabels-per-section
+  "Ten level boxes to a page, so an honest instruction list never exceeds this
+   many per section."
+  10)
+
+(defn valid-relabel?
+  "Whether one caller-supplied relabel instruction may be applied.
+
+   These arrive from the browser, which is where the packing decision is made,
+   and reach field names and a drawn label -- so they are checked the way the
+   sheet style id is, which reached a resource path before anyone validated it.
+
+   `section` names a page the document actually has, `box` is one of the ten
+   level boxes, and `label` is a single digit or nil. nil blanks a box nothing
+   uses, which otherwise keeps printing a numeral that reads as a level the
+   character does not have."
+  [{:keys [section box label]} sections]
+  ;; boolean, not the last truthy value: group-by keys on what this RETURNS, and
+  ;; re-matches hands back the matched string, so the groups came out keyed "2"
+  ;; and nil instead of true and false.
+  (boolean
+   (and (integer? section) (<= 1 section sections)
+        (integer? box) (<= 0 box 9)
+        (or (nil? label)
+            (and (string? label) (re-matches #"\d" label))))))
+
+(defn apply-relabel-instructions!
+  "Renumbers the boxes `instructions` names. Returns [applied refused].
+
+   Refuses rather than throws, and counts what it refused: a malformed list is a
+   client sending something this server does not understand, which must not cost
+   the character their sheet. The count is returned so the caller can log it.
+
+   Box 0 is the cantrips box and is not a level box -- it has no slot inputs or
+   labels until reuse-cantrips-box! gives it some -- so it takes the other path."
+  [doc instructions sections]
+  (let [wanted (take (* sections max-relabels-per-section) (filter map? instructions))
+        {ok true bad false} (group-by #(valid-relabel? % sections) wanted)]
+    (doseq [{:keys [section box label]} ok]
+      (try
+        (if (zero? box)
+          (when label (reuse-cantrips-box! doc section label))
+          (relabel-spell-level! doc box section (or label "")))
+        (catch Exception e
+          (println "pdf: relabel failed for box" box "section" section "-" (.getMessage e)))))
+    [(count ok) (+ (count bad) (max 0 (- (count (filter map? instructions)) (count wanted))))]))
+
 (defn stamp-site-line!
   "Prints the site line in the bottom-left corner of every page that lacks one.
 
