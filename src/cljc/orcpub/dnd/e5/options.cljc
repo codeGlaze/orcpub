@@ -3582,6 +3582,48 @@
        (modifier-fn k))))
    m))
 
+(def ^:private short-ability
+  "Authors may write the short :dex or the fully-qualified ability keyword; both mean the same."
+  {:str ::character/str :dex ::character/dex :con ::character/con
+   :int ::character/int :wis ::character/wis :cha ::character/cha})
+
+(defn- ac-applies?
+  "Do this calculation's conditions hold for the equipped armor and shield?
+
+  :armor?  false = only while NOT wearing armor, true = only while wearing it, absent = either.
+  :shield? false = DISQUALIFIED while a shield is held — not 'skip the shield bonus'. A Monk with
+           a shield loses Unarmored Defense entirely (14, not 15); the other reading gets that
+           wrong. Absent or true = usable with a shield, and the shield's own bonus lands on it
+           anyway because bonuses are summed onto whichever calculation wins."
+  [{:keys [armor? shield?]} armor shield]
+  (and (or (nil? armor?) (= armor? (some? armor)))
+       (not (and (false? shield?) shield))))
+
+(defn ac-calculation-modifiers
+  "Compile an authored AC calculation — {:ac N :abilities [...] :armor? b :shield? b} — into a
+  formula competing in ?ac-fns. :abilities SUM (Barbarian adds both Dex and Con); 'whichever is
+  better' is written as two separate calculations, which the max reconciles.
+
+  Named abilities are taken literally. Substituting a different ability for Dex app-wide is a
+  separate parameter and is not built yet."
+  [{:keys [ac abilities] :as spec}]
+  [(modifiers/ac-formula
+    (fn [armor shield]
+      (if (ac-applies? spec armor shield)
+        (reduce (fn [total a] (+ total (?ability-bonuses (short-ability a a))))
+                (or ac 0)
+                abilities)
+        0)))])
+
+(defn ac-bonus-modifiers
+  "Compile an authored flat bonus — {:ac-bonus N :armor? b :shield? b} — into ?ac-bonus-fns.
+  Bonuses are summed onto whichever calculation wins, so a bonus is never lost to a calculation
+  that beats the base."
+  [{:keys [ac-bonus] :as spec}]
+  [(modifiers/ac-bonus-fn
+    (fn [armor shield]
+      (if (ac-applies? spec armor shield) (or ac-bonus 0) 0)))])
+
 ;; Grant vocabulary A — `:props` → FIXED mechanics. This `case` is the shared, cross-silo
 ;; vocabulary: it runs for feats AND races/subraces/classes/subclasses (despite the "feat" name),
 ;; so adding a `case` arm here + a form field reaches every silo. The CHOICE counterpart is
@@ -3591,6 +3633,8 @@
   (when v
     (case k
       :initiative [(modifiers/initiative v)]
+      :ac (ac-calculation-modifiers v)
+      :ac-bonus (ac-bonus-modifiers v)
       :two-weapon-ac-1 [dual-wield-ac-mod]
       :two-weapon-any-one-handed [dual-wield-weapon-mod]
       :max-hp-bonus [(mods/modifier ?hit-point-level-bonus (+ v ?hit-point-level-bonus))]

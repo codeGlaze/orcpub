@@ -74,6 +74,18 @@
 (def hb-bonus-class
   (feat-class :hb-bonus- [(mod5e/ac-bonus-fn (fn [_armor _shield] 1))]))
 
+;; Step 3: authored AC written as :props data, compiled by make-feat-modifiers. These go
+;; through plugin-modifiers exactly as a homebrew race/class/feat's :props would.
+(defn props-class [key props]
+  (feat-class key (vec (opt5e/plugin-modifiers props key))))
+
+(def p-natural  (props-class :p-nat-   {:ac {:ac 13 :abilities [:dex] :armor? false}}))
+(def p-monk     (props-class :p-monk-  {:ac {:ac 10 :abilities [:dex :wis] :armor? false :shield? false}}))
+(def p-barb     (props-class :p-barb-  {:ac {:ac 10 :abilities [:dex :con] :armor? false}}))
+(def p-floor    (props-class :p-floor- {:ac {:ac 16 :abilities []}}))            ; no :armor? = either
+(def p-bonus    (props-class :p-bonus- {:ac-bonus {:ac-bonus 1}}))
+(def p-armorbon (props-class :p-abon-  {:ac-bonus {:ac-bonus 1 :armor? true}}))
+
 (def natural-armor-class-full (natural-armor-class :nat-armor- 3))
 (def natural-armor-class-b    (natural-armor-class :nat-armor-b- 3))  ; a SECOND natural source
 
@@ -98,7 +110,19 @@
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map homebrew-ac-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
-                         weapons5e/weapons-map hb-bonus-class)]
+                         weapons5e/weapons-map hb-bonus-class)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-natural)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-monk)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-barb)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-floor)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-bonus)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-armorbon)]
     [] language-map)))
 
 ;; str10 dex14(+2) con16(+3) int10 wis16(+3) cha10 — same as ac_characterization_test
@@ -149,6 +173,7 @@
 ;; cljs (nil is 0 in +) but an NPE on the JVM. Same workaround as ac_characterization_test.
 (def scale-mail {:base-ac 14 :type :medium :orcpub.dnd.e5.magic-items/magical-ac-bonus 0})
 (def plate      {:base-ac 18 :type :heavy  :orcpub.dnd.e5.magic-items/magical-ac-bonus 0})
+(def leather    {:base-ac 11 :type :light  :orcpub.dnd.e5.magic-items/magical-ac-bonus 0})
 ;; custom "weird material": heavy AC that declares its own Dex allowance
 (def custom-heavy {:base-ac 16 :type :heavy :max-dex-mod 2
                    :orcpub.dnd.e5.magic-items/magical-ac-bonus 0})
@@ -208,6 +233,57 @@
   (testing "a flat bonus applies to the homebrew calculation that won, not just to the base"
     (is (= 20 ((ac-fn-for abilities :fighter :hb-ac- :hb-bonus-) nil nil))
         "19 from the homebrew calculation + 1 bonus = 20")))
+
+
+;; ---------------------------------------------------------------------------
+;; SECTION 1d — AC authored as :props data (step 3). One shape covers every case:
+;;   {:ac N :abilities [...] :armor? bool-or-absent :shield? bool}   -> competes, best wins
+;;   {:ac-bonus N :armor? ... :shield? ...}                          -> sums onto the winner
+;; Compiled by make-feat-modifiers, so it reaches every silo that carries :props.
+;; ---------------------------------------------------------------------------
+
+(deftest authored-calculation-competes-and-yields-to-armor
+  (testing "{:ac 13 :abilities [:dex] :armor? false} — natural-armor shaped"
+    (is (= 15 ((ac-fn-for abilities :fighter :p-nat-) nil nil))
+        "13 + Dex(2) beats the 10 + Dex default")
+    (is (= 18 ((ac-fn-for abilities :fighter :p-nat-) plate nil))
+        ":armor? false — wearing plate it contributes nothing and plate's 18 wins")))
+
+(deftest authored-shield-tag-disqualifies-rather-than-skipping-the-bonus
+  (testing ":shield? false must remove the calculation entirely, not just omit the shield bonus"
+    (is (= 15 ((ac-fn-for abilities :fighter :p-monk-) nil nil))
+        "no shield: 10 + Dex(2) + Wis(3) = 15")
+    (is (= 14 ((ac-fn-for abilities :fighter :p-monk-) nil shield))
+        "with a shield it is disqualified, so 10 + Dex(2) + shield(2) = 14 — NOT 15")
+    ;; KNOWN GAP, pinned deliberately. The rules answer is 17 (10 + Dex + Con + shield), but the
+    ;; shield's +2 is added INSIDE ?armor-class-with-armor-base (template_base.cljc:73,80), not in
+    ;; the ?ac-bonus-fns channel. So a calculation that beats the base loses the shield: this
+    ;; calculation gives 15, the with-shield base gives 14, and max picks 15. That is also why
+    ;; ?unarmored-with-shield-ac-bonus exists — it is the only way to get Con into the with-shield
+    ;; base branch. Moving the shield into the bonus channel flips this to 17 and leaves every
+    ;; other pinned number unchanged (base drops to 12, +2 shield bonus = 14 as before).
+    (is (= 15 ((ac-fn-for abilities :fighter :p-barb-) nil shield))
+        "CURRENT: 15, not the rules' 17 — the shield is part of the base, so a winning calculation loses it")))
+
+(deftest authored-abilities-sum
+  (testing ":abilities adds every listed modifier (Barbarian takes Dex AND Con)"
+    (is (= 15 ((ac-fn-for abilities :fighter :p-barb-) nil nil)) "10 + Dex(2) + Con(3)")))
+
+(deftest authored-floor-applies-with-or-without-armor
+  (testing "omitting :armor? means the calculation applies either way — a Barkskin-style floor"
+    (is (= 16 ((ac-fn-for abilities :fighter :p-floor-) leather nil))
+        "leather would be 13; the floor of 16 wins")
+    (is (= 18 ((ac-fn-for abilities :fighter :p-floor-) plate nil))
+        "plate's 18 beats the floor — it lifts, it does not cap")))
+
+(deftest authored-bonuses-and-their-conditions
+  (testing "{:ac-bonus N} sums onto the winner; :armor? gates it"
+    (is (= 13 ((ac-fn-for abilities :fighter :p-bonus-) nil nil))
+        "unconditional +1 on 10 + Dex(2)")
+    (is (= 12 ((ac-fn-for abilities :fighter :p-abon-) nil nil))
+        ":armor? true and no armor worn — the bonus does not apply")
+    (is (= 19 ((ac-fn-for abilities :fighter :p-abon-) plate nil))
+        ":armor? true and wearing plate — 18 + 1 = 19")))
 
 ;; ===========================================================================
 ;; SECTION 2 — FIXED: natural-armor + unarmored-defense no longer stack
