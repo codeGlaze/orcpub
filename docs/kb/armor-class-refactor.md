@@ -121,7 +121,23 @@ disadvantage and Strength requirements) are handled elsewhere.
 
 ## What the migration must not drop
 
-Two behaviours of the existing props are easy to lose, both found by testing rather than reading:
+`ac_reconciliation_test` SECTION 1e runs a **parity sweep**: every mechanism being replaced against
+its authored replacement, across every equipment state, compared in one run. It currently reports
+**7 divergences**, each one a case where deprecating the old form would change a real character's AC.
+Finding these by hand turned up only some of them; the sweep is the thing that must be kept, and its
+count is pinned so a new hazard fails a test instead of being noticed later.
+
+The 7 have exactly two causes, and **one change fixes all of them** — move the shield's +2 and
+`?magical-ac-bonus` out of `?armor-class-with-armor-base` into `?ac-bonus-fns`:
+
+- **shield trapped in the base** (3 cases): natural armor with a shield, unarmored and in leather;
+  Barbarian-shaped unarmored defense with a shield. Old gives 17, authored 15.
+- **magical scalar trapped in the base** (4 cases): natural armor plus a +1 ring, in every state; two
+  of them compound with the shield (old 18, authored 15).
+
+Monk-shaped unarmored defense diverges in **no** context — its authored form already matches exactly.
+
+The two behaviours behind those causes:
 
 - **Natural armor applies while armored.** `:lizardfolk-ac` maxes against the worn value, so a
   character in leather shows **15** (natural 13+Dex), not leather's 13. Tagging it `:armor? false`
