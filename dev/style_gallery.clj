@@ -20,6 +20,8 @@
          '[orcpub.dnd.e5.spells :as spells]
          '[orcpub.dnd.e5.spell-lists :as sl]
          '[orcpub.dnd.e5.spell-packing :as pk]
+         '[orcpub.dnd.e5.spell-annotations :as spell-annotations]
+         '[orcpub.common :as common]
          '[clojure.java.io :as io])
 (import '[org.apache.pdfbox Loader]
         '[org.apache.pdfbox.rendering PDFRenderer]
@@ -59,7 +61,11 @@
       (pdf/grow-spell-sections! doc 1 :all)
       (pdf/add-missing-spell-pages! doc all)
       (let [all (pdf/merge-style-fields style all)
-            dropped (pdf/write-fields! doc (pdf/spill-overflow! doc all) false {})]
+            _ (pdf/reserve-annotation-columns! doc)
+            dropped (pdf/write-fields! doc (pdf/spill-overflow! doc all) false {})
+            _ (pdf/annotate-spell-rows!
+               doc #(some-> (get spells/spell-map (common/name-to-kw %))
+                            spell-annotations/annotation))]
         (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))
         (with-open [o (FileOutputStream. out)] (.save doc o))
         (printf "style %d: %d pages, %d fields, %d KB%s%n"

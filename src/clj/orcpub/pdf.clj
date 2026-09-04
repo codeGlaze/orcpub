@@ -2528,6 +2528,92 @@
                    (.setEndPage (inc index)))]
     (s/includes? (s/replace (.getText stripper doc) #"\s+" " ") site-stamp)))
 
+(def annotation-zone
+  "Points reserved at the right of a spell row for its annotation columns.
+
+   The row is 158pt on style 1, 163-172 on styles 2 and 3 and 141 on style 4, and
+   at the size the rows draw at the longest real spell name takes about 88pt --
+   so 56 leaves every style room for the name and the columns both."
+  56.0)
+
+(def ^:private annotation-columns
+  "Where each mark sits, in points left of the row's RIGHT edge, with its size.
+
+   FIXED columns, which is the whole point. Appending the marks to the name fits,
+   but a C among letters is the same visual class as the letters -- single
+   capital, same weight -- so finding it is a serial search and the eye has to
+   read every row. A column turns that into one vertical sweep. Spacing does not
+   fix a serial search; alignment does."
+  {:concentration {:dx 56.0 :size 7.0 :bold? true :grey 0.0}
+   :tag           {:dx 46.0 :size 6.0 :bold? true :grey 0.25}
+   :material      {:dx 32.0 :size 5.6 :bold? false :grey 0.45}})
+
+(defn- spell-row-widgets
+  "Every spells-LEVEL-ROW-SECTION widget, as {:field :widget :page :rect}."
+  [doc]
+  (when-let [form (.getAcroForm (.getDocumentCatalog doc))]
+    (for [field (iterator-seq (.iterator (.getFieldTree form)))
+          :let [n (str (.getFullyQualifiedName field))]
+          :when (re-matches #"spells-\d+-\d+-\d+" n)
+          :let [w (first (.getWidgets field))
+                r (some-> w .getRectangle)
+                p (some-> w .getPage)]
+          :when (and r p)]
+      {:field field :widget w :page p :rect r :name n})))
+
+(defn reserve-annotation-columns!
+  "Narrows every spell row so its annotation columns are not written over.
+
+   Runs BEFORE write-fields!. The rows auto-size, so narrowing the box is what
+   makes a long name shrink to clear the columns instead of running under them --
+   doing it afterwards would leave the baked appearance at its old width."
+  [doc]
+  (doseq [{:keys [widget rect]} (spell-row-widgets doc)]
+    (.setRectangle widget (PDRectangle. (.getLowerLeftX rect)
+                                        (.getLowerLeftY rect)
+                                        (max 1.0 (- (.getWidth rect) annotation-zone))
+                                        (.getHeight rect)))))
+
+(defn annotate-spell-rows!
+  "Draws each filled spell row's marks in the reserved columns.
+
+   `annotate` takes the row's printed value -- the spell name -- and returns
+   {:concentration? :tag :material} or nil. Looking the spell up by the name in
+   the field is what keeps this side free of the spell data: the server is handed
+   a flat map of field names to values and knows nothing else about them. A name
+   it cannot place, a renamed spell or a homebrew one simply gets no marks.
+
+   Drawn rather than written into fields. Measured over 594 annotated rows, the
+   marks cost 11 bytes a row drawn against 671 as form fields -- 6.6 KB against
+   389 KB, on a branch whose point was making these files smaller."
+  [doc annotate]
+  (let [rows (->> (spell-row-widgets doc)
+                  (keep (fn [{:keys [field rect page]}]
+                          (let [v (str (.getValueAsString field))]
+                            (when-not (s/blank? v)
+                              (when-let [a (annotate v)]
+                                {:page page :rect rect :marks a})))))
+                  (group-by :page))]
+    (doseq [[page items] rows]
+      (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
+                                           true true)]
+        (doseq [{:keys [rect marks]} items]
+          (let [right (+ (.getLowerLeftX rect) (.getWidth rect) annotation-zone)
+                ;; The row was narrowed by annotation-zone, so its own right edge
+                ;; is where the columns start rather than where they end.
+                base-y (/ (+ (.getLowerLeftY rect) 1.5) 72.0)]
+            (doseq [[k text] [[:concentration (when (:concentration? marks) "C")]
+                              [:tag (:tag marks)]
+                              [:material (:material marks)]]
+                    :when text]
+              (let [{:keys [dx size bold? grey]} (get annotation-columns k)]
+                (draw-text cs text
+                           (if bold? HELVETICA_BOLD HELVETICA)
+                           size
+                           (/ (- right dx) 72.0)
+                           base-y
+                           [grey grey grey])))))))))
+
 (defn stamp-site-line!
   "Prints the site line in the bottom-left corner of every page that lacks one.
 

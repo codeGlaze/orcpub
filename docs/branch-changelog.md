@@ -89,6 +89,24 @@ the eight-class fixture from 638 KB to 424.
   single-casting-class one 51 MB rather than 77, and a character who casts
   nothing no longer scans the pages for spell sections at all.
 
+## Added (spell row annotations)
+
+- A spell row can carry its concentration, casting-time and costly-material marks
+  beside the name, behind `print-spell-annotations?`. Of 319 spells concentration
+  touches 126, a costly material 52, a bonus action 14 and a reaction 4.
+- FIXED columns, not appended to the name. A `C` among letters is the same visual
+  class as the letters — single capital, same weight — so finding it is a serial
+  search and the eye has to read every row; a column turns that into one vertical
+  sweep. More spacing does not fix a serial search, alignment does.
+- Drawn, not written into fields: 11 bytes a row against 671 as form fields
+  (6.6 KB against 389 KB over 594 rows), on a branch whose point was smaller files.
+- The rows are narrowed by the reserved zone BEFORE the values are written, so a
+  long name shrinks to clear the columns rather than running under them. Verified:
+  the longest real spell names fit the narrowed row on all four styles.
+- Ritual is deliberately not marked — its `R` would sit beside the `RE` of
+  reaction, and plain V S M is on nearly every spell, so it is the widest to print
+  and the least worth reading.
+
 ## Added (guards)
 
 - A full character is written to every style and the values `write-fields!` could

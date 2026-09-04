@@ -24,6 +24,7 @@
             [orcpub.dnd.e5.skills :as skill5e]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.spells :as spells]
+            [orcpub.dnd.e5.spell-annotations :as spell-annotations]
             [orcpub.dnd.e5.magic-items :as mi5e]
             [orcpub.dnd.e5.template :as t5e]
             [datomic.api :as d]
@@ -748,6 +749,7 @@
     :print-character-sheet? :print-spell-cards? :print-character-sheet-style?
     :print-spell-card-dc-mod? :print-card-back-logo? :card-back-logo-faded?
     :print-bw? :bw-faded? :print-prepared-spells? :print-large-abilities?
+    :print-spell-annotations?
     :magic-items-known :print-magic-item-cards?
     :flatten?})
 
@@ -901,6 +903,16 @@
                              :action (or (:uri req) "/character.pdf")})}))
       (finally (.decrementAndGet exports-waiting)))))
 
+(defn- spell-annotation
+  "The marks for the spell printed under `nm`, or nil.
+
+   By NAME, because that is all the row carries: the server is handed a flat map
+   of field names to values. A homebrew spell, or one whose name does not match
+   the data, gets no marks rather than a wrong one."
+  [nm]
+  (some-> (get spells/spell-map (common/name-to-kw nm))
+          spell-annotations/annotation))
+
 (defn- generate-character-pdf [req]
   (let [fields (try
                  (-> req :form-params :body edn/read-string bound-request)
@@ -909,7 +921,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? character-name class-level player-name flatten?]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -977,7 +989,14 @@
         ;; Merge before spilling, so a style's shared box is measured as the one
         ;; value it prints rather than as its parts.
         (let [fields (pdf/merge-style-fields print-character-sheet-style? fields)]
-          (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes)))
+          ;; Narrowing the rows must happen before the values are written: the
+          ;; rows auto-size, so this is what makes a long name shrink to clear the
+          ;; annotation columns rather than run under them.
+          (when print-spell-annotations?
+            (pdf/reserve-annotation-columns! doc))
+          (pdf/write-fields! doc (pdf/spill-overflow! doc fields) (true? flatten?) font-sizes)
+          (when print-spell-annotations?
+            (pdf/annotate-spell-rows! doc spell-annotation))))
       ;; After the pages exist, so clones are stamped too, and before the card
       ;; pages are appended -- those carry the line on their backs already.
       (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))

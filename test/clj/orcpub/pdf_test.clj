@@ -1100,3 +1100,59 @@
           (is (empty? dropped) "neither value is dropped once merged")
           (is (str/includes? (str (.getValueAsString (.getField form "Notes")))
                              "ALLIES & ORGANIZATIONS")))))))
+
+;; ─── Annotation columns ──────────────────────────────────────────────────────
+
+(deftest annotation-columns-are-reserved-before-values-are-written
+  ;; The rows auto-size, so narrowing the box is what makes a long name shrink to
+  ;; clear the columns instead of running under them. Doing it after write-fields!
+  ;; would leave the baked appearance at its old width.
+  (testing "every spell row loses exactly the annotation zone"
+    (doseq [style [1 2 3 4]]
+      (let [{:keys [file]} (get pdf/sheet-masters style)]
+        (with-open [in (.openStream (io/resource file))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (let [widths (fn [] (for [n (field-names doc)
+                                    :when (re-matches #"spells-\d+-\d+-1" n)
+                                    :let [f (.getField (.getAcroForm (.getDocumentCatalog doc)) n)
+                                          r (some-> (first (.getWidgets f)) .getRectangle)]
+                                    :when r]
+                                [n (.getWidth r)]))
+                before (into {} (widths))]
+            (pdf/reserve-annotation-columns! doc)
+            (doseq [[n w] (widths)]
+              (is (< (Math/abs (- (- (get before n) w) pdf/annotation-zone)) 0.01)
+                  (str "style " style " " n)))))))))
+
+(deftest a-filled-row-keeps-its-name-clear-of-the-columns
+  ;; The columns only work if the name stops before them. A name that still
+  ;; overflowed would print under the mark and undo the whole point of aligning.
+  (testing "the longest real spell names fit the narrowed row on every style"
+    (doseq [style [1 2 3 4]]
+      (let [{:keys [file]} (get pdf/sheet-masters style)
+            long-names ["Globe of Invulnerability" "Conjure Minor Elementals"
+                        "Comprehend Languages" "Arcanist's Magic Aura"]]
+        (with-open [in (.openStream (io/resource file))
+                    doc (Loader/loadPDF (.readAllBytes in))]
+          (pdf/reserve-annotation-columns! doc)
+          (let [rows (into {} (for [[level rows] (spell-row-fields doc)
+                                    row rows]
+                                [(format "spells-%d-%d-1" level row)
+                                 (nth long-names (mod row (count long-names)))]))]
+            (pdf/write-fields! doc rows false {})
+            (let [form (.getAcroForm (.getDocumentCatalog doc))]
+              (doseq [[n v] (take 20 rows)
+                      :let [f (.getField form n)
+                            r (some-> (first (.getWidgets f)) .getRectangle)
+                            ap (some-> (first (.getWidgets f)) .getAppearance
+                                       .getNormalAppearance .getAppearanceStream)]
+                      :when (and r ap)]
+                (let [b (java.io.ByteArrayOutputStream.)
+                      _ (with-open [s (.createInputStream (.getCOSObject ap))]
+                          (.transferTo s b))
+                      size (some-> (re-find #"/\S+\s+([0-9.]+)\s+Tf" (String. (.toByteArray b)))
+                                   second Double/parseDouble)]
+                  (when size
+                    (is (<= (* 72 (pdf/string-width v pdf/HELVETICA size))
+                            (.getWidth r))
+                        (str "style " style " " n " \"" v "\" at " size "pt"))))))))))))
