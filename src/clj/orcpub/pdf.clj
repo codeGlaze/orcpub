@@ -2662,8 +2662,10 @@
     [(count ok) (+ (count bad) (max 0 (- (count (filter map? instructions)) (count wanted))))]))
 
 (def ^:private cantrips-label
-  "What box 0's bar says once the class name has taken its room."
+  "What the narrow compartment of a packed cantrips bar says."
   "CANTRIPS")
+
+(def ^:private cantrips-label-size 5.5)
 
 (def ^:private heading-target-size
   "The size a column heading is drawn at when the bar has room for it.
@@ -2692,9 +2694,9 @@
 
    Class names are not a fixed length -- Bard against Eldritch Knight -- and the
    compartment is. Shrinking alone does not solve it: at the 6pt floor \"Eldritch
-   Knight\" still measures 43pt against a level box's 35pt compartment, and would
-   print straight through the bar's divider. So a name that will not fit even
-   floored is shortened to what does, with an ellipsis saying so."
+   Knight\" still measures 43pt against a narrow compartment, and would print
+   through the bar's rules. So a name that will not fit even floored is shortened
+   to what does, with an ellipsis saying so."
   [label width]
   (let [size (heading-size label width)]
     (if (<= (* 72 (string-width label HELVETICA_BOLD size)) width)
@@ -2707,70 +2709,86 @@
             {:label candidate :size size}
             :else (recur (dec n))))))))
 
+(defn- bar-compartments
+  "The bar's two compartments for `box`, as [[x width] [x width]] -- the narrow
+   one a level bar gives SLOTS TOTAL, then the wide one it gives SLOTS EXPENDED.
+
+   Read off the live fields rather than written down, so they follow the artwork.
+   Box 0 has no slots fields of its own, so it borrows level 1's raised by
+   cantrips-box-rise, which is how cantrips-slot-boxes locates the inputs it adds.
+
+   A style with no slots-expended field -- styles 2 and 4 -- has no second rect to
+   read, so the wide compartment is taken from the spell row's right edge instead."
+  [doc box suffix]
+  (let [form (.getAcroForm (.getDocumentCatalog doc))
+        ;; Box 0 has no slots fields, so its compartments come from level 1's.
+        ;; Only the X is taken: the height comes from the cantrips hexagon, which
+        ;; is already raised, and adding the rise again put the text 168pt above
+        ;; the bar and left it blank.
+        level (if (zero? box) 1 box)
+        rect (fn [nm] (some-> (.getField form nm) .getWidgets first .getRectangle))]
+    (when-let [total (rect (str "spell-slots-" level "-" suffix))]
+      (let [narrow [(.getLowerLeftX total) (.getWidth total)]
+            wide (if-let [expended (rect (str "slots-expended-" level "-" suffix))]
+                   [(.getLowerLeftX expended) (.getWidth expended)]
+                   ;; From the divider to the row's right edge, less a margin.
+                   (let [from (+ (.getLowerLeftX total) (.getWidth total) 12.0)]
+                     (when-let [row (rect (str "spells-" box "-1-" suffix))]
+                       [from (- (+ (.getLowerLeftX row) (.getWidth row)) from 2.0)])))]
+        (when wide
+          {:narrow narrow :wide wide})))))
+
 (defn draw-column-heading!
-  "Writes `label` in the bar of box `box` in section `suffix`, beside its numeral.
+  "Labels a packed cantrips box: CANTRIPS in the narrow compartment, `label` --
+   the class holding the column -- centred in the wide one.
 
-   For saying which class a packed column belongs to. The bar is the only place
-   with room: scanning for a clear band ABOVE each box found one above two of the
-   ten, and the sheet is dense everywhere else.
+   The bar of a CANTRIPS box is the only place with room for this. Scanning for a
+   clear band above each box found one above two of the ten, and the sheet is
+   dense everywhere else. A cantrips box has no slots, so the two compartments a
+   level bar gives SLOTS TOTAL and SLOTS EXPENDED are free there -- which is why
+   this is only ever called for a box holding cantrips, and never for one whose
+   slot inputs the player writes in.
 
-   Only ever called for a box holding CANTRIPS. A cantrips box has no slots, so
-   the compartment the bar gives a level box for SLOTS TOTAL and SLOTS EXPENDED is
-   dead space there -- on box 0 it reads CANTRIPS from x 112, leaving x 55 to 110
-   empty, and on a level box reused for cantrips the two slot inputs are empty and
-   meaningless. Writing over a level box's live slot input would take space the
-   player writes in, which is why this is not general."
+   Box 0 additionally has CANTRIPS printed into its artwork, in the middle of the
+   bar where the class name now goes, so that word is covered before drawing."
   [doc box suffix label]
-  (when-let [[hx hy _ hh] (if (zero? box)
-                            (cantrips-hexagon-box doc suffix)
-                            (spell-level-numeral-box doc box suffix))]
-    (let [page (some-> (.getAcroForm (.getDocumentCatalog doc))
-                       (.getField (str "spells-" box "-1-" suffix))
-                       .getWidgets first .getPage)
-          ;; A cantrips bar puts its divider right after the hexagon, at x 51-59
-          ;; where a level bar's is at 93-102, so box 0 starts clear of the
-          ;; divider rather than merely of the hexagon.
-          x (+ hx (if (zero? box) 31.0 27.0))
-          ;; What the compartment gives, measured from the hexagon rather than
-          ;; guessed.
-          ;;
-          ;; The class name takes the bar out to hx+92 whichever kind of box this
-          ;; is, and CANTRIPS is set small at the far end.
-          ;;
-          ;; Everything in between is dead space for a box holding cantrips and is
-          ;; painted over: box 0's printed CANTRIPS at hx+81, and a level box's
-          ;; printed divider at hx+62 with the two slot compartments beyond it,
-          ;; which a cantrips box has no slots to put in. Leaving them made the
-          ;; heading a third the size on a level box and printed empty SLOTS TOTAL
-          ;; and SLOTS EXPENDED boxes over a level that has neither.
-          available (- (+ hx 92.0) x)
-          {label :label size :size} (fit-heading label available)]
-      (when page
-        (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
-                                             true true)]
-          (let [baseline (+ hy (/ hh 2.0) (* -0.36 size))
-                ;; From just past the hexagon on a level box, so its divider goes
-                ;; too; box 0's own divider sits left of this and is left alone.
-                patch-x (+ hx (if (zero? box) 79.0 55.0))]
-            ;; White rather than a patch field: this is page content, and a field
-            ;; here would be one more widget on every packed sheet.
-            (.setNonStrokingColor cs (float 1) (float 1) (float 1))
-            ;; The bar's interior is 19.5pt between its rules, where the hexagon
-            ;; is 37 tall. Patching to the hexagon's height painted over the rules
-            ;; above and below and left the bar looking cut.
-            (.addRect cs (float patch-x) (float (+ hy (/ hh 2.0) -9.0))
-                      (float (- (+ hx 117.0) patch-x)) (float 18.0))
-            (.fill cs)
-            (.setNonStrokingColor cs (float 0) (float 0) (float 0))
-            (let [small 5.5
-                  w (* 72 (string-width cantrips-label HELVETICA_BOLD small))]
-              (draw-text cs cantrips-label HELVETICA_BOLD small
-                         (/ (- (+ hx 115.0) w) 72.0)
-                         (/ (+ hy (/ hh 2.0) (* -0.36 small)) 72.0)
+  (when-let [{:keys [narrow wide]} (bar-compartments doc box suffix)]
+    (when-let [[hx hy hw hh] (if (zero? box)
+                             (cantrips-hexagon-box doc suffix)
+                             (spell-level-numeral-box doc box suffix))]
+      (let [page (some-> (.getAcroForm (.getDocumentCatalog doc))
+                         (.getField (str "spells-" box "-1-" suffix))
+                         .getWidgets first .getPage)
+            [nx nw] narrow
+            [wx ww] wide
+            {:keys [label size]} (fit-heading label (- ww 6.0))
+            middle (+ hy (/ hh 2.0))]
+        (when page
+          (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
+                                               true true)]
+            (when (zero? box)
+              ;; The bar's interior is 19.5pt between its rules, where the hexagon
+              ;; is 37 tall: patching to the hexagon painted over the rules and
+              ;; left the bar looking cut through.
+              (.setNonStrokingColor cs (float 1) (float 1) (float 1))
+              (.addRect cs (float wx) (float (- middle 9.0)) (float ww) (float 18.0))
+              (.fill cs)
+              (.setNonStrokingColor cs (float 0) (float 0) (float 0)))
+            (let [cw (* 72 (string-width cantrips-label HELVETICA_BOLD cantrips-label-size))
+                  ;; Centred in the narrow compartment, but never further left
+                  ;; than clear of the hexagon: box 0's bar puts its own divider
+                  ;; at x 51-59 where a level bar has none, and the borrowed
+                  ;; compartment starts before it.
+                  cx (max (+ hx hw 10.0) (+ nx (/ (- nw cw) 2.0)))]
+              (draw-text cs cantrips-label HELVETICA_BOLD cantrips-label-size
+                         (/ cx 72.0)
+                         (/ (+ middle (* -0.36 cantrips-label-size)) 72.0)
                          [0.45 0.45 0.45]))
-            (draw-text cs label HELVETICA_BOLD size
-                       (/ x 72.0) (/ baseline 72.0)
-                       [0.15 0.15 0.15])))))))
+            (let [lw (* 72 (string-width label HELVETICA_BOLD size))]
+              (draw-text cs label HELVETICA_BOLD size
+                         (/ (+ wx (/ (- ww lw) 2.0)) 72.0)
+                         (/ (+ middle (* -0.36 size)) 72.0)
+                         [0.15 0.15 0.15]))))))))
 
 (defn stamp-site-line!
   "Prints the site line in the bottom-left corner of every page that lacks one.
