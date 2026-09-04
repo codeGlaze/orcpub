@@ -244,3 +244,14 @@ Large". A ledger, not content — and not expressible as feats. **"Boon" is unav
 boons are real 5e constructs and the app already ships `homebrew-boon`. Full writeup, naming
 candidates and design constraints in `rules-override-layer.md`. Survives branches — do not drop it
 when this refactor merges.
+
+### 🔴 HIGH — port the Bracers/natural-armor fix to `integration`
+
+Shipped defect: a character with natural armor and Bracers of Defense loses the bracers' +2
+entirely (AC 15 where RAW is 17). The tie-break in `?unarmored-armor-class` zeroes the whole
+`?unarmored-ac-bonus` channel when natural armor wins, and the flat bonus is sitting in that
+channel.
+
+Fixed on the refactor branch and **verified to work standalone against `origin/integration`'s own
+AC engine**. One function, `modifiers.cljc:561-562`, one caller, no engine change — the exact diff
+is in `armor-class-refactor.md`. Worth cherry-picking rather than waiting for the refactor to land.
