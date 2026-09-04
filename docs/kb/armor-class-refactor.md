@@ -48,7 +48,14 @@ So the refactor opens the existing channel rather than replacing the engine.
    wins the max (19), returns 0 and loses to plate when armored (18), and a flat bonus lands on it
    (20). **This is what makes homebrew AC possible at all.**
 
-That last case also settled a question: the shipped engine already sums bonuses onto whichever
+4. **`:ac` / `:ac-bonus` props compiler** (IN THE APP, `options.cljc`). Authors write the shape
+   below as `:props` data and `make-feat-modifiers` compiles it to `ac-formula` / `ac-bonus-fn`
+   entries, so it reaches every silo that carries `:props`. Verified through the real props path
+   (`ac_reconciliation_test` SECTION 1d): a natural-armor-shaped calculation wins at 15 and yields
+   to plate at 18; `:shield? false` disqualifies (14, not 15); `:abilities` sum; an absent `:armor?`
+   gives a floor that lifts 13 to 16 without capping 18; bonuses apply and `:armor? true` gates them.
+
+That third case also settled a question: the shipped engine already sums bonuses onto whichever
 calculation wins. The behaviour was simply unobservable, because nothing could add a calculation.
 
 ## The authored shape
@@ -74,8 +81,19 @@ per case:
   the characterization shows Monk with a shield is 14, and the omit reading would give 15.
 - **`:abilities`** sums. "Whichever is better" is two competing `:ac` entries, no extra syntax.
 
-The shield's own +2 needs no tag — it is a bonus, so it lands on whatever calculation won. Monk with
-a shield therefore disqualifies, the plain `10 + Dex` wins, and the shield adds: 14.
+**The shield is not currently a bonus, and that matters.** Its +2 is added *inside*
+`?armor-class-with-armor-base` (`template_base.cljc:73` and `:80`), not in `?ac-bonus-fns`. So a
+calculation that beats the base **loses the shield**: a Barbarian-shaped authored calculation with a
+shield gives 15 (its own 10+Dex+Con) rather than the rules' 17, because the with-shield base is only
+14 and `max` picks 15. That is also why `?unarmored-with-shield-ac-bonus` exists — it is the only
+way to get Con into the with-shield base branch.
+
+Moving the shield into the bonus channel fixes this and leaves every pinned number unchanged: the
+base drops to `10 + Dex` = 12, the shield adds 2 for 14 as before, and the authored calculation
+becomes 15 + 2 = 17. Pinned at the current 15 in `ac_reconciliation_test` until that move lands.
+
+Monk with a shield is already right either way: its calculation disqualifies, the plain base wins,
+and the shield applies — 14.
 
 ## Parameters are not calculations
 
@@ -103,7 +121,9 @@ disadvantage and Strength requirements) are handled elsewhere.
 
 ## Remaining
 
-- `:ac` / `:ac-bonus` props compiler, so authors write the shape above instead of a function.
+- **Move the shield's +2 out of the base and into `?ac-bonus-fns`**, so it lands on whichever
+  calculation wins. Without this, authored calculations silently lose the shield (pinned at 15
+  above). This also removes the reason `?unarmored-with-shield-ac-bonus` exists.
 - Move unarmored defense, Monk, and natural armor onto `ac-formula`; delete the pairwise `if`.
 - Move `?magical-ac-bonus` (currently written in two places inside the base) to a bonus, so it lands
   on the winner.
@@ -124,6 +144,9 @@ disadvantage and Strength requirements) are handled elsewhere.
   used the cum-sum constructor `mod5e/natural-ac-bonus`; all real content uses `mod/modifier`, which
   replaces rather than accumulates. With the fixture corrected the effect vanished. Lesson in
   `verification-discipline.md`: verify the mechanism, not just the number.
+- **A design claim that was wrong:** an earlier version of this doc said "the shield's own +2 needs
+  no tag — it is a bonus." It is not a bonus in the current engine; it is computed inside the base,
+  so a winning calculation loses it. Caught by the step-3 tests rather than by reading.
 - **A reachability claim that was wrong:** Lizardfolk was described as a built-in playable race. The
   race definition at `template.cljc:274` is `#_`-commented along with every other non-SRD race. The
   reachable path is the `:lizardfolk-ac` homebrew prop, which is what the characterization uses.
