@@ -14,6 +14,13 @@
    character build produces, on randomized DAGs, on cyclic graphs (both must give nil), and
    on the degenerate shapes.
 
+   THIS FILE IS ONLY HALF THE PIN. It runs on the JVM, where a set's iteration order is a
+   pure function of its contents. In ClojureScript a set of <= 8 elements is
+   PersistentArrayMap-backed and iterates in INSERTION order — and the sort reads its
+   frontier with (first s). A draft of the rewrite passed everything here and diverged on
+   159 of 808 graphs in the browser. The cljs half is
+   test/browser/kahn_sort_order_equivalence_e2e.js; re-run it whenever kahn-sort changes.
+
    Measurements live in docs/kb/perf-entity-build.md."
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.entity :as entity]
