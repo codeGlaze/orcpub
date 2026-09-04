@@ -105,14 +105,16 @@ then merge `develop` in, since the shared files here have diverged for the feat 
 ### OPEN — Phase 1 levers & pins (from `direction.md`)
 - **Grant-authoring UI** — the biggest remaining lever (declare "grant a choice from pool X" in a builder).
 - 🔴 **`:required-when` conditional field validation** (HIGH — flagged in `builder_fields.cljc`).
-- 🔴 **Fighting styles: registry drift makes `lein test` RED** (HIGH — a failing suite hides real
-  regressions). `::classes/homebrew-fighting-style` is registered for saving in
-  `content-specs/save-specs` (`content_specs.cljc:47`) but has **no `content-types` entry**, so
-  `e5-test/audit-specs-match-the-registry` fails. Fighting styles can be saved yet have no builder
-  page, route, or local-storage wiring — the deferred Phase B of the fighting-style work. Fix is
-  either the registry entry (`:builder-item :spec :plugin-key :route-kw :route-seg
-  :local-storage-key`) plus its builder view, or pull the spec back out of `save-specs` until Phase B
-  lands. Verified pre-existing 2026-09-04 by stashing unrelated changes and re-running.
+- ✅ **Fighting styles: registry drift** — FIXED 2026-09-04. The `content-types` descriptor now
+  exists, so `lein test` is at **0 failures** (it had been at 1 for the whole refactor). One entry
+  generated the builder-item sub, the events wiring, the db draft slot, the bidi route, the
+  my-content nav entry and the SPA allowlist path; `route_map` gained
+  `dnd-e5-fighting-style-builder-page-route` for the drift guard, and both the `content_types_test`
+  counts and the separate hand-maintained keyword-audit table in `e5_test` were updated.
+- 🔴 **Fighting-style BUILDER PAGE** (HIGH — the remaining half). Everything above is data-driven,
+  but the route-to-view binding in `views_2.cljc` is hand-wired by design: a view fn can't be
+  derived from data in cljs (D-note in the framework doc). Until that lands, the route resolves and
+  the type saves, but there is no page to author one on.
 - Variants (`_copy`/`_mod`), class-feature pool (`[:class-feature :X]`), declarative cross-type prereq
   vocabulary, mechanical-effects-for-text-only (boons/ki), level-gated grants in `:props`.
 
