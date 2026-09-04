@@ -1458,7 +1458,7 @@
   (mods/modifier ?dual-wield-weapon? weapons/one-handed-weapon?))
 
 (def medium-armor-master-max-bonus
-  (mods/modifier ?max-medium-armor-bonus 3))
+  (modifiers/armor-dex-cap :medium 3))
 
 (def medium-armor-master-stealth
   (mods/fn-mod ?armor-stealth-disadvantage?
@@ -3745,7 +3745,10 @@
       :max-hp-bonus [(mods/modifier ?hit-point-level-bonus (+ v ?hit-point-level-bonus))]
       :passive-investigation-5 [(modifiers/passive-investigation 5)]
       :passive-perception-5 [(modifiers/passive-perception 5)]
+      ;; Kept for saved content (D9); it is the general :armor-dex-cap prop underneath.
       :medium-armor-max-dex-3 [medium-armor-master-max-bonus]
+      ;; General form: {:armor-dex-cap {:medium 3 :heavy 2}} raises whichever types it names.
+      :armor-dex-cap (mapv (fn [[armor-type cap]] (modifiers/armor-dex-cap armor-type cap)) v)
       :medium-armor-stealth [medium-armor-master-stealth]
       :speed [(modifiers/speed v)]
       :flying-speed [(modifiers/flying-speed-override v)]

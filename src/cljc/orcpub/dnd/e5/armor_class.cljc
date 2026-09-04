@@ -36,22 +36,32 @@
   "The most Dex this armor allows, or nil for no limit. The MORE PERMISSIVE of what the armor TYPE
   allows and what the item itself declares in :max-dex-mod.
 
+  `caps` is {armor-type -> cap-or-nil}; nil means uncapped, and a type absent from the map is
+  treated as 0. Defaults are {:light nil :medium 2 :heavy 0}, and features raise entries in it —
+  Medium Armor Master is `{:medium 3}`. Per-type rather than a lone medium scalar, so a
+  heavy armor that allows 2 Dex is expressible too; nothing about the rule is specific to medium.
+
   Taking the max is load-bearing. Every shipped medium armor prints :max-dex-mod 2 and every heavy
   prints 0, so reading the item's field alone would cap scale mail at 2 and silently disable Medium
-  Armor Master, which raises the medium cap to 3 via `max-medium`. Taking the max keeps the feat
-  working and still lets a custom item be more generous than its type — heavy that allows a Dex
-  bonus is expressible."
-  [max-medium armor]
-  (let [type-cap (case (:type armor) :light nil :medium max-medium 0)
+  Armor Master. Taking the max keeps the feat working and still lets a custom item be more generous
+  than its type."
+  [caps armor]
+  (let [t        (:type armor)
+        type-cap (if (contains? caps t) (get caps t) 0)
         own-cap  (:max-dex-mod armor)]
     (cond (nil? own-cap)  type-cap
           (nil? type-cap) own-cap
           :else           (max type-cap own-cap))))
 
+(defn raise-dex-cap
+  "Raise one armor type's cap, never lower it. An already-uncapped type (nil) stays uncapped."
+  [caps armor-type cap]
+  (update caps armor-type (fn [cur] (if (nil? cur) nil (max (or cur 0) cap)))))
+
 (defn armor-dex-bonus
   "How much of `dex` this armor lets you add."
-  [dex max-medium armor]
-  (if-let [cap (dex-cap max-medium armor)] (min cap dex) dex))
+  [dex caps armor]
+  (if-let [cap (dex-cap caps armor)] (min cap dex) dex))
 
 (defn shield-bonus
   "A shield's contribution: its flat 2 plus its own ITEM magic."
@@ -61,9 +71,9 @@
 (defn worn-armor-ac
   "AC from the armor being worn — base, the Dex it allows, and its own ITEM magic. `nil` armor is
   the unarmored value, 10 + Dex."
-  [dex max-medium armor]
+  [dex caps armor]
   (if armor
-    (+ (:base-ac armor) (armor-dex-bonus dex max-medium armor) (magical-ac-bonus armor))
+    (+ (:base-ac armor) (armor-dex-bonus dex caps armor) (magical-ac-bonus armor))
     (+ 10 dex)))
 
 (defn reconcile

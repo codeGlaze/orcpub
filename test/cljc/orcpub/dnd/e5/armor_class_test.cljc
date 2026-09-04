@@ -13,32 +13,46 @@
 (def mithril {:base-ac 16 :type :heavy  :max-dex-mod 2 magic 0})  ; custom: heavy that allows Dex
 (def plate+1 {:base-ac 18 :type :heavy  :max-dex-mod 0 magic 1})
 
+(def caps     {:light nil :medium 2 :heavy 0})              ; the defaults
+(def caps-mam (ac/raise-dex-cap caps :medium 3))            ; Medium Armor Master
+
 (deftest dex-cap-takes-the-more-permissive-of-type-and-item
   (testing "light is uncapped unless the item says otherwise"
-    (is (nil? (ac/dex-cap 2 leather)))
-    (is (= 1 (ac/dex-cap 2 {:type :light :max-dex-mod 1})) "a light item may cap itself"))
-  (testing "medium: the type cap comes from max-medium so a feat can raise it"
-    (is (= 2 (ac/dex-cap 2 scale)))
-    (is (= 3 (ac/dex-cap 3 scale))
+    (is (nil? (ac/dex-cap caps leather)))
+    (is (= 1 (ac/dex-cap caps {:type :light :max-dex-mod 1})) "a light item may cap itself"))
+  (testing "medium: the type cap is a raisable entry, so a feat can lift it"
+    (is (= 2 (ac/dex-cap caps scale)))
+    (is (= 3 (ac/dex-cap caps-mam scale))
         "Medium Armor Master raises it to 3 and the item's printed 2 does NOT veto that —
          reading :max-dex-mod alone would silently disable the feat"))
   (testing "heavy: 0 unless the item declares an allowance"
-    (is (= 0 (ac/dex-cap 2 plate)))
-    (is (= 2 (ac/dex-cap 2 mithril)) "custom heavy may allow more than its type")
-    (is (= 0 (ac/dex-cap 3 plate)) "a MEDIUM feat does not leak into heavy")))
+    (is (= 0 (ac/dex-cap caps plate)))
+    (is (= 2 (ac/dex-cap caps mithril)) "custom heavy may allow more than its type")
+    (is (= 0 (ac/dex-cap caps-mam plate)) "a MEDIUM feat does not leak into heavy"))
+  (testing "an unknown armor type is treated as capped at 0, never uncapped"
+    (is (= 0 (ac/dex-cap caps {:type :exotic})))))
+
+(deftest raise-dex-cap-raises-only
+  (testing "the generalisation: any type's cap can be lifted, not just medium's"
+    (is (= 2 (ac/dex-cap (ac/raise-dex-cap caps :heavy 2) plate))
+        "a heavy-armor feat is now expressible — it was not when the cap was a lone medium scalar")
+    (is (= 3 (:medium (ac/raise-dex-cap caps :medium 3))))
+    (is (= 2 (:medium (ac/raise-dex-cap caps :medium 1))) "a LOWER value is ignored")
+    (is (nil? (:light (ac/raise-dex-cap caps :light 1)))
+        "an already-uncapped type stays uncapped — raising cannot accidentally impose a limit")))
 
 (deftest armor-dex-bonus-clamps-but-never-invents
-  (is (= 3 (ac/armor-dex-bonus 3 2 leather)) "uncapped: all of it")
-  (is (= 2 (ac/armor-dex-bonus 3 2 scale))   "clamped to the cap")
-  (is (= 1 (ac/armor-dex-bonus 1 2 scale))   "a low Dex is not raised to the cap")
-  (is (= 0 (ac/armor-dex-bonus 3 2 plate))))
+  (is (= 3 (ac/armor-dex-bonus 3 caps leather)) "uncapped: all of it")
+  (is (= 2 (ac/armor-dex-bonus 3 caps scale))   "clamped to the cap")
+  (is (= 1 (ac/armor-dex-bonus 1 caps scale))   "a low Dex is not raised to the cap")
+  (is (= 0 (ac/armor-dex-bonus 3 caps plate))))
 
 (deftest worn-armor-ac-includes-item-magic-only
-  (is (= 12 (ac/worn-armor-ac 2 2 nil))     "unarmored: 10 + Dex")
-  (is (= 16 (ac/worn-armor-ac 3 2 scale))   "14 + min(2, 3)")
-  (is (= 18 (ac/worn-armor-ac 3 2 plate))   "18 + 0")
-  (is (= 19 (ac/worn-armor-ac 3 2 plate+1)) "the armor's OWN magic is part of its value")
-  (is (= 18 (ac/worn-armor-ac 2 2 mithril)) "16 + min(2, 2)"))
+  (is (= 12 (ac/worn-armor-ac 2 caps nil))     "unarmored: 10 + Dex")
+  (is (= 16 (ac/worn-armor-ac 3 caps scale))   "14 + min(2, 3)")
+  (is (= 18 (ac/worn-armor-ac 3 caps plate))   "18 + 0")
+  (is (= 19 (ac/worn-armor-ac 3 caps plate+1)) "the armor's OWN magic is part of its value")
+  (is (= 18 (ac/worn-armor-ac 2 caps mithril)) "16 + min(2, 2)"))
 
 (deftest shield-bonus-is-flat-two-plus-its-own-magic
   (is (= 2 (ac/shield-bonus {:type :shield})))

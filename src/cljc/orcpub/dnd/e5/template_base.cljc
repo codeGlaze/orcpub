@@ -42,22 +42,15 @@
     ;; declared so content that still sets it keeps working, adapted into ?ac-fns below. Retire it
     ;; once no branch writes it — see the AC refactor doc's ledger.
     ?natural-ac-bonus 0
-    ?max-medium-armor-bonus 2
+    ;; Dex allowance per armor TYPE. nil = uncapped. Features RAISE entries — Medium Armor Master
+    ;; is {:medium 3} — and an item may declare its own :max-dex-mod; the more permissive of the
+    ;; two wins. Per-type rather than a lone medium scalar, so "heavy armor lets you add 2 Dex" is
+    ;; expressible: nothing about the rule is specific to medium.
+    ?armor-dex-caps {:light nil :medium 2 :heavy 0}
     ?armor-stealth-disadvantage? (fn [armor]
                                    (:stealth-disadvantage? armor))
-    ;; How much Dex this armor lets you add. Two independent sources of a cap, and the EFFECTIVE
-    ;; cap is the more permissive of them:
-    ;;   TYPE  — light none, medium ?max-medium-armor-bonus, heavy 0. Medium reads the attribute
-    ;;           rather than a literal so Medium Armor Master can raise it to 3.
-    ;;   ARMOR — the item's own :max-dex-mod. Every shipped medium says 2 and every heavy says 0,
-    ;;           so honoring it changes no existing number; it exists for custom "weird material"
-    ;;           armor, e.g. heavy that still allows a Dex bonus.
-    ;; Taking the max is what keeps the two from cancelling: reading :max-dex-mod alone would let
-    ;; scale mail's printed 2 silently undo Medium Armor Master's 3.
     ?armor-dex-bonus (fn [armor]
-                       (ac/armor-dex-bonus (?ability-bonuses ::char5e/dex)
-                                           ?max-medium-armor-bonus
-                                           armor))
+                       (ac/armor-dex-bonus (?ability-bonuses ::char5e/dex) ?armor-dex-caps armor))
     ?shield-ac-bonus (fn [shield] (ac/shield-bonus shield))
     ?dual-wield-weapon? weapon5e/light-melee-weapon?
     ;; "You can't wear armor" (a tortle's shell, a construct chassis). A RESTRICTION, not an AC
@@ -67,7 +60,7 @@
     ?armor-ac-suppressed? false
     ?armor-class-with-armor-base (fn [armor & [_shield]]
                                    (ac/worn-armor-ac (?ability-bonuses ::char5e/dex)
-                                                     ?max-medium-armor-bonus
+                                                     ?armor-dex-caps
                                                      (when-not ?armor-ac-suppressed? armor)))
     ?armor-class-with-armor (fn [armor & [shield]]
                               (ac/reconcile (?armor-class-with-armor-base armor shield)

@@ -37,7 +37,7 @@
   [calcs bonuses armors shields]
   (apply max-key :ac
          (for [[a s] (combos armors shields)]
-           {:ac (ac/reconcile (ac/worn-armor-ac dex 2 a) calcs bonuses a s) :armor a :shield s})))
+           {:ac (ac/reconcile (ac/worn-armor-ac dex {:light nil :medium 2 :heavy 0} a) calcs bonuses a s) :armor a :shield s})))
 
 (defn bucketed
   "Item-independent calculations evaluated once per (armored?, shield) state."
@@ -46,7 +46,7 @@
                           [[worn? s] (reduce max 0 (map #(% (when worn? ::worn) s) calcs))]))]
     (apply max-key :ac
            (for [[a s] (combos armors shields)]
-             {:ac (+ (max (states [(some? a) s]) (ac/worn-armor-ac dex 2 a))
+             {:ac (+ (max (states [(some? a) s]) (ac/worn-armor-ac dex {:light nil :medium 2 :heavy 0} a))
                      (reduce + 0 (map #(% a s) bonuses)))
               :armor a :shield s}))))
 

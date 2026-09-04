@@ -7588,11 +7588,12 @@
   (simple-content-builder ::classes/invocation-builder-item ::classes/set-invocation-prop))
 
 (defn fighting-style-builder []
-  ;; No extra-fields: classes/fighting-style-fields is only :description, which
-  ;; simple-content-builder already renders. The style's MECHANIC rides the shared :props
-  ;; vocabulary rather than bespoke fields, so the form is name + source + description.
+  ;; Description is rendered by simple-content-builder itself, so only the AC fragment is passed —
+  ;; passing the whole schema would render Description twice. bf/ac-bonus-fields is shared :props
+  ;; vocabulary and can be dropped into any other builder's extra-fields unchanged.
   (simple-content-builder ::classes/fighting-style-builder-item
-                          ::classes/set-fighting-style-prop))
+                          ::classes/set-fighting-style-prop
+                          bf/ac-bonus-fields))
 
 (defn monster-builder []
   (let [{:keys [name

@@ -6,7 +6,8 @@
             [orcpub.entity-spec :as es]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.dnd.e5.character.equipment :as char-equip]
-            [orcpub.dnd.e5.skills :as skill5e])
+            [orcpub.dnd.e5.skills :as skill5e]
+            [orcpub.dnd.e5.armor-class :as ac5e])
   #?(:cljs (:require-macros [orcpub.entity-spec :as es]
                             [orcpub.modifiers :as mods])))
 
@@ -591,6 +592,12 @@
   ac-bonus-fn instead: those are summed onto whichever calculation won."
   [formula-fn]
   `(mods/vec-mod ~'?ac-fns ~formula-fn))
+
+(defn armor-dex-cap
+  "Raise the Dex allowance for one armor type — Medium Armor Master is (armor-dex-cap :medium 3).
+  Raises only: a type already uncapped stays uncapped, and a lower value is ignored."
+  [armor-type cap]
+  (mods/modifier ?armor-dex-caps (ac5e/raise-dex-cap ?armor-dex-caps armor-type cap)))
 
 (defn armor-gives-no-ac
   "Worn armor contributes nothing to AC — the character is treated as unarmored for AC purposes

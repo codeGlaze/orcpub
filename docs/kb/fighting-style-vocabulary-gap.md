@@ -80,8 +80,11 @@ prop serves all of them.
 
 ## Order of work, cheapest first
 
-1. **Expose `:ac-bonus` in `fighting-style-fields`.** Pure markup; makes Defense authorable with no
-   new code.
+1. ✅ **DONE — `:ac-bonus` exposed as a shared field fragment.** `bf/ac-bonus-fields` in
+   `builder_fields.cljc`, not in the classes ns: it is shared `:props` vocabulary, so it drops into
+   ANY silo's `extra-fields` unchanged. Defense is now authorable as `{:ac-bonus 1 :armor? true}`
+   with no new code. The three-state tags are `:enum` fields with boolean values — `builder_fields`
+   explicitly defers a `:boolean` type and says not to build a parallel mechanism.
 2. **`:attack-bonus` and `:damage-bonus` props** with a weapon predicate. Covers Archery, Dueling
    and Thrown Weapon — three styles, and the channels already exist.
 3. **`:reaction` / `:trait` props.** Covers Protection and Interception, and every "it's just text

@@ -48,6 +48,26 @@
 (spec/def ::key (spec/and keyword? common/keyword-starts-with-letter?))
 (spec/def ::option-pack string?)
 
+;; ── Shared :props field fragments ─────────────────────────────────────────────────────────────
+;; The :props vocabulary compiles into SEVEN silos through one function (races, subraces, classes,
+;; subclasses, draconic ancestries, feats, fighting styles), so a fragment defined once can be
+;; dropped into any of their builders' extra-fields and that silo can author the prop. The compiler
+;; is already shared; only the form fields were missing.
+
+(def ac-bonus-fields
+  "Authors {:ac-bonus {:ac-bonus N :armor? b :shield? b}} — a flat bonus applied to whichever AC
+  calculation wins, rather than to a particular one. The two tags are THREE-state: pick a value to
+  require or forbid that equipment, or leave blank for either way. Defense fighting style is
+  exactly {:ac-bonus 1 :armor? true}."
+  (let [has-bonus? #(get-in % [:props :ac-bonus :ac-bonus])]
+    [{:key [:props :ac-bonus :ac-bonus] :type :number :label "AC Bonus"}
+     {:key [:props :ac-bonus :armor?] :type :enum :label "Armor requirement" :when has-bonus?
+      :options [{:value true  :title "Only while wearing armor"}
+                {:value false :title "Only while NOT wearing armor"}]}
+     {:key [:props :ac-bonus :shield?] :type :enum :label "Shield requirement" :when has-bonus?
+      :options [{:value true  :title "Only while wielding a shield"}
+                {:value false :title "Only while NOT wielding a shield"}]}]))
+
 (defn fields->spec
   "Build a save-validation spec (a predicate) from a field schema. The universal
    name/key/option-pack are required (unchanged from the prior hand-written specs); every other

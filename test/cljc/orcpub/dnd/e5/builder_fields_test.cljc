@@ -34,3 +34,32 @@
       (is (not (spec/valid? s (update ok-item :bw dissoc :damage-type))))   ; missing required
       (is (not (spec/valid? s (assoc-in ok-item [:bw :damage-type] :banana)))) ; bad enum
       (is (spec/valid? s (dissoc ok-item :note))))))                        ; missing optional ok
+
+;; ── The shared :props fragments ───────────────────────────────────────────────────────────────
+;; A form field that writes a path the :props compiler doesn't read is the silent failure here:
+;; the builder looks right, saves fine, and produces no mechanical effect. These pin the two ends
+;; against each other.
+
+(def ^:private ac-spec (bf/fields->spec bf/ac-bonus-fields))
+(def ^:private base {:name "X" :key :x :option-pack "Pack"})
+
+(deftest ac-bonus-fields-validate-what-the-form-can-produce
+  (testing "a Defense-shaped style: +1 AC while wearing armor"
+    (is (spec/valid? ac-spec (assoc base :props {:ac-bonus {:ac-bonus 1 :armor? true}}))))
+  (testing "the tags are optional — absent means either way"
+    (is (spec/valid? ac-spec (assoc base :props {:ac-bonus {:ac-bonus 1}}))))
+  (testing "and the whole fragment is optional, so existing content stays valid (D9)"
+    (is (spec/valid? ac-spec base)))
+  (testing "a non-number bonus is rejected"
+    (is (not (spec/valid? ac-spec (assoc base :props {:ac-bonus {:ac-bonus "one"}})))))
+  (testing "a tag value outside the declared options is rejected"
+    (is (not (spec/valid? ac-spec (assoc base :props {:ac-bonus {:ac-bonus 1 :armor? "yes"}}))))))
+
+(deftest ac-bonus-field-paths-match-what-the-props-compiler-reads
+  (testing "every field path is [:props :ac-bonus <k>], and <k> is a key ac-bonus-modifiers reads.
+            If these drift, the form writes data the compiler ignores and the feature silently
+            does nothing."
+    (doseq [{:keys [key]} bf/ac-bonus-fields]
+      (is (= [:props :ac-bonus] (vec (take 2 key))) (str key " must live under :props :ac-bonus"))
+      (is (contains? #{:ac-bonus :armor? :shield?} (last key))
+          (str (last key) " must be a key the :ac-bonus prop compiler understands")))))
