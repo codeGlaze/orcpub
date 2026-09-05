@@ -3096,15 +3096,9 @@
                        :new-item-fn (fn [selection options current-values]
                                       {::entity/key (-> current-values count inc level-key)})
                        :tags #{kw}
-                       ;; UNCHUNKED on purpose. `range` is chunked, so (map f (range 1 21))
-                       ;; builds all 20 levels the moment anything touches the seq -- even
-                       ;; `seq` or `first`. Rendering the class list touches every class's
-                       ;; levels, so that was 141 classes x 20 = 2820 level-option calls in
-                       ;; one render (measured: 906 ms of a 1099 ms freeze). A list is not
-                       ;; chunked, so only what is consumed gets built.
                        :options (map
                                  (partial level-option spell-lists spells-map language-map weapon-map merged-class kw spellcasting-template)
-                                 (apply list (range 1 21)))
+                                 (range 1 21))
                        :min 1
                        :sequential? true
                        :multiselect? true
