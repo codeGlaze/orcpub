@@ -1017,6 +1017,17 @@ session heap peak   189 MB                      141 MB
 
 The keys cost roughly a thousand times more than the values they cached.
 
+Confirmed on a **production build** (advanced compilation), same pack and throttle -- the
+build that previously froze at 654 ms:
+
+```
+prod, switch 2 -> Class   654 ms  ->   92 ms
+prod, worst switch        654 ms  ->  140 ms
+prod session heap    102 -> 152 MB  ->  102 -> 111 MB
+```
+
+Suites green after the change: JVM 309 tests / 1704 assertions, CLJS 240 / 726.
+
 **Why it hid for years.** It scales with homebrew volume, needs CPU contention to be
 obvious, and the expensive operation is a *cache lookup* -- so every profile pointed at
 rendering and template construction rather than at the caching meant to make things fast.
