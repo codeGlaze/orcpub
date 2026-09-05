@@ -26,6 +26,23 @@ function findChrome() {
 
 const OBSERVE = `
 window.__tasks = [];
+window.__spy = {};
+(function arm(){
+  try {
+    var e5 = window.orcpub && window.orcpub.dnd && window.orcpub.dnd.e5;
+    var opt = e5 && e5.options, ss = e5 && e5.spell_subs, ent = window.orcpub && window.orcpub.entity;
+    if (!opt || !ss || !ent) return setTimeout(arm, 5);
+    var wrap = function(o,n,l){ if(!o||typeof o[n]!=='function') return;
+      var f=o[n]; window.__spy[l]={n:0,ms:0};
+      o[n]=function(){var s=performance.now();var r=f.apply(this,arguments);
+        var b=window.__spy[l];b.n++;b.ms+=performance.now()-s;return r;}; };
+    wrap(opt,'class_option','classOpt');
+    wrap(opt,'memoized_spell_option','memoSpellOpt');
+    wrap(opt,'spell_selection','spellSel');
+    wrap(ss,'make_levels','makeLevels');
+    wrap(ent,'build','build');
+  } catch(e) { setTimeout(arm, 5); }
+})();
 try {
   new PerformanceObserver(function(l){
     for (const e of l.getEntries()) window.__tasks.push(Math.round(e.duration));
@@ -58,7 +75,7 @@ try {
   const heapMB = async () => ((await cdp.send('Runtime.getHeapUsage')).usedSize / 1048576);
 
   const tab = async (label, name) => {
-    await page.evaluate(() => { window.__tasks = []; });
+    await page.evaluate(() => { window.__tasks = []; for (const k in window.__spy) window.__spy[k] = {n:0,ms:0}; });
     const h0 = await heapMB();
     const t = Date.now();
     try { await page.locator(`text="${name}"`).first().click({ timeout: 30000 }); }
@@ -73,7 +90,9 @@ try {
                 `wall ${String(Date.now() - t - 1200).padStart(5)}ms`,
                 ` longest ${String(worst).padStart(5)}ms`,
                 ` heap ${h0.toFixed(0)}->${h1.toFixed(0)}MB`,
-                drop > 5 ? ` GC? -${drop.toFixed(0)}MB` : '');
+                drop > 5 ? ` GC? -${drop.toFixed(0)}MB` : '',
+                ' ' + Object.entries(await page.evaluate(() => window.__spy))
+                        .filter(([, v]) => v.n).map(([k, v]) => `${k} ${v.n}x${v.ms.toFixed(0)}ms`).join(' '));
   };
 
   // Flip back and forth the way a user comparing options would.
