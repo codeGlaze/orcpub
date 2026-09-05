@@ -1,8 +1,18 @@
 # Builder form schemas — the reference
 
-**Status: DESIGN. Not built.** The `:group` node and everything under "Not yet built" is a proposal;
-the field-level schema (`:type :enum/:number/:text`, `:key`, `:when`, `:required?`) is real and in
-use today by draconic ancestry and fighting styles.
+**Most of this already exists.** The schema system was built in June 2026:
+
+| | |
+|---|---|
+| `f2454a08` 2026-06-14 | collapse per-type builder forms into `simple-content-builder` |
+| `8058b55f` 2026-06-15 | declarative builder field-schema |
+| `8a07531e` 2026-06-15 | generate the save spec from the field schema |
+| `0fe18de4` 2026-06-15 | sync import/export verification with the field schema |
+
+So §1 and §2a describe **shipped** machinery, not a proposal. What is genuinely new here: the shared
+`:props` field fragments (`ac-bonus-fields`, `attack-bonus-fields`, `damage-bonus-fields`),
+`flatten-fields`, the corrected survey in §5, and the `:group` node in §2b — **§2b alone is
+unbuilt.**
 
 This is the document to read before adding anything to a builder form. If you cannot find your case
 under **HOW TO** below, that is a bug in this document — say so rather than inventing a mechanism.
@@ -210,16 +220,26 @@ The bottom four are the existing proof: a type that fits the generic form is **3
    list plus a blank one at the end. The schema has no way to say "a list of these". Traits have
    the same shape. This is the next node kind to design, and it is a bigger deal than `:group`.
 
-### Rebuilt so far
+### Converting the rest
 
-`orcpub.dnd.e5.builders` holds schema-driven rebuilds **alongside** the originals, never in place
-of them, so the two can be compared before anything is switched. `builders_test` asserts field-level
-equivalence on the JVM; `language-builder-v2` sits next to `language-builder` in `views.cljs` for a
-browser comparison.
+There is no new mechanism to build for the simple types — `simple-content-builder` is the mechanism,
+and `boon-builder` / `invocation-builder` are each **one line** using it. A conversion is: replace
+the hand-written body with that call, keep the numbers identical.
 
-| type | original | rebuilt | result |
-|---|---|---|---|
-| language | 21 lines | `language-fields` = `[]` + a 4-line call | the original is **entirely** boilerplate — Name + Option Source + Description is exactly the base form |
+An attempt to stand up a parallel `orcpub.dnd.e5.builders` namespace for this was **reverted**: for
+language it amounted to a new namespace holding `(def language-fields [])`, a `-v2` view passing
+that empty vector, and a test asserting the empty vector was empty — ceremony around a one-line
+change the June work already demonstrated twice. A parallel namespace only earns its place for a
+type that has actual field data to hold (spell, monster, item).
+
+The real remaining work is not a new system. It is:
+
+1. **Convert the boilerplate builders** (language 21, background 46, item 53, feat 62, spell 85,
+   subclass 105, subrace 129, race 152, monster 233) to the existing mechanism, one at a time,
+   asserting the numbers do not move.
+2. **Design the two missing node kinds** — a collection node, and a per-type description key —
+   because those genuinely do not exist yet.
+3. **`:group`** (§2b), which is layout, and the least urgent of the three.
 
 **The headline finding:** `monster-builder` is 233 lines for **8 fields**. The bulk is layout, not
 logic. And 8 of the ~22 distinct controls across all builders are the *same input field* wrapped

@@ -3,7 +3,9 @@
    These are the SINGLE validators the form, the save spec, and import/export verification share."
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.spec.alpha :as spec]
-            [orcpub.dnd.e5.builder-fields :as bf]))
+            [orcpub.dnd.e5.builder-fields :as bf]
+            [orcpub.dnd.e5.races :as races]
+            [orcpub.dnd.e5.classes :as classes]))
 
 (def fields
   [{:key [:bw :damage-type] :type :enum :required? true :label "Damage Type"
@@ -65,3 +67,16 @@
           (str (last key) " must be a key the :ac-bonus prop compiler understands. The value key is
                :bonus, matching :attack-bonus and :damage-bonus; :ac-bonus is read as a legacy
                alias but the FORM must write the canonical one.")))))
+
+(deftest every-shipped-schema-uses-a-known-field-type
+  (testing "a typo'd :type silently degrades to (constantly true) in field-value-pred, so the field
+            is never validated — that is how fighting styles shipped with :string, which is not a
+            declared type, and went unchecked. Walk every schema the app actually uses."
+    (doseq [[label schema] [["draconic-ancestry" races/draconic-ancestry-fields]
+                            ["fighting-style"    classes/fighting-style-fields]
+                            ["ac-bonus"          bf/ac-bonus-fields]
+                            ["attack-bonus"      bf/attack-bonus-fields]
+                            ["damage-bonus"      bf/damage-bonus-fields]]
+            {:keys [type key]} (bf/flatten-fields schema)]
+      (is (contains? #{:text :number :enum} type)
+          (str label " field " key " has unknown :type " (pr-str type))))))
