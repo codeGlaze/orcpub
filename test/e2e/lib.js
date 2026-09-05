@@ -102,4 +102,37 @@ async function clickText(page, re) {
   return true;
 }
 
-module.exports = { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText };
+// Fill the lead number of one effect, in EITHER form shape. In the grouped form the control lives
+// inside a titled row and is labelled just "Bonus"; in the flat form it is labelled with the effect
+// name. Scripts that must run against both builds go through this.
+async function fillEffectBonus(page, kindTitle, value) {
+  const ok = await page.evaluate(({ t, v }) => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const hdr = [...document.querySelectorAll('span')]
+      .filter(e => e.textContent.trim() === t && vis(e) && e.parentElement.querySelector('i.fa-times'))[0];
+    if (!hdr) return false;                       // not the grouped form
+    const row = hdr.parentElement.parentElement;
+    const input = row.querySelector('input[type=number], input');
+    if (!input) return false;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    setter.call(input, v);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }, { t: kindTitle, v: String(value) });
+  if (ok) { await page.waitForTimeout(400); return true; }
+  return fill(page, kindTitle, value);           // flat form: the label IS the effect name
+}
+
+// The cookie consent bar is fixed to the bottom of the viewport and covers part of any full-page
+// screenshot. Dismiss it before capturing documentation assets.
+async function dismissCookieBar(page) {
+  await page.evaluate(() => {
+    const b = [...document.querySelectorAll('a,button,div,span')]
+      .find(e => e.children.length === 0 && /^got it!?$/i.test(e.textContent.trim()));
+    if (b) b.click();
+  });
+  await page.waitForTimeout(400);
+}
+
+module.exports = { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, fillEffectBonus, dismissCookieBar };

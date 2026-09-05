@@ -5689,7 +5689,7 @@
    Every event keyword is passed explicitly (not derived) so it stays greppable."
   [{:keys [type-name save-error
            save-event delete-event edit-event new-event
-           set-event set-prop-event reset-event
+           set-event set-prop-event remove-prop-event reset-event
            builder-item spec plugin-key default route interceptors]}]
   ;; persistence + builder lifecycle — the existing, trusted factories.
   ;; (develop's reg-save-homebrew is 5-arg: the save spec is derived from the content-specs registry by
@@ -5706,6 +5706,10 @@
                   ;; declarative builder field can target nested data (e.g. [:breath-weapon
                   ;; :damage-type]). Backward-compatible: a single keyword behaves as before.
                   (assoc-in item (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
+  (when remove-prop-event
+    (reg-event-db remove-prop-event interceptors
+                  (fn [item [_ prop-key]]
+                    (common/dissoc-in item (if (sequential? prop-key) prop-key [prop-key])))))
   (reg-event-fx reset-event (fn [_ _] {:dispatch [set-event default]})))
 
 ;; Derive a homebrew type's event keywords from its builder-item by the uniform naming
@@ -5722,7 +5726,10 @@
         ev   #(keyword ns (str % base))]
     {:save-event (ev "save-")   :delete-event (ev "delete-") :edit-event (ev "edit-")
      :new-event  (ev "new-")    :set-event    (ev "set-")    :reset-event (ev "reset-")
-     :set-prop-event (keyword ns (str "set-" base "-prop"))}))
+     :set-prop-event (keyword ns (str "set-" base "-prop"))
+     ;; assoc-in's counterpart. A :rows form needs to REMOVE a row, and assoc-in nil is not the
+     ;; same thing — it leaves the key present holding nil, which the :props compiler then reads.
+     :remove-prop-event (keyword ns (str "remove-" base "-prop"))}))
 
 ;; The localStorage draft interceptor, built generically from the registry's
 ;; :local-storage-key + :builder-item — no per-type ->local-store fn needed.

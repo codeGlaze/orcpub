@@ -7479,6 +7479,67 @@
                  :on-change #(dispatch [::selections/set-selection-path-prop [:options i :description] %])}]]]))
          options))]]]))
 
+(defn- remove-prop-event
+  "set-<base>-prop -> remove-<base>-prop. The generated events follow one naming convention
+   (events.cljs/homebrew-event-keys), so a row's ✕ can find its counterpart without every caller
+   threading a second event keyword through."
+  [set-prop]
+  (keyword (namespace set-prop)
+           (clojure.string/replace (name set-prop) #"^set-" "remove-")))
+
+(declare render-builder-field)
+
+(defn rows-node
+  "Render a `:rows` node: an add-bar of the kinds not yet present, then one titled group per
+   present kind. A kind is 'present' when the item HAS data under its `:at` path, or when the
+   author has just added it in this session — so nothing extra is stored to mark an empty row,
+   and an item authored by the older flat form renders here unchanged.
+
+   This replaces a form where every field of every effect was on screen at once and seven labels
+   appeared twice with nothing saying which bonus they belonged to."
+  [_item _set-prop _node]
+  (let [opened (r/atom #{})]
+    (fn [item set-prop {:keys [title add-label kinds]}]
+      (let [has-data? (fn [{:keys [at]}] (seq (remove nil? (vals (get-in item at)))))
+            present?  (fn [{:keys [kind] :as k}] (or (contains? @opened kind) (has-data? k)))
+            absent    (remove present? kinds)]
+        [:div.w-100-p.m-t-20
+         [:div.f-s-24.f-w-b.m-b-10 title]
+         (when (seq absent)
+           [:div.flex.flex-wrap.align-items-c.m-b-15
+            [:span.m-r-10.opacity-5 (or add-label "Add")]
+            (doall
+             (for [{:keys [kind title]} absent]
+               ^{:key (str kind)}
+               [:button.form-button.m-r-5.m-b-5
+                {:on-click #(swap! opened conj kind)}
+                (str "+ " title)]))])
+         (doall
+          (for [{:keys [kind title at hint fields] :as k} (filter present? kinds)]
+            ^{:key (str kind)}
+            [:div.b-1.b-rad-5.m-b-15
+             [:div.flex.justify-cont-s-b.align-items-c.p-10.b-b-1
+              [:span.f-w-b.f-s-14 title]
+              [:i.fa.fa-times.pointer.opacity-5
+               {:title (str "Remove " title)
+                ;; Clears the row's data outright. See the note on effect-rows: a confirm on every
+                ;; ✕ costs more than the mistake it prevents.
+                :on-click #(do (swap! opened disj kind)
+                               (dispatch [(remove-prop-event set-prop) at]))}]]
+             [:div.p-10
+              (when hint [:div.opacity-5.f-s-12.m-b-10 hint])
+              (doall
+               (for [f fields]
+                 ^{:key (str (:key f))}
+                 ;; The row header already says "AC Bonus"; repeating it on the number inside is
+                 ;; noise the comparison measurement caught. Only the LEAD field is relabelled, and
+                 ;; by its path, not its position — the fragments are shared with the flat forms in
+                 ;; other builders and must not be edited for this one's benefit.
+                 [render-builder-field item set-prop
+                  (if (= (:key f) (conj (vec at) :bonus))
+                    (assoc f :label "Bonus")
+                    f)]))]]))]))))
+
 (defn render-builder-field
   "Render one DECLARATIVE builder field from a spec, dispatching set-prop on change. This is
    what makes a richer builder's form data instead of hand-written hiccup, and it coerces values
@@ -7546,7 +7607,9 @@
   (let [item     @(subscribe [item-sub])
         ;; live validation over the declarative field specs (maps) — the SAME validate-fields
         ;; used for import/export verification, so the form and the file agree on what's required
-        problems (bf/validate-fields (filter map? extra-fields) item)]
+        ;; flatten-fields expands a :rows node into the fields it can hold, so validation sees the
+        ;; same field set whether the form is flat or grouped.
+        problems (bf/validate-fields (bf/flatten-fields (filter map? extra-fields)) item)]
     [:div.p-20.main-text-color
      [:div.flex.w-100-p.flex-wrap
       [builder-input-field
@@ -7569,7 +7632,12 @@
      (when (seq extra-fields)
        (into [:div.w-100-p]
              ;; a field spec (map) is rendered declaratively; raw hiccup (vector) passes through
-             (map (fn [f] (if (map? f) (render-builder-field item set-prop f) f)) extra-fields)))
+             (map (fn [f]
+                    (cond
+                      (:rows f) [rows-node item set-prop f]
+                      (map? f)  (render-builder-field item set-prop f)
+                      :else     f))
+                  extra-fields)))
      [builder-notes problems {:severity :error}]]))
 
 (defn language-builder []
@@ -7599,9 +7667,7 @@
   (simple-content-builder ::classes/fighting-style-builder-item
                           ::classes/set-fighting-style-prop
                           (concat bf/fighting-style-classes-field
-                                  bf/ac-bonus-fields
-                                  bf/attack-bonus-fields
-                                  bf/damage-bonus-fields)))
+                                  (bf/effect-rows))))
 
 (defn monster-builder []
   (let [{:keys [name

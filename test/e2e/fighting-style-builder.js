@@ -7,46 +7,13 @@
 //   4. an authored style saves and its props survive
 //
 // Prereqs:  lein fig:build && lein garden once && lein e2e-server   (port 8890)
-// Run:      node test/browser/fighting_style_builder_e2e.js
+// Run:      node test/e2e/fighting-style-builder.js
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { BASE, SHOTS, findChrome, checker, controlFor, fillEffectBonus } = require('./lib');
 
-const BASE = process.env.E2E_BASE || 'http://localhost:8890';
-const SHOTS = path.resolve(__dirname, '../../target/e2e-shots');
-
-function findChrome() {
-  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
-  try {
-    const dir = fs.readdirSync(base).filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
-    if (dir) { const p = path.join(base, dir, 'chrome-linux', 'chrome'); if (fs.existsSync(p)) return p; }
-  } catch (_) {}
-  return undefined;
-}
-
-const results = [];
-const check = (name, ok, detail='') => {
-  results.push({name, ok});
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
-};
-
-// A builder field is a label + an input/select somewhere after it. Find the control by label text.
-async function controlFor(page, labelText) {
-  const h = await page.evaluateHandle((txt) => {
-    const els = [...document.querySelectorAll('*')];
-    const label = els.find(e => e.children.length === 0 && e.textContent.trim() === txt);
-    if (!label) return null;
-    // walk up until a subtree containing an input/select
-    let n = label;
-    for (let i = 0; i < 5 && n; i++, n = n.parentElement) {
-      const c = n.querySelector('input, select, textarea');
-      if (c) return c;
-    }
-    return null;
-  }, labelText);
-  const el = h.asElement();
-  return el || null;
-}
+const { check, report } = checker();
 
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
@@ -82,25 +49,60 @@ async function controlFor(page, labelText) {
   for (const label of ['Name', 'Description']) {
     check(`field present: ${label}`, !!(await controlFor(page, label)));
   }
-  // the shared :props fragments
+
+  // The :rows node. The form no longer shows every field of every effect at once — an author adds
+  // the effects the style actually has. So the starting state is that NONE of them are on screen,
+  // and each appears when its row is added.
+  // A row is present when its titled header (the one carrying the remove control) is on screen.
+  const rowAbsent = async (title) => page.evaluate((t) => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    return ![...document.querySelectorAll('span')]
+      .some(e => e.textContent.trim() === t && vis(e) && e.parentElement.querySelector('i.fa-times'));
+  }, title);
+
+  const addRow = async (title) => page.evaluate((t) => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const b = [...document.querySelectorAll('button')]
+      .filter(e => e.textContent.trim() === `+ ${t}` && vis(e))[0];
+    if (!b) return false;
+    b.click();
+    return true;
+  }, title);
+
   for (const label of ['AC Bonus', 'Attack Bonus', 'Damage Bonus']) {
-    check(`prop field present: ${label}`, !!(await controlFor(page, label)));
+    check(`${label} row is NOT on screen until it is added`, await rowAbsent(label));
+  }
+  await page.screenshot({ path: path.join(SHOTS, 'fs-builder-empty.png'), fullPage: true });
+
+  for (const label of ['AC Bonus', 'Attack Bonus', 'Damage Bonus']) {
+    check(`added the ${label} row`, await addRow(label));
+    await page.waitForTimeout(300);
+    check(`${label} row appears once it is added`, !(await rowAbsent(label)));
   }
 
-  // :when — tags hidden until a bonus is entered
+  // :when still governs within a row — tags hidden until the bonus is entered
   const beforeArmorTag = await controlFor(page, 'Armor requirement');
   check(':when hides the Armor tag before a bonus is entered', beforeArmorTag === null);
 
-  const acInput = await controlFor(page, 'AC Bonus');
-  if (acInput) {
-    await acInput.fill('1');
-    await acInput.dispatchEvent('change');
-    await page.waitForTimeout(600);
-  }
+  check('typed the AC bonus into its row', await fillEffectBonus(page, 'AC Bonus', 1));
   const afterArmorTag = await controlFor(page, 'Armor requirement');
   check(':when reveals the Armor tag once a bonus is entered', !!afterArmorTag);
   check('typing a number raised no JS error (the seq-on-int regression)',
         !errors.some(e => /ISeqable/.test(e)), errors.filter(e => /ISeqable/.test(e))[0] || '');
+
+  // Removing a row clears its data outright, and the row goes back to the add-bar.
+  check('removed the Damage Bonus row', await page.evaluate(() => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const hdr = [...document.querySelectorAll('span')]
+      .filter(e => e.textContent.trim() === 'Damage Bonus' && vis(e))[0];
+    if (!hdr) return false;
+    const x = hdr.parentElement.querySelector('i.fa-times');
+    if (!x) return false;
+    x.click();
+    return true;
+  }));
+  await page.waitForTimeout(400);
+  check('and its row is gone from the form', await rowAbsent('Damage Bonus'));
 
   // A three-state value in a two-option <select> would DISPLAY a restriction the item does not
   // have, because a select with no matching value shows its first option.
@@ -167,10 +169,12 @@ async function controlFor(page, labelText) {
   });
   check('the authored style saves :classes as a set of keywords',
         /:classes #\{:paladin\}/.test(saved), saved.slice(0, 200));
+  // The whole claim of the :rows node is that it is an ARRANGEMENT, not a second storage model.
+  // The AC bonus typed into a row has to land exactly where the flat form put it.
+  check('and the AC bonus typed in a row lands at the same :props path as before',
+        /:props \{:ac-bonus \{:bonus 1/.test(saved), saved.slice(0, 200));
 
   console.log(`\nscreenshots: ${SHOTS}`);
   await browser.close();
-  const failed = results.filter(r => !r.ok);
-  console.log(`\n${results.length - failed.length}/${results.length} checks passed`);
-  process.exit(failed.length ? 1 : 0);
+  process.exit(report() ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

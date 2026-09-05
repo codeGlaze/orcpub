@@ -239,7 +239,15 @@ tier 3's missing primitive, the grant-UI's substrate, the fix for the flat form,
 three hand-written widgets. That passes the one principle — thicker than what it hides, and the
 call site says what it does.
 
-### The `:rows` node — DESIGN
+### The `:rows` node — BUILT 2026-09-05 (this section kept as the design record)
+
+Shipped as `bf/effect-rows` + `rows-node` in `views.cljs`, first consumer the fighting-style form.
+Pictures, measurements and the code diff: `builder-conversion-gallery.md`. **The storage question
+below was answered by `:as :map` being unnecessary** — a row is present when the item *has data*
+under its `:at` path, so the map-shaped case needs no marker and no declared shape. The vector case
+(creatures, traits) is still open and is what E3 settles.
+
+### The `:rows` node — original design
 
 ```clojure
 {:rows      :effects
@@ -268,8 +276,10 @@ The render is identical; the read/write is not. Options:
 3. migrate `:props` to a vector — cleanest data, but churns every saved item and the compiler.
    Rejected on D9.
 
-**Removal semantics** are also undecided: does the row's ✕ clear its data immediately or confirm?
-Silent loss on a misclick is the risk.
+**Removal semantics — decided:** the ✕ clears the row's data immediately, no confirm. The undo is
+retyping one number, and a modal on every removal costs more than the mistake does. It dispatches a
+generated `remove-<base>-prop` event, because `assoc-in` with nil leaves the key present holding
+nil and the `:props` compiler reads that.
 
 ### Phases (E0–E5) — the roadmap carries status; the acceptance tests are here
 

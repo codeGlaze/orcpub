@@ -124,6 +124,31 @@
   "Authors {:damage-bonus {:bonus N <tags>}} — Thrown Weapon Fighting is {:bonus 2 :thrown? true}."
   (weapon-bonus-fields :damage-bonus "Damage Bonus"))
 
+(defn effect-rows
+  "The `:rows` node for authored MECHANICS. Instead of every field of every effect stacked flat, an
+  author adds the effects the content actually has, and each arrives as a titled group carrying its
+  own tags — so \"Melee\" under *Attack Bonus* can only mean one thing.
+
+  `:at` is the subtree a row occupies; presence in the data is what makes a row appear, so nothing
+  new is stored and an item authored by the flat form renders unchanged (D9). The kinds' fields are
+  the SAME shared fragments the flat form used, unedited.
+
+  Removing a row clears its subtree immediately — no confirm. The undo is retyping one number, and
+  a modal on every ✕ costs more than the mistake does."
+  []
+  [{:rows      :effects
+    :title     "Effects"
+    :add-label "Add an effect"
+    :kinds     [{:kind :ac-bonus     :title "AC Bonus"     :at [:props :ac-bonus]
+                 :hint "added to whichever AC calculation wins"
+                 :fields ac-bonus-fields}
+                {:kind :attack-bonus :title "Attack Bonus" :at [:props :attack-bonus]
+                 :hint "to attack rolls with matching weapons"
+                 :fields attack-bonus-fields}
+                {:kind :damage-bonus :title "Damage Bonus" :at [:props :damage-bonus]
+                 :hint "to damage rolls with matching weapons"
+                 :fields damage-bonus-fields}]}])
+
 (defn flatten-fields
   "A schema is a vector of NODES. Today every node is a field, so this is identity; once group nodes
   land (docs/kb/builder-form-schemas.md) a group contributes its lead field plus its tags.
@@ -131,7 +156,15 @@
   Everything that walks a schema for its FIELDS — save-spec construction, import verification,
   drift tests — goes through here, so adding a node kind does not mean hunting down every walker."
   [schema]
-  (mapcat (fn [node] (if (:group node) (cons (:lead node) (:tags node)) [node])) schema))
+  (mapcat (fn [node]
+            (cond
+              ;; a :rows node contributes every field of every kind it can hold. The kinds' fields
+              ;; carry absolute paths, so validation is unchanged by the grouping — which is the
+              ;; point: :rows is an arrangement, not a second storage model.
+              (:rows node)  (mapcat :fields (:kinds node))
+              (:group node) (cons (:lead node) (:tags node))
+              :else         [node]))
+          schema))
 
 (defn fields->spec
   "Build a save-validation spec (a predicate) from a field schema. The universal

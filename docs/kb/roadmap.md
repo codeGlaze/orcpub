@@ -217,6 +217,14 @@ then merge `develop` in, since the shared files here have diverged for the feat 
     each row a titled group (AC / attack / damage / reaction); (c) rendered-UI E2E in **`test/e2e/`**
     following `race-builder-asi.js`. Acceptance: Defense, Archery and Thrown Weapon authored in the UI,
     picked by a Fighter, correct number on the sheet.
+  - **E2b — the `:rows` node** — ✅ **done 2026-09-05, and REORDERED to the front of the track.**
+    Originally sequenced after the tier-1/tier-2 conversions; pulled ahead because a side-by-side
+    comparison needs both shapes to exist, and because E3, E4 and E5 all consume this node. The
+    fighting-style form is the first consumer; measurements and pictures are in
+    `builder-conversion-gallery.md`. Storage is unchanged — a row is present when the item has data
+    under its `:at` path, so nothing is stored to mark one (D9). Removing a row clears its subtree
+    via a generated `remove-<base>-prop` event (assoc-in nil is not the same thing: it leaves the
+    key present holding nil, which the `:props` compiler then reads).
   - **E3 — Tier 3 stab**: the same `:rows` node over encounter's creatures (replacing the
     `creature-selector` loop), then background traits (`option-traits`, a 6-event signature). If one node
     kind serves all three, it has earned its place (the one principle).
