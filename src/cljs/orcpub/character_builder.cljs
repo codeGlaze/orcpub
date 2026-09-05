@@ -167,11 +167,13 @@
             (dispatch [:set-class new-key i options-map]))))
 
 (def set-class
-  "NOT memoized. cljs.core/memoize keeps its cache in a PersistentArrayMap and looks up with
-   `get`, which linear-scans comparing argument lists with `=`. The args here include
-   options-map -- every class in the library -- so each lookup deep-compared 141 class
-   options and forced their lazy 20-level :options seqs: 2820 level-option calls, ~1 s
-   blocked, 46 MB, on one Class-tab render. The cached value is a three-line closure."
+  "NOT memoized. cljs.core/memoize keeps its cache in a PersistentArrayMap and looks it up
+   with `get`, which linear-scans comparing argument lists with `=`. The args here include
+   options-map -- every class in the library -- so a lookup deep-compares 141 class options
+   and forces their lazy 20-level :options seqs. Confirmed in the freeze's stack. The cached
+   value is a three-line closure, so the key costs orders of magnitude more than the result.
+   (Removing this one alone did NOT clear the freeze; delete-class and add-class share the
+   defect.)"
   set-class-fn)
 
 (defn make-options-map
@@ -191,7 +193,8 @@
 (defn delete-class-fn [key i options-map]
   (fn [_] (dispatch [:delete-class key i options-map])))
 
-(def delete-class (memoize delete-class-fn))
+;; NOT memoized: keyed on options-map, i.e. every class in the library. See set-class.
+(def delete-class delete-class-fn)
 
 (defn filter-classes-fn [key unselected-classes-set]
   #(or (= key (::t/key %))
@@ -280,7 +283,8 @@
     (let [first-unselected (::t/key (first remaining-classes))]
       (dispatch [:add-class first-unselected]))))
 
-(def add-class (memoize add-class-fn))
+;; NOT memoized: keyed on a seq of class options. See set-class.
+(def add-class add-class-fn)
 
 (defn class-levels-selector [{:keys [selection]}]
   (let [options (::t/options selection)
