@@ -35,10 +35,18 @@ async function dismissCookieBanner(page) {
 }
 
 async function importPack(page, absPath, { timeout = 300000 } = {}) {
+  // Progress signal that works on BOTH builds. Advanced compilation munges names, so
+  // window.cljs.core / re_frame.db do not exist in a prod bundle and the app-db probe
+  // silently reports 0 forever. The localStorage blob is build-independent, so fall back
+  // to its size; either signal growing means the import landed.
   const pluginCount = () => page.evaluate(() => {
     try { const c = window.cljs.core;
-          const p = c.get(window.re_frame.db.app_db.state, c.keyword(null, 'plugins'));
-          return p ? c.count(p) : 0; } catch (e) { return 0; }
+          if (c && window.re_frame) {
+            const p = c.get(window.re_frame.db.app_db.state, c.keyword(null, 'plugins'));
+            if (p) return c.count(p);
+          }
+    } catch (e) {}
+    try { return (localStorage.getItem('plugins') || '').length; } catch (e) { return 0; }
   });
   // The cookie-consent banner (#cookie-policy-popup) is fixed to the bottom of the page and
   // sits OVER the conflict modal's buttons: Playwright reports "subtree intercepts pointer
