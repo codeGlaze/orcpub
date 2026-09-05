@@ -27,6 +27,7 @@ function findChrome() {
 // Armed before the builder renders: the template is built once and cached, so instrumenting
 // late measures nothing.
 const INSTRUMENT = `
+window.__noMemo = ${process.env.NOMEMO ? 'true' : 'false'};
 window.__spy = {};
 (function arm(){
   try {
@@ -41,6 +42,11 @@ window.__spy = {};
       obj[name] = function(){ var s=performance.now(); var r=f.apply(this,arguments);
         var b=window.__spy[label]; b.n++; b.ms+=performance.now()-s; return r; };
     };
+    // NOMEMO=1: replace the memoized wrapper with a passthrough, to test whether
+    // the memoize is what retains the heap across class browsing.
+    if (window.__noMemo && typeof opt.spell_option === 'function') {
+      opt.memoized_spell_option = function(){ return opt.spell_option.apply(this, arguments); };
+    }
     wrap(opt,'class_option','class-option');
     // The memoized wrapper, not spell_option: spell_option is captured at
     // definition time by the memoize, so wrapping it intercepts nothing.
