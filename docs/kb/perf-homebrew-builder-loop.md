@@ -995,6 +995,38 @@ map and hand it to `::e5/set-plugins`; only the write sitting behind that event 
 Same for the validation/fix functions: `salvage-library-items` and `reconcile-rejected` are
 already keyed by source, so per-source keys fit them better than the blob does.
 
+#### Quarantine already chunks, but not at the layer that matters
+
+Raised on review of the above: isn't quarantine already pulling out only the troublesome
+part? It is, per source and per item — but entirely *post-parse*. `get-local-storage-item`
+runs `reader/read-string` over the whole blob before any per-source code can execute, and
+`handle-unreadable` moves the entire blob to `plugins:corrupt` if that throws. Two different
+kinds of chunking, and the app has only one:
+
+| | Granularity | When it runs |
+| --- | --- | --- |
+| Quarantine (exists) | per source, per item | after the parse, in memory |
+| Chunked storage (proposed) | per source | at the parse, in bytes |
+
+Quarantine answers "which content is valid". Chunked storage answers "how much must be read
+at once". The answer to the second is currently always *everything*, which is why the
+builder-open freeze is one unbroken task regardless of how the library is organised.
+
+```
+NOW                                    AFTER
+"plugins" = one string                 "plugins:v2:index"     [names]  (written LAST)
+      |                                "plugins:v2:src:<name>" one string each
+      v  read-string  ONE parse              |
+   {src -> plugin}   ~750ms, blocking        v  read-string per source (N small parses)
+      |                                 {src -> plugin}
+      v  salvage-library-items               |
+   kept -> app-db                            v  salvage-library-items  (unchanged)
+                                        kept -> app-db
+
+parse throws -> WHOLE blob quarantined  one source throws -> only that key quarantined
+                                        half-written     -> index disagrees, detectable
+```
+
 Two consequences worth carrying into the implementation:
 
 1. **Corruption stops being all-or-nothing, which is a gain.** `preserve-on-unreadable-keys`
