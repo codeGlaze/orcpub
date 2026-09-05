@@ -53,7 +53,6 @@
 (def marked-index 3)
 
 (def fields-on-page #'pdf/fields-on-page)
-(def renumber-page-section! #'pdf/renumber-page-section!)
 
 (defn- content-of [page]
   (let [b (java.io.ByteArrayOutputStream.)]
@@ -114,7 +113,7 @@
     (.removePage doc plain-index)
 
     ;; 4. The survivor is section 2; every caller looks for section 1.
-    (renumber-page-section! doc marked 2 1)
+    (pdf/renumber-page-section! doc marked 2 1)
 
     ;; 5. Trim the footer to the operators that do something.
     (let [before (content-of marked)

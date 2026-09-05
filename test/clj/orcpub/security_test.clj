@@ -196,9 +196,9 @@
   ;; in a sorted-set-by compare-dates, which orders on :date alone, so two
   ;; attempts recorded in the same instant are treated as one element and one
   ;; is dropped. Worth knowing before trusting these counts as exact.
-  (let [now (time/now)
+  (let [instant (now)
         two-ips (into (sorted-set-by s/compare-dates)
-                      [{:user "u" :ip "1.1.1.1" :date now}
-                       {:user "u" :ip "2.2.2.2" :date now}])]
+                      [{:user "u" :ip "1.1.1.1" :date instant}
+                       {:user "u" :ip "2.2.2.2" :date instant}])]
     (is (= 1 (count two-ips))
         "two attempts, one instant, one surviving entry")))

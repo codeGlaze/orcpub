@@ -318,15 +318,16 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (when (fn? on-click) (on-click e))))
-              :style (if active active-style)
+              :style (when active active-style)
               :class-name (str (if disabled "disabled" "pointer")
                                " "
-                               (if (not mobile?) "w-110"))}
+                               (when-not mobile? "w-110"))}
        (seq buttons) (assoc :tab-index 0))
      [:div.p-10
-      {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
+      {:class-name (when-not active
+                     (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
       (let [size (if mobile? 24 48)] (svg-icon icon size ""))
-      (if (not mobile?)
+      (when-not mobile?
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
@@ -6484,8 +6485,8 @@
          :actions [{:label "Detach (save full copy)"
                     :on-click #(dispatch [::classes/detach-starting-equipment-base])}]}])
      [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
-     (doall (for [cat starting-equipment-categories]
-              ^{:key (:fixed cat)} [fixed-equipment-block class cat]))
+     (doall (for [category starting-equipment-categories]
+              ^{:key (:fixed category)} [fixed-equipment-block class category]))
      [:div.f-w-b.f-s-18.m-t-15.m-b-5 "Choices (player picks one per group)"]
      (when legacy?
        [notifications/callout

@@ -711,8 +711,11 @@
                            (.getWidgets field))]
            field))))
 
-(defn- renumber-page-section!
-  "Renames every field on `page` from spellcasting section `from` to `to`."
+(defn renumber-page-section!
+  "Renames every field on `page` from spellcasting section `from` to `to`.
+
+   Public because the only caller is dev/style4_one_spell_page.clj, which reaches
+   it through the var. It sits with fields-on-page as a template-editing utility."
   [doc page from to]
   (when (not= from to)
     (doseq [field (fields-on-page doc page)]
