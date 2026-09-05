@@ -51,13 +51,19 @@
 
 ;; ---------- placeholder SVG art (MVP) ----------
 
+(defn- base64 [markup]
+  #?(:clj  (.encodeToString (java.util.Base64/getEncoder)
+                            (.getBytes ^String markup "UTF-8"))
+     :cljs (js/btoa markup)))
+
 (defn- svg-uri
-  "Wrap raw SVG markup as a utf-8 data URI. Only characters that require
-   escaping in this context are `#` (encoded as `%23`) and the URL-reserved
-   set — the paths below deliberately avoid the latter."
+  "Wrap raw SVG markup as a base64 data URI. Base64 keeps the URI safe
+   inside CSS `url(...)` — the compositor uses the asset as a `mask-image`,
+   and the raw-utf8 form trips CSS parsing on the `<` and quotes in the
+   markup. Works for <img src> too. (The placeholder markup is ASCII, so
+   js/btoa is safe.)"
   [markup]
-  (str "data:image/svg+xml;utf8,"
-       (s/replace markup "#" "%23")))
+  (str "data:image/svg+xml;base64," (base64 markup)))
 
 (defn- svg-shape
   "Build an SVG placeholder shape at the compositor's common 400x500
@@ -241,3 +247,97 @@
               (assoc acc layer-key {:artist/id artist-id :asset/id (:asset/id asset)})))))
       {}
       layer-order)))
+
+;; ---------- character colors ----------
+;;
+;; A portrait is {:layers {…} :colors {slot hex} :tweaks {layer {:shade n
+;; :override hex}}}. `:colors` holds one base color per slot that paints
+;; every layer mapped to that slot; `:tweaks` lets a single piece shade
+;; lighter/darker than the base or override it outright (bangs highlight,
+;; hair-back shadow, dyed streak). Rendering applies the tint via CSS mask,
+;; so one asset renders in any color — see portrait.cljs/composite.
+
+(def empty-portrait {:layers {} :colors {} :tweaks {}})
+
+(def color-slots
+  "Which color slot each layer draws its base tint from. nil = the layer
+   keeps its category tint (mouth stays clay red; lips in skin tone look
+   wrong)."
+  {:hair-bits  :hair
+   :hair-back  :hair
+   :hair-front :hair
+   :bangs      :hair
+   :head       :skin
+   :ears       :skin
+   :nose       :skin
+   :eyes       :eyes
+   :shirt      :shirt
+   :mouth      nil})
+
+(def color-slot-order [:hair :skin :eyes :shirt])
+
+(def color-slot-labels {:hair "Hair" :skin "Skin" :eyes "Eyes" :shirt "Shirt"})
+
+(def color-presets
+  "One-tap starting points per slot; a native picker covers the rest."
+  {:hair  ["#2b1a10" "#5c3a1e" "#a06430" "#d4a256" "#e6d58f" "#c8c8c8" "#f2f2f2" "#7a3f6e"]
+   :skin  ["#f2ddc4" "#e8c69c" "#c99871" "#a06e46" "#6c4726" "#3d2617" "#c0a693" "#a4b5a0"]
+   :eyes  ["#6b4a2a" "#3d5c8f" "#4a7a4c" "#8a7c3f" "#8a4a4a" "#4a8a8a" "#7a4a8a" "#c4b48a"]
+   :shirt ["#3a4a5c" "#7a94b8" "#5c3a3a" "#8f5c3a" "#3d5a3a" "#5c3a5c" "#2c2c2c" "#c8c0a8"]})
+
+(defn layers-in-slot
+  "Layer keys mapped to `slot`, in z-order."
+  [slot]
+  (filterv #(= slot (color-slots %)) layer-order))
+
+(defn- hex-pair->int [s]
+  #?(:clj  (Integer/parseInt s 16)
+     :cljs (js/parseInt s 16)))
+
+(defn- int->hex-pair [n]
+  (let [s #?(:clj  (Integer/toHexString (int n))
+             :cljs (.toString n 16))]
+    (if (< (count s) 2) (str "0" s) s)))
+
+(def ^:private hex-re #"^#[0-9a-fA-F]{6}$")
+
+(defn shade-hex
+  "Mix a #rrggbb color toward white (pct > 0) or black (pct < 0); pct is
+   clamped to [-100, 100]. A zero/nil pct or a non-#rrggbb input returns
+   `hex` unchanged."
+  [hex pct]
+  (if (or (nil? pct) (zero? pct) (not (re-matches hex-re (str hex))))
+    hex
+    (let [p      (/ (min 100 (Math/abs pct)) 100.0)
+          target (if (neg? pct) 0 255)
+          mix    (fn [c] (int (Math/round (+ c (* (- target c) p)))))
+          [r g b] (map #(hex-pair->int (subs hex % (+ % 2))) [1 3 5])]
+      (str "#" (int->hex-pair (mix r)) (int->hex-pair (mix g)) (int->hex-pair (mix b))))))
+
+(defn base-tint
+  "What a layer renders in before any per-piece tweak: its slot's chosen
+   color if set, else the layer's category tint."
+  [portrait layer-key]
+  (let [slot (color-slots layer-key)]
+    (or (and slot (get-in portrait [:colors slot]))
+        (layer-colors layer-key))))
+
+(defn tint-for
+  "Effective render color for a layer: per-piece override → shaded base →
+   base."
+  [portrait layer-key]
+  (let [{:keys [override shade]} (get-in portrait [:tweaks layer-key])]
+    (cond
+      override override
+      shade    (shade-hex (base-tint portrait layer-key) shade)
+      :else    (base-tint portrait layer-key))))
+
+(defn tweaked-layers-in-slot
+  "Layers in `slot` carrying a real per-piece tweak (an override, or a
+   non-zero shade), in z-order. Drives the tweak badge and sub-dots on the
+   slot chip."
+  [portrait slot]
+  (filterv (fn [k]
+             (let [{:keys [override shade]} (get-in portrait [:tweaks k])]
+               (boolean (or override (and shade (not (zero? shade)))))))
+           (layers-in-slot slot)))

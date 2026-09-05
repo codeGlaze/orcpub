@@ -22,7 +22,6 @@
             [orcpub.dnd.e5.party :as party5e]
             [orcpub.dnd.e5.folder :as folder5e]
             [orcpub.dnd.e5.character.random :as char-rand5e]
-            [orcpub.dnd.e5.portrait :as portrait5e]
             [orcpub.dnd.e5.portrait-assets :as portrait-assets5e]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.monsters :as monsters]
@@ -1539,57 +1538,111 @@
 
 ;; ---- portrait compositor drawer ----
 ;;
-;; The drawer's editing state (open/closed, in-progress layer picks, the
-;; last-used random seed) lives at the TOP of app-db under :portrait/*
-;; keys — it's UI state, not part of the persisted character. Only the
-;; :portrait/save handler writes back to the character's
-;; ::char5e/portrait-layers value.
+;; Editing state (open/closed, the in-progress draft, which color panels are
+;; expanded) lives at the TOP of app-db under :portrait/* keys — UI state,
+;; not part of the persisted character. Only :portrait/save writes back, and
+;; it writes an EDN STRING to ::char5e/portrait: ::se/values is a Datomic
+;; component ref, so every key in it must be a registered attribute and no
+;; attribute can hold a nested map (see db/schema.clj). The char5e/portrait
+;; getter parses it back.
+
+(def ^:private portrait-ui-keys
+  [:portrait/drawer-open? :portrait/draft :portrait/draft-seed
+   :portrait/open-slot :portrait/open-layer])
 
 (reg-event-db
  :portrait/open
  (fn [db _]
-   (let [current (get-in db [:character ::entity/values ::char5e/portrait-layers])]
-     (assoc db
-            :portrait/drawer-open? true
-            :portrait/draft (or current {})
-            :portrait/draft-seed nil))))
+   (assoc db
+          :portrait/drawer-open? true
+          :portrait/draft (or (char5e/portrait (:character db))
+                              portrait-assets5e/empty-portrait)
+          :portrait/draft-seed nil
+          :portrait/open-slot nil
+          :portrait/open-layer nil)))
 
 (reg-event-db
  :portrait/close
  (fn [db _]
-   (dissoc db :portrait/drawer-open? :portrait/draft :portrait/draft-seed)))
+   (apply dissoc db portrait-ui-keys)))
 
 (reg-event-db
  :portrait/pick-layer
  (fn [db [_ layer-key asset-id]]
-   (update db :portrait/draft
-           (fn [d]
-             (if (nil? asset-id)
-               (dissoc d layer-key)
-               (let [artist-id (portrait-assets5e/artist-for-asset layer-key asset-id)]
-                 (assoc d layer-key {:artist/id artist-id :asset/id asset-id})))))))
+   (update-in db [:portrait/draft :layers]
+              (fn [layers]
+                (if (nil? asset-id)
+                  (dissoc layers layer-key)
+                  (assoc layers layer-key
+                         {:artist/id (portrait-assets5e/artist-for-asset layer-key asset-id)
+                          :asset/id  asset-id}))))))
 
+;; Randomize and Reset touch :layers only — the character's colors persist
+;; across rerolls, which is what "my character's colors" should mean.
 (reg-event-db
  :portrait/randomize
  (fn [db _]
-   (let [seed (portrait5e/random-seed)]
-     (assoc db
-            :portrait/draft-seed seed
-            :portrait/draft (portrait5e/compose-for-seed seed)))))
+   (let [seed (portrait-assets5e/random-seed)]
+     (-> db
+         (assoc :portrait/draft-seed seed)
+         (assoc-in [:portrait/draft :layers] (portrait-assets5e/compose-for-seed seed))))))
 
 (reg-event-db
  :portrait/reset
  (fn [db _]
-   (assoc db :portrait/draft {} :portrait/draft-seed nil)))
+   (-> db
+       (assoc-in [:portrait/draft :layers] {})
+       (assoc :portrait/draft-seed nil))))
+
+(reg-event-db
+ :portrait/set-slot-color
+ (fn [db [_ slot hex]]
+   (assoc-in db [:portrait/draft :colors slot] hex)))
+
+(reg-event-db
+ :portrait/clear-slot-color
+ (fn [db [_ slot]]
+   (update-in db [:portrait/draft :colors] dissoc slot)))
+
+;; `tweak` is {:shade n} or {:override hex}, merged into the piece's existing
+;; tweak. A zero shade or nil override drops that key; an empty tweak map is
+;; removed entirely so tweaked-layers-in-slot / the sub-dots stay honest.
+(reg-event-db
+ :portrait/set-layer-tweak
+ (fn [db [_ layer-key tweak]]
+   (update-in db [:portrait/draft :tweaks]
+              (fn [tweaks]
+                (let [merged (into {}
+                                   (remove (fn [[_ v]]
+                                             (or (nil? v) (and (number? v) (zero? v)))))
+                                   (merge (get tweaks layer-key) tweak))]
+                  (if (empty? merged)
+                    (dissoc tweaks layer-key)
+                    (assoc tweaks layer-key merged)))))))
+
+(reg-event-db
+ :portrait/clear-layer-tweak
+ (fn [db [_ layer-key]]
+   (update-in db [:portrait/draft :tweaks] dissoc layer-key)))
+
+(reg-event-db
+ :portrait/toggle-slot-panel
+ (fn [db [_ slot]]
+   (assoc db :portrait/open-slot (if (= slot (:portrait/open-slot db)) nil slot))))
+
+(reg-event-db
+ :portrait/toggle-layer-panel
+ (fn [db [_ layer-key]]
+   (assoc db :portrait/open-layer (if (= layer-key (:portrait/open-layer db)) nil layer-key))))
 
 (reg-event-db
  :portrait/save
  [db-char->local-store]
  (fn [db _]
-   (let [draft (get db :portrait/draft {})]
-     (-> db
-         (assoc-in [:character ::entity/values ::char5e/portrait-layers] draft)
-         (dissoc :portrait/drawer-open? :portrait/draft :portrait/draft-seed)))))
+   (let [draft (get db :portrait/draft portrait-assets5e/empty-portrait)]
+     (as-> db $
+       (assoc-in $ [:character ::entity/values ::char5e/portrait] (pr-str draft))
+       (apply dissoc $ portrait-ui-keys)))))
 
 #_ ;; never dispatched from UI
   (reg-event-db
