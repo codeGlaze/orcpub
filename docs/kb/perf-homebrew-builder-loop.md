@@ -932,6 +932,24 @@ back to back, first reads `longest=0`, next four read 700. A throwaway long task
 timed runs (the reader warm-up doubles as this) fixes it. Missing this would have silently
 zeroed out exactly the number this spike depends on.
 
+### CORRECTION (later): the "capped by the largest source" limit was not real
+
+Point 4 above, and point 3's reading of the mega-64 fixture, both said chunking's benefit is
+permanently capped by the size of the single largest source — "the longest task can never
+drop below roughly that source's own parse time" — and wrote off the user with one enormous
+single-source pack as unfixable by this approach.
+
+That is wrong, and the superseded reasoning is left above deliberately. It assumed the chunk
+must be a whole source. It need not be: a source is `{content-type {item-key item}}` plus
+non-content scalars, `merge-plugins` already reassembles it exactly, and measurement
+(`test/browser/library_chunk_granularity_e2e.js`) shows the largest source in MegaPak is
+383,817 chars whose largest content group is 366,488 — splittable, with items below that.
+
+So the longest parse task is bounded by *chunk* size, not by source size, and mega-64's
+46.6%-of-bytes single source is not a floor on what chunking can achieve. The same mistake
+had also produced a claimed un-migratable library in the storage plan. See
+`plan-chunked-library-storage.md` for both corrections and the batched migration algorithm.
+
 ### Recommendation: worth it
 
 **Yes** — chunk the parse per source with a yield between sources. Reasoning:

@@ -26,11 +26,16 @@ Concretely, the blast radius is two functions in `db.cljs`:
 ## Storage schema v2
 
 ```
-plugins:v2:index              {:v 2 :sources ["Player's Handbook" "Volo's ..." ...]
-                               :sizes {"Player's Handbook" 184203 ...}}
-plugins:v2:src:<source name>  the EDN of that one source's plugin map
-plugins:rejected              unchanged (name-keyed quarantine, usually small)
+plugins:v2:index                        {:v 2 :chunks [...] :sizes {chunk-key chars}}
+plugins:v2:src:<source>                 a whole source (the common case)
+plugins:v2:src:<source>#<content-type>  one content group, when a source must be split
+plugins:v2:src:<source>#meta            that source's non-content scalars (:disabled? etc.)
+plugins:rejected                        unchanged (name-keyed quarantine, usually small)
 ```
+
+Most sources are one chunk. The split forms exist so migration and load are never blocked by
+a single oversized source (see the correction below). Reassembly per source is
+`merge-plugins`, which already exists.
 
 Two decisions worth recording:
 
@@ -157,12 +162,70 @@ no partial state to roll back, and a tab closed mid-migration simply resumes nex
 On a `set-item` failure the migration stops where it is, leaves the union valid, and warns.
 It is best-effort and partial by design.
 
-### The one case that cannot migrate, and does not need to
+### CORRECTION: there is no un-migratable case — the chunk is not the source
 
-A single source larger than ~2.58 M chars cannot be moved by this scheme. That is exactly
-the library chunking would not help anyway (the longest task can never drop below the
-largest source's own parse). Such a source stays in the legacy blob, the union loader keeps
-serving it, and no time is wasted pretending otherwise.
+An earlier draft of this section claimed a source larger than ~2.58 M chars could not be
+migrated, and the spike analysis in `perf-homebrew-builder-loop.md` separately claimed
+chunking's benefit was permanently capped by the largest single source. **Both claims were
+wrong, and both were the same mistake**: fixing the chunk at one source and then treating the
+consequences as fundamental. Recorded rather than overwritten, because the error is the
+instructive part.
+
+Granularity recurses: **source -> content group -> item.** A source is
+`{qualified-keyword content-type {item-key item}}` plus non-content scalars, and
+`merge-plugins` (`merge-with merge`) is already exactly the reassembly operation, already
+in use and tested.
+
+Measured group sizes in MegaPak (`_gran` probe over the real imported library):
+
+```
+source                              chars      largest content group
+Mordenkainen's Tome of Foes         383,817    :monsters    366,488
+Monster Manual                      347,500    :monsters    346,461
+Eberron - Rising from the Last War  271,165    :monsters    150,039
+Xanathar's Guide to Everything      270,333    :spells      146,108
+Player's Handbook                   203,108    :subclasses   67,335
+Default Option Source                     2
+```
+
+Moving a chunk of size `c` while the legacy blob holds `L` peaks at `L + c`, so the only
+requirement is `c <= ceiling - L`. For a 3 M-char library that allows `c` up to ~2.18 M;
+real content groups top out at 366 K and items are kilobytes. The constraint stops binding
+as soon as the chunk can be smaller than a source.
+
+### Batch the compaction, not the chunk
+
+Rewriting the legacy blob once per chunk would be far too slow at item granularity. Batch
+instead:
+
+```
+loop:
+  fill the available headroom with chunks (source, else content group, else item)
+  write each as its own v2 key
+  compact the legacy blob ONCE, minus all of them
+```
+
+Headroom grows as the blob drains, so batches accelerate. A 3 M library: batch 1 moves
+1.98 M, batch 2 moves the remaining 1.02 M — **two compactions**, ~4 M chars of
+serialization total. A 4.5 M library sitting near the wall takes about four. Both are
+one-time and fast.
+
+Rule: **use the coarsest chunk that fits the current headroom.** Whole sources for almost
+every library; content groups only when a source will not fit; items only for a pathological
+single-group source.
+
+### What this fixes beyond migration
+
+The longest parse task is now bounded by *chunk* size rather than by the largest source. The
+user with one enormous single-source homebrew pack — written off in both the earlier plan and
+the spike analysis — gets the same benefit as everyone else.
+
+### One shape detail the data surfaced
+
+`Monster Manual` carries `:disabled? 5` alongside its content groups, and
+`salvage-plugin-items` explicitly preserves such non-content entries. Splitting a source must
+put those scalars in their own small meta chunk rather than assuming a source is nothing but
+content groups.
 
 ### Stated plainly: this does not raise the ceiling
 
