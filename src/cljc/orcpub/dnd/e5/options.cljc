@@ -454,7 +454,13 @@
      {:name (if prepend-level? (str level " - " display-name) display-name)
       :key key
       :edit-event edit-event
-      :help (spell-help spell)
+      ;; DEFERRED on purpose. spell-help renders the spell's whole description into a <p>
+      ;; per paragraph; it is 78% of building an option, and memoized-spell-option keys on
+      ;; class name, so eagerly it is built once per (spell x class) and retained for the
+      ;; page. Nothing reads it except the renderer, and only when the peek is opened.
+      ;; Renderers force it with views-aux/realize-help; :help elsewhere is still a plain
+      ;; string or literal hiccup and is untouched. See reagent-architecture-tenets.md #1.
+      :help #(spell-help spell)
       :prereqs [(t/option-prereq
                  "You already know this spell"
                  (fn [c] (let [spells-known (character/spells-known c)]

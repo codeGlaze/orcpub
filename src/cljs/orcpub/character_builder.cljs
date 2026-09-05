@@ -247,7 +247,7 @@
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
          (when @expanded?
-           [:div.m-t-5.m-b-10 (::t/help class-template-option)])]))))
+           [:div.m-t-5.m-b-10 (views-aux/realize-help (::t/help class-template-option))])]))))
 
 (def select-template-key #(select-keys % [::t/key]))
 
@@ -567,10 +567,14 @@
       ^{:key (::t/key option)}
       [option-selector-base (assoc data
                                    :help
+                                   ;; `help` may be a thunk (spell options defer their peek).
+                                   ;; The truthiness test above must NOT force it; only this
+                                   ;; render does.
                                    (when (or help has-named-mods?)
                                         [:div
                                          (when has-named-mods? [:div.i modifiers-str])
-                                         [:div {:class (when has-named-mods? "m-t-5")} help]])
+                                         [:div {:class (when has-named-mods? "m-t-5")}
+                                          (views-aux/realize-help help)]])
                                    :edit-event (::t/edit-event option))])))
 
 (defn selection-section-title [title]

@@ -408,7 +408,27 @@ then the change, then the same probes before/after so the payoff is measured rat
 claimed. Stop and reassess after each — step 1 may move enough that step 3 is not worth its
 risk.
 
-### Step 1 — stop building spell detail panels nobody opened
+### Step 1 — stop building spell detail panels nobody opened — **IMPLEMENTED**
+
+Landed as written. `spell-option` (`options.cljc:463`) stores `#(spell-help spell)`;
+`views-aux/realize-help` forces it at the two render points that actually draw help
+(`character_builder.cljs:577` for option help, `:250` for class help).
+
+The subtlety worth keeping: `help` doubles as a **truthiness test** for whether to draw the
+info button (`character_builder.cljs:517`). A thunk stays truthy, so that check works
+unchanged — and must NOT force, or the deferral buys nothing. The other three
+`option-selector-base` callers were checked: one passes no `:help`, two pass plain values.
+`:help` everywhere else is still a plain string or literal hiccup, untouched.
+
+**Verified.** Characterization (`spell_option_help_test.clj`) green before *and* after — it
+asserts the content a renderer ends up with, not the representation — with its probe line
+flipping `eager hiccup` -> `DEFERRED (thunk, forced at render)`. Full JVM suite 309 tests /
+1704 assertions / 0 failures. Real browser against `lein e2e-server`: Wizard -> Spells tab
+-> open a spell's info; School / Casting Time / Range / Duration / Components and the whole
+description all render, no page errors. **Payoff measurement in progress — numbers to be
+recorded here when the before/after probe completes.**
+
+**Original plan, for the record.**
 
 **Change.** `:help` on a spell option becomes a thunk instead of a materialised hiccup tree.
 `spell-option` stores `#(spell-help spell)`; the renderer calls it if `fn?`. Backwards
