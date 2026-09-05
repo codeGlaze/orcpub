@@ -42,6 +42,9 @@ window.__spy = {};
         var b=window.__spy[label]; b.n++; b.ms+=performance.now()-s; return r; };
     };
     wrap(opt,'class_option','class-option');
+    // The memoized wrapper, not spell_option: spell_option is captured at
+    // definition time by the memoize, so wrapping it intercepts nothing.
+    wrap(opt,'memoized_spell_option','memoized-spell-option');
     wrap(opt,'spell_selection','spell-selection');
     wrap(ss,'make_levels','make-levels');
     wrap(t5e,'template_selections','template-selections');
@@ -77,7 +80,7 @@ const fmt = (d, k) => (d[k] && d[k].n ? `${d[k].n}x${d[k].ms.toFixed(0)}ms` : '-
   console.log(`\nBUILDER OPEN (${Date.now() - t0}ms wall)`);
   console.log('  tmplSel', fmt(open, 'template-selections'), ' classOpt', fmt(open, 'class-option'),
               ' makeLevels', fmt(open, 'make-levels'), ' spellSel', fmt(open, 'spell-selection'),
-              ' build', fmt(open, 'entity/build'));
+              ' memoSpellOpt', fmt(open, 'memoized-spell-option'), ' build', fmt(open, 'entity/build'));
 
   const heapStart = await heapMB();
   console.log('  heap after open:', heapStart.toFixed(1), 'MB');
@@ -95,7 +98,8 @@ const fmt = (d, k) => (d[k] && d[k].n ? `${d[k].n}x${d[k].ms.toFixed(0)}ms` : '-
     const d = await page.evaluate(() => window.__spy);
     console.log('  ' + c.padEnd(9), `wall ${String(Date.now() - t - 1500).padStart(5)}ms`,
                 ' classOpt', fmt(d, 'class-option'), ' makeLevels', fmt(d, 'make-levels'),
-                ' spellSel', fmt(d, 'spell-selection'), ' build', fmt(d, 'entity/build'));
+                ' spellSel', fmt(d, 'spell-selection'), ' memoSpellOpt', fmt(d, 'memoized-spell-option'),
+                ' build', fmt(d, 'entity/build'));
   }
 
   const heapEnd = await heapMB();
