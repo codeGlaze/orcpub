@@ -43,10 +43,14 @@ const PACK = process.argv[2];
   const wrapped = await page.evaluate(() => {
     const ns = window.orcpub && window.orcpub.dnd && window.orcpub.dnd.e5 && window.orcpub.dnd.e5.subs;
     if (!ns || typeof ns.built_character !== 'function') return false;
-    window.__builds = 0; window.__at = []; window.__ctors = 0;
+    window.__builds = 0; window.__at = []; window.__ctors = 0; window.__stacks = [];
     const orig = ns.built_character;
     ns.built_character = function (c, t) {
       window.__builds++; window.__at.push(Math.round(performance.now()));
+      // WHO called? Guessing the caller from reading the code failed three times
+      // (fan-in, sub churn, a direct call on another route); the stack is the
+      // only thing that actually answers it.
+      window.__stacks.push((new Error()).stack.split('\n').slice(1, 9).join('\n'));
       return orig.call(this, c, t);
     };
     // Constructing the sub builds ONCE in its own let, bypassing the debounce.
@@ -63,13 +67,14 @@ const PACK = process.argv[2];
 
   const click = (t) => page.locator(`text="${t}"`).first().click({ timeout: 25000 });
   const round = async (label, fn) => {
-    await page.evaluate(() => { window.__builds = 0; window.__at = []; window.__ctors = 0; });
+    await page.evaluate(() => { window.__builds = 0; window.__at = []; window.__ctors = 0; window.__stacks = []; });
     try { await fn(); } catch (e) { console.log(label.padEnd(28), 'click failed:', e.message.split('\n')[0]); return; }
     await page.waitForTimeout(1500);            // past the 500 ms debounce
-    const r = await page.evaluate(() => ({ n: window.__builds, at: window.__at, c: window.__ctors }));
+    const r = await page.evaluate(() => ({ n: window.__builds, at: window.__at, c: window.__ctors, st: window.__stacks }));
     const gaps = r.at.slice(1).map((t, i) => t - r.at[i]);
     console.log(label.padEnd(28), 'builds =', r.n, ' subs re-created =', r.c,
                 gaps.length ? '  gaps(ms) = ' + gaps.join(',') : '');
+    if (process.env.STACKS) r.st.forEach((st, i) => console.log(`--- build ${i + 1} ---\n${st}`));
   };
 
   await round('race Half-Orc', () => click('Half-Orc'));
