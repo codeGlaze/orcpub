@@ -95,6 +95,23 @@
           missing (reconcile/check-content-availability char-keys {})]
       (is (empty? missing)))))
 
+(deftest test-custom-inline-content-not-flagged
+  (testing "Inline :custom content is never flagged missing — every 'Custom'
+            option derives ::entity/key :custom and its real data lives on the
+            entity, not in a plugin. Regression for the persistent
+            'Missing Content — Background: :custom' false positive; without the
+            guard this character reports 2 missing (custom race + background)."
+    (let [character {::entity/options
+                     {:class [{::entity/key :fighter}]
+                      :race {::entity/key :custom}
+                      :background {::entity/key :custom}}}
+          char-keys (reconcile/extract-content-keys character)
+          ;; empty available content — a genuinely-missing homebrew key WOULD be
+          ;; flagged here, so an empty result proves :custom is treated as inline
+          missing (reconcile/check-content-availability char-keys {})]
+      (is (empty? missing)
+          ":custom race + background are inline content, not missing"))))
+
 ;; ============================================================================
 ;; Similarity & Suggestions
 ;; ============================================================================

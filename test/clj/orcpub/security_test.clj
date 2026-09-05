@@ -87,8 +87,11 @@
     (is (not (s/multiple-account-access-aux "1.2.3.6" attempts-2)))
     (is (not (s/multiple-account-access-aux "1.2.3.8" attempts-2)))))
 
-;; TODO: Fix / remove test
-#_(deftest test-multiple-ip-attempts-to-same-account? []
+;; Was disabled with "TODO: Fix / remove test" because the function it covers
+;; never called its own aux -- it returned the attempts atom, which is truthy
+;; even when empty, so every assertion expecting false failed. The function is
+;; fixed, so the test is live again.
+(deftest test-multiple-ip-attempts-to-same-account?
   (let [attempts {"user-1" (attempts-set
                             (map
                              (fn [i]
@@ -179,3 +182,23 @@
     (is (-> "user-2" result nil?))
     (is (= 10 (-> "user-1" result count)))
     (is (= 9 (-> "user-3" result count)))))
+
+(deftest multiple-ip-attempts-answers-no-for-an-untouched-account
+  ;; The precise shape of the bug: the function returned the attempts map
+  ;; instead of calling its aux, and an empty map is truthy in Clojure, so it
+  ;; answered "yes" for an account with no attempts at all.
+  (is (not (s/multiple-ip-attempts-to-same-account-aux "nobody" {})))
+  (is (not (s/multiple-ip-attempts-to-same-account? "nobody"))
+      "and through the public predicate, which is what callers use"))
+
+(deftest attempts-sharing-an-instant-collapse
+  ;; A property of the production structure, not a test artifact: attempts live
+  ;; in a sorted-set-by compare-dates, which orders on :date alone, so two
+  ;; attempts recorded in the same instant are treated as one element and one
+  ;; is dropped. Worth knowing before trusting these counts as exact.
+  (let [instant (now)
+        two-ips (into (sorted-set-by s/compare-dates)
+                      [{:user "u" :ip "1.1.1.1" :date instant}
+                       {:user "u" :ip "2.2.2.2" :date instant}])]
+    (is (= 1 (count two-ips))
+        "two attempts, one instant, one surviving entry")))

@@ -13,6 +13,7 @@
    because a builder's save spec later tightened."
   (:require #?(:clj [clojure.spec.alpha :as spec]
                :cljs [cljs.spec.alpha :as spec])
+            [orcpub.common :as common]
             [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.spells :as spells]
             [orcpub.dnd.e5.races :as races]
@@ -63,3 +64,14 @@
    into `e5/salvage-plugins`, so 'what counts as loadable' lives in one place."
   [plugin]
   (spec/valid? ::e5/plugin plugin))
+
+(defn valid-item-for-load?
+  "The load floor for a SINGLE homebrew item: a letter-leading key and an item
+   that satisfies the loose `load-item-spec` (`::e5/homebrew-item` — a map with an
+   `:option-pack` string). The per-item mirror of `valid-for-load?`, injected into
+   `e5/salvage-library-items` for PER-ENTRY salvage: a source keeps exactly the
+   items a whole-plugin load would have kept, and only the broken ones are set
+   aside — instead of one bad item quarantining the entire source."
+  [_content-type item-key item]
+  (and (common/keyword-starts-with-letter? item-key)
+       (spec/valid? load-item-spec item)))

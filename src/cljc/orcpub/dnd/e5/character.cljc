@@ -527,6 +527,21 @@
 (defn pact-magic? [built-char]
   (get-prop built-char :pact-magic?))
 
+(defn shared-spell-slots
+  "The slot table every non-pact caster draws on.
+
+   5e gives a multiclass ONE table from combined caster levels, so this is shared
+   rather than per class. spell-slots is this plus pact-spell-slots, added -- and
+   the addition is lossy, since a Warlock beside another caster has two pools and
+   one number."
+  [built-char]
+  (get-prop built-char :shared-spell-slots))
+
+(defn pact-spell-slots
+  "A Warlock's Pact Magic slots, which are a separate pool at their own level."
+  [built-char]
+  (get-prop built-char :pact-spell-slots))
+
 (defn spell-slot-factors [built-char]
   (get-prop built-char :spell-slot-factors))
 

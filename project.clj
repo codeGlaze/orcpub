@@ -189,6 +189,8 @@
             "fig:build" ["run" "-m" "figwheel.main" "--" "--build-once" "dev"]
             "fig:prod" ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]
             "fig:test" ["run" "-m" "figwheel.main" "--" "--build-once" "test"]
+            ;; Preview the character-load report email (no send) — email endpoint dev tool
+            "report-preview" ["with-profile" "+tools" "run" "-m" "orcpub.dev.report-preview"]
             ;; Single-command production build: clean → CLJS → uberjar.
             ;; clean runs first because :clean-targets includes
             ;; resources/public/js/compiled (the CLJS output dir).
@@ -199,6 +201,15 @@
             "externs" ["do" "clean"
                        ["run" "-m" "externs"]]
             "rebuild-modules" ["run" "-m" "user" "--rebuild-modules"]
+            ;; Boot the FULL app (Pedestal + in-memory Datomic) on :8890 for browser e2e —
+            ;; no transactor, no external DB. Run `lein e2e-server`, then drive Playwright
+            ;; against http://localhost:8890 through the real UI. See test/browser/README.md.
+            "e2e-server" ["with-profile" "+e2e" "run"]
+            ;; Same server, but with the export queue small enough to hit on one
+            ;; machine: one sheet at a time, a quarter-second wait for a slot, two
+            ;; self-retries. Click Export twice quickly, or run
+            ;; test/browser/export_busy_retry_e2e.js, to see the busy page.
+            "e2e-server-busy" ["with-profile" "+e2e,+busy-export" "run"]
             ;; --fail-level error: exit 0 on warnings, exit 1 only on errors.
             ;; trampoline re-execs in a fresh JVM so System/exit propagates
             ;; (without it, lein suppresses the exit code).
@@ -207,7 +218,19 @@
             "prod-build" ^{:doc "Recompile code with prod profile."}
             ["externs"
              ["run" "-m" "figwheel.main" "--" "--build-once" "prod"]]}
-  :profiles {;; Legacy cljsbuild build configs — retained for lein figwheel (legacy
+  :profiles {;; Minimal profile to run dev/ command-line tools (e.g. report-preview)
+             ;; with base runtime deps but WITHOUT the heavy cljs/devtools :dev-config.
+             :tools {:source-paths ["dev"]}
+             ;; In-memory Datomic for local/e2e runs — the full stack boots with no
+             ;; transactor and no external DB. Used by the `e2e-server` alias; environ
+             ;; feeds :datomic-url to orcpub.config/get-datomic-uri.
+             :e2e {:env {:datomic-url "datomic:mem://orcpub"}}
+             ;; An export queue small enough to reach on one machine, for seeing
+             ;; the busy page. Stacks on :e2e -- see the e2e-server-busy alias.
+             :busy-export {:env {:orcpub-pdf-concurrency "1"
+                                 :orcpub-pdf-queue-timeout-ms "250"
+                                 :orcpub-pdf-max-retries "2"}}
+             ;; Legacy cljsbuild build configs — retained for lein figwheel (legacy
              ;; dev server) and reference. lein-cljsbuild PLUGIN has been removed;
              ;; prod CLJS builds now use figwheel-main (prod.cljs.edn / fig:prod).
              ;; The :cljsbuild map is inert data without the plugin loaded.

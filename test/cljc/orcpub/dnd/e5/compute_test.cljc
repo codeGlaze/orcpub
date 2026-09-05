@@ -51,6 +51,43 @@
         all-spell-keys (set (mapcat (comp keys ::e5/spells) result))]
     (is (= #{:a :d} all-spell-keys))))
 
+;; -- compute-plugin-vals with the disable overlay --
+
+(deftest compute-plugin-vals-overlay-global-drops-everything
+  (let [plugins {"Pack" {::e5/spells {:a {:name "A"}}}}]
+    (is (empty? (compute/compute-plugin-vals plugins {:global? true}))
+        "global? overlay hides all homebrew")
+    (is (seq (compute/compute-plugin-vals plugins {:global? false}))
+        "global? false leaves content visible")))
+
+(deftest compute-plugin-vals-overlay-section-drops-one-content-type
+  (let [plugins {"Pack" {::e5/spells {:a {:name "A"}}
+                         ::e5/feats  {:t {:name "T"}}}}
+        overlay {:sections #{["Pack" ::e5/spells]}}
+        result (first (compute/compute-plugin-vals plugins overlay))]
+    (is (not (contains? result ::e5/spells))
+        "section-disabled content type is dropped")
+    (is (contains? result ::e5/feats)
+        "other content types in the same source are untouched")))
+
+(deftest compute-plugin-vals-overlay-section-scoped-to-source
+  ;; The same content type in a DIFFERENT source is unaffected.
+  (let [plugins {"Pack A" {::e5/spells {:a {:name "A"}}}
+                 "Pack B" {::e5/spells {:b {:name "B"}}}}
+        overlay {:sections #{["Pack A" ::e5/spells]}}
+        names (set (mapcat (comp vals ::e5/spells) (compute/compute-plugin-vals plugins overlay)))]
+    (is (= #{"B"} (set (map :name names)))
+        "only Pack A's spells are hidden; Pack B's remain")))
+
+(deftest compute-sorted-spells-overlay-section-excluded
+  (let [db {:plugins {"Pack" {::e5/spells {:zap {:name "Zap" :key :zap}}}}
+            :disable-overlay {:sections #{["Pack" ::e5/spells]}}}
+        names (set (map :name (compute/compute-sorted-spells db)))]
+    (is (not (contains? names "Zap"))
+        "a section-disabled spell must not reach the builder")
+    (is (contains? names "Fireball")
+        "static spells are unaffected by the overlay")))
+
 ;; -- filter-spells --
 
 (def sample-spells
