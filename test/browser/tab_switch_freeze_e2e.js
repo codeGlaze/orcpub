@@ -98,7 +98,8 @@ try {
   const heapMB = async () => ((await cdp.send('Runtime.getHeapUsage')).usedSize / 1048576);
 
   const tab = async (label, name) => {
-    await page.evaluate(() => { window.__tasks = []; for (const k in window.__spy) window.__spy[k] = {n:0,ms:0}; });
+    await page.evaluate(() => { window.__tasks = []; window.__loStack = null;
+                                for (const k in window.__spy) window.__spy[k] = {n:0,ms:0}; });
     const h0 = await heapMB();
     const t = Date.now();
     try { await page.locator(`text="${name}"`).first().click({ timeout: 30000 }); }
@@ -116,6 +117,10 @@ try {
                 drop > 5 ? ` GC? -${drop.toFixed(0)}MB` : '',
                 ' ' + Object.entries((await page.evaluate(() => window.__spy)) || {})
                         .filter(([, v]) => v.n).map(([k, v]) => `${k} ${v.n}x${v.ms.toFixed(0)}ms`).join(' '));
+    if (worst > 500) {
+      const st = await page.evaluate(() => window.__loStack);
+      console.log('\n  --- stack at the first level-option call OF THIS SWITCH ---\n' + (st || '  (none)') + '\n');
+    }
   };
 
   // Positive control: a class dropdown change is known to call memoized-spell-option.
@@ -139,7 +144,5 @@ try {
     await tab(`${i}. -> Class / Level`, 'Class / Level');
     await tab(`${i}. -> Race`, 'Race');
   }
-  const st = await page.evaluate(() => window.__loStack);
-  console.log('\n=== stack at the first level-option call ===\n' + (st || '(never called)'));
   await browser.close();
 })().catch(e => { console.error('FAILED', e); process.exit(1); });
