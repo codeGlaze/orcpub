@@ -833,9 +833,31 @@ which matches the earlier warm/cold split (~197 ms warm with everything cached, 
 unbounded cache accounting for only ~60 of ~257 ms). Anything aimed at class-switch time has
 to attack that single build and its render, not duplication.
 
-That also fixes a latent bug: `[:built-character id]` ignored `id` and returned the builder's
-in-progress character, so a character page showed the wrong character while
-`::char/character id` and friends in the same `let` showed the right one.
+**Why there were two, and why one was nil:** `character_builder.cljs:1913` and `:1928` render
+`[views5e/character-display nil true 1]` with an explicit nil, which reaches
+`summary-details` and becomes `[:built-character nil]`. The builder's own code subscribes
+`[:built-character]` with no argument. Same data, two query vectors. An argument-passing
+inconsistency, nothing deeper.
+
+### CORRECTION: the first version of this fix overreached
+
+It also routed **non-nil** ids to `[::char/built-character id]`, described here as fixing a
+latent bug — `[:built-character id]` ignores `id` and returns the builder's character, which
+looks wrong on a character page. Two problems with that:
+
+1. Nobody has reported seeing the wrong character, which is evidence the reading is wrong or
+   the path rarely renders (`character-display` defaults to the "combat" tab in two-column
+   layouts, so the summary tab may seldom mount).
+2. `::char5e/character` is a `reg-sub-raw` that **fires an HTTP GET and dispatches
+   `:set-loading`** for a non-nil id. `character-display` is rendered with real ids in the
+   character page, a character list and two party views, so that change could add a fetch per
+   rendered character — a path never measured.
+
+The fix is now narrowed to the nil case only, which is the one that was measured. The non-nil
+behaviour is left exactly as it shipped. Whether it is genuinely wrong is an **open
+question**, and answering it means checking whether each call site already subscribes
+`[::char/character id]` (re-frame would then reuse the cached reaction and add no fetch) —
+not assuming it.
 
 ### The lesson, which cost most of the debugging time
 

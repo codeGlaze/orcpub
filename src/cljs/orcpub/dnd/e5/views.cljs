@@ -2885,12 +2885,16 @@
 (def set-notes-handler (memoize set-notes-fn))
 
 (defn summary-details [num-columns id]
-  (let [;; Route by id like the siblings below. [:built-character id] ignores id
-        ;; and returns the BUILDER's character; and a nil id made
-        ;; [:built-character nil] a second query vector, so the builder ran two
-        ;; debounced-build-subs over the same character (2 builds per click).
+  (let [;; The builder renders character-display with an explicit nil id, so this
+        ;; was [:built-character nil] -- a different query vector from the
+        ;; builder's own [:built-character], hence a second debounced-build-sub
+        ;; over the same character (2 builds per click). Collapse only that case.
+        ;; The non-nil path is left exactly as it was: [:built-character id]
+        ;; ignores id and returns the builder's character, which looks wrong on a
+        ;; character page, but ::char/built-character id fetches over HTTP, so
+        ;; changing it needs its own verification. See docs/kb.
         built-char @(subscribe (if id
-                                 [::char/built-character id]
+                                 [:built-character id]
                                  [:built-character]))
         {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
         username @(subscribe [:username])
