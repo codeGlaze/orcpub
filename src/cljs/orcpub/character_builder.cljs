@@ -1,5 +1,6 @@
 (ns orcpub.character-builder
   (:require [goog.dom :as gdom]
+            [orcpub.image-capture :as image-capture]
             [goog.string :as gs]
             [goog.labs.userAgent.device :as device]
             [cljs.pprint :as pprint]
@@ -1784,11 +1785,46 @@
 
 (def image-error (memoize image-error-fn))
 
-(defn image-loaded []
-  (dispatch [:loaded-image]))
+(defn image-load-fn
+  "Clears the failed flag if one was set, and asks for the picture's bytes.
 
-(defn faction-image-loaded []
-  (dispatch [:loaded-faction-image]))
+   The read starts from the load rather than from the export click: the export
+   submits a form into a new tab synchronously, and an await in between spends the
+   user activation that keeps the tab from being blocked. See orcpub.image-capture.
+
+   The flag is only cleared when it was set, because that write goes onto the
+   character and would otherwise mark it edited every time a thumbnail loads."
+  [event-key url failed?]
+  (fn []
+    (when failed? (dispatch [event-key]))
+    (dispatch [::char5e/capture-image url])))
+
+(def image-load (memoize image-load-fn))
+
+(defn image-upload
+  "Shown when the host refused the browser the picture. The file the user picks is
+   read locally and travels only as the bytes the export carries, so no host has a
+   say in it. Keyed by URL like every other capture, so it stands in for exactly
+   the address that could not be read."
+  [url state]
+  (case state
+    :pending
+    [:div.f-s-12.m-t-5 "Reading image..."]
+
+    :unavailable
+    [:div.m-t-5
+     [:div.f-s-12.m-b-5
+      "This host does not let the page read the picture, so the PDF may print
+       without it. Upload the file to print it anyway (PNG or JPEG, 128k max):"]
+     [:input {:type "file"
+              :accept "image/png,image/jpeg"
+              :on-change (fn [e]
+                           (when-let [file (some-> e .-target .-files (aget 0))]
+                             (image-capture/capture-file
+                              file
+                              #(dispatch [::char5e/image-captured url %]))))}]]
+
+    nil))
 
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
@@ -1796,7 +1832,8 @@
         image-url @(subscribe [::char5e/image-url])
         image-url-failed @(subscribe [::char5e/image-url-failed])
         faction-image-url @(subscribe [::char5e/faction-image-url])
-        faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])]
+        faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])
+        image-bytes @(subscribe [::char5e/image-bytes])]
     [:div.flex-grow-1
      [:div.m-t-5
       [:span.personality-label.f-s-18 "Character Name"]
@@ -1854,12 +1891,14 @@
       (when image-url
         [:img.m-r-10.image-character-thumbnail {:src image-url
                       :on-error (image-error :failed-loading-image image-url)
-                      :on-load (when image-url-failed image-loaded)}])
+                      :on-load (image-load :loaded-image image-url image-url-failed)}])
       [:div.flex-grow-1
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
        (when image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
+         [:div.red.m-t-5 "Image failed to load, please check the URL"])
+       (when (and image-url (not image-url-failed))
+         [image-upload image-url (get image-bytes image-url)])]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -1867,13 +1906,16 @@
       (when faction-image-url
         [:img.m-r-10.image-faction-thumbnail {:src faction-image-url
                       :on-error (image-error :failed-loading-faction-image faction-image-url)
-                      :on-load (when faction-image-url-failed
-                                 faction-image-loaded)}])
+                      :on-load (image-load :loaded-faction-image
+                                           faction-image-url
+                                           faction-image-url-failed)}])
       [:div.flex-grow-1
        [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
        (when faction-image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
+         [:div.red.m-t-5 "Image failed to load, please check the URL"])
+       (when (and faction-image-url (not faction-image-url-failed))
+         [image-upload faction-image-url (get image-bytes faction-image-url)])]]
      [:div.field
       [:span.personality-label.f-s-18 "Description/Backstory"]
       [character-textarea entity-values ::char5e/description "h-800"]]]))

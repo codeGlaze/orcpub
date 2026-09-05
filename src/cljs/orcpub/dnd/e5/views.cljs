@@ -4205,6 +4205,27 @@
      :pointer-events "none"}))
 
 
+(defn capture-images
+  "Reads the character's pictures in the browser when this mounts, so their bytes
+   are in hand before the export button is clicked. Renders nothing.
+
+   Kept off the click handler on purpose: the export is a synchronous form submit
+   into a new tab, and any await between the click and .submit() spends the
+   transient user activation that keeps that tab from being blocked. Each request
+   is idempotent, so re-rendering costs one read per URL and no more.
+
+   `urls` comes through the argv rather than a subscription so that a URL edited
+   while this is mounted is picked up by the update."
+  [_urls]
+  (let [ask (fn [this]
+              (doseq [url (second (r/argv this))
+                      :when (seq url)]
+                (dispatch [::char/capture-image url])))]
+    (r/create-class
+     {:component-did-mount ask
+      :component-did-update ask
+      :reagent-render (fn [_] nil)})))
+
 (defn print-options [id built-char]
   (let [print-character-sheet? @(subscribe [::char/print-character-sheet?])
         print-spell-cards? @(subscribe [::char/print-spell-cards?])
@@ -4218,12 +4239,15 @@
         print-bw? @(subscribe [::char/print-bw?])
         bw-faded? @(subscribe [::char/bw-faded?])
         spell-layout @(subscribe [::char/spell-layout])
+        image-url @(subscribe [::char/image-url id])
+        faction-image-url @(subscribe [::char/faction-image-url id])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
                      :all-weapons-map @(subscribe [::mi/all-weapons-map])
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
-                     :current-armor-class @(subscribe [::char/current-armor-class id])}
+                     :current-armor-class @(subscribe [::char/current-armor-class id])
+                     :image-bytes @(subscribe [::char/image-bytes])}
         has-spells? (seq (char/spells-known built-char))
         ;; Only a multiclass caster on a style that can be renumbered has a
         ;; choice to make, so the control is not shown to anyone else.
@@ -4243,6 +4267,7 @@
         ]
     [:div.flex.justify-cont-end
      [:div.p-20
+      [capture-images [image-url faction-image-url]]
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
 
       ;; Grouped by what a setting changes: the sheet, the cards behind it, then
@@ -9347,7 +9372,8 @@
                      :language-map @(subscribe [::langs/language-map])
                      :all-weapons-map @(subscribe [::mi/all-weapons-map])
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
-                     :current-armor-class @(subscribe [::char/current-armor-class id])}
+                     :current-armor-class @(subscribe [::char/current-armor-class id])
+                     :image-bytes @(subscribe [::char/image-bytes])}
         folders @(subscribe [::folder/folders])
         char-folder-map @(subscribe [::folder/character-folder-map])
         current-folder-id (get char-folder-map id)]

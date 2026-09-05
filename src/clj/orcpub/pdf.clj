@@ -33,7 +33,6 @@
             [orcpub.common :as common]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.display :as dis5e]
-            [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
   (:import (java.io ByteArrayOutputStream)
@@ -70,10 +69,6 @@
 (def HELVETICA_BOLD
   "Standard Helvetica font (bold weight, upright)"
   (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD))
-
-(def HELVETICA_OBLIQUE
-  "Standard Helvetica font (regular weight, italic/oblique)"
-  (PDType1Font. Standard14Fonts$FontName/HELVETICA_OBLIQUE))
 
 (def HELVETICA_BOLD_OBLIQUE
   "Standard Helvetica font (bold weight, italic/oblique)"
@@ -1777,6 +1772,48 @@
       (println "pdf: image unavailable -" (.getMessage e) "-" url)
       nil)))
 
+(def ^:private max-image-base64
+  "Ceiling on the ENCODED string, so an oversized image is refused before a byte
+   array is allocated to hold it. Base64 spends four characters on every three
+   bytes, plus padding."
+  (+ 4 (quot (* 4 max-image-bytes) 3)))
+
+(defn- jpeg-bytes?
+  "Whether `data` opens with the JPEG start-of-image marker.
+
+   Sniffed rather than read from the mime type the client sent: this decides
+   whether the bytes are embedded as they are or decoded and re-encoded, and a
+   blob labelled image/jpeg that is not one fails the embed."
+  [^bytes data]
+  (and (>= (alength data) 3)
+       (= 0xFF (bit-and 0xFF (aget data 0)))
+       (= 0xD8 (bit-and 0xFF (aget data 1)))
+       (= 0xFF (bit-and 0xFF (aget data 2)))))
+
+(defn decode-image-bytes
+  "Image bytes the browser read, as {:data bytes :jpg? bool}, or nil.
+
+   Every ceiling safe-image-bytes applies is applied here too. These arrive from
+   the same untrusted client that supplies the URL, so sending bytes skips the
+   fetch and nothing else; in particular the pixel budget is still read from the
+   header, because a small file can declare an enormous canvas.
+
+   Returns nil rather than throwing, for the reason fetch-image does: a picture
+   that cannot be used must cost the character their picture, not their sheet."
+  [b64]
+  (try
+    (when (and (string? b64)
+               (not (s/blank? b64))
+               (<= (count b64) max-image-base64))
+      (let [data (.decode (java.util.Base64/getDecoder) ^String b64)]
+        (when (and (pos? (alength data))
+                   (<= (alength data) max-image-bytes)
+                   (within-pixel-budget? data))
+          {:data data :jpg? (jpeg-bytes? data)})))
+    (catch Exception e
+      (println "pdf: supplied image bytes rejected -" (.getMessage e))
+      nil)))
+
 (defn draw-image! [doc page url x y width height]
   (let [lower-case-url (s/lower-case url)
         jpg? (or (s/ends-with? lower-case-url "jpg")
@@ -2122,9 +2159,6 @@
             :when (not (and (zero? dx) (zero? dy)))]
       (draw-text cs text font font-size (+ x dx) (+ y dy) [1 1 1]))
     (draw-text cs text font font-size x y [0 0 0])))
-
-(defn draw-text-from-top [cs text font font-size x y & [color]]
-  (draw-text cs text font font-size x (- 11.0 y) color))
 
 (defn draw-line
   "Draw a line. PDFBox 3.x removed drawLine — use moveTo/lineTo/stroke."
@@ -3480,87 +3514,3 @@
                                               (if clause (:continued up) (:continued-bare up))))))
              {:remaining-lines remaining-desc-lines
               :spell-name item-name}))))))))
-
-#_{:clj-kondo/ignore [:unused-private-var]}
-(defn- create-monsters-pdf
-  "Development/testing function that generates a sample monster stat block PDF.
-   
-   This function is not used in production - it's a utility for testing PDF
-   generation during development. The output is saved to a temporary file.
-   
-   Returns: The temp file path where the PDF was saved."
-  []
-  (let [page (PDPage.)
-        doc (PDDocument.)]
-    (.addPage doc page)
-    (with-open [cs (PDPageContentStream. doc page)]
-      (let [h (/ 11.0 5)]
-        (doseq [y (range h 11.0 h)]
-          (draw-line-in cs 0.0 y 8.5 y))
-        (let [monsters (vec (take 5 monsters/monsters))]
-          (doseq [i (range 0 5)]
-            (let [monster (monsters i)]
-              (draw-text-from-top cs
-                                  (:name monster)
-                                  HELVETICA_BOLD
-                                  14
-                                  0.1
-                                  (+ (* i h) 0.25))
-              (draw-text-from-top cs
-                                  (monsters/monster-subheader monster)
-                                  HELVETICA_OBLIQUE
-                                  12
-                                  0.1
-                                  (+ (* i h) 0.45))
-              (doseq [j (range 0 6)]
-                (let [ability ([:str :dex :con :int :wis :cha] j)
-                      x (+ 0.15 (* 0.65 j))]
-                  (draw-text-from-top cs
-                                      (name ability)
-                                      HELVETICA_BOLD
-                                      10
-                                      x
-                                      (+ (* i h) 0.7))
-                  (draw-text-from-top cs
-                                      (str (ability monster)
-                                           " ("
-                                           (options/ability-bonus-str (ability monster))
-                                           ")")
-                                      HELVETICA
-                                      12
-                                      x
-                                      (+ (* i h) 0.85))))
-              (draw-text-from-top cs
-                                  "Saving Throws"
-                                  HELVETICA_BOLD
-                                  10
-                                  0.1
-                                  (+ (* i h) 1.1))
-              (draw-text-from-top cs
-                                  (common/print-bonus-map (:saving-throws monster))
-                                  HELVETICA
-                                  10
-                                  (+ 0.1 (string-width
-                                          "Saving Throws "
-                                          HELVETICA_BOLD
-                                          10))
-                                  (+ (* i h) 1.1))
-              (draw-text-from-top cs
-                                  "Skills"
-                                  HELVETICA_BOLD
-                                  10
-                                  0.1
-                                  (+ (* i h) 1.3))
-              (draw-text-from-top cs
-                                  (common/print-bonus-map (:skills monster))
-                                  HELVETICA
-                                  10
-                                  (+ 0.1 (string-width
-                                          "Skills "
-                                          HELVETICA_BOLD
-                                          10))
-                                  (+ (* i h) 1.3)))))))
-    ;; Save to a cross-platform temp file instead of a hardcoded path.
-    ;; java.io.File/createTempFile creates a file in the system temp directory
-    ;; and returns a File object that PDDocument.save() accepts.
-    (.save doc (java.io.File/createTempFile "monsters" ".pdf"))))

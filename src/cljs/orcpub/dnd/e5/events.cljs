@@ -13,6 +13,7 @@
             [orcpub.dnd.e5.share-bundle :as share-bundle]
             [orcpub.dnd.e5.share-url :as share-url]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.image-capture :as image-capture]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
             [orcpub.dnd.e5.languages :as langs5e]
@@ -1990,6 +1991,38 @@
            ::entity/values
            dissoc
            ::char5e/faction-image-url-failed)))
+
+;; ── Character pictures read in the browser ───────────────────────────────────
+;;
+;; The bytes live in app-db under :image-bytes and NOT on the character. They are
+;; derived from the URL and re-read whenever it loads, and the character is what
+;; gets persisted -- to the server, and to localStorage, whose ~5 MB ceiling a
+;; base64 portrait would eat into for no gain.
+;;
+;; Keyed by URL rather than by character, so a portrait shared between characters
+;; is read once and a character whose URL changes does not strand its old bytes.
+
+(reg-event-fx
+ ::char5e/capture-image
+ (fn [{:keys [db]} [_ url]]
+   ;; Idempotent: a URL already read, already refused, or still in flight is left
+   ;; alone, so every mount and every image load may ask without cost.
+   (if (or (empty? url) (contains? (:image-bytes db) url))
+     {}
+     {:db (assoc-in db [:image-bytes url] :pending)
+      ::capture-image url})))
+
+(reg-fx
+ ::capture-image
+ (fn [url]
+   (image-capture/capture url #(dispatch [::char5e/image-captured url %]))))
+
+(reg-event-db
+ ::char5e/image-captured
+ (fn [db [_ url payload]]
+   ;; :unavailable is a result, not an absence -- it is what the builder shows the
+   ;; upload prompt for, and what stops the URL being read again on every render.
+   (assoc-in db [:image-bytes url] (or payload :unavailable))))
 
 ;; ── Inline "Custom" options ──────────────────────────────────────────────────
 ;; The :set-custom-* events write a typed name to ::entity/value on the character

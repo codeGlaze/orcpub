@@ -744,7 +744,8 @@
   "Keys the client sends alongside the field values to steer the export. They name
    no field, so they are removed before write-fields!, which reports whatever it
    cannot place and would otherwise flag every one of these on every request."
-  #{:image-url :image-url-failed :faction-image-url :faction-image-url-failed
+  #{:image-url :image-url-failed :image-data
+    :faction-image-url :faction-image-url-failed :faction-image-data
     :spells-known :custom-spells :spell-save-dcs :spell-attack-mods
     :print-character-sheet? :print-spell-cards? :print-character-sheet-style?
     :print-spell-card-dc-mod? :print-card-back-logo? :card-back-logo-faded?
@@ -921,7 +922,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed image-data faction-image-url faction-image-url-failed faction-image-data spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten?]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -1036,7 +1037,8 @@
           (add-magic-item-cards! doc fonts img magic-items-known card-back-logo-img
                                  bw? bw-faded?)))
 
-      ;; Both images are fetched BEFORE either is drawn, and concurrently.
+      ;; Both images are resolved BEFORE either is drawn, and any that has to be
+      ;; fetched is fetched concurrently with the other.
       ;;
       ;; Fetching is where an export's seconds go -- 10s to connect, 10s on the
       ;; socket and a 20s transfer deadline apiece -- and it happens holding an
@@ -1054,10 +1056,17 @@
                           (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]"
                                       url)
                           url))
-            portrait (some-> (wanted image-url image-url-failed)
-                             (as-> u (future (pdf/fetch-image u))))
-            faction (some-> (wanted faction-image-url faction-image-url-failed)
-                            (as-> u (future (pdf/fetch-image u))))]
+            ;; Bytes the browser read beat the URL and skip the fetch entirely.
+            ;; A host that blocks hotlinking refuses this server and not the
+            ;; browser, so the address is the fallback rather than the only route.
+            ;; Both arms deref, so nothing below has to know which one it got.
+            image (fn [supplied url failed?]
+                    (if-let [bytes (pdf/decode-image-bytes supplied)]
+                      (delay bytes)
+                      (some-> (wanted url failed?)
+                              (as-> u (future (pdf/fetch-image u))))))
+            portrait (image image-data image-url image-url-failed)
+            faction (image faction-image-data faction-image-url faction-image-url-failed)]
         (when-let [{:keys [data jpg?]} (some-> portrait deref)]
           (case print-character-sheet-style?
             1 (pdf/draw-image-bytes! doc (pdf/get-page doc 1) data jpg? 0.45 1.75 2.35 3.15)

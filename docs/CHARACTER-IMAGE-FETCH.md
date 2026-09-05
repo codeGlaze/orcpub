@@ -1,20 +1,48 @@
 # Character image fetch — how it works, and what to check when it breaks
 
-A character's portrait and faction image are stored as **URLs**. When a sheet is
-exported, the **server** fetches them and embeds the pixels in the PDF. That is
-the only outbound request OrcPub makes to an address a visitor chose, on an
-endpoint that needs no login, so it is deliberately hemmed in — and the hemming is
-what usually breaks first.
+A character's portrait and faction image are stored as **URLs**. There are two
+ways the pixels reach the PDF, tried in that order:
+
+1. **The browser reads them and sends the bytes with the export.** This is the
+   normal path. Hosts that block hotlinking judge the Referer and the datacenter
+   IP, so they refuse the server and not the visitor's own browser.
+2. **The server fetches the URL itself.** The fallback, for a picture the browser
+   was not allowed to read. It is the only outbound request OrcPub makes to an
+   address a visitor chose, on an endpoint that needs no login, so it is
+   deliberately hemmed in — and the hemming is what usually breaks first.
 
 Read this if portraits stop appearing in exported PDFs, or if a security review
 asks what `/character.pdf` can be made to talk to.
 
-- Code: `orcpub.pdf` — `validated-addresses`, `private-address?`,
-  `pinned-connection-manager`, `proxied?`, `open-image-stream`,
-  `read-bounded-bytes`, `within-pixel-budget?`, `safe-image-bytes`
-- Tests: `test/clj/orcpub/pdf_image_test.clj` (which URLs are allowed),
-  `test/clj/orcpub/pdf_image_fetch_test.clj` (what happens once one is)
+- Code, browser side: `orcpub.image-capture` — `capture`, `capture-file`,
+  `normalize`, `read-drawn`
+- Code, server side: `orcpub.pdf` — `decode-image-bytes` (path 1),
+  and `validated-addresses`, `private-address?`, `pinned-connection-manager`,
+  `proxied?`, `open-image-stream`, `read-bounded-bytes`,
+  `within-pixel-budget?`, `safe-image-bytes` (path 2)
+- Tests: `test/clj/orcpub/pdf_supplied_image_test.clj` (bytes the browser sent),
+  `test/clj/orcpub/pdf_image_test.clj` (which URLs are allowed),
+  `test/clj/orcpub/pdf_image_fetch_test.clj` (what happens once one is),
+  `test/browser/character_image_capture_e2e.js` (both paths through the real app)
 - Background: `docs/kb/pdf-form-techniques.md`
+
+## Which path a picture took
+
+Both ceilings — 128 KB and 2000×2000 — apply to both paths. Bytes from the
+browser arrive base64 in `:image-data` / `:faction-image-data` and are decoded by
+`decode-image-bytes`, which applies those ceilings and reads the format from the
+bytes rather than from the mime type the client claimed. When they are present the
+server does not fetch at all, so none of the failures in the table below can occur.
+
+The browser can only read a picture whose host sends
+`Access-Control-Allow-Origin`. When it cannot, the builder says so under the Image
+URL field and offers an upload, which needs no permission from any host. A refused
+read logs a CORS error in the browser console — that is the browser reporting the
+host's rule, and cannot be suppressed by the page.
+
+A picture drawn off a canvas is re-encoded to JPEG at up to 1000px on the long
+edge, which is past 300dpi for the 2.35 × 3.15 inch box it prints in. An uploaded
+file already inside both ceilings is carried untouched.
 
 ## Symptoms and what they mean
 

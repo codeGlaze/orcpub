@@ -1623,3 +1623,10 @@
  :<- [::char5e/char-has-faction-pic?]
  (fn [[characters name-filter level-filters class-filters has-portrait? has-faction-pic?] _]
    (char-filter/filter-characters characters name-filter level-filters class-filters has-portrait? has-faction-pic?)))
+
+(reg-sub
+ ::char5e/image-bytes
+ (fn [db _]
+   ;; URL -> {:mime :data}, or :pending / :unavailable. See the capture events for
+   ;; why these are held here and not on the character.
+   (:image-bytes db)))
