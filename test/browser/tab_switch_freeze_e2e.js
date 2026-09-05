@@ -36,6 +36,12 @@ window.__spy = {};
       var f=o[n]; window.__spy[l]={n:0,ms:0};
       o[n]=function(){var s=performance.now();var r=f.apply(this,arguments);
         var b=window.__spy[l];b.n++;b.ms+=performance.now()-s;return r;}; };
+    var t5e = e5 && e5.template;
+    // The layer the profile actually implicates: template construction, not class/spell
+    // option building. Earlier counters wrapped the wrong level and read zero.
+    wrap(t5e,'template','template');
+    wrap(t5e,'template_selections','tmplSelections');
+    wrap(opt,'level_option','levelOption');
     wrap(opt,'class_option','classOpt');
     wrap(opt,'memoized_spell_option','memoSpellOpt');
     wrap(opt,'spell_selection','spellSel');
