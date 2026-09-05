@@ -94,21 +94,33 @@ const fmt = (d, k) => (d[k] && d[k].n ? `${d[k].n}x${d[k].ms.toFixed(0)}ms` : '-
   try { await page.locator('text="Class / Level"').first().click({ timeout: 25000 }); } catch (e) {}
   await page.waitForTimeout(1500);
 
-  console.log('\nPER CLASS SWITCH (counters reset each time)');
-  for (const c of ['Wizard', 'Cleric', 'Druid', 'Bard', 'Sorcerer']) {
-    await page.evaluate(() => { for (const k in window.__spy) window.__spy[k] = { n: 0, ms: 0 }; });
-    const t = Date.now();
-    try { await page.locator('select').nth(0).selectOption({ label: c }); }
-    catch (e) { console.log('  ' + c.padEnd(9), 'select failed'); continue; }
-    await page.waitForTimeout(1500);
-    const d = await page.evaluate(() => window.__spy);
-    console.log('  ' + c.padEnd(9), `wall ${String(Date.now() - t - 1500).padStart(5)}ms`,
-                ' classOpt', fmt(d, 'class-option'), ' makeLevels', fmt(d, 'make-levels'),
-                ' spellSel', fmt(d, 'spell-selection'), ' memoSpellOpt', fmt(d, 'memoized-spell-option'),
-                ' build', fmt(d, 'entity/build'));
-  }
+  const CLASSES = ['Wizard', 'Cleric', 'Druid', 'Bard', 'Sorcerer'];
+  const pass = async (label) => {
+    console.log(`\n${label} (counters reset each time)`);
+    for (const c of CLASSES) {
+      await page.evaluate(() => { for (const k in window.__spy) window.__spy[k] = { n: 0, ms: 0 }; });
+      const t = Date.now();
+      try { await page.locator('select').nth(0).selectOption({ label: c }); }
+      catch (e) { console.log('  ' + c.padEnd(9), 'select failed'); continue; }
+      await page.waitForTimeout(1500);
+      const d = await page.evaluate(() => window.__spy);
+      console.log('  ' + c.padEnd(9), `wall ${String(Date.now() - t - 1500).padStart(5)}ms`,
+                  ' classOpt', fmt(d, 'class-option'), ' makeLevels', fmt(d, 'make-levels'),
+                  ' spellSel', fmt(d, 'spell-selection'), ' memoSpellOpt', fmt(d, 'memoized-spell-option'),
+                  ' build', fmt(d, 'entity/build'));
+    }
+    return heapMB();
+  };
+
+  // Two passes over the SAME classes. If retention is per-class data realised on
+  // first view, pass 2 is flat. If it keeps climbing, something accumulates per
+  // interaction regardless of novelty.
+  const heapP1 = await pass('PASS 1 (first view of each class)');
+  console.log(`  heap after pass 1: ${heapP1.toFixed(1)} MB (+${(heapP1 - heapStart).toFixed(1)})`);
+  const heapP2 = await pass('PASS 2 (same classes again)');
+  console.log(`  heap after pass 2: ${heapP2.toFixed(1)} MB (+${(heapP2 - heapP1).toFixed(1)})`);
 
   const heapEnd = await heapMB();
-  console.log(`\nheap ${heapStart.toFixed(1)} -> ${heapEnd.toFixed(1)} MB (+${(heapEnd - heapStart).toFixed(1)}) after 5 class switches`);
+  console.log(`\nheap ${heapStart.toFixed(1)} -> ${heapEnd.toFixed(1)} MB (+${(heapEnd - heapStart).toFixed(1)}) over 10 switches`);
   await browser.close();
 })().catch(e => { console.error('FAILED', e); process.exit(1); });
