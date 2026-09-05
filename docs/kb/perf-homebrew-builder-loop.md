@@ -776,6 +776,68 @@ step 1 is the precedent.
    Race tab* above. This outranks items 1–3 by an order of magnitude: milliseconds of
    rebuild versus seconds of template construction.
 
+## The builder ran TWO character builds per click, and the first three diagnoses were wrong
+
+The reported symptom: every interaction ran `entity/build` twice. Confirmed in the real app
+before any fix (`test/browser/builds_per_interaction_e2e.js`, MegaPak loaded, dev build):
+**a single race click = 2 builds.**
+
+Four diagnoses were attempted. The first three came from reading code; all three were wrong,
+and each was killed by a measurement:
+
+| Diagnosis | How it died |
+| --- | --- |
+| Watch fan-in: `debounced-build-sub` adds the same watch to both inputs, so one change fires it twice | The coalescing fix for it left the count at **2**. |
+| The first build pairs a new character with a STALE template | True in the synthetic harness; impossible in the app, where `built-template` returns the same object every time (its body is commented out and it ignores `selected-plugin-options`). |
+| The subscription is disposed and re-created, and its constructor builds outside the debounce | Constructions per click: **0**. (That test was also weak — instrumentation was installed after builder load, so it could not see instances that already existed.) |
+| A direct `subs/built-character` call in `views/character-page` | Different route; not mounted in the builder. |
+
+The stack at each build said both went through `settled` -> `do_build`, i.e. both were inside
+a debounced sub. Two builds 13 ms apart cannot both take the debounce's leading edge unless
+there are **two instances**, each with its own `last-run` starting at 0. Dumping re-frame's
+subscription cache in the running app:
+
+```
+built-character cache entries:
+   [{:re-frame/query-v [:built-character nil] ...}]
+   [{:re-frame/query-v [:built-character]     ...}]
+
+:character reaction watches: [build-3 ... build-2 ...]
+```
+
+Two cache entries differing only by a trailing `nil`, and two `build-*` gensym watches on the
+`:character` reaction — one per instance.
+
+**Cause:** `views/summary-details` subscribed `[:built-character id]`. The builder renders it
+with `id` nil, so the query vector is `[:built-character nil]` — a different cache key from
+the builder's own `[:built-character]`, hence a second `debounced-build-sub` over the same
+character. `reg-sub-raw` ignores its query args here, so the two instances build *identical*
+results.
+
+**Fix:** route by id like every sibling in that `let`
+(`(if id [::char/built-character id] [:built-character])`). Measured after:
+
+```
+race Half-Orc:   2 builds -> 1 build
+```
+
+That also fixes a latent bug: `[:built-character id]` ignored `id` and returned the builder's
+in-progress character, so a character page showed the wrong character while
+`::char/character id` and friends in the same `let` showed the right one.
+
+### The lesson, which cost most of the debugging time
+
+A characterization test in a synthetic harness (two live reactions over a shared source)
+reproduced a double build and passed once "fixed" — while the app kept building twice for an
+entirely different reason. The harness modelled a mechanism the app does not have. Both were
+needed: the CLJS test to pin the coalescing behaviour, and a probe against the **real app**
+to find what was actually happening. When the two disagree, the app is right.
+
+The coalescing fix and its identity guard were kept: they are correct, they are pinned by
+`built_character_debounce_test.cljs`, and they prevent a redundant rebuild when a
+notification carries no change. But **they were not the fix for the reported symptom**, and
+the commit that introduced them claimed more than it delivered.
+
 ## Dead ends (recorded so they are not repeated)
 
 **The 12.8-second cold builder load is a dev-build artifact, not a homebrew problem.**
