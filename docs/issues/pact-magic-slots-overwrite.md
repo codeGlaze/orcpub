@@ -1,5 +1,12 @@
 # Pact Magic slots overwrite the Spellcasting slots instead of joining them
 
+**Status (2026-09, `feature/one-template-per-style`):** the calculation is
+fixed. `template_base.cljc` keeps `?shared-spell-slots` and `?pact-spell-slots`
+apart and `?spell-slots` is their sum, so no slot is lost. The packed spell sheet
+prints the two pools separately — a Warlock's column carries its own slot
+counts. The web sheet and the page-per-class export still show one summed number
+per level; showing two there is the display decision this note describes.
+
 `template_base.cljc` builds `?spell-slots` as
 
     (merge <the Spellcasting table>

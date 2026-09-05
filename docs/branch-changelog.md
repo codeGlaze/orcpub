@@ -3,18 +3,19 @@
 ## Why this branch exists
 
 `resources/` shipped seven PDF templates per sheet style, one for each spell-page
-count, cut from a master by deleting pages. Each carried its own copy of that
-style's artwork: 32.7 MB of images across the 28 files against 13.2 MB of
-distinct pixels, with style 3 storing the same image twenty times.
-
-This ships one master per style and grows it to the character instead.
+count, cut from a master by deleting pages — 44 MB carrying 13 MB of distinct
+pixels. Growing one master per style instead is what let the rest follow: once
+a spell page is generated rather than pre-cut, its boxes can be renumbered, so
+several classes can share a page, a Warlock can keep its own slot pool, and every
+sheet style can print a full character without losing spells.
 
 ## Highlights
 
-Character sheets are generated from one template per style rather than chosen
-from seven pre-cut files. The templates in `resources/` fall from 44.3 MB to 8.6
-MB, and exports shrink with them — a six-caster style 1 sheet from 565 KB to 328,
-the eight-class fixture from 638 KB to 424.
+Character sheets are generated from one template per style, and a multiclass
+caster's spells can be packed one class to a column so a party of four casters
+prints on one page instead of four — with a Warlock's Pact Magic kept as its own
+pool. Spell rows mark concentration, casting time and costly materials; magic
+item cards print alongside spell cards; and every page carries the site name.
 
 ## Added
 
@@ -174,14 +175,10 @@ the eight-class fixture from 638 KB to 424.
   filled only when a page holds a single class. Sharing the bar with the class
   name did not work: the pair came to 96pt in a 92.8pt compartment, so fitting one
   shrank the other and "Sorcerer" printed as "Sorce…".
-- Packing is refused on styles 2, 3 and 4. `relabel-spell-level!` covers the
-  printed numeral with a patch cut to `hexagon-path`, traced off style 1 — and the
-  styles do not merely offset that shape, they draw a different one. Measured: the
-  numeral sits at dx −14.4 from its slots box on style 1, −12.4 on 2, −28.0 on 3
-  and −23.0 on 4, and style 3 rings its numerals where style 4 uses a small
-  hexagon. Rendering a packed page on each showed both numbers, the old beside the
-  new: "3 0", "4 1", "7 2". `:packing?` in `sheet-masters` marks the one style
-  whose numerals have been measured.
+- Packing runs on all four styles. The printed level numeral is covered with a
+  white rectangle cut to that style's measured digit box (`pdf/numeral-boxes`,
+  from `dev/scan_numerals.clj`) rather than a hexagon traced off style 1, which
+  works everywhere because the paper around every numeral is white (`a8752173`).
 
 ## Added (packing, builder half)
 
@@ -272,7 +269,7 @@ the eight-class fixture from 638 KB to 424.
 - `lein e2e-server-busy` runs the e2e server with an export queue small enough to
   reach by hand, for seeing the busy page on a dev machine.
 
-## Added (cards)
+## Added (magic item cards)
 
 - Magic item cards, opt-in from the builder alongside spell cards. Each card
   carries the item's name, kind and rarity, an attunement badge in the header and
@@ -344,3 +341,69 @@ the eight-class fixture from 638 KB to 424.
   the one being closed. Behind an egress proxy the client connects to the proxy,
   so the pin cannot apply and is skipped — pinning unconditionally failed every
   HTTPS fetch with `not the pinned host`, which only a real fetch revealed.
+
+## Added (packing, every style)
+
+- Column headings survive the annotation columns: each spell row records its
+  pre-reservation right edge, which the bar of a style with no `slots-expended`
+  field reads instead of the narrowed row — an 83pt compartment had read 27pt and
+  printed "Warlock" as "Warl…" (`a8752173`).
+- The CANTRIPS word printed into a box-0 bar is covered by a band measured per
+  style (`pdf/cantrips-word-patch`, `dev/scan_cantrips_word.clj`); one band
+  either left style 3's word showing or painted through style 4's rules
+  (`a8752173`).
+- The per-class ability, DC and attack sit on a backing strip, so they read over
+  the scrollwork styles 3 and 4 print above the bar (`a8752173`).
+- `dev/stress_packing.clj` runs seven caster shapes on every style and fails on
+  a spell that goes missing without being reported (`3b87a48a`, `50d122fc`).
+
+## Fixed (packing)
+
+- A packing that could not hold a class dropped it in silence — a Wizard 20
+  beside a Cleric and a Druid printed without the Cleric, 33 spells gone.
+  `spell-packing/unplaced` reports what a packing could not place, `pdf_spec`
+  falls back to a page per class when anything is, and the builder does not
+  offer a layout that cannot hold the character (`3b87a48a`).
+- A no-cantrips class leading a free column started at box 0, which the export
+  redrew as a level box from style 1's measurements: on style 3 the numeral
+  missed the ring, and on every style the class name was clipped by the input
+  drawn over it. Box 0 holds cantrips only; the server refuses a label on it
+  (`50d122fc`).
+
+## Added (builder)
+
+- A **Spell Sheet Layout** choice in the PDF options — Automatic, one column per
+  class, one page per class — shown to a multiclass caster on a style that can
+  be packed, with a line saying what the current setting prints. An untouched
+  control sends nil so the computed default stays live (`642796c7`).
+- The PDF options are grouped — Character Sheet, Cards, Appearance — and every
+  option carries a `?` that opens a line saying what it does. Click rather than
+  hover, for phones (`9d3a22ef`).
+- `test/browser/spell_layout_pdf_e2e.js` builds a Warlock 5 / Sorcerer 5 through
+  the real builder and exports every style under both layouts against the running
+  server (`642796c7`).
+
+## Fixed (builder)
+
+- The Appearance group followed spell cards alone, so printing only magic item
+  cards lost black & white and the card-back logo, both of which apply to them
+  (`9d3a22ef`).
+
+## Changed (page shell)
+
+- One sticky header instead of a fixed copy above an inline one. Every header
+  control existed twice in the DOM — twice in the tab order, and the whole PDF
+  options panel with it. `.app` clips overflow with `overflow-x: clip` now, which
+  trims the same overflow without becoming the scroll container that stopped the
+  header sticking (`6cd529ee`).
+- `test/browser/sticky_header_e2e.js` drives the phone case as a real device
+  descriptor: the app picks its layout off the user agent, so a narrow desktop
+  viewport renders the desktop tree into a phone width (`4ffc02a7`).
+
+## Changed (tooling)
+
+- `scripts/test/run-cljs-tests.js` runs the compiled ClojureScript test build in
+  headless Chromium; `lein fig:test` only compiles it. The packer and annotation
+  tests are in the ClojureScript runner, since both run in the browser.
+- Lint is clean: 30 warnings to 0 (`28fd620d`).
+

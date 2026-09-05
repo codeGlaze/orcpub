@@ -774,6 +774,15 @@ quietly stop matching.
 
 ### 9. Styles 2, 3 and 4 — a later branch
 
+**Landed on `feature/one-template-per-style` after this was written.** Packing
+runs on all four styles: `pdf/relabel-numeral!` covers the printed numeral with
+a rectangle cut to `pdf/numeral-boxes`, measured per style by
+`dev/scan_numerals.clj`, and the column headings' CANTRIPS patch is measured per
+style by `dev/scan_cantrips_word.clj`. Box 0 holds cantrips only, so the
+style-1-only reuse path below (`reuse-cantrips-box!`, `printed-slot-labels`,
+`cantrips-bar`) is no longer reached by the export. The rest of this section
+is the state it described at the time.
+
 Worth separating, because half of this work did cover all four styles. Masters,
 growing to a caster count, the no-caster variants and the attribution marks handle
 styles 1 to 4 today -- `pdf/sheet-masters` names all four.

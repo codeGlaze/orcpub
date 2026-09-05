@@ -206,3 +206,53 @@ that hole.
   Scrub it or finish the feature.
 - **Not audited:** whether a fetched portrait is re-encoded or downscaled to its
   drawn size. Bounded at 128 KB so the exposure is small.
+
+---
+
+## Layout is chosen by user agent, not by viewport width
+
+**Status:** Open
+**Severity:** Medium — a desktop browser at phone width gets a broken hybrid
+**Reported:** 2026-09-05
+
+### Summary
+
+The app decides desktop-vs-mobile from the USER AGENT: `user-agent/device-type`
+is a Closure sniff, `:device-type` is set once in `db.cljs`, and `:mobile?`
+follows it. The stylesheet, meanwhile, switches on WIDTH (`xs-query`, ≤767px).
+The two disagree whenever a desktop browser is narrowed to phone width, or a
+phone requests the desktop site: the desktop component tree renders into a
+phone-width viewport with the mobile CSS applied to it — both builder columns
+side by side, the character summary running off the right edge, the tab bar at
+full size, header buttons icon-only.
+
+A real phone is fine, because its UA says so. `test/browser/sticky_header_e2e.js`
+documents the trap: a bare 390px viewport with Chrome's desktop UA renders the
+hybrid, which is why that test uses a device descriptor.
+
+### Where
+
+- `src/cljs/orcpub/user_agent.cljs` `device-type` — the sniff
+- `src/cljs/orcpub/dnd/e5/db.cljs` `:device-type` — read once at init
+- `src/cljs/orcpub/dnd/e5/subs.cljs` `:mobile?` — what every view keys off
+- `src/clj/orcpub/styles/core.clj` `xs-query` and the `at-media` blocks — the
+  width side
+- `src/cljs/orcpub/character_builder.cljs` — the largest `:mobile?` consumer
+  (column layout, tooltips, tabs)
+
+### Proposed fix
+
+Derive `:mobile?` from `window.matchMedia("(max-width: 767px)")` — the same
+breakpoint the stylesheet uses — and update it from that query's `change` event,
+so the component tree and the CSS always agree and a resize re-lays the page.
+Keep the UA sniff only as the value before the first `matchMedia` read, or drop
+it. Touch (`hasTouch`) is a separate question from width and should not decide
+layout.
+
+### Consequences
+
+Every `:mobile?` consumer becomes live rather than fixed at load. Anything that
+caches a layout decision (the character builder's column state, tab selection)
+needs to survive the flip. Test in both directions: narrow a desktop window
+past the breakpoint and widen a phone-emulated one.
+
