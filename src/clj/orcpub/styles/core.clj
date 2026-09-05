@@ -482,6 +482,53 @@
                 :position "absolute"
                 :z-index "1"}]]
 
+   ;; A group heading in the PDF options. Set apart from the field labels under
+   ;; it -- a heading in the same weight as its own first label reads as one more
+   ;; option rather than as the name of the set.
+   [:.option-group-title
+    {:font-size "11px"
+     :font-weight "bold"
+     :letter-spacing "0.08em"
+     :text-transform "uppercase"
+     :opacity "0.6"
+     :padding-top "8px"
+     :margin-bottom "6px"
+     :border-top "1px solid currentColor"}]
+
+   ;; The ? beside a PDF option, and the line it opens. A ring rather than a
+   ;; word, so a column of them reads as one affordance repeated and not as
+   ;; another label to parse.
+   [:.option-help
+    {:display "inline-flex"
+     :align-items "center"
+     :justify-content "center"
+     :width "15px"
+     :height "15px"
+     :border-radius "50%"
+     :border "1px solid currentColor"
+     :font-size "10px"
+     :font-weight "bold"
+     :line-height "1"
+     :opacity "0.55"}]
+   [:.option-help:hover
+    {:opacity "1"}]
+   [:.option-help-text
+    {:font-size "12px"
+     :line-height "16px"
+     :max-width "320px"
+     :margin "4px 0 6px 21px"
+     :opacity "0.75"}]
+
+   ;; An always-on note under a control, saying what the current setting will do.
+   ;; Set like the ? lines so the two read as one kind of note, but its own class
+   ;; -- it is the state of the build, not a fixed explanation.
+   [:.option-note
+    {:font-size "12px"
+     :line-height "16px"
+     :max-width "320px"
+     :margin "4px 0 6px 0"
+     :opacity "0.75"}]
+
    [:.image-thumbnail
     {:max-height "100px"
      :max-width "200px"
@@ -950,11 +997,16 @@
     [:*:focus
      {:outline 0}]
 
+    ;; The header sticks itself; the chrome goes on only once it has, which is
+    ;; what the .stuck class the page's IntersectionObserver sets says. Sticky
+    ;; rather than a fixed duplicate of the header: see content-page.
     [:.sticky-header
-     {:top 0
-      :box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
-      :z-index 100
-      :display :none
+     {:position :sticky
+      :top 0
+      :z-index 100}]
+
+    [:.sticky-header.stuck
+     {:box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
       :background-color "#313A4D"}]
 
     [:.container
@@ -1451,10 +1503,11 @@
       :justify-content :space-between
       :align-items :center}]
 
-    ;; Prevent horizontal scroll caused by fixed-position elements
-    ;; spanning full viewport width when vertical scrollbar is present.
+    ;; Clip rather than hide. overflow-x: hidden makes .app a scroll container,
+    ;; and a scroll container between the sticky header and the viewport stops it
+    ;; sticking at all; clip trims the same overflow without becoming one.
     [:.app
-     {:overflow-x :hidden}]
+     {:overflow-x :clip}]
 
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
@@ -1533,7 +1586,7 @@
       {:background-color :white
        :color "#282828"}]
 
-     [:.sticky-header
+     [:.sticky-header.stuck
       {:background-color :white}]
 
      [:table.striped
@@ -1847,7 +1900,50 @@
       :font-size "11px"
       :text-decoration :underline
       :cursor :pointer
-      :margin-left "4px"}]];concat-bracket
+      :margin-left "4px"}]
+
+    ;; ── Export busy page ────────────────────────────────────────────────────
+    ;; The page a character sheet export lands on when every export slot is busy.
+    ;; It is served into the download tab, where the builder's markup and scripts
+    ;; are absent, so it restates the app's ground and panel rather than reusing
+    ;; app layout classes. Colours are the app's own: the #app gradient, the
+    ;; #1a1e28 panel, and .form-button for the button.
+    [:.busy-body
+     {:margin 0
+      :min-height "100vh"
+      :background-color "#080A0D"
+      :background-image "linear-gradient(182deg, #313A4D, #080A0D)"
+      :background-attachment :fixed}]
+
+    [:.busy-wrap
+     {:display :flex
+      :justify-content :center
+      :padding "56px 20px"}]
+
+    [:.busy-card
+     {:max-width "560px"
+      :width "100%"
+      :background-color "#1a1e28"
+      :border-radius "5px"
+      :padding "32px 36px"
+      :box-shadow "0 2px 16px rgba(0,0,0,0.45)"}
+     [:h1
+      (merge text-color
+             {:margin "0 0 14px"
+              :font-size "24px"
+              :font-weight 600})]
+     [:p
+      {:margin "0 0 16px"
+       :font-size "16px"
+       :line-height "1.6"
+       :color "rgba(255,255,255,0.7)"}]
+     ;; The countdown is the one line that changes while the page waits, so it
+     ;; sits at full strength against the muted text around it.
+     [:.busy-countdown
+      (merge text-color
+             {:font-weight 600
+              :font-variant-numeric :tabular-nums})]]
+];concat-bracket
    margin-lefts
    margin-tops
    widths

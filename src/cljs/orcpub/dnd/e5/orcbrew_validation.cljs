@@ -1514,8 +1514,7 @@
    these can mutually exclude — leaving both enabled yields an unpredictable
    winner, so duplicate-key resolution turns the loser off (deterministic).
    For the other (pool/list) types a duplicate merely shows twice, harmlessly.
-   Canonical home; the conflict modal and events both read it from here.
-   See docs/kb/key-collision-behavior.md."
+   Canonical home; the conflict modal and events both read it from here."
   #{:orcpub.dnd.e5/spells   :orcpub.dnd.e5/races      :orcpub.dnd.e5/classes
     :orcpub.dnd.e5/monsters :orcpub.dnd.e5/encounters :orcpub.dnd.e5/selections})
 

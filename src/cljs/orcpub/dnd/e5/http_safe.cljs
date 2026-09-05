@@ -16,6 +16,7 @@
    routing, params encoding — is cljs-http's own middleware, untouched. Route
    the app's HTTP loaders through this ns's `http` alias and the whole
    uncaught-decode class is closed at one choke point."
+  (:refer-clojure :exclude [get])
   (:require [cljs-http.client :as client]
             [cljs-http.core :as core]
             [cljs.core.async :as async]
@@ -32,7 +33,7 @@
    (a clear message / their character list) instead of feeding the marker into
    from-strict, which would silently build a blank default."
   [body]
-  (boolean (and (map? body) (get body decode-error-key))))
+  (boolean (and (map? body) (cljs.core/get body decode-error-key))))
 
 (defn safe-edn-decode
   "Decode an application/edn response body without ever throwing out of the

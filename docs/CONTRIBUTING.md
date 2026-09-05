@@ -101,7 +101,7 @@ git -c user.name="codeGlaze" -c user.email="github@codeglaze.com" commit -m "...
 
 - Confirm the branch first: `git branch --show-current`. **Never push to a different
   branch than assigned without explicit permission.**
-- Tests green before committing (`lein fig:test` + the node runner; `lein test` for JVM).
+- Tests green before committing (`lein fig:test && node scripts/test/run-cljs-tests.js` for CLJS; `lein test` for JVM).
 - Descriptive messages — the diff is the record; say *why*, not just *what*.
 - Compiled artifacts (`resources/public/css/compiled/styles.css` from `lein garden once`,
   `resources/public/js/compiled/orcpub.js` from `lein fig:build`) are **gitignored**.
