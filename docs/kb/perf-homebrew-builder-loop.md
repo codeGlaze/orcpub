@@ -1027,6 +1027,29 @@ parse throws -> WHOLE blob quarantined  one source throws -> only that key quara
                                         half-written     -> index disagrees, detectable
 ```
 
+#### Measured: 13 sources, 1 key, 2.07 MB
+
+Asked twice, so it was settled by running it rather than by reading code
+(`test/browser/storage_shape_e2e.js`, real e2e server, real import of MegaPak):
+
+```
+key                        chars
+plugins                    2,166,081     <- 2.07 MB, ONE value
+orcpub:no-cookie-banner            1
+
+sources in the library: 13   (PHB, Xanathar's, Volo's, Mordenkainen's, Sword Coast,
+                              Eberron, Wildemount, Ravnica, Theros, Acquisitions Inc,
+                              Monster Manual, DMG, Default Option Source)
+head: {"Xanathar's Guide to Everything" {:orcpub.dnd.e5/subclasses {:war-magic ...
+tail: ... :pouch 1}, :key :athlete}}}}
+```
+
+One opening brace, 13 books, one closing brace. The intuition that storage is already
+split comes from the UI, where everything genuinely is per-source — import, export, delete
+and disable all act on one book. The flattening happens only at the save step, and it is
+symmetric: toggling one source off re-serialises all 13 and rewrites all 2.07 MB; opening
+the builder reads it all back through one `read-string`.
+
 Two consequences worth carrying into the implementation:
 
 1. **Corruption stops being all-or-nothing, which is a gain.** `preserve-on-unreadable-keys`
