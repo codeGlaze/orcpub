@@ -517,7 +517,7 @@
           (when help
             [show-info-button expanded?])]
          (when (and help @expanded?)
-           [help-section help])
+           [help-section (views-aux/realize-help help)])
          (when (and content selected?)
            content)
          (when explanation-text
@@ -567,14 +567,19 @@
       ^{:key (::t/key option)}
       [option-selector-base (assoc data
                                    :help
-                                   ;; `help` may be a thunk (spell options defer their peek).
-                                   ;; The truthiness test above must NOT force it; only this
-                                   ;; render does.
+                                   ;; Stays a THUNK all the way to the expanded? gate. This
+                                   ;; wrapper is rebuilt on every render of every visible
+                                   ;; option card, so forcing here would pay for a peek
+                                   ;; nobody opened once per card per render - worse than
+                                   ;; building it once at template time, which is what the
+                                   ;; deferral was meant to avoid. option-selector-base
+                                   ;; forces it only inside (when @expanded? ...).
                                    (when (or help has-named-mods?)
-                                        [:div
-                                         (when has-named-mods? [:div.i modifiers-str])
-                                         [:div {:class (when has-named-mods? "m-t-5")}
-                                          (views-aux/realize-help help)]])
+                                     (fn []
+                                       [:div
+                                        (when has-named-mods? [:div.i modifiers-str])
+                                        [:div {:class (when has-named-mods? "m-t-5")}
+                                         (views-aux/realize-help help)]]))
                                    :edit-event (::t/edit-event option))])))
 
 (defn selection-section-title [title]

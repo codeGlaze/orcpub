@@ -425,8 +425,19 @@ asserts the content a renderer ends up with, not the representation — with its
 flipping `eager hiccup` -> `DEFERRED (thunk, forced at render)`. Full JVM suite 309 tests /
 1704 assertions / 0 failures. Real browser against `lein e2e-server`: Wizard -> Spells tab
 -> open a spell's info; School / Casting Time / Range / Duration / Components and the whole
-description all render, no page errors. **Payoff measurement in progress — numbers to be
-recorded here when the before/after probe completes.**
+description all render, no page errors. **A defect in the first cut of this, caught by a question rather than by a test.** The
+first version forced the thunk while building the wrapper that `option-selector-base`
+rebuilds on **every render of every visible option card** — the `@expanded?` gate is
+downstream of it. So the peek was still built for every spell, just at render time instead
+of template time, and re-built on every re-render. Measured on the shipped-then-reverted
+version: rendering one spell list built **41 peeks** (one per listed spell) with nothing
+opened. That is worse than the eager version it replaced.
+
+Fixed by keeping the thunk intact through the wrapper — the wrapper itself became a thunk —
+and forcing only inside `(when @expanded? ...)`. `spell_help_laziness_e2e.js` pins it, and
+was verified to FAIL on the defective version (41 calls) and pass on the fix (0 calls while
+listing, 1 on opening a peek). A test that passes on both versions would have proved
+nothing, so it was run against both.
 
 **Original plan, for the record.**
 
