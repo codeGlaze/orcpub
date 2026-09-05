@@ -226,16 +226,6 @@
 
 ;;============== topo sort ===============
 
-(defn without
-  "Returns set s with x removed."
-  [s x] (difference s #{x}))
-
-(defn take-1
-  "Returns the pair [element, s'] where s' is set s with element removed."
-  [s] {:pre [(seq s)]}
-  (let [item (first s)]
-    [item (without s item)]))
-
 (defn no-incoming
   "Returns the set of nodes in graph g for which there are no incoming
   edges, where g is a map of nodes to sets of nodes."
@@ -251,19 +241,74 @@
   (let [have-incoming (apply union (vals g))]
     (reduce #(if (get % %2) % (assoc % %2 #{})) g have-incoming)))
 
+(defn- in-degrees
+  "node -> how many edges point AT it, for every node of normalized graph g."
+  [g]
+  (persistent!
+   (reduce-kv (fn [m _ outs]
+                (reduce (fn [m2 x] (assoc! m2 x (inc (get m2 x 0)))) m outs))
+              (transient (zipmap (keys g) (repeat 0)))
+              g)))
+
 (defn kahn-sort
   "Proposes a topological sort for directed graph g using Kahn's
    algorithm, where g is a map of nodes to sets of nodes. If g is
-   cyclic, returns nil."
-  ([g]
-     (kahn-sort (normalize g) [] (no-incoming g)))
-  ([g l s]
-     (if (empty? s)
-       (when (every? empty? (vals g)) l)
-       (let [[n s'] (take-1 s)
-             m (g n)
-             g' (reduce #(update-in % [n] without %2) g m)]
-         (recur g' (conj l n) (union s' (intersection (no-incoming g') m)))))))
+   cyclic, returns nil.
+
+   THE RESULT ORDER IS LOAD-BEARING. apply-options feeds it to order-modifiers, which
+   turns it into modifier application order, so two equally valid topological orders are
+   NOT interchangeable — swapping them can change a computed AC. Pinned against the
+   pre-rewrite implementation in entity_build_perf_test (JVM) and by an in-browser
+   equivalence run (CLJS); see docs/kb/perf-entity-build.md.
+
+   What changed: the old version called no-incoming — a full pass over the graph — once
+   per node, making the sort O(V*(V+E)) and 74% of entity/build. In-degrees are now
+   decremented as edges are consumed, so the same answer costs O(V+E).
+
+   Reproducing the order exactly takes more care than it looks. The frontier `s` is a
+   set and the next node is (first s), so the SET'S ITERATION ORDER picks it — and in
+   ClojureScript a set of <= 8 elements is array-map backed, i.e. iterates in INSERTION
+   order. So it is not enough to compute the right members; they must be inserted the way
+   clojure.set/intersection would have inserted them. Building the frontier addition with
+   `(into #{} ...)` instead diverged on 159 of 808 random graphs in the browser (and on
+   none of them on the JVM, where sets are always hash-ordered — which is why this needed
+   checking in both runtimes).
+
+   So the two branches below are clojure.set/intersection's own two branches, inlined
+   with the in-degree map standing in for the no-incoming set:
+   `(contains? no-incoming x)` is exactly `(zero? (indeg x))`, and `zero-count` tracks
+   `(count no-incoming)` so the branch is chosen identically. The second branch needs the
+   set itself, so it is materialized there — reachable only when a node's out-degree
+   exceeds the number of nodes already emitted, which real dependency graphs never hit."
+  [g0]
+  (let [g     (normalize g0)
+        nodes (set (keys g))
+        indeg (in-degrees g)]
+    (loop [l          []
+           s          (no-incoming g0)
+           indeg      indeg
+           ;; (count no-incoming): every node whose in-degree is 0, INCLUDING ones already
+           ;; emitted — no-incoming never excluded those either. Only grows.
+           zero-count (count (filter zero? (vals indeg)))
+           edges      (reduce + (map count (vals g)))]
+      (if (empty? s)
+        ;; the old guard was (every? empty? (vals g)) on the residual graph: no edges left.
+        ;; A node's out-edges are dropped only when it is popped, so "no edges left" and
+        ;; "every node emitted" are the same statement.
+        (when (zero? edges) l)
+        (let [n       (first s)
+              s'      (disj s n)                      ; == (difference s #{n})
+              m       (g n)                           ; residual (g' n) == (g n): see above
+              indeg'  (reduce (fn [d x] (assoc d x (dec (d x)))) indeg m)
+              freed   (count (filter #(zero? (indeg' %)) m))
+              zeroes  (+ zero-count freed)
+              added   (if (< (count m) zeroes)
+                        ;; intersection swapped its args: result is derived from m
+                        (reduce (fn [r x] (if (zero? (indeg' x)) r (disj r x))) m m)
+                        ;; result is derived from the no-incoming set
+                        (let [no-inc (reduce disj nodes (remove #(zero? (indeg' %)) nodes))]
+                          (reduce (fn [r x] (if (contains? m x) r (disj r x))) no-inc no-inc)))]
+          (recur (conj l n) (union s' added) indeg' zeroes (- edges (count m))))))))
 
 ;;==========================================
 
@@ -698,11 +743,9 @@
  :args (spec/cat :raw-entity ::raw-entity :modifier-map ::t/template)
  :ret any?)
 
-(defn name-to-kw [name]
-  (-> name
-      s/lower-case
-      (s/replace #"\W" "-")
-      keyword))
+;; (Removed the dead `entity/name-to-kw` — it had zero callers and was a second,
+;; looser copy of `common/name-to-kw` that didn't strip apostrophes. Use
+;; `orcpub.common/name-to-kw`, which is the single guarded derivation.)
 
 (defn get-option-value-path [template entity path]
   (conj (get-entity-path template entity path) ::value))

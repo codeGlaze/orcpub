@@ -6,6 +6,15 @@
             [re-frame.core :refer [subscribe dispatch]]))
 
 
+(defn realize-help
+  "Force an option/selection :help for rendering. Spell options store a THUNK so the peek
+   panel is not built until someone opens it (options.cljc:463); every other :help is a
+   plain string or literal hiccup and passes straight through. Call this only at the point
+   the help is actually rendered — never to test whether help exists, or the deferral buys
+   nothing."
+  [help]
+  (if (fn? help) (help) help))
+
 (defn option-selector-data
   [option-path
    {:keys [::t/min ::t/max ::t/options ::t/multiselect? ::t/ref] :as selection}

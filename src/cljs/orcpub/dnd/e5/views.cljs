@@ -7,6 +7,7 @@
             [orcpub.components :as comps]
             [orcpub.entity-spec :as es]
             [orcpub.pdf-spec :as pdf-spec]
+            [orcpub.dnd.e5.spell-packing :as packing]
             [orcpub.dice :as dice]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.subs :as subs]
@@ -36,12 +37,15 @@
             [orcpub.dnd.e5.equipment :as equip]
             [orcpub.dnd.e5.weapons :as weapon]
             [orcpub.dnd.e5.armor :as armor]
+            [orcpub.dnd.e5.srd-starting-equipment :as srd-equip]
             [orcpub.dnd.e5.display :as disp]
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
+            [orcpub.dnd.e5.views.notifications :as notifications]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
+            [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.fork.integrations :as integrations]
             [orcpub.fork.branding :as branding]
             [orcpub.fork.splash :as splash]
@@ -315,15 +319,16 @@
               :on-click (fn [e]
                           (when-not (seq buttons)
                             (when (fn? on-click) (on-click e))))
-              :style (if active active-style)
+              :style (when active active-style)
               :class-name (str (if disabled "disabled" "pointer")
                                " "
-                               (if (not mobile?) "w-110"))}
+                               (when-not mobile? "w-110"))}
        (seq buttons) (assoc :tab-index 0))
      [:div.p-10
-      {:class-name (if (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
+      {:class-name (when-not active
+                     (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
       (let [size (if mobile? 24 48)] (svg-icon icon size ""))
-      (if (not mobile?)
+      (when-not mobile?
         [:div.title.uppercase title])]
      (when (seq buttons)
        [:div.uppercase.shadow.header-flyout
@@ -653,16 +658,6 @@
            :on-click (make-event-handler :re-verify @params)}
           "RESEND"]]]))))
 
-(defn message [message-type message-text close-handler]
-  [:div.pointer.f-w-b ;;.h-0.opacity-0.fade-out
-   {:on-click close-handler}
-   [:div.message
-    {:class (case message-type
-              :error "bg-red"
-              :warning "bg-orange"
-              "bg-green")}
-    [:span message-text]
-    [:i.fa.fa-times]]])
 
 (defn hide-login-message []
   (dispatch [:hide-login-message]))
@@ -692,7 +687,7 @@
              :on-change (partial set-value params :email)}]
            (when @(subscribe [:login-message-shown?])
              [:div.m-t-5.p-r-5.p-l-5
-              [message
+              [notifications/message
                :error
                @(subscribe [:login-message])
                hide-login-message]])
@@ -748,7 +743,7 @@
                         :messages (when different? ["Passwords do not match"])
                         :on-change (fn [e] (swap! params assoc :verify-password (event-value e)))}]
            (when @(subscribe [:login-message-shown?])
-             [:div.m-t-5.p-r-5.p-l-5 [message
+             [:div.m-t-5.p-r-5.p-l-5 [notifications/message
                                       :error
                                       @(subscribe [:login-message])
                                       hide-login-message]])
@@ -971,7 +966,7 @@
                         :type :password
                         :on-change #(swap! params assoc :password (event-value %))}]
            (when login-message-shown?
-             [:div.m-t-5.p-r-5.p-l-5 [message
+             [:div.m-t-5.p-r-5.p-l-5 [notifications/message
                                       :error
                                       login-message
                                       hide-login-message]])
@@ -1067,7 +1062,7 @@
        [:div.bg-light.m-b-10 @(subscribe [::char/options-component])])
      (when @(subscribe [:message-shown?])
        [:div.p-b-10.p-r-10.p-l-10.white
-        [message
+        [notifications/message
          @(subscribe [:message-type])
          @(subscribe [:message])
          hide-message]])]))
@@ -1503,21 +1498,16 @@
   ;; Note: no `:>` or `js/React.createElement`.  
   [:div {:dangerouslySetInnerHTML #js {:__html html}}])
 
+(declare library-health-status)
+
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
-  ;; Plain atom (not r/atom) mirrors the :orcacle-open? subscription value
-  ;; for the scroll handler, which runs as a DOM event listener outside
-  ;; Reagent's reactive context. Synced from the render fn below.
-  (let [orcacle-open?* (atom false)
-        on-scroll (fn [e]
-                    (when-not @orcacle-open?*
-                      (let [app-header (js/document.getElementById "app-header")
-                            header-height (.-offsetHeight app-header)
-                            scroll-top (.-scrollTop (.-documentElement (.-target e)))
-                            sticky-header (js/document.getElementById "sticky-header")]
-                        (if (>= scroll-top header-height)
-                          (set! (.-display (.-style sticky-header)) "block")
-                          (set! (.-display (.-style sticky-header)) "none")))))]
-    
+  ;; Whether the header has reached the top of the viewport. position: sticky
+  ;; does the sticking, but CSS cannot say "is currently stuck", and the bar only
+  ;; wears its background and shadow once it is -- so a zero-height sentinel above
+  ;; the header is watched, and this follows it.
+  (let [stuck? (r/atom false)
+        observer (atom nil)]
+
     (r/create-class
      {:component-did-mount (fn [comp]
                              ;; Read directly from app-db — lifecycle methods are
@@ -1530,12 +1520,20 @@
                                  :username  (:username user-data)
                                  :email     (:email user-data)}))
                              (when-not frame?
-                               (js/window.addEventListener "scroll" on-scroll))
+                               (when-let [sentinel (js/document.getElementById "header-sentinel")]
+                                 (let [obs (js/IntersectionObserver.
+                                            (fn [entries]
+                                              (reset! stuck?
+                                                      (not (.-isIntersecting (aget entries 0)))))
+                                            #js {:threshold 0})]
+                                   (.observe obs sentinel)
+                                   (reset! observer obs))))
                              (js/window.scrollTo 0,0))
 
       :component-will-unmount (fn [comp]
-                                (when-not frame?
-                                  (js/window.removeEventListener "scroll" on-scroll)))
+                                (when-let [obs @observer]
+                                  (.disconnect obs)
+                                  (reset! observer nil)))
       :reagent-render
       (fn [title button-cfgs content & {:keys [hide-header-message? frame?]}]
         (let [srd-message-closed? @(subscribe [:srd-message-closed?])
@@ -1543,7 +1541,6 @@
               theme @(subscribe [:theme])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
-          (reset! orcacle-open?* orcacle-open?)
           [:div.app.min-h-full
            {:class theme
             :on-scroll (when-not frame?
@@ -1560,11 +1557,18 @@
              [orcacle])
            (let [hdr [header title button-cfgs :frame? frame?]]
              [:div
-              [:div#sticky-header.sticky-header.w-100-p.posn-fixed
-               [:div.flex.justify-cont-c
-                [:div#header-container.f-s-14.main-text-color.content
-                 hdr]]]              
+              ;; One header, sticky, rather than a fixed copy of it above an
+              ;; inline one. Two copies meant every control in the header --
+              ;; every button, and the whole PDF options panel that opens inside
+              ;; it -- existed twice in the DOM, twice in the tab order, and with
+              ;; its own component-local state in each.
+              ;;
+              ;; Not sticky inside a frame, which has no app header to scroll
+              ;; past, or behind the Orcacle panel, which covers the page.
+              [:div#header-sentinel]
               [:div.flex.justify-cont-c.main-text-color
+               {:class (str (when-not (or frame? orcacle-open?) "sticky-header ")
+                            (when @stuck? "stuck"))}
                [:div.content hdr]]
 
               ;; Support banner (integrations-gated)
@@ -1580,7 +1584,17 @@
               [integrations/content-slot @(subscribe [:user-tier])]
 
               [:div#app-main.container
-               [:div.content.w-100-p content]]
+               [:div.content.w-100-p
+                ;; Library-health status — shown on every content page (it self-
+                ;; hides when clean), so a conflict/missing-field is never a
+                ;; surprise on one page and invisible on another. Excludes the
+                ;; character list (no homebrew content there). On My Content it
+                ;; ALWAYS shows (the hub); elsewhere it's dismissable.
+                (let [handler (:handler @(subscribe [:route]))]
+                  (when-not (= handler routes/dnd-e5-char-list-page-route)
+                    [library-health-status
+                     (= handler routes/dnd-e5-my-content-route)]))
+                content]]
 
               [:div.main-text-color.flex.justify-cont-c
                [:div.content.f-w-n.f-s-12
@@ -2880,7 +2894,17 @@
 (def set-notes-handler (memoize set-notes-fn))
 
 (defn summary-details [num-columns id]
-  (let [built-char @(subscribe [:built-character id])
+  (let [;; The builder renders character-display with an explicit nil id, so this
+        ;; was [:built-character nil] -- a different query vector from the
+        ;; builder's own [:built-character], hence a second debounced-build-sub
+        ;; over the same character (2 builds per click). Collapse only that case.
+        ;; The non-nil path is left exactly as it was: [:built-character id]
+        ;; ignores id and returns the builder's character, which looks wrong on a
+        ;; character page, but ::char/built-character id fetches over HTTP, so
+        ;; changing it needs its own verification. See docs/kb.
+        built-char @(subscribe (if id
+                                 [:built-character id]
+                                 [:built-character]))
         {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
         username @(subscribe [:username])
         race @(subscribe [::char/race id])
@@ -3983,19 +4007,19 @@
                                       (isolate-culprit-selection character template has-nameless-feature?))
                                     (catch :default _ nil)))))
               label (when culprit (culprit-selection-label (::entity/options character) culprit))]
-          [:div.p-10.m-b-10.f-s-14.l-h-19
-           {:style {:border "1px solid #e9a227"
-                    :border-radius "5px"
-                    :background "rgba(233,162,39,0.12)"}}
-           [:div.f-w-b.m-b-5 "⚠ A feature on this character is missing its name"]
-           (if (and label (not (s/blank? label)))
-             [:div.m-b-5 "We traced it to this choice: "
-              [:span.f-w-600 label] ". Re-pick it in the builder so the feature has a name."]
-             [:div.m-b-5 "Open the character in the builder and re-select the option that grants it so it has a proper name."])
-           (when character
-             [:button.form-button.m-t-5
-              {:on-click #(dispatch [:edit-character character])}
-              "Open in the builder"])])))))
+          ;; A fail-soft component (its detection cluster stays here), rendered through the
+          ;; shared notifications/callout so it matches the other banners.
+          [notifications/callout
+           {:icon "fa-exclamation-triangle orange"
+            :text [:div.l-h-19
+                   [:div.f-w-b.m-b-5 "A feature on this character is missing its name"]
+                   (if (and label (not (s/blank? label)))
+                     [:div "We traced it to this choice: "
+                      [:span.f-w-600 label] ". Re-pick it in the builder so the feature has a name."]
+                     [:div "Open the character in the builder and re-select the option that grants it so it has a proper name."])]
+            :actions (when character
+                       [{:label "Open in the builder"
+                         :on-click #(dispatch [:edit-character character])}])}])))))
 
 (defn character-display []
   (let [show-selections? (r/atom false)]
@@ -4096,6 +4120,47 @@
    (comps/checkbox selected? false)
    [:span.m-l-5.f-s-14 label]])
 
+(defn with-help
+  "`row` with a ? appended to it, and the line that ? opens beneath the whole row.
+
+   Appended rather than wrapped, because the row is a flex line: a help span
+   holding its own text would put the explanation beside the label instead of
+   under it. Click rather than hover -- the builder is used on phones, where a
+   hover tooltip never opens -- with `title` for a mouse that rests on it anyway."
+  [row help]
+  (let [open? (r/atom false)]
+    (fn [row help]
+      [:div
+       (conj row
+             [:span.option-help.pointer.m-l-5
+              {:title help
+               :on-click (fn [e] (.stopPropagation e) (swap! open? not))}
+              "?"])
+       (when @open?
+         [:div.option-help-text help])])))
+
+(defn option-checkbox
+  "One PDF option: its checkbox, and a ? holding `help`.
+
+   The ? sits outside the clickable label so reading the explanation does not
+   toggle the option."
+  [label selected? on-click help]
+  [:div.m-b-5
+   [with-help
+    [:div.flex.align-items-c
+     [:div.pointer {:on-click on-click}
+      [labeled-checkbox label selected?]]]
+    help]])
+
+(defn option-group
+  "A titled group of options. The panel carries three -- what goes on the sheet,
+   what cards follow it, and how either is inked -- because a flat list put the
+   known/prepared choice, a sheet setting, in the middle of the card ones."
+  [title & children]
+  (into [:div.m-b-16
+         [:div.option-group-title title]]
+        children))
+
 (defn export-pdf-fn [built-char
                      id
                      plugin-data
@@ -4104,7 +4169,13 @@
                      print-prepared-spells?
                      print-large-abilities?
                      print-character-sheet-style?
-                     print-spell-card-dc-mod?]
+                     print-spell-card-dc-mod?
+                     print-card-back-logo?
+                     card-back-logo-faded?
+                     print-bw?
+                     bw-faded?
+                     print-magic-item-cards?
+                     spell-layout]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
@@ -4113,7 +4184,13 @@
                                 :print-prepared-spells? print-prepared-spells?
                                 :print-large-abilities? print-large-abilities?
                                 :print-character-sheet-style? print-character-sheet-style?
-                                :print-spell-card-dc-mod? print-spell-card-dc-mod?})]
+                                :print-spell-card-dc-mod? print-spell-card-dc-mod?
+                                :print-card-back-logo? print-card-back-logo?
+                                :card-back-logo-faded? card-back-logo-faded?
+                                :print-bw? print-bw?
+                                :bw-faded? bw-faded?
+                                :print-magic-item-cards? print-magic-item-cards?
+                                :spell-layout spell-layout})]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4141,10 +4218,16 @@
 (defn print-options [id built-char]
   (let [print-character-sheet? @(subscribe [::char/print-character-sheet?])
         print-spell-cards? @(subscribe [::char/print-spell-cards?])
+        print-magic-item-cards? @(subscribe [::char/print-magic-item-cards?])
         print-prepared-spells? @(subscribe [::char/print-prepared-spells?])
         print-large-abilities? @(subscribe [::char/print-large-abilities?])
         print-character-sheet-style? @(subscribe [::char/print-character-sheet-style?])
         print-spell-card-dc-mod? @(subscribe [::char/print-spell-card-dc-mod?])
+        print-card-back-logo? @(subscribe [::char/print-card-back-logo?])
+        card-back-logo-faded? @(subscribe [::char/card-back-logo-faded?])
+        print-bw? @(subscribe [::char/print-bw?])
+        bw-faded? @(subscribe [::char/bw-faded?])
+        spell-layout @(subscribe [::char/spell-layout])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
@@ -4152,6 +4235,18 @@
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
                      :current-armor-class @(subscribe [::char/current-armor-class id])}
         has-spells? (seq (char/spells-known built-char))
+        ;; Only a multiclass caster on a style that can be renumbered has a
+        ;; choice to make, so the control is not shown to anyone else.
+        casting-classes (when has-spells?
+                          (pdf-spec/casting-classes built-char
+                                                    (:spells-map plugin-data)))
+        packable? (and (> (count casting-classes) 1)
+                       (packing/packing-supported? print-character-sheet-style?)
+                       ;; Not offered when the columns cannot hold the character.
+                       ;; A Wizard 20 beside a Cleric leaves no column a Cleric
+                       ;; fits, and packing anyway would print without it.
+                       (packing/fits? print-character-sheet-style?
+                                      (packing/packing-shape casting-classes)))
         print-button-enabled (if (or (= print-character-sheet-style? nil)
                                      (= (str print-character-sheet-style?) "NaN"))
                                false true)
@@ -4159,53 +4254,121 @@
     [:div.flex.justify-cont-end
      [:div.p-20
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
-      [:div.m-b-2
-       [:div.flex.m-b-10
-        [:div.m-t-5
-         [labeled-dropdown
-          "Select Character sheet"
-          {:items (into [{:title "Select" :value " "}]
-                        (integrations/sheet-styles @(subscribe [:user-tier])))
-           :value print-character-sheet-style?
-           :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
+
+      ;; Grouped by what a setting changes: the sheet, the cards behind it, then
+      ;; how either is inked. The card options used to be split by the known /
+      ;; prepared choice, which is a sheet setting.
+      [option-group "Character Sheet"
+       [:div.m-b-10
+        [labeled-dropdown
+         "Sheet style"
+         {:items (into [{:title "Select" :value " "}]
+                       (integrations/sheet-styles @(subscribe [:user-tier])))
+          :value print-character-sheet-style?
+          :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]
        [integrations/pdf-options-slot @(subscribe [:user-tier])]
-       [:div.flex
-        [:div
-         {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
-         [labeled-checkbox
-          "Print Abilities Large (and Bonuses Small)"
-          print-large-abilities?]]]]
-      (when has-spells?
-        [:div.m-b-2
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-spell-cards-print)}
-           [labeled-checkbox
-            "Print Spell Cards"
-            print-spell-cards?]]]])
-      (when print-spell-cards?
-        [:div.m-b-2
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-spell-cards-by-dc-mod)}
-           [labeled-checkbox
-            "Print Spell DC and MOD"
-            print-spell-card-dc-mod?]]]])
-      (when has-spells?
-        [:div.m-b-10
+       [option-checkbox
+        "Print Abilities Large (and Bonuses Small)"
+        print-large-abilities?
+        (make-event-handler ::char/toggle-large-abilities-print)
+        (str "The sheet prints the ability score big and its modifier small. "
+             "Tick this to swap them, so the number you roll with is the one "
+             "you can read across the table.")]
+       (when has-spells?
          [:div.m-b-10
-          [:span.f-w-b "Spells Printed"]]
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-           [labeled-checkbox
-            "Known"
-            (not print-prepared-spells?)]]
-          [:div.m-l-20
-           {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-           [labeled-checkbox
-            "Prepared"
-            print-prepared-spells?]]]])
+          [with-help
+           [:div.flex.align-items-c.m-b-5
+            [:span.f-w-b "Spells Printed"]]
+           (str "Which spells go on the sheet and the cards. Known is every "
+                "spell the character has; Prepared is only the ones marked "
+                "prepared today, which is what a Cleric or a Wizard casts from.")]
+          [:div.flex
+           [:div.pointer
+            {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+            [labeled-checkbox "Known" (not print-prepared-spells?)]]
+           [:div.m-l-20.pointer
+            {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+            [labeled-checkbox "Prepared" print-prepared-spells?]]]])
+       (when packable?
+         [:div.m-b-10
+          [:div.w-250
+           [labeled-dropdown
+            "Spell Sheet Layout"
+            {:items [{:title "Automatic" :value ""}
+                     {:title "One column per class" :value "packed"}
+                     {:title "One page per class" :value "per-class"}]
+             :value (if spell-layout (name spell-layout) "")
+             :on-change (make-arg-event-handler ::char/set-spell-layout
+                                                #(when-not (s/blank? %) (keyword %)))}]]
+          ;; What the current setting will actually print, always on: this one is
+          ;; the state of the build rather than a fixed explanation, so it is not
+          ;; behind a ?. Set like the ? lines so the two read as one kind of note.
+          [:div.option-note
+           (if (= :per-class spell-layout)
+             (str (count casting-classes) " spell pages, one per class")
+             (str "One page, a column each for "
+                  (s/join ", " (map :class casting-classes))))]])]
+
+      [option-group "Cards"
+       (when has-spells?
+         [option-checkbox
+          "Print Spell Cards"
+          print-spell-cards?
+          (make-event-handler ::char/toggle-spell-cards-print)
+          (str "Adds a page of cut-out cards, one per spell, with its range, "
+               "duration and description. Printed after the sheet.")])
+       (when print-spell-cards?
+         [:div.m-l-20
+          [option-checkbox
+           "Print Spell DC and MOD"
+           print-spell-card-dc-mod?
+           (make-event-handler ::char/toggle-spell-cards-by-dc-mod)
+           (str "Prints this character's save DC and attack bonus on each card, "
+                "so the numbers are on the card being held rather than back on "
+                "the sheet.")]])
+       [option-checkbox
+        "Print Magic Item Cards"
+        print-magic-item-cards?
+        (make-event-handler ::char/toggle-magic-item-cards-print)
+        (str "The same cards for the magic items the character carries, "
+             "attunement and charges included.")]]
+
+      ;; Both card kinds are inked the same way, so this group follows either --
+      ;; gating it on spell cards alone hid it from anyone printing only items.
+      (when (or print-spell-cards? print-magic-item-cards?)
+        [option-group "Appearance"
+         [option-checkbox
+          "Printer-friendly (black & white)"
+          print-bw?
+          (make-event-handler ::char/toggle-print-bw)
+          (str "Drops the colour from the cards so they cost less to print and "
+               "stay legible on a mono printer.")]
+         ;; Under B&W: default is solid-black icons with white-halo labels;
+         ;; opt into faded grayscale icons for a softer look.
+         (when print-bw?
+           [:div.m-l-20
+            [option-checkbox
+             "Faded grayscale icons (else solid black)"
+             bw-faded?
+             (make-event-handler ::char/toggle-bw-faded)
+             (str "Sets the card icons as pale grey behind the text instead of "
+                  "solid black beside it.")]])
+         [option-checkbox
+          "Print logo on card backs"
+          print-card-back-logo?
+          (make-event-handler ::char/toggle-print-card-back-logo)
+          (str "Puts a logo on the reverse of every card, so a printed sheet cut "
+               "up and shuffled still has a back.")]
+         ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
+         (when (and print-card-back-logo? (not print-bw?))
+           [:div.m-l-20
+            [option-checkbox
+             "Faded color (else solid black)"
+             card-back-logo-faded?
+             (make-event-handler ::char/toggle-card-back-logo-faded)
+             (str "Prints the back logo as a pale colour wash rather than in "
+                  "solid black.")]])])
+
       [:button.form-button.p-10.m-l-5
        {:style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char
@@ -4216,7 +4379,13 @@
                                       print-prepared-spells?
                                       print-large-abilities?
                                       print-character-sheet-style?
-                                      print-spell-card-dc-mod?)}
+                                      print-spell-card-dc-mod?
+                                      print-card-back-logo?
+                                      card-back-logo-faded?
+                                      print-bw?
+                                      bw-faded?
+                                      print-magic-item-cards?
+                                      spell-layout)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
@@ -4241,10 +4410,72 @@
    {}
    vals))
 
+(defn character-load-recovery
+  "Shown in place of the character sheet when the character's server data could
+   not be read even after self-heal. Never a blank sheet, never a dead-end: the
+   user's data is safe, and they can delete this character (no build required —
+   :delete-character works from the id alone) or return to their list. Also
+   offers a copyable diagnostic report the user can send to support themselves,
+   which works even when no support address / auto-send is configured."
+  [_id]
+  (let [copied? (r/atom false)]
+    (fn [id]
+      (let [{:keys [error raw]} @(subscribe [::char/character-load-error-info id])
+            report (str "OrcPub — character could not be loaded\n"
+                        "Character ID: " id "\n"
+                        (when error (str "Error: " error "\n"))
+                        "\n--- raw character data (for support) ---\n"
+                        raw)]
+        [content-page
+         "Character"
+         []
+         [:div.p-20.main-text-color
+          [:div.f-w-b.f-s-24.m-b-10 "This character couldn’t be loaded"]
+          [:div.m-b-15.l-h-19
+           "This character’s data appears to be corrupted and couldn’t be read. "
+           "Your saved data is safe — you can delete this character, or head back to your characters."]
+          [:div.flex.flex-wrap.m-b-15
+           [:button.form-button.m-r-10.m-b-5
+            {:on-click #(do (dispatch [:delete-character id])
+                            (dispatch [:route routes/dnd-e5-char-list-page-route]))}
+            "Delete this character"]
+           [:button.form-button.m-b-5
+            {:on-click #(dispatch [:route routes/dnd-e5-char-list-page-route])}
+            "My characters"]]
+          ;; Auto-send: only when a support address is configured AND the user is
+          ;; signed in (so we have an account email to cc). Otherwise the copyable
+          ;; report below is the fallback.
+          (when (and (seq branding/support-email) @(subscribe [:username]))
+            (let [status @(subscribe [::char/character-report-status id])]
+              [:div.m-b-16
+               [:button.form-button.m-b-5
+                {:disabled (= status :sending)
+                 :on-click #(dispatch [:report-character-problem id error raw])}
+                (case status
+                  :sending "Sending…"
+                  :sent    "✓ Report sent — thank you"
+                  :failed  "Couldn’t send automatically — copy the report below"
+                  "Email this report to support")]]))
+          [:div.m-t-10
+           [:div.m-b-5.f-s-14 "Or copy this report and send it to support yourself:"]
+           [:button.form-button.f-s-12.m-b-5
+            {:on-click (fn []
+                         (some-> js/navigator .-clipboard (.writeText report))
+                         (reset! copied? true))}
+            (if @copied? "Copied!" "Copy report")]
+           [:pre.f-s-12.m-t-5.wsp-prw
+            {:style {:user-select "text" :max-height "260px" :overflow "auto"
+                     :background "rgba(0,0,0,0.25)" :padding "8px" :border-radius "3px"}}
+            report]]]]))))
+
+;; shared-content-banner lives in orcpub.dnd.e5.views.notifications (rendered via callout).
+
 (defn character-page []
   (let [expanded? (r/atom false)]
     (fn [{:keys [id] :as arg}]
-      (let [id (js/parseInt id)
+      (if @(subscribe [::char/character-load-error? (js/parseInt id)])
+        [character-load-recovery (js/parseInt id)]
+        (let [id (js/parseInt id)
             frame? (= "true" (get-in arg [:query "frame"]))
             {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
             built-template (subs/built-template
@@ -4283,8 +4514,9 @@
                 {:value (str url
                              (when (not (s/ends-with? url "?frame=true"))
                                "?frame=true"))}]]))
+          [notifications/shared-content-banner id]
           [character-display id true (if (= :mobile device-type) 1 2)]]
-         :frame? frame?]))))
+         :frame? frame?])))))
 
 (defn monster-page [{:keys [key] :as arg}]
   (let [monster @(subscribe [::monsters/monster (keyword key)])]
@@ -6115,6 +6347,256 @@
      edit-selection-level-event
      delete-selection-event]]])
 
+;; ---- Starting equipment (homebrew class builder) ---------------------------
+;; The class map carries the same shorthand keys the SRD classes use, consumed by
+;; opt5e/class-option with no extra wiring (see docs/kb/starting-equipment.md):
+;;   fixed grants  -> :weapons / :armor / :equipment  {item-key qty}
+;;   choice groups -> :weapon-choices / :armor-choices / :equipment-choices
+;;                    [{:name .. :options {item-key qty}}]
+;; The fully hand-built "(a) X or (b) Y and Z" :selections form is intentionally
+;; not offered here — it carries fn-valued modifiers that don't serialize.
+
+(def starting-equipment-categories
+  [{:label "Weapons"   :fixed :weapons   :choice :weapon-choices}
+   {:label "Armor"     :fixed :armor     :choice :armor-choices}
+   {:label "Equipment" :fixed :equipment :choice :equipment-choices}])
+
+(defn- equipment-vocab-items [fixed-key]
+  (let [m (case fixed-key
+            :weapons   weapon/weapons-map
+            :armor     armor/armor-map
+            :equipment equip/equipment-map)
+        base (->> m
+                  (keep (fn [[k v]] (when (:name v) {:title (:name v) :value (name k)})))
+                  (sort-by :title))]
+    (if (= :weapons fixed-key)
+      (concat [{:title "Any simple weapon"  :value "simple"}
+               {:title "Any martial weapon" :value "martial"}]
+              base)
+      base)))
+
+(defn- first-absent-equipment-item [vocab present-keys]
+  (some (fn [{:keys [value]}]
+          (let [k (keyword value)]
+            (when-not (contains? present-keys k) k)))
+        vocab))
+
+(defn- equipment-qty-input [qty on-change]
+  [:input.input.h-40.w-60.m-l-5.m-r-5
+   {:type "number" :min 1 :value (or qty 1)
+    :on-change #(let [n (js/parseInt (event-value %))]
+                  (on-change (if (js/isNaN n) 1 (max 1 n))))}])
+
+(defn- equipment-item-dropdown [vocab item-key on-pick]
+  [dropdown {:items vocab
+             :value (name item-key)
+             :on-change #(on-pick (keyword %))}])
+
+(defn- fixed-equipment-block [class {:keys [label fixed]}]
+  (let [items (get class fixed)
+        vocab (equipment-vocab-items fixed)]
+    [:div.m-b-10
+     [:div.f-w-b.m-b-5 label]
+     (doall
+      (for [[item-key qty] items]
+        ^{:key (str item-key)}
+        [:div.flex.m-b-5 {:style {:align-items "center"}}
+         [:div.flex-grow-1
+          [equipment-item-dropdown vocab item-key
+           (fn [new-k] (dispatch [::classes/set-equipment fixed
+                                  (-> items (dissoc item-key) (assoc new-k qty))]))]]
+         [equipment-qty-input qty
+          (fn [n] (dispatch [::classes/set-equipment fixed (assoc items item-key n)]))]
+         [:button.form-button
+          {:on-click #(dispatch [::classes/set-equipment fixed (dissoc items item-key)])}
+          "remove"]]))
+     [:button.form-button.m-t-5
+      {:on-click #(when-let [k (first-absent-equipment-item vocab (set (keys items)))]
+                    (dispatch [::classes/set-equipment fixed (assoc items k 1)]))}
+      (str "+ Add " label)]]))
+
+;; ---- Rich equipment choices (:equipment-selections) ------------------------
+;; A choice group -> options; each option grants a BUNDLE of items and/or a nested
+;; weapon sub-choice. This is the full SRD form (Fighter's "(a) chain mail, or
+;; (b) leather + longbow + 20 arrows", "a martial weapon and a shield"); it subsumes
+;; the simple one-item-per-option case. Consumed by opt5e/class-equipment-selections.
+
+(def ^:private grant-kinds
+  [{:label "Weapon" :kind :weapon} {:label "Armor" :kind :armor} {:label "Equipment" :kind :equipment}])
+
+(defn- grant-vocab [kind]
+  (equipment-vocab-items (case kind :weapon :weapons :armor :armor :equipment :equipment)))
+
+(defn- default-grant-item [kind] (some-> (grant-vocab kind) first :value keyword))
+
+(def ^:private subchoice-froms
+  [{:title "Any simple weapon"        :value "simple"}
+   {:title "Any simple melee weapon"  :value "simple-melee"}
+   {:title "Any martial weapon"       :value "martial"}
+   {:title "Any weapon"               :value "any-weapon"}
+   {:title "A holy symbol"       :value "holy-symbol"}
+   {:title "An arcane focus"     :value "arcane-focus"}
+   {:title "A druidic focus"     :value "druidic-focus"}
+   {:title "A musical instrument" :value "musical-instrument"}
+   {:title "An equipment pack"   :value "pack"}])
+
+(defn- equipment-item-name [k]
+  (or (get {:simple "Any simple weapon" :martial "Any martial weapon"} k)
+      (get-in weapon/weapons-map [k :name])
+      (get-in armor/armor-map [k :name])
+      (get-in equip/equipment-map [k :name])
+      (name k)))
+
+;; Every edit rebuilds the whole :equipment-selections vector in the view and writes it
+;; through the one setter; set-equipment drops the key when the vector empties.
+(defn- put-selections [sels] (dispatch [::classes/set-equipment :equipment-selections sels]))
+
+;; One grant row: category (weapon/armor/equipment) + item + qty. Changing the category
+;; resets the item to that category's first entry.
+(defn- equipment-grant-row [sels gi oi ri {:keys [kind key qty]}]
+  (let [kind (or kind :weapon) gp [gi :options oi :grants ri]]
+    [:div.flex.m-b-5 {:style {:align-items "center"}}
+     [:div.w-150.m-r-5
+      [dropdown {:items (map (fn [{:keys [label kind]}] {:title label :value (name kind)}) grant-kinds)
+                 :value (name kind)
+                 :on-change (fn [k] (let [nk (keyword k)]
+                                      (put-selections (assoc-in sels gp {:kind nk :key (default-grant-item nk) :qty (or qty 1)}))))}]]
+     [:div.flex-grow-1
+      [dropdown {:items (grant-vocab kind) :value (some-> key name)
+                 :on-change (fn [k] (put-selections (assoc-in sels (conj gp :key) (keyword k))))}]]
+     [equipment-qty-input qty (fn [n] (put-selections (assoc-in sels (conj gp :qty) n)))]
+     [:button.form-button {:on-click #(put-selections (update-in sels [gi :options oi :grants] (fn [v] (common/remove-at-index (vec v) ri))))} "remove"]]))
+
+;; One sub-choice row: the "player also picks" pool (a weapon class or an equipment group).
+(defn- equipment-subchoice-row [sels gi oi ci {:keys [from]}]
+  [:div.flex.m-b-5 {:style {:align-items "center"}}
+   [:div.flex-grow-1
+    [dropdown {:items subchoice-froms :value (some-> (or from :martial) name)
+               :on-change (fn [v] (put-selections (assoc-in sels [gi :options oi :choose ci :from] (keyword v))))}]]
+   [:button.form-button {:on-click #(put-selections (update-in sels [gi :options oi :choose] (fn [v] (common/remove-at-index (vec v) ci))))} "remove"]])
+
+;; A collapsed option shows this one-line summary of what it grants, so the
+;; group -> option -> grants nesting stays scannable; you expand only to edit.
+(defn- option-summary [{:keys [grants choose]}]
+  (let [gs (map (fn [{:keys [key qty]}]
+                  (str (equipment-item-name key) (when (> (or qty 1) 1) (str " ×" qty))))
+                grants)
+        cs (map (fn [{:keys [from]}]
+                  (or (some #(when (= (name (or from :martial)) (:value %)) (s/lower-case (:title %)))
+                            subchoice-froms)
+                      "a choice"))
+                choose)]
+    (s/join ", " (concat gs cs))))
+
+;; One option in a choice group. Form-2: local collapse state (new/empty options open
+;; for editing; filled ones collapse to their summary). Expanded, it edits the bundle
+;; (:grants) and any nested picks (:choose).
+(defn- equipment-option-block [_sels _gi _oi init-option]
+  (let [expanded? (r/atom (s/blank? (:name init-option)))]
+    (fn [sels gi oi {:keys [name grants choose] :as option}]
+      [:div.b-rad-5.m-b-3 {:style {:border-left "3px solid #6b7280"
+                                   :background "rgba(255,255,255,0.03)" :padding "5px 10px"}}
+       [:div.flex.align-items-c
+        [:i.fa.pointer {:class (if @expanded? "fa-chevron-down" "fa-chevron-right")
+                        :style {:font-size "12px" :color "rgba(255,255,255,0.35)"
+                                :margin-right "8px" :width "12px"}
+                        :on-click #(swap! expanded? not)}]
+        (if @expanded?
+          [:input.input.h-40.flex-grow-1
+           {:type "text" :placeholder "Option label (e.g. \"Chain Mail\")"
+            :value (or name "")
+            :on-change #(put-selections (assoc-in sels [gi :options oi :name] (event-value %)))}]
+          [:div.flex-grow-1.pointer {:on-click #(reset! expanded? true)}
+           [:span.f-w-b (if (s/blank? name) "(unnamed option)" name)]
+           (let [sm (option-summary option)]
+             (when (seq sm) [:span.i.f-s-14.m-l-10 {:style {:opacity 0.65}} (str "— " sm)]))])
+        [:button.form-button.m-l-5
+         {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (common/remove-at-index (vec v) oi))))}
+         "remove"]]
+       (when @expanded?
+         [:div.m-l-10.m-t-5
+          [:div.i.f-s-14.m-b-2 "Grants (all of these):"]
+          (doall (map-indexed (fn [ri g] ^{:key ri} [equipment-grant-row sels gi oi ri g]) grants))
+          [:button.form-button.m-t-5
+           {:on-click #(put-selections (update-in sels [gi :options oi :grants] (fn [v] (conj (vec v) {:kind :weapon :key (default-grant-item :weapon) :qty 1}))))}
+           "+ Add item"]
+          [:div.i.f-s-14.m-t-5.m-b-2 "…and the player also picks (optional):"]
+          (doall (map-indexed (fn [ci c] ^{:key ci} [equipment-subchoice-row sels gi oi ci c]) choose))
+          [:button.form-button.m-t-5
+           {:on-click #(put-selections (update-in sels [gi :options oi :choose] (fn [v] (conj (vec v) {:from :martial}))))}
+           "+ Add sub-choice"]])])))
+
+;; One choice group: a name + its options (the player picks one option at creation).
+(defn- equipment-selection-group [sels gi {:keys [name options]}]
+  [:div.b-rad-5.p-10.m-b-10 {:style {:border "1px solid #888"}}
+   [:div.flex.m-b-5 {:style {:align-items "center"}}
+    [:input.input.h-40.flex-grow-1
+     {:type "text" :placeholder "Choice group name (e.g. \"Armor\" or \"Primary Weapon\")"
+      :value (or name "")
+      :on-change #(put-selections (assoc-in sels [gi :name] (event-value %)))}]
+    [:button.form-button.m-l-5 {:on-click #(put-selections (common/remove-at-index sels gi))} "remove group"]]
+   [:div.m-l-10
+    [:div.i.f-s-14.m-b-5 "Options (player picks one):"]
+    (doall (map-indexed (fn [oi o] ^{:key oi} [equipment-option-block sels gi oi o]) options))
+    [:button.form-button.m-t-2 {:on-click #(put-selections (update-in sels [gi :options] (fn [v] (conj (vec v) {:name "" :grants [{:kind :weapon :key (default-grant-item :weapon) :qty 1}]}))))} "+ Add option"]]])
+
+;; The choices editor: the class's :equipment-selections groups + an add-group button.
+(defn- rich-equipment-choices [class]
+  (let [sels (vec (:equipment-selections class))]
+    [:div
+     (doall (map-indexed (fn [gi g] ^{:key gi} [equipment-selection-group sels gi g]) sels))
+     [:button.form-button
+      {:on-click #(put-selections (conj sels {:name "" :options [{:name "" :grants [{:kind :weapon :key (default-grant-item :weapon) :qty 1}]}]}))}
+      "+ Add choice group"]]))
+
+;; Convert legacy/imported shorthand :*-choices into editable :equipment-selections
+;; (lossless — each single-item option becomes an option with one grant).
+(defn- legacy-choices->selections [class]
+  (vec
+   (for [{:keys [choice]} starting-equipment-categories
+         {:keys [name options]} (get class choice)
+         :when (seq options)]
+     {:name (or name "")
+      :options (vec (for [[k q] options]
+                      {:name (equipment-item-name k)
+                       :grants [{:kind (case choice :weapon-choices :weapon
+                                         :armor-choices :armor :equipment-choices :equipment)
+                                 :key k :qty q}]}))})))
+
+(defn starting-equipment-section [class]
+  (let [legacy? (some #(seq (get class (:choice %))) starting-equipment-categories)]
+    [:div.m-b-30
+     [:div.f-s-24.f-w-b.m-b-10 "Starting Equipment"]
+     [:div.i.f-s-14.m-b-10
+      "Granted when a character takes this as their first class. Fixed items are always granted; each choice group lets the player pick one option — and an option can grant several items and/or a sub-choice (any simple/martial weapon, a holy symbol, an arcane/druidic focus, an instrument, a pack), so \"(a) chain mail, or (b) leather + a longbow + 20 arrows\" and \"a martial weapon and a shield\" are all expressible here. Click an option to expand or collapse it."]
+     [:div.flex.m-b-10 {:style {:align-items "center"}}
+      [:span.i.f-s-14.m-r-5 "Start from an SRD class:"]
+      [:div {:style {:width "220px"}}
+       [dropdown {:items (cons {:title "— choose —" :value ""}
+                               (map (fn [k] {:title (s/capitalize (name k)) :value (name k)})
+                                    (sort srd-equip/srd-class-keys)))
+                  :value ""
+                  :on-change (fn [v] (when-not (s/blank? v)
+                                       (dispatch [::classes/fill-starting-equipment (keyword v)])))}]]]
+     (when-let [base (:starting-equipment-base class)]
+       [notifications/callout
+        {:icon "fa-info-circle orange"
+         :text (str "Based on the " (s/capitalize (name base)) " class — only your changes are saved on export.")
+         :actions [{:label "Detach (save full copy)"
+                    :on-click #(dispatch [::classes/detach-starting-equipment-base])}]}])
+     [:div.f-w-b.f-s-18.m-b-5 "Always granted"]
+     (doall (for [category starting-equipment-categories]
+              ^{:key (:fixed category)} [fixed-equipment-block class category]))
+     [:div.f-w-b.f-s-18.m-t-15.m-b-5 "Choices (player picks one per group)"]
+     (when legacy?
+       [notifications/callout
+        {:icon "fa-info-circle orange"
+         :text "This class has simple choices from an older format."
+         :actions [{:label "Convert to editable form"
+                    :on-click #(dispatch [::classes/migrate-equipment-choices
+                                          (into (vec (:equipment-selections class)) (legacy-choices->selections class))])}]}])
+     [rich-equipment-choices class]]))
+
 (defn class-builder []
   (let [class @(subscribe [::classes/builder-item])
         spell-lists @(subscribe [::spells/spell-lists])
@@ -6347,6 +6829,7 @@
        class
        ::classes/set-class-path-prop
        ::classes/toggle-class-path-prop]]
+     [starting-equipment-section class]
      [:div.m-b-20
       [:div.f-s-24.f-w-b.m-b-10 "Modifiers"]
       [option-level-modifiers
@@ -7968,269 +8451,461 @@
 
 (defn my-content-type []
   (let [expanded? (r/atom false)]
-    (fn [source-name plugin type-name type-key icon add-event edit-event delete-event plural]
-      (let [items (sort (type-key plugin))]
-        [:div.pointer.item-list-item
-         [:div.flex.justify-cont-s-b.align-items-c.p-10
-          {:on-click #(swap! expanded? not)}
-          [:div.flex.align-items-c
-           [:div.h-48.flex.align-items-c
-            (if (vector? icon)
-              (doall
-               (map-indexed
-                (fn [index ico]
-                  ^{:key index}
-                  [svg-icon ico (/ 48 (count icon)) @(subscribe [:theme])])
-                icon))
-              [svg-icon icon 48 @(subscribe [:theme])])]
-           [:span.m-l-10.f-s-24 (let [num (count items)
-                                      final-type-name (if plural
-                                                        (if (not= 1 num) plural type-name)
-                                                        (str type-name (when (not= 1 num) "s")))]
-                                  (str num " " (capitalize-words final-type-name)))]]
-          [:div.orange.pointer
-           [:i.fa.m-r-5
-            {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
-           [:span.underline (if @expanded? "collapse" "expand")]]]
-         (when @expanded?
-           [:div.bg-lighter.p-10
-            [:div.flex.justify-cont-end
-             [:button.form-button.m-l-5
-              {:on-click (make-event-handler add-event source-name)}
-              (str "add " type-name)]]
-            [:div
-             (doall
-              (map-indexed
-               (fn [i [key {:keys [name disabled?] :as item}]]
-                 ^{:key key}
-                 [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
-                  [:div.m-r-10.flex.align-items-c.flex-column
-                   {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
-                   [:div.f-s-10 "enabled?"]
-                   [comps/checkbox
-                    (not (get-in plugin [type-key key :disabled?]))
-                    false]]
-                  [:span.flex-grow-1 name]
-                  [:div
-                   [:button.form-button.m-l-5
-                    {:on-click (make-event-handler edit-event item)}
-                    "edit"]
-                   [:button.form-button.m-l-5
-                    {:on-click (make-stop-prop-event-handler delete-event item)}
-                    "delete"]]])
-               items))]])]))))
+    ;; `search` (lower-cased query, "" for none) and `show-disabled?` are threaded
+    ;; from my-content-item so one toolbar filters every category. The category
+    ;; self-hides when nothing matches, so hide-empty, search, and the disabled
+    ;; filter are one decision instead of three.
+    (fn [source-name plugin type-name type-key icon add-event edit-event delete-event plural search show-disabled?]
+      (let [all-items  (sort (type-key plugin))
+            total-n    (count all-items)
+            disabled-n (count (filter (fn [[_ item]] (:disabled? item)) all-items))
+            ;; Cross-source same-key collisions, computed at display time so a
+            ;; disabled item can say WHY it's off (its twin elsewhere is on) and
+            ;; the enabled winner can point at its silenced duplicate.
+            twin-idx   @(subscribe [::e5/collision-twin-index])
+            select-mode? @(subscribe [::e5/content-select-mode?])
+            q          (or search "")
+            visible    (filter (fn [[_ {:keys [name disabled?]}]]
+                                 (and (or show-disabled? (not disabled?))
+                                      (or (= "" q)
+                                          (s/includes? (s/lower-case (str name)) q))))
+                               all-items)]
+        (when (seq visible)
+         (let [section-off? @(subscribe [::e5/section-disabled? source-name type-key])
+               global-off?  @(subscribe [::e5/global-disabled?])
+               ;; effective/inherited: a section reads off if it's off itself OR an
+               ;; ancestor (the global toggle) is off. Only the section's OWN flag
+               ;; is user-editable here; the global part is shown, not toggled.
+               eff-off?     (or section-off? global-off?)]
+          [:div.pointer.item-list-item
+           [:div.flex.justify-cont-s-b.align-items-c.p-10
+            {:on-click #(swap! expanded? not)}
+            [:div.flex.align-items-c
+             ;; Section enable/disable (a whole content-type in this source). Dim +
+             ;; disabled when global is off, since the section is off by inheritance.
+             [:div.m-r-10.flex.align-items-c.flex-column
+              {:class (when global-off? "opacity-5")
+               ;; When global is off the section can't be individually re-enabled
+               ;; (its ancestor overrides it) — swallow the click without toggling.
+               :on-click (if global-off?
+                           (fn [e] (.stopPropagation e))
+                           (make-stop-prop-event-handler ::e5/toggle-section-disable source-name type-key))}
+              [:div.f-s-10 "enabled?"]
+              [comps/checkbox (not eff-off?) global-off?]]
+             [:div.h-48.flex.align-items-c
+              {:class (when eff-off? "opacity-5")}
+              (if (vector? icon)
+                (doall
+                 (map-indexed
+                  (fn [index ico]
+                    ^{:key index}
+                    [svg-icon ico (/ 48 (count icon)) @(subscribe [:theme])])
+                  icon))
+                [svg-icon icon 48 @(subscribe [:theme])])]
+             [:span.m-l-10.f-s-24 {:class (when eff-off? "opacity-5")}
+              (let [num total-n
+                    final-type-name (if plural
+                                      (if (not= 1 num) plural type-name)
+                                      (str type-name (when (not= 1 num) "s")))]
+                (str num " " (capitalize-words final-type-name)))]
+             (when (and section-off? (not global-off?))
+               [:span.m-l-10.f-s-12.b-color-gray "· section off"])
+             (when global-off?
+               [:span.m-l-10.f-s-12.b-color-gray "· all homebrew off"])
+             (when (pos? disabled-n)
+               [:span.m-l-10.f-s-12.opacity-5 (str "· " disabled-n " disabled")])]
+            [:div.orange.pointer
+             [:i.fa.m-r-5
+              {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+             [:span.underline (if @expanded? "collapse" "expand")]]]
+           (when @expanded?
+             [:div.bg-lighter.p-10
+              [:div.flex.justify-cont-end
+               [:button.form-button.m-l-5
+                {:on-click (make-event-handler add-event source-name)}
+                (str "add " type-name)]]
+              [:div
+               (doall
+                (map-indexed
+                 (fn [i [key {:keys [name disabled?] :as item}]]
+                   (let [note (orcbrew-val/twin-note twin-idx source-name type-key key disabled?)
+                         selected? (and select-mode?
+                                        @(subscribe [::e5/content-selected? source-name type-key key]))]
+                   ^{:key key}
+                   (if select-mode?
+                     ;; SELECT MODE: enable/edit/delete step aside; a round selector
+                     ;; (distinct from the square enable) + the whole row is the tap
+                     ;; target. Selected rows tint + get an amber rail.
+                     [:div.p-t-10.p-b-10.f-w-b.flex.align-items-c.mc-selrow
+                      {:class (when selected? "selected")
+                       :on-click (make-event-handler ::e5/toggle-content-selection source-name type-key key)}
+                      [:span.mc-selcircle.m-r-10 {:class (when selected? "on")}
+                       [:i.fa.fa-check]]
+                      [:span.flex-grow-1 name]]
+                     ;; NORMAL MODE: enable toggle + name (+ twin note) + edit/delete.
+                     ;; An UNRESOLVED conflict (:conflict) gets a red rail so the
+                     ;; offending entry is easy to spot from the health banner.
+                     [:div.p-t-10.p-b-10.f-w-b.flex.justify-cont-s-b.align-items-c
+                      {:class (when disabled? "opacity-5")
+                       :style (when (= :conflict (:kind note))
+                                {:box-shadow "inset 3px 0 0 #ffd21a"
+                                 :padding-left "8px"})}
+                      [:div.m-r-10.flex.align-items-c.flex-column
+                       {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin-item source-name type-key key)}
+                       [:div.f-s-10 "enabled?"]
+                       [comps/checkbox
+                        (not (get-in plugin [type-key key :disabled?]))
+                        false]]
+                      ;; name + (when there's a same-key twin) a small plain note
+                      ;; about the mutual-exclusion, so "off" never looks arbitrary.
+                      [:div.flex-grow-1
+                       [:span name]
+                       (when note
+                         [:div.f-s-12
+                          {:class (when (= :off (:kind note)) "b-color-gray")
+                           :style (when (= :conflict (:kind note)) {:color "#ffd21a"})}
+                          (when (= :conflict (:kind note))
+                            [:i.fa.fa-exclamation-triangle.m-r-5])
+                          (case (:kind note)
+                            :conflict (str "conflict — also enabled in " (:twin-source note))
+                            :off (str "off — \"" (:twin-name note) "\" in " (:twin-source note) " is on")
+                            (str "on — duplicate \"" (:twin-name note) "\" in " (:twin-source note) " is off"))])]
+                      [:div
+                       [:button.form-button.m-l-5
+                        {:on-click (make-event-handler edit-event item)}
+                        "edit"]
+                       [:button.form-button.m-l-5
+                        {:on-click (make-stop-prop-event-handler delete-event item)}
+                        "delete"]]])))
+                 visible))]])]))))))
 
-(defn my-selections [name plugin]
-  [my-content-type
-   name
-   plugin
-   "selection"
-   ::e5/selections
-   "checklist"
-   ::selections/new-selection
-   ::selections/edit-selection
-   ::selections/delete-selection])
+;; One data-driven table for the My Content library, replacing 13 near-identical
+;; wrapper fns. Each entry is a homebrew content type; the table drives BOTH the
+;; rendered category rows (see my-content-item) and the add-content menu, so
+;; "hide empty categories" and "still be able to create the first item of a type
+;; that has none yet" read from the same list. Order here is the display order.
+(def my-content-types
+  [{:type-name "spell"               :type-key ::e5/spells      :icon "spell-book"                        :add-event ::spells/new-spell         :edit-event ::spells/edit-spell         :delete-event ::spells/delete-spell}
+   {:type-name "monster"             :type-key ::e5/monsters    :icon "hydra"                             :add-event ::monsters/new-monster     :edit-event ::monsters/edit-monster     :delete-event ::monsters/delete-monster}
+   {:type-name "encounter"           :type-key ::e5/encounters  :icon "hydra"                             :add-event ::encounters/new-encounter :edit-event ::encounters/edit-encounter :delete-event ::encounters/delete-encounter}
+   {:type-name "background"          :type-key ::e5/backgrounds :icon "ages"                              :add-event ::bg/new-background        :edit-event ::bg/edit-background        :delete-event ::bg/delete-background}
+   {:type-name "race"                :type-key ::e5/races       :icon "woman-elf-face"                    :add-event ::races/new-race           :edit-event ::races/edit-race           :delete-event ::races/delete-race}
+   {:type-name "subrace"             :type-key ::e5/subraces    :icon ["woman-elf-face" "woman-elf-face"] :add-event ::races/new-subrace        :edit-event ::races/edit-subrace        :delete-event ::races/delete-subrace}
+   {:type-name "class"               :type-key ::e5/classes     :icon "mounted-knight"                    :add-event ::classes/new-class        :edit-event ::classes/edit-class        :delete-event ::classes/delete-class      :plural "classes"}
+   {:type-name "subclass"            :type-key ::e5/subclasses  :icon ["mounted-knight" "mounted-knight"] :add-event ::classes/new-subclass     :edit-event ::classes/edit-subclass     :delete-event ::classes/delete-subclass   :plural "subclasses"}
+   {:type-name "eldritch invocation" :type-key ::e5/invocations :icon "warlock-eye"                       :add-event ::classes/new-invocation   :edit-event ::classes/edit-invocation   :delete-event ::classes/delete-invocation}
+   {:type-name "pact boon"           :type-key ::e5/boons       :icon "cursed-star"                       :add-event ::classes/new-boon         :edit-event ::classes/edit-boon         :delete-event ::classes/delete-boon}
+   {:type-name "feat"                :type-key ::e5/feats       :icon "vitruvian-man"                     :add-event ::feats/new-feat           :edit-event ::feats/edit-feat           :delete-event ::feats/delete-feat}
+   {:type-name "language"            :type-key ::e5/languages   :icon "vitruvian-man"                     :add-event ::langs/new-language       :edit-event ::langs/edit-language       :delete-event ::langs/delete-language}
+   {:type-name "selection"           :type-key ::e5/selections  :icon "checklist"                         :add-event ::selections/new-selection :edit-event ::selections/edit-selection :delete-event ::selections/delete-selection}])
 
-(defn my-spells [name plugin]
-  [my-content-type
-   name
-   plugin
-   "spell"
-   ::e5/spells
-   "spell-book"
-   ::spells/new-spell
-   ::spells/edit-spell
-   ::spells/delete-spell])
+(defn add-content-menu
+  "Create the first item of a content type this source doesn't have yet. Empty
+   categories are hidden from the list, so this dropdown is the only entry point
+   for them; it lists exactly the types the source is currently missing."
+  [source-name missing-specs]
+  [:div.p-t-10
+   [:select.m-l-5.p-5
+    {:value ""
+     :on-change (fn [e]
+                  (let [v (.. e -target -value)
+                        spec (first (filter #(= v (name (:type-key %))) missing-specs))]
+                    (set! (.. e -target -value) "")
+                    (when spec
+                      (dispatch [(:add-event spec) source-name]))))}
+    [:option {:value ""} "+ add content…"]
+    (doall
+     (for [{:keys [type-name type-key]} missing-specs]
+       ^{:key type-name}
+       [:option {:value (name type-key)} (str "add " type-name)]))]])
 
-(defn my-monsters [name plugin]
-  [my-content-type
-   name
-   plugin
-   "monster"
-   ::e5/monsters
-   "hydra"
-   ::monsters/new-monster
-   ::monsters/edit-monster
-   ::monsters/delete-monster])
+(defn source-disabled-count
+  "Total disabled items across every content type in one source — the number shown
+   on the source's 'show disabled (N)' toggle."
+  [plugin]
+  (reduce + 0
+          (for [[ct items] plugin
+                :when (and (qualified-keyword? ct) (map? items))
+                [_ item] items
+                :when (and (map? item) (:disabled? item))]
+            1)))
 
-(defn my-encounters [name plugin]
-  [my-content-type
-   name
-   plugin
-   "encounter"
-   ::e5/encounters
-   "hydra"
-   ::encounters/new-encounter
-   ::encounters/edit-encounter
-   ::encounters/delete-encounter])
-
-(defn my-backgrounds [name plugin]
-  [my-content-type
-   name
-   plugin
-   "background"
-   ::e5/backgrounds
-   "ages"
-   ::bg/new-background
-   ::bg/edit-background
-   ::bg/delete-background])
-
-(defn my-races [name plugin]
-  [my-content-type
-   name
-   plugin
-   "race"
-   ::e5/races
-   "woman-elf-face"
-   ::races/new-race
-   ::races/edit-race
-   ::races/delete-race])
-
-(defn my-subraces [name plugin]
-  [my-content-type
-   name
-   plugin
-   "subrace"
-   ::e5/subraces
-   ["woman-elf-face"
-    "woman-elf-face"]
-   ::races/new-subrace
-   ::races/edit-subrace
-   ::races/delete-subrace])
-
-
-(defn my-classes [name plugin]
-  [my-content-type
-   name
-   plugin
-   "class"
-   ::e5/classes
-   "mounted-knight"
-   ::classes/new-class
-   ::classes/edit-class
-   ::classes/delete-class
-   "classes"])
-
-
-(defn my-subclasses [name plugin]
-  [my-content-type
-   name
-   plugin
-   "subclass"
-   ::e5/subclasses
-   ["mounted-knight"
-    "mounted-knight"]
-   ::classes/new-subclass
-   ::classes/edit-subclass
-   ::classes/delete-subclass
-   "subclasses"])
-
-(defn my-invocations [name plugin]
-  [my-content-type
-   name
-   plugin
-   "eldritch invocation"
-   ::e5/invocations
-   "warlock-eye"
-   ::classes/new-invocation
-   ::classes/edit-invocation
-   ::classes/delete-invocation])
-
-(defn my-boons [name plugin]
-  [my-content-type
-   name
-   plugin
-   "pact boon"
-   ::e5/boons
-   "cursed-star"
-   ::classes/new-boon
-   ::classes/edit-boon
-   ::classes/delete-boon])
-
-(defn my-feats [name plugin]
-  [my-content-type
-   name
-   plugin
-   "feat"
-   ::e5/feats
-   "vitruvian-man"
-   ::feats/new-feat
-   ::feats/edit-feat
-   ::feats/delete-feat])
-
-(defn my-languages [name plugin]
-  [my-content-type
-   name
-   plugin
-   "language"
-   ::e5/languages
-   "vitruvian-man"
-   ::langs/new-language
-   ::langs/edit-language
-   ::langs/delete-language])
+(defn source-disabled-counts
+  "A source's disabled items split by REASON: {:compat n :benign n}. Compat = the
+   app turned it off to resolve a duplicate (:disabled-reason :compat); benign =
+   you turned it off. Drives the amber-vs-blue library-header badge."
+  [plugin]
+  (reduce (fn [acc [ct items]]
+            (if (and (qualified-keyword? ct) (map? items))
+              (reduce (fn [a [_ item]]
+                        (cond
+                          (not (and (map? item) (:disabled? item)))  a
+                          (= :compat (:disabled-reason item))         (update a :compat inc)
+                          :else                                       (update a :benign inc)))
+                      acc items)
+              acc))
+          {:compat 0 :benign 0} plugin))
 
 (defn my-content-item []
-  (let [expanded? (r/atom false)]
+  (let [expanded?      (r/atom false)
+        search         (r/atom "")
+        show-disabled? (r/atom true)]
     (fn [name plugin]
-      [:div.item-list-item
-       [:div.p-20.pointer.flex.justify-cont-s-b.align-items-c.main-text-color
-        {:on-click #(swap! expanded? not)}
-        [:div.m-r-10.flex.align-items-c.flex-column
-         {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
-         [:div.f-s-10 "enabled?"]
-         [comps/checkbox
-          (not (get plugin :disabled?))
-          false]]
-        [:span.f-s-24.flex-grow-1 name]
-        [:div.orange
-         [:i.fa.m-r-5
-          {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
-         [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
-       (when @expanded?
-         [:div.bg-lighter.p-10
-          [:div.flex.justify-cont-end.uppercase.align-items-c.m-b-10
-           [:button.form-button.m-l-5
-            {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
-            "export"]
-           [:button.form-button.m-l-5
-            {:on-click (make-event-handler ::e5/delete-plugin name)}
-            "delete"]]
-          [:div.item-list
-           [my-spells name plugin]
-           [my-monsters name plugin]
-           [my-encounters name plugin]
-           [my-backgrounds name plugin]
-           [my-races name plugin]
-           [my-subraces name plugin]
-           [my-classes name plugin]
-           [my-subclasses name plugin]
-           [my-invocations name plugin]
-           [my-boons name plugin]
-           [my-feats name plugin]
-           [my-languages name plugin]
-           [my-selections name plugin]]])])))
+      (let [has-content? (some (fn [{:keys [type-key]}] (seq (type-key plugin))) my-content-types)
+            q            (-> @search s/lower-case s/trim)
+            show?        @show-disabled?
+            ;; does this source hold an item in an unresolved key conflict? (flags
+            ;; the row so the health banner's "resolve" has somewhere to point).
+            ;; Reads the memoized set so every row shares one library walk.
+            conflict?    (contains? (:conflict-sources @(subscribe [::e5/library-health])) name)]
+        [:div.item-list-item
+         [:div.p-20.pointer.flex.justify-cont-s-b.align-items-c.main-text-color
+          {:on-click #(swap! expanded? not)}
+          [:div.m-r-10.flex.align-items-c.flex-column
+           {:on-click (make-stop-prop-event-handler ::e5/toggle-plugin name)}
+           [:div.f-s-10 "enabled?"]
+           [comps/checkbox
+            (not (get plugin :disabled?))
+            false]]
+          [:div.flex-grow-1.flex.align-items-c
+           [:span.f-s-24 name]
+           ;; disabled badge(s), colored by reason — amber (app/compat) shown first
+           ;; since it's the one worth noticing; blue (you turned it off) is benign.
+           (let [{:keys [compat benign]} (source-disabled-counts plugin)]
+             [:span
+              (when conflict?
+                [:span.lib-badge {:style {:background-color "rgba(255,210,26,0.16)" :color "#ffd21a"}}
+                 [:i.fa.fa-exclamation-triangle.m-r-5] "conflict"])
+              (when (pos? compat)
+                [:span.lib-badge.lib-badge-compat [:span.lib-dot] (str compat " off · compatibility")])
+              (when (pos? benign)
+                [:span.lib-badge.lib-badge-benign [:span.lib-dot] (str benign " off")])])]
+          [:div.orange
+           [:i.fa.m-r-5
+            {:class (if @expanded? "fa-caret-up" "fa-caret-down")}]
+           [:span.pointer.underline (if @expanded? "collapse" "expand")]]]
+         (when @expanded?
+           [:div.bg-lighter.p-10
+            [:div.flex.justify-cont-end.uppercase.align-items-c.m-b-10
+             [:button.form-button.m-l-5
+              {:on-click (make-event-handler ::e5/export-plugin-pretty-print name plugin)}
+              "export"]
+             [:button.form-button.m-l-5
+              {:on-click (make-event-handler ::e5/delete-plugin name)}
+              "delete"]]
+            ;; One toolbar filters every category below: a name search and a
+            ;; show-disabled toggle whose (N) is the source's disabled count, so
+            ;; disabled content (which will grow once duplicate-key resolution
+            ;; disables a colliding side) stays discoverable, not buried.
+            (when has-content?
+              [:div.flex.align-items-c.flex-wrap.m-b-10
+               [:input.input.h-40.p-l-10.f-s-14.m-r-10.flex-grow-1
+                {:type "text"
+                 :placeholder "search this source…"
+                 :value @search
+                 :on-change #(reset! search (.. % -target -value))}]
+               (let [dn (source-disabled-count plugin)]
+                 [:div.flex.align-items-c.pointer.f-s-14
+                  {:on-click #(swap! show-disabled? not)}
+                  [comps/checkbox show? false]
+                  [:span.m-l-5 (str "show disabled" (when (pos? dn) (str " (" dn ")")))]])])
+            [:div.item-list
+             ;; Render every type; each my-content-type self-hides when it has no
+             ;; items matching the search + show-disabled filter (so hide-empty and
+             ;; the filters are one decision). Missing types are offered below.
+             (doall
+              (for [{:keys [type-name type-key icon add-event edit-event delete-event plural]} my-content-types]
+                ^{:key type-name}
+                [my-content-type name plugin type-name type-key icon add-event edit-event delete-event plural q show?]))
+             (let [missing (remove #(seq ((:type-key %) plugin)) my-content-types)]
+               (when (seq missing)
+                 [add-content-menu name missing]))]])]))))
+
+(defn relocate-bar
+  "Bulk action bar for move/copy. Shown while in select mode: pick a target source
+   and Move or Copy every selected item there. Single vs bulk is just how many are
+   ticked — the same bar drives both."
+  []
+  (let [target (r/atom nil)]
+    (fn []
+      (let [n       @(subscribe [::e5/content-selection-count])
+            sources (sort (keys @(subscribe [::e5/plugins])))
+            tgt     (or @target (first sources))
+            none?   (zero? n)]
+        [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.flex-wrap
+         [:span.f-w-b.f-s-16.m-r-10 (str n " selected")]
+         [:span.m-r-5.f-s-14 "to"]
+         [:select.m-r-10.p-5.f-s-14
+          {:value (str tgt)
+           :on-change #(reset! target (.. % -target -value))}
+          (doall (for [s sources] ^{:key s} [:option {:value s} s]))]
+         [:button.form-button.m-r-5
+          {:class (when none? "disabled") :disabled none?
+           :on-click #(dispatch [::e5/relocate-selected tgt :move])}
+          "Move here"]
+         [:button.form-button.m-r-10
+          {:class (when none? "disabled") :disabled none?
+           :on-click #(dispatch [::e5/relocate-selected tgt :copy])}
+          "Copy here"]
+         (when-not none?
+           [:span.link-button.pointer.m-r-10
+            {:on-click (make-event-handler ::e5/clear-content-selection)}
+            "clear"])
+         [:span.link-button.pointer
+          {:on-click (make-event-handler ::e5/toggle-select-mode)}
+          "done"]]))))
+
+(defn library-health-status
+  "Passive library-health card — appears only when something needs attention, and
+   collapses to nothing when clean. One fixed card, a line per problem TYPE with a
+   count (never per-item, so a big mess can't flood the page); each line routes into
+   the existing resolver. Warning-yellow for resolvable, red reserved for broken.
+   Re-keyed on the total so the one-time flash fires on appearance and on any change.
+   Reuses the existing detectors — no new detection/resolution logic here."
+  [always?]
+  (let [{:keys [conflicts missing blocked]} @(subscribe [::e5/library-health])
+        cn        (count conflicts)
+        ;; each line: {:sev :warn|:broken :n :msg :detail [..] :more :act-label :act}
+        lines (cond-> []
+                (pos? cn)
+                (conj {:sev :warn :n cn
+                       :msg (str cn " key conflict" (when (> cn 1) "s")
+                                 " — the app can't tell which copy to use")
+                       :detail (mapv (fn [{:keys [key sources]}]
+                                       (str ":" (name key) " in " (s/join ", " sources)))
+                                     (take 4 conflicts))
+                       :more (max 0 (- cn 4))
+                       :act-label "resolve" :act ::e5/check-content-conflicts})
+                (pos? missing)
+                (conj {:sev :warn :n missing
+                       :msg (str missing " item" (when (> missing 1) "s")
+                                 " missing a required field — won't export until fixed")
+                       :act-label "fix" :act ::e5/export-all-plugins})
+                (pos? blocked)
+                (conj {:sev :broken :n blocked
+                       :msg (str blocked " source" (when (> blocked 1) "s")
+                                 " can't export — invalid data")
+                       :act-label "review" :act ::e5/export-all-plugins}))
+        total (reduce + 0 (map :n lines))
+        ;; signature of the CURRENT problem set — dismissal is remembered against
+        ;; this, so the card re-appears the moment the problems change.
+        sig (hash [(vec (sort (map (comp str :key) conflicts))) missing blocked])
+        dismissed @(subscribe [::e5/health-dismissed])]
+    ;; My Content (always?) ignores dismissal — the hub always surfaces problems.
+    (when (and (seq lines) (or always? (not= sig dismissed)))
+      ^{:key total}
+      [:div.health-card.health-flash.m-b-10
+       (when-not always?
+         [:span.health-x {:title "Dismiss until it changes"
+                          :on-click (make-event-handler ::e5/dismiss-health sig)}
+          [:i.fa.fa-times]])
+       (doall
+        (for [{:keys [sev n msg detail more act-label act]} lines]
+          ^{:key act-label}
+          [:div.health-row {:class (when (= sev :broken) "health-broken")}
+           [:span.health-rail]
+           [:span.health-ico [:i.fa.fa-exclamation-triangle]]
+           [:span.health-msg
+            [:strong msg]
+            (when (seq detail)
+              [:div.f-s-12.opacity-7.m-t-2
+               (s/join " · " detail)
+               (when (pos? more) (str " · +" more " more"))])]
+           [:span.health-act
+            {:on-click (make-event-handler act)}
+            act-label]]))])))
+
+(defn delete-all-control
+  "Delete-all as a 3-step guard: a quiet red 'Delete…' guard unfurls the full red
+   button (which lifts OUT of the bar so the toolbar never reflows), and clicking
+   that opens the are-you-sure bar underneath (rendered by my-content). `armed` is
+   the local unfurl state; the confirm itself lives in db so the bar can span the
+   full width below."
+  []
+  (let [armed (r/atom false)]
+    (fn []
+      [:span.mc-guard-wrap
+       [:button.mc-guard.b-delete
+        {:title "Delete all sources" :on-click #(reset! armed true)}
+        [:i.fa.fa-trash] [:span.mc-lbl "Delete…"]]
+       (when @armed
+         [:div.mc-liftpop
+          [:button.form-button.mc-del
+           {:on-click #(do (reset! armed false)
+                           (dispatch [::char/show-delete-plugin-confirmation]))}
+           [:i.fa.fa-trash.m-r-5] "Delete all sources"]
+          [:span.link-button.pointer
+           {:on-click #(reset! armed false)}
+           "cancel"]])])))
 
 (defn my-content []
-  [:div.main-text-color
-   [:div.flex.justify-cont-end
-    [:button.form-button.m-r-10.m-b-10
-     {:on-click (make-event-handler ::char/show-delete-plugin-confirmation)}
-     "Delete All"]
-    [:button.form-button.m-r-10.m-b-10
-     {:on-click (make-event-handler ::e5/export-all-plugins)}
-     "Export All"]]
-   [:div.flex.justify-cont-end
+  (let [select-mode? @(subscribe [::e5/content-select-mode?])]
+   [:div.main-text-color
+    ;; Toolbar in two zones: a CONTENT action on the left (Move/copy — it operates
+    ;; on your items) and the whole-LIBRARY actions on the right (Export = primary,
+    ;; the quiet red Delete guard). Conflict-checking is NOT here — it's a passive
+    ;; health status below, surfaced only when there's something to fix.
+    [:div.mc-toolbar.m-b-10
+     [:button.mc-btn.b-move
+      {:title "Move / copy" :on-click (make-event-handler ::e5/toggle-select-mode)}
+      [:i.fa.fa-exchange-alt] [:span.mc-lbl (if select-mode? "Exit select" "Move / copy")]]
+     [:div.mc-right
+      [:button.mc-btn.mc-primary.b-export
+       {:title "Export All" :on-click (make-event-handler ::e5/export-all-plugins)}
+       [:i.fa.fa-download] [:span.mc-lbl "Export All"]]
+      [:span.mc-divider]
+      [delete-all-control]]]
+    (when select-mode?
+      [relocate-bar])
+    ;; are-you-sure bar, opens UNDERNEATH the toolbar (never reflows the row);
+    ;; carries the source count + an "Export a backup first" off-ramp.
     (when @(subscribe [::char/delete-plugin-confirmation-shown?])
-      [:div.p-20.flex.justify-cont-end
-       [:div
-        [:div.m-b-10 "Are you sure you want to delete ALL Option sources?"]
-        [:div.flex
+      (let [n (count @(subscribe [::e5/plugins]))]
+        [:div.mc-confirmbar
+         [:i.fa.fa-exclamation-triangle {:style {:color "#e5637a"}}]
+         [:span.f-s-14 "Delete all " [:strong n] " source" (when (not= 1 n) "s")
+          "? This can't be undone."]
+         [:div.flex-grow-1]
          [:button.form-button
+          {:on-click (make-event-handler ::e5/export-all-plugins)}
+          [:i.fa.fa-download.m-r-5] "Export a backup first"]
+         [:span.link-button.pointer.m-r-5
           {:on-click (make-event-handler ::char/hide-delete-plugin-confirmation)}
-          "cancel"]
-         [:span.link-button
+          "Cancel"]
+         [:button.form-button.mc-del
           {:on-click (make-event-handler ::char/delete-all-plugins)}
-          "delete"]]]])]
+          "Delete all " n " source" (when (not= 1 n) "s")]]))
+   ;; (Library-health status is rendered by content-page at the top of every
+   ;; content page — always-on here on the My Content hub, dismissable elsewhere.)
+   ;; Library-level mutual-exclusion summary: when duplicate keys have forced
+   ;; one side off, say so once at the top with a link into the conflict modal,
+   ;; so the silenced items are explained in aggregate — not just per-row.
+   (let [off-n @(subscribe [::e5/mutual-exclusion-off-count])]
+     (when (pos? off-n)
+       [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c.justify-cont-s-b
+        [:span.f-s-14
+         [:i.fa.fa-random.m-r-5.opacity-7]
+         (str off-n " item" (when (> off-n 1) "s")
+              " off because a duplicate is on")]
+        [:span.link-button.pointer
+         {:on-click (make-event-handler ::e5/check-content-conflicts)}
+         "review"]]))
+   ;; Disable-hierarchy master switch (a local view preference, not stored in any
+   ;; .orcbrew): turning it off hides ALL homebrew from the builder at once while
+   ;; leaving every source saved. Section (per content-type) and source/item
+   ;; toggles live further down; this is the top of that hierarchy.
+   (let [global-off? @(subscribe [::e5/global-disabled?])]
+     [:div.p-10.m-b-10.bg-lighter.b-rad-5.flex.align-items-c
+      [:div.flex.align-items-c.pointer
+       {:on-click (make-event-handler ::e5/toggle-global-disable)}
+       [comps/checkbox (not global-off?) false]
+       [:span.m-l-10.f-s-16.f-w-b "All homebrew"]]
+      ;; explainer sits right beside the toggle, not floated to the far edge
+      (if global-off?
+        [:span.m-l-15.f-s-12.b-color-gray
+         "Off — your sources stay saved but won't appear in the builder."]
+        [:span.m-l-15.f-s-12.opacity-5
+         "On — turn off to hide every source from the builder at once."])])
    [:div.item-list
     (let [plugins (sort @(subscribe [::e5/plugins]))]
       (doall
@@ -8238,70 +8913,122 @@
         (fn [[name plugin]]
           ^{:key name}
           [my-content-item name plugin])
-        plugins)))]])
+        plugins)))]]))
 
 (defn quarantine-source-repair
-  "Repair UI for ONE quarantined source. Shows live-validated name inputs for the
-   keyword-trap items (names that derived an invalid key) and a 'Repair & Restore'
-   action that fixes + re-keys + persists via ::e5/repair-quarantined-source. A
-   raw-export hatch is always offered so broken data can be fixed externally too."
+  "Repair UI for ONE source's set-aside ENTRIES. Lists each broken item with
+   editable Name + Option-source fields; 'Fix & Restore' applies the edits, fills
+   any remaining gaps with placeholders, re-keys keyword-trap names, and restores
+   the now-valid entries into the live library (::e5/repair-quarantined-source) —
+   entries that still can't validate stay set aside. Raw-export + discard hatches
+   are always offered."
   [src-name plugin]
-  (let [trapped (e5/invalid-keyed-items plugin)
-        edits (r/atom (into {} (map (fn [{:keys [content-type item-key name]}]
-                                      [[content-type item-key] (or name "")])
-                                    trapped)))]
+  (let [entries (vec (for [[ct items] plugin
+                           :when (and (qualified-keyword? ct) (map? items))
+                           [ik item] items]
+                       {:ct ct :ik ik :item item}))
+        edits (r/atom (into {} (mapcat (fn [{:keys [ct ik item]}]
+                                         [[[ct ik :name] (or (:name item) "")]
+                                          [[ct ik :option-pack] (or (:option-pack item) "")]])
+                                       entries)))]
     (fn [src-name plugin]
-      (let [current @edits
-            invalid? (fn [v] (not (common/starts-with-letter? (or v ""))))
-            blocked? (or (empty? current) (boolean (some invalid? (vals current))))]
+      (let [current @edits]
         [:div.p-10.m-t-10.bg-lighter.b-rad-5
          [:div.f-w-b.f-s-18.orange src-name]
-         (if (seq trapped)
+         (if (seq entries)
            [:div
             [:div.f-s-12.m-t-5.m-b-5
-             "Couldn't load: a name starts with a number or symbol (names become "
-             "keys, which can't). Fix the name(s) below, then restore:"]
+             "These entries couldn't load. Type a valid Name (and Option source) and hit "
+             "Restore — or hit Auto-name & Restore to let the app name them: a leading "
+             "number becomes a word (“9 Lives” → “Nine Lives”); un-salvageable junk "
+             "becomes a placeholder."]
             (doall
-             (for [{:keys [content-type item-key]} trapped
-                   :let [k [content-type item-key]
-                         v (get current k "")]]
-               ^{:key (str k)}
-               [:div.m-t-5.flex.align-items-c
-                [:input.input {:type "text" :value v
-                               :on-change #(swap! edits assoc k (.. % -target -value))}]
-                (when (invalid? v)
-                  [:span.red.m-l-5.f-s-12 "must start with a letter"])]))]
-           [:div.f-s-12.m-t-5
-            "Couldn't load and can't be auto-repaired here — export it to fix manually."])
-         [:div.m-t-10
-          (when (seq trapped)
+             (for [{:keys [ct ik]} entries
+                   :let [nk [ct ik :name]
+                         ok [ct ik :option-pack]
+                         nm (get current nk "")]]
+               ^{:key (str ct "/" ik)}
+               [:div.m-t-5.m-b-5
+                [:div.f-s-12.orange (str (name ct) " / " (name ik))]
+                [:div.m-t-5.flex.align-items-c
+                 [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Name"]
+                 [:input.input {:type "text" :value nm
+                                :on-change #(swap! edits assoc nk (.. % -target -value))}]
+                 ;; Preview what Auto-name would do to this entry: salvage a
+                 ;; leading number to a real name (orange, keeps intent), or —
+                 ;; when unsalvageable — replace it with a placeholder (amber).
+                 (when-not (common/starts-with-letter? nm)
+                   (if-let [salvage (common/repair-name-lead nm)]
+                     [:span.m-l-5.f-s-12.orange (str "→ Auto-name: “" salvage "”")]
+                     [:span.m-l-5.f-s-12 {:style {:color "#d9a520"}}
+                      "→ Auto-name replaces this with a placeholder (Unnamed …)"]))]
+                [:div.m-t-5.flex.align-items-c
+                 [:span.f-s-12.m-r-5 {:style {:min-width "90px"}} "Option source"]
+                 [:input.input {:type "text" :value (get current ok "")
+                                :on-change #(swap! edits assoc ok (.. % -target -value))}]]]))]
+           [:div.f-s-12.m-t-5 "No entries to repair."])
+         (let [edit-map (into {} (map (fn [[[ct ik field] v]]
+                                        [[src-name ct ik field] v])
+                                      @edits))
+               ;; Does auto-naming REPLACE a name (vs salvage it)? True when an
+               ;; entry's current name is invalid AND repair-name-lead can't
+               ;; salvage it — it'd get an "Unnamed …" placeholder. Tints the Auto
+               ;; button as destructive in that case.
+               any-replace? (boolean
+                             (some (fn [{:keys [ct ik]}]
+                                     (let [nm (get current [ct ik :name] "")]
+                                       (and (not (common/starts-with-letter? nm))
+                                            (nil? (common/repair-name-lead nm)))))
+                                   entries))]
+           [:div.m-t-10
+            ;; Manual: restore with the names you typed; anything still invalid
+            ;; stays quarantined (no silent auto-naming).
+            (when (seq entries)
+              [:button.form-button.m-r-5
+               {:on-click #(dispatch [::e5/repair-quarantined-source src-name edit-map false])}
+               "Restore"])
+            ;; Auto: salvage a leading number to a word ("9 Lives" -> "Nine Lives")
+            ;; else a placeholder. Amber when it will replace rather than salvage.
+            (when (seq entries)
+              [:button.form-button.m-r-5
+               ;; destructive tint: override .form-button's amber gradient with a
+               ;; red-orange one in the panel's own attention hue (#d94b20, the
+               ;; border color above) — distinct from the default action buttons,
+               ;; but part of this panel's palette rather than a foreign color.
+               (cond-> {:on-click #(dispatch [::e5/repair-quarantined-source src-name edit-map true])}
+                 any-replace? (assoc :style {:background-image "linear-gradient(to bottom, #e0602c, #d94b20)"}))
+               "Auto-name & Restore"])
             [:button.form-button.m-r-5
-             {:disabled blocked?
-              :class (when blocked? "disabled")
-              :on-click #(when-not blocked?
-                           (dispatch [::e5/repair-quarantined-source src-name
-                                      (into {} (map (fn [[[ct ik] nm]]
-                                                      [[src-name ct ik :name] nm])
-                                                    @edits))]))}
-             "Repair & Restore"])
-          [:button.form-button
-           {:on-click #(dispatch [::e5/export-quarantined-raw src-name])}
-           "Export raw"]]]))))
+             {:on-click #(dispatch [::e5/export-quarantined-raw src-name])}
+             "Export raw"]
+            ;; Escape hatch for entries that can't be repaired and won't self-clear
+            ;; (e.g. stale ones from an earlier bad import). Confirms — only copy.
+            [:button.form-button
+             {:on-click #(when (js/confirm
+                               (str "Permanently discard the set-aside entries in \""
+                                    src-name "\"? Export raw first if you might want them."))
+                          (dispatch [::e5/discard-quarantined-source src-name]))}
+             "Discard"]])]))))
 
 (defn quarantine-panel
-  "Surfaces sources the loader quarantined. Preserved, not discarded —
-   the user can repair them back into the library or export the raw data."
+  "Surfaces the ENTRIES the loader set aside (grouped by their source). The rest of
+   each source loaded normally; these are preserved, not discarded, so you can fix
+   them back into the library or export the raw data."
   []
-  (let [quarantined @(subscribe [::e5/quarantined-plugins])]
+  (let [quarantined @(subscribe [::e5/quarantined-plugins])
+        n-entries (reduce + 0 (for [[_ plugin] quarantined
+                                    [ct items] plugin
+                                    :when (and (qualified-keyword? ct) (map? items))]
+                                (count items)))]
     (when (seq quarantined)
       [:div.p-20.main-text-color.m-b-10.m-l-10.m-r-10.b-rad-5
        {:style {:border "2px solid #d94b20"}}
        [:div.f-w-b.f-s-24.m-b-5
         [:i.fa.fa-exclamation-triangle.m-r-5]
-        (str (count quarantined) " quarantined source"
-             (when (not= 1 (count quarantined)) "s") " — couldn't load")]
+        (str n-entries " entr" (if (= 1 n-entries) "y" "ies")
+             " couldn't load — needs attention")]
        [:div.f-s-12
-        "These were preserved (not discarded) so you can repair or export them."]
+        "The rest of each source loaded fine. Fix these back in, or export/discard them."]
        (doall
         (for [[src-name plugin] quarantined]
           ^{:key src-name}
@@ -8852,7 +9579,9 @@
           [:div.posn-rel.m-r-5.m-b-5
            [:input.input
             {:placeholder "Search by name..."
-             :style       {:width "200px"}
+             ;; Align with the filter buttons: same height (9px pad + 1px border ==
+             ;; the buttons' 10px pad) and no top-margin offset from .input.
+             :style       {:width "200px" :margin-top 0 :padding "9px 10px" :font-size "12px"}
              :value       name-filter
              :on-change   #(dispatch [::char/set-char-name-filter (.. % -target -value)])}]
            (when (not (s/blank? name-filter))
