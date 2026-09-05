@@ -1,16 +1,14 @@
 (ns orcpub.dnd.e5.built-character-debounce-test
-  "How many times does entity/build actually run for ONE user change?
+  "Counts entity/build runs per change in debounced-build-sub.
 
-   `debounced-build-sub` adds the SAME on-change watch to both its inputs, the
-   character and the built template. A single interaction (picking a race, a
-   class) changes both, so both watches fire: the first takes the leading edge
-   and builds immediately, the second finds last-run too recent and schedules a
-   TRAILING build. Two full entity/build runs per change, the second landing
-   500 ms later — right as the user clicks the next thing.
+   Two things this harness gets right and a naive one does not: inputs are
+   reactions over a SHARED source (production shape -- :character and
+   :built-template both derive from app-db; with independent atoms a second
+   build is correct, not redundant), and the stub is installed with set!, not
+   with-redefs, which unwinds before the trailing build's timer fires.
 
-   These tests count builds directly by redefining `built-character`. The inputs
-   are plain reagent atoms: the sub only needs add-watch/remove-watch/deref, so
-   the real subscription graph is not needed to observe the fan-in."
+   It does NOT reproduce why the app built twice -- that was two subscription
+   instances; see docs/kb/perf-homebrew-builder-loop.md."
   (:require [cljs.test :refer-macros [deftest testing is async]]
             [reagent.ratom :as ra]
             [orcpub.dnd.e5.subs :as subs]))
@@ -20,26 +18,12 @@
   900)
 
 (defn- count-builds
-  "Run `change!` against a fresh debounced build sub and call `k` with the number
-   of builds it caused. Construction itself builds once; that is not counted.
-
-   The inputs are REACTIONS over a shared source, not independent atoms. That is
-   the production shape — `:character` and `:built-template` are both derived from
-   app-db, so one interaction dirties both — and it is the whole point: with two
-   unrelated atoms the second change really is news the first build never saw, and
-   two builds would be correct. An earlier version of this helper used unrelated
-   atoms and so could not tell a redundant rebuild from a needed one.
-
-   NOTE: the stub is installed with set!, NOT with-redefs. with-redefs unwinds
-   when its body exits, and this sub's whole point is a TRAILING build fired from
-   a timer long after that — which would then run the real entity/build and go
-   uncounted. An earlier version made exactly that mistake and reported 1 where
-   there were 2."
+  "Calls `k` with [build-count build-args] for the builds `change!` caused.
+   Construction builds once; not counted."
   [change! k]
   (let [src    (ra/atom 0)
-        ;; :auto-run keeps both reactions live. In the app the graph is live
-        ;; because components deref it every render; an inert reaction never
-        ;; recomputes and never notifies, so nothing would fire at all.
+        ;; :auto-run keeps them live. An inert reaction never recomputes, so
+        ;; nothing fires at all.
         char-r (ra/make-reaction (fn [] {:character @src}) :auto-run true)
         tmpl-r (ra/make-reaction (fn [] {:template @src}) :auto-run true)
         builds (atom 0)
@@ -63,9 +47,7 @@
       (count-builds
        (fn [src] (swap! src inc))
        (fn [n _seen]
-         ;; Was 2 before the fan-in fix: leading edge from the first watch,
-         ;; trailing edge scheduled by the second.
-         (is (= 1 n) "builds once, not once per changed input (was 2 before the fan-in guard)")
+         (is (= 1 n) "builds once, not once per changed input")
          (done))))))
 
 (deftest a-second-independent-change-builds-again
@@ -83,7 +65,7 @@
       (count-builds
        (fn [src] (reset! src @src))
        (fn [n _seen]
-         (is (= 0 n) "nothing changed, so nothing to rebuild (was 1: ratom reset! notifies regardless)")
+         (is (= 0 n) "nothing changed, so nothing to rebuild")
          (done))))))
 
 (deftest first-build-must-not-use-a-stale-template

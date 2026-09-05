@@ -1,18 +1,13 @@
-// How finely can the homebrew library actually be split? Per source, and within a source.
+// How finely the library can be split: per source, and within a source.
 //
-// WHY: the storage plan twice hit a wall that turned out to be self-imposed — a source too
-// big to migrate under the quota, and a "chunking can never beat the largest source" perf
-// cap. Both assumed the chunk must be a whole source. It need not: a source is
-// {qualified-keyword content-type {item-key item}} plus non-content scalars, and
-// e5/merge-plugins (merge-with merge) already reassembles it exactly.
+// A source is {qualified-keyword content-type {item-key item}} plus non-content scalars
+// (Monster Manual carries :disabled?), and e5/merge-plugins (merge-with merge) reassembles
+// it exactly. So a chunk need not be a whole source -- which is what made both the
+// "un-migratable source" and the "capped by the largest source" limits go away.
 //
-// Measured on MegaPak: largest source 383,817 chars, whose largest content group is 366,488.
-// Moving a chunk of size c while the legacy blob holds L peaks at L + c, so migration only
-// needs c <= ceiling - L (~2.18 M for a 3 M library). Content groups are far under that, and
-// items are kilobytes — so the constraint stops binding once chunks go below source level.
-//
-// Also note Monster Manual's ":disabled? 5": sources carry non-content scalars, which need
-// their own meta chunk when a source is split.
+// MegaPak: largest source 383,817 chars, its largest content group 366,488, items in the
+// kilobytes. Moving a chunk of size c while the legacy blob holds L peaks at L + c, so
+// migration needs only c <= ceiling - L (~2.18 M for a 3 M library).
 //
 // Run: lein e2e-server, then
 //   node test/browser/library_chunk_granularity_e2e.js /path/to/pack.orcbrew

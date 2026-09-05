@@ -1,16 +1,11 @@
-// PROOF, not argument: what is actually in localStorage after a real import.
+// What is actually in localStorage after a real import.
 //
-// Settles a question that came up twice while scoping the chunked-storage migration:
-// "isn't the library already stored in parts?" It is not. Every UI action is per-source
-// (import/export/delete/disable one book), and app-db holds {source-name -> plugin} — but
-// plugins->local-store flattens that whole map with `str` into the single "plugins" key,
-// and set-item is a bare .setItem with no splitting.
-//
-// Measured against MegaPak (13 sources) on the real e2e server:
-//   13 sources -> 1 localStorage key -> 2,166,081 chars (2.07 MB) in one value.
-// So a single source toggle rewrites all 2.07 MB, and builder open reads it back through
-// ONE read-string (~750 ms, blocking). Quarantine cannot help that: it runs per-source on
-// the map that only exists AFTER the parse completes.
+// The library is per-source everywhere the user touches it (import, export, delete,
+// disable) but plugins->local-store flattens the whole map with `str` into one key, and
+// set-item is a bare .setItem. Measured with MegaPak: 13 sources -> 1 key -> 2,166,081
+// chars. So one source toggle rewrites 2.07 MB and builder open reads it all back through
+// one read-string. Quarantine cannot help that: it runs on the map that exists only after
+// the parse returns.
 //
 // Run: lein e2e-server, then
 //   node test/browser/storage_shape_e2e.js /path/to/pack.orcbrew

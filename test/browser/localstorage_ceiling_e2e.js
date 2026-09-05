@@ -1,21 +1,14 @@
-// Measure the REAL localStorage ceiling instead of repeating the "5 MB" folklore.
+// The real localStorage ceiling, not the "5 MB" folklore.
 //
-// WHY: the chunked-storage plan first proposed migrating by writing v2 alongside the legacy
-// blob and deleting legacy afterwards. That doubles peak usage. Whether it is safe depends
-// on a number nobody had measured, and on whether the quota counts characters or UTF-8
-// bytes — the library is measured in characters (see storage_shape_e2e.js).
+// Fills in 64k chunks until the quota throws, with two alphabets: matching ceilings mean
+// the quota counts UTF-16 units (so a library's char count compares directly against it),
+// differing ones mean encoded bytes.
 //
-// Result in Chromium:
-//   5,177,344 chars, IDENTICAL for an ASCII fill and a CJK fill.
-//   Identical means the quota counts UTF-16 code units, not UTF-8 bytes, so a library's
-//   character count compares directly against it.
-//   navigator.storage.estimate().quota reported 916,414,672 — that is IndexedDB/
-//   CacheStorage origin quota, NOT localStorage. ~180x more room, which is the capacity
-//   argument for IndexedDB.
+// Chromium: 5,177,344 chars, identical for ASCII and CJK. navigator.storage.estimate()
+// reported 916,414,672 -- that is IndexedDB/CacheStorage, not localStorage.
 //
-// Consequence: copy-then-delete migration works below ~2.58 M chars and fails above it.
-// Real users are already past that, so the plan moves one source at a time and shrinks the
-// legacy blob as it goes. See docs/kb/plan-chunked-library-storage.md.
+// Consequence: a copy-then-delete storage migration fits only below ~2.58 M chars, which
+// real libraries already exceed. See docs/kb/plan-chunked-library-storage.md.
 //
 // Run: lein e2e-server, then  node test/browser/localstorage_ceiling_e2e.js
 const { chromium } = require('playwright');

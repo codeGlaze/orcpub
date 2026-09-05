@@ -321,15 +321,14 @@
   "reg-sub-raw handler: wraps entity/build with leading+trailing edge
    debounce. Dropdown changes compute instantly; rapid keystrokes batch.
 
-   Public so built-character-debounce-test can count builds per change."
+   Public for built-character-debounce-test."
   [char-sub tmpl-sub]
   (let [timeout-id (atom nil)
         last-run   (atom 0)
         c0         @char-sub
         t0         @tmpl-sub
-        ;; What `result` currently reflects. One interaction changes BOTH inputs
-        ;; and both carry the same watch, so on-change fires twice; without this
-        ;; the second firing scheduled a trailing rebuild of what was just built.
+        ;; What `result` reflects, so a notification carrying no change is a
+        ;; no-op rather than a trailing rebuild of what was just built.
         built-from (atom [c0 t0])
         result     (ra/atom (built-character c0 t0))
         wk         (gensym "build-")
@@ -352,10 +351,9 @@
                      (reset! pending false)
                      (when-not @disposed?
                      (let [[bc bt] @built-from]
-                       ;; identical?, not =: a reaction only notifies when its
-                       ;; value actually changed, so identity is exact here, and
-                       ;; deep-comparing a built template would cost more than the
-                       ;; rebuild it saves.
+                       ;; identical?, not =: reactions only notify on a real
+                       ;; change, and deep-comparing a template costs more than
+                       ;; the rebuild it would save.
                        (when-not (and (identical? bc @char-sub)
                                       (identical? bt @tmpl-sub))
                          (when-let [tid @timeout-id] (js/clearTimeout tid))
@@ -372,8 +370,8 @@
     (ra/make-reaction
      (fn [] @result)
      :on-dispose (fn []
-                   ;; A microtask queued just before disposal would otherwise run
-                   ;; against torn-down inputs.
+                   ;; A microtask queued just before disposal would otherwise
+                   ;; run against torn-down inputs.
                    (reset! disposed? true)
                    (remove-watch char-sub wk)
                    (remove-watch tmpl-sub wk)

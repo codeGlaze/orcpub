@@ -1,21 +1,16 @@
-// How many times does entity/build actually run for ONE click, in the REAL app?
+// entity/build calls per click, in the real app.
 //
-// WHY THIS EXISTS: built_character_debounce_test.cljs pins the same thing in a synthetic
-// harness — two live reactions over a shared source. That harness is a model, and a model
-// can be wrong about the app: in production `built-template` returns the SAME template
-// object every time (its body is commented out; it ignores selected-plugin-options), so a
-// mechanism the harness demonstrates need not be the mechanism the app exhibits. This probe
-// settles it against the live backend, real homebrew and real clicks.
+// The CLJS characterization test models the debounce in a synthetic harness. A model can be
+// wrong about the app, and here it was: the app built twice because TWO subscription
+// instances existed ([:built-character] and [:built-character nil]), which no harness over a
+// single instance can show. Gaps between builds discriminate the causes -- a few ms means
+// separate instances or same-tick fan-in, ~500 ms means the debounce's leading and trailing
+// edges. STACKS=1 prints the caller of each build.
 //
-// Measured on the pre-fix dev build with MegaPak loaded: a single race click ran
-// entity/build TWICE. The build gaps printed here say which cause it was — a few ms apart
-// is same-tick fan-in from the two watches; ~500 ms apart is the debounce's leading and
-// trailing edges firing for two separate character changes.
-//
-// Instrumentation note: this wraps orcpub.dnd.e5.subs.built_character, which works only
-// because debounced-build-sub calls it through the namespace var. Wrapping a function that
-// a caller captured at definition time silently intercepts nothing — that mistake has been
-// made in this repo before and reported a confident wrong number.
+// Wrapping works only because debounced-build-sub calls built-character through the
+// namespace var; wrapping a function a caller captured at definition time intercepts
+// nothing. Constructions counted here are only those AFTER instrumentation, so a count of 0
+// does not rule out instances created during builder load.
 //
 // Run: lein fig:build && lein e2e-server, then
 //   node test/browser/builds_per_interaction_e2e.js /path/to/pack.orcbrew
