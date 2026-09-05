@@ -219,3 +219,31 @@ component preview (mount + Playwright screenshot) can show a form renders correc
   The recurring `feat-options` trap (static `*-options` defs are SRD-minimal/`#_`-commented *by
   design*; homebrew is merged at the `concat` assembly point, not in the static def). Feats ARE
   extensible; fighting styles genuinely are NOT (no plugin path — the one real gap).
+
+## MEASURED: the macro does not affect reactivity
+
+The page-map macro emits a **symbol referencing the view fn** — the identical value the hand-written
+map held. `main-view` then mounts it as `[view …]`, a hiccup vector, and `builder-page` ends in
+`[builder]`. Nothing is precomputed, inlined or frozen: the macro generates the route→component
+lookup table, not the components.
+
+Measured while typing 12 characters into a builder form (`render_granularity_probe.js`):
+
+| | |
+|---|---|
+| DOM mutations page-wide | 12 |
+| of those, inside the form subtree | 12 |
+| **outside the form** | **0** |
+| `simple-content-builder` invocations | 4 (the 500 ms build debounce batches them) |
+
+**A concern that did not survive testing.** The builders call `(simple-content-builder …)` rather
+than mounting `[simple-content-builder …]`, so the form's subscription deref registers in the
+enclosing component's reactive context. That sounds like it should re-render the whole page. It
+does not matter: changing it to a mounted component produced **identical** numbers — 12 mutations,
+0 outside the form, 1753 ms vs 1747 ms. React's reconciliation already keeps the DOM work minimal
+and the debounce absorbs the rest. Reverted rather than kept as churn.
+
+*Caveat on the instrumentation:* patching a namespace fn to count invocations only intercepts call
+sites that resolve through the namespace object. Reagent captures a reference when it mounts a
+component, so counts for `builder-page` and `fighting-style-builder` read 0 whether or not they ran
+— those zeroes are artifacts, not evidence. Only `simple-content-builder`'s count is trustworthy.
