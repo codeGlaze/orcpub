@@ -1501,20 +1501,13 @@
 (declare library-health-status)
 
 (defn content-page [title button-cfgs content & {:keys [hide-header-message? frame?]}]
-  ;; Plain atom (not r/atom) mirrors the :orcacle-open? subscription value
-  ;; for the scroll handler, which runs as a DOM event listener outside
-  ;; Reagent's reactive context. Synced from the render fn below.
-  (let [orcacle-open?* (atom false)
-        on-scroll (fn [e]
-                    (when-not @orcacle-open?*
-                      (let [app-header (js/document.getElementById "app-header")
-                            header-height (.-offsetHeight app-header)
-                            scroll-top (.-scrollTop (.-documentElement (.-target e)))
-                            sticky-header (js/document.getElementById "sticky-header")]
-                        (if (>= scroll-top header-height)
-                          (set! (.-display (.-style sticky-header)) "block")
-                          (set! (.-display (.-style sticky-header)) "none")))))]
-    
+  ;; Whether the header has reached the top of the viewport. position: sticky
+  ;; does the sticking, but CSS cannot say "is currently stuck", and the bar only
+  ;; wears its background and shadow once it is -- so a zero-height sentinel above
+  ;; the header is watched, and this follows it.
+  (let [stuck? (r/atom false)
+        observer (atom nil)]
+
     (r/create-class
      {:component-did-mount (fn [comp]
                              ;; Read directly from app-db — lifecycle methods are
@@ -1527,12 +1520,20 @@
                                  :username  (:username user-data)
                                  :email     (:email user-data)}))
                              (when-not frame?
-                               (js/window.addEventListener "scroll" on-scroll))
+                               (when-let [sentinel (js/document.getElementById "header-sentinel")]
+                                 (let [obs (js/IntersectionObserver.
+                                            (fn [entries]
+                                              (reset! stuck?
+                                                      (not (.-isIntersecting (aget entries 0)))))
+                                            #js {:threshold 0})]
+                                   (.observe obs sentinel)
+                                   (reset! observer obs))))
                              (js/window.scrollTo 0,0))
 
       :component-will-unmount (fn [comp]
-                                (when-not frame?
-                                  (js/window.removeEventListener "scroll" on-scroll)))
+                                (when-let [obs @observer]
+                                  (.disconnect obs)
+                                  (reset! observer nil)))
       :reagent-render
       (fn [title button-cfgs content & {:keys [hide-header-message? frame?]}]
         (let [srd-message-closed? @(subscribe [:srd-message-closed?])
@@ -1540,7 +1541,6 @@
               theme @(subscribe [:theme])
               mobile? @(subscribe [:mobile?])
               username? @(subscribe [:username])]
-          (reset! orcacle-open?* orcacle-open?)
           [:div.app.min-h-full
            {:class theme
             :on-scroll (when-not frame?
@@ -1557,11 +1557,18 @@
              [orcacle])
            (let [hdr [header title button-cfgs :frame? frame?]]
              [:div
-              [:div#sticky-header.sticky-header.w-100-p.posn-fixed
-               [:div.flex.justify-cont-c
-                [:div#header-container.f-s-14.main-text-color.content
-                 hdr]]]              
+              ;; One header, sticky, rather than a fixed copy of it above an
+              ;; inline one. Two copies meant every control in the header --
+              ;; every button, and the whole PDF options panel that opens inside
+              ;; it -- existed twice in the DOM, twice in the tab order, and with
+              ;; its own component-local state in each.
+              ;;
+              ;; Not sticky inside a frame, which has no app header to scroll
+              ;; past, or behind the Orcacle panel, which covers the page.
+              [:div#header-sentinel]
               [:div.flex.justify-cont-c.main-text-color
+               {:class (str (when-not (or frame? orcacle-open?) "sticky-header ")
+                            (when @stuck? "stuck"))}
                [:div.content hdr]]
 
               ;; Support banner (integrations-gated)

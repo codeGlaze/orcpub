@@ -33,5 +33,7 @@ re-frame events. Routing via the app's own router is fine for navigation.
 - `starting_equipment_browser_e2e.js` — the starting-equipment builder round-trip.
 - `spell_layout_pdf_e2e.js` — builds a Warlock 5 / Sorcerer 5, exports every sheet style under
   both spell-sheet layouts, and checks the packed one comes out shorter.
+- `sticky_header_e2e.js` — one sticky header, not a fixed copy above an inline one, in a desktop
+  and a phone viewport.
 
 Some of these still boot a static server (an older pattern being migrated to `lein e2e-server`).

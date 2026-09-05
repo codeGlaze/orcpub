@@ -217,19 +217,16 @@ async function postSpec(page, spec, style, name) {
     // the toggles are picked by which ones actually have a box on the page.
     // The hidden copy is hidden by visibility, so it still has a box and still
     // answers to isVisible -- checkVisibility is what separates the two.
-    // The app mounts the panel once per layout and only one is on screen, so the
-    // count is halved and the clicks go to the copy under the viewport.
     const all = page.locator('.option-help');
     const total = await all.count();
-    check('each option carries a help toggle', total >= 8, `${total} found`);
-    const half = total / 2;
-    for (let i = 0; i < half; i++) await all.nth(i).click();
+    check('each option carries a help toggle', total >= 4, `${total} found`);
+    for (let i = 0; i < total; i++) await all.nth(i).click();
     await page.waitForTimeout(400);
     check('the toggles open their explainers',
-          await page.locator('.option-help-text').count() === half,
-          `${await page.locator('.option-help-text').count()} of ${half}`);
+          await page.locator('.option-help-text').count() === total,
+          `${await page.locator('.option-help-text').count()} of ${total}`);
     await page.screenshot({ path: path.join(OUT, 'pdf-options-help.png') });
-    for (let i = 0; i < half; i++) await all.nth(i).click();
+    for (let i = 0; i < total; i++) await all.nth(i).click();
     await page.waitForTimeout(400);
 
     // B&W and the card-back logo apply to magic item cards too, so the group

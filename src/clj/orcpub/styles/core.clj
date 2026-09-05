@@ -997,11 +997,16 @@
     [:*:focus
      {:outline 0}]
 
+    ;; The header sticks itself; the chrome goes on only once it has, which is
+    ;; what the .stuck class the page's IntersectionObserver sets says. Sticky
+    ;; rather than a fixed duplicate of the header: see content-page.
     [:.sticky-header
-     {:top 0
-      :box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
-      :z-index 100
-      :display :none
+     {:position :sticky
+      :top 0
+      :z-index 100}]
+
+    [:.sticky-header.stuck
+     {:box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
       :background-color "#313A4D"}]
 
     [:.container
@@ -1498,10 +1503,11 @@
       :justify-content :space-between
       :align-items :center}]
 
-    ;; Prevent horizontal scroll caused by fixed-position elements
-    ;; spanning full viewport width when vertical scrollbar is present.
+    ;; Clip rather than hide. overflow-x: hidden makes .app a scroll container,
+    ;; and a scroll container between the sticky header and the viewport stops it
+    ;; sticking at all; clip trims the same overflow without becoming one.
     [:.app
-     {:overflow-x :hidden}]
+     {:overflow-x :clip}]
 
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
@@ -1580,7 +1586,7 @@
       {:background-color :white
        :color "#282828"}]
 
-     [:.sticky-header
+     [:.sticky-header.stuck
       {:background-color :white}]
 
      [:table.striped
