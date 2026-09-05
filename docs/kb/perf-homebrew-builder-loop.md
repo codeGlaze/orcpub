@@ -520,6 +520,69 @@ granular-subscription tenet instead of fighting it.
 That is more work than a size cap, and it belongs with step 3 rather than ahead of it — step
 3 restructures the same code path.
 
+## PHASE 0 RESULT: the builder-open block is EDN parsing, not template construction
+
+Spike B — derive class and subclass bodies only for classes the character has taken — was
+built as a throwaway and measured on `mega-64`. It moved two things and not the one it was
+aimed at:
+
+| | before | spike B |
+|---|---|---|
+| heap after load | 122.7 MB | **95.3 MB** (-27.4) |
+| class switch | 391 ms | **237 ms** |
+| **builder open** | 1730 ms | **1583 ms (-8%)** |
+
+Gating the suspected cause **entirely off** — no `make-levels` and no `class-option` for 130
+classes and 214 subclasses — removed 8% of the block. That is the cleanest possible
+disproof: remove the cause, the symptom stays.
+
+Profiling the cold load with the spike in place says where it actually goes (busy 3842 ms):
+
+```
+  1516 ms  edn reader          <- cljs.tools.reader parsing plugins out of localStorage
+   670 ms  reagent render
+   212 ms  entity.build
+    98 ms  class_option
+     4 ms  template_selections
+```
+
+Plus 464 ms of GC and ~336 ms of `cljs.core/_EQ_` / `IEquiv`. **The single biggest item is
+re-parsing the whole homebrew library from localStorage on every page load.**
+
+### The confound I did not control for
+
+Builder-open looked like it scaled with caster count. It scales with **pack size**, and my
+packs got bigger as I added casters:
+
+```
+pack        size(MB)  casters  builder-open
+mega-raw       2.26        2       728ms
+mega-8         2.30       18       869ms      size x1.02, casters x9.0  -> time x1.19
+mega-32        3.00       66      1374ms      size x1.30, casters x3.7  -> time x1.58
+mega-64        3.90      130      1730ms      size x1.30, casters x2.0  -> time x1.26
+```
+
+Nine times the casters at the same size costs 19% more. A 30% bigger pack costs 26-58% more.
+**Time tracks bytes, not casters.** Every earlier statement in this document attributing
+builder-open to caster count is wrong on that point; the numbers themselves stand, the
+attribution does not. `db.cljs:319` `reader/read-string` on the `::e5/plugins` cofx was
+identified in the first pass and dismissed as "once per page load, not per click" — true, and
+it is 1.5 s of that load.
+
+### What this does to the plan
+
+- **Step 3 as written is not the fix for builder-open.** It is still worth doing for what it
+  did deliver — 27 MB of heap and a halved class switch — but it is no longer the headline.
+- **The new headline is the EDN re-parse.** Candidate directions, none measured yet: store
+  the library as transit rather than EDN (materially faster to read), parse once into
+  IndexedDB and hydrate from there, or parse lazily per source instead of the whole library
+  at `:initialize-db`.
+- **`reagent render` at 670 ms is now second**, which promotes virtualisation from "step 5,
+  unmeasured" to a real candidate.
+
+Phase 0 did its job: it was built to compare two designs and instead invalidated the premise
+of both. Cheaper than shipping either.
+
 ## The fix plan (revised — supersedes the original below)
 
 Everything before this point is measurement. This is the delivery plan, rewritten after
