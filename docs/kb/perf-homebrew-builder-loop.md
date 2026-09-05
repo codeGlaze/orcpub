@@ -965,3 +965,48 @@ zeroed out exactly the number this spike depends on.
 Net: pay for the storage-format migration. It is cheap relative to the win on the realistic
 distribution, the win is not marginal (5-6x on mega-raw), and even the worst measured case
 here is a clear improvement, not a wash.
+
+### Why storage is one blob when import/export are already per-source
+
+Asked while scoping the Track 1 migration: if a user can export and import one library at a
+time, how is the library "one big string"? Checked against the code rather than assumed.
+
+Because they are different layers. `app-db :plugins` is `{source-name -> plugin}`, and every
+feature already works on that map per source:
+
+| Path | Granularity | Code |
+| --- | --- | --- |
+| Export one source | per source | `::e5/export-plugin` takes `[name plugin]`; `select-emergency-export` does `(get plugins plugin-name)` |
+| Export draft (WIP) | per source | `reg-export-draft` builds `{src {content-type {key item}}}` |
+| Export everything | whole map | `::e5/export-all-plugins` |
+| Import single-source | per source | `(assoc (:plugins db) plugin-name plugin)` |
+| Import multi-source | per source, merged | `e5/merge-all-plugins` |
+| Load-time salvage | per source, per entry | `salvage-library-items` is a `reduce-kv` over sources |
+| Quarantine | per source, name-keyed | `reconcile-rejected`, in its own `plugins:rejected` key |
+
+Only *persistence* is monolithic. `plugins->local-store` (`db.cljs:265`) is
+`(set-item "plugins" (str plugins))` over the whole map, and the `::e5/plugins` cofx parses
+that one string back. The `.orcbrew` file format is per-source; the localStorage
+representation is not. Nothing about the file format forces the blob, and nothing about the
+blob is visible to import or export.
+
+**So the migration touches neither import nor export.** Both build or consume the in-memory
+map and hand it to `::e5/set-plugins`; only the write sitting behind that event changes.
+Same for the validation/fix functions: `salvage-library-items` and `reconcile-rejected` are
+already keyed by source, so per-source keys fit them better than the blob does.
+
+Two consequences worth carrying into the implementation:
+
+1. **Corruption stops being all-or-nothing, which is a gain.** `preserve-on-unreadable-keys`
+   currently moves the entire library to `plugins:corrupt` when one byte of the blob will not
+   read. Per-source keys quarantine only the source that failed.
+2. **Quota failure stops being atomic, which is a cost.** Today a full-library write either
+   sticks or does not, and `::e5/plugins-save-failed` reports it. Split across keys, a write
+   can half-succeed and leave storage internally inconsistent. The migration needs an index
+   key written last, so a partial write is detectable on the next load instead of silently
+   presenting a truncated library.
+
+`orcbrew-val/correct-library` stays whole-library, and should: its cross-source key-conflict
+detection genuinely needs to see every source at once. That is unaffected either way, since
+all sources are still loaded into memory. Chunking is a parse/storage change, not a
+semantic one.
