@@ -1418,6 +1418,11 @@
    (get db ::char5e/print-character-sheet-style?)))
 
 (reg-sub
+ ::char5e/spell-layout
+ (fn [db _]
+   (get db ::char5e/spell-layout)))
+
+(reg-sub
  ::char5e/delete-confirmation-shown?
  (fn [db [_ id]]
    (get-in db [::char5e/delete-confirmation-shown? id])))

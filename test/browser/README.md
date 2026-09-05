@@ -31,5 +31,7 @@ re-frame events. Routing via the app's own router is fine for navigation.
 - `notification_flows_e2e.js` — message toasts render red/orange/green via `views.notifications`.
 - `notifications_acceptance_e2e.js` — toasts, confirmation dialog, callout, shared-content-banner.
 - `starting_equipment_browser_e2e.js` — the starting-equipment builder round-trip.
+- `spell_layout_pdf_e2e.js` — builds a Warlock 5 / Sorcerer 5, exports every sheet style under
+  both spell-sheet layouts, and checks the packed one comes out shorter.
 
 Some of these still boot a static server (an older pattern being migrated to `lein e2e-server`).

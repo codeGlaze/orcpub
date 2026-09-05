@@ -6025,6 +6025,16 @@
    (assoc-in db [::char5e/print-character-sheet-style?] id)))
 
 (reg-event-db
+ ::char5e/set-spell-layout
+ (fn [db [_ layout]]
+   ;; nil means the layout computed from the build, which is what an untouched
+   ;; option must keep sending: a stored :per-class would outlive the multiclass
+   ;; that made the choice worth showing.
+   (if layout
+     (assoc db ::char5e/spell-layout layout)
+     (dissoc db ::char5e/spell-layout))))
+
+(reg-event-db
  ::char5e/toggle-known-spells-print
  (fn [db _]
    (update db ::char5e/print-prepared-spells? not)))

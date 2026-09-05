@@ -537,6 +537,23 @@
              spells)]))
        spell-pages)))))
 
+(defn casting-classes
+  "The casting classes of `built-char`, grouped the way a packed layout needs.
+
+   Separate from spellcasting-fields so the builder can ask how many casting
+   classes a character has without building a field map: with one class there is
+   nothing to pack, and the layout choice is not worth offering."
+  [built-char spells-map]
+  (packing-classes (into {}
+                         (map (fn [[id datum]]
+                                [id (into (sorted-map) datum)]))
+                         (char5e/spells-known built-char))
+                   spells-map
+                   (or (char5e/shared-spell-slots built-char) {})
+                   (or (char5e/pact-spell-slots built-char) {})
+                   (char5e/spell-save-dc-fn built-char)
+                   (char5e/spell-attack-modifier-fn built-char)))
+
 (defn default-spell-layout
   "Which layout suits this character, before any override.
 
@@ -582,12 +599,7 @@
                                   (map (fn [[id datum]]
                                          [id (into (sorted-map) datum)]))
                                   (char5e/spells-known built-char))
-        classes (packing-classes sorted-spells-known
-                                 spells-map
-                                 (or (char5e/shared-spell-slots built-char) {})
-                                 (or (char5e/pact-spell-slots built-char) {})
-                                 spell-save-dc-fn
-                                 spell-attack-modifier-fn)
+        classes (casting-classes built-char spells-map)
         layout (or spell-layout (default-spell-layout classes style))]
     (if (and (= :packed layout) (packing/packing-supported? style) (seq classes))
       (packed-spellcasting-fields classes style)

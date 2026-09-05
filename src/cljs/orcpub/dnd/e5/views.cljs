@@ -7,6 +7,7 @@
             [orcpub.components :as comps]
             [orcpub.entity-spec :as es]
             [orcpub.pdf-spec :as pdf-spec]
+            [orcpub.dnd.e5.spell-packing :as packing]
             [orcpub.dice :as dice]
             [orcpub.entity.strict :as se]
             [orcpub.dnd.e5.subs :as subs]
@@ -4115,7 +4116,8 @@
                      card-back-logo-faded?
                      print-bw?
                      bw-faded?
-                     print-magic-item-cards?]
+                     print-magic-item-cards?
+                     spell-layout]
   #(let [export-fn (export-pdf built-char
                                id
                                plugin-data
@@ -4129,7 +4131,8 @@
                                 :card-back-logo-faded? card-back-logo-faded?
                                 :print-bw? print-bw?
                                 :bw-faded? bw-faded?
-                                :print-magic-item-cards? print-magic-item-cards?})]
+                                :print-magic-item-cards? print-magic-item-cards?
+                                :spell-layout spell-layout})]
      (export-fn)
      (dispatch [::char/hide-options])))
 
@@ -4166,6 +4169,7 @@
         card-back-logo-faded? @(subscribe [::char/card-back-logo-faded?])
         print-bw? @(subscribe [::char/print-bw?])
         bw-faded? @(subscribe [::char/bw-faded?])
+        spell-layout @(subscribe [::char/spell-layout])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
@@ -4173,6 +4177,13 @@
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
                      :current-armor-class @(subscribe [::char/current-armor-class id])}
         has-spells? (seq (char/spells-known built-char))
+        ;; Only a multiclass caster on a style that can be renumbered has a
+        ;; choice to make, so the control is not shown to anyone else.
+        casting-classes (when has-spells?
+                          (pdf-spec/casting-classes built-char
+                                                    (:spells-map plugin-data)))
+        packable? (and (> (count casting-classes) 1)
+                       (packing/packing-supported? print-character-sheet-style?))
         print-button-enabled (if (or (= print-character-sheet-style? nil)
                                      (= (str print-character-sheet-style?) "NaN"))
                                false true)
@@ -4234,6 +4245,23 @@
            [labeled-checkbox
             "Prepared"
             print-prepared-spells?]]]])
+      (when packable?
+        [:div.m-b-10.w-250
+         [labeled-dropdown
+          "Spell Sheet Layout"
+          {:items [{:title "Automatic" :value ""}
+                   {:title "One column per class" :value "packed"}
+                   {:title "One page per class" :value "per-class"}]
+           :value (if spell-layout (name spell-layout) "")
+           :on-change (make-arg-event-handler ::char/set-spell-layout
+                                              #(when-not (s/blank? %) (keyword %)))}]
+         ;; What the current setting will actually print. Automatic packs a
+         ;; multiclass caster, which is the only build this control is shown to.
+         [:div.f-s-12.opacity-5.m-t-5
+          (if (= :per-class spell-layout)
+            (str (count casting-classes) " spell pages, one per class")
+            (str "One page, a column each for "
+                 (s/join ", " (map :class casting-classes))))]])
       ;; Appearance group — cosmetic/output options, set apart from the data
       ;; options above (layout B). Only meaningful when spell cards are printed.
       (when print-spell-cards?
@@ -4285,7 +4313,8 @@
                                       card-back-logo-faded?
                                       print-bw?
                                       bw-faded?
-                                      print-magic-item-cards?)}
+                                      print-magic-item-cards?
+                                      spell-layout)}
        "Create PDF"]
       [:div.f-s-20.f-w-b.m-b-10.m-t-10 "Other PDFs"]
       [:a.orange {:href "/dnld/5eActionsReferencePage.pdf" :target "_blank"} "5e Actions Reference"]]
