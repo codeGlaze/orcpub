@@ -37,7 +37,10 @@ Loads figwheel's auto-test runner. Reports to the DOM (the body lists ALL tests 
   `<body><div id="app-auto-testing"></div><script src="js/test-auto-testing.js"></script></body>`
   (the `app-auto-testing` div is required or it throws.)
 
-**Driver (node, `/tmp/pw/run.js`):** a ~15-line `http` static server rooted at
+**Driver — now in the repo: `test/e2e/cljs-harness.js`** (`node test/e2e/cljs-harness.js` after
+`lein fig:test`; it picks Chromium out of `PLAYWRIGHT_BROWSERS_PATH`, serves `target/test/`, runs
+mode **B**, and prints the totals plus the distinct `FAIL in`/`ERROR in` names). It was rebuilt from
+scratch three times in `/tmp` before being committed. Described below for when it needs changing: a ~15-line `http` static server rooted at
 `target/test/`, then Playwright Chromium navigates to the HTML, captures `console` +
 `pageerror`, waits for `/Ran \d+ tests/`, and prints the console + body. Grep the output for
 `Ran .* tests`, `FAIL in`, `ERROR in`.

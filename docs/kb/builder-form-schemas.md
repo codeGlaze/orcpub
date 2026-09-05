@@ -43,47 +43,12 @@ under **HOW TO** below, that is a bug in this document — say so rather than in
 
 ---
 
-## 1. The model, in one page
+## 1–2a. The model and the field node — already documented elsewhere
 
-Three layers. Keep them straight and everything else follows.
-
-| layer | what it is | where it lives |
-|---|---|---|
-| **schema** | data describing a type's fields | `builder_fields.cljc`, per-type nss |
-| **widgets** | the components that render a field | `views.cljs` (`render-builder-field`) |
-| **props** | the mechanical vocabulary a field writes into | `options.cljc` (`make-feat-modifiers`) |
-
-A field says *what to collect*. A widget says *how it looks*. A prop says *what it does to a
-character*. Changing one should not require changing the others — when it does, that is the bug.
-
-The same schema drives **three** consumers, which is the whole reason it is data:
-
-- the builder form (`simple-content-builder`)
-- the save spec (`bf/fields->spec` — optional-by-default, `:required?` opt-in)
-- import/export verification (`field_schemas.cljc` → `import_validation`)
-
-Write a field once; the form, the spec and the import check all follow.
-
----
-
-## 2. The node vocabulary
-
-A schema is a vector of nodes. Today there is one node kind; the proposal adds a second.
-
-### 2a. Field node — REAL, in use
-
-```clojure
-{:key       :description            ; or a PATH: [:props :ac-bonus :bonus]
- :type      :text                   ; :text | :number | :enum
- :label     "Description"
- :required? false                   ; default false. Optional-by-default is deliberate (D9)
- :when      (fn [item] …)           ; optional — render only when true
- :options   [{:value nil :title "Both"} …]}   ; :enum only
-```
-
-**Three-state enums.** A tag with `true` / `false` / absent needs an explicit `nil` option, and it
-must be **first**. A `<select>` with no matching value renders its first option, so without it the
-form displays a restriction the item does not have. See `weapon-data-model.md`.
+The three-layer model (schema → widgets → props) and the field node vocabulary are **shipped** and
+described in `content-extensibility-framework.md` §2 and in `builder_fields.cljc`'s own docstring.
+This doc does not repeat them. One rule worth restating because it bit this branch: a three-state
+enum needs an explicit `nil` option **first** (`weapon-data-model.md`).
 
 ### 2b. Group node — PROPOSED, not built
 
@@ -111,55 +76,15 @@ unchanged and **the save spec and `.orcbrew` format do not change**. Grouping is
 
 ---
 
-## 3. HOW TO
+## 3. HOW TO — only what is not in `content-extensibility-framework.md` §2e
 
-**The test of this whole design is whether these recipes stay short. If one starts growing, the
-framework is leaking and should be fixed rather than the recipe extended.**
-
-### Add a field to an existing type
-
-Append a field node to that type's schema (e.g. `classes/fighting-style-fields`). Done — form, save
-spec and import check all pick it up. **Do not touch `views.cljs`.**
-
-### Add a field to EVERY type that has props
-
-Add it to a shared fragment in `builder_fields.cljc` (`ac-bonus-fields`, `attack-bonus-fields`).
-`:props` compiles into **seven silos** — races, subraces, classes, subclasses, draconic ancestries,
-feats, fighting styles — so a fragment lands in all of them. See
-`fighting-style-vocabulary-gap.md`.
-
-### Add a new field TYPE (e.g. `:boolean`)
-
-Two edits, and note the standing decision first: `builder_fields.cljc` carries an explicit note that
-a boolean/toggle type must route through `common/toggle-in`, **not** a parallel fn — read it before
-starting.
-
-1. `builder_fields.cljc` — add the case to `field-value-pred` (the save-validation predicate)
-2. `views.cljs` — add the case to `render-builder-field` (the widget)
-
-If you find yourself editing a third place, stop: the layers are leaking.
-
-### Add a domain widget (the escape hatch)
-
-Some controls are genuinely bespoke — `creature-selector`, `cantrip-num-selector`,
-`base-weapon-selector`, `option-level-selection`. Do **not** force these into the schema. Pass them
-as raw hiccup in `extra-fields`; the renderer already passes non-map entries through untouched. The
-schema is for fields, not for every control that can exist.
-
-### Add a mechanical prop (make a field DO something)
-
-The field only stores data. To give it effect, add a case arm to `make-feat-modifiers`
-(`options.cljc`) that compiles the authored map into modifiers. Model it on `:ac-bonus` /
-`:attack-bonus`. Then add a test that walks the field paths and asserts each one is a key the
-compiler reads — a form field writing a path the compiler ignores looks right, saves fine, and does
-nothing. See `ac-bonus-field-paths-match-what-the-props-compiler-reads`.
-
-### Add a whole new content type
-
-See `content-extensibility-framework.md` §2e. One registry entry generates subs, events, db slots,
-routes, the SPA allowlist and the page-map binding.
-
----
+- **Add a field to EVERY type that has props** — a shared fragment in `builder_fields.cljc`
+  (`ac-bonus-fields` is the model). `:props` compiles into seven silos, so one fragment lands in all.
+- **Make a field DO something** — a case arm in `make-feat-modifiers`, modelled on `:ac-bonus`, plus
+  the drift test that walks field paths against compiler keys
+  (`ac-bonus-field-paths-match-what-the-props-compiler-reads`). A field writing a path the compiler
+  ignores looks right, saves fine, and does nothing.
+- Everything else (add a field, a type, a domain widget) — framework §2e.
 
 ## 4. Triggers are not conditions
 
@@ -280,7 +205,82 @@ tells us what the escape hatch really needs.
 
 ---
 
-## 6. What this does NOT solve
+## 6. Track E — the plan (pulled forward 2026-09-05; status lives in `roadmap.md`)
+
+### The unifying observation
+
+Four things this branch needs are **the same UI shape** — a repeatable list of typed rows, each row a
+small titled form:
+
+| need | today |
+|---|---|
+| "add an effect" on a fighting style (AC / attack / damage / reaction) | 19 flat fields, 7 duplicated labels |
+| the **grant-authoring UI** — "add a grant from pool X" (Phase-1's biggest lever) | unbuilt |
+| encounter's creatures | `creature-selector`, hand-rolled `map-indexed` loop |
+| background traits | `option-traits`, a **6-event** signature |
+
+`declarative-grant-vocabulary.md` said it in June: *"the form is a repeatable list of grant/select
+rows."* And `equipment-grant-row` is a third bespoke rows widget. So **one `:rows` node** is at once
+tier 3's missing primitive, the grant-UI's substrate, the fix for the flat form, and a collapse of
+three hand-written widgets. That passes the one principle — thicker than what it hides, and the
+call site says what it does.
+
+### The `:rows` node — DESIGN
+
+```clojure
+{:rows      :effects
+ :title     "Effects"
+ :add-label "Add an effect"
+ :as        :map                      ; storage shape — see the D9 question below
+ :kinds     [{:kind :ac-bonus     :title "AC Bonus"     :fields ac-bonus-fields}
+             {:kind :attack-bonus :title "Attack Bonus" :fields attack-bonus-fields}
+             {:kind :reaction     :title "Reaction"     :fields reaction-fields}]}
+```
+
+Renders: an "add" bar listing `:kinds` not yet present; each present row a titled group with a
+remove control; the row's `:fields` rendered by the existing `render-builder-field`. Grouping
+(§2b) becomes a *consequence* of rows rather than a separate node.
+
+**The D9 question this forces — decide before building.** Effects are stored today as a **map
+keyed by kind** — `:props {:ac-bonus {…} :attack-bonus {…}}` — at most one per kind, and the
+compiler reads that shape. Creatures and traits are **vectors**: ordered, duplicates allowed.
+The render is identical; the read/write is not. Options:
+
+1. one node with a declared shape — `:as :map` (keyed by `:kind`) or `:as :vector` — one concept
+   for the framework, two storage adapters underneath. **Recommended**: it keeps `.orcbrew` and
+   the props compiler untouched (D9) while giving the framework one thing to learn.
+2. two nodes (`:keyed-rows`, `:list`) — honest about the difference, but a second vocabulary word
+   for what is visually one control.
+3. migrate `:props` to a vector — cleanest data, but churns every saved item and the compiler.
+   Rejected on D9.
+
+**Removal semantics** are also undecided: does the row's ✕ clear its data immediately or confirm?
+Silent loss on a misclick is the risk.
+
+### Phases (E0–E5) — the roadmap carries status; the acceptance tests are here
+
+- **E1 — Tier 1**: `language-builder` → one line. Acceptance: same three fields, same save-spec,
+  same `.orcbrew`. Establishes the conversion recipe (pin → swap → same test green).
+- **E2 — Tier 2 = fighting styles, done right.** (a) finish the DECIDED class-path threading
+  (`fighting-style-authoring.md`) so an imported style is *usable*; (b) `:rows` replaces the flat
+  form; (c) a rendered-UI E2E in **`test/e2e/`** following `race-builder-asi.js`. **Acceptance:**
+  Defense, Archery and Thrown Weapon authored through the UI, picked by a Fighter, and the sheet
+  shows the right number. That is the whole chain — author → store → export → import → *use*.
+- **E3 — Tier 3 stab**: `:rows :as :vector` over encounter's creatures; then background traits. If
+  the same node serves effects *and* creatures *and* traits, it earned its place. If it needs a
+  fourth shape, stop and reassess.
+- **E4 — Grant-authoring UI**: `:rows` where each row is `{:from <pool> :choose n}` and `:kinds` is
+  derived from the **registered pools**. D21's falsifiable gate applies verbatim: *exposing a second
+  pool must be a ~1-line registration, shown in a commit.*
+- **E5 — Convert the rest**, cheapest first, class last. Each conversion: pin, swap, same numbers.
+
+### What "good UX" means here, concretely
+
+The form starts at three controls. Adding an effect adds one titled row. A `+1` is number-width,
+not page-width. "Melee" under a row titled *Attack Bonus* can only mean one thing. Nothing the
+author did not add is on screen. The mockup at `assets/builder-form-mockup.html` is the target.
+
+## 7. What this does NOT solve
 
 Stated plainly so nobody discovers it later:
 
@@ -296,7 +296,7 @@ Stated plainly so nobody discovers it later:
 
 ---
 
-## 7. Open questions
+## 8. Open questions
 
 1. **Deleting a group with data** — does `✕` clear `[:props :attack-bonus]` immediately or confirm?
    Silent loss on a misclick is the risk.

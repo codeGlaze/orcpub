@@ -24,14 +24,23 @@ capability **requires** logging the paths it now subsumes.
 ## Ledger
 | Function (file) | Superseded by | Deprecated on | Remove after | Pinning test | Status |
 |---|---|---|---|---|---|
-| _(none yet — no bespoke path has been migrated)_ | | | | | |
+| `?natural-ac-bonus` (template_base) | `mod5e/ac-formula` calculations; adapted by a seeded `?ac-fns` entry | 2026-09-04 | after `integration`'s `bracers_ac_test` stops writing it | `ac_reconciliation_test` parity sweep | **Shimmed** (kept declared; nothing in-repo writes it) |
+| `:lizardfolk-ac` / `:tortle-ac` props (options) | the universal `{:ac …}` + `{:armor-gives-no-ac}` shape | 2026-09-04 | never — kept as prop keys (D9) | parity sweep 0; `tortle-decomposes-…` | **Re-pointed**, keys retained |
+| `?unarmored-ac-bonus`, `?unarmored-with-shield-ac-bonus`, `?armored-ac-bonus`, `?magical-ac-bonus`, `?ac-bonus`, `?unarmored-defense` | `?ac-fns` / `?ac-bonus-fns` | 2026-09-04 | — | parity sweep 0; full suite | **Deleted outright — a D34 EXCEPTION**, see note |
+| `mod5e/natural-ac-bonus`, `mod5e/unarmored-defense` (constructors) | `mod5e/ac-formula` | 2026-09-04 | — | — | **Deleted outright** — zero callers, no `:props` key reached them |
+| `armor-class/best-ac`, `reconcile-ac`, `ac_experiments_test` | naive outer loop (measured faster below ~8 armors) | 2026-09-05 | — | `ac_outer_loop_analysis_test` | Deleted — never-released scaffolding (D34 allows) |
+
+**Note on the exception (recorded, not hidden).** The six scalar channels were *released* code and D34
+says `#_`-strike + schedule, not delete. They were deleted because (a) every writer in the repo had already
+been moved and verified by the parity sweep, (b) no `:props` key could reach them from saved content, and
+(c) leaving six dead `?`-attributes declared would have defeated the trim's purpose. If a downstream branch
+turns out to write one, the seeded-adapter shim used for `?natural-ac-bonus` is the recovery pattern.
 
 ## Watch-list (candidates — pool/grant doesn't fully subsume them yet)
-- **Fighting-style grant registry is hardcoded.** `grant-selection` is fed a literal
-  `{:fighting-styles {…opt5e/fighting-style-options}}` at `template.cljc:1549` (built-in styles only).
-  Wiring it to `content-pools/pool` (so homebrew fighting-style packs are grantable) is the first real
-  pool/grant expansion — and the point at which any bespoke fighting-style / feat-grant path it then
-  subsumes becomes a ledger item.
+- ✅ **Fighting-style grant registry** — DONE (`fighting-style-authoring.md`): `template.cljc` now
+  feeds `grant-selection` from `::classes5e/fighting-style-pool` (built-in ++ homebrew). The *class*
+  path (Fighter/Paladin/Ranger picking a homebrew style) is the remaining half — decided, pinned,
+  not threaded. It becomes a ledger row when `fighting-style-selection`'s static list is re-pointed.
 - **Feat ASI is dual-format, not fully converged.** `feat-option-from-cfg` reads BOTH the legacy feat
   set (`#{:str :con}` + `:saves?`) and the cross-silo spread (`[[amount pool]]`), dispatching on shape
   (`options.cljc`; tests `ability_increase_grant_test/feat-*`). The legacy set path is **kept, not

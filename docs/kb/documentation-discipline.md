@@ -65,3 +65,31 @@ push silences it.
 travel with this branch. It works locally for whoever creates it. To make it shared it needs to
 move to the dotfiles or an `agents/` branch per that convention, or the convention needs an
 explicit carve-out. Recorded here so the reminder logic survives even though the wiring does not.
+
+## Audit history
+
+### 2026-09-05 — full KB audit (45 docs, ~7,700 lines)
+
+Triggered by discovering, in sequence, that: the builder schema system I had "designed" was built in
+June; the fighting-style gap I roadmapped HIGH was decided three days before my session in a doc named
+after the branch; and the June `declarative-grant-vocabulary.md` had already stated the "repeatable
+rows" insight. Common cause: **checking code carefully but not history or the existing docs.**
+
+Drift found and fixed:
+
+| doc | drift | fix |
+|---|---|---|
+| `content-extensibility-direction.md` | "NO grant compiler yet"; page-map "irreducible, skip"; spec-from-schema "next"; knew nothing of the AC refactor | 5 corrections in place; a "landed since" section |
+| `roadmap.md` | 6 sections appended below Critical path; stale "no grant compiler"; stale ⚠️ on `grant-selection`; Track D not marked delivered; dead `datomic-crash-analysis` link; ~15 docs missing from the map | appended sections folded into the ledger/OPEN/Tracks; Track E plan added; doc map rebuilt |
+| `README.md` | 4 entries as bullets after "Contribution rules"; D1–D31 (→D34); dead link; ~12 docs unindexed | new "Builders + authored mechanics" table; topic table completed |
+| `backfill-ledger.md` | watch-list item 1 done but unticked; ledger "(none yet)" despite six AC deletions and a shim | ticked; 5 rows added; the outright deletions recorded as a **D34 exception with rationale** |
+| `builder-form-schemas.md` | §1/§2a/§3 re-derived framework §2/§2e | collapsed to pointers; §6 Track E plan added |
+| `fighting-style-vocabulary-gap.md` | re-roadmapped a decided item | cites the decision; keeps only the measurement |
+| `armor-class-computation.md` | described the pre-refactor engine as current | HISTORICAL banner → `armor-class-refactor.md` |
+
+Not fixed, flagged: **two parallel E2E directories** — `test/e2e/` (documented in
+`cljs-headless-harness.md`, 13 ASI-era scripts) and `test/browser/` (starting-equipment scripts + the
+three added this session). One should absorb the other; `test/e2e/` is the documented one.
+
+**Rule added from this audit:** before designing anything, `git log -S` the key identifier and grep the
+KB for the branch name. Both take under a minute and would have prevented all three re-derivations.

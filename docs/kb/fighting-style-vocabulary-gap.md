@@ -159,6 +159,13 @@ So the vocabulary is not just compiled — it survives the whole authoring lifec
 
 ## GAP: an imported style cannot be picked by the class that has the feature
 
+**This gap was already identified and DECIDED before this doc existed** — `fighting-style-authoring.md`
+(2026-09-02) records the fix (thread the pool through `fighting-style-selection`'s vestigial
+`additional-options` for Fighter/Paladin/Ranger), the divvying rule (`:classes #{…}`, absent = all
+fighting-style classes), the `:ref` reason the class path must not use `grant-selection`, and the
+pinning test `fighting_style_class_characterization_test`. What this section adds is the **browser
+measurement** that the threading has not landed. Do not re-derive the design; execute it.
+
 The round-trip above proves storage. It does **not** prove usability, and the last mile fails.
 
 Measured (`imported_style_usable_e2e.js`): import a homebrew style, build a Fighter, open Class /

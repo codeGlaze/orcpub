@@ -208,8 +208,8 @@ for ADDING a type (the real answer to "is this easier?"):
 
 The genuinely irreducible core is small: **the field schema (data) + a reusable widget registry
 for complex fields + the field→mechanics mapping** (mostly the existing `:props` vocabulary). NOT
-a bespoke form per type. (Spec-from-field-schema is the next collapse — a field schema would also
-generate the `s/keys` spec, shrinking the table's one remaining hand-written row.)
+a bespoke form per type. (Spec-from-field-schema **landed** — `bf/fields->spec`, `8a07531e` —
+so the field schema generates the spec too; the table's spec row is no longer hand-written.)
 
 **Reusable builder-UI widgets (`views.cljs`) — reach for these before hand-rolling:**
 - `render-builder-field` — one declarative field → widget, dispatching `set-prop`. Types: `:enum`
@@ -260,15 +260,19 @@ one-liners." The fix: make each layer **generate** its wiring from the registry.
   `content_types_routes_test` (drift: literals == route_map vars; bidi: every URL resolves;
   set + allowlist membership). `route_map` keeps only the one route-keyword `def` per type
   (D6 — referenced by symbol in views/core); `routes.clj` needs **no** per-type edit.
-- ⚠️ **core page-map** — NOT a clean win, skip: a builder's view *function* can't be derived
-  from data (cljs has no reliable runtime symbol→var resolution), so generating it only *moves*
-  a per-type binding (best co-located in a `views/builder-page-views` map next to the forms).
-  The view-fn binding is irreducible; put it where the form already is.
+- ✅ **core page-map** (2026-09-04) — generated after all, by `orcpub.dnd.e5.page-map/builder-pages`,
+  a **compile-time macro** over the registry emitting `views/<route-seg>-page`. The earlier
+  "irreducible" call conflated runtime symbol resolution (genuinely impossible in cljs) with
+  compile-time emission (routine); all 15 entries already followed the naming convention. A
+  missing view fn is a cljs *warning*, not an error, so the hard guard is a JVM test
+  (`every-registered-type-has-a-builder-page-view`). Recorded as a D22-class reversal in
+  `content-extensibility-framework.md`.
 
-**Net after events+db+routes:** adding a homebrew type no longer touches events.cljs, db.cljs,
-or routes.clj, and route_map only needs its one route-keyword `def`. Remaining per-type files:
-the registry entry (the one you should write), the view form (irreducible custom UI), the spec
-(until spec-from-field-schema), the route-keyword def, and the core/views view binding.
+**Net after events+db+routes+page-map:** adding a homebrew type no longer touches events.cljs,
+db.cljs, routes.clj, or core.cljs, and route_map only needs its one route-keyword `def`.
+Remaining per-type files: the registry entry, the view form (`simple-content-builder` + a field
+schema), the spec (generated from that schema — `bf/fields->spec`, `8a07531e`), and the
+route-keyword def.
 
 ### NEXT levers (pick per value)
 - (a) **author-declarable grants** (the biggest remaining lever). Re-scoped after the D17 audit:
@@ -277,10 +281,14 @@ the registry entry (the one you should write), the view form (irreducible custom
   load-bearing `:ref`/`:tags`. The real work is (i) point those selections' `:options` at an
   **open pool** (built-in ++ homebrew), and (ii) let an author declare a grant as data that
   **compiles to the same `selection-cfg`** (preserving `:ref`/`:tags`) + the authoring UI. The
-  code-side constructors stay. NOTE: `content_pools` has `pool` but NO grant compiler yet —
-  draconic hand-wires its grant; that hand-wire is the thing to generalize (carefully).
-- (b) **spec-from-field-schema** — generate the `s/keys` spec from the field list, removing the
-  one hand-written row left in the cost table;
+  code-side constructors stay. **UPDATE 2026-09:** the grant compiler now exists —
+  `opt5e/grant-selection`, a thin pool-agnostic compiler with four modes (ALL / FILTERED /
+  SPECIFIC / CUSTOM), proven end-to-end on the feat silo (`fighting_style_grant_matrix_test`).
+  The remaining (a) work is (i) the class path — thread the open pool through the existing
+  constructors, DECIDED in `fighting-style-authoring.md` (`:classes` divvying rule,
+  `additional-options` param), pinned by `fighting_style_class_characterization_test`, **not yet
+  threaded** — and (iii) the authoring UI, still unbuilt.
+- (b) ✅ **spec-from-field-schema** — DONE (`8a07531e`); `bf/fields->spec` generates it;
 - (c) **cross-silo reuse demo** — point the sorcerer draconic bloodline (`classes.cljc:2280`) at
   the *same* ancestry pool, so one pool feeds two silos ("built here, called over there");
 - (d) **breath-area field** + the level-gated/variant pins for full FTD coverage.
@@ -314,6 +322,19 @@ the registry entry (the one you should write), the view form (irreducible custom
   (the `?total-levels` conditional, as breath-weapon damage dice use); the gap is exposing it
   declaratively. Likely needs a new `:props` key added to `make-feat-modifiers`
   (`options.cljc:3287`) for telepathy and similar, too.
+
+## Landed since this doc's last revision (2026-09) — read these, don't re-derive
+- **AC engine refactor** — `armor-class-refactor.md`. `?ac-fns`/`?ac-bonus-fns` given constructors;
+  the universal authored shape `{:ac …}` / `{:ac-bonus …}` / `{:armor-gives-no-ac …}`; 18 → 10
+  attributes; engine extracted to `orcpub.dnd.e5.armor-class`; parity sweep pinned at 0. The
+  roadmap's Track D1 is essentially delivered by this.
+- **Shared `:props` fragments** — `ac-bonus-fields`, `attack-bonus-fields`, `damage-bonus-fields`
+  in `builder_fields.cljc`; the weapon predicate `weapons/matches?`. First cross-type field data;
+  everything before was per-type. `builder-form-schemas.md` §0.
+- **Fighting-style builder** (Phase B of `fighting-style-authoring.md`) — registry entry, page,
+  nav, generated page-map binding. `lein test` at 0 failures.
+- **Two shipped bugs fixed** — Bracers of Defense lost on natural armor (ported to `integration`);
+  every `:number` builder field threw `1 is not ISeqable`.
 
 ## What already stands (don't redo)
 - `register-homebrew-content!` (the wiring sub-layer) + boon swapped through it.

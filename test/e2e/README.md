@@ -53,3 +53,9 @@ Exit 0 = pass.
   select with `button:visible`.
 - reagent re-renders async after each dispatch — pause between successive `selectOption`s so
   each on-change closure sees the latest state.
+
+## `cljs-harness.js` — not an e2e script
+
+The odd one out in this directory: it runs the **ClojureScript unit suite** headless (the suite CI
+never runs), not the app. `lein fig:test` first, then `node test/e2e/cljs-harness.js`. It lives here
+because this is where the repo's node drivers live. See `docs/kb/cljs-headless-harness.md`.
