@@ -439,6 +439,45 @@ was verified to FAIL on the defective version (41 calls) and pass on the fix (0 
 listing, 1 on opening a peek). A test that passes on both versions would have proved
 nothing, so it was run against both.
 
+### CORRECTION: step 1 does not move the headline number, and the premise was wrong
+
+Measured after the fix, styled, same conditions:
+
+| pack | builder open before -> after | heap before -> after |
+|---|---|---|
+| clean | 217 -> 214 ms | 30.9 -> 30.9 MB |
+| real pack | 731 -> 780 ms | 67.6 -> 67.6 MB |
+| +8x | 901 -> 904 ms | 74.5 -> 74.5 MB |
+| +32x | 1374 -> 1232 ms | 95.2 -> 95.2 MB |
+| +64x | 2150 -> 1730 ms | 122.7 -> 122.7 MB |
+
+Run-to-run spread on `clean` alone across four runs was 172-217 ms, so everything here is
+inside the noise. **Step 1 buys approximately nothing on builder-open or heap.**
+
+**Why the premise was wrong.** `spell-options` (`options.cljc:499`) returns `(map ...)` — a
+**lazy sequence** — and `spells-known-selections` consumes it through another lazy `map` and
+`flatten`. So spell options, and therefore their `:help`, were never built at template-build
+time in the app at all: they are realised when the spell list first renders. The JVM
+measurement that produced "78% of building a spell option" forced realisation with `doall`,
+which the browser does not do. Confirmed directly: on the *eager* build, the laziness probe
+counted **0** `spell-help` calls during template build and 41 when the spell list rendered.
+
+So the ~2 s builder-open block is **spell-SELECTION construction** (`spell-selection`,
+`spells-known-selections`, `make-levels` — 4064 selection builds at 128 casters, measured
+earlier), not spell-option or `:help` construction. Step 1 attacks the wrong layer for that
+symptom.
+
+**What step 1 is still worth.** It is correct and it removes real repeated waste in the
+render path: listing 41 spells went from 41 peek builds to 0, and every re-render of that
+list rebuilt them again. On a large homebrew library the visible list is hundreds of spells,
+so this is milliseconds per render, repeatedly — worth keeping, not worth claiming as the
+fix.
+
+**Consequence for the plan.** Step 2 (the class-keyed memo) is now clearly not worth doing:
+its multiplier was the `:help` cost, which is no longer paid per render. **Step 3 — building
+a class's levels only for classes the character has taken — is the one that targets the
+actual 2 s block**, and it moves up to next.
+
 **Original plan, for the record.**
 
 **Change.** `:help` on a spell option becomes a thunk instead of a materialised hiccup tree.
