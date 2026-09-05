@@ -27,6 +27,9 @@ function findChrome() {
 const OBSERVE = `
 window.__tasks = [];
 window.__spy = {};
+// V8 defaults to 10 frames, which truncated the level-option stack inside LazySeq
+// internals and hid the consumer that forces the seq.
+try { Error.stackTraceLimit = 200; } catch (e) {}
 (function arm(){
   try {
     var e5 = window.orcpub && window.orcpub.dnd && window.orcpub.dnd.e5;
@@ -45,7 +48,7 @@ window.__spy = {};
       var lo = opt.level_option;
       window.__loStack = null;
       opt.level_option = function(){
-        if (!window.__loStack) window.__loStack = (new Error()).stack.split(String.fromCharCode(10)).slice(1,14).join(String.fromCharCode(10));
+        if (!window.__loStack) window.__loStack = (new Error()).stack.split(String.fromCharCode(10)).slice(1,60).join(String.fromCharCode(10));
         return lo.apply(this, arguments);
       };
     }
