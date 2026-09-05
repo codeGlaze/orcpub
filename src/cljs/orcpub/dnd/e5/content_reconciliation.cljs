@@ -210,6 +210,15 @@
 ;; Missing Content Detection
 ;; ============================================================================
 
+;; Sentinel keys that are NOT references to loadable content, so they can never
+;; be "missing" — every "Custom" option (background/race/subrace/subclass) is
+;; named "Custom", which name-to-kw turns into :custom, and the real data lives
+;; INLINE on the entity (::entity/value + ::entity/options), not in a plugin;
+;; :none is an explicit "no selection". Mirrors the #{:none :custom} sentinel
+;; guard in events.cljs. Checked here (not per extractor) so one guard covers
+;; all inline-custom content types at once.
+(def ^:private inline-content-sentinels #{:custom :none})
+
 (defn check-content-availability
   "Check which content keys from a character are missing.
 
@@ -226,7 +235,8 @@
     (keep
      (fn [{:keys [key content-type] :as entry}]
        (let [type-keys (get available-keys content-type #{})
-             missing? (and (not (contains? type-keys key))
+             missing? (and (not (contains? inline-content-sentinels key))
+                           (not (contains? type-keys key))
                            (not (builtin? key content-type)))]
          (when missing?
            (let [field (get content-type->field content-type)

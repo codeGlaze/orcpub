@@ -1,34 +1,158 @@
 # Changelog
 
-## [staging/june-bug-patches-01] — June bug-patch bundle (2026-07-05)
+All notable changes are documented here, newest release first. Format: [Keep a Changelog](https://keepachangelog.com).
+House style and the branch → release fold: [`docs/branch-changelog.template.md`](docs/branch-changelog.template.md).
+
+<!-- Editing this file: one change per bullet under ### Added / ### Fixed / ### Changed; succinct and
+     plain; no AI-jargon; end each with (`shorthash`). No prose intros under a heading. A ### Highlights
+     block (≤3 sentences, labeled) is allowed only for an impactful release — see the template. -->
+
+## [Summer Patch] — 2026 (character-load resilience, homebrew salvage & library management, PDF printing)
+
+### Highlights
+
+The **My Content** homebrew library is now manageable — see, organize, disable, move, and de-conflict your content, with imports and exports that no longer spawn silent duplicates or false warnings. Characters that used to blank-screen on a bad load now recover in place, and printable spell cards and card backs read cleanly in black and white.
 
 ### Fixed
-- **Homebrew class source no longer poisons spell-selection keys** — the source label was folded into the class `:name`, so the name-derived selection keys broke whenever it changed and saved spells/cantrips vanished; keys now come from a stable class identity, and orphaned saves repair on load (`9a709c0d`, `fe549631`, `a3e26155`).
-- **Hunter's Evasion no longer blanks the Features tab** — the Superior Hunter's Defense → Evasion trait shipped with no name, and a nil name crashed the feature-name sort; it's now named "Evasion" (`dd65d66a`).
+
+Character loading & display
+- **"A single colon is not a valid keyword" crash + self-heal** — a custom element saved with a blank or symbols-only name derived the empty keyword `:`, an unreadable token that crashed the whole character on load; key generation now guards the blank case, and an already-corrupt save is repaired in place on load (`ba80b78d`).
+- **An unreadable character recovers in place** — instead of a blank page it shows a recovery panel with a copyable diagnostic, and error messages persist until dismissed (`d50eaf87`).
 - **Character sheets no longer go blank** — an unrenderable section shows a recovery message; the rest of the sheet stays usable (`565c33c0`).
-- **The Features tab loads for every character** — fixed a rendering bug that blanked it for all (`2a6fde93`).
-- **A nameless trait no longer crashes the Features tab** — shown as "[Unnamed feature]" instead of throwing on the name sort (`5c3b073f`).
-- **Boolean toggles no longer corrupt data** — they can't wipe an underlying map, and self-heal damage from the old bug (`1e9f27ec`).
-- **Keyword-trap imports no longer silently vanish** — caught on import and routed to repair instead of a class that never appears (`d9b23021`).
-- **Unreadable storage is preserved** for recovery instead of deleted (`eedffc08`).
-- **localStorage quota failures warn and offer a backup** instead of silently dropping the save.
-- **Readable import/export errors** — plain-English console messages instead of garbled output; import dedup is shown as a log line, not raw EDN (`eba28a9c`, `e512dc45`).
-- **Post-save export fixed** — the "export here" link passed a stringified plugin instead of the map (`e3c9a9ee`).
-- **Autosave no longer crashes on a not-ready template** — an empty template reached the builder and threw; now guarded (`e3c9a9ee`).
-- **Import dedup no longer skips a top-level Selection** — de-duplication now covers a Selection at the top level, not just nested options (`d9b23021`).
-- **Non-ASCII name detection works in the browser** — `count-non-ascii` was miscounting under ClojureScript (`d9b23021`).
+- **The Features tab loads for every character**, a nameless trait shows "[Unnamed feature]" instead of crashing the name sort, and Hunter's Evasion is named (`2a6fde93`, `5c3b073f`, `dd65d66a`).
+- **Homebrew class source no longer poisons spell-selection keys** — the source label was folded into the class `:name`, so saved spells/cantrips vanished when it changed; keys now come from a stable class identity, and orphaned saves repair on load (`9a709c0d`, `fe549631`, `a3e26155`).
+- **Boolean toggles no longer corrupt data** and self-heal old damage (`1e9f27ec`).
+- **Non-ASCII name detection works in the browser** (`d9b23021`).
+- **Inline "Custom" content isn't flagged as missing** — a character built with the built-in Custom option no longer triggers a false "Missing Content" warning; the `:custom`/`:none` inline sentinels are recognized as present, not homebrew keys to resolve (`124faa9a`).
+
+Homebrew import / export / salvage
+- **"Rename all" resolves duplicate keys in one pass** instead of the 20 → 3 → 1 → 0 re-import crawl (`c037de78`).
+- **Multi-source paks survive an imperfect sub-source** — detection is structural (shape), not spec-validity, so one flawed sub-source no longer quarantines the whole pak (`c037de78`).
+- **Conflict resolution no longer nils out an item** — a redundant double-rename is now a no-op (`9df1b4ae`).
+- **Import can't report success it won't keep** — problems surface at import time against the loader's floor, and success fires only after the write persists (`c037de78`, `7782e831`).
+- **Dangling spell references render** with a key-derived name + edit link instead of a blank card, reported once per class (`a4dbfe19`, `73e75c9d`).
+- **Old-name spells in imported paks resolve** — 17 pre-2024 wizard-possessive keys (Leomund's, Tasha's, Bigby's…) map to their current SRD keys; loaded homebrew is never overridden (`cf1f4f1c`).
+- **Keyword-trap imports are caught and routed to repair** instead of silently vanishing (`d9b23021`).
+- **Unreadable storage is preserved** for recovery, not deleted (`eedffc08`).
+- **Quota-failed saves warn and offer a backup**.
+- **Readable import/export errors** — plain-English console messages, dedup shown as a log line (`eba28a9c`, `e512dc45`); **post-save export** and **autosave-on-empty-template** crashes fixed (`e3c9a9ee`).
 
 ### Added
-- **Resilient homebrew loading** — a bad source is quarantined for repair (self-clearing once fixed) instead of dropping the whole library, with a My Content panel to rename, re-key, and restore it (`eedffc08`).
-- **Builder escape hatches** — Export draft, refresh-safe WIP restore, "Save anyway" with placeholders, emergency raw export, and Export & Auto-Fix, so imperfect work is never trapped or lost (`eac350d0`, `e3c9a9ee`).
-- **"Show homebrew source on class names" toggle** — without affecting saved spell selections (`8f94a94c`).
-- **Fill-in dialog on export** — supply or auto-fill missing required fields instead of writing a broken file, with live field-level guidance in the builders (`1547cd69`, `22172adb`).
+
+Homebrew resilience & repair
+- **Per-entry salvage** — one bad entry no longer quarantines its whole source; valid items stay, broken ones are set aside for repair (`957e09ab`, `7782e831`, `c037de78`).
+- **Entry-level repair panel** in My Content — editable Name + Option-source per set-aside entry, Fix & Restore, and Discard (`d34007ff`, `c037de78`).
+- **Export runs the same checks as import** — duplicates/cleanups caught on the way out; raw/pretty export stays an unchecked escape hatch (`9df1b4ae`, `c037de78`).
+- **Resilient homebrew loading** with a My Content repair panel (`eedffc08`).
+- **Builder escape hatches** — draft export, refresh-safe WIP restore, "Save anyway" with placeholders, emergency raw export, and Export & Auto-Fix (`eac350d0`, `e3c9a9ee`).
+- **"Show homebrew source on class names" toggle** (`8f94a94c`).
+- **Fill-in dialog on export** with live field guidance (`1547cd69`, `22172adb`).
+
+PDF & printing
+- **Card-back logo** — "Print logo on card backs" under a new Appearance section; the mark redrawn to print legibly (solid black, filled letters), with a faded-color option for color printers (`e8e560a3`, `99e20389`, `d0f2bfd8`).
+- **Printer-friendly (black & white) spell cards** — the baked-red casting/range/component/duration/recharge icons render solid black with white-halo labels; a nested "faded grayscale icons" option offers a softer look (`cb51a4fa`, `dcc8d551`).
+
+Support
+- **Report a character that won't load** — from the recovery panel, an auth-gated one-click report (or copyable text) emails the support address, falling back to the existing error-notification inbox so no new config is needed; header-injection-safe, raw capped (`c2bc7d03`, `4fb40a20`, `b88d1413`).
 
 ### Changed
-- **Save validation covers every required field** — dropdowns and multi-selects (spell class-lists, monster hit dice, parent class/race), not just text (`e512dc45`).
-- **Save and load share one spec registry** — so they can't drift and wrongly quarantine already-saved content (`ca977e0a`).
-- **Normal exports strip meaningless blank flags** (false/nil/empty); raw, draft, and emergency exports are untouched.
-- **Invalid-key errors are element-specific** instead of a generic "Name" error.
+- **Import and export share one correction gate**, and the exported library is canonicalized so import → export → re-import is idempotent (`9df1b4ae`, `c037de78`).
+- **Quarantine granularity is per-entry**, backward-compatible with whole-source entries, with precise per-entry diagnostics (`957e09ab`, `7782e831`, `c037de78`).
+- **Source-less imported content lands in the real "Default Option Source"** instead of a phantom placeholder (`54f4e87d`).
+- **Save validation covers every required field** — dropdowns and multi-selects too (`e512dc45`).
+- **Save and load share one spec registry** so they can't drift (`ca977e0a`).
+- **Normal exports strip meaningless blank flags.**
+- **Invalid-key errors are element-specific.**
+- **PDF form appearances are baked on generation** — filled fields render consistently across all PDF viewers instead of only in Acrobat, and spell-card generation is more efficient (`45d106b4`).
+
+### Homebrew library management (My Content)
+
+**Added**
+- **Move / copy content between sources** — one select-mode mechanism for single or bulk; clobber-free key policy (move keeps the key unless taken; copy always mints a fresh one) (`903f44cb`).
+- **Four-level disable hierarchy** — global / source / section / item, checked as an OR. The two new levels (global "all homebrew" + per-section) live in a local overlay store, so they're a per-device view preference that never mutates `.orcbrew` data or travels with an export (`95426d8c`).
+- **Passive library health-status card** — surfaces unresolved key conflicts, missing-required-fields, and export blockers; one line per problem *type* with a count. Warning-yellow for attention, red for broken; always-on on the My Content hub, dismissable-and-remembered elsewhere (`b58fe80b`, `79982e03`, `d0338049`, `e5372fed`, `e7040f4a`).
+- **Opinionated, summary-first import** — safe defaults resolve conflicts up front with a one-click Import; the full per-conflict panel becomes "Review" (`e90466c1`).
+- **Richer duplicate-key resolution** — severity split with honest labeling for the collapse-risk types, "keep both, turn one off" for a deterministic winner, rename the *existing* item, and an internal keeper-picker (`87512e47`, `052e6e55`, `0c30a022`, `862d9b26`).
+- **Mutual-exclusion legibility** — per-row twin notes, a library banner, disabled-content badges colored by reason, and swap-on-enable keeping ≤1 enabled twin (`8543d8f6`, `d94973a6`).
+- **My Content toolbar redesign** — two-zone (content vs library actions), select mode, and a 3-step delete guard (`49f2aafe`, `8fc497d9`).
+- **Disabled-item visibility** — a count, a show/hide toggle, and search within a source (`47758423`).
+- **Share a character with its homebrew embedded** — view-only, with a keep-in-library option and collision notice; custom magic items included (`4cae54e7`, `7bf4516a`, `35539c4c`).
+- **Source-name-choice modal on import** — when a single-source file's name meaningfully differs from the source its content declares, ask whether to rename or keep, instead of silently guessing (`fa5909cf`).
+- **Number→word name repair** for keyword-trap recovery ("9 Lives" → "Nine Lives") (`4c128a66`).
+
+**Fixed**
+- **Single-source export/import no longer spawns a duplicate source** — the source is recovered from the content's `:option-pack`, not the browser-mangled filename; a last-resort dedup-suffix strip covers files with no declared source (`40413f17`, `e53a8b71`).
+- **"Skip this one" in the conflict modal actually skips** — it was a no-op that imported the colliding item anyway (`47b57793`).
+- **The `:route` handler no longer crashes on an unmatched (nil) URL** (`dab319a0`).
+- **Dark-on-dark text in the conflict-modal body** (`b100b927`).
+- **Custom item save persists the shown type** instead of blanking it (`52c0e40a`).
+- **Stale `:key` after a rename** — the item's own `:key` is rewritten so a double rename is a no-op (`0c30a022`).
+- **Recovery panel "Fix & Restore" auto-names invalid entries** in one click (`5e196348`, `898478b0`).
+- **One home for source-less content** — folded the stray "Unsorted Homebrew" default into "Default Option Source"; "Unnamed Content" stays separate on purpose (nameless sources, for findability) (`a5d18e2f`, `b5ba38d0`).
+- **Shared-character links render on first load** — decoded homebrew overlays now force a rebuild so the sheet paints immediately instead of only after a manual refresh (`9db84754`).
+
+**Changed / internal**
+- **Health detectors are memoized subscriptions** — one library walk per plugins change instead of dozens per render (`47b57793`).
+- **Conflict/export modals aligned to the health-card severity vocabulary** (`6cbd890f`).
+- **Dead-code sweep** — removed verified-dead helpers; pre-existing dead code restored with dated investigation markers (`47b57793`, `874d57d5`).
+- **Data-driven library list** — empty content-type categories hide; the list is derived (`e3023cd3`).
+- **Gitignore deploy-injected static assets** (font-awesome) (`d8331619`).
+- **Share buttons and the character-list filter sit flush with their toolbars** — plain form-button styling, header/list variants, and an aligned name-filter input (`4ef95b74`, `e5dbf8da`, `a48db2b5`).
+
+### starting-equipment
+
+**Highlights**
+
+Homebrew classes can now define their **starting equipment** from the builder UI — the
+**full SRD form**, not just the easy half. Fixed items, plus choice groups where each
+option can grant a **bundle** of items and/or a **nested weapon sub-choice**, so
+"(a) chain mail, or (b) leather + a longbow + 20 arrows" and "a martial weapon and a
+shield" are all buildable without hand-editing `.orcbrew`. It applies on the character
+sheet and round-trips through save, export, and import.
+
+You can also **start from an SRD class**: the builder fills in that class's equipment for
+you to tweak, taken from the live class definition rather than a hand-copied table. If you
+only change a few things, the exported file stores **just those changes** against the base
+class instead of a full copy.
+
+**Added**
+
+- **Starting Equipment section in the class builder** — a homebrew class can grant fixed
+  items (`:weapons`/`:armor`/`:equipment`) and rich choice groups. Each choice option is a
+  label + one-or-more item grants (from the real weapon/armor/equipment vocabulary) + an
+  optional "any simple/martial weapon" sub-choice — i.e. the full SRD equipment form
+  (bundles and nested picks), via a serializable `:equipment-selections` shape that
+  `class-option` compiles to the same structure the SRD classes use. Applies with no new
+  engine path, round-trips through save/export/import, and imported legacy simple choices
+  convert to the editable form in one click (`a4f13086`, `5a5f65a8`).
+- **"Start from an SRD class"** — a dropdown fills the builder with any SRD class's starting
+  equipment. It's read from the live class (by applying the class's own modifier functions),
+  so it always matches what the class actually grants. All 12 classes (`2470e1d2`, `3fc5585d`).
+- **Save only the changes** — a class filled from an SRD class stores a small "based on
+  <class> plus these changes" form instead of a full copy. This lives only in the exported
+  file; everything in the running app stays the full form the existing functions already use.
+  A "Based on <Class>" banner shows the link, with a **Detach** button to save a full copy
+  instead (`6f494788`, `8172e915`, `be43690b`, `bcc05aa1`).
+
+**Fixed**
+
+- **Filling from a class keeps the SRD's own names** — a grouped focus pick stayed "Arcane
+  Focus" instead of being renamed "Starting Equipment: Arcane Focus" (the rename would have
+  changed the key it maps to) (`d6213b6e`).
+- **A choice we don't recognise is never silently dropped** — an unrecognised sub-choice is
+  listed out option-by-option instead of vanishing; a genuinely empty one raises an error
+  with context (`2950117c`).
+
+**Changed**
+
+- **"Start from a class" reads the live class, not a hand-written table** — nothing to drift
+  out of sync; verified by a round-trip test against all 12 classes (`3fc5585d`, `f44324b3`).
+- **Notification view components collected into `orcpub.dnd.e5.views.notifications`** — the
+  message banner, a reusable callout box, and the shared-content banner now live in one
+  namespace; the health/legacy banners render through the shared callout instead of
+  hand-rolled boxes (`4621b4c2`, `25f5d9a1`).
+- **`lein e2e-server`** boots the full app (Pedestal + in-memory Datomic, no transactor) on
+  :8890 for browser tests (`47c413b0`).
 
 ## [breaking/2026-stack-modernization]
 
