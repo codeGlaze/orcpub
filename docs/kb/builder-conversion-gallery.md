@@ -13,13 +13,22 @@ LABEL=after node test/e2e/builder-gallery.js               # every builder page
 LABEL=after node test/e2e/form-shape-comparison.js         # one builder, authored, with metrics
 ```
 
-To photograph a *previous* shape, stash the source and rebuild — the scripts run against both:
+To photograph a *previous* shape, put the old files back, rebuild, shoot, restore:
 
 ```bash
-git stash push -- src/ && lein fig:build
+for f in src/cljs/orcpub/dnd/e5/views.cljs src/cljc/orcpub/dnd/e5/builder_fields.cljc \
+         src/clj/orcpub/styles/core.clj; do
+  cp "$f" "/tmp/$(basename $f).head"; git show <commit>:"$f" > "$f"
+done
+lein garden once && lein fig:build
 LABEL=before node test/e2e/form-shape-comparison.js
-git stash pop && lein fig:build
+for f in ...; do cp "/tmp/$(basename $f).head" "$f"; done && lein garden once && lein fig:build
 ```
+
+**`git stash` is the trap here, not the tool.** Stashing only reaches back as far as your
+uncommitted work; once the change is committed, stashing gives you the *new* shape and the capture
+silently succeeds while photographing the wrong thing. That happened on the first attempt at this
+page. Name the commit explicitly, and check the witness (below) before believing any pair.
 
 ---
 
@@ -36,6 +45,17 @@ checkable rather than asserted:
 ```bash
 cmp docs/kb/assets/builder-comparison/language-bespoke.jpg \
     docs/kb/assets/builder-comparison/language-generated.jpg
+```
+
+**Why that is not a capture bug.** Identical output is exactly what a broken before/after capture
+also produces — if the old build never went live, both shots are of the new one. So the "before"
+run photographs a **witness page** alongside the subject: the fighting-style builder, which differs
+sharply between the two commits (7 controls then, 4 now). It is committed here as
+`witness-old-build-fighting-style.jpg`, and it differs from the same page in the after-gallery:
+
+```bash
+cmp docs/kb/assets/builder-comparison/witness-old-build-fighting-style.jpg \
+    target/e2e-shots/gallery-after/fighting-style-builder.jpg      # differs -> old build was live
 ```
 
 ### The code
@@ -98,14 +118,19 @@ Bonus* or *Damage Bonus*.
 | visible controls, empty form | 7 | **4** |
 | visible controls, three effects authored | 23 | 23 |
 | labels repeated with nothing distinguishing them | **7** | **0** |
-| page height, authored | 2229px | 2513px |
+| page height, authored | 2229px | **1650px** |
 
-**Two of these do not flatter the change, and both are real.** The fully-authored form has exactly
-the same 23 controls — grouping does not remove any field — and it is **284px taller**, because the
-row borders, titles and hints cost vertical space. What the rows buy is (a) an author who wants one
-AC bonus sees four controls instead of seven and never scrolls past fourteen they do not want, and
-(b) every tag is unambiguous. If someone later argues the chrome is not worth 284px, that is a fair
-argument and the numbers for it are here.
+The fully-authored form has exactly the same 23 controls — grouping removes no fields — but it is
+**579px shorter**, because inside a row a bonus gets a number's width and its tags wrap inline
+instead of each taking a page-wide row of its own.
+
+**Correction (same day).** The first version of this table read *2513px, 284px taller*, and the
+paragraph here argued that the vertical cost was worth paying for unambiguous tags. That was
+measuring a half-finished implementation: the grouping had shipped but the layout inside each group
+had not, so every control was still a full-width stacked block. The number was real; the conclusion
+drawn from it was wrong, and the fix was to finish the layout rather than to defend the cost. Left
+in place because "the measurement said the change was worse and the answer was to do the change
+properly" is the more useful lesson.
 
 An "ambiguous label" is counted as a label repeated **within the same group** (the flat form's
 labels are all in one implicit group). Two `Melee`s under two different titled rows are not
@@ -137,13 +162,20 @@ and `effect-rows` is data — the same shared field fragments, unedited, arrange
   :add-label "Add an effect"
   :kinds     [{:kind :ac-bonus     :title "AC Bonus"     :at [:props :ac-bonus]
                :hint "added to whichever AC calculation wins"
+               :tag-header "Applies when"
                :fields ac-bonus-fields}
               {:kind :attack-bonus :title "Attack Bonus" :at [:props :attack-bonus]
                :hint "to attack rolls with matching weapons"
+               :tag-header "Only with weapons that are"
                :fields attack-bonus-fields}
               {:kind :damage-bonus :title "Damage Bonus" :at [:props :damage-bonus]
                :hint "to damage rolls with matching weapons"
+               :tag-header "Only with weapons that are"
                :fields damage-bonus-fields}]}]
+
+The row renders its lead by PATH (`:at` + `:bonus`) at a number's width with the hint beside it,
+then the remaining fields as inline tags under `:tag-header`. The field fragments themselves are
+untouched — the same `ac-bonus-fields` the flat forms in other builders still use.
 ```
 
 **It is an arrangement, not a second storage model.** A row is "present" when the item has data
@@ -153,7 +185,7 @@ bonus typed into a row lands at `:props {:ac-bonus {:bonus 1}}`, the same path a
 
 ### What the comparison caught in my own work
 
-The first run reported `AC Bonus x2` as an ambiguous label in the **new** form: the row header said
+**Twice.** First, it reported `AC Bonus x2` as an ambiguous label in the **new** form: the row header said
 *AC Bonus* and the number inside it said *AC Bonus* again. Fixed by relabelling the lead field to
 *Bonus* — selected **by its path**, not its position, because the field fragments are shared with
 other builders' flat forms and must not be edited for this one's benefit. The measurement earned its

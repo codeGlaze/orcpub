@@ -7515,7 +7515,7 @@
                 {:on-click #(swap! opened conj kind)}
                 (str "+ " title)]))])
          (doall
-          (for [{:keys [kind title at hint fields] :as k} (filter present? kinds)]
+          (for [{:keys [kind title at hint tag-header fields] :as k} (filter present? kinds)]
             ^{:key (str kind)}
             [:div.b-1.b-rad-5.m-b-15
              [:div.flex.justify-cont-s-b.align-items-c.p-10.b-b-1
@@ -7526,19 +7526,31 @@
                 ;; ✕ costs more than the mistake it prevents.
                 :on-click #(do (swap! opened disj kind)
                                (dispatch [(remove-prop-event set-prop) at]))}]]
-             [:div.p-10
-              (when hint [:div.opacity-5.f-s-12.m-b-10 hint])
-              (doall
-               (for [f fields]
-                 ^{:key (str (:key f))}
-                 ;; The row header already says "AC Bonus"; repeating it on the number inside is
-                 ;; noise the comparison measurement caught. Only the LEAD field is relabelled, and
-                 ;; by its path, not its position — the fragments are shared with the flat forms in
-                 ;; other builders and must not be edited for this one's benefit.
-                 [render-builder-field item set-prop
-                  (if (= (:key f) (conj (vec at) :bonus))
-                    (assoc f :label "Bonus")
-                    f)]))]]))]))))
+             ;; Inside a row the fields are NOT a stack of full-width blocks. The lead is a
+             ;; number, so it gets a number's width with the hint beside it; the tags that gate it
+             ;; are short and wrap inline under one sub-heading. Stacking them full-width is what
+             ;; made the flat form a scroll.
+             (let [lead-key (conj (vec at) :bonus)
+                   lead     (first (filter #(= (:key %) lead-key) fields))
+                   tags     (remove #(= (:key %) lead-key) fields)
+                   shown    (filter #(or (not (:when %)) ((:when %) item)) tags)]
+               [:div.p-10
+                [:div.flex.align-items-end.flex-wrap
+                 [:div.row-lead-num
+                  ;; The row header already says "AC Bonus"; repeating it on the number inside is
+                  ;; noise the comparison measurement caught. Relabelled by PATH, not position —
+                  ;; the fragments are shared with other builders' flat forms.
+                  [render-builder-field item set-prop (assoc lead :label "Bonus")]]
+                 (when hint [:div.m-l-15.m-b-15.opacity-5.f-s-12 hint])]
+                (when (seq shown)
+                  [:div
+                   [:div.f-s-12.opacity-5.m-b-5.uppercase (or tag-header "Applies when")]
+                   [:div.flex.flex-wrap
+                    (doall
+                     (for [f shown]
+                       ^{:key (str (:key f))}
+                       [:div.row-tag
+                        [render-builder-field item set-prop (assoc f :compact? true)]]))]])])]))]))))
 
 (defn render-builder-field
   "Render one DECLARATIVE builder field from a spec, dispatching set-prop on change. This is
@@ -7557,7 +7569,10 @@
     (let [path (if (sequential? key) key [key])
           v    (get-in item path)]
       [:div.m-b-10
-       [:div.f-w-b.m-b-5 label (when required? [:span.red " *"])]
+       ;; :compact? keeps the f-w-b marker (label lookup, and every e2e finds controls by it) but
+       ;; shrinks it — a tag's label sits above a small control, not above a page-wide one.
+       [:div.f-w-b.m-b-5 {:class (when (:compact? field) "f-s-12 opacity-5")}
+        label (when required? [:span.red " *"])]
        (case type
          ;; index-based option values so ANY value type (incl. qualified keywords) round-trips
          ;; through the string-only <select>
@@ -7579,7 +7594,7 @@
                         (doall
                          (for [{:keys [value title]} options]
                            ^{:key (str value)}
-                           [:div.m-r-15.m-b-5
+                           [:div.m-r-20.m-b-5
                             [comps/labeled-checkbox
                              title
                              (contains? chosen value)

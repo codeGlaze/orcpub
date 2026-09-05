@@ -141,12 +141,15 @@
     :add-label "Add an effect"
     :kinds     [{:kind :ac-bonus     :title "AC Bonus"     :at [:props :ac-bonus]
                  :hint "added to whichever AC calculation wins"
+                 :tag-header "Applies when"
                  :fields ac-bonus-fields}
                 {:kind :attack-bonus :title "Attack Bonus" :at [:props :attack-bonus]
                  :hint "to attack rolls with matching weapons"
+                 :tag-header "Only with weapons that are"
                  :fields attack-bonus-fields}
                 {:kind :damage-bonus :title "Damage Bonus" :at [:props :damage-bonus]
                  :hint "to damage rolls with matching weapons"
+                 :tag-header "Only with weapons that are"
                  :fields damage-bonus-fields}]}])
 
 (defn flatten-fields

@@ -256,6 +256,21 @@
     {:align-items :flex-end}]
    [:.flex-wrap
     {:flex-wrap :wrap}]
+   ;; :rows form layout. A bonus is a small number and its tags are short dropdowns; giving either
+   ;; the page width is what made the flat fighting-style form a scroll (builder-conversion-gallery.md).
+   [:.row-lead-num
+    {:width "104px"
+     :flex "0 0 104px"}
+    [:input
+     {:text-align :center
+      :font-weight :bold}]]
+   [:.row-tag
+    {:margin-right "14px"
+     :margin-bottom "6px"
+     :min-width "128px"}
+    [:select
+     {:padding "5px 8px"
+      :font-size "12.5px"}]]
 
    [:.w-auto
     {:width :auto}]
