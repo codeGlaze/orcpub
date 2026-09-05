@@ -401,6 +401,76 @@ was larger than build (681 ms) and therefore the bigger problem; that comparison
 meaningless. The independent render cost is the React reconcile/commit column, which is
 24–33 ms per click and grows with the number of option cards.
 
+## The fix plan
+
+Ordered by payoff per unit of risk, not by size. Each step: characterization test first,
+then the change, then the same probes before/after so the payoff is measured rather than
+claimed. Stop and reassess after each — step 1 may move enough that step 3 is not worth its
+risk.
+
+### Step 1 — stop building spell detail panels nobody opened
+
+**Change.** `:help` on a spell option becomes a thunk instead of a materialised hiccup tree.
+`spell-option` stores `#(spell-help spell)`; the renderer calls it if `fn?`. Backwards
+compatible on purpose: `:help` elsewhere is a plain string or literal hiccup
+(`options.cljc:2822`, `template.cljc:1502`) and keeps working untouched.
+
+**Consumers to update** — four, all traced: `views_aux.cljc:51` and `:121`,
+`character_builder.cljs:230`, `:250`. (`:261` passes `::t/help` through a `select-keys` and
+needs no change.)
+
+**Expected.** ~78% of spell-option construction, and the bulk of the 2.39M retained hiccup
+nodes / ~33 MB of duplicated description text. Estimate, not a measurement.
+
+**Risk.** Low. `:help` is display-only — nothing in `entity/build`, no modifier, no prereq
+reads it. The failure mode is a blank peek, which a test catches.
+
+**Gate.** Characterization test pinning option identity, ordering and modifiers, plus
+`entity/build` output unchanged; a browser check that the peek still renders its text; then
+`homebrew_rebuild_scaling_e2e.js` and the memory/freeze probe before and after.
+
+### Step 2 — take class name out of what does not depend on it
+
+With `:help` deferred, what still legitimately varies per class is `:name` (level prefix),
+`:modifiers` and `:prereqs` — so options cannot be shared wholesale, and the class-keyed
+memo stays. But the per-option cost drops from ~19 us to ~4 us, which is where most of the
+x130 multiplier goes. Re-measure after step 1 and decide whether anything further is worth
+it; this may simply fall out.
+
+### Step 3 — build a class's levels only for classes the character has taken
+
+**Change.** `make-levels` currently runs for every plugin class at template-build time. The
+class picker needs name, key and help — not twenty levels of spell selections for 130
+classes nobody has selected.
+
+**Expected.** The bulk of the remaining builder-open block, which is the 2150 ms.
+
+**Risk.** Higher, and the reason it is not first. The template is built once and shared
+across edits, so making it depend on the character trades a one-time cost for a per-change
+one. The per-**class** cut avoids that (selected classes already live in the character and
+already trigger a rebuild); a per-**level** cut does not, because `prereq-fn` takes the
+character. Do the class cut; leave the level cut alone.
+
+### Step 4 — stop paying for every change twice
+
+The `built-character` debounce (`subs.cljs:325`) watches both `char-sub` and `tmpl-sub`, so
+one watch fires the leading edge and the other schedules a trailing build. Halves the
+per-change cost. Small, but it is a semantics change to a load-bearing debounce, so it wants
+its own commit and its own test.
+
+### Step 5 — virtualise the option lists
+
+200 homebrew subraces is 200 cards in the DOM. Render-side, independent of everything above,
+and only worth doing once the template cost is gone — otherwise it is invisible next to it.
+
+### Explicitly not doing
+
+- **Wiring the memoized `entity.cljc` wrappers.** History says they were removed on purpose,
+  twice, once inside a bug fix; and the cost they hid is already gone (section 2).
+- **Removing the 500 ms debounce.** Load-bearing, and step 4 addresses the real defect.
+- **Chasing the localStorage ceiling.** A browser limit; only moving the library out of
+  `localStorage` changes it.
+
 ## What is left, in priority order
 
 1. **`collect-modifiers-2` builds far more than it reads.** `make-template-option-map`
