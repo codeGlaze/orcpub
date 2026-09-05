@@ -2885,7 +2885,14 @@
 (def set-notes-handler (memoize set-notes-fn))
 
 (defn summary-details [num-columns id]
-  (let [built-char @(subscribe [:built-character id])
+  (let [;; Route by id like every sibling below. Two reasons: [:built-character id]
+        ;; ignores id and returns the BUILDER's in-progress character, which is wrong
+        ;; on a character page; and a nil id made [:built-character nil] a distinct
+        ;; query vector, so the builder ran TWO debounced-build-subs over the same
+        ;; character (measured: 2 entity/build calls per click, one per instance).
+        built-char @(subscribe (if id
+                                 [::char/built-character id]
+                                 [:built-character]))
         {:keys [::entity/owner] :as character} @(subscribe [::char/character id])
         username @(subscribe [:username])
         race @(subscribe [::char/race id])
