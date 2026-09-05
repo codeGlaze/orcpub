@@ -18,7 +18,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { chromium } = require('playwright');
+const { chromium, devices } = require('playwright');
 
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'sticky-header-'));
@@ -42,9 +42,14 @@ const check = (name, ok, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
 };
 
+// A real device descriptor for the phone, not a narrow viewport. The app picks
+// its mobile layout off the USER AGENT (user-agent/device-type, a Closure sniff),
+// so a desktop UA at 390px gets the desktop layout crammed into a phone width --
+// two builder columns side by side, the summary overflowing -- which is not
+// what any phone shows and is not what this is meant to check.
 const VIEWPORTS = [
-  { name: 'desktop', width: 1500, height: 1000 },
-  { name: 'phone', width: 390, height: 844, isMobile: true, hasTouch: true },
+  { name: 'desktop', context: { viewport: { width: 1500, height: 1000 } } },
+  { name: 'phone', context: { ...devices['iPhone 13'] } },
 ];
 
 const PAGES = [
@@ -56,11 +61,7 @@ const PAGES = [
   const browser = await chromium.launch({ executablePath: findChrome() });
   try {
     for (const vp of VIEWPORTS) {
-      const ctx = await browser.newContext({
-        viewport: { width: vp.width, height: vp.height },
-        isMobile: !!vp.isMobile,
-        hasTouch: !!vp.hasTouch,
-      });
+      const ctx = await browser.newContext(vp.context);
       const page = await ctx.newPage();
       const errors = [];
       page.on('console', m => {
