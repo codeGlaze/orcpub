@@ -18,6 +18,9 @@ measured, what turned out to be wrong, and why.
 
 ## Practice
 
+- **[memoize-antipattern-scan.md](memoize-antipattern-scan.md)** -- every `memoize` site
+  scanned and traced. Four are dead code; `memoized-spell-option` is measurably 10x slower
+  than no cache. Planned, not executed.
 - **[verification-discipline.md](verification-discipline.md)** -- how this repo has been
   wrong, and the probe defects that produced confident wrong answers. Read before writing a
   performance probe.
