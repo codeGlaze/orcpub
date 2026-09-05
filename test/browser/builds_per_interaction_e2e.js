@@ -12,6 +12,10 @@
 // nothing. Constructions counted here are only those AFTER instrumentation, so a count of 0
 // does not rule out instances created during builder load.
 //
+// After the duplicate-subscription fix, MegaPak loaded: race, each class switch and a level
+// change all run exactly 1 build. So class-switch cost is not redundant builds -- it is one
+// build plus render being genuinely slow.
+//
 // Run: lein fig:build && lein e2e-server, then
 //   node test/browser/builds_per_interaction_e2e.js /path/to/pack.orcbrew
 const { chromium } = require('playwright');

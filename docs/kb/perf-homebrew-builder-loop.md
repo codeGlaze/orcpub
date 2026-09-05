@@ -821,6 +821,18 @@ results.
 race Half-Orc:   2 builds -> 1 build
 ```
 
+Across every interaction type, after the fix (the probe previously drove classes by clicking
+a card, which always timed out — class and level are `<select>`s, so it measured races only):
+
+```
+race Half-Orc  1     class Wizard  1     class Cleric  1     class Druid  1     level 5  1
+```
+
+**So class-switch cost is not redundant builds.** It is one build plus render being slow,
+which matches the earlier warm/cold split (~197 ms warm with everything cached, the
+unbounded cache accounting for only ~60 of ~257 ms). Anything aimed at class-switch time has
+to attack that single build and its render, not duplication.
+
 That also fixes a latent bug: `[:built-character id]` ignored `id` and returned the builder's
 in-progress character, so a character page showed the wrong character while
 `::char/character id` and friends in the same `let` showed the right one.
