@@ -520,145 +520,88 @@ granular-subscription tenet instead of fighting it.
 That is more work than a size cap, and it belongs with step 3 rather than ahead of it — step
 3 restructures the same code path.
 
-## The fix plan
+## The fix plan (revised — supersedes the original below)
 
-Ordered by payoff per unit of risk, not by size. Each step: characterization test first,
-then the change, then the same probes before/after so the payoff is measured rather than
-claimed. Stop and reassess after each — step 1 may move enough that step 3 is not worth its
-risk.
+Everything before this point is measurement. This is the delivery plan, rewritten after
+step 1 and the churn/throttle runs changed what we know. Exit criteria first, so "done" is
+not a matter of opinion.
 
-### Step 1 — stop building spell detail panels nobody opened — **IMPLEMENTED**
+### Done means
 
-Landed as written. `spell-option` (`options.cljc:463`) stores `#(spell-help spell)`;
-`views-aux/realize-help` forces it at the two render points that actually draw help
-(`character_builder.cljs:577` for option help, `:250` for class help).
+Against `mega-64` (130 caster classes) at 4x CPU throttle, using the committed probes:
 
-The subtlety worth keeping: `help` doubles as a **truthiness test** for whether to draw the
-info button (`character_builder.cljs:517`). A thunk stays truthy, so that check works
-unchanged — and must NOT force, or the deferral buys nothing. The other three
-`option-selector-base` callers were checked: one passes no `:help`, two pass plain values.
-`:help` everywhere else is still a plain string or literal hiccup, untouched.
-
-**Verified.** Characterization (`spell_option_help_test.clj`) green before *and* after — it
-asserts the content a renderer ends up with, not the representation — with its probe line
-flipping `eager hiccup` -> `DEFERRED (thunk, forced at render)`. Full JVM suite 309 tests /
-1704 assertions / 0 failures. Real browser against `lein e2e-server`: Wizard -> Spells tab
--> open a spell's info; School / Casting Time / Range / Duration / Components and the whole
-description all render, no page errors. **A defect in the first cut of this, caught by a question rather than by a test.** The
-first version forced the thunk while building the wrapper that `option-selector-base`
-rebuilds on **every render of every visible option card** — the `@expanded?` gate is
-downstream of it. So the peek was still built for every spell, just at render time instead
-of template time, and re-built on every re-render. Measured on the shipped-then-reverted
-version: rendering one spell list built **41 peeks** (one per listed spell) with nothing
-opened. That is worse than the eager version it replaced.
-
-Fixed by keeping the thunk intact through the wrapper — the wrapper itself became a thunk —
-and forcing only inside `(when @expanded? ...)`. `spell_help_laziness_e2e.js` pins it, and
-was verified to FAIL on the defective version (41 calls) and pass on the fix (0 calls while
-listing, 1 on opening a peek). A test that passes on both versions would have proved
-nothing, so it was run against both.
-
-### CORRECTION: step 1 does not move the headline number, and the premise was wrong
-
-Measured after the fix, styled, same conditions:
-
-| pack | builder open before -> after | heap before -> after |
+| | now | target |
 |---|---|---|
-| clean | 217 -> 214 ms | 30.9 -> 30.9 MB |
-| real pack | 731 -> 780 ms | 67.6 -> 67.6 MB |
-| +8x | 901 -> 904 ms | 74.5 -> 74.5 MB |
-| +32x | 1374 -> 1232 ms | 95.2 -> 95.2 MB |
-| +64x | 2150 -> 1730 ms | 122.7 -> 122.7 MB |
+| builder open, longest single task | 1730 ms | **< 400 ms** |
+| class switch, longest single task | 391 ms (cold 257 / warm 197 at 4x) | **< 150 ms** |
+| blocked share over a 125-interaction churn | 54% | **< 25%** |
+| heap growth over that churn | +40 MB | **< 5 MB** |
+| `lein test` | 0 failures | 0 failures |
 
-Run-to-run spread on `clean` alone across four runs was 172-217 ms, so everything here is
-inside the noise. **Step 1 buys approximately nothing on builder-open or heap.**
+Race/subrace are already flat and are not targets.
 
-**Why the premise was wrong.** `spell-options` (`options.cljc:499`) returns `(map ...)` — a
-**lazy sequence** — and `spells-known-selections` consumes it through another lazy `map` and
-`flatten`. So spell options, and therefore their `:help`, were never built at template-build
-time in the app at all: they are realised when the spell list first renders. The JVM
-measurement that produced "78% of building a spell option" forced realisation with `doall`,
-which the browser does not do. Confirmed directly: on the *eager* build, the laziness probe
-counted **0** `spell-help` calls during template build and 41 when the spell list rendered.
+### Phase 0 — pick the shape by spiking it, not by arguing about it
 
-So the ~2 s builder-open block is **spell-SELECTION construction** (`spell-selection`,
-`spells-known-selections`, `make-levels` — 4064 selection builds at 128 casters, measured
-earlier), not spell-option or `:help` construction. Step 1 attacks the wrong layer for that
-symptom.
+Two candidate designs for "only build what the character has taken", and they trade
+differently:
 
-**What step 1 is still worth.** It is correct and it removes real repeated waste in the
-render path: listing 41 spells went from 41 peek builds to 0, and every re-render of that
-list rebuilt them again. On a large homebrew library the visible list is hundreds of spells,
-so this is milliseconds per render, repeatedly — worth keeping, not worth claiming as the
-fix.
+- **A. Lazy option bodies.** Each class option keeps its name/key but its `:selections` and
+  `:modifiers` become thunks, forced when the option is actually walked. `entity/build`
+  already only walks *selected* options (`get-all-selections-aux-2` filters on
+  `selected-option-paths`), so unselected classes would never force. Small blast radius;
+  same trap as `:help` — something forcing during picker render silently undoes it.
+- **B. Character-driven derivation.** `template-selections` takes the character's selected
+  class keys and builds full options only for those. Structurally cleaner and gets re-frame
+  disposal for free, but the template then rebuilds when class selection changes — trading a
+  one-time cost for a per-change one.
 
-**Consequence for the plan.** Step 2 (the class-keyed memo) is now clearly not worth doing:
-its multiplier was the `:help` cost, which is no longer paid per render. **Step 3 — building
-a class's levels only for classes the character has taken — is the one that targets the
-actual 2 s block**, and it moves up to next.
+**Do not pick on reasoning.** Spike both as throwaway branches, measure builder-open and
+class-switch on `mega-64` at 4x, and keep the winner. B's per-change cost is the open
+question and it is cheap to answer: building 1 class's levels versus 130.
 
-**Original plan, for the record.**
+Budget this at one measured comparison, not a debate.
 
-**Change.** `:help` on a spell option becomes a thunk instead of a materialised hiccup tree.
-`spell-option` stores `#(spell-help spell)`; the renderer calls it if `fn?`. Backwards
-compatible on purpose: `:help` elsewhere is a plain string or literal hiccup
-(`options.cljc:2822`, `template.cljc:1502`) and keeps working untouched.
+### Phase 1 — the characterization net, before any structural change
 
-**Consumers to update** — four, all traced: `views_aux.cljc:51` and `:121`,
-`character_builder.cljs:230`, `:250`. (`:261` passes `::t/help` through a `select-keys` and
-needs no change.)
+This is a bigger blast radius than step 1, so the net has to be wider first:
 
-**Expected.** ~78% of spell-option construction, and the bulk of the 2.39M retained hiccup
-nodes / ~33 MB of duplicated description text. Estimate, not a measurement.
+- Pin the template's shape for a matrix of characters (SRD-only, homebrew race, homebrew
+  caster, multiclass): option counts per selection, option keys **in order**, and the
+  built-character values (`entity/build` output) for each.
+- Pin that unselected classes contribute no modifiers — the invariant laziness relies on.
+- Extend `spell_help_laziness_e2e.js`'s trick to the new thunks: count constructions during
+  picker render, expect 0. **Run it against the pre-change build too**, so it is proven to
+  catch the regression rather than merely passing.
 
-**Risk.** Low. `:help` is display-only — nothing in `entity/build`, no modifier, no prereq
-reads it. The failure mode is a blank peek, which a test catches.
+Nothing lands until this is green on unchanged code.
 
-**Gate.** Characterization test pinning option identity, ordering and modifiers, plus
-`entity/build` output unchanged; a browser check that the peek still renders its text; then
-`homebrew_rebuild_scaling_e2e.js` and the memory/freeze probe before and after.
+### Phase 2 — implement the winner
 
-### Step 2 — take class name out of what does not depend on it
+Plus the two things it subsumes: `memoized-spell-option`'s unbounded growth (options for
+unvisited classes stop existing, so there is nothing to evict), and most of the class-switch
+cost.
 
-With `:help` deferred, what still legitimately varies per class is `:name` (level prefix),
-`:modifiers` and `:prereqs` — so options cannot be shared wholesale, and the class-keyed
-memo stays. But the per-option cost drops from ~19 us to ~4 us, which is where most of the
-x130 multiplier goes. Re-measure after step 1 and decide whether anything further is worth
-it; this may simply fall out.
+### Phase 3 — measure, with the probes already committed
 
-### Step 3 — build a class's levels only for classes the character has taken
+`builder_churn_e2e.js` (1x and 4x, `races`/`classes`/`both`), the memory/freeze probe, and
+`lein test`. Compare against the table above. Record the result **including if it misses** —
+step 1 is the precedent.
 
-**Change.** `make-levels` currently runs for every plugin class at template-build time. The
-class picker needs name, key and help — not twenty levels of spell selections for 130
-classes nobody has selected.
+### Phase 4 — follow-ons, only if Phase 3 leaves them mattering
 
-**Expected.** The bulk of the remaining builder-open block, which is the 2150 ms.
-
-**Risk.** Higher, and the reason it is not first. The template is built once and shared
-across edits, so making it depend on the character trades a one-time cost for a per-change
-one. The per-**class** cut avoids that (selected classes already live in the character and
-already trigger a rebuild); a per-**level** cut does not, because `prereq-fn` takes the
-character. Do the class cut; leave the level cut alone.
-
-### Step 4 — stop paying for every change twice
-
-The `built-character` debounce (`subs.cljs:325`) watches both `char-sub` and `tmpl-sub`, so
-one watch fires the leading edge and the other schedules a trailing build. Halves the
-per-change cost. Small, but it is a semantics change to a load-bearing debounce, so it wants
-its own commit and its own test.
-
-### Step 5 — virtualise the option lists
-
-200 homebrew subraces is 200 cards in the DOM. Render-side, independent of everything above,
-and only worth doing once the template cost is gone — otherwise it is invisible next to it.
+- **Debounce double-fire** (`subs.cljs:325`): every change costs two builds. Halves the
+  per-change cost, but it is a semantics change to a load-bearing debounce — own commit, own
+  test.
+- **Virtualise the option lists**: 200 subraces is 200 cards. Unmeasured; get numbers before
+  committing to it.
 
 ### Explicitly not doing
 
-- **Wiring the memoized `entity.cljc` wrappers.** History says they were removed on purpose,
-  twice, once inside a bug fix; and the cost they hid is already gone (section 2).
-- **Removing the 500 ms debounce.** Load-bearing, and step 4 addresses the real defect.
-- **Chasing the localStorage ceiling.** A browser limit; only moving the library out of
-  `localStorage` changes it.
+- Wiring the memoized `entity.cljc` wrappers — removed on purpose twice, once inside a bug
+  fix, and the cost they hid is gone.
+- Hand-rolling an LRU — see *What a bounded cache would cost*; Phase 2 removes the need.
+- Removing the 500 ms debounce.
+- Touching the ~45 handler memoizations. They are correct (`reagent-architecture-tenets.md`).
 
 ## What is left, in priority order
 

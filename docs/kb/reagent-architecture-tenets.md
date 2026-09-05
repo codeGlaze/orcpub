@@ -95,3 +95,62 @@ Where output order feeds behaviour, an "equivalent" rewrite is a behaviour chang
 `order-modifiers`, so two valid topological orders are not interchangeable. Pinned in
 `entity_build_perf_test.clj` (JVM) **and** `kahn_sort_order_equivalence_e2e.js` (cljs — sets
 of <= 8 elements iterate in insertion order there and the JVM cannot see that class of bug).
+
+---
+
+## What to do instead of reaching for another cache
+
+Nothing in this app is network-bound. The whole library is in browser memory the moment it
+loads, so **every millisecond of a freeze is self-inflicted computation** — there is no I/O
+to hide behind, and "instant" is achievable in principle.
+
+That reframes what the caching here is actually doing. The builder constructs every class's
+every level's every spell option up front, then memoizes the results so it never has to redo
+it. **The cache is compensating for eager work.** Build only what is on screen and there is
+almost nothing left worth caching.
+
+So the pathology is not "memoize bad" — most of the ~45 memoize calls in this codebase are
+correct (see below). It is *cache-as-substitute-for-not-doing-the-work*.
+
+Ranked by what the measurements in `perf-homebrew-builder-loop.md` support:
+
+1. **Do less rather than cache more.** 130 classes' spell options exist only because
+   everything is built. Build the selected class's and the problem and its cache both go away.
+2. **Let re-frame own derived state.** Subscriptions are caches with dependency tracking and
+   disposal. Every hand-rolled cache is a subscription somebody did not write.
+3. **Index once at import, not per render.** The cost is not fetching the data, it is
+   reshaping it into view structures. A class -> spell-keys index built once when content
+   loads makes lookups O(1) with nothing to evict.
+4. **Virtualise long lists.** 200 homebrew subraces is 200 cards in the DOM. *Unmeasured
+   here* — listed for completeness, not on evidence.
+5. **Yield.** A 2.1 s block is one unbroken task; the same work chunked across frames is
+   invisible even at an identical total. Often the cheapest "feels instant" win available.
+6. **Keep measuring the longest task, not the total.** 3.4 s over 50 tasks and 31.9 s over
+   138 are the same app on different hardware; only the second reads as chuggy.
+
+### When memoize IS right, so this is not read as "rip it out"
+
+An audit of every `memoize` in `src/` found ~45 of them are handler memoization:
+
+```clojure
+(defn set-class-fn [i options-map]
+  (fn [e] (dispatch [:set-class (keyword (.. e -target -value)) i options-map])))
+(def set-class (memoize set-class-fn))
+```
+
+That returns the **same function identity** across renders. Without it every render hands
+React a fresh closure, React sees a changed prop, and the subtree re-renders. It is the CLJS
+equivalent of `useCallback` and it cooperates with Reagent. Removing these would make the app
+worse.
+
+The distinction is the key space, not the technique:
+
+| memoizing | key space | verdict |
+|---|---|---|
+| a callback, keyed on UI position | closed | correct, keep |
+| data keyed on SRD content (12 classes, 319 spells) | closed | fine — a lookup table that fills once |
+| data keyed on **user-imported** content | **open** | needs a lifetime, not a global map |
+
+`memoized-spell-option` is the third row. It was the second row when it was written — the app
+was SRD-only. Homebrew changed the premise; the code did not. Not a bad decision, an expired
+one.
