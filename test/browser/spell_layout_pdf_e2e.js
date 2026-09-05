@@ -114,7 +114,7 @@ async function buildCharacter(page) {
 // The style dropdown offers only what the build ships; styles beyond it are
 // gated by user tier in orcpub.fork.integrations/sheet-styles.
 async function offeredStyles(page) {
-  const sel = page.locator('div', { hasText: /^Select Character sheet$/ })
+  const sel = page.locator('div', { hasText: /^Sheet style$/ })
     .locator('xpath=following::select[1]').first();
   return (await sel.evaluate(n => [...n.options].map(o => o.value)))
     .filter(v => /^\d+$/.test(v)).map(Number);
@@ -142,7 +142,7 @@ async function exportPdf(page, style, layout, name) {
   await page.getByText(/^export$/i).first().click();
   await page.waitForTimeout(1200);
 
-  const styleSelect = page.locator('div', { hasText: /^Select Character sheet$/ })
+  const styleSelect = page.locator('div', { hasText: /^Sheet style$/ })
     .locator('xpath=following::select[1]').first();
   await styleSelect.selectOption(String(style));
   await page.waitForTimeout(1200);
@@ -208,10 +208,44 @@ async function postSpec(page, spec, style, name) {
     const uiStyle = styles[0];
     await page.getByText(/^export$/i).first().click();
     await page.waitForTimeout(1200);
-    await page.locator('div', { hasText: /^Select Character sheet$/ })
+    await page.locator('div', { hasText: /^Sheet style$/ })
       .locator('xpath=following::select[1]').first().selectOption(String(uiStyle));
     await page.waitForTimeout(1200);
     await page.screenshot({ path: path.join(OUT, 'pdf-options.png') });
+    // Every option carries a ? that opens a line explaining it.
+    // The app mounts the options panel for both its layouts and hides one, so
+    // the toggles are picked by which ones actually have a box on the page.
+    // The hidden copy is hidden by visibility, so it still has a box and still
+    // answers to isVisible -- checkVisibility is what separates the two.
+    // The app mounts the panel once per layout and only one is on screen, so the
+    // count is halved and the clicks go to the copy under the viewport.
+    const all = page.locator('.option-help');
+    const total = await all.count();
+    check('each option carries a help toggle', total >= 8, `${total} found`);
+    const half = total / 2;
+    for (let i = 0; i < half; i++) await all.nth(i).click();
+    await page.waitForTimeout(400);
+    check('the toggles open their explainers',
+          await page.locator('.option-help-text').count() === half,
+          `${await page.locator('.option-help-text').count()} of ${half}`);
+    await page.screenshot({ path: path.join(OUT, 'pdf-options-help.png') });
+    for (let i = 0; i < half; i++) await all.nth(i).click();
+    await page.waitForTimeout(400);
+
+    // B&W and the card-back logo apply to magic item cards too, so the group
+    // has to survive turning the spell cards off.
+    const toggle = (label) => page.getByText(label, { exact: true }).first().click();
+    await toggle('Print Spell Cards');
+    await page.waitForTimeout(600);
+    check('Appearance goes away when no cards are printed',
+          !(await page.innerText('body')).includes('APPEARANCE'));
+    await toggle('Print Magic Item Cards');
+    await page.waitForTimeout(600);
+    check('Appearance comes back for magic item cards alone',
+          (await page.innerText('body')).includes('APPEARANCE'));
+    await toggle('Print Magic Item Cards');
+    await toggle('Print Spell Cards');
+    await page.waitForTimeout(600);
     await page.getByText(/^cancel$/i).first().click();
     await page.waitForTimeout(600);
 

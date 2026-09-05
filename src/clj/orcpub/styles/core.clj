@@ -482,6 +482,53 @@
                 :position "absolute"
                 :z-index "1"}]]
 
+   ;; A group heading in the PDF options. Set apart from the field labels under
+   ;; it -- a heading in the same weight as its own first label reads as one more
+   ;; option rather than as the name of the set.
+   [:.option-group-title
+    {:font-size "11px"
+     :font-weight "bold"
+     :letter-spacing "0.08em"
+     :text-transform "uppercase"
+     :opacity "0.6"
+     :padding-top "8px"
+     :margin-bottom "6px"
+     :border-top "1px solid currentColor"}]
+
+   ;; The ? beside a PDF option, and the line it opens. A ring rather than a
+   ;; word, so a column of them reads as one affordance repeated and not as
+   ;; another label to parse.
+   [:.option-help
+    {:display "inline-flex"
+     :align-items "center"
+     :justify-content "center"
+     :width "15px"
+     :height "15px"
+     :border-radius "50%"
+     :border "1px solid currentColor"
+     :font-size "10px"
+     :font-weight "bold"
+     :line-height "1"
+     :opacity "0.55"}]
+   [:.option-help:hover
+    {:opacity "1"}]
+   [:.option-help-text
+    {:font-size "12px"
+     :line-height "16px"
+     :max-width "320px"
+     :margin "4px 0 6px 21px"
+     :opacity "0.75"}]
+
+   ;; An always-on note under a control, saying what the current setting will do.
+   ;; Set like the ? lines so the two read as one kind of note, but its own class
+   ;; -- it is the state of the build, not a fixed explanation.
+   [:.option-note
+    {:font-size "12px"
+     :line-height "16px"
+     :max-width "320px"
+     :margin "4px 0 6px 0"
+     :opacity "0.75"}]
+
    [:.image-thumbnail
     {:max-height "100px"
      :max-width "200px"

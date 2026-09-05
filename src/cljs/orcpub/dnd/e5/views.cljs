@@ -4103,6 +4103,47 @@
    (comps/checkbox selected? false)
    [:span.m-l-5.f-s-14 label]])
 
+(defn with-help
+  "`row` with a ? appended to it, and the line that ? opens beneath the whole row.
+
+   Appended rather than wrapped, because the row is a flex line: a help span
+   holding its own text would put the explanation beside the label instead of
+   under it. Click rather than hover -- the builder is used on phones, where a
+   hover tooltip never opens -- with `title` for a mouse that rests on it anyway."
+  [row help]
+  (let [open? (r/atom false)]
+    (fn [row help]
+      [:div
+       (conj row
+             [:span.option-help.pointer.m-l-5
+              {:title help
+               :on-click (fn [e] (.stopPropagation e) (swap! open? not))}
+              "?"])
+       (when @open?
+         [:div.option-help-text help])])))
+
+(defn option-checkbox
+  "One PDF option: its checkbox, and a ? holding `help`.
+
+   The ? sits outside the clickable label so reading the explanation does not
+   toggle the option."
+  [label selected? on-click help]
+  [:div.m-b-5
+   [with-help
+    [:div.flex.align-items-c
+     [:div.pointer {:on-click on-click}
+      [labeled-checkbox label selected?]]]
+    help]])
+
+(defn option-group
+  "A titled group of options. The panel carries three -- what goes on the sheet,
+   what cards follow it, and how either is inked -- because a flat list put the
+   known/prepared choice, a sheet setting, in the middle of the card ones."
+  [title & children]
+  (into [:div.m-b-16
+         [:div.option-group-title title]]
+        children))
+
 (defn export-pdf-fn [built-char
                      id
                      plugin-data
@@ -4191,113 +4232,121 @@
     [:div.flex.justify-cont-end
      [:div.p-20
       [:div.f-s-20.f-w-b.m-b-10 "PDF Options"]
-      [:div.m-b-2
-       [:div.flex.m-b-10
-        [:div.m-t-5
-         [labeled-dropdown
-          "Select Character sheet"
-          {:items (into [{:title "Select" :value " "}]
-                        (integrations/sheet-styles @(subscribe [:user-tier])))
-           :value print-character-sheet-style?
-           :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]]
+
+      ;; Grouped by what a setting changes: the sheet, the cards behind it, then
+      ;; how either is inked. The card options used to be split by the known /
+      ;; prepared choice, which is a sheet setting.
+      [option-group "Character Sheet"
+       [:div.m-b-10
+        [labeled-dropdown
+         "Sheet style"
+         {:items (into [{:title "Select" :value " "}]
+                       (integrations/sheet-styles @(subscribe [:user-tier])))
+          :value print-character-sheet-style?
+          :on-change (make-arg-event-handler ::char/set-print-character-sheet-style? js/parseInt)}]]
        [integrations/pdf-options-slot @(subscribe [:user-tier])]
-       [:div.flex
-        [:div
-         {:on-click (make-event-handler ::char/toggle-large-abilities-print)}
-         [labeled-checkbox
-          "Print Abilities Large (and Bonuses Small)"
-          print-large-abilities?]]]]
-      (when has-spells?
-        [:div.m-b-2
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-spell-cards-print)}
-           [labeled-checkbox
-            "Print Spell Cards"
-            print-spell-cards?]]]])
-      (when print-spell-cards?
-        [:div.m-b-2
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-spell-cards-by-dc-mod)}
-           [labeled-checkbox
-            "Print Spell DC and MOD"
-            print-spell-card-dc-mod?]]]])
-      [:div.m-b-2
-       [:div.flex
-        [:div
-         {:on-click (make-event-handler ::char/toggle-magic-item-cards-print)}
-         [labeled-checkbox
-          "Print Magic Item Cards"
-          print-magic-item-cards?]]]]
-      (when has-spells?
-        [:div.m-b-10
+       [option-checkbox
+        "Print Abilities Large (and Bonuses Small)"
+        print-large-abilities?
+        (make-event-handler ::char/toggle-large-abilities-print)
+        (str "The sheet prints the ability score big and its modifier small. "
+             "Tick this to swap them, so the number you roll with is the one "
+             "you can read across the table.")]
+       (when has-spells?
          [:div.m-b-10
-          [:span.f-w-b "Spells Printed"]]
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-           [labeled-checkbox
-            "Known"
-            (not print-prepared-spells?)]]
-          [:div.m-l-20
-           {:on-click (make-event-handler ::char/toggle-known-spells-print)}
-           [labeled-checkbox
-            "Prepared"
-            print-prepared-spells?]]]])
-      (when packable?
-        [:div.m-b-10.w-250
-         [labeled-dropdown
-          "Spell Sheet Layout"
-          {:items [{:title "Automatic" :value ""}
-                   {:title "One column per class" :value "packed"}
-                   {:title "One page per class" :value "per-class"}]
-           :value (if spell-layout (name spell-layout) "")
-           :on-change (make-arg-event-handler ::char/set-spell-layout
-                                              #(when-not (s/blank? %) (keyword %)))}]
-         ;; What the current setting will actually print. Automatic packs a
-         ;; multiclass caster, which is the only build this control is shown to.
-         [:div.f-s-12.opacity-5.m-t-5
-          (if (= :per-class spell-layout)
-            (str (count casting-classes) " spell pages, one per class")
-            (str "One page, a column each for "
-                 (s/join ", " (map :class casting-classes))))]])
-      ;; Appearance group — cosmetic/output options, set apart from the data
-      ;; options above (layout B). Only meaningful when spell cards are printed.
-      (when print-spell-cards?
-        [:div.m-b-10
-         [:div.m-b-5 [:span.f-w-b "Appearance"]]
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-print-bw)}
-           [labeled-checkbox
-            "Printer-friendly (black & white)"
-            print-bw?]]]
+          [with-help
+           [:div.flex.align-items-c.m-b-5
+            [:span.f-w-b "Spells Printed"]]
+           (str "Which spells go on the sheet and the cards. Known is every "
+                "spell the character has; Prepared is only the ones marked "
+                "prepared today, which is what a Cleric or a Wizard casts from.")]
+          [:div.flex
+           [:div.pointer
+            {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+            [labeled-checkbox "Known" (not print-prepared-spells?)]]
+           [:div.m-l-20.pointer
+            {:on-click (make-event-handler ::char/toggle-known-spells-print)}
+            [labeled-checkbox "Prepared" print-prepared-spells?]]]])
+       (when packable?
+         [:div.m-b-10
+          [:div.w-250
+           [labeled-dropdown
+            "Spell Sheet Layout"
+            {:items [{:title "Automatic" :value ""}
+                     {:title "One column per class" :value "packed"}
+                     {:title "One page per class" :value "per-class"}]
+             :value (if spell-layout (name spell-layout) "")
+             :on-change (make-arg-event-handler ::char/set-spell-layout
+                                                #(when-not (s/blank? %) (keyword %)))}]]
+          ;; What the current setting will actually print, always on: this one is
+          ;; the state of the build rather than a fixed explanation, so it is not
+          ;; behind a ?. Set like the ? lines so the two read as one kind of note.
+          [:div.option-note
+           (if (= :per-class spell-layout)
+             (str (count casting-classes) " spell pages, one per class")
+             (str "One page, a column each for "
+                  (s/join ", " (map :class casting-classes))))]])]
+
+      [option-group "Cards"
+       (when has-spells?
+         [option-checkbox
+          "Print Spell Cards"
+          print-spell-cards?
+          (make-event-handler ::char/toggle-spell-cards-print)
+          (str "Adds a page of cut-out cards, one per spell, with its range, "
+               "duration and description. Printed after the sheet.")])
+       (when print-spell-cards?
+         [:div.m-l-20
+          [option-checkbox
+           "Print Spell DC and MOD"
+           print-spell-card-dc-mod?
+           (make-event-handler ::char/toggle-spell-cards-by-dc-mod)
+           (str "Prints this character's save DC and attack bonus on each card, "
+                "so the numbers are on the card being held rather than back on "
+                "the sheet.")]])
+       [option-checkbox
+        "Print Magic Item Cards"
+        print-magic-item-cards?
+        (make-event-handler ::char/toggle-magic-item-cards-print)
+        (str "The same cards for the magic items the character carries, "
+             "attunement and charges included.")]]
+
+      ;; Both card kinds are inked the same way, so this group follows either --
+      ;; gating it on spell cards alone hid it from anyone printing only items.
+      (when (or print-spell-cards? print-magic-item-cards?)
+        [option-group "Appearance"
+         [option-checkbox
+          "Printer-friendly (black & white)"
+          print-bw?
+          (make-event-handler ::char/toggle-print-bw)
+          (str "Drops the colour from the cards so they cost less to print and "
+               "stay legible on a mono printer.")]
          ;; Under B&W: default is solid-black icons with white-halo labels;
          ;; opt into faded grayscale icons for a softer look.
          (when print-bw?
            [:div.m-l-20
-            [:div.flex
-             [:div
-              {:on-click (make-event-handler ::char/toggle-bw-faded)}
-              [labeled-checkbox
-               "Faded grayscale icons (else solid black)"
-               bw-faded?]]]])
-         [:div.flex
-          [:div
-           {:on-click (make-event-handler ::char/toggle-print-card-back-logo)}
-           [labeled-checkbox
-            "Print logo on card backs"
-            print-card-back-logo?]]]
+            [option-checkbox
+             "Faded grayscale icons (else solid black)"
+             bw-faded?
+             (make-event-handler ::char/toggle-bw-faded)
+             (str "Sets the card icons as pale grey behind the text instead of "
+                  "solid black beside it.")]])
+         [option-checkbox
+          "Print logo on card backs"
+          print-card-back-logo?
+          (make-event-handler ::char/toggle-print-card-back-logo)
+          (str "Puts a logo on the reverse of every card, so a printed sheet cut "
+               "up and shuffled still has a back.")]
          ;; Treatment only matters when the logo is on AND B&W isn't forcing black.
          (when (and print-card-back-logo? (not print-bw?))
            [:div.m-l-20
-            [:div.flex
-             [:div
-              {:on-click (make-event-handler ::char/toggle-card-back-logo-faded)}
-              [labeled-checkbox
-               "Faded color (else solid black)"
-               card-back-logo-faded?]]]])])
+            [option-checkbox
+             "Faded color (else solid black)"
+             card-back-logo-faded?
+             (make-event-handler ::char/toggle-card-back-logo-faded)
+             (str "Prints the back logo as a pale colour wash rather than in "
+                  "solid black.")]])])
+
       [:button.form-button.p-10.m-l-5
        {:style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char
@@ -4376,7 +4425,7 @@
           ;; report below is the fallback.
           (when (and (seq branding/support-email) @(subscribe [:username]))
             (let [status @(subscribe [::char/character-report-status id])]
-              [:div.m-b-15
+              [:div.m-b-16
                [:button.form-button.m-b-5
                 {:disabled (= status :sending)
                  :on-click #(dispatch [:report-character-problem id error raw])}
