@@ -1,7 +1,36 @@
 # Plan: chunked per-source library storage
 
-Status: **proposed, not started.** Supersedes the Track 1 sketch in
+Status: **DEPRIORITIZED, not started.** Supersedes the Track 1 sketch in
 `perf-homebrew-builder-loop.md`, which established the *why*; this is the *how*.
+
+## Read this first: why this plan is parked
+
+This plan targets the ~750 ms EDN parse at builder open. That is a **one-time load cost**.
+The reported problem was that *selecting race / subrace / class / subclass* freezes the
+browser, and this document's own measurements concluded: "it is not opening the builder once,
+it is that **using** the builder gets progressively heavier the more you look at." No storage
+read happens on a class switch. **So this plan does not address the complaint that started
+the investigation.**
+
+Ranked against the alternatives, all already measured:
+
+| Problem | Measured | Complexity | Addresses the reported freeze |
+| --- | --- | --- | --- |
+| Class browsing retains ~34 MB / 30 s, never freed | 122.6 -> 156.8 MB | low (spike B done) | yes |
+| Class switch blocks | 528 ms worst | same fix | yes |
+| Two `entity/build` runs per change | 2x every interaction | small | yes |
+| First render | 670-973 ms | medium | partly (open only) |
+| EDN parse | 750 ms, one-time | **high - this plan** | no |
+
+Do the double-build fix and the lazy class bodies first. Revisit this only when the one-time
+load actually becomes the complaint, or when moving to IndexedDB — which dissolves most of
+the complexity below, being natively per-key and async, so neither the migration dance nor
+the hand-built yielding is needed.
+
+The plan is kept in full because the measurements and the two corrections in it are real and
+were expensive to get. It grew complex because each round answered "can it be done?" rather
+than "is it worth doing?" — the complexity was the signal, and it was a reviewer who spotted
+it, not the author.
 
 ## The problem, in one line
 
