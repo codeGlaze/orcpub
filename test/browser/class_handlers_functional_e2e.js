@@ -76,7 +76,9 @@ const check = (name, ok, detail) => {
   check('set-class-level sets 5 levels', now.length > 0 && now[0][1] === 5, JSON.stringify(now));
 
   // add-class
-  const addBtn = page.locator('text="Add Class"').first();
+  // Real control labels, read from the source rather than guessed: the add button is
+  // "Add Levels in Another Class" and delete is a fa-minus-circle icon.
+  const addBtn = page.locator('text="Add Levels in Another Class"').first();
   if (await addBtn.count().catch(() => 0)) {
     await addBtn.click({ timeout: 20000 });
     await page.waitForTimeout(1800);
@@ -84,7 +86,7 @@ const check = (name, ok, detail) => {
     check('add-class adds a second class', now.length === 2, JSON.stringify(now));
 
     // delete-class
-    const del = page.locator('i.fa-trash, .fa-times, text="delete"').first();
+    const del = page.locator('i.fa-minus-circle').last();
     if (await del.count().catch(() => 0)) {
       await del.click({ timeout: 20000 });
       await page.waitForTimeout(1800);
