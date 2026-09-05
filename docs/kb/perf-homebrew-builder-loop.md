@@ -991,42 +991,41 @@ included the control was likewise clean (max 189 ms). Comparing the controlled p
 the uncontrolled dev runs would have "shown" the freeze was a dev artifact. `SKIP_CONTROL=1`
 now exists so compared runs agree on this; runs that disagree on it are not comparable.
 
-### ROOT CAUSE: every class's 20 level options are realised during the Class tab render
+### ROOT CAUSE: memoize cache lookups that deep-compare every class in the library
+
+**Fixed.** `cljs.core/memoize` keeps its cache in a `PersistentArrayMap` and looks it up with
+`get` -- a **linear scan comparing argument lists with `=`**. Three event-handler factories in
+`character_builder.cljs` were memoized on arguments holding every class in the library:
+
+| Site | Memoized on | Cached value |
+| --- | --- | --- |
+| `set-class` | `[i options-map]` | a 3-line closure |
+| `delete-class` | `[key i options-map]` | a 3-line closure |
+| `add-class` | `[remaining-classes]` | a 3-line closure |
+
+Each lookup deep-compared 141 class options, and that comparison walked into every class's
+lazy 20-level `:options` seq (`options.cljc:3098`) -- realising 141 x 20 = 2820 level options
+inside one synchronous reagent render.
 
 ```
-2. -> Class / Level   longest 1128ms   heap +46MB   levelOption 2820x939ms
-every other switch    longest ~100-200ms            levelOption 0
+                    BEFORE                      AFTER
+switch 2 -> Class   1125-1283 ms                100 ms
+                    level-option 2820x ~1000ms  level-option 0 calls
+                    heap +46 MB                 heap -10 MB (GC)
+session heap peak   189 MB                      141 MB
 ```
 
-2820 = 141 classes x 20 levels. `class-option` builds a `:levels` selection whose
-`:options` is a lazy seq (`options.cljc:3098`):
+The keys cost roughly a thousand times more than the values they cached.
 
-```clojure
-:options (map (partial level-option ...) (range 1 21))
-```
+**Why it hid for years.** It scales with homebrew volume, needs CPU contention to be
+obvious, and the expensive operation is a *cache lookup* -- so every profile pointed at
+rendering and template construction rather than at the caching meant to make things fast.
+Removing one of the three sites changed nothing, which is why a partial fix looked like a
+failed hypothesis.
 
-Lazy, so it costs nothing at template-build time -- which is why builder open never showed
-it and why `make-levels`/`class-option` counters read zero. But rendering the class list
-forces it for **every class in the library**, including the 140 the character has not taken.
-The stack at the first call confirms LazySeq realisation (`sval` -> `partial` ->
-`level_option`), inside one synchronous reagent render (`run-queue` -> `flushSync` ->
-`deref-capture` -> `do-render`).
-
-Reproduces on dev (1068-1279 ms) and on a production build (654 ms).
-
-### Candidate fixes (NOT yet attempted successfully)
-
-- **Build level options only for classes the character has taken.** Blocked by
-  `class-option` living in a character-independent subscription; needs the levels to come
-  from a per-class subscription, or the template to hold a thunk the machinery forces on
-  selection.
-- **Stop the class-list render touching nested selections at all.** Needs the consumer
-  identified; the stack bottoms out in LazySeq internals rather than naming it.
-
-**Tried and reverted:** making the seq unchunked (`(apply list (range 1 21))`) on the theory
-that `range` chunking realised all 20 on first touch. No effect -- identical 2820 calls and
-1094 ms block -- because the consumer *fully iterates* rather than merely touching. Reverted
-rather than leave a no-op carrying a wrong explanation.
+Probe: `test/browser/tab_switch_freeze_e2e.js` (see also
+[reagent-architecture-tenets.md](reagent-architecture-tenets.md) on why `memoize` is the
+wrong tool in a Reagent app, and [verification-discipline.md](verification-discipline.md)).
 
 ### Five wrong diagnoses, and what killed each
 
