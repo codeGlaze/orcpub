@@ -583,6 +583,55 @@ it is 1.5 s of that load.
 Phase 0 did its job: it was built to compare two designs and instead invalidated the premise
 of both. Cheaper than shipping either.
 
+## Decision point: what to do after Phase 0 (analysis, pending owner decision)
+
+Reading the load path end to end (`db.cljs:460-506`) after the Phase 0 profile:
+
+1. The library is parsed **once** — no double-parse to remove. The ~1.5 s is one
+   `read-string` of the whole library.
+2. Then **every item is spec-validated on every page load** via
+   `salvage-library-items content-specs/valid-item-for-load?`. The code's own comment says
+   `stored` "normally holds only valid items, so `rejected` is usually empty here — it's the
+   defensive net if the floor tightens." So a full walk of ~1,350+ items runs each load to
+   catch a case that essentially never occurs. Unmeasured, but the ~336 ms of `=`/`IEquiv`
+   in the profile is the right shape for it.
+3. Then `reagent render`, 670 ms, for the first paint.
+
+**There are two problems, not one.** The owner's report was the *interaction* chug —
+race/class selection. Phase 0 exposed a separate *load-time* block with a different
+mechanism. They need different fixes and should not be conflated in one plan.
+
+### Why not the transit spike next
+
+- It addresses only the parse (~1.5 s) — not the per-load validation, not the render.
+- It is a **localStorage format migration for every existing user**. Real risk, and it
+  does not lift the ~5 MB ceiling already hit in this investigation.
+- Transit-in-localStorage is a half-step: still synchronous, still on the critical path,
+  still capped. If the storage format is going to migrate at all, it should migrate once, to
+  the right tier — **IndexedDB** (async, no ceiling, lazy per-source loads) — after the
+  cheaper things below have been measured, when it is known how much block remains.
+
+### Recommended order
+
+1. **Quantify the validation** (~15 min). Time `salvage-library-items` alone on the
+   `mega-64` library in the browser. If it is hundreds of ms: validate on import, stamp the
+   stored library with a schema version, and skip the walk on load unless the version
+   changed. Zero migration, and it removes work that finds nothing.
+2. **Chunk the parse** (spike, ~1-2 h). Parse per source with a yield between sources.
+   Total is unchanged; the *longest task* — the thing users feel — drops from one 1.5 s block
+   to many small ones, and the page paints between them. No format change.
+3. **Finish the interaction-loop decision.** Spike B got class switch 391 -> 237 ms and heap
+   -27 MB, but 237 misses the < 150 target; design A (no template rebuild on class change) is
+   the candidate for the rest. This is the owner's original complaint and is independent of
+   the load-time track — it should not wait behind it.
+4. **Measure render.** 670 ms first paint is now the second-largest item on *both* tracks.
+   Virtualisation moves from "unmeasured step 5" to something that needs a number.
+5. **Park the storage migration as one decision**, IndexedDB not transit, scoped after 1-4.
+
+Confidence: items 1-2 of the analysis are from reading the code and are checkable; the
+validation cost and the chunking payoff are **not yet measured**. Nothing in this section
+changed code or ran a probe.
+
 ## The fix plan (revised — supersedes the original below)
 
 Everything before this point is measurement. This is the delivery plan, rewritten after
