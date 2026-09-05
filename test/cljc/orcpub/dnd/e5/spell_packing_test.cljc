@@ -286,13 +286,13 @@
       (is (some? paladin))
       (is (not (:cantrips? paladin))
           "its bar carries live slot inputs, so room has to be made")))
-  (testing "box 0 counts as free whatever level it holds"
-    ;; It has no slot inputs at all until reuse-cantrips-box! adds them, so a lone
-    ;; Paladin packed into it needs nothing moved.
+  (testing "a lone class without cantrips starts at box 1, not the cantrips box"
+    ;; Box 0 takes cantrips only, so its heading is on a level box and has to
+    ;; make room for that box's live slot inputs.
     (let [{:keys [headings]} (pk/packed-fields 1 [{:class "Paladin" :levels {1 ["Bless"]}
                                                    :slots {1 4}}])]
-      (is (= 0 (:box (first headings))))
-      (is (:cantrips? (first headings))))))
+      (is (= 1 (:box (first headings))))
+      (is (not (:cantrips? (first headings)))))))
 
 (deftest every-class-gets-a-heading-including-those-without-cantrips
   ;; A heading sits on the FIRST box of a class's run. A class with cantrips
@@ -430,3 +430,29 @@
             "not offered as the default")
         (is (seq (:unplaced (pk/packed-fields style named)))
             "and packed-fields carries the report for the caller that asks anyway")))))
+
+(deftest box-0-holds-cantrips-only
+  ;; A no-cantrips class leading a free column used to start at box 0, which then
+  ;; had to be redrawn as a level box from style 1's measurements: on style 3 the
+  ;; numeral missed the ring and the printed 0 stayed, and on every style the
+  ;; class name was clipped by the input drawn over it.
+  (let [paladin-ranger [{:class "Paladin" :levels {1 5 2 3}}
+                        {:class "Ranger" :levels {1 4 2 2}}]]
+    (doseq [style [1 2 3 4]]
+      (let [pages (pk/pack style paladin-ranger)
+            placed (for [page pages col page e (:placed col)] e)]
+        (testing (str "style " style)
+          (is (every? (fn [{:keys [box level]}] (or (not= 0 box) (= 0 level))) placed)
+              "no spell level lands in box 0")
+          (is (= {"Paladin" [1 2] "Ranger" [3 4]}
+                 (into {} (map (fn [[c es]] [c (mapv :box (sort-by :level es))]))
+                       (group-by :class placed)))
+              "the Paladin takes boxes 1 and 2, leaving box 0 to its printed 0")
+          (is (not-any? (fn [{:keys [box label]}] (and (= 0 box) (some? label)))
+                        (pk/relabel-instructions pages))
+              "so no instruction ever asks for a label on box 0")
+          (is (pk/fits? style paladin-ranger)))))
+    (testing "a spread class without cantrips starts at box 1 too"
+      (let [wide [{:class "Homebrew" :levels {1 5 2 5 3 5 4 5 5 5 6 5}}]
+            placed (for [page (pk/pack 1 wide) col page e (:placed col)] e)]
+        (is (= [1 2 3 4 5 6] (mapv :box (sort-by :level placed))))))))

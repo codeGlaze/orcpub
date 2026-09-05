@@ -612,18 +612,9 @@
    Petersen Games LLC 2021\". stamp-site-line! leaves those pages alone rather than
    printing it twice.
 
-   :packing? says the style's printed level numeral has been MEASURED, and so
-   whether a packed layout may be used on it. relabel-spell-level! covers that
-   numeral with a patch cut to hexagon-path, which was traced off style 1 at 1200
-   dpi -- and the styles do not merely offset it, they draw a different shape. The
-   printed numeral sits at dx -14.4 from its slots box on style 1, -12.4 on 2,
-   -28.0 on 3 and -23.0 on 4, and style 3 rings its numerals where style 4 uses a
-   small hexagon. Rendering a packed page on 2, 3 and 4 showed both numbers, the
-   old one beside the new: \"3 0\", \"4 1\", \"7 2\".
-
-   Only style 1 is measured. A packed layout asked for on another style falls back
-   to a page per class, which is correct if not as tight -- rather than printing a
-   sheet whose level numbers lie.
+   Whether a packed layout may be printed on a style is packing-supported?,
+   which follows numeral-boxes: the styles whose printed level numeral has been
+   measured, all four today.
 
    :site-line is where stamp-site-line! puts that line, in inches from the page's
    bottom-left corner, and is MEASURED off rendered pages -- see
@@ -640,7 +631,7 @@
    x is shared; the heights are not. Styles 1 and 2 sit at 0.13 to clear that bar,
    which leaves about 0.03in of headroom before the frame above, and styles 3 and
    4 sit lower at 0.06 where their own artwork stops."
-  {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all :packing? true
+  {1 {:file "fillable-char-sheetstyle-1-1-spells.pdf" :marks :all
       :without-casters "fillable-char-sheetstyle-1-0-spells.pdf"
       :site-line [0.95 0.13]}
    2 {:file "fillable-char-sheetstyle-2-1-spells.pdf" :marks :all
@@ -2692,7 +2683,12 @@
    `section` names a page the document actually has, `box` is one of the ten
    level boxes, and `label` is a single digit or nil. nil blanks a box nothing
    uses, which otherwise keeps printing a numeral that reads as a level the
-   character does not have."
+   character does not have.
+
+   Box 0 takes no label. It is the cantrips box, and renumbering it means
+   drawing the bar, labels and inputs of a level box onto it from style 1's
+   measurements alone -- the packer never asks for it, and a client that does is
+   refused rather than handed a sheet whose first column is drawn wrong."
   [{:keys [section box label]} sections]
   ;; boolean, not the last truthy value: group-by keys on what this RETURNS, and
   ;; re-matches hands back the matched string, so the groups came out keyed "2"
@@ -2700,6 +2696,7 @@
   (boolean
    (and (integer? section) (<= 1 section sections)
         (integer? box) (<= 0 box 9)
+        (or (not= 0 box) (nil? label))
         (or (nil? label)
             (and (string? label) (re-matches #"\d" label))))))
 
@@ -2734,7 +2731,7 @@
 
 (defn packing-supported?
   "Whether `style`'s level numerals can be relabelled, and so whether a packed
-   layout may be printed on it. See :packing? in sheet-masters."
+   layout may be printed on it: the styles numeral-boxes has measurements for."
   [style]
   (contains? numeral-boxes style))
 

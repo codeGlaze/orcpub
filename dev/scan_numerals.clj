@@ -3,11 +3,11 @@
 ;;
 ;;   lein run -m clojure.main dev/scan_numerals.clj
 ;;
-;; relabel-spell-level! covers that numeral before drawing a new one. It has only
-;; ever known style 1's: a patch cut to hexagon-path at hexagon-offset, traced off
-;; style 1 at 1200 dpi. The styles do not merely offset that shape -- style 3
-;; rings its numerals, style 4 uses a small hexagon -- so a packed page on 2, 3
-;; or 4 printed both numbers, the old beside the new.
+;; relabel-numeral! covers that numeral before drawing a new one, with the boxes
+;; measured here (pdf/numeral-boxes). The first relabeller cut a patch to a
+;; hexagon traced off style 1, and the styles do not merely offset that shape --
+;; style 3 rings its numerals, style 4 uses a small hexagon -- so a packed page
+;; on 2, 3 or 4 printed both numbers, the old beside the new.
 ;;
 ;; Rather than trace four shapes, this measures what actually has to be covered:
 ;; the digit's own box, and the flat colour immediately around it. A rectangle of

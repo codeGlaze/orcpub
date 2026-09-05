@@ -9,7 +9,7 @@
    This decides the assignment instead. It runs in the BUILDER -- the server sees
    a flat map of field names and knows nothing about classes or levels -- and the
    result travels to the export as field values plus a small list of relabel
-   instructions the server applies with pdf/relabel-spell-level!."
+   instructions the server applies with pdf/relabel-numeral!."
   (:require [clojure.string :as s]))
 
 (def sheet-geometry
@@ -51,6 +51,19 @@
 (defn- style-rows [style]
   (get sheet-geometry style (get sheet-geometry 1)))
 
+(defn- box-may-hold?
+  "Whether `level` may be printed in `box`.
+
+   Box 0 is the cantrips box and takes cantrips only. Its bar has no slot inputs
+   and no numeral field of its own, so giving it a spell level means drawing a
+   numeral, a bar divider, slot labels and two inputs onto the artwork -- and the
+   only measurements for that are style 1's. On style 3 the numeral missed the
+   ring and the printed 0 stayed; on every style the class name was clipped by
+   the input drawn over it. A no-cantrips class that would have started at box 0
+   starts at box 1 instead."
+  [box level]
+  (or (not= box 0) (= level 0)))
+
 (defn- assign
   "The boxes `klass` would occupy in `col`, or nil if it does not fit.
 
@@ -73,7 +86,10 @@
     (first
      (keep (fn [run]
              (let [pairs (map vector run wanted)]
-               (when (every? (fn [[box [_ need]]] (<= need (nth rows box))) pairs)
+               (when (every? (fn [[box [level need]]]
+                               (and (<= need (nth rows box))
+                                    (box-may-hold? box level)))
+                             pairs)
                  (mapv (fn [[box [level need]]]
                          {:class class :level level :box box :rows need
                           :capacity (nth rows box)})
@@ -103,10 +119,14 @@
   [style {:keys [class levels]}]
   (let [rows (style-rows style)
         wanted (sort-by key levels)
-        all-boxes (apply concat columns)]
+        ;; A class with no cantrips starts at box 1: box 0 takes cantrips only.
+        all-boxes (cond->> (apply concat columns)
+                    (not (contains? levels 0)) rest)]
     (when (<= (count wanted) (count all-boxes))
       (let [pairs (map vector all-boxes wanted)]
-        (when (every? (fn [[box [_ need]]] (<= need (nth rows box))) pairs)
+        (when (every? (fn [[box [level need]]]
+                        (and (<= need (nth rows box)) (box-may-hold? box level)))
+                      pairs)
           (mapv (fn [[box [level need]]]
                   {:class class :level level :box box :rows need
                    :capacity (nth rows box)})

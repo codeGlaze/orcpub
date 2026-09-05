@@ -1201,7 +1201,7 @@
   ;; and reach field names and a drawn label. The sheet style id was the same
   ;; shape of input and reached a resource path before anyone validated it.
   (testing "a well-formed instruction for a section the document has"
-    (is (pdf/valid-relabel? {:section 1 :box 0 :label "3"} 3))
+    (is (pdf/valid-relabel? {:section 1 :box 1 :label "3"} 3))
     (is (pdf/valid-relabel? {:section 3 :box 9 :label "9"} 3))
     (is (pdf/valid-relabel? {:section 1 :box 4 :label nil} 3)
         "nil blanks a box nothing uses"))
@@ -1278,6 +1278,23 @@
         (let [{:keys [label size]} (fit nm 35.0)]
           (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0)
               (str nm " -> " label)))))))
+
+(deftest a-label-on-box-0-is-refused
+  ;; Box 0 is the cantrips box. Blanking it is fine -- that is what an unused
+  ;; box asks for -- but a label would have it redrawn as a level box from style
+  ;; 1's measurements, which the packer no longer asks for on any style.
+  (is (pdf/valid-relabel? {:section 1 :box 0 :label nil} 1))
+  (is (not (pdf/valid-relabel? {:section 1 :box 0 :label "1"} 1)))
+  (is (pdf/valid-relabel? {:section 1 :box 1 :label "1"} 1))
+  (let [{:keys [file marks]} (get pdf/sheet-masters 3)]
+    (with-open [in (.openStream (io/resource file))
+                doc (Loader/loadPDF (.readAllBytes in))]
+      (pdf/grow-spell-sections! doc 1 marks)
+      (let [[applied refused] (pdf/apply-relabel-instructions!
+                               doc [{:section 1 :box 0 :label "1"}
+                                    {:section 1 :box 0 :label nil}] 1 3)]
+        (is (= 1 applied) "the blank is applied")
+        (is (= 1 refused) "the label is refused")))))
 
 (deftest packing-relabels-every-measured-style
   ;; relabel-numeral! covers the printed level numeral with a white rectangle cut

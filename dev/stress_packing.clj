@@ -70,6 +70,12 @@
     [(caster "Eldritch Knight" {0 (pick 3 9) 1 (pick 6 29)} {1 4})
      (caster "Arcane Trickster" {0 (pick 3 49) 1 (pick 5 69)} {1 4})]]
 
+   ;; No pact caster, so column 0 is free, and the first class alphabetically has
+   ;; no cantrips: its level 1 lands in box 0, the cantrips box.
+   ["a class with no cantrips leading column 0"
+    [(caster "Paladin" {1 (pick 5 55) 2 (pick 3 65)} {1 4 2 2})
+     (caster "Ranger" {1 (pick 4 75) 2 (pick 2 85)} {1 4 2 2})]]
+
    ["every level filled, spilling to a second page"
     [(caster "Wizard" {0 (pick 6 2) 1 (pick 12 12) 2 (pick 13 32) 3 (pick 13 52)
                        4 (pick 13 72) 5 (pick 9 92) 6 (pick 9 112) 7 (pick 9 132)
