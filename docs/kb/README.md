@@ -64,3 +64,4 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 - `weapon-data-model.md` — every field on a weapon, the traps (absent-vs-false flags, three fields missing their `?`, maps that look like flags), and the invariants the AC/attack vocabulary leans on.
 - `fonts.md` — Open Sans is self-hosted, not CDN-linked: what is checked in, how to regenerate, and why CSP no longer allows the font hosts.
 - `documentation-discipline.md` — when a change earns a doc, updating in place vs recording reversals, current-truth-first structure, and the git-push reminder hook.
+- `builder-form-schemas.md` — **read before touching a builder form.** The schema/widget/prop layering, the node vocabulary, HOW-TO recipes for adding fields, types, widgets and props, why triggers are sheet entries rather than conditions, and a measured survey of converting the existing builders.
