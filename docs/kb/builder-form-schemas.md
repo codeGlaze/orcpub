@@ -259,8 +259,13 @@ Silent loss on a misclick is the risk.
 
 ### Phases (E0–E5) — the roadmap carries status; the acceptance tests are here
 
-- **E1 — Tier 1**: `language-builder` → one line. Acceptance: same three fields, same save-spec,
-  same `.orcbrew`. Establishes the conversion recipe (pin → swap → same test green).
+- **E1 — Tier 1**: ✅ **done 2026-09-05.** `language-builder` → one line; `language-input-field`
+  (one caller) deleted with it. Pinned by `test/e2e/language-builder.js` — 12/12 before and after,
+  the saved item identical: `{:thieves-argot {:name … :option-pack … :description … :key :thieves-argot}}`.
+  Two things worth carrying to the other 14: the pin must assert only **observable** behaviour (fields,
+  save, stored shape) or it pins the implementation and blocks the swap it exists to protect; and
+  `simple-content-builder` is defined *after* most bespoke builders in `views.cljs`, so a converted
+  builder has to move down the file with it.
 - **E2 — Tier 2 = fighting styles, done right.** (a) finish the DECIDED class-path threading
   (`fighting-style-authoring.md`) so an imported style is *usable*; (b) `:rows` replaces the flat
   form; (c) a rendered-UI E2E in **`test/e2e/`** following `race-builder-asi.js`. **Acceptance:**

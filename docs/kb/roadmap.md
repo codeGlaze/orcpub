@@ -202,9 +202,13 @@ then merge `develop` in, since the shared files here have diverged for the feat 
 - **E. Generated builder UI from declarations.** Was sequenced last; **pulled forward 2026-09-05** because
   its one missing primitive is also the grant-authoring UI's substrate (a Phase-1 lever). Plan:
   `builder-form-schemas.md` §6. In brief —
-  - **E0 (this turn)** — this audit. Consolidate the docs; correct the stale claims.
-  - **E1 — Tier 1 example**: convert `language-builder` (21 lines) to the one-line `simple-content-builder`
-    call `boon`/`invocation` already use. Establishes the conversion recipe: pin, swap, same test green.
+  - **E0** — ✅ the KB audit (commit `492e2c32`).
+  - **E1 — Tier 1 example** — ✅ **done 2026-09-05.** `language-builder` and its single-caller
+    `language-input-field` deleted (−21 lines) for the one-line `simple-content-builder` call.
+    **The recipe is now proven, and it is the recipe for the other 14:** write the pin against the
+    *existing* form (`test/e2e/language-builder.js`, driving `lein e2e-server`), run it green, swap,
+    run it green again — 12/12 both times, same `:plugins` map to the character. The pin asserts only
+    what a user can observe, so it is indifferent to how the form is built.
   - **E2 — Tier 2 example done RIGHT = fighting styles**: (a) finish the decided class-path threading so an
     imported style is *usable*; (b) replace the 19-field flat form with a **`:rows` node** — "add an effect",
     each row a titled group (AC / attack / damage / reaction); (c) rendered-UI E2E in **`test/e2e/`**

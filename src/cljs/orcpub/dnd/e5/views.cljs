@@ -4963,9 +4963,6 @@
 (defn encounter-input-field [title prop encounter & [class-names type]]
   (builder-input-field title prop encounter ::encounters/set-encounter-prop class-names type))
 
-(defn language-input-field [title prop language & [class-names]]
-  (builder-input-field title prop language ::langs/set-language-prop class-names))
-
 (defn selection-input-field [title prop selection & [class-names]]
   (builder-input-field title prop selection ::selections/set-selection-prop class-names))
 
@@ -7482,27 +7479,6 @@
                  :on-change #(dispatch [::selections/set-selection-path-prop [:options i :description] %])}]]]))
          options))]]]))
 
-(defn language-builder []
-  (let [language @(subscribe [::langs/builder-item])]
-    [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [language-input-field
-       "Name"
-       :name
-       language
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       language
-       ::langs/set-language-prop]
-      ]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get language :description)
-        :on-change #(dispatch [::langs/set-language-prop :description %])}]]]))
-
 (defn render-builder-field
   "Render one DECLARATIVE builder field from a spec, dispatching set-prop on change. This is
    what makes a richer builder's form data instead of hand-written hiccup, and it coerces values
@@ -7578,6 +7554,12 @@
              ;; a field spec (map) is rendered declaratively; raw hiccup (vector) passes through
              (map (fn [f] (if (map? f) (render-builder-field item set-prop f) f)) extra-fields)))
      [builder-notes problems {:severity :error}]]))
+
+(defn language-builder []
+  ;; Tier 1 — a name, a source, a description, and nothing else. It was 19 lines of hiccup that
+  ;; the generic form already renders identically; pinned by test/e2e/language-builder.js before
+  ;; and after the swap (same three fields, same saved :plugins shape).
+  (simple-content-builder ::langs/builder-item ::langs/set-language-prop))
 
 (defn boon-builder []
   (simple-content-builder ::classes/boon-builder-item ::classes/set-boon-prop))
