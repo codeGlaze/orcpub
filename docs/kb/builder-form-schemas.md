@@ -14,6 +14,30 @@ So §1 and §2a describe **shipped** machinery, not a proposal. What is genuinel
 `flatten-fields`, the corrected survey in §5, and the `:group` node in §2b — **§2b alone is
 unbuilt.**
 
+## 0. Three tiers of content type
+
+The single most useful thing to know before converting anything — a type's tier tells you whether
+the work is already done, is a fragment away, or is unsolved.
+
+| tier | needs | examples | status |
+|---|---|---|---|
+| **1** | name + source + description | boon, invocation, language | **solved.** `simple-content-builder`, one line per type (June 2026) |
+| **2** | + mechanics that *do* something | **fighting style**, feat, a homebrew race wanting +1 AC | **solved.** A shared `:props` fragment plus a compiler arm |
+| **3** | collections, conditionals, bespoke widgets | encounter, monster, class | **UNSOLVED.** No collection node; conditionals and domain selectors stay hand-written |
+
+The two efforts sit on different axes and are easy to confuse:
+
+- **June 2026** made *forms* data, **per type**. Before it, `builder_fields.cljc` held only helpers
+  and `field_schemas.cljc` registered exactly one schema. A schema described one type and nothing
+  else could use it.
+- **This branch** made *mechanics* shared data, **across types**. `ac-bonus-fields` is not a
+  fighting-style field; it drops into any of the seven `:props` silos unchanged, and the prop it
+  writes compiles to real AC in all of them.
+
+Tier 2 is what the June work did not reach, because no type then had enough mechanical fields to
+need it — which is also why tier 2 exposed a problem tier 1 never could: three bonus fragments
+expand to 19 flat fields with seven duplicated labels. See §2b.
+
 This is the document to read before adding anything to a builder form. If you cannot find your case
 under **HOW TO** below, that is a bug in this document — say so rather than inventing a mechanism.
 

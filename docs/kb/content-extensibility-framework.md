@@ -247,3 +247,22 @@ and the debounce absorbs the rest. Reverted rather than kept as churn.
 sites that resolve through the namespace object. Reagent captures a reference when it mounts a
 component, so counts for `builder-page` and `fighting-style-builder` read 0 whether or not they ran
 — those zeroes are artifacts, not evidence. Only `simple-content-builder`'s count is trustworthy.
+
+## Route trees: `/pages/` vs root
+
+Two trees, and `dnd/` exists in **both** — which is a real trap when constructing a URL.
+
+`/pages/` namespaces **SPA views** so they do not collide with same-named **server endpoints**:
+`/login` is the server login action, `/pages/login-page` is the SPA view that renders the form.
+Same pairing for register, reset-password and send-password-reset.
+
+But the split is historical, not principled:
+
+| under `/pages/dnd/5e/` | under `/dnd/5e/` |
+|---|---|
+| every builder page (generated from the content-types registry) | `my-content`, character lists, spell / monster / item pages |
+
+So a builder is `/pages/dnd/5e/<route-seg>` while My Content is `/dnd/5e/my-content`. Guessing the
+wrong prefix returns the server's plain `Not Found`, which reads like a broken page rather than a
+bad URL — it cost a browser-test debugging round. `/pages/` is long-standing: it is on `master`,
+`develop` and `integration`, not something this refactor introduced.
