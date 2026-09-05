@@ -497,10 +497,10 @@
 (deftest test-reconcile-rejected-items
   (testing "merges old + new set-aside entries, prunes any now live in kept"
     (let [old {"S" {:orcpub.dnd.e5/feats {:a {:name "A"}}}}
-          new {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
+          incoming {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
           kept {"S" {:orcpub.dnd.e5/feats {:a {:option-pack "S" :name "A"}}}}] ; :a now live
       (is (= {"S" {:orcpub.dnd.e5/feats {:b {:name "B"}}}}
-             (e5/reconcile-rejected-items old new kept))
+             (e5/reconcile-rejected-items old incoming kept))
           ":a pruned (now live), :b stays set aside")))
   (testing "a source whose entries are all pruned disappears"
     (is (= {} (e5/reconcile-rejected-items

@@ -4,6 +4,7 @@
 ;; comment in common_test.clj before treating that as a bug.
 (ns orcpub.common-test
   (:require [clojure.test :refer [deftest testing is]]
+            [clojure.string :as str]
             #?(:cljs [cljs.reader])
             [orcpub.common :as common]))
 
@@ -188,14 +189,14 @@
   (testing "bare-colon tokens become unique placeholders; result is readable"
     (let [{:keys [text count]} (common/sanitize-edn-colons "{: {:a 1}}")]
       (is (= 1 count))
-      (is (clojure.string/includes? text ":unnamed-1")))
+      (is (str/includes? text ":unnamed-1")))
     (let [{:keys [text count]} (common/sanitize-edn-colons "{:k :}")]
       (is (= 1 count))
-      (is (clojure.string/includes? text ":unnamed-1")))
+      (is (str/includes? text ":unnamed-1")))
     (let [{:keys [text count]} (common/sanitize-edn-colons "{: 1 : 2}")]
       (is (= 2 count) "two bad tokens get distinct placeholders (no map-key collision)")
-      (is (clojure.string/includes? text ":unnamed-1"))
-      (is (clojure.string/includes? text ":unnamed-2"))))
+      (is (str/includes? text ":unnamed-1"))
+      (is (str/includes? text ":unnamed-2"))))
   (testing "already-clean input is untouched (count 0)"
     (is (= 0 (:count (common/sanitize-edn-colons "{:fighter 1 :orcpub.dnd.e5/x 2}"))))
     (is (= 0 (:count (common/sanitize-edn-colons "#:orcpub.dnd.e5{:c {:artificer {:key :artificer}}}")))))
@@ -203,7 +204,7 @@
     (let [in (str "{:desc " (pr-str "Choose one: fire") "}")
           {:keys [text count]} (common/sanitize-edn-colons in)]
       (is (= 0 count))
-      (is (clojure.string/includes? text "Choose one: fire"))))
+      (is (str/includes? text "Choose one: fire"))))
   (testing "non-string input is returned unchanged"
     (is (= {:text nil :count 0} (common/sanitize-edn-colons nil)))))
 

@@ -47,8 +47,9 @@
     :musical-instrument (set (map :key equipment/musical-instruments))
     :pack               (set (map :key equipment/packs))}))
 
-(defn- modifier->grants [m]
+(defn- modifier->grants
   "Apply the modifier's fn to {} and read the {bucket {item-key {quantity}}} it produces."
+  [m]
   (let [bucket  (:orcpub.modifiers/key m)
         kind    (bucket->kind bucket)
         applied (when (and kind (fn? (:orcpub.modifiers/fn m)))
@@ -64,21 +65,23 @@
   (if (and (string? nm) (str/starts-with? nm "Starting Equipment: "))
     (subs nm (count "Starting Equipment: ")) nm))
 
-(defn- nested->from [nested]
+(defn- nested->from
   "Recognise a nested sub-selection as a named pool (:martial, :arcane-focus, …)."
+  [nested]
   (let [keys (set (mapcat #(map :key (mapcat modifier->grants (:orcpub.template/modifiers %)))
                           (real-options nested)))]
     (some (fn [[from ks]] (when (= ks keys) from)) @pool-key-sets)))
 
 (declare option->data)
 
-(defn- nested->choose [nested]
+(defn- nested->choose
   "One nested sub-selection -> a :choose entry. A selection whose options are exactly a
    known pool collapses to {:from <pool>}; anything else is ENUMERATED option-by-option
    ({:name … :options […]}) rather than dropped — so a sub-choice we don't recognise as a
    pool (a future/homebrew 'pick one of these three specific items') still round-trips
    instead of silently vanishing. Only a selection with no representable options at all is
    genuinely undecompilable, and that throws with context rather than losing equipment."
+  [nested]
   (if-let [from (nested->from nested)]
     {:name (strip-prefix (:orcpub.template/name nested)) :from from}
     (let [opts (mapv option->data (real-options nested))]
@@ -94,14 +97,16 @@
   (let [grants (vec (mapcat modifier->grants (:orcpub.template/modifiers opt)))
         ;; only equipment sub-choices; an unrelated nested selection is not equipment, so
         ;; skipping it here is correct, not data loss (and must not reach nested->choose).
-        subs   (mapv nested->choose
-                     (filter starting-equipment-selection? (:orcpub.template/selections opt)))]
+        sub-choices (mapv nested->choose
+                          (filter starting-equipment-selection?
+                                  (:orcpub.template/selections opt)))]
     (cond-> {:name (:orcpub.template/name opt)}
       (seq grants) (assoc :grants grants)
-      (seq subs)   (assoc :choose subs))))
+      (seq sub-choices) (assoc :choose sub-choices))))
 
-(defn- decompile-fixed [built]
+(defn- decompile-fixed
   "associated-options carrying the class-starting-equipment flag -> {:weapons {k q} …}."
+  [built]
   (reduce
    (fn [acc entry]
      (reduce-kv
@@ -115,8 +120,9 @@
       acc entry))
    {} (:orcpub.template/associated-options built)))
 
-(defn- decompile-selections [built]
+(defn- decompile-selections
   "top-level starting-equipment selections -> [{:name … :options [{…}]}]."
+  [built]
   (->> (:orcpub.template/selections built)
        (filter starting-equipment-selection?)
        (mapv (fn [sel]

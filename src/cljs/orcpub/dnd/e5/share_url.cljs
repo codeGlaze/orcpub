@@ -92,12 +92,12 @@
                   (.then (fn [res]
                            (if (.-done res)
                              (concat-chunks chunks @total)
-                             (let [chunk (.-value res)]
-                               (swap! total + (.-length chunk))
+                             (let [piece (.-value res)]
+                               (swap! total + (.-length piece))
                                (if (> @total cap)
                                  (do (.cancel rdr)
                                      (throw (ex-info "decompressed payload too large" {})))
-                                 (do (.push chunks chunk) (pump)))))))))]
+                                 (do (.push chunks piece) (pump)))))))))]
       (pump))))
 
 (defn- gunzip-capped [u8 cap]
