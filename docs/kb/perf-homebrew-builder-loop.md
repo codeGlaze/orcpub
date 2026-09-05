@@ -868,3 +868,100 @@ SRD classes so it does not depend on a test namespace that exists only on that b
 | the same 808 graphs re-run in the browser (cljs sets ≤8 iterate in insertion order; the JVM cannot see this class of bug) | **0 mismatches** |
 | live build graph in the running app | identical |
 | `kahn-sort` in the browser | 20.70 ms -> 0.843 ms (24.6x) |
+
+## Track 1 spike: is chunked parsing worth a storage migration?
+
+Spike: `test/browser/chunked_parse_spike_e2e.js` (dev copy: `dev-scratch/chunked_parse_spike.js`).
+No code under `src/` touched; no migration implemented. Question: does parsing the
+homebrew library **per source, yielding between sources**, actually shrink the longest
+single blocking task — the thing a freeze is made of — enough to justify the localStorage
+format change (one key -> N per-source keys, plus a migration for every existing user) that
+per-source parsing requires.
+
+**Modeling, not the migration.** The stored library is read once (unavoidable — something
+has to see the source map), then each `[source-name value]` pair is `pr-str`-ed back into
+standalone EDN text and `read-string`-ed one at a time, yielding
+(`setTimeout(…, 0)`) between each. This stands in for what per-source *storage* would hand
+the loader directly (N small strings instead of 1 big one) — it is legitimate for measuring
+parse cost, but it is not itself the storage change.
+
+Two fixtures, both real content, different source-size distributions:
+
+- **mega-64** (3.87 MB, 14 sources) — the repo's primary stress fixture. **46.6% of its
+  bytes sit in one synthetic source**, `"Duplicated Casters x64"` — `dev-scratch/megadup.clj`
+  bundles all 64 cloned spellcasting classes into a single fabricated source for test
+  convenience. This is a fixture artifact: a real user's homebrew grows source-by-source
+  (one subscribed pack/book = one source), not by having one pack balloon to half the
+  library.
+- **mega-raw** (2.07 MB, 13 sources) — the same real content *before* caster duplication.
+  Its largest source is 17.7% of total bytes (`Mordenkainen's Tome of Foes`); the rest are
+  9.4%, 12.5%, 12.5%, 12.5%, 9.3%, 4.1%, 3.4%, 1.4%, 0.8%, 0.3%, ~0%. This is the organic,
+  one-source-per-book distribution a real library actually has.
+
+Warmed (2 discarded reads + a throwaway long task to prime the browser's longtask observer
+— see note below), min-of-3-by-longest-task, `PerformanceObserver` `entryTypes:['longtask']`
+(only reports tasks ≥50 ms, which is the right floor — nothing shorter reads as a freeze):
+
+| fixture | cpu | baseline: total / **longest task** | chunked: total / **longest task** / chunks | longest-task reduction |
+|---|---|---|---|---|
+| mega-64 (46.6% in one source) | 1x | 612–654 ms / **612–654 ms** | 661–700 ms / **266–290 ms** / 14 | **~2.3x** (654 -> 270 typical) |
+| mega-64 | 4x | 2935–3126 ms / **2935–3126 ms** | 2846–3038 ms / **1263–1366 ms** / 14 | **~2.3x** (3000 -> 1300 typical) |
+| mega-raw (17.7% max in one source) | 1x | 325–368 ms / **325–368 ms** | 384–421 ms / **57–72 ms** / 13 | **~5.5x** (350 -> 62 typical) |
+| mega-raw | 4x | 1584–1803 ms / **1584–1803 ms** | 1548–1812 ms / **267–334 ms** / 13 | **~5.9x** (1700 -> 290 typical) |
+
+Ranges are 2 independent script runs (3 warmed reps each) per row; both fixtures repeated
+consistently — no runs disagreed in direction, only within these small ranges. **Total time
+is essentially unchanged or slightly higher** (splitting + yields add a little overhead) —
+this was never a total-time play, only a hang-shape one, and the numbers confirm that: total
+stays flat, longest task drops hard.
+
+**Equivalence.** `cljs.core/=` between the chunked-and-merged map and the one-shot parse
+initially reported **FAIL** — not a bug in chunking, but in the equivalence check: the real
+uploaded content contains `##NaN` (a monster's malformed skill bonus in the Eberron source),
+and `NaN = NaN` is false by IEEE-754 definition in both Clojure and JS, in *every* structure
+that contains one, chunked or not. Re-checked with a NaN-tolerant deep-equal (two NaNs in
+the same position count as equal, matching what `pr-str` would print), **every run above is
+PASS**: chunked parsing reconstructs byte-for-byte the same data as the one-shot parse. (The
+`##NaN` itself is a separate, pre-existing data-quality wrinkle in this library — noted here
+because it nearly invalidated the check, not chased further; it is unrelated to chunking.)
+
+**A tooling note for anyone re-running this**: Chrome's Long Tasks API silently drops the
+*first* long task reported after a fresh page load/idle period — verified directly
+(`dev-scratch/lt_debug.js`, `lt_debug2.js`, `lt_debug3.js`): five identical 700 ms busy-loops
+back to back, first reads `longest=0`, next four read 700. A throwaway long task before the
+timed runs (the reader warm-up doubles as this) fixes it. Missing this would have silently
+zeroed out exactly the number this spike depends on.
+
+### Recommendation: worth it
+
+**Yes** — chunk the parse per source with a yield between sources. Reasoning:
+
+1. **It works, and equivalence holds.** Same total work, same final data (NaN included),
+   redistributed into tasks the browser can paint between.
+2. **The realistic case is a big win.** On mega-raw's organic per-book distribution — the
+   shape real homebrew actually takes — the longest task drops from a 325–368 ms stutter to
+   a 57–72 ms blip at 1x, and from a 1.6–1.8 s hang to a 267–334 ms one at 4x. That is most
+   of the way to this document's "< 400 ms" builder-open target, from this piece alone.
+3. **Even the adversarial case improves substantially.** mega-64's single 46.6%-of-bytes
+   source caps how much chunking alone can help — the longest task can never drop below
+   roughly that source's own parse time — and it still only gets a ~2.3x reduction (3.0 s ->
+   1.3 s at 4x), not enough by itself to clear the 400 ms target. But this cap is a fixture
+   artifact, not a realistic shape: no ordinary usage path bundles 64 duplicated classes into
+   one source the way `megadup.clj` does for test convenience. A real library that reached
+   mega-64's byte volume would almost certainly be spread across many subscribed
+   sources/books, closer to mega-raw's distribution — where chunking alone gets close to
+   target.
+4. **The residual risk is real but narrow and worth stating plainly**: the benefit is capped
+   by the size of the single largest source in the library. A user with one enormous
+   individual source (one giant homebrew pack authored as a single monolithic source, not
+   many small ones) would still see a multi-hundred-ms-to-1s+ block post-migration. Chunking
+   is not a complete fix for that case; it is a strong fix for the common one.
+5. **Cost is contained.** No format upheaval — a per-source key/value split of the same EDN
+   text, not a new serialization. It does not foreclose the larger IndexedDB migration this
+   document already flags as the eventual right tier (async, no ~5 MB ceiling, lazy
+   per-source hydration) — chunking under localStorage is a compatible stepping stone, not a
+   competing design.
+
+Net: pay for the storage-format migration. It is cheap relative to the win on the realistic
+distribution, the win is not marginal (5-6x on mega-raw), and even the worst measured case
+here is a clear improvement, not a wash.
