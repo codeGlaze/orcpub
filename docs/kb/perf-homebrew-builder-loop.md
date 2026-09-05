@@ -918,6 +918,61 @@ So lazy class bodies is a **builder-open** optimisation worth ~0.7 s on a synthe
 EDN parse (~750 ms) and first render (~670 ms) plus dev-build overhead. That is the honest
 value; it is not a fix for either the freeze or the memory.
 
+## THE FREEZE, REPRODUCED: realising one class's spell options
+
+`test/browser/tab_switch_freeze_e2e.js`, mega-64, 4x CPU throttle (models a laptop also
+running the server), flipping Race <-> Class:
+
+```
+2. -> Class / Level    wall    77ms   longest 1160ms   heap 133->178MB   (+45MB)
+neighbouring switches  wall ~60-80ms  longest  90-200ms
+```
+
+**One switch in eight blocks for over a second** while its neighbours are ~100 ms. That is
+the reported symptom: intermittent, when moving between race and class.
+
+### Why it took so long to find
+
+Three probe mistakes, each of which hid it completely:
+
+| Mistake | Effect |
+| --- | --- |
+| Drove the class DROPDOWN, not the tab switch | dropdown is ~10 ms; shows nothing |
+| Ran unthrottled on a fast headless container | the block needs CPU contention to surface |
+| Reported totals/averages rather than the longest single task | a freeze IS one long task |
+
+The owner's own description contained both missing variables — "switching between race
+selection and class" and "a server and browser running on a laptop".
+
+### It is not GC, and not any builder function
+
+GC was the first guess and is wrong: the long task coincides with **allocating** 45 MB, while
+the actual collections (-16 MB, -20 MB, -24 MB) all landed on *fast* switches (87-118 ms).
+
+No builder function runs during a tab switch either — `class-option`, `make-levels`,
+`spell-selection` and `entity/build` all read zero. That is a finding, not a dead probe: a
+positive control in the same run (picking a class from the dropdown) registered
+`memoSpellOpt 75x104ms build 1x54ms`, so the counters do fire.
+
+### What it actually is
+
+Realising one class's spell options. The control phase alone moved the heap 131 -> 175 MB
+(+44 MB) with 75 `memoized-spell-option` calls. Those calls account for only ~104 ms of the
+~1000 ms block — **the rest is rendering what they produce.** It fires the first time a
+spellcasting class's options are rendered, which is why it is intermittent rather than
+per-click.
+
+So the cost is the *volume of option data built and rendered at once for one class*, not any
+single slow function. This is the owner's original observation from the start of the
+investigation: "you don't need spell DETAILS until you click on a spell to read it."
+
+### What would fix it (not yet measured, so candidates)
+
+- Virtualise the spell option list so only visible options render.
+- Build the option map lazily per spell, as `:help` already is (`views-aux/realize-help`) —
+  the help thunk fixed the peek content, but the option maps themselves are still built for
+  every spell in the class's list.
+
 ## Dead ends (recorded so they are not repeated)
 
 **The 12.8-second cold builder load is a dev-build artifact, not a homebrew problem.**
