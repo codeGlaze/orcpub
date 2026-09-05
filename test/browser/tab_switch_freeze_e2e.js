@@ -53,8 +53,13 @@ try {
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: RATE });
   console.log(`\nCPU throttle ${RATE}x  (models a laptop also running the server)\n`);
 
+  // Heap sampled WITHOUT forcing GC: a drop across a switch means a collection ran,
+  // which is the leading explanation for an occasional multi-second block.
+  const heapMB = async () => ((await cdp.send('Runtime.getHeapUsage')).usedSize / 1048576);
+
   const tab = async (label, name) => {
     await page.evaluate(() => { window.__tasks = []; });
+    const h0 = await heapMB();
     const t = Date.now();
     try { await page.locator(`text="${name}"`).first().click({ timeout: 30000 }); }
     catch (e) { console.log('  ' + label.padEnd(22), 'click failed'); return; }
@@ -62,14 +67,17 @@ try {
     const tasks = await page.evaluate(() => window.__tasks);
     const worst = tasks.length ? Math.max(...tasks) : 0;
     const total = tasks.reduce((a, b) => a + b, 0);
+    const h1 = await heapMB();
+    const drop = h0 - h1;
     console.log('  ' + label.padEnd(22),
                 `wall ${String(Date.now() - t - 1200).padStart(5)}ms`,
-                ` longest task ${String(worst).padStart(5)}ms`,
-                ` blocked ${String(total).padStart(5)}ms in ${tasks.length} tasks`);
+                ` longest ${String(worst).padStart(5)}ms`,
+                ` heap ${h0.toFixed(0)}->${h1.toFixed(0)}MB`,
+                drop > 5 ? ` GC? -${drop.toFixed(0)}MB` : '');
   };
 
   // Flip back and forth the way a user comparing options would.
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 8; i++) {
     await tab(`${i}. -> Class / Level`, 'Class / Level');
     await tab(`${i}. -> Race`, 'Race');
   }
