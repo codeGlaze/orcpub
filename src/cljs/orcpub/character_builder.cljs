@@ -168,10 +168,14 @@
 
 (def set-class (memoize set-class-fn))
 
-(def make-options-map
-  (memoize
-   (fn [options]
-     (zipmap (map ::t/key options) options))))
+(defn make-options-map
+  "NOT memoized. The cache key would be the options seq itself, and hashing it walks every
+   class option's nested selections -- including each class's lazy 20-level :options seq.
+   That made a cache LOOKUP build 141 classes x 20 levels = 2820 level-options in one
+   render (measured: 939 ms of a 1128 ms freeze). The work being cached is a zipmap over
+   ~141 items."
+  [options]
+  (zipmap (map ::t/key options) options))
 
 (defn set-class-level-fn [i]
   (fn [e]
