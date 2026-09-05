@@ -132,7 +132,13 @@
   (fn [_]
     (let [field (.getElementById js/document "fields-input")]
       (aset field "value" (str (pdf-spec/make-spec built-char id options plugin-data)))
-      (.submit (.getElementById js/document "download-form")))))
+      (.submit (.getElementById js/document "download-form"))
+      ;; Any picture the browser could not read has now gone out as an address for
+      ;; the server to try. Nothing here can see whether that worked -- the form
+      ;; posts into a new tab -- so this records only that it was attempted, which
+      ;; is what lets the builder offer an upload afterwards instead of before.
+      (dispatch [::char/exported [(char/image-url built-char)
+                                  (char/faction-image-url built-char)]]))))
 
 (defn download-form [built-char]
   [:form.download-form
@@ -4223,7 +4229,6 @@
                 (dispatch [::char/capture-image url])))]
     (r/create-class
      {:component-did-mount ask
-      :component-did-update ask
       :reagent-render (fn [_] nil)})))
 
 (defn print-options [id built-char]
@@ -4239,15 +4244,19 @@
         print-bw? @(subscribe [::char/print-bw?])
         bw-faded? @(subscribe [::char/bw-faded?])
         spell-layout @(subscribe [::char/spell-layout])
-        image-url @(subscribe [::char/image-url id])
-        faction-image-url @(subscribe [::char/faction-image-url id])
+        ;; Read off built-char, not [::char/image-url id]: a character still being
+        ;; built has no id yet, and the id-keyed subscription answers nil for it.
+        ;; This is the same accessor pdf-spec uses to put the URL in the export.
+        image-url (char/image-url built-char)
+        faction-image-url (char/faction-image-url built-char)
+        image-bytes @(subscribe [::char/image-bytes])
         plugin-data {:spells-map @(subscribe [::spells/spells-map])
                      :plugin-spells-map @(subscribe [::spells/plugin-spells-map])
                      :language-map @(subscribe [::langs/language-map])
                      :all-weapons-map @(subscribe [::mi/all-weapons-map])
                      :all-magic-items-map @(subscribe [::mi/all-magic-items-map])
                      :current-armor-class @(subscribe [::char/current-armor-class id])
-                     :image-bytes @(subscribe [::char/image-bytes])}
+                     :image-bytes image-bytes}
         has-spells? (seq (char/spells-known built-char))
         ;; Only a multiclass caster on a style that can be renumbered has a
         ;; choice to make, so the control is not shown to anyone else.
@@ -4261,9 +4270,14 @@
                        ;; fits, and packing anyway would print without it.
                        (packing/fits? print-character-sheet-style?
                                       (packing/packing-shape casting-classes)))
-        print-button-enabled (if (or (= print-character-sheet-style? nil)
-                                     (= (str print-character-sheet-style?) "NaN"))
-                               false true)
+        ;; Exporting mid-read would send the address and let the server fetch what
+        ;; the browser was already holding. A read ends either way -- capture has
+        ;; its own deadline -- so this waits at most that long.
+        reading-pictures? (boolean (some #(= :pending (get image-bytes %))
+                                         (remove nil? [image-url faction-image-url])))
+        print-button-enabled (and (not reading-pictures?)
+                                  (not (or (nil? print-character-sheet-style?)
+                                           (= (str print-character-sheet-style?) "NaN"))))
         ]
     [:div.flex.justify-cont-end
      [:div.p-20
@@ -4384,6 +4398,8 @@
              (str "Prints the back logo as a pale colour wash rather than in "
                   "solid black.")]])])
 
+      (when reading-pictures?
+        [:div.f-s-12.m-b-5 "Reading the character's picture..."])
       [:button.form-button.p-10.m-l-5
        {:style (print-button-style print-button-enabled)
         :on-click (export-pdf-handler built-char

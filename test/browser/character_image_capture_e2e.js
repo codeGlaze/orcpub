@@ -58,17 +58,46 @@ const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGP478AARwzEcQAWohPx' +
   '03ZM6QAAAABJRU5ErkJggg==', 'base64');
 
+// A large, noisy PNG. Noise is the point: it compresses badly, so it stays over
+// the ceiling through the quality attempts and forces the pixel ones.
+function bigNoisyPng(size) {
+  const raw = Buffer.alloc(size * (size * 3 + 1));
+  let o = 0;
+  for (let y = 0; y < size; y++) {
+    raw[o++] = 0;                                    // filter byte per scanline
+    for (let x = 0; x < size * 3; x++) raw[o++] = (Math.random() * 256) | 0;
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const tb = Buffer.from(type, 'latin1');
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(Buffer.concat([tb, data])) >>> 0);
+    return Buffer.concat([len, tb, data, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(size, 0); ihdr.writeUInt32BE(size, 4);
+  ihdr[8] = 8; ihdr[9] = 2;                          // 8-bit, truecolour RGB
+  return Buffer.concat([
+    Buffer.from('\x89PNG\r\n\x1a\n', 'latin1'),
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0))]);
+}
+const BIG_PNG = bigNoisyPng(1400);
+
 // Serves the picture, optionally with the header that lets a page read it back
 // off a canvas. `hits` records who asked, which is how the run shows the browser
 // fetched it and the server did not.
 function imageOrigin() {
-  const state = { cors: true, hits: [] };
+  const state = { cors: true, delayMs: 0, hits: [] };
   const server = http.createServer((req, res) => {
-    state.hits.push({ url: req.url, agent: req.headers['user-agent'] || '' });
-    const headers = { 'Content-Type': 'image/png', 'Content-Length': PNG.length };
+    state.hits.push({ url: req.url, agent: req.headers['user-agent'] || '',
+                      mode: req.headers['sec-fetch-mode'] || '?', origin: req.headers.origin || '-' });
+    const body = req.url.includes('big') ? BIG_PNG : PNG;
+    const headers = { 'Content-Type': 'image/png', 'Content-Length': body.length };
     if (state.cors) headers['Access-Control-Allow-Origin'] = '*';
-    res.writeHead(200, headers);
-    res.end(PNG);
+    // A slow host is how the read becomes observable; a local one is otherwise
+    // finished before anything can look at it.
+    setTimeout(() => { res.writeHead(200, headers); res.end(body); }, state.delayMs);
   });
   state.start = () => new Promise(r => server.listen(IMG_PORT, '127.0.0.1', r));
   state.stop = () => new Promise(r => server.close(r));
@@ -119,16 +148,18 @@ function catchPdf(ctx, file) {
 
 // Exports through the real UI and returns both the file and the spec the builder
 // posted, which is where :image-data either is or is not.
-async function exportSheet(page, name) {
-  await page.getByText(/^export$/i).first().click();
-  await page.waitForTimeout(1500);
+async function exportSheet(page, name, { alreadyOpen = false } = {}) {
+  if (!alreadyOpen) {
+    await page.getByText(/^export$/i).first().click();
+    await page.waitForTimeout(1500);
 
-  // Create PDF carries pointer-events: none until a sheet style is chosen, so
-  // this is a precondition of the click and not decoration.
-  const styleSelect = page.locator('div', { hasText: /^Sheet style$/ })
-    .locator('xpath=following::select[1]').first();
-  await styleSelect.selectOption('1');
-  await page.waitForTimeout(1200);
+    // Create PDF carries pointer-events: none until a sheet style is chosen, so
+    // this is a precondition of the click and not decoration.
+    const styleSelect = page.locator('div', { hasText: /^Sheet style$/ })
+      .locator('xpath=following::select[1]').first();
+    await styleSelect.selectOption('1');
+    await page.waitForTimeout(1200);
+  }
 
   const ctx = page.context();
   const file = path.join(OUT, `${name}.pdf`);
@@ -160,14 +191,21 @@ function describeImage(b64) {
   return null;
 }
 
-async function setImageUrl(page, url) {
+async function setImageUrl(page, url, settleMs = 3500) {
   const input = page.locator('span', { hasText: /^Image URL/ })
     .locator('xpath=following::input[1]').first();
   await input.fill(url);
   await input.blur();
   // The thumbnail has to load before the capture starts, and the capture then
   // scales and encodes off the canvas.
-  await page.waitForTimeout(3500);
+  await page.waitForTimeout(settleMs);
+}
+
+// Whether Create PDF can actually be pressed. It is held by pointer-events rather
+// than the disabled attribute, so the style is what has to be read.
+async function exportPressable(page) {
+  return await page.getByText(/^create pdf$/i).first().evaluate(
+    el => getComputedStyle(el).pointerEvents !== 'none');
 }
 
 (async () => {
@@ -207,6 +245,14 @@ async function setImageUrl(page, url) {
     // ---- the host allows the read -------------------------------------------
     await setImageUrl(page, `${IMG_ORIGIN}/portrait.png`);
 
+    // Setting the URL writes through the character path interceptor. Getting that
+    // wrong rebuilds the character from nothing, so the build has to still be
+    // there afterwards.
+    const summary = await page.innerText('body');
+    check('setting an image URL does not disturb the character',
+          /Human/.test(summary) && /Barbarian/i.test(summary),
+          'race and class still on the sheet');
+
     const browserHits = origin.hits.length;
     check('the browser reads the picture itself', browserHits > 0,
           `${browserHits} request(s) to the picture's host`);
@@ -219,15 +265,36 @@ async function setImageUrl(page, url) {
     check('the sheet is drawn with the picture', hasImage(allowed.file),
           'an image XObject the server could not have fetched: it refuses loopback');
 
+    // ---- the ceiling holds on the way out -----------------------------------
+    // The browser must never send what the server would refuse on arrival.
+    await setImageUrl(page, `${IMG_ORIGIN}/big.png`, 6000);
+    const big = await exportSheet(page, 'oversized');
+    const bigData = imageDataIn(big.spec);
+    const bigBytes = bigData ? Buffer.from(bigData, 'base64').length : -1;
+    check('an oversized picture is shrunk under the 128k ceiling, not dropped',
+          bigBytes > 0 && bigBytes <= 128 * 1024,
+          `${BIG_PNG.length} bytes at the host -> ${bigBytes} bytes carried`);
+    check('and still reaches the sheet', hasImage(big.file));
+
     // ---- the host allows nothing --------------------------------------------
     // Same server, no Access-Control-Allow-Origin. The picture still displays --
     // <img> never needed permission -- but nothing may read it back.
     origin.cors = false;
     await setImageUrl(page, `${IMG_ORIGIN}/refused.png`);
 
-    const bodyText = await page.innerText('body');
-    check('the builder says the host refused, and offers upload',
-          /does not let the page read the picture/i.test(bodyText));
+    // The read asks for the same URL with crossOrigin set. If that request runs
+    // ahead of the thumbnail's, its CORS failure takes the thumbnail down with it
+    // and the picture stops displaying -- so the thumbnail must still be fine on
+    // a host that allows no read.
+    check("a host that refuses the read still shows its picture",
+          !/Image failed to load/i.test(await page.innerText('body')));
+
+    const prompt = /If the PDF printed without this picture/i;
+    // Nothing is said yet. The server fetches plenty of pictures the browser is
+    // refused, so an offer here would ask for an upload of what may be about to
+    // work.
+    check('no upload is offered before an export has been tried',
+          !prompt.test(await page.innerText('body')));
 
     await page.screenshot({ path: path.join(OUT, 'host-refused.png'), fullPage: true });
     const refused = await exportSheet(page, 'cors-refused');
@@ -235,6 +302,50 @@ async function setImageUrl(page, url) {
           imageDataIn(refused.spec) === null);
     check('the sheet prints without the picture', !hasImage(refused.file),
           'the server refuses loopback, so there is no second route to it');
+
+    // Only now, with an export behind it, is the upload offered.
+    check('the upload is offered once an export has gone out unread',
+          prompt.test(await page.innerText('body')));
+
+    // ---- a read in flight holds the export ----------------------------------
+    // Exporting mid-read would send the address and let the server fetch what the
+    // browser was already holding, which is the race the hold exists to lose.
+    // The host is made slow so the read is observable; the test waits for the
+    // read to start rather than assuming when, so it does not race the app.
+    origin.cors = true;
+    origin.delayMs = 5000;
+    await setImageUrl(page, `${IMG_ORIGIN}/slow.png`, 300);
+    await page.getByText(/^export$/i).first().click();
+    await page.waitForTimeout(600);
+    const styleSelect = page.locator('div', { hasText: /^Sheet style$/ })
+      .locator('xpath=following::select[1]').first();
+    await styleSelect.selectOption('1');
+
+    const noteShows = async () =>
+      /Reading the character's picture/i.test(await page.innerText('body'));
+    const waitFor = async (pred, ms) => {
+      const until = Date.now() + ms;
+      while (Date.now() < until) { if (await pred()) return true; await page.waitForTimeout(200); }
+      return false;
+    };
+
+    const sawNote = await waitFor(noteShows, 15000);
+    check('the export waits while the picture is still being read',
+          sawNote && !(await exportPressable(page)),
+          sawNote ? '' : 'the read was never reported as in flight');
+
+    await waitFor(async () => !(await noteShows()), 20000);
+    check('and is pressable once the read finishes', await exportPressable(page));
+
+    const slow = await exportSheet(page, 'slow-host', { alreadyOpen: true });
+    check('a read that finished in time is carried, not re-fetched',
+          !!describeImage(imageDataIn(slow.spec)),
+          describeImage(imageDataIn(slow.spec)) || 'no :image-data');
+
+    origin.delayMs = 0;
+    origin.cors = false;
+    await setImageUrl(page, `${IMG_ORIGIN}/refused.png`);
+    await exportSheet(page, 'refused-again');
 
     // ---- the upload stands in for it ----------------------------------------
     const local = path.join(OUT, 'uploaded.png');
@@ -247,8 +358,7 @@ async function setImageUrl(page, url) {
     // The prompt is rendered from the capture state, so its disappearance is the
     // signal that the file was read -- and separates a failed read from a failure
     // to carry what was read.
-    const stillPrompting = /does not let the page read the picture/i
-      .test(await page.innerText('body'));
+    const stillPrompting = prompt.test(await page.innerText('body'));
     check('the upload prompt goes once the file is read', !stillPrompting);
     if (stillPrompting) await page.screenshot({ path: path.join(OUT, 'upload-stuck.png'), fullPage: true });
 

@@ -1786,36 +1786,49 @@
 (def image-error (memoize image-error-fn))
 
 (defn image-load-fn
-  "Clears the failed flag if one was set, and asks for the picture's bytes.
+  "Clears the failed flag and asks for the picture's bytes.
 
-   The read starts from the load rather than from the export click: the export
-   submits a form into a new tab synchronously, and an await in between spends the
-   user activation that keeps the tab from being blocked. See orcpub.image-capture.
+   The flag is NOT read here. image-error dispatches as soon as the element is
+   rendered, so at the moment this handler is built the flag is still clear;
+   capturing it would produce a handler that never takes the mark back. The event
+   itself is a no-op when there is nothing to clear.
 
-   The flag is only cleared when it was set, because that write goes onto the
-   character and would otherwise mark it edited every time a thumbnail loads."
-  [event-key url failed?]
+   The read starts from the load, not from the export click: the export submits a
+   form into a new tab synchronously, and an await in between spends the user
+   activation that keeps the tab from being blocked. It also must not start any
+   earlier -- a read asks for the same URL with crossOrigin set, and on a host
+   that allows no read that request failing ahead of this one takes the thumbnail
+   down with it."
+  [event-key url]
   (fn []
-    (when failed? (dispatch [event-key]))
+    (dispatch [event-key])
     (dispatch [::char5e/capture-image url])))
 
 (def image-load (memoize image-load-fn))
 
 (defn image-upload
-  "Shown when the host refused the browser the picture. The file the user picks is
-   read locally and travels only as the bytes the export carries, so no host has a
-   say in it. Keyed by URL like every other capture, so it stands in for exactly
-   the address that could not be read."
-  [url state]
-  (case state
-    :pending
+  "Offers an upload for a picture that has already been through an export unread.
+
+   Deliberately silent before that. The browser is refused by hosts that send no
+   Access-Control-Allow-Origin, but the SERVER fetches many of those perfectly
+   well, so a prompt at the moment the browser gives up would ask people to upload
+   what was about to work. `offered?` is set once an export has gone out, which is
+   the earliest point at which the picture may genuinely have been lost -- and the
+   wording stays conditional, because this page never sees the export's response.
+
+   The file is read locally and travels only as the bytes the export carries, so
+   no host has a say in it."
+  [url state offered?]
+  (cond
+    (= :pending state)
     [:div.f-s-12.m-t-5 "Reading image..."]
 
-    :unavailable
+    (and (= :unavailable state) offered?)
     [:div.m-t-5
      [:div.f-s-12.m-b-5
-      "This host does not let the page read the picture, so the PDF may print
-       without it. Upload the file to print it anyway (PNG or JPEG, 128k max):"]
+      "If the PDF printed without this picture, its host allows neither the page
+       nor the server to read it. Upload the file to print it anyway (PNG or
+       JPEG, 128k max):"]
      [:input {:type "file"
               :accept "image/png,image/jpeg"
               :on-change (fn [e]
@@ -1824,7 +1837,7 @@
                               file
                               #(dispatch [::char5e/image-captured url %]))))}]]
 
-    nil))
+    :else nil))
 
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
@@ -1833,7 +1846,8 @@
         image-url-failed @(subscribe [::char5e/image-url-failed])
         faction-image-url @(subscribe [::char5e/faction-image-url])
         faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])
-        image-bytes @(subscribe [::char5e/image-bytes])]
+        image-bytes @(subscribe [::char5e/image-bytes])
+        upload-offered @(subscribe [::char5e/image-upload-offered])]
     [:div.flex-grow-1
      [:div.m-t-5
       [:span.personality-label.f-s-18 "Character Name"]
@@ -1891,14 +1905,15 @@
       (when image-url
         [:img.m-r-10.image-character-thumbnail {:src image-url
                       :on-error (image-error :failed-loading-image image-url)
-                      :on-load (image-load :loaded-image image-url image-url-failed)}])
+                      :on-load (image-load :loaded-image image-url)}])
       [:div.flex-grow-1
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
        (when image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])
        (when (and image-url (not image-url-failed))
-         [image-upload image-url (get image-bytes image-url)])]]
+         [image-upload image-url (get image-bytes image-url)
+          (contains? upload-offered image-url)])]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -1906,16 +1921,15 @@
       (when faction-image-url
         [:img.m-r-10.image-faction-thumbnail {:src faction-image-url
                       :on-error (image-error :failed-loading-faction-image faction-image-url)
-                      :on-load (image-load :loaded-faction-image
-                                           faction-image-url
-                                           faction-image-url-failed)}])
+                      :on-load (image-load :loaded-faction-image faction-image-url)}])
       [:div.flex-grow-1
        [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
        (when faction-image-url-failed
          [:div.red.m-t-5 "Image failed to load, please check the URL"])
        (when (and faction-image-url (not faction-image-url-failed))
-         [image-upload faction-image-url (get image-bytes faction-image-url)])]]
+         [image-upload faction-image-url (get image-bytes faction-image-url)
+          (contains? upload-offered faction-image-url)])]]
      [:div.field
       [:span.personality-label.f-s-18 "Description/Backstory"]
       [character-textarea entity-values ::char5e/description "h-800"]]]))

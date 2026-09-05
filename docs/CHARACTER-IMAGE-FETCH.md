@@ -26,6 +26,29 @@ asks what `/character.pdf` can be made to talk to.
   `test/browser/character_image_capture_e2e.js` (both paths through the real app)
 - Background: `docs/kb/pdf-form-techniques.md`
 
+## Which hosts allow the browser to read (measured 2026-09-05)
+
+The browser can only read a picture whose host sends `Access-Control-Allow-Origin`.
+Sampled with a browser-shaped request; ACAO is set at the edge, so it holds for the
+host rather than the object.
+
+| Allows the read | Does not |
+|---|---|
+| `i.imgur.com` `*` | `i.pinimg.com` |
+| `cdn.discordapp.com` `*` | `www.dndbeyond.com` |
+| `static.wikia.nocookie.net` (Fandom) `*` | `i.postimg.cc` |
+| `upload.wikimedia.org` `*` | `i.ibb.co` |
+| `cdna.artstation.com` `*` | `live.staticflickr.com` |
+| `images-wixmp-…` (DeviantArt), echoes Origin | `www.dropbox.com` |
+| `lh3.googleusercontent.com`, `64.media.tumblr.com`, `raw.githubusercontent.com` `*` | `i.redd.it` |
+
+The two lists are largely complementary rather than overlapping: most of the
+right-hand column allows hotlinking, so the server fetches those perfectly well.
+Pinterest and D&D Beyond refuse both, and are upload-or-nothing.
+
+Re-run the probe politely -- a request or two per host, spaced -- rather than in a
+loop; these are other people's servers.
+
 ## Which path a picture took
 
 Both ceilings — 128 KB and 2000×2000 — apply to both paths. Bytes from the
@@ -34,11 +57,19 @@ browser arrive base64 in `:image-data` / `:faction-image-data` and are decoded b
 bytes rather than from the mime type the client claimed. When they are present the
 server does not fetch at all, so none of the failures in the table below can occur.
 
-The browser can only read a picture whose host sends
-`Access-Control-Allow-Origin`. When it cannot, the builder says so under the Image
-URL field and offers an upload, which needs no permission from any host. A refused
-read logs a CORS error in the browser console — that is the browser reporting the
-host's rule, and cannot be suppressed by the page.
+When the browser cannot read a picture the export goes out with the address and
+the server tries instead. **Nothing is said to the user at that point** — an offer
+there would ask for an upload of what the server was about to fetch. The upload is
+offered only after an export has gone out with the picture unread, and worded
+conditionally, because this page never sees the export's response: the form posts
+into a new tab.
+
+Exporting is held while a read is in flight, so the browser's bytes win the race
+rather than losing it to a click. A read always ends — `capture` carries its own
+deadline — so the hold is bounded.
+
+A refused read logs a CORS error in the browser console. That is the browser
+reporting the host's rule and cannot be suppressed by the page.
 
 A picture drawn off a canvas is re-encoded to JPEG at up to 1000px on the long
 edge, which is past 300dpi for the 2.35 × 3.15 inch box it prints in. An uploaded

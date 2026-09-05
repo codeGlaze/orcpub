@@ -37,6 +37,21 @@ allowed the builder says so and offers an upload — which no host has a say in.
 
 ## Changed
 
+- The upload is offered only **after** an export has gone out with a picture
+  unread, not the moment the browser is refused. Most hosts that refuse the
+  browser allow the server, so the earlier prompt asked people to upload what was
+  about to work. Measured: of sixteen common portrait hosts, nine allow the
+  browser to read (Imgur, Discord, Fandom, Wikimedia, ArtStation, DeviantArt,
+  Google, Tumblr, githubusercontent) and most of the rest allow the server.
+- Exporting is held while a picture is still being read, so the browser's bytes
+  win that race instead of falling through to the server. `capture` carries a
+  deadline, so a read always ends and the hold is bounded.
+- An oversized picture is scaled as well as re-compressed. Quality is spent first,
+  then pixels, so a picture that is still over the ceiling at 1000px shrinks
+  rather than being abandoned to the server. Measured: a 5.8 MB noise PNG leaves
+  the browser at 37 KB.
+
+
 - Pictures are read when the thumbnail loads and when the export panel mounts,
   never on the export click: the export is a synchronous form submit into a new
   tab, and an await in between spends the user activation that keeps that tab from
@@ -44,6 +59,15 @@ allowed the builder says so and offers an upload — which no host has a say in.
   entity — that entity is what gets persisted, and localStorage has a ceiling.
 - `docs/CHARACTER-IMAGE-FETCH.md` leads with the browser path; the server fetch is
   documented as the fallback it now is.
+
+## Fixed
+
+- A picture whose host allows no read stopped displaying in the builder. The
+  builder marks a URL failed optimistically as soon as the thumbnail renders and
+  relies on the load to take that back; the load handler had captured the flag at
+  the moment it was built, when it was still clear, so the mark was never
+  withdrawn. The clear no longer reads the flag, and is a no-op when there is
+  nothing set, so an ordinary load does not count as an edit.
 
 ## Removed
 

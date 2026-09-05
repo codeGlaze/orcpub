@@ -152,18 +152,36 @@ would log a CSP violation on every export. `img-src` allows `https:`, which is w
 makes the canvas route work. Widening `connect-src` to arbitrary hosts was the
 larger cost.
 
+### The measurement, taken
+
+Sixteen common portrait hosts, 2026-09-05. Nine let the browser read: Imgur,
+Discord, Fandom, Wikimedia, ArtStation, DeviantArt, `lh3.googleusercontent.com`,
+Tumblr, `raw.githubusercontent.com`. Seven do not: Pinterest, D&D Beyond, postimg,
+imgbb, Flickr, Dropbox, `i.redd.it`. See the runbook for the table.
+
+The two groups are largely complementary rather than overlapping — most of the
+second group allows hotlinking, so the server fetches those. Pinterest and D&D
+Beyond refuse both and are upload-or-nothing.
+
 ### What it does not settle
 
-- **The measurement was never taken.** The plan wanted real URLs counted for how
-  many send `Access-Control-Allow-Origin`. Nobody has. The upload covers whatever
-  fraction the header does not, so the feature does not depend on the answer, but
-  the answer would say how often users meet the upload prompt.
 - **A refused host logs a CORS error in the console.** Unavoidable: any attempt to
   read a cross-origin image without the header logs one, and not trying is what
   the feature exists to stop doing.
 - **The server fetch still earns its keep** — step 5 of the original plan. It now
-  runs rarely, and the SSRF surface is a fallback rather than the default, but it
-  is still there. Decide separately whether to keep it.
+  runs as the second tier rather than the default, but it is still there. Decide
+  separately whether to keep it.
+- **Header tuning was probed and found not to help.** Modern User-Agent and a
+  same-host Referer were tried against the hosts that refuse our server: Pinterest,
+  D&D Beyond and ArtStation answer 403 to every variant, so their block is not
+  UA- or Referer-shaped. The server still carries a 2013 Chrome UA string
+  (`pdf.clj` `user-agent`) — worth modernising on general principle, but it buys
+  nothing measurable here.
+- **`image-error` marks a picture failed before it has loaded.** Pre-existing: the
+  builder's `image-error` dispatches at render rather than returning a handler, so
+  every fresh URL is briefly flagged failed and the load takes the mark back. It
+  works, but it can flash "Image failed to load" at a picture that is fine, and it
+  is what made the read-ordering bug hard to see. Worth straightening separately.
 
 ### Still open around it
 

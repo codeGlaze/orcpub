@@ -33,15 +33,37 @@
    a small file can declare an enormous canvas -- so this is checked separately."
   (* 2000 2000))
 
-(def ^:private max-edge
-  "Longest edge kept when an image has to be re-encoded. The portrait prints at
-   2.35 x 3.15 inches, so this is past 300dpi on the long side and anything more
-   is detail the rasteriser discards."
-  1000)
+(def ^:private encode-attempts
+  "Longest edge in pixels and JPEG quality, tried in order until one fits
+   max-bytes.
 
-(def ^:private jpeg-qualities
-  "Tried in order until an encode fits max-bytes."
-  [0.85 0.7 0.55 0.4])
+   Quality is spent before pixels because it costs less of what the sheet shows.
+   The smaller edges exist so a picture that is still over the ceiling at full
+   size has somewhere to go rather than being abandoned -- a photograph of noise
+   compresses badly at every quality, and dropping it would send the address
+   instead and let the server fetch the same oversized file.
+
+   1000px is the top because the portrait prints at 2.35 x 3.15 inches, so that is
+   already past 300dpi on the long side."
+  [[1000 0.85] [1000 0.7] [1000 0.55] [700 0.6] [500 0.5] [350 0.4]])
+
+(def ^:private capture-deadline-ms
+  "Wall clock allowed for one read before it is called unavailable.
+
+   Every route out of here ends in an event handler -- onload, onerror, toBlob,
+   FileReader -- and a browser that fires none of them would leave the read
+   pending for good. The export button waits on :pending, so this is what
+   guarantees it is never waiting on nothing."
+  10000)
+
+(defn- once
+  "Wraps `k` so it runs at most once, and runs with nil if nothing has called it
+   by the deadline."
+  [k]
+  (let [done? (volatile! false)
+        fire (fn [v] (when-not @done? (vreset! done? true) (k v)))]
+    (js/setTimeout #(fire nil) capture-deadline-ms)
+    fire))
 
 (defn- dimensions
   "Width and height of an ImageBitmap or a loaded <img>. Only the latter has
@@ -63,17 +85,17 @@
     canvas))
 
 (defn- encode-under-cap
-  "JPEG-encodes `canvas`, dropping quality until the result fits max-bytes, and
-   hands the blob to `k`. Calls `k` with nil once the list is spent, which takes a
-   picture that is still mostly noise at max-edge."
-  [canvas qualities k]
-  (if-let [q (first qualities)]
-    (.toBlob canvas
+  "JPEG-encodes `source` at each of `attempts` in turn and hands `k` the first blob
+   that fits max-bytes, or nil once the list is spent. The canvas is redrawn per
+   attempt so an attempt may shrink the picture as well as its quality."
+  [source attempts k]
+  (if-let [[edge q] (first attempts)]
+    (.toBlob (draw-scaled source edge)
              (fn [blob]
                (cond
                  (nil? blob) (k nil)
                  (<= (.-size blob) max-bytes) (k blob)
-                 :else (encode-under-cap canvas (rest qualities) k)))
+                 :else (encode-under-cap source (rest attempts) k)))
              "image/jpeg" q)
     (k nil)))
 
@@ -89,7 +111,7 @@
                    (if (and (<= (.-size blob) max-bytes)
                             (<= (* w h) max-pixels))
                      (k blob)
-                     (encode-under-cap (draw-scaled bitmap max-edge) jpeg-qualities k)))))
+                     (encode-under-cap bitmap encode-attempts k)))))
         (.catch (fn [_] (k nil))))
     (catch :default _ (k nil))))
 
@@ -104,7 +126,7 @@
     (set! (.-onload img)
           (fn [_]
             (try
-              (encode-under-cap (draw-scaled img max-edge) jpeg-qualities k)
+              (encode-under-cap img encode-attempts k)
               (catch :default _ (k nil)))))
     (set! (.-onerror img) (fn [_] (k nil)))
     (prepare! img)
@@ -146,9 +168,10 @@
    submit into a new tab, and any await between the click and .submit() spends the
    transient user activation that keeps that tab from being blocked."
   [url k]
-  (if (s/blank? url)
-    (k nil)
-    (via-canvas url (fn [blob] (if blob (blob->payload blob k) (k nil))))))
+  (let [k (once k)]
+    (if (s/blank? url)
+      (k nil)
+      (via-canvas url (fn [blob] (if blob (blob->payload blob k) (k nil)))))))
 
 (defn capture-file
   "The same ceilings for a File the user picked, which is already local and needs
@@ -158,7 +181,8 @@
    it refuses some files the loader renders happily, and a picture the user can
    see in the page must not be one the export cannot carry."
   [file k]
-  (let [payload (fn [blob] (if blob (blob->payload blob k) (k nil)))]
+  (let [k (once k)
+        payload (fn [blob] (if blob (blob->payload blob k) (k nil)))]
     (normalize file (fn [blob]
                       (if blob
                         (payload blob)

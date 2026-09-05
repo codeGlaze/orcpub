@@ -1630,3 +1630,10 @@
    ;; URL -> {:mime :data}, or :pending / :unavailable. See the capture events for
    ;; why these are held here and not on the character.
    (:image-bytes db)))
+
+(reg-sub
+ ::char5e/image-upload-offered
+ (fn [db _]
+   ;; URLs that have been through an export unread. Until a picture is in here the
+   ;; builder says nothing about uploading -- see the ::char5e/exported handler.
+   (:image-upload-offered db)))

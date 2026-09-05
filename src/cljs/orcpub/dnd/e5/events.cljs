@@ -1562,6 +1562,11 @@
  :set-image-url
  character-interceptors
  (fn [character [_ image-url]]
+   ;; No capture is started here, deliberately. A read asks for the same URL with
+   ;; crossOrigin set, and on a host that sends no Access-Control-Allow-Origin
+   ;; that request fails -- if it goes out FIRST, the thumbnail's own plain
+   ;; request fails with it and the picture stops displaying at all. The read is
+   ;; started from the thumbnail's load instead, which cannot run ahead of it.
    (update character
            ::entity/values
            assoc
@@ -1977,20 +1982,23 @@
 (reg-event-db
  :loaded-image
  character-interceptors
- (fn [character []]
-   (update character
-           ::entity/values
-           dissoc
-           ::char5e/image-url-failed)))
+ (fn [character _]
+   ;; image-error dispatches optimistically on first render -- it marks the URL
+   ;; failed and the load is what takes that back -- so this has to run on every
+   ;; load rather than only when the flag is already visible to the view, which
+   ;; races the load. Returns the character untouched when nothing is set, so an
+   ;; ordinary load does not count as an edit.
+   (if (get-in character [::entity/values ::char5e/image-url-failed])
+     (update character ::entity/values dissoc ::char5e/image-url-failed)
+     character)))
 
 (reg-event-db
  :loaded-faction-image
  character-interceptors
- (fn [character []]
-   (update character
-           ::entity/values
-           dissoc
-           ::char5e/faction-image-url-failed)))
+ (fn [character _]
+   (if (get-in character [::entity/values ::char5e/faction-image-url-failed])
+     (update character ::entity/values dissoc ::char5e/faction-image-url-failed)
+     character)))
 
 ;; ── Character pictures read in the browser ───────────────────────────────────
 ;;
@@ -2016,6 +2024,21 @@
  ::capture-image
  (fn [url]
    (image-capture/capture url #(dispatch [::char5e/image-captured url %]))))
+
+(reg-event-db
+ ::char5e/exported
+ (fn [db [_ urls]]
+   ;; A picture the browser could not read has just gone out as an address for the
+   ;; server to try instead. Whether that worked cannot be seen from here -- the
+   ;; export posts a form into a new tab, so nothing in this page ever sees the
+   ;; response -- so this records only that the attempt was made. That is what
+   ;; lets the builder offer an upload afterwards rather than before: the server
+   ;; fetches plenty of pictures the browser is refused, and offering first would
+   ;; ask people to upload what was about to work.
+   (update db :image-upload-offered
+           (fnil into #{})
+           (filter #(= :unavailable (get-in db [:image-bytes %]))
+                   (remove nil? urls)))))
 
 (reg-event-db
  ::char5e/image-captured
