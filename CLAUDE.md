@@ -17,6 +17,13 @@ Do **not** serve the compiled JS off a bare static file server and drive the app
 real flows (e.g. import-conflict modals never surface), and produces misleading results.
 Run the real server.
 
+## Knowledge base
+
+`docs/kb/README.md` indexes findings that were expensive to get: the builder-freeze root
+cause, the storage-layer measurements, the browser probes and what each answers. Read
+`docs/kb/verification-discipline.md` before writing a performance probe -- it lists the
+probe defects that have produced confident wrong answers here.
+
 ## Build / test commands
 
 - `lein fig:build`   — compile the dev CLJS build (needed before browser e2e).

@@ -92,3 +92,9 @@ exit 0
 
 It is a reminder, not a gate: it always exits 0 and never blocks. Ignoring it is the right
 call for a lint fix, a rename, or a mechanical refactor.
+
+## Related
+
+- [README.md](README.md) -- KB index; add new docs there so they are findable.
+- [verification-discipline.md](verification-discipline.md) -- the corrections these tenets
+  exist to preserve.

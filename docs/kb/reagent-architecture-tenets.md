@@ -154,3 +154,12 @@ The distinction is the key space, not the technique:
 `memoized-spell-option` is the third row. It was the second row when it was written — the app
 was SRD-only. Homebrew changed the premise; the code did not. Not a bad decision, an expired
 one.
+
+## Related
+
+- [perf-homebrew-builder-loop.md](perf-homebrew-builder-loop.md) -- the freeze these tenets
+  predicted: three `cljs.core/memoize` sites keyed on the whole class library, whose cache
+  LOOKUP (an array-map linear scan comparing arg lists with `=`) cost ~1 s per render.
+- [verification-discipline.md](verification-discipline.md) -- how to measure a claim like
+  this instead of arguing it.
+- [README.md](README.md) -- KB index.
