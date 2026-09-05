@@ -468,6 +468,58 @@ investigation: **528 ms**.
 This is the sharpest statement of the reported problem: it is not opening the builder once,
 it is that **using** the builder gets progressively heavier the more you look at.
 
+## What a bounded cache would cost, and why it is the wrong shape
+
+`memoized-spell-option` (`options.cljc:469`) is `(memoize spell-option)` — a plain map that
+never evicts. The obvious fix is a size cap, so the first question is what a cache MISS
+costs. Visiting 8 classes cold, then revisiting the same 8 warm, 130 casters, 4x throttle:
+
+```
+class        cold (miss)   warm (hit)   miss cost
+Wizard          1589ms        202ms      1387ms   <- first-ever switch, one-time work
+Cleric           372ms        245ms       127ms
+Druid            272ms        175ms        97ms
+Bard             228ms        190ms        38ms
+Sorcerer         256ms        176ms        80ms
+Warlock          226ms        203ms        23ms
+Paladin          173ms        183ms       -10ms
+Ranger           272ms        204ms        68ms
+
+excluding Wizard:  cold ~257ms   warm ~197ms   MISS COST ~60ms
+heap 123.5 -> 166.3 MB after visiting 8 classes twice (~2.7 MB per class visited)
+```
+
+**A miss costs ~60 ms at 4x throttle** (~15 ms unthrottled) — small next to the ~197 ms a
+class switch already costs warm. So capping the cache is cheap in UX terms.
+
+**But the cache is not the dominant cost.** Warm switches still block ~197 ms with everything
+cached; the cache is ~60 of ~257 ms, about 23%. Bounding it fixes the *growth*, not the chug.
+Those are separate problems and this measurement is what separated them.
+
+### This is not Reagent failing to manage memory
+
+Reagent and re-frame **do** manage lifetime — for things expressed in their terms. Verified
+in `re-frame 1.4.4`: `subs.cljc` `cache-and-return` registers `add-on-dispose!` on every
+cached subscription, and `clear-subscription-cache!` disposes each one. A subscription that
+nothing subscribes to is reclaimed.
+
+`clojure.core/memoize` opts out of all of that. It is a top-level `def` holding a map that
+grows forever; no framework can see inside it or reclaim it, because the namespace holds a
+strong reference. The leak is not a gap in Reagent — it is code stepping outside the thing
+that does the managing.
+
+### So do not hand-roll an LRU
+
+`clojure.core.cache` ships **`.clj` only** (checked the 1.1.234 jar: `cache.clj` and
+`wrapped.clj`, no `.cljc`), so it cannot be used from shared `.cljc` — which is what made a
+hand-rolled LRU look necessary. It is not. The framework-native fix is to derive a class's
+spell options in a **subscription keyed by class** and let re-frame dispose it when nothing
+is subscribed. No eviction policy to invent, no cache size to tune, and it composes with the
+granular-subscription tenet instead of fighting it.
+
+That is more work than a size cap, and it belongs with step 3 rather than ahead of it — step
+3 restructures the same code path.
+
 ## The fix plan
 
 Ordered by payoff per unit of risk, not by size. Each step: characterization test first,

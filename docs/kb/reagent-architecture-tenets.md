@@ -51,6 +51,14 @@ million hiccup nodes at 130 classes.
 *The rule:* if part of a memoized value does not depend on part of the key, that part is in
 the wrong place.
 
+*And prefer not to hold the cache yourself.* re-frame already manages subscription lifetime —
+`subs.cljc` `cache-and-return` registers `add-on-dispose!` on each cached subscription, and
+disposes it when nothing subscribes. A top-level `(def x (memoize f))` opts out of that
+entirely: it is a global map the framework cannot see into or reclaim. Deriving the value in
+a subscription keyed by the thing it varies with gets eviction for free, with no LRU to
+hand-roll — which matters here because `clojure.core.cache` is `.clj`-only and unavailable to
+shared `.cljc`.
+
 ## 5. Virtualise long lists
 
 200 homebrew subraces is 200 cards in the DOM, each with its own props and reconciliation
