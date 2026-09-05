@@ -872,6 +872,52 @@ The coalescing fix and its identity guard were kept: they are correct, they are 
 notification carries no change. But **they were not the fix for the reported symptom**, and
 the commit that introduced them claimed more than it delivered.
 
+## CORRECTION: class browsing is not an unbounded leak, and class switches are not slow
+
+Two claims in this document are withdrawn. Both were the basis for the "lazy class bodies"
+work; measured with `test/browser/class_body_cost_e2e.js` on `mega-64` (130 casters) and on
+the owner's real MegaPak, with the duplicate-subscription fix in place.
+
+**Withdrawn 1: "class switch 391 ms / 528 ms worst".** Class switches cost ~10 ms wall and
+run *zero* `class-option`, `make-levels` and `spell-selection` calls on both fixtures. Class
+bodies are built once at builder open and never rebuilt on a switch. Making them lazy
+therefore cannot speed up switching.
+
+**Withdrawn 2: "adds ~34 MB in half a minute and never gives it back — keep browsing and it
+keeps growing".** The growth converges:
+
+```
+PASS 1 (first view of each class)    +38.5 MB    memoized-spell-option: 75,12,22,40,61 calls
+PASS 2 (same classes again)          + 0.5 MB    memoized-spell-option: 0 calls
+```
+
+It is per-class realisation of lazy spell-option seqs, retained by the long-lived template —
+paid once per class looked at, bounded by library size, not by session length. The ceiling is
+"the whole library realised", which is what an eager template would cost up front anyway. The
+laziness is *saving* memory for anyone who does not browse everything.
+
+**And it is not the memoize.** A/B in the same session, `memoized-spell-option` replaced with
+a passthrough: heap grew **41.4 MB without memoization vs 38.5 MB with it**. So the
+`clojure.core/memoize` analysis earlier in this document — the miss-cost table, the bounded-cache
+discussion, the "derive it in a subscription keyed by class" recommendation — was aimed at
+something that is not the cause. Those sections stand as reasoning about the memoize itself,
+but they do not describe this symptom.
+
+### What class-body work actually costs
+
+Only builder open, and only on class-heavy libraries:
+
+```
+                    class-option    make-levels    spell-selection
+mega-64 (130 casters)  142x397ms      340x158ms       4045x161ms     ~716 ms total
+MegaPak (real)          14x 32ms       84x 36ms        333x 31ms      ~99 ms total
+```
+
+So lazy class bodies is a **builder-open** optimisation worth ~0.7 s on a synthetic
+130-caster library and ~0.1 s on the owner's real one — against a ~12 s open dominated by the
+EDN parse (~750 ms) and first render (~670 ms) plus dev-build overhead. That is the honest
+value; it is not a fix for either the freeze or the memory.
+
 ## Dead ends (recorded so they are not repeated)
 
 **The 12.8-second cold builder load is a dev-build artifact, not a homebrew problem.**
