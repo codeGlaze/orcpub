@@ -558,8 +558,17 @@
 (defn armored-ac-bonus [bonus]
   (mods/cum-sum-mod ?armored-ac-bonus bonus))
 
-(defn unarmored-ac-bonus [bonus]
-  (mods/cum-sum-mod ?unarmored-ac-bonus bonus))
+(defn unarmored-ac-bonus
+  "A flat bonus while wearing no armor and using no shield — Bracers of Defense. A BONUS, so it
+  stacks onto whichever AC calculation wins.
+
+  It used to write ?unarmored-ac-bonus, expressing \"no shield\" by NOT also writing
+  ?unarmored-with-shield-ac-bonus. That put a flat bonus in a channel that also carries Barbarian's
+  and Monk's ability modifiers, which compete as calculations and get zeroed by the tie-break in
+  ?unarmored-armor-class when ?natural-ac-bonus wins. A natural-armor character therefore lost the
+  bonus entirely — AC 15 where the rules give 17."
+  [bonus]
+  (mods/vec-mod ?ac-bonus-fns (fn [armor shield] (if (or armor shield) 0 bonus))))
 
 (defn natural-ac-bonus [bonus]
   (mods/cum-sum-mod ?natural-ac-bonus bonus))

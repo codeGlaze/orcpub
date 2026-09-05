@@ -429,3 +429,198 @@
       (is (= {:stealth true}
              (get-in @app-db [::feats5e/builder-item :props :skill-prof]))
           "healed to a map and the toggle took effect"))))
+
+;; ---------------------------------------------------------------------------
+;; incoming-sources — the multi-plugin wrap decision
+;; ---------------------------------------------------------------------------
+;; REGRESSION: import used to decide "multi-plugin?" by spec VALIDITY, so a
+;; multi-plugin (a MegaPak of many sub-sources) with even one imperfect sub-source
+;; was misjudged single and WRAPPED under the import name — double-nesting it into
+;; a {string {string plugin}} shape ::plugin can never load, quarantining the WHOLE
+;; pak. Detection must be STRUCTURAL (shape), with per-source validity enforced
+;; downstream by salvage-plugins. These lock that.
+
+(deftest incoming-sources-keeps-multi-plugin-flat
+  (testing "a multi-plugin stays flat (keyed by its own sub-source names), even
+            when a sub-source is imperfect — NOT wrapped under the import name"
+    (let [multi {"UA - Feats" {:orcpub.dnd.e5/feats
+                               {:brave {:option-pack "UA - Feats" :name "Brave"}}}
+                 ;; imperfect sub-source (feat missing :option-pack) must not flip
+                 ;; detection to single-plugin and trigger a wrap
+                 "UA - Bad"   {:orcpub.dnd.e5/feats
+                               {:oops {:name "Oops"}}}}]
+      (is (= multi (events/incoming-sources "MegaPak" multi))
+          "returned as-is, not wrapped under \"MegaPak\"")
+      (is (every? string? (keys (events/incoming-sources "MegaPak" multi)))
+          "top-level keys remain the sub-source names (no nesting)"))))
+
+(deftest incoming-sources-wraps-single-plugin
+  (testing "a single plugin wraps under the source its items DECLARE (:option-pack),
+            falling back to the import (filename) name only when they don't agree —
+            so a browser-numbered re-import lands in its real source, not a duplicate"
+    ;; items agree on :option-pack -> that is the source, even though the filename
+    ;; ('My Pack') differs. This is what prevents the 'Name 1' duplicate.
+    (let [single {:orcpub.dnd.e5/feats {:brave {:option-pack "P" :name "Brave"}}}]
+      (is (= {"P" single} (events/incoming-sources "My Pack" single))))
+    ;; no usable :option-pack on the items -> fall back to the import name
+    (let [single {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]
+      (is (= {"My Pack" single} (events/incoming-sources "My Pack" single))))))
+
+;; ---------------------------------------------------------------------------
+;; drop-skipped-imports — REGRESSION: "Skip this one" must actually skip.
+;; The bug was that a :skip decision was a no-op, so the colliding item still
+;; imported enabled — the exact nondeterministic twin the modal promised to avoid.
+;; ---------------------------------------------------------------------------
+
+(deftest drop-skipped-imports-removes-the-skipped-external-item
+  (testing "an external conflict marked :skip is dropped from incoming; its
+            non-conflicting sibling survives"
+    (let [incoming   {"NewPack" {:orcpub.dnd.e5/spells
+                                 {:fireball  {:name "Fireball"  :option-pack "NewPack"}
+                                  :frostbite {:name "Frostbite" :option-pack "NewPack"}}}}
+          conflicts  [{:id "external-0" :type :external :key :fireball
+                       :content-type :orcpub.dnd.e5/spells :import-source "NewPack"}]
+          decisions  {"external-0" {:action :skip}}
+          result     (events/drop-skipped-imports incoming conflicts decisions "NewPack")]
+      (is (nil? (get-in result ["NewPack" :orcpub.dnd.e5/spells :fireball]))
+          "the skipped item is gone")
+      (is (some? (get-in result ["NewPack" :orcpub.dnd.e5/spells :frostbite]))
+          "the sibling still imports"))))
+
+(deftest drop-skipped-imports-prunes-a-fully-skipped-source
+  (testing "skipping the only item collapses the empty content-type and source
+            so it can't import as a shell"
+    (let [incoming  {"Solo" {:orcpub.dnd.e5/spells
+                             {:fireball {:name "Fireball" :option-pack "Solo"}}}}
+          conflicts [{:id "external-0" :type :external :key :fireball
+                      :content-type :orcpub.dnd.e5/spells :import-source "Solo"}]
+          result    (events/drop-skipped-imports incoming conflicts
+                                                 {"external-0" {:action :skip}} "Solo")]
+      (is (= {} result) "nothing left to import"))))
+
+(deftest drop-skipped-imports-single-plugin-falls-back-to-import-name
+  (testing "when import-source is nil on the target (single-plugin wrap), the
+            source key falls back to import-name — matching incoming-sources"
+    (let [incoming  {"My Pack" {:orcpub.dnd.e5/spells
+                               {:fireball {:name "Fireball"}}}}
+          ;; single-plugin external conflicts still carry the import-source
+          conflicts [{:id "external-0" :type :external :key :fireball
+                      :content-type :orcpub.dnd.e5/spells :import-source "My Pack"}]
+          result    (events/drop-skipped-imports incoming conflicts
+                                                 {"external-0" {:action :skip}} "My Pack")]
+      (is (= {} result)))))
+
+(deftest drop-skipped-imports-leaves-non-skip-and-internal-alone
+  (testing "non-:skip decisions and internal conflicts (no import-source) are
+            never removed"
+    (let [incoming  {"P" {:orcpub.dnd.e5/spells {:fireball {:name "Fireball"}}}}
+          ;; keep-both decision — must not drop
+          keep-both (events/drop-skipped-imports
+                     incoming
+                     [{:id "e0" :type :external :key :fireball
+                       :content-type :orcpub.dnd.e5/spells :import-source "P"}]
+                     {"e0" {:action :keep-both}} "P")
+          ;; internal conflict marked :skip — no import-source, so left as-is
+          internal  (events/drop-skipped-imports
+                     incoming
+                     [{:id "i0" :type :internal :key :fireball
+                       :content-type :orcpub.dnd.e5/spells}]
+                     {"i0" {:action :skip}} "P")]
+      (is (= incoming keep-both) "keep-both leaves the item")
+      (is (= incoming internal) "internal skip is a no-op (nothing to defer to)"))))
+
+;; ---------------------------------------------------------------------------
+;; :route — REGRESSION: an unmatched URL makes match-route return nil, so
+;; [:route nil ...] gets dispatched. The handler used to compute path-for on the
+;; nil route and throw an ex-info; it must now no-op and leave the route intact.
+;; ---------------------------------------------------------------------------
+
+(deftest route-nil-is-a-no-op-not-a-crash
+  (testing "[:route nil ...] preserves the current route and throws nothing"
+    (reset! app-db {:route :some-existing-route})
+    (rf/dispatch-sync [:route nil {:skip-path? true}])
+    (is (= :some-existing-route (:route @app-db))
+        "current route kept — no clobber, no exception at path-for")))
+
+;; ---------------------------------------------------------------------------
+;; Single-source re-import must use the CONTENT's source, not the filename.
+;; A single-source export writes BARE content (no embedded source name); the
+;; browser numbers repeat downloads ("Name (1).orcbrew"); import derives the
+;; source from the filename -> a duplicate "Name 1" bucket. The items still
+;; carry the true source in :option-pack, so we should recover it from there.
+;; ---------------------------------------------------------------------------
+
+(deftest single-source-reimport-uses-content-source-not-filename
+  (testing "a filename-numbered re-import of a single-source export must NOT spawn a duplicate bucket"
+    (let [source "Default Option Source"
+          spell  {:name "Fireball" :key :fireball :level 3 :school "evocation" :option-pack source}
+          ;; what export-plugin writes to .orcbrew: BARE single-plugin, no source wrapper
+          exported-single {:orcpub.dnd.e5/spells {:fireball spell}}
+          ;; the library we're importing back into
+          existing {source {:orcpub.dnd.e5/spells {:fireball spell}}}
+          ;; browser saved the 2nd download as "Default Option Source 1.orcbrew"
+          filename-name "Default Option Source 1"
+          incoming (events/incoming-sources filename-name exported-single)
+          merged   (e5/merge-all-plugins existing incoming)]
+      (is (= [source] (vec (keys merged)))
+          (str "expected ONE bucket; got " (pr-str (vec (keys merged)))
+               " — filename-numbered re-import spawned a duplicate source")))))
+
+(deftest strip-dedup-suffix-cases
+  (testing "trailing OS/browser dedup markers are stripped; real names survive"
+    (is (= "Pack" (events/strip-dedup-suffix "Pack (1)")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack 2")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack - Copy")))
+    (is (= "Pack" (events/strip-dedup-suffix "Pack copy 3")))
+    ;; a real name ending in a number with NO space before it survives
+    (is (= "Homebrew v2" (events/strip-dedup-suffix "Homebrew v2")))
+    ;; strips only the dedup marker, keeps the meaningful "v2"
+    (is (= "Homebrew v2" (events/strip-dedup-suffix "Homebrew v2 (1)")))
+    (is (= "My Cool Pack" (events/strip-dedup-suffix "My Cool Pack")))
+    (is (= "2" (events/strip-dedup-suffix "2")))))
+
+(deftest incoming-sources-strips-dedup-suffix-in-fallback
+  (testing "a numbered single-source file with NO :option-pack lands in the base
+            source (dedup suffix stripped), not a numbered duplicate"
+    (let [single {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]   ; no :option-pack
+      (is (= {"Default Option Source" single}
+             (events/incoming-sources "Default Option Source (1)" single))))))
+
+(deftest source-name-mismatch-cases
+  (testing "prompt only on a meaningful filename-vs-content-source disagreement"
+    (let [data {:orcpub.dnd.e5/feats {:brave {:option-pack "Bob's Homebrew" :name "Brave"}}}]
+      ;; meaningful mismatch -> prompt payload
+      (is (= {:filename-name "Cool Stuff" :content-name "Bob's Homebrew"}
+             (events/source-name-mismatch "Cool Stuff" data)))
+      ;; filename equals content source (case/space-insensitive) -> no prompt
+      (is (nil? (events/source-name-mismatch "  bob's homebrew " data)))
+      ;; filename is only a browser dedup variant -> no prompt
+      (is (nil? (events/source-name-mismatch "Bob's Homebrew (1)" data)))
+      ;; generic / intentless filenames -> no prompt
+      (is (nil? (events/source-name-mismatch "orcbrew" data)))
+      (is (nil? (events/source-name-mismatch "download" data)))
+      (is (nil? (events/source-name-mismatch "42" data))))
+    ;; content declares no source -> nothing to disagree with -> no prompt
+    (let [data {:orcpub.dnd.e5/feats {:brave {:name "Brave"}}}]
+      (is (nil? (events/source-name-mismatch "Whatever" data))))))
+
+;; ---------------------------------------------------------------------------
+;; Starting-equipment setter (class builder)
+;; ---------------------------------------------------------------------------
+
+(deftest set-equipment-writes-and-cleans-keys
+  (testing "fixed-grant map is set on the builder-item"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapons {:javelin 4}])
+    (is (= {:javelin 4} (get-in @app-db [::classes5e/builder-item :weapons]))))
+  (testing "choice vector is set on the builder-item"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapon-choices
+                       [{:name "Martial Weapon" :options {:greataxe 1 :martial 1}}]])
+    (is (= [{:name "Martial Weapon" :options {:greataxe 1 :martial 1}}]
+           (get-in @app-db [::classes5e/builder-item :weapon-choices]))))
+  (testing "an empty value drops the key entirely (no blank export)"
+    (reset! app-db {::classes5e/builder-item {:name "Eq" :key :eq :weapons {:javelin 4}}})
+    (rf/dispatch-sync [::classes5e/set-equipment :weapons {}])
+    (is (not (contains? (::classes5e/builder-item @app-db) :weapons))
+        ":weapons removed when emptied")))
