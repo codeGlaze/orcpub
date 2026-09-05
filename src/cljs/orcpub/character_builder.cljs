@@ -166,14 +166,17 @@
   (fn [e] (let [new-key (keyword (.. e -target -value))]
             (dispatch [:set-class new-key i options-map]))))
 
-(def set-class (memoize set-class-fn))
+(def set-class
+  "NOT memoized. cljs.core/memoize keeps its cache in a PersistentArrayMap and looks up with
+   `get`, which linear-scans comparing argument lists with `=`. The args here include
+   options-map -- every class in the library -- so each lookup deep-compared 141 class
+   options and forced their lazy 20-level :options seqs: 2820 level-option calls, ~1 s
+   blocked, 46 MB, on one Class-tab render. The cached value is a three-line closure."
+  set-class-fn)
 
 (defn make-options-map
-  "NOT memoized. The cache key would be the options seq itself, and hashing it walks every
-   class option's nested selections -- including each class's lazy 20-level :options seq.
-   That made a cache LOOKUP build 141 classes x 20 levels = 2820 level-options in one
-   render (measured: 939 ms of a 1128 ms freeze). The work being cached is a zipmap over
-   ~141 items."
+  "NOT memoized, same reason as set-class: the key would be the options seq, and
+   memoize's array-map lookup deep-compares it. The work is a zipmap over ~141 items."
   [options]
   (zipmap (map ::t/key options) options))
 
@@ -194,7 +197,9 @@
   #(or (= key (::t/key %))
        (unselected-classes-set (::t/key %))))
 
-(def filter-classes (memoize filter-classes-fn))
+;; NOT memoized, same reason as set-class: the cached value is a one-line predicate and
+;; cljs.core/memoize's array-map lookup deep-compares its arguments on every call.
+(def filter-classes filter-classes-fn)
 
 (def levels-selection #(when (= :levels (::t/key %)) %))
 
