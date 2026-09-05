@@ -95,7 +95,16 @@ is the only behavioural change, and it matters in three places:
 The three sites already fixed were verified: JVM 309/1704 and CLJS 240/726 green, and the
 freeze gone on dev and prod. Because neither suite clicks anything, the handlers themselves
 are covered by `test/browser/class_handlers_functional_e2e.js`, which drives set-class,
-set-class-level, add-class and delete-class for real and asserts app-db afterwards.
+set-class-level, add-class and delete-class for real and asserts app-db afterwards. All five
+checks pass:
+
+```
+set-class switches to Wizard        [["wizard",1]]
+set-class-level sets 5 levels       [["wizard",5]]
+add-class adds a second class       [["wizard",5],["artificer",1]]
+delete-class removes it again       [["wizard",5]]
+built-character still derives       keys=120
+```
 
 ## Related
 
