@@ -275,6 +275,7 @@
      ::char5e/flaws
      ::char5e/faction-image-url-failed
      ::char5e/image-url
+     ::char5e/portrait
      ::char5e/description
      ::char5e/personality-trait-1
      ::char5e/eyes

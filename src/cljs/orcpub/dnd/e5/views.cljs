@@ -1667,7 +1667,6 @@
 
 (defn character-summary-2 [{:keys [::char/character-name
                                    ::char/image-url
-                                   ::char/portrait-layers
                                    ::char/race-name
                                    ::char/subrace-name
                                    ::char/age
@@ -1686,16 +1685,18 @@
                            show-owner?
                            show-follow?]
   (let [username @(subscribe [:username])
-        display-name (when include-name? (character-display-name summary))]
+        display-name (when include-name? (character-display-name summary))
+        ;; parsed {:layers :colors :tweaks} map, or nil — see char/portrait
+        portrait-data (::char/portrait summary)]
     [:div.flex.justify-cont-s-b.w-100-p.align-items-c
      [:div.flex.align-items-c.align-items-t
-      ;; portrait-layers wins over image-url when both are present; falls back
-      ;; to the pasted URL, then to nothing (existing behavior).
+      ;; a composed portrait wins over image-url when both are present; falls
+      ;; back to the pasted URL, then to nothing (existing behavior).
       (cond
-        (seq portrait-layers)
+        (seq (:layers portrait-data))
         [:div.m-r-20.m-t-10.m-b-10.image-character-thumbnail
          {:style {:position "relative" :width "100px" :height "125px" :flex-shrink 0}}
-         [portrait/composite portrait-layers
+         [portrait/composite portrait-data
           {:style {:position "absolute" :inset 0 :width "100%" :height "100%"}}]]
 
         image-url
@@ -1744,7 +1745,7 @@
         eyes @(subscribe [::char/eyes id])
         skin @(subscribe [::char/skin id])
         image-url @(subscribe [::char/image-url id])
-        portrait-layers @(subscribe [::char/portrait-layers id])
+        portrait-data @(subscribe [::char/portrait id])
         race @(subscribe [::char/race id])
         subrace @(subscribe [::char/subrace id])
         levels @(subscribe [::char/levels id])
@@ -1762,7 +1763,7 @@
       ::char/eyes eyes
       ::char/skin skin
       ::char/image-url image-url
-      ::char/portrait-layers portrait-layers
+      ::char/portrait portrait-data
       ::char/race-name race
       ::char/subrace-name subrace
       ::char/alignment alignment

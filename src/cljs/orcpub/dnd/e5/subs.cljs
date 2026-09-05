@@ -94,6 +94,14 @@
  (fn [db _] (get db :portrait/draft-seed)))
 
 (reg-sub
+ :portrait/open-slot
+ (fn [db _] (get db :portrait/open-slot)))
+
+(reg-sub
+ :portrait/open-layer
+ (fn [db _] (get db :portrait/open-layer)))
+
+(reg-sub
  :locked
  (fn [db [_ path]]
    (get-in db [:locked-components path])))
@@ -720,7 +728,7 @@
    ::char5e/actions char5e/actions
    ::char5e/image-url char5e/image-url
    ::char5e/image-url-failed char5e/image-url-failed
-   ::char5e/portrait-layers char5e/portrait-layers
+   ::char5e/portrait char5e/portrait
    ::char5e/faction-image-url char5e/faction-image-url
    ::char5e/faction-image-url-failed char5e/faction-image-url-failed
    ::char5e/personality-trait-1 char5e/personality-trait-1
