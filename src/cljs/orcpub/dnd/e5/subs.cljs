@@ -317,28 +317,64 @@
    immediately; rapid changes batch until quiet for this many ms."
   500)
 
-(defn- debounced-build-sub
+(defn debounced-build-sub
   "reg-sub-raw handler: wraps entity/build with leading+trailing edge
-   debounce. Dropdown changes compute instantly; rapid keystrokes batch."
+   debounce. Dropdown changes compute instantly; rapid keystrokes batch.
+
+   Public so built-character-debounce-test can count builds per change."
   [char-sub tmpl-sub]
   (let [timeout-id (atom nil)
         last-run   (atom 0)
-        result     (ra/atom (built-character @char-sub @tmpl-sub))
+        c0         @char-sub
+        t0         @tmpl-sub
+        ;; What `result` currently reflects. One interaction changes BOTH inputs
+        ;; and both carry the same watch, so on-change fires twice; without this
+        ;; the second firing scheduled a trailing rebuild of what was just built.
+        built-from (atom [c0 t0])
+        result     (ra/atom (built-character c0 t0))
         wk         (gensym "build-")
         do-build   (fn []
                      (reset! last-run (.now js/Date))
-                     (reset! result (built-character @char-sub @tmpl-sub)))
+                     (let [c @char-sub
+                           t @tmpl-sub]
+                       (reset! built-from [c t])
+                       (reset! result (built-character c t))))
+        ;; Both inputs are derived from app-db, so ONE interaction dirties both
+        ;; and this watch fires twice — but reagent updates them one at a time.
+        ;; Building on the first notification therefore paired the NEW character
+        ;; with the OLD template, and the corrected result only arrived from the
+        ;; trailing rebuild 500 ms later. Coalescing to a microtask lets the graph
+        ;; settle first: one build, from values that agree. Still same-frame, so
+        ;; "dropdown changes compute instantly" is preserved.
+        pending    (atom false)
+        disposed?  (atom false)
+        settled    (fn []
+                     (reset! pending false)
+                     (when-not @disposed?
+                     (let [[bc bt] @built-from]
+                       ;; identical?, not =: a reaction only notifies when its
+                       ;; value actually changed, so identity is exact here, and
+                       ;; deep-comparing a built template would cost more than the
+                       ;; rebuild it saves.
+                       (when-not (and (identical? bc @char-sub)
+                                      (identical? bt @tmpl-sub))
+                         (when-let [tid @timeout-id] (js/clearTimeout tid))
+                         (if (>= (- (.now js/Date) @last-run) build-debounce-ms)
+                           (do-build)
+                           (reset! timeout-id
+                                   (js/setTimeout do-build build-debounce-ms)))))))
         on-change  (fn [_ _ _ _]
-                     (when-let [tid @timeout-id] (js/clearTimeout tid))
-                     (if (>= (- (.now js/Date) @last-run) build-debounce-ms)
-                       (do-build)
-                       (reset! timeout-id
-                               (js/setTimeout do-build build-debounce-ms))))]
+                     (when-not @pending
+                       (reset! pending true)
+                       (js/queueMicrotask settled)))]
     (add-watch char-sub wk on-change)
     (add-watch tmpl-sub wk on-change)
     (ra/make-reaction
      (fn [] @result)
      :on-dispose (fn []
+                   ;; A microtask queued just before disposal would otherwise run
+                   ;; against torn-down inputs.
+                   (reset! disposed? true)
                    (remove-watch char-sub wk)
                    (remove-watch tmpl-sub wk)
                    (when-let [tid @timeout-id]
