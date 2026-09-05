@@ -1910,6 +1910,7 @@
        (case current-tab
          :options [new-options-column 1]
          :description [description-fields]
+         ;; nil id = the builder's own character (not a saved one).
          [views5e/character-display nil true 1])]]]))
 
 
@@ -1925,6 +1926,7 @@
          [new-options-column (if (= device-type :desktop) 2 1)]
          [description-fields])]
       [:div.w-50-p.m-l-20.m-r-10
+       ;; nil id = the builder's own character (not a saved one).
        [views5e/character-display nil true 1]]]]))
 
 (defn builder-columns []

@@ -378,6 +378,9 @@
                    (when-let [tid @timeout-id]
                      (js/clearTimeout tid))))))
 
+;; The BUILDER's in-progress character. Ignores query args, so [:built-character]
+;; and [:built-character nil] are two cache keys for the same thing -- and that
+;; means two debounced builds per change. Always subscribe with no argument.
 (reg-sub-raw
  :built-character
  (fn [_ _]
@@ -642,6 +645,8 @@
  (fn [[selected-plugin-options template] _]
    (built-template template selected-plugin-options)))
 
+;; A SAVED character, by id. Not interchangeable with :built-character: its
+;; ::char5e/character input fetches over HTTP for a non-nil id.
 (reg-sub-raw
  ::char5e/built-character
  (fn [_ [_ id]]
