@@ -628,9 +628,52 @@ mechanism. They need different fixes and should not be conflated in one plan.
    Virtualisation moves from "unmeasured step 5" to something that needs a number.
 5. **Park the storage migration as one decision**, IndexedDB not transit, scoped after 1-4.
 
-Confidence: items 1-2 of the analysis are from reading the code and are checkable; the
-validation cost and the chunking payoff are **not yet measured**. Nothing in this section
-changed code or ran a probe.
+**Measured (superseding item 1 above):** on the `mega-64` library in the browser, 3.87 MB,
+14 sources, 1,576 items —
+
+```
+read-string        723 ms   parse
+salvage/validate    10 ms   7 us per item
+```
+
+**Validation is 10 ms. Recommendation item 1 is withdrawn** — it would have removed nothing.
+
+**Double-parse hypothesis: also dead.** Three cold-load profiles were taken; the middle one
+(reader time 0, busy 1091 ms) was self-inflicted — its `addInitScript` wrapper replaced
+`read_string` with an anonymous JS function, so the profiler re-attributed the parse to
+`(anonymous)` and the run is not comparable. Discarded. The clean re-run on the reverted
+build shows reader **812 ms**, within noise of the isolated 723 ms parse: **one parse per
+load, not two**. The earlier 1516 ms attribution was profiler/GC inflation, not a second
+parse.
+
+### FINAL SPLIT of the cold builder-open block (mega-64, 3.87 MB, dev build)
+
+```
+~700-800 ms   EDN parse of the library (isolated: 723 ms; profiled: 812 ms)
+~700-1000 ms  first render (reagent 670-973 ms across runs)
+ ~125-212 ms  entity.build
+   ~10 ms     per-load validation
+    tiny      template-selections / spell machinery
++ ~500 ms     GC interleaved through all of it
+```
+
+**Two co-equal heads, not one**: the parse and the first paint. Everything this
+investigation started from (spell machinery, class levels) is the small tail of this block —
+those costs live in the interaction loop instead (class switch, churn heap), where spike B
+already proved the fix works.
+
+### The go-forward plan, final
+
+| track | change | evidence | expected |
+|---|---|---|---|
+| 1. load | parse per source with yields (no format change), or move the library to IndexedDB with lazy per-source hydration (one migration, kills the 5 MB ceiling too) | 723 ms measured | longest task -700 ms |
+| 2. load | split/virtualise the first paint | 670-973 ms measured | up to -900 ms |
+| 3. interaction | design A (lazy class bodies, no template rebuild) | spike B: -27 MB heap, class 391->237 ms | class switch <150 ms, churn heap ~flat |
+| 4. interaction | debounce double-fire | 2 builds/change measured | halves per-change cost |
+
+1+2 fix "opening the builder freezes"; 3+4 fix "using it chugs and bloats". Independent
+tracks, either can ship first. Characterization gates as per Phase 1 above apply to each.
+
 
 ## The fix plan (revised — supersedes the original below)
 
