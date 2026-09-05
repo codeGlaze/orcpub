@@ -2175,7 +2175,7 @@
                       (comps/checkbox @(subscribe [::char/spell-slot-used? id level i]) false)]))]])
               spell-slots))])]))))
 
-(defn dropdown [{:keys [items value on-change typed?]}]
+(defn dropdown [{:keys [items value on-change typed? class-name]}]
   ;; Dedup items by :value as a safety net — duplicate option values from
   ;; homebrew plugins can slip through if imported before dedup was added.
   (let [unique-items (->> items
@@ -2193,7 +2193,8 @@
     (if typed?
       (let [idx (first (keep-indexed (fn [i it] (when (= (:value it) value) i)) unique-items))]
         [:select.builder-option.builder-option-dropdown.m-t-0
-         {:value (if idx (str idx) "")
+         {:class class-name
+          :value (if idx (str idx) "")
           :on-change #(on-change (:value (nth unique-items (js/parseInt (event-value %)))))}
          (doall
           (map-indexed
@@ -2205,7 +2206,8 @@
               title])
            unique-items))])
       [:select.builder-option.builder-option-dropdown.m-t-0
-       {:value (or value "")
+       {:class class-name
+        :value (or value "")
         :on-change #(on-change (event-value %))}
        (doall
         (map-indexed
@@ -7506,20 +7508,20 @@
         [:div.w-100-p.m-t-20
          [:div.f-s-24.f-w-b.m-b-10 title]
          (when (seq absent)
-           [:div.flex.flex-wrap.align-items-c.m-b-15
-            [:span.m-r-10.opacity-5 (or add-label "Add")]
+           [:div.flex.flex-wrap.align-items-c.m-b-15.addbar
+            [:span.m-r-10.opacity-5.f-s-12 (str (or add-label "Add") ":")]
             (doall
              (for [{:keys [kind title]} absent]
                ^{:key (str kind)}
-               [:button.form-button.m-r-5.m-b-5
+               [:button.chip.m-r-5.m-b-5
                 {:on-click #(swap! opened conj kind)}
                 (str "+ " title)]))])
          (doall
           (for [{:keys [kind title at hint tag-header fields] :as k} (filter present? kinds)]
             ^{:key (str kind)}
-            [:div.b-1.b-rad-5.m-b-15
-             [:div.flex.justify-cont-s-b.align-items-c.p-10.b-b-1
-              [:span.f-w-b.f-s-14 title]
+            [:div.b-1.m-b-15.effect-row
+             [:div.flex.justify-cont-s-b.align-items-c.b-b-1.effect-row-header
+              [:span.f-w-b.uppercase title]
               [:i.fa.fa-times.pointer.opacity-5
                {:title (str "Remove " title)
                 ;; Clears the row's data outright. See the note on effect-rows: a confirm on every
@@ -7545,11 +7547,11 @@
                 (when (seq shown)
                   [:div
                    [:div.f-s-12.opacity-5.m-b-5.uppercase (or tag-header "Applies when")]
-                   [:div.flex.flex-wrap
+                   [:div.flex.flex-wrap.tags
                     (doall
                      (for [f shown]
                        ^{:key (str (:key f))}
-                       [:div.row-tag
+                       [:div.tag
                         [render-builder-field item set-prop (assoc f :compact? true)]]))]])])]))]))))
 
 (defn render-builder-field
@@ -7571,7 +7573,7 @@
       [:div.m-b-10
        ;; :compact? keeps the f-w-b marker (label lookup, and every e2e finds controls by it) but
        ;; shrinks it — a tag's label sits above a small control, not above a page-wide one.
-       [:div.f-w-b.m-b-5 {:class (when (:compact? field) "f-s-12 opacity-5")}
+       [:div.f-w-b.m-b-5 {:class (when (:compact? field) "tag-label")}
         label (when required? [:span.red " *"])]
        (case type
          ;; index-based option values so ANY value type (incl. qualified keywords) round-trips
@@ -7579,6 +7581,10 @@
          :enum   (let [idx (first (keep-indexed (fn [i o] (when (= (:value o) v) i)) options))]
                    [dropdown {:items (map-indexed (fn [i o] {:value (str i) :title (:title o)}) options)
                               :value (when idx (str idx))
+                              ;; `set` is the mockup's answer to a row of identical dropdowns: the
+                              ;; ones carrying an actual restriction are picked out in orange, so
+                              ;; the unset majority recedes instead of competing.
+                              :class-name (when (some? v) "set")
                               :on-change #(dispatch [set-prop path (:value (nth options (js/parseInt %)))])}])
          ;; number-field has ALREADY parsed: it hands us an int, or nil when the box is cleared.
          ;; This used to re-parse with (when (seq %) (js/parseInt %)), and (seq 1) throws

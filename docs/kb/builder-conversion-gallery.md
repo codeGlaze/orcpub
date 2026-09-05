@@ -118,11 +118,23 @@ Bonus* or *Damage Bonus*.
 | visible controls, empty form | 7 | **4** |
 | visible controls, three effects authored | 23 | 23 |
 | labels repeated with nothing distinguishing them | **7** | **0** |
-| page height, authored | 2229px | **1650px** |
+| page height, authored | 2229px | **1622px** |
 
 The fully-authored form has exactly the same 23 controls — grouping removes no fields — but it is
-**579px shorter**, because inside a row a bonus gets a number's width and its tags wrap inline
+**607px shorter**, because inside a row a bonus gets a number's width and its tags wrap inline
 instead of each taking a page-wide row of its own.
+
+**The layout is a port of the approved mockup**, `assets/builder-form-mockup.html` — dashed pill
+chips on the add-bar, an orange uppercase group header, a 92px centred bonus with its hint beside
+it, and tags as `width:auto` selects under a muted sub-heading. Keep the two in step; the mockup is
+the design record and `styles/core.clj` is its implementation.
+
+**The `set` highlight is the answer to "seven dropdowns all saying Both".** A tag carrying an
+actual restriction is drawn in orange, so it reads at a glance against its unset neighbours — in
+the shot above, *Ranged weapons only* against six *Both*s. The alternative considered was hiding
+unset tags behind an "add a restriction" picker; it was **rejected** because it changes behaviour
+to solve a visual problem, costs a click per restriction, and hides from the author the fact that
+six other restrictions exist. Weight, not removal.
 
 **Correction (same day).** The first version of this table read *2513px, 284px taller*, and the
 paragraph here argued that the vertical cost was worth paying for unambiguous tags. That was

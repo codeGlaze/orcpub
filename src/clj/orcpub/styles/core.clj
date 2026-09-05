@@ -258,19 +258,56 @@
     {:flex-wrap :wrap}]
    ;; :rows form layout. A bonus is a small number and its tags are short dropdowns; giving either
    ;; the page width is what made the flat fighting-style form a scroll (builder-conversion-gallery.md).
+   ;; Effect rows, ported from the approved mockup at docs/kb/assets/builder-form-mockup.html.
+   ;; Keep the two in step: the mockup is the design record and this is its implementation.
+   [:.effect-row
+    {:border-color "rgba(255,255,255,0.14)"
+     :border-radius "6px"
+     :overflow :hidden}]
+   [:.effect-row-header
+    {:background-color "rgba(240,161,0,0.10)"
+     :border-bottom-color "rgba(255,255,255,0.14)"
+     :padding "8px 12px"}
+    [:span
+     {:color "#f0a100"
+      :font-size "13px"
+      :letter-spacing "0.04em"}]]
+   ;; A dashed outline chip reads as "there is more you could add", where a solid button reads as
+   ;; "do this now" — an add-bar of solid buttons competes with Save.
+   [:.chip
+    {:background :transparent
+     :border "1px dashed #f0a100"
+     :border-radius "20px"
+     :color "#f0a100"
+     :padding "5px 13px"
+     :font-size "12.5px"
+     :font-weight 700
+     :cursor :pointer}]
+   [:.tags
+    {:gap "8px 10px"}]
+   [:.tag
+    {:display :flex
+     :flex-direction :column
+     :gap "3px"}
+    ;; width:auto is the point — a tag is two words, not a page, and seven page-wide selects were
+    ;; the flat form's wall.
+    [:select
+     {:width :auto
+      :min-width "104px"
+      :padding "5px 8px"
+      :font-size "12.5px"}]
+    [:select.set
+     {:border-color "#f0a100"
+      :color "#f0a100"}]]
+   [:.tag-label
+    {:font-size "11.5px"
+     :color "rgba(255,255,255,0.55)"}]
    [:.row-lead-num
-    {:width "104px"
-     :flex "0 0 104px"}
+    {:width "92px"
+     :flex "0 0 92px"}
     [:input
      {:text-align :center
-      :font-weight :bold}]]
-   [:.row-tag
-    {:margin-right "14px"
-     :margin-bottom "6px"
-     :min-width "128px"}
-    [:select
-     {:padding "5px 8px"
-      :font-size "12.5px"}]]
+      :font-weight 700}]]
 
    [:.w-auto
     {:width :auto}]

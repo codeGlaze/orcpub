@@ -50,6 +50,22 @@ const shot = (page, file) => page.screenshot({ path: file, fullPage: true, type:
   for (const [label, value] of [['AC Bonus', '1'], ['Attack Bonus', '2'], ['Damage Bonus', '2']]) {
     if (!await fillEffectBonus(page, label, value)) console.log(`  (could not fill ${label})`);
   }
+  // Set one restriction, so the shot shows a tag that actually carries a value — this is
+  // Archery, and it is the case the mockup's `select.set` highlight exists for.
+  await page.evaluate(() => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const lbl = [...document.querySelectorAll('.f-w-b')]
+      .filter(e => e.textContent.trim() === 'Ranged' && vis(e))[0];
+    if (!lbl) return;
+    const sel = (lbl.parentElement || lbl).querySelector('select')
+             || lbl.nextElementSibling;
+    if (!sel || sel.tagName !== 'SELECT') return;
+    const opt = [...sel.options].find(o => /ranged weapons only/i.test(o.textContent));
+    if (!opt) return;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
+    setter.call(sel, opt.value);
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
   await page.waitForTimeout(600);
 
   const filled = await count();
