@@ -41,7 +41,6 @@
            (org.apache.pdfbox.pdmodel.graphics.image PDImageXObject)
            (org.apache.pdfbox.pdmodel.interactive.form PDCheckBox PDTextField PDTerminalField)
            (org.apache.pdfbox.pdmodel.interactive.annotation PDAnnotationWidget
-                                                              PDAppearanceDictionary
                                                               PDAppearanceStream)
            (org.apache.pdfbox.pdmodel.common PDRectangle)
            (org.apache.pdfbox.cos COSName COSDictionary)
@@ -343,7 +342,6 @@
                      (nil? (.getPage annotation)))]
     (.setPage annotation page)))
 
-
 (defn string-width
   "Width of `text` in INCHES at `font-size`, not points: the raw glyph width is
    divided by 72. Callers working in points must convert."
@@ -403,8 +401,6 @@
       (.setFields form (java.util.ArrayList. kept))
       @removed)
     0))
-
-
 
 ;; ─── Spellcasting class pages ─────────────────────────────────────────────────
 
@@ -559,7 +555,6 @@
       (.setAnnotations page (java.util.ArrayList. (mapv #(first (.getWidgets %)) new-fields)))
       (.setFields form (java.util.ArrayList. (concat (vec (.getFields form)) new-fields)))
       (count new-fields))))
-
 
 ;; ─── Generating a sheet from a master ─────────────────────────────────────────
 ;;
@@ -1905,7 +1900,6 @@
                 :tail (s/join "\n" (cons (s/join " " (drop room lines)) more))
                 :lines per-box}))))))))
 
-
 ;; ─── Relabelling a spell level box ────────────────────────────────────────────
 ;;
 ;; Each spell level's rows live in a box whose level number is printed ARTWORK,
@@ -1914,10 +1908,8 @@
 ;; box spills to another page while levels 4-9 sit empty -- on a level 5 cleric
 ;; that is 13 spells moved for want of 59 rows that were right there.
 ;;
-;; A field with a background fill can cover the printed numeral, letting a box be
-;; re-pointed at another level. The hexagon's centre carries a light bevel, so a
-;; small patch there hides the numeral without touching the outline or the grey
-;; edging around it.
+;; A white rectangle over the numeral's own box covers it, letting a box be
+;; re-pointed at another level -- see numeral-boxes.
 
 (def numeral-boxes
   "Where each style prints a level's numeral, relative to that level's SLOTS TOTAL
@@ -1948,73 +1940,10 @@
    is, in points. Measured on the style 1 spell page, where the hexagon abuts the
    left edge of the slots box at every one of the nine levels.
 
-   Check these against the artwork with the :outline? option to
-   relabel-spell-level! before trusting them on another style -- a wrong offset
-   looks fine in a normal render and only shows as a sliver of the printed shape
-   left uncovered."
+   Only the position is used now -- to find the bar a column heading sits in --
+   and every style places its box-0 badge where style 1 does, which the packed
+   renders on all four confirm."
   {:dx -21.0 :dy -7.5 :width 19.0 :height 37.0})
-
-(def ^:private hexagon-path
-  "The hexagon's corners as fractions of its bounding box, traced from the
-   rendered artwork at 1200 dpi rather than assumed. It is not symmetric: the left
-   edge is vertical, the points sit near it at about 0.3 across, and the right
-   side bulges out. A symmetric hexagon leaves visible wedges where it misses."
-  [[0.30 1.00] [1.00 0.65] [1.00 0.33] [0.30 0.00] [0.00 0.16] [0.00 0.83]])
-
-(def ^:private numeral-patch-scale
-  "How much of the hexagon the patch covers.
-
-   The shape does not have to match the artwork; it has to stay inside the white
-   centre. Overshooting eats the grey bevel, which is what shows. Measured by
-   rendering at 300 dpi and counting bevel pixels the patch changes against
-   numeral pixels it fails to cover:
-
-     scale   bevel eaten   numeral left
-      0.62        ~5050              0
-      0.50         ~170              0
-      0.46            ~0             0
-      0.30            ~0        visible
-
-   0.46 is the widest that covers the numeral without touching the bevel. Above
-   it the patch reads as a pale notch in the hexagon's shading."
-  0.46)
-
-(defn- hexagon-appearance
-  "An appearance stream drawing a hexagon-shaped patch with `label` centred in it.
-
-   The patch is the hexagon's own shape scaled about its centre, so it sits inside
-   the printed outline instead of cutting a rectangle out of it.
-
-   `outline?` strokes the path magenta, which is how the offsets above were
-   checked: a misplaced patch is invisible in a normal render but obvious against
-   the printed hexagon once its edge is drawn."
-  [doc width height label outline? patch-scale]
-  (let [stream (PDAppearanceStream. doc)
-        resources (PDResources.)
-        font (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD)
-        size 13.0
-        cx (/ width 2.0)
-        cy (/ height 2.0)
-        factor (or patch-scale numeral-patch-scale)
-        point (fn [[fx fy]]
-                [(+ cx (* factor (- (* fx width) cx)))
-                 (+ cy (* factor (- (* fy height) cy)))])
-        [[sx sy] & rest-points] (map point hexagon-path)
-        text-width (* size (/ (.getStringWidth font label) 1000.0))]
-    (.setResources stream resources)
-    (.setBBox stream (PDRectangle. 0 0 width height))
-    (.put resources (COSName/getPDFName "HelvB") font)
-    (with-open [out (.createOutputStream (.getCOSObject stream))]
-      (.write out (.getBytes
-                   (str (if outline? "1 1 1 rg 1 0 1 RG 0.4 w\n" "1 1 1 rg\n")
-                        (format "%.2f %.2f m\n" sx sy)
-                        (s/join (for [[x y] rest-points] (format "%.2f %.2f l\n" x y)))
-                        (if outline? "h B\n" "h f\n")
-                        "BT\n/HelvB " size " Tf\n0 g\n"
-                        (format "%.2f %.2f Td\n" (- cx (/ text-width 2.0)) (- cy 4.5))
-                        "(" label ") Tj\nET\n")
-                   "ISO-8859-1")))
-    stream))
 
 (defn spell-level-numeral-box
   "The hexagon carrying the printed level numeral for `level` in the spellcasting
@@ -2031,113 +1960,11 @@
               {:keys [dx dy width height]} hexagon-offset]
           [(+ (.getLowerLeftX r) dx) (+ (.getLowerLeftY r) dy) width height])))))
 
-(defn relabel-spell-level!
-  "Covers the printed level numeral for `level` in section `suffix` with `label`.
-   Returns the field added, or nil when the level has no box on this template.
-
-   The numerals are printed heavy, so the label is drawn in bold to match.
-
-   `opts` takes :outline?, which strokes the patch magenta so its placement can be
-   checked against the artwork, and :scale, which overrides how much of the
-   hexagon it covers. Both are for fitting these numbers to a style whose spell
-   page has not been measured."
-  ([doc level suffix label] (relabel-spell-level! doc level suffix label nil))
-  ([doc level suffix label {patch-scale :scale :keys [outline?]}]
-  (when-let [[x y w h] (spell-level-numeral-box doc level suffix)]
-    (let [form (.getAcroForm (.getDocumentCatalog doc))
-          resources (.getDefaultResources form)
-          field (PDTextField. form)
-          widget (PDAnnotationWidget.)
-          page (.getPage (first (.getWidgets (.getField form (str "spell-slots-" level "-" suffix)))))]
-      (when (nil? (.getFont resources (COSName/getPDFName "HelvB")))
-        (.put resources (COSName/getPDFName "HelvB")
-              (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD)))
-      (.setDefaultResources form resources)
-      (.setPartialName field (str "spell-level-label-" level "-" suffix))
-      (.setRectangle widget (PDRectangle. x y w h))
-      (.setPage widget page)
-      (.setWidgets field (java.util.ArrayList. [widget]))
-      (.setAnnotations page (java.util.ArrayList.
-                             (conj (vec (.getAnnotations page)) widget)))
-      (.setFields form (java.util.ArrayList. (conj (vec (.getFields form)) field)))
-      (.setDefaultAppearance field "/HelvB 13 Tf 0 g")
-      (.setQ field 1)
-      ;; The value goes on first: setValue makes PDFBox generate its own
-      ;; appearance, which would otherwise be appended after this one and draw the
-      ;; numeral a second time. Read-only stops a viewer regenerating it, and this
-      ;; is a label rather than something to fill in.
-      (.setValue field (str label))
-      (let [appearance (PDAppearanceDictionary.)]
-        (.setNormalAppearance appearance
-                              (hexagon-appearance doc w h (str label) outline? patch-scale))
-        (.setAppearance widget appearance))
-      (.setReadOnly field true)
-      field))))
-
-(def ^:private printed-slot-labels
-  "The SLOTS TOTAL / SLOTS EXPENDED line on the style 1 spell page, in page
-   coordinates, measured off the artwork with PDFTextStripper and the rendered
-   pixels. The page prints the line once, above the level 1 bar; every other
-   level box is read from that one line by position.
-
-   :grey is the flat value the artwork uses, which renders [150 151 151]."
-  {:size 5.0
-   :grey 0.59
-   :baseline 483.17
-   :total-x 50.83
-   :expended-x 127.71
-   :end-x 173.80})
-
 (def ^:private cantrips-box-rise
   "How far the cantrips box sits above the level 1 box, in points. The printed
    numerals give it exactly: level 1 at baseline 463.99, and level 3 -- top of
    the middle column, level with the cantrips box -- at 631.72."
   167.73)
-
-(def ^:private label-padding
-  "Slack between the labels and their appearance BBox, which clips: a glyph
-   flush to the edge loses its last pixel column."
-  1.0)
-
-(defn- cantrips-slot-labels-box
-  "Rect for the slot labels above a reused cantrips bar: the printed level 1 line
-   raised by cantrips-box-rise."
-  []
-  (let [{:keys [size baseline total-x end-x]} printed-slot-labels]
-    [(- total-x label-padding)
-     (- (+ baseline cantrips-box-rise) label-padding)
-     (+ (- end-x total-x) (* 2 label-padding))
-     (+ size (* 2 label-padding))]))
-
-(defn- slot-labels-appearance
-  "The SLOTS TOTAL and SLOTS EXPENDED labels in the size, grey and x positions
-   printed-slot-labels measured off the printed pair above level 1.
-
-   `origin-x` and `origin-y` are the widget's lower-left corner: the appearance
-   stream's own coordinates start there, so the page positions are written as
-   offsets from it."
-  [doc origin-x origin-y width height]
-  (let [{:keys [size grey baseline total-x expended-x]} printed-slot-labels
-        stream (PDAppearanceStream. doc)
-        resources (PDResources.)
-        font (PDType1Font. Standard14Fonts$FontName/HELVETICA)
-        text-y (- (+ baseline cantrips-box-rise) origin-y)]
-    (.setResources stream resources)
-    (.setBBox stream (PDRectangle. 0 0 width height))
-    (.put resources (COSName/getPDFName "Helv") font)
-    (with-open [out (.createOutputStream (.getCOSObject stream))]
-      (.write out (.getBytes
-                   ;; No fill: the labels sit on blank page above the bar, the
-                   ;; way the printed ones do above level 1.
-                   (str (format "BT\n/Helv %.1f Tf\n%.2f g\n" size grey)
-                        (format "%.2f %.2f Td\n" (- total-x origin-x) text-y)
-                        "(SLOTS TOTAL) Tj\nET\n"
-                        (format "BT\n/Helv %.1f Tf\n%.2f g\n" size grey)
-                        (format "%.2f %.2f Td\n" (- expended-x origin-x) text-y)
-                        "(SLOTS EXPENDED) Tj\nET\n")
-                   "ISO-8859-1")))
-    stream))
-
 
 ;; ─── Reusing the cantrips box ─────────────────────────────────────────
 ;;
@@ -2147,60 +1974,6 @@
 ;; locate it by, its bar reads CANTRIPS, and it has no SLOTS TOTAL / SLOTS
 ;; EXPENDED labels because cantrips do not use slots.
 
-(def ^:private cantrips-bar
-  "Where the cantrips bar differs from a level bar, in page coordinates.
-
-   A level bar divides SLOTS TOTAL from SLOTS EXPENDED at x 93-102, in the gap
-   between the two fields. The cantrips bar's divider is at x 51-59 instead,
-   right after the hexagon, leaving one long compartment where a level bar has
-   two -- and that compartment reads CANTRIPS, printed x 112-142.
-
-   Covering x 50.5 to 148 takes the stray divider and the word together. The
-   patch runs the full height between the bar's inner rules -- they sit at
-   y 625.5-625.9 and 645.4-645.9, flat from x 62 on -- so it clears the divider's
-   sloped ends where they meet those rules without painting over the rules
-   themselves. Stopping short of them leaves two visible stubs."
-  {:patch-from 50.5
-   :patch-to 148.0
-   :interior-y 625.9
-   :interior-height 19.5
-   :divider-x 97.5})
-
-(defn- bar-patch-appearance
-  "Paints the patch white and strokes the divider a level bar has, at `divider-x`
-   measured from the patch's left edge. 0.6pt matches the bar's own rules."
-  [doc width height divider-x]
-  (let [stream (PDAppearanceStream. doc)]
-    (.setResources stream (PDResources.))
-    (.setBBox stream (PDRectangle. 0 0 width height))
-    (with-open [out (.createOutputStream (.getCOSObject stream))]
-      (.write out (.getBytes (format "1 1 1 rg\n0 0 %.2f %.2f re f\n0 G\n0.6 w\n%.2f 0 m\n%.2f %.2f l\nS\n"
-                                     width height divider-x divider-x height)
-                             "ISO-8859-1")))
-    stream))
-
-(defn- cantrips-slot-boxes
-  "The two slot inputs for a reused cantrips bar, as [total expended] rects:
-   level 1's SLOTS TOTAL and SLOTS EXPENDED boxes raised by cantrips-box-rise.
-   nil when either is missing.
-
-   Taken from the live fields rather than written down, so the inputs land either
-   side of the drawn divider the way level 1's land either side of its printed
-   one."
-  [doc suffix]
-  (let [form (.getAcroForm (.getDocumentCatalog doc))
-        raised (fn [nm]
-                 (when-let [field (.getField form nm)]
-                   (when-let [widget (first (filter #(some? (.getPage %))
-                                                    (.getWidgets field)))]
-                     (let [r (.getRectangle widget)]
-                       {:rect [(.getLowerLeftX r) (+ (.getLowerLeftY r) cantrips-box-rise)
-                               (.getWidth r) (.getHeight r)]
-                        :quadding (.getQ field)}))))]
-    (when-let [total (raised (str "spell-slots-1-" suffix))]
-      (when-let [expended (raised (str "slots-expended-1-" suffix))]
-        [total expended]))))
-
 (defn- cantrips-hexagon-box
   "The cantrips bar's hexagon, as [x y width height]. The cantrips box has no
    slots field for spell-level-numeral-box to measure from, so it is level 1's
@@ -2208,64 +1981,6 @@
   [doc suffix]
   (when-let [[x y w h] (spell-level-numeral-box doc 1 suffix)]
     [x (+ y cantrips-box-rise) w h]))
-
-(defn reuse-cantrips-box!
-  "Turns the cantrips box into a spell level box carrying `label`: renumbers the
-   hexagon, makes the bar read like a level bar, and gives it the slot labels and
-   the two slot inputs a level box has. Returns the fields added.
-
-   The bar is patched rather than redrawn -- the level bars have shaped slot art
-   this does not attempt, and a plain divider between two boxes is enough to read.
-   On a continuation page the box is otherwise wasted, and eight rows are worth
-   more than a matching bar.
-
-   The inputs are named for the box, not for `label`: the level's own box is still
-   on the page under spell-slots-<label>-<suffix>, and two fields cannot share a
-   name without sharing a value."
-  [doc suffix label]
-  (let [form (.getAcroForm (.getDocumentCatalog doc))
-        page (some-> form (.getField (str "spells-0-1-" suffix))
-                     .getWidgets first .getPage)
-        hexagon (cantrips-hexagon-box doc suffix)
-        slots (cantrips-slot-boxes doc suffix)
-        {:keys [patch-from patch-to interior-y interior-height divider-x]} cantrips-bar]
-    (when (and page hexagon slots)
-      (let [attach (fn [field [x y w h]]
-                     (let [widget (PDAnnotationWidget.)]
-                       (.setRectangle widget (PDRectangle. x y w h))
-                       (.setPage widget page)
-                       (.setWidgets field (java.util.ArrayList. [widget]))
-                       (.setAnnotations page (java.util.ArrayList.
-                                              (conj (vec (.getAnnotations page)) widget)))
-                       (.setFields form (java.util.ArrayList.
-                                         (conj (vec (.getFields form)) field)))
-                       widget))
-            art (fn [nm [x y w h :as rect] draw]
-                  (let [field (PDTextField. form)
-                        appearance (PDAppearanceDictionary.)]
-                    (.setPartialName field nm)
-                    (let [widget (attach field rect)]
-                      (.setNormalAppearance appearance (draw x y w h))
-                      (.setAppearance widget appearance))
-                    (.setReadOnly field true)
-                    field))
-            input (fn [nm {:keys [rect quadding]}]
-                    (let [field (PDTextField. form)]
-                      (.setPartialName field nm)
-                      (.setDefaultAppearance field (.getDefaultAppearance form))
-                      (.setQ field quadding)
-                      (attach field rect)
-                      field))
-            [total expended] slots]
-        [(art (str "spell-level-label-0-" suffix) hexagon
-              (fn [_ _ w h] (hexagon-appearance doc w h (str label) false nil)))
-         (art (str "cantrips-bar-patch-" suffix)
-              [patch-from interior-y (- patch-to patch-from) interior-height]
-              (fn [x _ w h] (bar-patch-appearance doc w h (- divider-x x))))
-         (art (str "cantrips-slot-labels-" suffix) (cantrips-slot-labels-box)
-              (fn [x y w h] (slot-labels-appearance doc x y w h)))
-         (input (str "cantrips-slots-total-" suffix) total)
-         (input (str "cantrips-slots-expended-" suffix) expended)]))))
 
 ;; ─── Overflow pages ───────────────────────────────────────────────────────────
 
@@ -2742,8 +2457,8 @@
    client sending something this server does not understand, which must not cost
    the character their sheet. The count is returned so the caller can log it.
 
-   Box 0 is the cantrips box and is not a level box -- it has no slot inputs or
-   labels until reuse-cantrips-box! gives it some -- so it takes the other path."
+   Box 0 is the cantrips box and takes no label, which valid-relabel? holds; a
+   blank for it is a no-op, since it has no slots field to place a patch by."
   ([doc instructions sections] (apply-relabel-instructions! doc instructions sections 1))
   ([doc instructions sections style]
   (let [wanted (if (packing-supported? style)
@@ -2753,9 +2468,7 @@
         {ok true bad false} (group-by #(valid-relabel? % sections) wanted)]
     (doseq [{:keys [section box label]} ok]
       (try
-        (if (zero? box)
-          (when label (reuse-cantrips-box! doc section label))
-          (relabel-numeral! doc style box section (or label "")))
+        (relabel-numeral! doc style box section (or label ""))
         (catch Exception e
           (println "pdf: relabel failed for box" box "section" section "-" (.getMessage e)))))
     [(count ok) (+ (count bad) (max 0 (- (count (filter map? instructions)) (count wanted))))])))
@@ -2825,7 +2538,7 @@
 
    Read off the live fields rather than written down, so they follow the artwork.
    Box 0 has no slots fields of its own, so it borrows level 1's raised by
-   cantrips-box-rise, which is how cantrips-slot-boxes locates the inputs it adds.
+   cantrips-box-rise, which is where its bar sits above level 1's.
 
    A style with no slots-expended field -- styles 2 and 4 -- has no second rect to
    read, so the wide compartment is taken from the spell row's right edge instead."

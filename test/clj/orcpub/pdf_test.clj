@@ -528,7 +528,7 @@
         (is (>= (baked-size form "backstory") 6.0)
             "left to its own auto-sizing rather than forced smaller")))))
 
-(deftest a-spell-level-box-can-be-relabelled
+(deftest the-level-numeral-box-is-located-from-the-slots-box
   (testing "A level's rows live in a box whose number is printed artwork, so the
             box is bound to that level by the page. Covering the numeral is what
             would let a spare box take a level whose own box is full -- a level 5
@@ -548,125 +548,8 @@
               (is (and (< 15 w 24) (< 32 h 42))
                   (str "level " level "'s hexagon is about 19 x 37 points")))))
 
-        (testing "relabelling adds an addressable field carrying the new number"
-          (let [field (pdf/relabel-spell-level! doc 3 1 "1")]
-            (is (some? field))
-            (is (= "1" (str (.getValueAsString
-                             (.getField form "spell-level-label-3-1")))))))
-
-        (testing "the patch is drawn as the hexagon's own shape, not a rectangle"
-          (let [widget (first (.getWidgets (.getField form "spell-level-label-3-1")))
-                stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))
-                ops (with-open [in (.createInputStream (.getCOSObject stream))]
-                      (String. (.readAllBytes in) "ISO-8859-1"))]
-            (is (= 5 (count (re-seq #"\bl\n" ops)))
-                "five lineto operators close a six-cornered path")
-            (is (str/includes? ops " f\n") "and the path is filled")
-            (is (not (str/includes? ops " re\n"))
-                "no rectangle is drawn -- a square patch would cut through the
-                 printed outline and the grey bevel around the numeral")))
-
         (testing "a level with no box on this template is left alone"
           (is (nil? (pdf/spell-level-numeral-box doc 12 1))))))))
-
-(deftest the-cantrips-box-can-take-a-spell-level
-  (testing "Cantrips only print once, so on a continuation page the cantrips box
-            is eight dead rows. Reusing it needs more than a numeral: it has no
-            spell-slots field to locate it by, its bar reads CANTRIPS, and it has
-            no slot labels because cantrips do not use slots."
-    (with-open [doc (style-1-template)]
-      (let [added (pdf/reuse-cantrips-box! doc 1 "1")
-            form (.getAcroForm (.getDocumentCatalog doc))]
-        (is (= 5 (count added))
-            "a renumbered hexagon, a patched bar, the slot labels, and two inputs")
-        (is (some? (.getField form "spell-level-label-0-1")))
-        (is (some? (.getField form "cantrips-bar-patch-1")))
-        (is (some? (.getField form "cantrips-slot-labels-1")))
-
-        (testing "the bar gets the two inputs its labels name, either side of a
-                  divider drawn where a level bar has one"
-          (let [total (.getField form "cantrips-slots-total-1")
-                expended (.getField form "cantrips-slots-expended-1")
-                rect-of #(.getRectangle (first (.getWidgets %)))
-                patch (rect-of (.getField form "cantrips-bar-patch-1"))
-                ops (with-open [in (.createInputStream
-                                    (.getCOSObject
-                                     (.getAppearanceStream
-                                      (.getNormalAppearance
-                                       (.getAppearance (first (.getWidgets (.getField form "cantrips-bar-patch-1")))))))) ]
-                      (String. (.readAllBytes in) "ISO-8859-1"))]
-            (is (and total expended) "both inputs exist")
-            (is (not (.isReadOnly total)) "and the player can type in them")
-            (is (not (.isReadOnly expended)))
-            (is (< (+ (.getLowerLeftX (rect-of total)) (.getWidth (rect-of total)))
-                   97.5
-                   (.getLowerLeftX (rect-of expended)))
-                "the divider at x 97.5 falls in the gap between them")
-            ;; the patch covers the cantrips bar's own divider at x 51-59 and the
-            ;; printed word at 112-142, and must stay inside the bar's rules
-            (is (< (.getLowerLeftX patch) 51.0))
-            (is (> (+ (.getLowerLeftX patch) (.getWidth patch)) 142.0))
-            ;; the bar's inner rules occupy y 625.5-625.9 and 645.4-645.9, so the
-            ;; patch has to fill exactly between them: short of either and the
-            ;; old divider's sloped ends are left behind as stubs, over either
-            ;; and the rule itself is painted out
-            ;; rects are floats, so the bounds land a ten-thousandth out; the
-            ;; rules are 0.4pt thick, well clear of that
-            (let [slack 0.01]
-              (is (and (>= (.getLowerLeftY patch) (- 625.9 slack))
-                       (<= (+ (.getLowerLeftY patch) (.getHeight patch))
-                           (+ 645.4 slack)))
-                  "between the bar's inner rules, covering all of the gap"))
-            (is (str/includes? ops " l\nS") "the divider is stroked")))
-
-        (testing "the labels land on the printed line, raised to the cantrips box"
-          (let [widget (first (.getWidgets (.getField form "cantrips-slot-labels-1")))
-                stream (.getAppearanceStream (.getNormalAppearance (.getAppearance widget)))
-                ops (with-open [in (.createInputStream (.getCOSObject stream))]
-                      (String. (.readAllBytes in) "ISO-8859-1"))
-                rect (.getRectangle widget)
-                ;; the appearance draws in its own space, so page position is the
-                ;; widget's lower-left corner plus the Td offset
-                page-x (fn [n] (+ (.getLowerLeftX rect)
-                                  (Double/parseDouble (nth (re-find (re-pattern (str "([\\d.]+) ([\\d.]+) Td\\n\\(" n "\\)")) ops) 1))))
-                page-y (+ (.getLowerLeftY rect)
-                          (Double/parseDouble (second (re-find #"[\d.]+ ([\d.]+) Td" ops))))
-                size (Double/parseDouble (second (re-find #"/Helv ([\d.]+) Tf" ops)))
-                close? (fn [a b] (< (Math/abs (- a b)) 0.05))]
-            (is (str/includes? ops "(SLOTS TOTAL)"))
-            (is (str/includes? ops "(SLOTS EXPENDED)"))
-            (is (not (str/includes? ops "re f"))
-                "no fill: the labels sit on blank page above the bar, like the
-                 printed ones above level 1, not over printed art")
-            ;; measured off the artwork: the page prints this line once, above
-            ;; level 1, at x 50.83 and 127.71 on baseline 483.17 at 5pt, and the
-            ;; cantrips box is 167.73pt higher
-            (is (close? size 5.0) "same size as the printed labels")
-            (is (close? (page-x "SLOTS TOTAL") 50.83))
-            (is (close? (page-x "SLOTS EXPENDED") 127.71))
-            (is (close? page-y (+ 483.17 167.73)))
-            ;; text running past the BBox is clipped, not overflowed, which is how
-            ;; the first attempt lost the last letter of SLOTS EXPENDED.
-            ;; getStringWidth is in thousandths of an em, so size x raw/1000 is
-            ;; already points -- no further conversion
-            (let [longest (* size (/ (.getStringWidth pdf/HELVETICA "SLOTS EXPENDED") 1000.0))]
-              (is (<= (+ (- (page-x "SLOTS EXPENDED") (.getLowerLeftX rect)) longest)
-                      (.getWidth rect))
-                  "the rightmost label ends inside the patch"))))
-
-        (testing "the hexagon is level 1's, raised to the cantrips box"
-          (let [hexagon (.getRectangle (first (.getWidgets (.getField form "spell-level-label-0-1"))))
-                level-1 (pdf/spell-level-numeral-box doc 1 "1")]
-            (is (< (Math/abs (- (.getLowerLeftX hexagon) (first level-1))) 0.05)
-                "same column as level 1")
-            (is (< (Math/abs (- (.getLowerLeftY hexagon) (+ (second level-1) 167.73))) 0.05))))
-
-        (testing "it sits over the cantrips rows, not another box"
-          (let [widget (first (.getWidgets (.getField form "spell-level-label-0-1")))
-                row (first (.getWidgets (.getField form "spells-0-1-1")))]
-            (is (> (.getLowerLeftY (.getRectangle widget))
-                   (.getLowerLeftY (.getRectangle row)))
-                "the hexagon is above the first cantrip row")))))))
 
 (defn- drawn-text
   "The strings a field's generated appearance actually shows."

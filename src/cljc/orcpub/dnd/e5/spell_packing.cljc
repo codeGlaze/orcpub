@@ -393,12 +393,8 @@
                                 k (get by-class class)]]
                       {:class class :box first-box :section section
                        ;; True when the bar is FREE, which is what the drawing
-                       ;; side needs to know. A box holding cantrips has no slots;
-                       ;; so does box 0, whatever level it ends up holding, since
-                       ;; it has no slot inputs until reuse-cantrips-box! adds
-                       ;; them. A lone Paladin packs into box 0 and would
-                       ;; otherwise be treated as needing room made in a bar that
-                       ;; has nothing in it.
+                       ;; side needs to know. A box holding cantrips has no slots,
+                       ;; and box 0 only ever holds cantrips.
                        :cantrips? (or (zero? box) (zero? level))
                        :ability (:ability k) :dc (:dc k) :attack (:attack k)}))
      :fields
@@ -436,8 +432,7 @@
               [(keyword (str "spells-" box "-" (inc row) "-" section)) nm])
             ;; The slot total belongs to the class that holds the box, at the
             ;; level it is holding -- not to the level the box is printed with.
-            ;; Box 0 is the cantrips box and has no slots until reuse-cantrips-box!
-            ;; gives it some.
+            ;; Box 0 is the cantrips box, holds cantrips only, and has no slots.
             ;; Only the box a level STARTS in carries the slot total: a
             ;; continuation is the same pool, and printing it twice reads as two
             ;; sets of slots for one level.

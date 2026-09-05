@@ -199,8 +199,8 @@
       (is (not= (:spell-slots-1-1 fields) (:spell-slots-4-1 fields))))))
 
 (deftest the-cantrips-box-takes-no-slot-total
-  ;; Box 0 has no slot inputs until reuse-cantrips-box! gives it some, so writing
-  ;; one there would be a value with no field.
+  ;; Box 0 has no slot inputs, so writing one there would be a value with no
+  ;; field.
   (let [{:keys [fields]} (pk/packed-fields 1 warlock-and-sorcerer)]
     (is (nil? (:spell-slots-0-1 fields)))))
 
