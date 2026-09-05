@@ -45,7 +45,7 @@ window.__spy = {};
       var lo = opt.level_option;
       window.__loStack = null;
       opt.level_option = function(){
-        if (!window.__loStack) window.__loStack = (new Error()).stack.split('\n').slice(1,14).join('\n');
+        if (!window.__loStack) window.__loStack = (new Error()).stack.split(String.fromCharCode(10)).slice(1,14).join(String.fromCharCode(10));
         return lo.apply(this, arguments);
       };
     }
@@ -111,7 +111,7 @@ try {
                 ` longest ${String(worst).padStart(5)}ms`,
                 ` heap ${h0.toFixed(0)}->${h1.toFixed(0)}MB`,
                 drop > 5 ? ` GC? -${drop.toFixed(0)}MB` : '',
-                ' ' + Object.entries(await page.evaluate(() => window.__spy))
+                ' ' + Object.entries((await page.evaluate(() => window.__spy)) || {})
                         .filter(([, v]) => v.n).map(([k, v]) => `${k} ${v.n}x${v.ms.toFixed(0)}ms`).join(' '));
   };
 
