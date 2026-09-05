@@ -369,7 +369,9 @@
       (is (= :packed (spec/default-spell-layout classes 1))))
     (testing "a single caster already reads down its own page"
       (is (= :per-class (spec/default-spell-layout [(first classes)] 1))))
-    (testing "and a style whose numerals are unmeasured is never offered it"
-      (doseq [style [2 3 4]]
-        (is (= :per-class (spec/default-spell-layout classes style))
-            (str "style " style))))))
+    (testing "on every style whose numerals are measured"
+      (doseq [style [1 2 3 4]]
+        (is (= :packed (spec/default-spell-layout classes style))
+            (str "style " style))))
+    (testing "and never on a style that cannot be relabelled"
+      (is (= :per-class (spec/default-spell-layout classes 5))))))

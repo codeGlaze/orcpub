@@ -1928,6 +1928,30 @@
 ;; small patch there hides the numeral without touching the outline or the grey
 ;; edging around it.
 
+(def numeral-boxes
+  "Where each style prints a level's numeral, relative to that level's SLOTS TOTAL
+   box, and the size to set a replacement at. Measured by dev/scan_numerals.clj.
+
+   Sized to the TALLEST and widest digit a style prints, not a typical one. Style
+   3 sets its 1 at 10.7pt where its other digits are 8.6, and a box cut to 8.6
+   left the top of that 1 showing above the replacement.
+
+   Covering the DIGIT rather than the badge it sits in is what makes one method
+   work on four styles. The badges differ -- style 1 and 2 hexagons, style 3 a
+   ring, style 4 a small hexagon -- but the paper immediately around every printed
+   numeral is white on all of them, so a white rectangle over the digit's own box
+   hides it and leaves the badge art alone. Tracing four shapes was the
+   alternative, and the traced style 1 hexagon is what limited packing to one
+   style.
+
+   The box is the widest digit plus a point of margin, not the digit measured: a
+   box holding level 1 may be relabelled 9, and a patch cut to a 1 would leave the
+   9 hanging out of it."
+  {1 {:dx -15.8 :dy 4.3 :w 8.4 :h 12.4 :size 9.5}
+   2 {:dx -14.4 :dy 5.4 :w 9.4 :h 11.0 :size 10.0}
+   3 {:dx -30.4 :dy 6.6 :w 11.2 :h 13.8 :size 11.5}
+   4 {:dx -24.8 :dy 5.8 :w 8.4 :h 7.9 :size 7.0}})
+
 (def ^:private hexagon-offset
   "Where a level's hexagon sits relative to its SLOTS TOTAL box, and how big it
    is, in points. Measured on the style 1 spell page, where the hexagon abuts the
@@ -2577,6 +2601,27 @@
           :when (and r p)]
       {:field field :widget w :page p :rect r :name n})))
 
+(def ^:private row-right-edge-key
+  "Widget dictionary key holding a spell row's right edge as it came off the
+   template.
+
+   Reservation moves that edge left, and two things still need the original: the
+   annotation columns, which are drawn in the strip beyond it, and the cantrips
+   bar of a style with no slots-expended field, whose wide compartment is
+   measured from the row below it. Recording the edge is also what makes
+   reservation idempotent."
+  "OrcpubRowRight")
+
+(defn- row-right-edge
+  "The row's right edge before any annotation columns were reserved out of it."
+  [widget rect]
+  (let [stored (.getFloat (.getCOSObject widget)
+                          (COSName/getPDFName row-right-edge-key)
+                          Float/MIN_VALUE)]
+    (if (= stored Float/MIN_VALUE)
+      (+ (.getLowerLeftX rect) (.getWidth rect))
+      stored)))
+
 (defn reserve-annotation-columns!
   "Narrows every spell row so its annotation columns are not written over.
 
@@ -2584,7 +2629,11 @@
    makes a long name shrink to clear the columns instead of running under them --
    doing it afterwards would leave the baked appearance at its old width."
   [doc]
-  (doseq [{:keys [widget rect]} (spell-row-widgets doc)]
+  (doseq [{:keys [widget rect]} (spell-row-widgets doc)
+          :let [cos (.getCOSObject widget)
+                key (COSName/getPDFName row-right-edge-key)]
+          :when (not (.containsKey cos key))]
+    (.setFloat cos key (float (+ (.getLowerLeftX rect) (.getWidth rect))))
     (.setRectangle widget (PDRectangle. (.getLowerLeftX rect)
                                         (.getLowerLeftY rect)
                                         (max 1.0 (- (.getWidth rect) annotation-zone))
@@ -2604,19 +2653,17 @@
    389 KB, on a branch whose point was making these files smaller."
   [doc annotate]
   (let [rows (->> (spell-row-widgets doc)
-                  (keep (fn [{:keys [field rect page]}]
+                  (keep (fn [{:keys [field widget rect page]}]
                           (let [v (str (.getValueAsString field))]
                             (when-not (s/blank? v)
                               (when-let [a (annotate v)]
-                                {:page page :rect rect :marks a})))))
+                                {:page page :widget widget :rect rect :marks a})))))
                   (group-by :page))]
     (doseq [[page items] rows]
       (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
                                            true true)]
-        (doseq [{:keys [rect marks]} items]
-          (let [right (+ (.getLowerLeftX rect) (.getWidth rect) annotation-zone)
-                ;; The row was narrowed by annotation-zone, so its own right edge
-                ;; is where the columns start rather than where they end.
+        (doseq [{:keys [widget rect marks]} items]
+          (let [right (row-right-edge widget rect)
                 base-y (/ (+ (.getLowerLeftY rect) 1.5) 72.0)]
             (doseq [[k text] [[:concentration (when (:concentration? marks) "C")]
                               [:tag (:tag marks)]
@@ -2656,11 +2703,40 @@
         (or (nil? label)
             (and (string? label) (re-matches #"\d" label))))))
 
+(defn relabel-numeral!
+  "Covers the printed numeral for `level` in section `suffix` and draws `label`.
+
+   Works on any style with a measured numeral box, because it hides the digit
+   rather than repainting the badge -- see numeral-boxes. `label` may be blank, to
+   clear a box nothing uses rather than leave it reading as a level the character
+   does not have."
+  [doc style level suffix label]
+  (when-let [{:keys [dx dy w h size]} (get numeral-boxes style)]
+    (when-let [slots (some-> (.getAcroForm (.getDocumentCatalog doc))
+                             (.getField (str "spell-slots-" level "-" suffix)))]
+      (when-let [widget (first (filter #(some? (.getPage %)) (.getWidgets slots)))]
+        (let [r (.getRectangle widget)
+              x (+ (.getLowerLeftX r) dx)
+              y (+ (.getLowerLeftY r) dy)]
+          (with-open [cs (PDPageContentStream. doc (.getPage widget)
+                                               PDPageContentStream$AppendMode/APPEND
+                                               true true)]
+            (.setNonStrokingColor cs (float 1) (float 1) (float 1))
+            (.addRect cs (float x) (float y) (float w) (float h))
+            (.fill cs)
+            (.setNonStrokingColor cs (float 0) (float 0) (float 0))
+            (when-not (s/blank? (str label))
+              (let [lw (* 72 (string-width (str label) HELVETICA_BOLD size))]
+                (draw-text cs (str label) HELVETICA_BOLD size
+                           (/ (+ x (/ (- w lw) 2.0)) 72.0)
+                           (/ (+ y (* 0.22 h)) 72.0)
+                           [0 0 0])))))))))
+
 (defn packing-supported?
   "Whether `style`'s level numerals can be relabelled, and so whether a packed
    layout may be printed on it. See :packing? in sheet-masters."
   [style]
-  (boolean (:packing? (get sheet-masters style))))
+  (contains? numeral-boxes style))
 
 (defn apply-relabel-instructions!
   "Renumbers the boxes `instructions` names. Returns [applied refused].
@@ -2682,7 +2758,7 @@
       (try
         (if (zero? box)
           (when label (reuse-cantrips-box! doc section label))
-          (relabel-spell-level! doc box section (or label "")))
+          (relabel-numeral! doc style box section (or label "")))
         (catch Exception e
           (println "pdf: relabel failed for box" box "section" section "-" (.getMessage e)))))
     [(count ok) (+ (count bad) (max 0 (- (count (filter map? instructions)) (count wanted))))])))
@@ -2763,15 +2839,19 @@
         ;; is already raised, and adding the rise again put the text 168pt above
         ;; the bar and left it blank.
         level (if (zero? box) 1 box)
-        rect (fn [nm] (some-> (.getField form nm) .getWidgets first .getRectangle))]
+        widget (fn [nm] (some-> (.getField form nm) .getWidgets first))
+        rect (fn [nm] (some-> (widget nm) .getRectangle))]
     (when-let [total (rect (str "spell-slots-" level "-" suffix))]
       (let [narrow [(.getLowerLeftX total) (.getWidth total)]
             wide (if-let [expended (rect (str "slots-expended-" level "-" suffix))]
                    [(.getLowerLeftX expended) (.getWidth expended)]
                    ;; From the divider to the row's right edge, less a margin.
+                   ;; The row's edge as the template drew it: reserving the
+                   ;; annotation columns cuts 56pt off the live rectangle, which
+                   ;; would leave the compartment too narrow for a class name.
                    (let [from (+ (.getLowerLeftX total) (.getWidth total) 12.0)]
-                     (when-let [row (rect (str "spells-" box "-1-" suffix))]
-                       [from (- (+ (.getLowerLeftX row) (.getWidth row)) from 2.0)])))]
+                     (when-let [w (widget (str "spells-" box "-1-" suffix))]
+                       [from (- (row-right-edge w (.getRectangle w)) from 2.0)])))]
         (when wide
           {:narrow narrow :wide wide})))))
 
@@ -2793,6 +2873,23 @@
           (.setRectangle widget (PDRectangle. (float x) (.getLowerLeftY r)
                                               (float (- right x)) (.getHeight r))))))))
 
+(def ^:private cantrips-word-patch
+  "The band each style prints CANTRIPS in inside its cantrips bar, as a dy and
+   height from the bar's middle, with a couple of points of margin.
+
+   draw-column-heading! writes the class name where that word is printed, so the
+   word is covered first. The styles do not agree on where it sits -- style 3
+   rides three points higher than styles 1 and 2 -- and one band wide enough for
+   all four painted over style 4's rules. Measured by dev/scan_cantrips_word.clj,
+   except style 4, whose bar carries ornament the scan cannot tell from lettering
+   and whose band was read off the render.
+
+   A style with no entry gets no patch and keeps its printed word."
+  {1 {:dy -5.3 :h 9.0}
+   2 {:dy -5.3 :h 9.2}
+   3 {:dy -2.4 :h 10.2}
+   4 {:dy -5.0 :h 10.0}})
+
 (defn draw-column-heading!
   "Labels a packed cantrips box: CANTRIPS in the narrow compartment, `label` --
    the class holding the column -- centred in the wide one.
@@ -2806,9 +2903,9 @@
 
    Box 0 additionally has CANTRIPS printed into its artwork, in the middle of the
    bar where the class name now goes, so that word is covered before drawing."
-  ([doc box suffix label] (draw-column-heading! doc box suffix label nil))
-  ([doc box suffix label {:keys [ability dc attack cantrips?]
-                          :or {cantrips? true}}]
+  ([doc style box suffix label] (draw-column-heading! doc style box suffix label nil))
+  ([doc style box suffix label {:keys [ability dc attack cantrips?]
+                                :or {cantrips? true}}]
   (when-let [{:keys [narrow wide]} (bar-compartments doc box suffix)]
     (when-let [[hx hy hw hh] (if (zero? box)
                              (cantrips-hexagon-box doc suffix)
@@ -2822,14 +2919,20 @@
         (when page
           (with-open [cs (PDPageContentStream. doc page PDPageContentStream$AppendMode/APPEND
                                                true true)]
-            (when (zero? box)
-              ;; The bar's interior is 19.5pt between its rules, where the hexagon
-              ;; is 37 tall: patching to the hexagon painted over the rules and
-              ;; left the bar looking cut through.
-              (.setNonStrokingColor cs (float 1) (float 1) (float 1))
-              (.addRect cs (float wx) (float (- middle 9.0)) (float ww) (float 18.0))
-              (.fill cs)
-              (.setNonStrokingColor cs (float 0) (float 0) (float 0)))
+            (when-let [{pdy :dy ph :h} (and (zero? box) (get cantrips-word-patch style))]
+              ;; Only the lettering's own band. The bar's rules sit a few points
+              ;; outside it and a patch tall enough to reach them left the bar
+              ;; looking cut through.
+              ;;
+              ;; From the divider rather than from the wide compartment: the
+              ;; printed word is centred on the bar, not on the compartment, so
+              ;; its first letter starts left of wx and survived a narrower patch.
+              (let [x0 (+ hx hw 6.0)]
+                (.setNonStrokingColor cs (float 1) (float 1) (float 1))
+                (.addRect cs (float x0) (float (+ middle pdy))
+                          (float (- (+ wx ww) x0 2.0)) (float ph))
+                (.fill cs)
+                (.setNonStrokingColor cs (float 0) (float 0) (float 0))))
             (when cantrips?
              (let [;; Shrunk only if a style's narrow compartment cannot take the
                   ;; word at its padded position.
@@ -2884,12 +2987,21 @@
                 ;; -- the save DC of the spell they are casting and what they add
                 ;; to hit -- so they are set like the class name rather than like
                 ;; the CANTRIPS caption, which is a label nobody needs to find.
-                (let [sw (* 72 (string-width stats HELVETICA_BOLD small))]
+                (let [sw (* 72 (string-width stats HELVETICA_BOLD small))
+                      sx (+ wx (/ (- ww sw) 2.0))
+                      ;; Clear of the bar's upper rule, which sits 9.75 above its
+                      ;; middle.
+                      sy (+ middle 14.5)]
+                  ;; On a backing strip. The band above the bar is open paper on
+                  ;; styles 1 and 2 but carries scrollwork on 3 and 4, and set
+                  ;; straight onto that the digits were unreadable.
+                  (.setNonStrokingColor cs (float 1) (float 1) (float 1))
+                  (.addRect cs (float (- sx 2.0)) (float (- sy 1.5))
+                            (float (+ sw 4.0)) (float (+ small 1.5)))
+                  (.fill cs)
+                  (.setNonStrokingColor cs (float 0) (float 0) (float 0))
                   (draw-text cs stats HELVETICA_BOLD small
-                             (/ (+ wx (/ (- ww sw) 2.0)) 72.0)
-                             ;; Clear of the bar's upper rule, which sits 9.75
-                             ;; above its middle.
-                             (/ (+ middle 14.5) 72.0)
+                             (/ sx 72.0) (/ sy 72.0)
                              [0.1 0.1 0.1])))))))))))
 
 (defn stamp-site-line!

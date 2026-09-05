@@ -1015,7 +1015,8 @@
                   :when (and (integer? box) (<= 0 box 9)
                              (integer? section) (<= 1 section casters)
                              (string? class) (<= 1 (count class) 60))]
-            (pdf/draw-column-heading! doc box section class heading))))
+            (pdf/draw-column-heading! doc print-character-sheet-style?
+                                      box section class heading))))
       ;; After the pages exist, so clones are stamped too, and before the card
       ;; pages are appended -- those carry the line on their backs already.
       (pdf/stamp-site-line! doc site-line (boolean prints-site-line?))

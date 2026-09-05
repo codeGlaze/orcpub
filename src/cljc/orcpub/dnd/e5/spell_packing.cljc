@@ -255,11 +255,11 @@
   (inc index))
 
 (def styles-with-measured-numerals
-  "Styles whose printed level numeral has been measured, and so whose boxes can
-   be renumbered. See pdf/sheet-masters :packing? -- this is the same fact, held
-   here too because the builder decides the layout and cannot see the server's
-   templates."
-  #{1})
+  "Styles whose printed level numeral has been measured, and so whose boxes can be
+   renumbered. Mirrors pdf/numeral-boxes, which holds the measurements -- the fact
+   is repeated here because the builder decides the layout and cannot see the
+   server's templates."
+  #{1 2 3 4})
 
 (defn packing-supported?
   "Whether a packed layout may be printed on `style`."

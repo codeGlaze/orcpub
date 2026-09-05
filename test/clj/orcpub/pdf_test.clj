@@ -1124,6 +1124,43 @@
               (is (< (Math/abs (- (- (get before n) w) pdf/annotation-zone)) 0.01)
                   (str "style " style " " n)))))))))
 
+(deftest reserving-the-columns-twice-narrows-a-row-once
+  ;; A row's pre-reservation right edge is recorded on its widget, and reservation
+  ;; skips a row that already carries one. Without that, calling it twice took
+  ;; 112pt off a 141pt row on style 4 and left nothing to write a spell name in.
+  (doseq [style [1 2 3 4]]
+    (let [{:keys [file]} (get pdf/sheet-masters style)]
+      (with-open [in (.openStream (io/resource file))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (let [width (fn [] (-> (.getAcroForm (.getDocumentCatalog doc))
+                               (.getField "spells-1-1-1")
+                               .getWidgets first .getRectangle .getWidth))
+              before (width)]
+          (pdf/reserve-annotation-columns! doc)
+          (let [once (width)]
+            (pdf/reserve-annotation-columns! doc)
+            (is (< (Math/abs (- before once pdf/annotation-zone)) 0.01)
+                (str "style " style))
+            (is (< (Math/abs (- once (width))) 0.01)
+                (str "style " style " is unchanged by the second call"))))))))
+
+(deftest a-column-heading-fits-after-the-columns-are-reserved
+  ;; Styles 2 and 4 have no slots-expended field, so the bar's wide compartment is
+  ;; measured from the spell row beneath it. Reservation cuts the annotation zone
+  ;; off that row, and measuring the narrowed rectangle left an 83pt compartment
+  ;; reading 27pt -- enough to turn "Warlock" into "Warl...".
+  (doseq [style [1 2 3 4]]
+    (let [{:keys [file]} (get pdf/sheet-masters style)]
+      (with-open [in (.openStream (io/resource file))
+                  doc (Loader/loadPDF (.readAllBytes in))]
+        (let [wide #(second (:wide (@#'pdf/bar-compartments doc 0 1)))
+              before (wide)]
+          (pdf/reserve-annotation-columns! doc)
+          (is (< (Math/abs (- before (wide))) 0.01)
+              (str "style " style " keeps its compartment"))
+          (is (= "Warlock" (:label (@#'pdf/fit-heading "Warlock" (- (wide) 6.0))))
+              (str "style " style " fits a class name")))))))
+
 (deftest a-filled-row-keeps-its-name-clear-of-the-columns
   ;; The columns only work if the name stops before them. A name that still
   ;; overflowed would print under the mark and undo the whole point of aligning.
@@ -1242,19 +1279,17 @@
           (is (<= (* 72 (pdf/string-width label pdf/HELVETICA_BOLD size)) 35.0)
               (str nm " -> " label)))))))
 
-(deftest packing-is-refused-on-a-style-whose-numerals-are-not-measured
-  ;; relabel-spell-level! covers the printed level numeral with a patch cut to
-  ;; hexagon-path, traced off style 1. The styles do not merely offset that shape,
-  ;; they draw a different one -- the numeral sits at dx -14.4 from its slots box
-  ;; on style 1, -12.4 on 2, -28.0 on 3 and -23.0 on 4, and style 3 rings its
-  ;; numerals where style 4 uses a small hexagon. A packed page rendered on 2, 3
-  ;; and 4 showed both numbers, the old beside the new: "3 0", "4 1", "7 2".
-  (testing "only style 1 is measured"
-    (is (pdf/packing-supported? 1))
-    (doseq [style [2 3 4]]
-      (is (not (pdf/packing-supported? style)) (str "style " style))))
-  (testing "an unmeasured style applies no relabel rather than printing a lie"
-    (doseq [style [2 3 4]]
+(deftest packing-relabels-every-measured-style
+  ;; relabel-numeral! covers the printed level numeral with a white rectangle cut
+  ;; to numeral-boxes. The digit sits at a different offset from its slots box on
+  ;; each style -- dx -15.8 on 1, -14.4 on 2, -30.4 on 3, -24.8 on 4 -- so a box
+  ;; measured on one style leaves another showing both numbers, the old beside the
+  ;; new: "3 0", "4 1", "7 2".
+  (testing "all four styles are measured"
+    (doseq [style [1 2 3 4]]
+      (is (pdf/packing-supported? style) (str "style " style))))
+  (testing "and each applies the instructions it is given"
+    (doseq [style [1 2 3 4]]
       (let [{:keys [file marks]} (get pdf/sheet-masters style)]
         (with-open [in (.openStream (io/resource file))
                     doc (Loader/loadPDF (.readAllBytes in))]
@@ -1262,16 +1297,18 @@
           (let [[applied refused]
                 (pdf/apply-relabel-instructions!
                  doc [{:section 1 :box 5 :label "2"}] 1 style)]
-            (is (zero? applied) (str "style " style))
-            (is (= 1 refused)))))))
-  (testing "and style 1 still applies them"
+            (is (= 1 applied) (str "style " style))
+            (is (zero? refused) (str "style " style)))))))
+  (testing "an unmeasured style applies no relabel rather than printing a lie"
+    (is (not (pdf/packing-supported? 5)))
     (let [{:keys [file marks]} (get pdf/sheet-masters 1)]
       (with-open [in (.openStream (io/resource file))
                   doc (Loader/loadPDF (.readAllBytes in))]
         (pdf/grow-spell-sections! doc 1 marks)
-        (let [[applied _] (pdf/apply-relabel-instructions!
-                           doc [{:section 1 :box 5 :label "2"}] 1 1)]
-          (is (= 1 applied)))))))
+        (let [[applied refused] (pdf/apply-relabel-instructions!
+                                 doc [{:section 1 :box 5 :label "2"}] 1 5)]
+          (is (zero? applied))
+          (is (= 1 refused)))))))
 
 (deftest a-level-bar-makes-room-for-a-class-name-beside-its-slots
   ;; The one bar that has to carry both a heading and an input the player writes
