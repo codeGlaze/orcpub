@@ -4231,7 +4231,12 @@
                           (pdf-spec/casting-classes built-char
                                                     (:spells-map plugin-data)))
         packable? (and (> (count casting-classes) 1)
-                       (packing/packing-supported? print-character-sheet-style?))
+                       (packing/packing-supported? print-character-sheet-style?)
+                       ;; Not offered when the columns cannot hold the character.
+                       ;; A Wizard 20 beside a Cleric leaves no column a Cleric
+                       ;; fits, and packing anyway would print without it.
+                       (packing/fits? print-character-sheet-style?
+                                      (packing/packing-shape casting-classes)))
         print-button-enabled (if (or (= print-character-sheet-style? nil)
                                      (= (str print-character-sheet-style?) "NaN"))
                                false true)

@@ -375,3 +375,58 @@
             (str "style " style))))
     (testing "and never on a style that cannot be relabelled"
       (is (= :per-class (spec/default-spell-layout classes 5))))))
+
+;; ─── Nothing may be lost without saying so ───────────────────────────────────
+
+(def ^:private wizard-cleric-druid
+  "A Wizard 20 beside two other full casters: 151 spells, which two pages hold by
+   raw capacity but no single column can seat the Cleric in. Packing used to drop
+   the Cleric outright -- 33 spells, with nothing reported."
+  [{:class "Wizard"
+    :levels {0 6 1 12 2 13 3 13 4 13 5 9 6 9 7 9 8 7 9 7}}
+   {:class "Cleric" :levels {0 5 1 10 2 10 3 8}}
+   {:class "Druid" :levels {0 4 1 8 2 8}}])
+
+(deftest a-packing-that-cannot-hold-a-class-says-so
+  (doseq [style [1 2 3 4]]
+    (let [pages (pk/pack style wizard-cleric-druid)
+          missed (pk/unplaced wizard-cleric-druid pages)]
+      (testing (str "style " style)
+        (is (seq missed) "the Cleric does not fit and is reported")
+        (is (= #{"Cleric"} (set (keys missed)))
+            "the Wizard and the Druid are placed in full")
+        (is (= 33 (reduce + (vals (get missed "Cleric"))))
+            "every one of its spells is accounted for")
+        (is (not (pk/fits? style wizard-cleric-druid)))))))
+
+(deftest a-packing-that-holds-everything-reports-nothing
+  (doseq [style [1 2 3 4]]
+    (let [classes [{:class "Warlock" :pact? true :levels {0 3 5 10}}
+                   {:class "Sorcerer" :levels {0 5 1 6 2 5 3 4}}]
+          pages (pk/pack style classes)]
+      (testing (str "style " style)
+        (is (empty? (pk/unplaced classes pages)))
+        (is (pk/fits? style classes))))))
+
+(deftest packing-shape-counts-either-names-or-counts
+  (is (= [{:class "Bard" :pact? nil :levels {0 2 1 3}}]
+         (pk/packing-shape [{:class "Bard" :levels {0 ["Light" "Mending"]
+                                                         1 ["Bane" "Bless" "Heroism"]}}])))
+  (is (= [{:class "Bard" :pact? nil :levels {0 2 1 3}}]
+         (pk/packing-shape [{:class "Bard" :levels {0 2 1 3}}]))
+      "idempotent, so a caller may pass either"))
+
+(deftest a-layout-that-would-lose-spells-is-neither-defaulted-nor-honoured
+  (let [named (mapv (fn [{:keys [class levels]}]
+                      {:class class
+                       :levels (into {} (map (fn [[lvl n]]
+                                               [lvl (mapv #(str class " " lvl "-" %)
+                                                          (range n))]))
+                                     levels)})
+                    wizard-cleric-druid)]
+    (doseq [style [1 2 3 4]]
+      (testing (str "style " style)
+        (is (= :per-class (spec/default-spell-layout named style))
+            "not offered as the default")
+        (is (seq (:unplaced (pk/packed-fields style named)))
+            "and packed-fields carries the report for the caller that asks anyway")))))

@@ -564,7 +564,11 @@
    A style whose numerals have not been measured is not offered it at all: a
    packed page there prints the old level number beside the new."
   [classes style]
-  (if (and (> (count classes) 1) (packing/packing-supported? style))
+  (if (and (> (count classes) 1)
+           (packing/packing-supported? style)
+           ;; A packing that cannot hold the character is not offered as the
+           ;; default, and choosing it explicitly falls back below.
+           (packing/fits? style (packing/packing-shape classes)))
     :packed
     :per-class))
 
@@ -601,7 +605,10 @@
                                   (char5e/spells-known built-char))
         classes (casting-classes built-char spells-map)
         layout (or spell-layout (default-spell-layout classes style))]
-    (if (and (= :packed layout) (packing/packing-supported? style) (seq classes))
+    (if (and (= :packed layout) (packing/packing-supported? style) (seq classes)
+             ;; Even when asked for outright. A packed page that lost a class is
+             ;; worse than the layout the caller did not want.
+             (packing/fits? style (packing/packing-shape classes)))
       (packed-spellcasting-fields classes style)
       (spell-page-fields sorted-spells-known
                          spell-slots

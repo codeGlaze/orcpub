@@ -237,6 +237,54 @@
           :box box
           :label (when held (str (:level held)))})))
 
+(defn unplaced
+  "What `pages` failed to hold, as `{class {level rows}}`, empty when it holds
+   everything.
+
+   Packing can lose a class without saying so, in three places: a class with more
+   levels than any column holds is skipped when no page-wide spread fits it, a
+   class that fits no column on a fresh page is skipped too, and a pact caster's
+   list is truncated to the two boxes reserved for it. All three are silent, and
+   the sheet that comes out looks complete -- a Wizard 20 beside a Cleric and a
+   Druid printed without the Cleric at all, 33 spells gone with nothing reported.
+
+   So the count that went in is compared against the count placed, and the caller
+   decides. Nothing here tries to place the remainder: a packing that cannot hold
+   a character is one the caller should not print."
+  [classes pages]
+  (let [placed (reduce (fn [acc {:keys [class level rows]}]
+                         (update-in acc [class level] (fnil + 0) rows))
+                       {}
+                       (for [page pages col page e (:placed col)] e))]
+    (into {}
+          (keep (fn [{:keys [class levels]}]
+                  (let [missed (into {}
+                                    (keep (fn [[level need]]
+                                            (let [got (get-in placed [class level] 0)]
+                                              (when (< got need) [level (- need got)]))))
+                                    levels)]
+                    (when (seq missed) [class missed]))))
+          classes)))
+
+(defn packing-shape
+  "`classes` as pack wants them: a row COUNT per level, not the spell names.
+   packed-fields is handed the names, and fits? the counts, so callers holding
+   names go through here first."
+  [classes]
+  (mapv (fn [{:keys [class levels pact?]}]
+          {:class class
+           :pact? pact?
+           :levels (into {} (map (fn [[lvl names]]
+                                   [lvl (if (number? names) names (count names))]))
+                         levels)})
+        classes))
+
+(defn fits?
+  "Whether `classes` -- in packing-shape form -- can be packed on `style` with
+   nothing lost."
+  [style classes]
+  (empty? (unplaced classes (pack style classes))))
+
 (defn page-count [pages] (count pages))
 
 (defn utilisation
@@ -299,6 +347,10 @@
                          entry (:placed col)]
                      (assoc entry :section (section-of index)))]
     {:pages (count pages)
+     ;; Empty unless the packing lost something. A caller that prints anyway
+     ;; prints a sheet missing spells, so pdf_spec takes this as the signal to
+     ;; fall back to a page per class.
+     :unplaced (unplaced counted pages)
      :relabels (relabel-instructions pages)
      ;; Where to write each class's name: the cantrips box its column starts
      ;; with. A class with no cantrips -- a Paladin, a Ranger -- starts at a level
