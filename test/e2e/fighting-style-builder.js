@@ -112,10 +112,61 @@ async function controlFor(page, labelText) {
     check('and it is what shows while the tag is unset', selected === 0, `selectedIndex=${selected}`);
   }
 
+  // The :classes divvying rule's authoring half. A style with no classes ticked is open to every
+  // fighting-style class (the fallback), so this control exists to author the NARROWER case.
+  const classLabels = await page.evaluate(() => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const hdr = [...document.querySelectorAll('div,span')]
+      .find(e => /classes that may take this style/i.test(e.textContent.trim()) && e.children.length <= 1);
+    if (!hdr) return null;
+    for (let n = hdr.parentElement, i = 0; n && i < 4; n = n.parentElement, i++) {
+      const names = [...n.querySelectorAll('span')].map(s => s.textContent.trim())
+        .filter(t => /^(fighter|paladin|ranger)$/i.test(t));
+      if (names.length) return [...new Set(names)];
+    }
+    return [];
+  });
+  check('the :classes control offers exactly the classes that HAVE the feature',
+        !!classLabels && classLabels.length === 3, JSON.stringify(classLabels));
+
+  const tickedPaladin = await page.evaluate(() => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const el = [...document.querySelectorAll('span')]
+      .filter(e => e.textContent.trim() === 'Paladin' && vis(e))[0];
+    if (!el) return false;
+    (el.closest('.pointer') || el.parentElement).click();
+    return true;
+  });
+  check('ticked Paladin', tickedPaladin);
+  await page.waitForTimeout(500);
+
   const nameInput = await controlFor(page, 'Name');
   if (nameInput) { await nameInput.fill('Bulwark'); await nameInput.dispatchEvent('change'); }
   await page.waitForTimeout(400);
   await page.screenshot({ path: path.join(SHOTS, 'fs-builder-filled.png'), fullPage: true });
+
+  // and it has to survive the save as a SET of keywords, not the widget's strings
+  const sourceInput = await controlFor(page, 'Option Source Name');
+  if (sourceInput) { await sourceInput.fill('Divvy Source'); await sourceInput.dispatchEvent('change'); }
+  await page.waitForTimeout(300);
+  await page.evaluate(() => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const el = [...document.querySelectorAll('button,div,span')]
+      .filter(e => e.children.length <= 2 && /save to browser storage/i.test(e.textContent.trim()) && vis(e))
+      .sort((a, b) => a.textContent.length - b.textContent.length)[0];
+    if (el) el.click();
+  });
+  await page.waitForTimeout(900);
+  const saved = await page.evaluate(() => {
+    try {
+      const v = window.cljs.core.get_in.call(
+        null, window.cljs.core.deref.call(null, window.re_frame.db.app_db),
+        window.cljs.reader.read_string.call(null, '[:plugins "Divvy Source" :orcpub.dnd.e5/fighting-styles]'));
+      return window.cljs.core.pr_str.call(null, v);
+    } catch (e) { return 'ERR ' + e.message; }
+  });
+  check('the authored style saves :classes as a set of keywords',
+        /:classes #\{:paladin\}/.test(saved), saved.slice(0, 200));
 
   console.log(`\nscreenshots: ${SHOTS}`);
   await browser.close();

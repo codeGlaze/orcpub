@@ -125,12 +125,14 @@ then merge `develop` in, since the shared files here have diverged for the feat 
   (`spell-slot-progression.md`.)
 
 ### OPEN — Phase 1 levers & pins (from `direction.md`)
-- 🔴 **Homebrew fighting styles not selectable by the class that grants them.** DECIDED in
-  `fighting-style-authoring.md` (`:classes` divvying rule; thread the pool through
-  `fighting-style-selection`'s vestigial `additional-options`), pinned by
-  `fighting_style_class_characterization_test`, **threading not done** — all four call sites still pass
-  nothing. Characterized in the browser by `imported_style_usable_e2e.js` (7/7): a Fighter sees the six
-  SRD styles and not the imported one. Authoring works end to end; consumption does not.
+- ✅ **Homebrew fighting styles are selectable by the class that grants them** (2026-09-05). The
+  threading decided in `fighting-style-authoring.md` is done: all four class call sites pass the pool,
+  `eligible-homebrew-styles` applies the `:classes` rule, the `:ref` survives.
+  `test/e2e/imported-style-usable.js` flipped from pinning the gap to proving the chain — import,
+  Fighter, offered (and a `:classes #{:paladin}` style withheld), picked, **AC 12 → 13 on screen**.
+  - ✅ and the authoring half: a `:multi-enum` field type (set-valued, checkboxes, elementwise
+    validation) and the "Classes that may take this style" control. `test/e2e/fighting-style-builder.js`
+    proves a Paladin-only style is authorable in the form and stores `:classes #{:paladin}`.
 - **Grant-authoring UI** — the biggest remaining lever. Now has a concrete substrate: see **Track E**.
 - 🔴 **`:required-when`** conditional field validation (HIGH — flagged in `builder_fields.cljc`).
 - **Grant matrix** — feat silo proven; background / race / subrace / class / subclass remain (each a
@@ -209,8 +211,9 @@ then merge `develop` in, since the shared files here have diverged for the feat 
     *existing* form (`test/e2e/language-builder.js`, driving `lein e2e-server`), run it green, swap,
     run it green again — 12/12 both times, same `:plugins` map to the character. The pin asserts only
     what a user can observe, so it is indifferent to how the form is built.
-  - **E2 — Tier 2 example done RIGHT = fighting styles**: (a) finish the decided class-path threading so an
-    imported style is *usable*; (b) replace the 19-field flat form with a **`:rows` node** — "add an effect",
+  - **E2 — Tier 2 example done RIGHT = fighting styles**: (a) ✅ **done 2026-09-05** — the class path is
+    threaded and the `:classes` control authorable, so a style can be written, restricted, exported,
+    imported and *used* (`fighting-style-authoring.md` "Status"); (b) replace the 19-field flat form with a **`:rows` node** — "add an effect",
     each row a titled group (AC / attack / damage / reaction); (c) rendered-UI E2E in **`test/e2e/`**
     following `race-builder-asi.js`. Acceptance: Defense, Archery and Thrown Weapon authored in the UI,
     picked by a Fighter, correct number on the sheet.

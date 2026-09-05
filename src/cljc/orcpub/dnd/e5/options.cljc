@@ -2069,16 +2069,39 @@
     :max num
     :options options}))
 
-(defn fighting-style-selection [class-kw & [restrictions additional-options]]
+;; fighting-style-option compiles a homebrew style; it is defined further down (it needs
+;; plugin-modifiers), and the class-path selection below needs it here.
+(declare fighting-style-option)
+
+(defn eligible-homebrew-styles
+  "The divvying rule (`fighting-style-authoring.md`): a homebrew style that declares
+   `:classes #{:fighter …}` is offered to exactly those classes; one that declares none is
+   offered to ALL fighting-style classes. Built-in styles are untouched by this — they keep
+   their per-class whitelist, so no existing class's list changes (D29).
+   `entries` are raw orcbrew maps, not option cfgs, because the rule reads authored data."
+  [class-kw entries]
+  (->> entries
+       (filter (fn [{:keys [classes]}]
+                 (or (empty? classes) (contains? (set classes) class-kw))))
+       (map fighting-style-option)))
+
+(defn fighting-style-selection
+  "A class's OWN fighting-style choice. Keeps its top-level `:ref` — that is where the character
+   stores the pick, and a cross-silo grant deliberately has no `:ref` (D30). `additional-options`
+   is the homebrew pool as raw entries; it was declared but unused until the class path was
+   threaded (`fighting-style-authoring.md`)."
+  [class-kw & [restrictions additional-options]]
   (fighting-style-selection-2
    class-kw
    1
-   (if restrictions
-     (filter
-      (fn [o]
-        (restrictions (::t/key o)))
+   (concat
+    (if restrictions
+      (filter
+       (fn [o]
+         (restrictions (::t/key o)))
+       fighting-style-options)
       fighting-style-options)
-     fighting-style-options)))
+    (eligible-homebrew-styles class-kw additional-options))))
 
 (defn feat-selection [spell-lists spells-map num]
   (t/selection-cfg

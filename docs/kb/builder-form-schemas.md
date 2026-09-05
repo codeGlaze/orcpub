@@ -43,12 +43,26 @@ under **HOW TO** below, that is a bug in this document — say so rather than in
 
 ---
 
-## 1–2a. The model and the field node — already documented elsewhere
+## 1–2a. The model and the field node
 
-The three-layer model (schema → widgets → props) and the field node vocabulary are **shipped** and
-described in `content-extensibility-framework.md` §2 and in `builder_fields.cljc`'s own docstring.
-This doc does not repeat them. One rule worth restating because it bit this branch: a three-state
-enum needs an explicit `nil` option **first** (`weapon-data-model.md`).
+The three-layer model (schema → widgets → props) is described in
+`content-extensibility-framework.md` §2 and not repeated here. The **field types** live in code —
+`builder_fields.cljc` (`field-value-pred`, which validates them) and `render-builder-field` in
+`views.cljs` (which draws them). As of 2026-09-05:
+
+| `:type` | control | stored | validated against |
+|---|---|---|---|
+| `:text` | text input | string | `string?` |
+| `:number` | number input | integer (already parsed by `number-field`) | `number?` |
+| `:enum` | `<select>` | the option's `:value`, any type | the declared option values |
+| `:multi-enum` | checkboxes | a **set** of option values | every element against the declared values |
+
+A `:boolean` type is deliberately still missing — see the convergence note in `builder_fields.cljc`;
+it must route through `common/toggle-in`, not a parallel function.
+
+Two rules that each cost a shipped bug: a three-state enum needs an explicit `nil` option **first**
+(`weapon-data-model.md`), and a `:number` value arrives already parsed — re-parsing it throws
+(`dropdown-value-coercion.md`).
 
 ### 2b. Group node — PROPOSED, not built
 

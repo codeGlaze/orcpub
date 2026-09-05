@@ -1062,7 +1062,8 @@
       :max num}))
 
 
-(defn fighter-option [spells spells-map plugin-subclasses-map language-map weapon-map]
+(defn fighter-option [spells spells-map plugin-subclasses-map language-map weapon-map
+                       & [homebrew-fighting-styles]]
   (opt5e/class-option
    spells
    spells-map
@@ -1116,7 +1117,7 @@
              20 {:modifiers [(mod5e/num-attacks 4)]}}
     :subclass-level 3
     :subclass-title "Martial Archetype"
-    :selections [(opt5e/fighting-style-selection :fighter)
+    :selections [(opt5e/fighting-style-selection :fighter nil homebrew-fighting-styles)
                  (opt5e/new-starting-equipment-selection
                   :fighter
                   {:name "Armor"
@@ -1182,7 +1183,7 @@
                                                           " to STR, DEX, or CON checks that don't already include prof bonus; running long jump increases by "
                                                           (?ability-bonuses ::char5e/str)
                                                           " ft.")})]}
-                           10 {:selections [(opt5e/fighting-style-selection :fighter)]}
+                           10 {:selections [(opt5e/fighting-style-selection :fighter nil homebrew-fighting-styles)]}
                            15 {:modifiers [(mod5e/critical 18)]}
                            18 {:modifiers [(mod5e/dependent-trait
                                             {:page 73
@@ -1436,7 +1437,8 @@
                                :summary "create minor elemental effect"}]}]})))
 
 
-(defn paladin-option [spells spells-map plugin-subclasses-map language-map weapon-map]
+(defn paladin-option [spells spells-map plugin-subclasses-map language-map weapon-map
+                       & [homebrew-fighting-styles]]
   (opt5e/class-option
    spells
    spells-map
@@ -1467,7 +1469,7 @@
                           :options {:priests-pack 1
                                     :explorers-pack 1}}]
      :armor {:chain-mail 1}
-     :levels {2 {:selections [(opt5e/fighting-style-selection :paladin #{:defense :dueling :great-weapon-fighting :protection})]}
+     :levels {2 {:selections [(opt5e/fighting-style-selection :paladin #{:defense :dueling :great-weapon-fighting :protection} homebrew-fighting-styles)]}
               3 {:modifiers [(mod5e/immunity :disease)
                              (mod5e/trait-cfg
                               {:name "Divine Health"
@@ -1782,7 +1784,8 @@
    15 1
    17 1})
 
-(defn ranger-option [spells spells-map plugin-subclasses-map language-map weapon-map]
+(defn ranger-option [spells spells-map plugin-subclasses-map language-map weapon-map
+                       & [homebrew-fighting-styles]]
   (opt5e/class-option
    spells
    spells-map
@@ -1845,7 +1848,7 @@
                                                :max 2})]})]})
                   (favored-enemy-selection language-map 1)
                   (favored-terrain-selection 1)]
-     :levels {2 {:selections [(opt5e/fighting-style-selection :ranger #{:archery :defense :dueling :two-weapon-fighting})]}
+     :levels {2 {:selections [(opt5e/fighting-style-selection :ranger #{:archery :defense :dueling :two-weapon-fighting} homebrew-fighting-styles)]}
               3 {:modifiers [(mod5e/action
                               {:name "Primeval Awareness"
                                :level 3

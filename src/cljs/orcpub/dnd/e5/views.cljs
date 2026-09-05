@@ -7510,6 +7510,23 @@
          ;; reached app-db, while the input still SHOWED it via input-field's local buffer. Clearing
          ;; worked, since (seq nil) is nil. Broken for every :number field in every declarative
          ;; builder, draconic ancestry included; caught by driving the real app.
+         ;; "which of these apply" — a SET, so the control is checkboxes. A <select multiple> is
+         ;; worse on every axis here: it hides options behind a scroll, needs a modifier key to
+         ;; deselect, and reads back a DOMStringList.
+         :multi-enum (let [chosen (set v)]
+                       [:div.flex.flex-wrap
+                        (doall
+                         (for [{:keys [value title]} options]
+                           ^{:key (str value)}
+                           [:div.m-r-15.m-b-5
+                            [comps/labeled-checkbox
+                             title
+                             (contains? chosen value)
+                             false
+                             #(dispatch [set-prop path
+                                         (if (contains? chosen value)
+                                           (disj chosen value)
+                                           (conj chosen value))])]]))])
          :number [number-field {:value v
                                 :on-change #(dispatch [set-prop path %])}]
          ;; :text
@@ -7581,7 +7598,8 @@
   ;; vocabulary and can be dropped into any other builder's extra-fields unchanged.
   (simple-content-builder ::classes/fighting-style-builder-item
                           ::classes/set-fighting-style-prop
-                          (concat bf/ac-bonus-fields
+                          (concat bf/fighting-style-classes-field
+                                  bf/ac-bonus-fields
                                   bf/attack-bonus-fields
                                   bf/damage-bonus-fields)))
 

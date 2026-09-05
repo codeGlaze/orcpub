@@ -12,6 +12,25 @@ folds into an open pool → a feat's `:grant {:from :fighting-styles}` offers it
 Fighter/Paladin/Ranger picks their own fighting style) is DECIDED and in progress — below. Phase B
 (in-app builder UI) remains.
 
+## Status — 2026-09-05: BUILT
+
+Both halves are in. The feat grant landed earlier; the **class path is now threaded** exactly as
+decided below — `fighting-style-selection` concatenates the homebrew pool, divvied by `:classes`,
+and keeps its `:ref`. Proven at three levels:
+
+- `fighting_style_class_characterization_test` — the no-homebrew case is unchanged (3 tests).
+- `fighting_style_class_eligibility_test` — the divvying rule, the additive-not-replacing property,
+  the surviving `:ref`, compiled mechanics, and `nil`/`[]` behaving as "no homebrew" (6 tests).
+- `test/e2e/imported-style-usable.js` — through the real app: import a pack, build a Fighter, see
+  the open style offered and the `:classes #{:paladin}` one withheld, pick it, and watch the sheet's
+  Armor Class go **12 → 13**. That script previously pinned the gap; the flip is in its diff.
+
+**The authoring half is in too.** The field schema gained a `:multi-enum` type (a set of declared
+values, rendered as checkboxes, each element validated), and the builder now carries a "Classes that
+may take this style" control offering exactly Fighter/Paladin/Ranger. `test/e2e/fighting-style-builder.js`
+authors a Paladin-only style through the real form and asserts `:classes #{:paladin}` lands in
+`:plugins` as a set of keywords (17/17). Tick nothing and you get the fallback — open to all.
+
 ## The divvying rule (decided) — which classes can take a homebrew style
 
 A style declares `:classes #{:fighter :paladin …}` → eligible for exactly those. **Absent

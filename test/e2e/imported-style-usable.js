@@ -18,10 +18,31 @@ const dbAt=(p,q)=>p.evaluate(x=>{try{const v=window.cljs.core.get_in.call(null,
   window.cljs.core.deref.call(null,window.re_frame.db.app_db),window.cljs.reader.read_string.call(null,x));
   return window.cljs.core.pr_str.call(null,v);}catch(e){return 'ERR '+e.message;}},q);
 
-// The .orcbrew we import: a style granting +1 AC while armored, in the canonical :bonus shape.
+// The .orcbrew we import. Two styles, because two things need proving:
+//   :bulwark  — no :classes, so every fighting-style class may take it; +1 AC unconditionally,
+//               so the sheet's number has to move (an armor-gated bonus would prove nothing on
+//               an unarmored character, and the tag itself is pinned by the JVM AC tests).
+//   :oathkeep — :classes #{:paladin}, so a FIGHTER must not be offered it. That is the divvying
+//               rule from fighting-style-authoring.md, checked through the real UI.
 const ORCBREW = `{"Usable Source" {:orcpub.dnd.e5/fighting-styles
   {:bulwark {:name "Bulwark" :key :bulwark :option-pack "Usable Source"
-             :props {:ac-bonus {:bonus 1 :armor? true}}}}}}`;
+             :props {:ac-bonus {:bonus 1}}}
+   :oathkeep {:name "Oathkeep" :key :oathkeep :option-pack "Usable Source"
+              :classes #{:paladin}
+              :props {:ac-bonus {:bonus 1}}}}}}`;
+
+// The on-screen Armor Class, read from the builder's summary. Returns a number or null.
+const acOnScreen = (page) => page.evaluate(() => {
+  const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const label = [...document.querySelectorAll('div,span')]
+    .filter(e => e.children.length === 0 && /^armor class$/i.test(e.textContent.trim()) && vis(e))[0];
+  if (!label) return null;
+  for (let n = label.parentElement, i = 0; n && i < 4; n = n.parentElement, i++) {
+    const m = n.textContent.replace(/armor class/i, '').match(/\d+/);
+    if (m) return Number(m[0]);
+  }
+  return null;
+});
 
 (async () => {
   fs.mkdirSync(SHOTS,{recursive:true});
@@ -42,7 +63,8 @@ const ORCBREW = `{"Usable Source" {:orcpub.dnd.e5/fighting-styles
     await fi.setInputFiles(file);
     await page.waitForTimeout(2500);
     const plugins = await dbAt(page, '[:plugins "Usable Source" :orcpub.dnd.e5/fighting-styles]');
-    check('imported style is in :plugins', /bulwark/i.test(plugins), plugins.slice(0,120));
+    check('imported styles are in :plugins',
+          /bulwark/i.test(plugins) && /oathkeep/i.test(plugins), plugins.slice(0,140));
 
     // build a Fighter — fighting styles are a level-1 Fighter selection
     await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil:'networkidle' });
@@ -83,32 +105,34 @@ const ORCBREW = `{"Usable Source" {:orcpub.dnd.e5/fighting-styles
     //
     // classes.cljc:1119 builds the Fighter's selection with opt5e/fighting-style-selection, which
     // reads the STATIC opt5e/fighting-style-options — the six SRD styles. The homebrew-inclusive
-    // pool ::classes5e/fighting-style-pool (spell_subs.cljs:1052) exists and DOES concat homebrew
-    // entries, but it is only threaded into a feat's :grant {:from :fighting-styles}
-    // (template.cljc:1560).
-    //
-    // So an imported homebrew style is saveable, exportable and importable, but a Fighter cannot
-    // pick it from their own class feature. It is reachable only through a feat grant. Flip this
-    // assertion when the class selection is moved onto the pool.
+    // FLIPPED 2026-09-05 (E2). This block used to pin the gap: the class selection read the
+    // static SRD list, so an imported style was saveable, exportable and importable but no
+    // Fighter could pick it. fighting-style-selection now concatenates the homebrew pool,
+    // divvied by :classes (absent = every fighting-style class) — see
+    // docs/kb/fighting-style-authoring.md and fighting_style_class_eligibility_test.
     const offered = /bulwark/i.test(body);
-    check('KNOWN GAP: imported homebrew style is NOT offered by the Fighter class selection',
-      offered === false,
-      'the class selection reads the static SRD list, not the homebrew-inclusive pool');
+    check('imported homebrew style IS offered by the Fighter class selection', offered,
+      'the class selection now reads the homebrew-inclusive pool');
+    check('but a style restricted to :paladin is NOT offered to a Fighter',
+      !/oathkeep/i.test(body), 'the :classes divvying rule, through the real UI');
     await page.screenshot({ path: path.join(SHOTS,'usable-03-selection.png'), fullPage:true });
 
-    if (false) {
+    {
       const before = await dbAt(page, '[:character :orcpub.entity/options :class]');
-      await page.evaluate(() => {
-        const vis = e => { const r=e.getBoundingClientRect(); return r.width>0&&r.height>0; };
-        const el = [...document.querySelectorAll('div,span,button,label')]
-          .filter(e => e.children.length<=2 && /bulwark/i.test(e.textContent) && vis(e))
-          .sort((a,b)=>a.textContent.length-b.textContent.length)[0];
-        if (el) el.click();
-      });
+      const acBefore = await acOnScreen(page);
+      // The option is a card: the text node is inside it, and the click handler is on an
+      // ancestor. Clicking the text node itself does nothing — that is what made this check fail
+      // once the style finally appeared.
+      await page.locator('#app :text("Bulwark")').first().click();
       await page.waitForTimeout(2500);
       const after = await dbAt(page, '[:character :orcpub.entity/options :class]');
       check('selecting it records the choice on the character', after !== before && /bulwark/i.test(after),
             after.slice(0,160));
+      // The last mile: the authored number reaches the sheet. Anything less proves only that the
+      // option was clickable.
+      const acAfter = await acOnScreen(page);
+      check('and the authored +1 AC reaches the on-screen Armor Class',
+            acBefore !== null && acAfter === acBefore + 1, `before ${acBefore} -> after ${acAfter}`);
       await page.screenshot({ path: path.join(SHOTS,'usable-03-selected.png'), fullPage:true });
     }
     check('no uncaught JS errors', errors.length===0, errors.slice(0,2).join(' | '));

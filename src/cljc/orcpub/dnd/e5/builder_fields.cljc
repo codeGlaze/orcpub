@@ -24,6 +24,10 @@
   [{:keys [type options]}]
   (case type
     :enum   (set (map :value options))
+    ;; a SET of declared option values — "which of these apply". Rejects a value outside the
+    ;; declared options exactly as :enum does, elementwise.
+    :multi-enum (let [allowed (set (map :value options))]
+                  (fn [v] (and (coll? v) (every? allowed v))))
     :number number?
     :text   string?
     (constantly true)))
@@ -53,6 +57,22 @@
 ;; subclasses, draconic ancestries, feats, fighting styles), so a fragment defined once can be
 ;; dropped into any of their builders' extra-fields and that silo can author the prop. The compiler
 ;; is already shared; only the form fields were missing.
+
+(def fighting-style-class-options
+  ;; Only the classes that HAVE a fighting-style feature. Offering Wizard here would let an author
+  ;; write a restriction that can never be satisfied.
+  [{:value :fighter :title "Fighter"}
+   {:value :paladin :title "Paladin"}
+   {:value :ranger  :title "Ranger"}])
+
+(def fighting-style-classes-field
+  ;; The authoring half of the divvying rule (`fighting-style-authoring.md`): pick none and the
+  ;; style is open to every class that has the feature — the documented fallback, which is why
+  ;; this is not :required?.
+  [{:key :classes
+    :type :multi-enum
+    :label "Classes that may take this style"
+    :options fighting-style-class-options}])
 
 (def ac-bonus-fields
   "Authors {:ac-bonus {:bonus N :armor? b :shield? b}} — a flat bonus applied to whichever AC

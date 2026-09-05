@@ -1050,12 +1050,19 @@
 ;; constructor is mapped over the homebrew entries only, then concatenated built-in
 ;; first. Reads through ::e5/plugin-vals like every plugin pool.
 (reg-sub
- ::classes5e/fighting-style-pool
+ ::classes5e/homebrew-fighting-styles
  :<- [::e5/plugin-vals]
  (fn [plugin-vals _]
+   (pools/homebrew-entries plugin-vals ::e5/fighting-styles)))
+
+;; Two shapes, one source. Feats grant from the POOL (option cfgs, all styles); a class's own
+;; choice takes the RAW entries, because the `:classes` divvying rule reads authored data.
+(reg-sub
+ ::classes5e/fighting-style-pool
+ :<- [::classes5e/homebrew-fighting-styles]
+ (fn [homebrew _]
    (concat opt5e/fighting-style-options
-           (map opt5e/fighting-style-option
-                (pools/homebrew-entries plugin-vals ::e5/fighting-styles)))))
+           (map opt5e/fighting-style-option homebrew))))
 
 
 (def gnome-option-cfg
@@ -1198,15 +1205,19 @@
         tiefling-option-cfg]))))))
 
 
-(defn base-class-options [spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons]
+(defn base-class-options [spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons
+                          & [homebrew-fighting-styles]]
   [(classes5e/barbarian-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/bard-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/cleric-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/druid-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/fighter-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
+   (classes5e/fighter-option spell-lists spells-map plugin-subclasses-map language-map weapons-map
+                            homebrew-fighting-styles)
    (classes5e/monk-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/paladin-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
-   (classes5e/ranger-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
+   (classes5e/paladin-option spell-lists spells-map plugin-subclasses-map language-map weapons-map
+                            homebrew-fighting-styles)
+   (classes5e/ranger-option spell-lists spells-map plugin-subclasses-map language-map weapons-map
+                            homebrew-fighting-styles)
    (classes5e/rogue-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/sorcerer-option spell-lists spells-map plugin-subclasses-map language-map weapons-map)
    (classes5e/warlock-option spell-lists spells-map plugin-subclasses-map language-map  weapons-map invocations boons)
@@ -1222,10 +1233,13 @@
  :<- [::classes5e/invocations]
  :<- [::classes5e/boons]
  :<- [::mi5e/custom-and-standard-weapons-map]
- (fn [[spell-lists spells-map plugin-subclasses-map language-map plugin-classes invocations boons weapons-map] _]
+ :<- [::classes5e/homebrew-fighting-styles]
+ (fn [[spell-lists spells-map plugin-subclasses-map language-map plugin-classes invocations boons weapons-map
+       homebrew-fighting-styles] _]
    ;; Defensive handling: ensure base classes always render even if plugin classes fail
    (let [base-classes (try
-                        (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons)
+                        (base-class-options spell-lists spells-map plugin-subclasses-map language-map weapons-map invocations boons
+                                            homebrew-fighting-styles)
                         (catch js/Error e
                           (js/console.error "Failed to build base classes:" e)
                           []))

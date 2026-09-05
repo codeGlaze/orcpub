@@ -76,7 +76,26 @@
                             ["fighting-style"    classes/fighting-style-fields]
                             ["ac-bonus"          bf/ac-bonus-fields]
                             ["attack-bonus"      bf/attack-bonus-fields]
-                            ["damage-bonus"      bf/damage-bonus-fields]]
+                            ["damage-bonus"      bf/damage-bonus-fields]
+                            ["fs-classes"        bf/fighting-style-classes-field]]
             {:keys [type key]} (bf/flatten-fields schema)]
-      (is (contains? #{:text :number :enum} type)
+      (is (contains? #{:text :number :enum :multi-enum} type)
           (str label " field " key " has unknown :type " (pr-str type))))))
+
+(deftest multi-enum-validates-every-element-against-the-declared-options
+  ;; The whole point of a declared option list is that a value outside it is rejected. :enum does
+  ;; that for one value; :multi-enum has to do it for each.
+  (let [pred (bf/field-value-pred (first bf/fighting-style-classes-field))]
+    (is (pred #{}) "no classes chosen is legal — it means 'open to all' (the fallback)")
+    (is (pred #{:fighter}))
+    (is (pred #{:fighter :paladin :ranger}))
+    (is (not (pred #{:fighter :wizard})) "a class with no fighting-style feature is not a valid restriction")
+    (is (not (pred :fighter)) "a bare value is not a set")
+    (is (not (pred "fighter")) "a string is what a careless widget would store; reject it")))
+
+(deftest a-fighting-style-with-no-classes-still-saves
+  ;; Absent :classes is the documented fallback, so the field must be optional. If it were
+  ;; required the builder would refuse to save the most common case.
+  (let [spec-pred (bf/validate-fields bf/fighting-style-classes-field
+                                      {:name "Bulwark" :key :bulwark})]
+    (is (empty? spec-pred) (str "unexpected problems: " (pr-str spec-pred)))))
