@@ -3721,13 +3721,19 @@
         0)))])
 
 (defn ac-bonus-modifiers
-  "Compile an authored flat bonus — {:ac-bonus N :armor? b :shield? b} — into ?ac-bonus-fns.
-  Bonuses are summed onto whichever calculation wins, so a bonus is never lost to a calculation
-  that beats the base."
-  [{:keys [ac-bonus] :as spec}]
-  [(modifiers/ac-bonus-fn
-    (fn [armor shield]
-      (if (ac-applies? spec armor shield) (or ac-bonus 0) 0)))])
+  "Compile an authored flat bonus — {:bonus N :armor? b :shield? b} — into ?ac-bonus-fns. Bonuses
+  are summed onto whichever calculation wins, so a bonus is never lost to a calculation that beats
+  the base.
+
+  The value key is :bonus, matching :attack-bonus and :damage-bonus. It was originally :ac-bonus,
+  which repeated the prop name — {:ac-bonus {:ac-bonus 1}} — and disagreed with the weapon props
+  added later. :ac-bonus is still read as an alias so anything authored against the earlier shape
+  keeps working."
+  [{:keys [bonus ac-bonus] :as spec}]
+  (let [n (or bonus ac-bonus 0)]
+    [(modifiers/ac-bonus-fn
+      (fn [armor shield]
+        (if (ac-applies? spec armor shield) n 0)))]))
 
 ;; Grant vocabulary A — `:props` → FIXED mechanics. This `case` is the shared, cross-silo
 ;; vocabulary: it runs for feats AND races/subraces/classes/subclasses (despite the "feat" name),

@@ -275,3 +275,14 @@ Highest-leverage piece is a **wielding predicate** generalising AC's three-state
 tags to weapons (property, handedness, offhand, empty-handed) — half the corpus conditions on
 equipment state, and one predicate vocabulary covers three shape families instead of a key per
 style. Get the shape right: the cost of getting it wrong is also 7×.
+
+### 🔴 HIGH — homebrew fighting styles are not selectable by the class that grants them
+
+Authoring works end to end: build, save, export `.orcbrew`, re-import, props intact (proven by
+`homebrew_roundtrip_e2e.js`). But a Fighter cannot pick an imported style — the class selection
+reads the static SRD list (`options.cljc:2072`), while the homebrew-inclusive pool
+(`spell_subs.cljs:1052`) is threaded only into a feat's `:grant`.
+
+So the builder page ships a feature whose output the character builder ignores. Fix: point
+`fighting-style-selection` at the pool, threading it the way `template.cljc:1483` already does for
+grants. Characterized by `imported_style_usable_e2e.js`; flip that assertion when fixed.

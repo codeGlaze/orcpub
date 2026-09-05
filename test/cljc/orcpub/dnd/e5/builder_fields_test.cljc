@@ -45,15 +45,15 @@
 
 (deftest ac-bonus-fields-validate-what-the-form-can-produce
   (testing "a Defense-shaped style: +1 AC while wearing armor"
-    (is (spec/valid? ac-spec (assoc base :props {:ac-bonus {:ac-bonus 1 :armor? true}}))))
+    (is (spec/valid? ac-spec (assoc base :props {:ac-bonus {:bonus 1 :armor? true}}))))
   (testing "the tags are optional — absent means either way"
-    (is (spec/valid? ac-spec (assoc base :props {:ac-bonus {:ac-bonus 1}}))))
+    (is (spec/valid? ac-spec (assoc base :props {:ac-bonus {:bonus 1}}))))
   (testing "and the whole fragment is optional, so existing content stays valid (D9)"
     (is (spec/valid? ac-spec base)))
   (testing "a non-number bonus is rejected"
-    (is (not (spec/valid? ac-spec (assoc base :props {:ac-bonus {:ac-bonus "one"}})))))
+    (is (not (spec/valid? ac-spec (assoc base :props {:ac-bonus {:bonus "one"}})))))
   (testing "a tag value outside the declared options is rejected"
-    (is (not (spec/valid? ac-spec (assoc base :props {:ac-bonus {:ac-bonus 1 :armor? "yes"}}))))))
+    (is (not (spec/valid? ac-spec (assoc base :props {:ac-bonus {:bonus 1 :armor? "yes"}}))))))
 
 (deftest ac-bonus-field-paths-match-what-the-props-compiler-reads
   (testing "every field path is [:props :ac-bonus <k>], and <k> is a key ac-bonus-modifiers reads.
@@ -61,5 +61,7 @@
             does nothing."
     (doseq [{:keys [key]} bf/ac-bonus-fields]
       (is (= [:props :ac-bonus] (vec (take 2 key))) (str key " must live under :props :ac-bonus"))
-      (is (contains? #{:ac-bonus :armor? :shield?} (last key))
-          (str (last key) " must be a key the :ac-bonus prop compiler understands")))))
+      (is (contains? #{:bonus :armor? :shield?} (last key))
+          (str (last key) " must be a key the :ac-bonus prop compiler understands. The value key is
+               :bonus, matching :attack-bonus and :damage-bonus; :ac-bonus is read as a legacy
+               alias but the FORM must write the canonical one.")))))

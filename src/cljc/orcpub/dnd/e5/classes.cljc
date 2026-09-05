@@ -36,7 +36,7 @@
   ;; :text, not :string — :string is not a declared field type, so field-value-pred fell through to
   ;; (constantly true) and the description was never validated.
   ;; The AC fragment is shared vocabulary, not a fighting-style field: the same :props key works in
-  ;; a race, a subclass or a feat, and Defense is {:ac-bonus 1 :armor? true}.
+  ;; a race, a subclass or a feat, and Defense is {:bonus 1 :armor? true}.
   (into [{:key :description :type :text :label "Description"}]
         (concat bf/ac-bonus-fields bf/attack-bonus-fields bf/damage-bonus-fields)))
 (spec/def ::homebrew-fighting-style (bf/fields->spec fighting-style-fields))

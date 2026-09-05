@@ -156,3 +156,29 @@ screenshot of the rendered form.
 5. **Re-import** into a clean browser context restores both, verified absent beforehand.
 
 So the vocabulary is not just compiled — it survives the whole authoring lifecycle.
+
+## GAP: an imported style cannot be picked by the class that has the feature
+
+The round-trip above proves storage. It does **not** prove usability, and the last mile fails.
+
+Measured (`imported_style_usable_e2e.js`): import a homebrew style, build a Fighter, open Class /
+Level. The Fighting Style selection renders with all six SRD styles — Archery, Defense, Dueling,
+Great Weapon Fighting, Protection, Two Weapon Fighting — and the imported style is **absent**.
+
+Cause, traced:
+
+| | |
+|---|---|
+| `classes.cljc:1119` | the Fighter's selection is `opt5e/fighting-style-selection` |
+| `options.cljc:2072` | which reads the **static** `opt5e/fighting-style-options` — the six SRD styles |
+| `spell_subs.cljs:1052` | a homebrew-inclusive pool `::classes5e/fighting-style-pool` **does** exist and concats `::e5/fighting-styles` plugin entries |
+| `template.cljc:1560` | but it is threaded only into a feat's `:grant {:from :fighting-styles}` |
+
+So homebrew styles reach a character **only through a feat grant**, never through the class feature
+that actually grants fighting styles. Authoring works end to end; consumption does not.
+
+The fix is to point the class selection at the pool instead of the static list. It is not a
+one-line swap: the pool lives in a cljs subscription while `fighting-style-selection` is called from
+`.cljc` template construction, so the pool has to be threaded in the way `template.cljc:1483`
+already threads it for grants. Pinned by the e2e as characterization — flip that assertion when it
+lands.

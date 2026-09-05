@@ -100,8 +100,10 @@
 ;; The two halves :tortle-ac used to weld together, separately authorable.
 (def p-flat17   (props-class :p-flat17- {:ac {:ac 17 :abilities []}}))   ; flat natural AC, no restriction
 (def p-noarmor  (props-class :p-noarm-  {:armor-gives-no-ac true}))      ; worn armor stops counting
-(def p-bonus    (props-class :p-bonus- {:ac-bonus {:ac-bonus 1}}))
-(def p-armorbon (props-class :p-abon-  {:ac-bonus {:ac-bonus 1 :armor? true}}))
+(def p-bonus    (props-class :p-bonus- {:ac-bonus {:bonus 1}}))
+;; the superseded value key, kept as an alias — see ac-bonus-accepts-the-legacy-value-key
+(def p-legacy   (props-class :p-legacy- {:ac-bonus {:ac-bonus 1}}))
+(def p-armorbon (props-class :p-abon-  {:ac-bonus {:bonus 1 :armor? true}}))
 
 (def natural-armor-class-full (natural-armor-class :nat-armor- 3))
 (def natural-armor-class-b    (natural-armor-class :nat-armor-b- 3))  ; a SECOND natural source
@@ -152,6 +154,8 @@
                          weapons5e/weapons-map bracers-class)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map p-bonus)
+     (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
+                         weapons5e/weapons-map p-legacy)
      (opt5e/class-option sl5e/spell-lists spells5e/spell-map {} language-map
                          weapons5e/weapons-map p-armorbon)]
     [] language-map)))
@@ -565,6 +569,14 @@
           "the search is cheaper than the rebuild it rides along with — a generous bound, since
            the measured ratio is a few percent. Asserted loosely on purpose: a tight timing
            assertion would be flaky, and the number is printed above for inspection."))))
+
+(deftest ac-bonus-accepts-the-legacy-value-key
+  (testing "the value key is :bonus, matching :attack-bonus and :damage-bonus. It was :ac-bonus,
+            which repeated the prop name. Both compile, so anything authored against the earlier
+            shape keeps working."
+    (is (= ((ac-fn-for abilities :fighter :p-bonus-) nil nil)
+           ((ac-fn-for abilities :fighter :p-legacy-) nil nil))
+        "{:bonus 1} and {:ac-bonus 1} produce the same AC")))
 
 (deftest migration-parity-sweep
   (testing "every old mechanism vs its authored replacement, across every equipment state"

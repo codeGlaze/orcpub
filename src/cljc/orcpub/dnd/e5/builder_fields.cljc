@@ -55,12 +55,12 @@
 ;; is already shared; only the form fields were missing.
 
 (def ac-bonus-fields
-  "Authors {:ac-bonus {:ac-bonus N :armor? b :shield? b}} — a flat bonus applied to whichever AC
+  "Authors {:ac-bonus {:bonus N :armor? b :shield? b}} — a flat bonus applied to whichever AC
   calculation wins, rather than to a particular one. The two tags are THREE-state: pick a value to
   require or forbid that equipment, or leave blank for either way. Defense fighting style is
-  exactly {:ac-bonus 1 :armor? true}."
-  (let [has-bonus? #(get-in % [:props :ac-bonus :ac-bonus])]
-    [{:key [:props :ac-bonus :ac-bonus] :type :number :label "AC Bonus"}
+  exactly {:bonus 1 :armor? true}."
+  (let [has-bonus? #(get-in % [:props :ac-bonus :bonus])]
+    [{:key [:props :ac-bonus :bonus] :type :number :label "AC Bonus"}
      {:key [:props :ac-bonus :armor?] :type :enum :label "Armor requirement" :when has-bonus?
       :options [{:value nil   :title "Both"}
                 {:value true  :title "Only while wearing armor"}
