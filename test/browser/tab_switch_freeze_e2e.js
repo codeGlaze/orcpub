@@ -39,6 +39,16 @@ window.__spy = {};
     var t5e = e5 && e5.template;
     // The layer the profile actually implicates: template construction, not class/spell
     // option building. Earlier counters wrapped the wrong level and read zero.
+    // Who calls level-option 2820 times? Inference has been wrong repeatedly here;
+    // capture the stack at the first call of each burst instead.
+    if (typeof opt.level_option === 'function') {
+      var lo = opt.level_option;
+      window.__loStack = null;
+      opt.level_option = function(){
+        if (!window.__loStack) window.__loStack = (new Error()).stack.split('\n').slice(1,14).join('\n');
+        return lo.apply(this, arguments);
+      };
+    }
     wrap(t5e,'template','template');
     wrap(t5e,'template_selections','tmplSelections');
     wrap(opt,'level_option','levelOption');
@@ -126,5 +136,7 @@ try {
     await tab(`${i}. -> Class / Level`, 'Class / Level');
     await tab(`${i}. -> Race`, 'Race');
   }
+  const st = await page.evaluate(() => window.__loStack);
+  console.log('\n=== stack at the first level-option call ===\n' + (st || '(never called)'));
   await browser.close();
 })().catch(e => { console.error('FAILED', e); process.exit(1); });
