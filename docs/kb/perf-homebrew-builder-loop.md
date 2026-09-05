@@ -966,6 +966,31 @@ So the cost is the *volume of option data built and rendered at once for one cla
 single slow function. This is the owner's original observation from the start of the
 investigation: "you don't need spell DETAILS until you click on a spell to read it."
 
+### It survives a PRODUCTION build — not a dev artifact
+
+The `(program)`-dominated profile raised the obvious doubt: how much of this is
+`:optimizations :none`? A 12.8 s "cold load" was already discarded earlier in this document
+for exactly that reason. Built prod (`lein fig:prod`, advanced compilation, single 3.0 MB
+bundle overwriting the same `orcpub.js` the server serves) and re-ran identically:
+
+```
+mega-64, 4x throttle, no control, switch 2 -> Class / Level
+
+dev  (:optimizations :none)    1147 / 1068 / 1160 / 1279 ms    heap +31..45 MB
+prod (:advanced)                654 ms                          heap +23 MB
+```
+
+Same position, same shape, about half the magnitude. Advanced compilation helps and does not
+cure it. 654 ms at 4x is still a visible stall, and a laptop also running the server can be
+more contended than 4x.
+
+**Confound worth recording:** the first prod run showed no freeze at all — because the probe's
+positive control (picking a caster from the dropdown) runs *before* the tab loop and realises
+the expensive content up front, suppressing the very thing being measured. The dev run that
+included the control was likewise clean (max 189 ms). Comparing the controlled prod run to
+the uncontrolled dev runs would have "shown" the freeze was a dev artifact. `SKIP_CONTROL=1`
+now exists so compared runs agree on this; runs that disagree on it are not comparable.
+
 ### What would fix it (not yet measured, so candidates)
 
 - Virtualise the spell option list so only visible options render.

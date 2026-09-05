@@ -100,16 +100,20 @@ try {
   };
 
   // Positive control: a class dropdown change is known to call memoized-spell-option.
-  // If this registers and the tab switches do not, the tab switches genuinely run none.
-  await tab('control: -> Class tab', 'Class / Level');
-  await page.evaluate(() => { for (const k in window.__spy) window.__spy[k] = {n:0,ms:0}; });
-  try {
-    await page.locator('select').nth(0).selectOption({ label: 'Wizard' });
-    await page.waitForTimeout(1200);
-    const d = await page.evaluate(() => window.__spy);
-    console.log('  control: pick Wizard    ',
-      Object.entries(d).filter(([, v]) => v.n).map(([k, v]) => `${k} ${v.n}x${v.ms.toFixed(0)}ms`).join(' ') || 'no calls');
-  } catch (e) { console.log('  control failed'); }
+  // SKIP_CONTROL=1 omits it -- the control REALISES the expensive content up front and so
+  // suppresses the very freeze this probe exists to catch. Runs compared against each
+  // other must agree on this flag.
+  if (!process.env.SKIP_CONTROL) {
+    await tab('control: -> Class tab', 'Class / Level');
+    await page.evaluate(() => { for (const k in window.__spy) window.__spy[k] = {n:0,ms:0}; });
+    try {
+      await page.locator('select').nth(0).selectOption({ label: 'Wizard' });
+      await page.waitForTimeout(1200);
+      const d = await page.evaluate(() => window.__spy);
+      console.log('  control: pick Wizard    ',
+        Object.entries(d).filter(([, v]) => v.n).map(([k, v]) => `${k} ${v.n}x${v.ms.toFixed(0)}ms`).join(' ') || 'no calls');
+    } catch (e) { console.log('  control failed'); }
+  }
 
   // Flip back and forth the way a user comparing options would.
   for (let i = 1; i <= 5; i++) {
