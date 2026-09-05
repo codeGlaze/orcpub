@@ -75,7 +75,10 @@ const PACK = process.argv[2];
   await round('race Half-Orc', () => click('Half-Orc'));
   await round('tab Class / Level', () => click('Class / Level'));
   await page.waitForTimeout(2000);
-  for (const c of ['Wizard', 'Cleric', 'Druid']) await round('class ' + c, () => click(c));
+  // Class and level are <select>s, not clickable cards.
+  const pick = (n, label) => page.locator('select').nth(n).selectOption({ label });
+  for (const c of ['Wizard', 'Cleric', 'Druid']) await round('class ' + c, () => pick(0, c));
+  await round('level 5', () => pick(1, '5'));
 
   await browser.close();
 })().catch(e => { console.error('FAILED', e); process.exit(1); });
