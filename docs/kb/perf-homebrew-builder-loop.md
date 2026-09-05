@@ -417,6 +417,35 @@ settle — the friendliest possible pacing, and not how anyone builds a characte
 At 130 caster classes, **11% of a 32-second session is spent unable to paint**, across 50
 separate long tasks — that is the "chug": not one hang, a constant stutter.
 
+### On a machine that resembles a user's
+
+The container is an idle 4-core 2.1 GHz Xeon with 15 GB free — nobody builds a character on
+one. **Free RAM is not the lever**: the chug is CPU-bound (long tasks), so more memory does
+not worsen it. CPU throttling does, and it is what a real device looks like. Chrome DevTools
+calls 4x "mid-tier mobile"; 2x is roughly a modest laptop with other tabs open. Same churn,
+same pack, `Emulation.setCPUThrottlingRate`:
+
+| | long tasks | worst | total blocked | blocked share | click->paint median / p90 |
+|---|---|---|---|---|---|
+| 130 casters, 1x | 50 | 300 ms | 3.4 s | 11% | 24 / 58 ms |
+| 130 casters, 2x | 130 | 599 ms | 13.1 s | 34% | 90 / 132 ms |
+| **130 casters, 4x** | **138** | **1301 ms** | **31.9 s** | **54%** | **138 / 285 ms** |
+| clean library, 4x (control) | 136 | 331 ms | 15.9 s | 35% | 59 / 166 ms |
+
+At 4x, **54% of a 59-second session is spent unable to paint**, 135 of the 138 long tasks
+are over 100 ms, 78 are over 200 ms, and the worst single block is **1.3 seconds**. Median
+click-to-paint is 138 ms — every interaction visibly lags.
+
+The control matters: a clean library at the same throttle also degrades (35% blocked), so
+some of this is the app's baseline cost on a slow device. But content **doubles the blocked
+time** (15.9 s -> 31.9 s), **quadruples the worst block** (331 ms -> 1301 ms), and adds 40 MB
+of retained growth against the clean run's 12 MB. The content-driven share is the part this
+investigation can fix.
+
+Throttling amplifies CPU-bound work only. Heap growth is unchanged across 1x/2x/4x
+(+39.2 / +39.0 / +40.0 MB) — the accumulation is speed-independent, exactly as expected for a
+cache that never evicts.
+
 ### It is class browsing that accumulates, and it is unbounded
 
 Splitting the churn by interaction kind, same pack, same pacing:

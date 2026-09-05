@@ -47,6 +47,12 @@ const pct=(a,p)=>a.length?a.slice().sort((x,y)=>x-y)[Math.min(a.length-1,Math.fl
   await page.addInitScript(INSTRUMENT);
   const cdp=await page.context().newCDPSession(page);
   await cdp.send('HeapProfiler.enable'); await cdp.send('Runtime.enable');
+  // Simulate a real user's machine. This box is an idle 4-core Xeon; nobody builds a
+  // character on one. Chrome DevTools calls 4x "mid-tier mobile"; 2x is roughly a modest
+  // laptop with other tabs open. Throttling amplifies CPU-bound work, which is what the
+  // chug is - it does NOT amplify the memory accumulation, which is speed-independent.
+  const CPU = Number(process.argv[4] || 1);
+  if (CPU > 1) await cdp.send('Emulation.setCPUThrottlingRate', {rate: CPU});
   const heap=async()=>{await cdp.send('HeapProfiler.collectGarbage');
                        return (await cdp.send('Runtime.getHeapUsage')).usedSize/1048576;};
 
@@ -98,7 +104,7 @@ const pct=(a,p)=>a.length?a.slice().sort((x,y)=>x-y)[Math.min(a.length-1,Math.fl
   const heapAfter = await heap();
 
   const blocked=lt.reduce((a,b)=>a+b,0);
-  console.log(`\n=== ${pak?path.basename(pak,'.orcbrew'):'CLEAN'} [${MODE}] — ${acted} interactions in ${(wall/1000).toFixed(0)}s (${missed} missed) ===`);
+  console.log(`\n=== ${pak?path.basename(pak,'.orcbrew'):'CLEAN'} [${MODE}, ${CPU}x cpu] — ${acted} interactions in ${(wall/1000).toFixed(0)}s (${missed} missed) ===`);
   console.log(`long tasks        ${lt.length}   worst ${Math.max(0,...lt)}ms   total blocked ${(blocked/1000).toFixed(1)}s`);
   console.log(`blocked share     ${(100*blocked/wall).toFixed(0)}% of wall clock the page could not paint`);
   console.log(`  >50ms  ${lt.filter(x=>x>50).length}    >100ms ${lt.filter(x=>x>100).length}    >200ms ${lt.filter(x=>x>200).length}    >500ms ${lt.filter(x=>x>500).length}`);
