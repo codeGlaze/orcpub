@@ -93,21 +93,87 @@ What improves is the failure granularity above them:
 detection genuinely needs every source at once, and it still gets one, since all sources are
 assembled in memory as before.
 
-## The one genuine hazard: migration under a ~5 MB ceiling
+## The migration hazard, measured — and why copy-then-delete is dead
 
-During migration both copies exist. A 2.07 MB library peaks at ~4.14 MB against a ~5 MB
-localStorage ceiling. This is the part of the plan most likely to hurt a real user, so it is
-handled explicitly rather than hoped through:
+The first draft of this plan proposed writing v2 alongside the legacy blob and deleting
+legacy once v2 read back clean. **That is wrong for real libraries and is withdrawn.** The
+reversal is recorded rather than overwritten because the reasoning matters.
 
-- Migrate source-by-source, checking each `set-item` return (it already reports quota
-  failure).
-- On any failure: delete the partial v2 keys, keep the legacy blob untouched, stay on the v1
-  path, and warn. A failed migration must be a no-op, never a lost library.
-- Delete the legacy `plugins` key only after the v2 index and every slot have been read back
-  successfully.
-- A library too large to migrate is a library already at the ceiling. That is the existing
-  hard limit documented in `perf-homebrew-builder-loop.md`, not a new one, and it is the
-  case IndexedDB eventually solves.
+Measured ceiling in Chromium (probe, not folklore):
+
+```
+localStorage ceiling:   5,177,344 chars   (~4.94 M chars)
+                        identical for ASCII and CJK fills
+                        -> Chrome counts UTF-16 code units, not UTF-8 bytes,
+                           so the limit is a CHARACTER count and library size
+                           can be compared to it directly
+
+navigator.storage.estimate().quota:  916,414,672   <- IndexedDB/CacheStorage, NOT localStorage
+```
+
+Against that ceiling:
+
+| Library | Doubled | Fits under 5.18 M? |
+| --- | --- | --- |
+| MegaPak, 2,166,081 chars (measured) | 4.33 M | yes, ~0.84 M spare |
+| a 3 MB `.orcbrew` (~2.7 M chars) | 5.4 M | **no** |
+
+Copy-then-delete therefore works only below ~2.58 M chars, and users are already past that.
+The strategy has to change, not the safety margin.
+
+### Incremental migration with a shrinking legacy blob
+
+Move one source at a time and shrink the legacy blob as you go, so both copies never exist
+in full:
+
+```
+parse legacy once (already happens on load) -> full map held in JS heap
+
+for each source, SMALLEST FIRST:
+    write  plugins:v2:src:<name>
+    rewrite legacy blob without that source
+```
+
+Peak storage is `legacy-remaining + the one source being moved`, never `2 x library`.
+Smallest-first keeps the early steps (when legacy is still large) cheap, and by the largest
+source the legacy blob has nearly drained:
+
+```
+step 1     : L + s_min        e.g. 2.7 M + 0.1 M = 2.8 M
+final step : 2 x s_max        e.g. 0.6 M + 0.6 M = 1.2 M
+```
+
+A 2.7 M-char library peaks around 2.8 M chars. Comfortably clear.
+
+### Every intermediate state is valid, so interruption is not a failure
+
+The loader reads **the union of the v2 slots and whatever remains in the legacy blob**. A
+half-migrated library is a legitimate state, not damage to recover from. Migration is
+finished when the legacy blob is empty and its key is dropped.
+
+This removes the "failed migration must be a strict no-op" requirement entirely — there is
+no partial state to roll back, and a tab closed mid-migration simply resumes next load.
+
+On a `set-item` failure the migration stops where it is, leaves the union valid, and warns.
+It is best-effort and partial by design.
+
+### The one case that cannot migrate, and does not need to
+
+A single source larger than ~2.58 M chars cannot be moved by this scheme. That is exactly
+the library chunking would not help anyway (the longest task can never drop below the
+largest source's own parse). Such a source stays in the legacy blob, the union loader keeps
+serving it, and no time is wasted pretending otherwise.
+
+### Stated plainly: this does not raise the ceiling
+
+Chunking makes loads faster and failures narrower. It does **not** give anyone more room —
+same bytes, plus a little per-key overhead, so total usage rises slightly. Users at 3 M
+chars are near the wall before and after.
+
+Capacity is a separate problem with a separate answer: the same probe measured ~916 MB of
+origin quota available to IndexedDB against ~5.18 M chars for localStorage, roughly 180x.
+That argues for promoting the IndexedDB migration on **capacity** grounds independently of
+this perf work, and this plan is deliberately shaped as a stepping stone toward it.
 
 ## Phases
 
@@ -125,10 +191,14 @@ Extract `split-library`, `assemble-library` and `plan-writes` into `.cljc` and r
 current writer/reader in terms of them. Prove output is byte-identical to today. This moves
 the interesting logic somewhere the JVM suite can reach it.
 
-**Phase 2 — v2 format + migration. Synchronous read still.**
-Land the format, the dirty-tracked writer, and the migration. Deliberately keeps the read
-synchronous so this phase is about correctness only, with startup timing unchanged. Verify
-with `storage_shape_e2e.js` extended into a before/after assertion.
+**Phase 2 — v2 format + incremental migration. Synchronous read still.**
+Land the format, the dirty-tracked writer, the union loader, and the shrinking-legacy
+migration. Deliberately keeps the read synchronous so this phase is about correctness only,
+with startup timing unchanged. Must be tested from an interrupted migration (v2 slots plus a
+partial legacy blob), not only from a clean one. Measure the migration's own cost: it
+rewrites the legacy blob once per source, roughly `N/2 x library` of serialization one time,
+which may need batching (shrink every K sources) or a progress indicator. Verify with
+`storage_shape_e2e.js` extended into a before/after assertion.
 
 **Phase 3 — async chunked hydration. The actual win.**
 Yield between sources. Measure with the probes already committed (builder-open split, churn
@@ -152,7 +222,9 @@ numbers against the same fixtures used for the baseline, not on a plausible-look
 
 ## Explicitly not in this plan
 
-- IndexedDB. It is the eventual right tier (async, no ~5 MB ceiling, lazy per-source
-  hydration) and this plan is a compatible stepping stone toward it, not a competitor.
+- IndexedDB. It is the eventual right tier and the only answer to **capacity** (~916 MB of
+  measured origin quota vs ~5.18 M chars for localStorage). This plan is a compatible
+  stepping stone toward it, not a competitor — but see the note above: it should be
+  scheduled on capacity grounds regardless of how this perf work lands.
 - Any change to the `.orcbrew` file format. Files are already per-source.
 - Lazy *class bodies* / the spell-detail work (Track 3) — separate, tracked separately.
