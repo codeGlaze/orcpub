@@ -401,6 +401,44 @@ was larger than build (681 ms) and therefore the bigger problem; that comparison
 meaningless. The independent render cost is the React reconcile/commit column, which is
 24–33 ms per click and grows with the number of option cards.
 
+## Under real use: clicking around quickly
+
+Every measurement above waited ~1.5s between clicks, which lets the 500ms build debounce
+settle — the friendliest possible pacing, and not how anyone builds a character.
+`builder_churn_e2e.js` drives race / subrace / class / level changes 120-260ms apart for
+~125 interactions and reports what a user would feel. All with `:help` already deferred.
+
+| library | long tasks | worst | total blocked | blocked share | click->paint p90 | heap over the session |
+|---|---|---|---|---|---|---|
+| clean | 8 | 86 ms | 0.5 s | 2% | 43 ms | 30.9 -> 37.5 MB |
+| the real pack | 17 | 103 ms | 1.0 s | 3% | 40 ms | 67.5 -> 70.5 MB |
+| + 64x casters | **50** | **300 ms** | **3.4 s** | **11%** | 58 ms | **122.7 -> 161.9 MB** |
+
+At 130 caster classes, **11% of a 32-second session is spent unable to paint**, across 50
+separate long tasks — that is the "chug": not one hang, a constant stutter.
+
+### It is class browsing that accumulates, and it is unbounded
+
+Splitting the churn by interaction kind, same pack, same pacing:
+
+| churn | worst task | heap over the session |
+|---|---|---|
+| races/subraces only | 115 ms | 122.7 -> 121.3 MB (**flat**) |
+| classes/levels only | **528 ms** | 122.6 -> **156.8 MB (+34.2 MB)** |
+
+Race browsing costs nothing that is kept. **Browsing classes adds ~34 MB in half a minute
+and never gives it back** — both measurements are taken after a forced GC, so this is
+retained, not garbage waiting to be collected. Selecting a class realises that class's spell
+options, and `memoized-spell-option` (`options.cljc:469`) is a `memoize` with no eviction, so
+every class you look at is retained for the life of the page. Keep browsing and it keeps
+growing.
+
+A single class change also produces the worst block measured anywhere in this
+investigation: **528 ms**.
+
+This is the sharpest statement of the reported problem: it is not opening the builder once,
+it is that **using** the builder gets progressively heavier the more you look at.
+
 ## The fix plan
 
 Ordered by payoff per unit of risk, not by size. Each step: characterization test first,
