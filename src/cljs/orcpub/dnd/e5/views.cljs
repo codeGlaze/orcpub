@@ -18,6 +18,7 @@
             [orcpub.dnd.e5.selections :as selections]
             [orcpub.dnd.e5.races :as races]
             [orcpub.dnd.e5.builder-fields :as bf]
+            [orcpub.dnd.e5.builders :as builders]
             [orcpub.dnd.e5.classes :as classes]
             [orcpub.dnd.e5.feats :as feats]
             [orcpub.dnd.e5.units :as units]
@@ -8324,6 +8325,16 @@
                   >
                   combatants)
                  combatants))))]]]))))
+
+;; ── REBUILD (parallel) — see orcpub.dnd.e5.builders and docs/kb/builder-form-schemas.md ───────
+;; Schema-driven equivalent of language-builder above. Kept alongside it, not in place of it, so
+;; the two render side by side and can be compared before anything is switched over.
+;; language-builder is 21 lines collecting Name + Option Source + Description — exactly what
+;; simple-content-builder renders, so the schema contributes no fields of its own.
+(defn language-builder-v2 []
+  (simple-content-builder ::langs/builder-item
+                          ::langs/set-language-prop
+                          builders/language-fields))
 
 (defn encounter-builder []
   (let [{:keys [creatures] :as encounter} @(subscribe [::encounters/builder-item])]

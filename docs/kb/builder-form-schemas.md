@@ -175,15 +175,51 @@ to the player to apply, not applied by the app.
 Measured, not estimated — control census across every builder in `views.cljs` (10,288 lines,
 98 builder-ish `defn`s).
 
-| builder | lines | what it actually uses | convertible? |
+**A first census here listed only 8 builders and mis-measured them** — the pattern required
+`builder [` on one line and sized each by distance to the next `defn`. Corrected: there are **16
+real form builders totalling 1,283 lines**.
+
+| builder | lines | status |
+|---|---|---|
+| `class-builder` | 268 | ⚠️ the hard one — 8 `when`s, 2 bespoke selectors, real conditionals |
+| `monster-builder` | 233 | 8 controls; the rest is layout |
+| `race-builder` | 152 | |
+| `subrace-builder` | 129 | |
+| `subclass-builder` | 105 | |
+| `spell-builder` | 85 | |
+| `selection-builder` | 80 | has duplicate-name detection of its own |
+| `feat-builder` | 62 | |
+| `item-builder` | 53 | |
+| `background-builder` | 46 | ⚠️ prose lives in `:help`, not `:description` |
+| `encounter-builder` | 25 | ⚠️ a repeating collection (creatures) |
+| `language-builder` | 21 | ✅ **rebuilt** — see below |
+| `fighting-style-builder` | 10 | already schema-driven |
+| `draconic-ancestry-builder` | 8 | already schema-driven |
+| `invocation-builder` | 3 | already `simple-content-builder` |
+| `boon-builder` | 3 | already `simple-content-builder` |
+
+The bottom four are the existing proof: a type that fits the generic form is **3–10 lines**.
+
+### Two gaps the survey found before any code was written
+
+1. **The description key is not universal.** `simple-content-builder` hardcodes `:description`;
+   `background-builder` stores its prose in `:help` while labelling it "Description". Converting
+   background needs a per-type key or a data migration. Recorded in
+   `builders/description-key-exceptions`.
+2. **There is no collection node.** `encounter-builder` renders a repeating `creature-selector`
+   list plus a blank one at the end. The schema has no way to say "a list of these". Traits have
+   the same shape. This is the next node kind to design, and it is a bigger deal than `:group`.
+
+### Rebuilt so far
+
+`orcpub.dnd.e5.builders` holds schema-driven rebuilds **alongside** the originals, never in place
+of them, so the two can be compared before anything is switched. `builders_test` asserts field-level
+equivalence on the JVM; `language-builder-v2` sits next to `language-builder` in `views.cljs` for a
+browser comparison.
+
+| type | original | rebuilt | result |
 |---|---|---|---|
-| `monster-builder` | 233 | **8 controls**: 4 input, 2 textarea, 1 datalist, 1 builder-field | ✅ almost entirely boilerplate |
-| `class-builder` | 268 | 3 input, 2 textarea, 2 `cantrip-num-selector`, 1 `option-level-selection`, 8 `when` | ⚠️ schema + 2 domain widgets + real conditionals |
-| `subrace-builder` | 129 | input + textarea + datalist | ✅ |
-| `subclass-builder` | 105 | input + textarea + datalist | ✅ |
-| `spell-builder` | 85 | 4 `spell-input-field` + textarea | ✅ |
-| `feat-builder` | 62 | input + textarea | ✅ (already partly declarative) |
-| `language-builder` | 21 | input + textarea | ✅ trivial |
+| language | 21 lines | `language-fields` = `[]` + a 4-line call | the original is **entirely** boilerplate — Name + Option Source + Description is exactly the base form |
 
 **The headline finding:** `monster-builder` is 233 lines for **8 fields**. The bulk is layout, not
 logic. And 8 of the ~22 distinct controls across all builders are the *same input field* wrapped

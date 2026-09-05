@@ -104,6 +104,15 @@
   "Authors {:damage-bonus {:bonus N <tags>}} — Thrown Weapon Fighting is {:bonus 2 :thrown? true}."
   (weapon-bonus-fields :damage-bonus "Damage Bonus"))
 
+(defn flatten-fields
+  "A schema is a vector of NODES. Today every node is a field, so this is identity; once group nodes
+  land (docs/kb/builder-form-schemas.md) a group contributes its lead field plus its tags.
+
+  Everything that walks a schema for its FIELDS — save-spec construction, import verification,
+  drift tests — goes through here, so adding a node kind does not mean hunting down every walker."
+  [schema]
+  (mapcat (fn [node] (if (:group node) (cons (:lead node) (:tags node)) [node])) schema))
+
 (defn fields->spec
   "Build a save-validation spec (a predicate) from a field schema. The universal
    name/key/option-pack are required (unchanged from the prior hand-written specs); every other
