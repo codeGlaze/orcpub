@@ -991,6 +991,60 @@ included the control was likewise clean (max 189 ms). Comparing the controlled p
 the uncontrolled dev runs would have "shown" the freeze was a dev artifact. `SKIP_CONTROL=1`
 now exists so compared runs agree on this; runs that disagree on it are not comparable.
 
+### ROOT CAUSE: every class's 20 level options are realised during the Class tab render
+
+```
+2. -> Class / Level   longest 1128ms   heap +46MB   levelOption 2820x939ms
+every other switch    longest ~100-200ms            levelOption 0
+```
+
+2820 = 141 classes x 20 levels. `class-option` builds a `:levels` selection whose
+`:options` is a lazy seq (`options.cljc:3098`):
+
+```clojure
+:options (map (partial level-option ...) (range 1 21))
+```
+
+Lazy, so it costs nothing at template-build time -- which is why builder open never showed
+it and why `make-levels`/`class-option` counters read zero. But rendering the class list
+forces it for **every class in the library**, including the 140 the character has not taken.
+The stack at the first call confirms LazySeq realisation (`sval` -> `partial` ->
+`level_option`), inside one synchronous reagent render (`run-queue` -> `flushSync` ->
+`deref-capture` -> `do-render`).
+
+Reproduces on dev (1068-1279 ms) and on a production build (654 ms).
+
+### Candidate fixes (NOT yet attempted successfully)
+
+- **Build level options only for classes the character has taken.** Blocked by
+  `class-option` living in a character-independent subscription; needs the levels to come
+  from a per-class subscription, or the template to hold a thunk the machinery forces on
+  selection.
+- **Stop the class-list render touching nested selections at all.** Needs the consumer
+  identified; the stack bottoms out in LazySeq internals rather than naming it.
+
+**Tried and reverted:** making the seq unchunked (`(apply list (range 1 21))`) on the theory
+that `range` chunking realised all 20 on first touch. No effect -- identical 2820 calls and
+1094 ms block -- because the consumer *fully iterates* rather than merely touching. Reverted
+rather than leave a no-op carrying a wrong explanation.
+
+### Five wrong diagnoses, and what killed each
+
+Recorded because the pattern matters more than any one of them: every wrong turn came from
+reading code, and every correction came from a measurement.
+
+| Diagnosis | Killed by |
+| --- | --- |
+| Unbounded `memoized-spell-option` | A/B: heap grew *more* without memoization (41.4 vs 38.5 MB) |
+| Class bodies rebuilt per switch | counters: zero `class-option`/`make-levels` on any switch |
+| Major GC pause | the long task ALLOCATES 45 MB; real collections landed on fast switches |
+| Spell options / spell data | `memoized-spell-option` armed and never called during the block |
+| `range` chunking | the "fix" changed nothing; consumer iterates fully |
+
+Two probe defects also cost runs: a positive control that ran *before* the measured window
+and suppressed the freeze (hence `SKIP_CONTROL`), and instrumentation injected as a JS
+template literal where an escaped newline became a real one, silently disarming the spy.
+
 ### What would fix it (not yet measured, so candidates)
 
 - Virtualise the spell option list so only visible options render.
