@@ -66,6 +66,10 @@ try {
   await page.goto('http://localhost:8890/pages/dnd/5e/character-builder', { waitUntil: 'load', timeout: 900000 });
   await page.waitForTimeout(14000);
 
+  // Sanity: prove the spy armed, so "no calls" is a finding rather than a dead probe.
+  const armed = await page.evaluate(() => Object.keys(window.__spy || {}));
+  console.log('spy armed for:', armed.join(', ') || 'NOTHING -- counts below are meaningless');
+
   const cdp = await ctx.newCDPSession(page);
   await cdp.send('Emulation.setCPUThrottlingRate', { rate: RATE });
   console.log(`\nCPU throttle ${RATE}x  (models a laptop also running the server)\n`);
@@ -95,8 +99,20 @@ try {
                         .filter(([, v]) => v.n).map(([k, v]) => `${k} ${v.n}x${v.ms.toFixed(0)}ms`).join(' '));
   };
 
+  // Positive control: a class dropdown change is known to call memoized-spell-option.
+  // If this registers and the tab switches do not, the tab switches genuinely run none.
+  await tab('control: -> Class tab', 'Class / Level');
+  await page.evaluate(() => { for (const k in window.__spy) window.__spy[k] = {n:0,ms:0}; });
+  try {
+    await page.locator('select').nth(0).selectOption({ label: 'Wizard' });
+    await page.waitForTimeout(1200);
+    const d = await page.evaluate(() => window.__spy);
+    console.log('  control: pick Wizard    ',
+      Object.entries(d).filter(([, v]) => v.n).map(([k, v]) => `${k} ${v.n}x${v.ms.toFixed(0)}ms`).join(' ') || 'no calls');
+  } catch (e) { console.log('  control failed'); }
+
   // Flip back and forth the way a user comparing options would.
-  for (let i = 1; i <= 8; i++) {
+  for (let i = 1; i <= 5; i++) {
     await tab(`${i}. -> Class / Level`, 'Class / Level');
     await tab(`${i}. -> Race`, 'Race');
   }
