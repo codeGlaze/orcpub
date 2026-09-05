@@ -20,6 +20,32 @@ function findChrome() {
   return undefined;
 }
 
+// Inclusive (total) time per function: sum the time of every sample taken anywhere
+// beneath a node. Self time is useless here -- allocation-heavy code parks its cost in
+// (program)/GC, so every app frame looked small while a 1 s block went unattributed.
+function totalTimes(profile) {
+  const { nodes, samples, timeDeltas } = profile;
+  const byId = new Map(nodes.map(n => [n.id, n]));
+  const parent = new Map();
+  for (const n of nodes) for (const c of (n.children || [])) parent.set(c, n.id);
+  const self = new Map();
+  for (let i = 0; i < samples.length; i++) self.set(samples[i], (self.get(samples[i]) || 0) + (timeDeltas[i] || 0));
+  const total = new Map();
+  for (const [id, us] of self) {
+    const seen = new Set();
+    let cur = id;
+    while (cur != null) {
+      const n = byId.get(cur); if (!n) break;
+      const f = n.callFrame;
+      const name = (f.functionName || '(anonymous)') +
+        (f.url ? '  ' + f.url.split('/').slice(-2).join('/') + ':' + (f.lineNumber + 1) : '');
+      if (!seen.has(name)) { total.set(name, (total.get(name) || 0) + us); seen.add(name); }
+      cur = parent.get(cur);
+    }
+  }
+  return [...total.entries()].sort((a, b) => b[1] - a[1]);
+}
+
 function selfTimes(profile) {
   const { nodes, samples, timeDeltas } = profile;
   const byId = new Map(nodes.map(n => [n.id, n]));
@@ -77,23 +103,35 @@ function selfTimes(profile) {
     try { new PerformanceObserver(l => { for (const e of l.getEntries()) window.__tasks.push(Math.round(e.duration)); })
             .observe({entryTypes:['longtask']}); } catch (e) {}
   });
+  // Warm to the state that precedes the freeze: one Class visit, one Race visit. The
+  // block lands on the SECOND Class visit, so profile only that.
+  const click = async (n) => { try { await page.locator(`text="${n}"`).first().click({ timeout: 30000 }); } catch (e) {} };
+  await page.evaluate(() => {
+    window.__tasks = [];
+    try { new PerformanceObserver(l => { for (const e of l.getEntries()) window.__tasks.push(Math.round(e.duration)); })
+            .observe({entryTypes:['longtask']}); } catch (e) {}
+  });
+  await click('Class / Level'); await page.waitForTimeout(900);
+  await click('Race');          await page.waitForTimeout(900);
+
+  await page.evaluate(() => { window.__tasks = []; });
   await cdp.send('Profiler.start');
   const t = Date.now();
-  for (let i = 0; i < 5; i++) {
-    for (const name of ['Class / Level', 'Race']) {
-      try { await page.locator(`text="${name}"`).first().click({ timeout: 30000 }); } catch (e) {}
-      await page.waitForTimeout(900);
-    }
-  }
+  await click('Class / Level');
+  await page.waitForTimeout(1500);
   const { profile } = await cdp.send('Profiler.stop');
   const tasks = await page.evaluate(() => window.__tasks);
   const worst = tasks.length ? Math.max(...tasks) : 0;
-  console.log(`\n=== 5 Race<->Class round trips (${Date.now() - t}ms wall, ${RATE}x throttle) ===`);
-  console.log(`longest single task: ${worst}ms  ${worst > 700 ? '<- FREEZE CAPTURED' : '<- no freeze in this run'}`);
-  console.log(`tasks over 300ms: ${tasks.filter(x => x > 300).join(', ') || 'none'}\n`);
-  for (const [name, us] of selfTimes(profile).slice(0, 20)) {
-    const ms = us / 1000;
-    if (ms < 5) break;
+  console.log(`\n=== 2nd visit to Class / Level (${Date.now() - t - 1500}ms wall, ${RATE}x) ===`);
+  console.log(`longest task: ${worst}ms  ${worst > 500 ? '<- FREEZE CAPTURED' : '<- NOT captured, ranking below is of a normal switch'}`);
+  console.log('\n-- INCLUSIVE time (function contains the work) --');
+  for (const [name, us] of totalTimes(profile).slice(0, 22)) {
+    const ms = us / 1000; if (ms < 20) break;
+    console.log('  ' + ms.toFixed(0).padStart(6) + 'ms  ' + name);
+  }
+  console.log('\n-- SELF time --');
+  for (const [name, us] of selfTimes(profile).slice(0, 10)) {
+    const ms = us / 1000; if (ms < 10) break;
     console.log('  ' + ms.toFixed(0).padStart(6) + 'ms  ' + name);
   }
 
