@@ -69,9 +69,33 @@ function selfTimes(profile) {
     }
   };
 
-  await step('land on Class / Level tab',
-             () => page.locator('text="Class / Level"').first().click({ timeout: 30000 }));
-  await step('pick Wizard (caster)',
-             () => page.locator('select').nth(0).selectOption({ label: 'Wizard' }));
+  // The freeze is intermittent, so profile a RUN of switches continuously rather than one
+  // interaction: a single fast sample says nothing about the block. Reports the longest
+  // task seen alongside the profile, so it is clear whether the freeze was captured.
+  await page.evaluate(() => {
+    window.__tasks = [];
+    try { new PerformanceObserver(l => { for (const e of l.getEntries()) window.__tasks.push(Math.round(e.duration)); })
+            .observe({entryTypes:['longtask']}); } catch (e) {}
+  });
+  await cdp.send('Profiler.start');
+  const t = Date.now();
+  for (let i = 0; i < 5; i++) {
+    for (const name of ['Class / Level', 'Race']) {
+      try { await page.locator(`text="${name}"`).first().click({ timeout: 30000 }); } catch (e) {}
+      await page.waitForTimeout(900);
+    }
+  }
+  const { profile } = await cdp.send('Profiler.stop');
+  const tasks = await page.evaluate(() => window.__tasks);
+  const worst = tasks.length ? Math.max(...tasks) : 0;
+  console.log(`\n=== 5 Race<->Class round trips (${Date.now() - t}ms wall, ${RATE}x throttle) ===`);
+  console.log(`longest single task: ${worst}ms  ${worst > 700 ? '<- FREEZE CAPTURED' : '<- no freeze in this run'}`);
+  console.log(`tasks over 300ms: ${tasks.filter(x => x > 300).join(', ') || 'none'}\n`);
+  for (const [name, us] of selfTimes(profile).slice(0, 20)) {
+    const ms = us / 1000;
+    if (ms < 5) break;
+    console.log('  ' + ms.toFixed(0).padStart(6) + 'ms  ' + name);
+  }
+
   await browser.close();
 })().catch(e => { console.error('FAILED', e); process.exit(1); });
