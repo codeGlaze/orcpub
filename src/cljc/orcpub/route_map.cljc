@@ -8,6 +8,9 @@
 (def dnd-e5-char-route :char-5e)
 (def dnd-e5-char-report-route :char-load-report-5e)
 (def dnd-e5-char-page-route :char-5e-page)
+;; Server-rendered PNG of a composed portrait, for og:image -- a share crawler
+;; has no browser to bake the layers the way the PDF export does.
+(def dnd-e5-char-portrait-route :char-5e-portrait)
 (def dnd-e5-char-list-page-route :char-list-5e-page)
 (def dnd-e5-char-summary-list-route :char-summary-list-5e-page)
 (def dnd-e5-char-parties-route :char-parties-5e)
@@ -179,7 +182,8 @@
                              {"character-builder" dnd-e5-char-builder-route
                               "newb-character-builder" dnd-e5-newb-char-builder-route
                               "characters" {"" dnd-e5-char-list-page-route
-                                            ["/" :id] dnd-e5-char-page-route}
+                                            ["/" :id] dnd-e5-char-page-route
+                                            ["/" :id "/portrait.png"] dnd-e5-char-portrait-route}
                               "orcacle" dnd-e5-orcacle-page-route
                               "parties" dnd-e5-char-parties-page-route
                               "background-builder" dnd-e5-background-builder-page-route
