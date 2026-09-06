@@ -394,32 +394,66 @@
    :key (or key id)})
 
 ;;; selection creator for character builder
+(defn inventory-picker
+  "Compact 'Add item' control: a button that opens a small search overlay, shows a short
+   list of matches, and closes on pick.
+
+   Replaces both the native <select> (unsearchable; 1037 <option> elements across the tab)
+   and the inline option-menu grid (searchable but rendered ~700 checkboxes inline, which
+   blows the page out and is miserable on a phone). Nothing renders until it is opened, and
+   only one popover is open at a time, so the tab costs seven buttons at rest.
+
+   Open state is a local r/atom, not app-db: it is transient UI state that nothing else
+   reads, and keeping it local avoids a re-frame round trip per keystroke."
+  []
+  (let [open? (r/atom false)
+        query (r/atom "")]
+    (fn [key options selected-keys]
+      (let [items   (common/aloof-sort-by
+                     :name
+                     (sequence (comp (remove (inventory-option-selected? selected-keys))
+                                     (map name-and-key))
+                               options))
+            q       (s/lower-case (s/trim @query))
+            matches (if (s/blank? q)
+                      items
+                      (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
+            ;; Only ever build a screenful. Search is the way to reach the rest.
+            shown   (take 12 matches)
+            close!  (fn [] (reset! open? false) (reset! query ""))]
+        [:div.inv-picker
+         [:button.inv-picker-btn
+          {:on-click #(swap! open? not)}
+          [:i.fa.fa-plus.m-r-5]
+          (str "Add" (when (seq items) (str " (" (count items) ")")))]
+         (when @open?
+           [:div
+            ;; backdrop closes on any outside click without a document-level listener
+            [:div.inv-picker-backdrop {:on-click close!}]
+            [:div.inv-picker-pop
+             [:input.inv-picker-search
+              {:auto-focus true
+               :value @query
+               :placeholder "Search…"
+               :on-change #(reset! query (.. % -target -value))
+               :on-key-down #(when (= 27 (.-keyCode %)) (close!))}]
+             (if (empty? matches)
+               [:div.inv-picker-empty (str "Nothing matches “" @query "”")]
+               [:div.inv-picker-list
+                (doall
+                 (for [{item-key :key item-name :name} shown]
+                   ^{:key item-key}
+                   [:div.inv-picker-row
+                    {:on-click (fn []
+                                 (dispatch [:add-inventory-item key item-key])
+                                 (close!))}
+                    item-name]))])
+             (when (> (count matches) (count shown))
+               [:div.inv-picker-more
+                (str (count matches) " matches — keep typing to narrow")])]])]))))
+
 (defn inventory-adder [key options selected-keys]
-  ;; Was comps/selection-adder, a native <select>. Five of those on the Equipment tab
-  ;; rendered 1037 <option> elements between them, and the list was unsearchable.
-  ;; option-menu is searchable, but renders options as live DOM -- so it is capped at
-  ;; :max-rendered and search narrows from there. See docs/TODO.md "Builder render weight".
-  (let [items (common/aloof-sort-by
-               :name
-               (sequence
-                (comp (remove (inventory-option-selected? selected-keys))
-                      (map name-and-key))
-                options))]
-    [omv/option-menu
-     {:menu-id [::inventory key]
-      ;; 100 keeps the list scrollable while staying at or below the native <select> it
-      ;; replaced. Measured at 4x throttle on mega-64, steady state, normalised to the Race
-      ;; tab in the same run (absolute numbers drift between server restarts):
-      ;;   cap 25 ~1.33x | cap 100 ~1.56x | native 1.65x | cap 250 ~2.77x | uncapped ~2.71x
-      ;; 250 is pointless -- most lists are shorter, so the cap never binds. The truncation
-      ;; notice offers "show all", so the cap is a default and not a ceiling.
-      :max-rendered 100
-      :options (omv/checkbox-options
-                items
-                ;; already filtered to unselected, so nothing is ever "chosen" here
-                (constantly false)
-                (fn [{item-key :key}] (dispatch [:add-inventory-item key item-key])))
-      :multiselect? false}]))
+  [inventory-picker key options selected-keys])
 
 (defn inventory-check-fn [key i]
   #(dispatch [:toggle-inventory-item-equipped key i]))

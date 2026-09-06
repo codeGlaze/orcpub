@@ -2394,6 +2394,77 @@
      {:padding "16px 4px"
       :opacity 0.6
       :font-size "14px"}]
+    ;; ----- compact "Add item" popover (character-builder/inventory-picker) -----
+    ;; Sized so it works on a phone: the popover is width-capped but never wider than the
+    ;; viewport, and the list scrolls rather than growing the page.
+    [:.inv-picker {:position :relative
+                   :margin "6px 0 10px"}]
+
+    [:.inv-picker-btn
+     {:background "rgba(255,255,255,0.06)"
+      :border "1px solid rgba(255,255,255,0.18)"
+      :border-radius "4px"
+      :color "#f0a100"
+      :cursor :pointer
+      :font-size "14px"
+      :font-weight 600
+      :padding "7px 14px"}]
+
+    [:.inv-picker-backdrop
+     {:position :fixed
+      :top 0 :left 0 :right 0 :bottom 0
+      :z-index 40}]
+
+    [:.inv-picker-pop
+     {:position :absolute
+      :z-index 41
+      :top "calc(100% + 4px)"
+      :left 0
+      :width "320px"
+      :max-width "calc(100vw - 32px)"
+      :background "#1a2430"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "5px"
+      :box-shadow "0 8px 24px rgba(0,0,0,0.55)"
+      :padding "8px"}]
+
+    [:.inv-picker-search
+     {:width "100%"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.2)"
+      :border-radius "3px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "8px 10px"
+      :margin-bottom "6px"}]
+
+    [:.inv-picker-list
+     {:max-height "280px"
+      :overflow-y :auto}]
+
+    [:.inv-picker-row
+     {:padding "8px 10px"
+      :border-radius "3px"
+      :color "rgba(255,255,255,0.88)"
+      :cursor :pointer
+      :font-size "14px"}
+     [:&:hover {:background "rgba(240,161,0,0.18)"
+                :color "#fff"}]]
+
+    [:.inv-picker-empty
+     {:padding "10px"
+      :color "rgba(255,255,255,0.5)"
+      :font-size "13px"
+      :font-style :italic}]
+
+    [:.inv-picker-more
+     {:padding "8px 10px 2px"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "12px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :margin-top "4px"}]
+
 ];concat-bracket
    margin-lefts
    margin-tops
