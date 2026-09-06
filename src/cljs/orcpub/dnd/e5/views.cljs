@@ -7635,7 +7635,7 @@
                         (doall
                          (for [{:keys [value title]} options]
                            ^{:key (str value)}
-                           [:button.chip
+                           [:button.chip.chip-toggle
                             {:class (when (contains? chosen value) "chip-on")
                              :on-click #(dispatch [set-prop path
                                                    (if (contains? chosen value)
@@ -7645,11 +7645,14 @@
          ;; A toggle, routed through the generated toggle event so it uses common/toggle-in — the
          ;; ONE hardened primitive. Never assoc-in with (not v) here: if the path lands on a map
          ;; that collapses it and every child read then returns nil.
-         :boolean [comps/labeled-checkbox
-                   (or (:checkbox-label field) label)
-                   (true? v)
-                   false
-                   #(dispatch [(toggle-prop-event set-prop) path])]
+         ;; A chip, not a bare checkbox. The form already says "a thing carrying a value is orange"
+         ;; — the add-bar, select.set, the :multi-enum toggles — and loose checkbox clusters were
+         ;; the one control still speaking a different language. Same rule, one look, and the
+         ;; clusters (components, spell lists) stop reading as ragged text.
+         :boolean [:button.chip.chip-toggle
+                   {:class (when (true? v) "chip-on")
+                    :on-click #(dispatch [(toggle-prop-event set-prop) path])}
+                   (or (:checkbox-label field) label)]
          ;; A COMBO: type anything, or pick from the values the shipped data actually uses. This is
          ;; what casting time / range / duration want — a short canonical list with real outliers —
          ;; and it is a plain <input list=…>, the same control plugin-datalist already uses for the
@@ -8590,17 +8593,17 @@
   [spell]
   ;; the heading is the schema's section marker now, so the widget draws only its checkboxes
   [:div.m-b-20
-   [:div.flex.flex-wrap.p-5.b-rad-5
+   [:div.flex.flex-wrap.chip-row.p-5.b-rad-5
     {:class (builder-field-cue :spell-lists)}
     (doall
      (map
       (fn [{:keys [key name]}]
         ^{:key key}
-        [:div.m-r-10.pointer.m-b-10
-         {:on-click #(do (dispatch [::spells/toggle-spell-list key])
+        [:button.chip.chip-toggle
+         {:class (when (get-in spell [:spell-lists key]) "chip-on")
+          :on-click #(do (dispatch [::spells/toggle-spell-list key])
                          (dispatch [:clear-builder-field-error :spell-lists]))}
-         [comps/checkbox (get-in spell [:spell-lists key])]
-         [:span.m-l-5 name]])
+         name])
       @(subscribe [::spells/spellcasting-classes])))]])
 
 (defn spell-builder []

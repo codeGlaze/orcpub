@@ -13,33 +13,15 @@ const path = require('path');
 const fs = require('fs');
 const { chromium } = require('playwright');
 const { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText,
-        dismissCookieBar } = require('./lib');
+        dismissCookieBar, chipIsOn, chipClick } = require('./lib');
 
 const SOURCE = 'Spell Pin';
 const NAME = 'Tideward';
 
-// A labelled checkbox: the app renders an <i> glyph plus a text span, in both the bespoke form
-// (comps/labeled-checkbox) and the converted one (the :boolean field renders the same component).
-const toggle = (page, label) => page.evaluate((t) => {
-  const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-  const span = [...document.querySelectorAll('span')]
-    .find(e => e.children.length === 0 && e.textContent.trim() === t && vis(e));
-  if (!span) return false;
-  (span.closest('.pointer') || span.parentElement).click();
-  return true;
-}, label);
-
-const isOn = (page, label) => page.evaluate((t) => {
-  const span = [...document.querySelectorAll('span')]
-    .find(e => e.children.length === 0 && e.textContent.trim() === t);
-  if (!span) return null;
-  const row = span.parentElement;
-  const glyph = row && row.querySelector('i.fa-check');
-  if (!glyph) return null;
-  // "on" is drawn by swapping the glyph's colour classes, not by a checked attribute
-  return /black/.test(glyph.className) && !/transparent/.test(glyph.className);
-}, label);
-
+// Toggles are chips (lib.js/chipIsOn, chipClick). They were glyph checkboxes when this pin was
+// written against the bespoke form; the representation changed deliberately, so the helpers did
+// too. What the pin asserts is unchanged: the toggle is present, starts off, turns on, and stores
+// a real boolean.
 async function choose(page, label, rx) {
   const sel = await controlFor(page, label);
   if (!sel) return false;
@@ -71,8 +53,8 @@ async function choose(page, label, rx) {
       check(`field present: ${label}`, !!(await controlFor(page, label)));
     }
     for (const label of ['Ritual?', 'Requires Attack Roll?']) {
-      check(`toggle present: ${label}`, (await isOn(page, label)) !== null);
-      check(`and it starts OFF: ${label}`, (await isOn(page, label)) === false);
+      check(`toggle present: ${label}`, (await chipIsOn(page, label)) !== null);
+      check(`and it starts OFF: ${label}`, (await chipIsOn(page, label)) === false);
     }
     check('the bespoke spell-list widget is still here',
           /which class spell lists/i.test(await page.locator('#app').innerText()));
@@ -86,9 +68,9 @@ async function choose(page, label, rx) {
     check('filled Duration', await fill(page, 'Duration', '1 minute'));
     check('filled Description', await fill(page, 'Description', 'A ward of cold seawater.'));
 
-    check('toggled Ritual on', await toggle(page, 'Ritual?'));
+    check('toggled Ritual on', await chipClick(page, 'Ritual?'));
     await page.waitForTimeout(400);
-    check('and it now reads ON', (await isOn(page, 'Ritual?')) === true);
+    check('and it now reads ON', (await chipIsOn(page, 'Ritual?')) === true);
 
     await page.screenshot({ path: path.join(SHOTS, 'spell-builder-filled.jpg'),
                             fullPage: true, type: 'jpeg', quality: 72 });

@@ -352,7 +352,7 @@
    [:.bf-bool-row
     {:display :flex
      :flex-wrap :wrap
-     :gap "10px 24px"}
+     :gap "8px"}
     [:.bf-field {:margin-bottom "0 !important"}]]
    ;; A run of toggles that shares a row with other fields: one column. It was a 102px box holding
    ;; two 16px rows — the children kept their own margins and the column inherited the flow's
@@ -363,7 +363,7 @@
      :display :flex
      :flex-direction :column
      :justify-content :center
-     :gap "10px"
+     :gap "8px"
      :min-height "42px"
      :margin-right "14px"
      :align-self :flex-end
@@ -396,10 +396,21 @@
    ;; two short selects genuinely do fit; collapsing every field to its own row cost ~270px of
    ;; scrolling for no gain. Only the wide things take the full width.
    (at-media {:max-width "600px"}
+             ;; Only :enum pairs on a phone — two short selects fit and everything else wants the
+             ;; width. Leaving :number at one track left a lone half-width box among full-width
+             ;; ones, which is the inconsistency it looked like.
              [:.bf-flow {:grid-template-columns "repeat(2, 1fr)"}
               [:> [:.bf-field-text {:grid-column "span 2"}]]
               [:> [:.bf-field-combo {:grid-column "span 2"}]]
-              [:> [:.bf-field-wide {:grid-column "span 2"}]]]
+              [:> [:.bf-field-number {:grid-column "span 2"}]]
+              [:> [:.bf-field-wide {:grid-column "span 2"}]]
+              ;; the flags read better side by side than stacked once the screen is narrow
+              [:> [:.bf-bool-stack {:grid-column "span 2"
+                                    :flex-direction :row
+                                    :flex-wrap :wrap
+                                    :align-self :start
+                                    :min-height 0
+                                    :padding-bottom 0}]]]
              ;; name and source are both text and each wants the width
              [:.form-head {:grid-template-columns "1fr"}
               [:.form-col {:grid-column "span 1"}]])
@@ -411,15 +422,18 @@
    ;; one rule intact: a thing carrying a value is orange.
    [:.chip-row
     {:gap "8px"
-     :margin-bottom "6px"}
-    [:.chip
-     {:border-color "rgba(255,255,255,0.3)"
-      :color "rgba(255,255,255,0.55)"}]
-    [:.chip-on
-     {:background-color "rgba(240,161,0,0.15)"
-      :border-style :solid
-      :border-color "#f0a100"
-      :color "#f0a100"}]]
+     :margin-bottom "6px"}]
+   ;; A TOGGLE chip answers "is this set?"; an ACTION chip (the add-bar) answers "do you want to add
+   ;; this?". Same shape, opposite question, so an unset toggle must not look like an action — it
+   ;; did, everywhere except :multi-enum, the moment every checkbox became a chip.
+   [:.chip-toggle
+    {:border-color "rgba(255,255,255,0.3)"
+     :color "rgba(255,255,255,0.55)"}]
+   [:.chip-toggle.chip-on
+    {:background-color "rgba(240,161,0,0.15)"
+     :border-style :solid
+     :border-color "#f0a100"
+     :color "#f0a100"}]
 
    [:.row-lead-num
     {:width "92px"

@@ -55,7 +55,10 @@ const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
     const controls = await page.evaluate(() => {
       const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
       const fields = [...document.querySelectorAll('#app input, #app select, #app textarea')].filter(vis);
-      const toggles = [...document.querySelectorAll('#app i.fa-check')].filter(vis);
+      // toggles are drawn two ways: a glyph checkbox (the hand-written builders) and a chip (the
+      // generated ones). Count both, or the metric reports a representation change as controls
+      // disappearing — it did, 24 -> 11.
+      const toggles = [...document.querySelectorAll('#app i.fa-check, #app .chip')].filter(vis);
       return fields.length + toggles.length;
     });
     // HEIGHT, not just control count. A conversion that stacks every field into one page-wide

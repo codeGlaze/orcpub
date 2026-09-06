@@ -495,10 +495,15 @@ and reports what actually breaks on a narrow screen — horizontal overflow, tou
 
 | at 390px | bespoke | generated |
 |---|---:|---:|
-| spell | 1587px, 9 controls | 1790px, 10 |
-| language | 905px | **911px** |
+| spell | 1587px | **1743px** |
+| language | 905px | 911px |
 | draconic ancestry | 1229px | **1202px** |
 | horizontal overflow, all builders | 0 | 0 |
+
+**Two mobile fixes came from looking at it**: the flags now sit **side by side** on a phone rather
+than stacked — a two-word toggle pair reads better across than down on a narrow screen — and only
+`:enum` pairs at 390px, so there are no lone half-width boxes among full-width ones. Both dropped
+the spell form from 1855px to 1743px.
 
 The spell form is **~200px taller on a phone**, and it is accountable rather than mysterious: the
 **Page field** (~85px), a **label on the Material Component box** that the hand-written form left
@@ -530,12 +535,35 @@ were there — the pin asserts 13 / 29 / 29 options — and **nothing on screen 
 fair reading of "I thought we were offering dropdowns". `:combo` inputs now carry the select's
 chevron and the padding to clear it.
 
-### Stat-block order beats a square row
+### Every toggle is a chip
 
-Page was moved up beside the flags to fill the first row's fourth track. That interrupts the order
-an author transcribes in — a stat block reads level/school, casting time, range, components,
-duration — and a page reference is not part of it. **Page trails the stats now.** The row is less
-square and the form is easier to type into from a book, which is the trade worth taking.
+Loose checkbox clusters were the last control still speaking a different visual language. The form
+says *a thing carrying a value is orange* — the add-bar, `select.set`, the `:multi-enum` toggles —
+and eight ragged class checkboxes under *Add This Spell to Which Class Spell Lists?* did not. Every
+`:boolean`, every `:multi-enum` entry and the spell-list widget now render as the same chip.
+
+**The distinction that has to survive it:** a toggle chip answers *"is this set?"*, an add-bar chip
+answers *"do you want to add this?"* — same shape, opposite question. `.chip-toggle` is muted when
+unset and orange when set; a bare `.chip` is the action. Making every checkbox a chip reintroduced
+that ambiguity everywhere except `:multi-enum`, which already had the rule.
+
+Two things this surfaced rather than caused:
+
+- **The spell-list chips read as all-on because they are.** A new spell defaults to all eight class
+  lists. The bespoke form drew the same state as eight ticked checkboxes and it was easy to miss;
+  the chips make it obvious. Behaviour unchanged, legibility better.
+- **The control metric had to follow the representation.** It counted `input, select, textarea` and
+  glyph checkboxes; chips have no glyph, so the count read **24 → 11** the moment toggles changed
+  shape. It counts chips too now. That is the third time a metric on this page missed something
+  because it was written against one particular rendering.
+
+### Page stays beside the flags
+
+It had been moved to trail the stats, to match the order an author transcribes in from a stat block.
+Reverted: Page is a minor, optional field that is not stat-block content at all, and having it fill
+the first row's fourth track reads better than the empty track its absence leaves. The transcription
+order of the fields that *are* stat-block content — level/school, casting time, range, components,
+duration — is unaffected either way.
 
 ### Still open on this pair
 

@@ -170,4 +170,27 @@ async function pickFromAnySelect(page, rx) {
   return false;
 }
 
-module.exports = { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, pickFromAnySelect };
+// Toggles are CHIPS: a button whose text is its label, carrying `chip-on` when set. Replaces the
+// old glyph-checkbox reading (an <i class="fa-check"> whose colour classes encoded the state).
+async function chipIsOn(page, label) {
+  return page.evaluate((t) => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const b = [...document.querySelectorAll('.chip')].find(e => e.textContent.trim() === t && vis(e));
+    if (!b) return null;
+    return b.classList.contains('chip-on');
+  }, label);
+}
+
+async function chipClick(page, label) {
+  const ok = await page.evaluate((t) => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const b = [...document.querySelectorAll('.chip')].find(e => e.textContent.trim() === t && vis(e));
+    if (!b) return false;
+    b.click();
+    return true;
+  }, label);
+  if (ok) await page.waitForTimeout(400);
+  return ok;
+}
+
+module.exports = { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, pickFromAnySelect, chipIsOn, chipClick };

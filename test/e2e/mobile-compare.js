@@ -41,7 +41,7 @@ const BUILDERS = ONLY.length ? ONLY
       // wider than the viewport and clipped, and counting it reported 32 overflowing elements on
       // every builder — a number that says nothing about the form.
       const form = document.querySelector('#app .p-20.main-text-color') || app;
-      const controls = [...form.querySelectorAll('input, select, textarea')].filter(vis);
+      const controls = [...form.querySelectorAll('input, select, textarea, .chip')].filter(vis);
       // anything sticking out past the viewport is a sideways scroll on a phone
       const over = [...form.querySelectorAll('*')].filter(e => {
         const r = e.getBoundingClientRect();
