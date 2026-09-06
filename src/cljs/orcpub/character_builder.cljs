@@ -1786,7 +1786,7 @@
 
    It has to RETURN one rather than dispatch when called: this runs at render
    time, so a bare dispatch marked every fresh URL failed before the browser had
-   tried it. The builder flashed \"Image failed to load\" at pictures that were
+   tried it. The builder flashed a load failure at pictures that were
    perfectly fine, and only the subsequent load took the mark back."
   [event-key image-url]
   (fn [_] (dispatch [event-key image-url])))
@@ -1835,13 +1835,20 @@
 
 (def image-paste (memoize image-paste-fn))
 
+(defn- notice-class
+  [level]
+  (case level
+    :error "field-notice is-error"
+    :warning "field-notice is-warning"
+    "field-notice is-note"))
+
 (defn image-url-advice
   "Everything said about the address itself: what can be told from the string, and
    the generic load failure when nothing more specific applies.
 
-   One component owns both so they cannot stack. \"Image failed to load\" under
-   \"That is the Pinterest page\" is two red lines saying one thing, and the vaguer
-   of them is the one people read first.
+   One component owns both so they cannot stack. A bare \"that picture did not
+   load\" under \"that is the Pinterest page\" is two lines saying one thing, and
+   the vaguer of them is the one people read first.
 
    Held back until typing stops. The field commits on every keystroke, so advice
    rendered straight from it would object to `htt` on the way to `https://` and
@@ -1866,15 +1873,18 @@
             specific? (contains? #{:error :warning} level)]
         [:div
          (when (and failed? (not specific?))
-           [:div.red.m-t-5 "Image failed to load, please check the URL"])
+           [:div {:class (notice-class :error)}
+            [:span.field-notice-what "That picture did not load."]
+            [:span.field-notice-do
+             "Check the address, or right-click the picture and choose Copy image address."]])
          (when message
-           [:div.m-t-5
-            [:div.f-s-12 {:class (when (= :error level) "red")}
-             message (when advice (str " " advice))]
+           [:div {:class (notice-class level)}
+            [:span.field-notice-what message]
+            (when advice [:span.field-notice-do advice])
             (when fix
-              [:div.m-t-5
+              [:div.m-t-10
                [:button.form-button.p-5 {:on-click #(set-fn fix)} "Use this instead"]
-               [:div.f-s-12.m-t-5 fix]])])]))))
+               [:span.field-notice-detail fix]])])]))))
 
 (def ^:private image-failure-notes
   "What went wrong, and which thing is worth fixing, keyed by the reason the
@@ -1928,10 +1938,12 @@
           [:div.f-s-12.m-t-5 "Reading image..."]
 
           (and (= :unavailable state) what)
-          [:div.m-t-5
-           [:div.f-s-12.m-b-5 what " " (get image-failure-advice fix)]
-           [:div.flex.align-items-c
-            [:button.form-button.p-5.m-r-10
+          ;; Waiting on a host is a warning; nobody being able to reach it is not.
+          [:div {:class (notice-class (if (= :wait fix) :warning :error))}
+           [:span.field-notice-what what]
+           [:span.field-notice-do (get image-failure-advice fix)]
+           [:div.field-notice-actions
+            [:button.form-button.p-5
              {:on-click
               (fn [_]
                 (reset! note "Reading the copied image...")
@@ -1941,7 +1953,7 @@
                                   "No picture on the clipboard. Copy one first."))
                    (dispatch [::char5e/image-captured url payload]))))}
              "Use copied image"]
-            [:span.f-s-12.m-r-10 "or paste it into the field above, or choose a file:"]
+            [:span.f-s-12 "or paste it into the field above, or choose a file:"]
             [:input {:type "file"
                      :accept "image/png,image/jpeg"
                      :on-change (fn [e]
@@ -1950,7 +1962,7 @@
                                      file
                                      #(dispatch [::char5e/image-captured url %]))))}]]
            (when @note
-             [:div.f-s-12.m-t-5 @note])]
+             [:span.field-notice-detail @note])]
 
           :else nil)))))
 

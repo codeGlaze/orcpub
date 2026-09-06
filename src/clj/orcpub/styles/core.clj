@@ -8,6 +8,13 @@
 (def orange "#f0a100")
 (def button-color orange)
 (def red "#9a031e")
+;; The reds above and below are the same colour at two ends of a contrast problem.
+;; #9a031e reads at about 9:1 on white and about 2:1 on the app's own near-black
+;; background, which is under half the readable minimum -- so the dark theme, which
+;; is the default, gets the lighter one and the light theme keeps the deep one.
+(def red-on-dark "#ff6b6b")
+(def amber-on-dark "#f5b942")
+(def muted-on-dark "#9fb0c3")
 (def green "#70a800")
 (def cyan "#47eaf8")      ; import log, conflict rename option
 (def purple "#8b7ec8")    ; conflict skip option
@@ -348,11 +355,13 @@
 
     [:a :a:visited
      {:color green}]]
+   ;; The app is dark by default, so this is the dark-readable red. The light
+   ;; theme takes the deep one back below -- the same colour cannot serve both.
    [:.red
-    {:color red}
+    {:color red-on-dark}
 
     [:a :a:visited
-     {:color red}]]
+     {:color red-on-dark}]]
    [:.uppercase
     {:text-transform :uppercase}]
    [:.bg-trans
@@ -528,6 +537,54 @@
      :max-width "320px"
      :margin "4px 0 6px 0"
      :opacity "0.75"}]
+
+   ;; A notice under a field. Two parts with two jobs: the fault names itself in
+   ;; the severity colour, and the instruction -- the only part anyone acts on --
+   ;; is set brighter and heavier so it wins the eye. Run together in one colour
+   ;; and one weight, the vaguer half reads first and the useful half is skipped.
+   ;;
+   ;; Inline rather than a hover tooltip on purpose: these carry buttons, and a
+   ;; tooltip that disappears when the pointer moves toward it cannot hold one.
+   ;; .tooltiptext is also fixed at 130px and absent on mobile.
+   [:.field-notice
+    {:margin "6px 0 0 0"
+     :padding "8px 10px"
+     :border-radius "4px"
+     :border-left "3px solid currentColor"
+     :background-color "rgba(255, 255, 255, 0.06)"
+     :font-size "12px"
+     :line-height "17px"
+     :max-width "520px"}]
+   [:.field-notice-what
+    {:display "block"}]
+   [:.field-notice-do
+    {:display "block"
+     :margin-top "4px"
+     :color "#ffffff"
+     :font-weight "600"}]
+   ;; Supporting detail inside a notice -- a corrected address, say. Neither the
+   ;; fault nor the instruction, so it takes neither of their treatments, and it
+   ;; breaks anywhere because a URL has no spaces to wrap at.
+   [:.field-notice-detail
+    {:display "block"
+     :margin-top "4px"
+     :opacity "0.75"
+     :word-break "break-all"}]
+   ;; The controls a notice offers. Kept out of the severity colour -- a file
+   ;; input's own "No file chosen" would otherwise render red and read as a second
+   ;; fault -- and allowed to wrap, since these sit in a narrow column.
+   [:.field-notice-actions
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "center"
+     :gap "10px"
+     :margin-top "10px"
+     :color "#ffffff"}
+    [:button
+     {:white-space "nowrap"}]]
+   [:.field-notice.is-error {:color red-on-dark}]
+   [:.field-notice.is-warning {:color amber-on-dark}]
+   [:.field-notice.is-note {:color muted-on-dark}]
 
    [:.image-thumbnail
     {:max-height "100px"
@@ -1511,6 +1568,21 @@
 
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
+
+     ;; Both of these invert: a red that carries on near-black is washed out on
+     ;; white, and the notice's own ground has to darken rather than lighten.
+     [:.red
+      {:color red}
+      [:a :a:visited {:color red}]]
+     [:.field-notice
+      {:background-color "rgba(0, 0, 0, 0.05)"}]
+     [:.field-notice-do
+      {:color "#1a1e28"}]
+     [:.field-notice-actions
+      {:color "#1a1e28"}]
+     [:.field-notice.is-error {:color red}]
+     [:.field-notice.is-warning {:color "#8a5a00"}]
+     [:.field-notice.is-note {:color "#55637a"}]
 
      [:select
       {:font-family font-family

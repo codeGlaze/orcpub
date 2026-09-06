@@ -68,6 +68,21 @@ allowed the builder says so and offers an upload — which no host has a say in.
 
 ## Changed
 
+- Field notices are a component rather than a red line. `.field-notice` carries a
+  severity accent, a panel ground and two parts with two jobs: the fault in the
+  severity colour, and the instruction -- the only part anyone acts on -- brighter
+  and heavier beneath it. Run together in one colour and one weight, the vaguer
+  half reads first and the useful half is skipped.
+- **`.red` was unreadable on the app's own background.** `#9a031e` sits at about
+  9:1 on white and about 2:1 on near-black, less than half the readable minimum,
+  and the app is dark by default. The dark theme now takes a lighter red and the
+  light theme keeps the deep one; the same colour cannot serve both. This reaches
+  every use of `.red`, not just these fields.
+- Inline rather than a hover tooltip, deliberately: these notices carry buttons,
+  and `.tooltiptext` disappears when the pointer moves toward it, is fixed at
+  130px, and is absent on mobile.
+
+
 - The builder says nothing about pasting or uploading until BOTH routes are known
   to be shut: the browser refused, and the server's own answer came back no. Most
   hosts that refuse the browser serve the server perfectly well, so speaking up
