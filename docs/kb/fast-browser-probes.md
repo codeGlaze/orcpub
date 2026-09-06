@@ -86,10 +86,22 @@ Absolute numbers drift between server restarts — a Race-tab baseline moved 160
 runs here with no code change. Measure a control interaction in the same run and compare
 ratios, or you will attribute machine noise to your change.
 
-## Screenshots need CSS
+## Screenshots
 
-`lein garden once` compiles `resources/public/css/compiled/styles.css`. Skip it and every
-screenshot is unstyled — easy to mistake for a broken component.
+`test/browser/screenshots_e2e.js` — takes them for you:
+
+```
+lein garden once && lein fig:build && lein e2e-server
+node test/browser/screenshots_e2e.js dev-scratch/paks/mega-64.orcbrew dev-scratch/shots Equipment
+```
+
+**Run `lein garden once` first.** Skip it and `styles.css` is stale or missing, every shot
+comes out unstyled, and it reads as a broken component. The probe warns when the page looks
+unstyled, but the fix is upstream.
+
+A UI change reviewed only through timing numbers is half-reviewed. Take the screenshots
+before asking anyone to look — this session shipped a visible control change and reported
+only milliseconds until the owner asked for pictures.
 
 ## More traps
 
