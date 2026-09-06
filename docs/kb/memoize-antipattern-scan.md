@@ -129,6 +129,35 @@ delete-class removes it again       [["wizard",5]]
 built-character still derives       keys=120
 ```
 
+## Step 3 outcome: measured, and mostly NOT worth doing
+
+**`make-inventory-item` — leave it.** Measured on the Equipment tab at 4x throttle
+(`equipment_tab_cost_e2e.js`, mega-64):
+
+```
+1. -> Equipment   wall 570ms   longest 375ms   makeInventoryItem 7x1ms
+2. -> Equipment   wall  70ms   longest 300ms   makeInventoryItem 7x0ms
+3. -> Equipment   wall  99ms   longest 307ms   makeInventoryItem 7x1ms
+```
+
+Seven calls, ~1 ms. The key shape is wrong but it is called once per *selected* item, not
+once per available item, so the deep comparison happens a handful of times. Nothing to win.
+**A wrong-looking key is not a defect until the call count makes it one** — that is the
+difference between this and `set-class`, which ran 141 times per render.
+
+**`export-pdf-handler` — unmeasured, unchanged.** It lives on the character page
+(`views.cljs:4374`), which needs a saved character behind auth, so it cannot be measured with
+the builder probes. Its key is the worst in the codebase (the whole built character plus the
+whole homebrew library) but it is one call per render of the export button, and the
+`make-inventory-item` result shows call count decides. Left documented rather than changed
+blind: this is the PDF export path, and a broken export is worse than a slow one.
+
+### Separate observation, not this branch's scope
+
+The Equipment tab's longest task is 300-375 ms against Race's 160-197 ms. Something there is
+slow and it is **not** `make-inventory-item`. Worth its own investigation if the tab is ever
+reported as sluggish.
+
 ## Known gap: no click-level coverage for spell picking
 
 `class_handlers_functional_e2e.js` covers the class handlers. Spell picking is **not**
