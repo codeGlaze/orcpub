@@ -35,7 +35,6 @@
             [orcpub.dnd.e5.events :as events5e]
             [orcpub.dnd.e5.db :as db]
             [orcpub.dnd.e5.views :as views5e]
-            [orcpub.dnd.e5.option-menu-views :as omv]
             [orcpub.dnd.e5.subs :as subs5e]
             [orcpub.route-map :as routes]
             [orcpub.pdf-spec :as pdf-spec]
@@ -395,24 +394,17 @@
 
 ;;; selection creator for character builder
 (defn inventory-adder [key options selected-keys]
-  ;; Was comps/selection-adder, a native <select> with one <option> per item. Five of those
-  ;; on the Equipment tab rendered 1037 option elements between them -- the tab's dominant
-  ;; cost, and unsearchable. option-menu renders a searchable, A-Z-grouped picker instead.
-  ;; Ported from port/redesign-on-refactor; see docs/TODO.md "Builder render weight".
-  (let [items (common/aloof-sort-by
-               :name
-               (sequence
-                (comp (remove (inventory-option-selected? selected-keys))
-                      (map name-and-key))
-                options))]
-    [omv/option-menu
-     {:menu-id [::inventory key]
-      :options (omv/checkbox-options
-                items
-                ;; already filtered to unselected, so nothing is ever "chosen" here
-                (constantly false)
-                (fn [{item-key :key}] (dispatch [:add-inventory-item key item-key])))
-      :multiselect? false}]))
+  [comps/selection-adder
+   (common/aloof-sort-by
+    :name
+    (sequence
+     (comp
+      (remove
+       (inventory-option-selected? selected-keys))
+      (map
+       name-and-key))
+     options))
+   (add-inventory-item key)])
 
 (defn inventory-check-fn [key i]
   #(dispatch [:toggle-inventory-item-equipped key i]))
