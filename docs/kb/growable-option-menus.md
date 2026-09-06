@@ -7,6 +7,21 @@ Design references (gitignored, in `design_handoff_character_menus/`): `Character
 `OrcPub Background Builder Reference.dc.html`, `OrcPub Race Builder Reference.dc.html`,
 `README.md` (tokens), `menu-logic.js` (the grouping spec).
 
+## 2026-09-06 — lifted onto `feat/option-picker`, then cut
+
+`option_menu_views.cljs`, `option_grouping.cljs` and `themes.cljs` were ported onto
+`feat/option-picker` and Equipment was wired to `omv/option-menu` with a render cap. That was
+reverted for a filtering combobox, and the namespaces were removed once nothing referenced
+them — not because the menu is wrong, but because it arrives with theming, layout modes and
+page structure, which is a site-wide redesign and was not going out with the Summer Patch.
+
+Nothing is lost. `option_grouping` and `themes` were byte-identical to this branch;
+`option_menu_views` diverged by 34 lines (the `:max-rendered` / `::show-all` capping work),
+in `feat/option-picker` history at `2a671844` and `ec85c5ac`. Rewiring one selection cost 31
+lines of `character_builder.cljs`, and the namespace self-registers its 13 subs and events.
+See [equipment-option-picker.md](equipment-option-picker.md).
+
+
 ## Goal
 
 Redesign the character-builder's multi-select menus AND the homebrew builders' whole UI

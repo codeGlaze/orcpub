@@ -51,6 +51,17 @@ Deep-dive reference docs for AI agents working on this project. These contain fu
 | [class-builder-extraction-plan.md](class-builder-extraction-plan.md) | Plan for the first incremental view decomposition: extract the class builder from the views.cljs monolith (reuses views-builders-split rules; the anti-views-extraction cadence) |
 | [starting-equipment-override-ledger.md](starting-equipment-override-ledger.md) | Design: template + ledger override for starting equipment — stable-key addressing (not names), add/replace(=remove) ops, SRD-key freeze, derived-diff, edge cases |
 
+## From `feat/option-picker`
+
+- **[equipment-option-picker.md](equipment-option-picker.md)** -- the Equipment tab's 1037
+  `<option>` elements, five controls measured against each other, and why the winner is a
+  filtering combobox on the native Popover API (1541 DOM nodes vs 2558 native). Records three
+  withdrawn claims: that datalists cannot be styled, a 12-row cap that made the list
+  searchable but not browsable, and prefetch-then-expand as a fix for the mount cost.
+- **[fast-browser-probes.md](fast-browser-probes.md)** -- why a measurement loop takes 40
+  minutes and how to make it 4. The `.lein-env` race that boots the e2e server against the
+  wrong database, and why `character_image_capture` runs 393s.
+
 ## Findings moved from `integration`
 
 These were written on feature branches and folded into `integration`'s `docs/kb/`

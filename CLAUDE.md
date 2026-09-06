@@ -52,6 +52,38 @@ PORT=8890 lein run &  # Start backend
 cd e2e && npm test    # Run all tests
 ```
 
+### Browser probes (`test/browser/`)
+
+Separate from the `e2e/` suite above, and **neither `lein test` nor the CLJS runner touches
+them** — so "both suites green" says nothing about these. One sat failing and exiting 1 for
+several commits because nothing ran it.
+
+Note this branch's tree does not carry `test/browser/` or `scripts/test/` — it is a docs
+branch on an old code snapshot. The paths below are on the code branches (`integration` and
+its feature branches), which is where you will be running them.
+
+```bash
+lein fig:build && lein e2e-server        # in another shell
+node scripts/test/run-browser-probes.js  # every asserting probe; non-zero if any fails
+```
+
+`ORCBREW_PACK=<pack>.orcbrew` enables the probes that need imported homebrew; a probe that
+cannot run reports `SKIP` with its reason rather than passing quietly.
+
+It also catches the two ways a probe lies rather than fails:
+
+- **It stops asserting.** A control renamed out from under an `if (await x.count())` guard
+  takes its checks with it and the probe still exits 0. Per-probe assertion counts live in
+  `scripts/test/probe-baseline.json`; running fewer is a failure.
+- **It sits there.** Stuck is detected by *silence* (180s), not total runtime — the slowest
+  probe legitimately runs 393s, so no runtime limit short enough to catch a hang would spare
+  it. A 30s heartbeat reports how long a probe has been silent, separately from how long it
+  has been running.
+
+Write assertions that can fail: `after <= opened` under the name "filtering narrows the list"
+passes when filtering does nothing, and a missing control is the failure, not a reason to
+print SKIP and carry on. Both were real, in this repo.
+
 ### Important Route Notes
 OrcPub routes use **`/dnd/5e/`** (not `/dnd/e5/`):
 - Character builder: `/pages/dnd/5e/character-builder`
