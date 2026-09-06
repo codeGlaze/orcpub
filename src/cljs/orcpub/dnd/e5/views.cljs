@@ -7577,6 +7577,13 @@
     (let [path (if (sequential? key) key [key])
           v    (get-in item path)]
       [:div.m-b-10
+       ;; The field declares its own KIND on the element so the flow container can size it. Without
+       ;; this every field was a page-wide block in one column: the generated spell form ran 100px
+       ;; TALLER than the hand-written one it replaced while showing one control fewer, because the
+       ;; bespoke page paired Level+School and Casting Time+Range on single rows and ran the
+       ;; checkboxes inline. A declarative form has to carry that, or it trades cohesion for brevity.
+       {:class (str "field field-" (name (or type :text))
+                    (when (= :full (:span field)) " field-full"))}
        ;; :compact? keeps the f-w-b marker (label lookup, and every e2e finds controls by it) but
        ;; shrinks it — a tag's label sits above a small control, not above a page-wide one.
        ;; Inside a titled group the words the group already says are noise, and they are what
@@ -7639,6 +7646,21 @@
          ;; :text
          [comps/input-field :input v #(dispatch [set-prop path %]) {:class-name "input"}])])))
 
+(defn- field-sections
+  "Split a field list into [section-title fields] pairs. A field carrying `:section` STARTS a
+   section; everything after it belongs to that section until the next one. The first pair has a
+   nil title — the fields before any heading."
+  [fields]
+  (->> fields
+       (reduce (fn [acc f]
+                 (if (and (map? f) (:section f))
+                   (conj acc [(:section f) [f]])
+                   (if (seq acc)
+                     (update-in acc [(dec (count acc)) 1] conj f)
+                     [[nil [f]]])))
+               [])
+       (into [])))
+
 (defn simple-content-builder
   "Generic builder form for a 'simple' homebrew content type: Name + Option Source +
    Description, plus any `extra-fields` (hiccup, rendered after Description) for richer types.
@@ -7679,23 +7701,24 @@
       [textarea-field
        {:value (get item :description)
         :on-change #(dispatch [set-prop :description %])}]]
+     ;; A field may open a SECTION, and the fields AFTER it belong to that section until the next
+     ;; one starts. Rendering only the declaring field under the heading put "Verbal" alone under
+     ;; COMPONENTS while Somatic and Material leaked out below it — a heading that lies about what
+     ;; it covers is worse than no heading.
      (when (seq extra-fields)
        (into [:div.w-100-p]
-             ;; a field spec (map) is rendered declaratively; raw hiccup (vector) passes through
-             (map (fn [f]
-                    (cond
-                      (:rows f) [rows-node item set-prop f]
-                      ;; A field may open a SECTION. The page holds three kinds of thing — what the
-                      ;; content is, who may take it, and what it does — and only the last had a
-                      ;; heading, which is most of why the classes row read as orphaned. One heading
-                      ;; is cheaper than boxing everything, and boxing the identity fields would be
-                      ;; chrome for its own sake.
-                      (map? f)  (if-let [section (:section f)]
-                                  [:div [:div.rows-title section]
-                                        [render-builder-field item set-prop f]]
-                                  [render-builder-field item set-prop f])
-                      :else     f))
-                  extra-fields)))
+             (map (fn [[section fields]]
+                    [:div.w-100-p
+                     (when section [:div.rows-title section])
+                     (into [:div.flex.flex-wrap.field-flow]
+                           ;; a field spec (map) renders declaratively; raw hiccup passes through
+                           (map (fn [f]
+                                  (cond
+                                    (:rows f) [:div.field-break [rows-node item set-prop f]]
+                                    (map? f)  [render-builder-field item set-prop f]
+                                    :else     [:div.field-break f]))
+                                fields))])
+                  (field-sections extra-fields))))
      [builder-notes problems {:severity :error}]]))
 
 (defn language-builder []

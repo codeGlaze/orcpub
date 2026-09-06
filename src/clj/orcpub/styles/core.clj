@@ -308,6 +308,26 @@
      :text-transform :uppercase
      :letter-spacing "0.07em"
      :margin "2px 0 7px"}]
+   ;; Declarative fields FLOW; they do not each take a page width. A hand-written form put Level
+   ;; and School on one row and ran the checkboxes inline, and a generated form has to do the same
+   ;; or it trades the page's cohesion for brevity in the source. Sizes are intrinsic to the field
+   ;; type — a number is number-wide, a toggle is as wide as its label — with `:span :full` as the
+   ;; explicit escape. Direct-child selectors only, so fields inside an effect row keep their own
+   ;; tighter sizing.
+   [:.field-flow
+    {:gap "0 14px"}
+    [:> [:.field
+         {:flex "1 1 240px"
+          :min-width "200px"}]]
+    [:> [:.field-text    {:flex "1 1 260px"}]]
+    [:> [:.field-number  {:flex "0 0 120px" :min-width "120px"}]]
+    [:> [:.field-boolean {:flex "0 0 auto"  :min-width 0 :align-self :center}]]
+    [:> [:.field-multi-enum {:flex "1 1 100%"}]]
+    [:> [:.field-full    {:flex "1 1 100%"}]]]
+   ;; a section heading, or a :rows node, owns its own line
+   [:.field-break
+    {:flex "1 1 100%"
+     :width "100%"}]
    [:.form-head
     {:gap "12px"}]
    ;; equal columns: an explicit basis, so a field's width stops depending on how long its label is

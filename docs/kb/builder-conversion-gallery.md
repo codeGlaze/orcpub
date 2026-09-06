@@ -306,13 +306,47 @@ is hand-written and did a plain `assoc`, while every declarative field sends a *
 screen was wrong; only reading back what was saved showed it. That is the whole argument for
 pinning on stored shape rather than on what you typed.
 
-### One improvement and one regression, both deliberate
+### The regression this conversion shipped first, and the fix
 
-- The **Material Component** box is now `:when` the Material component is ticked, so it is hidden
-  until it means something — 10 visible controls became 9.
-- **Description moved up**, because `simple-content-builder` renders it after name and source. The
-  bespoke form had it near the bottom. The Components heading was lost in the first pass and
-  restored with the new `:section` vocabulary.
+The first version of this conversion **was worse than the form it replaced**, and the gallery said
+it was fine because the gallery only counted controls.
+
+| | hand-built | first conversion | now |
+|---|---:|---:|---:|
+| page height | 1289px | **1389px** | **1164px** |
+| visible controls | 10 | 9 | 9 |
+
+*Taller, with fewer controls.* The hand-written page paired **Level + School** on one row and
+**Casting Time + Range** on another, and ran the checkboxes inline; the declarative renderer made
+every field a page-wide block in a single column. That is the same defect fixed *inside* the effect
+rows one pair earlier — number-wide numbers, inline tags — and it was never applied at the top
+level. **Brevity in the source is not the goal; a declarative form has to carry the layout the
+hand-written one had, or the conversion is a downgrade wearing a smaller diff.**
+
+So fields now **flow, sized by their type**, in `.field-flow`:
+
+| type | width |
+|---|---|
+| `:boolean` | as wide as its label, inline with its neighbours |
+| `:number` | 120px |
+| `:enum` | `1 1 240px` |
+| `:text` | `1 1 260px` |
+| `:multi-enum`, `:rows`, `:span :full` | the whole line |
+
+Direct-child selectors only, so fields inside an effect row keep their own tighter sizing.
+
+**And `:section` was lying.** It grouped only the field that declared it, so *Verbal* sat alone
+under COMPONENTS while Somatic and Material leaked out below the heading. A section now covers the
+fields that follow it until the next one starts — which in turn required moving `:duration` ahead
+of the components in the schema, since it had been declared after them and would otherwise have
+been swept into Components.
+
+**The gallery now records page height, not just control count** (`builder-gallery.js`), because
+height is what catches lost cohesion and the count alone reported the regression as an improvement.
+
+Two other deliberate differences from the bespoke form: the **Material Component** box is `:when`
+the Material box is ticked, so it is hidden until it means anything; and **Description moved up**,
+because `simple-content-builder` renders it after name and source.
 
 ---
 

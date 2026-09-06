@@ -85,14 +85,16 @@
       {:key :ritual :type :boolean :label "Ritual?"}
       {:key :attack-roll? :type :boolean :label "Requires Attack Roll?"}
       {:key :casting-time :type :text :label "Casting Time"}
-      {:key :range :type :text :label "Range"}]
+      {:key :range :type :text :label "Range"}
+      ;; Duration sits with the spell's own facts. It used to be declared after the components,
+      ;; which — once a :section groups the fields that FOLLOW it — put Duration inside Components.
+      {:key :duration :type :text :label "Duration"}]
      ;; components: three flags, then the material text that only means anything with Material on
      [{:key [:components :verbal] :type :boolean :label "Verbal" :section "Components"}
       {:key [:components :somatic] :type :boolean :label "Somatic"}
       {:key [:components :material] :type :boolean :label "Material"}
       {:key [:components :material-component] :type :text :label "Material Component"
-       :when material?}]
-     [{:key :duration :type :text :label "Duration"}])))
+       :when material? :span :full}])))
 
 (def conc-1-min "Concentration, up to 1 minute")
 (def conc-10-min "Concentration, up to 10 minutes")

@@ -52,10 +52,15 @@ const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
     const controls = await page.evaluate(() =>
       [...document.querySelectorAll('#app input, #app select, #app textarea')]
         .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length);
+    // HEIGHT, not just control count. A conversion that stacks every field into one page-wide
+    // column shows the same controls and reads far worse — the generated spell form ran 100px
+    // TALLER than the hand-written one while showing one control FEWER, and a count-only gallery
+    // reported that as an improvement. Height is what catches lost cohesion.
+    const height = await page.evaluate(() => document.querySelector('#app').scrollHeight);
     await shot(page, path.join(dir, `${seg}.jpg`));
     const broke = errors.length > before;
-    rows.push({ seg, controls, broke });
-    console.log(`${broke ? 'ERR ' : '    '}${seg.padEnd(28)} ${String(controls).padStart(3)} controls`);
+    rows.push({ seg, controls, height, broke });
+    console.log(`${broke ? 'ERR ' : '    '}${seg.padEnd(28)} ${String(controls).padStart(3)} controls  ${String(height).padStart(5)}px`);
   }
   await browser.close();
 
