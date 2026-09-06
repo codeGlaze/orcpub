@@ -135,4 +135,39 @@ async function dismissCookieBar(page) {
   await page.waitForTimeout(400);
 }
 
-module.exports = { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, fillEffectBonus, dismissCookieBar };
+// Click a character-builder TAB by its exact name. Distinct from clickText: a tab's label also
+// appears inside the panel it opens, and clickText's shortest-match would sometimes find that
+// instead. Anchored regex, visible elements only.
+//
+// CASE-SENSITIVE, deliberately. The builder's tabs are Capitalised ("Spells"), while the sheet's
+// own tabs on the right and the site header nav are lowercase ("spells"). A case-insensitive match
+// picks the shortest — the header link — and silently navigates out of the character builder,
+// after which every later check fails for the wrong reason. That cost a debugging pass.
+async function clickTab(page, name) {
+  const ok = await page.evaluate((n) => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const rx = new RegExp(`^${n}$`);
+    const el = [...document.querySelectorAll('div,span,button')]
+      .filter(e => e.children.length <= 2 && rx.test(e.textContent.trim().replace(/\s+/g, ' ')) && vis(e))
+      .sort((a, b) => a.textContent.length - b.textContent.length)[0];
+    if (!el) return false;
+    el.click();
+    return true;
+  }, name);
+  if (ok) await page.waitForTimeout(2000);
+  return ok;
+}
+
+// Pick an option by its visible text from whichever <select> on the page offers it. The character
+// builder's Class is a dropdown, not the clickable cards that races and fighting styles use, and
+// it has no label a control-finder can anchor to.
+async function pickFromAnySelect(page, rx) {
+  for (const sel of await page.$$('select')) {
+    const opts = await sel.evaluate(el => [...el.options].map(o => o.textContent.trim()));
+    const want = opts.find(o => rx.test(o));
+    if (want) { await sel.selectOption({ label: want }); await page.waitForTimeout(2000); return true; }
+  }
+  return false;
+}
+
+module.exports = { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, pickFromAnySelect };

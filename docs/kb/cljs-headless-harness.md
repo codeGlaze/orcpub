@@ -134,3 +134,37 @@ the widget now coerces each dropdown's emitted string via lookup maps (`views.cl
   closure still holds the pre-dispatch state and clobbers an earlier pick. Pause (~150ms) between.
 - When in doubt about what the page actually is, **take a screenshot** — it settles "which input/
   overlay is this" in one shot instead of repeated wrong hypotheses.
+
+## Driving the character builder — three gotchas that each cost a debugging pass
+
+From `test/e2e/homebrew-grand-tour.js`, which drives the builder end to end. Every one of these
+looked like a bug in the app and was not.
+
+**1. A selection's `:tags` decide which TAB it renders on, not the thing that granted it.** This is
+the big one, and it caught me three times in one script:
+
+| selection | granted by | renders on |
+|---|---|---|
+| Fighting Style | Fighter, level 1 | Class / Level |
+| Pact Boon | Warlock, level 3 | Class / Level |
+| **Eldritch Invocations** | Warlock, level 2 | **Spells** — `:tags #{:spells}` |
+| **Languages** | the Acolyte background | **Proficiencies** — `:tags #{:profs :language-profs}` |
+
+Looking for a warlock's invocations on its class panel finds nothing and looks exactly like
+"homebrew invocations are not offered". Check the `selection-cfg`'s `:tags` in `options.cljc`
+before concluding anything is missing.
+
+**2. Tab clicks must be CASE-SENSITIVE.** The builder's tabs are capitalised (`Spells`), the
+character sheet's own tabs on the right are lowercase (`spells`), and the site header nav is
+lowercase too. A case-insensitive shortest-match click lands on the header link and navigates out
+of the character builder entirely — after which every later check fails for the wrong reason, with
+no error. `lib.js/clickTab` is case-sensitive for this reason.
+
+**3. The builder mixes cards and dropdowns.** Race, background and fighting style are clickable
+cards; **class and level are `<select>`s** and the builder seeds Barbarian by default. A
+`:text("Fighter")` locator matches hidden nodes and times out. `lib.js` has `clickText` (visible
+only) and `pickFromAnySelect` for the dropdowns; the distinction is real and not worth papering
+over.
+
+Also: the SRD background list the builder offers is short — Acolyte, a demo background, and Custom.
+Sage is not there.

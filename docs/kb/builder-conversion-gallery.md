@@ -371,3 +371,44 @@ state that merely looks like it. The script asserts that as well as shooting it:
 
 Page height tracks the state honestly: 1531px authored → 1400px with one removed → 1400px empty
 (the bare form is already the shorter of the two, so removing the last rows changes nothing further).
+
+---
+
+## The grand tour — every content type, authored to used
+
+`test/e2e/homebrew-grand-tour.js` is the breadth counterpart to the pairs above: **69 checks**, one
+pack, six items across five content types, and two characters.
+
+1. **Author** through the real forms — a language, a boon and an invocation (tier 1, three fields
+   each); a draconic ancestry (the conditional schema: choosing *Line* reveals width and length and
+   leaves *Cone Length* hidden); and two fighting styles through the `:rows` form — one open to
+   every class, one restricted to ranged weapons and `:classes #{:fighter}`.
+2. **Export** with the real Export button, capturing the actual download.
+3. **Wipe**, and confirm the pack is gone before importing.
+4. **Import** the real file through the real `<input type=file>`.
+5. **Use it.** No single character reaches every type — that is the game's shape, not a limit of the
+   tour — so it builds two:
+
+| character | reaches | proof |
+|---|---|---|
+| Dragonborn Fighter 1 | draconic ancestry, fighting style | ancestry recorded on the race side; the authored +1 moves the sheet **AC 12 → 13**; both styles offered, and the `:classes #{:fighter}` one only to the Fighter |
+| Warlock 3, Acolyte | invocation, pact boon, language | `:eldritch-invocations` and `:pact-boon {… :boon-of-the-tideborn}` on the character; the language reachable from the background's choice |
+
+The details that a storage round-trip alone would not catch are asserted on both sides of the
+export: the breath weapon's `:line-width 5`, the style's `:ranged? true`, and its
+`:classes #{:fighter}`.
+
+**What it taught, which was not about homebrew at all:** a selection's `:tags` decide which *tab* it
+renders on, not the feature that granted it. A warlock's invocations are on the **Spells** tab and a
+background's languages on **Proficiencies**. Looking for them where they were granted finds nothing
+and looks precisely like "the imported content is not offered" — which is the same shape as the real
+fighting-style gap this branch fixed, and would have been easy to report as a second one. The rule
+and the two other builder-driving gotchas are written up in `cljs-headless-harness.md`.
+
+**A second thing the screenshots caught, which the passing checks did not.** Clicking *NEW* raises a
+confirm when there are unsaved changes, and leaving it unanswered does not start a new character —
+it leaves you editing the first one. Every later assertion still passed while quietly describing the
+wrong character; the header in `06-warlock.jpg` read *Dragonborn Warlock 3*, which is how it
+surfaced. The tour now answers the confirm and asserts the second character is genuinely fresh
+(`!/dragonborn/` on its race) before trusting anything else it says. **A green check that is
+describing the wrong object is worse than a red one**, and only the picture showed it.
