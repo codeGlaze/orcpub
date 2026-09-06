@@ -407,11 +407,13 @@
                 options))]
     [omv/option-menu
      {:menu-id [::inventory key]
-      ;; 25 keeps the seven Equipment pickers at ~150 rendered cells instead of 1037
-      ;; <option> elements. Measured against the native select it replaced (4x throttle,
-      ;; mega-64, steady state, normalised to the Race tab in the same run):
-      ;;   native select 1.65x control | uncapped picker 2.71x | capped 1.31-1.35x
-      :max-rendered 25
+      ;; 100 keeps the list scrollable while staying at or below the native <select> it
+      ;; replaced. Measured at 4x throttle on mega-64, steady state, normalised to the Race
+      ;; tab in the same run (absolute numbers drift between server restarts):
+      ;;   cap 25 ~1.33x | cap 100 ~1.56x | native 1.65x | cap 250 ~2.77x | uncapped ~2.71x
+      ;; 250 is pointless -- most lists are shorter, so the cap never binds. The truncation
+      ;; notice offers "show all", so the cap is a default and not a ceiling.
+      :max-rendered 100
       :options (omv/checkbox-options
                 items
                 ;; already filtered to unselected, so nothing is ever "chosen" here

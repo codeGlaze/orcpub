@@ -34,9 +34,14 @@ const check = (n, ok, d) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${n}${d ? 
   const search = page.locator('input.opt-menu-search');
   check('the searchable picker rendered', await search.count() > 0, `${await search.count()} search boxes`);
 
-  // The cap should keep rendered options far below the full library.
+  // The cap must BIND -- fewer cells rendered than exist. Asserted relative to what
+  // "show all" reveals further down, not against a magic number: an absolute threshold
+  // silently goes stale the moment :max-rendered changes (it did, at cap 25 -> 100).
   const cells = await page.locator('.opt-menu-cell').count();
-  check('render is capped, not the whole library', cells > 0 && cells <= 200, `${cells} cells rendered`);
+  check('options render at all', cells > 0, `${cells} cells`);
+  const truncated = await page.locator('.opt-menu-clear', { hasText: /show all/ }).count();
+  check('the cap binds on at least one menu', truncated > 0,
+        `${truncated} menus truncated`);
 
   const equipped = () => page.evaluate(() => {
     const c = window.cljs.core;
@@ -67,6 +72,18 @@ const check = (n, ok, d) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${n}${d ? 
             `${before} -> ${await equipped()}`);
     } else check('picking an item adds it to the character', false, 'no cell to click');
   }
+  // "show all" must escape the cap -- it is a default, not a ceiling.
+  const showAll = page.locator('.opt-menu-clear', { hasText: /show all/ }).first();
+  if (await showAll.count().catch(() => 0)) {
+    const capped = await page.locator('.opt-menu-cell').count();
+    await showAll.click({ timeout: 20000 });
+    await page.waitForTimeout(2000);
+    const all = await page.locator('.opt-menu-cell').count();
+    check('"show all" renders beyond the cap', all > capped, `${capped} -> ${all}`);
+  } else {
+    console.log('  SKIP  "show all" (nothing truncated at this cap)');
+  }
+
   await browser.close();
   if (failures) { console.log(`\n${failures} FAILURE(S)`); process.exit(1); }
   console.log('\nequipment picker works');

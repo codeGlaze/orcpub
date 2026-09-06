@@ -54,9 +54,13 @@
 
 (reg-sub ::menu-query  (fn [db [_ id]] (get-in db [::menu-state id :query] "")))
 (reg-sub ::menu-letter (fn [db [_ id]] (get-in db [::menu-state id :letter])))
+;; Per-menu escape from :max-rendered, so the cap is a DEFAULT (do not build 200 rows
+;; before they are asked for) rather than a ceiling (you may only ever see N).
+(reg-sub ::show-all (fn [db [_ id]] (get-in db [::menu-state id :show-all] false)))
 
 (reg-event-db ::set-menu-query  (fn [db [_ id q]] (assoc-in db [::menu-state id :query] q)))
 (reg-event-db ::set-menu-letter (fn [db [_ id l]] (assoc-in db [::menu-state id :letter] l)))
+(reg-event-db ::set-show-all (fn [db [_ id v]] (assoc-in db [::menu-state id :show-all] v)))
 
 ;; Collapse is a persisted per-section preference (like :menu-layout) — default
 ;; expanded, independent per section, survives reload.
@@ -509,7 +513,8 @@
         ;; builds DOM for its options; this component does, so an uncapped 200+ item list
         ;; is slower than the select it replaces (measured 1.5-1.7x on the Equipment tab).
         ;; Capping makes it render what is needed and let search narrow the rest.
-        shown      (if (and max-rendered (> (count filtered) max-rendered))
+        show-all?  @(subscribe [::show-all menu-id])
+        shown      (if (and max-rendered (not show-all?) (> (count filtered) max-rendered))
                      (subvec filtered 0 max-rendered)
                      filtered)
         truncated? (< (count shown) (count filtered))
@@ -554,8 +559,9 @@
            :else             [grid-body shown cell-fn]))
        (when truncated?
          [:div.opt-menu-empty
-          (str "Showing " (count shown) " of " (count filtered)
-               ". Type to narrow the list.")])
+          (str "Showing " (count shown) " of " (count filtered) ". Search to narrow, or ")
+          [:span.opt-menu-clear {:on-click #(dispatch [::set-show-all menu-id true])}
+           (str "show all " (count filtered))]])
        (when trailer trailer)]]]))
 
 ;; ---------------------------------------------------------------------------
