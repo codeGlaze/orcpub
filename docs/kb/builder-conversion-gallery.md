@@ -306,47 +306,69 @@ is hand-written and did a plain `assoc`, while every declarative field sends a *
 screen was wrong; only reading back what was saved showed it. That is the whole argument for
 pinning on stored shape rather than on what you typed.
 
-### The regression this conversion shipped first, and the fix
+### The regression this conversion shipped first, and the design pass
 
 The first version of this conversion **was worse than the form it replaced**, and the gallery said
 it was fine because the gallery only counted controls.
 
-| | hand-built | first conversion | now |
-|---|---:|---:|---:|
-| page height | 1289px | **1389px** | **1164px** |
-| visible controls | 10 | 9 | 9 |
+| | hand-built | first conversion | after flow | after the design pass |
+|---|---:|---:|---:|---:|
+| page height | 1289px | **1389px** | 1164px | **1294px** |
+| visible controls | 10 | **9** | 9 | **10** |
 
-*Taller, with fewer controls.* The hand-written page paired **Level + School** on one row and
-**Casting Time + Range** on another, and ran the checkboxes inline; the declarative renderer made
-every field a page-wide block in a single column. That is the same defect fixed *inside* the effect
-rows one pair earlier — number-wide numbers, inline tags — and it was never applied at the top
-level. **Brevity in the source is not the goal; a declarative form has to carry the layout the
-hand-written one had, or the conversion is a downgrade wearing a smaller diff.**
+Read that middle column: *taller, showing fewer controls*, signed off as an improvement.
 
-So fields now **flow, sized by their type**, in `.field-flow`:
+**Two separate mistakes, and the second is the one worth remembering.**
+
+**1. The renderer had no layout.** Every field became a page-wide block in one column. The
+hand-written page paired **Level + School**, stacked **Ritual? / Requires Attack Roll?** as a column
+beside them, and ran the component checkboxes inline. Brevity in the source is not the goal — a
+declarative form has to carry the layout the hand-written one had, or the conversion is a downgrade
+wearing a smaller diff. Fields now flow, sized by type:
 
 | type | width |
 |---|---|
-| `:boolean` | as wide as its label, inline with its neighbours |
+| `:boolean` | as wide as its label |
 | `:number` | 120px |
 | `:enum` | `1 1 240px` |
 | `:text` | `1 1 260px` |
 | `:multi-enum`, `:rows`, `:span :full` | the whole line |
 
-Direct-child selectors only, so fields inside an effect row keep their own tighter sizing.
+A **run of adjacent toggles becomes one stacked column** when there is something to sit beside —
+which is what the hand-written form did with the two flags. When the toggles *are* the row, as
+under Components, they flow inline instead. A `:span :full` field does not count as something to sit
+beside; treating it as one is what stacked verbal/somatic/material into a column.
 
-**And `:section` was lying.** It grouped only the field that declared it, so *Verbal* sat alone
-under COMPONENTS while Somatic and Material leaked out below the heading. A section now covers the
-fields that follow it until the next one starts — which in turn required moving `:duration` ahead
-of the components in the schema, since it had been declared after them and would otherwise have
-been swept into Components.
+**2. I changed behaviour inside a conversion.** Hiding *Material Component* until Material is ticked
+is defensible, but making it *during* the swap turned 10 controls into 9 and made the before/after
+uncomparable — and I reported the drop as a win. **A conversion preserves behaviour; improvements to
+it are their own step.** The field is visible again, the count is 10 on both sides, and the
+conditional is a proposal rather than a fait accompli.
 
-**The gallery now records page height, not just control count** (`builder-gallery.js`), because
-height is what catches lost cohesion and the count alone reported the regression as an improvement.
+Two other fidelity gaps the pictures showed, both now expressible in the schema rather than lost:
 
-Two other deliberate differences from the bespoke form: the **Material Component** box is `:when`
-the Material box is ticked, so it is hidden until it means anything; and **Description moved up**,
-because `simple-content-builder` renders it after name and source.
+- `:section` grouped only the field that declared it, so *Verbal* sat alone under COMPONENTS while
+  Somatic and Material leaked out below the heading. A section now covers the fields that follow it.
+- The hand-written form put **Description near the bottom under its own heading**;
+  `simple-content-builder` always rendered it after the name. A schema can now say where it goes
+  with `{:slot :description}`, and `{:section "…"}` with no `:type` is a heading on its own.
+
+Section headings use the app's own `f-s-24` convention — the same one every hand-written builder uses
+for *Components*, *Description*, *Creatures*. The small uppercase label used before was invented here
+and read as a footnote beside them; there is now one heading weight, not two.
+
+**The gallery records page height alongside control count**, because height is what catches lost
+cohesion and the count alone called the regression an improvement.
+
+### Still open on this pair
+
+Not claiming it is finished:
+
+- **Casting Time** flows up onto the Level/School row and **Duration** pairs with Range; the
+  hand-written form paired Casting Time with Range and gave Duration its own line. That falls out of
+  intrinsic widths, and pinning it would need explicit row control in the schema.
+- The **spell-list heading** is now `f-s-24` where the original was a smaller bold label — consistent
+  with the other sections, heavier than what it replaced.
 
 ---
 

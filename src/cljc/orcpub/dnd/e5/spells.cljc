@@ -72,7 +72,7 @@
    The three components and the two flags are the first users of `:type :boolean`, which routes
    through common/toggle-in; nested keys like [:components :verbal] are why the toggle needed path
    support at all."
-  (let [material? #(get-in % [:components :material])]
+  (let []
     (concat
      ;; NOT :required? — the marker would claim something the hand-written spell spec does not
      ;; actually enforce, and a form that flags a field the save then accepts is worse than no flag.
@@ -93,8 +93,17 @@
      [{:key [:components :verbal] :type :boolean :label "Verbal" :section "Components"}
       {:key [:components :somatic] :type :boolean :label "Somatic"}
       {:key [:components :material] :type :boolean :label "Material"}
+      ;; Always visible, as it was. Hiding it until Material is ticked is a defensible improvement
+      ;; and was made HERE, inside a conversion, which quietly turned 10 controls into 9 and made
+      ;; the before/after uncomparable. A conversion preserves behaviour; changes to it are their
+      ;; own step.
       {:key [:components :material-component] :type :text :label "Material Component"
-       :when material? :span :full}])))
+       :span :full}]
+     ;; The hand-written form ended with Description under its own heading, then the spell-list
+     ;; widget under its own. Both are expressible now: a marker with :section and no :type is a
+     ;; heading, and {:slot :description} says where the description goes.
+     [{:section "Description" :slot :description}
+      {:section "Add This Spell to Which Class Spell Lists?"}])))
 
 (def conc-1-min "Concentration, up to 1 minute")
 (def conc-10-min "Concentration, up to 10 minutes")

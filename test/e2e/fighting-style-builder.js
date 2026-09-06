@@ -126,8 +126,13 @@ const { check, report } = checker();
   });
   check('the :classes control offers exactly the classes that HAVE the feature',
         !!classLabels && classLabels.length === 3, JSON.stringify(classLabels));
-  check('and it sits under its own section heading', await page.evaluate(() =>
-    [...document.querySelectorAll('.rows-title')].some(e => /available to/i.test(e.textContent))));
+  // by TEXT, not by class: the section heading moved onto the app's own f-s-24 convention and a
+  // class-based assertion pinned the implementation rather than what an author sees
+  check('and it sits under its own section heading', await page.evaluate(() => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    return [...document.querySelectorAll('div,h2,span')]
+      .some(e => e.children.length === 0 && /^available to$/i.test(e.textContent.trim()) && vis(e));
+  }));
 
   const tickedPaladin = await page.evaluate(() => {
     const b = [...document.querySelectorAll('.chip-row .chip')]

@@ -324,6 +324,11 @@
     [:> [:.field-boolean {:flex "0 0 auto"  :min-width 0 :align-self :center}]]
     [:> [:.field-multi-enum {:flex "1 1 100%"}]]
     [:> [:.field-full    {:flex "1 1 100%"}]]]
+   ;; a run of toggles that shares a row with other fields: one column, stacked
+   [:.bool-stack
+    {:flex "0 0 auto"
+     :align-self :center
+     :margin-right "14px"}]
    ;; a section heading, or a :rows node, owns its own line
    [:.field-break
     {:flex "1 1 100%"
@@ -351,13 +356,7 @@
       :border-style :solid
       :border-color "#f0a100"
       :color "#f0a100"}]]
-   [:.rows-title
-    {:font-size "13px"
-     :font-weight 700
-     :letter-spacing "0.09em"
-     :text-transform :uppercase
-     :color "rgba(255,255,255,0.55)"
-     :margin-bottom "8px"}]
+
    [:.row-lead-num
     {:width "92px"
      :flex "0 0 92px"}

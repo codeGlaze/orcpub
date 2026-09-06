@@ -7509,7 +7509,7 @@
             present?  (fn [{:keys [kind] :as k}] (or (contains? @opened kind) (has-data? k)))
             absent    (remove present? kinds)]
         [:div.w-100-p.m-t-20
-         [:div.rows-title title]
+         [:div.f-s-24.f-w-b.m-b-10 title]
          (when (seq absent)
            [:div.flex.flex-wrap.align-items-c.m-b-15.addbar
             [:span.m-r-10.opacity-5.f-s-12 (str (or add-label "Add") ":")]
@@ -7646,6 +7646,32 @@
          ;; :text
          [comps/input-field :input v #(dispatch [set-prop path %]) {:class-name "input"}])])))
 
+(defn- group-toggles
+  "Collapse a RUN of adjacent `:boolean` fields into one `{:bools [...]}` unit, so it lays out as a
+   single stacked column beside its neighbours — which is what the hand-written spell form did with
+   Ritual? / Requires Attack Roll? next to Level and School.
+
+   Not when the whole group is toggles: the same form ran verbal / somatic / material INLINE under
+   the Components heading, because there they are the row rather than a column in one. Stacking
+   those would be copying the mechanism instead of the layout."
+  [fields]
+  (let [field? #(and (map? %) (:type %))
+        bool?  #(and (field? %) (= :boolean (:type %)))
+        ;; a :span :full field takes its own line, so it never shares a row with the toggles and
+        ;; must not be what makes them stack — that is what stacked verbal/somatic/material under
+        ;; Components, where the only other field is the full-width Material Component
+        shares-row? #(and (field? %) (not (bool? %)) (not= :full (:span %)))]
+    (if (not-any? shares-row? fields)
+      fields                                     ; nothing to sit beside — let the toggles flow inline
+      (->> fields
+           (reduce (fn [acc f]
+                     (let [prev (peek acc)]
+                       (if (and (bool? f) (map? prev) (:bools prev))
+                         (conj (pop acc) (update prev :bools conj f))
+                         (if (bool? f) (conj acc {:bools [f]}) (conj acc f)))))
+                   [])
+           vec))))
+
 (defn- field-sections
   "Split a field list into [section-title fields] pairs. A field carrying `:section` STARTS a
    section; everything after it belongs to that section until the next one. The first pair has a
@@ -7677,7 +7703,8 @@
         ;; used for import/export verification, so the form and the file agree on what's required
         ;; flatten-fields expands a :rows node into the fields it can hold, so validation sees the
         ;; same field set whether the form is flat or grouped.
-        problems (bf/validate-fields (bf/flatten-fields (filter map? extra-fields)) item)]
+        problems (bf/validate-fields (bf/flatten-fields (filter #(and (map? %) (:type %)) extra-fields)) item)
+        description-slot? (some #(and (map? %) (= :description (:slot %))) extra-fields)]
     [:div.p-20.main-text-color
      ;; Equal columns. Both fields were .flex-grow-1 with an auto basis, so the one with the longer
      ;; label (Option Source Name carries an italic example) simply took more room — the widths were
@@ -7695,12 +7722,15 @@
         option-source-name-label
         item
         set-prop]]]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [textarea-field
-       {:value (get item :description)
-        :on-change #(dispatch [set-prop :description %])}]]
+     ;; Description renders HERE unless the schema declares where it goes with
+     ;; {:slot :description}. The hand-written spell form put it near the bottom under its own
+     ;; heading, and a converted form that cannot express that is not a faithful conversion.
+     (when-not description-slot?
+       [:div.w-100-p
+        [:div.f-s-24.f-w-b "Description"]
+        [textarea-field
+         {:value (get item :description)
+          :on-change #(dispatch [set-prop :description %])}]])
      ;; A field may open a SECTION, and the fields AFTER it belong to that section until the next
      ;; one starts. Rendering only the declaring field under the heading put "Verbal" alone under
      ;; COMPONENTS while Somatic and Material leaked out below it — a heading that lies about what
@@ -7709,15 +7739,30 @@
        (into [:div.w-100-p]
              (map (fn [[section fields]]
                     [:div.w-100-p
-                     (when section [:div.rows-title section])
+                     ;; the app's own section heading, which is what every hand-written builder
+                     ;; uses ("Components", "Description", "Creatures") — not the small uppercase
+                     ;; label I had invented, which read as a footnote next to them
+                     (when section [:div.f-s-24.f-w-b.m-b-10 section])
                      (into [:div.flex.flex-wrap.field-flow]
                            ;; a field spec (map) renders declaratively; raw hiccup passes through
                            (map (fn [f]
                                   (cond
-                                    (:rows f) [:div.field-break [rows-node item set-prop f]]
-                                    (map? f)  [render-builder-field item set-prop f]
-                                    :else     [:div.field-break f]))
-                                fields))])
+                                    (= :description (:slot f))
+                                    [:div.field-break
+                                     [textarea-field
+                                      {:value (get item :description)
+                                       :on-change #(dispatch [set-prop :description %])}]]
+                                    ;; a heading-only marker contributes its title and no control
+                                    (and (map? f) (not (:type f)) (not (:rows f)) (not (:bools f)))
+                                    nil
+                                    (:rows f)    [:div.field-break [rows-node item set-prop f]]
+                                    (:bools f)   ;; a run of toggles sharing a row: one stacked column
+                                    (into [:div.bool-stack]
+                                          (map #(vector render-builder-field item set-prop %)
+                                               (:bools f)))
+                                    (map? f)     [render-builder-field item set-prop f]
+                                    :else        [:div.field-break f]))
+                                (group-toggles fields)))])
                   (field-sections extra-fields))))
      [builder-notes problems {:severity :error}]]))
 
@@ -8503,8 +8548,8 @@
    Passed through simple-content-builder as hiccup — the escape hatch exists precisely so that one
    bespoke control does not force a whole builder to stay bespoke."
   [spell]
+  ;; the heading is the schema's section marker now, so the widget draws only its checkboxes
   [:div.m-b-20
-   [:div.f-w-b.m-b-10 "Add This Spell to Which Class Spell Lists?"]
    [:div.flex.flex-wrap.p-5.b-rad-5
     {:class (builder-field-cue :spell-lists)}
     (doall
