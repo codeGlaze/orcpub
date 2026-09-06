@@ -30,7 +30,6 @@ asks what `/character.pdf` can be made to talk to.
   `test/clj/orcpub/pdf_image_test.clj` (which URLs are allowed),
   `test/clj/orcpub/pdf_image_fetch_test.clj` (what happens once one is),
   `test/browser/character_image_capture_e2e.js` (both paths through the real app)
-- Background: `docs/kb/pdf-form-techniques.md`
 
 ## Measured against real hosts (2026-09-06)
 

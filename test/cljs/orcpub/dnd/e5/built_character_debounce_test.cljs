@@ -8,7 +8,7 @@
    with-redefs, which unwinds before the trailing build's timer fires.
 
    It does NOT reproduce why the app built twice -- that was two subscription
-   instances; see docs/kb/perf-homebrew-builder-loop.md."
+   instances."
   (:require [cljs.test :refer-macros [deftest testing is async]]
             [reagent.ratom :as ra]
             [orcpub.dnd.e5.subs :as subs]))

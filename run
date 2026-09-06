@@ -1118,7 +1118,6 @@ if [ "$UP_MODE" = "true" ]; then
 
   # docker compose config outputs Compose Specification format;
   # docker stack deploy expects legacy v3 schema. JSON + jq bridges the gap.
-  # See docs/kb/docker-swarm-compat.md for the full incompatibility list.
   docker compose config --format json | jq '
     del(.name) |
     .services |= with_entries(

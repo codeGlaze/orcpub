@@ -1,4 +1,4 @@
-# orcpub — notes for agents
+# orcpub — working notes
 
 ## Running the real app (do this for browser e2e — don't fake it)
 
@@ -17,13 +17,6 @@ Do **not** serve the compiled JS off a bare static file server and drive the app
 real flows (e.g. import-conflict modals never surface), and produces misleading results.
 Run the real server.
 
-## Knowledge base
-
-`docs/kb/README.md` indexes findings that were expensive to get: the builder-freeze root
-cause, the storage-layer measurements, the browser probes and what each answers. Read
-`docs/kb/verification-discipline.md` before writing a performance probe -- it lists the
-probe defects that have produced confident wrong answers here.
-
 ## Build / test commands
 
 - `lein fig:build`   — compile the dev CLJS build (needed before browser e2e).
@@ -34,5 +27,5 @@ probe defects that have produced confident wrong answers here.
 ## Datomic
 
 The project is on **Datomic Pro 1.0.7482**, which is Java-21-compatible. `datomic:mem://`
-needs no transactor. The `docs/kb/DATOMIC_JAVA21_TEST_RESULTS.md` doc describes a **resolved**
-issue with the *old* Datomic Free on Java 8/21 — it is history, not the current state.
+needs no transactor. The startup failure the *old* Datomic Free hit on Java 8/21 is history
+from that dependency, not the current state.

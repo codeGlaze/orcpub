@@ -8,7 +8,7 @@
 //
 // Warmed, min-of-5-reps. Click-triggered timings were tried first and came out
 // non-monotonic across pack sizes — the debounce, rendering and GC swamp the signal — so
-// they are not a valid instrument here. See docs/kb/verification-discipline.md.
+// they are not a valid instrument here.
 //
 // Prerequisites:
 //   lein fig:build                                   # compile the dev CLJS build
@@ -21,7 +21,7 @@
 //
 // NOTE: the dev build is :optimizations :none, so LOAD-time numbers from it are
 // meaningless — a cold builder load measures hundreds of file fetches, not the app. Only
-// the runtime numbers here are usable. See docs/kb/perf-homebrew-builder-loop.md.
+// the runtime numbers here are usable.
 
 const fs=require('fs'),path=require('path');const {chromium}=require('playwright');
 const { importPack } = require('./lib/orcbrew-import');

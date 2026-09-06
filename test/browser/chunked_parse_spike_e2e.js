@@ -1,7 +1,5 @@
 // Track 1 spike: is per-source chunked EDN parsing (with a yield between sources) worth
-// the localStorage migration it would require? See docs/kb/perf-homebrew-builder-loop.md,
-// "Track 1 spike: is chunked parsing worth a storage migration?" for the writeup this
-// script's numbers feed.
+// the localStorage migration it would require?
 //
 // THE QUESTION: cljs.reader/read-string on the whole stored "plugins" library is ~750ms
 // of ONE unbroken main-thread task (measured in validation_cost.js / the KB doc). The
@@ -24,8 +22,7 @@
 //                  If unequal, the whole idea is invalid: say so loudly and stop.
 //
 // Warm up before timing (JIT); report min-of-N. Run at 1x and 4x CPU throttle via CDP
-// (Emulation.setCPUThrottlingRate) — 4x is what a real user's laptop looks like, per
-// CLAUDE.md's method rules for this investigation.
+// (Emulation.setCPUThrottlingRate) — 4x is what a real user's laptop looks like.
 //
 // Uses test/browser/lib/orcbrew-import.js's importPack + suppressCookieBanner — a real
 // .orcbrew import opens a conflict-resolution modal that needs both to get past

@@ -8,7 +8,7 @@
 // reported 916,414,672 -- that is IndexedDB/CacheStorage, not localStorage.
 //
 // Consequence: a copy-then-delete storage migration fits only below ~2.58 M chars, which
-// real libraries already exceed. See docs/kb/plan-chunked-library-storage.md.
+// real libraries already exceed.
 //
 // Run: lein e2e-server, then  node test/browser/localstorage_ceiling_e2e.js
 const { chromium } = require('playwright');

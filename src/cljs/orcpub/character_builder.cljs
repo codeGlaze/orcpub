@@ -182,7 +182,7 @@
 ;;
 ;; If a handler factory is ever hot enough to need caching, key it on something
 ;; small (an index, a keyword) -- never on options, a character, a template or a
-;; content map. docs/kb/perf-homebrew-builder-loop.md
+;; content map.
 ;; ---------------------------------------------------------------------------
 
 (defn set-class-fn [i options-map]

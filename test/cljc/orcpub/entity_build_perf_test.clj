@@ -19,9 +19,7 @@
    PersistentArrayMap-backed and iterates in INSERTION order — and the sort reads its
    frontier with (first s). A draft of the rewrite passed everything here and diverged on
    159 of 808 graphs in the browser. The cljs half is
-   test/browser/kahn_sort_order_equivalence_e2e.js; re-run it whenever kahn-sort changes.
-
-   Measurements live in docs/kb/perf-entity-build.md."
+   test/browser/kahn_sort_order_equivalence_e2e.js; re-run it whenever kahn-sort changes."
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.entity :as entity]
             [orcpub.dnd.e5.template :as t5e]

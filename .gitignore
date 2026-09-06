@@ -71,10 +71,9 @@ cljs-test-runner-out
 # Cursor IDE local config (contains user-specific paths)
 .cursor/
 
-# Claude Code local data (conversation history, credentials)
+# Local assistant tool state (conversation history, credentials) — belongs in dotfiles,
+# not in a code branch
 .claude-data/
-
-# Agentic/AI tool files — belong in dotfiles or agents/ branch, not code branches
 .claude/
 
 # NewRelic (DMV-specific, contains license key)
@@ -101,7 +100,7 @@ cljsjs/
 # Local devcontainer setup (superseded by dotfiles)
 .devcontainer/local-setup.sh
 
-# Design handoff reference material (preserved on agents/develop, not committed to code branches)
+# Design handoff reference material (kept out of the code branches)
 design_handoff_character_menus
 
 # Generated clojure-CLI cljs build artifact (regenerated from project.clj; lein/figwheel-main is canonical)

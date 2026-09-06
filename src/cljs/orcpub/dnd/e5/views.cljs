@@ -2901,7 +2901,7 @@
         ;; The non-nil path is left exactly as it was: [:built-character id]
         ;; ignores id and returns the builder's character, which looks wrong on a
         ;; character page, but ::char/built-character id fetches over HTTP, so
-        ;; changing it needs its own verification. See docs/kb.
+        ;; changing it needs its own verification.
         built-char @(subscribe (if id
                                  [:built-character id]
                                  [:built-character]))
@@ -6384,7 +6384,7 @@
 
 ;; ---- Starting equipment (homebrew class builder) ---------------------------
 ;; The class map carries the same shorthand keys the SRD classes use, consumed by
-;; opt5e/class-option with no extra wiring (see docs/kb/starting-equipment.md):
+;; opt5e/class-option with no extra wiring:
 ;;   fixed grants  -> :weapons / :armor / :equipment  {item-key qty}
 ;;   choice groups -> :weapon-choices / :armor-choices / :equipment-choices
 ;;                    [{:name .. :options {item-key qty}}]
