@@ -293,8 +293,13 @@ async function exportPressable(page) {
     // ahead of the thumbnail's, its CORS failure takes the thumbnail down with it
     // and the picture stops displaying -- so the thumbnail must still be fine on
     // a host that allows no read.
-    check("a host that refuses the read still shows its picture",
-          !/Image failed to load/i.test(await page.innerText('body')));
+    // Asserted on the element, not on the absence of a message: specific advice
+    // now suppresses the generic "failed to load" line, so its absence proves
+    // nothing about whether the picture actually rendered.
+    const thumbLoaded = await page.evaluate(() =>
+      [...document.images].some(i => /image-character-thumbnail/.test(i.className)
+                                     && i.naturalWidth > 0));
+    check("a host that refuses the read still shows its picture", thumbLoaded);
 
     // The offer is identified by its button; the sentence above it varies with
     // the reason the server gave.

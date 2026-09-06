@@ -1836,32 +1836,45 @@
 (def image-paste (memoize image-paste-fn))
 
 (defn image-url-advice
-  "What can be told from the address itself, before anything is fetched.
+  "Everything said about the address itself: what can be told from the string, and
+   the generic load failure when nothing more specific applies.
+
+   One component owns both so they cannot stack. \"Image failed to load\" under
+   \"That is the Pinterest page\" is two red lines saying one thing, and the vaguer
+   of them is the one people read first.
 
    Held back until typing stops. The field commits on every keystroke, so advice
    rendered straight from it would object to `htt` on the way to `https://` and
-   teach people to ignore it.
+   teach people to ignore it. The load failure is not held back -- it is already
+   an answer about the address as typed.
 
    A correction is offered as a button rather than applied: the address belongs to
    the person, and a field that rewrites itself while being typed into is worse
    than one that says nothing."
-  [_url _set-fn]
+  [_url _failed? _set-fn]
   (let [settled (r/atom nil)
         timer (atom nil)
         seen (atom ::unseen)]
-    (fn [url set-fn]
+    (fn [url failed? set-fn]
       (when (not= url @seen)
         (reset! seen url)
         (some-> @timer js/clearTimeout)
         (reset! timer (js/setTimeout #(reset! settled url) 900)))
-      (when-let [{:keys [level message advice fix]} (image-url/advise @settled)]
-        [:div.m-t-5
-         [:div.f-s-12 {:class (when (= :error level) "red")}
-          message (when advice (str " " advice))]
-         (when fix
+      (let [{:keys [level message advice fix]} (image-url/advise @settled)
+            ;; An error or a warning already says what the generic message would,
+            ;; and says it about this address in particular.
+            specific? (contains? #{:error :warning} level)]
+        [:div
+         (when (and failed? (not specific?))
+           [:div.red.m-t-5 "Image failed to load, please check the URL"])
+         (when message
            [:div.m-t-5
-            [:button.form-button.p-5 {:on-click #(set-fn fix)} "Use this instead"]
-            [:div.f-s-12.m-t-5 fix]])]))))
+            [:div.f-s-12 {:class (when (= :error level) "red")}
+             message (when advice (str " " advice))]
+            (when fix
+              [:div.m-t-5
+               [:button.form-button.p-5 {:on-click #(set-fn fix)} "Use this instead"]
+               [:div.f-s-12.m-t-5 fix]])])]))))
 
 (def ^:private image-failure-notes
   "What went wrong, and which thing is worth fixing, keyed by the reason the
@@ -2012,9 +2025,7 @@
        {:on-paste (image-paste image-url)}
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
-       (when image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])
-       [image-url-advice image-url set-image-url]
+       [image-url-advice image-url image-url-failed set-image-url]
        (when (and image-url (not image-url-failed))
          [image-upload image-url (get image-bytes image-url)
           (get server-reach image-url)])]]
@@ -2030,9 +2041,8 @@
        {:on-paste (image-paste faction-image-url)}
        [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
-       (when faction-image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])
-       [image-url-advice faction-image-url set-faction-image-url]
+       [image-url-advice faction-image-url faction-image-url-failed
+        set-faction-image-url]
        (when (and faction-image-url (not faction-image-url-failed))
          [image-upload faction-image-url (get image-bytes faction-image-url)
           (get server-reach faction-image-url)])]]
