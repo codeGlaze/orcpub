@@ -16,7 +16,7 @@ const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
 const { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText,
-        fillEffectBonus, dismissCookieBar, clickTab, pickFromAnySelect } = require('./lib');
+        fillEffectBonus, dismissCookieBar, clickTab, pickFromAnySelect, pickOption } = require('./lib');
 
 const PACK = 'Grand Tour';
 const shot = (page, name) =>
@@ -35,20 +35,6 @@ async function head(page, name) {
   await fill(page, 'Name', name);
   await fill(page, 'Option Source Name', PACK);
   await fill(page, 'Description', `${name}, authored by the grand tour.`);
-}
-
-// pick an <select> option by its visible text, via the label above it
-async function choose(page, label, rx) {
-  const sel = await controlFor(page, label);
-  if (!sel) return false;
-  return page.evaluate(({ e, src }) => {
-    const opt = [...e.options].find(o => new RegExp(src, 'i').test(o.textContent.trim()));
-    if (!opt) return false;
-    const set = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-    set.call(e, opt.value);
-    e.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }, { e: sel, src: rx.source });
 }
 
 const addEffect = (page, title) => page.evaluate((t) => {
@@ -93,16 +79,16 @@ const pageHas = async (page, rx) => rx.test(await page.locator('#app').innerText
     // conditional schema — Line reveals width/length, Cone reveals a different number
     await openBuilder(page, 'draconic-ancestry-builder');
     await head(page, 'Frost Wyrm');
-    check('breath weapon: chose a damage type', await choose(page, 'Breath Weapon Damage Type', /^cold$/));
+    check('breath weapon: chose a damage type', await pickOption(page, 'Breath Weapon Damage Type', /^cold$/));
     check('the Line-only numbers are hidden before a shape is chosen',
           (await controlFor(page, 'Line Width')) === null);
-    check('breath weapon: chose Line', await choose(page, 'Breath Weapon Shape', /^line$/));
+    check('breath weapon: chose Line', await pickOption(page, 'Breath Weapon Shape', /^line$/));
     await page.waitForTimeout(400);
     check(':when revealed the Line-only numbers', !!(await controlFor(page, 'Line Width')));
     check('and the Cone-only number stays hidden', (await controlFor(page, 'Cone Length')) === null);
     await fill(page, 'Line Width', '5');
     await fill(page, 'Line Length', '30');
-    check('breath weapon: chose a save', await choose(page, 'Breath Weapon Save', /dexterity/));
+    check('breath weapon: chose a save', await pickOption(page, 'Breath Weapon Save', /dexterity/));
     await shot(page, '01-draconic.jpg');
     check('authored draconic ancestry: Frost Wyrm', await save(page));
     authored.push('Frost Wyrm');
@@ -121,7 +107,7 @@ const pageHas = async (page, rx) => rx.test(await page.locator('#app').innerText
     check('added the Attack Bonus row', await addEffect(page, 'Attack Bonus'));
     await page.waitForTimeout(300);
     check('typed the attack bonus', await fillEffectBonus(page, 'Attack Bonus', 2));
-    check('restricted it to ranged weapons', await choose(page, 'Ranged', /^ranged (weapons )?only$/));
+    check('restricted it to ranged weapons', await pickOption(page, 'Ranged', /^ranged (weapons )?only$/));
     check('and to the Fighter class', await toggleChip(page, 'Fighter'));
     await page.waitForTimeout(300);
     await shot(page, '02-fighting-style.jpg');

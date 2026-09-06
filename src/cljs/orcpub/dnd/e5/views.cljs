@@ -7484,6 +7484,47 @@
                  :on-change #(dispatch [::selections/set-selection-path-prop [:options i :description] %])}]]]))
          options))]]]))
 
+(def ^:private theme-chevron
+  ;; verbatim from option_menu_views.cljs on port/redesign-on-refactor (3384d4c5)
+  [:svg {:width "12" :height "12" :viewBox "0 0 24 24" :fill "none" :stroke "currentColor"
+         :stroke-width "2.5" :stroke-linecap "round" :stroke-linejoin "round"}
+   [:polyline {:points "6 9 12 15 18 9"}]])
+
+(defn select-menu
+  "Custom button+popover select — alignment-controllable, unlike a native <select> whose
+   popup is OS-positioned and can't be styled/aligned. `options` is [[value label] …];
+   `on-change` receives the chosen value. Dismisses on an outside click.
+
+   PORTED VERBATIM from `orcpub.dnd.e5.option-menu-views` on `port/redesign-on-refactor`
+   (commit 3384d4c5). Kept byte-identical so that when that branch merges this is a delete,
+   not a reconciliation — the OMV namespace becomes the one true copy. See
+   docs/kb/frontend-redesign-parallel-work.md."
+  [_opts]
+  (let [open?    (r/atom false)
+        wrap-ref (atom nil)
+        on-doc   (fn [e] (let [n @wrap-ref]
+                           (when (and n (not (.contains n (.-target e)))) (reset! open? false))))]
+    (r/create-class
+     {:component-did-mount    (fn [_] (js/document.addEventListener "mousedown" on-doc))
+      :component-will-unmount (fn [_] (js/document.removeEventListener "mousedown" on-doc))
+      :reagent-render
+      (fn [{:keys [value options on-change placeholder]}]
+        (let [cur (some (fn [[v l]] (when (= v value) l)) options)]
+          [:div.select-menu {:ref #(reset! wrap-ref %)}
+           [:button.select-menu-btn
+            {:type "button" :on-click (fn [e] (.stopPropagation e) (swap! open? not))}
+            [:span (or cur placeholder "Select…")]
+            [:span.select-menu-chev {:class (when @open? "open")} theme-chevron]]
+           (when @open?
+             [:div.select-menu-pop
+              (doall
+               (for [[v l] options]
+                 ^{:key (str v)}
+                 [:button.select-menu-opt
+                  {:type "button" :class (when (= v value) "active")
+                   :on-click (fn [] (reset! open? false) (on-change v))}
+                  l]))])]))})))
+
 (defn- verb-prop-event
   "set-<base>-prop -> <verb>-<base>-prop. The generated events follow one naming convention
    (events.cljs/homebrew-event-keys), so a row's ✕ can find its counterpart without every caller
@@ -7607,17 +7648,23 @@
        (case type
          ;; index-based option values so ANY value type (incl. qualified keywords) round-trips
          ;; through the string-only <select>
-         :enum   (let [idx (first (keep-indexed (fn [i o] (when (= (:value o) v) i)) options))
-                       opt-title (if (:compact? field)
+         ;; select-menu takes REAL values and hands the real value back, so the index dance this
+         ;; used to do — {:value (str i)} and (nth options (js/parseInt %)) — is gone with the class
+         ;; of bug behind it. A <select>'s value is always a string, which is why a keyword or int
+         ;; could not round-trip and why a shipped breath weapon was broken (D32,
+         ;; dropdown-value-coercion.md). A popover has no string round-trip at all.
+         :enum   (let [opt-title (if (:compact? field)
                                    (fn [o] (or (:short-title o) (:title o)))
                                    :title)]
-                   [dropdown {:items (map-indexed (fn [i o] {:value (str i) :title (opt-title o)}) options)
-                              :value (when idx (str idx))
-                              ;; `set` is the mockup's answer to a row of identical dropdowns: the
-                              ;; ones carrying an actual restriction are picked out in orange, so
-                              ;; the unset majority recedes instead of competing.
-                              :class-name (when (some? v) "set")
-                              :on-change #(dispatch [set-prop path (:value (nth options (js/parseInt %)))])}])
+                   ;; `set` marks a tag that carries an actual restriction, so the unset majority
+                   ;; recedes. It rides a wrapper rather than the button, keeping select-menu byte-
+                   ;; identical to the OMV original.
+                   [:div.bf-enum {:class (when (some? v) "set")}
+                    [select-menu
+                     {:value v
+                      :options (mapv (fn [o] [(:value o) (opt-title o)]) options)
+                      :placeholder (:placeholder field)
+                      :on-change #(dispatch [set-prop path %])}]])
          ;; number-field has ALREADY parsed: it hands us an int, or nil when the box is cleared.
          ;; This used to re-parse with (when (seq %) (js/parseInt %)), and (seq 1) throws
          ;; "1 is not ISeqable" — so typing a digit threw inside the handler and the value never

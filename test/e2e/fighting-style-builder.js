@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const { BASE, SHOTS, findChrome, checker, controlFor, fillEffectBonus } = require('./lib');
+const { BASE, SHOTS, findChrome, checker, controlFor, fillEffectBonus, optionsOf } = require('./lib');
 
 const { check, report } = checker();
 
@@ -107,14 +107,17 @@ const { check, report } = checker();
   await page.waitForTimeout(400);
   check('and its row is gone from the form', await rowAbsent('Damage Bonus'));
 
-  // A three-state value in a two-option <select> would DISPLAY a restriction the item does not
-  // have, because a select with no matching value shows its first option.
-  if (afterArmorTag) {
-    const opts = await afterArmorTag.evaluate(el => [...el.options].map(o => o.textContent.trim()));
-    check('Armor tag offers an explicit "Both" first', /^both$/i.test((opts[0] || '').trim()),
-          `options: ${JSON.stringify(opts)}`);
-    const selected = await afterArmorTag.evaluate(el => el.selectedIndex);
-    check('and it is what shows while the tag is unset', selected === 0, `selectedIndex=${selected}`);
+  // A three-state tag must SHOW "Both" while unset and offer it explicitly. That used to be
+  // phrased as selectedIndex === 0 on a <select>, because a select with no matching value silently
+  // shows its first option — the failure mode being guarded against. The control is a button+
+  // popover now, so the same invariant is read off what the button displays and what the menu
+  // offers, which is closer to what a user actually sees.
+  {
+    const tag = await optionsOf(page, 'Armor');
+    check('Armor tag offers an explicit "Both" first',
+          !!tag && /^both$/i.test(tag.options[0] || ''), JSON.stringify(tag));
+    check('and it is what shows while the tag is unset',
+          !!tag && /^both$/i.test(tag.shown), tag && tag.shown);
   }
 
   // The :classes divvying rule's authoring half. A style with no classes ticked is open to every

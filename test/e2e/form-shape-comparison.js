@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
-const { BASE, SHOTS, findChrome, controlFor, fillEffectBonus, dismissCookieBar } = require('./lib');
+const { BASE, SHOTS, findChrome, controlFor, fillEffectBonus, dismissCookieBar, pickOption } = require('./lib');
 
 const LABEL = process.env.LABEL || 'current';
 
@@ -31,7 +31,7 @@ const shot = (page, file) => page.screenshot({ path: file, fullPage: true, type:
   await dismissCookieBar(page);
 
   const count = async () => page.evaluate(() =>
-    [...document.querySelectorAll('#app input, #app select, #app textarea')]
+    [...document.querySelectorAll('#app input, #app select, #app textarea, #app .select-menu-btn, #app .chip')]
       .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length);
 
   const empty = await count();
@@ -52,22 +52,7 @@ const shot = (page, file) => page.screenshot({ path: file, fullPage: true, type:
   }
   // Set one restriction, so the shot shows a tag that actually carries a value — this is
   // Archery, and it is the case the mockup's `select.set` highlight exists for.
-  await page.evaluate(() => {
-    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-    const lbl = [...document.querySelectorAll('.f-w-b')]
-      .filter(e => e.textContent.trim() === 'Ranged' && vis(e))[0];
-    if (!lbl) return;
-    const sel = (lbl.parentElement || lbl).querySelector('select')
-             || lbl.nextElementSibling;
-    if (!sel || sel.tagName !== 'SELECT') return;
-    // matches both shapes: the flat form's "Ranged weapons only" and the grouped form's short
-    // "Ranged only" — this script has to author the same style in either build
-    const opt = [...sel.options].find(o => /^ranged (weapons )?only$/i.test(o.textContent.trim()));
-    if (!opt) return;
-    const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-    setter.call(sel, opt.value);
-    sel.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  await pickOption(page, 'Ranged', /^ranged (weapons )?only$/);
   await page.waitForTimeout(600);
 
   const filled = await count();

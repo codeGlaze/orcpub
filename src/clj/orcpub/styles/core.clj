@@ -300,9 +300,7 @@
       :min-width "104px"
       :padding "5px 8px"
       :font-size "12.5px"}]
-    [:select.set
-     {:border-color "var(--accent, #f0a100)"
-      :color "var(--accent, #f0a100)"}]]
+    ]
    [:.tag-label
     {:font-size "11.5px"
      :color "rgba(255,255,255,0.55)"}]
@@ -427,6 +425,73 @@
    [:.chip-row
     {:gap "8px"
      :margin-bottom "6px"}]
+   ;; ── select-menu: ported from port/redesign-on-refactor (3384d4c5) ────────────────────────
+   ;; Kept as close to the original as possible so the merge is a delete rather than a
+   ;; reconciliation; the accent is the one deliberate change (var, per themes.cljs).
+   [:.select-menu
+    {:position :relative}]
+   [:.select-menu-btn
+    {:width "100%"
+     :display :flex
+     :align-items :center
+     :justify-content :space-between
+     :gap "8px"
+     :background "rgba(0,0,0,0.3)"
+     :border "1px solid rgba(255,255,255,0.12)"
+     :border-radius "8px"
+     :color "#e7ecf2"
+     :font-size "14px"
+     :font-family :inherit
+     :padding "10px 12px"
+     :cursor :pointer}]
+   [:.select-menu-btn:hover
+    {:border-color "rgba(255,255,255,0.2)"}]
+   [:.select-menu-chev
+    {:display :inline-flex
+     :flex "0 0 auto"
+     :transition "transform .15s"}]
+   [:.select-menu-chev.open
+    {:transform "rotate(180deg)"}]
+   [:.select-menu-pop
+    {:position :absolute
+     :top "calc(100% + 4px)"
+     :left 0
+     :right 0
+     :z-index 30
+     :background "#0d1218"
+     :border "1px solid rgba(255,255,255,0.14)"
+     :border-radius "8px"
+     :overflow-y :auto
+     :max-height "320px"
+     :box-shadow "0 14px 30px -8px rgba(0,0,0,0.8)"}]
+   [:.select-menu-opt
+    {:display :block
+     :width "100%"
+     :text-align :left
+     :border :none
+     :cursor :pointer
+     :font-family :inherit
+     :font-size "14px"
+     :color "#e7ecf2"
+     :background :transparent
+     :padding "9px 12px"}]
+   [:.select-menu-opt:hover
+    {:background "rgba(255,255,255,0.06)"}]
+   [:.select-menu-opt.active
+    {:background "rgba(240,161,15,0.14)"
+     :color "var(--accent, #f0b54a)"}]
+   ;; a tag inside an effect row is two words, not a page — the compact form of the same control
+   [:.tag
+    [:.select-menu-btn
+     {:padding "5px 8px"
+      :font-size "12.5px"
+      :border-radius "4px"}]]
+   ;; and the one carrying an actual restriction is picked out
+   [:.bf-enum.set
+    [:.select-menu-btn
+     {:border-color "var(--accent, #f0a100)"
+      :color "var(--accent, #f0a100)"}]]
+
    ;; A TOGGLE chip answers "is this set?"; an ACTION chip (the add-bar) answers "do you want to add
    ;; this?". Same shape, opposite question, so an unset toggle must not look like an action — it
    ;; did, everywhere except :multi-enum, the moment every checkbox became a chip.

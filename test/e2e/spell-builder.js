@@ -13,7 +13,7 @@ const path = require('path');
 const fs = require('fs');
 const { chromium } = require('playwright');
 const { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText,
-        dismissCookieBar, chipIsOn, chipClick } = require('./lib');
+        dismissCookieBar, chipIsOn, chipClick, pickOption, optionsOf } = require('./lib');
 
 const SOURCE = 'Spell Pin';
 const NAME = 'Tideward';
@@ -22,19 +22,6 @@ const NAME = 'Tideward';
 // written against the bespoke form; the representation changed deliberately, so the helpers did
 // too. What the pin asserts is unchanged: the toggle is present, starts off, turns on, and stores
 // a real boolean.
-async function choose(page, label, rx) {
-  const sel = await controlFor(page, label);
-  if (!sel) return false;
-  return page.evaluate(({ e, src }) => {
-    const opt = [...e.options].find(o => new RegExp(src, 'i').test(o.textContent.trim()));
-    if (!opt) return false;
-    const set = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-    set.call(e, opt.value);
-    e.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }, { e: sel, src: rx.source });
-}
-
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
   const { check, report } = checker();
@@ -61,8 +48,8 @@ async function choose(page, label, rx) {
 
     check('filled Name', await fill(page, 'Name', NAME));
     check('filled Option Source Name', await fill(page, 'Option Source Name', SOURCE));
-    check('chose a Level', await choose(page, 'Level', /^3rd-level$/));
-    check('chose a School', await choose(page, 'School', /^abjuration$/));
+    check('chose a Level', await pickOption(page, 'Level', /^3rd-level$/));
+    check('chose a School', await pickOption(page, 'School', /^abjuration$/));
     check('filled Casting Time', await fill(page, 'Casting Time', '1 action'));
     check('filled Range', await fill(page, 'Range', '30 feet'));
     check('filled Duration', await fill(page, 'Duration', '1 minute'));

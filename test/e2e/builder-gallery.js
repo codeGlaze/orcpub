@@ -54,7 +54,7 @@ const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
     // components vanished from the page and the count still read 10.
     const controls = await page.evaluate(() => {
       const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-      const fields = [...document.querySelectorAll('#app input, #app select, #app textarea')].filter(vis);
+      const fields = [...document.querySelectorAll('#app input, #app select, #app textarea, #app .select-menu-btn')].filter(vis);
       // toggles are drawn two ways: a glyph checkbox (the hand-written builders) and a chip (the
       // generated ones). Count both, or the metric reports a representation change as controls
       // disappearing — it did, 24 -> 11.

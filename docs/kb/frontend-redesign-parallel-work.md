@@ -147,9 +147,52 @@ panel would be absurd — the chip is right for that.
 | `:combo` | unchanged — free text is not a menu |
 | `:text` / `:number` / `:boolean` | unchanged |
 
-**Not implemented here, deliberately.** Both branches are moving, the adapter is ~8 lines whenever
-they converge, and ripping out working CSS speculatively is how the last two rounds went wrong. What
-this section buys is that nobody has to rediscover the fit.
+### `:enum` now uses `select-menu` — done 2026-09-06
+
+`select-menu` and its CSS are **ported verbatim** from `option_menu_views.cljs` (commit `3384d4c5`)
+into `views.cljs` / `styles/core.clj`, byte-identical apart from the accent becoming
+`var(--accent, …)`. Kept verbatim on purpose: **when that branch merges this is a delete, not a
+reconciliation** — the OMV namespace becomes the one true copy.
+
+**The index-coercion workaround is gone.** `:enum` was:
+
+```clojure
+{:value (str i)}  …  (:value (nth options (js/parseInt %)))   ; index in, index out
+```
+
+because a `<select>`'s value is always a string, so a keyword or int could not round-trip — the
+workaround behind D32 / `dropdown-value-coercion.md`, which exists because the un-worked-around
+version shipped a broken breath weapon. `select-menu` takes `[[value label] …]` and hands
+`on-change` the real value:
+
+```clojure
+[:div.bf-enum {:class (when (some? v) "set")}
+ [select-menu {:value v
+               :options (mapv (fn [o] [(:value o) (opt-title o)]) options)
+               :on-change #(dispatch [set-prop path %])}]]
+```
+
+The pin proves the values survive: the spell still saves `:level 3` as an integer and
+`:school "abjuration"`, 39/39.
+
+**What had to move with it**, all of it representation-following rather than behaviour:
+
+- `controlFor` matches `.select-menu-btn` as well as `input/select/textarea`, so "field present"
+  keeps meaning the same thing.
+- New `lib.js` helpers `pickOption` (open the popover, click the option) and `optionsOf` (what the
+  button shows, and what the menu offers). Four scripts drove enums by setting a `<select>`'s value.
+- **The three-state invariant is now stated better.** It used to be `selectedIndex === 0`, guarding
+  the fact that a select with no matching value silently shows its first option. It is now read off
+  what the button *displays* and what the menu *offers* — closer to what a user sees, and the
+  original failure mode cannot occur in a popover at all.
+- `mockup-parity.js` compares the mockup's `.tag select` against `.tag .select-menu-btn` on shape
+  (type size, padding) and no longer on `minWidth`: a content-sized button and a fixed-width select
+  were never going to share that, and pretending otherwise would be a false red.
+- Four separate control-count metrics had to learn `.select-menu-btn`. **That is the fourth time a
+  metric here missed a representation change**; the pattern is now explicit enough to expect.
+
+**Not adopted yet:** `option-menu` for `:multi-enum` and for options-from-a-subscription. Chips are
+adequate for three classes, and the encounter builder needs the vector-rows work first.
 
 ### What would have to give
 

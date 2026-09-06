@@ -24,7 +24,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const { chromium } = require('playwright');
-const { BASE, findChrome, dismissCookieBar, fillEffectBonus } = require('./lib');
+const { BASE, findChrome, dismissCookieBar, fillEffectBonus, pickOption } = require('./lib');
 
 const MOCKUP = path.resolve(__dirname, '../../docs/kb/assets/builder-form-mockup.html');
 
@@ -39,8 +39,12 @@ const PAIRS = [
   ['add chip',     '.addbar .chip',   '.addbar .chip',         ['borderStyle', 'borderColor', 'color', 'borderRadius', 'fontSize', 'fontWeight']],
   ['sub-heading',  '.whenlbl',        '.when-label',           ['color', 'fontSize', 'textTransform', 'letterSpacing']],
   ['tag label',    '.tag span',       '.tag-label',            ['fontSize', 'color', 'fontWeight']],
-  ['tag select',   '.tag select',     '.tag select',           ['minWidth', 'fontSize', 'paddingTop', 'paddingLeft']],
-  ['set tag',      '.tag select.set', '.tag select.set',       ['borderTopColor', 'color']],
+  // The app's tag control is no longer a <select>: :enum renders the ported OMV select-menu
+  // (button + popover). The mockup drew a native select because that is what existed when it was
+  // made, so the comparison is of the SHAPE the two agree on — type size and padding — and not of
+  // minWidth, which a content-sized button and a fixed-width select were never going to share.
+  ['tag select',   '.tag select',     '.tag .select-menu-btn', ['fontSize', 'paddingTop', 'paddingLeft']],
+  ['set tag',      '.tag select.set', '.bf-enum.set .select-menu-btn', ['color']],
   ['bonus input',  '.num',            '.row-lead-num input',   ['width', 'textAlign', 'fontWeight']],
 ];
 
@@ -79,16 +83,7 @@ const styleOf = (page, sel, props) => page.evaluate(({ s, p }) => {
     await app.waitForTimeout(250);
   }
   for (const [l, v] of [['AC Bonus', '1'], ['Attack Bonus', '2']]) await fillEffectBonus(app, l, v);
-  await app.evaluate(() => {
-    const lbl = [...document.querySelectorAll('.f-w-b')].find(e => e.textContent.trim() === 'Ranged');
-    const sel = lbl && lbl.parentElement.querySelector('select');
-    if (!sel) return;
-    const opt = [...sel.options].find(o => /^ranged (weapons )?only$/i.test(o.textContent.trim()));
-    if (!opt) return;
-    const set = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
-    set.call(sel, opt.value);
-    sel.dispatchEvent(new Event('change', { bubbles: true }));
-  });
+  await pickOption(app, 'Ranged', /^ranged (weapons )?only$/);
   await app.waitForTimeout(500);
 
   let diffs = 0, missing = 0;

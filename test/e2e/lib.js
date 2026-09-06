@@ -56,7 +56,9 @@ async function controlFor(page, labelPrefix) {
   const h = await page.evaluateHandle((pfx) => {
     const norm = t => t.replace(/\s+/g, ' ').trim().toLowerCase();
     const want = norm(pfx);
-    for (const c of document.querySelectorAll('input, select, textarea')) {
+    // .select-menu-btn is an :enum now — a button+popover, not a <select>. Included here so a
+    // "field present" check keeps meaning the same thing across the representation change.
+    for (const c of document.querySelectorAll('input, select, textarea, .select-menu-btn')) {
       let n = c;
       for (let k = 0; k < 6 && n; k++, n = n.parentElement) {
         const d = n.querySelector('.f-w-b');
@@ -193,4 +195,41 @@ async function chipClick(page, label) {
   return ok;
 }
 
-module.exports = { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, pickFromAnySelect, chipIsOn, chipClick };
+// Choose an option from an :enum. It is a button+popover (ported OMV select-menu), so this opens
+// the menu and clicks the option rather than setting a <select>'s value. Returns false if the
+// field or the option is not found.
+async function pickOption(page, label, rx) {
+  const btn = await controlFor(page, label);
+  if (!btn) return false;
+  await btn.click();
+  await page.waitForTimeout(250);
+  const ok = await page.evaluate(({ src }) => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    const opt = [...document.querySelectorAll('.select-menu-pop .select-menu-opt')]
+      .filter(vis).find(e => new RegExp(src, 'i').test(e.textContent.trim()));
+    if (!opt) return false;
+    opt.click();
+    return true;
+  }, { src: rx.source });
+  await page.waitForTimeout(300);
+  return ok;
+}
+
+// What an :enum currently shows, and what it offers when opened.
+async function optionsOf(page, label) {
+  const btn = await controlFor(page, label);
+  if (!btn) return null;
+  const shown = (await btn.evaluate(e => e.textContent.trim()));
+  await btn.click();
+  await page.waitForTimeout(250);
+  const opts = await page.evaluate(() => {
+    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+    return [...document.querySelectorAll('.select-menu-pop .select-menu-opt')]
+      .filter(vis).map(e => e.textContent.trim());
+  });
+  await btn.click();                    // close it again
+  await page.waitForTimeout(150);
+  return { shown, options: opts };
+}
+
+module.exports = { BASE, SHOTS, findChrome, checker, dbAt, controlFor, fill, clickText, clickTab, fillEffectBonus, dismissCookieBar, pickFromAnySelect, chipIsOn, chipClick, pickOption, optionsOf };
