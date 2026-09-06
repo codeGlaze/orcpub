@@ -57,6 +57,71 @@
              {:style (mask-style (:asset/url asset) (pa/tint-for portrait layer-key) z)}]))
         pa/layer-order)])))
 
+;; ---------------- rasterization (for PDF export) ----------------
+;;
+;; On screen a layer is a CSS mask -- shape from the asset's alpha, color from
+;; background-color. Neither PDFBox nor a canvas understands that, so an export
+;; has to bake it: for each layer draw the asset, switch to "source-in", and
+;; flood-fill the tint, which paints the color only where the asset is opaque.
+;; Compositing those in z-order reproduces exactly what the drawer shows.
+
+(def ^:private raster-width 600)
+(def ^:private raster-height 750)   ;; 4:5, matching the on-screen frame
+
+(defn- load-image [url]
+  (js/Promise.
+    (fn [resolve _reject]
+      (let [img (js/Image.)]
+        (set! (.-onload img) #(resolve img))
+        ;; A layer that will not decode is skipped, not fatal -- the rest of
+        ;; the portrait is still worth printing.
+        (set! (.-onerror img) #(resolve nil))
+        (set! (.-src img) url)))))
+
+(defn rasterize
+  "Bake `portrait` into a PNG. Resolves to base64 (no data: prefix), or nil
+   when there is nothing to draw or the browser cannot do it."
+  [portrait]
+  (let [selected (keep (fn [k]
+                         (when-let [asset (some->> (get-in portrait [:layers k])
+                                                   :asset/id
+                                                   (pa/asset-by-id k))]
+                           [k asset]))
+                       pa/layer-order)]
+    (if (empty? selected)
+      (js/Promise.resolve nil)
+      (-> (js/Promise.all (clj->js (map (fn [[_ a]] (load-image (:asset/url a))) selected)))
+          (.then
+            (fn [imgs]
+              (try
+                (let [canvas (.createElement js/document "canvas")
+                      _ (set! (.-width canvas) raster-width)
+                      _ (set! (.-height canvas) raster-height)
+                      ctx (.getContext canvas "2d")
+                      tmp (.createElement js/document "canvas")
+                      _ (set! (.-width tmp) raster-width)
+                      _ (set! (.-height tmp) raster-height)
+                      tctx (.getContext tmp "2d")]
+                  (doseq [[[layer-key _] img] (map vector selected (array-seq imgs))
+                          :when img]
+                    (.clearRect tctx 0 0 raster-width raster-height)
+                    (set! (.-globalCompositeOperation tctx) "source-over")
+                    (.drawImage tctx img 0 0 raster-width raster-height)
+                    ;; paint the tint through the asset's alpha
+                    (set! (.-globalCompositeOperation tctx) "source-in")
+                    (set! (.-fillStyle tctx) (pa/tint-for portrait layer-key))
+                    (.fillRect tctx 0 0 raster-width raster-height)
+                    (.drawImage ctx tmp 0 0))
+                  (some-> (.toDataURL canvas "image/png")
+                          (s/split #",")
+                          second))
+                ;; Never let a failed bake block the export -- the sheet is
+                ;; worth more than the picture.
+                (catch :default e
+                  (js/console.warn "portrait rasterize failed" e)
+                  nil))))
+          (.catch (fn [_] nil))))))
+
 ;; ---------------- drawer chrome ----------------
 
 (def drawer-styles "

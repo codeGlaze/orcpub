@@ -647,6 +647,34 @@
                        n kind limit)))
     (take limit cards)))
 
+(def ^:private max-portrait-png-bytes
+  "Ceiling on a posted composed portrait. The client bakes a 600x750 PNG of
+   flat-tinted shapes, which lands well under 200 KB; 2 MB is generous
+   headroom that still refuses a request body pretending to be a picture."
+  (* 2 1024 1024))
+
+(defn decode-portrait-png
+  "Decode a base64 PNG posted with the export into {:data bytes :jpg? false},
+   or nil.
+
+   A composed portrait has no URL to fetch -- the client rasterizes its layers
+   and sends the bytes -- so this is the counterpart to pdf/fetch-image for
+   that path. Returns nil rather than throwing for the same reason fetch-image
+   does: a picture that will not decode must not cost the character their
+   sheet."
+  [b64]
+  (try
+    (when (and (string? b64) (not (s/blank? b64)))
+      ;; Base64 is 4 chars per 3 bytes, so the encoded length bounds the decode
+      ;; before any of it is allocated.
+      (when (<= (long (* 0.75 (count b64))) max-portrait-png-bytes)
+        (let [data (.decode (java.util.Base64/getDecoder) ^String b64)]
+          (when (pos? (alength data))
+            {:data data :jpg? false}))))
+    (catch Exception e
+      (println "pdf: composed portrait failed to decode -" (.getMessage e))
+      nil)))
+
 (defn add-spell-cards!
   "Appends spell card pages, nine to a sheet, each with its back.
 
@@ -921,7 +949,7 @@
                                    {:error :invalid-pdf-data}
                                    e))))
         
-        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten?]} fields
+        {:keys [image-url image-url-failed faction-image-url faction-image-url-failed spells-known custom-spells spell-save-dcs spell-attack-mods print-spell-cards? magic-items-known print-magic-item-cards? print-character-sheet-style? print-spell-card-dc-mod? print-card-back-logo? card-back-logo-faded? print-bw? bw-faded? print-spell-annotations? spell-relabels spell-headings character-name class-level player-name flatten? portrait-png]} fields
 
         ;; Printer-friendly mode: monochrome spell-card icons + a forced solid-black
         ;; card-back logo (no color anywhere on the cards). bw-faded? picks the
@@ -1054,8 +1082,16 @@
                           (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]"
                                       url)
                           url))
-            portrait (some-> (wanted image-url image-url-failed)
-                             (as-> u (future (pdf/fetch-image u))))
+            ;; A composed (paper-doll) portrait arrives already rendered, as
+            ;; base64 PNG the client baked from its layers -- there is no URL to
+            ;; fetch, so it costs no network time inside the export slot. It
+            ;; takes precedence over image-url, matching how the character sheet
+            ;; and summary resolve the two. Malformed base64 degrades to "no
+            ;; portrait" rather than failing the export.
+            composed (when portrait-png (delay (decode-portrait-png portrait-png)))
+            portrait (or composed
+                         (some-> (wanted image-url image-url-failed)
+                                 (as-> u (future (pdf/fetch-image u)))))
             faction (some-> (wanted faction-image-url faction-image-url-failed)
                             (as-> u (future (pdf/fetch-image u))))]
         (when-let [{:keys [data jpg?]} (some-> portrait deref)]
