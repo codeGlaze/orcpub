@@ -42,6 +42,12 @@ measured, what turned out to be wrong, and why.
 
 ## Domain
 
+- **[character-image-routes.md](character-image-routes.md)** -- how a portrait reaches the
+  sheet, measured against real hosts. CORS and hotlink blocking are separate rules catching
+  different hosts, which is why the two-tier design works. Carries two withdrawn conclusions
+  (an invented URL proves nothing against an S3-backed host; the ceiling that refused
+  pictures was ours), what the browser cannot be made to do however the attempt is dressed
+  up, and how to reach the real internet from a browser test here.
 - [custom-content-lifecycle.md](custom-content-lifecycle.md)
 - [library-management-and-conflicts.md](library-management-and-conflicts.md)
 - [keyword-trap-name-repair.md](keyword-trap-name-repair.md)
@@ -63,4 +69,5 @@ All under `test/browser/`, run against `lein e2e-server` (see `test/browser/READ
 | `combobox_shots_e2e.js` | Equipment combobox: screenshots plus anchored-geometry, light-dismiss and pick assertions |
 | `combobox_scroll_e2e.js` | Equipment combobox: is the list browsable, keyboard nav, and open cost under throttle |
 | `select_option_census_e2e.js` | how many `<option>`s every `<select>` in the app carries -- which pickers are actually big |
+| `character_image_capture_e2e.js` | both routes a portrait can take into a PDF, and the shape of the field's notices |
 | `scripts/test/run-cljs-tests.js` | runs the ClojureScript suite headlessly (repo's canonical runner, not under test/browser) |

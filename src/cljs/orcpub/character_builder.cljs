@@ -1,5 +1,7 @@
 (ns orcpub.character-builder
   (:require [goog.dom :as gdom]
+            [orcpub.image-capture :as image-capture]
+            [orcpub.image-url :as image-url]
             [goog.string :as gs]
             [goog.labs.userAgent.device :as device]
             [cljs.pprint :as pprint]
@@ -2050,16 +2052,203 @@
 (defn set-faction-image-url [v]
   (dispatch [:set-faction-image-url v]))
 
-(defn image-error-fn [event-key image-url]
-  (dispatch [event-key image-url]))
+(defn image-error-fn
+  "Returns the on-error handler.
+
+   It has to RETURN one rather than dispatch when called: this runs at render
+   time, so a bare dispatch marked every fresh URL failed before the browser had
+   tried it. The builder flashed a load failure at pictures that were
+   perfectly fine, and only the subsequent load took the mark back."
+  [event-key image-url]
+  (fn [_] (dispatch [event-key image-url])))
 
 (def image-error (memoize image-error-fn))
 
-(defn image-loaded []
-  (dispatch [:loaded-image]))
+(defn image-load-fn
+  "Clears the failed flag and asks for the picture's bytes.
 
-(defn faction-image-loaded []
-  (dispatch [:loaded-faction-image]))
+   The flag is NOT read here. Capturing it would build a handler that can never
+   take the mark back, since at build time it is still clear. The event itself is
+   a no-op when there is nothing to clear.
+
+   The read starts from the load, not from the export click: the export submits a
+   form into a new tab synchronously, and an await in between spends the user
+   activation that keeps the tab from being blocked. It also must not start any
+   earlier -- a read asks for the same URL with crossOrigin set, and on a host
+   that allows no read that request failing ahead of this one takes the thumbnail
+   down with it."
+  [event-key url]
+  (fn []
+    (dispatch [event-key])
+    (dispatch [::char5e/capture-image url])))
+
+(def image-load (memoize image-load-fn))
+
+(defn image-paste-fn
+  "Takes a picture pasted into the field and reads it locally.
+
+   This is the route out for a host that allows nobody to read its pictures: the
+   clipboard carries the DECODED image, put there by the browser's own \"Copy
+   image\", so nothing about the host's rules applies to it. Two clicks, and no
+   download-and-upload round trip.
+
+   Keyed by the URL on the character, so the paste stands in for exactly the
+   picture that could not be read."
+  [url]
+  (fn [e]
+    (let [files (some-> e .-clipboardData .-files)]
+      (when (and files (pos? (.-length files)))
+        (when-let [file (aget files 0)]
+          (.preventDefault e)
+          (image-capture/capture-file
+           file
+           #(dispatch [::char5e/image-captured url %])))))))
+
+(def image-paste (memoize image-paste-fn))
+
+(def ^:private image-failure-notes
+  "One short sentence per reason the server gave. This is the whole message: a
+   picture that cannot be had is one problem however it failed."
+  {:blocked-address "That address can't be fetched."
+   :not-found       "The host has nothing at that address."
+   :redirect        "That link redirects instead of being the picture."
+   :not-an-image    "That isn't a PNG or JPEG."
+   :unreachable     "That host couldn't be reached."
+   :refused         "The host won't serve it to us."
+   :too-large       "That picture is over 2 MB."
+   :too-many-pixels "That picture is over 2000x2000."
+   :timeout         "The host took too long to answer."
+   :host-error      "The host had an error of its own."
+   :rate-limited    "The host is asking us to slow down -- try again shortly."
+   :unknown         "That picture couldn't be fetched."})
+
+(defn image-field-notice
+  "The one thing worth saying about this picture, and at most one thing to do
+   about it.
+
+   ONLY ONE of these ever shows, ordered by how far it gets someone:
+
+     1. a correction we can make mechanically, offered beside the fault
+     2. what the address itself gives away, which needs no request
+     3. what the server found when it tried
+     4. that it simply did not load
+
+   The other ways in wait behind the disclosure. Advice is held back until typing
+   stops -- the field commits on every keystroke, so it would otherwise object to
+   `htt` on the way to `https://` -- while a load failure is not, being already an
+   answer about the address as typed.
+
+   docs/kb/character-image-routes.md carries the rules these fields follow."
+  [_url _failed? _state _reach _set-fn]
+  (let [settled (r/atom nil)
+        timer (atom nil)
+        seen (atom ::unseen)
+        open? (r/atom false)
+        note (r/atom nil)
+        ;; The http -> https upgrade, checked in the browser before it is made.
+        https-tried (atom nil)
+        https-state (r/atom nil)
+        upgraded-to (r/atom nil)]
+    (fn [url failed? state reach set-fn]
+      (when (not= url @seen)
+        (reset! seen url)
+        (reset! open? false)
+        ;; Drop the old advice the moment the address changes. Left up for the
+        ;; debounce it is not merely stale: its correction is clickable, and it
+        ;; corrects the PREVIOUS address.
+        (reset! settled nil)
+        (when-not (= url @upgraded-to)
+          (reset! https-state nil)
+          (reset! upgraded-to nil))
+        (some-> @timer js/clearTimeout)
+        (reset! timer (js/setTimeout #(reset! settled url) 900)))
+      (let [{:keys [level message fix]} (image-url/advise @settled)
+            unreachable (when (= :unavailable state) (get image-failure-notes reach))
+            ;; The branch is named here and read below. Re-deriving it from the
+            ;; text it produced tests a variable that has since been rebound.
+            upgrade-note (when (and @upgraded-to (= url @upgraded-to))
+                           (str "Changed http to https -- this page can only "
+                                "display pictures over https."))
+            [mode shown-level shown-text]
+            (cond
+              upgrade-note [:upgraded :note upgrade-note]
+              ;; Known not to be served over https, so there is nothing to offer.
+              (and message (= :no @https-state))
+              [:no-https :error
+               (str "This page can only display pictures over https, and this "
+                    "host does not seem to offer it.")]
+              message     [:advice level message]
+              unreachable [:unreachable
+                           (if (= :rate-limited reach) :warning :error)
+                           unreachable]
+              failed?     [:failed :error "That picture didn't load."]
+              :else       [nil nil nil])]
+        ;; An http picture cannot be displayed by this page at all -- the CSP allows
+        ;; images over https only -- so it is broken rather than suspect. The https
+        ;; address is checked with a plain <img> load (no server, and the request
+        ;; the thumbnail was about to make) and swapped in only once it loads: an
+        ;; unverified rewrite that fails leaves someone debugging an address they
+        ;; never typed.
+        (when (and fix
+                   (string? @settled)
+                   (s/starts-with? @settled "http://")
+                   (not= @https-tried @settled))
+          (reset! https-tried @settled)
+          (reset! https-state :checking)
+          (image-capture/displays?
+           fix
+           (fn [ok?]
+             (if ok?
+               (do (reset! upgraded-to fix)
+                   (reset! https-state :ok)
+                   (set-fn fix))
+               (reset! https-state :no)))))
+        (cond
+          (= :pending state)
+          [:div.f-s-12.m-t-5 "Reading image..."]
+
+          mode
+          [:div
+           [:div {:class (str "field-notice " (case shown-level
+                                                :error "is-error"
+                                                :warning "is-warning"
+                                                "is-note"))}
+            [:span.field-notice-what shown-text]
+            (cond
+              ;; While the https one is being tried there is nothing to offer yet,
+              ;; and once it is tried the answer is applied or explained.
+              (and (= :advice mode) fix (nil? @https-state))
+              [:button.field-notice-action {:on-click #(set-fn fix)} (str "Use " fix)]
+
+              (= :unreachable mode)
+              [:button.field-notice-action {:on-click #(swap! open? not)}
+               (if @open? "Hide the other ways" "Supply it yourself")]
+
+              :else nil)]
+           (when (and (= :unreachable mode) @open?)
+             [:div.field-remedy
+              [:span "Right-click the picture, choose Copy image, then:"]
+              [:button.form-button.p-5
+               {:on-click
+                (fn [_]
+                  (reset! note "Reading the copied image...")
+                  (image-capture/capture-clipboard
+                   (fn [payload]
+                     (reset! note (when-not payload
+                                    "No picture on the clipboard. Copy one first."))
+                     (dispatch [::char5e/image-captured url payload]))))}
+               "Use copied image"]
+              [:span "or choose a file:"]
+              [:input {:type "file"
+                       :accept "image/png,image/jpeg"
+                       :on-change (fn [e]
+                                    (when-let [file (some-> e .-target .-files (aget 0))]
+                                      (image-capture/capture-file
+                                       file
+                                       #(dispatch [::char5e/image-captured url %]))))}]
+              (when @note [:span @note])])]
+
+          :else nil)))))
 
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])
@@ -2067,7 +2256,9 @@
         image-url @(subscribe [::char5e/image-url])
         image-url-failed @(subscribe [::char5e/image-url-failed])
         faction-image-url @(subscribe [::char5e/faction-image-url])
-        faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])]
+        faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])
+        image-bytes @(subscribe [::char5e/image-bytes])
+        server-reach @(subscribe [::char5e/image-server-reach])]
     [:div.flex-grow-1
      [:div.m-t-5
       [:span.personality-label.f-s-18 "Character Name"]
@@ -2125,12 +2316,13 @@
       (when image-url
         [:img.m-r-10.image-character-thumbnail {:src image-url
                       :on-error (image-error :failed-loading-image image-url)
-                      :on-load (when image-url-failed image-loaded)}])
+                      :on-load (image-load :loaded-image image-url)}])
       [:div.flex-grow-1
+       {:on-paste (image-paste image-url)}
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
-       (when image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
+       [image-field-notice image-url image-url-failed
+        (get image-bytes image-url) (get server-reach image-url) set-image-url]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -2138,13 +2330,14 @@
       (when faction-image-url
         [:img.m-r-10.image-faction-thumbnail {:src faction-image-url
                       :on-error (image-error :failed-loading-faction-image faction-image-url)
-                      :on-load (when faction-image-url-failed
-                                 faction-image-loaded)}])
+                      :on-load (image-load :loaded-faction-image faction-image-url)}])
       [:div.flex-grow-1
+       {:on-paste (image-paste faction-image-url)}
        [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
-       (when faction-image-url-failed
-         [:div.red.m-t-5 "Image failed to load, please check the URL"])]]
+       [image-field-notice faction-image-url faction-image-url-failed
+        (get image-bytes faction-image-url) (get server-reach faction-image-url)
+        set-faction-image-url]]]
      [:div.field
       [:span.personality-label.f-s-18 "Description/Backstory"]
       [character-textarea entity-values ::char5e/description "h-800"]]]))

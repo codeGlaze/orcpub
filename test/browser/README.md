@@ -85,3 +85,31 @@ stacks, self time on allocation-heavy code).
 
 
 Some of these still boot a static server (an older pattern being migrated to `lein e2e-server`).
+
+## character_image_capture_e2e.js
+
+Both routes a character's picture can take into the PDF. A second origin on :8899
+serves the test picture and decides whether to send `Access-Control-Allow-Origin`;
+the run turns on that header.
+
+The proof rests on the server refusing loopback addresses: `/character.pdf`
+*cannot* fetch from 127.0.0.1, so an image that reaches the PDF from that origin
+can only have arrived as bytes the browser read. With the header, the export
+carries the bytes and the sheet is drawn. Without it, nothing is sent, the sheet
+prints without the picture, and the builder offers the upload that supplies it.
+
+    node test/browser/character_image_capture_e2e.js
+
+## Reaching the real internet from a browser test
+
+Chromium in this environment cannot complete a TLS 1.3 handshake through the
+egress relay -- the tunnel closes mid-exchange and the page sees
+`ERR_CONNECTION_RESET`, while curl and Playwright's own Node stack work fine.
+Launch with `--ssl-version-max=tls1.2` and set the proxy explicitly:
+
+    chromium.launch({
+      args: ['--ssl-version-max=tls1.2'],
+      proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' },
+    })
+
+Bypass loopback, or requests to the app under test go out to the relay as well.

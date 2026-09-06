@@ -733,10 +733,20 @@
    {}
    vals))
 
+(defn- captured-bytes
+  "The base64 the browser read for `url`, or nil.
+
+   :pending and :unavailable both read as nil, so the server falls back to
+   fetching the address itself -- what it did before any of this existed."
+  [image-bytes url]
+  (let [captured (get image-bytes url)]
+    (when (map? captured)
+      (:data captured))))
+
 (defn make-spec
   "Generate the PDF field spec. plugin-data is a map with keys:
    :spells-map, :plugin-spells-map, :language-map,
-   :all-weapons-map, :all-magic-items-map, :current-armor-class
+   :all-weapons-map, :all-magic-items-map, :current-armor-class, :image-bytes
    — all pre-subscribed by the calling component."
   [built-char
    id
@@ -753,7 +763,8 @@
            print-magic-item-cards?
            spell-layout] :as options}
    {:keys [spells-map plugin-spells-map language-map
-           all-weapons-map all-magic-items-map current-armor-class]}]
+           all-weapons-map all-magic-items-map current-armor-class
+           image-bytes]}]
   (let [race (char5e/race built-char)
         subrace (char5e/subrace built-char)
         abilities (abilities-spec
@@ -821,8 +832,10 @@
       :hair (char5e/hair built-char)
       :image-url (char5e/image-url built-char)
       :image-url-failed (char5e/image-url-failed built-char)
+      :image-data (captured-bytes image-bytes (char5e/image-url built-char))
       :faction-image-url (char5e/faction-image-url built-char)
       :faction-image-url-failed (char5e/faction-image-url-failed built-char)
+      :faction-image-data (captured-bytes image-bytes (char5e/faction-image-url built-char))
       :faction-name (char5e/faction-name built-char)
       :print-character-sheet? print-character-sheet?
       :print-spell-cards? print-spell-cards?

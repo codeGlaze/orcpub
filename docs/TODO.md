@@ -2,8 +2,12 @@
 
 ## Datomic transactor crashes — investigate Postgres migration
 
-**Status:** Open  
-**Severity:** Critical — transactor crashing 3–5× per day, 2–3 min downtime each  
+**Status:** Unverified — no recurrence observed since the report; re-measure before
+acting. The analysis below is from the crashing period and has not been retested
+against the current stack (the peer is on Datomic Pro now, which the analysis
+predates).  
+**Severity:** Critical *if it still happens* — at time of report, 3–5 crashes per
+day at 2–3 min downtime each  
 **Reported:** 2026-02-26  
 **KB doc:** [docs/kb/datomic-crash-analysis.md](kb/datomic-crash-analysis.md)
 
@@ -102,6 +106,8 @@ the not-yet-built follow-ups, roughly in dependency order.
 
 ### Example / demo content tier
 
+**Status:** Being built on `feature/demo-content-tier` — tracked there, not here.
+
 A read-only example/demo tier of content, with a per-account version marker and
 copy-on-edit graduation (editing an example copies it into the user's own library
 so upstream updates never clobber their edits).
@@ -140,86 +146,88 @@ so upstream updates never clobber their edits).
 
 ## Route character images through the browser instead of fetching them server-side
 
-**Status:** Open — nothing built  
-**Severity:** Medium — a broken feature for users, and the last unauthenticated
-outbound fetch the server makes  
-**Reported:** 2026-09-04  
-**KB doc:** [docs/kb/pdf-form-techniques.md](kb/pdf-form-techniques.md) (image guard sections)  
+**Status:** Shipped on `feature/browser-side-character-images`
+**Severity:** was Medium — a broken feature for users
+**Reported:** 2026-09-04 · **Built:** 2026-09-05
 **Runbook:** [docs/CHARACTER-IMAGE-FETCH.md](CHARACTER-IMAGE-FETCH.md)
+**KB doc:** [docs/kb/character-image-routes.md](kb/character-image-routes.md) — the
+measurements, the two traps that cost a day, and what cannot be made to work
 
-### Summary
+### What was built
 
-A character's portrait is stored as a URL and fetched **by the server** at export
-time. Hosts that block hotlinking block it on Referer and datacenter IP, so the
-browser's own request succeeds and the server's does not: the thumbnail shows in
-the builder and the PDF comes out blank. The server fetch is also the only place
-the app makes an outbound request to a caller-supplied address, which is why
-`safe-image-url?` and its tests exist at all.
+The browser reads the picture and the export carries the bytes; the server's fetch
+is now the fallback for a picture the browser was refused. `orcpub.image-capture`
+reads it off a canvas, scales it to what the sheet prints, and hands base64 to the
+export spec; `pdf/decode-image-bytes` applies the same 128 KB and 2000×2000
+ceilings on arrival and reads the format from the bytes rather than from the mime
+type. When no read is allowed, the builder says so and offers an upload.
 
-### What exists
+Only the canvas route exists, not the `fetch` one the original plan had: the app's
+CSP is `connect-src 'self'`, so `fetch` to an image host is blocked and an attempt
+would log a CSP violation on every export. `img-src` allows `https:`, which is what
+makes the canvas route work. Widening `connect-src` to arbitrary hosts was the
+larger cost.
 
-Nothing sends image bytes to the server, on any branch. Two adjacent pieces:
+### The measurement, taken
 
-- `claude/image-poisoning-spa-1dkpva` — a standalone SPA under `image-shield/`,
-  four files, wired to nothing. It contains working browser-side resize and
-  recompress: `createObjectURL` → `drawImage` → `getImageData` → `toBlob`.
-- `claude/character-portrait-generator-hOutO` — paper-doll compositor, v1 MVP.
-  Stores the layer CHOICES on the character, produces no bytes. **It cannot reach
-  the PDF at all**: the export understands only `image-url`, so a character with a
-  composited portrait exports with no picture. This work unblocks that branch.
+Sixteen common portrait hosts, 2026-09-05. Nine let the browser read: Imgur,
+Discord, Fandom, Wikimedia, ArtStation, DeviantArt, `lh3.googleusercontent.com`,
+Tumblr, `raw.githubusercontent.com`. Seven do not: Pinterest, D&D Beyond, postimg,
+imgbb, Flickr, Dropbox, `i.redd.it`. See the runbook for the table.
 
-### The constraint, and why it does not block the feature
+The two groups are largely complementary rather than overlapping — most of the
+second group allows hotlinking, so the server fetches those. Pinterest and D&D
+Beyond refuse both and are upload-or-nothing.
 
-A cross-origin image with no `Access-Control-Allow-Origin` cannot be read by the
-browser — `fetch` in no-cors mode gives an opaque response and `<img>` + canvas
-taints. That is a real browser boundary.
+### What it does not settle
 
-It does not settle the question, because the two populations barely overlap.
-Hotlink bans are Referer- and IP-based; CORS headers are a separate decision, and
-image CDNs built for embedding generally send them. Worth measuring against real
-URLs rather than assuming — but the design degrades either way.
+- **A refused host logs a CORS error in the console.** Unavoidable: any attempt to
+  read a cross-origin image without the header logs one, and not trying is what
+  the feature exists to stop doing.
+- **The server fetch still earns its keep** — step 5 of the original plan. It now
+  runs as the second tier rather than the default, but it is still there. Decide
+  separately whether to keep it.
+- **Measured, and the blocker was ours.** With a browser able to reach real hosts
+  and real URLs in hand: Pinterest serves this server a 200 and 393 KB of JPEG,
+  Wikimedia 224 KB. Neither ever blocked us. Both were refused by our own 128 KB
+  ceiling, which was applied to the DOWNLOAD as well as to the document. Split in
+  two — 2 MB down, 128 KB into the PDF, with fitting in between — a Pinterest
+  portrait now reaches the sheet with nothing asked of the user.
 
-### Plan
+  Two earlier conclusions here were drawn from invented URLs that returned S3
+  `AccessDenied`, and both were wrong: "Pinterest and D&D Beyond refuse the
+  server", and "header tuning does not help". Withdrawn. Nothing has been shown to
+  block this server at all.
 
-1. Browser tries `fetch(url)` → bytes.
-2. Failing that, `<img crossOrigin="anonymous">` → canvas → blob. Different
-   failure modes, cheap to try.
-3. Failing both, say the host will not allow it and offer **upload**, which always
-   works. Lift the resize/recompress out of `image-shield/app.js` into cljs.
-4. Send the bytes with the export POST. The 128 KB image cap fits well inside the
-   2 MB body cap. Server skips the fetch entirely when bytes are present.
-5. Then decide whether the server fetch still earns its keep as a fallback.
-
-### Consequences
-
-- The server fetch stops being the default path. The SSRF surface — and the
-  SSRF surface shrinks to a rarely-hit fallback, or disappears.
-- Do this on its own branch cut from `integration` **after**
-  `feature/one-template-per-style` lands. Both touch
-  `routes/generate-character-pdf`, and that branch is already 118 commits.
-
-### Merge hazard
-
-`claude/character-portrait-generator-hOutO` is cut from an older base and still
-carries `#"^(https?|ftp|file)://…"` in `routes.clj` — the regex that allowed
-`file:///etc/passwd`. Merged after the hardening without a rebase, it reintroduces
-that hole.
+  `/image-probe` logs the host whenever it answers false, so the genuinely
+  unreachable set is measured from real traffic rather than guessed. Watch it: if
+  it stays empty, the paste and upload routes are dead weight.
 
 ## PDF export follow-ups
 
-**Status:** Open  
-**Severity:** Low — none is a live defect  
-**Reported:** 2026-09-04
+**Status:** Open
+**Severity:** Low — none is a live defect
+**Reported:** 2026-09-04 · **Last checked:** 2026-09-05
 
-- **Total slot hold on images.** Worst case is now about 40s per image (10s
-  connect + 20s transfer + one read timeout), so 80s for a character with a
-  portrait and a faction image. Bounded, but possibly still generous.
-- **`safe-image-url?` runs twice per image** — once in the route and once inside
-  `safe-image-bytes`. Three DNS lookups per image, and it widens the gap above.
-- **`create-monsters-pdf` is dead.** Private, zero callers, writes to a temp file.
-  Scrub it or finish the feature.
-- **Not audited:** whether a fetched portrait is re-encoded or downscaled to its
-  drawn size. Bounded at 128 KB so the exposure is small.
+- **Total slot hold on images.** Bounded at roughly 40s for a character with both
+  a portrait and a faction image — the two are fetched concurrently, so it is one
+  image's worst case rather than two. Still generous. *(The 80s figure this
+  originally quoted predated `254da03b`.)*
+- ~~`safe-image-url?` runs twice per image~~ — **done** in `254da03b`. The route no
+  longer pre-validates; `fetch-image` validates through `safe-image-bytes`, whose
+  resolved addresses are the ones the connection is pinned to. Note the leftover:
+  `safe-image-url?` now has **no production callers**, and its forty-odd SSRF tests
+  exercise a wrapper nothing calls. The checks themselves still run, inside
+  `validated-addresses`. Either point those tests at `validated-addresses` or drop
+  the wrapper.
+- ~~`create-monsters-pdf` is dead~~ — **scrubbed**, along with the
+  `draw-text-from-top` helper, the `HELVETICA_OBLIQUE` font and the
+  `orcpub.dnd.e5.monsters` require it was the only user of.
+- ~~Not audited: whether a fetched portrait is re-encoded or downscaled~~ —
+  **answered.** `draw-image-bytes!` embeds JPEG bytes as they are and decodes and
+  losslessly re-encodes everything else; nothing is downscaled server-side, and
+  128 KB is the only bound. Pictures read by the BROWSER are scaled to 1000px on
+  the long edge before they are sent, so that path is bounded twice.
 
 ---
 
