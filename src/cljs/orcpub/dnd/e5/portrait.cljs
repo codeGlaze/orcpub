@@ -448,6 +448,112 @@
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
 }
 
+/* ---- light theme ----
+   Scoped to .pl-root.light-theme because the drawer is a sibling of
+   content-page and cannot inherit .app's theme class. Follows the app's own
+   light vocabulary rather than inventing one: #363636 text and the #33658A
+   the light theme already uses for .form-button, since it recolours .orange
+   to near-black and would leave an amber drawer looking pasted on.
+
+   The portrait frame stays dark in BOTH themes on purpose. What it holds is
+   character colours -- pale skin, blonde hair -- and a light-on-light frame
+   would swallow them. */
+.pl-root.light-theme .pl-drawer {
+  background: #f4f4f6;
+  border-left: 1px solid rgba(0,0,0,0.12);
+  color: #363636;
+  box-shadow: -30px 0 60px -24px rgba(0,0,0,0.28);
+}
+.pl-root.light-theme .pl-backdrop { background: rgba(0,0,0,0.32); }
+.pl-root.light-theme .pl-drawer-head,
+.pl-root.light-theme .pl-drawer-foot { background: #fff; border-color: rgba(0,0,0,0.10); }
+.pl-root.light-theme .pl-drawer-title-rune,
+.pl-root.light-theme .pl-artist-swirl { color: #33658A; }
+.pl-root.light-theme .pl-drawer-close {
+  border-color: rgba(0,0,0,0.14); color: #5a5a5a;
+}
+.pl-root.light-theme .pl-drawer-close:hover { color: #33658A; border-color: #33658A; }
+.pl-root.light-theme .pl-canvas-side { background: #fff; border-right-color: rgba(0,0,0,0.10); }
+.pl-root.light-theme .pl-pickers-side { background: #f4f4f6; }
+.pl-root.light-theme .pl-picker,
+.pl-root.light-theme .pl-picker-head {
+  background: #fff; border-color: rgba(0,0,0,0.10);
+}
+.pl-root.light-theme .pl-cat,
+.pl-root.light-theme .pl-slot-name { color: #363636; }
+.pl-root.light-theme .pl-cat-z,
+.pl-root.light-theme .pl-sub-shade-val { background: #eceef1; color: #6b6b6b; }
+.pl-root.light-theme .pl-picker-sel,
+.pl-root.light-theme .pl-empty-hint,
+.pl-root.light-theme .pl-empty-registry,
+.pl-root.light-theme .pl-attribution-empty,
+.pl-root.light-theme .pl-strip-label,
+.pl-root.light-theme .pl-panel-heading,
+.pl-root.light-theme .pl-attribution-label { color: #6b6b6b; }
+.pl-root.light-theme .pl-btn { color: #363636; }
+.pl-root.light-theme .pl-btn-primary {
+  background: linear-gradient(to bottom, #33658A, #2b5677);
+  color: #fff; border-color: #24485f;
+  box-shadow: 0 6px 14px -8px rgba(51,101,138,0.5);
+}
+.pl-root.light-theme .pl-btn-ghost { border-color: rgba(0,0,0,0.16); color: #5a5a5a; }
+.pl-root.light-theme .pl-btn-ghost:hover:not(:disabled) { border-color: #33658A; color: #33658A; }
+.pl-root.light-theme .pl-seed-row { color: #6b6b6b; }
+.pl-root.light-theme .pl-seed-row code {
+  color: #2b5677; background: rgba(51,101,138,0.10); border-color: rgba(51,101,138,0.28);
+}
+.pl-root.light-theme .pl-color-strip,
+.pl-root.light-theme .pl-slot-panel { background: #fff; border-color: rgba(0,0,0,0.10); }
+.pl-root.light-theme .pl-slot { background: #f4f4f6; border-color: rgba(0,0,0,0.10); }
+.pl-root.light-theme .pl-slot.on { border-color: #33658A; box-shadow: 0 0 0 1px rgba(51,101,138,0.28); }
+.pl-root.light-theme .pl-slot.has-tweaks .pl-slot-swatch { box-shadow: 0 0 0 2px rgba(51,101,138,0.45); }
+.pl-root.light-theme .pl-slot::after { border-color: #8a8a8a; }
+.pl-root.light-theme .pl-slot.open::after { border-color: #33658A; }
+.pl-root.light-theme .pl-slot-tweaks { background: rgba(51,101,138,0.16); color: #2b5677; }
+.pl-root.light-theme .pl-slot-swatch.unset {
+  background: repeating-linear-gradient(45deg, #e7e9ec 0 4px, #f7f8fa 4px 8px);
+}
+.pl-root.light-theme .pl-sub-dot { border-color: #fff; }
+.pl-root.light-theme .pl-slot-clear,
+.pl-root.light-theme .pl-sub-clear { color: #8a8a8a; }
+.pl-root.light-theme .pl-slot-clear:hover:not(:disabled),
+.pl-root.light-theme .pl-sub-clear:hover:not(:disabled) {
+  color: #33658A; border-color: rgba(51,101,138,0.28);
+}
+.pl-root.light-theme .pl-sub-name { color: #363636; }
+.pl-root.light-theme .pl-sub-row input[type=range],
+.pl-root.light-theme .pl-slot-panel input[type=range] { accent-color: #33658A; }
+.pl-root.light-theme .pl-sub-chip.shaded,
+.pl-root.light-theme .pl-sub-chip.overridden,
+.pl-root.light-theme .pl-tint-chip.shaded,
+.pl-root.light-theme .pl-tint-chip.overridden { border-color: #33658A; }
+.pl-root.light-theme .pl-tint-chip.open { box-shadow: 0 0 0 2px rgba(51,101,138,0.32); }
+.pl-root.light-theme .pl-sw {
+  background: #f7f8fa; border-color: rgba(0,0,0,0.10);
+}
+.pl-root.light-theme .pl-sw:hover { border-color: #33658A; }
+.pl-root.light-theme .pl-sw.selected {
+  border-color: #33658A; background: #e9eef3;
+  box-shadow: 0 0 0 2px rgba(51,101,138,0.32);
+}
+.pl-root.light-theme .pl-sw-none {
+  background: repeating-linear-gradient(45deg, #eceef1 0 5px, transparent 5px 10px);
+  color: #8a8a8a;
+}
+.pl-root.light-theme .pl-artist a,
+.pl-root.light-theme .pl-artist span.pl-artist-name {
+  color: #363636; border-bottom-color: rgba(51,101,138,0.4);
+}
+.pl-root.light-theme .pl-artist a:hover { color: #33658A; border-bottom-color: #33658A; }
+/* The launcher lives in the Description tab, not in the drawer, so it hangs
+   off .app rather than .pl-root -- scoping it to .pl-root left an amber
+   button sitting in an otherwise blue light theme. */
+.app.light-theme .pl-launcher {
+  background: linear-gradient(to bottom, #33658A, #2b5677);
+  color: #fff; border-color: #24485f;
+  box-shadow: 0 6px 14px -8px rgba(51,101,138,0.5);
+}
+
 /* the launcher button that sits next to the Image URL input in the builder */
 .pl-launcher {
   display: inline-flex; align-items: center; gap: 7px;
@@ -632,18 +738,30 @@
 
 (defn drawer
   "Renders the compositor drawer when :portrait/drawer-open? is truthy.
-   Mount once at the character-builder root; it overlays."
+   Mount once at the character-builder root; it overlays.
+
+   The stylesheet is mounted unconditionally, not inside the open? branch --
+   it also styles the launcher button, which lives in the Description tab and
+   is on screen precisely when the drawer is not.
+
+   The theme class goes on this component's own root rather than being
+   inherited: the drawer is mounted as a SIBLING of content-page, and .app --
+   which carries the theme -- is inside content-page, so .app.light-theme
+   cannot reach it."
   []
-  (when @(subscribe [:portrait/drawer-open?])
-    (let [portrait   @(subscribe [:portrait/draft])
-          seed       @(subscribe [:portrait/draft-seed])
-          open-slot  @(subscribe [:portrait/open-slot])
-          open-layer @(subscribe [:portrait/open-layer])
-          layers     (:layers portrait)
-          any?       (boolean (seq layers))]
-      [:div
-       [:style drawer-styles]
-       [:div.pl-backdrop {:on-click #(dispatch [:portrait/close])}]
+  (let [open? @(subscribe [:portrait/drawer-open?])
+        theme @(subscribe [:theme])]
+    [:div.pl-root {:class theme}
+     [:style drawer-styles]
+     (when open?
+       (let [portrait   @(subscribe [:portrait/draft])
+             seed       @(subscribe [:portrait/draft-seed])
+             open-slot  @(subscribe [:portrait/open-slot])
+             open-layer @(subscribe [:portrait/open-layer])
+             layers     (:layers portrait)
+             any?       (boolean (seq layers))]
+         [:div
+          [:div.pl-backdrop {:on-click #(dispatch [:portrait/close])}]
        [:div.pl-drawer
         [:div.pl-drawer-head
          [:div.pl-drawer-title
@@ -682,7 +800,7 @@
            "Cancel"]
           [:button.pl-btn.pl-btn-primary
            {:type "button" :on-click #(dispatch [:portrait/save])}
-           "Save portrait"]]]]])))
+           "Save portrait"]]]]]))]))
 
 (defn launcher-button
   "The 'Compose portrait' button that slots next to the Image URL input in
