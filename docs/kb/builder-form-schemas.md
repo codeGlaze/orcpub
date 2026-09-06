@@ -219,6 +219,85 @@ tells us what the escape hatch really needs.
 
 ---
 
+## 5b. The OVERLAP map — measured 2026-09-06
+
+The census above sizes each builder. It never recorded **what they share**, which is the number that
+decides whether a form framework is worth having: bespoke code for a heavy builder is expected; the
+question is what fraction is fill-in-the-blank.
+
+Measured by extracting every widget call from each `*-builder` body in `views.cljs`:
+
+| | |
+|---|---:|
+| distinct widgets referenced by builders | 72 |
+| used by **more than one** builder | **20 (27%)** |
+| used by exactly one | 52 |
+| …of those, **prefixed by their own builder's name** | **38** |
+
+### The widgets that are already shared
+
+| widget | builders |
+|---|---|
+| `plugin-datalist` | 9 — background, class, encounter, feat, monster, race, selection, subclass, subrace |
+| `textarea-field` | 7 |
+| `labeled-dropdown` | 6 |
+| `option-traits` | 6 — background, class, monster, race, subclass, subrace |
+| `option-skill-proficiency-choice` | 4 |
+| `ability-increase-choices`, `ability-save-notes`, `save-proficiency-choices`, `option-damage-immunity`, `option-damage-resistance`, `input-builder-field` | 3 each |
+| `option-armor-proficiency`, `option-weapon-proficiency`, `option-skill-proficiency`, `option-tool-proficiency`, `option-languages`, `option-spells`, `option-level-modifiers`, `option-level-selections`, `option-skill-expertise-choice` | 2 each |
+
+### The important finding: 27% understates it badly
+
+**Eight concepts are already implemented more than once under different names.** These are not
+different things that happen to look alike — they are the same control, copied:
+
+| concept | implementations |
+|---|---|
+| **input-field** | **nine copies** — `feat-`, `class-`, `subclass-`, `subrace-`, `race-`, `background-`, `selection-`, `monster-`, `encounter-input-field`, each wrapping `builder-input-field` with a different set-prop event |
+| languages | `feat-languages`, `option-languages`, `background-languages` |
+| skill-proficiency | `feat-skill-proficiency`, `option-skill-proficiency` |
+| weapon-proficiency | `feat-weapon-proficiency`, `option-weapon-proficiency` |
+| armor-proficiency | `feat-armor-proficiency`, `option-armor-proficiency` |
+| damage-resistance | `feat-damage-resistance`, `option-damage-resistance` |
+| hps | `feat-hps`, `option-hps` |
+| spells | `subclass-spells`, `option-spells` |
+
+The nine `*-input-field` copies are exactly what `simple-content-builder` already subsumed for the
+generated builders — the same collapse, unfinished. And **feat carries its own parallel copy of six
+`option-*` widgets**, which is why feat looks like it needs a whole new vocabulary when it mostly
+needs to stop having its own.
+
+### Per builder: how much is already shared
+
+| builder | widgets | shared | its own | of those, a per-builder copy |
+|---|---:|---:|---:|---:|
+| feat | 19 | 3 | 16 | **13** |
+| race | 19 | **15** | 4 | 1 |
+| subrace | 16 | **12** | 4 | 1 |
+| class | 15 | 8 | 7 | 2 |
+| subclass | 13 | **10** | 3 | 2 |
+| monster | 12 | 8 | 4 | 1 |
+| background | 11 | 6 | 5 | 5 |
+| item | 7 | 2 | 5 | 1 |
+| selection | 5 | 3 | 2 | 1 |
+| encounter | 3 | 1 | 2 | 1 |
+
+**race, subrace and subclass are already 75–80% shared widgets.** Their forms are mostly assembly
+already; what is missing is a declarative way to express that assembly, not the widgets.
+
+**feat is the outlier and the opportunity**: 13 of its 16 own widgets are copies of things that
+exist. It looked like the hardest of the six modifier-set builders and is the one with the least
+genuinely new content.
+
+### What this changes about the plan
+
+The earlier framing — "the modifier set is one large addition serving six builders, design it
+deliberately" — was **wrong in a useful direction**. The modifier set is not vocabulary to invent.
+It already exists twice: as `option-*` for race/subrace/class/subclass and as `feat-*` for feat.
+Converting it is **consolidation of existing duplicates**, which is a far better cost profile than
+new design, and it is testable the same way every conversion here has been: pin the existing form,
+collapse the duplicate, run the same test.
+
 ## 6. Track E — the plan (pulled forward 2026-09-05; status lives in `roadmap.md`)
 
 ### The unifying observation
