@@ -31,9 +31,59 @@ re-frame events. Routing via the app's own router is fine for navigation.
 - `notification_flows_e2e.js` — message toasts render red/orange/green via `views.notifications`.
 - `notifications_acceptance_e2e.js` — toasts, confirmation dialog, callout, shared-content-banner.
 - `starting_equipment_browser_e2e.js` — the starting-equipment builder round-trip.
+- `homebrew_rebuild_scaling_e2e.js` — microbenchmarks the character-rebuild internals as
+  homebrew volume grows (real `.orcbrew` upload through the page's own file input). Needs
+  packs from `dev/scale_orcbrew_pack.clj`.
+- `homebrew_spellcaster_load_e2e.js` — how much spell machinery gets built for homebrew
+  spellcasting classes when you are on the Race tab and have not opened Spells. Needs packs
+  from `dev/spellcaster_pack.clj`.
+- `homebrew_render_split_e2e.js` — CPU-profiles a real race click and splits it into the
+  rebuild path vs the render path, so the two can be told apart as homebrew grows.
 - `spell_layout_pdf_e2e.js` — builds a Warlock 5 / Sorcerer 5, exports every sheet style under
   both spell-sheet layouts, and checks the packed one comes out shorter.
 - `sticky_header_e2e.js` — one sticky header, not a fixed copy above an inline one, in a desktop
   and a phone viewport.
+- `tab_switch_freeze_e2e.js` — the builder freeze: longest single task per Race<->Class
+  switch under CPU throttle, plus heap, counters and stacks. `SKIP_CONTROL=1` omits the
+  positive control, which otherwise realises the expensive content up front and suppresses
+  the very freeze being measured.
+- `class_body_cost_e2e.js` — what class bodies cost at builder open and per class switch,
+  with retained heap. `NOMEMO=1` A/Bs the spell-option memoize.
+- `freeze_cpu_profile_e2e.js` — CPU-profiles the freezing switch and ranks by INCLUSIVE
+  time. Self time is useless on allocation-heavy code; it parks in `(program)` and GC.
+- `builds_per_interaction_e2e.js` — `entity/build` calls per click, with the gaps between
+  them (a few ms means fan-in or separate subscriptions; ~500 ms means the debounce).
+- `class_handlers_functional_e2e.js` — pass/fail: drives set-class, set-class-level,
+  add-class and delete-class and asserts app-db. Neither suite clicks anything, so this is
+  the only coverage those handlers have.
+- `storage_shape_e2e.js` — what is actually in localStorage after a real import.
+- `localstorage_ceiling_e2e.js` — the real quota, and whether it counts chars or bytes.
+- `library_chunk_granularity_e2e.js` — how finely a library can be split.
+- `run_cljs_suite.js` — runs the ClojureScript suite headlessly and exits non-zero on
+  failure.
+
+**The cookie banner is position-fixed at the bottom of the page and overlays whatever is
+under it** — including the import conflict modal's buttons, which makes a click fail with
+"subtree intercepts pointer events" and look like an app bug. `cookies.js` now takes an
+explicit opt-out: set `localStorage['orcpub:no-cookie-banner'] = '1'` before the first
+navigation (`suppressCookieBanner(context)` in `lib/orcbrew-import.js` does exactly that),
+or append `?no-cookie-banner=1` when driving a browser by hand. Prefer suppressing it over
+dismissing it — a dismissal is one more thing to get wrong on every new page.
+
+All three homebrew probes import through `lib/orcbrew-import.js`, which drives the
+**conflict-resolution modal**. A real pack with overlapping keys makes the app open that
+modal and wait; a probe that only polls app-db sees the plugin count stay put and wrongly
+concludes the import failed. Three long runs were lost to exactly that. A fixed sleep before
+clicking is not enough either — a bigger pack parses slower and the click finds no button —
+so the helper races both outcomes until one lands.
+
+The homebrew probes are perf instruments, not pass/fail tests — they print numbers.
+`:optimizations :none` makes LOAD-time numbers from the dev build meaningless; only their
+runtime numbers are usable. See `docs/kb/perf-homebrew-builder-loop.md`.
+Before writing a new probe, read `docs/kb/verification-discipline.md` — it lists the probe
+defects that have produced confident wrong answers here (a control that suppresses what it
+measures, instrumentation that cannot intercept, a dead probe reporting silence, truncated
+stacks, self time on allocation-heavy code).
+
 
 Some of these still boot a static server (an older pattern being migrated to `lein e2e-server`).

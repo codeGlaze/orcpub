@@ -162,16 +162,39 @@
           (js/console.warn "NO PREREQ_FN" (::t/name option) prereq)))
       (::t/prereqs option)))))
 
+;; ---------------------------------------------------------------------------
+;; DO NOT wrap the handler factories below in cljs.core/memoize.
+;;
+;; memoize stores its cache in a PersistentArrayMap and looks it up with `get`,
+;; which LINEAR-SCANS comparing argument lists with `=`. Any argument holding a
+;; large structure therefore gets deep-compared on every single call -- and that
+;; comparison walks lazy seqs, realising them.
+;;
+;; set-class, delete-class and add-class all took options-map (every class in the
+;; library). Each lookup deep-compared ~141 class options and forced their lazy
+;; 20-level :options seqs: 2820 level-option calls, ~1 s blocked, 46 MB, in ONE
+;; synchronous render. Fixing one of the three changed nothing; all three had to go.
+;;
+;; Measured: Class-tab switch 1125 ms -> 100 ms (dev), 654 ms -> 92 ms (prod).
+;; The cached values are three-line closures.
+;;
+;; If a handler factory is ever hot enough to need caching, key it on something
+;; small (an index, a keyword) -- never on options, a character, a template or a
+;; content map. docs/kb/perf-homebrew-builder-loop.md
+;; ---------------------------------------------------------------------------
+
 (defn set-class-fn [i options-map]
   (fn [e] (let [new-key (keyword (.. e -target -value))]
             (dispatch [:set-class new-key i options-map]))))
 
-(def set-class (memoize set-class-fn))
+;; DO NOT MEMOIZE. See the block comment above set-class-fn.
+(def set-class set-class-fn)
 
-(def make-options-map
-  (memoize
-   (fn [options]
-     (zipmap (map ::t/key options) options))))
+(defn make-options-map
+  "DO NOT MEMOIZE -- the key would be the options seq. See set-class-fn. The work is a
+   zipmap over ~141 items; the cache lookup would cost far more."
+  [options]
+  (zipmap (map ::t/key options) options))
 
 (defn set-class-level-fn [i]
   (fn [e]
@@ -184,13 +207,16 @@
 (defn delete-class-fn [key i options-map]
   (fn [_] (dispatch [:delete-class key i options-map])))
 
-(def delete-class (memoize delete-class-fn))
+;; DO NOT MEMOIZE -- keyed on options-map, every class in the library. See set-class-fn.
+(def delete-class delete-class-fn)
 
 (defn filter-classes-fn [key unselected-classes-set]
   #(or (= key (::t/key %))
        (unselected-classes-set (::t/key %))))
 
-(def filter-classes (memoize filter-classes-fn))
+;; DO NOT MEMOIZE -- caches a one-line predicate behind a deep-comparing lookup.
+;; See set-class-fn.
+(def filter-classes filter-classes-fn)
 
 (def levels-selection #(when (= :levels (::t/key %)) %))
 
@@ -247,7 +273,7 @@
           [:i.fa.fa-minus-circle.orange.f-s-16.m-l-5.pointer
            {:on-click (delete-class key i options-map)}]]
          (when @expanded?
-           [:div.m-t-5.m-b-10 (::t/help class-template-option)])]))))
+           [:div.m-t-5.m-b-10 (views-aux/realize-help (::t/help class-template-option))])]))))
 
 (def select-template-key #(select-keys % [::t/key]))
 
@@ -271,7 +297,8 @@
     (let [first-unselected (::t/key (first remaining-classes))]
       (dispatch [:add-class first-unselected]))))
 
-(def add-class (memoize add-class-fn))
+;; DO NOT MEMOIZE -- keyed on a seq of class options. See set-class-fn.
+(def add-class add-class-fn)
 
 (defn class-levels-selector [{:keys [selection]}]
   (let [options (::t/options selection)
@@ -517,7 +544,7 @@
           (when help
             [show-info-button expanded?])]
          (when (and help @expanded?)
-           [help-section help])
+           [help-section (views-aux/realize-help help)])
          (when (and content selected?)
            content)
          (when explanation-text
@@ -567,10 +594,19 @@
       ^{:key (::t/key option)}
       [option-selector-base (assoc data
                                    :help
+                                   ;; Stays a THUNK all the way to the expanded? gate. This
+                                   ;; wrapper is rebuilt on every render of every visible
+                                   ;; option card, so forcing here would pay for a peek
+                                   ;; nobody opened once per card per render - worse than
+                                   ;; building it once at template time, which is what the
+                                   ;; deferral was meant to avoid. option-selector-base
+                                   ;; forces it only inside (when @expanded? ...).
                                    (when (or help has-named-mods?)
-                                        [:div
-                                         (when has-named-mods? [:div.i modifiers-str])
-                                         [:div {:class (when has-named-mods? "m-t-5")} help]])
+                                     (fn []
+                                       [:div
+                                        (when has-named-mods? [:div.i modifiers-str])
+                                        [:div {:class (when has-named-mods? "m-t-5")}
+                                         (views-aux/realize-help help)]]))
                                    :edit-event (::t/edit-event option))])))
 
 (defn selection-section-title [title]
@@ -1901,6 +1937,7 @@
        (case current-tab
          :options [new-options-column 1]
          :description [description-fields]
+         ;; nil id = the builder's own character (not a saved one).
          [views5e/character-display nil true 1])]]]))
 
 
@@ -1916,6 +1953,7 @@
          [new-options-column (if (= device-type :desktop) 2 1)]
          [description-fields])]
       [:div.w-50-p.m-l-20.m-r-10
+       ;; nil id = the builder's own character (not a saved one).
        [views5e/character-display nil true 1]]]]))
 
 (defn builder-columns []

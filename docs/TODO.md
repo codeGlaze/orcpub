@@ -116,9 +116,23 @@ so upstream updates never clobber their edits).
   backup-restore (last-write-wins) *before* multi-device sync (sync needs conflict
   resolution).
 - **Compress localStorage plugins** with the existing gzip codec to fit more under
-  the ~5 MB browser ceiling — no cloud, no legal exposure. Caveats: makes stored
+  the browser ceiling — no cloud, no legal exposure. Caveats: makes stored
   content opaque to inspection, and a hard cap is still needed (compression moves
-  the ceiling, doesn't remove it).
+  the ceiling, doesn't remove it). The ceiling is now measured rather than assumed:
+  **5,177,344 characters** in Chromium, identical for ASCII and CJK fills, so it
+  counts UTF-16 units and compares directly against a library's character count
+  (`test/browser/localstorage_ceiling_e2e.js`).
+- **Chunked per-source library storage** — *nice to have, not scheduled.* The
+  library is 13 sources in memory but ONE localStorage value (measured: 2,166,081
+  chars for MegaPak), so every save rewrites the whole thing and every load parses
+  it back through a single blocking `read-string` (~750 ms). A full phased design
+  exists: [docs/kb/plan-chunked-library-storage.md](kb/plan-chunked-library-storage.md).
+  **Deliberately parked**: that ~750 ms is a one-time load cost, while the reported
+  problem is the click loop (race/class selection), where no storage read happens
+  at all. It also does not raise the ceiling. Revisit if cold load becomes the
+  complaint — or fold it into an IndexedDB move, which dissolves most of the plan's
+  complexity (natively per-key and async) and is the only real answer to capacity
+  (~916 MB of measured origin quota vs ~5.18 M chars for localStorage).
 - **Native `<select>` → custom popover**: the add-content menu uses a native
   select; adopt `port/redesign-on-refactor`'s Phase 7 custom-select popover when
   branches converge (NOT a cheap early crib — it's coupled to that branch's
