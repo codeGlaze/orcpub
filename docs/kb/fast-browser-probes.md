@@ -133,13 +133,29 @@ The cost is spread evenly across its own checks, 30-80s each:
 total=393s   max silence between outputs 79.2s
 ```
 
-**⚠️ UNVALIDATED SPECULATION -- inferred from the timing shape, not from instrumenting the fetches.** The probe drives the app at `https://i.imgur.com/aBcDeF.png` and
+**❌ REFUTED 2026-09-06 -- measured, see below.** The guess was: the probe drives the app at `https://i.imgur.com/aBcDeF.png` and
 a Pinterest URL, both fake, and outbound HTTPS here goes through the agent proxy — a request
 to a host that will not answer can hang a long time before failing. `spell_layout_pdf` does
 20 checks in 52s, so PDF export is not the slow part, which points at the network rather than
 the work. Confirming it means instrumenting the app's fetches; nobody has. Worth settling
 before anyone tries to speed this probe up, because if it holds then it is slow *here* rather
 than slow everywhere.
+
+That guess was wrong. Timed from a browser in this sandbox via Playwright's request context:
+
+```
+0.4s  https://i.imgur.com/aBcDeF.png            HTTP 403
+0.5s  https://www.pinterest.com/pin/1234567890/ HTTP 200
+```
+
+The proxy answers both in under a second, so dead-host latency is not the cause.
+
+**The cause is still open.** What has been ruled out: blind sleeps (17s across 14 calls),
+page loads (2), PDF exports (2 -- and `spell_layout_pdf` does 20 checks in 52s, so export is
+not inherently slow), and the bounded polling helpers at lines 358/415/531, which cap at
+8-10s and return as soon as their predicate holds. Something in the server-side picture
+fetch and sheet draw is the remaining candidate, unmeasured. Do not repeat the network
+guess.
 
 The 79.2s figure is load-bearing regardless: it is what sizes the runner's 180s silence
 timeout.
