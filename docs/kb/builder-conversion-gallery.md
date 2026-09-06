@@ -804,3 +804,81 @@ and its cause each time was the same: not reading the original or the existing s
 changing things. The rules those rounds produced are now encoded (and measured by the gallery and
 `mockup-parity.js`), so the next builder does not repeat them — but the iterations themselves bought
 nothing that a careful first look would not have.
+
+---
+
+## Was the "easy render register" actually easy? — an accounting
+
+Asked directly after the spell conversion, and worth answering with numbers rather than a verdict.
+
+### For a simple builder: yes, unambiguously
+
+| builder | bespoke | now |
+|---|---:|---:|
+| language | 22 lines | **7** |
+| boon, invocation | — | **4** each |
+| draconic ancestry | — | **9** |
+| fighting style | — | **10** |
+
+Language's output was byte-identical to the form it replaced. Nothing was designed for these; they
+consume vocabulary that already existed.
+
+### For spell: no, and the line count says so
+
+| | lines |
+|---|---:|
+| bespoke `spell-builder` | 86 |
+| generated `spell-builder` | 12 |
+| + `spells/spell-fields` | 53 |
+| + derived combo lists | 8 |
+| + `spell-lists-field` (the widget no type describes) | 22 |
+| **spell's own code, total** | **95** |
+
+**95 lines replacing 86.** On code volume this conversion lost. What it bought was capability, not
+brevity: validation from the same schema the save spec uses, a conditional field, a `:page` field
+nobody had exposed, combos derived from the shipped data, and defined mobile behaviour. Those are
+real, but "shorter" is not the honest headline for this one.
+
+### What it cost the framework
+
+`0dba47c8..HEAD`, source only: **+406 / −152 across six files** — 139 lines of CSS and ~300 of
+`views.cljs`. Nine commits: **one conversion and eight corrections.**
+
+Eight new vocabulary items arrived to serve one builder — `:boolean`, `:combo`, `:placeholder`,
+`:span`, `:section`, `{:slot :description}`, heading-only markers, toggle-run grouping — plus a grid
+layout, chips, and mobile rules. **Four of them (`:combo`, `:placeholder`, `:span`, `:slot`) have
+exactly one user today.** That is speculative generality until a second builder needs them.
+
+### Was it confusing? In one specific place, yes
+
+The field-flow mapper now branches **seven** ways: `{:slot :description}`, a heading-only marker, a
+`:bools-inline` run, a `:bools` stack, a `:rows` node, a plain field, and raw hiccup. That branching
+directly caused a shipped bug — the heading-only guard (`a map with no :type`) swallowed
+`{:bools-inline …}` and the three component checkboxes disappeared. **Every synthetic node kind has
+to be excluded from every other kind's guard, and nothing enforces that.** If a ninth node kind
+arrives, this is where it breaks.
+
+`render-builder-field` is 131 lines across 6 field types; `simple-content-builder` 81; the layout
+rules 42. None of those is unreasonable alone, and together they are no longer something you read in
+one sitting.
+
+### What that implies for the remaining nine
+
+The pattern to expect is the one that just happened: **a builder that needs vocabulary it does not
+have will force that vocabulary into existence, and the cost lands on the framework, not the
+builder.** From the blocking-primitive table above, every remaining builder needs at least one thing
+that does not exist.
+
+So the useful question before the next conversion is not "how long is the form" but **"does this
+builder reuse the vocabulary, or extend it?"**
+
+- **Monster** is mostly `:enum` / `:text` / `:number` plus rows — the best available test of whether
+  the vocabulary has converged. If monster converts without a new field type, it has.
+- **Feat / race / subrace / class / subclass / background** all need the modifier set. That is one
+  large addition serving six builders, and it should be designed deliberately rather than discovered
+  by converting feat and reacting — which is how the last two rounds went.
+
+And the process lesson, since eight of nine commits were corrections: **most of them were caught by
+review, not by me.** The measurements that now exist (height, control count including chips, mobile,
+mockup parity) were each added *after* the thing they measure had already shipped broken. They will
+catch a repeat; they did not catch the original.
