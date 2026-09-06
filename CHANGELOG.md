@@ -773,6 +773,26 @@ carries the decoded image, so no host has a say.
   `draw-text-from-top` helper, `HELVETICA_OBLIQUE` font and
   `orcpub.dnd.e5.monsters` require that it was the only user of.
 
+### feat/whats-new-panel
+
+**Highlights**
+
+The site now says what changed. New release highlights open once per browser and
+then stay one click away in the footer, so a release is something people notice
+rather than something they'd have to go read the changelog to find.
+
+**Added**
+
+- **What's New panel** — the current release's highlights open on the first visit
+  after it ships, and the footer link and version line reopen them any time.
+  Closing it stamps the release, so it stays shut until the next one (`ee3e4d8b`).
+- **`orcpub.whats-new`** — the release entries and the id that gates the panel, in
+  one cljc file the panel and the tests both read (`ee3e4d8b`).
+- **Twelve Summer Patch highlights under three headings** — library, characters,
+  printing — covering the builder freeze, the spell rows that never printed, the
+  two styles that could not export a multiclass caster, and the packed multiclass
+  layout, alongside the homebrew and portrait work (`9e3017d3`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
