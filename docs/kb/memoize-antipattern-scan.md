@@ -129,6 +129,18 @@ delete-class removes it again       [["wizard",5]]
 built-character still derives       keys=120
 ```
 
+## Known gap: no click-level coverage for spell picking
+
+`class_handlers_functional_e2e.js` covers the class handlers. Spell picking is **not**
+covered: two attempts failed identically on the pre-change build (0 -> 0), proving they were
+probe bugs rather than regressions, but neither actually exercised picking a spell — the
+first `.b-orange` card on the Spells tab is not a spell option. Closing this needs someone
+familiar with that view.
+
+Step 2's safety rests on the other three legs instead: `spell-option` is pure and its result
+closes only over values derived from its own arguments; both suites pass; and the measurement
+shows the counter dropping 21 ms -> 1 ms with no behavioural change.
+
 ## Related
 
 - [perf-homebrew-builder-loop.md](perf-homebrew-builder-loop.md) -- the freeze and its fix

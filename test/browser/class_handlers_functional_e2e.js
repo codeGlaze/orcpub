@@ -95,47 +95,18 @@ const check = (name, ok, detail) => {
     } else { console.log('  SKIP  delete-class (no control found)'); }
   } else { console.log('  SKIP  add-class (no control found)'); }
 
-  // Spell selection: spell-option is no longer memoized, so prove a spell can still be
-  // listed and picked and that it reaches the built character.
+  // NOT COVERED: picking a spell.
   //
-  // Reads ::char5e/spells-known (a subscription) rather than guessing a raw app-db path --
-  // the first version of this check counted top-level ::entity/options keys containing
-  // "spells", found none, and reported a failure that reproduced identically on the
-  // PRE-CHANGE build. A check that fails on known-good code is worse than no check.
-  console.log('\nspell selection:');
-  const knownSpells = () => page.evaluate(() => {
-    try {
-      const c = window.cljs.core;
-      const sub = window.re_frame.core.subscribe(
-        c.vector(c.keyword('orcpub.dnd.e5.character', 'spells-known')));
-      const v = c.deref(sub);
-      if (!v) return 0;
-      let n = 0;
-      c.doall(c.map(function (k) { const lvl = c.get(v, k); n += lvl ? c.count(lvl) : 0; return null; },
-                    c.keys(v)));
-      return n;
-    } catch (e) { return -1; }
-  });
-  try {
-    await page.locator('text="Spells"').first().click({ timeout: 25000 });
-    await page.waitForTimeout(3000);
-    const before = await knownSpells();
-    // Spell options live under a "... Cantrips Known" / "... Spells Known" selection.
-    const opt = page.locator('.b-orange').filter({ hasText: /^[A-Z][a-z]/ }).first();
-    const n = await opt.count().catch(() => 0);
-    if (before < 0) {
-      console.log('  SKIP  spell selection (subscription unavailable)');
-    } else if (!n) {
-      console.log('  SKIP  spell selection (no spell option rendered to click)');
-    } else {
-      await opt.click({ timeout: 20000 });
-      await page.waitForTimeout(2500);
-      const after = await knownSpells();
-      check('a spell can be picked and reaches the character', after > before, `${before} -> ${after}`);
-    }
-  } catch (e) {
-    console.log('  SKIP  spell selection (' + e.message.split('\n')[0] + ')');
-  }
+  // Two attempts at this failed IDENTICALLY on the pre-change build with the memoize
+  // restored (0 -> 0), so they were probe bugs, not regressions -- but neither version
+  // actually exercised spell picking, and a check that cannot distinguish good code from
+  // bad is worse than none. The click target is the problem: the first .b-orange card on
+  // the Spells tab is not a spell option, and finding the real one needs someone who knows
+  // that view. Left as a known gap rather than a red assertion.
+  //
+  // spell-option's safety rests instead on: it is pure, its result closes only over values
+  // derived from its own arguments (verified by reading), both suites pass, and the
+  // measurement shows the counter dropping 21ms -> 1ms with no behaviour change.
 
   // The character still builds after all that.
   const built = await page.evaluate(() => {
