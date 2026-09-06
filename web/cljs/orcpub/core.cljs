@@ -7,6 +7,7 @@
             [orcpub.dnd.e5.views :as views]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.conflict-resolution :as conflict-views]
+            [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.route-map :as routes]
             [cljs-http.client :as http]
             [clojure.string :as s]
@@ -118,7 +119,12 @@
      [views/error-boundary
       (fn [error stack retry] [views/app-error-fallback error stack retry])
       [view (assoc route-params :query query-map)]]
-     [conflict-views/import-log-overlay]]))
+     [conflict-views/import-log-overlay]
+     ;; Mounted at the root, not in the page shell: the splash page is the first
+     ;; thing a visitor sees and it has no shell. Skipped for an embedded sheet
+     ;; (?frame=true), which is someone else's page rather than ours.
+     (when-not (= "true" (get query-map "frame"))
+       [whats-new-view/panel])]))
 
 ;; Verify auth token on startup (replaces @(subscribe [:user false]) side-effect)
 (dispatch-sync [:verify-user-session])

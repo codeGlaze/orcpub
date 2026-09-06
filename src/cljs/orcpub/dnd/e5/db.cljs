@@ -61,6 +61,10 @@
 ;; so a dismissed heads-up stays hidden across reloads — but only until the set of
 ;; problems changes (the signature changes), and never on the My Content hub.
 (def local-storage-health-dismissed-key "health-dismissed")
+;; Which release the What's New panel last showed here. Per-device: the panel is a
+;; heads-up, not account state, so a stamp that never arrives (private browsing,
+;; storage off) costs one extra showing rather than an error.
+(def local-storage-whats-new-key "whats-new-seen")
 
 (def default-route route-map/dnd-e5-char-builder-route)
 
@@ -281,6 +285,25 @@
   (when js/window.localStorage
     (set-item local-storage-health-dismissed-key (str sig))))
 
+(defn cookie-banner-pending?
+  "Will the cookie notice (resources/public/js/cookies.js) put itself on screen?
+   It shows unless its consent cookie is set or the localStorage opt-out is on.
+   Two overlays at once on a first visit is one too many, so the release panel
+   waits a visit rather than stacking on top of it."
+  []
+  (let [suppressed? (try
+                      (= "1" (.getItem js/window.localStorage "orcpub:no-cookie-banner"))
+                      (catch js/Object _ false))
+        consented? (boolean (re-find #"flatsome_cookie_notice"
+                                     (or js/document.cookie "")))]
+    (not (or suppressed? consented?))))
+
+(defn whats-new-seen->local-store [release-id]
+  (when js/window.localStorage
+    ;; pr-str, not str: the slot is read back with read-string, and a bare id would
+    ;; come back as a symbol and fail the string spec.
+    (set-item local-storage-whats-new-key (pr-str release-id))))
+
 (def tab-path [:builder :character :tab])
 
 (def ^:private preserve-on-unreadable-keys
@@ -399,6 +422,13 @@
  ::e5/health-dismissed
  local-storage-health-dismissed-key
  ::health-dismissed)
+
+;; Which release the What's New panel last showed on this device.
+(spec/def ::whats-new-seen string?)
+(reg-local-store-cofx
+ ::e5/whats-new-seen
+ local-storage-whats-new-key
+ ::whats-new-seen)
 
 ;; Refresh safety: restore every homebrew builder's in-progress item on boot (the
 ;; persist side is already wired per-builder via ->local-store interceptors; this
