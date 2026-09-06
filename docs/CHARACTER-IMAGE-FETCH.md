@@ -81,6 +81,33 @@ to a table.
 Re-run the probe politely -- a request or two per host, spaced -- rather than in a
 loop; these are other people's servers.
 
+## What is known before anything is fetched
+
+`orcpub.image-url/advise` reads the address alone -- no request, no waiting -- and
+is where most real mistakes are caught, because most of them are visible in the
+string:
+
+- **A page's address instead of the picture's.** The commonest paste there is:
+  a Pinterest pin page, an Imgur gallery, a Reddit post, a Flickr or DeviantArt or
+  ArtStation page. A fetch can only report these as a puzzle; the string says
+  plainly what they are.
+- **A login wall.** Instagram and Facebook links cannot work for anyone.
+- **A malformed address.** No scheme, a scheme that is not the web, a space in the
+  middle from a half-copied link.
+- **`http://`,** which the page's own CSP will not display whatever the host does.
+- **Viewer links with a known direct form** -- Dropbox `?dl=0`, Google Drive
+  `/file/d/<id>/view` -- which are offered as a correction to take or leave.
+
+A correction is only ever offered where it is mechanical. Nothing guesses a
+picture's address from a page's; it says what the page is and how to get the real
+one. The advice is debounced, because the field commits on every keystroke and
+advice that objects to `htt` on the way to `https://` teaches people to ignore it.
+
+Advice, not enforcement. The rules that must hold are enforced where they cannot
+be argued with -- address validation on the server, CORS in the browser -- so this
+is free to be occasionally wrong, and its weakest rule (an unknown host with no
+file name) is only a note.
+
 ## What the builder tells a person, and why
 
 `/image-probe` answers a REASON, not a boolean, and the builder turns it into

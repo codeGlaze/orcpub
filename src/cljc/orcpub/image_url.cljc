@@ -1,0 +1,169 @@
+(ns orcpub.image-url
+  "What can be told about a picture's address without asking anyone.
+
+   Most of what goes wrong with a character portrait is visible in the string:
+   the address of a PAGE rather than of the picture on it, a missing scheme, an
+   http link the browser will refuse to display. Waiting for a fetch to fail
+   before saying so costs a round trip and tells the person less than the string
+   already did.
+
+   Nothing here blocks anything. The rules that must hold are enforced where they
+   cannot be argued with -- address validation on the server, CORS in the browser.
+   This is advice, and advice is allowed to be wrong occasionally; it says the
+   most useful thing it can and gets out of the way."
+  (:require [clojure.string :as s]))
+
+(def ^:private page-not-picture
+  "Addresses of pages that SHOW a picture, which people paste far more often than
+   the picture's own address. Matched on the whole URL, first hit wins, so put the
+   narrower patterns first."
+  [[#"(?i)^https?://(?:[a-z0-9-]+\.)*pinterest\.[a-z.]+/pin/"
+    "That is the Pinterest page, not the picture on it."
+    "Right-click the pin's image and choose Copy image address -- it starts i.pinimg.com."]
+
+   [#"(?i)^https?://(?:www\.)?imgur\.com/(?!.*\.(?:png|jpe?g|gif|webp))"
+    "That is the Imgur page, not the picture on it."
+    "Open the image on its own and copy that address -- it starts i.imgur.com."]
+
+   [#"(?i)^https?://(?:www\.)?reddit\.com/r/.+/comments/"
+    "That is the Reddit post, not the picture in it."
+    "Open the image and copy its address -- it usually starts i.redd.it."]
+
+   [#"(?i)^https?://(?:www\.)?flickr\.com/photos/"
+    "That is the Flickr page, not the picture on it."
+    "Right-click the photo and choose Copy image address."]
+
+   [#"(?i)^https?://(?:www\.)?deviantart\.com/.+/art/"
+    "That is the DeviantArt page, not the artwork itself."
+    "Right-click the artwork and choose Copy image address."]
+
+   [#"(?i)^https?://(?:www\.)?artstation\.com/artwork/"
+    "That is the ArtStation page, not the artwork itself."
+    "Right-click the artwork and choose Copy image address."]
+
+   [#"(?i)^https?://(?:www\.)?(?:instagram\.com|facebook\.com)/"
+    "Instagram and Facebook require a login, so nothing can fetch the picture."
+    "Right-click the picture and choose Copy image, then use the button below."]])
+
+(def ^:private known-image-hosts
+  "Hosts that serve pictures straight, and often with no file extension to go by.
+   Their addresses are not worth a warning about looking like a page."
+  #{"i.imgur.com" "i.pinimg.com" "cdn.discordapp.com" "media.discordapp.net"
+    "upload.wikimedia.org" "static.wikia.nocookie.net" "i.redd.it"
+    "images.unsplash.com" "cdn.pixabay.com" "picsum.photos" "fastly.picsum.photos"
+    "raw.githubusercontent.com" "live.staticflickr.com" "i.postimg.cc" "i.ibb.co"
+    "www.dndbeyond.com" "media.dndbeyond.com"})
+
+(def ^:private known-image-host-suffixes
+  [".googleusercontent.com" ".wixmp.com" ".media.tumblr.com" ".artstation.com"
+   ".cloudfront.net" ".amazonaws.com" ".cdninstagram.com" ".fbcdn.net"])
+
+(defn- host-of
+  "The host part of an http(s) address, lower-cased, or nil."
+  [url]
+  (some-> (second (re-find #"(?i)^https?://([^/?#]+)" url))
+          s/lower-case
+          (s/replace #":\d+$" "")))
+
+(defn- known-image-host? [url]
+  (when-let [h (host-of url)]
+    (or (contains? known-image-hosts h)
+        (some #(s/ends-with? h %) known-image-host-suffixes))))
+
+(defn- looks-like-a-file? [url]
+  (re-find #"(?i)\.(png|jpe?g|gif|webp|bmp)(?:[?#]|$)" url))
+
+(defn advise
+  "What is worth saying about `url` before anyone tries to fetch it.
+
+   Returns nil when there is nothing useful to say, or a map:
+
+     :level   :error when it cannot work as written, :warning when it probably
+              will not, :note when it merely might not
+     :message what is wrong
+     :advice  what to do about it
+     :fix     a corrected address, when one can be derived, else nil
+
+   A :fix is only ever offered where the correction is mechanical. Nothing here
+   guesses at a picture's address from a page's."
+  [url]
+  (let [raw (str url)
+        trimmed (s/trim raw)]
+    (cond
+      (s/blank? trimmed) nil
+
+      (not= raw trimmed)
+      {:level :warning
+       :message "That address has a space at one end."
+       :advice "It will be trimmed."
+       :fix trimmed}
+
+      (re-find #"\s" trimmed)
+      {:level :error
+       :message "That address has a space in the middle of it."
+       :advice "Copy the whole address again -- part of it is probably missing."
+       :fix nil}
+
+      ;; A scheme that is not the web. file:// and ftp:// are refused outright by
+      ;; the server, and data: and javascript: are not addresses of anything.
+      (re-find #"(?i)^(?!https?://)[a-z][a-z0-9+.-]*:" trimmed)
+      {:level :error
+       :message "Only http and https addresses work here."
+       :advice "Use the address the picture has on the web."
+       :fix nil}
+
+      ;; No scheme at all, but it does look like a host and path.
+      (and (not (re-find #"(?i)^https?://" trimmed))
+           (re-find #"(?i)^[a-z0-9-]+(\.[a-z0-9-]+)+/" trimmed))
+      {:level :error
+       :message "That address is missing the https:// at the front."
+       :advice nil
+       :fix (str "https://" trimmed)}
+
+      (not (re-find #"(?i)^https?://" trimmed))
+      {:level :error
+       :message "That does not look like a web address."
+       :advice "Right-click the picture and choose Copy image address."
+       :fix nil}
+
+      ;; Dropbox share links serve a viewer page unless asked for the file.
+      (and (re-find #"(?i)^https?://(www\.)?dropbox\.com/" trimmed)
+           (re-find #"(?i)[?&]dl=0" trimmed))
+      {:level :warning
+       :message "That Dropbox link opens the viewer page rather than the file."
+       :advice nil
+       :fix (s/replace trimmed #"(?i)([?&])dl=0" "$1raw=1")}
+
+      ;; Google Drive share links have a well-known direct form.
+      (re-find #"(?i)^https?://drive\.google\.com/file/d/([^/]+)" trimmed)
+      {:level :warning
+       :message "That Google Drive link opens the viewer page rather than the file."
+       :advice "Drive also has to be sharing the file with anyone who has the link."
+       :fix (str "https://drive.google.com/uc?export=view&id="
+                 (second (re-find #"(?i)^https?://drive\.google\.com/file/d/([^/]+)" trimmed)))}
+
+      :else
+      (or
+       ;; Pages that show a picture, which is the commonest paste of all.
+       (some (fn [[pattern message advice]]
+               (when (re-find pattern trimmed)
+                 {:level :error :message message :advice advice :fix nil}))
+             page-not-picture)
+
+       ;; http works on the server but the browser will not display it: the
+       ;; page's Content-Security-Policy allows images over https only, so an
+       ;; http portrait shows as a broken thumbnail whatever the host does.
+       (when (re-find #"(?i)^http://" trimmed)
+         {:level :warning
+          :message "This page can only display pictures over https."
+          :advice nil
+          :fix (s/replace trimmed #"(?i)^http://" "https://")})
+
+       ;; Weakest rule, so last, and only a note: plenty of hosts serve pictures
+       ;; from addresses with no file name on the end.
+       (when (and (not (looks-like-a-file? trimmed))
+                  (not (known-image-host? trimmed)))
+         {:level :note
+          :message "That may be a page rather than the picture itself."
+          :advice "If no picture appears, right-click it and choose Copy image address."
+          :fix nil})))))

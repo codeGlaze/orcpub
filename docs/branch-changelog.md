@@ -51,6 +51,21 @@ allowed the builder says so and offers an upload — which no host has a say in.
   real app. The server refuses loopback addresses, so an image reaching a PDF from
   the test origin can only have arrived as bytes the browser read.
 
+## Added
+
+- `orcpub.image-url/advise`, which reads the address alone and catches most real
+  mistakes before a request is made: a PAGE's address pasted instead of the
+  picture's (Pinterest pin, Imgur gallery, Reddit post, Flickr, DeviantArt,
+  ArtStation), a login wall (Instagram, Facebook), a missing or non-web scheme, a
+  space from a half-copied link, and `http://`, which this page's CSP will not
+  display whatever the host does. Dropbox `?dl=0` and Google Drive
+  `/file/d/<id>/view` are offered as corrections to take or leave.
+
+  Advice, never enforcement, and a correction only where it is mechanical --
+  nothing guesses a picture's address from a page's. Debounced, because the field
+  commits on every keystroke and advice that objects to `htt` on the way to
+  `https://` teaches people to ignore advice.
+
 ## Changed
 
 - The builder says nothing about pasting or uploading until BOTH routes are known

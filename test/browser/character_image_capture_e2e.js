@@ -445,6 +445,33 @@ async function exportPressable(page) {
           !!copiedShape, copiedShape || 'no :image-data');
     check('and it reaches the sheet', hasImage(copied.file));
 
+    // ---- what can be told before anyone fetches anything ---------------------
+    const urlField = () => page.locator('span', { hasText: /^Image URL/ })
+      .locator('xpath=following::input[1]').first();
+
+    // The advice is debounced -- the field commits on every keystroke -- so these
+    // wait for it rather than guessing how long it takes.
+    await setImageUrl(page, 'https://www.pinterest.com/pin/1234567890/', 300);
+    check('a page address is named as a page, with no request made',
+          await waitForText(/Pinterest page/i, 10000));
+
+    await setImageUrl(page, 'i.imgur.com/aBcDeF.png', 300);
+    const offered = await waitForText(/Use this instead/i, 10000);
+    check('a missing scheme is offered as a correction', offered);
+    if (offered) {
+      await page.getByText('Use this instead').first().click();
+      const fixed = await (async () => {
+        const until = Date.now() + 8000;
+        while (Date.now() < until) {
+          if ((await urlField().inputValue()) === 'https://i.imgur.com/aBcDeF.png') return true;
+          await page.waitForTimeout(200);
+        }
+        return false;
+      })();
+      check('and taking the correction fixes the address', fixed,
+            await urlField().inputValue());
+    }
+
     check('no unexpected console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
     if (expected.length) {
       console.log(`note: ${expected.length} expected line(s) — CSP Report-Only, and the CORS`);

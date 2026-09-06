@@ -8,6 +8,7 @@
             ;; The spell page packer and row annotations run in the browser --
             ;; the builder decides the layout -- so their tests run here too.
             [orcpub.dnd.e5.spell-packing-test]
+            [orcpub.image-url-test]
             [orcpub.dnd.e5.spell-annotations-test]
             ;; CLJS-only re-frame integration tests (events-test now also holds
             ;; the toggle-corruption stress harness)
@@ -26,6 +27,7 @@
              'orcpub.dnd.e5.compute-test
              'orcpub.dnd.e5.hunter-evasion-test
              'orcpub.dnd.e5.spell-packing-test
+             'orcpub.image-url-test
              'orcpub.dnd.e5.spell-annotations-test
              'orcpub.dnd.e5.events-test
              'orcpub.dnd.e5.subs-test
