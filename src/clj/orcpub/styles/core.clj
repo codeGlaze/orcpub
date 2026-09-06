@@ -8,9 +8,17 @@
 (def orange "#f0a100")
 (def button-color orange)
 (def red "#9a031e")
+;; One red cannot serve both themes: #9a031e reads at about 9:1 on white and about
+;; 2:1 on the app's near-black ground, under half the readable minimum. The dark
+;; theme is the default and takes red-on-dark; .app.light-theme takes red back.
+(def red-on-dark "#ff6b6b")
+(def amber-on-dark "#f5b942")
+(def muted-on-dark "#9fb0c3")
 (def green "#70a800")
 (def cyan "#47eaf8")      ; import log, conflict rename option
 (def purple "#8b7ec8")    ; conflict skip option
+(def warning-yellow "#ffd21a") ; attention severity: unresolved conflicts, missing fields
+(def broken-red "#e5637a")     ; broken severity: invalid / unexportable data
 
 (def container-style
   {:display :flex
@@ -346,11 +354,12 @@
 
     [:a :a:visited
      {:color green}]]
+   ;; Dark theme is the default; .app.light-theme overrides this below.
    [:.red
-    {:color red}
+    {:color red-on-dark}
 
     [:a :a:visited
-     {:color red}]]
+     {:color red-on-dark}]]
    [:.uppercase
     {:text-transform :uppercase}]
    [:.bg-trans
@@ -479,6 +488,105 @@
                 :border-radius "6px"
                 :position "absolute"
                 :z-index "1"}]]
+
+   ;; A group heading in the PDF options. Set apart from the field labels under
+   ;; it -- a heading in the same weight as its own first label reads as one more
+   ;; option rather than as the name of the set.
+   [:.option-group-title
+    {:font-size "11px"
+     :font-weight "bold"
+     :letter-spacing "0.08em"
+     :text-transform "uppercase"
+     :opacity "0.6"
+     :padding-top "8px"
+     :margin-bottom "6px"
+     :border-top "1px solid currentColor"}]
+
+   ;; The ? beside a PDF option, and the line it opens. A ring rather than a
+   ;; word, so a column of them reads as one affordance repeated and not as
+   ;; another label to parse.
+   [:.option-help
+    {:display "inline-flex"
+     :align-items "center"
+     :justify-content "center"
+     :width "15px"
+     :height "15px"
+     :border-radius "50%"
+     :border "1px solid currentColor"
+     :font-size "10px"
+     :font-weight "bold"
+     :line-height "1"
+     :opacity "0.55"}]
+   [:.option-help:hover
+    {:opacity "1"}]
+   [:.option-help-text
+    {:font-size "12px"
+     :line-height "16px"
+     :max-width "320px"
+     :margin "4px 0 6px 21px"
+     :opacity "0.75"}]
+
+   ;; An always-on note under a control, saying what the current setting will do.
+   ;; Set like the ? lines so the two read as one kind of note, but its own class
+   ;; -- it is the state of the build, not a fixed explanation.
+   [:.option-note
+    {:font-size "12px"
+     :line-height "16px"
+     :max-width "320px"
+     :margin "4px 0 6px 0"
+     :opacity "0.75"}]
+
+   ;; ONE line under a field: one problem, one sentence, at most one action. Only
+   ;; the most actionable of the things that may be wrong is shown; the rest waits
+   ;; behind the disclosure.
+   [:.field-notice
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "baseline"
+     :gap "8px"
+     :margin "6px 0 0 0"
+     :padding "6px 10px"
+     :border-radius "4px"
+     :border-left "3px solid currentColor"
+     :background-color "rgba(255, 255, 255, 0.06)"
+     :font-size "12px"
+     :line-height "18px"
+     :max-width "560px"}]
+   [:.field-notice-what
+    {:flex "1 1 260px"}]
+   ;; The one action a notice may carry, and only ever one. Set as a link rather
+   ;; than a button: a notice that grows a control panel stops reading as a
+   ;; message. Form controls belong in .field-remedy, never here.
+   [:.field-notice-action
+    {:background "none"
+     :border "none"
+     :padding "0"
+     :font-size "12px"
+     :font-family "inherit"
+     :color orange
+     :cursor "pointer"
+     :text-decoration "underline"
+     :white-space "nowrap"
+     :word-break "break-all"}]
+   [:.field-notice.is-error {:color red-on-dark}]
+   [:.field-notice.is-warning {:color amber-on-dark}]
+   [:.field-notice.is-note {:color muted-on-dark}]
+
+   ;; The other ways in, behind the disclosure. Plain on purpose: controls, not a
+   ;; second warning.
+   [:.field-remedy
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "center"
+     :gap "10px"
+     :margin "6px 0 0 0"
+     :padding "8px 10px"
+     :border-radius "4px"
+     :border "1px solid rgba(255, 255, 255, 0.12)"
+     :max-width "560px"
+     :font-size "12px"}
+    [:button
+     {:white-space "nowrap"}]]
 
    [:.image-thumbnail
     {:max-height "100px"
@@ -948,11 +1056,16 @@
     [:*:focus
      {:outline 0}]
 
+    ;; The header sticks itself; the chrome goes on only once it has, which is
+    ;; what the .stuck class the page's IntersectionObserver sets says. Sticky
+    ;; rather than a fixed duplicate of the header: see content-page.
     [:.sticky-header
-     {:top 0
-      :box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
-      :z-index 100
-      :display :none
+     {:position :sticky
+      :top 0
+      :z-index 100}]
+
+    [:.sticky-header.stuck
+     {:box-shadow "0 2px 6px 0 rgba(0, 0, 0, 0.5)"
       :background-color "#313A4D"}]
 
     [:.container
@@ -1149,6 +1262,38 @@
       :cursor :pointer
       :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}]
 
+    ;; ── Library-header "disabled" badges ─────────────────────────────────────
+    ;; A small pill on a collapsed library row showing how many items are OFF,
+    ;; colored by REASON (not a blanket warning): blue = you turned it off
+    ;; (benign), amber = the app turned it off for compatibility (kept one of a
+    ;; duplicate). The pill's tinted fill carries the contrast, so calm hues stay
+    ;; legible. Light-mode re-tone lives under .app.light-theme below; and
+    ;; prefers-contrast: more swaps to solid high-contrast fills automatically.
+    [:.lib-badge
+     {:display "inline-flex"
+      :align-items :center
+      :gap "5px"
+      :font-size "12px"
+      :font-weight 600
+      :padding "3px 10px"
+      :border-radius "999px"
+      :line-height 1
+      :margin-left "10px"
+      :vertical-align :middle}
+     [:.lib-dot {:width "6px" :height "6px" :border-radius "50%"}]]
+    [:.lib-badge-benign
+     {:background-color "rgba(110,168,220,0.18)" :color "#9ec7ea"}
+     [:.lib-dot {:background-color "#6ea8dc"}]]
+    [:.lib-badge-compat
+     {:background-color "rgba(217,165,32,0.20)" :color "#e5c169"}
+     [:.lib-dot {:background-color "#d9a520"}]]
+    (at-media {:prefers-contrast "more"}
+              [:.lib-badge-benign {:background-color "#6ea8dc" :color "#0b1a29"}]
+              [:.lib-badge-compat {:background-color "#d9a520" :color "#241a00"}]
+              [:.app.light-theme
+               [:.lib-badge-benign {:background-color "#33658A" :color "#ffffff"}]
+               [:.lib-badge-compat {:background-color "#8a5a00" :color "#ffffff"}]])
+
     [:.roll-button
      {:color :white
       :min-width "68px"
@@ -1174,6 +1319,123 @@
 
     [:.form-button.disabled:hover
      {:box-shadow :none}]
+
+    ;; ── My Content toolbar + delete guard + move/copy select mode ──────────
+    ;; One tidy right-aligned row; icon+label buttons that collapse to icon-only
+    ;; in PRIORITY order (Delete first, Export last) as width tightens.
+    [:.mc-toolbar
+     {:position :relative
+      :display :flex
+      :flex-wrap :nowrap
+      :justify-content :space-between   ; content action left · library actions right
+      :align-items :center
+      :gap "10px"
+      :margin "0 10px"}]
+    [:.mc-right {:display :flex :align-items :center :gap "10px"}]
+    [:.mc-btn
+     {:color :white
+      :font-weight 600
+      :font-size "12px"
+      :border :none
+      :border-radius "5px"
+      :text-transform :uppercase
+      :padding "10px 15px"
+      :cursor :pointer
+      :white-space :nowrap
+      :display :inline-flex
+      :align-items :center
+      :gap "7px"
+      :background-image "linear-gradient(to bottom, #f1a20f, #dbab50)"}
+     [:.fa {:font-size "13px"}]]
+    [:.mc-btn:hover {:box-shadow "0 2px 6px 0 rgba(0,0,0,0.5)"}]
+    ;; Export = primary: a subtle ring so the most-relied-on action leads.
+    [:.mc-primary {:box-shadow "0 0 0 2px rgba(241,162,15,0.35)"}]
+    [:.mc-primary:hover {:box-shadow "0 0 0 2px rgba(241,162,15,0.5), 0 2px 6px 0 rgba(0,0,0,0.5)"}]
+    ;; hairline divider between the safe cluster and the destructive guard
+    [:.mc-divider
+     {:width "1px" :align-self :stretch :min-height "26px"
+      :background-color "rgba(255,255,255,0.15)" :margin "0 5px"}]
+
+    ;; Delete: a quiet, slightly-transparent red guard that unfurls
+    [:.mc-guard-wrap {:position :relative :display :inline-flex}]
+    [:.mc-guard
+     {:display :inline-flex :align-items :center :gap "7px"
+      :background-color "rgba(154,3,30,0.26)"
+      :border "1px solid rgba(154,3,30,0.55)"
+      :color "#ef8592" :border-radius "5px" :padding "10px 14px"
+      :cursor :pointer :font-weight 600 :font-size "12px"
+      :text-transform :uppercase :white-space :nowrap}
+     [:.fa {:font-size "13px"}]]
+    [:.mc-guard:hover {:background-color "rgba(154,3,30,0.45)" :color :white}]
+    ;; the full button lifts OUT of the bar (absolute) — the row never reflows
+    [:.mc-liftpop
+     {:position :absolute :right "0" :bottom "calc(100% + 9px)"
+      :display :flex :align-items :center :gap "10px"
+      :background-color "#1a1013" :border "1px solid rgba(154,3,30,0.6)"
+      :border-radius "7px" :padding "8px 10px" :white-space :nowrap
+      :box-shadow "0 14px 34px rgba(0,0,0,0.55)" :z-index 20}]
+    ;; solid-red form-button variant (palette red #9a031e)
+    [:.mc-del {:background-image "linear-gradient(to bottom, #b3122a, #9a031e)"}]
+    ;; the are-you-sure bar, opens UNDERNEATH the toolbar
+    [:.mc-confirmbar
+     {:display :flex :align-items :center :gap "12px" :flex-wrap :wrap
+      :margin-top "12px" :padding "12px 14px"
+      :background-color "#1a1013" :border "1px solid rgba(154,3,30,0.55)"
+      :border-radius "6px"}]
+
+    ;; Move/copy select mode: round selector (distinct from the square enable)
+    ;; + whole-row tap.
+    [:.mc-selrow {:cursor :pointer :border-radius "4px"}]
+    [:.mc-selrow:hover {:background-color "rgba(255,255,255,0.03)"}]
+    [:.mc-selrow.selected
+     {:background-color "rgba(240,161,0,0.09)" :box-shadow "inset 3px 0 0 #f0a100"}]
+    [:.mc-selcircle
+     {:width "22px" :height "22px" :border-radius "50%"
+      :border "2px solid #6b7788" :display :inline-flex
+      :align-items :center :justify-content :center :flex "0 0 auto"}
+     [:.fa {:font-size "11px" :color "#101720" :opacity 0}]]
+    [:.mc-selcircle.on {:background-color "#f0a100" :border-color "#f0a100"}
+     [:.fa {:opacity 1}]]
+
+    ;; priority collapse — hide labels one at a time as the viewport narrows,
+    ;; Delete first (rare + red = unmistakable), Export last (most relied-on).
+    (at-media {:max-width "1000px"} [:.mc-toolbar [:.b-delete [:.mc-lbl {:display :none}]]])
+    (at-media {:max-width "740px"}  [:.mc-toolbar [:.b-move   [:.mc-lbl {:display :none}]]])
+    (at-media {:max-width "600px"}  [:.mc-toolbar [:.b-export [:.mc-lbl {:display :none}]]])
+
+    ;; ── Library health status ─────────────────────────────────────────────
+    ;; Passive card that appears only when something needs attention. Warm
+    ;; escalation: warning-yellow for resolvable (conflicts, missing fields),
+    ;; red reserved for broken. One --accent drives the rail, icon and action
+    ;; link so it reads as a single object; a one-time flash fires on appearance
+    ;; and whenever the count changes (the card is re-keyed on count).
+    (at-keyframes "health-pulse"
+                  [:0% {:box-shadow "0 0 0 0 rgba(255,210,26,0.55)"}]
+                  [:60% {:box-shadow "0 0 0 12px rgba(255,210,26,0)"}]
+                  [:100% {:box-shadow "0 0 0 0 rgba(255,210,26,0)"}])
+    [:.health-card
+     {:background-color "#171d27" :border-radius "6px" :overflow :hidden :margin-bottom "10px"
+      :position :relative}]
+    ;; dismiss × (never on My Content) — a quiet control in the corner
+    [:.health-x
+     {:position :absolute :top "6px" :right "10px" :cursor :pointer
+      :color "rgba(255,255,255,0.35)" :font-size "13px" :z-index 1}]
+    [:.health-x:hover {:color "rgba(255,255,255,0.75)"}]
+    [:.health-flash {:animation "health-pulse 1.15s ease-out 2"}]
+    [:.health-row
+     {:display :flex :align-items :center :gap "10px" :padding "12px 14px 12px 0"}]
+    [:.health-rail {:width "4px" :align-self :stretch :flex "0 0 auto" :background-color warning-yellow}]
+    [:.health-ico {:flex "0 0 auto" :width "20px" :text-align :center :color warning-yellow}]
+    [:.health-msg {:flex 1 :font-size "14px"}]
+    [:.health-act
+     {:color warning-yellow :text-transform :uppercase :font-weight 600 :font-size "12px"
+      :text-decoration :underline :cursor :pointer :white-space :nowrap :padding-left "8px"}]
+    ;; broken tier = red (reserved)
+    [:.health-broken
+     [:.health-rail {:background-color broken-red}]
+     [:.health-ico {:color broken-red}]
+     [:.health-act {:color broken-red}]]
+    (at-media {:prefers-reduced-motion "reduce"} [:.health-flash {:animation :none}])
 
     [:.link-button
      {:color button-color
@@ -1300,13 +1562,27 @@
       :justify-content :space-between
       :align-items :center}]
 
-    ;; Prevent horizontal scroll caused by fixed-position elements
-    ;; spanning full viewport width when vertical scrollbar is present.
+    ;; Clip rather than hide. overflow-x: hidden makes .app a scroll container,
+    ;; and a scroll container between the sticky header and the viewport stops it
+    ;; sticking at all; clip trims the same overflow without becoming one.
     [:.app
-     {:overflow-x :hidden}]
+     {:overflow-x :clip}]
 
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
+
+     ;; A red that carries on near-black washes out on white, and the notice's
+     ;; ground has to darken rather than lighten.
+     [:.red
+      {:color red}
+      [:a :a:visited {:color red}]]
+     [:.field-notice
+      {:background-color "rgba(0, 0, 0, 0.05)"}]
+     [:.field-remedy
+      {:border "1px solid rgba(0, 0, 0, 0.18)"}]
+     [:.field-notice.is-error {:color red}]
+     [:.field-notice.is-warning {:color "#8a5a00"}]
+     [:.field-notice.is-note {:color "#55637a"}]
 
      [:select
       {:font-family font-family
@@ -1360,6 +1636,16 @@
      [:.b-color-gray
       {:border-color "rgba(0,0,0,0.3)"}]
 
+     ;; light-mode badge re-tone: deeper text on a pale tint (bright amber on
+     ;; white is unreadable, so compat uses a deep brown-amber). Blue ties to the
+     ;; light accent (#33658A). Same meaning, values inverted for the light bg.
+     [:.lib-badge-benign
+      {:background-color "rgba(51,101,138,0.14)" :color "#2b567a"}
+      [:.lib-dot {:background-color "#33658A"}]]
+     [:.lib-badge-compat
+      {:background-color "rgba(180,120,0,0.16)" :color "#8a5a00"}
+      [:.lib-dot {:background-color "#b47800"}]]
+
      [:.builder-option-dropdown
       (merge
        {:border "1px solid #282828"
@@ -1372,7 +1658,7 @@
       {:background-color :white
        :color "#282828"}]
 
-     [:.sticky-header
+     [:.sticky-header.stuck
       {:background-color :white}]
 
      [:table.striped
@@ -1453,8 +1739,14 @@
       :gap "12px"}]
 
     [:.conflict-modal-body
+     ;; The modal chrome is always dark (#1a1e28) in both themes, so give the body
+     ;; an explicit light default — otherwise plain text (e.g. the opinionated
+     ;; import summary) inherits the app's dark text color and reads dark-on-dark.
+     ;; The advanced conflict cards set their own colors, so this only lifts text
+     ;; that would otherwise be illegible.
      {:padding "16px 20px"
       :overflow-y :auto
+      :color "rgba(255,255,255,0.85)"
       :flex 1}]
 
     ;; Header elements
@@ -1465,6 +1757,20 @@
     [:.conflict-title
      {:color orange}]
 
+    ;; Attention-severity header (unresolved conflicts / missing fields) — speaks
+    ;; the same warning-yellow language as the My Content health card, so the modal
+    ;; that resolves an issue matches the banner that surfaced it. The confident
+    ;; "Ready to import" summary stays brand-orange (it's resolved, not flagged).
+    [:.conflict-title-icon.warn {:color warning-yellow}]
+    [:.conflict-title.warn {:color warning-yellow}]
+
+    ;; Inline "these can't coexist" note — FA triangle + yellow, matching the card.
+    [:.conflict-warn-note
+     {:color warning-yellow
+      :font-size "11px"
+      :margin "3px 0 2px"}
+     [:i.fa {:margin-right "5px"}]]
+
     [:.conflict-subtitle
      {:color "rgba(255,255,255,0.5)"
       :margin-top "4px"}]
@@ -1473,20 +1779,21 @@
      {:color "rgba(255,255,255,0.5)"
       :margin-top "8px"}]
 
-    ;; Conflict card
+    ;; Conflict card — an unresolved conflict is an attention item, so its rail and
+    ;; key carry the same warning-yellow used by the health card and library tint.
     [:.conflict-item
      {:background "rgba(255,255,255,0.07)"
       :border-radius "0 5px 5px 0"
       :padding "12px"
       :margin-bottom "8px"
       :border "1px solid rgba(255,255,255,0.12)"
-      :border-left (str "3px solid " orange)}]
+      :border-left (str "3px solid " warning-yellow)}]
 
     [:.conflict-item-header
      {:margin-bottom "10px"}]
 
     [:.conflict-item-key
-     {:color orange}]
+     {:color warning-yellow}]
 
     [:.conflict-item-type
      {:color "rgba(255,255,255,0.7)"
@@ -1633,6 +1940,127 @@
     [:.export-edit-select.unfilled
      {:border-color "#f0a100"}]
 
+    ;;;; WHAT'S NEW PANEL
+
+    ;; Dark chrome in both themes, like the conflict modal: the panel is an overlay
+    ;; on top of the page rather than part of it.
+    [:.whats-new-backdrop
+     {:position :fixed
+      :top 0 :left 0 :right 0 :bottom 0
+      :background "rgba(0,0,0,0.7)"
+      :z-index 10002
+      :display :flex
+      :align-items :center
+      :justify-content :center
+      :padding "20px"}]
+
+    [:.whats-new-panel
+     {:background "#1a1e28"
+      :color "rgba(255,255,255,0.85)"
+      :border-radius "6px"
+      :width "100%"
+      :max-width "620px"
+      :max-height "84vh"
+      :display :flex
+      :flex-direction :column
+      :overflow :hidden
+      :box-shadow "0 4px 18px 0 rgba(0,0,0,0.6)"}]
+
+    [:.whats-new-header
+     {:padding "18px 22px"
+      :background "#2c3445"
+      :border-bottom "1px solid rgba(255,255,255,0.15)"}]
+
+    [:.whats-new-eyebrow
+     {:color orange
+      :font-size "12px"
+      :font-weight :bold
+      :letter-spacing "1px"
+      :text-transform :uppercase}]
+
+    [:.whats-new-title
+     {:font-size "24px"
+      :font-weight :bold
+      :color :white}]
+
+    [:.whats-new-subtitle
+     {:font-size "14px"
+      :color muted-on-dark
+      :margin-top "6px"}]
+
+    [:.whats-new-close
+     {:font-size "20px"
+      :color muted-on-dark
+      :cursor :pointer
+      :padding "4px 6px"}
+     [:&:hover
+      {:color :white}]]
+
+    [:.whats-new-body
+     ;; The inset shadow sits on the padding box, so it stays at the bottom edge
+     ;; while the list scrolls under it — the cue that there is more below.
+     {:padding "6px 22px 4px"
+      :overflow-y :auto
+      :flex 1
+      :box-shadow "inset 0 -14px 12px -12px rgba(0,0,0,0.55)"}]
+
+    ;; A group heading separates the sections; inside one, the item borders do it.
+    [:.whats-new-group-title
+     {:color orange
+      :font-size "11px"
+      :font-weight :bold
+      :letter-spacing "1.2px"
+      :text-transform :uppercase
+      :padding "18px 0 2px"
+      :margin-top "6px"
+      :border-top "1px solid rgba(255,255,255,0.12)"}]
+
+    [:.whats-new-group
+     [:&:first-child
+      [:.whats-new-group-title
+       {:border-top :none
+        :margin-top 0
+        :padding-top "12px"}]]]
+
+    [:.whats-new-item
+     {:display :flex
+      :align-items :flex-start
+      :padding "14px 0"
+      :border-bottom "1px solid rgba(255,255,255,0.08)"}
+     [:&:last-child
+      {:border-bottom :none}]]
+
+    [:.whats-new-item-icon
+     {:color orange
+      :font-size "18px"
+      :width "24px"
+      :margin-right "14px"
+      :margin-top "2px"
+      :text-align :center
+      :flex-shrink 0}]
+
+    [:.whats-new-item-headline
+     {:font-size "16px"
+      :font-weight :bold
+      :color :white}]
+
+    [:.whats-new-item-detail
+     {:font-size "14px"
+      :line-height "1.45"
+      :color muted-on-dark
+      :margin-top "3px"}]
+
+    [:.whats-new-footer
+     {:padding "14px 22px"
+      :border-top "1px solid rgba(255,255,255,0.15)"
+      :display :flex
+      :align-items :center
+      :justify-content :space-between}]
+
+    [:.whats-new-version
+     {:font-size "12px"
+      :color muted-on-dark}]
+
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
     [:.builder-field-unfilled
@@ -1665,7 +2093,50 @@
       :font-size "11px"
       :text-decoration :underline
       :cursor :pointer
-      :margin-left "4px"}]];concat-bracket
+      :margin-left "4px"}]
+
+    ;; ── Export busy page ────────────────────────────────────────────────────
+    ;; The page a character sheet export lands on when every export slot is busy.
+    ;; It is served into the download tab, where the builder's markup and scripts
+    ;; are absent, so it restates the app's ground and panel rather than reusing
+    ;; app layout classes. Colours are the app's own: the #app gradient, the
+    ;; #1a1e28 panel, and .form-button for the button.
+    [:.busy-body
+     {:margin 0
+      :min-height "100vh"
+      :background-color "#080A0D"
+      :background-image "linear-gradient(182deg, #313A4D, #080A0D)"
+      :background-attachment :fixed}]
+
+    [:.busy-wrap
+     {:display :flex
+      :justify-content :center
+      :padding "56px 20px"}]
+
+    [:.busy-card
+     {:max-width "560px"
+      :width "100%"
+      :background-color "#1a1e28"
+      :border-radius "5px"
+      :padding "32px 36px"
+      :box-shadow "0 2px 16px rgba(0,0,0,0.45)"}
+     [:h1
+      (merge text-color
+             {:margin "0 0 14px"
+              :font-size "24px"
+              :font-weight 600})]
+     [:p
+      {:margin "0 0 16px"
+       :font-size "16px"
+       :line-height "1.6"
+       :color "rgba(255,255,255,0.7)"}]
+     ;; The countdown is the one line that changes while the page waits, so it
+     ;; sits at full strength against the muted text around it.
+     [:.busy-countdown
+      (merge text-color
+             {:font-weight 600
+              :font-variant-numeric :tabular-nums})]]
+];concat-bracket
    margin-lefts
    margin-tops
    widths

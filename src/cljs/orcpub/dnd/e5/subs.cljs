@@ -1,5 +1,5 @@
 (ns orcpub.dnd.e5.subs
-  (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch]]
+  (:require [re-frame.core :refer [reg-sub reg-sub-raw subscribe dispatch reg-event-db]]
             [orcpub.entity :as entity]
             [orcpub.entity.strict :as se]
             [orcpub.template :as t]
@@ -29,7 +29,7 @@
             [clojure.string :as s]
             [reagent.ratom :as ra]
             [cljs.core.async :refer [<!]]
-            [cljs-http.client :as http]
+            [orcpub.dnd.e5.http-safe :as http]
             [orcpub.dnd.e5.spell-subs])
   (:require-macros [cljs.core.async.macros :refer [go]]))
 
@@ -317,33 +317,70 @@
    immediately; rapid changes batch until quiet for this many ms."
   500)
 
-(defn- debounced-build-sub
+(defn debounced-build-sub
   "reg-sub-raw handler: wraps entity/build with leading+trailing edge
-   debounce. Dropdown changes compute instantly; rapid keystrokes batch."
+   debounce. Dropdown changes compute instantly; rapid keystrokes batch.
+
+   Public for built-character-debounce-test."
   [char-sub tmpl-sub]
   (let [timeout-id (atom nil)
         last-run   (atom 0)
-        result     (ra/atom (built-character @char-sub @tmpl-sub))
+        c0         @char-sub
+        t0         @tmpl-sub
+        ;; What `result` reflects, so a notification carrying no change is a
+        ;; no-op rather than a trailing rebuild of what was just built.
+        built-from (atom [c0 t0])
+        result     (ra/atom (built-character c0 t0))
         wk         (gensym "build-")
         do-build   (fn []
                      (reset! last-run (.now js/Date))
-                     (reset! result (built-character @char-sub @tmpl-sub)))
+                     (let [c @char-sub
+                           t @tmpl-sub]
+                       (reset! built-from [c t])
+                       (reset! result (built-character c t))))
+        ;; Both inputs are derived from app-db, so ONE interaction dirties both
+        ;; and this watch fires twice — but reagent updates them one at a time.
+        ;; Building on the first notification therefore paired the NEW character
+        ;; with the OLD template, and the corrected result only arrived from the
+        ;; trailing rebuild 500 ms later. Coalescing to a microtask lets the graph
+        ;; settle first: one build, from values that agree. Still same-frame, so
+        ;; "dropdown changes compute instantly" is preserved.
+        pending    (atom false)
+        disposed?  (atom false)
+        settled    (fn []
+                     (reset! pending false)
+                     (when-not @disposed?
+                     (let [[bc bt] @built-from]
+                       ;; identical?, not =: reactions only notify on a real
+                       ;; change, and deep-comparing a template costs more than
+                       ;; the rebuild it would save.
+                       (when-not (and (identical? bc @char-sub)
+                                      (identical? bt @tmpl-sub))
+                         (when-let [tid @timeout-id] (js/clearTimeout tid))
+                         (if (>= (- (.now js/Date) @last-run) build-debounce-ms)
+                           (do-build)
+                           (reset! timeout-id
+                                   (js/setTimeout do-build build-debounce-ms)))))))
         on-change  (fn [_ _ _ _]
-                     (when-let [tid @timeout-id] (js/clearTimeout tid))
-                     (if (>= (- (.now js/Date) @last-run) build-debounce-ms)
-                       (do-build)
-                       (reset! timeout-id
-                               (js/setTimeout do-build build-debounce-ms))))]
+                     (when-not @pending
+                       (reset! pending true)
+                       (js/queueMicrotask settled)))]
     (add-watch char-sub wk on-change)
     (add-watch tmpl-sub wk on-change)
     (ra/make-reaction
      (fn [] @result)
      :on-dispose (fn []
+                   ;; A microtask queued just before disposal would otherwise
+                   ;; run against torn-down inputs.
+                   (reset! disposed? true)
                    (remove-watch char-sub wk)
                    (remove-watch tmpl-sub wk)
                    (when-let [tid @timeout-id]
                      (js/clearTimeout tid))))))
 
+;; The BUILDER's in-progress character. Ignores query args, so [:built-character]
+;; and [:built-character nil] are two cache keys for the same thing -- and that
+;; means two debounced builds per change. Always subscribe with no argument.
 (reg-sub-raw
  :built-character
  (fn [_ _]
@@ -520,15 +557,51 @@
                                            :id int-id)))]
               (dispatch [:set-loading false])
               (handle-api-response response
-                #(dispatch [::char5e/set-character
-                            int-id
-                            (char5e/from-strict (:body response))])
+                #(let [body (:body response)]
+                   (if (http/decode-failed? body)
+                     ;; Response was unreadable even after self-heal: don't feed
+                     ;; the marker to from-strict (that silently builds a blank
+                     ;; default character). Flag the load as failed so the
+                     ;; character page renders an in-place recovery panel
+                     ;; (delete / go to list) instead of a blank sheet.
+                     (dispatch [::char5e/set-character-load-error int-id body])
+                     (do (dispatch [::char5e/set-character-load-error int-id nil])
+                         (dispatch [::char5e/set-character int-id (char5e/from-strict body)]))))
                 :context (str "fetch character " int-id)))))
       (ra/make-reaction
        (fn []
          (if int-id
            (get-in @app-db [::char5e/character-map int-id] {})
            (get @app-db :character)))))))
+
+;; Records that a character's server response could not be decoded even after
+;; self-heal; the character page reads it to show an in-place recovery panel
+;; (with a copyable diagnostic report) instead of a blank sheet. `marker` is the
+;; http-safe decode-error map (carries the raw body + reader error); nil clears
+;; it on a subsequent successful load.
+(reg-event-db
+ ::char5e/set-character-load-error
+ (fn [db [_ id marker]]
+   (if marker
+     (assoc-in db [::char5e/character-load-errors id]
+               {:error (get marker http/error-key)
+                :raw   (get marker http/raw-key)})
+     (update db ::char5e/character-load-errors dissoc id))))
+
+(reg-sub
+ ::char5e/character-load-error?
+ (fn [db [_ id]]
+   (contains? (::char5e/character-load-errors db) (when id (js/parseInt id)))))
+
+(reg-sub
+ ::char5e/character-load-error-info
+ (fn [db [_ id]]
+   (get-in db [::char5e/character-load-errors (when id (js/parseInt id))])))
+
+(reg-sub
+ ::char5e/character-report-status
+ (fn [db [_ id]]
+   (get-in db [:character-report-status (when id (js/parseInt id))])))
 
 (reg-sub
  ::char5e/character-changed?
@@ -572,6 +645,8 @@
  (fn [[selected-plugin-options template] _]
    (built-template template selected-plugin-options)))
 
+;; A SAVED character, by id. Not interchangeable with :built-character: its
+;; ::char5e/character input fetches over HTTP for a non-nil id.
 (reg-sub-raw
  ::char5e/built-character
  (fn [_ [_ id]]
@@ -1323,9 +1398,42 @@
    (-> db ::char5e/exclude-spell-cards-print? not)))
 
 (reg-sub
+ ::char5e/print-magic-item-cards?
+ (fn [db _]
+   (boolean (::char5e/include-magic-item-cards? db))))
+
+(reg-sub
  ::char5e/print-spell-card-dc-mod?
  (fn [db _]
    (-> db ::char5e/exclude-spell-cards-by-dc-mod? not)))
+
+(reg-sub
+ ::char5e/print-card-back-logo?
+ (fn [db _]
+   ;; Positive flag, default off — card backs stay text-only unless opted in.
+   (boolean (::char5e/print-card-back-logo? db))))
+
+(reg-sub
+ ::char5e/card-back-logo-faded?
+ (fn [db _]
+   ;; Card-back logo treatment: default (false) = solid black; true = faded
+   ;; brand-orange watermark (color printers). Only meaningful when the logo is
+   ;; on and printer-friendly B&W mode is off.
+   (boolean (::char5e/card-back-logo-faded? db))))
+
+(reg-sub
+ ::char5e/print-bw?
+ (fn [db _]
+   ;; Printer-friendly monochrome: solid-black spell-card icons + forced
+   ;; solid-black card-back logo (no color anywhere). Default off.
+   (boolean (::char5e/print-bw? db))))
+
+(reg-sub
+ ::char5e/bw-faded?
+ (fn [db _]
+   ;; B&W icon style: default (false) = solid black with white-halo labels;
+   ;; true = faded grayscale icons. Only meaningful when print-bw? is on.
+   (boolean (::char5e/bw-faded? db))))
 
 
 (reg-sub
@@ -1347,6 +1455,11 @@
  ::char5e/print-character-sheet-style?
  (fn [db [_ id]]
    (get db ::char5e/print-character-sheet-style?)))
+
+(reg-sub
+ ::char5e/spell-layout
+ (fn [db _]
+   (get db ::char5e/spell-layout)))
 
 (reg-sub
  ::char5e/delete-confirmation-shown?
@@ -1409,6 +1522,11 @@
  :conflict-resolution
  (fn [db _]
    (:conflict-resolution db)))
+
+(reg-sub
+ :source-name-choice
+ (fn [db _]
+   (:source-name-choice db)))
 
 (reg-sub
  :conflict-resolution-active?
@@ -1544,3 +1662,17 @@
  :<- [::char5e/char-has-faction-pic?]
  (fn [[characters name-filter level-filters class-filters has-portrait? has-faction-pic?] _]
    (char-filter/filter-characters characters name-filter level-filters class-filters has-portrait? has-faction-pic?)))
+
+(reg-sub
+ ::char5e/image-bytes
+ (fn [db _]
+   ;; URL -> {:mime :data}, or :pending / :unavailable. See the capture events for
+   ;; why these are held here and not on the character.
+   (:image-bytes db)))
+
+(reg-sub
+ ::char5e/image-server-reach
+ (fn [db _]
+   ;; URL -> :asking / :yes / :no, for pictures the browser could not read. Only
+   ;; :no means nobody can fetch it, and only then does the builder speak up.
+   (:image-server-reach db)))
