@@ -136,8 +136,19 @@ overstated the coupling. What taking it early actually costs: our own wiring for
 Equipment selects would conflict with that branch's `views.cljs` rewrite when it lands.
 Bounded and understandable, not a blocker.
 
-**Unverified before doing it:** whether those three files compile standalone against
-integration, or reference subs/views that exist only on the port branch. Check that first.
+**VERIFIED 2026-09-06:** the three files compile standalone against integration — zero
+errors, zero warnings naming them, and zero warnings in the whole build. Checked by copying
+them in, adding a temporary require in `web/cljs/orcpub/core.cljs` to force compilation
+(unreferenced namespaces are not compiled otherwise), running `lein fig:build`, then
+reverting. Their entire orcpub dependency surface is `orcpub.components` and
+`orcpub.dnd.e5.db`, both already present; `option_grouping` and `themes` require nothing
+from orcpub.
+
+So taking the picker early is a real option. What it costs: our own wiring for the seven
+Equipment selects would conflict with that branch's `views.cljs` rewrite when it lands —
+one file, with the shared component identical on both sides. What it buys: search and A–Z
+grouping over 1037 option elements, which is the Equipment tab's dominant cost and a UX
+improvement independent of performance.
 
 
 ## Content-library management — remaining work
