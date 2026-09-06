@@ -128,12 +128,26 @@
 
 (defn export-pdf
   "Returns an onClick handler that generates and submits the PDF.
-   plugin-data map is pre-subscribed by the calling component."
+   plugin-data map is pre-subscribed by the calling component.
+
+   A composed portrait exists only as stacked CSS masks in the browser, so it
+   is baked to a PNG here and posted with the spec; the server embeds those
+   bytes directly instead of fetching an image URL. Rasterizing waits on image
+   decode, hence the async submit -- and a failure resolves to nil so the
+   sheet still prints, just without the picture."
   [built-char id plugin-data & [options]]
   (fn [_]
-    (let [field (.getElementById js/document "fields-input")]
-      (aset field "value" (str (pdf-spec/make-spec built-char id options plugin-data)))
-      (.submit (.getElementById js/document "download-form")))))
+    (let [field (.getElementById js/document "fields-input")
+          spec (pdf-spec/make-spec built-char id options plugin-data)
+          portrait (char/portrait built-char)]
+      (-> (if (seq (:layers portrait))
+            (portrait/rasterize portrait)
+            (js/Promise.resolve nil))
+          (.then (fn [png-b64]
+                   (aset field "value"
+                         (str (cond-> spec
+                                png-b64 (assoc :portrait-png png-b64))))
+                   (.submit (.getElementById js/document "download-form"))))))))
 
 (defn download-form [built-char]
   [:form.download-form
