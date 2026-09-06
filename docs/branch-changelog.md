@@ -47,7 +47,7 @@ handled by the platform rather than by hand.
   non-zero if any fails. Neither test suite invokes `test/browser/`, so nothing was checking
   the 11 probes that carry real assertions; one had been failing and exiting 1 for several
   commits unnoticed. Probes that cannot run report `SKIP` loudly rather than staying silent
-  (`<pending>`). Probes are classified by the world they need — the real server, their own
+  (`89d49918`, `6e60959f`). Probes are classified by the world they need — the real server, their own
   standalone harness, or the busy-export profile — because running them as though they all
   wanted the same one fails in both directions. Verified both ways: 10/10 probes pass with
   the runner exiting 0, and a deliberately failing probe exits 1 naming it. Also flags the
@@ -55,7 +55,7 @@ handled by the platform rather than by hand.
   assertion count) and one that sits stuck. Stuck is detected by SILENCE (180s) rather than
   total runtime, since the slowest probe legitimately runs 393s and no runtime limit short
   enough to catch a hang would spare it; a 30s heartbeat reports how long a probe has been
-  silent, separately from how long it has run (`<pending>`).
+  silent, separately from how long it has run (`ee0b3781`).
 
 ## Fixed
 
@@ -64,13 +64,13 @@ handled by the platform rather than by hand.
 - `equipment_add_functional_e2e.js` was left pointed at the option-menu's selectors when the
   add control was swapped, and had been failing three assertions against a control that was
   no longer wired. Retargeted at the live control, keeping the app-db assertion that the
-  picked item reaches the character entity — the part worth keeping (`<pending>`).
+  picked item reaches the character entity — the part worth keeping (`d51aa979`).
 - `screenshots_e2e.js` silently stopped taking two of its three shots for the same reason
-  (`<pending>`).
+  (`d51aa979`).
 - `notifications_acceptance_e2e.js` treated a CORS block as an unexpected console error. Its
   harness serves the app from its own origin with no backend, so an XHR to the real backend
   is either refused or CORS-blocked depending on whether an unrelated server happens to be
-  running — the same condition, and not something that should decide the probe (`<pending>`).
+  running — the same condition, and not something that should decide the probe (`6e60959f`).
 - The dropdown matches its input's width and no longer sits 14px wider; it also flips above
   the input instead of running off the bottom of the viewport (`95d38f67`).
 
@@ -78,10 +78,10 @@ handled by the platform rather than by hand.
 
 - Strengthened an assertion that was written to pass: `equipment_add_functional_e2e.js`
   checked `after <= opened` under the name "filtering narrows the list", which holds when
-  filtering changes nothing. Now strictly fewer (`<pending>`).
+  filtering changes nothing. Now strictly fewer (`7369cc33`).
 - `class_handlers_functional_e2e.js` printed SKIP and carried on when a control was missing,
   so renaming the add-class button would have dropped 2 of its 6 assertions while it still
-  exited 0. A missing control now fails (`<pending>`).
+  exited 0. A missing control now fails (`7369cc33`).
 
 - The Equipment picker no longer caps what it renders. The previous 12-row cap left 294 of 306
   magic weapons unreachable unless you already knew the name, and bought nothing — opening the
@@ -96,6 +96,6 @@ handled by the platform rather than by hand.
   nothing referenced. They are not lost: `option_grouping` and `themes` are byte-identical to
   `port/redesign-on-refactor`, and the 34-line divergence in `option_menu_views` (the
   `:max-rendered` / `::show-all` capping work) is in this branch's history at `2a671844` and
-  `ec85c5ac`. Rewiring one selection is roughly a 20-line call site (`<pending>`).
+  `ec85c5ac`. Rewiring one selection is roughly a 20-line call site (`233d032e`).
 - `inventory-picker`, the hand-rolled overlay, is deprecated. It has no behaviour the combobox
   lacks, and its full-width mobile overlay was what made it wrong (`4082bc20`).
