@@ -33,6 +33,11 @@ ONLY=equipment,sticky                # substring filter
 STRICT=1                             # a probe that could not run counts as a failure
 ```
 
+The runner waits up to `SERVER_WAIT_S` (default 90) for the server, then gives up and says
+so. **Do not wrap it in `until curl ...; do sleep; done`** — an unbounded wait has no
+timeout, prints nothing, and sits forever if the server never comes up. One did exactly that
+for 22 minutes, and it defeats the runner's own no-server handling by never letting it start.
+
 A probe that cannot run is reported as `SKIP` with its reason, loudly. Silence is how the
 stale one hid.
 

@@ -122,7 +122,22 @@ function run(probe, pack, budgetMs) {
     console.error('No dev build — run `lein fig:build` first.');
     process.exit(2);
   }
-  const serverUp = await get(SERVER) !== 0;
+  // Wait for the server here, bounded, rather than leaving callers to hand-roll
+  // `until curl ...; do sleep; done`. An unbounded loop like that has no timeout, prints
+  // nothing, and sits forever if the server never comes up -- it burned 22 minutes once,
+  // and it defeats this runner's own no-server handling by never letting it start.
+  const waitS = +(process.env.SERVER_WAIT_S || 90);
+  let serverUp = await get(SERVER) !== 0;
+  if (!serverUp && waitS > 0) {
+    process.stdout.write(`waiting up to ${waitS}s for ${SERVER}`);
+    const until = Date.now() + waitS * 1000;
+    while (!serverUp && Date.now() < until) {
+      await new Promise(r => setTimeout(r, 3000));
+      process.stdout.write('.');
+      serverUp = await get(SERVER) !== 0;
+    }
+    console.log(serverUp ? ' up' : ` giving up after ${waitS}s`);
+  }
   const pack = process.env.ORCBREW_PACK;
   const only = (process.env.ONLY || '').split(',').filter(Boolean);
   const jobs = Math.max(1, parseInt(process.env.JOBS || '1', 10));
