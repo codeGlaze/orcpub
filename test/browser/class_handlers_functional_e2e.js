@@ -96,33 +96,43 @@ const check = (name, ok, detail) => {
   } else { console.log('  SKIP  add-class (no control found)'); }
 
   // Spell selection: spell-option is no longer memoized, so prove a spell can still be
-  // listed and picked and that it lands in the character.
+  // listed and picked and that it reaches the built character.
+  //
+  // Reads ::char5e/spells-known (a subscription) rather than guessing a raw app-db path --
+  // the first version of this check counted top-level ::entity/options keys containing
+  // "spells", found none, and reported a failure that reproduced identically on the
+  // PRE-CHANGE build. A check that fails on known-good code is worse than no check.
   console.log('\nspell selection:');
-  const spellCount = () => page.evaluate(() => {
-    const c = window.cljs.core;
-    const ch = c.get(window.re_frame.db.app_db.state, c.keyword(null, 'character'));
-    const opts = c.get(ch, c.keyword('orcpub.entity', 'options'));
-    let n = 0;
-    c.doall(c.map(function (k) {
-      if (String(k).indexOf('spells') >= 0) {
-        const v = c.get(opts, k);
-        n += (v && c.count) ? c.count(v) : 0;
-      }
-      return null;
-    }, c.keys(opts)));
-    return n;
+  const knownSpells = () => page.evaluate(() => {
+    try {
+      const c = window.cljs.core;
+      const sub = window.re_frame.core.subscribe(
+        c.vector(c.keyword('orcpub.dnd.e5.character', 'spells-known')));
+      const v = c.deref(sub);
+      if (!v) return 0;
+      let n = 0;
+      c.doall(c.map(function (k) { const lvl = c.get(v, k); n += lvl ? c.count(lvl) : 0; return null; },
+                    c.keys(v)));
+      return n;
+    } catch (e) { return -1; }
   });
   try {
     await page.locator('text="Spells"').first().click({ timeout: 25000 });
-    await page.waitForTimeout(2500);
-    const before = await spellCount();
-    // Spell options render as option cards; click the first selectable one.
-    const card = page.locator('.b-orange').filter({ hasText: /./ }).nth(1);
-    await card.click({ timeout: 20000 });
-    await page.waitForTimeout(2000);
-    const after = await spellCount();
-    check('a spell can be picked and lands in the character', after > before,
-          `${before} -> ${after}`);
+    await page.waitForTimeout(3000);
+    const before = await knownSpells();
+    // Spell options live under a "... Cantrips Known" / "... Spells Known" selection.
+    const opt = page.locator('.b-orange').filter({ hasText: /^[A-Z][a-z]/ }).first();
+    const n = await opt.count().catch(() => 0);
+    if (before < 0) {
+      console.log('  SKIP  spell selection (subscription unavailable)');
+    } else if (!n) {
+      console.log('  SKIP  spell selection (no spell option rendered to click)');
+    } else {
+      await opt.click({ timeout: 20000 });
+      await page.waitForTimeout(2500);
+      const after = await knownSpells();
+      check('a spell can be picked and reaches the character', after > before, `${before} -> ${after}`);
+    }
   } catch (e) {
     console.log('  SKIP  spell selection (' + e.message.split('\n')[0] + ')');
   }
