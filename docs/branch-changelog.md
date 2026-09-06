@@ -43,6 +43,12 @@ handled by the platform rather than by hand.
   navigation and open cost under CPU throttle — and a census of every `<select>` in the app
   (`95d38f67`, `ba52a219`, `4082bc20`).
 
+- `scripts/test/run-browser-probes.js` — runs every asserting browser probe and exits
+  non-zero if any fails. Neither test suite invokes `test/browser/`, so nothing was checking
+  the 11 probes that carry real assertions; one had been failing and exiting 1 for several
+  commits unnoticed. Probes that cannot run report `SKIP` loudly rather than staying silent
+  (`<pending>`).
+
 ## Fixed
 
 - A nil or non-string item name no longer throws while filtering. The render path passed the

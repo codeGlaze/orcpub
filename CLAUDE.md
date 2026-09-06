@@ -30,6 +30,9 @@ probe defects that have produced confident wrong answers here.
 - `lein garden once` — compile CSS to `resources/public/css/compiled/` (needed for screenshots).
 - `lein test`        — JVM test suite.
 - Browser e2e: `test/browser/*.js` (see `test/browser/README.md`) — run against `lein e2e-server`.
+- `node scripts/test/run-browser-probes.js` — runs every asserting browser probe, exits
+  non-zero on failure. Neither test suite touches `test/browser/`, so run this before
+  claiming a branch is green.
 
 ## Datomic
 

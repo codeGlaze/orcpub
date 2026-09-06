@@ -14,6 +14,36 @@ node test/browser/<name>.js
 `lein e2e-server` needs port 8890 free — kill any prior server first
 (`fuser -k 8890/tcp`) or you'll get a bind failure.
 
+## Run them all at once
+
+```
+node scripts/test/run-browser-probes.js
+```
+
+Runs every **asserting** probe and exits non-zero if any fails. Neither `lein test` nor the
+CLJS runner invokes anything in this directory, so without it "both suites green" says
+nothing about these files — `equipment_add_functional_e2e.js` once sat failing three
+assertions and exiting 1 for several commits because nothing ran it.
+
+```
+ORCBREW_PACK=/path/to/pack.orcbrew   # enables the two probes that need imported homebrew
+JOBS=3                               # run N at once (default 1)
+ONLY=equipment,sticky                # substring filter
+STRICT=1                             # a probe that could not run counts as a failure
+```
+
+A probe that cannot run is reported as `SKIP`, loudly. Silence is how the stale one hid.
+
+Only asserting probes are in the runner. The measurement probes (`tab_switch_freeze`,
+`freeze_cpu_profile`, `combobox_scroll`, `select_option_census`, …) report numbers rather
+than pass/fail and are run by hand — putting them in would turn timing noise into build
+failures.
+
+**These probes go stale silently.** One that finds its control by class name breaks the
+moment that control is swapped, and only an *unguarded* assertion tells you: a guarded
+`if (await x.count())` degrades to doing nothing at all. When you change a control, grep
+this directory for its class names.
+
 ## The rule: real server, real UI
 
 Drive the actual UI against `http://localhost:8890` — navigate, click, upload `.orcbrew`

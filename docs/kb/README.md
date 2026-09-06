@@ -57,6 +57,12 @@ measured, what turned out to be wrong, and why.
 
 All under `test/browser/`, run against `lein e2e-server` (see `test/browser/README.md`).
 
+`node scripts/test/run-browser-probes.js` runs every **asserting** probe and exits non-zero
+on failure. Neither `lein test` nor the CLJS runner touches this directory, so "both suites
+green" says nothing about these files — one sat failing and exiting 1 for several commits
+because nothing ran it. The probes below are the **measurement** ones: they report numbers,
+not pass/fail, and are run by hand.
+
 | Probe | Answers |
 | --- | --- |
 | `tab_switch_freeze_e2e.js` | the freeze: longest task per Race<->Class switch, heap, counters, stacks |
