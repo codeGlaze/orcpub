@@ -56,6 +56,25 @@ not validated** — the `server` probes share one in-memory backend, so concurre
 principle see each other's saved characters. Default is 1 for that reason; raise it when you
 want speed over certainty.
 
+## Two ways a probe lies, and what catches them
+
+**It stops asserting.** A control renamed out from under an `if (await x.count())` guard
+takes its checks with it, and the probe still exits 0 reporting everything it *did* run as
+passing. `scripts/test/probe-baseline.json` records how many assertions each probe is
+expected to run; the runner fails one that runs fewer and says so. Regenerate with
+`UPDATE_BASELINE=1` — and only when you meant to change the count.
+
+**It sits there.** Probes carry 15-minute navigation timeouts and blind `waitForTimeout`
+sleeps, so a stuck one looks exactly like a slow one until the whole run ends. The runner
+prints a heartbeat every 60s saying how long the probe has been *silent* and its last line
+of output, and kills it at `PROBE_TIMEOUT_S` (default 600) as `STUCK`, showing the last
+output before it stopped. A probe still printing is working; one quiet for minutes is where
+it is stuck.
+
+Write assertions that can fail. `after <= opened` for a check named "filtering narrows the
+list" passes when filtering does nothing — it was in this directory. And a missing control
+is the failure, not a reason to print SKIP and stop asserting.
+
 Only asserting probes are in the runner. The measurement probes (`tab_switch_freeze`,
 `freeze_cpu_profile`, `combobox_scroll`, `select_option_census`, …) report numbers rather
 than pass/fail and are run by hand — putting them in would turn timing noise into build

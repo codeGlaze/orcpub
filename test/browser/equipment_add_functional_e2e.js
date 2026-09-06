@@ -69,7 +69,10 @@ const check = (n, ok, d) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${n}${d ? 
     await input.fill(term);
     await page.waitForTimeout(1200);
     const after = await page.locator('.inv-combo-row').count();
-    check('filtering narrows the list', after > 0 && after <= opened, `${opened} -> ${after} on "${term}"`);
+    // Strictly fewer. `after <= opened` was the original here and it passes when filtering
+    // does nothing at all -- the name claims "narrows" while the assertion permits
+    // "unchanged", which is an assertion written to pass.
+    check('filtering narrows the list', after > 0 && after < opened, `${opened} -> ${after} on "${term}"`);
 
     const first = page.locator('.inv-combo-row').first();
     if (await first.count()) {

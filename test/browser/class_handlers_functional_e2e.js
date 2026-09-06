@@ -92,8 +92,10 @@ const check = (name, ok, detail) => {
       await page.waitForTimeout(1800);
       now = await classes();
       check('delete-class removes it again', now.length === 1, JSON.stringify(now));
-    } else { console.log('  SKIP  delete-class (no control found)'); }
-  } else { console.log('  SKIP  add-class (no control found)'); }
+    } else check('delete-class removes it again', false, 'no fa-minus-circle control found');
+    // A missing control is the failure, not a reason to stop asserting. These two printed
+    // SKIP and exited 0, so renaming the button would have silently dropped 2 of 6 checks.
+  } else check('add-class adds a second class', false, 'no "Add Levels in Another Class" control found');
 
   // Spell selection: spell-option is no longer memoized, so prove a spell can still be
   // listed and picked and that it reaches the built character.

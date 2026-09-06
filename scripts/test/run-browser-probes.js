@@ -29,7 +29,10 @@ const http = require('http');
 
 const ROOT = path.resolve(__dirname, '../..');
 const SERVER = 'http://localhost:8890';
-const PER_PROBE_TIMEOUT_MS = 10 * 60 * 1000;
+// character_image_capture legitimately takes ~400s; anything past this is stuck.
+const PER_PROBE_TIMEOUT_MS = +(process.env.PROBE_TIMEOUT_S || 600) * 1000;
+const HEARTBEAT_MS = 60 * 1000;
+const BASELINE = path.join(__dirname, 'probe-baseline.json');
 
 // These probes do NOT all want the same world, and running them as though they did is
 // wrong in both directions:
@@ -68,16 +71,28 @@ function run(probe, pack) {
     if (probe.needsPack) args.push(pack);
     const t0 = Date.now();
     const p = spawn('node', args, { cwd: ROOT });
-    let out = '';
-    p.stdout.on('data', d => { out += d; });
-    p.stderr.on('data', d => { out += d; });
-    const timer = setTimeout(() => { p.kill('SIGKILL'); }, PER_PROBE_TIMEOUT_MS);
+    let out = '', lastAt = Date.now(), timedOut = false;
+    const note = d => { out += d; lastAt = Date.now(); };
+    p.stdout.on('data', note);
+    p.stderr.on('data', note);
+
+    // A stuck probe used to look exactly like a slow one until the whole run ended. Say so
+    // while it is happening, and say how long it has been SILENT -- a probe still printing
+    // is working, one quiet for minutes is where it is stuck.
+    const beat = setInterval(() => {
+      const quiet = ((Date.now() - lastAt) / 1000).toFixed(0);
+      const last = out.trim().split('\n').pop() || '(no output yet)';
+      console.log(`      … ${probe.file} running ${((Date.now() - t0) / 1000).toFixed(0)}s` +
+                  `, silent ${quiet}s — last: ${last.slice(0, 70)}`);
+    }, HEARTBEAT_MS);
+
+    const timer = setTimeout(() => { timedOut = true; p.kill('SIGKILL'); }, PER_PROBE_TIMEOUT_MS);
     p.on('close', code => {
-      clearTimeout(timer);
+      clearTimeout(timer); clearInterval(beat);
       const secs = ((Date.now() - t0) / 1000).toFixed(0);
       const fails = (out.match(/^\s*FAIL/gm) || []).length;
       const passes = (out.match(/^\s*PASS/gm) || []).length;
-      resolve({ probe, code, out, secs, fails, passes });
+      resolve({ probe, code, out, secs, fails, passes, timedOut });
     });
   });
 }
@@ -110,6 +125,8 @@ function run(probe, pack) {
     console.log('       race makes it come up against the wrong database. See docs/kb/fast-browser-probes.md.)\n');
   }
 
+  const baseline = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : {};
+  const observed = {};
   console.log(`running ${queue.length} probe(s), ${jobs} at a time\n`);
   const results = [];
   const workers = Array.from({ length: jobs }, async () => {
@@ -117,10 +134,25 @@ function run(probe, pack) {
       const probe = queue.shift();
       if (!probe) return;
       const r = await run(probe, pack);
+      // Assertions that quietly stop running are the failure mode this whole runner exists
+      // for: a control renamed out from under an `if (await x.count())` guard takes its
+      // checks with it and the probe still exits 0.
+      const ran = r.passes + r.fails;
+      const want = baseline[probe.file];
+      r.shortfall = (want && r.code === 0 && ran < want) ? want : 0;
       results.push(r);
-      const tag = r.code === 0 ? 'PASS' : 'FAIL';
-      console.log(`${tag}  ${probe.file}  (${r.passes} checks, ${r.fails} failing, ${r.secs}s)`);
-      if (r.code !== 0) console.log(r.out.split('\n').filter(l => /FAIL|Error|error:/.test(l)).slice(0, 12).map(l => '      ' + l.trim()).join('\n'));
+      observed[probe.file] = ran;
+
+      const tag = r.timedOut ? 'STUCK' : (r.code !== 0 || r.shortfall) ? 'FAIL' : 'PASS';
+      console.log(`${tag}  ${probe.file}  (${ran} checks, ${r.fails} failing, ${r.secs}s)`);
+      if (r.timedOut) {
+        console.log(`      killed after ${PER_PROBE_TIMEOUT_MS / 1000}s. Last output before it stopped:`);
+        console.log(r.out.trim().split('\n').slice(-4).map(l => '        ' + l.trim()).join('\n') || '        (none)');
+      } else if (r.shortfall) {
+        console.log(`      ran ${ran} assertions, expected ${want} — checks have gone missing,`);
+        console.log('      probably a guarded block whose control was renamed. See probe-baseline.json.');
+      }
+      if (r.code !== 0 && !r.timedOut) console.log(r.out.split('\n').filter(l => /FAIL|Error|error:/.test(l)).slice(0, 12).map(l => '      ' + l.trim()).join('\n'));
     }
   });
   await Promise.all(workers);
@@ -128,7 +160,13 @@ function run(probe, pack) {
   // A probe that could not run is reported loudly. Silence is how the last one hid.
   for (const p of skipped) console.log(`SKIP  ${p.file}  (${p.why})`);
 
-  const failed = results.filter(r => r.code !== 0);
+  if (process.env.UPDATE_BASELINE) {
+    const merged = { ...baseline, ...observed };
+    fs.writeFileSync(BASELINE, JSON.stringify(merged, null, 2) + '\n');
+    console.log('\nbaseline updated for: ' + Object.keys(observed).join(', '));
+  }
+
+  const failed = results.filter(r => r.code !== 0 || r.shortfall || r.timedOut);
   console.log(`\n${results.length - failed.length}/${results.length} probes passed` +
               (skipped.length ? `, ${skipped.length} skipped` : ''));
   if (failed.length) {

@@ -50,7 +50,10 @@ handled by the platform rather than by hand.
   (`<pending>`). Probes are classified by the world they need — the real server, their own
   standalone harness, or the busy-export profile — because running them as though they all
   wanted the same one fails in both directions. Verified both ways: 10/10 probes pass with
-  the runner exiting 0, and a deliberately failing probe exits 1 naming it (`<pending>`).
+  the runner exiting 0, and a deliberately failing probe exits 1 naming it. Also flags the
+  two ways a probe lies: one that stops asserting (checked against a recorded per-probe
+  assertion count) and one that sits stuck (heartbeat showing how long it has been silent,
+  then killed as STUCK with its last output) (`<pending>`).
 
 ## Fixed
 
@@ -70,6 +73,13 @@ handled by the platform rather than by hand.
   the input instead of running off the bottom of the viewport (`95d38f67`).
 
 ## Changed
+
+- Strengthened an assertion that was written to pass: `equipment_add_functional_e2e.js`
+  checked `after <= opened` under the name "filtering narrows the list", which holds when
+  filtering changes nothing. Now strictly fewer (`<pending>`).
+- `class_handlers_functional_e2e.js` printed SKIP and carried on when a control was missing,
+  so renaming the add-class button would have dropped 2 of its 6 assertions while it still
+  exited 0. A missing control now fails (`<pending>`).
 
 - The Equipment picker no longer caps what it renders. The previous 12-row cap left 294 of 306
   magic weapons unreachable unless you already knew the name, and bought nothing — opening the

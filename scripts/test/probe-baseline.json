@@ -1,0 +1,13 @@
+{
+  "_comment": "Assertions each probe is expected to RUN (pass or fail). A probe that runs fewer has quietly stopped asserting -- a renamed control inside an `if (await x.count())` guard drops its checks and still exits 0. Observed with ORCBREW_PACK set. Regenerate with UPDATE_BASELINE=1. export_busy_retry_e2e.js is absent on purpose: its count under `lein e2e-server-busy` has not been observed.",
+  "character_image_capture_e2e.js": 31,
+  "class_handlers_functional_e2e.js": 6,
+  "equipment_add_functional_e2e.js": 5,
+  "notification_flows_e2e.js": 9,
+  "notifications_acceptance_e2e.js": 9,
+  "spell_help_laziness_e2e.js": 5,
+  "spell_layout_pdf_e2e.js": 20,
+  "starting_equipment_browser_e2e.js": 8,
+  "starting_equipment_ledger_e2e.js": 10,
+  "sticky_header_e2e.js": 30
+}
