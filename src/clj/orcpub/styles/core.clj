@@ -2538,6 +2538,23 @@
      ;; pointer happens to rest on a different row than the arrow keys are on.
      [:&.active {:background "rgba(240,161,0,0.32)" :color "#fff"}]]
 
+    ;; The matched substring. Colour plus weight, so it still reads if the row is highlighted.
+    [:.inv-combo-hit {:color "#f0a100" :font-weight :bold}]
+
+    ;; Count and key hints. The arrow-key navigation is invisible otherwise.
+    [:.inv-combo-hint
+     {:display :flex
+      :justify-content :space-between
+      :align-items :center
+      :gap "10px"
+      :padding "7px 10px 2px"
+      :margin-top "4px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "11px"}]
+
+    [:.inv-combo-keys {:white-space :nowrap :letter-spacing "0.02em"}]
+
     [:.inv-combo-empty
      {:padding "10px" :color "rgba(255,255,255,0.5)" :font-size "13px" :font-style :italic}]
 

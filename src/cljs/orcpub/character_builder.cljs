@@ -394,6 +394,11 @@
    :key (or key id)})
 
 ;;; selection creator for character builder
+#_ ;; DEPRECATED 2026-09-06 -- superseded by inventory-combobox, which gets the top layer,
+   ;; light dismiss, Escape and focus management from popover="auto" instead of the z-index
+   ;; 40/41, backdrop div and keydown listener below. It has no behaviour the combobox lacks,
+   ;; and its full-width mobile overlay was the thing that made it wrong. Unreferenced.
+   ;; Remove once the combobox has shipped without complaint.
 (defn inventory-picker
   "Compact 'Add item' control: a button that opens a small search overlay, shows a short
    list of matches, and closes on pick.
@@ -502,6 +507,19 @@
     (try (when (.matches el ":popover-open") (.hidePopover el))
          (catch :default _ nil))))
 
+(defn- highlight-match
+  "Bold the part of the name the query matched. Standard combobox affordance: it shows WHY a
+   row is in the list, which matters when a substring match lands mid-word."
+  [item-name q]
+  (let [i (when-not (s/blank? q) (s/index-of (s/lower-case item-name) q))]
+    (if-not i
+      item-name
+      (let [end (+ i (count q))]
+        [:span
+         (subs item-name 0 i)
+         [:span.inv-combo-hit (subs item-name i end)]
+         (subs item-name end)]))))
+
 (defn- scroll-active-into-view! [pop-id]
   ;; Runs after the re-render that moved the highlight, hence the rAF.
   (js/requestAnimationFrame
@@ -605,12 +623,17 @@
                  [:div.inv-combo-row
                   {:class (when (= i @active) "active")
                    :on-click #(pick! item-key)}
-                  item-name])
-               matches))])]]))))
+                  (highlight-match item-name q)])
+               matches))])
+          (when (pos? n)
+            [:div.inv-combo-hint
+             [:span (str n (if (= 1 n) " item" " items"))]
+             [:span.inv-combo-keys "\u2191\u2193 browse \u00b7 \u21b5 add \u00b7 esc close"]])]]))))
 
 (defn inventory-adder [key options selected-keys]
-  ;; Switch between the three by changing this line. inventory-datalist (native filtering
-  ;; dropdown) and inventory-picker (hand-rolled overlay) are both still defined above.
+  ;; Switch by changing this line. inventory-datalist is kept live: it hands the dropdown to
+  ;; the OS, which is the better control on mobile if the Popover API ever proves a problem.
+  ;; inventory-picker above is deprecated, not an alternative.
   [inventory-combobox key options selected-keys])
 
 (defn inventory-check-fn [key i]

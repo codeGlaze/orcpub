@@ -95,7 +95,34 @@ async function stats(page, label) {
   await input.fill(term);
   await page.waitForTimeout(900);
   await stats(page, `desktop filtered "${term}"`);
+  const hits = await page.evaluate(() => {
+    const h = [...document.querySelectorAll('.inv-combo-hit')];
+    return { n: h.length, sample: h[0] && h[0].textContent };
+  });
+  console.log(`match highlighting: ${hits.n} hit spans, first "${hits.sample}"`);
   await page.screenshot({ path: path.join(OUT, '3-filtered.png') });
+
+  // A broad term on the biggest section, so match highlighting shows across many rows
+  // rather than the single hit a narrow term produces.
+  const big = await page.evaluate(() => {
+    const ins = [...document.querySelectorAll('input.inv-combo-input')];
+    const n = i => { const m = (i.placeholder || '').match(/\((\d+)\)/); return m ? +m[1] : 0; };
+    let b = 0; ins.forEach((i, k) => { if (n(i) > n(ins[b])) b = k; });
+    return b;
+  });
+  const bigInput = page.locator('input.inv-combo-input').nth(big);
+  await bigInput.scrollIntoViewIfNeeded();
+  await bigInput.click();
+  await page.waitForTimeout(500);
+  await bigInput.fill('+1');
+  await page.waitForTimeout(900);
+  const many = await page.evaluate(() => document.querySelectorAll('.inv-combo-hit').length);
+  console.log(`broad filter "+1" on largest section: ${many} highlighted rows`);
+  await page.screenshot({ path: path.join(OUT, '10-highlighting.png') });
+  await bigInput.fill('');
+  await page.waitForTimeout(500);
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(400);
 
   // Light dismiss: click the page background. No handler of ours runs -- the browser closes it.
   await page.mouse.click(1400, 200);

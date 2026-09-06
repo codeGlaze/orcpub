@@ -270,3 +270,55 @@ caches a layout decision (the character builder's column state, tab selection)
 needs to survive the flip. Test in both directions: narrow a desktop window
 past the breakpoint and widen a phone-emulated one.
 
+
+## Window the combobox row list, and reach the 969-option monster picker
+
+Two related follow-ups from the Equipment combobox
+(`docs/kb/equipment-option-picker.md`). Neither is urgent; both are recorded so the
+measurements behind them are not re-derived.
+
+### Windowing
+
+`inventory-combobox` mounts every match when it opens. That is ~0.19 ms per row at
+4x CPU throttle, so the 306-item Magic Weapons section costs 62 ms — about one frame
+unthrottled, fine today. It scales linearly, so a 3000-item section extrapolates to
+~570 ms, which is a freeze.
+
+Mounting only the rows in view plus a buffer, updated on scroll, is the only
+approach that reduces the work rather than rescheduling it. **Prefetch-then-expand
+was tried and does not work** — measured 55/64/53 ms against a 62 ms baseline, pure
+noise, because the deferred chunk is still one large mount. See the KB doc for the
+two traps that version hit.
+
+Costs to weigh: browser find-in-page stops working over unmounted rows, and the
+keyboard highlight must force its row to mount before scrolling to it.
+
+Do this when a library with a section in the low thousands actually turns up, not
+before.
+
+### The monster picker
+
+A census of every `<select>` in the app (`test/browser/select_option_census_e2e.js`,
+run against the WotC megapack) found only one picker outside Equipment that is
+large:
+
+| Page | selects | total options | biggest |
+| --- | --- | --- | --- |
+| combat-tracker | 4 | 972 | **969** |
+| monster-builder | 37 | 807 | 36 |
+| class-builder | 8 | 67 | 22 |
+| magic-item-builder | 18 | 44 | 9 |
+| spell-builder | 2 | 18 | 10 |
+
+`monster-selector` (`src/cljs/orcpub/dnd/e5/views.cljs:7754`) renders all of
+`::monsters/sorted-monsters` into one native `<select>` — 969 options, three times
+the largest Equipment section, and used by both the combat tracker and the encounter
+builder. It is the one other place that clearly wants a filtering combobox.
+
+Everything else is under ~40 options, where a native `<select>` is the right control
+and should be left alone.
+
+The blocker is not size but semantics: `inventory-combobox` is an *add to a list*
+control (it dispatches, clears the query and closes), while `monster-selector` picks
+a *single current value* that must stay displayed. Generalising means parameterising
+the selected-value display and the on-pick behaviour.

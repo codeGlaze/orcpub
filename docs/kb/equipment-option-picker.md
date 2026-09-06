@@ -132,6 +132,54 @@ with `scrollTop=442` and the highlight in view; Enter drops the section count 30
   the Weapons section, so the probe read zero rows and reported a failure. Probes derive the
   term from a row that is actually present.
 
+## Decoration, and what was left out
+
+The combobox is real DOM, so unlike a native `<select>` or `<datalist>` its rows can be
+styled. Two additions earn their keep, both standard rather than novel:
+
+- **Match highlighting** — the matched substring is bold and orange, so a row shows *why* it
+  is in the list. This matters when the match lands mid-word: filtering magic weapons by
+  `+1` highlights 45 rows on their suffix, not their name.
+- **A hint line** — item count on the left, `↑↓ browse · ↵ add · esc close` on the right.
+  The arrow-key navigation is otherwise invisible.
+
+Together they cost 21 nodes (1541 -> 1562 closed).
+
+Deliberately not built, to note that they were considered: per-row icons and rarity colours
+(needs item metadata the option list does not carry, and colour-codes a list people scan by
+name), sticky A-Z group headers (the list is already short once filtered), a recently-used
+section (state with no obvious home), and animated open/close (the popover is opened from a
+click 300 ms of the time — animation would be latency, not polish).
+
+## The other pickers
+
+A census of every `<select>` in the app (`test/browser/select_option_census_e2e.js`) found
+exactly one other large picker:
+
+| Page | selects | total options | biggest |
+| --- | --- | --- | --- |
+| combat-tracker | 4 | 972 | **969** |
+| monster-builder | 37 | 807 | 36 |
+| class-builder | 8 | 67 | 22 |
+| magic-item-builder | 18 | 44 | 9 |
+| spell-builder | 2 | 18 | 10 |
+
+`monster-selector` (`src/cljs/orcpub/dnd/e5/views.cljs:7754`) puts all 969 monsters in one
+native `<select>`, and is used by the combat tracker and the encounter builder. Everything
+else is under ~40 options, where a native `<select>` is the right control. See `docs/TODO.md`.
+
+## Which controls are kept
+
+- `inventory-combobox` — live.
+- `inventory-datalist` — kept live and working. It hands the dropdown to the OS, which is the
+  better control on mobile if the Popover API ever proves a problem. Switching is one line in
+  `inventory-adder`.
+- `inventory-picker` — **deprecated 2026-09-06.** The hand-rolled overlay has no behaviour the
+  combobox lacks, and its full-width mobile overlay was the thing that made it wrong.
+
+Exposing the three as a user-facing preference was considered and rejected: three code paths
+to test for a choice nobody has asked for.
+
 ## Verify
 
 `node test/browser/combobox_scroll_e2e.js <pack>.orcbrew` — opens the largest section and

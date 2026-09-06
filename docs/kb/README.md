@@ -62,4 +62,5 @@ All under `test/browser/`, run against `lein e2e-server` (see `test/browser/READ
 | `library_chunk_granularity_e2e.js` | how finely a library can be split |
 | `combobox_shots_e2e.js` | Equipment combobox: screenshots plus anchored-geometry, light-dismiss and pick assertions |
 | `combobox_scroll_e2e.js` | Equipment combobox: is the list browsable, keyboard nav, and open cost under throttle |
+| `select_option_census_e2e.js` | how many `<option>`s every `<select>` in the app carries -- which pickers are actually big |
 | `scripts/test/run-cljs-tests.js` | runs the ClojureScript suite headlessly (repo's canonical runner, not under test/browser) |
