@@ -60,7 +60,9 @@ const shot = (page, file) => page.screenshot({ path: file, fullPage: true, type:
     const sel = (lbl.parentElement || lbl).querySelector('select')
              || lbl.nextElementSibling;
     if (!sel || sel.tagName !== 'SELECT') return;
-    const opt = [...sel.options].find(o => /ranged weapons only/i.test(o.textContent));
+    // matches both shapes: the flat form's "Ranged weapons only" and the grouped form's short
+    // "Ranged only" — this script has to author the same style in either build
+    const opt = [...sel.options].find(o => /^ranged (weapons )?only$/i.test(o.textContent.trim()));
     if (!opt) return;
     const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value').set;
     setter.call(sel, opt.value);

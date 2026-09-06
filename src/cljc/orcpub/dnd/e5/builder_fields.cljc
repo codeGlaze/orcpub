@@ -15,6 +15,7 @@
    Pure/leaf: requires spec only."
   (:require #?(:clj  [clojure.spec.alpha :as spec])
             #?(:cljs [cljs.spec.alpha :as spec])
+            [clojure.string :as str]
             [orcpub.common :as common]))
 
 (defn field-value-pred
@@ -80,15 +81,20 @@
   require or forbid that equipment, or leave blank for either way. Defense fighting style is
   exactly {:bonus 1 :armor? true}."
   (let [has-bonus? #(get-in % [:props :ac-bonus :bonus])]
+    ;; :short-label / :short-title are used ONLY where the field renders inside a titled group
+    ;; (see render-builder-field's :compact?). Flat forms keep the long text, which is the whole
+    ;; reason both exist rather than one being edited into the other.
     [{:key [:props :ac-bonus :bonus] :type :number :label "AC Bonus"}
      {:key [:props :ac-bonus :armor?] :type :enum :label "Armor requirement" :when has-bonus?
+      :short-label "Armor"
       :options [{:value nil   :title "Both"}
-                {:value true  :title "Only while wearing armor"}
-                {:value false :title "Only while NOT wearing armor"}]}
+                {:value true  :title "Only while wearing armor"  :short-title "Only while wearing"}
+                {:value false :title "Only while NOT wearing armor" :short-title "Not wearing"}]}
      {:key [:props :ac-bonus :shield?] :type :enum :label "Shield requirement" :when has-bonus?
+      :short-label "Shield"
       :options [{:value nil   :title "Both"}
-                {:value true  :title "Only while wielding a shield"}
-                {:value false :title "Only while NOT wielding a shield"}]}]))
+                {:value true  :title "Only while wielding a shield" :short-title "Only while wielding"}
+                {:value false :title "Only while NOT wielding a shield" :short-title "Not wielding"}]}]))
 
 (defn- weapon-tag-field
   "One three-state weapon tag as an :enum field. Shown only once a bonus has been entered, since a
@@ -99,7 +105,14 @@
    ;; An explicit nil option FIRST. A <select> with no matching value shows its first option, so
    ;; without this the form displays "Melee weapons only" for a field that is actually unset — it
    ;; would lie about a three-state value in a two-option control.
-   :options [{:value nil :title "Both"} {:value true :title yes} {:value false :title no}]})
+   :options [{:value nil :title "Both"}
+             ;; Under a header reading ATTACK BONUS the word "weapons" is already said, and it is
+             ;; what makes the select page-wide — so the grouped layout drops it ("Ranged only").
+             ;; Derived rather than passed: every long form here IS the short one plus that word,
+             ;; and two more positional args on a five-arg fn would cost more than it saves.
+             {:value true  :title yes :short-title (str/replace yes " weapons" "")}
+             ;; the negatives are already short ("Exclude melee", "Non-thrown only")
+             {:value false :title no}]})
 
 (defn- weapon-bonus-fields
   "Fields for one conditional weapon bonus: the number, then the tags that gate it. The tags are

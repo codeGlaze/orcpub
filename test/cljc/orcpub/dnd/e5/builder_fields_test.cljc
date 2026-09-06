@@ -99,3 +99,22 @@
   (let [spec-pred (bf/validate-fields bf/fighting-style-classes-field
                                       {:name "Bulwark" :key :bulwark})]
     (is (empty? spec-pred) (str "unexpected problems: " (pr-str spec-pred)))))
+
+(deftest short-forms-are-additions-not-replacements
+  ;; The grouped layout drops the words its header already says. That must be a COMPACT-ONLY
+  ;; variant: the fragments are advertised as droppable into any builder's flat extra-fields, and
+  ;; a bare "Armor" above a select with no header above it says nothing.
+  (let [armor (first (filter #(= [:props :ac-bonus :armor?] (:key %)) bf/ac-bonus-fields))]
+    (is (= "Armor requirement" (:label armor)) "the long label is still the default")
+    (is (= "Armor" (:short-label armor))       "and the short one is available to a grouped form"))
+  (testing "weapon tags derive the short option title by dropping the word the header supplies"
+    (let [ranged (first (filter #(= [:props :attack-bonus :ranged?] (:key %)) bf/attack-bonus-fields))
+          yes    (first (filter #(= true (:value %)) (:options ranged)))]
+      (is (= "Ranged weapons only" (:title yes)))
+      (is (= "Ranged only" (:short-title yes)))))
+  (testing "the unset option is never given a short form — it must stay the explicit first option"
+    (doseq [fields [bf/ac-bonus-fields bf/attack-bonus-fields bf/damage-bonus-fields]
+            f      (filter :options fields)
+            :let   [nil-opt (first (filter #(nil? (:value %)) (:options f)))]]
+      (is (some? nil-opt) (str (:key f) " must offer the explicit nil option"))
+      (is (nil? (:short-title nil-opt)) "\"Both\" is already short and must not vary by context"))))

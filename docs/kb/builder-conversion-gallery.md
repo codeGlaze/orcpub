@@ -118,16 +118,30 @@ Bonus* or *Damage Bonus*.
 | visible controls, empty form | 7 | **4** |
 | visible controls, three effects authored | 23 | 23 |
 | labels repeated with nothing distinguishing them | **7** | **0** |
-| page height, authored | 2229px | **1622px** |
+| page height, authored | 2229px | **1491px** |
 
 The fully-authored form has exactly the same 23 controls — grouping removes no fields — but it is
-**607px shorter**, because inside a row a bonus gets a number's width and its tags wrap inline
-instead of each taking a page-wide row of its own.
+**738px shorter**, because inside a row a bonus gets a number's width and its tags sit inline
+instead of each taking a page-wide row of its own — all seven weapon tags now fit on one line.
 
 **The layout is a port of the approved mockup**, `assets/builder-form-mockup.html` — dashed pill
 chips on the add-bar, an orange uppercase group header, a 92px centred bonus with its hint beside
 it, and tags as `width:auto` selects under a muted sub-heading. Keep the two in step; the mockup is
 the design record and `styles/core.clj` is its implementation.
+
+**Short labels are why the tags fit.** The mockup writes *Armor*, not *Armor requirement*, and
+*Ranged only*, not *Ranged weapons only* — under a header already reading ATTACK BONUS those words
+are noise, and they are exactly what made each select page-wide. So a field may carry a
+`:short-label`, and an option a `:short-title`, used **only** where it renders inside a group
+(`:compact?`). The long form stays the default because these fragments are advertised as droppable
+into any builder's flat `extra-fields`, where no header supplies the context. Both forms are pinned
+by `short-forms-are-additions-not-replacements`; the `nil` ("Both") option deliberately has no
+short form, since it must stay the explicit first option in every context.
+
+**One thing in the mockup is deliberately not built: the `+ Reaction` chip.** A reaction is a
+*trigger* ("when X happens, you may Y"), and triggers are sheet entries rather than computed
+conditions — §4 of `builder-form-schemas.md`. The chip is missing because that vocabulary does not
+exist yet, not because it was overlooked. When it lands it is one more entry in `:kinds`.
 
 **The `set` highlight is the answer to "seven dropdowns all saying Both".** A tag carrying an
 actual restriction is drawn in orange, so it reads at a glance against its unset neighbours — in

@@ -81,11 +81,14 @@ const { check, report } = checker();
   }
 
   // :when still governs within a row — tags hidden until the bonus is entered
-  const beforeArmorTag = await controlFor(page, 'Armor requirement');
+  // Inside a row the tag is labelled by its SHORT form — "Armor", not "Armor requirement" — since
+  // the group header already says AC BONUS. The long form is what the shared fragment carries and
+  // is pinned in builder_fields_test.
+  const beforeArmorTag = await controlFor(page, 'Armor');
   check(':when hides the Armor tag before a bonus is entered', beforeArmorTag === null);
 
   check('typed the AC bonus into its row', await fillEffectBonus(page, 'AC Bonus', 1));
-  const afterArmorTag = await controlFor(page, 'Armor requirement');
+  const afterArmorTag = await controlFor(page, 'Armor');
   check(':when reveals the Armor tag once a bonus is entered', !!afterArmorTag);
   check('typing a number raised no JS error (the seq-on-int regression)',
         !errors.some(e => /ISeqable/.test(e)), errors.filter(e => /ISeqable/.test(e))[0] || '');

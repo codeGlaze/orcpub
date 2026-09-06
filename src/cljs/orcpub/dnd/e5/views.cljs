@@ -7573,13 +7573,22 @@
       [:div.m-b-10
        ;; :compact? keeps the f-w-b marker (label lookup, and every e2e finds controls by it) but
        ;; shrinks it — a tag's label sits above a small control, not above a page-wide one.
+       ;; Inside a titled group the words the group already says are noise, and they are what
+       ;; makes a select page-wide: "Armor requirement" under a header reading AC BONUS is just
+       ;; "Armor". The long form stays the default because these fragments are advertised as
+       ;; droppable into any builder's flat extra-fields, where no header supplies the context.
+       ;; (Today the fighting-style builder is their only rendered consumer, and it is grouped.)
        [:div.f-w-b.m-b-5 {:class (when (:compact? field) "tag-label")}
-        label (when required? [:span.red " *"])]
+        (or (when (:compact? field) (:short-label field)) label)
+        (when required? [:span.red " *"])]
        (case type
          ;; index-based option values so ANY value type (incl. qualified keywords) round-trips
          ;; through the string-only <select>
-         :enum   (let [idx (first (keep-indexed (fn [i o] (when (= (:value o) v) i)) options))]
-                   [dropdown {:items (map-indexed (fn [i o] {:value (str i) :title (:title o)}) options)
+         :enum   (let [idx (first (keep-indexed (fn [i o] (when (= (:value o) v) i)) options))
+                       opt-title (if (:compact? field)
+                                   (fn [o] (or (:short-title o) (:title o)))
+                                   :title)]
+                   [dropdown {:items (map-indexed (fn [i o] {:value (str i) :title (opt-title o)}) options)
                               :value (when idx (str idx))
                               ;; `set` is the mockup's answer to a row of identical dropdowns: the
                               ;; ones carrying an actual restriction are picked out in orange, so
