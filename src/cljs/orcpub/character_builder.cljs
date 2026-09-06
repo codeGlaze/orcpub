@@ -1835,144 +1835,116 @@
 
 (def image-paste (memoize image-paste-fn))
 
-(defn- notice-class
-  [level]
-  (case level
-    :error "field-notice is-error"
-    :warning "field-notice is-warning"
-    "field-notice is-note"))
+(def ^:private image-failure-notes
+  "One short sentence per reason the server gave. Short on purpose: this is the
+   whole message, and a picture that cannot be had is one problem however it
+   failed."
+  {:blocked-address "That address can't be fetched."
+   :not-found       "The host has nothing at that address."
+   :redirect        "That link redirects instead of being the picture."
+   :not-an-image    "That isn't a PNG or JPEG."
+   :unreachable     "That host couldn't be reached."
+   :refused         "The host won't serve it to us."
+   :too-large       "That picture is over 2 MB."
+   :too-many-pixels "That picture is over 2000x2000."
+   :timeout         "The host took too long to answer."
+   :host-error      "The host had an error of its own."
+   :rate-limited    "The host is asking us to slow down -- try again shortly."
+   :unknown         "That picture couldn't be fetched."})
 
-(defn image-url-advice
-  "Everything said about the address itself: what can be told from the string, and
-   the generic load failure when nothing more specific applies.
+(defn image-field-notice
+  "The one thing worth saying about this picture, and at most one thing to do
+   about it.
 
-   One component owns both so they cannot stack. A bare \"that picture did not
-   load\" under \"that is the Pinterest page\" is two lines saying one thing, and
-   the vaguer of them is the one people read first.
+   ONLY ONE of these ever shows. Said separately they stacked: a scheme warning, a
+   suggested correction, a fetch failure and a panel of controls could all sit
+   under a single field at once -- four blocks and three controls to say that one
+   picture could not be had. They are ordered by how far they get someone:
 
-   A correction sits BELOW the notice rather than inside it, and reads as a
-   question answered by clicking. A notice says what is wrong; a button inside one
-   makes it a control surface wearing an error's colours, and both halves get
-   harder to read. It is offered rather than applied for the same reason: the
-   address belongs to the person, and a field that rewrites itself while being
-   typed into is worse than one that says nothing.
+     1. a correction we can make mechanically, offered beside the fault it
+        corrects
+     2. what the address itself gives away, which needs no request
+     3. what the server found when it tried
+     4. that it simply did not load
 
-   Held back until typing stops. The field commits on every keystroke, so advice
-   rendered straight from it would object to `htt` on the way to `https://` and
-   teach people to ignore it. The load failure is not held back -- it is already
-   an answer about the address as typed."
-  [_url _failed? _set-fn]
+   The other ways in wait behind a disclosure. Most people never open it, because
+   the line above it usually tells them what to fix.
+
+   Held back until typing stops: the field commits on every keystroke, so this
+   would otherwise object to `htt` on the way to `https://`."
+  [_url _failed? _state _reach _set-fn]
   (let [settled (r/atom nil)
         timer (atom nil)
-        seen (atom ::unseen)]
-    (fn [url failed? set-fn]
+        seen (atom ::unseen)
+        open? (r/atom false)
+        note (r/atom nil)]
+    (fn [url failed? state reach set-fn]
       (when (not= url @seen)
         (reset! seen url)
+        (reset! open? false)
+        ;; Drop the old advice the moment the address changes, rather than leaving
+        ;; it up for the debounce. It is not merely stale for that second: the
+        ;; correction it offers is clickable, and it corrects the PREVIOUS
+        ;; address. Nothing is said until the new one settles.
+        (reset! settled nil)
         (some-> @timer js/clearTimeout)
         (reset! timer (js/setTimeout #(reset! settled url) 900)))
-      (let [{:keys [level message advice fix]} (image-url/advise @settled)
-            ;; An error or a warning already says what the generic message would,
-            ;; and says it about this address in particular.
-            specific? (contains? #{:error :warning} level)]
-        [:div
-         (when (and failed? (not specific?))
-           [:div {:class (notice-class :error)}
-            [:span.field-notice-what "That picture did not load."]
-            [:span.field-notice-do
-             "Check the address, or right-click the picture and choose Copy image address."]])
-         (when message
-           [:div {:class (notice-class level)}
-            [:span.field-notice-what message]
-            (when advice [:span.field-notice-do advice])])
-         (when fix
-           [:div.field-suggestion
-            "Did you mean "
-            [:span.field-suggestion-link {:on-click #(set-fn fix)} fix]
-            "?"])]))))
-
-(def ^:private image-failure-notes
-  "What went wrong, and which thing is worth fixing, keyed by the reason the
-   server reported.
-
-   Split by whether the ADDRESS is the problem or the host simply will not
-   co-operate: telling someone to copy the picture when they have mistyped a link
-   is not help, and telling someone to check a link the host is refusing outright
-   sends them round in circles."
-  {:blocked-address ["That address cannot be fetched -- check the host name is
-                      right and the link points at a public image." :link]
-   :rate-limited    ["The host is asking us to slow down." :wait]
-   :not-found       ["The host says there is nothing at that address." :link]
-   :redirect        ["That link redirects somewhere else rather than being the picture." :link]
-   :not-an-image    ["That address is not a PNG or JPEG." :link]
-   :unreachable     ["That host could not be reached." :link]
-   :refused         ["The host refused to serve the picture to us." :picture]
-   :too-large       ["That picture is larger than 2 MB." :picture]
-   :too-many-pixels ["That picture is larger than 2000x2000 pixels." :picture]
-   :timeout         ["The host took too long to answer." :picture]
-   :host-error      ["The host had an error of its own." :picture]
-   :unknown         ["The picture could not be fetched." :picture]})
-
-(def ^:private image-failure-advice
-  {:link (str "Check the link -- it should point straight at an image file, usually "
-              "ending .png or .jpg. If it is already right, supply the picture "
-              "instead.")
-   :picture (str "The page is not allowed to read it either, so the sheet will "
-                 "print without it unless you supply the picture.")
-   :wait (str "It is worth trying again in a minute. If it keeps happening, "
-              "supply the picture instead.")})
-
-(defn image-upload
-  "Says what went wrong, then offers the ways round it as their own block.
-
-   The browser being refused is not enough on its own to say anything: the server
-   fetches plenty of pictures the page may not read, so speaking up then would ask
-   for a copy of what was about to arrive. `reach` is the server's own answer
-   about this URL -- :asking while it is in flight, :ok when it can be had, and
-   otherwise the reason it cannot, which is what turns a blank space on the sheet
-   into something a person can act on.
-
-   The controls are deliberately outside the notice. All three ways in are local
-   to the machine, so no host has a say in any of them."
-  [url state reach]
-  (let [note (r/atom nil)]
-    (fn [url state reach]
-      (let [[what fix] (get image-failure-notes reach)]
+      (let [{:keys [level message fix]} (image-url/advise @settled)
+            unreachable (when (= :unavailable state) (get image-failure-notes reach))
+            ;; Name the branch rather than infer it later. Deriving it a second
+            ;; time from the text it produced is how the disclosure went missing:
+            ;; the test for "no advice" was made against a variable that by then
+            ;; held the unreachable line.
+            [mode shown-level shown-text]
+            (cond
+              message     [:advice level message]
+              unreachable [:unreachable
+                           (if (= :rate-limited reach) :warning :error)
+                           unreachable]
+              failed?     [:failed :error "That picture didn't load."]
+              :else       [nil nil nil])]
         (cond
           (= :pending state)
           [:div.f-s-12.m-t-5 "Reading image..."]
 
-          (and (= :unavailable state) what)
+          mode
           [:div
-           ;; Waiting on a host is a warning; nobody being able to reach it is not.
-           [:div {:class (notice-class (if (= :wait fix) :warning :error))}
-            [:span.field-notice-what what]
-            [:span.field-notice-do (get image-failure-advice fix)]]
-           [:div.field-remedy
-            [:span.field-remedy-title "Supply the picture yourself"]
-            ;; The step that makes the first button work, and it belongs with the
-            ;; button rather than in the notice above.
-            [:div.m-b-5 "Right-click the picture and choose Copy image, then:"]
-            [:div.field-remedy-row
-             [:button.form-button.p-5
-              {:on-click
-               (fn [_]
-                 (reset! note "Reading the copied image...")
-                 (image-capture/capture-clipboard
-                  (fn [payload]
-                    (reset! note (when-not payload
-                                   "No picture on the clipboard. Copy one first."))
-                    (dispatch [::char5e/image-captured url payload]))))}
-              "Use copied image"]
-             [:span "or paste it into the field above, or choose a file:"]
-             [:input {:type "file"
-                      :accept "image/png,image/jpeg"
-                      :on-change (fn [e]
-                                   (when-let [file (some-> e .-target .-files (aget 0))]
-                                     (image-capture/capture-file
-                                      file
-                                      #(dispatch [::char5e/image-captured url %]))))}]]
-            (when @note
-              [:div.m-t-5 @note])]]
+           [:div {:class (str "field-notice " (case shown-level
+                                                :error "is-error"
+                                                :warning "is-warning"
+                                                "is-note"))}
+            [:span.field-notice-what shown-text]
+            (cond
+              (and (= :advice mode) fix)
+              [:button.field-notice-action {:on-click #(set-fn fix)} (str "Use " fix)]
+
+              (= :unreachable mode)
+              [:button.field-notice-action {:on-click #(swap! open? not)}
+               (if @open? "Hide the other ways" "Supply it yourself")]
+
+              :else nil)]
+           (when (and (= :unreachable mode) @open?)
+             [:div.field-remedy
+              [:span "Right-click the picture, choose Copy image, then:"]
+              [:button.form-button.p-5
+               {:on-click
+                (fn [_]
+                  (reset! note "Reading the copied image...")
+                  (image-capture/capture-clipboard
+                   (fn [payload]
+                     (reset! note (when-not payload
+                                    "No picture on the clipboard. Copy one first."))
+                     (dispatch [::char5e/image-captured url payload]))))}
+               "Use copied image"]
+              [:span "or choose a file:"]
+              [:input {:type "file"
+                       :accept "image/png,image/jpeg"
+                       :on-change (fn [e]
+                                    (when-let [file (some-> e .-target .-files (aget 0))]
+                                      (image-capture/capture-file
+                                       file
+                                       #(dispatch [::char5e/image-captured url %]))))}]
+              (when @note [:span @note])])]
 
           :else nil)))))
 
@@ -2047,10 +2019,8 @@
        {:on-paste (image-paste image-url)}
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
-       [image-url-advice image-url image-url-failed set-image-url]
-       (when (and image-url (not image-url-failed))
-         [image-upload image-url (get image-bytes image-url)
-          (get server-reach image-url)])]]
+       [image-field-notice image-url image-url-failed
+        (get image-bytes image-url) (get server-reach image-url) set-image-url]]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -2063,11 +2033,9 @@
        {:on-paste (image-paste faction-image-url)}
        [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
-       [image-url-advice faction-image-url faction-image-url-failed
-        set-faction-image-url]
-       (when (and faction-image-url (not faction-image-url-failed))
-         [image-upload faction-image-url (get image-bytes faction-image-url)
-          (get server-reach faction-image-url)])]]
+       [image-field-notice faction-image-url faction-image-url-failed
+        (get image-bytes faction-image-url) (get server-reach faction-image-url)
+        set-faction-image-url]]]
      [:div.field
       [:span.personality-label.f-s-18 "Description/Backstory"]
       [character-textarea entity-values ::char5e/description "h-800"]]]))

@@ -18,32 +18,25 @@
    the picture's own address. Matched on the whole URL, first hit wins, so put the
    narrower patterns first."
   [[#"(?i)^https?://(?:[a-z0-9-]+\.)*pinterest\.[a-z.]+/pin/"
-    "That is the Pinterest page, not the picture on it."
-    "Right-click the pin's image and choose Copy image address -- it starts i.pinimg.com."]
+    "That's the Pinterest page -- right-click the pin and choose Copy image address."]
 
    [#"(?i)^https?://(?:www\.)?imgur\.com/(?!.*\.(?:png|jpe?g|gif|webp))"
-    "That is the Imgur page, not the picture on it."
-    "Open the image on its own and copy that address -- it starts i.imgur.com."]
+    "That's the Imgur page -- open the image itself and copy its address."]
 
    [#"(?i)^https?://(?:www\.)?reddit\.com/r/.+/comments/"
-    "That is the Reddit post, not the picture in it."
-    "Open the image and copy its address -- it usually starts i.redd.it."]
+    "That's the Reddit post -- open the image and copy its address."]
 
    [#"(?i)^https?://(?:www\.)?flickr\.com/photos/"
-    "That is the Flickr page, not the picture on it."
-    "Right-click the photo and choose Copy image address."]
+    "That's the Flickr page -- right-click the photo and Copy image address."]
 
    [#"(?i)^https?://(?:www\.)?deviantart\.com/.+/art/"
-    "That is the DeviantArt page, not the artwork itself."
-    "Right-click the artwork and choose Copy image address."]
+    "That's the DeviantArt page -- right-click the art and Copy image address."]
 
    [#"(?i)^https?://(?:www\.)?artstation\.com/artwork/"
-    "That is the ArtStation page, not the artwork itself."
-    "Right-click the artwork and choose Copy image address."]
+    "That's the ArtStation page -- right-click the art and Copy image address."]
 
    [#"(?i)^https?://(?:www\.)?(?:instagram\.com|facebook\.com)/"
-    "Instagram and Facebook require a login, so nothing can fetch the picture."
-    "Right-click the picture and choose Copy image, then use the button below."]])
+    "Instagram and Facebook need a login, so nobody can fetch the picture."]])
 
 (def ^:private known-image-hosts
   "Hosts that serve pictures straight, and often with no file extension to go by.
@@ -80,9 +73,9 @@
 
      :level   :error when it cannot work as written, :warning when it probably
               will not, :note when it merely might not
-     :message what is wrong
-     :advice  what to do about it
-     :fix     a corrected address, when one can be derived, else nil
+     :message one self-contained sentence, carrying its own fix where there is
+              one to describe
+     :fix     a corrected address, when one can be derived mechanically, else nil
 
    A :fix is only ever offered where the correction is mechanical. Nothing here
    guesses at a picture's address from a page's."
@@ -95,13 +88,11 @@
       (not= raw trimmed)
       {:level :warning
        :message "That address has a space at one end."
-       :advice "It will be trimmed."
        :fix trimmed}
 
       (re-find #"\s" trimmed)
       {:level :error
-       :message "That address has a space in the middle of it."
-       :advice "Copy the whole address again -- part of it is probably missing."
+       :message "That address has a space in it -- part of it is probably missing."
        :fix nil}
 
       ;; A scheme that is not the web. file:// and ftp:// are refused outright by
@@ -109,7 +100,6 @@
       (re-find #"(?i)^(?!https?://)[a-z][a-z0-9+.-]*:" trimmed)
       {:level :error
        :message "Only http and https addresses work here."
-       :advice "Use the address the picture has on the web."
        :fix nil}
 
       ;; No scheme at all, but it does look like a host and path.
@@ -117,37 +107,33 @@
            (re-find #"(?i)^[a-z0-9-]+(\.[a-z0-9-]+)+/" trimmed))
       {:level :error
        :message "That address is missing the https:// at the front."
-       :advice nil
        :fix (str "https://" trimmed)}
 
       (not (re-find #"(?i)^https?://" trimmed))
       {:level :error
-       :message "That does not look like a web address."
-       :advice "Right-click the picture and choose Copy image address."
+       :message "That doesn't look like a web address -- right-click the picture and Copy image address."
        :fix nil}
 
       ;; Dropbox share links serve a viewer page unless asked for the file.
       (and (re-find #"(?i)^https?://(www\.)?dropbox\.com/" trimmed)
            (re-find #"(?i)[?&]dl=0" trimmed))
       {:level :warning
-       :message "That Dropbox link opens the viewer page rather than the file."
-       :advice nil
+       :message "That Dropbox link opens the viewer page, not the file."
        :fix (s/replace trimmed #"(?i)([?&])dl=0" "$1raw=1")}
 
       ;; Google Drive share links have a well-known direct form.
       (re-find #"(?i)^https?://drive\.google\.com/file/d/([^/]+)" trimmed)
       {:level :warning
-       :message "That Google Drive link opens the viewer page rather than the file."
-       :advice "Drive also has to be sharing the file with anyone who has the link."
+       :message "That Drive link opens the viewer page, not the file."
        :fix (str "https://drive.google.com/uc?export=view&id="
                  (second (re-find #"(?i)^https?://drive\.google\.com/file/d/([^/]+)" trimmed)))}
 
       :else
       (or
        ;; Pages that show a picture, which is the commonest paste of all.
-       (some (fn [[pattern message advice]]
+       (some (fn [[pattern message]]
                (when (re-find pattern trimmed)
-                 {:level :error :message message :advice advice :fix nil}))
+                 {:level :error :message message :fix nil}))
              page-not-picture)
 
        ;; http works on the server but the browser will not display it: the
@@ -156,7 +142,6 @@
        (when (re-find #"(?i)^http://" trimmed)
          {:level :warning
           :message "This page can only display pictures over https."
-          :advice nil
           :fix (s/replace trimmed #"(?i)^http://" "https://")})
 
        ;; Weakest rule, so last, and only a note: plenty of hosts serve pictures
@@ -165,5 +150,4 @@
                   (not (known-image-host? trimmed)))
          {:level :note
           :message "That may be a page rather than the picture itself."
-          :advice "If no picture appears, right-click it and choose Copy image address."
           :fix nil})))))

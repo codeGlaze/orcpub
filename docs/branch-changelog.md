@@ -68,6 +68,13 @@ allowed the builder says so and offers an upload — which no host has a say in.
 
 ## Changed
 
+- **One line under a field, never four blocks.** A single unreachable picture
+  could raise a scheme warning, a suggested correction, a fetch failure and a
+  panel of controls at once -- six lines of prose and three controls to say that
+  one picture could not be had. Only the most actionable of them now shows: a
+  mechanical correction first, then what the address itself gives away, then what
+  the server found, then that it simply did not load. The other ways in wait
+  behind one disclosure, and most people never open it.
 - Controls live outside notices. A notice says what is wrong; a red panel holding
   a button, a sentence and a file picker is a control surface wearing an error's
   colours, and both halves get harder to read. A correction is now a question --

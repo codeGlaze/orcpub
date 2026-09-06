@@ -538,78 +538,60 @@
      :margin "4px 0 6px 0"
      :opacity "0.75"}]
 
-   ;; A notice under a field. Two parts with two jobs: the fault names itself in
-   ;; the severity colour, and the instruction -- the only part anyone acts on --
-   ;; is set brighter and heavier so it wins the eye. Run together in one colour
-   ;; and one weight, the vaguer half reads first and the useful half is skipped.
+   ;; ONE line under a field. One problem, one sentence, at most one action.
    ;;
-   ;; Inline rather than a hover tooltip on purpose: these carry buttons, and a
-   ;; tooltip that disappears when the pointer moves toward it cannot hold one.
-   ;; .tooltiptext is also fixed at 130px and absent on mobile.
+   ;; This replaced four stacked blocks -- two notices, a suggestion and a panel
+   ;; of controls -- that could all appear at once for a single unreachable
+   ;; picture. Six lines of prose and three controls to say "we cannot get this".
+   ;; Whatever is most actionable is the only thing shown; the rest waits behind
+   ;; the disclosure, and most people never need it.
    [:.field-notice
-    {:margin "6px 0 0 0"
-     :padding "8px 10px"
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "baseline"
+     :gap "8px"
+     :margin "6px 0 0 0"
+     :padding "6px 10px"
      :border-radius "4px"
      :border-left "3px solid currentColor"
      :background-color "rgba(255, 255, 255, 0.06)"
      :font-size "12px"
-     :line-height "17px"
-     :max-width "520px"}]
+     :line-height "18px"
+     :max-width "560px"}]
    [:.field-notice-what
-    {:display "block"}]
-   [:.field-notice-do
-    {:display "block"
-     :margin-top "4px"
-     :color "#ffffff"
-     :font-weight "600"}]
-   ;; Supporting detail inside a notice -- a corrected address, say. Neither the
-   ;; fault nor the instruction, so it takes neither of their treatments, and it
-   ;; breaks anywhere because a URL has no spaces to wrap at.
-   [:.field-notice-detail
-    {:display "block"
-     :margin-top "4px"
-     :opacity "0.75"
-     :word-break "break-all"}]
-   ;; Controls live OUTSIDE the notice. A notice says what is wrong; a panel of
-   ;; buttons and a file picker wearing an error's colours is a control surface
-   ;; pretending to be a message, and it makes the message harder to read and the
-   ;; controls harder to trust.
-   [:.field-remedy
-    {:margin "8px 0 0 0"
-     :padding "8px 10px"
-     :border-radius "4px"
-     :border "1px solid rgba(255, 255, 255, 0.12)"
-     :max-width "520px"
+    {:flex "1 1 260px"}]
+   ;; The one action a notice may carry, and only ever one. Set as a link, not a
+   ;; button: a notice that grows a control panel stops reading as a message.
+   [:.field-notice-action
+    {:background "none"
+     :border "none"
+     :padding "0"
      :font-size "12px"
-     :line-height "17px"}]
-   [:.field-remedy-title
-    {:display "block"
-     :font-weight "600"
-     :margin-bottom "6px"}]
-   [:.field-remedy-row
-    {:display "flex"
-     :flex-wrap "wrap"
-     :align-items "center"
-     :gap "10px"}
-    [:button
-     {:white-space "nowrap"}]]
-
-   ;; One offered correction for a named fault, sitting under its notice rather
-   ;; than inside it: a question, answered by clicking, not a command.
-   [:.field-suggestion
-    {:margin "6px 0 0 0"
-     :font-size "12px"
-     :line-height "17px"
-     :max-width "520px"}]
-   [:.field-suggestion-link
-    {:color orange
+     :font-family "inherit"
+     :color orange
      :cursor "pointer"
      :text-decoration "underline"
+     :white-space "nowrap"
      :word-break "break-all"}]
-
    [:.field-notice.is-error {:color red-on-dark}]
    [:.field-notice.is-warning {:color amber-on-dark}]
    [:.field-notice.is-note {:color muted-on-dark}]
+
+   ;; The other ways in, behind the disclosure. Plain: these are controls, not a
+   ;; second warning, and they are not urgent.
+   [:.field-remedy
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "center"
+     :gap "10px"
+     :margin "6px 0 0 0"
+     :padding "8px 10px"
+     :border-radius "4px"
+     :border "1px solid rgba(255, 255, 255, 0.12)"
+     :max-width "560px"
+     :font-size "12px"}
+    [:button
+     {:white-space "nowrap"}]]
 
    [:.image-thumbnail
     {:max-height "100px"
@@ -1601,8 +1583,6 @@
       [:a :a:visited {:color red}]]
      [:.field-notice
       {:background-color "rgba(0, 0, 0, 0.05)"}]
-     [:.field-notice-do
-      {:color "#1a1e28"}]
      [:.field-remedy
       {:border "1px solid rgba(0, 0, 0, 0.18)"}]
      [:.field-notice.is-error {:color red}]

@@ -23,14 +23,15 @@
 // Exit code 0 = all checks passed.
 const fs = require('fs');
 const os = require('os');
-const http = require('http');
+const https = require('https');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const zlib = require('zlib');
 const { chromium } = require('playwright');
 
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const IMG_PORT = Number(process.env.ORCPUB_E2E_IMG_PORT || 8899);
-const IMG_ORIGIN = `http://127.0.0.1:${IMG_PORT}`;
+const IMG_ORIGIN = `https://127.0.0.1:${IMG_PORT}`;
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'image-capture-'));
 
 function findChrome() {
@@ -87,9 +88,23 @@ const BIG_PNG = bigNoisyPng(1400);
 // Serves the picture, optionally with the header that lets a page read it back
 // off a canvas. `hits` records who asked, which is how the run shows the browser
 // fetched it and the server did not.
+// A self-signed cert, made fresh each run. The origin has to be https: a real
+// portrait is, and an http one draws the CSP advice, which would mask the case
+// this file is actually about -- a picture nobody can read.
+function selfSignedCert() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-cert-'));
+  const key = path.join(dir, 'k.pem');
+  const cert = path.join(dir, 'c.pem');
+  execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+    '-keyout', key, '-out', cert, '-days', '1',
+    '-subj', '/CN=127.0.0.1', '-addext', 'subjectAltName=IP:127.0.0.1'],
+    { stdio: 'ignore' });
+  return { key: fs.readFileSync(key), cert: fs.readFileSync(cert) };
+}
+
 function imageOrigin() {
   const state = { cors: true, delayMs: 0, hits: [] };
-  const server = http.createServer((req, res) => {
+  const server = https.createServer(selfSignedCert(), (req, res) => {
     state.hits.push({ url: req.url, agent: req.headers['user-agent'] || '',
                       mode: req.headers['sec-fetch-mode'] || '?', origin: req.headers.origin || '-' });
     const body = req.url.includes('big') ? BIG_PNG : PNG;
@@ -220,6 +235,8 @@ async function exportPressable(page) {
     executablePath: findChrome(), args: ['--ssl-version-max=tls1.2'] });
   const ctx = await browser.newContext({ acceptDownloads: true,
     viewport: { width: 1500, height: 1100 },
+    // The test origin's certificate is self-signed and made moments ago.
+    ignoreHTTPSErrors: true,
     permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage();
 
@@ -303,7 +320,18 @@ async function exportPressable(page) {
 
     // The offer is identified by its button; the sentence above it varies with
     // the reason the server gave.
-    const prompt = /Use copied image/i;
+    // The notice names the fault; the ways in wait behind this.
+    const prompt = /Supply it yourself/i;
+    // The controls live behind the disclosure now, so anything that uses them
+    // has to open it first.
+    const openRemedy = async () => {
+      if (await waitForText(prompt, 25000)) {
+        await page.getByText('Supply it yourself').first().click();
+        await page.waitForTimeout(600);
+        return true;
+      }
+      return false;
+    };
     // The builder asks the server about this URL the moment the browser gives up,
     // and says nothing until that answer comes back: the server fetches plenty of
     // pictures the page may not read. Here it cannot -- the URL is loopback, which
@@ -322,19 +350,25 @@ async function exportPressable(page) {
 
     // Not just THAT it failed but WHY, and which thing is worth fixing. The test
     // origin is loopback, which this server refuses by design.
+    await openRemedy();
     const shown = await page.innerText('body');
-    check('it says what went wrong, and what to do about it',
-          /That address cannot be fetched/i.test(shown) &&
-          /point straight at an image file/i.test(shown),
-          'reason + the fix that matches it');
+    check('it says what went wrong in one line',
+          /That address can't be fetched|couldn't be reached|won't serve/i.test(shown),
+          'one sentence, not a paragraph');
 
     // A notice states the fault. Anything clickable belongs outside it, or the
     // message becomes a control surface wearing an error's colours.
-    const buttonsInsideNotices = await page.evaluate(() =>
-      [...document.querySelectorAll('.field-notice')]
-        .reduce((n, el) => n + el.querySelectorAll('button, input, a').length, 0));
-    check('no controls are buried inside a notice', buttonsInsideNotices === 0,
-          `${buttonsInsideNotices} found`);
+    // A notice may carry ONE action and no form controls. More than that and it
+    // stops being a message: four stacked blocks with three controls is what this
+    // replaced.
+    const noticeShape = await page.evaluate(() =>
+      [...document.querySelectorAll('.field-notice')].map(el => ({
+        actions: el.querySelectorAll('button, a').length,
+        fields: el.querySelectorAll('input, select, textarea').length })));
+    check('a notice carries at most one action and no form controls',
+          noticeShape.every(n => n.actions <= 1 && n.fields === 0), JSON.stringify(noticeShape));
+    check('only one notice is shown at a time',
+          noticeShape.length <= 1, ` notices`);
 
     await page.screenshot({ path: path.join(OUT, 'host-refused.png'), fullPage: true });
     const refused = await exportSheet(page, 'cors-refused');
@@ -387,6 +421,7 @@ async function exportPressable(page) {
     // ---- the upload stands in for it ----------------------------------------
     const local = path.join(OUT, 'uploaded.png');
     fs.writeFileSync(local, PNG);
+    await openRemedy();
     const fileInput = page.locator('span', { hasText: /^Image URL/ })
       .locator('xpath=following::input[@type="file"][1]').first();
     await fileInput.setInputFiles(local);
@@ -449,6 +484,7 @@ async function exportPressable(page) {
         new ClipboardItem({ 'image/png': new Blob([arr], { type: 'image/png' }) })]);
     }, PNG.toString('base64'));
 
+    await openRemedy();
     await page.getByText('Use copied image').first().click();
     await page.waitForTimeout(2500);
 
@@ -469,11 +505,11 @@ async function exportPressable(page) {
           await waitForText(/Pinterest page/i, 10000));
 
     await setImageUrl(page, 'i.imgur.com/aBcDeF.png', 300);
-    // Offered as a question under the notice, not as a button inside it.
-    const offered = await waitForText(/Did you mean/i, 10000);
+    // The one action a notice may carry: the correction, beside the fault.
+    const offered = await waitForText(/Use https:\/\//i, 10000);
     check('a missing scheme is offered as a correction', offered);
     if (offered) {
-      await page.locator('.field-suggestion-link').first().click();
+      await page.locator('.field-notice-action').first().click();
       const fixed = await (async () => {
         const until = Date.now() + 8000;
         while (Date.now() < until) {
