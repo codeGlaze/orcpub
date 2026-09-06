@@ -1,7 +1,7 @@
 // Do the class handlers still WORK after being unmemoized?
 //
-// set-class, set-class-level, add-class and delete-class were wrapped in cljs.core/memoize
-// (see docs/kb/perf-homebrew-builder-loop.md). Removing it gives a fresh closure per render,
+// set-class, set-class-level, add-class and delete-class were wrapped in cljs.core/memoize.
+// Removing it gives a fresh closure per render,
 // which should be behaviourally identical -- but these are the handlers that mutate the
 // character, and neither test suite clicks anything. This drives them for real and asserts
 // app-db afterwards.

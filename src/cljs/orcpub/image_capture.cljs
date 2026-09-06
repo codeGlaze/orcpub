@@ -13,8 +13,9 @@
    and cannot be suppressed from here. The caller then falls back to the server,
    and past that to a copy or a file.
 
-   docs/kb/character-image-routes.md has what else was tried and why it cannot
-   work."
+   There is no way round a refusal from here: a tab or iframe showing the picture
+   is a different origin the opener cannot read, and a service worker fetching it
+   no-cors gets an opaque response whose bytes it cannot read either."
   (:require [clojure.string :as s]))
 
 (def ^:private max-bytes

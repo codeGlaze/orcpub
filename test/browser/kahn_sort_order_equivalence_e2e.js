@@ -22,7 +22,7 @@
 // Run:  node test/browser/kahn_sort_order_equivalence_e2e.js
 // Exit 0 = every order identical.
 //
-// RE-RUN THIS ANY TIME kahn-sort CHANGES. See docs/kb/perf-entity-build.md section 6.
+// RE-RUN THIS ANY TIME kahn-sort CHANGES.
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 function findChrome(){const base=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';try{const d=fs.readdirSync(base).filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).sort().pop();if(d){const p=path.join(base,d,'chrome-linux','chrome');if(fs.existsSync(p))return p;}}catch(_){}return undefined;}

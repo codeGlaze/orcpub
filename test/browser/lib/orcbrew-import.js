@@ -2,9 +2,8 @@
 //
 // WHY THIS EXISTS: a real pack with overlapping keys makes the app open a conflict modal
 // and WAIT. A probe that only polls app-db sees the plugin count stay put and concludes the
-// import "failed" — three long runs were lost to exactly that, and CLAUDE.md warns about it
-// in as many words ("a static-file server + dispatch_sync can't surface an import-conflict
-// modal, and it misled a previous pass into a false conclusion").
+// import "failed" — three long runs were lost to exactly that. A static-file server driven
+// by dispatch_sync cannot surface an import-conflict modal at all, so it never sees this.
 //
 // Races the two legitimate outcomes instead of assuming either: the import may land
 // straight away, or it may park on the modal. A FIXED sleep before clicking is not enough —

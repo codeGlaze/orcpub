@@ -162,11 +162,10 @@ so the helper races both outcomes until one lands.
 
 The homebrew probes are perf instruments, not pass/fail tests — they print numbers.
 `:optimizations :none` makes LOAD-time numbers from the dev build meaningless; only their
-runtime numbers are usable. See `docs/kb/perf-homebrew-builder-loop.md`.
-Before writing a new probe, read `docs/kb/verification-discipline.md` — it lists the probe
-defects that have produced confident wrong answers here (a control that suppresses what it
-measures, instrumentation that cannot intercept, a dead probe reporting silence, truncated
-stacks, self time on allocation-heavy code).
+runtime numbers are usable.
+Before writing a new probe, know the defects that have produced confident wrong answers
+here: a control that suppresses what it measures, instrumentation that cannot intercept, a
+dead probe reporting silence, truncated stacks, self time on allocation-heavy code.
 
 
 Some of these still boot a static server (an older pattern being migrated to `lein e2e-server`).

@@ -141,8 +141,8 @@ function run(probe, pack, budgetMs) {
 
   if (!serverUp) {
     console.log(`note: nothing listening at ${SERVER}, so only the standalone probes will run.`);
-    console.log('      (Do NOT run other lein commands while e2e-server boots: the .lein-env');
-    console.log('       race makes it come up against the wrong database. See docs/kb/fast-browser-probes.md.)\n');
+    console.log('      (Do NOT run other lein commands while e2e-server boots: it rewrites');
+    console.log('       .lein-env, and the server comes up against the wrong database.)\n');
   }
 
   const baseline = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : {};

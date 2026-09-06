@@ -259,7 +259,7 @@
    turns it into modifier application order, so two equally valid topological orders are
    NOT interchangeable — swapping them can change a computed AC. Pinned against the
    pre-rewrite implementation in entity_build_perf_test (JVM) and by an in-browser
-   equivalence run (CLJS); see docs/kb/perf-entity-build.md.
+   equivalence run (CLJS).
 
    What changed: the old version called no-incoming — a full pass over the graph — once
    per node, making the sort O(V*(V+E)) and 74% of entity/build. In-degrees are now

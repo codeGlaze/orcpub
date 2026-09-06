@@ -15,7 +15,7 @@
 //
 // NOTE: the dev build is :optimizations :none, so LOAD-time numbers from it are
 // meaningless — a cold builder load measures hundreds of file fetches, not the app. Only
-// the runtime numbers here are usable. See docs/kb/perf-homebrew-builder-loop.md.
+// the runtime numbers here are usable.
 
 const fs=require('fs'),path=require('path');const {chromium}=require('playwright');
 const { importPack } = require('./lib/orcbrew-import');

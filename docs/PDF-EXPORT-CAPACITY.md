@@ -212,9 +212,6 @@ Do **not** use `totalMemory - freeMemory` for either question: it counts
 allocation not yet collected and misses allocation already collected, so it
 answers neither churn nor footprint.
 
-Deeper notes on where the cost sits inside the PDF code — and what was removed to
-get here — are in `docs/kb/pdf-form-techniques.md`.
-
 ## What bounds the work one request can buy
 
 The queue limits how many exports run at once and how long a request waits for a

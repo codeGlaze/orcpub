@@ -8,8 +8,7 @@ against the current stack (the peer is on Datomic Pro now, which the analysis
 predates).  
 **Severity:** Critical *if it still happens* — at time of report, 3–5 crashes per
 day at 2–3 min downtime each  
-**Reported:** 2026-02-26  
-**KB doc:** [docs/kb/datomic-crash-analysis.md](kb/datomic-crash-analysis.md)
+**Reported:** 2026-02-26
 
 ### Summary
 
@@ -40,7 +39,6 @@ already done). What remains is the **storage backend migration**:
 
 - `docker/datomic/` — transactor container and config templates
 - `docs/migration/datomic-pro.md` — peer library already migrated to Pro
-- `docs/kb/datomic-crash-analysis.md` — full root cause analysis with log evidence
 
 ---
 
@@ -96,7 +94,6 @@ otherwise stubbornly persist.
 
 **Status:** Open
 **Severity:** Low — enhancements; the shipped resolution already removes the data bug
-**KB doc:** [docs/kb/library-management-and-conflicts.md](kb/library-management-and-conflicts.md)
 
 The My Content library, duplicate-key resolution, disabled-reason badges, the
 mutual-exclusion UX, the opinionated (summary-first) import, the four-level
@@ -132,7 +129,7 @@ so upstream updates never clobber their edits).
   library is 13 sources in memory but ONE localStorage value (measured: 2,166,081
   chars for MegaPak), so every save rewrites the whole thing and every load parses
   it back through a single blocking `read-string` (~750 ms). A full phased design
-  exists: [docs/kb/plan-chunked-library-storage.md](kb/plan-chunked-library-storage.md).
+  exists.
   **Deliberately parked**: that ~750 ms is a one-time load cost, while the reported
   problem is the click loop (race/class selection), where no storage read happens
   at all. It also does not raise the ceiling. Revisit if cold load becomes the
@@ -150,8 +147,6 @@ so upstream updates never clobber their edits).
 **Severity:** was Medium — a broken feature for users
 **Reported:** 2026-09-04 · **Built:** 2026-09-05
 **Runbook:** [docs/CHARACTER-IMAGE-FETCH.md](CHARACTER-IMAGE-FETCH.md)
-**KB doc:** [docs/kb/character-image-routes.md](kb/character-image-routes.md) — the
-measurements, the two traps that cost a day, and what cannot be made to work
 
 ### What was built
 
@@ -281,9 +276,8 @@ past the breakpoint and widen a phone-emulated one.
 
 ## Window the combobox row list, and reach the 969-option monster picker
 
-Two related follow-ups from the Equipment combobox
-(`docs/kb/equipment-option-picker.md`). Neither is urgent; both are recorded so the
-measurements behind them are not re-derived.
+Two related follow-ups from the Equipment combobox. Neither is urgent; both are
+recorded so the measurements behind them are not re-derived.
 
 ### Windowing
 
@@ -295,8 +289,8 @@ unthrottled, fine today. It scales linearly, so a 3000-item section extrapolates
 Mounting only the rows in view plus a buffer, updated on scroll, is the only
 approach that reduces the work rather than rescheduling it. **Prefetch-then-expand
 was tried and does not work** — measured 55/64/53 ms against a 62 ms baseline, pure
-noise, because the deferred chunk is still one large mount. See the KB doc for the
-two traps that version hit.
+noise, because the deferred chunk is still one large mount. That version hit two traps: the row budget must
+be able to reach every match, and it has to expand synchronously on an arrow key.
 
 Costs to weigh: browser find-in-page stops working over unmounted rows, and the
 keyboard highlight must force its row to mount before scrolling to it.

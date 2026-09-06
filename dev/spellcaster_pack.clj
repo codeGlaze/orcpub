@@ -11,7 +11,6 @@
 ;;
 ;; Packs are kept under ~2.5 MB on purpose: localStorage caps at ~5 MB per origin, and a
 ;; pack that fails to persist silently measures a builder with no homebrew in it at all.
-;; See docs/kb/perf-homebrew-builder-loop.md.
 (require '[clojure.edn :as edn])
 
 (def orig (edn/read-string (slurp "test/fixtures/test-pak.orcbrew")))

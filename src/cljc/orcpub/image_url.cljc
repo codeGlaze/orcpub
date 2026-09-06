@@ -10,10 +10,7 @@
    Nothing here blocks anything: what must hold is enforced where it cannot be
    argued with, by address validation on the server and by CORS in the browser. So
    this is free to be occasionally wrong, and its weakest rule -- an unknown host
-   with no file name -- is only a note.
-
-   docs/kb/character-image-routes.md carries the measurements behind the host
-   lists."
+   with no file name -- is only a note."
   (:require [clojure.string :as s]))
 
 (def ^:private page-not-picture

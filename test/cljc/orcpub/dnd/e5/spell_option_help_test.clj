@@ -3,8 +3,7 @@
 
    `spell-option` builds `:help` — the spell's peek panel — eagerly for every spell, for
    every class whose list contains it. It is 78% of the cost of building a spell option and
-   most of the retained hiccup (docs/kb/perf-homebrew-builder-loop.md). The fix is to store
-   a thunk and force it at render.
+   most of the retained hiccup. The fix is to store a thunk and force it at render.
 
    These tests are written to pass BOTH before and after that change: they assert the
    CONTENT a renderer ends up with, via `force-help`, not the representation. That is the

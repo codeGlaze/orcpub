@@ -7,7 +7,7 @@
 ;; overwrites of the same keys, and every pack is read back with clojure.edn and counted
 ;; before it is reported.
 ;;
-;; TWO TRAPS, both hit for real (docs/kb/perf-homebrew-builder-loop.md):
+;; TWO TRAPS, both hit for real:
 ;;   *print-length* is 50 under this project's lein profiles. Writing EDN with pr-str
 ;;   without binding it to nil emits "..." and produces a silently truncated, unreadable
 ;;   file — which then hangs a browser import for the full timeout. Hence the binding below.

@@ -538,7 +538,7 @@
 
    ;; ONE line under a field: one problem, one sentence, at most one action. Only
    ;; the most actionable of the things that may be wrong is shown; the rest waits
-   ;; behind the disclosure. See docs/kb/character-image-routes.md.
+   ;; behind the disclosure.
    [:.field-notice
     {:display "flex"
      :flex-wrap "wrap"

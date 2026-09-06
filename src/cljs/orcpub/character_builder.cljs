@@ -182,7 +182,7 @@
 ;;
 ;; If a handler factory is ever hot enough to need caching, key it on something
 ;; small (an index, a keyword) -- never on options, a character, a template or a
-;; content map. docs/kb/perf-homebrew-builder-loop.md
+;; content map.
 ;; ---------------------------------------------------------------------------
 
 (defn set-class-fn [i options-map]
@@ -2135,9 +2135,7 @@
    The other ways in wait behind the disclosure. Advice is held back until typing
    stops -- the field commits on every keystroke, so it would otherwise object to
    `htt` on the way to `https://` -- while a load failure is not, being already an
-   answer about the address as typed.
-
-   docs/kb/character-image-routes.md carries the rules these fields follow."
+   answer about the address as typed."
   [_url _failed? _state _reach _set-fn]
   (let [settled (r/atom nil)
         timer (atom nil)
