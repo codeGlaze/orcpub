@@ -150,8 +150,6 @@ so upstream updates never clobber their edits).
 **Severity:** was Medium — a broken feature for users
 **Reported:** 2026-09-04 · **Built:** 2026-09-05
 **Runbook:** [docs/CHARACTER-IMAGE-FETCH.md](CHARACTER-IMAGE-FETCH.md)
-**KB doc:** [docs/kb/character-image-routes.md](kb/character-image-routes.md) — the
-measurements, the two traps that cost a day, and what cannot be made to work
 
 ### What was built
 
