@@ -119,3 +119,8 @@ design_handoff_character_menus
 # test/browser/; the packs are regenerable and must not be committed.
 /dev-scratch/
 dev-scratch/shots/
+
+# Throwaway probe scripts at repo root (_pop.js, _mob.js …). Real probes live in
+# test/browser/ — see docs/kb/fast-browser-probes.md. This stops `git add -A` sweeping
+# a hardcoded-path scratch file into a commit, which happened twice in one session.
+_*.js
