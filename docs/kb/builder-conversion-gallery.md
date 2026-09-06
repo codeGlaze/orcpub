@@ -59,6 +59,17 @@ cmp docs/kb/assets/builder-comparison/witness-old-build-fighting-style.jpg \
     target/e2e-shots/gallery-after/fighting-style-builder.jpg      # differs -> old build was live
 ```
 
+**Both frames are captured at the conversion commit (`2e91037d`), and HEAD no longer matches them.**
+The later design pass gave the two head fields equal columns, which changes *every* generated
+builder — see `language-current.jpg`. That is a deliberate change made after the conversion, not a
+crack in the claim: the conversion changed nothing, and then something else deliberately did. The
+pair stays pinned at the commit it is evidence for, because re-shooting it at HEAD would quietly
+turn a proof into a picture.
+
+| at the conversion (evidence above) | HEAD, after the design pass |
+|---|---|
+| unequal head columns, as the bespoke form had them | ![current](assets/builder-comparison/language-current.jpg) |
+
 ### The code
 
 ```clojure
@@ -298,19 +309,65 @@ which is five controls plus eight domain widgets.
 
 ---
 
-## Known design gaps (measured, not yet fixed)
+## The design pass — three gaps, and the grouping question
 
-`mockup-parity.js` only compares elements that HAVE a mockup counterpart. These have none, or sit
-outside the effects UI, and are open:
+All three are fixed. The grouping question is worth answering first, because it decided one of them.
 
-- **Name and Option Source are unequal columns.** The mockup gives them `flex: 1 1 200px` each; the
-  app's are noticeably different widths. It lives in `simple-content-builder`, so changing it changes
-  **every** generated builder — including the language pair whose byte-identical property is a
-  documented claim above. Worth doing, but it is a deliberate change to that pair, not a tweak.
-- **The `:multi-enum` checkbox row is unstyled** relative to everything around it — the checkbox and
-  its label run together and the row has no rhythm with the fields above.
-- **Row bodies could use more breathing room**; the mockup's `.grp > .body` padding is 12px and the
-  app's inner spacing is inherited from generic utility classes rather than set for this context.
+### Does grouping help? Yes — one heading, not more boxes
 
-None of these are guessed — each is visible in
-`assets/builder-comparison/fighting-style-rows-authored.jpg` against the mockup's proposed column.
+The page holds three kinds of thing, and only the third was announced:
+
+| | before |
+|---|---|
+| what the content **is** — name, source, description | no heading |
+| who may **take** it — classes | an orphaned checkbox row |
+| what it **does** — effects | `EFFECTS` |
+
+That is most of why the classes row read as unstyled: it was the only field on the page with no
+context around it. So a field may now declare `:section`, rendered as a heading in the same style as
+`EFFECTS` — the classes field declares `"Available to"`. **Boxing** the identity fields was
+considered and rejected: a border around name/source/description is chrome for its own sake, and it
+would make the page read as three equal containers when one of them is just "what is this".
+
+### The three gaps
+
+- **Unequal head columns** — fixed. Both fields were `.flex-grow-1` with an auto basis, so the one
+  with the longer label (*Option Source Name* carries an italic example) simply took more room. The
+  widths were an accident of the label text. Now `flex: 1 1 200px` each.
+- **The `:multi-enum` row** — fixed, as toggle chips rather than checkboxes. The form already says
+  *a thing carrying a value is orange* (the add-bar, and `select.set`); a row of bare checkboxes
+  squeezed against their labels was the one control not speaking that language.
+- **Row body spacing** — fixed. `.effect-row-body` owns 12px, matching the mockup, instead of
+  inheriting a generic utility.
+
+**One thing the chips broke, caught immediately:** an *unchosen* toggle looked exactly like an
+*action* chip in the add-bar — same shape, different question. Unchosen toggles are now muted and
+chosen ones solid orange, which keeps the one rule intact. It also broke `mockup-parity.js`, whose
+bare `.chip` selector had started comparing a toggle against the mockup's action chip; both sides
+are `.addbar`-qualified now. A comparison that matches the wrong element reports a difference that
+is really its own bug.
+
+---
+
+## What it looks like as effects are removed
+
+Every other picture here is of a form being *filled*. Removal is the other half of a `:rows` form,
+and `test/e2e/row-removal-states.js` photographs it — and checks it, because "looks empty" and "is
+empty" are different claims.
+
+| one effect removed | all removed |
+|---|---|
+| ![one removed](assets/builder-comparison/rows-one-removed.jpg) | ![all removed](assets/builder-comparison/rows-all-removed.jpg) |
+
+The add-bar comes back carrying **exactly** the removed effect (`+ Damage Bonus`), the surviving
+rows close up, and removing all three returns the form to its starting state rather than to a third
+state that merely looks like it. The script asserts that as well as shooting it:
+
+- remaining rows, and the chips the add-bar offers, at each step;
+- `:props` is `{}` afterwards — the row's data is gone, not nil-filled. This is why removal needed a
+  real `remove-<base>-prop` event: `assoc-in` with nil leaves the key present and the `:props`
+  compiler reads it.
+- no JS errors during any of it.
+
+Page height tracks the state honestly: 1531px authored → 1400px with one removed → 1400px empty
+(the bare form is already the shorter of the two, so removing the last rows changes nothing further).

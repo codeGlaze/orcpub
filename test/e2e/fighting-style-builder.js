@@ -121,29 +121,28 @@ const { check, report } = checker();
   // fighting-style class (the fallback), so this control exists to author the NARROWER case.
   const classLabels = await page.evaluate(() => {
     const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-    const hdr = [...document.querySelectorAll('div,span')]
-      .find(e => /classes that may take this style/i.test(e.textContent.trim()) && e.children.length <= 1);
-    if (!hdr) return null;
-    for (let n = hdr.parentElement, i = 0; n && i < 4; n = n.parentElement, i++) {
-      const names = [...n.querySelectorAll('span')].map(s => s.textContent.trim())
-        .filter(t => /^(fighter|paladin|ranger)$/i.test(t));
-      if (names.length) return [...new Set(names)];
-    }
-    return [];
+    return [...document.querySelectorAll('.chip-row .chip')]
+      .filter(vis).map(e => e.textContent.trim());
   });
   check('the :classes control offers exactly the classes that HAVE the feature',
         !!classLabels && classLabels.length === 3, JSON.stringify(classLabels));
+  check('and it sits under its own section heading', await page.evaluate(() =>
+    [...document.querySelectorAll('.rows-title')].some(e => /available to/i.test(e.textContent))));
 
   const tickedPaladin = await page.evaluate(() => {
-    const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
-    const el = [...document.querySelectorAll('span')]
-      .filter(e => e.textContent.trim() === 'Paladin' && vis(e))[0];
-    if (!el) return false;
-    (el.closest('.pointer') || el.parentElement).click();
+    const b = [...document.querySelectorAll('.chip-row .chip')]
+      .find(e => e.textContent.trim() === 'Paladin');
+    if (!b) return false;
+    b.click();
     return true;
   });
   check('ticked Paladin', tickedPaladin);
   await page.waitForTimeout(500);
+  // A chip carrying a value is orange — the same rule the add-bar and select.set follow. Pin the
+  // state, since it is now the only thing distinguishing chosen from unchosen.
+  check('and the chosen chip is marked as set', await page.evaluate(() =>
+    [...document.querySelectorAll('.chip-row .chip')]
+      .filter(e => e.classList.contains('chip-on')).map(e => e.textContent.trim()).join() === 'Paladin'));
 
   const nameInput = await controlFor(page, 'Name');
   if (nameInput) { await nameInput.fill('Bulwark'); await nameInput.dispatchEvent('change'); }

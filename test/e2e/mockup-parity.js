@@ -33,7 +33,10 @@ const PAIRS = [
   ['group box',    '.grp',            '.effect-row',           ['borderTopWidth', 'borderTopColor', 'borderRadius']],
   ['group header', '.grp > header',   '.effect-row-header',    ['backgroundColor', 'paddingTop', 'paddingLeft', 'borderBottomColor', 'borderBottomWidth']],
   ['group title',  '.grp > header b', '.effect-row-header span', ['color', 'fontSize', 'letterSpacing', 'textTransform']],
-  ['add chip',     '.chip',           '.chip',                 ['borderStyle', 'borderColor', 'color', 'borderRadius', 'fontSize', 'fontWeight']],
+  // .addbar-qualified on BOTH sides: an add-bar chip is an action, and the :multi-enum toggle
+  // chips (muted until chosen) are a different question wearing the same shape. Comparing a bare
+  // `.chip` picks whichever comes first in the DOM and silently compares the two.
+  ['add chip',     '.addbar .chip',   '.addbar .chip',         ['borderStyle', 'borderColor', 'color', 'borderRadius', 'fontSize', 'fontWeight']],
   ['sub-heading',  '.whenlbl',        '.when-label',           ['color', 'fontSize', 'textTransform', 'letterSpacing']],
   ['tag label',    '.tag span',       '.tag-label',            ['fontSize', 'color', 'fontWeight']],
   ['tag select',   '.tag select',     '.tag select',           ['minWidth', 'fontSize', 'paddingTop', 'paddingLeft']],

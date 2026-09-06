@@ -72,6 +72,7 @@
   ;; this is not :required?.
   [{:key :classes
     :type :multi-enum
+    :section "Available to"
     :label "Classes that may take this style"
     :options fighting-style-class-options}])
 

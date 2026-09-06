@@ -308,6 +308,29 @@
      :text-transform :uppercase
      :letter-spacing "0.07em"
      :margin "2px 0 7px"}]
+   [:.form-head
+    {:gap "12px"}]
+   ;; equal columns: an explicit basis, so a field's width stops depending on how long its label is
+   [:.form-col
+    {:flex "1 1 200px"
+     :min-width "200px"}]
+   [:.effect-row-body
+    {:padding "12px"}]
+   ;; A toggle chip and an ACTION chip must not look alike. In the add-bar a chip means "click to
+   ;; add"; in a :multi-enum it means "this is/is not chosen". Same shape, different question — so
+   ;; an unchosen toggle is muted, and a chosen one is solid orange, which also keeps the form's
+   ;; one rule intact: a thing carrying a value is orange.
+   [:.chip-row
+    {:gap "8px"
+     :margin-bottom "6px"}
+    [:.chip
+     {:border-color "rgba(255,255,255,0.3)"
+      :color "rgba(255,255,255,0.55)"}]
+    [:.chip-on
+     {:background-color "rgba(240,161,0,0.15)"
+      :border-style :solid
+      :border-color "#f0a100"
+      :color "#f0a100"}]]
    [:.rows-title
     {:font-size "13px"
      :font-weight 700

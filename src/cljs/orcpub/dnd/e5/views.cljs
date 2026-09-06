@@ -7539,7 +7539,7 @@
                    lead     (first (filter #(= (:key %) lead-key) fields))
                    tags     (remove #(= (:key %) lead-key) fields)
                    shown    (filter #(or (not (:when %)) ((:when %) item)) tags)]
-               [:div.p-10
+               [:div.effect-row-body
                 [:div.flex.align-items-end.flex-wrap
                  [:div.row-lead-num
                   ;; The row header already says "AC Bonus"; repeating it on the number inside is
@@ -7607,20 +7607,21 @@
          ;; "which of these apply" — a SET, so the control is checkboxes. A <select multiple> is
          ;; worse on every axis here: it hides options behind a scroll, needs a modifier key to
          ;; deselect, and reads back a DOMStringList.
+         ;; Toggle chips rather than checkboxes: this form already says "a thing carrying a value
+         ;; is orange" (the add-bar chips, and select.set on a tag), and a row of bare checkboxes
+         ;; squeezed against their labels was the one control not speaking that language.
          :multi-enum (let [chosen (set v)]
-                       [:div.flex.flex-wrap
+                       [:div.flex.flex-wrap.chip-row
                         (doall
                          (for [{:keys [value title]} options]
                            ^{:key (str value)}
-                           [:div.m-r-20.m-b-5
-                            [comps/labeled-checkbox
-                             title
-                             (contains? chosen value)
-                             false
-                             #(dispatch [set-prop path
-                                         (if (contains? chosen value)
-                                           (disj chosen value)
-                                           (conj chosen value))])]]))])
+                           [:button.chip
+                            {:class (when (contains? chosen value) "chip-on")
+                             :on-click #(dispatch [set-prop path
+                                                   (if (contains? chosen value)
+                                                     (disj chosen value)
+                                                     (conj chosen value))])}
+                            title]))])
          :number [number-field {:value v
                                 :on-change #(dispatch [set-prop path %])}]
          ;; :text
@@ -7644,18 +7645,22 @@
         ;; same field set whether the form is flat or grouped.
         problems (bf/validate-fields (bf/flatten-fields (filter map? extra-fields)) item)]
     [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [builder-input-field
-       "Name"
-       :name
-       item
-       set-prop
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       item
-       set-prop]
-      ]
+     ;; Equal columns. Both fields were .flex-grow-1 with an auto basis, so the one with the longer
+     ;; label (Option Source Name carries an italic example) simply took more room — the widths were
+     ;; an accident of the label text, not a decision.
+     [:div.flex.w-100-p.flex-wrap.form-head
+      [:div.form-col
+       [builder-input-field
+        "Name"
+        :name
+        item
+        set-prop
+        "m-b-20"]]
+      [:div.form-col
+       [plugin-datalist
+        option-source-name-label
+        item
+        set-prop]]]
      [:div.w-100-p
       [:div.f-s-24.f-w-b
        "Description"]
@@ -7668,7 +7673,15 @@
              (map (fn [f]
                     (cond
                       (:rows f) [rows-node item set-prop f]
-                      (map? f)  (render-builder-field item set-prop f)
+                      ;; A field may open a SECTION. The page holds three kinds of thing — what the
+                      ;; content is, who may take it, and what it does — and only the last had a
+                      ;; heading, which is most of why the classes row read as orphaned. One heading
+                      ;; is cheaper than boxing everything, and boxing the identity fields would be
+                      ;; chrome for its own sake.
+                      (map? f)  (if-let [section (:section f)]
+                                  [:div [:div.rows-title section]
+                                        [render-builder-field item set-prop f]]
+                                  [render-builder-field item set-prop f])
                       :else     f))
                   extra-fields)))
      [builder-notes problems {:severity :error}]]))
