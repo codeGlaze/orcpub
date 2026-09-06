@@ -1711,7 +1711,8 @@
                            include-name?
                            owner
                            show-owner?
-                           show-follow?]
+                           show-follow?
+                           & [editable?]]
   (let [username @(subscribe [:username])
         display-name (when include-name? (character-display-name summary))
         ;; parsed {:layers :colors :tweaks} map, or nil — see char/portrait
@@ -1719,16 +1720,9 @@
     [:div.flex.justify-cont-s-b.w-100-p.align-items-c
      [:div.flex.align-items-c.align-items-t
       ;; a composed portrait wins over image-url when both are present; falls
-      ;; back to the pasted URL, then to nothing (existing behavior).
-      (cond
-        (seq (:layers portrait-data))
-        [:div.m-r-20.m-t-10.m-b-10.image-character-thumbnail
-         {:style {:position "relative" :width "100px" :height "125px" :flex-shrink 0}}
-         [portrait/composite portrait-data
-          {:style {:position "absolute" :inset 0 :width "100%" :height "100%"}}]]
-
-        image-url
-        [:img.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:src image-url}])
+      ;; back to the pasted URL, then to nothing (existing behavior). With
+      ;; `editable?` the thumbnail also carries a pencil into the compositor.
+      [portrait/thumbnail portrait-data image-url editable?]
       [:div.flex.character-summary.m-t-20.m-b-20
        (when display-name [:span.m-r-20.m-b-5
                                                [:span.character-name display-name]
@@ -1807,7 +1801,10 @@
      include-name?
      owner
      true
-     true)))
+     true
+     ;; a nil id means the character currently in the builder -- the only
+     ;; place a drawer exists to open.
+     (nil? id))))
 
 ;; dead — character_builder.cljs has its own realize-char
 #_(defn realize-char [built-char]

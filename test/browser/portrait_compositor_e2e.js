@@ -75,6 +75,15 @@ function check(label, ok, detail) {
     await page.waitForTimeout(300);
   }
 
+  // Second entry point: with no portrait yet, the summary thumbnail is an
+  // empty frame carrying the pencil, so the compositor is reachable from the
+  // portrait itself and not only from the Image URL field.
+  const emptyThumb = page.locator('.pl-thumb-empty');
+  check('empty summary thumbnail stands in before a portrait exists',
+        await emptyThumb.count() > 0);
+  check('empty thumbnail carries the pencil',
+        await emptyThumb.locator('.pl-thumb-edit').count() > 0);
+
   const launcher = page.locator('.pl-launcher');
   await launcher.waitFor({ state: 'visible', timeout: 15000 });
   check('"Compose portrait" launcher renders in Description tab', true);
@@ -168,6 +177,15 @@ function check(label, ok, detail) {
   const summaryComposite = await page.locator('.portrait-composite .portrait-layer').count();
   check('composed portrait renders in the character summary',
         summaryComposite > 0, `${summaryComposite} layers in summary`);
+
+  // --- the pencil is a real second way in ------------------------------
+  const pencil = page.locator('.portrait-composite').locator('..').locator('.pl-thumb-edit');
+  check('composed summary thumbnail carries the pencil', await pencil.count() > 0);
+  await pencil.first().click();
+  await drawer.waitFor({ state: 'visible', timeout: 10000 });
+  check('pencil opens the drawer', await drawer.isVisible());
+  await page.locator('.pl-drawer-close').click();
+  await page.waitForTimeout(300);
 
   // --- reopen: draft should rehydrate from the saved character ---------
   await page.locator('.pl-launcher').click();
