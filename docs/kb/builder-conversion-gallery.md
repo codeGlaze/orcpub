@@ -250,7 +250,73 @@ place on its first run.
 
 ---
 
-## Pair 3 — what a bespoke rows widget costs (not yet converted)
+## Pair 3 — Spell builder: 86 lines → 12, and the first `:boolean`
+
+| bespoke | generated |
+|---|---|
+| ![bespoke](assets/builder-comparison/spell-bespoke.jpg) | ![generated](assets/builder-comparison/spell-generated.jpg) |
+
+Pinned by `test/e2e/spell-builder.js` — **29/29 against the bespoke form first**, then 29/29
+unchanged after the swap.
+
+### The code
+
+```clojure
+;; BEFORE — 86 lines of hiccup: two dropdowns built inline, five text fields, five checkboxes
+;; wired to three different toggle events, and the spell-list widget.
+
+;; AFTER
+(defn spell-builder []
+  (let [spell @(subscribe [::spells/builder-item])]
+    (simple-content-builder ::spells/builder-item
+                            ::spells/set-spell-prop
+                            (concat spells/spell-fields
+                                    [(spell-lists-field spell)]))))
+```
+
+| | lines |
+|---|---:|
+| bespoke `spell-builder` | 86 |
+| generated `spell-builder` | **12** |
+| `spells/spell-fields` (declarative schema, shareable with the save spec) | 29 |
+| `spell-lists-field` (the one widget that stays bespoke) | 22 |
+
+### What it needed that did not exist
+
+**`:type :boolean`** — five of them (Ritual, Requires Attack Roll, and the three components). The
+field schema had carried a *convergence note* since June saying a toggle needs **both** halves and
+each branch had built only one; it is now built from that note rather than around it:
+
+- `common/toggle-in` walks a path and heals a collapsed intermediate;
+- its leaf, `common/toggle-flag`, leaves a collection alone **and** now reads only `true` as ON, so
+  nil, absent and garbage are OFF and the first click turns them on. That second half was the piece
+  missing here — it was `(not v)`, which reads garbage as ON;
+- `:boolean → boolean?` at save;
+- the generated `toggle-<base>-prop` event, so there is one toggle mechanism and no second validator.
+
+`::spells/toggle-spell-prop` was `(update spell prop-key not)` — the exact anti-pattern the note
+warns about — and now routes through the same primitive, which is also what gives it the path
+support that `[:components :verbal]` needs.
+
+### What the pin caught, which the form hid
+
+After the swap the form looked perfect and saved **`[:school] "abjuration"` next to `:school`** —
+key *vectors* stored as keys, for school, range, duration and casting time. `::spells/set-spell-prop`
+is hand-written and did a plain `assoc`, while every declarative field sends a **path**. Nothing on
+screen was wrong; only reading back what was saved showed it. That is the whole argument for
+pinning on stored shape rather than on what you typed.
+
+### One improvement and one regression, both deliberate
+
+- The **Material Component** box is now `:when` the Material component is ticked, so it is hidden
+  until it means something — 10 visible controls became 9.
+- **Description moved up**, because `simple-content-builder` renders it after name and source. The
+  bespoke form had it near the bottom. The Components heading was lost in the first pass and
+  restored with the new `:section` vocabulary.
+
+---
+
+## Pair 4 — what a bespoke rows widget costs (not yet converted)
 
 The `:rows` node exists because three widgets in `views.cljs` are already hand-written versions of
 it. This is the one to convert next, and it is here as a *before* with no *after* yet:
@@ -274,31 +340,58 @@ settles it.
 
 ---
 
-## Every builder, current state
+## Every builder — converted, and what the rest actually need
 
-From `target/e2e-shots/gallery-after/index.json` (visible controls on an empty form):
+Five of fifteen are generated. The nine still bespoke are **not blocked on effort**; each is blocked
+on a specific missing primitive, and they cluster hard. Measured by reading each builder's widgets,
+not guessed:
 
-| builder | controls | form |
+| builder | lines | blocked on |
 |---|---:|---|
-| selection | 3 | bespoke |
-| language | 4 | **generated** |
-| boon | 4 | **generated** |
-| invocation | 4 | **generated** |
-| fighting-style | 4 | **generated, `:rows`** |
-| feat | 4 | bespoke |
-| encounter | 4 | bespoke (rows widget) |
-| background | 5 | bespoke (rows widget) |
-| draconic-ancestry | 7 | **generated** |
-| subclass | 8 | bespoke |
-| spell | 10 | bespoke |
-| class | 14 | bespoke |
-| subrace | 18 | bespoke |
-| race | 22 | bespoke |
-| monster | 46 | bespoke |
+| **language** | 1 | — converted |
+| **boon**, **invocation** | 1 each | — already were |
+| **draconic ancestry** | ~6 | — converted (conditional fields) |
+| **fighting style** | ~8 | — converted (`:rows`, `:multi-enum`) |
+| **spell** | 12 | — converted (`:boolean`, one passthrough widget) |
+| encounter | 26 | **discriminated rows** + options from a subscription |
+| background | 47 | the modifier set + vector rows (traits) |
+| feat | 63 | **the modifier set** — 14 widgets, nothing else |
+| selection | 91 | vector rows + cross-row validation (duplicate option names) |
+| subclass | 106 | the modifier set + level-keyed rows |
+| subrace | 130 | the modifier set |
+| race | 153 | the modifier set |
+| monster | 234 | vector rows (traits) + map-shaped multi-select (skills, saves) |
+| class | 269 | all of the above, plus starting equipment and spellcasting |
 
-Five of fifteen are generated. The control count is a rough proxy for conversion cost, not for
-difficulty — `monster` is 46 controls of plain fields and may well be easier than `background`,
-which is five controls plus eight domain widgets.
+### The four things that would unlock all nine
+
+1. **The modifier set — six builders at once, and by far the biggest lever.** feat, race, subrace,
+   class, subclass and background each render the *same* fourteen widgets: ability increases, skill
+   and tool proficiency/expertise, languages, weapon and armour proficiency, hit points, damage
+   resistance, speed, initiative, misc modifiers, spellcasting. `feat-builder` is 63 lines of which
+   ~45 are just calling them in a row. This is the same shape as the `:props` fragments that already
+   work — shared vocabulary compiled into every silo — and it is where the next real work is.
+2. **Vector rows** (`:rows :as :vector`) — monster traits, background traits, subclass level
+   features, selection options. The `:rows` node exists; the map-keyed case shipped, the ordered
+   case did not. **This was going to be the next step and the encounter builder was the intended
+   proof — see below for why it is the wrong one.**
+3. **Map-shaped multi-select** — monster skills and saves, and the spell-list widget currently
+   passed through as hiccup. `:multi-enum` stores a set; these store a map keyed by choice.
+4. **Discriminated rows + options from a subscription** — encounter only. Each creature row's
+   *content* depends on a `:type` enum inside the row, and each branch pulls a live list (monsters,
+   characters) from a subscription. Two new ideas for one builder.
+
+### Encounter is not the tier-3 proof, and that is worth recording
+
+`builder-form-schemas.md` §6 nominated encounter's creature list as the case that would settle the
+vector-rows design, because it looked like "a repeatable list of rows". Reading it closed that
+question differently: `creature-selector` is not a row of fields, it is a row whose *shape* is
+chosen by a value inside it, with each branch backed by a subscription. Forcing it through `:rows`
+would mean inventing both of item 4's ideas to serve one builder.
+
+**Monster traits or background traits are the honest first vector-rows consumer** — genuinely
+repeatable rows of plain typed fields. Encounter should come after item 4 exists for its own sake,
+or stay bespoke, and that is a better answer than the one the plan started with.
 
 ## See also
 

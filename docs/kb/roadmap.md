@@ -225,9 +225,15 @@ then merge `develop` in, since the shared files here have diverged for the feat 
     under its `:at` path, so nothing is stored to mark one (D9). Removing a row clears its subtree
     via a generated `remove-<base>-prop` event (assoc-in nil is not the same thing: it leaves the
     key present holding nil, which the `:props` compiler then reads).
-  - **E3 — Tier 3 stab**: the same `:rows` node over encounter's creatures (replacing the
+  - **E3 — REORDERED 2026-09-06.** Encounter's creatures were nominated as the vector-rows proof and
+    are the wrong case: a creature row's shape is chosen by a `:type` inside it and each branch is
+    backed by a subscription, so it needs discriminated rows AND sub-sourced options — two new ideas
+    for one builder. **Monster/background traits are the honest first consumer.** The measured
+    blocking-primitive table for all nine remaining builders is in `builder-conversion-gallery.md`;
+    the biggest lever by far is the shared **modifier set** (14 widgets, six builders).
+  - ~~**E3 — Tier 3 stab**: the same `:rows` node over encounter's creatures (replacing the
     `creature-selector` loop), then background traits (`option-traits`, a 6-event signature). If one node
-    kind serves all three, it has earned its place (the one principle).
+    kind serves all three, it has earned its place (the one principle).~~
   - **E4 — Grant-authoring UI**: `:rows` where each row is a grant `{:from <pool> :choose n}` iterating the
     **registered pools** — D21's falsifiable gate: exposing a second pool must be a ~1-line registration,
     shown in a commit.

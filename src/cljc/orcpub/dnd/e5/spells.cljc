@@ -64,6 +64,36 @@
               conjuration
               enchantment])
 
+(def spell-fields
+  "Declarative field schema for the homebrew spell builder. Everything the bespoke form drew by
+   hand EXCEPT the \"add to which class spell lists\" checkboxes, which are built from a live
+   subscription and stay a passed-through widget — see the note at spell-builder in views.cljs.
+
+   The three components and the two flags are the first users of `:type :boolean`, which routes
+   through common/toggle-in; nested keys like [:components :verbal] are why the toggle needed path
+   support at all."
+  (let [material? #(get-in % [:components :material])]
+    (concat
+     ;; NOT :required? — the marker would claim something the hand-written spell spec does not
+     ;; actually enforce, and a form that flags a field the save then accepts is worse than no flag.
+     [{:key :level :type :enum :label "Level"
+       :options (mapv (fn [l] {:value l
+                               :title (if (zero? l) "Cantrip" (str (common/ordinal l) "-level"))})
+                      (range 10))}
+      {:key :school :type :enum :label "School"
+       :options (mapv (fn [sc] {:value sc :title sc}) (sort schools))}
+      {:key :ritual :type :boolean :label "Ritual?"}
+      {:key :attack-roll? :type :boolean :label "Requires Attack Roll?"}
+      {:key :casting-time :type :text :label "Casting Time"}
+      {:key :range :type :text :label "Range"}]
+     ;; components: three flags, then the material text that only means anything with Material on
+     [{:key [:components :verbal] :type :boolean :label "Verbal" :section "Components"}
+      {:key [:components :somatic] :type :boolean :label "Somatic"}
+      {:key [:components :material] :type :boolean :label "Material"}
+      {:key [:components :material-component] :type :text :label "Material Component"
+       :when material?}]
+     [{:key :duration :type :text :label "Duration"}])))
+
 (def conc-1-min "Concentration, up to 1 minute")
 (def conc-10-min "Concentration, up to 10 minutes")
 

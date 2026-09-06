@@ -3,6 +3,7 @@
    These are the SINGLE validators the form, the save spec, and import/export verification share."
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.spec.alpha :as spec]
+            [orcpub.common :as common]
             [orcpub.dnd.e5.builder-fields :as bf]
             [orcpub.dnd.e5.races :as races]
             [orcpub.dnd.e5.classes :as classes]))
@@ -118,3 +119,24 @@
             :let   [nil-opt (first (filter #(nil? (:value %)) (:options f)))]]
       (is (some? nil-opt) (str (:key f) " must offer the explicit nil option"))
       (is (nil? (:short-title nil-opt)) "\"Both\" is already short and must not vary by context"))))
+
+(deftest boolean-field-type-validates-and-only-true-is-on
+  ;; The type the convergence note deferred until both halves existed. Both are asserted here so
+  ;; neither can be quietly dropped: the leaf reads only `true` as ON, and a collection at the path
+  ;; is left alone rather than collapsed.
+  (let [pred (bf/field-value-pred {:type :boolean})]
+    (is (pred true))
+    (is (pred false))
+    (is (not (pred "true")) "a string is what a careless widget stores; reject it at save")
+    (is (not (pred 1))))
+  (testing "toggle-flag: only true is ON, so garbage and nil turn ON with the first click"
+    (is (= false (common/toggle-flag true)))
+    (is (= true  (common/toggle-flag false)))
+    (is (= true  (common/toggle-flag nil))    "absent reads as OFF")
+    (is (= true  (common/toggle-flag "false")) "garbage reads as OFF, not as ON")
+    (is (= {:a 1} (common/toggle-flag {:a 1})) "a map is left alone, never collapsed to false"))
+  (testing "toggle-in: heals a collapsed intermediate instead of crashing"
+    (is (= {:props {:x true}}  (common/toggle-in {} [:props :x])))
+    (is (= {:props {:x false}} (common/toggle-in {:props {:x true}} [:props :x])))
+    (is (= {:props {:x true}}  (common/toggle-in {:props false} [:props :x]))
+        "a stray false intermediate from the old collapse bug heals into a map")))

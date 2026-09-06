@@ -7481,13 +7481,16 @@
                  :on-change #(dispatch [::selections/set-selection-path-prop [:options i :description] %])}]]]))
          options))]]]))
 
-(defn- remove-prop-event
-  "set-<base>-prop -> remove-<base>-prop. The generated events follow one naming convention
+(defn- verb-prop-event
+  "set-<base>-prop -> <verb>-<base>-prop. The generated events follow one naming convention
    (events.cljs/homebrew-event-keys), so a row's ✕ can find its counterpart without every caller
    threading a second event keyword through."
-  [set-prop]
+  [verb set-prop]
   (keyword (namespace set-prop)
-           (clojure.string/replace (name set-prop) #"^set-" "remove-")))
+           (clojure.string/replace (name set-prop) #"^set-" (str verb "-"))))
+
+(def ^:private remove-prop-event (partial verb-prop-event "remove"))
+(def ^:private toggle-prop-event (partial verb-prop-event "toggle"))
 
 (declare render-builder-field)
 
@@ -7581,9 +7584,10 @@
        ;; "Armor". The long form stays the default because these fragments are advertised as
        ;; droppable into any builder's flat extra-fields, where no header supplies the context.
        ;; (Today the fighting-style builder is their only rendered consumer, and it is grouped.)
-       [:div.f-w-b.m-b-5 {:class (when (:compact? field) "tag-label")}
-        (or (when (:compact? field) (:short-label field)) label)
-        (when required? [:span.red " *"])]
+       (when-not (= type :boolean)          ; a checkbox carries its own label
+         [:div.f-w-b.m-b-5 {:class (when (:compact? field) "tag-label")}
+          (or (when (:compact? field) (:short-label field)) label)
+          (when required? [:span.red " *"])])
        (case type
          ;; index-based option values so ANY value type (incl. qualified keywords) round-trips
          ;; through the string-only <select>
@@ -7622,6 +7626,14 @@
                                                      (disj chosen value)
                                                      (conj chosen value))])}
                             title]))])
+         ;; A toggle, routed through the generated toggle event so it uses common/toggle-in — the
+         ;; ONE hardened primitive. Never assoc-in with (not v) here: if the path lands on a map
+         ;; that collapses it and every child read then returns nil.
+         :boolean [comps/labeled-checkbox
+                   (or (:checkbox-label field) label)
+                   (true? v)
+                   false
+                   #(dispatch [(toggle-prop-event set-prop) path])]
          :number [number-field {:value v
                                 :on-change #(dispatch [set-prop path %])}]
          ;; :text
@@ -8462,90 +8474,37 @@
       [:div.m-t-10
        [creature-selector (count creatures) {}]]]]))
 
-(defn spell-builder []
-  (let [{:keys [:level :school] :as spell} @(subscribe [::spells/builder-item])]
-    [:div.p-20.main-text-color
-     [:div.flex.w-100-p.flex-wrap
-      [spell-input-field
-       "Name"
-       :name
-       spell
-       "m-b-20"]
-      [plugin-datalist
-       option-source-name-label
-       spell
-       ::spells/set-spell-prop]
-      ]
+(defn spell-lists-field
+  "The one part of the spell form no field type describes: the class list comes from a live
+   subscription (::spells/spellcasting-classes) and the value is a MAP keyed by class, not a set.
+   Passed through simple-content-builder as hiccup — the escape hatch exists precisely so that one
+   bespoke control does not force a whole builder to stay bespoke."
+  [spell]
+  [:div.m-b-20
+   [:div.f-w-b.m-b-10 "Add This Spell to Which Class Spell Lists?"]
+   [:div.flex.flex-wrap.p-5.b-rad-5
+    {:class (builder-field-cue :spell-lists)}
+    (doall
+     (map
+      (fn [{:keys [key name]}]
+        ^{:key key}
+        [:div.m-r-10.pointer.m-b-10
+         {:on-click #(do (dispatch [::spells/toggle-spell-list key])
+                         (dispatch [:clear-builder-field-error :spell-lists]))}
+         [comps/checkbox (get-in spell [:spell-lists key])]
+         [:span.m-l-5 name]])
+      @(subscribe [::spells/spellcasting-classes])))]])
 
-     [:div.flex.w-100-p.flex-wrap
-      [:div.flex-grow-1.m-b-20
-       [labeled-dropdown
-        "Level"
-        {:items (map
-                 (fn [level] {:title (if (zero? level)
-                                       "Cantrip"
-                                       (str (common/ordinal level) "-level"))
-                              :value level})
-                 (range 10))
-         :value level
-         :on-change #(dispatch [::spells/set-spell-level %])}]]
-      [:div.flex-grow-1.m-l-5
-       [labeled-dropdown
-        "School"
-        {:items (map
-                 (fn [school] {:title school
-                               :value school})
-                 (sort spells/schools))
-         :value school
-         :on-change #(dispatch [::spells/set-spell-prop :school %])}]]
-      [
-       :div.flex-grow-1.m-l-5
-       [:div.m-t-20.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         "Ritual?"
-         (get spell :ritual)
-         false
-         #(dispatch [::spells/toggle-spell-prop :ritual])]]
-       [:div.m-r-20.m-b-10
-        [comps/labeled-checkbox
-         "Requires Attack Roll?"
-         (get spell :attack-roll?)
-         false
-         #(dispatch [::spells/toggle-spell-prop :attack-roll?])]]]]
-     [:div.flex.w-100-p.flex-wrap
-      [spell-input-field "Casting Time" :casting-time spell "m-b-20"]
-      [spell-input-field "Range" :range spell "m-l-5 m-b-20"]]
-     [:div [:h2.f-s-24.f-w-b.m-b-10 "Components"]]
-     [:div.flex.w-100-p.flex-wrap
-      [component-checkbox :verbal spell]
-      [component-checkbox :somatic spell]
-      [component-checkbox :material spell]]
-     [:div.m-b-20
-      [textarea-field
-       {:value (get-in spell [:components :material-component])
-        :on-change #(dispatch [::spells/set-material-component %])}]]
-     [:div.m-b-20
-      [spell-input-field "Duration" :duration spell "m-b-20"]]
-     [:div.w-100-p
-      [:div.f-s-24.f-w-b
-       "Description"]
-      [:div.m-b-20
-       [textarea-field
-        {:value (get spell :description)
-         :on-change #(dispatch [::spells/set-spell-prop :description %])}]]]
-     [:div.m-b-20
-      [:div.f-w-b.m-b-10 "Add This Spell to Which Class Spell Lists?"]
-      [:div.flex.flex-wrap.p-5.b-rad-5
-       {:class (builder-field-cue :spell-lists)}
-       (map
-        (fn [{:keys [key name]}]
-          ^{:key key}
-          [:div.m-r-10.pointer.m-b-10
-           {:on-click #(do (dispatch [::spells/toggle-spell-list key])
-                           (dispatch [:clear-builder-field-error :spell-lists]))}
-           [comps/checkbox (get-in spell [:spell-lists key])]
-           [:span.m-l-5 name]])
-        @(subscribe [::spells/spellcasting-classes]))]]]))
+(defn spell-builder []
+  ;; Was 86 lines of hiccup. The typed fields are now spells/spell-fields — including the first
+  ;; users of :type :boolean (Ritual, Requires Attack Roll, and the three components, which live at
+  ;; nested paths like [:components :verbal] and are why the toggle needed path support).
+  ;; Description is rendered by simple-content-builder itself.
+  (let [spell @(subscribe [::spells/builder-item])]
+    (simple-content-builder ::spells/builder-item
+                            ::spells/set-spell-prop
+                            (concat spells/spell-fields
+                                    [(spell-lists-field spell)]))))
 
 (defn validate-name [name]
   (if (nil? name)

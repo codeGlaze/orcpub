@@ -316,9 +316,15 @@
   "Flip a boolean flag, but leave a collection untouched instead of collapsing it.
    Use in place of bare `not` for builder toggles whose path could land on a MAP:
    `(not {…})` is `false`, which DESTROYS the map so every child read returns nil
-   (the 'true/false/nil from clicking a lot' corruption)."
+   (the 'true/false/nil from clicking a lot' corruption).
+
+   The leaf read is `(not (true? v))`, not `(not v)`: only an actual `true` counts as ON, so
+   nil, absent, and garbage (a string \"false\" from an old import, say) all read as OFF and the
+   first click turns them ON. Identical to `(not v)` for real booleans — it differs only where
+   the stored value was never a boolean, which is exactly the case worth being defensive about.
+   Both halves are needed; see the convergence note in builder_fields.cljc."
   [v]
-  (if (coll? v) v (not v)))
+  (if (coll? v) v (not (true? v))))
 
 (defn toggle-in
   "Toggle a boolean flag at path `ks` in `m` (like `update-in` with `not`), with

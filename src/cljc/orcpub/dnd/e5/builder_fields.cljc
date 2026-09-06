@@ -31,17 +31,18 @@
                   (fn [v] (and (coll? v) (every? allowed v))))
     :number number?
     :text   string?
+    ;; a present non-boolean is REJECTED at save; absent is fine (optional-by-default), so a
+    ;; toggle that was never touched does not have to store anything
+    :boolean boolean?
     (constantly true)))
 
-;; CONVERGENCE NOTE — boolean/toggle field type (deferred, do NOT build a parallel mechanism).
-;; A hardened toggle needs BOTH halves; each branch built one, so the merged primitive combines them:
-;;   - path-safe traversal + self-heal of a collapsed intermediate  (claude/custom-class-source-error-2k5ykd:
-;;     common/toggle-in / common/toggle-flag) — a toggle whose path lands on a MAP must NOT `(not map)`
-;;     it (collapse); a stray false/nil intermediate heals into a map instead of crashing.
-;;   - defensive leaf read `(not (true? v))` + `:boolean → boolean?` save-validation (this branch,
-;;     backed out here to avoid a parallel fn) — nil/absent/garbage read as OFF; a present non-boolean
-;;     is rejected at save. Collection-preservation alone still reads garbage as "on"; leaf-read alone
-;;     still collapses a map — you need both.
+;; BOOLEAN/TOGGLE field type — BUILT 2026-09-06, from the convergence note this replaces.
+;; The note said a hardened toggle needs BOTH halves and each branch had built only one. It now
+;; routes through the ONE combined primitive: common/toggle-in (path-safe traversal, heals a
+;; collapsed intermediate) whose leaf is common/toggle-flag (leaves a collection alone AND reads
+;; only `true` as ON, so nil/absent/garbage are OFF). Validation is `:boolean -> boolean?` above.
+;; There is no second toggle fn and no second validator; a builder gets a toggle by declaring
+;; `:type :boolean`, which dispatches the generated toggle-<base>-prop event.
 ;; Plus `strip-export-blanks` (theirs) keeps exports terse, and the save ⊆ load guard (theirs: anything
 ;; that SAVES must LOAD). When the branches meet: add a `:boolean` type here + in render-builder-field
 ;; routing through the ONE combined primitive above — never a fresh toggle fn, never a second validator.

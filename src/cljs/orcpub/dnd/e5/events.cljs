@@ -3028,14 +3028,21 @@
 (reg-event-db
  ::spells/set-spell-prop
  spell-interceptors
+ ;; prop-key may be a single key or a PATH vector, matching the generated set-<base>-prop events.
+ ;; A declarative field always sends a path, so a plain assoc here stored the KEY VECTOR itself —
+ ;; [:school] "abjuration" sitting next to :school — and the form looked like it worked. Caught by
+ ;; the characterization pin, which reads back what was saved rather than what was typed.
  (fn [spell [_ prop-key prop-value]]
-   (assoc spell prop-key prop-value)))
+   (assoc-in spell (if (sequential? prop-key) prop-key [prop-key]) prop-value)))
 
 (reg-event-db
  ::spells/toggle-spell-prop
  spell-interceptors
+ ;; was (update spell prop-key not) — the bare-not toggle the boolean convergence note warns
+ ;; about: no path support, garbage reads as ON, and a path landing on a map collapses it. Routed
+ ;; through the one hardened primitive, which ::spells/toggle-component already used.
  (fn [spell [_ prop-key]]
-   (update spell prop-key not)))
+   (common/toggle-in spell (if (sequential? prop-key) prop-key [prop-key]))))
 
 (reg-event-db
  ::monsters/set-monster-prop
@@ -5689,7 +5696,7 @@
    Every event keyword is passed explicitly (not derived) so it stays greppable."
   [{:keys [type-name save-error
            save-event delete-event edit-event new-event
-           set-event set-prop-event remove-prop-event reset-event
+           set-event set-prop-event remove-prop-event toggle-prop-event reset-event
            builder-item spec plugin-key default route interceptors]}]
   ;; persistence + builder lifecycle — the existing, trusted factories.
   ;; (develop's reg-save-homebrew is 5-arg: the save spec is derived from the content-specs registry by
@@ -5710,6 +5717,10 @@
     (reg-event-db remove-prop-event interceptors
                   (fn [item [_ prop-key]]
                     (common/dissoc-in item (if (sequential? prop-key) prop-key [prop-key])))))
+  (when toggle-prop-event
+    (reg-event-db toggle-prop-event interceptors
+                  (fn [item [_ prop-key]]
+                    (common/toggle-in item (if (sequential? prop-key) prop-key [prop-key])))))
   (reg-event-fx reset-event (fn [_ _] {:dispatch [set-event default]})))
 
 ;; Derive a homebrew type's event keywords from its builder-item by the uniform naming
@@ -5729,7 +5740,10 @@
      :set-prop-event (keyword ns (str "set-" base "-prop"))
      ;; assoc-in's counterpart. A :rows form needs to REMOVE a row, and assoc-in nil is not the
      ;; same thing — it leaves the key present holding nil, which the :props compiler then reads.
-     :remove-prop-event (keyword ns (str "remove-" base "-prop"))}))
+     :remove-prop-event (keyword ns (str "remove-" base "-prop"))
+     ;; a :boolean field flips through common/toggle-in — never assoc-in with (not v), which
+     ;; collapses a map if the path lands on one (builder_fields.cljc's boolean note)
+     :toggle-prop-event (keyword ns (str "toggle-" base "-prop"))}))
 
 ;; The localStorage draft interceptor, built generically from the registry's
 ;; :local-storage-key + :builder-item — no per-type ->local-store fn needed.
