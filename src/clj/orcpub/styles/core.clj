@@ -2481,6 +2481,70 @@
       :font-size "14px"
       :padding "9px 12px"}]
 
+    ;; ----- filter-and-pick combobox on the native Popover API -----
+    ;; The popover element gets the browser's top layer, light dismiss and Escape handling;
+    ;; none of that is implemented here. Anchor positioning pins it under its input, and
+    ;; where unsupported the popover still opens (centred) rather than breaking.
+    [:.inv-combo {:margin "6px 0 10px"}]
+
+    [:.inv-combo-input
+     {:width "100%"
+      :max-width "340px"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "4px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "9px 12px"}]
+
+    [:.inv-combo-pop
+     {:position :absolute
+      ;; content-box here made the dropdown 14px wider than its input (6px padding + 1px
+      ;; border each side), which anchor-size() alone does not correct.
+      :box-sizing :border-box
+      :position-area "bottom span-right"
+      ;; Flip above the input when there is no room below, instead of running off-screen.
+      :position-try-fallbacks "flip-block"
+      :margin "4px 0 0 0"
+      :width "320px"
+      :max-width "calc(100vw - 32px)"
+      :background "#1a2430"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "5px"
+      :box-shadow "0 8px 24px rgba(0,0,0,0.55)"
+      :padding "6px"
+      :inset :auto}]
+
+    ;; Separate rule, not a second :width in the map above -- duplicate keys are illegal in a
+    ;; Clojure map literal. 320px above is the fallback for engines without anchor-size();
+    ;; where this resolves the dropdown matches its input the way a native picker does.
+    [:.inv-combo-pop {:width "anchor-size(width)"}]
+
+    ;; Keep the dropdown short enough to sit below its input in the common case -- at 300px
+    ;; it did not fit and flip-block kept throwing it up over the page header.
+    [:.inv-combo-list
+     {:max-height "230px"
+      :overflow-y :auto}]
+
+    [:.inv-combo-row
+     {:padding "9px 10px"
+      :border-radius "3px"
+      :color "rgba(255,255,255,0.88)"
+      :cursor :pointer
+      :font-size "14px"}
+     [:&:hover {:background "rgba(240,161,0,0.18)" :color "#fff"}]]
+
+    [:.inv-combo-empty
+     {:padding "10px" :color "rgba(255,255,255,0.5)" :font-size "13px" :font-style :italic}]
+
+    [:.inv-combo-more
+     {:padding "8px 10px 2px"
+      :color "rgba(255,255,255,0.45)"
+      :font-size "12px"
+      :border-top "1px solid rgba(255,255,255,0.1)"
+      :margin-top "4px"}]
+
 ];concat-bracket
    margin-lefts
    margin-tops

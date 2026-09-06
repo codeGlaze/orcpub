@@ -16,6 +16,13 @@ measured, what turned out to be wrong, and why.
   Per-source localStorage keys. Measured ceiling 5,177,344 chars; why copy-then-delete
   migration is dead; why this does not fix the reported freeze.
 
+## UI
+
+- **[equipment-option-picker.md](equipment-option-picker.md)** -- the Equipment tab's 1037
+  `<option>` elements, five controls measured against each other, and why the winner is a
+  filtering combobox on the native Popover API (1637 nodes vs 2558 native). Records the
+  withdrawn "datalists cannot be styled" claim and five build defects with their fixes.
+
 ## Practice
 
 - **[memoize-antipattern-scan.md](memoize-antipattern-scan.md)** -- every `memoize` site
@@ -52,4 +59,5 @@ All under `test/browser/`, run against `lein e2e-server` (see `test/browser/READ
 | `storage_shape_e2e.js` | what is actually in localStorage after a real import |
 | `localstorage_ceiling_e2e.js` | the real quota, and whether it counts chars or bytes |
 | `library_chunk_granularity_e2e.js` | how finely a library can be split |
+| `combobox_shots_e2e.js` | Equipment combobox: screenshots plus anchored-geometry, light-dismiss and pick assertions |
 | `scripts/test/run-cljs-tests.js` | runs the ClojureScript suite headlessly (repo's canonical runner, not under test/browser) |

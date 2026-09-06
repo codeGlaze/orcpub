@@ -490,10 +490,78 @@
              ^{:key item-key}
              [:option {:value item-name}]))]]))))
 
+(defn- show-popover! [id]
+  ;; showPopover throws if it is already open, and the attribute is unsupported on old
+  ;; engines -- both are non-fatal, so the control degrades to a plain filtered list.
+  (when-let [el (.getElementById js/document id)]
+    (try (when-not (.matches el ":popover-open") (.showPopover el))
+         (catch :default _ nil))))
+
+(defn- hide-popover! [id]
+  (when-let [el (.getElementById js/document id)]
+    (try (when (.matches el ":popover-open") (.hidePopover el))
+         (catch :default _ nil))))
+
+(defn inventory-combobox
+  "Filter-and-pick dropdown built on the native Popover API.
+
+   The list lives in a `popover=\"auto\"` element, so the browser gives us the top layer
+   (no z-index), light dismiss (no backdrop element) and Escape handling for free -- all of
+   which the earlier hand-rolled popover implemented by hand, worse. CSS anchor positioning
+   pins it under its input; where that is unsupported the popover still opens, just centred.
+
+   Only the first 12 matches render. Typing narrows; the data is already in app-db so this
+   is a filterv, not a fetch."
+  []
+  (let [query (r/atom "")]
+    (fn [key options selected-keys]
+      (let [items    (common/aloof-sort-by
+                      :name
+                      (sequence (comp (remove (inventory-option-selected? selected-keys))
+                                      (map name-and-key))
+                                options))
+            kname    (clojure.core/name key)
+            pop-id   (str "inv-pop-" kname)
+            anchor   (str "--inv-anchor-" kname)
+            q        (s/lower-case (s/trim @query))
+            matches  (if (s/blank? q)
+                       items
+                       (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
+            shown    (take 12 matches)
+            pick!    (fn [item-key]
+                       (dispatch [:add-inventory-item key item-key])
+                       (reset! query "")
+                       (hide-popover! pop-id))]
+        [:div.inv-combo
+         [:input.inv-combo-input
+          {:style {:anchor-name anchor}
+           :value @query
+           :placeholder (str "Filter and pick… (" (count items) ")")
+           ;; on-click, not on-focus: focus fires on mousedown, and light dismiss then treats
+           ;; that same pointer sequence as an outside click and shuts the popover again.
+           ;; Measured -- opening on focus left popoverOpen=0 after a click.
+           :on-click #(show-popover! pop-id)
+           :on-change (fn [e]
+                        (reset! query (.. e -target -value))
+                        (show-popover! pop-id))}]
+         [:div.inv-combo-pop
+          {:id pop-id
+           :popover "auto"
+           :style {:position-anchor anchor}}
+          (if (empty? matches)
+            [:div.inv-combo-empty (str "Nothing matches “" @query "”")]
+            [:div.inv-combo-list
+             (doall
+              (for [{item-name :name item-key :key} shown]
+                ^{:key item-key}
+                [:div.inv-combo-row {:on-click #(pick! item-key)} item-name]))])
+          (when (> (count matches) (count shown))
+            [:div.inv-combo-more (str (count matches) " matches — keep typing")])]]))))
+
 (defn inventory-adder [key options selected-keys]
-  ;; SWAPPED to compare against inventory-picker (the custom popover) -- see
-  ;; docs/TODO.md "Builder render weight". Change this one line to switch back.
-  [inventory-datalist key options selected-keys])
+  ;; Switch between the three by changing this line. inventory-datalist (native filtering
+  ;; dropdown) and inventory-picker (hand-rolled overlay) are both still defined above.
+  [inventory-combobox key options selected-keys])
 
 (defn inventory-check-fn [key i]
   #(dispatch [:toggle-inventory-item-equipped key i]))
