@@ -223,9 +223,25 @@ async function exportPressable(page) {
     el => getComputedStyle(el).pointerEvents !== 'none');
 }
 
+// An http-only origin. The https upgrade cannot succeed here, which is the case
+// that must be explained rather than applied.
+function httpOnlyOrigin(port) {
+  const http = require('http');
+  const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': PNG.length });
+    res.end(PNG);
+  });
+  return {
+    start: () => new Promise(r => server.listen(port, '127.0.0.1', r)),
+    stop: () => new Promise(r => server.close(r)),
+  };
+}
+
 (async () => {
   const origin = imageOrigin();
   await origin.start();
+  const httpOnly = httpOnlyOrigin(8898);
+  await httpOnly.start();
 
   // --ssl-version-max=tls1.2 is what lets a browser here reach the real internet:
   // Chrome's TLS 1.3 handshake is reset by this environment's egress relay, while
@@ -250,7 +266,7 @@ async function exportPressable(page) {
   //     all -- and trying is what finds the hosts that do allow it.
   const expectedLine = (t) =>
     /\[Report Only\]|Content Security Policy/i.test(t) ||
-    (/CORS policy|ERR_FAILED|ERR_CONNECTION/i.test(t) && /8899|refused\.png/.test(t)) ||
+    (/CORS policy|ERR_FAILED|ERR_CONNECTION/i.test(t) && /127\.0\.0\.1:889[89]/.test(t)) ||
     /Failed to load resource/i.test(t);
   page.on('console', m => {
     if (m.type() !== 'error' && m.type() !== 'warning') return;
@@ -522,6 +538,28 @@ async function exportPressable(page) {
             await urlField().inputValue());
     }
 
+    // ---- http, which this page cannot display at all -------------------------
+    // The upgrade is checked in the browser before it is made: a plain <img> load
+    // of the https address, no server involved. Applied when it works, explained
+    // when it cannot.
+    await setImageUrl(page, `http://127.0.0.1:${IMG_PORT}/upgrade.png`, 300);
+    const upgraded = await waitForText(/Changed http to https/i, 15000);
+    check('http is upgraded to https once the https one is known to load', upgraded);
+    if (upgraded) {
+      check('and the field carries the address that actually works',
+            (await urlField().inputValue()) === `https://127.0.0.1:${IMG_PORT}/upgrade.png`,
+            await urlField().inputValue());
+    }
+
+    await setImageUrl(page, 'http://127.0.0.1:8898/nohttps.png', 300);
+    const explained = await waitForText(/does not seem to offer it/i, 15000);
+    check('a host with no https is told, not silently rewritten', explained);
+    if (explained) {
+      check('and its address is left exactly as typed',
+            (await urlField().inputValue()) === 'http://127.0.0.1:8898/nohttps.png',
+            await urlField().inputValue());
+    }
+
     check('no unexpected console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
     if (expected.length) {
       console.log(`note: ${expected.length} expected line(s) — CSP Report-Only, and the CORS`);
@@ -532,6 +570,7 @@ async function exportPressable(page) {
   } finally {
     await browser.close();
     await origin.stop();
+    await httpOnly.stop();
   }
 
   const failed = results.filter(r => !r.ok);

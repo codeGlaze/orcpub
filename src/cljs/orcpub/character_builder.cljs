@@ -1877,7 +1877,11 @@
         timer (atom nil)
         seen (atom ::unseen)
         open? (r/atom false)
-        note (r/atom nil)]
+        note (r/atom nil)
+        ;; The http -> https upgrade, checked in the browser before it is made.
+        https-tried (atom nil)
+        https-state (r/atom nil)
+        upgraded-to (r/atom nil)]
     (fn [url failed? state reach set-fn]
       (when (not= url @seen)
         (reset! seen url)
@@ -1887,6 +1891,9 @@
         ;; correction it offers is clickable, and it corrects the PREVIOUS
         ;; address. Nothing is said until the new one settles.
         (reset! settled nil)
+        (when-not (= url @upgraded-to)
+          (reset! https-state nil)
+          (reset! upgraded-to nil))
         (some-> @timer js/clearTimeout)
         (reset! timer (js/setTimeout #(reset! settled url) 900)))
       (let [{:keys [level message fix]} (image-url/advise @settled)
@@ -1895,14 +1902,47 @@
             ;; time from the text it produced is how the disclosure went missing:
             ;; the test for "no advice" was made against a variable that by then
             ;; held the unreachable line.
+            upgrade-note (when (and @upgraded-to (= url @upgraded-to))
+                           (str "Changed http to https -- this page can only "
+                                "display pictures over https."))
             [mode shown-level shown-text]
             (cond
+              upgrade-note [:upgraded :note upgrade-note]
+              ;; Known not to be served over https, so there is nothing to offer.
+              (and message (= :no @https-state))
+              [:no-https :error
+               (str "This page can only display pictures over https, and this "
+                    "host does not seem to offer it.")]
               message     [:advice level message]
               unreachable [:unreachable
                            (if (= :rate-limited reach) :warning :error)
                            unreachable]
               failed?     [:failed :error "That picture didn't load."]
               :else       [nil nil nil])]
+        ;; An http picture cannot be displayed by this page at all -- the CSP allows
+        ;; images over https only -- so the address is not merely suspect, it is
+        ;; unusable. Rather than ask, try the https one and swap it in if it works.
+        ;; The check is a plain <img> load: no server, no permission, and no request
+        ;; anyone was not about to make, since the thumbnail loads that same address
+        ;; a moment later and takes it from cache.
+        ;;
+        ;; Verified before it is applied on purpose. Swapping in an address the
+        ;; person did not type is only defensible while it is known to be better; a
+        ;; blind upgrade that fails leaves them debugging something they never wrote.
+        (when (and fix
+                   (string? @settled)
+                   (s/starts-with? @settled "http://")
+                   (not= @https-tried @settled))
+          (reset! https-tried @settled)
+          (reset! https-state :checking)
+          (image-capture/displays?
+           fix
+           (fn [ok?]
+             (if ok?
+               (do (reset! upgraded-to fix)
+                   (reset! https-state :ok)
+                   (set-fn fix))
+               (reset! https-state :no)))))
         (cond
           (= :pending state)
           [:div.f-s-12.m-t-5 "Reading image..."]
@@ -1915,7 +1955,9 @@
                                                 "is-note"))}
             [:span.field-notice-what shown-text]
             (cond
-              (and (= :advice mode) fix)
+              ;; While the https one is being tried there is nothing to offer yet,
+              ;; and once it is tried the answer is applied or explained.
+              (and (= :advice mode) fix (nil? @https-state))
               [:button.field-notice-action {:on-click #(set-fn fix)} (str "Use " fix)]
 
               (= :unreachable mode)

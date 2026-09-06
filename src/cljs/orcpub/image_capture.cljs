@@ -247,3 +247,19 @@
                          (.catch (fn [_] (k nil))))
                      (k nil))))
           (.catch (fn [_] (k nil)))))))
+
+(defn displays?
+  "Whether `url` loads as a picture in this page, answered by loading it.
+
+   No crossOrigin and no canvas: the question is only whether the browser will
+   show it, which is also the question the Content-Security-Policy answers. Costs
+   nothing anyone was not already going to spend -- the thumbnail loads the same
+   address a moment later, and the browser serves the second one from cache."
+  [url k]
+  (let [k (once k)]
+    (if (s/blank? url)
+      (k false)
+      (let [img (js/Image.)]
+        (set! (.-onload img) (fn [_] (k true)))
+        (set! (.-onerror img) (fn [_] (k false)))
+        (set! (.-src img) url)))))

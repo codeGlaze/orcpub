@@ -95,6 +95,11 @@ string:
 - **A malformed address.** No scheme, a scheme that is not the web, a space in the
   middle from a half-copied link.
 - **`http://`,** which the page's own CSP will not display whatever the host does.
+  This one is not offered but VERIFIED and applied: the browser loads the https
+  address itself -- a plain `<img>`, no server, and the same request the thumbnail
+  was about to make -- and the field is changed only once that succeeds, with a
+  note saying so. A host that serves no https is told, and its address is left
+  exactly as typed.
 - **Viewer links with a known direct form** -- Dropbox `?dl=0`, Google Drive
   `/file/d/<id>/view` -- which are offered as a correction to take or leave.
 

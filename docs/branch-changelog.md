@@ -68,6 +68,14 @@ allowed the builder says so and offers an upload — which no host has a say in.
 
 ## Changed
 
+- http is upgraded to https automatically, once the https address is KNOWN to
+  load. The check is a plain `<img>` in the browser -- no server, no permission,
+  and no request that was not about to be made anyway, since the thumbnail loads
+  that same address a moment later and takes it from cache. The field changes only
+  after it succeeds and says why; a host that serves no https is told instead, and
+  its address is left exactly as typed. An http picture cannot be displayed by
+  this page at all, so this is not a guess about a suspect address, it is a fix
+  for a broken one.
 - **One line under a field, never four blocks.** A single unreachable picture
   could raise a scheme warning, a suggested correction, a fetch failure and a
   panel of controls at once -- six lines of prose and three controls to say that
