@@ -314,21 +314,44 @@
    ;; type — a number is number-wide, a toggle is as wide as its label — with `:span :full` as the
    ;; explicit escape. Direct-child selectors only, so fields inside an effect row keep their own
    ;; tighter sizing.
-   ;; ONE source of vertical rhythm. Every field used to carry its own bottom margin and the
-   ;; container added nothing, so the measured gaps down the spell form ran 30 / 30 / 10 / 40 / 40 /
-   ;; 10 / 15 / 0px — no scale at all. The container owns the spacing now and the fields own none.
+   ;; A GRID, not a flex row. Flexbox distributes leftover space per ROW, so every row laid itself
+   ;; out independently: measured on the spell form, the second control started at x=611, 332 and
+   ;; 607 on three consecutive rows, and Casting Time came out 318px wide against Duration's 573px
+   ;; — the same kind of field at different widths, because they landed in rows with different item
+   ;; counts. Fixed tracks make a field's width depend on the field, not on its neighbours.
+   ;;
+   ;; It also restores the hand-written pairing for free: with :text spanning two columns, Casting
+   ;; Time and Range fall onto one row and Duration onto the next, which is what the original did.
    [:.bf-flow
-    {:gap "18px 14px"
-     :align-items :flex-start}
-    [:> [:.bf-field {:margin-bottom "0 !important"}]]
-    [:> [:.bf-field
-         {:flex "1 1 240px"
-          :min-width "200px"}]]
-    [:> [:.bf-field-text    {:flex "1 1 260px"}]]
-    [:> [:.bf-field-number  {:flex "0 0 120px" :min-width "120px"}]]
-    [:> [:.bf-field-boolean {:flex "0 0 auto"  :min-width 0 :align-self :center}]]
-    [:> [:.bf-field-multi-enum {:flex "1 1 100%"}]]
-    [:> [:.bf-field-full    {:flex "1 1 100%"}]]]
+    {:display :grid
+     :grid-template-columns "repeat(4, 1fr)"
+     :gap "18px 14px"
+     :align-items :end}
+    [:> [:.bf-field {:margin-bottom "0 !important"
+                     :grid-column "span 1"
+                     :min-width 0}]]
+    [:> [:.bf-field-text       {:grid-column "span 2"}]]
+    [:> [:.bf-field-number     {:grid-column "span 1"}]]
+    [:> [:.bf-field-boolean    {:grid-column "span 1"}]]
+    [:> [:.bf-field-multi-enum {:grid-column "1 / -1"}]]
+    [:> [:.bf-field-full       {:grid-column "1 / -1"}]]
+    [:> [:.bf-bool-stack       {:grid-column "span 1"}]]
+    [:> [:.bf-break            {:grid-column "1 / -1"}]]
+    [:> [:.bf-bool-row         {:grid-column "1 / -1"}]]]
+   ;; toggles that are the whole row: adjacent, not one per grid track
+   [:.bf-bool-row
+    {:display :flex
+     :flex-wrap :wrap
+     :gap "10px 24px"}
+    [:.bf-field {:margin-bottom "0 !important"}]]
+   ;; narrow screens get fewer tracks rather than four squeezed ones
+   (at-media {:max-width "900px"}
+             [:.bf-flow {:grid-template-columns "repeat(2, 1fr)"}]
+             [:.form-head {:grid-template-columns "repeat(2, 1fr)"}])
+   (at-media {:max-width "600px"}
+             [:.bf-flow {:grid-template-columns "1fr"}
+              [:> [:.bf-field-text {:grid-column "span 1"}]]]
+             [:.form-head {:grid-template-columns "1fr"}])
    ;; A run of toggles that shares a row with other fields: one column. It was a 102px box holding
    ;; two 16px rows — the children kept their own margins and the column inherited the flow's
    ;; leading — so it overshot the 42px select beside it top and bottom. Explicit gap, no child
@@ -352,11 +375,11 @@
     {:flex "1 1 100%"
      :width "100%"}]
    [:.form-head
-    {:gap "12px"}]
-   ;; equal columns: an explicit basis, so a field's width stops depending on how long its label is
-   [:.form-col
-    {:flex "1 1 200px"
-     :min-width "200px"}]
+    {:display :grid
+     :grid-template-columns "repeat(4, 1fr)"
+     :gap "18px 14px"}
+    [:.form-col {:grid-column "span 2"
+                 :min-width 0}]]
    [:.effect-row-body
     {:padding "12px"}]
    ;; A toggle chip and an ACTION chip must not look alike. In the add-bar a chip means "click to

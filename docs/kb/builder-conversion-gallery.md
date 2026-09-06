@@ -391,6 +391,48 @@ carrying its own margin:
 | page height | 1289px | **1248px** |
 | visible controls | 10 | 10 |
 
+### The layout is a GRID, because flexbox cannot align columns
+
+Asked whether the horizontal layout was uneven or an optical illusion, the measurement says
+**uneven**. On the spell form, with a flex flow:
+
+| row | first control | second control |
+|---|---|---|
+| Name / Option Source | L=20 **w=574** | L=611 w=569 |
+| Level / School / … / Casting Time | L=20 **w=298** | L=332 w=298 … Casting Time L=862 **w=318** |
+| Range / Duration | L=20 **w=573** | L=607 w=573 |
+
+Second-column left edges of 611, 332 and 607, and *Casting Time* 318px wide against *Duration* 573px
+— the same kind of field at different widths. Flexbox distributes leftover space **per row**, so
+every row lays itself out independently and nothing lines up down the page.
+
+`.bf-flow` is a **four-track grid** now. A field's width comes from the field, not from how many
+neighbours happened to land beside it: `:text` spans two tracks, `:enum` / `:number` / a toggle
+column span one, `:multi-enum` / `:rows` / `:span :full` span all four; 2 tracks under 900px, 1
+under 600px. The head row shares the same tracks, so Name lines up with Casting Time below it.
+
+**It also restored the pairing that was listed as open here:** with `:text` spanning two tracks,
+Casting Time and Range fall onto one row and Duration onto the next — exactly what the hand-written
+form did. That was not designed for; it fell out of using the right primitive.
+
+A run of toggles that **is** the row (the components) gets its own full-width flex line so the boxes
+stay adjacent — on a four-track grid they would otherwise sit ~280px apart, one per track.
+
+### Two bugs this round, and one was in the measurement
+
+**The three component checkboxes silently disappeared.** The `cond` clause for a heading-only marker
+(`a map with no :type`) also matched the synthetic `{:bools-inline […]}` node and rendered it as
+`nil`. A synthetic node kind has to be excluded from that guard explicitly.
+
+**And the gallery did not notice**, because its control count queried `input, select, textarea` —
+the app draws a toggle as an `<i>` with colour classes, so **no checkbox had ever been counted**.
+The count read 10 both before and after three controls vanished. It counts glyph toggles now, which
+also corrects the census below: the bespoke builders are far denser than the old number suggested
+(race 22 → **244**, subrace 18 → **199**, background 5 → **184**).
+
+The lesson is the same one this page keeps recording: a metric that cannot see the thing it is
+supposed to guard will report its absence as a pass.
+
 ### Still open on this pair
 
 Not claiming it is finished:
@@ -432,6 +474,9 @@ settles it.
 Five of fifteen are generated. The nine still bespoke are **not blocked on effort**; each is blocked
 on a specific missing primitive, and they cluster hard. Measured by reading each builder's widgets,
 not guessed:
+
+*Control counts below predate the glyph-toggle fix and understate the checkbox-heavy builders; the
+current numbers are in `target/e2e-shots/gallery-*/index.json`.*
 
 | builder | lines | blocked on |
 |---|---:|---|

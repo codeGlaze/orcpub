@@ -7665,7 +7665,12 @@
         ;; Components, where the only other field is the full-width Material Component
         shares-row? #(and (field? %) (not (bool? %)) (not= :full (:span %)))]
     (if (not-any? shares-row? fields)
-      fields                                     ; nothing to sit beside — let the toggles flow inline
+      ;; Nothing to sit beside: the toggles ARE the row, so they hug each other on one line rather
+      ;; than taking a grid track each — on a four-track grid that put ~280px between Verbal and
+      ;; Somatic, where the hand-written form had them adjacent.
+      (let [bools (filterv bool? fields)
+            rest' (filterv (complement bool?) fields)]
+        (into [{:bools-inline bools}] rest'))
       (->> fields
            (reduce (fn [acc f]
                      (let [prev (peek acc)]
@@ -7756,10 +7761,19 @@
                                      [textarea-field
                                       {:value (get item :description)
                                        :on-change #(dispatch [set-prop :description %])}]]
-                                    ;; a heading-only marker contributes its title and no control
-                                    (and (map? f) (not (:type f)) (not (:rows f)) (not (:bools f)))
+                                    ;; a heading-only marker contributes its title and no control.
+                                    ;; It MUST list every synthetic node kind it is not, or it
+                                    ;; swallows them: {:bools-inline [...]} is a map with no :type
+                                    ;; and matched here, and the three component checkboxes silently
+                                    ;; disappeared from the form.
+                                    (and (map? f) (not (:type f)) (not (:rows f))
+                                         (not (:bools f)) (not (:bools-inline f)))
                                     nil
                                     (:rows f)    [:div.bf-break [rows-node item set-prop f]]
+                                    (:bools-inline f)   ;; the toggles ARE the row: one line, hugging
+                                    (into [:div.bf-bool-row]
+                                          (map #(vector render-builder-field item set-prop %)
+                                               (:bools-inline f)))
                                     (:bools f)   ;; a run of toggles sharing a row: one stacked column
                                     (into [:div.bf-bool-stack]
                                           (map #(vector render-builder-field item set-prop %)

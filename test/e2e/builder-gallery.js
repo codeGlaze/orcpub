@@ -49,9 +49,15 @@ const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
     await dismissCookieBar(page);
     // How many controls the form puts in front of an author, which is the number the comparison
     // is actually about.
-    const controls = await page.evaluate(() =>
-      [...document.querySelectorAll('#app input, #app select, #app textarea')]
-        .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; }).length);
+    // input/select/textarea AND the glyph checkboxes. The app draws a toggle as an <i> with colour
+    // classes, not an <input>, so a count of form elements missed every checkbox — the three spell
+    // components vanished from the page and the count still read 10.
+    const controls = await page.evaluate(() => {
+      const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+      const fields = [...document.querySelectorAll('#app input, #app select, #app textarea')].filter(vis);
+      const toggles = [...document.querySelectorAll('#app i.fa-check')].filter(vis);
+      return fields.length + toggles.length;
+    });
     // HEIGHT, not just control count. A conversion that stacks every field into one page-wide
     // column shows the same controls and reads far worse — the generated spell form ran 100px
     // TALLER than the hand-written one while showing one control FEWER, and a count-only gallery
