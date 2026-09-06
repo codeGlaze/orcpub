@@ -73,6 +73,37 @@ Open state is tracked by the handlers that open and close it, plus a `beforetogg
 for the two closes the browser performs itself — light dismiss and Escape. Without that
 listener the rows stay mounted after a light dismiss.
 
+## Tried and rejected: prefetch some rows, expand after open
+
+The obvious middle ground is to keep a first chunk mounted while closed so the popover opens
+with content, then mount the rest on the next frame. Built it (16 rows per section, budget
+expanding to all on open, on every keystroke, and synchronously on an arrow key so the
+highlight always has a row to land on). It does **not** break filtering — filtering runs over
+`matches`, the data, and never over what happens to be mounted.
+
+It also does not work. Longest task on open, 4x throttle:
+
+```
+mount-on-open (baseline)   62 ms
+prefetch 16 + expand       55, 64, 53 ms across three runs
+```
+
+That is noise. The work never shrank, it only moved: the deferred chunk is still 290 rows in
+one mount, so there is still one long task. Meanwhile the prefetched rows cost 112 nodes at
+rest (1541 -> 1653 closed), which is worse than the 12-row cap it replaced. Reverted.
+
+The trap to note if anyone retries this: a progressive budget must be able to reach *every*
+match, and something has to expand it on a keystroke and on an arrow key. A budget that only
+grows on open silently recreates the 12-row cap for filtered results, and one that lags the
+keyboard lets the highlight index past the mounted rows.
+
+**What would actually work is windowing** — mounting only the rows in view plus a buffer and
+updating on scroll — because it is the only option that reduces the total work rather than
+rescheduling it. Not built. Cost is roughly 0.19 ms per row at 4x throttle (58 ms / 306), so
+the 62 ms is a real freeze only for sections far larger than anything in this pack: a
+3000-item section would extrapolate to ~570 ms. Worth doing if such libraries turn up;
+premature otherwise, and it costs find-in-page over the unmounted rows.
+
 ## Browsing
 
 Arrow keys walk the list, `Enter` picks the highlight, and the highlighted row is scrolled
