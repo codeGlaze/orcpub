@@ -123,48 +123,54 @@ cache**. Three separate problems, in the order worth doing:
    lever, and it is the invasive one: needs a scroll container, measured row heights, and it
    breaks in-page find. Only if 1 leaves it slow.
 
-### The searchable picker was ported and MEASURED WORSE — do not retry as-is
+### The searchable picker: ported, measured worse, then FIXED with a render cap
 
-`port/redesign-on-refactor` has `option_menu_views.cljs` (610 lines: search, A-Z grouping,
-chips tray, three layouts), `option_grouping.cljs` and `themes.cljs` (91 lines). All are pure
-additions. **Ported and wired to the Equipment selects on `feat/option-picker`, then
-reverted** — it made the tab slower:
+Landed on `feat/option-picker`. The path there is worth keeping because the first conclusion
+was wrong.
+
+**Attempt 1 — wired as-is, reverted.** `option_menu_views.cljs` renders every option as live
+DOM, so the seven Equipment pickers replaced 1037 `<option>` elements with 5689 nodes and a
+24273px page. It measured 1.5-1.7x slower than the native `<select>` it replaced. A native
+select never builds DOM for its options — the browser owns that list — so this looked like a
+straight choice between "fast and unsearchable" and "searchable and slow", with only
+virtualisation in between.
+
+**That was a false binary.** The data is already in app-db, so narrowing it is a `filterv`,
+not a fetch. `option-menu` now takes `:max-rendered`: it renders the first N of the filtered
+list and shows "Showing N of M. Type to narrow the list." Search does the work the scrollbar
+was doing. ~15 lines, and none of virtualisation's costs — no scroll container, no measured
+row heights, no broken in-page find.
+
+Measured at 4x throttle on mega-64, steady state, **normalised to the Race tab in the same
+run** (absolute numbers drifted between server restarts, so the ratio is the fair
+comparison):
 
 ```
-Equipment longest task, 4x throttle, mega-64
-  native selects   375 / 300 / 307 ms
-  picker           631 / 530 / 442 ms      ~1.5-1.7x worse
-  Race (control)   unchanged
-
-DOM census
-  native selects   2558 nodes, 1037 <option>, page  2422px
-  picker           5689 nodes,    0 <option>, page 24273px
+  native select      307 ms / 186 ms control = 1.65x
+  uncapped picker    442 ms / 163 ms control = 2.71x
+  capped (25) run 1  310 ms / 229 ms control = 1.35x
+  capped (25) run 2  330 ms / 251 ms control = 1.31x
 ```
 
-**Why, and why it is not a wiring mistake:** a native `<select>` never builds DOM for its
-options — the browser owns that list and renders it only when opened. `option-menu` renders
-every option inline as real elements. Trading 1037 unrendered options for 3131 live nodes
-costs more than the search box is worth at this list size. Collapsing does not help either:
-the body renders unconditionally and only gains a `collapsed` CSS class
-(`option_menu_views.cljs:528`).
+The cap does not merely recover the regression: relative to its own control the picker is now
+**cheaper than the native select**, twice over, while being searchable across 200+ homebrew
+items. 150 rendered cells instead of 1037 `<option>` elements.
 
-The component is right for what it was written for — the homebrew builder menus, tens of
-options — and wrong for inventory lists of 200+. **It would only beat a native select if it
-virtualised its own list**, which it does not.
+Verified: JVM 447/3527 and CLJS 273/1374, both zero failures, plus
+`test/browser/equipment_add_functional_e2e.js` — the picker renders, the cap holds, search
+narrows, and picking an item reaches the character. Neither suite clicks anything, so that
+probe is the tab's only coverage.
 
-What IS established, so nobody re-derives it:
+Also established, so it is not re-derived:
 
-- the three files compile clean against integration (zero errors, zero warnings); their only
-  orcpub deps are `orcpub.components` and `orcpub.dnd.e5.db`
+- the three ported files compile clean against integration; only orcpub deps are
+  `orcpub.components` and `orcpub.dnd.e5.db`
 - the CSS is a self-contained 448-line block (port branch `styles/core.clj` ~2616-3059): no
-  theme tokens, no `var(--…)`, only `str` and `handle-browsers`, which integration has
-- the port lives on `feat/option-picker` if it is ever wanted for a *small* menu
-- the source branch is badly stale: integration is **387 commits ahead**, its last commit
-  2026-07-15. Waiting for convergence is not a plan.
-
-So the Equipment tab's 1037 options remain unsolved. The lever that would actually work is a
-picker that virtualises, or leaving the native select alone — it is, for all its ugliness,
-the cheapest thing on that tab.
+  theme tokens, no `var(--…)`, only `str` and `handle-browsers`
+- our copy **diverges** from `port/redesign-on-refactor` by adding `:max-rendered`; noted in
+  the ns docstring
+- that source branch is badly stale — integration is **387 commits ahead**, its last commit
+  2026-07-15. Harvesting it was the only way this was ever going to ship.
 
 ## Content-library management — remaining work
 
