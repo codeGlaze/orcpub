@@ -26,19 +26,42 @@ keyword, a string, a boolean.
 entity. 35 take only small arguments (`id`, `key`, `i`, `path`, `event-kw`) and are fine.
 Eight take arguments whose names suggest large structures; each was traced:
 
-| Site | Args | Traced | Verdict |
+| Site | Args | What the arg actually is | Verdict |
 | --- | --- | --- | --- |
-| `entity.cljc:549` `memoized-make-path-map-aux` | `character` | **no call sites** | DEAD -- delete |
-| `entity.cljc:663` `memoized-build-aux` | `raw-entity template` | **no call sites** | DEAD -- delete |
-| `entity.cljc:733` `memoized-build-template-aux` | `plugins template` | **no call sites** | DEAD -- delete |
-| `character_builder.cljs:1428` `remaining-adjustments` | `built-template character` | callers use `remaining-adjustments-fn` directly (line 1431) | DEAD -- delete |
-| `options.cljc:475` `memoized-spell-option` | `spells-map ... key` | hot; **measured 10x slower than not caching** | FIX -- see below |
-| `character_builder.cljs:455` `make-inventory-item` | `key item-map qty-input-width` | called per inventory row (line 494) | LIKELY FIX |
-| `views.cljs:4143` `export-pdf-handler` | `built-char id plugin-data ...` | called on character-page render (line 4274) | LIKELY FIX |
-| `views.cljs:2304` `toggle-spell-expanded!` | `expanded-spells k` | called per spell row (line 2363) | INVESTIGATE |
+| `entity.cljc:549` `memoized-make-path-map-aux` | `character` | -- | **DEAD** |
+| `entity.cljc:663` `memoized-build-aux` | `raw-entity template` | -- | **DEAD** |
+| `entity.cljc:733` `memoized-build-template-aux` | `plugins template` | -- | **DEAD** |
+| `character_builder.cljs:1442` `remaining-adjustments` | `built-template character` | -- | **DEAD** (caller uses `-fn`) |
+| `options.cljc:475` `memoized-spell-option` | `spells-map ... key` | the whole spell library | **FIX** -- measured 10x slower than no cache |
+| `character_builder.cljs:469` `make-inventory-item` | `key item-map qty-input-width` | `item-map` is `::equip5e/weapons-map` / `armor-map` / `equipment-map` / `::mi5e/magic-*-map` -- full content maps incl. homebrew, and it is called once per inventory row inside a `map-indexed` | **FIX** |
+| `views.cljs:4197` `export-pdf-handler` | `built-char id plugin-data` + 12 flags | `built-char` is the entire built character and `plugin-data` the entire homebrew library -- the largest key in the codebase | **FIX** |
+| `views.cljs:2313` `toggle-spell-expanded!` | `expanded-spells k` | `expanded-spells` is an `r/atom`, and reagent's RAtom does not implement `IEquiv`, so `=` on it is reference equality -- O(1) | **LEAVE** (see below) |
 
-Four of the eight are dead code -- defined, never called. That is the cheapest and safest
-part of the follow-up.
+### How "dead" was established (not just a grep)
+
+A symbol grep in one directory is not a trace; Clojure has several indirect paths. All four
+were checked against every one of them, across `src test dev web scripts`:
+
+- exactly **one hit each** -- their own definition (`remaining-adjustments` has three: the
+  `-fn`, the memoized `def`, and a caller that uses the `-fn` directly)
+- **no `:refer :all`** anywhere -- all 11 matches are comments warning against it
+- **no runtime resolution** reaches them: the 5 `resolve`/`ns-resolve` sites are a protocol
+  method named `resolve` in `pdf.clj`, a test resolving `classes/*-option`, and three
+  figwheel API lookups in `dev/user.clj`
+- **no `defmacro`** in either file, so nothing can expand to these names
+- **no `#'` var-quote** references
+
+### Correction: `toggle-spell-expanded!` is not a deep-compare trap
+
+It was listed as "investigate" on the strength of its argument *name*. Traced, its key is
+`[<RAtom object>, keyword]` and RAtom comparison is reference equality, so the lookup is O(1).
+It is still an unbounded cache -- `expanded-spells` is a fresh `r/atom` per `spells-table`
+mount, so entries accumulate across mounts and never evict -- but the entries are tiny
+closures and this is not the performance defect. **Do not "fix" it.**
+
+Four of the eight are dead -- defined, never called. That is the cheapest and safest part of
+the follow-up. Three of the remaining four are real; the fourth was a false positive from
+reading an argument name instead of tracing it.
 
 ## `memoized-spell-option` is measurably slower than no cache
 
