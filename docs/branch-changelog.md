@@ -24,3 +24,7 @@ rather than something they'd have to go read the changelog to find.
   Closing it stamps the release, so it stays shut until the next one (`ee3e4d8b`).
 - **`orcpub.whats-new`** — the release entries and the id that gates the panel, in
   one cljc file the panel and the tests both read (`ee3e4d8b`).
+- **Twelve Summer Patch highlights under three headings** — library, characters,
+  printing — covering the builder freeze, the spell rows that never printed, the
+  two styles that could not export a multiclass caster, and the packed multiclass
+  layout, alongside the homebrew and portrait work.

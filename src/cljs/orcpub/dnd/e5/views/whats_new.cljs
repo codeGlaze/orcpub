@@ -16,7 +16,7 @@
 (defn- stop-propagation [e]
   (.stopPropagation e))
 
-(defn- release-body [{:keys [title subtitle items]}]
+(defn- release-body [{:keys [title subtitle] :as release}]
   [:div.whats-new-panel
    {:on-click stop-propagation}
    [:div.whats-new-header
@@ -31,13 +31,18 @@
       [:div.whats-new-subtitle subtitle])]
 
    [:div.whats-new-body
-    (for [{:keys [icon headline detail]} items]
-      ^{:key headline}
-      [:div.whats-new-item
-       [:i.fa.whats-new-item-icon {:class icon}]
-       [:div
-        [:div.whats-new-item-headline headline]
-        [:div.whats-new-item-detail detail]]])]
+    (for [[group group-items] (whats-new/grouped-items release)]
+      ^{:key (or group "ungrouped")}
+      [:div.whats-new-group
+       (when group
+         [:div.whats-new-group-title group])
+       (for [{:keys [icon headline detail]} group-items]
+         ^{:key headline}
+         [:div.whats-new-item
+          [:i.fa.whats-new-item-icon {:class icon}]
+          [:div
+           [:div.whats-new-item-headline headline]
+           [:div.whats-new-item-detail detail]]])])]
 
    [:div.whats-new-footer
     [:div.whats-new-version (str "Version " (v/version))]

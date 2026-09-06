@@ -36,6 +36,16 @@
       (is (not (contains? renamed-in-fa5 icon))
           (str icon " is a Font Awesome 4 name and renders blank")))))
 
+(deftest groups-render-as-one-heading-each
+  (doseq [{release :id :as r} whats-new/releases]
+    (testing release
+      (let [groups (map first (whats-new/grouped-items r))]
+        (testing "a group is contiguous, so it gets one heading rather than several"
+          (is (= (count groups) (count (distinct groups)))
+              (str "regrouped: " (pr-str groups))))
+        (testing "grouping is all-or-nothing within a release"
+          (is (or (every? some? groups) (every? nil? groups))))))))
+
 (deftest unseen-gates-on-the-current-id
   (testing "a browser with no stamp is shown the release"
     (is (whats-new/unseen? nil)))

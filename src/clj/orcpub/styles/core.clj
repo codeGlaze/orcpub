@@ -2004,6 +2004,24 @@
       :flex 1
       :box-shadow "inset 0 -14px 12px -12px rgba(0,0,0,0.55)"}]
 
+    ;; A group heading separates the sections; inside one, the item borders do it.
+    [:.whats-new-group-title
+     {:color orange
+      :font-size "11px"
+      :font-weight :bold
+      :letter-spacing "1.2px"
+      :text-transform :uppercase
+      :padding "18px 0 2px"
+      :margin-top "6px"
+      :border-top "1px solid rgba(255,255,255,0.12)"}]
+
+    [:.whats-new-group
+     [:&:first-child
+      [:.whats-new-group-title
+       {:border-top :none
+        :margin-top 0
+        :padding-top "12px"}]]]
+
     [:.whats-new-item
      {:display :flex
       :align-items :flex-start

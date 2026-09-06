@@ -47,6 +47,7 @@ const SRC = fs.readFileSync('src/cljc/orcpub/whats_new.cljc', 'utf8');
 const RELEASE_ID = (SRC.match(/:id\s+"([^"]+)"/) || [])[1];
 const RELEASE_TITLE = (SRC.match(/:title\s+"([^"]+)"/) || [])[1];
 const HEADLINES = [...SRC.matchAll(/:headline\s+"([^"]+)"/g)].map(m => m[1]);
+const GROUPS = [...new Set([...SRC.matchAll(/:group\s+"([^"]+)"/g)].map(m => m[1]))];
 
 async function newPage(browser, errors, { cookieBanner = false } = {}) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -86,6 +87,10 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
   const items = await page.locator('.whats-new-item').count();
   check('every highlight is rendered', items === HEADLINES.length,
         `${items} shown, ${HEADLINES.length} in the source`);
+
+  const groups = await page.locator('.whats-new-group-title').allInnerTexts();
+  check('each group gets one heading', groups.length === GROUPS.length,
+        `${groups.length} shown, ${GROUPS.length} in the source`);
 
   const firstHeadline = (await page.locator('.whats-new-item-headline').first().innerText()).trim();
   check('highlights carry their text', firstHeadline === HEADLINES[0], `saw "${firstHeadline}"`);
