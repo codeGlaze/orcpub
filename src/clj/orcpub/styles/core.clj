@@ -432,11 +432,20 @@
    ;; own comment about dropping legacy `.field` margins inside a card: that is the same global
    ;; `.field {margin-top:30px}` that made a mess of the builder rows here.
    [:.opt-section
-    {:background "#1b232f"
+    ;; DEVIATION from the verbatim port, and the reason for it: the literal #1b232f was chosen
+    ;; against the mock's #161d27 page — a +6 lift, barely there. This builder page sits on
+    ;; rgb(8,10,13), so the same literal lifts +19 and the cards read as chunky pale blocks rather
+    ;; than a grouping. A translucent white overlay lifts RELATIVE to whatever is behind it, so it
+    ;; lands the same on both pages and survives the redesign's light/dark work instead of needing
+    ;; a second literal.
+    {:background "rgba(255,255,255,0.035)"
      :border "1px solid rgba(255,255,255,0.08)"
      :border-radius "14px"
      :padding "20px 22px 22px"
-     :margin-bottom "18px"
+     ;; margin on the TOP, not the bottom. With margin-bottom the first card butted straight into
+     ;; the stat fields above it — a measured gap of 0px — because nothing preceded it to supply
+     ;; the space. Top margin gives every card the same 18px run-in, including the first.
+     :margin-top "18px"
      :box-shadow "inset 0 1px 0 rgba(255,255,255,0.03)"}
     [:.field {:margin-top "0"}]
     [:.input {:margin-top "0"}]]
@@ -458,7 +467,13 @@
     {:font-size "clamp(19px, 3vw, 22px)"
      :font-weight 700
      :color "#f3f6fa"
-     :letter-spacing "-0.005em"}]
+     :letter-spacing "-0.005em"
+     ;; wrap INSIDE this box rather than wrapping the whole title below the accent bar. The head is
+     ;; flex-wrap (the mock puts a count pill beside the title), so a long title on a narrow screen
+     ;; broke to its own line and stranded the accent alone above it — visible at 390px on
+     ;; "Add This Spell to Which Class Spell Lists?".
+     :flex "1 1 auto"
+     :min-width 0}]
 
    ;; ── select-menu: ported from port/redesign-on-refactor (3384d4c5) ────────────────────────
    ;; Kept as close to the original as possible so the merge is a delete rather than a

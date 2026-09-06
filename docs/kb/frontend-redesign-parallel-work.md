@@ -216,6 +216,32 @@ framework.
 It costs height: the spell form went 1242px → **1405px** desktop, 1742px → **1899px** at 390px.
 That is the cards' padding and margins, and it is the trade the mock proposes on purpose.
 
+**A verbatim port was the wrong instinct for the card's own colour and spacing.** Measured after
+landing it:
+
+| | the mock | this page |
+|---|---|---|
+| page background | `#161d27` (22,29,39) | **`rgb(8,10,13)`** — near-black |
+| card `#1b232f` (27,35,47) against it | +6 — a whisper of lift | **+19 — three times as strong** |
+
+The literal was chosen against a page fourteen points lighter, so importing it produced chunky pale
+blocks rather than a grouping. The card is now `rgba(255,255,255,0.035)` — a **translucent lift**,
+which lands the same on either page and survives the redesign's light/dark work instead of needing a
+second literal. That is a deliberate deviation from verbatim, for a reason the measurement gives.
+
+Two spacing faults, both found by measuring rather than looking:
+
+- **The first card butted straight into the fields above it — a gap of 0px.** The card carried
+  `margin-bottom`, so nothing supplied space *before* the first one. It carries `margin-top` now, so
+  every card gets the same 18px run-in including the first.
+- **A wrapping title stranded its accent bar on a line of its own** at 390px, on "Add This Spell to
+  Which Class Spell Lists?". `.opt-section-head` is `flex-wrap` (the mock puts a count pill beside
+  the title), so the title broke below the accent instead of wrapping within its own box. The title
+  is `flex: 1 1 auto; min-width: 0` now.
+
+Mobile after the pass: **no horizontal overflow**, cards inset properly, Level|School still paired
+and the flags still side by side.
+
 Two process notes from doing it:
 
 - **`lein garden` failed and I read past it.** The command was piped through `tail -1`, so
