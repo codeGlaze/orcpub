@@ -47,7 +47,9 @@ handled by the platform rather than by hand.
   non-zero if any fails. Neither test suite invokes `test/browser/`, so nothing was checking
   the 11 probes that carry real assertions; one had been failing and exiting 1 for several
   commits unnoticed. Probes that cannot run report `SKIP` loudly rather than staying silent
-  (`<pending>`).
+  (`<pending>`). Probes are classified by the world they need — the real server, their own
+  standalone harness, or the busy-export profile — because running them as though they all
+  wanted the same one fails in both directions (`<pending>`).
 
 ## Fixed
 
@@ -59,6 +61,10 @@ handled by the platform rather than by hand.
   picked item reaches the character entity — the part worth keeping (`<pending>`).
 - `screenshots_e2e.js` silently stopped taking two of its three shots for the same reason
   (`<pending>`).
+- `notifications_acceptance_e2e.js` treated a CORS block as an unexpected console error. Its
+  harness serves the app from its own origin with no backend, so an XHR to the real backend
+  is either refused or CORS-blocked depending on whether an unrelated server happens to be
+  running — the same condition, and not something that should decide the probe (`<pending>`).
 - The dropdown matches its input's width and no longer sits 14px wider; it also flips above
   the input instead of running off the bottom of the viewport (`95d38f67`).
 

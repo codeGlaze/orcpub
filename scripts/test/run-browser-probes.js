@@ -31,20 +31,29 @@ const ROOT = path.resolve(__dirname, '../..');
 const SERVER = 'http://localhost:8890';
 const PER_PROBE_TIMEOUT_MS = 10 * 60 * 1000;
 
-// needsPack: the probe imports a homebrew library and asserts against its content, so it
-// cannot run without one. The rest assert against the app's own bundled content.
+// These probes do NOT all want the same world, and running them as though they did is
+// wrong in both directions:
+//
+//   needs: 'server'      drives the real app at :8890 (`lein e2e-server`)
+//   needs: 'standalone'  serves resources/public from its own throwaway http server and
+//                        expects NO usable backend -- it treats connection-refused as
+//                        benign noise
+//   needs: 'busy-server' drives :8890 but only passes under `lein e2e-server-busy`, the
+//                        profile that holds every export slot so the busy page appears
+//
+// needsPack: imports a homebrew library and asserts against its content.
 const PROBES = [
-  { file: 'character_image_capture_e2e.js' },
-  { file: 'class_handlers_functional_e2e.js', needsPack: true },
-  { file: 'equipment_add_functional_e2e.js', needsPack: true },
-  { file: 'export_busy_retry_e2e.js' },
-  { file: 'notification_flows_e2e.js' },
-  { file: 'notifications_acceptance_e2e.js' },
-  { file: 'spell_help_laziness_e2e.js' },
-  { file: 'spell_layout_pdf_e2e.js' },
-  { file: 'starting_equipment_browser_e2e.js' },
-  { file: 'starting_equipment_ledger_e2e.js' },
-  { file: 'sticky_header_e2e.js' },
+  { file: 'character_image_capture_e2e.js',    needs: 'server' },
+  { file: 'class_handlers_functional_e2e.js',  needs: 'server', needsPack: true },
+  { file: 'equipment_add_functional_e2e.js',   needs: 'server', needsPack: true },
+  { file: 'export_busy_retry_e2e.js',          needs: 'busy-server' },
+  { file: 'notification_flows_e2e.js',         needs: 'standalone' },
+  { file: 'notifications_acceptance_e2e.js',   needs: 'standalone' },
+  { file: 'spell_help_laziness_e2e.js',        needs: 'server' },
+  { file: 'spell_layout_pdf_e2e.js',           needs: 'server' },
+  { file: 'starting_equipment_browser_e2e.js', needs: 'standalone' },
+  { file: 'starting_equipment_ledger_e2e.js',  needs: 'standalone' },
+  { file: 'sticky_header_e2e.js',              needs: 'server' },
 ];
 
 const get = url => new Promise(res => {
@@ -78,22 +87,27 @@ function run(probe, pack) {
     console.error('No dev build — run `lein fig:build` first.');
     process.exit(2);
   }
-  if (await get(SERVER) === 0) {
-    console.error(`No server at ${SERVER} — run \`lein e2e-server\` in another shell.`);
-    console.error('(Do NOT run other lein commands while it boots: the .lein-env race makes');
-    console.error(' it come up against the wrong database. See docs/kb/fast-browser-probes.md.)');
-    process.exit(2);
-  }
-
+  const serverUp = await get(SERVER) !== 0;
   const pack = process.env.ORCBREW_PACK;
   const only = (process.env.ONLY || '').split(',').filter(Boolean);
   const jobs = Math.max(1, parseInt(process.env.JOBS || '1', 10));
 
   let queue = PROBES.filter(p => !only.length || only.some(o => p.file.includes(o)));
   const skipped = [];
-  if (!pack) {
-    for (const p of queue.filter(p => p.needsPack)) skipped.push(p);
-    queue = queue.filter(p => !p.needsPack);
+  const skip = (p, why) => { skipped.push({ ...p, why }); };
+  queue = queue.filter(p => {
+    if (p.needs === 'server' && !serverUp) { skip(p, `no server at ${SERVER} — run \`lein e2e-server\``); return false; }
+    // Not merely unnecessary: this profile is the whole point of the probe, and against the
+    // ordinary server the busy page never appears and every check fails.
+    if (p.needs === 'busy-server' && !process.env.BUSY_SERVER) { skip(p, 'needs `lein e2e-server-busy` + BUSY_SERVER=1'); return false; }
+    if (p.needsPack && !pack) { skip(p, 'needs ORCBREW_PACK'); return false; }
+    return true;
+  });
+
+  if (!serverUp) {
+    console.log(`note: nothing listening at ${SERVER}, so only the standalone probes will run.`);
+    console.log('      (Do NOT run other lein commands while e2e-server boots: the .lein-env');
+    console.log('       race makes it come up against the wrong database. See docs/kb/fast-browser-probes.md.)\n');
   }
 
   console.log(`running ${queue.length} probe(s), ${jobs} at a time\n`);
@@ -112,7 +126,7 @@ function run(probe, pack) {
   await Promise.all(workers);
 
   // A probe that could not run is reported loudly. Silence is how the last one hid.
-  for (const p of skipped) console.log(`SKIP  ${p.file}  (needs ORCBREW_PACK)`);
+  for (const p of skipped) console.log(`SKIP  ${p.file}  (${p.why})`);
 
   const failed = results.filter(r => r.code !== 0);
   console.log(`\n${results.length - failed.length}/${results.length} probes passed` +

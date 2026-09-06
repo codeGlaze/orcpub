@@ -27,12 +27,28 @@ assertions and exiting 1 for several commits because nothing ran it.
 
 ```
 ORCBREW_PACK=/path/to/pack.orcbrew   # enables the two probes that need imported homebrew
+BUSY_SERVER=1                        # with `lein e2e-server-busy`, enables the export probe
 JOBS=3                               # run N at once (default 1)
 ONLY=equipment,sticky                # substring filter
 STRICT=1                             # a probe that could not run counts as a failure
 ```
 
-A probe that cannot run is reported as `SKIP`, loudly. Silence is how the stale one hid.
+A probe that cannot run is reported as `SKIP` with its reason, loudly. Silence is how the
+stale one hid.
+
+**The probes do not all want the same world.** Running them as though they did is wrong in
+both directions — it was, on the runner's first outing:
+
+| `needs` | what it wants |
+| --- | --- |
+| `server` | the real app at `:8890` (`lein e2e-server`) |
+| `standalone` | serves `resources/public` itself and expects **no** usable backend; it treats connection-refused as benign |
+| `busy-server` | `:8890` under `lein e2e-server-busy`, the profile that holds every export slot so the busy page appears |
+
+So the server is not a blanket precondition: it is required only when a selected probe needs
+one, and the standalone probes run either way. `export_busy_retry` against the ordinary
+server fails all six of its checks, and `notifications_acceptance` fails *because* a server
+is up — its XHR gets CORS-blocked instead of refused. Both are preconditions, not bugs.
 
 Only asserting probes are in the runner. The measurement probes (`tab_switch_freeze`,
 `freeze_cpu_profile`, `combobox_scroll`, `select_option_census`, …) report numbers rather
