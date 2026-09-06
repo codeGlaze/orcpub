@@ -16,6 +16,10 @@ measured, what turned out to be wrong, and why.
   Per-source localStorage keys. Measured ceiling 5,177,344 chars; why copy-then-delete
   migration is dead; why this does not fix the reported freeze.
 
+**Open, measured, not acted on:** builder render weight (per-card DOM, 1037 Equipment select
+options, ~70 off-screen cards) is tracked in [docs/TODO.md](../TODO.md) under "Builder render
+weight" with the DOM census and the picker-branch assessment.
+
 ## Practice
 
 - **[memoize-antipattern-scan.md](memoize-antipattern-scan.md)** -- every `memoize` site

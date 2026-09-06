@@ -489,6 +489,13 @@
                        :qty-change-fn (change-custom-inventory-item-quantity custom-equipment-key i)
                        :remove-fn (remove-custom-inventory-item custom-equipment-key name)}])))
 
+;; PERF: the seven of these on the Equipment tab render 1037 <option> elements between
+;; them -- the tab's dominant cost. Native selects cannot be virtualised; the fix is a
+;; searchable picker, and one already exists on port/redesign-on-refactor
+;; (option_menu_views.cljs). See docs/TODO.md "Builder render weight".
+;;
+;; NOTE make-inventory-item below is deliberately NOT memoized-adjacent work: it was
+;; measured at 7 calls / ~1 ms and left alone. Do not "optimise" it.
 (defn inventory-selector [item-map-sub qty-input-width {:keys [selection]} & [custom-equipment-key]]
   (let [{:keys [::t/key]} selection
         selected-items @(subscribe [:entity-option key])
@@ -520,6 +527,11 @@
           [:span.underline "Add Custom Item"]
           [:i.fa.fa-plus-circle.m-l-5.f-s-16]]]])]))
 
+;; PERF: this card is rendered once per option, ~70 times on Race and Background (all of
+;; them below the fold at 720px). Measured 2049-2558 DOM nodes per tab and a 160-354 ms
+;; longest task at 4x throttle -- one reagent render, no hot function, so the cost is the
+;; SIZE of this tree, not logic. Trimming it here helps every tab at once and is much
+;; smaller than virtualising. See docs/TODO.md "Builder render weight".
 (defn option-selector-base []
   (let [expanded? (r/atom false)]
     (fn [{:keys [name key help selected? selectable? option-path select-fn content explanation-text icon classes multiselect? disable-checkbox? edit-event]}]

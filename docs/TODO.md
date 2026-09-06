@@ -88,6 +88,58 @@ otherwise stubbornly persist.
 
 ---
 
+## Builder render weight — measured, not yet acted on
+
+**Status:** Open
+**Severity:** Low — noticeable, not broken. The 1 s freeze this came from is FIXED and merged.
+**KB doc:** [docs/kb/memoize-antipattern-scan.md](kb/memoize-antipattern-scan.md), [docs/kb/perf-homebrew-builder-loop.md](kb/perf-homebrew-builder-loop.md)
+
+DOM census per builder tab, mega-64 homebrew, 1280x720 (`dev-scratch` probe; see the KB):
+
+```
+tab              DOMnodes  cards  offscreen  selects  selOptions
+Race                 2049     68         68        0          0
+Class / Level        1515      0          0        2        162
+Background           2067     72         72        0          0
+Proficiencies        1384      6          4        0          0
+Equipment            2558      6          6        7       1037
+Spells               1276      0          0        0          0
+```
+
+(Spells and Class/Level understate: the census ran without a caster configured.)
+
+Longest task at 4x CPU throttle: Equipment 354 ms, Race 160-197 ms. Profiled, it is one
+reagent render with no app function above ~10 ms of self time — **render volume, nothing to
+cache**. Three separate problems, in the order worth doing:
+
+1. **Per-card DOM cost.** ~2500 nodes should not cost 354 ms. Each option card is a nested
+   tree (checkbox, icon, name, edit link, info button). Trimming it helps every tab at once
+   and is far smaller than a virtual scroller. Do this before reaching for virtualisation.
+2. **1037 `<option>` elements across 7 native selects on Equipment.** Native selects cannot
+   be virtualised — the browser owns that list. The fix is a searchable picker; see the
+   entry below.
+3. **~70 off-screen option cards on Race and Background** (100% below the fold at 720px).
+   This is also what first paint pays for, Race being the landing tab. Virtualisation is the
+   lever, and it is the invasive one: needs a scroll container, measured row heights, and it
+   breaks in-page find. Only if 1 leaves it slow.
+
+### The searchable picker already exists on a branch — grabbing it is cheaper than it looks
+
+`port/redesign-on-refactor` adds `option_menu_views.cljs` (610 lines: search box, A-Z
+grouping, selected-chips tray, three layouts), `option_grouping.cljs` and `themes.cljs`
+(91 lines). All three are **pure additions** — no conflict risk in taking them. Its
+`views.cljs` change is a net *reduction* (-1483/+908) because it replaces inline menu code
+with calls to the shared component.
+
+So the earlier "wait for convergence, it is coupled to theme infrastructure" note
+overstated the coupling. What taking it early actually costs: our own wiring for the seven
+Equipment selects would conflict with that branch's `views.cljs` rewrite when it lands.
+Bounded and understandable, not a blocker.
+
+**Unverified before doing it:** whether those three files compile standalone against
+integration, or reference subs/views that exist only on the port branch. Check that first.
+
+
 ## Content-library management — remaining work
 
 **Status:** Open
