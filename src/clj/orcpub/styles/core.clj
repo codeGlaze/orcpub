@@ -334,6 +334,7 @@
     [:> [:.bf-field-number     {:grid-column "span 1"}]]
     [:> [:.bf-field-boolean    {:grid-column "span 1"}]]
     [:> [:.bf-field-multi-enum {:grid-column "1 / -1"}]]
+    [:> [:.bf-field-wide       {:grid-column "span 2"}]]
     [:> [:.bf-field-full       {:grid-column "1 / -1"}]]
     [:> [:.bf-bool-stack       {:grid-column "span 1"}]]
     [:> [:.bf-break            {:grid-column "1 / -1"}]]

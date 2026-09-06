@@ -473,6 +473,20 @@ stomach, consumed by the spell"*. `:placeholder` works on `:text` and `:combo`.
 All three are pinned separately from the conversion in `test/e2e/spell-builder.js` — the first 29
 checks describe the form that was replaced, the rest describe what was added to it (39/39).
 
+### Balance pass
+
+Two rows were leaving a gap at the right edge and one control was the wrong height.
+
+- **Page moved up beside the flags**, so the first row fills its four tracks (Level, School, the
+  toggle column, Page) instead of the number sitting alone under them.
+- **Duration takes two tracks** (`:span :wide`): its values are the longest of the three
+  ("Concentration, up to 10 minutes"), and it squares the second row at four — Casting Time, Range,
+  Duration.
+- **`:number` fields were 38px tall against every other control's 40px.** `number-field` did not
+  carry the `h-40` class the text inputs get, so a number sitting beside a select or text box was
+  2px short and the row read as misaligned. That was true in **every** builder using a number, not
+  just this one; measured, not spotted by eye.
+
 ### Still open on this pair
 
 Not claiming it is finished:

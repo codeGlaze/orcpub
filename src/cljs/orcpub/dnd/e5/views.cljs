@@ -4516,7 +4516,10 @@
    (fn [v]
      (on-change
       (when (re-matches #"\d+" v) (js/parseInt v))))
-   {:class "input"
+   ;; h-40 to match every other builder control. Without it a :number field renders 38px tall
+   ;; against a text input's 40px, which reads as a misaligned row wherever the two sit side by side
+   ;; — measured on the spell form, Page's box sat 2px short of Level and School.
+   {:class "input h-40"
     :type :number
     :maxLength (:number branding/field-limits)}])
 
@@ -7586,7 +7589,10 @@
        ;; and naming these `field` inherited it — every row gained 30px it never asked for and the
        ;; stacked toggle pair became a 106px box holding two 16px rows. Measured, not guessed.
        {:class (str "bf-field bf-field-" (name (or type :text))
-                    (when (= :full (:span field)) " bf-field-full"))}
+                    (case (:span field)
+                      :full " bf-field-full"
+                      :wide " bf-field-wide"
+                      ""))}
        ;; :compact? keeps the f-w-b marker (label lookup, and every e2e finds controls by it) but
        ;; shrinks it — a tag's label sits above a small control, not above a page-wide one.
        ;; Inside a titled group the words the group already says are noise, and they are what
