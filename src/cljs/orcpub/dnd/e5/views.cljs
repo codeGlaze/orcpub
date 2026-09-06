@@ -7582,8 +7582,11 @@
        ;; TALLER than the hand-written one it replaced while showing one control fewer, because the
        ;; bespoke page paired Level+School and Casting Time+Range on single rows and ran the
        ;; checkboxes inline. A declarative form has to carry that, or it trades cohesion for brevity.
-       {:class (str "field field-" (name (or type :text))
-                    (when (= :full (:span field)) " field-full"))}
+       ;; bf- prefixed: the app already has a global `.field {margin-top:30px}` (styles/core.clj),
+       ;; and naming these `field` inherited it — every row gained 30px it never asked for and the
+       ;; stacked toggle pair became a 106px box holding two 16px rows. Measured, not guessed.
+       {:class (str "bf-field bf-field-" (name (or type :text))
+                    (when (= :full (:span field)) " bf-field-full"))}
        ;; :compact? keeps the f-w-b marker (label lookup, and every e2e finds controls by it) but
        ;; shrinks it — a tag's label sits above a small control, not above a page-wide one.
        ;; Inside a titled group the words the group already says are noise, and they are what
@@ -7739,29 +7742,30 @@
        (into [:div.w-100-p]
              (map (fn [[section fields]]
                     [:div.w-100-p
+                     {:class (when section "bf-section")}
                      ;; the app's own section heading, which is what every hand-written builder
                      ;; uses ("Components", "Description", "Creatures") — not the small uppercase
                      ;; label I had invented, which read as a footnote next to them
                      (when section [:div.f-s-24.f-w-b.m-b-10 section])
-                     (into [:div.flex.flex-wrap.field-flow]
+                     (into [:div.flex.flex-wrap.bf-flow]
                            ;; a field spec (map) renders declaratively; raw hiccup passes through
                            (map (fn [f]
                                   (cond
                                     (= :description (:slot f))
-                                    [:div.field-break
+                                    [:div.bf-break
                                      [textarea-field
                                       {:value (get item :description)
                                        :on-change #(dispatch [set-prop :description %])}]]
                                     ;; a heading-only marker contributes its title and no control
                                     (and (map? f) (not (:type f)) (not (:rows f)) (not (:bools f)))
                                     nil
-                                    (:rows f)    [:div.field-break [rows-node item set-prop f]]
+                                    (:rows f)    [:div.bf-break [rows-node item set-prop f]]
                                     (:bools f)   ;; a run of toggles sharing a row: one stacked column
-                                    (into [:div.bool-stack]
+                                    (into [:div.bf-bool-stack]
                                           (map #(vector render-builder-field item set-prop %)
                                                (:bools f)))
                                     (map? f)     [render-builder-field item set-prop f]
-                                    :else        [:div.field-break f]))
+                                    :else        [:div.bf-break f]))
                                 (group-toggles fields)))])
                   (field-sections extra-fields))))
      [builder-notes problems {:severity :error}]]))

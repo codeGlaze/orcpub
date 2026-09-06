@@ -360,6 +360,37 @@ and read as a footnote beside them; there is now one heading weight, not two.
 **The gallery records page height alongside control count**, because height is what catches lost
 cohesion and the count alone called the regression an improvement.
 
+### Vertical rhythm, and the class-name collision behind it
+
+The spacing down the form was wrong everywhere, and measuring it said so plainly. Gaps between
+successive rows ran **30 / 30 / 10 / 40 / 40 / 10 / 15 / 0px** — no scale at all — and the stacked
+toggle pair was a **106px box holding two 16px rows**, overshooting the 42px select beside it.
+
+The cause was a **CSS class-name collision**. The app already defines a global
+`.field { margin-top: 30px }` in `styles/core.clj`, and I had named the renderer's wrapper class
+`field`. Every declarative field silently inherited 30px it never asked for, which is where the
+erratic gaps and the oversized stack both came from. The form classes are `bf-` prefixed now
+(`bf-field`, `bf-flow`, `bf-bool-stack`, `bf-section`, `bf-break`).
+
+**Do not name a builder utility class something generic in this stylesheet.** It is 3,000+ lines of
+utility classes; `field`, `row`, `tag` and `chip` are all plausible collisions, and the failure is
+silent — the form renders, it just spaces wrong.
+
+With that fixed, spacing comes from **one place** (the flow container) instead of each field
+carrying its own margin:
+
+| | |
+|---|---|
+| between rows in a group | 18px |
+| above a section heading | 26px |
+| heading to its first control | 10px |
+| inside the toggle stack | 10px, bottom-aligned to the inputs beside it |
+
+| | hand-built | now |
+|---|---:|---:|
+| page height | 1289px | **1248px** |
+| visible controls | 10 | 10 |
+
 ### Still open on this pair
 
 Not claiming it is finished:
@@ -561,3 +592,41 @@ wrong character; the header in `06-warlock.jpg` read *Dragonborn Warlock 3*, whi
 surfaced. The tour now answers the confirm and asserts the second character is genuinely fresh
 (`!/dragonborn/` on its race) before trusting anything else it says. **A green check that is
 describing the wrong object is worse than a red one**, and only the picture showed it.
+
+---
+
+## How much of this is reusable?
+
+A fair question after several rounds of layout iteration. Measured:
+
+**Shared by every builder, converted or not — built once, inherited free:**
+
+| | lines |
+|---|---:|
+| layout CSS (`bf-flow`, field sizing, toggle stack, sections, chips, rows) | 38 |
+| `render-builder-field` — every field type, compact mode, short labels | 131 |
+| `simple-content-builder` — sections, description slot, validation, passthrough | 81 |
+| `group-toggles` + `field-sections` — the layout rules as code | 42 |
+| generated `set-` / `remove-` / `toggle-<base>-prop` events | ~10 |
+| `common/toggle-in` + `toggle-flag` (hardened once, used everywhere) | ~20 |
+| e2e helpers in `lib.js` | 10 functions |
+| harnesses: gallery (controls + height, all 15), form-shape, mockup-parity, the pin recipe | 4 scripts |
+
+**Per builder — all that a new conversion pays:**
+
+| builder | its own code |
+|---|---|
+| language | 1 line |
+| fighting style | ~8 lines + shared `:props` fragments |
+| spell | 29-line schema + a 22-line widget no field type describes |
+
+That is the actual answer: **the layout work is ~290 lines that all fifteen builders share, and the
+nine still bespoke will inherit it without paying for it again.** A conversion costs a schema (data)
+plus any genuinely bespoke widget.
+
+**What was NOT reusable, honestly:** the rounds where something shipped and came back — the
+control-count regression, stacked-vs-inline, the `.field` collision. That is rework, not investment,
+and its cause each time was the same: not reading the original or the existing stylesheet before
+changing things. The rules those rounds produced are now encoded (and measured by the gallery and
+`mockup-parity.js`), so the next builder does not repeat them — but the iterations themselves bought
+nothing that a careful first look would not have.

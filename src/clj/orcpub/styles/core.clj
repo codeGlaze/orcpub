@@ -314,23 +314,41 @@
    ;; type — a number is number-wide, a toggle is as wide as its label — with `:span :full` as the
    ;; explicit escape. Direct-child selectors only, so fields inside an effect row keep their own
    ;; tighter sizing.
-   [:.field-flow
-    {:gap "0 14px"}
-    [:> [:.field
+   ;; ONE source of vertical rhythm. Every field used to carry its own bottom margin and the
+   ;; container added nothing, so the measured gaps down the spell form ran 30 / 30 / 10 / 40 / 40 /
+   ;; 10 / 15 / 0px — no scale at all. The container owns the spacing now and the fields own none.
+   [:.bf-flow
+    {:gap "18px 14px"
+     :align-items :flex-start}
+    [:> [:.bf-field {:margin-bottom "0 !important"}]]
+    [:> [:.bf-field
          {:flex "1 1 240px"
           :min-width "200px"}]]
-    [:> [:.field-text    {:flex "1 1 260px"}]]
-    [:> [:.field-number  {:flex "0 0 120px" :min-width "120px"}]]
-    [:> [:.field-boolean {:flex "0 0 auto"  :min-width 0 :align-self :center}]]
-    [:> [:.field-multi-enum {:flex "1 1 100%"}]]
-    [:> [:.field-full    {:flex "1 1 100%"}]]]
-   ;; a run of toggles that shares a row with other fields: one column, stacked
-   [:.bool-stack
+    [:> [:.bf-field-text    {:flex "1 1 260px"}]]
+    [:> [:.bf-field-number  {:flex "0 0 120px" :min-width "120px"}]]
+    [:> [:.bf-field-boolean {:flex "0 0 auto"  :min-width 0 :align-self :center}]]
+    [:> [:.bf-field-multi-enum {:flex "1 1 100%"}]]
+    [:> [:.bf-field-full    {:flex "1 1 100%"}]]]
+   ;; A run of toggles that shares a row with other fields: one column. It was a 102px box holding
+   ;; two 16px rows — the children kept their own margins and the column inherited the flow's
+   ;; leading — so it overshot the 42px select beside it top and bottom. Explicit gap, no child
+   ;; margins, and it sits on the same baseline as the inputs it accompanies.
+   [:.bf-bool-stack
     {:flex "0 0 auto"
-     :align-self :center
-     :margin-right "14px"}]
+     :display :flex
+     :flex-direction :column
+     :justify-content :center
+     :gap "10px"
+     :min-height "42px"
+     :margin-right "14px"
+     :align-self :flex-end
+     :padding-bottom "4px"}
+    [:.bf-field {:margin-bottom "0 !important"}]]
+   ;; a heading needs more air above it than below, or it reads as belonging to what precedes it
+   [:.bf-section
+    {:margin-top "26px"}]
    ;; a section heading, or a :rows node, owns its own line
-   [:.field-break
+   [:.bf-break
     {:flex "1 1 100%"
      :width "100%"}]
    [:.form-head
