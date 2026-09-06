@@ -65,11 +65,25 @@ expected to run; the runner fails one that runs fewer and says so. Regenerate wi
 `UPDATE_BASELINE=1` — and only when you meant to change the count.
 
 **It sits there.** Probes carry 15-minute navigation timeouts and blind `waitForTimeout`
-sleeps, so a stuck one looks exactly like a slow one until the whole run ends. The runner
-prints a heartbeat every 60s saying how long the probe has been *silent* and its last line
-of output, and kills it at `PROBE_TIMEOUT_S` (default 600) as `STUCK`, showing the last
-output before it stopped. A probe still printing is working; one quiet for minutes is where
-it is stuck.
+sleeps, so a stuck one looks exactly like a slow one until the whole run ends.
+
+A total-runtime limit cannot tell those apart: `character_image_capture` legitimately runs
+393s, so any limit short enough to catch a hang quickly would kill it every time. **Silence
+is the signal that separates them** — a probe still printing is working, one quiet for
+minutes is wedged, whatever its normal runtime. So there are two independent kills:
+
+| | default | env | sized by |
+| --- | --- | --- | --- |
+| silence | 180s | `PROBE_SILENCE_S` | measured worst legitimate gap is 79s (`character_image_capture`); `sticky_header` shows 42s+ |
+| total budget | `max(180s, measured × 2)` | `PROBE_BUDGET_S` | each probe's `seconds` in `probe-baseline.json` |
+| heartbeat | 30s | `PROBE_HEARTBEAT_S` | — |
+
+The heartbeat reports how long the probe has been **silent** separately from how long it has
+been running; the silent number is the one that tells you whether to worry. A kill says which
+limit it hit and prints the last output before it stopped.
+
+Per-probe budgets mean a 2-second probe is not handed ten minutes to hang in:
+`starting_equipment_ledger` gets 180s, `sticky_header` 262s, `character_image_capture` 786s.
 
 Write assertions that can fail. `after <= opened` for a check named "filtering narrows the
 list" passes when filtering does nothing — it was in this directory. And a missing control

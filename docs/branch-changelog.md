@@ -52,8 +52,10 @@ handled by the platform rather than by hand.
   wanted the same one fails in both directions. Verified both ways: 10/10 probes pass with
   the runner exiting 0, and a deliberately failing probe exits 1 naming it. Also flags the
   two ways a probe lies: one that stops asserting (checked against a recorded per-probe
-  assertion count) and one that sits stuck (heartbeat showing how long it has been silent,
-  then killed as STUCK with its last output) (`<pending>`).
+  assertion count) and one that sits stuck. Stuck is detected by SILENCE (180s) rather than
+  total runtime, since the slowest probe legitimately runs 393s and no runtime limit short
+  enough to catch a hang would spare it; a 30s heartbeat reports how long a probe has been
+  silent, separately from how long it has run (`<pending>`).
 
 ## Fixed
 

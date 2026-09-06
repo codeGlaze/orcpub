@@ -29,9 +29,16 @@ const http = require('http');
 
 const ROOT = path.resolve(__dirname, '../..');
 const SERVER = 'http://localhost:8890';
-// character_image_capture legitimately takes ~400s; anything past this is stuck.
-const PER_PROBE_TIMEOUT_MS = +(process.env.PROBE_TIMEOUT_S || 600) * 1000;
-const HEARTBEAT_MS = 60 * 1000;
+// A total-runtime limit cannot tell slow from stuck: character_image_capture legitimately
+// runs 393s, so any limit short enough to catch a hang quickly would kill it every run.
+// SILENCE is the signal that separates them. Measured max gap between its outputs is 79s,
+// so 180s is ~2.3x headroom over the worst legitimate pause in the slowest probe.
+const SILENCE_TIMEOUT_MS = +(process.env.PROBE_SILENCE_S || 180) * 1000;
+// Backstop for a probe that keeps printing but never finishes. Sized per probe from its
+// measured runtime, so a 2-second probe is not given ten minutes to hang in.
+const MIN_TOTAL_MS = 180 * 1000;
+const totalBudget = seconds => +process.env.PROBE_BUDGET_S * 1000 || Math.max(MIN_TOTAL_MS, (seconds || 0) * 2000);
+const HEARTBEAT_MS = +(process.env.PROBE_HEARTBEAT_S || 30) * 1000;
 const BASELINE = path.join(__dirname, 'probe-baseline.json');
 
 // These probes do NOT all want the same world, and running them as though they did is
@@ -65,7 +72,7 @@ const get = url => new Promise(res => {
   r.setTimeout(4000, () => { r.destroy(); res(0); });
 });
 
-function run(probe, pack) {
+function run(probe, pack, budgetMs) {
   return new Promise(resolve => {
     const args = [path.join('test/browser', probe.file)];
     if (probe.needsPack) args.push(pack);
@@ -86,9 +93,22 @@ function run(probe, pack) {
                   `, silent ${quiet}s — last: ${last.slice(0, 70)}`);
     }, HEARTBEAT_MS);
 
-    const timer = setTimeout(() => { timedOut = true; p.kill('SIGKILL'); }, PER_PROBE_TIMEOUT_MS);
+    // Two independent kills. Silence catches a wedged probe in minutes whatever its normal
+    // runtime; the total budget catches one that chatters forever.
+    let killedBy = null;
+    const silence = setInterval(() => {
+      if (Date.now() - lastAt >= SILENCE_TIMEOUT_MS) {
+        killedBy = `silent for ${(SILENCE_TIMEOUT_MS / 1000)}s`;
+        timedOut = true; p.kill('SIGKILL');
+      }
+    }, 5000);
+    const timer = setTimeout(() => {
+      killedBy = `over its ${(budgetMs / 1000).toFixed(0)}s budget`;
+      timedOut = true; p.kill('SIGKILL');
+    }, budgetMs);
     p.on('close', code => {
-      clearTimeout(timer); clearInterval(beat);
+      clearTimeout(timer); clearInterval(beat); clearInterval(silence);
+      probe._killedBy = killedBy;
       const secs = ((Date.now() - t0) / 1000).toFixed(0);
       const fails = (out.match(/^\s*FAIL/gm) || []).length;
       const passes = (out.match(/^\s*PASS/gm) || []).length;
@@ -133,23 +153,23 @@ function run(probe, pack) {
     for (;;) {
       const probe = queue.shift();
       if (!probe) return;
-      const r = await run(probe, pack);
+      const want = baseline[probe.file] || {};
+      const r = await run(probe, pack, totalBudget(want.seconds));
       // Assertions that quietly stop running are the failure mode this whole runner exists
       // for: a control renamed out from under an `if (await x.count())` guard takes its
       // checks with it and the probe still exits 0.
       const ran = r.passes + r.fails;
-      const want = baseline[probe.file];
-      r.shortfall = (want && r.code === 0 && ran < want) ? want : 0;
+      r.shortfall = (want.checks && r.code === 0 && ran < want.checks) ? want.checks : 0;
       results.push(r);
-      observed[probe.file] = ran;
+      observed[probe.file] = { checks: ran, seconds: +r.secs };
 
       const tag = r.timedOut ? 'STUCK' : (r.code !== 0 || r.shortfall) ? 'FAIL' : 'PASS';
       console.log(`${tag}  ${probe.file}  (${ran} checks, ${r.fails} failing, ${r.secs}s)`);
       if (r.timedOut) {
-        console.log(`      killed after ${PER_PROBE_TIMEOUT_MS / 1000}s. Last output before it stopped:`);
+        console.log(`      killed at ${r.secs}s — ${probe._killedBy}. Last output before it stopped:`);
         console.log(r.out.trim().split('\n').slice(-4).map(l => '        ' + l.trim()).join('\n') || '        (none)');
       } else if (r.shortfall) {
-        console.log(`      ran ${ran} assertions, expected ${want} — checks have gone missing,`);
+        console.log(`      ran ${ran} assertions, expected ${want.checks} — checks have gone missing,`);
         console.log('      probably a guarded block whose control was renamed. See probe-baseline.json.');
       }
       if (r.code !== 0 && !r.timedOut) console.log(r.out.split('\n').filter(l => /FAIL|Error|error:/.test(l)).slice(0, 12).map(l => '      ' + l.trim()).join('\n'));

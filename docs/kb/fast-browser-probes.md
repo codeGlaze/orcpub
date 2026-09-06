@@ -115,3 +115,28 @@ cap, self time on allocation-heavy code, and a model that was not the app.
 - [verification-discipline.md](verification-discipline.md)
 - [perf-homebrew-builder-loop.md](perf-homebrew-builder-loop.md)
 - [README.md](README.md)
+
+
+## Why `character_image_capture` takes 393s
+
+Not blind sleeps — it has only 17s of `waitForTimeout` across 14 calls, and 2 page loads.
+The cost is spread evenly across its own checks, 30-80s each:
+
+```
++34.1s  the export carries the bytes, not just the address
++39.8s  an oversized picture is shrunk under the 128k ceiling
++45.0s  the upload prompt goes once the file is read
++79.2s  a pasted picture supplies the bytes no host would give
+total=393s   max silence between outputs 79.2s
+```
+
+**Unconfirmed hypothesis:** the probe drives the app at `https://i.imgur.com/aBcDeF.png` and
+a Pinterest URL, both fake, and outbound HTTPS here goes through the agent proxy — a request
+to a host that will not answer can hang a long time before failing. `spell_layout_pdf` does
+20 checks in 52s, so PDF export is not the slow part, which points at the network rather than
+the work. Confirming it means instrumenting the app's fetches; nobody has. Worth settling
+before anyone tries to speed this probe up, because if it holds then it is slow *here* rather
+than slow everywhere.
+
+The 79.2s figure is load-bearing regardless: it is what sizes the runner's 180s silence
+timeout.

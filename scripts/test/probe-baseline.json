@@ -1,13 +1,13 @@
 {
-  "_comment": "Assertions each probe is expected to RUN (pass or fail). A probe that runs fewer has quietly stopped asserting -- a renamed control inside an `if (await x.count())` guard drops its checks and still exits 0. Observed with ORCBREW_PACK set. Regenerate with UPDATE_BASELINE=1. export_busy_retry_e2e.js is absent on purpose: its count under `lein e2e-server-busy` has not been observed.",
-  "character_image_capture_e2e.js": 31,
-  "class_handlers_functional_e2e.js": 6,
-  "equipment_add_functional_e2e.js": 5,
-  "notification_flows_e2e.js": 9,
-  "notifications_acceptance_e2e.js": 9,
-  "spell_help_laziness_e2e.js": 5,
-  "spell_layout_pdf_e2e.js": 20,
-  "starting_equipment_browser_e2e.js": 8,
-  "starting_equipment_ledger_e2e.js": 10,
-  "sticky_header_e2e.js": 30
+  "_comment": "Per probe: `checks` = assertions it should RUN (pass or fail); a probe running fewer has quietly stopped asserting, which is what a renamed control inside an `if (await x.count())` guard does. `seconds` = observed runtime, used to size its timeout. Observed with ORCBREW_PACK set. Regenerate with UPDATE_BASELINE=1. export_busy_retry_e2e.js is absent on purpose: it has not been observed under `lein e2e-server-busy`.",
+  "character_image_capture_e2e.js":    { "checks": 31, "seconds": 393 },
+  "class_handlers_functional_e2e.js":  { "checks": 6,  "seconds": 59 },
+  "equipment_add_functional_e2e.js":   { "checks": 5,  "seconds": 54 },
+  "notification_flows_e2e.js":         { "checks": 9,  "seconds": 4 },
+  "notifications_acceptance_e2e.js":   { "checks": 9,  "seconds": 7 },
+  "spell_help_laziness_e2e.js":        { "checks": 5,  "seconds": 23 },
+  "spell_layout_pdf_e2e.js":           { "checks": 20, "seconds": 52 },
+  "starting_equipment_browser_e2e.js": { "checks": 8,  "seconds": 4 },
+  "starting_equipment_ledger_e2e.js":  { "checks": 10, "seconds": 2 },
+  "sticky_header_e2e.js":              { "checks": 30, "seconds": 131 }
 }
