@@ -14,6 +14,7 @@
             [orcpub.dnd.e5.share-url :as share-url]
             [orcpub.dnd.e5.character :as char5e]
             [orcpub.image-capture :as image-capture]
+            [orcpub.whats-new :as whats-new]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
             [orcpub.dnd.e5.languages :as langs5e]
@@ -57,6 +58,8 @@
                                       plugins->local-store
                                       disable-overlay->local-store
                                       health-dismissed->local-store
+                                      whats-new-seen->local-store
+                                      cookie-banner-pending?
                                       get-rejected-plugins
                                       set-rejected-plugins
                                       default-character
@@ -155,6 +158,9 @@
 (def health-dismissed->local-store-interceptor
   (after (fn [db] (health-dismissed->local-store (:health-dismissed db)))))
 
+(def whats-new-seen->local-store-interceptor
+  (after (fn [db] (whats-new-seen->local-store (:whats-new-seen db)))))
+
 (def set-changed (->interceptor
                   :id :set-changed
                   :before (fn [context]
@@ -234,6 +240,7 @@
   (inject-cofx ::e5/rejected-plugins)
   (inject-cofx ::e5/disable-overlay)
   (inject-cofx ::e5/health-dismissed)
+  (inject-cofx ::e5/whats-new-seen)
   (inject-cofx ::combat/tracker-item)
   check-spec-interceptor]
  (fn [{:keys [db
@@ -245,6 +252,7 @@
               ::e5/rejected-plugins
               ::e5/disable-overlay
               ::e5/health-dismissed
+              ::e5/whats-new-seen
               ::combat/tracker-item]} _]
    {:db (if (seq db)
           db
@@ -253,6 +261,13 @@
             (seq rejected-plugins) (assoc :quarantined-plugins rejected-plugins)
             (seq disable-overlay) (assoc :disable-overlay disable-overlay)
             (some? health-dismissed) (assoc :health-dismissed health-dismissed)
+            (some? whats-new-seen) (assoc :whats-new-seen whats-new-seen)
+            ;; The release panel opens itself once per release, on the boot that
+            ;; first sees a new id. Reading the stamp here (not at render) keeps it
+            ;; to one showing per browser rather than one per page view.
+            (and (whats-new/unseen? whats-new-seen)
+                 (not (cookie-banner-pending?)))
+            (assoc :whats-new-open? true)
             local-store-character (assoc :character local-store-character)
             local-store-user (update :user-data merge local-store-user)
             local-store-magic-item (assoc ::mi/builder-item local-store-magic-item)
@@ -4647,6 +4662,21 @@
  [health-dismissed->local-store-interceptor]
  (fn [db [_ sig]]
    (assoc db :health-dismissed sig)))
+
+;; What's New. Opening is free; closing is what stamps the release as seen, so a
+;; reader who closes the panel from any entry point stops being shown it.
+(reg-event-db
+ ::e5/open-whats-new
+ (fn [db _]
+   (assoc db :whats-new-open? true)))
+
+(reg-event-db
+ ::e5/close-whats-new
+ [whats-new-seen->local-store-interceptor]
+ (fn [db _]
+   (assoc db
+          :whats-new-open? false
+          :whats-new-seen whats-new/current-release-id)))
 
 (reg-event-db
  ::e5/toggle-section-disable
