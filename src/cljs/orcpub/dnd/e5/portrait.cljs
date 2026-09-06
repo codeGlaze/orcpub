@@ -567,6 +567,43 @@
   margin-top: 5px;
 }
 .pl-launcher:hover { filter: brightness(1.06); }
+
+/* Second way in: a pencil over the summary thumbnail, for people who are
+   looking at the portrait rather than at the Description tab's URL field.
+   Only rendered in the builder, where there is a drawer to open. */
+.pl-thumb-edit {
+  position: absolute; right: -7px; bottom: -7px;
+  width: 30px; height: 30px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(to bottom, #f0a100, #d38a00);
+  color: #15202e; font-size: 15px; line-height: 1;
+  border: 2px solid #15202e;
+  box-shadow: 0 3px 8px -2px rgba(0,0,0,0.5);
+  cursor: pointer;
+}
+.pl-thumb-edit:hover { filter: brightness(1.08); }
+.app.light-theme .pl-thumb-edit {
+  background: linear-gradient(to bottom, #33658A, #2b5677);
+  color: #fff; border-color: #fff;
+}
+/* Nothing chosen yet: the slot still needs to be visible, or there is no
+   thumbnail to hang the pencil on. */
+.pl-thumb-empty {
+  display: flex; align-items: flex-end; justify-content: center;
+  border: 1px dashed rgba(240, 161, 0, 0.3);
+  border-radius: 10px;
+  /* Opaque, and the same ground the drawer's frame uses: the empty slot
+     should read as a portrait-shaped hole, and a translucent fill let the
+     page behind it show through. Dark in both themes, like the frame. */
+  background: radial-gradient(circle at 50% 35%, #202939, #131924 60%, #0f141c);
+}
+.pl-thumb-empty-label {
+  font: 600 10px/1 'Open Sans', system-ui, sans-serif;
+  color: #8b95a5; letter-spacing: 0.08em;
+  /* clear of the pencil in the bottom-right corner */
+  padding: 0 22px 11px 0;
+}
 ")
 
 ;; ---------------- color controls ----------------
@@ -811,3 +848,41 @@
     :on-click #(dispatch [:portrait/open])
     :title "Compose portrait from layered art"}
    "Compose portrait"])
+
+(defn edit-overlay
+  "Pencil layered onto the character-summary thumbnail. stopPropagation
+   because summaries are sometimes wrapped in a clickable row."
+  []
+  [:button.pl-thumb-edit
+   {:type "button"
+    :title "Edit portrait"
+    :on-click (fn [e]
+                (.stopPropagation e)
+                (dispatch [:portrait/open]))}
+   "\u270e"])
+
+(defn thumbnail
+  "The summary thumbnail. A composed portrait wins over a pasted image-url;
+   with neither, an empty frame stands in so the pencil has somewhere to sit.
+   `editable?` is builder-only -- elsewhere there is no drawer to open."
+  [portrait-data image-url editable?]
+  (let [box {:position "relative" :width "100px" :height "125px" :flex-shrink 0}]
+    (cond
+      (seq (:layers portrait-data))
+      [:div.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:style box}
+       [composite portrait-data
+        {:style {:position "absolute" :inset 0 :width "100%" :height "100%"}}]
+       (when editable? [edit-overlay])]
+
+      image-url
+      (if editable?
+        [:div.m-r-20.m-t-10.m-b-10 {:style box}
+         [:img.image-character-thumbnail
+          {:src image-url :style {:width "100%" :height "100%"}}]
+         [edit-overlay]]
+        [:img.m-r-20.m-t-10.m-b-10.image-character-thumbnail {:src image-url}])
+
+      editable?
+      [:div.m-r-20.m-t-10.m-b-10.pl-thumb-empty {:style box}
+       [:span.pl-thumb-empty-label "PORTRAIT"]
+       [edit-overlay]])))
