@@ -46,6 +46,40 @@
                      :orcpub.user/email "test@test.com"}])
     c))
 
+;; ---------- deploying the new attribute ----------
+;;
+;; orcpub.datomic transacts schema/all-schemas on every start, so a running
+;; database picks up ::char5e/portrait when the app restarts -- there is no
+;; separate migration step. These cover what that relies on.
+
+(deftest portrait-attribute-is-registered
+  (with-conn conn
+    (let [c (setup conn)
+          ;; '[*] leaves refs as bare entity ids; ask for the idents.
+          attr (d/pull (d/db c)
+                       '[{:db/valueType [:db/ident]} {:db/cardinality [:db/ident]}]
+                       ::char5e/portrait)]
+      (is (= :db.type/string (get-in attr [:db/valueType :db/ident]))
+          "a string, because ::se/values is a component ref and no Datomic
+           attribute can hold the portrait's nested map")
+      (is (= :db.cardinality/one (get-in attr [:db/cardinality :db/ident]))))))
+
+(deftest re-transacting-schema-is-safe
+  (testing "every boot re-transacts all-schemas, so it must be idempotent and
+            must not disturb data written by an earlier version"
+    (with-conn conn
+      (let [c (setup conn)
+            stored (pr-str (a-portrait))
+            id (:db/id (save! c (character-with {::char5e/portrait stored})))]
+        ;; a restart
+        @(d/transact c schema/all-schemas)
+        @(d/transact c schema/all-schemas)
+        (is (= stored (-> (d/pull (d/db c) '[{::se/values [::char5e/portrait]}] id)
+                          ::se/values ::char5e/portrait))
+            "the saved portrait survives repeated schema transactions")
+        (is (some? (:db/id (save! c (character-with {::char5e/portrait stored}))))
+            "and saving still works afterwards")))))
+
 ;; ---------- the attribute actually persists ----------
 
 (deftest portrait-survives-a-real-save
