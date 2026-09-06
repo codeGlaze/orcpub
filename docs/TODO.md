@@ -123,33 +123,48 @@ cache**. Three separate problems, in the order worth doing:
    lever, and it is the invasive one: needs a scroll container, measured row heights, and it
    breaks in-page find. Only if 1 leaves it slow.
 
-### The searchable picker already exists on a branch — grabbing it is cheaper than it looks
+### The searchable picker was ported and MEASURED WORSE — do not retry as-is
 
-`port/redesign-on-refactor` adds `option_menu_views.cljs` (610 lines: search box, A-Z
-grouping, selected-chips tray, three layouts), `option_grouping.cljs` and `themes.cljs`
-(91 lines). All three are **pure additions** — no conflict risk in taking them. Its
-`views.cljs` change is a net *reduction* (-1483/+908) because it replaces inline menu code
-with calls to the shared component.
+`port/redesign-on-refactor` has `option_menu_views.cljs` (610 lines: search, A-Z grouping,
+chips tray, three layouts), `option_grouping.cljs` and `themes.cljs` (91 lines). All are pure
+additions. **Ported and wired to the Equipment selects on `feat/option-picker`, then
+reverted** — it made the tab slower:
 
-So the earlier "wait for convergence, it is coupled to theme infrastructure" note
-overstated the coupling. What taking it early actually costs: our own wiring for the seven
-Equipment selects would conflict with that branch's `views.cljs` rewrite when it lands.
-Bounded and understandable, not a blocker.
+```
+Equipment longest task, 4x throttle, mega-64
+  native selects   375 / 300 / 307 ms
+  picker           631 / 530 / 442 ms      ~1.5-1.7x worse
+  Race (control)   unchanged
 
-**VERIFIED 2026-09-06:** the three files compile standalone against integration — zero
-errors, zero warnings naming them, and zero warnings in the whole build. Checked by copying
-them in, adding a temporary require in `web/cljs/orcpub/core.cljs` to force compilation
-(unreferenced namespaces are not compiled otherwise), running `lein fig:build`, then
-reverting. Their entire orcpub dependency surface is `orcpub.components` and
-`orcpub.dnd.e5.db`, both already present; `option_grouping` and `themes` require nothing
-from orcpub.
+DOM census
+  native selects   2558 nodes, 1037 <option>, page  2422px
+  picker           5689 nodes,    0 <option>, page 24273px
+```
 
-So taking the picker early is a real option. What it costs: our own wiring for the seven
-Equipment selects would conflict with that branch's `views.cljs` rewrite when it lands —
-one file, with the shared component identical on both sides. What it buys: search and A–Z
-grouping over 1037 option elements, which is the Equipment tab's dominant cost and a UX
-improvement independent of performance.
+**Why, and why it is not a wiring mistake:** a native `<select>` never builds DOM for its
+options — the browser owns that list and renders it only when opened. `option-menu` renders
+every option inline as real elements. Trading 1037 unrendered options for 3131 live nodes
+costs more than the search box is worth at this list size. Collapsing does not help either:
+the body renders unconditionally and only gains a `collapsed` CSS class
+(`option_menu_views.cljs:528`).
 
+The component is right for what it was written for — the homebrew builder menus, tens of
+options — and wrong for inventory lists of 200+. **It would only beat a native select if it
+virtualised its own list**, which it does not.
+
+What IS established, so nobody re-derives it:
+
+- the three files compile clean against integration (zero errors, zero warnings); their only
+  orcpub deps are `orcpub.components` and `orcpub.dnd.e5.db`
+- the CSS is a self-contained 448-line block (port branch `styles/core.clj` ~2616-3059): no
+  theme tokens, no `var(--…)`, only `str` and `handle-browsers`, which integration has
+- the port lives on `feat/option-picker` if it is ever wanted for a *small* menu
+- the source branch is badly stale: integration is **387 commits ahead**, its last commit
+  2026-07-15. Waiting for convergence is not a plan.
+
+So the Equipment tab's 1037 options remain unsolved. The lever that would actually work is a
+picker that virtualises, or leaving the native select alone — it is, for all its ugliness,
+the cheapest thing on that tab.
 
 ## Content-library management — remaining work
 
