@@ -79,6 +79,12 @@ function check(label, ok, detail) {
   await launcher.waitFor({ state: 'visible', timeout: 15000 });
   check('"Compose portrait" launcher renders in Description tab', true);
 
+  // The drawer's <style> also styles the launcher, so it must be mounted even
+  // while the drawer is closed -- which is exactly when the launcher is seen.
+  const launcherBgClosed = await launcher.evaluate(el => getComputedStyle(el).backgroundImage);
+  check('launcher is styled while the drawer is closed',
+        /gradient/.test(launcherBgClosed), launcherBgClosed);
+
   // --- open the drawer -------------------------------------------------
   await launcher.click();
   const drawer = page.locator('.pl-drawer');
@@ -174,6 +180,47 @@ function check(label, ok, detail) {
         await hairSlotAfter.locator('.pl-slot-swatch.unset').count() === 0);
   check('saved per-piece tweak survives the round trip',
         await hairSlotAfter.locator('.pl-slot-tweaks').count() > 0);
+
+  // --- light theme -------------------------------------------------------
+  // The drawer is a sibling of content-page, so it cannot inherit .app's
+  // theme class and carries its own. Verify it actually tracks the toggle.
+  const darkDrawerBg = await page.locator('.pl-drawer')
+    .evaluate(el => getComputedStyle(el).backgroundColor);
+
+  // Close the drawer so the builder's own "Light Theme" toggle is clickable.
+  await page.locator('.pl-drawer-close').click();
+  await page.waitForTimeout(300);
+
+  const toggle = page.locator('div.pointer', { hasText: 'Light Theme' }).first();
+  check('found the builder theme toggle', await toggle.count() > 0);
+  await toggle.click();
+  await page.waitForTimeout(400);
+
+  check('app switched to light theme', await page.locator('.app.light-theme').count() > 0);
+
+  await page.locator('.pl-launcher').click();
+  await page.locator('.pl-drawer').waitFor({ state: 'visible', timeout: 10000 });
+  const lightDrawerBg = await page.locator('.pl-drawer')
+    .evaluate(el => getComputedStyle(el).backgroundColor);
+  check('drawer root carries the theme class',
+        await page.locator('.pl-root.light-theme').count() > 0);
+  check('drawer repaints for light theme', lightDrawerBg !== darkDrawerBg,
+        `dark=${darkDrawerBg} light=${lightDrawerBg}`);
+
+  // The frame stays dark in both themes on purpose: it holds character
+  // colours, and pale skin or blonde hair would vanish on a light ground.
+  const frameBg = await page.locator('.pl-portrait-frame')
+    .evaluate(el => getComputedStyle(el).backgroundImage);
+  check('portrait frame stays dark in light theme', /gradient/.test(frameBg));
+
+  // The launcher sits outside the drawer, so it needs its own light-theme
+  // hook -- it was left amber in an otherwise blue theme.
+  await page.locator('.pl-drawer-close').click();
+  await page.waitForTimeout(300);
+  const launcherLight = await page.locator('.pl-launcher')
+    .evaluate(el => getComputedStyle(el).backgroundImage);
+  check('launcher recolours for light theme too',
+        launcherLight !== launcherBgClosed, launcherLight);
 
   // --- nothing broke underneath ----------------------------------------
   check('no uncaught JS errors', jsErrors.length === 0, jsErrors.slice(0, 3).join(' | '));
