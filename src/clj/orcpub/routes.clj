@@ -810,10 +810,16 @@
    handing back fetched bytes would make it a general-purpose proxy for anything
    inside the size limits."
   [{:keys [transit-params]}]
-  (let [url (:url transit-params)]
-    {:status 200
-     :body (str (boolean (and (well-formed-image-url? url)
-                              (some? (probed-image url)))))}))
+  (let [url (:url transit-params)
+        ok? (boolean (and (well-formed-image-url? url)
+                          (some? (probed-image url))))]
+    ;; The HOST only, never the URL -- an image address can carry a signed query
+    ;; string. This is the measurement: how often a picture is reachable by
+    ;; nobody, which decides whether the paste-and-upload fallbacks earn their
+    ;; place. Nothing has yet been shown to land here.
+    (when (and (not ok?) (well-formed-image-url? url))
+      (println "pdf: no route to a picture at" (some-> url java.net.URI. .getHost)))
+    {:status 200 :body (str ok?)}))
 
 (def ^:private export-slots
   "Permits for sheet generation, one per concurrent export.
