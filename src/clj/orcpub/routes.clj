@@ -36,6 +36,7 @@
             [orcpub.email :as email]
             [orcpub.index :refer [index-page]]
             [orcpub.pdf :as pdf]
+            [orcpub.portrait-render :as portrait-render]
             [orcpub.config :as config]
             [orcpub.registration :as registration]
             [orcpub.entity.strict :as se]
@@ -1560,10 +1561,18 @@
       {:status 400 :body problems}
       {:status 200 :body character})))
 
-(defn character-summary-for-id [db id]
-  ;; Fixed: bare destructuring outside let silently returned nil
-  (let [{:keys [::se/summary]} (d/pull db '[::se/summary {::se/values [::char5e/description ::char5e/image-url]}] id)]
-    summary))
+(defn character-summary-for-id
+  "The share-card data for a character: {::se/summary … ::se/values …}.
+
+   Returns the WHOLE pull, not just ::se/summary. It used to return the summary
+   submap while its caller went on to destructure ::se/summary and ::se/values
+   back out of it -- so every og:title and og:image came out nil and shared
+   links fell back to the site defaults."
+  [db id]
+  (d/pull db
+          '[::se/summary
+            {::se/values [::char5e/description ::char5e/image-url ::char5e/portrait]}]
+          id))
 
 (defn get-character
   "Retrieves a character by ID.
@@ -1782,19 +1791,50 @@
    [route-map/unsubscribe-success-route]
    [route-map/dnd-e5-orcacle-page-route]])
 
+(defn character-portrait-png
+  "PNG of a character's composed portrait, for og:image.
+
+   A crawler has no browser, so unlike the PDF path (where the client bakes
+   the layers with canvas) this is rendered here. Access matches the character
+   page itself -- unauthenticated by id -- because that page already exposes
+   the same character's name, race and description in its meta tags.
+
+   404 when the character has no composed portrait, so a crawler falls back to
+   whatever og:image the page did declare."
+  [{:keys [db] {:keys [id]} :path-params}]
+  (let [portrait (some-> (d/pull db '[{::se/values [::char5e/portrait]}] id)
+                         ::se/values
+                         ::char5e/portrait
+                         char5e/parse-portrait)]
+    (if-let [png (some-> portrait portrait-render/render-png)]
+      {:status 200
+       :headers {"Content-Type" "image/png"
+                 ;; Portraits change rarely and a crawler may refetch often.
+                 "Cache-Control" "public, max-age=300"}
+       :body (ByteArrayInputStream. png)}
+      {:status 404 :body "no composed portrait"})))
+
 (defn character-page [{:keys [db conn identity headers scheme uri] {:keys [id]} :path-params :as request}]
   (let [host (headers "host")
-        {:keys [::se/summary
-                ::se/values] :as summary-obj} (character-summary-for-id db id)
+        {:keys [::se/summary ::se/values]} (character-summary-for-id db id)
         {:keys [::char5e/character-name]} summary
         {:keys [::char5e/description
-                ::char5e/image-url]} values]
+                ::char5e/image-url
+                ::char5e/portrait]} values
+        ;; A composed portrait wins over a pasted URL, the same precedence the
+        ;; sheet, the summary and the PDF use. It is served as a real PNG
+        ;; because crawlers will not render CSS masks -- or, mostly, SVG.
+        composed? (seq (:layers (char5e/parse-portrait portrait)))
+        share-image (if composed?
+                      (str "https://" host
+                           (route-map/path-for route-map/dnd-e5-char-portrait-route :id id))
+                      image-url)]
     (index-page-response request
                          {:title character-name
                           :description (str (character-summary-description summary)
                                             ". "
                                             description)
-                          :image-url image-url}
+                          :image-url share-image}
                          {"X-Frame-Options" "ALLOW-FROM https://www.worldanvil.com/"})))
 
 (def header-style
@@ -1906,6 +1946,8 @@
 
        [(route-map/path-for route-map/dnd-e5-char-page-route :id ":id") ^:interceptors [parse-id]
         {:get `character-page}]
+       [(route-map/path-for route-map/dnd-e5-char-portrait-route :id ":id") ^:interceptors [parse-id]
+        {:get `character-portrait-png}]
        [(route-map/path-for route-map/dnd-e5-char-parties-route) ^:interceptors [check-auth]
         {:post `party/create-party
          :get `party/parties}]
