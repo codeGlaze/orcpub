@@ -7656,10 +7656,15 @@
          :enum   (let [opt-title (if (:compact? field)
                                    (fn [o] (or (:short-title o) (:title o)))
                                    :title)]
-                   ;; `set` marks a tag that carries an actual restriction, so the unset majority
-                   ;; recedes. It rides a wrapper rather than the button, keeping select-menu byte-
-                   ;; identical to the OMV original.
-                   [:div.bf-enum {:class (when (some? v) "set")}
+                   ;; `set` marks a field that CAN be unset and currently is not — i.e. a
+                   ;; three-state tag carrying an actual restriction, so the "Both" majority around
+                   ;; it recedes. Keyed on the field offering a nil option, not merely on having a
+                   ;; value: Level and School always have one, so highlighting them lit up two
+                   ;; controls permanently and stole the emphasis from the tag that meant something.
+                   ;; It rides a wrapper rather than the button, keeping select-menu byte-identical
+                   ;; to the OMV original.
+                   [:div.bf-enum
+                    {:class (when (and (some? v) (some #(nil? (:value %)) options)) "set")}
                     [select-menu
                      {:value v
                       :options (mapv (fn [o] [(:value o) (opt-title o)]) options)

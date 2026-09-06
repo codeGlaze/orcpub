@@ -166,7 +166,7 @@ version shipped a broken breath weapon. `select-menu` takes `[[value label] …]
 `on-change` the real value:
 
 ```clojure
-[:div.bf-enum {:class (when (some? v) "set")}
+[:div.bf-enum {:class (when (and (some? v) (some #(nil? (:value %)) options)) "set")}
  [select-menu {:value v
                :options (mapv (fn [o] [(:value o) (opt-title o)]) options)
                :on-change #(dispatch [set-prop path %])}]]
@@ -174,6 +174,12 @@ version shipped a broken breath weapon. `select-menu` takes `[[value label] …]
 
 The pin proves the values survive: the spell still saves `:level 3` as an integer and
 `:school "abjuration"`, 39/39.
+
+**The `set` highlight is keyed on *can be unset and is not*, not merely on having a value.** It
+exists so that one weapon tag carrying a restriction stands out from six reading "Both". Keyed on
+`(some? v)` it also lit Level and School — which always have a value — so two controls were
+permanently orange and stole the emphasis from the tag that meant something. It now requires the
+field to offer a `nil` option, which is exactly the three-state tags.
 
 **What had to move with it**, all of it representation-following rather than behaviour:
 
