@@ -28,7 +28,7 @@ assertions and exiting 1 for several commits because nothing ran it.
 ```
 ORCBREW_PACK=/path/to/pack.orcbrew   # enables the two probes that need imported homebrew
 BUSY_SERVER=1                        # with `lein e2e-server-busy`, enables the export probe
-JOBS=3                               # run N at once (default 1)
+JOBS=3                               # run N at once (default 1, see the caveat below)
 ONLY=equipment,sticky                # substring filter
 STRICT=1                             # a probe that could not run counts as a failure
 ```
@@ -49,6 +49,12 @@ So the server is not a blanket precondition: it is required only when a selected
 one, and the standalone probes run either way. `export_busy_retry` against the ordinary
 server fails all six of its checks, and `notifications_acceptance` fails *because* a server
 is up — its XHR gets CORS-blocked instead of refused. Both are preconditions, not bugs.
+
+A full pass is about 12.5 minutes sequentially. `character_image_capture` is 397s of that
+and `sticky_header` 131s; the rest are seconds. `JOBS=N` runs several at once, but **that is
+not validated** — the `server` probes share one in-memory backend, so concurrent runs can in
+principle see each other's saved characters. Default is 1 for that reason; raise it when you
+want speed over certainty.
 
 Only asserting probes are in the runner. The measurement probes (`tab_switch_freeze`,
 `freeze_cpu_profile`, `combobox_scroll`, `select_option_census`, …) report numbers rather

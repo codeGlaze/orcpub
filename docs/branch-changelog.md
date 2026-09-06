@@ -49,7 +49,8 @@ handled by the platform rather than by hand.
   commits unnoticed. Probes that cannot run report `SKIP` loudly rather than staying silent
   (`<pending>`). Probes are classified by the world they need — the real server, their own
   standalone harness, or the busy-export profile — because running them as though they all
-  wanted the same one fails in both directions (`<pending>`).
+  wanted the same one fails in both directions. Verified both ways: 10/10 probes pass with
+  the runner exiting 0, and a deliberately failing probe exits 1 naming it (`<pending>`).
 
 ## Fixed
 

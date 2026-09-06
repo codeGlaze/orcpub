@@ -228,6 +228,12 @@ If it is wanted later, the cost is small: `2a671844` wired Equipment in 31 lines
 `option_menu_views` diverged, by 34 lines — the `:max-rendered` / `::show-all` capping work,
 in this branch's history at `2a671844` and `ec85c5ac`.
 
+**The safety net that now catches this** is `scripts/test/run-browser-probes.js` — it runs
+every asserting probe and exits non-zero if any fails. Verified in both directions: 10/10
+pass exits 0, a deliberately failing probe exits 1 and names it. Probes declare which world
+they need (the real server, their own standalone harness, or the busy-export profile),
+because running them as though they all wanted the same one fails in both directions.
+
 **A stale test is what surfaced all this.** `equipment_add_functional_e2e.js` kept driving the
 `.opt-menu-*` selectors after the control was swapped, and had been failing three assertions
 and exiting 1. Neither `lein test` nor the CLJS runner invokes browser probes, so "both suites
