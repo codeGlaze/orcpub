@@ -1943,6 +1943,457 @@
       (merge text-color
              {:font-weight 600
               :font-variant-numeric :tabular-nums})]]
+
+    ;; Ported from port/redesign-on-refactor (option_menu_views.cljs). Self-contained:
+    ;; no theme tokens, no CSS custom properties, only str + handle-browsers.
+    ;; ----- growable multi-select menus (option-menu-views) -----
+    [:.opt-menu
+     {:margin "5px 0"}]
+
+    [:.opt-menu-title
+     {:font-size "18px"
+      :font-weight :bold
+      :margin-bottom "8px"}]
+
+    ;; global layout toggle: a track with one amber thumb that slides to the active
+    ;; segment (equal-width grid columns).
+    ;; Reusable sliding-thumb segmented control (layout toggle, Cards/Compact toggle,
+    ;; …). grid-template-columns and the thumb width are set inline from the option
+    ;; count, so the same classes serve any number of segments.
+    [:.segmented-control
+     {:position :relative
+      :display :inline-grid
+      :padding "4px"
+      :background "#161d28"
+      :border "1px solid rgba(255,255,255,0.08)"
+      :border-radius "10px"}]
+
+    [:.segmented-control-thumb
+     {:position :absolute
+      :top "4px"
+      :bottom "4px"
+      :left "4px"
+      :background orange
+      :border-radius "7px"
+      :z-index 0
+      :transition "transform 0.24s cubic-bezier(.4,0,.2,1)"}]
+
+    [:.segmented-control-seg
+     {:position :relative
+      :z-index 1
+      :padding "7px 18px"
+      :border :none
+      :background :transparent
+      :cursor :pointer
+      :font-size "13px"
+      :font-weight 600
+      :text-align :center
+      :white-space :nowrap
+      :color "rgba(255,255,255,0.7)"
+      :transition "color 0.24s ease"}]
+
+    [:.segmented-control-seg.active
+     {:color "#161d27"}]
+
+    [:.segmented-control-seg:hover
+     {:color "#e7ecf2"}]
+
+    ;; grid. The min(100%, 210px) guard prevents horizontal overflow when the
+    ;; container is narrower than the track min (small phones).
+    [:.opt-menu-grid
+     {:display :grid
+      :grid-template-columns "repeat(auto-fill, minmax(min(100%, 210px), 1fr))"
+      :align-items :start
+      :gap "4px"}]
+
+    [:.opt-menu-grid-span
+     {:grid-column "1 / -1"}]
+
+    ;; ----- section containment & parent/child nesting -----
+    ;; Top-level section = elevated card; nested child = recessed well inside it.
+    ;; flat surface (no drop shadow) — elevation is reserved for the header band,
+    ;; modals, the stepper, and popovers, so sections don't out-rank the page header.
+    [:.opt-section
+     {:background "#1b232f"
+      :border "1px solid rgba(255,255,255,0.08)"
+      :border-radius "14px"
+      :padding "20px 22px 22px"
+      :margin-bottom "18px"
+      :box-shadow "inset 0 1px 0 rgba(255,255,255,0.03)"}
+     ;; inside a card, let the card padding own the vertical rhythm — drop the legacy
+     ;; field margins so the card hugs its content instead of stranding empty space.
+     [:.field {:margin-top "0"}]
+     [:.input {:margin-top "0"}]]
+
+    [:.opt-subsections
+     {:display :flex
+      :flex-direction :column
+      :gap "12px"
+      :margin-top "2px"}]
+
+    [:.opt-subsection
+     {:background "rgba(0,0,0,0.24)"
+      :border "1px solid rgba(255,255,255,0.05)"
+      :border-radius "10px"
+      :padding "14px 16px 16px"}]
+
+    [:.opt-section-head
+     {:display :flex
+      :align-items :center
+      :flex-wrap :wrap
+      :gap "10px"
+      :margin-bottom "14px"}]
+
+    [:.opt-section-accent
+     {:width "4px"
+      :height "18px"
+      :border-radius "3px"
+      :background orange
+      :flex "0 0 auto"}]
+
+    ;; taller accent on a parent heading
+    [:.opt-section-accent.tall
+     {:height "22px"}]
+
+    [:.opt-section-title
+     {:font-size "clamp(19px, 3vw, 22px)"
+      :font-weight 700
+      :color "#f3f6fa"
+      :letter-spacing "-0.005em"}]
+
+    [:.opt-subsection-title
+     {:font-size "15.5px"
+      :font-weight 700
+      :color "#e3e8ef"
+      :letter-spacing "-0.005em"}]
+
+    [:.opt-section-count
+     {:font-size "12px"
+      :color "#8893a2"
+      :background "rgba(255,255,255,0.05)"
+      :padding "2px 10px"
+      :border-radius "999px"}]
+
+    ;; collapse / expand: clickable header, chevron (right), and the collapsed summary
+    [:.opt-section-head.collapsible
+     {:cursor :pointer}]
+
+    [:.opt-section-chevron
+     {:margin-left :auto
+      :flex "0 0 auto"
+      :font-size "13px"
+      :color "#8893a2"
+      :transition "transform 0.15s"}]
+
+    [:.opt-section-chevron.collapsed
+     {:transform "rotate(-90deg)"}]
+
+    [:.opt-section-summary
+     {:margin-top "2px"
+      :font-size "13px"
+      :color "#b5bdc8"
+      :line-height 1.5}]
+
+    ;; collapse animation: the body stays mounted and reveals via grid-template-rows
+    ;; (1fr -> 0fr). The inner wrapper clips the overflow during the transition.
+    [:.opt-section-body
+     {:display :grid
+      :grid-template-rows "1fr"
+      :transition "grid-template-rows 0.22s ease"}]
+
+    [:.opt-section-body.collapsed
+     {:grid-template-rows "0fr"}]
+
+    ;; very long lists toggle instantly (no height animation) to avoid reflow jank
+    [:.opt-section-body.instant
+     {:transition :none}]
+
+    [:.opt-section-body-inner
+     {:min-height "0"
+      :overflow :hidden}]
+
+    ;; respect prefers-reduced-motion: no slide/reveal animation
+    (at-media {:prefers-reduced-motion :reduce}
+              [:.opt-section-body {:transition :none}]
+              [:.opt-section-chevron {:transition :none}]
+              [:.segmented-control-thumb {:transition :none}]
+              [:.segmented-control-seg {:transition :none}])
+
+    ;; "Choose any" wildcard group (the Any N options), a labeled dashed group
+    [:.opt-wildcards
+     {:display :flex
+      :align-items :center
+      :flex-wrap :wrap
+      :gap "10px"
+      :margin-bottom "12px"}]
+
+    [:.opt-wildcards-label
+     {:font-size "11px"
+      :font-weight 700
+      :letter-spacing "0.07em"
+      :text-transform :uppercase
+      :color "#7e8897"}]
+
+    [:.opt-wildcards-list
+     {:display :flex
+      :flex-wrap :wrap
+      :gap "8px"}]
+
+    [:.opt-wildcard
+     {:display :inline-flex
+      :align-items :center
+      :gap "8px"
+      :padding "6px 12px"
+      :border-radius "8px"
+      :cursor :pointer
+      :font-size "13.5px"
+      :font-weight 600
+      :white-space :nowrap
+      :border "1px dashed rgba(255,255,255,0.28)"
+      :background "rgba(255,255,255,0.015)"
+      :color "#cdd4de"}]
+
+    [:.opt-wildcard.selected
+     {:border (str "1px solid " orange)
+      :background "rgba(240,161,0,0.13)"
+      :color "#f3e7cf"}]
+
+    ;; pills
+    [:.opt-menu-pills
+     {:display :flex
+      :flex-wrap :wrap
+      :gap "8px"}]
+
+    [:.opt-menu-pill
+     {:display :inline-flex
+      :align-items :center
+      :border "1px solid rgba(255,255,255,0.2)"
+      :border-radius "999px"
+      :padding "5px 14px"
+      :cursor :pointer
+      :font-size "13px"
+      :white-space :nowrap
+      :color "rgba(255,255,255,0.85)"}]
+
+    [:.opt-menu-pill.selected
+     {:background orange
+      :border (str "1px solid " orange)
+      :color "#191919"
+      :font-weight 600}]
+
+    [:.opt-menu-pill.non-standard
+     {:border (str "1px dashed " orange)
+      :color orange}]
+
+    ;; A–Z
+    [:.opt-menu-az-bar
+     {:display :flex
+      :flex-wrap :wrap
+      :gap "3px"
+      :margin-bottom "10px"}]
+
+    [:.opt-menu-az-letter
+     {:min-width "24px"
+      :text-align :center
+      :padding "2px 7px"
+      :cursor :pointer
+      :font-size "12px"
+      :font-weight 600
+      :color "rgba(255,255,255,0.55)"
+      :border "1px solid rgba(255,255,255,0.1)"
+      :border-radius "5px"}]
+
+    [:.opt-menu-az-letter.active
+     {:background orange
+      :color "#191919"
+      :border (str "1px solid " orange)}]
+
+    [:.opt-menu-az-group
+     {:margin-bottom "12px"}]
+
+    [:.opt-menu-az-heading
+     {:font-size "12px"
+      :font-weight 700
+      :color orange
+      :letter-spacing "0.08em"
+      :margin-bottom "6px"
+      :border-bottom "1px solid rgba(255,255,255,0.1)"}]
+
+    ;; pattern banner (quoted boilerplate)
+    [:.opt-menu-banner
+     {:margin "5px 0"}]
+
+    [:.opt-menu-banner-caption
+     {:font-size "10px"
+      :font-weight 700
+      :text-transform :uppercase
+      :letter-spacing "0.1em"
+      :opacity 0.7
+      :margin-bottom "5px"}]
+
+    [:.opt-menu-banner-quote
+     {:border-left (str "3px solid " orange)
+      :background "rgba(240,161,0,0.06)"
+      :border-radius "5px"
+      :padding "10px 14px"
+      :font-style :italic
+      :font-size "15px"
+      :line-height 1.6}]
+
+    [:.opt-menu-banner-slot
+     {:border "1px dashed rgba(240,161,0,0.7)"
+      :color orange
+      :font-style :normal
+      :font-weight 600
+      :padding "1px 11px"
+      :border-radius "999px"}]
+
+    ;; search — a recessed dark inset well (darker than the card) with a ⌕ icon
+    [:.opt-menu-search-wrap
+     {:position :relative
+      :margin-bottom "14px"}]
+
+    [:.opt-menu-search-icon
+     {:position :absolute
+      :left "13px"
+      :top "50%"
+      :transform "translateY(-50%)"
+      :color "#5d6776"
+      :font-size "14px"
+      :pointer-events :none}]
+
+    [:.opt-menu-search
+     {:width "100%"
+      :box-sizing :border-box
+      :padding "10px 12px 10px 34px"
+      :border "1px solid rgba(255,255,255,0.1)"
+      :border-radius "8px"
+      :background "#11161d"
+      :color "#e7ecf2"
+      :font-size "14px"}]
+
+    ;; selected chips tray
+    [:.opt-menu-chips
+     {:display :flex
+      :flex-wrap :wrap
+      :align-items :center
+      :gap "7px"
+      :padding-bottom "10px"
+      :margin-bottom "10px"
+      :border-bottom "1px solid rgba(255,255,255,0.07)"}]
+
+    [:.opt-menu-chips-label
+     {:font-size "12px"
+      :text-transform :uppercase
+      :letter-spacing "0.04em"
+      :opacity 0.6}]
+
+    [:.opt-menu-chip
+     {:display :inline-flex
+      :align-items :center
+      :gap "6px"
+      :background "rgba(240,161,0,0.14)"
+      :border (str "1px solid " orange)
+      :color orange
+      :border-radius "999px"
+      :padding "3px 10px"
+      :font-size "13px"
+      :cursor :pointer
+      :white-space :nowrap}]
+
+    [:.opt-menu-chip-x
+     {:font-size "14px"
+      :opacity 0.7}]
+
+    ;; count line (under the title) + Clear (right-aligned inside the chips row)
+    [:.opt-menu-count
+     {:font-size "13px"
+      :opacity 0.7
+      :margin-bottom "8px"}]
+
+    [:.opt-menu-clear
+     {:margin-left :auto
+      :cursor :pointer
+      :color orange
+      :text-decoration :underline
+      :font-size "13px"
+      :white-space :nowrap}]
+
+    ;; option cell (default / checkbox). Transparent border on the base keeps the
+    ;; row from shifting 1px when the selected/non-standard border appears.
+    ;; align-items flex-start so the box lines up with the FIRST line of a wrapping
+    ;; label (e.g. "Calligrapher's Supplies"); the box gets a 1px nudge to sit on
+    ;; the text baseline of that first line.
+    [:.opt-menu-cell
+     {:display :flex
+      :align-items :flex-start
+      :gap "10px"
+      :padding "8px 10px"
+      :border "1px solid transparent"
+      :border-radius "6px"
+      :line-height 1.3
+      :cursor :pointer}
+     [:.checkbox-box {:margin-top "1px"}]]
+
+    [:.opt-menu-cell:hover
+     {:background "rgba(255,255,255,0.05)"}]
+
+    [:.opt-menu-cell.selected
+     {:background "rgba(240,161,0,0.12)"
+      :border (str "1px solid " orange)}]
+
+    [:.opt-menu-cell.non-standard
+     {:background "rgba(240,161,0,0.06)"
+      :border (str "1px solid " orange)}]
+
+    ;; App-wide checkbox (comps/checkbox): rounded box, amber when checked. The
+    ;; original white-box look is preserved under `.classic-checkboxes` below so a
+    ;; future user-preference toggle can switch back by toggling that root class.
+    [:.checkbox-box
+     {:display :inline-flex
+      :align-items :center
+      :justify-content :center
+      :flex "0 0 auto"
+      :width "18px"
+      :height "18px"
+      :border "1px solid #5b6576"
+      :border-radius "4px"
+      :font-size "11px"
+      :cursor :pointer
+      :vertical-align :middle}]
+
+    [:.checkbox-box.checked
+     {:background orange
+      :border (str "1px solid " orange)
+      :color "#191919"}]
+
+    ;; dashed outline for wildcard ("Any N") boxes when unchecked
+    [:.checkbox-box.dashed
+     {:border-style :dashed}]
+
+    [:.checkbox-box.disabled
+     {:opacity 0.5}]
+
+    ;; Legacy white-box checkbox — opt in by adding `classic-checkboxes` to the app
+    ;; root (intended for a future user-preference toggle).
+    [:.classic-checkboxes
+     [:.checkbox-box
+      {:width "16px"
+       :height "16px"
+       :background-color :white
+       :border-radius 0
+       :border "none"
+       :box-shadow (str "0 1px 0 0 " orange)
+       :color :black}]
+     [:.checkbox-box.checked
+      {:background-color :white
+       :color :black}]]
+
+    ;; empty state
+    [:.opt-menu-empty
+     {:padding "16px 4px"
+      :opacity 0.6
+      :font-size "14px"}]
 ];concat-bracket
    margin-lefts
    margin-tops
