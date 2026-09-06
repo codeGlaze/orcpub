@@ -145,11 +145,47 @@ styled. Two additions earn their keep, both standard rather than novel:
 
 Together they cost 21 nodes (1541 -> 1562 closed).
 
-Deliberately not built, to note that they were considered: per-row icons and rarity colours
-(needs item metadata the option list does not carry, and colour-codes a list people scan by
-name), sticky A-Z group headers (the list is already short once filtered), a recently-used
-section (state with no obvious home), and animated open/close (the popover is opened from a
-click 300 ms of the time — animation would be latency, not polish).
+`highlight-match` is unit-tested (`test/cljs/orcpub/character_builder_test.cljs`, 6 deftests).
+Writing them caught that three of the expectations were wrong, not the code: the highlighted
+slice comes from `subs` on the **name**, so it keeps the item's own casing — filtering
+`BATTLEAXE` by `batt` highlights `BATT`, it does not echo what was typed. The tests also pin
+that it is a plain substring search and not a regex (`+1`, `(large)`, `.*` are literals), and
+that a nil or non-string name does not throw — it did before, because the render path passed
+the raw name while the filter path wrapped it in `str`.
+
+The hint line is asserted live in `combobox_shots_e2e.js`: `39 items` unfiltered, `1 item`
+filtered, with the key legend.
+
+## Depth
+
+The panel was flat. Capability-checked in Chrome 141 first — `@starting-style`,
+`transition-behavior: allow-discrete`, `::backdrop`, `backdrop-filter`, `scrollbar-color`,
+`scrollbar-width`, `color-mix` and `:has()` are all available.
+
+What was applied, and why each one:
+
+- **Layered shadow instead of one flat drop shadow** — a hairline inset top highlight so the
+  panel catches light from above, a tight contact shadow, then a wide soft one. A single flat
+  shadow over a single flat fill is what made it look pasted on.
+- **A subtle vertical gradient** on the panel rather than one solid colour.
+- **A themed thin scrollbar** (`scrollbar-width: thin`, `scrollbar-color`). The browser
+  default is a wide light slab against a dark panel and was a large part of why this read as
+  cheap.
+- **An accent bar on hover and on the keyboard highlight**, as an inset `box-shadow` rather
+  than a `border-left`, so it costs no layout and the text does not jump sideways.
+- **A 120 ms entry animation** — fade plus a 4px rise, so the panel reads as arriving from its
+  input rather than blinking on. Guarded by `prefers-reduced-motion`.
+
+The animation uses `@keyframes` on `:popover-open`, not `@starting-style`, only because
+garden has `at-keyframes` and no at-rule for the newer syntax. `@starting-style` with
+`allow-discrete` is the modern equivalent and would additionally give an *exit* animation;
+it needs a raw-CSS escape hatch in `styles/core.clj` to express.
+
+Deliberately not built: per-row icons and rarity colours (needs item metadata the option list
+does not carry, and colour-codes a list people scan by name), sticky A-Z group headers (the
+list is already short once filtered), a recently-used section (state with no obvious home),
+and a dimmed or blurred `::backdrop` (correct for a modal, wrong for a dropdown — a dropdown
+should not dim the page behind it).
 
 ## The other pickers
 

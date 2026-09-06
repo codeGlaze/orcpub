@@ -2448,7 +2448,8 @@
       :border-radius "3px"
       :color "rgba(255,255,255,0.88)"
       :cursor :pointer
-      :font-size "14px"}
+      :font-size "14px"
+      :transition "background-color 90ms ease, box-shadow 90ms ease"}
      [:&:hover {:background "rgba(240,161,0,0.18)"
                 :color "#fff"}]]
 
@@ -2509,12 +2510,22 @@
       :margin "4px 0 0 0"
       :width "320px"
       :max-width "calc(100vw - 32px)"
-      :background "#1a2430"
-      :border "1px solid rgba(255,255,255,0.22)"
-      :border-radius "5px"
-      :box-shadow "0 8px 24px rgba(0,0,0,0.55)"
+      ;; Depth, in the order light would build it: a hairline top highlight so the panel
+      ;; catches light from above, a tight contact shadow, then a wide soft one. A single
+      ;; flat shadow on a flat fill is what made this look pasted on.
+      :background "linear-gradient(180deg, #1f2b39 0%, #151f2a 100%)"
+      :border "1px solid rgba(255,255,255,0.16)"
+      :border-radius "6px"
+      :box-shadow (str "inset 0 1px 0 rgba(255,255,255,0.09), "
+                       "0 2px 6px rgba(0,0,0,0.45), "
+                       "0 14px 34px rgba(0,0,0,0.55)")
       :padding "6px"
       :inset :auto}]
+
+    ;; Entry animation. 120 ms is under the threshold where a menu starts to feel slow, and
+    ;; the 4px rise reads as the panel arriving from its input rather than blinking on.
+    [:.inv-combo-pop:popover-open
+     {:animation "inv-combo-in 120ms cubic-bezier(0.2, 0, 0.2, 1)"}]
 
     ;; Separate rule, not a second :width in the map above -- duplicate keys are illegal in a
     ;; Clojure map literal. 320px above is the fallback for engines without anchor-size();
@@ -2524,7 +2535,11 @@
     ;; Keep the dropdown short enough to sit below its input in the common case -- at 300px
     ;; it did not fit and flip-block kept throwing it up over the page header.
     [:.inv-combo-list
-     {:max-height "230px"
+     {;; The default scrollbar is a wide light slab against a dark panel -- a large part of
+      ;; why this read as cheap. Thin and themed, track left transparent.
+      :scrollbar-width "thin"
+      :scrollbar-color "rgba(240,161,0,0.45) transparent"
+      :max-height "230px"
       :overflow-y :auto}]
 
     [:.inv-combo-row
@@ -2533,10 +2548,16 @@
       :color "rgba(255,255,255,0.88)"
       :cursor :pointer
       :font-size "14px"}
-     [:&:hover {:background "rgba(240,161,0,0.18)" :color "#fff"}]
+     ;; inset box-shadow rather than a border-left: an accent bar that costs no layout, so
+     ;; the text does not jump sideways on hover.
+     [:&:hover {:background "rgba(240,161,0,0.16)"
+                :color "#fff"
+                :box-shadow "inset 3px 0 0 rgba(240,161,0,0.75)"}]
      ;; Keyboard highlight. Stronger than :hover so the two are distinguishable when the
      ;; pointer happens to rest on a different row than the arrow keys are on.
-     [:&.active {:background "rgba(240,161,0,0.32)" :color "#fff"}]]
+     [:&.active {:background "rgba(240,161,0,0.28)"
+                 :color "#fff"
+                 :box-shadow "inset 3px 0 0 #f0a100"}]]
 
     ;; The matched substring. Colour plus weight, so it still reads if the row is highlighted.
     [:.inv-combo-hit {:color "#f0a100" :font-weight :bold}]
@@ -2564,6 +2585,17 @@
       :font-size "12px"
       :border-top "1px solid rgba(255,255,255,0.1)"
       :margin-top "4px"}]
+
+    (at-keyframes
+     "inv-combo-in"
+     [:from {:opacity 0 :transform "translateY(-4px)"}]
+     [:to   {:opacity 1 :transform "translateY(0)"}])
+
+    ;; Motion is decoration here; the control works identically without it.
+    (at-media
+     {:prefers-reduced-motion :reduce}
+     [:.inv-combo-pop:popover-open {:animation :none}]
+     [:.inv-combo-row {:transition :none}])
 
 ];concat-bracket
    margin-lefts

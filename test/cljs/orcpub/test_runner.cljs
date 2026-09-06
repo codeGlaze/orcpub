@@ -16,6 +16,7 @@
             [orcpub.dnd.e5.built-character-debounce-test]
             [orcpub.dnd.e5.content-reconciliation-test]
             [orcpub.dnd.e5.views-test]
+            [orcpub.character-builder-test]
             ;; storage layer (resilient loader read path)
             [orcpub.dnd.e5.db-test]
             ;; orcbrew import/export validation
@@ -33,6 +34,7 @@
              'orcpub.dnd.e5.built-character-debounce-test
              'orcpub.dnd.e5.content-reconciliation-test
              'orcpub.dnd.e5.views-test
+             'orcpub.character-builder-test
              'orcpub.dnd.e5.db-test
              'orcpub.dnd.e5.orcbrew-validation-test))
 

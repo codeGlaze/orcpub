@@ -85,6 +85,11 @@ async function stats(page, label) {
 
   await input.click();
   await page.waitForTimeout(900);
+  const hintOpen = await page.evaluate(() => {
+    const h = document.querySelector('.inv-combo-pop:popover-open .inv-combo-hint');
+    return h && h.firstElementChild.textContent;
+  });
+  console.log(`hint line unfiltered: "${hintOpen}"`);
   await stats(page, 'desktop open');
   await geometry(page, 'desktop geom');
   await page.screenshot({ path: path.join(OUT, '2-open.png') });
@@ -100,6 +105,13 @@ async function stats(page, label) {
     return { n: h.length, sample: h[0] && h[0].textContent };
   });
   console.log(`match highlighting: ${hits.n} hit spans, first "${hits.sample}"`);
+  const hint = await page.evaluate(() => {
+    const h = document.querySelector('.inv-combo-pop:popover-open .inv-combo-hint');
+    if (!h) return null;
+    return { count: h.firstElementChild && h.firstElementChild.textContent,
+             keys: h.querySelector('.inv-combo-keys') && h.querySelector('.inv-combo-keys').textContent };
+  });
+  console.log(hint ? `hint line: "${hint.count}" | "${hint.keys}"` : 'hint line: MISSING');
   await page.screenshot({ path: path.join(OUT, '3-filtered.png') });
 
   // A broad term on the biggest section, so match highlighting shows across many rows
@@ -116,6 +128,9 @@ async function stats(page, label) {
   await page.waitForTimeout(500);
   await bigInput.fill('+1');
   await page.waitForTimeout(900);
+  // Hover a row so the accent bar and hover tint appear in the shot.
+  await page.locator('.inv-combo-row').nth(2).hover().catch(() => {});
+  await page.waitForTimeout(400);
   const many = await page.evaluate(() => document.querySelectorAll('.inv-combo-hit').length);
   console.log(`broad filter "+1" on largest section: ${many} highlighted rows`);
   await page.screenshot({ path: path.join(OUT, '10-highlighting.png') });

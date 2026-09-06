@@ -507,18 +507,23 @@
     (try (when (.matches el ":popover-open") (.hidePopover el))
          (catch :default _ nil))))
 
-(defn- highlight-match
+(defn highlight-match
   "Bold the part of the name the query matched. Standard combobox affordance: it shows WHY a
-   row is in the list, which matters when a substring match lands mid-word."
+   row is in the list, which matters when a substring match lands mid-word.
+
+   `q` must already be lower-cased -- the caller lower-cases once per render rather than once
+   per row. Plain substring search, not a regex, so `+1` and `(` are literals. Returns the
+   name unchanged when there is no match, so callers can render the result directly."
   [item-name q]
-  (let [i (when-not (s/blank? q) (s/index-of (s/lower-case item-name) q))]
+  (let [nm (str item-name)
+        i  (when-not (s/blank? q) (s/index-of (s/lower-case nm) q))]
     (if-not i
       item-name
       (let [end (+ i (count q))]
         [:span
-         (subs item-name 0 i)
-         [:span.inv-combo-hit (subs item-name i end)]
-         (subs item-name end)]))))
+         (subs nm 0 i)
+         [:span.inv-combo-hit (subs nm i end)]
+         (subs nm end)]))))
 
 (defn- scroll-active-into-view! [pop-id]
   ;; Runs after the re-render that moved the highlight, hence the rAF.
