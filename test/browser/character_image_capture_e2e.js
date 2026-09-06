@@ -289,12 +289,22 @@ async function exportPressable(page) {
     check("a host that refuses the read still shows its picture",
           !/Image failed to load/i.test(await page.innerText('body')));
 
-    const prompt = /If the PDF printed without this picture/i;
-    // Nothing is said yet. The server fetches plenty of pictures the browser is
-    // refused, so an offer here would ask for an upload of what may be about to
-    // work.
-    check('no upload is offered before an export has been tried',
-          !prompt.test(await page.innerText('body')));
+    const prompt = /Nothing can read this picture from its host/i;
+    // The builder asks the server about this URL the moment the browser gives up,
+    // and says nothing until that answer comes back: the server fetches plenty of
+    // pictures the page may not read. Here it cannot -- the URL is loopback, which
+    // the server refuses by design -- so the answer is no and the offer appears
+    // WITHOUT an export having been tried.
+    const waitForText = async (re, ms) => {
+      const until = Date.now() + ms;
+      while (Date.now() < until) {
+        if (re.test(await page.innerText('body'))) return true;
+        await page.waitForTimeout(200);
+      }
+      return false;
+    };
+    check('the offer waits for the server to answer, then appears without an export',
+          await waitForText(prompt, 15000));
 
     await page.screenshot({ path: path.join(OUT, 'host-refused.png'), fullPage: true });
     const refused = await exportSheet(page, 'cors-refused');
@@ -303,9 +313,6 @@ async function exportPressable(page) {
     check('the sheet prints without the picture', !hasImage(refused.file),
           'the server refuses loopback, so there is no second route to it');
 
-    // Only now, with an export behind it, is the upload offered.
-    check('the upload is offered once an export has gone out unread',
-          prompt.test(await page.innerText('body')));
 
     // ---- a read in flight holds the export ----------------------------------
     // Exporting mid-read would send the address and let the server fetch what the

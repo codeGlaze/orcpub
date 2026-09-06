@@ -754,6 +754,67 @@
     :magic-items-known :print-magic-item-cards?
     :flatten?})
 
+(def ^:private image-url-shape
+  "Cheap shape check before any lookup: refuses file:// and ftp:// without
+   touching DNS. pdf/safe-image-bytes does the real address validation."
+  #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]")
+
+(defn- well-formed-image-url? [url]
+  (boolean (and (string? url) (re-matches image-url-shape url))))
+
+(def ^:private probe-ttl-ms
+  "How long a probe's answer stands. Long enough that the export following a
+   probe reuses it, short enough that a host having a bad minute is not written
+   off for the afternoon."
+  (* 10 60 1000))
+
+(def ^:private probe-max-entries
+  "Entries kept. These hold image bytes and the endpoint that fills them needs no
+   login, so the cache is bounded in count as well as in age: 64 x 128 KB."
+  64)
+
+(def ^:private probed-images
+  "url -> {:at ms :image {:data :jpg?} or nil}.
+
+   A nil :image is an answer too, and worth keeping: a host that would not serve
+   this server a moment ago will not serve the export either, and remembering it
+   is what stops the export repeating the fetch."
+  (atom {}))
+
+(defn- prune-probes [m now]
+  (let [fresh (into {} (remove (fn [[_ v]] (> (- now (:at v)) probe-ttl-ms)) m))]
+    (if (<= (count fresh) probe-max-entries)
+      fresh
+      (into {} (take-last probe-max-entries (sort-by (comp :at val) fresh))))))
+
+(defn- probed-image
+  "Fetches `url` once and remembers the outcome, so a probe and the export that
+   follows it cost the host one request rather than two."
+  [url]
+  (let [now (System/currentTimeMillis)]
+    (if-let [hit (get @probed-images url)]
+      (:image hit)
+      (let [image (pdf/fetch-image url)]
+        (swap! probed-images #(-> % (prune-probes now) (assoc url {:at now :image image})))
+        image))))
+
+(defn image-probe
+  "Whether this server can fetch the picture at the posted URL.
+
+   The builder asks before exporting, for a picture the BROWSER was not allowed to
+   read, so it can say something useful rather than print a sheet with a hole in
+   it. The bytes are kept for the export that follows, so asking costs the host
+   nothing extra.
+
+   Answers a boolean and never the picture: this endpoint needs no login, and
+   handing back fetched bytes would make it a general-purpose proxy for anything
+   inside the size limits."
+  [{:keys [transit-params]}]
+  (let [url (:url transit-params)]
+    {:status 200
+     :body (str (boolean (and (well-formed-image-url? url)
+                              (some? (probed-image url)))))}))
+
 (def ^:private export-slots
   "Permits for sheet generation, one per concurrent export.
 
@@ -1052,10 +1113,7 @@
       ;; The regex stays -- it costs nothing and refuses file:// and ftp://
       ;; without a lookup at all.
       (let [wanted (fn [url failed?]
-                     (and url (not failed?)
-                          (re-matches #"^https?://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]"
-                                      url)
-                          url))
+                     (and url (not failed?) (well-formed-image-url? url) url))
             ;; Bytes the browser read beat the URL and skip the fetch entirely.
             ;; A host that blocks hotlinking refuses this server and not the
             ;; browser, so the address is the fallback rather than the only route.
@@ -1063,8 +1121,11 @@
             image (fn [supplied url failed?]
                     (if-let [bytes (pdf/decode-image-bytes supplied)]
                       (delay bytes)
+                      ;; probed-image, not fetch-image: the builder usually asked
+                      ;; about this URL a moment ago, and the answer it got is the
+                      ;; one to print.
                       (some-> (wanted url failed?)
-                              (as-> u (future (pdf/fetch-image u))))))
+                              (as-> u (future (probed-image u))))))
             portrait (image image-data image-url image-url-failed)
             faction (image faction-image-data faction-image-url faction-image-url-failed)]
         (when-let [{:keys [data jpg?]} (some-> portrait deref)]
@@ -1905,6 +1966,8 @@
         {:post `login}]
        [(route-map/path-for route-map/character-pdf-route)
         {:post `character-pdf-2}]
+       [(route-map/path-for route-map/image-probe-route)
+        {:post `image-probe}]
        [(route-map/path-for route-map/verify-route)
         {:get `verify}]
        [(route-map/path-for route-map/re-verify-route)

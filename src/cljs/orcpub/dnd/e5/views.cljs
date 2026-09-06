@@ -132,13 +132,7 @@
   (fn [_]
     (let [field (.getElementById js/document "fields-input")]
       (aset field "value" (str (pdf-spec/make-spec built-char id options plugin-data)))
-      (.submit (.getElementById js/document "download-form"))
-      ;; Any picture the browser could not read has now gone out as an address for
-      ;; the server to try. Nothing here can see whether that worked -- the form
-      ;; posts into a new tab -- so this records only that it was attempted, which
-      ;; is what lets the builder offer an upload afterwards instead of before.
-      (dispatch [::char/exported [(char/image-url built-char)
-                                  (char/faction-image-url built-char)]]))))
+      (.submit (.getElementById js/document "download-form")))))
 
 (defn download-form [built-char]
   [:form.download-form

@@ -1632,8 +1632,8 @@
    (:image-bytes db)))
 
 (reg-sub
- ::char5e/image-upload-offered
+ ::char5e/image-server-reach
  (fn [db _]
-   ;; URLs that have been through an export unread. Until a picture is in here the
-   ;; builder says nothing about uploading -- see the ::char5e/exported handler.
-   (:image-upload-offered db)))
+   ;; URL -> :asking / :yes / :no, for pictures the browser could not read. Only
+   ;; :no means nobody can fetch it, and only then does the builder speak up.
+   (:image-server-reach db)))

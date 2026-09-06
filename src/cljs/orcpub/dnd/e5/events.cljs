@@ -2023,27 +2023,38 @@
  (fn [url]
    (image-capture/capture url #(dispatch [::char5e/image-captured url %]))))
 
-(reg-event-db
- ::char5e/exported
- (fn [db [_ urls]]
-   ;; A picture the browser could not read has just gone out as an address for the
-   ;; server to try instead. Whether that worked cannot be seen from here -- the
-   ;; export posts a form into a new tab, so nothing in this page ever sees the
-   ;; response -- so this records only that the attempt was made. That is what
-   ;; lets the builder offer an upload afterwards rather than before: the server
-   ;; fetches plenty of pictures the browser is refused, and offering first would
-   ;; ask people to upload what was about to work.
-   (update db :image-upload-offered
-           (fnil into #{})
-           (filter #(= :unavailable (get-in db [:image-bytes %]))
-                   (remove nil? urls)))))
+(reg-event-fx
+ ::char5e/image-captured
+ (fn [{:keys [db]} [_ url payload]]
+   ;; :unavailable is a result, not an absence -- it stops the URL being read again
+   ;; on every render, and it is what sends the question to the server.
+   (let [db (assoc-in db [:image-bytes url] (or payload :unavailable))]
+     (if payload
+       {:db db}
+       ;; The browser was refused. Ask the server NOW rather than at export time:
+       ;; the export posts a form into a new tab and never sees the answer, so
+       ;; asking here is the only way the builder can say something useful instead
+       ;; of printing a sheet with a hole in it. It also keeps the export click
+       ;; synchronous, which is what stops the tab being popup-blocked.
+       {:db (assoc-in db [:image-server-reach url] :asking)
+        :dispatch [::char5e/probe-server-image url]}))))
+
+(reg-event-fx
+ ::char5e/probe-server-image
+ (fn [_ [_ url]]
+   {:http {:method :post
+           :url (url-for-route routes/image-probe-route)
+           :transit-params {:url url}
+           :on-success [::char5e/server-image-answer url]
+           :on-failure [::char5e/server-image-answer url]}}))
 
 (reg-event-db
- ::char5e/image-captured
- (fn [db [_ url payload]]
-   ;; :unavailable is a result, not an absence -- it is what the builder shows the
-   ;; upload prompt for, and what stops the URL being read again on every render.
-   (assoc-in db [:image-bytes url] (or payload :unavailable))))
+ ::char5e/server-image-answer
+ (fn [db [_ url response]]
+   ;; A failed request answers :no as surely as a false does -- either way this
+   ;; page cannot show the picture arriving, and paste is the way through.
+   (assoc-in db [:image-server-reach url]
+             (if (= "true" (:body response)) :yes :no))))
 
 ;; ── Inline "Custom" options ──────────────────────────────────────────────────
 ;; The :set-custom-* events write a typed name to ::entity/value on the character

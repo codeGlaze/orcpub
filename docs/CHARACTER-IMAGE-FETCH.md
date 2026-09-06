@@ -1,15 +1,21 @@
 # Character image fetch — how it works, and what to check when it breaks
 
-A character's portrait and faction image are stored as **URLs**. There are two
-ways the pixels reach the PDF, tried in that order:
+A character's portrait and faction image are stored as **URLs**. Three ways the
+pixels reach the PDF, tried in that order:
 
-1. **The browser reads them and sends the bytes with the export.** This is the
-   normal path. Hosts that block hotlinking judge the Referer and the datacenter
-   IP, so they refuse the server and not the visitor's own browser.
-2. **The server fetches the URL itself.** The fallback, for a picture the browser
-   was not allowed to read. It is the only outbound request OrcPub makes to an
-   address a visitor chose, on an endpoint that needs no login, so it is
-   deliberately hemmed in — and the hemming is what usually breaks first.
+1. **The browser reads them and sends the bytes with the export.** The normal
+   path. Hosts that block hotlinking judge the Referer and the datacenter IP,
+   neither of which describes the visitor's own browser.
+2. **The server fetches the URL itself.** For a picture the browser was refused.
+   The builder asks about it up front — `POST /image-probe`, see below — so it
+   knows the answer before anyone clicks Export. This is the only outbound request
+   OrcPub makes to an address a visitor chose, on an endpoint that needs no login,
+   so it is deliberately hemmed in.
+3. **Paste, or a file.** Local to the machine, so no host has a say. This is the
+   way in for a host that refuses everyone.
+
+The user is told nothing until step 2 has answered. An offer at the moment the
+browser gives up would ask for a paste of a picture the server was about to fetch.
 
 Read this if portraits stop appearing in exported PDFs, or if a security review
 asks what `/character.pdf` can be made to talk to.
@@ -55,6 +61,23 @@ to a table.
 
 Re-run the probe politely -- a request or two per host, spaced -- rather than in a
 loop; these are other people's servers.
+
+## The pre-flight probe
+
+`POST /image-probe` with `{:url "..."}` answers `"true"` or `"false"`: whether
+THIS server can fetch THAT picture. The builder asks as soon as a browser read
+fails, not at export time — the export posts a form into a new tab and never sees
+the response, and an await between the click and the submit would spend the user
+activation that keeps the tab from being blocked.
+
+- The bytes are kept (`probed-images`, 10 minutes, 64 entries) so the export that
+  follows costs the host no second request. A negative answer is cached too.
+- It answers a boolean and never the picture. Handing back fetched bytes would
+  make an endpoint that needs no login into a general-purpose proxy for anything
+  inside the size limits.
+- Every address rule that guards the export guards this: private and reserved
+  ranges, scheme, redirects. Otherwise it would be a port scanner returning one
+  boolean per request. `test/clj/orcpub/image_probe_test.clj` holds that line.
 
 ## Which path a picture took
 

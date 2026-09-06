@@ -1835,29 +1835,27 @@
 (def image-paste (memoize image-paste-fn))
 
 (defn image-upload
-  "Offers an upload for a picture that has already been through an export unread.
+  "Speaks up only once BOTH routes to the picture are known to be shut.
 
-   Deliberately silent before that. The browser is refused by hosts that send no
-   Access-Control-Allow-Origin, but the SERVER fetches many of those perfectly
-   well, so a prompt at the moment the browser gives up would ask people to upload
-   what was about to work. `offered?` is set once an export has gone out, which is
-   the earliest point at which the picture may genuinely have been lost -- and the
-   wording stays conditional, because this page never sees the export's response.
+   The browser being refused is not enough: the server fetches plenty of pictures
+   the page may not read, so a prompt at that moment would ask for a paste of what
+   was about to arrive. `reach` is the server's own answer about this URL, asked
+   as soon as the browser gave up -- :asking while it is in flight, :no only when
+   nobody can fetch it.
 
-   The file is read locally and travels only as the bytes the export carries, so
-   no host has a say in it."
-  [url state offered?]
+   Both routes out are local to the machine, so no host has a say in either."
+  [url state reach]
   (cond
     (= :pending state)
     [:div.f-s-12.m-t-5 "Reading image..."]
 
-    (and (= :unavailable state) offered?)
+    (and (= :unavailable state) (= :no reach))
     [:div.m-t-5
      [:div.f-s-12.m-b-5
-      "If the PDF printed without this picture, its host lets nobody read it.
-       Right-click the picture, choose Copy image, and paste it into the field
-       above -- the clipboard carries the picture itself, so the host has no say
-       in it. Or choose the file (PNG or JPEG, 128k max):"]
+      "Nothing can read this picture from its host -- not this page, and not the
+       server. Right-click the picture, choose Copy image, and paste it into the
+       field above; the clipboard carries the picture itself, so the host has no
+       say in it. Or choose the file (PNG or JPEG, 128k max):"]
      [:input {:type "file"
               :accept "image/png,image/jpeg"
               :on-change (fn [e]
@@ -1876,7 +1874,7 @@
         faction-image-url @(subscribe [::char5e/faction-image-url])
         faction-image-url-failed @(subscribe [::char5e/faction-image-url-failed])
         image-bytes @(subscribe [::char5e/image-bytes])
-        upload-offered @(subscribe [::char5e/image-upload-offered])]
+        server-reach @(subscribe [::char5e/image-server-reach])]
     [:div.flex-grow-1
      [:div.m-t-5
       [:span.personality-label.f-s-18 "Character Name"]
@@ -1943,7 +1941,7 @@
          [:div.red.m-t-5 "Image failed to load, please check the URL"])
        (when (and image-url (not image-url-failed))
          [image-upload image-url (get image-bytes image-url)
-          (contains? upload-offered image-url)])]]
+          (get server-reach image-url)])]]
      [:div.field
       [:span.personality-label.f-s-18 "Faction Name"]
       [character-input entity-values ::char5e/faction-name]]
@@ -1960,7 +1958,7 @@
          [:div.red.m-t-5 "Image failed to load, please check the URL"])
        (when (and faction-image-url (not faction-image-url-failed))
          [image-upload faction-image-url (get image-bytes faction-image-url)
-          (contains? upload-offered faction-image-url)])]]
+          (get server-reach faction-image-url)])]]
      [:div.field
       [:span.personality-label.f-s-18 "Description/Backstory"]
       [character-textarea entity-values ::char5e/description "h-800"]]]))

@@ -28,6 +28,12 @@ allowed the builder says so and offers an upload — which no host has a say in.
   the bytes rather than from the mime type the client claimed.
 - The export spec carries `:image-data` and `:faction-image-data`; when they are
   present `/character.pdf` does not fetch at all.
+- `POST /image-probe`, which the builder asks as soon as a browser read fails:
+  can THIS server fetch THAT picture? The bytes are kept for ten minutes, so the
+  export that follows costs the host no second request, and a negative answer is
+  remembered too. It answers a boolean and never the picture — the endpoint needs
+  no login, and returning fetched bytes would make it a general-purpose proxy —
+  and every address rule that guards the export guards it.
 - Paste, for a host that lets nobody read its pictures. The clipboard carries the
   DECODED image -- the browser's own "Copy image" put it there -- so none of the
   host's rules reach it. Two clicks, and no download-and-upload round trip. This
@@ -42,12 +48,13 @@ allowed the builder says so and offers an upload — which no host has a say in.
 
 ## Changed
 
-- The upload is offered only **after** an export has gone out with a picture
-  unread, not the moment the browser is refused. Most hosts that refuse the
-  browser allow the server, so the earlier prompt asked people to upload what was
-  about to work. Measured: of sixteen common portrait hosts, nine allow the
-  browser to read (Imgur, Discord, Fandom, Wikimedia, ArtStation, DeviantArt,
-  Google, Tumblr, githubusercontent) and most of the rest allow the server.
+- The builder says nothing about pasting or uploading until BOTH routes are known
+  to be shut: the browser refused, and the server's own answer came back no. Most
+  hosts that refuse the browser serve the server perfectly well, so speaking up
+  earlier asked people to supply a picture that was about to arrive. Measured: of
+  sixteen common portrait hosts, nine let the browser read (Imgur, Discord,
+  Fandom, Wikimedia, ArtStation, DeviantArt, Google, Tumblr, githubusercontent)
+  and most of the rest allow the server.
 - Exporting is held while a picture is still being read, so the browser's bytes
   win that race instead of falling through to the server. `capture` carries a
   deadline, so a read always ends and the hold is bounded.
