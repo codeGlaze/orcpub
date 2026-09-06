@@ -66,6 +66,14 @@ allowed the builder says so and offers an upload — which no host has a say in.
   commits on every keystroke and advice that objects to `htt` on the way to
   `https://` teaches people to ignore advice.
 
+## Documentation
+
+- `docs/kb/character-image-routes.md` — what was measured against real hosts, the
+  two traps that cost a day (an invented URL proves nothing when the host is S3;
+  the ceiling that refused pictures was ours), how to reach the real internet from
+  a browser test here, what the browser cannot be made to do however clever the
+  attempt, and the interface rules these fields follow.
+
 ## Changed
 
 - http is upgraded to https automatically, once the https address is KNOWN to

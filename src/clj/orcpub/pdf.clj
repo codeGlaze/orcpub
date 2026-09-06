@@ -1395,12 +1395,10 @@
 (def ^:private max-image-bytes
   "What the server is willing to DOWNLOAD, which is a different question.
 
-   Holding these to the same number was a real defect: a Pinterest portrait is
-   393 KB on the wire and a Wikimedia one 224 KB, both served to this server
-   without complaint, and both refused for weight alone. The browser has always
-   downloaded the original and scaled it; the server simply gave up. What bounds
-   the danger is not this number but the pixel budget below -- which caps the
-   decode -- and the transfer deadline, which caps the time."
+   Not the same number as max-embedded-bytes, and holding them equal is the defect
+   this split fixed: a 393 KB portrait a host served without complaint was refused
+   for weight. What bounds the danger is the pixel budget below, which caps the
+   decode, and the transfer deadline, which caps the time."
   (* 2 1024 1024))
 
 (def ^:private max-image-pixels
@@ -1826,10 +1824,8 @@
    no heavier than the PDF should carry, or hands it back untouched when it is
    already both. Returns {:data bytes :jpg? bool}, or nil if it cannot be decoded.
 
-   This is what lets a picture that arrives at 393 KB be used. The ceiling belongs
-   on what goes INTO the document, not on what may be fetched: holding both to
-   128 KB refused a Pinterest portrait and a Wikimedia one that their hosts had
-   served without complaint."
+   The ceiling belongs on what goes INTO the document, not on what may be
+   fetched."
   [^bytes data]
   (when-let [img (ImageIO/read (java.io.ByteArrayInputStream. data))]
     (if (and (<= (alength data) max-embedded-bytes)

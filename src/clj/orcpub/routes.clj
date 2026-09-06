@@ -815,10 +815,9 @@
                  :blocked-address
                  (let [{:keys [image reason]} (probed-outcome url)]
                    (if image :ok (or reason :unknown))))]
-    ;; The HOST only, never the URL -- an image address can carry a signed query
-    ;; string. This is the measurement: which hosts are reachable by nobody, and
-    ;; why, which is what decides whether the copy-and-upload routes earn their
-    ;; place.
+    ;; The HOST only, never the URL: an image address can carry a signed query
+    ;; string. This is how the genuinely unreachable set gets measured rather than
+    ;; guessed at.
     (when (and (not= :ok reason) (well-formed-image-url? url))
       (println "pdf: no route to a picture at" (some-> url java.net.URI. .getHost)
                "-" (name reason)))
@@ -1124,15 +1123,13 @@
       (let [wanted (fn [url failed?]
                      (and url (not failed?) (well-formed-image-url? url) url))
             ;; Bytes the browser read beat the URL and skip the fetch entirely.
-            ;; A host that blocks hotlinking refuses this server and not the
-            ;; browser, so the address is the fallback rather than the only route.
-            ;; Both arms deref, so nothing below has to know which one it got.
+            ;; Both arms deref, so nothing below has to know which it got.
             image (fn [supplied url failed?]
                     (if-let [bytes (pdf/decode-image-bytes supplied)]
                       (delay bytes)
-                      ;; probed-image, not fetch-image: the builder usually asked
-                      ;; about this URL a moment ago, and the answer it got is the
-                      ;; one to print.
+                      ;; probed-outcome, not fetch-image: the builder usually
+                      ;; asked about this URL a moment ago, and that answer is
+                      ;; cached.
                       (some-> (wanted url failed?)
                               (as-> u (future (:image (probed-outcome u)))))))
             portrait (image image-data image-url image-url-failed)

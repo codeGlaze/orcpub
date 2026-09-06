@@ -7,10 +7,13 @@
    before saying so costs a round trip and tells the person less than the string
    already did.
 
-   Nothing here blocks anything. The rules that must hold are enforced where they
-   cannot be argued with -- address validation on the server, CORS in the browser.
-   This is advice, and advice is allowed to be wrong occasionally; it says the
-   most useful thing it can and gets out of the way."
+   Nothing here blocks anything: what must hold is enforced where it cannot be
+   argued with, by address validation on the server and by CORS in the browser. So
+   this is free to be occasionally wrong, and its weakest rule -- an unknown host
+   with no file name -- is only a note.
+
+   docs/kb/character-image-routes.md carries the measurements behind the host
+   lists."
   (:require [clojure.string :as s]))
 
 (def ^:private page-not-picture

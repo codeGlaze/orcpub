@@ -1836,9 +1836,8 @@
 (def image-paste (memoize image-paste-fn))
 
 (def ^:private image-failure-notes
-  "One short sentence per reason the server gave. Short on purpose: this is the
-   whole message, and a picture that cannot be had is one problem however it
-   failed."
+  "One short sentence per reason the server gave. This is the whole message: a
+   picture that cannot be had is one problem however it failed."
   {:blocked-address "That address can't be fetched."
    :not-found       "The host has nothing at that address."
    :redirect        "That link redirects instead of being the picture."
@@ -1856,22 +1855,19 @@
   "The one thing worth saying about this picture, and at most one thing to do
    about it.
 
-   ONLY ONE of these ever shows. Said separately they stacked: a scheme warning, a
-   suggested correction, a fetch failure and a panel of controls could all sit
-   under a single field at once -- four blocks and three controls to say that one
-   picture could not be had. They are ordered by how far they get someone:
+   ONLY ONE of these ever shows, ordered by how far it gets someone:
 
-     1. a correction we can make mechanically, offered beside the fault it
-        corrects
+     1. a correction we can make mechanically, offered beside the fault
      2. what the address itself gives away, which needs no request
      3. what the server found when it tried
      4. that it simply did not load
 
-   The other ways in wait behind a disclosure. Most people never open it, because
-   the line above it usually tells them what to fix.
+   The other ways in wait behind the disclosure. Advice is held back until typing
+   stops -- the field commits on every keystroke, so it would otherwise object to
+   `htt` on the way to `https://` -- while a load failure is not, being already an
+   answer about the address as typed.
 
-   Held back until typing stops: the field commits on every keystroke, so this
-   would otherwise object to `htt` on the way to `https://`."
+   docs/kb/character-image-routes.md carries the rules these fields follow."
   [_url _failed? _state _reach _set-fn]
   (let [settled (r/atom nil)
         timer (atom nil)
@@ -1886,10 +1882,9 @@
       (when (not= url @seen)
         (reset! seen url)
         (reset! open? false)
-        ;; Drop the old advice the moment the address changes, rather than leaving
-        ;; it up for the debounce. It is not merely stale for that second: the
-        ;; correction it offers is clickable, and it corrects the PREVIOUS
-        ;; address. Nothing is said until the new one settles.
+        ;; Drop the old advice the moment the address changes. Left up for the
+        ;; debounce it is not merely stale: its correction is clickable, and it
+        ;; corrects the PREVIOUS address.
         (reset! settled nil)
         (when-not (= url @upgraded-to)
           (reset! https-state nil)
@@ -1898,10 +1893,8 @@
         (reset! timer (js/setTimeout #(reset! settled url) 900)))
       (let [{:keys [level message fix]} (image-url/advise @settled)
             unreachable (when (= :unavailable state) (get image-failure-notes reach))
-            ;; Name the branch rather than infer it later. Deriving it a second
-            ;; time from the text it produced is how the disclosure went missing:
-            ;; the test for "no advice" was made against a variable that by then
-            ;; held the unreachable line.
+            ;; The branch is named here and read below. Re-deriving it from the
+            ;; text it produced tests a variable that has since been rebound.
             upgrade-note (when (and @upgraded-to (= url @upgraded-to))
                            (str "Changed http to https -- this page can only "
                                 "display pictures over https."))
@@ -1920,15 +1913,11 @@
               failed?     [:failed :error "That picture didn't load."]
               :else       [nil nil nil])]
         ;; An http picture cannot be displayed by this page at all -- the CSP allows
-        ;; images over https only -- so the address is not merely suspect, it is
-        ;; unusable. Rather than ask, try the https one and swap it in if it works.
-        ;; The check is a plain <img> load: no server, no permission, and no request
-        ;; anyone was not about to make, since the thumbnail loads that same address
-        ;; a moment later and takes it from cache.
-        ;;
-        ;; Verified before it is applied on purpose. Swapping in an address the
-        ;; person did not type is only defensible while it is known to be better; a
-        ;; blind upgrade that fails leaves them debugging something they never wrote.
+        ;; images over https only -- so it is broken rather than suspect. The https
+        ;; address is checked with a plain <img> load (no server, and the request
+        ;; the thumbnail was about to make) and swapped in only once it loads: an
+        ;; unverified rewrite that fails leaves someone debugging an address they
+        ;; never typed.
         (when (and fix
                    (string? @settled)
                    (s/starts-with? @settled "http://")

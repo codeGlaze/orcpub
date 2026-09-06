@@ -2,25 +2,19 @@
   "Reads a character's picture in the browser, so an export can carry the bytes
    instead of an address for the server to fetch.
 
-   The server's fetch is refused by hosts that block hotlinking, which judge the
-   Referer and the datacenter IP -- neither of which describes the browser's own
-   request. What the browser may read is bounded by CORS instead: a cross-origin
-   image whose host sends no Access-Control-Allow-Origin cannot be read by script.
-   The two rules catch different hosts, so a picture the server cannot have is
-   often one the browser can.
+   The route is a CORS-attributed <img> drawn to a canvas, and only that: the app's
+   CSP is `connect-src 'self'` and `img-src 'self' data: https:`, so an image host
+   is reachable by the image loader and not by the fetch stack, and a fetch would
+   log a violation on every export. Reading the canvas is therefore always a
+   re-encode, bounded by scaling to the printed size first.
 
-   The route to the bytes is a CORS-attributed <img> drawn to a canvas, and only
-   that. fetch would return the file as served and save a re-encode, but the app's
-   Content-Security-Policy is `connect-src 'self'` and `img-src 'self' data:
-   https:` -- an image host is reachable by the image loader and not by the fetch
-   stack, and an attempt anyway would log a CSP violation on every export. Widening
-   connect-src to reach arbitrary hosts is the larger cost.
+   A host that sends no Access-Control-Allow-Origin refuses every read, and the
+   browser logs a CORS error saying so -- that is the host's rule being reported
+   and cannot be suppressed from here. The caller then falls back to the server,
+   and past that to a copy or a file.
 
-   Reading the canvas is therefore always a re-encode. That is bounded work: the
-   picture is scaled to what the sheet prints before it is encoded at all.
-
-   When the host allows no read, capture reports nil and the caller offers an
-   upload, which needs no permission from anyone."
+   docs/kb/character-image-routes.md has what else was tried and why it cannot
+   work."
   (:require [clojure.string :as s]))
 
 (def ^:private max-bytes

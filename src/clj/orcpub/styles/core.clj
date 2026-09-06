@@ -8,10 +8,9 @@
 (def orange "#f0a100")
 (def button-color orange)
 (def red "#9a031e")
-;; The reds above and below are the same colour at two ends of a contrast problem.
-;; #9a031e reads at about 9:1 on white and about 2:1 on the app's own near-black
-;; background, which is under half the readable minimum -- so the dark theme, which
-;; is the default, gets the lighter one and the light theme keeps the deep one.
+;; One red cannot serve both themes: #9a031e reads at about 9:1 on white and about
+;; 2:1 on the app's near-black ground, under half the readable minimum. The dark
+;; theme is the default and takes red-on-dark; .app.light-theme takes red back.
 (def red-on-dark "#ff6b6b")
 (def amber-on-dark "#f5b942")
 (def muted-on-dark "#9fb0c3")
@@ -355,8 +354,7 @@
 
     [:a :a:visited
      {:color green}]]
-   ;; The app is dark by default, so this is the dark-readable red. The light
-   ;; theme takes the deep one back below -- the same colour cannot serve both.
+   ;; Dark theme is the default; .app.light-theme overrides this below.
    [:.red
     {:color red-on-dark}
 
@@ -538,13 +536,9 @@
      :margin "4px 0 6px 0"
      :opacity "0.75"}]
 
-   ;; ONE line under a field. One problem, one sentence, at most one action.
-   ;;
-   ;; This replaced four stacked blocks -- two notices, a suggestion and a panel
-   ;; of controls -- that could all appear at once for a single unreachable
-   ;; picture. Six lines of prose and three controls to say "we cannot get this".
-   ;; Whatever is most actionable is the only thing shown; the rest waits behind
-   ;; the disclosure, and most people never need it.
+   ;; ONE line under a field: one problem, one sentence, at most one action. Only
+   ;; the most actionable of the things that may be wrong is shown; the rest waits
+   ;; behind the disclosure. See docs/kb/character-image-routes.md.
    [:.field-notice
     {:display "flex"
      :flex-wrap "wrap"
@@ -560,8 +554,9 @@
      :max-width "560px"}]
    [:.field-notice-what
     {:flex "1 1 260px"}]
-   ;; The one action a notice may carry, and only ever one. Set as a link, not a
-   ;; button: a notice that grows a control panel stops reading as a message.
+   ;; The one action a notice may carry, and only ever one. Set as a link rather
+   ;; than a button: a notice that grows a control panel stops reading as a
+   ;; message. Form controls belong in .field-remedy, never here.
    [:.field-notice-action
     {:background "none"
      :border "none"
@@ -577,8 +572,8 @@
    [:.field-notice.is-warning {:color amber-on-dark}]
    [:.field-notice.is-note {:color muted-on-dark}]
 
-   ;; The other ways in, behind the disclosure. Plain: these are controls, not a
-   ;; second warning, and they are not urgent.
+   ;; The other ways in, behind the disclosure. Plain on purpose: controls, not a
+   ;; second warning.
    [:.field-remedy
     {:display "flex"
      :flex-wrap "wrap"
@@ -1576,8 +1571,8 @@
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
 
-     ;; Both of these invert: a red that carries on near-black is washed out on
-     ;; white, and the notice's own ground has to darken rather than lighten.
+     ;; A red that carries on near-black washes out on white, and the notice's
+     ;; ground has to darken rather than lighten.
      [:.red
       {:color red}
       [:a :a:visited {:color red}]]
