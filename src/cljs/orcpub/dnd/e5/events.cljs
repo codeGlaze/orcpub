@@ -1589,7 +1589,12 @@
  (fn [db _]
    (assoc db
           :portrait/drawer-open? true
-          :portrait/draft (or (char5e/portrait (:character db))
+          ;; Read the RAW value, not char5e/portrait -- that getter resolves
+          ;; through es/entity-val against a BUILT character, and db :character
+          ;; is the raw entity. Going through the getter here silently yields
+          ;; nil, so reopening the drawer would discard a saved portrait.
+          :portrait/draft (or (char5e/parse-portrait
+                               (get-in db [:character ::entity/values ::char5e/portrait]))
                               portrait-assets5e/empty-portrait)
           :portrait/draft-seed nil
           :portrait/open-slot nil
