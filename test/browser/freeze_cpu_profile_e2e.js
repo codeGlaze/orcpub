@@ -111,18 +111,19 @@ function selfTimes(profile) {
     try { new PerformanceObserver(l => { for (const e of l.getEntries()) window.__tasks.push(Math.round(e.duration)); })
             .observe({entryTypes:['longtask']}); } catch (e) {}
   });
-  await click('Class / Level'); await page.waitForTimeout(900);
-  await click('Race');          await page.waitForTimeout(900);
+  const TAB = process.env.TAB || 'Class / Level';
+  await click(TAB);    await page.waitForTimeout(900);
+  await click('Race'); await page.waitForTimeout(900);
 
   await page.evaluate(() => { window.__tasks = []; });
   await cdp.send('Profiler.start');
   const t = Date.now();
-  await click('Class / Level');
+  await click(TAB);
   await page.waitForTimeout(1500);
   const { profile } = await cdp.send('Profiler.stop');
   const tasks = await page.evaluate(() => window.__tasks);
   const worst = tasks.length ? Math.max(...tasks) : 0;
-  console.log(`\n=== 2nd visit to Class / Level (${Date.now() - t - 1500}ms wall, ${RATE}x) ===`);
+  console.log(`\n=== 2nd visit to ${TAB} (${Date.now() - t - 1500}ms wall, ${RATE}x) ===`);
   console.log(`longest task: ${worst}ms  ${worst > 500 ? '<- FREEZE CAPTURED' : '<- NOT captured, ranking below is of a normal switch'}`);
   console.log('\n-- INCLUSIVE time (function contains the work) --');
   for (const [name, us] of totalTimes(profile).slice(0, 22)) {
