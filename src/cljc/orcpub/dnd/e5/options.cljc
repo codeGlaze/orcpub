@@ -472,7 +472,17 @@
       :modifiers [(modifiers/spells-known level key spellcasting-ability class-name nil qualifier)]})))
 
 
-(def memoized-spell-option (memoize spell-option))
+(def memoized-spell-option
+  "NOT memoized despite the name, which is kept so call sites need not change.
+
+   The key included `spells-map` -- the whole spell library -- and cljs.core/memoize looks
+   its cache up with `get` on a PersistentArrayMap, a linear scan comparing keys with `=`.
+   Measured on a 130-caster library: 75 calls took 21 ms memoized and 2 ms without, so the
+   cache cost about ten times what it saved, and grew with the library.
+
+   DO NOT re-memoize on these arguments. spell-option is pure and its result closes only
+   over values derived from its own arguments, so recomputing is safe."
+  spell-option)
 
 (defn missing-spell-keys
   "Spell keys in a class's spell list (a `{level #{keys}}` map) that have no
