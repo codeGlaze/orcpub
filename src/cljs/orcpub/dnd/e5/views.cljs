@@ -7644,10 +7644,26 @@
                    (true? v)
                    false
                    #(dispatch [(toggle-prop-event set-prop) path])]
+         ;; A COMBO: type anything, or pick from the values the shipped data actually uses. This is
+         ;; what casting time / range / duration want — a short canonical list with real outliers —
+         ;; and it is a plain <input list=…>, the same control plugin-datalist already uses for the
+         ;; option pack, so it degrades to a text box wherever datalists are unsupported.
+         :combo (let [id (str "combo-" (clojure.string/join "-" (map name path)))]
+                  [:div
+                   [:input.input.h-40
+                    {:type "text"
+                     :list id
+                     :value (or v "")
+                     :placeholder (:placeholder field)
+                     :on-change #(dispatch [set-prop path (event-value %)])}]
+                   (into [:datalist {:id id}]
+                         (map (fn [o] [:option {:value (if (map? o) (:value o) o)}]) options))])
          :number [number-field {:value v
                                 :on-change #(dispatch [set-prop path %])}]
          ;; :text
-         [comps/input-field :input v #(dispatch [set-prop path %]) {:class-name "input"}])])))
+         [comps/input-field :input v #(dispatch [set-prop path %])
+          (cond-> {:class-name "input"}
+            (:placeholder field) (assoc :placeholder (:placeholder field)))])])))
 
 (defn- group-toggles
   "Collapse a RUN of adjacent `:boolean` fields into one `{:bools [...]}` unit, so it lays out as a

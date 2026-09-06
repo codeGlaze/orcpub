@@ -107,6 +107,37 @@ async function choose(page, label, rx) {
     check('and the text fields survived',
           /1 action/.test(anywhere) && /30 feet/.test(anywhere) && /1 minute/.test(anywhere));
 
+    // ── beyond the conversion: fields the bespoke form never had ────────────────────
+    // Kept separate from the pin above on purpose. The checks before this line describe the form
+    // that was replaced; these describe deliberate additions to it.
+    check('Page is authorable (real spells carry :page; no control ever wrote it)',
+          !!(await controlFor(page, 'Page')));
+    check('filled Page', await fill(page, 'Page', '212'));
+
+    const combo = await page.evaluate(() => {
+      const out = {};
+      for (const [label, id] of [['Casting Time', 'combo-casting-time'],
+                                 ['Range', 'combo-range'], ['Duration', 'combo-duration']]) {
+        const dl = document.getElementById(id);
+        out[label] = dl ? dl.options.length : 0;
+      }
+      const mat = [...document.querySelectorAll('input')].find(i => /powdered rhubarb/i.test(i.placeholder || ''));
+      out.placeholder = !!mat;
+      return out;
+    });
+    check('Casting Time suggests the values real spells use',  combo['Casting Time'] === 13, JSON.stringify(combo));
+    check('Range suggests the values real spells use',         combo['Range'] === 29);
+    check('Duration suggests the values real spells use',      combo['Duration'] === 29);
+    check('and a combo still accepts free text', await fill(page, 'Casting Time', '3 rounds and a wink'));
+    check('Material Component has a worked example as placeholder', combo.placeholder);
+
+    check('clicked SAVE again', await clickText(page, /save to browser storage/i));
+    await page.waitForTimeout(900);
+    const saved2 = await dbAt(page, `[:plugins "${SOURCE}"]`);
+    check('the page number saves as a number', /:page 212/.test(saved2), saved2.slice(0, 240));
+    check('and the free-text casting time saves verbatim',
+          /3 rounds and a wink/.test(saved2), saved2.slice(0, 240));
+
     check('no uncaught JS errors', errors.length === 0, errors.slice(0, 2).join(' | '));
   } catch (e) {
     check('ran to completion', false, e.message);

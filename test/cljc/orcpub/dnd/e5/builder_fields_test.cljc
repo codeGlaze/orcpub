@@ -80,7 +80,7 @@
                             ["damage-bonus"      bf/damage-bonus-fields]
                             ["fs-classes"        bf/fighting-style-classes-field]]
             {:keys [type key]} (bf/flatten-fields schema)]
-      (is (contains? #{:text :number :enum :multi-enum} type)
+      (is (contains? #{:text :number :enum :multi-enum :boolean :combo} type)
           (str label " field " key " has unknown :type " (pr-str type))))))
 
 (deftest multi-enum-validates-every-element-against-the-declared-options

@@ -31,6 +31,9 @@
                   (fn [v] (and (coll? v) (every? allowed v))))
     :number number?
     :text   string?
+    ;; a combo offers suggestions but accepts anything typed, so it validates as free text — the
+    ;; option list is a convenience, not a constraint (that is what :enum is for)
+    :combo  string?
     ;; a present non-boolean is REJECTED at save; absent is fine (optional-by-default), so a
     ;; toggle that was never touched does not have to store anything
     :boolean boolean?

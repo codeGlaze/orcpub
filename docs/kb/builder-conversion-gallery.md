@@ -433,13 +433,50 @@ also corrects the census below: the bespoke builders are far denser than the old
 The lesson is the same one this page keeps recording: a metric that cannot see the thing it is
 supposed to guard will report its absence as a pass.
 
+### Re-measured like for like, on the corrected metric
+
+Both frames re-shot with the glyph-toggle-aware count, the bespoke one by checking out `0dba47c8`
+and rebuilding:
+
+| | bespoke | generated |
+|---|---:|---:|
+| controls | **23** | **24** |
+| page height | 1289px | **1286px** |
+
+The **+1 is the Page field**, and that is the whole difference — which is the point of the rule that
+prompted it: *control counts should match unless something was explicitly added or removed, and you
+should be able to name it.*
+
+### Three additions, each deliberate
+
+**Page.** Real spells carry `:page` (9 of the 319 SRD spells do) and no control had ever written it.
+`:source` needs no field — for homebrew the option pack *is* the source.
+
+**Casting Time, Range and Duration are combos**, not free text. Counted across the shipped spells:
+
+| field | distinct values in 319 SRD spells |
+|---|---:|
+| casting time | **13** |
+| range | **29** |
+| duration | **29** |
+
+"Standard with a few outliers" exactly. `:type :combo` is an `<input list=…>` with a `<datalist>` —
+suggestions plus free text, the same control `plugin-datalist` already uses for the option pack, and
+it degrades to a plain text box where datalists are unsupported. **The suggestion lists are derived
+from the spell data** (`(distinct-vals :casting-time)`), not typed out, so they cannot fall behind
+it. A combo validates as free text: the list is a convenience, not a constraint — that is what
+`:enum` is for.
+
+**A worked placeholder** on Material Component: *"e.g. 100 gp of powdered rhubarb leaf and an adder's
+stomach, consumed by the spell"*. `:placeholder` works on `:text` and `:combo`.
+
+All three are pinned separately from the conversion in `test/e2e/spell-builder.js` — the first 29
+checks describe the form that was replaced, the rest describe what was added to it (39/39).
+
 ### Still open on this pair
 
 Not claiming it is finished:
 
-- **Casting Time** flows up onto the Level/School row and **Duration** pairs with Range; the
-  hand-written form paired Casting Time with Range and gave Duration its own line. That falls out of
-  intrinsic widths, and pinning it would need explicit row control in the schema.
 - The **spell-list heading** is now `f-s-24` where the original was a smaller bold label — consistent
   with the other sections, heavier than what it replaced.
 
