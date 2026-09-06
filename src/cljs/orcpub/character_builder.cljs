@@ -1843,28 +1843,45 @@
    as soon as the browser gave up -- :asking while it is in flight, :no only when
    nobody can fetch it.
 
-   Both routes out are local to the machine, so no host has a say in either."
+   All three ways in are local to the machine, so no host has a say in any of
+   them. The button reads a picture the viewer has already copied; it cannot do
+   the copying, because a page-initiated copy of a cross-origin image yields its
+   markup and not its pixels."
   [url state reach]
-  (cond
-    (= :pending state)
-    [:div.f-s-12.m-t-5 "Reading image..."]
+  (let [note (r/atom nil)]
+    (fn [url state reach]
+      (cond
+        (= :pending state)
+        [:div.f-s-12.m-t-5 "Reading image..."]
 
-    (and (= :unavailable state) (= :no reach))
-    [:div.m-t-5
-     [:div.f-s-12.m-b-5
-      "Nothing can read this picture from its host -- not this page, and not the
-       server. Right-click the picture, choose Copy image, and paste it into the
-       field above; the clipboard carries the picture itself, so the host has no
-       say in it. Or choose the file (PNG or JPEG, 128k max):"]
-     [:input {:type "file"
-              :accept "image/png,image/jpeg"
-              :on-change (fn [e]
-                           (when-let [file (some-> e .-target .-files (aget 0))]
-                             (image-capture/capture-file
-                              file
-                              #(dispatch [::char5e/image-captured url %]))))}]]
+        (and (= :unavailable state) (= :no reach))
+        [:div.m-t-5
+         [:div.f-s-12.m-b-5
+          "Nothing can read this picture from its host -- not this page, and not
+           the server. Right-click the picture and choose Copy image, then:"]
+         [:div.flex.align-items-c
+          [:button.form-button.p-5.m-r-10
+           {:on-click
+            (fn [_]
+              (reset! note "Reading the copied image...")
+              (image-capture/capture-clipboard
+               (fn [payload]
+                 (reset! note (when-not payload
+                                "No picture on the clipboard. Copy one first."))
+                 (dispatch [::char5e/image-captured url payload]))))}
+           "Use copied image"]
+          [:span.f-s-12.m-r-10 "or paste it into the field above, or choose a file:"]
+          [:input {:type "file"
+                   :accept "image/png,image/jpeg"
+                   :on-change (fn [e]
+                                (when-let [file (some-> e .-target .-files (aget 0))]
+                                  (image-capture/capture-file
+                                   file
+                                   #(dispatch [::char5e/image-captured url %]))))}]]
+         (when @note
+           [:div.f-s-12.m-t-5 @note])]
 
-    :else nil))
+        :else nil))))
 
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])

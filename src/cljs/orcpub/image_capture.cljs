@@ -215,3 +215,35 @@
                       (if blob
                         (payload blob)
                         (via-object-url file payload))))))
+
+(defn- image-item
+  "The first clipboard item carrying a picture, with the type it carries, or nil."
+  [items]
+  (some (fn [item]
+          (when-let [t (first (filter #(s/starts-with? % "image/")
+                                      (array-seq (.-types item))))]
+            [item t]))
+        (array-seq items)))
+
+(defn capture-clipboard
+  "Reads a picture the viewer has already copied and hands it to `k` like any
+   other local file, or nil when the clipboard holds no picture.
+
+   The copy has to be the VIEWER's -- \"Copy image\" in the browser's own menu.
+   A page-initiated copy of a cross-origin image puts its markup on the clipboard
+   and not its pixels, by the same rule that taints the canvas: if a page could
+   copy pixels it could read any image anywhere, and no host's rules would mean
+   anything. Reading the clipboard needs a user gesture and, the first time, the
+   viewer's permission."
+  [k]
+  (let [k (once k)]
+    (if-not (and js/navigator.clipboard (.-read js/navigator.clipboard))
+      (k nil)
+      (-> (.read js/navigator.clipboard)
+          (.then (fn [items]
+                   (if-let [[item t] (image-item items)]
+                     (-> (.getType item t)
+                         (.then (fn [blob] (capture-file blob k)))
+                         (.catch (fn [_] (k nil))))
+                     (k nil))))
+          (.catch (fn [_] (k nil)))))))

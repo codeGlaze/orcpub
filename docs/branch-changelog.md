@@ -34,6 +34,11 @@ allowed the builder says so and offers an upload — which no host has a say in.
   remembered too. It answers a boolean and never the picture — the endpoint needs
   no login, and returning fetched bytes would make it a general-purpose proxy —
   and every address rule that guards the export guards it.
+- A "Use copied image" button beside the field, so the last resort is one click
+  rather than an instruction. It reads a picture the VIEWER has copied; it cannot
+  do the copying, because a page-initiated copy of a cross-origin image puts its
+  markup on the clipboard and not its pixels -- the same rule that taints the
+  canvas, and the reason extensions can do this and pages cannot.
 - Paste, for a host that lets nobody read its pictures. The clipboard carries the
   DECODED image -- the browser's own "Copy image" put it there -- so none of the
   host's rules reach it. Two clicks, and no download-and-upload round trip. This

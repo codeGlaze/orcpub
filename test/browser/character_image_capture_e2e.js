@@ -213,7 +213,9 @@ async function exportPressable(page) {
   await origin.start();
 
   const browser = await chromium.launch({ executablePath: findChrome() });
-  const ctx = await browser.newContext({ acceptDownloads: true, viewport: { width: 1500, height: 1100 } });
+  const ctx = await browser.newContext({ acceptDownloads: true,
+    viewport: { width: 1500, height: 1100 },
+    permissions: ['clipboard-read', 'clipboard-write'] });
   const page = await ctx.newPage();
 
   const errors = [];
@@ -403,6 +405,30 @@ async function exportPressable(page) {
     check('a pasted picture supplies the bytes no host would give',
           !!pastedShape, pastedShape || 'no :image-data');
     check('and reaches the sheet', hasImage(pasted.file));
+
+    // ---- the button, for a picture already copied ----------------------------
+    // The button cannot do the copying: a page-initiated copy of a cross-origin
+    // image yields its markup, not its pixels. It reads what the VIEWER copied.
+    origin.cors = false;
+    await setImageUrl(page, `${IMG_ORIGIN}/refused-3.png`);
+    await waitForText(prompt, 15000);
+
+    await page.evaluate(async (b64) => {
+      const bin = atob(b64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': new Blob([arr], { type: 'image/png' }) })]);
+    }, PNG.toString('base64'));
+
+    await page.getByText('Use copied image').first().click();
+    await page.waitForTimeout(2500);
+
+    const copied = await exportSheet(page, 'copied');
+    const copiedShape = describeImage(imageDataIn(copied.spec));
+    check('the button takes a picture the viewer copied',
+          !!copiedShape, copiedShape || 'no :image-data');
+    check('and it reaches the sheet', hasImage(copied.file));
 
     check('no unexpected console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
     if (expected.length) {

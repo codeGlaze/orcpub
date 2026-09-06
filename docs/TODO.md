@@ -171,12 +171,18 @@ Beyond refuse both and are upload-or-nothing.
 - **The server fetch still earns its keep** — step 5 of the original plan. It now
   runs as the second tier rather than the default, but it is still there. Decide
   separately whether to keep it.
-- **Header tuning was probed and found not to help.** Modern User-Agent and a
-  same-host Referer were tried against the hosts that refuse our server: Pinterest,
-  D&D Beyond and ArtStation answer 403 to every variant, so their block is not
-  UA- or Referer-shaped. The server still carries a 2013 Chrome UA string
-  (`pdf.clj` `user-agent`) — worth modernising on general principle, but it buys
-  nothing measurable here.
+- **Whether ANY host actually blocks this server is still unmeasured.** Two
+  earlier conclusions here were drawn from invented URLs that returned S3
+  `AccessDenied` — "Pinterest and D&D Beyond refuse the server", and "header
+  tuning does not help" — and both are withdrawn. Nothing has been shown to
+  block us. The three-way fallback exists for a case that has never been
+  observed.
+
+  The way to find out is to let real users answer it: `/image-probe` should log
+  the host when it answers false, so the set of genuinely unreachable hosts is
+  measured instead of assumed. Revisit UA and Referer tuning against a real
+  failing URL, if one turns up. The server still carries a 2013 Chrome UA string
+  (`pdf.clj` `user-agent`) — worth modernising regardless.
 - **`image-error` marks a picture failed before it has loaded.** Pre-existing: the
   builder's `image-error` dispatches at render rather than returning a handler, so
   every fresh URL is briefly flagged failed and the load takes the mark back. It
