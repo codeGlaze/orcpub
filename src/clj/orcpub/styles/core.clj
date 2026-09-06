@@ -2533,7 +2533,10 @@
       :color "rgba(255,255,255,0.88)"
       :cursor :pointer
       :font-size "14px"}
-     [:&:hover {:background "rgba(240,161,0,0.18)" :color "#fff"}]]
+     [:&:hover {:background "rgba(240,161,0,0.18)" :color "#fff"}]
+     ;; Keyboard highlight. Stronger than :hover so the two are distinguishable when the
+     ;; pointer happens to rest on a different row than the arrow keys are on.
+     [:&.active {:background "rgba(240,161,0,0.32)" :color "#fff"}]]
 
     [:.inv-combo-empty
      {:padding "10px" :color "rgba(255,255,255,0.5)" :font-size "13px" :font-style :italic}]

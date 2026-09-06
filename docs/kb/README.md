@@ -20,8 +20,9 @@ measured, what turned out to be wrong, and why.
 
 - **[equipment-option-picker.md](equipment-option-picker.md)** -- the Equipment tab's 1037
   `<option>` elements, five controls measured against each other, and why the winner is a
-  filtering combobox on the native Popover API (1637 nodes vs 2558 native). Records the
-  withdrawn "datalists cannot be styled" claim and five build defects with their fixes.
+  filtering combobox on the native Popover API (1541 nodes vs 2558 native). Records two
+  withdrawn claims -- "datalists cannot be styled", and a 12-row cap that made the list
+  searchable but not browsable -- plus six build defects with their fixes.
 
 ## Practice
 
@@ -60,4 +61,5 @@ All under `test/browser/`, run against `lein e2e-server` (see `test/browser/READ
 | `localstorage_ceiling_e2e.js` | the real quota, and whether it counts chars or bytes |
 | `library_chunk_granularity_e2e.js` | how finely a library can be split |
 | `combobox_shots_e2e.js` | Equipment combobox: screenshots plus anchored-geometry, light-dismiss and pick assertions |
+| `combobox_scroll_e2e.js` | Equipment combobox: is the list browsable, keyboard nav, and open cost under throttle |
 | `scripts/test/run-cljs-tests.js` | runs the ClojureScript suite headlessly (repo's canonical runner, not under test/browser) |

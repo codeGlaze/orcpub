@@ -502,6 +502,14 @@
     (try (when (.matches el ":popover-open") (.hidePopover el))
          (catch :default _ nil))))
 
+(defn- scroll-active-into-view! [pop-id]
+  ;; Runs after the re-render that moved the highlight, hence the rAF.
+  (js/requestAnimationFrame
+   (fn []
+     (some-> (.getElementById js/document pop-id)
+             (.querySelector ".inv-combo-row.active")
+             (.scrollIntoView #js {:block "nearest"})))))
+
 (defn inventory-combobox
   "Filter-and-pick dropdown built on the native Popover API.
 
@@ -510,16 +518,34 @@
    which the earlier hand-rolled popover implemented by hand, worse. CSS anchor positioning
    pins it under its input; where that is unsupported the popover still opens, just centred.
 
-   Only the first 12 matches render. Typing narrows; the data is already in app-db so this
-   is a filterv, not a fetch."
+   Every match renders, so the list can be BROWSED by scrolling or with the arrow keys, not
+   only searched. An earlier version capped it at 12 rows with a `keep typing` footer, which
+   left 294 of 306 magic weapons unreachable unless you already knew the name. Opening the
+   306-item section measured 0 ms at 4x CPU throttle, so the cap bought nothing.
+
+   Rows mount only while the popover is open. A closed popover still keeps its children in
+   the DOM, so rendering them all the time cost 2578 nodes -- the whole advantage over a
+   native select. Open state is set directly by the handlers that open and close it, and a
+   `beforetoggle` listener catches the two closes the browser performs on its own, light
+   dismiss and Escape."
   []
-  (let [query (r/atom "")]
+  (let [query     (r/atom "")
+        active    (r/atom -1)
+        open?     (r/atom false)
+        on-toggle (fn [e] (reset! open? (= "open" (.-newState e))))
+        el*       (atom nil)
+        ;; Defined once per instance, not per render: a fresh closure each render would make
+        ;; React tear down and re-attach, adding a listener every time.
+        ref-fn    (fn [el]
+                    (when-let [old @el*] (.removeEventListener old "beforetoggle" on-toggle))
+                    (reset! el* el)
+                    (when el (.addEventListener el "beforetoggle" on-toggle)))]
     (fn [key options selected-keys]
-      (let [items    (common/aloof-sort-by
-                      :name
-                      (sequence (comp (remove (inventory-option-selected? selected-keys))
-                                      (map name-and-key))
-                                options))
+      (let [items    (vec (common/aloof-sort-by
+                           :name
+                           (sequence (comp (remove (inventory-option-selected? selected-keys))
+                                           (map name-and-key))
+                                     options)))
             kname    (clojure.core/name key)
             pop-id   (str "inv-pop-" kname)
             anchor   (str "--inv-anchor-" kname)
@@ -527,36 +553,60 @@
             matches  (if (s/blank? q)
                        items
                        (filterv #(s/includes? (s/lower-case (str (:name %))) q) items))
-            shown    (take 12 matches)
+            n        (count matches)
             pick!    (fn [item-key]
                        (dispatch [:add-inventory-item key item-key])
                        (reset! query "")
-                       (hide-popover! pop-id))]
+                       (reset! active -1)
+                       (reset! open? false)
+                       (hide-popover! pop-id))
+            open!    (fn [] (reset! open? true) (show-popover! pop-id))
+            move!    (fn [e delta]
+                       (.preventDefault e)
+                       (open!)
+                       (swap! active #(-> (+ % delta) (max 0) (min (dec n))))
+                       (scroll-active-into-view! pop-id))]
         [:div.inv-combo
          [:input.inv-combo-input
           {:style {:anchor-name anchor}
            :value @query
-           :placeholder (str "Filter and pick… (" (count items) ")")
+           :placeholder (str "Filter or browse… (" (count items) ")")
            ;; on-click, not on-focus: focus fires on mousedown, and light dismiss then treats
            ;; that same pointer sequence as an outside click and shuts the popover again.
            ;; Measured -- opening on focus left popoverOpen=0 after a click.
-           :on-click #(show-popover! pop-id)
+           :on-click #(open!)
+           :on-key-down (fn [e]
+                          (case (.-key e)
+                            "ArrowDown" (move! e 1)
+                            "ArrowUp"   (move! e -1)
+                            "Enter"     (when-let [it (nth matches @active nil)]
+                                          (.preventDefault e)
+                                          (pick! (:key it)))
+                            nil))
            :on-change (fn [e]
                         (reset! query (.. e -target -value))
-                        (show-popover! pop-id))}]
+                        ;; The old highlight points into the old result list.
+                        (reset! active -1)
+                        (open!))}]
          [:div.inv-combo-pop
           {:id pop-id
            :popover "auto"
+           :ref ref-fn
            :style {:position-anchor anchor}}
-          (if (empty? matches)
-            [:div.inv-combo-empty (str "Nothing matches “" @query "”")]
+          (cond
+            (not @open?) nil
+            (zero? n)    [:div.inv-combo-empty (str "Nothing matches \u201c" @query "\u201d")]
+            :else
             [:div.inv-combo-list
              (doall
-              (for [{item-name :name item-key :key} shown]
-                ^{:key item-key}
-                [:div.inv-combo-row {:on-click #(pick! item-key)} item-name]))])
-          (when (> (count matches) (count shown))
-            [:div.inv-combo-more (str (count matches) " matches — keep typing")])]]))))
+              (map-indexed
+               (fn [i {item-name :name item-key :key}]
+                 ^{:key item-key}
+                 [:div.inv-combo-row
+                  {:class (when (= i @active) "active")
+                   :on-click #(pick! item-key)}
+                  item-name])
+               matches))])]]))))
 
 (defn inventory-adder [key options selected-keys]
   ;; Switch between the three by changing this line. inventory-datalist (native filtering
