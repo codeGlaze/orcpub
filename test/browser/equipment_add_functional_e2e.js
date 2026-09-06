@@ -1,8 +1,14 @@
-// Can you still add an inventory item after the picker replaced the native select?
+// Can you still add an inventory item through whatever control the Equipment tab uses?
 //
-// The Equipment tab's add controls went from comps/selection-adder (a native <select>) to
-// option-menu with :max-rendered. Neither test suite clicks anything, so this drives the
-// real control and asserts the item lands in the character.
+// The add control has changed four times on this branch: a native <select>, then
+// option-menu with :max-rendered, then a hand-rolled popover, then inventory-combobox.
+// This test asserts the one thing that survives all of them -- that picking an item puts
+// it in the CHARACTER ENTITY, read back out of re-frame's app-db. Neither test suite
+// clicks anything, so without this the add path has no functional coverage at all.
+//
+// It was left targeting .opt-menu-* selectors after the combobox swap and failed three
+// assertions against a control that was no longer wired; retargeted rather than deleted,
+// because the app-db assertion is the part worth keeping.
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
@@ -31,17 +37,8 @@ const check = (n, ok, d) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${n}${d ? 
   await page.waitForTimeout(2500);
 
   console.log('\nequipment picker:');
-  const search = page.locator('input.opt-menu-search');
-  check('the searchable picker rendered', await search.count() > 0, `${await search.count()} search boxes`);
-
-  // The cap must BIND -- fewer cells rendered than exist. Asserted relative to what
-  // "show all" reveals further down, not against a magic number: an absolute threshold
-  // silently goes stale the moment :max-rendered changes (it did, at cap 25 -> 100).
-  const cells = await page.locator('.opt-menu-cell').count();
-  check('options render at all', cells > 0, `${cells} cells`);
-  const truncated = await page.locator('.opt-menu-clear', { hasText: /show all/ }).count();
-  check('the cap binds on at least one menu', truncated > 0,
-        `${truncated} menus truncated`);
+  const search = page.locator('input.inv-combo-input');
+  check('the add control rendered', await search.count() > 0, `${await search.count()} inputs`);
 
   const equipped = () => page.evaluate(() => {
     const c = window.cljs.core;
@@ -58,30 +55,44 @@ const check = (n, ok, d) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${n}${d ? 
   });
 
   const before = await equipped();
-  // Search narrows, then pick the first result -- the flow the picker exists for.
   if (await search.count()) {
-    await search.first().fill('club');
+    const input = search.first();
+    await input.scrollIntoViewIfNeeded();
+    await input.click();
+    await page.waitForTimeout(600);
+    const opened = await page.locator('.inv-combo-row').count();
+    check('opening lists options', opened > 0, `${opened} rows`);
+
+    // Filter by a term taken from a row actually in THIS section. A hardcoded term made a
+    // working filter look broken once already -- "leather" matches nothing in Weapons.
+    const term = (await page.locator('.inv-combo-row').first().textContent()).trim().slice(0, 4);
+    await input.fill(term);
     await page.waitForTimeout(1200);
-    const after = await page.locator('.opt-menu-cell').count();
-    check('search narrows the list', after < cells || after > 0, `${cells} -> ${after}`);
-    const first = page.locator('.opt-menu-cell').first();
+    const after = await page.locator('.inv-combo-row').count();
+    check('filtering narrows the list', after > 0 && after <= opened, `${opened} -> ${after} on "${term}"`);
+
+    const first = page.locator('.inv-combo-row').first();
     if (await first.count()) {
       await first.click({ timeout: 20000 });
       await page.waitForTimeout(2000);
       check('picking an item adds it to the character', await equipped() > before,
             `${before} -> ${await equipped()}`);
-    } else check('picking an item adds it to the character', false, 'no cell to click');
-  }
-  // "show all" must escape the cap -- it is a default, not a ceiling.
-  const showAll = page.locator('.opt-menu-clear', { hasText: /show all/ }).first();
-  if (await showAll.count().catch(() => 0)) {
-    const capped = await page.locator('.opt-menu-cell').count();
-    await showAll.click({ timeout: 20000 });
-    await page.waitForTimeout(2000);
-    const all = await page.locator('.opt-menu-cell').count();
-    check('"show all" renders beyond the cap', all > capped, `${capped} -> ${all}`);
-  } else {
-    console.log('  SKIP  "show all" (nothing truncated at this cap)');
+    } else check('picking an item adds it to the character', false, 'no row to click');
+
+    // No cap: the whole section must be reachable without typing. This is the assertion
+    // that replaced the old "the cap binds" one -- the cap was removed on purpose.
+    // Click to reopen, do not fill(''): picking already cleared the query, so filling it
+    // with the same empty string dispatches no input event and the popover stays shut.
+    await input.click();
+    await page.waitForTimeout(1000);
+    const declared = await page.evaluate(() => {
+      const el = document.querySelector('input.inv-combo-input');
+      const m = (el.placeholder || '').match(/\((\d+)\)/);
+      return m ? +m[1] : -1;
+    });
+    const rendered = await page.locator('.inv-combo-row').count();
+    check('every option is reachable without typing', rendered === declared,
+          `${rendered} rendered vs ${declared} in section`);
   }
 
   await browser.close();

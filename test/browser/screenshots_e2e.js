@@ -47,20 +47,24 @@ function findChrome() {
   const slug = TAB.toLowerCase().replace(/[^a-z]+/g, '-');
   await page.screenshot({ path: path.join(OUT, `1-${slug}.png`) });
 
-  const search = page.locator('input.opt-menu-search').first();
+  // The Equipment add control is inventory-combobox; its dropdown is a popover, so it has
+  // to be opened before there is anything to shoot. These lookups were left on the
+  // .opt-menu-* selectors after the combobox swap and quietly took no shots at all.
+  const search = page.locator('input.inv-combo-input').first();
   if (await search.count().catch(() => 0)) {
-    await search.fill('long');
-    await page.waitForTimeout(1500);
-    await page.screenshot({ path: path.join(OUT, '2-search-narrowed.png') });
-    await search.fill('');
-    await page.waitForTimeout(1200);
-  }
+    await search.scrollIntoViewIfNeeded();
+    await search.click();
+    await page.waitForTimeout(800);
+    await page.screenshot({ path: path.join(OUT, '2-open.png') });
 
-  const notice = page.locator('.opt-menu-empty', { hasText: /Showing/ }).first();
-  if (await notice.count().catch(() => 0)) {
-    await notice.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(600);
-    await page.screenshot({ path: path.join(OUT, '3-truncation.png') });
+    const term = await page.locator('.inv-combo-row').first().textContent().catch(() => null);
+    if (term) {
+      await search.fill(term.trim().slice(0, 4));
+      await page.waitForTimeout(1200);
+      await page.screenshot({ path: path.join(OUT, '3-search-narrowed.png') });
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
   }
 
   console.log('screenshots written to', OUT);

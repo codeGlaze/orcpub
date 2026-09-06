@@ -45,6 +45,12 @@ handled by the platform rather than by hand.
 
 - A nil or non-string item name no longer throws while filtering. The render path passed the
   raw name while the filter path wrapped it in `str` (`78deb2ad`).
+- `equipment_add_functional_e2e.js` was left pointed at the option-menu's selectors when the
+  add control was swapped, and had been failing three assertions against a control that was
+  no longer wired. Retargeted at the live control, keeping the app-db assertion that the
+  picked item reaches the character entity — the part worth keeping (`<pending>`).
+- `screenshots_e2e.js` silently stopped taking two of its three shots for the same reason
+  (`<pending>`).
 - The dropdown matches its input's width and no longer sits 14px wider; it also flips above
   the input instead of running off the bottom of the viewport (`95d38f67`).
 
