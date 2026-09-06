@@ -21,6 +21,9 @@ measured, what turned out to be wrong, and why.
 - **[memoize-antipattern-scan.md](memoize-antipattern-scan.md)** -- every `memoize` site
   scanned and traced. Four are dead code; `memoized-spell-option` is measurably 10x slower
   than no cache. Planned, not executed.
+- **[fast-browser-probes.md](fast-browser-probes.md)** -- why a measurement loop takes 40
+  minutes and how to make it 4. Where the time really goes, batching variants into one run,
+  and the `.lein-env` race that makes the e2e server boot against the wrong database.
 - **[verification-discipline.md](verification-discipline.md)** -- how this repo has been
   wrong, and the probe defects that produced confident wrong answers. Read before writing a
   performance probe.
