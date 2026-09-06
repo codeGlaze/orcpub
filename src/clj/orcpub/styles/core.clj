@@ -2465,6 +2465,22 @@
       :border-top "1px solid rgba(255,255,255,0.1)"
       :margin-top "4px"}]
 
+    ;; ----- native filtering dropdown (character-builder/inventory-datalist) -----
+    ;; Only the INPUT is styleable. The suggestion list is a browser-drawn popup and
+    ;; ignores page CSS -- that is the trade against the custom popover above.
+    [:.inv-datalist {:margin "6px 0 10px"}]
+
+    [:.inv-datalist-input
+     {:width "100%"
+      :max-width "340px"
+      :box-sizing :border-box
+      :background "rgba(0,0,0,0.35)"
+      :border "1px solid rgba(255,255,255,0.22)"
+      :border-radius "4px"
+      :color "#fff"
+      :font-size "14px"
+      :padding "9px 12px"}]
+
 ];concat-bracket
    margin-lefts
    margin-tops

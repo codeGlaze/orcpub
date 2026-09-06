@@ -452,8 +452,48 @@
                [:div.inv-picker-more
                 (str (count matches) " matches — keep typing to narrow")])]])]))))
 
+(defn inventory-datalist
+  "Native filtering dropdown: a text input whose suggestions come from a <datalist>.
+
+   The browser renders and filters the list itself, so <option> elements here are a DATA
+   SOURCE -- never laid out or painted -- which is why 306 of them cost roughly what the
+   native <select> cost. No overlay, no backdrop, no z-index, no custom list rendering.
+
+   The input is themed; the DROPDOWN is drawn by the browser and is not styleable. That is
+   the whole trade against inventory-picker below."
+  []
+  (let [value (r/atom "")]
+    (fn [key options selected-keys]
+      (let [items    (common/aloof-sort-by
+                      :name
+                      (sequence (comp (remove (inventory-option-selected? selected-keys))
+                                      (map name-and-key))
+                                options))
+            by-name  (into {} (map (juxt :name :key)) items)
+            list-id  (str "inv-list-" (clojure.core/name key))]
+        [:div.inv-datalist
+         [:input.inv-datalist-input
+          {:list list-id
+           :value @value
+           :placeholder (str "Add an item… (" (count items) ")")
+           :on-change (fn [e]
+                        (let [v (.. e -target -value)]
+                          ;; A pick from the list arrives as a complete, exact name; typing
+                          ;; arrives partial. Only dispatch on an exact hit, then clear.
+                          (if-let [item-key (by-name v)]
+                            (do (dispatch [:add-inventory-item key item-key])
+                                (reset! value ""))
+                            (reset! value v))))}]
+         [:datalist {:id list-id}
+          (doall
+           (for [{item-name :name item-key :key} items]
+             ^{:key item-key}
+             [:option {:value item-name}]))]]))))
+
 (defn inventory-adder [key options selected-keys]
-  [inventory-picker key options selected-keys])
+  ;; SWAPPED to compare against inventory-picker (the custom popover) -- see
+  ;; docs/TODO.md "Builder render weight". Change this one line to switch back.
+  [inventory-datalist key options selected-keys])
 
 (defn inventory-check-fn [key i]
   #(dispatch [:toggle-inventory-item-equipped key i]))
