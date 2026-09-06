@@ -95,6 +95,62 @@ time has 13 canonical values *and real outliers* — an author must be able to t
 "3 rounds and a wink". `option-menu` is a closed list with search. Keep `:combo` for
 **short canonical list + free text**; use `option-menu` for **long closed list**.
 
+### Is OMV's markup better or worse for a generated form?
+
+**Better, and less fiddly — because the caller supplies data, not chrome.** That is the same contract
+the field schema already has, which is not a coincidence: `checkbox-options`' own docstring says
+*"This is the glue nearly every homebrew-builder menu uses; the callers in views.cljs all follow the
+same shape."* OMV was written for these builders.
+
+Its minimum per-option contract:
+
+```clojure
+{:key … :label … :selected? bool :selectable? true :on-toggle fn}   ; :card/:display optional
+```
+
+A field spec already carries everything that needs. The adapter is mechanical, written **once** in
+the renderer, and **no schema changes at all**:
+
+```clojure
+(defn- omv-options [item set-prop {:keys [key options]}]
+  (let [path   (if (sequential? key) key [key])
+        chosen (set (get-in item path))]
+    (mapv (fn [{:keys [value title]}]
+            {:key value :label title :selectable? true
+             :selected? (contains? chosen value)
+             :on-toggle #(dispatch [set-prop path (toggle chosen value)])})
+          options)))
+```
+
+So the trade is: **`option-menu`'s HTML is far more structured than anything here — banner, search
+box, chips tray, N-of-M count, three layout bodies — and none of it is written by the caller.** It
+replaces hand-rolled chrome rather than adding markup to write. The `.chip` / `.chip-row` / add-bar
+CSS in `styles/core.clj` becomes partly redundant for the multi-select case, not extended.
+
+Where the schema *would* grow is only optional: `:title` maps to the field's existing `:label`, and
+`:wildcards` / `:slot-label` / `:collapsible?` / `:cell-fn` would be new keys that all have defaults.
+Nothing becomes required.
+
+**One real obligation:** `:menu-id` must be stable and unique — it keys that menu's search text and
+active A–Z letter. Derivable from the field's key path with no author involvement, but the renderer
+has to guarantee it rather than leaving it to a schema author.
+
+**Where OMV does not reach**, and the current controls stay: `:text`, `:number`, and `:combo`'s
+arbitrary free text have no OMV equivalent, and running a single `:boolean` through a full menu
+panel would be absurd — the chip is right for that.
+
+| field type | after OMV |
+|---|---|
+| `:enum` | `select-menu` — **simpler**, deletes the index-coercion workaround |
+| `:multi-enum` | `option-menu` — same schema, better at scale, chrome for free |
+| options from a subscription | `option-menu` — the blocking primitive, already built |
+| `:combo` | unchanged — free text is not a menu |
+| `:text` / `:number` / `:boolean` | unchanged |
+
+**Not implemented here, deliberately.** Both branches are moving, the adapter is ~8 lines whenever
+they converge, and ripping out working CSS speculatively is how the last two rounds went wrong. What
+this section buys is that nobody has to rediscover the fit.
+
 ### What would have to give
 
 | | |
