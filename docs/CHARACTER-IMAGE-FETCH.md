@@ -32,6 +32,23 @@ asks what `/character.pdf` can be made to talk to.
   `test/browser/character_image_capture_e2e.js` (both paths through the real app)
 - Background: `docs/kb/pdf-form-techniques.md`
 
+## Measured against real hosts (2026-09-06)
+
+With a browser that can reach the real internet (see `test/browser/README.md` for
+the TLS flag that takes), against **real** URLs rather than invented ones:
+
+| host | browser reads it | server fetches it |
+|---|---|---|
+| `i.imgur.com` | yes | yes |
+| `cdn.discordapp.com` | yes | yes |
+| `upload.wikimedia.org` | yes (42 KB after fitting) | yes |
+| `i.pinimg.com` | no | **yes** |
+
+Pinterest serves this server a 200 and 393 KB of JPEG. It never blocked us. What
+refused it was our own 128 KB ceiling, applied to the download rather than to the
+document — now split in two, so a heavy picture is fitted instead of dropped. A
+Pinterest portrait reaches the sheet with nothing asked of the user.
+
 ## Which hosts allow the browser to read (measured 2026-09-05)
 
 The browser can only read a picture whose host sends `Access-Control-Allow-Origin`.
@@ -123,7 +140,7 @@ thing to grep for.
 |---|---|---|
 | Portrait missing, host is internal or a bare IP | `:image-url-not-permitted` | The address is private or reserved. Working as intended — see the ranges below. |
 | Portrait missing, public host | `:image-load-failed` with a `:status` | The host answered non-2xx. A `302` means it tried to redirect; redirects are refused on purpose. |
-| Portrait missing, large image | `:image-too-large` | Over 128 KB, either declared or measured mid-stream. |
+| Portrait missing, large image | `:image-too-large` | Over the 2 MB **download** ceiling. The 128 KB ceiling is separate and applies to what goes INTO the PDF: a picture between the two is scaled and re-encoded to fit, not refused. |
 | Portrait missing, big dimensions | `:image-too-large-dimensions` | Over 2000×2000, refused from the header before decoding. |
 | Portrait missing, slow host | `:image-transfer-timeout` | The body took more than 20s. |
 | Portrait missing, unreadable file | `:invalid-image-format` | Not an image, or a format ImageIO cannot read. |

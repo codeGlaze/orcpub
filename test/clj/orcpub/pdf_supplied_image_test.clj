@@ -66,3 +66,42 @@
 (deftest an-image-inside-both-ceilings-is-taken
   (let [b64 (encoded "png" 1999 1999)]
     (is (some? (pdf/decode-image-bytes b64)))))
+
+;; -- fitting a fetched picture to the sheet --
+
+(def ^:private fit-for-sheet #'orcpub.pdf/fit-for-sheet)
+
+(defn- noisy-bytes
+  "A `size` x `size` image of noise, written as `fmt`. Noise so it compresses
+   badly and stays heavy, which is what the fitting has to deal with."
+  [fmt size]
+  (let [img (BufferedImage. size size BufferedImage/TYPE_INT_RGB)
+        rnd (java.util.Random. 42)
+        out (ByteArrayOutputStream.)]
+    (dotimes [y size]
+      (dotimes [x size]
+        (.setRGB img x y (.nextInt rnd 0xFFFFFF))))
+    (ImageIO/write img fmt out)
+    (.toByteArray out)))
+
+(deftest a-picture-too-heavy-for-the-sheet-is-fitted-rather-than-refused
+  ;; The defect this closes: the download ceiling and the embed ceiling were the
+  ;; same number, so a Pinterest portrait at 393 KB and a Wikimedia one at 224 KB
+  ;; were refused for weight although their hosts served them without complaint.
+  (let [raw (noisy-bytes "png" 1600)
+        {:keys [data jpg?]} (fit-for-sheet raw)]
+    (is (> (alength ^bytes raw) (* 128 1024)) "the fixture has to be genuinely heavy")
+    (is (some? data) "it must come back fitted, not nil")
+    (is (<= (alength ^bytes data) (* 128 1024))
+        "what goes into the document still obeys the 128k ceiling")
+    (is jpg? "fitting re-encodes, and it re-encodes to JPEG")))
+
+(deftest a-picture-already-within-both-limits-is-left-alone
+  ;; Small and no bigger than the sheet prints: re-encoding it would only lose
+  ;; something, so it is carried as it is.
+  (let [raw (noisy-bytes "png" 40)
+        {:keys [data]} (fit-for-sheet raw)]
+    (is (= (seq raw) (seq data)) "carried through untouched")))
+
+(deftest something-that-is-not-an-image-fits-to-nothing
+  (is (nil? (fit-for-sheet (.getBytes "not an image" "UTF-8")))))

@@ -82,6 +82,17 @@ allowed the builder says so and offers an upload — which no host has a say in.
 
 ## Fixed
 
+- **A picture the host served happily was refused for weight.** The ceiling on
+  what the server would DOWNLOAD and the ceiling on what may go INTO the PDF were
+  the same 128 KB, so a Pinterest portrait (393 KB, served with a 200) and a
+  Wikimedia one (224 KB) were dropped although nothing had blocked them. The two
+  are now separate — 2 MB down, 128 KB into the document — and a heavy picture is
+  scaled to the printed size and re-encoded to fit, exactly as the browser does.
+  What bounds the danger was never this number: the pixel budget caps the decode
+  and the transfer deadline caps the time, and both are unchanged. A Pinterest
+  portrait now reaches the sheet with nothing asked of the user.
+
+
 - The builder flashed "Image failed to load" at pictures that were fine.
   `image-error` dispatched when it was CALLED, at render time, rather than
   returning a handler -- so every fresh URL was marked failed before the browser

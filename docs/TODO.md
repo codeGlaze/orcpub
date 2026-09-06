@@ -171,36 +171,21 @@ Beyond refuse both and are upload-or-nothing.
 - **The server fetch still earns its keep** — step 5 of the original plan. It now
   runs as the second tier rather than the default, but it is still there. Decide
   separately whether to keep it.
-- **Whether ANY host actually blocks this server is still unmeasured.** Two
-  earlier conclusions here were drawn from invented URLs that returned S3
-  `AccessDenied` — "Pinterest and D&D Beyond refuse the server", and "header
-  tuning does not help" — and both are withdrawn. Nothing has been shown to
-  block us. The three-way fallback exists for a case that has never been
-  observed.
+- **Measured, and the blocker was ours.** With a browser able to reach real hosts
+  and real URLs in hand: Pinterest serves this server a 200 and 393 KB of JPEG,
+  Wikimedia 224 KB. Neither ever blocked us. Both were refused by our own 128 KB
+  ceiling, which was applied to the DOWNLOAD as well as to the document. Split in
+  two — 2 MB down, 128 KB into the PDF, with fitting in between — a Pinterest
+  portrait now reaches the sheet with nothing asked of the user.
 
-  The way to find out is to let real users answer it: `/image-probe` should log
-  the host when it answers false, so the set of genuinely unreachable hosts is
-  measured instead of assumed. Revisit UA and Referer tuning against a real
-  failing URL, if one turns up. The server still carries a 2013 Chrome UA string
-  (`pdf.clj` `user-agent`) — worth modernising regardless.
-- **`image-error` marks a picture failed before it has loaded.** Pre-existing: the
-  builder's `image-error` dispatches at render rather than returning a handler, so
-  every fresh URL is briefly flagged failed and the load takes the mark back. It
-  works, but it can flash "Image failed to load" at a picture that is fine, and it
-  is what made the read-ordering bug hard to see. Worth straightening separately.
+  Two earlier conclusions here were drawn from invented URLs that returned S3
+  `AccessDenied`, and both were wrong: "Pinterest and D&D Beyond refuse the
+  server", and "header tuning does not help". Withdrawn. Nothing has been shown to
+  block this server at all.
 
-### Still open around it
-
-`claude/character-portrait-generator-hOutO` — the paper-doll compositor — stores
-layer CHOICES and produces no bytes, so it still cannot reach the PDF: the export
-understands `image-url` and now `image-data`, and that branch supplies neither.
-Composing to a canvas and handing the result to `image-capture/capture-file` is the
-join, and it is a small one now that the byte path exists.
-
-**Merge hazard, unchanged:** that branch is cut from an older base and still
-carries `#"^(https?|ftp|file)://…"` in `routes.clj` — the regex that allowed
-`file:///etc/passwd`. Merged after the hardening without a rebase, it reintroduces
-that hole.
+  `/image-probe` logs the host whenever it answers false, so the genuinely
+  unreachable set is measured from real traffic rather than guessed. Watch it: if
+  it stays empty, the paste and upload routes are dead weight.
 
 ## PDF export follow-ups
 

@@ -212,7 +212,12 @@ async function exportPressable(page) {
   const origin = imageOrigin();
   await origin.start();
 
-  const browser = await chromium.launch({ executablePath: findChrome() });
+  // --ssl-version-max=tls1.2 is what lets a browser here reach the real internet:
+  // Chrome's TLS 1.3 handshake is reset by this environment's egress relay, while
+  // TLS 1.2 negotiates fine. Harmless for the local origin this test uses, and
+  // required by anything that talks to a real host.
+  const browser = await chromium.launch({
+    executablePath: findChrome(), args: ['--ssl-version-max=tls1.2'] });
   const ctx = await browser.newContext({ acceptDownloads: true,
     viewport: { width: 1500, height: 1100 },
     permissions: ['clipboard-read', 'clipboard-write'] });

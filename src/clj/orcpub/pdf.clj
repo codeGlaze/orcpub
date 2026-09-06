@@ -58,7 +58,10 @@
            (java.net UnknownHostException)
            (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font Standard14Fonts$FontName)
            (org.apache.pdfbox.text PDFTextStripper)
-           (javax.imageio ImageIO)
+           (javax.imageio ImageIO IIOImage ImageWriteParam)
+           (javax.imageio.stream MemoryCacheImageOutputStream)
+           (java.awt RenderingHints)
+           (java.awt.image BufferedImage)
            (java.net URL)))
 
 ;; The Base 14 fonts, present in every PDF reader. Constructed once at load time.
@@ -1384,10 +1387,21 @@
 
 (def user-agent "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.22 (KHTML, like Gecko) Chrome/25.0.1364.172")
 
-(def ^:private max-image-bytes
-  "The 128k the character builder has always advertised next to the Image URL
-   field. It was label text and nothing enforced it."
+(def ^:private max-embedded-bytes
+  "What a picture may weigh once it is IN the PDF. The 128k the character builder
+   has always advertised next to the Image URL field."
   (* 128 1024))
+
+(def ^:private max-image-bytes
+  "What the server is willing to DOWNLOAD, which is a different question.
+
+   Holding these to the same number was a real defect: a Pinterest portrait is
+   393 KB on the wire and a Wikimedia one 224 KB, both served to this server
+   without complaint, and both refused for weight alone. The browser has always
+   downloaded the original and scaled it; the server simply gave up. What bounds
+   the danger is not this number but the pixel budget below -- which caps the
+   decode -- and the transfer deadline, which caps the time."
+  (* 2 1024 1024))
 
 (def ^:private max-image-pixels
   "Width x height ceiling, checked from the header BEFORE any pixels are
@@ -1607,7 +1621,7 @@
         (let [len (some-> (get-in resp [:headers "content-length"]) Long/parseLong)]
           (when (and len (> len max-image-bytes))
             (some-> ^java.io.InputStream (:body resp) .close)
-            (throw (ex-info "Image is larger than the 128k limit"
+            (throw (ex-info "Image is larger than the download limit"
                             {:error :image-too-large :url url :bytes len}))))
         [(:body resp) cm])
       (catch Exception e
@@ -1659,7 +1673,7 @@
          (cond
            (neg? n) (.toByteArray out)
            (> (+ total n) max-image-bytes)
-           (throw (ex-info "Image is larger than the 128k limit"
+           (throw (ex-info "Image is larger than the download limit"
                            {:error :image-too-large :bytes (+ total n)}))
            :else (do (.write out buf 0 n) (recur (+ total n)))))))))
 
@@ -1750,6 +1764,84 @@
       (println "ERROR: Failed to draw image for PDF:" (.getMessage e))
       nil)))
 
+(defn- jpeg-bytes?
+  "Whether `data` opens with the JPEG start-of-image marker.
+
+   Sniffed rather than read from a mime type: this decides whether bytes are
+   embedded as they are or decoded and re-encoded, and a blob labelled image/jpeg
+   that is not one fails the embed."
+  [^bytes data]
+  (and (>= (alength data) 3)
+       (= 0xFF (bit-and 0xFF (aget data 0)))
+       (= 0xD8 (bit-and 0xFF (aget data 1)))
+       (= 0xFF (bit-and 0xFF (aget data 2)))))
+
+(def ^:private print-edge
+  "Longest edge the sheet can show, in pixels. The portrait box is 2.35 x 3.15
+   inches and 300dpi is the print target. orcpub.image-capture does the same
+   arithmetic in the browser; the two have to agree or one of them is wasting
+   bytes the other would have kept."
+  945)
+
+(def ^:private fit-attempts
+  "Longest edge and JPEG quality, tried in order until the result fits
+   max-embedded-bytes. Size is given up before quality, for the reason the
+   browser gives it up first: pixels past what the sheet prints cost nothing
+   visible, and quality costs something immediately."
+  [[945 0.92] [945 0.8] [945 0.68] [945 0.55] [700 0.6] [500 0.5] [350 0.4]])
+
+(defn- scaled-copy
+  ^BufferedImage [^BufferedImage img edge]
+  (let [w (.getWidth img)
+        h (.getHeight img)
+        f (min 1.0 (/ (double edge) (double (max w h))))
+        nw (int (max 1 (Math/round (* w f))))
+        nh (int (max 1 (Math/round (* h f))))
+        out (BufferedImage. nw nh BufferedImage/TYPE_INT_RGB)
+        g (.createGraphics out)]
+    (try
+      (.setRenderingHint g RenderingHints/KEY_INTERPOLATION
+                         RenderingHints/VALUE_INTERPOLATION_BILINEAR)
+      (.drawImage g img 0 0 nw nh nil)
+      (finally (.dispose g)))
+    out))
+
+(defn- jpeg-at
+  "JPEG bytes for `img` at `quality`."
+  ^bytes [^BufferedImage img quality]
+  (let [writer (.next (ImageIO/getImageWritersByFormatName "jpeg"))
+        out (ByteArrayOutputStream.)]
+    (try
+      (with-open [ios (MemoryCacheImageOutputStream. out)]
+        (.setOutput writer ios)
+        (let [param (.getDefaultWriteParam writer)]
+          (.setCompressionMode param ImageWriteParam/MODE_EXPLICIT)
+          (.setCompressionQuality param (float quality))
+          (.write writer nil (IIOImage. img nil nil) param)))
+      (finally (.dispose writer)))
+    (.toByteArray out)))
+
+(defn- fit-for-sheet
+  "Scales and re-encodes `data` until it is no larger than the sheet can show and
+   no heavier than the PDF should carry, or hands it back untouched when it is
+   already both. Returns {:data bytes :jpg? bool}, or nil if it cannot be decoded.
+
+   This is what lets a picture that arrives at 393 KB be used. The ceiling belongs
+   on what goes INTO the document, not on what may be fetched: holding both to
+   128 KB refused a Pinterest portrait and a Wikimedia one that their hosts had
+   served without complaint."
+  [^bytes data]
+  (when-let [img (ImageIO/read (java.io.ByteArrayInputStream. data))]
+    (if (and (<= (alength data) max-embedded-bytes)
+             (<= (max (.getWidth img) (.getHeight img)) print-edge))
+      {:data data :jpg? (jpeg-bytes? data)}
+      (loop [attempts fit-attempts]
+        (when-let [[edge q] (first attempts)]
+          (let [candidate (jpeg-at (scaled-copy img edge) q)]
+            (if (<= (alength candidate) max-embedded-bytes)
+              {:data candidate :jpg? true}
+              (recur (rest attempts)))))))))
+
 (defn jpeg-url?
   "Whether `url` names a JPEG, and so whether its bytes embed without re-encoding."
   [url]
@@ -1767,7 +1859,7 @@
    that does resolves the host twice."
   [url]
   (try
-    {:data (safe-image-bytes url) :jpg? (jpeg-url? url)}
+    (fit-for-sheet (safe-image-bytes url))
     (catch Exception e
       (println "pdf: image unavailable -" (.getMessage e) "-" url)
       nil)))
@@ -1776,19 +1868,7 @@
   "Ceiling on the ENCODED string, so an oversized image is refused before a byte
    array is allocated to hold it. Base64 spends four characters on every three
    bytes, plus padding."
-  (+ 4 (quot (* 4 max-image-bytes) 3)))
-
-(defn- jpeg-bytes?
-  "Whether `data` opens with the JPEG start-of-image marker.
-
-   Sniffed rather than read from the mime type the client sent: this decides
-   whether the bytes are embedded as they are or decoded and re-encoded, and a
-   blob labelled image/jpeg that is not one fails the embed."
-  [^bytes data]
-  (and (>= (alength data) 3)
-       (= 0xFF (bit-and 0xFF (aget data 0)))
-       (= 0xD8 (bit-and 0xFF (aget data 1)))
-       (= 0xFF (bit-and 0xFF (aget data 2)))))
+  (+ 4 (quot (* 4 max-embedded-bytes) 3)))
 
 (defn decode-image-bytes
   "Image bytes the browser read, as {:data bytes :jpg? bool}, or nil.
@@ -1807,7 +1887,7 @@
                (<= (count b64) max-image-base64))
       (let [data (.decode (java.util.Base64/getDecoder) ^String b64)]
         (when (and (pos? (alength data))
-                   (<= (alength data) max-image-bytes)
+                   (<= (alength data) max-embedded-bytes)
                    (within-pixel-budget? data))
           {:data data :jpg? (jpeg-bytes? data)})))
     (catch Exception e

@@ -41,7 +41,13 @@
 (def ^:private read-bounded-bytes #'pdf/read-bounded-bytes)
 (def ^:private within-pixel-budget? #'pdf/within-pixel-budget?)
 
-(def ^:private cap (* 128 1024))
+(def ^:private cap
+  "The DOWNLOAD ceiling, read from the code under test rather than restated here.
+
+   It is not the 128 KB a picture may weigh inside the PDF -- those were one
+   number until a Pinterest portrait served at 393 KB was refused for it, and a
+   test that hardcodes either will pass while the other drifts."
+  @#'pdf/max-image-bytes)
 (def ^:private server (atom nil))
 (def ^:dynamic *base* "Base URL of the fixture server." nil)
 
@@ -67,14 +73,16 @@
 
 (defn- start! []
   (let [s (HttpServer/create (InetSocketAddress. "127.0.0.1" 0) 0)
-        big (byte-array (* 200 1024))]
+        ;; Comfortably past the ceiling, whatever the ceiling currently is.
+        big (byte-array (+ cap (* 64 1024)))]
     (doto s
       (.createContext "/ok" (let [png (png-bytes 40 40)]
                               (handler #(respond % 200 png (count png)))))
       ;; Declares its real, over-cap size: refused from the header, nothing read.
       (.createContext "/too-big" (handler #(respond % 200 big (count big))))
-      ;; Sends 200 KB chunked, so there is no Content-Length to check. Only the
-      ;; streaming cap stands between the export and whatever the server sends.
+      ;; Sends the same over-ceiling body chunked, so there is no Content-Length
+      ;; to check. Only the streaming cap stands between the export and whatever
+      ;; the server feels like sending.
       (.createContext "/undeclared-length" (handler #(respond % 200 big chunked)))
       (.createContext "/redirect"
                       (handler (fn [e]
@@ -128,7 +136,7 @@
   ;; The header check is an optimisation, not the limit. A chunked response
   ;; carries no Content-Length at all, so only the streaming cap stands between
   ;; the export and however much the server feels like sending.
-  (testing "200 KB sent chunked still stops at the cap"
+  (testing "an over-ceiling body sent chunked still stops at the cap"
     (fetch (str *base* "/undeclared-length")
            (fn [in]
              (let [e (try (read-bounded-bytes in) nil
