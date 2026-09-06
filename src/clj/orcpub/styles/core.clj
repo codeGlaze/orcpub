@@ -371,9 +371,10 @@
      :align-self :flex-end
      :padding-bottom "4px"}
     [:.bf-field {:margin-bottom "0 !important"}]]
-   ;; a heading needs more air above it than below, or it reads as belonging to what precedes it
-   [:.bf-section
-    {:margin-top "26px"}]
+   ;; No margin rule for .bf-section: every titled section is now an .opt-section card, and the
+   ;; card carries its own margin-bottom. (A `:not()` selector here is not valid Clojure — the
+   ;; reader takes `.opt-section` inside parens for a member expression — and garden failed to
+   ;; compile, which is silent unless you read its exit code.)
    ;; a section heading, or a :rows node, owns its own line
    [:.bf-break
     {:flex "1 1 100%"
@@ -425,6 +426,40 @@
    [:.chip-row
     {:gap "8px"
      :margin-bottom "6px"}]
+   ;; ── section cards: ported from port/redesign-on-refactor (option_menu_views/card) ────────
+   ;; The suggested spell-builder page is built out of these — a flat card per section with an
+   ;; amber accent tab beside the title. Verbatim apart from the accent becoming a var. Note its
+   ;; own comment about dropping legacy `.field` margins inside a card: that is the same global
+   ;; `.field {margin-top:30px}` that made a mess of the builder rows here.
+   [:.opt-section
+    {:background "#1b232f"
+     :border "1px solid rgba(255,255,255,0.08)"
+     :border-radius "14px"
+     :padding "20px 22px 22px"
+     :margin-bottom "18px"
+     :box-shadow "inset 0 1px 0 rgba(255,255,255,0.03)"}
+    [:.field {:margin-top "0"}]
+    [:.input {:margin-top "0"}]]
+   [:.opt-section-head
+    {:display :flex
+     :align-items :center
+     :flex-wrap :wrap
+     :gap "10px"
+     :margin-bottom "14px"}]
+   [:.opt-section-accent
+    {:width "4px"
+     :height "18px"
+     :border-radius "3px"
+     :background "var(--accent, #f0a100)"
+     :flex "0 0 auto"}]
+   [:.opt-section-accent.tall
+    {:height "22px"}]
+   [:.opt-section-title
+    {:font-size "clamp(19px, 3vw, 22px)"
+     :font-weight 700
+     :color "#f3f6fa"
+     :letter-spacing "-0.005em"}]
+
    ;; ── select-menu: ported from port/redesign-on-refactor (3384d4c5) ────────────────────────
    ;; Kept as close to the original as possible so the merge is a delete rather than a
    ;; reconciliation; the accent is the one deliberate change (var, per themes.cljs).

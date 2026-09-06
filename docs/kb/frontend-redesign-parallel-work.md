@@ -197,6 +197,35 @@ field to offer a `nil` option, which is exactly the three-state tags.
 - Four separate control-count metrics had to learn `.select-menu-btn`. **That is the fourth time a
   metric here missed a representation change**; the pattern is now explicit enough to expect.
 
+### Section cards — `option_menu_views/card`, done 2026-09-06
+
+A suggested spell-builder page (an OMV-centric mock) builds the whole form out of **section cards**:
+a flat elevated panel per section with an amber accent tab beside the title. OMV already ships that
+as `card` → `.opt-section` / `.opt-section-head` / `.opt-section-accent` / `.opt-section-title`, so
+the CSS is **ported verbatim** (accent as a var, as before) and a titled `:section` renders through
+it. No schema change: `:section "Components"` already existed.
+
+The untitled lead group stays plain. In the mock the identity and stat fields sit above the cards,
+and wrapping those too would make the form a stack of boxes.
+
+**The chrome was deliberately not copied** — sticky toolbar, header band with the name as a display
+input, summary line, "Save target" badge, info popovers, the grid/pills layout switch. Those are
+page-level design decisions that belong with the redesign branch, not smuggled in through a form
+framework.
+
+It costs height: the spell form went 1242px → **1405px** desktop, 1742px → **1899px** at 390px.
+That is the cards' padding and margins, and it is the trade the mock proposes on purpose.
+
+Two process notes from doing it:
+
+- **`lein garden` failed and I read past it.** The command was piped through `tail -1`, so
+  "Subprocess failed (exit code: 1)" scrolled by while `fig:build` and the whole e2e suite ran green
+  against **stale CSS** — the cards simply did not render and every test still passed. Garden's exit
+  code needs checking, or a CSS change can appear to work while never having compiled.
+- The failure itself: `[:.bf-section:not(.opt-section)]` is not valid Clojure — the reader takes
+  `.opt-section` inside parens for a member expression. A `:not()` selector needs
+  `garden.selectors`, or restructuring so it is not needed (which is what happened).
+
 **Not adopted yet:** `option-menu` for `:multi-enum` and for options-from-a-subscription. Chips are
 adequate for three classes, and the encounter builder needs the vector-rows work first.
 

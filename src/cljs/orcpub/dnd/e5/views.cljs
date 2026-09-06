@@ -7823,12 +7823,19 @@
      (when (seq extra-fields)
        (into [:div.w-100-p]
              (map (fn [[section fields]]
-                    [:div.w-100-p
-                     {:class (when section "bf-section")}
-                     ;; the app's own section heading, which is what every hand-written builder
-                     ;; uses ("Components", "Description", "Creatures") — not the small uppercase
-                     ;; label I had invented, which read as a footnote next to them
-                     (when section [:div.f-s-24.f-w-b.m-b-10 section])
+                    [:div
+                     ;; A carded section must NOT also be w-100-p: width:100% plus the card's 22px
+                     ;; padding overflows its container, which pushed the Material Component and
+                     ;; Description boxes off the right edge. A block-level card fills naturally.
+                     ;; A titled section is an OMV card (option_menu_views/card): accent tab +
+                     ;; title on a flat elevated panel. The untitled lead group stays plain — in
+                     ;; the suggested page the identity and stat fields sit above the cards, and
+                     ;; wrapping those too would make the whole form a stack of boxes.
+                     {:class (if section "bf-section opt-section" "w-100-p")}
+                     (when section
+                       [:div.opt-section-head
+                        [:span.opt-section-accent]
+                        [:span.opt-section-title section]])
                      (into [:div.flex.flex-wrap.bf-flow]
                            ;; a field spec (map) renders declaratively; raw hiccup passes through
                            (map (fn [f]

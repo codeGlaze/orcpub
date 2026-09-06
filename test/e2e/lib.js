@@ -61,7 +61,9 @@ async function controlFor(page, labelPrefix) {
     for (const c of document.querySelectorAll('input, select, textarea, .select-menu-btn')) {
       let n = c;
       for (let k = 0; k < 6 && n; k++, n = n.parentElement) {
-        const d = n.querySelector('.f-w-b');
+        // .opt-section-title is a section heading (the ported OMV card); a field whose only
+        // label is its section's title — Description — is found through it.
+        const d = n.querySelector('.f-w-b, .opt-section-title');
         if (d && d.textContent.trim()) {
           if (norm(d.textContent).startsWith(want)) return c;
           break;                       // this control's label is not the one we want
