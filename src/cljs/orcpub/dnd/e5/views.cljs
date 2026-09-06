@@ -7506,7 +7506,7 @@
             present?  (fn [{:keys [kind] :as k}] (or (contains? @opened kind) (has-data? k)))
             absent    (remove present? kinds)]
         [:div.w-100-p.m-t-20
-         [:div.f-s-24.f-w-b.m-b-10 title]
+         [:div.rows-title title]
          (when (seq absent)
            [:div.flex.flex-wrap.align-items-c.m-b-15.addbar
             [:span.m-r-10.opacity-5.f-s-12 (str (or add-label "Add") ":")]
@@ -7519,8 +7519,11 @@
          (doall
           (for [{:keys [kind title at hint tag-header fields] :as k} (filter present? kinds)]
             ^{:key (str kind)}
-            [:div.b-1.m-b-15.effect-row
-             [:div.flex.justify-cont-s-b.align-items-c.b-b-1.effect-row-header
+            ;; .b-1/.b-b-1 are deliberately NOT used here: they set the `border` shorthand with no
+            ;; colour, which resets it to currentColor (white), and they are declared later in the
+            ;; stylesheet than any border-color a class of ours could set. The row owns its border.
+            [:div.m-b-15.effect-row
+             [:div.flex.justify-cont-s-b.align-items-c.effect-row-header
               [:span.f-w-b.uppercase title]
               [:i.fa.fa-times.pointer.opacity-5
                {:title (str "Remove " title)
@@ -7546,7 +7549,7 @@
                  (when hint [:div.m-l-15.m-b-15.opacity-5.f-s-12 hint])]
                 (when (seq shown)
                   [:div
-                   [:div.f-s-12.opacity-5.m-b-5.uppercase (or tag-header "Applies when")]
+                   [:div.when-label (or tag-header "Applies when")]
                    [:div.flex.flex-wrap.tags
                     (doall
                      (for [f shown]

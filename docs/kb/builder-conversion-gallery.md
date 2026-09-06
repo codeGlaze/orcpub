@@ -11,6 +11,7 @@ the real widgets — captured by a script, not a mockup.
 lein fig:build && lein garden once && lein e2e-server      # port 8890
 LABEL=after node test/e2e/builder-gallery.js               # every builder page
 LABEL=after node test/e2e/form-shape-comparison.js         # one builder, authored, with metrics
+node test/e2e/mockup-parity.js                            # shipped form vs the approved mockup
 ```
 
 To photograph a *previous* shape, put the old files back, rebuild, shoot, restore:
@@ -118,16 +119,35 @@ Bonus* or *Damage Bonus*.
 | visible controls, empty form | 7 | **4** |
 | visible controls, three effects authored | 23 | 23 |
 | labels repeated with nothing distinguishing them | **7** | **0** |
-| page height, authored | 2229px | **1491px** |
+| page height, authored | 2229px | **1493px** |
 
 The fully-authored form has exactly the same 23 controls — grouping removes no fields — but it is
-**738px shorter**, because inside a row a bonus gets a number's width and its tags sit inline
+**736px shorter**, because inside a row a bonus gets a number's width and its tags sit inline
 instead of each taking a page-wide row of its own — all seven weapon tags now fit on one line.
 
 **The layout is a port of the approved mockup**, `assets/builder-form-mockup.html` — dashed pill
 chips on the add-bar, an orange uppercase group header, a 92px centred bonus with its hint beside
-it, and tags as `width:auto` selects under a muted sub-heading. Keep the two in step; the mockup is
-the design record and `styles/core.clj` is its implementation.
+it, and tags as `width:auto` selects under a muted sub-heading. The mockup is the design record and
+`styles/core.clj` is its implementation.
+
+**That claim is now checked, because asserting it by eye was wrong twice.** `test/e2e/mockup-parity.js`
+renders the mockup and the real builder side by side, reads the computed style of each corresponding
+element, and prints the differences. It is a **report, not a gate** — some divergence is correct, and
+saying which is the design work. Two kinds are excluded by name:
+
+- **mockup scaffolding** — `.panel`, `body`, the two-column layout. The mockup is a standalone page
+  that had to draw its own idea of "the form area"; the real form area is the app page, and importing
+  the panel would make this one builder unlike every other builder in the app.
+- **app chrome** — input and select background/border come from the app's widget styles. The mockup
+  approximated them; where they differ the app is right.
+
+It found the thing that made the form look unfinished: **the group borders were solid white.**
+`.b-1` sets the `border` shorthand with no colour, so it resets to `currentColor`, and it is declared
+later in the stylesheet than any `border-color` a class of ours can set. The row owns its border now.
+
+It also reports one difference that is the **mockup** being wrong, not the app: the bonus input reads
+`font-weight: 400` there, because the mockup's own `input{font:inherit}` outranks its `.num{font-weight:700}`.
+The app renders 700 — what the mockup meant. Do not "fix" the app to match a mockup bug.
 
 **Short labels are why the tags fit.** The mockup writes *Armor*, not *Armor requirement*, and
 *Ranged only*, not *Ranged weapons only* — under a header already reading ATTACK BONUS those words
@@ -275,3 +295,22 @@ which is five controls plus eight domain widgets.
 - `fighting-style-authoring.md` — why this builder's content also has to be *usable*, not just
   authorable.
 - `content-extensibility-framework.md` — the three-layer model these forms sit in.
+
+---
+
+## Known design gaps (measured, not yet fixed)
+
+`mockup-parity.js` only compares elements that HAVE a mockup counterpart. These have none, or sit
+outside the effects UI, and are open:
+
+- **Name and Option Source are unequal columns.** The mockup gives them `flex: 1 1 200px` each; the
+  app's are noticeably different widths. It lives in `simple-content-builder`, so changing it changes
+  **every** generated builder — including the language pair whose byte-identical property is a
+  documented claim above. Worth doing, but it is a deliberate change to that pair, not a tweak.
+- **The `:multi-enum` checkbox row is unstyled** relative to everything around it — the checkbox and
+  its label run together and the row has no rhythm with the fields above.
+- **Row bodies could use more breathing room**; the mockup's `.grp > .body` padding is 12px and the
+  app's inner spacing is inherited from generic utility classes rather than set for this context.
+
+None of these are guessed — each is visible in
+`assets/builder-comparison/fighting-style-rows-authored.jpg` against the mockup's proposed column.

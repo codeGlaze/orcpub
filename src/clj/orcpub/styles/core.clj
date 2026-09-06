@@ -261,12 +261,12 @@
    ;; Effect rows, ported from the approved mockup at docs/kb/assets/builder-form-mockup.html.
    ;; Keep the two in step: the mockup is the design record and this is its implementation.
    [:.effect-row
-    {:border-color "rgba(255,255,255,0.14)"
+    {:border "1px solid rgba(255,255,255,0.14)"
      :border-radius "6px"
      :overflow :hidden}]
    [:.effect-row-header
     {:background-color "rgba(240,161,0,0.10)"
-     :border-bottom-color "rgba(255,255,255,0.14)"
+     :border-bottom "1px solid rgba(255,255,255,0.14)"
      :padding "8px 12px"}
     [:span
      {:color "#f0a100"
@@ -302,6 +302,19 @@
    [:.tag-label
     {:font-size "11.5px"
      :color "rgba(255,255,255,0.55)"}]
+   [:.when-label
+    {:color "rgba(255,255,255,0.55)"
+     :font-size "12px"
+     :text-transform :uppercase
+     :letter-spacing "0.07em"
+     :margin "2px 0 7px"}]
+   [:.rows-title
+    {:font-size "13px"
+     :font-weight 700
+     :letter-spacing "0.09em"
+     :text-transform :uppercase
+     :color "rgba(255,255,255,0.55)"
+     :margin-bottom "8px"}]
    [:.row-lead-num
     {:width "92px"
      :flex "0 0 92px"}
