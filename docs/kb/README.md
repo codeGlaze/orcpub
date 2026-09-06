@@ -58,6 +58,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 | [weapon-data-model.md](weapon-data-model.md) | Every field on a weapon, derived from the loaded data: absent-vs-false flags, three fields missing their `?`, maps that look like flags, and the invariants the attack vocabulary leans on. | High — data-derived |
 | [homebrew-override.md](homebrew-override.md) | The mug icon: a per-selection switch that waives *selection* rules and never touches computed values — the design consequence for restrictions. | High — code |
 | [rules-override-layer.md](rules-override-layer.md) | PROPOSAL, cross-branch: DM-issued grants/permissions as a ledger above the silos; naming candidates; should ride `:props`. | DESIGN |
+| [frontend-redesign-parallel-work.md](frontend-redesign-parallel-work.md) | **Read before styling anything.** `port/redesign-on-refactor` is a theme-token design system (themes as data, per-theme `:accent` wired to `--accent`, a 610-line searchable option picker). The builder CSS now consumes `var(--accent)`; the light/dark surface tokens are an open follow-up. | High — read from the branch |
 | [fonts.md](fonts.md) | Open Sans self-hosted; CSP tightened; regeneration recipe. | High |
 
 ### Process & infrastructure

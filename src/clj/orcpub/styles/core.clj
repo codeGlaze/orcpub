@@ -269,16 +269,20 @@
      :border-bottom "1px solid rgba(255,255,255,0.14)"
      :padding "8px 12px"}
     [:span
-     {:color "#f0a100"
+     {:color "var(--accent, #f0a100)"
       :font-size "13px"
       :letter-spacing "0.04em"}]]
    ;; A dashed outline chip reads as "there is more you could add", where a solid button reads as
    ;; "do this now" — an add-bar of solid buttons competes with Save.
+   ;; --accent, not the literal. port/redesign-on-refactor makes the accent a per-theme token
+   ;; (themes.cljs: Classic and Dwarven #f0a100, Arcane #7c8cff) and wires it as a CSS var; the
+   ;; fallback keeps this identical until that lands. Hardcoding the orange would have made every
+   ;; builder chip the wrong colour under any theme but the default.
    [:.chip
     {:background :transparent
-     :border "1px dashed #f0a100"
+     :border "1px dashed var(--accent, #f0a100)"
      :border-radius "20px"
-     :color "#f0a100"
+     :color "var(--accent, #f0a100)"
      :padding "5px 13px"
      :font-size "12.5px"
      :font-weight 700
@@ -297,8 +301,8 @@
       :padding "5px 8px"
       :font-size "12.5px"}]
     [:select.set
-     {:border-color "#f0a100"
-      :color "#f0a100"}]]
+     {:border-color "var(--accent, #f0a100)"
+      :color "var(--accent, #f0a100)"}]]
    [:.tag-label
     {:font-size "11.5px"
      :color "rgba(255,255,255,0.55)"}]
@@ -432,8 +436,8 @@
    [:.chip-toggle.chip-on
     {:background-color "rgba(240,161,0,0.15)"
      :border-style :solid
-     :border-color "#f0a100"
-     :color "#f0a100"}]
+     :border-color "var(--accent, #f0a100)"
+     :color "var(--accent, #f0a100)"}]
 
    [:.row-lead-num
     {:width "92px"
