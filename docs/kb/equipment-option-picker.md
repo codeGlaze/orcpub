@@ -204,6 +204,38 @@ exactly one other large picker:
 native `<select>`, and is used by the combat tracker and the encounter builder. Everything
 else is under ~40 options, where a native `<select>` is the right control. See `docs/TODO.md`.
 
+## The option-menu that isn't here any more
+
+The branch's first approach lifted `option_menu_views.cljs`, `option_grouping.cljs` and
+`themes.cljs` from `port/redesign-on-refactor` and wired Equipment to `omv/option-menu` with a
+render cap. The "inline grid" row in the table above is that control. It was reverted for the
+combobox, and the namespaces were removed once nothing referenced them.
+
+Removed rather than kept because `option_menu_views` is not only a picker: alongside
+`option-menu` it carries theming (`theme-switcher`, `page-environment`, `::set-builder-theme`),
+layout modes (`layout-toggle`, `::set-layout`) and page structure (`section-card`, `card`,
+`parent-section`, `subsection`). Adopting it is a site-wide redesign, which is a separate
+decision from what control the Equipment tab uses.
+
+If it is wanted later, the cost is small: `2a671844` wired Equipment in 31 lines of
+`character_builder.cljs`, the namespace self-registers its 13 subs and events, and the call is
+
+```clojure
+[omv/option-menu {:menu-id … :options (omv/checkbox-options …)}]
+```
+
+`option_grouping` and `themes` were byte-identical to the port branch. Only
+`option_menu_views` diverged, by 34 lines — the `:max-rendered` / `::show-all` capping work,
+in this branch's history at `2a671844` and `ec85c5ac`.
+
+**A stale test is what surfaced all this.** `equipment_add_functional_e2e.js` kept driving the
+`.opt-menu-*` selectors after the control was swapped, and had been failing three assertions
+and exiting 1. Neither `lein test` nor the CLJS runner invokes browser probes, so "both suites
+green" never covered it. `screenshots_e2e.js` had gone stale the same way but its lookups were
+guarded, so it silently stopped taking two of its three shots instead of failing. **A probe
+that targets a control by class name goes stale the moment the control is swapped, and only
+the one with unguarded assertions tells you.**
+
 ## Which controls are kept
 
 - `inventory-combobox` — live.

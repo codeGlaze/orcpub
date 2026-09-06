@@ -8,10 +8,12 @@ no way to search them. This branch replaces that with a filtering combobox and r
 `docs/kb/equipment-option-picker.md`, the five controls that were measured against each other
 so the comparison is not re-run.
 
-Scope note: the branch also carries `option_menu_views.cljs`, `option_grouping.cljs` and
-`themes.cljs`, ported from `port/redesign-on-refactor` early on. The combobox superseded that
-approach and those namespaces are now unreferenced. Decide before merge whether they are
-deleted, deprecated in place, or wired up for the card-based selections.
+Scope note, resolved: the branch started by lifting `option_menu_views.cljs`,
+`option_grouping.cljs` and `themes.cljs` from `port/redesign-on-refactor` and wiring Equipment
+to `omv/option-menu`. That was reverted in favour of the combobox and the namespaces went
+unreferenced. They are removed here — alongside the picker they carry theming, layout modes
+and page structure, which is a site-wide redesign and not something to land in the Summer
+Patch. See below for where the work survives.
 
 ## Highlights
 
@@ -64,5 +66,11 @@ handled by the platform rather than by hand.
 - The dropdown menu was flat. It now has a layered shadow, a themed scrollbar, an accent bar
   on hover and on the keyboard highlight, and a 120 ms entry animation guarded by
   `prefers-reduced-motion` (`78deb2ad`).
+- Removed `option_menu_views.cljs`, `option_grouping.cljs`, `themes.cljs`, the dead
+  `option-menu-views` require and 448 lines of `.opt-menu` CSS — 844 source lines that
+  nothing referenced. They are not lost: `option_grouping` and `themes` are byte-identical to
+  `port/redesign-on-refactor`, and the 34-line divergence in `option_menu_views` (the
+  `:max-rendered` / `::show-all` capping work) is in this branch's history at `2a671844` and
+  `ec85c5ac`. Rewiring one selection is roughly a 20-line call site (`<pending>`).
 - `inventory-picker`, the hand-rolled overlay, is deprecated. It has no behaviour the combobox
   lacks, and its full-width mobile overlay was what made it wrong (`4082bc20`).
