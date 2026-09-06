@@ -42,6 +42,7 @@
             [orcpub.dnd.e5.template :as t]
             [orcpub.dnd.e5.views-2 :as views-2]
             [orcpub.dnd.e5.views.notifications :as notifications]
+            [orcpub.dnd.e5.views.whats-new :as whats-new-view]
             [orcpub.template :as template]
             [orcpub.dnd.e5.options :as opt]
             [orcpub.dnd.e5.events :as events]
@@ -1611,7 +1612,8 @@
                      [:a.orange {:href url :target :_blank} "Support this site on Patreon"])
                    (when (seq branding/help-url)
                      [:a.orange.m-l-5 {:href branding/help-url :target :_blank} "Help"])
-                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]]]
+                   [:a.orange.m-l-5 {:href "https://github.com/Orcpub/orcpub/issues" :target :_blank} "Feedback/Bug Reports"]
+                   [whats-new-view/footer-link]]]
                  [:div.m-l-10.m-r-10.p-10
                   [:div.m-b-5
                    (for [{:keys [label href]} splash/legal-footer-links]
@@ -1624,7 +1626,9 @@
                      branding/copyright-holder)]
                   [:p "This site is based on " srd-link " - Wizards of the Coast, Dungeons & Dragons, D&D, and their logos are trademarks of Wizards of the Coast LLC in the United States and other countries. © 2025 Wizards. All Rights Reserved."]
                   [:p branding/app-name " is not affiliated with, endorsed, sponsored, or specifically approved by Wizards of the Coast LLC."]
-                  [:p "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
+                  [:p.pointer.underline
+                   {:on-click #(dispatch [::e5/open-whats-new])}
+                   "Version " (v/version) " (" (v/date) ") " (v/description) " edition"]]]
                 [debug-data]]]])]))})))
 
 ;; dead — zero callers (4 style defs)

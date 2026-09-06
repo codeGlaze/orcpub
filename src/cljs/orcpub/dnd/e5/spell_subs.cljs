@@ -165,6 +165,11 @@
    (get db :health-dismissed)))
 
 (reg-sub
+ ::e5/whats-new-open?
+ (fn [db _]
+   (boolean (:whats-new-open? db))))
+
+(reg-sub
  ::e5/global-disabled?
  :<- [::e5/disable-overlay]
  (fn [overlay _]

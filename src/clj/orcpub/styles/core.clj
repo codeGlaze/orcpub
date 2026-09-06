@@ -1940,6 +1940,109 @@
     [:.export-edit-select.unfilled
      {:border-color "#f0a100"}]
 
+    ;;;; WHAT'S NEW PANEL
+
+    ;; Dark chrome in both themes, like the conflict modal: the panel is an overlay
+    ;; on top of the page rather than part of it.
+    [:.whats-new-backdrop
+     {:position :fixed
+      :top 0 :left 0 :right 0 :bottom 0
+      :background "rgba(0,0,0,0.7)"
+      :z-index 10002
+      :display :flex
+      :align-items :center
+      :justify-content :center
+      :padding "20px"}]
+
+    [:.whats-new-panel
+     {:background "#1a1e28"
+      :color "rgba(255,255,255,0.85)"
+      :border-radius "6px"
+      :width "100%"
+      :max-width "620px"
+      :max-height "84vh"
+      :display :flex
+      :flex-direction :column
+      :overflow :hidden
+      :box-shadow "0 4px 18px 0 rgba(0,0,0,0.6)"}]
+
+    [:.whats-new-header
+     {:padding "18px 22px"
+      :background "#2c3445"
+      :border-bottom "1px solid rgba(255,255,255,0.15)"}]
+
+    [:.whats-new-eyebrow
+     {:color orange
+      :font-size "12px"
+      :font-weight :bold
+      :letter-spacing "1px"
+      :text-transform :uppercase}]
+
+    [:.whats-new-title
+     {:font-size "24px"
+      :font-weight :bold
+      :color :white}]
+
+    [:.whats-new-subtitle
+     {:font-size "14px"
+      :color muted-on-dark
+      :margin-top "6px"}]
+
+    [:.whats-new-close
+     {:font-size "20px"
+      :color muted-on-dark
+      :cursor :pointer
+      :padding "4px 6px"}
+     [:&:hover
+      {:color :white}]]
+
+    [:.whats-new-body
+     ;; The inset shadow sits on the padding box, so it stays at the bottom edge
+     ;; while the list scrolls under it — the cue that there is more below.
+     {:padding "6px 22px 4px"
+      :overflow-y :auto
+      :flex 1
+      :box-shadow "inset 0 -14px 12px -12px rgba(0,0,0,0.55)"}]
+
+    [:.whats-new-item
+     {:display :flex
+      :align-items :flex-start
+      :padding "14px 0"
+      :border-bottom "1px solid rgba(255,255,255,0.08)"}
+     [:&:last-child
+      {:border-bottom :none}]]
+
+    [:.whats-new-item-icon
+     {:color orange
+      :font-size "18px"
+      :width "24px"
+      :margin-right "14px"
+      :margin-top "2px"
+      :text-align :center
+      :flex-shrink 0}]
+
+    [:.whats-new-item-headline
+     {:font-size "16px"
+      :font-weight :bold
+      :color :white}]
+
+    [:.whats-new-item-detail
+     {:font-size "14px"
+      :line-height "1.45"
+      :color muted-on-dark
+      :margin-top "3px"}]
+
+    [:.whats-new-footer
+     {:padding "14px 22px"
+      :border-top "1px solid rgba(255,255,255,0.15)"
+      :display :flex
+      :align-items :center
+      :justify-content :space-between}]
+
+    [:.whats-new-version
+     {:font-size "12px"
+      :color muted-on-dark}]
+
     ;; A required builder field left empty when a save was attempted. Same amber
     ;; cue as the export modal's unfilled dropdowns, for consistency.
     [:.builder-field-unfilled
