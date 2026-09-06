@@ -49,4 +49,4 @@ All under `test/browser/`, run against `lein e2e-server` (see `test/browser/READ
 | `storage_shape_e2e.js` | what is actually in localStorage after a real import |
 | `localstorage_ceiling_e2e.js` | the real quota, and whether it counts chars or bytes |
 | `library_chunk_granularity_e2e.js` | how finely a library can be split |
-| `run_cljs_suite.js` | runs the ClojureScript suite headlessly |
+| `scripts/test/run-cljs-tests.js` | runs the ClojureScript suite headlessly (repo's canonical runner, not under test/browser) |

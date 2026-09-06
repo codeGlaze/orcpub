@@ -59,8 +59,6 @@ re-frame events. Routing via the app's own router is fine for navigation.
 - `storage_shape_e2e.js` — what is actually in localStorage after a real import.
 - `localstorage_ceiling_e2e.js` — the real quota, and whether it counts chars or bytes.
 - `library_chunk_granularity_e2e.js` — how finely a library can be split.
-- `run_cljs_suite.js` — runs the ClojureScript suite headlessly and exits non-zero on
-  failure.
 
 **The cookie banner is position-fixed at the bottom of the page and overlays whatever is
 under it** — including the import conflict modal's buttons, which makes a click fail with

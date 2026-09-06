@@ -555,6 +555,43 @@ item cards print alongside spell cards; and every page carries the site name.
 - Lint is clean: 30 warnings to 0 (`28fd620d`).
 
 
+### perf/homebrew-builder-loop
+
+**Fixed**
+
+- **The character builder no longer freezes when you switch between Race and Class with a
+  large homebrew library.** Three internal caches were keyed on the whole class list, so
+  every lookup compared all of it and built out every class's 20 levels — around a second of
+  frozen tab, on one click, on a machine also running the server. A Class-tab switch went
+  from 1125 ms to 100 ms in development and 654 ms to 92 ms in production, and the page holds
+  ~48 MB less (`c90016ac`, `4b67b3f7`).
+- **A character change now rebuilds the character once, not twice.** The builder's preview
+  pane subscribed with a stray argument, which created a second, independent debounced
+  builder over the same character; both ran on every edit (`7eb968db`, `dc667154`).
+- **Spell details are built when you open a spell, not when a list of spells is drawn.**
+  Listing 41 spells built 41 full descriptions nobody had asked to read (`ebe708f9`,
+  `2747553e`).
+
+**Changed**
+
+- **Modifier ordering is linear rather than quadratic**, so character rebuilds get cheaper as
+  a character grows: 23.0 ms → 3.0 ms on the JVM and 25.2 ms → 4.9 ms in the browser, with
+  output order proven identical in both runtimes across 808 generated graphs (`8785b16a`).
+
+**Added**
+
+- **A browser probe suite for the builder's performance** — longest-task-per-interaction
+  under CPU throttling, class-body cost, builds-per-click, CPU profiling by inclusive time,
+  and the localStorage measurements. `test/browser/README.md` lists what each answers
+  (`d08a792b`, `30bb6355`, `0986cf44`).
+- **A functional test for the class handlers** — set-class, set-class-level, add-class and
+  delete-class driven for real against app-db. Neither test suite clicks anything, so these
+  had no coverage (`0634c5ce`, `1bac07c6`).
+- **`docs/kb`** — an indexed knowledge base: the freeze investigation and its root cause, a
+  scan of every `memoize` site with the risky ones traced, the localStorage measurements and
+  a parked chunked-storage plan, and the verification lessons this cost (`2bb966d8`,
+  `0634c5ce`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
