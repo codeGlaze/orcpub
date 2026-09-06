@@ -407,6 +407,10 @@
                 options))]
     [omv/option-menu
      {:menu-id [::inventory key]
+      ;; 25 keeps the seven Equipment pickers at ~150 rendered cells instead of 1037
+      ;; <option> elements. Measured against the native select it replaced (4x throttle,
+      ;; mega-64, steady state, normalised to the Race tab in the same run):
+      ;;   native select 1.65x control | uncapped picker 2.71x | capped 1.31-1.35x
       :max-rendered 25
       :options (omv/checkbox-options
                 items
