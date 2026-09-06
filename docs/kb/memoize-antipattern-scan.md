@@ -152,23 +152,35 @@ whole homebrew library) but it is one call per render of the export button, and 
 `make-inventory-item` result shows call count decides. Left documented rather than changed
 blind: this is the PDF export path, and a broken export is worse than a slow one.
 
-### Separate observation, not this branch's scope
+### The Equipment tab's ~350 ms is render volume, not caching
 
-The Equipment tab's longest task is 300-375 ms against Race's 160-197 ms. Something there is
-slow and it is **not** `make-inventory-item`. Worth its own investigation if the tab is ever
-reported as sluggish.
+Profiled it rather than leaving it as a loose end (`TAB=Equipment
+freeze_cpu_profile_e2e.js`, 4x):
 
-## Known gap: no click-level coverage for spell picking
+```
+2nd visit to Equipment: 492 ms wall, longest task 354 ms
 
-`class_handlers_functional_e2e.js` covers the class handlers. Spell picking is **not**
-covered: two attempts failed identically on the pre-change build (0 -> 0), proving they were
-probe bugs rather than regressions, but neither actually exercised picking a spell — the
-first `.b-orange` card on the Spells tab is not a spell option. Closing this needs someone
-familiar with that view.
+  240 ms  reagent run_queue -> flushSync -> renderRootSync -> beginWork
+  155 ms  deref_capture -> do_render
+          no app function above ~10 ms of self time
+```
 
-Step 2's safety rests on the other three legs instead: `spell-option` is pure and its result
-closes only over values derived from its own arguments; both suites pass; and the measurement
-shows the counter dropping 21 ms -> 1 ms with no behavioural change.
+One reagent render drawing the equipment lists. No memoize, no single slow function, nothing
+to cache -- the cost is the amount of DOM. ~354 ms at 4x is roughly 90 ms unthrottled:
+noticeable, not a freeze. If it is ever worth attacking, the lever is virtualising those
+lists, which is the same lever as the builder's first paint.
+
+## Spell picking is now covered
+
+Two earlier attempts failed 0 -> 0 identically on the pre-change build. The cause, found by
+dumping the tab's DOM instead of guessing again: the Spells **tab** itself carries
+`.b-orange` and reads "Spells18", so a `.b-orange` selector matched navigation and clicked
+the tab. Spell option cards are the `p-10 b-1 b-rad-5 b-orange` variant.
+
+`class_handlers_functional_e2e.js` now passes `0 -> 1 (clicked "Acid Splash")`, reading
+through the `::char5e/spells-known` subscription and printing which card it clicked so a
+future failure says what it hit. Step 2 therefore has all four legs: purity by inspection,
+both suites, the 21 ms -> 1 ms measurement, and click-level coverage.
 
 ## Related
 
