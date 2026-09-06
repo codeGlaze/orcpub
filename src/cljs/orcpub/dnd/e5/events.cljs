@@ -2051,10 +2051,13 @@
 (reg-event-db
  ::char5e/server-image-answer
  (fn [db [_ url response]]
-   ;; A failed request answers :no as surely as a false does -- either way this
-   ;; page cannot show the picture arriving, and paste is the way through.
+   ;; The server names a reason and never a sentence: the wording lives in the
+   ;; builder, so nothing the server says can end up in front of a person
+   ;; unedited. A request that did not arrive is its own reason.
    (assoc-in db [:image-server-reach url]
-             (if (= "true" (:body response)) :yes :no))))
+             (if (= 200 (:status response))
+               (keyword (:body response))
+               :unreachable))))
 
 ;; ── Inline "Custom" options ──────────────────────────────────────────────────
 ;; The :set-custom-* events write a typed name to ::entity/value on the character

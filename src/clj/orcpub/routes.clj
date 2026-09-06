@@ -787,16 +787,16 @@
       fresh
       (into {} (take-last probe-max-entries (sort-by (comp :at val) fresh))))))
 
-(defn- probed-image
-  "Fetches `url` once and remembers the outcome, so a probe and the export that
-   follows it cost the host one request rather than two."
+(defn- probed-outcome
+  "Fetches `url` once and remembers the outcome -- the picture, or why not -- so a
+   probe and the export that follows it cost the host one request rather than two."
   [url]
   (let [now (System/currentTimeMillis)]
     (if-let [hit (get @probed-images url)]
-      (:image hit)
-      (let [image (pdf/fetch-image url)]
-        (swap! probed-images #(-> % (prune-probes now) (assoc url {:at now :image image})))
-        image))))
+      (:outcome hit)
+      (let [outcome (pdf/fetch-image-outcome url)]
+        (swap! probed-images #(-> % (prune-probes now) (assoc url {:at now :outcome outcome})))
+        outcome))))
 
 (defn image-probe
   "Whether this server can fetch the picture at the posted URL.
@@ -811,15 +811,18 @@
    inside the size limits."
   [{:keys [transit-params]}]
   (let [url (:url transit-params)
-        ok? (boolean (and (well-formed-image-url? url)
-                          (some? (probed-image url))))]
+        reason (if-not (well-formed-image-url? url)
+                 :blocked-address
+                 (let [{:keys [image reason]} (probed-outcome url)]
+                   (if image :ok (or reason :unknown))))]
     ;; The HOST only, never the URL -- an image address can carry a signed query
-    ;; string. This is the measurement: how often a picture is reachable by
-    ;; nobody, which decides whether the paste-and-upload fallbacks earn their
-    ;; place. Nothing has yet been shown to land here.
-    (when (and (not ok?) (well-formed-image-url? url))
-      (println "pdf: no route to a picture at" (some-> url java.net.URI. .getHost)))
-    {:status 200 :body (str ok?)}))
+    ;; string. This is the measurement: which hosts are reachable by nobody, and
+    ;; why, which is what decides whether the copy-and-upload routes earn their
+    ;; place.
+    (when (and (not= :ok reason) (well-formed-image-url? url))
+      (println "pdf: no route to a picture at" (some-> url java.net.URI. .getHost)
+               "-" (name reason)))
+    {:status 200 :body (name reason)}))
 
 (def ^:private export-slots
   "Permits for sheet generation, one per concurrent export.
@@ -1131,7 +1134,7 @@
                       ;; about this URL a moment ago, and the answer it got is the
                       ;; one to print.
                       (some-> (wanted url failed?)
-                              (as-> u (future (probed-image u))))))
+                              (as-> u (future (:image (probed-outcome u)))))))
             portrait (image image-data image-url image-url-failed)
             faction (image faction-image-data faction-image-url faction-image-url-failed)]
         (when-let [{:keys [data jpg?]} (some-> portrait deref)]

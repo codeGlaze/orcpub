@@ -80,6 +80,17 @@ allowed the builder says so and offers an upload — which no host has a say in.
 - `docs/CHARACTER-IMAGE-FETCH.md` leads with the browser path; the server fetch is
   documented as the fallback it now is.
 
+## Changed
+
+- `/image-probe` answers a REASON rather than a boolean, and the builder turns it
+  into wording split by what is worth fixing: the link (`not-found`, `redirect`,
+  `not-an-image`, `unreachable`, `blocked-address`), the picture (`refused`,
+  `too-large`, `too-many-pixels`, `timeout`, `host-error`), or simply waiting
+  (`rate-limited`). Telling someone to copy a picture when they have mistyped a
+  link is not help. The server never sends a sentence, so nothing it says reaches
+  a person unedited, and every address refusal collapses to one code so the
+  endpoint cannot be read as a map of what this network can reach.
+
 ## Fixed
 
 - **A picture the host served happily was refused for weight.** The ceiling on

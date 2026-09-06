@@ -1834,54 +1834,83 @@
 
 (def image-paste (memoize image-paste-fn))
 
+(def ^:private image-failure-notes
+  "What went wrong, and which thing is worth fixing, keyed by the reason the
+   server reported.
+
+   Split by whether the ADDRESS is the problem or the host simply will not
+   co-operate: telling someone to copy the picture when they have mistyped a link
+   is not help, and telling someone to check a link the host is refusing outright
+   sends them round in circles."
+  {:blocked-address ["That address cannot be fetched -- check the host name is
+                      right and the link points at a public image." :link]
+   :rate-limited    ["The host is asking us to slow down." :wait]
+   :not-found       ["The host says there is nothing at that address." :link]
+   :redirect        ["That link redirects somewhere else rather than being the picture." :link]
+   :not-an-image    ["That address is not a PNG or JPEG." :link]
+   :unreachable     ["That host could not be reached." :link]
+   :refused         ["The host refused to serve the picture to us." :picture]
+   :too-large       ["That picture is larger than 2 MB." :picture]
+   :too-many-pixels ["That picture is larger than 2000x2000 pixels." :picture]
+   :timeout         ["The host took too long to answer." :picture]
+   :host-error      ["The host had an error of its own." :picture]
+   :unknown         ["The picture could not be fetched." :picture]})
+
+(def ^:private image-failure-advice
+  {:link (str "Check the link -- it should point straight at an image file, usually "
+              "ending .png or .jpg. If it is already right, supply the picture "
+              "instead: right-click it, choose Copy image, then:")
+   :picture (str "The page is not allowed to read it either, so the sheet will "
+                 "print without it unless you supply the picture: right-click it, "
+                 "choose Copy image, then:")
+   :wait (str "It is worth trying again in a minute. If it keeps happening, "
+              "supply the picture instead: right-click it, choose Copy image, "
+              "then:")})
+
 (defn image-upload
-  "Speaks up only once BOTH routes to the picture are known to be shut.
+  "Says what went wrong and what to do about it, once BOTH routes to the picture
+   are shut.
 
-   The browser being refused is not enough: the server fetches plenty of pictures
-   the page may not read, so a prompt at that moment would ask for a paste of what
-   was about to arrive. `reach` is the server's own answer about this URL, asked
-   as soon as the browser gave up -- :asking while it is in flight, :no only when
-   nobody can fetch it.
-
-   All three ways in are local to the machine, so no host has a say in any of
-   them. The button reads a picture the viewer has already copied; it cannot do
-   the copying, because a page-initiated copy of a cross-origin image yields its
-   markup and not its pixels."
+   The browser being refused is not enough on its own: the server fetches plenty
+   of pictures the page may not read, so speaking up then would ask for a copy of
+   what was about to arrive. `reach` is the server's own answer about this URL --
+   :asking while it is in flight, :ok when it can be had, and otherwise the reason
+   it cannot, which is what turns a blank space on the sheet into something a
+   person can act on."
   [url state reach]
   (let [note (r/atom nil)]
     (fn [url state reach]
-      (cond
-        (= :pending state)
-        [:div.f-s-12.m-t-5 "Reading image..."]
+      (let [[what fix] (get image-failure-notes reach)]
+        (cond
+          (= :pending state)
+          [:div.f-s-12.m-t-5 "Reading image..."]
 
-        (and (= :unavailable state) (= :no reach))
-        [:div.m-t-5
-         [:div.f-s-12.m-b-5
-          "Nothing can read this picture from its host -- not this page, and not
-           the server. Right-click the picture and choose Copy image, then:"]
-         [:div.flex.align-items-c
-          [:button.form-button.p-5.m-r-10
-           {:on-click
-            (fn [_]
-              (reset! note "Reading the copied image...")
-              (image-capture/capture-clipboard
-               (fn [payload]
-                 (reset! note (when-not payload
-                                "No picture on the clipboard. Copy one first."))
-                 (dispatch [::char5e/image-captured url payload]))))}
-           "Use copied image"]
-          [:span.f-s-12.m-r-10 "or paste it into the field above, or choose a file:"]
-          [:input {:type "file"
-                   :accept "image/png,image/jpeg"
-                   :on-change (fn [e]
-                                (when-let [file (some-> e .-target .-files (aget 0))]
-                                  (image-capture/capture-file
-                                   file
-                                   #(dispatch [::char5e/image-captured url %]))))}]]
-         (when @note
-           [:div.f-s-12.m-t-5 @note])]
+          (and (= :unavailable state) what)
+          [:div.m-t-5
+           [:div.f-s-12.m-b-5 what " " (get image-failure-advice fix)]
+           [:div.flex.align-items-c
+            [:button.form-button.p-5.m-r-10
+             {:on-click
+              (fn [_]
+                (reset! note "Reading the copied image...")
+                (image-capture/capture-clipboard
+                 (fn [payload]
+                   (reset! note (when-not payload
+                                  "No picture on the clipboard. Copy one first."))
+                   (dispatch [::char5e/image-captured url payload]))))}
+             "Use copied image"]
+            [:span.f-s-12.m-r-10 "or paste it into the field above, or choose a file:"]
+            [:input {:type "file"
+                     :accept "image/png,image/jpeg"
+                     :on-change (fn [e]
+                                  (when-let [file (some-> e .-target .-files (aget 0))]
+                                    (image-capture/capture-file
+                                     file
+                                     #(dispatch [::char5e/image-captured url %]))))}]]
+           (when @note
+             [:div.f-s-12.m-t-5 @note])]
 
-        :else nil))))
+          :else nil)))))
 
 (defn description-fields []
   (let [entity-values @(subscribe [:entity-values])

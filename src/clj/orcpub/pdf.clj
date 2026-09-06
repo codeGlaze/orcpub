@@ -1848,6 +1848,56 @@
   (let [lower (s/lower-case (str url))]
     (or (s/ends-with? lower "jpg") (s/ends-with? lower "jpeg"))))
 
+(defn- failure-reason
+  "A coarse, reportable reason a picture could not be had.
+
+   Coarse on purpose. Every address refusal -- a private range, a reserved range,
+   a DNS answer that did not survive the pin -- collapses into one code, so the
+   answer cannot be read back as a map of what this server can and cannot reach.
+   The rest describe the HOST's behaviour, which the asker could observe anyway,
+   and are what turn a blank sheet into something a person can act on."
+  [e]
+  (let [{:keys [error status]} (ex-data e)]
+    (or (case error
+          (:image-url-not-permitted :image-pin-mismatch) :blocked-address
+          :image-too-large            :too-large
+          :image-too-large-dimensions :too-many-pixels
+          :image-transfer-timeout     :timeout
+          :invalid-image-format       :not-an-image
+          :image-load-failed (cond
+                               (nil? status)             :unreachable
+                               (<= 300 status 399)       :redirect
+                               (= 404 status)            :not-found
+                               ;; Temporary, and worth saying so: telling someone
+                               ;; their picture is unusable when the host is only
+                               ;; asking us to slow down sends them off to find
+                               ;; another one for no reason.
+                               (= 429 status)            :rate-limited
+                               (#{401 403 407 451} status) :refused
+                               (<= 500 status 599)       :host-error
+                               :else                     :refused)
+          nil)
+        (let [root (loop [x e] (if-let [c (.getCause ^Throwable x)] (recur c) x))]
+          (condp instance? root
+            java.net.UnknownHostException   :unreachable
+            java.net.ConnectException       :unreachable
+            java.net.SocketTimeoutException :timeout
+            :unknown)))))
+
+(defn fetch-image-outcome
+  "Fetches `url` and returns {:image {:data :jpg?}} or {:reason keyword}.
+
+   The reason is what lets the builder say something a person can act on -- a 404
+   and a 2 MB photograph are the same blank space on the sheet otherwise."
+  [url]
+  (try
+    (if-let [image (fit-for-sheet (safe-image-bytes url))]
+      {:image image}
+      {:reason :not-an-image})
+    (catch Exception e
+      (println "pdf: image unavailable -" (.getMessage e) "-" url)
+      {:reason (failure-reason e)})))
+
 (defn fetch-image
   "Fetches `url` and returns {:data bytes :jpg? bool}, or nil if it cannot be had.
 
@@ -1858,11 +1908,7 @@
    to -- so a caller does NOT need to call safe-image-url? first, and a caller
    that does resolves the host twice."
   [url]
-  (try
-    (fit-for-sheet (safe-image-bytes url))
-    (catch Exception e
-      (println "pdf: image unavailable -" (.getMessage e) "-" url)
-      nil)))
+  (:image (fetch-image-outcome url)))
 
 (def ^:private max-image-base64
   "Ceiling on the ENCODED string, so an oversized image is refused before a byte

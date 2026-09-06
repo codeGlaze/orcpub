@@ -42,9 +42,11 @@ the TLS flag that takes), against **real** URLs rather than invented ones:
 | `i.imgur.com` | yes | yes |
 | `cdn.discordapp.com` | yes | yes |
 | `upload.wikimedia.org` | yes (42 KB after fitting) | yes |
-| `i.pinimg.com` | no | **yes** |
+| `i.pinimg.com` | no | **yes** (393 KB, fitted) |
+| `www.dndbeyond.com` | no | **yes** (148 KB, fitted) |
 
-Pinterest serves this server a 200 and 393 KB of JPEG. It never blocked us. What
+Pinterest serves this server a 200 and 393 KB of JPEG; a D&D Beyond avatar is a
+200 and 148 KB. Neither ever blocked us. What
 refused it was our own 128 KB ceiling, applied to the download rather than to the
 document — now split in two, so a heavy picture is fitted instead of dropped. A
 Pinterest portrait reaches the sheet with nothing asked of the user.
@@ -78,6 +80,38 @@ to a table.
 
 Re-run the probe politely -- a request or two per host, spaced -- rather than in a
 loop; these are other people's servers.
+
+## What the builder tells a person, and why
+
+`/image-probe` answers a REASON, not a boolean, and the builder turns it into
+wording. The server never sends a sentence: keeping the words on the client means
+nothing the server says can reach a person unedited.
+
+| reason | shown as | what it points at |
+|---|---|---|
+| `ok` | nothing | the server can fetch it |
+| `blocked-address` | that address cannot be fetched, check the host name and that it is a public image | the link |
+| `not-found` | the host says there is nothing there | the link |
+| `redirect` | the link redirects rather than being the picture | the link |
+| `not-an-image` | not a PNG or JPEG | the link |
+| `unreachable` | that host could not be reached | the link |
+| `refused` | the host refused to serve it to us | supply the picture |
+| `too-large` | larger than 2 MB | supply the picture |
+| `too-many-pixels` | larger than 2000x2000 | supply the picture |
+| `timeout` | the host took too long | supply the picture |
+| `host-error` | the host had an error of its own | supply the picture |
+| `rate-limited` | the host is asking us to slow down | try again shortly |
+| `unknown` | could not be fetched | supply the picture |
+
+Split by what is worth fixing. Telling someone to copy a picture when they have
+mistyped a link is not help, and telling someone to check a link the host is
+refusing outright sends them round in circles.
+
+Every address refusal collapses into `blocked-address` on purpose — a private
+range, a reserved range, a name that does not resolve, a DNS answer that did not
+survive the pin. Separating them would make an endpoint that needs no login into a
+map of what this server's network can reach, one request per answer. The wording
+covers both cases instead.
 
 ## The pre-flight probe
 

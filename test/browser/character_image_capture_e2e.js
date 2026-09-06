@@ -296,7 +296,9 @@ async function exportPressable(page) {
     check("a host that refuses the read still shows its picture",
           !/Image failed to load/i.test(await page.innerText('body')));
 
-    const prompt = /Nothing can read this picture from its host/i;
+    // The offer is identified by its button; the sentence above it varies with
+    // the reason the server gave.
+    const prompt = /Use copied image/i;
     // The builder asks the server about this URL the moment the browser gives up,
     // and says nothing until that answer comes back: the server fetches plenty of
     // pictures the page may not read. Here it cannot -- the URL is loopback, which
@@ -312,6 +314,14 @@ async function exportPressable(page) {
     };
     check('the offer waits for the server to answer, then appears without an export',
           await waitForText(prompt, 15000));
+
+    // Not just THAT it failed but WHY, and which thing is worth fixing. The test
+    // origin is loopback, which this server refuses by design.
+    const shown = await page.innerText('body');
+    check('it says what went wrong, and what to do about it',
+          /That address cannot be fetched/i.test(shown) &&
+          /point straight at an image file/i.test(shown),
+          'reason + the fix that matches it');
 
     await page.screenshot({ path: path.join(OUT, 'host-refused.png'), fullPage: true });
     const refused = await exportSheet(page, 'cors-refused');
