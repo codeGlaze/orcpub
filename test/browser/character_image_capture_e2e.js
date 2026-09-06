@@ -328,6 +328,14 @@ async function exportPressable(page) {
           /point straight at an image file/i.test(shown),
           'reason + the fix that matches it');
 
+    // A notice states the fault. Anything clickable belongs outside it, or the
+    // message becomes a control surface wearing an error's colours.
+    const buttonsInsideNotices = await page.evaluate(() =>
+      [...document.querySelectorAll('.field-notice')]
+        .reduce((n, el) => n + el.querySelectorAll('button, input, a').length, 0));
+    check('no controls are buried inside a notice', buttonsInsideNotices === 0,
+          `${buttonsInsideNotices} found`);
+
     await page.screenshot({ path: path.join(OUT, 'host-refused.png'), fullPage: true });
     const refused = await exportSheet(page, 'cors-refused');
     check('nothing is sent when nothing could be read',
@@ -461,10 +469,11 @@ async function exportPressable(page) {
           await waitForText(/Pinterest page/i, 10000));
 
     await setImageUrl(page, 'i.imgur.com/aBcDeF.png', 300);
-    const offered = await waitForText(/Use this instead/i, 10000);
+    // Offered as a question under the notice, not as a button inside it.
+    const offered = await waitForText(/Did you mean/i, 10000);
     check('a missing scheme is offered as a correction', offered);
     if (offered) {
-      await page.getByText('Use this instead').first().click();
+      await page.locator('.field-suggestion-link').first().click();
       const fixed = await (async () => {
         const until = Date.now() + 8000;
         while (Date.now() < until) {

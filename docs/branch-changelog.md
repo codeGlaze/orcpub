@@ -68,6 +68,11 @@ allowed the builder says so and offers an upload — which no host has a say in.
 
 ## Changed
 
+- Controls live outside notices. A notice says what is wrong; a red panel holding
+  a button, a sentence and a file picker is a control surface wearing an error's
+  colours, and both halves get harder to read. A correction is now a question --
+  "Did you mean https://...?" -- under its notice, and supplying a picture by
+  hand is its own labelled block.
 - Field notices are a component rather than a red line. `.field-notice` carries a
   severity accent, a panel ground and two parts with two jobs: the fault in the
   severity colour, and the instruction -- the only part anyone acts on -- brighter

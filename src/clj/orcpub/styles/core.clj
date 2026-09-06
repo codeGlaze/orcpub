@@ -570,18 +570,43 @@
      :margin-top "4px"
      :opacity "0.75"
      :word-break "break-all"}]
-   ;; The controls a notice offers. Kept out of the severity colour -- a file
-   ;; input's own "No file chosen" would otherwise render red and read as a second
-   ;; fault -- and allowed to wrap, since these sit in a narrow column.
-   [:.field-notice-actions
+   ;; Controls live OUTSIDE the notice. A notice says what is wrong; a panel of
+   ;; buttons and a file picker wearing an error's colours is a control surface
+   ;; pretending to be a message, and it makes the message harder to read and the
+   ;; controls harder to trust.
+   [:.field-remedy
+    {:margin "8px 0 0 0"
+     :padding "8px 10px"
+     :border-radius "4px"
+     :border "1px solid rgba(255, 255, 255, 0.12)"
+     :max-width "520px"
+     :font-size "12px"
+     :line-height "17px"}]
+   [:.field-remedy-title
+    {:display "block"
+     :font-weight "600"
+     :margin-bottom "6px"}]
+   [:.field-remedy-row
     {:display "flex"
      :flex-wrap "wrap"
      :align-items "center"
-     :gap "10px"
-     :margin-top "10px"
-     :color "#ffffff"}
+     :gap "10px"}
     [:button
      {:white-space "nowrap"}]]
+
+   ;; One offered correction for a named fault, sitting under its notice rather
+   ;; than inside it: a question, answered by clicking, not a command.
+   [:.field-suggestion
+    {:margin "6px 0 0 0"
+     :font-size "12px"
+     :line-height "17px"
+     :max-width "520px"}]
+   [:.field-suggestion-link
+    {:color orange
+     :cursor "pointer"
+     :text-decoration "underline"
+     :word-break "break-all"}]
+
    [:.field-notice.is-error {:color red-on-dark}]
    [:.field-notice.is-warning {:color amber-on-dark}]
    [:.field-notice.is-note {:color muted-on-dark}]
@@ -1578,8 +1603,8 @@
       {:background-color "rgba(0, 0, 0, 0.05)"}]
      [:.field-notice-do
       {:color "#1a1e28"}]
-     [:.field-notice-actions
-      {:color "#1a1e28"}]
+     [:.field-remedy
+      {:border "1px solid rgba(0, 0, 0, 0.18)"}]
      [:.field-notice.is-error {:color red}]
      [:.field-notice.is-warning {:color "#8a5a00"}]
      [:.field-notice.is-note {:color "#55637a"}]

@@ -1850,14 +1850,17 @@
    load\" under \"that is the Pinterest page\" is two lines saying one thing, and
    the vaguer of them is the one people read first.
 
+   A correction sits BELOW the notice rather than inside it, and reads as a
+   question answered by clicking. A notice says what is wrong; a button inside one
+   makes it a control surface wearing an error's colours, and both halves get
+   harder to read. It is offered rather than applied for the same reason: the
+   address belongs to the person, and a field that rewrites itself while being
+   typed into is worse than one that says nothing.
+
    Held back until typing stops. The field commits on every keystroke, so advice
    rendered straight from it would object to `htt` on the way to `https://` and
    teach people to ignore it. The load failure is not held back -- it is already
-   an answer about the address as typed.
-
-   A correction is offered as a button rather than applied: the address belongs to
-   the person, and a field that rewrites itself while being typed into is worse
-   than one that says nothing."
+   an answer about the address as typed."
   [_url _failed? _set-fn]
   (let [settled (r/atom nil)
         timer (atom nil)
@@ -1880,11 +1883,12 @@
          (when message
            [:div {:class (notice-class level)}
             [:span.field-notice-what message]
-            (when advice [:span.field-notice-do advice])
-            (when fix
-              [:div.m-t-10
-               [:button.form-button.p-5 {:on-click #(set-fn fix)} "Use this instead"]
-               [:span.field-notice-detail fix]])])]))))
+            (when advice [:span.field-notice-do advice])])
+         (when fix
+           [:div.field-suggestion
+            "Did you mean "
+            [:span.field-suggestion-link {:on-click #(set-fn fix)} fix]
+            "?"])]))))
 
 (def ^:private image-failure-notes
   "What went wrong, and which thing is worth fixing, keyed by the reason the
@@ -1911,24 +1915,24 @@
 (def ^:private image-failure-advice
   {:link (str "Check the link -- it should point straight at an image file, usually "
               "ending .png or .jpg. If it is already right, supply the picture "
-              "instead: right-click it, choose Copy image, then:")
+              "instead.")
    :picture (str "The page is not allowed to read it either, so the sheet will "
-                 "print without it unless you supply the picture: right-click it, "
-                 "choose Copy image, then:")
+                 "print without it unless you supply the picture.")
    :wait (str "It is worth trying again in a minute. If it keeps happening, "
-              "supply the picture instead: right-click it, choose Copy image, "
-              "then:")})
+              "supply the picture instead.")})
 
 (defn image-upload
-  "Says what went wrong and what to do about it, once BOTH routes to the picture
-   are shut.
+  "Says what went wrong, then offers the ways round it as their own block.
 
-   The browser being refused is not enough on its own: the server fetches plenty
-   of pictures the page may not read, so speaking up then would ask for a copy of
-   what was about to arrive. `reach` is the server's own answer about this URL --
-   :asking while it is in flight, :ok when it can be had, and otherwise the reason
-   it cannot, which is what turns a blank space on the sheet into something a
-   person can act on."
+   The browser being refused is not enough on its own to say anything: the server
+   fetches plenty of pictures the page may not read, so speaking up then would ask
+   for a copy of what was about to arrive. `reach` is the server's own answer
+   about this URL -- :asking while it is in flight, :ok when it can be had, and
+   otherwise the reason it cannot, which is what turns a blank space on the sheet
+   into something a person can act on.
+
+   The controls are deliberately outside the notice. All three ways in are local
+   to the machine, so no host has a say in any of them."
   [url state reach]
   (let [note (r/atom nil)]
     (fn [url state reach]
@@ -1938,31 +1942,37 @@
           [:div.f-s-12.m-t-5 "Reading image..."]
 
           (and (= :unavailable state) what)
-          ;; Waiting on a host is a warning; nobody being able to reach it is not.
-          [:div {:class (notice-class (if (= :wait fix) :warning :error))}
-           [:span.field-notice-what what]
-           [:span.field-notice-do (get image-failure-advice fix)]
-           [:div.field-notice-actions
-            [:button.form-button.p-5
-             {:on-click
-              (fn [_]
-                (reset! note "Reading the copied image...")
-                (image-capture/capture-clipboard
-                 (fn [payload]
-                   (reset! note (when-not payload
-                                  "No picture on the clipboard. Copy one first."))
-                   (dispatch [::char5e/image-captured url payload]))))}
-             "Use copied image"]
-            [:span.f-s-12 "or paste it into the field above, or choose a file:"]
-            [:input {:type "file"
-                     :accept "image/png,image/jpeg"
-                     :on-change (fn [e]
-                                  (when-let [file (some-> e .-target .-files (aget 0))]
-                                    (image-capture/capture-file
-                                     file
-                                     #(dispatch [::char5e/image-captured url %]))))}]]
-           (when @note
-             [:span.field-notice-detail @note])]
+          [:div
+           ;; Waiting on a host is a warning; nobody being able to reach it is not.
+           [:div {:class (notice-class (if (= :wait fix) :warning :error))}
+            [:span.field-notice-what what]
+            [:span.field-notice-do (get image-failure-advice fix)]]
+           [:div.field-remedy
+            [:span.field-remedy-title "Supply the picture yourself"]
+            ;; The step that makes the first button work, and it belongs with the
+            ;; button rather than in the notice above.
+            [:div.m-b-5 "Right-click the picture and choose Copy image, then:"]
+            [:div.field-remedy-row
+             [:button.form-button.p-5
+              {:on-click
+               (fn [_]
+                 (reset! note "Reading the copied image...")
+                 (image-capture/capture-clipboard
+                  (fn [payload]
+                    (reset! note (when-not payload
+                                   "No picture on the clipboard. Copy one first."))
+                    (dispatch [::char5e/image-captured url payload]))))}
+              "Use copied image"]
+             [:span "or paste it into the field above, or choose a file:"]
+             [:input {:type "file"
+                      :accept "image/png,image/jpeg"
+                      :on-change (fn [e]
+                                   (when-let [file (some-> e .-target .-files (aget 0))]
+                                     (image-capture/capture-file
+                                      file
+                                      #(dispatch [::char5e/image-captured url %]))))}]]
+            (when @note
+              [:div.m-t-5 @note])]]
 
           :else nil)))))
 
