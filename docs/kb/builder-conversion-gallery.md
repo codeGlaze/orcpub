@@ -487,6 +487,56 @@ Two rows were leaving a gap at the right edge and one control was the wrong heig
   2px short and the row read as misaligned. That was true in **every** builder using a number, not
   just this one; measured, not spotted by eye.
 
+### On a phone
+
+Nobody had looked. `test/e2e/mobile-compare.js` renders at **390px** (iPhone 12/13/14 CSS pixels)
+and reports what actually breaks on a narrow screen — horizontal overflow, touch targets under
+44px, and height, which is where vertical cost is felt most.
+
+| at 390px | bespoke | generated |
+|---|---:|---:|
+| spell | 1587px, 9 controls | 1790px, 10 |
+| language | 905px | **911px** |
+| draconic ancestry | 1229px | **1202px** |
+| horizontal overflow, all builders | 0 | 0 |
+
+The spell form is **~200px taller on a phone**, and it is accountable rather than mysterious: the
+**Page field** (~85px), a **label on the Material Component box** that the hand-written form left
+blank (~25px), and the section spacing scale. Two of those three are deliberate additions.
+
+**Two mobile bugs the shot found, both mine:**
+
+- **Name and Option Source stayed side by side at 390px** with the source input clipped mid-word.
+  The media queries were declared *before* the base `.form-head` rule — same specificity, so source
+  order decides, and the four-track default won. Media queries now come after the rules they
+  override.
+- **Every field collapsed to its own row under 600px.** The hand-written form pairs Level and
+  School at 390px and two short selects genuinely do fit; one-per-row cost ~270px of scrolling for
+  nothing. Phones keep **two tracks** now; only `:text`, `:combo` and `:span :wide` take the full
+  width.
+
+**Not fixed, and it predates this work:** 9 of 10 controls are under the 44px touch-target floor
+(inputs are 40px). The bespoke form has the same problem in the same proportion — 7 of 9 — so it is
+an app-wide input-height question, not a conversion regression.
+
+The overflow metric is scoped to the **form**, not the page: the site header's banner art is
+deliberately wider than the viewport and clipped, and counting it reported 32 overflowing elements
+on every builder — a number that says nothing about the form.
+
+### The combo was invisible
+
+A `<input list=…>` is a dropdown-with-typing, but Chromium draws it as a plain box. The suggestions
+were there — the pin asserts 13 / 29 / 29 options — and **nothing on screen said so**, which is a
+fair reading of "I thought we were offering dropdowns". `:combo` inputs now carry the select's
+chevron and the padding to clear it.
+
+### Stat-block order beats a square row
+
+Page was moved up beside the flags to fill the first row's fourth track. That interrupts the order
+an author transcribes in — a stat block reads level/school, casting time, range, components,
+duration — and a page reference is not part of it. **Page trails the stats now.** The row is less
+square and the form is easier to type into from a book, which is the trade worth taking.
+
 ### Still open on this pair
 
 Not claiming it is finished:

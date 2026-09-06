@@ -335,6 +335,15 @@
     [:> [:.bf-field-boolean    {:grid-column "span 1"}]]
     [:> [:.bf-field-multi-enum {:grid-column "1 / -1"}]]
     [:> [:.bf-field-wide       {:grid-column "span 2"}]]
+    ;; A <input list=…> is a dropdown-with-typing, but Chromium draws it as a plain box: nothing on
+    ;; screen said the suggestions existed, so the combos read as text fields and the feature was
+    ;; invisible. Borrow the select's chevron.
+    [:> [:.bf-field-combo
+         [:input
+          {:background-image "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8'><path d='M1 1l5 5 5-5' stroke='rgba(255,255,255,0.55)' stroke-width='2' fill='none'/></svg>\")"
+           :background-repeat :no-repeat
+           :background-position "right 12px center"
+           :padding-right "32px"}]]]
     [:> [:.bf-field-full       {:grid-column "1 / -1"}]]
     [:> [:.bf-bool-stack       {:grid-column "span 1"}]]
     [:> [:.bf-break            {:grid-column "1 / -1"}]]
@@ -345,14 +354,6 @@
      :flex-wrap :wrap
      :gap "10px 24px"}
     [:.bf-field {:margin-bottom "0 !important"}]]
-   ;; narrow screens get fewer tracks rather than four squeezed ones
-   (at-media {:max-width "900px"}
-             [:.bf-flow {:grid-template-columns "repeat(2, 1fr)"}]
-             [:.form-head {:grid-template-columns "repeat(2, 1fr)"}])
-   (at-media {:max-width "600px"}
-             [:.bf-flow {:grid-template-columns "1fr"}
-              [:> [:.bf-field-text {:grid-column "span 1"}]]]
-             [:.form-head {:grid-template-columns "1fr"}])
    ;; A run of toggles that shares a row with other fields: one column. It was a 102px box holding
    ;; two 16px rows — the children kept their own margins and the column inherited the flow's
    ;; leading — so it overshot the 42px select beside it top and bottom. Explicit gap, no child
@@ -381,6 +382,27 @@
      :gap "18px 14px"}
     [:.form-col {:grid-column "span 2"
                  :min-width 0}]]
+
+   ;; Narrow screens get fewer tracks rather than four squeezed ones. These MUST come after the
+   ;; base rules: same specificity, so source order decides, and declared first they lost to
+   ;; .form-head's four-track default — Name and Option Source stayed side by side at 390px with
+   ;; the source input clipped mid-word.
+   (at-media {:max-width "900px"}
+             [:.bf-flow {:grid-template-columns "repeat(2, 1fr)"}]
+             ;; tablet: name and source stay side by side, one track each
+             [:.form-head {:grid-template-columns "repeat(2, 1fr)"}
+              [:.form-col {:grid-column "span 1"}]])
+   ;; Phones keep TWO tracks, not one. The hand-written form paired Level and School at 390px and
+   ;; two short selects genuinely do fit; collapsing every field to its own row cost ~270px of
+   ;; scrolling for no gain. Only the wide things take the full width.
+   (at-media {:max-width "600px"}
+             [:.bf-flow {:grid-template-columns "repeat(2, 1fr)"}
+              [:> [:.bf-field-text {:grid-column "span 2"}]]
+              [:> [:.bf-field-combo {:grid-column "span 2"}]]
+              [:> [:.bf-field-wide {:grid-column "span 2"}]]]
+             ;; name and source are both text and each wants the width
+             [:.form-head {:grid-template-columns "1fr"}
+              [:.form-col {:grid-column "span 1"}]])
    [:.effect-row-body
     {:padding "12px"}]
    ;; A toggle chip and an ACTION chip must not look alike. In the add-bar a chip means "click to

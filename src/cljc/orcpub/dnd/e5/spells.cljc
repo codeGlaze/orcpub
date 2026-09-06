@@ -4296,9 +4296,6 @@ An affected creature is aware of the spell and can thus avoid answering question
        :options (mapv (fn [sc] {:value sc :title sc}) (sort schools))}
       {:key :ritual :type :boolean :label "Ritual?"}
       {:key :attack-roll? :type :boolean :label "Requires Attack Roll?"}
-      ;; Page rides up beside the flags so the first row fills its four tracks; it is a small number
-      ;; and was leaving a hole at the end of the row below.
-      {:key :page :type :number :label "Page"}
       ;; Combos, not free text. Across the 319 SRD spells there are only 13 distinct casting
       ;; times, 29 ranges and 29 durations — "standard with a few outliers" exactly. The suggestion
       ;; lists are DERIVED from that data rather than typed out here, so they cannot fall behind it,
@@ -4307,9 +4304,12 @@ An affected creature is aware of the spell and can thus avoid answering question
       {:key :range :type :combo :label "Range" :options ranges}
       ;; Duration sits with the spell's own facts. It used to be declared after the components,
       ;; which — once a :section groups the fields that FOLLOW it — put Duration inside Components.
-      ;; Duration takes two tracks: its values are the longest of the three ("Concentration, up to
-      ;; 10 minutes"), and it squares the row at four.
-      {:key :duration :type :combo :label "Duration" :options durations :span :wide}]
+      {:key :duration :type :combo :label "Duration" :options durations}
+      ;; Page TRAILS the stats rather than sitting among them. A stat block reads level/school,
+      ;; casting time, range, components, duration — the order an author transcribes in — and a page
+      ;; reference is not part of it. Putting it beside the flags squared the row at the cost of
+      ;; interrupting that reading order, which is the wrong trade.
+      {:key :page :type :number :label "Page"}]
      ;; components: three flags, then the material text that only means anything with Material on
      [{:key [:components :verbal] :type :boolean :label "Verbal" :section "Components"}
       {:key [:components :somatic] :type :boolean :label "Somatic"}
