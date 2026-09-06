@@ -28,6 +28,11 @@ allowed the builder says so and offers an upload — which no host has a say in.
   the bytes rather than from the mime type the client claimed.
 - The export spec carries `:image-data` and `:faction-image-data`; when they are
   present `/character.pdf` does not fetch at all.
+- Paste, for a host that lets nobody read its pictures. The clipboard carries the
+  DECODED image -- the browser's own "Copy image" put it there -- so none of the
+  host's rules reach it. Two clicks, and no download-and-upload round trip. This
+  is the answer for Pinterest and anything else that refuses page and server
+  alike.
 - An upload under the Image URL field for a host that allows no read. It runs the
   same ceilings, and falls back to the image loader when `createImageBitmap`
   refuses a file the loader renders — it is the stricter decoder of the two.
@@ -46,10 +51,13 @@ allowed the builder says so and offers an upload — which no host has a say in.
 - Exporting is held while a picture is still being read, so the browser's bytes
   win that race instead of falling through to the server. `capture` carries a
   deadline, so a read always ends and the hold is bounded.
-- An oversized picture is scaled as well as re-compressed. Quality is spent first,
-  then pixels, so a picture that is still over the ceiling at 1000px shrinks
-  rather than being abandoned to the server. Measured: a 5.8 MB noise PNG leaves
-  the browser at 37 KB.
+- An oversized picture gives up SIZE before quality, down to what the sheet can
+  actually show -- the portrait box is 2.35 x 3.15 inches, so 945px on the long
+  edge at 300dpi, against a 200x100 thumbnail on screen. Pixels past that cost
+  nothing visible; quality costs something immediately. A picture already smaller
+  than that is never scaled, only re-compressed, and going below it happens last.
+  Measured: a 5.8 MB noise PNG leaves the browser at 92 KB and full quality, where
+  spending quality first had produced 37 KB and a worse picture.
 
 
 - Pictures are read when the thumbnail loads and when the export panel mounts,
@@ -61,6 +69,11 @@ allowed the builder says so and offers an upload — which no host has a say in.
   documented as the fallback it now is.
 
 ## Fixed
+
+- The builder flashed "Image failed to load" at pictures that were fine.
+  `image-error` dispatched when it was CALLED, at render time, rather than
+  returning a handler -- so every fresh URL was marked failed before the browser
+  had tried it, and only the load took the mark back.
 
 - A picture whose host allows no read stopped displaying in the builder. The
   builder marks a URL failed optimistically as soon as the thumbnail renders and

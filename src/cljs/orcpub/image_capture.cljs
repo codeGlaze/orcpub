@@ -33,19 +33,25 @@
    a small file can declare an enormous canvas -- so this is checked separately."
   (* 2000 2000))
 
-(def ^:private encode-attempts
-  "Longest edge in pixels and JPEG quality, tried in order until one fits
-   max-bytes.
+(def ^:private print-edge
+  "Longest edge the sheet can actually show, in pixels.
 
-   Quality is spent before pixels because it costs less of what the sheet shows.
-   The smaller edges exist so a picture that is still over the ceiling at full
-   size has somewhere to go rather than being abandoned -- a photograph of noise
-   compresses badly at every quality, and dropping it would send the address
-   instead and let the server fetch the same oversized file.
+   The portrait box is 2.35 x 3.15 inches and 300dpi is the print target, so 945px
+   on the long side. The in-app thumbnail is 200x100, far smaller, so the printed
+   size is the one that decides. Pixels past this are thrown away by the
+   rasteriser, which is why size is given up before quality: it costs nothing
+   visible until this point, and quality costs something immediately."
+  945)
 
-   1000px is the top because the portrait prints at 2.35 x 3.15 inches, so that is
-   already past 300dpi on the long side."
-  [[1000 0.85] [1000 0.7] [1000 0.55] [700 0.6] [500 0.5] [350 0.4]])
+(def ^:private quality-steps
+  "Tried at the printed size, once size has been given up as far as it can be."
+  [0.92 0.8 0.68 0.55 0.42])
+
+(def ^:private fallback-edges
+  "Below the printed size, and only once quality is spent. A picture that still
+   will not fit at the lowest quality is mostly noise, and shrinking it further
+   loses less than dropping it and sending the address instead."
+  [700 500 350])
 
 (def ^:private capture-deadline-ms
   "Wall clock allowed for one read before it is called unavailable.
@@ -71,6 +77,23 @@
   [source]
   [(or (.-naturalWidth source) (.-width source))
    (or (.-naturalHeight source) (.-height source))])
+
+(defn- long-edge
+  [source]
+  (apply max (dimensions source)))
+
+(defn- encode-attempts
+  "Longest edge and JPEG quality to try, in order, for a picture whose natural
+   long edge is `natural`.
+
+   Size is spent first, but only down to what the sheet can show: a picture
+   already smaller than the printed size is never scaled at all, and just gets the
+   quality ladder. Going below the printed size comes last, when quality alone
+   cannot reach the ceiling."
+  [natural]
+  (let [edge (min natural print-edge)]
+    (concat (for [q quality-steps] [edge q])
+            (for [e fallback-edges :when (< e edge)] [e (last quality-steps)]))))
 
 (defn- draw-scaled
   "Draws `source` onto a fresh canvas with its longest edge at most `edge`,
@@ -108,10 +131,15 @@
     (-> (js/createImageBitmap blob)
         (.then (fn [bitmap]
                  (let [[w h] (dimensions bitmap)]
+                   ;; Carried untouched only when it is inside every limit AND no
+                   ;; bigger than the sheet can show. Anything larger in either
+                   ;; sense goes through the ladder, so size is given up before
+                   ;; quality here too.
                    (if (and (<= (.-size blob) max-bytes)
-                            (<= (* w h) max-pixels))
+                            (<= (* w h) max-pixels)
+                            (<= (max w h) print-edge))
                      (k blob)
-                     (encode-under-cap bitmap encode-attempts k)))))
+                     (encode-under-cap bitmap (encode-attempts (long-edge bitmap)) k)))))
         (.catch (fn [_] (k nil))))
     (catch :default _ (k nil))))
 
@@ -126,7 +154,7 @@
     (set! (.-onload img)
           (fn [_]
             (try
-              (encode-under-cap img encode-attempts k)
+              (encode-under-cap img (encode-attempts (long-edge img)) k)
               (catch :default _ (k nil)))))
     (set! (.-onerror img) (fn [_] (k nil)))
     (prepare! img)

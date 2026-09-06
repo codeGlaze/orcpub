@@ -44,7 +44,14 @@ host rather than the object.
 
 The two lists are largely complementary rather than overlapping: most of the
 right-hand column allows hotlinking, so the server fetches those perfectly well.
-Pinterest and D&D Beyond refuse both, and are upload-or-nothing.
+
+Do NOT read the right-hand column as "these block us". It records only that the
+host sends no `Access-Control-Allow-Origin`. An earlier version of this table
+claimed Pinterest and D&D Beyond refused the server too, on the strength of a 403
+-- but those URLs were invented, and both hosts sit behind S3, which answers
+`AccessDenied` for a key that does not exist. Whether a given host will serve THIS
+server is a question about a real URL, and the answer belongs to the runtime, not
+to a table.
 
 Re-run the probe politely -- a request or two per host, spaced -- rather than in a
 loop; these are other people's servers.
@@ -67,6 +74,14 @@ into a new tab.
 Exporting is held while a read is in flight, so the browser's bytes win the race
 rather than losing it to a click. A read always ends — `capture` carries its own
 deadline — so the hold is bounded.
+
+For a host that lets nobody read its pictures -- refusing the page and the server
+alike -- the way in is PASTE. The browser's own "Copy image" puts the decoded
+picture on the clipboard, and a paste into the Image URL field is read locally, so
+none of the host's rules apply. The offer names that first and the file picker
+second. Nothing here can be done by opening the picture in another tab: that tab
+is a different origin and the opener cannot read it, and a service worker fetching
+it no-cors gets an opaque response whose bytes it cannot read either.
 
 A refused read logs a CORS error in the browser console. That is the browser
 reporting the host's rule and cannot be suppressed by the page.

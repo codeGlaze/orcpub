@@ -1780,18 +1780,24 @@
 (defn set-faction-image-url [v]
   (dispatch [:set-faction-image-url v]))
 
-(defn image-error-fn [event-key image-url]
-  (dispatch [event-key image-url]))
+(defn image-error-fn
+  "Returns the on-error handler.
+
+   It has to RETURN one rather than dispatch when called: this runs at render
+   time, so a bare dispatch marked every fresh URL failed before the browser had
+   tried it. The builder flashed \"Image failed to load\" at pictures that were
+   perfectly fine, and only the subsequent load took the mark back."
+  [event-key image-url]
+  (fn [_] (dispatch [event-key image-url])))
 
 (def image-error (memoize image-error-fn))
 
 (defn image-load-fn
   "Clears the failed flag and asks for the picture's bytes.
 
-   The flag is NOT read here. image-error dispatches as soon as the element is
-   rendered, so at the moment this handler is built the flag is still clear;
-   capturing it would produce a handler that never takes the mark back. The event
-   itself is a no-op when there is nothing to clear.
+   The flag is NOT read here. Capturing it would build a handler that can never
+   take the mark back, since at build time it is still clear. The event itself is
+   a no-op when there is nothing to clear.
 
    The read starts from the load, not from the export click: the export submits a
    form into a new tab synchronously, and an await in between spends the user
@@ -1805,6 +1811,28 @@
     (dispatch [::char5e/capture-image url])))
 
 (def image-load (memoize image-load-fn))
+
+(defn image-paste-fn
+  "Takes a picture pasted into the field and reads it locally.
+
+   This is the route out for a host that allows nobody to read its pictures: the
+   clipboard carries the DECODED image, put there by the browser's own \"Copy
+   image\", so nothing about the host's rules applies to it. Two clicks, and no
+   download-and-upload round trip.
+
+   Keyed by the URL on the character, so the paste stands in for exactly the
+   picture that could not be read."
+  [url]
+  (fn [e]
+    (let [files (some-> e .-clipboardData .-files)]
+      (when (and files (pos? (.-length files)))
+        (when-let [file (aget files 0)]
+          (.preventDefault e)
+          (image-capture/capture-file
+           file
+           #(dispatch [::char5e/image-captured url %])))))))
+
+(def image-paste (memoize image-paste-fn))
 
 (defn image-upload
   "Offers an upload for a picture that has already been through an export unread.
@@ -1826,9 +1854,10 @@
     (and (= :unavailable state) offered?)
     [:div.m-t-5
      [:div.f-s-12.m-b-5
-      "If the PDF printed without this picture, its host allows neither the page
-       nor the server to read it. Upload the file to print it anyway (PNG or
-       JPEG, 128k max):"]
+      "If the PDF printed without this picture, its host lets nobody read it.
+       Right-click the picture, choose Copy image, and paste it into the field
+       above -- the clipboard carries the picture itself, so the host has no say
+       in it. Or choose the file (PNG or JPEG, 128k max):"]
      [:input {:type "file"
               :accept "image/png,image/jpeg"
               :on-change (fn [e]
@@ -1907,6 +1936,7 @@
                       :on-error (image-error :failed-loading-image image-url)
                       :on-load (image-load :loaded-image image-url)}])
       [:div.flex-grow-1
+       {:on-paste (image-paste image-url)}
        [:span.personality-label.f-s-18 "Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/image-url nil set-image-url]
        (when image-url-failed
@@ -1923,6 +1953,7 @@
                       :on-error (image-error :failed-loading-faction-image faction-image-url)
                       :on-load (image-load :loaded-faction-image faction-image-url)}])
       [:div.flex-grow-1
+       {:on-paste (image-paste faction-image-url)}
        [:span.personality-label.f-s-18 "Faction Image URL (128k max image size for PDF)"]
        [character-input entity-values ::char5e/faction-image-url nil set-faction-image-url]
        (when faction-image-url-failed

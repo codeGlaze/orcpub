@@ -369,6 +369,34 @@ async function exportPressable(page) {
           !!upShape, upShape || 'no usable :image-data');
     check('the sheet is drawn with the uploaded picture', hasImage(uploaded.file));
 
+    // ---- paste, for a host that lets nobody read -----------------------------
+    // The clipboard carries the decoded picture, put there by the browser's own
+    // Copy image, so none of the host's rules reach it. This is the route out for
+    // a host that refuses the page AND the server.
+    origin.cors = false;
+    await setImageUrl(page, `${IMG_ORIGIN}/refused-2.png`);
+    await exportSheet(page, 'refused-2');
+
+    await page.evaluate((b64) => {
+      const bin = atob(b64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const dt = new DataTransfer();
+      dt.items.add(new File([arr], 'pasted.png', { type: 'image/png' }));
+      const label = [...document.querySelectorAll('span')]
+        .find(el => /^Image URL/.test(el.textContent));
+      const target = label.parentElement.querySelector('input') || label.parentElement;
+      target.dispatchEvent(new ClipboardEvent('paste',
+        { clipboardData: dt, bubbles: true, cancelable: true }));
+    }, PNG.toString('base64'));
+    await page.waitForTimeout(2500);
+
+    const pasted = await exportSheet(page, 'pasted');
+    const pastedShape = describeImage(imageDataIn(pasted.spec));
+    check('a pasted picture supplies the bytes no host would give',
+          !!pastedShape, pastedShape || 'no :image-data');
+    check('and reaches the sheet', hasImage(pasted.file));
+
     check('no unexpected console errors', errors.length === 0, errors.slice(0, 3).join(' | '));
     if (expected.length) {
       console.log(`note: ${expected.length} expected line(s) — CSP Report-Only, and the CORS`);

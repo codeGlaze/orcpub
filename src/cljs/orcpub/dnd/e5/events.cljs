@@ -1983,11 +1983,9 @@
  :loaded-image
  character-interceptors
  (fn [character _]
-   ;; image-error dispatches optimistically on first render -- it marks the URL
-   ;; failed and the load is what takes that back -- so this has to run on every
-   ;; load rather than only when the flag is already visible to the view, which
-   ;; races the load. Returns the character untouched when nothing is set, so an
-   ;; ordinary load does not count as an edit.
+   ;; Runs on every load rather than only when the view can already see the flag,
+   ;; which races the load. Returns the character untouched when there is nothing
+   ;; to clear, so an ordinary load does not count as an edit.
    (if (get-in character [::entity/values ::char5e/image-url-failed])
      (update character ::entity/values dissoc ::char5e/image-url-failed)
      character)))
