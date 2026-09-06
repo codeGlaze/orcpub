@@ -13,6 +13,7 @@
             [orcpub.dnd.e5.share-bundle :as share-bundle]
             [orcpub.dnd.e5.share-url :as share-url]
             [orcpub.dnd.e5.character :as char5e]
+            [orcpub.image-capture :as image-capture]
             [orcpub.dnd.e5.char-decision-tree :as char-dec5e]
             [orcpub.dnd.e5.backgrounds :as bg5e]
             [orcpub.dnd.e5.languages :as langs5e]
@@ -1561,6 +1562,11 @@
  :set-image-url
  character-interceptors
  (fn [character [_ image-url]]
+   ;; No capture is started here, deliberately. A read asks for the same URL with
+   ;; crossOrigin set, and on a host that sends no Access-Control-Allow-Origin
+   ;; that request fails -- if it goes out FIRST, the thumbnail's own plain
+   ;; request fails with it and the picture stops displaying at all. The read is
+   ;; started from the thumbnail's load instead, which cannot run ahead of it.
    (update character
            ::entity/values
            assoc
@@ -1976,20 +1982,82 @@
 (reg-event-db
  :loaded-image
  character-interceptors
- (fn [character []]
-   (update character
-           ::entity/values
-           dissoc
-           ::char5e/image-url-failed)))
+ (fn [character _]
+   ;; Runs on every load rather than only when the view can already see the flag,
+   ;; which races the load. Returns the character untouched when there is nothing
+   ;; to clear, so an ordinary load does not count as an edit.
+   (if (get-in character [::entity/values ::char5e/image-url-failed])
+     (update character ::entity/values dissoc ::char5e/image-url-failed)
+     character)))
 
 (reg-event-db
  :loaded-faction-image
  character-interceptors
- (fn [character []]
-   (update character
-           ::entity/values
-           dissoc
-           ::char5e/faction-image-url-failed)))
+ (fn [character _]
+   (if (get-in character [::entity/values ::char5e/faction-image-url-failed])
+     (update character ::entity/values dissoc ::char5e/faction-image-url-failed)
+     character)))
+
+;; ── Character pictures read in the browser ───────────────────────────────────
+;;
+;; The bytes live in app-db under :image-bytes and NOT on the character. They are
+;; derived from the URL and re-read whenever it loads, and the character is what
+;; gets persisted -- to the server, and to localStorage, whose ~5 MB ceiling a
+;; base64 portrait would eat into for no gain.
+;;
+;; Keyed by URL rather than by character, so a portrait shared between characters
+;; is read once and a character whose URL changes does not strand its old bytes.
+
+(reg-event-fx
+ ::char5e/capture-image
+ (fn [{:keys [db]} [_ url]]
+   ;; Idempotent: a URL already read, already refused, or still in flight is left
+   ;; alone, so every mount and every image load may ask without cost.
+   (if (or (empty? url) (contains? (:image-bytes db) url))
+     {}
+     {:db (assoc-in db [:image-bytes url] :pending)
+      ::capture-image url})))
+
+(reg-fx
+ ::capture-image
+ (fn [url]
+   (image-capture/capture url #(dispatch [::char5e/image-captured url %]))))
+
+(reg-event-fx
+ ::char5e/image-captured
+ (fn [{:keys [db]} [_ url payload]]
+   ;; :unavailable is a result, not an absence -- it stops the URL being read again
+   ;; on every render, and it is what sends the question to the server.
+   (let [db (assoc-in db [:image-bytes url] (or payload :unavailable))]
+     (if payload
+       {:db db}
+       ;; The browser was refused. Ask the server NOW rather than at export time:
+       ;; the export posts a form into a new tab and never sees the answer, so
+       ;; asking here is the only way the builder can say something useful instead
+       ;; of printing a sheet with a hole in it. It also keeps the export click
+       ;; synchronous, which is what stops the tab being popup-blocked.
+       {:db (assoc-in db [:image-server-reach url] :asking)
+        :dispatch [::char5e/probe-server-image url]}))))
+
+(reg-event-fx
+ ::char5e/probe-server-image
+ (fn [_ [_ url]]
+   {:http {:method :post
+           :url (url-for-route routes/image-probe-route)
+           :transit-params {:url url}
+           :on-success [::char5e/server-image-answer url]
+           :on-failure [::char5e/server-image-answer url]}}))
+
+(reg-event-db
+ ::char5e/server-image-answer
+ (fn [db [_ url response]]
+   ;; The server names a reason and never a sentence: the wording lives in the
+   ;; builder, so nothing the server says can end up in front of a person
+   ;; unedited. A request that did not arrive is its own reason.
+   (assoc-in db [:image-server-reach url]
+             (if (= 200 (:status response))
+               (keyword (:body response))
+               :unreachable))))
 
 ;; ── Inline "Custom" options ──────────────────────────────────────────────────
 ;; The :set-custom-* events write a typed name to ::entity/value on the character

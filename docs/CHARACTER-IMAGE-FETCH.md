@@ -1,20 +1,202 @@
 # Character image fetch — how it works, and what to check when it breaks
 
-A character's portrait and faction image are stored as **URLs**. When a sheet is
-exported, the **server** fetches them and embeds the pixels in the PDF. That is
-the only outbound request OrcPub makes to an address a visitor chose, on an
-endpoint that needs no login, so it is deliberately hemmed in — and the hemming is
-what usually breaks first.
+A character's portrait and faction image are stored as **URLs**. Three ways the
+pixels reach the PDF, tried in that order:
+
+1. **The browser reads them and sends the bytes with the export.** The normal
+   path. Hosts that block hotlinking judge the Referer and the datacenter IP,
+   neither of which describes the visitor's own browser.
+2. **The server fetches the URL itself.** For a picture the browser was refused.
+   The builder asks about it up front — `POST /image-probe`, see below — so it
+   knows the answer before anyone clicks Export. This is the only outbound request
+   OrcPub makes to an address a visitor chose, on an endpoint that needs no login,
+   so it is deliberately hemmed in.
+3. **Paste, or a file.** Local to the machine, so no host has a say. This is the
+   way in for a host that refuses everyone.
+
+The user is told nothing until step 2 has answered. An offer at the moment the
+browser gives up would ask for a paste of a picture the server was about to fetch.
 
 Read this if portraits stop appearing in exported PDFs, or if a security review
 asks what `/character.pdf` can be made to talk to.
 
-- Code: `orcpub.pdf` — `validated-addresses`, `private-address?`,
-  `pinned-connection-manager`, `proxied?`, `open-image-stream`,
-  `read-bounded-bytes`, `within-pixel-budget?`, `safe-image-bytes`
-- Tests: `test/clj/orcpub/pdf_image_test.clj` (which URLs are allowed),
-  `test/clj/orcpub/pdf_image_fetch_test.clj` (what happens once one is)
-- Background: `docs/kb/pdf-form-techniques.md`
+- Code, browser side: `orcpub.image-capture` — `capture`, `capture-file`,
+  `normalize`, `read-drawn`
+- Code, server side: `orcpub.pdf` — `decode-image-bytes` (path 1),
+  and `validated-addresses`, `private-address?`, `pinned-connection-manager`,
+  `proxied?`, `open-image-stream`, `read-bounded-bytes`,
+  `within-pixel-budget?`, `safe-image-bytes` (path 2)
+- Tests: `test/clj/orcpub/pdf_supplied_image_test.clj` (bytes the browser sent),
+  `test/clj/orcpub/pdf_image_test.clj` (which URLs are allowed),
+  `test/clj/orcpub/pdf_image_fetch_test.clj` (what happens once one is),
+  `test/browser/character_image_capture_e2e.js` (both paths through the real app)
+- Background, and what was tried that cannot work:
+  `docs/kb/character-image-routes.md`
+- PDF internals: `docs/kb/pdf-form-techniques.md`
+
+## Measured against real hosts (2026-09-06)
+
+With a browser that can reach the real internet (see `test/browser/README.md` for
+the TLS flag that takes), against **real** URLs rather than invented ones:
+
+| host | browser reads it | server fetches it |
+|---|---|---|
+| `i.imgur.com` | yes | yes |
+| `cdn.discordapp.com` | yes | yes |
+| `upload.wikimedia.org` | yes (42 KB after fitting) | yes |
+| `i.pinimg.com` | no | **yes** (393 KB, fitted) |
+| `www.dndbeyond.com` | no | **yes** (148 KB, fitted) |
+
+Pinterest serves this server a 200 and 393 KB of JPEG; a D&D Beyond avatar is a
+200 and 148 KB. Neither ever blocked us. What
+refused it was our own 128 KB ceiling, applied to the download rather than to the
+document — now split in two, so a heavy picture is fitted instead of dropped. A
+Pinterest portrait reaches the sheet with nothing asked of the user.
+
+## Which hosts allow the browser to read (measured 2026-09-05)
+
+The browser can only read a picture whose host sends `Access-Control-Allow-Origin`.
+Sampled with a browser-shaped request; ACAO is set at the edge, so it holds for the
+host rather than the object.
+
+| Allows the read | Does not |
+|---|---|
+| `i.imgur.com` `*` | `i.pinimg.com` |
+| `cdn.discordapp.com` `*` | `www.dndbeyond.com` |
+| `static.wikia.nocookie.net` (Fandom) `*` | `i.postimg.cc` |
+| `upload.wikimedia.org` `*` | `i.ibb.co` |
+| `cdna.artstation.com` `*` | `live.staticflickr.com` |
+| `images-wixmp-…` (DeviantArt), echoes Origin | `www.dropbox.com` |
+| `lh3.googleusercontent.com`, `64.media.tumblr.com`, `raw.githubusercontent.com` `*` | `i.redd.it` |
+
+The two lists are largely complementary rather than overlapping: most of the
+right-hand column allows hotlinking, so the server fetches those perfectly well.
+
+Do NOT read the right-hand column as "these block us". It records only that the
+host sends no `Access-Control-Allow-Origin`. An earlier version of this table
+claimed Pinterest and D&D Beyond refused the server too, on the strength of a 403
+-- but those URLs were invented, and both hosts sit behind S3, which answers
+`AccessDenied` for a key that does not exist. Whether a given host will serve THIS
+server is a question about a real URL, and the answer belongs to the runtime, not
+to a table.
+
+Re-run the probe politely -- a request or two per host, spaced -- rather than in a
+loop; these are other people's servers.
+
+## What is known before anything is fetched
+
+`orcpub.image-url/advise` reads the address alone -- no request, no waiting -- and
+is where most real mistakes are caught, because most of them are visible in the
+string:
+
+- **A page's address instead of the picture's.** The commonest paste there is:
+  a Pinterest pin page, an Imgur gallery, a Reddit post, a Flickr or DeviantArt or
+  ArtStation page. A fetch can only report these as a puzzle; the string says
+  plainly what they are.
+- **A login wall.** Instagram and Facebook links cannot work for anyone.
+- **A malformed address.** No scheme, a scheme that is not the web, a space in the
+  middle from a half-copied link.
+- **`http://`,** which the page's own CSP will not display whatever the host does.
+  This one is not offered but VERIFIED and applied: the browser loads the https
+  address itself -- a plain `<img>`, no server, and the same request the thumbnail
+  was about to make -- and the field is changed only once that succeeds, with a
+  note saying so. A host that serves no https is told, and its address is left
+  exactly as typed.
+- **Viewer links with a known direct form** -- Dropbox `?dl=0`, Google Drive
+  `/file/d/<id>/view` -- which are offered as a correction to take or leave.
+
+A correction is only ever offered where it is mechanical. Nothing guesses a
+picture's address from a page's; it says what the page is and how to get the real
+one. The advice is debounced, because the field commits on every keystroke and
+advice that objects to `htt` on the way to `https://` teaches people to ignore it.
+
+Advice, not enforcement. The rules that must hold are enforced where they cannot
+be argued with -- address validation on the server, CORS in the browser -- so this
+is free to be occasionally wrong, and its weakest rule (an unknown host with no
+file name) is only a note.
+
+## What the builder tells a person, and why
+
+`/image-probe` answers a REASON, not a boolean, and the builder turns it into
+wording. The server never sends a sentence: keeping the words on the client means
+nothing the server says can reach a person unedited.
+
+| reason | shown as | what it points at |
+|---|---|---|
+| `ok` | nothing | the server can fetch it |
+| `blocked-address` | that address cannot be fetched, check the host name and that it is a public image | the link |
+| `not-found` | the host says there is nothing there | the link |
+| `redirect` | the link redirects rather than being the picture | the link |
+| `not-an-image` | not a PNG or JPEG | the link |
+| `unreachable` | that host could not be reached | the link |
+| `refused` | the host refused to serve it to us | supply the picture |
+| `too-large` | larger than 2 MB | supply the picture |
+| `too-many-pixels` | larger than 2000x2000 | supply the picture |
+| `timeout` | the host took too long | supply the picture |
+| `host-error` | the host had an error of its own | supply the picture |
+| `rate-limited` | the host is asking us to slow down | try again shortly |
+| `unknown` | could not be fetched | supply the picture |
+
+Split by what is worth fixing. Telling someone to copy a picture when they have
+mistyped a link is not help, and telling someone to check a link the host is
+refusing outright sends them round in circles.
+
+Every address refusal collapses into `blocked-address` on purpose — a private
+range, a reserved range, a name that does not resolve, a DNS answer that did not
+survive the pin. Separating them would make an endpoint that needs no login into a
+map of what this server's network can reach, one request per answer. The wording
+covers both cases instead.
+
+## The pre-flight probe
+
+`POST /image-probe` with `{:url "..."}` answers `"true"` or `"false"`: whether
+THIS server can fetch THAT picture. The builder asks as soon as a browser read
+fails, not at export time — the export posts a form into a new tab and never sees
+the response, and an await between the click and the submit would spend the user
+activation that keeps the tab from being blocked.
+
+- The bytes are kept (`probed-images`, 10 minutes, 64 entries) so the export that
+  follows costs the host no second request. A negative answer is cached too.
+- It answers a boolean and never the picture. Handing back fetched bytes would
+  make an endpoint that needs no login into a general-purpose proxy for anything
+  inside the size limits.
+- Every address rule that guards the export guards this: private and reserved
+  ranges, scheme, redirects. Otherwise it would be a port scanner returning one
+  boolean per request. `test/clj/orcpub/image_probe_test.clj` holds that line.
+
+## Which path a picture took
+
+Both ceilings — 128 KB and 2000×2000 — apply to both paths. Bytes from the
+browser arrive base64 in `:image-data` / `:faction-image-data` and are decoded by
+`decode-image-bytes`, which applies those ceilings and reads the format from the
+bytes rather than from the mime type the client claimed. When they are present the
+server does not fetch at all, so none of the failures in the table below can occur.
+
+When the browser cannot read a picture the export goes out with the address and
+the server tries instead. **Nothing is said to the user at that point** — an offer
+there would ask for an upload of what the server was about to fetch. The upload is
+offered only after an export has gone out with the picture unread, and worded
+conditionally, because this page never sees the export's response: the form posts
+into a new tab.
+
+Exporting is held while a read is in flight, so the browser's bytes win the race
+rather than losing it to a click. A read always ends — `capture` carries its own
+deadline — so the hold is bounded.
+
+For a host that lets nobody read its pictures -- refusing the page and the server
+alike -- the way in is PASTE. The browser's own "Copy image" puts the decoded
+picture on the clipboard, and a paste into the Image URL field is read locally, so
+none of the host's rules apply. The offer names that first and the file picker
+second. Nothing here can be done by opening the picture in another tab: that tab
+is a different origin and the opener cannot read it, and a service worker fetching
+it no-cors gets an opaque response whose bytes it cannot read either.
+
+A refused read logs a CORS error in the browser console. That is the browser
+reporting the host's rule and cannot be suppressed by the page.
+
+A picture drawn off a canvas is re-encoded to JPEG at up to 1000px on the long
+edge, which is past 300dpi for the 2.35 × 3.15 inch box it prints in. An uploaded
+file already inside both ceilings is carried untouched.
 
 ## Symptoms and what they mean
 
@@ -26,7 +208,7 @@ thing to grep for.
 |---|---|---|
 | Portrait missing, host is internal or a bare IP | `:image-url-not-permitted` | The address is private or reserved. Working as intended — see the ranges below. |
 | Portrait missing, public host | `:image-load-failed` with a `:status` | The host answered non-2xx. A `302` means it tried to redirect; redirects are refused on purpose. |
-| Portrait missing, large image | `:image-too-large` | Over 128 KB, either declared or measured mid-stream. |
+| Portrait missing, large image | `:image-too-large` | Over the 2 MB **download** ceiling. The 128 KB ceiling is separate and applies to what goes INTO the PDF: a picture between the two is scaled and re-encoded to fit, not refused. |
 | Portrait missing, big dimensions | `:image-too-large-dimensions` | Over 2000×2000, refused from the header before decoding. |
 | Portrait missing, slow host | `:image-transfer-timeout` | The body took more than 20s. |
 | Portrait missing, unreadable file | `:invalid-image-format` | Not an image, or a format ImageIO cannot read. |

@@ -8,6 +8,12 @@
 (def orange "#f0a100")
 (def button-color orange)
 (def red "#9a031e")
+;; One red cannot serve both themes: #9a031e reads at about 9:1 on white and about
+;; 2:1 on the app's near-black ground, under half the readable minimum. The dark
+;; theme is the default and takes red-on-dark; .app.light-theme takes red back.
+(def red-on-dark "#ff6b6b")
+(def amber-on-dark "#f5b942")
+(def muted-on-dark "#9fb0c3")
 (def green "#70a800")
 (def cyan "#47eaf8")      ; import log, conflict rename option
 (def purple "#8b7ec8")    ; conflict skip option
@@ -348,11 +354,12 @@
 
     [:a :a:visited
      {:color green}]]
+   ;; Dark theme is the default; .app.light-theme overrides this below.
    [:.red
-    {:color red}
+    {:color red-on-dark}
 
     [:a :a:visited
-     {:color red}]]
+     {:color red-on-dark}]]
    [:.uppercase
     {:text-transform :uppercase}]
    [:.bg-trans
@@ -528,6 +535,58 @@
      :max-width "320px"
      :margin "4px 0 6px 0"
      :opacity "0.75"}]
+
+   ;; ONE line under a field: one problem, one sentence, at most one action. Only
+   ;; the most actionable of the things that may be wrong is shown; the rest waits
+   ;; behind the disclosure. See docs/kb/character-image-routes.md.
+   [:.field-notice
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "baseline"
+     :gap "8px"
+     :margin "6px 0 0 0"
+     :padding "6px 10px"
+     :border-radius "4px"
+     :border-left "3px solid currentColor"
+     :background-color "rgba(255, 255, 255, 0.06)"
+     :font-size "12px"
+     :line-height "18px"
+     :max-width "560px"}]
+   [:.field-notice-what
+    {:flex "1 1 260px"}]
+   ;; The one action a notice may carry, and only ever one. Set as a link rather
+   ;; than a button: a notice that grows a control panel stops reading as a
+   ;; message. Form controls belong in .field-remedy, never here.
+   [:.field-notice-action
+    {:background "none"
+     :border "none"
+     :padding "0"
+     :font-size "12px"
+     :font-family "inherit"
+     :color orange
+     :cursor "pointer"
+     :text-decoration "underline"
+     :white-space "nowrap"
+     :word-break "break-all"}]
+   [:.field-notice.is-error {:color red-on-dark}]
+   [:.field-notice.is-warning {:color amber-on-dark}]
+   [:.field-notice.is-note {:color muted-on-dark}]
+
+   ;; The other ways in, behind the disclosure. Plain on purpose: controls, not a
+   ;; second warning.
+   [:.field-remedy
+    {:display "flex"
+     :flex-wrap "wrap"
+     :align-items "center"
+     :gap "10px"
+     :margin "6px 0 0 0"
+     :padding "8px 10px"
+     :border-radius "4px"
+     :border "1px solid rgba(255, 255, 255, 0.12)"
+     :max-width "560px"
+     :font-size "12px"}
+    [:button
+     {:white-space "nowrap"}]]
 
    [:.image-thumbnail
     {:max-height "100px"
@@ -1511,6 +1570,19 @@
 
     [:.app.light-theme
      {:background-image "linear-gradient(182deg, #FFFFFF, #DDDDDD)"}
+
+     ;; A red that carries on near-black washes out on white, and the notice's
+     ;; ground has to darken rather than lighten.
+     [:.red
+      {:color red}
+      [:a :a:visited {:color red}]]
+     [:.field-notice
+      {:background-color "rgba(0, 0, 0, 0.05)"}]
+     [:.field-remedy
+      {:border "1px solid rgba(0, 0, 0, 0.18)"}]
+     [:.field-notice.is-error {:color red}]
+     [:.field-notice.is-warning {:color "#8a5a00"}]
+     [:.field-notice.is-note {:color "#55637a"}]
 
      [:select
       {:font-family font-family

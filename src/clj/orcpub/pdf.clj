@@ -33,7 +33,6 @@
             [orcpub.common :as common]
             [orcpub.dnd.e5.magic-items :as mi]
             [orcpub.dnd.e5.display :as dis5e]
-            [orcpub.dnd.e5.monsters :as monsters]
             [orcpub.dnd.e5.options :as options]
             [clj-http.client :as client])
   (:import (java.io ByteArrayOutputStream)
@@ -59,7 +58,10 @@
            (java.net UnknownHostException)
            (org.apache.pdfbox.pdmodel.font PDType1Font PDFont PDType0Font Standard14Fonts$FontName)
            (org.apache.pdfbox.text PDFTextStripper)
-           (javax.imageio ImageIO)
+           (javax.imageio ImageIO IIOImage ImageWriteParam)
+           (javax.imageio.stream MemoryCacheImageOutputStream)
+           (java.awt RenderingHints)
+           (java.awt.image BufferedImage)
            (java.net URL)))
 
 ;; The Base 14 fonts, present in every PDF reader. Constructed once at load time.
@@ -70,10 +72,6 @@
 (def HELVETICA_BOLD
   "Standard Helvetica font (bold weight, upright)"
   (PDType1Font. Standard14Fonts$FontName/HELVETICA_BOLD))
-
-(def HELVETICA_OBLIQUE
-  "Standard Helvetica font (regular weight, italic/oblique)"
-  (PDType1Font. Standard14Fonts$FontName/HELVETICA_OBLIQUE))
 
 (def HELVETICA_BOLD_OBLIQUE
   "Standard Helvetica font (bold weight, italic/oblique)"
@@ -1389,10 +1387,19 @@
 
 (def user-agent "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.22 (KHTML, like Gecko) Chrome/25.0.1364.172")
 
-(def ^:private max-image-bytes
-  "The 128k the character builder has always advertised next to the Image URL
-   field. It was label text and nothing enforced it."
+(def ^:private max-embedded-bytes
+  "What a picture may weigh once it is IN the PDF. The 128k the character builder
+   has always advertised next to the Image URL field."
   (* 128 1024))
+
+(def ^:private max-image-bytes
+  "What the server is willing to DOWNLOAD, which is a different question.
+
+   Not the same number as max-embedded-bytes, and holding them equal is the defect
+   this split fixed: a 393 KB portrait a host served without complaint was refused
+   for weight. What bounds the danger is the pixel budget below, which caps the
+   decode, and the transfer deadline, which caps the time."
+  (* 2 1024 1024))
 
 (def ^:private max-image-pixels
   "Width x height ceiling, checked from the header BEFORE any pixels are
@@ -1612,7 +1619,7 @@
         (let [len (some-> (get-in resp [:headers "content-length"]) Long/parseLong)]
           (when (and len (> len max-image-bytes))
             (some-> ^java.io.InputStream (:body resp) .close)
-            (throw (ex-info "Image is larger than the 128k limit"
+            (throw (ex-info "Image is larger than the download limit"
                             {:error :image-too-large :url url :bytes len}))))
         [(:body resp) cm])
       (catch Exception e
@@ -1664,7 +1671,7 @@
          (cond
            (neg? n) (.toByteArray out)
            (> (+ total n) max-image-bytes)
-           (throw (ex-info "Image is larger than the 128k limit"
+           (throw (ex-info "Image is larger than the download limit"
                            {:error :image-too-large :bytes (+ total n)}))
            :else (do (.write out buf 0 n) (recur (+ total n)))))))))
 
@@ -1755,11 +1762,137 @@
       (println "ERROR: Failed to draw image for PDF:" (.getMessage e))
       nil)))
 
+(defn- jpeg-bytes?
+  "Whether `data` opens with the JPEG start-of-image marker.
+
+   Sniffed rather than read from a mime type: this decides whether bytes are
+   embedded as they are or decoded and re-encoded, and a blob labelled image/jpeg
+   that is not one fails the embed."
+  [^bytes data]
+  (and (>= (alength data) 3)
+       (= 0xFF (bit-and 0xFF (aget data 0)))
+       (= 0xD8 (bit-and 0xFF (aget data 1)))
+       (= 0xFF (bit-and 0xFF (aget data 2)))))
+
+(def ^:private print-edge
+  "Longest edge the sheet can show, in pixels. The portrait box is 2.35 x 3.15
+   inches and 300dpi is the print target. orcpub.image-capture does the same
+   arithmetic in the browser; the two have to agree or one of them is wasting
+   bytes the other would have kept."
+  945)
+
+(def ^:private fit-attempts
+  "Longest edge and JPEG quality, tried in order until the result fits
+   max-embedded-bytes. Size is given up before quality, for the reason the
+   browser gives it up first: pixels past what the sheet prints cost nothing
+   visible, and quality costs something immediately."
+  [[945 0.92] [945 0.8] [945 0.68] [945 0.55] [700 0.6] [500 0.5] [350 0.4]])
+
+(defn- scaled-copy
+  ^BufferedImage [^BufferedImage img edge]
+  (let [w (.getWidth img)
+        h (.getHeight img)
+        f (min 1.0 (/ (double edge) (double (max w h))))
+        nw (int (max 1 (Math/round (* w f))))
+        nh (int (max 1 (Math/round (* h f))))
+        out (BufferedImage. nw nh BufferedImage/TYPE_INT_RGB)
+        g (.createGraphics out)]
+    (try
+      (.setRenderingHint g RenderingHints/KEY_INTERPOLATION
+                         RenderingHints/VALUE_INTERPOLATION_BILINEAR)
+      (.drawImage g img 0 0 nw nh nil)
+      (finally (.dispose g)))
+    out))
+
+(defn- jpeg-at
+  "JPEG bytes for `img` at `quality`."
+  ^bytes [^BufferedImage img quality]
+  (let [writer (.next (ImageIO/getImageWritersByFormatName "jpeg"))
+        out (ByteArrayOutputStream.)]
+    (try
+      (with-open [ios (MemoryCacheImageOutputStream. out)]
+        (.setOutput writer ios)
+        (let [param (.getDefaultWriteParam writer)]
+          (.setCompressionMode param ImageWriteParam/MODE_EXPLICIT)
+          (.setCompressionQuality param (float quality))
+          (.write writer nil (IIOImage. img nil nil) param)))
+      (finally (.dispose writer)))
+    (.toByteArray out)))
+
+(defn- fit-for-sheet
+  "Scales and re-encodes `data` until it is no larger than the sheet can show and
+   no heavier than the PDF should carry, or hands it back untouched when it is
+   already both. Returns {:data bytes :jpg? bool}, or nil if it cannot be decoded.
+
+   The ceiling belongs on what goes INTO the document, not on what may be
+   fetched."
+  [^bytes data]
+  (when-let [img (ImageIO/read (java.io.ByteArrayInputStream. data))]
+    (if (and (<= (alength data) max-embedded-bytes)
+             (<= (max (.getWidth img) (.getHeight img)) print-edge))
+      {:data data :jpg? (jpeg-bytes? data)}
+      (loop [attempts fit-attempts]
+        (when-let [[edge q] (first attempts)]
+          (let [candidate (jpeg-at (scaled-copy img edge) q)]
+            (if (<= (alength candidate) max-embedded-bytes)
+              {:data candidate :jpg? true}
+              (recur (rest attempts)))))))))
+
 (defn jpeg-url?
   "Whether `url` names a JPEG, and so whether its bytes embed without re-encoding."
   [url]
   (let [lower (s/lower-case (str url))]
     (or (s/ends-with? lower "jpg") (s/ends-with? lower "jpeg"))))
+
+(defn- failure-reason
+  "A coarse, reportable reason a picture could not be had.
+
+   Coarse on purpose. Every address refusal -- a private range, a reserved range,
+   a DNS answer that did not survive the pin -- collapses into one code, so the
+   answer cannot be read back as a map of what this server can and cannot reach.
+   The rest describe the HOST's behaviour, which the asker could observe anyway,
+   and are what turn a blank sheet into something a person can act on."
+  [e]
+  (let [{:keys [error status]} (ex-data e)]
+    (or (case error
+          (:image-url-not-permitted :image-pin-mismatch) :blocked-address
+          :image-too-large            :too-large
+          :image-too-large-dimensions :too-many-pixels
+          :image-transfer-timeout     :timeout
+          :invalid-image-format       :not-an-image
+          :image-load-failed (cond
+                               (nil? status)             :unreachable
+                               (<= 300 status 399)       :redirect
+                               (= 404 status)            :not-found
+                               ;; Temporary, and worth saying so: telling someone
+                               ;; their picture is unusable when the host is only
+                               ;; asking us to slow down sends them off to find
+                               ;; another one for no reason.
+                               (= 429 status)            :rate-limited
+                               (#{401 403 407 451} status) :refused
+                               (<= 500 status 599)       :host-error
+                               :else                     :refused)
+          nil)
+        (let [root (loop [x e] (if-let [c (.getCause ^Throwable x)] (recur c) x))]
+          (condp instance? root
+            java.net.UnknownHostException   :unreachable
+            java.net.ConnectException       :unreachable
+            java.net.SocketTimeoutException :timeout
+            :unknown)))))
+
+(defn fetch-image-outcome
+  "Fetches `url` and returns {:image {:data :jpg?}} or {:reason keyword}.
+
+   The reason is what lets the builder say something a person can act on -- a 404
+   and a 2 MB photograph are the same blank space on the sheet otherwise."
+  [url]
+  (try
+    (if-let [image (fit-for-sheet (safe-image-bytes url))]
+      {:image image}
+      {:reason :not-an-image})
+    (catch Exception e
+      (println "pdf: image unavailable -" (.getMessage e) "-" url)
+      {:reason (failure-reason e)})))
 
 (defn fetch-image
   "Fetches `url` and returns {:data bytes :jpg? bool}, or nil if it cannot be had.
@@ -1771,10 +1904,36 @@
    to -- so a caller does NOT need to call safe-image-url? first, and a caller
    that does resolves the host twice."
   [url]
+  (:image (fetch-image-outcome url)))
+
+(def ^:private max-image-base64
+  "Ceiling on the ENCODED string, so an oversized image is refused before a byte
+   array is allocated to hold it. Base64 spends four characters on every three
+   bytes, plus padding."
+  (+ 4 (quot (* 4 max-embedded-bytes) 3)))
+
+(defn decode-image-bytes
+  "Image bytes the browser read, as {:data bytes :jpg? bool}, or nil.
+
+   Every ceiling safe-image-bytes applies is applied here too. These arrive from
+   the same untrusted client that supplies the URL, so sending bytes skips the
+   fetch and nothing else; in particular the pixel budget is still read from the
+   header, because a small file can declare an enormous canvas.
+
+   Returns nil rather than throwing, for the reason fetch-image does: a picture
+   that cannot be used must cost the character their picture, not their sheet."
+  [b64]
   (try
-    {:data (safe-image-bytes url) :jpg? (jpeg-url? url)}
+    (when (and (string? b64)
+               (not (s/blank? b64))
+               (<= (count b64) max-image-base64))
+      (let [data (.decode (java.util.Base64/getDecoder) ^String b64)]
+        (when (and (pos? (alength data))
+                   (<= (alength data) max-embedded-bytes)
+                   (within-pixel-budget? data))
+          {:data data :jpg? (jpeg-bytes? data)})))
     (catch Exception e
-      (println "pdf: image unavailable -" (.getMessage e) "-" url)
+      (println "pdf: supplied image bytes rejected -" (.getMessage e))
       nil)))
 
 (defn draw-image! [doc page url x y width height]
@@ -2122,9 +2281,6 @@
             :when (not (and (zero? dx) (zero? dy)))]
       (draw-text cs text font font-size (+ x dx) (+ y dy) [1 1 1]))
     (draw-text cs text font font-size x y [0 0 0])))
-
-(defn draw-text-from-top [cs text font font-size x y & [color]]
-  (draw-text cs text font font-size x (- 11.0 y) color))
 
 (defn draw-line
   "Draw a line. PDFBox 3.x removed drawLine — use moveTo/lineTo/stroke."
@@ -3480,87 +3636,3 @@
                                               (if clause (:continued up) (:continued-bare up))))))
              {:remaining-lines remaining-desc-lines
               :spell-name item-name}))))))))
-
-#_{:clj-kondo/ignore [:unused-private-var]}
-(defn- create-monsters-pdf
-  "Development/testing function that generates a sample monster stat block PDF.
-   
-   This function is not used in production - it's a utility for testing PDF
-   generation during development. The output is saved to a temporary file.
-   
-   Returns: The temp file path where the PDF was saved."
-  []
-  (let [page (PDPage.)
-        doc (PDDocument.)]
-    (.addPage doc page)
-    (with-open [cs (PDPageContentStream. doc page)]
-      (let [h (/ 11.0 5)]
-        (doseq [y (range h 11.0 h)]
-          (draw-line-in cs 0.0 y 8.5 y))
-        (let [monsters (vec (take 5 monsters/monsters))]
-          (doseq [i (range 0 5)]
-            (let [monster (monsters i)]
-              (draw-text-from-top cs
-                                  (:name monster)
-                                  HELVETICA_BOLD
-                                  14
-                                  0.1
-                                  (+ (* i h) 0.25))
-              (draw-text-from-top cs
-                                  (monsters/monster-subheader monster)
-                                  HELVETICA_OBLIQUE
-                                  12
-                                  0.1
-                                  (+ (* i h) 0.45))
-              (doseq [j (range 0 6)]
-                (let [ability ([:str :dex :con :int :wis :cha] j)
-                      x (+ 0.15 (* 0.65 j))]
-                  (draw-text-from-top cs
-                                      (name ability)
-                                      HELVETICA_BOLD
-                                      10
-                                      x
-                                      (+ (* i h) 0.7))
-                  (draw-text-from-top cs
-                                      (str (ability monster)
-                                           " ("
-                                           (options/ability-bonus-str (ability monster))
-                                           ")")
-                                      HELVETICA
-                                      12
-                                      x
-                                      (+ (* i h) 0.85))))
-              (draw-text-from-top cs
-                                  "Saving Throws"
-                                  HELVETICA_BOLD
-                                  10
-                                  0.1
-                                  (+ (* i h) 1.1))
-              (draw-text-from-top cs
-                                  (common/print-bonus-map (:saving-throws monster))
-                                  HELVETICA
-                                  10
-                                  (+ 0.1 (string-width
-                                          "Saving Throws "
-                                          HELVETICA_BOLD
-                                          10))
-                                  (+ (* i h) 1.1))
-              (draw-text-from-top cs
-                                  "Skills"
-                                  HELVETICA_BOLD
-                                  10
-                                  0.1
-                                  (+ (* i h) 1.3))
-              (draw-text-from-top cs
-                                  (common/print-bonus-map (:skills monster))
-                                  HELVETICA
-                                  10
-                                  (+ 0.1 (string-width
-                                          "Skills "
-                                          HELVETICA_BOLD
-                                          10))
-                                  (+ (* i h) 1.3)))))))
-    ;; Save to a cross-platform temp file instead of a hardcoded path.
-    ;; java.io.File/createTempFile creates a file in the system temp directory
-    ;; and returns a File object that PDDocument.save() accepts.
-    (.save doc (java.io.File/createTempFile "monsters" ".pdf"))))
