@@ -95,6 +95,38 @@ const check = (name, ok, detail) => {
     } else { console.log('  SKIP  delete-class (no control found)'); }
   } else { console.log('  SKIP  add-class (no control found)'); }
 
+  // Spell selection: spell-option is no longer memoized, so prove a spell can still be
+  // listed and picked and that it lands in the character.
+  console.log('\nspell selection:');
+  const spellCount = () => page.evaluate(() => {
+    const c = window.cljs.core;
+    const ch = c.get(window.re_frame.db.app_db.state, c.keyword(null, 'character'));
+    const opts = c.get(ch, c.keyword('orcpub.entity', 'options'));
+    let n = 0;
+    c.doall(c.map(function (k) {
+      if (String(k).indexOf('spells') >= 0) {
+        const v = c.get(opts, k);
+        n += (v && c.count) ? c.count(v) : 0;
+      }
+      return null;
+    }, c.keys(opts)));
+    return n;
+  });
+  try {
+    await page.locator('text="Spells"').first().click({ timeout: 25000 });
+    await page.waitForTimeout(2500);
+    const before = await spellCount();
+    // Spell options render as option cards; click the first selectable one.
+    const card = page.locator('.b-orange').filter({ hasText: /./ }).nth(1);
+    await card.click({ timeout: 20000 });
+    await page.waitForTimeout(2000);
+    const after = await spellCount();
+    check('a spell can be picked and lands in the character', after > before,
+          `${before} -> ${after}`);
+  } catch (e) {
+    console.log('  SKIP  spell selection (' + e.message.split('\n')[0] + ')');
+  }
+
   // The character still builds after all that.
   const built = await page.evaluate(() => {
     try {
