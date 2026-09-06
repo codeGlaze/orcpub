@@ -54,6 +54,64 @@ only ships the *switcher UI* — there is no `--surface` / `--line` / `--muted` 
 that lands, those literals need the same treatment the accent just got. **Do not invent those tokens
 here**; take them from the redesign branch when it defines them.
 
+## How the OMV elements meet the generated builder — the actual question
+
+`option_menu_views.cljs` ("OMV") is a **shared view layer for growable multi-select menus**. Two of
+its components land directly on field types the builder framework already has.
+
+### `select-menu` replaces `:enum`, and removes a documented bug class
+
+```clojure
+[omv/select-menu {:value v :options [[value label] …] :on-change f :placeholder "…"}]
+```
+
+A button + popover, alignment-controllable, dismissing on outside click — because a native
+`<select>`'s popup is OS-positioned and cannot be styled.
+
+**The important part is the data path.** `render-builder-field`'s `:enum` renders the app's
+`dropdown` with **index-based option values** — `{:value (str i)}` — purely to survive the fact that
+a `<select>`'s value is always a string, so a keyword or int cannot round-trip. That workaround is
+`dropdown-value-coercion.md` / D32, and it exists because the un-worked-around version shipped a
+broken breath weapon. `select-menu` hands `on-change` **the real value**. Adopting it deletes the
+index dance and the class of bug with it.
+
+### `option-menu` covers `:multi-enum` at scale, and one blocking primitive
+
+`option-menu` is a full multi-select panel: search box, selected-chips tray, N-of-M count + Clear,
+wildcards ("choose any N"), collapsible section header, and three layouts (`:grid` / `:pills` /
+`:az`) chosen by a **global, persisted** `layout-toggle` — flip it once and every menu re-renders.
+
+- `:multi-enum` (currently chips) is fine for three classes and wrong for eighty monsters.
+  `option-menu` is the version that scales, and callers supply options already normalized plus an
+  optional `cell-fn`, so the chrome is shared while per-option rendering stays family-specific.
+- **"Options from a subscription" — listed in `builder-conversion-gallery.md` as the blocking
+  primitive for the encounter builder — is what `option-menu` is for.** Encounter's creature rows
+  need a live monster/character list; that is the same shape as the menus OMV already renders.
+
+### `:combo` survives, narrowly
+
+`:combo` (an `<input list>`: suggestions plus arbitrary free text) is not the same control. Casting
+time has 13 canonical values *and real outliers* — an author must be able to type
+"3 rounds and a wink". `option-menu` is a closed list with search. Keep `:combo` for
+**short canonical list + free text**; use `option-menu` for **long closed list**.
+
+### What would have to give
+
+| | |
+|---|---|
+| **Layout is app-wide state** | The menu layout is a persisted global, not a per-field choice. A builder field that delegates to `option-menu` must not hard-code a layout — the user owns it. |
+| **Two chip vocabularies** | OMV has `opt-menu-chip` for its selected tray; the builder has `.chip` / `.chip-toggle`. No CSS collision (checked), but two chip looks in one app is a design decision someone should make deliberately. |
+| **`.chip` and `.tag` are unnamespaced** | They do not collide with the redesign today. They are exactly the kind of generic name that bit once already (`.field`), in a 3,000-line utility stylesheet. Worth prefixing when something forces the churn. |
+| **Accent** | Already handled — the builder reads `var(--accent, #f0a100)`. Surfaces are not; see above. |
+
+### The strategic point
+
+The redesign rewrites **~2,400 lines of `views.cljs`**, which is where every builder lives — so the
+two branches collide most in exactly the file this work is shrinking. A converted builder is ~10
+lines where a bespoke one is 100–270. **Converting builders makes that merge smaller, not bigger**,
+and the conversions that reuse existing vocabulary (per §5b of `builder-form-schemas.md`) are the
+cheapest way to shrink it.
+
 ## Overlap worth reconciling before either branch merges
 
 - **`option_menu_views.cljs` (610 lines) is a searchable option picker.** The builder framework has
