@@ -546,6 +546,10 @@
      {}
      flat-options)))
 
+#_ ;; DEPRECATED 2026-09-06 — unreferenced (make-path-map calls make-path-map-aux directly). Also a memoize keyed on a whole
+   ;; character/template/plugin map: cljs.core/memoize looks its cache up with `get` on a
+   ;; PersistentArrayMap, a linear scan comparing keys with `=`, so such a key is
+   ;; deep-compared on every call. Remove once the site has run without it.
 (def memoized-make-path-map-aux (memoize make-path-map-aux))
 
 (defn make-path-map [character]
@@ -660,6 +664,10 @@
 (defn build-aux [raw-entity template]
   (apply-options raw-entity template))
 
+#_ ;; DEPRECATED 2026-09-06 — unreferenced (build calls build-aux directly). Also a memoize keyed on a whole
+   ;; character/template/plugin map: cljs.core/memoize looks its cache up with `get` on a
+   ;; PersistentArrayMap, a linear scan comparing keys with `=`, so such a key is
+   ;; deep-compared on every call. Remove once the site has run without it.
 (def memoized-build-aux (memoize build-aux))
 
 (defn build [raw-entity template]
@@ -730,6 +738,10 @@
    template
    plugins))
 
+#_ ;; DEPRECATED 2026-09-06 — unreferenced (callers use build-template-aux directly). Also a memoize keyed on a whole
+   ;; character/template/plugin map: cljs.core/memoize looks its cache up with `get` on a
+   ;; PersistentArrayMap, a linear scan comparing keys with `=`, so such a key is
+   ;; deep-compared on every call. Remove once the site has run without it.
 (def memoized-build-template-aux (memoize build-template-aux))
 
 (defn build-template [raw-entity template]

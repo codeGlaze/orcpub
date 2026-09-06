@@ -1439,6 +1439,9 @@
 (defn remaining-adjustments-fn [built-template character]
   #(Math/abs (entity/count-remaining built-template character %)))
 
+#_ ;; DEPRECATED 2026-09-06 — unreferenced; the caller below uses remaining-adjustments-fn
+   ;; directly. Also keyed on [built-template character], both large — see the
+   ;; DO-NOT-MEMOIZE note above set-class-fn. Remove once the site has run without it.
 (def remaining-adjustments (memoize remaining-adjustments-fn))
 
 (defn sum-remaining [built-template character selections]
