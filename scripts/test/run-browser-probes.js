@@ -172,6 +172,23 @@ function run(probe, pack, budgetMs) {
     console.log('       .lein-env, and the server comes up against the wrong database.)\n');
   }
 
+  // An untimed click swallowed by .catch() waits playwright's full 30s default and then
+  // discards the failure. Two probes carried it: 270s of one and 120s of another, invisible,
+  // because every assertion still passed. Cheap to grep for, so grep for it.
+  const offenders = [];
+  for (const f of fs.readdirSync(path.join(ROOT, 'test/browser')).filter(f => f.endsWith('.js'))) {
+    const src = fs.readFileSync(path.join(ROOT, 'test/browser', f), 'utf8');
+    src.split('\n').forEach((l, i) => {
+      if (/\.click\(\s*\)\s*\.catch/.test(l) && !l.trim().startsWith('//')) offenders.push(`${f}:${i + 1}`);
+    });
+  }
+  if (offenders.length) {
+    console.log('WARNING: untimed .click().catch() — each miss costs a 30s default timeout,');
+    console.log('         silently. Use clickIfVisible(), or pass { timeout }.');
+    for (const o of offenders) console.log(`         ${o}`);
+    console.log('');
+  }
+
   const baseline = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : {};
   const observed = {};
   console.log(`running ${queue.length} probe(s), ${jobs} at a time\n`);
