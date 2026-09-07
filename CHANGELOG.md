@@ -11,7 +11,7 @@ House style and the branch → release fold: [`docs/branch-changelog.template.md
 
 ### Highlights
 
-The **My Content** homebrew library is now manageable — see, organize, disable, move, and de-conflict your content, with imports and exports that no longer spawn silent duplicates or false warnings. Characters that used to blank-screen on a bad load now recover in place, and printable spell cards and card backs read cleanly in black and white.
+You can now move and copy homebrew between sources, turn content off without deleting it, and see in one place what needs fixing, with imports and exports that no longer spawn silent duplicates or false warnings. Characters that used to blank-screen on a bad load now recover in place, and printable spell cards and card backs read cleanly in black and white.
 
 ### Fixed
 

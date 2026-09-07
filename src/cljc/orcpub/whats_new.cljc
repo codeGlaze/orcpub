@@ -15,8 +15,8 @@
     :items
     [{:group "Your homebrew library"
       :icon "fa-folder-open"
-      :headline "My Content is a real library"
-      :detail "Move or copy content between sources, turn it off at four levels, search inside a source, and read one health card that names anything needing attention."}
+      :headline "Move homebrew between your sources"
+      :detail "Move or copy content from one source to another, turn a single item or a whole source off without deleting it, search inside a source, and read one health card that names anything needing attention."}
      {:group "Your homebrew library"
       :icon "fa-medkit"
       :headline "Broken homebrew is repaired, not dropped"
