@@ -673,6 +673,25 @@
     {:background-color "rgba(0, 0, 0, 0.2)"
      :border-radius "4px"}]
 
+   ;; A small neutral pill for naming things inline -- the items a feature covers,
+   ;; the styles a sheet comes in. Same shape as .lib-badge without its reason
+   ;; colours or its row-specific margin, so it reads as a label rather than as a
+   ;; status. .chip-row lays a set of them out and lets them wrap.
+   [:.chip
+    {:display "inline-flex"
+     :align-items :center
+     :font-size "11px"
+     :font-weight 600
+     :padding "3px 9px"
+     :border-radius "999px"
+     :line-height 1.4
+     :background-color "rgba(255, 255, 255, 0.08)"
+     :border "1px solid rgba(255, 255, 255, 0.14)"}]
+   [:.chip-row
+    {:display :flex
+     :flex-wrap :wrap
+     :gap "6px"}]
+
    ;; Neutral counterpart to .bg-warning, for a callout that is telling you
    ;; something rather than warning you: same box, no severity colour, so an
    ;; offer or an explanation does not read as a problem to fix.
