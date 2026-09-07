@@ -65,15 +65,46 @@ const ONLY = (process.env.ONLY || '').split(',').filter(Boolean);
     // column shows the same controls and reads far worse — the generated spell form ran 100px
     // TALLER than the hand-written one while showing one control FEWER, and a count-only gallery
     // reported that as an improvement. Height is what catches lost cohesion.
+    // LABELS, not just controls. A control count is written against one rendering and goes blind
+    // the moment that rendering changes: checkbox -> chip and <select> -> popover each made a
+    // counter miss controls entirely, and twice the number did not move while controls actually
+    // DISAPPEARED. A field's label survives its control changing shape, so this is the measure that
+    // catches a vanished field. See docs/kb/before-you-start.md.
+    const labels = await page.evaluate(() => {
+      const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+      return [...document.querySelectorAll('#app .p-20 .f-w-b, #app .p-20 .opt-section-title')]
+        .filter(e => vis(e) && e.children.length === 0 && e.textContent.trim()).length;
+    });
     const height = await page.evaluate(() => document.querySelector('#app').scrollHeight);
     await shot(page, path.join(dir, `${seg}.jpg`));
     const broke = errors.length > before;
-    rows.push({ seg, controls, height, broke });
-    console.log(`${broke ? 'ERR ' : '    '}${seg.padEnd(28)} ${String(controls).padStart(3)} controls  ${String(height).padStart(5)}px`);
+    rows.push({ seg, controls, labels, height, broke });
+    console.log(`${broke ? 'ERR ' : '    '}${seg.padEnd(28)} ${String(controls).padStart(3)} controls  ` +
+                `${String(labels).padStart(3)} labels  ${String(height).padStart(5)}px`);
   }
   await browser.close();
 
   fs.writeFileSync(path.join(dir, 'index.json'), JSON.stringify({ label: LABEL, rows }, null, 2));
+
+  // Diff against the committed baseline. A field that disappears shows up here as a label drop even
+  // when the control count cannot see it — which is the case this exists for.
+  const basePath = path.join(__dirname, 'builder-baseline.json');
+  if (fs.existsSync(basePath)) {
+    const base = JSON.parse(fs.readFileSync(basePath, 'utf8'));
+    const byseg = Object.fromEntries(base.rows.map(r => [r.seg, r]));
+    let drift = 0;
+    for (const r of rows) {
+      const b = byseg[r.seg];
+      if (!b) { console.log(`NEW      ${r.seg}`); continue; }
+      if (b.labels !== r.labels || b.controls !== r.controls) {
+        drift++;
+        console.log(`DRIFT    ${r.seg.padEnd(26)} labels ${b.labels}->${r.labels}   controls ${b.controls}->${r.controls}`);
+      }
+    }
+    console.log(drift ? `\n${drift} builder(s) drifted from the baseline. If deliberate, re-record it:\n` +
+                        `  cp ${path.join(dir, 'index.json')} test/e2e/builder-baseline.json`
+                      : '\nno drift from the baseline');
+  }
   console.log(`\n${rows.length} builders -> ${dir}`);
   process.exit(rows.some(r => r.broke) ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(2); });

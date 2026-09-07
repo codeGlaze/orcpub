@@ -256,6 +256,11 @@
     {:align-items :flex-end}]
    [:.flex-wrap
     {:flex-wrap :wrap}]
+   ;; ==== BUILDER-FORM CSS: START ====================================================
+   ;; Everything between these sentinels is rendered by the declarative builder framework, and is
+   ;; gated by builder_class_names_test: each class must be prefixed (bf-/opt-/select-menu) or on
+   ;; that test's allow-list. Move the sentinels if the block moves — the test says so when it
+   ;; cannot find them. See docs/kb/before-you-start.md.
    ;; :rows form layout. A bonus is a small number and its tags are short dropdowns; giving either
    ;; the page width is what made the flat fighting-style form a scroll (builder-conversion-gallery.md).
    ;; Effect rows, ported from the approved mockup at docs/kb/assets/builder-form-mockup.html.
@@ -560,6 +565,7 @@
     [:input
      {:text-align :center
       :font-weight 700}]]
+   ;; ==== BUILDER-FORM CSS: END ======================================================
 
    [:.w-auto
     {:width :auto}]

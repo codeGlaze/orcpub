@@ -1,0 +1,112 @@
+{
+  "label": "grid",
+  "rows": [
+    {
+      "seg": "language-builder",
+      "controls": 4,
+      "labels": 2,
+      "height": 1000,
+      "broke": false
+    },
+    {
+      "seg": "boon-builder",
+      "controls": 4,
+      "labels": 2,
+      "height": 1000,
+      "broke": false
+    },
+    {
+      "seg": "invocation-builder",
+      "controls": 4,
+      "labels": 2,
+      "height": 1000,
+      "broke": false
+    },
+    {
+      "seg": "draconic-ancestry-builder",
+      "controls": 7,
+      "labels": 3,
+      "height": 1000,
+      "broke": false
+    },
+    {
+      "seg": "fighting-style-builder",
+      "controls": 10,
+      "labels": 5,
+      "height": 1056,
+      "broke": false
+    },
+    {
+      "seg": "background-builder",
+      "controls": 184,
+      "labels": 22,
+      "height": 2639,
+      "broke": false
+    },
+    {
+      "seg": "feat-builder",
+      "controls": 135,
+      "labels": 17,
+      "height": 2612,
+      "broke": false
+    },
+    {
+      "seg": "selection-builder",
+      "controls": 3,
+      "labels": 2,
+      "height": 1000,
+      "broke": false
+    },
+    {
+      "seg": "spell-builder",
+      "controls": 24,
+      "labels": 11,
+      "height": 1405,
+      "broke": false
+    },
+    {
+      "seg": "encounter-builder",
+      "controls": 4,
+      "labels": 3,
+      "height": 1000,
+      "broke": false
+    },
+    {
+      "seg": "monster-builder",
+      "controls": 117,
+      "labels": 52,
+      "height": 2616,
+      "broke": false
+    },
+    {
+      "seg": "race-builder",
+      "controls": 244,
+      "labels": 40,
+      "height": 3324,
+      "broke": false
+    },
+    {
+      "seg": "subrace-builder",
+      "controls": 199,
+      "labels": 31,
+      "height": 3026,
+      "broke": false
+    },
+    {
+      "seg": "subclass-builder",
+      "controls": 44,
+      "labels": 14,
+      "height": 1577,
+      "broke": false
+    },
+    {
+      "seg": "class-builder",
+      "controls": 73,
+      "labels": 27,
+      "height": 2566,
+      "broke": false
+    }
+  ],
+  "recorded": "2026-09-07",
+  "note": "Baseline for builder-gallery.js. A label or control drop here means a field vanished. If a change is deliberate, re-record and say why in the commit."
+}

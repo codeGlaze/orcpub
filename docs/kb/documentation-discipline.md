@@ -93,3 +93,28 @@ three added this session). One should absorb the other; `test/e2e/` is the docum
 
 **Rule added from this audit:** before designing anything, `git log -S` the key identifier and grep the
 KB for the branch name. Both take under a minute and would have prevented all three re-derivations.
+
+## Surfacing review lessons where they are needed (2026-09-07)
+
+A session's worth of review produced a dozen rules — check the branches before designing, namespace
+a CSS class, a metric goes blind when a control changes shape — and every one was written into the
+document where it was *learned*. The KB is indexed by topic, so an agent about to name a CSS class
+would have to read a spell-conversion gallery to find the lesson about naming CSS classes. It would
+not.
+
+Three tiers now, cheapest first:
+
+1. **[before-you-start.md](before-you-start.md)** — the same lessons indexed by **task**. One screen,
+   "if you are about to X, check Y, evidence Z". Linked first in the README.
+2. **Enforced where it can be.** A rule a machine can check should not be a paragraph:
+   - `builder_class_names_test` fails on an unprefixed builder CSS class. It found a dead allow-list
+     entry the day it was written.
+   - `builder-gallery.js` counts **labels** as well as controls and diffs against
+     `test/e2e/builder-baseline.json`. A control count is written against one rendering and goes
+     blind when that changes; a label survives. Verified by deleting a field and watching it fail.
+3. **The narrative stays where it happened** — the gallery, the redesign notes. That is where the
+   reasoning belongs; the checklist only carries the check.
+
+**The test for whether this worked** is not that the page exists. It is whether the next session's
+review finds *new* problems rather than the same ones. Add an entry only when a review catches
+something a rule would have caught.

@@ -47,6 +47,11 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 | [content-tiers-and-key-resolution.md](content-tiers-and-key-resolution.md) · [key-collision-behavior.md](key-collision-behavior.md) · [library-management-and-conflicts.md](library-management-and-conflicts.md) · [keyword-trap-name-repair.md](keyword-trap-name-repair.md) · [orcbrew-format-versioning.md](orcbrew-format-versioning.md) · [demo-content-tier.md](demo-content-tier.md) | Content library, key resolution, import/export conflicts, format versioning, and the demo tier. | High |
 | [built-character-representation.md](built-character-representation.md) | **Load-bearing gotcha:** the built/computed character is a map of deferred `:entity-fn?` values (read via `entity-val`), NOT a flat map — don't `spec/keys` it. | High — code |
 
+### Start here for any task
+| Document | Topic |
+|----------|-------|
+| [before-you-start.md](before-you-start.md) | **Review lessons indexed by TASK, not by topic.** What to check before designing a control, adding a CSS class, changing how something is rendered, converting a builder, borrowing a value from a mock, or believing a CSS change worked. Every entry is a rule a review had to supply, with one line of evidence. |
+
 ### Builders + authored mechanics (this branch, 2026-09)
 | Document | Topic | Source quality |
 |----------|-------|---------------|
