@@ -81,15 +81,18 @@ a specific language lets a race offer a language *choice*, because the hook does
 it. **This is the years-old duplication the pool/grant initiative was started to fix**
 (`content-extensibility-direction.md`).
 
-### ✅ LANDED — second pool, second silo
+### ✅ LANDED — the registry (see content-extensibility-direction.md §4 for the full record)
 
-`:languages` is registered and `race-option` takes the registry (`template.cljc:1507`,
-`options.cljc:2531`). A race's `{:grant {:from :languages :choose 2}}` now offers a language choice,
-`{:key :elvish}` forces one, `{:filter #{…}}` narrows — with no per-pool code in `race-option`.
-`language-option` now carries the language's own `:key` so `:key`/`:filter` can address entries;
-verified a no-op for saved data, since `name-to-kw` already equalled `:key` for all 16 built-ins.
-Pinned by `race_grant_pool_test.clj` (7 tests), including that the legacy shape-2 path still
-compiles. No builder writes `:grant` yet — this is the data path only.
+`grant_pools.cljc` is the registry; `::e5/grantable-pools` assembles it; `template-selections`
+takes that one map. `:languages`, `:fighting-styles` and `:skills` are registered, and `race-option`
+compiles `:grant` alongside `feat-option-from-cfg`. A race's `{:grant {:pool :languages :count 2}}`
+offers a language choice, `{:key :elvish}` forces one, `{:filter #{…}}` narrows.
+
+Registering the third pool cost one entry and nothing else — the direction doc's acceptance gate.
+`language-option` now carries the language's own `:key` (a no-op for saved data: `name-to-kw`
+already equalled `:key` for all 16 built-ins), and the built-in language list moved out of
+`spell_subs.cljs` into `languages.cljc` so cljc can read it. No builder writes `:grant` yet — this
+is the data path only.
 
 ## 2. The AC work landed a general vocabulary. The feat builder never got it.
 
@@ -172,9 +175,10 @@ number. That is the one thing worth a unit test.
 
 Feat is not a conversion. It is three jobs that happen to meet in one builder, in this order:
 
-1. ✅ **DONE — register a second pool and thread `grantable-pools` to one more silo.** Proved the
-   bridge prototype generalises: registry entry + one more assembly-fn arg, hook untouched (§1b).
-   Next along this line: `subrace-option` (mirrors `race-option`), then a `:skills`/`:tools` pool.
+1. ✅ **DONE — the pool registry.** Three pools registered, two silos wired, the acceptance gate
+   measured and met (§1b). Next along this line: the grant-authoring UI, which is what turns a
+   registered pool into a control in every builder — the lever the direction doc has been pointing
+   at since the first slice. `subrace-option` is a one-line thread whenever it is wanted.
 2. **Extend** — drop `(bf/effect-rows)` into feat's `extra-fields` and the six AC/weapon props
    become authorable. Already written, already tested in fighting style. One line, independent of
    step 1, and worth doing whenever (§2).
@@ -220,6 +224,14 @@ compiler arm in the feat builder (§3), no `:modifiers` in the Custom Feat list.
   wired to and reading the gaps as capability gaps, without checking the `:profs` path that sits
   beside them. Rewritten as what the evidence actually supports: five storage shapes for one
   question. The narrower one-sided claims that survive are listed in §1.
+- **I re-litigated a settled design.** After finding `grant-selection`, I worked up a three-option
+  analysis of where a pool registry should live, complete with a "two families" objection (open
+  plugin-backed pools vs fixed vocabularies) and a "fighting styles are shaped differently"
+  objection. Both were already answered: `content-extensibility-direction.md` lists `:ability` and
+  `:speed` as pools beside `:spell`, and states that pool-kind logic belongs in each pool's own
+  definition — so the `:built-in-compiled?` key I was about to add was the named anti-pattern. The
+  design had one registry, self-registering pools, scoping metadata and a ~1-line acceptance gate
+  already written down. Grep the KB before designing, not after.
 - **§6 originally led with the `bf/effect-rows` extension.** Reordered once `grant-selection` was
   found: extending feat is a one-line win but silo-local, while registering a second pool is what
   actually unblocks every other builder. The extension keeps its place as an independent step.

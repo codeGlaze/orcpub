@@ -166,6 +166,32 @@ offering the `:boon` pool — **no boon↔feat wiring.**
      `:props` map (extra mechanics — speed/flying/saves/skills/languages), compiled by the
      **existing** `opt5e/plugin-modifiers` vocabulary. Built-ins unchanged.
 
+4. ✅ DONE — **the pool REGISTRY, and the maintainability gate met.** `grant_pools.cljc` is the
+   single registry; `::e5/grantable-pools` assembles it from `plugin-vals`; `template-selections`
+   takes that one map and hands it to every assembly fn that compiles a `:grant`.
+   - **The gate, measured.** Registering `:skills` — the third pool — cost **one entry in
+     `grant_pools.cljc` and nothing else**: no change to `template-selections`, no new sub, no
+     arity, no assembly fn. That is the "~1-line registration, shown in a commit" acceptance
+     test this doc sets, and it passes. Before this, registering a pool cost five positionally
+     coupled edits across three files (a `:<-` line, a destructure slot, a call argument, a new
+     arity, a map entry) — transpose two and you get the wrong pool with no error.
+   - **Discipline 1 held.** A pool's entry is `(fn [plugin-vals] -> [option-cfg …])`, not a
+     description. The three registered pools disagree about what a built-in *is* — languages and
+     draconic hold raw data, fighting styles' built-ins are already option-cfgs, skills have no
+     homebrew half — and each absorbs that itself. `assemble` and `grant-selection` contain no
+     branch over pool kind. An earlier draft of this work proposed a `:built-in-compiled?`
+     descriptor key; that is the D14 god-function trap hoisted one level, and it was rejected.
+   - **Open vs closed is data, not a mechanism.** A closed pool ignores `plugin-vals`. That is the
+     whole difference, exactly as "blank-slate parametric grants are just built-in pools" says.
+   - **Vocabulary converged on the decided spelling.** `grant-selection` reads `{:pool … :count …}`;
+     `{:from … :choose …}` (the bridge prototype's spelling) is kept as an alias.
+   - **Scoping metadata declared.** Each pool carries `:offerable-by` — "which builders may offer
+     me". No builder UI consumes it yet; the grant-authoring UI remains the next lever.
+   - Pools registered: `:languages`, `:fighting-styles`, `:skills`. Silos wired: feat, race.
+   - Tests: `grant_pool_registry_test.clj` (the gate + the two disciplines),
+     `race_grant_pool_test.clj` (both verbs through the hook, on the real registry).
+   - Still open: no builder emits `:grant`. This is the data path only.
+
 ### Validation against official expansion (Fizban's Treasury of Dragons, FTD)
 Checked FTD because it officially expands draconic ancestry — a real stress-test, not theory.
 It expands along **three axes**, and the pool model maps cleanly onto where each lands:

@@ -2,6 +2,7 @@
   (:require [re-frame.core :refer [reg-sub reg-sub-raw dispatch #_subscribe]]
             [orcpub.common :as common]
             [orcpub.template :as t]
+            [orcpub.dnd.e5 :as e5]
             [orcpub.dnd.e5.spell-subs]
             [orcpub.dnd.e5.modifiers :as mod5e]
             [orcpub.dnd.e5.magic-items :as mi5e]
@@ -319,7 +320,7 @@
  :<- [::classes5e/classes]
  :<- [::feats5e/feats]
  :<- [::langs5e/language-map]
- :<- [::classes5e/fighting-style-pool]
+ :<- [::e5/grantable-pools]
  (fn [[magic-weapon-options
        magic-armor-options
        other-magic-item-options
@@ -332,7 +333,7 @@
        classes
        feats
        language-map
-       fighting-style-pool] _]
+       grantable-pools] _]
    (t5e/template-selections magic-weapon-options
                             magic-armor-options
                             other-magic-item-options
@@ -345,7 +346,7 @@
                             classes
                             feats
                             language-map
-                            fighting-style-pool)))
+                            grantable-pools)))
 
 (reg-sub
  ::char5e/template

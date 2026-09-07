@@ -26,6 +26,7 @@
             [orcpub.dnd.e5.options :as opt5e]
             [orcpub.dnd.e5.content-types :as ct]
             [orcpub.dnd.e5.content-pools :as pools]
+            [orcpub.dnd.e5.grant-pools :as grant-pools]
             [orcpub.dnd.e5.starting-equipment-ledger :as sel]
             [orcpub.dnd.e5.orcbrew-validation :as orcbrew-val]
             [orcpub.route-map :as routes]
@@ -769,39 +770,9 @@
     acolyte-bg
     plugin-backgrounds)))
 
-(def languages
-  [{:name "Common"
-    :key :common}
-   {:name "Dwarvish"
-    :key :dwarvish}
-   {:name "Elvish"
-    :key :elvish}
-   {:name "Giant"
-    :key :giant}
-   {:name "Gnomish"
-    :key :gnomish}
-   {:name "Goblin"
-    :key :goblin}
-   {:name "Halfling"
-    :key :halfling}
-   {:name "Orc"
-    :key :orc}
-   {:name "Abyssal"
-    :key :abyssal}
-   {:name "Celestial"
-    :key :celestial}
-   {:name "Draconic"
-    :key :draconic}
-   {:name "Deep Speech"
-    :key :deep-speech}
-   {:name "Infernal"
-    :key :infernal}
-   {:name "Primordial"
-    :key :primordial}
-   {:name "Sylvan"
-    :key :sylvan}
-   {:name "Undercommon"
-    :key :undercommon}])
+;; The built-in language list moved to languages.cljc so a cljc pool registry can read it.
+;; This var is kept as an alias: existing readers here are unchanged.
+(def languages langs5e/languages)
 
 (reg-sub
  ::langs5e/languages
@@ -1057,6 +1028,15 @@
 
 ;; Two shapes, one source. Feats grant from the POOL (option cfgs, all styles); a class's own
 ;; choice takes the RAW entries, because the `:classes` divvying rule reads authored data.
+;; THE grantable-pool registry, resolved. One sub for every pool: registering a pool is an entry in
+;; grant_pools.cljc and nothing here, which is the acceptance gate the direction doc sets. Derives
+;; from ::e5/plugin-vals — the single resolved-content seam every pool must read through.
+(reg-sub
+ ::e5/grantable-pools
+ :<- [::e5/plugin-vals]
+ (fn [plugin-vals _]
+   (grant-pools/assemble plugin-vals)))
+
 (reg-sub
  ::classes5e/fighting-style-pool
  :<- [::classes5e/homebrew-fighting-styles]

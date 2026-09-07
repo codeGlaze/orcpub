@@ -3935,25 +3935,29 @@
      key (assoc :key key))))
 
 (defn grant-selection
-  "GENERIC cross-bucket grant. Given `:grant {:from <pool-key> …}` data and a `grantable-pools`
+  "GENERIC cross-bucket grant. Given `:grant {:pool <pool-key> …}` data and a `grantable-pools`
    registry ({pool-key {:name … :options [...]}}), produce a choice from that pool. Four modes:
-     {:from p}                 -> ALL entries (choose N, default 1)
-     {:from p :filter #{…}}    -> a FILTERED subset (entries whose ::t/key is in the set)
-     {:from p :key :k}         -> a SPECIFIC entry (a forced single-option choice)
-     (custom entry)            -> the pool already includes homebrew entries, so {:from p} grants them too
-   Pool-agnostic AND owner-agnostic — one hook serves feat/background/race/subrace/class/subclass."
-  [{:keys [from choose key] flt :filter :or {choose 1}} grantable-pools]
-  (when-let [{:keys [name options]} (get grantable-pools from)]
+     {:pool p}                 -> ALL entries (count N, default 1)
+     {:pool p :filter #{…}}    -> a FILTERED subset (entries whose ::t/key is in the set)
+     {:pool p :key :k}         -> a SPECIFIC entry (a forced single-option choice)
+     (custom entry)            -> the pool already includes homebrew entries, so {:pool p} grants them too
+   Pool-agnostic AND owner-agnostic — one hook serves feat/background/race/subrace/class/subclass.
+   `:from`/`:choose` are read as aliases of `:pool`/`:count` (the bridge prototype's spelling)."
+  [{:keys [pool count from choose key] flt :filter} grantable-pools]
+  ;; :pool/:count is the DECIDED vocabulary (content-extensibility-direction.md, "The spine");
+  ;; :from/:choose is what the bridge prototype was written with. Both read, one canonical — the
+  ;; prototype spelling is branch-local, but reading it costs nothing and D9 says never break data.
+  (when-let [{:keys [name options]} (get grantable-pools (clojure.core/or pool from))]
     (let [opts (cond->> options
                  flt (filter (fn [o] (contains? flt (::t/key o))))
                  key (filter (fn [o] (= key (::t/key o)))))
-          n    (if key 1 choose)]
+          n    (if key 1 (clojure.core/or count choose 1))]
       ;; NO :ref — a nested grant (inside an owner's :selections) resolves by NESTING; a top-level
       ;; :ref breaks that addressing (verified: adding one zeroed a feat-granted style's mechanic).
       ;; Top-level grants (e.g. a class's own fighting-style) carry a :ref via their own constructor.
       (t/selection-cfg
        {:name name
-        :tags #{:grant from}
+        :tags #{:grant (clojure.core/or pool from)}
         :multiselect? true
         :min n
         :max n

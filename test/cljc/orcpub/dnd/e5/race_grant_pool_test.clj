@@ -13,18 +13,19 @@
    See docs/kb/feat-builder-audit.md. JVM/clojure.test."
   (:require [clojure.test :refer [deftest testing is]]
             [orcpub.template :as t]
-            [orcpub.dnd.e5.options :as opt5e]))
+            [orcpub.dnd.e5.options :as opt5e]
+            [orcpub.dnd.e5.grant-pools :as gp]))
 
-;; The registry template-selections builds, reproduced from the built-in languages so the test
-;; does not need the app's subs.
+;; The REAL registry, resolved with no plugin packs — the same value the app's
+;; ::e5/grantable-pools sub produces. Nothing is hand-built here, so this test fails if a pool
+;; stops assembling.
+(def ^:private pools (gp/assemble []))
+
 (def ^:private languages
   [{:name "Common" :key :common} {:name "Elvish" :key :elvish}
    {:name "Dwarvish" :key :dwarvish} {:name "Deep Speech" :key :deep-speech}])
 
 (def ^:private language-map (into {} (map (juxt :key identity)) languages))
-
-(def ^:private pools
-  {:languages {:name "Language" :options (map opt5e/language-option languages)}})
 
 (defn- race-with [extra]
   (opt5e/race-option nil nil language-map nil pools
@@ -43,24 +44,24 @@
             (str name " derives a different key than it stores"))))))
 
 (deftest select-verb-through-the-hook
-  (let [sel (selection-named (race-with {:grant {:from :languages :choose 2}}) "Language")]
+  (let [sel (selection-named (race-with {:grant {:pool :languages :count 2}}) "Language")]
     (testing "a race's :grant produces a choice from the registered pool"
       (is (some? sel) "no selection was produced")
       (is (= 2 (::t/min sel)))
       (is (= 2 (::t/max sel)))
-      (is (= #{:common :elvish :dwarvish :deep-speech}
-             (set (map ::t/key (::t/options sel))))
-          "the whole pool should be on offer"))))
+      (is (every? (set (map ::t/key (::t/options sel)))
+                  [:common :elvish :dwarvish :deep-speech])
+          "the whole open pool should be on offer"))))
 
 (deftest grant-verb-through-the-same-hook
-  (let [sel (selection-named (race-with {:grant {:from :languages :key :elvish}}) "Language")]
+  (let [sel (selection-named (race-with {:grant {:pool :languages :key :elvish}}) "Language")]
     (testing ":key narrows the same hook to a creator-chosen entry"
       (is (some? sel))
       (is (= 1 (::t/min sel)) "a forced grant is a single-option choice")
       (is (= [:elvish] (map ::t/key (::t/options sel)))))))
 
 (deftest filter-verb-through-the-same-hook
-  (let [sel (selection-named (race-with {:grant {:from :languages :choose 1
+  (let [sel (selection-named (race-with {:grant {:pool :languages :count 1
                                                  :filter #{:elvish :dwarvish}}})
                              "Language")]
     (testing ":filter offers a creator-chosen subset"
@@ -68,7 +69,7 @@
 
 (deftest unknown-pool-is-inert-not-fatal
   (testing "a :grant naming a pool that is not registered yields no selection and does not throw"
-    (is (nil? (selection-named (race-with {:grant {:from :nope :choose 1}}) "Language")))))
+    (is (nil? (selection-named (race-with {:grant {:pool :nope :count 1}}) "Language")))))
 
 (deftest no-grant-means-no-selection
   (testing "races without :grant are unchanged"

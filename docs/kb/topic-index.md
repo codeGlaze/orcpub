@@ -304,7 +304,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** adding, allowlist, ancestry, breath-weapon, event, exposing, field, flight, ftd, gem, grant, openness, pool, pools, registry, schema, variant, variants
+**topics:** adding, allowlist, ancestry, breath-weapon, descriptor, event, flight, ftd, gem, grant, maintainability, openness, parametric, pool, pools, registry, schema, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -537,11 +537,11 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, dex, feat, five, hardcoded, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, widget, widgets, writes
+**topics:** arm, bool, compiler, control, feat, five, hardcoded, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, widget, widgets, writes
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
-- ✅ LANDED — second pool, second silo
+- ✅ LANDED — the registry (see content-extensibility-direction.md §4 for the full record)
 - 2. The AC work landed a general vocabulary. The feat builder never got it.
 - 3. Dead control
 - 4. Hardcoded UI ranges the compiler does not impose
@@ -554,7 +554,7 @@ _feat-builder-audit · feat builder audit_
 
 _fighting-style-authoring · fighting style authoring_
 
-**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, mariner, paladin, per-class, pool, ranger, style, styles, tick, whitelist
+**topics:** authors, backfill-ledger, built-in, d29, d30, divvying, eligible, fighter, fighting-style, mariner, paladin, per-class, pool, ranger, style, tick, watch-list, whitelist
 
 - Status — 2026-09-05: BUILT
 - The divvying rule (decided) — which classes can take a homebrew style
@@ -705,7 +705,7 @@ _registry-before-after · registry before after_
 
 _roadmap · roadmap_
 
-**topics:** 2026-09-05, background, bucket, class-feature, d29, detail, feat, grant, grant-authoring, node, phase, pool, pools, proven, remaining, round-trip, spread, track
+**topics:** 2026-09-05, background, bucket, class-feature, d29, detail, end-to-end, feat, grant, node, phase, pool, pools, proven, remaining, round-trip, spread, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
