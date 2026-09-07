@@ -36,8 +36,26 @@
     (testing "and the rejected value is named underneath, so it can be fixed"
       (is (some #(and (str/includes? % "(!)") (str/includes? % "oops")
                       (str/includes? % "ignored")) out)))
-    (testing "unset with no number of our own still shows a value of 'unset'"
-      (is (str/includes? (row-for out "MAX_THREADS") "unset")))))
+    (testing "with no number of our own the value column shows a dash, not the word
+              'unset' -- next to a SOURCE of DEFAULT that read as a contradiction"
+      (is (re-find #"\s-\s" (row-for out "MAX_THREADS")) (row-for out "MAX_THREADS")))))
+
+(deftest headers-name-the-columns
+  (testing "VALUE and SOURCE are labelled, so neither can be read as commenting on the other"
+    (let [out (lines [set-row])]
+      (is (some #(and (str/includes? % "SETTING") (str/includes? % "VALUE")
+                      (str/includes? % "SOURCE")) out)))))
+
+(deftest reports-the-running-thread-pool-when-we-did-not-set-it
+  (testing "ORCPUB_HTTP_MAX_THREADS unset means Pedestal chose, so the banner shows the size
+            read back off the live server rather than a formula copied from Pedestal"
+    (let [out (config/report-lines [unset-row] "datomic:mem://orcpub"
+                                   {"ORCPUB_HTTP_MAX_THREADS" 50})]
+      (is (str/includes? (row-for out "MAX_THREADS") "50"))
+      (is (str/includes? (row-for out "MAX_THREADS") "DEFAULT"))))
+  (testing "and falls back to a dash when the server cannot be read"
+    (let [out (config/report-lines [unset-row] "datomic:mem://orcpub" nil)]
+      (is (re-find #"\s-\s" (row-for out "MAX_THREADS"))))))
 
 (deftest banner-is-plain-ascii
   (testing "no colour codes and no characters that come back as ? through a log pipe"

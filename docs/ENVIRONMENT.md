@@ -62,7 +62,8 @@ picked up:
   orcpub started
   database   datomic:sql://datomic?jdbc:postgresql://host:5432/datomic?user=datomic&password=****
 ----------------------------------------------------------------------------------------
-  ORCPUB_HTTP_MAX_THREADS          unset   DEFAULT   worker pool: requests in flight; Pedestal decides when unset
+  SETTING                          VALUE   SOURCE
+  ORCPUB_HTTP_MAX_THREADS             50   DEFAULT   worker pool: requests of any kind in flight
   ORCPUB_PDF_CONCURRENCY              24   SET       sheets generated at once
   ORCPUB_PDF_QUEUE_TIMEOUT_MS      30000   DEFAULT   how long an export waits for a slot
   ORCPUB_PDF_MAX_RETRIES               3   DEFAULT   busy-page retries before it waits for a click
@@ -76,16 +77,23 @@ picked up:
 | Column | Meaning |
 |---|---|
 | `SET` | the value came from the environment |
-| `DEFAULT` | nothing usable was set; the code chose |
-| `unset` (value) | nothing was set and we have no number of our own — Pedestal decides, by a formula not copied here in case it changes |
+| `DEFAULT` | nothing usable was set; this is what is running anyway |
 | `(!)` line | **a value was given and rejected.** Its row reads `DEFAULT` because the default is what is running; this line names what was thrown away |
+
+**These are the values actually in force, not a restatement of the documentation.** Five are
+read from the same functions the running code reads. `ORCPUB_HTTP_MAX_THREADS` is the
+exception worth understanding: when it is unset we hand Pedestal nothing and Pedestal
+chooses, so the number shown is read back off the **live Jetty thread pool** after it starts
+— not a formula copied from Pedestal that would drift. If the pool cannot be read the column
+shows `-` rather than a guess.
 
 The source column always describes where the **shown value** came from. A rejected setting
 therefore reads `DEFAULT` — it was your value that was ignored, not the default — and the
 `(!)` line under the table is what tells you to go fix it.
 
-The banner appears after the components start, so `orcpub started` means started.
-Plain ASCII, no colour — it is read in aggregators as often as terminals.
+The banner fires on Jetty's own started event, so `orcpub started` means listening, and it
+prints as a single write — printed line by line, Jetty's logging interleaved with it and cut
+the table in half. Plain ASCII, no colour: it is read in aggregators as often as terminals.
 
 ### Plugins
 

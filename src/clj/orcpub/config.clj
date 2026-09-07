@@ -211,7 +211,7 @@
 
    Adding a knob without adding it here is caught by config-report-test."
   [{:var "ORCPUB_HTTP_MAX_THREADS"        :get #(get-http-max-threads)
-    :unset-source "Pedestal's"            :note "worker pool: requests in flight; Pedestal decides when unset"}
+    :unset-source "Pedestal's"            :note "worker pool: requests of any kind in flight"}
    {:var "ORCPUB_PDF_CONCURRENCY"         :get #(get-pdf-concurrency)
     :note "sheets generated at once"}
    {:var "ORCPUB_PDF_QUEUE_TIMEOUT_MS"    :get #(get-pdf-queue-timeout-ms)
@@ -248,8 +248,17 @@
    a terminal: escape codes are noise in both, and a stray em dash came back as `?` through
    one of those pipes. Alignment does the work instead."
   ([] (report-lines (report) (get-datomic-uri)))
-  ([rows uri]
-   (let [val    (fn [{:keys [value]}] (if value (str value) "unset"))
+  ([rows uri] (report-lines rows uri nil))
+  ([rows uri actual]
+   (let [;; Report what is RUNNING. Five of these read the same accessor the code reads, so
+         ;; the number is the one in force. ORCPUB_HTTP_MAX_THREADS is the exception: unset,
+         ;; we hand Pedestal nothing and it picks, so `actual` carries the size read back off
+         ;; the live server. Without it the row can only say "-", which invites the fair
+         ;; question of whether any of this is real.
+         val    (fn [{:keys [var value]}]
+                  (cond value                (str value)
+                        (get actual var)     (str (get actual var))
+                        :else                "-"))
          ;; Two states, and the column always describes where the SHOWN value came from.
          ;; A rejected value is running the default, so it reads DEFAULT like any other --
          ;; labelling that row IGNORED read as "the default was ignored", which is
@@ -264,7 +273,9 @@
       [rule
        "  orcpub started"
        (str "  database   " (redact-secrets uri))
-       rule]
+       rule
+       ;; Headers, so VALUE and SOURCE cannot be read as commenting on each other.
+       (str/replace (format fmt "SETTING" "VALUE" "SOURCE" "") #"\s+$" "")]
       (map #(str/replace (format fmt (:var %) (val %) (source %) (or (:note %) "")) #"\s+$" "")
            rows)
       (when-let [bad (seq (filter :ignored? rows))]
@@ -274,11 +285,33 @@
                         var raw))))
       [rule]))))
 
+(defn jetty-max-threads
+  "The worker-pool size the running server actually settled on, or nil.
+
+   When ORCPUB_HTTP_MAX_THREADS is unset we pass Pedestal nothing and it chooses, so this is
+   the only way to report the real number rather than a formula copied from Pedestal that
+   would drift. Best effort by design: it reaches through a started Jetty, so any change of
+   container returns nil and the banner falls back to `-` instead of failing a boot."
+  [created]
+  (try
+    (some-> (if (map? created) (get created :io.pedestal.http/server) created)
+            (.getThreadPool) (.getMaxThreads))
+    (catch Exception _ nil)))
+
 (defn print-report!
   "Say the server is up and how it is configured. Called after the system has started, so
-   `started` means started rather than `we got as far as printing`."
-  []
-  (doseq [l (report-lines)] (println l)))
+   `started` means started rather than `we got as far as printing`, and so the running
+   thread-pool size can be read back rather than guessed."
+  ([] (print-report! nil))
+  ([created]
+   (let [actual (when-let [n (jetty-max-threads created)]
+                  {"ORCPUB_HTTP_MAX_THREADS" n})]
+     ;; One write, then flush. Printed line by line, Jetty's own logging interleaved with it
+     ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same
+     ;; stream. A banner that arrives in pieces is worse than no banner.
+     (println (str/join (System/lineSeparator)
+                        (report-lines (report) (get-datomic-uri) actual)))
+     (flush))))
 
 (defn get-secure-headers-config
   "Configure Pedestal secure-headers based on CSP_POLICY env var.
