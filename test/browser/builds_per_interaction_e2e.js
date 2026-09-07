@@ -19,14 +19,14 @@
 // Run: lein fig:build && lein e2e-server, then
 //   node test/browser/builds_per_interaction_e2e.js /path/to/pack.orcbrew
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import.js');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import.js');
 
 const PACK = process.argv[2];
 
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
   const ctx = await browser.newContext();
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
   page.on('pageerror', e => console.log('PAGEERROR', e.message));
 

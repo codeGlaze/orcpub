@@ -24,7 +24,7 @@
 // Warm up before timing (JIT); report min-of-N. Run at 1x and 4x CPU throttle via CDP
 // (Emulation.setCPUThrottlingRate) — 4x is what a real user's laptop looks like.
 //
-// Uses test/browser/lib/orcbrew-import.js's importPack + suppressCookieBanner — a real
+// Uses test/browser/lib/orcbrew-import.js's importPack + suppressOverlays — a real
 // .orcbrew import opens a conflict-resolution modal that needs both to get past
 // reliably (see that file's own comment; three prior probes were lost to it).
 //
@@ -39,7 +39,7 @@
 
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 
 function findChrome() {
   const b = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
@@ -56,7 +56,7 @@ function findChrome() {
 
   const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
   await page.setViewportSize({ width: 1500, height: 1100 });
 

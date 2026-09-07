@@ -15,12 +15,63 @@
 // this exercises. Report-Only console lines are collected separately below and
 // do not fail the run.
 //
+// ---------------------------------------------------------------------------------------
+// Where the time goes -- a cautionary tale, because it was mis-diagnosed FOUR times
+//
+// It used to run ~400s. It runs ~126s. The 274s difference was NINE SWALLOWED TIMEOUTS:
+//
+//   await page.getByText(/^cancel$/i).first().click().catch(() => {});
+//
+// The options panel usually closes itself once the sheet is made, so there was no Cancel to
+// press. With no `timeout` that click waited the full 30s default, and `.catch(() => {})`
+// threw the failure away. Nine exports, nine 30s waits, 270s, entirely invisible: the probe
+// passed 31/31 the whole time.
+//
+// Four wrong answers were reached by reasoning instead of measuring. All refuted:
+//   - the network. The dead hosts it drives the app at answer in 0.4-0.5s. Timed.
+//   - blind sleeps. 17s of waitForTimeout across 14 calls.
+//   - the PDF renders. Click-to-bytes is 0.2-2s; all nine exports total ~35s.
+//   - parsing the PDFs. hasImage() on a 256KB sheet is 0.0s.
+//
+// What actually found it: `DEBUG=pw:api node test/browser/character_image_capture_e2e.js`,
+// then pairing the started/succeeded timestamps. Nine `locator.click -> failed` at exactly
+// 30.0s is not work, it is a default timeout. **A round number repeated is a timeout, not a
+// cost.** Reach for that trace before theorising about a slow probe.
+//
+// PROBE_TIMING=1 prints per-check elapsed and exportSheet's phases.
+//
+// Lesson worth keeping: `.catch(() => {})` on an action with no `timeout` can hide half a
+// probe's runtime. If a step is optional, ask whether it is needed and cap the wait.
+//
+// The server is NOT a constraint here: ORCPUB_PDF_CONCURRENCY defaults to
+// (max 8 (* 2 cores)), so it renders several at once happily. `lein e2e-server-busy` forces
+// it to 1 on purpose, which is what export_busy_retry_e2e.js needs.
+//
+// If this ever does need splitting across workers, two things block it:
+//   1. It is ONE page's state machine -- each export measures the state the previous step
+//      established. You cannot set a URL and upload a file in one tab at once and then ask
+//      which the sheet used; that question IS the assertion.
+//   2. The mock origin holds SHARED MUTABLE STATE. `origin.cors` and `origin.delayMs` are
+//      flipped per scenario on one server at IMG_PORT, so two scenarios at once would race.
+//      ORCPUB_E2E_IMG_PORT exists to give each worker its own.
+// And "a read in flight holds the export" cannot be split at all: it sets a 5s delay, clicks
+// Export mid-read, asserts the button is held, waits, asserts it is pressable, then exports.
+// ---------------------------------------------------------------------------------------
+//
 // Prerequisites:
 //   lein fig:build
 //   lein garden once
 //   lein e2e-server        (ports 8890 and 8899 free)
 // Run:  node test/browser/character_image_capture_e2e.js
 // Exit code 0 = all checks passed.
+//
+// Needs:     the real app at :8890 (`lein e2e-server`); it also serves its own picture origin on :8899
+// Runs in:   ~126s. It was ~400s until nine swallowed 30s timeouts were found -- see
+//            "Where the time goes" below before trying to speed it up further, and before
+//            trusting any theory about it that was not measured.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const fs = require('fs');
 const os = require('os');
 const https = require('https');
@@ -28,6 +79,21 @@ const { execFileSync } = require('child_process');
 const path = require('path');
 const zlib = require('zlib');
 const { chromium } = require('playwright');
+
+
+// Click something that may not be there, without paying a 30s default timeout for the
+// privilege. `locator.click().catch(() => {})` waits the full default when the element is
+// absent and then throws the failure away -- that pattern cost 270s in
+// character_image_capture and 120s in sticky_header, both invisible because every assertion
+// still passed. Ask first, cap the wait, and say when it misses.
+async function clickIfVisible(locator, { timeout = 2500, label = '' } = {}) {
+  if (!(await locator.isVisible().catch(() => false))) return false;
+  try { await locator.click({ timeout }); return true; }
+  catch (e) {
+    if (label) console.log(`    note: ${label} was visible but would not click`);
+    return false;
+  }
+}
 
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const IMG_PORT = Number(process.env.ORCPUB_E2E_IMG_PORT || 8899);
@@ -48,9 +114,15 @@ function findChrome() {
 }
 
 const results = [];
+// PROBE_TIMING=1 prints the seconds spent reaching each check. This probe's runtime has
+// been mis-diagnosed three times from the outside (the network, the PDF renders, the PDF
+// parsing -- all measured and refuted); the way to find the cost is to ask it, not to guess.
+let lastCheckAt = Date.now();
 const check = (name, ok, detail = '') => {
   results.push({ name, ok });
-  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
+  const gap = process.env.PROBE_TIMING ? `[+${((Date.now() - lastCheckAt) / 1000).toFixed(1)}s] ` : '';
+  lastCheckAt = Date.now();
+  console.log(`${gap}${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
 };
 
 // A 4x4 PNG with correct chunk CRCs. It has to satisfy the STRICTEST decoder in
@@ -164,6 +236,7 @@ function catchPdf(ctx, file) {
 // Exports through the real UI and returns both the file and the spec the builder
 // posted, which is where :image-data either is or is not.
 async function exportSheet(page, name, { alreadyOpen = false } = {}) {
+  const t0 = Date.now();
   if (!alreadyOpen) {
     await page.getByText(/^export$/i).first().click();
     await page.waitForTimeout(1500);
@@ -174,18 +247,33 @@ async function exportSheet(page, name, { alreadyOpen = false } = {}) {
       .locator('xpath=following::select[1]').first();
     await styleSelect.selectOption('1');
     await page.waitForTimeout(1200);
+    if (process.env.PROBE_TIMING) console.log(`    exportSheet/${name} open panel: ${((Date.now()-t0)/1000).toFixed(1)}s`);
   }
 
   const ctx = page.context();
   const file = path.join(OUT, `${name}.pdf`);
+  const T = process.env.PROBE_TIMING ? (l, t) => console.log(`    exportSheet/${name} ${l}: ${((Date.now()-t)/1000).toFixed(1)}s`) : () => {};
+  let t = Date.now();
   const caught = catchPdf(ctx, file);
   await page.getByText(/^create pdf$/i).first().click();
   await caught;
+  T('click->pdf', t); t = Date.now();
   const spec = await page.evaluate(() => document.getElementById('fields-input').value);
+  T('read fields-input', t); t = Date.now();
   for (const other of ctx.pages()) if (other !== page) await other.close().catch(() => {});
-  // The options panel overlays the builder; leaving it open makes everything
-  // underneath unclickable for the next case.
-  await page.getByText(/^cancel$/i).first().click().catch(() => {});
+  T('close pdf tab', t);
+  // The options panel overlays the builder; leaving it open makes everything underneath
+  // unclickable for the next case. But the panel usually closes itself once the sheet is
+  // made, so there is often no Cancel to press.
+  //
+  // This was `\u2026.click().catch(() => {})` with no timeout: when there was nothing to
+  // click it waited the full 30s default and the catch swallowed it. Nine calls, 270s of a
+  // 400s run, invisible. Ask first, cap the wait, and say when it misses.
+  const cancel = page.getByText(/^cancel$/i).first();
+  if (await cancel.isVisible().catch(() => false)) {
+    await cancel.click({ timeout: 2500 })
+      .catch(() => console.log(`    note: ${name} left the options panel open (Cancel would not click)`));
+  }
   await page.waitForTimeout(800);
   return { file, spec };
 }
@@ -277,7 +365,7 @@ function httpOnlyOrigin(port) {
   try {
     await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(3000);
-    await page.getByText('Got it!').click().catch(() => {});
+    await clickIfVisible(page.getByText('Got it!'));
     await pick(page, 'Human');
     await pick(page, 'Description');
     await page.waitForTimeout(800);

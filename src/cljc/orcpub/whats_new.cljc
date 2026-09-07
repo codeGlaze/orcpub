@@ -15,8 +15,8 @@
     :items
     [{:group "Your homebrew library"
       :icon "fa-folder-open"
-      :headline "My Content is a real library"
-      :detail "Move or copy content between sources, turn it off at four levels, search inside a source, and read one health card that names anything needing attention."}
+      :headline "Move homebrew between your sources"
+      :detail "Move or copy content from one source to another, turn a single item or a whole source off without deleting it, search inside a source, and read one health card that names anything needing attention."}
      {:group "Your homebrew library"
       :icon "fa-medkit"
       :headline "Broken homebrew is repaired, not dropped"
@@ -42,6 +42,10 @@
       :icon "fa-image"
       :headline "Portraits from far more sites"
       :detail "Paste a picture's address and the sheet takes it, including hosts that used to refuse. When an address can't work, the field says why and what to try instead."}
+     {:group "Characters"
+      :icon "fa-search"
+      :headline "Find equipment by typing"
+      :detail "The Equipment tab's long dropdowns filter as you type. Nothing is hidden behind a cap — scroll the whole list, or walk it with the arrow keys and press Enter to add."}
      {:group "Characters"
       :icon "fa-share-alt"
       :headline "Share a character with its homebrew"

@@ -12,7 +12,7 @@
 //   node test/browser/class_body_cost_e2e.js /path/to/pack.orcbrew
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -64,7 +64,7 @@ const fmt = (d, k) => (d[k] && d[k].n ? `${d[k].n}x${d[k].ms.toFixed(0)}ms` : '-
 (async () => {
   const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
 
   await page.goto('http://localhost:8890/dnd/5e/my-content', { waitUntil: 'networkidle', timeout: 120000 });

@@ -13,11 +13,33 @@
 //   lein e2e-server        (port 8890 free; `fuser -k 8890/tcp` first)
 // Run:  node test/browser/spell_layout_pdf_e2e.js
 // Exit code 0 = all checks passed.
+//
+// Needs:     the real app at :8890 (`lein e2e-server`)
+// Runs in:   ~60-85s. It builds a character and exports sheets, but far fewer than
+//            character_image_capture -- which is why its 20 checks land in a fraction of the time.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const zlib = require('zlib');
 const { chromium } = require('playwright');
+
+
+// Click something that may not be there, without paying a 30s default timeout for the
+// privilege. `locator.click().catch(() => {})` waits the full default when the element is
+// absent and then throws the failure away -- that pattern cost 270s in
+// character_image_capture and 120s in sticky_header, both invisible because every assertion
+// still passed. Ask first, cap the wait, and say when it misses.
+async function clickIfVisible(locator, { timeout = 2500, label = '' } = {}) {
+  if (!(await locator.isVisible().catch(() => false))) return false;
+  try { await locator.click({ timeout }); return true; }
+  catch (e) {
+    if (label) console.log(`    note: ${label} was visible but would not click`);
+    return false;
+  }
+}
 
 const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
 const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'spell-layout-'));
@@ -73,7 +95,7 @@ async function pick(page, label) {
 async function buildCharacter(page) {
   await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'networkidle' });
   await page.waitForTimeout(3000);
-  await page.getByText('Got it!').click().catch(() => {});
+  await clickIfVisible(page.getByText('Got it!'));
   await pick(page, 'Human');
 
   // Manual entry, because a multiclass caster needs CHA 13 in both classes and
@@ -105,7 +127,8 @@ async function buildCharacter(page) {
                        '2 - Blur', '3 - Fireball',
                        '1 - Unseen Servant', '2 - Ray of Enfeeblement',
                        '3 - Vampiric Touch']) {
-    await page.getByText(spell, { exact: true }).first().click().catch(() => {});
+    await clickIfVisible(page.getByText(spell, { exact: true }).first(),
+                         { timeout: 8000, label: `spell ${spell}` });
     await page.waitForTimeout(250);
   }
   await page.waitForTimeout(1500);

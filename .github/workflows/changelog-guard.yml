@@ -9,9 +9,14 @@
 
 name: Changelog guard
 
+# The fold guard is a post-merge backstop and only makes sense on push. The style
+# lint is the opposite: it is feedback, so it also runs on pull_request, where the
+# author can still act on it. Both are in one workflow because they are one topic.
 on:
   push:
     branches: [integration, develop, main]
+  pull_request:
+    paths: ["CHANGELOG.md", "scripts/lint-changelog.py", ".github/workflows/changelog-guard.yml"]
   workflow_dispatch:
 
 permissions:
@@ -20,6 +25,7 @@ permissions:
 jobs:
   branch-changelog-folded:
     name: Branch changelog folded
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,3 +36,13 @@ jobs:
             exit 1
           fi
           echo "OK — no un-folded branch changelog on $GITHUB_REF_NAME."
+
+  changelog-style:
+    name: Changelog house style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # No setup step: ubuntu-latest ships python3, and the linter imports nothing
+      # outside the standard library on purpose, so this stays a checkout and a run.
+      - name: CHANGELOG.md follows docs/branch-changelog.template.md
+        run: scripts/lint-changelog.py --stats

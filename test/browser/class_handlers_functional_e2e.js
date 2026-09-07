@@ -8,9 +8,15 @@
 //
 // Run: lein fig:build && lein e2e-server, then
 //   node test/browser/class_handlers_functional_e2e.js /path/to/pack.orcbrew
+//
+// Needs:     the real app at :8890, plus a homebrew pack (ORCBREW_PACK) -- it asserts against imported content
+// Runs in:   ~60s, most of it importing the pack.
+// Overlays:  suppressed by default -- the runner injects lib/suppress-overlays-preload.js, so
+//            the cookie notice and What's New panel never intercept clicks. Hand-runs get no
+//            preload, which is why this file also calls suppressOverlays itself.
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -31,7 +37,7 @@ const check = (name, ok, detail) => {
 (async () => {
   const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
   page.on('pageerror', e => { console.log('  PAGEERROR', e.message); failures++; });
 
@@ -92,8 +98,52 @@ const check = (name, ok, detail) => {
       await page.waitForTimeout(1800);
       now = await classes();
       check('delete-class removes it again', now.length === 1, JSON.stringify(now));
-    } else { console.log('  SKIP  delete-class (no control found)'); }
-  } else { console.log('  SKIP  add-class (no control found)'); }
+    } else check('delete-class removes it again', false, 'no fa-minus-circle control found');
+    // A missing control is the failure, not a reason to stop asserting. These two printed
+    // SKIP and exited 0, so renaming the button would have silently dropped 2 of 6 checks.
+  } else check('add-class adds a second class', false, 'no "Add Levels in Another Class" control found');
+
+  // Spell selection: spell-option is no longer memoized, so prove a spell can still be
+  // listed and picked and that it reaches the built character.
+  //
+  // The selector is specific on purpose. The Spells TAB itself carries .b-orange and reads
+  // "Spells18", so `.b-orange` + /^[A-Z][a-z]/ matched the tab and clicked navigation --
+  // two earlier versions of this check failed 0 -> 0 for that reason, identically on the
+  // pre-change build. Spell option cards are the p-10/b-1/b-rad-5 variant.
+  console.log('\nspell selection:');
+  const knownSpells = () => page.evaluate(() => {
+    try {
+      const c = window.cljs.core;
+      const v = c.deref(window.re_frame.core.subscribe(
+        c.vector(c.keyword('orcpub.dnd.e5.character', 'spells-known'))));
+      if (!v) return 0;
+      let n = 0;
+      c.doall(c.map(function (k) { const lvl = c.get(v, k); n += lvl ? c.count(lvl) : 0; return null; },
+                    c.keys(v)));
+      return n;
+    } catch (e) { return -1; }
+  });
+  try {
+    await page.locator('text="Spells"').first().click({ timeout: 25000 });
+    await page.waitForTimeout(3000);
+    const before = await knownSpells();
+    const card = page.locator('div.p-10.b-1.b-rad-5.b-orange').first();
+    const n = await card.count().catch(() => 0);
+    if (before < 0)   console.log('  SKIP  spell selection (subscription unavailable)');
+    else if (!n)      console.log('  SKIP  spell selection (no spell option card rendered)');
+    else {
+      // Explicit timeout: textContent carries the same 30s default as click, and the
+      // .catch would hide it. A missing card should cost 2s, not half a minute.
+      const label = (await card.textContent({ timeout: 2000 }).catch(() => '')).trim().slice(0, 24);
+      await card.click({ timeout: 20000 });
+      await page.waitForTimeout(2500);
+      const after = await knownSpells();
+      check('a spell can be picked and reaches the character', after > before,
+            `${before} -> ${after} (clicked "${label}")`);
+    }
+  } catch (e) {
+    console.log('  SKIP  spell selection (' + e.message.split('\n')[0] + ')');
+  }
 
   // The character still builds after all that.
   const built = await page.evaluate(() => {

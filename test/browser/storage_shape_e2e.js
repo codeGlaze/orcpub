@@ -10,7 +10,7 @@
 // Run: lein e2e-server, then
 //   node test/browser/storage_shape_e2e.js /path/to/pack.orcbrew
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import.js');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import.js');
 
 const PACK = process.argv[2];
 const URL = 'http://localhost:8890/dnd/5e/my-content';
@@ -28,7 +28,7 @@ const dump = (page) => page.evaluate(() => {
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
   const ctx = await browser.newContext();
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
   await page.goto(URL, { waitUntil: 'networkidle', timeout: 120000 });
   await page.waitForTimeout(3000);
