@@ -143,12 +143,16 @@ already owns:
    creatures, background traits are the other two vector-shaped needs). **E4 — the grant node — is
    E3's third consumer, not a separate primitive.** This step was missing from earlier versions of
    this page.
-3. **A control that emits it** — direction doc discipline 2: *"one reused grant-authoring UI
+3. **A control that emits it — with the D34 read-shim** — direction doc discipline 2: *"one reused grant-authoring UI
    component, not a forked menu per builder… the builder's 'add a grant' UI iterates the registered
    pools."* Needs `:grants`, dynamic field options (from a subscription; dependent on a sibling), and
    **the D30 tag fix** — the moment a builder writes a language grant, the choice has to land where
-   the bespoke one did, or the conversion is a visible regression. Built against feat, because feat
-   is the only silo needing the full set.
+   the bespoke one did, or the conversion is a visible regression. And **legacy readers**: `grant-rows`
+   must render an imported item's `:props :skill-prof` / `:profs :language-options` / `:languages` as
+   rows, read-only, or the form is blind to the item's own grants and authors double-grant. Never
+   migrate on save — legacy and grant selections address a character's pick at different paths
+   (`builder-disposition-audit.md`, "The 35 deletions"). Built against feat, because feat is the
+   only silo needing the full set.
 
 Everything else in the AIR table is real but **waits for a case that demands it**. In particular:
 

@@ -162,7 +162,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-disposition-audit · builder disposition audit_
 
-**topics:** ---, arm, background, bespoke, disposition, effect, feat, grant, header, monster, omv, pool, race, row, subrace, widget, widgets, writes
+**topics:** ---, arm, bespoke, disposition, effect, grant, header, legacy, monster, omv, pool, race, row, rows, subrace, widget, widgets, writes
 
 - Legend
 - Race — 152 lines, 19 widgets
@@ -511,7 +511,7 @@ _declarative-grant-vocabulary · declarative grant vocabulary_
 
 _demo-content-tier · demo content tier_
 
-**topics:** committed, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, graduation, pack, read-only, recipe, tier, variant, viable
+**topics:** base, committed, content, content-lookup, copy, copy-on-edit, demo, diff, emitter, example, floor, frozen, graduation, pack, recipe, tier, variant, viable
 
 - Goal
 - Builds on the current content model
@@ -785,7 +785,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, silo, spell, spells, sustainable, unreachable, verified, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, silo, spell, spells, sustainable, unreachable, usage, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo

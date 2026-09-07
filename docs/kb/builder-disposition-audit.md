@@ -180,14 +180,45 @@ one — today only monster writes it, and monster is a stat block.
 
 ## The 35 deletions — replacement and shim, one row each
 
-**The shim is the existing compiler arm, and it does not move.** Deleting a widget removes what
-*writes* a key. Nothing here removes what *reads* one: every arm in `make-feat-modifiers`,
-`make-feat-selections`, `race-option`, `background-option` and the cljs assembly stays exactly as it
-is (D9). An exported pack written by today's build imports tomorrow and compiles through the
-unchanged arm. Import does not strip unknown keys — `bf/fields->spec` is optional-by-default and
-`strip-export-blanks` drops only nils and empties — so `:grants` and the legacy keys coexist in one
-item. The one deliberate incompatibility is the other direction: a pack carrying `:grants` exports as
-format v2 and an **old** build declines it rather than loading it with the grants silently missing.
+> ⚠️ **CORRECTION (2026-09-07, same day).** An earlier version of this section said "zero new shim
+> code." That was true of the compile path and false of the builder path, and the builder path is
+> where users hit it. D34 says a released shape gets *a characterization test and a read-shim*; the
+> arm is the test's subject, not the shim. Two shims are needed, described below.
+
+**Compile path — nothing moves.** Deleting a widget removes what *writes* a key. Every arm that
+*reads* one — `make-feat-modifiers`, `make-feat-selections`, `race-option`, `background-option`, the
+cljs assembly — stays exactly as it is (D9). An old pack compiles through the unchanged arm and the
+*character* is right. Import does not strip unknown keys (`bf/fields->spec` is optional-by-default;
+`strip-export-blanks` drops only nils and empties), so `:grants` and legacy keys coexist in one item.
+
+**Builder path — the read-shim (D34).** The author imports the old pack and opens the race to edit it.
+`grant-rows` reads `:grants`; the old race has none; the widget that used to show `:props :skill-prof`
+is deleted. **The form is blind to the item's own grants.** The author re-adds what looks missing and
+saves — the item now carries both the invisible legacy key and the new row, and every character built
+on it is double-granted. So `grant-rows` must derive rows from the legacy keys too — one reader per
+key in the "writes today" column:
+
+```
+:props  {:skill-prof {:athletics true}}     →  row {:pool :skills :key :athletics}
+:profs  {:language-options {:choose 2 …}}   →  row {:pool :languages :count 2 :filter #{…}}
+:languages {"Elvish" true}                  →  row {:pool :languages :key :elvish}   ; via name-to-kw (D10)
+```
+
+This is real code — ~20 readers — and it is the first time on this branch the generator introduces a
+**new key for an existing fact**. `effect-rows` never needed this: it reads `:props :ac-bonus`
+directly, which *is* the storage. `grant-rows` is different in kind.
+
+**Save path — do NOT migrate.** Legacy `language-selection` carries `:ref [:languages]`;
+`grant-selection` deliberately carries no `:ref` (the prototype verified one breaks nested
+addressing) and is addressed by nesting. **Those are different storage paths for a character's
+pick.** If the builder rewrites an old race from `:profs` to `:grants` on save, every character
+built on that race has its language choice at a path the race no longer produces — orphaned, the
+D10 failure. So: legacy rows render **read-only** ("authored in the older format") and keep their
+keys; only rows the author *adds* write to `:grants`. Converting an item is an explicit act, if
+offered at all, and needs a test that a character's pick survives it — not built here.
+
+**The one deliberate incompatibility** runs the other way: a pack carrying `:grants` exports as
+format v2 and an *old* build declines it rather than loading it with the grants silently missing.
 
 Per D34: each deleted widget is `#_`-struck with a date, and the arm it wrote to gets a
 characterization test proving the grant row compiles to an equivalent `selection-cfg` / modifier —
@@ -228,9 +259,10 @@ the "pin" column. Removal of the struck widget after ~3 months, tracked in `back
 | 34 | feat | `feat-speed-bonuses` | `[:props :speed n]` | `make-feat-modifiers :speed` | an EFFECT kind (`:number`), not a grant row | `modifiers/speed` |
 | 35 | feat | `feat-spellcasting` ×3 | `[:props :magic-novice\|:ritual-casting\|:attack-spell true]` | `make-feat-selections` templates | **not yet** — waits for the spell pool + nested grants; stays as passthrough hiccup | |
 
-Rows 1–32 are grant-row deletions and need only the seven pool registrations above plus the node.
+Rows 1–32 are grant-row deletions and need the seven pool registrations, the node, **and the ~20
+legacy readers** — the read-shim — before any widget is struck.
 Row 33 is a widget swap to a shared widget that already exists. Row 34 is an `effect-rows` kind.
-Row 35 stays until spells are a pool. **Not one of the 35 touches a compiler arm.**
+Row 35 stays until spells are a pool. **Not one of the 35 touches a compiler arm; all 32 grant rows need the read-shim.**
 
 Two things the table makes visible that the summary did not:
 
