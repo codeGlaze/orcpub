@@ -7,9 +7,22 @@ control, add a CSS class, change how something renders, convert a builder, trust
 It is deliberately short. Most of what has gone wrong here was caught by review, not by tests, and
 that page is where those rules live.
 
-`docs/kb/README.md` indexes the rest of the knowledge base (45+ documents). Before designing
-anything, also list the branches — `git for-each-ref --sort=-committerdate refs/remotes/origin` —
-parallel work has been missed more than once.
+## The knowledge base is the group memory — search it before you research anything
+
+```
+grep -ril "<term>" docs/kb/          # has anyone been here before?
+git for-each-ref --sort=-committerdate refs/remotes/origin | head -25   # is it on a branch?
+```
+
+**Grep is the search.** Measured on fourteen realistic queries, grepping the corpus answered all
+fourteen; the curated index answered nine and `docs/kb/README.md` answered six. Use
+`docs/kb/topic-index.md` (generated) to find *which* document owns a topic, and `README.md` for what
+each one is; use grep to find out *whether* a thing has been looked at.
+
+This has been got wrong repeatedly and expensively: a builder schema system was designed twice, a
+fighting-style fix was re-planned three days after it had been decided in a document named after the
+branch, and a whole front-end design system sat on `port/redesign-on-refactor` for two months while
+this work invented its own colours and spacing. All three were one grep away.
 
 ## Running the real app (do this for browser e2e — don't fake it)
 
