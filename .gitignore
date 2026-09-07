@@ -87,6 +87,8 @@ deploy/transactor.properties
 logs/
 
 */*.log
+# root-level logs too — */*.log only matches one directory deep (e.g. server.log)
+*.log
 /workspaces/.codespaces/.persistedshare/creation.log
 .devcontainer/post-create.log
 
@@ -101,8 +103,15 @@ cljsjs/
 # Local devcontainer setup (superseded by dotfiles)
 .devcontainer/local-setup.sh
 
-# Design handoff reference material (preserved on agents/develop, not committed to code branches)
-design_handoff_character_menus
+# Design handoff reference material (preserved on agents/develop, not committed to code branches).
+# Wildcarded: the bare name missed versioned copies like v1-design_handoff_character_menus/.
+*design_handoff_character_menus*
+
+# Windows alternate-data-stream artifacts. These break checkout on Windows (the ':' is
+# illegal in NTFS filenames) and once contaminated the DMV fork via an evil merge. Today
+# every one of these sits inside an already-ignored directory, so this rule is defence in
+# depth: it catches the next one wherever it lands. Guard ported from dmv PR #9.
+*:Zone.Identifier
 
 # Generated clojure-CLI cljs build artifact (regenerated from project.clj; lein/figwheel-main is canonical)
 /deps.edn
