@@ -88,9 +88,19 @@ picked up:
                                    3 of 21 set
 -------------------------------------------------------------------------------------------------------
   (!)  ORCPUB_PDF_MAX_CARDS=oops was ignored: not a positive integer. The default above is in use.
-  (!!) SIGNATURE is NOT SET -- JWT signing key; every login and API call fails without it
+  (!!) SIGNATURE is not set, so every login, signup and authenticated API call fails.
+        It is the key JWT tokens are signed with; without it none can be issued or verified.
+        Fix: set a long random value and restart, either as a Docker secret at
+        /run/secrets/signature (preferred) or as the SIGNATURE environment variable.
+        e.g.  openssl rand -base64 48
+        Keep it stable: changing it signs out everyone and invalidates unsubscribe links.
 -------------------------------------------------------------------------------------------------------
 ```
+
+A setting that breaks the site says **why and how to fix it**, not just that it is missing —
+and the same text appears wherever the failure surfaces: the boot banner, the startup
+warning, and the `500` a caller receives. An operator reading any one of them is told the
+same remedy rather than having to work it out from the symptom.
 
 | Column | Meaning |
 |---|---|

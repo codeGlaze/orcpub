@@ -128,3 +128,26 @@
       ;; VALUE is left-aligned now that it holds words like "NOT SET" as well as numbers,
       ;; so the starts line up rather than the ends.
       (is (apply = (map start rows)) (pr-str rows)))))
+
+(deftest a-broken-signature-says-how-to-fix-it
+  (testing "naming the symptom and leaving the remedy to be guessed just moves the work"
+    (let [m config/signature-missing-message]
+      (testing "why"
+        (is (str/includes? m "every login"))
+        (is (str/includes? m "JWT")))
+      (testing "how"
+        (is (str/includes? m "SIGNATURE environment variable"))
+        (is (str/includes? m "/run/secrets/signature"))
+        (is (str/includes? m "openssl rand"))
+        (is (str/includes? m "restart")))
+      (testing "and the consequence of changing it, which is the next thing they will do"
+        (is (str/includes? m "signs out everyone")))))
+  (testing "the banner carries the whole remedy, aligned as one block"
+    (let [out (lines [(assoc secret-missing :fix config/signature-missing-message)])
+          blk (drop-while #(not (str/includes? % "(!!)")) out)]
+      (is (str/includes? (first blk) "every login"))
+      (is (some #(str/includes? % "openssl rand") blk) (pr-str blk))
+      (is (every? #(or (str/includes? % "(!!)") (str/starts-with? % "        ")
+                       (str/starts-with? % "-"))
+                  blk)
+          (pr-str blk)))))

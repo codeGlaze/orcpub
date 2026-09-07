@@ -202,6 +202,17 @@
   []
   (= "strict" (get-csp-policy)))
 
+(def signature-missing-message
+  "Why authentication is broken, and how to fix it. One string, used by the boot banner, the
+   startup warning and the 500 a caller gets, so an operator reading any of them is told the
+   same thing and does not have to work out the remedy from the symptom."
+  (str "SIGNATURE is not set, so every login, signup and authenticated API call fails.\n"
+       "   It is the key JWT tokens are signed with; without it none can be issued or verified.\n"
+       "   Fix: set a long random value and restart, either as a Docker secret at\n"
+       "        /run/secrets/signature (preferred) or as the SIGNATURE environment variable.\n"
+       "        e.g.  openssl rand -base64 48\n"
+       "   Keep it stable: changing it signs out everyone and invalidates unsubscribe links."))
+
 (def branding-vars
   "The APP_* fork-branding variables. Reported as a count rather than twenty rows -- a
    banner nobody reads because it scrolls is no better than no banner."
@@ -228,7 +239,8 @@
     {:group "database" :var "DATOMIC_URL"   :get #(get-datomic-uri) :redact? true}
     {:group "database" :var "DATOMIC_PASSWORD" :secret? true}
     {:group "security" :var "SIGNATURE"     :secret? true :critical? true
-     :note "JWT signing key; every login and API call fails without it"}
+     :note "JWT signing key; every login and API call fails without it"
+     :fix signature-missing-message}
     {:group "security" :var "CSP_POLICY"    :note "overrides the built-in policy"}
     {:group "email"    :var "EMAIL_FROM_ADDRESS"}
     {:group "email"    :var "EMAIL_ERRORS_TO"}
@@ -258,7 +270,7 @@
    change was picked up, ignored as a typo, or never set. Secret values are dropped here, not
    at print time, so nothing downstream can leak one by accident."
   []
-  (for [{:keys [var get secret? redact? critical? note group]} settings]
+  (for [{:keys [var get secret? redact? critical? note group fix]} settings]
     (let [raw      (env-raw var)
           integer? (some? (some #(= var (:var %)) tunables))
           parsed   (when (and raw integer?)
@@ -267,7 +279,7 @@
           value    (cond secret? nil
                          get     (get)
                          :else   raw)]
-      {:var var :group group :note note :critical? critical?
+      {:var var :group group :note note :critical? critical? :fix fix
        :value (if (and value redact?) (redact-secrets value) value)
        :secret? secret?
        :raw (when-not secret? raw)
@@ -320,10 +332,17 @@
                 (format "  (!)  %s=%s was ignored: not a positive integer. The default above is in use."
                         var raw))))
       ;; A missing SIGNATURE means every login fails. That is not a row to be spotted.
+      ;; Say what broke AND how to fix it. A boot line that names a symptom and leaves the
+      ;; remedy to be guessed just moves the work.
       (when-let [miss (seq (filter #(and (:critical? %) (not (:set? %))) rows))]
-        (cons rule
-              (for [{:keys [var note]} miss]
-                (format "  (!!) %s is NOT SET -- %s" var (or note "required")))))
+        (mapcat (fn [{:keys [var note fix]}]
+                  (let [body (str/split-lines (or fix (str var " is NOT SET -- " (or note "required"))))]
+                    (cons rule
+                          ;; Continuations line up under the first line's text, not under the
+                          ;; marker, so the block reads as one paragraph.
+                          (cons (str "  (!!) " (first body))
+                                (map #(str "        " (str/triml %)) (rest body))))))
+                miss))
       [rule]))))
 
 (defn jetty-max-threads
