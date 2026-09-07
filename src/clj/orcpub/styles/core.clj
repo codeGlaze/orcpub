@@ -679,17 +679,28 @@
    ;; picks one of these rather than passing a colour, which keeps the site's
    ;; colours in this file instead of spread across component styles.
    [:.callout-accent-brand
-    ;; The rail is painted rather than bordered, so it can fade down its length and
-    ;; still sit inside the box's rounded corners -- a gradient border-image would
-    ;; square them off. The glow is an inset shadow bleeding in from the same edge,
-    ;; kept faint on purpose: it should read as the box being lit from that side,
-    ;; not as a highlight demanding attention.
-    {:background-image (str "linear-gradient(180deg, " orange " 0%, rgba(240, 161, 0, 0.25) 100%)")
-     :background-size "3px 100%"
-     :background-repeat :no-repeat
-     :background-position "left center"
-     :box-shadow "inset 14px 0 20px -16px rgba(240, 161, 0, 0.65)"
-     :border-radius "4px"}]
+    ;; A gradient ring around the whole box, not a rail down one side. The ring is
+    ;; a pseudo-element masked to just its own edge -- the standard way to get a
+    ;; gradient border that still follows rounded corners, since border-image
+    ;; squares them off and a plain border cannot hold a gradient at all. The card
+    ;; keeps its translucent fill because the mask punches the middle out rather
+    ;; than painting over it. The outer shadow is the glow, kept low: it should
+    ;; look like the ring is giving off a little light, not like a selected field.
+    {:position :relative
+     :border-color :transparent
+     :box-shadow (str "0 0 14px rgba(240, 161, 0, 0.13)")}
+    [:&:before
+     {:content "''"
+      :position :absolute
+      :inset 0
+      :border-radius "4px"
+      :padding "1px"
+      :pointer-events :none
+      :background (str "linear-gradient(135deg, " orange ", rgba(240, 161, 0, 0.18) 55%, rgba(240, 161, 0, 0.7))")
+      :-webkit-mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
+      :-webkit-mask-composite "xor"
+      :mask "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)"
+      :mask-composite "exclude"}]]
 
    ;; A small neutral pill for naming things inline -- the items a feature covers,
    ;; the styles a sheet comes in. Same shape as .lib-badge without its reason
