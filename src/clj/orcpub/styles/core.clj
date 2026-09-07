@@ -1837,6 +1837,24 @@
       :color "rgba(255,255,255,0.85)"
       :flex 1}]
 
+    ;; On a phone the panel is the screen. The footer is the part that actually
+    ;; breaks: four buttons in a nowrap flex row overflow a 360px viewport and push
+    ;; the modal wider than the clamp, so let it wrap and let the primary action
+    ;; take the full width when it does. Padding comes down because at this size
+    ;; 20px each side is a fifth of the screen, and the panel takes more height
+    ;; because there is nothing behind it worth looking at.
+    (at-media {:max-width "600px"}
+              [:.conflict-modal
+               {:max-width "calc(100vw - 16px)"
+                :max-height "92vh"}]
+              [:.conflict-modal-header {:padding "12px 14px"}]
+              [:.conflict-modal-body {:padding "12px 14px"}]
+              [:.conflict-modal-footer
+               {:padding "12px 14px"
+                :flex-wrap :wrap
+                :gap "8px"}
+               [:.form-button {:flex "1 1 auto"}]])
+
     ;; Header elements
     [:.conflict-title-icon
      {:color orange
