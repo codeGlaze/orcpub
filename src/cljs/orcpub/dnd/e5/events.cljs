@@ -161,6 +161,28 @@
 (def whats-new-seen->local-store-interceptor
   (after (fn [db] (whats-new-seen->local-store (:whats-new-seen db)))))
 
+(reg-fx
+ ::e5/watch-cookie-notice
+ ;; The release panel is held while the cookie notice is up so a first visit gets
+ ;; one overlay, not two. The notice only goes away on a click on its own button,
+ ;; so re-check after any click and open as soon as it is gone — otherwise the
+ ;; panel waits for a reload that a visitor has no reason to perform, which is
+ ;; the same as never showing it. Takes the flag, since an effect map entry runs
+ ;; its handler whatever the value is.
+ (fn [watch?]
+   (when watch?
+     (let [handler (atom nil)]
+     (reset! handler
+             (fn [_]
+               (js/setTimeout
+                (fn []
+                  (when-not (cookie-banner-pending?)
+                    (js/document.removeEventListener "click" @handler true)
+                    (dispatch [::e5/open-whats-new])))
+                ;; after the notice's own fade-out, so the two don't cross
+                450)))
+       (js/document.addEventListener "click" @handler true)))))
+
 (def set-changed (->interceptor
                   :id :set-changed
                   :before (fn [context]
@@ -254,7 +276,9 @@
               ::e5/health-dismissed
               ::e5/whats-new-seen
               ::combat/tracker-item]} _]
-   {:db (if (seq db)
+   {::e5/watch-cookie-notice (and (whats-new/unseen? whats-new-seen)
+                                  (cookie-banner-pending?))
+    :db (if (seq db)
           db
           (cond-> default-value
             plugins (assoc :plugins plugins)

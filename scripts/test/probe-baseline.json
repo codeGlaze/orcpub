@@ -41,11 +41,15 @@
     "seconds": 73
   },
   "whats_new_e2e.js": {
-    "checks": 19,
+    "checks": 20,
     "seconds": 110
   },
   "export_busy_retry_e2e.js": {
     "checks": 9,
     "seconds": 41
+  },
+  "header_menus_e2e.js": {
+    "checks": 22,
+    "seconds": 95
   }
 }

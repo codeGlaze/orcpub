@@ -267,6 +267,24 @@
 
 (def route-handler (memoize route-fn))
 
+(defn- fit-flyout!
+  "Cap an opening flyout at the room left below it, and let it scroll.
+
+   The menu is absolutely positioned under its tab, so its height has nothing to
+   do with the window's: My Content is eleven rows and ran off the bottom of a
+   720-tall screen, and a hover menu cannot be scrolled into reach — moving the
+   pointer away to use the page scrollbar closes it. Measured in a frame, after
+   :hover has applied and the menu has a box to measure."
+  [e]
+  (when-let [flyout (some-> (.-currentTarget e) (.querySelector ".header-flyout"))]
+    (js/requestAnimationFrame
+     (fn []
+       (let [top (.-top (.getBoundingClientRect flyout))
+             room (- (.-innerHeight js/window) top 12)]
+         (when (pos? top)
+           (set! (.. flyout -style -maxHeight) (str (max 160 (js/Math.floor room)) "px"))
+           (set! (.. flyout -style -overflowY) "auto")))))))
+
 (defn header-tab [title icon on-click disabled active device-type & buttons]
   (let [mobile? (= :mobile device-type)]
     [:div.f-w-b.f-s-14.t-a-c.header-tab.m-l-2.m-r-2.posn-rel
@@ -283,7 +301,9 @@
               :class (str (if disabled "disabled" "pointer")
                           " "
                           (when (not mobile?) " w-110"))}
-       (seq buttons) (assoc :tab-index 0))
+       (seq buttons) (assoc :tab-index 0
+                            :on-mouse-enter fit-flyout!
+                            :on-focus fit-flyout!))
      [:div.p-10
       {:class (when (not active) (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}
       (let [size (if mobile? 24 48)] (svg-icon icon size ""))
@@ -324,7 +344,9 @@
               :class-name (str (if disabled "disabled" "pointer")
                                " "
                                (when-not mobile? "w-110"))}
-       (seq buttons) (assoc :tab-index 0))
+       (seq buttons) (assoc :tab-index 0
+                            :on-mouse-enter fit-flyout!
+                            :on-focus fit-flyout!))
      [:div.p-10
       {:class-name (when-not active
                      (if disabled "opacity-2" "opacity-6 hover-opacity-full"))}

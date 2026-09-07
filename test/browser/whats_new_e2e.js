@@ -166,11 +166,17 @@ const visible = page => page.locator('.whats-new-panel').isVisible().catch(() =>
   check('the panel waits while the cookie notice is up', !(await visible(page)));
   await page.screenshot({ path: path.join(OUT, '4-cookie-notice-first.png') });
 
+  // Navigating inside the app is not a reload, so the held panel must not need one:
+  // this is the path a first-time visitor actually takes off the splash page.
+  await page.locator('a.splash-button').first().click();
+  await page.waitForSelector('#app-main', { timeout: 30000 });
+  await page.waitForTimeout(1200);
+  check('still held while the notice is up, one page in', !(await visible(page)));
+
   await page.locator('#cookie-btn').click();
-  await page.waitForTimeout(500);
-  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.whats-new-panel', { timeout: 20000 });
-  check('and gets it on the visit after', await visible(page));
+  await page.waitForSelector('.whats-new-panel', { timeout: 10000 });
+  check('and opens as soon as the notice is dismissed, with no reload', await visible(page));
+  await page.screenshot({ path: path.join(OUT, '5-after-cookie-notice.png') });
   await ctx.close();
 
   // 7. A phone-sized viewport: the panel has to fit and scroll, not overflow.

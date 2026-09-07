@@ -1110,6 +1110,12 @@
     ;; and z-indexed, so it forms a stacking context and the flyout's own z-index
     ;; is resolved INSIDE it. At an equal 100 the button row wins on document
     ;; order, and the dropdown renders under buttons that then swallow the click.
+    ;; Thin, themed scrollbar for a flyout that fit-flyout! had to cap (My Content on
+    ;; a short screen). The default is a light slab against a dark menu.
+    [:.header-flyout
+     {:scrollbar-width "thin"
+      :scrollbar-color "rgba(240,161,0,0.45) transparent"}]
+
     [:.header-tab
      [:&:focus {:outline :none}]
      [:.header-flyout {:display :none}]
