@@ -11,7 +11,7 @@
 // Prerequisites: lein fig:build, lein garden once, lein e2e-server, npm install playwright.
 // Run: node test/browser/spell_help_laziness_e2e.js
 const fs=require('fs'),path=require('path');const {chromium}=require('playwright');
-const { suppressCookieBanner } = require('./lib/orcbrew-import');
+const { suppressOverlays } = require('./lib/orcbrew-import');
 function findChrome(){const b=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';try{const d=fs.readdirSync(b).filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).sort().pop();if(d){const p=path.join(b,d,'chrome-linux','chrome');if(fs.existsSync(p))return p;}}catch(_){}return undefined;}
 
 const COUNT_SPELL_HELP = `
@@ -30,7 +30,7 @@ const check=(name,ok,detail='')=>{results.push(ok);console.log(`${ok?'PASS':'FAI
 
 (async()=>{
   const browser=await chromium.launch({executablePath:findChrome()});
-  const ctx=await browser.newContext(); await suppressCookieBanner(ctx);
+  const ctx=await browser.newContext(); await suppressOverlays(ctx);
   const page=await ctx.newPage(); await page.setViewportSize({width:1500,height:1100});
   await page.addInitScript(COUNT_SPELL_HELP);
   await page.goto('http://localhost:8890/pages/dnd/5e/character-builder',{waitUntil:'load',timeout:600000});

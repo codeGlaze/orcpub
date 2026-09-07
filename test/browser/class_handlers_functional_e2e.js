@@ -10,7 +10,7 @@
 //   node test/browser/class_handlers_functional_e2e.js /path/to/pack.orcbrew
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -31,7 +31,7 @@ const check = (name, ok, detail) => {
 (async () => {
   const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
   page.on('pageerror', e => { console.log('  PAGEERROR', e.message); failures++; });
 

@@ -12,12 +12,12 @@
 // Run: lein e2e-server, then
 //   node test/browser/library_chunk_granularity_e2e.js /path/to/pack.orcbrew
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import.js');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import.js');
 
 (async () => {
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined });
   const ctx = await browser.newContext();
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
   await page.goto('http://localhost:8890/dnd/5e/my-content',
                   { waitUntil: 'networkidle', timeout: 120000 });

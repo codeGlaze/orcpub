@@ -7,7 +7,7 @@
 // Run: node test/browser/select_option_census_e2e.js /path/to/pack.orcbrew
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -30,7 +30,7 @@ const ROUTES = [
   const PACK = process.argv[2];
   const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 1000 } });
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
   await page.goto('http://localhost:8890/dnd/5e/my-content', { waitUntil: 'networkidle', timeout: 120000 });
   await page.waitForTimeout(2500);

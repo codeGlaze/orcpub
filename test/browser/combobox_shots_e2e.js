@@ -8,7 +8,7 @@
 // Run: node test/browser/combobox_shots_e2e.js /path/to/pack.orcbrew [outdir]
 const fs = require('fs'), path = require('path');
 const { chromium, devices } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -65,7 +65,7 @@ async function stats(page, label) {
 
   // ---------- desktop ----------
   const ctx = await browser.newContext({ viewport: { width: 1500, height: 1000 } });
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
   await page.goto('http://localhost:8890/dnd/5e/my-content', { waitUntil: 'networkidle', timeout: 120000 });
   await page.waitForTimeout(2500);
@@ -162,7 +162,7 @@ async function stats(page, label) {
 
   // ---------- mobile ----------
   const mctx = await browser.newContext({ ...devices['Pixel 5'] });
-  await suppressCookieBanner(mctx);
+  await suppressOverlays(mctx);
   const mpage = await mctx.newPage();
   await mpage.goto('http://localhost:8890/dnd/5e/my-content', { waitUntil: 'networkidle', timeout: 120000 });
   await mpage.waitForTimeout(2500);

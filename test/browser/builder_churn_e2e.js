@@ -14,7 +14,7 @@
 // Prerequisites: lein fig:build, lein garden once, lein e2e-server, npm install playwright.
 // Run: node test/browser/builder_churn_e2e.js <pack.orcbrew>
 const fs=require('fs'),path=require('path');const {chromium}=require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 function findChrome(){const b=process.env.PLAYWRIGHT_BROWSERS_PATH||'/opt/pw-browsers';try{const d=fs.readdirSync(b).filter(x=>x.startsWith('chromium-')&&!x.includes('headless')).sort().pop();if(d){const p=path.join(b,d,'chrome-linux','chrome');if(fs.existsSync(p))return p;}}catch(_){}return undefined;}
 
 const INSTRUMENT = `
@@ -42,7 +42,7 @@ const pct=(a,p)=>a.length?a.slice().sort((x,y)=>x-y)[Math.min(a.length-1,Math.fl
 (async()=>{
   const pak = process.argv[2];
   const browser=await chromium.launch({executablePath:findChrome()});
-  const ctx=await browser.newContext(); await suppressCookieBanner(ctx);
+  const ctx=await browser.newContext(); await suppressOverlays(ctx);
   const page=await ctx.newPage(); await page.setViewportSize({width:1500,height:1100});
   await page.addInitScript(INSTRUMENT);
   const cdp=await page.context().newCDPSession(page);

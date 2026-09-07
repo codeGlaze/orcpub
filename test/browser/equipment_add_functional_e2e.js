@@ -11,7 +11,7 @@
 // because the app-db assertion is the part worth keeping.
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -24,7 +24,7 @@ const check = (n, ok, d) => { console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${n}${d ? 
 
 (async () => {
   const browser = await chromium.launch({ executablePath: findChrome() });
-  const ctx = await browser.newContext(); await suppressCookieBanner(ctx);
+  const ctx = await browser.newContext(); await suppressOverlays(ctx);
   const page = await ctx.newPage();
   page.on('pageerror', e => { console.log('  PAGEERROR', e.message); failures++; });
 

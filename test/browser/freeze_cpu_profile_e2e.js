@@ -8,7 +8,7 @@
 //   node test/browser/freeze_cpu_profile_e2e.js /path/to/pack.orcbrew [throttle]
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -65,7 +65,7 @@ function selfTimes(profile) {
   const PACK = process.argv[2], RATE = Number(process.argv[3] || 4);
   const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   const page = await ctx.newPage();
 
   await page.goto('http://localhost:8890/dnd/5e/my-content', { waitUntil: 'networkidle', timeout: 120000 });

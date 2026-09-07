@@ -12,7 +12,7 @@
 //   node test/browser/tab_switch_freeze_e2e.js /path/to/pack.orcbrew [throttle]
 const fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
-const { importPack, suppressCookieBanner } = require('./lib/orcbrew-import');
+const { importPack, suppressOverlays } = require('./lib/orcbrew-import');
 
 function findChrome() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -74,7 +74,7 @@ try {
   const RATE = Number(process.argv[3] || 4);
   const browser = await chromium.launch({ executablePath: findChrome() });
   const ctx = await browser.newContext();
-  await suppressCookieBanner(ctx);
+  await suppressOverlays(ctx);
   await ctx.addInitScript(OBSERVE);
   const page = await ctx.newPage();
 
