@@ -66,14 +66,16 @@ async function importPack(page, absPath, { timeout = 300000 } = {}) {
     if (await pluginCount() > before) return { ok: true, viaModal: clicked };
     if (!clicked) {
       // The import modal's own controls, most specific first. These are LABELS THAT
-      // EXIST: the summary view's primary is "Import with these fixes" (it was plain
-      // "Import" until f7285198) and the full panel's is "Apply & Import", or "Apply"
-      // when resolving library content rather than an import. The old list matched
-      // the first of those only because has-text is a substring match — one more
-      // rename and it would have started clicking nothing, or the wrong thing.
-      // "Cancel Import" is a span, not a button, so it cannot be hit here.
-      for (const label of ['Import with these fixes', 'Apply & Import', 'Apply',
-                           'Import', 'Confirm', 'OK']) {
+      // EXIST — and they move: the summary view's primary was "Import" until
+      // f7285198, "Import with these fixes" until 2661be88, and is now "Import with
+      // default fixes"; the full panel's is "Apply & Import", or "Apply" when
+      // resolving library content rather than an import. Matching is a substring
+      // match, so the bare-word entries at the end catch the next rewording of the
+      // same button rather than clicking nothing — but keep the exact labels first,
+      // so the specific control wins while it exists. "Cancel Import" is a span,
+      // not a button, and cannot be hit here.
+      for (const label of ['Import with default fixes', 'Import with these fixes',
+                           'Apply & Import', 'Apply', 'Import', 'Confirm', 'OK']) {
         const b = page.locator(`button:has-text("${label}")`).last();
         if (await b.count().catch(() => 0)) {
           const visible = await b.isVisible().catch(() => false);
