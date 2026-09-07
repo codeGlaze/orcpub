@@ -1799,9 +1799,15 @@
       :justify-content :center}]
 
     [:.conflict-modal
+     ;; 600px was set for a short warning and inherited by the conflict panel,
+     ;; where every row carries two source names and a key: "Keep Eberron - Rising
+     ;; from the Last War's :quori -- rename the other source(s)" wrapped onto two
+     ;; lines, so a list of 27 of them read as a wall. There is no fixed width, so
+     ;; a modal still shrinks to its content -- the export warning is unchanged --
+     ;; and the clamp keeps it off the edges on a narrow screen.
      {:background "#1a1e28"
       :border-radius "5px"
-      :max-width "600px"
+      :max-width "min(860px, calc(100vw - 32px))"
       :max-height "80vh"
       :overflow :hidden
       :display :flex
