@@ -68,9 +68,14 @@ Support
 ### Homebrew library management (My Content)
 
 **Added**
-- **Move / copy content between sources** — one select-mode mechanism for single or bulk; clobber-free key policy (move keeps the key unless taken; copy always mints a fresh one) (`903f44cb`).
+- **Move / copy content between sources** — one select-mode mechanism for single or bulk,
+  with a clobber-free key policy: a move keeps the key unless it is taken, a copy always
+  mints a fresh one (`903f44cb`).
 - **Four-level disable hierarchy** — global / source / section / item, checked as an OR. The two new levels (global "all homebrew" + per-section) live in a local overlay store, so they're a per-device view preference that never mutates `.orcbrew` data or travels with an export (`95426d8c`).
-- **Passive library health-status card** — surfaces unresolved key conflicts, missing-required-fields, and export blockers; one line per problem *type* with a count. Warning-yellow for attention, red for broken; always-on on the My Content hub, dismissable-and-remembered elsewhere (`b58fe80b`, `79982e03`, `d0338049`, `e5372fed`, `e7040f4a`).
+- **Passive library health-status card** — one line per problem type with a count, covering
+  unresolved key conflicts, missing required fields, and export blockers. Warning-yellow for
+  attention, red for broken. Always on in the My Content hub, dismissable and remembered
+  elsewhere (`b58fe80b`, `79982e03`, `d0338049`, `e5372fed`, `e7040f4a`).
 - **Opinionated, summary-first import** — safe defaults resolve conflicts up front with a one-click Import; the full per-conflict panel becomes "Review" (`e90466c1`).
 - **Richer duplicate-key resolution** — severity split with honest labeling for the collapse-risk types, "keep both, turn one off" for a deterministic winner, rename the *existing* item, and an internal keeper-picker (`87512e47`, `052e6e55`, `0c30a022`, `862d9b26`).
 - **Mutual-exclusion legibility** — per-row twin notes, a library banner, disabled-content badges colored by reason, and swap-on-enable keeping ≤1 enabled twin (`8543d8f6`, `d94973a6`).
@@ -103,28 +108,19 @@ Support
 
 **Highlights**
 
-Homebrew classes can now define their **starting equipment** from the builder UI — the
-**full SRD form**, not just the easy half. Fixed items, plus choice groups where each
-option can grant a **bundle** of items and/or a **nested weapon sub-choice**, so
-"(a) chain mail, or (b) leather + a longbow + 20 arrows" and "a martial weapon and a
-shield" are all buildable without hand-editing `.orcbrew`. It applies on the character
-sheet and round-trips through save, export, and import.
-
-You can also **start from an SRD class**: the builder fills in that class's equipment for
-you to tweak, taken from the live class definition rather than a hand-copied table. If you
-only change a few things, the exported file stores **just those changes** against the base
-class instead of a full copy.
+Homebrew classes can define their starting equipment from the builder UI, in the full SRD
+form: fixed items, choice groups, bundles, and nested weapon sub-choices. It applies on the
+character sheet and round-trips through save, export, and import. You can also start from an
+SRD class and change only what you want, and the export stores just those changes against
+the base class.
 
 **Added**
 
 - **Starting Equipment section in the class builder** — a homebrew class can grant fixed
-  items (`:weapons`/`:armor`/`:equipment`) and rich choice groups. Each choice option is a
-  label + one-or-more item grants (from the real weapon/armor/equipment vocabulary) + an
-  optional "any simple/martial weapon" sub-choice — i.e. the full SRD equipment form
-  (bundles and nested picks), via a serializable `:equipment-selections` shape that
-  `class-option` compiles to the same structure the SRD classes use. Applies with no new
-  engine path, round-trips through save/export/import, and imported legacy simple choices
-  convert to the editable form in one click (`a4f13086`, `5a5f65a8`).
+  items and choice groups, including bundles and nested weapon picks, so the full SRD
+  equipment form is buildable without hand-editing `.orcbrew`. It round-trips through save,
+  export and import, and legacy simple choices convert to the editable form in one click
+  (`a4f13086`, `5a5f65a8`).
 - **"Start from an SRD class"** — a dropdown fills the builder with any SRD class's starting
   equipment. It's read from the live class (by applying the class's own modifier functions),
   so it always matches what the class actually grants. All 12 classes (`2470e1d2`, `3fc5585d`).
@@ -178,13 +174,11 @@ item cards print alongside spell cards; and every page carries the site name.
   to the end of the document rather than placed after the last spell page. The
   eight-class fixture shipped as spell pages 3–8, features at 9, then spell pages
   10 and 11 (`de9a746`).
-- Spells vanished off printed sheets. `pdf_spec` emits `spells-LEVEL-ROW-1`
-  counting from 1 with no gaps, and three templates numbered their fields with
-  one: styles 1 and 3 ran level 3 as 1–10, 12, 13, 14, so **Glyph of Warding**
-  was dropped from every wizard's sheet and the last row printed blank; style 4
-  ran level 2 as 1–6 then 9–13, losing **Continual Flame** and **Darkness**
-  mid-list. Style 1's PREPARED ticks carried the same numbering, so a prepared
-  level 3 spell printed unticked. `dev/fix_spell_row_fields.clj` renumbers them.
+- Spells vanished off printed sheets because three templates numbered their spell-row fields
+  with gaps: **Glyph of Warding** was dropped from every wizard's style 1 and 3 sheet, and
+  style 4 lost **Continual Flame** and **Darkness** mid-list. Style 1's PREPARED ticks
+  carried the same numbering, so a prepared spell printed unticked.
+  `dev/fix_spell_row_fields.clj` renumbers them.
 - Style 3 printed an empty HIT DICE box on every sheet — the box is drawn, the
   `hd` field was never there. Style 4's second-page name box was likewise always
   empty: it calls the field `character-name-p2` where the export writes
@@ -194,48 +188,32 @@ item cards print alongside spell cards; and every page carries the site name.
   13 rows at style 4's level 2 where only 11 could be filled — and undercounted
   its level 1 at 12 where it holds 13. It is the field count now, with a test
   tying it to the templates.
-- Styles 3 and 4 threw `StackOverflowError` for any character with two or more
-  casting classes, so those sheets could not be exported at all. Both keep their
-  spell page LAST, leaving no page to insert a clone before, and the fallback was
-  `PDPageTree.add` — which walks the whole object graph checking for a cycle and
-  runs out of stack on these masters. Clones now go in with `insertAfter`, which
-  does no such walk. Styles 1 and 2 have a features and traits page after their
-  spell pages and were never affected, which is why this survived.
+- Styles 3 and 4 threw `StackOverflowError` for any character with two or more casting
+  classes, so those sheets could not be exported at all. Clones are now inserted with
+  `insertAfter`, avoiding the whole-object-graph cycle check that exhausted the stack.
+  Styles 1 and 2 were never affected, which is why this survived.
 
 **Changed**
 
 - The 28 templates are now 8: for each style, one to grow from and one with no
   spell page for a character who casts nothing. 44.3 MB to 9.7 MB.
-- Style 4 grows from a ONE-spell-page master like every other style. Its master
-  was the two-spell-page file, on the reading that its licence footer was baked
-  into the artwork — and a baked footer can be spread by cloning but never
-  removed, so a last-page-only style needed a plain page to clone and a marked
-  page to end on. It is not baked: both pages referenced the same background
-  XObject and the marked page was the plain page plus an appended BT/ET block, so
-  keeping the marked page alone gives clones that all carry the footer. The
-  retired file leaves resources/ 4.5 MB lighter, and the surviving page renders
-  byte-identically.
+- Style 4 grows from a one-spell-page master like every other style: its licence footer
+  turned out not to be baked into the artwork, so the marked page alone yields clones that
+  all carry the footer. The retired file leaves `resources/` 4.5 MB lighter, and the
+  surviving page renders byte-identically.
 - That page's footer block is four operators rather than six: `0 i` sets flatness
   tolerance, which applies to path curves and not to glyph fills, and `/GS2 gs`
   is the page default, differing from GS0 only in stroke adjustment.
-- Style 4's structure tree came off with the dropped page. The tree reaches a
-  page through each element's `/Pg`, so the page survived removal from the page
-  tree while 242 elements still named it; pruning just those reached 27 of them,
-  because `/K` is a dictionary, an array, an integer MCID or a reference by turns
-  and ParentTree and ClassMap need handling too. Removing the tree took the file
-  from 2622 objects to 1301. The cost is style 4's accessibility tagging — styles
-  1 and 2 keep theirs, style 3 never had any — and restoring it means writing the
-  pruner properly.
+- Style 4's structure tree is removed along with the page it referenced, taking the file
+  from 2622 objects to 1301. The cost is style 4's accessibility tagging — styles 1 and 2
+  keep theirs, style 3 never had any — and restoring it means writing the pruner properly.
 - Exports are smaller at every caster count above one, by 49 KB to 671 KB
   depending on style, and a character with no spellcasting gets a file the same
   size as before.
-- Generating a sheet repeats less work. Values were looked up in the form twice
-  each and the lookup walks the whole field tree; the prose fields were located
-  and measured before checking whether they held anything; a cloned spell page
-  re-read its source's widget entries once per clone, which returns the same
-  objects every time. A six-caster sheet allocates 162 MB rather than 607, a
-  single-casting-class one 51 MB rather than 77, and a character who casts
-  nothing no longer scans the pages for spell sections at all.
+- Generating a sheet repeats less work: form values are looked up once instead of twice,
+  prose fields are measured only when they hold something, and a cloned spell page no longer
+  re-reads its source per clone. A six-caster sheet allocates 162 MB rather than 607, and a
+  character who casts nothing no longer scans the pages for spell sections at all.
 
 **Added (spell row annotations)**
 
@@ -292,36 +270,22 @@ item cards print alongside spell cards; and every page carries the site name.
   taking a new box — spilling into box 2 only because a level 20 Warlock knows 15
   spells against box 1's 12 rows. That is both simpler than fitting it like any
   other class and what keeps its slot pool off the classes beside it.
-- Each column is headed with the class holding it, in the bar of the cantrips box
-  it starts with: CANTRIPS small in the narrow compartment a level bar gives SLOTS
-  TOTAL, and the class name at 11pt bold centred in the wide one it gives SLOTS
-  EXPENDED. A class with NO cantrips — a Paladin, a Ranger — starts at a level box
-  whose bar carries a live input, so the name takes the left of that compartment
-  and the SLOTS EXPENDED box is moved to the right of it rather than the column
-  going unnamed. The label is padded from whatever bounds it on that bar rather than
-  from the compartment: a level bar's simply opens at its SLOTS TOTAL field, while
-  box 0's puts a divider at x 51-59 right where that compartment begins, so one
-  number gave box 0 two points of clearance and a level box nine. A cantrips box has no slots, so both are free there — which is why
-  this is only ever done for a box holding cantrips, never one whose slot inputs
-  the player writes in.
+- Each spell column is headed with the class that holds it, so a party of casters can be
+  told apart at a glance. A class with no cantrips is headed in its first level box
+  instead of going unnamed, and headings are only placed on bars with no slot inputs the
+  player writes in.
 - The compartments are read off the live fields rather than written down, so they
   follow the artwork: 51.9–91.1 and 103–195.8 on style 1. A style with no
   `slots-expended` field (2 and 4) has the wide one taken from the spell row's
   right edge instead. Box 0 has no slots fields at all and borrows level 1's.
-- A name too long even at the 6pt floor is shortened with an ellipsis rather than
-  overflowed — at 6pt "Eldritch Knight" still measures 43pt against a level box's
-  35 and would print through the divider. A cantrips box has no slots, so the compartment a
-  level bar gives to SLOTS TOTAL and SLOTS EXPENDED is dead space there. A class
-  with no cantrips starts at a level box whose slot inputs the player writes in,
-  so it gets none and the section header names it.
+- A name too long even at the 6pt floor is shortened with an ellipsis rather than printing
+  through the divider — at 6pt "Eldritch Knight" still measures 43pt against a level box's
+  35.
 
-- Each class's spellcasting ability, save DC and attack bonus print ABOVE its
-  column's bar, bold and near-black — numbers a player reads mid-turn, set like
-  the class name rather than like the CANTRIPS caption beside it. The sheet gives a section ONE such triple and a packed page holds
-  several classes whose numbers differ, so the triple is left empty there and
-  filled only when a page holds a single class. Sharing the bar with the class
-  name did not work: the pair came to 96pt in a 92.8pt compartment, so fitting one
-  shrank the other and "Sorcerer" printed as "Sorce…".
+- Each class's spellcasting ability, save DC and attack bonus print above its column's bar,
+  bold and near-black, so they read at a glance mid-turn. A sheet section carries one such
+  triple, so on a packed page holding several classes it is left empty, and filled only
+  where a page holds a single class.
 - Packing runs on all four styles. The printed level numeral is covered with a
   white rectangle cut to that style's measured digit box (`pdf/numeral-boxes`,
   from `dev/scan_numerals.clj`) rather than a hexagon traced off style 1, which
@@ -333,13 +297,10 @@ item cards print alongside spell cards; and every page carries the site name.
   into the per-class lists the packer takes. That regrouping is the point: the
   shipped layout groups by `:ability`, which is why a Warlock and a Sorcerer share
   one CHA section.
-- **Pact Magic is separated in the character model.** `?spell-slots` was
-  `(merge-with + <shared table> <pact schedule>)`, so a Warlock/Sorcerer's pact
-  slots were ADDED to the shared ones and printed as one inflated number — on the
-  normal sheet, today, not only when packed. `?shared-spell-slots` and
-  `?pact-spell-slots` are kept apart now, with `spell-slots` still their sum for
-  everything that reads it. 5e gives a multiclass one shared table from combined
-  caster levels, so shared is right for everyone except a pact caster.
+- **Pact Magic is separated in the character model.** A Warlock/Sorcerer's pact slots were
+  added to the shared ones and printed as a single inflated number — on the normal sheet,
+  not only when packed. Shared and pact slots are kept apart now, with their sum still
+  available to everything that reads it.
 - A pact caster's whole list is reported at its highest pact slot level, because
   that is how a Warlock casts — which is what lets it hold one box however high it
   climbs.
@@ -361,22 +322,17 @@ item cards print alongside spell cards; and every page carries the site name.
   is the Cthulhu Mythos sheet and carries "Conditions and Insanities" where the
   others carry inspiration, so inspiration is all that is left in it.
 
-- Style 4 has no allies or backstory box, and one general Notes box. Both values
-  are written into it under headings rather than dropped
-  (`pdf/merged-fields`). Notes is 263×252pt against the 354×369 and 176×219 the
-  other styles give those two, so a long backstory shrinks to fit and a very long
-  one clips at the 4pt floor — the tail of a paragraph rather than both entries.
-  An empty section prints no heading, and a character with neither leaves the box
-  blank rather than printing bare headings.
+- Style 4 has no allies or backstory box, so both values are written into its general Notes
+  box under headings rather than dropped. That box is smaller than the two it replaces, so a
+  long backstory shrinks to fit and a very long one clips. An empty section prints no
+  heading.
 
 **Added (cards)**
 
-- Spell and magic item card backs carry `dungeonmastersvault.com`, centred at the
-  foot of every card. The backs were chosen over the fronts because they cost no
-  card content: a blank back leaves the bottom tenth clear below the mark, and the
-  fronts are filled to the edge by spell text that would have to give up a line.
-  The text a back carries over from its front is laid out to a box shortened by
-  the strip the stamp sits in, so a card filled to overflow still clears it.
+- Spell and magic item card backs carry `dungeonmastersvault.com`, centred at the foot of
+  every card. Backs were chosen over fronts because a blank back has room where a front is
+  filled to the edge by spell text. Text carried over from a front is laid out clear of the
+  stamp.
 
 - Character sheets carry the same line along the foot of every page, at a
   position measured per style off RENDERED pages (`dev/scan_site_line.clj`) and
@@ -428,16 +384,12 @@ item cards print alongside spell cards; and every page carries the site name.
 
 **Changed (cards)**
 
-- Card icons are drawn from SVG paths instead of 32px rasters. At the 0.25in a
-  card draws one, a 600 DPI printer was being asked for about 150 device pixels
-  from a 32 pixel source. `orcpub.pdf/svg-path-ops` parses the path grammar the
-  icons use; each icon is embedded once per document as a form and referenced
-  where it is drawn, because emitting the path per card cost 2.8 KB a card and
-  more than doubled a 45-card spellbook. The result is +7% on card pages and
-  byte-identical on a sheet with no cards. The `-bw` duplicates are gone: colour
-  is applied at the draw site, so one path fills red, solid black or 40% black.
-  `resources/public/image/ATTRIBUTION.md` credits the icon authors, which nothing
-  did before.
+- Card icons are drawn from SVG paths instead of 32px rasters, so a 600 DPI printer is no
+  longer asked for about 150 device pixels from a 32 pixel source. Each icon is embedded
+  once per document and referenced where drawn: +7% on card pages, byte-identical on a sheet
+  with no cards. The `-bw` duplicates are gone, since colour is applied at the draw site,
+  and `resources/public/image/ATTRIBUTION.md` credits the icon authors, which nothing did
+  before.
 - Card fonts and the image embedder are built once per document by the export
   handler rather than once inside each card function. Both are per-document, so a
   sheet printing spell cards AND item cards carried two complete copies of
@@ -477,17 +429,10 @@ item cards print alongside spell cards; and every page carries the site name.
 
 **Fixed (hardening, cont.)**
 
-- The image fetch resolves the host once and connects to that answer. It used to
-  resolve for the check and again for the connection, so DNS an attacker controls
-  could answer public for the first and private for the second — the address
-  validated was not the address talked to. The pin sits on the connection manager,
-  because `HttpClientBuilder.setDnsResolver` is overridden by
-  `setConnectionManager` and clj-http always sets one. The hostname stays in the
-  URL, so certificate and hostname verification are unchanged; rewriting the URL
-  to an IP would have meant overriding hostname verification, a worse hole than
-  the one being closed. Behind an egress proxy the client connects to the proxy,
-  so the pin cannot apply and is skipped — pinning unconditionally failed every
-  HTTPS fetch with `not the pinned host`, which only a real fetch revealed.
+- The image fetch resolves a host once and connects to that same answer, closing a window
+  where DNS an attacker controls could answer public for the safety check and private for
+  the connection. Hostname and certificate verification are unchanged, and the pin is
+  skipped behind an egress proxy, where the client connects to the proxy instead.
 
 **Added (packing, every style)**
 
@@ -561,10 +506,9 @@ item cards print alongside spell cards; and every page carries the site name.
 
 - **The character builder no longer freezes when you switch between Race and Class with a
   large homebrew library.** Three internal caches were keyed on the whole class list, so
-  every lookup compared all of it and built out every class's 20 levels — around a second of
-  frozen tab, on one click, on a machine also running the server. A Class-tab switch went
-  from 1125 ms to 100 ms in development and 654 ms to 92 ms in production, and the page holds
-  ~48 MB less (`c90016ac`, `4b67b3f7`).
+  every lookup rebuilt every class's 20 levels. A Class-tab switch went from 1125 ms to 100
+  ms in development and 654 ms to 92 ms in production, and the page holds about 48 MB less
+  (`c90016ac`, `4b67b3f7`).
 - **A character change now rebuilds the character once, not twice.** The builder's preview
   pane subscribed with a stray argument, which created a second, independent debounced
   builder over the same character; both ran on every edit (`7eb968db`, `dc667154`).
@@ -597,23 +541,11 @@ item cards print alongside spell cards; and every page carries the site name.
 
 **Highlights**
 
-A character's portrait now reaches the sheet from hosts it never used to. The
-browser reads the picture and the export carries the bytes; where the browser is
-refused — Pinterest and D&D Beyond send no CORS header — the server fetches it
-instead, and both of those work with nothing asked of the user. Neither host had
-ever blocked us: they were refused by a single 128 KB constant serving as both the
-download ceiling and the ceiling on what may go into the PDF, so a 393 KB portrait
-a host handed over without complaint was dropped for weight.
-
-The builder asks before it speaks. A browser read that fails puts the question to
-the server, and only when that also comes back no does anything appear — one line
-under the field, naming the fault and offering at most one thing to do about it.
-Most of what goes wrong is caught from the address alone, before any request: a
-page's URL pasted instead of the picture's, a login wall, a missing scheme. http is
-upgraded to https automatically once the https address is known to load.
-
-Where nobody can fetch it, the picture can be pasted or copied in — the clipboard
-carries the decoded image, so no host has a say.
+A character's portrait now reaches the sheet from hosts that used to refuse it, including
+Pinterest and D&D Beyond: the browser reads the picture, and where it is refused the server
+fetches it instead, with nothing asked of the user. When an address cannot work, one line
+under the field says why and offers at most one thing to do about it. A picture can also be
+pasted or copied straight in.
 
 **Added**
 
@@ -654,36 +586,21 @@ carries the decoded image, so no host has a say.
 
 **Added**
 
-- `orcpub.image-url/advise`, which reads the address alone and catches most real
-  mistakes before a request is made: a PAGE's address pasted instead of the
-  picture's (Pinterest pin, Imgur gallery, Reddit post, Flickr, DeviantArt,
-  ArtStation), a login wall (Instagram, Facebook), a missing or non-web scheme, a
-  space from a half-copied link, and `http://`, which this page's CSP will not
-  display whatever the host does. Dropbox `?dl=0` and Google Drive
-  `/file/d/<id>/view` are offered as corrections to take or leave.
-
-  Advice, never enforcement, and a correction only where it is mechanical --
-  nothing guesses a picture's address from a page's. Debounced, because the field
-  commits on every keystroke and advice that objects to `htt` on the way to
-  `https://` teaches people to ignore advice.
+- `orcpub.image-url/advise` reads the address alone and catches most real mistakes before
+  any request is made: a page's address pasted instead of the picture's, a login wall, a
+  missing or non-web scheme, a stray space, and `http://`, which this page's CSP will not
+  display whatever the host does. Dropbox and Google Drive links are offered a correction to
+  take or leave. Advice, never enforcement.
 
 **Changed**
 
-- http is upgraded to https automatically, once the https address is KNOWN to
-  load. The check is a plain `<img>` in the browser -- no server, no permission,
-  and no request that was not about to be made anyway, since the thumbnail loads
-  that same address a moment later and takes it from cache. The field changes only
-  after it succeeds and says why; a host that serves no https is told instead, and
-  its address is left exactly as typed. An http picture cannot be displayed by
-  this page at all, so this is not a guess about a suspect address, it is a fix
-  for a broken one.
-- **One line under a field, never four blocks.** A single unreachable picture
-  could raise a scheme warning, a suggested correction, a fetch failure and a
-  panel of controls at once -- six lines of prose and three controls to say that
-  one picture could not be had. Only the most actionable of them now shows: a
-  mechanical correction first, then what the address itself gives away, then what
-  the server found, then that it simply did not load. The other ways in wait
-  behind one disclosure, and most people never open it.
+- http is upgraded to https automatically, once the https address is known to load. The
+  check costs no request that was not about to be made anyway; the field changes only after
+  it succeeds and says why, and a host that serves no https is told instead, with its
+  address left exactly as typed.
+- **One line under a field, never four blocks.** A single unreachable picture could raise a
+  scheme warning, a suggested correction, a fetch failure and a panel of controls at once.
+  Only the most actionable now shows, and the other ways in wait behind one disclosure.
 - Controls live outside notices. A notice says what is wrong; a red panel holding
   a button, a sentence and a file picker is a control surface wearing an error's
   colours, and both halves get harder to read. A correction is now a question --
@@ -704,23 +621,17 @@ carries the decoded image, so no host has a say.
   130px, and is absent on mobile.
 
 
-- The builder says nothing about pasting or uploading until BOTH routes are known
-  to be shut: the browser refused, and the server's own answer came back no. Most
-  hosts that refuse the browser serve the server perfectly well, so speaking up
-  earlier asked people to supply a picture that was about to arrive. Measured: of
-  sixteen common portrait hosts, nine let the browser read (Imgur, Discord,
-  Fandom, Wikimedia, ArtStation, DeviantArt, Google, Tumblr, githubusercontent)
-  and most of the rest allow the server.
+- The builder says nothing about pasting or uploading until both routes are known to be
+  shut. Most hosts that refuse the browser serve the server perfectly well, so speaking up
+  earlier asked people to supply a picture that was about to arrive: of sixteen common
+  portrait hosts, nine let the browser read, and most of the rest allow the server.
 - Exporting is held while a picture is still being read, so the browser's bytes
   win that race instead of falling through to the server. `capture` carries a
   deadline, so a read always ends and the hold is bounded.
-- An oversized picture gives up SIZE before quality, down to what the sheet can
-  actually show -- the portrait box is 2.35 x 3.15 inches, so 945px on the long
-  edge at 300dpi, against a 200x100 thumbnail on screen. Pixels past that cost
-  nothing visible; quality costs something immediately. A picture already smaller
-  than that is never scaled, only re-compressed, and going below it happens last.
-  Measured: a 5.8 MB noise PNG leaves the browser at 92 KB and full quality, where
-  spending quality first had produced 37 KB and a worse picture.
+- An oversized picture gives up size before quality, down to what the sheet can actually
+  show — the portrait box is 945px on its long edge at 300dpi. A picture already smaller
+  than that is never scaled, only re-compressed. A 5.8 MB noise PNG leaves the browser at 92
+  KB and full quality, where spending quality first produced 37 KB and a worse picture.
 
 
 - Pictures are read when the thumbnail loads and when the export panel mounts,
@@ -733,26 +644,19 @@ carries the decoded image, so no host has a say.
 
 **Changed**
 
-- `/image-probe` answers a REASON rather than a boolean, and the builder turns it
-  into wording split by what is worth fixing: the link (`not-found`, `redirect`,
-  `not-an-image`, `unreachable`, `blocked-address`), the picture (`refused`,
-  `too-large`, `too-many-pixels`, `timeout`, `host-error`), or simply waiting
-  (`rate-limited`). Telling someone to copy a picture when they have mistyped a
-  link is not help. The server never sends a sentence, so nothing it says reaches
-  a person unedited, and every address refusal collapses to one code so the
-  endpoint cannot be read as a map of what this network can reach.
+- `/image-probe` answers a reason rather than a boolean, so the builder can say what is
+  worth fixing: the link, the picture, or simply waiting. Telling someone to copy a picture
+  when they have mistyped a link is not help. The server never sends a sentence, and every
+  address refusal collapses to one code, so the endpoint cannot be read as a map of what
+  this network can reach.
 
 **Fixed**
 
-- **A picture the host served happily was refused for weight.** The ceiling on
-  what the server would DOWNLOAD and the ceiling on what may go INTO the PDF were
-  the same 128 KB, so a Pinterest portrait (393 KB, served with a 200) and a
-  Wikimedia one (224 KB) were dropped although nothing had blocked them. The two
-  are now separate — 2 MB down, 128 KB into the document — and a heavy picture is
-  scaled to the printed size and re-encoded to fit, exactly as the browser does.
-  What bounds the danger was never this number: the pixel budget caps the decode
-  and the transfer deadline caps the time, and both are unchanged. A Pinterest
-  portrait now reaches the sheet with nothing asked of the user.
+- **A picture the host served happily was refused for weight.** One 128 KB limit capped
+  both what the server would download and what could go into the PDF, so a 393 KB
+  Pinterest portrait was dropped although nothing had blocked it. The two limits are now
+  separate — 2 MB down, 128 KB into the document — and a heavy picture is scaled and
+  re-encoded to fit.
 
 
 - The builder flashed "Image failed to load" at pictures that were fine.
@@ -760,12 +664,10 @@ carries the decoded image, so no host has a say.
   returning a handler -- so every fresh URL was marked failed before the browser
   had tried it, and only the load took the mark back.
 
-- A picture whose host allows no read stopped displaying in the builder. The
-  builder marks a URL failed optimistically as soon as the thumbnail renders and
-  relies on the load to take that back; the load handler had captured the flag at
-  the moment it was built, when it was still clear, so the mark was never
-  withdrawn. The clear no longer reads the flag, and is a no-op when there is
-  nothing set, so an ordinary load does not count as an edit.
+- A picture whose host allows no read stopped displaying in the builder: the optimistic
+  "failed" mark set when the thumbnail renders was never withdrawn, because the load handler
+  had captured the flag while it was still clear. The clear no longer reads the flag, so an
+  ordinary load does not count as an edit.
 
 **Removed**
 

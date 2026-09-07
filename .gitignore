@@ -123,3 +123,7 @@ dev-scratch/shots/
 # test/browser/ — see docs/kb/fast-browser-probes.md. This stops `git add -A` sweeping
 # a hardcoded-path scratch file into a commit, which happened twice in one session.
 _*.js
+
+# Python bytecode from scripts/ (scripts/lint-changelog.py is run, not imported)
+__pycache__/
+*.pyc
