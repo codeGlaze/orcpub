@@ -743,6 +743,16 @@ Type to narrow it, scroll the whole list, or walk it with the arrow keys.
   Encounters and My Content all rendered under the button row, which swallowed
   the click on most of their items (`9eb3ac81`).
 
+### fix/tall-flyout-and-held-release
+
+**Fixed**
+
+- **Tall header menus stay on screen** — an opening flyout is capped to the room
+  below it and scrolls, so every item in My Content is reachable on a short
+  window instead of running off the bottom (`2573f976`).
+- **The What's New panel opens when the cookie notice is dismissed** — it no
+  longer waits for a reload the visitor never makes (`2573f976`).
+
 ## [breaking/2026-stack-modernization]
 
 ### Infrastructure
