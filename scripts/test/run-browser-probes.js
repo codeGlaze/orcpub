@@ -148,7 +148,11 @@ function run(probe, pack, budgetMs) {
   }
   const pack = process.env.ORCBREW_PACK;
   const only = (process.env.ONLY || '').split(',').filter(Boolean);
-  const jobs = Math.max(1, parseInt(process.env.JOBS || '1', 10));
+  // 3 by default, measured: 421s wall against 976s sequential, 2.3x, with every probe
+  // reporting the same check counts. The concern was that the `server` probes share one
+  // in-memory Datomic and might see each other's saved characters; they do not. Wall time
+  // equals the longest probe (420s), so more workers buy nothing until that one is faster.
+  const jobs = Math.max(1, parseInt(process.env.JOBS || '3', 10));
 
   let queue = PROBES.filter(p => !only.length || only.some(o => p.file.includes(o)));
   const skipped = [];

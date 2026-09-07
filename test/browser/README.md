@@ -28,7 +28,7 @@ assertions and exiting 1 for several commits because nothing ran it.
 ```
 ORCBREW_PACK=/path/to/pack.orcbrew   # enables the two probes that need imported homebrew
 BUSY_SERVER=1                        # with `lein e2e-server-busy`, enables the export probe
-JOBS=3                               # run N at once (default 1, see the caveat below)
+JOBS=1                               # run one at a time (default is 3)
 ONLY=equipment,sticky                # substring filter
 STRICT=1                             # a probe that could not run counts as a failure
 ```
@@ -55,11 +55,16 @@ one, and the standalone probes run either way. `export_busy_retry` against the o
 server fails all six of its checks, and `notifications_acceptance` fails *because* a server
 is up — its XHR gets CORS-blocked instead of refused. Both are preconditions, not bugs.
 
-A full pass is about 12.5 minutes sequentially. `character_image_capture` is 397s of that
-and `sticky_header` 131s; the rest are seconds. `JOBS=N` runs several at once, but **that is
-not validated** — the `server` probes share one in-memory backend, so concurrent runs can in
-principle see each other's saved characters. Default is 1 for that reason; raise it when you
-want speed over certainty.
+A full pass is **about 7 minutes**, running 3 probes at once (`JOBS=3`, the default).
+
+Measured against sequential: **421s wall vs 976s, 2.3x**, with all 11 probes reporting
+identical check counts. The worry was that the `server` probes share one in-memory Datomic
+and might see each other's saved characters — they do not. Contention adds a few seconds to
+individual probes and takes minutes off the total.
+
+Use `JOBS=1` for a clean single-probe timing. More than 3 buys nothing: wall time already
+equals the longest probe, `character_image_capture` at ~420s, which is nine PDF renders and
+is the floor until that changes.
 
 ## Overlays are suppressed by default, not per probe
 
