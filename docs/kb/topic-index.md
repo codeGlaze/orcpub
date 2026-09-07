@@ -688,7 +688,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, direction, eligibility, fighting, filter, initiate, irregularity, membership, pieces, plural, pool, shaped, skills, spells, styles, tested, writes
+**topics:** 2026-09-07, air, constrain, direction, eligibility, fighting, filter, irregularity, membership, pieces, plural, pool, shaped, skills, spells, styles, tested, writes
 
 - In four sentences
 - The three layers
@@ -720,12 +720,13 @@ _registry-before-after · registry before after_
 
 _roadmap · roadmap_
 
-**topics:** background, bucket, catalogue, class-feature, d29, detail, end-to-end, feat, grant, node, phase, pool, pools, proven, remaining, round-trip, spell-slot, track
+**topics:** background, bucket, class-feature, d29, detail, feat, grant, grant-authoring, node, phase, pool, pools, proven, registry, remaining, round-trip, silo, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
 - BUILT — Phase 1 (verified by git + BRANCH.md)
 - BUILT — Phase 2 (this session)
+- BUILT — Pool registry + second grant silo (2026-09-07) — pool-grant-map.md
 - BUILT — AC engine + authored mechanics (this branch, 2026-09-04/05) — armor-class-refactor.md
 - BUILT — Content-library management (parallel branch feature/content-library-management, PR #30)
 - DECIDED (design settled; don't re-litigate)

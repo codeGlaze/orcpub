@@ -12,7 +12,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 ### Plan & status
 | Document | Topic |
 |----------|-------|
-| [roadmap.md](roadmap.md) | The single branch plan: both phases (content/pool+grant, largely built; mechanization/class-feature/spell-slot expansion), a BUILT/DECIDED/OPEN ledger anchored to commits, flagged conflicts, the full doc map, and the critical path. |
+| [roadmap.md](roadmap.md) | **START HERE — what this branch is.** The single branch plan: both phases (content/pool+grant, largely built; mechanization/class-feature/spell-slot expansion), a BUILT/DECIDED/OPEN ledger anchored to commits, flagged conflicts, the full doc map, and the critical path. |
 
 ### Content-extensibility track (the pool/grant initiative)
 | Document | Topic | Source quality |

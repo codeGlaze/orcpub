@@ -1,6 +1,6 @@
 # Branch plan — the single source (START HERE)
 
-One reconciled plan for branch `claude/zen-wright-04xhdz`. It replaces the previous split between
+One reconciled plan for branch `feature/fighting-style-authoring` (earlier sessions of the same work ran under other branch names). It replaces the previous split between
 this file and `content-extensibility-direction.md` as competing "start here" docs. The branch ran in
 loops because decisions lived in two parallel trackers; this is the one that supersedes both for
 *navigation and status*. The detail/decision docs below remain authoritative for their own track.
@@ -68,6 +68,24 @@ loops because decisions lived in two parallel trackers; this is the one that sup
 > log; reconciliation; export pre-validation). KEY REFINEMENT to the round-trip: it's lossless only for
 > CLEAN EDN; the import *intentionally transforms* malformed/partially-invalid input (cleaning is a
 > feature). Surface these when split-committing docs to `agents/develop`.
+
+### BUILT — Pool registry + second grant silo (2026-09-07) — `pool-grant-map.md`
+- **`grant_pools.cljc` is THE registry** (`c8e2ff32`). One entry per pool; each entry is
+  `(fn [plugin-vals] -> [option-cfg …])` and owns its own shape, so `assemble`/`grant-selection` hold no
+  branch over pool kind (the D14 trap, avoided). `::e5/grantable-pools` assembles it; `template-selections`
+  takes the one map. **The direction doc's maintainability gate is met and measured**: registering the
+  third pool (`:skills`) cost one entry and nothing else. Before: five positionally-coupled edits across
+  three files.
+- **Race is the second silo** compiling `:grant` (`5603c048`); feat was the first (June). Pools
+  registered: `:languages`, `:fighting-styles`, `:skills`. `:offerable-by` scoping declared on each —
+  consumed by nothing yet.
+- **Vocabulary is `{:pool … :count …}` only** (`f3bc3c75`) — the decided spelling. The prototype's
+  `:from`/`:choose` was renamed at every use (8 files incl. the demo pack), not aliased; both keywords
+  are already taken by starting-equipment for other things. A test asserts the old spelling is rejected.
+- Built-in language list moved `spell_subs.cljs` → `languages.cljc` so cljc can read it.
+- **Corrections recorded** (`feat-builder-audit.md`, `pool-grant-map.md`): three claims withdrawn in
+  one session — "a race cannot offer a language choice", "fighting styles need a `:built-in-compiled?`
+  key", "Magic Initiate breaks the model". All were answered already in `direction.md` or the code.
 
 ### BUILT — AC engine + authored mechanics (this branch, 2026-09-04/05) — `armor-class-refactor.md`
 - **AC engine refactored end to end**: `mod5e/ac-formula` gives the dead `?ac-fns` channel a constructor;
@@ -276,9 +294,16 @@ then merge `develop` in, since the shared files here have diverged for the feat 
 > Conflict #1 (grant approach) is **RESOLVED (D29)** — one mechanism per job, open pools behind
 > existing selections, no generic wrapper. It no longer gates anything; grant work is unblocked.
 1. **A2** + Phase-1's grant-authoring UI lever — one complete cross-silo feature, exercising the full
-   data→builder→character→round-trip path. (The proven, smaller sub-step: finish the grant-matrix by
-   wiring the next silo — background/race/subrace/class/subclass — each a one-line `:grant` hook + a
-   build test, extending the feat silo already proven end-to-end.)
+   data→builder→character→round-trip path.
+   - ✅ **Registry built, race wired, gate met** (2026-09-07, above). Remaining silos
+     (background/subrace/class/subclass) are each a one-line thread whenever a case wants one.
+   - ➡️ **Next, in order:** (a) `:grant` → `:grants` plural — a feat is a bundle; mechanical rename,
+     no shim, nothing writes it yet. (b) **A control that emits it** — the grant-authoring UI, built
+     against feat (the only silo needing the full set, so building it right *is* building the node every
+     builder embeds). Needs dynamic field options (from a sub; dependent on a sibling). **Nothing writes
+     `:grant` today — that single gap is why the capability is invisible in the app.**
+   - ⏸ **Not prerequisites** (wait for a case): filter-as-a-predicate (`eligible-homebrew-styles`
+     already does it for one pool), spells as a pool, entries carrying `:grants`, `:gate`.
 2. **B1** (structured records) — keystone for the rest of B and all of C.
 3. **B2–B4** — app-wide wins (conditions, counters incl. resource pools, roll integration).
 4. **C2 → C3** — feature registry then builder surfaces (on F + B1).
