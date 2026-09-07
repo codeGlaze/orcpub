@@ -6,18 +6,27 @@
             [clojure.string :as str]
             [orcpub.config :as config]))
 
-(defn- lines [rows] (config/report-lines rows "datomic:mem://orcpub"))
+(defn- lines [rows] (config/report-lines rows))
 (defn- row-for [out v] (first (filter #(str/includes? % v) out)))
 
 (def ^:private set-row
-  {:var "ORCPUB_PDF_CONCURRENCY" :value 24 :raw "24" :set? true :ignored? false :note "n"})
+  {:var "ORCPUB_PDF_CONCURRENCY" :group "capacity" :value 24 :raw "24" :set? true
+   :ignored? false :note "n"})
 (def ^:private default-row
-  {:var "ORCPUB_PDF_MAX_CARDS" :value 200 :raw nil :set? false :ignored? false :note "n"})
+  {:var "ORCPUB_PDF_MAX_CARDS" :group "capacity" :value 200 :raw nil :set? false
+   :ignored? false :note "n"})
 (def ^:private ignored-row
-  {:var "ORCPUB_PDF_MAX_RETRIES" :value 3 :raw "oops" :set? false :ignored? true :note "n"})
+  {:var "ORCPUB_PDF_MAX_RETRIES" :group "capacity" :value 3 :raw "oops" :set? false
+   :ignored? true :note "n"})
 (def ^:private unset-row
-  {:var "ORCPUB_HTTP_MAX_THREADS" :value nil :raw nil :set? false :ignored? false
-   :unset-source "Pedestal's" :note "n"})
+  {:var "ORCPUB_HTTP_MAX_THREADS" :group "capacity" :value nil :raw nil :set? false
+   :ignored? false :note "n"})
+
+(def ^:private secret-set
+  {:var "SIGNATURE" :group "security" :value nil :secret? true :set? true :note "n"})
+(def ^:private secret-missing
+  {:var "SIGNATURE" :group "security" :value nil :secret? true :set? false
+   :critical? true :note "every login fails without it"})
 
 (deftest says-where-each-value-came-from
   (let [out (lines [set-row default-row ignored-row unset-row])]
@@ -49,50 +58,73 @@
 (deftest reports-the-running-thread-pool-when-we-did-not-set-it
   (testing "ORCPUB_HTTP_MAX_THREADS unset means Pedestal chose, so the banner shows the size
             read back off the live server rather than a formula copied from Pedestal"
-    (let [out (config/report-lines [unset-row] "datomic:mem://orcpub"
-                                   {"ORCPUB_HTTP_MAX_THREADS" 50})]
+    (let [out (config/report-lines [unset-row] {"ORCPUB_HTTP_MAX_THREADS" 50})]
       (is (str/includes? (row-for out "MAX_THREADS") "50"))
       (is (str/includes? (row-for out "MAX_THREADS") "DEFAULT"))))
   (testing "and falls back to a dash when the server cannot be read"
-    (let [out (config/report-lines [unset-row] "datomic:mem://orcpub" nil)]
+    (let [out (config/report-lines [unset-row] nil)]
       (is (re-find #"\s-\s" (row-for out "MAX_THREADS"))))))
 
 (deftest banner-is-plain-ascii
   (testing "no colour codes and no characters that come back as ? through a log pipe"
     (doseq [l (lines [set-row default-row ignored-row unset-row])]
       (is (every? #(< 31 (int %) 127) l) (str "non-ascii in: " l))))
-  (testing "it says it started, and shows the database"
-    (let [out (lines [set-row])]
-      (is (some #(str/includes? % "orcpub started") out))
-      (is (some #(str/includes? % "datomic:mem://orcpub") out)))))
+  (testing "it says it started"
+    (is (some #(str/includes? % "orcpub started") (lines [set-row]))))
+  (testing "a row with no group does not kill the boot banner"
+    (is (seq (lines [(dissoc set-row :group)])))))
 
-(deftest the-database-line-is-redacted
-  (testing "the banner is exactly where a credential would leak next"
-    (let [out (config/report-lines
-               [set-row]
-               "datomic:sql://datomic?jdbc:postgresql://h:5432/d?user=u&password=hunter2")]
+(deftest secrets-never-print-their-value
+  (testing "a secret reports presence only. This banner exists because a password reached a
+            log; it must not become the next way one does."
+    (let [out (lines [(assoc secret-set :value "hunter2") default-row])]
       (is (not-any? #(str/includes? % "hunter2") out) (pr-str out))
-      (is (some #(str/includes? % "password=****") out)))))
+      (is (str/includes? (row-for out "SIGNATURE") "set"))))
+  (testing "and an absent one says so plainly, with no DEFAULT beside it implying there is
+            a default password"
+    (let [out (lines [secret-missing default-row])
+          r   (row-for out "SIGNATURE")]
+      (is (str/includes? r "NOT SET") r)
+      (is (not (str/includes? r "DEFAULT")) r))))
+
+(deftest a-missing-critical-setting-is-called-out
+  (testing "SIGNATURE absent breaks every login, so it gets a line of its own rather than
+            being one row among thirty"
+    (let [out (lines [secret-missing default-row])]
+      (is (some #(and (str/includes? % "(!!)") (str/includes? % "SIGNATURE")) out)
+          (pr-str out))))
+  (testing "and no such line when it is present"
+    (is (not-any? #(str/includes? % "(!!)") (lines [secret-set default-row])))))
+
+(deftest rows-are-grouped
+  (testing "thirty ungrouped rows is a wall, not a report"
+    (let [out (lines [secret-set set-row])]
+      (is (some #(str/includes? % "[SECURITY]") out))
+      (is (some #(str/includes? % "[CAPACITY]") out)))))
 
 (deftest every-documented-tunable-is-reported
   (testing "adding a knob without adding it to the banner fails here"
     (let [reported (set (map :var (config/report)))]
       (doseq [v ["ORCPUB_HTTP_MAX_THREADS" "ORCPUB_PDF_CONCURRENCY"
                  "ORCPUB_PDF_QUEUE_TIMEOUT_MS" "ORCPUB_PDF_MAX_RETRIES"
-                 "ORCPUB_PDF_MAX_CASTER_SECTIONS" "ORCPUB_PDF_MAX_CARDS"]]
-        (is (contains? reported v) (str v " is not in config/tunables")))))
-  (testing "report reads real config, so every row has a value or a reason"
+                 "ORCPUB_PDF_MAX_CASTER_SECTIONS" "ORCPUB_PDF_MAX_CARDS"
+                 "PORT" "DEV_MODE" "DATOMIC_URL" "DATOMIC_PASSWORD" "SIGNATURE"
+                 "CSP_POLICY" "EMAIL_FROM_ADDRESS" "EMAIL_SECRET_KEY" "LOAD_HOMEBREW_URL"]]
+        (is (contains? reported v) (str v " is not in config/settings")))))
+  (testing "no secret's value survives into the report data, not merely into the printing"
     (doseq [r (config/report)]
-      (is (or (:value r) (:unset-source r))
-          (str (:var r) " reports neither a value nor who decides")))))
+      (when (:secret? r)
+        (is (nil? (:value r)) (str (:var r) " carries a value"))
+        (is (nil? (:raw r)) (str (:var r) " carries the raw env value"))))))
 
 (deftest columns-line-up
   (testing "values are RIGHT-aligned, so their ends line up, not their starts. A one-digit
             and a five-digit value must finish in the same column."
-    (let [out  (lines [{:var "A" :value 1 :set? true :note "n"}
-                       {:var "BBBB" :value 30000 :set? true :note "n"}])
+    (let [out  (lines [{:var "A" :group "g" :value 1 :set? true :note "n"}
+                       {:var "BBBB" :group "g" :value 30000 :set? true :note "n"}])
           rows (filter #(re-find #"(^|\s)(1|30000)\s" %) out)
-          end  (fn [l] (let [v (if (str/includes? l "30000") "30000" "1")]
-                         (+ (str/index-of l v) (count v))))]
+          start (fn [l] (str/index-of l (if (str/includes? l "30000") "30000" "1")))]
       (is (= 2 (count rows)) (pr-str rows))
-      (is (apply = (map end rows)) (pr-str rows)))))
+      ;; VALUE is left-aligned now that it holds words like "NOT SET" as well as numbers,
+      ;; so the starts line up rather than the ends.
+      (is (apply = (map start rows)) (pr-str rows)))))

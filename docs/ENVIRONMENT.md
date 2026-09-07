@@ -58,29 +58,52 @@ Every start prints what it resolved, so you never have to guess whether a change
 picked up:
 
 ```
-----------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------
   orcpub started
-  database   datomic:sql://datomic?jdbc:postgresql://host:5432/datomic?user=datomic&password=****
-----------------------------------------------------------------------------------------
-  SETTING                          VALUE   SOURCE
-  ORCPUB_HTTP_MAX_THREADS             50   DEFAULT   worker pool: requests of any kind in flight
-  ORCPUB_PDF_CONCURRENCY              24   SET       sheets generated at once
-  ORCPUB_PDF_QUEUE_TIMEOUT_MS      30000   DEFAULT   how long an export waits for a slot
-  ORCPUB_PDF_MAX_RETRIES               3   DEFAULT   busy-page retries before it waits for a click
-  ORCPUB_PDF_MAX_CASTER_SECTIONS      13   DEFAULT   most spellcasting sections on one sheet
-  ORCPUB_PDF_MAX_CARDS               200   DEFAULT   most cards of one kind per export
-----------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------
+  SETTING                          VALUE                  SOURCE
+  [RUNTIME]
+  PORT                             8080                   SET
+  DEV_MODE                         -                      DEFAULT   dev-only behaviour and relaxed CORS
+  [DATABASE]
+  DATOMIC_URL                      ...?user=u&password=****   SET
+  DATOMIC_PASSWORD                 set
+  [SECURITY]
+  SIGNATURE                        set                              JWT signing key; every login and API call fails without it
+  CSP_POLICY                       -                      DEFAULT   overrides the built-in policy
+  [EMAIL]
+  EMAIL_FROM_ADDRESS               noreply@example.com    SET
+  EMAIL_ERRORS_TO                  -                      DEFAULT
+  EMAIL_SECRET_KEY                 set
+  [CONTENT]
+  LOAD_HOMEBREW_URL                -                      DEFAULT   homebrew loaded at page load
+  [CAPACITY]
+  ORCPUB_HTTP_MAX_THREADS          50                     DEFAULT   worker pool: requests of any kind in flight
+  ORCPUB_PDF_CONCURRENCY           24                     SET       sheets generated at once
+  ORCPUB_PDF_QUEUE_TIMEOUT_MS      30000                  DEFAULT   how long an export waits for a slot
+  ORCPUB_PDF_MAX_RETRIES           3                      DEFAULT   busy-page retries before it waits for a click
+  ORCPUB_PDF_MAX_CASTER_SECTIONS   13                     DEFAULT   most spellcasting sections on one sheet
+  ORCPUB_PDF_MAX_CARDS             200                    DEFAULT   most cards of one kind per export
+  [BRANDING]
+                                   3 of 21 set
+-------------------------------------------------------------------------------------------------------
   (!)  ORCPUB_PDF_MAX_CARDS=oops was ignored: not a positive integer. The default above is in use.
-----------------------------------------------------------------------------------------
+  (!!) SIGNATURE is NOT SET -- JWT signing key; every login and API call fails without it
+-------------------------------------------------------------------------------------------------------
 ```
 
 | Column | Meaning |
 |---|---|
 | `SET` | the value came from the environment |
 | `DEFAULT` | nothing usable was set; this is what is running anyway |
+| `set` / `NOT SET` | a **secret**. Its value is never printed, only whether it is present — no `SOURCE`, because `DEFAULT` beside `NOT SET` would read as though there were a default password |
 | `(!)` line | **a value was given and rejected.** Its row reads `DEFAULT` because the default is what is running; this line names what was thrown away |
+| `(!!)` line | a setting whose absence breaks the site, called out rather than left to be spotted among thirty rows |
 
-**These are the values actually in force, not a restatement of the documentation.** Five are
+Everything the app reads is reported, grouped: runtime, database, security, email, content
+and capacity, plus a count of the 21 `APP_*` branding variables rather than 21 more rows.
+
+**These are the values actually in force, not a restatement of the documentation.** They are
 read from the same functions the running code reads. `ORCPUB_HTTP_MAX_THREADS` is the
 exception worth understanding: when it is unset we hand Pedestal nothing and Pedestal
 chooses, so the number shown is read back off the **live Jetty thread pool** after it starts

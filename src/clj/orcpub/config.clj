@@ -202,44 +202,77 @@
   []
   (= "strict" (get-csp-policy)))
 
-(def tunables
-  "The optional integer settings, in the order the boot banner prints them.
+(def branding-vars
+  "The APP_* fork-branding variables. Reported as a count rather than twenty rows -- a
+   banner nobody reads because it scrolls is no better than no banner."
+  ["APP_NAME" "APP_TAGLINE" "APP_PAGE_TITLE" "APP_URL" "APP_LOGO_PATH" "APP_OG_IMAGE"
+   "APP_HELP_URL" "APP_SUPPORT_EMAIL" "APP_EMAIL_SENDER_NAME"
+   "APP_COPYRIGHT_HOLDER" "APP_COPYRIGHT_URL" "APP_COPYRIGHT_YEAR"
+   "APP_FIELD_LIMIT_NOTES" "APP_FIELD_LIMIT_NUMBER" "APP_FIELD_LIMIT_TEXT"
+   "APP_SOCIAL_BLUESKY" "APP_SOCIAL_DISCORD" "APP_SOCIAL_FACEBOOK"
+   "APP_SOCIAL_PATREON" "APP_SOCIAL_REDDIT" "APP_SOCIAL_TWITTER"])
 
-   `:unset-source` names who decides when the variable is absent. ORCPUB_HTTP_MAX_THREADS
-   leaves Pedestal to pick, by a formula that would drift if it were copied here, so the
-   banner says so rather than printing a number we might be wrong about.
+(def settings
+  "Everything the boot banner reports, in print order.
 
-   Adding a knob without adding it here is caught by config-report-test."
-  [{:var "ORCPUB_HTTP_MAX_THREADS"        :get #(get-http-max-threads)
-    :unset-source "Pedestal's"            :note "worker pool: requests of any kind in flight"}
-   {:var "ORCPUB_PDF_CONCURRENCY"         :get #(get-pdf-concurrency)
-    :note "sheets generated at once"}
-   {:var "ORCPUB_PDF_QUEUE_TIMEOUT_MS"    :get #(get-pdf-queue-timeout-ms)
-    :note "how long an export waits for a slot"}
-   {:var "ORCPUB_PDF_MAX_RETRIES"         :get #(get-pdf-max-retries)
-    :note "busy-page retries before it waits for a click"}
-   {:var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)
-    :note "most spellcasting sections on one sheet"}
-   {:var "ORCPUB_PDF_MAX_CARDS"           :get #(get-pdf-max-cards)
-    :note "most cards of one kind per export"}])
+   `:secret?` means the VALUE IS NEVER PRINTED -- only whether it is present. This whole
+   banner exists because a password reached a log; it must not become the next way one does.
+   `:critical?` marks a setting whose absence breaks the site, so it is called out below the
+   table rather than left to be spotted in a row.
+
+   `:get` supplies the resolved value where an accessor exists; without one the raw
+   environment value is shown, which is right for settings that have no default of ours."
+  (concat
+   [{:group "runtime"  :var "PORT"}
+    {:group "runtime"  :var "DEV_MODE"      :note "dev-only behaviour and relaxed CORS"}
+    {:group "database" :var "DATOMIC_URL"   :get #(get-datomic-uri) :redact? true}
+    {:group "database" :var "DATOMIC_PASSWORD" :secret? true}
+    {:group "security" :var "SIGNATURE"     :secret? true :critical? true
+     :note "JWT signing key; every login and API call fails without it"}
+    {:group "security" :var "CSP_POLICY"    :note "overrides the built-in policy"}
+    {:group "email"    :var "EMAIL_FROM_ADDRESS"}
+    {:group "email"    :var "EMAIL_ERRORS_TO"}
+    {:group "email"    :var "EMAIL_SECRET_KEY" :secret? true}
+    {:group "content"  :var "LOAD_HOMEBREW_URL" :note "homebrew loaded at page load"}]
+   [{:group "capacity" :var "ORCPUB_HTTP_MAX_THREADS" :get #(get-http-max-threads)
+     :note "worker pool: requests of any kind in flight"}
+    {:group "capacity" :var "ORCPUB_PDF_CONCURRENCY" :get #(get-pdf-concurrency)
+     :note "sheets generated at once"}
+    {:group "capacity" :var "ORCPUB_PDF_QUEUE_TIMEOUT_MS" :get #(get-pdf-queue-timeout-ms)
+     :note "how long an export waits for a slot"}
+    {:group "capacity" :var "ORCPUB_PDF_MAX_RETRIES" :get #(get-pdf-max-retries)
+     :note "busy-page retries before it waits for a click"}
+    {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)
+     :note "most spellcasting sections on one sheet"}
+    {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :get #(get-pdf-max-cards)
+     :note "most cards of one kind per export"}]))
+
+(def ^:private tunables
+  "Kept for the capacity rows' typo detection: only these parse as integers."
+  (filter #(= "capacity" (:group %)) settings))
 
 (defn report
-  "What each tunable resolved to, and whether that came from the environment.
+  "What each setting resolved to, and whether that came from the environment.
 
-   `:set?` is the part an operator actually needs: a bare number cannot tell you whether
-   your change was picked up, ignored as a typo, or never set."
+   `:set?` is the part an operator actually needs: a bare value cannot tell you whether your
+   change was picked up, ignored as a typo, or never set. Secret values are dropped here, not
+   at print time, so nothing downstream can leak one by accident."
   []
-  (for [{:keys [var get unset-source note]} tunables]
-    (let [raw    (env-raw var)
-          parsed (when raw (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil)))
-          ;; Present but rejected is its own state, and the one most worth showing: the
-          ;; value on screen is the DEFAULT, so reporting it as "set" answers "did my
-          ;; change take effect" with exactly the wrong word.
-          ignored? (boolean (and raw (not (and parsed (pos? parsed)))))]
-      {:var var :value (get) :raw raw
+  (for [{:keys [var get secret? redact? critical? note group]} settings]
+    (let [raw      (env-raw var)
+          integer? (some? (some #(= var (:var %)) tunables))
+          parsed   (when (and raw integer?)
+                     (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil)))
+          ignored? (boolean (and raw integer? (not (and parsed (pos? parsed)))))
+          value    (cond secret? nil
+                         get     (get)
+                         :else   raw)]
+      {:var var :group group :note note :critical? critical?
+       :value (if (and value redact?) (redact-secrets value) value)
+       :secret? secret?
+       :raw (when-not secret? raw)
        :set? (boolean (and raw (not ignored?)))
-       :ignored? ignored?
-       :unset-source unset-source :note note})))
+       :ignored? ignored?})))
 
 (defn report-lines
   "The boot banner, as lines.
@@ -247,42 +280,50 @@
    ASCII only, no colour. This is read in log files and aggregators at least as often as in
    a terminal: escape codes are noise in both, and a stray em dash came back as `?` through
    one of those pipes. Alignment does the work instead."
-  ([] (report-lines (report) (get-datomic-uri)))
-  ([rows uri] (report-lines rows uri nil))
-  ([rows uri actual]
-   (let [;; Report what is RUNNING. Five of these read the same accessor the code reads, so
-         ;; the number is the one in force. ORCPUB_HTTP_MAX_THREADS is the exception: unset,
-         ;; we hand Pedestal nothing and it picks, so `actual` carries the size read back off
-         ;; the live server. Without it the row can only say "-", which invites the fair
-         ;; question of whether any of this is real.
-         val    (fn [{:keys [var value]}]
-                  (cond value                (str value)
-                        (get actual var)     (str (get actual var))
-                        :else                "-"))
-         ;; Two states, and the column always describes where the SHOWN value came from.
-         ;; A rejected value is running the default, so it reads DEFAULT like any other --
-         ;; labelling that row IGNORED read as "the default was ignored", which is
-         ;; backwards. The (!) line under the table names what was thrown away.
-         source (fn [{:keys [set?]}] (if set? "SET" "DEFAULT"))
-         w   (apply max (map (comp count :var) rows))
-         vw  (apply max (map (comp count val) rows))
-         sw  (apply max (map (comp count source) rows))
-         fmt (str "  %-" w "s   %" vw "s   %-" sw "s   %s")
-         rule (apply str (repeat (+ w vw sw 46) "-"))]
+  ([] (report-lines (report) nil))
+  ([rows] (report-lines rows nil))
+  ([rows actual]
+   (let [;; A secret is reported as present or absent and NEVER by value. `-` where we have
+         ;; no number at all, so the VALUE column never argues with SOURCE beside it.
+         val    (fn [{:keys [var value secret? set?]}]
+                  (cond secret?          (if set? "set" "NOT SET")
+                        value            (str value)
+                        (get actual var) (str (get actual var))
+                        :else            "-"))
+         ;; A secret's VALUE column already says set / NOT SET; repeating DEFAULT beside it
+         ;; says nothing, and "DEFAULT" next to "NOT SET" reads as though there is a
+         ;; default password.
+         source (fn [{:keys [set? secret?]}] (cond secret? "" set? "SET" :else "DEFAULT"))
+         rows   (vec rows)
+         w      (apply max (map (comp count :var) rows))
+         vw     (min 46 (apply max (map (comp count val) rows)))
+         sw     7
+         fmt    (str "  %-" w "s   %-" vw "s   %-" sw "s   %s")
+         trim   #(str/replace % #"\s+$" "")
+         rule   (apply str (repeat (+ w vw sw 46) "-"))
+         brand  (count (filter env-raw branding-vars))]
      (concat
-      [rule
-       "  orcpub started"
-       (str "  database   " (redact-secrets uri))
-       rule
-       ;; Headers, so VALUE and SOURCE cannot be read as commenting on each other.
-       (str/replace (format fmt "SETTING" "VALUE" "SOURCE" "") #"\s+$" "")]
-      (map #(str/replace (format fmt (:var %) (val %) (source %) (or (:note %) "")) #"\s+$" "")
-           rows)
+      [rule "  orcpub started" rule
+       (trim (format fmt "SETTING" "VALUE" "SOURCE" ""))]
+      ;; Grouped, because thirty ungrouped rows is a wall rather than a report.
+      ;; partition-by yields GROUPS OF ROWS, not key/value pairs -- destructuring it as
+      ;; [g gr] bound the first row map as the heading and printed the whole record.
+      (mapcat (fn [gr]
+                (cons (str "  [" (str/upper-case (or (:group (first gr)) "other")) "]")
+                      (map #(trim (format fmt (:var %) (val %) (source %) (or (:note %) ""))) gr)))
+              (partition-by :group rows))
+      [(str "  [BRANDING]")
+       (format "  %s   %s of %s set" (apply str (repeat w " ")) brand (count branding-vars))]
       (when-let [bad (seq (filter :ignored? rows))]
         (cons rule
               (for [{:keys [var raw]} bad]
                 (format "  (!)  %s=%s was ignored: not a positive integer. The default above is in use."
                         var raw))))
+      ;; A missing SIGNATURE means every login fails. That is not a row to be spotted.
+      (when-let [miss (seq (filter #(and (:critical? %) (not (:set? %))) rows))]
+        (cons rule
+              (for [{:keys [var note]} miss]
+                (format "  (!!) %s is NOT SET -- %s" var (or note "required")))))
       [rule]))))
 
 (defn jetty-max-threads
@@ -309,8 +350,7 @@
      ;; One write, then flush. Printed line by line, Jetty's own logging interleaved with it
      ;; and cut the table in half -- buffered stdout against unbuffered stderr in the same
      ;; stream. A banner that arrives in pieces is worse than no banner.
-     (println (str/join (System/lineSeparator)
-                        (report-lines (report) (get-datomic-uri) actual)))
+     (println (str/join (System/lineSeparator) (report-lines (report) actual)))
      (flush))))
 
 (defn get-secure-headers-config
