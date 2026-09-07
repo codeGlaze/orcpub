@@ -13,7 +13,7 @@
   {:var "ORCPUB_PDF_CONCURRENCY" :group "capacity" :value 24 :raw "24" :set? true
    :ignored? false :note "n"})
 (def ^:private default-row
-  {:var "ORCPUB_PDF_MAX_CARDS" :group "capacity" :value 200 :raw nil :set? false
+  {:var "ORCPUB_PDF_MAX_CARDS" :group "capacity" :value 198 :raw nil :set? false
    :ignored? false :note "n"})
 (def ^:private ignored-row
   {:var "ORCPUB_PDF_MAX_RETRIES" :group "capacity" :value 3 :raw "oops" :set? false
@@ -169,3 +169,15 @@
     (doseq [{:keys [var fix]} (filter :critical? config/settings)]
       (is (some? fix) (str var " is critical with no remedy"))
       (is (str/includes? fix "Fix:") (str var "'s message has no Fix: line")))))
+
+(deftest the-card-cap-is-whole-sheets
+  (testing "nine cards to a sheet, so a cap that is not a multiple of nine leaves a ragged
+            last page for no reason. 200 was 22 sheets plus two cards on a twenty-third."
+    (is (zero? (mod (config/get-pdf-max-cards) config/cards-per-page))
+        (str (config/get-pdf-max-cards) " cards is "
+             (/ (config/get-pdf-max-cards) (double config/cards-per-page)) " sheets")))
+  (testing "and still far past any real character -- a level 20 wizard's spellbook is ~44"
+    (is (> (config/get-pdf-max-cards) 150)))
+  (testing "cards-per-page matches what pdf.clj derives: (int (/ 8.5 2.5)) by
+            (int (/ 11.0 3.5)), the box size the card call sites pass"
+    (is (= config/cards-per-page (* (int (/ 8.5 2.5)) (int (/ 11.0 3.5)))))))

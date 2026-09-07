@@ -155,15 +155,29 @@
   []
   (positive-int-env ["ORCPUB_PDF_MAX_CASTER_SECTIONS"] 13))
 
+(def cards-per-page
+  "Cards on one printed sheet, at the size the exports use.
+
+   NOT a constant in the renderer: pdf.clj derives the grid per call, as
+   `(int (/ 8.5 box-width))` by `(int (/ 11.0 box-height))`, and the card call sites pass
+   2.5 x 3.5in -- so 3 across by 3 down. Named here so the cap below reads as whole sheets
+   rather than an arbitrary number, and so anyone changing the card size finds this."
+  9)
+
 (defn get-pdf-max-cards
   "Most cards of one kind a single export will print, from ORCPUB_PDF_MAX_CARDS.
 
-   Nine to a page, and the caller says how many: a 2 MB body holds about 60,000
-   spell entries, which is 13,000 pages and a quarter of an hour holding an export
-   slot. Two hundred is far past a real character -- a level 20 wizard's spellbook
-   is about 44 -- and bounds the work a request can buy."
+   Whole sheets: 22 pages of nine. The caller says how many cards it wants, so without a cap
+   an export is only as bounded as the request body -- a 2 MB body holds about 60,000 spell
+   entries, some 13,000 pages, and a quarter of an hour holding an export slot.
+
+   198 is far past any real character; a level 20 wizard's spellbook is about 44. It was 200,
+   which is 22 sheets plus two cards on a twenty-third -- a ragged last page for no reason,
+   since nothing about the limit wanted a round decimal number.
+
+   Counted per KIND, so spells, items and features are each bounded separately."
   []
-  (positive-int-env ["ORCPUB_PDF_MAX_CARDS"] 200))
+  (positive-int-env ["ORCPUB_PDF_MAX_CARDS"] (* 22 cards-per-page)))
 
 (defn get-pdf-max-retries
   "How many times the busy page retries itself before it waits for the person,
@@ -273,7 +287,7 @@
     {:group "capacity" :var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)
      :note "spellcasting sections one sheet may grow to"}
     {:group "capacity" :var "ORCPUB_PDF_MAX_CARDS" :get #(get-pdf-max-cards)
-     :note "cards (not pages) of each kind per export; 9 to a page"}]))
+     :note "cards of each kind per export; 9 to a sheet, so 22 sheets"}]))
 
 (def ^:private tunables
   "Kept for the capacity rows' typo detection: only these parse as integers."

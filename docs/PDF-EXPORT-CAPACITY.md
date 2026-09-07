@@ -116,7 +116,7 @@ mean zero.
 > than inferring from behaviour whether a change took effect.
 
 | `ORCPUB_PDF_MAX_CASTER_SECTIONS` | `13` | Most spellcasting sections one sheet may be grown to. Thirteen is every class in the game. |
-| `ORCPUB_PDF_MAX_CARDS` | `200` | Most cards of one kind a single export prints. A level 20 wizard's spellbook is about 44. |
+| `ORCPUB_PDF_MAX_CARDS` | `198` | Most cards of one kind a single export prints — nine to a sheet, so 22 whole sheets. A level 20 wizard's spellbook is about 44. |
 
 ### Sizing them
 
