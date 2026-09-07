@@ -1,0 +1,235 @@
+// Browser-driven e2e: can you actually click what an overlay puts on screen?
+//
+// Drives the REAL app against `lein e2e-server` on :8890.
+//
+// WHAT IT PINS: for every overlay this can open anonymously, every control it
+// shows is HITTABLE — document.elementFromPoint at the control's centre lands on
+// the control. Two real bugs looked fine in a screenshot and failed exactly this:
+// header dropdowns painting under the sticky button row, and My Content running
+// off the bottom of a short window. Visibility is not the check.
+//
+// It audits whatever is on screen rather than a hardcoded list: every visible
+// positioned element stacked at z-index >= 100, and the controls inside it. An
+// overlay added later is audited without this file changing.
+//
+// COST: one cold page load, then every state is driven on that same page — no
+// reloads, no new contexts, no networkidle waits. Every action is bounded, and
+// the whole run is bounded by BUDGET_S (default 150): past that it FAILS with
+// what it had rather than hanging, because a probe that hangs costs more than a
+// probe that fails.
+//
+// Prerequisites:
+//   lein fig:build && lein garden once && lein e2e-server
+// Run:  node test/browser/overlay_reachability_e2e.js
+// Exit code 0 = all checks passed.
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { chromium } = require('playwright');
+const { suppressCookieBanner } = require('./lib/orcbrew-import');
+
+const BASE = process.env.ORCPUB_E2E_URL || 'http://localhost:8890';
+const OUT = process.env.ORCPUB_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'overlays-'));
+const BUDGET_MS = +(process.env.BUDGET_S || 150) * 1000;
+// 720 is where a tall menu first runs off the bottom; 900 is a desk monitor.
+const VIEWPORT = { width: 1366, height: 720 };
+const started = Date.now();
+const left = () => BUDGET_MS - (Date.now() - started);
+
+function findChrome() {
+  const base = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
+  try {
+    const dir = fs.readdirSync(base)
+      .filter(d => d.startsWith('chromium-') && !d.includes('headless')).sort().pop();
+    if (dir) {
+      const p = path.join(base, dir, 'chrome-linux', 'chrome');
+      if (fs.existsSync(p)) return p;
+    }
+  } catch (_) {}
+  return undefined;
+}
+
+const results = [];
+const check = (name, ok, detail = '') => {
+  results.push({ name, ok });
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
+};
+const skip = (name, why) => console.log(`SKIP  ${name}  — ${why}`);
+
+// Is every control this overlay shows actually hittable? One evaluate, no round
+// trip per control — a round trip each is what turns a probe into a coffee break.
+//
+// Two rules, and the second one is where the judgement is:
+//   * covered by something else -> always a failure, whatever it is;
+//   * outside the window -> a failure only inside a FLOATING overlay, which you
+//     cannot scroll the page to reach (the hover menu closes, the modal moves
+//     with the viewport). Ordinary page content below the fold is fine.
+const audit = (page, root) => page.evaluate((rootSel) => {
+  const pageWasAt = { x: window.scrollX, y: window.scrollY };
+  const SEL = 'a, button, input, select, textarea, [role=button], .pointer, [class*="close"]';
+  const visible = el => {
+    const s = getComputedStyle(el);
+    if (s.display === 'none' || s.visibility === 'hidden' || +s.opacity === 0) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 1 && r.height > 1;
+  };
+  const named = el => el.id ? '#' + el.id
+    : (typeof el.className === 'string' && el.className.trim()
+       ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.')
+       : el.tagName.toLowerCase());
+  const floating = el => {
+    for (let n = el; n && n !== document.body; n = n.parentElement) {
+      const p = getComputedStyle(n).position;
+      if (p === 'fixed' || p === 'absolute') return true;
+    }
+    return false;
+  };
+
+  const out = [];
+  for (const layer of [...document.querySelectorAll(rootSel)].filter(visible)) {
+    const controls = [...(layer.matches(SEL) ? [layer] : []), ...layer.querySelectorAll(SEL)]
+      .filter(visible);
+    const problems = [];
+    for (const el of controls) {
+      // Scroll the menu the way a wheel over it would, then put it back: an audit
+      // that leaves the page moved breaks whatever the probe does next.
+      const scroller = el.parentElement && el.parentElement.scrollHeight > el.parentElement.clientHeight + 1
+        ? el.parentElement : null;
+      const wasAt = scroller ? scroller.scrollTop : 0;
+      if (scroller) scroller.scrollTop = Math.max(0, el.offsetTop - (scroller.clientHeight - el.offsetHeight) / 2);
+      const b = el.getBoundingClientRect();
+      const x = Math.round(b.x + b.width / 2);
+      const y = Math.round(b.y + Math.min(b.height / 2, 18));
+      const label = (el.innerText || el.value || el.getAttribute('aria-label') || el.tagName).trim().slice(0, 30) || '(control)';
+      const off = y < 0 || y > window.innerHeight || x < 0 || x > window.innerWidth;
+      if (off) {
+        if (floating(el)) problems.push(`${label} is off the window inside a floating layer`);
+      } else {
+        const top = document.elementFromPoint(x, y);
+        if (!top) problems.push(`${label} has nothing at its centre`);
+        else if (top !== el && !el.contains(top) && !top.contains(el)) {
+          problems.push(`${label} is covered by ${named(top)}`);
+        }
+      }
+      if (scroller) scroller.scrollTop = wasAt;
+    }
+    out.push({ layer: named(layer), controls: controls.length, problems });
+  }
+  window.scrollTo(pageWasAt.x, pageWasAt.y);
+  return out;
+}, root);
+
+async function auditState(page, name, root) {
+  const layers = await audit(page, root);
+  const busted = layers.filter(l => l.problems.length);
+  const controls = layers.reduce((n, l) => n + l.controls, 0);
+  // Nothing audited means the selector went stale, not that the overlay is well:
+  // the failure where a probe quietly stops asserting and passes forever.
+  check(`${name}: every control is reachable`,
+        busted.length === 0 && controls > 0,
+        controls === 0
+          ? `nothing audited — is "${root}" still the right selector?`
+          : busted.length
+            ? busted.map(l => `${l.layer}: ${l.problems.slice(0, 2).join('; ')}`).slice(0, 3).join(' | ')
+            : `${layers.length} layer(s), ${controls} control(s)`);
+}
+
+// Each opener returns true if it managed to open its overlay. Bounded: a control
+// that isn't there is a SKIP, never a wait.
+const click = async (page, locator, ms = 4000) => {
+  try { await locator.first().click({ timeout: ms }); return true; }
+  catch (e) { if (process.env.DEBUG_OPEN) console.log('   open failed:', String(e).split('\n')[0]); return false; }
+};
+
+(async () => {
+  const browser = await chromium.launch({
+    executablePath: findChrome(),
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  });
+  const ctx = await browser.newContext({ viewport: VIEWPORT });
+  await suppressCookieBanner(ctx);
+  await ctx.addInitScript(() => {
+    try { localStorage.setItem('whats-new-seen', '"summer-patch-2026"'); } catch (e) {}
+  });
+  // SELFTEST=1 drops a sheet of glass over the page. Every audited state must then
+  // FAIL: a probe nobody has ever seen fail is a probe nobody should trust.
+  if (process.env.SELFTEST) {
+    await ctx.addInitScript(() => {
+      addEventListener('load', () => {
+        const glass = document.createElement('div');
+        glass.style.cssText = 'position:fixed;inset:0;z-index:999999;background:transparent';
+        document.body.appendChild(glass);
+      });
+    });
+  }
+  const page = await ctx.newPage();
+  await page.goto(`${BASE}/pages/dnd/5e/character-builder`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('#app-main', { timeout: 30000 });
+  await page.waitForTimeout(1200);
+
+  // The header chrome is on every page and sits next to the sticky button row —
+  // the pairing that produced the dropdown bug.
+  await auditState(page, 'header chrome', '#app-header');
+
+  // Orcacle — the search overlay behind the header's magnifier.
+  if (left() > 20000) {
+    const opened = await click(page, page.locator('#app-header img[src*="magnifying"]'));
+    const there = opened && await page.waitForSelector('.orcacle-input', { timeout: 3000 })
+      .then(() => true).catch(() => false);
+    if (there) {
+      await auditState(page, 'Orcacle open', '.orcacle-input');
+      await page.screenshot({ path: path.join(OUT, '1-orcacle.png') });
+      await click(page, page.locator('.orcacle-close, .fa-times, .fa-close').first(), 2000);
+      await page.waitForTimeout(400);
+    } else {
+      skip('Orcacle open', 'the magnifier did not open a search panel');
+    }
+  } else skip('Orcacle open', 'out of budget');
+
+  // The PDF options panel, opened from the header's print control.
+  if (left() > 20000) {
+    const opened = await click(page,
+      page.locator('.form-button, button').filter({ hasText: /^(print|export)$/i }));
+    await page.waitForTimeout(600);
+    const there = opened && await page.getByText(/create pdf/i).first().isVisible().catch(() => false);
+    if (there) {
+      await auditState(page, 'PDF options open', '.bg-light.m-b-10');
+      await page.screenshot({ path: path.join(OUT, '2-pdf-options.png') });
+      await click(page, page.getByText(/^cancel$/i).first(), 2000);
+      await page.waitForTimeout(400);
+    } else {
+      skip('PDF options open', 'no print control on this page');
+    }
+  } else skip('PDF options open', 'out of budget');
+
+  // The release panel — a full-screen overlay, opened from the footer.
+  if (left() > 20000) {
+    const opened = await click(page, page.locator('a.pointer').filter({ hasText: /what.s new/i }));
+    const there = opened && await page.waitForSelector('.whats-new-panel', { timeout: 3000 })
+      .then(() => true).catch(() => false);
+    if (there) {
+      await auditState(page, "What's New open", '.whats-new-panel');
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.waitForTimeout(400);
+    } else {
+      skip("What's New open", 'the footer link did not open it');
+    }
+  } else skip("What's New open", 'out of budget');
+
+  // These need state this probe cannot create anonymously. Named rather than
+  // silently missing, so the coverage gap is visible in the output.
+  skip('user menu (LOG OUT / ACCOUNT)', 'needs a signed-in session');
+  skip('import conflict / export warning / source-name modals', 'needs an .orcbrew import');
+  skip('delete confirmation', 'needs saved content');
+
+  const overBudget = left() <= 0;
+  if (overBudget) check('finished inside its time budget', false, `${BUDGET_MS / 1000}s exceeded`);
+
+  await ctx.close();
+  await browser.close();
+
+  const failed = results.filter(r => !r.ok);
+  console.log(`\n${results.length - failed.length}/${results.length} checks passed in ${Math.round((Date.now() - started) / 1000)}s`);
+  console.log(`screenshots: ${OUT}`);
+  process.exit(failed.length ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });

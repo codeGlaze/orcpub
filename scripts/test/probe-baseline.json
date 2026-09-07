@@ -51,5 +51,9 @@
   "header_menus_e2e.js": {
     "checks": 22,
     "seconds": 50
+  },
+  "overlay_reachability_e2e.js": {
+    "checks": 4,
+    "seconds": 17
   }
 }

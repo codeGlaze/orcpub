@@ -240,6 +240,12 @@ re-frame events. Routing via the app's own router is fine for navigation.
   both spell-sheet layouts, and checks the packed one comes out shorter.
 - `sticky_header_e2e.js` — one sticky header, not a fixed copy above an inline one, in a desktop
   and a phone viewport.
+- `overlay_reachability_e2e.js` — every control an overlay shows is hittable: header
+  chrome, Orcacle, the PDF options panel and the release panel, at 1366x720. One cold
+  load, every state driven on the same page, bounded by `BUDGET_S` (default 150) so it
+  fails rather than hangs. `SELFTEST=1` drops a transparent sheet over the page and every
+  state must then fail — run it after changing the audit. Overlays needing a login, an
+  import or saved content are printed as SKIP lines, so the gap stays visible.
 - `header_menus_e2e.js` — every item in every header dropdown is HITTABLE, not merely
   visible: `elementFromPoint` at each item's centre has to land in the flyout. Visibility
   passes while a dropdown renders under the sticky button row, which is exactly the state
