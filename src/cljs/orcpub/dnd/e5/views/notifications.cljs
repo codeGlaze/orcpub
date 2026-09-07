@@ -38,7 +38,10 @@
    Each action is {:label ...} plus either :on-click for a button, or :href (with
    optional :target) for a link. A link renders with the same button styling, so a
    call to action sits flush with the buttons beside it instead of trailing off as
-   a bare anchor."
+   a bare anchor. An action may also carry :icon, which is a COMPLETE set of icon
+   classes -- \"fab fa-patreon\" as readily as \"fa fa-download\" -- so an action can
+   name where it goes. The callout's own :icon above is prefixed with .fa for it,
+   which is why that one cannot reach the brand icons."
   [{:keys [icon text actions tone accent]}]
   [:div.p-10.m-b-10.flex.align-items-c
    {:class (cond-> [(case tone :note "bg-note" "bg-warning")]
@@ -49,11 +52,14 @@
     :style {:gap "8px"}}
    (when icon [:i.fa {:class icon}])
    [:div.f-s-14.flex-grow-1 text]
-   (for [{:keys [label on-click href target]} actions]
+   (for [{:keys [label on-click href target icon]} actions]
      ^{:key label}
-     (if href
-       [:a.form-button {:href href :target (or target "_blank")} label]
-       [:button.form-button {:on-click on-click} label]))])
+     (let [body (if icon
+                  [:span [:i.m-r-5 {:class icon}] label]
+                  label)]
+       (if href
+         [:a.form-button {:href href :target (or target "_blank")} body]
+         [:button.form-button {:on-click on-click} body])))])
 
 (defn shared-content-banner
   "Shown when viewing a character whose homebrew arrived embedded in the share link. The content
