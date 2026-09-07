@@ -32,6 +32,23 @@ the commit**. That is the whole point of it being a decision.
   (`content-extensibility-framework.md` §3c′). Decide on readability, uniformity with the other
   authored collections, and the wire format (D9, D33).
 
+### Changing what a content item STORES (a new key, a renamed key, a widget that writes differently)
+
+Walk all five readers of the item, not the one that motivated the change. This was got wrong on
+2026-09-07: the compile path was verified, "zero shim needed" was declared, and the builder path —
+where an author opens an imported item and the form is blind to its legacy keys — was missed.
+
+1. **compiler** → the character (`plugin-modifiers`, `make-feat-selections`, the `*-option` fns)
+2. **format classifier** → v1/v2 on export (`orcbrew_format.cljc`)
+3. **builder, opening an existing item** → does the form SHOW what the item carries under the old key?
+4. **builder, saving** → does a character's stored pick still live where the item now produces it?
+   (`:ref` vs nested addressing — `builder-disposition-audit.md`, "Save path")
+5. **import validation** → does the key survive export → import unchanged?
+
+The test that catches 3: **import a legacy item, open it in the new builder, assert the form renders
+its grants.** No conversion pin on this branch does that yet — they assert the saved shape, not the
+form's reading of an old one. E4 is the first change that needs it; it is E4's acceptance test.
+
 ### Before designing anything (a control, a palette, a layout)
 
 **List the branches first.** `git for-each-ref --sort=-committerdate refs/remotes/origin | head -25`

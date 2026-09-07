@@ -162,12 +162,24 @@ already place this: *"New skills (creating a brand-new skill, not granting one):
 registry itself — different shape. Defer."* Same for the other three. A closed pool is exactly what
 `:skills` already is; nothing about the registry needs them open.
 
-**Damage types are not one pool — they are three.** A `:damage-types` entry "cold" has no single
-modifier: resistance, immunity and vulnerability are different `mod5e/*` primitives. Expressing
-that as a mode on the grant — `{:pool :damage-types :key :cold :as :resistance}` — puts a `cond`
-over kinds inside `grant`, which is discipline 1's named failure. So: `:damage-resistances`,
-`:damage-immunities`, `:damage-vulnerabilities` — three registry entries over the same 13 keywords,
-each entry's `:options-fn` carrying its own modifier. **The same argument resolves the two points
+**Damage type is a VOCABULARY, not a pool — and the pools are its spokes.** Nothing grants a
+damage type. Weapons deal one, spells deal one, breath weapons deal one, and creatures *resist*, are
+*immune to*, or are *vulnerable to* one. What is granted is a resistance, indexed by the type. So
+two layers that this audit had been calling by one name:
+
+| layer | what it is | examples |
+|---|---|---|
+| **vocabulary** | a fixed keyword set many things index into; defined ONCE | damage types, abilities, skills, armor types, conditions |
+| **pool** | grantable things whose entries *reference* a vocabulary and carry a modifier | `:damage-resistances`, `:damage-immunities`, `:skill-proficiencies`, `:skill-expertise` |
+
+Three resistance-family pools is right — each entry carries a different `mod5e/*` primitive, so
+discipline 1 holds and no mode leaks into `grant`. But the consequence of naming the vocabulary
+layer is that **it is defined once and every spoke points at it**. Today `damage-types` is defined
+**twice, identically** — `options.cljc:124` and `damage_types.cljc:3` — which is the smell of the
+layer not having a name. Registering the pools should collapse that to one def
+(`damage_types.cljc`), referenced by the three pools, the weapon damage field, and the breath-weapon
+field alike, so an FTD damage type is added in one place and every spoke sees it. Abilities (ASI,
+saves, save-advantage) and skills (proficiency, expertise) have the same two-layer shape. **The same argument resolves the two points
 left open above:** expertise is a second pool over the skill entries (`:skill-expertise`, whose
 options carry `skill-prof-or-expertise`), not a flag on the `:skills` grant; and
 `:saving-throw-advantage` stays an EFFECT — a pool per save-advantage flavour would be a pool of

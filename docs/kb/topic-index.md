@@ -101,10 +101,11 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** borrowing, check, css, expression, finds, fires, green, grown, layout, lesson, machine, page, past, relationship, review, screenshot, stale, vanished
+**topics:** blind, change, check, css, expression, finds, fires, form, green, lesson, machine, page, past, pin, review, screenshot, stale, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
+- Changing what a content item STORES (a new key, a renamed key, a widget that writes differently)
 - Before designing anything (a control, a palette, a layout)
 - Before borrowing a value from a mock or another branch
 - Before converting a builder
@@ -322,7 +323,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** allowlist, ancestry, breath-weapon, descriptor, event, exposing, flight, ftd, gem, grant, metadata, openness, parametric, pool, pools, registry, schema, variant
+**topics:** allowlist, ancestry, descriptor, event, exposing, flight, ftd, gem, grant, metadata, openness, page-map, parametric, pool, pools, registry, schema, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -495,7 +496,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, cantrips, cha, compound, creator, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, nested, progression, select, spell, spells, two-level, vocabulary
+**topics:** agreed, cantrips, cha, compound, creator, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, progression, qualifiers, select, spell, spells, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -527,7 +528,7 @@ _demo-content-tier · demo content tier_
 
 _documentation-discipline · documentation discipline_
 
-**topics:** agent, appended, audit, before-you-start, check, css, directory, dotfiles, goes, indexed, irreducible, learned, machine, push, reminder, scripts, session, stale
+**topics:** agent, appended, audit, before-you-start, caution, check, css, directory, dotfiles, goes, irreducible, learned, machine, push, reminder, scripts, session, stale
 
 - Write a doc when the work produced knowledge
 - Update in place; record reversals separately
@@ -723,7 +724,7 @@ _pool-grant-map · pool grant map_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, identically, input-field, plumbing, registry-driven, representative, spec-valid, type
+**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, input-field, plumbing, registry-driven, representative, spec-valid, type, wires
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -785,7 +786,7 @@ _runtime-toggles-and-conditional-modifiers · runtime toggles and conditional mo
 
 _spell-granting-across-silos · spell granting across silos_
 
-**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, silo, spell, spells, sustainable, unreachable, usage, wrapper, wrappers
+**topics:** cast, chain, class-gated, creator-declarable, differ, fixed, magic-item, not-tested, per-silo, primitive, primitives, silo, spell, spells, sustainable, unreachable, wrapper, wrappers
 
 - The two core primitives (what every bespoke spell function wraps)
 - Fixed spell — the chain per silo
