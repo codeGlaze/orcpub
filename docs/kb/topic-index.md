@@ -25,7 +25,7 @@ every section heading it contains.
 
 _ability-increase-spreads · ability increase spreads_
 
-**topics:** asi, asis, authoring, background, con, fixed, floating, increment, mental, race, reader, released, rider, save, spread, standalone, terse, widget
+**topics:** asi, asis, authoring, background, breakdown, con, fixed, floating, increment, mental, reader, released, rider, save, spread, standalone, terse, widget
 
 - The format
 - Examples
@@ -41,7 +41,7 @@ _ability-increase-spreads · ability increase spreads_
 
 _armor-class-computation · armor class computation_
 
-**topics:** ability, armor, armored, bonus, channel, channels, con, defense, dex, mail, max, medium, monk, scalar, shield, tie-break, unarmored, worn
+**topics:** ability, armor, armored, barbarian, bonus, channel, channels, con, defense, dex, mail, max, monk, scalar, shield, tie-break, unarmored, worn
 
 - Verified behavior — TEST-BACKED (accharacterizationtest.clj, JVM)
 - The model — VERIFIED (templatebase.cljc:35-88)
@@ -90,7 +90,7 @@ _armor-class-refactor · armor class refactor_
 
 _backfill-ledger · backfill ledger_
 
-**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, feat, grant, job, ledger, legacy, naive, outright, parity, re-pointed, sweep
+**topics:** 2026-09-04, bespoke, converged, d29, d34, delete, deleted, deprecated, exception, feat, job, ledger, legacy, naive, outright, parity, re-pointed, sweep
 
 - When something lands here
 - Migration recipe (per item)
@@ -101,7 +101,7 @@ _backfill-ledger · backfill ledger_
 
 _before-you-start · before you start_
 
-**topics:** borrowing, check, control, css, finds, fires, green, grown, lesson, machine, one-off, page, relationship, review, screenshot, stale, stays, vanished
+**topics:** block, borrowing, check, control, css, expression, fires, green, grown, lesson, machine, page, past, review, screenshot, stale, stays, vanished
 
 - Already enforced — you do not have to remember these
 - Judgement calls — no test can catch these
@@ -116,7 +116,7 @@ _before-you-start · before you start_
 
 _builder-conversion-gallery · builder conversion gallery_
 
-**topics:** ---, assets, beside, bespoke, builder-comparison, chip, chips, conversion, duration, form, heading, height, jpg, language, mockup, page, row, rows
+**topics:** assets, beside, bespoke, builder-comparison, chip, chips, conversion, duration, form, heading, height, jpg, layout, mockup, page, range, row, rows
 
 - Pair 1 — Language builder (tier 1): 21 lines → 1
 - The code
@@ -162,7 +162,7 @@ _builder-conversion-gallery · builder conversion gallery_
 
 _builder-form-schemas · builder form schemas_
 
-**topics:** ---, background, builders, converting, creatures, fragment, framework, group, june, monster, node, row, schema, selectors, tier, titled, traits, widgets
+**topics:** ---, background, builders, creatures, feat, fragment, framework, group, june, monster, node, row, schema, selectors, tier, titled, traits, widgets
 
 - 0. Three tiers of content type
 - 1–2a. The model and the field node
@@ -176,7 +176,8 @@ _builder-form-schemas · builder form schemas_
 - Converting the rest
 - 5b. The OVERLAP map — measured 2026-09-06
 - The widgets that are already shared
-- The important finding: 27% understates it badly
+- CORRECTION (2026-09-07): "implemented twice" conflated NAME with SHAPE
+- The original finding: 27% understates it
 - Per builder: how much is already shared
 - What this changes about the plan
 - 6. Track E — the plan (pulled forward 2026-09-05; status lives in roadmap.md)
@@ -303,7 +304,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** adding, allowlist, ancestry, breath-weapon, choose, event, flight, ftd, gem, grant, modifiers, openness, pool, pools, registry, schema, variant, variants
+**topics:** adding, allowlist, ancestry, breath-weapon, event, exposing, field, flight, ftd, gem, grant, openness, pool, pools, registry, schema, variant, variants
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -400,7 +401,7 @@ _content-extensibility · content extensibility_
 
 _content-tiers-and-key-resolution · content tiers and key resolution_
 
-**topics:** dedup, disable, disable-based, disabled, duplicate-key, example, fork, independent, library, override, owned, per-account, same-key, sources, user, variant, versioned, warn
+**topics:** dedup, disable, disable-based, disabled, duplicate-key, example, fork, independent, library, management, override, owned, per-account, same-key, sources, variant, versioned, warn
 
 - 0. The one idea that ties it together
 - 1. Duplicate-key behavior today (VERIFIED — summary; full map in key-collision-behavior.md)
@@ -418,7 +419,7 @@ _content-tiers-and-key-resolution · content tiers and key resolution_
 
 _custom-content-lifecycle · custom content lifecycle_
 
-**topics:** 2118, 2195, 264, 2745, 353, background, completely, custom, factory, inline, library, missing-content, resolves, server, server-backed, sets, store, upload
+**topics:** 2118, 2195, 264, 2745, 353, background, completely, content, custom, factory, inline, missing-content, resolves, server, server-backed, sets, store, upload
 
 - A — Inline "Custom" option (name-only, per-character)
 - B — Full builders (real, reusable, exportable library entries)
@@ -444,7 +445,7 @@ _data-safety-layers · data safety layers_
 
 _decision-vocabulary · decision vocabulary_
 
-**topics:** asi, caster, choices, custom, expanded, feat-only, fixed, innate, non-caster, prereqs, skill, spell, spell-choice, spellcasting, subclass, sustainability, templates, vocab
+**topics:** asi, caster, choices, custom, expanded, feat-only, fixed, innate, non-caster, prereqs, skill, spell, spell-choice, spellcasting, spells, subclass, sustainability, templates
 
 - Compile paths (load-time: decision data → content), verified
 - :props has TWO sides
@@ -475,7 +476,7 @@ _decision-vocabulary · decision vocabulary_
 
 _declarative-grant-vocabulary · declarative grant vocabulary_
 
-**topics:** agreed, cantrips, cha, compound, creator, dependent, filters, grant, idiomatic, layer-a, multiple, nested, rows, select, spell, spells, two-level, vocabulary
+**topics:** agreed, cantrips, cha, compound, dependent, filters, idiomatic, layer-a, mis-attribution, multiple, nested, pick, rows, select, spell, spells, two-level, vocabulary
 
 - Two layers, kept separate (agreed)
 - The vocabulary (DESIGN)
@@ -531,6 +532,20 @@ _dropdown-value-coercion · dropdown value coercion_
 - The fix — :typed? (the template that makes the mistake impossible)
 - Numbers already have a typed input — number-field
 - Guard / convergence rule
+
+## feat-builder-audit.md
+
+_feat-builder-audit · feat builder audit_
+
+**topics:** accepts, arm, bool, compiler, control, conversion, dead, feat, map-of-flags, modifiers, ranges, scalar, select, tag, ui-capped, verb, widget, widgets
+
+- 1. The verb split is PHYSICAL — both halves already exist, wired to opposite silos
+- 2. The AC work landed a general vocabulary. The feat builder never got it.
+- 3. Dead control
+- 4. Hardcoded UI ranges the compiler does not impose
+- 5. Full widget map
+- 6. What this changes about sequencing
+- Corrections
 
 ## fighting-style-authoring.md
 
@@ -607,7 +622,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-override · homebrew override_
 
-**topics:** attached, attaches, constraints, enforcement, icon, legal, mug, overridable, override, per-item, player, select, selection, suppressed, switch, tooltip, tortle, waives
+**topics:** attached, attaches, constraints, enforcement, icon, legal, mug, overridable, override, per-item, player, points, selection, suppressed, switch, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -630,7 +645,7 @@ _key-collision-behavior · key collision behavior_
 
 _keyword-trap-name-repair · keyword trap name repair_
 
-**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, digits, invalid, junk, leading, least-destructive, mangled, number, quarantine, repair, restore, translator, unnamed, word
+**topics:** -asdml, 2020, auto-coerce, auto-heal, chain, digits, invalid, junk, leading, least-destructive, mangled, manual, quarantine, repair, restore, translator, unnamed, word
 
 - Principle (why this exists)
 - The repair chain (least-destructive first)
@@ -670,7 +685,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _registry-before-after · registry before after_
 
-**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, fully-scattered, hand-built, handlers, identically, input-field, plumbing, registry-driven, representative, spec-valid, type, wires
+**topics:** 000, adding, bits, boon-like, builder-form, copy-pasted, damage-type, extra, fully-scattered, hand-built, handlers, identically, input-field, plumbing, registry-driven, spec-valid, type, wires
 
 - 1. Event wiring
 - BEFORE — ~10 registrations, scattered across ~4,000 lines of events.cljs
@@ -758,7 +773,7 @@ _spell-slot-progression · spell slot progression_
 
 _starting-equipment · starting equipment_
 
-**topics:** choice, consumption, delta, detach, equipment, expand, export, fail-soft, grants, groups, ingestion, keys, nested, pseudo-keys, serializable, srd, sub-selection, untouched
+**topics:** choice, consumption, delta, detach, equipment, expand, export, fail-soft, groups, ingestion, keys, nested, pseudo-keys, round-trips, serializable, srd, sub-selection, untouched
 
 - The one thing that makes this cheap
 - Two ways to express equipment on a class map
@@ -788,7 +803,7 @@ _test-suite-state · test suite state_
 
 _verification-discipline · verification discipline_
 
-**topics:** baseline, bracers, callers, characterization, checking, claim, claims, compare, concluded, confident, faster, integration, miss, number, optimisation, session, unverified, upgrade
+**topics:** baseline, bracers, callers, characterization, checking, claim, claims, compare, confident, faster, integration, miss, number, optimisation, session, shown, unverified, upgrade
 
 - Lessons (each with the concrete miss that taught it)
 - Comparing the existing codebase to a proposed upgrade (the method)
@@ -803,7 +818,7 @@ _verification-discipline · verification discipline_
 
 _weapon-data-model · weapon data model_
 
-**topics:** boolean, cosmetic, flags, mapping, melee, mistype, mutually, neither, not-melee, predicate, ranged, synonym, thrown, truthiness, two-handed, versatile, weapon, weapons
+**topics:** boolean, cosmetic, deals, flags, mapping, melee, mistype, neither, not-melee, predicate, ranged, synonym, thrown, truthiness, two-handed, versatile, weapon, weapons
 
 - Fields
 - Traps
