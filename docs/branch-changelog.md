@@ -6,7 +6,15 @@
 # Branch changelog — `hotfix/boot-config-report`
 
 <!-- ─────────────────────────── HOUSE STYLE (read once) ───────────────────────────
-Entries are bullets under ## Added / ## Fixed / ## Changed (Keep a Changelog categories).
+Entries are bullets under ## Added / ## Added
+
+- The server says it started and what it is configured with. Every optional setting is
+  listed with its value and where that value came from -- `set` from the environment,
+  `default`, or `IGNORED` when a value was given but rejected, which is the case a bare
+  number cannot tell you about. `ORCPUB_HTTP_MAX_THREADS` reports `unset / Pedestal's`
+  rather than a number that would drift from Pedestal's own formula (`<pending>`).
+
+## Fixed / ## Changed (Keep a Changelog categories).
 
 Bullets:
   • One change per bullet. Split, don't cram three changes into one line with semicolons.

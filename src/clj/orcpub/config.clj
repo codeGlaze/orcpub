@@ -93,6 +93,13 @@
                    "strict")]
     (str/lower-case policy)))
 
+(defn- env-raw
+  "The raw string for an env var name, from environ or the process environment, or nil.
+   One implementation so \"is it set?\" and \"what is it?\" can never disagree."
+  [n]
+  (not-empty (or (env (keyword (str/lower-case (str/replace n "_" "-"))))
+                 (System/getenv n))))
+
 (defn- positive-int-env
   "Reads `names` in order and returns the first that parses as a positive
    integer, else `default`. A value that is present but unparseable or
@@ -100,8 +107,7 @@
    rather than failing the boot or silently meaning zero."
   [names default]
   (or (some (fn [n]
-              (when-let [raw (not-empty (or (env (keyword (str/lower-case (str/replace n "_" "-"))))
-                                            (System/getenv n)))]
+              (when-let [raw (env-raw n)]
                 (let [v (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil))]
                   (if (and v (pos? v))
                     v
@@ -195,6 +201,84 @@
    Figwheel's document.write() scripts to execute."
   []
   (= "strict" (get-csp-policy)))
+
+(def tunables
+  "The optional integer settings, in the order the boot banner prints them.
+
+   `:unset-source` names who decides when the variable is absent. ORCPUB_HTTP_MAX_THREADS
+   leaves Pedestal to pick, by a formula that would drift if it were copied here, so the
+   banner says so rather than printing a number we might be wrong about.
+
+   Adding a knob without adding it here is caught by config-report-test."
+  [{:var "ORCPUB_HTTP_MAX_THREADS"        :get #(get-http-max-threads)
+    :unset-source "Pedestal's"            :note "worker pool: requests in flight"}
+   {:var "ORCPUB_PDF_CONCURRENCY"         :get #(get-pdf-concurrency)
+    :note "sheets generated at once"}
+   {:var "ORCPUB_PDF_QUEUE_TIMEOUT_MS"    :get #(get-pdf-queue-timeout-ms)
+    :note "how long an export waits for a slot"}
+   {:var "ORCPUB_PDF_MAX_RETRIES"         :get #(get-pdf-max-retries)
+    :note "busy-page retries before it waits for a click"}
+   {:var "ORCPUB_PDF_MAX_CASTER_SECTIONS" :get #(get-pdf-max-caster-sections)
+    :note "most spellcasting sections on one sheet"}
+   {:var "ORCPUB_PDF_MAX_CARDS"           :get #(get-pdf-max-cards)
+    :note "most cards of one kind per export"}])
+
+(defn report
+  "What each tunable resolved to, and whether that came from the environment.
+
+   `:set?` is the part an operator actually needs: a bare number cannot tell you whether
+   your change was picked up, ignored as a typo, or never set."
+  []
+  (for [{:keys [var get unset-source note]} tunables]
+    (let [raw    (env-raw var)
+          parsed (when raw (try (Integer/parseInt (str/trim raw)) (catch NumberFormatException _ nil)))
+          ;; Present but rejected is its own state, and the one most worth showing: the
+          ;; value on screen is the DEFAULT, so reporting it as "set" answers "did my
+          ;; change take effect" with exactly the wrong word.
+          ignored? (boolean (and raw (not (and parsed (pos? parsed)))))]
+      {:var var :value (get) :raw raw
+       :set? (boolean (and raw (not ignored?)))
+       :ignored? ignored?
+       :unset-source unset-source :note note})))
+
+(defn report-lines
+  "The boot banner, as lines.
+
+   ASCII only, no colour. This is read in log files and aggregators at least as often as in
+   a terminal: escape codes are noise in both, and a stray em dash came back as `?` through
+   one of those pipes. Alignment does the work instead."
+  ([] (report-lines (report) (get-datomic-uri)))
+  ([rows uri]
+   (let [val    (fn [{:keys [value]}] (if value (str value) "unset"))
+         source (fn [{:keys [set? ignored? unset-source]}]
+                  (cond ignored?     "IGNORED"
+                        set?         "set"
+                        unset-source unset-source
+                        :else        "default"))
+         w   (apply max (map (comp count :var) rows))
+         vw  (apply max (map (comp count val) rows))
+         sw  (apply max (map (comp count source) rows))
+         fmt (str "  %-" w "s   %" vw "s   %-" sw "s   %s")
+         rule (apply str (repeat (+ w vw sw 46) "-"))]
+     (concat
+      [rule
+       "  orcpub started"
+       (str "  database   " (redact-secrets uri))
+       rule]
+      (map #(str/replace (format fmt (:var %) (val %) (source %) (or (:note %) "")) #"\s+$" "")
+           rows)
+      (when-let [bad (seq (filter :ignored? rows))]
+        (cons rule
+              (for [{:keys [var raw]} bad]
+                (format "  IGNORED  %s=%s is not a positive integer; the default above is in use"
+                        var raw))))
+      [rule]))))
+
+(defn print-report!
+  "Say the server is up and how it is configured. Called after the system has started, so
+   `started` means started rather than `we got as far as printing`."
+  []
+  (doseq [l (report-lines)] (println l)))
 
 (defn get-secure-headers-config
   "Configure Pedestal secure-headers based on CSP_POLICY env var.
