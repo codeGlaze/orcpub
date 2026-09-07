@@ -18,12 +18,15 @@ async function suppressCookieBanner(context) {
 }
 
 // Fallback for a page that was already loaded without the flag.
+//
+// SCOPED TO THE BANNER on purpose. This used to hunt the whole page for a button
+// labelled "Got it" — and the release panel's dismiss button is labelled exactly
+// that, so a page-wide search could close the wrong thing and call it consent.
 async function dismissCookieBanner(page) {
-  for (const label of ['Got it!', 'Got it', 'Accept', 'I agree']) {
-    const b = page.locator(`button:has-text("${label}"), a:has-text("${label}")`).last();
-    if (await b.count().catch(() => 0)) {
-      try { await b.click({ timeout: 3000 }); await page.waitForTimeout(300); return true; } catch (e) {}
-    }
+  const own = page.locator('#cookie-btn, #poper .spopupbtnok, #cookie-policy-popup .spopupbtnok');
+  if (await own.count().catch(() => 0)) {
+    try { await own.first().click({ timeout: 3000 }); await page.waitForTimeout(300); return true; }
+    catch (e) {}
   }
   // Fall back to removing it: some builds render it without a dismissable control.
   return page.evaluate(() => {
@@ -62,7 +65,15 @@ async function importPack(page, absPath, { timeout = 300000 } = {}) {
   while (Date.now() < deadline) {
     if (await pluginCount() > before) return { ok: true, viaModal: clicked };
     if (!clicked) {
-      for (const label of ['Import', 'Confirm', 'Apply', 'OK']) {
+      // The import modal's own controls, most specific first. These are LABELS THAT
+      // EXIST: the summary view's primary is "Import with these fixes" (it was plain
+      // "Import" until f7285198) and the full panel's is "Apply & Import", or "Apply"
+      // when resolving library content rather than an import. The old list matched
+      // the first of those only because has-text is a substring match — one more
+      // rename and it would have started clicking nothing, or the wrong thing.
+      // "Cancel Import" is a span, not a button, so it cannot be hit here.
+      for (const label of ['Import with these fixes', 'Apply & Import', 'Apply',
+                           'Import', 'Confirm', 'OK']) {
         const b = page.locator(`button:has-text("${label}")`).last();
         if (await b.count().catch(() => 0)) {
           const visible = await b.isVisible().catch(() => false);
