@@ -679,7 +679,17 @@
    ;; picks one of these rather than passing a colour, which keeps the site's
    ;; colours in this file instead of spread across component styles.
    [:.callout-accent-brand
-    {:border-left (str "3px solid " orange)}]
+    ;; The rail is painted rather than bordered, so it can fade down its length and
+    ;; still sit inside the box's rounded corners -- a gradient border-image would
+    ;; square them off. The glow is an inset shadow bleeding in from the same edge,
+    ;; kept faint on purpose: it should read as the box being lit from that side,
+    ;; not as a highlight demanding attention.
+    {:background-image (str "linear-gradient(180deg, " orange " 0%, rgba(240, 161, 0, 0.25) 100%)")
+     :background-size "3px 100%"
+     :background-repeat :no-repeat
+     :background-position "left center"
+     :box-shadow "inset 14px 0 20px -16px rgba(240, 161, 0, 0.65)"
+     :border-radius "4px"}]
 
    ;; A small neutral pill for naming things inline -- the items a feature covers,
    ;; the styles a sheet comes in. Same shape as .lib-badge without its reason
