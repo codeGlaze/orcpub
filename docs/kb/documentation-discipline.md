@@ -118,3 +118,24 @@ Three tiers now, cheapest first:
 **The test for whether this worked** is not that the page exists. It is whether the next session's
 review finds *new* problems rather than the same ones. Add an entry only when a review catches
 something a rule would have caught.
+
+### The two obvious objections, answered
+
+**"How big will that page get?"** Unbounded, if entries only ever arrive — which is how it would rot
+into another unread document. So an entry **earns prose only if a machine cannot check it**. The
+moment a lesson becomes enforced it collapses to one row in a table (rule → what fails → why), and
+two already have. Judgement lessons — *is this layout better*, *does this colour fit this page* —
+carry prose, and they are rarer than mechanical ones. Plus an explicit retirement rule: a caution
+that has not been re-learned in several sessions, guarding something that has changed shape, gets
+deleted. A stale caution costs more than the mistake it prevents.
+
+**"How would an agent know to read it?"** It would not, and that was the real hole. `CLAUDE.md` is
+the one file guaranteed to be in context, and it said nothing about the KB at all. It now opens with
+a pointer to `before-you-start.md` and to this index. Anything not reachable from `CLAUDE.md` in one
+hop is, in practice, not discoverable.
+
+While fixing that: `CLAUDE.md` had been telling every agent that browser e2e lives in
+`test/browser/*.js`. The sanctioned directory has been `test/e2e/` since the audit — 25 scripts,
+with `lib.js` holding the shared helpers — and `test/browser/` is the older parallel one. **The one
+file every agent reads was pointing them at the wrong directory**, which is a good measure of how
+easily a guaranteed-context file goes stale.

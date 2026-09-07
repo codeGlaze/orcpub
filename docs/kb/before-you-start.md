@@ -1,86 +1,82 @@
-# Before you start — review lessons, indexed by what you are about to do
+# Before you start
 
-**The problem this solves.** The KB is 45+ documents indexed by *topic*. Every lesson in it was
-written where it was *learned* — a class-name collision is recorded in a spell-conversion gallery —
-so an agent about to name a CSS class never reads it. This page is indexed by **task**, and is the
-one file worth reading before touching anything here.
+Review lessons indexed by **what you are about to do**, not by topic. The KB is 45+ documents and
+every lesson in it was written where it was *learned* — the class-name lesson lives in a
+spell-conversion gallery — so nobody about to name a class ever finds it.
 
-Each entry is short on purpose. It says what to check, and points at the evidence.
-
----
-
-## Before designing ANYTHING (a control, a palette, a layout)
-
-1. **List the branches.** `git for-each-ref --sort=-committerdate refs/remotes/origin | head -25`.
-   A whole design system existed on `port/redesign-on-refactor` for two months while two generations
-   of builder work invented colours and spacing from scratch. It takes one second.
-2. **Grep the KB for the thing, not just the code.** `grep -rin <term> docs/`.
-3. **`git log -S <identifier>`** for the code.
-
-> Evidence: `frontend-redesign-parallel-work.md`. The KB audit added rules 2 and 3 in September and
-> they were applied to code identifiers only; nobody ran rule 1 before choosing a palette.
-
-## Before adding a CSS class
-
-- **Namespace it.** `styles/core.clj` is 3,000+ lines of utility classes. `field`, `row`, `tag`,
-  `chip`, `card`, `input` are all live names. Builder-framework classes are `bf-`; OMV's are `opt-`
-  and `select-menu-`.
-- **The failure is silent**: the form renders, it just spaces wrong.
-- `test/cljc/orcpub/dnd/e5/builder_class_names_test.cljc` gates this — a new unprefixed name fails
-  until someone adds it to the allow-list deliberately.
-
-> Evidence: a global `.field { margin-top: 30px }` gave every declarative field 30px it never asked
-> for; the toggle pair became a 106px box holding two 16px rows.
-
-## Before changing how a control is RENDERED
-
-Checkbox → chip, `<select>` → popover, anything of that shape. **Every measurement written against
-the old rendering goes blind, silently, and keeps passing.**
-
-- Search the e2e helpers and metrics for the old tag/class: `grep -rn "select\|fa-check\|\.chip" test/e2e/`.
-- Four separate control-count metrics missed this in one session. Twice the count did not move while
-  controls *disappeared*.
-- **Prefer a representation-independent measure.** `builder-gallery.js` counts visible field
-  **labels** as well as controls, because a label survives a control changing shape.
-
-> Evidence: `builder-conversion-gallery.md`, "two bugs this round, and one was in the measurement".
-
-## Before converting a builder to the declarative framework
-
-1. **Write the pin against the EXISTING form first, and see it green.** Then swap, then re-run
-   unchanged. A pin written after the swap describes the new form and protects nothing.
-2. **Pin on what is SAVED, not on what you typed.** A form can look perfect and store
-   `[:school] "abjuration"` under a key vector.
-3. **Keep the control count equal.** Any deliberate addition or removal is its own step, named.
-   Otherwise the before/after is uncomparable — and a *drop* can be reported as a win.
-4. Check the overlap map first (`builder-form-schemas.md` §5b): does this builder **reuse** the
-   vocabulary or **extend** it? That, not form length, predicts the cost.
-
-## Before styling with a value taken from a mock or another branch
-
-- **Check what it was designed against.** A card colour is a *relationship* to its page, not an
-  absolute. `#1b232f` is a whisper of lift on `#161d27` and a chunky pale block on `rgb(8,10,13)`.
-- Prefer a relative expression (a translucent overlay, `var(--accent)`) over a literal.
-
-## Before believing a CSS change worked
-
-- **`lein garden once` can fail while everything downstream stays green.** `fig:build` succeeds, the
-  whole e2e suite passes against stale CSS, and only a screenshot shows the truth.
-- Check its exit code. Do not pipe it through `tail` and read past the failure.
-- `[:.a:not(.b)]` is not valid Clojure — the reader takes `.b` inside parens for a member
-  expression. Use `garden.selectors`, or restructure.
-
-## Before reporting a UI change as done
-
-- **Look at the screenshot.** Three things this session were invisible to a green test suite: a
-  layout regression that measured *taller with fewer controls*, three checkboxes that vanished, and
-  a "new character" confirm that was never answered so every later check described the wrong
-  character.
-- Measure both widths. `mobile-compare.js` at 390px.
+**This page stays short by design.** See "How this page stays small" at the bottom; if it has grown
+past two screens, that policy is being ignored.
 
 ---
 
-## Adding to this page
+## Already enforced — you do not have to remember these
 
-Add an entry when a review catches something a *rule* would have caught — not for one-off bugs. Keep
-it to the check and one line of evidence; the story belongs in the doc where it happened.
+A rule a machine can check is not a paragraph. These fail on their own; the row is here so you know
+the gate exists and what it means when it fires.
+
+| If you… | What fails | Why it exists |
+|---|---|---|
+| add a CSS class in the builder block | `builder_class_names_test` — must be `bf-`/`opt-`/`select-menu` prefixed, or allow-listed deliberately | a global `.field {margin-top:30px}` silently gave every declarative field 30px it never asked for |
+| remove or hide a field | `builder-gallery.js` diffs **labels and controls** against `test/e2e/builder-baseline.json` | a control count is blind to its own rendering; three checkboxes once vanished while the count read the same |
+| change a field's save shape | the per-builder pins read back what was **stored**, not what was typed | a form looked perfect and saved `[:school] "abjuration"` under a key vector |
+
+If a gate fires and the change is deliberate: re-record the baseline / add the name, **and say why in
+the commit**. That is the whole point of it being a decision.
+
+---
+
+## Judgement calls — no test can catch these
+
+### Before designing anything (a control, a palette, a layout)
+
+**List the branches first.** `git for-each-ref --sort=-committerdate refs/remotes/origin | head -25`
+
+A whole design system sat on `port/redesign-on-refactor` for two months while two generations of
+builder work invented colours and spacing from scratch. Grep the KB for the *thing* as well as the
+code (`grep -rin <term> docs/`), and `git log -S <identifier>`.
+
+### Before borrowing a value from a mock or another branch
+
+**Check what it was designed against.** A card colour is a relationship to its page, not an absolute:
+`#1b232f` is a whisper of lift on `#161d27` and a chunky pale block on `rgb(8,10,13)`. Prefer a
+relative expression — a translucent overlay, `var(--accent)` — over a literal.
+
+### Before converting a builder
+
+1. Write the pin against the **existing** form and see it green. A pin written after the swap
+   describes the new form and protects nothing.
+2. Keep the control count **equal**. Any addition or removal is its own step, named — otherwise the
+   before/after is uncomparable, and a *drop* gets reported as a win.
+3. Check the overlap map (`builder-form-schemas.md` §5b): does this builder **reuse** the vocabulary
+   or **extend** it? That, not form length, predicts the cost.
+
+### Before believing a CSS change worked
+
+`lein garden once` **can fail while everything downstream stays green** — `fig:build` succeeds, the
+whole e2e suite passes against stale CSS, and only a screenshot shows the truth. Check its exit
+code; do not pipe it through `tail` and read past the failure.
+
+(`[:.a:not(.b)]` is not valid Clojure — the reader takes `.b` inside parens for a member expression.)
+
+### Before reporting a UI change as done
+
+**Look at the screenshot, at both widths** (`mobile-compare.js` runs at 390px). Three things here
+were invisible to a fully green suite: a layout regression that measured *taller with fewer
+controls*, three checkboxes that vanished, and an unanswered "new character" confirm that left every
+later check describing the wrong character.
+
+---
+
+## How this page stays small
+
+It will rot into another unread document unless entries leave it. Three rules:
+
+1. **An entry earns prose only if a machine cannot check it.** If it can be checked, write the check
+   and the entry becomes one row in the table above. Two already have.
+2. **Add only what a review had to supply** — a rule that would have prevented the mistake. Not
+   one-off bugs; those belong in the doc where they happened.
+3. **Retire on evidence.** If a lesson has not been re-learned in several sessions and the thing it
+   guards has changed shape, delete it. A stale caution costs more than the mistake it prevents.
+
+The measure of whether this works is not that the page exists — it is whether the next review finds
+**new** problems rather than the same ones.
