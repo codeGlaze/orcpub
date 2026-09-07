@@ -14,8 +14,12 @@
                      (when selected? " selected"))
          :on-click on-click}
    [:label.flex.align-items-c.pointer
-    [:i {:class (str "fa radio-icon "
-                     (if selected? "fa-dot-circle-o" "fa-circle-o"))}]
+    ;; fa-dot-circle-o / fa-circle-o are Font Awesome 4 names. This app serves 5,
+    ;; where both were renamed, so neither drew anything: every radio was blank and
+    ;; the only sign of a selection was a faint tint. The hollow one lives in the
+    ;; regular family, hence the different prefix.
+    [:i {:class (str "radio-icon "
+                     (if selected? "fa fa-dot-circle" "far fa-circle"))}]
     label]])
 
 ;; Canonical set now lives in orcbrew-validation (events + views both read it).
@@ -234,7 +238,7 @@
      "Review / change"]
     [:button.form-button
      {:on-click #(dispatch [:apply-conflict-resolutions])}
-     "Import"]]])
+     "Import with these fixes"]]])
 
 (defn- conflict-resolution-advanced
   "The full per-conflict panel — every option exposed for power users and mods.
@@ -250,8 +254,14 @@
       [:div.f-s-12.conflict-subtitle
        (str (if library? "In: " "Importing: ") import-name)]
       [:div.f-s-12.conflict-count
-       (str (count conflicts) " conflict(s) need resolution"
-            (if library? "." " before import can continue."))]]
+       ;; In an import every conflict already carries a suggested fix, so telling
+       ;; someone they are blocked is untrue and makes a resolved screen read as a
+       ;; problem. The library flow really does start empty.
+       (if all-decided?
+         (str (count conflicts) " conflict" (when (not= 1 (count conflicts)) "s")
+              " — each already has a suggested fix. Change any you disagree with.")
+         (str (count conflicts) " conflict(s) need resolution"
+              (if library? "." " before import can continue.")))]]
 
      [:div.conflict-modal-body
       (for [conflict conflicts]
@@ -268,7 +278,12 @@
        {:on-click #(dispatch [:cancel-conflict-resolution])}
        (if library? "Cancel" "Cancel Import")]
       [:button.form-button
-       {:on-click #(dispatch [:rename-all-conflicts])}
+       {:title "Put every conflict back to the fix suggested for its content type"
+        :on-click #(dispatch [:use-suggested-conflict-decisions])}
+       "Use suggested"]
+      [:button.form-button
+       {:title "Resolve every conflict by renaming, ignoring the suggestions"
+        :on-click #(dispatch [:rename-all-conflicts])}
        "Rename All"]
       [:button.form-button
        {:class (when-not all-decided? "disabled")

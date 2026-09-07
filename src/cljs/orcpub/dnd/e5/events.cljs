@@ -5363,6 +5363,16 @@
    (assoc-in db [:conflict-resolution :decisions conflict-id] decision)))
 
 (reg-event-db
+ :use-suggested-conflict-decisions
+ (fn [db _]
+   ;; Back to the per-content-type suggestion for every conflict -- the same set the
+   ;; modal opens on for an import. A way out of an edit you regret, and the only
+   ;; bulk action in the library flow that does not make a harmless duplicate worse.
+   (let [conflicts (get-in db [:conflict-resolution :conflicts])]
+     (assoc-in db [:conflict-resolution :decisions]
+               (into {} (map (juxt :id opinionated-default-decision) conflicts))))))
+
+(reg-event-db
  :rename-all-conflicts
  (fn [db _]
    (let [conflicts (get-in db [:conflict-resolution :conflicts])
