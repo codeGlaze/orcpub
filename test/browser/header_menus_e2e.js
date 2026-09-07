@@ -83,6 +83,7 @@ const check = (name, ok, detail = '') => {
     for (let i = 0; i < tabCount; i++) {
       const tab = tabs.nth(i);
       const name = ((await tab.locator('.title').first().innerText().catch(() => '')) || `tab ${i}`).trim();
+      const t0 = Date.now();
       await tab.hover();
       const flyout = tab.locator('.header-flyout');
       await flyout.waitFor({ state: 'visible', timeout: 3000 });
@@ -124,7 +125,7 @@ const check = (name, ok, detail = '') => {
       if (scrolled) blocked.push('the PAGE scrolled — the menu was not what moved');
       check(`${label}: every item in "${name}" is reachable (${tested}/${rowCount})`,
             blocked.length === 0 && tested === rowCount,
-            blocked.slice(0, 3).join(' | '));
+            blocked.length ? blocked.slice(0, 3).join(' | ') : `${Date.now() - t0} ms`);
     }
   }
 

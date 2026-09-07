@@ -50,6 +50,6 @@
   },
   "header_menus_e2e.js": {
     "checks": 22,
-    "seconds": 95
+    "seconds": 50
   }
 }
