@@ -88,7 +88,17 @@
 
 (defn sheet-styles
   "Available character sheet styles. Returns the default sheet only.
-   Fork overrides: return additional styles gated by user tier."
+
+   Fork overrides: return the extra styles only for a tier you positively
+   recognise, and the default sheet for everything else. Write the test as \"is
+   this a paying tier\" rather than \"is this not the free tier\" -- the second
+   form hands every style out for any value that is not exactly `:free`, which
+   includes nil from a subscription that failed to register and a tier that
+   arrives as a string. Failing closed costs a paying user their extra sheets,
+   which they report; failing open gives paid content away silently.
+
+   Whatever gates the styles should gate `pdf-options-slot` too, so the upsell
+   and the dropdown cannot disagree about who is paying."
   [_user-tier]
   [{:title "Original 5e Character sheet" :value 1}])
 
@@ -97,7 +107,10 @@
 ;; Fork overrides: return hiccup for premium feature promos, etc.
 
 (defn pdf-options-slot
-  "Additional content below PDF options. Returns nil by default."
+  "Additional content below PDF options. Returns nil by default.
+
+   Fork overrides: key this on the same predicate that gates `sheet-styles`, so
+   the pitch appears exactly when the extra styles are locked."
   [_user-tier]
   nil)
 
