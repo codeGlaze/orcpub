@@ -17,6 +17,7 @@ direct inspection of code, logs, or authoritative references. Speculation is mar
 ### Content-extensibility track (the pool/grant initiative)
 | Document | Topic | Source quality |
 |----------|-------|---------------|
+| [pool-grant-map.md](pool-grant-map.md) | **Start here for anything pool/grant.** The whole web on one page: the three layers, a REAL-vs-AIR ledger with dates and provenance, the dependency graph between the open pieces, why spells are closer to a pool than they look, and the three claims this area got wrong by designing before grepping. | High — code-verified ledger |
 | [content-extensibility-direction.md](content-extensibility-direction.md) | **Canonical detail + direction for the content track** (v2 spine): the pool+grant model, the one principle (an abstraction must be thicker than what it hides), the variant forward-compat seam, and the next levers/pins. | Mixed — verified + DESIGN flagged |
 | [content-extensibility-decisions.md](content-extensibility-decisions.md) | The numbered decision log (**D1–D34**) — how each decision was reached, incl. the prototype-then-converge governance (D23), the grant conflict (D29/D30), and the vocabulary/AC duplication findings (D31). | Decision record |
 | [content-extensibility-framework.md](content-extensibility-framework.md) | How-to reference for the registry-driven content system (mental model + schema + add-a-type + invariants). | High — code + design |
