@@ -308,4 +308,11 @@ then merge `develop` in, since the shared files here have diverged for the feat 
 3. **B2–B4** — app-wide wins (conditions, counters incl. resource pools, roll integration).
 4. **C2 → C3** — feature registry then builder surfaces (on F + B1).
 5. **A3** (spell-slot bucket) — unblocks Artificer-shaped classes; **D1** in parallel once the AC net is full.
-6. **E** — last.
+6. ~~**E** — last.~~ **Superseded 2026-09-05** (see Track E above): E was pulled forward because its
+   missing primitive is item 1's substrate. Concretely: the grant-authoring "UI" is **one field type**,
+   `:type :grant`, next to `:enum`/`:boolean`/`:rows` — a field that writes `{:pool p :count n}` into the
+   content. Pools stay source-registered; builders *use* them through this field. Built against feat
+   (the diverse silo), with unregistered pools left as bespoke passthrough until registered — the same
+   escape hatch the spell builder used for `spell-lists-field`. **Pause the remaining E conversions until
+   it exists**: most bespoke widgets in the unconverted builders are grant-shaped (three widgets, three
+   storage shapes, for "which languages?" alone) and become deletions, not ports.
