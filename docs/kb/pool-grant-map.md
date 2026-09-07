@@ -39,7 +39,7 @@ The engine and the data path are built and tested. **Nothing writes the data** �
 | `::e5/grantable-pools` | assembles the registry from `plugin-vals` | 2026-09-07 |
 | silos compiling `:grant` | feat, race | 06-17 / 09-07 |
 | pools registered | `:languages`, `:fighting-styles`, `:skills` | 2026-09-07 |
-| entry eligibility | fighting style `:classes` (absent = all) | 2026-09-02 |
+| entry eligibility | fighting style `:classes` (absent = all); the class path reads the open pool via `eligible-homebrew-styles` — direction lever (a)(i), done | 2026-09-02 |
 | `effect-rows` | the repeatable-row builder node, for *effects* (not grants) | 2026-09-05 |
 
 **The maintainability gate is met and measured**: registering `:skills` — the third pool — cost one
@@ -52,7 +52,8 @@ entry in `grant_pools.cljc` and nothing else.
 | **filter as a metadata predicate** | today `:filter` is a key set (`#{:elvish}`) and can only enumerate. As a predicate (`{:level 0 :lists :bard}`) it expresses "2 bard cantrips" and "fighter-eligible styles" with one machinery | direction doc, "Filtering is optional and graceful" |
 | **`:grants` plural** | a bundle. "2 skills AND a language" is one feat; singular `:grant` cannot say it | direction doc, "Compound grants" |
 | **entries carrying their own `:grants`** | Magic Initiate ("pick a class, then spells from *that* list"), and a subclass entry declaring what it grants | — (see Correction below) |
-| **`:gate`** | prereqs, as part of a grant rather than a feat-only side vocabulary | direction doc, discipline 1 |
+| **`:gate`** | prereqs, as part of a grant. **Must be a small declarative vocabulary** (`has-class?`, `level>=`, `has-feature?`, `ability>=`) — homebrew prereqs are never raw fns (direction doc PINS) | direction doc, discipline 1 + PINS |
+| **pool entries carry `:tags`** | the D30 gap: `grant-selection` tags every grant `#{:grant <pool>}`, so a granted language choice does not land on the Proficiencies tab where the bespoke one does. Fix: the registry entry carries its tags and the compiler merges them. `:ref` stays out (verified to break nested addressing) | D30, confirmed 2026-09-07 |
 | **`:offerable-by` consumed** | declared on every pool today, read by nothing. Stops a feat offering "choose a subrace" | direction doc, discipline 2 |
 | **the grant-authoring UI** | the whole point: a control that iterates *registered* pools, so registration is the only edit | direction doc, "the next lever" |
 | **spells as a registered pool** | every spell-granting case | this doc, below |
@@ -96,6 +97,15 @@ Spell granting reads like a special case. It is not.
 So: **one `:spells` pool, list membership on the entry, grants filter on it.** Not six
 list-shaped pools.
 
+## Provisional — set by one agent, not decided
+
+- `:offerable-by` sets on the three registered pools are guesses (`:languages` offerable by monster?).
+  The direction doc decided the *mechanism* ("pools carry scoping metadata"); the values are open.
+- `feat-builder-audit.md` §7 calls the Custom Feat option list "a third grant vocabulary." That
+  overstates: it is a hardcoded `option-cfg` menu — the same "bespoke positional wiring / hardcoded
+  vector" pattern D17b names as the thing the branch exists to replace, not a new vocabulary. The
+  two defects found there are real.
+
 ## Where the confusion came from (so it does not recur)
 
 Three claims were made in this area and then withdrawn. All three came from designing before
@@ -106,9 +116,11 @@ grepping.
 2. *"Fighting styles are shaped differently, so the registry needs a `:built-in-compiled?` key."*
    That is the D14 god-function trap hoisted one level. A pool's entry is a function; it absorbs its
    own irregularity and nothing outside can tell.
-3. *"Magic Initiate is a dependent two-level choice that breaks the model."* It is a nested grant.
-   Pool entries already carry their own mechanics (fighting styles carry `:props`); letting an entry
-   carry `:grants` is one shared extension, not an exception.
+3. *"Magic Initiate is a dependent two-level choice that breaks the model."* June had already placed
+   it: `declarative-grant-vocabulary.md` — *"a dependent two-level choice (pick a list, then spells
+   from it), which the vocabulary must support as a nested select."* Not an exception to the model; a
+   case the model was specified to handle. A pool entry carrying its own `:grants` is one way to
+   build that nesting.
 
 The pattern in all three: the answer was in `content-extensibility-direction.md` or in the code, and
 was re-derived worse. **Grep the KB before designing.**
@@ -122,10 +134,12 @@ app, and closing it needs exactly two things:
 1. **`:grants` plural** — a feat is a bundle by definition ("2 skills AND a language"), so a builder
    that writes grants needs the plural immediately. A mechanical rename while nothing writes it yet;
    no shim, since `:grant` has never existed off a feature branch.
-2. **A control that emits it** — the grant-authoring UI. Needs `:grants` plus dynamic field options
-   (options from a subscription, and depending on a sibling field's value). Built against feat,
-   because feat is the only silo needing the full set, so building it correctly *is* building the
-   node every other builder embeds.
+2. **A control that emits it** — direction doc discipline 2: *"one reused grant-authoring UI
+   component, not a forked menu per builder… the builder's 'add a grant' UI iterates the registered
+   pools."* Needs `:grants`, dynamic field options (from a subscription; dependent on a sibling), and
+   **the D30 tag fix** — the moment a builder writes a language grant, the choice has to land where
+   the bespoke one did, or the conversion is a visible regression. Built against feat, because feat
+   is the only silo needing the full set.
 
 Everything else in the AIR table is real but **waits for a case that demands it**. In particular:
 

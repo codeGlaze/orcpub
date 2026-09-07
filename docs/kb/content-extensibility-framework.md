@@ -167,10 +167,18 @@ saving-throw-advantage, skill-prof, language, …). Built-ins with no `:props` a
   (cljs) + `extensibility_golden_test.cljc` (JVM round-trip).
 
 ### 3e. How to add a pool / a grant
-- **New pool:** `(reg-sub ::x-pool :<- [::e5/plugin-vals] (fn [pv _] (pool pv ::e5/<key> <built-in>)))`.
-- **New grant:** a `selection-cfg` whose `:options` map a per-entry compiler over the pool sub.
-  Pass each entry's stored `:key` through (D10). Keep the compiler thin; pool-kind logic lives
-  in the pool, never as a `cond` inside a shared grant fn (D14 god-function trap).
+- **New GRANTABLE pool (2026-09-07):** one entry in `src/cljc/orcpub/dnd/e5/grant_pools.cljc` —
+  `{:name … :offerable-by #{…} :options-fn (fn [plugin-vals] -> [option-cfg …])}`. Nothing else
+  changes: `::e5/grantable-pools` assembles the registry and `template-selections` passes it to every
+  assembly fn that compiles a `:grant`. The entry's fn absorbs its own shape (raw built-ins vs
+  pre-compiled, open vs closed); `assemble`/`grant-selection` never branch on pool kind (D21).
+  Measured: the third pool cost one entry — the D21 gate.
+- **A pool that is consumed only by a hardcoded caller** (the draconic pool → `dragonborn-option-cfg`)
+  still uses the older form: `(reg-sub ::x-pool :<- [::e5/plugin-vals] (fn [pv _] (pool pv ::e5/<key>
+  <built-in>)))`. Register it in `grant_pools.cljc` when something needs to *grant* from it.
+- **Grant, as data:** `{:pool <k> :count n}` / `{:pool <k> :key <entry>}` / `{:pool <k> :count n
+  :filter …}` on any content that an assembly fn compiles (feat, race today). Compiled by
+  `opt5e/grant-selection`. Pass each entry's stored `:key` through (D10).
 
 ---
 

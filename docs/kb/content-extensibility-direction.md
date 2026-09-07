@@ -316,10 +316,22 @@ route-keyword def.
   code-side constructors stay. **UPDATE 2026-09:** the grant compiler now exists —
   `opt5e/grant-selection`, a thin pool-agnostic compiler with four modes (ALL / FILTERED /
   SPECIFIC / CUSTOM), proven end-to-end on the feat silo (`fighting_style_grant_matrix_test`).
-  The remaining (a) work is (i) the class path — thread the open pool through the existing
-  constructors, DECIDED in `fighting-style-authoring.md` (`:classes` divvying rule,
-  `additional-options` param), pinned by `fighting_style_class_characterization_test`, **not yet
-  threaded** — and (iii) the authoring UI, still unbuilt.
+  (i) the class path — ✅ **threaded 2026-09-02** (`45e29a1b`): `fighting-style-selection`
+  concats `(eligible-homebrew-styles class-kw additional-options)` (`options.cljc:2109`), the
+  `:classes` divvying rule from `fighting-style-authoring.md`. (This line said "not yet threaded"
+  until 2026-09-07; it was stale.) Remaining (a) work is (iii) the authoring UI, still unbuilt —
+  and one D30 gap surfaced 2026-09-07, below.
+
+  **D30 gap, confirmed against the second silo (2026-09-07).** D30 warned that `grant-selection`
+  as built carries generic `:tags #{:grant <pool>}` and no `:ref`, dropping the metadata the bespoke
+  constructors carry. Wiring race through it confirmed the consequence: `language-selection-aux`
+  tags `#{:profs :language-profs}` and the character builder routes selections to tabs by tag, so
+  a bespoke language choice lands on the Proficiencies tab and a `{:grant {:pool :languages}}`
+  choice does not — it renders nested under its owner. Mechanics are identical (both emit
+  `modifiers/language`); placement is not. The fix is discipline 1 applied to metadata: the
+  **pool's own registry entry carries its `:tags`** (`:languages` → `#{:profs :language-profs}`),
+  and `grant-selection` merges them. `:ref` stays out — the prototype verified that a `:ref` on a
+  nested grant breaks its addressing. Not built yet; recorded so it is not rediscovered.
 - (b) ✅ **spec-from-field-schema** — DONE (`8a07531e`); `bf/fields->spec` generates it;
 - (c) **cross-silo reuse demo** — point the sorcerer draconic bloodline (`classes.cljc:2280`) at
   the *same* ancestry pool, so one pool feeds two silos ("built here, called over there");

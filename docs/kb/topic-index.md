@@ -255,7 +255,7 @@ _class-features-and-mechanization · class features and mechanization_
 
 _cljs-headless-harness · cljs headless harness_
 
-**topics:** auth, backend, captures, case-sensitive, chromium, cljs, div, errors, headless, hidden, navigates, per-test, race-builder, recipe, rooted, runs, tabs, totals
+**topics:** auth, backend, captures, case-sensitive, chromium, cljs, div, errors, gotchas, headless, hidden, navigates, per-test, race-builder, recipe, rooted, runs, totals
 
 - Build it
 - Two ways to run (they differ — pick deliberately)
@@ -291,7 +291,7 @@ _content-extensibility-compatibility · content extensibility compatibility_
 
 _content-extensibility-decisions · content extensibility decisions_
 
-**topics:** bespoke, catalog, catalogs, constraint, d12, d16, d17, d17b, d19, decision, factories, grant, hof, live, part, pool, readability, rejected
+**topics:** catalog, catalogs, constraint, d12, d16, d17, d17b, d19, d23, decision, factories, grant, hof, live, part, pool, readability, rejected
 
 - Status at a glance
 - Part 1 — How the thinking evolved (audit)
@@ -304,7 +304,7 @@ _content-extensibility-decisions · content extensibility decisions_
 
 _content-extensibility-direction · content extensibility direction_
 
-**topics:** adding, allowlist, ancestry, breath-weapon, descriptor, event, exposing, flight, ftd, gem, grant, openness, parametric, pool, pools, registry, schema, variant
+**topics:** allowlist, ancestry, breath-weapon, descriptor, event, flight, ftd, gem, grant, metadata, openness, parametric, pool, pools, prototype, registry, schema, variant
 
 - Why the re-centering (don't misread the deflation)
 - The one principle (a constraint, not a ceiling)
@@ -343,7 +343,7 @@ _content-extensibility-e2e · content extensibility e2e_
 
 _content-extensibility-framework · content extensibility framework_
 
-**topics:** ancestry, builder-item, component, conventions, d22, draconic, draft, events, framework, generated, irreducible, loops, pool, registry, routes, schema, spa, type
+**topics:** ancestry, builder-item, component, conventions, d22, draconic, events, form, framework, generated, irreducible, loops, pool, registry, routes, schema, spa, type
 
 - 1. The mental model (start here)
 - 2. The Builder Framework (registry-driven wiring)
@@ -387,7 +387,7 @@ _content-extensibility-plan · content extensibility plan_
 
 _content-extensibility · content extensibility_
 
-**topics:** 8-input, 945, boons, bucket-by-key, catalog, catalogs, child, content-extensibility-compatibility, content-extensibility-plan, entity-options-architecture, homebrew-builders, parent, positional, route-registration, spa-routing-architecture, srd-vs-plugin-content, views-builders-split, warlock
+**topics:** 8-input, 945, boons, bucket-by-key, catalog, catalogs, child, content-extensibility-compatibility, content-extensibility-plan, entity-options-architecture, homebrew-builders, issues, parent, route-registration, spa-routing-architecture, srd-vs-plugin-content, views-builders-split, warlock
 
 - The problem
 - Current cross-links (verified from code)
@@ -537,7 +537,7 @@ _dropdown-value-coercion · dropdown value coercion_
 
 _feat-builder-audit · feat builder audit_
 
-**topics:** arm, bool, compiler, dex, feat, five, hardcoded, hook, language, map-of-flags, modifiers, scalar, select, ui-capped, verb, widget, widgets, writes
+**topics:** arm, bool, compiler, dex, feat, five, hook, language, map-of-flags, modifiers, scalar, select, subset, ui-capped, verb, widget, widgets, writes
 
 - 1. Not "one verb per silo" — FIVE storage shapes for one question
 - 1b. The hook that collapses those five shapes was ALREADY BUILT — and unwired
@@ -625,7 +625,7 @@ _homebrew-content-merge · homebrew content merge_
 
 _homebrew-override · homebrew override_
 
-**topics:** attached, attaches, constraints, enforcement, icon, mug, overridable, override, per-item, player, points, select, selection, suppressed, switch, tooltip, tortle, waives
+**topics:** attached, attaches, constraints, enforcement, icon, legal, mug, overridable, override, per-item, player, points, selection, suppressed, switch, tooltip, tortle, waives
 
 - Where it is
 - It is already per-thing
@@ -688,7 +688,7 @@ _orcbrew-format-versioning · orcbrew format versioning_
 
 _pool-grant-map · pool grant map_
 
-**topics:** 2026-09-07, air, constrain, direction, eligibility, fighting, filter, irregularity, membership, pieces, plural, pool, shaped, skills, spells, styles, tested, writes
+**topics:** 2026-09-07, air, dependent, direction, discipline, fighting, filter, irregularity, language, membership, pieces, plural, pool, pools, registered, spells, two-level, writes
 
 - In four sentences
 - The three layers
@@ -696,6 +696,7 @@ _pool-grant-map · pool grant map_
 - AIR — decided in a doc, not built
 - How the open pieces constrain each other
 - Spells: closer than it looks
+- Provisional — set by one agent, not decided
 - Where the confusion came from (so it does not recur)
 - The path — two items, then wait for a case
 
@@ -720,7 +721,7 @@ _registry-before-after · registry before after_
 
 _roadmap · roadmap_
 
-**topics:** background, bucket, class-feature, d29, detail, feat, grant, grant-authoring, node, phase, pool, pools, proven, registry, remaining, round-trip, silo, track
+**topics:** 2026-09-05, background, class-feature, detail, feat, grant, grant-authoring, node, phase, pool, pools, proven, pulled, remaining, round-trip, silo, substrate, track
 
 - The arc (two phases — both real, one branch)
 - Status ledger (anchored to commits; detail in the linked docs)
