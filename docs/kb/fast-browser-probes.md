@@ -133,7 +133,7 @@ The cost is spread evenly across its own checks, 30-80s each:
 total=393s   max silence between outputs 79.2s
 ```
 
-**❌ REFUTED 2026-09-06 -- measured, see below.** The guess was: the probe drives the app at `https://i.imgur.com/aBcDeF.png` and
+**❌ REFUTED 2026-09-06 -- measured, see below; the real cause is nine PDF renders.** The guess was: the probe drives the app at `https://i.imgur.com/aBcDeF.png` and
 a Pinterest URL, both fake, and outbound HTTPS here goes through the agent proxy — a request
 to a host that will not answer can hang a long time before failing. `spell_layout_pdf` does
 20 checks in 52s, so PDF export is not the slow part, which points at the network rather than
@@ -150,12 +150,25 @@ That guess was wrong. Timed from a browser in this sandbox via Playwright's requ
 
 The proxy answers both in under a second, so dead-host latency is not the cause.
 
-**The cause is still open.** What has been ruled out: blind sleeps (17s across 14 calls),
-page loads (2), PDF exports (2 -- and `spell_layout_pdf` does 20 checks in 52s, so export is
-not inherently slow), and the bounded polling helpers at lines 358/415/531, which cap at
-8-10s and return as soon as their predicate holds. Something in the server-side picture
-fetch and sheet draw is the remaining candidate, unmeasured. Do not repeat the network
-guess.
+**✅ ANSWERED 2026-09-07 -- it renders nine PDFs.** Running the probe with
+`ORCPUB_E2E_OUT` set and looking at what it leaves behind settled it: nine sheets, ~260 KB
+each. Nine server-side PDFBox renders at roughly 40s apiece is the 393s.
+
+```
+cors-allowed.pdf  cors-refused.pdf  oversized.pdf  slow-host.pdf  refused-again.pdf
+uploaded.pdf      refused-2.pdf     pasted.pdf     copied.pdf
+```
+
+**The count was missed twice by grepping for the wrong thing.** `grep -c "create pdf"`
+returns 2, because the clicking happens inside an `exportSheet()` helper that is *called*
+nine times. Count the helper, not the button text — or just look at the artifacts.
+
+That also re-reads the earlier clue correctly: `spell_layout_pdf` doing 20 checks in 52s
+never meant PDF export is cheap, only that it exports far fewer sheets.
+
+So the runtime is inherent to the coverage — nine genuinely distinct export paths (CORS
+allowed and refused, oversized, slow host, uploaded, pasted, copied). There is nothing to
+trim without dropping a path. The lever for total suite time is concurrency, not this probe.
 
 The 79.2s figure is load-bearing regardless: it is what sizes the runner's 180s silence
 timeout.
