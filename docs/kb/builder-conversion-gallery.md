@@ -874,9 +874,11 @@ builder reuse the vocabulary, or extend it?"**
 
 - **Monster** is mostly `:enum` / `:text` / `:number` plus rows — the best available test of whether
   the vocabulary has converged. If monster converts without a new field type, it has.
-- **Feat / race / subrace / class / subclass / background** all need the modifier set — which,
-  measured, **already exists twice** and is duplication to consolidate rather than vocabulary to
-  invent. See the overlap map in `builder-form-schemas.md` §5b: race, subrace and subclass are
+- **Feat / race / subrace / class / subclass / background** all need the modifier set. It *looks*
+  like duplication to consolidate rather than vocabulary to invent — but see the correction in
+  `builder-form-schemas.md` §5b: that reading grouped widgets by NAME, and by stored shape the
+  `feat-*` family is "choose N of your own" (a number) where `option-*` is "grant these specific
+  ones" (a map). Some pairs match, some do not; each has to be checked before anything is merged. See the overlap map in `builder-form-schemas.md` §5b: race, subrace and subclass are
   already 75–80% shared widgets, and 13 of feat's 16 "own" widgets are copies of things that exist.
 
 And the process lesson, since eight of nine commits were corrections: **most of them were caught by

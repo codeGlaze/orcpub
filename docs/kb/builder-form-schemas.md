@@ -246,7 +246,27 @@ Measured by extracting every widget call from each `*-builder` body in `views.cl
 | `ability-increase-choices`, `ability-save-notes`, `save-proficiency-choices`, `option-damage-immunity`, `option-damage-resistance`, `input-builder-field` | 3 each |
 | `option-armor-proficiency`, `option-weapon-proficiency`, `option-skill-proficiency`, `option-tool-proficiency`, `option-languages`, `option-spells`, `option-level-modifiers`, `option-level-selections`, `option-skill-expertise-choice` | 2 each |
 
-### The important finding: 27% understates it badly
+### CORRECTION (2026-09-07): "implemented twice" conflated NAME with SHAPE
+
+The table below was built by stripping each widget's owning-builder prefix and grouping what
+matched. That finds names, not duplicates, and checking the **stored shape** breaks the claim apart:
+
+| pair | `feat-*` writes | `option-*` writes | same? |
+|---|---|---|---|
+| languages | `{:props {:language-choice 2}}` — *how many* of your choice | `{:props {:language {<key> true}}}` — *which* languages | **no** |
+| skill proficiency | `{:props {:skill-tool-choice 2}}` — a count | `{:props {:skill-prof {<skill> true}}}` — a set | **no** |
+| armor proficiency | `[:props kw armor-type]` | `[:props kw armor-type]` | **yes** |
+
+So there are two families wearing similar names: **"choose N of your own"** (a number, what a feat
+grants) and **"grant these specific ones"** (a map, what a race or background grants). They are not
+interchangeable, and consolidating on the strength of the name would have written the wrong shape
+into saved content.
+
+**Nothing below is safe to act on until each pair is checked by stored shape.** The overlap counts
+still hold — 20 of 72 widgets are shared, and feat still has 16 of its own — but "13 of feat's own
+widgets are copies of things that exist" is unproven and, for at least two of them, false.
+
+### The original finding: 27% understates it
 
 **Eight concepts are already implemented more than once under different names.** These are not
 different things that happen to look alike — they are the same control, copied:
