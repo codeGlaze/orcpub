@@ -64,6 +64,7 @@ const PROBES = [
   { file: 'starting_equipment_browser_e2e.js', needs: 'standalone' },
   { file: 'starting_equipment_ledger_e2e.js',  needs: 'standalone' },
   { file: 'sticky_header_e2e.js',              needs: 'server' },
+  { file: 'whats_new_e2e.js',                 needs: 'server' },
 ];
 
 const get = url => new Promise(res => {
