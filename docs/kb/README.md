@@ -81,7 +81,14 @@ wrong, and why.
   Per-source localStorage keys. Measured ceiling 5,177,344 chars; why copy-then-delete
   migration is dead; why this does not fix the reported freeze.
 
-### Practice
+### Operations
+
+- **[secrets-in-boot-output.md](secrets-in-boot-output.md)** -- the database password was in
+  every boot log, in four places rather than one, because `ex-info` data is log output too.
+  Covers redacting at the boundary, the near-miss that would have broken every connection,
+  and two boot-banner designs that reported a rejected setting as though it had taken effect.
+
+## Practice
 
 - **[memoize-antipattern-scan.md](memoize-antipattern-scan.md)** -- every `memoize` site
   scanned and traced. Four are dead code; `memoized-spell-option` is measurably 10x slower
